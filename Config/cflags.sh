@@ -210,6 +210,20 @@ EOF
     if gcc_prereq 6.0; then
         echo -Wno-shift-negative-value
     fi
+    # support for gcc 8.x on stable branches
+    if gcc_prereq 8.0; then
+        # Do not warn about missing FALLTHROUGH. Unfortunately even though we
+        # already have hundreds of FALLTHROUGH in our codebase, hundreds are
+        # still missing...
+        echo -Wimplicit-fallthrough=0
+        # Disable because of weird casts with iop_hash_f but worth
+        # investigating.
+        echo -Wno-cast-function-type
+        # Disable because of __VALGRIND_PREREQ macro for instance.
+        echo -Wno-expansion-to-defined
+        # Disable because of a very obscure error in TST_BIT
+        echo -Wno-ignored-qualifiers
+    fi
 
     if is_cpp; then
         if test "$2" != "rewrite"; then
