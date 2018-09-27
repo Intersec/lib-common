@@ -2925,6 +2925,79 @@ static iop_array_i32_t mp_iopc_struct_build_ranges(mem_pool_t *mp,
     return IOP_TYPED_ARRAY_TAB(i32, &t);
 }
 
+static void
+write_class_attrs(sb_t *buf, const iopc_struct_t *st, const char *tbase,
+                  const char *as_base)
+{
+    assert (iopc_is_class(st->type));
+    sb_addf(buf,
+            "static %siop_class_attrs_t %s__class_s = {\n",
+            CONST, tbase);
+    if (st->extends.len) {
+        sb_addf(buf, "    .parent            = &%s__%s__s,\n",
+                pp_under(st->extends.tab[0]->pkg->name),
+                pp_to_c(st->extends.tab[0]->st->name));
+    }
+    if (st->nb_real_static_fields) {
+        sb_addf(buf,
+                "    .static_fields     = %s__static_fields,\n"
+                "    .static_fields_len = %d,\n",
+                as_base, st->nb_real_static_fields);
+    }
+    if (st->is_abstract) {
+        sb_adds(buf, "    .is_abstract       = true,\n");
+    }
+    if (iopc_is_private(&st->attrs)) {
+        sb_adds(buf, "    .is_private        = true,\n");
+    }
+    sb_addf(buf,
+            "    .class_id          = %d,\n", st->class_id);
+    sb_adds(buf, "};\n");
+}
+
+__must_check__ static int
+write_struct(sb_t *buf, const iopc_struct_t *st, const iopc_pkg_t *pkg,
+             const char *tbase, const char *real_tbase,
+             const char *sname, const char *as_base,
+             int rpc_oid, int range, bool has_attrs)
+{
+    if (iopc_is_class(st->type)) {
+        write_class_attrs(buf, st, tbase, as_base);
+    } else
+    if (iopc_is_snmp_st(st->type)) {
+        iopc_extends_t *xt = st->extends.tab[0];
+
+        iopc_dump_snmp_attrs(buf, xt->st, xt->pkg, tbase, st->oid,
+                             xt->is_snmp_root, false, false,
+                             IOP_T_STRUCT);
+    }
+    if (st->contains_snmp_info) {
+        iopc_dump_snmp_attrs(buf, st, pkg, tbase, rpc_oid, false,
+                             true, false, IOP_T_STRUCT);
+    }
+    sb_addf(buf,
+            "const iop_struct_t %s__s = {\n"
+            "    .fullname   = LSTR_IMMED(\"%s.%s\"),\n"
+            "    .fields     = %s__desc_fields,\n"
+            "    .ranges     = iop__ranges__%d,\n"
+            "    .ranges_len = countof(iop__ranges__%d) / 2,\n"
+            "    .fields_len = countof(%s__desc_fields),\n",
+            tbase, pretty_path_dot(pkg->name),
+            sname, as_base, range, range, as_base);
+
+    if (!iopc_is_snmp_obj(st->type)) {
+        sb_addf(buf, "    .size       = sizeof(%s__t),\n", real_tbase);
+    }
+    RETHROW(iopc_put_struct_fields(buf, st, real_tbase, has_attrs, as_base));
+    sb_adds(buf, "};\n");
+    sb_addf(buf, "iop_struct_t const * const %s__sp = &%s__s;\n",
+            tbase, tbase);
+
+    sb_adds(buf, "\n/* }""}} */\n");
+
+    return 0;
+}
+
 static int
 iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
                      const char *pkg_name,
@@ -3079,81 +3152,25 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
     has_attrs = DUMP_ATTRS(STRUCT, buf, st, tbase, "struct", "s", "s_desc",
                            &st->flags, IOP_STRUCT_EXTENDED);
 
-    #define WRITE_STRUCT(_tbase, _sname)                                     \
-        do {                                                                 \
-            if (iopc_is_class(st->type)) {                                   \
-                sb_addf(buf,                                                 \
-                        "static %siop_class_attrs_t %s__class_s = {\n",      \
-                        CONST, _tbase);                                      \
-                if (st->extends.len) {                                       \
-                    sb_addf(buf, "    .parent            = &%s__%s__s,\n",   \
-                            pp_under(st->extends.tab[0]->pkg->name),         \
-                            pp_to_c(st->extends.tab[0]->st->name));          \
-                }                                                            \
-                if (st->nb_real_static_fields) {                             \
-                    sb_addf(buf,                                             \
-                            "    .static_fields     = %s__static_fields,\n"  \
-                            "    .static_fields_len = %d,\n",                \
-                            as_base, st->nb_real_static_fields);             \
-                }                                                            \
-                if (st->is_abstract) {                                       \
-                    sb_adds(buf, "    .is_abstract       = true,\n");        \
-                }                                                            \
-                if (iopc_is_private(&st->attrs)) {                           \
-                    sb_adds(buf, "    .is_private        = true,\n");        \
-                }                                                            \
-                sb_addf(buf,                                                 \
-                        "    .class_id          = %d,\n", st->class_id);     \
-                sb_adds(buf, "};\n");                                        \
-            } else                                                           \
-            if (iopc_is_snmp_st(st->type)) {                                 \
-                iopc_extends_t *xt = st->extends.tab[0];                     \
-                iopc_dump_snmp_attrs(buf, xt->st, xt->pkg, _tbase, st->oid,  \
-                                     xt->is_snmp_root, false, false,         \
-                                     IOP_T_STRUCT);                          \
-            }                                                                \
-            if (st->contains_snmp_info) {                                    \
-                iopc_dump_snmp_attrs(buf, st, pkg, _tbase, rpc_oid, false,   \
-                                     true, false, IOP_T_STRUCT);             \
-            }                                                                \
-            sb_addf(buf,                                                     \
-                    "const iop_struct_t %s__s = {\n"                         \
-                    "    .fullname   = LSTR_IMMED(\"%s.%s\"),\n"             \
-                    "    .fields     = %s__desc_fields,\n"                   \
-                    "    .ranges     = iop__ranges__%d,\n"                   \
-                    "    .ranges_len = countof(iop__ranges__%d) / 2,\n"      \
-                    "    .fields_len = countof(%s__desc_fields),\n",         \
-                    _tbase, pretty_path_dot(pkg->name),                      \
-                    _sname, as_base, range, range, as_base);                 \
-                                                                             \
-            if (!iopc_is_snmp_obj(st->type)) {                               \
-                sb_addf(buf, "    .size       = sizeof(%s__t),\n", tbase);   \
-            }                                                                \
-            RETHROW(iopc_put_struct_fields(buf, st, tbase, has_attrs,        \
-                                           as_base));                        \
-            sb_adds(buf, "};\n");                                            \
-            sb_addf(buf, "iop_struct_t const * const %s__sp = &%s__s;\n",    \
-                    _tbase, _tbase);                                         \
-                                                                             \
-            sb_adds(buf, "\n/* }""}} */\n");                                 \
-        } while (0)
-
-    WRITE_STRUCT(tbase, sname);
+    RETHROW(write_struct(buf, st, pkg, tbase, tbase, sname, as_base, rpc_oid,
+                         range, has_attrs));
 
     if (paliases) {
         tab_for_each_entry(alias, paliases) {
-            const char *new_tname = pp_to_c(alias.s);
-            char *new_tbase = iname ? t_fmt("%s__%s__%s", pkg_name,
-                                            pp_to_c(iname), new_tname)
-                : t_fmt("%s__%s", pkg_name, new_tname);
-            const char *new_sname = iname ? t_fmt("%s.%s", iname, alias.s)
-                : alias.s;
+            const char *alias_tname;
+            const char *alias_tbase;
+            const char *alias_sname;
 
-            WRITE_STRUCT(new_tbase, new_sname);
+            alias_tname = pp_to_c(alias.s);
+            alias_tbase = iname ? t_fmt("%s__%s__%s", pkg_name,
+                                        pp_to_c(iname), alias_tname)
+                                : t_fmt("%s__%s", pkg_name, alias_tname);
+            alias_sname = iname ? t_fmt("%s.%s", iname, alias.s) : alias.s;
+            RETHROW(write_struct(buf, st, pkg, alias_tbase, tbase,
+                                 alias_sname, as_base, rpc_oid, range,
+                                 has_attrs));
         }
     }
-
-    #undef WRITE_STRUCT
 
     return 0;
 }
