@@ -740,6 +740,39 @@ void devnull_dup(int fd)
     }
 }
 
+static int which_check_path(const char *nonnull cmd, const char *dir,
+                            char cmd_path[static PATH_MAX])
+{
+    char local_buf[PATH_MAX];
+
+    RETHROW(path_extend(local_buf, dir, "%s", cmd));
+    RETHROW(access(local_buf, X_OK));
+    pstrcpy(cmd_path, PATH_MAX, local_buf);
+    return 0;
+}
+
+int which(const char *nonnull cmd, char cmd_path[static PATH_MAX])
+{
+    pstream_t ps = ps_initstr(getenv("PATH"));
+
+    while (!ps_done(&ps)) {
+        pstream_t dir;
+        char dirbuf[PATH_MAX];
+
+        if (ps_get_ps_chr_and_skip(&ps, ':', &dir) < 0) {
+            dir = __ps_get_ps_upto(&ps, ps_end(&ps));
+        }
+        if (ps_len(&dir) + 1 > sizeof(dirbuf)) {
+            continue;
+        }
+        memcpyz(dirbuf, dir.s, ps_len(&dir));
+        if (which_check_path(cmd, dirbuf, cmd_path) >= 0) {
+            return 0;
+        }
+    }
+    return -1;
+}
+
 bool is_fancy_fd(int fd)
 {
     const char *term;

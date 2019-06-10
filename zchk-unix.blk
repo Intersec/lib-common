@@ -528,6 +528,15 @@ Z_GROUP_EXPORT(file)
 
         Z_ASSERT_STREQUAL(fcontent.data, res.data);
     } Z_TEST_END;
+
+    Z_TEST(which, "locate a command") {
+        char path[PATH_MAX];
+
+        Z_ASSERT_ZERO(which("ls", path));
+        Z_ASSERT(lstr_endswith(LSTR(path), LSTR("/ls")));
+
+        Z_ASSERT_NEG(which("undefined_command", path));
+    } Z_TEST_END;
 } Z_GROUP_END
 
 /* }}} */

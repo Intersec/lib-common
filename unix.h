@@ -134,6 +134,19 @@ void unlockdir(dir_lock_t * nonnull dlock);
 int tmpfd(void);
 void devnull_dup(int fd);
 
+/** Locate a command.
+ *
+ * Search the directories of environment variable "PATH" for an executable
+ * file matching the given argument. The first matching file is returned.
+ *
+ * \param[in]  cmd      The name of the executable we are looking for.
+ * \param[out] cmd_path The output buffer where the absolute path to the
+ *                      executable file will be written.
+ * \return -1 in case of error (including executable name not found) and 0
+ *  otherwise.
+ */
+int which(const char *nonnull cmd, char cmd_path[static PATH_MAX]);
+
 /* }}} */
 /* {{{ File listing related */
 
