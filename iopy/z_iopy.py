@@ -31,7 +31,7 @@ from six.moves import xrange
 SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
 
-import z
+import zpycore as z
 import iopy
 import z_compatibility
 

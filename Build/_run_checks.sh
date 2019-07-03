@@ -25,7 +25,8 @@ if which greadlink &> /dev/null; then
 else
     readlink=readlink
 fi
-libcommondir=$(dirname "$(dirname "$($readlink -f "$0")")")
+BUILD_DIR=$(dirname "$($readlink -f "$0")")
+LIB_COMMON_DIR=$(dirname "$BUILD_DIR")
 shift
 BEHAVE_FLAGS="${BEHAVE_FLAGS:-}"
 
@@ -100,7 +101,7 @@ set_www_env() {
 
     [ -d $htdocs ] || return 0;
 
-    z_www="${Z_WWW:-$(dirname "$libcommondir")/www/www-spool}"
+    z_www="${Z_WWW:-$(dirname "$LIB_COMMON_DIR")/www/www-spool}"
     index=$(basename "$productdir").php
     product=$(basename "$productdir")
     intersec_so=$(find $(dirname "$productdir") -name intersec.so -print -quit)
@@ -165,7 +166,7 @@ while read -r zd line; do
             res=1
             set_www_env $PWD/"$productdir"
             if [ $? -eq 0 ]; then
-                $pybin -m z $BEHAVE_FLAGS "$productdir"/ci/features
+                $pybin "$BUILD_DIR/tests/zbehave.py" $BEHAVE_FLAGS "$productdir"/ci/features
                 res=$?
             fi
             ;;
@@ -207,7 +208,7 @@ if [ $res -ne 0 ]; then
 fi
 
 # whatever the previous status, set an error if a test failed
-if ! $pybin -m z < $tmp > $tmp2; then
+if ! $pybin "$BUILD_DIR/tests/zparser.py" "$tmp" > "$tmp2"; then
     res=1
 fi
 cat $tmp2 | post_process

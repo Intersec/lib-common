@@ -25,7 +25,7 @@ SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
 IOPC = os.path.join(SELF_PATH, 'iopc')
 
-import z
+import zpycore as z
 import subprocess
 
 @z.ZGroup
