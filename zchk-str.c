@@ -2636,6 +2636,12 @@ Z_GROUP_EXPORT(str_buf_pp) {
                                    "col A - rôw 1  col B - row 1  \n"
                                    "col A - row 2  çôl B - row 2  \n");
 
+        sb_reset(&sb);
+        sb_add_csv_table(&sb, &hdr, &data, ';');
+        Z_ASSERT_STREQUAL(sb.data, "COL A;COL B;COL C\n"
+                                   "col A - rôw 1;col B - row 1;\n"
+                                   "col A - row 2;çôl B - row 2;\n");
+
         hdr_data[0].max_width = 7;
         hdr_data[1].min_width = 20;
         hdr_data[2].omit_if_empty = true;
@@ -2645,6 +2651,12 @@ Z_GROUP_EXPORT(str_buf_pp) {
         Z_ASSERT_STREQUAL(sb.data, "COL A    COL B               \n"
                                    "col A -  col B - row 1       \n"
                                    "col A -  çôl B - row 2       \n");
+
+        sb_reset(&sb);
+        sb_add_csv_table(&sb, &hdr, &data, ';');
+        Z_ASSERT_STREQUAL(sb.data, "COL A;COL B\n"
+                                   "col A - rôw 1;col B - row 1\n"
+                                   "col A - row 2;çôl B - row 2\n");
 
         hdr_data[0].max_width = 7;
         hdr_data[0].add_ellipsis = true;
@@ -2657,6 +2669,12 @@ Z_GROUP_EXPORT(str_buf_pp) {
         Z_ASSERT_STREQUAL(sb.data, "COL A    COL B          COL C\n"
                                    "col A …  col B - row 1  -\n"
                                    "col A …  çôl B - row 2  -\n");
+
+        sb_reset(&sb);
+        sb_add_csv_table(&sb, &hdr, &data, ';');
+        Z_ASSERT_STREQUAL(sb.data, "COL A;COL B;COL C\n"
+                                   "col A - rôw 1;col B - row 1;-\n"
+                                   "col A - row 2;çôl B - row 2;-\n");
 
         hdr_data[2].align = ALIGN_RIGHT;
 
@@ -2674,6 +2692,19 @@ Z_GROUP_EXPORT(str_buf_pp) {
                                    "col A …  col B - row 1    -\n"
                                    "col A …  çôl B - row 2    -\n");
 
+        /* Add a row with characters that will be escaped. */
+        row = qv_growlen(&data, 1);
+        t_qv_init(row, countof(hdr_data));
+        qv_append(row, LSTR("col A -\n \"row\" 3"));
+        qv_append(row, LSTR("çôl B -\r row 3"));
+
+        sb_reset(&sb);
+        sb_add_csv_table(&sb, &hdr, &data, ';');
+        Z_ASSERT_STREQUAL(sb.data,
+            "COL A;COL B;COL C\n"
+            "col A - rôw 1;col B - row 1;-\n"
+            "col A - row 2;çôl B - row 2;-\n"
+            "\"col A -\n \"\"row\"\" 3\";\"çôl B -\r row 3\";-\n");
 
         qv_clear(&data);
         row = qv_growlen(&data, 1);
