@@ -98,11 +98,11 @@ void ssl_ctx_wipe(ssl_ctx_t *ctx)
 }
 
 /** Generate the key and IV from the given password and salt. */
-static void t_ssl_get_aes_key(ssl_ctx_t *ctx, lstr_t password, uint64_t salt,
-                              int nb_rounds, lstr_t *key, lstr_t *iv)
+static void
+t_ssl_get_aes_key(ssl_ctx_t *ctx, const EVP_CIPHER *type, const EVP_MD *md,
+                  lstr_t password, uint64_t salt, int nb_rounds, lstr_t *key,
+                  lstr_t *iv)
 {
-    const EVP_CIPHER *type = EVP_aes_256_cbc();
-    const EVP_MD *md = EVP_sha256();
     int keylen = EVP_CIPHER_key_length(type);
     int ivlen = EVP_CIPHER_iv_length(type);
     unsigned char *keybuf = t_new_raw(unsigned char, keylen);
@@ -116,10 +116,9 @@ static void t_ssl_get_aes_key(ssl_ctx_t *ctx, lstr_t password, uint64_t salt,
 }
 
 /** Setup (distinct) contexts for encryption and decryption. */
-static int ssl_ctx_configure(ssl_ctx_t *ctx, lstr_t key, lstr_t iv)
+static int ssl_ctx_configure(ssl_ctx_t *ctx, const EVP_CIPHER *type,
+                             lstr_t key, lstr_t iv)
 {
-    const EVP_CIPHER *type = EVP_aes_256_cbc();
-
     if (!EVP_EncryptInit_ex(ctx->encrypt, type, NULL, key.data, iv.data)
     ||  !EVP_DecryptInit_ex(ctx->decrypt, type, NULL, key.data, iv.data))
     {
@@ -138,9 +137,10 @@ ssl_ctx_t *ssl_ctx_init_aes256(ssl_ctx_t *ctx, lstr_t password, uint64_t salt,
     lstr_t key, iv;
 
     ssl_ctx_init(ctx);
-    t_ssl_get_aes_key(ctx, password, salt, nb_rounds, &key, &iv);
+    t_ssl_get_aes_key(ctx, EVP_aes_256_cbc(), EVP_sha256(), password, salt,
+                      nb_rounds, &key, &iv);
 
-    if (ssl_ctx_configure(ctx, key, iv) < 0) {
+    if (ssl_ctx_configure(ctx, EVP_aes_256_cbc(), key, iv) < 0) {
         ssl_ctx_wipe(ctx);
         return NULL;
     }
@@ -151,7 +151,7 @@ ssl_ctx_t *ssl_ctx_init_aes256(ssl_ctx_t *ctx, lstr_t password, uint64_t salt,
 ssl_ctx_t *ssl_ctx_init_aes256_by_key(ssl_ctx_t *ctx, lstr_t key, lstr_t iv)
 {
     ssl_ctx_init(ctx);
-    if (ssl_ctx_configure(ctx, key, iv) < 0) {
+    if (ssl_ctx_configure(ctx, EVP_aes_256_cbc(), key, iv) < 0) {
         ssl_ctx_wipe(ctx);
         return NULL;
     }
@@ -242,8 +242,9 @@ int ssl_ctx_reset(ssl_ctx_t *ctx, lstr_t password, uint64_t salt,
         ||  ctx->decrypt_state == SSL_CTX_INIT
         ||  ctx->decrypt_state == SSL_CTX_FINISH);
 
-    t_ssl_get_aes_key(ctx, password, salt, nb_rounds, &key, &iv);
-    return ssl_ctx_configure(ctx, key, iv);
+    t_ssl_get_aes_key(ctx, EVP_aes_256_cbc(), EVP_sha256(), password, salt,
+                      nb_rounds, &key, &iv);
+    return ssl_ctx_configure(ctx, EVP_aes_256_cbc(), key, iv);
 }
 
 const char *ssl_get_error(void)
