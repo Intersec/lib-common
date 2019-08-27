@@ -120,10 +120,8 @@ static int ssl_ctx_configure(ssl_ctx_t *ctx, lstr_t key, lstr_t iv)
 {
     const EVP_CIPHER *type = EVP_aes_256_cbc();
 
-    if (!EVP_EncryptInit_ex(ctx->encrypt, type, NULL, (void *)key.s,
-                            (void *)iv.s)
-    ||  !EVP_DecryptInit_ex(ctx->decrypt, type, NULL, (void *)key.s,
-                            (void *)iv.s))
+    if (!EVP_EncryptInit_ex(ctx->encrypt, type, NULL, key.data, iv.data)
+    ||  !EVP_DecryptInit_ex(ctx->decrypt, type, NULL, key.data, iv.data))
     {
         ssl_set_error("decrypt context initialization failure");
         return -1;
@@ -495,8 +493,8 @@ int ssl_encrypt_pkey_sb(ssl_ctx_t *ctx, lstr_t data, sb_t *out)
     }
 
     /* Otherwise, generate AES-256 key and initialisation vector. */
-    THROW_IF(RAND_bytes((void *)key_buf, 32) != 1, -1);
-    THROW_IF(RAND_bytes((void *)iv_buf, 16) != 1, -1);
+    THROW_IF(RAND_bytes(key.data, 32) != 1, -1);
+    THROW_IF(RAND_bytes(iv.data, 16) != 1, -1);
 
     /* Append the encrypted AES key, its IV, and the first data. */
     sb_add_lstr(&rsa_buf, key);
