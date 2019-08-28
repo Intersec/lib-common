@@ -499,8 +499,8 @@ SCHARS  [.=:,;()\[\]{}?*\-_~\^/+%&|]
                           BEGIN(yyextra->dox_inline_comment ? DOX_LINE_COMMENT
                                                             : DOX_COMMENT);
                         }
-    {EOL}               |
-    <<EOF>>             { ERROR("unterminated doxygen param"); }
+    {EOL}               { ERROR("unterminated doxygen param"); }
+    <<EOF>>             { ERROR("unterminated doxygen param at EOF"); }
     .|^","|","{HS}*","  {
                           qv_t(dox_chunk) *chunks = &yyextra->tk->dox->chunks;
                           dox_chunk_t *chunk = tab_last(chunks);
