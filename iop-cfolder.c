@@ -190,6 +190,9 @@ static int cf_reduce(qv_t(cf_elem) *stack)
         break;
       case CF_OP_MOD:
         assert (!unary);
+        if (!eright.num) {
+            return e_error("invalid modulo by 0");
+        }
         res.is_signed = eleft.is_signed ^ eright.is_signed;
         if (eleft.is_signed || eright.is_signed) {
             res.num = SIGNED(eleft.num) % SIGNED(eright.num);
@@ -200,19 +203,43 @@ static int cf_reduce(qv_t(cf_elem) *stack)
       case CF_OP_EXP:
         assert (!unary);
         /* Negative exponent are forbidden */
-        if (eright.is_signed && SIGNED(eright.num) < 0)
+        if (eright.is_signed && SIGNED(eright.num) < 0) {
             return CF_ERR(INVALID, "negative expressions are forbidden when"
                           " used as exponent");
-
-        res.num = 1;
+        }
         res.is_signed = eleft.is_signed && (eright.num % 2 != 0);
+        if (eright.num == 0) {
+            res.num = 1;
+        } else
+        if (eleft.num == 0) {
+            res.num = 0;
+        } else
         if (eleft.is_signed) {
-            while (eright.num-- > 0) {
-                res.num *= SIGNED(eleft.num);
+            int64_t sres = 1;
+            int64_t l = SIGNED(eleft.num);
+
+            if (l == -1) {
+                res.num = (eright.num % 2 == 0) ? 1 : -1;
+                break;
             }
-        } else {
             while (eright.num-- > 0) {
-                res.num *= eleft.num;
+                int64_t tmp = sres * l;
+
+                CF_OVERFLOW(tmp / l == sres);
+                sres = tmp;
+            }
+            res.num = sres;
+        } else {
+            if (eleft.num == 1) {
+                res.num = 1;
+                break;
+            }
+            res.num = 1;
+            while (eright.num-- > 0) {
+                uint64_t tmp = res.num * eleft.num;
+
+                CF_OVERFLOW(tmp / eleft.num == res.num);
+                res.num = tmp;
             }
         }
         break;
