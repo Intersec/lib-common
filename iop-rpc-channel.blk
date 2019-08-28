@@ -2125,7 +2125,8 @@ void ic_msg_cancel(ic_msg_t *msg)
 static void ic_msg_on_timeout(el_t ev, el_data_t data)
 {
     ic_msg_t *msg = data.ptr;
-    htlist_t *queue = &msg->ic->msg_list;
+    ichannel_t *ic = msg->ic;
+    htlist_t *queue = &ic->msg_list;
 
     if (!msg->async) {
         __ic_msg_reply_err(msg->ic, msg, IC_MSG_TIMEDOUT);
@@ -2138,7 +2139,7 @@ static void ic_msg_on_timeout(el_t ev, el_data_t data)
     while (!htlist_is_empty(queue)
     &&    (htlist_first_entry(queue, ic_msg_t, msg_link)->canceled))
     {
-        ic_msg_take_and_delete(ic_pop_msg(msg->ic));
+        ic_msg_take_and_delete(ic_pop_msg(ic));
     }
 }
 

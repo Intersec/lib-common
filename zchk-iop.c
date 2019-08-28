@@ -1718,9 +1718,56 @@ Z_GROUP_EXPORT(iop)
         feed_num(0);
         error();
 
+        feed_num(1);
+        feed_op('%');
+        feed_num(0);
+        error();
+
         feed_num(INT64_MIN);
         feed_op('/');
         feed_num(-1);
+        error();
+
+        feed_num(2);
+        feed_op(CF_OP_EXP);
+        feed_num(63);
+        feed_op('-');
+        feed_num(1);
+        result(INT64_MAX, false);
+
+        feed_num(-2);
+        feed_op(CF_OP_EXP);
+        feed_num(63);
+        result(INT64_MIN, true);
+
+        feed_num(1);
+        feed_op(CF_OP_EXP);
+        feed_num(INT64_MAX);
+        result(1, false);
+
+        feed_num(-1);
+        feed_op(CF_OP_EXP);
+        feed_num(INT64_MAX);
+        result(-1, true);
+
+        feed_num(-1);
+        feed_op(CF_OP_EXP);
+        feed_num(0);
+        result(1, false);
+
+        feed_num(-1);
+        feed_op(CF_OP_EXP);
+        feed_num(INT64_MAX - 1);
+        result(1, false);
+
+        feed_num(2);
+        feed_op(CF_OP_EXP);
+        feed_num(INT64_MAX);
+        error();
+
+        feed_num(-2);
+        feed_op(CF_OP_EXP);
+        feed_num(INT64_MAX);
         error();
 
         iop_cfolder_wipe(&cfolder);
