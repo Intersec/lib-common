@@ -207,6 +207,15 @@ ssl_ctx_t *ssl_ctx_init_aes256_by_key(ssl_ctx_t *ctx, lstr_t key, lstr_t iv);
 ssl_ctx_t *
 ssl_ctx_init_aes128_ecb_by_key(ssl_ctx_t *ctx, lstr_t key);
 
+/** Init Triple DES ECB context with the symmetric key.
+ *
+ * \param  ctx  The SSL context.
+ * \param  key  The 3DES key.
+ * \return The initialiased 3DES context or NULL in case of error.
+ */
+ssl_ctx_t *
+ssl_ctx_init_3des_by_key(ssl_ctx_t *ctx, lstr_t key);
+
 /**
  * Reset the whole SSL context and change the AES key and IV.
  *

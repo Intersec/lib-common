@@ -171,6 +171,18 @@ ssl_ctx_init_aes128_ecb_by_key(ssl_ctx_t *ctx, lstr_t key)
     return ctx;
 }
 
+ssl_ctx_t *
+ssl_ctx_init_3des_by_key(ssl_ctx_t *ctx, lstr_t key)
+{
+    ssl_ctx_init(ctx);
+    if (ssl_ctx_configure(ctx, EVP_des_ede3(), key, LSTR_NULL_V) < 0) {
+        ssl_ctx_wipe(ctx);
+        return NULL;
+    }
+
+    return ctx;
+}
+
 ssl_ctx_t *ssl_ctx_init_pkey(ssl_ctx_t *ctx,
                              lstr_t priv_key, lstr_t pub_key, lstr_t pass)
 {
