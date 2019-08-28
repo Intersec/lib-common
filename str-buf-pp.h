@@ -90,4 +90,28 @@ qvector_t(table_data, qv_t(lstr));
 void sb_add_table(sb_t *out, const qv_t(table_hdr) *hdr,
                   const qv_t(table_data) *data);
 
+/** Format a table in CSV.
+ *
+ * This function appends a CSV table formatted from the given columns, whose
+ * descriptions are provided in \p hdr, and rows whose content is provided in
+ * \p data in the buffer \p out. The content is guaranteed to end with a
+ * newline character. This function is meant to offer the possibility to print
+ * content as CSV or as a table. If you only want to print CSV and not tables,
+ * a more straightforward and better option is to used directly CSV helpers
+ * for string buffers 'sb_t'.
+ *
+ * The output contains a first row with the column names, followed by one line
+ * per entry of \p data. The columns are separated by \ref sep.
+ *
+ * Only `omit_if_empty` and `empty_value` column description variables are
+ * used to format the CSV output.
+ *
+ * \param[in,out] out  The output buffer.
+ * \param[in] sep      CSV separator.
+ * \param[in] hdr      The description of the columns.
+ * \param[in] data     The content of the table.
+ */
+void sb_add_csv_table(sb_t *out, const qv_t(table_hdr) *hdr,
+                      const qv_t(table_data) *data, int sep);
+
 #endif /* IS_LIB_COMMON_STR_BUF_PP_H */
