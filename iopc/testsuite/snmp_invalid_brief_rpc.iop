@@ -1,0 +1,13 @@
+package snmp_invalid_brief_rpc;
+
+/** Description.
+ */
+snmpObj A : 1 : Intersec {
+};
+
+/** Description.
+ */
+snmpIface Iface : 1 : A {
+    notif
+        in();
+};

@@ -1,0 +1,11 @@
+package duplicated_struct;
+
+@(scenario:counter, true)
+@(scenario:label, fr = "Any Event", en = "Any Event")
+struct TopupEvent {
+};
+
+@(scenario:counter, true)
+@(scenario:label, fr = "Any Event", en = "Any Event")
+struct TopupEvent {
+};

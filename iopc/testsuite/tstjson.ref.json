@@ -1,0 +1,922 @@
+{
+	"name": "tstjson",
+
+	"help": {
+		"brief": "Test json generator.\n          Brief description continues here",
+		"details": "this is a detailed comment for tstjson\n          it  continues on  the  same  paragraph\n\n          this is the 2nd paragraph of the details",
+		"warning": "this is a warning for tstjon"
+	},
+
+	"objects": [
+		{
+			"name": "MyEnumA",
+			"fullName": "tstjson.MyEnumA",
+			"type": "enum",
+			"help": {
+				"brief": "Test auto-brief for MyEnumA",
+				"details": "Detailed description\n    for MyEnumA.\n2nd paragraph\n3rd paragraph, 3rd paragraph continue here, and also here.",
+				"warning": "this is a warning for MyEnumA"
+			},
+			"values": {
+				"A": {
+					"value": 0,
+					"genAttrs": {
+						"test:gen10": {
+							"type": "double",
+							"value": 2.000500e+01
+						}
+					}
+				},
+				"B": {
+					"value": 1
+				},
+				"C": {
+					"value": 100
+				},
+				"D": {
+					"value": 101
+				}
+			},
+			"valuesHelp": {
+				"A": {
+					"brief": "comment for A in MyEnumA"
+				},
+				"B": {
+					"brief": "comment for B in MyEnum A, another comment for B in MyEnumA"
+				},
+				"C": {
+					"brief": "C = 100"
+				}
+			}
+		},
+		{
+			"name": "MyEnumB",
+			"fullName": "tstjson.MyEnumB",
+			"type": "enum",
+			"help": {
+				"brief": "back comment for MyEnumB"
+			},
+			"constraints": {
+				"strict": true
+			},
+			"values": {
+				"A": {
+					"value": 0
+				},
+				"B": {
+					"value": 1
+				},
+				"C": {
+					"value": 2
+				}
+			}
+		},
+		{
+			"name": "MyEnumC",
+			"fullName": "tstjson.MyEnumC",
+			"type": "enum",
+			"help": {
+				"brief": "comment for MyEnumC"
+			},
+			"genAttrs": {
+				"test:gen1": {
+					"type": "boolean",
+					"value": true
+				}
+			},
+			"values": {
+				"A": {
+					"value": 0
+				},
+				"B": {
+					"value": 1
+				}
+			}
+		},
+		{
+			"name": "MyUnionA",
+			"fullName": "tstjson.MyUnionA",
+			"type": "union",
+			"help": {
+				"brief": "comment for MyUnionA",
+				"details": "detailed comment for MyUnionA\nback comment for MyUnionA"
+			},
+			"fields": {
+				"i": {
+					"type": "int",
+					"help": {
+						"brief": "comment for i of MyUnionA",
+						"details": "detailed comment for i of MyUnionA."
+					}
+				},
+				"b": {
+					"type": "byte"
+				},
+				"s": {
+					"type": "string"
+				}
+			}
+		},
+		{
+			"name": "MyStructA",
+			"fullName": "tstjson.MyStructA",
+			"type": "struct",
+			"help": {
+				"details": "detailed comment for MyStructA\n\n          2nd paragraph"
+			},
+			"fields": {
+				"i": {
+					"type": "int",
+					"optional": true,
+					"private": true
+				},
+				"s": {
+					"type": "string",
+					"optional": true,
+					"deprecated": true
+				},
+				"u1": {
+					"type": "tstjson.MyUnionA",
+					"constraints": {
+						"allow": ["i","b"
+						]
+					}
+				},
+				"u2": {
+					"type": "tstjson.MyUnionA",
+					"constraints": {
+						"disallow": ["s"
+						]
+					}
+				},
+				"u3": {
+					"type": "tstjson.MyUnionA",
+					"help": {
+						"brief": "Special union",
+						"details": "\\p s;"
+					},
+					"constraints": {
+						"allow": ["i","b"
+						]
+					}
+				},
+				"class": {
+					"type": "int",
+					"help": {
+						"brief": "comment for class of MyStructA"
+					}
+				}
+			}
+		},
+		{
+			"name": "MyStructB",
+			"fullName": "tstjson.MyStructB",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "int",
+					"default": -2147483648
+				},
+				"b": {
+					"type": "uint",
+					"default": 4294967295
+				},
+				"c": {
+					"type": "byte",
+					"default": -128
+				},
+				"d": {
+					"type": "ubyte",
+					"default": 255
+				},
+				"e": {
+					"type": "short",
+					"default": -32768
+				},
+				"f": {
+					"type": "ushort",
+					"default": 65535
+				},
+				"g": {
+					"type": "long",
+					"default": "-9223372036854775808"
+				},
+				"h": {
+					"type": "ulong",
+					"default": "18446744073709551615"
+				},
+				"i": {
+					"type": "number",
+					"default": 1.05000000000000000e+01
+				},
+				"j": {
+					"type": "boolean",
+					"default": true
+				},
+				"k": {
+					"type": "data",
+					"default": "default data value",
+					"help": {
+						"brief": "comment for k of MyStructB"
+					}
+				},
+				"l": {
+					"type": "string",
+					"default": "fo\"o?\\cbaré©@A\n"
+				},
+				"m": {
+					"type": "tstjson.MyEnumA",
+					"default": 100
+				},
+				"unionA": {
+					"type": "tstjson.MyUnionA",
+					"repeated": true
+				},
+				"structA": {
+					"type": "tstjson.MyStructA"
+				},
+				"xmlField": {
+					"type": "xml"
+				}
+			}
+		},
+		{
+			"name": "MyStructC",
+			"fullName": "tstjson.MyStructC",
+			"type": "struct",
+			"genAttrs": {
+				"test:gen2": {
+					"type": "double",
+					"value": 1.550000e+01
+				}
+			},
+			"fields": {
+				"a": {
+					"type": "int",
+					"genAttrs": {
+						"test:gen1": {
+							"type": "boolean",
+							"value": false
+						},
+						"test:gen2": {
+							"type": "int",
+							"value": 10
+						},
+						"test:gen3": {
+							"type": "string",
+							"value": "test"
+						}
+					}
+				},
+				"b": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "ConstraintU",
+			"fullName": "tstjson.ConstraintU",
+			"type": "union",
+			"fields": {
+				"u8": {
+					"type": "ubyte",
+					"constraints": {
+						"nonZero": true,
+						"max": 128
+					}
+				},
+				"u16": {
+					"type": "ushort",
+					"constraints": {
+						"nonZero": true,
+						"max": 32768
+					}
+				},
+				"u32": {
+					"type": "uint",
+					"constraints": {
+						"nonZero": true,
+						"max": 2147483648
+					}
+				},
+				"u64": {
+					"type": "ulong",
+					"constraints": {
+						"nonZero": true,
+						"max": 18446744073709551615
+					}
+				},
+				"s": {
+					"type": "string",
+					"constraints": {
+						"nonEmpty": true,
+						"cdata": true,
+						"maxLength": 10,
+						"pattern": "[^\\[\\]]*"
+					}
+				}
+			}
+		},
+		{
+			"name": "ConstraintS",
+			"fullName": "tstjson.ConstraintS",
+			"type": "struct",
+			"fields": {
+				"i8": {
+					"type": "byte",
+					"repeated": true,
+					"constraints": {
+						"maxOccurs": 1,
+						"min": -128
+					}
+				},
+				"i16": {
+					"type": "short",
+					"repeated": true,
+					"constraints": {
+						"maxOccurs": 2,
+						"min": -32768
+					}
+				},
+				"i32": {
+					"type": "int",
+					"repeated": true,
+					"constraints": {
+						"maxOccurs": 3,
+						"min": -2147483648
+					}
+				},
+				"i64": {
+					"type": "long",
+					"repeated": true,
+					"constraints": {
+						"maxOccurs": 4,
+						"min": -9223372036854775808
+					}
+				},
+				"s": {
+					"type": "string",
+					"repeated": true,
+					"constraints": {
+						"minOccurs": 2,
+						"maxOccurs": 5,
+						"minLength": 1,
+						"maxLength": 10,
+						"pattern": "[a-zA-Z0-9_\\-]*"
+					}
+				},
+				"s2": {
+					"type": "string",
+					"constraints": {
+						"length": 10
+					}
+				}
+			}
+		},
+		{
+			"name": "MyClassBase",
+			"fullName": "tstjson.MyClassBase",
+			"type": "class",
+			"isAbstract": true,
+			"help": {
+				"brief": "comment for MyClassBase"
+			},
+			"statics": {
+				"name": {
+					"type": "string",
+					"help": {
+						"brief": "comment for name of MyClassBase this static field has no defval"
+					}
+				},
+				"val": {
+					"type": "int",
+					"default": 10,
+					"help": {
+						"brief": "comment for val of MyClassBase"
+					}
+				}
+			},
+			"fields": {
+				"a": {
+					"type": "int"
+				},
+				"structA": {
+					"type": "tstjson.MyStructA",
+					"help": {
+						"brief": "comment for structA of MyClassBase"
+					}
+				}
+			}
+		},
+		{
+			"name": "MyClassA",
+			"fullName": "tstjson.MyClassA",
+			"type": "class",
+			"parent": "tstjson.MyClassBase",
+			"isAbstract": false,
+			"statics": {
+				"val": {
+					"type": "int",
+					"default": 100
+				},
+				"name": {
+					"type": "string",
+					"default": "MyClassA"
+				}
+			},
+			"fields": {
+				"b": {
+					"type": "int",
+					"optional": true
+				},
+				"structB": {
+					"type": "tstjson.MyStructB",
+					"repeated": true,
+					"constraints": {
+						"minOccurs": 1,
+						"maxOccurs": 10
+					}
+				}
+			}
+		},
+		{
+			"name": "MyClassB",
+			"fullName": "tstjson.MyClassB",
+			"type": "class",
+			"parent": "tstjson.MyClassBase",
+			"isAbstract": false,
+			"statics": {
+				"name": {
+					"type": "string",
+					"default": "MyClassB"
+				}
+			},
+			"fields": {
+				"val": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "MyClass1",
+			"fullName": "tstjson.MyClass1",
+			"type": "class",
+			"isAbstract": true,
+			"help": {
+				"brief": "no comment in static fields"
+			},
+			"statics": {
+				"fieldA": {
+					"type": "int"
+				}
+			},
+			"fields": {
+			}
+		},
+		{
+			"name": "MyClass2",
+			"fullName": "tstjson.MyClass2",
+			"type": "class",
+			"parent": "tstjson.MyClass1",
+			"isAbstract": false,
+			"statics": {
+				"fieldA": {
+					"type": "int",
+					"default": 1
+				}
+			},
+			"fields": {
+			}
+		},
+		{
+			"name": "ClassContainer",
+			"fullName": "tstjson.ClassContainer",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "tstjson.MyClassA"
+				},
+				"b": {
+					"type": "tstjson.MyClassB"
+				}
+			}
+		},
+		{
+			"name": "MyExceptionA",
+			"fullName": "tstjson.MyExceptionA",
+			"type": "struct",
+			"fields": {
+				"errcode": {
+					"type": "int"
+				},
+				"desc": {
+					"type": "string"
+				}
+			}
+		},
+		{
+			"name": "MyUnionInt",
+			"fullName": "tstjson.MyUnionInt",
+			"type": "typedef",
+			"typedef": "tstjson.MyUnionA",
+			"constraints": {
+				"allow": ["i"
+				]
+			}
+		},
+		{
+			"name": "funAArgs",
+			"fullName": "tstjson.MyIfaceA.funAArgs",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "int",
+					"help": {
+						"details": "comment for a of funA.in\n                 it continues here"
+					}
+				},
+				"b": {
+					"type": "tstjson.MyStructA",
+					"help": {
+						"details": "comment for b of funA.in"
+					}
+				}
+			}
+		},
+		{
+			"name": "funARes",
+			"fullName": "tstjson.MyIfaceA.funARes",
+			"type": "struct",
+			"fields": {
+				"c": {
+					"type": "tstjson.MyUnionA",
+					"help": {
+						"details": "comment for c of funA.out"
+					}
+				},
+				"d": {
+					"type": "int",
+					"help": {
+						"details": "comment for d of funA.out\n2nd parapraph for d of funA.out"
+					}
+				}
+			}
+		},
+		{
+			"name": "funbRes",
+			"fullName": "tstjson.MyIfaceA.funbRes",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "int"
+				},
+				"b": {
+					"type": "byte"
+				}
+			}
+		},
+		{
+			"name": "funERes",
+			"fullName": "tstjson.MyIfaceA.funERes",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "int",
+					"optional": true
+				}
+			}
+		},
+		{
+			"name": "funFArgs",
+			"fullName": "tstjson.MyIfaceA.funFArgs",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "int",
+					"repeated": true,
+					"constraints": {
+						"minOccurs": 1,
+						"maxOccurs": 10
+					}
+				},
+				"b": {
+					"type": "int",
+					"optional": true
+				}
+			}
+		},
+		{
+			"name": "funJRes",
+			"fullName": "tstjson.MyIfaceA.funJRes",
+			"type": "struct",
+			"help": {
+				"brief": "comment for funJ.out"
+			},
+			"fields": {
+				"a": {
+					"type": "int",
+					"help": {
+						"brief": "comment for funJ out a"
+					}
+				},
+				"b": {
+					"type": "int",
+					"help": {
+						"brief": "comment for funJ out b"
+					}
+				}
+			}
+		},
+		{
+			"name": "funJExn",
+			"fullName": "tstjson.MyIfaceA.funJExn",
+			"type": "struct",
+			"help": {
+				"brief": "comment for funJ throw",
+				"details": "detailed comment for funJ.throw"
+			},
+			"fields": {
+				"err": {
+					"type": "int",
+					"help": {
+						"brief": "comment for funJ throw err"
+					}
+				}
+			}
+		},
+		{
+			"name": "funKRes",
+			"fullName": "tstjson.MyIfaceA.funKRes",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "int"
+				},
+				"b": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funLArgs",
+			"fullName": "tstjson.MyIfaceA.funLArgs",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "int"
+				},
+				"b": {
+					"type": "int"
+				},
+				"c": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funAsyncArgs",
+			"fullName": "tstjson.MyIfaceA.funAsyncArgs",
+			"type": "struct",
+			"fields": {
+				"type": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funAArgs",
+			"fullName": "tstjson.MyIfaceB.funAArgs",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funARes",
+			"fullName": "tstjson.MyIfaceB.funARes",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funAArgs",
+			"fullName": "tstjson.MyIfaceC.funAArgs",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funARes",
+			"fullName": "tstjson.MyIfaceC.funARes",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funAArgs",
+			"fullName": "tstjson.MyIfaceD.funAArgs",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funARes",
+			"fullName": "tstjson.MyIfaceD.funARes",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int"
+				}
+			}
+		}
+	],
+
+	"interfaces": [
+		{
+			"name": "MyIfaceA",
+			"fullName": "tstjson.MyIfaceA",
+			"help": {
+				"brief": "comment for MyIfaceA"
+			},
+			"genAttrs": {
+				"test:gen4": {
+					"type": "string",
+					"value": "test2"
+				}
+			},
+			"rpcs": {
+				"funA": {
+					"help": {
+						"brief": "comment for funA of MyIfaceA",
+						"details": "detailed description for funA of MyIfaceA",
+						"warning": "warning for funA of MyIfaceA"
+					},
+					"in": "tstjson.MyIfaceA.funAArgs",
+					"out": "tstjson.MyIfaceA.funARes"
+				},
+				"funb": {
+					"out": "tstjson.MyIfaceA.funbRes"
+				},
+				"funC": {
+					"in": "tstjson.MyStructA",
+					"out": "tstjson.MyStructB"
+				},
+				"funD": {
+					"out": "tstjson.MyStructA",
+					"outHelp": {
+						"brief": "front... and back comment for res of funD"
+					}
+				},
+				"funE": {
+					"out": "tstjson.MyIfaceA.funERes"
+				},
+				"funF": {
+					"in": "tstjson.MyIfaceA.funFArgs",
+					"out": "tstjson.MyStructB",
+					"outHelp": {
+						"brief": "comment for funF out"
+					}
+				},
+				"funG": {
+					"help": {
+						"brief": "front... and back comment for funG"
+					}
+				},
+				"funH": {
+				},
+				"funI": {
+					"in": "tstjson.MyUnionA"
+				},
+				"funJ": {
+					"in": "tstjson.MyStructA",
+					"inHelp": {
+						"brief": "comment for funJ.in, back comment for funJ.in"
+					},
+					"out": "tstjson.MyIfaceA.funJRes",
+					"throw": "tstjson.MyIfaceA.funJExn"
+				},
+				"funK": {
+					"in": "tstjson.MyStructA",
+					"out": "tstjson.MyIfaceA.funKRes",
+					"throw": "tstjson.MyExceptionA",
+					"throwHelp": {
+						"brief": "comment for funK throw",
+						"details": "throws an exception of type MyExceptionA"
+					}
+				},
+				"funL": {
+					"genAttrs": {
+						"test:gen5": {
+							"type": "boolean",
+							"value": true
+						}
+					},
+					"in": "tstjson.MyIfaceA.funLArgs"
+				},
+				"funAsync": {
+					"in": "tstjson.MyIfaceA.funAsyncArgs",
+					"async": true
+				}
+			}
+		},
+		{
+			"name": "MyIfaceB",
+			"fullName": "tstjson.MyIfaceB",
+			"rpcs": {
+				"funA": {
+					"in": "tstjson.MyIfaceB.funAArgs",
+					"out": "tstjson.MyIfaceB.funARes"
+				}
+			}
+		},
+		{
+			"name": "MyIfaceC",
+			"fullName": "tstjson.MyIfaceC",
+			"rpcs": {
+				"funA": {
+					"in": "tstjson.MyIfaceC.funAArgs",
+					"out": "tstjson.MyIfaceC.funARes"
+				}
+			}
+		},
+		{
+			"name": "MyIfaceD",
+			"fullName": "tstjson.MyIfaceD",
+			"rpcs": {
+				"funA": {
+					"in": "tstjson.MyIfaceD.funAArgs",
+					"out": "tstjson.MyIfaceD.funARes"
+				}
+			}
+		}
+	],
+
+	"modules": [
+		{
+			"name": "MyModuleA",
+			"fullName": "tstjson.MyModuleA",
+			"help": {
+				"brief": "comment for MyModuleA"
+			},
+			"interfaces": {
+				"ifaceA": {
+					"type": "tstjson.MyIfaceA",
+					"help": {
+						"brief": "comment for ifaceA of MyModuleA"
+					}
+				},
+				"ifaceB": {
+					"type": "tstjson.MyIfaceB",
+					"help": {
+						"brief": "comment for ifaceB of MyModuleA"
+					}
+				}
+			}
+		},
+		{
+			"name": "MyModuleB",
+			"fullName": "tstjson.MyModuleB",
+			"interfaces": {
+				"ifaceC": {
+					"type": "tstjson.MyIfaceC",
+					"help": {
+						"brief": "comment for ifaceC of MyModuleB"
+					}
+				}
+			}
+		},
+		{
+			"name": "MyModuleC",
+			"fullName": "tstjson.MyModuleC",
+			"help": {
+				"brief": "back comment for MyModuleC"
+			},
+			"parent": [
+				"tstjson.MyModuleA",
+				"tstjson.MyModuleB"
+			],
+			"interfaces": {
+				"ifaceD": {
+					"type": "tstjson.MyIfaceD"
+				},
+				"ifaceA2": {
+					"type": "tstjson.MyIfaceA"
+				}
+			}
+		}
+	]
+}

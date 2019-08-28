@@ -1,0 +1,699 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <lib-common/thr.h>
+#include <lib-common/el.h>
+#include <lib-common/datetime.h>
+#include <lib-common/z.h>
+
+/* Wake up Thr0 {{{ */
+
+struct {
+    int count;
+    uint64_t diff;
+    el_t blocker;
+} z_wake_up_g;
+
+static int z_wake_up(void)
+{
+    const bool fast = Z_HAS_MODE(FAST)
+                   || mem_tool_is_running(MEM_TOOL_VALGRIND | MEM_TOOL_ASAN);
+    int iterations = 100000;
+
+    if (fast) {
+        iterations = 10000;
+    }
+
+    z_wake_up_g.blocker = el_blocker_register();
+    thr_schedule_b(^{
+        for (int i = 0; i < iterations; i++) {
+            struct timeval start;
+
+            assert (!thr_is_on_queue(thr_queue_main_g));
+            lp_gettv(&start);
+            thr_queue_sync_b(thr_queue_main_g, ^{
+                struct timeval job;
+
+                lp_gettv(&job);
+                if (timeval_diff64(&job, &start) > 50000) {
+                    z_wake_up_g.count++;
+                }
+                z_wake_up_g.diff += timeval_diff64(&job, &start);
+            });
+        }
+
+        thr_queue_b(thr_queue_main_g, ^{
+            el_unregister(&z_wake_up_g.blocker);
+        });
+    });
+    while (z_wake_up_g.blocker) {
+        el_loop_timeout(100);
+    }
+    Z_ASSERT_ZERO(z_wake_up_g.count);
+
+    e_trace(3, "count: %d - %jd", z_wake_up_g.count,
+            z_wake_up_g.diff / iterations);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
+/* Post-Notify pattern {{{ */
+
+struct {
+    mpsc_queue_t queue;
+    thr_job_t    job;
+    thr_syn_t    syn;
+
+    unsigned val __attribute__((aligned(64)));
+    atomic_uint thr __attribute__((aligned(64)));
+    unsigned mq  __attribute__((aligned(64)));
+    atomic_uint pmq __attribute__((aligned(64)));
+    atomic_bool flushed __attribute__((aligned(64)));
+} z_post_notify_g;
+
+struct post_notify_node {
+    mpsc_node_t node;
+    bool flush;
+} __attribute__((aligned(64)));
+
+
+static void run_post_check(mpsc_node_t *n, data_t data)
+{
+    assert (!container_of(n, struct post_notify_node, node)->flush);
+    assert (!atomic_load(&z_post_notify_g.flushed));
+}
+
+static void run_post_notify(thr_job_t *job, thr_syn_t *syn)
+{
+    mpsc_it_t it;
+    bool flush = false;
+
+    mpsc_queue_drain_start(&it, &z_post_notify_g.queue);
+    do {
+        mpsc_node_t *n = mpsc_queue_drain_fast(&it, &run_post_check,
+                                               (data_t){ .ptr = NULL });
+
+        assert (!atomic_load(&z_post_notify_g.flushed));
+        if (container_of(n, struct post_notify_node, node)->flush) {
+            atomic_fetch_add(&z_post_notify_g.thr, 1);
+            flush = true;
+        }
+    } while (!mpsc_queue_drain_end(&it, NULL));
+
+    thr_syn_queue_b(&z_post_notify_g.syn, thr_queue_main_g, ^{
+        if (flush) {
+            z_post_notify_g.val++;
+        }
+        z_post_notify_g.mq++;
+    });
+    atomic_fetch_add(&z_post_notify_g.pmq, 1);
+    if (flush) {
+        bool exp = false;
+
+        assert (atomic_compare_exchange_strong(&z_post_notify_g.flushed,
+                                               &exp, true));
+    }
+}
+
+/* }}} */
+/* Contention {{{ */
+
+struct contention_job {
+    thr_job_t job;
+    int       i;
+};
+
+static void run_contention(thr_job_t *job_, thr_syn_t *syn)
+{
+    struct contention_job *job = container_of(job_, struct contention_job, job);
+
+    job->i *= 2;
+}
+
+/* }}} */
+/* Sort {{{ */
+
+static struct {
+    int  help;
+
+    int  sort_minsize;
+} z_sort_g = {
+    .sort_minsize = 128,
+};
+
+struct sort_job {
+    thr_job_t  job;
+    uint32_t  *a;
+    size_t     n;
+};
+
+static void par_qsort_run(thr_job_t *job, thr_syn_t *syn);
+static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
+{
+    uint32_t qstmp, qsop2;
+    uint32_t *mean, *i, *j;
+    size_t n1;
+
+#define swap(p,q)        (qstmp = *(p), *(p) = *(q), *(q) = qstmp)
+#define rotate(p,r,q)    (qstmp = *(p), *(p) = *(r), *(r) = *(q), *(q) = qstmp)
+#define comp_gt(a,b)     (*(a) > *(b))
+
+    for (;;) {
+        i = a;
+        j = a + n - 1;
+
+        if (comp_gt(i, j)) {
+            swap(i, j);
+        }
+        if (n <= 2)
+            return;
+
+        mean = i + (n >> 1);
+        if (comp_gt(i, mean)) {
+            swap(i, mean);
+        } else
+        if (comp_gt(mean, j)) {
+            swap(j, mean);
+        }
+        if (n == 3)
+            return;         /* in case of 3 items */
+
+        qsop2 = *mean;       /* cause *mean is gonna change */
+
+        for (;;) {
+            /* We do not have guards in these loops because we assume
+             * compare(x, x) returns 0.  If the comparison function is not
+             * regular and returns != 0 on identical arguments, all bets
+             * are off and this code may crash.
+             */
+            while (comp_gt(&qsop2, ++i)) {  /* find GE in left part */
+                continue;
+            }
+            while (comp_gt(--j, &qsop2)) {  /* find LE in right part */
+                continue;
+            }
+
+            if (i < j) {
+                swap(i, j);        /* swap if needed */
+                continue;
+            }
+            break;
+        }
+
+        /* i >= j : we're done and need to recurse on both ranges.
+         * either i == j   : don't look at the ith element
+         * or     i == j+1 : and split between them.
+         */
+
+        /* Fix ranges: [a..i[ U [j+1..a+n[ become [a..a+n[ U [j..j+n1[ */
+        j++;
+        n1 = a + n - j;
+        n  = i - a;
+
+        /* We want to recurse on [a..a+n[ and [j..j+n1[, but in order
+         * to minimize stack usage, we only recurse on the smaller
+         * range and loop on the other.
+         */
+        if (n <= n1) {
+            SWAP(size_t, n, n1);
+            SWAP(uint32_t *, a, j);
+        }
+
+        if (n1 > (size_t)z_sort_g.sort_minsize) {
+            if (use_blocks) {
+                thr_syn_schedule_b(syn, ^{
+                    par_qsort(syn, j, n1, true);
+                });
+                thr_syn_schedule_b(syn, ^{
+                    par_qsort(syn, a, n, true);
+                });
+            } else {
+                struct sort_job *job;
+
+                job = p_new_raw(struct sort_job, 1);
+                job->job.run = &par_qsort_run;
+                job->a    = j;
+                job->n    = n1;
+                thr_syn_schedule(syn, &job->job);
+
+                job = p_new_raw(struct sort_job, 1);
+                job->job.run = &par_qsort_run;
+                job->a    = a;
+                job->n    = n;
+                thr_syn_schedule(syn, &job->job);
+            }
+            return;
+        }
+
+        if (n1 > 1) {
+            par_qsort(syn, j, n1, use_blocks);
+        }
+    }
+#undef intersects
+#undef swap
+#undef rotate
+}
+
+__flatten
+static void par_qsort_run(thr_job_t *job, thr_syn_t *syn)
+{
+    struct sort_job *j = container_of(job, struct sort_job, job);
+
+    par_qsort(syn, j->a, j->n, false);
+    p_delete(&j);
+}
+
+static int test_qsort(bool use_blocks)
+{
+    t_scope;
+    const bool fast = Z_HAS_MODE(FAST)
+                   || mem_tool_is_running(MEM_TOOL_VALGRIND | MEM_TOOL_ASAN);
+    const size_t len = fast ? (8 << 10) : (8 << 15);
+    uint32_t *vec[thr_parallelism_g];
+    thr_syn_t syn;
+
+    for (size_t j = 0; j < thr_parallelism_g; j++) {
+        vec[j] = p_new_raw(uint32_t, len);
+        srand(0);
+        for (size_t i = 0; i < len; i++) {
+            vec[j][i] = ((unsigned)rand() << 16) | rand();
+        }
+    }
+
+    z_sort_g.sort_minsize = MAX(2, z_sort_g.sort_minsize);
+    thr_acc_reset();
+    thr_syn_init(&syn);
+    if (use_blocks) {
+        for (size_t j = 0; j < thr_parallelism_g; j++) {
+            uint32_t *a = vec[j];
+            thr_syn_t *synp = &syn;
+
+            thr_syn_schedule_b(&syn, ^{
+                par_qsort(synp, a, len, true);
+            });
+        }
+    } else {
+        for (size_t j = 0; j < thr_parallelism_g; j++) {
+            struct sort_job *job = p_new_raw(struct sort_job, 1);
+
+            job->job.run    = &par_qsort_run;
+            job->a          = vec[j];
+            job->n          = len;
+            thr_syn_schedule(&syn, &job->job);
+        }
+    }
+    thr_syn_wait(&syn);
+
+    thr_acc_trace(3, "%s", __func__);
+    thr_syn_wipe(&syn);
+
+    for (size_t j = 0; j < thr_parallelism_g; j++) {
+        for (size_t i = 1; i < len; i++) {
+            Z_ASSERT_LE(vec[j][i - 1], vec[j][i]);
+        }
+        p_delete(&vec[j]);
+    }
+
+    Z_HELPER_END;
+}
+
+/* }}} */
+/* Queues {{{ */
+
+struct test_queue {
+    thr_queue_t *q;
+    int i;
+} __attribute__((aligned(64)));
+
+static int test_queue(void)
+{
+    size_t n = thr_parallelism_g + 1;
+    struct test_queue q[n];
+    bool trace = e_is_traced(4);
+
+    for (size_t i = 0; i < n; i++) {
+        q[i].q = thr_queue_create();
+        q[i].i = -1;
+    }
+
+    for (int i = 0; i < 20; i++) {
+        for (size_t j = 0; j < n; j++) {
+            struct test_queue *qj = &q[j];
+
+            thr_queue_b(qj->q, ^{
+                assert (qj->i == i - 1);
+                qj->i = i;
+                if (trace) {
+                    fputc('1' + j, stderr);
+                }
+            });
+        }
+    }
+    for (size_t j = 0; j < n; j++) {
+        struct test_queue *qj = &q[j];
+
+        thr_queue_b(qj->q, ^{
+            assert (qj->i == 19);
+            qj->i = 20;
+            if (trace) {
+                fputc('A' + j, stderr);
+            }
+        });
+    }
+
+    for (size_t i = 0; i < n; i++) {
+        thr_queue_destroy(q[i].q, true);
+        Z_ASSERT_EQ(q[i].i, 20);
+    }
+
+    if (trace) {
+        fputc('\n', stderr);
+    }
+    Z_HELPER_END;
+}
+
+/* }}} */
+/* Queue Sync {{{ */
+
+static size_t queue_sync_g;
+
+static int test_queue_sync(void)
+{
+    t_scope;
+    thr_syn_t *syn = t_new_raw(thr_syn_t, 1);
+    thr_queue_t *q = thr_queue_create();
+
+    queue_sync_g = 0;
+    thr_syn_init(syn);
+    for (size_t i = 0; i < thr_parallelism_g; i++) {
+        thr_syn_schedule_b(syn, ^{
+            for (int j = 0; j < 10; j++) {
+                thr_syn_schedule_b(syn, ^{
+                    for (int k = 0; k < 100; k++) {
+                        thr_queue_sync_b(q, ^{
+                            queue_sync_g++;
+                        });
+                    }
+                });
+            }
+        });
+    }
+    thr_syn_wait(syn);
+    thr_syn_wipe(syn);
+    thr_queue_destroy(q, true);
+
+    Z_ASSERT_EQ(queue_sync_g, 10 * thr_parallelism_g * 100);
+    Z_HELPER_END;
+}
+
+/* }}} */
+/* Steal job {{{ */
+
+typedef struct rci_t {
+    mpsc_node_t node;
+    int   seqid;
+    byte *data;
+} rci_t;
+qvector_t(rci, rci_t *);
+
+static struct {
+    qv_t(rci) ci_ring;
+    mpsc_queue_t mpsc;
+    int last_acked;
+} queue_steal_g = {
+    .last_acked = -1,
+};
+
+static void run_node(mpsc_node_t *node, data_t d)
+{
+    int *unqueued = d.ptr;
+
+    usleep(1);
+    (*unqueued)++;
+}
+
+static void run_job(thr_job_t *j, thr_syn_t *syn)
+{
+    mpsc_it_t it;
+    int to_sync;
+    int unqueued = 0;
+
+    mpsc_queue_drain_start(&it, &queue_steal_g.mpsc);
+    do {
+        mpsc_node_t *node;
+        rci_t *rci;
+
+        node = mpsc_queue_drain_fast(&it, run_node,
+                                     (data_t){ .ptr = &unqueued });
+
+        rci = container_of(node, rci_t, node);
+        to_sync = rci->seqid;
+        usleep(5);
+        unqueued++;
+    } while (!mpsc_queue_drain_end(&it, NULL));
+
+    thr_syn_queue_b(syn, thr_queue_main_g, ^{
+        while (queue_steal_g.last_acked < to_sync) {
+            rci_t *rci = queue_steal_g.ci_ring.tab[0];
+
+            queue_steal_g.last_acked++;
+            assert (queue_steal_g.last_acked == rci->seqid);
+            p_delete(&rci->data);
+            p_delete(&rci);
+            qv_skip(&queue_steal_g.ci_ring, 1);
+        }
+    });
+}
+
+/* }}} */
+/* {{{ Test thr_for_each */
+
+struct thr_int_td_t {
+    thr_td_t td;
+    uint64_t sum;
+};
+
+static int z_thr_for_each(void)
+{
+    thr_syn_t *syn = thr_syn_new();
+    __block uint64_t res = 0;
+    __block uint64_t tds = 0;
+    uint64_t sum;
+
+    thr_syn_declare_td(syn, ^{
+        return &p_new(struct thr_int_td_t, 1)->td;
+    }, ^(thr_td_t **ptd) {
+        p_delete(ptd);
+    });
+
+    thr_for_each(1000000, ^(size_t pos) {
+        struct thr_int_td_t *td;
+
+        td = container_of(thr_syn_acquire_td(syn), struct thr_int_td_t, td);
+        td->sum += pos;
+        thr_syn_release_td(syn, &td->td);
+    });
+
+    thr_syn_collect_td(syn, ^(const thr_td_t *ttd) {
+        const struct thr_int_td_t *td;
+
+        td = container_of(ttd, const struct thr_int_td_t, td);
+        res += td->sum;
+        tds++;
+    });
+
+    thr_syn_delete(&syn);
+
+    sum = res;
+    Z_ASSERT_EQ(sum, 499999500000ull);
+
+    sum = tds;
+    Z_ASSERT_LE(sum, thr_parallelism_g);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
+
+Z_GROUP_EXPORT(thrjobs) {
+    const bool fast = Z_HAS_MODE(FAST)
+                   || mem_tool_is_running(MEM_TOOL_VALGRIND | MEM_TOOL_ASAN);
+
+    MODULE_REQUIRE(thr);
+
+    Z_TEST(contention, "test contention behavior") {
+        struct contention_job jobs[2 * thr_parallelism_g * THR_JOB_MAX];
+        int iterations = 1 << 10;
+
+        if (fast) {
+            iterations = 1 << 5;
+        }
+
+        for (int j = 0; j < iterations; j++) {
+            thr_syn_t syn;
+
+            thr_acc_reset();
+            thr_syn_init(&syn);
+            for (int i = 0; i < countof(jobs); i++) {
+                jobs[i] = (struct contention_job) {
+                    .job.run = run_contention,
+                    .i       = i,
+                };
+                thr_syn_schedule(&syn, &jobs[i].job);
+            }
+
+            thr_syn_wait(&syn);
+
+            for (int i = 0; i < countof(jobs); i++) {
+                Z_ASSERT_EQ(jobs[i].i, i * 2);
+            }
+
+            thr_acc_trace(3, "");
+            thr_syn_wipe(&syn);
+        }
+    } Z_TEST_END;
+
+    Z_TEST(sort_job, "test sort with thr_job_t structure") {
+        for (int i = 0; i < 16; i++) {
+            z_sort_g.sort_minsize = 1 << i;
+            Z_HELPER_RUN(test_qsort(false));
+        }
+    } Z_TEST_END;
+
+    Z_TEST(sort_block, "test sort with blocks") {
+        for (int i = 0; i < 16; i++) {
+            z_sort_g.sort_minsize = 1 << i;
+            Z_HELPER_RUN(test_qsort(true));
+        }
+    } Z_TEST_END;
+
+    Z_TEST(queue, "test queues") {
+        Z_HELPER_RUN(test_queue());
+    } Z_TEST_END;
+
+    Z_TEST(queue_syn, "tests queue sync") {
+        int loops = fast ? 100 : 10000;
+
+        for (int i = 0; i < loops; i++) {
+            Z_HELPER_RUN(test_queue_sync());
+        }
+    } Z_TEST_END;
+
+    Z_TEST(wake_up_thr0, "test the main thread wake up procedure") {
+        Z_HELPER_RUN(z_wake_up());
+    } Z_TEST_END;
+
+    Z_TEST(post_notify, "test the post-notify pattern") {
+        int iterations = 300000; /* approximatively 1s */
+
+        mpsc_queue_init(&z_post_notify_g.queue);
+        thr_syn_init(&z_post_notify_g.syn);
+        z_post_notify_g.job.run = &run_post_notify;
+
+        if (fast) {
+            iterations = 50000;
+        }
+
+        for (int loops = 0; loops < iterations; loops++) {
+            t_scope;
+            int count = rand() % 32;
+            bool posted_flush = false;
+            int posted = 0;
+            unsigned val = z_post_notify_g.val;
+            unsigned mq  = z_post_notify_g.mq;
+            struct post_notify_node *nodes = t_new(struct post_notify_node,
+                                                   count + 1);
+
+            atomic_store(&z_post_notify_g.flushed, false);
+            for (int i = 0; i < count; i++) {
+                nodes[i].flush = false;
+                if (mpsc_queue_push(&z_post_notify_g.queue, &nodes[i].node)) {
+                    thr_syn_schedule(&z_post_notify_g.syn, &z_post_notify_g.job);
+                    posted++;
+                }
+            }
+            nodes[count].flush = true;
+            if (mpsc_queue_push(&z_post_notify_g.queue, &nodes[count].node)) {
+                thr_syn_schedule(&z_post_notify_g.syn, &z_post_notify_g.job);
+                posted_flush = true;
+                posted++;
+            }
+            thr_syn_wait(&z_post_notify_g.syn);
+
+            e_trace(3, "val=%d thr=%d => jobs=%d mq=%d pmq=%d flush=%d",
+                    z_post_notify_g.val, atomic_load(&z_post_notify_g.thr),
+                    mq + posted, z_post_notify_g.mq,
+                    atomic_load(&z_post_notify_g.pmq), posted_flush);
+            Z_ASSERT_EQ(val + 1, z_post_notify_g.val);
+            Z_ASSERT_EQ(z_post_notify_g.val, atomic_load(&z_post_notify_g.thr));
+            Z_ASSERT_EQ(atomic_load(&z_post_notify_g.pmq), mq + posted);
+            Z_ASSERT_EQ(z_post_notify_g.mq, mq + posted);
+            Z_ASSERT(atomic_load(&z_post_notify_g.flushed));
+        }
+
+        thr_syn_wipe(&z_post_notify_g.syn);
+    } Z_TEST_END;
+
+    Z_TEST(queue_steal, "queue steal jobs") {
+        int seqid = 0;
+        thr_job_t job = { .run = &run_job };
+        struct timeval start;
+
+        mpsc_queue_init(&queue_steal_g.mpsc);
+
+        while (seqid < 30000) {
+            rci_t *rci = p_new(rci_t, 1);
+
+            rci->data  = p_new(byte, 16 << 10);
+            rci->seqid = seqid++;
+
+            qv_append(&queue_steal_g.ci_ring, rci);
+
+            if (mpsc_queue_push(&queue_steal_g.mpsc, &rci->node)) {
+                thr_schedule(&job);
+            }
+
+            el_loop_timeout(queue_steal_g.ci_ring.len > 1000 ? 0 : 10);
+        }
+
+        lp_gettv(&start);
+        for (;;) {
+            struct timeval end;
+            int64_t diff;
+
+            lp_gettv(&end);
+            diff = timeval_diffmsec(&end, &start);
+            if (diff > 1000) {
+                break;
+            }
+            el_loop_timeout(1000 - diff);
+            if (queue_steal_g.last_acked == seqid - 1) {
+                break;
+            }
+        }
+        Z_ASSERT_EQ(queue_steal_g.last_acked, seqid - 1);
+        Z_ASSERT_ZERO(queue_steal_g.ci_ring.len);
+    } Z_TEST_END;
+
+    Z_TEST(for_each, "thr for each") {
+        Z_HELPER_RUN(z_thr_for_each());
+    } Z_TEST_END;
+
+    MODULE_RELEASE(thr);
+} Z_GROUP_END;

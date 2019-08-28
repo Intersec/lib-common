@@ -1,0 +1,17 @@
+package inheritance_valid_local_pkg;
+
+/*    +- Local1 --+      +- inheritance_pkg_a.NonLocal1-+
+ *    |           |      |                              |
+ * Local2    NonLocal1  NonLocal2                   Local3
+ */
+
+local class Local1 { int a; };
+
+local class Local2 : 11 : Local1 { int b; };
+
+class NonLocal1 : 12 : Local1 { int b; };
+
+/* NonLocal2 inherits from a non local class that has a local parent class */
+class NonLocal2 : 13 : inheritance_pkg_a.NonLocal1 { int d; };
+
+local class Local3 : 14 : inheritance_pkg_a.NonLocal1 { int d; };

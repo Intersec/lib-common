@@ -1,0 +1,6 @@
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="tstiop_inheritance.C1">
+    <a>15</a>
+    <a2>16</a2>
+    <b>false</b>
+    <c>18</c>
+</root>

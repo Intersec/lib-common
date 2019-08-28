@@ -1,0 +1,7 @@
+/* "_class" field is missing; the object should be a tstiop_inheritance.B2
+ * but the field c is a field of tstiop_inheritance.C1 */
+{
+     "a2": 2,
+     "b" : false,
+     "c" : 4
+}

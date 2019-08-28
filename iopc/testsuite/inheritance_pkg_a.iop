@@ -1,0 +1,70 @@
+package inheritance_pkg_a;
+
+/*  +- A1 ---+           A2           +- Local1 --+
+ *  |        |           |            |           |
+ *  B1   +- B2 -+     +- B3 -+      Local2    NonLocal1
+ *       |      |     |      |
+ *       C1     C2   C3      C4
+ */
+
+enum Number {
+    ONE = 1,
+};
+
+class A1 {
+    static string name = "pif";
+    static string name2 = "paf";
+    static Number num = NUMBER_ONE;
+    static enum1.MyEnum e = MY_ENUM_B;
+    int a;
+};
+
+class B1 : 1 : A1 { string b; };
+abstract class B2 : 2 : A1 {
+    static string withoutDefval;
+    bool b;
+};
+
+class C1 : 3 : B2 {
+    static string withoutDefval = "defval C1";
+    uint c;
+};
+abstract class C2 : 4 : B2 {
+    static string name = "C2";
+    long c;
+};
+
+/* --------------------------------- */
+
+class A2 { string a; };
+
+class B3 : 1 : A2 { long b; };
+
+class C3 : 2 : B3 {
+    static string name = "pouf";
+    int  c;
+};
+class C4 : 3 : B3 {
+    static int name = 10;
+    bool c;
+};
+
+/* --------------------------------- */
+
+local class Local1 { string a; };
+
+local class Local2 : 4 : Local1 { string b; };
+
+class NonLocal1 : 5 : Local1 { string c; };
+
+local abstract class LocalAbstract1 { int a = 1; };
+
+abstract local class LocalAbstract2 { int b = 2; };
+
+/* --------------------------------- */
+
+struct ClassContainer {
+    A1   classContainerA1;
+    B1?  classContainerB1;
+    A2[] classContainerA2;
+};

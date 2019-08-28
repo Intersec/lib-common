@@ -1,0 +1,5 @@
+/* Test with missing optional fields */
+{
+     "_class": "tstiop_inheritance.C1",
+     "a2": 12
+}

@@ -1,0 +1,201 @@
+INTERSEC-TEST-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP FROM SNMPv2-CONF
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, Integer32 FROM SNMPv2-SMI
+    test FROM INTERSEC-MIB;
+
+-- {{{ Identity
+
+testIdentity MODULE-IDENTITY
+    LAST-UPDATED "201003091349Z"
+
+    ORGANIZATION "Intersec"
+    CONTACT-INFO "postal: Tour W - 102 Terasse Boieldieu
+                          92085 Paris La Defense - Cedex France
+
+                  tel:    +33 1 55 70 33 55
+                  email:  contact@intersec.com
+                  "
+
+    DESCRIPTION "For more details see Intersec website http://www.intersec.com"
+    REVISION "201003091349Z"
+    DESCRIPTION "Initial release"
+    ::= { test 100 }
+
+-- }}}
+-- {{{ Compliance
+
+testCompliance MODULE-COMPLIANCE
+    STATUS current
+    DESCRIPTION "The compliance statement for test entities"
+    MODULE
+        MANDATORY-GROUPS { testConformanceObject, testConformanceNotification }
+    ::= { testIdentity 1}
+
+testConformanceNotification NOTIFICATION-GROUP
+    NOTIFICATIONS { notifUnresponsive,
+                    notifResponsive }
+    STATUS current
+    DESCRIPTION
+        "test conformance notifications"
+    ::= { testIdentity 80 }
+
+testConformanceObject OBJECT-GROUP
+    OBJECTS { a,
+              b,
+              column2,
+              notIndex }
+    STATUS current
+    DESCRIPTION
+        "test conformance objects"
+    ::= { testIdentity 81 }
+
+-- }}}
+-- {{{ Top Level Structures
+
+obj    OBJECT IDENTIFIER ::= { test 1 }
+iface    OBJECT IDENTIFIER ::= { obj 4 }
+
+-- }}}
+-- {{{ Obj
+
+a OBJECT-TYPE
+    SYNTAX OCTET STRING
+    MAX-ACCESS accessible-for-notify
+    STATUS current
+    DESCRIPTION
+        "Description, ex: 'some string'."
+    ::= { obj 1 }
+
+b OBJECT-TYPE
+    SYNTAX INTEGER { stateOne(0), stateTwo(1), stateThree(2), four(3) }
+    MAX-ACCESS accessible-for-notify
+    STATUS current
+    DESCRIPTION
+        "Description."
+    ::= { obj 2 }
+
+-- }}}
+-- {{{ TblTable
+
+tblTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF TblEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Table."
+    ::= { obj 3 }
+
+tblEntry OBJECT-TYPE
+    SYNTAX TblEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry in the table of tbl"
+    INDEX { column1, indexTbl }
+    ::= { tblTable 1 }
+
+TblEntry ::= SEQUENCE {
+    column1 OCTET STRING,
+    column2 Integer32,
+    indexTbl Integer32
+}
+
+column1 OBJECT-TYPE
+    SYNTAX OCTET STRING (SIZE(0..100))
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Description."
+    ::= { tblEntry 1 }
+
+column2 OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Description."
+    ::= { tblEntry 2 }
+
+indexTbl OBJECT-TYPE
+    SYNTAX Integer32 (1..2147483647)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Description."
+    ::= { tblEntry 3 }
+
+-- }}}
+-- {{{ TblWithIndexTable
+
+tblWithIndexTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF TblWithIndexEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Table with indexes."
+    ::= { obj 5 }
+
+tblWithIndexEntry OBJECT-TYPE
+    SYNTAX TblWithIndexEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "An entry in the table of tblWithIndex"
+    INDEX { index1, index2 }
+    ::= { tblWithIndexTable 1 }
+
+TblWithIndexEntry ::= SEQUENCE {
+    index1 OCTET STRING,
+    index2 Integer32,
+    notIndex Integer32
+}
+
+index1 OBJECT-TYPE
+    SYNTAX OCTET STRING (SIZE(0..100))
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Description."
+    ::= { tblWithIndexEntry 1 }
+
+index2 OBJECT-TYPE
+    SYNTAX Integer32 (1..2147483647)
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Description."
+    ::= { tblWithIndexEntry 2 }
+
+notIndex OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Description."
+    ::= { tblWithIndexEntry 3 }
+
+-- }}}
+-- {{{ Iface
+
+notifUnresponsive NOTIFICATION-TYPE
+    OBJECTS { a, b }
+    STATUS current
+    DESCRIPTION
+        "Description ex: 'some notif'."
+    ::= { iface 1 }
+
+notifResponsive NOTIFICATION-TYPE
+    OBJECTS { a }
+    STATUS current
+    DESCRIPTION
+        "Description."
+    ::= { iface 2 }
+
+-- }}}
+
+END
+
+
+-- vim:syntax=mib

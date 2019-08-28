@@ -1,0 +1,6 @@
+/* This is a tstiop.MyRefStruct */
+{
+    "s": { "a": 123 },
+    "u": { "b": 456 }
+}
+

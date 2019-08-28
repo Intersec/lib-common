@@ -1,0 +1,6 @@
+package attrs_invalid_max_1;
+
+struct MyStruct {
+    @max(1 << 8)
+    ubyte mbyte;
+};

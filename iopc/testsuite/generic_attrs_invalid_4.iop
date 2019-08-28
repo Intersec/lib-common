@@ -1,0 +1,6 @@
+package generic_attrs_invalid_4;
+
+@(test:gen3, 1, 2)
+struct Test {
+    int a;
+};

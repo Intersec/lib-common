@@ -1,0 +1,9 @@
+/* Have the _class field after the @include to test the @include skipping. */
+{
+    "int1": 12,
+    "int2": 13,
+    "int3": 14,
+    "bool1": true,
+    "string1": @include("string.txt"),
+    "_class": "tstiop.MyClass3"
+}

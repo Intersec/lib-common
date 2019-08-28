@@ -1,0 +1,5 @@
+package reference_invalid_8;
+
+class Blah {
+    static int& i = 1;
+};

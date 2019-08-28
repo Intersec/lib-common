@@ -1,0 +1,5 @@
+package check_name_field;
+
+struct Gandalf {
+    int You_Shall_Not_Pass;
+};

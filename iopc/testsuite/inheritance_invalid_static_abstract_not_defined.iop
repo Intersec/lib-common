@@ -1,0 +1,22 @@
+package inheritance_invalid_static_abstract_not_defined;
+
+abstract class A {
+    static string toto;
+    static string tata;
+    string name;
+};
+
+abstract class B : 0 : A {
+    static string toto = "toto";
+    static string titi;
+};
+
+class C : 1 : B {
+    static string titi = "titi";
+    static string tata = "tata";
+    int c;
+};
+
+class D1 : 5 : inheritance_pkg_a.C2 {
+    int d1;
+};

@@ -1,0 +1,11 @@
+package snmp_valid_params_from_different_pkg;
+
+/** Description.
+ */
+@snmpParamsFrom( snmp_valid_iface.Params, snmp_valid_iface.Params2)
+snmpIface Notifications1 : 81 : snmp_obj.MySnmp {
+    /** Description.
+     */
+    notif1
+        in (a);
+};

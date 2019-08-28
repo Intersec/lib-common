@@ -1,0 +1,3 @@
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="tns:tstiop_inheritance.C3">
+    <a>I am the only field</a>
+</root>

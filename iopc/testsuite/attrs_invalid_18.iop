@@ -1,0 +1,6 @@
+package attrs_invalid_18;
+
+@ctype(user_t)
+struct User {
+    string  login;
+}

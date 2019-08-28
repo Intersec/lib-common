@@ -1,0 +1,134 @@
+package typedef_valid;
+
+/* Typedef of native types */
+
+typedef string MyString;
+typedef ulong MyULong;
+typedef double MyDouble;
+
+@pattern("[0-9]*")
+typedef string MyNumericalString;
+
+@min(3)
+typedef ulong Min3;
+
+@max(10)
+typedef Min3 Between3And10;
+
+typedef string[] MyStringArray;
+
+@minOccurs(6)
+typedef MyStringArray MyStringArray6;
+
+typedef MyNumericalString? MyNumericalStringOpt;
+
+/* Typedef of complex types */
+
+struct MyStruct {
+    string a;
+    int b;
+    typedef1.MyType     type1;
+    typedef2.MyType     type2;
+    typedef1.MyTypeS    s1;
+    typedef2.MyTypeS    s2;
+    typedef1.MyTypeU    u1;
+    typedef2.MyTypeU    u2;
+    typedef1.MyTypeE    e1;
+    typedef2.MyTypeE    e2;
+};
+
+union MyUnion {
+    string a;
+    int b;
+    bool c;
+};
+
+class A {
+    string a;
+};
+
+class B : 10 : A {
+};
+
+typedef enum1.MyEnum MyEnumAlias;
+
+typedef MyStruct MyStructAlias;
+
+typedef MyUnion MyUnionAlias;
+
+@allow(a, b)
+typedef MyUnion MyUnionAB;
+
+@allow(c)
+typedef MyUnionAB MyUnionABC;
+
+@disallow(c)
+typedef MyUnion MyUnionWithoutC;
+
+typedef A Adef;
+typedef B Bdef;
+
+/* Use them all! */
+
+struct TypedefStructUseAll {
+    MyString ms;
+    MyString? opt;
+    MyString def = "test";
+    @maxLength(12)
+    typedef_valid.MyString mst;
+
+    MyULong mul;
+    MyULong muldef = 2;
+    MyDouble md;
+    MyDouble mddef = 2.0;
+    MyDouble mddef2 = 2;
+
+    MyNumericalString mns;
+    Min3 m3;
+    Min3 m37 = 7;
+    Between3And10 b310;
+
+    MyStringArray msa;
+
+    @minOccurs(3)
+    MyStringArray msa3;
+
+    MyStringArray6 msa6;
+
+    @maxOccurs(10)
+    MyStringArray6 msa610;
+
+    MyNumericalStringOpt mnso;
+
+    MyEnumAlias mea;
+    MyStructAlias msal;
+    MyUnionAlias mya;
+
+    MyUnionAB muab;
+    MyUnionABC muabc;
+    MyUnionWithoutC muwc;
+    MyUnionWithoutC? muwcopt;
+
+    Adef a;
+    Bdef b;
+};
+
+union TypedefUnionUseAll {
+    MyString ms;
+    MyULong  mul;
+
+    MyNumericalString mns;
+    Min3 m3;
+    Between3And10 b310;
+
+    MyEnumAlias mea;
+    MyStructAlias msal;
+    MyUnionAlias mya;
+
+    MyUnionAB muab;
+    MyUnionABC muabc;
+    MyUnionWithoutC muwc;
+
+    Adef a;
+    Bdef b;
+};

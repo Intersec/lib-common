@@ -1,0 +1,6 @@
+package attrs_invalid_min_2;
+
+struct MyStruct {
+    @min(256)
+    ubyte mbool;
+};

@@ -1,0 +1,19 @@
+<?xml version="1.0" charset="toto" ?>
+<aa:part1></aa:part1>
+<part2 FOO="123" BAR="" BAZ="blahblah" toto='titi'>
+</part2>
+<part3>
+<a>
+</a>
+        <title text="This is the &quot;title">
+        </title>
+        <chapter1>
+                <paragraph nb="1">BLAH BLAHBLAH &amp; toto
+                </paragraph>
+                <paragraph nb = "2">
+                </paragraph>
+        </chapter1>
+        <chapter2>
+        </chapter2>
+</part3>
+<part4  /  >

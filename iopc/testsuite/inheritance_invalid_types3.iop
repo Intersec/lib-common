@@ -1,0 +1,4 @@
+package inheritance_invalid_types3;
+
+union Father { string name; };
+class Child : 1 : Father { int age; };

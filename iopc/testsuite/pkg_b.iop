@@ -1,0 +1,3 @@
+package pkg_b;
+
+struct B { pkg_c.C c; };

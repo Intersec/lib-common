@@ -1,0 +1,15 @@
+{
+    "name": "array",
+    "elems": [ {
+        "_class": "iopsq.Struct",
+        "name": "ArrayTest",
+        "fields": [ {
+            "name": "i",
+            "type": {
+                "array": {
+                    "typeName": "int"
+                }
+            }
+        } ]
+    } ]
+}

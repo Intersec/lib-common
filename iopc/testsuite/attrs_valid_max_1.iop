@@ -1,0 +1,6 @@
+package attrs_valid_max_1;
+
+struct MyStruct {
+    @max(1 << 31)
+    double d;
+};

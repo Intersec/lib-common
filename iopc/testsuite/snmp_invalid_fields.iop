@@ -1,0 +1,7 @@
+package snmp_invalid_fields;
+
+snmpObj Obj : 15 : Intersec {
+    /** Description.
+      */
+1:  long a;
+};

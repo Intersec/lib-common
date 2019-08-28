@@ -1,0 +1,3 @@
+package circular_pkg_a;
+
+struct A { circular_pkg_b.B b; };

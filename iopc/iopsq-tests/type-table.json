@@ -1,0 +1,24 @@
+{
+     "_class": "iopsq.Struct",
+     "name": "TTComplexStruct",
+     "fields": [ {
+             "name": "s",
+             "type": { "s": "STRING" }
+     }, {
+             "name": "stId1",
+             "type": { "typeId": 0 }
+     }, {
+             "name": "enId",
+             "type": { "typeId": 1 }
+     }, {
+             "name": "stTypeName",
+             "type": { "typeName": "tstiop.TTBasicStruct" }
+     }, {
+             "name": "stId2",
+             "type": { "typeId": 0 }
+     }, {
+             "name": "enTypeName",
+             "type": { "typeName": "tstiop.TTBasicEnum" }
+     } ]
+}
+

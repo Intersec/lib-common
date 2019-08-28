@@ -1,0 +1,12 @@
+/* Test with a missing mandatory class field having only optional fields;
+ * Field "b3" is missing and should be considered as a class of type B3.
+ * Also check the prefixed syntax on a class field. */
+{
+     "a1": @a2 10 {
+         "_class": "tstiop_inheritance.A1"
+     },
+     "a3": @"_class" "tstiop_inheritance.B4" {
+         "a3": 6,
+         "b4": 7
+     }
+}

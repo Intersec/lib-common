@@ -1,0 +1,27 @@
+package inheritance_invalid_id_duplicated;
+
+/*    +----- A ----+
+ *    |            |
+ *    B1       +-- B2 ---+
+ *    |        |         |
+ * +- C1 -+    C2     +- C3 -+
+ * |      |    |      |      |
+ * D1     D2   D3     D4     D5
+ *
+ * Should fail because C1 and D4 are using the same id.
+ */
+
+class A { int a; };
+
+class B1 : 1 : A { int b; };
+class B2 : 2 : A { int b; };
+
+class C1 : 3 : B1 { int c; };
+class C2 : 4 : B2 { int c; };
+class C3 : 5 : B2 { int c; };
+
+class D1 : 6 : C1 { int d; };
+class D2 : 7 : C1 { int d; };
+class D3 : 8 : C2 { int d; };
+class D4 : 3 : C3 { int d; };
+class D5 : 9 : C3 { int d; };

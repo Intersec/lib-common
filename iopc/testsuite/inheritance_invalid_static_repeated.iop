@@ -1,0 +1,5 @@
+package inheritance_invalid_static_repeated;
+
+class A {
+    static int[] a;
+};

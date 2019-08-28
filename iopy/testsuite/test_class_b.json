@@ -1,0 +1,6 @@
+{
+    "_class": "test.ClassB",
+    "field1": 42,
+    "field2": 10,
+    "optField": 20
+}

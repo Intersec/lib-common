@@ -1,0 +1,4 @@
+package missing_module;
+
+module MyModuleC: MyModuleA {
+};

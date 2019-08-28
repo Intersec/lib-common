@@ -1,0 +1,72 @@
+[cols="<20s,20d,10d,40a",options="header"]
+|===
+|Object
+|OID
+|Type
+|Description
+
+4+^s|*Obj*
+
+|[[a]]a
+|32436.2.1.1
+|string
+|description, ex: "some string".
+
+|[[b]]b
+|32436.2.1.2
+|enum
+|description.
+
+Possible values:
+
+- STATE_ONE (0)
+- STATE_TWO (1)
+- STATE_THREE (2)
+- FOUR (3)
+
+
+|[[Tbl]]Tbl
+|32436.2.1.3
+|table
+|Table.
+
+4+^s|*Tbl*
+
+|[[column1]]column1
+|32436.2.1.3.1
+|string
+|description.
+
+|[[column2]]column2
+|32436.2.1.3.2
+|int
+|description.
+
+|[[indexTbl]]indexTbl
+|32436.2.1.3.3
+|uint
+|description.
+
+|[[TblWithIndex]]TblWithIndex
+|32436.2.1.5
+|table
+|Table with indexes.
+
+4+^s|*TblWithIndex*
+
+|[[index1]]index1
+|32436.2.1.5.1
+|string
+|description.
+
+|[[index2]]index2
+|32436.2.1.5.2
+|uint
+|description.
+
+|[[notIndex]]notIndex
+|32436.2.1.5.3
+|int
+|description.
+
+|===

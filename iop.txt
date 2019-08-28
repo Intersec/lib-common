@@ -1,0 +1,516 @@
+Intersec Object Packer
+======================
+
+IOP Wire format
+---------------
+
+IOP allow to encode TLVs (Tag, Length, Value). For some kind of data types,
+the Length is implicit.
+
+The TLVs must always be written in the tag order.
+
+
+Encoding the wire Type
+~~~~~~~~~~~~~~~~~~~~~~
+
+The wire type is put in the three most significant bits of the first octet of
+the buffer. There are 8 different encoding schemes.
+
+`0` to `2` (BLK1, BLK2, BLK4)::
+    Encode a block of unstructured data, with a prefixed length of 1, 2, or 4
+    octets.
+
+`3` (QUAD)::
+    Encode 8 octets of data.
+
+`4` to `6` (INT1, INT2, INT4)::
+    Encode 1, 2, or 4 octets integers, using sign extension based encoding.
+    A possible way to encode, is to compute the zig-zag encoded value of the
+    integer `(v >> (8 * sizeof(v) - 1)) ^ (v << 1)` and use the smallest
+    integer where the significant bits of this number fits.
+
+`7` REPEAT::
+    This value is used to mean that the current tag is repeated a given amount
+    of time after this value. This is followed by the repetition count as a
+    little endian 32 bit value.
+
+
+Encoding the Tag
+~~~~~~~~~~~~~~~~
+
+Tags cannot exceed 16 bits and the value 0 is special.
+
+* Tag 0 means reuse the same tag as the last one you unpacked at this level.
+  In other words when you recurse inside a new block for a complex structure
+  the first tag cannot be 0. This can be used only after a `REPEAT` tag has
+  been seen.
+  This special tag is also used at the beginning of a packed class with the
+  wire type `INT1` or `INT2`, to announce the class id of the packed object,
+  and to mark a change of level in the inheritance tree.
+
+* Tags between 1 and 29 included are encoded in the least significant 5 bits
+  of the first octet.
+
+* Tags between 30 and 255 are encoded by writing `30` to the least significant
+  5 bits of the first octet, then the tag value is put in the next octet.
+
+* Tags between 256 to 65535 are encoded by writing `31` to the least significant
+  5 bits of the first octet, then the tag value is put in the next two octets,
+  in little endian.
+
+* Tags above 32767 are reserved and should not be used by iop clients.
+
+Encoding the Length and the Value
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+BLK1, BLK2, BLK4::
+    The length is written in little endian, on 1, 2, or 4 octets. Then the
+    value follows. The data length is (1, 2 or 4) + the encoded length. When
+    encoding strings, the ending NUL byte is included in the data length.
+
+QUAD::
+    There is no length encoded. The data length is 8, and the value is put in
+    little endian order when it has a meaning (for doubles or 64 bits
+    integers). Encoders and Decoders assume that 64bits integers and doubles
+    endianness are the same, which breaks on some funky architectures.
+
+INT1, INT2, INT4::
+    There is no length encoded. The data length is either 1, 2, or 4. Integers
+    are encoded in their corresponding extension based encoding, least
+    significant octet first.
+
+
+IOP structure
+-------------
+
+An IOP file has the following structure:
+ 
+[source,c]
+----
+package mypackage;
+
+enum MyEnum {
+    FOO,
+    BAR,
+    ...
+}
+
+struct MyStruct {
+    int foo;
+    string? bar;
+    MyEnum[] foobar;
+    ...
+}
+
+union MyUnion {
+    int foo;
+    string bar;
+    ...
+}
+
+interface MyInterface {
+    /* A void -> void function */
+    myFunc1 funA;
+
+    /* The function which has MyStruct as argument */
+    myFunction funB in MyStruct;
+
+    /* A classical function */
+    myFunction funC in (int a, int b) out (int c, string s);
+
+    /* A void -> ... function */
+    myFunction funD in void out MyUnion;
+};
+
+module MyModule {
+    MyInterface inter;
+};
+----
+
+The different types of base are: `int` (`int32_t`), `uint` (`uint32_t`), `byte`
+(`int8_t`), `ubyte` (`uint8_t`), `short` (`int16_t`), `ushort` (`uint16_t`),
+`long` (`int64_t`), `ulong` (`uint64_t`), `bytes` (`lstr_t`), `bool`,
+`double`, `string` (`lstr_t`) and `enum`.
+
+These types are wrapped either in a `struct` type or a `union` type.
+Differences between `struct` and `union` are the sames as in C.
+
+A structure member can be:
+
+Mandatory::
+    Which means that the field must always be present when encoding/decoding
+    the IOP structure. Example: `int foo;`.
+
+Optional::
+    Which means that the field could be omitted when encoding/decoding the IOp
+    structure. Example: `int? foo;`.
+
+Repeated::
+    Which means that the field could be either omitted or repeated several
+    times when encoding/decoding the structure. See it as a sort of array.
+    Example: `int[] foo;`.
+
+
+IOP C Backend
+-------------
+
+Memory pool
+~~~~~~~~~~~
+
+Each function of the IOP unpacker expects a memory allocator able to
+deallocate all tiny allocations at once like `t_pool` or `r_pool`.
+Never use another memory allocator with the unpacker.
+
+Scalar types usage
+~~~~~~~~~~~~~~~~~~
+
+A mandatory scalar member is converted in the most simple way as it would be
+written in C. So `int foo;` becomes `int32_t foo;`.
+
+An optional scalar member is converted to an `opt_xxx_t` structure. You
+should never access it directly but using the `OPT*` macros defined in
+`core-types.h`.
+
+A repeated scalar member is converted to a structure containing a `len` member
+which gives the number of element and a `tab` member which gives a pointer on
+the first element. To set such a field you should use the `IOP_ARRAY*` macros
+defined in `iop-macros.h`.
+
+Bytes and strings usage
+~~~~~~~~~~~~~~~~~~~~~~~
+
+`bytes` and `string` types are handled in a similar way, but not converted to
+the same structure.
+
+`bytes`, which contains binary buffer, is converted to a `lstr_t { .data,
+.len }` with the member `len` corresponding to the buffer length and the
+member `data` which is the pointer on the first byte of the buffer. `bytes`
+members should be set using the `LSTR_*` macros defined in `str-l.h`.
+
+`string`, which contains a null terminated string, is converted to a `lstr_t`.
+See `str-l.h` for their documentation.
+
+When a member is optional, you will know if it is present or not by testing
+if the pointer is NULL.
+
+In case of a repeated field, usage is exactly the same as for scalar types.
+
+Structures usage
+~~~~~~~~~~~~~~~~
+
+A mandatory `struct` or `union` member is directly inlined in the C structure.
+So you access it in the most simple way.
+
+An optional `struct` or `union` member is converted to a pointer on the value,
+so you test its nullity to know if the field is here and you deference it to
+access the value.
+
+In case of a repeated field, usage is exactly the same as for scalar types.
+
+Unions usage
+~~~~~~~~~~~~
+
+A `union` is an `iop_struct_t` with the flag `is_union` set. In the code, we
+can see a `union` as a `struct` with a unique and required field. Of course we
+have to look for the selected tag in the union.
+
+Unions are handled with a structure generated by the compiler which looks like
+to:
+ 
+[source,c]
+----
+struct __foo_t {
+    int iop_tag;
+    union {
+        ...
+    }
+}
+----
+
+On the user side, you have several macros to use them:
+
+`IOP_UNION_SWITCH(var)`::
+    Start a switch on the selected value in the union.
+
+`IOP_UNION_CASE(type, var, field_name, v)`::
+    If `field_name` is selected, its value is copied in v.
+
+`IOP_UNION_CASE_P(type, var, field_name, v)`::
+    If `field_name` is selected, v contains a pointer on the value of
+    `field_name`.
+
+`IOP_UNION_DEFAULT()`::
+    If there is nothing selected or another value ...
+
+`pkg__uname__get(v, field)`::
+    Get a pointer on `field` if the field is selected, `NULL` otherwise.
+
+`pkg__uname__copy(dst, v, field)`::
+    Copy the value of `field` in `dst` and return true or false if the field
+    isn't selected.
+
+`IOP_UNION(type, field, val)`::
+    Store a scalar value in an iop union. Example: `u = IOP_UNION(my_union,
+    my_field, 42);`.
+
+`IOP_UNION_CST(type, field, val)`::
+    Store a scalar value in an iop union initializer.
+
+`IOP_UNION_VA(type, field, ...)`::
+    Store a complex value (like a structure) in an iop union. Example: `u
+    = IOP_UNION_VA(my_union, my_field, .foo = 10, .bar = 42);`
+
+`IOP_UNION_VA_CST(type, field, ...)`::
+    Store a complex value (like a structure) in an iop union initializer.
+
+
+NEVER EVER USE A `continue` OR A `break` STATEMENT INSIDE OF AN
+IOP_UNION_SWITCH.
+
+Restrictions
+^^^^^^^^^^^^
+
+For several technical reasons, optional and repeated fields are forbidden in
+unions. You can't set a default value either, it would be a nonsense.
+
+Default values
+^^^^^^^^^^^^^^
+
+When a field is equal to its default value, there is no need to pack it. It
+uses bandwidth for nothing and the unpacker will do the right thing when the
+field is absent (i.e. set the default value).
+
+Be careful that we do a very simple comparison of values equality to be
+efficient. This is especially true for `string`, `bytes` and `xml` types. We
+consider a string equal to its default value only when its data pointer is the
+same as the default value one (set by iop_init) and if their lengths are
+equal. The string content is not compared with the default value one.
+
+We handle another special case. If a `string`/`bytes`/`xml` is equal to
+LSTR_NULL_V then we considerer this as the default value. So a p_clear on a
+string member will do the thing that most users expect.
+
+NOTE: there is no constraint checking on default values, so it is important
+that the default values respect the constraints.
+
+IOP PHP Frontend
+----------------
+
+Using the union
+~~~~~~~~~~~~~~~
+
+Syntax to use union types in php:
+
+----
+array("fieldname", value);
+----
+
+IOP XML Frontend
+----------------
+
+The XML frontend allows you to pack an IOP C structure into XML and to unpack
+an IOP XML content into an IOP C structure. You dipose of four functions:
+
+`iop_xpack`::
+    which packs an IOP C structure into XML;
+
+`iop_xunpack`::
+    which unpacks an IOP XML content into an IOP C structure;
+
+`iop_xwsdl`::
+    which generates the WSDL of an IOP module;
+
+The unpacking function takes a xml_reader_t as first argument (which needs to
+be initialized with xmlr_setup). And it assumes that the next node to be read
+in the xml tree is the first field of the structure you want to unpack. In
+addition this function consumes the closing node just after the last field of
+the structure to unpack.
+
+IOP JSON Frontend
+-----------------
+
+The IOP API provides several functions to pack/unpack to/from a json format
+from/to an IOP C structure. The packer generates a standard json format, but
+the unpacker accepts several extensions.
+
+For the official json format see this RFC: http://tools.ietf.org/html/rfc4627
+
+JSON Grammar
+~~~~~~~~~~~~
+
+----
+begin-array     = ws '[' ws
+begin-object    = ws '{' ws
+end-array       = ws ']' ws
+end-object      = ws '}' ws
+name-separator  = ws ( ':' | '=' ) ws
+value-separator = ws ( ',' | ';' ) ws
+
+ws = ( ' ' | '\t' | '\n' | '\r' )*
+----
+
+Values
+~~~~~~
+
+----
+constants = 'false' | 'no' | 'null' | 'nil' | 'true' | 'yes'
+value     = array | constants | number | object | string
+----
+
+Objects
+~~~~~~~
+
+----
+object = begin-object [ member ( value-separator member )* ] end-object
+
+member = string name-separator value
+----
+
+Arrays
+~~~~~~
+
+----
+array = begin-array [ value ( value-separator value )* ] end-array
+----
+
+Numbers
+~~~~~~~
+
+----
+number = [ minus ] int [ frac ] [ exp ] [ extension ]
+
+decimal-point = '.'
+digit1-9      = '1' - '9'
+e             = 'e' | 'E'
+exp           = e [ minus | plus ] DIGIT+
+frac          = decimal-point DIGIT+
+
+int   = zero | ( digit1-9 DIGIT* )
+minus = '-'
+plus  = '+'
+zero  = '0'
+
+extension = (
+    w           ; number is a week number
+  | d           ; number is a day number
+  | h           ; number is in hours
+  | m           ; number is in minutes
+  | s           ; number is in seconds
+  | T           ; number is in terabytes
+  | G           ; number is in gigabytes
+  | M           ; number is in megabytes
+  | K           ; number is in kilobytes
+)
+----
+
+Strings
+~~~~~~~
+
+----
+string = quotation-mark char* quotation-mark
+
+char =
+    unescaped
+  | '\' (
+        '"' | '\' | '/' | 'b' | 'f' | 'n' | 'r' | 't'
+      | 'u' 4HEXDIG
+    )
+quotation-mark = '"' | '''
+unescaped      = %x20-21 / %x23-5B / %x5D-10FFFF
+----
+
+Comments
+~~~~~~~~
+
+We allow comments in our json format.
+
+----
+comment = ( '#' | '//' ) .* '\n' | '/*' ( . | '\n' )* '*/'
+----
+
+union syntax
+~~~~~~~~~~~~
+
+to handle the union type we provide two syntaxes, one compatible with the json
+RFC and another one using our extended syntax.
+
+with the RFC compliant syntax::
+[source,javascript]
+----
+/* Outside of a structure */
+{ "selected_field": value }
+
+/* Inside of a structure */
+{
+    "..."    : ...,
+    "umember": { "selected_field": value },
+    "..."    : ...
+}
+
+/* Inside of an array */
+{
+    "..."    : ...,
+    "umember": [
+                 { "selected_field"  : value  },
+                 { "selected_field_2": value2 },
+                 ...
+               ],
+    "..."    : ...
+}
+----
+
+with the extended syntax::
+[source,javascript]
+----
+/* Outside of a structure */
+{ selected_field: value }
+
+/* Inside of a structure */
+{
+    ...                   : ...;
+    umember.selected_field: value;
+    ...                   : ...;
+}
+
+/* Inside of an array */
+{
+    ...    : ...;
+    umember: [
+               .selected_field  : value,
+               .selected_field_2: value2,
+               ...,
+             ];
+    ...    : ...;
+}
+----
+
+Notice that outside of a structure, even with the extended syntax, you are
+forced to use the `{ sfield: value }` syntax.
+
+Prefixed syntax
+~~~~~~~~~~~~~~~
+
+You can use a prefixed syntax to pretty set an index member or whatever you
+want as long as your member has a scalar type (number or string).
+
+Example:
+[source,javascript]
+----
+@name "user1" {
+    phone: ...;
+    ...
+}
+
+@name "user2" {
+    phone: ...;
+    ...
+}
+...
+----
+
+Appendix
+~~~~~~~~
+
+See the json RFC for more details: http://www.ietf.org/rfc/rfc4627.txt
+
+// vim:filetype=asciidoc:tw=78

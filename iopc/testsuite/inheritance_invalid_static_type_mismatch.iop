@@ -1,0 +1,9 @@
+package inheritance_invalid_static_type_mismatch;
+
+class A {
+    static int toto = 10;
+};
+
+class B : 0 : A {
+    static string toto = "toto";
+};

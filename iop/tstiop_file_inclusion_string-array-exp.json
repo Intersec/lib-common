@@ -1,0 +1,12 @@
+/* This is a tstiop.MyStructF */
+{
+    "a": [
+        "This is an included string!",
+        "second string",
+        "This is another included string"
+    ],
+    "b": [
+        "Zmlyc3QgYnl0ZXM=",
+        "VGhpcyBpcyBhbiBpbmNsdWRlZCBzdHJpbmch"
+    ]
+}

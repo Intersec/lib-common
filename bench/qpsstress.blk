@@ -1,0 +1,263 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <math.h>
+#include <lib-common/qps.h>
+
+struct {
+    const char *path;
+    bool   has_snapshotted;
+    qps_t *qps;
+    qv_t(i32) handles;
+    qv_t(i32) free_list;
+    qv_t(i32) snap_handles;
+    qv_t(i32) snap_free_list;
+} _G;
+
+enum {
+    QPS_ALLOC,
+    QPS_REALLOC,
+    QPS_DEALLOC,
+    QPS_WDEREF,
+    QPS_SNAPSHOT,
+    QPS_SNAPSHOT_WAIT,
+    QPS_REOPEN,
+};
+
+static void qalloc(void)
+{
+    qps_handle_t h;
+    void *ptr;
+    size_t s, g;
+
+    s = 24 + ((int)sqrt(1 + rand())) % 4096;
+    ptr = qps_alloc(_G.qps, &h, s);
+    g = qps_sizeof(_G.qps, ptr);
+    e_info("alloc h=%d, size=%zu, got=%zu", h, s, g);
+    if (_G.free_list.len == 0) {
+        qv_append(&_G.handles, h);
+    } else {
+        int pos = *tab_last(&_G.free_list);
+        qv_shrink(&_G.free_list, 1);
+        _G.handles.tab[pos] = h;
+    }
+}
+
+static void find_handle(qps_handle_t *h, int *pos)
+{
+    int p = rand() % _G.handles.len;
+
+    while (_G.handles.tab[p] < 0) {
+        if (++p == _G.handles.len) {
+            p = 0;
+        }
+    }
+    if (h) {
+        *h   = _G.handles.tab[p];
+    }
+    if (pos) {
+        *pos = p;
+    }
+}
+
+static void qrealloc(void)
+{
+    qps_handle_t h;
+    void *p;
+    size_t o;
+    size_t s;
+    size_t g;
+
+    find_handle(&h, NULL);
+    p = qps_handle_deref(_G.qps, h);
+    o = qps_sizeof(_G.qps, p);
+
+    if (o >= 4096) {
+        return;
+    }
+    s = o + ((int)sqrt(1 + rand())) % 4096;
+    p = qps_realloc(_G.qps, h, s);
+    g = qps_sizeof(_G.qps, p);
+    e_info("realloc h=%d, size=%zu, old=%zu, got=%zu", h, s, o, g);
+}
+
+static void qwderef(void)
+{
+    qps_handle_t h;
+
+    find_handle(&h, NULL);
+    qps_handle_w_deref(_G.qps, h);
+    e_info("w_deref h=%d", h);
+}
+
+static void qdealloc(void)
+{
+    qps_handle_t h;
+    int pos;
+
+    find_handle(&h, &pos);
+    qps_free(_G.qps, h);
+    _G.handles.tab[pos] = -1;
+    qv_append(&_G.free_list, pos);
+    e_info("dealloc h=%d", h);
+}
+
+static void qsnapshot(void)
+{
+    qv_splice(&_G.snap_handles, 0, _G.snap_handles.len,
+              _G.handles.tab, _G.handles.len);
+    qv_splice(&_G.snap_free_list, 0, _G.snap_free_list.len,
+              _G.free_list.tab, _G.free_list.len);
+    qps_snapshot(_G.qps, NULL, 0, ^(uint32_t gen) {
+        qps_gc_enable(_G.qps);
+    });
+    e_info(">>>>>>>>>>>>>>>  snapshot");
+}
+
+static void qsnapshot_wait(void)
+{
+    qps_snapshot_wait(_G.qps);
+    e_info("<<<<<<<<<<<<<<<  snapshot_wait");
+}
+
+static void qreopen(void)
+{
+    qv_splice(&_G.handles, 0, _G.handles.len,
+              _G.snap_handles.tab, _G.snap_handles.len);
+    qv_splice(&_G.free_list, 0, _G.free_list.len,
+              _G.snap_free_list.tab, _G.snap_free_list.len);
+    qps_close(&_G.qps);
+    _G.qps = qps_open(_G.path, "stress", NULL);
+    qps_gc_enable(_G.qps);
+    e_info(">>>>>>>>>>>>>>>  reopen  <<<<<<<<<<<<<<<<");
+}
+
+static void check_qps(void)
+{
+    static qps_roots_t roots;
+
+    qv_clear(&roots.handles);
+    qv_clear(&roots.pages);
+
+    tab_for_each_pos (pos, &_G.handles) {
+        if (_G.handles.tab[pos] < 0) {
+            qv_append(&roots.handles, _G.handles.tab[pos]);
+        }
+    }
+
+    __qps_check_maps(_G.qps, true);
+    if (_G.has_snapshotted) {
+        assert (__qps_check_consistency(_G.path, "stress-consistency") >= 0);
+    }
+}
+
+int main(int argc, char **argv)
+{
+    uint32_t proba[] = {
+        [QPS_ALLOC] = 0,
+        [QPS_REALLOC] = 0,
+        [QPS_WDEREF] = 0,
+        [QPS_DEALLOC] = 0,
+        [QPS_SNAPSHOT] = 16,
+        [QPS_SNAPSHOT_WAIT] = 0,
+        [QPS_REOPEN] = 1,
+    };
+
+    if (argc < 2) {
+        return -1;
+    }
+
+    MODULE_REQUIRE(qps);
+
+    _G.path = argv[1];
+    qps_unlink(argv[1]);
+    _G.qps = qps_create(argv[1], "stress", 0755, NULL, 0);
+    if (!_G.qps) {
+        e_fatal("unable to open qps");
+    }
+
+
+    for (;;) {
+        uint32_t s = 0;
+
+        proba[QPS_WDEREF] = 65536;
+        if (_G.free_list.len == _G.handles.len) {
+            proba[QPS_ALLOC] = 16384;
+            proba[QPS_REALLOC] = proba[QPS_DEALLOC] = proba[QPS_WDEREF] = 0;
+        } else
+        if (_G.handles.len - _G.free_list.len < 1000000) {
+            proba[QPS_ALLOC] = 16384;
+            proba[QPS_DEALLOC] = 8192;
+            proba[QPS_REALLOC] = 1024;
+        } else {
+            proba[QPS_ALLOC] = 8192;
+            proba[QPS_DEALLOC] = 4096;
+            proba[QPS_REALLOC] = 1024;
+        }
+
+        for (int i = 0; i < countof(proba); i++) {
+            s += proba[i];
+        }
+
+        s = rand() % s;
+        for (int i = 0; i < countof(proba); i++) {
+            if (proba[i] > s) {
+                s = i;
+                break;
+            }
+            s -= proba[i];
+        }
+        assert (s < countof(proba));
+
+        switch (s) {
+          case QPS_ALLOC:
+            qalloc();
+            break;
+          case QPS_DEALLOC:
+            qdealloc();
+            break;
+          case QPS_REALLOC:
+            qrealloc();
+            break;
+          case QPS_WDEREF:
+            qwderef();
+            break;
+          case QPS_SNAPSHOT:
+            qsnapshot();
+            proba[QPS_SNAPSHOT] = 0;
+            proba[QPS_SNAPSHOT_WAIT] = 256;
+            break;
+          case QPS_SNAPSHOT_WAIT:
+            qsnapshot_wait();
+            _G.has_snapshotted = true;
+            proba[QPS_SNAPSHOT] = 16;
+            proba[QPS_SNAPSHOT_WAIT] = 0;
+            break;
+          case QPS_REOPEN:
+            qreopen();
+            _G.has_snapshotted = true;
+            proba[QPS_SNAPSHOT] = 16;
+            proba[QPS_SNAPSHOT_WAIT] = 0;
+            break;
+        }
+        check_qps();
+    }
+
+    MODULE_RELEASE(qps);
+    return 0;
+}

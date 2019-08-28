@@ -1,0 +1,6 @@
+package attrs_invalid_max_2;
+
+struct MyStruct {
+    @max(1 << 31)
+    int mint;
+};

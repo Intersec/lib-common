@@ -1,0 +1,9 @@
+/* this file is used to test same enums in different files */
+
+package enum1;
+
+enum MyEnum {
+    A = 100,
+    B,
+    C,
+};

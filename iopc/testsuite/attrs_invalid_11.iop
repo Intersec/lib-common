@@ -1,0 +1,10 @@
+package attrs_invalid_11;
+
+union MyUnion {
+    int a;
+    int b;
+};
+
+/* Test if extra parameters are checked */
+@allow(a, c)
+typedef MyUnion MyACUnion;

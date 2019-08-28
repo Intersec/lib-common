@@ -1,0 +1,3 @@
+packag invalid_pkg_syntax;
+
+struct A;

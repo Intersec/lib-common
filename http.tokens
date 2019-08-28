@@ -1,0 +1,15 @@
+chunked
+compress
+connect
+deflate
+delete
+get
+gzip
+head
+identity
+options
+post
+put
+trace
+x-compress
+x-gzip

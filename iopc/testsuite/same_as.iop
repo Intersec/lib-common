@@ -1,0 +1,31 @@
+package same_as;
+
+struct Struct1 { int a; /**< comment for a */ }; ///< comment for struct
+struct Struct2 { int a; /**< comment for a */ }; ///< blabla
+
+struct Struct3 { int a; /**< comment for S3.a */ };
+struct Struct4 { int a; /**< comment for S4.a */ };
+
+union Union1 { int a; };
+union Union2 { int a; };
+
+class Class1 : 0 { int a; };
+class Class2 : 0 { int a; };
+
+interface Interface1 {
+2:  foo
+        in    (string input)
+        out   (int output)
+        throw (string err);
+
+1:  bar
+        in    (string input)
+        out   (int output)
+        throw (string err);
+};
+interface Interface2 {
+    rpc
+        in    (string input)
+        out   (int output)
+        throw (string err);
+};

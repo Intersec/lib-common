@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<definitions
+  xmlns="http://schemas.xmlsoap.org/wsdl/"
+  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+  xmlns:tns="http://example.com/tstiop"
+  targetNamespace="http://example.com/tstiop">
+
+  <!-- WSDL types -->
+  <types>
+    <schema targetNamespace="http://example.com/tstiop" xmlns="http://www.w3.org/2001/XMLSchema">
+      <simpleType name="intersec.byte">
+        <union>
+          <simpleType>
+            <restriction base="byte" />
+          </simpleType>
+          <simpleType>
+            <restriction base="string">
+              <pattern value="0x0*[0-9a-fA-F]{1,2}" />
+            </restriction>
+          </simpleType>
+        </union>
+      </simpleType>
+      <simpleType name="intersec.unsignedByte">
+        <union>
+          <simpleType>
+            <restriction base="unsignedByte" />
+          </simpleType>
+          <simpleType>
+            <restriction base="string">
+              <pattern value="0x0*[0-9a-fA-F]{1,2}" />
+            </restriction>
+          </simpleType>
+        </union>
+      </simpleType>
+      <simpleType name="intersec.short">
+        <union>
+          <simpleType>
+            <restriction base="short" />
+          </simpleType>
+          <simpleType>
+            <restriction base="string">
+              <pattern value="0x0*[0-9a-fA-F]{1,4}" />
+            </restriction>
+          </simpleType>
+        </union>
+      </simpleType>
+      <simpleType name="intersec.unsignedShort">
+        <union>
+          <simpleType>
+            <restriction base="unsignedShort" />
+          </simpleType>
+          <simpleType>
+            <restriction base="string">
+              <pattern value="0x0*[0-9a-fA-F]{1,4}" />
+            </restriction>
+          </simpleType>
+        </union>
+      </simpleType>
+      <simpleType name="intersec.int">
+        <union>
+          <simpleType>
+            <restriction base="int" />
+          </simpleType>
+          <simpleType>
+            <restriction base="string">
+              <pattern value="0x0*[0-9a-fA-F]{1,8}" />
+            </restriction>
+          </simpleType>
+        </union>
+      </simpleType>
+      <simpleType name="intersec.unsignedInt">
+        <union>
+          <simpleType>
+            <restriction base="unsignedInt" />
+          </simpleType>
+          <simpleType>
+            <restriction base="string">
+              <pattern value="0x0*[0-9a-fA-F]{1,8}" />
+            </restriction>
+          </simpleType>
+        </union>
+      </simpleType>
+      <simpleType name="intersec.long">
+        <union>
+          <simpleType>
+            <restriction base="long" />
+          </simpleType>
+          <simpleType>
+            <restriction base="string">
+              <pattern value="0x0*[0-9a-fA-F]{1,16}" />
+            </restriction>
+          </simpleType>
+        </union>
+      </simpleType>
+      <simpleType name="intersec.unsignedLong">
+        <union>
+          <simpleType>
+            <restriction base="unsignedLong" />
+          </simpleType>
+          <simpleType>
+            <restriction base="string">
+              <pattern value="0x0*[0-9a-fA-F]{1,16}" />
+            </restriction>
+          </simpleType>
+        </union>
+      </simpleType>
+      <simpleType name="tstiop_wsdl.E">
+        <union>
+          <simpleType>
+            <restriction base="string">
+              <enumeration value="FOO" />
+              <enumeration value="BAR" />
+            </restriction>
+          </simpleType>
+          <simpleType>
+            <restriction base="tns:intersec.int" />
+          </simpleType>
+        </union>
+      </simpleType>
+      <complexType name="tstiop_wsdl.I.bazRes">
+        <sequence>
+          <element name="s" type="tns:tstiop_wsdl.S" />
+        </sequence>
+      </complexType>
+      <complexType name="tstiop_wsdl.C">
+        <sequence>
+          <element name="s" type="tns:tstiop_wsdl.S" />
+          <element name="e" type="tns:tstiop_wsdl.E" />
+        </sequence>
+      </complexType>
+      <complexType name="tstiop_wsdl.S">
+        <sequence>
+          <element name="e" type="tns:tstiop_wsdl.E" />
+        </sequence>
+      </complexType>
+
+      <!-- RPC arguments types -->
+      <element name="i.bazReq" type="tns:tstiop_wsdl.C" />
+      <element name="i.bazRes" type="tns:tstiop_wsdl.I.bazRes" />
+    </schema>
+  </types>
+
+  <!-- WSDL Messages -->
+  <message name="i.bazReq">
+    <part name="parameters" element="tns:i.bazReq" />
+  </message>
+  <message name="i.bazRes">
+    <part name="parameters" element="tns:i.bazRes" />
+  </message>
+
+  <!-- WSDL Ports -->
+  <portType name="tstiop_wsdl.MPortType">
+    <operation name="i.baz">
+      <input message="tns:i.bazReq" />
+      <output message="tns:i.bazRes" />
+    </operation>
+  </portType>
+
+  <!-- WSDL Bindings -->
+  <binding name="tstiop_wsdl.MBinding" type="tns:tstiop_wsdl.MPortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http" />
+    <operation name="i.baz">
+      <soap:operation soapAction="" />
+      <input>
+        <soap:body use="literal" />
+      </input>
+      <output>
+        <soap:body use="literal" />
+      </output>
+    </operation>
+  </binding>
+
+  <!-- WSDL Services -->
+  <service name="tstiop_wsdl.M">
+    <port name="tstiop_wsdl.MEndPoint" binding="tns:tstiop_wsdl.MBinding">
+      <soap:address location="http://localhost:1080/iop/" />
+    </port>
+  </service>
+</definitions>

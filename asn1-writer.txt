@@ -1,0 +1,311 @@
+ASN.1 Writer API
+================
+
+        The ASN.1 writer API is an IOP-like API used to design and write
+    ASN.1 frames. It uses C structures to describe content and specific
+    macros to register frame meta-data.
+
+    Principle :
+        The user writes a structure describing the content of the frame
+    then writes a description of the structure following this model :
+
+    ------------------------------HEADER.H--------------------------------
+    typedef struct foo_t { /* ASN.1 sequence */
+        type1_t field1;
+        type2_t field2;
+    } foo_t;
+
+    typedef struct choice_t {
+        enum choice_type type;
+        union {
+            type1_t c1;
+            type2_t c2;
+            ...
+        };
+    } choice_t;
+
+    ASN1_DESC(foo); /* < Frame descriptor getter prototype. */
+    ASN1_DESC(choice);
+
+    -------------------------------IMPL.C---------------------------------
+    ASN1_BEGIN_DESC(desc, foo);  /* < Frame descriptor getter. */
+        asn1_reg_...(desc, foo, ... , field1, TAG_1);
+        asn1_reg_...(desc, foo, ... , field2, TAG_2);
+    ASN1_END_DESC(desc);
+
+    ASN1_BEGIN_CHOICE_DESC(desc, choice, choice_type, type);
+        asn1_reg_...(desc, foo, ..., c1, CHOICE_TAG_1);
+        asn1_reg_...(desc, foo, ..., c2, CHOICE_TAG_2);
+        ...
+    ASN1_END_DESC(desc);
+    ----------------------------------------------------------------------
+
+    Knowing the length field of the ASN.1 frames has a variable size, a
+    two-pass serialization is required:
+
+
+        1. Size-packing : Preprocessing of each ASN.1 field size, length
+                          field size and tag field size. The function that
+                          executes this step returns overall frame size.
+                          Preprocessed sizes are saved into a lib-common
+                          vector (asn1_length_vector).
+
+        2. Packing : Serialization of the given ASN.1-packable structure
+                     instance using preprocessed sizes. There is no buffer
+                     size verification as overall frame size is known by
+                     the user after size-packing step.
+
+
+    Note: use of gcc exension for bitfields in C structures describing ASN.1
+          is fairly unrecommended as though it surely won't work out.
+
+==============================================================================
+
+Plan
+~~~~
+I.   Write an ASN1-packable structure.
+II.  Register fields meta-data.
+III. Run serialization.
+IV.  Unpacking.
+
+==============================================================================
+I. Write an ASN1-packable structure.
+
+    The API user must write a structure corresponding to the data he wants
+    to serialize. Structure fields order doesn't interact with the
+    serialization order.
+
+    The following field types are allowed:
+
+    Mode ->  |Mandatory         | Optional          | Sequence of
+    Type v   |                  |                   |
+    =========|================================================================
+    Scalar   |int8_t            | asn1_opt_int8_t   | asn1_int8_vector_t
+             |uint8_t           | asn1_opt_uint8_t  | asn1_uint8_vector_t
+             |int16_t           | asn1_opt_int16_t  | asn1_int16_vector_t
+             |uint16_t          | asn1_opt_uint16_t | asn1_uint16_vector_t
+             |int32_t           | asn1_opt_int32_t  | asn1_int32_vector_t
+             |uint32_t          | asn1_opt_uint32_t | asn1_uint32_vector_t
+             |int64_t           | asn1_opt_int64_t  | asn1_int64_vector_t
+             |uint64_t          | asn1_opt_uint64_t | asn1_uint64_vector_t
+             |< user enum >     | ASN1_OPT_TYPE(...)| ASN1_VECTOR_TYPE(...)
+    =========|================================================================
+    String   |lstr_t            | lstr_t            | asn1_lstr_vector_t
+             |asn1_bit_string_t | asn1_bit_string_t | asn1_bit_string_vector_t
+    =========|================================================================
+    Opaque   |void (any)        |                   | ASN1_VECTOR_TYPE(void)
+             |void *            | void *            | ASN1_ARRAY_TYPE(void)
+    =========|================================================================
+    Composed |struct            |                   | ASN1_VECTOR_TYPE(struct)
+             |struct *          | struct *          | ASN1_ARRAY_TYPE(struct)
+    ==========================================================================
+    External |asn1_ext_t        | asn1_ext_t        | asn1_ext_vector_t
+
+       * The opaque type is used for non built-in types that the user want to
+    serialize using his own serialization functions given as callbacks. Naming and
+    typing of user packing and size-packing functions follows :
+           int32_t asn1_##type_prefix##_size(const void *);
+           uint8_t *asn1_pack_##type_prefix##(uint8_t *dest, const void *);
+
+           Because of these naming conventions, the user won't have to give
+       the name of the callbacks while registering an opaque field.
+
+        Any error rethrow must be done at size computing. The packer just returns
+    a pointer on the next writing location on buffer.
+
+        * Composed type is used for arborescent structures. The API user can put
+    any ASN.1-packable structure as a field into his structure, even the
+    structure he's writing.
+
+        * External type is a kind of composed type with a dynamic sub-structure
+    specification. It can be used for alternative arborescent structures. In
+    this case the choice of sub-structure type will be done by user while
+    filling structure instance.
+
+==============================================================================
+II. Register fields meta-data.
+
+    1. Macros list.
+
+        Meta-data registration is made using a set of 13 specific macros:
+
+    asn1_reg_scalar                <- Scalar registration
+    asn1_reg_enum
+
+    asn1_reg_string
+    asn1_reg_opt_string            <- String registration
+    asn1_reg_seq_of_string
+
+    asn1_reg_skip                  <- Automaticaly skipped field.
+                                      A skip is considered as optional.
+
+    asn1_reg_opaque
+    asn1_reg_opt_opaque            <- Opaque type (void) registration.
+    asn1_reg_seq_of_opaque
+
+    asn1_reg_composed
+    asn1_reg_opt_composed          <- Composed type (struct) registration.
+    asn1_reg_seq_of_composed
+
+    asn1_reg_ext
+    asn1_reg_opt_ext               <- Ext type registration.
+    asn1_reg_seq_of_ext
+
+
+    2. Parameter order.
+
+    * Any macro (except for skip and null):
+
+        asn1_reg_...(desc, foo, ... , field, tag)
+                     ^     ^          ^      ^
+       Descriptor name     |          |      |
+       Structure name prefix          |      |
+                      Struct field name      |
+                               ASN.1 field tag
+
+    * Scalar and string registering macros:
+
+        asn1_reg_...(desc, foo, field, tag);
+
+    * Skip :
+        asn1_reg_skip(desc, "<Description>", tag);
+
+    * Null :
+        asn1_reg_null(desc, "<ASN.1 field name>", tag)
+
+    * Opt_null :
+        asn1_reg_opt_null(desc, foo, bool_field, tag)
+                                     ^
+                Boolean field indicating whether the ASN.1 field is
+                present or not.
+
+    * Opaque type registering macro:
+
+        asn1_reg_...(desc, foo, field_type_t, field_type, field, tag)
+                                ^             ^
+         Complete field type name             |
+                         Field type name prefix
+                         (without struct, union, enum or _t)
+
+    * Sequence/Tagged choice types registering macros :
+
+        asn1_reg_...(desc, foo, field_type_prefix, field, tag)
+                             ^
+     ASN.1-packable field type prefix,
+     we suppose structure is defined with a typedef.
+
+    * Untagged choice type registering macros :
+
+        asn1_reg_...(desc, foo, field_type_prefix, field)
+
+    * Ext (external) type registering macro :
+
+        asn1_reg_ext(desc, foo, field, tag)
+
+    3. Constructed type registering.
+
+    ASN.1 define five constructed type key words :
+        * CHOICE
+        * SEQUENCE
+        * SEQUENCE OF
+        * SET
+        * SET OF
+
+    The current asn1-writer API only supports CHOICE, SEQUENCE and SEQUENCE OF :
+        - SEQUENCE :
+            Default structure registering mode. Registering order matters.
+        - CHOICE :
+            An example is given in the introduction. This mode requires an
+            enum which will be silently registered but never packed. This
+            enum permits the user to set the choice before packing or to
+            know after unpacking what field have been choosen.
+
+            Enum numerotation must start from one.
+
+        - SEQUENCE OF :
+            Implemented with seq_of mode.
+
+==============================================================================
+III. Run serialization.
+
+         Two macros are designed to run serialization, one is for size packing
+     and one for packing.
+
+         * Size-packing
+
+              asn1_pack_size(foo, &my_instance, &stack);
+                              ^                  ^
+Our ASN.1-packable struct type prefix,           |
+we suppose structure is defined with a typedef.  |
+                          asn1_length_vector instance
+
+              Sizes are saved into given asn1_length vector. Returned integer
+          contains overall size that can be used to allocate a destination
+          buffer or an error code.
+
+         * Packing
+
+              asn1_pack(foo, dest, &my_instance, &stack);
+                        ^     ^
+         Struct type prefix   |
+             Destination buffer
+
+              Write ASN.1 frame on destination buffer then return next writing
+          location.
+
+    Note: the stack can be used and re-used for different serializations without
+          any re-initialization.
+
+==============================================================================
+IV. Unpacking.
+
+          asn1_unpack(foo, &ps, &mem_pool, &my_instance)
+                            ^    ^          ^
+          Input ASN.1 pstream    |          |
+            Memory pool for pointed         |
+      or seq_of fields allocation           |
+                                Output instance
+==============================================================================
+REGISTERING MACROS
+------------------------------------------------------------------------------
+asn1_reg_scalar                (desc, st_pfx, field, tag)
+asn1_reg_enum                  (desc, st_pfx, enum_sfx, field, tag)
+asn1_reg_opt_enum              (desc, st_pfx, enum_sfx, field, tag)
+asn1_reg_seq_of_enum           (desc, st_pfx, enum_sfx, field, tag)
+asn1_reg_null                  (desc, field_name, tg)
+asn1_reg_opt_null              (desc, st_pfx, bool_field, tag)
+asn1_reg_string                (desc, st_pfx, field, tag)
+asn1_reg_opt_string            (desc, st_pfx, field, tag)
+asn1_reg_seq_of_string         (desc, st_pfx, field, tag)
+asn1_reg_opaque                (desc, st_pfx, ctype, pfx, field, tag)
+asn1_reg_opt_opaque            (desc, st_pfx, ctype, pfx, field, tag)
+asn1_reg_seq_of_opaque         (desc, st_pfx, ctype, pfx, field, tag)
+asn1_reg_sequence              (desc, st_pfx, pfx, field, tag)
+asn1_reg_opt_sequence          (desc, st_pfx, pfx, field, tag)
+asn1_reg_seq_of_sequence       (desc, st_pfx, pfx, field, tag)
+asn1_reg_choice                (desc, st_pfx, pfx, field, tag)
+asn1_reg_opt_choice            (desc, st_pfx, pfx, field, tag)
+asn1_reg_seq_of_choice         (desc, st_pfx, pfx, field, tag)
+asn1_reg_untagged_choice       (desc, st_pfx, pfx, field)
+asn1_reg_opt_untagged_choice   (desc, st_pfx, pfx, field)
+asn1_reg_seq_of_untagged_choice(desc, st_pfx, pfx, field)
+asn1_reg_ext                   (desc, st_pfx, field, tag)
+asn1_reg_opt_ext               (desc, st_pfx, field, tag)
+asn1_reg_seq_of_ext            (desc, st_pfx, field, tag)
+asn1_reg_skip                  (desc, field_name, tg)
+==============================================================================
+FILES :
+
+API sources :
+    asn1-writer.h
+    asn1-writer-macros.h
+    asn1-writer.c
+
+Tests :
+    tst-asn1-writer.c
+
+Samples :
+    ss7-map.h
+    ss7-map.c
+    tst-ss7-map.c
+

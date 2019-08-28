@@ -1,0 +1,7 @@
+/ex-iop
+/zchk-tstiop-plugin.so
+/zchk-tstiop2-plugin.so
+
+/*.iop.c
+/*.iop.h
+/*.iop.json

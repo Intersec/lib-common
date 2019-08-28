@@ -1,0 +1,16 @@
+/* this file is used with enum1.iop to test ambiguous enum field name */
+
+package enum5;
+
+/* to import and use enum1 */
+struct MyStruct {
+    enum1.MyEnum field;
+};
+
+
+@prefix(MY_PREFIX)
+enum MyEnum {
+    A,
+    B = MY_ENUM_A + 10,
+    C,
+};

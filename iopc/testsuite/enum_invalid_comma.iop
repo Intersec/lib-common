@@ -1,0 +1,8 @@
+
+package enum_invalid_comma;
+
+enum MyEnum {
+    A,
+    B,
+    C
+};

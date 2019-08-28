@@ -1,0 +1,11 @@
+package attrs_invalid_15;
+
+enum MyEnum {
+    A,
+    B,
+};
+
+struct MyStruct {
+    @allow(A)
+    MyEnum e = MY_ENUM_B;
+};

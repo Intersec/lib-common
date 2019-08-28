@@ -1,0 +1,9 @@
+package pkg_a;
+
+struct A {
+    pkg_b.B b;
+};
+
+struct A2 {
+    pkg_c.C2[] c2;
+};

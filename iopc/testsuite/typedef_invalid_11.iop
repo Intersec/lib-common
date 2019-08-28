@@ -1,0 +1,7 @@
+package typedef_invalid_11;
+
+typedef ulong[] UlongArray;
+
+union MyUnion {
+    UlongArray ula;
+};

@@ -1,0 +1,7 @@
+package snmp_invalid_brief_field;
+
+/** Description.
+ */
+snmpObj A : 1 : Intersec {
+1:    int a;
+};

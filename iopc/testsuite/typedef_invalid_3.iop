@@ -1,0 +1,4 @@
+package typedef_invalid_3;
+
+@pattern("[0-9]*")
+typedef ulong MyNumericalUlong;

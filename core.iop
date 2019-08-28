@@ -1,0 +1,274 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+package core;
+
+/** List of supported log levels.
+ */
+enum LogLevel {
+    EMERG   = 0, /**< system is unusable */
+    ALERT   = 1, /**< action must be taken immediately */
+    CRIT    = 2, /**< critical conditions */
+    ERR     = 3, /**< error conditions */
+    WARNING = 4, /**< warning conditions */
+    NOTICE  = 5, /**< normal but significant condition */
+    INFO    = 6, /**< informational */
+    DEBUG   = 7, /**< debug-level messages */
+    TRACE   = 8, /**< trace-level messages */
+
+    INHERITS = -1, /**< inherits the level of the parent logger */
+    DEFAULT  = -2, /**< use default configuration */
+};
+
+/** Configuration of a specific logger.
+ */
+struct LoggerConfiguration {
+    /** Name of the logger to configure.
+     */
+    string fullName;
+
+    /** Logging level.
+     *
+     * This will be the logging level for this logger and all inheriting
+     * loggers that were not explicitly configured.
+     */
+    LogLevel level;
+
+    /** Force the use of logging level for child loggers.
+     *
+     * If this flag is set, the level of that logger is propagated to all
+     * child loggers that were not explicitly configured, even those that
+     * were not supposed to inherit from that level.
+     */
+    bool forceAll = false;
+
+    /** If true, log handler is called, but default one does nothing. */
+    bool isSilent = false;
+};
+
+/** Interface providing the basis for configuring and accessing
+ *  the logging system.
+ */
+interface Log {
+    setRootLevel
+        in (LogLevel level, bool forceAll = false, bool isSilent = false)
+        out (LogLevel level);
+
+    resetRootLevel
+        in void
+        out (LogLevel level);
+
+    setLoggerLevel
+        in (string fullName, LogLevel level, bool forceAll = false,
+            bool isSilent = false)
+        out (LogLevel level);
+
+    resetLoggerLevel
+        in (string fullName)
+        out (LogLevel level);
+
+    listLoggers
+        in (string? prefix)
+        out (LoggerConfiguration[] loggers);
+};
+
+/** Configuration of the logging system.
+ */
+struct LogConfiguration {
+    /** Root logging level.
+     *
+     * This will be the logging level for all the logger inherits from
+     * root logging level and that were not configured to another value
+     * separately.
+     *
+     * The default configuration is to enable TRACE in development builds,
+     * and to enable only DEBUG in release builds.
+     */
+    LogLevel rootLevel = LOG_LEVEL_DEFAULT;
+
+    /** Force the use of the root level.
+     *
+     * If this flag is set, the root level is propagated to all logger
+     * that were not explicitly configured, even those that were not
+     * supposed to inherit from the root level.
+     */
+    bool     forceAll = false;
+
+    /** If true, log handler is called, but default one does nothing. */
+    bool     isSilent = false;
+
+    /** Independent configuration of specific loggers.
+     *
+     * This can be used to perform a fine-grained configuration of the
+     * logging level of specific code modules.
+     */
+    LoggerConfiguration[] specific;
+};
+
+/** Configuration of a log_file_t.
+ *
+ * This class defines how a log file is opened, rotates, expires and is
+ * compressed.
+ */
+class LogFileConfiguration {
+    /** Log file max size before rotation (in bytes). */
+    int maxSize = 512M;
+
+    /** Log file max age before rotation (in seconds). */
+    ulong maxTime = 1d;
+
+    /** Maximum number of log files.
+     *
+     * <= 0 means no limit.
+     */
+    int maxFiles = 0;
+
+    /** Maximum total size of the log files (in bytes).
+     *
+     * <= 0 means no limit.
+     */
+    long totalMaxSize = 1G;
+
+    /** Activate log file compression. */
+    bool compress = true;
+};
+
+/** Full address.
+ *
+ * Addresses can be of the following forms:
+ *
+ * - "a.b.c.d:port": must be a valid ipv4 IP address.
+ * - "[ipv6addr]:port": must be a valid ipv6 IP address.
+ * - "fqdn.tld:port": must be a valid fully qualified domain name.
+ *
+ * The port must be strictly positive.
+ */
+@nonEmpty @(cfg:fullAddr, true)
+typedef string FullAddr;
+
+/** Address.
+ *
+ * Same as \ref FullAddr except that the port can be omitted.
+ */
+@nonEmpty @(cfg:addr, true)
+typedef string Addr;
+
+/** A certificate and its private key for TLS.
+ *
+ * Such files can be generated with the following command:
+ *
+ *   $ openssl req -newkey rsa:4096 -nodes -sha512 -x509 -days 3650
+ *                 -nodes -out cert.pem -keyout priv-key.pem
+ */
+struct TlsCertAndKey {
+    /** Contents of a certificate file.
+     */
+    bytes cert;
+
+    /** Contents of a private key file.
+     */
+    bytes key;
+};
+
+/** TLS configuration.
+ *
+ * These should be stored in the platform keychain, if available, and
+ * refered by their keyname. They may also be directly provided.
+ */
+union TlsCfg {
+    /** A keyname refering a key from the platform keychain.
+     */
+    string keyname;
+
+    /** The certificate and key of the server.
+     */
+    TlsCertAndKey data;
+};
+
+struct HttpdCfg {
+    /** Address (host:port) to listen on */
+    FullAddr bindAddr;
+    /** Maximum size of the output buffer (in octets) */
+    uint    outbufMaxSize    = 32 << 20;
+    /** Maximum number of pending incoming queries */
+    ushort  pipelineDepth    = 32;
+    /** Maximum time of inactivity before connection closing (in ms) */
+    uint    noactDelay       = 30 * 1000;
+    /** Maximum number of incoming queries handled into a connection life */
+    uint    maxQueries       = 1024;
+    /** Maximum number of inbound connections */
+    uint    maxConnsIn       = 1000;
+    /** Amount of data buffered by the body parser before flushing */
+    uint    onDataThreshold  = 16 << 10;
+    /** Maximum line length in headers */
+    uint    headerLineMax    = 1024;
+    /** Maximum total size for headers */
+    uint    headerSizeMax    = 64 << 10;
+    /** TLS data: certificate and private key. */
+    TlsCfg? tls;
+};
+
+struct HttpcCfg {
+    /** Maximum number of pending outgoing queries */
+    ushort  pipelineDepth    = 32;
+    /** Maximum time of inactivity before connection closing (in ms) */
+    uint    noactDelay       = 30 * 1000;
+    /** Maximum number of outgoing queries handled into a connection life */
+    uint    maxQueries       = 1024;
+    /** Amount of data buffered by the body parser before flushing */
+    uint    onDataThreshold  = 16 << 10;
+    /** Maximum line length in headers */
+    uint    headerLineMax    = 1024;
+    /** Maximum total size for headers */
+    uint    headerSizeMax    = 64 << 10;
+};
+
+enum IopHttpMethod {
+    /* rfc 2616: §5.1.1: Method */
+    /* XXX be careful, this struct is correlated with http_method_t
+    in http.h */
+    OPTIONS = 0,
+    GET     = 1,
+    HEAD    = 2,
+    POST    = 3,
+    PUT     = 4,
+    DELETE  = 5,
+    TRACE   = 6,
+    CONNECT = 7,
+};
+
+/** Sub-file (un)packed with the IOP-Json @include feature. */
+@ctype(iop_json_subfile__t)
+struct IopJsonSubfile {
+    /** Path to the (un)packed json.
+     *
+     * On unpack, the returned path is relative to the main file.
+     * On pack, the path can be either absolute or relative to the main file.
+     */
+    string filePath;
+
+    /** IOP path from the main (un)packed object. */
+    string iopPath;
+};
+
+/** Module exporting interfaces provided by lib-common.
+ */
+module Core {
+16384:
+    Log log;
+};

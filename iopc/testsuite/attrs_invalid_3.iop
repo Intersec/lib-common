@@ -1,0 +1,6 @@
+package attrs_invalid_3;
+
+@ctype(invalid__t)
+interface Iface {
+    f in (int i) out (int i);
+};

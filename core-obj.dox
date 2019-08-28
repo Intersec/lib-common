@@ -1,0 +1,162 @@
+/** \addtogroup lc_obj
+
+  <h1>Declaring a class</h1>
+
+  <h2>Basic principles</h2>
+
+  Declaring a new class needs quite some boilerplate code. First you have to
+  define two macros, named <tt>${MY_CLASS}_FIELDS(pfx)</tt> and
+  <tt>${MY_CLASS}_METHODS(type_t)</tt>. Both those macros are functional.
+
+  Those two macros <b>must</b> call the macros associated to the class you
+  are subclassing. Then you can add the new members your class have into the
+  <tt>_FIELDS</tt> macros, and its methods and static members into the
+  <tt>_METHODS</tt> one.
+
+  Every class must at least subclass <tt>object</tt>. It's not possible to
+  create new base types.
+
+  Then, to really define your class, you must call the macro
+  <tt>OBJ_CLASS</tt> this way:
+  \code
+  OBJ_CLASS(${my_class}, ${my_super_class}, ${MY_CLASS}_FIELDS, ${MY_CLASS}_METHODS);
+  \endcode
+
+  For example, if we had the class <tt>shape</tt> and that you want to
+  subclass it into <tt>circle</tt> you could for example write this code:
+  \code
+  #define CIRCLE_FIELDS(pfx) \
+      SHAPE_FIELDS(pfx);     \
+      point_t center;        \
+      int radius
+
+  #define CIRCLE_METHODS(type_t) \
+      SHAPE_FIELDS(type_t);      \
+      void (*draw)(type_t *self)
+
+  OBJ_CLASS(circle, CIRCLE_FIELDS, CIRCLE_METHODS, shape);
+  \endcode
+
+
+  <h2>Module counterparts</h2>
+
+  Once this is defined, you have to put in <b>one single and only</b> C module
+  the virtual table initialization. This is achieved using the
+  <tt>OBJ_VTABLE{,END}</tt> macros, like in the example:
+
+  \code
+  OBJ_VTABLE(circle)
+      circle.area = &circle_area; // override a shape method
+      circle.draw = &circle_draw; // define the implementation
+  OBJ_VTABLE_END(circle)
+  \endcode
+
+  <h2>Note about initializers and wipers</h2>
+
+  Each class has a <tt>init</tt> and <tt>wipe</tt> method. Those, unlike other
+  virtual methods are meant to only initialize/deinitialize the members that
+  are added in this subclassing step. It means that you <b>should not</b> call
+  the super class implementations by yourself.
+
+  The object machinery ensures that all initializers of a class hierarchy are
+  called from the lower level to the highest level ones (with respect to the
+  subclassing ordering). The same is true for the <tt>wipe</tt> methods, you
+  only need to deallocate the fields that are specific to this class.
+  <tt>wipe</tt> functions are called in the reverse order of the <tt>init</tt>
+  ones.
+
+  Note that objects are always memset to zero, so it's only necessary to
+  initialize fields that need a non zero initial value.
+
+  Objects should not provide a generic <tt>new</tt> or <tt>delete</tt> method.
+  Though it's possible to implement various factories that will generate
+  objects properly.
+
+  To help with reference counting and various delayed deletion schemes,
+  objects also provide a <tt>boo can_wipe(type_t *)</tt> method. This method is
+  called (if it exists, else a <b>true</b> return value is assumed) each
+  time someone calls <tt>obj_delete</tt> on your object. If it returns
+  <b>false</b>, then the object is <em>not really</em> deinitialized, only the
+  pointer passed as an argument is set to <tt>NULL</tt>. THIS FEATURE IS
+  DEPRECATED USE BUILTIN REFCOUNTING INSTEAD.
+
+  Objects are refcounted in builtin, with two methods: <tt>retain</tt> and
+  <tt>release</tt> working like in ObjC. Objects are either created as
+  automatic variable with <tt>obj_init</tt> and released with
+  <tt>obj_wipe</tt>, or on the heap using <tt>obj_new</tt> and
+  <tt>obj_release</tt> (or <tt>obj_delete</tt> which is an alias). Using
+  <tt>obj_{retain,release,delete</tt> on an object created using
+  <tt>obj_init</tt> is invalid.
+
+
+  <h2>Dive into the hacks</h2>
+
+  Don't mind the argument to the <tt>_FIELDS</tt> macros, it serves an obscure
+  matter too horrible to discuss. The argument to the <tt>_METHODS</tt> macro
+  though is very interesting and important. When you use it in the methods
+  return types or arguments types, it will be expanded to the object type you
+  are defining.
+
+  This way, you can emulate C++ <tt>this</tt> easily.
+
+
+  Another cool hack, is that despite the <tt>_METHODS</tt> macro clearly being
+  meant to define only callbacks, it's possible to put mere members in it.
+  Those will become the equivalent of static class members in C++. Though
+  unlike C++, those fields will be virtual, which can lead to surprising
+  results.
+
+
+  <h1>Everyday's objects use</h1>
+
+  <h2>OBJ_CLASS tools</h2>
+
+  For each class you define, the <tt>OBJ_CLASS</tt> macros gives you many
+  things. For example, for a class named <tt>frob</tt>, you get the following:
+
+  - an object and a vtable structure type: <tt>frob_t</tt> (the object type)
+    and a <tt>frob_class_t</tt>.
+
+  - a function named <tt>frob_class()</tt> that will return to you the sole
+    <tt>frob_class_t</tt> instance that is in fact your class virtual table.
+    This function implementation is generated thanks to the
+    <tt>OBJ_VTABLE{,END}</tt> macros we described above.
+
+  - a function named <tt>frob_super()</tt> that returns to you your super
+    class virtual table. This is not really meant to be used by programmers,
+    and is actually only leveraged by the <tt>OBJ_VTABLE</tt> macro, but some
+    may find it other uses.
+
+
+  <h2>Instantiating objects</h2>
+
+  Intersec Objects are the closest possible to plain C structures. This means
+  that you can either use them on the stack, or allocate them. Though, for
+  stack allocated objects, remember that it's not C++, there is nothing like
+  automatic objects.
+
+  For a <tt>frotz_t</tt> type, it's hence possible to do any of the following:
+
+  \code
+
+  // object allocated on the stack
+  {
+      frotz_t frotz;
+
+      obj_init(&frotz);
+      // ...
+      obj_wipe(&frotz);
+  }
+
+  // allocated object
+  {
+      frotz_t *frotzp;
+
+      frotzp = obj_new(frotz);   // `frotz_t *frotzp = new frotz();`
+      // ...
+      obj_delete(&frotzp);       // `delete frotzp;`
+  }
+
+  \endcode
+
+*/

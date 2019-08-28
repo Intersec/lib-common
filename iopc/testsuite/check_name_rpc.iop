@@ -1,0 +1,6 @@
+package check_name_rpc;
+
+interface Gandalf {
+    you_Shall_Not_Pass
+        in();
+};

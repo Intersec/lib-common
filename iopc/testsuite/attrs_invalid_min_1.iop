@@ -1,0 +1,6 @@
+package attrs_invalid_min_1;
+
+struct MyStruct {
+    @min(-1 << 32)
+    int mint;
+};

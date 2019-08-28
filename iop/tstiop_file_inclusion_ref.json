@@ -1,0 +1,5 @@
+/* This is a tstiop.MyRefStruct */
+{
+    "s": @include("json-includes/MyReferencedStruct.json"),
+    "u": @include("json-includes/MyReferencedUnion.json")
+}

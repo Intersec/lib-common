@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" xmlns:slash="http://purl.org/rss/1.0/modules/slash/" xmlns:taxo="http://purl.org/rss/1.0/modules/taxonomy/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:syn="http://purl.org/rss/1.0/modules/syndication/" xmlns:admin="http://webns.net/mvcb/" xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0">
+
+<channel rdf:about="http://slashdot.org/">
+<title>Slashdot</title>
+<link>http://slashdot.org/</link>
+<description>News for nerds, stuff that matters</description>
+<dc:language>en-us</dc:language>
+<dc:rights>Copyright 1997-2006, OSTG - Open Source Technology Group, Inc.  All Rights Reserved.</dc:rights>
+<dc:date>2006-09-14T09:10:33+00:00</dc:date>
+<dc:publisher>OSTG</dc:publisher>
+<dc:creator>pater@slashdot.org</dc:creator>
+<dc:subject>Technology</dc:subject>
+<syn:updatePeriod>hourly</syn:updatePeriod>
+<syn:updateFrequency>1</syn:updateFrequency>
+<syn:updateBase>1970-01-01T00:00+00:00</syn:updateBase>
+<items>
+ <rdf:Seq>
+  <rdf:li rdf:resource="http://games.slashdot.org/article.pl?sid=06/09/14/0317226&amp;from=rss" />
+  <rdf:li rdf:resource="http://games.slashdot.org/article.pl?sid=06/09/14/0449256&amp;from=rss" />
+  <rdf:li rdf:resource="http://hardware.slashdot.org/article.pl?sid=06/09/14/0310221&amp;from=rss" />
+  <rdf:li rdf:resource="http://hardware.slashdot.org/article.pl?sid=06/09/14/0148217&amp;from=rss" />
+  <rdf:li rdf:resource="http://ask.slashdot.org/article.pl?sid=06/09/13/1637236&amp;from=rss" />
+  <rdf:li rdf:resource="http://slashdot.org/article.pl?sid=06/09/13/2352211&amp;from=rss" />
+  <rdf:li rdf:resource="http://it.slashdot.org/article.pl?sid=06/09/13/2219219&amp;from=rss" />
+  <rdf:li rdf:resource="http://it.slashdot.org/article.pl?sid=06/09/13/228231&amp;from=rss" />
+  <rdf:li rdf:resource="http://hardware.slashdot.org/article.pl?sid=06/09/13/2051206&amp;from=rss" />
+  <rdf:li rdf:resource="http://it.slashdot.org/article.pl?sid=06/09/13/192224&amp;from=rss" />
+  <rdf:li rdf:resource="http://yro.slashdot.org/article.pl?sid=06/09/13/1847255&amp;from=rss" />
+  <rdf:li rdf:resource="http://books.slashdot.org/article.pl?sid=06/09/13/147213&amp;from=rss" />
+  <rdf:li rdf:resource="http://games.slashdot.org/article.pl?sid=06/09/13/1818237&amp;from=rss" />
+  <rdf:li rdf:resource="http://yro.slashdot.org/article.pl?sid=06/09/13/1659258&amp;from=rss" />
+  <rdf:li rdf:resource="http://yro.slashdot.org/article.pl?sid=06/09/13/1644230&amp;from=rss" />
+ </rdf:Seq>
+</items>
+<image rdf:resource="http://images.slashdot.org/topics/topicslashdot.gif" />
+<textinput rdf:resource="http://slashdot.org/search.pl" />
+</channel>
+
+<image rdf:about="http://images.slashdot.org/topics/topicslashdot.gif">
+<title>Slashdot</title>
+<url>http://images.slashdot.org/topics/topicslashdot.gif</url>
+<link>http://slashdot.org/</link>
+</image>
+
+<item rdf:about="http://games.slashdot.org/article.pl?sid=06/09/14/0317226&amp;from=rss">
+<title>The Top 5 Games of All Time</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/22118708/article.pl</link>
+<description>An anonymous reader writes "The guys over at trusted reviews have come up with lists of their top five games of all time. There are some obvious choices and some very obscure ones, but on the whole its interesting reading. See how their lists compare to yours"
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=zH4OO4"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=zH4OO4" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/22118708"/&gt;</description>
+<dc:creator>samzenpus</dc:creator>
+<dc:date>2006-09-14T06:04:00+00:00</dc:date>
+<dc:subject>classic</dc:subject>
+<slash:department>easily-diablo2</slash:department>
+<slash:section>games</slash:section>
+<slash:comments>179</slash:comments>
+<slash:hit_parade>179,175,149,76,25,14,6</slash:hit_parade>
+<feedburner:origLink>http://games.slashdot.org/article.pl?sid=06/09/14/0317226&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://games.slashdot.org/article.pl?sid=06/09/14/0449256&amp;from=rss">
+<title>Wii to Launch Nov. 19th for $250</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/22110011/article.pl</link>
+<description>PygmySurfer writes "According to the Seattle Post-Intelligencer, Nintendo is going to announce today that the Wii will go on sale on November 19th in North and South America, at a cost of $250. It will come bundled with Wii Sports, as well as channels for such things as viewing photos, as well as news and weather. Finally, Wii will also make it possible to browse the web on your television. Nintendo will also announce that 25-30 games will be published this year, as well as about 30 classic games available on the virtual console, costing about $5-10."
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=UlLpvR"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=UlLpvR" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/22110011"/&gt;</description>
+<dc:creator>Zonk</dc:creator>
+<dc:date>2006-09-14T05:38:00+00:00</dc:date>
+<dc:subject>nintendo</dc:subject>
+<slash:department>right-price-right-on</slash:department>
+<slash:section>games</slash:section>
+<slash:comments>172</slash:comments>
+<slash:hit_parade>172,168,139,87,19,12,7</slash:hit_parade>
+<feedburner:origLink>http://games.slashdot.org/article.pl?sid=06/09/14/0449256&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://hardware.slashdot.org/article.pl?sid=06/09/14/0310221&amp;from=rss">
+<title>China to Make$125 PCs</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/22095571/article.pl</link>
+<description>TechFreep writes "A Chinese computer company hopes to sell low-cost PCs to schools and government agencies, but allegations of ripped-off processor designs might slow the effort. "Chinese-based ZhongKe Menglan Electronics Technology Co. will produce several thousand low-cost PCs to distribute to schools and local governments. The PCs, which will initially sell for $150 to $175, will run on Linux and include 256Mb of RAM, a 40 or 60GB hard drive, and a Godson-2 CPU clocked between 800Mhz and 1Ghz. If initial sales of the product are successful ZhongKe will begin mass production of the units for sale at around 125 US dollars. However, the Godson-2 CPU included in the PCs have come under scrutiny as of late. BLX IC Design Corp., producer of the Godson-2, produced its first working prototype in 2005. The chip clocked at 500Mhz, and BLX at the time claimed the Godson's performance rivalled that of higher-clocked Pentium III CPUs. However, the chip's architecture has gotten attention around the industry for its similarities to the MIPS chip from MIPS Technologies Inc. According to market research group In-Stat, the Godson-2 is about 95-percent compatible with the MIPS R10000, which was introduced in 1995.""
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=oleZnh"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=oleZnh" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/22095571"/&gt;</description>
+<dc:creator>samzenpus</dc:creator>
+<dc:date>2006-09-14T04:15:00+00:00</dc:date>
+<dc:subject>biz</dc:subject>
+<slash:department>the-peoples-computers</slash:department>
+<slash:section>hardware</slash:section>
+<slash:comments>83</slash:comments>
+<slash:hit_parade>83,80,63,46,21,11,2</slash:hit_parade>
+<feedburner:origLink>http://hardware.slashdot.org/article.pl?sid=06/09/14/0310221&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://hardware.slashdot.org/article.pl?sid=06/09/14/0148217&amp;from=rss">
+<title>The Hard Drive Turns 50</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/22066478/article.pl</link>
+<description>JHU writes "When the hard drive was first introduced on September 13, 1956, it required a humongous housing and 50 24-inch platters to store 1/2400 as much data as can be fit on today's largest capacity 1-inch hard drives. Back then, the small team at IBM's San Jose-based lab was seeking a way to replace tape with a storage mechanism that allowed for more-efficient random access to data. The question was, how to bring random-access storage to business computing?"
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=6lZNLd"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=6lZNLd" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/22066478"/&gt;</description>
+<dc:creator>samzenpus</dc:creator>
+<dc:date>2006-09-14T02:55:00+00:00</dc:date>
+<dc:subject>storage</dc:subject>
+<slash:department>but-it-still-feels-10</slash:department>
+<slash:section>hardware</slash:section>
+<slash:comments>94</slash:comments>
+<slash:hit_parade>94,91,76,56,14,8,5</slash:hit_parade>
+<feedburner:origLink>http://hardware.slashdot.org/article.pl?sid=06/09/14/0148217&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://ask.slashdot.org/article.pl?sid=06/09/13/1637236&amp;from=rss">
+<title>Is the Do Not Call System Working?</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/22039879/article.pl</link>
+<description>BrentRJones writes "I signed up for the Do Not Call registry the first day I heard of it, and I have to say that I have gotten very few telemarketers calling over the past couple of years. However, there now seems to be more calls that start, 'This is a survey...' or some other such excuse. I do not mind getting a few charity appeals or calls from those I have done business with in the past, but I do wish that I could avoid the political phone calls. I am curious what other Slashdot folks are experiencing, and I am also wondering if I say, 'Please remove from any list that you have.' when I am called, will this do any good?"
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=7KsDWH"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=7KsDWH" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/22039879"/&gt;</description>
+<dc:creator>Cliff</dc:creator>
+<dc:date>2006-09-14T01:34:00+00:00</dc:date>
+<dc:subject>privacy</dc:subject>
+<slash:department>but-it-doesn't-block-the-politicians</slash:department>
+<slash:section>askslashdot</slash:section>
+<slash:comments>226</slash:comments>
+<slash:hit_parade>226,226,188,111,31,20,12</slash:hit_parade>
+<feedburner:origLink>http://ask.slashdot.org/article.pl?sid=06/09/13/1637236&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://slashdot.org/article.pl?sid=06/09/13/2352211&amp;from=rss">
+<title>Professor Sells Lectures Online</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/22019463/article.pl</link>
+<description>KnightMB writes "Students at NCSU have the option of purchasing the lectures of a professor online. The Professor did this as a way to help those that missed class, didn't take good notes, or from another country and have trouble understanding an English speaking Professor. The reactions on campus were mixed among the students as some saw it as a great way to keep up with things should real life interfere and others see it as something to pay for on top of the tuition cost at the university. Each one cost $2.50 for the entire lecture. Some students feel it should be free or cost less. The professor brings up a point that doing this takes extra effort and it's only fair that they should have to pay for that extra time and effort needed to put the lectures online for sale such as editing, recording equipment, etc. No one is forced to purchase the lectures, they are only an additional option that students will have. Quote Dr. Schrag "Your tuition buys you access to the lectures in the classroom. If you want to hear one again, you can buy it. I guess you could see the service as a safety net designed to help the students get the content when life gets in the way of their getting to class."
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=8jiQKx"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=8jiQKx" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/22019463"/&gt;</description>
+<dc:creator>samzenpus</dc:creator>
+<dc:date>2006-09-14T00:27:00+00:00</dc:date>
+<dc:subject>media</dc:subject>
+<slash:department>never-go-to-class-again</slash:department>
+<slash:section>mainpage</slash:section>
+<slash:comments>320</slash:comments>
+<slash:hit_parade>320,320,257,157,27,18,15</slash:hit_parade>
+<feedburner:origLink>http://slashdot.org/article.pl?sid=06/09/13/2352211&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://it.slashdot.org/article.pl?sid=06/09/13/2219219&amp;from=rss">
+<title>DHS Publishes Report on Operation Cyberstorm</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/22001709/article.pl</link>
+<description>uniquebydegrees writes "InfoWorld reports that the Department of Homeland Security has released the findings of Operation Cyber Storm, a large-scale simulation of combined cyber-physical attacks on U.S. critical infrastructure. From the article: 'According to DHS, "observers noted that players had difficulty ascertaining what organizations and whom within those organizations to contact when there was no previously established relationship or pre-determined plans for response coordination and risk assessments/mitigation. There was a general recognition of the difficulties organizations faced when attempting to establish trust with unfamiliar organizations during time of crisis."'"
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=laCl3T"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=laCl3T" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/22001709"/&gt;</description>
+<dc:creator>ScuttleMonkey</dc:creator>
+<dc:date>2006-09-13T23:20:00+00:00</dc:date>
+<dc:subject>security</dc:subject>
+<slash:department>blind-leading-the-blind</slash:department>
+<slash:section>it</slash:section>
+<slash:comments>56</slash:comments>
+<slash:hit_parade>56,55,45,34,10,5,1</slash:hit_parade>
+<feedburner:origLink>http://it.slashdot.org/article.pl?sid=06/09/13/2219219&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://it.slashdot.org/article.pl?sid=06/09/13/228231&amp;from=rss">
+<title>Microsoft Wins Record Amount from Hotmail Spammer</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/21984125/article.pl</link>
+<description>mytrip writes to tell us News.com is reporting that Microsoft has won a record $87,177 against spammer Paul Fox who used a hotmail account to direct users to his pornographic download site. From the article: "But while Microsoft has clearly won, the case highlights a failure in the British legal system to tackle spam. Despite efforts by the Information Commissioner's Office to gain power from the Department of Trade &amp;amp; Industry to deal with spam, Information Commissioner Richard Thomas remains hamstrung."
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=PsBXFU"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=PsBXFU" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/21984125"/&gt;</description>
+<dc:creator>ScuttleMonkey</dc:creator>
+<dc:date>2006-09-13T22:32:00+00:00</dc:date>
+<dc:subject>microsoft</dc:subject>
+<slash:department>losing-battles</slash:department>
+<slash:section>it</slash:section>
+<slash:comments>64</slash:comments>
+<slash:hit_parade>64,63,50,30,6,3,1</slash:hit_parade>
+<feedburner:origLink>http://it.slashdot.org/article.pl?sid=06/09/13/228231&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://hardware.slashdot.org/article.pl?sid=06/09/13/2051206&amp;from=rss">
+<title>IBM's Cell Processor &amp;mdash; Not Just for PS3 Anymore</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/21974785/article.pl</link>
+<description>TechFreep writes to tell us that IBM has released a new line of QS20 Blade Servers based on the processor they developed for the Playstation 3. From the article: "Today IBM announced a new line of high-powered QS20 Blade Servers intended for use in seismic research, encryption, digital image rendering and military surveillance applications. Each QS20 will include two nine-cored Cell Processors clocked at 3.2Ghz apiece, which were developed along with Sony and Toshiba for Sony's upcoming Playstation 3 console. As Playstation 3 isn't scheduled for release until November, the QS20 will mark the first application in which the highly-touted Cell will be available to consumers."
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=TMpFZV"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=TMpFZV" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/21974785"/&gt;</description>
+<dc:creator>ScuttleMonkey</dc:creator>
+<dc:date>2006-09-13T21:48:00+00:00</dc:date>
+<dc:subject>hardware</dc:subject>
+<slash:department>processor-before-the-games</slash:department>
+<slash:section>hardware</slash:section>
+<slash:comments>142</slash:comments>
+<slash:hit_parade>142,141,117,79,24,15,10</slash:hit_parade>
+<feedburner:origLink>http://hardware.slashdot.org/article.pl?sid=06/09/13/2051206&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://it.slashdot.org/article.pl?sid=06/09/13/192224&amp;from=rss">
+<title>Mistrust of Today's Technology</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/21956988/article.pl</link>
+<description>narramissic writes to tell us that Sean McGrath has an interesting look at a general mistrust of today's technology and draws a comparison to the proofreading of photocopies. From the article: "The constant availability of web services out there in the cloud is one such idea. Today, we do not trust the cloud and the services on it to be always available. Few of us can remember any incidences in recent time when, say google.com or amazon.com or live.com was offline but we still do not trust them to be always there and available. I predict that this day will pass. The day will come when outages of big commercial services on the cloud are as unusual as outages in the phone system or the electricity supply system. Sure, losing power will also lose you the services on the cloud but your business most likely has bigger problems to worry about when the power goes."
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=CPwcxp"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=CPwcxp" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/21956988"/&gt;</description>
+<dc:creator>ScuttleMonkey</dc:creator>
+<dc:date>2006-09-13T21:04:00+00:00</dc:date>
+<dc:subject>it</dc:subject>
+<slash:department>proofreading-photocopies</slash:department>
+<slash:section>it</slash:section>
+<slash:comments>153</slash:comments>
+<slash:hit_parade>153,150,126,96,22,14,7</slash:hit_parade>
+<feedburner:origLink>http://it.slashdot.org/article.pl?sid=06/09/13/192224&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://yro.slashdot.org/article.pl?sid=06/09/13/1847255&amp;from=rss">
+<title>US Air Force to Test Hi-Tech Weapons on Americans?</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/21946946/article.pl</link>
+<description>GayBliss writes to tell us CNN.com has an article about how the US Air Force secretary proposes testing new 'non-lethal' weapons on American citizens before deploying them to the battlefield. New weapons like a high-power microwave device are designed to incapacitate people or sometimes even electronic devices. From the article: "The object is basically public relations. Domestic use would make it easier to avoid questions from others about possible safety considerations, said Secretary Michael Wynne."
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=n2XFrS"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=n2XFrS" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/21946946"/&gt;</description>
+<dc:creator>ScuttleMonkey</dc:creator>
+<dc:date>2006-09-13T20:17:00+00:00</dc:date>
+<dc:subject>usa</dc:subject>
+<slash:department>people-for-the-ethical-treatment-of-americans</slash:department>
+<slash:section>yro</slash:section>
+<slash:comments>542</slash:comments>
+<slash:hit_parade>542,539,443,304,65,33,21</slash:hit_parade>
+<feedburner:origLink>http://yro.slashdot.org/article.pl?sid=06/09/13/1847255&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://books.slashdot.org/article.pl?sid=06/09/13/147213&amp;from=rss">
+<title>Mastering Regular Expressions</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/21931695/article.pl</link>
+<description>Simon P. Chappell writes "Classics are funny things, especially in the world of books. There are books that people say "should' be classics (I'll refrain from mentioning names to protect the pretentious) and then there are books that people are too busy actually using to get around to listing as classics. Mastering Regular Expressions, now in it's third edition, is in the second group. It's one of those books that you see on desks in computer departments the world over. This is a real "doers" book." Read the rest of Simon's review.
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=1uDjD5"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=1uDjD5" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/21931695"/&gt;</description>
+<dc:creator>samzenpus</dc:creator>
+<dc:date>2006-09-13T19:29:00+00:00</dc:date>
+<dc:subject>programming</dc:subject>
+<slash:department>programmers-handbook</slash:department>
+<slash:section>books</slash:section>
+<slash:comments>174</slash:comments>
+<slash:hit_parade>174,169,137,101,33,18,13</slash:hit_parade>
+<feedburner:origLink>http://books.slashdot.org/article.pl?sid=06/09/13/147213&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://games.slashdot.org/article.pl?sid=06/09/13/1818237&amp;from=rss">
+<title>ESA Pushing for Gamers to Vote</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/21918197/article.pl</link>
+<description>Grooves writes "The Entertainment Software Association (ESA) has announced the first voter registration drive aimed at gamers, called 'Play for Real: Gamer Voter Drive'. The drive is being managed by the ESA's Video Game Voters Network, an attempt at growing a grassroots community around the issue of games legislation. From the article, 'Lowenstein would like to boost these figures by convincing younger voters that their voice will have an influence over issues they care about, particularly efforts to create new laws restricting video games.'"
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=ibR0Z1"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=ibR0Z1" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/21918197"/&gt;</description>
+<dc:creator>ScuttleMonkey</dc:creator>
+<dc:date>2006-09-13T18:43:00+00:00</dc:date>
+<dc:subject>usa</dc:subject>
+<slash:department>just-make-it-a-last-man-standing-fps</slash:department>
+<slash:section>games</slash:section>
+<slash:comments>114</slash:comments>
+<slash:hit_parade>114,113,98,64,12,8,2</slash:hit_parade>
+<feedburner:origLink>http://games.slashdot.org/article.pl?sid=06/09/13/1818237&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://yro.slashdot.org/article.pl?sid=06/09/13/1659258&amp;from=rss">
+<title>Regulation That Could Stifle Video Over the Net?</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/21908692/article.pl</link>
+<description>bb writes to tell us that recent comments made by the FCC could be cause for concern for proponents of internet video. Being considered under the guise of a push against child pornography on the internet, VoN founder Jeff Pulver stated that this is just a warning shot. From the article: "He drew a parallel between this potential regulation and an attempt to ban or restrict Internet voice in 1996, and predicted a long battle and offered to help advocates of rights of IP video innovators. 'The VoN coalition will take people through the stages of what's going to happen,' he said."
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=n4N2Lh"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=n4N2Lh" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/21908692"/&gt;</description>
+<dc:creator>ScuttleMonkey</dc:creator>
+<dc:date>2006-09-13T18:02:00+00:00</dc:date>
+<dc:subject>communications</dc:subject>
+<slash:department>being-proactive</slash:department>
+<slash:section>yro</slash:section>
+<slash:comments>146</slash:comments>
+<slash:hit_parade>146,146,120,103,30,11,8</slash:hit_parade>
+<feedburner:origLink>http://yro.slashdot.org/article.pl?sid=06/09/13/1659258&amp;from=rss</feedburner:origLink></item>
+
+<item rdf:about="http://yro.slashdot.org/article.pl?sid=06/09/13/1644230&amp;from=rss">
+<title>The Drawbacks of Anonymous Surfing</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/21892465/article.pl</link>
+<description>BlueCup writes to tell us that one reporter decided to give anonymous web surfing a shot, and found it to be much more trouble than it was worth. Many users take advantage of Tor and other anonymous web browsing tools, but is the amount of hassle worth the effort it takes to remain anonymous?
+&lt;p&gt;&lt;a href="http://rss.slashdot.org/~a/Slashdot/slashdot?a=kIJg7J"&gt;&lt;img src="http://rss.slashdot.org/~a/Slashdot/slashdot?i=kIJg7J" border="0"&gt;&lt;/img&gt;&lt;/a&gt;&lt;/p&gt;&lt;img src="http://rss.slashdot.org/~r/Slashdot/slashdot/~4/21892465"/&gt;</description>
+<dc:creator>ScuttleMonkey</dc:creator>
+<dc:date>2006-09-13T17:11:00+00:00</dc:date>
+<dc:subject>privacy</dc:subject>
+<slash:department>staying-under-the-radar</slash:department>
+<slash:section>yro</slash:section>
+<slash:comments>213</slash:comments>
+<slash:hit_parade>213,210,160,117,39,22,16</slash:hit_parade>
+<feedburner:origLink>http://yro.slashdot.org/article.pl?sid=06/09/13/1644230&amp;from=rss</feedburner:origLink></item>
+
+<textinput rdf:about="http://slashdot.org/search.pl">
+<title>Search Slashdot</title>
+<description>Search Slashdot stories</description>
+<name>query</name>
+<link>http://slashdot.org/search.pl</link>
+</textinput>
+
+</rdf:RDF>

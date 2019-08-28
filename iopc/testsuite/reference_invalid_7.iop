@@ -1,0 +1,5 @@
+package reference_invalid_7;
+
+struct MyStruct {
+    MyStruct?& s;
+};

@@ -1,0 +1,6 @@
+package attrs_invalid_6;
+
+struct MyStruct {
+    @minOccurs(1)
+    int i = 10;
+}

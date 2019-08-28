@@ -1,0 +1,5 @@
+package circular_type_invalid;
+
+struct C { A a; };
+struct B { C c; };
+struct A { B b; };

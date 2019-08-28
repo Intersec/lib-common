@@ -1,0 +1,8 @@
+/* Test that fields can be in any order */
+{
+     "c": 5,
+     "b": false,
+     "a2": 12,
+     "_class": "tstiop_inheritance.C1",
+     "a": 2
+}

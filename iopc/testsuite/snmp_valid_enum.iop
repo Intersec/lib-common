@@ -1,0 +1,42 @@
+package snmp_valid_enum;
+
+enum SomeEnum {
+    STATE1,
+    STATE2,
+    STATE3,
+};
+
+snmpObj Params : 1 : Intersec {
+      /** Description.
+       */
+1:    SomeEnum a1;
+
+      /** Description.
+       */
+2:    string a2;
+};
+
+/** Description.
+ */
+snmpTbl B : 2 : Intersec {
+     /** Description.
+      */
+1:   string b1;
+
+     /** Description.
+      */
+4:   SomeEnum b2;
+
+     /** Description.
+      */
+     @snmpIndex
+5:   uint indexB;
+};
+
+@snmpParamsFrom(Params)
+snmpIface Notifications : 1 : Params {
+    /** Description.
+     */
+    notif1
+        in (a1, a2);
+};

@@ -1,0 +1,143 @@
+{
+    lib-common/e_trace
+    Memcheck:Leak
+    ...
+    fun:strdup
+    ...
+    fun:e_debug_initialize
+}
+
+{
+    lib-common/pthread-hook/dlsym_leak
+    Memcheck:Leak
+    fun:calloc
+    fun:_dlerror_run
+    fun:dlsym
+    ...
+    fun:thr_initialize
+}
+
+{
+    lib-common/mem-stack
+    Memcheck:Leak
+    ...
+    fun:sp_reserve
+}
+
+# see https://support.intersec.com/issues/3694
+{
+    lib-common/pthread-hook/dlsym_leak
+    Memcheck:Leak
+    fun:calloc
+    fun:_dl_allocate_tls
+    fun:pthread_create@@GLIBC_2.2.5
+    ...
+    fun:thr_initialize
+}
+
+{
+    # does 4-bytes optimistic loads
+    lib-common/membitcount_c
+    Memcheck:Addr4
+    ...
+    fun:membitcount_c
+}
+{
+    # does 4-bytes optimistic loads on x86
+    lib-common/membitcount_popcnt_4
+    Memcheck:Addr4
+    ...
+    fun:membitcount_popcnt
+}
+{
+    # does 8-bytes optimistic loads on x64
+    lib-common/membitcount_popcnt_8
+    Memcheck:Addr8
+    ...
+    fun:membitcount_popcnt
+}
+{
+    # does 16-bytes optimistic loads
+    lib-common/membitcount_ssse3_16
+    Memcheck:Addr16
+    ...
+    fun:membitcount_ssse3
+}
+
+# 4/8/16 optimistic loads allowed as a general rule for membitcount
+{
+    lib-common/membitcount_4
+    Memcheck:Addr4
+    ...
+    fun:membitcount
+}
+{
+    lib-common/membitcount_8
+    Memcheck:Addr8
+    ...
+    fun:membitcount
+}
+{
+    lib-common/membitcount_16
+    Memcheck:Addr16
+    ...
+    fun:membitcount
+}
+
+# QPS
+{
+    lib-common/qps/snapshot/unitialized
+    Memcheck:Value8
+    ...
+    fun:gz*
+    ...
+    fun:__qps_snapshot_block_func_3
+}
+
+{
+    lib-common/qps/snapshot/param
+    Memcheck:Param
+    write(buf)
+    ...
+    fun:gz*
+    ...
+    fun:__qps_snapshot_block_func_3
+}
+
+{
+    lib-common/qps/snapshot/cond
+    Memcheck:Cond
+    ...
+    fun:gz*
+    ...
+    fun:__qps_snapshot_block_func_3
+}
+
+# Logs
+{
+    lib-common/log/is_debug
+    Memcheck:Leak
+    ...
+    fun:malloc
+    ...
+    fun:mp_strdup
+    fun:log_initialize
+}
+{
+    lib-common/log/specs
+    Memcheck:Leak
+    ...
+    fun:qv_spec_growlen
+    fun:log_initialize
+}
+
+# conversion from string to double
+# Valgrind 3.7.0 does not handle __GI___strncasecmp_l, seems to be fixed
+# on subsequent versions
+{
+    lib-common/str-num/memtod
+    Memcheck:Addr8
+    fun:__GI___strncasecmp_l
+    ...
+    fun:memtod
+}

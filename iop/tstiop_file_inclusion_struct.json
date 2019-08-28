@@ -1,0 +1,10 @@
+/* This is a tstiop.MyStructC */
+{
+    "a": 0,
+    "b": @include("json-includes/MyStructC-1.json"),
+    "c": [ {
+        "a": 4
+    },
+        @include("json-includes/MyStructC-2.json")
+    ]
+}

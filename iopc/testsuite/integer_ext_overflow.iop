@@ -1,0 +1,5 @@
+package integer_ext_overflow;
+
+struct S {
+    ulong a = 16777216T;
+};

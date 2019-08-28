@@ -1,0 +1,8 @@
+package void_in_union;
+
+
+@ctype(void_set_safe__t)
+union A {
+    void v;
+    int i;
+};

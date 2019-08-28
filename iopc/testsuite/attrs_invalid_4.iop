@@ -1,0 +1,6 @@
+package attrs_invalid_4;
+
+struct Foo {
+    @private
+    int a;
+};

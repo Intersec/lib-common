@@ -1,0 +1,6 @@
+package attrs_invalid_1;
+
+@unk(test_user_t)
+struct User {
+    string  login;
+}

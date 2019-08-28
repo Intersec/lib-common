@@ -1,0 +1,8 @@
+package reference_invalid_3;
+
+class MyClass {
+};
+
+struct MyStruct {
+    MyClass& a;
+};

@@ -1,0 +1,5 @@
+/* This is a tstiop.MyStructAOpt */
+{
+    "a": 1,
+    "j": @include("json-includes/string.txt")
+}

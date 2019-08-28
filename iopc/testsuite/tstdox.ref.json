@@ -1,0 +1,689 @@
+{
+	"name": "tstdox",
+
+	"objects": [
+		{
+			"name": "MyEnumA",
+			"fullName": "tstdox.MyEnumA",
+			"type": "enum",
+			"help": {
+				"brief": "comment for MyEnumA",
+				"details": "details for MyEnumA \\word not a recognized keyword",
+				"warning": "warn for MyEnumA"
+			},
+			"values": {
+				"VAL_A": {
+					"value": 0
+				},
+				"VAL_B": {
+					"value": 1
+				},
+				"VAL_C": {
+					"value": 2
+				}
+			},
+			"valuesHelp": {
+				"VAL_A": {
+					"brief": "< comment for MY_ENUM_A_VAL_A"
+				},
+				"VAL_C": {
+					"brief": "comment for MY_ENUM_A_VAL_C"
+				}
+			}
+		},
+		{
+			"name": "MyEnumB",
+			"fullName": "tstdox.MyEnumB",
+			"type": "enum",
+			"values": {
+				"VAL_A": {
+					"value": 0
+				},
+				"VAL_B": {
+					"value": 1
+				},
+				"VAL_C": {
+					"value": 2
+				}
+			}
+		},
+		{
+			"name": "MyEnumC",
+			"fullName": "tstdox.MyEnumC",
+			"type": "enum",
+			"help": {
+				"brief": "comment for MY_ENUM_C"
+			},
+			"constraints": {
+				"strict": true
+			},
+			"values": {
+				"VAL_A": {
+					"value": 0
+				}
+			}
+		},
+		{
+			"name": "MyEnumD",
+			"fullName": "tstdox.MyEnumD",
+			"type": "enum",
+			"values": {
+				"VAL_A": {
+					"value": 0
+				},
+				"VAL_B": {
+					"value": 1
+				},
+				"VAL_C": {
+					"value": 2
+				}
+			},
+			"valuesHelp": {
+				"VAL_B": {
+					"brief": "comment for MY_ENUM_D_VAL_B"
+				}
+			}
+		},
+		{
+			"name": "MyStructA",
+			"fullName": "tstdox.MyStructA",
+			"type": "struct",
+			"fields": {
+				"fieldA": {
+					"type": "int"
+				},
+				"fieldB": {
+					"type": "int"
+				},
+				"fieldC": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "MyStructB",
+			"fullName": "tstdox.MyStructB",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int",
+					"constraints": {
+						"max": 10
+					}
+				},
+				"j": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "CDataTest",
+			"fullName": "tstdox.CDataTest",
+			"type": "struct",
+			"fields": {
+				"sfield": {
+					"type": "string",
+					"constraints": {
+						"cdata": true
+					}
+				}
+			}
+		},
+		{
+			"name": "MyStructAa",
+			"fullName": "tstdox.MyStructAa",
+			"type": "struct",
+			"help": {
+				"brief": "comment for MyStructAa"
+			},
+			"fields": {
+				"fieldA": {
+					"type": "int",
+					"help": {
+						"brief": "comment for MyStructAa.fieldA"
+					}
+				},
+				"fieldB": {
+					"type": "int"
+				},
+				"fieldC": {
+					"type": "int",
+					"help": {
+						"brief": "comment for MyStructAa.fieldC"
+					}
+				}
+			}
+		},
+		{
+			"name": "MyStructAb",
+			"fullName": "tstdox.MyStructAb",
+			"type": "struct",
+			"fields": {
+				"fieldA": {
+					"type": "int"
+				},
+				"fieldB": {
+					"type": "int",
+					"help": {
+						"brief": "comment for MyStructAb.fieldB"
+					}
+				},
+				"fieldC": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "MyStructAc",
+			"fullName": "tstdox.MyStructAc",
+			"type": "struct",
+			"help": {
+				"brief": "comment for MyStructAc"
+			},
+			"fields": {
+				"fieldA": {
+					"type": "int"
+				},
+				"fieldB": {
+					"type": "int"
+				},
+				"fieldC": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "MyStructBa",
+			"fullName": "tstdox.MyStructBa",
+			"type": "struct",
+			"help": {
+				"brief": "comment for MyStructBa"
+			},
+			"fields": {
+				"i": {
+					"type": "int",
+					"constraints": {
+						"max": 10
+					}
+				},
+				"j": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "MyStructBb",
+			"fullName": "tstdox.MyStructBb",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int",
+					"help": {
+						"brief": "comment for MyStructBb.i"
+					},
+					"constraints": {
+						"max": 10
+					}
+				},
+				"j": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "SortField",
+			"fullName": "tstdox.SortField",
+			"type": "struct",
+			"help": {
+				"brief": "Specify a sorting condition on a field"
+			},
+			"fields": {
+				"pos": {
+					"type": "uint",
+					"help": {
+						"brief": "Position of the field to use in the \\ref Extract::fields"
+					}
+				}
+			}
+		},
+		{
+			"name": "MyClassBase",
+			"fullName": "tstdox.MyClassBase",
+			"type": "class",
+			"isAbstract": true,
+			"statics": {
+				"name": {
+					"type": "string",
+					"help": {
+						"brief": "comment for name of MyClassBase this static field has no defval"
+					}
+				},
+				"val": {
+					"type": "int",
+					"default": 10,
+					"help": {
+						"brief": "comment for val of MyClassBase"
+					}
+				}
+			},
+			"fields": {
+			}
+		},
+		{
+			"name": "MyClassA",
+			"fullName": "tstdox.MyClassA",
+			"type": "class",
+			"parent": "tstdox.MyClassBase",
+			"isAbstract": false,
+			"statics": {
+				"name": {
+					"type": "string",
+					"default": "MyClassA"
+				},
+				"val": {
+					"type": "int",
+					"default": 100
+				}
+			},
+			"fields": {
+			}
+		},
+		{
+			"name": "MyClass1",
+			"fullName": "tstdox.MyClass1",
+			"type": "class",
+			"isAbstract": true,
+			"help": {
+				"brief": "no comment in static fields"
+			},
+			"statics": {
+				"fieldA": {
+					"type": "int"
+				}
+			},
+			"fields": {
+			}
+		},
+		{
+			"name": "MyClass2",
+			"fullName": "tstdox.MyClass2",
+			"type": "class",
+			"parent": "tstdox.MyClass1",
+			"isAbstract": false,
+			"statics": {
+				"fieldA": {
+					"type": "int",
+					"default": 1
+				}
+			},
+			"fields": {
+			}
+		},
+		{
+			"name": "funAArgs",
+			"fullName": "tstdox.MyIfaceA.funAArgs",
+			"type": "struct",
+			"help": {
+				"brief": "local comment for MyIfaceA.funA.in",
+				"example": {"aParam":1,"b":{"fieldA":11,"fieldB":12,"fieldC":13}}
+			},
+			"fields": {
+				"aParam": {
+					"type": "int",
+					"help": {
+						"brief": "local comment for MyIfaceA.funA.in.aParam",
+						"details": "comment for aParam of funA.in\n                      it continues here"
+					}
+				},
+				"b": {
+					"type": "tstdox.MyStructAa",
+					"help": {
+						"brief": "local comment for MyIfaceA.funA.in.b",
+						"details": "comment for b of funA.in"
+					}
+				}
+			}
+		},
+		{
+			"name": "funARes",
+			"fullName": "tstdox.MyIfaceA.funARes",
+			"type": "struct",
+			"help": {
+				"brief": "local comment for MyIfaceA.funA.out",
+				"example": {"c":{"fieldA":11,"fieldB":12,"fieldC":13},"d":4}
+			},
+			"fields": {
+				"c": {
+					"type": "tstdox.MyStructA",
+					"help": {
+						"brief": "local comment for MyIfaceA.funA.out.c",
+						"details": "comment for c of funA.out"
+					}
+				},
+				"d": {
+					"type": "int",
+					"help": {
+						"details": "comment for \\ref d of funA.out\n2nd paragraph for \\p d of funA.out"
+					}
+				}
+			}
+		},
+		{
+			"name": "funAaArgs",
+			"fullName": "tstdox.MyIfaceA.funAaArgs",
+			"type": "struct",
+			"help": {
+				"brief": "comment for MyIfaceA.funAa.in"
+			},
+			"fields": {
+				"a": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funAaRes",
+			"fullName": "tstdox.MyIfaceA.funAaRes",
+			"type": "struct",
+			"help": {
+				"example": {"b":3}
+			},
+			"fields": {
+				"b": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funBArgs",
+			"fullName": "tstdox.MyIfaceA.funBArgs",
+			"type": "struct",
+			"help": {
+				"brief": "comment for MyIfaceA.funB.in"
+			},
+			"fields": {
+				"a": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funCRes",
+			"fullName": "tstdox.MyIfaceA.funCRes",
+			"type": "struct",
+			"fields": {
+				"b": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funDRes",
+			"fullName": "tstdox.MyIfaceA.funDRes",
+			"type": "struct",
+			"help": {
+				"brief": "front comment... and back comment for res of funD"
+			},
+			"fields": {
+				"b": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funEArgs",
+			"fullName": "tstdox.MyIfaceA.funEArgs",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "int",
+					"help": {
+						"details": "It is a \\p comment for \\ref a"
+					}
+				}
+			}
+		},
+		{
+			"name": "funAArgs",
+			"fullName": "tstdox.MyIfaceB.funAArgs",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funBArgs",
+			"fullName": "tstdox.MyIfaceB.funBArgs",
+			"type": "struct",
+			"fields": {
+				"j": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funAArgs",
+			"fullName": "tstdox.MyIfaceC.funAArgs",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funBArgs",
+			"fullName": "tstdox.MyIfaceC.funBArgs",
+			"type": "struct",
+			"fields": {
+				"j": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funAArgs",
+			"fullName": "tstdox.MyIfaceD.funAArgs",
+			"type": "struct",
+			"fields": {
+				"i": {
+					"type": "int"
+				}
+			}
+		},
+		{
+			"name": "funBArgs",
+			"fullName": "tstdox.MyIfaceD.funBArgs",
+			"type": "struct",
+			"fields": {
+				"j": {
+					"type": "int"
+				}
+			}
+		}
+	],
+
+	"interfaces": [
+		{
+			"name": "MyIfaceA",
+			"fullName": "tstdox.MyIfaceA",
+			"help": {
+				"brief": "comment for MyIfaceA"
+			},
+			"rpcs": {
+				"funA": {
+					"help": {
+						"brief": "comment for funA of MyIfaceA",
+						"details": "detailed description for funA of MyIfaceA",
+						"warning": "warning for funA of MyIfaceA"
+					},
+					"in": "tstdox.MyIfaceA.funAArgs",
+					"out": "tstdox.MyIfaceA.funARes",
+					"throw": "tstdox.MyStructAc",
+					"throwHelp": {
+						"brief": "local comment for MyIfaceA.funA.throw",
+						"details": "comment for funA.throw"
+					}
+				},
+				"funAa": {
+					"in": "tstdox.MyIfaceA.funAaArgs",
+					"out": "tstdox.MyIfaceA.funAaRes"
+				},
+				"funB": {
+					"help": {
+						"brief": "comment for MyIfaceA.funB"
+					},
+					"in": "tstdox.MyIfaceA.funBArgs",
+					"out": "tstdox.MyStructA",
+					"outHelp": {
+						"brief": "comment for MyIfaceA.funB.out"
+					}
+				},
+				"funC": {
+					"help": {
+						"brief": "comment for MyIfaceA.funC"
+					},
+					"in": "tstdox.MyStructA",
+					"inHelp": {
+						"brief": "comment for MyIfaceA.funC.in"
+					},
+					"out": "tstdox.MyIfaceA.funCRes"
+				},
+				"funD": {
+					"help": {
+						"brief": "front comment... and back comment for funD"
+					},
+					"out": "tstdox.MyIfaceA.funDRes"
+				},
+				"funE": {
+					"help": {
+						"brief": "Comment for funE"
+					},
+					"in": "tstdox.MyIfaceA.funEArgs"
+				}
+			}
+		},
+		{
+			"name": "MyIfaceB",
+			"fullName": "tstdox.MyIfaceB",
+			"rpcs": {
+				"funA": {
+					"in": "tstdox.MyIfaceB.funAArgs"
+				},
+				"funB": {
+					"in": "tstdox.MyIfaceB.funBArgs"
+				}
+			}
+		},
+		{
+			"name": "MyIfaceC",
+			"fullName": "tstdox.MyIfaceC",
+			"rpcs": {
+				"funA": {
+					"in": "tstdox.MyIfaceC.funAArgs"
+				},
+				"funB": {
+					"in": "tstdox.MyIfaceC.funBArgs"
+				}
+			}
+		},
+		{
+			"name": "MyIfaceD",
+			"fullName": "tstdox.MyIfaceD",
+			"help": {
+				"brief": "comment for MyIfaceD"
+			},
+			"rpcs": {
+				"funA": {
+					"in": "tstdox.MyIfaceD.funAArgs"
+				},
+				"funB": {
+					"in": "tstdox.MyIfaceD.funBArgs"
+				}
+			}
+		}
+	],
+
+	"modules": [
+		{
+			"name": "MyModuleA",
+			"fullName": "tstdox.MyModuleA",
+			"interfaces": {
+				"ifaceA": {
+					"type": "tstdox.MyIfaceA",
+					"help": {
+						"brief": "comment for MyModuleA.ifaceA"
+					}
+				},
+				"ifaceB": {
+					"type": "tstdox.MyIfaceB"
+				},
+				"ifaceC": {
+					"type": "tstdox.MyIfaceC",
+					"help": {
+						"brief": "comment for MyModuleA.ifaceC"
+					}
+				}
+			}
+		},
+		{
+			"name": "MyModuleB",
+			"fullName": "tstdox.MyModuleB",
+			"help": {
+				"brief": "comment for MyModuleB"
+			},
+			"interfaces": {
+				"ifaceA": {
+					"type": "tstdox.MyIfaceA"
+				},
+				"ifaceB": {
+					"type": "tstdox.MyIfaceB"
+				},
+				"ifaceC": {
+					"type": "tstdox.MyIfaceC"
+				}
+			}
+		},
+		{
+			"name": "MyModuleC",
+			"fullName": "tstdox.MyModuleC",
+			"help": {
+				"brief": "comment for MyModuleC"
+			},
+			"interfaces": {
+				"ifaceA": {
+					"type": "tstdox.MyIfaceA",
+					"help": {
+						"brief": "comment for MyModuleC.ifaceA"
+					}
+				},
+				"ifaceB": {
+					"type": "tstdox.MyIfaceB"
+				},
+				"ifaceC": {
+					"type": "tstdox.MyIfaceC",
+					"help": {
+						"brief": "comment for MyModuleC.ifaceC"
+					}
+				}
+			}
+		},
+		{
+			"name": "MyModuleD",
+			"fullName": "tstdox.MyModuleD",
+			"interfaces": {
+				"ifaceA": {
+					"type": "tstdox.MyIfaceA"
+				},
+				"ifaceB": {
+					"type": "tstdox.MyIfaceB"
+				},
+				"ifaceC": {
+					"type": "tstdox.MyIfaceC"
+				}
+			}
+		}
+	]
+}

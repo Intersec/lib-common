@@ -1,0 +1,6 @@
+package attrs_invalid_7;
+
+struct MyStruct {
+    @maxOccurs(10)
+    int i;
+}

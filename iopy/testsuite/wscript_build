@@ -1,0 +1,60 @@
+###########################################################################
+#                                                                         #
+# Copyright 2019 INTERSEC SA                                              #
+#                                                                         #
+# Licensed under the Apache License, Version 2.0 (the "License");         #
+# you may not use this file except in compliance with the License.        #
+# You may obtain a copy of the License at                                 #
+#                                                                         #
+#     http://www.apache.org/licenses/LICENSE-2.0                          #
+#                                                                         #
+# Unless required by applicable law or agreed to in writing, software     #
+# distributed under the License is distributed on an "AS IS" BASIS,       #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.#
+# See the License for the specific language governing permissions and     #
+# limitations under the License.                                          #
+#                                                                         #
+###########################################################################
+# pylint: disable = undefined-variable
+
+
+ctx.stlib(target='test-iop', features='c cstlib', source=[
+    'test.iop',
+    'test/emptystuffs.iop',
+])
+
+ctx.stlib(target='test1-iop', features='c cstlib', source=[
+    'tst1.iop',
+    'tst1/tst2.iop',
+])
+
+ctx.stlib(target='testvoid-iop', features='c cstlib', source=[
+    'testvoid.iop',
+])
+
+
+ctx.shlib(target='test-iop-plugin', source=[
+    'test-iop-plugin.c',
+], use_whole=[
+    'test-iop',
+    'test1-iop',
+    'testvoid-iop',
+    'libcommon-iop',
+])
+
+ctx.shlib(target='test-iop-plugin-scripts', source=[
+    'test-iop-plugin-scripts.c',
+    'test_1_2.fc',
+    'test_3.fc',
+], use_whole=[
+    'test-iop',
+    'libcommon-iop',
+])
+
+ctx.shlib(target='test-iop-plugin-dso', source=[
+    'test-iop-plugin-dso.c',
+    'test/dso.iop',
+], use_whole=[
+    'test-iop',
+    'libcommon-iop',
+])

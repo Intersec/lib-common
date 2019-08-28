@@ -1,0 +1,544 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+/* This package contains the IOP definitions used to test
+ * iop_struct_check_backward_compat. */
+package tstiop_backward_compat;
+
+/* {{{ Basic union/struct/class */
+
+union BasicUnion {
+    bool a;
+    string b;
+};
+
+struct BasicStruct {
+    bool a;
+    string b;
+};
+
+class BasicClass {
+    bool a;
+    string b;
+};
+
+abstract class BasicAbstractClass {
+    bool a;
+    string b;
+};
+
+@ctype(struct_with_repeated_field__t)
+struct StructWithRepeatedField {
+    int a;
+    string[] b;
+    int c;
+};
+
+/* }}} */
+/* {{{ Disappeared/new/renamed/tag changed fields */
+
+/* A field is missing compared to BasicStruct. */
+struct DisappearedField {
+    bool a;
+};
+
+/* A required field was added compared to BasicStruct. */
+struct NewRequiredField {
+    bool a;
+    string b;
+    double c;
+};
+
+/* An optional field was added compared to BasicStruct. */
+struct NewOptField {
+    bool a;
+    string b;
+    double? c;
+};
+
+/* A repeated field was added compared to BasicStruct. */
+struct NewRepeatedField {
+    bool a;
+    string b;
+    double[] c;
+};
+
+/* A field with default value was added compared to BasicStruct. */
+struct NewDefvalField {
+    bool a;
+    string b;
+    double c = 1.1;
+};
+
+/* A field with required void value was added compared to BasicStruct. */
+struct NewRequiredVoidField {
+    bool a;
+    string b;
+    void c;
+};
+
+/* A field was renamed compared to BasicStruct. */
+struct RenamedField {
+    bool a;
+    string b2;
+};
+
+/* A field changed of tag compared to BasicStruct. */
+struct TagChangedField {
+1:  bool a;
+3:  string b;
+};
+
+/* Fields were exchanged and a type modified (string to int) leading to
+ * a structure that has nothing in common with BasicStruct. */
+struct RenamedAndTagChangedField {
+    bool b;
+    int a;
+};
+
+/* A field is added compated to BasicUnion. */
+union Union1 {
+    bool a;
+    string b;
+    int c;
+};
+
+/* A field is missing compared to BasicUnion. */
+union Union2 {
+2:  string b;
+};
+
+/* A repeated field is missing compared to StructWithRepeatedField */
+@ctype(struct_without_repeated_field__t)
+struct StructWithoutRepeatedField {
+    int a;
+3:  int c;
+};
+
+/* }}} */
+/* {{{ Fields types compatibility checks */
+
+/* Fields changed of type in a binary-compatible compatible way (and not json)
+ * compared to BasicStruct. */
+struct FieldCompatibleTypeBin {
+    int a;
+    bytes b;
+};
+
+/* Field 'a' is repeated, and is not in BasicStruct. */
+struct FieldRepeated {
+    bool[] a;
+    string b;
+};
+
+/* Field 'b' is required in BasicStruct but is optional here. */
+struct FieldOptional {
+   bool? a;
+   string b;
+};
+
+/* Check transition from repeated to unrepeated void and optional to required
+ * void. */
+struct FieldVoid {
+    void a;
+    string b;
+};
+
+struct NumberStruct {
+    bool   b;
+    byte   i8;
+    ubyte  u8;
+    short  i16;
+    ushort u16;
+    int    i32;
+    uint   u32;
+};
+
+struct NumberStruct2 {
+    byte   b;
+    short  i8;
+    short  u8;
+    int    i16;
+    int    u16;
+    long   i32;
+    long   u32;
+};
+
+/* Change the type of repeated scalars
+ * (from RepeatedScalarStructFrom to RepeatedScalarStructTo)
+ *
+ * Small repeated scalars (1 or 2 bytes) are packed without tag
+ * or length, so they cannot be unpacked to a bigger scalar type.
+ * Trying to do so should raise a backward compatibility error */
+struct BoolRepeated {
+    bool[] el;
+};
+
+struct ByteRepeated {
+    byte[] el;
+};
+
+struct UbyteRepeated {
+    ubyte[] el;
+};
+
+struct ShortRepeated {
+    short[] el;
+};
+
+struct UshortRepeated {
+    ushort[] el;
+};
+
+struct IntRepeated {
+    int[] el;
+};
+
+struct UintRepeated {
+    uint[] el;
+};
+
+struct LongRepeated {
+    long[] el;
+};
+
+struct UlongRepeated {
+    ulong[] el;
+};
+
+/* }}} */
+/* {{{ Class id changed */
+
+/* Class id changed compared to BasicClass. */
+class ClassIdChanged : 1 {
+    bool a;
+    string b;
+};
+
+/* }}} */
+/* {{{ Struct containers */
+
+struct StructContainer1 {
+    BasicStruct s;
+};
+
+struct StructContainer2 {
+    NewRequiredField s;
+};
+
+struct InfiniteRecur1 {
+    InfiniteRecur1? s;
+};
+
+struct InfiniteRecur2 {
+    InfiniteRecur1? s;
+};
+
+/* }}} */
+/* {{{ Enums */
+
+enum Enum1 {
+    VAL1 = 1,
+    VAL2 = 2,
+};
+
+enum Enum2 {
+    VAL1 = 1,
+};
+
+@strict
+enum StrictEnum1 {
+    VAL1 = 1,
+    VAL2 = 2,
+};
+
+enum InvertedEnum1 {
+    VAL1 = 2,
+    VAL2 = 1,
+};
+
+struct StructEnum1 {
+    Enum1 en;
+};
+
+struct StructEnum2 {
+    Enum2 en;
+};
+
+struct StructStrictEnum1 {
+    StrictEnum1 en;
+};
+
+struct StructInvertedEnum1 {
+    InvertedEnum1 en;
+};
+
+/* Field changed from enum to int compared to StructEnum1. */
+struct StructEnum3 {
+    int en;
+};
+
+/* }}} */
+/* {{{ Classes */
+
+/* Reference classes. */
+class ParentClass1 : 1 {
+    int a;
+};
+class ChildClass1 : 10 : ParentClass1{
+    int b;
+};
+
+
+/* Class id of parent class changed (forbidden). */
+class ParentClass2 : 2 {
+    int a;
+};
+class ChildClass2 : 10 : ParentClass2 {
+    int b;
+};
+
+
+/* New class with a required field between ChildClass32 and ParentClass3
+ * (forbidden). */
+class ParentClass3 : 1 {
+    int a;
+};
+class ChildClass31 : 9 : ParentClass3 {
+    int c;
+};
+class ChildClass32 : 10 : ChildClass31 {
+    int b;
+};
+
+
+/* New class with an optional field between ChildClass42 and ParentClass4
+ * (authorized). */
+class ParentClass4 : 1 {
+    int a;
+};
+class ChildClass41 : 9 : ParentClass4 {
+    int? c;
+};
+class ChildClass42 : 10 : ChildClass41 {
+    int b;
+};
+
+
+/* Incompatible change in the parent class (forbidden). */
+class ParentClass5 : 1 {
+    bool a;
+};
+class ChildClass51 : 9 : ParentClass5 {
+    int? c;
+};
+class ChildClass52 : 10 : ChildClass51 {
+    int b;
+};
+
+
+/* Change of parent class with a new required field (forbidden). */
+class ParentClass6 : 0 {
+    int b;
+};
+class ChildClass6 : 1 : ParentClass6 {
+    int a;
+};
+
+
+/* Change of parent class with a new optional field (authorized). */
+class ParentClass7 : 0 {
+    int? b;
+};
+class ChildClass7 : 1 : ParentClass7 {
+    int a;
+};
+
+/* }}} */
+/* {{{ Removed fields in class hierarchy */
+
+class ParentClassA {
+    int a = 1;
+};
+
+class ChildClassA : 100 : ParentClassA {
+    int b = 0;
+};
+
+class ParentClassB {
+    int a = 1;
+};
+
+class ChildClassB : 100 : ParentClassB {
+};
+
+/* }}} */
+/* {{{ New mandatory fields of type struct */
+
+abstract class AbstractClass1 {
+    bool? a;
+    string[] b;
+};
+
+class OptionalClass2 : 2 : AbstractClass1 {
+    int c = 12;
+};
+
+struct OptionalStruct2 {
+    OptionalClass2 a;
+};
+
+/* A mandatory field whose type is an "optional" struct was added. This is
+ * backward compatible. */
+struct NewMandatoryFieldOptional {
+    bool a;
+    string b;
+    OptionalStruct2 c;
+};
+
+struct NonOptionalStruct1 {
+    int a;
+};
+
+/* A mandatory field whose type is a "non-optional" struct was added. This is
+ * not backward compatible. */
+struct NewMandatoryFieldNonOptional {
+    bool a;
+    string b;
+    NonOptionalStruct1 c;
+};
+
+/* A mandatory field whose type is a "non-optional" class (because abstract)
+ * was added. This is not backward compatible. */
+struct NewMandatoryFieldNonOptional2 {
+    bool a;
+    string b;
+    AbstractClass1 c;
+};
+
+struct NonOptionalStruct2 {
+    AbstractClass1 a;
+};
+
+struct NewMandatoryFieldNonOptional3 {
+    bool a;
+    string b;
+    NonOptionalStruct2 c;
+};
+
+/* }}} */
+/* {{{ Optional -> Required of optional structure */
+
+struct OptFieldOptStruct {
+    OptionalStruct2? a;
+};
+
+struct MandatoryFieldOptStruct {
+    OptionalStruct2 a;
+};
+
+/* }}} */
+/* {{{ optional struct added in parent class */
+
+class ChildOptA : 1 {
+};
+
+class NewParentOpt {
+    OptFieldOptStruct optStruct;
+};
+class ChildOptB : 1 : NewParentOpt {
+};
+
+/* }}} */
+/* {{{ SNMP objects (to check it is compatible with itself). */
+
+snmpObj BackwardSnmp : 1 : Intersec {
+};
+
+@snmpParam
+snmpObj BackwardSnmpParams : 81 : BackwardSnmp {
+    /** Fake brief. */
+1:  Enum1 enum1;
+};
+
+@snmpParamsFrom(BackwardSnmpParams)
+snmpIface BackwardSnmpNotifications : 80 : BackwardSnmp {
+    /** Fake brief. */
+1:   fakeTrap
+         in (enum1);
+};
+
+/* }}} */
+/* {{{ Generic attribute ignore Json/Bin checks. */
+
+/* A required field was added compared to BasicStruct. Backward compatibility
+ * checks are bypassed. */
+@(compat:ignoreJson, true)
+struct NewRequiredFieldJsonIgnored {
+    bool a;
+    string b;
+    double c;
+};
+
+@(compat:ignoreBin, true)
+struct NewRequiredFieldBinIgnored {
+    bool a;
+    string b;
+    double c;
+};
+
+@(compat:ignore, true)
+struct NewRequiredFieldIgnored {
+    bool a;
+    string b;
+    double c;
+};
+
+/* -------------------------------------------------- */
+/* Ignored struct/classes */
+/* -------------------------------------------------- */
+
+/* Nested structures and classes must be checked when the root structure
+ * located in the package is not flagged as ignored. The following structs are
+ * checked against StructContainer1 which contains a BasicStruct. Replacing
+ * the nested structure with NewRequiredField will usually throw an
+ * incompatibility error. */
+
+/* This struct is ignored, thus no checks must be done. */
+@(compat:ignore, true)
+struct RootStructIgnored {
+    NewRequiredField s;
+};
+
+@(compat:ignoreJson, true)
+struct RootStructJsonIgnored {
+    NewRequiredField s;
+};
+
+@(compat:ignoreBin, true)
+struct RootStructBinIgnored {
+    NewRequiredField s;
+};
+
+/* This root struct is not ignored, thus backward compatibility checks are not
+ * bypassed. */
+struct RootStruct {
+    NewRequiredFieldIgnored s;
+};
+
+/* }}} */

@@ -1,0 +1,7 @@
+package snmp_invalid_from;
+
+@snmpParamsFrom(Params.)
+snmpIface Notifications : 1 : Params {
+    notif1
+        in (a1, a2);
+};

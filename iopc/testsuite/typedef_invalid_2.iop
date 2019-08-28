@@ -1,0 +1,4 @@
+package typedef_invalid_2;
+
+@ctype(toto__t)
+typedef string Toto;

@@ -1,0 +1,10 @@
+package reference_invalid_4;
+
+enum MyEnum {
+    A,
+    B,
+};
+
+struct MyStruct {
+    MyEnum& a;
+};

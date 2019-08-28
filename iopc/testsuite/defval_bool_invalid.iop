@@ -1,0 +1,7 @@
+package defval_bool_invalid;
+
+struct Test {
+    bool b = 42;
+};
+
+

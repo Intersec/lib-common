@@ -1,0 +1,14 @@
+package snmp_invalid_missing_index;
+
+/** Description.
+ */
+snmpObj A : 81 : snmp_obj.MySnmp {
+};
+
+/** Description.
+ */
+snmpTbl B : 1 : A {
+     /** Description.
+      */
+1:   int i1;
+};

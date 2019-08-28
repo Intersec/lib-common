@@ -1,0 +1,6 @@
+package json_generic_invalid6;
+
+struct St {
+    @(schema:label, fr = "Zone RLH", en = "Zone RLH)
+    string s;
+};

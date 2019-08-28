@@ -1,0 +1,5 @@
+package missing_iface;
+
+module MyModuleA {
+    MyIfaceA ifaceA;
+};

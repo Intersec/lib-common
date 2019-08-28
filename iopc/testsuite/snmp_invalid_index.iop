@@ -1,0 +1,6 @@
+package snmp_invalid_index;
+
+struct Struct {
+    @snmpIndex
+    int st1;
+};

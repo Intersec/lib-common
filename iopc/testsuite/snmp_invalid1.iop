@@ -1,0 +1,15 @@
+package snmp_invalid1;
+
+struct Struct {
+    int st1;
+};
+
+snmpObj A : 81 : snmp_obj.MySnmp {
+     /** Description.
+      */
+1:   string a1;
+
+     /** Description.
+      */
+2:   Struct a2;
+};

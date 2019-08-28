@@ -1,0 +1,38 @@
+{
+    "voidStruct1": {
+    },
+    "integer": 0,
+    "ulongTab": [ 1, 2, 3 ],
+    "optUint2": 42,
+    "miniStruct": {
+        "a": 0
+    },
+    "emptyTab": [  ],
+    "refTabStruct": {
+        "tab": [ {
+            "a": 1
+        }, {
+            "a": 2
+        }, {
+            "a": 42
+        } ]
+    },
+    "optUnion1": { "b": -56 },
+    "voidStruct2": {
+    },
+    "ancestor": {
+        "_class": "tstiop.Daddy",
+        "name": "",
+        "b": true
+    },
+    "objTab": [ {
+        "_class": "tstiop.GrandPa",
+        "name": "toto"
+    }, {
+        "_class": "tstiop.GrandPa",
+        "name": "tata"
+    }, {
+        "_class": "tstiop.GrandPa",
+        "name": "titi"
+    } ]
+}

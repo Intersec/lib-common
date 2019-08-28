@@ -1,0 +1,8 @@
+/* Test that the "_class" field can be given using prefixed syntax */
+@"_class" "tstiop_inheritance.C1" {
+     "c": 478,
+     "b": false,
+     "a2": -479,
+     "a": -480
+}
+

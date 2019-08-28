@@ -1,0 +1,5 @@
+package inheritance_invalid_circular2_pkg_a;
+
+class A : 1 {
+  inheritance_invalid_circular2_pkg_b.B a;
+};

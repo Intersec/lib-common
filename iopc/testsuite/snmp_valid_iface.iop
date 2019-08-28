@@ -1,0 +1,52 @@
+package snmp_valid_iface;
+
+/** Description.
+ */
+@snmpParam
+snmpObj Params : 80 : Intersec {
+      /** Description.
+       */
+1:    int a;
+
+      /** Description.
+       */
+2:    string b;
+};
+
+/** Description.
+ */
+@snmpParam
+snmpObj Params2 : 80 : Intersec {
+      /** Description.
+       */
+1:    int c;
+
+      /** Description.
+       */
+2:    string d;
+};
+
+/** Description.
+ */
+@snmpParamsFrom( Params, Params2)
+snmpIface Notifications : 81 : snmp_obj.MySnmp {
+    /** Description.
+     */
+    notif1
+        in ();
+
+    /** Description.
+     */
+    notif2
+        in (b, c, d);
+};
+
+snmpIface EmptyNotifications : 81 : snmp_obj.MySnmp {
+    /** Description.
+     */
+    notif1
+        in ();
+    /** Description.
+     */
+    notif2;
+};

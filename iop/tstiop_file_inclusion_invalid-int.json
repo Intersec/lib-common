@@ -1,0 +1,4 @@
+/* File inclusion not supported for integers. */
+{
+    "a": @include("whatever")
+}

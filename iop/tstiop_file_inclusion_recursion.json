@@ -1,0 +1,5 @@
+/* This is a tstiop.MyStructC, with a finite recursion in includes */
+{
+    "a": 0,
+    "b": @include("json-includes/MyStructC-recur-3.json")
+}

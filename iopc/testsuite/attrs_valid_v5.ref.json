@@ -1,0 +1,15 @@
+{
+	"name": "attrs_valid_v5",
+
+	"objects": [
+		{
+			"name": "Toto",
+			"fullName": "attrs_valid_v5.Toto",
+			"type": "class",
+			"isAbstract": false,
+			"private": true,
+			"fields": {
+			}
+		}
+	]
+}

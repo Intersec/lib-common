@@ -1,0 +1,11 @@
+package void_optional_in_struct;
+
+
+struct A {
+    /* In the C structure, this should be a simple presence boolean.
+     * When bpacked, the field is either missing (boolean false), or
+     * of wire type INT1 (value is present but unused).
+     * When jpacked, it becomes an optional field
+     * In Json, this is an optional field, either missing or set to null. */
+    void? f;
+};

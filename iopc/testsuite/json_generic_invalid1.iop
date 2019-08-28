@@ -1,0 +1,5 @@
+package json_generic_invalid1;
+
+@(ns:id, en = "", fr)
+struct Test {
+};

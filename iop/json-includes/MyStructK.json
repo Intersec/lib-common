@@ -1,0 +1,4 @@
+/* This is a tstiop.MyStructK */
+{
+    "j": @include("MyStructJ.json")
+}

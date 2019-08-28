@@ -1,0 +1,5 @@
+package defval_double_string;
+
+struct Test {
+    double d = "str";
+};

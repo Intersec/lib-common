@@ -1,0 +1,5 @@
+package inheritance_invalid_static_optional;
+
+class A {
+    static int? a;
+};

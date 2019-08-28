@@ -1,0 +1,7 @@
+package attrs_invalid_enumval;
+
+enum MyEnum {
+    @(tstgen:foo, 2)
+    @min(2)
+    VAL,
+};

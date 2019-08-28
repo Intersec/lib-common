@@ -1,0 +1,9 @@
+package defval_str_maxlength;
+
+@maxLength(3)
+typedef string Mystr;
+
+struct Test {
+    Mystr s = "argh";
+};
+

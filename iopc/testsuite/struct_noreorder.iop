@@ -1,0 +1,14 @@
+package struct_noreorder;
+
+struct OrderedStruct {
+    int  i;
+    long l;
+    byte c;
+};
+
+@noReorder
+struct UnOrderedStruct {
+    int  i;
+    long l;
+    byte c;
+};

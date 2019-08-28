@@ -1,0 +1,15 @@
+package inheritance_invalid_multiple_inheritance;
+
+class Father : 0 {
+    string name;
+    int    id;
+};
+
+class Mother : 1 {
+    string name;
+    bool   married;
+};
+
+class Child : 2 : Father, Mother {
+    int age;
+};

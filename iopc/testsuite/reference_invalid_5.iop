@@ -1,0 +1,10 @@
+package reference_invalid_5;
+
+struct MyStruct {
+    MyStruct2 s2;
+};
+
+struct MyStruct2 {
+    MyStruct& r;
+    MyStruct  s;
+};

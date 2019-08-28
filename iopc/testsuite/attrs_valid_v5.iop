@@ -1,0 +1,5 @@
+package attrs_valid_v5;
+
+@private
+class Toto {
+};

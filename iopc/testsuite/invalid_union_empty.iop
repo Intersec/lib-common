@@ -1,0 +1,4 @@
+package invalid_union_empty;
+
+union Test {
+};

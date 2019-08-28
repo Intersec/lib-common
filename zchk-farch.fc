@@ -1,0 +1,7 @@
+#!farchc
+
+farch_test
+
+test-data/farch/zchk-farch-intersec.txt
+test-data/farch/zchk-farch-five-intersec.txt
+test-data/farch/zchk-farch-lorem.txt

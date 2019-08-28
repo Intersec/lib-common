@@ -1,0 +1,5 @@
+/* Inheritance is not supported on something else than a class */
+package inheritance_invalid_types1;
+
+class Father : 0 { string name; };
+union Child : 1 : Father { int age; };

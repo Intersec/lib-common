@@ -1,0 +1,11 @@
+package attrs_invalid_9;
+
+union MyUnion {
+    int a;
+    int b;
+};
+
+struct MyStruct {
+    @disallow(c)
+    MyUnion u;
+};

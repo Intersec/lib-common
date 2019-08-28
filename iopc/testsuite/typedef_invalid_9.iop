@@ -1,0 +1,7 @@
+package typedef_invalid_9;
+
+typedef ulong? OptUlong;
+
+struct MyStruct {
+    OptUlong[] oula;
+};

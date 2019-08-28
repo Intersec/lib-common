@@ -1,0 +1,4 @@
+/* This is a tstiop.MyStructM, with an include for the first field */
+{
+    "k": @include("json-includes/MyStructK.json")
+}

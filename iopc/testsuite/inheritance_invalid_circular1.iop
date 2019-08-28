@@ -1,0 +1,17 @@
+package inheritance_invalid_circular1;
+
+class A : 0 : C2 {
+    int a;
+};
+
+class B : 1 : A {
+    string b;
+};
+
+class C1 : 2 : B {
+    bool c1;
+};
+
+class C2 : 3 : B {
+    long c2;
+};

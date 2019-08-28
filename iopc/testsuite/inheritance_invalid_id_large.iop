@@ -1,0 +1,4 @@
+package inheritance_invalid_id_large;
+
+class A { int a; };
+class B : 65536 : A { int b; };

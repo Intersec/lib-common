@@ -1,0 +1,3 @@
+package typedef_invalid_1;
+
+typedef MyStruct MyStructAlias;

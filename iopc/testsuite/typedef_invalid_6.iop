@@ -1,0 +1,5 @@
+package typedef_invalid_6;
+
+typedef MyTypedef1 MyTypedef2;
+
+typedef MyTypedef2 MyTypedef1;

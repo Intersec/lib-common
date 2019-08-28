@@ -1,0 +1,5 @@
+package integer_ext_invalid;
+
+enum Val {
+    A = 10a;
+};

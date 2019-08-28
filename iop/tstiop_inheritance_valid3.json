@@ -1,0 +1,8 @@
+/* Test that "_class" field can be missing; this is considered as a D1 elem */
+{
+     "c": 153,
+     "b": true,
+     "a2": -15,
+     "a": -12
+}
+

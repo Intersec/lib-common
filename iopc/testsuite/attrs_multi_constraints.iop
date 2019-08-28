@@ -1,0 +1,45 @@
+package attrs_multi_constraints;
+
+@min(3)
+typedef ulong Min3;
+@min(5)
+typedef Min3 Min5;
+
+@max(42) @min(5)
+typedef uint Digit;
+
+struct Test {
+    @max(21) @min(7)
+    Digit a;
+    @max(43) @min(0)
+    Digit b;
+    Min5 c;
+};
+
+@min(-1.0)
+typedef double Neg;
+@min(0.0)
+typedef Neg Zero;
+
+struct Test2 {
+    Neg a;
+    Zero b;
+};
+
+@minLength(5) @maxLength(128)
+typedef string ExStr;
+
+struct StrTest {
+    @maxLength(21) @minLength(7)
+    ExStr a;
+    @length(42)
+    string b;
+};
+
+@maxOccurs(42) @minOccurs(5)
+typedef int[] ExTab;
+
+struct TabTest {
+    @maxOccurs(21) @minOccurs(7)
+    ExTab a;
+};

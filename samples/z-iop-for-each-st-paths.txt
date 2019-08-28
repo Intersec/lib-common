@@ -1,0 +1,13 @@
+<root>
+voidStruct1
+miniStruct
+refTabStruct
+refTabStruct.tab[0]
+refTabStruct.tab[1]
+refTabStruct.tab[2]
+optUnion1
+voidStruct2
+ancestor
+objTab[0]
+objTab[1]
+objTab[2]

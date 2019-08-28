@@ -1,0 +1,7 @@
+/* Test with a missing mandatory class field not having only optional fields;
+ * Field "a1" is missing but field "a2" of class A1 is mandatory. */
+{
+     "b2": {
+         "a2": 12
+     }
+}

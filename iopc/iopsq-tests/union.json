@@ -1,0 +1,22 @@
+{
+    "name": "foo",
+    "elems": [ {
+        "_class": "iopsq.Union",
+        "name": "SimpleUnion",
+        "fields": [ {
+            "name": "i",
+            "type": {
+                "i": {
+                    "isSigned": true,
+                    "size": "S32"
+                }
+            }
+        }, {
+            "name": "s",
+            "type": {
+                "s": "STRING"
+            }
+        } ]
+    } ]
+}
+

@@ -1,0 +1,7 @@
+package typedef_invalid_8;
+
+typedef ulong? UlongOpt;
+
+union MyUnion {
+    UlongOpt uopt;
+};

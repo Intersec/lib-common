@@ -1,0 +1,9 @@
+package void_mandatory_in_struct;
+
+
+struct A {
+    /* This field should not be present in the C structure but anything can
+     * be unserialized (which does nothing) into it.
+     * This allows us to replace "deprecated" fields. */
+    void f;
+};

@@ -1,0 +1,25 @@
+package integer_ext_valid;
+
+enum Val {
+    A = 123,
+    B = 0123,
+    C = 0x19af,
+
+    D = 100K,
+    E = 012K,
+    F = 0x0aM,
+
+    G = -10K,
+    H = -0x2K,
+
+    I = 0xff,
+
+    O = 0,
+};
+
+struct MyStruct {
+    long  min = -9223372036854775808;
+    ulong max = 18446744073709551615;
+
+    string testString = "R\123T";
+};

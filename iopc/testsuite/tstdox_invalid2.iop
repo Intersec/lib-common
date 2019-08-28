@@ -1,0 +1,12 @@
+package tstdox_invalid2;
+
+interface MyIfaceA {
+    funA
+       /** local comment for MyIfaceA.funA.in
+        *
+        *  @example "aParam": 1,
+        *           "b": invalid json
+        */
+        in  (int aParam, MyStructAa b)
+        out void;
+};

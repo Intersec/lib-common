@@ -1,0 +1,6 @@
+package generic_attrs_invalid_name;
+
+enum MyEnum {
+    @(foo=bar, 2)
+    VAL,
+};

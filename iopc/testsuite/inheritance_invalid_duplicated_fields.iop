@@ -1,0 +1,5 @@
+package inheritance_invalid_duplicated_fields;
+
+class A : 1 { int a; };
+class B : 2 : A { string b; };
+class C : 3 : B { bool a; };

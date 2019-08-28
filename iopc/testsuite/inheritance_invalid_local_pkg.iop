@@ -1,0 +1,3 @@
+package inheritance_invalid_local_pkg;
+
+class NonLocal : 10 : inheritance_pkg_a.Local1 { int c; };

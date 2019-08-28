@@ -1,0 +1,5 @@
+# tsan suppression file
+
+# Race in logger_is_traced when accessing __traced and __last_logger
+race:__last_logger
+race:__traced

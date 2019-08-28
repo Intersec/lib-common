@@ -1,0 +1,119 @@
+Intersec Z Protocol
+===================
+
+
+The protocol "BNF"
+------------------
+
+The Z Protocol ressembles TAP and works this way:
+
+    SP              ::= [ \f\v\r\t]+
+    NL              ::= "\n"
+    token           ::= [^ \f\v\r\t\n]+
+    cfl             ::= (comment | emptyline)*
+    comment         ::= "#" [^\n]* NL
+    emptyline       ::= SP? NL
+    plan            ::= 1..<number> SP <token> SP NL
+    report          ::= SP? <number> SP report-command SP <token> report-comment? SP* NL
+    report-command  ::= ("pass"|"fail"|"skip"|"todo-pass"|"todo-fail")
+    report-comment  ::= SP "#" [^\n]*
+    report-extra    ::= (":" [^\n]* NL)+
+    panic           ::= "panic" report-comment? SP* NL
+    run             ::= cfl* plan (cfl* report report-extra?)* panic? cfl*
+
+A valid test output is a suite of runs, for example:
+
+    1..3 bithacks
+    1 pass bsr8
+    2 pass bsf8
+    3 fail dummy
+    : $ ./zchk bithacks.dummy
+    :
+    : lib-common/arith-bithacks.c:125: assertion failed: false
+    : I want to fail!
+    # 0% skipped  66% passed  33% failed
+
+plan::
+    The "plan" tells how many "reports" we should see.
+
+`report`::
+    The report starts with a sequence number supposed to be the previous plus
+    one (else tests are missing and supposed to be failed). There should be as
+    many reports as planned. There are 5 kinds of reports: `skip`, `fail`,
+    `pass`, `todo-fail`, `todo-pass`.
+
+`report-comment`::
+    This is a short for of comment that isn't multiline that add short
+    information about the report "command". For example for `panic` it
+    explains what happened (sub-command crashed for example).
+
+`report-extra`::
+    This is unstructured text giving information about the test, usually for
+    failures.
+
+This protocol is "played" on the standard output of commands. ANSI color
+escape sequences must be ignored if met (`"\033[" [0-9;]+m`).
+
+
+the protocol commands
+---------------------
+
+`skip`::
+    When a test is skipped there should be a `report-comment` with the reason
+    why the test was skipped (often a missing resource), so that the tester
+    can know what to change so that the test isn't skipped anymore.
++
+    This isn't considered a failure.
+
+`pass`::
+    The test passed.
+
+`fail`::
+    The test failed. There should be a `report-extra` to give a clue of where
+    or why.
+
+`todo-pass`, `todo-fail`::
+    The 'TODO' variants of `pass` and `fail` are meant to signal test failures
+    that are expected. There should be a `report-comment` with a bug number or
+    a reason why this test fails.
++
+    When the test actually passes, it means that the test has been "fixed", in
+    other words that the feature has been implemented.
++
+    Neither `todo-pass` nor `todo-fail` are fatal. It is useful to do
+    test-driven developpement, where one can mark not yet implemented
+    features.
+
+
+Intersec test programs
+----------------------
+
+There is nothing mandatory about writing a test tool in the Intersec
+repository, but for one thing: when the environment variable `Z_HARNESS` is
+set, the program 'MUST' produce valid Z Protocol on its standard output, and
+nothing else. It can do whatever it wants with its standard error stream that
+is totally ignored.
+
+Also, `Z_TAG_SKIP` may contain a space separate list of "tags" (that framework
+are free to implement as they want). Any test tagged with one of those tokens
+is automatically skipped. Some of tags have specific behavior:
+ * perf: performances tests, run in specific environment to be reproducible;
+ * slow: tests to run in nightly builds, and not in each builds;
+ * upgrade: for migration tests between product versions. They are disabled in
+   normal and nightly tests. Currently unused;
+ * web: tests using selenium;
+ * wip: tests are ignored by the buildbot (review and nightly) and when
+   running waf check.
+Out of these tags, the choice is completely free.
+
+`Z_MODE` may contain a space-separated list of "modes". Modes can be used by
+tests to alter their behavior. For example, the "fast" mode indicates the test
+runner care more about the speed of the tests than about their
+comprehensiveness, thus tests can reduce the size of their dataset in order
+to speed-up the processing (with less guarantees on scalability).
+
+Test groups are meant to be run in a separate environment. For example the C
+backend runs them in a fork()ed process so that the master can control whether
+the subprocess was killed for any reason and report the missing tests.
+
+// vim:ft=asciidoc:tw=78:

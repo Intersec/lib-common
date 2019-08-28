@@ -1,0 +1,10 @@
+/* this file is used to test deprecated enum field name */
+
+package enum6;
+
+@prefix(MY_PREFIX)
+enum MyEnum {
+    A,
+    B = MY_ENUM_A + 10,
+    C,
+};

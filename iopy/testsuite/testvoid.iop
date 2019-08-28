@@ -1,0 +1,14 @@
+package testvoid;
+
+union VoidUnion {
+    void a;
+    int b;
+};
+
+struct VoidRequired {
+    void a;
+};
+
+struct VoidOptional {
+    void? a;
+};

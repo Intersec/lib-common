@@ -1,0 +1,37 @@
+{
+    "name": "foo",
+    "elems": [ {
+        "_class": "iopsq.Struct",
+        "name": "S1",
+        "fields": [ {
+            "name": "i",
+            "type": {
+                "i": {
+                    "isSigned": true,
+                    "size": "S32"
+                }
+            }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "S2",
+        "fields": [ {
+            "name": "st",
+            "type": {
+                "typeName": "S1"
+            }
+        }, {
+            "name": "stRef",
+            "type": {
+                "typeName": "S1"
+            },
+            "isReference": true
+        }, {
+            "name": "stOpt",
+            "type": {
+                "typeName": "S1"
+            },
+            "optional": {}
+        } ]
+    } ]
+}

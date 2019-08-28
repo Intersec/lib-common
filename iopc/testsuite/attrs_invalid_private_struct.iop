@@ -1,0 +1,5 @@
+package attrs_invalid_private_struct;
+
+@private
+struct Toto {
+};

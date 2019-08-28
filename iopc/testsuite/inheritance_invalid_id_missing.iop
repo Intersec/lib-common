@@ -1,0 +1,4 @@
+package inheritance_invalid_id_missing;
+
+class A { int a; };
+class B : A { int b; };

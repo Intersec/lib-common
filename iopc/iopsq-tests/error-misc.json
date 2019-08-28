@@ -1,0 +1,184 @@
+{
+    "name": "foo",
+    "elems": [ {
+        "_class": "iopsq.Struct",
+        "name": "InvalidTypeName",
+        "fields": [ {
+            "name": "s",
+            "type": {
+                "typeName": "foo..Bar"
+            }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "invalidStructTypeName",
+        "fields": []
+    }, {
+        "_class": "iopsq.Union",
+        "name": "invalidUnionTypeName",
+        "fields": [ {
+            "name": "f1",
+            "type": {
+                "typeName": "int"
+            },
+            "tag": 42
+        } ]
+    }, {
+        "_class": "iopsq.Enum",
+        "name": "invalidEnumTypeName",
+        "values": []
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "MultiDimensionArray",
+        "fields": [ {
+            "name": "multiArray",
+            "type": {
+                "array": {
+                    "array": {
+                        "typeName": "uint"
+                    }
+                }
+            }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "OptionalArray",
+        "fields": [ {
+            "name": "optionalArray",
+            "type": {
+                "array": {
+                    "typeName": "uint"
+                }
+            },
+            "optional": {}
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "OptionalReference",
+        "fields": [ {
+            "name": "optionalReference",
+            "type": {
+                "typeName": "uint"
+            },
+            "optional": {},
+            "isReference": true
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "ArrayOfReference",
+        "fields": [ {
+            "name": "arrayOfReference",
+            "type": {
+                "array": {
+                    "typeName": "uint"
+                }
+            },
+            "isReference": true
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "TagConflict",
+        "fields": [ {
+            "name": "f1",
+            "type": {
+                "typeName": "int"
+            },
+            "tag": 42
+        }, {
+            "name": "f2",
+            "type": {
+                "typeName": "int"
+            },
+            "tag": 42
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "NameConflict",
+        "fields": [ {
+            "name": "field",
+            "type": {
+                "typeName": "int"
+            }
+        }, {
+            "name": "field",
+            "type": {
+                "typeName": "int"
+            }
+        } ]
+    }, {
+        "_class": "iopsq.Enum",
+        "name": "ValueConflict",
+        "values": [ {
+            "name": "A",
+            "val": 42
+        }, {
+            "name": "B",
+            "val": 42
+        } ]
+    }, {
+        "_class": "iopsq.Enum",
+        "name": "KeyConflict",
+        "values": [ {
+            "name": "A"
+        }, {
+            "name": "A"
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "UnsupportedDefVal",
+        "fields": [ {
+            "name": "field",
+            "type": {
+                "typeName": "int"
+            },
+            "optional": {
+                "defVal": {
+                    "i": 1
+                }
+            }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "Bar",
+        "fields": [ {
+            "name": "unknownTypeField",
+            "type": {
+                "typeName": "Unknown"
+            }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "LowercaseTypeName",
+        "fields": [ {
+            "name": "lowercaseTypeName",
+            "type": {
+                "typeName": "lowercase"
+            }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "UppercaseField",
+        "fields": [ {
+            "name": "UppercaseField",
+            "type": {
+                "typeName": "int"
+            }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "TagTooSmall",
+        "fields": [ {
+            "name": "tagTooSmall",
+            "type": { "typeName": "int" },
+            "tag": 0
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "TagTooBig",
+        "fields": [ {
+            "name": "tagTooBig",
+            "type": { "typeName": "int" },
+            "tag": 32768
+        } ]
+    } ]
+}

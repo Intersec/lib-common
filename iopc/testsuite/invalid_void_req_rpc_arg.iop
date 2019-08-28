@@ -1,0 +1,7 @@
+package invalid_void_req_rpc_arg;
+
+interface VoidInterface {
+    fn
+        in (void a, int b)
+        out void;
+};

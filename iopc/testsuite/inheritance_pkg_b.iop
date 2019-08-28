@@ -1,0 +1,54 @@
+package inheritance_pkg_b;
+
+/* A1 and A2 are not the sames because of their static field */
+class A1 : 10 : inheritance_pkg_a.A1 {
+    static int int1 = 1;
+    int foo;
+};
+
+class A2 : 11 : inheritance_pkg_a.A1 {
+    static int int2 = 2;
+    int foo;
+};
+
+/* A3 and A4 are not the sames because of their field */
+class A3 : 12 : inheritance_pkg_a.A1 {
+    static string string1 = "1";
+    int foo;
+};
+
+class A4 : 13 : inheritance_pkg_a.A1 {
+    static string string1 = "1";
+    int bar;
+};
+
+/* A5 and A6 are the sames */
+class A5 : 14 : inheritance_pkg_a.A1 {
+    static int sameAs = 1;
+    int foo;
+};
+
+class A6 : 15 : inheritance_pkg_a.A1 {
+    static int sameAs = 1;
+    int foo;
+};
+
+/* A7 and A8 are the sames, and their parents are "same as",
+ * so they are "same as" */
+class A7 : 16 : A5 {
+    double foo2;
+};
+
+class A8 : 17 : A6 {
+    double foo2;
+};
+
+/* A9 and A10 are the sames, but their parents are not "same as", so they
+ * are not "same as" */
+class A9 : 18 : A5 {
+    string bar;
+};
+
+class A10 : 19 : A7 {
+    string bar;
+};

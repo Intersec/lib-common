@@ -1,0 +1,17 @@
+/* this file is used to test enums with same prefix */
+
+package enum4;
+
+@prefix(MY_PREFIX)
+enum MyEnumA {
+    A,
+    B,
+    C,
+};
+
+@prefix(MY_PREFIX)
+enum MyEnumB {
+    A,
+    B,
+    C,
+};

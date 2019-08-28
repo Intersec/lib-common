@@ -1,0 +1,38 @@
+package snmp_tbl;
+
+enum SomeEnum {
+    STATE1,
+    STATE2,
+    STATE3,
+};
+
+/** Description.
+ */
+snmpObj A : 81 : snmp_obj.MySnmp {
+};
+
+/** Description.
+ */
+snmpTbl B : 1 : A {
+     /** Description.
+      */
+     @snmpIndex
+1:   string i1;
+
+     /** Description.
+      */
+     @snmpIndex
+2:   uint i2;
+
+     /** Description.
+      */
+3:   int b2;
+
+     /** Description.
+      */
+4:   int b3;
+
+     /** Description.
+      */
+5:   SomeEnum b4;
+};

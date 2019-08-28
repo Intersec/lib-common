@@ -1,0 +1,4 @@
+package check_name_union;
+
+union You_Shall_Not_Pass {
+};

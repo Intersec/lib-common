@@ -1,0 +1,8 @@
+package defval_int_min;
+
+@min(-1)
+typedef int Myint;
+
+struct Test {
+    Myint i = -2;
+};

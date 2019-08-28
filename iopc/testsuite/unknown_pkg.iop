@@ -1,0 +1,5 @@
+package unknown_pkg;
+
+struct A {
+    unknown.B b;
+};

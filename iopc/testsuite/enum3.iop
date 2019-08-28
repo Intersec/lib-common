@@ -1,0 +1,15 @@
+/* this file is used with enum1.iop to test same enums without prefix */
+
+package enum3;
+
+/* to import and use enum1 */
+struct MyStruct {
+    enum1.MyEnum field;
+};
+
+
+enum MyEnum {
+    A,
+    B,
+    C,
+};

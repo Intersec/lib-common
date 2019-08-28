@@ -1,0 +1,5 @@
+package check_name_enum;
+
+enum You_Shall_Not_Pass {
+    GANDALF,
+};

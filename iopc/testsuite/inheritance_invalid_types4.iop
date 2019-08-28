@@ -1,0 +1,3 @@
+package inheritance_invalid_types4;
+
+abstract struct Toto { string name; };

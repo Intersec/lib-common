@@ -1,0 +1,6 @@
+package attrs_invalid_private_union;
+
+@private
+union Toto {
+    int toto;
+};

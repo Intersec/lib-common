@@ -1,0 +1,34 @@
+INTERSEC-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, enterprises FROM SNMPv2-SMI;
+
+-- {{{ Identity
+
+intersec MODULE-IDENTITY
+    LAST-UPDATED "201003091349Z"
+
+    ORGANIZATION "Intersec"
+    CONTACT-INFO "postal: Tour W - 102 Terasse Boieldieu
+                          92085 Paris La Defense - Cedex France
+
+                  tel:    +33 1 55 70 33 55
+                  email:  contact@intersec.com
+                  "
+
+    DESCRIPTION "For more details see Intersec website http://www.intersec.com"
+    REVISION "201003091349Z"
+    DESCRIPTION "Initial release"
+    ::= { enterprises 32436 }
+
+-- }}}
+-- {{{ Top Level Structures
+
+test    OBJECT IDENTIFIER ::= { intersec 2 }
+
+-- }}}
+
+END
+
+
+-- vim:syntax=mib

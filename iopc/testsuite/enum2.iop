@@ -1,0 +1,17 @@
+/* this file is used with enum1.iop to test same enums with different prefix
+ */
+
+package enum2;
+
+/* to import and use enum1 */
+struct MyStruct {
+    enum1.MyEnum field;
+};
+
+
+@prefix(MY_PREFIX)
+enum MyEnum {
+    A,
+    B,
+    C,
+};

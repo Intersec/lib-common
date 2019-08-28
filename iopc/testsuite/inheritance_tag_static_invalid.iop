@@ -1,0 +1,5 @@
+package inheritance_tag_static_invalid;
+
+class MyClass {
+  1:   static int a = 1;
+};

@@ -1,0 +1,5 @@
+package reference_invalid_1;
+
+struct MyStruct {
+    int& a;
+};

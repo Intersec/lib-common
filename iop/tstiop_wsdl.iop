@@ -1,0 +1,25 @@
+package tstiop_wsdl;
+
+enum E {
+    FOO = -2,
+    BAR,
+};
+
+struct S {
+    E e;
+};
+
+class C {
+    S s;
+    E e;
+};
+
+interface I {
+    baz
+        in C
+        out (S s);
+};
+
+module M {
+    I i;
+};

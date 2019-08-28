@@ -1,0 +1,7 @@
+/* Test with an unknown class */
+{
+     "_class": "tstiop_inheritance.Unknown",
+     "a": 2,
+     "b": false,
+     "c": 5
+}

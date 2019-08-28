@@ -1,0 +1,4 @@
+package check_name_struct;
+
+struct You_Shall_Not_Pass {
+};

@@ -1,0 +1,12 @@
+/* This is a tstiop.MyStructF */
+{
+    "a": [
+        @include("json-includes/string.txt"),
+        "second string",
+        @include("json-includes/string2.txt")
+    ],
+    "b": [
+        "Zmlyc3QgYnl0ZXM=",
+        @include("json-includes/string.txt")
+    ]
+}

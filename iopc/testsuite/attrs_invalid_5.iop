@@ -1,0 +1,6 @@
+package attrs_invalid_5;
+
+struct User {
+    @prefix(nonsense)
+    string?  login;
+}

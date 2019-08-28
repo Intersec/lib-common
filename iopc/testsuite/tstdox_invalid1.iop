@@ -1,0 +1,11 @@
+package tstdox_invalid1;
+
+interface MyIfaceA {
+    /** comment for funA of MyIfaceA.
+     *
+     *  @param[in] unknown  comment for unknown parameter
+     */
+    funA
+        in  (int param)
+        out void;
+};

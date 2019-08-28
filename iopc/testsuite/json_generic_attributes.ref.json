@@ -1,0 +1,123 @@
+{
+	"name": "json_generic_attributes",
+
+	"objects": [
+		{
+			"name": "VoiceEvent",
+			"fullName": "json_generic_attributes.VoiceEvent",
+			"type": "class",
+			"isAbstract": false,
+			"genAttrs": {
+				"scenario:label": {
+					"type": "object",
+					"value": {"en":"Voice call","fr":"Appel téléphonique"}
+				},
+				"empty:attr": {
+					"type": "object",
+					"value": {}
+				}
+			},
+			"fields": {
+				"length": {
+					"type": "int",
+					"genAttrs": {
+						"scenario:label": {
+							"type": "object",
+							"value": {"en":"Duration","fr":"Durée"}
+						},
+						"scenario:type": {
+							"type": "object",
+							"value": {"integer":{"size":"INT32","format":"TIME"}}
+						}
+					}
+				},
+				"price": {
+					"type": "number",
+					"genAttrs": {
+						"scenario:label": {
+							"type": "object",
+							"value": {"en":"Price","fr":"\"Gougou\" d'ooo'\n"}
+						},
+						"scenario:type": {
+							"type": "object",
+							"value": {"dbl":{"format":"CURRENCY"}}
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "DataEvent",
+			"fullName": "json_generic_attributes.DataEvent",
+			"type": "class",
+			"isAbstract": false,
+			"genAttrs": {
+				"scenario:label": {
+					"type": "object",
+					"value": {"en":"Data session","fr":"Session de donnée"}
+				}
+			},
+			"fields": {
+				"length": {
+					"type": "int",
+					"genAttrs": {
+						"scenario:label": {
+							"type": "object",
+							"value": {"en":"Bandwidth size","fr":"Bande passante"}
+						},
+						"scenario:type": {
+							"type": "object",
+							"value": {"integer":{"size":"INT32","format":"TIME"}}
+						},
+						"empty:attr": {
+							"type": "object",
+							"value": {}
+						}
+					}
+				},
+				"price": {
+					"type": "number",
+					"genAttrs": {
+						"scenario:label": {
+							"type": "object",
+							"value": {"en":"Price","fr":"\"Gougou\" d'ooo'\n"}
+						},
+						"scenario:type": {
+							"type": "object",
+							"value": {"dbl":{"format":"CURRENCY"}}
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "Test",
+			"fullName": "json_generic_attributes.Test",
+			"type": "struct",
+			"genAttrs": {
+				"ns:id": {
+					"type": "object",
+					"value": {"a1":[1,2,3],"a2":[],"s1":{"f1":1},"s2":{}}
+				}
+			},
+			"fields": {
+			}
+		},
+		{
+			"name": "Price",
+			"fullName": "json_generic_attributes.Price",
+			"type": "typedef",
+			"typedef": "number",
+			"genAttrs": {
+				"scenario:label": {
+					"type": "object",
+					"value": {"en":"Price","fr":"\"Gougou\" d'ooo'\n"}
+				},
+				"scenario:type": {
+					"type": "object",
+					"value": {"dbl":{"format":"CURRENCY"}}
+				}
+			}
+		}
+	]
+}

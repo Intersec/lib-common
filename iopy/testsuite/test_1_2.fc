@@ -1,0 +1,6 @@
+#!../util/bldutils/farchc
+
+test_1_2_scripts
+
+test_1.py
+test_2.py

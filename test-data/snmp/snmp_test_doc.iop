@@ -1,0 +1,86 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+package snmp_test_doc;
+
+enum TestDocEnum {
+    STATE_ONE,
+    STATE_TWO,
+    STATE_THREE,
+    FOUR,
+};
+
+@snmpParam
+snmpObj Obj : 1 : snmp_intersec_test.Test {
+    /** Description, ex: "some string".
+     */
+1:  string a;
+
+    /** Description.
+     */
+2:  TestDocEnum b;
+};
+
+/** Table.
+ */
+snmpTbl Tbl : 3 : Obj {
+     /** Description.
+      */
+1:   string column1;
+
+     /** Description.
+      */
+2:   int column2;
+
+     /** Description.
+      */
+     @snmpIndex
+3:   uint indexTbl;
+};
+
+@snmpParamsFrom(Obj)
+snmpIface Iface : 4 : Obj {
+    /** Description ex: "some notif".
+     */
+    @(snmp:severity, "major")
+1:  notifUnresponsive
+        in (a, b);
+
+    /** Description.
+     */
+2:  notifResponsive
+        in (a);
+};
+
+/** Table with indexes.
+ */
+snmpTbl TblWithIndex : 5 : Obj {
+     /** Description.
+      */
+     @snmpIndex
+1:   string index1;
+
+     /** Description.
+      */
+     @snmpIndex
+2:   uint index2;
+
+     /** Description.
+      */
+3:   int notIndex;
+};

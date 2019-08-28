@@ -1,0 +1,56 @@
+package tstgen;
+
+@(test:gen1, true)
+@ctype(my_enum_a__t)
+enum MyEnumA {
+    /*! Test doc + generic attributes on enum value */
+    @(test:gen10, 20.005)
+    VAL_A,
+    @(test:gen11, true)
+    VAL_B,
+    @alias(ALIAS_C)
+    @(test:gen12, "gen\u0037\n")
+    VAL_C,
+};
+
+@(test:gen2, 10)
+@(test:gen3, "test")
+@(test:gen4, false)
+@ctype(my_struct_a__t)
+struct MyStructA {
+    int i;
+    @(test:gen3, 10.0)
+    int j;
+    @(test:d1, 1.0e-2)
+    @(test:d2, 1.0E+2)
+    double d1 = 1.0e2;
+    pkg_a.A? weakRef1;
+    pkg_a.A? weakRef2;
+};
+
+union MyUnionA {
+4:  long f4;
+1:  bool f1;
+};
+
+/* Test with an optimized structure (cf. iopc_struct_optimize). */
+struct Optimized {
+3:  bool f3;
+4:  long f4;
+1:  bool f1;
+2:  long f2;
+};
+
+@ctype(my_class_a__t)
+class MyClassA {
+};
+
+@(test:gen4, "test")
+interface MyIfaceA {
+    @(test:gen5, 20.005)
+    @(test:gen6, true)
+    @(test:gen7, "gen7")
+2:  funA in (int a) out void;
+
+1:  funB out null;
+};

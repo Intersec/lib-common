@@ -1,0 +1,143 @@
+{
+    "required": {
+        "i8": -10,
+        "u8": 20,
+        "i16": -30,
+        "u16": 40,
+        "i32": -50,
+        "u32": 60,
+        "i64": -70,
+        "u64": 80,
+        "b": false,
+        "e": "B",
+        "d": 1.4142,
+        "s": "example",
+        "data": "1234",
+        "un": {
+            "i": 42
+        },
+        "st": {
+            "i": 42,
+            "s": "test"
+        },
+        "o": {
+            "_class": "tstiop.TestClassChild",
+            "i": 42,
+            "s": "string"
+        },
+        "xml": "<xml>text</xml>"
+    },
+    "reference": {
+        "un": {
+            "i": 42
+        },
+        "st": {
+            "i": 42,
+            "s": "test"
+        }
+    },
+    "optPresent": {
+        "i8": -10,
+        "u8": 20,
+        "i16": -30,
+        "u16": 40,
+        "i32": -50,
+        "u32": 60,
+        "i64": -70,
+        "u64": 80,
+        "b": false,
+        "e": "B",
+        "d": 1.4142,
+        "s": "example",
+        "data": "1234",
+        "un": {
+            "i": 42
+        },
+        "st": {
+            "i": 42,
+            "s": "test"
+        },
+        "o": {
+            "_class": "tstiop.TestClassChild",
+            "i": 42,
+            "s": "string"
+        },
+        "xml": "<xml>text</xml>"
+    },
+    "optAbsent": {
+    },
+    "defValPresent": {
+        "i8": -10,
+        "u8": 20,
+        "i16": -30,
+        "u16": 40,
+        "i32": -50,
+        "u32": 60,
+        "i64": -70,
+        "u64": 80,
+        "b": false,
+        "e": "B",
+        "d": 1.4142,
+        "s": "example",
+        "data": "1234",
+        "xml": "<xml>text</xml>"
+    },
+    "defValAbsent": {
+    },
+    "repeated": {
+        "i8": [ -10, -11 ],
+        "u8": [ 20, 21 ],
+        "i16": [ -30, -31 ],
+        "u16": [ 40, 41 ],
+        "i32": [ -50, -51 ],
+        "u32": [ 60, 61 ],
+        "i64": [ -70, -71 ],
+        "u64": [ 80, 81 ],
+        "b": [ false, true ],
+        "e": [ "B", "A" ],
+        "d": [ 1.4142, -1.4142 ],
+        "s": [ "example", "other example" ],
+        "data": [ "1234", "5678" ],
+        "un": [ {
+            "i": 42
+        }, {
+            "s": "43"
+        } ],
+        "st": [ {
+            "i": 42,
+            "s": "test"
+        }, {
+            "i": 43,
+            "s": "sample"
+        } ],
+        "o": [ {
+            "_class": "tstiop.TestClassChild",
+            "i": 42,
+            "s": "string"
+        }, {
+            "_class": "tstiop.TestClassChild2",
+            "i": 51,
+            "u": 63
+        } ],
+        "xml": [ "<xml>text</xml>", "<pre>example</pre>" ]
+    },
+    "repeatedEmpty": {
+        "i8": [],
+        "u8": [],
+        "i16": [],
+        "u16": [],
+        "i32": [],
+        "u32": [],
+        "i64": [],
+        "u64": [],
+        "b": [],
+        "e": [],
+        "d": [],
+        "s": [],
+        "data": [],
+        "un": [],
+        "st": [],
+        "o": [],
+        "xml": []
+    }
+}

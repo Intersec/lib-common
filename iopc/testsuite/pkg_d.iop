@@ -1,0 +1,6 @@
+package pkg_d;
+
+struct A {
+    int numberDecSep = c"."; // this is a character
+    int foo = 42; // this is an integer
+};

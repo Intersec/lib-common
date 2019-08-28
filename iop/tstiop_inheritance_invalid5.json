@@ -1,0 +1,7 @@
+/* Test with a missing mandatory class field having mandatory fields */
+{
+     "b2": {
+         "_class": "tstiop_inheritance.B2",
+         "a2": 10
+     }
+}

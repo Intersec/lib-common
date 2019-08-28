@@ -1,0 +1,15 @@
+package snmp_invalid_index_type;
+
+/** Description.
+ */
+snmpObj A : 81 : snmp_obj.MySnmp {
+};
+
+/** Description.
+ */
+snmpTbl B : 1 : A {
+     /** Description.
+      */
+     @snmpIndex
+1:   double i1;
+};

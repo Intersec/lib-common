@@ -1,0 +1,6 @@
+package typedef_invalid_13;
+
+typedef ulong MyUlong;
+
+@minOccurs(12)
+typedef MyUlong MyUlong1;

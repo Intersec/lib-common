@@ -1,0 +1,4 @@
+/* Inclusion of an invalid json file. */
+{
+    "cls2": @include("json-includes/string.txt")
+}

@@ -1,0 +1,9 @@
+package inheritance_invalid_static_already_defined;
+
+class A {
+    static int toto = 10;
+};
+
+abstract class B : 0 : A {
+    static int toto;
+};

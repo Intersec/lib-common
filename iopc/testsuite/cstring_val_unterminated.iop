@@ -1,0 +1,5 @@
+package cstring_val_unterminated;
+
+struct St {
+    string a = c"str...;
+};

@@ -1,0 +1,13 @@
+package snmp_invalid2;
+
+snmpObj A : 1 : Intersec {
+     /** Description.
+      */
+1:   string a1;
+};
+
+struct Struct {
+    int st1;
+    A   st2;
+};
+

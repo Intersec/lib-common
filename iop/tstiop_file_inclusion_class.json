@@ -1,0 +1,5 @@
+/* This is a tstiop.MyStructF */
+{
+    "e": [ @include("json-includes/MyClass1.json") ],
+    "f": @include("json-includes/MyClass1.json")
+}

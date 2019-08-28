@@ -1,0 +1,5 @@
+package reference_invalid_2;
+
+union MyUnion {
+    int& a;
+};

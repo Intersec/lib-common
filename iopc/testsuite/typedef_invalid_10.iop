@@ -1,0 +1,7 @@
+package typedef_invalid_10;
+
+typedef ulong[] UlongArray;
+
+struct MyStruct {
+    UlongArray? ulao;
+};

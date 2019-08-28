@@ -1,0 +1,6 @@
+package attrs_invalid_2;
+
+struct User {
+    @ctype(nonsense__t)
+    string  login;
+}

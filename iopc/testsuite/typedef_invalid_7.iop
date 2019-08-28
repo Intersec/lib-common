@@ -1,0 +1,5 @@
+package typedef_invalid_7;
+
+typedef ulong? OptUlong;
+
+typedef OptUlong[] OptUlongArray;

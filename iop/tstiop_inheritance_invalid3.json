@@ -1,0 +1,5 @@
+/* Test with an incompatible class */
+{
+     "_class": "tstiop_inheritance.A1",
+     "a2": 12
+}

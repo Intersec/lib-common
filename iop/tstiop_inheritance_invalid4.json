@@ -1,0 +1,4 @@
+/* Test with a missing mandatory field */
+{
+     "_class": "tstiop_inheritance.C1"
+}

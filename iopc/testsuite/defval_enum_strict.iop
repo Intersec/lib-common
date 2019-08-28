@@ -1,0 +1,13 @@
+package defval_enum_strict;
+
+@strict
+enum Myenum {
+    A,
+    B,
+};
+
+typedef Myenum StrictEnum;
+
+struct Test {
+    StrictEnum e = 2;
+};

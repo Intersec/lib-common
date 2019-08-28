@@ -1,0 +1,9 @@
+/* Test with a missing mandatory abstract class field having only optional
+ * fields;
+ * Field "a3" is missing and this is not authorized since this is an abstract
+ * class. */
+{
+     "a1": @a2 10 {
+         "_class": "tstiop_inheritance.A1"
+     }
+}

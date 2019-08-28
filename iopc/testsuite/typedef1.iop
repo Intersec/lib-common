@@ -1,0 +1,19 @@
+package typedef1;
+
+struct FooS {
+    int bar;
+};
+
+union FooU {
+    int bar;
+};
+
+enum FooE {
+    A,
+    B,
+};
+
+typedef string  MyType;
+typedef FooS    MyTypeS;
+typedef FooU    MyTypeU;
+typedef FooE    MyTypeE;

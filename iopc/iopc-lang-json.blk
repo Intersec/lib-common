@@ -1,0 +1,1001 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include "iopc.h"
+
+#define QUOTE(_str)                  "\""_str"\""
+#define KEY(_str)                    QUOTE(_str)": "
+#define SEP                          ","
+#define SEPNL                        SEP"\n"
+
+#define TYPE_LABEL  "type"
+
+#define START_LINE_CKEY(_wbuf, _key)  \
+    IOPC_WRITE_START_LINE_CSTR(_wbuf, KEY(_key))
+
+#define START_LINE_KEY(_wbuf, _key)  \
+    IOPC_WRITE_START_LINE(_wbuf, sb_addf, KEY("%s"), _key)
+
+#define LINE_START_OBJ_KEY(_wbuf, _key)                          \
+    do {                                                         \
+        const iopc_write_buf_t *_b = (_wbuf);                    \
+        IOPC_WRITE_START_LINE(_b, sb_addf, KEY("%s") "{", _key); \
+        iopc_write_buf_tab_inc(_b);                              \
+    } while (0)
+
+#define LINE_START_COLLECTION(_wbuf, _key, _sep)                             \
+    do {                                                                     \
+        const iopc_write_buf_t *_b = (_wbuf);                                \
+        if (_key[0]) {                                                       \
+            IOPC_WRITE_START_LINE(_b, sb_addf, KEY("%s") _sep, _key ?: "");  \
+        } else {                                                             \
+            IOPC_WRITE_START_LINE(_b, sb_addf, _sep);                        \
+        }                                                                    \
+        iopc_write_buf_tab_inc(_b);                                          \
+    } while (0)
+
+#define LINE_START_OBJ_PREFIX(_wbuf, _key)  \
+    LINE_START_COLLECTION(_wbuf, _key, "{")
+
+#define LINE_START_OBJ_CKEY(_wbuf, _key)  \
+    LINE_START_OBJ_PREFIX(_wbuf, _key)
+
+#define LINE_START_OBJ(_wbuf)  LINE_START_OBJ_PREFIX(_wbuf, "")
+
+#define LINE_START_ARRAY(_wbuf, _key)  \
+    LINE_START_COLLECTION(_wbuf, _key, "[")
+
+#define LINE_END_COLLECTION(_wbuf, _end)          \
+    do {                                          \
+        const iopc_write_buf_t *_b = (_wbuf);     \
+        suppress_sep(_b);                         \
+        iopc_write_buf_tab_dec(_b);               \
+        IOPC_WRITE_START_LINE_CSTR(_b, _end SEP); \
+    } while (0)
+
+#define LINE_END_OBJ(_wbuf)  LINE_END_COLLECTION(_wbuf, "}")
+
+#define LINE_END_ARRAY(_wbuf)  LINE_END_COLLECTION(_wbuf, "]")
+
+#define LINE_CKEY_CVAL(_wbuf, _key, _val)  \
+    IOPC_WRITE_START_LINE_CSTR(_wbuf, KEY(_key) _val SEP)
+
+#define LINE_CKEY_TRUE(_wbuf, _key)  LINE_CKEY_CVAL(_wbuf, _key, "true")
+
+#define LINE_CKEY_VAL_FMT(_wbuf, _key, _fmt, ...)  \
+    IOPC_WRITE_START_LINE(_wbuf, sb_addf, KEY(_key) _fmt SEP, ##__VA_ARGS__)
+
+#define LINE_KEY_VAL_FMT(_wbuf, _key, _fmt, ...)              \
+    IOPC_WRITE_START_LINE(_wbuf, sb_addf, KEY("%s") _fmt SEP, \
+                          _key, ##__VA_ARGS__)
+
+#define LINE_CKEY_VAL_BOOL(_wbuf, _key, _val)  \
+    LINE_CKEY_VAL_FMT(_wbuf, _key, "%s", (_val) ? "true" : "false")
+
+#define LINE_CKEY_VAL_STR(_wbuf, _key, _val)  \
+    LINE_CKEY_VAL_FMT(_wbuf, _key, QUOTE("%s"), _val)
+
+#define LINE_CKEY_VAL_CSTR(_wbuf, _key, _val)  \
+    IOPC_WRITE_START_LINE_CSTR(_wbuf, KEY(_key) QUOTE(_val) SEP)
+
+#define LINE_CKEY_INT(_wbuf, _key, _val)                                     \
+    do {                                                                     \
+        int64_t _i = (_val);                                                 \
+                                                                             \
+        if (_i >= 1ll << 53 || _i <= -(1ll << 53)) {                         \
+            LINE_CKEY_VAL_FMT(_wbuf, _key, "\"%jd\"", _i);                   \
+        } else {                                                             \
+            LINE_CKEY_VAL_FMT(_wbuf, _key, "%jd", _i);                       \
+        }                                                                    \
+    } while (0)
+
+#define LINE_CKEY_UINT(_wbuf, _key, _val)                                    \
+    do {                                                                     \
+        uint64_t _u = (_val);                                                \
+                                                                             \
+        if (_u >= 1ull << 53) {                                              \
+            LINE_CKEY_VAL_FMT(_wbuf, _key, "\"%ju\"", _u);                   \
+        } else {                                                             \
+            LINE_CKEY_VAL_FMT(_wbuf, _key, "%ju", _u);                       \
+        }                                                                    \
+    } while (0)
+
+#define XT_FMT           QUOTE("%s.%s")
+#define XT_FMT_ARG(_xt)  pretty_path_dot((_xt)->path), (_xt)->name
+
+static inline void newline(const iopc_write_buf_t *wbuf)
+{
+    sb_addc(wbuf->buf, '\n');
+}
+
+static inline void sep(const iopc_write_buf_t *wbuf)
+{
+    sb_adds(wbuf->buf, SEP);
+}
+
+static void suppress_sep(const iopc_write_buf_t *wbuf)
+{
+    sb_t *sb = wbuf->buf;
+
+    if (sb->len && *(sb_end(sb) - 1) == *SEP)
+        sb_shrink(sb, 1);
+}
+
+static void
+dump_name(const iopc_write_buf_t *wbuf, const char *pkg_name,
+          const char *name)
+{
+    LINE_CKEY_VAL_STR(wbuf, "name", name);
+    LINE_CKEY_VAL_FMT(wbuf, "fullName", QUOTE("%s.%s"), pkg_name, name);
+}
+
+static void write_ps(const iopc_write_buf_t *wbuf, pstream_t ps)
+{
+    const char *prev = ps.s;
+
+    sb_addc(wbuf->buf, '"');
+    while (!ps_done(&ps)) {
+        const char *pos = ps.s;
+        int c = ps_getuc(&ps);
+
+        if (c < 0) {
+            e_fatal("unexpected invalid utf8 string");
+        }
+
+#define PUT_SPECIAL(fmt, ...)  do {                                          \
+        if (pos != prev) {                                                   \
+            sb_add(wbuf->buf, prev, pos - prev);                             \
+        }                                                                    \
+        prev = ps.s;                                                         \
+        sb_addf(wbuf->buf, fmt, ##__VA_ARGS__);                              \
+    } while (0)
+        switch (c) {
+          case '"':
+            PUT_SPECIAL("\\\"");
+            break;
+
+          case '\\':
+            PUT_SPECIAL("\\\\");
+            break;
+
+          case '\b':
+            PUT_SPECIAL("\\b");
+            break;
+
+          case '\f':
+            PUT_SPECIAL("\\f");
+            break;
+
+          case '\n':
+            PUT_SPECIAL("\\n");
+            break;
+
+          case '\r':
+            PUT_SPECIAL("\\r");
+            break;
+
+          case '\t':
+            PUT_SPECIAL("\\t");
+            break;
+
+          default:
+            if (c < 0x20) {
+                PUT_SPECIAL("\\u%04x", c);
+            }
+            break;
+        }
+    }
+    if (ps.s != prev) {
+        sb_add(wbuf->buf, prev, ps.s - prev);
+    }
+#undef PUT_SPECIAL
+
+    sb_addc(wbuf->buf, '"');
+}
+
+static void write_lstr(const iopc_write_buf_t *wbuf, const lstr_t *s)
+{
+    write_ps(wbuf, ps_initlstr(s));
+}
+
+static void write_string(const iopc_write_buf_t *wbuf, const char *s)
+{
+    write_ps(wbuf, ps_initstr(s));
+}
+
+static void
+dump_key_val_string(const iopc_write_buf_t *wbuf, const char* key,
+                    const char *s)
+{
+    START_LINE_KEY(wbuf, key);
+    write_string(wbuf, s);
+    sep(wbuf);
+}
+
+static void
+dump_key_val_lstr(const iopc_write_buf_t *wbuf, const char* key,
+                  const lstr_t *s)
+{
+    START_LINE_KEY(wbuf, key);
+    write_lstr(wbuf, s);
+    sep(wbuf);
+}
+
+static void dump_gen_attr(const iopc_write_buf_t *wbuf, iopc_attr_t *attr)
+{
+    if (!expect(attr->desc->id == IOPC_ATTR_GENERIC))
+        return;
+
+    LINE_START_OBJ_KEY(wbuf, attr->real_name.s);
+
+    switch (attr->args.tab[0].type) {
+      case ITOK_IDENT:
+        /* JSON object */
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "object");
+        LINE_CKEY_VAL_FMT(wbuf, "value", "%*pM",
+                          LSTR_FMT_ARG(attr->args.tab[0].v.s));
+        break;
+      case ITOK_STRING:
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "string");
+        dump_key_val_string(wbuf, "value", attr->args.tab[0].v.s.s);
+        break;
+      case ITOK_INTEGER:
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "int");
+        LINE_CKEY_INT(wbuf, "value", attr->args.tab[0].v.i64);
+        break;
+      case ITOK_BOOL:
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "boolean");
+        LINE_CKEY_VAL_BOOL(wbuf, "value", attr->args.tab[0].v.i64);
+        break;
+      case ITOK_DOUBLE:
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "double");
+        LINE_CKEY_VAL_FMT(wbuf, "value", "%e", attr->args.tab[0].v.d);
+        break;
+      default:
+        assert (false);
+    }
+
+    LINE_END_OBJ(wbuf);
+}
+
+static void dump_gen_attrs(const iopc_write_buf_t *wbuf,
+                           const qv_t(iopc_attr) *attrs)
+{
+    bool has_gen_attr = false;
+
+    tab_for_each_entry(attr, attrs) {
+        if (attr->desc->id != IOPC_ATTR_GENERIC)
+            continue;
+
+        if (!has_gen_attr) {
+            has_gen_attr = true;
+            LINE_START_OBJ_CKEY(wbuf, "genAttrs");
+        }
+
+        dump_gen_attr(wbuf, attr);
+    }
+
+    if (has_gen_attr)
+        LINE_END_OBJ(wbuf);
+}
+
+/*{{{ doxygen */
+
+static int
+iopc_dox_dump_json(const iopc_write_buf_t *wbuf,
+                   const qv_t(iopc_dox) *comments, const char *key)
+{
+    if (!comments->len)
+        return -1;
+
+    LINE_START_OBJ_KEY(wbuf, key);
+    tab_for_each_ptr(dox, comments) {
+        lstr_t type = iopc_dox_type_to_lstr(dox->type);
+
+        if (!dox->desc.len) {
+            continue;
+        }
+
+        switch (dox->type) {
+            lstr_t brief;
+
+          case IOPC_DOX_TYPE_EXAMPLE:
+            LINE_KEY_VAL_FMT(wbuf, type.s, "%*pM", LSTR_FMT_ARG(dox->desc));
+            break;
+
+          case IOPC_DOX_TYPE_BRIEF:
+            brief = dox->desc;
+            if (brief.len > 0 && brief.s[brief.len - 1] == '.') {
+                brief.len--;
+            }
+            dump_key_val_lstr(wbuf, type.s, &brief);
+            break;
+
+          default:
+            dump_key_val_string(wbuf, type.s, dox->desc.s);
+            break;
+        }
+    }
+    LINE_END_OBJ(wbuf);
+    return 0;
+}
+
+#define iopc_dox_dump_json(_wbuf, _obj)  \
+    ((iopc_dox_dump_json)(_wbuf, &(_obj)->comments, "help"))
+
+/*}}} */
+/*{{{ enums */
+
+static void
+iopc_enum_dump_json(const iopc_write_buf_t *wbuf, const char *pkg_name,
+                    const iopc_enum_t *en)
+{
+    bool help_values = false;
+
+    dump_name(wbuf, pkg_name, en->name);
+    LINE_CKEY_VAL_CSTR(wbuf, "type", "enum");
+    iopc_dox_dump_json(wbuf, en);
+
+    if (iopc_attr_check(&en->attrs, IOPC_ATTR_STRICT, NULL) >= 0) {
+        LINE_START_OBJ_CKEY(wbuf, "constraints");
+        LINE_CKEY_TRUE(wbuf, "strict");
+        LINE_END_OBJ(wbuf);
+    }
+
+    dump_gen_attrs(wbuf, &en->attrs);
+
+    LINE_START_OBJ_CKEY(wbuf, "values");
+    tab_for_each_entry(f, &en->values) {
+        LINE_START_OBJ_KEY(wbuf, f->name);
+        LINE_KEY_VAL_FMT(wbuf, "value", "%d", f->value);
+        dump_gen_attrs(wbuf, &f->attrs);
+        if (f->comments.len) {
+            help_values = true;
+        }
+
+        tab_for_each_entry(attr, &f->attrs) {
+            if (attr->desc->id == IOPC_ATTR_ALIAS) {
+                LINE_START_ARRAY(wbuf, "aliases");
+                tab_for_each_entry(alias, &attr->args) {
+                    write_string(wbuf, alias.v.s.s);
+                    sep(wbuf);
+                }
+                LINE_END_ARRAY(wbuf);
+            }
+        }
+
+        LINE_END_OBJ(wbuf);
+    }
+    LINE_END_OBJ(wbuf);
+
+    if (help_values) {
+        LINE_START_OBJ_CKEY(wbuf, "valuesHelp");
+        tab_for_each_entry(f, &en->values) {
+            (iopc_dox_dump_json)(wbuf, &f->comments, f->name);
+        }
+        LINE_END_OBJ(wbuf);
+    }
+}
+
+/*}}} */
+/*{{{ structs, unions and classes */
+
+static int
+write_field_scalar_attr(const iopc_write_buf_t *wbuf, const iopc_field_t *f,
+                        const iopc_attr_t *attr)
+{
+    bool is_signed;
+
+    RETHROW(iopc_field_get_signed(f, &is_signed));
+    if (f->kind == IOP_T_DOUBLE) {
+        sb_addf(wbuf->buf, DOUBLE_FMT,
+                IOPC_ATTR_GET_ARG_V(double, &attr->args.tab[0]));
+    } else
+    if (is_signed) {
+        sb_addf(wbuf->buf, "%jd",
+                IOPC_ATTR_GET_ARG_V(int64_t, &attr->args.tab[0]));
+    } else {
+        sb_addf(wbuf->buf, "%ju",
+                IOPC_ATTR_GET_ARG_V(uint64_t, &attr->args.tab[0]));
+    }
+    return 0;
+}
+
+static void
+dump_field_type_obj(const iopc_write_buf_t *wbuf, const char *key,
+                    const iopc_field_t *f)
+{
+    LINE_KEY_VAL_FMT(wbuf, key, QUOTE("%s.%s"),
+                     pretty_path_dot(f->type_path), f->type_name);
+}
+
+
+static
+void dump_field_type(const iopc_write_buf_t *wbuf, const char *type_label,
+                     const iopc_field_t *f)
+{
+    const char *type;
+
+    switch (f->kind) {
+      case IOP_T_U8:     type = "ubyte";   break;
+      case IOP_T_I8:     type = "byte";    break;
+      case IOP_T_U16:    type = "ushort";  break;
+      case IOP_T_I16:    type = "short";   break;
+      case IOP_T_U32:    type = "uint";    break;
+      case IOP_T_I32:    type = "int";     break;
+      case IOP_T_U64:    type = "ulong";   break;
+      case IOP_T_I64:    type = "long";    break;
+      case IOP_T_BOOL:   type = "boolean"; break;
+      case IOP_T_VOID:   type = "void";    break;
+      case IOP_T_DOUBLE: type = "number";  break;
+      case IOP_T_STRING: type = "string";  break;
+      case IOP_T_DATA:   type = "data";    break;
+      case IOP_T_XML:    type = "xml";     break;
+
+      default:
+        dump_field_type_obj(wbuf, type_label, f);
+        return;
+    }
+
+    LINE_KEY_VAL_FMT(wbuf, type_label, QUOTE("%s"), type);
+}
+
+static void dump_defval(const iopc_write_buf_t *wbuf, const iopc_field_t *f)
+{
+#define DEF  "default"
+
+    switch (f->kind) {
+#define CASE_IOP_T_INT(N)                                                    \
+      case IOP_T_U##N:                                                       \
+        LINE_CKEY_UINT(wbuf, DEF, f->defval.u64);                            \
+        break;                                                               \
+      case IOP_T_I##N:                                                       \
+        LINE_CKEY_INT(wbuf, DEF, (int##N##_t)f->defval.u64);                 \
+        break;
+
+      CASE_IOP_T_INT(8)
+      CASE_IOP_T_INT(16)
+      CASE_IOP_T_INT(32)
+      CASE_IOP_T_INT(64)
+
+      case IOP_T_ENUM:
+        LINE_CKEY_INT(wbuf, DEF, f->defval.u64);
+        break;
+
+      case IOP_T_BOOL:
+        LINE_CKEY_VAL_BOOL(wbuf, DEF, f->defval.u64);
+        break;
+
+      case IOP_T_DOUBLE:
+        LINE_CKEY_VAL_FMT(wbuf, DEF, DOUBLE_FMT, f->defval.d);
+        break;
+
+      case IOP_T_STRING:
+      case IOP_T_DATA:
+      case IOP_T_XML:
+        dump_key_val_string(wbuf, DEF, (const char *)f->defval.ptr);
+        break;
+
+      default:
+        break;
+
+#undef CASE_IOP_T_INT
+   }
+#undef DEF
+}
+
+static int
+dump_constraint_field_scalar(const iopc_write_buf_t *wbuf, const char *key,
+                             const iopc_field_t *f, const iopc_attr_t *attr)
+{
+    START_LINE_KEY(wbuf, key);
+    RETHROW(write_field_scalar_attr(wbuf, f, attr));
+    sep(wbuf);
+    return 0;
+}
+
+static void
+dump_constraint_multi_token(const iopc_write_buf_t *wbuf, const char *key,
+                            const iopc_field_t *f, const iopc_attr_t *attr)
+{
+    LINE_START_ARRAY(wbuf, key);
+    tab_for_each_ptr(arg, &attr->args) {
+        write_string(wbuf, arg->v.s.s);
+        sep(wbuf);
+    }
+    LINE_END_ARRAY(wbuf);
+}
+
+#define dump_constraint_len(_wbuf, _key, _attr)                          \
+    LINE_CKEY_VAL_FMT(_wbuf, _key, "%jd",                                \
+                      IOPC_ATTR_GET_ARG_V(int64_t, &_attr->args.tab[0])) \
+
+static bool is_dummy_constraint(const iopc_attr_t *attr)
+{
+    switch (attr->desc->id) {
+      case IOPC_ATTR_NOWARN:
+      case IOPC_ATTR_PRIVATE:
+      case IOPC_ATTR_DEPRECATED:
+      case IOPC_ATTR_GENERIC:
+        return true;
+
+      default:
+        return false;
+    }
+}
+
+static int
+dump_constraint(const iopc_write_buf_t *wbuf, const iopc_field_t *f,
+                const iopc_attr_t *attr)
+{
+    switch (attr->desc->id) {
+      case IOPC_ATTR_MIN:
+        RETHROW(dump_constraint_field_scalar(wbuf, "min", f, attr));
+        break;
+      case IOPC_ATTR_MAX:
+        RETHROW(dump_constraint_field_scalar(wbuf, "max", f, attr));
+        break;
+
+      case IOPC_ATTR_MIN_OCCURS:
+        dump_constraint_len(wbuf, "minOccurs", attr);
+        break;
+      case IOPC_ATTR_MAX_OCCURS:
+        dump_constraint_len(wbuf, "maxOccurs", attr);
+        break;
+      case IOPC_ATTR_MIN_LENGTH:
+        dump_constraint_len(wbuf, "minLength", attr);
+        break;
+      case IOPC_ATTR_MAX_LENGTH:
+        dump_constraint_len(wbuf, "maxLength", attr);
+        break;
+      case IOPC_ATTR_LENGTH:
+        dump_constraint_len(wbuf, "length", attr);
+        break;
+
+      case IOPC_ATTR_CDATA:
+        LINE_CKEY_TRUE(wbuf, "cdata");
+        break;
+      case IOPC_ATTR_NON_EMPTY:
+        LINE_CKEY_TRUE(wbuf, "nonEmpty");
+        break;
+      case IOPC_ATTR_NON_ZERO:
+        LINE_CKEY_TRUE(wbuf, "nonZero");
+        break;
+
+
+      case IOPC_ATTR_ALLOW:
+      case IOPC_ATTR_DISALLOW: {
+        const char *name;
+
+        if (attr->desc->id == IOPC_ATTR_ALLOW) {
+            name = "allow";
+        } else {
+            name = "disallow";
+        }
+
+        dump_constraint_multi_token(wbuf, name, f, attr);
+      } break;
+
+      case IOPC_ATTR_PATTERN:
+        dump_key_val_string(wbuf, "pattern", attr->args.tab[0].v.s.s);
+        break;
+
+      case IOPC_ATTR_DEPRECATED:
+        /* TODO */
+        break;
+
+      case IOPC_ATTR_GENERIC:
+        /* TODO */
+        break;
+
+      case IOPC_ATTR_SNMP_PARAMS_FROM:
+        /* TODO */
+        break;
+
+      case IOPC_ATTR_SNMP_PARAM:
+        /* TODO */
+        break;
+
+      case IOPC_ATTR_SNMP_INDEX:
+        /* TODO */
+        break;
+
+      default:
+        print_error("unsupported constraint %d", attr->desc->id);
+    }
+    return 0;
+}
+
+static int
+dump_field_constraints(const iopc_write_buf_t *wbuf, const iopc_field_t *f)
+{
+    bool has_constraint = false;
+
+    tab_for_each_entry(attr, &f->attrs) {
+        if (is_dummy_constraint(attr)) {
+            continue;
+        }
+
+        if (!has_constraint) {
+            has_constraint = true;
+            LINE_START_OBJ_CKEY(wbuf, "constraints");
+        }
+
+        RETHROW(dump_constraint(wbuf, f, attr));
+    }
+
+    if (has_constraint) {
+        LINE_END_OBJ(wbuf);
+    }
+
+    return 0;
+}
+
+static
+int dump_fields(const iopc_write_buf_t *wbuf, const qv_t(iopc_field) *fields)
+{
+    tab_for_each_entry(f, fields) {
+        bool private = false;
+        bool deprecated = false;
+
+        LINE_START_OBJ_KEY(wbuf, f->name);
+
+        dump_field_type(wbuf, TYPE_LABEL, f);
+
+        switch (f->repeat) {
+          case IOP_R_DEFVAL:
+            dump_defval(wbuf, f);
+            break;
+          case IOP_R_OPTIONAL:
+            LINE_CKEY_TRUE(wbuf, "optional");
+            break;
+          case IOP_R_REPEATED:
+            LINE_CKEY_TRUE(wbuf, "repeated");
+            break;
+        }
+
+        iopc_dox_dump_json(wbuf, f);
+        tab_for_each_entry(attr, &f->attrs) {
+            if (attr->desc->id == IOPC_ATTR_PRIVATE) {
+                private = true;
+            } else
+            if (attr->desc->id == IOPC_ATTR_DEPRECATED) {
+                deprecated = true;
+            }
+        }
+
+        RETHROW(dump_field_constraints(wbuf, f));
+        dump_gen_attrs(wbuf, &f->attrs);
+
+        if (private) {
+            LINE_CKEY_TRUE(wbuf, "private");
+        }
+        if (deprecated) {
+            LINE_CKEY_TRUE(wbuf, "deprecated");
+        }
+
+        LINE_END_OBJ(wbuf);
+    }
+
+    return 0;
+}
+
+static int
+iopc_typedef_dump_json(const iopc_write_buf_t *wbuf, const char *pkg_name,
+                       const iopc_field_t *tdef)
+{
+    dump_name(wbuf, pkg_name, tdef->name);
+    LINE_CKEY_VAL_CSTR(wbuf, "type", "typedef");
+    dump_field_type(wbuf, "typedef", tdef);
+    RETHROW(dump_field_constraints(wbuf, tdef));
+    dump_gen_attrs(wbuf, &tdef->attrs);
+    return 0;
+}
+
+static int
+iopc_struct_dump_json(const iopc_write_buf_t *wbuf, const char *pkg_name,
+                      iopc_struct_t *st)
+{
+    dump_name(wbuf, pkg_name, st->name);
+
+    switch (st->type) {
+      case STRUCT_TYPE_UNION:
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "union");
+        break;
+      case STRUCT_TYPE_STRUCT:
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "struct");
+        break;
+      case STRUCT_TYPE_CLASS:
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "class");
+        if (st->extends.len == 1) {
+            LINE_CKEY_VAL_FMT(wbuf, "parent", XT_FMT,
+                              XT_FMT_ARG(st->extends.tab[0]));
+        } else
+        if (st->extends.len) {
+            print_error("multiple class inheritance is not allowed: %s.%s",
+                        pkg_name, st->name);
+            assert (false);
+            return -1;
+        }
+        LINE_CKEY_VAL_BOOL(wbuf, "isAbstract", st->is_abstract);
+        tab_for_each_entry(attr, &st->attrs) {
+            if (attr->desc->id == IOPC_ATTR_PRIVATE) {
+                LINE_CKEY_VAL_BOOL(wbuf, "private", true);
+                break;
+            }
+        }
+        break;
+      case STRUCT_TYPE_SNMP_OBJ:
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "snmpObj");
+        LINE_CKEY_VAL_FMT(wbuf, "parent", XT_FMT,
+                          XT_FMT_ARG(st->extends.tab[0]));
+        break;
+      case STRUCT_TYPE_SNMP_TBL:
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "snmpTbl");
+        LINE_CKEY_VAL_FMT(wbuf, "parent", XT_FMT,
+                          XT_FMT_ARG(st->extends.tab[0]));
+        break;
+
+      default:
+        print_error("unsupported struct type: %d", st->type);
+        assert (false);
+        return -1;
+    }
+
+    iopc_dox_dump_json(wbuf, st);
+
+    if (st->static_fields.len) {
+        LINE_START_OBJ_CKEY(wbuf, "statics");
+        qv_sort(iopc_field)(&st->static_fields,
+                            ^int (iopc_field_t * const *f1,
+                                  iopc_field_t * const *f2) {
+            return (*f1)->field_pos - (*f2)->field_pos;
+        });
+        RETHROW(dump_fields(wbuf, &st->static_fields));
+        LINE_END_OBJ(wbuf);
+    }
+
+    dump_gen_attrs(wbuf, &st->attrs);
+
+    LINE_START_OBJ_CKEY(wbuf, "fields");
+    iopc_struct_sort_fields(st, BY_POS);
+    RETHROW(dump_fields(wbuf, &st->fields));
+    LINE_END_OBJ(wbuf);
+    return 0;
+}
+
+/*}}} */
+/*{{{ interfaces */
+
+static void
+iopc_iface_dump_json(const iopc_write_buf_t *wbuf, const char *pkg_name,
+                     iopc_iface_t *iface)
+{
+    t_scope;
+    const char *fbase = t_fmt("%s.%s", pkg_name, iface->name);
+
+    dump_name(wbuf, pkg_name, iface->name);
+    iopc_dox_dump_json(wbuf, iface);
+
+    switch (iface->type) {
+      case IFACE_TYPE_IFACE:
+        break;
+      case IFACE_TYPE_SNMP_IFACE:
+        LINE_CKEY_VAL_CSTR(wbuf, "type", "snmpIface");
+        LINE_CKEY_VAL_FMT(wbuf, "parent", XT_FMT,
+                          XT_FMT_ARG(iface->extends.tab[0]));
+        break;
+
+      default:
+        print_error("unsupported interface type: %d", iface->type);
+        assert (false);
+        return;
+    }
+
+    dump_gen_attrs(wbuf, &iface->attrs);
+
+    LINE_START_OBJ_CKEY(wbuf, "rpcs");
+    tab_for_each_entry(fun, &iface->funs) {
+        LINE_START_OBJ_KEY(wbuf, fun->name);
+        iopc_dox_dump_json(wbuf, fun);
+
+        dump_gen_attrs(wbuf, &fun->attrs);
+
+#define DUMP_FUN_PARAM(_key, X)                                            \
+    do {                                                                   \
+        if (!fun->X)                                                       \
+            break;                                                         \
+        if (fun->X##_is_anonymous) {                                       \
+            LINE_CKEY_VAL_FMT(wbuf, _key, QUOTE("%s.%s"),                  \
+                              fbase, fun->X->name);                        \
+        } else {                                                           \
+            dump_field_type_obj(wbuf, _key, fun->f##X);                    \
+            (iopc_dox_dump_json)(wbuf, &fun->f##X->comments, _key "Help"); \
+        }                                                                  \
+    } while (0)
+
+        DUMP_FUN_PARAM("in", arg);
+        DUMP_FUN_PARAM("out", res);
+        DUMP_FUN_PARAM("throw", exn);
+
+#undef DUMP_FUN_PARAM
+
+        if (fun->fun_is_async) {
+            LINE_CKEY_TRUE(wbuf, "async");
+        }
+
+        LINE_END_OBJ(wbuf);
+    }
+    LINE_END_OBJ(wbuf);
+}
+
+/*}}} */
+/*{{{ modules */
+
+static void
+iopc_module_dump_json(const iopc_write_buf_t *wbuf, const char *pkg_name,
+                      const iopc_struct_t *mod)
+{
+    /* XXX: base_tags is used in order to not put the interfaces belonging
+     *      to inherited modules
+     */
+    qh_t(u32) base_tags = QH_INIT(u32, base_tags);
+
+    dump_name(wbuf, pkg_name, mod->name);
+    iopc_dox_dump_json(wbuf, mod);
+
+    if (mod->extends.len) {
+        LINE_START_ARRAY(wbuf, "parent");
+    }
+    tab_for_each_entry(xt, &mod->extends) {
+        IOPC_WRITE_START_LINE(wbuf, sb_addf, XT_FMT SEP, XT_FMT_ARG(xt));
+        tab_for_each_entry(f, &xt->st->fields) {
+            qh_add(u32, &base_tags, f->tag);
+        }
+    }
+    if (mod->extends.len)
+        LINE_END_ARRAY(wbuf);
+
+    LINE_START_OBJ_CKEY(wbuf, "interfaces");
+
+    tab_for_each_entry(f, &mod->fields) {
+        if (qh_find(u32, &base_tags, f->tag) >= 0)
+            continue;
+
+        LINE_START_OBJ_KEY(wbuf, f->name);
+        dump_field_type_obj(wbuf, TYPE_LABEL, f);
+        iopc_dox_dump_json(wbuf, f);
+        LINE_END_OBJ(wbuf);
+    }
+    LINE_END_OBJ(wbuf);
+
+    qh_wipe(u32, &base_tags);
+}
+
+/*}}} */
+
+int iopc_do_json(iopc_pkg_t *pkg, const char *outdir, sb_t *deps)
+{
+    char path[PATH_MAX];
+    SB(buf, 32 << 10);
+    SB_1k(tab);
+    iopc_write_buf_t wbuf;
+    const char *pkg_name = pretty_path_dot(pkg->name);
+
+    iopc_write_buf_init(&wbuf, &buf, &tab);
+
+    iopc_set_path(outdir, pkg, ".iop.json", sizeof(path), path, true);
+
+    sb_addc(&buf, '{');
+    iopc_write_buf_tab_inc(&wbuf);
+
+    LINE_CKEY_VAL_STR(&wbuf, "name", pkg_name);
+    newline(&wbuf);
+
+    if (iopc_dox_dump_json(&wbuf, pkg) >= 0)
+        newline(&wbuf);
+
+#define DUMP_PKG_ITEMS_TYPE(_item, _type)                                    \
+    do {                                                                     \
+        tab_for_each_entry(e, &pkg->_item##s) {                 \
+            LINE_START_OBJ(&wbuf);                                           \
+            iopc_##_item##_dump_json(&wbuf, pkg_name, e);                    \
+            LINE_END_OBJ(&wbuf);                                             \
+        }                                                                    \
+    } while (0)
+
+#define DUMP_PKG_ITEMS(_item)  DUMP_PKG_ITEMS_TYPE(_item, _item)
+
+
+    /* start objects */
+    LINE_START_ARRAY(&wbuf, "objects");
+
+    DUMP_PKG_ITEMS(enum);
+    DUMP_PKG_ITEMS(struct); /* structs, unions and classes */
+
+    tab_for_each_entry(tdef, &pkg->typedefs) {
+        LINE_START_OBJ(&wbuf);
+        RETHROW(iopc_typedef_dump_json(&wbuf, pkg_name, tdef));
+        LINE_END_OBJ(&wbuf);
+    }
+
+    tab_for_each_entry(iface, &pkg->ifaces) {
+        qv_sort(iopc_fun)(&iface->funs,
+                          ^int (iopc_fun_t * const *f1,
+                                iopc_fun_t * const *f2) {
+            return (*f1)->pos - (*f2)->pos;
+        });
+        tab_for_each_entry(fun, &iface->funs) {
+            t_scope;
+            const char *fbase = t_fmt("%s.%s", pkg_name, iface->name);
+
+#define DUMP_FUN_PARAM(what) \
+            do {                                                            \
+                if (fun->what && fun->what##_is_anonymous) {                \
+                    LINE_START_OBJ(&wbuf);                                  \
+                    RETHROW(iopc_struct_dump_json(&wbuf, fbase, fun->what));\
+                    LINE_END_OBJ(&wbuf);                                    \
+                }                                                           \
+            } while (0)
+
+            DUMP_FUN_PARAM(arg);
+            DUMP_FUN_PARAM(res);
+            DUMP_FUN_PARAM(exn);
+
+#undef DUMP_FUN_PARAM
+        }
+    }
+
+    /* end objects */
+    LINE_END_ARRAY(&wbuf);
+
+    if (!pkg->ifaces.len)
+        goto modules;
+
+    /* start interfaces */
+    newline(&wbuf);
+    LINE_START_ARRAY(&wbuf, "interfaces");
+
+    DUMP_PKG_ITEMS(iface);
+
+    /* end interfaces */
+    LINE_END_ARRAY(&wbuf);
+
+  modules:
+    if (!pkg->modules.len)
+        goto end_file;
+
+    /* start modules */
+    newline(&wbuf);
+    LINE_START_ARRAY(&wbuf, "modules");
+
+    DUMP_PKG_ITEMS_TYPE(module, struct);
+
+    /* end modules */
+    LINE_END_ARRAY(&wbuf);
+
+  end_file:
+    /* end of file */
+    suppress_sep(&wbuf);
+    sb_adds(&buf, "\n}\n");
+
+    return iopc_write_file(&buf, path);
+
+#undef DUMP_PKG_ITEMS_TYPE
+#undef DUMP_PKG_ITEMS
+}

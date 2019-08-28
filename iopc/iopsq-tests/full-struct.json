@@ -1,0 +1,301 @@
+{
+    "name": "foo",
+    "elems": [ {
+        "_class": "iopsq.Enum",
+        "name": "TestEnum",
+        "values": [ {
+            "name": "A"
+        }, {
+            "name": "B"
+        }, {
+            "name": "C",
+            "val": 42
+        } ]
+    }, {
+        "_class": "iopsq.Union",
+        "name": "TestUnion",
+        "fields": [ {
+            "name": "i",
+            "type": { "typeName": "int" }
+        }, {
+            "name": "s",
+            "type": { "typeName": "string" }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "TestStruct",
+        "fields": [ {
+            "name": "i",
+            "type": { "typeName": "int" }
+        }, {
+            "name": "s",
+            "type": { "typeName": "string" }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "FullRequired",
+        "fields": [ {
+            "name": "i8",
+            "type": {
+                "i": {
+                    "isSigned": true,
+                    "size": "S8"
+                }
+            }
+        }, {
+            "name": "u8",
+            "type": {
+                "i": {
+                    "isSigned": false,
+                    "size": "S8"
+                }
+            }
+        }, {
+            "name": "i16",
+            "type": {
+                "i": {
+                    "isSigned": true,
+                    "size": "S16"
+                }
+            }
+        }, {
+            "name": "u16",
+            "type": {
+                "i": {
+                    "isSigned": false,
+                    "size": "S16"
+                }
+            }
+        }, {
+            "name": "i32",
+            "type": {
+                "i": {
+                    "isSigned": true,
+                    "size": "S32"
+                }
+            }
+        }, {
+            "name": "u32",
+            "type": {
+                "i": {
+                    "isSigned": false,
+                    "size": "S32"
+                }
+            }
+        }, {
+            "name": "i64",
+            "type": {
+                "i": {
+                    "isSigned": true,
+                    "size": "S64"
+                }
+            }
+        }, {
+            "name": "u64",
+            "type": {
+                "i": {
+                    "isSigned": false,
+                    "size": "S64"
+                }
+            }
+        }, {
+            "name": "b",
+            "type": { "b": null }
+        }, {
+            "name": "e",
+            "type": { "typeName": "TestEnum" }
+        }, {
+            "name": "d",
+            "type": { "d": null }
+        }, {
+            "name": "s",
+            "type": { "s": "STRING" }
+        }, {
+            "name": "data",
+            "type": { "s": "BYTES" }
+        }, {
+            "name": "un",
+            "type": { "typeName": "TestUnion" }
+        }, {
+            "name": "st",
+            "type": { "typeName": "TestStruct" }
+        }, {
+            "name": "o",
+            "type": { "typeName": "tstiop.TestClass" }
+        }, {
+            "name": "xml",
+            "type": { "s": "XML" }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "FullRef",
+        "fields": [ {
+            "name": "un",
+            "type": { "typeName": "TestUnion" },
+            "isReference": true
+        }, {
+            "name": "st",
+            "type": { "typeName": "TestStruct" },
+            "isReference": true
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "FullOpt",
+        "fields": [ {
+            "name": "i8",
+            "type": { "typeName": "byte" },
+            "optional": {}
+        }, {
+            "name": "u8",
+            "type": { "typeName": "ubyte" },
+            "optional": {}
+        }, {
+            "name": "i16",
+            "type": { "typeName": "short" },
+            "optional": {}
+        }, {
+            "name": "u16",
+            "type": { "typeName": "ushort" },
+            "optional": {}
+        }, {
+            "name": "i32",
+            "type": { "typeName": "int" },
+            "optional": {}
+        }, {
+            "name": "u32",
+            "type": { "typeName": "uint" },
+            "optional": {}
+        }, {
+            "name": "i64",
+            "type": { "typeName": "long" },
+            "optional": {}
+        }, {
+            "name": "u64",
+            "type": { "typeName": "ulong" },
+            "optional": {}
+        }, {
+            "name": "b",
+            "type": { "typeName": "bool" },
+            "optional": {}
+        }, {
+            "name": "e",
+            "type": { "typeName": "TestEnum" },
+            "optional": {}
+        }, {
+            "name": "d",
+            "type": { "typeName": "double" },
+            "optional": {}
+        }, {
+            "name": "s",
+            "type": { "typeName": "string" },
+            "optional": {}
+        }, {
+            "name": "data",
+            "type": { "typeName": "bytes" },
+            "optional": {}
+        }, {
+            "name": "un",
+            "type": { "typeName": "TestUnion" },
+            "optional": {}
+        }, {
+            "name": "st",
+            "type": { "typeName": "TestStruct" },
+            "optional": {}
+        }, {
+            "name": "o",
+            "type": { "typeName": "tstiop.TestClass" },
+            "optional": {}
+        }, {
+            "name": "xml",
+            "type": { "typeName": "xml" },
+            "optional": {}
+        }, {
+            "name": "v",
+            "type": { "v": null },
+            "optional": {}
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "FullRepeated",
+        "fields": [ {
+            "name": "i8",
+            "type": { "array": { "typeName": "byte" } }
+        }, {
+            "name": "u8",
+            "type": { "array": { "typeName": "ubyte" } }
+        }, {
+            "name": "i16",
+            "type": { "array": { "typeName": "short" } }
+        }, {
+            "name": "u16",
+            "type": { "array": { "typeName": "ushort" } }
+        }, {
+            "name": "i32",
+            "type": { "array": { "typeName": "int" } }
+        }, {
+            "name": "u32",
+            "type": { "array": { "typeName": "uint" } }
+        }, {
+            "name": "i64",
+            "type": { "array": { "typeName": "long" } }
+        }, {
+            "name": "u64",
+            "type": { "array": { "typeName": "ulong" } }
+        }, {
+            "name": "b",
+            "type": { "array": { "typeName": "bool" } }
+        }, {
+            "name": "e",
+            "type": { "array": { "typeName": "TestEnum" } }
+        }, {
+            "name": "d",
+            "type": { "array": { "typeName": "double" } }
+        }, {
+            "name": "s",
+            "type": { "array": { "typeName": "string" } }
+        }, {
+            "name": "data",
+            "type": { "array": { "typeName": "bytes" } }
+        }, {
+            "name": "un",
+            "type": { "array": { "typeName": "TestUnion" } }
+        }, {
+            "name": "st",
+            "type": { "array": { "typeName": "TestStruct" } }
+        }, {
+            "name": "o",
+            "type": { "array": { "typeName": "tstiop.TestClass" } }
+        }, {
+            "name": "xml",
+            "type": { "array": { "typeName": "xml" } }
+        } ]
+    }, {
+        "_class": "iopsq.Struct",
+        "name": "FullStruct",
+        "fields": [ {
+            "name": "required",
+            "type": { "typeName": "FullRequired" }
+        }, {
+            "name": "reference",
+            "type": { "typeName": "FullRef" }
+        }, {
+            "name": "optPresent",
+            "type": { "typeName": "FullOpt" }
+        }, {
+            "name": "optAbsent",
+            "type": { "typeName": "FullOpt" }
+        }, {
+            "name": "defValPresent",
+            "type": { "typeName": "tstiop.FullDefVal" }
+        }, {
+            "name": "defValAbsent",
+            "type": { "typeName": "tstiop.FullDefVal" }
+        }, {
+            "name": "repeated",
+            "type": { "typeName": "FullRepeated" }
+        }, {
+            "name": "repeatedEmpty",
+            "type": { "typeName": "FullRepeated" }
+        } ]
+    } ]
+}

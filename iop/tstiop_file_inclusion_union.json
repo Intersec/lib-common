@@ -1,0 +1,6 @@
+/* This is a tstiop.MyStructE */
+{
+    "a": 1,
+    "b": @include("json-includes/MyUnionA.json"),
+    "c": {}
+}

@@ -1,0 +1,5 @@
+package defval_int_unsigned;
+
+struct Test {
+    uint u = -1;
+};

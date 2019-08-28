@@ -1,0 +1,244 @@
+package tstdox;
+
+/** comment for MyEnumA
+ *
+ *  details for MyEnumA
+ *
+ *  \word not a recognized keyword
+ *
+ *  @warning warn for MyEnumA
+ */
+enum MyEnumA {
+    ///< comment for MY_ENUM_A_VAL_A
+    VAL_A,
+    VAL_B,
+    VAL_C, ///< comment for MY_ENUM_A_VAL_C
+};
+
+/* no doxygen comments */
+enum MyEnumB {
+    VAL_A, // no doxygen comments
+    VAL_B,
+    VAL_C, // no doxygen comments
+};
+
+/// comment for MY_ENUM_C
+@strict
+enum MyEnumC {
+    VAL_A,
+};
+
+enum MyEnumD {
+    VAL_A,
+    VAL_B, ///< comment for MY_ENUM_D_VAL_B
+    VAL_C,
+};
+
+struct MyStructA {
+    int fieldA;
+    int fieldB;
+    int fieldC;
+};
+
+@noReorder
+struct MyStructB {
+    @max(10)
+    int i;
+    int j;
+};
+
+struct CDataTest {
+    @cdata
+    string sfield;
+};
+
+/** comment for MyStructAa
+ */
+struct MyStructAa {
+    int fieldA; ///< comment for MyStructAa.fieldA
+    int fieldB;
+    int fieldC; ///< comment for MyStructAa.fieldC
+};
+
+struct MyStructAb {
+    int fieldA;
+    int fieldB; ///< comment for MyStructAb.fieldB
+    int fieldC;
+};
+
+/// comment for MyStructAc
+struct MyStructAc {
+    int fieldA;
+    int fieldB;
+    int fieldC;
+};
+
+/// comment for MyStructBa
+@noReorder
+struct MyStructBa {
+    @max(10)
+    int i;
+    int j;
+};
+
+@noReorder
+struct MyStructBb {
+    @max(10)
+    int i; ///< comment for MyStructBb.i
+    int j;
+};
+
+/** Specify a sorting condition on a field
+ */
+struct SortField {
+    /** Position of the field to use in the \ref Extract::fields
+     */
+    uint pos;
+};
+
+abstract class MyClassBase {
+    /// comment for name of MyClassBase
+    static string name; ///< this static field has no defval
+    static int    val  = 10; //!< comment for val of MyClassBase
+};
+
+class MyClassA : 1 : MyClassBase {
+    static string name = "MyClassA";
+    static int    val  = 100;
+};
+
+/** no comment in static fields */
+abstract class MyClass1 : 1 {
+    static int fieldA;
+};
+
+class MyClass2 : 2 : MyClass1 {
+    static int fieldA = 1;
+};
+
+/** comment for MyIfaceA
+ */
+interface MyIfaceA {
+    /** comment for funA of MyIfaceA
+     *
+     *  @details detailed description for funA of MyIfaceA
+     *
+     *  @param[in]   aParam  comment for aParam of funA.in
+     *                       it continues here
+     *  @param[in]   b       comment for b of funA.in
+     *
+     *  @param[out]  c       comment for c of funA.out
+     *
+     *  @param[out]  d       comment for \ref d of funA.out
+     *  @param[out]  d       2nd paragraph for \p d of funA.out
+     *
+     *  @param[throw]        comment for funA.throw
+     *
+     *  @warning warning for funA of MyIfaceA
+     */
+    funA
+       /** local comment for MyIfaceA.funA.in
+        *
+        *  @example "aParam": 1,
+        *           "b": {
+        *               "fieldA": 11,
+        *               "fieldB": 12,
+        *               "fieldC": 13
+        *           }
+        */
+        in (
+            int aParam, ///< local comment for MyIfaceA.funA.in.aParam
+            /// local comment for MyIfaceA.funA.in.b
+            MyStructAa b)
+        /** local comment for MyIfaceA.funA.out
+         *
+         *  @example "c": {
+         *               "fieldA": 11,
+         *               "fieldB": 12,
+         *               "fieldC": 13
+         *           },
+         *           "d": 4
+         */
+        out (
+             MyStructA c, ///< local comment for MyIfaceA.funA.out.c
+             int d)
+        /// local comment for MyIfaceA.funA.throw
+        throw MyStructAc;
+
+    funAa
+        /// comment for MyIfaceA.funAa.in
+        in (int a)
+        /** @example "b": 3 */
+        out (int b);
+
+    /// comment for MyIfaceA.funB
+    @alias(funBal1) @alias(funBal2)
+    funB
+         /// comment for MyIfaceA.funB.in
+         in  (int a)
+         /// comment for MyIfaceA.funB.out
+         out MyStructA;
+
+    /// comment for MyIfaceA.funC
+    funC in  MyStructA ///< comment for MyIfaceA.funC.in
+         out (int b);
+
+    /// front comment...
+    funD /**< and back comment for funD */
+        /** front comment... */
+        out (int b) /**< and back comment for res of funD */
+        ;
+
+    /** Comment for funE
+     *
+     * \param[in] a It is a \p comment for \ref a
+     */
+    @alias(funE1, funE2)
+    funE in (int a)
+         out void;
+};
+
+interface MyIfaceB {
+    funA in (int i) out void;
+    funB in (int j) out void;
+};
+
+interface MyIfaceC {
+    @alias(funA2)
+    funA in (int i) out void;
+    funB in (int j) out void;
+};
+
+/// comment for MyIfaceD
+interface MyIfaceD {
+    funA in (int i) out void;
+    funB in (int j) out void;
+};
+
+module MyModuleA {
+    MyIfaceA ifaceA; ///< comment for MyModuleA.ifaceA
+    MyIfaceB ifaceB;
+    MyIfaceC ifaceC; ///< comment for MyModuleA.ifaceC
+};
+
+/// comment for MyModuleB
+module MyModuleB {
+    MyIfaceA ifaceA;
+    MyIfaceB ifaceB;
+    MyIfaceC ifaceC;
+};
+
+/// comment for MyModuleC
+module MyModuleC {
+    MyIfaceA ifaceA; ///< comment for MyModuleC.ifaceA
+    MyIfaceB ifaceB;
+    MyIfaceC ifaceC; ///< comment for MyModuleC.ifaceC
+};
+
+module MyModuleD {
+    MyIfaceA ifaceA;
+    MyIfaceB ifaceB;
+    MyIfaceC ifaceC;
+};
+
+/** */

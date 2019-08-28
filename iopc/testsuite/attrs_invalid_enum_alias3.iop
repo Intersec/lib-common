@@ -1,0 +1,6 @@
+package attrs_invalid_enum_alias3;
+
+enum A {
+    @alias(ENUM0)
+    ENUM0,
+};

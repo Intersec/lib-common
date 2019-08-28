@@ -1,0 +1,11 @@
+package attrs_invalid_8;
+
+union MyUnion {
+    int a;
+    int b;
+};
+
+struct MyStruct {
+    @allow(c)
+    MyUnion u;
+};

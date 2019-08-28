@@ -1,0 +1,9 @@
+package attrs_bad_ctypes;
+
+@ctype(foo__t, invalid)
+enum IntSize {
+    S8,
+    S16,
+    S32,
+    S64,
+};

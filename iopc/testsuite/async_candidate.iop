@@ -1,0 +1,5 @@
+package async_candidate;
+
+interface Test {
+    asyncCandidate in (int a);
+};

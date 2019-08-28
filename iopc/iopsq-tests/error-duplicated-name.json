@@ -1,0 +1,22 @@
+{
+    "name": "foo",
+    "elems": [ {
+        "_class": "iopsq.Struct",
+        "name": "DuplicatedName",
+        "fields": [ {
+            "name": "i",
+            "type": {
+                "i": {
+                    "isSigned": true,
+                    "size": "S32"
+                }
+            }
+        } ]
+    }, {
+        "_class": "iopsq.Enum",
+        "name": "DuplicatedName",
+        "values": [ {
+            "name": "A"
+        } ]
+    } ]
+}

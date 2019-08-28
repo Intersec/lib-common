@@ -1,0 +1,16 @@
+package reference;
+
+union MyUnion {
+    MyUnion&  u;
+    MyStruct& s;
+};
+
+struct MyRefStruct {
+    int a;
+};
+
+struct MyStruct {
+    MyUnion  myUnion;
+    MyUnion& myRefUnion;
+    MyRefStruct& myStruct;
+};

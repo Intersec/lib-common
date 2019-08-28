@@ -1,0 +1,6 @@
+package invalid_void_repeated;
+
+
+struct A {
+    void[] f;
+};

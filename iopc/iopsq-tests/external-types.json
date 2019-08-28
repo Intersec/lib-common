@@ -1,0 +1,19 @@
+{
+    "name": "foo",
+    "elems": [ {
+        "_class": "iopsq.Struct",
+        "name": "TestExternalTypes",
+        "fields": [ {
+            "name": "st",
+            "type": {
+                "typeName": "tstiop.ExternalStruct"
+            }
+        }, {
+            "name": "en",
+            "type": {
+                "typeName": "tstiop.ExternalEnum"
+            }
+        } ]
+    } ]
+}
+

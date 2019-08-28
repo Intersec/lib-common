@@ -1,0 +1,62 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include "zchk_cmod.h"
+
+PXCC_EXPORT_FILE("zchk_cmod.h");
+
+/* {{{ Types & symbols syntax */
+
+PXCC_EXPORT_TYPE(struct struct_t);
+PXCC_EXPORT_TYPE(struct_t);
+PXCC_EXPORT_TYPE(struct empty_struct_t);
+PXCC_EXPORT_TYPE(empty_struct_t);
+
+PXCC_EXPORT_TYPE(union union_t);
+PXCC_EXPORT_TYPE(union_t);
+PXCC_EXPORT_TYPE(union empty_union_t);
+PXCC_EXPORT_TYPE(empty_union_t);
+
+PXCC_EXPORT_TYPE(enum enum_t);
+PXCC_EXPORT_TYPE(enum_t);
+PXCC_EXPORT_TYPE(enum empty_enum_t);
+PXCC_EXPORT_TYPE(empty_enum_t);
+
+PXCC_EXPORT_TYPE(struct non_typedef_struct_t);
+PXCC_EXPORT_TYPE(only_typedef_struct_t);
+PXCC_EXPORT_TYPE(different_name_typedef_struct_t);
+PXCC_EXPORT_TYPE(void_ptr_t);
+PXCC_EXPORT_TYPE(array_ptr_t);
+
+PXCC_EXPORT_SYMBOL(func);
+PXCC_EXPORT_SYMBOL(global_var_g);
+
+PXCC_EXPORT_SYMBOL(crazy_fn);
+PXCC_EXPORT_TYPE(crazy_fn_ptr);
+PXCC_EXPORT_SYMBOL(returns_func_ptr);
+PXCC_EXPORT_SYMBOL(returns_func_ptr_nested);
+PXCC_EXPORT_TYPE(crazy_field_t);
+
+PXCC_EXPORT_TYPE(qh_u32_t);
+
+/* }}} */
+/* {{{ Python->C call */
+
+PXCC_EXPORT_SYMBOL(square);
+
+/* }}} */

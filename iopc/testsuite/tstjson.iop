@@ -1,0 +1,297 @@
+/** \brief   Test json generator.
+ *           Brief description continues here
+ *  \details this is a detailed comment for tstjson
+ *           it  continues on  the  same  paragraph
+ *
+ *           this is the 2nd paragraph of the details
+ *
+ *  \warning this is a warning for tstjon
+ *
+ ******************************************************/
+package tstjson;
+
+/** Test auto-brief for MyEnumA. Detailed description
+    for MyEnumA.
+
+    @details
+
+             2nd paragraph
+ */
+@ctype(enum_a__t)
+/// 3rd paragraph,
+@prefix(A) /// 3rd paragraph continue here,
+  ///            and also here.
+/*!
+    @warning this is a warning for MyEnumA
+ */
+enum MyEnumA {
+    @(test:gen10, 20.005)
+    A, ///< comment for A in MyEnumA
+    /// comment for B in MyEnum A,
+    B /**< another comment for B in MyEnumA */,
+    C = 100, //!< C = 100
+    D,
+};
+
+@strict
+enum MyEnumB {
+    A,
+    B,
+    C,
+}; ///< back comment for MyEnumB
+
+/**
+ * comment for MyEnumC.
+ */
+@(test:gen1, true)
+enum MyEnumC {
+    A,
+    B,
+};
+
+/*! comment for MyUnionA
+ */
+/** detailed comment for MyUnionA
+ */
+union MyUnionA {
+    ///            comment for i of MyUnionA.
+    int    i; ///< detailed comment for i of MyUnionA.
+    byte   b;
+    string s;
+}; ///< back comment for MyUnionA
+
+@allow(i)
+typedef MyUnionA MyUnionInt;
+
+/*!
+ *  @details detailed comment for MyStructA
+ *******************************************
+ *           2nd paragraph
+ *******************************************
+ */
+@ctype(struct_a__t)
+@noReorder
+struct MyStructA {
+    @private
+    int? i;
+    @deprecated
+    string? s;
+    @allow(i) @allow(b)
+    MyUnionA u1;
+    @disallow(s)
+    MyUnionA u2;
+
+    /** Special union.
+     * \p s;
+     */
+    @allow(i, b)
+    MyUnionA u3;
+
+    @nowarn(keyword) /// comment for class of MyStructA
+    int class;
+};
+
+/* this is not a doxygen comment and shouldn't appear in generated files */
+struct MyStructB {
+    // this is not a doxygen comment and shouldn't appear in generated files
+    int        a = -1 << 31;
+    uint       b = (1 << 32) - 1;
+    byte       c = -128;
+    ubyte      d = 255;
+    short      e = -1 << 15;
+    ushort     f = (1 << 16) - 1;
+    long       g = -1 << 63;
+    ulong      h = 0xffffffffffffffff;
+    double     i = 10.5;
+    bool       j = true;
+    bytes      k = "default data value"; /**< comment for k of MyStructB */
+    string     l = "fo\"o?\\cbaré©\x40\u0041\n";
+    MyEnumA    m = A_C;
+    MyUnionA[] unionA;
+    MyStructA  structA;
+    xml        xmlField;
+};
+
+@(test:gen2, 15.5)
+struct MyStructC {
+    @(test:gen1, false)
+    @(test:gen2, 10)
+    @(test:gen3, "test")
+    int a;
+    int b;
+};
+
+/***********************************************************************
+ * this is not a doxygen comment and shouldn't appear in generated files
+ ***********************************************************************/
+union ConstraintU {
+    @nonZero @max(1 << 7)
+    ubyte   u8;
+    @nonZero @max(1 << 15)
+    ushort  u16;
+    @nonZero @max(1 << 31)
+    uint    u32;
+    @nonZero @max(-1)
+    ulong   u64;
+    @nonEmpty @cdata @maxLength(10) @pattern("[^\[\]]*")
+    string  s;
+};
+
+//***********************************************************************
+// this is not a doxygen comment and shouldn't appear in generated files
+//***********************************************************************
+struct ConstraintS {
+    @maxOccurs(1) @min(-1 << 7)
+    byte[]      i8;
+    @maxOccurs(2) @min(-1 << 15)
+    short[]     i16;
+    @maxOccurs(3) @min(-1 << 31)
+    int[]       i32;
+    @maxOccurs(4) @min(-1 << 63)
+    long[]      i64;
+    @minOccurs(2) @maxOccurs(5)
+    @minLength(1) @maxLength(10)
+    @pattern("[a-zA-Z0-9_\-]*")
+    string[]    s;
+    @length(10)
+    string      s2;
+};
+
+/**
+ comment for MyClassBase
+ */
+abstract class MyClassBase {
+    /// comment for name of MyClassBase
+    static string name; ///< this static field has no defval
+    static int    val  = 10; //!< comment for val of MyClassBase
+    int       a;
+    /*! comment for structA of MyClassBase */
+    MyStructA structA;
+};
+
+class MyClassA : 1 : MyClassBase {
+    static int    val  = 100;
+    static string name = "MyClassA";
+    int?        b;
+    @minOccurs(1) @maxOccurs(10)
+    MyStructB[] structB;
+};
+
+class MyClassB : 2 : MyClassBase {
+    static string name = "MyClassB";
+    int val;
+};
+
+/** no comment in static fields */
+abstract class MyClass1 : 1 {
+    static int fieldA;
+};
+
+class MyClass2 : 2 : MyClass1 {
+    static int fieldA = 1;
+};
+
+struct ClassContainer {
+    MyClassA a;
+    MyClassB b;
+};
+
+struct MyExceptionA {
+    int    errcode;
+    string desc;
+};
+
+//! comment for
+///            MyIfaceA
+@(test:gen4, "test2")
+interface MyIfaceA {
+    /** comment for funA of MyIfaceA
+     *
+     *  @details detailed description for funA of MyIfaceA
+     *
+     *  @param[in]   a  comment for a of funA.in
+     *                  it continues here
+     *  @param[in]   b  comment for b of funA.in
+     *
+     *  @param[out]  c  comment for c of funA.out
+     *
+     *  @param[out]  d  comment for d of funA.out
+     *  @param[out]  d  2nd parapraph for d of funA.out
+     *
+     *  @warning warning for funA of MyIfaceA
+     */
+1:  funA      in (int a, MyStructA b)  out (MyUnionA c, int d);
+2:  funb                               out (int a, byte b);
+4:  funC      in MyStructA             out MyStructB;
+
+3:  funD
+        /** front... */
+        out MyStructA /**< and back comment for res of funD */
+        ;
+
+10: funE      in void                  out (int? a);
+5:  funF      in (@minOccurs(1) @maxOccurs(10) int[] a, int? b)
+              /** comment for funF out */
+              out MyStructB;
+
+    /// front...
+6:  funG /**< and back comment for funG */ out void;
+
+7:  funH      in void                  out void;
+8:  funI      in MyUnionA              out void;
+9:  funJ
+        /// @brief comment for funJ.in,
+        in MyStructA ///< back comment for funJ.in
+        /// \brief comment for funJ.out
+        out (
+             int a, ///< comment for funJ out a
+             /// comment for funJ out b
+             int b)
+        /// comment for funJ throw
+        /// @details detailed comment for funJ.throw
+        throw (int err /*!< comment for funJ throw err */);
+
+    /// @param[throw] throws an exception of type MyExceptionA
+11: funK      in MyStructA
+              out (int a, int b)
+              /// comment for funK throw
+              throw MyExceptionA;
+    @(test:gen5, true)
+12: funL      in (int a, int b, int c) out void;
+13: funAsync  in (int type)            out null;
+};
+
+interface MyIfaceB {
+    @alias(functionA)
+    funA in (int i) out (int i);
+};
+
+interface MyIfaceC {
+    funA in (int i) out (int i);
+};
+
+interface MyIfaceD {
+    funA in (int i) out (int i);
+};
+
+/**
+ comment for MyModuleA
+ */
+module MyModuleA {
+1024:
+    /// comment for ifaceA of MyModuleA
+    MyIfaceA ifaceA;
+    MyIfaceB ifaceB; ///< comment for ifaceB of MyModuleA
+};
+
+module MyModuleB {
+/// comment for ifaceC of MyModuleB
+512:
+    MyIfaceC ifaceC;
+};
+
+module MyModuleC: MyModuleA, MyModuleB {
+    MyIfaceD ifaceD;
+768:
+    MyIfaceA ifaceA2;
+}; ///< back comment for MyModuleC

@@ -1,0 +1,8 @@
+package defval_int_nonzero;
+
+@nonZero
+typedef int Myint;
+
+struct Test {
+    Myint i = 0;
+};

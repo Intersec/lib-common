@@ -1,0 +1,8 @@
+package defval_double_nonzero;
+
+@nonZero
+typedef double Mydouble;
+
+struct Test {
+    Mydouble d = 0;
+};
