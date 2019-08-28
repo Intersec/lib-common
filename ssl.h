@@ -198,6 +198,15 @@ ssl_ctx_new_aes256(lstr_t password, uint64_t salt, int nb_rounds)
  */
 ssl_ctx_t *ssl_ctx_init_aes256_by_key(ssl_ctx_t *ctx, lstr_t key, lstr_t iv);
 
+/** Init AES 128 ECB context with the symmetric key.
+ *
+ * \param  ctx  The SSL context.
+ * \param  key  The AES 128bits key.
+ * \return The initialiased AES context or NULL in case of error.
+ */
+ssl_ctx_t *
+ssl_ctx_init_aes128_ecb_by_key(ssl_ctx_t *ctx, lstr_t key);
+
 /**
  * Reset the whole SSL context and change the AES key and IV.
  *
