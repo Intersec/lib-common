@@ -270,10 +270,13 @@ const char *ssl_get_error(void)
 
 int ssl_encrypt_update(ssl_ctx_t *ctx, lstr_t data, sb_t *out)
 {
-    int clen = data.len + EVP_CIPHER_CTX_block_size(ctx->encrypt) + 1;
+    int clen = data.len + EVP_CIPHER_CTX_block_size(ctx->encrypt);
+    unsigned char *cbuf;
 
     assert (ctx->encrypt_state == SSL_CTX_INIT
         ||  ctx->encrypt_state == SSL_CTX_UPDATE);
+
+    cbuf = (unsigned char *)sb_grow(out, clen);
 
     if (unlikely(data.len <= 0)) {
         /* XXX with openssl < 1.0, EVP_EncryptUpdate will abort() with empty
@@ -282,16 +285,14 @@ int ssl_encrypt_update(ssl_ctx_t *ctx, lstr_t data, sb_t *out)
         return 0;
     }
 
-    if (unlikely(!EVP_EncryptUpdate(ctx->encrypt,
-                                    (unsigned char *)sb_grow(out, clen),
-                                    &clen, (unsigned char *)data.s,
-                                    data.len)))
+    if (unlikely(!EVP_EncryptUpdate(ctx->encrypt, cbuf, &clen,
+                                    (unsigned char *)data.s, data.len)))
     {
         ctx->encrypt_state = SSL_CTX_NONE;
         return ssl_set_error("encrypt error");
     }
 
-    assert (sb_avail(out) > clen);
+    assert (sb_avail(out) >= clen);
     sb_growlen(out, clen);
     ctx->encrypt_state = SSL_CTX_UPDATE;
 
@@ -303,7 +304,7 @@ int ssl_encrypt_finish(ssl_ctx_t *ctx, sb_t *out)
     int outlen = 0;
 
     assert (ctx->encrypt_state == SSL_CTX_UPDATE);
-
+    assert (sb_avail(out) >= EVP_CIPHER_CTX_block_size(ctx->encrypt));
     if (unlikely(!EVP_EncryptFinal_ex(ctx->encrypt,
                                       (unsigned char *)sb_end(out), &outlen)))
     {
@@ -311,7 +312,7 @@ int ssl_encrypt_finish(ssl_ctx_t *ctx, sb_t *out)
         return ssl_set_error("encrypt finalization error");
     }
 
-    assert (sb_avail(out) > outlen);
+    assert (sb_avail(out) >= outlen);
     sb_growlen(out, outlen);
     ctx->encrypt_state = SSL_CTX_FINISH;
 
@@ -346,7 +347,7 @@ int ssl_encrypt_reset(ssl_ctx_t *ctx, sb_t *out)
 
 int ssl_decrypt_update(ssl_ctx_t *ctx, lstr_t data, sb_t *out)
 {
-    int clen = data.len + EVP_CIPHER_CTX_block_size(ctx->decrypt) + 1;
+    int clen = data.len + EVP_CIPHER_CTX_block_size(ctx->decrypt);
 
     assert (ctx->decrypt_state == SSL_CTX_INIT
         ||  ctx->decrypt_state == SSL_CTX_UPDATE);
@@ -360,7 +361,7 @@ int ssl_decrypt_update(ssl_ctx_t *ctx, lstr_t data, sb_t *out)
         return ssl_set_error("decrypt error");
     }
 
-    assert (sb_avail(out) > clen);
+    assert (sb_avail(out) >= clen);
     sb_growlen(out, clen);
     ctx->decrypt_state = SSL_CTX_UPDATE;
 
@@ -380,7 +381,7 @@ int ssl_decrypt_finish(ssl_ctx_t *ctx, sb_t *out)
         return ssl_set_error("decrypt finalization error");
     }
 
-    assert (sb_avail(out) > outlen);
+    assert (sb_avail(out) >= outlen);
     sb_growlen(out, outlen);
     ctx->decrypt_state = SSL_CTX_FINISH;
 
@@ -1021,33 +1022,43 @@ Z_GROUP_EXPORT(ssl)
 
 /* {{{ AES */
 
-    Z_TEST(encrypt_aes, "encrypt_aes") {
+    Z_TEST(aes, "aes") {
         ssl_ctx_t ctx;
-        const lstr_t text = LSTR_IMMED("Encrypt me");
-        const lstr_t res  = LSTR_IMMED("\x12\x29\xB4\x7E\x75\xE1\x33\x64"
-                                       "\x49\x09\x77\xF8\xE8\x08\x2C\x58");
-        SB_1k(sb);
+        const lstr_t text = LSTR("Encrypt me");
+        const lstr_t res  = LSTR("\x12\x29\xB4\x7E\x75\xE1\x33\x64"
+                                  "\x49\x09\x77\xF8\xE8\x08\x2C\x58");
+        const lstr_t text2 = LSTR("abcdefghijklmnopqrstuvwxyz0123456789");
+        sb_t sb, sb_dec;
 
         Z_ASSERT_P(ssl_ctx_init_aes256(&ctx, LSTR("plop"), 42, 1024));
 
+        sb_init(&sb);
         Z_ASSERT_N(ssl_encrypt(&ctx, text, &sb));
-
         Z_ASSERT_LSTREQUAL(res, LSTR_SB_V(&sb));
 
-        /* Non regression of #11267: check that encrypt with empty content to
-         * not abort with openssl < v1.0 */
-        {
-            SB_1k(sb_dec);
+        sb_init(&sb_dec);
+        Z_ASSERT_N(ssl_decrypt(&ctx, res, &sb_dec));
+        Z_ASSERT_LSTREQUAL(text, LSTR_SB_V(&sb_dec));
 
-            /* check that encrypt to not abort */
-            sb_reset(&sb);
-            Z_ASSERT_N(ssl_encrypt(&ctx, LSTR_EMPTY_V, &sb));
+        Z_ASSERT_EQ(EVP_CIPHER_CTX_block_size(ctx.encrypt), 16);
+        Z_ASSERT_EQ(EVP_CIPHER_CTX_block_size(ctx.decrypt), 16);
+        Z_ASSERT_EQ(text2.len, 36);
+        /* Non regression of #11267: check that encrypt with empty content do
+         * not abort with openssl < v1.0 with i=0 */
+        for (int i = 0; i < text2.len; i++) {
+            lstr_t t = LSTR_INIT_V(text2.data, i);
 
-            /* check that decrypt will correctly decrypt the empty string */
+            sb_wipe(&sb);
+            Z_ASSERT_N(ssl_encrypt(&ctx, t, &sb));
+            Z_ASSERT_EQ(sb.len, ROUND_UP(i + 1, 16));
+
+            sb_wipe(&sb_dec);
             Z_ASSERT_N(ssl_decrypt(&ctx, LSTR_SB_V(&sb), &sb_dec));
-            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb_dec), LSTR_EMPTY_V);
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb_dec), t);
         }
 
+        sb_wipe(&sb);
+        sb_wipe(&sb_dec);
         ssl_ctx_wipe(&ctx);
     } Z_TEST_END;
 
