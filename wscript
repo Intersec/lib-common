@@ -124,7 +124,7 @@ def configure(ctx):
     ctx.env.append_unique('CFLAGS_python2', py_cflags.strip().split(' '))
 
     py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON2_CONFIG + ['--ldflags'])
-    ctx.env.append_unique('LINKFLAGS_python2', py_ldflags.strip().split(' '))
+    ctx.env.append_unique('LDFLAGS_python2', py_ldflags.strip().split(' '))
 
     # }}}
     # {{{ Python 3
