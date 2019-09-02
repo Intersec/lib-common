@@ -1,0 +1,500 @@
+= IOP inheritance
+:toc: :numbered:
+
+== Introduction
+
+Inheritance is supported since _iopc_ v3, and lib-common 2013.2.
+
+The idea is to be able to declare classes, which are a kind of structure in
+which fields are inherited.  A class can have a parent (in that case it
+inherits of the fields of his parent, and of all his ancestors), or be a
+_master class_ (ie. without parent).  A class can also have static fields,
+which are class constants.
+
+== Declaration in IOP files
+
+=== Syntax and vocabulary
+
+To declare a class in an IOP file, the syntax is the following:
+
+[source,java]
+----
+
+[abstract][local] class MyClass [: classId [: parentClass]] {
+    static int staticInt [= 2];
+1:  string name;
+};
+
+----
+
+Here is a description of all the elements:
+
+* the `class` keyword is used to declare a class,
+* the `abstract` keyword can be used to declare a class that cannot be
+  instantiated: init, packing and unpacking are (more or less violently)
+  forbidden,
+* the `local` keyword can also be used to declare a class from what it is
+  impossible to inherit without being in the same package than it,
+* the `classId` (0 by default) is a numerical identifier which *MUST* be unique
+  in a whole inheritance tree. This is partially checked by _iopc_ at compile
+  time, but cannot be fully checked in case of multi-packages inheritance. In
+  any case, collisions on class ids will be detected at runtime,
+* the `parentClass` is the name... of the parent class. Multiple inheritance is
+  not supported; in other words, a class can have 0 or 1 parent, but not more,
+* the `static` keyword is used to declare class constant fields. Here are the
+  things to know about static fields:
+** it must not have an explicit tag, since it is never packed in binary,
+** it must have a default value for non-abstract classes (which will be the
+value for all the instances of this class),
+** a class can redefine a static field of one of its ancestors, but obviously
+it must have the same type,
+** for abstract classes, the default value can be omitted. This means that all
+the direct non-abstract children MUST define this static field.
+* fields are declared exactly as in structures, but a field cannot have the
+  same name as a field of an ancestor.
+
+Such a class can be reused as a field in another class, a structure or a union.
+
+=== Example
+
+A quite exhaustive example can be found in
+_lib-common/iop/tstiop_inheritance.iop_, but here is a more simple example that
+will be reused later in this documentation:
+
+[source,java]
+----
+
+package test;
+
+class A1 {
+    static string name = "a1";
+    int a = 10;
+};
+
+class B1 : 1 : A1 {
+    string b;
+};
+
+class B2 : 2 : A1 {
+    static string name = "b2";
+    bool b;
+};
+
+struct ClassContainer {
+    A1   classContainerA1;
+    B1?  classContainerB1;
+    B2[] classContainerB2;
+};
+
+----
+
+=== Dealing with backward compatibility
+
+Inside a class definition, the rules to guarantee backward compatibility are
+the sames as xref:base.adoc#backward-compat[explained for the structures].
+
+For class, changing the class id obviously breaks the backward compatibility.
+
+Removing a class from an inheritance tree is also a backward-incompatible
+change, but adding a class not having any mandatory fields is. For example, the
+following change in our previous example is OK:
+
+[source,java]
+----
+
+package test;
+
+class A1 {
+    static string name = "a1";
+    int a = 10;
+};
+
+class A11 : 3 : A1 {
+    static string name = "a11";
+    int a11 = 11;
+};
+
+class B1 : 1 : A11 {
+    string b;
+};
+
+class B2 : 2 : A11 {
+    static string name = "b2";
+    bool b;
+};
+
+----
+
+== Inheritance in C
+
+=== Generated C objects
+
+The IOP example file just above would be translated this way in C:
+[source,c]
+----
+
+typedef struct test__a1__t {
+    const iop_struct_t *__vptr;
+    int32_t  a;
+} test__a1__t;
+extern iop_struct_t const test__a1__s;
+IOP_CLASS(test__a1);
+
+typedef struct test__b1__t {
+    struct {
+        const iop_struct_t *__vptr;
+        /* fields of test__a1__t */
+        int32_t  a;
+    };
+    lstr_t   b;
+} test__b1__t;
+extern iop_struct_t const test__b1__s;
+IOP_CLASS(test__b1);
+
+typedef struct test__b2__t {
+    struct {
+        const iop_struct_t *__vptr;
+        /* fields of test__a1__t */
+        int32_t  a;
+    };
+    bool     b;
+} test__b2__t;
+extern iop_struct_t const test__b2__s;
+IOP_CLASS(test__b2);
+
+typedef struct test__class_container__t {
+    struct test__a1__t *class_container_a1;
+    struct test__b1__t *class_container_b1;
+    IOP_ARRAY_OF(struct test__b2__t *) class_container_b2;
+} test__class_container__t;
+extern iop_struct_t const test__class_container__s;
+IOP_GENERIC(test__class_container);
+
+----
+
+As you can see, classes are translated into structures, containing a pointer
+`__vptr` on the IOP structure description of the instantiated object (can be
+the class itself or one of its children). Most of time, this pointer should
+not be accessed directly, and in any case it should *not* be modified.
+
+Note that if a class has a parent, the fields of his parent (and all his
+ancestors) are wrapped at the beginning in an anonymous structure, so that they
+are directly accessible, and so that the types of a class and one of his
+ancestors are compatible.
+
+Also note that `IOP_CLASS` is used instead of `IOP_GENERIC` (which is used for
+a struct or a union). This generates the same helpers as IOP_GENERIC, but with
+a slightly different signature for some of them.
+
+And finally, one *very important* remark about class fields in class
+containers: such fields are always pointed, mandatory or not.
+
+=== Initialization of a class object
+
+The initialization of a class object is done like it's done for an IOP
+structure, using the `__init` helper:
+
+[source,c]
+----
+
+test__b2__t b2;
+
+test__b2__init(&b2);
+
+----
+
+This inits the fields to their default value, *AND* sets the `__vptr` pointer
+to the correct value.
+
+=== Initialization of a class container
+
+As seen above, class fields in class containers are always pointed in the C
+generated structure, and that's why initialization of class containers must be
+done *very carefully*.
+
+To take the example of the `ClassContainer` structure defined just above,
+calling `test__class_container__init` will set the `class_container_a1` pointer
+to NULL, and trying to pack it just after would be invalid since `A1` is a
+mantatory field in `ClassContainer` (the consequence will be a crash).
+
+To get a fully valid `ClassContainer` instance, the `a1` pointer should be
+manually set to a valid `A1` class instance (or one of its children).
+
+=== Accessing the static fields
+
+Access to the static fields of a class can be done using the `iop_get_cvar`
+function (or the `iop_get_cvar_cst` helper).  Cf. the documentation in
+`lib-common/iop.h` for more details.
+
+=== Casts
+
+As briefly explained above, C types are compatible between an instantiated
+class and his ancestors.  The lib-common is providing helpers to dynamically
+cast a class instance to a compatible type, and to check this compatibility:
+this is `iop_obj_vcast`/`iop_obj_ccast` and `iop_obj_is_a`.
+
+As an example, let's suppose you just unpacked a binary stream containing an A1
+object (we'll see how to do it later), and would like to do a special treatment
+if this object is actually a B2 object (or a child) AND if its `b` field is
+true. Here is how to do that:
+
+[source,c]
+----
+
+test__a1__t *a1;
+
+... unpack ...
+
+if (iop_obj_is_a(a1, test__b1)) {
+    const test__b2__t *b2 = iop_obj_ccast(test__b2, a1);
+
+    if (b2->b) {
+        ...
+    }
+}
+
+
+----
+
+=== Switch on type
+
+The lib-common also provides helper to perform a switch/case-like matching for
+classes. Two flavors are provided: `IOP_CLASS_SWITCH()` will enter the case of
+the nearest parent of the provided instance and `IOP_CLASS_EXACT_SWITCH()` will
+only match the case of the exact type of the provided instance. The matching
+being done using a real switch/case construct, the native `case
+IOP_CLASS_ID(type)` construct can be used to match a specific type. The
+`default:` label can only be used with the `IOP_CLASS_EXACT_SWITCH()`.
+
+Some helper macros are provided to perform both the matching and the cast of
+the structure to the matched type. Those macros are `IOP_CLASS_CASE` and
+`IOP_CLASS_CASE_CONST`. Additionally, `IOP_CLASS_DEFAULT()` is provided to be
+used as a `default:` replacement in the `IOP_CLASS_SWITCH()`, its use is
+mandatory: every `IOP_CLASS_SWITCH()` must have a `IOP_CLASS_DEFAULT()` case. A
+`IOP_CLASS_EXACT_DEFAULT()` is also provided for the `IOP_CLASS_EXACT_SWITCH()`
+variant, however it is not mandatory.
+
+The `IOP_CLASS_SWITCH()` variant takes a name that must be repeated in the
+`IOP_CLASS_DEFAULT()`, this name is used to allow several imbricated
+`IOP_CLASS_SWITCH()`.
+
+The switch must only contains cases for classes of the same inheritance tree as
+the instance.
+
+[source,c]
+----
+
+/* Example of IOP_CLASS_SWITCH */
+IOP_CLASS_SWITCH(toto, my_instance) {
+  IOP_CLASS_CASE(test__b1, my_instance, b1) {
+    e_info("my_instance is a child of b1");
+  }
+  IOP_CLASS_CASE(test__b2, my_instance, b2) {
+    e_info("my_instance is a child of b2");
+  }
+  IOP_CLASS_DEFAULT(toto) {
+    e_info("my_instance is neither a child of b1, nor b2");
+  }
+}
+
+/* Example of IOP_CLASS_EXACT_SWITCH */
+IOP_CLASS_EXACT_SWITCH(my_instance) {
+  IOP_CLASS_CASE(test__b1, my_instance, b1) {
+    e_info("my_instance is an instance of b1");
+  }
+  IOP_CLASS_CASE(test__b2, my_instance, b2) {
+    e_info("my_instance is an instance of b2");
+  }
+  IOP_CLASS_EXACT_DEFAULT() {
+    e_info("my_instance is neither an instance of b1, nor b2");
+  }
+}
+
+IOP_CLASS_EXACT_SWITCH(my_instance) {
+  case IOP_CLASS_ID(test__b1):
+    e_info("my_instance is an instance of b1");
+    break;
+  case IOP_CLASS_ID(test__b2):
+    e_info("my_instance is an instance of b2");
+    break;
+  default:
+    e_info("my_instance is neither an instance of b1, nor b2");
+    break;
+}
+
+----
+
+=== Binary packing/unpacking
+
+First of all, the IOP packages containing classes definitions have to be
+registered *before* trying to pack or unpack any class. This will also make the
+class_id collision checks that were discusses above:
+
+[source,c]
+----
+
+IOP_REGISTER_PACKAGES(&test__pkg);
+
+----
+
+Then, the binary packing/unpacking of a class object can be done with the
+`__bpack`/`__bunpack_ptr` helpers.
+
+When unpacking, a *double-pointer* on the destination object is given. It is
+allocated (or reallocated). Here is a simple example of unpacking:
+
+[source,c]
+----
+
+t_scope;
+test__a1__t *foo = NULL;
+lstr_t input = <get packed data from somewhere>;
+
+if (t_test__a1__bunpack_ptr(&input, &foo) < 0) {
+    /* error handling */
+} else {
+    /* successful unpack */
+}
+
+----
+
+== Inheritance in Json
+
+=== Json representation
+
+In json, a class looks like a structure with the extra field _"_class"_. This
+field contains the instanciated class fullname as a string.
+
+Here is an example:
+[source,json]
+----
+
+{
+    "_class": "test.B1",
+    "a": 20,
+    "b": "blah"
+}
+
+----
+
+Fields can be in any order, but unpacking will be more efficient if _"_class"_
+is the first one.
+
+=== Json packing/unpacking
+
+Just as binary packing/unpacking, this is necessary to register the packages
+containing classes with `IOP_REGISTER_PACKAGES`.
+
+Then, the packing can be done as usual.  Unpacking have to be done using the
+_*_ptr_ json helpers (usage is the same as for binary unpacking).
+
+== Inheritance in XML
+
+=== XML representation
+
+In XML, a class looks like a structure, but the parent node contains the
+attribute _"xsi:type"_ to specify the instanciated class type. The _"xsi"_
+schema must be imported in the root node.
+
+Here is an example:
+[source,xml]
+----
+
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="n:test.B1">
+  <a>20</a>
+  <b>blah</b>
+</root>
+
+----
+
+The order of the fields is important: the fields of the master class first,
+and then the fields of the children.
+
+The type can be omitted. In that case, the unpacker is considering that the
+instanciated class is of the expected type.
+
+=== XML packing/unpacking
+
+Cf. binary/json packing/unpacking.
+
+=== WSDL generation
+
+The only thing to know is that this necessary to register packages containing
+classes using `IOP_REGISTER_PACKAGES` before generating a WSDL of modules using
+these classes with `iop_xwsdl`.
+
+== Inheritance in PHP
+
+In PHP, a class object is represented like a structure with a special field
+_"_class"_ containing the instanciated class fullname as a string (like in
+json).
+
+== Inheritance in Python
+
+=== Python representation
+
+In Python, a class instance can simply be created using the iopy _Struct_
+object, as for structures. For example, here is a valid declaration of an
+instance of `classContainer`:
+
+[source,python]
+----
+
+cc = ClassContainer(
+        classContainerA1 = B2(a = 100, b = 0),
+        classContainerB1 = B1(a = 100, b = "blah"),
+        classContainerB2 = [
+            B2(a = 101, b = 1),
+            B2(a = 102, b = 0),
+        ]
+     )
+
+----
+
+=== RPC call
+
+Let's suppose we have a RPC taking a class `A1` as argument:
+
+[source,java]
+----
+
+  testClass2
+    in  A1
+    out void;
+
+----
+
+There are two ways to call this RPC in Python:
+
+* If the argument is of type `A1` (and not one of his child), then it can be
+  called as if it was a structure, by explicitly filling its fields:
+
+[source,python]
+----
+
+testClass2(a = 5)
+
+----
+
+* If the argument is a child of `A1`, then it must be given using the following
+  explicit syntax:
+
+[source,python]
+----
+
+arg = B2(a = 100, b = 0)
+testClass2(arg)
+
+----
+
+or simply:
+
+[source,python]
+----
+
+testClass2(B2(a = 100, b = 0))
+
+----
+
+Calling a RPC taking a class container as argument can be done as usual, just
+as if it was a simple structure.

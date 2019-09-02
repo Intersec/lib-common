@@ -1,0 +1,4 @@
+* xref:base.adoc[IOP Basics]
+* xref:wire-format.adoc[Wire format]
+* xref:inheritance.adoc[Class inheritance]
+* xref:iop-attributes.adoc[IOP attributes]

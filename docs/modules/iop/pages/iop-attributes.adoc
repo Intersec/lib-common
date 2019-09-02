@@ -1,0 +1,397 @@
+= IOP attributes
+:toc: :numbered:
+
+IOP attributes were added to allow the implementation of many new features in
+the iopc compiler and in the usage of IOP in general.
+
+Attributes can be added to declarations (struct, union, enum, rpc, interface
+and module) and to fields of structure/union. An attribute can have any number
+of arguments, in which case they all need to be specified.
+
+Here is an example:
+
+[source,java]
+----
+
+@attr1 @attr2(1, 'foo', bar) @attr3(int_arg=1, string_arg="foo", ident_arg=bar)
+struct Foo {
+    @attrN
+    int someField;
+}
+
+----
+
+As you can see, there are 2 ways to specify arguments, positional (e.g.
+`attr2`) or named (e.g. `attr3`).
+
+And 3 types of arguments: int/double, strings (between double quotes), and
+identifiant ([a-zA-Z][a-zA-Z0-9_]*)
+
+== iopc attributes
+
+These attributes only affect the output of iopc.
+
+|===
+|Name |version |Arguments |Declarations |Fields |Description
+
+|ctype
+|2.0.0
+|type(ident)
+|struct/union/enum
+|N/A
+|change the C-Type name with a typedef (the new name must still have a `__t` suffix)
+
+|prefix
+|2.0.0
+|name(ident)
+|enum
+|N/A
+|change the prefix name in the C enum
+
+|nowarn
+|2.0.0
+|value(ident)
+|ALL
+|ALL
+|disable a specific iopc warning
+
+|private
+|2.3.0
+|N/A
+|ALL
+|optional or with default value
+|make field private (won't appear in public interfaces and WSDL (Web Service Definition Language))
+
+|alias
+|2.4.0
+|name(ident)*
+|rpc
+|N/A
+|create alias RPCs with the given name to the RPC on which it is applied
+|===
+
+[source,java]
+----
+
+package foo;
+
+@ctype(e_a__t)
+@prefix(A)
+enum MyEnumA {
+    A = 0x0,
+    B = 0x1,
+    C = 0x2,
+};
+
+struct MyStructA {
+    @private
+    MyEnumA a;
+};
+
+@ctype(type = my_union_a__t)
+union MyUnionA {
+    @nowarn(keyword)
+    int     class;
+};
+
+interface MyIntfA {
+    @alias("bar", "baz")
+    foo
+        in void
+        out null;
+};
+
+----
+
+The usage of `ctype` will generate the following typedef and define:
+[source,c]
+----
+
+typedef foo__my_enum_a__t e_a__t;
+#define e_a_to__str(...) foo__my_enum_a__to_str(__VA_ARGS__);
+...
+typedef foo__my_union_a__t my_union_a__t;
+#define my_union_a__init(...) foo__my_union_a__init(__VA_ARGS__);
+...
+
+----
+
+The usage of `prefix` will generate the following enum values: `A_A, A_B, A_C`
+but does not affect the C type.
+
+Finally `nowarn(keyword)` will make the warning "class is a keyword in some
+languages" disappear.
+
+== Constraints
+
+Constraints add restrictions on the values that an IOP struct/union can contain
+and on `typedef`.
+
+They are automatically checked at unpacking time (whether the input is json,
+xml or binary). This implies that when sending an invalid query over a
+IOP-Channel or HTTP channel, the RPC server will fail to unpack the query and
+reply with IC_MSG_INVALID. The error message caused by a constraint can be
+fetched with `iop_get_err_lstr()`.
+
+At packing time, it's up to the developer to call the following function:
+
+[source,c]
+----
+int iop_check_constraints(const iop_struct_t *desc, const void *val);
+----
+
+Each structure/union also has the following shortcut:
+
+[source,c]
+----
+int pfx##__check(pfx##__t *v);
+----
+
+|===
+|Name |Version |Arguments |Declarations |Fields |Description
+
+|strict
+|2.0.0
+|N/A
+|enum
+|N/A
+|values must belong to the enum
+
+|min
+|2.0.0
+|value(int/double)
+|N/A
+|integer/double
+|inclusive min of the values
+
+|max
+|2.0.0
+|value(int/double)
+|N/A
+|integer/double
+|inclusive max of the values
+
+|minOccurs
+|2.0.0
+|value(int)
+|N/A
+|arrays
+|inclusive min of the array length
+
+|maxOccurs
+|2.0.0
+|value(int)
+|N/A
+|arrays
+|inclusive max of the array length
+
+|cdata
+|2.0.0
+|N/A
+|N/A
+|strings
+|when packing in XML, choose CDATA over xml quoting
+
+|nonEmpty
+|2.0.0
+|N/A
+|N/A
+|strings
+|empty string forbidden
+
+|nonZero
+|2.0.0
+|N/A
+|N/A
+|integer/double
+|0 value forbidden
+
+|minLength
+|2.0.0
+|value(int)
+|N/A
+|strings
+|inclusive min of the string length
+
+|maxLength
+|2.0.0
+|value(int)
+|N/A
+|strings
+|inclusive max of the string length
+
+|length
+|2.4.6
+|value(int)
+|N/A
+|strings
+|length of the string
+
+|pattern
+|2.0.0
+|value(string)
+|N/A
+|strings
+|force character set (maybe more later)
+
+|allow
+|2.9.14
+|field(ident)
+|N/A
+|unions/enums
+|restrict the list of allowed union fields (or enum values) for that use case
+
+|disallow
+|2.9.14
+|field(ident)
+|N/A
+|unions/enums
+|disallow some union fields (or enum values) for that use case
+|===
+
+Example:
+
+[source,java]
+----
+
+@strict
+enum MyEnumA {
+    A = 0x0,
+    B = 0x1,
+    C = 0x2,
+};
+
+union MyUnionA {
+    int a;
+    int b;
+    int c;
+};
+
+struct User {
+    /* XML packer will use CDATA for login */
+    @cdata
+    /* string length must be between 5 and 128, and only alphanum, _ and - characters are accepted */
+    @minLength(5) @maxLength(128) @pattern("[a-zA-Z0-9_\-]*")
+    string  login;
+    /* Only 0,1,2 values accepted here */
+    MyEnumA a;
+
+    @allow(A, B) /* Only 0,1 values accepted here */
+    MyEnumA abOnly;
+
+    /* this array can contain between 5 and 10 values, each value belonging to [-5;5] */
+    @minOccurs(5) @maxOccurs(10)
+    @min(-5) @max(5)
+    int[]  intTab;
+    /* integer arguments can be expression too */
+    @max(10*5)
+    uint[]  uintTab;
+    /* but double expression are not supported */
+    @min(-5.5)
+    double[]  doubleTab;
+
+    /* allow only fields a and c in that instance of union MyUnion */
+    @allow(a, c)
+    MyUnion myUnion;
+    @allow(a) @allow(c)
+    MyUnion myUnion;
+    /* disallow field b in that instance of union MyUnion */
+    @disallow(b)
+    MyUnion myUnion;
+};
+
+----
+
+== Multi constraints
+
+The multi constraints are allowed for some numeric attributes(min, max,
+minOccurs, maxOccurs, minLength, maxLength). The min attribute takes the
+highest value and vice versa for for the max attribute.
+
+Example:
+
+[source,java]
+----
+
+@max(42) @min(5)
+typedef uint Digit;
+
+struct Test {
+    @max(21) @min(7)// here min is 7 and  max is 21
+    Digit a;
+
+    @max(45) @min(3) // here min is the typedef value (5) and the max too (42)
+    Digit b;
+};
+
+@minLength(5) @maxLength(128)
+typedef string ExStr;
+
+struct StrTest {
+    @maxLength(21) @minLength(7)
+    ExStr a;
+};
+
+@maxOccurs(42) @minOccurs(5)
+typedef int[] ExTab;
+
+struct TabTest {
+    @maxOccurs(21) @minOccurs(7)
+    ExTab a;
+};
+
+----
+
+== Generic attributes
+
+One can declare a generic attribute to attache a piece of information to an IOP
+element which has no meaning for the IOP engine but can be used at run-time
+with IOP introspection.
+
+A generic attribute is declared as follow:
+
+`@(namespace:name, value)`
+
+As described in the example, the full name of the generic attribute is in two
+parts: a namespace and a name, separated by a colon. The namespace is here to
+avoid collision in attributes name. The value can be either an integer, a
+double, a boolean or a string. Generic attributes can be declared for IOP
+structs, classes, fields, enums, interfaces and RPCs.
+
+Here is an example:
+
+[source,java]
+----
+
+package foo;
+
+@(namespace1:genAttr1, 2)
+struct MyStruct {
+    @(namespace1:genAttr2, "toto");
+    @(namespace1:genAttr1, 10);
+    @(namespace1:genAttr3, true);
+    int field;
+
+    @(namespace1:genAttr2, "toto");
+    bool field2;
+};
+
+@(namespace1:genAttr1, 1)
+interface foo {
+
+    @(namespace1:genAttr3, false)
+    myFunction
+         in (int a);
+}
+
+----
+
+A generic attribute can't be defined twice for the same IOP element. However,
+it can be defined as many time as needed throughout an IOP package. An IOP
+element can be linked to several different generic attributes.
+
+At run-time, generic attributes can be accessed by lib-common helpers thanks to
+their names.
+
+See `lib-common/iop.h` for a description of all availables generic attributes
+helpers.

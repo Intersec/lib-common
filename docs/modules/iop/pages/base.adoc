@@ -1,0 +1,711 @@
+= IOP
+:toc: :numbered:
+
+== Introduction
+
+The IOP (_Intersec Object Packer_) is a method to serialize structured data to
+use in communications protocols, data storage… IOP is language independent. IOP
+objects are encoded using TLV
+("Tag-Length-Value":http://en.wikipedia.org/wiki/Type-length-value)
+packers/un-packers. To get details about the low-level IOP representation read
+the xref:wire-format.adoc[Wire format] documentation.
+
+The IOP concept is inspired from the "Google Protocol Buffers":
+https://developers.google.com/protocol-buffers/docs/overview
+
+The IOP are used to transmit data over the network in a safe manner. It deals
+with data integrity checking, retro-compatibility issues, … They are also used
+to exchange data between different languages or to provide a generic interface
+to store and load C data on disk.
+
+== IOP objects
+
+The first thing to do with IOP is to define your data structures in the IOP
+description language. It has a C-like syntax (_in fact it's almost the D
+language syntax_) and lives inside a *.iop* file.
+
+We use http://en.wikipedia.org/wiki/CamelCase[CamelCase] in IOP files.
+
+=== Basics types
+
+These are the low-level types used to define object members.
+
+* *`int`*:    32bits signed integer;
+* *`uint`*:   32bits unsigned integer;
+* *`long`*:   64bits signed integer;
+* *`ulong`*:  64bits unsigned integer;
+* *`byte`*:   8bits signed integer;
+* *`ubyte`*:  8bits unsigned integer;
+* *`short`*:  16bits signed integer;
+* *`ushort`*: 16bits unsigned integer;
+* *`bool`*:   boolean;
+* *`double`*: double (64bits);
+* *`string`*: character string;
+* *`bytes`*:  binary blob;
+* *`xml`*:    XML string;
+* *`void`*:   no data (useful to indicate a presence with no associated data);
+
+=== Complex types
+
+There are three complex data types.
+
+==== `struct`
+
+The structure defines an object with one or several members, like this:
+
+[source,c]
+----
+
+struct User {
+    int    id;
+    string name;
+};
+
+----
+
+We have just declared a `User` object with an `id` and a `name`. But structures
+can also contain other structures.
+
+Example:
+
+[source,c]
+----
+
+struct Address {
+    int    number;
+    string street;
+    int    zipCode;
+    string country;
+};
+
+struct User {
+    int     id;
+    string  name;
+    Address address;
+};
+
+----
+
+==== `class`
+
+A `class` is a kind of `struct` which can inherit from another class, or be a
+_master class_ (which means it has no parent).  A `class` has the same meaning
+than in object-oriented languages, except that methods cannot be declared.
+
+See the xref:inheritance.adoc[Inheritance] page for more details.
+
+==== `union`
+
+A `union` has the same definition as the `C-union`. It defines an object which
+will be set as one of its members.
+
+Example:
+
+[source,c]
+----
+
+union MyUnion {
+    int    wantInt;
+    string wantString;
+    User   wantUser;
+};
+
+----
+
+An `union` can only contain mandatory fields (including referenced fields).
+
+==== `enum`
+
+Here again, an `enum` has the same definition as the `C-enum`. It defines
+several literal keys associated to integer values. Just like the `C-enum`, the
+IOP `enum` supports the whole integer range for its values.
+
+Example:
+
+[source,c]
+----
+
+enum MyEnum {
+    VALUE_1 = 1,
+    VALUE_2 = 2,
+    VALUE_3 = 3,
+};
+
+----
+
+=== Member constraints
+
+An IOP object member can be either *mandatory*, *optional*, *repeated* or *with
+a default value*.
+
+==== Required members and references
+
+By default, a member of an IOP structure or class is mandatory (or required).
+This means it must be set to a valid value in order for the structure instance
+to be valid. In particular, you must guarantee the field is set before
+serializing/deserializing the object. By default, mandatory fields are value
+fields in the generated C structure: this means the value is inlined in the
+structure type and is copied. There are however two exceptions to this rule:
+class objects and referenced fields are defined as pointed objects in the
+generated structure.
+
+A referenced field must be explicitly defined the IOP description by using the
+*&* symbol following the data type. This can only apply to data types that are
+structures or union. Referenced fields can be used in structure, classes or
+unions. They provide an elegant way to define recursive types.
+
+[source,cpp]
+----
+
+struct Foo {
+    int mandatoryInteger;
+    MyStruct mandatoryStruct;
+    MyStruct& referencedStruct; /* Mandatory too */
+};
+
+union Foo {
+    Foo& child;
+    int     leaf;
+};
+
+----
+
+==== Optional members
+
+[source,c]
+----
+
+struct Foo {
+    int? optionalMember;
+    Bar? optionalMember2;
+};
+
+----
+
+The optional member is indicated by a *?* following the data type. The
+packers/unpackers allow these members to be absent without generating an error.
+
+==== Repeated members
+
+[source,c]
+----
+
+struct Foo {
+    int[] repeatedInteger;
+};
+
+----
+
+A repeated member is a kind of +optional+ member, it can appear _n_ times in
+the object, corresponding to a list of length _n_. In the previous example, you
+can consider the `repeatedInteger` member as a list of integers.
+
+A `void` field cannot be repeated.
+
+==== With default value
+
+[source,c]
+----
+
+struct Foo {
+    int val = 42;
+};
+
+----
+
+A member with a default value is a kind of +mandatory+ member but allowed to be
+absent. When the member is absent, the packer/unpacker always sets the member
+to its default value.
+
+To use an enumeration value as a default value, you have to prefix the
+enumeration key by the enumeration name, upper-cased, and with an underscore
+before each capital letter, like this:
+
+[source,c]
+----
+
+enum MyEnum {
+    VAL_1 = 1,
+    VAL_2 = 2,
+};
+
+struct Foo {
+    MyEnum foo = MY_ENUM_VAL_1;
+};
+
+----
+
+A `void` field cannot have a default value, because it represents no value.
+
+===== Constant folder
+
+Moreover, you are allowed to use arithmetic expressions on integer (and `enum`)
+member types like this:
+
+[source,c]
+----
+
+struct Foo {
+    int a = 2 * (256 << 20) + 42;
+};
+
+enum MyEnum {
+    VAL_1 = 1 << 0,
+    VAL_2 = 1 << 1,
+    VAL_3 = 1 << 2,
+    VAL_4 = 1 << 3,
+};
+
+----
+
+[[iop-tags]]
+=== IOP tags
+
+When you declared a structure or union, every member is implicitly tagged with
+a non-null integer (remember the Tag-Length-Value encoding?). Tags start at 1
+and are efficiency encoded depending on how big they are, so you have to prefer
+lower tags. You can set manually the field tags:
+
+[source,c]
+----
+
+struct Foo {
+1:    int a;
+2:    int b;
+3:    int c;
+      int d; /*< will be implicitly at tag 4 */
+5:    int e;
+1024: int f; /*< stupid but possible */
+};
+
+----
+
+For most usages you do not need to take care about the IOP tags. You will need
+them to deal with things like modules inheritance, backward compatibility…
+Subjects that we will talk about later.
+
+== IOP packages
+
+An IOP file corresponds to an IOP package. The filename must match the package
+name. Every IOP file must define its package name like this:
+
+[source,c]
+----
+
+package foo; /*< package name of the file foo.iop */
+
+struct Foo {
+    [...]
+};
+
+[...]
+
+----
+
+A package can be a sub-package of another package like this:
+
+[source,c]
+----
+
+package foo.bar; /*< package name of the file foo/bar.iop */
+
+struct Bar {
+    [...]
+};
+
+[...]
+
+----
+
+Finally, you can import objects from another package inside your package with
+two methods:
+
+* using the *`import`* keyword:
+
+[source,c]
+----
+
+package plop; /*< package name of the file plop.iop */
+
+import foo.bar.Bar; /*< import the Bar object from foo.bar package */
+import foo.*;       /*< import all structure from the foo package */
+
+struct Plop {
+    Bar bar;
+};
+
+[...]
+
+----
+
+* giving the object full-name:
+
+[source,c]
+----
+
+package plop; /*< package name of the file plop.iop */
+
+struct Plop {
+    foo.bar.Bar bar;
+};
+
+[...]
+
+----
+
+== IOP RPC, interfaces and modules
+
+The IOP objects are sufficient to provide a way to serialize/deserialize data
+for on-disk storage, different languages exchanges, … We need some more
+concepts to handle network communications.
+
+To do such things, you will have to define a module, which will contain several
+interfaces which will contain several RPC. A server wanting to communicate with
+IOP will declare which RPC of which interfaces of which module it implements.
+
+=== Interfaces and RPC
+
+An IOP `interface` declares one or several RPC. An RPC is defined by:
+
+* an optional list of input parameters (`in` keyword);
+* an optional list of output parameters (`out` keyword);
+* an optional list of exception parameters (`throw` keyword).
+
+Example:
+
+[source,c]
+----
+
+struct MyExn {
+    int    code;
+    string desc;
+};
+
+interface MyIface {
+   createUser
+        in    (string login, string password, int? age)
+        out   (int id)
+        throw MyExn;
+};
+
+----
+
+The input/output/throw parameters can be an existing type or an anonymous type.
+In the previous example, the input and output parameters are anonymous whereas
+the `throw` parameter uses an existing type. When declaring several RPC with
+the same parameters, you are encouraged to used a well declared type it will be
+more efficient.
+
+Like we said, input/output/throw parameters are all optional, we could write
+the `createUser` RPC with a lot of different prototypes:
+
+[source,c]
+----
+
+struct MyExn {
+    int    code;
+    string desc;
+};
+
+struct User {
+    string login;
+    string password;
+    int?   age;
+};
+
+interface MyIface {
+    /* No exception */
+    createUser2
+        in    (string login, string password, int? age)
+        out   (int id);
+
+    /* No output parameter */
+    createUser3
+        in    (string login, string password, int? age)
+        throw MyExn;
+};
+
+----
+
+In addition, the IOP RPC introduce two special data type: `void` and `null`.
+The `void` type is exactly the same thing as no parameter, so `createUser3`
+could be written:
+
+[source,c]
+----
+
+[...]
+
+interface MyIface {
+    /* No output parameter */
+    createUser4
+        in    (string login, string password, int? age)
+        out   void
+        throw MyExn;
+};
+
+----
+
+The `null` parameter can only be used as an output type. It means that you want
+an asynchronous RPC which will not wait for an answer. A `void` RPC will reply
+a `void` result but it is an answer nonetheless, it is the only way to know if
+your RPC has succeed or not. The `null` RPC will just be sent and be forgotten.
+For this reason, a `throw` parameter is incompatible with a `null` result…
+
+Note that you will be forced to always specify `out` or `throw` (in case of
+`throw`, `out void` is selected by default)
+
+=== Modules
+
+An IOP `module` groups several interfaces together. A communication server must
+declare its module and so it cannot implement interfaces of different modules.
+
+A module declares its interfaces like this:
+
+[source,c]
+----
+
+interface MyIfaceA {
+    [...]
+};
+
+interface MyIfaceB {
+    [...]
+};
+
+module MyMod {
+    MyIfaceA a;
+    MyIfaceB b;
+};
+
+----
+
+=== Module inheritance
+
+==== General
+
+Because sometimes a server wants to implement the interfaces of several
+different modules you can declare a module which inherits of others modules.
+The limitation of this mechanism is that the IOP tags inside your modules +must
+not overlap+.
+
+Here an example of what *you should not do*:
+
+[source,c]
+----
+
+module MyModA {
+    MyIfaceA a1;
+    MyIfaceA a2;
+}
+
+module MyModB {
+    MyIfaceB b1;
+    MyIfaceB b2;
+}
+
+/* This module is broken, every interface overlaps! */
+module MyModC : MyModA, MyModB {
+    MyIfaceC c1;
+    MyIfaceC c2;
+};
+
+----
+
+To make it work, you have to manually set the tag of each interface or at least
+start with a tag that will never overlap with another module, like this:
+
+[source,c]
+----
+
+/* Module MyModA start at tag 512 */
+module MyModA {
+512:
+    MyIfaceA a1;
+    MyIfaceA a2;
+}
+
+/* Module MyModA start at tag 1024 */
+module MyModB {
+1024:
+    MyIfaceB b1;
+    MyIfaceB b2;
+}
+
+/* MyModC inherit of MyModA, MyModB and tag manually all its interfaces */
+module MyModC : MyModA, MyModB {
+1:  MyIfaceC c1;
+2:  MyIfaceC c2;
+};
+
+----
+
+[[backward-compat]]
+== Dealing with backward compatibility
+
+The IOP are designed to be backward compatible but it requires some good
+practice. Being backward compatible is almost always a *must have* so read
+carefully this section.
+
+=== Preserving IOP tags
+
+When you write an IOP object its members are <<iop-tags,implicitly tagged>>.
+This works correctly until you decide to remove a field from you object. Take
+the following structure:
+
+[source,c]
+----
+
+struct Foo {
+    int    a;
+    string b;
+    bool   c;
+};
+
+----
+
+You use this structure in your project version 1, and then later you change it
+into:
+
+[source,c]
+----
+
+struct Foo {
+    int    foo;
+    bool   c;
+    double d;
+};
+
+----
+
+Now the backward compatibility of your project is broken. What have you done ?
+
+* The member `int a` has been renamed to `int foo`. There is almost no problem
+  here because this member has the tag 1, and is still an integer so it will
+  work. Just be careful that in some languages like JSon or XML which uses the
+  member names, it will be broken.
+* The member `b` has been removed, fine.
+* The member `c` has not changed, but just in appearance… By removing the field
+  `b` you have changed the tag of `c` which was 3 and is now 2. The backward
+  compatibility is completely broken because when the unpacker we will try to
+  unpack c in an old structure it will find a string and not a boolean…
+* You have added a member `d` which is broken in the same way as the member `c`
+  (and in another way that we will talk below).
+
+To make it work, you should have written:
+
+[source,c]
+----
+
+struct Foo {
+1:  int    foo;
+/* b removed in version 2 (tag 2) */
+3:  bool   c;
+    double d;
+};
+
+----
+
+Here the IOP tags are preserved (and do not forget to leave a comment to
+explain the explicit IOP tags). But the backward compatibility is still broken.
+
+You could also replace your deprecated field using the `void` type, as anything
+can be unpacked into it (the value will be lost) :
+
+[source,c]
+----
+
+struct Foo {
+    int    foo;
+    void   b;/* b removed in version V2 (tag 2) */
+    bool   c;
+    double d;
+};
+
+----
+
+=== Do not add mandatory fields
+
+The `double d` member has been added as a mandatory field which is not backward
+compatible. If your unpacker tries to unpack a structure of version 1, you will
+have an error because it will fail to find the mandatory `d` member. So you can
+only use optional members (or repeated, or default values) when you add a new
+field in an existing IOP structure.
+
+Here is the correct update of the `Foo` structure:
+
+[source,c]
+----
+
+struct Foo {
+1:  int     foo;
+/* b removed in version V2 (tag 2) */
+3:  bool    c;
+    double? d;
+};
+
+----
+
+Of course you also cannot change the type of an existing object without
+breaking the backward compatibility.
+
+=== Summary
+
+To deal with backward compatibility do not forget the following rules:
+
+* always preserve the existing tag even when they are implicit;
+* never add a mandatory member to a structure;
+* do not change data types;
+* avoid to change fields names (will break JSon, XML, PHP, …).
+
+==== Exceptions
+
+There are some exceptions to these rules:
+
+* changing an integer with an integer of greater size and same sign is
+  compatible (like `int` to `long` or `ubyte` to `uint`);
+* changing a mandatory field into an optional (or with a default value, or
+  repeated) field is compatible too.
+
+== IOP attributes
+
+Since IOP 2.0, we support a concept of attributes. Attributes allow to add
+constraints over structure members, modify the unpacker/packers behavior for
+some structures/members, … They are documented in a
+xref:iop-attributes.adoc[dedicated page].
+
+== IOP typedefs
+
+The `typedef` keyword can be used to create alias for types. A typedef takes a
+types, its modifiers (optional or repeated) and some instantiation attributes
+(the same attributes as used on structure and union fields) and create a new
+typename for it to be used later in a structure or union or as a base type for
+another typedef. The source type of a typedef can be any type, basic or
+complex. A type created by a typedef cannot be used as a parent class in a
+class type definition.
+
+The name of a typedefed type must start with an uppercase.
+
+[source,c]
+----
+
+typedef int MyInt;
+
+@min(3)
+typedef int MyIntMin3;
+
+typedef string[] MyStringArray;
+
+union MyUnion {
+    MyIntMin3 iMin3;
+    int i;
+};
+
+@allow(i)
+typedef MyUnion MyUnionI;
+
+----
+
+Typedefs are only aliases that are known only by the `iopc`, and no specific
+entries are generated for them in destination languages.
+
