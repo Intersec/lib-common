@@ -1,0 +1,425 @@
+= C Language in the lib-common
+:toc: :numbered:
+
+This page describes some specificities of the C language we use in the
+lib-common and gives pointers to useful resources.
+
+== Language and compiler
+
+Our code is mostly C99 with `GNU` extensions and the `blocks` extension from
+Apple. We target `Linux` and most precisely the distribution installed on the
+servers of our customers: Red Hat Entreprise Linux (mostly RHEL 7). As a
+consequence, we do support compilation with the compiler shipped (and
+supported) by Red Hat:
+
+* gcc 4.4 on RHEL 6
+* gcc 4.8 on RHEL 7
+
+Because `clang` provides a better front-end with better error reporting than
+`gcc`, we do parse our code with `clang` and compile it with `gcc` (the `clang`
+parsing can be disabled using the `NOCHECK=1` parameter of our build system).
+As a consequence, our code compiles with `clang` even if we don't distribute
+the generated code (and you can chose, to use clang as your primary compiler on
+your workstation). This enables the ability to use clang static code analyzer
+on your code base.
+
+== Coding Rules
+
+xref:coding-rules-c.adoc[Our coding rules] bring some constraints on the form
+of the C we write. This includes code formatting, naming conventions,
+exploitability conventions...
+
+== GNU extensions
+
+We compile with `gcc` GNU extensions:
+http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/C-Extensions.html#C-Extensions of
+the C language activated. This offers a lot of syntactic sugar and provide
+tools to write safe macros. We also make an extensive use of `gcc` builtins and
+attributes although we usually wrap them in macros in the `lib-common` in order
+to provide compatibility with older version of the compiler when the builtin
+has been introduced quite recently.
+
+The most used extensions:
+
+* `typeof`: http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Typeof.html#Typeof
+  evaluate as the type of an expression. This can be used either to write
+  generic macros or to refer to anonymous types:
+
+[source,c]
+----
+
+/* Get a reference to an anonymous structure */
+struct {
+   int a;
+   int b;
+} foo;
+typeof(foo) *bar = &foo;
+
+----
+
+* statement expressions:
+  http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Statement-Exprs.html#Statement-Exprs
+  this is a block (and thus a statement) that has a value (and thus is an
+  expression). Its value is the value of its last expression. This provides a
+  way to write multiple-evaluation free macros: since we have a local scope we
+  can store the result of the expansion of the parameter of the macro in
+  temporaries:
+
+[source,c]
+----
+
+/* This example demonstrate the use of both typeof() and statement expressions
+ * in a real-world macro. typeof() let us declare a variable __res of the
+ * correct type to store the result of the expansion of e. As e needs to be
+ * evaluated twice, it is mandatory to store it in a temporary variable.
+ * Finally the macro has a return value, it evaluates to the result of the last
+ * expression of the statement expression (i.e __res).
+ */
+
+#define RETHROW_P(e)        \
+    ({ typeof(e) __res = (e);                          \
+       if (unlikely(__res == NULL)) {                  \
+           return NULL;                                \
+       }                                               \
+       __res;                                          \
+    })
+
+----
+
+* ternary operator with omitted operand `?:`:
+  http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Conditionals.html#Conditionals
+  this allow writing simpler code when a when have conditions in the form `if
+  expression then expression else other_value`.
+
+[source,c]
+----
+
+/* Traditionally */
+int a = do_something();
+return a ? a : -1;
+
+/* With the extended ?: */
+return do_something() ?: -1;
+
+----
+
+* empty variadic macros:
+  http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Variadic-Macros.html#Variadic-Macros
+  accept the `##__VA_ARGS__` to consume the leading comma in the result of the
+  expansion if `__VA_ARGS__` is empty.
+* unnamed fields:
+  http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Unnamed-Fields.html#Unnamed-Fields
+  this allows omitting the name variable name of an anonymous
+  sub-{structure|union} in a {union|structure} making access to that field must
+  easier. As a consequence we loose the ability to access the anonymous entry
+  (note that this has been standardized in C11).
+
+== Other constructions
+
+We also use some constructions that may be tricky or rarely used.
+
+* format-string extensions:
+** as explained in our documentation about the lib-common, the `%p` operator is
+overloaded by our implementation of `printf` and gives birth to some
+constructions such a `%*pM` that "put memory" and provide an efficient
+alternative to `%.*s`
+** we use the `j` format parameter to print 64bits integer variables. This
+avoids using bloated C99 standard macros such as `PRIu64` or `PRIx64`
+[source,c]
+----
+
+uint64_t v = 0xCAFEBABEDEADBEEF
+
+/* C99 standard */
+printf("%"PRIx64", v);
+
+/* Intersec's version */
+printf("%jx", v);
+
+----
+
+* macro and function overloading: we use (quite intensively) the fact that the
+  preprocessor knows if the macro has arguments or not to allow overloading
+  function with macros (and vice-versa).
+
+=== Overloading a macro
+
+An example is the `p_delete` function that overloads the `p_delete` macro. This
+works because the macro `p_delete` is defined as `p_delete(...)`, thus the
+preprocessor will only catch apply that macro when it finds `p_delete` followed
+by an opening parentheses. Thus, `(p_delete)` cannot be replaced by the macro
+and since it's the same as `p_delete`, it can be used as a function name.
+[source,c]
+----
+
+/* We define the type-safe macro
+ */
+#define p_delete(pp) \
+    ({                                    \
+        typeof(**(pp)) **__ptr = (pp);    \
+        ifree(*__ptr, MEM_LIBC);          \
+        *__ptr = NULL;                    \
+    })
+
+/* We also define a function that will simply
+ * call the macro.
+ */
+static inline void (p_delete)(void **p)
+{
+    p_delete(p);
+}
+
+/* I need to provide a deletion callback?
+ * Then, I need to provide a function, since the
+ * "p_delete" token is not followed by an opening
+ * parentheses, it is not expanded by the preprocessor
+ * and thus it is the function.
+ */
+set_deletion_callback(ctx, p_delete);
+ctx->deletion_cb = p_delete;
+
+/* I need to perform deletion on a pointer. Then, I use
+ * the straightforward syntax, and it uses the macro.
+ */
+p_delete(&ptr);
+
+----
+
+=== Overloading a function
+
+A second example is a function that takes some flags but in most cases should
+be called with the flags set to 0. This is a perfect use cases of the argument
+default value that can be found in most modern language (the prototype of the
+function contains a value to be passed for a parameter when that parameter is
+omitted in the call). C does not support default values (C++ does), but we can
+somehow emulate this feature using macro overloading.
+[source,c]
+----
+
+/* The macro does not exists yet, so no need to "espace" the
+ * name of the function using the (my_function) syntax.
+ */
+int my_function(ctx, flags);
+
+/* Then define the macro, it must call the function thus ensure
+ * we properly escaped the name in the call.
+ */
+#define my_function(ctx)  (my_function)(ctx, 0)
+
+/* Then when I call the function with the default argument value:
+ */
+int ret = RETHROW(my_function(ctx));
+
+/* With non-default argument value:
+ */
+int ret = RETHROW((my_function)(ctx, FLAG_NODEF));
+
+----
+
+== `Blocks`
+
+We use the `blocks` extension introduced by Apple with `clang` in `Snow
+Leopard` (MacOS X 10.6) in 2009. `blocks` provide a way to create closures
+within a straight-C program. For detailed information, you can read the
+documentation from Apple at
+http://developer.apple.com/library/mac/#documentation/Cocoa/Conceptual/Blocks/Articles/00_Introduction.html.
+
+Since we do generate machine code with `gcc` and `gcc` does not support
+`blocks`, our build system compiles blocks in two passes:
+
+* first, we use a _hacked_ version of `clang` to rewrite blocks in C (the
+  hacked version only has an extra compiler pass that is only activated when
+  the `--rewrite-blocks` option is passed to the compiler, thus apart from the
+  extra option, our `clang` is an upstream version and it can be used for
+  general purpose).
+* second we compile the generated file with `gcc`
+
+In order to work with blocks in our environment you must follow these
+constraints:
+
+* code with blocks must be put in `.blk` files (`.blkk` for C++)
+* block rewriting does not work when some rewritten part are in macros or
+  generated using macros (this sometimes force us to use the `_Bool` standard
+  type instead of `bool` when dealing with blocks).
+
+=== When to use blocks
+
+Blocks could basically be used whenever you want to use a callback (that does
+not mean it should be used that way). In practice our most frequent use cases
+are:
+
+* parallelism
+* callbacks when:
+** we depend on a lot of parameters from the initial caller environment (i.e.
+we have to capture several variable in a context)
+** when the action is different everytime we call the function that takes the
+callback
+* generic function: instead of adding several parameters to a function that
+  should have some subtle behavior differences depending on the context it is
+  called from, we can sometimes use a block that implements the specific parts
+
+=== Let us have some examples
+
+* In this first example, we have a callback that highly depends on the caller
+  of `script_execute`. Thus using a block instead of a pair (callback, context)
+  has several advantages:
+** we do not have to define a function per call site
+** we do not have to create a context type
+** we have strong typing (no cast to `void *`, thus we are sure we are working
+with the correct data (we cannot call the wrong callback with the wrong context
+type)
+** concision
+
+|===
+|Without blocks |With blocks
+
+a|
+[source,c]
+----
+struct stupid_local_type {
+    bool has_caught;
+    sb_t buf;
+};
+
+static void catcher_for_some_function(const script_exception_t *exn,
+                                      bool compilation, void *priv)
+{
+    struct stupid_local_type *d = priv;
+
+    d->has_caught = true;
+    script_exception_to_string(exn, &d->buf, true);
+}
+
+static void some_function(const char *code)
+{
+    struct stupid_local_type d = {
+        .has_caught = false,
+    };
+
+    sb_inita(&d.buf, 1024);
+    script_execute(code, "anonymous", NULL, 0, NULL,
+                   catcher_for_some_function, &d);
+
+    if (d.has_caught) {
+        e_error("Failed to run script: %*pM", buf.len, buf.data);
+        sb_wipe(&d.buf);
+    }
+}
+----
+
+a|
+[source,c]
+----
+static void some_function(const char *code)
+{
+    bool __block has_caught = false;
+    sb_t __block buf;
+
+    sb_inita(&buf, 1024);
+    script_execute(code, "anonymous", NULL, 0, NULL,
+                   ^(const script_exception_t *exn, bool compilation) {
+                       has_caught = true;
+                       script_exception_to_string(exn, &buf, true);
+    });
+
+    if (has_caught) {
+        e_error("Failed to run script: %*pM", buf.len, buf.data);
+        sb_wipe(&buf);
+    }
+}
+----
+|===
+
+* This second example is about parallelism. It shows how `blocks` help writing
+  easy-to-read paralleled code:
+** parallel code with blocks is nearly the same as sequential code, it only
+adds a few synchronization primitives and exports the actual code in a block.
+As a consequence, it is nearly as simple to understand than the sequential code
+** `blocks` avoids a lot of administrative code: no need to create a function,
+create a job type, cast to and from the job type and manually
+allocate/deallocate the context.
+
+|===
+|Without parallelism |Parallelism without blocks |Parallelism with blocks
+
+a|
+[source,c]
+----
+void apply_to_all_map(qv_t(map) *maps)
+{
+    qv_for_each_pos(map, pos, maps) {
+        map_t *map = maps->tab[pos];
+
+        do_something1(map);
+        do_something2(map);
+    }
+}
+----
+
+a|
+[source,c]
+----
+struct apply_to_map_ctx_t {
+    thr_job_t job;
+    mapt_t *map;
+};
+
+static void apply_to_map_job(thr_job_t *job)
+{
+    struct apply_to_map_ctx_t *ctx
+        = container_of(job, struct apply_to_map_ctx_t, job);
+
+    do_something1(ctx->map);
+    do_something2(ctx->map);
+    p_delete(&job);
+}
+
+void apply_to_all_map(qv_t(map) *maps)
+{
+    thr_syn_t syn;
+
+    thr_syn_init(&syn);
+    qv_for_each_pos(map, pos, maps) {
+        struct apply_to_map_ctx_t *ctx
+            = p_new(struct apply_to_map_ctx_t, 1);
+
+        ctx->job.run = &apply_to_map_job;
+        ctx->map = maps->tab[pos];
+        thr_syn_schedule(&syn, &ctx->job);
+    }
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+}
+----
+
+a|
+[source,c]
+----
+void apply_to_all_map(qv_t(map) *maps)
+{
+    thr_syn_t syn;
+
+    thr_syn_init(&syn);
+    qv_for_each_pos(map, pos, maps) {
+        map_t *map = maps->tab[pos];
+
+        thr_syn_schedule_b(&syn, ^{
+            do_something1(map);
+            do_something2(map);
+        });
+    }
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+}
+----
+|===
+
+== Bibliography
+
+These are some articles every C programmer should have read at least once:
+
+* "What every C programmer should know about undefined behavior":
+** part 1: http://blog.llvm.org/2011/05/what-every-c-programmer-should-know.html,
+** part 2: http://blog.llvm.org/2011/05/what-every-c-programmer-should-know_14.html
+** part 3: http://blog.llvm.org/2011/05/what-every-c-programmer-should-know_21.html.
+* "Deep C": http://www.slideshare.net/olvemaudal/deep-c

@@ -1,0 +1,5 @@
+name: lib-common
+version: master
+title: Lib-common Documentation
+nav:
+- modules/ROOT/nav.adoc

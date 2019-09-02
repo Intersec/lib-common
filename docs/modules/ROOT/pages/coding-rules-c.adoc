@@ -1,0 +1,1254 @@
+= Coding Rules
+:toc: :numbered:
+
+These are the rules you must follow when writing code. Those rules reflect the
+xref:philosophy.adoc[Lib-common philosophy] in various ways.
+
+== Languages
+
+This document cover all C-like languages when applicable:
+
+* `C`
+* `C++`
+* `Javascript`
+* `Java`
+* ...
+
+For `python`, the written code must pass _pylint_ checks. You can also get
+inspiration in "python style as described by PEP 8":
+http://www.python.org/dev/peps/pep-0008/, but only the _pylint_ checks are
+mandatory.
+
+== Basics
+
+* indentation is made of 4 spaces, no tabs, text width is 78 full columns.
+* Never put more than one statement per line, never put more than one semicolon
+  per line (unless it’s in a string ;p)
+[source,c]
+----
+do1(); do2(); /* bad */
+
+if (cond) { do_sth(); } /* bad */
+
+printf("a; b; c");      /* good, but better use puts() */
+
+struct foo {
+    int a;              /* good */
+    char b, c;          /* good */
+    int d; char e;      /* bad  */
+};
+----
+
+* labels (including switch `case` constructs) are indented 2 spaces behind the
+  current indentation level.
+[source,c]
+----
+int main(void)
+{
+    switch (foo) {
+      case 1:     /* good */
+        break;
+        case 2:   /* bad */
+    case 3:       /* bad */
+        goto done;
+    }
+  done:           /* good */
+    (void)0;
+}
+----
+
+* One single space between a control flow keyword (such as `if`, `switch`,
+  `while`, …) and the condition, the bracket is put on the same line (unless it
+  would overflow the columns count).
+[source,c]
+----
+switch (foo) { /* good */
+}
+
+switch(foo) { /* bad */
+}
+----
+
+* Spaces around binary operators:
+[source,c]
+----
+1 + 3 * (3 << 2); /* good */
+1+2*3;            /* bad  */
+----
+
+* No spaces before a semicolon or before a comma, but one leading space is
+  mandatory.
+[source,c]
+----
+fn(1, 2, 3); /* good */
+fn(1,2,3);   /* bad */
+return ;     /* bad */
+----
+
+* Avoid trailing spaces.
+* Never use preincrement when postincrement is equivalent, so that preincrement
+  flags probably tricky code.
+[source,c]
+----
+++i; /* bad  */
+i++; /* good */
+----
+
+* Structure your code in order to keep the indentation level as low as possible.
+
+== if else
+
+* When the condition of a control flow statement spans on multiple lines, push
+  the boolean operator on the beginning of the next line (and optionnaly put
+  two spaces after so that the next condition is aligned after the paren on the
+  previous line). Push the bracket on the next line.
+[source,c]
+----
+if (test1 && test2 && ... && foo
+&&  bar)
+{
+    /* do stuff */
+}
+----
+
+* `elsif` statements are aligned this way:
+[source,c]
+----
+/* Good */
+if (cond1) {
+} else
+if (cond2) {
+} else {
+}
+
+/* Bad */
+if (cond1) {
+} else if (cond2) {
+} else {
+}
+----
+
+* Control flow statements blocks must be enclosed in brackets.
+[source,c]
+----
+if (foo) { /* good */
+}
+
+if (foo)   /* bad  */
+{
+}
+
+if (foo)   /* bad */
+    return e_error("bad constraint");
+
+if (foo) { /* good */
+    return e_error("bad constraint");
+}
+
+if (foo)   /* bad  */
+    return a_multiline_function_call("some long reason, %s",
+                                     some_very_long_variable);
+
+if (foo) { /* good  */
+    return a_multiline_function_call("some long reason, %s",
+                                     some_very_long_variable);
+}
+
+if (foo)   /* bad */
+    return 0;
+else
+    return 1;
+
+if (foo) { /* good */
+    return 0;
+} else {
+    return 1;
+}
+
+if (test1 && test2 && ... && foo   /* bad */
+&&  bar)
+    return 0;
+
+if (test1 && test2 && ... && foo   /* good */
+&&  bar)
+{
+    return 0;
+}
+
+----
+
+== Ternary operator
+
+When using the ternary operator on a long line, the colon should be aligned
+with the question mark (if possible).
+
+[source,c]
+----
+
+a = pretty_long_condition ? another_quite_long_stuff
+    : something_else;                                 /* bad */
+
+a = pretty_long_condition ? another_quite_long_stuff
+                          : something_else;           /* good */
+
+----
+
+== switch case
+
+* Never put declarations of variable in the main scope of the switch statement
+[source,c]
+----
+switch (val) {
+    int a = 1; /* bad; the init is not run */
+
+  case A:
+    a = 0;
+    break;
+}
+----
+
+* In case the case contains some variable declarations:
+** Put the opening brace on the same line as the case if the code covers a
+single `case`, on the next line, aligned with the case on the other case or if
+the case line is too long
+** Put the closing brace at the beginning of a new line, aligned with the case
+statements.
+** If a `break` is to be put, put it at one space after the closing brace.
+** `continue` and `return` statements must be kept in the code block since they
+are not linked to the `switch() case:` construct.
+** The code in the block is one-time indented from the `switch` statement
+[source,c]
+----
+switch (val) {
+  case CONSTANT0:
+    code;
+    break;
+
+  case CONSTANT1: {
+    var declarations;
+
+    code;
+    return var;
+  }
+
+  case CONSTANT2: {
+    var declarations;
+
+    code;
+  } break;
+
+  case CONSTANT3:
+  case CONSTANT4:
+  {
+    var declarations;
+
+    code;
+  } break;
+}
+
+----
+
+* when a case fall through the following case, this explicit `/* FALLTHROUGH
+  */` comment must be used.
+[source,c]
+----
+switch (val) {
+  case A:
+    code;
+  case B: /* bad, may be a fall through or a missing break */
+    code;
+    break;
+}
+
+switch (val) {
+  case A:
+    code;
+    /* FALLTHROUGH */ /* good */
+  case B:
+    code;
+    break;
+}
+----
+
+* +Advice+: avoid to define the `default` case when doing a `switch/case` on an
+  enum (unless you have hundreds of elements to put in the `switch`). It allows
+  the compiler to display warnings about missing cases whenever the enumeration
+  changed. It applies for IOP unions as well.
+* Block rules apply to `switch/case` equivalent such as
+  `IOP_UNION_SWITCH/IOP_UNION_CASE`
+
+
+== Functions
+
+* Opening bracket is on the same line than control flow statements, on the next
+  line for function implementations (except for `static inline` where it’s
+  allowed to keep them on the same line when the function short - 1 or 2 lines
+  of code).
+[source,c]
+----
+int main(void) { /* bad */
+}
+----
+
+* No spaces between a function call and the parenthesis, except for asserts.
+[source,c]
+----
+fn(1, 2, 3);        /* good */
+fn (1, 2, 3);       /* bad  */
+assert (condition); /* good */
+assert(condition);  /* bad  */
+----
+
+* When the argument list of a function call spans on multiple lines, indent at
+  the opening paren column, unless it’s after the 40th column:
+[source,c]
+----
+ some_call(struct->bar, 19 * long_variable_name, i++,
+          i_love_long_variables_too_much_for_my_sake);
+----
+
+* When declaring a function prototype, if the declaration isn’t multiline, we
+  usually put the return type on a single line and then the rest of the
+  prototype. Wrap the prototype arguments following the same convention as
+  function calls.
+[source,c]
+----
+void something_short(void); /* good */
+
+struct very_long_type_tag *
+something_not_very_short(int, struct bar *, int, void *); /* good */
+----
+
+* Avoid useless wrapping in function prototype and try to keep it on the most
+  limited number of lines
+[source,c]
+----
+
+static void
+something_not_very_short(struct my_struct *a,
+                         struct my_struct *b); /* bad, could fit on only 2 lines */
+
+static void
+something_not_very_short(struct my_struct *a, struct my_struct *b); /* good */
+
+static void something_not_very_short(struct my_struct *a,
+                                     struct my_struct *b) /* good */
+
+----
+
+* Avoid useless function declarations. A declaration is needed only
+** in case of exported function used in another file
+** in case of mutually recursive functions
+** in case of mutually dependent parts of a same file
+
+* Non-exported functions must be static.
+
+* Don't use `inline` and `ALWAYS_INLINE` modifiers unless this is required. Not
+  doing so will lead to slower compilation and the inability to detect dead
+  code.
+** `inline` is required when the implementation is put in a header file (see
+previous point)
+** `inline/ALWAYS_INLINE` may be required in case a performance bottleneck is
+detected.
+
+* Always use a verb in function names.
+* When writing a function:
+** when in a module, put what would be `this` in C++ first;
+** then come the pure `in` parameters;
+** then come the `inout` parameters;
+** and finish with the pure `out` ones.
+* When writing a function, always prefer prototypes that return an integer and
+  operates on its argument. The immediate win is that writing error management
+  is easier. The second win is that the caller can decide if he wants to
+  allocate memory for the arguments or put them on the stack.
+** When such a function returns a positive value (0 included), then it was
+successful. When it returns a negative one, then it failed. This follows the
+usuall POSIX and Unix behaviours in the matter.
+** Using boolean returning functions is possible, though the name of the
+function _must_ contain `is` or `has`, or anything that makes the reader
+understand that the answer is either `yes` or `no`.
+** Using pointer returning functions is possible if and only if the function as
+a single returned value. In that case, `NULL` must be handled as an error value
+for further error management.
+[source,c]
+----
+int my_parser_run(const char *s, const char **out, my_struct *s); /* good */
+
+bool can_i_has_more_beer(void); /* good */
+
+object_t *build_object(const char *url); /* good */
+
+bool my_connect(const char *url); /* bad: should really use int */
+
+parser_t *do_parse(const char *s, parser_state_t **state); /* bad: several returned value should be treated the same way */
+
+----
+
+* When writing a function that has a single return value that is a pointed
+  object, use that pointer as the return value of the function instead of
+  passing a double-pointer as argument.
+* When writing new string manipulation functions, always use the snprintf
+  semantics, meaning that:
+** first and second argument are a `char *` and an `int` that represent the
+buffer you output to.
+** the return type is `int`, and we return the size that could have been used
+if the output buffer was large enough, not counting the trailing zero.
+** the output buffer will always be `NUL` terminated (unless maybe when the
+function fails).
+
+== Blocks
+
+* Don't write code that use blocks in headers files
+* Declarations that use blocks in headers must use the `BLOCK_CARET` macro
+  instead of a literal caret `^`
+* Declarations that use blocks in headers must be wrapped in a `#ifdef
+  __has_blocks / #endif`
+
+* Typedefs of block types must be suffixed by `_b`.
+* Functions variants that use blocks instead of callbacks should be named
+* `_blk`, unless the block variant is the primary one (use `_cb` suffix for
+  callback variants).})
+
+* Unless impossible or prohibited by performance reason (same block used in
+  several calls), blocks should be inlined in function call:
+
+[source,c]
+----
+
+/* GOOD */
+call_with_block(^void (int a, int b) {
+});
+
+/* BAD */
+blk = ^void (int a, int b) {
+};
+call_with_block(blk);
+
+/* TOLERATED if call_with_block() performs a Block_copy()
+ * .. but you should consider refactoring your code */
+blk = ^void (int a, int b) {
+};
+
+for (int ...) {
+    call_with_block(blk);
+}
+
+----
+
+* Inlined blocks should be formatted as follow:
+** keep the opening brace on the same line as the argument list
+** indent the content of the block by one level from the current scope
+** no space after the caret
+** return type get the same formatting as for variable declaration: space after
+type name, star collated with content.
+
+[source,c]
+----
+
+/* GOOD */
+call_with_block(^void (int a, int b) {
+    do_something();
+});
+
+call_with_block(^void *(int a, int b) {
+    return do_something();
+});
+
+
+/* BAD: missing space after type name */
+call_with_block(^void(int a, int b) {
+    do_something();
+});
+
+/* BAD: misplaced opening brace */
+call_with_block(^void (int a, int b)
+{
+    do_something();
+});
+
+/* BAD: wrong indentation */
+call_with_block(^void (int a, int b) {
+                    do_something();
+                });
+
+----
+
+* Don't use inlined block in branching primitives, prefer splitting the
+  branching in two steps:
+
+[source,c]
+----
+
+/* BAD */
+if (do_some_call(^{
+    return do_something();
+})
+{
+}
+
+/* GOOD */
+res = do_some_call(^{
+    return do_something();
+});
+if (res) {
+}
+
+----
+
+== Macros
+
+* Use at least two spaces between a macro name and its implementation:
+[source,c]
+----
+#define GOOD  1
+#define BAD 2
+#define GOOD_FN(a, b)  body
+#define BAD_FN(a, b) bad_body
+----
+
+* Function-like macro should be used the same way functions are used: the
+  semi-colon should be in the invocation, not in the macro:
+[source,c]
+----
+
+#define BAD_MACRO(_a)  do_something(_a);
+
+#define GOOD_MACRO(_a)  do_something(_a)
+
+----
+
+* When defining block-macros always use the `do { ... } while (0)` construction
+  ("see GCC manual":
+  http://gcc.gnu.org/onlinedocs/cpp/Swallowing-the-Semicolon.html):
+[source,c]
+----
+
+#define BAD_MACRO(_a)  { char *a = (_a); foo(a); bar(a); }
+
+#define GOOD_MACRO(_a)  do { char *a = (_a); foo(a); bar(a); } while (0)
+
+----
+
+* In multi-line macros
+** the `\` should be aligned right on the 78th colum
+** the first `\` can be simply put two spaces after the name of the macro, or
+one space after the beginning of the body of the macro, in order to keep 2
+lines macros simple
+** the last line of a macro must not contain a trailing `\`
+** the body of the macro must always have at least one level of indentation
+[source,c]
+----
+
+/* GOOD macros */
+#define GOOD_MACRO(a)  do {                                                  \
+        do_something();                                                      \
+        do_something_else();                                                 \
+    } while (0)
+
+#define GOOD_MACRO(a)  do { \
+        do_something();                                                      \
+        do_something_else();                                                 \
+    } while (0)
+
+#define GOOD_MACRO(a)  \
+    do {                                                                     \
+        do_something();                                                      \
+        do_something_else();                                                 \
+    } while (0)
+
+
+/* BAD macro: buggy indentation */
+#define BAD_MACRO(a)  do { \
+    do_something();                                                          \
+    do_something_else();                                                     \
+} while (0)
+
+/* BAD macro: non-aligned \ */
+#define BAD_MACRO(a)  do { \
+        do_something(); \
+        do_something_else(); \
+    } while (0)
+
+/* BAD macro: trailing \ */
+#define BAD_MACRO(a)  do { \
+        do_something();                                                      \
+        do_something_else();                                                 \
+    } while (0)                                                              \
+
+----
+
+* When cascading preprocessor `ifdef`, `else`, `endif` directives and define,
+  use 2 columns per level (including the sharp as a column). The `ifdef` guard
+  of a header file doesn’t count for indent levels.
+[source,c]
+----
+#ifndef MY_HEADER_GUARD
+#define MY_HEADER_GUARD
+
+#ifdef __GNUC__
+# define foo(a)  __builtin_bar(a)
+# ifdef __GLIBC__
+#   define WE_ARE_USING_A_GLIBC
+# else
+#   error "We need a glibc"
+# endif
+#else
+# error "go away, loser"
+#endif
+
+#endif /* MY_HEADER_GUARD */
+----
+
+* Don't create a macro that don't simplify the code.
+
+* Avoid using macro whenever possible. Most of the time, macros can be replaced
+  by functions.
+
+* Always prefix variables defined inside a macro with the name of the macro (or
+  something derived from the name) to avoid conflicts:
+
+[source,c]
+----
+
+/* BAD macro: __v is too generic and may conflict with another macro. */
+#define qv_append(vec, v)                                                    \
+    ({                                                                       \
+        typeof(*(vec)->tab) __v = (v);                                       \
+        *qv_growlen(vec, 1) = (__v);                                         \
+    })
+
+/* GOOD macro: __qv_v is specific to the qvector module and conflicts should
+ * only appeared in the module itself which is easy to fix.
+ */
+#define qv_append(vec, v)                                                    \
+    ({                                                                       \
+        typeof(*(vec)->tab) __qv_v = (v);                                    \
+        *qv_growlen(vec, 1) = (__qv_v);                                      \
+    })
+
+
+----
+
+== Variables
+
+* We do `C99`, use the `C99` `bool` type, with lower case `true` and `false`.
+
+* The Right Type™ for:
+** a string is `(const) char *`;
+** a character is `int` (DO NOT EVER USE `char`);
+** opaque data is either `void *` or `byte *`. Never EVER use `char *`.
+
+* Never declare variables anywhere but at the start of a new scope. Though
+  using the C99 for loop variable inline declarations is recommended:
+[source,c]
+----
+for (int i = 0; i < 99; i++) { /* good */
+    /* ... */
+}
+----
+
+* Add a blank line between variable declarations and code. It is allowed to
+  omit the blank line in case a very short block (two lines: one declaration
+  line, one statement). `t_scope` is considered as a declaration.
+[source,c]
+----
+{ /* bad */
+    int foo;
+    do_something();
+    do_something2();
+}
+
+{ /* good */
+    int foo;
+
+    do_something();
+    do_something2();
+}
+
+{ /* allowed */
+    int foo;
+    do_something();
+}
+
+{ /* good */
+    int foo;
+
+    do_something();
+}
+----
+
+* Keep a single declaration per line. When no initilization is performed and no
+  pointer type is used, the declaration of several variables at once is allowed
+  but not adviced:
+[source,c]
+----
+int a = 0, b = 0; /* bad */
+
+int *a, b; /* bad */
+
+int *a, /* bad */
+    *b;
+
+int *a; /* good */
+int *b;
+
+int a, b; /* allowed */
+
+int a, b = 0; /* bad */
+
+my_type_t a, b; /* bad */
+
+----
+
+* Keep a single line per declaration
+[source,c]
+----
+
+{
+    int important_variable =
+        long_function_which_does_not_fit_into_one_line();                        /* bad */
+}
+
+{
+    int important_variable;
+
+    important_variable = long_function_which_does_not_fit_into_one_line();       /* good */
+
+    important_variable =
+        very_long_assignation_which_does_not_fit_into_one_line();                /* good */
+}
+
+{
+    int variable = long_fonction_with_parameters(parameter1, parameter2,
+                                                 parameter3);                    /* bad */
+
+}
+{
+    int variable;
+
+    variable = long_fonction_with_parameters(parameter1, parameter2,
+                                             parameter3);                       /* good */
+
+}
+
+----
+
+
+* Stick pointer types stars to the variable names:
+[source,c]
+----
+const char *var_name; /* good */
+
+int fun(char * foo);  /* bad */
+char* baz;            /* bad */
+
+char *p, *q;          /* good, or not so good because you should declare them
+                         on separate lines… */
+----
+
+* When the deepest type is const, we put `const` front, especially for `const
+  char *`. Though, when `static` or any other storage class (`extern` e.g.) is
+  used, `const` is pushed after the type:
+[source,c]
+----
+int foo(const char *arg); /* good */
+int foo(char const *arg); /* bad  */
+
+static const int a = 2;   /* bad  */
+static char const * const str_array[] = { /* good */
+}
+----
+
+== Types
+
+* We usually like to use the `_t` suffix for type names, the `_f` suffix for
+  functional types and the `_b` suffix for blocks types.
+* IOP types must end with `__t` suffix when they are modified using `@ctype`.
+* When declaring an enum, put a traling comma on _every_ line:
+[source,c]
+----
+enum foo {
+   FOO_0,
+   FOO_1,
+   FOO_MAX, /* good */
+};
+----
+
+* When declaring a type, keep the opening bracket on the same line, then put a
+  mandatory line break. For a `typedef`, keep the type name on the same line as
+  the closing bracket.
+[source,c]
+----
+ enum foo {
+    FOO_0,
+    FOO_1,
+};
+
+typedef struct bar_t {
+    /* ... */
+} bar_t;
+----
+
+* When using a `typedef`, always use the same name for the `struct`, `enum` or
+  `union` tag and the `typedef`. No tag is okayish though.
+[source,c]
+----
+typedef enum bar_t {
+} bar_t;
+
+enum foo {
+   FOO_0,
+   FOO_1,
+   FOO_MAX, /* good */
+};
+----
+
+* When calling a function pointer, always "dereference" it:
+[source,c]
+----
+ int fun(void (*cb)(int, int, int))
+{
+    (*cb)(1, 2, 3); /* good */
+    cb(1, 2, 3);    /* bad */
+}
+----
+
+=== Constructors/Destructors
+
+* for every non scalar type `foo`, 4 functions/macros are expected:
+[source,c]
+----
+foo *foo_new(void);
+foo *foo_init(foo *);
+void foo_wipe(foo *);
+void foo_delete(foo **);
+----
+
+* if a type is missing one of the previous functions, then the default semantic
+  is:
+[source,c]
+----
+static inline foo *foo_new(void)
+{
+    return foo_init(p_new_raw(foo, 1));
+}
+
+static inline foo *foo_init(foo *v)
+{
+    return p_clear(v, 1);
+}
+
+static inline void foo_wipe(foo *v)
+{
+    // deallocate memory allocated in *v such as pointers to other objects
+}
+
+static inline void foo_delete(foo **v)
+{
+    if (*v) {
+        foo_wipe(*v);
+        p_delete(v);
+    }
+}
+----
+
+* Optional but possible functions are:
+** `foo_reset`: which resets an element of type `foo` as if it was new. By
+default, if `foo_reset` does not exist, then it may be replaced by `foo_wipe`
+followed by `foo_init`.
+** If `foo_reset` exists, and is needed, it may have a different behavior than
+`foo_wipe + foo_init`.
+** This can be used to make a value aware of the fact it has been allocated
+through a memory allocator, or as a static member of another struct. (see
+`struct wsp_header` for an example).
+* `foo_delete` should accept a pointer to `NULL` as argument
+* for containers, `deep_wipe`/`deep_delete` take a second argument, that is a
+  pointer to a destructor. If the pointer is `NULL`, elements are not
+  deallocated when the container is wiped out or deleted. If the contained type
+  is obvious, the destructor argument may be replaced by a boolean.
+** If we pass pointer to functions, it means every type that can be put in an
+array and that we want to deallocate on array deletion *has* to have real
+destructors and not macros.
+You can consider creating inline functions for those cases, since you can take
+a pointer to an inline function.
+** Containers should define a `foo_clear`/`foo_deep_clear` function that detach
+the elements from the array, but that doesn’t delete them.
+
+=== Persistent Objects
+
+* for persistent objects the construction of an object may be done by functions
+  named `foo_create` and `foo_open`:
+** the `create` variant creating the persistent ressource and returns the
+initialised object
+** the `open` variant opens the existing ressource and return the initialised
+object
+
+* for persistent objects, the destruction of an object may be done by functions
+  named `foo_close` and `foo_destroy`:
+** the `close` variant closes the ressource and keeps it
+** the `destroy` variant closes the ressource and delete it from the persistent
+storage.
+
+* `foo_new`/`foo_delete` in that context define the runtime-structure
+  initialization and might only be private,
+  `foo_create`/`foo_open`/`foo_close`/`foo_destroy` provide the ressource
+  management API.
+
+== Code structuration
+
+* Programation "topics" can be folded by using the `{{{` and `}}}` delimiters
+  (even if it is not mandatory). The name of a fold must be placed after the
+  opening mark `{{{` (and should not be repeated when closing the fold). An
+  empty line must be placed after the opening mark and before the closing mark.
+  There should not be any line between an opening mark and a closing mark.
+
+[source,c]
+----
+
+/* {{{ Good fold 1 */
+
+code
+code
+
+/* }}} */
+/* {{{ Good fold 2 */
+
+code
+code
+
+/* }}} */
+
+----
+
+[source,c]
+----
+ /* {{{ Bad fold 1 */
+code
+code
+/* }}} */
+
+/* Bad fold 2 {{{ */
+code
+code
+/* }}} Do NOT write "Bad fold 2" here */
+
+----
+
+* Nested folds should not be different from the others (no special indentation,
+  no numbering), because it is hardly maintainable:
+
+[source,c]
+----
+
+/* {{{ Fold 1 */
+/* {{{ Good nested fold 1.1 */
+
+code
+
+/* }}} */
+/*  {{{ Bad nested fold 1.2 (bad ident) */
+
+code
+
+/*  }}} */
+/* {{{2 Bad nested fold 1.3 (numbering is forbidden) */
+
+code
+
+/* }}} */
+/* }}} */
+
+----
+
+* The code must be placed in `.c/.blk` files. No implementations should be put
+  in the headers unless:
+** the function is extremely short and its execution is extremely fast (the
+cost of calling the function is greater than the cost of executing it)
+** the function only provides an alias for another existing function
+** you can have a real gain from the inliner (some part of the inlined function
+can be simplified by static analysis)
+
+* Header inclusion should be done at the top of the source file. However, in
+  the case the header is required exclusively for unit testing purpose, it may
+  be included only before the "testing" section of the source file.
+
+* Header include should be done in the following order:
+** system headers
+** lib-common
+** lib-inet
+** other libs
+** product base includes
+** product module includes
+** local file associated header
+
+* A header should be compilable, which means it must either include all its
+  dependencies or use forward declarations.
+
+* Avoid long files. Consider splitting files longer than 3000 lines.
+
+== Modules
+
+* Structure your code using modules. Each module is a functional component that
+  has a well specified role that may depend on other module.
+
+* Try to put one module per .c/.blk file and vice-versa.
+
+* Modules internal should remain private, and only a public, well maintained
+  API should be exposed from the module.
+
+* For structure or union that need to be known by other modules, prefer
+  exposing opaque types and accessors by default unless:
+** the type must be embedded in another structure for performance reasons
+** other modules need to perform frequent field accesses for which an accessor
+would have a noticeable performance impact
+** the type is explicitly designed to exchange data between modules
+
+* A module `bar` should be defined using the `core-module` framework.
+[source,c]
+----
+static int bar_initialize(void *arg)
+{
+    ...
+}
+
+static int bar_shutdown(void)
+{
+    ...
+}
+
+MODULE_BEGIN(bar)
+    ...
+MODULE_END()
+
+----
+
+* If `core-module` is not available on your environment, you must define the
+  functions:
+[source,c]
+----
+void bar_initialize(...);
+void bar_shutdown(...);
+----
+* `void bar_initialize is problematic`, should return an `int`: 0 for OK, non
+  zero for errors
+
+== Code Documentation
+
+* do not use C++ style comments `//`.
+* multi-line comments must begin with a star:
+[source,c]
+----
+
+/* This is a very long comment which
+ * requires multiple lines to fit in
+ * this document.
+ */
+
+----
+
+* do not comment code using `/* */` constructs, always use the preprocessor:
+[source,c]
+----
+
+#if 0 /* dead code */
+    dead_code(1, 2, 3);
+#else
+    real_code(1, 2, 3);
+#endif
+
+/* dead_code(1, 2, 3); */ /* bad */
+
+----
+
+* Use doxygen syntax to document functions that need it, and prefer to comment
+  near the function prototype.
+* Use `FIXME`/`TODO` (with this case) to flag `FIXME` or `TODO`. Use `XXX` to
+  flag a comment that must be read before trying to do anything with the code
+  that follows.
+* When documentation and code disagree, then both must be assumed wrong, and
+  both must be rewritten.
+
+== Loops
+
+* Endless loops are always written using `for (;;)`.
+[source,c]
+----
+while (true) { /* bad */
+}
+----
+
+* Always use the following syntax for reverse loops:
+[source,c]
+----
+/* Good */
+for (size_t i = limit; i-- > 0; ) {
+}
+
+/* Bad, condition is always true since i is unsigned */
+for (size_t i = limit - 1; i >= 0; i--) {
+}
+----
+
+
+== Forbidden functions
+
+* Never, ever, try to use (non exhaustive, but quite): `strncpy`, `strcpy`,
+  `strcat`, `sprintf`, `gets`, `strtok`, …
+* Do not use `malloc`, `free`, `realloc`, `alloca`, or `calloc` directly: We
+  have `p_*` functions for that (`p_new`/`p_dup`/`p_dupz`/`p_delete`/…). When
+  `p_*` functions are not enough, then use the `mem_*` wrappers.
+* Do not use `snprintf(buf, sizeof(buf), "%s", string)`, this is inefficient,
+  use `pstrcpy(buf, sizeof(buf), string);`
+* We do `C99`, use the `C99` `bool` type, with lower case `true` and `false`.
+
+== Stack allocations
+
+* Never allocate an unchecked amount of memory on the stack (dynamic arrays or
+  `alloca`), this can cause a stack overflow
+
+* Never uses `alloca()` in a loop, this includes helpers such as `SB_1k()` and
+  `SB_8k()`
+
+* Use the `t_stack` when you need to perform dynamic-allocations on the stack
+
+* `t_scope` should always be the first instruction of its scope.
+[source,c]
+----
+{
+    t_scope;
+    char *buf = t_new_raw(char, BUFSIZ);
+
+    ...
+}
+----
+
+* Functions allocating on `t_stack` for their caller should have a name
+  prefixed by `t_`.
+[source,c]
+----
+static char *t_get_name(int id)
+{
+    return t_fmt(NULL, "name-%d", id);
+}
+----
+
+== Parsers and protocols
+
+=== Writing parsers
+
+Parsing should be done using the `pstream` (`str-stream.h`) API (or
+`bit-stream.h` for bit level parsing). These API are designed to write robust
+and maintainable parsers.
+
+=== Implementing protocols
+
+Implementing robust, consistent and maintainable protocols is even more
+important than for parsers. Thus it is mandatory to use the
+`get_unaligned_cpu*`, `get_unaligned_le*`, `get_unaligned_be*`,
+`put_unaligned_cpu*`, `put_unaligned_le*`, `put_unaligned_be*` APIs from
+`arith-endianess.h`. (These APIs are also available within the `pstream` APIs)
+
+Even if we only support little endian, the `*le*` APIs still need to be used to
+emphasis the fact that we are parsing a little endian protocol. Same thing,
+with hardware dependent protocols, the `*cpu*` APIs must be used.
+
+== Debugging and error messages
+
+=== Log messages format
+
+Log messages should not begin with an uppercase letter and should not be
+terminated by a dot.
+[source,c]
+----
+logger_error(&_G.logger, "this is a good error message");
+logger_error(&_G.logger, "This is a bad error message.");
+----
+
+=== Assertions and expectations
+
+No code must be put in assertions since code within assertions is not included
+in release builds.
+
+Use `expect()` to handle cases that should not happen but need to be properly
+handled in release builds. `expect()` are equivalent to `assert()` in
+development builds, and equivalent to the wrapped condition in release builds.
+
+[source,c]
+----
+
+if (!expect(condition_that_should_be_true)) {
+    /* error case for production builds */
+    return -1;
+}
+/* normal case */
+
+----
+
+=== Abnormal conditions
+
+Abnormal system conditions that we don’t want to deal with must terminate
+processes using `abort()` through `logger_panic`. But other fatal issues like
+bad configurations or initialization issues or any user related fatal error
+shall not use `logger_panic` but `logger_fatal` instead. `logger_fatal` and
+`logger_panic` are both catchable by a debugger in development mode.
+
+`logger_panic` cause a core dump, hence is quite frightening and should be kept
+for cases where a core is required for post-mortem investigation.
+
+[source,c]
+----
+/* good */
+res = epoll_wait(epollfd, events, countof(events), -1));
+if (res < 0) {
+    logger_panic(&_G.logger, "epoll_wait: %m");
+}
+
+/* bad */
+cfg = parse_cfg("/some/path/some_product.conf");
+if (!cfg) {
+    logger_panic(&_G.logger, "cannot read configuration file...");
+}
+
+----
+
+=== `logger_trace` levels
+
+Debugging is performed using `logger_trace` and `logger_is_traced` macros (see
+`log.h` documentation for explanation on how to use both). Debuging levels
+shall be used wisely.
+
+* `level 0`:
+** Those cannot be disabled for devel builds. It shall not be used. For
+consistency checks (invariants), use asserts or `logger_panic`.
+* `level 1`:
+** Messages for errors that we know how to fix, but are quite abnormal
+situations. For example: in a parser, when some value looks odd, and that we
+fix it with a side effect, we could use `logger_trace(&_G.logger, 1, "odd value
+%s in file %s", ...)`.
+** Tracing functions that are executed only once in a process life can be done
+using the level 1. For example, the module `_initialize` and `_shutdown`
+functions are good candidates.
+* `level 2`:
+** Level 2 should absolutely not flood the output under normal conditions for a
+process run. If under some normal circumstances your `logger_trace` can
+generate copious outputs, do use a higher level.
+** Messages that allow to understand important logic of a module, but that
+doesn’t flood the console too much. For example, one can trace every worker
+error in some machine this way.
+* `level 3+`:
+** Those are meant for advanced debugging of a module. Being verbose is less of
+an issue, as those levels are never enabled by default, and are meant to be
+enabled at a module level.
+** It is recommended to try that the tracing level 3 of a module remains decent
+in its output under debugging loads. For example, when using an injector with
+small rates of injection, level 3 should not trigger more than a few hits per
+second (under normal process behavior).
+** Really copious outputs should be used at level 4 (and more) only.
+
+=== Usage
+
+Programs meant to be used from the command line, must support:
+
+* `-h` and `--help` switches;
+* `-v` and `--version` that must output the `git describe` (or similar) version
+  of the build among other informations.

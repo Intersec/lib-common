@@ -1,0 +1,124 @@
+= Lib-common Philosophy
+:toc: :numbered:
+
+Intersec grew on its ability to build high quality software: it outperforms
+competitor's solutions in terms of performance and hardware requirements. This
+is the consequence of the philosophical and technical choices around which
+Intersec was founded: the _KISS_ principle.
+
+== KISS
+
+KISS stands for _Keep It Simple, Stupid_. This mantra is our guideline, it
+expresses our will to avoid unneeded complexity. _simple_ here is a synonym for
+_pure_, and an antonym for both _complex_ and _simplistic_: a perfect software
+is a software that is a minimalist response to the needs, both in terms of
+design and code. As said by Antoine de Saint Exupéry: _La perfection est
+atteinte, non pas lorsqu'il n'y a plus rien à ajouter, mais lorsqu'il n'y a
+plus rien à retirer_. Another way to express this is _Simplicity is the
+ultimate sophistication_.
+
+It is much harder to make something powerful that looks simple than something
+complex that does very few things. The KISS principle should drive our choices
+to the simplest solution that fits our needs. Our engineering force should go
+into making simple-looking software that hides really powerful capabilities.
+
+== Simple design
+
+When designing software, we focus our energy on making the whole design as
+simple and consistent as possible. A consistent design where all the components
+naturally interact with each other is the ultimate goal. We apply the
+module-oriented programming model to properly separate each functionality in
+its own code module, creating a natural code structure that reflects the
+component-based design. You should be able to explain your design using only a
+few short sentences.
+
+In a properly designed software, every component is clearly defined and each
+functional role is assigned to the right component. Then components are plugged
+together in a homogeneous product where every workflow is both completely
+defined and easily understandable. This defines the readability of a design.
+
+Performance of the product is a consequence of the right design choices: if
+performance is taken into account in the design from the start, the software
+will perform great. Performance comes from designs that avoid useless network
+trips, avoid useless disk accesses, cache the results of expensive operations,
+... Such considerations should be identified and weighted during the design
+process.
+
+== Simple UI
+
+The UI should be easy to understand and use while still being expressive enough
+to expose the richness of the product. When designing UIs (or just UI
+components), we must be sure to place the user at the center of the interface.
+
+The interface should be designed in order to lower the learning curve. The user
+should understand the interface on the first sight in order to be productive
+from the very first minutes. Hard-to-understand concepts should be avoided: the
+UI should be understandable without training or documentation.
+
+The UI should be consistent, provide enough feedback to the user and should be
+smooth in addition of being visually appealing. We must be careful of always
+providing the user with the right amount of information: too much information
+kills the readability of the interface, while too few information forces the
+user to navigate on multiple pages to collect the data he is looking for. We
+must also ensure the navigation in the UI is easy and intuitive.
+
+The UI design rules should apply to all the pages of the UI: from the user
+login page to the administrative (and debug) pages.
+
+== Simple API
+
+APIs are what we give to others to communicate with us. APIs may be internal or
+exposed in the product's SDK, but in both cases we want them to remain simple
+because the simpler your API is, the less error-prone it will be. Conceiving a
+good API is the art of hiding powerful features in a simple shell. It's a
+challenge of expressiveness.
+
+A good API is easy to understand, the API documentation may look obvious. It
+must also offer one single correct way to achieve a task, guaranteeing that if
+used by various developers, the API will always be used the same way. It must
+be consistent with other existing APIs in order to avoid confusions.
+
+It is often preferable to have API defining as few functions or RPC as possible
+in order to make the API easier to master.
+
+The naming of the API is an important part of a good API design. Names should
+be kept as short as possible while still being identifiable and understandable.
+Clean names avoid useless abbreviations and focus on finding the most precise
+wording for every function and RPC. Too generic names must be avoided since
+they tend to be applied to a lot of different concepts, causing confusion.
+
+== Simple code
+
+The lib-common team imposes strict coding rules on how the code is formated.
+These coding rules are aimed at code consistency and readability: this removes
+the freedom of how the code is formated from the developper for the sake of
+greater maintainability. The developper can then focus his creativity on the
+design and on the code itself.
+
+Code follows the KISS principle by avoiding useless optimisations: early
+optimisation is evil and only causes subtle bugs that will strike back the day
+the team will be on vacation. So keep our code as simple as possible: it is
+useless to micro-optimise some code if it is not identified as being a
+bottleneck. That said, _simple_ does not mean _simplistic_: our code must be
+conceived to perform well even on workloads that are one or two orders of
+magnitude greater than the requirements of the (internal or external) customer.
+
+Sometimes code can be identified in advance as being a possible bottleneck. In
+that case, the design can be performance-driven by defining the performance
+level we want to reach and writing the simplest code that reaches that level.
+All in all, this is just another application of the KISS principle with
+performance being one of the requirements.
+
+== Simple language
+
+The C language allows us to reach our performance targets by avoiding all the
+abstraction layers that get added by more modern languages. The C language is
+both very close to the hardware and syntactically simple. This comes at some
+cost such as the absence of automatic memory management or meta-programming,
+but gives us the opportunity to fine-tune the code to our needs.
+
+Due to the lack of guidance (and the presence of implementation-defined
+behaviours) in the C language specification, the language is hard to fully
+master and requires precise and rigorous coding habits. It also lets us easily
+customise our working environment by adding standard library extensions that
+fit our needs.
