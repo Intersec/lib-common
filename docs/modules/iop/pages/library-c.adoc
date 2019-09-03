@@ -398,3 +398,234 @@ if (t_iop_bunpack(&input, test, my_struct, &foo) < 0) {
 }
 
 ----
+
+== IOP channels (`IChannel`)
+
+This section introduces the IOP Channels. IOP Channels implement TCP clients
+and servers dealing with IOP RPC. They handle everything required to interface
+two processes over the network.
+
+IOP Channels are located in `lib-common/iop-rpc-channel.h` with the name
+`ichannel_t`. You have a code example in `lib-common/iop-tutorial/ex-iop.c`.
+
+=== The `ichannel_t` object
+
+Both client/server are implemented with the same object: `ichannel_t`. This
+object takes care of its own life-cycle. IChannels have an auto-reconnection
+feature: if the connection is broken the IChannel will try to reconnect
+periodically.
+
+After the IChannel initialization, you have to set the `on_event` callback
+which will notify you when the IChannel state changes (connected/disconnected).
+
+Here is a list of properties that you may find useful:
+
+* *no_autodel*:  After the IChannel initialization, set this to true if you
+  want to control the IChannel life-cycle yourself.
+* *auto_reconn*: After the IChannel initialization, set this to false if you do
+  not want of the auto-reconnection mechanism.
+* *do_el_unref*: After the IChannel initialization, set this to true if you
+  don't want to block the event loop while the IChannel is alive.
+
+=== IChannel implementation mapping
+
+When you setup an IChannel (server or client) you have to pass a hash-table
+referencing each implemented RPC with their callbacks. This is done with
+`ic_register()` and by setting the `impl` property on your implementation
+hash-table, example:
+
+[source,c]
+----
+
+package test;
+
+interface Foo {
+    bar in (int a) out (int res);
+};
+
+module Mod {
+    Foo foo;
+};
+
+----
+
+
+[source,c]
+----
+
+/* IChannel hash-table declaration and initialization */
+qm_t(ic_cbs) ic_impl;
+
+qm_init(ic_cbs, &ic_impl, false);
+
+[...]
+
+/* RPC callback and registration */
+
+static void IOP_RPC_IMPL(test__mod, foo, bar)
+{
+    ic_reply(ic, slot, test__mod, foo, bar, .res = 42);
+}
+
+ic_register(&ic_impl, test__mod, foo, bar);
+
+[...]
+
+ichannel_t *ic = ic_new();
+
+ic->impl = &ic_impl;
+
+[...]
+
+
+----
+
+=== RPC pre/post hook
+
+Alongside your implementation you can register pre/post hook function, they
+will be called before and after your RPC implementation but without having
+access to the arg/res of the query. To do so you must use
+`ic_register_pre_post_hook()` instead of `ic_register()`.  This is useful when
+you want to share code between several RPC (like avp checks, transaction logs,
+...) but you have some constraint link to their use.
+
+The pre_hook has two major roles: It should allocate a context to the query (to
+be able to store the data) and check if the RPC could be used.
+
+* The context should be allocated using `ic_hook_ctx_new()`, then it will be
+  released automatically after replying to the query so you mustn't delete it
+  in your post_hook. You can get the context inside the RPC implementation
+  using `ic_hook_ctx_get()`, then you can set the data with whatever you need.
+  Just be careful if you allocate memory inside it you will have to take
+  responsibility to free it inside your post_hook.  *Warning:* If you use a
+  pre_hook but don't allocate the context inside, then the query will be
+  considered complete and the RPC IMPL will never be called, neither the
+  ic_reply/throw. This will totally break the ichttp channel because we need to
+  answer queries in the same order we received them.
+* If you need to prevent the execution of the RPC (because the user is invalid
+  for example) you'll have to call `ic_throw_exn[_p]()` with the type of
+  exception you want to throw.
+
+WARNING: A pre hook already exists inside the HTTP library. To avoid useless
+check and redundant behaviors you must use the HTTP pre_hook to check if the
+user is allowed to connect to the server and the RPC ones to check rights
+relative to the RPC.
+
+The post_hook plan to make a resume depending on the action done by the
+pre_hook and the RPC impl. So it needs the context created by the pre_hook. That
+means that without a pre_hook the use of a post_hook is prohibited. The
+post_hook will be called during the reply of the query and will contain the
+status of the answer (OK, EXN, RETRY, ABORT, ...).
+
+During registration of pre/post hook you can give a specific argument to pass
+to the pre/post function. This way you can specify the behavior of pre/post
+hook for each RPC using it. But you have to be careful, the argument won't be
+duplicated, so you must be sure that the address will still be valid until the
+unregistration of the RPC.
+
+Example:
+
+[source,c]
+----
+
+/* RPC pre/post_hook and registration */
+
+/* absolutely stupid pre_hook checking only login of caller */
+static void check_login_pre_hook(ichannel_t *ic, uint64_t slot,
+                                 const ic__hdr__t *hdr, el_data_t arg)
+{
+    const char *login = (const char *)arg.ptr;
+    /* allocate because we need it but we don't have any useful info to send */
+    c_hook_ctx_t *ctx = ic_hook_ctx_new(slot, 0);
+    const ic__simple_hdr__t *shdr;
+
+    if (!hdr || !login) {
+        ic_throw_exn(ic, slot, ctx, platform__exception,
+                     .code = PLATFORM_ERROR_MALFORMED_REQUEST,
+                     .desc = LSTR_IMMED_V("iop header not found"));
+        return;
+    }
+
+    shdr = IOP_UNION_GET(ic__hdr, hdr, simple);
+    if (!shdr || !shdr->login.len) {
+        ic_throw_exn(ic, slot, ctx, platform__exception,
+                     .code = PLATFORM_ERROR_MALFORMED_REQUEST,
+                     .desc = LSTR_IMMED_V("invalid iop header"));
+        return;
+    }
+
+    if (strncmp(login, shdr->login.s, shdr->login.len)) {
+        t_scope;
+        ic_throw_exn(ic, slot, ctx, platform__exception,
+                     .code = PLATFORM_ERROR_MALFORMED_REQUEST,
+                     .desc = t_lstr_fmt("invalid user %*pM",
+                                        LSTR_FMT_ARGS(shdr->login)));
+        return;
+    }
+}
+static void foo_post_hook(ichannel_t *ic, ic_status_t status,
+                          ic_hook_ctx_t *ctx, el_data_t arg)
+{
+    if (status == IC_MSG_OK) {
+        e_info("%s", (const char *)arg.ptr);
+    }
+}
+
+static void IOP_RPC_IMPL(test__mod, foo, bar)
+{
+    ic_reply(ic, slot, test__mod, foo, bar, .res = 42);
+}
+
+[...]
+
+ic_register_pre_post_hook_p(&ic_impl, test__mod, foo, bar, foo_pre_hook,
+                            foo_post_hook, "root", "it's all good");
+
+[...]
+
+
+----
+
+=== Library initialization and shutdown
+
+To initialize the IChannel library you have to use the `ic` module
+(`MODULE_REQUIRE` and `MODULE_RELEASE`).
+
+=== Client IChannel
+
+==== Setup and connect a client IChannel
+
+* Get an ichannel object (`ic_new()`).
+* Set the on_event callback (gives connected/disconnected states).
+* Optionally set the implementation table if the client implements some
+  queries.
+* Set the `sockunion_t` (`ic->su`) corresponding to the server address.
+* Call `ic_connect()` to initiate the connection.
+
+When the connection will be effective, the `on_event` callback will be called
+with the `CONNECTED` state. You should start to send queries only if you have
+been notified of the `CONNECTED` state.
+
+Have a look at exiop_client_initialize() in `lib-common/iop-tutorial/ex-iop.c`
+for details.
+
+==== Sending queries
+
+The IChannels have a concept of “message” represented by the `ic_msg_t` object.
+Each IOP query must be associated with an `ic_msg_t` which exists until the
+query gets a reply or gets aborted. Private data can be passed along the
+message for use in callbacks.
+
+=== Server IChannel
+
+==== Setup and connect a server IChannel
+
+Have a look at exiop_server_initialize() in `lib-common/iop-tutorial/ex-iop.c`.
+
+=== Local IChannel
+
+Local IChannels are both server and client, the server setup part for a local
+IChannel is the same as for a regular IChannel, the client setup part is the
+same as for a  regular IChannel except that ic_set_local() should be called
+instead of ic_connect(). After the setup part, a local IChannel works as a
+regular IChannel and it allows you to call local implemented RPCs.
