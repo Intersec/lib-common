@@ -38,7 +38,7 @@ struct SimpleHdr {
     string? group;
     string? source;
     ulong?  workspaceId;
-    bool    dealias = false;
+    bool?   dealias;
 };
 
 abstract class Route {

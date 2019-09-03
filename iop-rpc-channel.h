@@ -1811,7 +1811,11 @@ void __ic_msg_reply_err(ichannel_t * nullable ic, ic_msg_t * nonnull msg,
 #define ic_reply_throw_p(...)  ic_throw_p(__VA_ARGS__)
 #define ic_reply_throw(...)    ic_throw(__VA_ARGS__)
 
-/** \brief Return true if dealias is set in the ic header. */
-bool ic_hdr_has_dealias(const ic__hdr__t * nullable hdr);
+/** \brief Get dealias field of the ic header.
+ *
+ * This function returns the dealias field of the ic header, or unset if this
+ * field is undefined.
+ */
+opt_bool_t ic_hdr_get_dealias(const ic__hdr__t * nullable hdr);
 
 #endif

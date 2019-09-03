@@ -3078,10 +3078,10 @@ void ic_drop_ans_cb(ichannel_t *ic, ic_msg_t *msg,
 {
 }
 
-bool ic_hdr_has_dealias(const ic__hdr__t *hdr)
+opt_bool_t ic_hdr_get_dealias(const ic__hdr__t *hdr)
 {
     if (!hdr || !IOP_UNION_IS(ic__hdr, hdr, simple)) {
-        return false;
+        return (opt_bool_t)OPT_NONE;
     }
 
     return hdr->simple.dealias;
