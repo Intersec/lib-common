@@ -1,0 +1,108 @@
+= Using the lib-common as a submodule
+:toc: :numbered:
+
+This page describes how to integrate the lib-common in a project using a
+https://git-scm.com/docs/gitsubmodules[submodule]. This document currently
+covers only new projects using waf as a build system. Integrating the
+lib-common using an other build system and/or in an existing project is also
+possible but this scenario is not covered here.
+
+== Add the lib-common as a submodule
+
+You can then add a submodule using the `git submodule` command, for example:
+
+ $ git submodule add --name lib-common git@github.com:Intersec/lib-common
+
+This creates a new folder in your repository containing the latest patch in the
+master branch of your lib-common repository. It is then recommended to follow
+the instructions to sucessfully build the lib-common.
+
+NOTE: If you plan on submitting pull requests or doing any contributions in the
+lib-common, feel free to fork it first in your own repository.
+
+== Create a base build system
+
+To include the waf-related build tools from lib-common, create a symlink of
+waftoolsdir from the lib-common to your project root directory:
+
+ $ ln -s lib-common/waftoolsdir
+
+Then create a `wscript` file that will import the lib-common `waf` utilities:
+
+[source,python]
+----
+
+import os
+import waflib
+
+out = '.build-waf-%s' % os.environ.get('P', 'default') # <1>
+
+def options(ctx):
+    ctx.recurse('lib-common')
+
+def configure(ctx):
+    ctx.recurse('lib-common')
+
+def build(ctx):
+    ctx.recurse('lib-common') # <2>
+
+----
+
+<1> Set a separate build directory per compilation profile.
+<2> At first, simply reuse the `waf` tools provided by the lib-common
+
+You can test that `waf configure` and `waf build` work as expected:
+
+ $ waf configure build
+
+This should display compilation outputs and display a last line similar to:
+
+----
+'build' finished successfully (1m21.628s)
+----
+
+== Create a first hello world program
+
+Create a new file hello-world.c in your project root directory:
+
+[source,c]
+----
+#include <lib-common/core.h>
+
+int main(int argc, char **argv)
+{
+    e_info("Hello world!");
+    return 0;
+}
+----
+
+Add a new target in your wscript by replacing the build function with:
+
+[source,python]
+----
+def build(ctx):
+    ctx.recurse('lib-common')
+    ctx.program(target='hello-world', source='hello-world.c',
+                use=['libcommon'])
+----
+
+You can now build your new program:
+
+----
+$ waf --target hello-world
+Waf: Entering directory `/home/XXX/YYY/.build-waf-default'
+Waf: Selected profile: default
+[  8/330] Creating .build-waf-default/lib-common/core-version.c
+[328/330] Checking hello-world.c
+[329/330] Compiling hello-world.c
+[330/330] Linking hello-world
+Waf: Leaving directory `/home/XXX/YYY/.build-waf-default'
+'build' finished successfully (0.470s)
+----
+
+You can now verify your hello world program!
+
+----
+$ ./hello-world
+hello-world[13842]: Hello world!
+----
