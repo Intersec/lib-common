@@ -2,3 +2,4 @@
 * xref:wire-format.adoc[Wire format]
 * xref:inheritance.adoc[Class inheritance]
 * xref:iop-attributes.adoc[IOP attributes]
+* xref:library-c.adoc[C library]

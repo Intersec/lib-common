@@ -1,0 +1,400 @@
+= IOP C library
+:toc: :numbered:
+
+== Introduction
+
+This section describes the implementation of the C IOP library. To deal with
+the IOP objects in C we rely on the `iopc` compiler. The `iopc` compiler
+generates C source files for IOP packages that can be used in your C code.
+
+== IOP compiler `iopc`
+
+The IOP compiler transforms every IOP file (`<package>.iop`) in four C files:
+
+* *`<package>-t.iop.h`*: This file contains the C structures corresponding to
+  your IOP structures. When you manipulate an IOP object in C, you manipulate
+  one of these structures. This file must not be included directly (include
+  `<package>.iop.h`)
+* *`<package>-tdef.iop.h`*: This file contains the C typedefs corresponding the
+  your IOP structures and their array types and well s the enum definitions.
+  This file must not be included directly (include `<package>.iop.h`)
+* *`<package>.iop.h`*: This file contains several others definitions that you
+  will never use directly but that are needed by some IOP libraries.
+* *`<package>.iop.c`*: This file contains the descriptions of all IOP objects.
+  These descriptions are only used by the IOP library.
+
+Previous to `iopc` 2.9.15, `<package>-tdef.iop.h` was not present and its
+content was in `<package>-t.iop.h`.
+
+In the lib-common, the IOP compiler is managed directly by the build system and
+you don't need to manually use it. Every .iop file declared in the build system
+will be compiled by the IOP compiler. Like all generated file, the resulting
+files *must not be committed*. However, the lib-common itself is a special case
+because it is needed to bootstrap the IOP compiler. So if you modify an IOP
+file in the lib-common you have to commit the generated file.
+
+=== Objects mapping
+
+This section describes how the IOP compiler maps IOP objects to C structures.
+
+==== Naming convention
+
+We do not use CamelCase in C so the IOP compiler will transform the IOP names
+to “C-compatible” names by removing the capital and adding an underscore before
+them. For example, a structure named `FooBar` will be named `foo_bar` in C.
+
+We have to deal with name spaces too. The generated types must not conflict
+with some existing types in the code, so we always prefix the IOP types by the
+IOP package name followed by *two* underscores. We suffix them by *two*
+underscores too and a letter depending of the object kind.
+
+To return to our example, the `FooBar` IOP structure from the package “`test`”
+will become the C structure: `test__foo_bar__t`.
+
+===== Structure description
+
+In addition to the structure definition (`__t`) the IOP compiler will also
+generate the structure description with the same name but with the suffix
+`__s`. You don't care about this structure but sometimes you need to give it to
+some functions of the IOP library.
+
+For example, if you want to initialize the structure named `test__foo_bar__t`
+using the low-level API `iop_init` you will need to do:
+
+[source,c]
+----
+
+test__foo_bar__t foo_bar;
+
+iop_init(test__foo_bar, &foo_bar);
+
+----
+
+But we will talk about these generated functions below.
+
+Note: for IOP enum, the suffix of the enum description will be `__e` and not
+`__s`._
+
+== IOP objects in C
+
+=== `enum`
+
+An IOP enum will be simply converted to a C enum. The enum literal values will
+be prefixed by the enum name but after adding an underscore before each capital
+and then upper casing the whole name.
+
+For example the following IOP file:
+
+[source,c]
+----
+
+package test;
+
+enum MyEnum {
+    VAL_1,
+    VAL_2,
+};
+
+----
+
+will be converted into this C structure:
+
+[source,c]
+----
+
+typedef enum test__my_enum__t {
+    MY_ENUM_VAL_1,
+    MY_ENUM_VAL_2,
+} test__my_enum__t;
+
+----
+
+Several utility functions are provided in the IOP C Library for your enum, like
+`iop_enum_to_str()` which take an integer value and gives its string
+representation if it exists (for example `iop_enum_to_str(test__my_enum, 1)`
+will give "`VAL_2`").
+
+Take a look at `lib-common/iop.h` and `lib-common/iop-macros.h` to know which
+functions are available to work with enums.
+
+=== structures (`struct`)
+
+An IOP structure will be converted to a C structure. Its complexity will depend
+on the types used. Mandatory scalar fields are converted in the simplest way.
+For example:
+
+[source,c]
+----
+
+package test;
+
+struct MyStruct {
+    int   a;
+    ubyte b;
+    long  c;
+};
+
+----
+
+Will be converted to:
+
+[source,c]
+----
+
+typedef struct test__my_struct__t {
+    int32_t a;
+    uint8_t b;
+    int64_t c;
+} test__my_struct__t;
+
+----
+
+Of course the conversion isn't always so trivial, let's talk about the
+different data types.
+
+==== Scalar types
+
+===== When used as mandatory field
+
+* *`byte`*   will be converted to *`int8_t`*
+* *`ubyte`*  will be converted to *`uint8_t`*
+* *`short`*  will be converted to *`int16_t`*
+* *`ushort`* will be converted to *`uint16_t`*
+* *`int`*    will be converted to *`int32_t`*
+* *`uint`*   will be converted to *`uint32_t`*
+* *`long`*   will be converted to *`int64_t`*
+* *`ulong`*  will be converted to *`uint64_t`*
+* *`double`* will be converted to *`double`*
+* *`bool`*   will be converted to *`bool`*
+
+===== When used as optional field
+
+Optional fields for scalar types needs a more complex type because we need to
+be able to differentiate when the field is absent or set. The generated type
+will be an “opaque” structure (it means that you shouldn't try to use it
+directly) and we provide several macros to use it which are documented and
+located in `lib-common/iop-macros.h`. Just a simple example:
+
+[source,c]
+----
+
+packate test;
+
+struct MyStruct {
+    int? myOptInt;
+};
+
+----
+
+C code:
+
+[source,c]
+----
+
+test__my_struct__t test = <comes from somewhere>;
+
+if (OPT_ISSET(test.my_opt_int)) {
+    printf("myOptInt sets and equals: %d\n", OPT_VAL(test.my_opt_int));
+} else {
+    printf("myOptInt is absent\n");
+}
+
+----
+
+==== String, binary blobs (`bytes`) and XML types
+
+In C (and only in C) these types are mapped on exactly the same C-type:
+`lstr_t`. You have to look at `lib-common/str-l.h` for documentation.
+
+However, there are some IOP specificities. A mandatory `string/bytes/xml`
+*cannot contained a `NULL` pointer* so you have to use `LSTR_EMPTY_V` to set an
+empty string. But, concerning the optional fields, you will do the difference
+between an absent field and the empty string by checking if the string is
+`LSTR_NULL_V`.
+
+Example:
+
+[source,c]
+----
+
+package test;
+
+struct MyStruct {
+    string a;
+    bytes? b;
+};
+
+----
+
+[source,c]
+----
+
+test__my_struct__t foo = {
+    .a = LSTR_IMMED("plop"),
+    .b = LSTR_NULL_V;
+};
+
+/* .a is always expected to contain a non-null value */
+printf("A: %*pM\n", LSTR_FMT_ARG(foo.a));
+
+if (foo.b.s) {
+    /* .b is set. */
+    printf("B: %*pM\n", LSTR_FMT_ARG(foo.b));
+}
+
+----
+
+==== Repeated types (array)
+
+Repeated types are generated as a structure that contains the following public
+fields:
+
+* `tab`: a pointer to a vector of the right type (plain structures or pointer
+  to the structure for classes)
+* `len`: the number of element in the array
+
+Starting with `iopc` 2.9.15, a `typedef` is provided for any repeated type. For
+complex types, this is `pkg__type_name__array_t` (or
+`IOP_ARRAY_T(pkg__type_name)`, for basic types, this is `iop_array_(type)_t`,
+the actual list being defined in the `lib-common/iop.h` header. Before `iopc`
+2.9.15, repeated types were managed with anonymous structures.
+
+The generated structures is not extensible and the `iop` runtime will never
+automatically free a repeated type instance it didn't allocated.
+
+To check that a repeated type instance is empty, you must compare the `len` to
+`0`.
+
+The structure uses a naming that makes it compatible with other containers from
+the lib-common. In particular, you can use the `tab_for_each_pos`,
+`tab_for_each_entry` and `tab_for_each_ptr` macros to traverse the content of a
+repeated type instance.
+
+==== Structures and unions
+
+===== When used as mandatory field
+
+When a field is a structure/union, the targeted structure/union will be
+directly inlined in your parent structure unless the field is defined as a
+reference. In case of referenced field, the field is defined as a pointer to
+the destination type. The `NULL` value is invalid for referenced fields and can
+only be used as a transitory value when building the object since referenced
+fields are mandatory.
+
+===== When used as optional field
+
+When the structure/union is an optional field, you will get a pointer on the
+targeted structure/union instead of an inlined structure/union. If the pointer
+is `NULL` then the field is absent. If the pointer is not `NULL` dereferencing
+it will give you access to the structure with no particular magic.
+
+==== Classes
+
+When a field has a class type it is always defined as a pointer to an object of
+that class. In case the field is optional, the `NULL` value is interpreted as
+an absent value, however in case the field is mandatory, `NULL` is invalid and
+can only be used as a transitory value when building the object.
+
+=== unions (`union`)
+
+The IOP unions are converted to complex structure which cannot be used
+directly. You are not supposed to use directly the generated type, you have to
+use the “union macros” located and documented in `lib-common/iop-macros.h`.
+
+Here is an example of union usage:
+
+[source,c]
+----
+
+package test;
+
+union MyUnion {
+    int    a;
+    long   b;
+    string c;
+};
+
+----
+
+C-code:
+
+[source,c]
+----
+
+test__my_union__t u = IOP_UNION_CST(test__my_union, c, LSTR_IMMED("plop"));
+
+IOP_UNION_SWITCH(&u) {
+  IOP_UNION_CASE_P(test__my_union, &u, a, vp) {
+      printf("a field has been selected: %d\n", *vp);
+  }
+
+  IOP_UNION_CASE(test__my_union, &u, b, v) {
+      printf("b field has been selected: %jd\n", v);
+  }
+
+  IOP_UNION_CASE(test__my_union, &u, c, v) {
+      printf("c field has been selected: %*pM\n", LSTR_FMT_ARG(v));
+  }
+}
+
+----
+
+Be careful, `IOP_UNION_CASE` contains a for instruction, so never use the
+`break` or `continue` keywords to quit an `IOP_UNION_SWITCH`.
+
+== IOP C binary (un)packer
+
+In C, to store an IOP structure in a file or a database, to send it to another
+daemon in a socket, … we use the IOP binary packer, as described in the
+xref:wire-format.adoc[Wire format page].
+
+Functions to use the (un)packer are located and documented in
+`lib-common/iop.h`. Roughly, you have the `iop_bpack()` function which gets an
+IOP C structure and pack it in a byte buffer. And you have the `iop_bunpack()`
+function which takes a byte buffer and unpack its content into an IOP C
+structure.
+
+Here is an example:
+
+[source,c]
+----
+
+package test;
+
+struct MyStruct {
+    int a;
+    string b;
+};
+
+----
+
+This structure is packed as follows:
+
+[source,c]
+----
+
+t_scope;
+test__my_struct__t foo = { .a = 42, .b = LSTR_IMMED("foo") };
+lstr_t out;
+
+out = t_iop_bpack(test, my_struct, &foo);
+
+<write out content somewhere>
+
+----
+
+[source,c]
+----
+
+t_scope;
+test__my_struct__t foo;
+lstr_t input = <get packed data from somewhere>;
+
+if (t_iop_bunpack(&input, test, my_struct, &foo) < 0) {
+    /* error handling */
+    printf("unpacking error\n");
+} else {
+    printf("unpacked foo: %d, %*pM\n", foo.a, LSTR_FMT_ARG(foo.b));
+}
+
+----
