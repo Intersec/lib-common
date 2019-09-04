@@ -1,4 +1,7 @@
-* xref:philosophy.adoc[Philosophy]
-* xref:coding-rules-c.adoc[Coding Rules]
-* xref:dev-c.adoc[C Language for the lib-common]
-* xref:use-as-submodule.adoc[Integrate the lib-common as a submodule]
+* Principles
+** xref:philosophy.adoc[Philosophy]
+* Coding rules
+** xref:coding-rules-c.adoc[Coding Rules for C-based languages]
+** xref:dev-c.adoc[C Language for the lib-common]
+* Use the lib-common
+** xref:use-as-submodule.adoc[Integrate the lib-common as a submodule]
