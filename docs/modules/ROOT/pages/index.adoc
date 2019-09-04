@@ -1,0 +1,25 @@
+= Welcome to lib-common Documentation
+:toc: :numbered:
+
+:page-layout: homepage
+
+[.boxed-container]
+== Base tools that every C programmer would need.
+
+[.boxed]
+=== Presentation
+
+* xref:philosophy.adoc[Design principles]
+* xref:coding-rules-c.adoc[Coding rules]
+
+[.boxed]
+=== IOP
+
+* xref:iop:base.adoc[IOP Introduction]
+* xref:iop:library-c.adoc[IOP C library]
+
+[.boxed]
+=== More to come
+
+* We are actively improving this documentation
+
