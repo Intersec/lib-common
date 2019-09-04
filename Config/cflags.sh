@@ -3,7 +3,7 @@
 cc="$1"
 
 clang_version="$("$cc" --version | grep 'clang version' | cut -d ' ' -f 3)"
-version=$("$cc" -dumpversion)
+version=$("$cc" -dumpfullversion -dumpversion)
 
 prereq() {
     want="$1"
