@@ -556,8 +556,8 @@ void ic_hook_ctx_delete(ic_hook_ctx_t **pctx)
 }
 
 int
-ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot,
-                     const ic__hdr__t *hdr, const ic_cb_entry_t *e)
+ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot, const ic_cb_entry_t *e,
+                     ic__hdr__t *hdr)
 {
     if (e->pre_hook) {
         _G.post_hook = e->post_hook;
@@ -1429,7 +1429,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
         t_seal();
         ic->desc = e->rpc;
         ic->cmd  = cmd;
-        if (ic_query_do_pre_hook(ic, query_slot, hdr, e) >= 0) {
+        if (ic_query_do_pre_hook(ic, query_slot, e, hdr) >= 0) {
             if (e->cb_type == IC_CB_NORMAL_BLK) {
                 (e->u.blk.cb)(ic, query_slot, value, hdr);
             } else {
@@ -1502,7 +1502,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
           pre_hook:
             t_seal();
             ic->cmd = cmd;
-            if (ic_query_do_pre_hook(ic, query_slot, hdr, e) < 0) {
+            if (ic_query_do_pre_hook(ic, query_slot, e, hdr) < 0) {
                 ic->cmd = 0;
                 return 0;
             }

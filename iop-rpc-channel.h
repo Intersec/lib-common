@@ -334,7 +334,7 @@ typedef struct ic_creds_t {
 
 typedef void (ic_hook_f)(ichannel_t * nonnull, ic_event_t evt);
 typedef void (ic_pre_hook_f)(ichannel_t * nullable, uint64_t,
-                             const ic__hdr__t * nullable, data_t);
+                             ic__hdr__t * nullable, data_t);
 typedef void (ic_post_hook_f)(ichannel_t * nullable, ic_status_t,
                               ic_hook_ctx_t * nonnull, data_t,
                               const iop_struct_t * nullable,
@@ -1310,17 +1310,17 @@ void ic_reply_err(ichannel_t * nullable ic, uint64_t slot, int err);
 
 /** \brief helper to set ctx and execute the pre hook of the query.
  *
- * \param[in]  ic    the #ichannel_t to send the query to.
- * \param[in]  slot  the slot of the received query.
- * \param[in]  hdr   the #ic__hdr__t of the query.
- * \param[in]  e     the #ic_cb_entry_t of the rpc called.
+ * \param[in]     ic   the #ichannel_t to send the query to.
+ * \param[in]     slot the slot of the received query.
+ * \param[in]     e    the #ic_cb_entry_t of the rpc called.
+ * \param[in,out] hdr  the #ic__hdr__t of the query.
  *
  * return -1 if the pre_hook has replied to the query, 0 otherwise.
  */
 int
 ic_query_do_pre_hook(ichannel_t * nullable ic, uint64_t slot,
-                     const ic__hdr__t * nullable hdr,
-                     const ic_cb_entry_t * nonnull e);
+                     const ic_cb_entry_t * nonnull e,
+                     ic__hdr__t * nullable hdr);
 
 /** \brief helper to get and execute the post hook of the query.
  *
