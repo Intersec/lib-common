@@ -3086,3 +3086,15 @@ opt_bool_t ic_hdr_get_dealias(const ic__hdr__t *hdr)
 
     return hdr->simple.dealias;
 }
+
+int ic_hdr_set_dealias(ic__hdr__t * nullable hdr, bool dealias)
+{
+    RETHROW_PN(hdr);
+
+    if (IOP_UNION_IS(ic__hdr, hdr, simple)) {
+        OPT_SET(hdr->simple.dealias, dealias);
+        return 0;
+    }
+
+    return -1;
+}

@@ -1818,4 +1818,8 @@ void __ic_msg_reply_err(ichannel_t * nullable ic, ic_msg_t * nonnull msg,
  */
 opt_bool_t ic_hdr_get_dealias(const ic__hdr__t * nullable hdr);
 
+/** \brief Set dealias field of the ic header.
+ */
+int ic_hdr_set_dealias(ic__hdr__t * nullable hdr, bool dealias);
+
 #endif
