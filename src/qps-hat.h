@@ -577,24 +577,10 @@ qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en);
 const void *
 qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe);
 
-void qhat_tree_enumerator_find_entry(qhat_tree_enumerator_t *en);
-
-void qhat_tree_enumerator_find_entry_from(qhat_tree_enumerator_t *en,
-                                          uint32_t key);
-
-/* Guaranteed to either enter a leaf or end the enumerator. */
-static ALWAYS_INLINE
-void qhat_tree_enumerator_find_up_down(qhat_tree_enumerator_t *en,
-                                       uint32_t key)
-{
-    qhat_tree_enumerator_find_root(en, key);
-}
-
-void qhat_tree_enumerator_find_down_up(qhat_tree_enumerator_t *en,
-                                       uint32_t key);
-
+/* Similar to 'qhat_enumerator_next()' but only apply to the trie. */
 uint32_t qhat_tree_enumerator_next(qhat_tree_enumerator_t *en, bool safe);
 
+/* Similar to 'qhat_enumerator_go_to()' but only apply to the trie. */
 void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
                                 bool safe);
 
@@ -654,12 +640,7 @@ typedef union qhat_enumerator_t {
 void qhat_enumerator_next(qhat_enumerator_t *en, bool safe);
 
 qhat_enumerator_t qhat_get_enumerator_at(qhat_t *trie, uint32_t key);
-
-static ALWAYS_INLINE
-qhat_enumerator_t qhat_get_enumerator(qhat_t *trie)
-{
-    return qhat_get_enumerator_at(trie, 0);
-}
+qhat_enumerator_t qhat_get_enumerator(qhat_t *trie);
 
 /** Move the enumerator to a given key if it is present in the qhat or to the
  * first following one otherwise.

@@ -1494,7 +1494,7 @@ qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe)
 
 /* Find the key associated to the current position of the enumerator.
  * Update the attribute 'key' or end the enumerator. */
-void qhat_tree_enumerator_find_entry(qhat_tree_enumerator_t *en)
+static void qhat_tree_enumerator_find_entry(qhat_tree_enumerator_t *en)
 {
     qhat_t  *hat     = en->path.hat;
     uint32_t new_key = en->path.key;
@@ -1529,8 +1529,8 @@ void qhat_tree_enumerator_find_entry(qhat_tree_enumerator_t *en)
     qhat_tree_enumerator_dispatch_up(en, en->path.key, new_key);
 }
 
-void qhat_tree_enumerator_find_entry_from(qhat_tree_enumerator_t *en,
-                                          uint32_t key)
+static void qhat_tree_enumerator_find_entry_from(qhat_tree_enumerator_t *en,
+                                                 uint32_t key)
 {
     if (en->compact) {
         en->pos = qhat_compact_lookup(en->memory.compact, en->pos, key);
@@ -1541,8 +1541,15 @@ void qhat_tree_enumerator_find_entry_from(qhat_tree_enumerator_t *en,
     qhat_tree_enumerator_find_entry(en);
 }
 
-void qhat_tree_enumerator_find_down_up(qhat_tree_enumerator_t *en,
-                                       uint32_t key)
+/* Guaranteed to either enter a leaf or end the enumerator. */
+static void qhat_tree_enumerator_find_up_down(qhat_tree_enumerator_t *en,
+                                              uint32_t key)
+{
+    qhat_tree_enumerator_find_root(en, key);
+}
+
+static void qhat_tree_enumerator_find_down_up(qhat_tree_enumerator_t *en,
+                                              uint32_t key)
 {
     qhat_t  *hat        = en->path.hat;
     uint32_t last_key   = en->path.key;
@@ -1709,6 +1716,11 @@ qhat_enumerator_t qhat_get_enumerator_at(qhat_t *trie, uint32_t key)
         en.is_nullable = false;
     }
     return en;
+}
+
+qhat_enumerator_t qhat_get_enumerator(qhat_t *trie)
+{
+    return qhat_get_enumerator_at(trie, 0);
 }
 
 void qhat_enumerator_go_to(qhat_enumerator_t *en, uint32_t key, bool safe)
