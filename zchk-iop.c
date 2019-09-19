@@ -8618,7 +8618,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_d, &u, ug));
         Z_ASSERT_EQ(u.ug.a, -1);
     } Z_TEST_END
-
+    /* }}} */
     Z_TEST(iop_st_array_for_each, "test iop_st_array_for_each") { /* {{{ */
         t_scope;
         tstiop__my_class3__array_t obj_array;
