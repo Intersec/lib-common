@@ -177,8 +177,7 @@ void unflatten_leaf(qhat_path_t *path)
     PATH_STRUCTURE_CHANGED("trie/node/unflatten", path);
 }
 
-static ALWAYS_INLINE
-void lookup(qhat_path_t *path)
+static void lookup(qhat_path_t *path)
 {
     qhat_node_t (*nodes)[QHAT_DEPTH_MAX] = &path->path;
     qhat_t      *hat   = path->hat;
@@ -205,8 +204,7 @@ void lookup(qhat_path_t *path)
     path->depth = 2;
 }
 
-static ALWAYS_INLINE
-void update_path(qhat_path_t *path, bool can_stat)
+static void update_path(qhat_path_t *path, bool can_stat)
 {
     qhat_t *hat = path->hat;
 
