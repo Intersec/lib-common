@@ -50,6 +50,43 @@ static int z_test_padding(lstr_t initial_value, lstr_t padded_exp_value)
     Z_HELPER_END;
 }
 
+static int z_memtoxll_ext(bool str, bool sgn, const char *p, int len,
+                          bool use_endp, int base, uint64_t val_exp,
+                          int ret_exp, int end_exp, int err_exp)
+{
+    const void *endp;
+    uint64_t val;
+    int z_len = (len == INT_MAX || str) ? (int)strlen(p) : len;
+    int z_ret_end = (ret_exp == INT_MAX && z_len >= 0) ? z_len : ret_exp;
+    int z_end_exp = (z_ret_end >= 0 && !end_exp) ? z_ret_end : end_exp;
+    int ret;
+
+    if (str) {
+        ret = (sgn) ? strtoll_ext(p, (int64_t *)&val,
+                                  use_endp ? (const char **)&endp : NULL,
+                                  base)
+                    : strtoull_ext(p, &val,
+                                   use_endp ? (const char **)&endp : NULL,
+                                   base);
+    } else {
+        ret = (sgn) ? memtoll_ext(p, z_len, (int64_t *)&val,
+                                  use_endp ? &endp : NULL, base)
+                    : memtoull_ext(p, z_len, &val,
+                                   use_endp ? &endp : NULL, base);
+    }
+
+    Z_ASSERT_EQ(z_ret_end, ret);
+    if (!errno) {
+        Z_ASSERT_EQ((uint64_t)(val_exp), val);
+    }
+    Z_ASSERT_EQ(err_exp, errno);
+    if (use_endp) {
+        Z_ASSERT_EQ(z_end_exp, (const char *)endp - (const char *)p);
+    }
+
+    Z_HELPER_END;
+}
+
 Z_GROUP_EXPORT(str)
 {
     char    buf[BUFSIZ];
@@ -881,34 +918,8 @@ Z_GROUP_EXPORT(str)
 
     Z_TEST(memtoxll_ext, "str: memtoxll_ext") {
 #define T(str, sgn, p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp) \
-    do {                                                                     \
-        uint64_t val;                                                        \
-        int _len = (len == INT_MAX || str) ? (int)strlen(p) : len;           \
-        int _ret_exp = (ret_exp == INT_MAX && _len >= 0) ? _len : ret_exp;   \
-        int _end_exp = (_ret_exp >= 0 && !end_exp) ? _ret_exp : end_exp;     \
-        int ret;                                                             \
-                                                                             \
-        if (str) {                                                           \
-            ret = (sgn) ? strtoll_ext(p, (int64_t *)&val,                    \
-                                      _endp ? (const char **)&endp : NULL,   \
-                                      base)                                  \
-                        : strtoull_ext(p, &val,                              \
-                                       _endp ? (const char **)&endp : NULL,  \
-                                       base);                                \
-        } else {                                                             \
-            ret = (sgn) ? memtoll_ext(p, _len, (int64_t *)&val,              \
-                                      _endp ? &endp : NULL, base)            \
-                        : memtoull_ext(p, _len, &val, _endp ? &endp : NULL,  \
-                                       base);                                \
-        }                                                                    \
-                                                                             \
-        Z_ASSERT_EQ(_ret_exp, ret);                                          \
-        if (!errno)                                                          \
-            Z_ASSERT_EQ((uint64_t)(val_exp), val);                           \
-        Z_ASSERT_EQ(err_exp, errno);                                         \
-        if (_endp)                                                           \
-            Z_ASSERT_EQ(_end_exp, (const char *)endp - (const char *)p);     \
-    } while (0)
+    Z_HELPER_RUN(z_memtoxll_ext(str, sgn, p, len, _endp, base, val_exp,      \
+                                ret_exp, end_exp, err_exp))
 
 #define TT_MEM(p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp)      \
     do {                                                                     \
@@ -933,8 +944,6 @@ Z_GROUP_EXPORT(str)
         TT_USGN(p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp);    \
         TT_SGN( p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp);    \
     } while (0)
-
-        const void *endp;
 
         TT_ALL("123",           3, true, 0, 123,  3, 0, 0);
         TT_ALL("123.456", INT_MAX, true, 0, 123,  3, 0, 0);
