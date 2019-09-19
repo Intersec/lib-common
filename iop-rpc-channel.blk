@@ -44,6 +44,7 @@ static struct {
     qh_t(u32)  traced_cmds;
 
     SSL_CTX *ssl_ctx;
+    X509 *certificate;
 
     /* Hook flow */
     ic_hook_ctx_t   *ic_hook_ctx;
@@ -298,6 +299,37 @@ static void ic_print_state(void)
 /* }}} */
 /* {{{ init/shutdown */
 
+/** Check the peer certificate is the Intersec's one.
+ *
+ * IC peers should all have the same certificate. This function is called
+ * whenever a peer sends its certificate to check if its certificate is the
+ * same than ours.
+ *
+ * OpenSSL server:
+ *   - with SSL_VERIFY_PEER, will ask the client to give a certificate.
+ *   - with SSL_VERIFY_FAIL_IF_NO_PEER_CERT, will reject the client if it does
+ *     not provide a certificate.
+ *
+ * These two options, together with this callback, should ensure that the
+ * client and the server authenticate each other. However, because we're a bit
+ * paranoïd, we double check that they actually have received the expected
+ * certificate (see the call to SSL_get_peer_certificate in ic_tls_handshake).
+ */
+static int ic_verify_callback(int preverify_ok, X509_STORE_CTX *store_ctx)
+{
+    X509 *cert;
+
+    if (preverify_ok) {
+        /* OpenSSL considers the server OK. (It happens this function is
+         * called two times successively, the second time with preverify_ok
+         * being 1. In both case the comparison below seems ok. */
+        return preverify_ok;
+    }
+
+    cert = X509_STORE_CTX_get_current_cert(store_ctx);
+    return (cert && X509_cmp(cert, _G.certificate) == 0) ? 1 : preverify_ok;
+}
+
 static int ic_initialize(void *arg)
 {
     t_scope;
@@ -312,9 +344,14 @@ static int ic_initialize(void *arg)
         logger_fatal(&_G.logger, "cannot initialize IC TLS context");
     }
     SSL_CTX_set_ecdh_auto(_G.ssl_ctx, 1);
-    if (ssl_ctx_use_certificate_lstr(_G.ssl_ctx, tls_cert) < 0) {
+    if (ssl_ctx_use_certificate_lstr(_G.ssl_ctx, tls_cert) < 0
+    ||  !(_G.certificate = ssl_ctx_convert_certificate_lstr(tls_cert)))
+    {
         logger_fatal(&_G.logger, "cannot load IC TLS certificate");
     }
+    SSL_CTX_set_verify(_G.ssl_ctx,
+                       SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
+                       ic_verify_callback);
     if (ssl_ctx_use_privatekey_lstr(_G.ssl_ctx, tls_key) < 0) {
         logger_fatal(&_G.logger, "cannot load IC TLS private key");
     }
@@ -354,6 +391,8 @@ static int ic_shutdown(void)
     qm_wipe(ic_hook_ctx, &_G.hook_ctxs);
     qm_wipe(ic, &_G.ics);
     SSL_CTX_free(_G.ssl_ctx);
+    X509_free(_G.certificate);
+    _G.certificate = NULL;
     mem_fifo_pool_delete(&_G.mp);
     return 0;
 }
@@ -2592,6 +2631,7 @@ static void ic_change_ssl_rbio(ichannel_t *ic, int fd)
  * partial reading (for non blocking sockets). */
 static int ic_tls_handshake(el_t ev, int fd, short events, data_t priv)
 {
+    X509* cert;
     ichannel_t *ic = priv.ptr;
     int ret;
 
@@ -2619,7 +2659,14 @@ static int ic_tls_handshake(el_t ev, int fd, short events, data_t priv)
         return 0;
     }
 
-    /* Handshake completed. */
+    /* Handshake completed. Double check that the certificate is correct (see
+     * ic_verify_callback above for more context). */
+    cert = SSL_get_peer_certificate(ic->ssl);
+    if (!cert || X509_cmp(cert, _G.certificate) != 0) {
+        goto error;
+    }
+    X509_free(cert);
+
     if (ic_mark_connected(ic, fd) < 0) {
         goto error;
     }
