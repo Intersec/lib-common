@@ -43,9 +43,9 @@ static void u64_del(void *v, void *arg)
 }
 
 Z_GROUP_EXPORT(sort) {
-    const uint64_t vals64[] =
+    static const uint64_t vals64[] =
         { 8, 8, 1, 2, 4, 4, 12, 5, 3, 7, 10, 1, 4, 1, 12, 12 };
-    const uint64_t sorted64[countof(vals64) + 1][countof(vals64)] = {
+    static const uint64_t sorted64[countof(vals64) + 1][countof(vals64)] = {
         {  },
         { 8 },
         { 8, 8 },
@@ -64,7 +64,8 @@ Z_GROUP_EXPORT(sort) {
         { 1, 1, 1, 2, 3, 4, 4, 4, 5, 7, 8, 8, 10, 12, 12 },
         { 1, 1, 1, 2, 3, 4, 4, 4, 5, 7, 8, 8, 10, 12, 12, 12 }
     };
-    const uint64_t uniqed64[countof(vals64) + 1][countof(vals64) + 1] = {
+    static const uint64_t uniqed64[countof(vals64) + 1][countof(vals64) + 1] =
+    {
         { 0,  },
         { 1, 8 },
         { 1, 8 },
@@ -83,7 +84,8 @@ Z_GROUP_EXPORT(sort) {
         { 9, 1, 2, 3, 4, 5, 7, 8, 10, 12 },
         { 9, 1, 2, 3, 4, 5, 7, 8, 10, 12 }
     };
-    const uint64_t deleted64[countof(vals64) + 1][countof(vals64) + 1] = {
+    static const uint64_t deleted64[countof(vals64) + 1][countof(vals64) + 1] =
+    {
         { 0 },
         { 0 },
         { 1, 8 },

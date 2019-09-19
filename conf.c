@@ -431,9 +431,6 @@ Z_GROUP_EXPORT(conf)
 {
     static char const * const SAMPLE_CONF_FILE = "samples/example.conf";
 
-    conf_t *conf;
-    sb_t sb;
-
     Z_TEST(load1, "check conf load") {
 #define SAMPLE_SECTION1_NAME       "section1"
 #define SAMPLE_SECTION_NB          3
@@ -442,6 +439,8 @@ Z_GROUP_EXPORT(conf)
 #define SAMPLE_SECTION1_VAR2_NAME  "param2[]sdf"
 #define SAMPLE_SECTION1_VAL1       "123 456"
 
+        conf_t *conf;
+        sb_t sb;
         conf_section_t *s;
         const char *p;
 
@@ -481,6 +480,9 @@ Z_GROUP_EXPORT(conf)
     } Z_TEST_END;
 
     Z_TEST(load2, "check conf load") {
+        conf_t *conf;
+        sb_t sb;
+
         Z_ASSERT_N(chdir(z_cmddir_g.s));
 
         sb_init(&sb);

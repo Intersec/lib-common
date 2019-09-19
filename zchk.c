@@ -94,10 +94,6 @@ static int bs_check_bounds(const bit_stream_t bs, const byte data[128],
 
 Z_GROUP_EXPORT(bit_stream)
 {
-    bit_stream_t bs;
-    bit_stream_t n;
-    byte data[128];
-
     /* Multiple of 64 in the range
         0 64 128 192 256
         320 384 448 512
@@ -114,6 +110,8 @@ Z_GROUP_EXPORT(bit_stream)
     /* Init {{{ */
 
     Z_TEST(len, "bit_stream: check length") {
+        byte data[128];
+
         Z_CHECK_LENGTH(bs_init_ptr(data, data), 0);
         Z_CHECK_LENGTH(bs_init_ptr(&data[1], &data[1]), 0);
         Z_CHECK_LENGTH(bs_init_ptr(&data[2], &data[2]), 0);
@@ -150,6 +148,9 @@ Z_GROUP_EXPORT(bit_stream)
     /* Skips/shrink {{{ */
 
     Z_TEST(skip, "bit_stream: bs_skip") {
+        bit_stream_t bs;
+        byte data[128];
+
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_skip(&bs, 1025));
@@ -177,6 +178,9 @@ Z_GROUP_EXPORT(bit_stream)
     } Z_TEST_END;
 
     Z_TEST(shrink, "bit_stream: bs_shrink") {
+        bit_stream_t bs;
+        byte data[128];
+
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_shrink(&bs, 1025));
@@ -204,6 +208,9 @@ Z_GROUP_EXPORT(bit_stream)
     } Z_TEST_END;
 
     Z_TEST(skip_upto, "bit_stream: bs_skip_upto") {
+        bit_stream_t bs;
+        byte data[128];
+
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_skip_upto(&bs, data, 1025));
@@ -231,6 +238,9 @@ Z_GROUP_EXPORT(bit_stream)
     } Z_TEST_END;
 
     Z_TEST(clip_at, "bit_stream: bs_clip_at") {
+        bit_stream_t bs;
+        byte data[128];
+
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_clip_at(&bs, data, 1025));
@@ -261,6 +271,10 @@ Z_GROUP_EXPORT(bit_stream)
     /* Extract {{{ */
 
     Z_TEST(extract_after, "bit_stream: bs_extract_after") {
+        bit_stream_t bs;
+        bit_stream_t n;
+        byte data[128];
+
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_extract_after(&bs, data, 1025, &n));
@@ -300,6 +314,10 @@ Z_GROUP_EXPORT(bit_stream)
 
 
     Z_TEST(get_bs_upto, "bit_stream: bs_get_bs_upto") {
+        bit_stream_t bs;
+        bit_stream_t n;
+        byte data[128];
+
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_get_bs_upto(&bs, data, 1025, &n));
@@ -334,6 +352,10 @@ Z_GROUP_EXPORT(bit_stream)
     } Z_TEST_END;
 
     Z_TEST(get_bs, "bit_stream: bs_get_bs") {
+        bit_stream_t bs;
+        bit_stream_t n;
+        byte data[128];
+
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_get_bs(&bs, 1025, &n));
@@ -404,6 +426,9 @@ Z_GROUP_EXPORT(bit_stream)
     } while (0)
 
     Z_TEST(get_bits, "bit_stream: bs_get_bits") {
+        bit_stream_t bs;
+        bit_stream_t n;
+        byte data[128];
         uint64_t res = 0;
 
         for (int i = 0; i < countof(data); i++) {
@@ -427,6 +452,9 @@ Z_GROUP_EXPORT(bit_stream)
     })
 
     Z_TEST(be_get_bits, "bit_stream: bs_be_get_bits") {
+        bit_stream_t bs;
+        bit_stream_t n;
+        byte data[128];
         uint64_t res = 0;
 
         for (int i = 0; i < countof(data); i++) {
@@ -447,6 +475,9 @@ Z_GROUP_EXPORT(bit_stream)
     /* Scans {{{ */
 
     Z_TEST(skip_upto_bit, "bit_stream: bs_skip_upto_bit") {
+        bit_stream_t bs;
+        byte data[128];
+
         p_clear(&data, 1);
         SET_BIT(data, 3);
         SET_BIT(data, 165);
@@ -479,6 +510,9 @@ Z_GROUP_EXPORT(bit_stream)
     } Z_TEST_END;
 
     Z_TEST(skip_after_bit, "bit_stream: bs_skip_after_bit") {
+        bit_stream_t bs;
+        byte data[128];
+
         p_clear(&data, 1);
         SET_BIT(data, 3);
         SET_BIT(data, 165);
@@ -518,6 +552,10 @@ Z_GROUP_EXPORT(bit_stream)
     } while (0)
 
     Z_TEST(get_bs_bit, "bit_stream: bs_get_bs_bit") {
+        bit_stream_t bs;
+        bit_stream_t n;
+        byte data[128];
+
         p_clear(&data, 1);
         SET_BIT(data, 3);
         SET_BIT(data, 165);
@@ -556,6 +594,10 @@ Z_GROUP_EXPORT(bit_stream)
     } Z_TEST_END;
 
     Z_TEST(get_bs_bit_and_skip, "bit_stream: bs_get_bs_bit_and_skip") {
+        bit_stream_t bs;
+        bit_stream_t n;
+        byte data[128];
+
         p_clear(&data, 1);
         SET_BIT(data, 3);
         SET_BIT(data, 165);
@@ -592,6 +634,9 @@ Z_GROUP_EXPORT(bit_stream)
 
 
     Z_TEST(shrink_downto_bit, "bit_stream: bs_shrink_downto_bit") {
+        bit_stream_t bs;
+        byte data[128];
+
         p_clear(&data, 1);
         SET_BIT(data, 3);
         SET_BIT(data, 165);
@@ -620,6 +665,9 @@ Z_GROUP_EXPORT(bit_stream)
     } Z_TEST_END;
 
     Z_TEST(shrink_before_bit, "bit_stream: bs_shrink_before_bit") {
+        bit_stream_t bs;
+        byte data[128];
+
         p_clear(&data, 1);
         SET_BIT(data, 3);
         SET_BIT(data, 165);

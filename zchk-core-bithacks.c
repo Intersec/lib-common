@@ -25,9 +25,9 @@
 
 Z_GROUP_EXPORT(bsr_bsf)
 {
-    uint8_t data[128];
-
     Z_TEST(bsf_1, "forward bit scan") {
+        uint8_t data[128];
+
         p_clear(&data, 1);
         Z_ASSERT_NEG(bsf(data, 0, 0, false));
         Z_ASSERT_NEG(bsf(data, 0, 1024, false));
@@ -49,6 +49,8 @@ Z_GROUP_EXPORT(bsr_bsf)
     } Z_TEST_END;
 
     Z_TEST(bsf_0, "forward bit scan, scan of 0") {
+        uint8_t data[128];
+
         p_clear(&data, 1);
         Z_ASSERT_NEG(bsf(data, 0, 0, true));
         Z_ASSERT_ZERO(bsf(data, 0, 1024, true));
@@ -72,6 +74,8 @@ Z_GROUP_EXPORT(bsr_bsf)
 
 
     Z_TEST(bsr_1, "reverse bit scan") {
+        uint8_t data[128];
+
         p_clear(&data, 1);
         Z_ASSERT_NEG(bsr(data, 0, 0, false));
         Z_ASSERT_NEG(bsr(data, 0, 1024, false));
@@ -107,6 +111,8 @@ Z_GROUP_EXPORT(bsr_bsf)
     } Z_TEST_END;
 
     Z_TEST(bsr_0, "reverse bit scan, scan of 0") {
+        uint8_t data[128];
+
         p_clear(&data, 1);
         Z_ASSERT_NEG(bsr(data, 0, 0, true));
         Z_ASSERT_EQ(bsr(data, 0, 1024, true), 1023);

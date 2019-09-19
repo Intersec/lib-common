@@ -22,7 +22,7 @@
 
 Z_GROUP_EXPORT(farch)
 {
-    const char *farch_filenames[] = {
+    static const char *farch_filenames[] = {
         "test-data/farch/zchk-farch-intersec.txt",
         "test-data/farch/zchk-farch-five-intersec.txt",
         "test-data/farch/zchk-farch-lorem.txt",

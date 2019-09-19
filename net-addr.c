@@ -374,9 +374,6 @@ Z_GROUP_EXPORT(net_addr)
     lstr_t ipv6 = LSTR(NET_ADDR_IPV6);
     lstr_t tcp_ipv4 = LSTR(NET_ADDR_IPV4 ":" TOSTR(NET_ADDR_PORT));
     lstr_t tcp_ipv6 = LSTR("[" NET_ADDR_IPV6 "]:" TOSTR(NET_ADDR_PORT));
-    sockunion_t su;
-    addr_filter_t filter;
-    char buf[INET6_ADDRSTRLEN];
 
 #define CHECK_FILTER(_res, _cidr, _addr, _mask)                              \
     do {                                                                     \
@@ -397,6 +394,10 @@ Z_GROUP_EXPORT(net_addr)
     } while (0)
 
     Z_TEST(ipv4, "IPv4") {
+        sockunion_t su;
+        addr_filter_t filter;
+        char buf[INET6_ADDRSTRLEN];
+
         Z_ASSERT_N(addr_info(&su, AF_INET, ps_initlstr(&ipv4),
                              NET_ADDR_PORT));
         Z_ASSERT_LSTREQUAL(ipv4, t_sockunion_gethost_lstr(&su));
@@ -414,6 +415,10 @@ Z_GROUP_EXPORT(net_addr)
     } Z_TEST_END;
 
     Z_TEST(ipv6, "IPv6") {
+        sockunion_t su;
+        addr_filter_t filter;
+        char buf[INET6_ADDRSTRLEN];
+
         Z_ASSERT_N(addr_info(&su, AF_INET6, ps_initlstr(&ipv6),
                              NET_ADDR_PORT));
         Z_ASSERT_LSTREQUAL(ipv6, t_sockunion_gethost_lstr(&su));
@@ -438,6 +443,7 @@ Z_GROUP_EXPORT(net_addr)
         lstr_t ip = LSTR("127.0.0.1:1337");
         SB_1k(sus_buf);
         int idx = 0;
+        sockunion_t su;
 
         addr_resolve("IPv4", tcp_ipv4, &su);
         sb_add(&sus_buf, &su, sockunion_len(&su));

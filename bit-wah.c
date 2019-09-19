@@ -1779,8 +1779,6 @@ void wah_debug_print(const wah_t *wah, bool print_content)
 
 Z_GROUP_EXPORT(wah)
 {
-    wah_t map, map1, map2, map3;
-
     assert (_G.bits_in_bucket % WAH_BIT_IN_WORD == 0);
 
     /* Have a smaller value of bits_in_bucket for tests to stress the buckets
@@ -1788,6 +1786,8 @@ Z_GROUP_EXPORT(wah)
     _G.bits_in_bucket = 10000 * WAH_BIT_IN_WORD;
 
     Z_TEST(simple, "") {
+        wah_t map;
+
         wah_init(&map);
         wah_add0s(&map, 3);
         for (int i = 0; i < 3; i++) {
@@ -1804,6 +1804,8 @@ Z_GROUP_EXPORT(wah)
     } Z_TEST_END;
 
     Z_TEST(fill, "") {
+        wah_t map;
+
         wah_init(&map);
 
         STATIC_ASSERT(sizeof(wah_word_t) == sizeof(uint32_t));
@@ -1839,6 +1841,8 @@ Z_GROUP_EXPORT(wah)
     } Z_TEST_END;
 
     Z_TEST(set_bitmap, "") {
+        wah_t map;
+        wah_t map2;
         const byte data[] = {
             0x1f, 0x00, 0x00, 0x8c, /* 0, 1, 2, 3, 4, 26, 27, 31 (32)  */
             0xff, 0xff, 0xff, 0xff, /* 32 -> 63                  (64)  */
@@ -1891,6 +1895,7 @@ Z_GROUP_EXPORT(wah)
     } Z_TEST_END;
 
     Z_TEST(for_each, "") {
+        wah_t map;
         const byte data[] = {
             0x1f, 0x00, 0x00, 0x8c, /* 0, 1, 2, 3, 4, 26, 27, 31 (32) */
             0xff, 0xff, 0xff, 0xff, /* 32 -> 63                  (64) */
@@ -1946,6 +1951,9 @@ Z_GROUP_EXPORT(wah)
     } Z_TEST_END;
 
     Z_TEST(binop, "") {
+        wah_t map1;
+        wah_t map2;
+        wah_t map3;
         const wah_t *vec[] = { &map1, &map2 };
 
         const byte data1[] = {
@@ -2081,6 +2089,7 @@ Z_GROUP_EXPORT(wah)
     } Z_TEST_END;
 
     Z_TEST(redmine_4576, "") {
+        wah_t map;
         const byte data[] = {
             0x1f, 0x00, 0x1f, 0x1f,
             0x00, 0x00, 0x00, 0x00,
@@ -2105,6 +2114,7 @@ Z_GROUP_EXPORT(wah)
     } Z_TEST_END;
 
     Z_TEST(redmine_9437, "") {
+        wah_t map;
         const uint32_t data = 0xbfffffff;
 
         wah_init(&map);
@@ -2129,6 +2139,7 @@ Z_GROUP_EXPORT(wah)
     } Z_TEST_END;
 
     Z_TEST(redmine_42990, "") {
+        wah_t map;
         uint32_t literal[] = { 0xff7fff7f, 0xffffffff, 0xf7fffdeb };
 
         wah_init(&map);
@@ -2176,6 +2187,7 @@ Z_GROUP_EXPORT(wah)
     } Z_TEST_END;
 
     Z_TEST(skip1s, "") {
+        wah_t map;
         uint64_t pos = 0;
         uint64_t bc;
         const byte data[] = {
@@ -2217,6 +2229,9 @@ Z_GROUP_EXPORT(wah)
     } Z_TEST_END;
 
     Z_TEST(nr_20150119, "") {
+        wah_t map1;
+        wah_t map2;
+
         wah_init(&map1);
         wah_add0s(&map1, 84969209384ull);
         wah_add1s(&map1, 85038314623ull - 84969209384ull + 1ull);
@@ -2235,6 +2250,9 @@ Z_GROUP_EXPORT(wah)
     } Z_TEST_END;
 
     Z_TEST(nr_20150219, "") {
+        wah_t map1;
+        wah_t map2;
+
         wah_init(&map1);
         wah_add1s(&map1, 68719476704ull * 2 + 11395279936ull + 31);
         Z_ASSERT_EQ(68719476704ull * 2 + 11395279936ull + 31, map1.len);
@@ -2253,6 +2271,7 @@ Z_GROUP_EXPORT(wah)
 
     Z_TEST(buckets, "") {
         SB_1k(sb);
+        wah_t map1;
         uint32_t literal[] = {
             0x12345678, 0x12345678, 0x12345678, 0x12345678,
             0x12345678, 0x00000001,

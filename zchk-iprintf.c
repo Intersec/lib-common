@@ -25,9 +25,9 @@
 #include "z.h"
 
 Z_GROUP_EXPORT(iprintf) {
-    char buffer[128];
-
     Z_TEST(double, "") {
+        char buffer[128];
+
         isprintf(buffer, "%g", -INFINITY);
         Z_ASSERT_STREQUAL(buffer, "-Inf");
         isprintf(buffer, "%g", INFINITY);
@@ -37,6 +37,8 @@ Z_GROUP_EXPORT(iprintf) {
     } Z_TEST_END;
 
     Z_TEST(pM, "") {
+        char buffer[128];
+
         isprintf(buffer, "%*pM", 3, "1234");
         Z_ASSERT_STREQUAL(buffer, "123", "");
         isprintf(buffer, "%*pM;toto", 3, "123");
@@ -46,6 +48,8 @@ Z_GROUP_EXPORT(iprintf) {
     } Z_TEST_END
 
     Z_TEST(pX, "") {
+        char buffer[128];
+
         isprintf(buffer, "%*pX", 4, "1234");
         Z_ASSERT_STREQUAL(buffer, "31323334");
         isprintf(buffer, "%*pX world!", 5, "Hello");
@@ -55,6 +59,8 @@ Z_GROUP_EXPORT(iprintf) {
     } Z_TEST_END;
 
     Z_TEST(px, "") {
+        char buffer[128];
+
         isprintf(buffer, "%*px", 4, "1234");
         Z_ASSERT_STREQUAL(buffer, "31323334");
         isprintf(buffer, "%*px world!", 5, "Hello");
@@ -64,6 +70,7 @@ Z_GROUP_EXPORT(iprintf) {
     } Z_TEST_END;
 
     Z_TEST(pL, "") {
+        char buffer[128];
         const lstr_t str = LSTR_IMMED("1234");
         SB_1k(sb);
 

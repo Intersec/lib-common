@@ -535,11 +535,11 @@ static const byte sha1_hmac_test_sum[7][20] =
  */
 Z_GROUP_EXPORT(sha1)
 {
-    byte buf[1024];
-    byte sha1sum[20];
-    sha1_ctx ctx;
-
     Z_TEST(hash, "") {
+        byte buf[1024];
+        byte sha1sum[20];
+        sha1_ctx ctx;
+
         for (int i = 0; i < 3; i++) {
             sha1_starts( &ctx );
             if (i == 2) {
@@ -556,6 +556,10 @@ Z_GROUP_EXPORT(sha1)
     } Z_TEST_END;
 
     Z_TEST(hmac, "") {
+        byte buf[1024];
+        byte sha1sum[20];
+        sha1_ctx ctx;
+
         for (int i = 0; i < 7; i++) {
             if (i == 5 || i == 6) {
                 memset(buf, '\xAA', 80);

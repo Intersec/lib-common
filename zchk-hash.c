@@ -227,12 +227,12 @@ static const byte sha2_hmac_test_sum[14][32] =
 
 Z_GROUP_EXPORT(sha2)
 {
-    byte buf[1024];
-    byte sha2sum[32];
-    sha2_ctx ctx;
-    int len;
-
     Z_TEST(hash, "") {
+        byte buf[1024];
+        byte sha2sum[32];
+        sha2_ctx ctx;
+        int len;
+
         for (int i = 0; i < 6; i++) {
             int j = i % 3;
             int k = i < 3;
@@ -259,6 +259,11 @@ Z_GROUP_EXPORT(sha2)
     } Z_TEST_END;
 
     Z_TEST(hmac, "") {
+        byte buf[1024];
+        byte sha2sum[32];
+        sha2_ctx ctx;
+        int len;
+
         for (int i = 0; i < 14; i++) {
             int j = i % 7;
             int k = i < 7;
@@ -611,12 +616,12 @@ static const byte sha4_hmac_test_sum[14][64] =
 
 Z_GROUP_EXPORT(sha4)
 {
-    byte buf[1024];
-    byte sha4sum[64];
-    sha4_ctx ctx;
-    int len;
-
     Z_TEST(hash, "") {
+        byte buf[1024];
+        byte sha4sum[64];
+        sha4_ctx ctx;
+        int len;
+
         for (int i = 0; i < 6; i++) {
             int j = i % 3;
             int k = i < 3;
@@ -639,6 +644,11 @@ Z_GROUP_EXPORT(sha4)
     } Z_TEST_END;
 
     Z_TEST(hmac, "") {
+        byte buf[1024];
+        byte sha4sum[64];
+        sha4_ctx ctx;
+        int len;
+
         for (int i = 0; i < 14; i++) {
             int j = i % 7;
             int k = i < 7;
@@ -733,13 +743,11 @@ static const byte aes_test_cfb_enc[3][16] =
 
 Z_GROUP_EXPORT(aes)
 {
-    byte key[32];
-    byte buf[16];
-    byte prv[16];
-    byte iv[16];
-    aes_ctx ctx;
-
     Z_TEST(ECB, "ECB mode") {
+        byte key[32];
+        byte buf[16];
+        aes_ctx ctx;
+
         memset(key, 0, 32);
 
         for (int i = 0; i < 6; i++) {
@@ -766,6 +774,12 @@ Z_GROUP_EXPORT(aes)
     } Z_TEST_END;
 
     Z_TEST(CBC, "CBC mode") {
+        byte key[32];
+        byte buf[16];
+        byte prv[16];
+        byte iv[16];
+        aes_ctx ctx;
+
         memset(key, 0, 32);
 
         for (int i = 0; i < 6; i++) {
@@ -802,6 +816,11 @@ Z_GROUP_EXPORT(aes)
     } Z_TEST_END;
 
     Z_TEST(CFB, "CFB mode") {
+        byte key[32];
+        byte buf[16];
+        byte iv[16];
+        aes_ctx ctx;
+
         memset(key, 0, 32);
 
         for (int i = 0; i < 6; i++) {
@@ -886,14 +905,12 @@ static const byte des3_test_cbc_enc[3][8] =
 
 Z_GROUP_EXPORT(des)
 {
-    des_ctx ctx;
-    des3_ctx ctx3;
-    byte key[24];
-    byte buf[8];
-    byte prv[8];
-    byte iv[8];
-
     Z_TEST(ECB, "") {
+        des_ctx ctx;
+        des3_ctx ctx3;
+        byte key[24];
+        byte buf[8];
+
         memset(key, 0, 24);
 
         for (int i = 0; i < 6; i++) {
@@ -943,6 +960,13 @@ Z_GROUP_EXPORT(des)
     } Z_TEST_END;
 
     Z_TEST(CBC, "") {
+        des_ctx ctx;
+        des3_ctx ctx3;
+        byte key[24];
+        byte buf[8];
+        byte prv[8];
+        byte iv[8];
+
         memset(key, 0, 24);
 
         for (int i = 0; i < 6; i++) {
@@ -1118,11 +1142,9 @@ static const byte md5_hmac_test_sum[7][16] =
 
 Z_GROUP_EXPORT(md5)
 {
-    byte buf[1024];
-    byte md5sum[16];
-    md5_ctx ctx;
-
     Z_TEST(hash, "") {
+        byte md5sum[16];
+
         for (int i = 0; i < 7; i++) {
             md5(md5_test_buf[i], md5_test_buflen[i], md5sum);
             Z_ASSERT_EQUAL(md5sum, 16, md5_test_sum[i], 16);
@@ -1130,6 +1152,10 @@ Z_GROUP_EXPORT(md5)
     } Z_TEST_END;
 
     Z_TEST(hmac, "") {
+        byte buf[1024];
+        byte md5sum[16];
+        md5_ctx ctx;
+
         for (int i = 0; i < 7; i++) {
             if (i == 5 || i == 6) {
                 memset(buf, '\xAA', 80);

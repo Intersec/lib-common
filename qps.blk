@@ -3372,8 +3372,8 @@ static int run_snapshot(qps_t *qps)
 
 Z_GROUP_EXPORT(qps)
 {
-    const char S[] = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQSRT";
-    qps_handle_t handle1, handle2, handle3;
+    static const char S[] =
+        "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQSRT";
 
     MODULE_REQUIRE(qps);
 
@@ -3424,6 +3424,7 @@ Z_GROUP_EXPORT(qps)
     } while (0)
 
     Z_TEST(nr_20110105, "") {
+        qps_handle_t handle1, handle2, handle3;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110105", 0755, NULL, 0);
 
         Z_CHECK_ALLOC_AND_FILL(handle1, 24);
@@ -3439,6 +3440,7 @@ Z_GROUP_EXPORT(qps)
     } Z_TEST_END;
 
     Z_TEST(nr_20110107_1, "") {
+        qps_handle_t handle1, handle2;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110107_1", 0755, NULL, 0);
 
         Z_CHECK_ALLOC_AND_FILL(handle1, 24);
@@ -3456,6 +3458,7 @@ Z_GROUP_EXPORT(qps)
     } Z_TEST_END;
 
     Z_TEST(nr_20110107_2, "") {
+        qps_handle_t handle1, handle2;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110107_2", 0755, NULL, 0);
 
         Z_CHECK_ALLOC_AND_FILL(handle1, 24);
@@ -3474,6 +3477,7 @@ Z_GROUP_EXPORT(qps)
     } Z_TEST_END;
 
     Z_TEST(nr_20110107_3, "") {
+        qps_handle_t handle1, handle2;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110107_3", 0755, NULL, 0);
 
         Z_CHECK_ALLOC_AND_FILL(handle1, 24);
@@ -3493,6 +3497,7 @@ Z_GROUP_EXPORT(qps)
     } Z_TEST_END;
 
     Z_TEST(nr_20110203, "") {
+        qps_handle_t handle1, handle2;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110203", 0755, NULL, 0);
 
         Z_CHECK_ALLOC_AND_FILL(handle1, 120);
@@ -3522,6 +3527,7 @@ Z_GROUP_EXPORT(qps)
     } Z_TEST_END;
 
     Z_TEST(nr_20110302, "") {
+        qps_handle_t handle1, handle2;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110302", 0755, NULL, 0);
 
         Z_CHECK_ALLOC_AND_FILL(handle1, 36);
@@ -3535,6 +3541,7 @@ Z_GROUP_EXPORT(qps)
     } Z_TEST_END;
 
     Z_TEST(nr_20120824_1, "map emptied concurrently to snapshot") {
+        qps_handle_t handle1;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20120824_1", 0755, NULL, 0);
 
         Z_CHECK_ALLOC_AND_FILL(handle1, 36);
@@ -3549,6 +3556,7 @@ Z_GROUP_EXPORT(qps)
     } Z_TEST_END;
 
     Z_TEST(nr_20120824_2, "map emptied concurrently to snapshot") {
+        qps_handle_t handle1;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20120824_2", 0755, NULL, 0);
 
         Z_CHECK_ALLOC_AND_FILL(handle1, 36);
@@ -3563,6 +3571,7 @@ Z_GROUP_EXPORT(qps)
     } Z_TEST_END;
 
     Z_TEST(nr_20120827_1, "map emptied then reused after snapshot") {
+        qps_handle_t handle1;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20120827_1", 0755, NULL, 0);
 
         Z_CHECK_ALLOC_AND_FILL(handle1, 36);
@@ -3578,6 +3587,7 @@ Z_GROUP_EXPORT(qps)
     } Z_TEST_END;
 
     Z_TEST(nr_20120827_2, "map emptied then reused after snapshot") {
+        qps_handle_t handle1;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20120827_2", 0755, NULL, 0);
 
         Z_CHECK_ALLOC_AND_FILL(handle1, 36);

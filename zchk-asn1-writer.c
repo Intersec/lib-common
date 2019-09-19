@@ -437,13 +437,6 @@ Z_GROUP_EXPORT(asn1_ber)
         .bs = { bs_content, 4 },
     };
 
-    qv_t(i32) stack;
-    uint8_t   buf[256];
-    size_t    len;
-    pstream_t ps;
-
-    qv_inita(&stack, 1024);
-
     Z_TEST(dec_len32, "asn1: ber_decode_len32") {
         const byte dec0[] = { 0x80 | 0x3, 0xfa, 0x56, 0x09 };
         const byte dec1[] = { 0x3 };
@@ -452,6 +445,7 @@ Z_GROUP_EXPORT(asn1_ber)
         const byte dec4[] = { 0x84, 0x1, 0x2, 0x3};
 
         uint32_t len32 = 0;
+        pstream_t ps;
 
 #define DEC(buf, len32) \
         ({ ps = ps_init(buf, sizeof(buf)); ber_decode_len32(&ps, len32); })
@@ -476,6 +470,7 @@ Z_GROUP_EXPORT(asn1_ber)
         const byte dec2[] = { 0xff, 0xfa, 0x56, 0x45, 0xf5 };
 
         int32_t int32 = 0;
+        pstream_t ps;
 
 #define DEC(v, i) \
         ({ ps = ps_init(v, sizeof(v)); ber_decode_int32(&ps, i); })
@@ -499,6 +494,8 @@ Z_GROUP_EXPORT(asn1_ber)
             0x08, 0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd,
             0xef, 0xbb, 0x01, 0x01, 0x0f, 0x02, 0x02, 0x9a
         };
+        uint8_t buf[256];
+        size_t len;
 
         len = serialize_test_0(buf, &t0);
         Z_ASSERT_EQUAL(buf, len, expected, sizeof(expected));
@@ -509,6 +506,8 @@ Z_GROUP_EXPORT(asn1_ber)
             0xab, 0x06, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67,
             0xb5, 0x02, 0x04, 0x0f,
         };
+        uint8_t buf[256];
+        size_t len;
 
         len = serialize_test_1(buf, &t1);
         Z_ASSERT_EQUAL(buf, len, expected, sizeof(expected));
@@ -526,6 +525,8 @@ Z_GROUP_EXPORT(asn1_ber)
             0x72, 0x69, 0x6e, 0x67, 0xb5, 0x02, 0x04, 0x0f,
         };
         test_2_t const t2 = { &t0, t1 };
+        uint8_t buf[256];
+        size_t len;
 
         len = serialize_test_2(buf, &t2);
         Z_ASSERT_EQUAL(buf, len, expected, sizeof(expected));
@@ -540,6 +541,8 @@ Z_GROUP_EXPORT(asn1_ber)
             .ph = { .data = &t1, .desc = ASN1_GET_DESC(test_1) },
             .ph_opt = { .data = NULL }
         };
+        uint8_t buf[256];
+        size_t len;
 
         len = serialize_test_3(buf, &t3);
         Z_ASSERT_EQUAL(buf, len, expected, sizeof(expected));
@@ -577,6 +580,7 @@ Z_GROUP_EXPORT(asn1_ber)
         };
 
         il_trailing_t t;
+        pstream_t ps;
 
         p_clear(&t, 1);
 
@@ -617,6 +621,12 @@ Z_GROUP_EXPORT(asn1_ber)
             }
         };
         test_reader_t rdr_out;
+        qv_t(i32) stack;
+        uint8_t buf[256];
+        size_t len;
+        pstream_t ps;
+
+        qv_inita(&stack, 1024);
 
         p_clear(&rdr_out, 1);
         len = asn1_pack_size(test_reader, &exp_rdr_out, &stack);
@@ -641,6 +651,7 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_EQ(rdr_out.rec1.u32, exp_rdr_out.rec1.u32);
         Z_ASSERT_EQUAL(rdr_out.vec.vec.data, rdr_out.vec.vec.len,
                        exp_rdr_out.vec.vec.data, exp_rdr_out.vec.vec.len);
+        qv_wipe(&stack);
     } Z_TEST_END;
 
     Z_TEST(array, "asn1: BER array (un)packing") {
@@ -676,6 +687,12 @@ Z_GROUP_EXPORT(asn1_ber)
         };
 
         simple_array_t simple_array_out;
+        qv_t(i32) stack;
+        uint8_t buf[256];
+        size_t len;
+        pstream_t ps;
+
+        qv_inita(&stack, 1024);
 
         len = asn1_pack_size(simple_array, &simple_array, &stack);
         asn1_pack(simple_array, buf, &simple_array, &stack);
@@ -685,6 +702,7 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_N(asn1_unpack(simple_array, &ps, t_pool(),
                                &simple_array_out, false));
         Z_ASSERT(simple_array_equal(&simple_array_out, &simple_array));
+        qv_wipe(&stack);
     } Z_TEST_END;
 
     Z_TEST(choice, "asn1: BER choice (un)packing") {
@@ -719,6 +737,12 @@ Z_GROUP_EXPORT(asn1_ber)
         test_choice_t exp_choice;
         test_choice_t choice;
         test_u_choice_t u_choice_out = { .choice = NULL };
+        qv_t(i32) stack;
+        uint8_t buf[256];
+        size_t len;
+        pstream_t ps;
+
+        qv_inita(&stack, 1024);
 
         p_clear(&exp_choice, 1);
         p_clear(&choice, 1);
@@ -743,12 +767,18 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_EQ(u_choice.i, u_choice_out.i);
         Z_ASSERT_EQ(u_choice.choice->type, u_choice_out.choice->type);
         Z_ASSERT_EQ(u_choice.choice->choice2, u_choice_out.choice->choice2);
+        qv_wipe(&stack);
     } Z_TEST_END;
 
     Z_TEST(iop_choice, "asn1: IOP union/ASN.1 choice interoperability") {
         lstr_t ber = LSTR_IMMED("\x81\x01\x45");
         test_iop_choice_t choice;
         int    blen;
+        qv_t(i32) stack;
+        uint8_t buf[256];
+        pstream_t ps;
+
+        qv_inita(&stack, 1024);
 
         ps = ps_initlstr(&ber);
         Z_ASSERT_N(asn1_unpack(test_iop_choice, &ps, NULL, &choice, false));
@@ -759,6 +789,7 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_EQ(blen, ber.len);
         asn1_pack(test_iop_choice, buf, &choice, &stack);
         Z_ASSERT_LSTREQUAL(ber, LSTR_INIT_V((const char *)buf, blen));
+        qv_wipe(&stack);
     } Z_TEST_END;
 
     Z_TEST(vector_array, "asn1: BER vectors/array") {
@@ -799,6 +830,12 @@ Z_GROUP_EXPORT(asn1_ber)
         test_array_t test_array;
         il_test_base_t il;
         il_rec_base_t il_rec;
+        qv_t(i32) stack;
+        uint8_t buf[256];
+        size_t len;
+        pstream_t ps;
+
+        qv_inita(&stack, 1024);
 
         /* Sequence of untagged choice test (with a vector) */
         len = asn1_pack_size(test_vector, &test_vector_in, &stack);
@@ -848,6 +885,7 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_EQ(test_vector.choice.data[1].rec1.u32, (uint32_t)0x42);
         Z_ASSERT_EQ((int)test_vector.choice.data[2].type, CHOICE_TYPE_2);
         Z_ASSERT_EQ((int)test_vector.choice.data[2].choice2, 2);
+        qv_wipe(&stack);
     } Z_TEST_END;
 
     Z_TEST(asn1_skip_field, "asn1: asn1_skip_field()") {
@@ -862,6 +900,10 @@ Z_GROUP_EXPORT(asn1_ber)
         };
         byte *long_field;
         int vlen;
+        qv_t(i32) stack;
+        pstream_t ps;
+
+        qv_inita(&stack, 1024);
 
         ps = ps_init(fields, sizeof(fields));
 
@@ -885,9 +927,8 @@ Z_GROUP_EXPORT(asn1_ber)
         ps = ps_init(long_field, 3 + vlen);
         Z_ASSERT_N(asn1_skip_field(&ps));
         Z_ASSERT(ps_done(&ps));
+        qv_wipe(&stack);
     } Z_TEST_END;
-
-    qv_wipe(&stack);
 } Z_GROUP_END
 
 typedef struct open_type_t {

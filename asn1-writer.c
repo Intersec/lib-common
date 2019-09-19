@@ -1492,13 +1492,13 @@ int asn1_unpack_(pstream_t *ps, const asn1_desc_t *desc,
 
 Z_GROUP_EXPORT(asn1_packer)
 {
-    uint8_t buf[BUFSIZ];
-
 #define T(pfx, v, exp, txt) \
     ({  Z_ASSERT_EQ(asn1_pack_##pfx(buf, v) - buf, ssizeof(exp), txt);    \
         Z_ASSERT_EQUAL(buf, asn1_##pfx##_size(v), exp, sizeof(exp), txt); })
 
     Z_TEST(i64, "asn1: int64 packer") {
+        uint8_t buf[BUFSIZ];
+
         int64_t i1     = 0xffffffffffffffffLL;
         uint8_t exp1[] = { 0xff };
         int64_t i2     = 0xffffffffffffffLL;
@@ -1512,6 +1512,8 @@ Z_GROUP_EXPORT(asn1_packer)
     } Z_TEST_END;
 
     Z_TEST(i32, "asn1: int32 packer") {
+        uint8_t buf[BUFSIZ];
+
         int32_t i1     = 255;
         uint8_t exp1[] = { 0x00, 0xff };
         int32_t i2     = -255;
@@ -1528,6 +1530,8 @@ Z_GROUP_EXPORT(asn1_packer)
     } Z_TEST_END;
 
     Z_TEST(u32, "asn1: uint32 packer") {
+        uint8_t buf[BUFSIZ];
+
         uint32_t u1     = 255;
         uint8_t  exp1[] = { 0x00, 0xff };
         uint32_t u2     = 256;
@@ -1544,6 +1548,8 @@ Z_GROUP_EXPORT(asn1_packer)
     } Z_TEST_END;
 
     Z_TEST(u64, "asn1: uint64 packer") {
+        uint8_t buf[BUFSIZ];
+
         uint64_t u1     = 0xffffffffffffffffULL;
         uint8_t  exp1[] = { 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
         uint64_t u2     = 0xffffffffffffffULL;
@@ -1559,6 +1565,8 @@ Z_GROUP_EXPORT(asn1_packer)
 #undef T
 
     Z_TEST(len, "asn1: len packer") {
+        uint8_t buf[BUFSIZ];
+
         int32_t const l1     = 127;
         uint8_t exp1[] = { 0x7f };
         int32_t const l2     = 128;

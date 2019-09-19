@@ -89,10 +89,6 @@ static int z_memtoxll_ext(bool str, bool sgn, const char *p, int len,
 
 Z_GROUP_EXPORT(str)
 {
-    char    buf[BUFSIZ];
-    char    buf2[BUFSIZ * 2];
-    ssize_t res;
-
     Z_TEST(lstr_equal, "lstr_equal") {
         Z_ASSERT_LSTREQUAL(LSTR_EMPTY_V, LSTR_EMPTY_V);
         Z_ASSERT_LSTREQUAL(LSTR_NULL_V, LSTR_NULL_V);
@@ -139,6 +135,7 @@ Z_GROUP_EXPORT(str)
 
     Z_TEST(sb_add, "sb_add/sb_prepend") {
         SB_1k(sb);
+        char buf2[BUFSIZ * 2];
 
         sb_addf(&sb, "%s", "bar");
         sb_prependf(&sb, "%s", "foo");
@@ -181,6 +178,8 @@ Z_GROUP_EXPORT(str)
     Z_TEST(strconv_hexdecode, "str: strconv_hexdecode") {
         const char *encoded = "30313233";
         const char *decoded = "0123";
+        char buf[BUFSIZ];
+        ssize_t res;
 
         p_clear(&buf, 1);
         res = strconv_hexdecode(buf, sizeof(buf), encoded, -1);
@@ -215,6 +214,7 @@ Z_GROUP_EXPORT(str)
 
     Z_TEST(lstr_obfuscate, "str: lstr_obfuscate/lstr_unobfuscate") {
         uint64_t keys[] = { 0, 1, 1234, 2327841961327486523LLU, UINT64_MAX };
+        char buf[BUFSIZ];
 
         STATIC_ASSERT (sizeof(buf) >= 3 * 16);
         /* Check, for different key values that:
@@ -540,6 +540,8 @@ Z_GROUP_EXPORT(str)
     } Z_TEST_END;
 
     Z_TEST(path_simplify, "str-path: path_simplify") {
+        char buf[BUFSIZ];
+
 #define T(s0, s1)  \
         ({ pstrcpy(buf, sizeof(buf), s0);    \
             Z_ASSERT_N(path_simplify(buf)); \
@@ -744,6 +746,8 @@ Z_GROUP_EXPORT(str)
     } Z_TEST_END;
 
     Z_TEST(buffer_increment, "str: buffer_increment") {
+        char buf[BUFSIZ];
+
 #define T(initval, expectedval, expectedret)       \
         ({  pstrcpy(buf, sizeof(buf), initval);                      \
             Z_ASSERT_EQ(expectedret, buffer_increment(buf, -1));     \
@@ -764,6 +768,8 @@ Z_GROUP_EXPORT(str)
     } Z_TEST_END;
 
     Z_TEST(buffer_increment_hex, "str: buffer_increment_hex") {
+        char buf[BUFSIZ];
+
 #define T(initval, expectedval, expectedret)   \
         ({  pstrcpy(buf, sizeof(buf), initval);                          \
             Z_ASSERT_EQ(expectedret, buffer_increment_hex(buf, -1));     \
@@ -2735,7 +2741,6 @@ Z_GROUP_EXPORT(str_buf_pp) {
 
 Z_GROUP_EXPORT(conv)
 {
-    sb_t tmp, out;
     lstr_t default_tab = LSTR_IMMED(
         "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f"
         "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1c\x1d\x1e\x1f"
@@ -2749,6 +2754,8 @@ Z_GROUP_EXPORT(conv)
         "\x1b\x14\x1b\x28\x1b\x29\x1b\x2f\x1b\x3c\x1b\x3d\x1b\x3e\x1b\x40\x1b\x65");
 
     Z_TEST(sb_conv_gsm, "sb conv from/to gsm") {
+        sb_t tmp, out;
+
 #define TL(input, expected, desc)       \
         ({  lstr_t in    = input;                                            \
             lstr_t exp_s = expected;                                         \
@@ -2816,6 +2823,7 @@ Z_GROUP_EXPORT(conv)
 
     Z_TEST(sb_conv_cimd, "sb conv from/to cimd") {
         SB_1k(sb);
+        sb_t tmp, out;
 
 #define T(input, _expected, description)      \
         ({  lstr_t expected = LSTR_IMMED(_expected);                         \
@@ -2826,6 +2834,7 @@ Z_GROUP_EXPORT(conv)
             Z_ASSERT_LSTREQUAL(expected, LSTR_SB_V(&out), description);      \
         })
 
+        sb_init(&tmp);
         sb_init(&out);
 
         /* Example 22 from CIMD spec 8.0 (@£$¥èéùìòç) */
