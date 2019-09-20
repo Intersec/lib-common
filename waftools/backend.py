@@ -721,8 +721,9 @@ def compute_clang_extra_cflags(self, clang_flags, cflags):
 class Blk2c(Task):
     run_str = ['rm -f ${TGT}',
                ('${CLANG} -cc1 -x c ${CLANG_REWRITE_FLAGS} ${CLANG_CFLAGS} '
-                '-rewrite-blocks ${CLANG_EXTRA_CFLAGS} '
-                '${CPPPATH_ST:INCPATHS} ${SRC} -o ${TGT}')]
+                '-rewrite-blocks -DIS_CLANG_BLOCKS_REWRITER '
+                '${CLANG_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
+                '${SRC} -o ${TGT}')]
     ext_out = [ '.c' ]
     color = 'CYAN'
 

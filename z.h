@@ -301,7 +301,57 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
         _z_group_done();                                                  \
     }
 
-#define Z_TEST(name, desc) \
+
+/* We don't want to use step blocks when in the blocks rewriter and not in the
+ * final compiler because the block rewriter has issues when mixing blocks and
+ * macros, and clang does not support nested functions. */
+#ifndef IS_CLANG_BLOCKS_REWRITER
+# ifdef __BLOCKS__
+
+/* For clang, we use a block. */
+#  define _Z_TEST_MAKE_BLOCK(_block_name) \
+    void (^_block_name)(void) = ^(void)
+
+# elif !defined(__cplusplus) && defined(__GNUC__)
+
+/* For GCC, we use a nested function, that is a GNU extension. */
+#  define _Z_TEST_MAKE_BLOCK(_block_name) \
+    void _block_name(void)
+
+# endif
+#endif
+
+
+#ifdef _Z_TEST_MAKE_BLOCK
+
+# define Z_TEST(name, desc) \
+    {                                                                     \
+        int _z_step_run_res = _z_step_run(#name);                         \
+        _Z_TEST_MAKE_BLOCK(_z_step_block)                                 \
+        {                                                                 \
+            __label__ _z_step_end;                                        \
+            {
+
+# define Z_TEST_END \
+            }                                                             \
+          _z_step_end:                                                    \
+            ;                                                             \
+        };                                                                \
+        switch (_z_step_run_res) {                                        \
+          case 0:                                                         \
+            break;                                                        \
+          case 1:                                                         \
+            _z_step_block();                                              \
+            /* FALLTHROUGH */                                             \
+          default:                                                        \
+            _z_step_report();                                             \
+            break;                                                        \
+        }                                                                 \
+    }
+
+#else
+
+# define Z_TEST(name, desc) \
     switch (_z_step_run(#name)) {                                         \
         __label__ _z_step_end;                                            \
       case 0:                                                             \
@@ -309,10 +359,7 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
       case 1:                                                             \
         {
 
-#define Z_TEST_FLAGS(...) \
-    ({ if (_z_step_is_skipped(0, ##__VA_ARGS__, NULL)) goto _z_step_end; })
-
-#define Z_TEST_END \
+# define Z_TEST_END \
         }                                                                 \
         /* FALLTHROUGH */                                                 \
       default:                                                            \
@@ -320,6 +367,12 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
         _z_step_report();                                                 \
         break;                                                            \
     }
+
+#endif
+
+#define Z_TEST_FLAGS(...) \
+    ({ if (_z_step_is_skipped(0, ##__VA_ARGS__, NULL)) goto _z_step_end; })
+
 
 /** Trailer to use in a sub-function where you want to use.
  *
