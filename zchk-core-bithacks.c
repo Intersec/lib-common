@@ -152,7 +152,7 @@ Z_GROUP_EXPORT(bit_reverse) {
 /* }}} */
 /* {{{ membitcount */
 
-#if (defined(__x86_64__) || defined(__i386__)) && __GNUC_PREREQ(4, 4)
+#ifdef __HAS_CPUID
 #pragma push_macro("__leaf")
 #undef __leaf
 #include <cpuid.h>
@@ -213,7 +213,7 @@ Z_GROUP_EXPORT(membitcount)
     } Z_TEST_END;
 
     Z_TEST(ssse3, "") {
-#if (defined(__x86_64__) || defined(__i386__)) && __GNUC_PREREQ(4, 4)
+#ifdef __HAS_CPUID
         int eax, ebx, ecx, edx;
 
         __cpuid(1, eax, ebx, ecx, edx);
@@ -229,7 +229,7 @@ Z_GROUP_EXPORT(membitcount)
     } Z_TEST_END;
 
     Z_TEST(popcnt, "") {
-#if (defined(__x86_64__) || defined(__i386__)) && __GNUC_PREREQ(4, 4)
+#ifdef __HAS_CPUID
         int eax, ebx, ecx, edx;
 
         __cpuid(1, eax, ebx, ecx, edx);

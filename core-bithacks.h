@@ -29,6 +29,11 @@
 #  error  unable to detect your architecture wordsize
 #endif
 
+#if (defined(__x86_64__) || defined(__i386__))                               \
+ && (__GNUC_PREREQ(4, 4) ||__CLANG_PREREQ(7, 0))
+#   define __HAS_CPUID 1
+#endif
+
 /* XXX bit scan reverse, only defined for u != 0
  * bsr32(0x1f) == 4 because first bit set from the "left" is 2^4
  */
@@ -156,9 +161,9 @@ extern size_t (*nonnull membitcount)(const void * nonnull ptr, size_t n);
 
 size_t membitcount_c(const void *nonnull ptr, size_t n);
 
-#if (defined(__x86_64__) || defined(__i386__)) && __GNUC_PREREQ(4, 4)
-size_t membitcount_ssse3(const void *ptr, size_t n);
-size_t membitcount_popcnt(const void *ptr, size_t n);
+#ifdef __HAS_CPUID
+size_t membitcount_ssse3(const void * nonnull ptr, size_t n);
+size_t membitcount_popcnt(const void * nonnull ptr, size_t n);
 #endif
 
 #endif

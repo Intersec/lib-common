@@ -287,7 +287,7 @@ size_t membitcount_c(const void *ptr, size_t n)
     return c1 + c2 + c3 + c4;
 }
 
-#if (defined(__x86_64__) || defined(__i386__)) && __GNUC_PREREQ(4, 4)
+#ifdef __HAS_CPUID
 #pragma push_macro("__leaf")
 #undef __leaf
 #include <cpuid.h>
@@ -372,6 +372,12 @@ size_t membitcount_popcnt(const void *ptr, size_t n)
         return c1 + c2 + c3 + c4;
     }
 }
+
+#if defined(__clang__) && !defined(__builtin_ia32_pand128)
+# define __builtin_ia32_pand128(a, b)   _mm_and_si128(a, b)
+# define __builtin_ia32_pandn128(a, b)  _mm_andnot_si128(a, b)
+# define __builtin_ia32_movhlps(a, b)   _mm_movehl_ps(a, b)
+#endif
 
 __attribute__((target("ssse3")))
 size_t membitcount_ssse3(const void *ptr, size_t n)
@@ -484,7 +490,7 @@ static size_t membitcount_resolve(const void *ptr, size_t n)
 {
     membitcount = &membitcount_c;
 
-#if (defined(__x86_64__) || defined(__i386__)) && __GNUC_PREREQ(4, 4)
+#ifdef __HAS_CPUID
     {
         int eax, ebx, ecx, edx;
 

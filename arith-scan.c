@@ -242,11 +242,15 @@ static size_t count_non_zero64_naive(const uint64_t u64[], size_t n)
     return n - (acc0 + acc1 + acc2 + acc3);
 }
 
-#if (defined(__x86_64__) || defined(__i386__)) && __GNUC_PREREQ(4, 4)
+#ifdef __HAS_CPUID
 #pragma push_macro("__leaf")
 #undef __leaf
 #include <cpuid.h>
 #pragma pop_macro("__leaf")
+
+#if defined(__clang__) && !defined(__builtin_ia32_pcmpeqq)
+#   define __builtin_ia32_pcmpeqq(a, b)  _mm_cmpeq_epi64(a, b)
+#endif
 
 __attribute__((target("sse4.1")))
 static size_t count_non_zero64_sse41(const uint64_t u64[], size_t n)
