@@ -1472,9 +1472,8 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
     cfg->header_size_max    = iop_cfg->header_size_max;
 
     if (iop_cfg->tls) {
-        const SSL_METHOD *method;
-        long mode;
         core__tls_cert_and_key__t *data;
+        SB_1k(errbuf);
 
         data = IOP_UNION_GET(core__tls_cfg, iop_cfg->tls, data);
         if (!data) {
@@ -1483,25 +1482,12 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
             logger_panic(&_G.logger, "TLS data are not provided");
         }
 
-        /* Create ssl context -- the ssl module must be loaded. */
-        method = TLS_server_method();
-        cfg->ssl_ctx = SSL_CTX_new(method);
+        cfg->ssl_ctx = ssl_ctx_new_tls(TLS_server_method(),
+                                       data->key, data->cert, SSL_VERIFY_NONE,
+                                       NULL, &errbuf);
         if (!cfg->ssl_ctx) {
-            logger_fatal(&_G.logger, "cannot initialize TLS context");
-        }
-
-        /* Configure ssl context. */
-        SSL_CTX_set_ecdh_auto(cfg->ssl_ctx, 1);
-        if (ssl_ctx_use_certificate_lstr(cfg->ssl_ctx, data->cert) < 0) {
-            logger_fatal(&_G.logger, "cannot load TLS certificate");
-        }
-        if (ssl_ctx_use_privatekey_lstr(cfg->ssl_ctx, data->key) < 0) {
-            logger_fatal(&_G.logger, "cannot load TLS private key");
-        }
-        mode = SSL_MODE_ENABLE_PARTIAL_WRITE
-             | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER;
-        if (!(SSL_CTX_set_mode(cfg->ssl_ctx, mode) & mode)) {
-            logger_fatal(&_G.logger, "cannot set openssl partial write mode");
+            logger_fatal(&_G.logger, "couldn't initialize SSL_CTX: %*pM",
+                         SB_FMT_ARG(&errbuf));
         }
     }
 
