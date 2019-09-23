@@ -266,14 +266,6 @@ __attribute__((unused)) static void yyset_column(int column_no, yyscan_t yyscann
     yyextra->pos += yyextra->len;     \
     yyextra->len  = yyleng;
 
-#define YY_USER_ACTION_UNDO \
-    yyextra->pos = yyextra->prev_pos; \
-    yyextra->len = yyextra->prev_len;
-#define USER_REJECT \
-    YY_USER_ACTION_UNDO \
-    REJECT
-
-
 #define PRINT_MSG_OFFS(prn_fct, offs, fmt, ...)  \
     prn_fct("%s:%d:%d:"fmt, yyextra->path, yyextra->lno, \
             lexdata_col(yyextra, (offs)), ##__VA_ARGS__)
@@ -387,7 +379,9 @@ SCHARS  [.=:,;()\[\]{}?*\-_~\^/+%&|]
                         }
     "//"[^\n\r]*{EOL}   {
                           /* Skip this rule or it will mask the doxygen comments */
-                          USER_REJECT;
+                          yyextra->pos = yyextra->prev_pos;
+                          yyextra->len = yyextra->prev_len;
+                          REJECT;
                         }
     "/*"                {
                           yyextra->tk = token_new(ITOK_COMMENT);
