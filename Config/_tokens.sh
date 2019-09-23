@@ -70,6 +70,26 @@ do_tokens() {
     done
 }
 
+version_ge() {
+    test "$(echo "$@" | tr " " "\n" | sort -rV | head -n 1)" == "$1"
+}
+
+do_function_decl() {
+    gperf_ver=$(gperf -v | head -n1 | cut -d' ' -f3)
+
+    if version_ge $gperf_ver "3.1"; then
+        cat <<EOF
+static const struct tok *
+${LOWERCASE_NAME}_get_token_aux(register const char *str, register size_t len);
+EOF
+    else
+        cat <<EOF
+static const struct tok *
+${LOWERCASE_NAME}_get_token_aux(const char *str, unsigned int len);
+EOF
+    fi
+}
+
 do_c() {
     if ! which gperf > /dev/null; then
         echo "gperf not found. You need to install gperf." > /dev/stderr;
@@ -85,8 +105,7 @@ do_c() {
 #include <lib-common/core.h>
 #include "${TARGET%.c}.h"
 
-static const struct tok *
-${LOWERCASE_NAME}_get_token_aux(const char *str, unsigned int len);
+`do_function_decl`
 
 %}
 struct tok { const char *name; int val; };
