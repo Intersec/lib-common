@@ -861,7 +861,7 @@ X509 *ssl_ctx_convert_certificate_lstr(lstr_t cert)
     return x;
 }
 
-int ssl_ctx_use_certificate_lstr(SSL_CTX *ctx, lstr_t cert)
+static int ssl_ctx_use_certificate_lstr(SSL_CTX *ctx, lstr_t cert)
 {
     X509 *x = ssl_ctx_convert_certificate_lstr(cert);
     int ret;
@@ -872,7 +872,7 @@ int ssl_ctx_use_certificate_lstr(SSL_CTX *ctx, lstr_t cert)
     return ret == 1 ? 0 : -1;
 }
 
-int ssl_ctx_use_privatekey_lstr(SSL_CTX *ctx, lstr_t key)
+static int ssl_ctx_use_privatekey_lstr(SSL_CTX *ctx, lstr_t key)
 {
     BIO *bio;
     EVP_PKEY *evp;
@@ -889,6 +889,60 @@ int ssl_ctx_use_privatekey_lstr(SSL_CTX *ctx, lstr_t key)
     EVP_PKEY_free(evp);
     BIO_free(bio);
     return ret == 1 ? 0 : -1;
+}
+
+SSL_CTX *ssl_ctx_new_tls(const SSL_METHOD *method, lstr_t key, lstr_t cert,
+                         int verify_mode, SSL_verify_cb verify_callback,
+                         sb_t *err)
+{
+    SSL_CTX *ctx;
+    long     mode;
+
+    assert ((cert.s && key.s) || (!cert.s && !key.s));
+
+    /* Create TLS context -- the ssl module must be loaded. */
+    ctx = SSL_CTX_new(method);
+    if (ctx == NULL) {
+        sb_adds(err, "failed to create SSL context");
+        return NULL;
+    }
+
+    /* Configure TLS context. */
+    SSL_CTX_set_ecdh_auto(ctx, 1);
+
+    if (cert.s && key.s) {
+        if (ssl_ctx_use_certificate_lstr(ctx, cert) < 0) {
+            sb_adds(err, "failed to load certificate");
+            goto error;
+        }
+        if (ssl_ctx_use_privatekey_lstr(ctx, key) < 0) {
+            sb_adds(err, "failed to load private key");
+            goto error;
+        }
+
+        if (SSL_CTX_check_private_key(ctx) != 1) {
+            sb_adds(err, "consistency of certificate / key is wrong");
+            goto error;
+        }
+    }
+
+    if (verify_mode != SSL_VERIFY_NONE) {
+        SSL_CTX_set_verify(ctx, verify_mode, verify_callback);
+        SSL_CTX_set_verify_depth(ctx, 1);
+    }
+
+    mode = SSL_MODE_ENABLE_PARTIAL_WRITE
+         | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER;
+    if (!(SSL_CTX_set_mode(ctx, mode) & mode)) {
+        sb_adds(err, "failed to set partial write mode");
+        goto error;
+    }
+
+    return ctx;
+
+  error:
+    SSL_CTX_free(ctx);
+    return NULL;
 }
 
 static inline int ssl_error_conv(int ssl_error) {

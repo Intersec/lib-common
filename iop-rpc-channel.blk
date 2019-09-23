@@ -334,30 +334,20 @@ static int ic_initialize(void *arg)
     t_scope;
     lstr_t tls_key = t_farch_get_data(ic_fc_g, "utils/ic-key.pem");
     lstr_t tls_cert = t_farch_get_data(ic_fc_g, "utils/ic-cert.pem");
-    const SSL_METHOD *method = TLS_method();
-    long mode;
+    SB_1k(errbuf);
 
-    /* Configure a default TLS context with the IC TLS key. */
-    _G.ssl_ctx = SSL_CTX_new(method);
-    if (!_G.ssl_ctx) {
-        logger_fatal(&_G.logger, "cannot initialize IC TLS context");
-    }
-    SSL_CTX_set_ecdh_auto(_G.ssl_ctx, 1);
-    if (ssl_ctx_use_certificate_lstr(_G.ssl_ctx, tls_cert) < 0
-    ||  !(_G.certificate = ssl_ctx_convert_certificate_lstr(tls_cert)))
-    {
+    _G.certificate = ssl_ctx_convert_certificate_lstr(tls_cert);
+    if (!_G.certificate) {
         logger_fatal(&_G.logger, "cannot load IC TLS certificate");
     }
-    SSL_CTX_set_verify(_G.ssl_ctx,
-                       SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-                       ic_verify_callback);
-    if (ssl_ctx_use_privatekey_lstr(_G.ssl_ctx, tls_key) < 0) {
-        logger_fatal(&_G.logger, "cannot load IC TLS private key");
-    }
-    mode = SSL_MODE_ENABLE_PARTIAL_WRITE
-         | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER;
-    if (!(SSL_CTX_set_mode(_G.ssl_ctx, mode) & mode)) {
-        logger_fatal(&_G.logger, "cannot set openssl partial write mode");
+
+    /* Configure a default TLS context with the IC TLS key. */
+    _G.ssl_ctx = ssl_ctx_new_tls(TLS_method(), tls_key, tls_cert,
+                            SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
+                            &ic_verify_callback, &errbuf);
+    if (!_G.ssl_ctx) {
+        logger_fatal(&_G.logger, "cannot initialize IC TLS context: %*pM",
+                     SB_FMT_ARG(&errbuf));
     }
 
     /* Other module initialization. */
