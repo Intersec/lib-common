@@ -2373,6 +2373,12 @@ void httpc_cfg_tls_wipe(httpc_cfg_t *cfg)
     }
 }
 
+int httpc_cfg_tls_add_verify_file(httpc_cfg_t *cfg, lstr_t path)
+{
+    return SSL_CTX_load_verify_locations(cfg->ssl_ctx, path.s, NULL) == 1
+         ? 0 : -1;
+}
+
 httpc_cfg_t *httpc_cfg_init(httpc_cfg_t *cfg)
 {
     core__httpc_cfg__t iop_cfg;
@@ -2399,8 +2405,18 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
     if (iop_cfg->tls_on) {
         SB_1k(err);
 
+        if (!iop_cfg->tls_cert_path.s) {
+            logger_error(&_G.logger, "tls: no certificate provided");
+            return -1;
+        }
+
         if (httpc_cfg_tls_init(cfg, &err) < 0) {
             logger_error(&_G.logger, "tls: init: %*pM", SB_FMT_ARG(&err));
+            return -1;
+        }
+        if (httpc_cfg_tls_add_verify_file(cfg, iop_cfg->tls_cert_path) < 0) {
+            httpc_cfg_tls_wipe(cfg);
+            logger_error(&_G.logger, "tls: failed to load certificate");
             return -1;
         }
     }

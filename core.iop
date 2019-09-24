@@ -238,6 +238,8 @@ struct HttpcCfg {
     uint    headerSizeMax    = 64 << 10;
     /** TLS */
     bool    tlsOn            = false;
+    /** Path to trusted certificate. (mandatory with tlsOn = true) */
+    string? tlsCertPath;
 };
 
 enum IopHttpMethod {
