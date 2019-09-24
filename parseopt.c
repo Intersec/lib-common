@@ -170,7 +170,13 @@ static int get_value(popt_state_t *st, popt_t *opt, int flags)
 
               errno = 0;
               if (opt->kind == OPTION_UINT) {
-                  v = strtoull(opt_arg(st), &s, 10);
+                  lstr_t value = lstr_ltrim(LSTR(opt_arg(st)));
+
+                  if (lstr_startswithc(value, '-')) {
+                      /* -0 will return an error. */
+                      return opterror(opt, "expects a positive value", flags);
+                  }
+                  v = strtoull(value.s, &s, 10);
               } else {
                   v = strtoll(opt_arg(st), &s, 10);
               }
