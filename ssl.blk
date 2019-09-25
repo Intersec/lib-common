@@ -879,7 +879,11 @@ int ssl_ctx_use_privatekey_lstr(SSL_CTX *ctx, lstr_t key)
     int ret;
 
     bio = RETHROW_PN(BIO_new_mem_buf(key.v, key.len));
-    evp = RETHROW_PN(PEM_read_bio_PrivateKey(bio, NULL, 0, NULL));
+    evp = PEM_read_bio_PrivateKey(bio, NULL, 0, NULL);
+    if (unlikely(!evp)) {
+        BIO_free(bio);
+        return -1;
+    }
     ret = SSL_CTX_use_PrivateKey(ctx, evp);
 
     EVP_PKEY_free(evp);
