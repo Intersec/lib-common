@@ -2662,7 +2662,11 @@ static int ic_tls_handshake(el_t ev, int fd, short events, data_t priv)
     /* Handshake completed. Double check that the certificate is correct (see
      * ic_verify_callback above for more context). */
     cert = SSL_get_peer_certificate(ic->ssl);
-    if (!cert || X509_cmp(cert, _G.certificate) != 0) {
+    if (unlikely(!cert)) {
+        goto error;
+    }
+    if (unlikely(X509_cmp(cert, _G.certificate) != 0)) {
+        X509_free(cert);
         goto error;
     }
     X509_free(cert);
