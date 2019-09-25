@@ -472,12 +472,22 @@ int rsa_verif_finish(rsa_verif_t * nonnull * nonnull ctx);
 /* }}} */
 /* {{{ TLS */
 
+/** Convert a certificate from PEM to X509.
+ *
+ * The intend of this function is to check if the remote peer has an expected
+ * certificate after the TLS handshake. See iop-rpc-channel for an example.
+ *
+ * \param[in]  cert  The certificate in PEM format.
+ * \return NULL on error, the X509 certificate otherwise.
+ */
+X509 *ssl_ctx_convert_certificate_lstr(lstr_t cert);
+
 /** Load a certificate into the SSL_CTX.
  *
  * A wrapper of SSL_CTX_use_certificate_file for lstr.
  *
  * \param[in]  ctx  The SSL_CTX to enrich.
- * \param[in]  key  The certificate in PEM format.
+ * \param[in]  cert  The certificate in PEM format.
  * \return 0 on success and -1 on error.
  */
 int ssl_ctx_use_certificate_lstr(SSL_CTX *ctx, lstr_t cert);

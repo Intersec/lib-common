@@ -849,18 +849,26 @@ int rsa_verif_finish(rsa_verif_t **pctx)
 /* }}} */
 /* {{{ TLS */
 
-int ssl_ctx_use_certificate_lstr(SSL_CTX *ctx, lstr_t cert)
+X509 *ssl_ctx_convert_certificate_lstr(lstr_t cert)
 {
     BIO *bio;
     X509 *x;
+
+    bio = RETHROW_P(BIO_new_mem_buf(cert.v, cert.len));
+    x = PEM_read_bio_X509(bio, NULL, 0, NULL);
+
+    BIO_free(bio);
+    return x;
+}
+
+int ssl_ctx_use_certificate_lstr(SSL_CTX *ctx, lstr_t cert)
+{
+    X509 *x = ssl_ctx_convert_certificate_lstr(cert);
     int ret;
 
-    bio = RETHROW_PN(BIO_new_mem_buf(cert.v, cert.len));
-    x = RETHROW_PN(PEM_read_bio_X509(bio, NULL, 0, NULL));
     ret = SSL_CTX_use_certificate(ctx, x);
 
     X509_free(x);
-    BIO_free(bio);
     return ret == 1 ? 0 : -1;
 }
 
