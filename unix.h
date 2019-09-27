@@ -134,6 +134,8 @@ void unlockdir(dir_lock_t * nonnull dlock);
 int tmpfd(void);
 void devnull_dup(int fd);
 
+#ifndef __cplusplus
+
 /** Locate a command.
  *
  * Search the directories of environment variable "PATH" for an executable
@@ -146,6 +148,8 @@ void devnull_dup(int fd);
  *  otherwise.
  */
 int which(const char *nonnull cmd, char cmd_path[static PATH_MAX]);
+
+#endif
 
 /* }}} */
 /* {{{ File listing related */
