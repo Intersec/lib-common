@@ -732,16 +732,23 @@ typedef struct httpc_cfg_t {
     unsigned     header_line_max;
     unsigned     header_size_max;
 
+    SSL_CTX * nullable ssl_ctx;
+
     const object_class_t * nonnull httpc_cls;
 } httpc_cfg_t;
 
 struct core__httpc_cfg__t;
 
 httpc_cfg_t * nonnull httpc_cfg_init(httpc_cfg_t * nonnull cfg);
-void httpc_cfg_from_iop(httpc_cfg_t * nonnull cfg,
-                        const struct core__httpc_cfg__t * nonnull iop_cfg);
+__must_check__
+int httpc_cfg_from_iop(httpc_cfg_t * nonnull cfg,
+                       const struct core__httpc_cfg__t * nonnull iop_cfg);
 void httpc_cfg_wipe(httpc_cfg_t * nonnull cfg);
 DO_REFCNT(httpc_cfg_t, httpc_cfg);
+
+__must_check__
+int httpc_cfg_tls_init(httpc_cfg_t * nonnull cfg, sb_t * nonnull err);
+void httpc_cfg_tls_wipe(httpc_cfg_t * nonnull cfg);
 
 struct httpc_t;
 /** On connect error callback.
@@ -777,6 +784,8 @@ typedef void (on_connect_error_f)(const struct httpc_t * nonnull httpc,
                                                                              \
     dlist_t       query_list;                                                \
     outbuf_t      ob;                                                        \
+                                                                             \
+    SSL * nullable ssl;                                                      \
                                                                              \
     void (*nullable on_query_done)(httpc_t * nonnull,                        \
                                    const httpc_query_t * nonnull,            \
