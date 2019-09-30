@@ -2355,6 +2355,24 @@ static int (*httpc_parsers[])(httpc_t *w, pstream_t *ps) = {
 /* }}} */
 /* HTTPC {{{ */
 
+int httpc_cfg_tls_init(httpc_cfg_t *cfg, sb_t *err)
+{
+    assert (cfg->ssl_ctx == NULL);
+
+    cfg->ssl_ctx = ssl_ctx_new_tls(TLS_client_method(),
+                                   LSTR_NULL_V, LSTR_NULL_V,
+                                   SSL_VERIFY_NONE, NULL, err);
+    return cfg->ssl_ctx ? 0 : -1;
+}
+
+void httpc_cfg_tls_wipe(httpc_cfg_t *cfg)
+{
+    if (cfg->ssl_ctx) {
+        SSL_CTX_free(cfg->ssl_ctx);
+        cfg->ssl_ctx = NULL;
+    }
+}
+
 httpc_cfg_t *httpc_cfg_init(httpc_cfg_t *cfg)
 {
     core__httpc_cfg__t iop_cfg;
@@ -2363,12 +2381,13 @@ httpc_cfg_t *httpc_cfg_init(httpc_cfg_t *cfg)
 
     cfg->httpc_cls = obj_class(httpc);
     iop_init(core__httpc_cfg, &iop_cfg);
-    httpc_cfg_from_iop(cfg, &iop_cfg);
+    /* Default configuration cannot fail */
+    IGNORE(httpc_cfg_from_iop(cfg, &iop_cfg));
 
     return cfg;
 }
 
-void httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
+int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
 {
     cfg->pipeline_depth    = iop_cfg->pipeline_depth;
     cfg->noact_delay       = iop_cfg->noact_delay;
@@ -2376,10 +2395,22 @@ void httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
     cfg->on_data_threshold = iop_cfg->on_data_threshold;
     cfg->header_line_max   = iop_cfg->header_line_max;
     cfg->header_size_max   = iop_cfg->header_size_max;
+
+    if (iop_cfg->tls_on) {
+        SB_1k(err);
+
+        if (httpc_cfg_tls_init(cfg, &err) < 0) {
+            logger_error(&_G.logger, "tls: init: %*pM", SB_FMT_ARG(&err));
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 void httpc_cfg_wipe(httpc_cfg_t *cfg)
 {
+    httpc_cfg_tls_wipe(cfg);
 }
 
 httpc_pool_t *httpc_pool_init(httpc_pool_t *pool)
@@ -2589,8 +2620,13 @@ static int httpc_on_event(el_t evh, int fd, short events, data_t priv)
     }
 
     if (events & POLLIN) {
-        if ((res = sb_read(&w->ibuf, fd, 0)) < 0) {
-            goto close;
+        res = w->ssl ? ssl_sb_read(&w->ibuf, w->ssl, 0)
+                     : sb_read(&w->ibuf, fd, 0);
+        if (res < 0) {
+            if (!ERR_RW_RETRIABLE(errno)) {
+                goto close;
+            }
+            goto write;
         }
 
         ps = ps_initsb(&w->ibuf);
@@ -2618,7 +2654,9 @@ static int httpc_on_event(el_t evh, int fd, short events, data_t priv)
             goto close;
         }
     }
-    res = ob_write(&w->ob, fd);
+  write:
+    res = w->ssl ? ob_write_with(&w->ob, fd, ssl_writev, w->ssl)
+                 : ob_write(&w->ob, fd);
     if (res < 0 && !ERR_RW_RETRIABLE(errno)) {
         goto close;
     }
@@ -2651,6 +2689,30 @@ static void httpc_on_connect_error(httpc_t *w, int errnum)
     obj_delete(&w);
 }
 
+static int
+httpc_tls_handshake(el_t evh, int fd, short events, data_t priv)
+{
+    httpc_t *w = priv.ptr;
+
+    switch (ssl_do_handshake(w->ssl, evh, fd, NULL)) {
+      case SSL_HANDSHAKE_SUCCESS:
+        httpc_set_mask(w);
+        el_fd_set_hook(evh, httpc_on_event);
+        obj_vcall(w, set_ready, true);
+        break;
+      case SSL_HANDSHAKE_PENDING:
+        break;
+      case SSL_HANDSHAKE_CLOSED:
+        httpc_on_connect_error(w, errno);
+        break;
+      case SSL_HANDSHAKE_ERROR:
+        httpc_on_connect_error(w, errno);
+        return -1;
+    }
+
+    return 0;
+}
+
 static int httpc_on_connect(el_t evh, int fd, short events, data_t priv)
 {
     httpc_t *w   = priv.ptr;
@@ -2663,9 +2725,17 @@ static int httpc_on_connect(el_t evh, int fd, short events, data_t priv)
 
     res = socket_connect_status(fd);
     if (res > 0) {
-        el_fd_set_hook(evh, httpc_on_event);
-        httpc_set_mask(w);
-        obj_vcall(w, set_ready, true);
+        if (w->cfg->ssl_ctx) {
+            w->ssl = SSL_new(w->cfg->ssl_ctx);
+            assert (w->ssl);
+            SSL_set_fd(w->ssl, fd);
+            SSL_set_connect_state(w->ssl);
+            el_fd_set_hook(evh, &httpc_tls_handshake);
+        } else {
+            el_fd_set_hook(evh, httpc_on_event);
+            httpc_set_mask(w);
+            obj_vcall(w, set_ready, true);
+        }
     } else
     if (res < 0) {
         httpc_on_connect_error(w, errno);

@@ -236,6 +236,8 @@ struct HttpcCfg {
     uint    headerLineMax    = 1024;
     /** Maximum total size for headers */
     uint    headerSizeMax    = 64 << 10;
+    /** TLS */
+    bool    tlsOn            = false;
 };
 
 enum IopHttpMethod {
