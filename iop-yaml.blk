@@ -195,13 +195,22 @@ static inline void yaml_env_skipc(yaml_env_t *env)
 }
 
 static void
-yaml_env_init_data(const yaml_env_t *env, yaml_data_type_t type,
-                   yaml_pos_t pos_start, yaml_data_t *out)
+yaml_env_init_data_with_end(const yaml_env_t *env, yaml_data_type_t type,
+                            yaml_pos_t pos_start, yaml_pos_t pos_end,
+                            yaml_data_t *out)
 {
     p_clear(out, 1);
     out->type = type;
     out->pos_start = pos_start;
-    out->pos_end = yaml_env_get_pos(env);
+    out->pos_end = pos_end;
+}
+
+static void
+yaml_env_init_data(const yaml_env_t *env, yaml_data_type_t type,
+                   yaml_pos_t pos_start, yaml_data_t *out)
+{
+    yaml_env_init_data_with_end(env, type, pos_start, yaml_env_get_pos(env),
+                                out);
 }
 
 /* }}} */
@@ -331,6 +340,7 @@ static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
 {
     qv_t(yaml_data) datas;
     yaml_pos_t pos_start = yaml_env_get_pos(env);
+    yaml_pos_t pos_end = {0};
 
     mp_qv_init(env->mp, &datas, 0);
 
@@ -344,7 +354,9 @@ static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
         yaml_env_skipc(env);
 
         RETHROW(yaml_env_parse_data(env, min_indent + 1, &elem));
+        pos_end = elem.pos_end;
         qv_append(&datas, elem);
+
         yaml_env_ltrim(env);
         if (ps_done(&env->ps)) {
             break;
@@ -365,7 +377,7 @@ static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
         }
     }
 
-    yaml_env_init_data(env, YAML_DATA_SEQ, pos_start, out);
+    yaml_env_init_data_with_end(env, YAML_DATA_SEQ, pos_start, pos_end, out);
     out->seq = datas.tab;
     out->seq_len = datas.len;
     return 0;
@@ -376,6 +388,7 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
 {
     qm_t(yaml_data) fields;
     yaml_pos_t pos_start = yaml_env_get_pos(env);
+    yaml_pos_t pos_end = {0};
 
     mp_qm_init(yaml_data, env->mp, &fields, 0);
 
@@ -399,6 +412,7 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
         key = LSTR_PS_V(&ps_key);
         /* FIXME: error on collision */
         qm_add(yaml_data, &fields, &key, val);
+        pos_end = val.pos_end;
 
         yaml_env_ltrim(env);
         if (ps_done(&env->ps)) {
@@ -416,7 +430,7 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
         }
     }
 
-    yaml_env_init_data(env, YAML_DATA_OBJ, pos_start, out);
+    yaml_env_init_data_with_end(env, YAML_DATA_OBJ, pos_start, pos_end, out);
     out->obj = mp_new(env->mp, yaml_obj_t, 1);
     out->obj->fields = fields;
     return 0;
@@ -922,7 +936,7 @@ Z_GROUP_EXPORT(yaml)
         /* inner */
         key = LSTR("inner");
         field = qm_get(yaml_data, &data.obj->fields, &key);
-        Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_OBJ, 2, 8, 4, 1));
+        Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_OBJ, 2, 8, 3, 13));
         Z_ASSERT_NULL(field.obj->tag.s);
         Z_ASSERT(qm_len(yaml_data, &field.obj->fields) == 2);
 
@@ -940,7 +954,7 @@ Z_GROUP_EXPORT(yaml)
         /* inner2 */
         key = LSTR("inner2");
         field = qm_get(yaml_data, &data.obj->fields, &key);
-        Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_OBJ, 4, 9, 7, 1));
+        Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_OBJ, 4, 9, 6, 14));
         Z_ASSERT_LSTREQUAL(field.obj->tag, LSTR("tag"));
         Z_ASSERT(qm_len(yaml_data, &field.obj->fields) == 2);
 
@@ -991,7 +1005,7 @@ Z_GROUP_EXPORT(yaml)
             "- FALSE\n"
         ));
 
-        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 8, 1));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 7, 8));
         Z_ASSERT_EQ(data.seq_len, 5U);
 
         /* "a: 2" */
@@ -1002,7 +1016,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* subseq */
         elem = data.seq[1];
-        Z_HELPER_RUN(z_check_yaml_data(&elem, YAML_DATA_SEQ, 2, 3, 4, 1));
+        Z_HELPER_RUN(z_check_yaml_data(&elem, YAML_DATA_SEQ, 2, 3, 3, 7));
         Z_ASSERT_EQ(elem.seq_len, 2U);
         Z_HELPER_RUN(z_check_yaml_scalar(&elem.seq[0], YAML_SCALAR_UINT,
                                          2, 5, 2, 6));
@@ -1018,7 +1032,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* subseq */
         elem = data.seq[3];
-        Z_HELPER_RUN(z_check_yaml_data(&elem, YAML_DATA_SEQ, 6, 3, 7, 1));
+        Z_HELPER_RUN(z_check_yaml_data(&elem, YAML_DATA_SEQ, 6, 3, 6, 9));
         Z_ASSERT_EQ(elem.seq_len, 1U);
         Z_HELPER_RUN(z_check_yaml_scalar(&elem.seq[0], YAML_SCALAR_BOOL,
                                          6, 5, 6, 9));
