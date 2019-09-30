@@ -97,6 +97,7 @@
 #include <openssl/engine.h>
 #include <openssl/rsa.h>
 #include "core.h"
+#include "el.h"
 
 #define OPENSSL_VERSION_IS(op, maj1, maj2, min)                              \
     (((OPENSSL_VERSION_NUMBER >> 12) & 0xFFFFF) op (((maj1) << 16)           \
@@ -501,6 +502,27 @@ int ssl_ctx_use_certificate_lstr(SSL_CTX *ctx, lstr_t cert);
  * \return 0 on success and -1 on error.
  */
 int ssl_ctx_use_privatekey_lstr(SSL_CTX *ctx, lstr_t key);
+
+typedef enum ssl_handshake_status_t {
+    SSL_HANDSHAKE_SUCCESS,
+    SSL_HANDSHAKE_PENDING,
+    SSL_HANDSHAKE_CLOSED,
+    SSL_HANDSHAKE_ERROR,
+} ssl_handshake_status_t;
+
+/** Wrapper to SSL_do_handshake.
+ *
+ * \param[in]     ssl  The ssl context on which the handshake is done.
+ * \param[in]     ev   The fd el_t used to change its mask (POLLIN, POLLOUT).
+ *                     Nullable in the case of a blocking socket.
+ * \param[in]     fd   The fd
+ * \param[in,out] rbuf If set, this buffer is considered to have the first
+ *                     octets of the handshake. When it becomes empty, data
+ *                     are read from `fd` and the buffer is reset.
+ * \return the handshake's status
+ */
+ssl_handshake_status_t
+ssl_do_handshake(SSL *ssl, el_t nullable ev, int fd, sb_t * nullable rbuf);
 
 /** Wrapper to SSL_read that mimic read(2).
  *

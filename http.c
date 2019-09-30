@@ -1901,32 +1901,22 @@ static int
 httpd_tls_handshake(el_t evh, int fd, short events, data_t priv)
 {
     httpd_t *w = priv.ptr;
-    int ret;
 
-    ret = SSL_do_handshake(w->ssl);
-    if (ret < 0) {
-        switch (SSL_get_error(w->ssl, ret)) {
-          case SSL_ERROR_WANT_READ:
-            el_fd_set_mask(evh, POLLIN);
-            return 0;
-          case SSL_ERROR_WANT_WRITE:
-            el_fd_set_mask(evh, POLLOUT);
-            return 0;
-          default:
-            /* An error occured. */
-            obj_delete(&w);
-            return -1;
-        }
-    }
-    if (ret == 0) {
-        /* Cleanly closed with respect to the TLS protocol. */
+    switch (ssl_do_handshake(w->ssl, evh, fd, NULL)) {
+      case SSL_HANDSHAKE_SUCCESS:
+        el_fd_set_mask(evh, POLLIN);
+        el_fd_set_hook(evh, httpd_on_event);
+        break;
+      case SSL_HANDSHAKE_PENDING:
+        break;
+      case SSL_HANDSHAKE_CLOSED:
         obj_delete(&w);
-        return 0;
+        break;
+      case SSL_HANDSHAKE_ERROR:
+        obj_delete(&w);
+        return -1;
     }
 
-    /* Handshake completed. */
-    el_fd_set_mask(evh, POLLIN);
-    el_fd_set_hook(evh, httpd_on_event);
     return 0;
 }
 

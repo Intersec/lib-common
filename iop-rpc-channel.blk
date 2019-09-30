@@ -2604,74 +2604,41 @@ void ic_mark_disconnected(ichannel_t *ic)
     }
 }
 
-static void ic_change_ssl_rbio(ichannel_t *ic, int fd)
-{
-    BIO *rbio_null = SSL_get_rbio(ic->ssl);
-    BIO *rbio_next = BIO_next(rbio_null);
-
-    /* The previous read was done in our read buffer and trailing
-     * data were the beginning of the TLS handshake. Now that SSL
-     * has read these data, fall back on directly reading from the
-     * socket. */
-    if (BIO_method_type(rbio_null) == BIO_TYPE_NULL_FILTER
-    &&  BIO_method_type(rbio_next) == BIO_TYPE_MEM)
-    {
-        BIO *rbio_fd = BIO_new_fd(fd, BIO_NOCLOSE);
-
-        BIO_free(BIO_pop(rbio_null));
-        BIO_push(rbio_null, rbio_fd);
-        sb_reset(&ic->rbuf);
-    }
-}
-
 /* Blocking is assumed if ev == NULL. Returns -1 on error, 0 on success or on
  * partial reading (for non blocking sockets). */
 static int ic_tls_handshake(el_t ev, int fd, short events, data_t priv)
 {
-    X509* cert;
     ichannel_t *ic = priv.ptr;
-    int ret;
+    X509* cert;
 
-    ret = SSL_do_handshake(ic->ssl);
-    if (ret < 0) {
-        switch (SSL_get_error(ic->ssl, ret)) {
-          case SSL_ERROR_WANT_READ:
-            if (unlikely(!ev)) {
-                /* This may happen if we add a timeout on the socket. */
-                goto error;
-            }
-            ic_change_ssl_rbio(ic, fd);
-            el_fd_set_mask(ev, POLLIN);
-            return 0;
-          case SSL_ERROR_WANT_WRITE:
-            el_fd_set_mask(ev, POLLOUT);
-            return 0;
-          default:
+    switch (ssl_do_handshake(ic->ssl, ev, fd, &ic->rbuf)) {
+      case SSL_HANDSHAKE_SUCCESS:
+        /* Handshake completed. Double check that the certificate is correct
+         * (see ic_verify_callback above for more context). */
+        cert = SSL_get_peer_certificate(ic->ssl);
+        if (unlikely(!cert)) {
             goto error;
         }
-    }
-    if (ret == 0) {
-        /* Cleanly closed with respect to the TLS protocol. */
-        ic_mark_disconnected(ic);
-        return 0;
-    }
-
-    /* Handshake completed. Double check that the certificate is correct (see
-     * ic_verify_callback above for more context). */
-    cert = SSL_get_peer_certificate(ic->ssl);
-    if (unlikely(!cert)) {
-        goto error;
-    }
-    if (unlikely(X509_cmp(cert, _G.certificate) != 0)) {
+        if (unlikely(X509_cmp(cert, _G.certificate) != 0)) {
+            X509_free(cert);
+            goto error;
+        }
         X509_free(cert);
-        goto error;
-    }
-    X509_free(cert);
 
-    if (ic_mark_connected(ic, fd) < 0) {
+        if (ic_mark_connected(ic, fd) < 0) {
+            goto error;
+        }
+        assert (ic->rbuf.len == 0);
+        break;
+      case SSL_HANDSHAKE_PENDING:
+        break;
+      case SSL_HANDSHAKE_CLOSED:
+        ic_mark_disconnected(ic);
+        break;
+      case SSL_HANDSHAKE_ERROR:
         goto error;
     }
-    assert (ic->rbuf.len == 0);
+
     return 0;
 
   error:
