@@ -1,0 +1,111 @@
+IOP YAML Documentation
+----------------------
+
+This document describes the supported YAML syntax for IOP serialization/deserialization.
+
+== Description
+
+The syntax is based on https://yaml.org/spec/1.2/spec.html[YAML 1.2], but as the full spec
+is overly complex, *a lot* of simplifications have been applied, as well as a few custom
+improvements.
+
+A better way to describe the supported syntax would be that it follows the
+https://github.com/openbohemians/diet-yaml[Diet YAML] simplification, but keeps type
+syntax for IOP classes descriptions:
+
+* No declarations
+* Only scalar keys
+* Types only allowed for IOP classes
+* No anchors or references (yet, could be added in the future).
+
+== Mapping with IOP concepts
+
+=== Scalars
+
+* Booleans are written `true` or `false`.
+* Numbers can be written in many ways:
+** Decimal: `154`, `-154.56`, `+0.`
+** Octal: `0777`
+** Hexadecimal: `0xDADA`
+** Arithmetic computations: `1 + 2 << 10`
+** Binary prefixes: `500K`
+* Null can be expressed with `null` or `~`
+* As long as it does not start with `-` or contains a `:`, a string can be written as is,
+  otherwise, it must be surrounded by quotes:
+
+[source,YAML]
+----
+foo: Yes, I am a valid string
+bar: +0.5ab also me
+baz: "- I have to be escaped"
+addr: "127.0.0.1:80"
+----
+
+=== Arrays
+
+Arrays are written with every element on its own line, prefixed by a dash, with the same indentation:
+
+[source,YAML]
+----
+- name: foo
+  bar: 5
+- name: baz
+----
+
+=== Struct
+
+The fields of the struct should be written out, one of each line, with the same indentation:
+
+[source,YAML]
+----
+struct:
+  foo: 5
+  bar: aa
+----
+
+=== Class
+
+A class has the same syntax as a struct, but must be prefixed by its fullname as a type:
+
+[source,YAML]
+----
+class: !aaa.bbb.MyClass
+  foo: 5
+  bar: aa
+----
+
+=== Empty/Default value
+
+Sometimes, we simply want to indicate the presence of a field, or to use all default values:
+
+* Specify the key of a union, that has no value. In JSON, this looks like `"a": null`.
+* Specify a struct, but without specifying any value. In JSON, this looks like `"a": {}`
+
+For those cases, it is possible to use the `~` character, but also the `null` string.
+
+[source,YAML]
+----
+obj:
+  field: ~
+  union:
+    key: ~
+----
+
+== IOP YAML Grammar
+
+[source,EBNF]
+----
+yaml     = data
+data     = [ space+ ] scalar | sequence | obj
+scalar   = (nil | boolean | number | string) "\n"
+sequence = indent "-" data { "\n" ?same-indent? "-" data }
+obj      = [ "!" [a-zA-Z\.]+ ] [ space+ | "\n" ] raw-obj
+raw-obj  = indent key ":" data { "\n" ?same-indent? key ":" data }
+string   = '"' .* '"' | [^-] + 
+key      = [a-zA-Z]+
+number   = <see above>
+boolean  = "true" | "false"
+nil      = "~" | "null"
+indent   = space+
+space    = " "
+----

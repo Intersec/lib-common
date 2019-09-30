@@ -369,6 +369,7 @@ def build(ctx):
             'httptokens.c',
 
             'iop-json.blk',
+            'iop-yaml.blk',
             'iop-rpc-channel.fc',
             'iop-rpc-channel.blk',
             'iop-rpc-http-pack.c',
