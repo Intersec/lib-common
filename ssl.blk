@@ -948,6 +948,7 @@ ssl_handshake_status_t
 ssl_do_handshake(SSL *ssl, el_t ev, int fd, sb_t *rbuf)
 {
     int ret;
+    int ssl_error;
 
     ret = SSL_do_handshake(ssl);
     if (ret > 0) {
@@ -959,10 +960,13 @@ ssl_do_handshake(SSL *ssl, el_t ev, int fd, sb_t *rbuf)
         return SSL_HANDSHAKE_CLOSED;
     }
 
-    switch (SSL_get_error(ssl, ret)) {
+    errno = 0;
+    ssl_error = SSL_get_error(ssl, ret);
+    switch (ssl_error) {
       case SSL_ERROR_WANT_READ:
         if (unlikely(!ev)) {
             /* This may happen if we add a timeout on the socket. */
+            errno = ETIMEDOUT;
             return SSL_HANDSHAKE_ERROR;
         }
         if (rbuf) {
@@ -974,6 +978,7 @@ ssl_do_handshake(SSL *ssl, el_t ev, int fd, sb_t *rbuf)
         el_fd_set_mask(ev, POLLOUT);
         return SSL_HANDSHAKE_PENDING;
       default:
+        ssl_error_conv(ssl_error);
         break;
     }
 
