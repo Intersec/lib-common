@@ -234,7 +234,7 @@ static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
 
     switch (type) {
       case YAML_ERR_BAD_KEY:
-        sb_addf(&env->err, "expected key, %s", msg);
+        sb_addf(&env->err, "invalid key, %s", msg);
         break;
       case YAML_ERR_BAD_STRING:
         sb_addf(&env->err, "expected string, %s", msg);
@@ -397,6 +397,7 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
         yaml_data_t val;
         lstr_t key;
         uint32_t last_indent;
+        int32_t pos;
 
         ps_key = ps_get_span(&env->ps, &ctype_isalnum);
         if (ps_len(&ps_key) == 0) {
@@ -407,11 +408,16 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
             return yaml_env_set_err(env, YAML_ERR_BAD_KEY, "missing colon");
         }
 
+        key = LSTR_PS_V(&ps_key);
+        pos = qm_reserve(yaml_data, &fields, &key, 0);
+        if (pos & QHASH_COLLISION) {
+            return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
+                                    "key is already declared in the object");
+        }
+
         RETHROW(yaml_env_parse_data(env, min_indent + 1, &val));
 
-        key = LSTR_PS_V(&ps_key);
-        /* FIXME: error on collision */
-        qm_add(yaml_data, &fields, &key, val);
+        fields.values[pos] = val;
         pos_end = val.pos_end;
 
         yaml_env_ltrim(env);
@@ -729,11 +735,11 @@ Z_GROUP_EXPORT(yaml)
         /* wrong object continuation */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "a: 5\nb",
-            "2:2: expected key, missing colon"
+            "2:2: invalid key, missing colon"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "a: 5\n_:",
-            "2:1: expected key, only alpha-numeric characters allowed"
+            "2:1: invalid key, only alpha-numeric characters allowed"
         ));
 
         /* wrong explicit string */
@@ -787,6 +793,13 @@ Z_GROUP_EXPORT(yaml)
             "b:\n"
             "c: 3",
             "3:1: wrong indentation, missing element"
+        ));
+
+        /* wrong object */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "a: 1\n"
+            "a: 2",
+            "2:3: invalid key, key is already declared in the object"
         ));
     } Z_TEST_END;
 
