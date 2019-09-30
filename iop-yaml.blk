@@ -279,27 +279,23 @@ static int
 yaml_env_parse_tagged_obj(yaml_env_t *env, const uint32_t min_indent,
                           yaml_data_t *out)
 {
-    yaml_data_t val;
+    /* TODO: reject tags starting with anything but a letter */
+    /* a-zA-Z0-9. */
+    static const ctype_desc_t ctype_tag = { {
+        0x00000000, 0x03ff4000, 0x07fffffe, 0x07fffffe,
+        0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    } };
     yaml_pos_t pos_start = yaml_env_get_pos(env);
-    lstr_t tag;
+    pstream_t tag;
 
     assert (ps_peekc(env->ps) == '!');
     yaml_env_skipc(env);
 
-    RETHROW(yaml_env_parse_data(env, min_indent + 1, &val));
-    switch (val.type) {
-      case YAML_DATA_SEQ:
-      case YAML_DATA_OBJ:
+    tag = ps_get_span(&env->ps, &ctype_tag);
+    if (ps_len(&tag) <= 0) {
         return yaml_env_set_err(env, YAML_ERR_WRONG_DATA,
                                 "expected a string after '!'");
-      case YAML_DATA_SCALAR:
-        if (val.scalar.type != YAML_SCALAR_STRING) {
-            return yaml_env_set_err(env, YAML_ERR_WRONG_DATA,
-                                    "expected a string after '!'");
-        }
-        break;
     }
-    tag = val.scalar.s;
 
     RETHROW(yaml_env_parse_data(env, min_indent, out));
     switch (out->type) {
@@ -315,7 +311,7 @@ yaml_env_parse_tagged_obj(yaml_env_t *env, const uint32_t min_indent,
         break;
     }
 
-    out->obj->tag = tag;
+    out->obj->tag = LSTR_PS_V(&tag);
     out->pos_start = pos_start;
     return 0;
 }
@@ -734,12 +730,13 @@ Z_GROUP_EXPORT(yaml)
 
         /* wrong tag */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "!3",
-            "1:3: wrong type of data, expected a string after '!'"
+            "!-",
+            "1:2: wrong type of data, expected a string after '!'"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "!a: 3",
-            "1:6: wrong type of data, expected a string after '!'"
+            "!\"my type\"\n"
+            "a: 5",
+            "1:2: wrong type of data, expected a string after '!'"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "!tag\n"
@@ -751,11 +748,6 @@ Z_GROUP_EXPORT(yaml)
             "!tag2\n"
             "a: 2",
             "3:5: wrong object, two tags have been declared"
-        ));
-        /* FIXME: should be ok! */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "!tag1 a: 2",
-            "1:11: missing data, unexpected end of line"
         ));
 
         /* wrong list continuation */
@@ -893,6 +885,19 @@ Z_GROUP_EXPORT(yaml)
                                          1, 4, 1, 5));
         Z_ASSERT_EQ(field.scalar.u, 2UL);
 
+        /* with tag */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "!tag1 a: 2"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 1, 11));
+        Z_ASSERT_LSTREQUAL(data.obj->tag, LSTR("tag1"));
+        Z_ASSERT(qm_len(yaml_data, &data.obj->fields) == 1);
+        key = LSTR("a");
+        field = qm_get(yaml_data, &data.obj->fields, &key);
+        Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
+                                         1, 10, 1, 11));
+        Z_ASSERT_EQ(field.scalar.u, 2UL);
+
         /* imbricated objects */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
             "a: 2\n"
@@ -955,12 +960,6 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_DOUBLE,
                                          7, 4, 7, 7));
         Z_ASSERT_EQ(field.scalar.d, 1.2);
-
-        /* FIXME: should not be ok! */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
-            "!\"my type\"\n"
-            "a: 5"
-        ));
     } Z_TEST_END;
 
     /* }}} */
