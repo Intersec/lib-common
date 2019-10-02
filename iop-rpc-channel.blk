@@ -36,7 +36,6 @@ qm_k32_t(ic, ichannel_t *);
 qm_k64_t(ic_hook_ctx, ic_hook_ctx_t *);
 
 static struct {
-    mem_pool_t *mp;
     qm_t(ic)    ics;
     qm_t(ic_hook_ctx) hook_ctxs;
 
@@ -362,7 +361,6 @@ static int ic_initialize(void *arg)
     }
 
     /* Other module initialization. */
-    _G.mp = mem_fifo_pool_new("ic", 1 << 20);
     qm_init(ic, &_G.ics);
     qm_init(ic_hook_ctx, &_G.hook_ctxs);
     qv_init(&_G.traced_names);
@@ -393,7 +391,6 @@ static int ic_shutdown(void)
     SSL_CTX_free(_G.ssl_ctx);
     X509_free(_G.certificate);
     _G.certificate = NULL;
-    mem_fifo_pool_delete(&_G.mp);
     return 0;
 }
 
@@ -410,7 +407,7 @@ ic_msg_t *ic_msg_new_fd(int fd, int len)
     ic_msg_t *msg;
 
     assert (len >= 0);
-    msg = mp_new_extra(_G.mp, ic_msg_t, len);
+    msg = p_new_extra(ic_msg_t, len);
     msg->fd = fd;
     msg = ic_msg_set_priority(msg, EV_PRIORITY_NORMAL);
 
@@ -455,7 +452,7 @@ ic_msg_t *ic_msg_set_priority(ic_msg_t *msg, ev_priority_t priority)
 
 ic_msg_t *ic_msg_proxy_new(int fd, uint64_t slot, const ic__hdr__t *hdr)
 {
-    ic_msg_t *msg = mp_new_extra(_G.mp, ic_msg_t, sizeof(slot));
+    ic_msg_t *msg = p_new_extra(ic_msg_t, sizeof(slot));
 
     put_unaligned_le64(&msg->priv, slot);
     msg->fd  = fd;
@@ -481,11 +478,11 @@ void ic_msg_delete(ic_msg_t **msgp)
     }
     if (msg->dlen) {
         assert (msg->dlen >= IC_MSG_HDR_LEN);
-        mp_delete(_G.mp, &msg->data);
+        p_delete(&msg->data);
     }
 
     el_unregister(&msg->timeout_timer);
-    mp_delete(_G.mp, msgp);
+    p_delete(msgp);
 }
 
 static void
@@ -523,7 +520,7 @@ ic_hook_ctx_t *ic_hook_ctx_new(uint64_t slot, ssize_t extra)
         assert (_G.ic_hook_ctx->slot != slot);
         ic_hook_ctx_save(_G.ic_hook_ctx);
     }
-    _G.ic_hook_ctx = mp_new_extra_field(_G.mp, ic_hook_ctx_t, data, extra);
+    _G.ic_hook_ctx = p_new_extra_field(ic_hook_ctx_t, data, extra);
     _G.ic_hook_ctx->slot = slot;
     _G.ic_hook_ctx->rpc = _G.rpc;
     _G.ic_hook_ctx->post_hook = _G.post_hook;
@@ -552,7 +549,7 @@ void ic_hook_ctx_delete(ic_hook_ctx_t **pctx)
             qm_del_key(ic_hook_ctx, &_G.hook_ctxs, ctx->slot);
         }
     }
-    mp_delete(_G.mp, pctx);
+    p_delete(pctx);
 }
 
 int
@@ -2052,7 +2049,7 @@ static ichannel_t *ic_get_from_slot(uint64_t slot)
 
 void *__ic_get_buf(ic_msg_t *msg, int len)
 {
-    msg->data = mp_new_raw(_G.mp, char, IC_MSG_HDR_LEN + len);
+    msg->data = p_new_raw(char, IC_MSG_HDR_LEN + len);
     msg->dlen = IC_MSG_HDR_LEN + len;
     return (char *)msg->data + IC_MSG_HDR_LEN;
 }
@@ -2463,11 +2460,11 @@ static void ic_reply_err2(ichannel_t *ic, uint64_t slot, int err,
     }
 
     if (err_str && err_str->len) {
-        msg->data = mp_new_raw(_G.mp, char, IC_MSG_HDR_LEN + err_str->len + 1);
+        msg->data = p_new_raw(char, IC_MSG_HDR_LEN + err_str->len + 1);
         msg->dlen = IC_MSG_HDR_LEN + err_str->len + 1;
         memcpyz((char *)msg->data + IC_MSG_HDR_LEN, err_str->s, err_str->len);
     } else {
-        msg->data = mp_new_raw(_G.mp, char, IC_MSG_HDR_LEN);
+        msg->data = p_new_raw(char, IC_MSG_HDR_LEN);
         msg->dlen = IC_MSG_HDR_LEN;
     }
     ic_queue_for_reply(ic, msg);
@@ -2483,7 +2480,7 @@ static void ic_sc_do(ichannel_t *ic, int sc_op, const char * nullable payload,
 {
     if (!ic->is_closing && !ic_is_local(ic)) {
         ic_msg_t *msg = ic_msg_new(0);
-        msg->data = mp_new_raw(_G.mp, char, IC_MSG_HDR_LEN  + len);
+        msg->data = p_new_raw(char, IC_MSG_HDR_LEN  + len);
         msg->dlen = IC_MSG_HDR_LEN + len;
         msg->cmd  = IC_MSG_STREAM_CONTROL;
         msg->slot = sc_op;
