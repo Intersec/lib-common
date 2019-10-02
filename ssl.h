@@ -90,7 +90,6 @@
  *
  */
 
-#include <openssl/ssl.h>
 #include <openssl/evp.h>
 #include <openssl/aes.h>
 #include <openssl/bio.h>
@@ -466,21 +465,25 @@ int rsa_verif_finish(rsa_verif_t * nonnull * nonnull ctx);
  */
 X509 *ssl_ctx_convert_certificate_lstr(lstr_t cert);
 
-typedef int (*SSL_verify_cb)(int preverify_ok, X509_STORE_CTX *x509_ctx);
-
-/** Generic helper to create a TLS context.
+/** Load a certificate into the SSL_CTX.
  *
- * \param[in]  meth        TLS method: TLS_server_method(),
- *                         TLS_client_method() or TLS_method() for both.
- * \param[in]  key         The TLS private key (optional).
- * \param[in]  cert        The TLS certificate (optional).
- * \param[in]  verify_mode The TLS verify mode (cf man SSL_CTX_set_verify).
- * \param[in]  verify_cb   The TLS verify_cb (cf man SSL_CTX_set_verify).
- * \param[out] err         The sb that describes the error if an error occured.
- * \return a pointer on a SSL_CTX on success, NULL on error
+ * A wrapper of SSL_CTX_use_certificate_file for lstr.
+ *
+ * \param[in]  ctx  The SSL_CTX to enrich.
+ * \param[in]  cert  The certificate in PEM format.
+ * \return 0 on success and -1 on error.
  */
-SSL_CTX *ssl_ctx_new_tls(const SSL_METHOD *meth, lstr_t key, lstr_t cert,
-                         int verify_mode, SSL_verify_cb verify_cb, sb_t *err);
+int ssl_ctx_use_certificate_lstr(SSL_CTX *ctx, lstr_t cert);
+
+/** Load a private key into the SSL_CTX.
+ *
+ * A wrapper of SSL_CTX_use_PrivateKey for lstr.
+ *
+ * \param[in]  ctx  The SSL_CTX to enrich.
+ * \param[in]  key  The private key in PEM format.
+ * \return 0 on success and -1 on error.
+ */
+int ssl_ctx_use_privatekey_lstr(SSL_CTX *ctx, lstr_t key);
 
 typedef enum ssl_handshake_status_t {
     SSL_HANDSHAKE_SUCCESS,
