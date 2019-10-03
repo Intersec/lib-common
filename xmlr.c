@@ -51,7 +51,6 @@ __thread xml_reader_t xmlr_g;
 
 static __thread sb_t xmlr_err_g;
 
-#ifndef NDEBUG
 static __attribute__((format(printf, 2, 3)))
 void xmlr_debug_error(void *ctx, const char *fmt, ...)
 {
@@ -61,22 +60,19 @@ void xmlr_debug_error(void *ctx, const char *fmt, ...)
     sb_addvf(ctx, fmt, ap);
     va_end(ap);
 
+#ifndef NDEBUG
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
-}
 #endif
+}
 
 static void xmlr_initialize(void)
 {
     if (unlikely(xmlr_err_g.size == 0))
         sb_init(&xmlr_err_g);
     sb_reset(&xmlr_err_g);
-#ifndef NDEBUG
     xmlGenericError = (xmlGenericErrorFunc)xmlr_debug_error;
-#else
-    xmlGenericError = (xmlGenericErrorFunc)sb_addf;
-#endif
     xmlGenericErrorContext = &xmlr_err_g;
 }
 
