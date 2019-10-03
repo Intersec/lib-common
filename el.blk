@@ -690,14 +690,18 @@ qvector_t(ev_sigchld_assoc, ev_sigchld_assoc_t);
 
 static void el_sigchld_hook(ev_t *ev, int signo, data_t priv)
 {
+    t_scope;
     qv_t(ev_sigchld_assoc) ev_assocs;
 
-    qv_init(&ev_assocs);
+    t_qv_init(&ev_assocs, qm_len(ev_assoc, &_G.childs));
 
-    /* XXX callback inside el_child_fire may change the qm, so we cannot call
-     * it while iterating on the qm and removing elements from it.
+    /* XXX the callback called by el_child_fire or the module method
+     * at_fork_on_child_terminated may change the global qm `_G.childs`, so we
+     * cannot call them while iterating on the qm and removing elements from
+     * it.
      * We first need to list the dead child processes, and then call
-     * el_child_fire() in another loop.
+     * el_child_fire() or the module method at_fork_on_child_terminated in
+     * another loop.
      */
     qm_for_each_pos(ev_assoc, pos, &_G.childs) {
         ev_sigchld_assoc_t ev_assoc;
@@ -715,6 +719,8 @@ static void el_sigchld_hook(ev_t *ev, int signo, data_t priv)
         }
     }
 
+    t_seal();
+
     tab_for_each_ptr(ev_assoc, &ev_assocs) {
         if (likely(ev_assoc->child)) {
             el_child_fire(&ev_assoc->child);
@@ -722,8 +728,6 @@ static void el_sigchld_hook(ev_t *ev, int signo, data_t priv)
             MODULE_METHOD_RUN_INT(at_fork_on_child_terminated, ev_assoc->pid);
         }
     }
-
-    qv_wipe(&ev_assocs);
 }
 
 static void el_sigchld_register(void)
