@@ -54,8 +54,9 @@ int bindx(int sock, const sockunion_t *addrs, int cnt,
         to_close = sock = RETHROW(socket(addrs->family, type, proto));
     }
 
-    if (sock_reuseaddr(sock))
+    if (type != SOCK_DGRAM && sock_reuseaddr(sock) < 0) {
         goto error;
+    }
 
     if (fd_set_features(sock, flags))
         goto error;
