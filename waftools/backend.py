@@ -134,6 +134,7 @@ release profile.
 def declare_fpic_lib(ctx, pic_name, orig_lib):
     orig_source     = orig_lib.to_list(getattr(orig_lib, 'source',     []))
     orig_use        = orig_lib.to_list(getattr(orig_lib, 'use',        []))
+    orig_use_whole  = orig_lib.to_list(getattr(orig_lib, 'use_whole',  []))
     orig_depends_on = orig_lib.to_list(getattr(orig_lib, 'depends_on', []))
     orig_cflags     = orig_lib.to_list(getattr(orig_lib, 'cflags',     []))
     orig_includes   = orig_lib.to_list(getattr(orig_lib, 'includes',   []))
@@ -142,11 +143,12 @@ def declare_fpic_lib(ctx, pic_name, orig_lib):
     ctx.path = orig_lib.path
     lib = ctx.stlib(target=pic_name,
                     features=orig_lib.features,
-                    source=list(orig_source),
-                    cflags=list(orig_cflags),
-                    use=orig_use,
-                    depends_on=orig_depends_on,
-                    includes=orig_includes)
+                    source=orig_source[:],
+                    cflags=orig_cflags[:],
+                    use=orig_use[:],
+                    use_whole=orig_use_whole[:],
+                    depends_on=orig_depends_on[:],
+                    includes=orig_includes[:])
     ctx.path = ctx_path_bak
 
     lib.env.append_value('CFLAGS', ['-fPIC'])
