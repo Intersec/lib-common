@@ -141,3 +141,13 @@
     ...
     fun:memtod
 }
+
+# SSL
+{
+   SSL_CTX_new/RAND_DRBG_generate
+   Memcheck:Cond
+   ...
+   fun:RAND_DRBG_generate
+   ...
+   fun:SSL_CTX_new
+}
