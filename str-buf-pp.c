@@ -71,7 +71,7 @@ sb_write_table_cell(sb_t *out, const struct table_hdr_t *col, int col_size,
         return -1;
     }
 
-    if (!content.len && expect(!is_hdr)) {
+    if (!content.len) {
         content = col->empty_value;
     }
 
