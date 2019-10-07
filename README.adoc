@@ -230,6 +230,14 @@ The following environment variables can be used at the configuration phase:
     revision of the binaries that are built with this flag.
     This is ignored in release profile.
 
+`SHARED_LIBRARY_SANITIZER` (boolean)::
+    If set, the shared libraries will also be compiled with the sanitizer
+    specified by the profile.
+    You will have to use `LD_PRELOAD` or use a process that is compiled with
+    the same sanitizer to load the compiled shared libraries with this option.
+    This is only available for profiles that use sanitizers, i.e. asan or
+    tsan.
+
 == Contributing
 
 In the spirit of open source software, *everyone* is welcome to contribute to

@@ -162,10 +162,6 @@ def compile_fpic(ctx):
         features = tgen.to_list(getattr(tgen, 'features', []))
 
         if not 'cshlib' in features:
-            if 'c' in features or 'cxx' in features:
-                tgen.env.append_value('CFLAGS', ctx.env.CNOPICFLAGS)
-                tgen.env.append_value('CXXFLAGS', ctx.env.CXXNOPICFLAGS)
-                tgen.env.append_value('LDFLAGS', ctx.env.LDNOPICFLAGS)
             continue
 
         # Shared libraries must be compiled with the -fPIC compilation flag...
@@ -211,6 +207,27 @@ def compile_fpic(ctx):
         # Process the use and use_whole lists
         process_use_pic(tgen, 'use')
         process_use_pic(tgen, 'use_whole')
+
+
+def compile_sanitizer(ctx):
+    """Add sanitizers flags to C and CXX task generators.
+
+    The flags are also added to shared library task generators and fPIC task
+    generators if SHARED_LIBRARY_SANITIZER is set.
+    """
+    for tgen in ctx.get_all_task_gen():
+        features = tgen.to_list(getattr(tgen, 'features', []))
+
+        if 'c' not in features and 'cxx' not in features:
+            continue
+
+        if (not ctx.env.SHARED_LIBRARY_SANITIZER
+                and ('cshlib' in features or tgen.name.endswith('.pic'))):
+            continue
+
+        tgen.env.append_value('CFLAGS', ctx.env.SANITIZER_CFLAGS)
+        tgen.env.append_value('CXXFLAGS', ctx.env.SANITIZER_CXXFLAGS)
+        tgen.env.append_value('LDFLAGS', ctx.env.SANITIZER_LDFLAGS)
 
 
 # }}}
@@ -1343,6 +1360,7 @@ def profile_default(ctx,
                     allow_no_compress=True,
                     allow_no_double_fpic=True,
                     allow_fake_versions=True,
+                    use_sanitizer=False,
                     fortify_source='-D_FORTIFY_SOURCE=2'):
 
     # Load C/C++ compilers
@@ -1458,10 +1476,21 @@ def profile_default(ctx,
         log = 'no'
     ctx.msg('Generate fake versions in binaries', log)
 
+    # Use sanitizer for shared libraries?
+    ctx.env.USE_SANITIZER = use_sanitizer
+    if use_sanitizer and ctx.get_env_bool('SHARED_LIBRARY_SANITIZER'):
+        ctx.env.SHARED_LIBRARY_SANITIZER = True
+        log = 'yes'
+    else:
+        ctx.env.SHARED_LIBRARY_SANITIZER = False
+        log = 'no'
+    ctx.msg('Use sanitizer for shared libraries', log)
 
-def profile_debug(ctx, allow_no_double_fpic=True):
+
+def profile_debug(ctx, allow_no_double_fpic=True, use_sanitizer=False):
     profile_default(ctx, fortify_source=None,
-                    allow_no_double_fpic=allow_no_double_fpic)
+                    allow_no_double_fpic=allow_no_double_fpic,
+                    use_sanitizer=use_sanitizer)
 
     pattern = re.compile("^-O[0-9]$")
     ctx.env.CFLAGS = [f for f in ctx.env.CFLAGS if not pattern.match(f)]
@@ -1488,26 +1517,26 @@ def profile_asan(ctx):
     Options.options.check_c_compiler = 'clang'
     Options.options.check_cxx_compiler = 'clang++'
 
-    profile_debug(ctx, allow_no_double_fpic=False)
+    profile_debug(ctx, allow_no_double_fpic=False, use_sanitizer=True)
 
     ctx.env.LDFLAGS += ['-lstdc++']
 
     asan_flags = ['-fsanitize=address']
-    ctx.env.CNOPICFLAGS = asan_flags
-    ctx.env.CXXNOPICFLAGS = asan_flags
-    ctx.env.LDNOPICFLAGS = asan_flags
+    ctx.env.SANITIZER_CFLAGS = asan_flags
+    ctx.env.SANITIZER_CXXFLAGS = asan_flags
+    ctx.env.SANITIZER_LDFLAGS = asan_flags
 
 
 def profile_tsan(ctx):
     Options.options.check_c_compiler = 'clang'
     Options.options.check_cxx_compiler = 'clang++'
 
-    profile_debug(ctx, allow_no_double_fpic=False)
+    profile_debug(ctx, allow_no_double_fpic=False, use_sanitizer=True)
 
     tsan_flags = ['-fsanitize=thread']
-    ctx.env.CNOPICFLAGS = tsan_flags
-    ctx.env.CXXNOPICFLAGS = tsan_flags
-    ctx.env.LDNOPICFLAGS = tsan_flags
+    ctx.env.SANITIZER_CFLAGS = tsan_flags
+    ctx.env.SANITIZER_CXXFLAGS = tsan_flags
+    ctx.env.SANITIZER_LDFLAGS = tsan_flags
 
 
 def profile_mem_bench(ctx):
@@ -1608,6 +1637,8 @@ def build(ctx):
         ctx.add_pre_fun(filter_out_zchk)
     if ctx.env.DO_DOUBLE_FPIC:
         ctx.add_pre_fun(compile_fpic)
+    if ctx.env.USE_SANITIZER:
+        ctx.add_pre_fun(compile_sanitizer)
     ctx.add_pre_fun(gen_tags)
     ctx.add_pre_fun(old_gen_files_detect)
     ctx.add_pre_fun(coverage_start_cmd)
