@@ -144,9 +144,9 @@ static const char *yaml_scalar_get_type(const yaml_scalar_t *scalar)
       case YAML_SCALAR_DOUBLE:
         return "a double value";
       case YAML_SCALAR_UINT:
-        return "a unsigned integer value";
+        return "an unsigned integer value";
       case YAML_SCALAR_INT:
-        return "a integer value";
+        return "an integer value";
       case YAML_SCALAR_BOOL:
         return "a boolean value";
       case YAML_SCALAR_NIL:
@@ -838,8 +838,8 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
         }
         /* FALLTHROUGH */
       case YAML_DATA_SEQ:
-        sb_setf(&env->err.buf, "cannot unpack %s into a struct of type %pL",
-                yaml_data_get_type(data), &st->fullname);
+        sb_setf(&env->err.buf, "cannot unpack %s into a struct",
+                yaml_data_get_type(data));
         goto error;
       case YAML_DATA_OBJ:
         break;
@@ -879,8 +879,7 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
         fdesc = &st->fields[i];
         if (iop_skip_absent_field_desc(env->mp, out, st, fdesc) < 0) {
-            sb_setf(&env->err.buf, "missing field `%pL` for object of type "
-                    "`%pL`", &fdesc->name, &st->fullname);
+            sb_setf(&env->err.buf, "missing field `%pL`", &fdesc->name);
             goto error;
         }
     }
@@ -894,15 +893,14 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     return -1;
 }
 
-static int yaml_throw_type_mismatch(yunpack_env_t * nonnull env,
-                                    const yaml_data_t * nonnull data,
-                                    const iop_field_t * nonnull fdesc)
+static void yaml_set_type_mismatch_err(yunpack_env_t * nonnull env,
+                                       const yaml_data_t * nonnull data,
+                                       const iop_field_t * nonnull fdesc)
 {
     sb_setf(&env->err.buf, "cannot set %s in a field of type %s",
             yaml_data_get_type(data),
             iop_type_get_string_desc(fdesc->type));
     env->err.data = data;
-    return -1;
 }
 
 /* }}} */
@@ -956,7 +954,10 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
     }
 
     if (fdesc->type == IOP_T_STRUCT) {
-        return yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc, out);
+        if (yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc, out) < 0)
+        {
+            goto err;
+        }
     }
 
     switch (data->type) {
@@ -965,13 +966,14 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
           case YUNPACK_OK:
             break;
           case YUNPACK_TYPE_MISMATCH:
-            return yaml_throw_type_mismatch(env, data, fdesc);
+            yaml_set_type_mismatch_err(env, data, fdesc);
+            goto err;
           case YUNPACK_OOB:
             sb_setf(&env->err.buf,
                     "the value is out of range for the field of type %s",
                     iop_type_get_string_desc(fdesc->type));
             env->err.data = data;
-            return -1;
+            goto err;
           default:
             assert (false);
             return -1;
@@ -980,10 +982,13 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
       case YAML_DATA_OBJ:
         /* should have been covered by test on IOP_T_STRUCT earlier */
-        return yaml_throw_type_mismatch(env, data, fdesc);
+        yaml_set_type_mismatch_err(env, data, fdesc);
+        goto err;
 
       case YAML_DATA_SEQ:
-        RETHROW(yaml_seq_to_iop_field(env, data, st_desc, fdesc, out));
+        if (yaml_seq_to_iop_field(env, data, st_desc, fdesc, out) < 0) {
+            goto err;
+        }
         break;
 
       default:
@@ -998,6 +1003,10 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
                  YAML_POS_ARG(data->pos_end), &fdesc->name,
                  &st_desc->fullname);
     return 0;
+
+  err:
+    sb_prependf(&env->err.buf, "cannot set field `%pL`: ", &fdesc->name);
+    return -1;
 }
 
 static void yaml_env_init_from_ps(yaml_env_t *env, pstream_t ps)
@@ -1007,6 +1016,22 @@ static void yaml_env_init_from_ps(yaml_env_t *env, pstream_t ps)
     /* -1 so that the computation of the column number works for the first
      * line */
     env->pos_newline = ps.s - 1;
+}
+
+static void yunpack_err_pretty_print(const yunpack_error_t *err,
+                                     const iop_struct_t * nonnull st,
+                                     sb_t *out)
+{
+    /* TODO: do a pretty print of the actual YAML data, for example:
+     *
+     * <filename>:<line_nb>:<col_nb>
+     *     c: string
+     *        ^^^^^^
+     * cannot set field c: cannot set a string value in a field of type int
+     */
+    sb_setf(out, YAML_POS_FMT": cannot unpack YAML as object of type "
+            "`%pL`: %pL", YAML_POS_ARG(err->data->pos_start), &st->fullname,
+            &err->buf);
 }
 
 int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
@@ -1031,7 +1056,7 @@ int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
     unpack_env.mp = t_pool();
     unpack_env.err.buf = err;
     if (yaml_data_to_typed_struct(&unpack_env, &data, st, out) < 0) {
-        sb_setsb(out_err, &unpack_env.err.buf);
+        yunpack_err_pretty_print(&unpack_env.err, st, out_err);
         return -1;
     }
 
