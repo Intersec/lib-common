@@ -115,6 +115,26 @@ iop_yaml_test_unpack_error(const iop_struct_t *st, const char *yaml,
     Z_HELPER_END;
 }
 
+static int
+iop_yaml_test_unpack(const iop_struct_t *st, const char *yaml)
+{
+    t_scope;
+    pstream_t ps;
+    void *res = NULL;
+    int ret;
+    SB_1k(err);
+    SB_1k(packed);
+
+    ps = ps_initstr(yaml);
+    ret = t_iop_yunpack_ptr_ps(&ps, st, &res, &err);
+    Z_ASSERT_N(ret, "YAML unpacking error: %pL", &err);
+
+    Z_HELPER_RUN(t_z_yaml_pack_struct(st, res, 0, "pack", &packed));
+    Z_ASSERT_STREQUAL(yaml, packed.data);
+
+    Z_HELPER_END;
+}
+
 static int iop_yaml_test_pack(const iop_struct_t *st, const void *value,
                               unsigned flags, bool test_unpack,
                               bool must_be_equal, const char *expected)
@@ -559,6 +579,47 @@ Z_GROUP_EXPORT(iop_yaml)
 
 #undef ERR_COMMON
 #undef TST_ERROR
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(unpack, "test IOP YAML unpacking") { /* {{{ */
+#define TST(_st, _yaml)                                                      \
+        Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml)))
+
+        TST(&tstiop__my_struct_a__s,
+            "a: -1\n"
+            "b: 2\n"
+            "cOfMyStructA: -3\n"
+            "d: 4\n"
+            "e: -5\n"
+            "f: 6\n"
+            "g: -7\n"
+            "h: 8\n"
+            "htab:\n"
+            "  - 9\n"
+            "  - 10\n"
+            "i: YmxvYg==\n"
+            "j: foo\n"
+            "xmlField: <b><bar /><foobar attr=\"value\">baz</foobar></b>\n"
+            "k: B\n"
+            "l:\n"
+            "  ua: 11\n"
+            "lr:\n"
+            "  ub: 12\n"
+            "cls2: !tstiop.MyClass3\n"
+            "  int1: -13\n"
+            "  int2: -14\n"
+            "  int3: 15\n"
+            "  bool1: true\n"
+            "m: 1.5\n"
+            "n: false\n"
+            "p: 16\n"
+            "q: 17\n"
+            "r: 18\n"
+            "s: 19\n"
+            "t: 20"
+        );
+
+#undef TST
     } Z_TEST_END;
     /* }}} */
 
