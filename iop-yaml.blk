@@ -629,6 +629,7 @@ typedef struct yunpack_env_t {
  * backward-compatibility */
 
 typedef enum yunpack_res_t {
+    YUNPACK_INVALID_ENUM_VAL = -3,
     YUNPACK_TYPE_MISMATCH = -2,
     YUNPACK_OOB = -1,
     YUNPACK_OK = 0,
@@ -668,6 +669,19 @@ yaml_string_to_iop_field(const lstr_t str, const iop_field_t * nonnull fdesc,
       case IOP_T_DATA:
         *(lstr_t *)out = str;
         return YUNPACK_OK;
+
+      case IOP_T_ENUM: {
+        bool found;
+        int i;
+
+        i = iop_enum_from_lstr_desc(fdesc->u1.en_desc, str, &found);
+        if (!found) {
+            return YUNPACK_INVALID_ENUM_VAL;
+        }
+        *(int32_t *)out = i;
+        return 0;
+      }
+
       default:
         return YUNPACK_TYPE_MISMATCH;
     }
@@ -1015,6 +1029,12 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
         switch (yaml_scalar_to_iop_field(env, &data->scalar, fdesc, out)) {
           case YUNPACK_OK:
             break;
+          case YUNPACK_INVALID_ENUM_VAL:
+            sb_setf(&env->err.buf,
+                    "the value is not valid for the enum `%pL`",
+                    &fdesc->u1.en_desc->name);
+            env->err.data = data;
+            goto err;
           case YUNPACK_TYPE_MISMATCH:
             yaml_set_type_mismatch_err(env, data, fdesc);
             goto err;
