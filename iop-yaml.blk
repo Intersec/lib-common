@@ -814,7 +814,7 @@ yaml_scalar_to_iop_field(const yunpack_env_t * nonnull env,
 }
 
 /* }}} */
-/* {{{ Yaml obj to iop field */
+/* {{{ Yaml data to union */
 
 static int
 yaml_data_to_iop_field(yunpack_env_t * nonnull env,
@@ -824,12 +824,63 @@ yaml_data_to_iop_field(yunpack_env_t * nonnull env,
                        void * nonnull out);
 
 static int
+yaml_data_to_union(yunpack_env_t * nonnull env,
+                   const yaml_data_t * nonnull data,
+                   const iop_struct_t * nonnull st_desc, void * nonnull out)
+{
+    if (data->type != YAML_DATA_OBJ) {
+        sb_setf(&env->err.buf, "cannot unpack %s into a union",
+                yaml_data_get_type(data));
+        goto error;
+    }
+
+    if (data->obj->tag.s) {
+        sb_setf(&env->err.buf, "specifying a tag is not allowed");
+        goto error;
+    }
+
+    if (qm_len(yaml_data, &data->obj->fields) != 1) {
+        sb_setf(&env->err.buf, "a single key must be specified");
+        goto error;
+    }
+
+    qm_for_each_key_value_p(yaml_data, key, val, &data->obj->fields) {
+        const iop_field_t *field_desc = NULL;
+
+        iop_field_find_by_name(st_desc, key, NULL, &field_desc);
+        if (!field_desc) {
+            sb_setf(&env->err.buf, "unknown field `%pL`", &key);
+            goto error;
+        }
+
+        iop_union_set_tag(st_desc, field_desc->tag, out);
+        RETHROW(yaml_data_to_iop_field(env, val, st_desc, field_desc,
+                                       (char *)out + field_desc->data_offs));
+    }
+
+    return 0;
+
+  error:
+    sb_prependf(&env->err.buf, "cannot unpack YAML as a `%pL` IOP union: ",
+                &st_desc->fullname);
+    env->err.data = data;
+    return -1;
+}
+
+/* }}} */
+/* {{{ Yaml obj to iop field */
+
+static int
 yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
                           const yaml_data_t * nonnull data,
                           const iop_struct_t * nonnull st,
                           void * nonnull out)
 {
     byte *seen = p_alloca(byte, BITS_TO_ARRAY_LEN(byte, st->fields_len));
+
+    if (st->is_union) {
+        return yaml_data_to_union(env, data, st, out);
+    }
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
@@ -851,11 +902,9 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
     qm_for_each_key_value_p(yaml_data, key, val, &data->obj->fields) {
         int ifield;
-        const iop_struct_t *field_st_desc = NULL;
         const iop_field_t *field_desc = NULL;
 
-        ifield = iop_field_find_by_name(st, key, &field_st_desc,
-                                        &field_desc);
+        ifield = iop_field_find_by_name(st, key, NULL, &field_desc);
         if (!field_desc) {
             sb_setf(&env->err.buf, "unknown field `%pL`", &key);
             goto error;
@@ -953,11 +1002,12 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
         out = iop_field_set_present(env->mp, fdesc, out);
     }
 
-    if (fdesc->type == IOP_T_STRUCT) {
+    if (fdesc->type == IOP_T_STRUCT || fdesc->type == IOP_T_UNION) {
         if (yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc, out) < 0)
         {
             goto err;
         }
+        return 0;
     }
 
     switch (data->type) {

@@ -360,6 +360,11 @@ Z_GROUP_EXPORT(iop_yaml)
         TST_ERROR("s: a: 42",
                   "1:4: "ERR_COMMON": cannot set field `s`: "
                   "cannot set an object in a field of type string");
+        /* scalar -> union */
+        TST_ERROR("un: true",
+                  "1:5: "ERR_COMMON": cannot set field `un`: "
+                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
+                  "cannot unpack a boolean value into a union");
 
         /* --- OOB --- */
 
@@ -416,11 +421,33 @@ Z_GROUP_EXPORT(iop_yaml)
                   "1:5: "ERR_COMMON": cannot set field `st`: "
                   "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
                   "unknown field `z`");
+
         /* missing field in struct */
         TST_ERROR("st: i: 42",
                   "1:5: "ERR_COMMON": cannot set field `st`: "
                   "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
                   "missing field `s`");
+
+        /* --- union errors --- */
+
+        /* use of tag */
+        TST_ERROR("un: !tstiop.TestUnion i: 42",
+                  "1:5: "ERR_COMMON": cannot set field `un`: "
+                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
+                  "specifying a tag is not allowed");
+
+        /* multiple keys */
+        TST_ERROR("un: i: 42\n"
+                  "    s: foo",
+                  "1:5: "ERR_COMMON": cannot set field `un`: "
+                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
+                  "a single key must be specified");
+
+        /* wrong keys */
+        TST_ERROR("un: a: 42",
+                  "1:5: "ERR_COMMON": cannot set field `un`: "
+                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
+                  "unknown field `a`");
 
 #undef ERR_COMMON
 #undef TST_ERROR
