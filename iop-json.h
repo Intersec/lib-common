@@ -600,5 +600,30 @@ struct iop_struct_value {
                           IOP_JPACK_NO_WHITESPACES | IOP_JPACK_NO_TRAILING_EOL)
 
 /* }}} */
+/* {{{ Private */
+
+/* Packing helpers */
+
+/* Get a pointer to the index'th value for the field.
+ * To be used in conjunction with iop_json_get_n_and_ptr.
+ */
+const void * nonnull
+iop_json_get_struct_field_value(const iop_field_t * nonnull fdesc,
+                                const void * nonnull ptr, int index);
+
+/* Get details about the packed value.
+ *
+ * If the field is not set, is_skipped is set to true.
+ * If the field is an array, n is set to the number of fields, and value
+ * is set to the first element.
+ * Otherwise, n is set to 1 and value to the element.
+ */
+const void * nullable
+iop_json_get_n_and_ptr(const iop_struct_t * nonnull desc, unsigned flags,
+                       const iop_field_t * nonnull fdesc,
+                       const void * nonnull value, int * nonnull n,
+                       bool * nonnull is_skipped);
+
+/* }}} */
 
 #endif

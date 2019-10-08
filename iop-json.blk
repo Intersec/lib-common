@@ -2101,8 +2101,8 @@ typedef struct jpack_file_ctx_t {
     qm_t(iop_jpack_subfile_paths) subfiles_paths;
 } jpack_file_ctx_t;
 
-static const void *get_struct_field_value(const iop_field_t *fdesc,
-                                          const void *ptr, int index)
+const void *iop_json_get_struct_field_value(const iop_field_t *fdesc,
+                                            const void *ptr, int index)
 {
     const void *v = &IOP_FIELD(const char, ptr, index * fdesc->size);
 
@@ -2115,11 +2115,6 @@ static const void *get_struct_field_value(const iop_field_t *fdesc,
     return v;
 }
 
-static const void *
-get_n_and_ptr(const iop_struct_t *desc, unsigned flags,
-              const iop_field_t *fdesc, const void *value, int *n,
-              bool *is_skipped);
-
 static bool struct_is_empty(const iop_struct_t *desc, const void *value,
                             unsigned flags)
 {
@@ -2130,7 +2125,7 @@ static bool struct_is_empty(const iop_struct_t *desc, const void *value,
         int n;
         bool is_skipped = false;
 
-        get_n_and_ptr(desc, flags, fdesc, value, &n, &is_skipped);
+        iop_json_get_n_and_ptr(desc, flags, fdesc, value, &n, &is_skipped);
         if (!is_skipped) {
             return false;
         }
@@ -2162,10 +2157,10 @@ static bool class_struct_is_empty(const iop_struct_t *desc, const void *value,
     return true;
 }
 
-static const void *
-get_n_and_ptr(const iop_struct_t *desc, unsigned flags,
-              const iop_field_t *fdesc, const void *value, int *n,
-              bool *is_skipped)
+const void *
+iop_json_get_n_and_ptr(const iop_struct_t *desc, unsigned flags,
+                       const iop_field_t *fdesc, const void *value, int *n,
+                       bool *is_skipped)
 {
     bool repeated = fdesc->repeat == IOP_R_REPEATED;
     const void *ptr;
@@ -2225,7 +2220,7 @@ get_n_and_ptr(const iop_struct_t *desc, unsigned flags,
     &&  fdesc->type == IOP_T_STRUCT && fdesc->repeat == IOP_R_REQUIRED
     &&  !desc->is_union)
     {
-        const void *v = get_struct_field_value(fdesc, ptr, 0);
+        const void *v = iop_json_get_struct_field_value(fdesc, ptr, 0);
 
         *is_skipped = class_struct_is_empty(fdesc->u1.st_desc, v, flags);
     }
@@ -2688,7 +2683,8 @@ static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
         int n;
         bool is_skipped = false;
 
-        ptr = get_n_and_ptr(desc, flags, fdesc, value, &n, &is_skipped);
+        ptr = iop_json_get_n_and_ptr(desc, flags, fdesc, value, &n,
+                                     &is_skipped);
         if (is_skipped) {
             continue;
         }
@@ -2764,7 +2760,7 @@ static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
 
               case IOP_T_UNION:
               case IOP_T_STRUCT:
-                v = get_struct_field_value(fdesc, ptr, j);
+                v = iop_json_get_struct_field_value(fdesc, ptr, j);
                 tmp_res = write_field(fdesc, v, writecb, priv, flags,
                                       file_ctx, ^int (void) {
                     /* Write the field inline. */
