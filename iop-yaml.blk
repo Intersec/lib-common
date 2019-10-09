@@ -1088,6 +1088,10 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
     }
 
     if (fdesc->type == IOP_T_STRUCT || fdesc->type == IOP_T_UNION) {
+        if (iop_field_is_reference(fdesc)) {
+           /* reference fields must be dereferenced */
+            out = iop_field_ptr_alloc(env->mp, fdesc, out);
+        }
         if (yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc, out) < 0)
         {
             goto err;
