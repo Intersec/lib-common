@@ -1449,7 +1449,8 @@ int qps_unlzo_data(qps_t *qps, const void *data, size_t datasz,
  * Note that it will qps_map_unlink() an map that looks empty. Be careful,
  * this can be a destructive operation
  */
-static int qps_load_meta(qps_t *qps, sb_t *out, bool ro)
+static int qps_load_meta(qps_t *qps, bool ro, bool load_whole_spool,
+                         sb_t *out)
 {
     t_scope;
     struct qps_meta *meta;
@@ -1479,7 +1480,7 @@ static int qps_load_meta(qps_t *qps, sb_t *out, bool ro)
         }
     }
 
-    if (meta->osize == 0) {
+    if (meta->osize == 0 || !load_whole_spool) {
         goto ok_unmap;
     }
 
@@ -2467,6 +2468,13 @@ static int qps_lock_snapshot(qps_t *qps, dir_lock_t *dlock)
  *   name of the qps spool; is used to create the QPS loggers (so must be
  *   compatible with logger names, and be unique).
  *
+ * \param[in]  load_whole_spool
+ *   If false, only do the minimum to load and return the metadata of the QPS
+ *   store. In particular, do not map all pages.
+ *   WARNING: Setting this parameter to false leaves the returned QPS object
+ *   in an invalid state. *Do not* do this unless you immediately close the
+ *   qps object afterwards.
+ *
  * \param[in]  priv
  *   a sb_t to hold the private metadata serialized along the QPS. May be NULL
  *   in which case the metadata are ignored.
@@ -2475,7 +2483,10 @@ static int qps_lock_snapshot(qps_t *qps, dir_lock_t *dlock)
  *   - NULL if it failed, e_error is used to log why it failed
  *   - a pointer to the created qps object.
  */
-qps_t *qps_open(const char *path, const char *name, sb_t *priv)
+/* TODO: create a new public function to get the private metadata without
+ * opening the spool. */
+qps_t *_qps_open(const char *path, const char *name, bool load_whole_spool,
+                 sb_t *priv)
 {
     dir_lock_t  snapshot_lock;
     struct stat st;
@@ -2511,11 +2522,13 @@ qps_t *qps_open(const char *path, const char *name, sb_t *priv)
         return qps;
     }
 
-    if (qps_load_meta(qps, priv, false)) {
+    if (qps_load_meta(qps, false, load_whole_spool, priv)) {
         goto out_close;
     }
     logger_trace(&qps->logger, 1, "qps_open() = %p", qps);
-    qps_dir_cleanup(qps, qps->generation - 2);
+    if (load_whole_spool) {
+        qps_dir_cleanup(qps, qps->generation - 2);
+    }
     return qps;
 
   out_close:
@@ -2542,8 +2555,9 @@ int __qps_check_consistency(const char *path, const char *name)
         goto out_close;
     }
 
-    if ((res = qps_load_meta(qps, NULL, true)))
+    if ((res = qps_load_meta(qps, true, true, NULL))) {
         goto out_close;
+    }
     logger_trace(&qps->logger, 1, "__qps_check_consistency() = %p", qps);
 
   out_close:
