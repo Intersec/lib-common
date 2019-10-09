@@ -456,6 +456,13 @@ Z_GROUP_EXPORT(iop_yaml)
                   "1:4: "ERR_COMMON": cannot set field `e`: "
                   "the value is not valid for the enum `TestEnum`");
 
+        /* --- blob errors --- */
+
+        /* invalid b64 value */
+        TST_ERROR("data: D",
+                  "1:7: "ERR_COMMON": cannot set field `data`: "
+                  "the value must be encoded in base64");
+
         /* --- class errors --- */
 
         /* abstract class */

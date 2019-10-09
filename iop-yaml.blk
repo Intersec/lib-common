@@ -629,6 +629,7 @@ typedef struct yunpack_env_t {
  * backward-compatibility */
 
 typedef enum yunpack_res_t {
+    YUNPACK_INVALID_B64_VAL = -4,
     YUNPACK_INVALID_ENUM_VAL = -3,
     YUNPACK_TYPE_MISMATCH = -2,
     YUNPACK_OOB = -1,
@@ -660,15 +661,32 @@ yaml_nil_to_iop_field(const iop_field_t * nonnull fdesc, void * nonnull out)
 }
 
 static yunpack_res_t
-yaml_string_to_iop_field(const lstr_t str, const iop_field_t * nonnull fdesc,
+yaml_string_to_iop_field(mem_pool_t *mp, const lstr_t str,
+                         const iop_field_t * nonnull fdesc,
                          void * nonnull out)
 {
     switch (fdesc->type) {
       case IOP_T_STRING:
       case IOP_T_XML:
-      case IOP_T_DATA:
-        *(lstr_t *)out = str;
+        *(lstr_t *)out = mp_lstr_dup(mp, str);
         return YUNPACK_OK;
+
+      case IOP_T_DATA: {
+        sb_t  sb;
+        /* TODO: factorize this with iop-json, iop-xml, etc */
+        int   blen = DIV_ROUND_UP(str.len * 3, 4);
+        char *buf  = mp_new_raw(mp, char, blen + 1);
+        lstr_t *data = out;
+
+        sb_init_full(&sb, buf, 0, blen + 1, &mem_pool_static);
+        if (sb_add_lstr_unb64(&sb, str) < 0) {
+            mp_delete(mp, &buf);
+            return YUNPACK_INVALID_B64_VAL;
+        }
+        data->data = buf;
+        data->len  = sb.len;
+        return YUNPACK_OK;
+      }
 
       case IOP_T_ENUM: {
         bool found;
@@ -812,7 +830,7 @@ yaml_scalar_to_iop_field(const yunpack_env_t * nonnull env,
       case YAML_SCALAR_NIL:
         return yaml_nil_to_iop_field(fdesc, out);
       case YAML_SCALAR_STRING:
-        return yaml_string_to_iop_field(scalar->s, fdesc, out);
+        return yaml_string_to_iop_field(env->mp, scalar->s, fdesc, out);
       case YAML_SCALAR_DOUBLE:
         return yaml_double_to_iop_field(scalar->d, fdesc, out);
       case YAML_SCALAR_UINT:
@@ -1104,6 +1122,10 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
         switch (yaml_scalar_to_iop_field(env, &data->scalar, fdesc, out)) {
           case YUNPACK_OK:
             break;
+          case YUNPACK_INVALID_B64_VAL:
+            sb_setf(&env->err.buf, "the value must be encoded in base64");
+            env->err.data = data;
+            goto err;
           case YUNPACK_INVALID_ENUM_VAL:
             sb_setf(&env->err.buf,
                     "the value is not valid for the enum `%pL`",
