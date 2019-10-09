@@ -233,6 +233,49 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef TST_FLAGS
     } Z_TEST_END;
     /* }}} */
+    Z_TEST(pack_string, "test IOP YAML string packing") { /* {{{ */
+        tstiop__my_union_a__t obj;
+
+        obj = IOP_UNION(tstiop__my_union_a, us, LSTR(""));
+
+#define TST(str, _exp)                                                       \
+        do {                                                                 \
+            obj.us = LSTR(str);                                              \
+            Z_HELPER_RUN(iop_yaml_test_pack(&tstiop__my_union_a__s, &obj, 0, \
+                                            true, true, (_exp)));            \
+        } while(0)
+
+        /* test cases when packing surrounds the string with quotes */
+
+        /* for empty string */
+        TST("", "us: \"\"");
+
+        /* when starting with -, '&', '*' or '!' */
+        TST("- muda", "us: \"- muda\"");
+        TST("mu - da", "us: mu - da");
+        TST("&muda", "us: \"&muda\"");
+        TST("mu&da", "us: mu&da");
+        TST("*muda", "us: \"*muda\"");
+        TST("mu*da", "us: mu*da");
+        TST("!muda", "us: \"!muda\"");
+        TST("mu!da", "us: mu!da");
+
+        /* when containing ':' or '#' */
+        TST(":muda", "us: \":muda\"");
+        TST(": muda", "us: \": muda\"");
+        TST("mu:da", "us: \"mu:da\"");
+        TST("mu: da", "us: \"mu: da\"");
+        TST("#muda", "us: \"#muda\"");
+        TST("# muda", "us: \"# muda\"");
+        TST("mu#da", "us: \"mu#da\"");
+        TST("mu# da", "us: \"mu# da\"");
+
+        /* FIXME: escaping of ", unicode chars and \n, etc */
+        TST("mu\"da", "us: mu\"da");
+
+#undef TST
+    } Z_TEST_END;
+    /* }}} */
     Z_TEST(empty_struct_pack_flags, /* {{{ */
            "test IOP YAML (un)packer flags on empty struct")
     {

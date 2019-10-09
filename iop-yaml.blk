@@ -1333,32 +1333,57 @@ static int write_string(lstr_t val, iop_type_t type,
             WRITE(sb.data, sb.len);
         }
     } else {
-        pstream_t ps = ps_initlstr(&val);
+        /* '!', '&', '*', '-' and '"'. Technically, '-' is only forbidden if
+         * followed by a space, but it is simpler that way. */
+        static ctype_desc_t const yaml_invalid_raw_string_start = { {
+            0x00000000, 0x00002446, 0x00000000, 0x00000000,
+            0x00000000, 0x00000000, 0x00000000, 0x00000000,
+        } };
+        /* printable ascii characters minus ':' and '#'. Also should be
+         * followed by space to be forbidden, but simpler that way. */
+        static ctype_desc_t const yaml_raw_string_contains = { {
+            0x00000000, 0xfbfffff7, 0xffffffff, 0xffffffff,
+            0x00000000, 0x00000000, 0x00000000, 0x00000000,
+        } };
 
-        while (!ps_done(&ps)) {
-            char ibuf[IBUF_LEN];
-            /* r:32-127 -s:'\\"' */
-            static ctype_desc_t const json_safe_chars = { {
-                0x00000000, 0xfffffffb, 0xefffffff, 0xffffffff,
-                    0x00000000, 0x00000000, 0x00000000, 0x00000000,
-            } };
+        if (val.len == 0) {
+            PUTS("\"\"");
+        } else
+        if (ctype_desc_contains(&yaml_invalid_raw_string_start, val.s[0])
+        ||  !lstr_match_ctype(val, &yaml_raw_string_contains))
+        {
+            pstream_t ps = ps_initlstr(&val);
 
-            const uint8_t *p = ps.b;
-            size_t nbchars;
-            int c;
+            PUTS("\"");
+            /* FIXME: duplicated from iop-json.h */
+            while (!ps_done(&ps)) {
+                char ibuf[IBUF_LEN];
+                /* r:32-127 -s:'\\"' */
+                static ctype_desc_t const json_safe_chars = { {
+                    0x00000000, 0xfffffffb, 0xefffffff, 0xffffffff,
+                        0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                } };
 
-            nbchars = ps_skip_span(&ps, &json_safe_chars);
-            WRITE(p, nbchars);
+                const uint8_t *p = ps.b;
+                size_t nbchars;
+                int c;
 
-            if (ps_done(&ps)) {
-                break;
+                nbchars = ps_skip_span(&ps, &json_safe_chars);
+                WRITE(p, nbchars);
+
+                if (ps_done(&ps)) {
+                    break;
+                }
+                /* Assume broken utf-8 is mixed latin1 */
+                c = ps_getuc(&ps);
+                if (unlikely(c < 0)) {
+                    c = ps_getc(&ps);
+                }
+                WRITE(ibuf, sprintf(ibuf, "\\u%04x", c));
             }
-            /* Assume broken utf-8 is mixed latin1 */
-            c = ps_getuc(&ps);
-            if (unlikely(c < 0)) {
-                c = ps_getc(&ps);
-            }
-            WRITE(ibuf, sprintf(ibuf, "\\u%04x", c));
+            PUTS("\"");
+        } else {
+            PUTLSTR(val);
         }
     }
 
