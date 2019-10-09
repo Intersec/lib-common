@@ -507,21 +507,34 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
     lstr_ascii_tolower(&line);
     yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
 
-    if (lstr_equal(line, LSTR("~")) || lstr_equal(line, LSTR("nil")))
-    {
+    /* special strings */
+    if (lstr_equal(line, LSTR("~")) || lstr_equal(line, LSTR("nil"))) {
         out->scalar.type = YAML_SCALAR_NIL;
         return 0;
-    }
-
+    } else
     if (lstr_equal(line, LSTR("true"))) {
         out->scalar.type = YAML_SCALAR_BOOL;
         out->scalar.b = true;
         return 0;
-    }
-
+    } else
     if (lstr_equal(line, LSTR("false"))) {
         out->scalar.type = YAML_SCALAR_BOOL;
         out->scalar.b = false;
+        return 0;
+    } else
+    if (lstr_equal(line, LSTR("-.inf"))) {
+        out->scalar.type = YAML_SCALAR_DOUBLE;
+        out->scalar.d = -INFINITY;
+        return 0;
+    } else
+    if (lstr_equal(line, LSTR(".inf"))) {
+        out->scalar.type = YAML_SCALAR_DOUBLE;
+        out->scalar.d = INFINITY;
+        return 0;
+    } else
+    if (lstr_equal(line, LSTR(".nan"))) {
+        out->scalar.type = YAML_SCALAR_DOUBLE;
+        out->scalar.d = NAN;
         return 0;
     }
 
@@ -1513,12 +1526,19 @@ iop_ypack_raw_struct(const iop_struct_t *desc, const void *value,
 
               case IOP_T_DOUBLE: {
                 double d = IOP_FIELD(double, ptr, j);
+                int inf = isinf(d);
 
                 PUTS(" ");
-                if (isnan(d) || isinf(d)) {
-                    PUTS("null");
+                if (inf == 1) {
+                    PUTS(".Inf");
+                } else
+                if (inf == -1) {
+                    PUTS("-.Inf");
+                } else
+                if (isnan(d)) {
+                    PUTS(".NaN");
                 } else {
-                    WRITE(ibuf, sprintf(ibuf, "%.17e", d));
+                    WRITE(ibuf, sprintf(ibuf, "%g", d));
                 }
               } break;
 
@@ -1925,6 +1945,21 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_DOUBLE,
                                          1, 1, 1, 5));
         Z_ASSERT_EQ(data.scalar.d, -1000.0);
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "-.Inf"));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_DOUBLE,
+                                         1, 1, 1, 6));
+        Z_ASSERT_EQ(isinf(data.scalar.d), -1);
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, ".INf"));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_DOUBLE,
+                                         1, 1, 1, 5));
+        Z_ASSERT_EQ(isinf(data.scalar.d), 1);
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, ".NAN"));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_DOUBLE,
+                                         1, 1, 1, 5));
+        Z_ASSERT(isnan(data.scalar.d));
     } Z_TEST_END;
 
     /* }}} */
