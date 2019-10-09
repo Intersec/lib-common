@@ -294,6 +294,7 @@ size_t membitcount_c(const void *ptr, size_t n)
 #include <x86intrin.h>
 #pragma pop_macro("__leaf")
 
+__attr_noasan__
 __attribute__((target("popcnt")))
 size_t membitcount_popcnt(const void *ptr, size_t n)
 {
@@ -379,6 +380,7 @@ size_t membitcount_popcnt(const void *ptr, size_t n)
 # define __builtin_ia32_movhlps(a, b)   _mm_movehl_ps(a, b)
 #endif
 
+__attr_noasan__
 __attribute__((target("ssse3")))
 size_t membitcount_ssse3(const void *ptr, size_t n)
 {
