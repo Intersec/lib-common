@@ -315,14 +315,14 @@ Z_GROUP_EXPORT(iop_yaml)
     /* }}} */
     Z_TEST(unpack_errors, "test IOP YAML unpacking errors") { /* {{{ */
         const char *err;
+        const iop_struct_t *st;
 
 #define TST_ERROR(_yaml, _error)                                             \
-        Z_HELPER_RUN(iop_yaml_test_unpack_error(&tstiop__full_opt__s,        \
-                                                (_yaml), (_error)))
+        Z_HELPER_RUN(iop_yaml_test_unpack_error(st, (_yaml), (_error)))
 
+        st = &tstiop__full_opt__s;
 #define ERR_COMMON  \
         "cannot unpack YAML as object of type `tstiop.FullOpt`"
-
 
         /* --- Type mismatches --- */
 
@@ -450,9 +450,48 @@ Z_GROUP_EXPORT(iop_yaml)
                   "unknown field `a`");
 
         /* --- enum errors --- */
+
+        /* invalid string */
         TST_ERROR("e: D",
                   "1:4: "ERR_COMMON": cannot set field `e`: "
                   "the value is not valid for the enum `TestEnum`");
+
+        /* --- class errors --- */
+
+        /* abstract class */
+        TST_ERROR("o: i: 42",
+                  "1:4: "ERR_COMMON": cannot set field `o`: "
+                  "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
+                  "`tstiop.TestClass` is abstract and cannot be unpacked");
+
+        /* unknown class */
+        TST_ERROR("o: !foo\n"
+                  "  i: 42",
+                  "1:4: "ERR_COMMON": cannot set field `o`: "
+                  "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
+                  "unknown type `foo` provided in tag, "
+                  "or not a child of `tstiop.TestClass`");
+
+        /* unrelated class */
+        TST_ERROR("o: !tstiop.MyClass1\n"
+                  "  int1: 42",
+                  "1:4: "ERR_COMMON": cannot set field `o`: "
+                  "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
+                  "unknown type `tstiop.MyClass1` provided in tag, "
+                  "or not a child of `tstiop.TestClass`");
+
+        st = &tstiop__my_class2__s;
+#undef ERR_COMMON
+#define ERR_COMMON  \
+        "cannot unpack YAML as object of type `tstiop.MyClass2`"
+
+        /* same parent but not a child */
+        TST_ERROR("!tstiop.MyClass1\n"
+                  "int1: 42",
+                  "1:1: "ERR_COMMON": "
+                  "cannot unpack YAML as a `tstiop.MyClass2` IOP struct: "
+                  "provided tag `tstiop.MyClass1` is not a child of "
+                  "`tstiop.MyClass2`");
 
 #undef ERR_COMMON
 #undef TST_ERROR

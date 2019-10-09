@@ -884,17 +884,80 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
 /* }}} */
 /* {{{ Yaml obj to iop field */
 
+static uint32_t
+get_nb_fields_in_class(const iop_struct_t * nonnull st)
+{
+    uint32_t nb_fields = 0;
+
+    while (st) {
+        nb_fields += st->fields_len;
+        st = st->class_attrs->parent;
+    }
+
+    return nb_fields;
+}
+
+static int
+check_class(yunpack_env_t * nonnull env,
+            const iop_struct_t * nonnull st)
+{
+    if (st->class_attrs->is_abstract) {
+        sb_setf(&env->err.buf, "`%pL` is abstract and cannot be unpacked",
+                &st->fullname);
+        return -1;
+    }
+
+    /* TODO: flag PRIVATE */
+
+    return 0;
+}
+
 static int
 yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
                           const yaml_data_t * nonnull data,
                           const iop_struct_t * nonnull st,
                           void * nonnull out)
 {
-    byte *seen = p_alloca(byte, BITS_TO_ARRAY_LEN(byte, st->fields_len));
+    byte *seen;
+    const iop_struct_t *real_st = st;
+    uint32_t nb_fields;
 
     if (st->is_union) {
         return yaml_data_to_union(env, data, st, out);
     }
+
+    if (data->obj->tag.s) {
+        real_st = iop_get_class_by_fullname(st, data->obj->tag);
+        if (!real_st) {
+            sb_setf(&env->err.buf, "unknown type `%pL` provided in tag, or "
+                    "not a child of `%pL`", &data->obj->tag, &st->fullname);
+            real_st = st;
+            goto error;
+        }
+        if (!iop_class_is_a(real_st, st)) {
+            sb_setf(&env->err.buf, "provided tag `%pL` is not a child of "
+                    "`%pL`", &real_st->fullname, &st->fullname);
+            real_st = st;
+            goto error;
+        }
+    }
+
+    if (iop_struct_is_class(real_st)) {
+        void **out_class = out;
+
+        if (check_class(env, real_st) < 0) {
+            goto error;
+        }
+        nb_fields = get_nb_fields_in_class(real_st);
+
+        *out_class = mp_imalloc(env->mp, real_st->size, 8, MEM_RAW);
+        *(const iop_struct_t **)(*out_class) = real_st;
+        out = *out_class;
+    } else {
+        nb_fields = real_st->fields_len;
+    }
+
+    seen = p_alloca(byte, BITS_TO_ARRAY_LEN(byte, nb_fields));
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
@@ -910,15 +973,12 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
         break;
     }
 
-    if (data->obj->tag.s) {
-        /* TODO: check tag */
-    }
-
     qm_for_each_key_value_p(yaml_data, key, val, &data->obj->fields) {
         int ifield;
+        const iop_struct_t *field_st = NULL;
         const iop_field_t *field_desc = NULL;
 
-        ifield = iop_field_find_by_name(st, key, NULL, &field_desc);
+        ifield = iop_field_find_by_name(real_st, key, &field_st, &field_desc);
         if (!field_desc) {
             sb_setf(&env->err.buf, "unknown field `%pL`", &key);
             goto error;
@@ -928,15 +988,26 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
         assert (ifield >= 0 && !TST_BIT(seen, ifield));
         SET_BIT(seen, ifield);
 
-        RETHROW(yaml_data_to_iop_field(env, val, st, field_desc,
+        /* FIXME: check private attr */
+        /* FIXME: check constraints */
+
+        RETHROW(yaml_data_to_iop_field(env, val, field_st, field_desc,
                                        (char *)out + field_desc->data_offs));
     }
 
   check_missing_fields:
-    for (uint32_t i = 0; i < st->fields_len; i++) {
+    st = real_st;
+    for (uint32_t n = 0, i = 0; n < nb_fields; n++, i++) {
         const iop_field_t *fdesc;
 
-        if (TST_BIT(seen, i)) {
+        if (n >= st->fields_len) {
+            assert (iop_struct_is_class(st));
+            assert (iop_struct_is_class(st->class_attrs->parent));
+            st = st->class_attrs->parent;
+            i = 0;
+        }
+
+        if (TST_BIT(seen, n)) {
             continue;
         }
 
@@ -951,7 +1022,7 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
   error:
     sb_prependf(&env->err.buf, "cannot unpack YAML as a `%pL` IOP struct: ",
-                &st->fullname);
+                &real_st->fullname);
     env->err.data = data;
     return -1;
 }
@@ -1012,7 +1083,7 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
                        const iop_field_t * nonnull fdesc,
                        void * nonnull out)
 {
-    if (fdesc->repeat == IOP_R_OPTIONAL) {
+    if (fdesc->repeat == IOP_R_OPTIONAL && !iop_field_is_class(fdesc)) {
         out = iop_field_set_present(env->mp, fdesc, out);
     }
 
