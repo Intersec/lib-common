@@ -35,13 +35,20 @@ enum {
 
 /* Lexing helpers macros */
 #define PS              ll->ps
-#define SKIP(l) \
-    ({ int tmp = l; ll->ctx->col += tmp; __ps_skip(PS, tmp); })
+#define PS_SKIP(ps, col, l)  \
+    ({ int tmp = l; col += tmp; __ps_skip((ps), tmp); })
+#define SKIP(l)  PS_SKIP(PS, ll->ctx->col, l)
+
 #define EATC()          (ll->ctx->col++, __ps_getc(PS))
 #define READC()         (*PS->b)
-#define READAT(off)     PS->b[off]
-#define HAS(l)          ps_has(PS, l)
-#define NEWLINE()       (ll->ctx->line++, ll->ctx->col = 1)
+
+#define PS_READAT(ps, off)  (ps)->b[off]
+#define READAT(off)     PS_READAT(PS, off)
+
+#define PS_HAS(ps, l)   ps_has(ps, l)
+#define HAS(l)          PS_HAS(PS, l)
+#define _NEWLINE(line, col)  ((line)++, col = 1)
+#define NEWLINE() _NEWLINE(ll->ctx->line, ll->ctx->col)
 
 /* Context control */
 #define STORECTX()      (ll->s_ps = *PS, ll->s_line = ll->ctx->line,        \
@@ -659,86 +666,103 @@ static int iop_json_lex_char(iop_json_lex_t *ll, int terminator)
     }
 }
 
-static int iop_json_lex_str(iop_json_lex_t *ll, int terminator)
+int iop_json_parse_str(pstream_t *ps, sb_t *buf, int *line, int *col,
+                       int terminator)
 {
-    sb_reset(&ll->ctx->b);
+    sb_reset(buf);
 
     for (;;) {
-        for (unsigned i = 0; i < ps_len(PS); i++) {
-            if (READAT(i) == '\n') {
-                return JERROR(IOP_JERR_UNCLOSED_STRING);
+        for (unsigned i = 0; i < ps_len(ps); i++) {
+            if (PS_READAT(ps, i) == '\n') {
+                return IOP_JERR_UNCLOSED_STRING;
             } else
-            if (READAT(i) == '\\') {
-                sb_add(&ll->ctx->b, PS->p, i);
-                SKIP(i);
+            if (PS_READAT(ps, i) == '\\') {
+                sb_add(buf, ps->p, i);
+                PS_SKIP(ps, *col, i);
                 goto parse_bslash;
             } else
-            if (READAT(i) == terminator) {
-                sb_add(&ll->ctx->b, PS->p, i);
-                SKIP(i + 1);
+            if (PS_READAT(ps, i) == terminator) {
+                sb_add(buf, ps->p, i);
+                PS_SKIP(ps, *col, i + 1);
                 return IOP_JSON_STRING;
             }
         }
-        return JERROR(IOP_JERR_UNCLOSED_STRING);
+        return IOP_JERR_UNCLOSED_STRING;
 
       parse_bslash:
-        if (!HAS(2))
-            return RJERROR_WARG(IOP_JERR_EXP_SMTH);
+        if (!PS_HAS(ps, 2)) {
+            return IOP_JERR_EXP_SMTH;
+        }
 
-        switch (READAT(1)) {
+        switch (PS_READAT(ps, 1)) {
             int a, b;
 
           case 'a': case 'b': case 'e': case 't': case 'n': case 'v':
           case 'f': case 'r':
-            sb_add_unquoted(&ll->ctx->b, PS->p, 2);
-            SKIP(2);
+            sb_add_unquoted(buf, ps->p, 2);
+            PS_SKIP(ps, *col, 2);
             continue;
           case '\\': case '"': case '\'': case '/':
-            sb_addc(&ll->ctx->b, READAT(1));
-            SKIP(2);
+            sb_addc(buf, PS_READAT(ps, 1));
+            PS_SKIP(ps, *col, 2);
             continue;
           case '0' ... '2':
-            if (HAS(4)
-                &&  READAT(2) >= '0' && READAT(2) <= '7'
-                &&  READAT(3) >= '0' && READAT(3) <= '7')
+            if (PS_HAS(ps, 4)
+                &&  PS_READAT(ps, 2) >= '0' && PS_READAT(ps, 2) <= '7'
+                &&  PS_READAT(ps, 3) >= '0' && PS_READAT(ps, 3) <= '7')
             {
-                sb_addc(&ll->ctx->b, ((READAT(1) - '0') << 6)
-                        | ((READAT(2) - '0') << 3)
-                        | (READAT(3) - '0'));
-                SKIP(4);
+                sb_addc(buf, ((PS_READAT(ps, 1) - '0') << 6)
+                           | ((PS_READAT(ps, 2) - '0') << 3)
+                           |  (PS_READAT(ps, 3) - '0'));
+                PS_SKIP(ps, *col, 4);
                 continue;
             }
-            if (READAT(1) == '0') {
-                sb_addc(&ll->ctx->b, '\0');
-                SKIP(2);
+            if (PS_READAT(ps, 1) == '0') {
+                sb_addc(buf, '\0');
+                PS_SKIP(ps, *col, 2);
                 continue;
             }
             break;
           case 'x':
-            if (HAS(4) && (a = hexdecode(PS->s + 2)) >= 0) {
-                sb_addc(&ll->ctx->b, a);
-                SKIP(4);
+            if (PS_HAS(ps, 4) && (a = hexdecode(ps->s + 2)) >= 0) {
+                sb_addc(buf, a);
+                PS_SKIP(ps, *col, 4);
                 continue;
             }
             break;
           case 'u':
-            if (HAS(6) && (a = hexdecode(PS->s + 2)) >= 0
-                && (b = hexdecode(PS->s + 4)) >= 0)
+            if (PS_HAS(ps, 6) && (a = hexdecode(ps->s + 2)) >= 0
+                && (b = hexdecode(ps->s + 4)) >= 0)
             {
-                sb_adduc(&ll->ctx->b, (a << 8) | b);
-                SKIP(6);
+                sb_adduc(buf, (a << 8) | b);
+                PS_SKIP(ps, *col, 6);
                 continue;
             }
             break;
           case '\n':
-            sb_add(&ll->ctx->b, PS->p, 2);
-            SKIP(2);
-            NEWLINE();
+            sb_add(buf, ps->p, 2);
+            PS_SKIP(ps, *col, 2);
+            _NEWLINE(*line, *col);
             continue;
         }
-        sb_add(&ll->ctx->b, PS->p, 2);
-        SKIP(2);
+        sb_add(buf, ps->p, 2);
+        PS_SKIP(ps, *col, 2);
     }
+}
+
+static int iop_json_lex_str(iop_json_lex_t *ll, int terminator)
+{
+    int res;
+
+    res = iop_json_parse_str(PS, &ll->ctx->b, &ll->ctx->line, &ll->ctx->col,
+                             terminator);
+    if (res == IOP_JERR_EXP_SMTH) {
+        return RJERROR_WARG(IOP_JERR_EXP_SMTH);
+    } else
+    if (res < 0) {
+        return JERROR(res);
+    }
+    return res;
 }
 
 static int iop_json_lex(iop_json_lex_t *ll, const iop_field_t *fdesc)

@@ -270,8 +270,14 @@ Z_GROUP_EXPORT(iop_yaml)
         TST("mu#da", "us: \"mu#da\"");
         TST("mu# da", "us: \"mu# da\"");
 
-        /* FIXME: escaping of ", unicode chars and \n, etc */
+        /* when containing quotes or \X characters */
         TST("mu\"da", "us: mu\"da");
+        TST("\"muda", "us: \"\\\"muda\"");
+        TST("mu\rda\t", "us: \"mu\\rda\\t\"");
+        TST("\a \b \e \f \n \r \t \v",
+            "us: \"\\a \\b \\e \\f \\n \\r \\t \\v\"");
+
+        TST("mùda", "us: \"m\\u00f9da\"");
 
 #undef TST
     } Z_TEST_END;

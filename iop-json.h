@@ -602,6 +602,12 @@ struct iop_struct_value {
 /* }}} */
 /* {{{ Private */
 
+/* Unpacking helpers */
+
+int iop_json_parse_str(pstream_t * nonnull ps, sb_t * nonnull buf,
+                       int * nonnull line, int * nonnull col, int terminator);
+
+/* }}} */
 /* Packing helpers */
 
 /* Get a pointer to the index'th value for the field.

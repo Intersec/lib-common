@@ -468,25 +468,34 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
     pstream_t span;
 
     if (ps_peekc(env->ps) == '"') {
-        /* '\n' and '"' */
-        static const ctype_desc_t ctype_quoteend = { {
-            0x00000400, 0x00000004, 0x00000000, 0x00000000,
-            0x00000000, 0x00000000, 0x00000000, 0x00000000,
-        } };
+        int line_nb = 0;
+        int col_nb = 0;
+        sb_t buf;
+        int res;
 
-        /* get ps up to next " character, or newline */
         yaml_env_skipc(env);
-        span = ps_get_cspan(&env->ps, &ctype_quoteend);
-        if (ps_peekc(env->ps) != '"') {
+        mp_sb_init(env->mp, &buf, 128);
+        /* XXX use a json util for escaping handling. To be factorized
+         * outside of the json file however. */
+        res = iop_json_parse_str(&env->ps, &buf, &line_nb, &col_nb, '"');
+
+        if (res >= 0) {
+            yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
+            out->scalar.type = YAML_SCALAR_STRING;
+            out->scalar.s = LSTR_SB_V(&buf);
+            return 0;
+        } else
+        if (res == IOP_JERR_UNCLOSED_STRING) {
             return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
                                     "missing closing '\"'");
+        } else
+        if (IOP_JERR_EXP_SMTH) {
+            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                    "invalid backslash");
         }
-        yaml_env_skipc(env);
 
-        yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
-        out->scalar.type = YAML_SCALAR_STRING;
-        out->scalar.s = LSTR_PS_V(&span);
-        return 0;
+        assert (false);
+        return yaml_env_set_err(env, YAML_ERR_BAD_STRING, "invalid string");
     }
 
     /* get scalar string, ie up to newline or comment */
@@ -1355,31 +1364,45 @@ static int write_string(lstr_t val, iop_type_t type,
             pstream_t ps = ps_initlstr(&val);
 
             PUTS("\"");
-            /* FIXME: duplicated from iop-json.h */
             while (!ps_done(&ps)) {
-                char ibuf[IBUF_LEN];
                 /* r:32-127 -s:'\\"' */
-                static ctype_desc_t const json_safe_chars = { {
+                static ctype_desc_t const safe_chars = { {
                     0x00000000, 0xfffffffb, 0xefffffff, 0xffffffff,
                         0x00000000, 0x00000000, 0x00000000, 0x00000000,
                 } };
-
                 const uint8_t *p = ps.b;
                 size_t nbchars;
                 int c;
 
-                nbchars = ps_skip_span(&ps, &json_safe_chars);
+                nbchars = ps_skip_span(&ps, &safe_chars);
                 WRITE(p, nbchars);
 
                 if (ps_done(&ps)) {
                     break;
                 }
+
                 /* Assume broken utf-8 is mixed latin1 */
                 c = ps_getuc(&ps);
                 if (unlikely(c < 0)) {
                     c = ps_getc(&ps);
                 }
-                WRITE(ibuf, sprintf(ibuf, "\\u%04x", c));
+                switch (c) {
+                  case '"':  PUTS("\\\""); break;
+                  case '\\': PUTS("\\\\"); break;
+                  case '\a': PUTS("\\a"); break;
+                  case '\b': PUTS("\\b"); break;
+                  case '\e': PUTS("\\e"); break;
+                  case '\f': PUTS("\\f"); break;
+                  case '\n': PUTS("\\n"); break;
+                  case '\r': PUTS("\\r"); break;
+                  case '\t': PUTS("\\t"); break;
+                  case '\v': PUTS("\\v"); break;
+                  default: {
+                    char ibuf[IBUF_LEN];
+
+                    WRITE(ibuf, sprintf(ibuf, "\\u%04x", c));
+                  } break;
+                }
             }
             PUTS("\"");
         } else {
@@ -1754,7 +1777,13 @@ Z_GROUP_EXPORT(yaml)
         /* wrong explicit string */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "\" unfinished string",
-            "1:20: expected string, missing closing '\"'"
+            "1:2: expected string, missing closing '\"'"
+        ));
+
+        /* wrong escaped code */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "\"\\",
+            "1:2: expected string, invalid backslash"
         ));
 
         /* wrong tag */
