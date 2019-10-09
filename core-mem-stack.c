@@ -796,6 +796,17 @@ thr_hooks(t_pool_init, t_pool_wipe);
 
 __thread mem_stack_pool_t t_pool_g;
 
+static void mem_stack_reset_all_pools_at_fork(void)
+{
+    dlist_init(&_G.all_pools);
+}
+
+__attribute__((constructor))
+static void mem_stack_all_pools_init_at_fork(void)
+{
+    pthread_atfork(NULL, NULL, &mem_stack_reset_all_pools_at_fork);
+}
+
 /* {{{ Module (for print_state method) */
 
 static void core_mem_stack_print_state(void)
