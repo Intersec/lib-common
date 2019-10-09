@@ -71,7 +71,7 @@
 
 #if  __has_feature(address_sanitizer)
 #  define __has_asan       1
-#  define __attr_noasan__  __attribute__((no_address_safety_analysis))
+#  define __attr_noasan__  __attribute__((no_sanitize_address))
 #else
 # define __attr_noasan__
 #endif
