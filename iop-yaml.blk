@@ -727,20 +727,37 @@ yaml_string_to_iop_field(mem_pool_t *mp, const lstr_t str,
     }
 }
 
+static void
+set_string_from_stream(mem_pool_t * nonnull mp,
+                       const yaml_data_t * nonnull data,
+                       lstr_t * nonnull out)
+{
+    *out = mp_lstr_dups(mp, data->pos_start.s,
+                        data->pos_end.s - data->pos_start.s);
+}
+
 static yunpack_res_t
-yaml_double_to_iop_field(double d, const iop_field_t * nonnull fdesc,
+yaml_double_to_iop_field(mem_pool_t * nonnull mp,
+                         const yaml_data_t * nonnull data,
+                         double d, const iop_field_t * nonnull fdesc,
                          void * nonnull out)
 {
-    if (fdesc->type == IOP_T_DOUBLE) {
+    switch (fdesc->type) {
+      case IOP_T_DOUBLE:
         *(double *)out = d;
         return YUNPACK_OK;
+      case IOP_T_STRING:
+        set_string_from_stream(mp, data, out);
+        return YUNPACK_OK;
+      default:
+        return YUNPACK_TYPE_MISMATCH;
     }
-
-    return YUNPACK_TYPE_MISMATCH;
 }
 
 static int
-yaml_uint_to_iop_field(uint64_t u, const iop_field_t * nonnull fdesc,
+yaml_uint_to_iop_field(mem_pool_t * nonnull mp,
+                       const yaml_data_t * nonnull data,
+                       uint64_t u, const iop_field_t * nonnull fdesc,
                        void * nonnull out)
 {
 #define CHECK_MAX(v, max)  THROW_IF(v > max, YUNPACK_OOB)
@@ -776,6 +793,9 @@ yaml_uint_to_iop_field(uint64_t u, const iop_field_t * nonnull fdesc,
         return YUNPACK_OK;
       case IOP_T_U64:
         *(uint64_t *)out = u;
+        return YUNPACK_OK;
+      case IOP_T_STRING:
+        set_string_from_stream(mp, data, out);
         return YUNPACK_OK;
       default:
         return YUNPACK_TYPE_MISMATCH;
@@ -830,12 +850,17 @@ yaml_int_to_iop_field(int64_t i, const iop_field_t * nonnull fdesc,
 #undef CHECK_RANGE
 
 static int
-yaml_bool_to_iop_field(bool b, const iop_field_t * nonnull fdesc,
+yaml_bool_to_iop_field(mem_pool_t * nonnull mp,
+                       const yaml_data_t * nonnull data,
+                       bool b, const iop_field_t * nonnull fdesc,
                        void * nonnull out)
 {
     switch (fdesc->type) {
       case IOP_T_BOOL:
         *(bool *)out = b;
+        return YUNPACK_OK;
+      case IOP_T_STRING:
+        set_string_from_stream(mp, data, out);
         return YUNPACK_OK;
       default:
         return YUNPACK_TYPE_MISMATCH;
@@ -844,23 +869,25 @@ yaml_bool_to_iop_field(bool b, const iop_field_t * nonnull fdesc,
 
 static yunpack_res_t
 yaml_scalar_to_iop_field(const yunpack_env_t * nonnull env,
-                         const yaml_scalar_t * nonnull scalar,
+                         const yaml_data_t * nonnull data,
                          const iop_field_t * nonnull fdesc,
                          void * nonnull out)
 {
+    const yaml_scalar_t *scalar = &data->scalar;
+
     switch (scalar->type) {
       case YAML_SCALAR_NULL:
         return yaml_nil_to_iop_field(fdesc, out);
       case YAML_SCALAR_STRING:
         return yaml_string_to_iop_field(env->mp, scalar->s, fdesc, out);
       case YAML_SCALAR_DOUBLE:
-        return yaml_double_to_iop_field(scalar->d, fdesc, out);
+        return yaml_double_to_iop_field(env->mp, data, scalar->d, fdesc, out);
       case YAML_SCALAR_UINT:
-        return yaml_uint_to_iop_field(scalar->u, fdesc, out);
+        return yaml_uint_to_iop_field(env->mp, data, scalar->u, fdesc, out);
       case YAML_SCALAR_INT:
         return yaml_int_to_iop_field(scalar->i, fdesc, out);
       case YAML_SCALAR_BOOL:
-        return yaml_bool_to_iop_field(scalar->b, fdesc, out);
+        return yaml_bool_to_iop_field(env->mp, data, scalar->b, fdesc, out);
     }
 
     assert (false);
@@ -1141,7 +1168,7 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
-        switch (yaml_scalar_to_iop_field(env, &data->scalar, fdesc, out)) {
+        switch (yaml_scalar_to_iop_field(env, data, fdesc, out)) {
           case YUNPACK_OK:
             break;
           case YUNPACK_INVALID_B64_VAL:
@@ -1342,6 +1369,40 @@ static int do_indent(const iop_ypack_env_t *env, int indent)
  */
 #define IBUF_LEN  25
 
+static bool yaml_string_must_be_quoted(const lstr_t s)
+{
+    /* '!', '&', '*', '-', '"' and '.'. Technically, '-' is only forbidden
+     * if followed by a space, but it is simpler that way. */
+    static ctype_desc_t const yaml_invalid_raw_string_start = { {
+        0x00000000, 0x00006446, 0x00000000, 0x00000000,
+        0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    } };
+    /* printable ascii characters minus ':' and '#'. Also should be
+     * followed by space to be forbidden, but simpler that way. */
+    static ctype_desc_t const yaml_raw_string_contains = { {
+        0x00000000, 0xfbfffff7, 0xffffffff, 0xffffffff,
+        0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    } };
+
+    if (s.len == 0) {
+        return true;
+    }
+
+    /* cannot start with those characters */
+    if (ctype_desc_contains(&yaml_invalid_raw_string_start, s.s[0])) {
+        return true;
+    }
+    /* cannot contain those characters */
+    if (!lstr_match_ctype(s, &yaml_raw_string_contains)) {
+        return true;
+    }
+    if (lstr_equal(s, LSTR("~")) || lstr_equal(s, LSTR("null"))) {
+        return true;
+    }
+
+    return false;
+}
+
 static int write_string(lstr_t val, iop_type_t type,
                         const iop_ypack_env_t *env)
 {
@@ -1353,74 +1414,57 @@ static int write_string(lstr_t val, iop_type_t type,
             sb_reset(&sb);
             sb_addlstr_b64(&sb, val, -1);
             WRITE(sb.data, sb.len);
+            return res;
         }
-    } else {
-        /* '!', '&', '*', '-' and '"'. Technically, '-' is only forbidden if
-         * followed by a space, but it is simpler that way. */
-        static ctype_desc_t const yaml_invalid_raw_string_start = { {
-            0x00000000, 0x00002446, 0x00000000, 0x00000000,
-            0x00000000, 0x00000000, 0x00000000, 0x00000000,
-        } };
-        /* printable ascii characters minus ':' and '#'. Also should be
-         * followed by space to be forbidden, but simpler that way. */
-        static ctype_desc_t const yaml_raw_string_contains = { {
-            0x00000000, 0xfbfffff7, 0xffffffff, 0xffffffff,
-            0x00000000, 0x00000000, 0x00000000, 0x00000000,
-        } };
+    }
 
-        if (val.len == 0) {
-            PUTS("\"\"");
-        } else
-        if (ctype_desc_contains(&yaml_invalid_raw_string_start, val.s[0])
-        ||  !lstr_match_ctype(val, &yaml_raw_string_contains))
-        {
-            pstream_t ps = ps_initlstr(&val);
+    if (yaml_string_must_be_quoted(val)) {
+        pstream_t ps = ps_initlstr(&val);
 
-            PUTS("\"");
-            while (!ps_done(&ps)) {
-                /* r:32-127 -s:'\\"' */
-                static ctype_desc_t const safe_chars = { {
-                    0x00000000, 0xfffffffb, 0xefffffff, 0xffffffff,
-                        0x00000000, 0x00000000, 0x00000000, 0x00000000,
-                } };
-                const uint8_t *p = ps.b;
-                size_t nbchars;
-                int c;
+        PUTS("\"");
+        while (!ps_done(&ps)) {
+            /* r:32-127 -s:'\\"' */
+            static ctype_desc_t const safe_chars = { {
+                0x00000000, 0xfffffffb, 0xefffffff, 0xffffffff,
+                    0x00000000, 0x00000000, 0x00000000, 0x00000000,
+            } };
+            const uint8_t *p = ps.b;
+            size_t nbchars;
+            int c;
 
-                nbchars = ps_skip_span(&ps, &safe_chars);
-                WRITE(p, nbchars);
+            nbchars = ps_skip_span(&ps, &safe_chars);
+            WRITE(p, nbchars);
 
-                if (ps_done(&ps)) {
-                    break;
-                }
-
-                /* Assume broken utf-8 is mixed latin1 */
-                c = ps_getuc(&ps);
-                if (unlikely(c < 0)) {
-                    c = ps_getc(&ps);
-                }
-                switch (c) {
-                  case '"':  PUTS("\\\""); break;
-                  case '\\': PUTS("\\\\"); break;
-                  case '\a': PUTS("\\a"); break;
-                  case '\b': PUTS("\\b"); break;
-                  case '\e': PUTS("\\e"); break;
-                  case '\f': PUTS("\\f"); break;
-                  case '\n': PUTS("\\n"); break;
-                  case '\r': PUTS("\\r"); break;
-                  case '\t': PUTS("\\t"); break;
-                  case '\v': PUTS("\\v"); break;
-                  default: {
-                    char ibuf[IBUF_LEN];
-
-                    WRITE(ibuf, sprintf(ibuf, "\\u%04x", c));
-                  } break;
-                }
+            if (ps_done(&ps)) {
+                break;
             }
-            PUTS("\"");
-        } else {
-            PUTLSTR(val);
+
+            /* Assume broken utf-8 is mixed latin1 */
+            c = ps_getuc(&ps);
+            if (unlikely(c < 0)) {
+                c = ps_getc(&ps);
+            }
+            switch (c) {
+              case '"':  PUTS("\\\""); break;
+              case '\\': PUTS("\\\\"); break;
+              case '\a': PUTS("\\a"); break;
+              case '\b': PUTS("\\b"); break;
+              case '\e': PUTS("\\e"); break;
+              case '\f': PUTS("\\f"); break;
+              case '\n': PUTS("\\n"); break;
+              case '\r': PUTS("\\r"); break;
+              case '\t': PUTS("\\t"); break;
+              case '\v': PUTS("\\v"); break;
+              default: {
+                char ibuf[IBUF_LEN];
+
+                WRITE(ibuf, sprintf(ibuf, "\\u%04x", c));
+              } break;
+            }
         }
+        PUTS("\"");
+    } else {
+        PUTLSTR(val);
     }
 
     return res;

@@ -279,6 +279,14 @@ Z_GROUP_EXPORT(iop_yaml)
 
         TST("mùda", "us: \"m\\u00f9da\"");
 
+        /* when it would be parsed as something else */
+        TST("~", "us: \"~\"");
+        TST("null", "us: \"null\"");
+        TST("TruE", "us: TruE");
+        TST("FalSe", "us: FalSe");
+
+        TST("4.2", "us: 4.2");
+        TST("42", "us: 42");
 #undef TST
     } Z_TEST_END;
     /* }}} */
@@ -384,14 +392,14 @@ Z_GROUP_EXPORT(iop_yaml)
                   "1:4: "ERR_COMMON": cannot set field `d`: "
                   "cannot set a string value in a field of type double");
         /* double -> scalar */
-        TST_ERROR("s: 4.2",
-                  "1:4: "ERR_COMMON": cannot set field `s`: "
-                  "cannot set a double value in a field of type string");
+        TST_ERROR("data: 4.2",
+                  "1:7: "ERR_COMMON": cannot set field `data`: "
+                  "cannot set a double value in a field of type bytes");
         /* uint -> scalar */
-        TST_ERROR("s: 42",
-                  "1:4: "ERR_COMMON": cannot set field `s`: "
+        TST_ERROR("data: 42",
+                  "1:7: "ERR_COMMON": cannot set field `data`: "
                   "cannot set an unsigned integer value in a field of type "
-                  "string");
+                  "bytes");
         /* int -> scalar */
         TST_ERROR("s: -42",
                   "1:4: "ERR_COMMON": cannot set field `s`: "
