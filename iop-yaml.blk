@@ -50,8 +50,8 @@ typedef enum yaml_scalar_type_t {
     YAML_SCALAR_INT,
     /* true or false */
     YAML_SCALAR_BOOL,
-    /* ~ or nil */
-    YAML_SCALAR_NIL
+    /* ~ or null */
+    YAML_SCALAR_NULL
 } yaml_scalar_type_t;
 
 /* Position in the parsed string */
@@ -149,8 +149,8 @@ static const char *yaml_scalar_get_type(const yaml_scalar_t *scalar)
         return "an integer value";
       case YAML_SCALAR_BOOL:
         return "a boolean value";
-      case YAML_SCALAR_NIL:
-        return "a nil value";
+      case YAML_SCALAR_NULL:
+        return "a null value";
     }
 
     assert (false);
@@ -508,8 +508,8 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
     yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
 
     /* special strings */
-    if (lstr_equal(line, LSTR("~")) || lstr_equal(line, LSTR("nil"))) {
-        out->scalar.type = YAML_SCALAR_NIL;
+    if (lstr_equal(line, LSTR("~")) || lstr_equal(line, LSTR("null"))) {
+        out->scalar.type = YAML_SCALAR_NULL;
         return 0;
     } else
     if (lstr_equal(line, LSTR("true"))) {
@@ -664,7 +664,7 @@ yaml_nil_to_iop_field(const iop_field_t * nonnull fdesc, void * nonnull out)
     if (fdesc->repeat == IOP_R_REPEATED) {
         lstr_t *arr = out;
 
-        /* nil value on an array means empty array */
+        /* null value on an array means empty array */
         p_clear(arr, 1);
         return YUNPACK_OK;
     }
@@ -849,7 +849,7 @@ yaml_scalar_to_iop_field(const yunpack_env_t * nonnull env,
                          void * nonnull out)
 {
     switch (scalar->type) {
-      case YAML_SCALAR_NIL:
+      case YAML_SCALAR_NULL:
         return yaml_nil_to_iop_field(fdesc, out);
       case YAML_SCALAR_STRING:
         return yaml_string_to_iop_field(env->mp, scalar->s, fdesc, out);
@@ -1001,7 +1001,7 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
-        if (data->scalar.type == YAML_SCALAR_NIL) {
+        if (data->scalar.type == YAML_SCALAR_NULL) {
             goto check_missing_fields;
         }
         /* FALLTHROUGH */
@@ -1879,18 +1879,18 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 14));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR(" quoted: 5 "));
 
-        /* nil */
+        /* null */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "~"));
-        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NIL,
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
                                          1, 1, 1, 2));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "nil"));
-        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NIL,
-                                         1, 1, 1, 4));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "null"));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
+                                         1, 1, 1, 5));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "NiL"));
-        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NIL,
-                                         1, 1, 1, 4));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "NulL"));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
+                                         1, 1, 1, 5));
 
         /* bool */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "true"));
@@ -2046,7 +2046,7 @@ Z_GROUP_EXPORT(yaml)
 
         key = LSTR("d");
         field2 = qm_get(yaml_data, &field.obj->fields, &key);
-        Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_NIL,
+        Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_NULL,
                                          5, 6, 5, 7));
         key = LSTR("e");
         field2 = qm_get(yaml_data, &field.obj->fields, &key);
@@ -2111,9 +2111,9 @@ Z_GROUP_EXPORT(yaml)
                                          3, 5, 3, 7));
         Z_ASSERT_EQ(elem.seq[1].scalar.i, -5L);
 
-        /* nil */
+        /* null */
         elem = data.seq[2];
-        Z_HELPER_RUN(z_check_yaml_scalar(&elem, YAML_SCALAR_NIL,
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem, YAML_SCALAR_NULL,
                                          4, 3, 4, 4));
 
         /* subseq */

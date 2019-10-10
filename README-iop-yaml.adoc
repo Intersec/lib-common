@@ -97,7 +97,7 @@ obj:
 ----
 yaml     = data
 data     = [ space+ ] scalar | sequence | obj
-scalar   = (nil | boolean | number | string) "\n"
+scalar   = (null | boolean | number | string) "\n"
 sequence = indent "-" data { "\n" ?same-indent? "-" data }
 obj      = [ "!" [a-zA-Z\.]+ ] [ space+ | "\n" ] raw-obj
 raw-obj  = indent key ":" data { "\n" ?same-indent? key ":" data }
@@ -105,7 +105,7 @@ string   = '"' .* '"' | [^-] +
 key      = [a-zA-Z]+
 number   = <see above>
 boolean  = "true" | "false"
-nil      = "~" | "null"
+null     = "~" | "null"
 indent   = space+
 space    = " "
 ----

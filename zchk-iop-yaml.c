@@ -375,10 +375,10 @@ Z_GROUP_EXPORT(iop_yaml)
 
         /* --- Type mismatches --- */
 
-        /* nil -> scalar */
+        /* null -> scalar */
         TST_ERROR("d: ~",
                   "1:4: "ERR_COMMON": cannot set field `d`: "
-                  "cannot set a nil value in a field of type double");
+                  "cannot set a null value in a field of type double");
         /* string -> scalar */
         TST_ERROR("d: str",
                   "1:4: "ERR_COMMON": cannot set field `d`: "
