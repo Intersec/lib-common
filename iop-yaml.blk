@@ -643,6 +643,9 @@ typedef struct yunpack_env_t {
     mem_pool_t *mp;
 
     yunpack_error_t err;
+
+    /* Only IOP_UNPACK_FORBID_PRIVATE is handled. */
+    int flags;
 } yunpack_env_t;
 
 /* {{{ Yaml scalar to iop field */
@@ -974,7 +977,13 @@ check_class(yunpack_env_t * nonnull env,
         return -1;
     }
 
-    /* TODO: flag PRIVATE */
+    if (env->flags & IOP_UNPACK_FORBID_PRIVATE
+    &&  st->class_attrs->is_private)
+    {
+        sb_setf(&env->err.buf, "`%pL` is private and cannot be unpacked",
+                &st->fullname);
+        return -1;
+    }
 
     return 0;
 }
@@ -1055,7 +1064,16 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
         assert (ifield >= 0 && !TST_BIT(seen, ifield));
         SET_BIT(seen, ifield);
 
-        /* FIXME: check private attr */
+        if (field_desc && env->flags & IOP_UNPACK_FORBID_PRIVATE) {
+            const iop_field_attrs_t *attrs;
+
+            attrs = iop_field_get_attrs(field_st, field_desc);
+            if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
+                sb_setf(&env->err.buf, "unknown field `%pL`", &key);
+                goto error;
+            }
+        }
+
         /* FIXME: check constraints */
 
         RETHROW(yaml_data_to_iop_field(env, val, field_st, field_desc,
@@ -1271,6 +1289,10 @@ int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
     p_clear(&unpack_env, 1);
     unpack_env.mp = t_pool();
     unpack_env.err.buf = err;
+    /* The YAML packer is made for public interfaces. Use flags that makes
+     * sense in this context. In the future, they might be overridden if
+     * some internal use-cases are found. */
+    unpack_env.flags = IOP_UNPACK_FORBID_PRIVATE;
     if (yaml_data_to_typed_struct(&unpack_env, &data, st, out) < 0) {
         yunpack_err_pretty_print(&unpack_env.err, st, out_err);
         return -1;

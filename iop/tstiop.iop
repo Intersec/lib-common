@@ -92,6 +92,10 @@ class MyClass2Bis : 4 : MyClass1 {
     int int2;
 };
 
+@private
+class MyClass2Priv : 5 : MyClass2 {
+};
+
 class MyClass1After : 1 {
     int int1;
 };

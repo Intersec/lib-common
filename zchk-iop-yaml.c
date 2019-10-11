@@ -244,7 +244,7 @@ Z_GROUP_EXPORT(iop_yaml)
 
         /* SKIP_PRIVATE */
         OPT_SET(st_jpack.priv, 12);
-        TST_FLAGS(flags, true, true,
+        TST_FLAGS(flags, false, true,
                   "priv: 12\n"
                   "def: 1");
         TST_FLAGS(flags | IOP_JPACK_SKIP_PRIVATE, false, false,
@@ -576,6 +576,25 @@ Z_GROUP_EXPORT(iop_yaml)
                   "cannot unpack YAML as a `tstiop.MyClass2` IOP struct: "
                   "provided tag `tstiop.MyClass1` is not a child of "
                   "`tstiop.MyClass2`");
+
+        st = &tstiop__struct_jpack_flags__s;
+#undef ERR_COMMON
+#define ERR_COMMON  \
+        "cannot unpack YAML as object of type `tstiop.StructJpackFlags`"
+
+        /* private field */
+        TST_ERROR("priv: 42\n",
+                  "1:1: "ERR_COMMON": "
+                  "cannot unpack YAML as a `tstiop.StructJpackFlags` "
+                  "IOP struct: unknown field `priv`");
+
+        /* private class */
+        TST_ERROR("myClass: !tstiop.MyClass2Priv\n"
+                  "  int1: 4\n"
+                  "  int2: 2",
+                  "1:10: "ERR_COMMON": cannot set field `myClass`: "
+                  "cannot unpack YAML as a `tstiop.MyClass2Priv` IOP struct: "
+                  "`tstiop.MyClass2Priv` is private and cannot be unpacked");
 
 #undef ERR_COMMON
 #undef TST_ERROR
