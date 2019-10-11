@@ -650,6 +650,48 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef TST
     } Z_TEST_END;
     /* }}} */
+    Z_TEST(constraints, "test IOP constraints") { /* {{{ */
+        tstiop__constraint_u__t u;
+        tstiop__constraint_s__t s;
+        lstr_t string = LSTR("ora");
+
+#define TST_ERROR(st, v, yaml, err)                                      \
+    do {                                                                     \
+        Z_ASSERT_NEG(iop_check_constraints_desc((st), (v)));                 \
+        Z_HELPER_RUN(iop_yaml_test_pack((st), (v), IOP_JPACK_MINIMAL,        \
+                                        false, false, (yaml)));\
+        Z_HELPER_RUN(iop_yaml_test_unpack_error((st), (yaml), (err)));       \
+    } while(0)
+
+        /* check constraints are properly checked on unions */
+        u = IOP_UNION(tstiop__constraint_u, u8, 0);
+        TST_ERROR(&tstiop__constraint_u__s, &u,
+            "u8: 0",
+            "1:1: cannot unpack YAML as a `tstiop.ConstraintU` IOP union: "
+            "field `u8` is invalid: in type tstiop.ConstraintU: "
+            "violation of constraint nonZero on field u8");
+
+        /* check constraints on arrays */
+        iop_init(tstiop__constraint_s, &s);
+        TST_ERROR(&tstiop__constraint_s__s, &s,
+            "~",
+            "1:1: cannot unpack YAML as a `tstiop.ConstraintS` IOP struct: "
+            "field `s` is invalid: in type tstiop.ConstraintS: "
+            "empty array not allowed for field `s`");
+
+        /* check constraint on field */
+        s.s.tab = &string;
+        s.s.len = 1;
+        TST_ERROR(&tstiop__constraint_s__s, &s,
+            "s:\n"
+            "  - ora",
+            "1:1: cannot unpack YAML as a `tstiop.ConstraintS` IOP struct: "
+            "field `s` is invalid: in type tstiop.ConstraintS: "
+            "violation of constraint minOccurs (2) on field s: length=1");
+
+#undef TST_ERROR
+    } Z_TEST_END
+    /* }}} */
 
     MODULE_RELEASE(iop_yaml);
 } Z_GROUP_END;

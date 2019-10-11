@@ -908,6 +908,24 @@ yaml_data_to_iop_field(yunpack_env_t * nonnull env,
                        void * nonnull out);
 
 static int
+check_constraints(const iop_struct_t * nonnull desc,
+                  const iop_field_t * nonnull fdesc, void * nonnull value)
+{
+    if (likely(!iop_field_has_constraints(desc, fdesc))) {
+        return 0;
+    }
+
+    if (fdesc->repeat == IOP_R_REPEATED) {
+        iop_array_i8_t *arr = value;
+
+        return iop_field_check_constraints(desc, fdesc, arr->tab, arr->len,
+                                           false);
+    } else {
+        return iop_field_check_constraints(desc, fdesc, value, 1, false);
+    }
+}
+
+static int
 yaml_data_to_union(yunpack_env_t * nonnull env,
                    const yaml_data_t * nonnull data,
                    const iop_struct_t * nonnull st_desc, void * nonnull out)
@@ -938,11 +956,16 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
         }
 
         iop_union_set_tag(st_desc, field_desc->tag, out);
-        if (yaml_data_to_iop_field(env, val, st_desc, field_desc,
-                                   (char *)out + field_desc->data_offs) < 0)
-        {
+        out = (char *)out + field_desc->data_offs;
+        if (yaml_data_to_iop_field(env, val, st_desc, field_desc, out) < 0) {
             /* keep the data causing the issue in the err. */
             data = env->err.data;
+            goto error;
+        }
+
+        if (check_constraints(st_desc, field_desc, out) < 0) {
+            sb_setf(&env->err.buf, "field `%pL` is invalid: %s", &key,
+                    iop_get_err());
             goto error;
         }
     }
@@ -1057,6 +1080,7 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
         int ifield;
         const iop_struct_t *field_st = NULL;
         const iop_field_t *field_desc = NULL;
+        void *field_out;
 
         ifield = iop_field_find_by_name(real_st, key, &field_st, &field_desc);
         if (!field_desc) {
@@ -1078,13 +1102,18 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
             }
         }
 
-        /* FIXME: check constraints */
-
-        if (yaml_data_to_iop_field(env, val, field_st, field_desc,
-                                   (char *)out + field_desc->data_offs))
+        field_out = (char *)out + field_desc->data_offs;
+        if (yaml_data_to_iop_field(env, val, field_st, field_desc, field_out))
         {
             /* keep the data causing the issue in the err. */
             data = env->err.data;
+            goto error;
+        }
+
+
+        if (check_constraints(field_st, field_desc, field_out) < 0) {
+            sb_setf(&env->err.buf, "field `%pL` is invalid: %s", &key,
+                    iop_get_err());
             goto error;
         }
     }
@@ -1107,7 +1136,14 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
         fdesc = &st->fields[i];
         if (iop_skip_absent_field_desc(env->mp, out, st, fdesc) < 0) {
-            sb_setf(&env->err.buf, "missing field `%pL`", &fdesc->name);
+            const char *iop_err = iop_get_err();
+
+            if (iop_err) {
+                sb_setf(&env->err.buf, "field `%pL` is invalid: %s",
+                        &fdesc->name, iop_err);
+            } else {
+                sb_setf(&env->err.buf, "missing field `%pL`", &fdesc->name);
+            }
             goto error;
         }
     }
@@ -1308,6 +1344,17 @@ int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
         yunpack_err_pretty_print(&unpack_env.err, st, out_err);
         return -1;
     }
+
+    /* XXX: may be removed in the future, but useful while the code is still
+     * young to ensure we did not mess up our unpacking. */
+#ifndef NDEBUG
+    if (!expect(iop_check_constraints_desc(st, out) >= 0)) {
+        sb_setf(&unpack_env.err.buf, "invalid object: %s", iop_get_err());
+        unpack_env.err.data = &data;
+        yunpack_err_pretty_print(&unpack_env.err, st, out_err);
+        return -1;
+    }
+#endif
 
     return 0;
 }
