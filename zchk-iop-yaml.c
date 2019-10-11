@@ -35,8 +35,13 @@ static int t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
     t_sb_init(out, 10);
 
     /* packing */
-    Z_ASSERT_N(iop_ypack(st, v, iop_sb_write, out, flags),
-               "YAML packing failure for %s", st->fullname.s);
+    if (flags == 0) {
+        Z_ASSERT_N(iop_ypack(st, v, iop_sb_write, out),
+                   "YAML packing failure for %s", st->fullname.s);
+    } else {
+        Z_ASSERT_N(iop_ypack_with_flags(st, v, iop_sb_write, out, flags),
+                   "YAML packing failure for %s", st->fullname.s);
+    }
 
     Z_HELPER_END;
 }
@@ -129,7 +134,7 @@ iop_yaml_test_unpack(const iop_struct_t *st, const char *yaml)
     ret = t_iop_yunpack_ptr_ps(&ps, st, &res, &err);
     Z_ASSERT_N(ret, "YAML unpacking error: %pL", &err);
 
-    Z_HELPER_RUN(t_z_yaml_pack_struct(st, res, IOP_JPACK_MINIMAL, &packed));
+    Z_HELPER_RUN(t_z_yaml_pack_struct(st, res, 0, &packed));
     Z_ASSERT_STREQUAL(yaml, packed.data);
 
     Z_HELPER_END;
@@ -185,9 +190,8 @@ Z_GROUP_EXPORT(iop_yaml)
                                         &st_jpack, _flags, _test_unpack,     \
                                         _must_be_equal, _exp))
 
-        TST_FLAGS(0, true, true,
-                  "def: 1\n"
-                  "rep: ~");
+        /* default is to skip everything optional */
+        TST_FLAGS(0, true, true, "~");
         /* NO_WHITESPACES is not valid for YAML */
         TST_FLAGS(IOP_JPACK_NO_WHITESPACES, true, true,
                   "def: 1\n"

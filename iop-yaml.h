@@ -109,6 +109,16 @@ typedef int (iop_ypack_writecb_f)(void * nonnull priv,
 
 /** Convert an IOP C structure to IOP-YAML.
  *
+ * See iop_ypack. This function can be used to provide specific packing flags.
+ * *DO NOT USE THIS*. Use iop_ypack instead.
+ */
+int iop_ypack_with_flags(const iop_struct_t * nonnull st,
+                         const void * nonnull value,
+                         iop_ypack_writecb_f * nonnull writecb,
+                         void * nonnull priv, unsigned flags);
+
+/** Convert an IOP C structure to IOP-YAML.
+ *
  * This function packs an IOP structure into YAML format.
  *
  * \param[in] st       IOP structure description.
@@ -119,7 +129,7 @@ typedef int (iop_ypack_writecb_f)(void * nonnull priv,
  */
 int iop_ypack(const iop_struct_t * nonnull st, const void * nonnull value,
               iop_ypack_writecb_f * nonnull writecb,
-              void * nonnull priv, unsigned flags);
+              void * nonnull priv);
 
 /** Serialize an IOP C structure in an IOP-YAML file.
  *
@@ -151,9 +161,9 @@ int _iop_ypack_file(const char * nonnull filename, unsigned file_flags,
  */
 static inline int
 iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
-             const void * nonnull value, unsigned flags)
+             const void * nonnull value)
 {
-    return iop_ypack(st, value, &iop_sb_write, sb, flags);
+    return iop_ypack(st, value, &iop_sb_write, sb);
 }
 
 /* }}} */

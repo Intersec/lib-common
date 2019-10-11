@@ -1780,8 +1780,9 @@ iop_ypack_typed_struct(const iop_struct_t *desc, const void *value,
 #undef PUTU
 #undef PUTI
 
-int iop_ypack(const iop_struct_t *desc, const void *value,
-              iop_jpack_writecb_f *writecb, void *priv, unsigned flags)
+int iop_ypack_with_flags(const iop_struct_t *desc, const void *value,
+                         iop_jpack_writecb_f *writecb, void *priv,
+                         unsigned flags)
 {
     const iop_ypack_env_t env = {
         .write_cb = writecb,
@@ -1790,6 +1791,18 @@ int iop_ypack(const iop_struct_t *desc, const void *value,
     };
 
     return iop_ypack_typed_struct(desc, value, &env, 0, false);
+}
+
+int iop_ypack(const iop_struct_t *desc, const void *value,
+              iop_jpack_writecb_f *writecb, void *priv)
+{
+    /* Always skip everything that can be skipped */
+    return iop_ypack_with_flags(desc, value, writecb, priv,
+                                IOP_JPACK_SKIP_PRIVATE
+                              | IOP_JPACK_SKIP_DEFAULT
+                              | IOP_JPACK_SKIP_EMPTY_ARRAYS
+                              | IOP_JPACK_SKIP_EMPTY_STRUCTS
+                              | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES);
 }
 
 /* }}} */
