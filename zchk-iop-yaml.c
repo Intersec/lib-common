@@ -399,7 +399,7 @@ Z_GROUP_EXPORT(iop_yaml)
 
         st = &tstiop__full_opt__s;
 #define ERR_COMMON  \
-        "cannot unpack YAML as object of type `tstiop.FullOpt`"
+        "cannot unpack YAML as a `tstiop.FullOpt` IOP struct"
 
         /* --- Type mismatches --- */
 
@@ -567,26 +567,23 @@ Z_GROUP_EXPORT(iop_yaml)
         st = &tstiop__my_class2__s;
 #undef ERR_COMMON
 #define ERR_COMMON  \
-        "cannot unpack YAML as object of type `tstiop.MyClass2`"
+        "cannot unpack YAML as a `tstiop.MyClass2` IOP struct"
 
         /* same parent but not a child */
         TST_ERROR("!tstiop.MyClass1\n"
                   "int1: 42",
                   "1:1: "ERR_COMMON": "
-                  "cannot unpack YAML as a `tstiop.MyClass2` IOP struct: "
                   "provided tag `tstiop.MyClass1` is not a child of "
                   "`tstiop.MyClass2`");
 
         st = &tstiop__struct_jpack_flags__s;
 #undef ERR_COMMON
 #define ERR_COMMON  \
-        "cannot unpack YAML as object of type `tstiop.StructJpackFlags`"
+        "cannot unpack YAML as a `tstiop.StructJpackFlags` IOP struct"
 
         /* private field */
         TST_ERROR("priv: 42\n",
-                  "1:1: "ERR_COMMON": "
-                  "cannot unpack YAML as a `tstiop.StructJpackFlags` "
-                  "IOP struct: unknown field `priv`");
+                  "1:1: "ERR_COMMON": unknown field `priv`");
 
         /* private class */
         TST_ERROR("myClass: !tstiop.MyClass2Priv\n"
@@ -595,6 +592,16 @@ Z_GROUP_EXPORT(iop_yaml)
                   "1:10: "ERR_COMMON": cannot set field `myClass`: "
                   "cannot unpack YAML as a `tstiop.MyClass2Priv` IOP struct: "
                   "`tstiop.MyClass2Priv` is private and cannot be unpacked");
+
+        /* test unpacking directly as a union */
+        st = &tstiop__my_union_a__s;
+#undef ERR_COMMON
+#define ERR_COMMON  \
+        "cannot unpack YAML as a `tstiop.MyUnionA` IOP union"
+
+        /* wrong field */
+        TST_ERROR("o: ra\n",
+                  "1:1: "ERR_COMMON": unknown field `o`");
 
 #undef ERR_COMMON
 #undef TST_ERROR

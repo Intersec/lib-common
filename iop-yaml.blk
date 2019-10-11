@@ -938,8 +938,13 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
         }
 
         iop_union_set_tag(st_desc, field_desc->tag, out);
-        RETHROW(yaml_data_to_iop_field(env, val, st_desc, field_desc,
-                                       (char *)out + field_desc->data_offs));
+        if (yaml_data_to_iop_field(env, val, st_desc, field_desc,
+                                   (char *)out + field_desc->data_offs) < 0)
+        {
+            /* keep the data causing the issue in the err. */
+            data = env->err.data;
+            goto error;
+        }
     }
 
     return 0;
@@ -1076,8 +1081,13 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
         /* FIXME: check constraints */
 
-        RETHROW(yaml_data_to_iop_field(env, val, field_st, field_desc,
-                                       (char *)out + field_desc->data_offs));
+        if (yaml_data_to_iop_field(env, val, field_st, field_desc,
+                                   (char *)out + field_desc->data_offs))
+        {
+            /* keep the data causing the issue in the err. */
+            data = env->err.data;
+            goto error;
+        }
     }
 
   check_missing_fields:
@@ -1263,8 +1273,7 @@ static void yunpack_err_pretty_print(const yunpack_error_t *err,
      *        ^^^^^^
      * cannot set field c: cannot set a string value in a field of type int
      */
-    sb_setf(out, YAML_POS_FMT": cannot unpack YAML as object of type "
-            "`%pL`: %pL", YAML_POS_ARG(err->data->pos_start), &st->fullname,
+    sb_setf(out, YAML_POS_FMT": %pL", YAML_POS_ARG(err->data->pos_start),
             &err->buf);
 }
 
