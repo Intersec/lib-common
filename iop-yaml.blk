@@ -1001,10 +1001,25 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 {
     byte *seen;
     const iop_struct_t *real_st = st;
-    uint32_t nb_fields;
+    uint32_t nb_fields = st->fields_len;
 
     if (st->is_union) {
         return yaml_data_to_union(env, data, st, out);
+    }
+
+    switch (data->type) {
+      case YAML_DATA_SCALAR:
+        if (data->scalar.type == YAML_SCALAR_NULL) {
+            seen = p_alloca(byte, BITS_TO_ARRAY_LEN(byte, nb_fields));
+            goto check_missing_fields;
+        }
+        /* FALLTHROUGH */
+      case YAML_DATA_SEQ:
+        sb_setf(&env->err.buf, "cannot unpack %s into a struct",
+                yaml_data_get_type(data));
+        goto error;
+      case YAML_DATA_OBJ:
+        break;
     }
 
     if (data->obj->tag.s) {
@@ -1034,25 +1049,9 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
         *out_class = mp_imalloc(env->mp, real_st->size, 8, MEM_RAW);
         *(const iop_struct_t **)(*out_class) = real_st;
         out = *out_class;
-    } else {
-        nb_fields = real_st->fields_len;
     }
 
     seen = p_alloca(byte, BITS_TO_ARRAY_LEN(byte, nb_fields));
-
-    switch (data->type) {
-      case YAML_DATA_SCALAR:
-        if (data->scalar.type == YAML_SCALAR_NULL) {
-            goto check_missing_fields;
-        }
-        /* FALLTHROUGH */
-      case YAML_DATA_SEQ:
-        sb_setf(&env->err.buf, "cannot unpack %s into a struct",
-                yaml_data_get_type(data));
-        goto error;
-      case YAML_DATA_OBJ:
-        break;
-    }
 
     qm_for_each_key_value_p(yaml_data, key, val, &data->obj->fields) {
         int ifield;
@@ -1171,6 +1170,7 @@ yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
 }
 
 /* }}} */
+/* {{{ Yaml data to iop field */
 
 static int
 yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
@@ -1252,6 +1252,8 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
     sb_prependf(&env->err.buf, "cannot set field `%pL`: ", &fdesc->name);
     return -1;
 }
+
+/* }}} */
 
 static void yaml_env_init_from_ps(yaml_env_t *env, pstream_t ps)
 {

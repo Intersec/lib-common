@@ -27,7 +27,7 @@
 /* {{{ IOP testing helpers */
 
 static int t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
-                                unsigned flags, const char *info, sb_t *out)
+                                unsigned flags, sb_t *out)
 {
     /* XXX: Use a small t_sb here to force a realloc during (un)packing
      *      and detect possible illegal usage of the t_pool in the
@@ -36,7 +36,7 @@ static int t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
 
     /* packing */
     Z_ASSERT_N(iop_ypack(st, v, iop_sb_write, out, flags),
-               "YAML packing failure for (%s, %s)", st->fullname.s, info);
+               "YAML packing failure for %s", st->fullname.s);
 
     Z_HELPER_END;
 }
@@ -129,7 +129,7 @@ iop_yaml_test_unpack(const iop_struct_t *st, const char *yaml)
     ret = t_iop_yunpack_ptr_ps(&ps, st, &res, &err);
     Z_ASSERT_N(ret, "YAML unpacking error: %pL", &err);
 
-    Z_HELPER_RUN(t_z_yaml_pack_struct(st, res, 0, "pack", &packed));
+    Z_HELPER_RUN(t_z_yaml_pack_struct(st, res, IOP_JPACK_MINIMAL, &packed));
     Z_ASSERT_STREQUAL(yaml, packed.data);
 
     Z_HELPER_END;
@@ -144,7 +144,7 @@ static int iop_yaml_test_pack(const iop_struct_t *st, const void *value,
     void *unpacked = NULL;
     SB_1k(err);
 
-    Z_HELPER_RUN(t_z_yaml_pack_struct(st, value, flags, "pack", &sb));
+    Z_HELPER_RUN(t_z_yaml_pack_struct(st, value, flags, &sb));
     Z_ASSERT_STREQUAL(sb.data, expected);
 
     if (test_unpack) {
@@ -644,6 +644,8 @@ Z_GROUP_EXPORT(iop_yaml)
             "s: 19\n"
             "t: 20"
         );
+
+        TST(&tstiop__my_struct_a_opt__s, "~");
 
 #undef TST
     } Z_TEST_END;
