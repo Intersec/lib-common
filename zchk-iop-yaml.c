@@ -18,8 +18,6 @@
 
 /* LCOV_EXCL_START */
 
-#include <math.h>
-
 #include "z.h"
 #include "iop-yaml.h"
 #include "iop/tstiop.iop.h"
@@ -45,62 +43,6 @@ static int t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
 
     Z_HELPER_END;
 }
-
-#if 0
-static int iop_yaml_test_struct(const iop_struct_t *st, void *v,
-                                const char *info)
-{
-    t_scope;
-    pstream_t ps;
-    uint8_t buf1[20], buf2[20];
-    sb_t sb;
-    void *res = NULL;
-    SB_1k(err);
-
-    Z_HELPER_RUN(t_z_yaml_pack_struct(st, v, 0, info, &sb));
-
-    /* unpacking */
-    ps = ps_initsb(&sb);
-    Z_ASSERT_N(t_iop_yunpack_ptr_ps(&ps, st, &res, &err),
-               "YAML unpacking error (%s, %s): %pL", st->fullname.s,
-               info, &err);
-
-    /* check hashes equality */
-    iop_hash_sha1(st, v,   buf1, 0);
-    iop_hash_sha1(st, res, buf2, 0);
-    Z_ASSERT_EQUAL(buf1, sizeof(buf1), buf2, sizeof(buf2),
-                   "YAML packing/unpacking hashes don't match! (%s, %s)",
-                   st->fullname.s, info);
-
-    Z_HELPER_END;
-}
-
-static int iop_yaml_test_yaml(const iop_struct_t *st, const char *yaml,
-                              const void *expected, const char *info)
-{
-    t_scope;
-    pstream_t ps;
-    void *res = NULL;
-    uint8_t buf1[20], buf2[20];
-    SB_1k(err);
-
-    ps = ps_initstr(yaml);
-    Z_ASSERT_N(t_iop_yunpack_ptr_ps(&ps, st, &res, &err),
-               "YAML unpacking error (%s, %s): %pL", st->fullname.s, info,
-               &err);
-
-    /* check hashes equality */
-    iop_hash_sha1(st, res,      buf1, 0);
-    iop_hash_sha1(st, expected, buf2, 0);
-    Z_ASSERT_EQUAL(buf1, sizeof(buf1), buf2, sizeof(buf2),
-                   "YAML unpacking hashes don't match! (%s, %s)",
-                   st->fullname.s, info);
-
-    /* TODO: test pack unpack from file */
-
-    Z_HELPER_END;
-}
-#endif
 
 static int
 iop_yaml_test_unpack_error(const iop_struct_t *st, const char *yaml,
