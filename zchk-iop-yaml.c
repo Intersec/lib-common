@@ -46,7 +46,7 @@ static int t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
 
 static int
 iop_yaml_test_unpack_error(const iop_struct_t *st, const char *yaml,
-                           const char *expected_err)
+                           const char *expected_err, bool exact_match)
 {
     t_scope;
     pstream_t ps;
@@ -57,13 +57,19 @@ iop_yaml_test_unpack_error(const iop_struct_t *st, const char *yaml,
     ps = ps_initstr(yaml);
     ret = t_iop_yunpack_ptr_ps(&ps, st, &res, &err);
     Z_ASSERT_NEG(ret, "YAML unpacking unexpected success");
-    Z_ASSERT_STREQUAL(err.data, expected_err);
+    if (exact_match) {
+        Z_ASSERT_STREQUAL(err.data, expected_err);
+    } else {
+        Z_ASSERT(lstr_contains(LSTR_SB_V(&err), LSTR(expected_err)));
+    }
 
     Z_HELPER_END;
 }
 
 static int
-iop_yaml_test_unpack(const iop_struct_t *st, const char *yaml)
+iop_yaml_test_unpack(const iop_struct_t * nonnull st,
+                     const char * nonnull yaml,
+                     const char * nullable new_yaml)
 {
     t_scope;
     pstream_t ps;
@@ -77,7 +83,7 @@ iop_yaml_test_unpack(const iop_struct_t *st, const char *yaml)
     Z_ASSERT_N(ret, "YAML unpacking error: %pL", &err);
 
     Z_HELPER_RUN(t_z_yaml_pack_struct(st, res, 0, &packed));
-    Z_ASSERT_STREQUAL(yaml, packed.data);
+    Z_ASSERT_STREQUAL(new_yaml ?: yaml, packed.data);
 
     Z_HELPER_END;
 }
@@ -341,7 +347,7 @@ Z_GROUP_EXPORT(iop_yaml)
         const iop_struct_t *st;
 
 #define TST_ERROR(_yaml, _error)                                             \
-        Z_HELPER_RUN(iop_yaml_test_unpack_error(st, (_yaml), (_error)))
+        Z_HELPER_RUN(iop_yaml_test_unpack_error(st, (_yaml), (_error), true))
 
         st = &tstiop__full_opt__s;
 #define ERR_COMMON  \
@@ -555,7 +561,7 @@ Z_GROUP_EXPORT(iop_yaml)
     /* }}} */
     Z_TEST(unpack, "test IOP YAML unpacking") { /* {{{ */
 #define TST(_st, _yaml)                                                      \
-        Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml)))
+        Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml), NULL))
 
         TST(&tstiop__my_struct_a__s,
             "a: -1\n"
@@ -596,17 +602,37 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef TST
     } Z_TEST_END;
     /* }}} */
+    Z_TEST(unpack, "test IOP YAML unpacking backward compat") { /* {{{ */
+#define TST(_st, _yaml, _new_yaml)                                           \
+        Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml), (_new_yaml)))
+#define TST_ERROR(_st, _yaml, _error)                                        \
+        Z_HELPER_RUN(iop_yaml_test_unpack_error((_st), (_yaml), (_error),    \
+                                                false))
+
+        /* a scalar can be unpacked into an array */
+        TST(&tstiop__my_struct_a_opt__s,
+            "u: 3",
+            "u:\n  - 3");
+        /* must be of compatible type however */
+        TST_ERROR(&tstiop__my_struct_a_opt__s,
+                  "u: wry",
+                  "cannot set a string value in a field of type int");
+
+#undef TST_ERROR
+#undef TST
+    } Z_TEST_END;
+    /* }}} */
     Z_TEST(constraints, "test IOP constraints") { /* {{{ */
         tstiop__constraint_u__t u;
         tstiop__constraint_s__t s;
         lstr_t string = LSTR("ora");
 
-#define TST_ERROR(st, v, yaml, err)                                      \
+#define TST_ERROR(st, v, yaml, err)                                          \
     do {                                                                     \
         Z_ASSERT_NEG(iop_check_constraints_desc((st), (v)));                 \
         Z_HELPER_RUN(iop_yaml_test_pack((st), (v), IOP_JPACK_MINIMAL,        \
-                                        false, false, (yaml)));\
-        Z_HELPER_RUN(iop_yaml_test_unpack_error((st), (yaml), (err)));       \
+                                        false, false, (yaml)));              \
+        Z_HELPER_RUN(iop_yaml_test_unpack_error((st), (yaml), (err), true)); \
     } while(0)
 
         /* check constraints are properly checked on unions */
