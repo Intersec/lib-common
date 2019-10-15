@@ -20,6 +20,7 @@
 #define IS_PYTHON_LIBCOMMON_CYTHON_H
 
 #include <lib-common/iop.h>
+#include <lib-common/iop-yaml.h>
 #include <lib-common/xmlr.h>
 #include <lib-common/xmlpp.h>
 #include <lib-common/iop-rpc.h>

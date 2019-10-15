@@ -144,6 +144,22 @@ class IopyTest(z.TestCase):
         b2 = self.r.test.ClassB.__from_file__(_json=path)
         self.assertEqual(b, b2)
 
+    def test_from_file_yaml(self):
+        path = os.path.join(TEST_PATH, 'test_class_b.yaml')
+        b = self.r.test.ClassB.from_file(_yaml=path)
+        self.assertEqual(b.field1, 9)
+        self.assertEqual(b.field2, 8)
+        self.assertEqual(b.optField, 7)
+        b2 = self.r.test.ClassB.__from_file__(_yaml=path)
+        self.assertEqual(b, b2)
+
+    def test_from_str_yaml(self):
+        path = os.path.join(TEST_PATH, 'test_class_b.yaml')
+        b = self.r.test.ClassB.from_file(_yaml=path)
+        with open(path) as f:
+            b2 = self.r.test.ClassB(_yaml=f.read())
+            self.assertEqual(b, b2)
+
     def test_from_file_xml(self):
         path = os.path.join(TEST_PATH, 'test_class_b.xml')
         b = self.r.test.ClassB.from_file(_xml=path)
@@ -175,6 +191,11 @@ class IopyTest(z.TestCase):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = '{"a":"plop","b":"plip","tab":["plup"]}'
         self.assertEqual(exp, b.__json__(minimal=True))
+
+    def test__yaml__(self):
+        b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
+        exp = 'a: plop\nb: plip\ntab:\n  - plup'
+        self.assertEqual(exp, b.__yaml__())
 
     def test__bin__(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])

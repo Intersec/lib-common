@@ -1682,13 +1682,15 @@ cdef class StructUnionBase(Basic):
     def from_file(object cls, **kwargs):
         """Unpack an IOPy struct or union from a file.
 
-        One and only one of the named arguments _xml, _json, _hex or _bin must
-        be set depending on the expected file format.
+        One and only one of the named arguments _xml, _json, _yaml, _hex or
+        _bin must be set depending on the expected file format.
 
         Parameters
         ----------
         _json : str
             Name of the file to unpack as json.
+        _yaml : str
+            Name of the file to unpack as yaml.
         _xml : str
             Name of the file to unpack as xml.
         _hex : str
@@ -1785,6 +1787,16 @@ cdef class StructUnionBase(Basic):
             The formatted string.
         """
         return format_py_obj_to_json(self, kwargs)
+
+    def __yaml__(StructUnionBase self):
+        """Format the struct or union object as YAML.
+
+        Returns
+        -------
+        str
+            The formatted string.
+        """
+        return format_py_obj_to_yaml(self)
 
     def __bin__(StructUnionBase self):
         """Format the struct or union object as binary.
@@ -3089,11 +3101,12 @@ cdef int mp_iop_py_obj_to_c_val(mem_pool_t *mp, cbool force_str_dup,
 
 
 # }}}
-# {{{ Parse special kwargs _json, _bin, _xml, _hex
+# {{{ Parse special kwargs _json, _yaml, _bin, _xml, _hex
 
 
 cdef enum IopySpecialKwargsType:
     IOPY_SPECIAL_KWARGS_JSON
+    IOPY_SPECIAL_KWARGS_YAML
     IOPY_SPECIAL_KWARGS_BIN
     IOPY_SPECIAL_KWARGS_XML
     IOPY_SPECIAL_KWARGS_HEX
@@ -3140,6 +3153,8 @@ cdef object get_special_kwargs(dict kwargs, IopySpecialKwargsType *val_type,
 
     if key == '_json':
         val_type[0] = IOPY_SPECIAL_KWARGS_JSON
+    elif key == '_yaml':
+        val_type[0] = IOPY_SPECIAL_KWARGS_YAML
     elif key == '_bin':
         val_type[0] = IOPY_SPECIAL_KWARGS_BIN
     elif key == '_xml':
@@ -3182,6 +3197,34 @@ cdef void *t_parse_lstr_json(const iop_struct_t *st, lstr_t val) except NULL:
         raise Error('cannot parse string: %s (when trying to unpack an %s)' %
                     (lstr_to_py_str(LSTR_SB_V(&err)),
                      lstr_to_py_str(st.fullname)))
+    return res
+
+
+cdef void *t_parse_lstr_yaml(const iop_struct_t *st, lstr_t val) except NULL:
+    """Unpack the string value as json for the given structure.
+
+    Parameters
+    ----------
+    st
+        The C iop struct description.
+    val
+        The json value.
+
+    Returns
+    -------
+        The unpacked iop struct value or NULL in case of exception.
+    """
+    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef pstream_t ps
+    cdef int ret_code
+    cdef void *res = NULL
+
+    with nogil:
+        ps = ps_initlstr(&val)
+        ret_code = t_iop_yunpack_ptr_ps(&ps, st, &res, &err)
+
+    if ret_code < 0:
+        raise Error('%s' % (lstr_to_py_str(LSTR_SB_V(&err))))
     return res
 
 
@@ -3354,6 +3397,8 @@ cdef StructUnionBase parse_special_val_lstr(object cls,
 
     if val_type == IOPY_SPECIAL_KWARGS_JSON:
         iop_val = t_parse_lstr_json(st, val_lstr)
+    elif val_type == IOPY_SPECIAL_KWARGS_YAML:
+        iop_val = t_parse_lstr_yaml(st, val_lstr)
     elif val_type == IOPY_SPECIAL_KWARGS_BIN:
         iop_val = t_parse_lstr_bin(st, val_lstr)
     elif val_type == IOPY_SPECIAL_KWARGS_XML:
@@ -3472,11 +3517,10 @@ cdef list parse_lstr_list_bin_to_py_obj(object cls, const iop_struct_t *st,
     return res
 
 
-cdef StructUnionBase unpack_json_file_to_py_obj(object cls,
-                                                const iop_struct_t *st,
-                                                Plugin plugin,
-                                                object filename):
-    """Unpack json file to python object.
+cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
+                                           Plugin plugin, object filename,
+                                           IopySpecialKwargsType file_type):
+    """Unpack json or yaml file to python object.
 
     Parameters
     ----------
@@ -3504,8 +3548,13 @@ cdef StructUnionBase unpack_json_file_to_py_obj(object cls,
     filename_lstr = mp_py_obj_to_lstr(t_pool(), filename, False)
     with nogil:
         data = NULL
-        ret_code = t_iop_junpack_ptr_file(filename_lstr.s, st, &data, 0, NULL,
-                                          &err)
+        if file_type == IOPY_SPECIAL_KWARGS_JSON:
+            ret_code = t_iop_junpack_ptr_file(filename_lstr.s, st, &data, 0,
+                                              NULL, &err)
+        else:
+            cassert(file_type == IOPY_SPECIAL_KWARGS_YAML)
+            ret_code = t_iop_yunpack_ptr_file(filename_lstr.s, st, &data,
+                                              &err)
     if ret_code < 0:
         raise Error('cannot unpack input file %s: %s' %
                     (filename, lstr_to_py_str(LSTR_SB_V(&err))))
@@ -3544,14 +3593,15 @@ cdef object unpack_file_from_args_to_py_obj(object cls, dict kwargs):
     filename = get_special_kwargs(kwargs, &file_type, &single)
     if filename is None:
         raise Error('missing keyword argument; '
-                    'one of _xml, _json, _hex, _bin')
+                    'one of _xml, _json, _yaml, _hex, _bin')
 
     iop_type = struct_union_get_iop_type_cls(cls)
     st = iop_type.desc
     plugin = iop_type.plugin
 
-    if file_type == IOPY_SPECIAL_KWARGS_JSON:
-        return unpack_json_file_to_py_obj(cls, st, plugin, filename)
+    if (file_type == IOPY_SPECIAL_KWARGS_JSON or
+        file_type == IOPY_SPECIAL_KWARGS_YAML):
+        return unpack_file_to_py_obj(cls, st, plugin, filename, file_type)
 
     filename_lstr = mp_py_obj_to_lstr(t_pool(), filename, False)
     if lstr_init_from_file(&file_content, filename_lstr.s, PROT_READ,
@@ -4173,6 +4223,28 @@ cdef basestring format_py_obj_to_json(StructUnionBase py_obj, dict kwargs):
 
     flags = iopy_kwargs_to_jpack_flags(kwargs, False)
     iop_jpack(struct_union_get_desc(py_obj), val, iop_sb_write, &sb, flags)
+    return lstr_to_py_str(LSTR_SB_V(&sb))
+
+
+cdef basestring format_py_obj_to_yaml(StructUnionBase py_obj):
+    """Format struct or union object to yaml str.
+
+    Parameters
+    ----------
+    py_obj
+        The struct or union python object to format.
+
+    Returns
+    -------
+        The formatted string.
+    """
+    cdef t_scope_t t_scope_guard = t_scope_init()
+    cdef sb_scope_t sb = sb_scope_init_8k()
+    cdef void *val = NULL
+
+    t_scope_ignore(t_scope_guard)
+    mp_iop_py_obj_to_c_val(t_pool(), False, py_obj, &val)
+    iop_sb_ypack(&sb, struct_union_get_desc(py_obj), val)
     return lstr_to_py_str(LSTR_SB_V(&sb))
 
 
@@ -5027,8 +5099,8 @@ cdef class UnionBase(StructUnionBase):
     Objects are callable to create new instances.
 
     Almost all methods from Iopy struct class are available for union class
-    (like special constructors using _[json|xml|hex|bin]
-    or dumper methods __[json|xml|hex|bin]__() ])
+    (like special constructors using _[json|yaml|xml|hex|bin]
+    or dumper methods __[json|yaml|xml|hex|bin]__() ])
 
     Demo:
     #import iopy
@@ -5406,12 +5478,13 @@ cdef class StructBase(StructUnionBase):
     Arguments with value None are ignored.
     __desc__() can be called to get a description of the internal IOP
     structure.
-    You can also create new instances from json, bin, xml or hexadecimal iop
-    packed strings by creating the object with a single argument named _json,
-    _xml _bin or _hex.
+    You can also create new instances from json, yaml, bin, xml or
+    hexadecimal iop packed strings by creating the object with a single
+    argument named _json, _yaml, _xml, _bin or _hex.
 
-    You can dump thoses struct into json, bin, xml or hexadecimal iop-packed
-    string using methods __json__, __bin__, __xml__ or __hex__
+    You can dump thoses struct into json, yaml, bin, xml or hexadecimal
+    iop-packed string using methods __json__, __yaml__, __bin__, __xml__
+    or __hex__.
 
     Demo:
     #import iopy
