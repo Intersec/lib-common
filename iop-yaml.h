@@ -57,6 +57,26 @@ int t_iop_yunpack_ptr_ps(pstream_t * nonnull ps,
                          void * nullable * nonnull out,
                          sb_t * nonnull out_err);
 
+/** Convert a YAML file into an IOP C structure using the t_pool().
+ *
+ * See t_iop_junpack_ps.
+ */
+__must_check__
+int t_iop_yunpack_file(const char * nonnull filename,
+                       const iop_struct_t * nonnull st,
+                       void * nullable * nonnull out,
+                       sb_t * nonnull out_err);
+
+/** Convert a YAML file into an IOP C structure using the t_pool().
+ *
+ * See t_iop_junpack_ptr_ps.
+ */
+__must_check__
+int t_iop_yunpack_ptr_file(const char * nonnull filename,
+                           const iop_struct_t * nonnull st,
+                           void * nullable * nonnull out,
+                           sb_t * nonnull out_err);
+
 /* }}} */
 /* {{{ Generating YAML */
 
@@ -102,6 +122,23 @@ iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
     return iop_ypack(st, value, &iop_sb_write, sb);
 }
 
+/** Pack an IOP C structure in an IOP-YAML file.
+ *
+ * \param[in]  filename   The file in which the value is packed.
+ * \param[in]  file_flags The flags to use when opening the file
+ *                        (\ref enum file_flags).
+ * \param[in]  file_mode  The mode to use when opening the file.
+ * \param[in]  st         IOP structure description.
+ * \param[in]  value      Pointer on the IOP structure to pack.
+ * \param[out] err        Buffer filled in case of error.
+ */
+int iop_ypack_file(const char * nonnull filename, unsigned file_flags,
+                   mode_t file_mode, const iop_struct_t * nonnull st,
+                   const void * nonnull value, sb_t * nonnull err);
+
+#define iop_ypack_file(filename, st, value, err)                             \
+    (iop_ypack_file)((filename), FILE_WRONLY | FILE_CREATE | FILE_TRUNC,     \
+                     0644, (st), (value), (err))
 /* }}} */
 
 MODULE_DECLARE(iop_yaml);

@@ -1382,18 +1382,58 @@ int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
     return 0;
 }
 
-int
-t_iop_yunpack_ptr_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
-                     void * nullable * nonnull out, sb_t * nonnull out_err)
+static void * nonnull t_alloc_st_out(const iop_struct_t * nonnull st,
+                                     void * nullable * nonnull out)
 {
     if (iop_struct_is_class(st)) {
         /* "out" will be (re)allocated after, when the real packed class type
          * will be known. */
-        return t_iop_yunpack_ps(ps, st, out, out_err);
+        return out;
+    } else {
+        *out = mp_irealloc(t_pool(), *out, 0, st->size, 8, MEM_RAW);
+        return *out;
+    }
+}
+
+int
+t_iop_yunpack_ptr_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
+                     void * nullable * nonnull out, sb_t * nonnull out_err)
+{
+    return t_iop_yunpack_ps(ps, st, t_alloc_st_out(st, out), out_err);
+}
+
+int t_iop_yunpack_file(const char * nonnull filename,
+                       const iop_struct_t * nonnull st,
+                       void * nullable * nonnull out,
+                       sb_t * nonnull out_err)
+{
+    lstr_t file = LSTR_NULL_V;
+    pstream_t ps;
+    int res = 0;
+
+    if (lstr_init_from_file(&file, filename, PROT_READ, MAP_SHARED) < 0) {
+        sb_setf(out_err, "cannot read file %s: %m", filename);
+        return -1;
     }
 
-    *out = mp_irealloc(t_pool(), *out, 0, st->size, 8, MEM_RAW);
-    return t_iop_yunpack_ps(ps, st, *out, out_err);
+    ps = ps_initlstr(&file);
+    res = t_iop_yunpack_ps(&ps, st, out, out_err);
+    lstr_wipe(&file);
+
+    return res;
+}
+
+/** Convert a YAML file into an IOP C structure using the t_pool().
+ *
+ * See t_iop_junpack_ptr_ps.
+ */
+__must_check__
+int t_iop_yunpack_ptr_file(const char * nonnull filename,
+                           const iop_struct_t * nonnull st,
+                           void * nullable * nonnull out,
+                           sb_t * nonnull out_err)
+{
+    return t_iop_yunpack_file(filename, st, t_alloc_st_out(st, out), out_err);
 }
 
 /* }}} */
@@ -1832,6 +1872,56 @@ int iop_ypack(const iop_struct_t *desc, const void *value,
                               | IOP_JPACK_SKIP_EMPTY_ARRAYS
                               | IOP_JPACK_SKIP_EMPTY_STRUCTS
                               | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES);
+}
+
+typedef struct ypack_file_ctx_t {
+    file_t *file;
+    sb_t *err;
+} ypack_file_ctx_t;
+
+static int iop_ypack_write_file(void *priv, const void *data, int len)
+{
+    ypack_file_ctx_t *ctx = priv;
+
+    if (file_write(ctx->file, data, len) < 0) {
+        sb_addf(ctx->err, "cannot write in output file: %m");
+        return -1;
+    }
+
+    return len;
+}
+
+int (iop_ypack_file)(const char *filename, unsigned file_flags,
+                     mode_t file_mode, const iop_struct_t *st,
+                     const void *value, sb_t *err)
+{
+    ypack_file_ctx_t ctx;
+    int res;
+
+    p_clear(&ctx, 1);
+    ctx.file = file_open(filename, file_flags, file_mode);
+    if (!ctx.file) {
+        sb_setf(err, "cannot open output file `%s`: %m", filename);
+        return -1;
+    }
+    ctx.err = err;
+
+    res = iop_ypack(st, value, &iop_ypack_write_file, &ctx);
+    if (res < 0) {
+        IGNORE(file_close(&ctx.file));
+        return res;
+    }
+
+    /* End the file with a newline, as the packing ends immediately after
+     * the last value. */
+    file_puts(ctx.file, "\n");
+
+    if (file_close(&ctx.file) < 0) {
+        sb_setf(err, "cannot close output file `%s`: %m", filename);
+        return -1;
+    }
+
+    return 0;
 }
 
 /* }}} */

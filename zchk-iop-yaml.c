@@ -72,8 +72,10 @@ iop_yaml_test_unpack(const iop_struct_t * nonnull st,
                      const char * nullable new_yaml)
 {
     t_scope;
+    const char *path;
     pstream_t ps;
     void *res = NULL;
+    void *file_res = NULL;
     int ret;
     SB_1k(err);
     SB_1k(packed);
@@ -84,6 +86,13 @@ iop_yaml_test_unpack(const iop_struct_t * nonnull st,
 
     Z_HELPER_RUN(t_z_yaml_pack_struct(st, res, 0, &packed));
     Z_ASSERT_STREQUAL(new_yaml ?: yaml, packed.data);
+
+    /* Test iop_ypack_file / t_iop_yunpack_file */
+    path = t_fmt("%*pM/tstyaml.yml", LSTR_FMT_ARG(z_tmpdir_g));
+    Z_ASSERT_N(iop_ypack_file(path, st, res, &err), "%pL", &err);
+    Z_ASSERT_N(t_iop_yunpack_ptr_file(path, st, &file_res, &err),
+               "%pL", &err);
+    Z_ASSERT_IOPEQUAL_DESC(st, res, file_res);
 
     Z_HELPER_END;
 }
