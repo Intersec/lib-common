@@ -1367,11 +1367,15 @@ int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
     /* XXX: may be removed in the future, but useful while the code is still
      * young to ensure we did not mess up our unpacking. */
 #ifndef NDEBUG
-    if (!expect(iop_check_constraints_desc(st, out) >= 0)) {
-        sb_setf(&unpack_env.err.buf, "invalid object: %s", iop_get_err());
-        unpack_env.err.data = &data;
-        yunpack_err_pretty_print(&unpack_env.err, st, out_err);
-        return -1;
+    {
+        void *val = iop_struct_is_class(st) ? *(void **)out : out;
+
+        if (!expect(iop_check_constraints_desc(st, val) >= 0)) {
+            sb_setf(&unpack_env.err.buf, "invalid object: %s", iop_get_err());
+            unpack_env.err.data = &data;
+            yunpack_err_pretty_print(&unpack_env.err, st, out_err);
+            return -1;
+        }
     }
 #endif
 
@@ -1382,6 +1386,12 @@ int
 t_iop_yunpack_ptr_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
                      void * nullable * nonnull out, sb_t * nonnull out_err)
 {
+    if (iop_struct_is_class(st)) {
+        /* "out" will be (re)allocated after, when the real packed class type
+         * will be known. */
+        return t_iop_yunpack_ps(ps, st, out, out_err);
+    }
+
     *out = mp_irealloc(t_pool(), *out, 0, st->size, 8, MEM_RAW);
     return t_iop_yunpack_ps(ps, st, *out, out_err);
 }

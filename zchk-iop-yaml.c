@@ -597,7 +597,17 @@ Z_GROUP_EXPORT(iop_yaml)
             "t: 20"
         );
 
+        /* ~ can be unpacked into a struct */
         TST(&tstiop__my_struct_a_opt__s, "~");
+
+        /* unpacking a class as a base class should work */
+        TST(&tstiop__my_class2__s,
+            "!tstiop.MyClass3\n"
+            "int1: 1\n"
+            "int2: 2\n"
+            "int3: 3\n"
+            "bool1: true\n"
+            "string1: a");
 
 #undef TST
     } Z_TEST_END;
