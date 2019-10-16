@@ -200,6 +200,7 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
     ichannel_t *pxy;
     ic__hdr__t *pxy_hdr = NULL;
     bool force_pxy_hdr = false;
+    bool hdr_modified = false;
     ic__hdr__t          *hdr;
     ichttp_query_t *ic_q = obj_vcast(ichttp_query, q);
     ic_msg_t *msg;
@@ -217,7 +218,7 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
     }
 
     e = &cbe->e;
-    if (ic_query_do_pre_hook(NULL, slot, e, hdr) < 0) {
+    if (ic_query_do_pre_hook(NULL, slot, e, hdr, &hdr_modified) < 0) {
         return;
     }
 
@@ -266,6 +267,11 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
     if (unlikely(!pxy)) {
         __ichttp_reply_err(slot, IC_MSG_PROXY_ERROR, NULL);
         return;
+    }
+
+    if (hdr_modified && expect(hdr)) {
+        pxy_hdr = force_pxy_hdr ? pxy_hdr : hdr;
+        force_pxy_hdr = true;
     }
 
     msg = ic_msg_new(sizeof(uint64_t));

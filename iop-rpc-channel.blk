@@ -544,13 +544,13 @@ void ic_hook_ctx_delete(ic_hook_ctx_t **pctx)
 
 int
 ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot, const ic_cb_entry_t *e,
-                     ic__hdr__t *hdr)
+                     ic__hdr__t *hdr, bool *hdr_modified)
 {
     if (e->pre_hook) {
         _G.post_hook = e->post_hook;
         _G.rpc = e->rpc;
         _G.post_args = e->post_hook_args;
-        (*e->pre_hook)(ic, slot, hdr, e->pre_hook_args);
+        (*e->pre_hook)(ic, slot, hdr, e->pre_hook_args, hdr_modified);
         /* XXX: if we reply to the query during pre_hook then
          *      ic_hook_flow.ic_hook_ctx will be NULL, so we mustn't
          *      call the implementation of the RPC
@@ -1412,6 +1412,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     ichannel_t *pxy;
     ic__hdr__t *pxy_hdr = NULL;
     bool take_pxy_hdr = false;
+    bool hdr_modified = false;
     uint64_t query_slot;
     ic_msg_t *tmp;
     int pos;
@@ -1451,7 +1452,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     if (e->pre_hook) {
         t_seal();
         ic->cmd = cmd;
-        if (ic_query_do_pre_hook(ic, query_slot, e, hdr) < 0) {
+        if (ic_query_do_pre_hook(ic, query_slot, e, hdr, &hdr_modified) < 0) {
             ic->cmd = 0;
             return 0;
         }
@@ -1526,6 +1527,16 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
         ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
         ic->cmd = 0;
         t_unseal();
+    }
+
+    /* if the hdr has been modified, we have to force a repacking, to
+     * ensure that the new hdr is properly saved in the proxied msg */
+    if (hdr_modified && expect(hdr)) {
+        /* if take_pxy_hdr is set, we have to use pxy_hdr instead of hdr, but
+         * the pxy_hdr has been built using the modified hdr, so it can be
+         * kept. */
+        pxy_hdr = take_pxy_hdr ? pxy_hdr : hdr;
+        take_pxy_hdr = true;
     }
 
     take_pxy_hdr |= !(flags & IC_MSG_HAS_HDR) && pxy_hdr;
