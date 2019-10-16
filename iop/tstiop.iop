@@ -795,6 +795,18 @@ class ChildClassB : 3 : RootClass {
 };
 
 /* }}} */
+/* {{{ zchk iop_yaml */
+
+class BigParent {
+    string a;
+    string b;
+};
+
+class SmallChild : 1 : BigParent {
+    string c;
+};
+
+/* }}} */
 /* {{{ iopc zchk */
 /* {{{ zchk iopsq.sub_struct */
 

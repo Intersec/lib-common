@@ -1139,10 +1139,12 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
   check_missing_fields:
     st = real_st;
+    /* n is the index on the total number of fields for the object.
+     * i is the index on the fields specific to the current class (st) */
     for (uint32_t n = 0, i = 0; n < nb_fields; n++, i++) {
         const iop_field_t *fdesc;
 
-        if (n >= st->fields_len) {
+        if (i >= st->fields_len) {
             assert (iop_struct_is_class(st));
             assert (iop_struct_is_class(st->class_attrs->parent));
             st = st->class_attrs->parent;

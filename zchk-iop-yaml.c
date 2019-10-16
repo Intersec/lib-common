@@ -618,10 +618,16 @@ Z_GROUP_EXPORT(iop_yaml)
             "bool1: true\n"
             "string1: a");
 
+        /* Test with a parent with more fields than the child */
+        TST(&tstiop__small_child__s,
+            "a: a\n"
+            "b: b\n"
+            "c: c");
+
 #undef TST
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(unpack, "test IOP YAML unpacking backward compat") { /* {{{ */
+    Z_TEST(unpack_compat, "test YAML unpacking backward compat") { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
         Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml), (_new_yaml)))
 #define TST_ERROR(_st, _yaml, _error)                                        \
