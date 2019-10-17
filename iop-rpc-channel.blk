@@ -1360,6 +1360,44 @@ static void ic_report_unimplemented_rpc(int cmd)
                  "(%04x:%04x%*pM)", icmd, rcmd, SB_FMT_ARG(&sb));
 }
 
+static int
+t_get_details_of_query(ichannel_t *ic, int cmd, uint32_t slot,
+                       uint32_t flags, const void *data, int dlen,
+                       const ic_msg_t * nullable unpacked_msg,
+                       const iop_struct_t * nonnull st,
+                       const ic_cb_entry_t * nonnull e,
+                       int * nonnull hlen,
+                       ic__hdr__t * nullable * nonnull hdr,
+                       void * nullable * nonnull value)
+{
+    switch (e->cb_type) {
+      case IC_CB_NORMAL:
+      case IC_CB_NORMAL_BLK:
+      case IC_CB_WS_SHARED:
+        return t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
+                                        unpacked_msg, st, NULL, hdr,
+                                        value);
+
+      case IC_CB_PROXY_P:
+      case IC_CB_PROXY_PP:
+        /* need the hdr for the pre hook */
+        if (e->pre_hook) {
+            return t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
+                                            unpacked_msg, st, hlen, hdr,
+                                            NULL);
+        }
+        return 0;
+
+      case IC_CB_DYNAMIC_PROXY:
+        return t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
+                                        unpacked_msg, st, hlen, hdr, NULL);
+
+      default:
+        logger_panic(&_G.logger, "should not happen");
+        return 0;
+    }
+}
+
 /* Returns an error if the ic must be closed with ic_mark_disconnected. */
 static ALWAYS_INLINE __must_check__ int
 ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
@@ -1377,6 +1415,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     uint64_t query_slot;
     ic_msg_t *tmp;
     int pos;
+    void *value = NULL;
 
     pos = likely(ic->impl) ? qm_find_safe(ic_cbs, ic->impl, cmd) : -1;
     if (unlikely(pos < 0)) {
@@ -1401,22 +1440,24 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     query_slot = MAKE64(ic->id, slot | flags);
     ic_slot_trace(slot, flags, "received traced query");
 
+    /* get details from the data of the msg. Each type of callback has
+     * different details to retrieve. */
+    if (t_get_details_of_query(ic, cmd, slot ,flags, data, dlen, unpacked_msg,
+                               st, e, &hlen, &hdr, &value) < 0)
+    {
+         goto invalid_iop;
+    }
+
     switch (e->cb_type) {
       case IC_CB_NORMAL:
       case IC_CB_NORMAL_BLK:
       case IC_CB_WS_SHARED: {
         bool is_async = e->rpc->async;
-        void *value = NULL;
 
-        if (t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                     unpacked_msg, st, NULL,
-                                     &hdr, &value) < 0)
-        {
-            goto invalid_iop;
-        }
         t_seal();
         ic->desc = e->rpc;
         ic->cmd  = cmd;
+        assert (value);
         if (ic_query_do_pre_hook(ic, query_slot, e, hdr) >= 0) {
             if (e->cb_type == IC_CB_NORMAL_BLK) {
                 (e->u.blk.cb)(ic, query_slot, value, hdr);
@@ -1446,12 +1487,6 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
         {
             ic_dynproxy_t dynproxy;
 
-            if (t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                         unpacked_msg, st,
-                                         &hlen, &hdr, NULL) < 0)
-            {
-                goto invalid_iop;
-            }
             /* XXX dynproxy are allowed to return memory allocated on the
              * t_pool() and thus mustn't be wrapped in a local t_scope */
             dynproxy = (*e->u.dynproxy.get_ic)(hdr, e->u.dynproxy.priv);
@@ -1476,13 +1511,6 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     }
 
     if (e->pre_hook) {
-        if (!hdr && (flags & IC_MSG_HAS_HDR)
-        &&  t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                     unpacked_msg, st, &hlen, &hdr, NULL) < 0)
-        {
-            goto invalid_iop;
-        }
-
         t_seal();
         ic->cmd = cmd;
         if (ic_query_do_pre_hook(ic, query_slot, e, hdr) < 0) {
