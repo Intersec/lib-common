@@ -202,6 +202,7 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
     bool force_pxy_hdr = false;
     ic__hdr__t          *hdr;
     ichttp_query_t *ic_q = obj_vcast(ichttp_query, q);
+    ic_msg_t *msg;
 
     if (ic_q && ic_q->ic_hdr) {
         hdr = ic_q->ic_hdr;
@@ -260,42 +261,42 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
         break;
     }
 
-    if (likely(pxy)) {
-        ic_msg_t *msg;
-
-        if (ic_query_do_pre_hook(NULL, slot, e, hdr) < 0) {
-            return;
-        }
-        msg = ic_msg_new(sizeof(uint64_t));
-
-        if ((!ps_len(&login) || force_pxy_hdr) && pxy_hdr) {
-            /* XXX on simple header we write the payload size of the HTTP
-             * query */
-            if (unlikely(IOP_UNION_IS(ic__hdr, pxy_hdr, simple))) {
-                ic__simple_hdr__t *shdr = &pxy_hdr->simple;
-                shdr->payload = iq->payload.len;
-            }
-
-            msg->hdr = pxy_hdr;
-        } else {
-            assert(!pxy_hdr);
-            /* XXX We do not support header replacement with proxyfication */
-            msg->hdr = hdr;
-        }
-        msg->cmd = cbe->cmd;
-        msg->rpc = cbe->fun;
-        msg->async = cbe->fun->async;
-
-        if (!msg->async) {
-            msg->cb = IC_PROXY_MAGIC_CB;
-            put_unaligned_cpu64(msg->priv, slot);
-        }
-        __ic_bpack(msg, cbe->fun->args, value);
-        __ic_query(pxy, msg);
-        if (msg->async)
-            httpd_reply_202accepted(q);
-    } else {
+    if (unlikely(!pxy)) {
         __ichttp_reply_err(slot, IC_MSG_PROXY_ERROR, NULL);
+        return;
+    }
+
+    if (ic_query_do_pre_hook(NULL, slot, e, hdr) < 0) {
+        return;
+    }
+    msg = ic_msg_new(sizeof(uint64_t));
+
+    if ((!ps_len(&login) || force_pxy_hdr) && pxy_hdr) {
+        /* XXX on simple header we write the payload size of the HTTP
+         * query */
+        if (unlikely(IOP_UNION_IS(ic__hdr, pxy_hdr, simple))) {
+            ic__simple_hdr__t *shdr = &pxy_hdr->simple;
+            shdr->payload = iq->payload.len;
+        }
+
+        msg->hdr = pxy_hdr;
+    } else {
+        assert(!pxy_hdr);
+        /* XXX We do not support header replacement with proxyfication */
+        msg->hdr = hdr;
+    }
+    msg->cmd = cbe->cmd;
+    msg->rpc = cbe->fun;
+    msg->async = cbe->fun->async;
+
+    if (!msg->async) {
+        msg->cb = IC_PROXY_MAGIC_CB;
+        put_unaligned_cpu64(msg->priv, slot);
+    }
+    __ic_bpack(msg, cbe->fun->args, value);
+    __ic_query(pxy, msg);
+    if (msg->async) {
+        httpd_reply_202accepted(q);
     }
 }
 

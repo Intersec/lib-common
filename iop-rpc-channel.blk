@@ -1375,6 +1375,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     ic__hdr__t *pxy_hdr = NULL;
     bool take_pxy_hdr = false;
     uint64_t query_slot;
+    ic_msg_t *tmp;
     int pos;
 
     pos = likely(ic->impl) ? qm_find_safe(ic_cbs, ic->impl, cmd) : -1;
@@ -1471,89 +1472,87 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
         if (slot) {
             ic_reply_err(ic, query_slot, IC_MSG_PROXY_ERROR);
         }
-    } else {
-        ic_msg_t *tmp;
+        return 0;
+    }
 
-        if (e->pre_hook) {
-            if (hdr || !(flags & IC_MSG_HAS_HDR)) {
-                goto pre_hook;
-            }
-            if (unpacked_msg) {
-                hdr = (ic__hdr__t *)unpacked_msg->hdr;
-            } else
-            if (t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                         NULL, st, &hlen, &hdr, NULL) < 0)
-            {
-                goto invalid_iop;
-            }
-          pre_hook:
-            t_seal();
-            ic->cmd = cmd;
-            if (ic_query_do_pre_hook(ic, query_slot, e, hdr) < 0) {
-                ic->cmd = 0;
-                return 0;
-            }
-            if (!slot) {
-                ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
-            }
-            ic->cmd = 0;
-            t_unseal();
-        }
-
-        take_pxy_hdr |= !(flags & IC_MSG_HAS_HDR) && pxy_hdr;
-        tmp = ic_msg_proxy_new(ic_get_fd(ic), slot, NULL);
-        if (slot) {
-            tmp->cb = IC_PROXY_MAGIC_CB;
-        } else {
-            tmp->async = true;
-        }
-        tmp->cmd = cmd;
-        put_unaligned_le64(tmp->priv, query_slot);
-
-        /* XXX We do not support header replacement with static proxyfication.
-         */
-
+    if (e->pre_hook) {
+        if (hdr || !(flags & IC_MSG_HAS_HDR)) {
+        } else
         if (unpacked_msg) {
-            tmp->hdr = take_pxy_hdr ? pxy_hdr : unpacked_msg->hdr;
-            if (ic_is_local(pxy)) {
-                tmp->force_dup = unpacked_msg->force_dup;
-                tmp->rpc = unpacked_msg->rpc;
-            }
-            __ic_msg_build(tmp, st, unpacked_msg->data, !ic_is_local(pxy));
-        } else {
-            if (ic_is_local(pxy)) {
-                tmp->force_pack = true;
-            }
+            hdr = (ic__hdr__t *)unpacked_msg->hdr;
+        } else
+        if (t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
+                                     NULL, st, &hlen, &hdr, NULL) < 0)
+        {
+            goto invalid_iop;
+        }
 
-            if (take_pxy_hdr) {
-                qv_t(i32) szs;
-                uint8_t *buf;
+        t_seal();
+        ic->cmd = cmd;
+        if (ic_query_do_pre_hook(ic, query_slot, e, hdr) < 0) {
+            ic->cmd = 0;
+            return 0;
+        }
+        if (!slot) {
+            ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
+        }
+        ic->cmd = 0;
+        t_unseal();
+    }
 
-                /* skip the original hdr inside the data */
-                if (hlen < 0) {
-                    assert (!(flags & IC_MSG_HAS_HDR));
-                    hlen = 0;
-                }
-                data = (const char *)data + hlen;
-                dlen -= hlen;
+    take_pxy_hdr |= !(flags & IC_MSG_HAS_HDR) && pxy_hdr;
+    tmp = ic_msg_proxy_new(ic_get_fd(ic), slot, NULL);
+    if (slot) {
+        tmp->cb = IC_PROXY_MAGIC_CB;
+    } else {
+        tmp->async = true;
+    }
+    tmp->cmd = cmd;
+    put_unaligned_le64(tmp->priv, query_slot);
 
-                /* Pack the given header in proxyfied request */
-                qv_inita(&szs, 128);
-                hlen = iop_bpack_size(&ic__hdr__s, pxy_hdr, &szs);
-                buf = __ic_get_buf(tmp, hlen + dlen);
-                iop_bpack(buf, &ic__hdr__s, pxy_hdr, szs.tab);
-                qv_wipe(&szs);
-                memcpy(buf + hlen, data, dlen);
-            } else {
-                memcpy(__ic_get_buf(tmp, dlen), data, dlen);
-            }
+    /* XXX We do not support header replacement with static proxyfication.
+     */
+
+    if (unpacked_msg) {
+        tmp->hdr = take_pxy_hdr ? pxy_hdr : unpacked_msg->hdr;
+        if (ic_is_local(pxy)) {
+            tmp->force_dup = unpacked_msg->force_dup;
+            tmp->rpc = unpacked_msg->rpc;
+        }
+        __ic_msg_build(tmp, st, unpacked_msg->data, !ic_is_local(pxy));
+    } else {
+        if (ic_is_local(pxy)) {
+            tmp->force_pack = true;
         }
 
         if (take_pxy_hdr) {
-            flags |= IC_MSG_HAS_HDR;
+            qv_t(i32) szs;
+            uint8_t *buf;
+
+            /* skip the original hdr inside the data */
+            if (hlen < 0) {
+                assert (!(flags & IC_MSG_HAS_HDR));
+                hlen = 0;
+            }
+            data = (const char *)data + hlen;
+            dlen -= hlen;
+
+            /* Pack the given header in proxyfied request */
+            qv_inita(&szs, 128);
+            hlen = iop_bpack_size(&ic__hdr__s, pxy_hdr, &szs);
+            buf = __ic_get_buf(tmp, hlen + dlen);
+            iop_bpack(buf, &ic__hdr__s, pxy_hdr, szs.tab);
+            qv_wipe(&szs);
+            memcpy(buf + hlen, data, dlen);
+        } else {
+            memcpy(__ic_get_buf(tmp, dlen), data, dlen);
         }
-        __ic_query_flags(pxy, tmp, flags);
     }
+
+    if (take_pxy_hdr) {
+        flags |= IC_MSG_HAS_HDR;
+    }
+    __ic_query_flags(pxy, tmp, flags);
     return 0;
 
   invalid_iop:
