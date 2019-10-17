@@ -1448,6 +1448,17 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
          goto invalid_iop;
     }
 
+    if (e->pre_hook) {
+        t_seal();
+        ic->cmd = cmd;
+        if (ic_query_do_pre_hook(ic, query_slot, e, hdr) < 0) {
+            ic->cmd = 0;
+            return 0;
+        }
+        ic->cmd = 0;
+        t_unseal();
+    }
+
     switch (e->cb_type) {
       case IC_CB_NORMAL:
       case IC_CB_NORMAL_BLK:
@@ -1458,15 +1469,13 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
         ic->desc = e->rpc;
         ic->cmd  = cmd;
         assert (value);
-        if (ic_query_do_pre_hook(ic, query_slot, e, hdr) >= 0) {
-            if (e->cb_type == IC_CB_NORMAL_BLK) {
-                (e->u.blk.cb)(ic, query_slot, value, hdr);
-            } else {
-                (*e->u.cb.cb)(ic, query_slot, value, hdr);
-            }
-            if (is_async) {
-                ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
-            }
+        if (e->cb_type == IC_CB_NORMAL_BLK) {
+            (e->u.blk.cb)(ic, query_slot, value, hdr);
+        } else {
+            (*e->u.cb.cb)(ic, query_slot, value, hdr);
+        }
+        if (is_async) {
+            ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
         }
         ic->desc = NULL;
         ic->cmd  = 0;
@@ -1510,16 +1519,11 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
         return 0;
     }
 
-    if (e->pre_hook) {
+    /* do post hook for proxied async RPCs */
+    if (e->pre_hook && !slot) {
         t_seal();
         ic->cmd = cmd;
-        if (ic_query_do_pre_hook(ic, query_slot, e, hdr) < 0) {
-            ic->cmd = 0;
-            return 0;
-        }
-        if (!slot) {
-            ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
-        }
+        ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
         ic->cmd = 0;
         t_unseal();
     }

@@ -216,14 +216,16 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
         hdr->simple.host = httpd_get_peer_address(q->owner);
     }
 
-    switch ((e = &cbe->e)->cb_type) {
+    e = &cbe->e;
+    if (ic_query_do_pre_hook(NULL, slot, e, hdr) < 0) {
+        return;
+    }
+
+    switch (e->cb_type) {
       case IC_CB_NORMAL:
       case IC_CB_WS_SHARED:
         t_seal();
 
-        if (ic_query_do_pre_hook(NULL, slot, e, hdr) < 0) {
-            return;
-        }
         if (e->cb_type == IC_CB_NORMAL_BLK) {
             assert (false);
         } else {
@@ -266,9 +268,6 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
         return;
     }
 
-    if (ic_query_do_pre_hook(NULL, slot, e, hdr) < 0) {
-        return;
-    }
     msg = ic_msg_new(sizeof(uint64_t));
 
     if ((!ps_len(&login) || force_pxy_hdr) && pxy_hdr) {
