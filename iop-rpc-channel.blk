@@ -1476,13 +1476,9 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     }
 
     if (e->pre_hook) {
-        if (hdr || !(flags & IC_MSG_HAS_HDR)) {
-        } else
-        if (unpacked_msg) {
-            hdr = (ic__hdr__t *)unpacked_msg->hdr;
-        } else
-        if (t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                     NULL, st, &hlen, &hdr, NULL) < 0)
+        if (!hdr && (flags & IC_MSG_HAS_HDR)
+        &&  t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
+                                     unpacked_msg, st, &hlen, &hdr, NULL) < 0)
         {
             goto invalid_iop;
         }
