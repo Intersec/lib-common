@@ -352,8 +352,12 @@ Z_GROUP_EXPORT(iop_yaml)
 
     /* }}} */
     Z_TEST(unpack_errors, "test IOP YAML unpacking errors") { /* {{{ */
-        const char *err;
+        t_scope;
         const iop_struct_t *st;
+        const char *path;
+        const char *expected_err;
+        void *res = NULL;
+        SB_1k(err);
 
 #define TST_ERROR(_yaml, _error)                                             \
         Z_HELPER_RUN(iop_yaml_test_unpack_error(st, (_yaml), (_error), true))
@@ -367,90 +371,160 @@ Z_GROUP_EXPORT(iop_yaml)
         /* null -> scalar */
         TST_ERROR("d: ~",
                   "1:4: "ERR_COMMON": cannot set field `d`: "
-                  "cannot set a null value in a field of type double");
+                  "cannot set a null value in a field of type double\n"
+                  "d: ~\n"
+                  "   ^");
         /* string -> scalar */
         TST_ERROR("d: str",
                   "1:4: "ERR_COMMON": cannot set field `d`: "
-                  "cannot set a string value in a field of type double");
+                  "cannot set a string value in a field of type double\n"
+                  "d: str\n"
+                  "   ^^^");
         /* double -> scalar */
         TST_ERROR("data: 4.2",
                   "1:7: "ERR_COMMON": cannot set field `data`: "
-                  "cannot set a double value in a field of type bytes");
+                  "cannot set a double value in a field of type bytes\n"
+                  "data: 4.2\n"
+                  "      ^^^");
         /* uint -> scalar */
         TST_ERROR("data: 42",
                   "1:7: "ERR_COMMON": cannot set field `data`: "
                   "cannot set an unsigned integer value in a field of type "
-                  "bytes");
+                  "bytes\n"
+                  "data: 42\n"
+                  "      ^^");
         /* int -> scalar */
         TST_ERROR("s: -42",
                   "1:4: "ERR_COMMON": cannot set field `s`: "
-                  "cannot set an integer value in a field of type string");
+                  "cannot set an integer value in a field of type string\n"
+                  "s: -42\n"
+                  "   ^^^");
         /* seq -> scalar */
         TST_ERROR("s: - 42",
                   "1:4: "ERR_COMMON": cannot set field `s`: "
-                  "cannot set a sequence in a non-array field");
+                  "cannot set a sequence in a non-array field\n"
+                  "s: - 42\n"
+                  "   ^^^^");
         /* seq -> struct */
         TST_ERROR("st: - 42",
                   "1:5: "ERR_COMMON": cannot set field `st`: "
                   "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
-                  "cannot unpack a sequence into a struct");
+                  "cannot unpack a sequence into a struct\n"
+                  "st: - 42\n"
+                  "    ^^^^");
         /* obj -> scalar */
         TST_ERROR("s: a: 42",
                   "1:4: "ERR_COMMON": cannot set field `s`: "
-                  "cannot set an object in a field of type string");
+                  "cannot set an object in a field of type string\n"
+                  "s: a: 42\n"
+                  "   ^^^^^");
         /* scalar -> union */
         TST_ERROR("un: true",
                   "1:5: "ERR_COMMON": cannot set field `un`: "
                   "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
-                  "cannot unpack a boolean value into a union");
+                  "cannot unpack a boolean value into a union\n"
+                  "un: true\n"
+                  "    ^^^^");
 
         /* --- OOB --- */
 
         /* byte */
-        err = "1:5: "ERR_COMMON": cannot set field `i8`: "
-              "the value is out of range for the field of type byte";
-        TST_ERROR("i8: 128", err);
-        TST_ERROR("i8: -129", err);
+#define ERR  "1:5: "ERR_COMMON": cannot set field `i8`: "                    \
+             "the value is out of range for the field of type byte\n"
+
+        TST_ERROR("i8: 128",
+                  ERR
+                  "i8: 128\n"
+                  "    ^^^");
+        TST_ERROR("i8: -129",
+                  ERR
+                  "i8: -129\n"
+                  "    ^^^^");
 
         /* ubyte */
-        err = "1:5: "ERR_COMMON": cannot set field `u8`: "
-              "the value is out of range for the field of type ubyte";
-        TST_ERROR("u8: 256", err);
-        TST_ERROR("u8: -1", err);
+#undef ERR
+#define ERR  "1:5: "ERR_COMMON": cannot set field `u8`: "                    \
+             "the value is out of range for the field of type ubyte\n"
+        TST_ERROR("u8: 256",
+                  ERR
+                  "u8: 256\n"
+                  "    ^^^");
+        TST_ERROR("u8: -1",
+                  ERR
+                  "u8: -1\n"
+                  "    ^^");
 
         /* short */
-        err = "1:6: "ERR_COMMON": cannot set field `i16`: "
-              "the value is out of range for the field of type short";
-        TST_ERROR("i16: 32768", err);
-        TST_ERROR("i16: -32769", err);
+#undef ERR
+#define ERR  "1:6: "ERR_COMMON": cannot set field `i16`: "                   \
+             "the value is out of range for the field of type short\n"
+        TST_ERROR("i16: 32768",
+                  ERR
+                  "i16: 32768\n"
+                  "     ^^^^^");
+        TST_ERROR("i16: -32769",
+                  ERR
+                  "i16: -32769\n"
+                  "     ^^^^^^");
 
         /* ushort */
-        err = "1:6: "ERR_COMMON": cannot set field `u16`: "
-              "the value is out of range for the field of type ushort";
-        TST_ERROR("u16: 65536", err);
-        TST_ERROR("u16: -1", err);
+#undef ERR
+#define ERR  "1:6: "ERR_COMMON": cannot set field `u16`: "                   \
+             "the value is out of range for the field of type ushort\n"
+        TST_ERROR("u16: 65536",
+                  ERR
+                  "u16: 65536\n"
+                  "     ^^^^^");
+        TST_ERROR("u16: -1",
+                  ERR
+                  "u16: -1\n"
+                  "     ^^");
 
         /* int */
-        err = "1:6: "ERR_COMMON": cannot set field `i32`: "
-              "the value is out of range for the field of type int";
-        TST_ERROR("i32: 2147483648", err);
-        TST_ERROR("i32: -2147483649", err);
+#undef ERR
+#define ERR  "1:6: "ERR_COMMON": cannot set field `i32`: "                   \
+             "the value is out of range for the field of type int\n"
+        TST_ERROR("i32: 2147483648",
+                  ERR
+                  "i32: 2147483648\n"
+                  "     ^^^^^^^^^^");
+        TST_ERROR("i32: -2147483649",
+                  ERR
+                  "i32: -2147483649\n"
+                  "     ^^^^^^^^^^^");
 
         /* uint */
-        err = "1:6: "ERR_COMMON": cannot set field `u32`: "
-              "the value is out of range for the field of type uint";
-        TST_ERROR("u32: 4294967296", err);
-        TST_ERROR("u32: -1", err);
+#undef ERR
+#define ERR  "1:6: "ERR_COMMON": cannot set field `u32`: "                   \
+             "the value is out of range for the field of type uint\n"
+        TST_ERROR("u32: 4294967296",
+                  ERR
+                  "u32: 4294967296\n"
+                  "     ^^^^^^^^^^");
+        TST_ERROR("u32: -1",
+                  ERR
+                  "u32: -1\n"
+                  "     ^^");
 
         /* long */
-        err = "1:6: "ERR_COMMON": cannot set field `i64`: "
-              "the value is out of range for the field of type long";
-        TST_ERROR("i64: 9223372036854775808", err);
+#undef ERR
+#define ERR  "1:6: "ERR_COMMON": cannot set field `i64`: "                   \
+             "the value is out of range for the field of type long\n"
+        TST_ERROR("i64: 9223372036854775808",
+                  ERR
+                  "i64: 9223372036854775808\n"
+                  "     ^^^^^^^^^^^^^^^^^^^");
 
         /* ulong */
-        err = "1:6: "ERR_COMMON": cannot set field `u64`: "
-              "the value is out of range for the field of type ulong";
-        TST_ERROR("u64: -1", err);
+#undef ERR
+#define ERR  "1:6: "ERR_COMMON": cannot set field `u64`: "                   \
+             "the value is out of range for the field of type ulong\n"
+        TST_ERROR("u64: -1",
+                  ERR
+                  "u64: -1\n"
+                  "     ^^");
+
+#undef ERR
 
         /* --- object field errors --- */
 
@@ -458,13 +532,18 @@ Z_GROUP_EXPORT(iop_yaml)
         TST_ERROR("st: z: 42",
                   "1:5: "ERR_COMMON": cannot set field `st`: "
                   "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
-                  "unknown field `z`");
+                  "unknown field `z`\n"
+                  "st: z: 42\n"
+                  "    ^^^^^");
 
         /* missing field in struct */
+        /* TODO: weird location? */
         TST_ERROR("st: i: 42",
                   "1:5: "ERR_COMMON": cannot set field `st`: "
                   "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
-                  "missing field `s`");
+                  "missing field `s`\n"
+                  "st: i: 42\n"
+                  "    ^^^^^");
 
         /* --- union errors --- */
 
@@ -472,42 +551,55 @@ Z_GROUP_EXPORT(iop_yaml)
         TST_ERROR("un: !tstiop.TestUnion i: 42",
                   "1:5: "ERR_COMMON": cannot set field `un`: "
                   "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
-                  "specifying a tag is not allowed");
+                  "specifying a tag is not allowed\n"
+                  "un: !tstiop.TestUnion i: 42\n"
+                  "    ^^^^^^^^^^^^^^^^^^^^^^^");
 
         /* multiple keys */
         TST_ERROR("un: i: 42\n"
                   "    s: foo",
                   "1:5: "ERR_COMMON": cannot set field `un`: "
                   "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
-                  "a single key must be specified");
+                  "a single key must be specified\n"
+                  "un: i: 42\n"
+                  "    ^ starting here");
 
         /* wrong keys */
         TST_ERROR("un: a: 42",
                   "1:5: "ERR_COMMON": cannot set field `un`: "
                   "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
-                  "unknown field `a`");
+                  "unknown field `a`\n"
+                  "un: a: 42\n"
+                  "    ^^^^^");
 
         /* --- enum errors --- */
 
         /* invalid string */
         TST_ERROR("e: D",
                   "1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is not valid for the enum `TestEnum`");
+                  "the value is not valid for the enum `TestEnum`\n"
+                  "e: D\n"
+                  "   ^");
 
         /* --- blob errors --- */
 
         /* invalid b64 value */
         TST_ERROR("data: D",
                   "1:7: "ERR_COMMON": cannot set field `data`: "
-                  "the value must be encoded in base64");
+                  "the value must be encoded in base64\n"
+                  "data: D\n"
+                  "      ^");
 
         /* --- class errors --- */
 
         /* abstract class */
+        /* TODO: improve location */
         TST_ERROR("o: i: 42",
                   "1:4: "ERR_COMMON": cannot set field `o`: "
                   "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
-                  "`tstiop.TestClass` is abstract and cannot be unpacked");
+                  "`tstiop.TestClass` is abstract and cannot be unpacked\n"
+                  "o: i: 42\n"
+                  "   ^^^^^");
 
         /* unknown class */
         TST_ERROR("o: !foo\n"
@@ -515,7 +607,9 @@ Z_GROUP_EXPORT(iop_yaml)
                   "1:4: "ERR_COMMON": cannot set field `o`: "
                   "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
                   "unknown type `foo` provided in tag, "
-                  "or not a child of `tstiop.TestClass`");
+                  "or not a child of `tstiop.TestClass`\n"
+                  "o: !foo\n"
+                  "   ^ starting here");
 
         /* unrelated class */
         TST_ERROR("o: !tstiop.MyClass1\n"
@@ -523,7 +617,9 @@ Z_GROUP_EXPORT(iop_yaml)
                   "1:4: "ERR_COMMON": cannot set field `o`: "
                   "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
                   "unknown type `tstiop.MyClass1` provided in tag, "
-                  "or not a child of `tstiop.TestClass`");
+                  "or not a child of `tstiop.TestClass`\n"
+                  "o: !tstiop.MyClass1\n"
+                  "   ^ starting here");
 
         st = &tstiop__my_class2__s;
 #undef ERR_COMMON
@@ -535,7 +631,9 @@ Z_GROUP_EXPORT(iop_yaml)
                   "int1: 42",
                   "1:1: "ERR_COMMON": "
                   "provided tag `tstiop.MyClass1` is not a child of "
-                  "`tstiop.MyClass2`");
+                  "`tstiop.MyClass2`\n"
+                  "!tstiop.MyClass1\n"
+                  "^ starting here");
 
         st = &tstiop__struct_jpack_flags__s;
 #undef ERR_COMMON
@@ -544,7 +642,9 @@ Z_GROUP_EXPORT(iop_yaml)
 
         /* private field */
         TST_ERROR("priv: 42\n",
-                  "1:1: "ERR_COMMON": unknown field `priv`");
+                  "1:1: "ERR_COMMON": unknown field `priv`\n"
+                  "priv: 42\n"
+                  "^^^^^^^^");
 
         /* private class */
         TST_ERROR("myClass: !tstiop.MyClass2Priv\n"
@@ -552,7 +652,10 @@ Z_GROUP_EXPORT(iop_yaml)
                   "  int2: 2",
                   "1:10: "ERR_COMMON": cannot set field `myClass`: "
                   "cannot unpack YAML as a `tstiop.MyClass2Priv` IOP struct: "
-                  "`tstiop.MyClass2Priv` is private and cannot be unpacked");
+                  "`tstiop.MyClass2Priv` is private and cannot be "
+                  "unpacked\n"
+                  "myClass: !tstiop.MyClass2Priv\n"
+                  "         ^ starting here");
 
         /* test unpacking directly as a union */
         st = &tstiop__my_union_a__s;
@@ -562,7 +665,18 @@ Z_GROUP_EXPORT(iop_yaml)
 
         /* wrong field */
         TST_ERROR("o: ra\n",
-                  "1:1: "ERR_COMMON": unknown field `o`");
+                  "1:1: "ERR_COMMON": unknown field `o`\n"
+                  "o: ra\n"
+                  "^^^^^");
+
+        /* test an error when unpacking a file: should display the filename */
+        path = t_fmt("%*pM/test-data/yaml/invalid_union.yml",
+                     LSTR_FMT_ARG(z_cmddir_g));
+        Z_ASSERT_NEG(t_iop_yunpack_ptr_file(path, st, &res, &err));
+        expected_err = t_fmt("%s:1:1: "ERR_COMMON": unknown field `o`\n"
+                             "o: ra\n"
+                             "^^^^^", path);
+        Z_ASSERT_STREQUAL(err.data, expected_err);
 
 #undef ERR_COMMON
 #undef TST_ERROR
@@ -666,7 +780,9 @@ Z_GROUP_EXPORT(iop_yaml)
             "u8: 0",
             "1:1: cannot unpack YAML as a `tstiop.ConstraintU` IOP union: "
             "field `u8` is invalid: in type tstiop.ConstraintU: "
-            "violation of constraint nonZero on field u8");
+            "violation of constraint nonZero on field u8\n"
+            "u8: 0\n"
+            "^^^^^");
 
         /* check constraints on arrays */
         iop_init(tstiop__constraint_s, &s);
@@ -674,7 +790,9 @@ Z_GROUP_EXPORT(iop_yaml)
             "~",
             "1:1: cannot unpack YAML as a `tstiop.ConstraintS` IOP struct: "
             "field `s` is invalid: in type tstiop.ConstraintS: "
-            "empty array not allowed for field `s`");
+            "empty array not allowed for field `s`\n"
+            "~\n"
+            "^");
 
         /* check constraint on field */
         s.s.tab = &string;
@@ -684,7 +802,9 @@ Z_GROUP_EXPORT(iop_yaml)
             "  - ora",
             "1:1: cannot unpack YAML as a `tstiop.ConstraintS` IOP struct: "
             "field `s` is invalid: in type tstiop.ConstraintS: "
-            "violation of constraint minOccurs (2) on field s: length=1");
+            "violation of constraint minOccurs (2) on field s: length=1\n"
+            "s:\n"
+            "^ starting here");
 
 #undef TST_ERROR
     } Z_TEST_END
