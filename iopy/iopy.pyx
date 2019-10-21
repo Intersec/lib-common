@@ -7389,7 +7389,8 @@ cdef int t_set_ic_hdr_from_kwargs(Plugin plugin, dict kwargs,
         simple_hdr.workspace_id.v = py_workspace_id
 
     if py_dealias is not None:
-        simple_hdr.dealias = py_dealias
+        simple_hdr.dealias.has_field = True
+        simple_hdr.dealias.v = py_dealias
 
     res[0] = t_iop_new_ic_hdr()
     res[0][0] = iop_ic_hdr_from_simple_hdr(simple_hdr)
@@ -8349,6 +8350,9 @@ cdef class Plugin:
         metaclass_iface.plugin = self
         metaclass_iface.is_metaclass_upgraded = True
         self.metaclass_interfaces = metaclass_iface
+
+        # Force loading IOPy IC package instead of the one in the DSO
+        plugin_add_package(self, &ic__pkg)
 
     def __init__(Plugin self, object dso_path=None):
         """Contructor.
