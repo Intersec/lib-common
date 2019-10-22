@@ -207,7 +207,8 @@ void *iop_value_set_here(mem_pool_t *mp, const iop_field_t *f, void *v)
       case IOP_T_XML:
         return v;
       default:
-        return *(void **)v = mp_new(mp, char, f->size);
+        /* TODO Use mpa_new_raw(). */
+        return *(void **)v = mpa_new(mp, byte, f->size, 8);
     }
 }
 
