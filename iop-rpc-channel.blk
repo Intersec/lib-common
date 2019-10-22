@@ -544,13 +544,13 @@ void ic_hook_ctx_delete(ic_hook_ctx_t **pctx)
 
 int
 ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot, const ic_cb_entry_t *e,
-                     ic__hdr__t *hdr)
+                     ic__hdr__t *hdr, bool *hdr_modified)
 {
     if (e->pre_hook) {
         _G.post_hook = e->post_hook;
         _G.rpc = e->rpc;
         _G.post_args = e->post_hook_args;
-        (*e->pre_hook)(ic, slot, hdr, e->pre_hook_args);
+        (*e->pre_hook)(ic, slot, hdr, e->pre_hook_args, hdr_modified);
         /* XXX: if we reply to the query during pre_hook then
          *      ic_hook_flow.ic_hook_ctx will be NULL, so we mustn't
          *      call the implementation of the RPC
@@ -1360,6 +1360,44 @@ static void ic_report_unimplemented_rpc(int cmd)
                  "(%04x:%04x%*pM)", icmd, rcmd, SB_FMT_ARG(&sb));
 }
 
+static int
+t_get_details_of_query(ichannel_t *ic, int cmd, uint32_t slot,
+                       uint32_t flags, const void *data, int dlen,
+                       const ic_msg_t * nullable unpacked_msg,
+                       const iop_struct_t * nonnull st,
+                       const ic_cb_entry_t * nonnull e,
+                       int * nonnull hlen,
+                       ic__hdr__t * nullable * nonnull hdr,
+                       void * nullable * nonnull value)
+{
+    switch (e->cb_type) {
+      case IC_CB_NORMAL:
+      case IC_CB_NORMAL_BLK:
+      case IC_CB_WS_SHARED:
+        return t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
+                                        unpacked_msg, st, NULL, hdr,
+                                        value);
+
+      case IC_CB_PROXY_P:
+      case IC_CB_PROXY_PP:
+        /* need the hdr for the pre hook */
+        if (e->pre_hook) {
+            return t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
+                                            unpacked_msg, st, hlen, hdr,
+                                            NULL);
+        }
+        return 0;
+
+      case IC_CB_DYNAMIC_PROXY:
+        return t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
+                                        unpacked_msg, st, hlen, hdr, NULL);
+
+      default:
+        logger_panic(&_G.logger, "should not happen");
+        return 0;
+    }
+}
+
 /* Returns an error if the ic must be closed with ic_mark_disconnected. */
 static ALWAYS_INLINE __must_check__ int
 ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
@@ -1374,8 +1412,11 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     ichannel_t *pxy;
     ic__hdr__t *pxy_hdr = NULL;
     bool take_pxy_hdr = false;
+    bool hdr_modified = false;
     uint64_t query_slot;
+    ic_msg_t *tmp;
     int pos;
+    void *value = NULL;
 
     pos = likely(ic->impl) ? qm_find_safe(ic_cbs, ic->impl, cmd) : -1;
     if (unlikely(pos < 0)) {
@@ -1400,31 +1441,42 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     query_slot = MAKE64(ic->id, slot | flags);
     ic_slot_trace(slot, flags, "received traced query");
 
+    /* get details from the data of the msg. Each type of callback has
+     * different details to retrieve. */
+    if (t_get_details_of_query(ic, cmd, slot ,flags, data, dlen, unpacked_msg,
+                               st, e, &hlen, &hdr, &value) < 0)
+    {
+         goto invalid_iop;
+    }
+
+    if (e->pre_hook) {
+        t_seal();
+        ic->cmd = cmd;
+        if (ic_query_do_pre_hook(ic, query_slot, e, hdr, &hdr_modified) < 0) {
+            ic->cmd = 0;
+            return 0;
+        }
+        ic->cmd = 0;
+        t_unseal();
+    }
+
     switch (e->cb_type) {
       case IC_CB_NORMAL:
       case IC_CB_NORMAL_BLK:
       case IC_CB_WS_SHARED: {
         bool is_async = e->rpc->async;
-        void *value = NULL;
 
-        if (t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                     unpacked_msg, st, NULL,
-                                     &hdr, &value) < 0)
-        {
-            goto invalid_iop;
-        }
         t_seal();
         ic->desc = e->rpc;
         ic->cmd  = cmd;
-        if (ic_query_do_pre_hook(ic, query_slot, e, hdr) >= 0) {
-            if (e->cb_type == IC_CB_NORMAL_BLK) {
-                (e->u.blk.cb)(ic, query_slot, value, hdr);
-            } else {
-                (*e->u.cb.cb)(ic, query_slot, value, hdr);
-            }
-            if (is_async) {
-                ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
-            }
+        assert (value);
+        if (e->cb_type == IC_CB_NORMAL_BLK) {
+            (e->u.blk.cb)(ic, query_slot, value, hdr);
+        } else {
+            (*e->u.cb.cb)(ic, query_slot, value, hdr);
+        }
+        if (is_async) {
+            ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
         }
         ic->desc = NULL;
         ic->cmd  = 0;
@@ -1445,12 +1497,6 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
         {
             ic_dynproxy_t dynproxy;
 
-            if (t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                         unpacked_msg, st,
-                                         &hlen, &hdr, NULL) < 0)
-            {
-                goto invalid_iop;
-            }
             /* XXX dynproxy are allowed to return memory allocated on the
              * t_pool() and thus mustn't be wrapped in a local t_scope */
             dynproxy = (*e->u.dynproxy.get_ic)(hdr, e->u.dynproxy.priv);
@@ -1471,89 +1517,81 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
         if (slot) {
             ic_reply_err(ic, query_slot, IC_MSG_PROXY_ERROR);
         }
+        return 0;
+    }
+
+    /* do post hook for proxied async RPCs */
+    if (e->pre_hook && !slot) {
+        t_seal();
+        ic->cmd = cmd;
+        ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
+        ic->cmd = 0;
+        t_unseal();
+    }
+
+    /* if the hdr has been modified, we have to force a repacking, to
+     * ensure that the new hdr is properly saved in the proxied msg */
+    if (hdr_modified && expect(hdr)) {
+        /* if take_pxy_hdr is set, we have to use pxy_hdr instead of hdr, but
+         * the pxy_hdr has been built using the modified hdr, so it can be
+         * kept. */
+        pxy_hdr = take_pxy_hdr ? pxy_hdr : hdr;
+        take_pxy_hdr = true;
+    }
+
+    take_pxy_hdr |= !(flags & IC_MSG_HAS_HDR) && pxy_hdr;
+    tmp = ic_msg_proxy_new(ic_get_fd(ic), slot, NULL);
+    if (slot) {
+        tmp->cb = IC_PROXY_MAGIC_CB;
     } else {
-        ic_msg_t *tmp;
+        tmp->async = true;
+    }
+    tmp->cmd = cmd;
+    put_unaligned_le64(tmp->priv, query_slot);
 
-        if (e->pre_hook) {
-            if (hdr || !(flags & IC_MSG_HAS_HDR)) {
-                goto pre_hook;
-            }
-            if (unpacked_msg) {
-                hdr = (ic__hdr__t *)unpacked_msg->hdr;
-            } else
-            if (t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
-                                         NULL, st, &hlen, &hdr, NULL) < 0)
-            {
-                goto invalid_iop;
-            }
-          pre_hook:
-            t_seal();
-            ic->cmd = cmd;
-            if (ic_query_do_pre_hook(ic, query_slot, e, hdr) < 0) {
-                ic->cmd = 0;
-                return 0;
-            }
-            if (!slot) {
-                ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
-            }
-            ic->cmd = 0;
-            t_unseal();
+    /* XXX We do not support header replacement with static proxyfication.
+     */
+
+    if (unpacked_msg) {
+        tmp->hdr = take_pxy_hdr ? pxy_hdr : unpacked_msg->hdr;
+        if (ic_is_local(pxy)) {
+            tmp->force_dup = unpacked_msg->force_dup;
+            tmp->rpc = unpacked_msg->rpc;
         }
-
-        take_pxy_hdr |= !(flags & IC_MSG_HAS_HDR) && pxy_hdr;
-        tmp = ic_msg_proxy_new(ic_get_fd(ic), slot, NULL);
-        if (slot) {
-            tmp->cb = IC_PROXY_MAGIC_CB;
-        } else {
-            tmp->async = true;
-        }
-        tmp->cmd = cmd;
-        put_unaligned_le64(tmp->priv, query_slot);
-
-        /* XXX We do not support header replacement with static proxyfication.
-         */
-
-        if (unpacked_msg) {
-            tmp->hdr = take_pxy_hdr ? pxy_hdr : unpacked_msg->hdr;
-            if (ic_is_local(pxy)) {
-                tmp->force_dup = unpacked_msg->force_dup;
-                tmp->rpc = unpacked_msg->rpc;
-            }
-            __ic_msg_build(tmp, st, unpacked_msg->data, !ic_is_local(pxy));
-        } else {
-            if (ic_is_local(pxy)) {
-                tmp->force_pack = true;
-            }
-
-            if (take_pxy_hdr) {
-                qv_t(i32) szs;
-                uint8_t *buf;
-
-                /* skip the original hdr inside the data */
-                if (hlen < 0) {
-                    assert (!(flags & IC_MSG_HAS_HDR));
-                    hlen = 0;
-                }
-                data = (const char *)data + hlen;
-                dlen -= hlen;
-
-                /* Pack the given header in proxyfied request */
-                qv_inita(&szs, 128);
-                hlen = iop_bpack_size(&ic__hdr__s, pxy_hdr, &szs);
-                buf = __ic_get_buf(tmp, hlen + dlen);
-                iop_bpack(buf, &ic__hdr__s, pxy_hdr, szs.tab);
-                qv_wipe(&szs);
-                memcpy(buf + hlen, data, dlen);
-            } else {
-                memcpy(__ic_get_buf(tmp, dlen), data, dlen);
-            }
+        __ic_msg_build(tmp, st, unpacked_msg->data, !ic_is_local(pxy));
+    } else {
+        if (ic_is_local(pxy)) {
+            tmp->force_pack = true;
         }
 
         if (take_pxy_hdr) {
-            flags |= IC_MSG_HAS_HDR;
+            qv_t(i32) szs;
+            uint8_t *buf;
+
+            /* skip the original hdr inside the data */
+            if (hlen < 0) {
+                assert (!(flags & IC_MSG_HAS_HDR));
+                hlen = 0;
+            }
+            data = (const char *)data + hlen;
+            dlen -= hlen;
+
+            /* Pack the given header in proxyfied request */
+            qv_inita(&szs, 128);
+            hlen = iop_bpack_size(&ic__hdr__s, pxy_hdr, &szs);
+            buf = __ic_get_buf(tmp, hlen + dlen);
+            iop_bpack(buf, &ic__hdr__s, pxy_hdr, szs.tab);
+            qv_wipe(&szs);
+            memcpy(buf + hlen, data, dlen);
+        } else {
+            memcpy(__ic_get_buf(tmp, dlen), data, dlen);
         }
-        __ic_query_flags(pxy, tmp, flags);
     }
+
+    if (take_pxy_hdr) {
+        flags |= IC_MSG_HAS_HDR;
+    }
+    __ic_query_flags(pxy, tmp, flags);
     return 0;
 
   invalid_iop:

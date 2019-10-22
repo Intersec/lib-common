@@ -52,6 +52,7 @@ PXCC_EXPORT_TYPE(ic_status_t);
 PXCC_EXPORT_TYPE(ic__hdr__t);
 PXCC_EXPORT_SYMBOL(ic__hdr__s);
 PXCC_EXPORT_TYPE(ic__simple_hdr__t);
+PXCC_EXPORT_SYMBOL(ic__pkg);
 
 PXCC_EXPORT_SYMBOL(mem_stack_push);
 PXCC_EXPORT_SYMBOL(mem_stack_pop);
