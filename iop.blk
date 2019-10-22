@@ -4513,7 +4513,7 @@ int iop_skip_absent_field_desc(mem_pool_t *mp, void *value,
       } break;
 
       case IOP_R_OPTIONAL:
-        iop_value_set_absent(fdesc, ptr);
+        iop_field_set_absent(fdesc, ptr);
         break;
     }
     return 0;

@@ -1803,7 +1803,7 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
                     if (DO_IN_CTX(peeked, IS_NULL())
                     &&  fdesc->type != IOP_T_VOID)
                     {
-                        iop_value_set_absent(fdesc, ptr);
+                        iop_field_set_absent(fdesc, ptr);
                         /* consume the “null” token */
                         iop_json_lex(ll, NULL);
                         goto nextfield;

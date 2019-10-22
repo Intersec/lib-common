@@ -211,7 +211,7 @@ void *iop_value_set_here(mem_pool_t *mp, const iop_field_t *f, void *v)
     }
 }
 
-static inline void iop_value_set_absent(const iop_field_t *f, void *v)
+static inline void iop_field_set_absent(const iop_field_t *f, void *v)
 {
     switch (f->type) {
       case IOP_T_I8:  case IOP_T_U8:
