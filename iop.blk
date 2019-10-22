@@ -4535,7 +4535,7 @@ static int unpack_value(mem_pool_t *mp, iop_wire_type_t wt,
     pstream_t ps_tmp;
 
     if (iop_field_is_reference(fdesc)) {
-        v = iop_value_set_here(mp, fdesc, v);
+        v = iop_field_ptr_alloc(mp, fdesc, v);
     }
 
     switch (wt) {
@@ -4772,7 +4772,7 @@ unpack_struct(mem_pool_t *mp, const iop_struct_t *desc, void *value,
             }
             if (fdesc->repeat == IOP_R_OPTIONAL && !iop_field_is_class(fdesc))
             {
-                v = iop_value_set_here(mp, fdesc, v);
+                v = iop_field_set_present(mp, fdesc, v);
             }
             if (unpack_value(mp, wt, fdesc, v, ps, flags) < 0) {
                 sb_prepend_field(&iop_err_g.path, fdesc, 0);

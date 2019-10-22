@@ -1199,7 +1199,7 @@ static int unpack_val(iop_json_lex_t *ll, const iop_field_t *fdesc,
 
     if (iop_field_is_reference(fdesc)) {
         /* reference fields must be dereferenced */
-        value = iop_value_set_here(ll->mp, fdesc, value);
+        value = iop_field_ptr_alloc(ll->mp, fdesc, value);
     }
 
     switch (PS_CHECK(iop_json_lex(ll, fdesc))) {
@@ -1531,7 +1531,7 @@ static int unpack_union(iop_json_lex_t *ll, const iop_struct_t *desc,
             value = (char *)value + fdesc->data_offs;
             if (iop_field_is_reference(fdesc)) {
                 /* reference fields must be dereferenced */
-                value = iop_value_set_here(ll->mp, fdesc, value);
+                value = iop_field_ptr_alloc(ll->mp, fdesc, value);
             }
 
             iop_junpack_add_field_path_field(fdesc->name);
@@ -1810,7 +1810,7 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
                     }
                 }
                 if (!iop_field_is_class(fdesc)) {
-                    ptr = iop_value_set_here(ll->mp, fdesc, ptr);
+                    ptr = iop_field_set_present(ll->mp, fdesc, ptr);
                 }
             }
 

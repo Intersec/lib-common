@@ -178,8 +178,25 @@ iop_scalar_equals(const iop_field_t *f, const void *v1, const void *v2, int n)
 }
 
 static inline
-void *iop_value_set_here(mem_pool_t *mp, const iop_field_t *f, void *v)
+void *iop_field_ptr_alloc(mem_pool_t *mp, const iop_field_t *f, void *v)
 {
+    assert (f->type == IOP_T_UNION || f->type == IOP_T_STRUCT);
+    assert (iop_field_is_reference(f) || f->repeat == IOP_R_OPTIONAL);
+
+    /* In that case, the size depend on the object type, not on the field
+     * type. */
+    /* TODO Add a 'class_st' parameters so all the fields that actually are
+     * pointers can be allocated using this single function. */
+    assert (!iop_field_is_class(f));
+
+    /* TODO Use mpa_new_raw(). */
+    return *(void **)v = mpa_new(mp, byte, f->size, 8);
+}
+
+static inline
+void *iop_field_set_present(mem_pool_t *mp, const iop_field_t *f, void *v)
+{
+    assert (f->repeat == IOP_R_OPTIONAL);
     switch (f->type) {
       case IOP_T_I8:  case IOP_T_U8:
         ((opt_u8_t *)v)->has_field = true;
@@ -206,10 +223,13 @@ void *iop_value_set_here(mem_pool_t *mp, const iop_field_t *f, void *v)
       case IOP_T_DATA:
       case IOP_T_XML:
         return v;
-      default:
-        /* TODO Use mpa_new_raw(). */
-        return *(void **)v = mpa_new(mp, byte, f->size, 8);
+      case IOP_T_UNION:
+      case IOP_T_STRUCT:
+        return iop_field_ptr_alloc(mp, f, v);
     }
+
+    assert (false);
+    return NULL;
 }
 
 static inline void iop_field_set_absent(const iop_field_t *f, void *v)

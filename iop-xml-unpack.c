@@ -477,11 +477,13 @@ __xunpack_struct(xml_reader_t xr, mem_pool_t *mp, void *value, int flags,
             n = data->len;
             goto next;
         } else
-        if (iop_field_is_reference(fdesc->fdesc)
-        || (fdesc->fdesc->repeat == IOP_R_OPTIONAL
-            &&  !iop_field_is_class(fdesc->fdesc)))
+        if (iop_field_is_reference(fdesc->fdesc)) {
+            v = iop_field_ptr_alloc(mp, fdesc->fdesc, v);
+        } else
+        if (fdesc->fdesc->repeat == IOP_R_OPTIONAL
+        &&  !iop_field_is_class(fdesc->fdesc))
         {
-            v = iop_value_set_here(mp, fdesc->fdesc, v);
+            v = iop_field_set_present(mp, fdesc->fdesc, v);
         }
 
         RETHROW(xunpack_value(xr, mp, fdesc->fdesc, v, flags));
@@ -646,7 +648,7 @@ xunpack_union(xml_reader_t xr, mem_pool_t *mp, const iop_struct_t *desc,
 
     if (iop_field_is_reference(fdesc)) {
         /* reference fields must be dereferenced */
-        value = iop_value_set_here(mp, fdesc, value);
+        value = iop_field_ptr_alloc(mp, fdesc, value);
     }
 
     RETHROW(xunpack_value(xr, mp, fdesc, value, flags));
