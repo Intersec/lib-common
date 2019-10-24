@@ -2361,7 +2361,7 @@ int httpc_cfg_tls_init(httpc_cfg_t *cfg, sb_t *err)
 
     cfg->ssl_ctx = ssl_ctx_new_tls(TLS_client_method(),
                                    LSTR_NULL_V, LSTR_NULL_V,
-                                   SSL_VERIFY_NONE, NULL, err);
+                                   SSL_VERIFY_PEER, NULL, err);
     return cfg->ssl_ctx ? 0 : -1;
 }
 
@@ -2709,9 +2709,16 @@ static int
 httpc_tls_handshake(el_t evh, int fd, short events, data_t priv)
 {
     httpc_t *w = priv.ptr;
+    X509    *cert;
 
     switch (ssl_do_handshake(w->ssl, evh, fd, NULL)) {
       case SSL_HANDSHAKE_SUCCESS:
+        cert = SSL_get_peer_certificate(w->ssl);
+        if (unlikely(cert == NULL)) {
+            httpc_on_connect_error(w, ECONNREFUSED);
+            return -1;
+        }
+        X509_free(cert);
         httpc_set_mask(w);
         el_fd_set_hook(evh, httpc_on_event);
         obj_vcall(w, set_ready, true);
