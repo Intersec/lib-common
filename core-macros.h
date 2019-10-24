@@ -602,30 +602,35 @@ typedef unsigned char byte;
 #define tab_for_each_pos(pos, vec)                                           \
     for (int pos = 0; pos < (vec)->len; pos++)
 
-#define _tab_for_each_ptr(ptr_var, ptr_cpy_var, vec_var, _vec)               \
-    FOR_INSTR1(_tab_for_each_ptr##ptr_var,                                   \
-               typeof(*_vec) *vec_var = (_vec))                              \
-    for (__unused__ typeof(*vec_var->tab) *ptr_var = vec_var->tab,           \
-         *ptr_cpy_var = vec_var->tab;                                        \
-         ptr_cpy_var < vec_var->tab + vec_var->len;                          \
-         ptr_var = ++ptr_cpy_var)
+#define _tab_enumerate_ptr(pos_var, ptr_var, vec_var, _vec)                  \
+    FOR_INSTR2(_tab_enumerate_ptr##ptr_var,                                  \
+               typeof(*_vec) *vec_var = (_vec),                              \
+               __unused__ typeof(*vec_var->tab) *ptr_var)                    \
+    for (int pos_var = 0;                                                    \
+         (ptr_var = &vec_var->tab[pos_var], pos_var < vec_var->len);         \
+         pos_var++)
+
+#define tab_enumerate_ptr(pos_var, ptr_var, _vec)                            \
+    _tab_enumerate_ptr(pos_var, ptr_var, tab_enumerate_ptr_vec##ptr_var,     \
+                       (_vec))
 
 #define tab_for_each_ptr(ptr_var, _vec)                                      \
-    _tab_for_each_ptr(ptr_var, tab_for_each_ptr_ptr_cpy##ptr_var,            \
-                      tab_for_each_ptr_vec##ptr_var, (_vec))
+    tab_enumerate_ptr(tab_for_each_ptr_pos##ptr_var, ptr_var, (_vec))
 
-#define _tab_for_each_entry(entry_var, pos_var, vec_var, _vec)               \
-    FOR_INSTR2(_tab_for_each_entry##entry_var,                               \
+#define _tab_enumerate(pos_var, entry_var, vec_var, _vec)                    \
+    FOR_INSTR2(_tab_enumerate##entry_var,                                    \
                typeof(*_vec) *vec_var = (_vec),                              \
-               __unused__ typeof(*(_vec)->tab) entry_var)                    \
+               __unused__ typeof(*vec_var->tab) entry_var)                   \
     for (int pos_var = 0;                                                    \
          pos_var < vec_var->len                                              \
       && (entry_var = vec_var->tab[pos_var], true);                          \
          pos_var++)
 
+#define tab_enumerate(pos_var, entry_var, _vec)                              \
+    _tab_enumerate(pos_var, entry_var, tab_enumerate_vec##entry_var, (_vec))
+
 #define tab_for_each_entry(entry_var, _vec)                                  \
-    _tab_for_each_entry(entry_var, tab_for_each_entry_pos##entry_var,        \
-                        tab_for_each_entry_vec##entry_var, (_vec))
+    tab_enumerate(tab_for_each_entry_pos##entry_var, entry_var, (_vec))
 
 #define tab_for_each_pos_rev(pos, vec)                                       \
     for (int pos = (vec)->len; pos-- > 0; )

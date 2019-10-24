@@ -701,6 +701,16 @@ Z_GROUP_EXPORT(bit_stream)
 
 /* {{{ core-macros.h */
 
+typedef struct extra_str_tab_t {
+    int len;
+    const char *tab[];
+} extra_str_tab_t;
+
+typedef struct extra_lstr_tab_t {
+    int len;
+    lstr_t tab[];
+} extra_lstr_tab_t;
+
 Z_GROUP_EXPORT(core_macros) {
     /* {{{ OPT */
 
@@ -804,6 +814,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* {{{ tab_for_each_ptr */
 
     Z_TEST(tab_for_each_ptr, "") {
+        t_scope;
         const char *strs[] = { "toto", "abcdef", "42" };
         struct {
             const char **tab;
@@ -813,21 +824,38 @@ Z_GROUP_EXPORT(core_macros) {
             .len = countof(strs),
         };
         const char **out[3];
-        const char ***w = out;
+        const char ***w;
+        extra_str_tab_t *extra_tab;
 
         p_clear(out, countof(out));
+        w = out;
         tab_for_each_ptr(ptr, &tab) {
             *w++ = ptr;
         }
         Z_ASSERT(out[0] == &strs[0]);
         Z_ASSERT(out[1] == &strs[1]);
         Z_ASSERT(out[2] == &strs[2]);
+
+        extra_tab = t_new_extra(extra_str_tab_t,
+                                countof(strs) * sizeof(strs[0]));
+        extra_tab->len = countof(strs);
+        p_copy(extra_tab->tab, strs, countof(strs));
+
+        p_clear(out, countof(out));
+        w = out;
+        tab_for_each_ptr(ptr, extra_tab) {
+            *w++ = ptr;
+        }
+        Z_ASSERT(out[0] == &extra_tab->tab[0]);
+        Z_ASSERT(out[1] == &extra_tab->tab[1]);
+        Z_ASSERT(out[2] == &extra_tab->tab[2]);
     } Z_TEST_END;
 
     /* }}} */
     /* {{{ tab_for_each_entry */
 
     Z_TEST(tab_for_each_entry, "") {
+        t_scope;
         lstr_t lstrs[] = { LSTR("string"), LSTR("int"), LSTR("double") };
         struct {
             lstr_t *tab;
@@ -838,10 +866,73 @@ Z_GROUP_EXPORT(core_macros) {
         };
         lstr_t out[3];
         lstr_t *w = out;
+        extra_lstr_tab_t *extra_tab;
 
         p_clear(out, countof(out));
         tab_for_each_entry(s, &tab) {
             *w++ = s;
+        }
+        Z_ASSERT_LSTREQUAL(out[0], lstrs[0]);
+        Z_ASSERT_LSTREQUAL(out[1], lstrs[1]);
+        Z_ASSERT_LSTREQUAL(out[2], lstrs[2]);
+
+        p_clear(out, countof(out));
+
+        extra_tab = t_new_extra(extra_lstr_tab_t,
+                                countof(lstrs) * sizeof(lstrs[0]));
+        extra_tab->len = countof(lstrs);
+        p_copy(extra_tab->tab, lstrs, countof(lstrs));
+
+        p_clear(out, countof(out));
+        w = out;
+        tab_for_each_entry(s, extra_tab) {
+            *w++ = s;
+        }
+        Z_ASSERT_LSTREQUAL(out[0], lstrs[0]);
+        Z_ASSERT_LSTREQUAL(out[1], lstrs[1]);
+        Z_ASSERT_LSTREQUAL(out[2], lstrs[2]);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ tab_enumerate_ptr */
+
+    Z_TEST(tab_enumerate_ptr, "") {
+        const char *strs[] = { "toto", "abcdef", "42" };
+        struct {
+            const char **tab;
+            int len;
+        } tab = {
+            .tab = strs,
+            .len = countof(strs),
+        };
+        const char **out[3];
+
+        p_clear(out, countof(out));
+        tab_enumerate_ptr(pos, ptr, &tab) {
+            out[pos] = ptr;
+        }
+        Z_ASSERT(out[0] == &strs[0]);
+        Z_ASSERT(out[1] == &strs[1]);
+        Z_ASSERT(out[2] == &strs[2]);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ tab_enumerate */
+
+    Z_TEST(tab_enumerate, "") {
+        lstr_t lstrs[] = { LSTR("string"), LSTR("int"), LSTR("double") };
+        struct {
+            lstr_t *tab;
+            int len;
+        } tab = {
+            .tab = lstrs,
+            .len = countof(lstrs),
+        };
+        lstr_t out[3];
+
+        p_clear(out, countof(out));
+        tab_enumerate(pos, s, &tab) {
+            out[pos] = s;
         }
         Z_ASSERT_LSTREQUAL(out[0], lstrs[0]);
         Z_ASSERT_LSTREQUAL(out[1], lstrs[1]);
