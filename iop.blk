@@ -2486,12 +2486,14 @@ int iop_msort_desc(const iop_struct_t *st, void *vec, int len,
 
     __qv_sort(vec, is_class ? sizeof(void *) : st->size, len,
         ^int (const void *d1, const void *d2) {
+            const qv_t(iop_sort_p) *_sorts = &sorts;
+
             if (is_class) {
                 d1 = *(void **)d1;
                 d2 = *(void **)d2;
             }
 
-            tab_for_each_ptr(sort, &sorts) {
+            tab_for_each_ptr(sort, _sorts) {
                 int ret = compare_field(d1, d2, sort);
 
                 if (ret) {

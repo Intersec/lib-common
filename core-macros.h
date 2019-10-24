@@ -602,30 +602,30 @@ typedef unsigned char byte;
 #define tab_for_each_pos(pos, vec)                                           \
     for (int pos = 0; pos < (vec)->len; pos++)
 
-#define tab_for_each_ptr(ptr, vec)                                           \
-    for (__unused__ typeof(*(vec)->tab) *ptr = (vec)->tab,                   \
-         *__i_##ptr = (vec)->tab;                                            \
-         __i_##ptr < (vec)->tab + (vec)->len;                                \
-         ptr = ++__i_##ptr)
+#define _tab_for_each_ptr(ptr_var, ptr_cpy_var, vec_var, _vec)               \
+    FOR_INSTR1(_tab_for_each_ptr##ptr_var,                                   \
+               typeof(*_vec) *vec_var = (_vec))                              \
+    for (__unused__ typeof(*vec_var->tab) *ptr_var = vec_var->tab,           \
+         *ptr_cpy_var = vec_var->tab;                                        \
+         ptr_cpy_var < vec_var->tab + vec_var->len;                          \
+         ptr_var = ++ptr_cpy_var)
 
-#define tab_for_each_entry(e, vec)                                           \
-    for (typeof(*(vec)->tab) e,                                              \
-                            *e##__ptr = ({                                   \
-                                if ((vec)->len) {                            \
-                                    e = *(vec)->tab;                         \
-                                } else {                                     \
-                                    /* Avoid warnings with old gcc's */      \
-                                    p_clear(&e, 1);                          \
-                                }                                            \
-                                (vec)->tab;                                  \
-                            });                                              \
-         ({                                                                  \
-             bool e##__res = e##__ptr < (vec)->tab + (vec)->len;             \
-             if (e##__res) {                                                 \
-                 e = *(e##__ptr++);                                          \
-             }                                                               \
-             e##__res;                                                       \
-         });)
+#define tab_for_each_ptr(ptr_var, _vec)                                      \
+    _tab_for_each_ptr(ptr_var, tab_for_each_ptr_ptr_cpy##ptr_var,            \
+                      tab_for_each_ptr_vec##ptr_var, (_vec))
+
+#define _tab_for_each_entry(entry_var, pos_var, vec_var, _vec)               \
+    FOR_INSTR2(_tab_for_each_entry##entry_var,                               \
+               typeof(*_vec) *vec_var = (_vec),                              \
+               __unused__ typeof(*(_vec)->tab) entry_var)                    \
+    for (int pos_var = 0;                                                    \
+         pos_var < vec_var->len                                              \
+      && (entry_var = vec_var->tab[pos_var], true);                          \
+         pos_var++)
+
+#define tab_for_each_entry(entry_var, _vec)                                  \
+    _tab_for_each_entry(entry_var, tab_for_each_entry_pos##entry_var,        \
+                        tab_for_each_entry_vec##entry_var, (_vec))
 
 #define tab_for_each_pos_rev(pos, vec)                                       \
     for (int pos = (vec)->len; pos-- > 0; )
