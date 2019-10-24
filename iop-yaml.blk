@@ -503,36 +503,37 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
     /* this is caught by the ps_done check in the beginning of parse_data */
     assert (ps_len(&span) > 0);
 
-    line = mp_lstr_dup(env->mp, LSTR_PS_V(&span));
-    lstr_ascii_tolower(&line);
+    line = LSTR_PS_V(&span);
     yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
 
     /* special strings */
-    if (lstr_equal(line, LSTR("~")) || lstr_equal(line, LSTR("null"))) {
+    if (lstr_equal(line, LSTR("~"))
+    ||  lstr_ascii_iequal(line, LSTR("null")))
+    {
         out->scalar.type = YAML_SCALAR_NULL;
         return 0;
     } else
-    if (lstr_equal(line, LSTR("true"))) {
+    if (lstr_ascii_iequal(line, LSTR("true"))) {
         out->scalar.type = YAML_SCALAR_BOOL;
         out->scalar.b = true;
         return 0;
     } else
-    if (lstr_equal(line, LSTR("false"))) {
+    if (lstr_ascii_iequal(line, LSTR("false"))) {
         out->scalar.type = YAML_SCALAR_BOOL;
         out->scalar.b = false;
         return 0;
     } else
-    if (lstr_equal(line, LSTR("-.inf"))) {
+    if (lstr_ascii_iequal(line, LSTR("-.inf"))) {
         out->scalar.type = YAML_SCALAR_DOUBLE;
         out->scalar.d = -INFINITY;
         return 0;
     } else
-    if (lstr_equal(line, LSTR(".inf"))) {
+    if (lstr_ascii_iequal(line, LSTR(".inf"))) {
         out->scalar.type = YAML_SCALAR_DOUBLE;
         out->scalar.d = INFINITY;
         return 0;
     } else
-    if (lstr_equal(line, LSTR(".nan"))) {
+    if (lstr_ascii_iequal(line, LSTR(".nan"))) {
         out->scalar.type = YAML_SCALAR_DOUBLE;
         out->scalar.d = NAN;
         return 0;
@@ -569,7 +570,7 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
     }
 
     out->scalar.type = YAML_SCALAR_STRING;
-    out->scalar.s = LSTR_PS_V(&span);
+    out->scalar.s = line;
     return 0;
 }
 
