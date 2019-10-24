@@ -800,9 +800,13 @@ class ChildClassB : 3 : RootClass {
 class BigParent {
     string a;
     string b;
+    string? z;
 };
 
-class SmallChild : 1 : BigParent {
+class NoFieldParent : 1 : BigParent {
+};
+
+class SmallChild : 2 : NoFieldParent {
     string c;
 };
 

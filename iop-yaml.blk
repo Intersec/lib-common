@@ -1145,7 +1145,7 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     for (uint32_t n = 0, i = 0; n < nb_fields; n++, i++) {
         const iop_field_t *fdesc;
 
-        if (i >= st->fields_len) {
+        while (i >= st->fields_len && expect(st)) {
             assert (iop_struct_is_class(st));
             assert (iop_struct_is_class(st->class_attrs->parent));
             st = st->class_attrs->parent;
