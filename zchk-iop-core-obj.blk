@@ -67,14 +67,44 @@ static iop_core_obj_map_t *mammal_mappings_g;
 
 IOP_CORE_OBJ_IMPL_STATIC(mammal_mappings_g, mammal, tstiop__mammal)
 
+qvector_t(object_cls, const object_class_t *);
+
 int test_iop_core_obj(void)
 {
+    t_scope;
     mammal_t *rox;
     mammal_t *rouky;
+    qv_t(object_cls) *classes;
+    __block int cnt = 0;
+    int cnt_cpy;
 
     mammal_mappings_g = iop_core_obj_map_new();
     iop_core_obj_register(mammal, tstiop__fox, fox);
     iop_core_obj_register(mammal, tstiop__hound, hound);
+
+    classes = t_qv_new(object_cls, 2);
+    iop_core_obj_map_for_each_cls(mammal_mappings_g,
+                                  ^int (const object_class_t *nonnull cls) {
+        qv_t(object_cls) *_classes = classes;
+
+        qv_append(_classes, cls);
+        return 0;
+    });
+
+    Z_ASSERT_EQ(classes->len, 2);
+    Z_ASSERT(classes->tab[0] != classes->tab[1]);
+    Z_ASSERT(classes->tab[0] == obj_class(fox) ||
+             classes->tab[1] == obj_class(fox));
+    Z_ASSERT(classes->tab[0] == obj_class(hound) ||
+             classes->tab[1] == obj_class(hound));
+
+    iop_core_obj_map_for_each_cls(mammal_mappings_g,
+                                  ^int (const object_class_t *nonnull cls) {
+        cnt++;
+        return -1;
+    });
+    cnt_cpy = cnt;
+    Z_ASSERT_EQ(cnt_cpy, 1);
 
     Z_ASSERT(cls_inherits(obj_class(fox), obj_class(mammal)));
     Z_ASSERT(cls_inherits(obj_class(hound), obj_class(mammal)));

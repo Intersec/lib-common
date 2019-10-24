@@ -93,3 +93,13 @@ void _iop_core_obj_map_register_cls(iop_core_obj_map_t *nonnull map,
     e_assert(panic, !(pos & QHASH_COLLISION),
              "class for `%pL' registered twice", &iop_cls->fullname);
 }
+
+void iop_core_obj_map_for_each_cls(const iop_core_obj_map_t *nonnull map,
+                                   on_core_obj_cls_b nonnull on_cls)
+{
+    qm_for_each_value(iop_core_cls, cls, &map->qm) {
+        if (on_cls(cls) < 0) {
+            return;
+        }
+    }
+}

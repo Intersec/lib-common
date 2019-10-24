@@ -280,7 +280,7 @@ def build(ctx):
             'iop.blk',
             'iop-dso.c',
             'iop-cfolder.c',
-            'iop-core-obj.c',
+            'iop-core-obj.blk',
             'iop-void.c',
 
             'log.c',
@@ -453,7 +453,7 @@ def build(ctx):
             'zchk-hat.blk',
             'zchk-iop.blk',
             'zchk-iop.c',
-            'zchk-iop-core-obj.c',
+            'zchk-iop-core-obj.blk',
             'zchk-iop-rpc.c',
             'zchk-iop-yaml.c',
             'zchk-iprintf.c',

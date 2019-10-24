@@ -71,6 +71,18 @@ void _iop_core_obj_map_register_cls(iop_core_obj_map_t *nonnull map,
                                     const iop_struct_t *nonnull iop_cls,
                                     const object_class_t *nonnull cls);
 
+#ifdef __has_blocks
+
+/** \return A negative value to stop the scan now. */
+typedef int (BLOCK_CARET on_core_obj_cls_b)
+(const object_class_t *nonnull cls);
+
+/** Iterate on all object classes of a given \p iop_core_obj_map_t. */
+void iop_core_obj_map_for_each_cls(const iop_core_obj_map_t *nonnull map,
+                                   on_core_obj_cls_b nonnull on_cls);
+
+#endif /* __has_blocks */
+
 #define IOP_CORE_OBJ_DECLARE(cls_pfx, iop_cls_pfx)                           \
     void cls_pfx##_register(const iop_struct_t *iop_cls,                     \
                             const object_class_t *cls);                      \
