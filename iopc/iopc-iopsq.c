@@ -335,19 +335,22 @@ iopc_field_set_type(iopc_field_t *nonnull f,
     if_assign (array_type, IOP_UNION_GET(iop__type, type, array)) {
         type = *array_type;
 
-        if (IOP_UNION_GET(iop__type, type, array)) {
+        if (IOP_UNION_IS(iop__type, type, array)) {
             sb_setf(err, "multi-dimension arrays are not supported");
             return -1;
         }
 
         f->repeat = IOP_R_REPEATED;
     }
-    if_assign (typename, IOP_UNION_GET(iop__type, type, type_name)) {
-        if (iopc_field_set_typename(f, *typename, err) < 0) {
+
+    IOP_UNION_SWITCH(type) {
+      IOP_UNION_CASE(iop__type, type, type_name, typename) {
+        if (iopc_field_set_typename(f, typename, err) < 0) {
             return -1;
         }
-    } else
-    if_assign (type_id, IOP_UNION_GET(iop__type, type, type_id)) {
+      }
+
+      IOP_UNION_CASE(iop__type, type, type_id, type_id) {
         const iop_full_type_t *ftype;
 
         if (!type_table) {
@@ -355,7 +358,7 @@ iopc_field_set_type(iopc_field_t *nonnull f,
             return -1;
         }
 
-        ftype = iopsq_type_table_get_type(type_table, *type_id);
+        ftype = iopsq_type_table_get_type(type_table, type_id);
         f->kind = ftype->type;
         if (ftype->type == IOP_T_ENUM) {
             f->external_en = ftype->en;
@@ -365,8 +368,11 @@ iopc_field_set_type(iopc_field_t *nonnull f,
             f->external_st = ftype->st;
             f->has_external_type = true;
         }
-    } else {
+      }
+
+      IOP_UNION_DEFAULT() {
         f->kind = iop_type_from_iop(type);
+      }
     }
 
     RETHROW(iopc_check_field_type(f, err));
