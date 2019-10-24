@@ -155,6 +155,7 @@ DO_DELETE(iopsq_type_table_t, __iopsq_type_table);
 static int iopsq_fill_type(const iop_full_type_t *ftype, iop__type__t *type)
 {
     lstr_t typename;
+    const iop_obj_t *obj;
 
     if (iop_type_to_iop(ftype->type, type) >= 0) {
         return 0;
@@ -167,7 +168,7 @@ static int iopsq_fill_type(const iop_full_type_t *ftype, iop__type__t *type)
         typename = ftype->st->fullname;
     }
 
-    if_assign (obj, iop_get_obj(typename)) {
+    if ((obj = iop_get_obj(typename))) {
         switch (obj->type) {
           case IOP_OBJ_TYPE_PKG:
             break;
@@ -332,7 +333,9 @@ iopc_field_set_type(iopc_field_t *nonnull f,
                     const iopsq_type_table_t *nullable type_table,
                     sb_t *nonnull err)
 {
-    if_assign (array_type, IOP_UNION_GET(iop__type, type, array)) {
+    struct iopsq__type__t * const * array_type;
+
+    if ((array_type = IOP_UNION_GET(iop__type, type, array))) {
         type = *array_type;
 
         if (IOP_UNION_IS(iop__type, type, array)) {

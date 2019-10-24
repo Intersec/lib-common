@@ -808,68 +808,6 @@ Z_GROUP_EXPORT(core_macros) {
     } Z_TEST_END;
 
     /* }}} */
-    /* {{{ if_assign */
-
-    Z_TEST(if_assign, "if_assign") {
-        int i = 1;
-
-        if_assign (a, &i) {
-            Z_ASSERT_EQ(*a, 1);
-        } else {
-            Z_ASSERT(false);
-        }
-
-        /* resure a to ensure it is defined only in the scope of the
-         * if_assign
-         */
-        if_assign (a, NULL) {
-            Z_ASSERT(false);
-        } else {
-            Z_ASSERT(true);
-        }
-
-        /* Same with a if cascade */
-        if_assign (a, NULL) {
-            Z_ASSERT(false);
-        } else
-        if_assign (b, &i) {
-            Z_ASSERT_EQ(*b, i);
-        } else {
-            Z_ASSERT(false);
-        }
-    } Z_TEST_END;
-
-    /* }}} */
-    /* {{{ while_assign */
-
-    Z_TEST(while_assign, "while_assign") {
-        int v[] = { 1, 2 };
-        int *tab[] = { &v[0], &v[1], NULL };
-        int pos = 0;
-        int it = 0;
-
-        /* pos++ in the value to ensure we don't evaluate the provided
-         * expression more than necessary.
-         */
-        while_assign (a, tab[pos++]) {
-            it++;
-            Z_ASSERT_LT(it, 3);
-            Z_ASSERT_EQ(pos, it);
-            switch (pos) {
-              case 1 ... 2:
-                Z_ASSERT_EQ(*a, v[pos - 1]);
-                break;
-
-              default:
-                Z_ASSERT(false);
-                break;
-            }
-        }
-        Z_ASSERT_EQ(pos, 3);
-        Z_ASSERT_EQ(it, 2);
-    } Z_TEST_END;
-
-    /* }}} */
 } Z_GROUP_END;
 
 /* }}} */
