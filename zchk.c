@@ -777,6 +777,78 @@ Z_GROUP_EXPORT(core_macros) {
     } Z_TEST_END;
 
     /* }}} */
+    /* {{{ tab_for_each_pos */
+
+    Z_TEST(tab_for_each_pos, "") {
+        int ints[] = { 1, 2, 3, 4 };
+        struct {
+            int *tab;
+            int len;
+        } tab = {
+            .tab = ints,
+            .len = countof(ints),
+        };
+        int out[4];
+
+        p_clear(out, countof(out));
+        tab_for_each_pos(i, &tab) {
+            out[i] = ints[i];
+        }
+        Z_ASSERT_EQ(out[0], ints[0]);
+        Z_ASSERT_EQ(out[1], ints[1]);
+        Z_ASSERT_EQ(out[2], ints[2]);
+        Z_ASSERT_EQ(out[3], ints[3]);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ tab_for_each_ptr */
+
+    Z_TEST(tab_for_each_ptr, "") {
+        const char *strs[] = { "toto", "abcdef", "42" };
+        struct {
+            const char **tab;
+            int len;
+        } tab = {
+            .tab = strs,
+            .len = countof(strs),
+        };
+        const char **out[3];
+        const char ***w = out;
+
+        p_clear(out, countof(out));
+        tab_for_each_ptr(ptr, &tab) {
+            *w++ = ptr;
+        }
+        Z_ASSERT(out[0] == &strs[0]);
+        Z_ASSERT(out[1] == &strs[1]);
+        Z_ASSERT(out[2] == &strs[2]);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ tab_for_each_entry */
+
+    Z_TEST(tab_for_each_entry, "") {
+        lstr_t lstrs[] = { LSTR("string"), LSTR("int"), LSTR("double") };
+        struct {
+            lstr_t *tab;
+            int len;
+        } tab = {
+            .tab = lstrs,
+            .len = countof(lstrs),
+        };
+        lstr_t out[3];
+        lstr_t *w = out;
+
+        p_clear(out, countof(out));
+        tab_for_each_entry(s, &tab) {
+            *w++ = s;
+        }
+        Z_ASSERT_LSTREQUAL(out[0], lstrs[0]);
+        Z_ASSERT_LSTREQUAL(out[1], lstrs[1]);
+        Z_ASSERT_LSTREQUAL(out[2], lstrs[2]);
+    } Z_TEST_END;
+
+    /* }}} */
     /* {{{ tab_swap */
 
     Z_TEST(tab_swap, "tab_swap") {
