@@ -3499,8 +3499,8 @@ Z_GROUP_EXPORT(iop)
                             XSORT_ST(42, "tutu"), XSORT_ST(51, "zzz"),
                             XSORT_ST(21, "lala"));
         parray = t_new_raw(const tstiop__xsort_struct__t *, array.len);
-        tab_for_each_pos(pos, &array) {
-            parray[pos] = &array.tab[pos];
+        tab_enumerate_ptr(pos, xs, &array) {
+            parray[pos] = xs;
         }
         iop_xpsort(tstiop__xsort_struct, parray, array.len);
         for (int i = 0; i < array.len - 1; i++) {
@@ -7166,8 +7166,8 @@ Z_GROUP_EXPORT(iop)
 
         u32_array = T_IOP_ARRAY(u32, 10, 11, 12, 13, 14);
         Z_ASSERT_EQ(u32_array.len, 5);
-        tab_for_each_pos(pos, &u32_array) {
-            Z_ASSERT_EQ(u32_array.tab[pos], 10u + pos);
+        tab_enumerate(pos, u, &u32_array) {
+            Z_ASSERT_EQ(u, 10u + pos);
         }
     } Z_TEST_END;
     /* }}} */

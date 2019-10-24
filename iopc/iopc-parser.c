@@ -623,9 +623,7 @@ static void init_attributes(void)
 static int
 check_attr_multi(qv_t(iopc_attr) *attrs, iopc_attr_t *attr, int *pos_out)
 {
-    tab_for_each_pos(pos, attrs) {
-        iopc_attr_t *a = attrs->tab[pos];
-
+    tab_enumerate(pos, a, attrs) {
         if (a->desc == attr->desc) {
             /* Generic attributes share the same desc */
             if (a->desc->id == IOPC_ATTR_GENERIC) {
@@ -1483,8 +1481,7 @@ build_dox_param(const iopc_fun_t *owner, qv_t(iopc_dox) *res,
         return 0;
     }
 
-    tab_for_each_pos(i, &chunk->params_args) {
-        lstr_t arg = chunk->params_args.tab[i];
+    tab_enumerate(i, arg, &chunk->params_args) {
         iopc_field_t *arg_field;
         qv_t(sb) arg_paragraphs;
         qv_t(sb) object_paragraphs;
@@ -2179,8 +2176,8 @@ parse_field_stmt(iopc_parser_t *pp, iopc_struct_t *st, qv_t(iopc_attr) *attrs,
 static int check_snmp_brief(qv_t(iopc_dox) comments, iopc_loc_t loc,
                             char *name, const char *type)
 {
-    tab_for_each_pos(pos, &comments) {
-        if (comments.tab[pos].type == IOPC_DOX_TYPE_BRIEF) {
+    tab_for_each_ptr(comment, &comments) {
+        if (comment->type == IOPC_DOX_TYPE_BRIEF) {
             return 0;
         }
     }
@@ -3626,16 +3623,14 @@ static iopc_pkg_t *parse_package(iopc_parser_t *pp, char *file,
 
 #define SET_ATTRS_AND_COMMENTS(_o, _t)                       \
         do {                                                 \
-            tab_for_each_pos(pos, &attrs) {        \
-                iopc_attr_t *_attr = attrs.tab[pos];         \
-                                                             \
+            tab_enumerate(pos, _attr, &attrs) {              \
                 if (check_attr_type_decl(_attr, _t) < 0) {   \
-                    qv_skip(&attrs, pos);         \
+                    qv_skip(&attrs, pos);                    \
                     goto error;                              \
                 }                                            \
-                qv_append(&_o->attrs, _attr);     \
+                qv_append(&_o->attrs, _attr);                \
             }                                                \
-            qv_clear(&attrs);                     \
+            qv_clear(&attrs);                                \
             if (read_dox_back(pp, &chunks, 0) < 0            \
             ||  build_dox(&chunks, _o, _t) < 0)              \
             {                                                \
@@ -3781,9 +3776,7 @@ static iopc_pkg_t *parse_package(iopc_parser_t *pp, char *file,
                 goto error;
             }
 
-            tab_for_each_pos(pos, &attrs) {
-                iopc_attr_t *attr = attrs.tab[pos];
-
+            tab_enumerate(pos, attr, &attrs) {
                 if (check_attr_type_field(attr, tdef, true) < 0) {
                     qv_skip(&attrs, pos);
                     goto error;

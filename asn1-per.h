@@ -108,8 +108,8 @@ static inline int asn1_enum_find_val(const asn1_enum_info_t *nonnull e,
     };
 
     carray_for_each_ptr(v, vals_tabs) {
-        tab_for_each_pos(pos, v->values) {
-            if (v->values->tab[pos] == val) {
+        tab_enumerate(pos, enum_val, v->values) {
+            if (enum_val == val) {
                 assert (e->extended || !v->extended);
                 *extended = v->extended;
 

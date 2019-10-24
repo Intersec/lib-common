@@ -2462,9 +2462,8 @@ int iop_msort_desc(const iop_struct_t *st, void *vec, int len,
     t_qv_init(&sorts, params->len);
     qv_growlen(&sorts, params->len);
 
-    tab_for_each_pos(pos, params) {
+    tab_enumerate_ptr(pos, sort, params) {
         iop_sort_priv_t *priv = &sorts.tab[pos];
-        iop_sort_t *sort = &params->tab[pos];
 
         t_iop_field_path_init(&priv->fp);
         RETHROW(t_iop_compile_field_path(st, sort->field_path, 0, &priv->fp,

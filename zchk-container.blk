@@ -1326,8 +1326,8 @@ Z_GROUP_EXPORT(qvector)
             qv_splice(&vec, 0, 0, table, countof(table));
             qv_clip(&vec, i);
             Z_ASSERT_EQ(vec.len, i);
-            tab_for_each_pos(pos, &vec) {
-                Z_ASSERT_EQ(vec.tab[pos], table[pos]);
+            tab_enumerate(pos, u, &vec) {
+                Z_ASSERT_EQ(u, table[pos]);
             }
         }
 
@@ -1336,8 +1336,8 @@ Z_GROUP_EXPORT(qvector)
             qv_splice(&vec, 0, 0, table, countof(table));
             qv_shrink(&vec, i);
             Z_ASSERT_EQ(vec.len, countof(table) - i);
-            tab_for_each_pos(pos, &vec) {
-                Z_ASSERT_EQ(vec.tab[pos], table[pos]);
+            tab_enumerate(pos, u, &vec) {
+                Z_ASSERT_EQ(u, table[pos]);
             }
         }
 
@@ -1346,8 +1346,8 @@ Z_GROUP_EXPORT(qvector)
             qv_splice(&vec, 0, 0, table, countof(table));
             qv_skip(&vec, i);
             Z_ASSERT_EQ(vec.len, countof(table) - i);
-            tab_for_each_pos(pos, &vec) {
-                Z_ASSERT_EQ(vec.tab[pos], table[i + pos]);
+            tab_enumerate(pos, u, &vec) {
+                Z_ASSERT_EQ(u, table[i + pos]);
             }
         }
     } Z_TEST_END;
@@ -1394,29 +1394,29 @@ Z_GROUP_EXPORT(qvector)
         Z_ASSERT(del.len   == (int)uniq32(del.tab,   del.len));
         Z_ASSERT(inter.len == (int)uniq32(inter.tab, inter.len));
 
-        tab_for_each_pos(pos, &add) {
-            Z_ASSERT(!contains32(add.tab[pos], vec1.tab, vec1.len)
-                     && contains32(add.tab[pos], vec2.tab, vec2.len));
+        tab_for_each_entry(u, &add) {
+            Z_ASSERT(!contains32(u, vec1.tab, vec1.len)
+                 &&  contains32(u, vec2.tab, vec2.len));
         }
-        tab_for_each_pos(pos, &del) {
-            Z_ASSERT(contains32(del.tab[pos], vec1.tab, vec1.len)
-                     && !contains32(del.tab[pos], vec2.tab, vec2.len));
+        tab_for_each_entry(u, &del) {
+            Z_ASSERT(contains32(u, vec1.tab, vec1.len)
+                 &&  !contains32(u, vec2.tab, vec2.len));
         }
-        tab_for_each_pos(pos, &inter) {
-            Z_ASSERT(contains32(inter.tab[pos], vec1.tab, vec1.len)
-                     && contains32(inter.tab[pos], vec2.tab, vec2.len));
+        tab_for_each_entry(u, &inter) {
+            Z_ASSERT(contains32(u, vec1.tab, vec1.len)
+                 &&  contains32(u, vec2.tab, vec2.len));
         }
-        tab_for_each_pos(pos, &vec1) {
-            Z_ASSERT(contains32(vec1.tab[pos], vec2.tab, vec2.len)
-                     || contains32(vec1.tab[pos], del.tab,  del.len));
-            Z_ASSERT(!contains32(vec1.tab[pos], vec2.tab, vec2.len)
-                     || contains32(vec1.tab[pos], inter.tab, inter.len));
+        tab_for_each_entry(u, &vec1) {
+            Z_ASSERT(contains32(u, vec2.tab, vec2.len)
+                 ||  contains32(u, del.tab,  del.len));
+            Z_ASSERT(!contains32(u, vec2.tab, vec2.len)
+                 ||  contains32(u, inter.tab, inter.len));
         }
-        tab_for_each_pos(pos, &vec2) {
-            Z_ASSERT(contains32(vec2.tab[pos], vec1.tab, vec1.len)
-                     || contains32(vec2.tab[pos], add.tab,  add.len));
-            Z_ASSERT(!contains32(vec2.tab[pos], vec1.tab, vec1.len)
-                     || contains32(vec2.tab[pos], inter.tab, inter.len));
+        tab_for_each_entry(u, &vec2) {
+            Z_ASSERT(contains32(u, vec1.tab, vec1.len)
+                 ||  contains32(u, add.tab,  add.len));
+            Z_ASSERT(!contains32(u, vec1.tab, vec1.len)
+                 ||  contains32(u, inter.tab, inter.len));
         }
 
         /* Test that passing NULL to add, del and inter doesn't segfault */
@@ -1447,9 +1447,7 @@ Z_GROUP_EXPORT(qvector)
         qv_extend(&vec1, &vec2);
 
         Z_ASSERT_EQ(vec1.len, 2 * N);
-        tab_for_each_pos(pos, &vec1) {
-            int entry = vec1.tab[pos];
-
+        tab_enumerate(pos, entry, &vec1) {
             Z_ASSERT_EQ(pos, entry);
             res += entry;
         }
@@ -1466,8 +1464,8 @@ Z_GROUP_EXPORT(qvector)
         }
 
         Z_ASSERT_EQ(vec1.len, (1 << 20));
-        tab_for_each_pos(i, &vec1) {
-            Z_ASSERT_EQ(vec1.tab[i], i % (1 << 10));
+        tab_enumerate(i, entry, &vec1) {
+            Z_ASSERT_EQ(entry, i % (1 << 10));
         }
     } Z_TEST_END;
 
@@ -1498,10 +1496,11 @@ Z_GROUP_EXPORT(qvector)
                 tmp++;
             }
         }
-        tab_for_each_pos(pos, &vec2) {
-            Z_ASSERT_EQ(strlen(vec2.tab[pos]), strlen(vec1.tab[pos]));
-            Z_ASSERT_ZERO(strncmp(vec2.tab[pos], vec1.tab[pos],
-                                  strlen(vec2.tab[pos])));
+        tab_enumerate(pos, s2, &vec2) {
+            const char *s1 = vec1.tab[pos];
+
+            Z_ASSERT_EQ(strlen(s2), strlen(s1));
+            Z_ASSERT_ZERO(strncmp(s2, s1, strlen(s2)));
         }
         for (int i = 3; i < vec1.len; i++) {
             Z_ASSERT_EQ(strlen(vec1.tab[i]), strlen(vec1.tab[i - 3]));

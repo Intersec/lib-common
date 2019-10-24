@@ -1096,9 +1096,7 @@ static void iopc_union_dump_tag_cst(sb_t *buf, const char *tbase,
 static void iopc_union_dump_fdesc_cst(sb_t *buf, const char *tbase,
                                     const iopc_struct_t *st)
 {
-    tab_for_each_pos(pos, &st->fields) {
-        const iopc_field_t *f = st->fields.tab[pos];
-
+    tab_enumerate(pos, f, &st->fields) {
         sb_addf(buf, "#define %s__%s__fdesc  %s__s.fields[%d]\n",
                 tbase, pp_to_c(f->name), tbase, pos);
     }
@@ -1737,9 +1735,7 @@ static void iopc_dump_gen_attr(sb_t *buf, const iopc_attr_t *attr,
         iopc_dump_help_and_ref(_out, &attrs_body, ATTR_HELP(_what),          \
                                _kind, _name, "", _ext, &_ptr->comments);     \
                                                                              \
-        tab_for_each_pos(_pos, &_ptr->attrs) {                     \
-            iopc_attr_t *_attr = _ptr->attrs.tab[_pos];                      \
-                                                                             \
+        tab_enumerate(_pos, _attr, &_ptr->attrs) {                           \
             switch(_attr->desc->id) {                                        \
               case IOPC_ATTR_GENERIC:                                        \
                 type = TK_TYPE_TO_GEN_TYPE(_what, _attr->args.tab[0].type);  \
@@ -2666,8 +2662,8 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
         sb_addf(buf, "    LSTR_IMMED(\"%s\"),\n", value->name);
     }
     sb_adds(buf, "};\n");
-    tab_for_each_pos(pos, &en->attrs) {
-        if (en->attrs.tab[pos]->desc->id == IOPC_ATTR_STRICT) {
+    tab_for_each_entry(attr, &en->attrs) {
+        if (attr->desc->id == IOPC_ATTR_STRICT) {
             SET_BIT(&flags, IOP_ENUM_STRICT);
             break;
         }
@@ -2911,8 +2907,7 @@ static iop_array_i32_t mp_iopc_struct_build_ranges(mem_pool_t *mp,
     int last_tag = INT_MIN;
 
     mp_qv_init(mp, &t, 2 * st->fields.len + 1);
-    tab_for_each_pos(i, &st->fields) {
-        iopc_field_t *f = st->fields.tab[i];
+    tab_enumerate(i, f, &st->fields) {
         if (++last_tag != f->tag) {
             qv_append(&t, i);
             qv_append(&t, f->tag);
@@ -3094,8 +3089,8 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
             sb_addf(buf,
                     "static iop_field_attrs_t const %s__desc_fields_attrs[] = {\n",
                     tbase);
-            tab_for_each_pos(i, &st->fields) {
-                iopc_dump_field_attrs_src(buf, st, tbase, st->fields.tab[i],
+            tab_enumerate(i, f, &st->fields) {
+                iopc_dump_field_attrs_src(buf, st, tbase, f,
                                           &fields_attrs.tab[i]);
             }
             sb_adds(buf, "};\n");
@@ -3104,9 +3099,8 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
         /* generate <tbase>__desc_fields */
         sb_addf(buf, "static iop_field_t %s%s__desc_fields[] = {\n", CONST,
                 tbase);
-        tab_for_each_pos(i, &st->fields) {
-            iopc_dump_field_src(buf, st, tbase, st->fields.tab[i],
-                                &fields_attrs.tab[i]);
+        tab_enumerate(i, f, &st->fields) {
+            iopc_dump_field_src(buf, st, tbase, f, &fields_attrs.tab[i]);
         }
         sb_adds(buf,
                 "};\n");
@@ -3133,8 +3127,8 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
             SET_BIT(&st->flags, IOP_STRUCT_IS_SNMP_OBJ);
 
             /* check @snmpParam attribute */
-            tab_for_each_pos(pos, &st->attrs) {
-                if (st->attrs.tab[pos]->desc->id == IOPC_ATTR_SNMP_PARAM) {
+            tab_for_each_entry(attr, &st->attrs) {
+                if (attr->desc->id == IOPC_ATTR_SNMP_PARAM) {
                     SET_BIT(&st->flags, IOP_STRUCT_IS_SNMP_PARAM);
                     break;
                 }
@@ -3324,9 +3318,8 @@ iopc_iface_dump_rpc_attrs(sb_t *buf, const char *ibase, iopc_iface_t *iface)
         sb_addf(buf,
                 "static iop_rpc_attrs_t const %s__rpc_desc_attrs[] = {\n",
                 ibase);
-        tab_for_each_pos(pos, &iface->funs) {
+        tab_enumerate(pos, f, &iface->funs) {
             t_scope;
-            const iopc_fun_t *f = iface->funs.tab[pos];
             iopc_attrs_t attrs = rpc_attrs.tab[pos];
             int aliases_count = 0;
 

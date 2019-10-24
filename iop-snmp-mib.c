@@ -84,14 +84,14 @@ static lstr_t t_split_on_str(lstr_t name, const char *letter, bool enums)
         return LSTR_EMPTY_V;
     }
 
-    tab_for_each_pos(i, &parts) {
+    tab_enumerate_ptr(i, part, &parts) {
         if (enums) {
-            for (int j = i != 0; j < parts.tab[i].len; j++) {
-                parts.tab[i].v[j] = tolower(parts.tab[i].v[j]);
+            for (int j = i != 0; j < part->len; j++) {
+                parts.tab[i].v[j] = tolower(part->v[j]);
             }
         } else
         if (i < parts.len -1) {
-            parts.tab[i] = t_lstr_cat(parts.tab[i], LSTR("\'"));
+            *part = t_lstr_cat(*part, LSTR("\'"));
         }
         sb_add_lstr(&buf, parts.tab[i]);
     }

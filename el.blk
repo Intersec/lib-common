@@ -1905,8 +1905,7 @@ data_t el_unregister(ev_t **evp)
 
 static void el_for_each(void (^on_ev)(ev_t *))
 {
-    tab_for_each_pos(i, &_G.buckets) {
-        ev_t *bucket = _G.buckets.tab[i];
+    tab_enumerate(i, bucket, &_G.buckets) {
         int bucket_len = 1 << (i + EV_ALLOC_FACTOR);
 
         for (int j = 0; j < bucket_len; j++) {

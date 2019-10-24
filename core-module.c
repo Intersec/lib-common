@@ -312,8 +312,8 @@ static int notify_shutdown(module_t *module, module_t *dependence)
                  ": %d pending dependencies", LSTR_FMT_ARG(dependence->name),
                  LSTR_FMT_ARG(module->name), module->required_by.len);
 
-    tab_for_each_pos(pos, &module->required_by) {
-        if (module->required_by.tab[pos] == dependence) {
+    tab_enumerate(pos, dep, &module->required_by) {
+        if (dep == dependence) {
             qv_remove(&module->required_by, pos);
             break;
         }
@@ -551,9 +551,7 @@ static void module_method_register_cb(module_method_impl_t *method,
 {
 
     if (method->params->order == MODULE_DEPS_BEFORE) {
-        tab_for_each_pos(pos, modules) {
-            module_t *m = modules->tab[pos];
-
+        tab_for_each_entry(m, modules) {
             if (module_is_loaded(m)) {
                 module_add_method(m, method);
             }

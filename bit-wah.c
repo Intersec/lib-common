@@ -389,8 +389,7 @@ void wah_copy(wah_t *map, const wah_t *src)
     }
 
     /* Copy buckets. */
-    tab_for_each_pos(pos, &src->_buckets) {
-        const qv_t(wah_word) *src_bucket = &src->_buckets.tab[pos];
+    tab_enumerate_ptr(pos, src_bucket, &src->_buckets) {
         qv_t(wah_word) *dst_bucket = &map->_buckets.tab[pos];
 
         qv_splice(dst_bucket, 0, dst_bucket->len,

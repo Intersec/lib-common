@@ -100,12 +100,10 @@ sb_write_table(sb_t *out, const qv_t(table_hdr) *hdr,
     bool first_column = true;
 
     /* Write the header. */
-    tab_for_each_pos(pos, hdr) {
-        const struct table_hdr_t *column = &hdr->tab[pos];
-
-        if (sb_write_table_cell(out, column, col_sizes[pos], true,
+    tab_enumerate_ptr(pos, col_hdr, hdr) {
+        if (sb_write_table_cell(out, col_hdr, col_sizes[pos], true,
                                 first_column, pos == hdr->len - 1,
-                                column->title, csv_sep) == 0)
+                                col_hdr->title, csv_sep) == 0)
         {
             first_column = false;
         }
@@ -116,14 +114,14 @@ sb_write_table(sb_t *out, const qv_t(table_hdr) *hdr,
     tab_for_each_ptr(row, data) {
         first_column = true;
 
-        tab_for_each_pos(pos, hdr) {
+        tab_enumerate_ptr(pos, col_hdr, hdr) {
             lstr_t content = LSTR_NULL;
 
             if (pos < row->len) {
                 content = row->tab[pos];
             }
 
-            if (sb_write_table_cell(out, &hdr->tab[pos], col_sizes[pos],
+            if (sb_write_table_cell(out, col_hdr, col_sizes[pos],
                                     false, first_column, pos == hdr->len - 1,
                                     content, csv_sep) == 0)
             {
@@ -142,16 +140,15 @@ void sb_add_table(sb_t *out, const qv_t(table_hdr) *hdr,
     int col_count = 0;
 
     /* Compute the size of the columns */
-    tab_for_each_pos(pos, hdr) {
+    tab_enumerate_ptr(pos, col_hdr, hdr) {
         int *col = &col_sizes[pos];
         bool has_value = false;
 
-        *col = MAX(hdr->tab[pos].min_width,
-                   lstr_utf8_strlen(hdr->tab[pos].title));
+        *col = MAX(col_hdr->min_width, lstr_utf8_strlen(col_hdr->title));
 
         tab_for_each_ptr(row, data) {
             if (row->len <= pos) {
-                *col = MAX(*col, lstr_utf8_strlen(hdr->tab[pos].empty_value));
+                *col = MAX(*col, lstr_utf8_strlen(col_hdr->empty_value));
             } else {
                 *col = MAX(*col, lstr_utf8_strlen(row->tab[pos]));
 
@@ -162,7 +159,7 @@ void sb_add_table(sb_t *out, const qv_t(table_hdr) *hdr,
         }
 
         if (hdr->tab[pos].max_width) {
-            *col = MIN(*col, hdr->tab[pos].max_width);
+            *col = MIN(*col, col_hdr->max_width);
         }
         if (hdr->tab[pos].omit_if_empty && !has_value) {
             *col = 0;
@@ -184,8 +181,7 @@ void sb_add_csv_table(sb_t *out, const qv_t(table_hdr) *hdr,
     int *populated_cols = p_alloca(int, hdr->len);
 
     /* Check if we have empty columns. */
-    tab_for_each_pos(pos, hdr) {
-        table_hdr_t *col_hdr = &hdr->tab[pos];
+    tab_enumerate_ptr(pos, col_hdr, hdr) {
         int *populated_col = &populated_cols[pos];
 
         *populated_col = false;

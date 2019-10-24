@@ -154,9 +154,9 @@ static void check_qps(void)
     qv_clear(&roots.handles);
     qv_clear(&roots.pages);
 
-    tab_for_each_pos (pos, &_G.handles) {
-        if (_G.handles.tab[pos] < 0) {
-            qv_append(&roots.handles, _G.handles.tab[pos]);
+    tab_for_each_entry(handle, &_G.handles) {
+        if (handle < 0) {
+            qv_append(&roots.handles, handle);
         }
     }
 

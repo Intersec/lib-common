@@ -1175,15 +1175,15 @@ int z_run(void)
     }
 
     _G.res = 0;
-    tab_for_each_pos(i, &_G.cbs) {
+    tab_for_each_entry(cb, &_G.cbs) {
         if (_G.stopping)
             break;
-        _G.cbs.tab[i]();
+        (*cb)();
     }
-    tab_for_each_pos(i, &_G.blks) {
+    tab_for_each_ptr(blk, &_G.blks) {
         if (_G.stopping)
             break;
-        _z_blkgrp_process(&_G.blks.tab[i]);
+        _z_blkgrp_process(blk);
     }
 
     if (_G.opt_list) {
