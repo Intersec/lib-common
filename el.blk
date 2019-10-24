@@ -936,7 +936,15 @@ static void spawn_child_timeout(el_t el, data_t data)
 {
     spawn_child_capture_t *ctx = data.ptr;
 
-    killpg(ctx->pid, ctx->next_sig);
+    if (killpg(ctx->pid, ctx->next_sig) < 0) {
+        if (errno == ESRCH) {
+            /* No process can be found in the process group. This can happen
+             * if the timeout is very low and the system is under stress,
+             * because there is a race with the creation of the process group
+             * in the child. In that case, no need to change the signal. */
+            return;
+        }
+    }
     if (ctx->next_sig == SIGINT) {
         ctx->next_sig = SIGTERM;
     } else {
