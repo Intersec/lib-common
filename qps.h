@@ -312,7 +312,11 @@ struct qps_stats {
 
 qps_t    *qps_create(const char *path, const char *name, mode_t mode,
                      const void *data, size_t dlen);
-qps_t    *qps_open(const char *path, const char *name, sb_t *priv);
+
+qps_t    *_qps_open(const char *path, const char *name,
+                    bool load_whole_spool, sb_t *priv);
+#define qps_open(path, name, priv)  _qps_open((path), (name), true, (priv))
+
 int       __qps_check_consistency(const char *path, const char *name);
 int       __qps_check_maps(qps_t *qps, bool fatal);
 bool      qps_exists(const char *path);
