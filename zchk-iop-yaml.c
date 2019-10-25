@@ -529,12 +529,10 @@ Z_GROUP_EXPORT(iop_yaml)
         /* --- object field errors --- */
 
         /* unknown field in struct */
-        TST_ERROR("st: z: 42",
-                  "1:5: "ERR_COMMON": cannot set field `st`: "
-                  "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
-                  "unknown field `z`\n"
-                  "st: z: 42\n"
-                  "    ^^^^^");
+        TST_ERROR("z: 42",
+                  "1:1: "ERR_COMMON": unknown field `z`\n"
+                  "z: 42\n"
+                  "^^^^^");
 
         /* missing field in struct */
         /* TODO: weird location? */

@@ -1035,15 +1035,92 @@ check_class(yunpack_env_t * nonnull env,
     return 0;
 }
 
+static const yaml_data_t * nullable
+yaml_data_get_field_value(const yaml_data_t * nonnull data,
+                          const lstr_t field_name)
+{
+    if (data->type == YAML_DATA_OBJ) {
+        return qm_get_def_p(yaml_data, &data->obj->fields, &field_name, NULL);
+    } else {
+        assert (data->type == YAML_DATA_SCALAR
+            &&  data->scalar.type == YAML_SCALAR_NULL);
+        return NULL;
+    }
+}
+
+static int
+yaml_skip_iop_field(yunpack_env_t * nonnull env,
+                    const iop_struct_t * nonnull st,
+                    const iop_field_t * nonnull fdesc, void * nonnull out)
+{
+    if (iop_skip_absent_field_desc(env->mp, out, st, fdesc) < 0) {
+        const char *iop_err = iop_get_err();
+
+        if (iop_err) {
+            sb_setf(&env->err.buf, "field `%pL` is invalid: %s",
+                    &fdesc->name, iop_err);
+        } else {
+            sb_setf(&env->err.buf, "missing field `%pL`", &fdesc->name);
+        }
+        return -1;
+    }
+    return 0;
+}
+
+static int
+yaml_fill_iop_field(yunpack_env_t * nonnull env,
+                    const yaml_data_t * nonnull data,
+                    const iop_struct_t * nonnull st,
+                    const iop_field_t * nonnull fdesc, void * nonnull out)
+{
+    if (env->flags & IOP_UNPACK_FORBID_PRIVATE) {
+        const iop_field_attrs_t *attrs;
+
+        attrs = iop_field_get_attrs(st, fdesc);
+        if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
+            sb_setf(&env->err.buf, "unknown field `%pL`", &fdesc->name);
+            return -1;
+        }
+    }
+
+    out = (char *)out + fdesc->data_offs;
+    if (yaml_data_to_iop_field(env, data, st, fdesc, false, out) < 0) {
+        return -1;
+    }
+
+    if (check_constraints(st, fdesc, out) < 0) {
+        sb_setf(&env->err.buf, "field `%pL` is invalid: %s", &fdesc->name,
+                iop_get_err());
+        return -1;
+    }
+
+    return 0;
+}
+
+static void
+yaml_data_find_extra_key(yunpack_env_t * nonnull env,
+                         const yaml_data_t * nonnull data,
+                         const iop_struct_t * nonnull st)
+{
+    qm_for_each_key(yaml_data, key, &data->obj->fields) {
+        if (iop_field_find_by_name(st, key, NULL, NULL) < 0) {
+            sb_setf(&env->err.buf, "unknown field `%pL`", &key);
+            return;
+        }
+    }
+
+    assert (false);
+}
+
 static int
 yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
                           const yaml_data_t * nonnull data,
                           const iop_struct_t * nonnull st,
                           void * nonnull out)
 {
-    byte *seen;
     const iop_struct_t *real_st = st;
     uint32_t nb_fields = st->fields_len;
+    int nb_fields_matched;
 
     if (st->is_union) {
         return yaml_data_to_union(env, data, st, out);
@@ -1052,8 +1129,7 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     switch (data->type) {
       case YAML_DATA_SCALAR:
         if (data->scalar.type == YAML_SCALAR_NULL) {
-            seen = p_alloca(byte, BITS_TO_ARRAY_LEN(byte, nb_fields));
-            goto check_missing_fields;
+            break;
         }
         /* FALLTHROUGH */
       case YAML_DATA_SEQ:
@@ -1061,23 +1137,23 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
                 yaml_data_get_type(data));
         goto error;
       case YAML_DATA_OBJ:
+        if (data->obj->tag.s) {
+            real_st = iop_get_class_by_fullname(st, data->obj->tag);
+            if (!real_st) {
+                sb_setf(&env->err.buf, "unknown type `%pL` provided in tag, "
+                        "or not a child of `%pL`", &data->obj->tag,
+                        &st->fullname);
+                real_st = st;
+                goto error;
+            }
+            if (!iop_class_is_a(real_st, st)) {
+                sb_setf(&env->err.buf, "provided tag `%pL` is not a child of "
+                        "`%pL`", &real_st->fullname, &st->fullname);
+                real_st = st;
+                goto error;
+            }
+        }
         break;
-    }
-
-    if (data->obj->tag.s) {
-        real_st = iop_get_class_by_fullname(st, data->obj->tag);
-        if (!real_st) {
-            sb_setf(&env->err.buf, "unknown type `%pL` provided in tag, or "
-                    "not a child of `%pL`", &data->obj->tag, &st->fullname);
-            real_st = st;
-            goto error;
-        }
-        if (!iop_class_is_a(real_st, st)) {
-            sb_setf(&env->err.buf, "provided tag `%pL` is not a child of "
-                    "`%pL`", &real_st->fullname, &st->fullname);
-            real_st = st;
-            goto error;
-        }
     }
 
     if (iop_struct_is_class(real_st)) {
@@ -1093,57 +1169,13 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
         out = *out_class;
     }
 
-    seen = p_alloca(byte, BITS_TO_ARRAY_LEN(byte, nb_fields));
-
-    qm_for_each_key_value_p(yaml_data, key, val, &data->obj->fields) {
-        int ifield;
-        const iop_struct_t *field_st = NULL;
-        const iop_field_t *field_desc = NULL;
-        void *field_out;
-
-        ifield = iop_field_find_by_name(real_st, key, &field_st, &field_desc);
-        if (!field_desc) {
-            sb_setf(&env->err.buf, "unknown field `%pL`", &key);
-            goto error;
-        }
-
-        /* this is already rejected by the yaml parser */
-        assert (ifield >= 0 && !TST_BIT(seen, ifield));
-        SET_BIT(seen, ifield);
-
-        if (field_desc && env->flags & IOP_UNPACK_FORBID_PRIVATE) {
-            const iop_field_attrs_t *attrs;
-
-            attrs = iop_field_get_attrs(field_st, field_desc);
-            if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
-                sb_setf(&env->err.buf, "unknown field `%pL`", &key);
-                goto error;
-            }
-        }
-
-        field_out = (char *)out + field_desc->data_offs;
-        if (yaml_data_to_iop_field(env, val, field_st, field_desc, false,
-                                   field_out))
-        {
-            /* keep the data causing the issue in the err. */
-            data = env->err.data;
-            goto error;
-        }
-
-
-        if (check_constraints(field_st, field_desc, field_out) < 0) {
-            sb_setf(&env->err.buf, "field `%pL` is invalid: %s", &key,
-                    iop_get_err());
-            goto error;
-        }
-    }
-
-  check_missing_fields:
     st = real_st;
+    nb_fields_matched = 0;
     /* n is the index on the total number of fields for the object.
      * i is the index on the fields specific to the current class (st) */
     for (uint32_t n = 0, i = 0; n < nb_fields; n++, i++) {
         const iop_field_t *fdesc;
+        const yaml_data_t *val;
 
         while (i >= st->fields_len && expect(st)) {
             assert (iop_struct_is_class(st));
@@ -1152,22 +1184,30 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
             i = 0;
         }
 
-        if (TST_BIT(seen, n)) {
-            continue;
-        }
-
         fdesc = &st->fields[i];
-        if (iop_skip_absent_field_desc(env->mp, out, st, fdesc) < 0) {
-            const char *iop_err = iop_get_err();
 
-            if (iop_err) {
-                sb_setf(&env->err.buf, "field `%pL` is invalid: %s",
-                        &fdesc->name, iop_err);
-            } else {
-                sb_setf(&env->err.buf, "missing field `%pL`", &fdesc->name);
+        val = yaml_data_get_field_value(data, fdesc->name);
+        if (val) {
+            if (yaml_fill_iop_field(env, val, st, fdesc, out) < 0) {
+                goto error;
             }
-            goto error;
+            nb_fields_matched++;
+        } else {
+            if (yaml_skip_iop_field(env, st, fdesc, out) < 0) {
+                goto error;
+            }
         }
+    }
+
+    if (data->type == YAML_DATA_OBJ
+    &&  unlikely(nb_fields_matched != qm_len(yaml_data, &data->obj->fields)))
+    {
+        /* There are fields in the YAML object that have not been matched.
+         * The handling of this error is kept in a cold path, as it is
+         * supposed to be rare. */
+        assert (nb_fields_matched < qm_len(yaml_data, &data->obj->fields));
+        yaml_data_find_extra_key(env, data, real_st);
+        goto error;
     }
 
     return 0;
@@ -1175,7 +1215,9 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
   error:
     sb_prependf(&env->err.buf, "cannot unpack YAML as a `%pL` IOP struct: ",
                 &real_st->fullname);
-    env->err.data = data;
+    if (!env->err.data) {
+        env->err.data = data;
+    }
     return -1;
 }
 
