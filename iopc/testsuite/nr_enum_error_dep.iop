@@ -1,0 +1,12 @@
+package nr_enum_error_dep;
+
+enum MyEnum {
+    A = 100,
+    B,
+    C,
+};
+
+struct MyStruct {
+1:  int a;A
+2:  void b;
+};

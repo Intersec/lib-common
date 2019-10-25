@@ -1,0 +1,5 @@
+package nr_enum_error;
+
+struct MyStruct {
+    nr_enum_error_dep.MyStruct sub;
+};
