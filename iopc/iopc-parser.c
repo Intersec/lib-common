@@ -147,8 +147,9 @@ static int check_name(const char *name, iopc_loc_t loc,
     return 0;
 }
 
-static iopc_pkg_t *
-iopc_try_file(iopc_parser_t *pp, const char *dir, iopc_path_t *path)
+static int
+iopc_try_file(iopc_parser_t *pp, const char *dir, iopc_path_t *path,
+              iopc_pkg_t **pkgp)
 {
     struct stat st;
     char file[PATH_MAX];
@@ -162,15 +163,19 @@ iopc_try_file(iopc_parser_t *pp, const char *dir, iopc_path_t *path)
 
         data = qm_get_def_safe(iopc_env, pp->env, pkg_name, NULL);
         if (data) {
-            return iopc_parse_file(pp->includes, pp->env, file, data, false);
+            *pkgp = RETHROW_PN(iopc_parse_file(pp->includes, pp->env, file,
+                                               data, false));
+            return 0;
         }
     }
 
     if (stat(file, &st) == 0 && S_ISREG(st.st_mode)) {
-        return iopc_parse_file(pp->includes, pp->env, file, NULL, false);
+        *pkgp = RETHROW_PN(iopc_parse_file(pp->includes, pp->env, file,
+                                           NULL, false));
+        return 0;
     }
 
-    return NULL;
+    return 0;
 }
 
 /* ----- attributes {{{*/
@@ -1742,7 +1747,7 @@ static char *iopc_lower_ident(iopc_parser_t *pp)
 static iopc_pkg_t *
 check_path_exists(iopc_parser_t *pp, iopc_path_t *path)
 {
-    iopc_pkg_t *pkg;
+    iopc_pkg_t *pkg = NULL;
 
     pkg = qm_get_def(iopc_pkg, &_G.pkgs, pretty_path_dot(path), NULL);
     if (pkg) {
@@ -1750,13 +1755,15 @@ check_path_exists(iopc_parser_t *pp, iopc_path_t *path)
     }
 
     if (pp->base) {
-        if ((pkg = iopc_try_file(pp, pp->base, path))) {
+        RETHROW_NP(iopc_try_file(pp, pp->base, path, &pkg));
+        if (pkg) {
             return pkg;
         }
     }
     if (pp->includes) {
         tab_for_each_entry(include, pp->includes) {
-            if ((pkg = iopc_try_file(pp, include, path))) {
+            RETHROW_NP(iopc_try_file(pp, include, path, &pkg));
+            if (pkg) {
                 return pkg;
             }
         }

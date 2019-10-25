@@ -981,11 +981,7 @@ class IopcTest(z.TestCase):
     @z.ZFlags('redmine_69370')
     def test_error_in_other_pkg(self):
         self.run_iopc_fail('nr_enum_error.iop', [
-            'error: identifier expected, but got integer instead',
-            # FIXME The next two errors should not occur.
-            'error: enum field name `A` is used twice',
-            ('error: unable to find file `nr_enum_error_dep.iop` '
-             'in the include path')
+            'error: identifier expected, but got integer instead'
         ])
 
     # }}}
