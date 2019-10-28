@@ -366,6 +366,7 @@ def build(ctx):
             'httptokens.c',
 
             'yaml.c',
+            'parsing-helpers.c',
 
             'iop-json.blk',
             'iop-yaml.blk',

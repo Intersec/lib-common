@@ -18,9 +18,8 @@
 
 #include <math.h>
 
-#include "unix.h"
 #include "yaml.h"
-#include "iop-json.h"
+#include "parsing-helpers.h"
 #include "log.h"
 
 static struct yaml_g {
@@ -390,27 +389,25 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
         int line_nb = 0;
         int col_nb = 0;
         sb_t buf;
-        int res;
+        parse_str_res_t res;
 
         yaml_env_skipc(env);
         mp_sb_init(env->mp, &buf, 128);
         /* XXX use a json util for escaping handling. To be factorized
          * outside of the json file however. */
-        res = iop_json_parse_str(&env->ps, &buf, &line_nb, &col_nb, '"');
-
-        if (res >= 0) {
+        res = parse_quoted_string(&env->ps, &buf, &line_nb, &col_nb, '"');
+        switch (res) {
+          case PARSE_STR_ERR_UNCLOSED:
+            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                    "missing closing '\"'");
+          case PARSE_STR_ERR_EXP_SMTH:
+            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                    "invalid backslash");
+          case PARSE_STR_OK:
             yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
             out->scalar.type = YAML_SCALAR_STRING;
             out->scalar.s = LSTR_SB_V(&buf);
             return 0;
-        } else
-        if (res == IOP_JERR_UNCLOSED_STRING) {
-            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
-                                    "missing closing '\"'");
-        } else
-        if (IOP_JERR_EXP_SMTH) {
-            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
-                                    "invalid backslash");
         }
 
         assert (false);

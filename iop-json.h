@@ -600,15 +600,7 @@ struct iop_struct_value {
                           IOP_JPACK_NO_WHITESPACES | IOP_JPACK_NO_TRAILING_EOL)
 
 /* }}} */
-/* {{{ Private */
-
-/* Unpacking helpers */
-
-int iop_json_parse_str(pstream_t * nonnull ps, sb_t * nonnull buf,
-                       int * nonnull line, int * nonnull col, int terminator);
-
-/* }}} */
-/* Packing helpers */
+/* {{{ Packing helpers */
 
 /* Get a pointer to the index'th value for the field.
  * To be used in conjunction with iop_json_get_n_and_ptr.
