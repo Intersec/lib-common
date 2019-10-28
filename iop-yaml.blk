@@ -630,6 +630,32 @@ static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
 }
 
 /* }}} */
+/* {{{ Public API */
+
+static int t_yaml_parse(pstream_t ps, yaml_data_t *out, sb_t *out_err)
+{
+    yaml_env_t env;
+    t_SB_1k(err);
+
+    p_clear(&env, 1);
+    env.mp = t_pool();
+    env.err = err;
+
+    env.ps = ps;
+    env.line_number = 1;
+    /* -1 so that the computation of the column number works for the first
+     * line */
+    env.pos_newline = ps.s - 1;
+
+    if (yaml_env_parse_data(&env, 0, out) < 0) {
+        sb_setsb(out_err, &env.err);
+        return -1;
+    }
+
+    return 0;
+}
+
+/* }}} */
 /* }}} */
 /* {{{ yunpack */
 
@@ -1355,15 +1381,6 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
 /* }}} */
 
-static void yaml_env_init_from_ps(yaml_env_t *env, pstream_t ps)
-{
-    env->ps = ps;
-    env->line_number = 1;
-    /* -1 so that the computation of the column number works for the first
-     * line */
-    env->pos_newline = ps.s - 1;
-}
-
 static void yunpack_err_pretty_print(const yunpack_error_t *err,
                                      const iop_struct_t * nonnull st,
                                      const char * nullable filename,
@@ -1414,19 +1431,10 @@ _t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
                   sb_t * nonnull out_err)
 {
     t_SB_1k(err);
-    yaml_env_t parse_env;
     yunpack_env_t unpack_env;
     yaml_data_t data;
 
-    p_clear(&parse_env, 1);
-    yaml_env_init_from_ps(&parse_env, *ps);
-    parse_env.mp = t_pool();
-    parse_env.err = err;
-
-    if (yaml_env_parse_data(&parse_env, 0, &data) < 0) {
-        sb_setsb(out_err, &parse_env.err);
-        return -1;
-    }
+    RETHROW(t_yaml_parse(*ps, &data, out_err));
 
     p_clear(&unpack_env, 1);
     unpack_env.mp = t_pool();
@@ -2036,17 +2044,11 @@ MODULE_END()
 static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
 {
     t_scope;
-    SB_1k(err);
-    yaml_env_t env;
     yaml_data_t data;
+    SB_1k(err);
 
-    p_clear(&env, 1);
-    yaml_env_init_from_ps(&env, ps_initstr(yaml));
-    env.mp = t_pool();
-    env.err = err;
-
-    Z_ASSERT_NEG(yaml_env_parse_data(&env, 0, &data));
-    Z_ASSERT_STREQUAL(env.err.data, expected_err,
+    Z_ASSERT_NEG(t_yaml_parse(ps_initstr(yaml), &data, &err));
+    Z_ASSERT_STREQUAL(err.data, expected_err,
                       "wrong error message on yaml string `%s`", yaml);
 
     Z_HELPER_END;
@@ -2057,16 +2059,9 @@ static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
 static int z_t_yaml_test_parse_success(yaml_data_t *data, const char *yaml)
 {
     SB_1k(err);
-    yaml_env_t env;
 
-    p_clear(&env, 1);
-    yaml_env_init_from_ps(&env, ps_initstr(yaml));
-    env.mp = t_pool();
-    env.err = err;
-
-    p_clear(data, 1);
-    Z_ASSERT_N(yaml_env_parse_data(&env, 0, data),
-               "yaml parsing failed: %pL", &env.err);
+    Z_ASSERT_N(t_yaml_parse(ps_initstr(yaml), data, &err),
+               "yaml parsing failed: %pL", &err);
 
     Z_HELPER_END;
 }
