@@ -368,6 +368,8 @@ def build(ctx):
             'http-def.c',
             'httptokens.c',
 
+            'yaml.c',
+
             'iop-json.blk',
             'iop-yaml.blk',
             'iop-rpc-channel.fc',
