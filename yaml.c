@@ -41,9 +41,7 @@ typedef struct yaml_env_t {
     /* Current line number. */
     uint32_t line_number;
 
-    /* Pointer to the newline character that started the current line (ie
-     * the newline character separating the previous line from the current
-     * one).
+    /* Pointer to the first character of the current line.
      * Used to compute current column number of ps->s */
     const char *pos_newline;
 
@@ -98,7 +96,7 @@ static lstr_t yaml_data_get_span(const yaml_data_t *data)
 
 static uint32_t yaml_env_get_column_nb(const yaml_env_t *env)
 {
-    return env->ps.s - env->pos_newline;
+    return env->ps.s - env->pos_newline + 1;
 }
 
 static yaml_pos_t yaml_env_get_pos(const yaml_env_t *env)
@@ -195,7 +193,7 @@ static void yaml_env_ltrim(yaml_env_t *env)
         } else
         if (c == '\n') {
             env->line_number++;
-            env->pos_newline = env->ps.s;
+            env->pos_newline = env->ps.s + 1;
             in_comment = false;
         } else
         if (!isspace(c) && !in_comment) {
@@ -558,10 +556,8 @@ int t_yaml_parse(pstream_t ps, yaml_data_t *out, sb_t *out_err)
     env.err = err;
 
     env.ps = ps;
+    env.pos_newline = ps.s;
     env.line_number = 1;
-    /* -1 so that the computation of the column number works for the first
-     * line */
-    env.pos_newline = ps.s - 1;
 
     if (yaml_env_parse_data(&env, 0, out) < 0) {
         sb_setsb(out_err, &env.err);
