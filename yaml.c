@@ -29,6 +29,22 @@ static struct yaml_g {
     .logger = LOGGER_INIT(NULL, "yaml", LOG_INHERITS),
 };
 
+/* Missing features:
+ *
+ * #1
+ *
+ * A valid syntax is not properly handled, where a sequence has the same
+ * indentation as a key:
+ *  "a
+ *   - 1
+ *   - 2"
+ *
+ * #2
+ *
+ * Tab characters are forbidden, because it makes the indentation computation
+ * harder than with simple spaces. It could be handled properly however.
+ */
+
 /* {{{ Parsing types definitions */
 
 typedef struct yaml_env_t {
@@ -142,6 +158,7 @@ typedef enum yaml_error_t {
     YAML_ERR_WRONG_DATA,
     YAML_ERR_WRONG_INDENT,
     YAML_ERR_WRONG_OBJECT,
+    YAML_ERR_TAB_CHARACTER,
 } yaml_error_t;
 
 static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
@@ -170,6 +187,9 @@ static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
       case YAML_ERR_WRONG_OBJECT:
         sb_addf(&env->err, "wrong object, %s", msg);
         break;
+      case YAML_ERR_TAB_CHARACTER:
+        sb_addf(&env->err, "tab character detected, %s", msg);
+        break;
     }
 
     return -1;
@@ -181,7 +201,7 @@ static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
 static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
                                yaml_data_t *out);
 
-static void yaml_env_ltrim(yaml_env_t *env)
+static int yaml_env_ltrim(yaml_env_t *env)
 {
     bool in_comment = false;
 
@@ -196,11 +216,18 @@ static void yaml_env_ltrim(yaml_env_t *env)
             env->pos_newline = env->ps.s + 1;
             in_comment = false;
         } else
+        if (c == '\t') {
+            return yaml_env_set_err(env, YAML_ERR_TAB_CHARACTER,
+                                    "cannot use tab characters for "
+                                    "indentation");
+        } else
         if (!isspace(c) && !in_comment) {
             break;
         }
         yaml_env_skipc(env);
     }
+
+    return 0;
 }
 
 static int
@@ -276,7 +303,7 @@ static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
         pos_end = elem.pos_end;
         qv_append(&datas, elem);
 
-        yaml_env_ltrim(env);
+        RETHROW(yaml_env_ltrim(env));
         if (ps_done(&env->ps)) {
             break;
         }
@@ -339,7 +366,7 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
         fields.values[pos] = val;
         pos_end = val.pos_end;
 
-        yaml_env_ltrim(env);
+        RETHROW(yaml_env_ltrim(env));
         if (ps_done(&env->ps)) {
             break;
         }
@@ -495,7 +522,7 @@ static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
     pstream_t key;
     uint32_t cur_indent;
 
-    yaml_env_ltrim(env);
+    RETHROW(yaml_env_ltrim(env));
     if (ps_done(&env->ps)) {
         return yaml_env_set_err(env, YAML_ERR_MISSING_DATA,
                                 "unexpected end of line");
@@ -743,6 +770,20 @@ Z_GROUP_EXPORT(yaml)
             "a: 1\n"
             "a: 2",
             "2:3: invalid key, key is already declared in the object"
+        ));
+
+        /* cannot use tab characters for indentation */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "a:\t1",
+            "1:3: tab character detected, "
+            "cannot use tab characters for indentation"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "a:\n"
+            "\t- 2\n"
+            "\t- 3",
+            "2:1: tab character detected, "
+            "cannot use tab characters for indentation"
         ));
     } Z_TEST_END;
 
