@@ -401,19 +401,6 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
 /* }}} */
 /* {{{ Yaml obj to iop field */
 
-static uint32_t
-get_nb_fields_in_class(const iop_struct_t * nonnull st)
-{
-    uint32_t nb_fields = 0;
-
-    while (st) {
-        nb_fields += st->fields_len;
-        st = st->class_attrs->parent;
-    }
-
-    return nb_fields;
-}
-
 static int
 check_class(yunpack_env_t * nonnull env,
             const iop_struct_t * nonnull st)
@@ -519,7 +506,6 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
                           void * nonnull out)
 {
     const iop_struct_t *real_st = st;
-    uint32_t nb_fields = st->fields_len;
     int nb_fields_matched;
 
     if (st->is_union) {
@@ -562,7 +548,6 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
         if (check_class(env, real_st) < 0) {
             goto error;
         }
-        nb_fields = get_nb_fields_in_class(real_st);
 
         *out_class = mp_imalloc(env->mp, real_st->size, 8, MEM_RAW);
         *(const iop_struct_t **)(*out_class) = real_st;
@@ -571,29 +556,18 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
     st = real_st;
     nb_fields_matched = 0;
-    /* n is the index on the total number of fields for the object.
-     * i is the index on the fields specific to the current class (st) */
-    for (uint32_t n = 0, i = 0; n < nb_fields; n++, i++) {
-        const iop_field_t *fdesc;
+    iop_struct_for_each_field(field_desc, field_st, real_st) {
         const yaml_data_t *val;
 
-        while (i >= st->fields_len && expect(st)) {
-            assert (iop_struct_is_class(st));
-            assert (iop_struct_is_class(st->class_attrs->parent));
-            st = st->class_attrs->parent;
-            i = 0;
-        }
-
-        fdesc = &st->fields[i];
-
-        val = yaml_data_get_field_value(data, fdesc->name);
+        val = yaml_data_get_field_value(data, field_desc->name);
         if (val) {
-            if (yaml_fill_iop_field(env, val, st, fdesc, out) < 0) {
+            if (yaml_fill_iop_field(env, val, field_st, field_desc, out) < 0)
+            {
                 goto error;
             }
             nb_fields_matched++;
         } else {
-            if (yaml_skip_iop_field(env, st, fdesc, out) < 0) {
+            if (yaml_skip_iop_field(env, field_st, field_desc, out) < 0) {
                 goto error;
             }
         }
