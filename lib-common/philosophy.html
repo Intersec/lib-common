@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Lib-common Philosophy :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../_/css/site.css">
+    <link rel="icon" href="../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Principles</li>
+    <li class="crumb"><a href="philosophy.html">Philosophy</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Lib-common Philosophy</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_kiss">KISS</a></li>
+<li><a href="#_simple_design">Simple design</a></li>
+<li><a href="#_simple_ui">Simple UI</a></li>
+<li><a href="#_simple_api">Simple API</a></li>
+<li><a href="#_simple_code">Simple code</a></li>
+<li><a href="#_simple_language">Simple language</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Intersec grew on its ability to build high quality software: it outperforms
+competitor&#8217;s solutions in terms of performance and hardware requirements. This
+is the consequence of the philosophical and technical choices around which
+Intersec was founded: the <em>KISS</em> principle.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_kiss"><a class="anchor" href="#_kiss"></a>KISS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>KISS stands for <em>Keep It Simple, Stupid</em>. This mantra is our guideline, it
+expresses our will to avoid unneeded complexity. <em>simple</em> here is a synonym for
+<em>pure</em>, and an antonym for both <em>complex</em> and <em>simplistic</em>: a perfect software
+is a software that is a minimalist response to the needs, both in terms of
+design and code. As said by Antoine de Saint Exupéry: <em>La perfection est
+atteinte, non pas lorsqu&#8217;il n&#8217;y a plus rien à ajouter, mais lorsqu&#8217;il n&#8217;y a
+plus rien à retirer</em>. Another way to express this is <em>Simplicity is the
+ultimate sophistication</em>.</p>
+</div>
+<div class="paragraph">
+<p>It is much harder to make something powerful that looks simple than something
+complex that does very few things. The KISS principle should drive our choices
+to the simplest solution that fits our needs. Our engineering force should go
+into making simple-looking software that hides really powerful capabilities.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_simple_design"><a class="anchor" href="#_simple_design"></a>Simple design</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When designing software, we focus our energy on making the whole design as
+simple and consistent as possible. A consistent design where all the components
+naturally interact with each other is the ultimate goal. We apply the
+module-oriented programming model to properly separate each functionality in
+its own code module, creating a natural code structure that reflects the
+component-based design. You should be able to explain your design using only a
+few short sentences.</p>
+</div>
+<div class="paragraph">
+<p>In a properly designed software, every component is clearly defined and each
+functional role is assigned to the right component. Then components are plugged
+together in a homogeneous product where every workflow is both completely
+defined and easily understandable. This defines the readability of a design.</p>
+</div>
+<div class="paragraph">
+<p>Performance of the product is a consequence of the right design choices: if
+performance is taken into account in the design from the start, the software
+will perform great. Performance comes from designs that avoid useless network
+trips, avoid useless disk accesses, cache the results of expensive operations,
+&#8230;&#8203; Such considerations should be identified and weighted during the design
+process.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_simple_ui"><a class="anchor" href="#_simple_ui"></a>Simple UI</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The UI should be easy to understand and use while still being expressive enough
+to expose the richness of the product. When designing UIs (or just UI
+components), we must be sure to place the user at the center of the interface.</p>
+</div>
+<div class="paragraph">
+<p>The interface should be designed in order to lower the learning curve. The user
+should understand the interface on the first sight in order to be productive
+from the very first minutes. Hard-to-understand concepts should be avoided: the
+UI should be understandable without training or documentation.</p>
+</div>
+<div class="paragraph">
+<p>The UI should be consistent, provide enough feedback to the user and should be
+smooth in addition of being visually appealing. We must be careful of always
+providing the user with the right amount of information: too much information
+kills the readability of the interface, while too few information forces the
+user to navigate on multiple pages to collect the data he is looking for. We
+must also ensure the navigation in the UI is easy and intuitive.</p>
+</div>
+<div class="paragraph">
+<p>The UI design rules should apply to all the pages of the UI: from the user
+login page to the administrative (and debug) pages.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_simple_api"><a class="anchor" href="#_simple_api"></a>Simple API</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>APIs are what we give to others to communicate with us. APIs may be internal or
+exposed in the product&#8217;s SDK, but in both cases we want them to remain simple
+because the simpler your API is, the less error-prone it will be. Conceiving a
+good API is the art of hiding powerful features in a simple shell. It&#8217;s a
+challenge of expressiveness.</p>
+</div>
+<div class="paragraph">
+<p>A good API is easy to understand, the API documentation may look obvious. It
+must also offer one single correct way to achieve a task, guaranteeing that if
+used by various developers, the API will always be used the same way. It must
+be consistent with other existing APIs in order to avoid confusions.</p>
+</div>
+<div class="paragraph">
+<p>It is often preferable to have API defining as few functions or RPC as possible
+in order to make the API easier to master.</p>
+</div>
+<div class="paragraph">
+<p>The naming of the API is an important part of a good API design. Names should
+be kept as short as possible while still being identifiable and understandable.
+Clean names avoid useless abbreviations and focus on finding the most precise
+wording for every function and RPC. Too generic names must be avoided since
+they tend to be applied to a lot of different concepts, causing confusion.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_simple_code"><a class="anchor" href="#_simple_code"></a>Simple code</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The lib-common team imposes strict coding rules on how the code is formated.
+These coding rules are aimed at code consistency and readability: this removes
+the freedom of how the code is formated from the developper for the sake of
+greater maintainability. The developper can then focus his creativity on the
+design and on the code itself.</p>
+</div>
+<div class="paragraph">
+<p>Code follows the KISS principle by avoiding useless optimisations: early
+optimisation is evil and only causes subtle bugs that will strike back the day
+the team will be on vacation. So keep our code as simple as possible: it is
+useless to micro-optimise some code if it is not identified as being a
+bottleneck. That said, <em>simple</em> does not mean <em>simplistic</em>: our code must be
+conceived to perform well even on workloads that are one or two orders of
+magnitude greater than the requirements of the (internal or external) customer.</p>
+</div>
+<div class="paragraph">
+<p>Sometimes code can be identified in advance as being a possible bottleneck. In
+that case, the design can be performance-driven by defining the performance
+level we want to reach and writing the simplest code that reaches that level.
+All in all, this is just another application of the KISS principle with
+performance being one of the requirements.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_simple_language"><a class="anchor" href="#_simple_language"></a>Simple language</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The C language allows us to reach our performance targets by avoiding all the
+abstraction layers that get added by more modern languages. The C language is
+both very close to the hardware and syntactically simple. This comes at some
+cost such as the absence of automatic memory management or meta-programming,
+but gives us the opportunity to fine-tune the code to our needs.</p>
+</div>
+<div class="paragraph">
+<p>Due to the lack of guidance (and the presence of implementation-defined
+behaviours) in the C language specification, the language is hard to fully
+master and requires precise and rigorous coding habits. It also lets us easily
+customise our working environment by adding standard library extensions that
+fit our needs.</p>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../_/js/site.js"></script>
+<script async src="../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

@@ -1,0 +1,2098 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Coding Rules :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../_/css/site.css">
+    <link rel="icon" href="../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Coding rules</li>
+    <li class="crumb"><a href="coding-rules-c.html">Coding Rules for C-based languages</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Coding Rules</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_languages">Languages</a></li>
+<li><a href="#_basics">Basics</a></li>
+<li><a href="#_if_else">if else</a></li>
+<li><a href="#_ternary_operator">Ternary operator</a></li>
+<li><a href="#_switch_case">switch case</a></li>
+<li><a href="#_functions">Functions</a></li>
+<li><a href="#_blocks">Blocks</a></li>
+<li><a href="#_macros">Macros</a></li>
+<li><a href="#_variables">Variables</a></li>
+<li><a href="#_types">Types</a>
+<ul class="sectlevel2">
+<li><a href="#_constructorsdestructors">Constructors/Destructors</a></li>
+<li><a href="#_persistent_objects">Persistent Objects</a></li>
+</ul>
+</li>
+<li><a href="#_code_structuration">Code structuration</a></li>
+<li><a href="#_modules">Modules</a></li>
+<li><a href="#_code_documentation">Code Documentation</a></li>
+<li><a href="#_loops">Loops</a></li>
+<li><a href="#_forbidden_functions">Forbidden functions</a></li>
+<li><a href="#_stack_allocations">Stack allocations</a></li>
+<li><a href="#_parsers_and_protocols">Parsers and protocols</a>
+<ul class="sectlevel2">
+<li><a href="#_writing_parsers">Writing parsers</a></li>
+<li><a href="#_implementing_protocols">Implementing protocols</a></li>
+</ul>
+</li>
+<li><a href="#_debugging_and_error_messages">Debugging and error messages</a>
+<ul class="sectlevel2">
+<li><a href="#_log_messages_format">Log messages format</a></li>
+<li><a href="#_assertions_and_expectations">Assertions and expectations</a></li>
+<li><a href="#_abnormal_conditions">Abnormal conditions</a></li>
+<li><a href="#_logger_trace_levels"><code>logger_trace</code> levels</a></li>
+<li><a href="#_usage">Usage</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>These are the rules you must follow when writing code. Those rules reflect the
+<a href="philosophy.html" class="page">Lib-common philosophy</a> in various ways.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_languages"><a class="anchor" href="#_languages"></a>Languages</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This document cover all C-like languages when applicable:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>C</code></p>
+</li>
+<li>
+<p><code>C++</code></p>
+</li>
+<li>
+<p><code>Javascript</code></p>
+</li>
+<li>
+<p><code>Java</code></p>
+</li>
+<li>
+<p>&#8230;&#8203;</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For <code>python</code>, the written code must pass <em>pylint</em> checks. You can also get
+inspiration in "python style as described by PEP 8":
+<a href="http://www.python.org/dev/peps/pep-0008/" class="bare">http://www.python.org/dev/peps/pep-0008/</a>, but only the <em>pylint</em> checks are
+mandatory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_basics"><a class="anchor" href="#_basics"></a>Basics</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>indentation is made of 4 spaces, no tabs, text width is 78 full columns.</p>
+</li>
+<li>
+<p>Never put more than one statement per line, never put more than one semicolon
+per line (unless it’s in a string ;p)</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>do1(); do2(); /* bad */
+
+if (cond) { do_sth(); } /* bad */
+
+printf("a; b; c");      /* good, but better use puts() */
+
+struct foo {
+    int a;              /* good */
+    char b, c;          /* good */
+    int d; char e;      /* bad  */
+};</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>labels (including switch <code>case</code> constructs) are indented 2 spaces behind the
+current indentation level.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>int main(void)
+{
+    switch (foo) {
+      case 1:     /* good */
+        break;
+        case 2:   /* bad */
+    case 3:       /* bad */
+        goto done;
+    }
+  done:           /* good */
+    (void)0;
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>One single space between a control flow keyword (such as <code>if</code>, <code>switch</code>,
+<code>while</code>, …) and the condition, the bracket is put on the same line (unless it
+would overflow the columns count).</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>switch (foo) { /* good */
+}
+
+switch(foo) { /* bad */
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Spaces around binary operators:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>1 + 3 * (3 &lt;&lt; 2); /* good */
+1+2*3;            /* bad  */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>No spaces before a semicolon or before a comma, but one leading space is
+mandatory.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>fn(1, 2, 3); /* good */
+fn(1,2,3);   /* bad */
+return ;     /* bad */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Avoid trailing spaces.</p>
+</li>
+<li>
+<p>Never use preincrement when postincrement is equivalent, so that preincrement
+flags probably tricky code.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>++i; /* bad  */
+i++; /* good */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Structure your code in order to keep the indentation level as low as possible.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_if_else"><a class="anchor" href="#_if_else"></a>if else</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>When the condition of a control flow statement spans on multiple lines, push
+the boolean operator on the beginning of the next line (and optionnaly put
+two spaces after so that the next condition is aligned after the paren on the
+previous line). Push the bracket on the next line.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo
+&amp;&amp;  bar)
+{
+    /* do stuff */
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>elsif</code> statements are aligned this way:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>/* Good */
+if (cond1) {
+} else
+if (cond2) {
+} else {
+}
+
+/* Bad */
+if (cond1) {
+} else if (cond2) {
+} else {
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Control flow statements blocks must be enclosed in brackets.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>if (foo) { /* good */
+}
+
+if (foo)   /* bad  */
+{
+}
+
+if (foo)   /* bad */
+    return e_error("bad constraint");
+
+if (foo) { /* good */
+    return e_error("bad constraint");
+}
+
+if (foo)   /* bad  */
+    return a_multiline_function_call("some long reason, %s",
+                                     some_very_long_variable);
+
+if (foo) { /* good  */
+    return a_multiline_function_call("some long reason, %s",
+                                     some_very_long_variable);
+}
+
+if (foo)   /* bad */
+    return 0;
+else
+    return 1;
+
+if (foo) { /* good */
+    return 0;
+} else {
+    return 1;
+}
+
+if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo   /* bad */
+&amp;&amp;  bar)
+    return 0;
+
+if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo   /* good */
+&amp;&amp;  bar)
+{
+    return 0;
+}</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_ternary_operator"><a class="anchor" href="#_ternary_operator"></a>Ternary operator</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When using the ternary operator on a long line, the colon should be aligned
+with the question mark (if possible).</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">a = pretty_long_condition ? another_quite_long_stuff
+    : something_else;                                 /* bad */
+
+a = pretty_long_condition ? another_quite_long_stuff
+                          : something_else;           /* good */</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_switch_case"><a class="anchor" href="#_switch_case"></a>switch case</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Never put declarations of variable in the main scope of the switch statement</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>switch (val) {
+    int a = 1; /* bad; the init is not run */
+
+  case A:
+    a = 0;
+    break;
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>In case the case contains some variable declarations:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Put the opening brace on the same line as the case if the code covers a
+single <code>case</code>, on the next line, aligned with the case on the other case or if
+the case line is too long</p>
+</li>
+<li>
+<p>Put the closing brace at the beginning of a new line, aligned with the case
+statements.</p>
+</li>
+<li>
+<p>If a <code>break</code> is to be put, put it at one space after the closing brace.</p>
+</li>
+<li>
+<p><code>continue</code> and <code>return</code> statements must be kept in the code block since they
+are not linked to the <code>switch() case:</code> construct.</p>
+</li>
+<li>
+<p>The code in the block is one-time indented from the <code>switch</code> statement</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>switch (val) {
+  case CONSTANT0:
+    code;
+    break;
+
+  case CONSTANT1: {
+    var declarations;
+
+    code;
+    return var;
+  }
+
+  case CONSTANT2: {
+    var declarations;
+
+    code;
+  } break;
+
+  case CONSTANT3:
+  case CONSTANT4:
+  {
+    var declarations;
+
+    code;
+  } break;
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>when a case fall through the following case, this explicit <code>/* FALLTHROUGH
+*/</code> comment must be used.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>switch (val) {
+  case A:
+    code;
+  case B: /* bad, may be a fall through or a missing break */
+    code;
+    break;
+}
+
+switch (val) {
+  case A:
+    code;
+    /* FALLTHROUGH */ /* good */
+  case B:
+    code;
+    break;
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Advice: avoid to define the <code>default</code> case when doing a <code>switch/case</code> on an
+enum (unless you have hundreds of elements to put in the <code>switch</code>). It allows
+the compiler to display warnings about missing cases whenever the enumeration
+changed. It applies for IOP unions as well.</p>
+</li>
+<li>
+<p>Block rules apply to <code>switch/case</code> equivalent such as
+<code>IOP_UNION_SWITCH/IOP_UNION_CASE</code></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_functions"><a class="anchor" href="#_functions"></a>Functions</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Opening bracket is on the same line than control flow statements, on the next
+line for function implementations (except for <code>static inline</code> where it’s
+allowed to keep them on the same line when the function short - 1 or 2 lines
+of code).</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>int main(void) { /* bad */
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>No spaces between a function call and the parenthesis, except for asserts.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>fn(1, 2, 3);        /* good */
+fn (1, 2, 3);       /* bad  */
+assert (condition); /* good */
+assert(condition);  /* bad  */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When the argument list of a function call spans on multiple lines, indent at
+the opening paren column, unless it’s after the 40th column:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre> some_call(struct-&gt;bar, 19 * long_variable_name, i++,
+          i_love_long_variables_too_much_for_my_sake);</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When declaring a function prototype, if the declaration isn’t multiline, we
+usually put the return type on a single line and then the rest of the
+prototype. Wrap the prototype arguments following the same convention as
+function calls.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>void something_short(void); /* good */
+
+struct very_long_type_tag *
+something_not_very_short(int, struct bar *, int, void *); /* good */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Avoid useless wrapping in function prototype and try to keep it on the most
+limited number of lines</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>static void
+something_not_very_short(struct my_struct *a,
+                         struct my_struct *b); /* bad, could fit on only 2 lines */
+
+static void
+something_not_very_short(struct my_struct *a, struct my_struct *b); /* good */
+
+static void something_not_very_short(struct my_struct *a,
+                                     struct my_struct *b) /* good */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Avoid useless function declarations. A declaration is needed only</p>
+<div class="ulist">
+<ul>
+<li>
+<p>in case of exported function used in another file</p>
+</li>
+<li>
+<p>in case of mutually recursive functions</p>
+</li>
+<li>
+<p>in case of mutually dependent parts of a same file</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Non-exported functions must be static.</p>
+</li>
+<li>
+<p>Don&#8217;t use <code>inline</code> and <code>ALWAYS_INLINE</code> modifiers unless this is required. Not
+doing so will lead to slower compilation and the inability to detect dead
+code.</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>inline</code> is required when the implementation is put in a header file (see
+previous point)</p>
+</li>
+<li>
+<p><code>inline/ALWAYS_INLINE</code> may be required in case a performance bottleneck is
+detected.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Always use a verb in function names.</p>
+</li>
+<li>
+<p>When writing a function:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>when in a module, put what would be <code>this</code> in C++ first;</p>
+</li>
+<li>
+<p>then come the pure <code>in</code> parameters;</p>
+</li>
+<li>
+<p>then come the <code>inout</code> parameters;</p>
+</li>
+<li>
+<p>and finish with the pure <code>out</code> ones.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>When writing a function, always prefer prototypes that return an integer and
+operates on its argument. The immediate win is that writing error management
+is easier. The second win is that the caller can decide if he wants to
+allocate memory for the arguments or put them on the stack.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>When such a function returns a positive value (0 included), then it was
+successful. When it returns a negative one, then it failed. This follows the
+usuall POSIX and Unix behaviours in the matter.</p>
+</li>
+<li>
+<p>Using boolean returning functions is possible, though the name of the
+function <em>must</em> contain <code>is</code> or <code>has</code>, or anything that makes the reader
+understand that the answer is either <code>yes</code> or <code>no</code>.</p>
+</li>
+<li>
+<p>Using pointer returning functions is possible if and only if the function as
+a single returned value. In that case, <code>NULL</code> must be handled as an error value
+for further error management.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>int my_parser_run(const char *s, const char **out, my_struct *s); /* good */
+
+bool can_i_has_more_beer(void); /* good */
+
+object_t *build_object(const char *url); /* good */
+
+bool my_connect(const char *url); /* bad: should really use int */
+
+parser_t *do_parse(const char *s, parser_state_t **state); /* bad: several returned value should be treated the same way */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When writing a function that has a single return value that is a pointed
+object, use that pointer as the return value of the function instead of
+passing a double-pointer as argument.</p>
+</li>
+<li>
+<p>When writing new string manipulation functions, always use the snprintf
+semantics, meaning that:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>first and second argument are a <code>char *</code> and an <code>int</code> that represent the
+buffer you output to.</p>
+</li>
+<li>
+<p>the return type is <code>int</code>, and we return the size that could have been used
+if the output buffer was large enough, not counting the trailing zero.</p>
+</li>
+<li>
+<p>the output buffer will always be <code>NUL</code> terminated (unless maybe when the
+function fails).</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_blocks"><a class="anchor" href="#_blocks"></a>Blocks</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Don&#8217;t write code that use blocks in headers files</p>
+</li>
+<li>
+<p>Declarations that use blocks in headers must use the <code>BLOCK_CARET</code> macro
+instead of a literal caret <code>^</code></p>
+</li>
+<li>
+<p>Declarations that use blocks in headers must be wrapped in a <code>#ifdef
+__has_blocks / #endif</code></p>
+</li>
+<li>
+<p>Typedefs of block types must be suffixed by <code>_b</code>.</p>
+</li>
+<li>
+<p>Functions variants that use blocks instead of callbacks should be named</p>
+</li>
+<li>
+<p><code>_blk</code>, unless the block variant is the primary one (use <code>_cb</code> suffix for
+callback variants).})</p>
+</li>
+<li>
+<p>Unless impossible or prohibited by performance reason (same block used in
+several calls), blocks should be inlined in function call:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* GOOD */
+call_with_block(^void (int a, int b) {
+});
+
+/* BAD */
+blk = ^void (int a, int b) {
+};
+call_with_block(blk);
+
+/* TOLERATED if call_with_block() performs a Block_copy()
+ * .. but you should consider refactoring your code */
+blk = ^void (int a, int b) {
+};
+
+for (int ...) {
+    call_with_block(blk);
+}</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Inlined blocks should be formatted as follow:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>keep the opening brace on the same line as the argument list</p>
+</li>
+<li>
+<p>indent the content of the block by one level from the current scope</p>
+</li>
+<li>
+<p>no space after the caret</p>
+</li>
+<li>
+<p>return type get the same formatting as for variable declaration: space after
+type name, star collated with content.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* GOOD */
+call_with_block(^void (int a, int b) {
+    do_something();
+});
+
+call_with_block(^void *(int a, int b) {
+    return do_something();
+});
+
+
+/* BAD: missing space after type name */
+call_with_block(^void(int a, int b) {
+    do_something();
+});
+
+/* BAD: misplaced opening brace */
+call_with_block(^void (int a, int b)
+{
+    do_something();
+});
+
+/* BAD: wrong indentation */
+call_with_block(^void (int a, int b) {
+                    do_something();
+                });</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Don&#8217;t use inlined block in branching primitives, prefer splitting the
+branching in two steps:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* BAD */
+if (do_some_call(^{
+    return do_something();
+})
+{
+}
+
+/* GOOD */
+res = do_some_call(^{
+    return do_something();
+});
+if (res) {
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_macros"><a class="anchor" href="#_macros"></a>Macros</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Use at least two spaces between a macro name and its implementation:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>#define GOOD  1
+#define BAD 2
+#define GOOD_FN(a, b)  body
+#define BAD_FN(a, b) bad_body</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Function-like macro should be used the same way functions are used: the
+semi-colon should be in the invocation, not in the macro:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>#define BAD_MACRO(_a)  do_something(_a);
+
+#define GOOD_MACRO(_a)  do_something(_a)</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When defining block-macros always use the <code>do { &#8230;&#8203; } while (0)</code> construction
+("see GCC manual":
+<a href="http://gcc.gnu.org/onlinedocs/cpp/Swallowing-the-Semicolon.html" class="bare">http://gcc.gnu.org/onlinedocs/cpp/Swallowing-the-Semicolon.html</a>):</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>#define BAD_MACRO(_a)  { char *a = (_a); foo(a); bar(a); }
+
+#define GOOD_MACRO(_a)  do { char *a = (_a); foo(a); bar(a); } while (0)</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>In multi-line macros</p>
+<div class="ulist">
+<ul>
+<li>
+<p>the <code>\</code> should be aligned right on the 78th colum</p>
+</li>
+<li>
+<p>the first <code>\</code> can be simply put two spaces after the name of the macro, or
+one space after the beginning of the body of the macro, in order to keep 2
+lines macros simple</p>
+</li>
+<li>
+<p>the last line of a macro must not contain a trailing <code>\</code></p>
+</li>
+<li>
+<p>the body of the macro must always have at least one level of indentation</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>/* GOOD macros */
+#define GOOD_MACRO(a)  do {                                                  \
+        do_something();                                                      \
+        do_something_else();                                                 \
+    } while (0)
+
+#define GOOD_MACRO(a)  do { \
+        do_something();                                                      \
+        do_something_else();                                                 \
+    } while (0)
+
+#define GOOD_MACRO(a)  \
+    do {                                                                     \
+        do_something();                                                      \
+        do_something_else();                                                 \
+    } while (0)
+
+
+/* BAD macro: buggy indentation */
+#define BAD_MACRO(a)  do { \
+    do_something();                                                          \
+    do_something_else();                                                     \
+} while (0)
+
+/* BAD macro: non-aligned \ */
+#define BAD_MACRO(a)  do { \
+        do_something(); \
+        do_something_else(); \
+    } while (0)
+
+/* BAD macro: trailing \ */
+#define BAD_MACRO(a)  do { \
+        do_something();                                                      \
+        do_something_else();                                                 \
+    } while (0)                                                              \</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When cascading preprocessor <code>ifdef</code>, <code>else</code>, <code>endif</code> directives and define,
+use 2 columns per level (including the sharp as a column). The <code>ifdef</code> guard
+of a header file doesn’t count for indent levels.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>#ifndef MY_HEADER_GUARD
+#define MY_HEADER_GUARD
+
+#ifdef __GNUC__
+# define foo(a)  __builtin_bar(a)
+# ifdef __GLIBC__
+#   define WE_ARE_USING_A_GLIBC
+# else
+#   error "We need a glibc"
+# endif
+#else
+# error "go away, loser"
+#endif
+
+#endif /* MY_HEADER_GUARD */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Don&#8217;t create a macro that don&#8217;t simplify the code.</p>
+</li>
+<li>
+<p>Avoid using macro whenever possible. Most of the time, macros can be replaced
+by functions.</p>
+</li>
+<li>
+<p>Always prefix variables defined inside a macro with the name of the macro (or
+something derived from the name) to avoid conflicts:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* BAD macro: __v is too generic and may conflict with another macro. */
+#define qv_append(vec, v)                                                    \
+    ({                                                                       \
+        typeof(*(vec)-&gt;tab) __v = (v);                                       \
+        *qv_growlen(vec, 1) = (__v);                                         \
+    })
+
+/* GOOD macro: __qv_v is specific to the qvector module and conflicts should
+ * only appeared in the module itself which is easy to fix.
+ */
+#define qv_append(vec, v)                                                    \
+    ({                                                                       \
+        typeof(*(vec)-&gt;tab) __qv_v = (v);                                    \
+        *qv_growlen(vec, 1) = (__qv_v);                                      \
+    })</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_variables"><a class="anchor" href="#_variables"></a>Variables</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>We do <code>C99</code>, use the <code>C99</code> <code>bool</code> type, with lower case <code>true</code> and <code>false</code>.</p>
+</li>
+<li>
+<p>The Right Type™ for:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>a string is <code>(const) char *</code>;</p>
+</li>
+<li>
+<p>a character is <code>int</code> (DO NOT EVER USE <code>char</code>);</p>
+</li>
+<li>
+<p>opaque data is either <code>void *</code> or <code>byte *</code>. Never EVER use <code>char *</code>.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Never declare variables anywhere but at the start of a new scope. Though
+using the C99 for loop variable inline declarations is recommended:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>for (int i = 0; i &lt; 99; i++) { /* good */
+    /* ... */
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Add a blank line between variable declarations and code. It is allowed to
+omit the blank line in case a very short block (two lines: one declaration
+line, one statement). <code>t_scope</code> is considered as a declaration.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>{ /* bad */
+    int foo;
+    do_something();
+    do_something2();
+}
+
+{ /* good */
+    int foo;
+
+    do_something();
+    do_something2();
+}
+
+{ /* allowed */
+    int foo;
+    do_something();
+}
+
+{ /* good */
+    int foo;
+
+    do_something();
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Keep a single declaration per line. When no initilization is performed and no
+pointer type is used, the declaration of several variables at once is allowed
+but not adviced:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>int a = 0, b = 0; /* bad */
+
+int *a, b; /* bad */
+
+int *a, /* bad */
+    *b;
+
+int *a; /* good */
+int *b;
+
+int a, b; /* allowed */
+
+int a, b = 0; /* bad */
+
+my_type_t a, b; /* bad */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Keep a single line per declaration</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>{
+    int important_variable =
+        long_function_which_does_not_fit_into_one_line();                        /* bad */
+}
+
+{
+    int important_variable;
+
+    important_variable = long_function_which_does_not_fit_into_one_line();       /* good */
+
+    important_variable =
+        very_long_assignation_which_does_not_fit_into_one_line();                /* good */
+}
+
+{
+    int variable = long_fonction_with_parameters(parameter1, parameter2,
+                                                 parameter3);                    /* bad */
+
+}
+{
+    int variable;
+
+    variable = long_fonction_with_parameters(parameter1, parameter2,
+                                             parameter3);                       /* good */
+
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Stick pointer types stars to the variable names:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>const char *var_name; /* good */
+
+int fun(char * foo);  /* bad */
+char* baz;            /* bad */
+
+char *p, *q;          /* good, or not so good because you should declare them
+                         on separate lines… */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When the deepest type is const, we put <code>const</code> front, especially for <code>const
+char *</code>. Though, when <code>static</code> or any other storage class (<code>extern</code> e.g.) is
+used, <code>const</code> is pushed after the type:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>int foo(const char *arg); /* good */
+int foo(char const *arg); /* bad  */
+
+static const int a = 2;   /* bad  */
+static char const * const str_array[] = { /* good */
+}</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_types"><a class="anchor" href="#_types"></a>Types</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>We usually like to use the <code>_t</code> suffix for type names, the <code>_f</code> suffix for
+functional types and the <code>_b</code> suffix for blocks types.</p>
+</li>
+<li>
+<p>IOP types must end with <code>__t</code> suffix when they are modified using <code>@ctype</code>.</p>
+</li>
+<li>
+<p>When declaring an enum, put a traling comma on <em>every</em> line:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>enum foo {
+   FOO_0,
+   FOO_1,
+   FOO_MAX, /* good */
+};</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When declaring a type, keep the opening bracket on the same line, then put a
+mandatory line break. For a <code>typedef</code>, keep the type name on the same line as
+the closing bracket.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre> enum foo {
+    FOO_0,
+    FOO_1,
+};
+
+typedef struct bar_t {
+    /* ... */
+} bar_t;</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When using a <code>typedef</code>, always use the same name for the <code>struct</code>, <code>enum</code> or
+<code>union</code> tag and the <code>typedef</code>. No tag is okayish though.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>typedef enum bar_t {
+} bar_t;
+
+enum foo {
+   FOO_0,
+   FOO_1,
+   FOO_MAX, /* good */
+};</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When calling a function pointer, always "dereference" it:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre> int fun(void (*cb)(int, int, int))
+{
+    (*cb)(1, 2, 3); /* good */
+    cb(1, 2, 3);    /* bad */
+}</pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_constructorsdestructors"><a class="anchor" href="#_constructorsdestructors"></a>Constructors/Destructors</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>for every non scalar type <code>foo</code>, 4 functions/macros are expected:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>foo *foo_new(void);
+foo *foo_init(foo *);
+void foo_wipe(foo *);
+void foo_delete(foo **);</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>if a type is missing one of the previous functions, then the default semantic
+is:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>static inline foo *foo_new(void)
+{
+    return foo_init(p_new_raw(foo, 1));
+}
+
+static inline foo *foo_init(foo *v)
+{
+    return p_clear(v, 1);
+}
+
+static inline void foo_wipe(foo *v)
+{
+    // deallocate memory allocated in *v such as pointers to other objects
+}
+
+static inline void foo_delete(foo **v)
+{
+    if (*v) {
+        foo_wipe(*v);
+        p_delete(v);
+    }
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Optional but possible functions are:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>foo_reset</code>: which resets an element of type <code>foo</code> as if it was new. By
+default, if <code>foo_reset</code> does not exist, then it may be replaced by <code>foo_wipe</code>
+followed by <code>foo_init</code>.</p>
+</li>
+<li>
+<p>If <code>foo_reset</code> exists, and is needed, it may have a different behavior than
+<code>foo_wipe + foo_init</code>.</p>
+</li>
+<li>
+<p>This can be used to make a value aware of the fact it has been allocated
+through a memory allocator, or as a static member of another struct. (see
+<code>struct wsp_header</code> for an example).</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>foo_delete</code> should accept a pointer to <code>NULL</code> as argument</p>
+</li>
+<li>
+<p>for containers, <code>deep_wipe</code>/<code>deep_delete</code> take a second argument, that is a
+pointer to a destructor. If the pointer is <code>NULL</code>, elements are not
+deallocated when the container is wiped out or deleted. If the contained type
+is obvious, the destructor argument may be replaced by a boolean.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If we pass pointer to functions, it means every type that can be put in an
+array and that we want to deallocate on array deletion <strong>has</strong> to have real
+destructors and not macros.
+You can consider creating inline functions for those cases, since you can take
+a pointer to an inline function.</p>
+</li>
+<li>
+<p>Containers should define a <code>foo_clear</code>/<code>foo_deep_clear</code> function that detach
+the elements from the array, but that doesn’t delete them.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_persistent_objects"><a class="anchor" href="#_persistent_objects"></a>Persistent Objects</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>for persistent objects the construction of an object may be done by functions
+named <code>foo_create</code> and <code>foo_open</code>:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>the <code>create</code> variant creating the persistent ressource and returns the
+initialised object</p>
+</li>
+<li>
+<p>the <code>open</code> variant opens the existing ressource and return the initialised
+object</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>for persistent objects, the destruction of an object may be done by functions
+named <code>foo_close</code> and <code>foo_destroy</code>:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>the <code>close</code> variant closes the ressource and keeps it</p>
+</li>
+<li>
+<p>the <code>destroy</code> variant closes the ressource and delete it from the persistent
+storage.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>foo_new</code>/<code>foo_delete</code> in that context define the runtime-structure
+initialization and might only be private,
+<code>foo_create</code>/<code>foo_open</code>/<code>foo_close</code>/<code>foo_destroy</code> provide the ressource
+management API.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_code_structuration"><a class="anchor" href="#_code_structuration"></a>Code structuration</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Programation "topics" can be folded by using the <code>{{{</code> and <code>}}}</code> delimiters
+(even if it is not mandatory). The name of a fold must be placed after the
+opening mark <code>{{{</code> (and should not be repeated when closing the fold). An
+empty line must be placed after the opening mark and before the closing mark.
+There should not be any line between an opening mark and a closing mark.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* {{{ Good fold 1 */
+
+code
+code
+
+/* }}} */
+/* {{{ Good fold 2 */
+
+code
+code
+
+/* }}} */</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c"> /* {{{ Bad fold 1 */
+code
+code
+/* }}} */
+
+/* Bad fold 2 {{{ */
+code
+code
+/* }}} Do NOT write "Bad fold 2" here */</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Nested folds should not be different from the others (no special indentation,
+no numbering), because it is hardly maintainable:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* {{{ Fold 1 */
+/* {{{ Good nested fold 1.1 */
+
+code
+
+/* }}} */
+/*  {{{ Bad nested fold 1.2 (bad ident) */
+
+code
+
+/*  }}} */
+/* {{{2 Bad nested fold 1.3 (numbering is forbidden) */
+
+code
+
+/* }}} */
+/* }}} */</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The code must be placed in <code>.c/.blk</code> files. No implementations should be put
+in the headers unless:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>the function is extremely short and its execution is extremely fast (the
+cost of calling the function is greater than the cost of executing it)</p>
+</li>
+<li>
+<p>the function only provides an alias for another existing function</p>
+</li>
+<li>
+<p>you can have a real gain from the inliner (some part of the inlined function
+can be simplified by static analysis)</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Header inclusion should be done at the top of the source file. However, in
+the case the header is required exclusively for unit testing purpose, it may
+be included only before the "testing" section of the source file.</p>
+</li>
+<li>
+<p>Header include should be done in the following order:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>system headers</p>
+</li>
+<li>
+<p>lib-common</p>
+</li>
+<li>
+<p>lib-inet</p>
+</li>
+<li>
+<p>other libs</p>
+</li>
+<li>
+<p>product base includes</p>
+</li>
+<li>
+<p>product module includes</p>
+</li>
+<li>
+<p>local file associated header</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>A header should be compilable, which means it must either include all its
+dependencies or use forward declarations.</p>
+</li>
+<li>
+<p>Avoid long files. Consider splitting files longer than 3000 lines.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_modules"><a class="anchor" href="#_modules"></a>Modules</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Structure your code using modules. Each module is a functional component that
+has a well specified role that may depend on other module.</p>
+</li>
+<li>
+<p>Try to put one module per .c/.blk file and vice-versa.</p>
+</li>
+<li>
+<p>Modules internal should remain private, and only a public, well maintained
+API should be exposed from the module.</p>
+</li>
+<li>
+<p>For structure or union that need to be known by other modules, prefer
+exposing opaque types and accessors by default unless:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>the type must be embedded in another structure for performance reasons</p>
+</li>
+<li>
+<p>other modules need to perform frequent field accesses for which an accessor
+would have a noticeable performance impact</p>
+</li>
+<li>
+<p>the type is explicitly designed to exchange data between modules</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>A module <code>bar</code> should be defined using the <code>core-module</code> framework.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>static int bar_initialize(void *arg)
+{
+    ...
+}
+
+static int bar_shutdown(void)
+{
+    ...
+}
+
+MODULE_BEGIN(bar)
+    ...
+MODULE_END()</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>If <code>core-module</code> is not available on your environment, you must define the
+functions:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>void bar_initialize(...);
+void bar_shutdown(...);</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>void bar_initialize is problematic</code>, should return an <code>int</code>: 0 for OK, non
+zero for errors</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_code_documentation"><a class="anchor" href="#_code_documentation"></a>Code Documentation</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>do not use C++ style comments <code>//</code>.</p>
+</li>
+<li>
+<p>multi-line comments must begin with a star:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>/* This is a very long comment which
+ * requires multiple lines to fit in
+ * this document.
+ */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>do not comment code using <code>/* */</code> constructs, always use the preprocessor:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>#if 0 /* dead code */
+    dead_code(1, 2, 3);
+#else
+    real_code(1, 2, 3);
+#endif
+
+/* dead_code(1, 2, 3); */ /* bad */</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Use doxygen syntax to document functions that need it, and prefer to comment
+near the function prototype.</p>
+</li>
+<li>
+<p>Use <code>FIXME</code>/<code>TODO</code> (with this case) to flag <code>FIXME</code> or <code>TODO</code>. Use <code>XXX</code> to
+flag a comment that must be read before trying to do anything with the code
+that follows.</p>
+</li>
+<li>
+<p>When documentation and code disagree, then both must be assumed wrong, and
+both must be rewritten.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_loops"><a class="anchor" href="#_loops"></a>Loops</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Endless loops are always written using <code>for (;;)</code>.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>while (true) { /* bad */
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Always use the following syntax for reverse loops:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>/* Good */
+for (size_t i = limit; i-- &gt; 0; ) {
+}
+
+/* Bad, condition is always true since i is unsigned */
+for (size_t i = limit - 1; i &gt;= 0; i--) {
+}</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_forbidden_functions"><a class="anchor" href="#_forbidden_functions"></a>Forbidden functions</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Never, ever, try to use (non exhaustive, but quite): <code>strncpy</code>, <code>strcpy</code>,
+<code>strcat</code>, <code>sprintf</code>, <code>gets</code>, <code>strtok</code>, …</p>
+</li>
+<li>
+<p>Do not use <code>malloc</code>, <code>free</code>, <code>realloc</code>, <code>alloca</code>, or <code>calloc</code> directly: We
+have <code>p_*</code> functions for that (<code>p_new</code>/<code>p_dup</code>/<code>p_dupz</code>/<code>p_delete</code>/…). When
+<code>p_*</code> functions are not enough, then use the <code>mem_*</code> wrappers.</p>
+</li>
+<li>
+<p>Do not use <code>snprintf(buf, sizeof(buf), "%s", string)</code>, this is inefficient,
+use <code>pstrcpy(buf, sizeof(buf), string);</code></p>
+</li>
+<li>
+<p>We do <code>C99</code>, use the <code>C99</code> <code>bool</code> type, with lower case <code>true</code> and <code>false</code>.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_stack_allocations"><a class="anchor" href="#_stack_allocations"></a>Stack allocations</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Never allocate an unchecked amount of memory on the stack (dynamic arrays or
+<code>alloca</code>), this can cause a stack overflow</p>
+</li>
+<li>
+<p>Never uses <code>alloca()</code> in a loop, this includes helpers such as <code>SB_1k()</code> and
+<code>SB_8k()</code></p>
+</li>
+<li>
+<p>Use the <code>t_stack</code> when you need to perform dynamic-allocations on the stack</p>
+</li>
+<li>
+<p><code>t_scope</code> should always be the first instruction of its scope.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>{
+    t_scope;
+    char *buf = t_new_raw(char, BUFSIZ);
+
+    ...
+}</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Functions allocating on <code>t_stack</code> for their caller should have a name
+prefixed by <code>t_</code>.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>static char *t_get_name(int id)
+{
+    return t_fmt(NULL, "name-%d", id);
+}</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_parsers_and_protocols"><a class="anchor" href="#_parsers_and_protocols"></a>Parsers and protocols</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_writing_parsers"><a class="anchor" href="#_writing_parsers"></a>Writing parsers</h3>
+<div class="paragraph">
+<p>Parsing should be done using the <code>pstream</code> (<code>str-stream.h</code>) API (or
+<code>bit-stream.h</code> for bit level parsing). These API are designed to write robust
+and maintainable parsers.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_implementing_protocols"><a class="anchor" href="#_implementing_protocols"></a>Implementing protocols</h3>
+<div class="paragraph">
+<p>Implementing robust, consistent and maintainable protocols is even more
+important than for parsers. Thus it is mandatory to use the
+<code>get_unaligned_cpu*</code>, <code>get_unaligned_le*</code>, <code>get_unaligned_be*</code>,
+<code>put_unaligned_cpu*</code>, <code>put_unaligned_le*</code>, <code>put_unaligned_be*</code> APIs from
+<code>arith-endianess.h</code>. (These APIs are also available within the <code>pstream</code> APIs)</p>
+</div>
+<div class="paragraph">
+<p>Even if we only support little endian, the <code><strong>le</strong></code> APIs still need to be used to
+emphasis the fact that we are parsing a little endian protocol. Same thing,
+with hardware dependent protocols, the <code><strong>cpu</strong></code> APIs must be used.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_debugging_and_error_messages"><a class="anchor" href="#_debugging_and_error_messages"></a>Debugging and error messages</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_log_messages_format"><a class="anchor" href="#_log_messages_format"></a>Log messages format</h3>
+<div class="paragraph">
+<p>Log messages should not begin with an uppercase letter and should not be
+terminated by a dot.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">logger_error(&amp;_G.logger, "this is a good error message");
+logger_error(&amp;_G.logger, "This is a bad error message.");</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_assertions_and_expectations"><a class="anchor" href="#_assertions_and_expectations"></a>Assertions and expectations</h3>
+<div class="paragraph">
+<p>No code must be put in assertions since code within assertions is not included
+in release builds.</p>
+</div>
+<div class="paragraph">
+<p>Use <code>expect()</code> to handle cases that should not happen but need to be properly
+handled in release builds. <code>expect()</code> are equivalent to <code>assert()</code> in
+development builds, and equivalent to the wrapped condition in release builds.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">if (!expect(condition_that_should_be_true)) {
+    /* error case for production builds */
+    return -1;
+}
+/* normal case */</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_abnormal_conditions"><a class="anchor" href="#_abnormal_conditions"></a>Abnormal conditions</h3>
+<div class="paragraph">
+<p>Abnormal system conditions that we don’t want to deal with must terminate
+processes using <code>abort()</code> through <code>logger_panic</code>. But other fatal issues like
+bad configurations or initialization issues or any user related fatal error
+shall not use <code>logger_panic</code> but <code>logger_fatal</code> instead. <code>logger_fatal</code> and
+<code>logger_panic</code> are both catchable by a debugger in development mode.</p>
+</div>
+<div class="paragraph">
+<p><code>logger_panic</code> cause a core dump, hence is quite frightening and should be kept
+for cases where a core is required for post-mortem investigation.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* good */
+res = epoll_wait(epollfd, events, countof(events), -1));
+if (res &lt; 0) {
+    logger_panic(&amp;_G.logger, "epoll_wait: %m");
+}
+
+/* bad */
+cfg = parse_cfg("/some/path/some_product.conf");
+if (!cfg) {
+    logger_panic(&amp;_G.logger, "cannot read configuration file...");
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_logger_trace_levels"><a class="anchor" href="#_logger_trace_levels"></a><code>logger_trace</code> levels</h3>
+<div class="paragraph">
+<p>Debugging is performed using <code>logger_trace</code> and <code>logger_is_traced</code> macros (see
+<code>log.h</code> documentation for explanation on how to use both). Debuging levels
+shall be used wisely.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>level 0</code>:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Those cannot be disabled for devel builds. It shall not be used. For
+consistency checks (invariants), use asserts or <code>logger_panic</code>.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>level 1</code>:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Messages for errors that we know how to fix, but are quite abnormal
+situations. For example: in a parser, when some value looks odd, and that we
+fix it with a side effect, we could use <code>logger_trace(&amp;_G.logger, 1, "odd value
+%s in file %s", &#8230;&#8203;)</code>.</p>
+</li>
+<li>
+<p>Tracing functions that are executed only once in a process life can be done
+using the level 1. For example, the module <code>_initialize</code> and <code>_shutdown</code>
+functions are good candidates.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>level 2</code>:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Level 2 should absolutely not flood the output under normal conditions for a
+process run. If under some normal circumstances your <code>logger_trace</code> can
+generate copious outputs, do use a higher level.</p>
+</li>
+<li>
+<p>Messages that allow to understand important logic of a module, but that
+doesn’t flood the console too much. For example, one can trace every worker
+error in some machine this way.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>level 3+</code>:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Those are meant for advanced debugging of a module. Being verbose is less of
+an issue, as those levels are never enabled by default, and are meant to be
+enabled at a module level.</p>
+</li>
+<li>
+<p>It is recommended to try that the tracing level 3 of a module remains decent
+in its output under debugging loads. For example, when using an injector with
+small rates of injection, level 3 should not trigger more than a few hits per
+second (under normal process behavior).</p>
+</li>
+<li>
+<p>Really copious outputs should be used at level 4 (and more) only.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_usage"><a class="anchor" href="#_usage"></a>Usage</h3>
+<div class="paragraph">
+<p>Programs meant to be used from the command line, must support:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>-h</code> and <code>--help</code> switches;</p>
+</li>
+<li>
+<p><code>-v</code> and <code>--version</code> that must output the <code>git describe</code> (or similar) version
+of the build among other informations.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../_/js/site.js"></script>
+<script async src="../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

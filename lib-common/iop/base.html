@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>IOP :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">IOP</li>
+    <li class="crumb"><a href="base.html">IOP Basics</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>IOP</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_introduction">Introduction</a></li>
+<li><a href="#_iop_objects">IOP objects</a>
+<ul class="sectlevel2">
+<li><a href="#_basics_types">Basics types</a></li>
+<li><a href="#_complex_types">Complex types</a>
+<ul class="sectlevel3">
+<li><a href="#_struct"><code>struct</code></a></li>
+<li><a href="#_class"><code>class</code></a></li>
+<li><a href="#_union"><code>union</code></a></li>
+<li><a href="#_enum"><code>enum</code></a></li>
+</ul>
+</li>
+<li><a href="#_member_constraints">Member constraints</a>
+<ul class="sectlevel3">
+<li><a href="#_required_members_and_references">Required members and references</a></li>
+<li><a href="#_optional_members">Optional members</a></li>
+<li><a href="#_repeated_members">Repeated members</a></li>
+<li><a href="#_with_default_value">With default value</a></li>
+</ul>
+</li>
+<li><a href="#iop-tags">IOP tags</a></li>
+</ul>
+</li>
+<li><a href="#_iop_packages">IOP packages</a></li>
+<li><a href="#_iop_rpc_interfaces_and_modules">IOP RPC, interfaces and modules</a>
+<ul class="sectlevel2">
+<li><a href="#_interfaces_and_rpc">Interfaces and RPC</a></li>
+<li><a href="#_modules">Modules</a></li>
+<li><a href="#_module_inheritance">Module inheritance</a>
+<ul class="sectlevel3">
+<li><a href="#_general">General</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#backward-compat">Dealing with backward compatibility</a>
+<ul class="sectlevel2">
+<li><a href="#_preserving_iop_tags">Preserving IOP tags</a></li>
+<li><a href="#_do_not_add_mandatory_fields">Do not add mandatory fields</a></li>
+<li><a href="#_summary">Summary</a>
+<ul class="sectlevel3">
+<li><a href="#_exceptions">Exceptions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#_iop_attributes">IOP attributes</a></li>
+<li><a href="#_iop_typedefs">IOP typedefs</a></li>
+</ul>
+</div>
+<div class="sect1">
+<h2 id="_introduction"><a class="anchor" href="#_introduction"></a>Introduction</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The IOP (<em>Intersec Object Packer</em>) is a method to serialize structured data to
+use in communications protocols, data storage… IOP is language independent. IOP
+objects are encoded using TLV
+("Tag-Length-Value":http://en.wikipedia.org/wiki/Type-length-value)
+packers/un-packers. To get details about the low-level IOP representation read
+the <a href="wire-format.html" class="page">Wire format</a> documentation.</p>
+</div>
+<div class="paragraph">
+<p>The IOP concept is inspired from the "Google Protocol Buffers":
+<a href="https://developers.google.com/protocol-buffers/docs/overview" class="bare">https://developers.google.com/protocol-buffers/docs/overview</a></p>
+</div>
+<div class="paragraph">
+<p>The IOP are used to transmit data over the network in a safe manner. It deals
+with data integrity checking, retro-compatibility issues, … They are also used
+to exchange data between different languages or to provide a generic interface
+to store and load C data on disk.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_objects"><a class="anchor" href="#_iop_objects"></a>IOP objects</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The first thing to do with IOP is to define your data structures in the IOP
+description language. It has a C-like syntax (<em>in fact it&#8217;s almost the D
+language syntax</em>) and lives inside a <strong>.iop</strong> file.</p>
+</div>
+<div class="paragraph">
+<p>We use <a href="http://en.wikipedia.org/wiki/CamelCase">CamelCase</a> in IOP files.</p>
+</div>
+<div class="sect2">
+<h3 id="_basics_types"><a class="anchor" href="#_basics_types"></a>Basics types</h3>
+<div class="paragraph">
+<p>These are the low-level types used to define object members.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong><code>int</code></strong>:    32bits signed integer;</p>
+</li>
+<li>
+<p><strong><code>uint</code></strong>:   32bits unsigned integer;</p>
+</li>
+<li>
+<p><strong><code>long</code></strong>:   64bits signed integer;</p>
+</li>
+<li>
+<p><strong><code>ulong</code></strong>:  64bits unsigned integer;</p>
+</li>
+<li>
+<p><strong><code>byte</code></strong>:   8bits signed integer;</p>
+</li>
+<li>
+<p><strong><code>ubyte</code></strong>:  8bits unsigned integer;</p>
+</li>
+<li>
+<p><strong><code>short</code></strong>:  16bits signed integer;</p>
+</li>
+<li>
+<p><strong><code>ushort</code></strong>: 16bits unsigned integer;</p>
+</li>
+<li>
+<p><strong><code>bool</code></strong>:   boolean;</p>
+</li>
+<li>
+<p><strong><code>double</code></strong>: double (64bits);</p>
+</li>
+<li>
+<p><strong><code>string</code></strong>: character string;</p>
+</li>
+<li>
+<p><strong><code>bytes</code></strong>:  binary blob;</p>
+</li>
+<li>
+<p><strong><code>xml</code></strong>:    XML string;</p>
+</li>
+<li>
+<p><strong><code>void</code></strong>:   no data (useful to indicate a presence with no associated data);</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_complex_types"><a class="anchor" href="#_complex_types"></a>Complex types</h3>
+<div class="paragraph">
+<p>There are three complex data types.</p>
+</div>
+<div class="sect3">
+<h4 id="_struct"><a class="anchor" href="#_struct"></a><code>struct</code></h4>
+<div class="paragraph">
+<p>The structure defines an object with one or several members, like this:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct User {
+    int    id;
+    string name;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We have just declared a <code>User</code> object with an <code>id</code> and a <code>name</code>. But structures
+can also contain other structures.</p>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Address {
+    int    number;
+    string street;
+    int    zipCode;
+    string country;
+};
+
+struct User {
+    int     id;
+    string  name;
+    Address address;
+};</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_class"><a class="anchor" href="#_class"></a><code>class</code></h4>
+<div class="paragraph">
+<p>A <code>class</code> is a kind of <code>struct</code> which can inherit from another class, or be a
+<em>master class</em> (which means it has no parent).  A <code>class</code> has the same meaning
+than in object-oriented languages, except that methods cannot be declared.</p>
+</div>
+<div class="paragraph">
+<p>See the <a href="inheritance.html" class="page">Inheritance</a> page for more details.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_union"><a class="anchor" href="#_union"></a><code>union</code></h4>
+<div class="paragraph">
+<p>A <code>union</code> has the same definition as the <code>C-union</code>. It defines an object which
+will be set as one of its members.</p>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">union MyUnion {
+    int    wantInt;
+    string wantString;
+    User   wantUser;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>An <code>union</code> can only contain mandatory fields (including referenced fields).</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_enum"><a class="anchor" href="#_enum"></a><code>enum</code></h4>
+<div class="paragraph">
+<p>Here again, an <code>enum</code> has the same definition as the <code>C-enum</code>. It defines
+several literal keys associated to integer values. Just like the <code>C-enum</code>, the
+IOP <code>enum</code> supports the whole integer range for its values.</p>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">enum MyEnum {
+    VALUE_1 = 1,
+    VALUE_2 = 2,
+    VALUE_3 = 3,
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_member_constraints"><a class="anchor" href="#_member_constraints"></a>Member constraints</h3>
+<div class="paragraph">
+<p>An IOP object member can be either <strong>mandatory</strong>, <strong>optional</strong>, <strong>repeated</strong> or <strong>with
+a default value</strong>.</p>
+</div>
+<div class="sect3">
+<h4 id="_required_members_and_references"><a class="anchor" href="#_required_members_and_references"></a>Required members and references</h4>
+<div class="paragraph">
+<p>By default, a member of an IOP structure or class is mandatory (or required).
+This means it must be set to a valid value in order for the structure instance
+to be valid. In particular, you must guarantee the field is set before
+serializing/deserializing the object. By default, mandatory fields are value
+fields in the generated C structure: this means the value is inlined in the
+structure type and is copied. There are however two exceptions to this rule:
+class objects and referenced fields are defined as pointed objects in the
+generated structure.</p>
+</div>
+<div class="paragraph">
+<p>A referenced field must be explicitly defined the IOP description by using the
+<strong>&amp;</strong> symbol following the data type. This can only apply to data types that are
+structures or union. Referenced fields can be used in structure, classes or
+unions. They provide an elegant way to define recursive types.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-cpp hljs" data-lang="cpp">struct Foo {
+    int mandatoryInteger;
+    MyStruct mandatoryStruct;
+    MyStruct&amp; referencedStruct; /* Mandatory too */
+};
+
+union Foo {
+    Foo&amp; child;
+    int     leaf;
+};</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_optional_members"><a class="anchor" href="#_optional_members"></a>Optional members</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Foo {
+    int? optionalMember;
+    Bar? optionalMember2;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The optional member is indicated by a <strong>?</strong> following the data type. The
+packers/unpackers allow these members to be absent without generating an error.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_repeated_members"><a class="anchor" href="#_repeated_members"></a>Repeated members</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Foo {
+    int[] repeatedInteger;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A repeated member is a kind of optional member, it can appear <em>n</em> times in
+the object, corresponding to a list of length <em>n</em>. In the previous example, you
+can consider the <code>repeatedInteger</code> member as a list of integers.</p>
+</div>
+<div class="paragraph">
+<p>A <code>void</code> field cannot be repeated.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_with_default_value"><a class="anchor" href="#_with_default_value"></a>With default value</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Foo {
+    int val = 42;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A member with a default value is a kind of mandatory member but allowed to be
+absent. When the member is absent, the packer/unpacker always sets the member
+to its default value.</p>
+</div>
+<div class="paragraph">
+<p>To use an enumeration value as a default value, you have to prefix the
+enumeration key by the enumeration name, upper-cased, and with an underscore
+before each capital letter, like this:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">enum MyEnum {
+    VAL_1 = 1,
+    VAL_2 = 2,
+};
+
+struct Foo {
+    MyEnum foo = MY_ENUM_VAL_1;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A <code>void</code> field cannot have a default value, because it represents no value.</p>
+</div>
+<div class="sect4">
+<h5 id="_constant_folder"><a class="anchor" href="#_constant_folder"></a>Constant folder</h5>
+<div class="paragraph">
+<p>Moreover, you are allowed to use arithmetic expressions on integer (and <code>enum</code>)
+member types like this:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Foo {
+    int a = 2 * (256 &lt;&lt; 20) + 42;
+};
+
+enum MyEnum {
+    VAL_1 = 1 &lt;&lt; 0,
+    VAL_2 = 1 &lt;&lt; 1,
+    VAL_3 = 1 &lt;&lt; 2,
+    VAL_4 = 1 &lt;&lt; 3,
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="iop-tags"><a class="anchor" href="#iop-tags"></a>IOP tags</h3>
+<div class="paragraph">
+<p>When you declared a structure or union, every member is implicitly tagged with
+a non-null integer (remember the Tag-Length-Value encoding?). Tags start at 1
+and are efficiency encoded depending on how big they are, so you have to prefer
+lower tags. You can set manually the field tags:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Foo {
+1:    int a;
+2:    int b;
+3:    int c;
+      int d; /*&lt; will be implicitly at tag 4 */
+5:    int e;
+1024: int f; /*&lt; stupid but possible */
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For most usages you do not need to take care about the IOP tags. You will need
+them to deal with things like modules inheritance, backward compatibility…
+Subjects that we will talk about later.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_packages"><a class="anchor" href="#_iop_packages"></a>IOP packages</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An IOP file corresponds to an IOP package. The filename must match the package
+name. Every IOP file must define its package name like this:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package foo; /*&lt; package name of the file foo.iop */
+
+struct Foo {
+    [...]
+};
+
+[...]</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A package can be a sub-package of another package like this:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package foo.bar; /*&lt; package name of the file foo/bar.iop */
+
+struct Bar {
+    [...]
+};
+
+[...]</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Finally, you can import objects from another package inside your package with
+two methods:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>using the <strong><code>import</code></strong> keyword:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package plop; /*&lt; package name of the file plop.iop */
+
+import foo.bar.Bar; /*&lt; import the Bar object from foo.bar package */
+import foo.*;       /*&lt; import all structure from the foo package */
+
+struct Plop {
+    Bar bar;
+};
+
+[...]</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>giving the object full-name:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package plop; /*&lt; package name of the file plop.iop */
+
+struct Plop {
+    foo.bar.Bar bar;
+};
+
+[...]</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_rpc_interfaces_and_modules"><a class="anchor" href="#_iop_rpc_interfaces_and_modules"></a>IOP RPC, interfaces and modules</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The IOP objects are sufficient to provide a way to serialize/deserialize data
+for on-disk storage, different languages exchanges, … We need some more
+concepts to handle network communications.</p>
+</div>
+<div class="paragraph">
+<p>To do such things, you will have to define a module, which will contain several
+interfaces which will contain several RPC. A server wanting to communicate with
+IOP will declare which RPC of which interfaces of which module it implements.</p>
+</div>
+<div class="sect2">
+<h3 id="_interfaces_and_rpc"><a class="anchor" href="#_interfaces_and_rpc"></a>Interfaces and RPC</h3>
+<div class="paragraph">
+<p>An IOP <code>interface</code> declares one or several RPC. An RPC is defined by:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>an optional list of input parameters (<code>in</code> keyword);</p>
+</li>
+<li>
+<p>an optional list of output parameters (<code>out</code> keyword);</p>
+</li>
+<li>
+<p>an optional list of exception parameters (<code>throw</code> keyword).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct MyExn {
+    int    code;
+    string desc;
+};
+
+interface MyIface {
+   createUser
+        in    (string login, string password, int? age)
+        out   (int id)
+        throw MyExn;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The input/output/throw parameters can be an existing type or an anonymous type.
+In the previous example, the input and output parameters are anonymous whereas
+the <code>throw</code> parameter uses an existing type. When declaring several RPC with
+the same parameters, you are encouraged to used a well declared type it will be
+more efficient.</p>
+</div>
+<div class="paragraph">
+<p>Like we said, input/output/throw parameters are all optional, we could write
+the <code>createUser</code> RPC with a lot of different prototypes:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct MyExn {
+    int    code;
+    string desc;
+};
+
+struct User {
+    string login;
+    string password;
+    int?   age;
+};
+
+interface MyIface {
+    /* No exception */
+    createUser2
+        in    (string login, string password, int? age)
+        out   (int id);
+
+    /* No output parameter */
+    createUser3
+        in    (string login, string password, int? age)
+        throw MyExn;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In addition, the IOP RPC introduce two special data type: <code>void</code> and <code>null</code>.
+The <code>void</code> type is exactly the same thing as no parameter, so <code>createUser3</code>
+could be written:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">[...]
+
+interface MyIface {
+    /* No output parameter */
+    createUser4
+        in    (string login, string password, int? age)
+        out   void
+        throw MyExn;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>null</code> parameter can only be used as an output type. It means that you want
+an asynchronous RPC which will not wait for an answer. A <code>void</code> RPC will reply
+a <code>void</code> result but it is an answer nonetheless, it is the only way to know if
+your RPC has succeed or not. The <code>null</code> RPC will just be sent and be forgotten.
+For this reason, a <code>throw</code> parameter is incompatible with a <code>null</code> result…</p>
+</div>
+<div class="paragraph">
+<p>Note that you will be forced to always specify <code>out</code> or <code>throw</code> (in case of
+<code>throw</code>, <code>out void</code> is selected by default)</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_modules"><a class="anchor" href="#_modules"></a>Modules</h3>
+<div class="paragraph">
+<p>An IOP <code>module</code> groups several interfaces together. A communication server must
+declare its module and so it cannot implement interfaces of different modules.</p>
+</div>
+<div class="paragraph">
+<p>A module declares its interfaces like this:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">interface MyIfaceA {
+    [...]
+};
+
+interface MyIfaceB {
+    [...]
+};
+
+module MyMod {
+    MyIfaceA a;
+    MyIfaceB b;
+};</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_module_inheritance"><a class="anchor" href="#_module_inheritance"></a>Module inheritance</h3>
+<div class="sect3">
+<h4 id="_general"><a class="anchor" href="#_general"></a>General</h4>
+<div class="paragraph">
+<p>Because sometimes a server wants to implement the interfaces of several
+different modules you can declare a module which inherits of others modules.
+The limitation of this mechanism is that the IOP tags inside your modules must
+not overlap.</p>
+</div>
+<div class="paragraph">
+<p>Here an example of what <strong>you should not do</strong>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">module MyModA {
+    MyIfaceA a1;
+    MyIfaceA a2;
+}
+
+module MyModB {
+    MyIfaceB b1;
+    MyIfaceB b2;
+}
+
+/* This module is broken, every interface overlaps! */
+module MyModC : MyModA, MyModB {
+    MyIfaceC c1;
+    MyIfaceC c2;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To make it work, you have to manually set the tag of each interface or at least
+start with a tag that will never overlap with another module, like this:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* Module MyModA start at tag 512 */
+module MyModA {
+512:
+    MyIfaceA a1;
+    MyIfaceA a2;
+}
+
+/* Module MyModA start at tag 1024 */
+module MyModB {
+1024:
+    MyIfaceB b1;
+    MyIfaceB b2;
+}
+
+/* MyModC inherit of MyModA, MyModB and tag manually all its interfaces */
+module MyModC : MyModA, MyModB {
+1:  MyIfaceC c1;
+2:  MyIfaceC c2;
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="backward-compat"><a class="anchor" href="#backward-compat"></a>Dealing with backward compatibility</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The IOP are designed to be backward compatible but it requires some good
+practice. Being backward compatible is almost always a <strong>must have</strong> so read
+carefully this section.</p>
+</div>
+<div class="sect2">
+<h3 id="_preserving_iop_tags"><a class="anchor" href="#_preserving_iop_tags"></a>Preserving IOP tags</h3>
+<div class="paragraph">
+<p>When you write an IOP object its members are <a href="#iop-tags">implicitly tagged</a>.
+This works correctly until you decide to remove a field from you object. Take
+the following structure:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Foo {
+    int    a;
+    string b;
+    bool   c;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You use this structure in your project version 1, and then later you change it
+into:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Foo {
+    int    foo;
+    bool   c;
+    double d;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Now the backward compatibility of your project is broken. What have you done ?</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The member <code>int a</code> has been renamed to <code>int foo</code>. There is almost no problem
+here because this member has the tag 1, and is still an integer so it will
+work. Just be careful that in some languages like JSon or XML which uses the
+member names, it will be broken.</p>
+</li>
+<li>
+<p>The member <code>b</code> has been removed, fine.</p>
+</li>
+<li>
+<p>The member <code>c</code> has not changed, but just in appearance… By removing the field
+<code>b</code> you have changed the tag of <code>c</code> which was 3 and is now 2. The backward
+compatibility is completely broken because when the unpacker we will try to
+unpack c in an old structure it will find a string and not a boolean…</p>
+</li>
+<li>
+<p>You have added a member <code>d</code> which is broken in the same way as the member <code>c</code>
+(and in another way that we will talk below).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To make it work, you should have written:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Foo {
+1:  int    foo;
+/* b removed in version 2 (tag 2) */
+3:  bool   c;
+    double d;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Here the IOP tags are preserved (and do not forget to leave a comment to
+explain the explicit IOP tags). But the backward compatibility is still broken.</p>
+</div>
+<div class="paragraph">
+<p>You could also replace your deprecated field using the <code>void</code> type, as anything
+can be unpacked into it (the value will be lost) :</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Foo {
+    int    foo;
+    void   b;/* b removed in version V2 (tag 2) */
+    bool   c;
+    double d;
+};</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_do_not_add_mandatory_fields"><a class="anchor" href="#_do_not_add_mandatory_fields"></a>Do not add mandatory fields</h3>
+<div class="paragraph">
+<p>The <code>double d</code> member has been added as a mandatory field which is not backward
+compatible. If your unpacker tries to unpack a structure of version 1, you will
+have an error because it will fail to find the mandatory <code>d</code> member. So you can
+only use optional members (or repeated, or default values) when you add a new
+field in an existing IOP structure.</p>
+</div>
+<div class="paragraph">
+<p>Here is the correct update of the <code>Foo</code> structure:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct Foo {
+1:  int     foo;
+/* b removed in version V2 (tag 2) */
+3:  bool    c;
+    double? d;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Of course you also cannot change the type of an existing object without
+breaking the backward compatibility.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_summary"><a class="anchor" href="#_summary"></a>Summary</h3>
+<div class="paragraph">
+<p>To deal with backward compatibility do not forget the following rules:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>always preserve the existing tag even when they are implicit;</p>
+</li>
+<li>
+<p>never add a mandatory member to a structure;</p>
+</li>
+<li>
+<p>do not change data types;</p>
+</li>
+<li>
+<p>avoid to change fields names (will break JSon, XML, PHP, …).</p>
+</li>
+</ul>
+</div>
+<div class="sect3">
+<h4 id="_exceptions"><a class="anchor" href="#_exceptions"></a>Exceptions</h4>
+<div class="paragraph">
+<p>There are some exceptions to these rules:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>changing an integer with an integer of greater size and same sign is
+compatible (like <code>int</code> to <code>long</code> or <code>ubyte</code> to <code>uint</code>);</p>
+</li>
+<li>
+<p>changing a mandatory field into an optional (or with a default value, or
+repeated) field is compatible too.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_attributes"><a class="anchor" href="#_iop_attributes"></a>IOP attributes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Since IOP 2.0, we support a concept of attributes. Attributes allow to add
+constraints over structure members, modify the unpacker/packers behavior for
+some structures/members, … They are documented in a
+<a href="iop-attributes.html" class="page">dedicated page</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_typedefs"><a class="anchor" href="#_iop_typedefs"></a>IOP typedefs</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>typedef</code> keyword can be used to create alias for types. A typedef takes a
+types, its modifiers (optional or repeated) and some instantiation attributes
+(the same attributes as used on structure and union fields) and create a new
+typename for it to be used later in a structure or union or as a base type for
+another typedef. The source type of a typedef can be any type, basic or
+complex. A type created by a typedef cannot be used as a parent class in a
+class type definition.</p>
+</div>
+<div class="paragraph">
+<p>The name of a typedefed type must start with an uppercase.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef int MyInt;
+
+@min(3)
+typedef int MyIntMin3;
+
+typedef string[] MyStringArray;
+
+union MyUnion {
+    MyIntMin3 iMin3;
+    int i;
+};
+
+@allow(i)
+typedef MyUnion MyUnionI;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Typedefs are only aliases that are known only by the <code>iopc</code>, and no specific
+entries are generated for them in destination languages.</p>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

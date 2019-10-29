@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Intersec Object Packer :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">IOP</li>
+    <li class="crumb"><a href="wire-format.html">Wire format</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Intersec Object Packer</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_iop_wire_format">IOP Wire format</a>
+<ul class="sectlevel2">
+<li><a href="#_encoding_the_wire_type">Encoding the wire Type</a></li>
+<li><a href="#_encoding_the_tag">Encoding the Tag</a></li>
+<li><a href="#_encoding_the_length_and_the_value">Encoding the Length and the Value</a></li>
+</ul>
+</li>
+<li><a href="#_iop_structure">IOP structure</a></li>
+<li><a href="#_iop_c_backend">IOP C Backend</a>
+<ul class="sectlevel2">
+<li><a href="#_memory_pool">Memory pool</a></li>
+<li><a href="#_scalar_types_usage">Scalar types usage</a></li>
+<li><a href="#_bytes_and_strings_usage">Bytes and strings usage</a></li>
+<li><a href="#_structures_usage">Structures usage</a></li>
+<li><a href="#_unions_usage">Unions usage</a>
+<ul class="sectlevel3">
+<li><a href="#_restrictions">Restrictions</a></li>
+<li><a href="#_default_values">Default values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#_iop_php_frontend">IOP PHP Frontend</a>
+<ul class="sectlevel2">
+<li><a href="#_using_the_union">Using the union</a></li>
+</ul>
+</li>
+<li><a href="#_iop_xml_frontend">IOP XML Frontend</a></li>
+<li><a href="#_iop_json_frontend">IOP JSON Frontend</a>
+<ul class="sectlevel2">
+<li><a href="#_json_grammar">JSON Grammar</a></li>
+<li><a href="#_values">Values</a></li>
+<li><a href="#_objects">Objects</a></li>
+<li><a href="#_arrays">Arrays</a></li>
+<li><a href="#_numbers">Numbers</a></li>
+<li><a href="#_strings">Strings</a></li>
+<li><a href="#_comments">Comments</a></li>
+<li><a href="#_union_syntax">union syntax</a></li>
+<li><a href="#_prefixed_syntax">Prefixed syntax</a></li>
+<li><a href="#_appendix">Appendix</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="sect1">
+<h2 id="_iop_wire_format"><a class="anchor" href="#_iop_wire_format"></a>IOP Wire format</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>IOP allow to encode TLVs (Tag, Length, Value). For some kind of data types,
+the Length is implicit.</p>
+</div>
+<div class="paragraph">
+<p>The TLVs must always be written in the tag order.</p>
+</div>
+<div class="sect2">
+<h3 id="_encoding_the_wire_type"><a class="anchor" href="#_encoding_the_wire_type"></a>Encoding the wire Type</h3>
+<div class="paragraph">
+<p>The wire type is put in the three most significant bits of the first octet of
+the buffer. There are 8 different encoding schemes.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>0</code> to <code>2</code> (BLK1, BLK2, BLK4)</dt>
+<dd>
+<p>Encode a block of unstructured data, with a prefixed length of 1, 2, or 4
+octets.</p>
+</dd>
+<dt class="hdlist1"><code>3</code> (QUAD)</dt>
+<dd>
+<p>Encode 8 octets of data.</p>
+</dd>
+<dt class="hdlist1"><code>4</code> to <code>6</code> (INT1, INT2, INT4)</dt>
+<dd>
+<p>Encode 1, 2, or 4 octets integers, using sign extension based encoding.
+A possible way to encode, is to compute the zig-zag encoded value of the
+integer <code>(v &gt;&gt; (8 * sizeof(v) - 1)) ^ (v &lt;&lt; 1)</code> and use the smallest
+integer where the significant bits of this number fits.</p>
+</dd>
+<dt class="hdlist1"><code>7</code> REPEAT</dt>
+<dd>
+<p>This value is used to mean that the current tag is repeated a given amount
+of time after this value. This is followed by the repetition count as a
+little endian 32 bit value.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_encoding_the_tag"><a class="anchor" href="#_encoding_the_tag"></a>Encoding the Tag</h3>
+<div class="paragraph">
+<p>Tags cannot exceed 16 bits and the value 0 is special.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Tag 0 means reuse the same tag as the last one you unpacked at this level.
+In other words when you recurse inside a new block for a complex structure
+the first tag cannot be 0. This can be used only after a <code>REPEAT</code> tag has
+been seen.
+This special tag is also used at the beginning of a packed class with the
+wire type <code>INT1</code> or <code>INT2</code>, to announce the class id of the packed object,
+and to mark a change of level in the inheritance tree.</p>
+</li>
+<li>
+<p>Tags between 1 and 29 included are encoded in the least significant 5 bits
+of the first octet.</p>
+</li>
+<li>
+<p>Tags between 30 and 255 are encoded by writing <code>30</code> to the least significant
+5 bits of the first octet, then the tag value is put in the next octet.</p>
+</li>
+<li>
+<p>Tags between 256 to 65535 are encoded by writing <code>31</code> to the least significant
+5 bits of the first octet, then the tag value is put in the next two octets,
+in little endian.</p>
+</li>
+<li>
+<p>Tags above 32767 are reserved and should not be used by iop clients.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_encoding_the_length_and_the_value"><a class="anchor" href="#_encoding_the_length_and_the_value"></a>Encoding the Length and the Value</h3>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">BLK1, BLK2, BLK4</dt>
+<dd>
+<p>The length is written in little endian, on 1, 2, or 4 octets. Then the
+value follows. The data length is (1, 2 or 4) + the encoded length. When
+encoding strings, the ending NUL byte is included in the data length.</p>
+</dd>
+<dt class="hdlist1">QUAD</dt>
+<dd>
+<p>There is no length encoded. The data length is 8, and the value is put in
+little endian order when it has a meaning (for doubles or 64 bits
+integers). Encoders and Decoders assume that 64bits integers and doubles
+endianness are the same, which breaks on some funky architectures.</p>
+</dd>
+<dt class="hdlist1">INT1, INT2, INT4</dt>
+<dd>
+<p>There is no length encoded. The data length is either 1, 2, or 4. Integers
+are encoded in their corresponding extension based encoding, least
+significant octet first.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_structure"><a class="anchor" href="#_iop_structure"></a>IOP structure</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An IOP file has the following structure:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package mypackage;
+
+enum MyEnum {
+    FOO,
+    BAR,
+    ...
+}
+
+struct MyStruct {
+    int foo;
+    string? bar;
+    MyEnum[] foobar;
+    ...
+}
+
+union MyUnion {
+    int foo;
+    string bar;
+    ...
+}
+
+interface MyInterface {
+    /* A void -&gt; void function */
+    myFunc1 funA;
+
+    /* The function which has MyStruct as argument */
+    myFunction funB in MyStruct;
+
+    /* A classical function */
+    myFunction funC in (int a, int b) out (int c, string s);
+
+    /* A void -&gt; ... function */
+    myFunction funD in void out MyUnion;
+};
+
+module MyModule {
+    MyInterface inter;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The different types of base are: <code>int</code> (<code>int32_t</code>), <code>uint</code> (<code>uint32_t</code>), <code>byte</code>
+(<code>int8_t</code>), <code>ubyte</code> (<code>uint8_t</code>), <code>short</code> (<code>int16_t</code>), <code>ushort</code> (<code>uint16_t</code>),
+<code>long</code> (<code>int64_t</code>), <code>ulong</code> (<code>uint64_t</code>), <code>bytes</code> (<code>lstr_t</code>), <code>bool</code>,
+<code>double</code>, <code>string</code> (<code>lstr_t</code>) and <code>enum</code>.</p>
+</div>
+<div class="paragraph">
+<p>These types are wrapped either in a <code>struct</code> type or a <code>union</code> type.
+Differences between <code>struct</code> and <code>union</code> are the sames as in C.</p>
+</div>
+<div class="paragraph">
+<p>A structure member can be:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Mandatory</dt>
+<dd>
+<p>Which means that the field must always be present when encoding/decoding
+the IOP structure. Example: <code>int foo;</code>.</p>
+</dd>
+<dt class="hdlist1">Optional</dt>
+<dd>
+<p>Which means that the field could be omitted when encoding/decoding the IOp
+structure. Example: <code>int? foo;</code>.</p>
+</dd>
+<dt class="hdlist1">Repeated</dt>
+<dd>
+<p>Which means that the field could be either omitted or repeated several
+times when encoding/decoding the structure. See it as a sort of array.
+Example: <code>int[] foo;</code>.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_c_backend"><a class="anchor" href="#_iop_c_backend"></a>IOP C Backend</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_memory_pool"><a class="anchor" href="#_memory_pool"></a>Memory pool</h3>
+<div class="paragraph">
+<p>Each function of the IOP unpacker expects a memory allocator able to
+deallocate all tiny allocations at once like <code>t_pool</code> or <code>r_pool</code>.
+Never use another memory allocator with the unpacker.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_scalar_types_usage"><a class="anchor" href="#_scalar_types_usage"></a>Scalar types usage</h3>
+<div class="paragraph">
+<p>A mandatory scalar member is converted in the most simple way as it would be
+written in C. So <code>int foo;</code> becomes <code>int32_t foo;</code>.</p>
+</div>
+<div class="paragraph">
+<p>An optional scalar member is converted to an <code>opt_xxx_t</code> structure. You
+should never access it directly but using the <code>OPT*</code> macros defined in
+<code>core-types.h</code>.</p>
+</div>
+<div class="paragraph">
+<p>A repeated scalar member is converted to a structure containing a <code>len</code> member
+which gives the number of element and a <code>tab</code> member which gives a pointer on
+the first element. To set such a field you should use the <code>IOP_ARRAY*</code> macros
+defined in <code>iop-macros.h</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_bytes_and_strings_usage"><a class="anchor" href="#_bytes_and_strings_usage"></a>Bytes and strings usage</h3>
+<div class="paragraph">
+<p><code>bytes</code> and <code>string</code> types are handled in a similar way, but not converted to
+the same structure.</p>
+</div>
+<div class="paragraph">
+<p><code>bytes</code>, which contains binary buffer, is converted to a <code>lstr_t { .data,
+.len }</code> with the member <code>len</code> corresponding to the buffer length and the
+member <code>data</code> which is the pointer on the first byte of the buffer. <code>bytes</code>
+members should be set using the <code>LSTR_*</code> macros defined in <code>str-l.h</code>.</p>
+</div>
+<div class="paragraph">
+<p><code>string</code>, which contains a null terminated string, is converted to a <code>lstr_t</code>.
+See <code>str-l.h</code> for their documentation.</p>
+</div>
+<div class="paragraph">
+<p>When a member is optional, you will know if it is present or not by testing
+if the pointer is NULL.</p>
+</div>
+<div class="paragraph">
+<p>In case of a repeated field, usage is exactly the same as for scalar types.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_structures_usage"><a class="anchor" href="#_structures_usage"></a>Structures usage</h3>
+<div class="paragraph">
+<p>A mandatory <code>struct</code> or <code>union</code> member is directly inlined in the C structure.
+So you access it in the most simple way.</p>
+</div>
+<div class="paragraph">
+<p>An optional <code>struct</code> or <code>union</code> member is converted to a pointer on the value,
+so you test its nullity to know if the field is here and you deference it to
+access the value.</p>
+</div>
+<div class="paragraph">
+<p>In case of a repeated field, usage is exactly the same as for scalar types.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_unions_usage"><a class="anchor" href="#_unions_usage"></a>Unions usage</h3>
+<div class="paragraph">
+<p>A <code>union</code> is an <code>iop_struct_t</code> with the flag <code>is_union</code> set. In the code, we
+can see a <code>union</code> as a <code>struct</code> with a unique and required field. Of course we
+have to look for the selected tag in the union.</p>
+</div>
+<div class="paragraph">
+<p>Unions are handled by a structure generated by the compiler as follows:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct __foo_t {
+    int iop_tag;
+    union {
+        ...
+    }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>On the user side, you have several macros to use them:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>IOP_UNION_SWITCH(var)</code></dt>
+<dd>
+<p>Start a switch on the selected value in the union.</p>
+</dd>
+<dt class="hdlist1"><code>IOP_UNION_CASE(type, var, field_name, v)</code></dt>
+<dd>
+<p>If <code>field_name</code> is selected, its value is copied in v.</p>
+</dd>
+<dt class="hdlist1"><code>IOP_UNION_CASE_P(type, var, field_name, v)</code></dt>
+<dd>
+<p>If <code>field_name</code> is selected, v contains a pointer on the value of
+<code>field_name</code>.</p>
+</dd>
+<dt class="hdlist1"><code>IOP_UNION_DEFAULT()</code></dt>
+<dd>
+<p>If there is nothing selected or another value &#8230;&#8203;</p>
+</dd>
+<dt class="hdlist1"><code>pkg<em>uname</em>get(v, field)</code></dt>
+<dd>
+<p>Get a pointer on <code>field</code> if the field is selected, <code>NULL</code> otherwise.</p>
+</dd>
+<dt class="hdlist1"><code>pkg<em>uname</em>copy(dst, v, field)</code></dt>
+<dd>
+<p>Copy the value of <code>field</code> in <code>dst</code> and return true or false if the field
+isn&#8217;t selected.</p>
+</dd>
+<dt class="hdlist1"><code>IOP_UNION(type, field, val)</code></dt>
+<dd>
+<p>Store a scalar value in an iop union. Example: <code>u = IOP_UNION(my_union,
+my_field, 42);</code>.</p>
+</dd>
+<dt class="hdlist1"><code>IOP_UNION_CST(type, field, val)</code></dt>
+<dd>
+<p>Store a scalar value in an iop union initializer.</p>
+</dd>
+<dt class="hdlist1"><code>IOP_UNION_VA(type, field, &#8230;&#8203;)</code></dt>
+<dd>
+<p>Store a complex value (like a structure) in an iop union. Example: <code>u
+= IOP_UNION_VA(my_union, my_field, .foo = 10, .bar = 42);</code></p>
+</dd>
+<dt class="hdlist1"><code>IOP_UNION_VA_CST(type, field, &#8230;&#8203;)</code></dt>
+<dd>
+<p>Store a complex value (like a structure) in an iop union initializer.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>NEVER EVER USE A <code>continue</code> OR A <code>break</code> STATEMENT INSIDE OF AN
+IOP_UNION_SWITCH.</p>
+</div>
+<div class="sect3">
+<h4 id="_restrictions"><a class="anchor" href="#_restrictions"></a>Restrictions</h4>
+<div class="paragraph">
+<p>For several technical reasons, optional and repeated fields are forbidden in
+unions. You can&#8217;t set a default value either, it would be a nonsense.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_default_values"><a class="anchor" href="#_default_values"></a>Default values</h4>
+<div class="paragraph">
+<p>When a field is equal to its default value, there is no need to pack it. It
+uses bandwidth for nothing and the unpacker will do the right thing when the
+field is absent (i.e. set the default value).</p>
+</div>
+<div class="paragraph">
+<p>Be careful that we do a very simple comparison of values equality to be
+efficient. This is especially true for <code>string</code>, <code>bytes</code> and <code>xml</code> types. We
+consider a string equal to its default value only when its data pointer is the
+same as the default value one (set by iop_init) and if their lengths are
+equal. The string content is not compared with the default value one.</p>
+</div>
+<div class="paragraph">
+<p>We handle another special case. If a <code>string</code>/<code>bytes</code>/<code>xml</code> is equal to
+LSTR_NULL_V then we considerer this as the default value. So a p_clear on a
+string member will do the thing that most users expect.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+there is no constraint checking on default values, so it is important
+that the default values respect the constraints.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_php_frontend"><a class="anchor" href="#_iop_php_frontend"></a>IOP PHP Frontend</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_using_the_union"><a class="anchor" href="#_using_the_union"></a>Using the union</h3>
+<div class="paragraph">
+<p>Syntax to use union types in php:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>array("fieldname", value);</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_xml_frontend"><a class="anchor" href="#_iop_xml_frontend"></a>IOP XML Frontend</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The XML frontend allows you to pack an IOP C structure into XML and to unpack
+an IOP XML content into an IOP C structure. You dipose of four functions:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>iop_xpack</code></dt>
+<dd>
+<p>which packs an IOP C structure into XML;</p>
+</dd>
+<dt class="hdlist1"><code>iop_xunpack</code></dt>
+<dd>
+<p>which unpacks an IOP XML content into an IOP C structure;</p>
+</dd>
+<dt class="hdlist1"><code>iop_xwsdl</code></dt>
+<dd>
+<p>which generates the WSDL of an IOP module;</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The unpacking function takes a xml_reader_t as first argument (which needs to
+be initialized with xmlr_setup). And it assumes that the next node to be read
+in the xml tree is the first field of the structure you want to unpack. In
+addition this function consumes the closing node just after the last field of
+the structure to unpack.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_json_frontend"><a class="anchor" href="#_iop_json_frontend"></a>IOP JSON Frontend</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The IOP API provides several functions to pack/unpack to/from a json format
+from/to an IOP C structure. The packer generates a standard json format, but
+the unpacker accepts several extensions.</p>
+</div>
+<div class="paragraph">
+<p>For the official json format see this RFC: <a href="http://tools.ietf.org/html/rfc4627" class="bare">http://tools.ietf.org/html/rfc4627</a></p>
+</div>
+<div class="sect2">
+<h3 id="_json_grammar"><a class="anchor" href="#_json_grammar"></a>JSON Grammar</h3>
+<div class="listingblock">
+<div class="content">
+<pre>begin-array     = ws '[' ws
+begin-object    = ws '{' ws
+end-array       = ws ']' ws
+end-object      = ws '}' ws
+name-separator  = ws ( ':' | '=' ) ws
+value-separator = ws ( ',' | ';' ) ws
+
+ws = ( ' ' | '\t' | '\n' | '\r' )*</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_values"><a class="anchor" href="#_values"></a>Values</h3>
+<div class="listingblock">
+<div class="content">
+<pre>constants = 'false' | 'no' | 'null' | 'nil' | 'true' | 'yes'
+value     = array | constants | number | object | string</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_objects"><a class="anchor" href="#_objects"></a>Objects</h3>
+<div class="listingblock">
+<div class="content">
+<pre>object = begin-object [ member ( value-separator member )* ] end-object
+
+member = string name-separator value</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_arrays"><a class="anchor" href="#_arrays"></a>Arrays</h3>
+<div class="listingblock">
+<div class="content">
+<pre>array = begin-array [ value ( value-separator value )* ] end-array</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_numbers"><a class="anchor" href="#_numbers"></a>Numbers</h3>
+<div class="listingblock">
+<div class="content">
+<pre>number = [ minus ] int [ frac ] [ exp ] [ extension ]
+
+decimal-point = '.'
+digit1-9      = '1' - '9'
+e             = 'e' | 'E'
+exp           = e [ minus | plus ] DIGIT+
+frac          = decimal-point DIGIT+
+
+int   = zero | ( digit1-9 DIGIT* )
+minus = '-'
+plus  = '+'
+zero  = '0'
+
+extension = (
+    w           ; number is a week number
+  | d           ; number is a day number
+  | h           ; number is in hours
+  | m           ; number is in minutes
+  | s           ; number is in seconds
+  | T           ; number is in terabytes
+  | G           ; number is in gigabytes
+  | M           ; number is in megabytes
+  | K           ; number is in kilobytes
+)</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_strings"><a class="anchor" href="#_strings"></a>Strings</h3>
+<div class="listingblock">
+<div class="content">
+<pre>string = quotation-mark char* quotation-mark
+
+char =
+    unescaped
+  | '\' (
+        '"' | '\' | '/' | 'b' | 'f' | 'n' | 'r' | 't'
+      | 'u' 4HEXDIG
+    )
+quotation-mark = '"' | '''
+unescaped      = %x20-21 / %x23-5B / %x5D-10FFFF</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_comments"><a class="anchor" href="#_comments"></a>Comments</h3>
+<div class="paragraph">
+<p>We allow comments in our json format.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>comment = ( '#' | '//' ) .* '\n' | '/*' ( . | '\n' )* '*/'</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_union_syntax"><a class="anchor" href="#_union_syntax"></a>union syntax</h3>
+<div class="paragraph">
+<p>to handle the union type we provide two syntaxes, one compatible with the json
+RFC and another one using our extended syntax.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">with the RFC compliant syntax</dt>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-javascript hljs" data-lang="javascript">/* Outside of a structure */
+{ "selected_field": value }
+
+/* Inside of a structure */
+{
+    "..."    : ...,
+    "umember": { "selected_field": value },
+    "..."    : ...
+}
+
+/* Inside of an array */
+{
+    "..."    : ...,
+    "umember": [
+                 { "selected_field"  : value  },
+                 { "selected_field_2": value2 },
+                 ...
+               ],
+    "..."    : ...
+}</code></pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">with the extended syntax</dt>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-javascript hljs" data-lang="javascript">/* Outside of a structure */
+{ selected_field: value }
+
+/* Inside of a structure */
+{
+    ...                   : ...;
+    umember.selected_field: value;
+    ...                   : ...;
+}
+
+/* Inside of an array */
+{
+    ...    : ...;
+    umember: [
+               .selected_field  : value,
+               .selected_field_2: value2,
+               ...,
+             ];
+    ...    : ...;
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Notice that outside of a structure, even with the extended syntax, you are
+forced to use the <code>{ sfield: value }</code> syntax.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_prefixed_syntax"><a class="anchor" href="#_prefixed_syntax"></a>Prefixed syntax</h3>
+<div class="paragraph">
+<p>You can use a prefixed syntax to pretty set an index member or whatever you
+want as long as your member has a scalar type (number or string).</p>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-javascript hljs" data-lang="javascript">@name "user1" {
+    phone: ...;
+    ...
+}
+
+@name "user2" {
+    phone: ...;
+    ...
+}
+...</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_appendix"><a class="anchor" href="#_appendix"></a>Appendix</h3>
+<div class="paragraph">
+<p>See the json RFC for more details: <a href="http://www.ietf.org/rfc/rfc4627.txt" class="bare">http://www.ietf.org/rfc/rfc4627.txt</a></p>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

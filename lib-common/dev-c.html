@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>C Language in the lib-common :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../_/css/site.css">
+    <link rel="icon" href="../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Coding rules</li>
+    <li class="crumb"><a href="dev-c.html">C Language for the lib-common</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>C Language in the lib-common</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_language_and_compiler">Language and compiler</a></li>
+<li><a href="#_coding_rules">Coding Rules</a></li>
+<li><a href="#_gnu_extensions">GNU extensions</a></li>
+<li><a href="#_other_constructions">Other constructions</a>
+<ul class="sectlevel2">
+<li><a href="#_overloading_a_macro">Overloading a macro</a></li>
+<li><a href="#_overloading_a_function">Overloading a function</a></li>
+</ul>
+</li>
+<li><a href="#_blocks"><code>Blocks</code></a>
+<ul class="sectlevel2">
+<li><a href="#_when_to_use_blocks">When to use blocks</a></li>
+<li><a href="#_let_us_have_some_examples">Let us have some examples</a></li>
+</ul>
+</li>
+<li><a href="#_bibliography">Bibliography</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This page describes some specificities of the C language we use in the
+lib-common and gives pointers to useful resources.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_language_and_compiler"><a class="anchor" href="#_language_and_compiler"></a>Language and compiler</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Our code is mostly C99 with <code>GNU</code> extensions and the <code>blocks</code> extension from
+Apple. We target <code>Linux</code> and most precisely the distribution installed on the
+servers of our customers: Red Hat Entreprise Linux (mostly RHEL 7). As a
+consequence, we do support compilation with the compiler shipped (and
+supported) by Red Hat:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>gcc 4.4 on RHEL 6</p>
+</li>
+<li>
+<p>gcc 4.8 on RHEL 7</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Because <code>clang</code> provides a better front-end with better error reporting than
+<code>gcc</code>, we do parse our code with <code>clang</code> and compile it with <code>gcc</code> (the <code>clang</code>
+parsing can be disabled using the <code>NOCHECK=1</code> parameter of our build system).
+As a consequence, our code compiles with <code>clang</code> even if we don&#8217;t distribute
+the generated code (and you can chose, to use clang as your primary compiler on
+your workstation). This enables the ability to use clang static code analyzer
+on your code base.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_coding_rules"><a class="anchor" href="#_coding_rules"></a>Coding Rules</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><a href="coding-rules-c.html" class="page">Our coding rules</a> bring some constraints on the form
+of the C we write. This includes code formatting, naming conventions,
+exploitability conventions&#8230;&#8203;</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_gnu_extensions"><a class="anchor" href="#_gnu_extensions"></a>GNU extensions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>We compile with <code>gcc</code> GNU extensions:
+<a href="http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/C-Extensions.html#C-Extensions" class="bare">http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/C-Extensions.html#C-Extensions</a> of
+the C language activated. This offers a lot of syntactic sugar and provide
+tools to write safe macros. We also make an extensive use of <code>gcc</code> builtins and
+attributes although we usually wrap them in macros in the <code>lib-common</code> in order
+to provide compatibility with older version of the compiler when the builtin
+has been introduced quite recently.</p>
+</div>
+<div class="paragraph">
+<p>The most used extensions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>typeof</code>: <a href="http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Typeof.html#Typeof" class="bare">http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Typeof.html#Typeof</a>
+evaluate as the type of an expression. This can be used either to write
+generic macros or to refer to anonymous types:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* Get a reference to an anonymous structure */
+struct {
+   int a;
+   int b;
+} foo;
+typeof(foo) *bar = &amp;foo;</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>statement expressions:
+<a href="http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Statement-Exprs.html#Statement-Exprs" class="bare">http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Statement-Exprs.html#Statement-Exprs</a>
+this is a block (and thus a statement) that has a value (and thus is an
+expression). Its value is the value of its last expression. This provides a
+way to write multiple-evaluation free macros: since we have a local scope we
+can store the result of the expansion of the parameter of the macro in
+temporaries:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* This example demonstrate the use of both typeof() and statement expressions
+ * in a real-world macro. typeof() let us declare a variable __res of the
+ * correct type to store the result of the expansion of e. As e needs to be
+ * evaluated twice, it is mandatory to store it in a temporary variable.
+ * Finally the macro has a return value, it evaluates to the result of the last
+ * expression of the statement expression (i.e __res).
+ */
+
+#define RETHROW_P(e)        \
+    ({ typeof(e) __res = (e);                          \
+       if (unlikely(__res == NULL)) {                  \
+           return NULL;                                \
+       }                                               \
+       __res;                                          \
+    })</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>ternary operator with omitted operand <code>?:</code>:
+<a href="http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Conditionals.html#Conditionals" class="bare">http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Conditionals.html#Conditionals</a>
+this allow writing simpler code when a when have conditions in the form <code>if
+expression then expression else other_value</code>.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* Traditionally */
+int a = do_something();
+return a ? a : -1;
+
+/* With the extended ?: */
+return do_something() ?: -1;</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>empty variadic macros:
+<a href="http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Variadic-Macros.html#Variadic-Macros" class="bare">http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Variadic-Macros.html#Variadic-Macros</a>
+accept the <code>##<em>VA_ARGS</em></code> to consume the leading comma in the result of the
+expansion if <code><em>VA_ARGS</em></code> is empty.</p>
+</li>
+<li>
+<p>unnamed fields:
+<a href="http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Unnamed-Fields.html#Unnamed-Fields" class="bare">http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Unnamed-Fields.html#Unnamed-Fields</a>
+this allows omitting the name variable name of an anonymous
+sub-{structure|union} in a {union|structure} making access to that field must
+easier. As a consequence we loose the ability to access the anonymous entry
+(note that this has been standardized in C11).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_other_constructions"><a class="anchor" href="#_other_constructions"></a>Other constructions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>We also use some constructions that may be tricky or rarely used.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>format-string extensions:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>as explained in our documentation about the lib-common, the <code>%p</code> operator is
+overloaded by our implementation of <code>printf</code> and gives birth to some
+constructions such a <code>%*pM</code> that "put memory" and provide an efficient
+alternative to <code>%.*s</code></p>
+</li>
+<li>
+<p>we use the <code>j</code> format parameter to print 64bits integer variables. This
+avoids using bloated C99 standard macros such as <code>PRIu64</code> or <code>PRIx64</code></p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>uint64_t v = 0xCAFEBABEDEADBEEF
+
+/* C99 standard */
+printf("%"PRIx64", v);
+
+/* Intersec's version */
+printf("%jx", v);</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>macro and function overloading: we use (quite intensively) the fact that the
+preprocessor knows if the macro has arguments or not to allow overloading
+function with macros (and vice-versa).</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_overloading_a_macro"><a class="anchor" href="#_overloading_a_macro"></a>Overloading a macro</h3>
+<div class="paragraph">
+<p>An example is the <code>p_delete</code> function that overloads the <code>p_delete</code> macro. This
+works because the macro <code>p_delete</code> is defined as <code>p_delete(&#8230;&#8203;)</code>, thus the
+preprocessor will only catch apply that macro when it finds <code>p_delete</code> followed
+by an opening parentheses. Thus, <code>(p_delete)</code> cannot be replaced by the macro
+and since it&#8217;s the same as <code>p_delete</code>, it can be used as a function name.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* We define the type-safe macro
+ */
+#define p_delete(pp) \
+    ({                                    \
+        typeof(**(pp)) **__ptr = (pp);    \
+        ifree(*__ptr, MEM_LIBC);          \
+        *__ptr = NULL;                    \
+    })
+
+/* We also define a function that will simply
+ * call the macro.
+ */
+static inline void (p_delete)(void **p)
+{
+    p_delete(p);
+}
+
+/* I need to provide a deletion callback?
+ * Then, I need to provide a function, since the
+ * "p_delete" token is not followed by an opening
+ * parentheses, it is not expanded by the preprocessor
+ * and thus it is the function.
+ */
+set_deletion_callback(ctx, p_delete);
+ctx-&gt;deletion_cb = p_delete;
+
+/* I need to perform deletion on a pointer. Then, I use
+ * the straightforward syntax, and it uses the macro.
+ */
+p_delete(&amp;ptr);</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_overloading_a_function"><a class="anchor" href="#_overloading_a_function"></a>Overloading a function</h3>
+<div class="paragraph">
+<p>A second example is a function that takes some flags but in most cases should
+be called with the flags set to 0. This is a perfect use cases of the argument
+default value that can be found in most modern language (the prototype of the
+function contains a value to be passed for a parameter when that parameter is
+omitted in the call). C does not support default values (C++ does), but we can
+somehow emulate this feature using macro overloading.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* The macro does not exists yet, so no need to "espace" the
+ * name of the function using the (my_function) syntax.
+ */
+int my_function(ctx, flags);
+
+/* Then define the macro, it must call the function thus ensure
+ * we properly escaped the name in the call.
+ */
+#define my_function(ctx)  (my_function)(ctx, 0)
+
+/* Then when I call the function with the default argument value:
+ */
+int ret = RETHROW(my_function(ctx));
+
+/* With non-default argument value:
+ */
+int ret = RETHROW((my_function)(ctx, FLAG_NODEF));</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_blocks"><a class="anchor" href="#_blocks"></a><code>Blocks</code></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>We use the <code>blocks</code> extension introduced by Apple with <code>clang</code> in <code>Snow
+Leopard</code> (MacOS X 10.6) in 2009. <code>blocks</code> provide a way to create closures
+within a straight-C program. For detailed information, you can read the
+documentation from Apple at
+<a href="http://developer.apple.com/library/mac/#documentation/Cocoa/Conceptual/Blocks/Articles/00_Introduction.html" class="bare">http://developer.apple.com/library/mac/#documentation/Cocoa/Conceptual/Blocks/Articles/00_Introduction.html</a>.</p>
+</div>
+<div class="paragraph">
+<p>Since we do generate machine code with <code>gcc</code> and <code>gcc</code> does not support
+<code>blocks</code>, our build system compiles blocks in two passes:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>first, we use a <em>hacked</em> version of <code>clang</code> to rewrite blocks in C (the
+hacked version only has an extra compiler pass that is only activated when
+the <code>--rewrite-blocks</code> option is passed to the compiler, thus apart from the
+extra option, our <code>clang</code> is an upstream version and it can be used for
+general purpose).</p>
+</li>
+<li>
+<p>second we compile the generated file with <code>gcc</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>In order to work with blocks in our environment you must follow these
+constraints:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>code with blocks must be put in <code>.blk</code> files (<code>.blkk</code> for C++)</p>
+</li>
+<li>
+<p>block rewriting does not work when some rewritten part are in macros or
+generated using macros (this sometimes force us to use the <code>_Bool</code> standard
+type instead of <code>bool</code> when dealing with blocks).</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_when_to_use_blocks"><a class="anchor" href="#_when_to_use_blocks"></a>When to use blocks</h3>
+<div class="paragraph">
+<p>Blocks could basically be used whenever you want to use a callback (that does
+not mean it should be used that way). In practice our most frequent use cases
+are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>parallelism</p>
+</li>
+<li>
+<p>callbacks when:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>we depend on a lot of parameters from the initial caller environment (i.e.
+we have to capture several variable in a context)</p>
+</li>
+<li>
+<p>when the action is different everytime we call the function that takes the
+callback</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>generic function: instead of adding several parameters to a function that
+should have some subtle behavior differences depending on the context it is
+called from, we can sometimes use a block that implements the specific parts</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_let_us_have_some_examples"><a class="anchor" href="#_let_us_have_some_examples"></a>Let us have some examples</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>In this first example, we have a callback that highly depends on the caller
+of <code>script_execute</code>. Thus using a block instead of a pair (callback, context)
+has several advantages:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>we do not have to define a function per call site</p>
+</li>
+<li>
+<p>we do not have to create a context type</p>
+</li>
+<li>
+<p>we have strong typing (no cast to <code>void *</code>, thus we are sure we are working
+with the correct data (we cannot call the wrong callback with the wrong context
+type)</p>
+</li>
+<li>
+<p>concision</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Without blocks</th>
+<th class="tableblock halign-left valign-top">With blocks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct stupid_local_type {
+    bool has_caught;
+    sb_t buf;
+};
+
+static void catcher_for_some_function(const script_exception_t *exn,
+                                      bool compilation, void *priv)
+{
+    struct stupid_local_type *d = priv;
+
+    d-&gt;has_caught = true;
+    script_exception_to_string(exn, &amp;d-&gt;buf, true);
+}
+
+static void some_function(const char *code)
+{
+    struct stupid_local_type d = {
+        .has_caught = false,
+    };
+
+    sb_inita(&amp;d.buf, 1024);
+    script_execute(code, "anonymous", NULL, 0, NULL,
+                   catcher_for_some_function, &amp;d);
+
+    if (d.has_caught) {
+        e_error("Failed to run script: %*pM", buf.len, buf.data);
+        sb_wipe(&amp;d.buf);
+    }
+}</code></pre>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">static void some_function(const char *code)
+{
+    bool __block has_caught = false;
+    sb_t __block buf;
+
+    sb_inita(&amp;buf, 1024);
+    script_execute(code, "anonymous", NULL, 0, NULL,
+                   ^(const script_exception_t *exn, bool compilation) {
+                       has_caught = true;
+                       script_exception_to_string(exn, &amp;buf, true);
+    });
+
+    if (has_caught) {
+        e_error("Failed to run script: %*pM", buf.len, buf.data);
+        sb_wipe(&amp;buf);
+    }
+}</code></pre>
+</div>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<div class="ulist">
+<ul>
+<li>
+<p>This second example is about parallelism. It shows how <code>blocks</code> help writing
+easy-to-read paralleled code:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>parallel code with blocks is nearly the same as sequential code, it only
+adds a few synchronization primitives and exports the actual code in a block.
+As a consequence, it is nearly as simple to understand than the sequential code</p>
+</li>
+<li>
+<p><code>blocks</code> avoids a lot of administrative code: no need to create a function,
+create a job type, cast to and from the job type and manually
+allocate/deallocate the context.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Without parallelism</th>
+<th class="tableblock halign-left valign-top">Parallelism without blocks</th>
+<th class="tableblock halign-left valign-top">Parallelism with blocks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void apply_to_all_map(qv_t(map) *maps)
+{
+    qv_for_each_pos(map, pos, maps) {
+        map_t *map = maps-&gt;tab[pos];
+
+        do_something1(map);
+        do_something2(map);
+    }
+}</code></pre>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct apply_to_map_ctx_t {
+    thr_job_t job;
+    mapt_t *map;
+};
+
+static void apply_to_map_job(thr_job_t *job)
+{
+    struct apply_to_map_ctx_t *ctx
+        = container_of(job, struct apply_to_map_ctx_t, job);
+
+    do_something1(ctx-&gt;map);
+    do_something2(ctx-&gt;map);
+    p_delete(&amp;job);
+}
+
+void apply_to_all_map(qv_t(map) *maps)
+{
+    thr_syn_t syn;
+
+    thr_syn_init(&amp;syn);
+    qv_for_each_pos(map, pos, maps) {
+        struct apply_to_map_ctx_t *ctx
+            = p_new(struct apply_to_map_ctx_t, 1);
+
+        ctx-&gt;job.run = &amp;apply_to_map_job;
+        ctx-&gt;map = maps-&gt;tab[pos];
+        thr_syn_schedule(&amp;syn, &amp;ctx-&gt;job);
+    }
+    thr_syn_wait(&amp;syn);
+    thr_syn_wipe(&amp;syn);
+}</code></pre>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void apply_to_all_map(qv_t(map) *maps)
+{
+    thr_syn_t syn;
+
+    thr_syn_init(&amp;syn);
+    qv_for_each_pos(map, pos, maps) {
+        map_t *map = maps-&gt;tab[pos];
+
+        thr_syn_schedule_b(&amp;syn, ^{
+            do_something1(map);
+            do_something2(map);
+        });
+    }
+    thr_syn_wait(&amp;syn);
+    thr_syn_wipe(&amp;syn);
+}</code></pre>
+</div>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_bibliography"><a class="anchor" href="#_bibliography"></a>Bibliography</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>These are some articles every C programmer should have read at least once:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>"What every C programmer should know about undefined behavior":</p>
+<div class="ulist">
+<ul>
+<li>
+<p>part 1: <a href="http://blog.llvm.org/2011/05/what-every-c-programmer-should-know.html" class="bare">http://blog.llvm.org/2011/05/what-every-c-programmer-should-know.html</a>,</p>
+</li>
+<li>
+<p>part 2: <a href="http://blog.llvm.org/2011/05/what-every-c-programmer-should-know_14.html" class="bare">http://blog.llvm.org/2011/05/what-every-c-programmer-should-know_14.html</a></p>
+</li>
+<li>
+<p>part 3: <a href="http://blog.llvm.org/2011/05/what-every-c-programmer-should-know_21.html" class="bare">http://blog.llvm.org/2011/05/what-every-c-programmer-should-know_21.html</a>.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>"Deep C": <a href="http://www.slideshare.net/olvemaudal/deep-c" class="bare">http://www.slideshare.net/olvemaudal/deep-c</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../_/js/site.js"></script>
+<script async src="../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Using the lib-common as a submodule :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../_/css/site.css">
+    <link rel="icon" href="../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Use the lib-common</li>
+    <li class="crumb"><a href="use-as-submodule.html">Integrate the lib-common as a submodule</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Using the lib-common as a submodule</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_add_the_lib_common_as_a_submodule">Add the lib-common as a submodule</a></li>
+<li><a href="#_create_a_base_build_system">Create a base build system</a></li>
+<li><a href="#_create_a_first_hello_world_program">Create a first hello world program</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This page describes how to integrate the lib-common in a project using a
+<a href="https://git-scm.com/docs/gitsubmodules">submodule</a>. This document currently
+covers only new projects using waf as a build system. Integrating the
+lib-common using an other build system and/or in an existing project is also
+possible but this scenario is not covered here.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_add_the_lib_common_as_a_submodule"><a class="anchor" href="#_add_the_lib_common_as_a_submodule"></a>Add the lib-common as a submodule</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can then add a submodule using the <code>git submodule</code> command, for example:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>$ git submodule add --name lib-common git@github.com:Intersec/lib-common</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This creates a new folder in your repository containing the latest patch in the
+master branch of your lib-common repository. It is then recommended to follow
+the instructions to sucessfully build the lib-common.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+If you plan on submitting pull requests or doing any contributions in the
+lib-common, feel free to fork it first in your own repository.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_create_a_base_build_system"><a class="anchor" href="#_create_a_base_build_system"></a>Create a base build system</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To include the waf-related build tools from lib-common, create a symlink of
+waftoolsdir from the lib-common to your project root directory:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>$ ln -s lib-common/waftoolsdir</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Then create a <code>wscript</code> file that will import the lib-common <code>waf</code> utilities:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">import os
+import waflib
+
+out = '.build-waf-%s' % os.environ.get('P', 'default') <i class="conum" data-value="1"></i><b>(1)</b>
+
+def options(ctx):
+    ctx.recurse('lib-common')
+
+def configure(ctx):
+    ctx.recurse('lib-common')
+
+def build(ctx):
+    ctx.recurse('lib-common') <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Set a separate build directory per compilation profile.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>At first, simply reuse the <code>waf</code> tools provided by the lib-common</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>You can test that <code>waf configure</code> and <code>waf build</code> work as expected:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>$ waf configure build</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This should display compilation outputs and display a last line similar to:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>'build' finished successfully (1m21.628s)</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_create_a_first_hello_world_program"><a class="anchor" href="#_create_a_first_hello_world_program"></a>Create a first hello world program</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Create a new file hello-world.c in your project root directory:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;lib-common/core.h&gt;
+
+int main(int argc, char **argv)
+{
+    e_info("Hello world!");
+    return 0;
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Add a new target in your wscript by replacing the build function with:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">def build(ctx):
+    ctx.recurse('lib-common')
+    ctx.program(target='hello-world', source='hello-world.c',
+                use=['libcommon'])</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can now build your new program:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ waf --target hello-world
+Waf: Entering directory `/home/XXX/YYY/.build-waf-default'
+Waf: Selected profile: default
+[  8/330] Creating .build-waf-default/lib-common/core-version.c
+[328/330] Checking hello-world.c
+[329/330] Compiling hello-world.c
+[330/330] Linking hello-world
+Waf: Leaving directory `/home/XXX/YYY/.build-waf-default'
+'build' finished successfully (0.470s)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can now verify your hello world program!</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ ./hello-world
+hello-world[13842]: Hello world!</pre>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../_/js/site.js"></script>
+<script async src="../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

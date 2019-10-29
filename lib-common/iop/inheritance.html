@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>IOP inheritance :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">IOP</li>
+    <li class="crumb"><a href="inheritance.html">Class inheritance</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>IOP inheritance</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_introduction">Introduction</a></li>
+<li><a href="#_declaration_in_iop_files">Declaration in IOP files</a>
+<ul class="sectlevel2">
+<li><a href="#_syntax_and_vocabulary">Syntax and vocabulary</a></li>
+<li><a href="#_example">Example</a></li>
+<li><a href="#_dealing_with_backward_compatibility">Dealing with backward compatibility</a></li>
+</ul>
+</li>
+<li><a href="#_inheritance_in_c">Inheritance in C</a>
+<ul class="sectlevel2">
+<li><a href="#_generated_c_objects">Generated C objects</a></li>
+<li><a href="#_initialization_of_a_class_object">Initialization of a class object</a></li>
+<li><a href="#_initialization_of_a_class_container">Initialization of a class container</a></li>
+<li><a href="#_accessing_the_static_fields">Accessing the static fields</a></li>
+<li><a href="#_casts">Casts</a></li>
+<li><a href="#_switch_on_type">Switch on type</a></li>
+<li><a href="#_binary_packingunpacking">Binary packing/unpacking</a></li>
+</ul>
+</li>
+<li><a href="#_inheritance_in_json">Inheritance in Json</a>
+<ul class="sectlevel2">
+<li><a href="#_json_representation">Json representation</a></li>
+<li><a href="#_json_packingunpacking">Json packing/unpacking</a></li>
+</ul>
+</li>
+<li><a href="#_inheritance_in_xml">Inheritance in XML</a>
+<ul class="sectlevel2">
+<li><a href="#_xml_representation">XML representation</a></li>
+<li><a href="#_xml_packingunpacking">XML packing/unpacking</a></li>
+<li><a href="#_wsdl_generation">WSDL generation</a></li>
+</ul>
+</li>
+<li><a href="#_inheritance_in_php">Inheritance in PHP</a></li>
+<li><a href="#_inheritance_in_python">Inheritance in Python</a>
+<ul class="sectlevel2">
+<li><a href="#_python_representation">Python representation</a></li>
+<li><a href="#_rpc_call">RPC call</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="sect1">
+<h2 id="_introduction"><a class="anchor" href="#_introduction"></a>Introduction</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Inheritance is supported since <em>iopc</em> v3, and lib-common 2013.2.</p>
+</div>
+<div class="paragraph">
+<p>The idea is to be able to declare classes, which are a kind of structure in
+which fields are inherited.  A class can have a parent (in that case it
+inherits of the fields of his parent, and of all his ancestors), or be a
+<em>master class</em> (ie. without parent).  A class can also have static fields,
+which are class constants.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_declaration_in_iop_files"><a class="anchor" href="#_declaration_in_iop_files"></a>Declaration in IOP files</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_syntax_and_vocabulary"><a class="anchor" href="#_syntax_and_vocabulary"></a>Syntax and vocabulary</h3>
+<div class="paragraph">
+<p>To declare a class in an IOP file, the syntax is the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">[abstract][local] class MyClass [: classId [: parentClass]] {
+    static int staticInt [= 2];
+1:  string name;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Here is a description of all the elements:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the <code>class</code> keyword is used to declare a class,</p>
+</li>
+<li>
+<p>the <code>abstract</code> keyword can be used to declare a class that cannot be
+instantiated: init, packing and unpacking are (more or less violently)
+forbidden,</p>
+</li>
+<li>
+<p>the <code>local</code> keyword can also be used to declare a class from what it is
+impossible to inherit without being in the same package than it,</p>
+</li>
+<li>
+<p>the <code>classId</code> (0 by default) is a numerical identifier which <strong>MUST</strong> be unique
+in a whole inheritance tree. This is partially checked by <em>iopc</em> at compile
+time, but cannot be fully checked in case of multi-packages inheritance. In
+any case, collisions on class ids will be detected at runtime,</p>
+</li>
+<li>
+<p>the <code>parentClass</code> is the name&#8230;&#8203; of the parent class. Multiple inheritance is
+not supported; in other words, a class can have 0 or 1 parent, but not more,</p>
+</li>
+<li>
+<p>the <code>static</code> keyword is used to declare class constant fields. Here are the
+things to know about static fields:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>it must not have an explicit tag, since it is never packed in binary,</p>
+</li>
+<li>
+<p>it must have a default value for non-abstract classes (which will be the
+value for all the instances of this class),</p>
+</li>
+<li>
+<p>a class can redefine a static field of one of its ancestors, but obviously
+it must have the same type,</p>
+</li>
+<li>
+<p>for abstract classes, the default value can be omitted. This means that all
+the direct non-abstract children MUST define this static field.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>fields are declared exactly as in structures, but a field cannot have the
+same name as a field of an ancestor.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Such a class can be reused as a field in another class, a structure or a union.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_example"><a class="anchor" href="#_example"></a>Example</h3>
+<div class="paragraph">
+<p>A quite exhaustive example can be found in
+<em>lib-common/iop/tstiop_inheritance.iop</em>, but here is a more simple example that
+will be reused later in this documentation:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package test;
+
+class A1 {
+    static string name = "a1";
+    int a = 10;
+};
+
+class B1 : 1 : A1 {
+    string b;
+};
+
+class B2 : 2 : A1 {
+    static string name = "b2";
+    bool b;
+};
+
+struct ClassContainer {
+    A1   classContainerA1;
+    B1?  classContainerB1;
+    B2[] classContainerB2;
+};</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_dealing_with_backward_compatibility"><a class="anchor" href="#_dealing_with_backward_compatibility"></a>Dealing with backward compatibility</h3>
+<div class="paragraph">
+<p>Inside a class definition, the rules to guarantee backward compatibility are
+the sames as <a href="base.html#backward-compat" class="page">explained for the structures</a>.</p>
+</div>
+<div class="paragraph">
+<p>For class, changing the class id obviously breaks the backward compatibility.</p>
+</div>
+<div class="paragraph">
+<p>Removing a class from an inheritance tree is also a backward-incompatible
+change, but adding a class not having any mandatory fields is. For example, the
+following change in our previous example is OK:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package test;
+
+class A1 {
+    static string name = "a1";
+    int a = 10;
+};
+
+class A11 : 3 : A1 {
+    static string name = "a11";
+    int a11 = 11;
+};
+
+class B1 : 1 : A11 {
+    string b;
+};
+
+class B2 : 2 : A11 {
+    static string name = "b2";
+    bool b;
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_inheritance_in_c"><a class="anchor" href="#_inheritance_in_c"></a>Inheritance in C</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_generated_c_objects"><a class="anchor" href="#_generated_c_objects"></a>Generated C objects</h3>
+<div class="paragraph">
+<p>The IOP example file just above would be translated this way in C:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef struct test__a1__t {
+    const iop_struct_t *__vptr;
+    int32_t  a;
+} test__a1__t;
+extern iop_struct_t const test__a1__s;
+IOP_CLASS(test__a1);
+
+typedef struct test__b1__t {
+    struct {
+        const iop_struct_t *__vptr;
+        /* fields of test__a1__t */
+        int32_t  a;
+    };
+    lstr_t   b;
+} test__b1__t;
+extern iop_struct_t const test__b1__s;
+IOP_CLASS(test__b1);
+
+typedef struct test__b2__t {
+    struct {
+        const iop_struct_t *__vptr;
+        /* fields of test__a1__t */
+        int32_t  a;
+    };
+    bool     b;
+} test__b2__t;
+extern iop_struct_t const test__b2__s;
+IOP_CLASS(test__b2);
+
+typedef struct test__class_container__t {
+    struct test__a1__t *class_container_a1;
+    struct test__b1__t *class_container_b1;
+    IOP_ARRAY_OF(struct test__b2__t *) class_container_b2;
+} test__class_container__t;
+extern iop_struct_t const test__class_container__s;
+IOP_GENERIC(test__class_container);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>As you can see, classes are translated into structures, containing a pointer
+<code>__vptr</code> on the IOP structure description of the instantiated object (can be
+the class itself or one of its children). Most of time, this pointer should
+not be accessed directly, and in any case it should <strong>not</strong> be modified.</p>
+</div>
+<div class="paragraph">
+<p>Note that if a class has a parent, the fields of his parent (and all his
+ancestors) are wrapped at the beginning in an anonymous structure, so that they
+are directly accessible, and so that the types of a class and one of his
+ancestors are compatible.</p>
+</div>
+<div class="paragraph">
+<p>Also note that <code>IOP_CLASS</code> is used instead of <code>IOP_GENERIC</code> (which is used for
+a struct or a union). This generates the same helpers as IOP_GENERIC, but with
+a slightly different signature for some of them.</p>
+</div>
+<div class="paragraph">
+<p>And finally, one <strong>very important</strong> remark about class fields in class
+containers: such fields are always pointed, mandatory or not.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_initialization_of_a_class_object"><a class="anchor" href="#_initialization_of_a_class_object"></a>Initialization of a class object</h3>
+<div class="paragraph">
+<p>The initialization of a class object is done like it&#8217;s done for an IOP
+structure, using the <code>__init</code> helper:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">test__b2__t b2;
+
+test__b2__init(&amp;b2);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This inits the fields to their default value, <strong>AND</strong> sets the <code>__vptr</code> pointer
+to the correct value.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_initialization_of_a_class_container"><a class="anchor" href="#_initialization_of_a_class_container"></a>Initialization of a class container</h3>
+<div class="paragraph">
+<p>As seen above, class fields in class containers are always pointed in the C
+generated structure, and that&#8217;s why initialization of class containers must be
+done <strong>very carefully</strong>.</p>
+</div>
+<div class="paragraph">
+<p>To take the example of the <code>ClassContainer</code> structure defined just above,
+calling <code>test<em>class_container</em>init</code> will set the <code>class_container_a1</code> pointer
+to NULL, and trying to pack it just after would be invalid since <code>A1</code> is a
+mantatory field in <code>ClassContainer</code> (the consequence will be a crash).</p>
+</div>
+<div class="paragraph">
+<p>To get a fully valid <code>ClassContainer</code> instance, the <code>a1</code> pointer should be
+manually set to a valid <code>A1</code> class instance (or one of its children).</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_accessing_the_static_fields"><a class="anchor" href="#_accessing_the_static_fields"></a>Accessing the static fields</h3>
+<div class="paragraph">
+<p>Access to the static fields of a class can be done using the <code>iop_get_cvar</code>
+function (or the <code>iop_get_cvar_cst</code> helper).  Cf. the documentation in
+<code>lib-common/iop.h</code> for more details.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_casts"><a class="anchor" href="#_casts"></a>Casts</h3>
+<div class="paragraph">
+<p>As briefly explained above, C types are compatible between an instantiated
+class and his ancestors.  The lib-common is providing helpers to dynamically
+cast a class instance to a compatible type, and to check this compatibility:
+this is <code>iop_obj_vcast</code>/<code>iop_obj_ccast</code> and <code>iop_obj_is_a</code>.</p>
+</div>
+<div class="paragraph">
+<p>As an example, let&#8217;s suppose you just unpacked a binary stream containing an A1
+object (we&#8217;ll see how to do it later), and would like to do a special treatment
+if this object is actually a B2 object (or a child) AND if its <code>b</code> field is
+true. Here is how to do that:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">test__a1__t *a1;
+
+... unpack ...
+
+if (iop_obj_is_a(a1, test__b1)) {
+    const test__b2__t *b2 = iop_obj_ccast(test__b2, a1);
+
+    if (b2-&gt;b) {
+        ...
+    }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_switch_on_type"><a class="anchor" href="#_switch_on_type"></a>Switch on type</h3>
+<div class="paragraph">
+<p>The lib-common also provides helper to perform a switch/case-like matching for
+classes. Two flavors are provided: <code>IOP_CLASS_SWITCH()</code> will enter the case of
+the nearest parent of the provided instance and <code>IOP_CLASS_EXACT_SWITCH()</code> will
+only match the case of the exact type of the provided instance. The matching
+being done using a real switch/case construct, the native <code>case
+IOP_CLASS_ID(type)</code> construct can be used to match a specific type. The
+<code>default:</code> label can only be used with the <code>IOP_CLASS_EXACT_SWITCH()</code>.</p>
+</div>
+<div class="paragraph">
+<p>Some helper macros are provided to perform both the matching and the cast of
+the structure to the matched type. Those macros are <code>IOP_CLASS_CASE</code> and
+<code>IOP_CLASS_CASE_CONST</code>. Additionally, <code>IOP_CLASS_DEFAULT()</code> is provided to be
+used as a <code>default:</code> replacement in the <code>IOP_CLASS_SWITCH()</code>, its use is
+mandatory: every <code>IOP_CLASS_SWITCH()</code> must have a <code>IOP_CLASS_DEFAULT()</code> case. A
+<code>IOP_CLASS_EXACT_DEFAULT()</code> is also provided for the <code>IOP_CLASS_EXACT_SWITCH()</code>
+variant, however it is not mandatory.</p>
+</div>
+<div class="paragraph">
+<p>The <code>IOP_CLASS_SWITCH()</code> variant takes a name that must be repeated in the
+<code>IOP_CLASS_DEFAULT()</code>, this name is used to allow several imbricated
+<code>IOP_CLASS_SWITCH()</code>.</p>
+</div>
+<div class="paragraph">
+<p>The switch must only contains cases for classes of the same inheritance tree as
+the instance.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* Example of IOP_CLASS_SWITCH */
+IOP_CLASS_SWITCH(toto, my_instance) {
+  IOP_CLASS_CASE(test__b1, my_instance, b1) {
+    e_info("my_instance is a child of b1");
+  }
+  IOP_CLASS_CASE(test__b2, my_instance, b2) {
+    e_info("my_instance is a child of b2");
+  }
+  IOP_CLASS_DEFAULT(toto) {
+    e_info("my_instance is neither a child of b1, nor b2");
+  }
+}
+
+/* Example of IOP_CLASS_EXACT_SWITCH */
+IOP_CLASS_EXACT_SWITCH(my_instance) {
+  IOP_CLASS_CASE(test__b1, my_instance, b1) {
+    e_info("my_instance is an instance of b1");
+  }
+  IOP_CLASS_CASE(test__b2, my_instance, b2) {
+    e_info("my_instance is an instance of b2");
+  }
+  IOP_CLASS_EXACT_DEFAULT() {
+    e_info("my_instance is neither an instance of b1, nor b2");
+  }
+}
+
+IOP_CLASS_EXACT_SWITCH(my_instance) {
+  case IOP_CLASS_ID(test__b1):
+    e_info("my_instance is an instance of b1");
+    break;
+  case IOP_CLASS_ID(test__b2):
+    e_info("my_instance is an instance of b2");
+    break;
+  default:
+    e_info("my_instance is neither an instance of b1, nor b2");
+    break;
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_binary_packingunpacking"><a class="anchor" href="#_binary_packingunpacking"></a>Binary packing/unpacking</h3>
+<div class="paragraph">
+<p>First of all, the IOP packages containing classes definitions have to be
+registered <strong>before</strong> trying to pack or unpack any class. This will also make the
+class_id collision checks that were discusses above:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">IOP_REGISTER_PACKAGES(&amp;test__pkg);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Then, the binary packing/unpacking of a class object can be done with the
+<code><em>bpack</code>/<code></em>bunpack_ptr</code> helpers.</p>
+</div>
+<div class="paragraph">
+<p>When unpacking, a <strong>double-pointer</strong> on the destination object is given. It is
+allocated (or reallocated). Here is a simple example of unpacking:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">t_scope;
+test__a1__t *foo = NULL;
+lstr_t input = &lt;get packed data from somewhere&gt;;
+
+if (t_test__a1__bunpack_ptr(&amp;input, &amp;foo) &lt; 0) {
+    /* error handling */
+} else {
+    /* successful unpack */
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_inheritance_in_json"><a class="anchor" href="#_inheritance_in_json"></a>Inheritance in Json</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_json_representation"><a class="anchor" href="#_json_representation"></a>Json representation</h3>
+<div class="paragraph">
+<p>In json, a class looks like a structure with the extra field <em>"_class"</em>. This
+field contains the instanciated class fullname as a string.</p>
+</div>
+<div class="paragraph">
+<p>Here is an example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+    "_class": "test.B1",
+    "a": 20,
+    "b": "blah"
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Fields can be in any order, but unpacking will be more efficient if <em>"_class"</em>
+is the first one.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_json_packingunpacking"><a class="anchor" href="#_json_packingunpacking"></a>Json packing/unpacking</h3>
+<div class="paragraph">
+<p>Just as binary packing/unpacking, this is necessary to register the packages
+containing classes with <code>IOP_REGISTER_PACKAGES</code>.</p>
+</div>
+<div class="paragraph">
+<p>Then, the packing can be done as usual.  Unpacking have to be done using the
+<em>*_ptr</em> json helpers (usage is the same as for binary unpacking).</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_inheritance_in_xml"><a class="anchor" href="#_inheritance_in_xml"></a>Inheritance in XML</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_xml_representation"><a class="anchor" href="#_xml_representation"></a>XML representation</h3>
+<div class="paragraph">
+<p>In XML, a class looks like a structure, but the parent node contains the
+attribute <em>"xsi:type"</em> to specify the instanciated class type. The <em>"xsi"</em>
+schema must be imported in the root node.</p>
+</div>
+<div class="paragraph">
+<p>Here is an example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">&lt;root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="n:test.B1"&gt;
+  &lt;a&gt;20&lt;/a&gt;
+  &lt;b&gt;blah&lt;/b&gt;
+&lt;/root&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The order of the fields is important: the fields of the master class first,
+and then the fields of the children.</p>
+</div>
+<div class="paragraph">
+<p>The type can be omitted. In that case, the unpacker is considering that the
+instanciated class is of the expected type.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_xml_packingunpacking"><a class="anchor" href="#_xml_packingunpacking"></a>XML packing/unpacking</h3>
+<div class="paragraph">
+<p>Cf. binary/json packing/unpacking.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_wsdl_generation"><a class="anchor" href="#_wsdl_generation"></a>WSDL generation</h3>
+<div class="paragraph">
+<p>The only thing to know is that this necessary to register packages containing
+classes using <code>IOP_REGISTER_PACKAGES</code> before generating a WSDL of modules using
+these classes with <code>iop_xwsdl</code>.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_inheritance_in_php"><a class="anchor" href="#_inheritance_in_php"></a>Inheritance in PHP</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In PHP, a class object is represented like a structure with a special field
+<em>"_class"</em> containing the instanciated class fullname as a string (like in
+json).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_inheritance_in_python"><a class="anchor" href="#_inheritance_in_python"></a>Inheritance in Python</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_python_representation"><a class="anchor" href="#_python_representation"></a>Python representation</h3>
+<div class="paragraph">
+<p>In Python, a class instance can simply be created using the iopy <em>Struct</em>
+object, as for structures. For example, here is a valid declaration of an
+instance of <code>classContainer</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">cc = ClassContainer(
+        classContainerA1 = B2(a = 100, b = 0),
+        classContainerB1 = B1(a = 100, b = "blah"),
+        classContainerB2 = [
+            B2(a = 101, b = 1),
+            B2(a = 102, b = 0),
+        ]
+     )</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_rpc_call"><a class="anchor" href="#_rpc_call"></a>RPC call</h3>
+<div class="paragraph">
+<p>Let&#8217;s suppose we have a RPC taking a class <code>A1</code> as argument:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">  testClass2
+    in  A1
+    out void;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>There are two ways to call this RPC in Python:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>If the argument is of type <code>A1</code> (and not one of his child), then it can be
+called as if it was a structure, by explicitly filling its fields:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">testClass2(a = 5)</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>If the argument is a child of <code>A1</code>, then it must be given using the following
+explicit syntax:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">arg = B2(a = 100, b = 0)
+testClass2(arg)</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>or simply:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">testClass2(B2(a = 100, b = 0))</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Calling a RPC taking a class container as argument can be done as usual, just
+as if it was a simple structure.</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

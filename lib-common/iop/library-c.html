@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>IOP C library :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">IOP</li>
+    <li class="crumb"><a href="library-c.html">C library</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>IOP C library</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_introduction">Introduction</a></li>
+<li><a href="#_iop_compiler_iopc">IOP compiler <code>iopc</code></a>
+<ul class="sectlevel2">
+<li><a href="#_objects_mapping">Objects mapping</a>
+<ul class="sectlevel3">
+<li><a href="#_naming_convention">Naming convention</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#_iop_objects_in_c">IOP objects in C</a>
+<ul class="sectlevel2">
+<li><a href="#_enum"><code>enum</code></a></li>
+<li><a href="#_structures_struct">structures (<code>struct</code>)</a>
+<ul class="sectlevel3">
+<li><a href="#_scalar_types">Scalar types</a></li>
+<li><a href="#_string_binary_blobs_bytes_and_xml_types">String, binary blobs (<code>bytes</code>) and XML types</a></li>
+<li><a href="#_repeated_types_array">Repeated types (array)</a></li>
+<li><a href="#_structures_and_unions">Structures and unions</a></li>
+<li><a href="#_classes">Classes</a></li>
+</ul>
+</li>
+<li><a href="#_unions_union">unions (<code>union</code>)</a></li>
+</ul>
+</li>
+<li><a href="#_iop_c_binary_unpacker">IOP C binary (un)packer</a></li>
+<li><a href="#_iop_channels_ichannel">IOP channels (<code>IChannel</code>)</a>
+<ul class="sectlevel2">
+<li><a href="#_the_ichannel_t_object">The <code>ichannel_t</code> object</a></li>
+<li><a href="#_ichannel_implementation_mapping">IChannel implementation mapping</a></li>
+<li><a href="#_rpc_prepost_hook">RPC pre/post hook</a></li>
+<li><a href="#_library_initialization_and_shutdown">Library initialization and shutdown</a></li>
+<li><a href="#_client_ichannel">Client IChannel</a>
+<ul class="sectlevel3">
+<li><a href="#_setup_and_connect_a_client_ichannel">Setup and connect a client IChannel</a></li>
+<li><a href="#_sending_queries">Sending queries</a></li>
+</ul>
+</li>
+<li><a href="#_server_ichannel">Server IChannel</a>
+<ul class="sectlevel3">
+<li><a href="#_setup_and_connect_a_server_ichannel">Setup and connect a server IChannel</a></li>
+</ul>
+</li>
+<li><a href="#_local_ichannel">Local IChannel</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="sect1">
+<h2 id="_introduction"><a class="anchor" href="#_introduction"></a>Introduction</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This section describes the implementation of the C IOP library. To deal with
+the IOP objects in C we rely on the <code>iopc</code> compiler. The <code>iopc</code> compiler
+generates C source files for IOP packages that can be used in your C code.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_compiler_iopc"><a class="anchor" href="#_iop_compiler_iopc"></a>IOP compiler <code>iopc</code></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The IOP compiler transforms every IOP file (<code>&lt;package&gt;.iop</code>) in four C files:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong><code>&lt;package&gt;-t.iop.h</code></strong>: This file contains the C structures corresponding to
+your IOP structures. When you manipulate an IOP object in C, you manipulate
+one of these structures. This file must not be included directly (include
+<code>&lt;package&gt;.iop.h</code>)</p>
+</li>
+<li>
+<p><strong><code>&lt;package&gt;-tdef.iop.h</code></strong>: This file contains the C typedefs corresponding the
+your IOP structures and their array types and well s the enum definitions.
+This file must not be included directly (include <code>&lt;package&gt;.iop.h</code>)</p>
+</li>
+<li>
+<p><strong><code>&lt;package&gt;.iop.h</code></strong>: This file contains several others definitions that you
+will never use directly but that are needed by some IOP libraries.</p>
+</li>
+<li>
+<p><strong><code>&lt;package&gt;.iop.c</code></strong>: This file contains the descriptions of all IOP objects.
+These descriptions are only used by the IOP library.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Previous to <code>iopc</code> 2.9.15, <code>&lt;package&gt;-tdef.iop.h</code> was not present and its
+content was in <code>&lt;package&gt;-t.iop.h</code>.</p>
+</div>
+<div class="paragraph">
+<p>In the lib-common, the IOP compiler is managed directly by the build system and
+you don&#8217;t need to manually use it. Every .iop file declared in the build system
+will be compiled by the IOP compiler. Like all generated file, the resulting
+files <strong>must not be committed</strong>. However, the lib-common itself is a special case
+because it is needed to bootstrap the IOP compiler. So if you modify an IOP
+file in the lib-common you have to commit the generated file.</p>
+</div>
+<div class="sect2">
+<h3 id="_objects_mapping"><a class="anchor" href="#_objects_mapping"></a>Objects mapping</h3>
+<div class="paragraph">
+<p>This section describes how the IOP compiler maps IOP objects to C structures.</p>
+</div>
+<div class="sect3">
+<h4 id="_naming_convention"><a class="anchor" href="#_naming_convention"></a>Naming convention</h4>
+<div class="paragraph">
+<p>We do not use CamelCase in C so the IOP compiler will transform the IOP names
+to “C-compatible” names by removing the capital and adding an underscore before
+them. For example, a structure named <code>FooBar</code> will be named <code>foo_bar</code> in C.</p>
+</div>
+<div class="paragraph">
+<p>We have to deal with name spaces too. The generated types must not conflict
+with some existing types in the code, so we always prefix the IOP types by the
+IOP package name followed by <strong>two</strong> underscores. We suffix them by <strong>two</strong>
+underscores too and a letter depending of the object kind.</p>
+</div>
+<div class="paragraph">
+<p>To return to our example, the <code>FooBar</code> IOP structure from the package “<code>test</code>”
+will become the C structure: <code>test<em>foo_bar</em>t</code>.</p>
+</div>
+<div class="sect4">
+<h5 id="_structure_description"><a class="anchor" href="#_structure_description"></a>Structure description</h5>
+<div class="paragraph">
+<p>In addition to the structure definition (<code><em>t</code>) the IOP compiler will also
+generate the structure description with the same name but with the suffix
+<code></em>s</code>. You don&#8217;t care about this structure but sometimes you need to give it to
+some functions of the IOP library.</p>
+</div>
+<div class="paragraph">
+<p>For example, if you want to initialize the structure named <code>test<em>foo_bar</em>t</code>
+using the low-level API <code>iop_init</code> you will need to do:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">test__foo_bar__t foo_bar;
+
+iop_init(test__foo_bar, &amp;foo_bar);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>But we will talk about these generated functions below.</p>
+</div>
+<div class="paragraph">
+<p>Note: for IOP enum, the suffix of the enum description will be <code><em>e</code> and not
+<code></em>s</code>._</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_objects_in_c"><a class="anchor" href="#_iop_objects_in_c"></a>IOP objects in C</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_enum"><a class="anchor" href="#_enum"></a><code>enum</code></h3>
+<div class="paragraph">
+<p>An IOP enum will be simply converted to a C enum. The enum literal values will
+be prefixed by the enum name but after adding an underscore before each capital
+and then upper casing the whole name.</p>
+</div>
+<div class="paragraph">
+<p>For example the following IOP file:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package test;
+
+enum MyEnum {
+    VAL_1,
+    VAL_2,
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>will be converted into this C structure:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef enum test__my_enum__t {
+    MY_ENUM_VAL_1,
+    MY_ENUM_VAL_2,
+} test__my_enum__t;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Several utility functions are provided in the IOP C Library for your enum, like
+<code>iop_enum_to_str()</code> which take an integer value and gives its string
+representation if it exists (for example <code>iop_enum_to_str(test__my_enum, 1)</code>
+will give &#8220;VAL_2&#8221;).</p>
+</div>
+<div class="paragraph">
+<p>Take a look at <code>lib-common/iop.h</code> and <code>lib-common/iop-macros.h</code> to know which
+functions are available to work with enums.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_structures_struct"><a class="anchor" href="#_structures_struct"></a>structures (<code>struct</code>)</h3>
+<div class="paragraph">
+<p>An IOP structure will be converted to a C structure. Its complexity will depend
+on the types used. Mandatory scalar fields are converted in the simplest way.
+For example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package test;
+
+struct MyStruct {
+    int   a;
+    ubyte b;
+    long  c;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Will be converted to:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef struct test__my_struct__t {
+    int32_t a;
+    uint8_t b;
+    int64_t c;
+} test__my_struct__t;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Of course the conversion isn&#8217;t always so trivial, let&#8217;s talk about the
+different data types.</p>
+</div>
+<div class="sect3">
+<h4 id="_scalar_types"><a class="anchor" href="#_scalar_types"></a>Scalar types</h4>
+<div class="sect4">
+<h5 id="_when_used_as_mandatory_field"><a class="anchor" href="#_when_used_as_mandatory_field"></a>When used as mandatory field</h5>
+<div class="ulist">
+<ul>
+<li>
+<p><strong><code>byte</code></strong>   will be converted to <strong><code>int8_t</code></strong></p>
+</li>
+<li>
+<p><strong><code>ubyte</code></strong>  will be converted to <strong><code>uint8_t</code></strong></p>
+</li>
+<li>
+<p><strong><code>short</code></strong>  will be converted to <strong><code>int16_t</code></strong></p>
+</li>
+<li>
+<p><strong><code>ushort</code></strong> will be converted to <strong><code>uint16_t</code></strong></p>
+</li>
+<li>
+<p><strong><code>int</code></strong>    will be converted to <strong><code>int32_t</code></strong></p>
+</li>
+<li>
+<p><strong><code>uint</code></strong>   will be converted to <strong><code>uint32_t</code></strong></p>
+</li>
+<li>
+<p><strong><code>long</code></strong>   will be converted to <strong><code>int64_t</code></strong></p>
+</li>
+<li>
+<p><strong><code>ulong</code></strong>  will be converted to <strong><code>uint64_t</code></strong></p>
+</li>
+<li>
+<p><strong><code>double</code></strong> will be converted to <strong><code>double</code></strong></p>
+</li>
+<li>
+<p><strong><code>bool</code></strong>   will be converted to <strong><code>bool</code></strong></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_when_used_as_optional_field"><a class="anchor" href="#_when_used_as_optional_field"></a>When used as optional field</h5>
+<div class="paragraph">
+<p>Optional fields for scalar types needs a more complex type because we need to
+be able to differentiate when the field is absent or set. The generated type
+will be an “opaque” structure (it means that you shouldn&#8217;t try to use it
+directly) and we provide several macros to use it which are documented and
+located in <code>lib-common/iop-macros.h</code>. Just a simple example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">packate test;
+
+struct MyStruct {
+    int? myOptInt;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>C code:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">test__my_struct__t test = &lt;comes from somewhere&gt;;
+
+if (OPT_ISSET(test.my_opt_int)) {
+    printf("myOptInt sets and equals: %d\n", OPT_VAL(test.my_opt_int));
+} else {
+    printf("myOptInt is absent\n");
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_string_binary_blobs_bytes_and_xml_types"><a class="anchor" href="#_string_binary_blobs_bytes_and_xml_types"></a>String, binary blobs (<code>bytes</code>) and XML types</h4>
+<div class="paragraph">
+<p>In C (and only in C) these types are mapped on exactly the same C-type:
+<code>lstr_t</code>. You have to look at <code>lib-common/str-l.h</code> for documentation.</p>
+</div>
+<div class="paragraph">
+<p>However, there are some IOP specificities. A mandatory <code>string/bytes/xml</code>
+<strong>cannot contained a <code>NULL</code> pointer</strong> so you have to use <code>LSTR_EMPTY_V</code> to set an
+empty string. But, concerning the optional fields, you will do the difference
+between an absent field and the empty string by checking if the string is
+<code>LSTR_NULL_V</code>.</p>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package test;
+
+struct MyStruct {
+    string a;
+    bytes? b;
+};</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">test__my_struct__t foo = {
+    .a = LSTR_IMMED("plop"),
+    .b = LSTR_NULL_V;
+};
+
+/* .a is always expected to contain a non-null value */
+printf("A: %*pM\n", LSTR_FMT_ARG(foo.a));
+
+if (foo.b.s) {
+    /* .b is set. */
+    printf("B: %*pM\n", LSTR_FMT_ARG(foo.b));
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_repeated_types_array"><a class="anchor" href="#_repeated_types_array"></a>Repeated types (array)</h4>
+<div class="paragraph">
+<p>Repeated types are generated as a structure that contains the following public
+fields:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>tab</code>: a pointer to a vector of the right type (plain structures or pointer
+to the structure for classes)</p>
+</li>
+<li>
+<p><code>len</code>: the number of element in the array</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Starting with <code>iopc</code> 2.9.15, a <code>typedef</code> is provided for any repeated type. For
+complex types, this is <code>pkg<em>type_name</em>array_t</code> (or
+<code>IOP_ARRAY_T(pkg__type_name)</code>, for basic types, this is <code>iop_array_(type)_t</code>,
+the actual list being defined in the <code>lib-common/iop.h</code> header. Before <code>iopc</code>
+2.9.15, repeated types were managed with anonymous structures.</p>
+</div>
+<div class="paragraph">
+<p>The generated structures is not extensible and the <code>iop</code> runtime will never
+automatically free a repeated type instance it didn&#8217;t allocated.</p>
+</div>
+<div class="paragraph">
+<p>To check that a repeated type instance is empty, you must compare the <code>len</code> to
+<code>0</code>.</p>
+</div>
+<div class="paragraph">
+<p>The structure uses a naming that makes it compatible with other containers from
+the lib-common. In particular, you can use the <code>tab_for_each_pos</code>,
+<code>tab_for_each_entry</code> and <code>tab_for_each_ptr</code> macros to traverse the content of a
+repeated type instance.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_structures_and_unions"><a class="anchor" href="#_structures_and_unions"></a>Structures and unions</h4>
+<div class="sect4">
+<h5 id="_when_used_as_mandatory_field_2"><a class="anchor" href="#_when_used_as_mandatory_field_2"></a>When used as mandatory field</h5>
+<div class="paragraph">
+<p>When a field is a structure/union, the targeted structure/union will be
+directly inlined in your parent structure unless the field is defined as a
+reference. In case of referenced field, the field is defined as a pointer to
+the destination type. The <code>NULL</code> value is invalid for referenced fields and can
+only be used as a transitory value when building the object since referenced
+fields are mandatory.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_when_used_as_optional_field_2"><a class="anchor" href="#_when_used_as_optional_field_2"></a>When used as optional field</h5>
+<div class="paragraph">
+<p>When the structure/union is an optional field, you will get a pointer on the
+targeted structure/union instead of an inlined structure/union. If the pointer
+is <code>NULL</code> then the field is absent. If the pointer is not <code>NULL</code> dereferencing
+it will give you access to the structure with no particular magic.</p>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_classes"><a class="anchor" href="#_classes"></a>Classes</h4>
+<div class="paragraph">
+<p>When a field has a class type it is always defined as a pointer to an object of
+that class. In case the field is optional, the <code>NULL</code> value is interpreted as
+an absent value, however in case the field is mandatory, <code>NULL</code> is invalid and
+can only be used as a transitory value when building the object.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_unions_union"><a class="anchor" href="#_unions_union"></a>unions (<code>union</code>)</h3>
+<div class="paragraph">
+<p>The IOP unions are converted to complex structure which cannot be used
+directly. You are not supposed to use directly the generated type, you have to
+use the “union macros” located and documented in <code>lib-common/iop-macros.h</code>.</p>
+</div>
+<div class="paragraph">
+<p>Here is an example of union usage:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package test;
+
+union MyUnion {
+    int    a;
+    long   b;
+    string c;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>C-code:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">test__my_union__t u = IOP_UNION_CST(test__my_union, c, LSTR_IMMED("plop"));
+
+IOP_UNION_SWITCH(&amp;u) {
+  IOP_UNION_CASE_P(test__my_union, &amp;u, a, vp) {
+      printf("a field has been selected: %d\n", *vp);
+  }
+
+  IOP_UNION_CASE(test__my_union, &amp;u, b, v) {
+      printf("b field has been selected: %jd\n", v);
+  }
+
+  IOP_UNION_CASE(test__my_union, &amp;u, c, v) {
+      printf("c field has been selected: %*pM\n", LSTR_FMT_ARG(v));
+  }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Be careful, <code>IOP_UNION_CASE</code> contains a for instruction, so never use the
+<code>break</code> or <code>continue</code> keywords to quit an <code>IOP_UNION_SWITCH</code>.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_c_binary_unpacker"><a class="anchor" href="#_iop_c_binary_unpacker"></a>IOP C binary (un)packer</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In C, to store an IOP structure in a file or a database, to send it to another
+daemon in a socket, … we use the IOP binary packer, as described in the
+<a href="wire-format.html" class="page">Wire format page</a>.</p>
+</div>
+<div class="paragraph">
+<p>Functions to use the (un)packer are located and documented in
+<code>lib-common/iop.h</code>. Roughly, you have the <code>iop_bpack()</code> function which gets an
+IOP C structure and pack it in a byte buffer. And you have the <code>iop_bunpack()</code>
+function which takes a byte buffer and unpack its content into an IOP C
+structure.</p>
+</div>
+<div class="paragraph">
+<p>Here is an example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package test;
+
+struct MyStruct {
+    int a;
+    string b;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This structure is packed as follows:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">t_scope;
+test__my_struct__t foo = { .a = 42, .b = LSTR_IMMED("foo") };
+lstr_t out;
+
+out = t_iop_bpack(test, my_struct, &amp;foo);
+
+&lt;write out content somewhere&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">t_scope;
+test__my_struct__t foo;
+lstr_t input = &lt;get packed data from somewhere&gt;;
+
+if (t_iop_bunpack(&amp;input, test, my_struct, &amp;foo) &lt; 0) {
+    /* error handling */
+    printf("unpacking error\n");
+} else {
+    printf("unpacked foo: %d, %*pM\n", foo.a, LSTR_FMT_ARG(foo.b));
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iop_channels_ichannel"><a class="anchor" href="#_iop_channels_ichannel"></a>IOP channels (<code>IChannel</code>)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This section introduces the IOP Channels. IOP Channels implement TCP clients
+and servers dealing with IOP RPC. They handle everything required to interface
+two processes over the network.</p>
+</div>
+<div class="paragraph">
+<p>IOP Channels are located in <code>lib-common/iop-rpc-channel.h</code> with the name
+<code>ichannel_t</code>. You have a code example in <code>lib-common/iop-tutorial/ex-iop.c</code>.</p>
+</div>
+<div class="sect2">
+<h3 id="_the_ichannel_t_object"><a class="anchor" href="#_the_ichannel_t_object"></a>The <code>ichannel_t</code> object</h3>
+<div class="paragraph">
+<p>Both client/server are implemented with the same object: <code>ichannel_t</code>. This
+object takes care of its own life-cycle. IChannels have an auto-reconnection
+feature: if the connection is broken the IChannel will try to reconnect
+periodically.</p>
+</div>
+<div class="paragraph">
+<p>After the IChannel initialization, you have to set the <code>on_event</code> callback
+which will notify you when the IChannel state changes (connected/disconnected).</p>
+</div>
+<div class="paragraph">
+<p>Here is a list of properties that you may find useful:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>no_autodel</strong>:  After the IChannel initialization, set this to true if you
+want to control the IChannel life-cycle yourself.</p>
+</li>
+<li>
+<p><strong>auto_reconn</strong>: After the IChannel initialization, set this to false if you do
+not want of the auto-reconnection mechanism.</p>
+</li>
+<li>
+<p><strong>do_el_unref</strong>: After the IChannel initialization, set this to true if you
+don&#8217;t want to block the event loop while the IChannel is alive.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_ichannel_implementation_mapping"><a class="anchor" href="#_ichannel_implementation_mapping"></a>IChannel implementation mapping</h3>
+<div class="paragraph">
+<p>When you setup an IChannel (server or client) you have to pass a hash-table
+referencing each implemented RPC with their callbacks. This is done with
+<code>ic_register()</code> and by setting the <code>impl</code> property on your implementation
+hash-table, example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">package test;
+
+interface Foo {
+    bar in (int a) out (int res);
+};
+
+module Mod {
+    Foo foo;
+};</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* IChannel hash-table declaration and initialization */
+qm_t(ic_cbs) ic_impl;
+
+qm_init(ic_cbs, &amp;ic_impl, false);
+
+[...]
+
+/* RPC callback and registration */
+
+static void IOP_RPC_IMPL(test__mod, foo, bar)
+{
+    ic_reply(ic, slot, test__mod, foo, bar, .res = 42);
+}
+
+ic_register(&amp;ic_impl, test__mod, foo, bar);
+
+[...]
+
+ichannel_t *ic = ic_new();
+
+ic-&gt;impl = &amp;ic_impl;
+
+[...]</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_rpc_prepost_hook"><a class="anchor" href="#_rpc_prepost_hook"></a>RPC pre/post hook</h3>
+<div class="paragraph">
+<p>Alongside your implementation you can register pre/post hook function, they
+will be called before and after your RPC implementation but without having
+access to the arg/res of the query. To do so you must use
+<code>ic_register_pre_post_hook()</code> instead of <code>ic_register()</code>.  This is useful when
+you want to share code between several RPC (like avp checks, transaction logs,
+&#8230;&#8203;) but you have some constraint link to their use.</p>
+</div>
+<div class="paragraph">
+<p>The pre_hook has two major roles: It should allocate a context to the query (to
+be able to store the data) and check if the RPC could be used.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The context should be allocated using <code>ic_hook_ctx_new()</code>, then it will be
+released automatically after replying to the query so you mustn&#8217;t delete it
+in your post_hook. You can get the context inside the RPC implementation
+using <code>ic_hook_ctx_get()</code>, then you can set the data with whatever you need.
+Just be careful if you allocate memory inside it you will have to take
+responsibility to free it inside your post_hook.  <strong>Warning:</strong> If you use a
+pre_hook but don&#8217;t allocate the context inside, then the query will be
+considered complete and the RPC IMPL will never be called, neither the
+ic_reply/throw. This will totally break the ichttp channel because we need to
+answer queries in the same order we received them.</p>
+</li>
+<li>
+<p>If you need to prevent the execution of the RPC (because the user is invalid
+for example) you&#8217;ll have to call <code>ic_throw_exn[_p]()</code> with the type of
+exception you want to throw.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+A pre hook already exists inside the HTTP library. To avoid useless
+check and redundant behaviors you must use the HTTP pre_hook to check if the
+user is allowed to connect to the server and the RPC ones to check rights
+relative to the RPC.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The post_hook plan to make a resume depending on the action done by the
+pre_hook and the RPC impl. So it needs the context created by the pre_hook. That
+means that without a pre_hook the use of a post_hook is prohibited. The
+post_hook will be called during the reply of the query and will contain the
+status of the answer (OK, EXN, RETRY, ABORT, &#8230;&#8203;).</p>
+</div>
+<div class="paragraph">
+<p>During registration of pre/post hook you can give a specific argument to pass
+to the pre/post function. This way you can specify the behavior of pre/post
+hook for each RPC using it. But you have to be careful, the argument won&#8217;t be
+duplicated, so you must be sure that the address will still be valid until the
+unregistration of the RPC.</p>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* RPC pre/post_hook and registration */
+
+/* absolutely stupid pre_hook checking only login of caller */
+static void check_login_pre_hook(ichannel_t *ic, uint64_t slot,
+                                 const ic__hdr__t *hdr, el_data_t arg)
+{
+    const char *login = (const char *)arg.ptr;
+    /* allocate because we need it but we don't have any useful info to send */
+    c_hook_ctx_t *ctx = ic_hook_ctx_new(slot, 0);
+    const ic__simple_hdr__t *shdr;
+
+    if (!hdr || !login) {
+        ic_throw_exn(ic, slot, ctx, platform__exception,
+                     .code = PLATFORM_ERROR_MALFORMED_REQUEST,
+                     .desc = LSTR_IMMED_V("iop header not found"));
+        return;
+    }
+
+    shdr = IOP_UNION_GET(ic__hdr, hdr, simple);
+    if (!shdr || !shdr-&gt;login.len) {
+        ic_throw_exn(ic, slot, ctx, platform__exception,
+                     .code = PLATFORM_ERROR_MALFORMED_REQUEST,
+                     .desc = LSTR_IMMED_V("invalid iop header"));
+        return;
+    }
+
+    if (strncmp(login, shdr-&gt;login.s, shdr-&gt;login.len)) {
+        t_scope;
+        ic_throw_exn(ic, slot, ctx, platform__exception,
+                     .code = PLATFORM_ERROR_MALFORMED_REQUEST,
+                     .desc = t_lstr_fmt("invalid user %*pM",
+                                        LSTR_FMT_ARGS(shdr-&gt;login)));
+        return;
+    }
+}
+static void foo_post_hook(ichannel_t *ic, ic_status_t status,
+                          ic_hook_ctx_t *ctx, el_data_t arg)
+{
+    if (status == IC_MSG_OK) {
+        e_info("%s", (const char *)arg.ptr);
+    }
+}
+
+static void IOP_RPC_IMPL(test__mod, foo, bar)
+{
+    ic_reply(ic, slot, test__mod, foo, bar, .res = 42);
+}
+
+[...]
+
+ic_register_pre_post_hook_p(&amp;ic_impl, test__mod, foo, bar, foo_pre_hook,
+                            foo_post_hook, "root", "it's all good");
+
+[...]</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_library_initialization_and_shutdown"><a class="anchor" href="#_library_initialization_and_shutdown"></a>Library initialization and shutdown</h3>
+<div class="paragraph">
+<p>To initialize the IChannel library you have to use the <code>ic</code> module
+(<code>MODULE_REQUIRE</code> and <code>MODULE_RELEASE</code>).</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_client_ichannel"><a class="anchor" href="#_client_ichannel"></a>Client IChannel</h3>
+<div class="sect3">
+<h4 id="_setup_and_connect_a_client_ichannel"><a class="anchor" href="#_setup_and_connect_a_client_ichannel"></a>Setup and connect a client IChannel</h4>
+<div class="ulist">
+<ul>
+<li>
+<p>Get an ichannel object (<code>ic_new()</code>).</p>
+</li>
+<li>
+<p>Set the on_event callback (gives connected/disconnected states).</p>
+</li>
+<li>
+<p>Optionally set the implementation table if the client implements some
+queries.</p>
+</li>
+<li>
+<p>Set the <code>sockunion_t</code> (<code>ic&#8594;su</code>) corresponding to the server address.</p>
+</li>
+<li>
+<p>Call <code>ic_connect()</code> to initiate the connection.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>When the connection will be effective, the <code>on_event</code> callback will be called
+with the <code>CONNECTED</code> state. You should start to send queries only if you have
+been notified of the <code>CONNECTED</code> state.</p>
+</div>
+<div class="paragraph">
+<p>Have a look at exiop_client_initialize() in <code>lib-common/iop-tutorial/ex-iop.c</code>
+for details.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_sending_queries"><a class="anchor" href="#_sending_queries"></a>Sending queries</h4>
+<div class="paragraph">
+<p>The IChannels have a concept of “message” represented by the <code>ic_msg_t</code> object.
+Each IOP query must be associated with an <code>ic_msg_t</code> which exists until the
+query gets a reply or gets aborted. Private data can be passed along the
+message for use in callbacks.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_server_ichannel"><a class="anchor" href="#_server_ichannel"></a>Server IChannel</h3>
+<div class="sect3">
+<h4 id="_setup_and_connect_a_server_ichannel"><a class="anchor" href="#_setup_and_connect_a_server_ichannel"></a>Setup and connect a server IChannel</h4>
+<div class="paragraph">
+<p>Have a look at exiop_server_initialize() in <code>lib-common/iop-tutorial/ex-iop.c</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_local_ichannel"><a class="anchor" href="#_local_ichannel"></a>Local IChannel</h3>
+<div class="paragraph">
+<p>Local IChannels are both server and client, the server setup part for a local
+IChannel is the same as for a regular IChannel, the client setup part is the
+same as for a  regular IChannel except that ic_set_local() should be called
+instead of ic_connect(). After the setup part, a local IChannel works as a
+regular IChannel and it allows you to call local implemented RPCs.</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

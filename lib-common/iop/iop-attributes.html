@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>IOP attributes :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">IOP</li>
+    <li class="crumb"><a href="iop-attributes.html">IOP attributes</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>IOP attributes</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_iopc_attributes">iopc attributes</a></li>
+<li><a href="#_constraints">Constraints</a></li>
+<li><a href="#_multi_constraints">Multi constraints</a></li>
+<li><a href="#_generic_attributes">Generic attributes</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>IOP attributes were added to allow the implementation of many new features in
+the iopc compiler and in the usage of IOP in general.</p>
+</div>
+<div class="paragraph">
+<p>Attributes can be added to declarations (struct, union, enum, rpc, interface
+and module) and to fields of structure/union. An attribute can have any number
+of arguments, in which case they all need to be specified.</p>
+</div>
+<div class="paragraph">
+<p>Here is an example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">@attr1 @attr2(1, 'foo', bar) @attr3(int_arg=1, string_arg="foo", ident_arg=bar)
+struct Foo {
+    @attrN
+    int someField;
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>As you can see, there are 2 ways to specify arguments, positional (e.g.
+<code>attr2</code>) or named (e.g. <code>attr3</code>).</p>
+</div>
+<div class="paragraph">
+<p>And 3 types of arguments: int/double, strings (between double quotes), and
+identifiant ([a-zA-Z][a-zA-Z0-9_]*)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_iopc_attributes"><a class="anchor" href="#_iopc_attributes"></a>iopc attributes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>These attributes only affect the output of iopc.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 16.6666%;">
+<col style="width: 16.6666%;">
+<col style="width: 16.6666%;">
+<col style="width: 16.6666%;">
+<col style="width: 16.6666%;">
+<col style="width: 16.667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Name</th>
+<th class="tableblock halign-left valign-top">version</th>
+<th class="tableblock halign-left valign-top">Arguments</th>
+<th class="tableblock halign-left valign-top">Declarations</th>
+<th class="tableblock halign-left valign-top">Fields</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ctype</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">type(ident)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">struct/union/enum</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">change the C-Type name with a typedef (the new name must still have a <code>__t</code> suffix)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">prefix</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">name(ident)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">enum</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">change the prefix name in the C enum</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nowarn</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">value(ident)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ALL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ALL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">disable a specific iopc warning</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">private</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.3.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ALL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">optional or with default value</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">make field private (won&#8217;t appear in public interfaces and WSDL (Web Service Definition Language))</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">alias</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.4.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">name(ident)*</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">rpc</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">create alias RPCs with the given name to the RPC on which it is applied</p></td>
+</tr>
+</tbody>
+</table>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package foo;
+
+@ctype(e_a__t)
+@prefix(A)
+enum MyEnumA {
+    A = 0x0,
+    B = 0x1,
+    C = 0x2,
+};
+
+struct MyStructA {
+    @private
+    MyEnumA a;
+};
+
+@ctype(type = my_union_a__t)
+union MyUnionA {
+    @nowarn(keyword)
+    int     class;
+};
+
+interface MyIntfA {
+    @alias("bar", "baz")
+    foo
+        in void
+        out null;
+};</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The usage of <code>ctype</code> will generate the following typedef and define:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef foo__my_enum_a__t e_a__t;
+#define e_a_to__str(...) foo__my_enum_a__to_str(__VA_ARGS__);
+...
+typedef foo__my_union_a__t my_union_a__t;
+#define my_union_a__init(...) foo__my_union_a__init(__VA_ARGS__);
+...</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The usage of <code>prefix</code> will generate the following enum values: <code>A_A, A_B, A_C</code>
+but does not affect the C type.</p>
+</div>
+<div class="paragraph">
+<p>Finally <code>nowarn(keyword)</code> will make the warning "class is a keyword in some
+languages" disappear.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_constraints"><a class="anchor" href="#_constraints"></a>Constraints</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Constraints add restrictions on the values that an IOP struct/union can contain
+and on <code>typedef</code>.</p>
+</div>
+<div class="paragraph">
+<p>They are automatically checked at unpacking time (whether the input is json,
+xml or binary). This implies that when sending an invalid query over a
+IOP-Channel or HTTP channel, the RPC server will fail to unpack the query and
+reply with IC_MSG_INVALID. The error message caused by a constraint can be
+fetched with <code>iop_get_err_lstr()</code>.</p>
+</div>
+<div class="paragraph">
+<p>At packing time, it&#8217;s up to the developer to call the following function:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int iop_check_constraints(const iop_struct_t *desc, const void *val);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Each structure/union also has the following shortcut:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int pfx##__check(pfx##__t *v);</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 16.6666%;">
+<col style="width: 16.6666%;">
+<col style="width: 16.6666%;">
+<col style="width: 16.6666%;">
+<col style="width: 16.6666%;">
+<col style="width: 16.667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Name</th>
+<th class="tableblock halign-left valign-top">Version</th>
+<th class="tableblock halign-left valign-top">Arguments</th>
+<th class="tableblock halign-left valign-top">Declarations</th>
+<th class="tableblock halign-left valign-top">Fields</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">strict</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">enum</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">values must belong to the enum</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">min</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">value(int/double)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer/double</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">inclusive min of the values</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">max</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">value(int/double)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer/double</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">inclusive max of the values</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">minOccurs</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">value(int)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">arrays</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">inclusive min of the array length</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">maxOccurs</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">value(int)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">arrays</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">inclusive max of the array length</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cdata</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">strings</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">when packing in XML, choose CDATA over xml quoting</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nonEmpty</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">strings</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">empty string forbidden</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nonZero</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer/double</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0 value forbidden</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">minLength</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">value(int)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">strings</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">inclusive min of the string length</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">maxLength</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">value(int)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">strings</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">inclusive max of the string length</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">length</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.4.6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">value(int)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">strings</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">length of the string</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">pattern</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.0.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">value(string)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">strings</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">force character set (maybe more later)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">allow</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.9.14</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">field(ident)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">unions/enums</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">restrict the list of allowed union fields (or enum values) for that use case</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">disallow</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.9.14</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">field(ident)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">unions/enums</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">disallow some union fields (or enum values) for that use case</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">@strict
+enum MyEnumA {
+    A = 0x0,
+    B = 0x1,
+    C = 0x2,
+};
+
+union MyUnionA {
+    int a;
+    int b;
+    int c;
+};
+
+struct User {
+    /* XML packer will use CDATA for login */
+    @cdata
+    /* string length must be between 5 and 128, and only alphanum, _ and - characters are accepted */
+    @minLength(5) @maxLength(128) @pattern("[a-zA-Z0-9_\-]*")
+    string  login;
+    /* Only 0,1,2 values accepted here */
+    MyEnumA a;
+
+    @allow(A, B) /* Only 0,1 values accepted here */
+    MyEnumA abOnly;
+
+    /* this array can contain between 5 and 10 values, each value belonging to [-5;5] */
+    @minOccurs(5) @maxOccurs(10)
+    @min(-5) @max(5)
+    int[]  intTab;
+    /* integer arguments can be expression too */
+    @max(10*5)
+    uint[]  uintTab;
+    /* but double expression are not supported */
+    @min(-5.5)
+    double[]  doubleTab;
+
+    /* allow only fields a and c in that instance of union MyUnion */
+    @allow(a, c)
+    MyUnion myUnion;
+    @allow(a) @allow(c)
+    MyUnion myUnion;
+    /* disallow field b in that instance of union MyUnion */
+    @disallow(b)
+    MyUnion myUnion;
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_multi_constraints"><a class="anchor" href="#_multi_constraints"></a>Multi constraints</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The multi constraints are allowed for some numeric attributes(min, max,
+minOccurs, maxOccurs, minLength, maxLength). The min attribute takes the
+highest value and vice versa for for the max attribute.</p>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">@max(42) @min(5)
+typedef uint Digit;
+
+struct Test {
+    @max(21) @min(7)// here min is 7 and  max is 21
+    Digit a;
+
+    @max(45) @min(3) // here min is the typedef value (5) and the max too (42)
+    Digit b;
+};
+
+@minLength(5) @maxLength(128)
+typedef string ExStr;
+
+struct StrTest {
+    @maxLength(21) @minLength(7)
+    ExStr a;
+};
+
+@maxOccurs(42) @minOccurs(5)
+typedef int[] ExTab;
+
+struct TabTest {
+    @maxOccurs(21) @minOccurs(7)
+    ExTab a;
+};</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_generic_attributes"><a class="anchor" href="#_generic_attributes"></a>Generic attributes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>One can declare a generic attribute to attache a piece of information to an IOP
+element which has no meaning for the IOP engine but can be used at run-time
+with IOP introspection.</p>
+</div>
+<div class="paragraph">
+<p>A generic attribute is declared as follow:</p>
+</div>
+<div class="paragraph">
+<p><code>@(namespace:name, value)</code></p>
+</div>
+<div class="paragraph">
+<p>As described in the example, the full name of the generic attribute is in two
+parts: a namespace and a name, separated by a colon. The namespace is here to
+avoid collision in attributes name. The value can be either an integer, a
+double, a boolean or a string. Generic attributes can be declared for IOP
+structs, classes, fields, enums, interfaces and RPCs.</p>
+</div>
+<div class="paragraph">
+<p>Here is an example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package foo;
+
+@(namespace1:genAttr1, 2)
+struct MyStruct {
+    @(namespace1:genAttr2, "toto");
+    @(namespace1:genAttr1, 10);
+    @(namespace1:genAttr3, true);
+    int field;
+
+    @(namespace1:genAttr2, "toto");
+    bool field2;
+};
+
+@(namespace1:genAttr1, 1)
+interface foo {
+
+    @(namespace1:genAttr3, false)
+    myFunction
+         in (int a);
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A generic attribute can&#8217;t be defined twice for the same IOP element. However,
+it can be defined as many time as needed throughout an IOP package. An IOP
+element can be linked to several different generic attributes.</p>
+</div>
+<div class="paragraph">
+<p>At run-time, generic attributes can be accessed by lib-common helpers thanks to
+their names.</p>
+</div>
+<div class="paragraph">
+<p>See <code>lib-common/iop.h</code> for a description of all availables generic attributes
+helpers.</p>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>
