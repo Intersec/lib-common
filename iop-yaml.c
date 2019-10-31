@@ -353,7 +353,7 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
         goto error;
     }
 
-    if (data->obj->tag.s) {
+    if (data->tag.s) {
         sb_setf(&env->err.buf, "specifying a tag is not allowed");
         goto error;
     }
@@ -523,11 +523,11 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
                 yaml_data_get_type(data));
         goto error;
       case YAML_DATA_OBJ:
-        if (data->obj->tag.s) {
-            real_st = iop_get_class_by_fullname(st, data->obj->tag);
+        if (data->tag.s) {
+            real_st = iop_get_class_by_fullname(st, data->tag);
             if (!real_st) {
                 sb_setf(&env->err.buf, "unknown type `%pL` provided in tag, "
-                        "or not a child of `%pL`", &data->obj->tag,
+                        "or not a child of `%pL`", &data->tag,
                         &st->fullname);
                 real_st = st;
                 goto error;

@@ -87,14 +87,15 @@ struct yaml_data_t {
         yaml_obj_t *obj;
     };
     yaml_data_type_t type;
+
+    /* LSTR_NULL_V if untyped */
+    lstr_t tag;
 };
 qvector_t(yaml_data, yaml_data_t);
 qm_kvec_t(yaml_data, lstr_t, yaml_data_t, qhash_lstr_hash, qhash_lstr_equal);
 
 struct yaml_obj_t {
     qm_t(yaml_data) fields;
-    /* LSTR_NULL_V if untyped */
-    lstr_t tag;
 };
 
 /* }}} */
