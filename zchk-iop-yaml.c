@@ -425,6 +425,12 @@ Z_GROUP_EXPORT(iop_yaml)
                   "cannot unpack a boolean value into a union\n"
                   "un: true\n"
                   "    ^^^^");
+        /* use of tag */
+        TST_ERROR("s: !str jojo",
+                  "1:4: "ERR_COMMON": cannot set field `s`: "
+                  "specifying a tag is not allowed\n"
+                  "s: !str jojo\n"
+                  "   ^^^^^^^^^");
 
         /* --- OOB --- */
 
@@ -720,6 +726,7 @@ Z_GROUP_EXPORT(iop_yaml)
 
         /* ~ can be unpacked into a struct */
         TST(&tstiop__my_struct_a_opt__s, "~");
+        TST(&tstiop__jpack_empty_cls_a__s, "!tstiop.JpackEmptyClsC ~");
 
         /* unpacking a class as a base class should work */
         TST(&tstiop__my_class2__s,

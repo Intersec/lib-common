@@ -523,23 +523,24 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
                 yaml_data_get_type(data));
         goto error;
       case YAML_DATA_OBJ:
-        if (data->tag.s) {
-            real_st = iop_get_class_by_fullname(st, data->tag);
-            if (!real_st) {
-                sb_setf(&env->err.buf, "unknown type `%pL` provided in tag, "
-                        "or not a child of `%pL`", &data->tag,
-                        &st->fullname);
-                real_st = st;
-                goto error;
-            }
-            if (!iop_class_is_a(real_st, st)) {
-                sb_setf(&env->err.buf, "provided tag `%pL` is not a child of "
-                        "`%pL`", &real_st->fullname, &st->fullname);
-                real_st = st;
-                goto error;
-            }
-        }
         break;
+    }
+
+    if (data->tag.s) {
+        real_st = iop_get_class_by_fullname(st, data->tag);
+        if (!real_st) {
+            sb_setf(&env->err.buf, "unknown type `%pL` provided in tag, "
+                    "or not a child of `%pL`", &data->tag,
+                    &st->fullname);
+            real_st = st;
+            goto error;
+        }
+        if (!iop_class_is_a(real_st, st)) {
+            sb_setf(&env->err.buf, "provided tag `%pL` is not a child of "
+                    "`%pL`", &real_st->fullname, &st->fullname);
+            real_st = st;
+            goto error;
+        }
     }
 
     if (iop_struct_is_class(real_st)) {
@@ -666,6 +667,12 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
             goto err;
         }
         return 0;
+    }
+
+    if (data->tag.s) {
+        sb_setf(&env->err.buf, "specifying a tag is not allowed");
+        env->err.data = data;
+        goto err;
     }
 
     switch (data->type) {
