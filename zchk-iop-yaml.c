@@ -687,8 +687,8 @@ Z_GROUP_EXPORT(iop_yaml)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(unpack, "test IOP YAML unpacking") { /* {{{ */
-#define TST(_st, _yaml)                                                      \
-        Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml), NULL))
+#define TST(_st, _yaml, _new_yaml)                                           \
+        Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml), (_new_yaml)))
 
         TST(&tstiop__my_struct_a__s,
             "a: -1\n"
@@ -721,12 +721,17 @@ Z_GROUP_EXPORT(iop_yaml)
             "q: 17\n"
             "r: 18\n"
             "s: 19\n"
-            "t: 20"
+            "t: 20",
+            NULL
         );
 
         /* ~ can be unpacked into a struct */
-        TST(&tstiop__my_struct_a_opt__s, "~");
-        TST(&tstiop__jpack_empty_cls_a__s, "!tstiop.JpackEmptyClsC ~");
+        TST(&tstiop__my_struct_a_opt__s, "~", NULL);
+        TST(&tstiop__jpack_empty_cls_a__s, "!tstiop.JpackEmptyClsC ~", NULL);
+
+        /* a tag can be specified for a struct too, but will be removed on
+         * packing */
+        TST(&tstiop__my_struct_a_opt__s, "!tstiop.MyStructAOpt ~", "~");
 
         /* unpacking a class as a base class should work */
         TST(&tstiop__my_class2__s,
@@ -735,13 +740,15 @@ Z_GROUP_EXPORT(iop_yaml)
             "int2: 2\n"
             "int3: 3\n"
             "bool1: true\n"
-            "string1: a");
+            "string1: a",
+            NULL);
 
         /* Test with a parent with more fields than the child */
         TST(&tstiop__small_child__s,
             "a: a\n"
             "b: b\n"
-            "c: c");
+            "c: c",
+            NULL);
 
 #undef TST
     } Z_TEST_END;
