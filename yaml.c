@@ -484,8 +484,15 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
         int64_t i;
 
         if (lstr_to_int64(line, &i) == 0) {
-            out->scalar.type = YAML_SCALAR_INT;
-            out->scalar.i = i;
+            if (i >= 0) {
+                /* This can happen for -0 for example. Force to use UINT
+                 * in that case, to make sure INT is only used for < 0. */
+                out->scalar.type = YAML_SCALAR_UINT;
+                out->scalar.u = i;
+            } else {
+                out->scalar.type = YAML_SCALAR_INT;
+                out->scalar.i = i;
+            }
             return 0;
         }
     } else {
@@ -887,11 +894,16 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 4));
         Z_ASSERT_EQ(data.scalar.u, 153UL);
 
-        /* int */
+        /* -0 will still generate UINT */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "-0"));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_UINT,
+                                         1, 1, 1, 3));
+
+        /* int */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "-1"));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_INT,
                                          1, 1, 1, 3));
-        Z_ASSERT_EQ(data.scalar.i, 0L);
+        Z_ASSERT_EQ(data.scalar.i, -1L);
         Z_ASSERT_NULL(data.tag.s);
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
                           "an integer value");

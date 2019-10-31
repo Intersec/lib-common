@@ -215,38 +215,33 @@ yaml_int_to_iop_field(int64_t i, const iop_field_t * nonnull fdesc,
 {
 #define CHECK_RANGE(v, min, max)  THROW_IF(v < min || v > max, YUNPACK_OOB)
 
+    /* The INT type is only used for negative values, so all unsigned types
+     * are OOB. */
+
     switch (fdesc->type) {
       case IOP_T_I8:
         CHECK_RANGE(i, INT8_MIN, INT8_MAX);
         *(int8_t *)out = i;
         return YUNPACK_OK;
       case IOP_T_U8:
-        CHECK_RANGE(i, 0, UINT8_MAX);
-        *(uint8_t *)out = i;
-        return YUNPACK_OK;
+        return YUNPACK_OOB;
       case IOP_T_I16:
         CHECK_RANGE(i, INT16_MIN, INT16_MAX);
         *(int16_t *)out = i;
         return YUNPACK_OK;
       case IOP_T_U16:
-        CHECK_RANGE(i, 0, UINT16_MAX);
-        *(uint16_t *)out = i;
-        return YUNPACK_OK;
+        return YUNPACK_OOB;
       case IOP_T_I32:
         CHECK_RANGE(i, INT32_MIN, INT32_MAX);
         *(int32_t *)out = i;
         return YUNPACK_OK;
       case IOP_T_U32:
-        CHECK_RANGE(i, 0, UINT32_MAX);
-        *(uint32_t *)out = i;
-        return YUNPACK_OK;
+        return YUNPACK_OOB;
       case IOP_T_I64:
         *(int64_t *)out = i;
         return YUNPACK_OK;
       case IOP_T_U64:
-        CHECK_RANGE(i, 0, INT64_MAX);
-        *(uint64_t *)out = i;
-        return YUNPACK_OK;
+        return YUNPACK_OOB;
       default:
         return YUNPACK_TYPE_MISMATCH;
     }

@@ -32,8 +32,11 @@ typedef struct yaml_obj_t yaml_obj_t;
 typedef enum yaml_scalar_type_t {
     /* raw string, or delimited with "" */
     YAML_SCALAR_STRING,
+    /* floating-point number */
     YAML_SCALAR_DOUBLE,
+    /* integer >= 0 */
     YAML_SCALAR_UINT,
+    /* integer < 0 */
     YAML_SCALAR_INT,
     /* true or false */
     YAML_SCALAR_BOOL,
