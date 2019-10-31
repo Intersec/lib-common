@@ -799,6 +799,8 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
                                          1, 1, 1, 16));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("unquoted string"));
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+                          "a string value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "\" quoted: 5 \""));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
@@ -809,6 +811,8 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "~"));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
                                          1, 1, 1, 2));
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+                          "a null value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "null"));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
@@ -823,6 +827,8 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_BOOL,
                                          1, 1, 1, 5));
         Z_ASSERT(data.scalar.b);
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+                          "a boolean value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "TrUE"));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_BOOL,
@@ -844,6 +850,8 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_UINT,
                                          1, 1, 1, 2));
         Z_ASSERT_EQ(data.scalar.u, 0UL);
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+                          "an unsigned integer value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "153"));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_UINT,
@@ -855,6 +863,8 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_INT,
                                          1, 1, 1, 3));
         Z_ASSERT_EQ(data.scalar.i, 0L);
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+                          "an integer value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "-153"));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_INT,
@@ -866,6 +876,8 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_DOUBLE,
                                          1, 1, 1, 4));
         Z_ASSERT_EQ(data.scalar.d, 0.5);
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+                          "a double value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "-1e3"));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_DOUBLE,
@@ -898,6 +910,8 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t field2;
         lstr_t key;
 
+        logger_set_level(LSTR("yaml"), LOG_TRACE + 2, 0);
+
         /* one liner */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
             "a: 2"
@@ -910,6 +924,8 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
                                          1, 4, 1, 5));
         Z_ASSERT_EQ(field.scalar.u, 2UL);
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+                          "an object");
 
         /* with tag */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
@@ -923,6 +939,8 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
                                          1, 10, 1, 11));
         Z_ASSERT_EQ(field.scalar.u, 2UL);
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+                          "a tagged object");
 
         /* imbricated objects */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
@@ -1005,6 +1023,8 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data.seq[0], YAML_SCALAR_STRING,
                                          1, 3, 1, 4));
         Z_ASSERT_LSTREQUAL(data.seq[0].scalar.s, LSTR("a"));
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+                          "a sequence");
 
         /* imbricated sequences */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
