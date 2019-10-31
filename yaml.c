@@ -32,15 +32,6 @@ static struct yaml_g {
 /* Missing features:
  *
  * #1
- *
- * A valid syntax is not properly handled, where a sequence has the same
- * indentation as a key:
- *  "a
- *   - 1
- *   - 2"
- *
- * #2
- *
  * Tab characters are forbidden, because it makes the indentation computation
  * harder than with simple spaces. It could be handled properly however.
  */
@@ -361,7 +352,21 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
                                     "key is already declared in the object");
         }
 
-        RETHROW(yaml_env_parse_data(env, min_indent + 1, &val));
+        /* XXX: This is a hack to handle the tricky case where a sequence
+         * has the same indentation as the key:
+         *  a:
+         *  - 1
+         *  - 2
+         * This syntax is valid YAML, but breaks the otherwise valid contract
+         * that a subdata always has a strictly greater indentation level than
+         * its containing data.
+         */
+        RETHROW(yaml_env_ltrim(env));
+        if (ps_startswith_yaml_seq_prefix(&env->ps)) {
+            RETHROW(yaml_env_parse_data(env, min_indent, &val));
+        } else {
+            RETHROW(yaml_env_parse_data(env, min_indent + 1, &val));
+        }
 
         fields.values[pos] = val;
         pos_end = val.pos_end;
@@ -1075,6 +1080,36 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&elem, YAML_SCALAR_BOOL,
                                          7, 3, 7, 8));
         Z_ASSERT(!elem.scalar.b);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Parsing complex data */
+
+    Z_TEST(parsing_complex_data, "test parsing of more complex data") {
+        t_scope;
+        yaml_data_t data;
+        lstr_t key;
+        yaml_data_t field;
+
+        /* sequence on same level as key */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "a:\n"
+            "- 3\n"
+            "- ~"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 3, 4));
+        Z_ASSERT_NULL(data.obj->tag.s);
+        Z_ASSERT(qm_len(yaml_data, &data.obj->fields) == 1);
+        key = LSTR("a");
+        field = qm_get(yaml_data, &data.obj->fields, &key);
+
+        Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_SEQ, 2, 1, 3, 4));
+        Z_ASSERT_EQ(field.seq_len, 2U);
+        Z_HELPER_RUN(z_check_yaml_scalar(&field.seq[0], YAML_SCALAR_UINT,
+                                         2, 3, 2, 4));
+        Z_ASSERT_EQ(field.seq[0].scalar.u, 3UL);
+        Z_HELPER_RUN(z_check_yaml_scalar(&field.seq[1], YAML_SCALAR_NULL,
+                                         3, 3, 3, 4));
     } Z_TEST_END;
 
     /* }}} */
