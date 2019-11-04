@@ -219,6 +219,13 @@ yaml_uint_to_iop_field(mem_pool_t * nonnull mp,
       case IOP_T_STRING:
         set_string_from_stream(mp, data, out);
         return YUNPACK_OK;
+      case IOP_T_ENUM:
+        CHECK_MAX(u, INT32_MAX);
+        if (iop_enum_exists_desc(fdesc->u1.en_desc, u)) {
+            *(int32_t *)out = u;
+            return YUNPACK_OK;
+        }
+        return YUNPACK_INVALID_ENUM_VAL;
       default:
         return YUNPACK_TYPE_MISMATCH;
     }
@@ -259,6 +266,13 @@ yaml_int_to_iop_field(int64_t i, const iop_field_t * nonnull fdesc,
         return YUNPACK_OK;
       case IOP_T_U64:
         return YUNPACK_OOB;
+      case IOP_T_ENUM:
+        CHECK_RANGE(i, INT32_MIN, INT32_MAX);
+        if (iop_enum_exists_desc(fdesc->u1.en_desc, i)) {
+            *(int32_t *)out = i;
+            return YUNPACK_OK;
+        }
+        return YUNPACK_INVALID_ENUM_VAL;
       default:
         return YUNPACK_TYPE_MISMATCH;
     }

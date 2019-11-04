@@ -287,20 +287,26 @@ Z_GROUP_EXPORT(iop_yaml)
 
         iop_init(tstiop__my_struct_a_opt, &obj);
 
-#define TST(_exp)                                                            \
+#define TST(_exp, _test_unpack, _must_be_equal)                              \
         do {                                                                 \
             Z_HELPER_RUN(iop_yaml_test_pack(&tstiop__my_struct_a_opt__s,     \
-                                            &obj, 0, true, true, (_exp)));   \
+                                            &obj, 0, (_test_unpack),         \
+                                            (_must_be_equal), (_exp)));      \
         } while(0)
 
         /* test special double values */
         OPT_SET(obj.m, INFINITY);
-        TST("m: .Inf");
+        TST("m: .Inf", true, true);
         OPT_SET(obj.m, -INFINITY);
-        TST("m: -.Inf");
+        TST("m: -.Inf", true, true);
         OPT_SET(obj.m, NAN);
-        TST("m: .NaN");
+        TST("m: .NaN", true, true);
         OPT_CLR(obj.m);
+
+        /* test unknown integer enum value */
+        OPT_SET(obj.k, 42);
+        /* cannot unpack because value will be invalid */
+        TST("k: 42", false, false);
 
 #undef TST
     } Z_TEST_END;
@@ -630,6 +636,28 @@ Z_GROUP_EXPORT(iop_yaml)
                   "the value is not valid for the enum `TestEnum`\n"
                   "e: D\n"
                   "   ^");
+        /* invalid number */
+        TST_ERROR("e: 999",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is not valid for the enum `TestEnum`\n"
+                  "e: 999\n"
+                  "   ^^^");
+        TST_ERROR("e: -10",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is not valid for the enum `TestEnum`\n"
+                  "e: -10\n"
+                  "   ^^^");
+        /* overflow is handled, integer for enums is an int32 */
+        TST_ERROR("e: -5000000000",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is out of range for the field of type enum\n"
+                  "e: -5000000000\n"
+                  "   ^^^^^^^^^^^");
+        TST_ERROR("e: 5000000000",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is out of range for the field of type enum\n"
+                  "e: 5000000000\n"
+                  "   ^^^^^^^^^^");
 
         /* --- blob errors --- */
 
@@ -856,6 +884,16 @@ Z_GROUP_EXPORT(iop_yaml)
             "      - a: 5\n"
             "  - a: 6",
             NULL);
+
+        /* unpacking an integer inside an enum works, but is repacked as a
+         * string. */
+        TST(&tstiop__my_struct_a_opt__s,
+            "k: 0",
+            "k: A");
+        /* works with negative number as well */
+        TST(&tstiop__struct_with_negative_enum__s,
+            "e: -2",
+            "e: NEG");
 
 #undef TST
     } Z_TEST_END;

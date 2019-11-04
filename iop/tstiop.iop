@@ -810,6 +810,14 @@ class SmallChild : 2 : NoFieldParent {
     string c;
 };
 
+enum NegativeEnum {
+    NEG = -2,
+};
+
+struct StructWithNegativeEnum {
+    NegativeEnum e;
+};
+
 /* }}} */
 /* {{{ iopc zchk */
 /* {{{ zchk iopsq.sub_struct */

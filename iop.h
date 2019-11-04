@@ -1905,10 +1905,15 @@ static inline lstr_t iop_enum_to_str_desc(const iop_enum_t * nonnull ed, int v)
     })
 #define iop_enum_to_str(pfx, v)  iop_enum_to_lstr(pfx, (v)).s
 
+static inline bool iop_enum_exists_desc(const iop_enum_t * nonnull ed, int v)
+{
+    return iop_ranges_search(ed->ranges, ed->ranges_len, v) >= 0;
+}
+
 #define iop_enum_exists(pfx, v)  ({                                          \
         const pfx##__t _ee_v = (v);                                          \
                                                                              \
-        iop_ranges_search(pfx##__e.ranges, pfx##__e.ranges_len, _ee_v) >= 0; \
+        iop_enum_exists_desc(&pfx##__e, _ee_v);                              \
     })
 
 /** Convert a string to its integer value using an IOP enum mapping.
