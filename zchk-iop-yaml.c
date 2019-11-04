@@ -18,6 +18,8 @@
 
 /* LCOV_EXCL_START */
 
+#include <math.h>
+
 #include "z.h"
 #include "iop-yaml.h"
 #include "iop/tstiop.iop.h"
@@ -216,58 +218,90 @@ Z_GROUP_EXPORT(iop_yaml)
     /* }}} */
     Z_TEST(pack_string, "test IOP YAML string packing") { /* {{{ */
         tstiop__my_union_a__t obj;
+        const char invalid_utf8[3] = { 0xC0, 0x21, '\0' };
 
         obj = IOP_UNION(tstiop__my_union_a, us, LSTR(""));
 
-#define TST(str, _exp)                                                       \
+#define TST(str, _exp, _must_be_equal)                                       \
         do {                                                                 \
             obj.us = LSTR(str);                                              \
             Z_HELPER_RUN(iop_yaml_test_pack(&tstiop__my_union_a__s, &obj, 0, \
-                                            true, true, (_exp)));            \
+                                            true, (_must_be_equal), (_exp)));\
         } while(0)
 
         /* test cases when packing surrounds the string with quotes */
 
         /* for empty string */
-        TST("", "us: \"\"");
+        TST("", "us: \"\"", true);
 
         /* when starting with -, '&', '*' or '!' */
-        TST("- muda", "us: \"- muda\"");
-        TST("mu - da", "us: mu - da");
-        TST("&muda", "us: \"&muda\"");
-        TST("mu&da", "us: mu&da");
-        TST("*muda", "us: \"*muda\"");
-        TST("mu*da", "us: mu*da");
-        TST("!muda", "us: \"!muda\"");
-        TST("mu!da", "us: mu!da");
+        TST("- muda", "us: \"- muda\"", true);
+        TST("mu - da", "us: mu - da", true);
+        TST("&muda", "us: \"&muda\"", true);
+        TST("mu&da", "us: mu&da", true);
+        TST("*muda", "us: \"*muda\"", true);
+        TST("mu*da", "us: mu*da", true);
+        TST("!muda", "us: \"!muda\"", true);
+        TST("mu!da", "us: mu!da", true);
 
         /* when containing ':' or '#' */
-        TST(":muda", "us: \":muda\"");
-        TST(": muda", "us: \": muda\"");
-        TST("mu:da", "us: \"mu:da\"");
-        TST("mu: da", "us: \"mu: da\"");
-        TST("#muda", "us: \"#muda\"");
-        TST("# muda", "us: \"# muda\"");
-        TST("mu#da", "us: \"mu#da\"");
-        TST("mu# da", "us: \"mu# da\"");
+        TST(":muda", "us: \":muda\"", true);
+        TST(": muda", "us: \": muda\"", true);
+        TST("mu:da", "us: \"mu:da\"", true);
+        TST("mu: da", "us: \"mu: da\"", true);
+        TST("#muda", "us: \"#muda\"", true);
+        TST("# muda", "us: \"# muda\"", true);
+        TST("mu#da", "us: \"mu#da\"", true);
+        TST("mu# da", "us: \"mu# da\"", true);
 
         /* when containing quotes or \X characters */
-        TST("mu\"da", "us: mu\"da");
-        TST("\"muda", "us: \"\\\"muda\"");
-        TST("mu\rda\t", "us: \"mu\\rda\\t\"");
-        TST("\a \b \e \f \n \r \t \v",
-            "us: \"\\a \\b \\e \\f \\n \\r \\t \\v\"");
+        TST("mu\"da", "us: mu\"da", true);
+        TST("\"muda", "us: \"\\\"muda\"", true);
+        TST("mu\rda\t", "us: \"mu\\rda\\t\"", true);
+        TST("\a \b \e \f \n \r \t \\ \v",
+            "us: \"\\a \\b \\e \\f \\n \\r \\t \\\\ \\v\"", true);
 
-        TST("mùda", "us: \"m\\u00f9da\"");
+        /* with an invalid utf-8 character.
+         * The unpacked object won't be equal to the packed one, as the
+         * invalid character will be repacked as a valid utf-8 sequence */
+        TST(invalid_utf8, "us: \"\\u00c0!\"", false);
+
+        TST("\a \b \e \f \n \r \t \\ \v",
+            "us: \"\\a \\b \\e \\f \\n \\r \\t \\\\ \\v\"", true);
+
+        TST("mùda", "us: \"m\\u00f9da\"", true);
 
         /* when it would be parsed as something else */
-        TST("~", "us: \"~\"");
-        TST("null", "us: \"null\"");
-        TST("TruE", "us: TruE");
-        TST("FalSe", "us: FalSe");
+        TST("~", "us: \"~\"", true);
+        TST("null", "us: \"null\"", true);
+        TST("TruE", "us: TruE", true);
+        TST("FalSe", "us: FalSe", true);
 
-        TST("4.2", "us: 4.2");
-        TST("42", "us: 42");
+        TST("4.2", "us: 4.2", true);
+        TST("42", "us: 42", true);
+#undef TST
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(pack_corner_cases, "test IOP YAML corner cases packing") { /* {{{ */
+        tstiop__my_struct_a_opt__t obj;
+
+        iop_init(tstiop__my_struct_a_opt, &obj);
+
+#define TST(_exp)                                                            \
+        do {                                                                 \
+            Z_HELPER_RUN(iop_yaml_test_pack(&tstiop__my_struct_a_opt__s,     \
+                                            &obj, 0, true, true, (_exp)));   \
+        } while(0)
+
+        /* test special double values */
+        OPT_SET(obj.m, INFINITY);
+        TST("m: .Inf");
+        OPT_SET(obj.m, -INFINITY);
+        TST("m: -.Inf");
+        OPT_SET(obj.m, NAN);
+        TST("m: .NaN");
+        OPT_CLR(obj.m);
+
 #undef TST
     } Z_TEST_END;
     /* }}} */
@@ -399,6 +433,12 @@ Z_GROUP_EXPORT(iop_yaml)
                   "cannot set an integer value in a field of type string\n"
                   "s: -42\n"
                   "   ^^^");
+        /* bool -> scalar */
+        TST_ERROR("data: true",
+                  "1:7: "ERR_COMMON": cannot set field `data`: "
+                  "cannot set a boolean value in a field of type bytes\n"
+                  "data: true\n"
+                  "      ^^^^");
         /* seq -> scalar */
         TST_ERROR("s: - 42",
                   "1:4: "ERR_COMMON": cannot set field `s`: "
@@ -576,6 +616,15 @@ Z_GROUP_EXPORT(iop_yaml)
                   "un: a: 42\n"
                   "    ^^^^^");
 
+        /* error on field unpacking */
+        TST_ERROR("un: i: foo",
+                  "1:8: "ERR_COMMON": cannot set field `un`: "
+                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
+                  "cannot set field `i`: "
+                  "cannot set a string value in a field of type int\n"
+                  "un: i: foo\n"
+                  "       ^^^");
+
         /* --- enum errors --- */
 
         /* invalid string */
@@ -593,6 +642,17 @@ Z_GROUP_EXPORT(iop_yaml)
                   "the value must be encoded in base64\n"
                   "data: D\n"
                   "      ^");
+
+        /* --- struct errors --- */
+
+        /* wrong explicit tag */
+        /* TODO: location should be the tag */
+        TST_ERROR("!tstiop.FullDefVal i8: 1",
+                  "1:1: "ERR_COMMON": "
+                  "wrong type `tstiop.FullDefVal` provided in tag, "
+                  "expected `tstiop.FullOpt`\n"
+                  "!tstiop.FullDefVal i8: 1\n"
+                  "^^^^^^^^^^^^^^^^^^^^^^^^");
 
         /* --- class errors --- */
 
@@ -682,6 +742,11 @@ Z_GROUP_EXPORT(iop_yaml)
                              "^^^^^", path);
         Z_ASSERT_STREQUAL(err.data, expected_err);
 
+        /* on unknown file */
+        Z_ASSERT_NEG(t_iop_yunpack_ptr_file("foo.yml", st, &res, &err));
+        Z_ASSERT_STREQUAL(err.data, "cannot read file foo.yml: "
+                          "No such file or directory");
+
 #undef ERR_COMMON
 #undef TST_ERROR
     } Z_TEST_END;
@@ -690,6 +755,7 @@ Z_GROUP_EXPORT(iop_yaml)
 #define TST(_st, _yaml, _new_yaml)                                           \
         Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml), (_new_yaml)))
 
+        /* test a lot of different types */
         TST(&tstiop__my_struct_a__s,
             "a: -1\n"
             "b: 2\n"
@@ -724,6 +790,23 @@ Z_GROUP_EXPORT(iop_yaml)
             "t: 20",
             NULL
         );
+
+        /* test uint unpacking into different IOP number sizes */
+        TST(&tstiop__my_struct_a_opt__s,
+            "a: 5\n"
+            "b: 5\n"
+            "cOfMyStructA: 5\n"
+            "d: 5\n"
+            "e: 5\n"
+            "f: 5\n"
+            "g: 5\n"
+            "h: 5",
+            NULL);
+
+        /* ~ can be used to indicate a field is present */
+        TST(&tstiop__my_struct_a_opt__s, "v: ~", NULL);
+        /* ~ can also be used for optional void fields */
+        TST(&tstiop__my_struct_a_opt__s, "w: ~", NULL);
 
         /* ~ can be unpacked into a struct */
         TST(&tstiop__my_struct_a_opt__s, "~", NULL);
