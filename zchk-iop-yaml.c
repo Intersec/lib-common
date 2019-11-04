@@ -446,12 +446,11 @@ Z_GROUP_EXPORT(iop_yaml)
                   "s: - 42\n"
                   "   ^^^^");
         /* seq -> struct */
-        TST_ERROR("st: - 42",
-                  "1:5: "ERR_COMMON": cannot set field `st`: "
-                  "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
+        TST_ERROR("- 42",
+                  "1:1: "ERR_COMMON": "
                   "cannot unpack a sequence into a struct\n"
-                  "st: - 42\n"
-                  "    ^^^^");
+                  "- 42\n"
+                  "^^^^");
         /* obj -> scalar */
         TST_ERROR("s: a: 42",
                   "1:4: "ERR_COMMON": cannot set field `s`: "
@@ -461,8 +460,7 @@ Z_GROUP_EXPORT(iop_yaml)
         /* scalar -> union */
         TST_ERROR("un: true",
                   "1:5: "ERR_COMMON": cannot set field `un`: "
-                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
-                  "cannot unpack a boolean value into a union\n"
+                  "cannot set a boolean value in a field of type union\n"
                   "un: true\n"
                   "    ^^^^");
         /* use of tag */
@@ -594,7 +592,6 @@ Z_GROUP_EXPORT(iop_yaml)
         /* use of tag */
         TST_ERROR("un: !tstiop.TestUnion i: 42",
                   "1:5: "ERR_COMMON": cannot set field `un`: "
-                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
                   "specifying a tag is not allowed\n"
                   "un: !tstiop.TestUnion i: 42\n"
                   "    ^^^^^^^^^^^^^^^^^^^^^^^");
@@ -733,6 +730,20 @@ Z_GROUP_EXPORT(iop_yaml)
                   "o: ra\n"
                   "^^^^^");
 
+        /* cannot use tag */
+        /* TODO: location should be the tag */
+        TST_ERROR("!tstiop.MyUnionA o: ra\n",
+                  "1:1: "ERR_COMMON": specifying a tag is not allowed\n"
+                  "!tstiop.MyUnionA o: ra\n"
+                  "^^^^^^^^^^^^^^^^^^^^^^");
+
+        /* wrong data type */
+        TST_ERROR("yare yare\n",
+                  "1:1: "ERR_COMMON": "
+                  "cannot unpack a string value into a union\n"
+                  "yare yare\n"
+                  "^^^^^^^^^");
+
         /* test an error when unpacking a file: should display the filename */
         path = t_fmt("%*pM/test-data/yaml/invalid_union.yml",
                      LSTR_FMT_ARG(z_cmddir_g));
@@ -831,6 +842,19 @@ Z_GROUP_EXPORT(iop_yaml)
             "a: a\n"
             "b: b\n"
             "c: c",
+            NULL);
+
+        /* unpacking list of struct inside struct */
+        TST(&tstiop__my_struct_c__s,
+            "a: 1\n"
+            "b:\n"
+            "  a: 2\n"
+            "c:\n"
+            "  - a: 3\n"
+            "    c:\n"
+            "      - a: 4\n"
+            "      - a: 5\n"
+            "  - a: 6",
             NULL);
 
 #undef TST
