@@ -1071,7 +1071,7 @@ Z_GROUP_EXPORT(str)
         TD("123+", 0, 123.0, 3);
         TD("000000000000000000000000000000000001", 0, 1, -1);
         TD("-000000000000000000000000000000000001", 0, -1, -1);
-        TD("", 0, 0, -1);
+        TD("", EINVAL, 0, -1);
         TD("          ", 0, 0, 0);
         TD("0", 0, 0, -1);
         TD("0x0", 0, 0, -1);
@@ -2085,19 +2085,21 @@ Z_GROUP_EXPORT(str)
     Z_TEST(lstr_to_double, "str: lstr_to_double") {
         double d;
 
-#define T_OK(_str, _exp)  \
+#define T(_str, _exp, _res)  \
         do {                                                                 \
-            Z_ASSERT_N(lstr_to_double(LSTR(_str), &d));                      \
+            Z_ASSERT_EQ(_res, lstr_to_double(LSTR(_str), &d));               \
             Z_ASSERT_EQ(d, _exp);                                            \
         } while (0)
 
-        T_OK("0",        0);
-        T_OK("1234",     1234);
-        T_OK("  1234  ", 1234);
-        T_OK("-1.33e12", -1.33e12);
-        T_OK("INF", INFINITY);
-        T_OK("INFINITY", INFINITY);
-#undef T_OK
+        T("0",        0,        0);
+        T("1234",     1234,     0);
+        T("  1234  ", 1234,     0);
+        T("-1.33e12", -1.33e12, 0);
+        T("INF",      INFINITY, 0);
+        T("INFINITY", INFINITY, 0);
+        T("",         0,       -1);
+        T(" ",        0,       -1);
+#undef T
 
 #define T_KO(_str)  \
         do {                                                                 \

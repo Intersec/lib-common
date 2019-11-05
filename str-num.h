@@ -146,7 +146,14 @@ __attr_nonnull__((1))
 static inline double memtod(const void * nonnull s, int len,
                             const byte * nullable * nullable endptr)
 {
-    if (len >= 0) {
+    if (!len) {
+        errno = EINVAL;
+        if (endptr) {
+            *endptr = (byte *)s;
+        }
+        return 0;
+    }
+    if (len > 0) {
         t_scope;
 
         /* Ensure we have a '\0' */
