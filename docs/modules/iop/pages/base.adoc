@@ -258,6 +258,80 @@ enum MyEnum {
 
 ----
 
+==== Default values with units
+
+In addition to arithmetic operations, you can also use some units to your
+constants:
+
+* Sizes
+
+|===
+| |key|value
+
+| kilobyte
+a| *K*
+| 1024
+
+| Megabyte
+a| *M*
+| 1024^2
+
+| Gigabyte
+a| *G*
+| 1024^3
+
+| Terabyte
+a| *T*
+| 1024^4
+|===
+
+For example:
+
+[source,c]
+----
+struct DataLimit {
+    ulong limit = 4G;
+};
+----
+
+* Characters
+
+Below is how a character can be specified as a default value:
+
+[source,c]
+----
+struct InputCsv {
+    int separator = c";";
+};
+----
+
+* Time
+
+|===
+| |key|value
+
+| second
+a| *s*
+| 1
+
+| minute
+a| *m*
+| 60
+
+| hour
+a| *h*
+| 60 * 60
+
+| day
+a| *d*
+| 24 * 60 * 60
+
+| week
+a| *w*
+| 7 * 24 * 60 * 60
+|===
+
+
 [[iop-tags]]
 === IOP tags
 
