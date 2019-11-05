@@ -32,6 +32,12 @@ deals with data integrity checking, retro-compatibility issues,... They are also
 used to exchange data between different languages or to provide a generic
 interface to store and load C data on disk.
 
+== Documentation
+
+The lib-common documentation can be found in the `docs` directory. The
+documentation is based on https://antora.org[Antora], an online version is
+available https://intersec.github.io/lib-common/lib-common/index.html[here].
+
 == Quickstart
 
 This section offers basic instructions for building the lib-common.
