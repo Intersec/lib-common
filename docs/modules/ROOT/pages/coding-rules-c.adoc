@@ -402,7 +402,7 @@ function fails).
 * Declarations that use blocks in headers must use the `BLOCK_CARET` macro
   instead of a literal caret `^`
 * Declarations that use blocks in headers must be wrapped in a `#ifdef
-  __has_blocks / #endif`
+  __has_blocks / #endif /* __has_blocks */`
 
 * Typedefs of block types must be suffixed by `_b`.
 * Functions variants that use blocks instead of callbacks should be named
@@ -495,7 +495,7 @@ if (res) {
 
 ----
 
-== Macros
+== Macros / Preprocessor directives
 
 * Use at least two spaces between a macro name and its implementation:
 [source,c]
@@ -577,6 +577,35 @@ lines macros simple
 
 ----
 
+* When creating a `#ifndef`/`#ifdef` - `#endif` block, put a comment after the
+endif to repeat the initial condition:
+
+[source,c]
+----
+#ifndef MY_HEADER_GUARD
+#define MY_HEADER_GUARD
+
+/* ... */
+
+#endif /* MY_HEADER_GUARD */
+----
+
+Or:
+
+[source,c]
+----
+#ifndef NDEBUG
+#define NDEBUG
+
+/* ... */
+
+#endif /* NDEBUG */
+----
+
+Purpose: for example, avoid confusing a `#endif` placed in the end of a file
+with a header guard when it is not.
+
+
 * When cascading preprocessor `ifdef`, `else`, `endif` directives and define,
   use 2 columns per level (including the sharp as a column). The `ifdef` guard
   of a header file doesn’t count for indent levels.
@@ -591,10 +620,10 @@ lines macros simple
 #   define WE_ARE_USING_A_GLIBC
 # else
 #   error "We need a glibc"
-# endif
+# endif /* __GLIBC__*/
 #else
 # error "go away, loser"
-#endif
+#endif /*__GNUC__ */
 
 #endif /* MY_HEADER_GUARD */
 ----
