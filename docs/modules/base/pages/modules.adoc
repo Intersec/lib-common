@@ -1,0 +1,42 @@
+= Modules
+:toc: :numbered:
+
+In the lib-common, Modules can be defined and work in a similar way as kernel
+modules, allowing us to load blocks of functionalities with little effort.
+
+Modules are declared using `MODULE_BEGIN(module_name)`/`MODULE_END()` macros.
+This creates a function with
+https://gcc.gnu.org/onlinedocs/gcc-4.6.4/gcc/Function-Attributes.html[+__attribute__(constructor)+]
+
+The body of this function is called *before main()*, as long as the module is
+linked in your executable.
+
+It builds the dependencies between modules, using:
+
+* `MODULE_DEPENDS_ON(x)` (load the module "x" before this one, a classic
+  dependency)
+* `MODULE_NEEDED_BY(x)` (load this module before loading module "x", a reversed
+  dependency).
+
+
+When loading a module, 2 things happen:
+
+* all the automatic dependencies (`MODULE_DEPENDS_ON`) not loaded yet are
+  loaded (this is recursive, so their dependencies are loaded first, and their
+  `<dep>_initialize()` method is called before too).
+* then the `<module_name>_initialize()` method is called.
+
+
+When unloading a module :
+* all the dependencies that are not needed anymore are unloaded.
+* the `<module_name>_shutdown()` method is called.
+
+
+`MODULE_PROVIDE(module_x, arg)` ensures that the argument is passed to
+module_x_initialize(). Warnings will be issued if a module is provided an
+argument more than once.
+
+Sometimes, you need conditional dependency. This is achieved using
+MODULE_REQUIRE(x), which does an immediate load. This is usually done in
+`<module>_initialize`, but could be done anywhere. A manually loaded module
+must be manually unloaded, using `MODULE_RELEASE(x)`.

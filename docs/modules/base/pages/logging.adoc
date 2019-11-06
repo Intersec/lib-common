@@ -1,0 +1,147 @@
+= Logging
+:toc: :numbered:
+
+The lib-common also contains the logging primitives. We do have two
+generations:
+
+* `e_*`: this is our "old" logging function. It is also the only available
+  solution in lib-commons 2013.1 and earlier.
+* `logger_t`: this is a `log4*`-inspired implementation of logging API present
+  in recent lib-commons
+
+Both implementations have the same primitives:
+* `panic`: print a message, emit a syslog entry and abort the execution
+* `fatal`: print a message, emit a syslog entry and exit gently
+* `error`, `warn`, `notice`, `info`, `debug`: print a message at the given
+  priority level. Only the messages with a priority lesser than the configured
+  one are actually emitted.
+* `trace`: emit tracing logs. Tracing have its own numerical level from 0 to
+  `INT_MAX` that let you control which trace to print or not.
+
+== `logger_t` hierarchy
+
+The `logger_t` facility (provided by `lib-common/log.h`) is a hierarchical
+logging facility (this is the main improvement when compared to the `e_*`
+family. This means that each logger inherits from a parent and have a separate
+level configured. The main usage is to configure a logger per code module (or
+potentially per structure if appropriate, e.g. a logger per http connection).
+Then, you can have a different logging level for each code module. This allow
+library functions to only print errors while still displaying debug traces in the
+core of the process.
+
+All emitted traces are associated to a logger that has a name, a parent and
+default level. The name must be unique for a given parent, the level can be any
+valid logging priority level (`LOG_CRIT`, `LOG_ERR`, ... `LOG_DEBUG`,
+`LOG_TRACE`), or the special `LOG_INHERITS` level which means the logger have
+the same level as its parent. From the hierarchy of the logger, a full name is
+computed that is a concatenation of the names of the logger and its parents
+(this is used as the unique identifier of the logger).
+
+Once you have a logger, you just need to call `logger_*` to performs logging.
+The call will be almost free (an integer comparison) if the requested log has a
+level is not accepted (for example if the logger is configured everything more
+important that a `LOG_NOTICE` and a call to `logger_debug` is performed).
+
+[source,c]
+----
+/* Create a logger for that module.
+ *
+ * It inherits directly from the root logger.
+ */
+static logger_t my_module_logger_g = LOGGER_INIT_INHERITS(NULL, "my_module");
+
+/* Sub part 1 */
+
+/* Create a logger for that part, inherits from my_module level.
+ *
+ * The full name of that logger is "my_module/part_1"
+ */
+static logger_t
+my_sub_part1_logger_g = LOGGER_INIT_INHERITS(&my_module_logger_g, "part_1");
+
+static int do_something1(void)
+{
+    return logger_info(&my_sub_part1_logger_g, "hello");
+}
+
+/* Sub part 2 */
+
+/* Create a logger for that part, but by default only log warnings and errors.
+ *
+ * The full name of that logger is "my_module/part_2"
+ */
+static logger_t
+my_sub_part2_logger_g = LOGGER_INIT(&my_module_logger_g, "part_2", LOG_WARN);
+
+static int do_something1(void)
+{
+    return logger_info(&my_sub_part1_logger_g, "hello");
+}
+----
+
+== Configuration
+
+The logger configuration can be performed using the `logger_set_level` and
+`logger_reset_level` function. The first one set the level for a logger and all
+the loggers that inherits from that one, while the second one resets the level
+of a particular logger to the its default one. Those functions take the full
+name of a logger as their first parameter.
+
+[source,c]
+----
+/* Set the level of my_module/part_1 */
+logger_set_level(LSTR("my_module/part_1"), LOG_TRACE, 0);
+
+/* Set the level of the root logger */
+logger_set_level(LSTR_EMPTY_V, LOG_WARN, 0);
+
+/* Set back my_module/part_1 to its default level */
+logger_reset_level(LSTR("my_module/part_1"));
+----
+
+The logger can also be configured by using an IOP structure `LogConfiguration`
+or by using an IOP interface available in lib-common's Core IOP module.
+
+== Handler
+
+The formatting of the logs if performed by a handler that receive a message and
+the associated context each time a log line is emitted. There's only one
+handler that receives all the emitted logs. The context received by the handler
+is extensible, which means that it may contain more data in the future.
+Currently, it contains:
+
+* the logging level
+* the full name of the emitting logger
+* the location of the emitter (file, function, line number)
+* the identification of the emitting process (process name, pid)
+
+The default logger prints logs on `stderr`.
+
+== Display
+
+=== Trace loggers
+
+In order to display traced logger you need to provide the following pattern to
+the environment variable `IS_DEBUG`
+
+----
+pattern=[<path-pattern>][@<funcname>][+<featurename>][:<level>]
+----
+
+For example, if you want to display the *level 2* trace of the logger
+*platform/miner/sched* and the *level 3* trace of *qre* for an example process
+`zpf-master`, you should run the command:
+
+----
+IS_DEBUG="+platform/miner/sched:2 +qre:3" ./zpf-master
+----
+
+You can also set the `IS_LOG_TIMESTAMP` variable to 1 in order to add the
+timestamps in the produced logs:
+
+----
+$ IS_LOG_TIMESTAMP=1 ./zpf-master
+1453400885.28 zpf-master[15549]: {platform} example message 1
+1453400885.46 zpf.master@1[15549]: {platform/master} example message 2
+----
+

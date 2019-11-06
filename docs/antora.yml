@@ -3,4 +3,5 @@ version: master
 title: Lib-common Documentation
 nav:
 - modules/ROOT/nav.adoc
+- modules/base/nav.adoc
 - modules/iop/nav.adoc

@@ -1,0 +1,7 @@
+* Base library
+** xref:base.adoc[C library enhancements]
+** xref:mem-alloc.adoc[Memory allocators]
+** xref:string.adoc[String library]
+** xref:containers.adoc[Containers]
+** xref:logging.adoc[Logging]
+** xref:modules.adoc[Modules]

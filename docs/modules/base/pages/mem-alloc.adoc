@@ -1,0 +1,89 @@
+= Memory Allocators
+:toc: :numbered:
+
+While `malloc` is the most common way to allocate memory, there are multiple
+other use-cases where we may have very specific allocation patterns. Some of
+these patterns can make sub-optimal uses of `malloc` or be much more
+complicated than expected due to memory management issues. For these use-cases,
+the lib-common provides several allocators.
+
+== `p_new()`
+
+We do not use `malloc` directly, instead we use wrappers of the `p_*` family.
+Our wrappers have the following properties:
+
+* they are type safe
+* they set the memory to 0 by default (use the `*_raw` variants to avoid the
+  cost of `memset`)
+* deallocations are idempotent: calling `p_delete()` twice on the same location
+  is safe since `p_delete()` sets the location to NULL.
+
+== `mem_fifo_pool`
+
+The `mem_fifo_pool` is a memory pool optimized for the case where the first
+allocated block is also the first to be released. The typical use case is a
+queue of messages where we usually answer the first message before processing
+the next one. The `mem_fifo_pool` does not enforce the de-allocation order but
+is optimal for "FIFO" case.
+
+== `mem_stack_pool`
+
+The `mem_stack_pool` works the same way the program stack works: it works with
+nested frames. All the allocations made within a frame are freed when we leave
+it. That means the workflow will look like:
+
+. `mem_stack_push(mp)`: start a new frame 1
+.. `mp_new(mp, type, count)`: do an allocation 1 in the frame 1
+.. `mp_new(...)`: do another allocation 2 in the frame 1
+.. `mem_stack_push(mp)`: start a new frame 2
+... `mp_new()`: do an allocation 3 in frame 2
+... mem_stack_pop(mp)@: leave frame 2, free the allocation 3
+.. `mp_new(...)`: do an allocation 4 in frame 1
+.. `mem_stack_pop(mp)`: leave frame 1, free allocations 1, 2 and 4
+
+Note: You must be careful of reallocations, though. In our example, allocation
+1 belongs to frame 1 and cannot be reallocated in frame 2.
+
+== `t_stack`
+
+The most common use of the `mem_stack_pool` is by using the globally defined
+`t_pool()`. The `t_pool()` is a unique thread-local `mem_stack_pool` that can
+be used from anywhere in your program. It is usually used as a complement for
+the stack to perform dynamic allocations whose lifetime is limited to a
+function or a block within that function. It avoids stressing `malloc` with
+frequent (usually small) allocations, avoids de-allocation code (and thus avoids
+lots of cleanup code and memory leaks).
+
+In order to work with the `t_stack` we have several helpers (the `t_*` macros):
+
+* `t_scope`: declare a frame on the t_stack. The frame is opened on the line of
+  the `t_scope` and is closed when we leave the scope in which the `t_scope`
+  lives
+* `t_new`, `t_new_raw`, `t_realloc`...: allocate or reallocate data in the
+  current frame
+
+[source,c]
+----
+void foo(void)
+{
+    t_scope; /* enter frame 1 */
+    void *a1 = t_new(...);
+    void *a2 = t_new(...);
+
+    {
+        t_scope; /* enter frame 2 */
+        void *a3 = t_new(...);
+    } /* Here we're leaving frame 2 */
+
+    void *a4 = t_new(...);
+} /* Here we're leaving frame 1 */
+----
+
+Note: As a consequence of the reallocation limitation of the `mem_stack_pool`,
+using `t_realloc` on an allocation of frame 1 in frame 2 will fail (in practice
+it will abort the execution of the program). This is also true for string
+buffers or vectors allocated on the `t_stack` that could grow in a nested
+frame. Using `t_stack` allocated buffers/vector is very convenient because
+there is no need to explicitly de-allocate them, but is risky due to this
+reallocation limitation.
+

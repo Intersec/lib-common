@@ -1,0 +1,172 @@
+= Base components in the lib-common
+:toc: :numbered:
+
+== C library enhancements
+
+=== `printf`
+
+`printf`: the lib-common overloads printf with our own implementation that
+provides optimizations for the most used cases. It also has some improvements
+over the standard `printf` implementation:
+
+* It can be used in signal handlers.
+* It overloads the `%p` as done in http://lwn.net/Articles/289064/[the Linux
+kernel]. This means that `%p` (and `%*p`) also consume the alphanumeric
+characters that directly follow the `p` and use them as a way to change the
+interpretation of the passed parameter. As a consequence, you must make sure
+your `%p` is followed by a non-alphanumeric character in order to print a
+pointer address.
+
+The following extensions are supported:
+
+* `%*pM` puts `len` raw bytes of memory from the given pointer. Its most common
+  use-case is a faster `%.*s`: `printf("%.*s", len, str)` prints
+  `MIN(len, strlen(str))` bytes, while `printf("%*pM", len, str)` always puts
+  `len` bytes without trying to interpret those bytes (and thus can also put
+  `\0`). `%*pM` when directly followed by alphanumeric character will
+  additionally print those characters.
+* `%*pX` and `%*px` are very similar to `%*pM`, but instead of putting raw
+  memory, they encode the data in hexadecimal. The `%*pX` puts uppercase
+  characters while the `%*px` variant puts lowercase characters. Both output
+  `2 * len` characters and consume `len` bytes from the provided pointer.
+* `%pL` puts the content of the pointed `lstr_t` object.
+* `%*pS` is an extension brought by IOP that allows to put IOP class instances
+  in JSON.
+* `%*pV` used with VALUE_FMT_ARG to print a `platform.Value`.
+* `%*pI` used with ID_FMT_ARG to print a `platform.Id`.
+
+[source,c]
+----
+printf("%ptoto", ptr);            /* Invalid, since "toto" is not a valid
+                                   * modifier */
+printf("%p toto", ptr);           /* output something like:
+                                   * 0x7efe129cb0f00 toto */
+printf("%*pM", 4, "12345");       /* output 1234 */
+printf("%*pMtoto", 4, "12345");   /* output 1234toto */
+printf("%*pXtoto", 4, "12345");   /* output 31323334toto */
+printf("%*pX world", 5, "Hello"); /* output 48656C6C6F world */
+
+lstr_t toto = LSTR("toto");
+printf("%pL", &toto); /* output toto */
+
+char data[] = { 0xde, 0xad, 0xbe, 0xef };
+printf("%*px", sizeof(data), data); /* output deadbeef */
+printf("%*pX", sizeof(data), data); /* output DEADBEEF */
+
+foo__bar__t bar;
+iop_init(foo__bar, &bar);
+bar.i1 = 1;
+bar.i2 = 2;
+
+printf("%*pS", IOP_OBJ_FMT_ARG(&bar));
+/* outputs {"_class":"foo.bar","i1":1,"i2":2} */
+
+printf("%*pS", IOP_ST_FMT_ARG(toto__toto, &toto));
+/* outputs {"tata":1, "tutu":2} */
+----
+
+== Basic macros
+
+The lib-common provides several macros that improve our code readability.
+
+* `countof()`: returns the number of elements in a static array.
+
+[source,c]
+----
+static int a[] = { 1, 2, 3, 4 };
+
+for (int i = 0; i < countof(a); i++) {
+    ...
+}
+----
+
+* `CMP`: compares two numerical variables. This macro avoids having to rewrite
+  the integer comparison logic each time we sort entries. Thanks to the ternary
+  operator extension of gcc it can be easily chained to compare several fields
+  of a structure.
+
+[source,c]
+----
+struct foo_t {
+   int a;
+   int b;
+};
+
+/* foo_t structures are sorted by increasing value of 'a' and, for each 'a'
+* by increasing value of 'b' */
+int foo_cmp(const struct foo_t *s1, const struct foo_t *s2)
+{
+    return CMP(s1->a, s2->a) ?: CMP(s1->b, s2->b);
+}
+
+----
+
+* `get_unaligned_*` and `put_unaligned_*`: These macros must be used whenever
+  you are reading value for a byte stream that may not be properly aligned to
+  CPU word boundaries.
+
+* There are many more macros like `SWAP`, `DIV_ROUND_UP`, `ROUND_UP`, `TOSTR`,
+  `MIN`, `MIN3`, `MAX`, `MAX3`...
+
+== Error management
+
+The lib-common comes with macros that will help making the error management as
+unobtrusive as possible.
+
+* `RETHROW*`: This macro family is used to propagate error status. It works as
+  long as the code conforms to our error reporting convention and the function
+  does not have to perform cleanup before returning. `RETHROW` variants depend
+  on the type of caller and on the type of the callee. In order to remember
+  which `RETHROW` to use, keep in mind that `N` stands for "numerical" and `P`
+  for "pointer", then `NP` means "converting numerical value to pointer".
+** `RETHROW`: rethrow integer error code
+** `RETHROW_P`: rethrow NULL pointer
+** `RETHROW_NP`: throw a NULL pointer if callee returned a negative return code
+** `RETHROW_PN`: throw a negative return code if the callee returned the NULL
+pointer
+
+[source,c]
+----
+int foo(void);
+byte *bar(int s);
+
+int baz(void)
+{
+    int s;
+    byte *data;
+
+    /* Assign s to the return value of foo, but filter out error cases
+     * before by rethrowing the error code.
+     */
+    s = RETHROW(foo());
+
+    /* Fetch the data, but return -1 if bar fails.
+     */
+    data = RETHROW_PN(bar(s));
+
+    return data[0];
+}
+----
+
+* `THROW_ERR_IF`/`THROW_ERR_UNLESS` and `THROW_NULL_IF`/`THROW_NULL_UNLESS`:
+  those macros can be used to return an error in a function.
+
+* `expect()`: the expect function takes a condition and returns the result of
+  the evaluation of the condition. In development mode, it will `abort()` the
+  execution of the program if the condition is evaluated to `false`. This
+  macros is a complement/replacement for `assert()` with the following
+  differences:
+** Code put in `assert()` is never executed in production mode, while code put
+in an `expect()` is always executed.
+** `expect()` returns the result of the evaluation of the condition while
+`assert()` is a statement, and as such has no return value. `expect()` also
+generates a `.debug` file containing the current backtrace.
+
+[source,c]
+----
+if (expect(pos >= 0)) {
+    do_something();
+} else {
+    handle_error();
+}
+----

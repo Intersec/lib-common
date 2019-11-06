@@ -1,0 +1,280 @@
+= Strings
+:toc: :numbered:
+
+Our string manipulation module is split into several submodules, each with a
+particular use case.
+
+== String buffers (sb)
+
+A string buffer is a dynamically resizeable string container. It is to be used
+when you want to compose a new string by chunks. String buffers content is
+always properly NULL-terminated.
+
+String buffers are typically declared and initialized a single line of code:
+
+* `SB_1k(name)` and `SB_8k(name)` declare and initialize a stack-allocated
+  string buffer. If the buffer grows beyond its initial size, it will be
+  heap-reallocated. It will be automatically wiped after at the end of the
+  scope.
+* `t_SB_1k(name)` and `t_SB_8k(name)` declare and initialize a
+  t-stack-allocated string buffer. t-stack-allocated buffers remain in the
+  t-stack even if reallocated, thus they don't need to be wiped, but they can
+  only be reallocated in the current t-frame.
+
+A heap-allocated string buffers can also be initialized with `sb_init()`. In
+that case, it must always be wiped after use with `sb_wipe()`.
+
+Once you have a string buffer, writing in it will be done using the `sb_add*`
+functions. There are a lot of variants, some are generic and can be found in
+`lib-common/str-buf.h`, others are specific to a protocol implementation or to
+a product. The most commonly used functions are:
+
+* `sb_addc(sb, c)`: append a single character
+* `sb_adds(sb, s)`: append the content of a C-string (const char *)
+* `sb_add(sb, s, len)`: append len bytes from the pointer s
+* `sb_addf(sb, fmt, ...)`: printf-like formatting
+* ...
+
+== String literals
+
+For string literals we avoid `const char *` as much as possible because in most
+use cases, `const char *` ends up being traversed several times. To avoid that
+issue, we use a structure named `lstr_t` that contains the string, its length,
+and ownership information (that way we know who is responsible of the
+de-allocation of the data).
+
+Beyond the traversing issue, using `lstr_t` enables several optimizations and
+avoids string copies in several places. Since we pass a pair (pointer, length)
+with no guarantee that the string is NULL-terminated, we can easily extract
+substrings without copying the content of the old string in a newly allocated
+buffer...
+
+Strings in `lstr_t` are accessible either as constant strings or as
+non-constant strings. The non-constant case must be used carefully. In
+particular, it is not appropriate to assume a `lstr_t` is writable in a library
+call.
+
+We have several initializers for `lstr_t` (note that the `_V` variants can be
+used anywhere in the code while "normal" variant can only be used as an
+initializer):
+
+* `LSTR`: this builds a `lstr_t` from a `const char *` by calling `strlen` on
+  the string. The `lstr_t` does not own the associated memory. When the string
+  is known at compile time, the `strlen` is also performed at compile time,
+  making it as efficient as `LSTR_IMMED`. This is the recommended macro that
+  should be used in most cases.
+* `LSTR_OPT`: idem, but the input string can be null.
+* `LSTR_IMMED`/`LSTR_IMMED_V`: initialize a `lstr_t` from a literal string
+  expression `name = LSTR_IMMED_V("foo")`. This allows resolution of the string
+  at compile time.
+* `LSTR_INIT`/`LSTR_INIT_V`: this takes a pointer and a length and builds a new
+  `lstr_t` that does not own the associated memory.
+* `lstr_init_`: this builds a `lstr_t` from a memory chunk, a length and an
+  indication about the type of memory (ownership flag).
+* `LSTR_DATA`/`LSTR_DATA_V`: initialize a `lstr_t` from an anonymous data chunk.
+
+We also have constants:
+
+* `LSTR_NULL`/`LSTR_NULL_V`: a `lstr_t` pointing to the NULL pointer with a
+  length of 0
+* `LSTR_EMPTY`/`LSTR_EMPTY_V`: a `lstr_t` pointing to the empty string `""`,
+  with a length of 0
+
+`lstr_t` must be wiped. In particular when storing a `lstr_t` in a structure,
+you must take care at calling `lstr_wipe` when destructing the structure. This
+implies that you always ensure the ownership flag of the `lstr_t` is correctly
+set: a `lstr_t` should not be owned more than once. In case you need a copy
+"without ownership" you can use `lstr_dupc()`, or in case you want to transfer
+ownership you can use `lstr_transfer`.
+
+[source,c]
+----
+struct foo_t {
+   lstr_t name;
+};
+
+void foo_wipe(struct foo_t *foo)
+{
+   lstr_wipe(&bar->name);
+}
+GENERIC_DELETE(struct foo_t, foo)
+
+struct bar_t {
+   lstr_t name;
+}
+
+void bar_wipe(struct bar_t *bar)
+{
+   lstr_wipe(&bar->name);
+}
+GENERIC_DELETE(struct bar_t, bar)
+
+/* Example of foo taking ownership of the name of bar.  This works without
+ * recopy and without risk of double ownership (and thus of double free), since
+ * we properly transfer the ownership of the lstr_t to foo.
+ */
+struct foo_t *bar_to_foo(struct bar_t **bar)
+{
+   struct foo_t *foo = p_new(struct foo_t, 1);
+
+   lstr_transfer(&foo->name, &(*bar)->name);
+   bar_delete(bar);
+   return foo;
+}
+
+/* Example of taking a constant copy of the name of bar.  This works as long as
+ * we're sure foo's lifetime is shorter than bar's one.
+ */
+struct foo_t *foo_from_bar(const struct bar_t *bar)
+{
+   struct foo_t *foo = p_new(struct foo_t, 1);
+
+   foo->name = lstr_dupc(bar->name);
+   return foo;
+}
+
+/* Example of taking a full copy of the name of bar.  This always work but
+ * implies we have a new allocated string for each structure.
+ */
+struct foo_t *copy_foo_from_bar(const struct bar_t *bar)
+{
+   struct foo_t *foo = p_new(struct foo_t, 1);
+
+   foo->name = lstr_dup(bar->name);
+   return foo;
+}
+----
+
+
+If you want to print a `lstr_t` using a printf-like function, you should use
+the `%*pM` format in conjonction with the `LSTR_FMT_ARG` macro:
+[source,c]
+----
+printf("name=%*pM", LSTR_FMT_ARG(foo->name));
+----
+
+The `lstr_fmt` and `t_lstr_fmt` macros can be used to create new `lstr_t` that
+are the result of the expansion of a printf-like format string. `t_lstr_fmt` is
+broadly used to generate error messages.
+
+== Parsing streams (pstreams)
+
+The `pstream_t` structure defines a chunk of data that needs to be parsed. It
+is optimized for sequential parsing that involves moving either the beginning
+of the chunk or its end without moving the other bound. As a consequence it
+uses a dual-pointer representation (beginning and end of the chunk).
+
+In conjonction with the `ctype` module that allows the definition of sets of
+characters (like isalpha, is alnum, isspace... but also supports custom sets),
+this provides an efficient and elegant solution for reading data, extracting
+chunks, skipping others and ensure separators are correct.
+
+The `pstream_t` is not supposed to own the memory, it just refers to a chunk we
+want to parse. It can be initialized either using a (pointer, length) pair
+(`ps_init`), using a C-string (`ps_initstr`) or a `lstr_t` (`ps_initlstr`).
+
+The `pstream_t` API provides the `PS_WANT` macro that can be used to return an
+error in case a condition is not met.
+
+[source,c]
+----
+struct user_t {
+    lstr_t firstname;
+    lstr_t lastname;
+    int age;
+    bool gender;
+};
+
+/* Read a record with the following format: firstname;lastname;age;gender
+ * whitespaces are ignored, firstname and lastname should contain only alpha
+ * characters, gender can be either M or F
+ */
+int parse_record(pstream_t *ps, struct user_t *user)
+{
+#define READ_SEMICOLON()              \
+    ps_ltrim(ps);                     \
+    PS_WANT(ps_getc(ps) == ';');      \
+    ps_ltrim(ps);
+
+    pstream_t n;
+
+    ps_ltrim(ps);
+
+    /* Read the first name */
+    n = ps_get_span(ps, &ctype_isalpha);
+    PS_WANT(!ps_done(&n)); /* ensure the name is not empty */
+    user->firstname = LSTR_PS_V(n);
+
+    READ_SEMICOLON();
+
+    /* Read the last name */
+    n = ps_get_span(ps, &ctype_isalpha);
+    PS_WANT(!ps_done(&n)); /* ensure the name is not empty */
+    user->lastname = LSTR_PS_V(n);
+
+    READ_SEMICOLON();
+
+    /* Read the age */
+
+    user->age = ps_geti(ps);
+    PS_WANT(user->age > 0);
+
+    READ_SEMICOLON();
+
+    /* Read the gender */
+    switch (RETHROW(ps_getc(ps))) {
+      case 'M':
+        user->gender = true;
+        break;
+      case 'F':
+        user->gender = false;
+        break;
+      default:
+        return -1;
+    }
+
+    /* Ensure we properly finished the stream */
+    ps_ltrim(ps);
+    return ps_done(ps) ? 0 : -1;
+}
+
+/* Read a record with the same format, but no constraint on firstname and
+ * lastname content except that they cannot contain a semi-colon. Whitespaces
+ * are not ignored.
+ */
+int parse_record2(pstream_t *ps, struct user_t *user)
+{
+    pstream_t n;
+
+    /* Read the first name */
+    RETHROW(ps_get_ps_chr_and_skip(ps, ';', &n));
+    PS_WANT(!ps_done(&n)); /* ensure the name is not empty */
+    user->firstname = LSTR_PS_V(n);
+
+    /* Read the last name */
+    RETHROW(ps_get_ps_chr_and_skip(ps, ';', &n));
+    PS_WANT(!ps_done(&n)); /* ensure the name is not empty */
+    user->lastname = LSTR_PS_V(n);
+
+    /* Read the age */
+    user->age = ps_geti(ps);
+    PS_WANT(user->age > 0);
+    RETHROW(ps_skipc(ps, ';'));
+
+    /* Read the gender */
+    switch (RETHROW(ps_getc(ps))) {
+      case 'M':
+        user->gender = true;
+        break;
+      case 'F':
+        user->gender = false;
+        break;
+      default:
+        return -1;
+    }
+
+    /* Ensure we properly finished the stream */
+    return ps_done(ps) ? 0 : -1;
+}
+----
+

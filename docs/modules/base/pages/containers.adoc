@@ -1,0 +1,122 @@
+= Containers
+:toc: :numbered:
+
+The lib-common contains the generic implementation of several containers:
+
+* vectors
+* hash tables and hash maps
+* head-tail lists
+* double-linked lists
+* rings
+* red-black trees
+* heaps
+
+There's two kind of containers in their implementation:
+
+* template-based containers: These are containers that contains an array of the
+  object. In that context, you must "instantiate" a new container type for each
+  type it can contain.
+* anchor-based containers: These are containers that just requires you to add
+  an anchor in your data structure. Once done, your structure can be inserted
+  in the container. Anchor-based containers are usually lists.
+
+Our containers come with iterators and safe-iterators. A safe iterator
+guarantees that you can remove the current object during the iteration.
+
+== Vectors
+
+Vectors are dynamically resize tables of objects. They are template-based
+containers. You instantiate a new vector type using the `qvector_t(name, type)`
+macro and then use the newly defined type with the `qv_t(name)` type name.
+
+[source,c]
+----
+struct foo_t {
+    int a;
+};
+
+qvector_t(foo, struct foo_t); /* define a vector of struct foo_t */
+qvector_t(foop, struct foo_t *); /* define a vector of pointers to
+                                    struct foo_t */
+
+int blah(qv_t(foo) *vect, int a)
+{
+    for (int i = 0; i < a; i++) {
+        struct foo_t f = { .a = i };
+
+        qv_append(vect, f);
+    }
+
+    return foo->len;
+}
+----
+
+== Hash tables and hash maps
+
+Hash tables (`qh`) and hash maps (`qm`) are also implemented as template-based
+containers. The difference between `qh` and `qm` is that `qh` is just a set of
+keys while `qm` is an association table between a key and a value. The types
+are instantiated using the `q[hm]_k(32|64|vec|ptr)_t` macros:
+
+* `k32`: the key is a 32bits value
+* `k64`: the key is a 64bits value
+* `kvec`: the key is a structure/value
+* `kptr`: the key is a pointer to a structure/value
+
+Note: the default read accessors of the `qm`/`qh` may have side-effects on the
+structure of the `qm`/`qh`, thus they are not reentrant. The `_safe` are
+provided in order to work in a multithreaded environment.
+
+== Doubly linked list (`dlist_t`)
+
+The DList is the good container when you need to often add or remove elements
+from a random position of a vector. Because it's doubly linked it's also the
+good container when you need to remove an element without knowing where it
+comes from (which position inside the vector or even which vector).
+
+The DList is very safe if you use it with some good practices:
+
+* never leave a `dlist_t` uninitialized, always use `dlist_init()`;
+* don't forget to call `dlist_remove()` in the object destructor, don't try to
+  manage it by hand;
+* use `dlist_for_each_safe` if you have to modify the list inside in the loop
+  (not necessary since version 2016.3: dlist_for_each_safe has replaced the
+  original dlist_for_each).
+
+[source,c]
+----
+typedef struct my_linked_item_t {
+    dlist_t link;
+            ...
+} my_linked_item_t;
+
+/* Never forget to initialize the `dlist_t` member in the object initializer */
+my_linked_item_t *my_linked_item_init(my_linked_item_t *item)
+{
+    p_clear(item, 1);
+    dlist_init(&item->link);
+
+    return item;
+}
+
+/* Also don't forget to remove the item from the list in its wiper */
+void my_linked_item_wipe(my_linked_item_t *item)
+{
+    dlist_remove(&item->link);
+}
+----
+
+=== Naming convention:
+
+The struct `dlist_t` can be used in two different contexts:
+
+|===
+| *Context* | *Naming convention* | *Examples*
+| The list itself: the `dlist_t` represents the linked list entry point | The attribute should be named "list" or be suffixed with "_list". | `list`, `elements_list`, ...
+| The struct used as an anchor for listed elements | The attribute should be named "link" or be suffixed with "_link". | `link`, `elements_link`, ...
+|===
+
+Note: this convention replaces an older convention in which we used
+"head"/"list" instead of "list"/"link". Some old code still using this
+convention can still be seen in the repository.
+
