@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Containers :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="string.html">String library</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="modules.html">Modules</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Base library</li>
+    <li class="crumb"><a href="containers.html">Containers</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Containers</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_vectors">Vectors</a></li>
+<li><a href="#_hash_tables_and_hash_maps">Hash tables and hash maps</a></li>
+<li><a href="#_doubly_linked_list_dlist_t">Doubly linked list (<code>dlist_t</code>)</a>
+<ul class="sectlevel2">
+<li><a href="#_naming_convention">Naming convention:</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>The lib-common contains the generic implementation of several containers:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>vectors</p>
+</li>
+<li>
+<p>hash tables and hash maps</p>
+</li>
+<li>
+<p>head-tail lists</p>
+</li>
+<li>
+<p>double-linked lists</p>
+</li>
+<li>
+<p>rings</p>
+</li>
+<li>
+<p>red-black trees</p>
+</li>
+<li>
+<p>heaps</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>There&#8217;s two kind of containers in their implementation:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>template-based containers: These are containers that contains an array of the
+object. In that context, you must "instantiate" a new container type for each
+type it can contain.</p>
+</li>
+<li>
+<p>anchor-based containers: These are containers that just requires you to add
+an anchor in your data structure. Once done, your structure can be inserted
+in the container. Anchor-based containers are usually lists.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Our containers come with iterators and safe-iterators. A safe iterator
+guarantees that you can remove the current object during the iteration.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_vectors"><a class="anchor" href="#_vectors"></a>Vectors</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Vectors are dynamically resize tables of objects. They are template-based
+containers. You instantiate a new vector type using the <code>qvector_t(name, type)</code>
+macro and then use the newly defined type with the <code>qv_t(name)</code> type name.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct foo_t {
+    int a;
+};
+
+qvector_t(foo, struct foo_t); /* define a vector of struct foo_t */
+qvector_t(foop, struct foo_t *); /* define a vector of pointers to
+                                    struct foo_t */
+
+int blah(qv_t(foo) *vect, int a)
+{
+    for (int i = 0; i &lt; a; i++) {
+        struct foo_t f = { .a = i };
+
+        qv_append(vect, f);
+    }
+
+    return foo-&gt;len;
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_hash_tables_and_hash_maps"><a class="anchor" href="#_hash_tables_and_hash_maps"></a>Hash tables and hash maps</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Hash tables (<code>qh</code>) and hash maps (<code>qm</code>) are also implemented as template-based
+containers. The difference between <code>qh</code> and <code>qm</code> is that <code>qh</code> is just a set of
+keys while <code>qm</code> is an association table between a key and a value. The types
+are instantiated using the <code>q[hm]_k(32|64|vec|ptr)_t</code> macros:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>k32</code>: the key is a 32bits value</p>
+</li>
+<li>
+<p><code>k64</code>: the key is a 64bits value</p>
+</li>
+<li>
+<p><code>kvec</code>: the key is a structure/value</p>
+</li>
+<li>
+<p><code>kptr</code>: the key is a pointer to a structure/value</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Note: the default read accessors of the <code>qm</code>/<code>qh</code> may have side-effects on the
+structure of the <code>qm</code>/<code>qh</code>, thus they are not reentrant. The <code>_safe</code> are
+provided in order to work in a multithreaded environment.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_doubly_linked_list_dlist_t"><a class="anchor" href="#_doubly_linked_list_dlist_t"></a>Doubly linked list (<code>dlist_t</code>)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The DList is the good container when you need to often add or remove elements
+from a random position of a vector. Because it&#8217;s doubly linked it&#8217;s also the
+good container when you need to remove an element without knowing where it
+comes from (which position inside the vector or even which vector).</p>
+</div>
+<div class="paragraph">
+<p>The DList is very safe if you use it with some good practices:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>never leave a <code>dlist_t</code> uninitialized, always use <code>dlist_init()</code>;</p>
+</li>
+<li>
+<p>don&#8217;t forget to call <code>dlist_remove()</code> in the object destructor, don&#8217;t try to
+manage it by hand;</p>
+</li>
+<li>
+<p>use <code>dlist_for_each_safe</code> if you have to modify the list inside in the loop
+(not necessary since version 2016.3: dlist_for_each_safe has replaced the
+original dlist_for_each).</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef struct my_linked_item_t {
+    dlist_t link;
+            ...
+} my_linked_item_t;
+
+/* Never forget to initialize the `dlist_t` member in the object initializer */
+my_linked_item_t *my_linked_item_init(my_linked_item_t *item)
+{
+    p_clear(item, 1);
+    dlist_init(&amp;item-&gt;link);
+
+    return item;
+}
+
+/* Also don't forget to remove the item from the list in its wiper */
+void my_linked_item_wipe(my_linked_item_t *item)
+{
+    dlist_remove(&amp;item-&gt;link);
+}</code></pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_naming_convention"><a class="anchor" href="#_naming_convention"></a>Naming convention:</h3>
+<div class="paragraph">
+<p>The struct <code>dlist_t</code> can be used in two different contexts:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Context</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Naming convention</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Examples</strong></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The list itself: the <code>dlist_t</code> represents the linked list entry point</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The attribute should be named "list" or be suffixed with "_list".</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>list</code>, <code>elements_list</code>, &#8230;&#8203;</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The struct used as an anchor for listed elements</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The attribute should be named "link" or be suffixed with "_link".</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>link</code>, <code>elements_link</code>, &#8230;&#8203;</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Note: this convention replaces an older convention in which we used
+"head"/"list" instead of "list"/"link". Some old code still using this
+convention can still be seen in the repository.</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

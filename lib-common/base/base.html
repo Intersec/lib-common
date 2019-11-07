@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Base components in the lib-common :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="modules.html">Modules</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Base library</li>
+    <li class="crumb"><a href="base.html">C library enhancements</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Base components in the lib-common</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_c_library_enhancements">C library enhancements</a>
+<ul class="sectlevel2">
+<li><a href="#_printf"><code>printf</code></a></li>
+</ul>
+</li>
+<li><a href="#_basic_macros">Basic macros</a></li>
+<li><a href="#_error_management">Error management</a></li>
+</ul>
+</div>
+<div class="sect1">
+<h2 id="_c_library_enhancements"><a class="anchor" href="#_c_library_enhancements"></a>C library enhancements</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_printf"><a class="anchor" href="#_printf"></a><code>printf</code></h3>
+<div class="paragraph">
+<p><code>printf</code>: the lib-common overloads printf with our own implementation that
+provides optimizations for the most used cases. It also has some improvements
+over the standard <code>printf</code> implementation:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>It can be used in signal handlers.</p>
+</li>
+<li>
+<p>It overloads the <code>%p</code> as done in <a href="http://lwn.net/Articles/289064/">the Linux
+kernel</a>. This means that <code>%p</code> (and <code>%*p</code>) also consume the alphanumeric
+characters that directly follow the <code>p</code> and use them as a way to change the
+interpretation of the passed parameter. As a consequence, you must make sure
+your <code>%p</code> is followed by a non-alphanumeric character in order to print a
+pointer address.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The following extensions are supported:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>%*pM</code> puts <code>len</code> raw bytes of memory from the given pointer. Its most common
+use-case is a faster <code>%.*s</code>: <code>printf("%.*s", len, str)</code> prints
+<code>MIN(len, strlen(str))</code> bytes, while <code>printf("%*pM", len, str)</code> always puts
+<code>len</code> bytes without trying to interpret those bytes (and thus can also put
+<code>\0</code>). <code>%*pM</code> when directly followed by alphanumeric character will
+additionally print those characters.</p>
+</li>
+<li>
+<p><code>%*pX</code> and <code>%*px</code> are very similar to <code>%*pM</code>, but instead of putting raw
+memory, they encode the data in hexadecimal. The <code>%*pX</code> puts uppercase
+characters while the <code>%*px</code> variant puts lowercase characters. Both output
+<code>2 * len</code> characters and consume <code>len</code> bytes from the provided pointer.</p>
+</li>
+<li>
+<p><code>%pL</code> puts the content of the pointed <code>lstr_t</code> object.</p>
+</li>
+<li>
+<p><code>%*pS</code> is an extension brought by IOP that allows to put IOP class instances
+in JSON.</p>
+</li>
+<li>
+<p><code>%*pV</code> used with VALUE_FMT_ARG to print a <code>platform.Value</code>.</p>
+</li>
+<li>
+<p><code>%*pI</code> used with ID_FMT_ARG to print a <code>platform.Id</code>.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">printf("%ptoto", ptr);            /* Invalid, since "toto" is not a valid
+                                   * modifier */
+printf("%p toto", ptr);           /* output something like:
+                                   * 0x7efe129cb0f00 toto */
+printf("%*pM", 4, "12345");       /* output 1234 */
+printf("%*pMtoto", 4, "12345");   /* output 1234toto */
+printf("%*pXtoto", 4, "12345");   /* output 31323334toto */
+printf("%*pX world", 5, "Hello"); /* output 48656C6C6F world */
+
+lstr_t toto = LSTR("toto");
+printf("%pL", &amp;toto); /* output toto */
+
+char data[] = { 0xde, 0xad, 0xbe, 0xef };
+printf("%*px", sizeof(data), data); /* output deadbeef */
+printf("%*pX", sizeof(data), data); /* output DEADBEEF */
+
+foo__bar__t bar;
+iop_init(foo__bar, &amp;bar);
+bar.i1 = 1;
+bar.i2 = 2;
+
+printf("%*pS", IOP_OBJ_FMT_ARG(&amp;bar));
+/* outputs {"_class":"foo.bar","i1":1,"i2":2} */
+
+printf("%*pS", IOP_ST_FMT_ARG(toto__toto, &amp;toto));
+/* outputs {"tata":1, "tutu":2} */</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_basic_macros"><a class="anchor" href="#_basic_macros"></a>Basic macros</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The lib-common provides several macros that improve our code readability.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>countof()</code>: returns the number of elements in a static array.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">static int a[] = { 1, 2, 3, 4 };
+
+for (int i = 0; i &lt; countof(a); i++) {
+    ...
+}</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>CMP</code>: compares two numerical variables. This macro avoids having to rewrite
+the integer comparison logic each time we sort entries. Thanks to the ternary
+operator extension of gcc it can be easily chained to compare several fields
+of a structure.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct foo_t {
+   int a;
+   int b;
+};
+
+/* foo_t structures are sorted by increasing value of 'a' and, for each 'a'
+* by increasing value of 'b' */
+int foo_cmp(const struct foo_t *s1, const struct foo_t *s2)
+{
+    return CMP(s1-&gt;a, s2-&gt;a) ?: CMP(s1-&gt;b, s2-&gt;b);
+}</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>get_unaligned_*</code> and <code>put_unaligned_*</code>: These macros must be used whenever
+you are reading value for a byte stream that may not be properly aligned to
+CPU word boundaries.</p>
+</li>
+<li>
+<p>There are many more macros like <code>SWAP</code>, <code>DIV_ROUND_UP</code>, <code>ROUND_UP</code>, <code>TOSTR</code>,
+<code>MIN</code>, <code>MIN3</code>, <code>MAX</code>, <code>MAX3</code>&#8230;&#8203;</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_error_management"><a class="anchor" href="#_error_management"></a>Error management</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The lib-common comes with macros that will help making the error management as
+unobtrusive as possible.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>RETHROW*</code>: This macro family is used to propagate error status. It works as
+long as the code conforms to our error reporting convention and the function
+does not have to perform cleanup before returning. <code>RETHROW</code> variants depend
+on the type of caller and on the type of the callee. In order to remember
+which <code>RETHROW</code> to use, keep in mind that <code>N</code> stands for "numerical" and <code>P</code>
+for "pointer", then <code>NP</code> means "converting numerical value to pointer".</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>RETHROW</code>: rethrow integer error code</p>
+</li>
+<li>
+<p><code>RETHROW_P</code>: rethrow NULL pointer</p>
+</li>
+<li>
+<p><code>RETHROW_NP</code>: throw a NULL pointer if callee returned a negative return code</p>
+</li>
+<li>
+<p><code>RETHROW_PN</code>: throw a negative return code if the callee returned the NULL
+pointer</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int foo(void);
+byte *bar(int s);
+
+int baz(void)
+{
+    int s;
+    byte *data;
+
+    /* Assign s to the return value of foo, but filter out error cases
+     * before by rethrowing the error code.
+     */
+    s = RETHROW(foo());
+
+    /* Fetch the data, but return -1 if bar fails.
+     */
+    data = RETHROW_PN(bar(s));
+
+    return data[0];
+}</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>THROW_ERR_IF</code>/<code>THROW_ERR_UNLESS</code> and <code>THROW_NULL_IF</code>/<code>THROW_NULL_UNLESS</code>:
+those macros can be used to return an error in a function.</p>
+</li>
+<li>
+<p><code>expect()</code>: the expect function takes a condition and returns the result of
+the evaluation of the condition. In development mode, it will <code>abort()</code> the
+execution of the program if the condition is evaluated to <code>false</code>. This
+macros is a complement/replacement for <code>assert()</code> with the following
+differences:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Code put in <code>assert()</code> is never executed in production mode, while code put
+in an <code>expect()</code> is always executed.</p>
+</li>
+<li>
+<p><code>expect()</code> returns the result of the evaluation of the condition while
+<code>assert()</code> is a statement, and as such has no return value. <code>expect()</code> also
+generates a <code>.debug</code> file containing the current backtrace.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">if (expect(pos &gt;= 0)) {
+    do_something();
+} else {
+    handle_error();
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

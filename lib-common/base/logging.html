@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Logging :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="containers.html">Containers</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="modules.html">Modules</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Base library</li>
+    <li class="crumb"><a href="logging.html">Logging</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Logging</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_logger_t_hierarchy"><code>logger_t</code> hierarchy</a></li>
+<li><a href="#_configuration">Configuration</a></li>
+<li><a href="#_handler">Handler</a></li>
+<li><a href="#_display">Display</a>
+<ul class="sectlevel2">
+<li><a href="#_trace_loggers">Trace loggers</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>The lib-common also contains the logging primitives. We do have two
+generations:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>e_*</code>: this is our "old" logging function. It is also the only available
+solution in lib-commons 2013.1 and earlier.</p>
+</li>
+<li>
+<p><code>logger_t</code>: this is a <code>log4*</code>-inspired implementation of logging API present
+in recent lib-commons</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Both implementations have the same primitives:
+* <code>panic</code>: print a message, emit a syslog entry and abort the execution
+* <code>fatal</code>: print a message, emit a syslog entry and exit gently
+* <code>error</code>, <code>warn</code>, <code>notice</code>, <code>info</code>, <code>debug</code>: print a message at the given
+  priority level. Only the messages with a priority lesser than the configured
+  one are actually emitted.
+* <code>trace</code>: emit tracing logs. Tracing have its own numerical level from 0 to
+  <code>INT_MAX</code> that let you control which trace to print or not.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_logger_t_hierarchy"><a class="anchor" href="#_logger_t_hierarchy"></a><code>logger_t</code> hierarchy</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>logger_t</code> facility (provided by <code>lib-common/log.h</code>) is a hierarchical
+logging facility (this is the main improvement when compared to the <code>e_*</code>
+family. This means that each logger inherits from a parent and have a separate
+level configured. The main usage is to configure a logger per code module (or
+potentially per structure if appropriate, e.g. a logger per http connection).
+Then, you can have a different logging level for each code module. This allow
+library functions to only print errors while still displaying debug traces in the
+core of the process.</p>
+</div>
+<div class="paragraph">
+<p>All emitted traces are associated to a logger that has a name, a parent and
+default level. The name must be unique for a given parent, the level can be any
+valid logging priority level (<code>LOG_CRIT</code>, <code>LOG_ERR</code>, &#8230;&#8203; <code>LOG_DEBUG</code>,
+<code>LOG_TRACE</code>), or the special <code>LOG_INHERITS</code> level which means the logger have
+the same level as its parent. From the hierarchy of the logger, a full name is
+computed that is a concatenation of the names of the logger and its parents
+(this is used as the unique identifier of the logger).</p>
+</div>
+<div class="paragraph">
+<p>Once you have a logger, you just need to call <code>logger_*</code> to performs logging.
+The call will be almost free (an integer comparison) if the requested log has a
+level is not accepted (for example if the logger is configured everything more
+important that a <code>LOG_NOTICE</code> and a call to <code>logger_debug</code> is performed).</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* Create a logger for that module.
+ *
+ * It inherits directly from the root logger.
+ */
+static logger_t my_module_logger_g = LOGGER_INIT_INHERITS(NULL, "my_module");
+
+/* Sub part 1 */
+
+/* Create a logger for that part, inherits from my_module level.
+ *
+ * The full name of that logger is "my_module/part_1"
+ */
+static logger_t
+my_sub_part1_logger_g = LOGGER_INIT_INHERITS(&amp;my_module_logger_g, "part_1");
+
+static int do_something1(void)
+{
+    return logger_info(&amp;my_sub_part1_logger_g, "hello");
+}
+
+/* Sub part 2 */
+
+/* Create a logger for that part, but by default only log warnings and errors.
+ *
+ * The full name of that logger is "my_module/part_2"
+ */
+static logger_t
+my_sub_part2_logger_g = LOGGER_INIT(&amp;my_module_logger_g, "part_2", LOG_WARN);
+
+static int do_something1(void)
+{
+    return logger_info(&amp;my_sub_part1_logger_g, "hello");
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_configuration"><a class="anchor" href="#_configuration"></a>Configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The logger configuration can be performed using the <code>logger_set_level</code> and
+<code>logger_reset_level</code> function. The first one set the level for a logger and all
+the loggers that inherits from that one, while the second one resets the level
+of a particular logger to the its default one. Those functions take the full
+name of a logger as their first parameter.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* Set the level of my_module/part_1 */
+logger_set_level(LSTR("my_module/part_1"), LOG_TRACE, 0);
+
+/* Set the level of the root logger */
+logger_set_level(LSTR_EMPTY_V, LOG_WARN, 0);
+
+/* Set back my_module/part_1 to its default level */
+logger_reset_level(LSTR("my_module/part_1"));</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The logger can also be configured by using an IOP structure <code>LogConfiguration</code>
+or by using an IOP interface available in lib-common&#8217;s Core IOP module.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_handler"><a class="anchor" href="#_handler"></a>Handler</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The formatting of the logs if performed by a handler that receive a message and
+the associated context each time a log line is emitted. There&#8217;s only one
+handler that receives all the emitted logs. The context received by the handler
+is extensible, which means that it may contain more data in the future.
+Currently, it contains:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the logging level</p>
+</li>
+<li>
+<p>the full name of the emitting logger</p>
+</li>
+<li>
+<p>the location of the emitter (file, function, line number)</p>
+</li>
+<li>
+<p>the identification of the emitting process (process name, pid)</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The default logger prints logs on <code>stderr</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_display"><a class="anchor" href="#_display"></a>Display</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_trace_loggers"><a class="anchor" href="#_trace_loggers"></a>Trace loggers</h3>
+<div class="paragraph">
+<p>In order to display traced logger you need to provide the following pattern to
+the environment variable <code>IS_DEBUG</code></p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>pattern=[&lt;path-pattern&gt;][@&lt;funcname&gt;][+&lt;featurename&gt;][:&lt;level&gt;]</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For example, if you want to display the <strong>level 2</strong> trace of the logger
+<strong>platform/miner/sched</strong> and the <strong>level 3</strong> trace of <strong>qre</strong> for an example process
+<code>zpf-master</code>, you should run the command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>IS_DEBUG="+platform/miner/sched:2 +qre:3" ./zpf-master</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can also set the <code>IS_LOG_TIMESTAMP</code> variable to 1 in order to add the
+timestamps in the produced logs:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ IS_LOG_TIMESTAMP=1 ./zpf-master
+1453400885.28 zpf-master[15549]: {platform} example message 1
+1453400885.46 zpf.master@1[15549]: {platform/master} example message 2</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

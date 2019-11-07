@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Memory Allocators :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="modules.html">Modules</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Base library</li>
+    <li class="crumb"><a href="mem-alloc.html">Memory allocators</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Memory Allocators</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_p_new"><code>p_new()</code></a></li>
+<li><a href="#_mem_fifo_pool"><code>mem_fifo_pool</code></a></li>
+<li><a href="#_mem_stack_pool"><code>mem_stack_pool</code></a></li>
+<li><a href="#_t_stack"><code>t_stack</code></a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>While <code>malloc</code> is the most common way to allocate memory, there are multiple
+other use-cases where we may have very specific allocation patterns. Some of
+these patterns can make sub-optimal uses of <code>malloc</code> or be much more
+complicated than expected due to memory management issues. For these use-cases,
+the lib-common provides several allocators.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_p_new"><a class="anchor" href="#_p_new"></a><code>p_new()</code></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>We do not use <code>malloc</code> directly, instead we use wrappers of the <code>p_*</code> family.
+Our wrappers have the following properties:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>they are type safe</p>
+</li>
+<li>
+<p>they set the memory to 0 by default (use the <code>*_raw</code> variants to avoid the
+cost of <code>memset</code>)</p>
+</li>
+<li>
+<p>deallocations are idempotent: calling <code>p_delete()</code> twice on the same location
+is safe since <code>p_delete()</code> sets the location to NULL.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_mem_fifo_pool"><a class="anchor" href="#_mem_fifo_pool"></a><code>mem_fifo_pool</code></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>mem_fifo_pool</code> is a memory pool optimized for the case where the first
+allocated block is also the first to be released. The typical use case is a
+queue of messages where we usually answer the first message before processing
+the next one. The <code>mem_fifo_pool</code> does not enforce the de-allocation order but
+is optimal for "FIFO" case.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_mem_stack_pool"><a class="anchor" href="#_mem_stack_pool"></a><code>mem_stack_pool</code></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>mem_stack_pool</code> works the same way the program stack works: it works with
+nested frames. All the allocations made within a frame are freed when we leave
+it. That means the workflow will look like:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><code>mem_stack_push(mp)</code>: start a new frame 1</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p><code>mp_new(mp, type, count)</code>: do an allocation 1 in the frame 1</p>
+</li>
+<li>
+<p><code>mp_new(&#8230;&#8203;)</code>: do another allocation 2 in the frame 1</p>
+</li>
+<li>
+<p><code>mem_stack_push(mp)</code>: start a new frame 2</p>
+<div class="olist lowerroman">
+<ol class="lowerroman" type="i">
+<li>
+<p><code>mp_new()</code>: do an allocation 3 in frame 2</p>
+</li>
+<li>
+<p>mem_stack_pop(mp)@: leave frame 2, free the allocation 3</p>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p><code>mp_new(&#8230;&#8203;)</code>: do an allocation 4 in frame 1</p>
+</li>
+<li>
+<p><code>mem_stack_pop(mp)</code>: leave frame 1, free allocations 1, 2 and 4</p>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>Note: You must be careful of reallocations, though. In our example, allocation
+1 belongs to frame 1 and cannot be reallocated in frame 2.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_t_stack"><a class="anchor" href="#_t_stack"></a><code>t_stack</code></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The most common use of the <code>mem_stack_pool</code> is by using the globally defined
+<code>t_pool()</code>. The <code>t_pool()</code> is a unique thread-local <code>mem_stack_pool</code> that can
+be used from anywhere in your program. It is usually used as a complement for
+the stack to perform dynamic allocations whose lifetime is limited to a
+function or a block within that function. It avoids stressing <code>malloc</code> with
+frequent (usually small) allocations, avoids de-allocation code (and thus avoids
+lots of cleanup code and memory leaks).</p>
+</div>
+<div class="paragraph">
+<p>In order to work with the <code>t_stack</code> we have several helpers (the <code>t_*</code> macros):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>t_scope</code>: declare a frame on the t_stack. The frame is opened on the line of
+the <code>t_scope</code> and is closed when we leave the scope in which the <code>t_scope</code>
+lives</p>
+</li>
+<li>
+<p><code>t_new</code>, <code>t_new_raw</code>, <code>t_realloc</code>&#8230;&#8203;: allocate or reallocate data in the
+current frame</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void foo(void)
+{
+    t_scope; /* enter frame 1 */
+    void *a1 = t_new(...);
+    void *a2 = t_new(...);
+
+    {
+        t_scope; /* enter frame 2 */
+        void *a3 = t_new(...);
+    } /* Here we're leaving frame 2 */
+
+    void *a4 = t_new(...);
+} /* Here we're leaving frame 1 */</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note: As a consequence of the reallocation limitation of the <code>mem_stack_pool</code>,
+using <code>t_realloc</code> on an allocation of frame 1 in frame 2 will fail (in practice
+it will abort the execution of the program). This is also true for string
+buffers or vectors allocated on the <code>t_stack</code> that could grow in a nested
+frame. Using <code>t_stack</code> allocated buffers/vector is very convenient because
+there is no need to explicitly de-allocate them, but is risky due to this
+reallocation limitation.</p>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

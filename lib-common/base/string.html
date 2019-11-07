@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Strings :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="modules.html">Modules</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Base library</li>
+    <li class="crumb"><a href="string.html">String library</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Strings</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_string_buffers_sb">String buffers (sb)</a></li>
+<li><a href="#_string_literals">String literals</a></li>
+<li><a href="#_parsing_streams_pstreams">Parsing streams (pstreams)</a></li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Our string manipulation module is split into several submodules, each with a
+particular use case.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_string_buffers_sb"><a class="anchor" href="#_string_buffers_sb"></a>String buffers (sb)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A string buffer is a dynamically resizeable string container. It is to be used
+when you want to compose a new string by chunks. String buffers content is
+always properly NULL-terminated.</p>
+</div>
+<div class="paragraph">
+<p>String buffers are typically declared and initialized a single line of code:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>SB_1k(name)</code> and <code>SB_8k(name)</code> declare and initialize a stack-allocated
+string buffer. If the buffer grows beyond its initial size, it will be
+heap-reallocated. It will be automatically wiped after at the end of the
+scope.</p>
+</li>
+<li>
+<p><code>t_SB_1k(name)</code> and <code>t_SB_8k(name)</code> declare and initialize a
+t-stack-allocated string buffer. t-stack-allocated buffers remain in the
+t-stack even if reallocated, thus they don&#8217;t need to be wiped, but they can
+only be reallocated in the current t-frame.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>A heap-allocated string buffers can also be initialized with <code>sb_init()</code>. In
+that case, it must always be wiped after use with <code>sb_wipe()</code>.</p>
+</div>
+<div class="paragraph">
+<p>Once you have a string buffer, writing in it will be done using the <code>sb_add*</code>
+functions. There are a lot of variants, some are generic and can be found in
+<code>lib-common/str-buf.h</code>, others are specific to a protocol implementation or to
+a product. The most commonly used functions are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>sb_addc(sb, c)</code>: append a single character</p>
+</li>
+<li>
+<p><code>sb_adds(sb, s)</code>: append the content of a C-string (const char *)</p>
+</li>
+<li>
+<p><code>sb_add(sb, s, len)</code>: append len bytes from the pointer s</p>
+</li>
+<li>
+<p><code>sb_addf(sb, fmt, &#8230;&#8203;)</code>: printf-like formatting</p>
+</li>
+<li>
+<p>&#8230;&#8203;</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_string_literals"><a class="anchor" href="#_string_literals"></a>String literals</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For string literals we avoid <code>const char *</code> as much as possible because in most
+use cases, <code>const char *</code> ends up being traversed several times. To avoid that
+issue, we use a structure named <code>lstr_t</code> that contains the string, its length,
+and ownership information (that way we know who is responsible of the
+de-allocation of the data).</p>
+</div>
+<div class="paragraph">
+<p>Beyond the traversing issue, using <code>lstr_t</code> enables several optimizations and
+avoids string copies in several places. Since we pass a pair (pointer, length)
+with no guarantee that the string is NULL-terminated, we can easily extract
+substrings without copying the content of the old string in a newly allocated
+buffer&#8230;&#8203;</p>
+</div>
+<div class="paragraph">
+<p>Strings in <code>lstr_t</code> are accessible either as constant strings or as
+non-constant strings. The non-constant case must be used carefully. In
+particular, it is not appropriate to assume a <code>lstr_t</code> is writable in a library
+call.</p>
+</div>
+<div class="paragraph">
+<p>We have several initializers for <code>lstr_t</code> (note that the <code>_V</code> variants can be
+used anywhere in the code while "normal" variant can only be used as an
+initializer):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>LSTR</code>: this builds a <code>lstr_t</code> from a <code>const char *</code> by calling <code>strlen</code> on
+the string. The <code>lstr_t</code> does not own the associated memory. When the string
+is known at compile time, the <code>strlen</code> is also performed at compile time,
+making it as efficient as <code>LSTR_IMMED</code>. This is the recommended macro that
+should be used in most cases.</p>
+</li>
+<li>
+<p><code>LSTR_OPT</code>: idem, but the input string can be null.</p>
+</li>
+<li>
+<p><code>LSTR_IMMED</code>/<code>LSTR_IMMED_V</code>: initialize a <code>lstr_t</code> from a literal string
+expression <code>name = LSTR_IMMED_V("foo")</code>. This allows resolution of the string
+at compile time.</p>
+</li>
+<li>
+<p><code>LSTR_INIT</code>/<code>LSTR_INIT_V</code>: this takes a pointer and a length and builds a new
+<code>lstr_t</code> that does not own the associated memory.</p>
+</li>
+<li>
+<p><code>lstr_init_</code>: this builds a <code>lstr_t</code> from a memory chunk, a length and an
+indication about the type of memory (ownership flag).</p>
+</li>
+<li>
+<p><code>LSTR_DATA</code>/<code>LSTR_DATA_V</code>: initialize a <code>lstr_t</code> from an anonymous data chunk.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>We also have constants:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>LSTR_NULL</code>/<code>LSTR_NULL_V</code>: a <code>lstr_t</code> pointing to the NULL pointer with a
+length of 0</p>
+</li>
+<li>
+<p><code>LSTR_EMPTY</code>/<code>LSTR_EMPTY_V</code>: a <code>lstr_t</code> pointing to the empty string <code>""</code>,
+with a length of 0</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><code>lstr_t</code> must be wiped. In particular when storing a <code>lstr_t</code> in a structure,
+you must take care at calling <code>lstr_wipe</code> when destructing the structure. This
+implies that you always ensure the ownership flag of the <code>lstr_t</code> is correctly
+set: a <code>lstr_t</code> should not be owned more than once. In case you need a copy
+"without ownership" you can use <code>lstr_dupc()</code>, or in case you want to transfer
+ownership you can use <code>lstr_transfer</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct foo_t {
+   lstr_t name;
+};
+
+void foo_wipe(struct foo_t *foo)
+{
+   lstr_wipe(&amp;bar-&gt;name);
+}
+GENERIC_DELETE(struct foo_t, foo)
+
+struct bar_t {
+   lstr_t name;
+}
+
+void bar_wipe(struct bar_t *bar)
+{
+   lstr_wipe(&amp;bar-&gt;name);
+}
+GENERIC_DELETE(struct bar_t, bar)
+
+/* Example of foo taking ownership of the name of bar.  This works without
+ * recopy and without risk of double ownership (and thus of double free), since
+ * we properly transfer the ownership of the lstr_t to foo.
+ */
+struct foo_t *bar_to_foo(struct bar_t **bar)
+{
+   struct foo_t *foo = p_new(struct foo_t, 1);
+
+   lstr_transfer(&amp;foo-&gt;name, &amp;(*bar)-&gt;name);
+   bar_delete(bar);
+   return foo;
+}
+
+/* Example of taking a constant copy of the name of bar.  This works as long as
+ * we're sure foo's lifetime is shorter than bar's one.
+ */
+struct foo_t *foo_from_bar(const struct bar_t *bar)
+{
+   struct foo_t *foo = p_new(struct foo_t, 1);
+
+   foo-&gt;name = lstr_dupc(bar-&gt;name);
+   return foo;
+}
+
+/* Example of taking a full copy of the name of bar.  This always work but
+ * implies we have a new allocated string for each structure.
+ */
+struct foo_t *copy_foo_from_bar(const struct bar_t *bar)
+{
+   struct foo_t *foo = p_new(struct foo_t, 1);
+
+   foo-&gt;name = lstr_dup(bar-&gt;name);
+   return foo;
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you want to print a <code>lstr_t</code> using a printf-like function, you should use
+the <code>%*pM</code> format in conjonction with the <code>LSTR_FMT_ARG</code> macro:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">printf("name=%*pM", LSTR_FMT_ARG(foo-&gt;name));</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>lstr_fmt</code> and <code>t_lstr_fmt</code> macros can be used to create new <code>lstr_t</code> that
+are the result of the expansion of a printf-like format string. <code>t_lstr_fmt</code> is
+broadly used to generate error messages.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_parsing_streams_pstreams"><a class="anchor" href="#_parsing_streams_pstreams"></a>Parsing streams (pstreams)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>pstream_t</code> structure defines a chunk of data that needs to be parsed. It
+is optimized for sequential parsing that involves moving either the beginning
+of the chunk or its end without moving the other bound. As a consequence it
+uses a dual-pointer representation (beginning and end of the chunk).</p>
+</div>
+<div class="paragraph">
+<p>In conjonction with the <code>ctype</code> module that allows the definition of sets of
+characters (like isalpha, is alnum, isspace&#8230;&#8203; but also supports custom sets),
+this provides an efficient and elegant solution for reading data, extracting
+chunks, skipping others and ensure separators are correct.</p>
+</div>
+<div class="paragraph">
+<p>The <code>pstream_t</code> is not supposed to own the memory, it just refers to a chunk we
+want to parse. It can be initialized either using a (pointer, length) pair
+(<code>ps_init</code>), using a C-string (<code>ps_initstr</code>) or a <code>lstr_t</code> (<code>ps_initlstr</code>).</p>
+</div>
+<div class="paragraph">
+<p>The <code>pstream_t</code> API provides the <code>PS_WANT</code> macro that can be used to return an
+error in case a condition is not met.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct user_t {
+    lstr_t firstname;
+    lstr_t lastname;
+    int age;
+    bool gender;
+};
+
+/* Read a record with the following format: firstname;lastname;age;gender
+ * whitespaces are ignored, firstname and lastname should contain only alpha
+ * characters, gender can be either M or F
+ */
+int parse_record(pstream_t *ps, struct user_t *user)
+{
+#define READ_SEMICOLON()              \
+    ps_ltrim(ps);                     \
+    PS_WANT(ps_getc(ps) == ';');      \
+    ps_ltrim(ps);
+
+    pstream_t n;
+
+    ps_ltrim(ps);
+
+    /* Read the first name */
+    n = ps_get_span(ps, &amp;ctype_isalpha);
+    PS_WANT(!ps_done(&amp;n)); /* ensure the name is not empty */
+    user-&gt;firstname = LSTR_PS_V(n);
+
+    READ_SEMICOLON();
+
+    /* Read the last name */
+    n = ps_get_span(ps, &amp;ctype_isalpha);
+    PS_WANT(!ps_done(&amp;n)); /* ensure the name is not empty */
+    user-&gt;lastname = LSTR_PS_V(n);
+
+    READ_SEMICOLON();
+
+    /* Read the age */
+
+    user-&gt;age = ps_geti(ps);
+    PS_WANT(user-&gt;age &gt; 0);
+
+    READ_SEMICOLON();
+
+    /* Read the gender */
+    switch (RETHROW(ps_getc(ps))) {
+      case 'M':
+        user-&gt;gender = true;
+        break;
+      case 'F':
+        user-&gt;gender = false;
+        break;
+      default:
+        return -1;
+    }
+
+    /* Ensure we properly finished the stream */
+    ps_ltrim(ps);
+    return ps_done(ps) ? 0 : -1;
+}
+
+/* Read a record with the same format, but no constraint on firstname and
+ * lastname content except that they cannot contain a semi-colon. Whitespaces
+ * are not ignored.
+ */
+int parse_record2(pstream_t *ps, struct user_t *user)
+{
+    pstream_t n;
+
+    /* Read the first name */
+    RETHROW(ps_get_ps_chr_and_skip(ps, ';', &amp;n));
+    PS_WANT(!ps_done(&amp;n)); /* ensure the name is not empty */
+    user-&gt;firstname = LSTR_PS_V(n);
+
+    /* Read the last name */
+    RETHROW(ps_get_ps_chr_and_skip(ps, ';', &amp;n));
+    PS_WANT(!ps_done(&amp;n)); /* ensure the name is not empty */
+    user-&gt;lastname = LSTR_PS_V(n);
+
+    /* Read the age */
+    user-&gt;age = ps_geti(ps);
+    PS_WANT(user-&gt;age &gt; 0);
+    RETHROW(ps_skipc(ps, ';'));
+
+    /* Read the gender */
+    switch (RETHROW(ps_getc(ps))) {
+      case 'M':
+        user-&gt;gender = true;
+        break;
+      case 'F':
+        user-&gt;gender = false;
+        break;
+      default:
+        return -1;
+    }
+
+    /* Ensure we properly finished the stream */
+    return ps_done(ps) ? 0 : -1;
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

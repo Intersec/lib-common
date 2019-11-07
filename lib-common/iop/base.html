@@ -65,6 +65,34 @@
 <ul class="nav-list">
   <li class="nav-item" data-depth="1">
     <button class="nav-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/modules.html">Modules</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
     <span class="nav-text">IOP</span>
 <ul class="nav-list">
   <li class="nav-item is-current-page" data-depth="2">
@@ -144,6 +172,7 @@ class="doc"
 <li><a href="#_optional_members">Optional members</a></li>
 <li><a href="#_repeated_members">Repeated members</a></li>
 <li><a href="#_with_default_value">With default value</a></li>
+<li><a href="#_default_values_with_units">Default values with units</a></li>
 </ul>
 </li>
 <li><a href="#iop-tags">IOP tags</a></li>
@@ -485,6 +514,149 @@ enum MyEnum {
 </div>
 </div>
 </div>
+</div>
+<div class="sect3">
+<h4 id="_default_values_with_units"><a class="anchor" href="#_default_values_with_units"></a>Default values with units</h4>
+<div class="paragraph">
+<p>In addition to arithmetic operations, you can also use some units to your
+constants:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Sizes</p>
+</li>
+</ul>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"></th>
+<th class="tableblock halign-left valign-top">key</th>
+<th class="tableblock halign-left valign-top">value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">kilobyte</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><strong>K</strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1024</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Megabyte</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><strong>M</strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1024^2</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Gigabyte</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><strong>G</strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1024^3</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Terabyte</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><strong>T</strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1024^4</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>For example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct DataLimit {
+    ulong limit = 4G;
+};</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Characters</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Below is how a character can be specified as a default value:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct InputCsv {
+    int separator = c";";
+};</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Time</p>
+</li>
+</ul>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"></th>
+<th class="tableblock halign-left valign-top">key</th>
+<th class="tableblock halign-left valign-top">value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">second</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><strong>s</strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">minute</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><strong>m</strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">60</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">hour</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><strong>h</strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">60 * 60</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">day</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><strong>d</strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">24 * 60 * 60</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">week</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><strong>w</strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">7 * 24 * 60 * 60</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="sect2">

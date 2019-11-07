@@ -65,6 +65,34 @@
 <ul class="nav-list">
   <li class="nav-item" data-depth="1">
     <button class="nav-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base/base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base/mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base/string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base/containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base/logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base/modules.html">Modules</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
     <span class="nav-text">IOP</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
@@ -133,7 +161,7 @@ class="doc"
 <li><a href="#_switch_case">switch case</a></li>
 <li><a href="#_functions">Functions</a></li>
 <li><a href="#_blocks">Blocks</a></li>
-<li><a href="#_macros">Macros</a></li>
+<li><a href="#_macros_preprocessor_directives">Macros / Preprocessor directives</a></li>
 <li><a href="#_variables">Variables</a></li>
 <li><a href="#_types">Types</a>
 <ul class="sectlevel2">
@@ -806,7 +834,7 @@ instead of a literal caret <code>^</code></p>
 </li>
 <li>
 <p>Declarations that use blocks in headers must be wrapped in a <code>#ifdef
-__has_blocks / #endif</code></p>
+<em>has_blocks / #endif /* </em>has_blocks */</code></p>
 </li>
 <li>
 <p>Typedefs of block types must be suffixed by <code>_b</code>.</p>
@@ -926,7 +954,7 @@ if (res) {
 </div>
 </div>
 <div class="sect1">
-<h2 id="_macros"><a class="anchor" href="#_macros"></a>Macros</h2>
+<h2 id="_macros_preprocessor_directives"><a class="anchor" href="#_macros_preprocessor_directives"></a>Macros / Preprocessor directives</h2>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
@@ -1041,6 +1069,41 @@ lines macros simple</p>
 <div class="ulist">
 <ul>
 <li>
+<p>When creating a <code>#ifndef</code>/<code>#ifdef</code> - <code>#endif</code> block, put a comment after the
+endif to repeat the initial condition:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#ifndef MY_HEADER_GUARD
+#define MY_HEADER_GUARD
+
+/* ... */
+
+#endif /* MY_HEADER_GUARD */</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Or:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#ifndef NDEBUG
+#define NDEBUG
+
+/* ... */
+
+#endif /* NDEBUG */</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Purpose: for example, avoid confusing a <code>#endif</code> placed in the end of a file
+with a header guard when it is not.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
 <p>When cascading preprocessor <code>ifdef</code>, <code>else</code>, <code>endif</code> directives and define,
 use 2 columns per level (including the sharp as a column). The <code>ifdef</code> guard
 of a header file doesn’t count for indent levels.</p>
@@ -1058,10 +1121,10 @@ of a header file doesn’t count for indent levels.</p>
 #   define WE_ARE_USING_A_GLIBC
 # else
 #   error "We need a glibc"
-# endif
+# endif /* __GLIBC__*/
 #else
 # error "go away, loser"
-#endif
+#endif /*__GNUC__ */
 
 #endif /* MY_HEADER_GUARD */</pre>
 </div>
