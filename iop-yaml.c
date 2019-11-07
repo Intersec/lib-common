@@ -373,6 +373,9 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
                    const yaml_data_t * nonnull data,
                    const iop_struct_t * nonnull st_desc, void * nonnull out)
 {
+    const iop_field_t *field_desc = NULL;
+    const yaml_key_data_t *kd;
+
     if (data->type != YAML_DATA_OBJ) {
         sb_setf(&env->err.buf, "cannot unpack %s into a union",
                 yaml_data_get_type(data));
@@ -384,35 +387,32 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
         goto error;
     }
 
-    if (qm_len(yaml_data, &data->obj->fields) != 1) {
+    if (data->obj->fields.len != 1) {
         sb_setf(&env->err.buf, "a single key must be specified");
         goto error;
     }
+    kd = &data->obj->fields.tab[0];
 
-    qm_for_each_key_value_p(yaml_data, key, val, &data->obj->fields) {
-        const iop_field_t *field_desc = NULL;
+    iop_field_find_by_name(st_desc, kd->key, NULL, &field_desc);
+    if (!field_desc) {
+        sb_setf(&env->err.buf, "unknown field `%pL`", &kd->key);
+        goto error;
+    }
 
-        iop_field_find_by_name(st_desc, key, NULL, &field_desc);
-        if (!field_desc) {
-            sb_setf(&env->err.buf, "unknown field `%pL`", &key);
-            goto error;
-        }
+    iop_union_set_tag(st_desc, field_desc->tag, out);
+    out = (char *)out + field_desc->data_offs;
+    if (yaml_data_to_iop_field(env, &kd->data, st_desc, field_desc, false,
+                               out) < 0)
+    {
+        /* keep the data causing the issue in the err. */
+        data = env->err.data;
+        goto error;
+    }
 
-        iop_union_set_tag(st_desc, field_desc->tag, out);
-        out = (char *)out + field_desc->data_offs;
-        if (yaml_data_to_iop_field(env, val, st_desc, field_desc, false,
-                                   out) < 0)
-        {
-            /* keep the data causing the issue in the err. */
-            data = env->err.data;
-            goto error;
-        }
-
-        if (check_constraints(st_desc, field_desc, out) < 0) {
-            sb_setf(&env->err.buf, "field `%pL` is invalid: %s", &key,
-                    iop_get_err());
-            goto error;
-        }
+    if (check_constraints(st_desc, field_desc, out) < 0) {
+        sb_setf(&env->err.buf, "field `%pL` is invalid: %s", &kd->key,
+                iop_get_err());
+        goto error;
     }
 
     return 0;
@@ -453,7 +453,14 @@ yaml_data_get_field_value(const yaml_data_t * nonnull data,
                           const lstr_t field_name)
 {
     if (data->type == YAML_DATA_OBJ) {
-        return qm_get_def_p(yaml_data, &data->obj->fields, &field_name, NULL);
+        /* do a linear search in the obj AST. This isn't necessarily optimal,
+         * but keeps the code simple. */
+        tab_for_each_ptr(pair, &data->obj->fields) {
+            if (lstr_equal(pair->key, field_name)) {
+                return &pair->data;
+            }
+        }
+        return NULL;
     } else {
         assert (data->type == YAML_DATA_SCALAR
             &&  data->scalar.type == YAML_SCALAR_NULL);
@@ -515,9 +522,9 @@ yaml_data_find_extra_key(yunpack_env_t * nonnull env,
                          const yaml_data_t * nonnull data,
                          const iop_struct_t * nonnull st)
 {
-    qm_for_each_key(yaml_data, key, &data->obj->fields) {
-        if (iop_field_find_by_name(st, key, NULL, NULL) < 0) {
-            sb_setf(&env->err.buf, "unknown field `%pL`", &key);
+    tab_for_each_ptr(pair, &data->obj->fields) {
+        if (iop_field_find_by_name(st, pair->key, NULL, NULL) < 0) {
+            sb_setf(&env->err.buf, "unknown field `%pL`", &pair->key);
             return;
         }
     }
@@ -609,12 +616,12 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     }
 
     if (data->type == YAML_DATA_OBJ
-    &&  unlikely(nb_fields_matched != qm_len(yaml_data, &data->obj->fields)))
+    &&  unlikely(nb_fields_matched != data->obj->fields.len))
     {
         /* There are fields in the YAML object that have not been matched.
          * The handling of this error is kept in a cold path, as it is
          * supposed to be rare. */
-        assert (nb_fields_matched < qm_len(yaml_data, &data->obj->fields));
+        assert (nb_fields_matched < data->obj->fields.len);
         yaml_data_find_extra_key(env, data, real_st);
         goto error;
     }

@@ -316,18 +316,18 @@ static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
 static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
                                   yaml_data_t *out)
 {
-    qm_t(yaml_data) fields;
+    qv_t(yaml_key_data) fields;
     yaml_pos_t pos_start = yaml_env_get_pos(env);
     yaml_pos_t pos_end = {0};
+    qh_t(lstr) keys_hash;
 
-    mp_qm_init(yaml_data, env->mp, &fields, 0);
+    mp_qv_init(env->mp, &fields, 0);
+    mp_qh_init(lstr, env->mp, &keys_hash, 0);
 
     for (;;) {
         pstream_t ps_key;
-        yaml_data_t val;
-        lstr_t key;
+        yaml_key_data_t *kd;
         uint32_t last_indent;
-        int32_t pos;
 
         ps_key = ps_get_span(&env->ps, &ctype_isalnum);
         if (ps_len(&ps_key) == 0) {
@@ -338,9 +338,9 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
             return yaml_env_set_err(env, YAML_ERR_BAD_KEY, "missing colon");
         }
 
-        key = LSTR_PS_V(&ps_key);
-        pos = qm_reserve(yaml_data, &fields, &key, 0);
-        if (pos & QHASH_COLLISION) {
+        kd = qv_growlen0(&fields, 1);
+        kd->key = LSTR_PS_V(&ps_key);
+        if (qh_add(lstr, &keys_hash, &kd->key) < 0) {
             return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
                                     "key is already declared in the object");
         }
@@ -356,13 +356,12 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
          */
         RETHROW(yaml_env_ltrim(env));
         if (ps_startswith_yaml_seq_prefix(&env->ps)) {
-            RETHROW(yaml_env_parse_data(env, min_indent, &val));
+            RETHROW(yaml_env_parse_data(env, min_indent, &kd->data));
         } else {
-            RETHROW(yaml_env_parse_data(env, min_indent + 1, &val));
+            RETHROW(yaml_env_parse_data(env, min_indent + 1, &kd->data));
         }
 
-        fields.values[pos] = val;
-        pos_end = val.pos_end;
+        pos_end = kd->data.pos_end;
 
         RETHROW(yaml_env_ltrim(env));
         if (ps_done(&env->ps)) {
@@ -967,7 +966,6 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         yaml_data_t field;
         yaml_data_t field2;
-        lstr_t key;
 
         logger_set_level(LSTR("yaml"), LOG_TRACE + 2, 0);
 
@@ -977,9 +975,9 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 1, 5));
         Z_ASSERT_NULL(data.tag.s);
-        Z_ASSERT(qm_len(yaml_data, &data.obj->fields) == 1);
-        key = LSTR("a");
-        field = qm_get(yaml_data, &data.obj->fields, &key);
+        Z_ASSERT(data.obj->fields.len == 1);
+        Z_ASSERT_LSTREQUAL(data.obj->fields.tab[0].key, LSTR("a"));
+        field = data.obj->fields.tab[0].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
                                          1, 4, 1, 5));
         Z_ASSERT_EQ(field.scalar.u, 2UL);
@@ -992,9 +990,9 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 1, 11));
         Z_ASSERT_LSTREQUAL(data.tag, LSTR("tag1"));
-        Z_ASSERT(qm_len(yaml_data, &data.obj->fields) == 1);
-        key = LSTR("a");
-        field = qm_get(yaml_data, &data.obj->fields, &key);
+        Z_ASSERT(data.obj->fields.len == 1);
+        Z_ASSERT_LSTREQUAL(data.obj->fields.tab[0].key, LSTR("a"));
+        field = data.obj->fields.tab[0].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
                                          1, 10, 1, 11));
         Z_ASSERT_EQ(field.scalar.u, 2UL);
@@ -1013,53 +1011,53 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 7, 7));
         Z_ASSERT_NULL(data.tag.s);
-        Z_ASSERT(qm_len(yaml_data, &data.obj->fields) == 4);
+        Z_ASSERT(data.obj->fields.len == 4);
 
         /* a */
-        key = LSTR("a");
-        field = qm_get(yaml_data, &data.obj->fields, &key);
+        Z_ASSERT_LSTREQUAL(data.obj->fields.tab[0].key, LSTR("a"));
+        field = data.obj->fields.tab[0].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
                                          1, 4, 1, 5));
         Z_ASSERT_EQ(field.scalar.u, 2UL);
 
         /* inner */
-        key = LSTR("inner");
-        field = qm_get(yaml_data, &data.obj->fields, &key);
+        Z_ASSERT_LSTREQUAL(data.obj->fields.tab[1].key, LSTR("inner"));
+        field = data.obj->fields.tab[1].data;
         Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_OBJ, 2, 8, 3, 13));
         Z_ASSERT_NULL(field.tag.s);
-        Z_ASSERT(qm_len(yaml_data, &field.obj->fields) == 2);
+        Z_ASSERT(field.obj->fields.len == 2);
 
-        key = LSTR("b");
-        field2 = qm_get(yaml_data, &field.obj->fields, &key);
+        Z_ASSERT_LSTREQUAL(field.obj->fields.tab[0].key, LSTR("b"));
+        field2 = field.obj->fields.tab[0].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_UINT,
                                          2, 11, 2, 12));
         Z_ASSERT_EQ(field2.scalar.u, 3UL);
-        key = LSTR("c");
-        field2 = qm_get(yaml_data, &field.obj->fields, &key);
+        Z_ASSERT_LSTREQUAL(field.obj->fields.tab[1].key, LSTR("c"));
+        field2 = field.obj->fields.tab[1].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_INT,
                                          3, 11, 3, 13));
         Z_ASSERT_EQ(field2.scalar.i, -4L);
 
         /* inner2 */
-        key = LSTR("inner2");
-        field = qm_get(yaml_data, &data.obj->fields, &key);
+        Z_ASSERT_LSTREQUAL(data.obj->fields.tab[2].key, LSTR("inner2"));
+        field = data.obj->fields.tab[2].data;
         Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_OBJ, 4, 9, 6, 14));
         Z_ASSERT_LSTREQUAL(field.tag, LSTR("tag"));
-        Z_ASSERT(qm_len(yaml_data, &field.obj->fields) == 2);
+        Z_ASSERT(field.obj->fields.len == 2);
 
-        key = LSTR("d");
-        field2 = qm_get(yaml_data, &field.obj->fields, &key);
+        Z_ASSERT_LSTREQUAL(field.obj->fields.tab[0].key, LSTR("d"));
+        field2 = field.obj->fields.tab[0].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_NULL,
                                          5, 6, 5, 7));
-        key = LSTR("e");
-        field2 = qm_get(yaml_data, &field.obj->fields, &key);
+        Z_ASSERT_LSTREQUAL(field.obj->fields.tab[1].key, LSTR("e"));
+        field2 = field.obj->fields.tab[1].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_STRING,
                                          6, 6, 6, 14));
         Z_ASSERT_LSTREQUAL(field2.scalar.s, LSTR("my-label"));
 
         /* f */
-        key = LSTR("f");
-        field = qm_get(yaml_data, &data.obj->fields, &key);
+        Z_ASSERT_LSTREQUAL(data.obj->fields.tab[3].key, LSTR("f"));
+        field = data.obj->fields.tab[3].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_DOUBLE,
                                          7, 4, 7, 7));
         Z_ASSERT_EQ(field.scalar.d, 1.2);
@@ -1144,7 +1142,6 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(parsing_complex_data, "test parsing of more complex data") {
         t_scope;
         yaml_data_t data;
-        lstr_t key;
         yaml_data_t field;
 
         /* sequence on same level as key */
@@ -1155,9 +1152,9 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 3, 4));
         Z_ASSERT_NULL(data.tag.s);
-        Z_ASSERT(qm_len(yaml_data, &data.obj->fields) == 1);
-        key = LSTR("a");
-        field = qm_get(yaml_data, &data.obj->fields, &key);
+        Z_ASSERT(data.obj->fields.len == 1);
+        Z_ASSERT_LSTREQUAL(data.obj->fields.tab[0].key, LSTR("a"));
+        field = data.obj->fields.tab[0].data;
 
         Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_SEQ, 2, 1, 3, 4));
         Z_ASSERT_EQ(field.seq_len, 2U);

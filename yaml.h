@@ -97,8 +97,14 @@ struct yaml_data_t {
 qvector_t(yaml_data, yaml_data_t);
 qm_kvec_t(yaml_data, lstr_t, yaml_data_t, qhash_lstr_hash, qhash_lstr_equal);
 
+typedef struct yaml_key_data_t {
+    lstr_t key;
+    yaml_data_t data;
+} yaml_key_data_t;
+qvector_t(yaml_key_data, yaml_key_data_t);
+
 struct yaml_obj_t {
-    qm_t(yaml_data) fields;
+    qv_t(yaml_key_data) fields;
 };
 
 /* }}} */
