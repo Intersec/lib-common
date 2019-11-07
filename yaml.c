@@ -21,6 +21,8 @@
 #include "yaml.h"
 #include "parsing-helpers.h"
 #include "log.h"
+#include "file.h"
+#include "unix.h"
 
 static struct yaml_g {
     logger_t logger;
@@ -575,7 +577,7 @@ static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
 }
 
 /* }}} */
-/* {{{ Public API */
+/* {{{ Parser public API */
 
 int t_yaml_parse(pstream_t ps, yaml_data_t *out, sb_t *out_err)
 {
@@ -592,6 +594,415 @@ int t_yaml_parse(pstream_t ps, yaml_data_t *out, sb_t *out_err)
 
     if (yaml_env_parse_data(&env, 0, out) < 0) {
         sb_setsb(out_err, &env.err);
+        return -1;
+    }
+
+    return 0;
+}
+
+/* }}} */
+/* {{{ Dumper */
+
+#define YAML_STD_INDENT  2
+
+typedef int (yaml_pack_writecb_f)(void * nonnull priv,
+                                  const void * nonnull buf, int len);
+
+typedef struct yaml_pack_env_t {
+    yaml_pack_writecb_f *write_cb;
+    void *priv;
+} yaml_pack_env_t;
+
+static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
+                          const yaml_data_t * nonnull data, int indent_lvl,
+                          bool to_indent);
+
+/* {{{ Utils */
+
+static int do_write(const yaml_pack_env_t *env, const void *_buf, int len)
+{
+    const uint8_t *buf = _buf;
+    int pos = 0;
+
+    while (pos < len) {
+        int res = (*env->write_cb)(env->priv, buf + pos, len - pos);
+
+        if (res < 0) {
+            if (ERR_RW_RETRIABLE(errno))
+                continue;
+            return -1;
+        }
+        pos += res;
+    }
+    return len;
+}
+
+static int do_indent(const yaml_pack_env_t *env, int indent)
+{
+    static lstr_t spaces = LSTR_IMMED("                                    ");
+    int todo = indent;
+
+    while (todo > 0) {
+        int res = (*env->write_cb)(env->priv, spaces.s,
+                                   MIN(spaces.len, todo));
+
+        if (res < 0) {
+            if (ERR_RW_RETRIABLE(errno)) {
+                continue;
+            }
+            return -1;
+        }
+        todo -= res;
+    }
+
+    return indent;
+}
+
+#define WRITE(data, len)                                                     \
+    do {                                                                     \
+        res += RETHROW(do_write(env, data, len));                            \
+    } while (0)
+#define PUTS(s)  WRITE(s, strlen(s))
+#define PUTLSTR(s)  WRITE(s.data, s.len)
+
+#define INDENT(lvl)                                                          \
+    do {                                                                     \
+        res += RETHROW(do_indent(env, lvl));                                 \
+    } while (0)
+
+/* }}} */
+/* {{{ Pack scalar */
+
+/* ints:   sign, 20 digits, and NUL -> 22
+ * double: sign, digit, dot, 17 digits, e, sign, up to 3 digits NUL -> 25
+ */
+#define IBUF_LEN  25
+
+static bool yaml_string_must_be_quoted(const lstr_t s)
+{
+    /* '!', '&', '*', '-', '"' and '.'. Technically, '-' is only forbidden
+     * if followed by a space, but it is simpler that way. */
+    static ctype_desc_t const yaml_invalid_raw_string_start = { {
+        0x00000000, 0x00006446, 0x00000000, 0x00000000,
+        0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    } };
+    /* printable ascii characters minus ':' and '#'. Also should be
+     * followed by space to be forbidden, but simpler that way. */
+    static ctype_desc_t const yaml_raw_string_contains = { {
+        0x00000000, 0xfbfffff7, 0xffffffff, 0xffffffff,
+        0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    } };
+
+    if (s.len == 0) {
+        return true;
+    }
+
+    /* cannot start with those characters */
+    if (ctype_desc_contains(&yaml_invalid_raw_string_start, s.s[0])) {
+        return true;
+    }
+    /* cannot contain those characters */
+    if (!lstr_match_ctype(s, &yaml_raw_string_contains)) {
+        return true;
+    }
+    if (lstr_equal(s, LSTR("~")) || lstr_equal(s, LSTR("null"))) {
+        return true;
+    }
+
+    return false;
+}
+
+static int yaml_pack_string(const yaml_pack_env_t *env, lstr_t val)
+{
+    int res = 0;
+    pstream_t ps;
+
+    if (!yaml_string_must_be_quoted(val)) {
+        PUTLSTR(val);
+        return res;
+    }
+
+    ps = ps_initlstr(&val);
+    PUTS("\"");
+    while (!ps_done(&ps)) {
+        /* r:32-127 -s:'\\"' */
+        static ctype_desc_t const safe_chars = { {
+            0x00000000, 0xfffffffb, 0xefffffff, 0xffffffff,
+                0x00000000, 0x00000000, 0x00000000, 0x00000000,
+        } };
+        const uint8_t *p = ps.b;
+        size_t nbchars;
+        int c;
+
+        nbchars = ps_skip_span(&ps, &safe_chars);
+        WRITE(p, nbchars);
+
+        if (ps_done(&ps)) {
+            break;
+        }
+
+        /* Assume broken utf-8 is mixed latin1 */
+        c = ps_getuc(&ps);
+        if (unlikely(c < 0)) {
+            c = ps_getc(&ps);
+        }
+        switch (c) {
+          case '"':  PUTS("\\\""); break;
+          case '\\': PUTS("\\\\"); break;
+          case '\a': PUTS("\\a"); break;
+          case '\b': PUTS("\\b"); break;
+          case '\e': PUTS("\\e"); break;
+          case '\f': PUTS("\\f"); break;
+          case '\n': PUTS("\\n"); break;
+          case '\r': PUTS("\\r"); break;
+          case '\t': PUTS("\\t"); break;
+          case '\v': PUTS("\\v"); break;
+          default: {
+            char ibuf[IBUF_LEN];
+
+            WRITE(ibuf, sprintf(ibuf, "\\u%04x", c));
+          } break;
+        }
+    }
+    PUTS("\"");
+
+    return res;
+}
+
+static int yaml_pack_scalar(const yaml_pack_env_t * nonnull env,
+                            const yaml_scalar_t * nonnull scalar,
+                            bool to_indent)
+{
+    int res = 0;
+    char ibuf[IBUF_LEN];
+
+    if (to_indent) {
+        PUTS(" ");
+    }
+
+    switch (scalar->type) {
+      case YAML_SCALAR_STRING:
+        return yaml_pack_string(env, scalar->s);
+
+      case YAML_SCALAR_DOUBLE: {
+        int inf = isinf(scalar->d);
+
+        if (inf == 1) {
+            PUTS(".Inf");
+        } else
+        if (inf == -1) {
+            PUTS("-.Inf");
+        } else
+        if (isnan(scalar->d)) {
+            PUTS(".NaN");
+        } else {
+            WRITE(ibuf, sprintf(ibuf, "%g", scalar->d));
+        }
+      } break;
+
+      case YAML_SCALAR_UINT:
+        WRITE(ibuf, sprintf(ibuf, "%ju", scalar->u));
+        break;
+
+      case YAML_SCALAR_INT:
+        WRITE(ibuf, sprintf(ibuf, "%jd", scalar->i));
+        break;
+
+      case YAML_SCALAR_BOOL:
+        if (scalar->b) {
+            PUTS("true");
+        } else {
+            PUTS("false");
+        }
+        break;
+
+      case YAML_SCALAR_NULL:
+        PUTS("~");
+        break;
+    }
+
+    return res;
+}
+
+/* }}} */
+/* {{{ Pack sequence */
+
+static int yaml_pack_seq(const yaml_pack_env_t * nonnull env,
+                         const yaml_data_t * nonnull seq, int seq_len,
+                         int indent_lvl)
+{
+    int res = 0;
+
+    for (int i = 0; i < seq_len; i++) {
+        PUTS("\n");
+        INDENT(indent_lvl);
+        PUTS("- ");
+
+        res += RETHROW(yaml_pack_data(env, &seq[i], indent_lvl + 2, false));
+    }
+
+    return res;
+}
+
+/* }}} */
+/* {{{ Pack object */
+
+static int yaml_pack_key_data(const yaml_pack_env_t * nonnull env,
+                              const lstr_t key, const yaml_data_t * nonnull data,
+                              int indent_lvl, bool to_indent)
+{
+    int res = 0;
+
+    if (to_indent) {
+        PUTS("\n");
+        INDENT(indent_lvl);
+    }
+
+    PUTLSTR(key);
+    PUTS(":");
+
+    res += RETHROW(yaml_pack_data(env, data, indent_lvl + YAML_STD_INDENT,
+                                  true));
+
+    return res;
+}
+
+static int yaml_pack_obj(const yaml_pack_env_t * nonnull env,
+                         const yaml_obj_t * nonnull obj, int indent_lvl,
+                         bool to_indent)
+{
+    int res = 0;
+    bool first = !to_indent;
+
+    if (obj->fields.len == 0) {
+        if (to_indent) {
+            PUTS(" ~");
+        } else {
+            PUTS("~");
+        }
+        return res;
+    }
+
+    tab_for_each_ptr(pair, &obj->fields) {
+        res += RETHROW(yaml_pack_key_data(env, pair->key, &pair->data,
+                                          indent_lvl, !first));
+        if (first) {
+            first = false;
+        }
+    }
+
+    return res;
+}
+
+/* }}} */
+
+static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
+                          const yaml_data_t * nonnull data,
+                          int indent_lvl, bool to_indent)
+{
+    int res = 0;
+
+    if (data->tag.s) {
+        if (to_indent) {
+            PUTS(" !");
+        } else {
+            PUTS("!");
+        }
+        PUTLSTR(data->tag);
+        to_indent = true;
+    }
+
+    switch (data->type) {
+      case YAML_DATA_SCALAR:
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar, to_indent));
+        break;
+      case YAML_DATA_SEQ:
+        res += RETHROW(yaml_pack_seq(env, data->seq, data->seq_len,
+                                     indent_lvl));
+        break;
+      case YAML_DATA_OBJ:
+        res += RETHROW(yaml_pack_obj(env, data->obj, indent_lvl, to_indent));
+        break;
+    }
+
+    return res;
+}
+
+#undef WRITE
+#undef PUTS
+#undef PUTLSTR
+#undef INDENT
+
+/* }}} */
+/* {{{ Dumper public API */
+
+static int yaml_pack(const yaml_data_t * nonnull data,
+                     yaml_pack_writecb_f *writecb, void *priv)
+{
+    const yaml_pack_env_t env = {
+        .write_cb = writecb,
+        .priv = priv,
+    };
+
+    /* Always skip everything that can be skipped */
+    return yaml_pack_data(&env, data, 0, false);
+}
+
+static inline int sb_write(void * nonnull b, const void * nonnull buf,
+                           int len)
+{
+    sb_add(b, buf, len);
+    return len;
+}
+
+int yaml_pack_sb(const yaml_data_t * nonnull data, sb_t * nonnull sb)
+{
+    return yaml_pack(data, &sb_write, sb);
+}
+
+typedef struct yaml_pack_file_ctx_t {
+    file_t *file;
+    sb_t *err;
+} yaml_pack_file_ctx_t;
+
+static int iop_ypack_write_file(void *priv, const void *data, int len)
+{
+    yaml_pack_file_ctx_t *ctx = priv;
+
+    if (file_write(ctx->file, data, len) < 0) {
+        sb_addf(ctx->err, "cannot write in output file: %m");
+        return -1;
+    }
+
+    return len;
+}
+
+int (yaml_pack_file)(const char *filename, unsigned file_flags,
+                     mode_t file_mode, const yaml_data_t *data, sb_t *err)
+{
+    yaml_pack_file_ctx_t ctx;
+    int res;
+
+    p_clear(&ctx, 1);
+    ctx.file = file_open(filename, file_flags, file_mode);
+    if (!ctx.file) {
+        sb_setf(err, "cannot open output file `%s`: %m", filename);
+        return -1;
+    }
+    ctx.err = err;
+
+    res = yaml_pack(data, &iop_ypack_write_file, &ctx);
+    if (res < 0) {
+        IGNORE(file_close(&ctx.file));
+        return res;
+    }
+
+    /* End the file with a newline, as the packing ends immediately after
+     * the last value. */
+    file_puts(ctx.file, "\n");
+
+    if (file_close(&ctx.file) < 0) {
+        sb_setf(err, "cannot close output file `%s`: %m", filename);
         return -1;
     }
 

@@ -127,6 +127,23 @@ const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data);
  */
 int t_yaml_parse(pstream_t ps, yaml_data_t * nonnull out, sb_t * nonnull err);
 
+/** Pack a YAML data into a YAML string.
+ */
+int yaml_pack_sb(const yaml_data_t * nonnull data, sb_t * nonnull sb);
+
+/** Pack a YAML data into a YAML file.
+ *
+ * \param[in]  filename   The file in which the value is packed.
+ * \param[in]  file_flags The flags to use when opening the file
+ *                        (\ref enum file_flags).
+ * \param[in]  file_mode  The mode to use when opening the file.
+ * \param[in]  data       The YAML data to pack.
+ * \param[out] err        Buffer filled in case of error.
+ */
+int yaml_pack_file(const char * nonnull filename, unsigned file_flags,
+                   mode_t file_mode, const yaml_data_t * nonnull data,
+                   sb_t * nonnull err);
+
 MODULE_DECLARE(yaml);
 
 #endif /* IS_LIB_COMMON_YAML_H */

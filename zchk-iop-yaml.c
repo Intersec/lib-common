@@ -36,10 +36,10 @@ static int t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
 
     /* packing */
     if (flags == 0) {
-        Z_ASSERT_N(iop_ypack(st, v, iop_sb_write, out),
+        Z_ASSERT_N(iop_sb_ypack(out, st, v),
                    "YAML packing failure for %s", st->fullname.s);
     } else {
-        Z_ASSERT_N(iop_ypack_with_flags(st, v, iop_sb_write, out, flags),
+        Z_ASSERT_N(iop_sb_ypack_with_flags(out, st, v, flags),
                    "YAML packing failure for %s", st->fullname.s);
     }
 
