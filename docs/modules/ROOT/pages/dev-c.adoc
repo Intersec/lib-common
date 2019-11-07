@@ -125,6 +125,7 @@ constructions such a `%*pM` that "put memory" and provide an efficient
 alternative to `%.*s`
 ** we use the `j` format parameter to print 64bits integer variables. This
 avoids using bloated C99 standard macros such as `PRIu64` or `PRIx64`
+
 [source,c]
 ----
 
@@ -149,6 +150,7 @@ works because the macro `p_delete` is defined as `p_delete(...)`, thus the
 preprocessor will only catch apply that macro when it finds `p_delete` followed
 by an opening parentheses. Thus, `(p_delete)` cannot be replaced by the macro
 and since it's the same as `p_delete`, it can be used as a function name.
+
 [source,c]
 ----
 
@@ -193,6 +195,7 @@ default value that can be found in most modern language (the prototype of the
 function contains a value to be passed for a parameter when that parameter is
 omitted in the call). C does not support default values (C++ does), but we can
 somehow emulate this feature using macro overloading.
+
 [source,c]
 ----
 

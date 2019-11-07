@@ -24,6 +24,7 @@ mandatory.
 * indentation is made of 4 spaces, no tabs, text width is 78 full columns.
 * Never put more than one statement per line, never put more than one semicolon
   per line (unless it’s in a string ;p)
+
 [source,c]
 ----
 do1(); do2(); /* bad */
@@ -41,6 +42,7 @@ struct foo {
 
 * labels (including switch `case` constructs) are indented 2 spaces behind the
   current indentation level.
+
 [source,c]
 ----
 int main(void)
@@ -60,6 +62,7 @@ int main(void)
 * One single space between a control flow keyword (such as `if`, `switch`,
   `while`, …) and the condition, the bracket is put on the same line (unless it
   would overflow the columns count).
+
 [source,c]
 ----
 switch (foo) { /* good */
@@ -70,6 +73,7 @@ switch(foo) { /* bad */
 ----
 
 * Spaces around binary operators:
+
 [source,c]
 ----
 1 + 3 * (3 << 2); /* good */
@@ -78,6 +82,7 @@ switch(foo) { /* bad */
 
 * No spaces before a semicolon or before a comma, but one leading space is
   mandatory.
+
 [source,c]
 ----
 fn(1, 2, 3); /* good */
@@ -88,6 +93,7 @@ return ;     /* bad */
 * Avoid trailing spaces.
 * Never use preincrement when postincrement is equivalent, so that preincrement
   flags probably tricky code.
+
 [source,c]
 ----
 ++i; /* bad  */
@@ -102,6 +108,7 @@ i++; /* good */
   the boolean operator on the beginning of the next line (and optionnaly put
   two spaces after so that the next condition is aligned after the paren on the
   previous line). Push the bracket on the next line.
+
 [source,c]
 ----
 if (test1 && test2 && ... && foo
@@ -112,6 +119,7 @@ if (test1 && test2 && ... && foo
 ----
 
 * `elsif` statements are aligned this way:
+
 [source,c]
 ----
 /* Good */
@@ -129,6 +137,7 @@ if (cond1) {
 ----
 
 * Control flow statements blocks must be enclosed in brackets.
+
 [source,c]
 ----
 if (foo) { /* good */
@@ -196,6 +205,7 @@ a = pretty_long_condition ? another_quite_long_stuff
 == switch case
 
 * Never put declarations of variable in the main scope of the switch statement
+
 [source,c]
 ----
 switch (val) {
@@ -217,6 +227,7 @@ statements.
 ** `continue` and `return` statements must be kept in the code block since they
 are not linked to the `switch() case:` construct.
 ** The code in the block is one-time indented from the `switch` statement
+
 [source,c]
 ----
 switch (val) {
@@ -250,6 +261,7 @@ switch (val) {
 
 * when a case fall through the following case, this explicit `/* FALLTHROUGH
   */` comment must be used.
+
 [source,c]
 ----
 switch (val) {
@@ -284,6 +296,7 @@ switch (val) {
   line for function implementations (except for `static inline` where it’s
   allowed to keep them on the same line when the function short - 1 or 2 lines
   of code).
+
 [source,c]
 ----
 int main(void) { /* bad */
@@ -291,6 +304,7 @@ int main(void) { /* bad */
 ----
 
 * No spaces between a function call and the parenthesis, except for asserts.
+
 [source,c]
 ----
 fn(1, 2, 3);        /* good */
@@ -301,6 +315,7 @@ assert(condition);  /* bad  */
 
 * When the argument list of a function call spans on multiple lines, indent at
   the opening paren column, unless it’s after the 40th column:
+
 [source,c]
 ----
  some_call(struct->bar, 19 * long_variable_name, i++,
@@ -311,6 +326,7 @@ assert(condition);  /* bad  */
   usually put the return type on a single line and then the rest of the
   prototype. Wrap the prototype arguments following the same convention as
   function calls.
+
 [source,c]
 ----
 void something_short(void); /* good */
@@ -321,6 +337,7 @@ something_not_very_short(int, struct bar *, int, void *); /* good */
 
 * Avoid useless wrapping in function prototype and try to keep it on the most
   limited number of lines
+
 [source,c]
 ----
 
@@ -370,6 +387,7 @@ understand that the answer is either `yes` or `no`.
 ** Using pointer returning functions is possible if and only if the function as
 a single returned value. In that case, `NULL` must be handled as an error value
 for further error management.
+
 [source,c]
 ----
 int my_parser_run(const char *s, const char **out, my_struct *s); /* good */
@@ -381,7 +399,6 @@ object_t *build_object(const char *url); /* good */
 bool my_connect(const char *url); /* bad: should really use int */
 
 parser_t *do_parse(const char *s, parser_state_t **state); /* bad: several returned value should be treated the same way */
-
 ----
 
 * When writing a function that has a single return value that is a pointed
@@ -498,6 +515,7 @@ if (res) {
 == Macros / Preprocessor directives
 
 * Use at least two spaces between a macro name and its implementation:
+
 [source,c]
 ----
 #define GOOD  1
@@ -508,6 +526,7 @@ if (res) {
 
 * Function-like macro should be used the same way functions are used: the
   semi-colon should be in the invocation, not in the macro:
+
 [source,c]
 ----
 
@@ -520,6 +539,7 @@ if (res) {
 * When defining block-macros always use the `do { ... } while (0)` construction
   ("see GCC manual":
   http://gcc.gnu.org/onlinedocs/cpp/Swallowing-the-Semicolon.html):
+
 [source,c]
 ----
 
@@ -536,6 +556,7 @@ one space after the beginning of the body of the macro, in order to keep 2
 lines macros simple
 ** the last line of a macro must not contain a trailing `\`
 ** the body of the macro must always have at least one level of indentation
+
 [source,c]
 ----
 
@@ -609,6 +630,7 @@ with a header guard when it is not.
 * When cascading preprocessor `ifdef`, `else`, `endif` directives and define,
   use 2 columns per level (including the sharp as a column). The `ifdef` guard
   of a header file doesn’t count for indent levels.
+
 [source,c]
 ----
 #ifndef MY_HEADER_GUARD
@@ -654,8 +676,6 @@ with a header guard when it is not.
         typeof(*(vec)->tab) __qv_v = (v);                                    \
         *qv_growlen(vec, 1) = (__qv_v);                                      \
     })
-
-
 ----
 
 == Variables
@@ -669,6 +689,7 @@ with a header guard when it is not.
 
 * Never declare variables anywhere but at the start of a new scope. Though
   using the C99 for loop variable inline declarations is recommended:
+
 [source,c]
 ----
 for (int i = 0; i < 99; i++) { /* good */
@@ -679,6 +700,7 @@ for (int i = 0; i < 99; i++) { /* good */
 * Add a blank line between variable declarations and code. It is allowed to
   omit the blank line in case a very short block (two lines: one declaration
   line, one statement). `t_scope` is considered as a declaration.
+
 [source,c]
 ----
 { /* bad */
@@ -709,6 +731,7 @@ for (int i = 0; i < 99; i++) { /* good */
 * Keep a single declaration per line. When no initilization is performed and no
   pointer type is used, the declaration of several variables at once is allowed
   but not adviced:
+
 [source,c]
 ----
 int a = 0, b = 0; /* bad */
@@ -726,13 +749,12 @@ int a, b; /* allowed */
 int a, b = 0; /* bad */
 
 my_type_t a, b; /* bad */
-
 ----
 
 * Keep a single line per declaration
+
 [source,c]
 ----
-
 {
     int important_variable =
         long_function_which_does_not_fit_into_one_line();                        /* bad */
@@ -759,11 +781,11 @@ my_type_t a, b; /* bad */
                                              parameter3);                       /* good */
 
 }
-
 ----
 
 
 * Stick pointer types stars to the variable names:
+
 [source,c]
 ----
 const char *var_name; /* good */
@@ -778,6 +800,7 @@ char *p, *q;          /* good, or not so good because you should declare them
 * When the deepest type is const, we put `const` front, especially for `const
   char *`. Though, when `static` or any other storage class (`extern` e.g.) is
   used, `const` is pushed after the type:
+
 [source,c]
 ----
 int foo(const char *arg); /* good */
@@ -794,6 +817,7 @@ static char const * const str_array[] = { /* good */
   functional types and the `_b` suffix for blocks types.
 * IOP types must end with `__t` suffix when they are modified using `@ctype`.
 * When declaring an enum, put a traling comma on _every_ line:
+
 [source,c]
 ----
 enum foo {
@@ -806,6 +830,7 @@ enum foo {
 * When declaring a type, keep the opening bracket on the same line, then put a
   mandatory line break. For a `typedef`, keep the type name on the same line as
   the closing bracket.
+
 [source,c]
 ----
  enum foo {
@@ -820,6 +845,7 @@ typedef struct bar_t {
 
 * When using a `typedef`, always use the same name for the `struct`, `enum` or
   `union` tag and the `typedef`. No tag is okayish though.
+
 [source,c]
 ----
 typedef enum bar_t {
@@ -833,6 +859,7 @@ enum foo {
 ----
 
 * When calling a function pointer, always "dereference" it:
+
 [source,c]
 ----
  int fun(void (*cb)(int, int, int))
@@ -845,6 +872,7 @@ enum foo {
 === Constructors/Destructors
 
 * for every non scalar type `foo`, 4 functions/macros are expected:
+
 [source,c]
 ----
 foo *foo_new(void);
@@ -855,6 +883,7 @@ void foo_delete(foo **);
 
 * if a type is missing one of the previous functions, then the default semantic
   is:
+
 [source,c]
 ----
 static inline foo *foo_new(void)
@@ -1033,6 +1062,7 @@ would have a noticeable performance impact
 ** the type is explicitly designed to exchange data between modules
 
 * A module `bar` should be defined using the `core-module` framework.
+
 [source,c]
 ----
 static int bar_initialize(void *arg)
@@ -1048,16 +1078,17 @@ static int bar_shutdown(void)
 MODULE_BEGIN(bar)
     ...
 MODULE_END()
-
 ----
 
 * If `core-module` is not available on your environment, you must define the
   functions:
+
 [source,c]
 ----
 void bar_initialize(...);
 void bar_shutdown(...);
 ----
+
 * `void bar_initialize is problematic`, should return an `int`: 0 for OK, non
   zero for errors
 
@@ -1065,6 +1096,7 @@ void bar_shutdown(...);
 
 * do not use C++ style comments `//`.
 * multi-line comments must begin with a star:
+
 [source,c]
 ----
 
@@ -1076,6 +1108,7 @@ void bar_shutdown(...);
 ----
 
 * do not comment code using `/* */` constructs, always use the preprocessor:
+
 [source,c]
 ----
 
@@ -1086,7 +1119,6 @@ void bar_shutdown(...);
 #endif
 
 /* dead_code(1, 2, 3); */ /* bad */
-
 ----
 
 * Use doxygen syntax to document functions that need it, and prefer to comment
@@ -1100,6 +1132,7 @@ void bar_shutdown(...);
 == Loops
 
 * Endless loops are always written using `for (;;)`.
+
 [source,c]
 ----
 while (true) { /* bad */
@@ -1107,6 +1140,7 @@ while (true) { /* bad */
 ----
 
 * Always use the following syntax for reverse loops:
+
 [source,c]
 ----
 /* Good */
@@ -1117,7 +1151,6 @@ for (size_t i = limit; i-- > 0; ) {
 for (size_t i = limit - 1; i >= 0; i--) {
 }
 ----
-
 
 == Forbidden functions
 
@@ -1141,6 +1174,7 @@ for (size_t i = limit - 1; i >= 0; i--) {
 * Use the `t_stack` when you need to perform dynamic-allocations on the stack
 
 * `t_scope` should always be the first instruction of its scope.
+
 [source,c]
 ----
 {
@@ -1153,6 +1187,7 @@ for (size_t i = limit - 1; i >= 0; i--) {
 
 * Functions allocating on `t_stack` for their caller should have a name
   prefixed by `t_`.
+
 [source,c]
 ----
 static char *t_get_name(int id)
@@ -1204,13 +1239,11 @@ development builds, and equivalent to the wrapped condition in release builds.
 
 [source,c]
 ----
-
 if (!expect(condition_that_should_be_true)) {
     /* error case for production builds */
     return -1;
 }
 /* normal case */
-
 ----
 
 === Abnormal conditions
