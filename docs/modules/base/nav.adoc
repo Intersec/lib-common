@@ -5,3 +5,4 @@
 ** xref:containers.adoc[Containers]
 ** xref:logging.adoc[Logging]
 ** xref:modules.adoc[Modules]
+** xref:threads.adoc[Thread jobs]
