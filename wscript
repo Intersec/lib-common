@@ -377,6 +377,7 @@ def build(ctx):
             'iop-xml-pack.c',
             'iop-xml-unpack.c',
             'iop-xml-wsdl.blk',
+            'iop-openapi.c',
 
             'log-iop.c',
 
