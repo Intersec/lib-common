@@ -1,0 +1,49 @@
+tstiop.MyStructM:
+  type: object
+  required:
+    - k
+  properties:
+    k:
+      $ref: "#/components/schemas/tstiop.MyStructK"
+tstiop.MyStructK:
+  type: object
+  required:
+    - j
+  properties:
+    j:
+      $ref: "#/components/schemas/tstiop.MyStructJ"
+tstiop.MyStructJ:
+  type: object
+  required:
+    - cval
+    - b
+  properties:
+    cval:
+      $ref: "#/components/schemas/iop:i32"
+    b:
+      $ref: "#/components/schemas/tstiop.MyUnionB"
+    btab:
+      $ref: "#/components/schemas/tstiop.MyUnionB"
+tstiop.MyUnionB:
+  type: object
+  required:
+    - bval
+    - a
+  properties:
+    bval:
+      $ref: "#/components/schemas/iop:i32"
+    a:
+      $ref: "#/components/schemas/tstiop.MyUnionA"
+tstiop.MyUnionA:
+  type: object
+  required:
+    - ua
+    - ub
+    - us
+  properties:
+    ua:
+      $ref: "#/components/schemas/iop:i32"
+    ub:
+      $ref: "#/components/schemas/iop:i8"
+    us:
+      $ref: "#/components/schemas/iop:string"

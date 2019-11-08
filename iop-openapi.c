@@ -30,6 +30,8 @@
 /* {{{ Schema object */
 
 typedef enum openapi_type_t {
+    TYPE_REF,
+    TYPE_OBJECT,
     TYPE_STRING,
     TYPE_BYTE,
     TYPE_BOOL,
@@ -41,77 +43,213 @@ typedef enum openapi_type_t {
     /* XXX: these are not standard but common format extensions */
     TYPE_UINT32,
     TYPE_UINT64,
+
 } openapi_type_t;
 
-typedef struct schema_object_t {
+typedef struct schema_object_t schema_object_t;
+typedef struct schema_prop_t {
+    lstr_t field_name;
+    schema_object_t *schema;
+} schema_prop_t;
+qvector_t(schema_props, schema_prop_t);
+
+struct schema_object_t {
     /* Not part of "Schema object" by the spec, but useful to easily create
      * the name -> object mappings. */
     lstr_t name;
 
     openapi_type_t type;
 
-    opt_i64_t minimum; // nullable
-    opt_i64_t maximum; // nullable
+    /* for object */
+    qv_t(lstr) required;
+    qv_t(schema_props) properties;
 
+    /* for number */
+    opt_i64_t minimum;
+    opt_i64_t maximum;
     bool _nullable;
-} schema_object_t;
+};
 qvector_t(schema_object, schema_object_t);
+qh_kvec_t(schemas, lstr_t, qhash_lstr_hash, qhash_lstr_equal);
+
+static schema_object_t * nonnull
+add_schema_object(lstr_t name, openapi_type_t type,
+                  qv_t(schema_object) * nonnull schemas)
+{
+    schema_object_t *obj = qv_growlen0(schemas, 1);
+
+    obj->name = name;
+    obj->type = type;
+
+    return obj;
+}
+
+static void
+t_iop_struct_to_schema_object(const iop_struct_t *st,
+                              qh_t(schemas) *existing_schemas,
+                              qv_t(schema_object) *schemas);
+
+static schema_object_t *
+t_iop_field_to_schema_object(const iop_field_t *desc,
+                             qh_t(schemas) *existing_schemas,
+                             qv_t(schema_object) *schemas)
+{
+    schema_object_t *schema;
+
+    schema = t_new(schema_object_t, 1);
+    schema->type = TYPE_REF;
+
+    switch (desc->type) {
+      case IOP_T_I8:     schema->name = LSTR("iop:i8"); break;
+      case IOP_T_U8:     schema->name = LSTR("iop:u8"); break;
+      case IOP_T_I16:    schema->name = LSTR("iop:i16"); break;
+      case IOP_T_U16:    schema->name = LSTR("iop:u16"); break;
+      case IOP_T_I32:    schema->name = LSTR("iop:i32"); break;
+      case IOP_T_U32:    schema->name = LSTR("iop:u32"); break;
+      case IOP_T_I64:    schema->name = LSTR("iop:i64"); break;
+      case IOP_T_U64:    schema->name = LSTR("iop:u64"); break;
+      case IOP_T_BOOL:   schema->name = LSTR("iop:bool"); break;
+      case IOP_T_DOUBLE: schema->name = LSTR("iop:double"); break;
+      case IOP_T_VOID:   schema->name = LSTR("iop:void"); break;
+      case IOP_T_DATA:   schema->name = LSTR("iop:byte"); break;
+      case IOP_T_STRING: case IOP_T_XML:
+        schema->name = LSTR("iop:string"); break;
+
+      case IOP_T_ENUM:
+        /* TODO: do enum */
+        schema->name = desc->u1.en_desc->name;
+        break;
+
+      case IOP_T_UNION:
+      case IOP_T_STRUCT:
+        t_iop_struct_to_schema_object(desc->u1.st_desc, existing_schemas,
+                                      schemas);
+        schema->name = desc->u1.st_desc->fullname;
+        break;
+    }
+
+    return schema;
+}
+
+static bool field_is_required(const iop_field_t *desc)
+{
+    switch (desc->repeat) {
+      case IOP_R_OPTIONAL:
+      case IOP_R_DEFVAL:
+        return false;
+      case IOP_R_REPEATED:
+        /* TODO: check minOccurs ? */
+        return false;
+      case IOP_R_REQUIRED:
+        return desc->type != IOP_T_STRUCT
+            || !iop_struct_is_optional(desc->u1.st_desc, true);
+    }
+
+    assert (false);
+    return false;
+}
+
+static void
+t_iop_struct_to_schema_object(const iop_struct_t *st,
+                              qh_t(schemas) *existing_schemas,
+                              qv_t(schema_object) *schemas)
+{
+    schema_object_t *obj;
+
+    if (qh_add(schemas, existing_schemas, &st->fullname) < 0) {
+        return;
+    }
+
+    if (iop_struct_is_class(st)) {
+        /* TODO: handle class */
+        return;
+    }
+
+    obj = add_schema_object(st->fullname, TYPE_OBJECT, schemas);
+    t_qv_init(&obj->required, st->fields_len);
+    t_qv_init(&obj->properties, st->fields_len);
+
+    iop_struct_for_each_field(field_desc, field_st, st) {
+        schema_prop_t *prop = qv_growlen0(&obj->properties, 1);
+
+        prop->field_name = field_desc->name;
+        prop->schema = t_iop_field_to_schema_object(field_desc,
+                                                    existing_schemas,
+                                                    schemas);
+
+        if (field_is_required(field_desc)) {
+            qv_append(&obj->required, prop->field_name);
+        }
+    }
+}
 
 static void
 t_schema_object_to_yaml(const schema_object_t * nonnull obj,
                         yaml_data_t * nonnull out)
 {
+    static lstr_t types[] = {
+        [TYPE_OBJECT] = LSTR_IMMED("object"),
+        [TYPE_STRING] = LSTR_IMMED("string"),
+        [TYPE_BYTE]   = LSTR_IMMED("string"),
+        [TYPE_BOOL]   = LSTR_IMMED("bool"),
+        [TYPE_DOUBLE] = LSTR_IMMED("number"),
+        [TYPE_INT32]  = LSTR_IMMED("integer"),
+        [TYPE_INT64]  = LSTR_IMMED("integer"),
+        [TYPE_UINT32] = LSTR_IMMED("integer"),
+        [TYPE_UINT64] = LSTR_IMMED("integer"),
+    };
+    static lstr_t formats[] = {
+        [TYPE_OBJECT] = LSTR_NULL,
+        [TYPE_STRING] = LSTR_NULL,
+        [TYPE_BYTE]   = LSTR_IMMED("byte"),
+        [TYPE_BOOL]   = LSTR_NULL,
+        [TYPE_DOUBLE] = LSTR_IMMED("double"),
+        [TYPE_INT32]  = LSTR_IMMED("int32"),
+        [TYPE_INT64]  = LSTR_IMMED("int64"),
+        [TYPE_UINT32] = LSTR_IMMED("uint32"),
+        [TYPE_UINT64] = LSTR_IMMED("uint64"),
+    };
     yaml_data_t data;
-    lstr_t type = LSTR_NULL_V;
-    lstr_t format = LSTR_NULL_V;
 
     t_yaml_data_new_obj(out, 2);
-    switch (obj->type) {
-      case TYPE_STRING:
-        type = LSTR("string");
-        break;
 
-      case TYPE_BYTE:
-        type = LSTR("string");
-        format = LSTR("byte");
-        break;
-
-      case TYPE_BOOL:
-        type = LSTR("bool");
-        break;
-
-      case TYPE_DOUBLE:
-        type = LSTR("number");
-        format = LSTR("double");
-        break;
-
-      case TYPE_INT32:
-        type = LSTR("integer");
-        format = LSTR("int32");
-        break;
-
-      case TYPE_INT64:
-        type = LSTR("integer");
-        format = LSTR("int64");
-        break;
-
-      case TYPE_UINT32:
-        type = LSTR("integer");
-        format = LSTR("uint32");
-        break;
-
-      case TYPE_UINT64:
-        type = LSTR("integer");
-        format = LSTR("uint64");
-        break;
+    if (obj->type == TYPE_REF) {
+        yaml_data_set_string(&data, t_lstr_fmt("#/components/schemas/%pL",
+                                               &obj->name));
+        yaml_obj_add_field(out, LSTR("$ref"), data);
+        return;
     }
 
-    yaml_data_set_string(&data, type);
-    yaml_obj_add_field(out, LSTR("type"), data);
+    if (types[obj->type].s) {
+        yaml_data_set_string(&data, types[obj->type]);
+        yaml_obj_add_field(out, LSTR("type"), data);
+    }
 
-    if (format.s) {
-        yaml_data_set_string(&data, format);
+    if (formats[obj->type].s) {
+        yaml_data_set_string(&data, formats[obj->type]);
         yaml_obj_add_field(out, LSTR("format"), data);
+    }
+
+    if (obj->required.len > 0) {
+        t_yaml_data_new_seq(&data, obj->required.len);
+        tab_for_each_entry(name, &obj->required) {
+            yaml_data_t elem;
+
+            yaml_data_set_string(&elem, name);
+            yaml_seq_add_data(&data, elem);
+        }
+        yaml_obj_add_field(out, LSTR("required"), data);
+    }
+
+    if (obj->properties.len > 0) {
+        t_yaml_data_new_obj(&data, obj->properties.len);
+        tab_for_each_ptr(prop, &obj->properties) {
+            yaml_data_t elem;
+
+            t_schema_object_to_yaml(prop->schema, &elem);
+            yaml_obj_add_field(&data, prop->field_name, elem);
+        }
+        yaml_obj_add_field(out, LSTR("properties"), data);
     }
 
     if (OPT_ISSET(obj->minimum)) {
@@ -135,19 +273,8 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
 
 typedef struct components_object_t {
     qv_t(schema_object) schemas;
+    qh_t(schemas) existing_schemas;
 } components_object_t;
-
-static schema_object_t * nonnull
-add_schema_object(lstr_t name, openapi_type_t type,
-                   qv_t(schema_object) * nonnull schemas)
-{
-    schema_object_t *obj = qv_growlen0(schemas, 1);
-
-    obj->name = name;
-    obj->type = type;
-
-    return obj;
-}
 
 static void add_iop_primitives_schemas(qv_t(schema_object) *schemas)
 {
@@ -183,6 +310,7 @@ static void add_iop_primitives_schemas(qv_t(schema_object) *schemas)
 static void t_components_object_init(components_object_t *obj)
 {
     t_qv_init(&obj->schemas, 0);
+    t_qh_init(schemas, &obj->existing_schemas, 0);
     add_iop_primitives_schemas(&obj->schemas);
 }
 
@@ -255,6 +383,10 @@ iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
     return oa;
 }
 
+void t_iop_openapi_add_struct(iop_openapi_t *openapi, const iop_struct_t *st)
+{
+}
+
 void t_iop_openapi_to_yaml(const iop_openapi_t *openapi, yaml_data_t *out)
 {
     yaml_data_t data;
@@ -294,6 +426,7 @@ MODULE_END()
 /* LCOV_EXCL_START */
 
 #include "z.h"
+#include "iop/tstiop.iop.h"
 
 /* {{{ Helpers */
 
@@ -311,11 +444,39 @@ z_check_yaml(const iop_openapi_t *openapi, const char *filename)
 
     path = t_fmt("%pL/test-data/openapi/%s", &z_cmddir_g, filename);
     Z_ASSERT_N(lstr_init_from_file(&file, path, PROT_READ, MAP_SHARED));
-
     /* remove last newline from file */
     file.len--;
 
     Z_ASSERT_LSTREQUAL(file, LSTR_SB_V(&sb));
+
+    Z_HELPER_END;
+}
+
+static int
+z_check_schemas(const qv_t(schema_object) *schemas, const char *filename)
+{
+    t_scope;
+    const char *path;
+    yaml_data_t data;
+    lstr_t file;
+    SB_1k(sb);
+
+    t_yaml_data_new_obj(&data, schemas->len);
+    tab_for_each_ptr(schema, schemas) {
+        yaml_data_t elem;
+
+        t_schema_object_to_yaml(schema, &elem);
+        yaml_obj_add_field(&data, schema->name, elem);
+    }
+
+    yaml_pack_sb(&data, &sb);
+
+    path = t_fmt("%pL/test-data/openapi/%s", &z_cmddir_g, filename);
+    Z_ASSERT_N(lstr_init_from_file(&file, path, PROT_READ, MAP_SHARED));
+    /* remove last newline from file */
+    file.len--;
+
+    Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), file);
 
     Z_HELPER_END;
 }
@@ -326,11 +487,10 @@ z_check_yaml(const iop_openapi_t *openapi, const char *filename)
 
 Z_GROUP_EXPORT(iop_openapi)
 {
+    IOP_REGISTER_PACKAGES(&tstiop__pkg);
     MODULE_REQUIRE(iop_openapi);
 
-    /* {{{ YAML generation */
-
-    Z_TEST(yaml, "test the yaml generation") {
+    Z_TEST(doc, "test the whole doc generation") {
         t_scope;
         iop_openapi_t *oa;
 
@@ -338,7 +498,29 @@ Z_GROUP_EXPORT(iop_openapi)
         Z_HELPER_RUN(z_check_yaml(oa, "empty.yml"));
     } Z_TEST_END;
 
-    /* }}} */
+    Z_TEST(iop_struct, "test the schema generation of IOP structs") {
+        t_scope;
+        qh_t(schemas) existing;
+        qv_t(schema_object) schemas;
+
+        t_qh_init(schemas, &existing, 0);
+        t_qv_init(&schemas, 0);
+
+        t_iop_struct_to_schema_object(&tstiop__my_struct_n__s, &existing,
+                                      &schemas);
+        Z_HELPER_RUN(z_check_schemas(&schemas, "struct_n.yml"));
+
+        qh_clear(schemas, &existing);
+        qv_clear(&schemas);
+
+        t_iop_struct_to_schema_object(&tstiop__my_struct_m__s, &existing,
+                                      &schemas);
+        Z_HELPER_RUN(z_check_schemas(&schemas, "struct_m.yml"));
+        /* make sure the existing hash deduplicates already added elements */
+        t_iop_struct_to_schema_object(&tstiop__my_struct_k__s, &existing,
+                                      &schemas);
+        Z_HELPER_RUN(z_check_schemas(&schemas, "struct_m.yml"));
+    } Z_TEST_END;
 
     MODULE_RELEASE(iop_openapi);
 } Z_GROUP_END

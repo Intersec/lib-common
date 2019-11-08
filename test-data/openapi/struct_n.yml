@@ -1,0 +1,10 @@
+tstiop.MyStructN:
+  type: object
+  required:
+    - u
+    - i
+  properties:
+    u:
+      $ref: "#/components/schemas/iop:u64"
+    i:
+      $ref: "#/components/schemas/iop:i64"
