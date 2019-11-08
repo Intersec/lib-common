@@ -310,8 +310,9 @@ static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
     }
 
     yaml_env_init_data_with_end(env, YAML_DATA_SEQ, pos_start, pos_end, out);
-    out->seq = datas.tab;
-    out->seq_len = datas.len;
+    out->seq = mp_new(env->mp, yaml_seq_t, 1);
+    out->seq->datas = datas;
+
     return 0;
 }
 
@@ -828,17 +829,16 @@ static int yaml_pack_scalar(const yaml_pack_env_t * nonnull env,
 /* {{{ Pack sequence */
 
 static int yaml_pack_seq(const yaml_pack_env_t * nonnull env,
-                         const yaml_data_t * nonnull seq, int seq_len,
-                         int indent_lvl)
+                         const yaml_seq_t * nonnull seq, int indent_lvl)
 {
     int res = 0;
 
-    for (int i = 0; i < seq_len; i++) {
+    tab_for_each_ptr(data, &seq->datas) {
         PUTS("\n");
         INDENT(indent_lvl);
         PUTS("- ");
 
-        res += RETHROW(yaml_pack_data(env, &seq[i], indent_lvl + 2, false));
+        res += RETHROW(yaml_pack_data(env, data, indent_lvl + 2, false));
     }
 
     return res;
@@ -917,8 +917,7 @@ static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
         res += RETHROW(yaml_pack_scalar(env, &data->scalar, to_indent));
         break;
       case YAML_DATA_SEQ:
-        res += RETHROW(yaml_pack_seq(env, data->seq, data->seq_len,
-                                     indent_lvl));
+        res += RETHROW(yaml_pack_seq(env, data->seq, indent_lvl));
         break;
       case YAML_DATA_OBJ:
         res += RETHROW(yaml_pack_obj(env, data->obj, indent_lvl, to_indent));
@@ -1054,23 +1053,29 @@ void yaml_data_set_null(yaml_data_t *data)
     SET_SCALAR(data, NULL);
 }
 
-void yaml_data_set_seq(yaml_data_t *data, qv_t(yaml_data) *seq)
+void t_yaml_data_new_seq(yaml_data_t *data, int capacity)
 {
     p_clear(data, 1);
     data->type = YAML_DATA_SEQ;
-    data->seq = seq->tab;
-    data->seq_len = seq->len;
+    data->seq = t_new(yaml_seq_t, 1);
+    t_qv_init(&data->seq->datas, capacity);
 }
 
-void t_yaml_data_new_obj(yaml_data_t *data, int nb_fields_capacity)
+void yaml_seq_add_data(yaml_data_t *data, yaml_data_t val)
+{
+    assert (data->type == YAML_DATA_SEQ);
+    qv_append(&data->seq->datas, val);
+}
+
+void t_yaml_data_new_obj(yaml_data_t *data, int capacity)
 {
     p_clear(data, 1);
     data->type = YAML_DATA_OBJ;
     data->obj = t_new(yaml_obj_t, 1);
-    t_qv_init(&data->obj->fields, nb_fields_capacity);
+    t_qv_init(&data->obj->fields, capacity);
 }
 
-void yaml_data_add_field(yaml_data_t *data, lstr_t key, yaml_data_t val)
+void yaml_obj_add_field(yaml_data_t *data, lstr_t key, yaml_data_t val)
 {
     yaml_key_data_t *kd;
 
@@ -1559,10 +1564,10 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_ASSERT_NULL(data.tag.s);
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 1, 4));
-        Z_ASSERT_EQ(data.seq_len, 1U);
-        Z_HELPER_RUN(z_check_yaml_scalar(&data.seq[0], YAML_SCALAR_STRING,
-                                         1, 3, 1, 4));
-        Z_ASSERT_LSTREQUAL(data.seq[0].scalar.s, LSTR("a"));
+        Z_ASSERT_EQ(data.seq->datas.len, 1);
+        Z_HELPER_RUN(z_check_yaml_scalar(&data.seq->datas.tab[0],
+                                         YAML_SCALAR_STRING, 1, 3, 1, 4));
+        Z_ASSERT_LSTREQUAL(data.seq->datas.tab[0].scalar.s, LSTR("a"));
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
                           "a sequence");
 
@@ -1578,41 +1583,41 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 7, 8));
-        Z_ASSERT_EQ(data.seq_len, 5U);
+        Z_ASSERT_EQ(data.seq->datas.len, 5);
 
         /* "a: 2" */
-        elem = data.seq[0];
+        elem = data.seq->datas.tab[0];
         Z_HELPER_RUN(z_check_yaml_scalar(&elem, YAML_SCALAR_STRING,
                                          1, 3, 1, 9));
         Z_ASSERT_LSTREQUAL(elem.scalar.s, LSTR("a: 2"));
 
         /* subseq */
-        elem = data.seq[1];
+        elem = data.seq->datas.tab[1];
         Z_HELPER_RUN(z_check_yaml_data(&elem, YAML_DATA_SEQ, 2, 3, 3, 7));
-        Z_ASSERT_EQ(elem.seq_len, 2U);
-        Z_HELPER_RUN(z_check_yaml_scalar(&elem.seq[0], YAML_SCALAR_UINT,
+        Z_ASSERT_EQ(elem.seq->datas.len, 2);
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem.seq->datas.tab[0], YAML_SCALAR_UINT,
                                          2, 5, 2, 6));
-        Z_ASSERT_EQ(elem.seq[0].scalar.u, 5UL);
-        Z_HELPER_RUN(z_check_yaml_scalar(&elem.seq[1], YAML_SCALAR_INT,
+        Z_ASSERT_EQ(elem.seq->datas.tab[0].scalar.u, 5UL);
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem.seq->datas.tab[1], YAML_SCALAR_INT,
                                          3, 5, 3, 7));
-        Z_ASSERT_EQ(elem.seq[1].scalar.i, -5L);
+        Z_ASSERT_EQ(elem.seq->datas.tab[1].scalar.i, -5L);
 
         /* null */
-        elem = data.seq[2];
+        elem = data.seq->datas.tab[2];
         Z_HELPER_RUN(z_check_yaml_scalar(&elem, YAML_SCALAR_NULL,
                                          4, 3, 4, 4));
 
         /* subseq */
-        elem = data.seq[3];
+        elem = data.seq->datas.tab[3];
         Z_HELPER_RUN(z_check_yaml_data(&elem, YAML_DATA_SEQ, 6, 3, 6, 14));
         Z_ASSERT_LSTREQUAL(elem.tag, LSTR("tag"));
-        Z_ASSERT_EQ(elem.seq_len, 1U);
-        Z_HELPER_RUN(z_check_yaml_scalar(&elem.seq[0], YAML_SCALAR_BOOL,
+        Z_ASSERT_EQ(elem.seq->datas.len, 1);
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem.seq->datas.tab[0], YAML_SCALAR_BOOL,
                                          6, 10, 6, 14));
-        Z_ASSERT(elem.seq[0].scalar.b);
+        Z_ASSERT(elem.seq->datas.tab[0].scalar.b);
 
         /* false */
-        elem = data.seq[4];
+        elem = data.seq->datas.tab[4];
         Z_HELPER_RUN(z_check_yaml_scalar(&elem, YAML_SCALAR_BOOL,
                                          7, 3, 7, 8));
         Z_ASSERT(!elem.scalar.b);
@@ -1639,11 +1644,11 @@ Z_GROUP_EXPORT(yaml)
         field = data.obj->fields.tab[0].data;
 
         Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_SEQ, 2, 1, 3, 4));
-        Z_ASSERT_EQ(field.seq_len, 2U);
-        Z_HELPER_RUN(z_check_yaml_scalar(&field.seq[0], YAML_SCALAR_UINT,
+        Z_ASSERT_EQ(field.seq->datas.len, 2);
+        Z_HELPER_RUN(z_check_yaml_scalar(&field.seq->datas.tab[0], YAML_SCALAR_UINT,
                                          2, 3, 2, 4));
-        Z_ASSERT_EQ(field.seq[0].scalar.u, 3UL);
-        Z_HELPER_RUN(z_check_yaml_scalar(&field.seq[1], YAML_SCALAR_NULL,
+        Z_ASSERT_EQ(field.seq->datas.tab[0].scalar.u, 3UL);
+        Z_HELPER_RUN(z_check_yaml_scalar(&field.seq->datas.tab[1], YAML_SCALAR_NULL,
                                          3, 3, 3, 4));
     } Z_TEST_END;
 

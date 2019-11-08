@@ -27,6 +27,7 @@
 typedef struct yaml_data_t yaml_data_t;
 typedef struct yaml_scalar_t yaml_scalar_t;
 typedef struct yaml_obj_t yaml_obj_t;
+typedef struct yaml_seq_t yaml_seq_t;
 
 /* All possible types for YAML scalar values */
 typedef enum yaml_scalar_type_t {
@@ -83,10 +84,7 @@ struct yaml_data_t {
     yaml_pos_t pos_end;
     union {
         yaml_scalar_t scalar;
-        struct {
-            yaml_data_t *seq;
-            uint32_t seq_len;
-        };
+        yaml_seq_t *seq;
         yaml_obj_t *obj;
     };
     yaml_data_type_t type;
@@ -105,6 +103,10 @@ qvector_t(yaml_key_data, yaml_key_data_t);
 
 struct yaml_obj_t {
     qv_t(yaml_key_data) fields;
+};
+
+struct yaml_seq_t {
+    qv_t(yaml_data) datas;
 };
 
 /* }}} */
@@ -158,12 +160,12 @@ void yaml_data_set_int(yaml_data_t * nonnull data, int64_t i);
 void yaml_data_set_bool(yaml_data_t * nonnull data, bool b);
 void yaml_data_set_null(yaml_data_t * nonnull data);
 
-void yaml_data_set_seq(yaml_data_t * nonnull data,
-                       qv_t(yaml_data) * nonnull seq);
+void t_yaml_data_new_seq(yaml_data_t * nonnull data, int capacity);
+void yaml_seq_add_data(yaml_data_t * nonnull data, yaml_data_t val);
 
 void t_yaml_data_new_obj(yaml_data_t * nonnull data, int nb_fields_capacity);
-void yaml_data_add_field(yaml_data_t * nonnull data, lstr_t key,
-                         yaml_data_t val);
+void yaml_obj_add_field(yaml_data_t * nonnull data, lstr_t key,
+                        yaml_data_t val);
 
 /* }}} */
 

@@ -667,7 +667,7 @@ yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
 
     p_clear(arr, 1);
     assert (data->type == YAML_DATA_SEQ);
-    for (uint32_t i = 0; i < data->seq_len; i++) {
+    tab_for_each_ptr(elem, &data->seq->datas) {
         void *elem_out;
 
         if (arr->len >= size) {
@@ -677,8 +677,8 @@ yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
                                     size * fdesc->size, 8, 0);
         }
         elem_out = (void *)(((char *)arr->data) + arr->len * fdesc->size);
-        RETHROW(yaml_data_to_iop_field(env, &data->seq[i], st_desc, fdesc,
-                                       true, elem_out));
+        RETHROW(yaml_data_to_iop_field(env, elem, st_desc, fdesc, true,
+                                       elem_out));
         arr->len++;
     }
 
@@ -1038,19 +1038,17 @@ t_append_iop_struct_to_fields(const iop_struct_t * nonnull desc,
         if (n == 1 && !repeated) {
             t_iop_field_to_yaml_data(fdesc, ptr, 0, flags, &field_data);
         } else {
-            qv_t(yaml_data) seq;
-
-            t_qv_init(&seq, n);
+            t_yaml_data_new_seq(&field_data, n);
 
             for (int j = 0; j < n; j++) {
-                t_iop_field_to_yaml_data(fdesc, ptr, j, flags,
-                                         qv_growlen(&seq, 1));
-            }
+                yaml_data_t elem;
 
-            yaml_data_set_seq(&field_data, &seq);
+                t_iop_field_to_yaml_data(fdesc, ptr, j, flags, &elem);
+                yaml_seq_add_data(&field_data, elem);
+            }
         }
 
-        yaml_data_add_field(data, lstr_dupc(fdesc->name), field_data);
+        yaml_obj_add_field(data, lstr_dupc(fdesc->name), field_data);
     }
 }
 
