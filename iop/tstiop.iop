@@ -772,6 +772,25 @@ struct Package {
 };
 
 /* }}} */
+/* {{{ zchk iop.bpack_error_unregistered_class */
+
+@ctype(tstiop_registered_class__t)
+class RegisteredClass : 1 {
+};
+
+/* }}} */
+/* {{{ zchk iop.bpack_error_unexpected_class_type */
+
+class RootClass : 1 {
+};
+
+class ChildClassA : 2 : RootClass {
+};
+
+class ChildClassB : 3 : RootClass {
+};
+
+/* }}} */
 /* {{{ iopc zchk */
 /* {{{ zchk iopsq.sub_struct */
 
