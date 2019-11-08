@@ -1,0 +1,56 @@
+openapi: 3.0.2
+info:
+  title: zoomin
+  version: 0.2.3
+  description: sheo
+components:
+  schemas:
+    iop:i8:
+      type: integer
+      format: int32
+      minimum: -128
+      maximum: 127
+    iop:i16:
+      type: integer
+      format: int32
+      minimum: -32768
+      maximum: 32767
+    iop:i32:
+      type: integer
+      format: int32
+      minimum: -2147483648
+      maximum: 2147483647
+    iop:u8:
+      type: integer
+      format: uint32
+      minimum: 0
+      maximum: 255
+    iop:u16:
+      type: integer
+      format: uint32
+      minimum: 0
+      maximum: 65535
+    iop:u32:
+      type: integer
+      format: uint32
+      minimum: 0
+      maximum: 4294967295
+    iop:i64:
+      type: integer
+      format: int64
+    iop:u64:
+      type: integer
+      format: uint64
+      minimum: 0
+    iop:bool:
+      type: bool
+    iop:string:
+      type: string
+    iop:data:
+      type: string
+      format: byte
+    iop:xml:
+      type: string
+    iop:void:
+      type: bool
+      nullable: true
