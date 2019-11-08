@@ -108,6 +108,7 @@ struct yaml_obj_t {
 };
 
 /* }}} */
+/* {{{ Parsing */
 
 /** Return a description of the data's type.
  *
@@ -127,6 +128,9 @@ const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data);
  */
 int t_yaml_parse(pstream_t ps, yaml_data_t * nonnull out, sb_t * nonnull err);
 
+/* }}} */
+/* {{{ Packing */
+
 /** Pack a YAML data into a YAML string.
  */
 int yaml_pack_sb(const yaml_data_t * nonnull data, sb_t * nonnull sb);
@@ -143,6 +147,25 @@ int yaml_pack_sb(const yaml_data_t * nonnull data, sb_t * nonnull sb);
 int yaml_pack_file(const char * nonnull filename, unsigned file_flags,
                    mode_t file_mode, const yaml_data_t * nonnull data,
                    sb_t * nonnull err);
+
+/* }}} */
+/* {{{ Packing helpers */
+
+void yaml_data_set_string(yaml_data_t * nonnull data, lstr_t str);
+void yaml_data_set_double(yaml_data_t * nonnull data, double d);
+void yaml_data_set_uint(yaml_data_t * nonnull data, uint64_t u);
+void yaml_data_set_int(yaml_data_t * nonnull data, int64_t i);
+void yaml_data_set_bool(yaml_data_t * nonnull data, bool b);
+void yaml_data_set_null(yaml_data_t * nonnull data);
+
+void yaml_data_set_seq(yaml_data_t * nonnull data,
+                       qv_t(yaml_data) * nonnull seq);
+
+void t_yaml_data_new_obj(yaml_data_t * nonnull data, int nb_fields_capacity);
+void yaml_data_add_field(yaml_data_t * nonnull data, lstr_t key,
+                         yaml_data_t val);
+
+/* }}} */
 
 MODULE_DECLARE(yaml);
 

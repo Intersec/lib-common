@@ -1010,6 +1010,77 @@ int (yaml_pack_file)(const char *filename, unsigned file_flags,
 }
 
 /* }}} */
+/* {{{ AST helpers */
+
+#define SET_SCALAR(data, scalar_type)                                        \
+    do {                                                                     \
+        p_clear(data, 1);                                                    \
+        data->type = YAML_DATA_SCALAR;                                       \
+        data->scalar.type = YAML_SCALAR_##scalar_type;                       \
+    } while (0)
+
+void yaml_data_set_string(yaml_data_t *data, lstr_t str)
+{
+    SET_SCALAR(data, STRING);
+    data->scalar.s = str;
+}
+
+void yaml_data_set_double(yaml_data_t *data, double d)
+{
+    SET_SCALAR(data, DOUBLE);
+    data->scalar.d = d;
+}
+
+void yaml_data_set_uint(yaml_data_t *data, uint64_t u)
+{
+    SET_SCALAR(data, UINT);
+    data->scalar.u = u;
+}
+
+void yaml_data_set_int(yaml_data_t *data, int64_t i)
+{
+    SET_SCALAR(data, INT);
+    data->scalar.i = i;
+}
+
+void yaml_data_set_bool(yaml_data_t *data, bool b)
+{
+    SET_SCALAR(data, BOOL);
+    data->scalar.b = b;
+}
+
+void yaml_data_set_null(yaml_data_t *data)
+{
+    SET_SCALAR(data, NULL);
+}
+
+void yaml_data_set_seq(yaml_data_t *data, qv_t(yaml_data) *seq)
+{
+    p_clear(data, 1);
+    data->type = YAML_DATA_SEQ;
+    data->seq = seq->tab;
+    data->seq_len = seq->len;
+}
+
+void t_yaml_data_new_obj(yaml_data_t *data, int nb_fields_capacity)
+{
+    p_clear(data, 1);
+    data->type = YAML_DATA_OBJ;
+    data->obj = t_new(yaml_obj_t, 1);
+    t_qv_init(&data->obj->fields, nb_fields_capacity);
+}
+
+void yaml_data_add_field(yaml_data_t *data, lstr_t key, yaml_data_t val)
+{
+    yaml_key_data_t *kd;
+
+    assert (data->type == YAML_DATA_OBJ);
+    kd = qv_growlen0(&data->obj->fields, 1);
+    kd->key = key;
+    kd->data = val;
+}
+
+/* }}} */
 /* {{{ Module */
 
 static int yaml_initialize(void *arg)

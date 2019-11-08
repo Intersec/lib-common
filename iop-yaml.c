@@ -939,20 +939,13 @@ t_iop_field_to_yaml_data(const iop_field_t * nonnull fdesc,
 {
     p_clear(data, 1);
 
-#define SET_SCALAR(scalar_type, tag, value)                                  \
-    do {                                                                     \
-        data->type = YAML_DATA_SCALAR;                                       \
-        data->scalar.type = YAML_SCALAR_##scalar_type;                       \
-        data->scalar.tag = (value);                                          \
-    } while (0)
-
     switch (fdesc->type) {
 #define CASE(n) \
       case IOP_T_I##n:                                                       \
-        SET_SCALAR(INT, i, IOP_FIELD(int##n##_t, ptr, j));                   \
+        yaml_data_set_int(data, IOP_FIELD(int##n##_t, ptr, j));              \
         break;                                                               \
       case IOP_T_U##n:                                                       \
-        SET_SCALAR(UINT, u, IOP_FIELD(uint##n##_t, ptr, j));                 \
+        yaml_data_set_uint(data, IOP_FIELD(uint##n##_t, ptr, j));            \
         break;
       CASE(8); CASE(16); CASE(32); CASE(64);
 #undef CASE
@@ -963,18 +956,18 @@ t_iop_field_to_yaml_data(const iop_field_t * nonnull fdesc,
         v = iop_enum_to_str_desc(fdesc->u1.en_desc,
                                  IOP_FIELD(int, ptr, j)).s;
         if (likely(v)) {
-            SET_SCALAR(STRING, s, LSTR(v));
+            yaml_data_set_string(data, LSTR(v));
         } else {
-            SET_SCALAR(INT, i, IOP_FIELD(int, ptr, j));
+            yaml_data_set_int(data, IOP_FIELD(int, ptr, j));
         }
       } break;
 
       case IOP_T_BOOL:
-        SET_SCALAR(BOOL, b, IOP_FIELD(bool, ptr, j));
+        yaml_data_set_bool(data, IOP_FIELD(bool, ptr, j));
         break;
 
       case IOP_T_DOUBLE:
-        SET_SCALAR(DOUBLE, d, IOP_FIELD(double, ptr, j));
+        yaml_data_set_double(data, IOP_FIELD(double, ptr, j));
         break;
 
       case IOP_T_UNION:
@@ -994,15 +987,14 @@ t_iop_field_to_yaml_data(const iop_field_t * nonnull fdesc,
 
             sb_reset(&sb);
             sb_addlstr_b64(&sb, sv, -1);
-            SET_SCALAR(STRING, s, LSTR_SB_V(&sb));
+            yaml_data_set_string(data, LSTR_SB_V(&sb));
         } else {
-            SET_SCALAR(STRING, s, sv);
+            yaml_data_set_string(data, sv);
         }
       } break;
 
       case IOP_T_VOID:
-        data->type = YAML_DATA_SCALAR;
-        data->scalar.type = YAML_SCALAR_NULL;
+        yaml_data_set_null(data);
         break;
 
       default:
@@ -1013,7 +1005,7 @@ t_iop_field_to_yaml_data(const iop_field_t * nonnull fdesc,
 static void
 t_append_iop_struct_to_fields(const iop_struct_t * nonnull desc,
                               const void * nonnull value, int flags,
-                              qv_t(yaml_key_data) * nonnull fields)
+                              yaml_data_t *data)
 {
     const iop_field_t *fstart;
     const iop_field_t *fend;
@@ -1030,7 +1022,7 @@ t_append_iop_struct_to_fields(const iop_struct_t * nonnull desc,
         bool repeated = fdesc->repeat == IOP_R_REPEATED;
         const void *ptr;
         bool is_skipped = false;
-        yaml_key_data_t *kd;
+        yaml_data_t field_data;
         int n;
 
         ptr = iop_json_get_n_and_ptr(desc, flags, fdesc, value, &n,
@@ -1039,16 +1031,12 @@ t_append_iop_struct_to_fields(const iop_struct_t * nonnull desc,
             continue;
         }
 
-        kd = qv_growlen0(fields, 1);
-        kd->key = lstr_dupc(fdesc->name);
-
         if (n == 0) {
             /* not skipped, but no element: put a null scalar */
-            kd->data.type = YAML_DATA_SCALAR;
-            kd->data.scalar.type = YAML_SCALAR_NULL;
+            yaml_data_set_null(&field_data);
         } else
         if (n == 1 && !repeated) {
-            t_iop_field_to_yaml_data(fdesc, ptr, 0, flags, &kd->data);
+            t_iop_field_to_yaml_data(fdesc, ptr, 0, flags, &field_data);
         } else {
             qv_t(yaml_data) seq;
 
@@ -1059,10 +1047,10 @@ t_append_iop_struct_to_fields(const iop_struct_t * nonnull desc,
                                          qv_growlen(&seq, 1));
             }
 
-            kd->data.type = YAML_DATA_SEQ;
-            kd->data.seq = seq.tab;
-            kd->data.seq_len = seq.len;
+            yaml_data_set_seq(&field_data, &seq);
         }
+
+        yaml_data_add_field(data, lstr_dupc(fdesc->name), field_data);
     }
 }
 
@@ -1071,14 +1059,11 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
                           const void * nonnull value, int flags,
                           yaml_data_t * nonnull data)
 {
-    p_clear(data, 1);
-    data->type = YAML_DATA_OBJ;
-    data->obj = t_new(yaml_obj_t, 1);
-
     if (iop_struct_is_class(desc)) {
         qv_t(iop_struct) parents;
         const iop_struct_t *real_desc = *(const iop_struct_t **)value;
         int nb_fields = 0;
+        lstr_t tag = LSTR_NULL_V;
 
         e_assert(panic, !real_desc->class_attrs->is_abstract,
                  "packing of abstract class '%*pM' is forbidden",
@@ -1093,7 +1078,7 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
         if (desc != real_desc
         ||  !(flags & IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES))
         {
-            data->tag = lstr_dupc(real_desc->fullname);
+            tag = lstr_dupc(real_desc->fullname);
         }
 
         /* We want to write the fields in the order "master -> children", and
@@ -1107,16 +1092,17 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
         } while (real_desc);
 
         /* Write fields of different levels */
-        t_qv_init(&data->obj->fields, nb_fields);
+        t_yaml_data_new_obj(data, nb_fields);
         for (int pos = parents.len; pos-- > 0; ) {
             t_append_iop_struct_to_fields(parents.tab[pos], value, flags,
-                                          &data->obj->fields);
+                                          data);
         }
         qv_wipe(&parents);
 
+        data->tag = tag;
     } else {
-        t_qv_init(&data->obj->fields, desc->fields_len);
-        t_append_iop_struct_to_fields(desc, value, flags, &data->obj->fields);
+        t_yaml_data_new_obj(data, desc->fields_len);
+        t_append_iop_struct_to_fields(desc, value, flags, data);
     }
 }
 
