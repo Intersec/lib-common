@@ -60,3 +60,69 @@ tstiop.StructJpackFlags:
         - $ref: "#/components/schemas/tstiop.MyClass3"
       discriminator:
         propertyName: _class
+tstiop.MyStructB:
+  type: object
+  properties:
+    a:
+      $ref: "#/components/schemas/iop:i32"
+    b:
+      type: array
+      items:
+        $ref: "#/components/schemas/iop:i32"
+tstiop.MyUnionA:
+  oneOf:
+    - type: object
+      required:
+        - ua
+      properties:
+        ua:
+          $ref: "#/components/schemas/iop:i32"
+    - type: object
+      required:
+        - ub
+      properties:
+        ub:
+          $ref: "#/components/schemas/iop:i8"
+    - type: object
+      required:
+        - us
+      properties:
+        us:
+          $ref: "#/components/schemas/iop:string"
+tstiop.MyStructF:
+  type: object
+  properties:
+    a:
+      type: array
+      items:
+        $ref: "#/components/schemas/iop:string"
+    b:
+      type: array
+      items:
+        $ref: "#/components/schemas/iop:byte"
+    c:
+      type: array
+      items:
+        $ref: "#/components/schemas/tstiop.MyStructB"
+    d:
+      type: array
+      items:
+        $ref: "#/components/schemas/tstiop.MyUnionA"
+    e:
+      type: array
+      items:
+        oneOf:
+          - $ref: "#/components/schemas/tstiop.MyClass1"
+          - $ref: "#/components/schemas/tstiop.MyClass2"
+          - $ref: "#/components/schemas/tstiop.MyClass2Bis"
+          - $ref: "#/components/schemas/tstiop.MyClass3"
+        discriminator:
+          propertyName: _class
+    f:
+      oneOf:
+        - $ref: "#/components/schemas/tstiop.MyClass1"
+        - $ref: "#/components/schemas/tstiop.MyClass2"
+        - $ref: "#/components/schemas/tstiop.MyClass2Bis"
+        - $ref: "#/components/schemas/tstiop.MyClass3"
+      discriminator:
+        propertyName: _class

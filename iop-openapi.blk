@@ -58,12 +58,15 @@ qvector_t(schema_props, schema_prop_t);
 
 struct schema_object_t {
     /* For TYPE_REF, this is the name of the referenced schema.
-     * For TYPE_ARRAY, this is a reference name to the schema of the items.
-     * For other types, this is the name of the schema.
+     * For other types, this is the name of the schema, but it can be unset
+     * for anonymous schemas.
      */
     lstr_t name;
 
     openapi_type_t type;
+
+    /* for arrays */
+    schema_object_t *items;
 
     /* for object */
     qv_t(lstr) required;
@@ -184,7 +187,7 @@ t_iop_field_to_schema_object(const iop_field_t *desc,
     schema_object_t *schema;
 
     schema = t_new(schema_object_t, 1);
-    schema->type = desc->repeat == IOP_R_REPEATED ? TYPE_ARRAY : TYPE_REF;
+    schema->type = TYPE_REF;
 
     switch (desc->type) {
       case IOP_T_I8:     schema->name = LSTR("iop:i8"); break;
@@ -213,14 +216,24 @@ t_iop_field_to_schema_object(const iop_field_t *desc,
         if (iop_struct_is_class(desc->u1.st_desc)) {
             /* a class field needs to be expressed as a oneOf of all children.
              */
-            return t_class_field_to_schema_object(desc->u1.st_desc,
-                                                  existing_schemas, schemas);
+            schema = t_class_field_to_schema_object(desc->u1.st_desc,
+                                                    existing_schemas,
+                                                    schemas);
         } else {
             t_iop_struct_to_schema_object(desc->u1.st_desc, existing_schemas,
                                           schemas);
             schema->name = desc->u1.st_desc->fullname;
         }
         break;
+    }
+
+    if (desc->repeat == IOP_R_REPEATED) {
+        schema_object_t *array_schema;
+
+        array_schema = t_new(schema_object_t, 1);
+        array_schema->type = TYPE_ARRAY;
+        array_schema->items = schema;
+        schema = array_schema;
     }
 
     return schema;
@@ -442,14 +455,9 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
         yaml_obj_add_field(out, LSTR("format"), data);
     }
 
-    if (obj->type == TYPE_ARRAY) {
-        yaml_data_t items;
-
-        t_yaml_data_new_obj(&items, 1);
-        yaml_data_set_string(&data, t_lstr_fmt("#/components/schemas/%pL",
-                                               &obj->name));
-        yaml_obj_add_field(&items, LSTR("$ref"), data);
-        yaml_obj_add_field(out, LSTR("items"), items);
+    if (obj->items) {
+        t_schema_object_to_yaml(obj->items, &data);
+        yaml_obj_add_field(out, LSTR("items"), data);
     }
 
     if (obj->required.len > 0) {
@@ -774,6 +782,9 @@ Z_GROUP_EXPORT(iop_openapi)
         qh_clear(schemas, &existing);
         qv_clear(&schemas);
         t_iop_struct_to_schema_object(&tstiop__struct_jpack_flags__s,
+                                      &existing, &schemas);
+        /* with a repeated field referencing a class */
+        t_iop_struct_to_schema_object(&tstiop__my_struct_f__s,
                                       &existing, &schemas);
         Z_HELPER_RUN(z_check_schemas(&schemas, "classes.yml"));
     } Z_TEST_END;
