@@ -70,6 +70,9 @@ struct schema_object_t {
     qv_t(schema_props) properties;
     /* for union objects */
     qv_t(schema_object_p) one_of;
+    /* for class objects */
+    qv_t(schema_object_p) all_of;
+    lstr_t discriminator;
 
     /* for enum */
     qv_t(lstr) enum_values;
@@ -226,16 +229,24 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
         return;
     }
 
-    if (iop_struct_is_class(st)) {
-        /* TODO: handle class */
-        return;
+    obj = t_new(schema_object_t, 1);
+    obj->type = TYPE_OBJECT;
+    t_qv_init(&obj->required, st->fields_len);
+    t_qv_init(&obj->properties, st->fields_len + 1);
+
+    if (iop_struct_is_class(st) && !st->class_attrs->parent) {
+        schema_prop_t *class_prop = qv_growlen0(&obj->properties, 1);
+
+        /* Class without ancestors: add the _class field, and set it as the
+         * discriminator field */
+        class_prop->field_name = LSTR("_class");
+        class_prop->schema = t_new(schema_object_t, 1);
+        class_prop->schema->type = TYPE_STRING;
+        obj->discriminator = class_prop->field_name;
     }
 
-    obj = add_schema_object(st->fullname, TYPE_OBJECT, schemas);
-    t_qv_init(&obj->required, st->fields_len);
-    t_qv_init(&obj->properties, st->fields_len);
-
-    iop_struct_for_each_field(field_desc, field_st, st) {
+    for (int i = 0; i < st->fields_len; i++) {
+        const iop_field_t *field_desc = &st->fields[i];
         schema_prop_t *prop = qv_growlen0(&obj->properties, 1);
 
         prop->field_name = field_desc->name;
@@ -247,6 +258,62 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
             qv_append(&obj->required, prop->field_name);
         }
     }
+
+    if (iop_struct_is_class(st) && st->class_attrs->parent) {
+        const iop_struct_t *parent_st = st->class_attrs->parent;
+        schema_object_t *all;
+        schema_object_t *parent;
+
+        t_iop_struct_to_schema_object(parent_st, existing_schemas, schemas);
+
+        /* the class is a allOf of first the parent, then the details of
+         * the current struct */
+        all = add_schema_object(st->fullname, TYPE_NONE, schemas);
+        t_qv_init(&all->all_of, 2);
+
+        parent = t_new(schema_object_t, 1);
+        parent->type = TYPE_REF;
+        parent->name = parent_st->fullname;
+        qv_append(&all->all_of, parent);
+        qv_append(&all->all_of, obj);
+    } else {
+        obj->name = st->fullname;
+        qv_append(schemas, *obj);
+    }
+}
+
+static void
+t_schema_object_to_yaml(const schema_object_t * nonnull obj,
+                        yaml_data_t * nonnull out);
+
+static yaml_data_t t_strings_to_yaml_seq(const qv_t(lstr) *strings)
+{
+    yaml_data_t data;
+
+    t_yaml_data_new_seq(&data, strings->len);
+    tab_for_each_entry(str, strings) {
+        yaml_data_t elem;
+
+        yaml_data_set_string(&elem, str);
+        yaml_seq_add_data(&data, elem);
+    }
+
+    return data;
+}
+
+static yaml_data_t t_schemas_to_yaml_seq(const qv_t(schema_object_p) *schemas)
+{
+    yaml_data_t data;
+
+    t_yaml_data_new_seq(&data, schemas->len);
+    tab_for_each_entry(schema, schemas) {
+        yaml_data_t elem;
+
+        t_schema_object_to_yaml(schema, &elem);
+        yaml_seq_add_data(&data, elem);
+    }
+
+    return data;
 }
 
 static void
@@ -313,14 +380,8 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
     }
 
     if (obj->required.len > 0) {
-        t_yaml_data_new_seq(&data, obj->required.len);
-        tab_for_each_entry(name, &obj->required) {
-            yaml_data_t elem;
-
-            yaml_data_set_string(&elem, name);
-            yaml_seq_add_data(&data, elem);
-        }
-        yaml_obj_add_field(out, LSTR("required"), data);
+        yaml_obj_add_field(out, LSTR("required"),
+                           t_strings_to_yaml_seq(&obj->required));
     }
 
     if (obj->properties.len > 0) {
@@ -335,25 +396,27 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
     }
 
     if (obj->one_of.len > 0) {
-        t_yaml_data_new_seq(&data, obj->one_of.len);
-        tab_for_each_entry(schema, &obj->one_of) {
-            yaml_data_t elem;
+        yaml_obj_add_field(out, LSTR("oneOf"),
+                           t_schemas_to_yaml_seq(&obj->one_of));
+    }
 
-            t_schema_object_to_yaml(schema, &elem);
-            yaml_seq_add_data(&data, elem);
-        }
-        yaml_obj_add_field(out, LSTR("oneOf"), data);
+    if (obj->all_of.len > 0) {
+        yaml_obj_add_field(out, LSTR("allOf"),
+                           t_schemas_to_yaml_seq(&obj->all_of));
+    }
+
+    if (obj->discriminator.s) {
+        yaml_data_t elem;
+
+        t_yaml_data_new_obj(&data, 1);
+        yaml_data_set_string(&elem, obj->discriminator);
+        yaml_obj_add_field(&data, LSTR("propertyName"), elem);
+        yaml_obj_add_field(out, LSTR("discriminator"), data);
     }
 
     if (obj->enum_values.len > 0) {
-        t_yaml_data_new_seq(&data, obj->enum_values.len);
-        tab_for_each_entry(name, &obj->enum_values) {
-            yaml_data_t elem;
-
-            yaml_data_set_string(&elem, name);
-            yaml_seq_add_data(&data, elem);
-        }
-        yaml_obj_add_field(out, LSTR("enum"), data);
+        yaml_obj_add_field(out, LSTR("enum"),
+                           t_strings_to_yaml_seq(&obj->enum_values));
     }
 
     if (OPT_ISSET(obj->minimum)) {
@@ -633,6 +696,13 @@ Z_GROUP_EXPORT(iop_openapi)
         t_iop_struct_to_schema_object(&tstiop__my_struct_l__s, &existing,
                                       &schemas);
         Z_HELPER_RUN(z_check_schemas(&schemas, "struct_l.yml"));
+
+        /* with classes */
+        qh_clear(schemas, &existing);
+        qv_clear(&schemas);
+        t_iop_struct_to_schema_object(&tstiop__my_class3__s, &existing,
+                                      &schemas);
+        Z_HELPER_RUN(z_check_schemas(&schemas, "class3.yml"));
     } Z_TEST_END;
 
     MODULE_RELEASE(iop_openapi);

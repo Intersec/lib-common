@@ -1,0 +1,34 @@
+tstiop.MyClass1:
+  type: object
+  required:
+    - int1
+  properties:
+    _class:
+      type: string
+    int1:
+      $ref: "#/components/schemas/iop:i32"
+  discriminator:
+    propertyName: _class
+tstiop.MyClass2:
+  allOf:
+    - $ref: "#/components/schemas/tstiop.MyClass1"
+    - type: object
+      required:
+        - int2
+      properties:
+        int2:
+          $ref: "#/components/schemas/iop:i32"
+tstiop.MyClass3:
+  allOf:
+    - $ref: "#/components/schemas/tstiop.MyClass2"
+    - type: object
+      required:
+        - int3
+        - bool1
+      properties:
+        int3:
+          $ref: "#/components/schemas/iop:i32"
+        bool1:
+          $ref: "#/components/schemas/iop:bool"
+        string1:
+          $ref: "#/components/schemas/iop:string"
