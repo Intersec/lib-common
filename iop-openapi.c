@@ -30,6 +30,7 @@
 /* {{{ Schema object */
 
 typedef enum openapi_type_t {
+    TYPE_NONE,
     TYPE_REF,
     TYPE_ARRAY,
     TYPE_OBJECT,
@@ -48,6 +49,7 @@ typedef enum openapi_type_t {
 } openapi_type_t;
 
 typedef struct schema_object_t schema_object_t;
+qvector_t(schema_object_p, schema_object_t *);
 typedef struct schema_prop_t {
     lstr_t field_name;
     schema_object_t *schema;
@@ -66,6 +68,8 @@ struct schema_object_t {
     /* for object */
     qv_t(lstr) required;
     qv_t(schema_props) properties;
+    /* for union objects */
+    qv_t(schema_object_p) one_of;
 
     /* for enum */
     qv_t(lstr) enum_values;
@@ -175,6 +179,38 @@ static bool field_is_required(const iop_field_t *desc)
 }
 
 static void
+t_iop_union_to_schema_object(const iop_struct_t *st,
+                             qh_t(schemas) *existing_schemas,
+                             qv_t(schema_object) *schemas)
+{
+    schema_object_t *obj;
+
+    obj = add_schema_object(st->fullname, TYPE_NONE, schemas);
+    t_qv_init(&obj->one_of, st->fields_len);
+
+    iop_struct_for_each_field(field_desc, field_st, st) {
+        schema_object_t *field_obj;
+        schema_prop_t *prop;
+
+        /* create an anonymous schema for an object that only contains this
+         * field. The union is then a "oneOf" of all those objects */
+        field_obj = t_new(schema_object_t, 1);
+        field_obj->type = TYPE_OBJECT;
+        t_qv_init(&field_obj->required, 1);
+        qv_append(&field_obj->required, field_desc->name);
+        t_qv_init(&field_obj->properties, 1);
+
+        prop = qv_growlen0(&field_obj->properties, 1);
+        prop->field_name = field_desc->name;
+        prop->schema = t_iop_field_to_schema_object(field_desc,
+                                                    existing_schemas,
+                                                    schemas);
+
+        qv_append(&obj->one_of, field_obj);
+    }
+}
+
+static void
 t_iop_struct_to_schema_object(const iop_struct_t *st,
                               qh_t(schemas) *existing_schemas,
                               qv_t(schema_object) *schemas)
@@ -182,6 +218,11 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
     schema_object_t *obj;
 
     if (qh_add(schemas, existing_schemas, &st->fullname) < 0) {
+        return;
+    }
+
+    if (st->is_union) {
+        t_iop_union_to_schema_object(st, existing_schemas, schemas);
         return;
     }
 
@@ -213,6 +254,9 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
                         yaml_data_t * nonnull out)
 {
     static lstr_t types[] = {
+        [TYPE_NONE]   = LSTR_NULL,
+        [TYPE_REF]    = LSTR_NULL,
+        [TYPE_ARRAY]  = LSTR_IMMED("array"),
         [TYPE_OBJECT] = LSTR_IMMED("object"),
         [TYPE_STRING] = LSTR_IMMED("string"),
         [TYPE_BYTE]   = LSTR_IMMED("string"),
@@ -224,6 +268,9 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
         [TYPE_UINT64] = LSTR_IMMED("integer"),
     };
     static lstr_t formats[] = {
+        [TYPE_NONE]   = LSTR_NULL,
+        [TYPE_REF]    = LSTR_NULL,
+        [TYPE_ARRAY]  = LSTR_NULL,
         [TYPE_OBJECT] = LSTR_NULL,
         [TYPE_STRING] = LSTR_NULL,
         [TYPE_BYTE]   = LSTR_IMMED("byte"),
@@ -242,28 +289,27 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
         yaml_data_set_string(&data, t_lstr_fmt("#/components/schemas/%pL",
                                                &obj->name));
         yaml_obj_add_field(out, LSTR("$ref"), data);
-    } else
+        return;
+    }
+
+    if (types[obj->type].s) {
+        yaml_data_set_string(&data, types[obj->type]);
+        yaml_obj_add_field(out, LSTR("type"), data);
+    }
+
+    if (formats[obj->type].s) {
+        yaml_data_set_string(&data, formats[obj->type]);
+        yaml_obj_add_field(out, LSTR("format"), data);
+    }
+
     if (obj->type == TYPE_ARRAY) {
         yaml_data_t items;
-
-        yaml_data_set_string(&data, LSTR("array"));
-        yaml_obj_add_field(out, LSTR("type"), data);
 
         t_yaml_data_new_obj(&items, 1);
         yaml_data_set_string(&data, t_lstr_fmt("#/components/schemas/%pL",
                                                &obj->name));
         yaml_obj_add_field(&items, LSTR("$ref"), data);
         yaml_obj_add_field(out, LSTR("items"), items);
-    } else {
-        if (types[obj->type].s) {
-            yaml_data_set_string(&data, types[obj->type]);
-            yaml_obj_add_field(out, LSTR("type"), data);
-        }
-
-        if (formats[obj->type].s) {
-            yaml_data_set_string(&data, formats[obj->type]);
-            yaml_obj_add_field(out, LSTR("format"), data);
-        }
     }
 
     if (obj->required.len > 0) {
@@ -286,6 +332,17 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
             yaml_obj_add_field(&data, prop->field_name, elem);
         }
         yaml_obj_add_field(out, LSTR("properties"), data);
+    }
+
+    if (obj->one_of.len > 0) {
+        t_yaml_data_new_seq(&data, obj->one_of.len);
+        tab_for_each_entry(schema, &obj->one_of) {
+            yaml_data_t elem;
+
+            t_schema_object_to_yaml(schema, &elem);
+            yaml_seq_add_data(&data, elem);
+        }
+        yaml_obj_add_field(out, LSTR("oneOf"), data);
     }
 
     if (obj->enum_values.len > 0) {

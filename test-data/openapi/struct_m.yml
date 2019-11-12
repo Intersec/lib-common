@@ -27,25 +27,36 @@ tstiop.MyStructJ:
       items:
         $ref: "#/components/schemas/tstiop.MyUnionB"
 tstiop.MyUnionB:
-  type: object
-  required:
-    - bval
-    - a
-  properties:
-    bval:
-      $ref: "#/components/schemas/iop:i32"
-    a:
-      $ref: "#/components/schemas/tstiop.MyUnionA"
+  oneOf:
+    - type: object
+      required:
+        - bval
+      properties:
+        bval:
+          $ref: "#/components/schemas/iop:i32"
+    - type: object
+      required:
+        - a
+      properties:
+        a:
+          $ref: "#/components/schemas/tstiop.MyUnionA"
 tstiop.MyUnionA:
-  type: object
-  required:
-    - ua
-    - ub
-    - us
-  properties:
-    ua:
-      $ref: "#/components/schemas/iop:i32"
-    ub:
-      $ref: "#/components/schemas/iop:i8"
-    us:
-      $ref: "#/components/schemas/iop:string"
+  oneOf:
+    - type: object
+      required:
+        - ua
+      properties:
+        ua:
+          $ref: "#/components/schemas/iop:i32"
+    - type: object
+      required:
+        - ub
+      properties:
+        ub:
+          $ref: "#/components/schemas/iop:i8"
+    - type: object
+      required:
+        - us
+      properties:
+        us:
+          $ref: "#/components/schemas/iop:string"
