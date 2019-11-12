@@ -10,7 +10,9 @@ tstiop.MyStructL:
     b:
       $ref: "#/components/schemas/tstiop.MyEnumB"
     btab:
-      $ref: "#/components/schemas/tstiop.MyEnumB"
+      type: array
+      items:
+        $ref: "#/components/schemas/tstiop.MyEnumB"
     c:
       $ref: "#/components/schemas/tstiop.MyEnumC"
 tstiop.MyEnumA:

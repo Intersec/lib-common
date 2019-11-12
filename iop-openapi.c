@@ -31,6 +31,7 @@
 
 typedef enum openapi_type_t {
     TYPE_REF,
+    TYPE_ARRAY,
     TYPE_OBJECT,
     TYPE_STRING,
     TYPE_BYTE,
@@ -54,8 +55,10 @@ typedef struct schema_prop_t {
 qvector_t(schema_props, schema_prop_t);
 
 struct schema_object_t {
-    /* Not part of "Schema object" by the spec, but useful to easily create
-     * the name -> object mappings. */
+    /* For TYPE_REF, this is the name of the referenced schema.
+     * For TYPE_ARRAY, this is a reference name to the schema of the items.
+     * For other types, this is the name of the schema.
+     */
     lstr_t name;
 
     openapi_type_t type;
@@ -118,7 +121,7 @@ t_iop_field_to_schema_object(const iop_field_t *desc,
     schema_object_t *schema;
 
     schema = t_new(schema_object_t, 1);
-    schema->type = TYPE_REF;
+    schema->type = desc->repeat == IOP_R_REPEATED ? TYPE_ARRAY : TYPE_REF;
 
     switch (desc->type) {
       case IOP_T_I8:     schema->name = LSTR("iop:i8"); break;
@@ -239,17 +242,28 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
         yaml_data_set_string(&data, t_lstr_fmt("#/components/schemas/%pL",
                                                &obj->name));
         yaml_obj_add_field(out, LSTR("$ref"), data);
-        return;
-    }
+    } else
+    if (obj->type == TYPE_ARRAY) {
+        yaml_data_t items;
 
-    if (types[obj->type].s) {
-        yaml_data_set_string(&data, types[obj->type]);
+        yaml_data_set_string(&data, LSTR("array"));
         yaml_obj_add_field(out, LSTR("type"), data);
-    }
 
-    if (formats[obj->type].s) {
-        yaml_data_set_string(&data, formats[obj->type]);
-        yaml_obj_add_field(out, LSTR("format"), data);
+        t_yaml_data_new_obj(&items, 1);
+        yaml_data_set_string(&data, t_lstr_fmt("#/components/schemas/%pL",
+                                               &obj->name));
+        yaml_obj_add_field(&items, LSTR("$ref"), data);
+        yaml_obj_add_field(out, LSTR("items"), items);
+    } else {
+        if (types[obj->type].s) {
+            yaml_data_set_string(&data, types[obj->type]);
+            yaml_obj_add_field(out, LSTR("type"), data);
+        }
+
+        if (formats[obj->type].s) {
+            yaml_data_set_string(&data, formats[obj->type]);
+            yaml_obj_add_field(out, LSTR("format"), data);
+        }
     }
 
     if (obj->required.len > 0) {

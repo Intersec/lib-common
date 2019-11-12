@@ -23,7 +23,9 @@ tstiop.MyStructJ:
     b:
       $ref: "#/components/schemas/tstiop.MyUnionB"
     btab:
-      $ref: "#/components/schemas/tstiop.MyUnionB"
+      type: array
+      items:
+        $ref: "#/components/schemas/tstiop.MyUnionB"
 tstiop.MyUnionB:
   type: object
   required:
