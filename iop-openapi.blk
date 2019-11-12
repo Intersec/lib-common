@@ -123,23 +123,23 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
                               qh_t(schemas) *existing_schemas,
                               qv_t(schema_object) *schemas);
 
-static schema_object_t *
+static void
 t_class_field_to_schema_object(const iop_struct_t *class_desc,
                                qh_t(schemas) *existing_schemas,
-                               qv_t(schema_object) *schemas)
+                               qv_t(schema_object) *schemas,
+                               schema_object_t *out)
 {
     /* When using a class, it is not possible to point only to the class
      * schema directly, as any of the child is a valid response as well.
      * To handle this, the schema for the field must be a oneOf of all
      * possible children.
      */
-    schema_object_t *schema;
     qv_t(iop_struct) children;
     qv_t(iop_struct) *_children_p = &children;
 
-    schema = t_new(schema_object_t, 1);
-    schema->discriminator = LSTR("_class");
-    t_qv_init(&schema->one_of, 0);
+    out->type = TYPE_NONE;
+    out->discriminator = LSTR("_class");
+    t_qv_init(&out->one_of, 0);
 
     /* TODO: this is extremely inefficient, we go through every existing
      * class, and then look through all their inheritance chain to find the
@@ -173,10 +173,16 @@ t_class_field_to_schema_object(const iop_struct_t *class_desc,
         obj = t_new(schema_object_t, 1);
         obj->type = TYPE_REF;
         obj->name = st->fullname;
-        qv_append(&schema->one_of, obj);
+        qv_append(&out->one_of, obj);
     }
+}
 
-    return schema;
+static void schema_set_integer(schema_object_t *schema, openapi_type_t type,
+                               int64_t min, int64_t max)
+{
+    schema->type = type;
+    OPT_SET(schema->minimum, min);
+    OPT_SET(schema->maximum, max);
 }
 
 static schema_object_t *
@@ -187,27 +193,55 @@ t_iop_field_to_schema_object(const iop_field_t *desc,
     schema_object_t *schema;
 
     schema = t_new(schema_object_t, 1);
-    schema->type = TYPE_REF;
 
     switch (desc->type) {
-      case IOP_T_I8:     schema->name = LSTR("iop:i8"); break;
-      case IOP_T_U8:     schema->name = LSTR("iop:u8"); break;
-      case IOP_T_I16:    schema->name = LSTR("iop:i16"); break;
-      case IOP_T_U16:    schema->name = LSTR("iop:u16"); break;
-      case IOP_T_I32:    schema->name = LSTR("iop:i32"); break;
-      case IOP_T_U32:    schema->name = LSTR("iop:u32"); break;
-      case IOP_T_I64:    schema->name = LSTR("iop:i64"); break;
-      case IOP_T_U64:    schema->name = LSTR("iop:u64"); break;
-      case IOP_T_BOOL:   schema->name = LSTR("iop:bool"); break;
-      case IOP_T_DOUBLE: schema->name = LSTR("iop:double"); break;
-      case IOP_T_VOID:   schema->name = LSTR("iop:void"); break;
-      case IOP_T_DATA:   schema->name = LSTR("iop:byte"); break;
-      case IOP_T_STRING: case IOP_T_XML:
-        schema->name = LSTR("iop:string"); break;
+      case IOP_T_I8:
+        schema_set_integer(schema, TYPE_INT32, INT8_MIN, INT8_MAX);
+        break;
+      case IOP_T_U8:
+        schema_set_integer(schema, TYPE_UINT32, 0, UINT8_MAX);
+        break;
+      case IOP_T_I16:
+        schema_set_integer(schema, TYPE_INT32, INT16_MIN, INT16_MAX);
+        break;
+      case IOP_T_U16:
+        schema_set_integer(schema, TYPE_UINT32, 0, UINT16_MAX);
+        break;
+      case IOP_T_I32:
+        schema_set_integer(schema, TYPE_INT32, INT32_MIN, INT32_MAX);
+        break;
+      case IOP_T_U32:
+        schema_set_integer(schema, TYPE_UINT32, 0, UINT32_MAX);
+        break;
+      case IOP_T_I64:
+        schema->type = TYPE_INT64;
+        break;
+      case IOP_T_U64:
+        schema->type = TYPE_UINT64;
+        OPT_SET(schema->minimum, 0);
+        break;
+      case IOP_T_BOOL:
+        schema->type = TYPE_BOOL;
+        break;
+      case IOP_T_DOUBLE:
+        schema->type = TYPE_DOUBLE;
+        break;
+      case IOP_T_VOID:
+        schema->type = TYPE_BOOL;
+        schema->_nullable = true;
+        break;
+      case IOP_T_DATA:
+        schema->type = TYPE_BYTE;
+        break;
+      case IOP_T_STRING:
+      case IOP_T_XML:
+        schema->type = TYPE_STRING;
+        break;
 
       case IOP_T_ENUM:
         t_iop_enum_to_schema_object(desc->u1.en_desc, existing_schemas,
                                     schemas);
+        schema->type = TYPE_REF;
         schema->name = desc->u1.en_desc->fullname;
         break;
 
@@ -216,12 +250,12 @@ t_iop_field_to_schema_object(const iop_field_t *desc,
         if (iop_struct_is_class(desc->u1.st_desc)) {
             /* a class field needs to be expressed as a oneOf of all children.
              */
-            schema = t_class_field_to_schema_object(desc->u1.st_desc,
-                                                    existing_schemas,
-                                                    schemas);
+            t_class_field_to_schema_object(desc->u1.st_desc, existing_schemas,
+                                           schemas, schema);
         } else {
             t_iop_struct_to_schema_object(desc->u1.st_desc, existing_schemas,
                                           schemas);
+            schema->type = TYPE_REF;
             schema->name = desc->u1.st_desc->fullname;
         }
         break;
@@ -524,42 +558,10 @@ typedef struct components_object_t {
     qh_t(schemas) existing_schemas;
 } components_object_t;
 
-static void add_iop_primitives_schemas(qv_t(schema_object) *schemas)
-{
-    schema_object_t *schema;
-
-#define ADD_INTEGER_SCHEMA(_name, _type, _min, _max)                         \
-    do {                                                                     \
-        schema_object_t *new_schema;                                         \
-                                                                             \
-        new_schema = add_schema_object(LSTR(_name), TYPE_##_type, schemas);  \
-        OPT_SET(new_schema->minimum, (_min));                                \
-        OPT_SET(new_schema->maximum, (_max));                                \
-    } while(0)
-
-    ADD_INTEGER_SCHEMA("iop:i8",  INT32,   INT8_MIN,   INT8_MAX);
-    ADD_INTEGER_SCHEMA("iop:i16", INT32,  INT16_MIN,  INT16_MAX);
-    ADD_INTEGER_SCHEMA("iop:i32", INT32,  INT32_MIN,  INT32_MAX);
-    ADD_INTEGER_SCHEMA("iop:u8",  UINT32,         0,  UINT8_MAX);
-    ADD_INTEGER_SCHEMA("iop:u16", UINT32,         0, UINT16_MAX);
-    ADD_INTEGER_SCHEMA("iop:u32", UINT32,         0, UINT32_MAX);
-    add_schema_object(LSTR("iop:i64"), TYPE_INT64, schemas);
-    schema = add_schema_object(LSTR("iop:u64"), TYPE_UINT64, schemas);
-    OPT_SET(schema->minimum, 0);
-
-    add_schema_object(LSTR("iop:bool"), TYPE_BOOL, schemas);
-    add_schema_object(LSTR("iop:string"), TYPE_STRING, schemas);
-    add_schema_object(LSTR("iop:data"), TYPE_BYTE, schemas);
-    add_schema_object(LSTR("iop:xml"), TYPE_STRING, schemas);
-    schema = add_schema_object(LSTR("iop:void"), TYPE_BOOL, schemas);
-    schema->_nullable = true;
-}
-
 static void t_components_object_init(components_object_t *obj)
 {
     t_qv_init(&obj->schemas, 0);
     t_qh_init(schemas, &obj->existing_schemas, 0);
-    add_iop_primitives_schemas(&obj->schemas);
 }
 
 static void

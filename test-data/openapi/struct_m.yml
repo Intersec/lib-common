@@ -5,7 +5,10 @@ tstiop.MyUnionB:
         - bval
       properties:
         bval:
-          $ref: "#/components/schemas/iop:i32"
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
     - type: object
       required:
         - a
@@ -19,19 +22,25 @@ tstiop.MyUnionA:
         - ua
       properties:
         ua:
-          $ref: "#/components/schemas/iop:i32"
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
     - type: object
       required:
         - ub
       properties:
         ub:
-          $ref: "#/components/schemas/iop:i8"
+          type: integer
+          format: int32
+          minimum: -128
+          maximum: 127
     - type: object
       required:
         - us
       properties:
         us:
-          $ref: "#/components/schemas/iop:string"
+          type: string
 tstiop.MyStructJ:
   type: object
   required:
@@ -39,7 +48,10 @@ tstiop.MyStructJ:
     - b
   properties:
     cval:
-      $ref: "#/components/schemas/iop:i32"
+      type: integer
+      format: int32
+      minimum: -2147483648
+      maximum: 2147483647
     b:
       $ref: "#/components/schemas/tstiop.MyUnionB"
     btab:

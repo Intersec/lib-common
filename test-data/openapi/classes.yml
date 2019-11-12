@@ -6,7 +6,10 @@ tstiop.MyClass1:
     _class:
       type: string
     int1:
-      $ref: "#/components/schemas/iop:i32"
+      type: integer
+      format: int32
+      minimum: -2147483648
+      maximum: 2147483647
   discriminator:
     propertyName: _class
 tstiop.MyClass2:
@@ -17,7 +20,10 @@ tstiop.MyClass2:
         - int2
       properties:
         int2:
-          $ref: "#/components/schemas/iop:i32"
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
 tstiop.MyClass2Bis:
   allOf:
     - $ref: "#/components/schemas/tstiop.MyClass1"
@@ -26,7 +32,10 @@ tstiop.MyClass2Bis:
         - int2
       properties:
         int2:
-          $ref: "#/components/schemas/iop:i32"
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
 tstiop.MyClass3:
   allOf:
     - $ref: "#/components/schemas/tstiop.MyClass2"
@@ -36,22 +45,34 @@ tstiop.MyClass3:
         - bool1
       properties:
         int3:
-          $ref: "#/components/schemas/iop:i32"
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
         bool1:
-          $ref: "#/components/schemas/iop:bool"
+          type: bool
         string1:
-          $ref: "#/components/schemas/iop:string"
+          type: string
 tstiop.StructJpackFlags:
   type: object
   properties:
     opt:
-      $ref: "#/components/schemas/iop:i32"
+      type: integer
+      format: int32
+      minimum: -2147483648
+      maximum: 2147483647
     def:
-      $ref: "#/components/schemas/iop:i32"
+      type: integer
+      format: int32
+      minimum: -2147483648
+      maximum: 2147483647
     rep:
       type: array
       items:
-        $ref: "#/components/schemas/iop:i32"
+        type: integer
+        format: int32
+        minimum: -2147483648
+        maximum: 2147483647
     myClass:
       oneOf:
         - $ref: "#/components/schemas/tstiop.MyClass1"
@@ -64,11 +85,17 @@ tstiop.MyStructB:
   type: object
   properties:
     a:
-      $ref: "#/components/schemas/iop:i32"
+      type: integer
+      format: int32
+      minimum: -2147483648
+      maximum: 2147483647
     b:
       type: array
       items:
-        $ref: "#/components/schemas/iop:i32"
+        type: integer
+        format: int32
+        minimum: -2147483648
+        maximum: 2147483647
 tstiop.MyUnionA:
   oneOf:
     - type: object
@@ -76,30 +103,37 @@ tstiop.MyUnionA:
         - ua
       properties:
         ua:
-          $ref: "#/components/schemas/iop:i32"
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
     - type: object
       required:
         - ub
       properties:
         ub:
-          $ref: "#/components/schemas/iop:i8"
+          type: integer
+          format: int32
+          minimum: -128
+          maximum: 127
     - type: object
       required:
         - us
       properties:
         us:
-          $ref: "#/components/schemas/iop:string"
+          type: string
 tstiop.MyStructF:
   type: object
   properties:
     a:
       type: array
       items:
-        $ref: "#/components/schemas/iop:string"
+        type: string
     b:
       type: array
       items:
-        $ref: "#/components/schemas/iop:byte"
+        type: string
+        format: byte
     c:
       type: array
       items:

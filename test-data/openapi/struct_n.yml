@@ -5,6 +5,9 @@ tstiop.MyStructN:
     - i
   properties:
     u:
-      $ref: "#/components/schemas/iop:u64"
+      type: integer
+      format: uint64
+      minimum: 0
     i:
-      $ref: "#/components/schemas/iop:i64"
+      type: integer
+      format: int64
