@@ -121,6 +121,62 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
                               qv_t(schema_object) *schemas);
 
 static schema_object_t *
+t_class_field_to_schema_object(const iop_struct_t *class_desc,
+                               qh_t(schemas) *existing_schemas,
+                               qv_t(schema_object) *schemas)
+{
+    /* When using a class, it is not possible to point only to the class
+     * schema directly, as any of the child is a valid response as well.
+     * To handle this, the schema for the field must be a oneOf of all
+     * possible children.
+     */
+    schema_object_t *schema;
+    qv_t(iop_struct) children;
+    qv_t(iop_struct) *_children_p = &children;
+
+    schema = t_new(schema_object_t, 1);
+    schema->discriminator = LSTR("_class");
+    t_qv_init(&schema->one_of, 0);
+
+    /* TODO: this is extremely inefficient, we go through every existing
+     * class, and then look through all their inheritance chain to find the
+     * children of a class. This should be at the very least cached per class.
+     */
+
+    /* we need to sort the classes, as the order of the registered classes is
+     * not deterministic, breaking our tests. So a temp vector is used. */
+    t_qv_init(&children, 0);
+
+    /* add all children to the schemas, and build a list of them */
+    iop_for_each_registered_classes(^(const iop_struct_t *st) {
+        if (iop_class_is_a(st, class_desc)) {
+            qv_t(iop_struct) *children_p = _children_p;
+
+            qv_append(children_p, st);
+        }
+    });
+
+    qv_sort(iop_struct)(&children,
+            ^int (const iop_struct_t * const *st1,
+                  const iop_struct_t * const *st2)
+    {
+        return lstr_cmp((*st1)->fullname, (*st2)->fullname);
+    });
+
+    tab_for_each_entry(st, &children) {
+        schema_object_t *obj;
+
+        t_iop_struct_to_schema_object(st, existing_schemas, schemas);
+        obj = t_new(schema_object_t, 1);
+        obj->type = TYPE_REF;
+        obj->name = st->fullname;
+        qv_append(&schema->one_of, obj);
+    }
+
+    return schema;
+}
+
+static schema_object_t *
 t_iop_field_to_schema_object(const iop_field_t *desc,
                              qh_t(schemas) *existing_schemas,
                              qv_t(schema_object) *schemas)
@@ -154,9 +210,16 @@ t_iop_field_to_schema_object(const iop_field_t *desc,
 
       case IOP_T_UNION:
       case IOP_T_STRUCT:
-        t_iop_struct_to_schema_object(desc->u1.st_desc, existing_schemas,
-                                      schemas);
-        schema->name = desc->u1.st_desc->fullname;
+        if (iop_struct_is_class(desc->u1.st_desc)) {
+            /* a class field needs to be expressed as a oneOf of all children.
+             */
+            return t_class_field_to_schema_object(desc->u1.st_desc,
+                                                  existing_schemas, schemas);
+        } else {
+            t_iop_struct_to_schema_object(desc->u1.st_desc, existing_schemas,
+                                          schemas);
+            schema->name = desc->u1.st_desc->fullname;
+        }
         break;
     }
 
@@ -700,9 +763,9 @@ Z_GROUP_EXPORT(iop_openapi)
         /* with classes */
         qh_clear(schemas, &existing);
         qv_clear(&schemas);
-        t_iop_struct_to_schema_object(&tstiop__my_class3__s, &existing,
-                                      &schemas);
-        Z_HELPER_RUN(z_check_schemas(&schemas, "class3.yml"));
+        t_iop_struct_to_schema_object(&tstiop__struct_jpack_flags__s,
+                                      &existing, &schemas);
+        Z_HELPER_RUN(z_check_schemas(&schemas, "classes.yml"));
     } Z_TEST_END;
 
     MODULE_RELEASE(iop_openapi);
