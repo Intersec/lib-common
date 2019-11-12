@@ -149,7 +149,7 @@ t_class_field_to_schema_object(const iop_struct_t *class_desc,
 
     /* add all children to the schemas, and build a list of them */
     iop_for_each_registered_classes(^(const iop_struct_t *st) {
-        if (iop_class_is_a(st, class_desc)) {
+        if (iop_class_is_a(st, class_desc) && !st->class_attrs->is_private) {
             qv_t(iop_struct) *children_p = _children_p;
 
             qv_append(children_p, st);
@@ -292,6 +292,9 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
         return;
     }
 
+    /* we should never add private classes */
+    assert (!iop_struct_is_class(st) || !st->class_attrs->is_private);
+
     obj = t_new(schema_object_t, 1);
     obj->type = TYPE_OBJECT;
     t_qv_init(&obj->required, st->fields_len);
@@ -310,8 +313,15 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
 
     for (int i = 0; i < st->fields_len; i++) {
         const iop_field_t *field_desc = &st->fields[i];
-        schema_prop_t *prop = qv_growlen0(&obj->properties, 1);
+        schema_prop_t *prop;
+        const iop_field_attrs_t *attrs;
 
+        attrs = iop_field_get_attrs(st, field_desc);
+        if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
+            continue;
+        }
+
+        prop = qv_growlen0(&obj->properties, 1);
         prop->field_name = field_desc->name;
         prop->schema = t_iop_field_to_schema_object(field_desc,
                                                     existing_schemas,

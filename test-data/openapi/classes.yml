@@ -27,10 +27,6 @@ tstiop.MyClass2Bis:
       properties:
         int2:
           $ref: "#/components/schemas/iop:i32"
-tstiop.MyClass2Priv:
-  allOf:
-    - $ref: "#/components/schemas/tstiop.MyClass2"
-    - type: object
 tstiop.MyClass3:
   allOf:
     - $ref: "#/components/schemas/tstiop.MyClass2"
@@ -48,8 +44,6 @@ tstiop.MyClass3:
 tstiop.StructJpackFlags:
   type: object
   properties:
-    priv:
-      $ref: "#/components/schemas/iop:i32"
     opt:
       $ref: "#/components/schemas/iop:i32"
     def:
@@ -63,7 +57,6 @@ tstiop.StructJpackFlags:
         - $ref: "#/components/schemas/tstiop.MyClass1"
         - $ref: "#/components/schemas/tstiop.MyClass2"
         - $ref: "#/components/schemas/tstiop.MyClass2Bis"
-        - $ref: "#/components/schemas/tstiop.MyClass2Priv"
         - $ref: "#/components/schemas/tstiop.MyClass3"
       discriminator:
         propertyName: _class
