@@ -1,0 +1,88 @@
+tstiop.ConstraintU:
+  oneOf:
+    - type: object
+      required:
+        - u8
+      properties:
+        u8:
+          type: integer
+          format: uint32
+          minimum: 1
+          maximum: 128
+    - type: object
+      required:
+        - u16
+      properties:
+        u16:
+          type: integer
+          format: uint32
+          minimum: 1
+          maximum: 32768
+    - type: object
+      required:
+        - u32
+      properties:
+        u32:
+          type: integer
+          format: uint32
+          minimum: 1
+          maximum: 2147483648
+    - type: object
+      required:
+        - u64
+      properties:
+        u64:
+          type: integer
+          format: uint64
+          minimum: 1
+          maximum: -9223372036854775808
+    - type: object
+      required:
+        - s
+      properties:
+        s:
+          type: string
+    - type: object
+      required:
+        - cs
+      properties:
+        cs:
+          $ref: "#/components/schemas/tstiop.ConstraintS"
+tstiop.ConstraintS:
+  type: object
+  properties:
+    i8:
+      type: array
+      items:
+        type: integer
+        format: int32
+        minimum: -127
+        maximum: 127
+    i16:
+      type: array
+      items:
+        type: integer
+        format: int32
+        minimum: -32767
+        maximum: 32767
+    i32:
+      type: array
+      items:
+        type: integer
+        format: int32
+        minimum: -2147483647
+        maximum: 2147483647
+    i64:
+      type: array
+      items:
+        type: integer
+        format: int64
+        minimum: -9223372036854775807
+    s:
+      type: array
+      items:
+        type: string
+    tab:
+      type: array
+      items:
+        $ref: "#/components/schemas/tstiop.ConstraintS"

@@ -185,12 +185,107 @@ static void schema_set_integer(schema_object_t *schema, openapi_type_t type,
     OPT_SET(schema->maximum, max);
 }
 
+static int attr_get_value(const iop_field_attr_t *attr,
+                          const iop_type_t type, int64_t *val)
+{
+    switch (type) {
+      case IOP_T_I8: case IOP_T_I16: case IOP_T_I32: case IOP_T_I64:
+      case IOP_T_U8: case IOP_T_U16: case IOP_T_U32: case IOP_T_U64:
+        *val = attr->args[0].v.i64;
+        return 0;
+
+      case IOP_T_DOUBLE:
+        /* FIXME: this is not ok, the min/max limits should probably be
+         * strings or doubles */
+        *val = (int64_t)attr->args[0].v.d;
+        return 0;
+      default:
+        break;
+    }
+
+    assert (false);
+    return -1;
+}
+
+static void
+apply_raw_field_constraints(const iop_field_attrs_t *attrs,
+                            const iop_field_t *field,
+                            schema_object_t *schema)
+{
+    for (int i = 0; i < attrs->attrs_len; i++) {
+        const iop_field_attr_t *attr = &attrs->attrs[i];
+        int64_t val;
+
+        switch (attr->type) {
+          case IOP_FIELD_MIN:
+            if (attr_get_value(attr, field->type, &val) >= 0) {
+                OPT_SET(schema->minimum, val);
+            }
+            break;
+          case IOP_FIELD_MAX:
+            if (attr_get_value(attr, field->type, &val) >= 0) {
+                OPT_SET(schema->maximum, val);
+            }
+            break;
+          case IOP_FIELD_MIN_LENGTH:
+            /* TODO */
+            break;
+          case IOP_FIELD_MAX_LENGTH:
+            /* TODO */
+            break;
+          case IOP_FIELD_PATTERN:
+            /* TODO */
+            break;
+          default:
+            break;
+        }
+    }
+
+    if (TST_BIT(&attrs->flags, IOP_FIELD_NON_ZERO)) {
+        /* only apply this constraint on unsigned integers, we have no
+         * way of expressing it otherwise */
+        if (OPT_DEFVAL(schema->minimum, -1) == 0) {
+            OPT_SET(schema->minimum, 1);
+        }
+    }
+    if (TST_BIT(&attrs->flags, IOP_FIELD_NON_EMPTY)) {
+        /* TODO */
+    }
+}
+
+static void
+apply_array_field_constraints(const iop_field_attrs_t *attrs,
+                              const iop_field_t *field,
+                              schema_object_t *schema)
+{
+    for (int i = 0; i < attrs->attrs_len; i++) {
+        const iop_field_attr_t *attr = &attrs->attrs[i];
+
+        switch (attr->type) {
+          case IOP_FIELD_MIN_OCCURS:
+            /* TODO */
+            break;
+          case IOP_FIELD_MAX_OCCURS:
+            /* TODO */
+            break;
+          default:
+            break;
+        }
+    }
+
+}
+
 static schema_object_t *
-t_iop_field_to_schema_object(const iop_field_t *desc,
+t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
                              qh_t(schemas) *existing_schemas,
                              qv_t(schema_object) *schemas)
 {
+    const iop_field_attrs_t *attrs = iop_field_get_attrs(st, desc);
     schema_object_t *schema;
+
+    if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
+        return NULL;
+    }
 
     schema = t_new(schema_object_t, 1);
 
@@ -261,6 +356,10 @@ t_iop_field_to_schema_object(const iop_field_t *desc,
         break;
     }
 
+    if (attrs) {
+        apply_raw_field_constraints(attrs, desc, schema);
+    }
+
     if (desc->repeat == IOP_R_REPEATED) {
         schema_object_t *array_schema;
 
@@ -268,6 +367,10 @@ t_iop_field_to_schema_object(const iop_field_t *desc,
         array_schema->type = TYPE_ARRAY;
         array_schema->items = schema;
         schema = array_schema;
+
+        if (attrs) {
+            apply_array_field_constraints(attrs, desc, schema);
+        }
     }
 
     return schema;
@@ -303,7 +406,15 @@ t_iop_union_to_schema_object(const iop_struct_t *st,
 
     iop_struct_for_each_field(field_desc, field_st, st) {
         schema_object_t *field_obj;
+        schema_object_t *field_schema;
         schema_prop_t *prop;
+
+        field_schema = t_iop_field_to_schema_object(st, field_desc,
+                                                    existing_schemas,
+                                                    schemas);
+        if (!field_schema) {
+            continue;
+        }
 
         /* create an anonymous schema for an object that only contains this
          * field. The union is then a "oneOf" of all those objects */
@@ -315,9 +426,7 @@ t_iop_union_to_schema_object(const iop_struct_t *st,
 
         prop = qv_growlen0(&field_obj->properties, 1);
         prop->field_name = field_desc->name;
-        prop->schema = t_iop_field_to_schema_object(field_desc,
-                                                    existing_schemas,
-                                                    schemas);
+        prop->schema = field_schema;
 
         qv_append(&obj->one_of, field_obj);
     }
@@ -360,19 +469,19 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
 
     for (int i = 0; i < st->fields_len; i++) {
         const iop_field_t *field_desc = &st->fields[i];
+        schema_object_t *field_schema;
         schema_prop_t *prop;
-        const iop_field_attrs_t *attrs;
 
-        attrs = iop_field_get_attrs(st, field_desc);
-        if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
+        field_schema = t_iop_field_to_schema_object(st, field_desc,
+                                                    existing_schemas,
+                                                    schemas);
+        if (!field_schema) {
             continue;
         }
 
         prop = qv_growlen0(&obj->properties, 1);
         prop->field_name = field_desc->name;
-        prop->schema = t_iop_field_to_schema_object(field_desc,
-                                                    existing_schemas,
-                                                    schemas);
+        prop->schema = field_schema;
 
         if (field_is_required(field_desc)) {
             qv_append(&obj->required, prop->field_name);
@@ -789,6 +898,13 @@ Z_GROUP_EXPORT(iop_openapi)
         t_iop_struct_to_schema_object(&tstiop__my_struct_f__s,
                                       &existing, &schemas);
         Z_HELPER_RUN(z_check_schemas(&schemas, "classes.yml"));
+
+        /* constraints */
+        qh_clear(schemas, &existing);
+        qv_clear(&schemas);
+        t_iop_struct_to_schema_object(&tstiop__constraint_u__s,
+                                      &existing, &schemas);
+        Z_HELPER_RUN(z_check_schemas(&schemas, "constraints.yml"));
     } Z_TEST_END;
 
     MODULE_RELEASE(iop_openapi);
