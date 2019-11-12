@@ -1,0 +1,36 @@
+tstiop.MyStructL:
+  type: object
+  required:
+    - a
+    - b
+    - c
+  properties:
+    a:
+      $ref: "#/components/schemas/tstiop.MyEnumA"
+    b:
+      $ref: "#/components/schemas/tstiop.MyEnumB"
+    btab:
+      $ref: "#/components/schemas/tstiop.MyEnumB"
+    c:
+      $ref: "#/components/schemas/tstiop.MyEnumC"
+tstiop.MyEnumA:
+  type: string
+  enum:
+    - A
+    - B
+    - C
+    - D
+tstiop.MyEnumB:
+  type: string
+  enum:
+    - A
+    - B
+    - C
+tstiop.MyEnumC:
+  type: string
+  enum:
+    - A
+    - B
+    - C
+    - D
+    - E

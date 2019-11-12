@@ -64,6 +64,9 @@ struct schema_object_t {
     qv_t(lstr) required;
     qv_t(schema_props) properties;
 
+    /* for enum */
+    qv_t(lstr) enum_values;
+
     /* for number */
     opt_i64_t minimum;
     opt_i64_t maximum;
@@ -82,6 +85,24 @@ add_schema_object(lstr_t name, openapi_type_t type,
     obj->type = type;
 
     return obj;
+}
+
+static void
+t_iop_enum_to_schema_object(const iop_enum_t *en,
+                            qh_t(schemas) *existing_schemas,
+                            qv_t(schema_object) *schemas)
+{
+    schema_object_t *obj;
+
+    if (qh_add(schemas, existing_schemas, &en->fullname) < 0) {
+        return;
+    }
+
+    obj = add_schema_object(en->fullname, TYPE_STRING, schemas);
+    t_qv_init(&obj->enum_values, en->enum_len);
+    for (int i = 0; i < en->enum_len; i++) {
+        qv_append(&obj->enum_values, en->names[i]);
+    }
 }
 
 static void
@@ -116,8 +137,9 @@ t_iop_field_to_schema_object(const iop_field_t *desc,
         schema->name = LSTR("iop:string"); break;
 
       case IOP_T_ENUM:
-        /* TODO: do enum */
-        schema->name = desc->u1.en_desc->name;
+        t_iop_enum_to_schema_object(desc->u1.en_desc, existing_schemas,
+                                    schemas);
+        schema->name = desc->u1.en_desc->fullname;
         break;
 
       case IOP_T_UNION:
@@ -250,6 +272,17 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
             yaml_obj_add_field(&data, prop->field_name, elem);
         }
         yaml_obj_add_field(out, LSTR("properties"), data);
+    }
+
+    if (obj->enum_values.len > 0) {
+        t_yaml_data_new_seq(&data, obj->enum_values.len);
+        tab_for_each_entry(name, &obj->enum_values) {
+            yaml_data_t elem;
+
+            yaml_data_set_string(&elem, name);
+            yaml_seq_add_data(&data, elem);
+        }
+        yaml_obj_add_field(out, LSTR("enum"), data);
     }
 
     if (OPT_ISSET(obj->minimum)) {
@@ -506,6 +539,7 @@ Z_GROUP_EXPORT(iop_openapi)
         t_qh_init(schemas, &existing, 0);
         t_qv_init(&schemas, 0);
 
+        /* simple, no dependencies */
         t_iop_struct_to_schema_object(&tstiop__my_struct_n__s, &existing,
                                       &schemas);
         Z_HELPER_RUN(z_check_schemas(&schemas, "struct_n.yml"));
@@ -513,6 +547,7 @@ Z_GROUP_EXPORT(iop_openapi)
         qh_clear(schemas, &existing);
         qv_clear(&schemas);
 
+        /* with dependencies on other structs */
         t_iop_struct_to_schema_object(&tstiop__my_struct_m__s, &existing,
                                       &schemas);
         Z_HELPER_RUN(z_check_schemas(&schemas, "struct_m.yml"));
@@ -520,6 +555,13 @@ Z_GROUP_EXPORT(iop_openapi)
         t_iop_struct_to_schema_object(&tstiop__my_struct_k__s, &existing,
                                       &schemas);
         Z_HELPER_RUN(z_check_schemas(&schemas, "struct_m.yml"));
+
+        /* with enums */
+        qh_clear(schemas, &existing);
+        qv_clear(&schemas);
+        t_iop_struct_to_schema_object(&tstiop__my_struct_l__s, &existing,
+                                      &schemas);
+        Z_HELPER_RUN(z_check_schemas(&schemas, "struct_l.yml"));
     } Z_TEST_END;
 
     MODULE_RELEASE(iop_openapi);
