@@ -4850,17 +4850,31 @@ static int unpack_class(mem_pool_t *mp, const iop_struct_t *desc,
     PS_CHECK(__get_class_id(ps, wt, &child_id));
 
     if (unlikely(!(real_desc = iop_get_class_by_id(desc, child_id)))) {
-        e_trace(0, "cannot find child %d of class '%*pM'; missing "
-                "IOP_REGISTER_PACKAGES?",
+        SB_1k(err);
+
+        sb_addf(&err, "cannot find child %d of class '%*pM'",
                 child_id, LSTR_FMT_ARG(desc->fullname));
+        e_trace(0, "%*pM; missing IOP_REGISTER_PACKAGES?",
+                SB_FMT_ARG(&err));
+        iop_set_err2(&LSTR_SB_V(&err));
         return -1;
     }
 
     if (real_desc != desc) {
         /* We are trying to unpack a class of type "desc", and the packed
          * class is of type "real_desc". Check that this is authorized. */
-        PS_WANT(iop_class_is_a(real_desc, desc));
+        if (unlikely(!iop_class_is_a(real_desc, desc))) {
+            SB_1k(err);
 
+            sb_addf(&err, "class '%*pM' (id %d) is not a child of '%*pM' "
+                    "(id %d) as expected",
+                    LSTR_FMT_ARG(real_desc->fullname), child_id,
+                    LSTR_FMT_ARG(desc->fullname),
+                    desc->class_attrs->class_id);
+            e_trace(0, "%*pM", SB_FMT_ARG(&err));
+            iop_set_err2(&LSTR_SB_V(&err));
+            return -1;
+        }
         e_named_trace(5, "iop/c/unpacker",
                       "unpacking a class of type %*pM, real type %*pM",
                       LSTR_FMT_ARG(desc->fullname),

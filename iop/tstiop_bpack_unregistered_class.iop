@@ -16,37 +16,11 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef IS_LIB_COMMON_NET_H
-#define IS_LIB_COMMON_NET_H
 
-#include "core.h"
+/* This file is used to test the IOPs and act as a non-regression test. This
+ * file should always compile correctly */
+package tstiop_bpack_unregistered_class;
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include "sctp.h"
-#ifdef SCTP_ADAPTION_LAYER
-   /* see http://www1.ietf.org/mail-archive/web/tsvwg/current/msg05971.html */
-#  define SCTP_ADAPTATION_LAYER         SCTP_ADAPTION_LAYER
-#  define sctp_adaptation_layer_event   sctp_adaption_layer_event
-#endif
-#include <sys/socket.h>
-#include <sys/un.h>
-
-#if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic error "-Wnullability-completeness"
-#if __has_warning("-Wnullability-completeness-on-arrays")
-#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
-#endif
-#endif
-
-#include "net-addr.h"
-#include "net-socket.h"
-#include "net-sctp.h"
-#include "net-rate.h"
-
-#if __has_feature(nullability)
-#pragma GCC diagnostic pop
-#endif
-
-#endif
+@ctype(tstiop_not_registered_class__t)
+class NotRegisteredClass : 2 : tstiop.RegisteredClass {
+};
