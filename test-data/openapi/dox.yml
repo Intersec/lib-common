@@ -1,0 +1,396 @@
+openapi: 3.0.2
+info:
+  title: tstdox
+  version: 1.0.1
+components:
+  schemas:
+    tstiop_dox.MyEnum:
+      type: string
+      enum:
+        - VAL_A
+        - VAL_B
+        - VAL_C
+    tstiop_dox.MyStruct:
+      type: object
+      required:
+        - fieldA
+        - fieldB
+        - fieldC
+      properties:
+        fieldA:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+        fieldB:
+          $ref: "#/components/schemas/tstiop_dox.MyEnum"
+        fieldC:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funAArgs:
+      type: object
+      required:
+        - aParam
+        - b
+      properties:
+        aParam:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+        b:
+          $ref: "#/components/schemas/tstiop_dox.MyStruct"
+    tstiop_dox.MyClass:
+      type: object
+      properties:
+        _class:
+          type: string
+      discriminator:
+        propertyName: _class
+    tstiop_dox.MyIface.funARes:
+      type: object
+      required:
+        - d
+      properties:
+        c:
+          oneOf:
+            - $ref: "#/components/schemas/tstiop_dox.MyClass"
+          discriminator:
+            propertyName: _class
+        d:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funAaArgs:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funAaRes:
+      type: object
+      required:
+        - b
+      properties:
+        b:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funBArgs:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funBal1Args:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funBal2Args:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funCRes:
+      type: object
+      required:
+        - b
+      properties:
+        b:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    Void:
+      type: object
+    tstiop_dox.MyIface.funDRes:
+      type: object
+      required:
+        - b
+      properties:
+        b:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funEArgs:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funE1Args:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funE2Args:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+paths:
+  /tstdox/iface/funA:
+    post:
+      summary: comment for funA of MyIface
+      description: "detailed description for funA of MyIface\n\nwarning for funA of MyIface"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funAArgs"
+      response:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyIface.funARes"
+        '500':
+          description: "local comment for MyIface.funA.throw\n\ncomment for funA.throw"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyStruct"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /tstdox/iface/funAa:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funAaArgs"
+      response:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyIface.funAaRes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /tstdox/iface/funB:
+    post:
+      summary: comment for MyIface.funB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funBArgs"
+      response:
+        '200':
+          description: comment for MyIface.funB.out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyStruct"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /tstdox/iface/funBal1:
+    post:
+      summary: comment for MyIface.funB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funBal1Args"
+      response:
+        '200':
+          description: comment for MyIface.funB.out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyStruct"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /tstdox/iface/funBal2:
+    post:
+      summary: comment for MyIface.funB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funBal2Args"
+      response:
+        '200':
+          description: comment for MyIface.funB.out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyStruct"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /tstdox/iface/funC:
+    post:
+      summary: comment for MyIface.funC
+      requestBody:
+        required: true
+        description: comment for MyIface.funC.in
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyStruct"
+      response:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyIface.funCRes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /tstdox/iface/funD:
+    post:
+      summary: front comment... and back comment for funD
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      response:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyIface.funDRes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /tstdox/iface/funE:
+    post:
+      summary: Comment for funE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funEArgs"
+      response:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /tstdox/iface/funE1:
+    post:
+      summary: Comment for funE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funE1Args"
+      response:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /tstdox/iface/funE2:
+    post:
+      summary: Comment for funE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funE2Args"
+      response:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string

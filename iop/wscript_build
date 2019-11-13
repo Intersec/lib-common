@@ -43,6 +43,7 @@ ctx.stlib(target='tstiop', features='c cstlib', source=[
     'tstiop_bpack_unregistered_class.iop',
     'tstiop_void_type.iop',
     'tstiop_wsdl.iop',
+    'tstiop_dox.iop',
 ])
 
 ctx.stlib(target='tstiop2', features='c cstlib', source=[

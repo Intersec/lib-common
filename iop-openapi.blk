@@ -743,18 +743,56 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
 typedef struct json_media_object_t {
     schema_object_t schema;
 
-    /* TODO example */
+    lstr_t example;
 } json_media_object_t;
 
 static void
 t_json_media_object_to_yaml(const json_media_object_t * nonnull obj,
                             yaml_data_t * nonnull out)
 {
-    yaml_data_t yaml_schema;
+    yaml_data_t data;
 
-    t_yaml_data_new_obj(out, 1);
-    t_schema_object_to_yaml(&obj->schema, &yaml_schema);
-    yaml_obj_add_field(out, LSTR("schema"), yaml_schema);
+    t_yaml_data_new_obj(out, 2);
+    t_schema_object_to_yaml(&obj->schema, &data);
+    yaml_obj_add_field(out, LSTR("schema"), data);
+
+    if (obj->example.s) {
+        yaml_data_set_string(&data, obj->example);
+        yaml_obj_add_field(out, LSTR("example"), data);
+    }
+}
+
+/* }}} */
+/* {{{ Request object */
+
+typedef struct json_request_object_t {
+    lstr_t description;
+
+    /* shortcut for content.application/json */
+    json_media_object_t json_content;
+} json_request_object_t;
+
+static void
+t_json_request_object_to_yaml(const json_request_object_t * nonnull obj,
+                               yaml_data_t * nonnull out)
+{
+    yaml_data_t data;
+    yaml_data_t content;
+
+    t_yaml_data_new_obj(out, 3);
+
+    yaml_data_set_bool(&data, true);
+    yaml_obj_add_field(out, LSTR("required"), data);
+
+    if (obj->description.s) {
+        yaml_data_set_string(&data, obj->description);
+        yaml_obj_add_field(out, LSTR("description"), data);
+    }
+
+    t_yaml_data_new_obj(&content, 1);
+    t_json_media_object_to_yaml(&obj->json_content, &data);
+    yaml_obj_add_field(&content, LSTR("application/json"), data);
+    yaml_obj_add_field(out, LSTR("content"), content);
 }
 
 /* }}} */
@@ -797,6 +835,12 @@ t_html_response_object_to_yaml(const html_response_object_t * nonnull obj,
     yaml_data_t content;
     schema_object_t schema;
 
+    t_yaml_data_new_obj(out, 2);
+    if (obj->description.s) {
+        yaml_data_set_string(&data, obj->description);
+        yaml_obj_add_field(out, LSTR("description"), data);
+    }
+
     p_clear(&schema, 1);
     schema.type = TYPE_STRING;
     t_schema_object_to_yaml(&schema, &data);
@@ -805,10 +849,6 @@ t_html_response_object_to_yaml(const html_response_object_t * nonnull obj,
 
     t_yaml_data_new_obj(&content, 1);
     yaml_obj_add_field(&content, LSTR("text/html"), html_media);
-
-    t_yaml_data_new_obj(out, 2);
-    yaml_data_set_string(&data, obj->description);
-    yaml_obj_add_field(out, LSTR("description"), data);
     yaml_obj_add_field(out, LSTR("content"), content);
 }
 
@@ -820,7 +860,7 @@ typedef struct operation_object_t {
     lstr_t description;
 
     /* shortcut for requestBody.content with application/json */
-    json_media_object_t json_body_content;
+    json_request_object_t request;
 
     /* shortcut for responses.200 */
     json_response_object_t * nullable ok_response;
@@ -831,25 +871,6 @@ typedef struct operation_object_t {
     /* shortcut for responses.default */
     html_response_object_t default_response;
 } operation_object_t;
-
-static void
-t_request_body_to_yaml(const json_media_object_t * nonnull obj,
-                       yaml_data_t * nonnull out)
-{
-    yaml_data_t data;
-    yaml_data_t content;
-
-    t_yaml_data_new_obj(out, 2);
-
-    yaml_data_set_bool(&data, true);
-    yaml_obj_add_field(out, LSTR("required"), data);
-
-    t_yaml_data_new_obj(&content, 1);
-    t_json_media_object_to_yaml(obj, &data);
-    yaml_obj_add_field(&content, LSTR("application/json"), data);
-
-    yaml_obj_add_field(out, LSTR("content"), content);
-}
 
 static void
 t_operation_object_to_yaml(const operation_object_t * nonnull obj,
@@ -870,7 +891,7 @@ t_operation_object_to_yaml(const operation_object_t * nonnull obj,
         yaml_obj_add_field(out, LSTR("description"), data);
     }
 
-    t_request_body_to_yaml(&obj->json_body_content, &data);
+    t_json_request_object_to_yaml(&obj->request, &data);
     yaml_obj_add_field(out, LSTR("requestBody"), data);
 
     t_yaml_data_new_obj(&response, 2);
@@ -892,20 +913,131 @@ t_operation_object_to_yaml(const operation_object_t * nonnull obj,
 }
 
 static void
-t_iop_rpc_to_operation_object(const iop_rpc_t *rpc, lstr_t iface_fullname,
+get_rpc_help(const iop_rpc_t * nonnull rpc, const iop_iface_t * nonnull iface,
+             const iop_help_t **rpc_help, bool *rpc_help_is_v2,
+             const iop_help_t **arg_help, bool *arg_help_is_v2,
+             const iop_help_t **res_help, bool *res_help_is_v2,
+             const iop_help_t **exn_help, bool *exn_help_is_v2)
+{
+    const iop_rpc_attrs_t *attrs;
+
+    *rpc_help = NULL;
+    *arg_help = NULL;
+    *res_help = NULL;
+    *exn_help = NULL;
+
+    attrs = iop_rpc_get_attrs(iface, rpc);
+    if (!attrs) {
+        return;
+    }
+
+    for (int k = 0; k < attrs->attrs_len; k++) {
+        const iop_rpc_attr_t *attr = &attrs->attrs[k];
+
+        switch (attr->type) {
+          case IOP_RPC_ATTR_HELP:
+            *rpc_help = attr->args[0].v.p;
+            *rpc_help_is_v2 = false;
+            break;
+          case IOP_RPC_ATTR_HELP_V2:
+            *rpc_help = attr->args[0].v.p;
+            *rpc_help_is_v2 = true;
+            break;
+          case IOP_RPC_ATTR_ARG_HELP:
+            *arg_help = attr->args[0].v.p;
+            *arg_help_is_v2 = false;
+            break;
+          case IOP_RPC_ATTR_ARG_HELP_V2:
+            *arg_help = attr->args[0].v.p;
+            *arg_help_is_v2 = true;
+            break;
+          case IOP_RPC_ATTR_RES_HELP:
+            *res_help = attr->args[0].v.p;
+            *res_help_is_v2 = false;
+            break;
+          case IOP_RPC_ATTR_RES_HELP_V2:
+            *res_help = attr->args[0].v.p;
+            *res_help_is_v2 = true;
+            break;
+          case IOP_RPC_ATTR_EXN_HELP:
+            *exn_help = attr->args[0].v.p;
+            *exn_help_is_v2 = false;
+            break;
+          case IOP_RPC_ATTR_EXN_HELP_V2:
+            *exn_help = attr->args[0].v.p;
+            *exn_help_is_v2 = true;
+            break;
+          default:
+            break;
+        }
+    }
+}
+
+static lstr_t
+t_iop_help_to_string(const iop_help_t * nonnull help, bool ignore_brief)
+{
+    t_SB_1k(sb);
+
+    if (help->brief.s && !ignore_brief) {
+        sb_add_lstr(&sb, help->brief);
+    }
+    if (help->details.s) {
+        if (sb.len > 0) {
+            sb_adds(&sb, "\n\n");
+        }
+        sb_add_lstr(&sb, help->details);
+    }
+    if (help->warning.s) {
+        if (sb.len > 0) {
+            sb_adds(&sb, "\n\n");
+        }
+        sb_add_lstr(&sb, help->warning);
+    }
+
+    return sb.len > 0 ? LSTR_SB_V(&sb) : LSTR_NULL_V;
+}
+
+static void
+t_iop_rpc_to_operation_object(const iop_rpc_t *rpc, const iop_iface_t *iface,
                               qh_t(schemas) *existing_schemas,
                               qv_t(schema_object) *schemas,
                               operation_object_t *op)
 {
+    const iop_help_t *rpc_help;
+    const iop_help_t *arg_help;
+    const iop_help_t *res_help;
+    const iop_help_t *exn_help;
+    bool rpc_help_is_v2;
+    bool arg_help_is_v2;
+    bool res_help_is_v2;
+    bool exn_help_is_v2;
+
     p_clear(op, 1);
+
+    get_rpc_help(rpc, iface, &rpc_help, &rpc_help_is_v2, &arg_help,
+                 &arg_help_is_v2, &res_help, &res_help_is_v2, &exn_help,
+                 &exn_help_is_v2);
+    if (rpc_help) {
+        if (rpc_help->brief.s) {
+            op->summary = rpc_help->brief;
+        }
+        op->description = t_iop_help_to_string(rpc_help, true);
+    }
 
     /* RPC that do not have any arguments still uses the "Void" type.
      * Calling an RPC always requires a JSON payload, even if it is only '{}',
      * so we still add the body content. */
     assert (rpc->args);
     t_iop_struct_to_schema_object(rpc->args, existing_schemas, schemas);
-    op->json_body_content.schema.type = TYPE_REF;
-    op->json_body_content.schema.name = rpc->args->fullname;
+    op->request.json_content.schema.type = TYPE_REF;
+    op->request.json_content.schema.name = rpc->args->fullname;
+
+    if (arg_help) {
+        op->request.description = t_iop_help_to_string(arg_help, false);
+        if (arg_help_is_v2) {
+            op->request.json_content.example = arg_help->example;
+        }
+    }
 
     /* async response means no success response */
     if (!rpc->async) {
@@ -914,6 +1046,14 @@ t_iop_rpc_to_operation_object(const iop_rpc_t *rpc, lstr_t iface_fullname,
         op->ok_response->description = LSTR("RPC success");
         op->ok_response->json_content.schema.type = TYPE_REF;
         op->ok_response->json_content.schema.name = rpc->result->fullname;
+
+        if (res_help) {
+            op->ok_response->description = t_iop_help_to_string(res_help,
+                                                                false);
+            if (res_help_is_v2) {
+                op->ok_response->json_content.example = res_help->example;
+            }
+        }
     }
 
     if (rpc->exn != &iop__void__s) {
@@ -922,6 +1062,14 @@ t_iop_rpc_to_operation_object(const iop_rpc_t *rpc, lstr_t iface_fullname,
         op->exn_response->description = LSTR("RPC error");
         op->exn_response->json_content.schema.type = TYPE_REF;
         op->exn_response->json_content.schema.name = rpc->exn->fullname;
+
+        if (exn_help) {
+            op->exn_response->description = t_iop_help_to_string(exn_help,
+                                                                 false);
+            if (exn_help_is_v2) {
+                op->exn_response->json_content.example = exn_help->example;
+            }
+        }
     }
 
     /* in any case, every RPC can throw in generic fashion:
@@ -977,8 +1125,8 @@ t_iop_rpc_append_path(const iop_rpc_t *rpc, const iop_iface_alias_t *alias,
 
     obj->path = t_lstr_fmt("/%pL/%pL/%pL", &product_name, &alias->name,
                            &rpc->name);
-    t_iop_rpc_to_operation_object(rpc, alias->iface->fullname,
-                                  existing_schemas, schemas, &obj->post);
+    t_iop_rpc_to_operation_object(rpc, alias->iface, existing_schemas,
+                                  schemas, &obj->post);
 }
 
 static void
@@ -1099,6 +1247,8 @@ struct iop_openapi_t {
     info_object_t info;
 
     components_object_t components;
+
+    qv_t(path) paths;
 };
 
 iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
@@ -1112,11 +1262,16 @@ iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
 
     t_components_object_init(&oa->components);
 
+    t_qv_init(&oa->paths, 0);
+
     return oa;
 }
 
-void t_iop_openapi_add_struct(iop_openapi_t *openapi, const iop_struct_t *st)
+void t_iop_openapi_add_module(iop_openapi_t *openapi, const iop_mod_t *mod)
 {
+    t_iop_mod_append_paths(mod, openapi->info.title,
+                           &openapi->components.existing_schemas,
+                           &openapi->components.schemas, &openapi->paths);
 }
 
 void t_iop_openapi_to_yaml(const iop_openapi_t *openapi, yaml_data_t *out)
@@ -1133,6 +1288,9 @@ void t_iop_openapi_to_yaml(const iop_openapi_t *openapi, yaml_data_t *out)
 
     t_components_object_to_yaml(&openapi->components, &data);
     yaml_obj_add_field(out, LSTR("components"), data);
+
+    t_paths_to_yaml(&openapi->paths, &data);
+    yaml_obj_add_field(out, LSTR("paths"), data);
 }
 
 /* }}} */
@@ -1159,6 +1317,7 @@ MODULE_END()
 
 #include "z.h"
 #include "iop/tstiop.iop.h"
+#include "iop/tstiop_dox.iop.h"
 
 /* {{{ Helpers */
 
@@ -1249,11 +1408,9 @@ z_check_mod(const qv_t(schema_object) *schemas, const qv_t(path) *paths,
 
 /* }}} */
 
-/* Unit-tests about YAML->AST parsing. */
-
 Z_GROUP_EXPORT(iop_openapi)
 {
-    IOP_REGISTER_PACKAGES(&tstiop__pkg);
+    IOP_REGISTER_PACKAGES(&tstiop__pkg, &tstiop_dox__pkg);
     MODULE_REQUIRE(iop_openapi);
 
     Z_TEST(doc, "test the whole doc generation") {
@@ -1338,6 +1495,16 @@ Z_GROUP_EXPORT(iop_openapi)
          * flooded by the schemas descriptions */
         qv_clear(&schemas);
         Z_HELPER_RUN(z_check_mod(&schemas, &paths, "iface_a.yml"));
+    } Z_TEST_END;
+
+    Z_TEST(iop_mod, "test inclusion of comments documentation") {
+        t_scope;
+        iop_openapi_t *oa;
+
+        oa = t_new_iop_openapi(LSTR("tstdox"), LSTR("1.0.1"), LSTR_NULL_V);
+        t_iop_openapi_add_module(oa, tstiop_dox__my_module__modp);
+
+        Z_HELPER_RUN(z_check_yaml(oa, "dox.yml"));
     } Z_TEST_END;
 
     MODULE_RELEASE(iop_openapi);

@@ -1,0 +1,117 @@
+package tstiop_dox;
+
+/** comment for MyEnum
+ *
+ *  details for MyEnum
+ *
+ *  \word not a recognized keyword
+ *
+ *  @warning warn for MyEnum
+ */
+enum MyEnum {
+    ///< comment for MY_ENUM_VAL_A
+    VAL_A,
+    VAL_B,
+    VAL_C, ///< comment for MY_ENUM_VAL_C
+};
+
+/** comment for MyStruct
+ */
+struct MyStruct {
+    int fieldA; ///< comment for MyStruct.fieldA
+    MyEnum fieldB;
+    int fieldC; ///< comment for MyStruct.fieldC
+};
+
+abstract class MyClass {
+    /// comment for name of MyClass
+    static string name; ///< this static field has no defval
+    static int    val  = 10; //!< comment for val of MyClass
+};
+
+/** comment for MyIface
+ */
+interface MyIface {
+    /** comment for funA of MyIface
+     *
+     *  @details detailed description for funA of MyIface
+     *
+     *  @param[in]   aParam  comment for aParam of funA.in
+     *                       it continues here
+     *  @param[in]   b       comment for b of funA.in
+     *
+     *  @param[out]  c       comment for c of funA.out
+     *
+     *  @param[out]  d       comment for \ref d of funA.out
+     *  @param[out]  d       2nd paragraph for \p d of funA.out
+     *
+     *  @param[throw]        comment for funA.throw
+     *
+     *  @warning warning for funA of MyIface
+     */
+    funA
+       /** local comment for MyIface.funA.in
+        *
+        *  @example "aParam": 1,
+        *           "b": {
+        *               "fieldA": 11,
+        *               "fieldB": 12,
+        *               "fieldC": 13
+        *           }
+        */
+        in (
+            int aParam, ///< local comment for MyIface.funA.in.aParam
+            /// local comment for MyIface.funA.in.b
+            MyStruct b)
+        /** local comment for MyIface.funA.out
+         *
+         *  @example "c": {
+         *               "fieldA": 11,
+         *               "fieldB": 12,
+         *               "fieldC": 13
+         *           },
+         *           "d": 4
+         */
+        out (
+             MyClass c, ///< local comment for MyIface.funA.out.c
+             int d)
+        /// local comment for MyIface.funA.throw
+        throw MyStruct;
+
+    funAa
+        /// comment for MyIface.funAa.in
+        in (int a)
+        /** @example "b": 3 */
+        out (int b);
+
+    /// comment for MyIface.funB
+    @alias(funBal1) @alias(funBal2)
+    funB
+         /// comment for MyIface.funB.in
+         in  (int a)
+         /// comment for MyIface.funB.out
+         out MyStruct;
+
+    /// comment for MyIface.funC
+    funC in  MyStruct ///< comment for MyIface.funC.in
+         out (int b);
+
+    /// front comment...
+    funD /**< and back comment for funD */
+        /** front comment... */
+        out (int b) /**< and back comment for res of funD */
+        ;
+
+    /** Comment for funE
+     *
+     * \param[in] a It is a \p comment for \ref a
+     */
+    @alias(funE1, funE2)
+    funE in (int a)
+         out void;
+};
+
+/// comment for MyModule
+module MyModule {
+    MyIface iface; ///< comment for MyModule.iface
+};

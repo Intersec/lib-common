@@ -39,12 +39,13 @@ iop_openapi_t * nonnull
 t_new_iop_openapi(const lstr_t title, const lstr_t version,
                   const lstr_t description);
 
-/** Add an IOP struct in the OpenAPI application.
+/** Add an IOP module in the OpenAPI application.
  *
- * The IOP struct will be added in the components schemas of the application,
- * as well as the schemas of all its dependencies.
+ * All RPCs contained in the module will be added as paths in the application.
+ * All related IOP objects will have their schemas included as well.
  */
-void t_iop_openapi_add_struct(iop_openapi_t *openapi, const iop_struct_t *st);
+void t_iop_openapi_add_module(iop_openapi_t * nonnull openapi,
+                              const iop_mod_t * nonnull mod);
 
 void t_iop_openapi_to_yaml(const iop_openapi_t * nonnull openapi,
                            yaml_data_t * nonnull data);
