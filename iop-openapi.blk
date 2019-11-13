@@ -234,6 +234,35 @@ static void add_struct_help(const iop_struct_t * nonnull st,
     }
 }
 
+static void
+get_field_help(const iop_field_attrs_t * nullable attrs,
+               const iop_help_t * nullable * nonnull help,
+               bool * nonnull is_v2)
+{
+    *help = NULL;
+
+    if (!attrs) {
+        return;
+    }
+
+    for (int k = 0; k < attrs->attrs_len; k++) {
+        const iop_field_attr_t *attr = &attrs->attrs[k];
+
+        switch (attr->type) {
+          case IOP_FIELD_ATTR_HELP:
+            *help = attr->args[0].v.p;
+            *is_v2 = false;
+            return;
+          case IOP_FIELD_ATTR_HELP_V2:
+            *help = attr->args[0].v.p;
+            *is_v2 = true;
+            return;
+          default:
+            break;
+        }
+    }
+}
+
 /* }}} */
 /* {{{ Enums */
 
@@ -441,6 +470,8 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
 {
     const iop_field_attrs_t *attrs = iop_field_get_attrs(st, desc);
     schema_object_t *schema;
+    const iop_help_t *help;
+    bool is_v2;
 
     if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
         return NULL;
@@ -531,6 +562,14 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
 
         if (attrs) {
             apply_array_field_constraints(attrs, desc, schema);
+        }
+    }
+
+    get_field_help(attrs, &help, &is_v2);
+    if (help) {
+        schema->description = t_iop_help_to_string(help, false);
+        if (is_v2) {
+            schema->example = help->example;
         }
     }
 

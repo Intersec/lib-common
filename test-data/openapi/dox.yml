@@ -22,6 +22,7 @@ components:
         fieldA:
           type: integer
           format: int32
+          description: comment for MyStruct.fieldA
           minimum: -2147483648
           maximum: 2147483647
         fieldB:
@@ -29,6 +30,7 @@ components:
         fieldC:
           type: integer
           format: int32
+          description: comment for MyStruct.fieldC
           minimum: -2147483648
           maximum: 2147483647
     tstiop_dox.MyIface.funAArgs:
@@ -41,6 +43,7 @@ components:
         aParam:
           type: integer
           format: int32
+          description: "local comment for MyIface.funA.in.aParam\n\ncomment for aParam of funA.in\n                      it continues here"
           minimum: -2147483648
           maximum: 2147483647
         b:
@@ -60,6 +63,7 @@ components:
         - d
       properties:
         c:
+          description: "local comment for MyIface.funA.out.c\n\ncomment for c of funA.out"
           oneOf:
             - $ref: "#/components/schemas/tstiop_dox.MyClass"
           discriminator:
@@ -67,6 +71,7 @@ components:
         d:
           type: integer
           format: int32
+          description: "comment for \\ref d of funA.out\n2nd paragraph for \\p d of funA.out"
           minimum: -2147483648
           maximum: 2147483647
       example: "{\"c\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13},\"d\":4}"
@@ -102,6 +107,22 @@ components:
           format: int32
           minimum: -2147483648
           maximum: 2147483647
+    tstiop_dox.MyUnion:
+      description: comment for MyUnion
+      oneOf:
+        - type: object
+          required:
+            - fieldA
+          properties:
+            fieldA:
+              type: bool
+              description: comment for MyUnion.fieldA
+        - type: object
+          required:
+            - fieldB
+          properties:
+            fieldB:
+              type: bool
     tstiop_dox.MyIface.funBal1Args:
       type: object
       description: comment for MyIface.funB.in
@@ -155,6 +176,7 @@ components:
         a:
           type: integer
           format: int32
+          description: It is a \p comment for \ref a
           minimum: -2147483648
           maximum: 2147483647
     tstiop_dox.MyIface.funE1Args:
@@ -165,6 +187,7 @@ components:
         a:
           type: integer
           format: int32
+          description: It is a \p comment for \ref a
           minimum: -2147483648
           maximum: 2147483647
     tstiop_dox.MyIface.funE2Args:
@@ -175,6 +198,7 @@ components:
         a:
           type: integer
           format: int32
+          description: It is a \p comment for \ref a
           minimum: -2147483648
           maximum: 2147483647
 paths:
@@ -243,7 +267,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/tstiop_dox.MyStruct"
+                $ref: "#/components/schemas/tstiop_dox.MyUnion"
         default:
           description: generic error
           content:
@@ -265,7 +289,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/tstiop_dox.MyStruct"
+                $ref: "#/components/schemas/tstiop_dox.MyUnion"
         default:
           description: generic error
           content:
@@ -287,7 +311,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/tstiop_dox.MyStruct"
+                $ref: "#/components/schemas/tstiop_dox.MyUnion"
         default:
           description: generic error
           content:

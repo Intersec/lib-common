@@ -23,6 +23,13 @@ struct MyStruct {
     int fieldC; ///< comment for MyStruct.fieldC
 };
 
+/** comment for MyUnion
+ */
+union MyUnion {
+    bool fieldA; ///< comment for MyUnion.fieldA
+    bool fieldB;
+};
+
 abstract class MyClass {
     /// comment for name of MyClass
     static string name; ///< this static field has no defval
@@ -90,7 +97,7 @@ interface MyIface {
          /// comment for MyIface.funB.in
          in  (int a)
          /// comment for MyIface.funB.out
-         out MyStruct;
+         out MyUnion;
 
     /// comment for MyIface.funC
     funC in  MyStruct ///< comment for MyIface.funC.in
