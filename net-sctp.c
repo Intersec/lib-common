@@ -16,10 +16,6 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef HAVE_NETINET_SCTP_H
-# error cannot compile without netinet/sctp.h
-#endif
-
 #include "net.h"
 #include "unix.h"
 

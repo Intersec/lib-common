@@ -89,17 +89,17 @@ def configure(ctx):
     ctx.check_cfg(package='valgrind', uselib_store='valgrind',
                   args=['--cflags'])
 
-    # libsctp-dev
-    sctp_h = '/usr/include/netinet/sctp.h'
+    # Linux UAPI SCTP header
+    sctp_h = '/usr/include/linux/sctp.h'
     if os.path.exists(sctp_h):
-        ctx.env.HAVE_NETINET_SCTP_H = True
-        netinet_sctp_flag = '-DHAVE_NETINET_SCTP_H'
-        ctx.env.CFLAGS.append(netinet_sctp_flag)
-        ctx.env.CLANG_FLAGS.append(netinet_sctp_flag)
-        ctx.env.CLANG_REWRITE_FLAGS.append(netinet_sctp_flag)
-        ctx.msg('Checking for libsctp-dev', sctp_h)
+        sctp_flag = '-DHAVE_LINUX_UAPI_SCTP_H'
+        ctx.env.CFLAGS.append(sctp_flag)
+        ctx.env.CLANG_FLAGS.append(sctp_flag)
+        ctx.env.CLANG_REWRITE_FLAGS.append(sctp_flag)
+        ctx.msg('Checking for Linux UAPI SCTP header', sctp_h)
     else:
-        Logs.warn('missing libsctp, apt-get install libsctp-dev')
+        Logs.info('missing Linux UAPI SCTP header,'
+                  ' it will be replaced by a custom one')
 
     # {{{ Python 2
 
@@ -380,6 +380,7 @@ def build(ctx):
             'log-iop.c',
 
             'net-addr.c',
+            'net-sctp.c',
             'net-socket.c',
             'net-rate.blk',
 
@@ -401,8 +402,6 @@ def build(ctx):
             'zlib-wrapper.c',
         ]
     )
-    if ctx.env.HAVE_NETINET_SCTP_H:
-        libcommon.source.append('net-sctp.c')
 
     # }}}
 
