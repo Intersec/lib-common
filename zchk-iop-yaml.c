@@ -244,6 +244,12 @@ Z_GROUP_EXPORT(iop_yaml)
         TST("!muda", "us: \"!muda\"", true);
         TST("mu!da", "us: mu!da", true);
 
+        /* when starting with '[' or '{' */
+        TST("[mu\\da", "us: \"[mu\\\\da\"", true);
+        TST("]mu\\da", "us: ]mu\\da", true);
+        TST("{mu\\da", "us: \"{mu\\\\da\"", true);
+        TST("}mu\\da", "us: }mu\\da", true);
+
         /* when containing ':' or '#' */
         TST(":muda", "us: \":muda\"", true);
         TST(": muda", "us: \": muda\"", true);

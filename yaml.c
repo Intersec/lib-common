@@ -684,10 +684,15 @@ static int do_indent(const yaml_pack_env_t *env, int indent)
 
 static bool yaml_string_must_be_quoted(const lstr_t s)
 {
-    /* '!', '&', '*', '-', '"' and '.'. Technically, '-' is only forbidden
-     * if followed by a space, but it is simpler that way. */
+    /* '!', '&', '*', '-', '"' and '.' have special YAML meaning.
+     * Technically, '-' is only forbidden if followed by a space,
+     * but it is simpler that way.
+     * Also forbid starting with '[' or '{'. In YAML, this indicates inline
+     * JSON, which we do not handle in our parser, but would render the YAML
+     * invalid for other parsers.
+     */
     static ctype_desc_t const yaml_invalid_raw_string_start = { {
-        0x00000000, 0x00006446, 0x00000000, 0x00000000,
+        0x00000000, 0x00006446, 0x08000000, 0x08000000,
         0x00000000, 0x00000000, 0x00000000, 0x00000000,
     } };
     /* printable ascii characters minus ':' and '#'. Also should be

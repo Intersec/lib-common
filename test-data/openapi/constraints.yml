@@ -44,7 +44,7 @@ tstiop.ConstraintU:
           type: string
           minLength: 1
           maxLength: 10
-          pattern: [^\[\]]*
+          pattern: "[^\\[\\]]*"
     - type: object
       required:
         - cs
@@ -92,7 +92,7 @@ tstiop.ConstraintS:
       items:
         type: string
         minLength: 4
-        pattern: [a-zA-Z0-9_\-]*
+        pattern: "[a-zA-Z0-9_\\-]*"
       minItems: 2
       maxItems: 5
     tab:
