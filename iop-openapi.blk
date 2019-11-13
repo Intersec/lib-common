@@ -56,6 +56,21 @@ typedef struct schema_prop_t {
 } schema_prop_t;
 qvector_t(schema_props, schema_prop_t);
 
+typedef enum number_type_t {
+    NUMBER_INT64,
+    NUMBER_UINT64,
+    NUMBER_DOUBLE,
+} number_type_t;
+
+typedef struct number_value_t {
+    union {
+        int64_t i;
+        uint64_t u;
+        double d;
+    };
+    number_type_t type;
+} number_value_t;
+
 struct schema_object_t {
     /* For TYPE_REF, this is the name of the referenced schema.
      * For other types, this is the name of the schema, but it can be unset
@@ -81,8 +96,8 @@ struct schema_object_t {
     qv_t(lstr) enum_values;
 
     /* for number */
-    opt_i64_t minimum;
-    opt_i64_t maximum;
+    number_value_t *minimum;
+    number_value_t *maximum;
     bool _nullable;
 
     /* for strings */
@@ -186,34 +201,45 @@ t_class_field_to_schema_object(const iop_struct_t *class_desc,
     }
 }
 
-static void schema_set_integer(schema_object_t *schema, openapi_type_t type,
-                               int64_t min, int64_t max)
+static void t_schema_set_integer(schema_object_t *schema, openapi_type_t type,
+                                 int64_t min, int64_t max)
 {
     schema->type = type;
-    OPT_SET(schema->minimum, min);
-    OPT_SET(schema->maximum, max);
+    schema->minimum = t_new(number_value_t, 1);
+    schema->minimum->i = min;
+    schema->minimum->type = NUMBER_INT64;
+    schema->maximum = t_new(number_value_t, 1);
+    schema->maximum->i = max;
+    schema->maximum->type = NUMBER_INT64;
 }
 
-static int attr_get_value(const iop_field_attr_t *attr,
-                          const iop_type_t type, int64_t *val)
+static number_value_t *t_attr_get_value(const iop_field_attr_t *attr,
+                                        const iop_type_t type)
 {
+    number_value_t *val = t_new(number_value_t, 1);
+
     switch (type) {
       case IOP_T_I8: case IOP_T_I16: case IOP_T_I32: case IOP_T_I64:
+        val->i = attr->args[0].v.i64;
+        val->type = NUMBER_INT64;
+        return val;
+
       case IOP_T_U8: case IOP_T_U16: case IOP_T_U32: case IOP_T_U64:
-        *val = attr->args[0].v.i64;
-        return 0;
+        val->u = (uint64_t)attr->args[0].v.i64;
+        val->type = NUMBER_UINT64;
+        return val;
 
       case IOP_T_DOUBLE:
-        /* FIXME: this is not ok, the min/max limits should probably be
-         * strings or doubles */
-        *val = (int64_t)attr->args[0].v.d;
-        return 0;
+        val->d = attr->args[0].v.d;
+        val->type = NUMBER_DOUBLE;
+        return val;
+
       default:
         break;
     }
 
     assert (false);
-    return -1;
+    return NULL;
 }
 
 static void
@@ -223,18 +249,13 @@ apply_raw_field_constraints(const iop_field_attrs_t *attrs,
 {
     for (int i = 0; i < attrs->attrs_len; i++) {
         const iop_field_attr_t *attr = &attrs->attrs[i];
-        int64_t val;
 
         switch (attr->type) {
           case IOP_FIELD_MIN:
-            if (attr_get_value(attr, field->type, &val) >= 0) {
-                OPT_SET(schema->minimum, val);
-            }
+            schema->minimum = t_attr_get_value(attr, field->type);
             break;
           case IOP_FIELD_MAX:
-            if (attr_get_value(attr, field->type, &val) >= 0) {
-                OPT_SET(schema->maximum, val);
-            }
+            schema->maximum = t_attr_get_value(attr, field->type);
             break;
           case IOP_FIELD_MIN_LENGTH:
             OPT_SET(schema->min_length, attr->args[0].v.i64);
@@ -253,8 +274,10 @@ apply_raw_field_constraints(const iop_field_attrs_t *attrs,
     if (TST_BIT(&attrs->flags, IOP_FIELD_NON_ZERO)) {
         /* only apply this constraint on unsigned integers, we have no
          * way of expressing it otherwise */
-        if (OPT_DEFVAL(schema->minimum, -1) == 0) {
-            OPT_SET(schema->minimum, 1);
+        if (schema->minimum && schema->minimum->type != NUMBER_DOUBLE
+        &&  schema->minimum->i == 0)
+        {
+            schema->minimum->i = 1;
         }
     }
     if (TST_BIT(&attrs->flags, IOP_FIELD_NON_EMPTY)
@@ -301,29 +324,31 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
 
     switch (desc->type) {
       case IOP_T_I8:
-        schema_set_integer(schema, TYPE_INT32, INT8_MIN, INT8_MAX);
+        t_schema_set_integer(schema, TYPE_INT32, INT8_MIN, INT8_MAX);
         break;
       case IOP_T_U8:
-        schema_set_integer(schema, TYPE_UINT32, 0, UINT8_MAX);
+        t_schema_set_integer(schema, TYPE_UINT32, 0, UINT8_MAX);
         break;
       case IOP_T_I16:
-        schema_set_integer(schema, TYPE_INT32, INT16_MIN, INT16_MAX);
+        t_schema_set_integer(schema, TYPE_INT32, INT16_MIN, INT16_MAX);
         break;
       case IOP_T_U16:
-        schema_set_integer(schema, TYPE_UINT32, 0, UINT16_MAX);
+        t_schema_set_integer(schema, TYPE_UINT32, 0, UINT16_MAX);
         break;
       case IOP_T_I32:
-        schema_set_integer(schema, TYPE_INT32, INT32_MIN, INT32_MAX);
+        t_schema_set_integer(schema, TYPE_INT32, INT32_MIN, INT32_MAX);
         break;
       case IOP_T_U32:
-        schema_set_integer(schema, TYPE_UINT32, 0, UINT32_MAX);
+        t_schema_set_integer(schema, TYPE_UINT32, 0, UINT32_MAX);
         break;
       case IOP_T_I64:
         schema->type = TYPE_INT64;
         break;
       case IOP_T_U64:
         schema->type = TYPE_UINT64;
-        OPT_SET(schema->minimum, 0);
+        schema->minimum = t_new(number_value_t, 1);
+        schema->minimum->u = 0;
+        schema->minimum->type = NUMBER_UINT64;
         break;
       case IOP_T_BOOL:
         schema->type = TYPE_BOOL;
@@ -382,6 +407,8 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
             apply_array_field_constraints(attrs, desc, schema);
         }
     }
+
+    /* TODO: set the "default" field in schema if DEFVAL */
 
     return schema;
 }
@@ -555,6 +582,22 @@ static yaml_data_t t_schemas_to_yaml_seq(const qv_t(schema_object_p) *schemas)
     return data;
 }
 
+static void number_value_to_yaml_data(const number_value_t *val,
+                                      yaml_data_t *data)
+{
+    switch (val->type) {
+      case NUMBER_INT64:
+        yaml_data_set_int(data, val->i);
+        break;
+      case NUMBER_UINT64:
+        yaml_data_set_uint(data, val->u);
+        break;
+      case NUMBER_DOUBLE:
+        yaml_data_set_double(data, val->d);
+        break;
+    }
+}
+
 static void
 t_schema_object_to_yaml(const schema_object_t * nonnull obj,
                         yaml_data_t * nonnull out)
@@ -653,13 +696,13 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
                            t_strings_to_yaml_seq(&obj->enum_values));
     }
 
-    if (OPT_ISSET(obj->minimum)) {
-        yaml_data_set_int(&data, OPT_VAL(obj->minimum));
+    if (obj->minimum) {
+        number_value_to_yaml_data(obj->minimum, &data);
         yaml_obj_add_field(out, LSTR("minimum"), data);
     }
 
-    if (OPT_ISSET(obj->maximum)) {
-        yaml_data_set_int(&data, OPT_VAL(obj->maximum));
+    if (obj->maximum) {
+        number_value_to_yaml_data(obj->maximum, &data);
         yaml_obj_add_field(out, LSTR("maximum"), data);
     }
 
@@ -938,6 +981,8 @@ Z_GROUP_EXPORT(iop_openapi)
         qh_clear(schemas, &existing);
         qv_clear(&schemas);
         t_iop_struct_to_schema_object(&tstiop__constraint_u__s,
+                                      &existing, &schemas);
+        t_iop_struct_to_schema_object(&tstiop__constraint_d__s,
                                       &existing, &schemas);
         Z_HELPER_RUN(z_check_schemas(&schemas, "constraints.yml"));
     } Z_TEST_END;

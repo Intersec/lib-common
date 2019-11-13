@@ -829,6 +829,18 @@ struct StructWithEnumStrict {
 
 
 /* }}} */
+/* {{{ zchk iop_openapi */
+
+struct ConstraintD {
+    @min(1.53)
+    double a;
+    @max(1.5e12)
+    double b;
+    @nonZero
+    double c;
+};
+
+/* }}} */
 /* {{{ iopc zchk */
 /* {{{ zchk iopsq.sub_struct */
 
