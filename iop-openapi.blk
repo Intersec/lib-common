@@ -738,6 +738,250 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
 }
 
 /* }}} */
+/* {{{ Media object */
+
+typedef struct json_media_object_t {
+    schema_object_t schema;
+
+    /* TODO example */
+} json_media_object_t;
+
+static void
+t_json_media_object_to_yaml(const json_media_object_t * nonnull obj,
+                            yaml_data_t * nonnull out)
+{
+    yaml_data_t yaml_schema;
+
+    t_yaml_data_new_obj(out, 1);
+    t_schema_object_to_yaml(&obj->schema, &yaml_schema);
+    yaml_obj_add_field(out, LSTR("schema"), yaml_schema);
+}
+
+/* }}} */
+/* {{{ Response object */
+
+typedef struct json_response_object_t {
+    lstr_t description;
+
+    /* shortcut for content.application/json */
+    json_media_object_t json_content;
+} json_response_object_t;
+
+static void
+t_json_response_object_to_yaml(const json_response_object_t * nonnull obj,
+                               yaml_data_t * nonnull out)
+{
+    yaml_data_t data;
+    yaml_data_t content;
+
+    t_yaml_data_new_obj(&content, 1);
+    t_json_media_object_to_yaml(&obj->json_content, &data);
+    yaml_obj_add_field(&content, LSTR("application/json"), data);
+
+    t_yaml_data_new_obj(out, 2);
+    yaml_data_set_string(&data, obj->description);
+    yaml_obj_add_field(out, LSTR("description"), data);
+    yaml_obj_add_field(out, LSTR("content"), content);
+}
+
+/* }}} */
+/* {{{ Operation object */
+
+typedef struct operation_object_t {
+    lstr_t summary;
+    lstr_t description;
+
+    /* shortcut for requestBody.content with application/json */
+    json_media_object_t json_body_content;
+
+    /* shortcut for responses.200 */
+    json_response_object_t ok_response;
+
+    /* shortcut for responses.default.content with application/json */
+    json_response_object_t fail_response;
+} operation_object_t;
+
+static void
+t_request_body_to_yaml(const json_media_object_t * nonnull obj,
+                       yaml_data_t * nonnull out)
+{
+    yaml_data_t data;
+    yaml_data_t content;
+
+    t_yaml_data_new_obj(out, 2);
+
+    yaml_data_set_bool(&data, true);
+    yaml_obj_add_field(out, LSTR("required"), data);
+
+    t_yaml_data_new_obj(&content, 1);
+    t_json_media_object_to_yaml(obj, &data);
+    yaml_obj_add_field(&content, LSTR("application/json"), data);
+
+    yaml_obj_add_field(out, LSTR("content"), content);
+}
+
+static void
+t_operation_object_to_yaml(const operation_object_t * nonnull obj,
+                            yaml_data_t * nonnull out)
+{
+    yaml_data_t data;
+    yaml_data_t response;
+
+    t_yaml_data_new_obj(out, 4);
+
+    if (obj->summary.s) {
+        yaml_data_set_string(&data, obj->summary);
+        yaml_obj_add_field(out, LSTR("summary"), data);
+    }
+
+    if (obj->description.s) {
+        yaml_data_set_string(&data, obj->description);
+        yaml_obj_add_field(out, LSTR("description"), data);
+    }
+
+    t_request_body_to_yaml(&obj->json_body_content, &data);
+    yaml_obj_add_field(out, LSTR("requestBody"), data);
+
+    t_yaml_data_new_obj(&response, 2);
+    t_json_response_object_to_yaml(&obj->ok_response, &data);
+    /* XXX: the spec mandates use of quotes */
+    yaml_obj_add_field(&response, LSTR("'200'"), data);
+    t_json_response_object_to_yaml(&obj->fail_response, &data);
+    /* XXX: the spec mandates use of quotes */
+    yaml_obj_add_field(&response, LSTR("default"), data);
+    yaml_obj_add_field(out, LSTR("response"), response);
+}
+
+static void
+t_iop_rpc_to_operation_object(const iop_rpc_t *rpc, lstr_t iface_fullname,
+                              qh_t(schemas) *existing_schemas,
+                              qv_t(schema_object) *schemas,
+                              operation_object_t *op)
+{
+    p_clear(op, 1);
+
+    /* FIXME: is this really optional? */
+    if (rpc->args) {
+        t_iop_struct_to_schema_object(rpc->args, existing_schemas, schemas);
+        op->json_body_content.schema.type = TYPE_REF;
+        op->json_body_content.schema.name = rpc->args->fullname;
+    }
+
+    /* FIXME: handle async response */
+    if (rpc->result) {
+        t_iop_struct_to_schema_object(rpc->result, existing_schemas, schemas);
+        op->ok_response.description = LSTR("on success");
+        op->ok_response.json_content.schema.type = TYPE_REF;
+        op->ok_response.json_content.schema.name = rpc->result->fullname;
+    }
+    /* FIXME: handle generic error */
+    if (rpc->exn) {
+        t_iop_struct_to_schema_object(rpc->exn, existing_schemas, schemas);
+        op->fail_response.description = LSTR("on error");
+        op->fail_response.json_content.schema.type = TYPE_REF;
+        op->fail_response.json_content.schema.name = rpc->exn->fullname;
+    }
+}
+
+/* }}} */
+/* {{{ Path item object */
+
+typedef struct path_item_object_t {
+    lstr_t path;
+
+    /* we only support POST operations */
+    operation_object_t post;
+} path_item_object_t;
+qvector_t(path, path_item_object_t);
+
+static void
+t_path_item_object_to_yaml(const path_item_object_t * nonnull obj,
+                           yaml_data_t * nonnull out)
+{
+    yaml_data_t data;
+
+    t_yaml_data_new_obj(out, 1);
+    t_operation_object_to_yaml(&obj->post, &data);
+    yaml_obj_add_field(out, LSTR("post"), data);
+}
+
+static void
+t_paths_to_yaml(const qv_t(path) * nonnull paths, yaml_data_t * nonnull out)
+{
+    t_yaml_data_new_obj(out, paths->len);
+    tab_for_each_ptr(path_item, paths) {
+        yaml_data_t elem;
+
+        t_path_item_object_to_yaml(path_item, &elem);
+        yaml_obj_add_field(out, path_item->path, elem);
+    }
+}
+
+static void
+t_iop_rpc_append_path(const iop_rpc_t *rpc, const iop_iface_alias_t *alias,
+                      lstr_t product_name, qh_t(schemas) *existing_schemas,
+                      qv_t(schema_object) *schemas, qv_t(path) *paths)
+{
+    path_item_object_t *obj = qv_growlen0(paths, 1);
+
+    obj->path = t_lstr_fmt("/%pL/%pL/%pL", &product_name, &alias->name,
+                           &rpc->name);
+    t_iop_rpc_to_operation_object(rpc, alias->iface->fullname,
+                                  existing_schemas, schemas, &obj->post);
+}
+
+static void
+t_iop_iface_alias_append_paths(const iop_iface_alias_t *alias,
+                               lstr_t product_name,
+                               qh_t(schemas) *existing_schemas,
+                               qv_t(schema_object) *schemas,
+                               qv_t(path) *paths)
+{
+    for (int j = 0; j < alias->iface->funs_len; j++) {
+        const iop_rpc_t *rpc = &alias->iface->funs[j];
+        const unsigned rpc_flags = rpc->flags;
+
+        /* ignore rpc, will be taken into account in the following HAS_ALIAS
+         * loop */
+        if (TST_BIT(&rpc_flags, IOP_RPC_IS_ALIAS)) {
+            continue;
+        }
+
+        t_iop_rpc_append_path(rpc, alias, product_name, existing_schemas,
+                              schemas, paths);
+
+        /* loop on rpc aliases */
+        if (TST_BIT(&rpc_flags, IOP_RPC_HAS_ALIAS)) {
+            const iop_rpc_attrs_t *attrs;
+
+            attrs = iop_rpc_get_attrs(alias->iface, rpc);
+            for (int k = 0; k < attrs->attrs_len; k++) {
+                const iop_rpc_attr_t attr = attrs->attrs[k];
+
+                if (attr.type == IOP_RPC_ALIAS) {
+                    const iop_rpc_attr_arg_t arg = attr.args[0];
+                    const iop_rpc_t *falias = (const iop_rpc_t *)arg.v.p;
+
+                    t_iop_rpc_append_path(falias, alias, product_name,
+                                          existing_schemas, schemas, paths);
+                }
+            }
+        }
+    }
+}
+
+static void
+t_iop_mod_append_paths(const iop_mod_t *mod, lstr_t product_name,
+                       qh_t(schemas) *existing_schemas,
+                       qv_t(schema_object) *schemas, qv_t(path) *paths)
+{
+    for (int i = 0; i < mod->ifaces_len; i++) {
+        t_iop_iface_alias_append_paths(&mod->ifaces[i], product_name,
+                                       existing_schemas, schemas, paths);
+    }
+}
+
+/* }}} */
 /* {{{ Components object */
 
 typedef struct components_object_t {
@@ -868,10 +1112,22 @@ MODULE_END()
 /* {{{ Helpers */
 
 static int
+t_z_load_openapi_file(const char *filename, lstr_t *file)
+{
+    const char *path;
+
+    path = t_fmt("%pL/test-data/openapi/%s", &z_cmddir_g, filename);
+    Z_ASSERT_N(lstr_init_from_file(file, path, PROT_READ, MAP_SHARED));
+    /* remove last newline from file */
+    file->len--;
+
+    Z_HELPER_END;
+}
+
+static int
 z_check_yaml(const iop_openapi_t *openapi, const char *filename)
 {
     t_scope;
-    const char *path;
     yaml_data_t data;
     lstr_t file;
     SB_1k(sb);
@@ -879,11 +1135,7 @@ z_check_yaml(const iop_openapi_t *openapi, const char *filename)
     t_iop_openapi_to_yaml(openapi, &data);
     yaml_pack_sb(&data, &sb);
 
-    path = t_fmt("%pL/test-data/openapi/%s", &z_cmddir_g, filename);
-    Z_ASSERT_N(lstr_init_from_file(&file, path, PROT_READ, MAP_SHARED));
-    /* remove last newline from file */
-    file.len--;
-
+    Z_HELPER_RUN(t_z_load_openapi_file(filename, &file));
     Z_ASSERT_LSTREQUAL(file, LSTR_SB_V(&sb));
 
     Z_HELPER_END;
@@ -893,7 +1145,6 @@ static int
 z_check_schemas(const qv_t(schema_object) *schemas, const char *filename)
 {
     t_scope;
-    const char *path;
     yaml_data_t data;
     lstr_t file;
     SB_1k(sb);
@@ -908,11 +1159,38 @@ z_check_schemas(const qv_t(schema_object) *schemas, const char *filename)
 
     yaml_pack_sb(&data, &sb);
 
-    path = t_fmt("%pL/test-data/openapi/%s", &z_cmddir_g, filename);
-    Z_ASSERT_N(lstr_init_from_file(&file, path, PROT_READ, MAP_SHARED));
-    /* remove last newline from file */
-    file.len--;
+    Z_HELPER_RUN(t_z_load_openapi_file(filename, &file));
+    Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), file);
 
+    Z_HELPER_END;
+}
+
+static int
+z_check_mod(const qv_t(schema_object) *schemas, const qv_t(path) *paths,
+            const char *filename)
+{
+    t_scope;
+    yaml_data_t data;
+    yaml_data_t root;
+    lstr_t file;
+    SB_1k(sb);
+
+    t_yaml_data_new_obj(&data, schemas->len);
+    tab_for_each_ptr(schema, schemas) {
+        yaml_data_t elem;
+
+        t_schema_object_to_yaml(schema, &elem);
+        yaml_obj_add_field(&data, schema->name, elem);
+    }
+
+    t_yaml_data_new_obj(&root, 2);
+    yaml_obj_add_field(&root, LSTR("schemas"), data);
+    t_paths_to_yaml(paths, &data);
+    yaml_obj_add_field(&root, LSTR("paths"), data);
+
+    yaml_pack_sb(&root, &sb);
+
+    Z_HELPER_RUN(t_z_load_openapi_file(filename, &file));
     Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), file);
 
     Z_HELPER_END;
@@ -985,6 +1263,30 @@ Z_GROUP_EXPORT(iop_openapi)
         t_iop_struct_to_schema_object(&tstiop__constraint_d__s,
                                       &existing, &schemas);
         Z_HELPER_RUN(z_check_schemas(&schemas, "constraints.yml"));
+    } Z_TEST_END;
+
+    Z_TEST(iop_mod, "test paths generation of IOP modules") {
+        t_scope;
+        qh_t(schemas) existing;
+        qv_t(schema_object) schemas;
+        qv_t(path) paths;
+
+        t_qh_init(schemas, &existing, 0);
+        t_qv_init(&schemas, 0);
+        t_qv_init(&paths, 0);
+
+        /* check that it also generates schemas */
+        t_iop_mod_append_paths(tstiop__t__modp, LSTR("yay"), &existing,
+                               &schemas, &paths);
+        Z_HELPER_RUN(z_check_mod(&schemas, &paths, "iface_t.yml"));
+
+        qv_clear(&paths);
+        t_iop_mod_append_paths(tstiop__my_mod_a__modp, LSTR("yay"), &existing,
+                               &schemas, &paths);
+        /* XXX erase schemas, we only want to check the rpcs, without getting
+         * flooded by the schemas descriptions */
+        qv_clear(&schemas);
+        Z_HELPER_RUN(z_check_mod(&schemas, &paths, "iface_a.yml"));
     } Z_TEST_END;
 
     MODULE_RELEASE(iop_openapi);

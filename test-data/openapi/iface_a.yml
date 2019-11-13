@@ -1,0 +1,338 @@
+schemas: ~
+paths:
+  /yay/a/funA:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyIfaceA.funAArgs"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funARes"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funb:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funbRes"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funC:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyStructA"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyStructB"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funD:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyStructA"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funE:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funERes"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funF:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyIfaceA.funFArgs"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyStructB"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funG:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funH:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funI:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funJ:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funK:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyStructA"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funKRes"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funL:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyUnionA"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+  /yay/a/funM:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyStructA"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funMRes"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funMExn"
+  /yay/a/funN:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyStructA"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funNRes"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyAException"
+  /yay/a/funO:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyStructA"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funORes"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyExceptions"
+  /yay/a/funAsync:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyIfaceA.funAsyncArgs"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"

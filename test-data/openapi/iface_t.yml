@@ -1,0 +1,45 @@
+schemas:
+  tstiop.Iface.fArgs:
+    type: object
+    required:
+      - i
+    properties:
+      i:
+        type: integer
+        format: int32
+        minimum: -2147483648
+        maximum: 2147483647
+  tstiop.Iface.fRes:
+    type: object
+    required:
+      - i
+    properties:
+      i:
+        type: integer
+        format: int32
+        minimum: -2147483648
+        maximum: 2147483647
+  Void:
+    type: object
+paths:
+  /yay/iface/f:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.Iface.fArgs"
+      response:
+        '200':
+          description: on success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.Iface.fRes"
+        default:
+          description: on error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
