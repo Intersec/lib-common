@@ -19,8 +19,6 @@ schemas:
         format: int32
         minimum: -2147483648
         maximum: 2147483647
-  Void:
-    type: object
 paths:
   /yay/iface/f:
     post:
@@ -32,14 +30,14 @@ paths:
               $ref: "#/components/schemas/tstiop.Iface.fArgs"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.Iface.fRes"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string

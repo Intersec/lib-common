@@ -10,17 +10,17 @@ paths:
               $ref: "#/components/schemas/tstiop.MyIfaceA.funAArgs"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyIfaceA.funARes"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funb:
     post:
       requestBody:
@@ -31,17 +31,17 @@ paths:
               $ref: "#/components/schemas/Void"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyIfaceA.funbRes"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funC:
     post:
       requestBody:
@@ -52,17 +52,17 @@ paths:
               $ref: "#/components/schemas/tstiop.MyStructA"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyStructB"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funD:
     post:
       requestBody:
@@ -73,17 +73,17 @@ paths:
               $ref: "#/components/schemas/Void"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyStructA"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funE:
     post:
       requestBody:
@@ -94,17 +94,17 @@ paths:
               $ref: "#/components/schemas/Void"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyIfaceA.funERes"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funF:
     post:
       requestBody:
@@ -115,17 +115,17 @@ paths:
               $ref: "#/components/schemas/tstiop.MyIfaceA.funFArgs"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyStructB"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funG:
     post:
       requestBody:
@@ -136,17 +136,17 @@ paths:
               $ref: "#/components/schemas/Void"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Void"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funH:
     post:
       requestBody:
@@ -157,17 +157,17 @@ paths:
               $ref: "#/components/schemas/Void"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Void"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funI:
     post:
       requestBody:
@@ -178,17 +178,17 @@ paths:
               $ref: "#/components/schemas/Void"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Void"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funJ:
     post:
       requestBody:
@@ -199,17 +199,17 @@ paths:
               $ref: "#/components/schemas/Void"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Void"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funK:
     post:
       requestBody:
@@ -220,17 +220,17 @@ paths:
               $ref: "#/components/schemas/tstiop.MyStructA"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyIfaceA.funKRes"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funL:
     post:
       requestBody:
@@ -241,17 +241,17 @@ paths:
               $ref: "#/components/schemas/tstiop.MyUnionA"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Void"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string
   /yay/a/funM:
     post:
       requestBody:
@@ -262,17 +262,23 @@ paths:
               $ref: "#/components/schemas/tstiop.MyStructA"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyIfaceA.funMRes"
-        default:
-          description: on error
+        '500':
+          description: RPC error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyIfaceA.funMExn"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
   /yay/a/funN:
     post:
       requestBody:
@@ -283,17 +289,23 @@ paths:
               $ref: "#/components/schemas/tstiop.MyStructA"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyIfaceA.funNRes"
-        default:
-          description: on error
+        '500':
+          description: RPC error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyAException"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
   /yay/a/funO:
     post:
       requestBody:
@@ -304,17 +316,23 @@ paths:
               $ref: "#/components/schemas/tstiop.MyStructA"
       response:
         '200':
-          description: on success
+          description: RPC success
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyIfaceA.funORes"
-        default:
-          description: on error
+        '500':
+          description: RPC error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/tstiop.MyExceptions"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
   /yay/a/funAsync:
     post:
       requestBody:
@@ -324,15 +342,9 @@ paths:
             schema:
               $ref: "#/components/schemas/tstiop.MyIfaceA.funAsyncArgs"
       response:
-        '200':
-          description: on success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Void"
         default:
-          description: on error
+          description: generic error
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: "#/components/schemas/Void"
+                type: string

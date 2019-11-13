@@ -784,6 +784,34 @@ t_json_response_object_to_yaml(const json_response_object_t * nonnull obj,
     yaml_obj_add_field(out, LSTR("content"), content);
 }
 
+typedef struct html_response_object_t {
+    lstr_t description;
+} html_response_object_t;
+
+static void
+t_html_response_object_to_yaml(const html_response_object_t * nonnull obj,
+                               yaml_data_t * nonnull out)
+{
+    yaml_data_t html_media;
+    yaml_data_t data;
+    yaml_data_t content;
+    schema_object_t schema;
+
+    p_clear(&schema, 1);
+    schema.type = TYPE_STRING;
+    t_schema_object_to_yaml(&schema, &data);
+    t_yaml_data_new_obj(&html_media, 1);
+    yaml_obj_add_field(&html_media, LSTR("schema"), data);
+
+    t_yaml_data_new_obj(&content, 1);
+    yaml_obj_add_field(&content, LSTR("text/html"), html_media);
+
+    t_yaml_data_new_obj(out, 2);
+    yaml_data_set_string(&data, obj->description);
+    yaml_obj_add_field(out, LSTR("description"), data);
+    yaml_obj_add_field(out, LSTR("content"), content);
+}
+
 /* }}} */
 /* {{{ Operation object */
 
@@ -795,10 +823,13 @@ typedef struct operation_object_t {
     json_media_object_t json_body_content;
 
     /* shortcut for responses.200 */
-    json_response_object_t ok_response;
+    json_response_object_t * nullable ok_response;
 
-    /* shortcut for responses.default.content with application/json */
-    json_response_object_t fail_response;
+    /* shortcut for responses.500 */
+    json_response_object_t * nullable exn_response;
+
+    /* shortcut for responses.default */
+    html_response_object_t default_response;
 } operation_object_t;
 
 static void
@@ -843,11 +874,19 @@ t_operation_object_to_yaml(const operation_object_t * nonnull obj,
     yaml_obj_add_field(out, LSTR("requestBody"), data);
 
     t_yaml_data_new_obj(&response, 2);
-    t_json_response_object_to_yaml(&obj->ok_response, &data);
-    /* XXX: the spec mandates use of quotes */
-    yaml_obj_add_field(&response, LSTR("'200'"), data);
-    t_json_response_object_to_yaml(&obj->fail_response, &data);
-    /* XXX: the spec mandates use of quotes */
+    if (obj->ok_response) {
+        t_json_response_object_to_yaml(obj->ok_response, &data);
+        /* XXX: the spec mandates use of quotes */
+        yaml_obj_add_field(&response, LSTR("'200'"), data);
+    }
+
+    if (obj->exn_response) {
+        t_json_response_object_to_yaml(obj->exn_response, &data);
+        /* XXX: the spec mandates use of quotes */
+        yaml_obj_add_field(&response, LSTR("'500'"), data);
+    }
+
+    t_html_response_object_to_yaml(&obj->default_response, &data);
     yaml_obj_add_field(&response, LSTR("default"), data);
     yaml_obj_add_field(out, LSTR("response"), response);
 }
@@ -860,27 +899,39 @@ t_iop_rpc_to_operation_object(const iop_rpc_t *rpc, lstr_t iface_fullname,
 {
     p_clear(op, 1);
 
-    /* FIXME: is this really optional? */
-    if (rpc->args) {
-        t_iop_struct_to_schema_object(rpc->args, existing_schemas, schemas);
-        op->json_body_content.schema.type = TYPE_REF;
-        op->json_body_content.schema.name = rpc->args->fullname;
+    /* RPC that do not have any arguments still uses the "Void" type.
+     * Calling an RPC always requires a JSON payload, even if it is only '{}',
+     * so we still add the body content. */
+    assert (rpc->args);
+    t_iop_struct_to_schema_object(rpc->args, existing_schemas, schemas);
+    op->json_body_content.schema.type = TYPE_REF;
+    op->json_body_content.schema.name = rpc->args->fullname;
+
+    /* async response means no success response */
+    if (!rpc->async) {
+        op->ok_response = t_new(json_response_object_t, 1);
+        t_iop_struct_to_schema_object(rpc->result, existing_schemas, schemas);
+        op->ok_response->description = LSTR("RPC success");
+        op->ok_response->json_content.schema.type = TYPE_REF;
+        op->ok_response->json_content.schema.name = rpc->result->fullname;
     }
 
-    /* FIXME: handle async response */
-    if (rpc->result) {
-        t_iop_struct_to_schema_object(rpc->result, existing_schemas, schemas);
-        op->ok_response.description = LSTR("on success");
-        op->ok_response.json_content.schema.type = TYPE_REF;
-        op->ok_response.json_content.schema.name = rpc->result->fullname;
-    }
-    /* FIXME: handle generic error */
-    if (rpc->exn) {
+    if (rpc->exn != &iop__void__s) {
+        op->exn_response = t_new(json_response_object_t, 1);
         t_iop_struct_to_schema_object(rpc->exn, existing_schemas, schemas);
-        op->fail_response.description = LSTR("on error");
-        op->fail_response.json_content.schema.type = TYPE_REF;
-        op->fail_response.json_content.schema.name = rpc->exn->fullname;
+        op->exn_response->description = LSTR("RPC error");
+        op->exn_response->json_content.schema.type = TYPE_REF;
+        op->exn_response->json_content.schema.name = rpc->exn->fullname;
     }
+
+    /* in any case, every RPC can throw in generic fashion:
+     * 404: route not found
+     * 400: bad json
+     * etc
+     * In which case, HTML is returned.
+     */
+    /* TODO: properly describe the different html codes */
+    op->default_response.description = LSTR("generic error");
 }
 
 /* }}} */
