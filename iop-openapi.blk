@@ -84,6 +84,15 @@ struct schema_object_t {
     opt_i64_t minimum;
     opt_i64_t maximum;
     bool _nullable;
+
+    /* for strings */
+    opt_i64_t max_length;
+    opt_i64_t min_length;
+    lstr_t pattern;
+
+    /* for arrays */
+    opt_i64_t min_items;
+    opt_i64_t max_items;
 };
 qvector_t(schema_object, schema_object_t);
 qh_kvec_t(schemas, lstr_t, qhash_lstr_hash, qhash_lstr_equal);
@@ -228,13 +237,13 @@ apply_raw_field_constraints(const iop_field_attrs_t *attrs,
             }
             break;
           case IOP_FIELD_MIN_LENGTH:
-            /* TODO */
+            OPT_SET(schema->min_length, attr->args[0].v.i64);
             break;
           case IOP_FIELD_MAX_LENGTH:
-            /* TODO */
+            OPT_SET(schema->max_length, attr->args[0].v.i64);
             break;
           case IOP_FIELD_PATTERN:
-            /* TODO */
+            schema->pattern = attr->args[0].v.s;
             break;
           default:
             break;
@@ -248,8 +257,10 @@ apply_raw_field_constraints(const iop_field_attrs_t *attrs,
             OPT_SET(schema->minimum, 1);
         }
     }
-    if (TST_BIT(&attrs->flags, IOP_FIELD_NON_EMPTY)) {
-        /* TODO */
+    if (TST_BIT(&attrs->flags, IOP_FIELD_NON_EMPTY)
+    &&  !OPT_ISSET(schema->min_length))
+    {
+        OPT_SET(schema->min_length, 1);
     }
 }
 
@@ -263,16 +274,15 @@ apply_array_field_constraints(const iop_field_attrs_t *attrs,
 
         switch (attr->type) {
           case IOP_FIELD_MIN_OCCURS:
-            /* TODO */
+            OPT_SET(schema->min_items, attr->args[0].v.i64);
             break;
           case IOP_FIELD_MAX_OCCURS:
-            /* TODO */
+            OPT_SET(schema->max_items, attr->args[0].v.i64);
             break;
           default:
             break;
         }
     }
-
 }
 
 static schema_object_t *
@@ -376,15 +386,15 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
     return schema;
 }
 
-static bool field_is_required(const iop_field_t *desc)
+static bool field_is_required(const iop_field_t *desc,
+                              const schema_object_t *schema)
 {
     switch (desc->repeat) {
       case IOP_R_OPTIONAL:
       case IOP_R_DEFVAL:
         return false;
       case IOP_R_REPEATED:
-        /* TODO: check minOccurs ? */
-        return false;
+        return OPT_DEFVAL(schema->min_items, 0) > 0;
       case IOP_R_REQUIRED:
         return desc->type != IOP_T_STRUCT
             || !iop_struct_is_optional(desc->u1.st_desc, true);
@@ -483,7 +493,7 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
         prop->field_name = field_desc->name;
         prop->schema = field_schema;
 
-        if (field_is_required(field_desc)) {
+        if (field_is_required(field_desc, field_schema)) {
             qv_append(&obj->required, prop->field_name);
         }
     }
@@ -656,6 +666,31 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
     if (obj->_nullable) {
         yaml_data_set_bool(&data, true);
         yaml_obj_add_field(out, LSTR("nullable"), data);
+    }
+
+    if (OPT_ISSET(obj->min_length)) {
+        yaml_data_set_int(&data, OPT_VAL(obj->min_length));
+        yaml_obj_add_field(out, LSTR("minLength"), data);
+    }
+
+    if (OPT_ISSET(obj->max_length)) {
+        yaml_data_set_int(&data, OPT_VAL(obj->max_length));
+        yaml_obj_add_field(out, LSTR("maxLength"), data);
+    }
+
+    if (obj->pattern.s) {
+        yaml_data_set_string(&data, obj->pattern);
+        yaml_obj_add_field(out, LSTR("pattern"), data);
+    }
+
+    if (OPT_ISSET(obj->min_items)) {
+        yaml_data_set_int(&data, OPT_VAL(obj->min_items));
+        yaml_obj_add_field(out, LSTR("minItems"), data);
+    }
+
+    if (OPT_ISSET(obj->max_items)) {
+        yaml_data_set_int(&data, OPT_VAL(obj->max_items));
+        yaml_obj_add_field(out, LSTR("maxItems"), data);
     }
 }
 
