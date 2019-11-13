@@ -27,7 +27,35 @@
  * for a better understanding of the different objects.
  */
 
+/* {{{ Utils */
+
+static lstr_t
+t_iop_help_to_string(const iop_help_t * nonnull help, bool ignore_brief)
+{
+    t_SB_1k(sb);
+
+    if (help->brief.s && !ignore_brief) {
+        sb_add_lstr(&sb, help->brief);
+    }
+    if (help->details.s) {
+        if (sb.len > 0) {
+            sb_adds(&sb, "\n\n");
+        }
+        sb_add_lstr(&sb, help->details);
+    }
+    if (help->warning.s) {
+        if (sb.len > 0) {
+            sb_adds(&sb, "\n\n");
+        }
+        sb_add_lstr(&sb, help->warning);
+    }
+
+    return sb.len > 0 ? LSTR_SB_V(&sb) : LSTR_NULL_V;
+}
+
+/* }}} */
 /* {{{ Schema object */
+/* {{{ Definitions */
 
 typedef enum openapi_type_t {
     TYPE_NONE,
@@ -79,6 +107,8 @@ struct schema_object_t {
     lstr_t name;
 
     openapi_type_t type;
+    lstr_t description;
+    lstr_t example;
 
     /* for arrays */
     schema_object_t *items;
@@ -124,12 +154,97 @@ add_schema_object(lstr_t name, openapi_type_t type,
     return obj;
 }
 
+/* }}} */
+/* {{{ Help */
+
+static void
+get_enum_help(const iop_enum_t * nonnull en,
+              const iop_help_t * nullable * nonnull help,
+              bool * nonnull is_v2)
+{
+    *help = NULL;
+
+    if (!TST_BIT(&en->flags, IOP_ENUM_EXTENDED) || !en->en_attrs) {
+        return;
+    }
+
+    for (int k = 0; k < en->en_attrs->attrs_len; k++) {
+        const iop_enum_attr_t *attr = &en->en_attrs->attrs[k];
+
+        switch (attr->type) {
+          case IOP_ENUM_ATTR_HELP:
+            *help = attr->args[0].v.p;
+            *is_v2 = false;
+            return;
+          case IOP_ENUM_ATTR_HELP_V2:
+            *help = attr->args[0].v.p;
+            *is_v2 = true;
+            return;
+          default:
+            break;
+        }
+    }
+}
+
+static void
+get_struct_help(const iop_struct_t * nonnull st,
+                const iop_help_t * nullable * nonnull help,
+                bool * nonnull is_v2)
+{
+    unsigned flags = st->flags;
+
+    *help = NULL;
+
+    if (!TST_BIT(&flags, IOP_STRUCT_EXTENDED) || !st->st_attrs) {
+        return;
+    }
+
+    for (int k = 0; k < st->st_attrs->attrs_len; k++) {
+        const iop_struct_attr_t *attr = &st->st_attrs->attrs[k];
+
+        switch (attr->type) {
+          case IOP_STRUCT_ATTR_HELP:
+            *help = attr->args[0].v.p;
+            *is_v2 = false;
+            return;
+          case IOP_STRUCT_ATTR_HELP_V2:
+            *help = attr->args[0].v.p;
+            *is_v2 = true;
+            return;
+          default:
+            break;
+        }
+    }
+}
+
+static void add_struct_help(const iop_struct_t * nonnull st,
+                            schema_object_t * nonnull schema)
+{
+    const iop_help_t *help;
+    bool is_v2;
+
+    get_struct_help(st, &help, &is_v2);
+    if (!help) {
+        return;
+    }
+
+    schema->description = t_iop_help_to_string(help, false);
+    if (is_v2) {
+        schema->example = help->example;
+    }
+}
+
+/* }}} */
+/* {{{ Enums */
+
 static void
 t_iop_enum_to_schema_object(const iop_enum_t *en,
                             qh_t(schemas) *existing_schemas,
                             qv_t(schema_object) *schemas)
 {
     schema_object_t *obj;
+    const iop_help_t *help;
+    bool is_v2;
 
     if (qh_add(schemas, existing_schemas, &en->fullname) < 0) {
         return;
@@ -140,7 +255,18 @@ t_iop_enum_to_schema_object(const iop_enum_t *en,
     for (int i = 0; i < en->enum_len; i++) {
         qv_append(&obj->enum_values, en->names[i]);
     }
+
+    get_enum_help(en, &help, &is_v2);
+    if (help) {
+        obj->description = t_iop_help_to_string(help, false);
+        if (is_v2) {
+            obj->example = help->example;
+        }
+    }
 }
+
+/* }}} */
+/* {{{ Struct */
 
 static void
 t_iop_struct_to_schema_object(const iop_struct_t *st,
@@ -439,6 +565,7 @@ t_iop_union_to_schema_object(const iop_struct_t *st,
     schema_object_t *obj;
 
     obj = add_schema_object(st->fullname, TYPE_NONE, schemas);
+    add_struct_help(st, obj);
     t_qv_init(&obj->one_of, st->fields_len);
 
     iop_struct_for_each_field(field_desc, field_st, st) {
@@ -490,6 +617,7 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
 
     obj = t_new(schema_object_t, 1);
     obj->type = TYPE_OBJECT;
+    add_struct_help(st, obj);
     t_qv_init(&obj->required, st->fields_len);
     t_qv_init(&obj->properties, st->fields_len + 1);
 
@@ -547,6 +675,9 @@ t_iop_struct_to_schema_object(const iop_struct_t *st,
         qv_append(schemas, *obj);
     }
 }
+
+/* }}} */
+/* {{{ Conversion to yaml */
 
 static void
 t_schema_object_to_yaml(const schema_object_t * nonnull obj,
@@ -651,6 +782,11 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
         yaml_obj_add_field(out, LSTR("format"), data);
     }
 
+    if (obj->description.s) {
+        yaml_data_set_string(&data, obj->description);
+        yaml_obj_add_field(out, LSTR("description"), data);
+    }
+
     if (obj->items) {
         t_schema_object_to_yaml(obj->items, &data);
         yaml_obj_add_field(out, LSTR("items"), data);
@@ -735,8 +871,15 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
         yaml_data_set_int(&data, OPT_VAL(obj->max_items));
         yaml_obj_add_field(out, LSTR("maxItems"), data);
     }
+
+    if (obj->example.s) {
+        yaml_data_set_string(&data, obj->example);
+        yaml_obj_add_field(out, LSTR("example"), data);
+    }
+
 }
 
+/* }}} */
 /* }}} */
 /* {{{ Media object */
 
@@ -971,30 +1114,6 @@ get_rpc_help(const iop_rpc_t * nonnull rpc, const iop_iface_t * nonnull iface,
             break;
         }
     }
-}
-
-static lstr_t
-t_iop_help_to_string(const iop_help_t * nonnull help, bool ignore_brief)
-{
-    t_SB_1k(sb);
-
-    if (help->brief.s && !ignore_brief) {
-        sb_add_lstr(&sb, help->brief);
-    }
-    if (help->details.s) {
-        if (sb.len > 0) {
-            sb_adds(&sb, "\n\n");
-        }
-        sb_add_lstr(&sb, help->details);
-    }
-    if (help->warning.s) {
-        if (sb.len > 0) {
-            sb_adds(&sb, "\n\n");
-        }
-        sb_add_lstr(&sb, help->warning);
-    }
-
-    return sb.len > 0 ? LSTR_SB_V(&sb) : LSTR_NULL_V;
 }
 
 static void

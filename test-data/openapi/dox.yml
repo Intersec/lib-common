@@ -6,12 +6,14 @@ components:
   schemas:
     tstiop_dox.MyEnum:
       type: string
+      description: "comment for MyEnum\n\ndetails for MyEnum \\word not a recognized keyword\n\nwarn for MyEnum"
       enum:
         - VAL_A
         - VAL_B
         - VAL_C
     tstiop_dox.MyStruct:
       type: object
+      description: comment for MyStruct
       required:
         - fieldA
         - fieldB
@@ -31,6 +33,7 @@ components:
           maximum: 2147483647
     tstiop_dox.MyIface.funAArgs:
       type: object
+      description: local comment for MyIface.funA.in
       required:
         - aParam
         - b
@@ -42,6 +45,7 @@ components:
           maximum: 2147483647
         b:
           $ref: "#/components/schemas/tstiop_dox.MyStruct"
+      example: "{\"aParam\":1,\"b\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13}}"
     tstiop_dox.MyClass:
       type: object
       properties:
@@ -51,6 +55,7 @@ components:
         propertyName: _class
     tstiop_dox.MyIface.funARes:
       type: object
+      description: local comment for MyIface.funA.out
       required:
         - d
       properties:
@@ -64,8 +69,10 @@ components:
           format: int32
           minimum: -2147483648
           maximum: 2147483647
+      example: "{\"c\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13},\"d\":4}"
     tstiop_dox.MyIface.funAaArgs:
       type: object
+      description: comment for MyIface.funAa.in
       required:
         - a
       properties:
@@ -86,6 +93,7 @@ components:
           maximum: 2147483647
     tstiop_dox.MyIface.funBArgs:
       type: object
+      description: comment for MyIface.funB.in
       required:
         - a
       properties:
@@ -96,6 +104,7 @@ components:
           maximum: 2147483647
     tstiop_dox.MyIface.funBal1Args:
       type: object
+      description: comment for MyIface.funB.in
       required:
         - a
       properties:
@@ -106,6 +115,7 @@ components:
           maximum: 2147483647
     tstiop_dox.MyIface.funBal2Args:
       type: object
+      description: comment for MyIface.funB.in
       required:
         - a
       properties:
@@ -128,6 +138,7 @@ components:
       type: object
     tstiop_dox.MyIface.funDRes:
       type: object
+      description: front comment... and back comment for res of funD
       required:
         - b
       properties:
