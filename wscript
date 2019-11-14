@@ -89,17 +89,17 @@ def configure(ctx):
     ctx.check_cfg(package='valgrind', uselib_store='valgrind',
                   args=['--cflags'])
 
-    # libsctp-dev
-    sctp_h = '/usr/include/netinet/sctp.h'
+    # Linux UAPI SCTP header
+    sctp_h = '/usr/include/linux/sctp.h'
     if os.path.exists(sctp_h):
-        ctx.env.HAVE_NETINET_SCTP_H = True
-        netinet_sctp_flag = '-DHAVE_NETINET_SCTP_H'
-        ctx.env.CFLAGS.append(netinet_sctp_flag)
-        ctx.env.CLANG_FLAGS.append(netinet_sctp_flag)
-        ctx.env.CLANG_REWRITE_FLAGS.append(netinet_sctp_flag)
-        ctx.msg('Checking for libsctp-dev', sctp_h)
+        sctp_flag = '-DHAVE_LINUX_UAPI_SCTP_H'
+        ctx.env.CFLAGS.append(sctp_flag)
+        ctx.env.CLANG_FLAGS.append(sctp_flag)
+        ctx.env.CLANG_REWRITE_FLAGS.append(sctp_flag)
+        ctx.msg('Checking for Linux UAPI SCTP header', sctp_h)
     else:
-        Logs.warn('missing libsctp, apt-get install libsctp-dev')
+        Logs.info('missing Linux UAPI SCTP header,'
+                  ' it will be replaced by a custom one')
 
     # {{{ Python 2
 
@@ -124,7 +124,7 @@ def configure(ctx):
     ctx.env.append_unique('CFLAGS_python2', py_cflags.strip().split(' '))
 
     py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON2_CONFIG + ['--ldflags'])
-    ctx.env.append_unique('LDFLAGS_python2', py_ldflags.strip().split(' '))
+    ctx.env.append_unique('LINKFLAGS_python2', py_ldflags.strip().split(' '))
 
     # }}}
     # {{{ Python 3
@@ -139,7 +139,7 @@ def configure(ctx):
         ctx.env.append_unique('CFLAGS_python3', py_cflags.strip().split(' '))
 
         py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--ldflags'])
-        ctx.env.append_unique('LDFLAGS_python3',
+        ctx.env.append_unique('LINKFLAGS_python3',
                               py_ldflags.strip().split(' '))
 
     # }}}
@@ -381,6 +381,7 @@ def build(ctx):
 
             'net-addr.c',
             'net-socket.c',
+            'net-sctp.c',
             'net-rate.blk',
 
             'property.c',
@@ -401,8 +402,6 @@ def build(ctx):
             'zlib-wrapper.c',
         ]
     )
-    if ctx.env.HAVE_NETINET_SCTP_H:
-        libcommon.source.append('net-sctp.c')
 
     # }}}
 
