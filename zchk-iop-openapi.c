@@ -44,8 +44,9 @@ z_check_yaml(iop_openapi_t *openapi, const char *filename,
     yaml_data_t data;
     lstr_t file;
     SB_1k(sb);
+    SB_1k(err);
 
-    t_iop_openapi_to_yaml(openapi, &data);
+    Z_ASSERT_N(t_iop_openapi_to_yaml(openapi, &data, &err));
     if (remove_schemas) {
         /* remove the element before the last one */
         qv_splice(&data.obj->fields, data.obj->fields.len - 2, 1, NULL, 0);
@@ -124,6 +125,8 @@ Z_GROUP_EXPORT(iop_openapi)
     Z_TEST(iop_mod, "test paths generation of IOP modules") {
         t_scope;
         iop_openapi_t *oa;
+        yaml_data_t data;
+        SB_1k(err);
 
         /* check that it also generates schemas */
         oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"), LSTR_NULL_V,
@@ -140,6 +143,13 @@ Z_GROUP_EXPORT(iop_openapi)
                                tstiop__my_mod_a__modp);
         t_iop_openapi_whitelist_rpc(oa, LSTR("tstiop.MyIfaceA.funG"));
         Z_HELPER_RUN(z_check_yaml(oa, "iface_a_filtered.yml", false));
+
+        /* test that an unused whitelist will fail the generation */
+        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"), LSTR_NULL_V,
+                               tstiop__my_mod_a__modp);
+        t_iop_openapi_whitelist_rpc(oa, LSTR("invalid_name"));
+        Z_ASSERT_NEG(t_iop_openapi_to_yaml(oa, &data, &err));
+        Z_ASSERT_STREQUAL(err.data, "invalid whitelist");
     } Z_TEST_END;
 
     Z_TEST(dox, "test inclusion of comments documentation") {

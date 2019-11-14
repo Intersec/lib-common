@@ -17,6 +17,7 @@
 /***************************************************************************/
 
 #include "iop-openapi.h"
+#include "log.h"
 
 /* XXX: then OpenAPI specification used is 3.0.2.
  *
@@ -26,6 +27,13 @@
  * https://github.com/OAI/OpenAPI-Specification/blob/3.0.2/versions/3.0.2.md
  * for a better understanding of the different objects.
  */
+
+static struct yaml_g {
+    logger_t logger;
+} yaml_g = {
+#define _G yaml_g
+    .logger = LOGGER_INIT(NULL, "iop-openapi", LOG_INHERITS),
+};
 
 /* {{{ Utils */
 
@@ -1313,6 +1321,8 @@ t_iop_rpc_to_operation_object(const iop_rpc_t *rpc, const iop_iface_t *iface,
 /* }}} */
 /* {{{ Path item object */
 
+qm_kvec_t(whitelist, lstr_t, bool, qhash_lstr_hash, qhash_lstr_equal);
+
 typedef struct path_item_object_t {
     lstr_t path;
 
@@ -1347,24 +1357,33 @@ t_paths_to_yaml(const qv_t(path) * nonnull paths, yaml_data_t * nonnull out)
 static bool
 rpc_is_blacklisted(const iop_iface_t * nonnull iface,
                    const iop_rpc_t * nonnull rpc,
-                   const qh_t(lstr) * nonnull rpcs_whitelist)
+                   qm_t(whitelist) *nonnull rpcs_whitelist)
 {
     t_scope;
     lstr_t fullname;
+    int pos;
 
-    if (qh_len(lstr, rpcs_whitelist) == 0) {
+    if (qm_len(whitelist, rpcs_whitelist) == 0) {
         return false;
     }
 
-    fullname =  t_lstr_fmt("%pL.%pL", &iface->fullname, &rpc->name);
-    return qh_find_safe(lstr, rpcs_whitelist, &fullname) < 0;
+    fullname = t_lstr_fmt("%pL.%pL", &iface->fullname, &rpc->name);
+    pos = qm_find(whitelist, rpcs_whitelist, &fullname);
+    if (pos >= 0) {
+        /* mark the whitelisting as being "used", so that we can track which
+         * one were not used, which is not supposed to happen. */
+        rpcs_whitelist->values[pos] = true;
+        return false;
+    } else {
+        return true;
+    }
 }
 
 static void
 t_iop_rpc_append_path(const iop_rpc_t * nonnull rpc,
                       const iop_iface_alias_t * nonnull alias,
                       lstr_t product_name,
-                      const qh_t(lstr) * nonnull rpcs_whitelist,
+                      qm_t(whitelist) * nonnull rpcs_whitelist,
                       qh_t(schemas) * nonnull existing_schemas,
                       qv_t(schema_object) * nonnull schemas,
                       qv_t(path) * nonnull paths)
@@ -1385,7 +1404,7 @@ t_iop_rpc_append_path(const iop_rpc_t * nonnull rpc,
 static void
 t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
                                lstr_t product_name,
-                               const qh_t(lstr) * nonnull rpcs_whitelist,
+                               qm_t(whitelist) * nonnull rpcs_whitelist,
                                qh_t(schemas) * nonnull existing_schemas,
                                qv_t(schema_object) * nonnull schemas,
                                qv_t(path) * nonnull paths)
@@ -1427,7 +1446,7 @@ t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
 static void
 t_iop_mod_append_paths(const iop_mod_t * nonnull mod,
                        lstr_t product_name,
-                       const qh_t(lstr) * nonnull rpcs_whitelist,
+                       qm_t(whitelist) * nonnull rpcs_whitelist,
                        qh_t(schemas) * nonnull existing_schemas,
                        qv_t(schema_object) * nonnull schemas,
                        qv_t(path) * nonnull paths)
@@ -1513,7 +1532,7 @@ struct iop_openapi_t {
     qv_t(path) paths;
 
     /* whitelist of RPCs to expose, in the format "<iface_fullname>.<rpc>" */
-    qh_t(lstr) rpcs_whitelist;
+    qm_t(whitelist) rpcs_whitelist;
 
     const iop_mod_t * nullable module;
 };
@@ -1532,7 +1551,7 @@ iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
     t_components_object_init(&oa->components);
 
     t_qv_init(&oa->paths, 0);
-    t_qh_init(lstr, &oa->rpcs_whitelist, 0);
+    t_qm_init(whitelist, &oa->rpcs_whitelist, 0);
 
     return oa;
 }
@@ -1542,7 +1561,7 @@ void t_iop_openapi_whitelist_rpc(iop_openapi_t *openapi,
 {
     lstr_t name = t_lstr_dup(fullname);
 
-    qh_add(lstr, &openapi->rpcs_whitelist, &name);
+    qm_add(whitelist, &openapi->rpcs_whitelist, &name, false);
 }
 
 void t_iop_openapi_add_struct(iop_openapi_t *openapi, const iop_struct_t *st)
@@ -1551,15 +1570,32 @@ void t_iop_openapi_add_struct(iop_openapi_t *openapi, const iop_struct_t *st)
                                   &openapi->components.schemas);
 }
 
-void t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out)
+int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
+                          sb_t *err)
 {
     yaml_data_t data;
+    bool has_unused_whitelist = false;
 
     if (openapi->module) {
         t_iop_mod_append_paths(openapi->module, openapi->info.title,
                                &openapi->rpcs_whitelist,
                                &openapi->components.existing_schemas,
                                &openapi->components.schemas, &openapi->paths);
+    }
+
+    /* check for whitelisted RPCs that have not been exposed: this indicate
+     * a mistake, so print a log and return an error value. */
+    qm_for_each_key_value(whitelist, name, used, &openapi->rpcs_whitelist) {
+        if (!used) {
+            logger_error(&_G.logger, "RPC `%pL` was whitelisted but has "
+                         "not been exposed, it must be fixed", &name);
+            has_unused_whitelist = true;
+        }
+    }
+
+    if (has_unused_whitelist) {
+        sb_setf(err, "invalid whitelist");
+        return -1;
     }
 
     t_yaml_data_new_obj(out, 0);
@@ -1575,6 +1611,8 @@ void t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out)
 
     t_paths_to_yaml(&openapi->paths, &data);
     yaml_obj_add_field(out, LSTR("paths"), data);
+
+    return 0;
 }
 
 /* }}} */

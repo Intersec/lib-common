@@ -74,6 +74,30 @@ handle_args(int argc, char **argv)
     return dso;
 }
 
+static const iop_mod_t * nullable
+get_iop_module(const iop_dso_t * nonnull dso)
+{
+    lstr_t wanted_module = LSTR(opts_g.module);
+    const iop_mod_t *module = NULL;
+
+    qm_for_each_value(iop_mod, mod, &dso->mod_h) {
+        if (lstr_equal(mod->fullname, wanted_module)) {
+            module = mod;
+            break;
+        }
+    }
+
+    if (!module) {
+        e_error("Could not find the IOP module `%pL` in the DSO. Here are "
+                "the available modules:", &wanted_module);
+        qm_for_each_key(iop_mod, mod_name, &dso->mod_h) {
+            e_error("  `%pL`", &mod_name);
+        }
+    }
+
+    return module;
+}
+
 static int
 t_whitelist_rpcs(iop_openapi_t *oa)
 {
@@ -111,53 +135,48 @@ static int yaml_pack_write_stdout(void * nullable priv,
     return printf("%.*s", len, (const char *)buf);
 }
 
-int main(int argc, char **argv)
+static int
+generate_openapi(const iop_mod_t * nonnull module)
 {
     t_scope;
-    const iop_mod_t *module = NULL;
-    iop_dso_t *dso;
     iop_openapi_t *oa;
     yaml_data_t yaml;
-    int ret = 0;
-    lstr_t wanted_module;
-
-    dso = handle_args(argc, argv);
-    if (!dso) {
-        return -1;
-    }
-
-    wanted_module = LSTR(opts_g.module);
-    qm_for_each_value(iop_mod, mod, &dso->mod_h) {
-        if (lstr_equal(mod->fullname, wanted_module)) {
-            module = mod;
-            break;
-        }
-    }
-    if (!module) {
-        e_error("Could not find the IOP module `%pL` in the DSO. Here are "
-                "the available modules:", &wanted_module);
-        qm_for_each_key(iop_mod, mod_name, &dso->mod_h) {
-            e_error("  `%pL`", &mod_name);
-        }
-        ret = -1;
-        goto end;
-    }
+    SB_1k(err);
 
     oa = t_new_iop_openapi(LSTR(opts_g.title), LSTR(opts_g.version),
                            opts_g.description ? LSTR(opts_g.description)
                                               : LSTR_NULL_V,
                            module);
 
-    if (t_whitelist_rpcs(oa) < 0) {
-        ret = -1;
-        goto end;
+    RETHROW(t_whitelist_rpcs(oa));
+
+    if (t_iop_openapi_to_yaml(oa, &yaml, &err) < 0) {
+        e_error("could not generate the OpenAPI application: %pL", &err);
+        return -1;
     }
 
-    t_iop_openapi_to_yaml(oa, &yaml);
     yaml_pack(&yaml, yaml_pack_write_stdout, NULL);
     printf("\n");
 
-  end:
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    const iop_mod_t *module;
+    iop_dso_t *dso;
+    int ret = 0;
+
+    dso = handle_args(argc, argv);
+    if (!dso) {
+        return -1;
+    }
+
+    module = get_iop_module(dso);
+    if (!module || generate_openapi(module) < 0) {
+        ret = -1;
+    }
+
     iop_dso_close(&dso);
     return ret;
 }

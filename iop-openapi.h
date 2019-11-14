@@ -44,6 +44,7 @@ t_new_iop_openapi(const lstr_t title, const lstr_t version,
  *
  * Only RPCs that have been whitelisted will be exposed in the OpenAPI
  * description.
+ * The RPC must be written in the format "<iface_fullname>.<rpc_name>".
  *
  * \warning If this function is never called (so the whitelist is empty), all
  * RPCs will be exposed.
@@ -59,8 +60,9 @@ void t_iop_openapi_whitelist_rpc(iop_openapi_t * nonnull openapi,
 void t_iop_openapi_add_struct(iop_openapi_t * nonnull openapi,
                               const iop_struct_t * nonnull st);
 
-void t_iop_openapi_to_yaml(iop_openapi_t * nonnull openapi,
-                           yaml_data_t * nonnull data);
+/** Generate a YAML AST for the OpenAPI application. */
+int t_iop_openapi_to_yaml(iop_openapi_t * nonnull openapi,
+                          yaml_data_t * nonnull data, sb_t * nonnull err);
 
 MODULE_DECLARE(iop_openapi);
 
