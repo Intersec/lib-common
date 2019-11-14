@@ -64,6 +64,7 @@ tstiop.StructJpackFlags:
     def:
       type: integer
       format: int32
+      default: 1
       minimum: -2147483648
       maximum: 2147483647
     rep:

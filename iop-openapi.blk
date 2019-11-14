@@ -84,20 +84,24 @@ typedef struct schema_prop_t {
 } schema_prop_t;
 qvector_t(schema_props, schema_prop_t);
 
-typedef enum number_type_t {
-    NUMBER_INT64,
-    NUMBER_UINT64,
-    NUMBER_DOUBLE,
-} number_type_t;
+typedef enum scalar_type_t {
+    SCALAR_INT64,
+    SCALAR_UINT64,
+    SCALAR_DOUBLE,
+    SCALAR_STRING,
+    SCALAR_BOOL,
+} scalar_type_t;
 
-typedef struct number_value_t {
+typedef struct scalar_value_t {
     union {
         int64_t i;
         uint64_t u;
         double d;
+        lstr_t s;
+        bool b;
     };
-    number_type_t type;
-} number_value_t;
+    scalar_type_t type;
+} scalar_value_t;
 
 struct schema_object_t {
     /* For TYPE_REF, this is the name of the referenced schema.
@@ -110,8 +114,10 @@ struct schema_object_t {
     lstr_t description;
     lstr_t example;
 
+    scalar_value_t * nullable defval;
+
     /* for arrays */
-    schema_object_t *items;
+    schema_object_t * nullable items;
 
     /* for object */
     qv_t(lstr) required;
@@ -126,8 +132,8 @@ struct schema_object_t {
     qv_t(lstr) enum_values;
 
     /* for number */
-    number_value_t *minimum;
-    number_value_t *maximum;
+    scalar_value_t * nullable minimum;
+    scalar_value_t * nullable maximum;
     bool _nullable;
 
     /* for strings */
@@ -360,33 +366,33 @@ static void t_schema_set_integer(schema_object_t *schema, openapi_type_t type,
                                  int64_t min, int64_t max)
 {
     schema->type = type;
-    schema->minimum = t_new(number_value_t, 1);
+    schema->minimum = t_new(scalar_value_t, 1);
     schema->minimum->i = min;
-    schema->minimum->type = NUMBER_INT64;
-    schema->maximum = t_new(number_value_t, 1);
+    schema->minimum->type = SCALAR_INT64;
+    schema->maximum = t_new(scalar_value_t, 1);
     schema->maximum->i = max;
-    schema->maximum->type = NUMBER_INT64;
+    schema->maximum->type = SCALAR_INT64;
 }
 
-static number_value_t *t_attr_get_value(const iop_field_attr_t *attr,
+static scalar_value_t *t_attr_get_value(const iop_field_attr_t *attr,
                                         const iop_type_t type)
 {
-    number_value_t *val = t_new(number_value_t, 1);
+    scalar_value_t *val = t_new(scalar_value_t, 1);
 
     switch (type) {
       case IOP_T_I8: case IOP_T_I16: case IOP_T_I32: case IOP_T_I64:
         val->i = attr->args[0].v.i64;
-        val->type = NUMBER_INT64;
+        val->type = SCALAR_INT64;
         return val;
 
       case IOP_T_U8: case IOP_T_U16: case IOP_T_U32: case IOP_T_U64:
         val->u = (uint64_t)attr->args[0].v.i64;
-        val->type = NUMBER_UINT64;
+        val->type = SCALAR_UINT64;
         return val;
 
       case IOP_T_DOUBLE:
         val->d = attr->args[0].v.d;
-        val->type = NUMBER_DOUBLE;
+        val->type = SCALAR_DOUBLE;
         return val;
 
       default:
@@ -429,7 +435,9 @@ apply_raw_field_constraints(const iop_field_attrs_t *attrs,
     if (TST_BIT(&attrs->flags, IOP_FIELD_NON_ZERO)) {
         /* only apply this constraint on unsigned integers, we have no
          * way of expressing it otherwise */
-        if (schema->minimum && schema->minimum->type != NUMBER_DOUBLE
+        if (schema->minimum
+        &&  (schema->minimum->type == SCALAR_INT64
+          || schema->minimum->type == SCALAR_UINT64)
         &&  schema->minimum->i == 0)
         {
             schema->minimum->i = 1;
@@ -461,6 +469,52 @@ apply_array_field_constraints(const iop_field_attrs_t *attrs,
             break;
         }
     }
+}
+
+static scalar_value_t *
+t_get_iop_field_defval(const iop_field_t *desc)
+{
+    scalar_value_t *val = t_new(scalar_value_t, 1);
+
+    switch (desc->type) {
+      case IOP_T_I8: case IOP_T_I16: case IOP_T_I32: case IOP_T_I64:
+        val->i = (int64_t)desc->u1.defval_u64;
+        val->type = SCALAR_INT64;
+        break;
+
+      case IOP_T_U8: case IOP_T_U16: case IOP_T_U32: case IOP_T_U64:
+        val->u = desc->u1.defval_u64;
+        val->type = SCALAR_UINT64;
+        break;
+
+      case IOP_T_BOOL:
+        val->b = !!desc->u1.defval_u64;
+        val->type = SCALAR_BOOL;
+        break;
+
+      case IOP_T_DOUBLE:
+        val->d = desc->u1.defval_d;
+        val->type = SCALAR_DOUBLE;
+        break;
+
+      case IOP_T_DATA: case IOP_T_STRING: case IOP_T_XML:
+        val->s = LSTR_INIT_V(desc->u1.defval_data, desc->u0.defval_len);
+        val->type = SCALAR_STRING;
+        break;
+
+      case IOP_T_ENUM:
+        val->i = desc->u0.defval_enum;
+        val->type = SCALAR_INT64;
+        break;
+
+      case IOP_T_VOID:
+      case IOP_T_UNION:
+      case IOP_T_STRUCT:
+        assert (false);
+        return NULL;
+    }
+
+    return val;
 }
 
 static schema_object_t *
@@ -503,9 +557,9 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
         break;
       case IOP_T_U64:
         schema->type = TYPE_UINT64;
-        schema->minimum = t_new(number_value_t, 1);
+        schema->minimum = t_new(scalar_value_t, 1);
         schema->minimum->u = 0;
-        schema->minimum->type = NUMBER_UINT64;
+        schema->minimum->type = SCALAR_UINT64;
         break;
       case IOP_T_BOOL:
         schema->type = TYPE_BOOL;
@@ -552,7 +606,8 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
         apply_raw_field_constraints(attrs, desc, schema);
     }
 
-    if (desc->repeat == IOP_R_REPEATED) {
+    switch (desc->repeat) {
+      case IOP_R_REPEATED: {
         schema_object_t *array_schema;
 
         array_schema = t_new(schema_object_t, 1);
@@ -563,6 +618,12 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
         if (attrs) {
             apply_array_field_constraints(attrs, desc, schema);
         }
+      } break;
+      case IOP_R_DEFVAL:
+        schema->defval = t_get_iop_field_defval(desc);
+        break;
+      default:
+        break;
     }
 
     get_field_help(attrs, &help, &is_v2);
@@ -572,8 +633,6 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
             schema->example = help->example;
         }
     }
-
-    /* TODO: set the "default" field in schema if DEFVAL */
 
     return schema;
 }
@@ -752,18 +811,24 @@ static yaml_data_t t_schemas_to_yaml_seq(const qv_t(schema_object_p) *schemas)
     return data;
 }
 
-static void number_value_to_yaml_data(const number_value_t *val,
+static void number_value_to_yaml_data(const scalar_value_t *val,
                                       yaml_data_t *data)
 {
     switch (val->type) {
-      case NUMBER_INT64:
+      case SCALAR_INT64:
         yaml_data_set_int(data, val->i);
         break;
-      case NUMBER_UINT64:
+      case SCALAR_UINT64:
         yaml_data_set_uint(data, val->u);
         break;
-      case NUMBER_DOUBLE:
+      case SCALAR_DOUBLE:
         yaml_data_set_double(data, val->d);
+        break;
+      case SCALAR_STRING:
+        yaml_data_set_string(data, val->s);
+        break;
+      case SCALAR_BOOL:
+        yaml_data_set_bool(data, val->b);
         break;
     }
 }
@@ -869,6 +934,11 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
     if (obj->enum_values.len > 0) {
         yaml_obj_add_field(out, LSTR("enum"),
                            t_strings_to_yaml_seq(&obj->enum_values));
+    }
+
+    if (obj->defval) {
+        number_value_to_yaml_data(obj->defval, &data);
+        yaml_obj_add_field(out, LSTR("default"), data);
     }
 
     if (obj->minimum) {
@@ -1629,6 +1699,13 @@ Z_GROUP_EXPORT(iop_openapi)
         t_iop_struct_to_schema_object(&tstiop__constraint_d__s,
                                       &existing, &schemas);
         Z_HELPER_RUN(z_check_schemas(&schemas, "constraints.yml"));
+
+        /* default values */
+        qh_clear(schemas, &existing);
+        qv_clear(&schemas);
+        t_iop_struct_to_schema_object(&tstiop__my_struct_g__s,
+                                      &existing, &schemas);
+        Z_HELPER_RUN(z_check_schemas(&schemas, "struct_g.yml"));
     } Z_TEST_END;
 
     Z_TEST(iop_mod, "test paths generation of IOP modules") {
