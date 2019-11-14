@@ -1,0 +1,30 @@
+openapi: 3.0.2
+info:
+  title: yay
+  version: 0.0.1
+components:
+  schemas:
+    Void:
+      type: object
+paths:
+  /yay/a/funG:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      response:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string

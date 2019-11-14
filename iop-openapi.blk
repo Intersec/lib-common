@@ -1344,13 +1344,38 @@ t_paths_to_yaml(const qv_t(path) * nonnull paths, yaml_data_t * nonnull out)
     }
 }
 
-static void
-t_iop_rpc_append_path(const iop_rpc_t *rpc, const iop_iface_alias_t *alias,
-                      lstr_t product_name, qh_t(schemas) *existing_schemas,
-                      qv_t(schema_object) *schemas, qv_t(path) *paths)
+static bool
+rpc_is_blacklisted(const iop_iface_t * nonnull iface,
+                   const iop_rpc_t * nonnull rpc,
+                   const qh_t(lstr) * nonnull rpcs_whitelist)
 {
-    path_item_object_t *obj = qv_growlen0(paths, 1);
+    t_scope;
+    lstr_t fullname;
 
+    if (qh_len(lstr, rpcs_whitelist) == 0) {
+        return false;
+    }
+
+    fullname =  t_lstr_fmt("%pL.%pL", &iface->fullname, &rpc->name);
+    return qh_find_safe(lstr, rpcs_whitelist, &fullname) < 0;
+}
+
+static void
+t_iop_rpc_append_path(const iop_rpc_t * nonnull rpc,
+                      const iop_iface_alias_t * nonnull alias,
+                      lstr_t product_name,
+                      const qh_t(lstr) * nonnull rpcs_whitelist,
+                      qh_t(schemas) * nonnull existing_schemas,
+                      qv_t(schema_object) * nonnull schemas,
+                      qv_t(path) * nonnull paths)
+{
+    path_item_object_t *obj;
+
+    if (rpc_is_blacklisted(alias->iface, rpc, rpcs_whitelist)) {
+        return;
+    }
+
+    obj = qv_growlen0(paths, 1);
     obj->path = t_lstr_fmt("/%pL/%pL/%pL", &product_name, &alias->name,
                            &rpc->name);
     t_iop_rpc_to_operation_object(rpc, alias->iface, existing_schemas,
@@ -1358,11 +1383,12 @@ t_iop_rpc_append_path(const iop_rpc_t *rpc, const iop_iface_alias_t *alias,
 }
 
 static void
-t_iop_iface_alias_append_paths(const iop_iface_alias_t *alias,
+t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
                                lstr_t product_name,
-                               qh_t(schemas) *existing_schemas,
-                               qv_t(schema_object) *schemas,
-                               qv_t(path) *paths)
+                               const qh_t(lstr) * nonnull rpcs_whitelist,
+                               qh_t(schemas) * nonnull existing_schemas,
+                               qv_t(schema_object) * nonnull schemas,
+                               qv_t(path) * nonnull paths)
 {
     for (int j = 0; j < alias->iface->funs_len; j++) {
         const iop_rpc_t *rpc = &alias->iface->funs[j];
@@ -1374,8 +1400,8 @@ t_iop_iface_alias_append_paths(const iop_iface_alias_t *alias,
             continue;
         }
 
-        t_iop_rpc_append_path(rpc, alias, product_name, existing_schemas,
-                              schemas, paths);
+        t_iop_rpc_append_path(rpc, alias, product_name, rpcs_whitelist,
+                              existing_schemas, schemas, paths);
 
         /* loop on rpc aliases */
         if (TST_BIT(&rpc_flags, IOP_RPC_HAS_ALIAS)) {
@@ -1390,7 +1416,8 @@ t_iop_iface_alias_append_paths(const iop_iface_alias_t *alias,
                     const iop_rpc_t *falias = (const iop_rpc_t *)arg.v.p;
 
                     t_iop_rpc_append_path(falias, alias, product_name,
-                                          existing_schemas, schemas, paths);
+                                          rpcs_whitelist, existing_schemas,
+                                          schemas, paths);
                 }
             }
         }
@@ -1398,13 +1425,17 @@ t_iop_iface_alias_append_paths(const iop_iface_alias_t *alias,
 }
 
 static void
-t_iop_mod_append_paths(const iop_mod_t *mod, lstr_t product_name,
-                       qh_t(schemas) *existing_schemas,
-                       qv_t(schema_object) *schemas, qv_t(path) *paths)
+t_iop_mod_append_paths(const iop_mod_t * nonnull mod,
+                       lstr_t product_name,
+                       const qh_t(lstr) * nonnull rpcs_whitelist,
+                       qh_t(schemas) * nonnull existing_schemas,
+                       qv_t(schema_object) * nonnull schemas,
+                       qv_t(path) * nonnull paths)
 {
     for (int i = 0; i < mod->ifaces_len; i++) {
         t_iop_iface_alias_append_paths(&mod->ifaces[i], product_name,
-                                       existing_schemas, schemas, paths);
+                                       rpcs_whitelist, existing_schemas,
+                                       schemas, paths);
     }
 }
 
@@ -1472,11 +1503,17 @@ static void t_info_object_to_yaml(const info_object_t * nonnull info,
 /* {{{ Public API */
 
 struct iop_openapi_t {
+    /* header */
     info_object_t info;
 
+    /* schemas */
     components_object_t components;
 
+    /* paths */
     qv_t(path) paths;
+
+    /* whitelist of RPCs to expose, in the format "<iface_fullname>.<rpc>" */
+    qh_t(lstr) rpcs_whitelist;
 };
 
 iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
@@ -1491,8 +1528,17 @@ iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
     t_components_object_init(&oa->components);
 
     t_qv_init(&oa->paths, 0);
+    t_qh_init(lstr, &oa->rpcs_whitelist, 0);
 
     return oa;
+}
+
+void t_iop_openapi_whitelist_rpc(iop_openapi_t *openapi,
+                                 const lstr_t fullname)
+{
+    lstr_t name = t_lstr_dup(fullname);
+
+    qh_add(lstr, &openapi->rpcs_whitelist, &name);
 }
 
 void t_iop_openapi_add_struct(iop_openapi_t *openapi, const iop_struct_t *st)
@@ -1503,7 +1549,7 @@ void t_iop_openapi_add_struct(iop_openapi_t *openapi, const iop_struct_t *st)
 
 void t_iop_openapi_add_module(iop_openapi_t *openapi, const iop_mod_t *mod)
 {
-    t_iop_mod_append_paths(mod, openapi->info.title,
+    t_iop_mod_append_paths(mod, openapi->info.title, &openapi->rpcs_whitelist,
                            &openapi->components.existing_schemas,
                            &openapi->components.schemas, &openapi->paths);
 }

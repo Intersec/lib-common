@@ -124,9 +124,14 @@ Z_GROUP_EXPORT(iop_openapi)
          * flooded by the schemas descriptions */
         iop_openapi_clear_schemas(oa);
         Z_HELPER_RUN(z_check_yaml(oa, "iface_a.yml"));
+
+        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"), LSTR_NULL_V);
+        t_iop_openapi_whitelist_rpc(oa, LSTR("tstiop.MyIfaceA.funG"));
+        t_iop_openapi_add_module(oa, tstiop__my_mod_a__modp);
+        Z_HELPER_RUN(z_check_yaml(oa, "iface_a_filtered.yml"));
     } Z_TEST_END;
 
-    Z_TEST(iop_mod, "test inclusion of comments documentation") {
+    Z_TEST(dox, "test inclusion of comments documentation") {
         t_scope;
         iop_openapi_t *oa;
 

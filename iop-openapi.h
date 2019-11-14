@@ -39,6 +39,14 @@ iop_openapi_t * nonnull
 t_new_iop_openapi(const lstr_t title, const lstr_t version,
                   const lstr_t description);
 
+/** Whitelist an RPC in the IOP OpenaAPI application.
+ *
+ * When adding an IOP module, only RPCs that have been whitelisted will be
+ * added.
+ */
+void t_iop_openapi_whitelist_rpc(iop_openapi_t * nonnull openapi,
+                                 const lstr_t fullname);
+
 /** Add an IOP struct in the OpenAPI application.
  *
  * Its schema will be described in the app, as well as the schema of all
@@ -49,7 +57,11 @@ void t_iop_openapi_add_struct(iop_openapi_t * nonnull openapi,
 
 /** Add an IOP module in the OpenAPI application.
  *
- * All RPCs contained in the module will be added as paths in the application.
+ * \warning By default, all RPCs contained in the module will be added as
+ * paths in the application. If only a subset of those RPCs must be
+ * registered, they must first be whitelisted using
+ * t_iop_openapi_whitelist_rpc.
+ *
  * All related IOP objects will have their schemas included as well.
  */
 void t_iop_openapi_add_module(iop_openapi_t * nonnull openapi,
