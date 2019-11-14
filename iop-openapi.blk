@@ -852,7 +852,7 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
         [TYPE_OBJECT] = LSTR_IMMED("object"),
         [TYPE_STRING] = LSTR_IMMED("string"),
         [TYPE_BYTE]   = LSTR_IMMED("string"),
-        [TYPE_BOOL]   = LSTR_IMMED("bool"),
+        [TYPE_BOOL]   = LSTR_IMMED("boolean"),
         [TYPE_DOUBLE] = LSTR_IMMED("number"),
         [TYPE_INT32]  = LSTR_IMMED("integer"),
         [TYPE_INT64]  = LSTR_IMMED("integer"),
@@ -1169,7 +1169,7 @@ t_operation_object_to_yaml(const operation_object_t * nonnull obj,
 
     t_html_response_object_to_yaml(&obj->default_response, &data);
     yaml_obj_add_field(&response, LSTR("default"), data);
-    yaml_obj_add_field(out, LSTR("response"), response);
+    yaml_obj_add_field(out, LSTR("responses"), response);
 }
 
 static void

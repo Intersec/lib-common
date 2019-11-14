@@ -15,7 +15,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Void"
-      response:
+      responses:
         '200':
           description: RPC success
           content:

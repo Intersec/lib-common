@@ -73,6 +73,6 @@ components:
           format: double
           default: 10.5
         m:
-          type: bool
+          type: boolean
           default: true
 paths: ~

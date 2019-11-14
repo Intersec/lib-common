@@ -115,14 +115,14 @@ components:
             - fieldA
           properties:
             fieldA:
-              type: bool
+              type: boolean
               description: comment for MyUnion.fieldA
         - type: object
           required:
             - fieldB
           properties:
             fieldB:
-              type: bool
+              type: boolean
     tstiop_dox.MyIface.funBal1Args:
       type: object
       description: comment for MyIface.funB.in
@@ -212,7 +212,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop_dox.MyIface.funAArgs"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -239,7 +239,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop_dox.MyIface.funAaArgs"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -261,7 +261,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop_dox.MyIface.funBArgs"
-      response:
+      responses:
         '200':
           description: comment for MyIface.funB.out
           content:
@@ -283,7 +283,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop_dox.MyIface.funBal1Args"
-      response:
+      responses:
         '200':
           description: comment for MyIface.funB.out
           content:
@@ -305,7 +305,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop_dox.MyIface.funBal2Args"
-      response:
+      responses:
         '200':
           description: comment for MyIface.funB.out
           content:
@@ -328,7 +328,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop_dox.MyStruct"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -350,7 +350,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Void"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -372,7 +372,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop_dox.MyIface.funEArgs"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -394,7 +394,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop_dox.MyIface.funE1Args"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -416,7 +416,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop_dox.MyIface.funE2Args"
-      response:
+      responses:
         '200':
           description: RPC success
           content:

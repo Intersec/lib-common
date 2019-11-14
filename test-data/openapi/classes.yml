@@ -56,7 +56,7 @@ components:
               minimum: -2147483648
               maximum: 2147483647
             bool1:
-              type: bool
+              type: boolean
             string1:
               type: string
     tstiop.StructJpackFlags:

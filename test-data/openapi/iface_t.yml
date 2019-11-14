@@ -33,7 +33,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop.Iface.fArgs"
-      response:
+      responses:
         '200':
           description: RPC success
           content:

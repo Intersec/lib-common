@@ -11,7 +11,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop.MyIfaceA.funAArgs"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -32,7 +32,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Void"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -53,7 +53,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop.MyStructA"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -74,7 +74,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Void"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -95,7 +95,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Void"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -116,7 +116,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop.MyIfaceA.funFArgs"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -137,7 +137,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Void"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -158,7 +158,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Void"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -179,7 +179,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Void"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -200,7 +200,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Void"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -221,7 +221,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop.MyStructA"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -242,7 +242,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop.MyUnionA"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -263,7 +263,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop.MyStructA"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -290,7 +290,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop.MyStructA"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -317,7 +317,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop.MyStructA"
-      response:
+      responses:
         '200':
           description: RPC success
           content:
@@ -344,7 +344,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/tstiop.MyIfaceA.funAsyncArgs"
-      response:
+      responses:
         default:
           description: generic error
           content:
