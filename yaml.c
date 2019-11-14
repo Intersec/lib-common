@@ -609,9 +609,6 @@ int t_yaml_parse(pstream_t ps, yaml_data_t *out, sb_t *out_err)
 
 #define YAML_STD_INDENT  2
 
-typedef int (yaml_pack_writecb_f)(void * nonnull priv,
-                                  const void * nonnull buf, int len);
-
 typedef struct yaml_pack_env_t {
     yaml_pack_writecb_f *write_cb;
     void *priv;
@@ -943,8 +940,8 @@ static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
 /* }}} */
 /* {{{ Dumper public API */
 
-static int yaml_pack(const yaml_data_t * nonnull data,
-                     yaml_pack_writecb_f *writecb, void *priv)
+int yaml_pack(const yaml_data_t * nonnull data,
+              yaml_pack_writecb_f * nonnull writecb, void * nullable priv)
 {
     const yaml_pack_env_t env = {
         .write_cb = writecb,
@@ -984,8 +981,8 @@ static int iop_ypack_write_file(void *priv, const void *data, int len)
     return len;
 }
 
-int (yaml_pack_file)(const char *filename, unsigned file_flags,
-                     mode_t file_mode, const yaml_data_t *data, sb_t *err)
+int yaml_pack_file(const char *filename, unsigned file_flags,
+                   mode_t file_mode, const yaml_data_t *data, sb_t *err)
 {
     yaml_pack_file_ctx_t ctx;
     int res;

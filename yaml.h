@@ -151,6 +151,17 @@ int yaml_pack_file(const char * nonnull filename, unsigned file_flags,
                    mode_t file_mode, const yaml_data_t * nonnull data,
                    sb_t * nonnull err);
 
+typedef int (yaml_pack_writecb_f)(void * nullable priv,
+                                  const void * nonnull buf, int len);
+
+/** Pack a YAML data into any output.
+ *
+ * This function can be used to customize how to write the YAML result.
+ * \p writecb is called for every data to be written, and is passed \p priv.
+ */
+int yaml_pack(const yaml_data_t * nonnull data,
+              yaml_pack_writecb_f * nonnull writecb, void * nullable priv);
+
 /* }}} */
 /* {{{ Packing helpers */
 

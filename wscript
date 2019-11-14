@@ -516,6 +516,9 @@ def build(ctx):
     ctx.program(target='ztst-mem', features="c cprogram",
                 source='ztst-mem.blk', use='libcommon')
 
+    ctx.program(target='dso2openapi', source='dso2openapi.c',
+                use='libcommon')
+
     # }}}
 
 
