@@ -32,13 +32,16 @@ typedef struct iop_openapi_t iop_openapi_t;
  *
  * \param[in]  title  The title of the application
  * \param[in]  version The version the application, must be a semver string.
- * \param[in]  description  The description of the application. Optional.
  * \param[in]  module  The IOP module used for the OpenAPI application.
  * \return An IOP OpenAPI application.
  */
 iop_openapi_t * nonnull
 t_new_iop_openapi(const lstr_t title, const lstr_t version,
-                  const lstr_t description, const iop_mod_t * nullable mod);
+                  const iop_mod_t * nullable mod);
+
+void
+t_iop_openapi_set_description(iop_openapi_t * nonnull oa,
+                              const lstr_t description);
 
 /** Whitelist an RPC in the IOP OpenaAPI application.
  *

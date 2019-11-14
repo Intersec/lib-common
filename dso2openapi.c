@@ -144,9 +144,10 @@ generate_openapi(const iop_mod_t * nonnull module)
     SB_1k(err);
 
     oa = t_new_iop_openapi(LSTR(opts_g.title), LSTR(opts_g.version),
-                           opts_g.description ? LSTR(opts_g.description)
-                                              : LSTR_NULL_V,
                            module);
+    if (opts_g.description) {
+        t_iop_openapi_set_description(oa, LSTR(opts_g.description));
+    }
 
     RETHROW(t_whitelist_rpcs(oa));
 

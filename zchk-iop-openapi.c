@@ -70,8 +70,8 @@ Z_GROUP_EXPORT(iop_openapi)
         t_scope;
         iop_openapi_t *oa;
 
-        oa = t_new_iop_openapi(LSTR("zoomin"), LSTR("0.2.3"), LSTR("sheo"),
-                               NULL);
+        oa = t_new_iop_openapi(LSTR("zoomin"), LSTR("0.2.3"), NULL);
+        t_iop_openapi_set_description(oa, LSTR("sheo"));
         Z_HELPER_RUN(z_check_yaml(oa, "empty.yml", false));
     } Z_TEST_END;
 
@@ -80,14 +80,12 @@ Z_GROUP_EXPORT(iop_openapi)
         iop_openapi_t *oa;
 
         /* simple, no dependencies */
-        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), LSTR_NULL_V,
-                               NULL);
+        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), NULL);
         t_iop_openapi_add_struct(oa, &tstiop__my_struct_n__s);
         Z_HELPER_RUN(z_check_yaml(oa, "struct_n.yml", false));
 
         /* with dependencies on other structs */
-        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), LSTR_NULL_V,
-                               NULL);
+        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), NULL);
         t_iop_openapi_add_struct(oa, &tstiop__my_struct_m__s);
         Z_HELPER_RUN(z_check_yaml(oa, "struct_m.yml", false));
         /* make sure the existing hash deduplicates already added elements */
@@ -95,29 +93,25 @@ Z_GROUP_EXPORT(iop_openapi)
         Z_HELPER_RUN(z_check_yaml(oa, "struct_m.yml", false));
 
         /* with enums */
-        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), LSTR_NULL_V,
-                               NULL);
+        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), NULL);
         t_iop_openapi_add_struct(oa, &tstiop__my_struct_l__s);
         Z_HELPER_RUN(z_check_yaml(oa, "struct_l.yml", false));
 
         /* with classes */
-        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), LSTR_NULL_V,
-                               NULL);
+        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), NULL);
         t_iop_openapi_add_struct(oa, &tstiop__struct_jpack_flags__s);
         /* with a repeated field referencing a class */
         t_iop_openapi_add_struct(oa, &tstiop__my_struct_f__s);
         Z_HELPER_RUN(z_check_yaml(oa, "classes.yml", false));
 
         /* constraints */
-        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), LSTR_NULL_V,
-                               NULL);
+        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), NULL);
         t_iop_openapi_add_struct(oa, &tstiop__constraint_u__s);
         t_iop_openapi_add_struct(oa, &tstiop__constraint_d__s);
         Z_HELPER_RUN(z_check_yaml(oa, "constraints.yml", false));
 
         /* default values */
-        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), LSTR_NULL_V,
-                               NULL);
+        oa = t_new_iop_openapi(LSTR("structs"), LSTR("2.3.1"), NULL);
         t_iop_openapi_add_struct(oa, &tstiop__my_struct_g__s);
         Z_HELPER_RUN(z_check_yaml(oa, "struct_g.yml", false));
     } Z_TEST_END;
@@ -129,23 +123,22 @@ Z_GROUP_EXPORT(iop_openapi)
         SB_1k(err);
 
         /* check that it also generates schemas */
-        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"), LSTR_NULL_V,
-                               tstiop__t__modp);
+        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"), tstiop__t__modp);
         Z_HELPER_RUN(z_check_yaml(oa, "iface_t.yml", false));
 
-        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"), LSTR_NULL_V,
+        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"),
                                tstiop__my_mod_a__modp);
         /* XXX erase schemas, we only want to check the rpcs, without getting
          * flooded by the schemas descriptions */
         Z_HELPER_RUN(z_check_yaml(oa, "iface_a.yml", true));
 
-        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"), LSTR_NULL_V,
+        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"),
                                tstiop__my_mod_a__modp);
         t_iop_openapi_whitelist_rpc(oa, LSTR("tstiop.MyIfaceA.funG"));
         Z_HELPER_RUN(z_check_yaml(oa, "iface_a_filtered.yml", false));
 
         /* test that an unused whitelist will fail the generation */
-        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"), LSTR_NULL_V,
+        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"),
                                tstiop__my_mod_a__modp);
         t_iop_openapi_whitelist_rpc(oa, LSTR("invalid_name"));
         Z_ASSERT_NEG(t_iop_openapi_to_yaml(oa, &data, &err));
@@ -156,7 +149,7 @@ Z_GROUP_EXPORT(iop_openapi)
         t_scope;
         iop_openapi_t *oa;
 
-        oa = t_new_iop_openapi(LSTR("tstdox"), LSTR("1.0.1"), LSTR_NULL_V,
+        oa = t_new_iop_openapi(LSTR("tstdox"), LSTR("1.0.1"),
                                tstiop_dox__my_module__modp);
         Z_HELPER_RUN(z_check_yaml(oa, "dox.yml", false));
     } Z_TEST_END;

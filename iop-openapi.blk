@@ -1540,14 +1540,12 @@ struct iop_openapi_t {
 };
 
 iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
-                                 const lstr_t description,
                                  const iop_mod_t *module)
 {
     iop_openapi_t *oa = t_new(iop_openapi_t, 1);
 
     oa->info.title = t_lstr_dup(title);
     oa->info.version = t_lstr_dup(version);
-    oa->info.description = t_lstr_dup(description);
     oa->module = module;
 
     t_components_object_init(&oa->components);
@@ -1556,6 +1554,13 @@ iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
     t_qm_init(whitelist, &oa->rpcs_whitelist, 0);
 
     return oa;
+}
+
+void
+t_iop_openapi_set_description(iop_openapi_t * nonnull oa,
+                              const lstr_t description)
+{
+    oa->info.description = t_lstr_dup(description);
 }
 
 void t_iop_openapi_whitelist_rpc(iop_openapi_t *openapi,
