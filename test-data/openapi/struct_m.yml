@@ -4,23 +4,6 @@ info:
   version: 2.3.1
 components:
   schemas:
-    tstiop.MyUnionB:
-      oneOf:
-        - type: object
-          required:
-            - bval
-          properties:
-            bval:
-              type: integer
-              format: int32
-              minimum: -2147483648
-              maximum: 2147483647
-        - type: object
-          required:
-            - a
-          properties:
-            a:
-              $ref: "#/components/schemas/tstiop.MyUnionA"
     tstiop.MyUnionA:
       oneOf:
         - type: object
@@ -47,6 +30,23 @@ components:
           properties:
             us:
               type: string
+    tstiop.MyUnionB:
+      oneOf:
+        - type: object
+          required:
+            - bval
+          properties:
+            bval:
+              type: integer
+              format: int32
+              minimum: -2147483648
+              maximum: 2147483647
+        - type: object
+          required:
+            - a
+          properties:
+            a:
+              $ref: "#/components/schemas/tstiop.MyUnionA"
     tstiop.MyStructJ:
       type: object
       required:

@@ -4,6 +4,54 @@ info:
   version: 2.3.1
 components:
   schemas:
+    tstiop.ConstraintS:
+      type: object
+      required:
+        - s
+      properties:
+        i8:
+          type: array
+          items:
+            type: integer
+            format: int32
+            minimum: -127
+            maximum: 127
+          maxItems: 5
+        i16:
+          type: array
+          items:
+            type: integer
+            format: int32
+            minimum: -32767
+            maximum: 32767
+          maxItems: 5
+        i32:
+          type: array
+          items:
+            type: integer
+            format: int32
+            minimum: -2147483647
+            maximum: 2147483647
+          maxItems: 5
+        i64:
+          type: array
+          items:
+            type: integer
+            format: int64
+            minimum: -9223372036854775807
+          maxItems: 5
+        s:
+          type: array
+          items:
+            type: string
+            minLength: 4
+            pattern: "[a-zA-Z0-9_\\-]*"
+          minItems: 2
+          maxItems: 5
+        tab:
+          type: array
+          items:
+            $ref: "#/components/schemas/tstiop.ConstraintS"
     tstiop.ConstraintU:
       oneOf:
         - type: object
@@ -57,54 +105,6 @@ components:
           properties:
             cs:
               $ref: "#/components/schemas/tstiop.ConstraintS"
-    tstiop.ConstraintS:
-      type: object
-      required:
-        - s
-      properties:
-        i8:
-          type: array
-          items:
-            type: integer
-            format: int32
-            minimum: -127
-            maximum: 127
-          maxItems: 5
-        i16:
-          type: array
-          items:
-            type: integer
-            format: int32
-            minimum: -32767
-            maximum: 32767
-          maxItems: 5
-        i32:
-          type: array
-          items:
-            type: integer
-            format: int32
-            minimum: -2147483647
-            maximum: 2147483647
-          maxItems: 5
-        i64:
-          type: array
-          items:
-            type: integer
-            format: int64
-            minimum: -9223372036854775807
-          maxItems: 5
-        s:
-          type: array
-          items:
-            type: string
-            minLength: 4
-            pattern: "[a-zA-Z0-9_\\-]*"
-          minItems: 2
-          maxItems: 5
-        tab:
-          type: array
-          items:
-            $ref: "#/components/schemas/tstiop.ConstraintS"
     tstiop.ConstraintD:
       type: object
       required:

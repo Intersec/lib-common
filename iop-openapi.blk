@@ -669,10 +669,9 @@ t_iop_union_to_schema_object(const iop_struct_t *st,
                              qv_t(schema_object) *schemas)
 {
     schema_object_t *obj;
+    qv_t(schema_object_p) one_of;
 
-    obj = add_schema_object(st->fullname, TYPE_NONE, schemas);
-    add_struct_help(st, obj);
-    t_qv_init(&obj->one_of, st->fields_len);
+    t_qv_init(&one_of, st->fields_len);
 
     iop_struct_for_each_field(field_desc, field_st, st) {
         schema_object_t *field_obj;
@@ -698,8 +697,12 @@ t_iop_union_to_schema_object(const iop_struct_t *st,
         prop->field_name = field_desc->name;
         prop->schema = field_schema;
 
-        qv_append(&obj->one_of, field_obj);
+        qv_append(&one_of, field_obj);
     }
+
+    obj = add_schema_object(st->fullname, TYPE_NONE, schemas);
+    obj->one_of = one_of;
+    add_struct_help(st, obj);
 }
 
 static void
@@ -1355,11 +1358,10 @@ t_paths_to_yaml(const qv_t(path) * nonnull paths, yaml_data_t * nonnull out)
 }
 
 static bool
-rpc_is_blacklisted(const iop_iface_t * nonnull iface,
-                   const iop_rpc_t * nonnull rpc,
-                   qm_t(whitelist) *nonnull rpcs_whitelist)
+t_rpc_is_blacklisted(const iop_iface_t * nonnull iface,
+                     const iop_rpc_t * nonnull rpc,
+                     qm_t(whitelist) *nonnull rpcs_whitelist)
 {
-    t_scope;
     lstr_t fullname;
     int pos;
 
@@ -1390,7 +1392,7 @@ t_iop_rpc_append_path(const iop_rpc_t * nonnull rpc,
 {
     path_item_object_t *obj;
 
-    if (rpc_is_blacklisted(alias->iface, rpc, rpcs_whitelist)) {
+    if (t_rpc_is_blacklisted(alias->iface, rpc, rpcs_whitelist)) {
         return;
     }
 
