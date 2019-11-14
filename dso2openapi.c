@@ -26,6 +26,7 @@ static struct {
     const char *title;
     const char *version;
     const char *description;
+    const char *module;
 } opts_g;
 
 static iop_dso_t *
@@ -38,6 +39,8 @@ handle_args(int argc, char **argv)
     popt_t options[] = {
         OPT_FLAG('h', "help", &help, "show help"),
         OPT_STR('d', "dso", &opts_g.dso_path, "path to IOP dso file"),
+        OPT_STR('m', "module", &opts_g.module,
+                "fullname of the IOP module to use"),
         OPT_STR('w', "whitelist", &opts_g.whitelist_path,
                 "path to the RPCs whitelist file"),
         OPT_STR(0, "description", &opts_g.description,
@@ -55,6 +58,10 @@ handle_args(int argc, char **argv)
 
     if (!opts_g.dso_path) {
         e_error("A dso file must be provided");
+        return NULL;
+    }
+    if (!opts_g.module) {
+        e_error("The name of the IOP module to use must be provided");
         return NULL;
     }
 
@@ -107,27 +114,43 @@ static int yaml_pack_write_stdout(void * nullable priv,
 int main(int argc, char **argv)
 {
     t_scope;
+    const iop_mod_t *module = NULL;
     iop_dso_t *dso;
     iop_openapi_t *oa;
     yaml_data_t yaml;
     int ret = 0;
+    lstr_t wanted_module;
 
     dso = handle_args(argc, argv);
     if (!dso) {
         return -1;
     }
 
-    oa = t_new_iop_openapi(LSTR(opts_g.title), LSTR(opts_g.version),
-                           opts_g.description ? LSTR(opts_g.description)
-                                              : LSTR_NULL_V);
-
-    if (t_whitelist_rpcs(oa) < 0) {
+    wanted_module = LSTR(opts_g.module);
+    qm_for_each_value(iop_mod, mod, &dso->mod_h) {
+        if (lstr_equal(mod->fullname, wanted_module)) {
+            module = mod;
+            break;
+        }
+    }
+    if (!module) {
+        e_error("Could not find the IOP module `%pL` in the DSO. Here are "
+                "the available modules:", &wanted_module);
+        qm_for_each_key(iop_mod, mod_name, &dso->mod_h) {
+            e_error("  `%pL`", &mod_name);
+        }
         ret = -1;
         goto end;
     }
 
-    qm_for_each_value(iop_mod, mod, &dso->mod_h) {
-        t_iop_openapi_add_module(oa, mod);
+    oa = t_new_iop_openapi(LSTR(opts_g.title), LSTR(opts_g.version),
+                           opts_g.description ? LSTR(opts_g.description)
+                                              : LSTR_NULL_V,
+                           module);
+
+    if (t_whitelist_rpcs(oa) < 0) {
+        ret = -1;
+        goto end;
     }
 
     t_iop_openapi_to_yaml(oa, &yaml);

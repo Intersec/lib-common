@@ -33,16 +33,20 @@ typedef struct iop_openapi_t iop_openapi_t;
  * \param[in]  title  The title of the application
  * \param[in]  version The version the application, must be a semver string.
  * \param[in]  description  The description of the application. Optional.
+ * \param[in]  module  The IOP module used for the OpenAPI application.
  * \return An IOP OpenAPI application.
  */
 iop_openapi_t * nonnull
 t_new_iop_openapi(const lstr_t title, const lstr_t version,
-                  const lstr_t description);
+                  const lstr_t description, const iop_mod_t * nullable mod);
 
 /** Whitelist an RPC in the IOP OpenaAPI application.
  *
- * When adding an IOP module, only RPCs that have been whitelisted will be
- * added.
+ * Only RPCs that have been whitelisted will be exposed in the OpenAPI
+ * description.
+ *
+ * \warning If this function is never called (so the whitelist is empty), all
+ * RPCs will be exposed.
  */
 void t_iop_openapi_whitelist_rpc(iop_openapi_t * nonnull openapi,
                                  const lstr_t fullname);
@@ -55,27 +59,9 @@ void t_iop_openapi_whitelist_rpc(iop_openapi_t * nonnull openapi,
 void t_iop_openapi_add_struct(iop_openapi_t * nonnull openapi,
                               const iop_struct_t * nonnull st);
 
-/** Add an IOP module in the OpenAPI application.
- *
- * \warning By default, all RPCs contained in the module will be added as
- * paths in the application. If only a subset of those RPCs must be
- * registered, they must first be whitelisted using
- * t_iop_openapi_whitelist_rpc.
- *
- * All related IOP objects will have their schemas included as well.
- */
-void t_iop_openapi_add_module(iop_openapi_t * nonnull openapi,
-                              const iop_mod_t * nonnull mod);
-
-void t_iop_openapi_to_yaml(const iop_openapi_t * nonnull openapi,
+void t_iop_openapi_to_yaml(iop_openapi_t * nonnull openapi,
                            yaml_data_t * nonnull data);
 
 MODULE_DECLARE(iop_openapi);
-
-/* {{{ Private, for testing */
-
-void iop_openapi_clear_schemas(iop_openapi_t * nonnull openapi);
-
-/* }}} */
 
 #endif /* IS_LIB_COMMON_IOP_OPENAPI_H */
