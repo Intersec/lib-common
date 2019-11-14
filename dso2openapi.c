@@ -22,6 +22,7 @@
 
 static struct {
     const char *dso_path;
+    const char *whitelist_path;
     const char *title;
     const char *version;
     const char *description;
@@ -37,6 +38,8 @@ handle_args(int argc, char **argv)
     popt_t options[] = {
         OPT_FLAG('h', "help", &help, "show help"),
         OPT_STR('d', "dso", &opts_g.dso_path, "path to IOP dso file"),
+        OPT_STR('w', "whitelist", &opts_g.whitelist_path,
+                "path to the RPCs whitelist file"),
         OPT_STR(0, "description", &opts_g.description,
                 "Add a description of the openapi app"),
         OPT_END(),
@@ -64,6 +67,37 @@ handle_args(int argc, char **argv)
     return dso;
 }
 
+static int
+t_whitelist_rpcs(iop_openapi_t *oa)
+{
+    FILE *file;
+    SB_1k(sb);
+    int res;
+
+    if (!opts_g.whitelist_path) {
+        return 0;
+    }
+
+    file = fopen(opts_g.whitelist_path, "r");
+    if (!file) {
+        e_error("cannot open whitelist file `%s`: %m", opts_g.whitelist_path);
+        return -1;
+    }
+
+    while ((res = sb_getline(&sb, file)) > 0) {
+        sb.len--;
+        t_iop_openapi_whitelist_rpc(oa, LSTR_SB_V(&sb));
+        sb_reset(&sb);
+    }
+    if (res < 0) {
+        e_error("error while reading whitelist file `%s`: %m",
+                opts_g.whitelist_path);
+        return -1;
+    }
+
+    return 0;
+}
+
 static int yaml_pack_write_stdout(void * nullable priv,
                                   const void * nonnull buf, int len)
 {
@@ -76,6 +110,7 @@ int main(int argc, char **argv)
     iop_dso_t *dso;
     iop_openapi_t *oa;
     yaml_data_t yaml;
+    int ret = 0;
 
     dso = handle_args(argc, argv);
     if (!dso) {
@@ -86,6 +121,11 @@ int main(int argc, char **argv)
                            opts_g.description ? LSTR(opts_g.description)
                                               : LSTR_NULL_V);
 
+    if (t_whitelist_rpcs(oa) < 0) {
+        ret = -1;
+        goto end;
+    }
+
     qm_for_each_value(iop_mod, mod, &dso->mod_h) {
         t_iop_openapi_add_module(oa, mod);
     }
@@ -94,6 +134,7 @@ int main(int argc, char **argv)
     yaml_pack(&yaml, yaml_pack_write_stdout, NULL);
     printf("\n");
 
+  end:
     iop_dso_close(&dso);
-    return 0;
+    return ret;
 }
