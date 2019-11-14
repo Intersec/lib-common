@@ -48,6 +48,7 @@
 #include "iop/tstiop_backward_compat_mod.iop.h"
 #include "iop/tstiop_backward_compat_mod_deleted.iop.h"
 #include "iop/tstiop_backward_compat_mod_deleted_if.iop.h"
+#include "iop/tstiop_bpack_unregistered_class.iop.h"
 #include "iop/tstiop_void_type.iop.h"
 #include "iop/tstiop_wsdl.iop.h"
 #include "xmlr.h"
@@ -8643,6 +8644,35 @@ Z_GROUP_EXPORT(iop)
         }
         Z_ASSERT(u_ptr == tab_last(&u_array) + 1);
     } Z_TEST_END
+    /* }}} */
+    Z_TEST(bpack_error_unregistered_class, "unpacking an instance of an unregistered class") { /* {{{ */
+        t_scope;
+        lstr_t bin;
+        void *instance = NULL;
+
+        bin = t_iop_bpack_struct(&tstiop_not_registered_class__s,
+                                 t_iop_new(tstiop_not_registered_class));
+        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), &tstiop_registered_class__s,
+                                     &instance, ps_initlstr(&bin), false));
+        Z_ASSERT_STREQUAL(iop_get_err(),
+                          "cannot find child 2 of class "
+                          "'tstiop.RegisteredClass'");
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(bpack_error_unexpected_class_type, "unpacking an instance of an unexpected class type") { /* {{{ */
+        t_scope;
+        lstr_t bin;
+        void *instance = NULL;
+
+        bin = t_iop_bpack_struct(&tstiop__child_class_a__s,
+                                 t_iop_new(tstiop__child_class_a));
+        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), &tstiop__child_class_b__s,
+                                     &instance, ps_initlstr(&bin), false));
+        Z_ASSERT_STREQUAL(iop_get_err(),
+                          "class 'tstiop.ChildClassA' (id 2) "
+                          "is not a child of 'tstiop.ChildClassB' (id 3) "
+                          "as expected");
+    } Z_TEST_END;
     /* }}} */
 
 } Z_GROUP_END
