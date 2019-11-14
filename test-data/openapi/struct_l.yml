@@ -1,38 +1,45 @@
-tstiop.MyEnumA:
-  type: string
-  enum:
-    - A
-    - B
-    - C
-    - D
-tstiop.MyEnumB:
-  type: string
-  enum:
-    - A
-    - B
-    - C
-tstiop.MyEnumC:
-  type: string
-  enum:
-    - A
-    - B
-    - C
-    - D
-    - E
-tstiop.MyStructL:
-  type: object
-  required:
-    - a
-    - b
-    - c
-  properties:
-    a:
-      $ref: "#/components/schemas/tstiop.MyEnumA"
-    b:
-      $ref: "#/components/schemas/tstiop.MyEnumB"
-    btab:
-      type: array
-      items:
-        $ref: "#/components/schemas/tstiop.MyEnumB"
-    c:
-      $ref: "#/components/schemas/tstiop.MyEnumC"
+openapi: 3.0.2
+info:
+  title: structs
+  version: 2.3.1
+components:
+  schemas:
+    tstiop.MyEnumA:
+      type: string
+      enum:
+        - A
+        - B
+        - C
+        - D
+    tstiop.MyEnumB:
+      type: string
+      enum:
+        - A
+        - B
+        - C
+    tstiop.MyEnumC:
+      type: string
+      enum:
+        - A
+        - B
+        - C
+        - D
+        - E
+    tstiop.MyStructL:
+      type: object
+      required:
+        - a
+        - b
+        - c
+      properties:
+        a:
+          $ref: "#/components/schemas/tstiop.MyEnumA"
+        b:
+          $ref: "#/components/schemas/tstiop.MyEnumB"
+        btab:
+          type: array
+          items:
+            $ref: "#/components/schemas/tstiop.MyEnumB"
+        c:
+          $ref: "#/components/schemas/tstiop.MyEnumC"
+paths: ~

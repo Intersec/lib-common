@@ -1,163 +1,170 @@
-tstiop.MyClass1:
-  type: object
-  required:
-    - int1
-  properties:
-    _class:
-      type: string
-    int1:
-      type: integer
-      format: int32
-      minimum: -2147483648
-      maximum: 2147483647
-  discriminator:
-    propertyName: _class
-tstiop.MyClass2:
-  allOf:
-    - $ref: "#/components/schemas/tstiop.MyClass1"
-    - type: object
+openapi: 3.0.2
+info:
+  title: structs
+  version: 2.3.1
+components:
+  schemas:
+    tstiop.MyClass1:
+      type: object
       required:
-        - int2
+        - int1
       properties:
-        int2:
-          type: integer
-          format: int32
-          minimum: -2147483648
-          maximum: 2147483647
-tstiop.MyClass2Bis:
-  allOf:
-    - $ref: "#/components/schemas/tstiop.MyClass1"
-    - type: object
-      required:
-        - int2
-      properties:
-        int2:
-          type: integer
-          format: int32
-          minimum: -2147483648
-          maximum: 2147483647
-tstiop.MyClass3:
-  allOf:
-    - $ref: "#/components/schemas/tstiop.MyClass2"
-    - type: object
-      required:
-        - int3
-        - bool1
-      properties:
-        int3:
-          type: integer
-          format: int32
-          minimum: -2147483648
-          maximum: 2147483647
-        bool1:
-          type: bool
-        string1:
+        _class:
           type: string
-tstiop.StructJpackFlags:
-  type: object
-  properties:
-    opt:
-      type: integer
-      format: int32
-      minimum: -2147483648
-      maximum: 2147483647
-    def:
-      type: integer
-      format: int32
-      default: 1
-      minimum: -2147483648
-      maximum: 2147483647
-    rep:
-      type: array
-      items:
-        type: integer
-        format: int32
-        minimum: -2147483648
-        maximum: 2147483647
-    myClass:
-      oneOf:
-        - $ref: "#/components/schemas/tstiop.MyClass1"
-        - $ref: "#/components/schemas/tstiop.MyClass2"
-        - $ref: "#/components/schemas/tstiop.MyClass2Bis"
-        - $ref: "#/components/schemas/tstiop.MyClass3"
+        int1:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
       discriminator:
         propertyName: _class
-tstiop.MyStructB:
-  type: object
-  properties:
-    a:
-      type: integer
-      format: int32
-      minimum: -2147483648
-      maximum: 2147483647
-    b:
-      type: array
-      items:
-        type: integer
-        format: int32
-        minimum: -2147483648
-        maximum: 2147483647
-tstiop.MyUnionA:
-  oneOf:
-    - type: object
-      required:
-        - ua
+    tstiop.MyClass2:
+      allOf:
+        - $ref: "#/components/schemas/tstiop.MyClass1"
+        - type: object
+          required:
+            - int2
+          properties:
+            int2:
+              type: integer
+              format: int32
+              minimum: -2147483648
+              maximum: 2147483647
+    tstiop.MyClass2Bis:
+      allOf:
+        - $ref: "#/components/schemas/tstiop.MyClass1"
+        - type: object
+          required:
+            - int2
+          properties:
+            int2:
+              type: integer
+              format: int32
+              minimum: -2147483648
+              maximum: 2147483647
+    tstiop.MyClass3:
+      allOf:
+        - $ref: "#/components/schemas/tstiop.MyClass2"
+        - type: object
+          required:
+            - int3
+            - bool1
+          properties:
+            int3:
+              type: integer
+              format: int32
+              minimum: -2147483648
+              maximum: 2147483647
+            bool1:
+              type: bool
+            string1:
+              type: string
+    tstiop.StructJpackFlags:
+      type: object
       properties:
-        ua:
+        opt:
           type: integer
           format: int32
           minimum: -2147483648
           maximum: 2147483647
-    - type: object
-      required:
-        - ub
-      properties:
-        ub:
+        def:
           type: integer
           format: int32
-          minimum: -128
-          maximum: 127
-    - type: object
-      required:
-        - us
+          default: 1
+          minimum: -2147483648
+          maximum: 2147483647
+        rep:
+          type: array
+          items:
+            type: integer
+            format: int32
+            minimum: -2147483648
+            maximum: 2147483647
+        myClass:
+          oneOf:
+            - $ref: "#/components/schemas/tstiop.MyClass1"
+            - $ref: "#/components/schemas/tstiop.MyClass2"
+            - $ref: "#/components/schemas/tstiop.MyClass2Bis"
+            - $ref: "#/components/schemas/tstiop.MyClass3"
+          discriminator:
+            propertyName: _class
+    tstiop.MyStructB:
+      type: object
       properties:
-        us:
-          type: string
-tstiop.MyStructF:
-  type: object
-  properties:
-    a:
-      type: array
-      items:
-        type: string
-    b:
-      type: array
-      items:
-        type: string
-        format: byte
-    c:
-      type: array
-      items:
-        $ref: "#/components/schemas/tstiop.MyStructB"
-    d:
-      type: array
-      items:
-        $ref: "#/components/schemas/tstiop.MyUnionA"
-    e:
-      type: array
-      items:
-        oneOf:
-          - $ref: "#/components/schemas/tstiop.MyClass1"
-          - $ref: "#/components/schemas/tstiop.MyClass2"
-          - $ref: "#/components/schemas/tstiop.MyClass2Bis"
-          - $ref: "#/components/schemas/tstiop.MyClass3"
-        discriminator:
-          propertyName: _class
-    f:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+        b:
+          type: array
+          items:
+            type: integer
+            format: int32
+            minimum: -2147483648
+            maximum: 2147483647
+    tstiop.MyUnionA:
       oneOf:
-        - $ref: "#/components/schemas/tstiop.MyClass1"
-        - $ref: "#/components/schemas/tstiop.MyClass2"
-        - $ref: "#/components/schemas/tstiop.MyClass2Bis"
-        - $ref: "#/components/schemas/tstiop.MyClass3"
-      discriminator:
-        propertyName: _class
+        - type: object
+          required:
+            - ua
+          properties:
+            ua:
+              type: integer
+              format: int32
+              minimum: -2147483648
+              maximum: 2147483647
+        - type: object
+          required:
+            - ub
+          properties:
+            ub:
+              type: integer
+              format: int32
+              minimum: -128
+              maximum: 127
+        - type: object
+          required:
+            - us
+          properties:
+            us:
+              type: string
+    tstiop.MyStructF:
+      type: object
+      properties:
+        a:
+          type: array
+          items:
+            type: string
+        b:
+          type: array
+          items:
+            type: string
+            format: byte
+        c:
+          type: array
+          items:
+            $ref: "#/components/schemas/tstiop.MyStructB"
+        d:
+          type: array
+          items:
+            $ref: "#/components/schemas/tstiop.MyUnionA"
+        e:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/tstiop.MyClass1"
+              - $ref: "#/components/schemas/tstiop.MyClass2"
+              - $ref: "#/components/schemas/tstiop.MyClass2Bis"
+              - $ref: "#/components/schemas/tstiop.MyClass3"
+            discriminator:
+              propertyName: _class
+        f:
+          oneOf:
+            - $ref: "#/components/schemas/tstiop.MyClass1"
+            - $ref: "#/components/schemas/tstiop.MyClass2"
+            - $ref: "#/components/schemas/tstiop.MyClass2Bis"
+            - $ref: "#/components/schemas/tstiop.MyClass3"
+          discriminator:
+            propertyName: _class
+paths: ~

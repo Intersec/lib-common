@@ -1,24 +1,29 @@
-schemas:
-  tstiop.Iface.fArgs:
-    type: object
-    required:
-      - i
-    properties:
-      i:
-        type: integer
-        format: int32
-        minimum: -2147483648
-        maximum: 2147483647
-  tstiop.Iface.fRes:
-    type: object
-    required:
-      - i
-    properties:
-      i:
-        type: integer
-        format: int32
-        minimum: -2147483648
-        maximum: 2147483647
+openapi: 3.0.2
+info:
+  title: yay
+  version: 0.0.1
+components:
+  schemas:
+    tstiop.Iface.fArgs:
+      type: object
+      required:
+        - i
+      properties:
+        i:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop.Iface.fRes:
+      type: object
+      required:
+        - i
+      properties:
+        i:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
 paths:
   /yay/iface/f:
     post:

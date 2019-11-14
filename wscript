@@ -454,6 +454,7 @@ def build(ctx):
             'zchk-iop-core-obj.blk',
             'zchk-iop-rpc.c',
             'zchk-iop-yaml.c',
+            'zchk-iop-openapi.c',
             'zchk-iprintf.c',
             'zchk-log.blk',
             'zchk-mem.c',

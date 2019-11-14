@@ -1495,6 +1495,12 @@ iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
     return oa;
 }
 
+void t_iop_openapi_add_struct(iop_openapi_t *openapi, const iop_struct_t *st)
+{
+    t_iop_struct_to_schema_object(st, &openapi->components.existing_schemas,
+                                  &openapi->components.schemas);
+}
+
 void t_iop_openapi_add_module(iop_openapi_t *openapi, const iop_mod_t *mod)
 {
     t_iop_mod_append_paths(mod, openapi->info.title,
@@ -1521,6 +1527,11 @@ void t_iop_openapi_to_yaml(const iop_openapi_t *openapi, yaml_data_t *out)
     yaml_obj_add_field(out, LSTR("paths"), data);
 }
 
+void iop_openapi_clear_schemas(iop_openapi_t * nonnull openapi)
+{
+    qv_clear(&openapi->components.schemas);
+}
+
 /* }}} */
 /* {{{ Module */
 
@@ -1537,214 +1548,5 @@ static int iop_openapi_shutdown(void)
 MODULE_BEGIN(iop_openapi)
     MODULE_DEPENDS_ON(yaml);
 MODULE_END()
-
-/* }}} */
-/* {{{ Tests */
-
-/* LCOV_EXCL_START */
-
-#include "z.h"
-#include "iop/tstiop.iop.h"
-#include "iop/tstiop_dox.iop.h"
-
-/* {{{ Helpers */
-
-static int
-t_z_load_openapi_file(const char *filename, lstr_t *file)
-{
-    const char *path;
-
-    path = t_fmt("%pL/test-data/openapi/%s", &z_cmddir_g, filename);
-    Z_ASSERT_N(lstr_init_from_file(file, path, PROT_READ, MAP_SHARED));
-    /* remove last newline from file */
-    file->len--;
-
-    Z_HELPER_END;
-}
-
-static int
-z_check_yaml(const iop_openapi_t *openapi, const char *filename)
-{
-    t_scope;
-    yaml_data_t data;
-    lstr_t file;
-    SB_1k(sb);
-
-    t_iop_openapi_to_yaml(openapi, &data);
-    yaml_pack_sb(&data, &sb);
-
-    Z_HELPER_RUN(t_z_load_openapi_file(filename, &file));
-    Z_ASSERT_LSTREQUAL(file, LSTR_SB_V(&sb));
-
-    Z_HELPER_END;
-}
-
-static int
-z_check_schemas(const qv_t(schema_object) *schemas, const char *filename)
-{
-    t_scope;
-    yaml_data_t data;
-    lstr_t file;
-    SB_1k(sb);
-
-    t_yaml_data_new_obj(&data, schemas->len);
-    tab_for_each_ptr(schema, schemas) {
-        yaml_data_t elem;
-
-        t_schema_object_to_yaml(schema, &elem);
-        yaml_obj_add_field(&data, schema->name, elem);
-    }
-
-    yaml_pack_sb(&data, &sb);
-
-    Z_HELPER_RUN(t_z_load_openapi_file(filename, &file));
-    Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), file);
-
-    Z_HELPER_END;
-}
-
-static int
-z_check_mod(const qv_t(schema_object) *schemas, const qv_t(path) *paths,
-            const char *filename)
-{
-    t_scope;
-    yaml_data_t data;
-    yaml_data_t root;
-    lstr_t file;
-    SB_1k(sb);
-
-    t_yaml_data_new_obj(&data, schemas->len);
-    tab_for_each_ptr(schema, schemas) {
-        yaml_data_t elem;
-
-        t_schema_object_to_yaml(schema, &elem);
-        yaml_obj_add_field(&data, schema->name, elem);
-    }
-
-    t_yaml_data_new_obj(&root, 2);
-    yaml_obj_add_field(&root, LSTR("schemas"), data);
-    t_paths_to_yaml(paths, &data);
-    yaml_obj_add_field(&root, LSTR("paths"), data);
-
-    yaml_pack_sb(&root, &sb);
-
-    Z_HELPER_RUN(t_z_load_openapi_file(filename, &file));
-    Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), file);
-
-    Z_HELPER_END;
-}
-
-/* }}} */
-
-Z_GROUP_EXPORT(iop_openapi)
-{
-    IOP_REGISTER_PACKAGES(&tstiop__pkg, &tstiop_dox__pkg);
-    MODULE_REQUIRE(iop_openapi);
-
-    Z_TEST(doc, "test the whole doc generation") {
-        t_scope;
-        iop_openapi_t *oa;
-
-        oa = t_new_iop_openapi(LSTR("zoomin"), LSTR("0.2.3"), LSTR("sheo"));
-        Z_HELPER_RUN(z_check_yaml(oa, "empty.yml"));
-    } Z_TEST_END;
-
-    Z_TEST(iop_struct, "test the schema generation of IOP structs") {
-        t_scope;
-        qh_t(schemas) existing;
-        qv_t(schema_object) schemas;
-
-        t_qh_init(schemas, &existing, 0);
-        t_qv_init(&schemas, 0);
-
-        /* simple, no dependencies */
-        t_iop_struct_to_schema_object(&tstiop__my_struct_n__s, &existing,
-                                      &schemas);
-        Z_HELPER_RUN(z_check_schemas(&schemas, "struct_n.yml"));
-
-        qh_clear(schemas, &existing);
-        qv_clear(&schemas);
-
-        /* with dependencies on other structs */
-        t_iop_struct_to_schema_object(&tstiop__my_struct_m__s, &existing,
-                                      &schemas);
-        Z_HELPER_RUN(z_check_schemas(&schemas, "struct_m.yml"));
-        /* make sure the existing hash deduplicates already added elements */
-        t_iop_struct_to_schema_object(&tstiop__my_struct_k__s, &existing,
-                                      &schemas);
-        Z_HELPER_RUN(z_check_schemas(&schemas, "struct_m.yml"));
-
-        /* with enums */
-        qh_clear(schemas, &existing);
-        qv_clear(&schemas);
-        t_iop_struct_to_schema_object(&tstiop__my_struct_l__s, &existing,
-                                      &schemas);
-        Z_HELPER_RUN(z_check_schemas(&schemas, "struct_l.yml"));
-
-        /* with classes */
-        qh_clear(schemas, &existing);
-        qv_clear(&schemas);
-        t_iop_struct_to_schema_object(&tstiop__struct_jpack_flags__s,
-                                      &existing, &schemas);
-        /* with a repeated field referencing a class */
-        t_iop_struct_to_schema_object(&tstiop__my_struct_f__s,
-                                      &existing, &schemas);
-        Z_HELPER_RUN(z_check_schemas(&schemas, "classes.yml"));
-
-        /* constraints */
-        qh_clear(schemas, &existing);
-        qv_clear(&schemas);
-        t_iop_struct_to_schema_object(&tstiop__constraint_u__s,
-                                      &existing, &schemas);
-        t_iop_struct_to_schema_object(&tstiop__constraint_d__s,
-                                      &existing, &schemas);
-        Z_HELPER_RUN(z_check_schemas(&schemas, "constraints.yml"));
-
-        /* default values */
-        qh_clear(schemas, &existing);
-        qv_clear(&schemas);
-        t_iop_struct_to_schema_object(&tstiop__my_struct_g__s,
-                                      &existing, &schemas);
-        Z_HELPER_RUN(z_check_schemas(&schemas, "struct_g.yml"));
-    } Z_TEST_END;
-
-    Z_TEST(iop_mod, "test paths generation of IOP modules") {
-        t_scope;
-        qh_t(schemas) existing;
-        qv_t(schema_object) schemas;
-        qv_t(path) paths;
-
-        t_qh_init(schemas, &existing, 0);
-        t_qv_init(&schemas, 0);
-        t_qv_init(&paths, 0);
-
-        /* check that it also generates schemas */
-        t_iop_mod_append_paths(tstiop__t__modp, LSTR("yay"), &existing,
-                               &schemas, &paths);
-        Z_HELPER_RUN(z_check_mod(&schemas, &paths, "iface_t.yml"));
-
-        qv_clear(&paths);
-        t_iop_mod_append_paths(tstiop__my_mod_a__modp, LSTR("yay"), &existing,
-                               &schemas, &paths);
-        /* XXX erase schemas, we only want to check the rpcs, without getting
-         * flooded by the schemas descriptions */
-        qv_clear(&schemas);
-        Z_HELPER_RUN(z_check_mod(&schemas, &paths, "iface_a.yml"));
-    } Z_TEST_END;
-
-    Z_TEST(iop_mod, "test inclusion of comments documentation") {
-        t_scope;
-        iop_openapi_t *oa;
-
-        oa = t_new_iop_openapi(LSTR("tstdox"), LSTR("1.0.1"), LSTR_NULL_V);
-        t_iop_openapi_add_module(oa, tstiop_dox__my_module__modp);
-
-        Z_HELPER_RUN(z_check_yaml(oa, "dox.yml"));
-    } Z_TEST_END;
-
-    MODULE_RELEASE(iop_openapi);
-} Z_GROUP_END
-
-/* LCOV_EXCL_STOP */
 
 /* }}} */
