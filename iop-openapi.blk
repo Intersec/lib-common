@@ -229,11 +229,11 @@ struct iop_openapi_t {
     /* servers */
     server_object_t server;
 
-    /* schemas */
-    components_object_t components;
-
     /* paths */
     qv_t(path) paths;
+
+    /* schemas */
+    components_object_t components;
 
     /* security */
     lstr_t security;
@@ -1721,11 +1721,11 @@ int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
         yaml_obj_add_field(out, LSTR("servers"), seq);
     }
 
-    t_components_object_to_yaml(&openapi->components, &data);
-    yaml_obj_add_field(out, LSTR("components"), data);
-
     t_paths_to_yaml(&openapi->paths, &data);
     yaml_obj_add_field(out, LSTR("paths"), data);
+
+    t_components_object_to_yaml(&openapi->components, &data);
+    yaml_obj_add_field(out, LSTR("components"), data);
 
     if (openapi->security.s) {
         yaml_data_t array;

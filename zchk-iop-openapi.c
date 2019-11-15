@@ -48,8 +48,8 @@ z_check_yaml(iop_openapi_t *openapi, const char *filename,
 
     Z_ASSERT_N(t_iop_openapi_to_yaml(openapi, &data, &err));
     if (remove_schemas) {
-        /* remove the element before the last one */
-        qv_splice(&data.obj->fields, data.obj->fields.len - 2, 1, NULL, 0);
+        /* remove the 5th element */
+        qv_splice(&data.obj->fields, 4, 1, NULL, 0);
     }
     yaml_pack_sb(&data, &sb);
 

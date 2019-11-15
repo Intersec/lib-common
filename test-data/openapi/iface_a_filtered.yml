@@ -4,10 +4,6 @@ info:
   version: 0.0.1
 servers:
   - url: /yay
-components:
-  schemas:
-    Void:
-      type: object
 paths:
   /a/funG:
     post:
@@ -32,3 +28,7 @@ paths:
             text/html:
               schema:
                 type: string
+components:
+  schemas:
+    Void:
+      type: object

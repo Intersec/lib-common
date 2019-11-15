@@ -4,205 +4,6 @@ info:
   version: 1.0.1
 servers:
   - url: /tstdox
-components:
-  schemas:
-    tstiop_dox.MyEnum:
-      type: string
-      description: "comment for MyEnum\n\ndetails for MyEnum \\word not a recognized keyword\n\nwarn for MyEnum"
-      enum:
-        - VAL_A
-        - VAL_B
-        - VAL_C
-    tstiop_dox.MyStruct:
-      type: object
-      description: comment for MyStruct
-      required:
-        - fieldA
-        - fieldB
-        - fieldC
-      properties:
-        fieldA:
-          type: integer
-          format: int32
-          description: comment for MyStruct.fieldA
-          minimum: -2147483648
-          maximum: 2147483647
-        fieldB:
-          $ref: "#/components/schemas/tstiop_dox.MyEnum"
-        fieldC:
-          type: integer
-          format: int32
-          description: comment for MyStruct.fieldC
-          minimum: -2147483648
-          maximum: 2147483647
-    tstiop_dox.MyIface.funAArgs:
-      type: object
-      description: local comment for MyIface.funA.in
-      required:
-        - aParam
-        - b
-      properties:
-        aParam:
-          type: integer
-          format: int32
-          description: "local comment for MyIface.funA.in.aParam\n\ncomment for aParam of funA.in\n                      it continues here"
-          minimum: -2147483648
-          maximum: 2147483647
-        b:
-          $ref: "#/components/schemas/tstiop_dox.MyStruct"
-      example: "{\"aParam\":1,\"b\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13}}"
-    tstiop_dox.MyClass:
-      type: object
-      properties:
-        _class:
-          type: string
-      discriminator:
-        propertyName: _class
-    tstiop_dox.MyIface.funARes:
-      type: object
-      description: local comment for MyIface.funA.out
-      required:
-        - d
-      properties:
-        c:
-          description: "local comment for MyIface.funA.out.c\n\ncomment for c of funA.out"
-          oneOf:
-            - $ref: "#/components/schemas/tstiop_dox.MyClass"
-          discriminator:
-            propertyName: _class
-        d:
-          type: integer
-          format: int32
-          description: "comment for \\ref d of funA.out\n2nd paragraph for \\p d of funA.out"
-          minimum: -2147483648
-          maximum: 2147483647
-      example: "{\"c\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13},\"d\":4}"
-    tstiop_dox.MyIface.funAaArgs:
-      type: object
-      description: comment for MyIface.funAa.in
-      required:
-        - a
-      properties:
-        a:
-          type: integer
-          format: int32
-          minimum: -2147483648
-          maximum: 2147483647
-    tstiop_dox.MyIface.funAaRes:
-      type: object
-      required:
-        - b
-      properties:
-        b:
-          type: integer
-          format: int32
-          minimum: -2147483648
-          maximum: 2147483647
-    tstiop_dox.MyIface.funBArgs:
-      type: object
-      description: comment for MyIface.funB.in
-      required:
-        - a
-      properties:
-        a:
-          type: integer
-          format: int32
-          minimum: -2147483648
-          maximum: 2147483647
-    tstiop_dox.MyUnion:
-      description: comment for MyUnion
-      oneOf:
-        - type: object
-          required:
-            - fieldA
-          properties:
-            fieldA:
-              type: boolean
-              description: comment for MyUnion.fieldA
-        - type: object
-          required:
-            - fieldB
-          properties:
-            fieldB:
-              type: boolean
-    tstiop_dox.MyIface.funBal1Args:
-      type: object
-      description: comment for MyIface.funB.in
-      required:
-        - a
-      properties:
-        a:
-          type: integer
-          format: int32
-          minimum: -2147483648
-          maximum: 2147483647
-    tstiop_dox.MyIface.funBal2Args:
-      type: object
-      description: comment for MyIface.funB.in
-      required:
-        - a
-      properties:
-        a:
-          type: integer
-          format: int32
-          minimum: -2147483648
-          maximum: 2147483647
-    tstiop_dox.MyIface.funCRes:
-      type: object
-      required:
-        - b
-      properties:
-        b:
-          type: integer
-          format: int32
-          minimum: -2147483648
-          maximum: 2147483647
-    Void:
-      type: object
-    tstiop_dox.MyIface.funDRes:
-      type: object
-      description: front comment... and back comment for res of funD
-      required:
-        - b
-      properties:
-        b:
-          type: integer
-          format: int32
-          minimum: -2147483648
-          maximum: 2147483647
-    tstiop_dox.MyIface.funEArgs:
-      type: object
-      required:
-        - a
-      properties:
-        a:
-          type: integer
-          format: int32
-          description: It is a \p comment for \ref a
-          minimum: -2147483648
-          maximum: 2147483647
-    tstiop_dox.MyIface.funE1Args:
-      type: object
-      required:
-        - a
-      properties:
-        a:
-          type: integer
-          format: int32
-          description: It is a \p comment for \ref a
-          minimum: -2147483648
-          maximum: 2147483647
-    tstiop_dox.MyIface.funE2Args:
-      type: object
-      required:
-        - a
-      properties:
-        a:
-          type: integer
-          format: int32
-          description: It is a \p comment for \ref a
-          minimum: -2147483648
-          maximum: 2147483647
 paths:
   /iface/funA:
     post:
@@ -451,3 +252,202 @@ paths:
             text/html:
               schema:
                 type: string
+components:
+  schemas:
+    tstiop_dox.MyEnum:
+      type: string
+      description: "comment for MyEnum\n\ndetails for MyEnum \\word not a recognized keyword\n\nwarn for MyEnum"
+      enum:
+        - VAL_A
+        - VAL_B
+        - VAL_C
+    tstiop_dox.MyStruct:
+      type: object
+      description: comment for MyStruct
+      required:
+        - fieldA
+        - fieldB
+        - fieldC
+      properties:
+        fieldA:
+          type: integer
+          format: int32
+          description: comment for MyStruct.fieldA
+          minimum: -2147483648
+          maximum: 2147483647
+        fieldB:
+          $ref: "#/components/schemas/tstiop_dox.MyEnum"
+        fieldC:
+          type: integer
+          format: int32
+          description: comment for MyStruct.fieldC
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funAArgs:
+      type: object
+      description: local comment for MyIface.funA.in
+      required:
+        - aParam
+        - b
+      properties:
+        aParam:
+          type: integer
+          format: int32
+          description: "local comment for MyIface.funA.in.aParam\n\ncomment for aParam of funA.in\n                      it continues here"
+          minimum: -2147483648
+          maximum: 2147483647
+        b:
+          $ref: "#/components/schemas/tstiop_dox.MyStruct"
+      example: "{\"aParam\":1,\"b\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13}}"
+    tstiop_dox.MyClass:
+      type: object
+      properties:
+        _class:
+          type: string
+      discriminator:
+        propertyName: _class
+    tstiop_dox.MyIface.funARes:
+      type: object
+      description: local comment for MyIface.funA.out
+      required:
+        - d
+      properties:
+        c:
+          description: "local comment for MyIface.funA.out.c\n\ncomment for c of funA.out"
+          oneOf:
+            - $ref: "#/components/schemas/tstiop_dox.MyClass"
+          discriminator:
+            propertyName: _class
+        d:
+          type: integer
+          format: int32
+          description: "comment for \\ref d of funA.out\n2nd paragraph for \\p d of funA.out"
+          minimum: -2147483648
+          maximum: 2147483647
+      example: "{\"c\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13},\"d\":4}"
+    tstiop_dox.MyIface.funAaArgs:
+      type: object
+      description: comment for MyIface.funAa.in
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funAaRes:
+      type: object
+      required:
+        - b
+      properties:
+        b:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funBArgs:
+      type: object
+      description: comment for MyIface.funB.in
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyUnion:
+      description: comment for MyUnion
+      oneOf:
+        - type: object
+          required:
+            - fieldA
+          properties:
+            fieldA:
+              type: boolean
+              description: comment for MyUnion.fieldA
+        - type: object
+          required:
+            - fieldB
+          properties:
+            fieldB:
+              type: boolean
+    tstiop_dox.MyIface.funBal1Args:
+      type: object
+      description: comment for MyIface.funB.in
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funBal2Args:
+      type: object
+      description: comment for MyIface.funB.in
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funCRes:
+      type: object
+      required:
+        - b
+      properties:
+        b:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    Void:
+      type: object
+    tstiop_dox.MyIface.funDRes:
+      type: object
+      description: front comment... and back comment for res of funD
+      required:
+        - b
+      properties:
+        b:
+          type: integer
+          format: int32
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funEArgs:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          description: It is a \p comment for \ref a
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funE1Args:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          description: It is a \p comment for \ref a
+          minimum: -2147483648
+          maximum: 2147483647
+    tstiop_dox.MyIface.funE2Args:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          description: It is a \p comment for \ref a
+          minimum: -2147483648
+          maximum: 2147483647

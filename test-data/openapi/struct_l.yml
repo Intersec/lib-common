@@ -4,6 +4,7 @@ info:
   version: 2.3.1
 servers:
   - url: /
+paths: ~
 components:
   schemas:
     tstiop.MyEnumA:
@@ -44,4 +45,3 @@ components:
             $ref: "#/components/schemas/tstiop.MyEnumB"
         c:
           $ref: "#/components/schemas/tstiop.MyEnumC"
-paths: ~
