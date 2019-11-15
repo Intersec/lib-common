@@ -2,12 +2,14 @@ openapi: 3.0.2
 info:
   title: yay
   version: 0.0.1
+servers:
+  - url: /yay
 components:
   schemas:
     Void:
       type: object
 paths:
-  /yay/a/funG:
+  /a/funG:
     post:
       requestBody:
         required: true

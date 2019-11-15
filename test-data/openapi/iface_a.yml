@@ -2,8 +2,10 @@ openapi: 3.0.2
 info:
   title: yay
   version: 0.0.1
+servers:
+  - url: /yay
 paths:
-  /yay/a/funA:
+  /a/funA:
     post:
       requestBody:
         required: true
@@ -24,7 +26,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funb:
+  /a/funb:
     post:
       requestBody:
         required: true
@@ -45,7 +47,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funC:
+  /a/funC:
     post:
       requestBody:
         required: true
@@ -66,7 +68,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funD:
+  /a/funD:
     post:
       requestBody:
         required: true
@@ -87,7 +89,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funE:
+  /a/funE:
     post:
       requestBody:
         required: true
@@ -108,7 +110,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funF:
+  /a/funF:
     post:
       requestBody:
         required: true
@@ -129,7 +131,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funG:
+  /a/funG:
     post:
       requestBody:
         required: true
@@ -150,7 +152,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funH:
+  /a/funH:
     post:
       requestBody:
         required: true
@@ -171,7 +173,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funI:
+  /a/funI:
     post:
       requestBody:
         required: true
@@ -192,7 +194,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funJ:
+  /a/funJ:
     post:
       requestBody:
         required: true
@@ -213,7 +215,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funK:
+  /a/funK:
     post:
       requestBody:
         required: true
@@ -234,7 +236,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funL:
+  /a/funL:
     post:
       requestBody:
         required: true
@@ -255,7 +257,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funM:
+  /a/funM:
     post:
       requestBody:
         required: true
@@ -282,7 +284,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funN:
+  /a/funN:
     post:
       requestBody:
         required: true
@@ -309,7 +311,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funO:
+  /a/funO:
     post:
       requestBody:
         required: true
@@ -336,7 +338,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /yay/a/funAsync:
+  /a/funAsync:
     post:
       requestBody:
         required: true

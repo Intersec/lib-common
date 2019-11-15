@@ -49,6 +49,18 @@ typedef enum openapi_security_type_t {
     OPENAPI_SECURITY_BASIC_HTTP,
 } openapi_security_type_t;
 
+/** Set the URL of the server exposing the APIs
+ *
+ * The route will be added to the server url in the final document. The
+ * exposed URL will be:
+ *  <server_url>/route
+ * So for example, with the server url being "http://my.server.com:1337",
+ * the exposed URL will be:
+ *  http://my.server.com:1337/route
+ */
+void t_iop_openapi_set_server(iop_openapi_t * nonnull oa,
+                              const lstr_t server_url,
+                              const lstr_t description);
 void
 t_iop_openapi_set_security(iop_openapi_t * nonnull oa,
                            const lstr_t name,

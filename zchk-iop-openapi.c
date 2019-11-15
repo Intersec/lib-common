@@ -71,10 +71,12 @@ Z_GROUP_EXPORT(iop_openapi)
         iop_openapi_t *oa;
 
         oa = t_new_iop_openapi(LSTR("zoomin"), LSTR("0.2.3"), NULL,
-                               LSTR_NULL_V);
+                               LSTR("tes"));
         t_iop_openapi_set_description(oa, LSTR("sheo"));
         t_iop_openapi_set_security(oa, LSTR("my_sec"),
                                    OPENAPI_SECURITY_BASIC_HTTP);
+        t_iop_openapi_set_server(oa, LSTR("http://localhost:1337"),
+                                 LSTR("server description"));
         Z_HELPER_RUN(z_check_yaml(oa, "basic.yml", false));
     } Z_TEST_END;
 

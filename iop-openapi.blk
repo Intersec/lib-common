@@ -1384,7 +1384,6 @@ t_rpc_is_blacklisted(const iop_iface_t * nonnull iface,
 static void
 t_iop_rpc_append_path(const iop_rpc_t * nonnull rpc,
                       const iop_iface_alias_t * nonnull alias,
-                      lstr_t product_name,
                       qm_t(whitelist) * nonnull rpcs_whitelist,
                       qh_t(schemas) * nonnull existing_schemas,
                       qv_t(schema_object) * nonnull schemas,
@@ -1397,15 +1396,13 @@ t_iop_rpc_append_path(const iop_rpc_t * nonnull rpc,
     }
 
     obj = qv_growlen0(paths, 1);
-    obj->path = t_lstr_fmt("/%pL/%pL/%pL", &product_name, &alias->name,
-                           &rpc->name);
+    obj->path = t_lstr_fmt("/%pL/%pL", &alias->name, &rpc->name);
     t_iop_rpc_to_operation_object(rpc, alias->iface, existing_schemas,
                                   schemas, &obj->post);
 }
 
 static void
 t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
-                               lstr_t product_name,
                                qm_t(whitelist) * nonnull rpcs_whitelist,
                                qh_t(schemas) * nonnull existing_schemas,
                                qv_t(schema_object) * nonnull schemas,
@@ -1421,8 +1418,8 @@ t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
             continue;
         }
 
-        t_iop_rpc_append_path(rpc, alias, product_name, rpcs_whitelist,
-                              existing_schemas, schemas, paths);
+        t_iop_rpc_append_path(rpc, alias, rpcs_whitelist, existing_schemas,
+                              schemas, paths);
 
         /* loop on rpc aliases */
         if (TST_BIT(&rpc_flags, IOP_RPC_HAS_ALIAS)) {
@@ -1436,9 +1433,8 @@ t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
                     const iop_rpc_attr_arg_t arg = attr.args[0];
                     const iop_rpc_t *falias = (const iop_rpc_t *)arg.v.p;
 
-                    t_iop_rpc_append_path(falias, alias, product_name,
-                                          rpcs_whitelist, existing_schemas,
-                                          schemas, paths);
+                    t_iop_rpc_append_path(falias, alias, rpcs_whitelist,
+                                          existing_schemas, schemas, paths);
                 }
             }
         }
@@ -1447,16 +1443,14 @@ t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
 
 static void
 t_iop_mod_append_paths(const iop_mod_t * nonnull mod,
-                       lstr_t product_name,
                        qm_t(whitelist) * nonnull rpcs_whitelist,
                        qh_t(schemas) * nonnull existing_schemas,
                        qv_t(schema_object) * nonnull schemas,
                        qv_t(path) * nonnull paths)
 {
     for (int i = 0; i < mod->ifaces_len; i++) {
-        t_iop_iface_alias_append_paths(&mod->ifaces[i], product_name,
-                                       rpcs_whitelist, existing_schemas,
-                                       schemas, paths);
+        t_iop_iface_alias_append_paths(&mod->ifaces[i], rpcs_whitelist,
+                                       existing_schemas, schemas, paths);
     }
 }
 
@@ -1560,17 +1554,47 @@ static void t_info_object_to_yaml(const info_object_t * nonnull info,
 }
 
 /* }}} */
+/* {{{ Server object */
+
+typedef struct server_object_t {
+    lstr_t url;
+
+    lstr_t route;
+
+    lstr_t description;
+} server_object_t;
+
+static void t_server_object_to_yaml(const server_object_t * nonnull obj,
+                                    yaml_data_t * nonnull out)
+{
+    yaml_data_t data;
+
+    t_yaml_data_new_obj(out, 1);
+
+    yaml_data_set_string(&data, t_lstr_fmt("%pL/%pL", &obj->url,
+                                           &obj->route));
+    yaml_obj_add_field(out, LSTR("url"), data);
+
+    if (obj->description.s) {
+        yaml_data_set_string(&data, obj->description);
+        yaml_obj_add_field(out, LSTR("description"), data);
+    }
+}
+
+/* }}} */
 /* {{{ Public API */
 
 struct iop_openapi_t {
     /* header */
     info_object_t info;
 
+    /* servers */
+    server_object_t server;
+
     /* schemas */
     components_object_t components;
 
     /* paths */
-    lstr_t route;
     qv_t(path) paths;
 
     /* security */
@@ -1591,10 +1615,11 @@ iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
     oa->info.version = t_lstr_dup(version);
     oa->module = module;
 
+    oa->server.route = t_lstr_dup(route);
+
     t_components_object_init(&oa->components);
 
     t_qv_init(&oa->paths, 0);
-    oa->route = t_lstr_dup(route);
 
     t_qm_init(whitelist, &oa->rpcs_whitelist, 0);
 
@@ -1626,6 +1651,16 @@ t_iop_openapi_set_security(iop_openapi_t * nonnull oa,
     oa->security = sec->name;
 }
 
+void t_iop_openapi_set_server(iop_openapi_t * nonnull oa,
+                              const lstr_t server_url,
+                              const lstr_t description)
+{
+    oa->server.url = t_lstr_dup(server_url);
+    if (description.s) {
+        oa->server.description = t_lstr_dup(description);
+    }
+}
+
 void t_iop_openapi_whitelist_rpc(iop_openapi_t *openapi,
                                  const lstr_t fullname)
 {
@@ -1647,8 +1682,7 @@ int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
     bool has_unused_whitelist = false;
 
     if (openapi->module) {
-        t_iop_mod_append_paths(openapi->module, openapi->route,
-                               &openapi->rpcs_whitelist,
+        t_iop_mod_append_paths(openapi->module, &openapi->rpcs_whitelist,
                                &openapi->components.existing_schemas,
                                &openapi->components.schemas, &openapi->paths);
     }
@@ -1675,6 +1709,15 @@ int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
 
     t_info_object_to_yaml(&openapi->info, &data);
     yaml_obj_add_field(out, LSTR("info"), data);
+
+    {
+        yaml_data_t seq;
+
+        t_yaml_data_new_seq(&seq, 1);
+        t_server_object_to_yaml(&openapi->server, &data);
+        yaml_seq_add_data(&seq, data);
+        yaml_obj_add_field(out, LSTR("servers"), seq);
+    }
 
     t_components_object_to_yaml(&openapi->components, &data);
     yaml_obj_add_field(out, LSTR("components"), data);

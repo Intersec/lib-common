@@ -2,6 +2,8 @@ openapi: 3.0.2
 info:
   title: yay
   version: 0.0.1
+servers:
+  - url: /route
 components:
   schemas:
     tstiop.Iface.fArgs:
@@ -25,7 +27,7 @@ components:
           minimum: -2147483648
           maximum: 2147483647
 paths:
-  /route/iface/f:
+  /iface/f:
     post:
       requestBody:
         required: true

@@ -2,6 +2,8 @@ openapi: 3.0.2
 info:
   title: structs
   version: 2.3.1
+servers:
+  - url: /
 components:
   schemas:
     tstiop.MyClass1:

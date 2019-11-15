@@ -2,6 +2,8 @@ openapi: 3.0.2
 info:
   title: tstdox
   version: 1.0.1
+servers:
+  - url: /tstdox
 components:
   schemas:
     tstiop_dox.MyEnum:
@@ -202,7 +204,7 @@ components:
           minimum: -2147483648
           maximum: 2147483647
 paths:
-  /tstdox/iface/funA:
+  /iface/funA:
     post:
       summary: comment for funA of MyIface
       description: "detailed description for funA of MyIface\n\nwarning for funA of MyIface"
@@ -231,7 +233,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /tstdox/iface/funAa:
+  /iface/funAa:
     post:
       requestBody:
         required: true
@@ -252,7 +254,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /tstdox/iface/funB:
+  /iface/funB:
     post:
       summary: comment for MyIface.funB
       requestBody:
@@ -274,7 +276,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /tstdox/iface/funBal1:
+  /iface/funBal1:
     post:
       summary: comment for MyIface.funB
       requestBody:
@@ -296,7 +298,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /tstdox/iface/funBal2:
+  /iface/funBal2:
     post:
       summary: comment for MyIface.funB
       requestBody:
@@ -318,7 +320,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /tstdox/iface/funC:
+  /iface/funC:
     post:
       summary: comment for MyIface.funC
       requestBody:
@@ -341,7 +343,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /tstdox/iface/funD:
+  /iface/funD:
     post:
       summary: front comment... and back comment for funD
       requestBody:
@@ -363,7 +365,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /tstdox/iface/funE:
+  /iface/funE:
     post:
       summary: Comment for funE
       requestBody:
@@ -385,7 +387,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /tstdox/iface/funE1:
+  /iface/funE1:
     post:
       summary: Comment for funE
       requestBody:
@@ -407,7 +409,7 @@ paths:
             text/html:
               schema:
                 type: string
-  /tstdox/iface/funE2:
+  /iface/funE2:
     post:
       summary: Comment for funE
       requestBody:

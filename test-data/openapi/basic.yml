@@ -3,6 +3,9 @@ info:
   title: zoomin
   version: 0.2.3
   description: sheo
+servers:
+  - url: "http://localhost:1337/tes"
+    description: server description
 components:
   schemas: ~
   securitySchemes:
