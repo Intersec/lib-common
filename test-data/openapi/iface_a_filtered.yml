@@ -11,6 +11,8 @@ components:
 paths:
   /a/funG:
     post:
+      tags:
+        - a
       requestBody:
         required: true
         content:

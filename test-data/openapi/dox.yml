@@ -206,6 +206,8 @@ components:
 paths:
   /iface/funA:
     post:
+      tags:
+        - iface
       summary: comment for funA of MyIface
       description: "detailed description for funA of MyIface\n\nwarning for funA of MyIface"
       requestBody:
@@ -235,6 +237,8 @@ paths:
                 type: string
   /iface/funAa:
     post:
+      tags:
+        - iface
       requestBody:
         required: true
         content:
@@ -256,6 +260,8 @@ paths:
                 type: string
   /iface/funB:
     post:
+      tags:
+        - iface
       summary: comment for MyIface.funB
       requestBody:
         required: true
@@ -278,6 +284,8 @@ paths:
                 type: string
   /iface/funBal1:
     post:
+      tags:
+        - iface
       summary: comment for MyIface.funB
       requestBody:
         required: true
@@ -300,6 +308,8 @@ paths:
                 type: string
   /iface/funBal2:
     post:
+      tags:
+        - iface
       summary: comment for MyIface.funB
       requestBody:
         required: true
@@ -322,6 +332,8 @@ paths:
                 type: string
   /iface/funC:
     post:
+      tags:
+        - iface
       summary: comment for MyIface.funC
       requestBody:
         required: true
@@ -345,6 +357,8 @@ paths:
                 type: string
   /iface/funD:
     post:
+      tags:
+        - iface
       summary: front comment... and back comment for funD
       requestBody:
         required: true
@@ -367,6 +381,8 @@ paths:
                 type: string
   /iface/funE:
     post:
+      tags:
+        - iface
       summary: Comment for funE
       requestBody:
         required: true
@@ -389,6 +405,8 @@ paths:
                 type: string
   /iface/funE1:
     post:
+      tags:
+        - iface
       summary: Comment for funE
       requestBody:
         required: true
@@ -411,6 +429,8 @@ paths:
                 type: string
   /iface/funE2:
     post:
+      tags:
+        - iface
       summary: Comment for funE
       requestBody:
         required: true

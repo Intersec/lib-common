@@ -1122,6 +1122,8 @@ typedef struct operation_object_t {
     lstr_t summary;
     lstr_t description;
 
+    lstr_t tag;
+
     /* shortcut for requestBody.content with application/json */
     json_request_object_t request;
 
@@ -1143,6 +1145,15 @@ t_operation_object_to_yaml(const operation_object_t * nonnull obj,
     yaml_data_t response;
 
     t_yaml_data_new_obj(out, 4);
+
+    if (obj->tag.s) {
+        yaml_data_t seq;
+
+        t_yaml_data_new_seq(&seq, 1);
+        yaml_data_set_string(&data, obj->tag);
+        yaml_seq_add_data(&seq, data);
+        yaml_obj_add_field(out, LSTR("tags"), seq);
+    }
 
     if (obj->summary.s) {
         yaml_data_set_string(&data, obj->summary);
@@ -1237,10 +1248,11 @@ get_rpc_help(const iop_rpc_t * nonnull rpc, const iop_iface_t * nonnull iface,
 }
 
 static void
-t_iop_rpc_to_operation_object(const iop_rpc_t *rpc, const iop_iface_t *iface,
-                              qh_t(schemas) *existing_schemas,
-                              qv_t(schema_object) *schemas,
-                              operation_object_t *op)
+t_iop_rpc_to_operation_object(const iop_rpc_t * nonnull rpc,
+                              const iop_iface_alias_t * nonnull alias,
+                              qh_t(schemas) * nonnull existing_schemas,
+                              qv_t(schema_object) * nonnull schemas,
+                              operation_object_t * nonnull op)
 {
     const iop_help_t *rpc_help;
     const iop_help_t *arg_help;
@@ -1253,7 +1265,9 @@ t_iop_rpc_to_operation_object(const iop_rpc_t *rpc, const iop_iface_t *iface,
 
     p_clear(op, 1);
 
-    get_rpc_help(rpc, iface, &rpc_help, &rpc_help_is_v2, &arg_help,
+    op->tag = alias->name;
+
+    get_rpc_help(rpc, alias->iface, &rpc_help, &rpc_help_is_v2, &arg_help,
                  &arg_help_is_v2, &res_help, &res_help_is_v2, &exn_help,
                  &exn_help_is_v2);
     if (rpc_help) {
@@ -1397,7 +1411,7 @@ t_iop_rpc_append_path(const iop_rpc_t * nonnull rpc,
 
     obj = qv_growlen0(paths, 1);
     obj->path = t_lstr_fmt("/%pL/%pL", &alias->name, &rpc->name);
-    t_iop_rpc_to_operation_object(rpc, alias->iface, existing_schemas,
+    t_iop_rpc_to_operation_object(rpc, alias, existing_schemas,
                                   schemas, &obj->post);
 }
 

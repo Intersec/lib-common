@@ -29,6 +29,8 @@ components:
 paths:
   /iface/f:
     post:
+      tags:
+        - iface
       requestBody:
         required: true
         content:
