@@ -35,35 +35,8 @@ static struct yaml_g {
     .logger = LOGGER_INIT(NULL, "iop-openapi", LOG_INHERITS),
 };
 
-/* {{{ Utils */
-
-static lstr_t
-t_iop_help_to_string(const iop_help_t * nonnull help, bool ignore_brief)
-{
-    t_SB_1k(sb);
-
-    if (help->brief.s && !ignore_brief) {
-        sb_add_lstr(&sb, help->brief);
-    }
-    if (help->details.s) {
-        if (sb.len > 0) {
-            sb_adds(&sb, "\n\n");
-        }
-        sb_add_lstr(&sb, help->details);
-    }
-    if (help->warning.s) {
-        if (sb.len > 0) {
-            sb_adds(&sb, "\n\n");
-        }
-        sb_add_lstr(&sb, help->warning);
-    }
-
-    return sb.len > 0 ? LSTR_SB_V(&sb) : LSTR_NULL_V;
-}
-
-/* }}} */
-/* {{{ Schema object */
 /* {{{ Definitions */
+/* {{{ Schema */
 
 typedef enum openapi_type_t {
     TYPE_NONE,
@@ -169,6 +142,137 @@ add_schema_object(lstr_t name, openapi_type_t type,
 }
 
 /* }}} */
+
+typedef struct json_media_object_t {
+    schema_object_t schema;
+
+    lstr_t example;
+} json_media_object_t;
+
+typedef struct json_request_object_t {
+    lstr_t description;
+
+    /* shortcut for content.application/json */
+    json_media_object_t json_content;
+} json_request_object_t;
+
+typedef struct json_response_object_t {
+    lstr_t description;
+
+    /* shortcut for content.application/json */
+    json_media_object_t json_content;
+} json_response_object_t;
+
+typedef struct html_response_object_t {
+    lstr_t description;
+} html_response_object_t;
+
+typedef struct operation_object_t {
+    lstr_t summary;
+    lstr_t description;
+
+    lstr_t tag;
+
+    /* shortcut for requestBody.content with application/json */
+    json_request_object_t request;
+
+    /* shortcut for responses.200 */
+    json_response_object_t * nullable ok_response;
+
+    /* shortcut for responses.500 */
+    json_response_object_t * nullable exn_response;
+
+    /* shortcut for responses.default */
+    html_response_object_t default_response;
+} operation_object_t;
+
+typedef struct path_item_object_t {
+    lstr_t path;
+
+    /* we only support POST operations */
+    operation_object_t post;
+} path_item_object_t;
+qvector_t(path, path_item_object_t);
+
+typedef struct security_scheme_object_t {
+    lstr_t name;
+    openapi_security_type_t type;
+} security_scheme_object_t;
+
+typedef struct components_object_t {
+    qv_t(schema_object) schemas;
+    qh_t(schemas) existing_schemas;
+
+    security_scheme_object_t * nullable security;
+} components_object_t;
+
+typedef struct info_object_t {
+    lstr_t title;
+    lstr_t version;
+    lstr_t description;
+} info_object_t;
+
+typedef struct server_object_t {
+    lstr_t url;
+
+    lstr_t route;
+
+    lstr_t description;
+} server_object_t;
+
+qm_kvec_t(whitelist, lstr_t, bool, qhash_lstr_hash, qhash_lstr_equal);
+
+struct iop_openapi_t {
+    /* header */
+    info_object_t info;
+
+    /* servers */
+    server_object_t server;
+
+    /* schemas */
+    components_object_t components;
+
+    /* paths */
+    qv_t(path) paths;
+
+    /* security */
+    lstr_t security;
+
+    /* whitelist of RPCs to expose, in the format "<iface_fullname>.<rpc>" */
+    qm_t(whitelist) rpcs_whitelist;
+
+    const iop_mod_t * nullable module;
+};
+
+/* }}} */
+/* {{{ Utils */
+
+static lstr_t
+t_iop_help_to_string(const iop_help_t * nonnull help, bool ignore_brief)
+{
+    t_SB_1k(sb);
+
+    if (help->brief.s && !ignore_brief) {
+        sb_add_lstr(&sb, help->brief);
+    }
+    if (help->details.s) {
+        if (sb.len > 0) {
+            sb_adds(&sb, "\n\n");
+        }
+        sb_add_lstr(&sb, help->details);
+    }
+    if (help->warning.s) {
+        if (sb.len > 0) {
+            sb_adds(&sb, "\n\n");
+        }
+        sb_add_lstr(&sb, help->warning);
+    }
+
+    return sb.len > 0 ? LSTR_SB_V(&sb) : LSTR_NULL_V;
+}
+
+/* }}} */
+/* {{{ Schema object */
 /* {{{ Help */
 
 static void
@@ -1003,12 +1107,6 @@ t_schema_object_to_yaml(const schema_object_t * nonnull obj,
 /* }}} */
 /* {{{ Media object */
 
-typedef struct json_media_object_t {
-    schema_object_t schema;
-
-    lstr_t example;
-} json_media_object_t;
-
 static void
 t_json_media_object_to_yaml(const json_media_object_t * nonnull obj,
                             yaml_data_t * nonnull out)
@@ -1027,13 +1125,6 @@ t_json_media_object_to_yaml(const json_media_object_t * nonnull obj,
 
 /* }}} */
 /* {{{ Request object */
-
-typedef struct json_request_object_t {
-    lstr_t description;
-
-    /* shortcut for content.application/json */
-    json_media_object_t json_content;
-} json_request_object_t;
 
 static void
 t_json_request_object_to_yaml(const json_request_object_t * nonnull obj,
@@ -1061,13 +1152,6 @@ t_json_request_object_to_yaml(const json_request_object_t * nonnull obj,
 /* }}} */
 /* {{{ Response object */
 
-typedef struct json_response_object_t {
-    lstr_t description;
-
-    /* shortcut for content.application/json */
-    json_media_object_t json_content;
-} json_response_object_t;
-
 static void
 t_json_response_object_to_yaml(const json_response_object_t * nonnull obj,
                                yaml_data_t * nonnull out)
@@ -1084,10 +1168,6 @@ t_json_response_object_to_yaml(const json_response_object_t * nonnull obj,
     yaml_obj_add_field(out, LSTR("description"), data);
     yaml_obj_add_field(out, LSTR("content"), content);
 }
-
-typedef struct html_response_object_t {
-    lstr_t description;
-} html_response_object_t;
 
 static void
 t_html_response_object_to_yaml(const html_response_object_t * nonnull obj,
@@ -1117,25 +1197,6 @@ t_html_response_object_to_yaml(const html_response_object_t * nonnull obj,
 
 /* }}} */
 /* {{{ Operation object */
-
-typedef struct operation_object_t {
-    lstr_t summary;
-    lstr_t description;
-
-    lstr_t tag;
-
-    /* shortcut for requestBody.content with application/json */
-    json_request_object_t request;
-
-    /* shortcut for responses.200 */
-    json_response_object_t * nullable ok_response;
-
-    /* shortcut for responses.500 */
-    json_response_object_t * nullable exn_response;
-
-    /* shortcut for responses.default */
-    html_response_object_t default_response;
-} operation_object_t;
 
 static void
 t_operation_object_to_yaml(const operation_object_t * nonnull obj,
@@ -1338,16 +1399,6 @@ t_iop_rpc_to_operation_object(const iop_rpc_t * nonnull rpc,
 /* }}} */
 /* {{{ Path item object */
 
-qm_kvec_t(whitelist, lstr_t, bool, qhash_lstr_hash, qhash_lstr_equal);
-
-typedef struct path_item_object_t {
-    lstr_t path;
-
-    /* we only support POST operations */
-    operation_object_t post;
-} path_item_object_t;
-qvector_t(path, path_item_object_t);
-
 static void
 t_path_item_object_to_yaml(const path_item_object_t * nonnull obj,
                            yaml_data_t * nonnull out)
@@ -1396,31 +1447,25 @@ t_rpc_is_blacklisted(const iop_iface_t * nonnull iface,
 }
 
 static void
-t_iop_rpc_append_path(const iop_rpc_t * nonnull rpc,
-                      const iop_iface_alias_t * nonnull alias,
-                      qm_t(whitelist) * nonnull rpcs_whitelist,
-                      qh_t(schemas) * nonnull existing_schemas,
-                      qv_t(schema_object) * nonnull schemas,
-                      qv_t(path) * nonnull paths)
+t_iop_rpc_add(iop_openapi_t * nonnull oa, const iop_rpc_t * nonnull rpc,
+              const iop_iface_alias_t * nonnull alias)
 {
     path_item_object_t *obj;
 
-    if (t_rpc_is_blacklisted(alias->iface, rpc, rpcs_whitelist)) {
+    if (t_rpc_is_blacklisted(alias->iface, rpc, &oa->rpcs_whitelist)) {
         return;
     }
 
-    obj = qv_growlen0(paths, 1);
+    obj = qv_growlen0(&oa->paths, 1);
     obj->path = t_lstr_fmt("/%pL/%pL", &alias->name, &rpc->name);
-    t_iop_rpc_to_operation_object(rpc, alias, existing_schemas,
-                                  schemas, &obj->post);
+    t_iop_rpc_to_operation_object(rpc, alias,
+                                  &oa->components.existing_schemas,
+                                  &oa->components.schemas, &obj->post);
 }
 
 static void
-t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
-                               qm_t(whitelist) * nonnull rpcs_whitelist,
-                               qh_t(schemas) * nonnull existing_schemas,
-                               qv_t(schema_object) * nonnull schemas,
-                               qv_t(path) * nonnull paths)
+t_iop_iface_alias_add(iop_openapi_t * nonnull oa,
+                      const iop_iface_alias_t * nonnull alias)
 {
     for (int j = 0; j < alias->iface->funs_len; j++) {
         const iop_rpc_t *rpc = &alias->iface->funs[j];
@@ -1432,8 +1477,7 @@ t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
             continue;
         }
 
-        t_iop_rpc_append_path(rpc, alias, rpcs_whitelist, existing_schemas,
-                              schemas, paths);
+        t_iop_rpc_add(oa, rpc, alias);
 
         /* loop on rpc aliases */
         if (TST_BIT(&rpc_flags, IOP_RPC_HAS_ALIAS)) {
@@ -1447,8 +1491,7 @@ t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
                     const iop_rpc_attr_arg_t arg = attr.args[0];
                     const iop_rpc_t *falias = (const iop_rpc_t *)arg.v.p;
 
-                    t_iop_rpc_append_path(falias, alias, rpcs_whitelist,
-                                          existing_schemas, schemas, paths);
+                    t_iop_rpc_add(oa, falias, alias);
                 }
             }
         }
@@ -1456,25 +1499,15 @@ t_iop_iface_alias_append_paths(const iop_iface_alias_t * nonnull alias,
 }
 
 static void
-t_iop_mod_append_paths(const iop_mod_t * nonnull mod,
-                       qm_t(whitelist) * nonnull rpcs_whitelist,
-                       qh_t(schemas) * nonnull existing_schemas,
-                       qv_t(schema_object) * nonnull schemas,
-                       qv_t(path) * nonnull paths)
+t_iop_mod_add(iop_openapi_t * nonnull oa, const iop_mod_t * nonnull mod)
 {
     for (int i = 0; i < mod->ifaces_len; i++) {
-        t_iop_iface_alias_append_paths(&mod->ifaces[i], rpcs_whitelist,
-                                       existing_schemas, schemas, paths);
+        t_iop_iface_alias_add(oa, &mod->ifaces[i]);
     }
 }
 
 /* }}} */
 /* {{{ Security scheme object */
-
-typedef struct security_scheme_object_t {
-    lstr_t name;
-    openapi_security_type_t type;
-} security_scheme_object_t;
 
 static void
 t_security_scheme_object_to_yaml(const security_scheme_object_t * nonnull obj,
@@ -1498,13 +1531,6 @@ t_security_scheme_object_to_yaml(const security_scheme_object_t * nonnull obj,
 
 /* }}} */
 /* {{{ Components object */
-
-typedef struct components_object_t {
-    qv_t(schema_object) schemas;
-    qh_t(schemas) existing_schemas;
-
-    security_scheme_object_t * nullable security;
-} components_object_t;
 
 static void t_components_object_init(components_object_t *obj)
 {
@@ -1542,12 +1568,6 @@ t_components_object_to_yaml(const components_object_t * nonnull obj,
 /* }}} */
 /* {{{ Info object */
 
-typedef struct info_object_t {
-    lstr_t title;
-    lstr_t version;
-    lstr_t description;
-} info_object_t;
-
 static void t_info_object_to_yaml(const info_object_t * nonnull info,
                                   yaml_data_t * nonnull out)
 {
@@ -1570,14 +1590,6 @@ static void t_info_object_to_yaml(const info_object_t * nonnull info,
 /* }}} */
 /* {{{ Server object */
 
-typedef struct server_object_t {
-    lstr_t url;
-
-    lstr_t route;
-
-    lstr_t description;
-} server_object_t;
-
 static void t_server_object_to_yaml(const server_object_t * nonnull obj,
                                     yaml_data_t * nonnull out)
 {
@@ -1597,28 +1609,6 @@ static void t_server_object_to_yaml(const server_object_t * nonnull obj,
 
 /* }}} */
 /* {{{ Public API */
-
-struct iop_openapi_t {
-    /* header */
-    info_object_t info;
-
-    /* servers */
-    server_object_t server;
-
-    /* schemas */
-    components_object_t components;
-
-    /* paths */
-    qv_t(path) paths;
-
-    /* security */
-    lstr_t security;
-
-    /* whitelist of RPCs to expose, in the format "<iface_fullname>.<rpc>" */
-    qm_t(whitelist) rpcs_whitelist;
-
-    const iop_mod_t * nullable module;
-};
 
 iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
                                  const iop_mod_t *module, const lstr_t route)
@@ -1696,9 +1686,7 @@ int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
     bool has_unused_whitelist = false;
 
     if (openapi->module) {
-        t_iop_mod_append_paths(openapi->module, &openapi->rpcs_whitelist,
-                               &openapi->components.existing_schemas,
-                               &openapi->components.schemas, &openapi->paths);
+        t_iop_mod_add(openapi, openapi->module);
     }
 
     /* check for whitelisted RPCs that have not been exposed: this indicate
