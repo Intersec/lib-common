@@ -5,4 +5,10 @@ info:
   description: sheo
 components:
   schemas: ~
+  securitySchemes:
+    my_sec:
+      type: http
+      scheme: basic
 paths: ~
+security:
+  - my_sec: ~

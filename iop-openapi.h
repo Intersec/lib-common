@@ -45,6 +45,15 @@ void
 t_iop_openapi_set_description(iop_openapi_t * nonnull oa,
                               const lstr_t description);
 
+typedef enum openapi_security_type_t {
+    OPENAPI_SECURITY_BASIC_HTTP,
+} openapi_security_type_t;
+
+void
+t_iop_openapi_set_security(iop_openapi_t * nonnull oa,
+                           const lstr_t name,
+                           openapi_security_type_t type);
+
 /** Whitelist an RPC in the IOP OpenaAPI application.
  *
  * Only RPCs that have been whitelisted will be exposed in the OpenAPI

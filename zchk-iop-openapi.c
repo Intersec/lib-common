@@ -73,7 +73,9 @@ Z_GROUP_EXPORT(iop_openapi)
         oa = t_new_iop_openapi(LSTR("zoomin"), LSTR("0.2.3"), NULL,
                                LSTR_NULL_V);
         t_iop_openapi_set_description(oa, LSTR("sheo"));
-        Z_HELPER_RUN(z_check_yaml(oa, "empty.yml", false));
+        t_iop_openapi_set_security(oa, LSTR("my_sec"),
+                                   OPENAPI_SECURITY_BASIC_HTTP);
+        Z_HELPER_RUN(z_check_yaml(oa, "basic.yml", false));
     } Z_TEST_END;
 
     Z_TEST(iop_struct, "test the schema generation of IOP structs") {

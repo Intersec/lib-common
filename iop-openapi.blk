@@ -1461,11 +1461,41 @@ t_iop_mod_append_paths(const iop_mod_t * nonnull mod,
 }
 
 /* }}} */
+/* {{{ Security scheme object */
+
+typedef struct security_scheme_object_t {
+    lstr_t name;
+    openapi_security_type_t type;
+} security_scheme_object_t;
+
+static void
+t_security_scheme_object_to_yaml(const security_scheme_object_t * nonnull obj,
+                          yaml_data_t * nonnull out)
+{
+    yaml_data_t data;
+
+    switch (obj->type) {
+      case OPENAPI_SECURITY_BASIC_HTTP:
+        t_yaml_data_new_obj(out, 2);
+        yaml_data_set_string(&data, LSTR("http"));
+        yaml_obj_add_field(out, LSTR("type"), data);
+        yaml_data_set_string(&data, LSTR("basic"));
+        yaml_obj_add_field(out, LSTR("scheme"), data);
+        break;
+      default:
+        assert (false);
+        break;
+    }
+}
+
+/* }}} */
 /* {{{ Components object */
 
 typedef struct components_object_t {
     qv_t(schema_object) schemas;
     qh_t(schemas) existing_schemas;
+
+    security_scheme_object_t * nullable security;
 } components_object_t;
 
 static void t_components_object_init(components_object_t *obj)
@@ -1478,18 +1508,27 @@ static void
 t_components_object_to_yaml(const components_object_t * nonnull obj,
                                   yaml_data_t * nonnull out)
 {
-    yaml_data_t schemas;
+    yaml_data_t data;
 
-    t_yaml_data_new_obj(out, 1);
+    t_yaml_data_new_obj(out, 2);
 
-    t_yaml_data_new_obj(&schemas, obj->schemas.len);
+    t_yaml_data_new_obj(&data, obj->schemas.len);
     tab_for_each_ptr(schema, &obj->schemas) {
         yaml_data_t elem;
 
         t_schema_object_to_yaml(schema, &elem);
-        yaml_obj_add_field(&schemas, schema->name, elem);
+        yaml_obj_add_field(&data, schema->name, elem);
     }
-    yaml_obj_add_field(out, LSTR("schemas"), schemas);
+    yaml_obj_add_field(out, LSTR("schemas"), data);
+
+    if (obj->security) {
+        yaml_data_t elem;
+
+        t_yaml_data_new_obj(&data, 1);
+        t_security_scheme_object_to_yaml(obj->security, &elem);
+        yaml_obj_add_field(&data, obj->security->name, elem);
+        yaml_obj_add_field(out, LSTR("securitySchemes"), data);
+    }
 }
 
 /* }}} */
@@ -1534,6 +1573,9 @@ struct iop_openapi_t {
     lstr_t route;
     qv_t(path) paths;
 
+    /* security */
+    lstr_t security;
+
     /* whitelist of RPCs to expose, in the format "<iface_fullname>.<rpc>" */
     qm_t(whitelist) rpcs_whitelist;
 
@@ -1564,6 +1606,24 @@ t_iop_openapi_set_description(iop_openapi_t * nonnull oa,
                               const lstr_t description)
 {
     oa->info.description = t_lstr_dup(description);
+}
+
+void
+t_iop_openapi_set_security(iop_openapi_t * nonnull oa,
+                           const lstr_t name,
+                           openapi_security_type_t type)
+{
+    security_scheme_object_t *sec;
+
+    sec = t_new(security_scheme_object_t, 1);
+    sec->type = type;
+    sec->name = t_lstr_dup(name);
+
+    /* add security scheme in components */
+    oa->components.security = sec;
+
+    /* add security requirement in root obj */
+    oa->security = sec->name;
 }
 
 void t_iop_openapi_whitelist_rpc(iop_openapi_t *openapi,
@@ -1621,6 +1681,21 @@ int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
 
     t_paths_to_yaml(&openapi->paths, &data);
     yaml_obj_add_field(out, LSTR("paths"), data);
+
+    if (openapi->security.s) {
+        yaml_data_t array;
+
+        /* create an obj with a single key: the name of the security, and an
+         * empty array as value */
+        t_yaml_data_new_obj(&data, 1);
+        t_yaml_data_new_seq(&array, 0);
+        yaml_obj_add_field(&data, openapi->security, array);
+
+        /* then save this obj in an array in the security key */
+        t_yaml_data_new_seq(&array, 1);
+        yaml_seq_add_data(&array, data);
+        yaml_obj_add_field(out, LSTR("security"), array);
+    }
 
     return 0;
 }
