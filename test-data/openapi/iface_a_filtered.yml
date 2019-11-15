@@ -32,3 +32,5 @@ components:
   schemas:
     Void:
       type: object
+tags:
+  - name: a

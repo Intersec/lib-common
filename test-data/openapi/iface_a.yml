@@ -385,3 +385,5 @@ paths:
             text/html:
               schema:
                 type: string
+tags:
+  - name: a

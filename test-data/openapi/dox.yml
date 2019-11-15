@@ -451,3 +451,6 @@ components:
           description: It is a \p comment for \ref a
           minimum: -2147483648
           maximum: 2147483647
+tags:
+  - name: iface
+    description: "comment for MyModule.iface\n\ncomment for MyIface"

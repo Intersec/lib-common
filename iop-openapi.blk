@@ -220,6 +220,12 @@ typedef struct server_object_t {
     lstr_t description;
 } server_object_t;
 
+typedef struct tag_object_t {
+    lstr_t name;
+    lstr_t description;
+} tag_object_t;
+qvector_t(tag, tag_object_t);
+
 qm_kvec_t(whitelist, lstr_t, bool, qhash_lstr_hash, qhash_lstr_equal);
 
 struct iop_openapi_t {
@@ -237,6 +243,8 @@ struct iop_openapi_t {
 
     /* security */
     lstr_t security;
+
+    qv_t(tag) tags;
 
     /* whitelist of RPCs to expose, in the format "<iface_fullname>.<rpc>" */
     qm_t(whitelist) rpcs_whitelist;
@@ -374,6 +382,61 @@ get_field_help(const iop_field_attrs_t * nullable attrs,
           case IOP_FIELD_ATTR_HELP_V2:
             *help = attr->args[0].v.p;
             *is_v2 = true;
+            return;
+          default:
+            break;
+        }
+    }
+}
+
+static void
+get_mod_iface_help(const iop_mod_t * nonnull mod,
+                   const iop_iface_alias_t * nonnull alias,
+                   const iop_help_t * nullable * nonnull help)
+{
+    const iop_mod_iface_attrs_t *attrs;
+
+    *help = NULL;
+    if (!TST_BIT(&mod->flags, IOP_MOD_EXTENDED) || !mod->ifaces_attrs) {
+        return;
+    }
+    attrs = &mod->ifaces_attrs[alias - mod->ifaces];
+
+    for (int k = 0; k < attrs->attrs_len; k++) {
+        const iop_mod_iface_attr_t *attr = &attrs->attrs[k];
+
+        switch (attr->type) {
+          case IOP_MOD_IFACE_ATTR_HELP:
+            *help = attr->args[0].v.p;
+            return;
+          case IOP_MOD_IFACE_ATTR_HELP_V2:
+            *help = attr->args[0].v.p;
+            return;
+          default:
+            break;
+        }
+    }
+}
+
+static void
+get_iface_help(const iop_iface_t * nonnull iface,
+               const iop_help_t * nullable * nonnull help)
+{
+    *help = NULL;
+
+    if (!TST_BIT(&iface->flags, IOP_IFACE_HAS_ATTRS) || !iface->iface_attrs) {
+        return;
+    }
+
+    for (int k = 0; k < iface->iface_attrs->attrs_len; k++) {
+        const iop_iface_attr_t *attr = &iface->iface_attrs->attrs[k];
+
+        switch (attr->type) {
+          case IOP_IFACE_ATTR_HELP:
+            *help = attr->args[0].v.p;
+            return;
+          case IOP_IFACE_ATTR_HELP_V2:
+            *help = attr->args[0].v.p;
             return;
           default:
             break;
@@ -1465,8 +1528,13 @@ t_iop_rpc_add(iop_openapi_t * nonnull oa, const iop_rpc_t * nonnull rpc,
 
 static void
 t_iop_iface_alias_add(iop_openapi_t * nonnull oa,
+                      const iop_mod_t * nonnull mod,
                       const iop_iface_alias_t * nonnull alias)
 {
+    tag_object_t *tag;
+    const iop_help_t *help;
+    t_SB_1k(sb);
+
     for (int j = 0; j < alias->iface->funs_len; j++) {
         const iop_rpc_t *rpc = &alias->iface->funs[j];
         const unsigned rpc_flags = rpc->flags;
@@ -1496,13 +1564,34 @@ t_iop_iface_alias_add(iop_openapi_t * nonnull oa,
             }
         }
     }
+
+    /* add a tag for the iface */
+    tag = qv_growlen0(&oa->tags, 1);
+    tag->name = alias->name;
+
+    /* Get description from both the iface alias in the module, and the iface
+     * itself.
+     */
+    get_mod_iface_help(mod, alias, &help);
+    if (help) {
+        sb_add_lstr(&sb, t_iop_help_to_string(help, false));
+    }
+
+    get_iface_help(alias->iface, &help);
+    if (help) {
+        if (sb.len > 0) {
+            sb_adds(&sb, "\n\n");
+        }
+        sb_add_lstr(&sb, t_iop_help_to_string(help, false));
+    }
+    tag->description = sb.len > 0 ? LSTR_SB_V(&sb) : LSTR_NULL_V;
 }
 
 static void
 t_iop_mod_add(iop_openapi_t * nonnull oa, const iop_mod_t * nonnull mod)
 {
     for (int i = 0; i < mod->ifaces_len; i++) {
-        t_iop_iface_alias_add(oa, &mod->ifaces[i]);
+        t_iop_iface_alias_add(oa, mod, &mod->ifaces[i]);
     }
 }
 
@@ -1608,6 +1697,25 @@ static void t_server_object_to_yaml(const server_object_t * nonnull obj,
 }
 
 /* }}} */
+/* {{{ Tag object */
+
+static void t_tag_object_to_yaml(const tag_object_t * nonnull obj,
+                                 yaml_data_t * nonnull out)
+{
+    yaml_data_t data;
+
+    t_yaml_data_new_obj(out, 2);
+
+    yaml_data_set_string(&data, obj->name);
+    yaml_obj_add_field(out, LSTR("name"), data);
+
+    if (obj->description.s) {
+        yaml_data_set_string(&data, obj->description);
+        yaml_obj_add_field(out, LSTR("description"), data);
+    }
+}
+
+/* }}} */
 /* {{{ Public API */
 
 iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
@@ -1619,11 +1727,13 @@ iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
     oa->info.version = t_lstr_dup(version);
     oa->module = module;
 
-    oa->server.route = t_lstr_dup(route);
+    t_qv_init(&oa->paths, 0);
 
     t_components_object_init(&oa->components);
 
-    t_qv_init(&oa->paths, 0);
+    oa->server.route = t_lstr_dup(route);
+
+    t_qv_init(&oa->tags, 0);
 
     t_qm_init(whitelist, &oa->rpcs_whitelist, 0);
 
@@ -1683,6 +1793,7 @@ int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
                           sb_t *err)
 {
     yaml_data_t data;
+    yaml_data_t seq;
     bool has_unused_whitelist = false;
 
     if (openapi->module) {
@@ -1712,14 +1823,10 @@ int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
     t_info_object_to_yaml(&openapi->info, &data);
     yaml_obj_add_field(out, LSTR("info"), data);
 
-    {
-        yaml_data_t seq;
-
-        t_yaml_data_new_seq(&seq, 1);
-        t_server_object_to_yaml(&openapi->server, &data);
-        yaml_seq_add_data(&seq, data);
-        yaml_obj_add_field(out, LSTR("servers"), seq);
-    }
+    t_yaml_data_new_seq(&seq, 1);
+    t_server_object_to_yaml(&openapi->server, &data);
+    yaml_seq_add_data(&seq, data);
+    yaml_obj_add_field(out, LSTR("servers"), seq);
 
     t_paths_to_yaml(&openapi->paths, &data);
     yaml_obj_add_field(out, LSTR("paths"), data);
@@ -1740,6 +1847,15 @@ int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
         t_yaml_data_new_seq(&array, 1);
         yaml_seq_add_data(&array, data);
         yaml_obj_add_field(out, LSTR("security"), array);
+    }
+
+    if (openapi->tags.len > 0) {
+        t_yaml_data_new_seq(&seq, openapi->tags.len);
+        tab_for_each_ptr(tag, &openapi->tags) {
+            t_tag_object_to_yaml(tag, &data);
+            yaml_seq_add_data(&seq, data);
+        }
+        yaml_obj_add_field(out, LSTR("tags"), seq);
     }
 
     return 0;
