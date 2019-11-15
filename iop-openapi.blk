@@ -1531,6 +1531,7 @@ struct iop_openapi_t {
     components_object_t components;
 
     /* paths */
+    lstr_t route;
     qv_t(path) paths;
 
     /* whitelist of RPCs to expose, in the format "<iface_fullname>.<rpc>" */
@@ -1540,7 +1541,7 @@ struct iop_openapi_t {
 };
 
 iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
-                                 const iop_mod_t *module)
+                                 const iop_mod_t *module, const lstr_t route)
 {
     iop_openapi_t *oa = t_new(iop_openapi_t, 1);
 
@@ -1551,6 +1552,8 @@ iop_openapi_t *t_new_iop_openapi(const lstr_t title, const lstr_t version,
     t_components_object_init(&oa->components);
 
     t_qv_init(&oa->paths, 0);
+    oa->route = t_lstr_dup(route);
+
     t_qm_init(whitelist, &oa->rpcs_whitelist, 0);
 
     return oa;
@@ -1584,7 +1587,7 @@ int t_iop_openapi_to_yaml(iop_openapi_t *openapi, yaml_data_t *out,
     bool has_unused_whitelist = false;
 
     if (openapi->module) {
-        t_iop_mod_append_paths(openapi->module, openapi->info.title,
+        t_iop_mod_append_paths(openapi->module, openapi->route,
                                &openapi->rpcs_whitelist,
                                &openapi->components.existing_schemas,
                                &openapi->components.schemas, &openapi->paths);

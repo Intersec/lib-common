@@ -25,7 +25,7 @@ components:
           minimum: -2147483648
           maximum: 2147483647
 paths:
-  /yay/iface/f:
+  /route/iface/f:
     post:
       requestBody:
         required: true

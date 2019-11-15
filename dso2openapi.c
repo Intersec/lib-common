@@ -25,6 +25,7 @@ static struct {
     const char *whitelist_path;
     const char *title;
     const char *version;
+    const char *route;
     const char *description;
     const char *module;
 } opts_g;
@@ -49,12 +50,13 @@ handle_args(int argc, char **argv)
     };
 
     argc = parseopt(argc, argv, options, 0);
-    if (argc < 2 || help) {
-        makeusage(!help, arg0, "<name> <version>", NULL, options);
+    if (argc < 3 || help) {
+        makeusage(!help, arg0, "<name> <version> <route>", NULL, options);
     }
 
     opts_g.title = NEXTARG(argc, argv);
     opts_g.version = NEXTARG(argc, argv);
+    opts_g.route = NEXTARG(argc, argv);
 
     if (!opts_g.dso_path) {
         e_error("A dso file must be provided");
@@ -144,7 +146,7 @@ generate_openapi(const iop_mod_t * nonnull module)
     SB_1k(err);
 
     oa = t_new_iop_openapi(LSTR(opts_g.title), LSTR(opts_g.version),
-                           module);
+                           module, LSTR(opts_g.route));
     if (opts_g.description) {
         t_iop_openapi_set_description(oa, LSTR(opts_g.description));
     }
