@@ -834,13 +834,27 @@ static int yaml_pack_scalar(const yaml_pack_env_t * nonnull env,
 /* {{{ Pack sequence */
 
 static int yaml_pack_seq(const yaml_pack_env_t * nonnull env,
-                         const yaml_seq_t * nonnull seq, int indent_lvl)
+                         const yaml_seq_t * nonnull seq, int indent_lvl,
+                         bool to_indent)
 {
     int res = 0;
 
+    if (seq->datas.len == 0) {
+        if (to_indent) {
+            PUTS(" ~");
+        } else {
+            PUTS("~");
+        }
+        return res;
+    }
+
     tab_for_each_ptr(data, &seq->datas) {
-        PUTS("\n");
-        INDENT(indent_lvl);
+        if (to_indent) {
+            PUTS("\n");
+            INDENT(indent_lvl);
+        } else {
+            to_indent = true;
+        }
         PUTS("- ");
 
         res += RETHROW(yaml_pack_data(env, data, indent_lvl + 2, false));
@@ -922,7 +936,7 @@ static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
         res += RETHROW(yaml_pack_scalar(env, &data->scalar, to_indent));
         break;
       case YAML_DATA_SEQ:
-        res += RETHROW(yaml_pack_seq(env, data->seq, indent_lvl));
+        res += RETHROW(yaml_pack_seq(env, data->seq, indent_lvl, to_indent));
         break;
       case YAML_DATA_OBJ:
         res += RETHROW(yaml_pack_obj(env, data->obj, indent_lvl, to_indent));
@@ -1167,9 +1181,17 @@ z_check_yaml_scalar(const yaml_data_t *data, yaml_scalar_type_t type,
     Z_HELPER_END;
 }
 
-/* }}} */
+static int z_check_yaml_pack(const yaml_data_t *data, const char *yaml)
+{
+    SB_1k(sb);
 
-/* Unit-tests about YAML->AST parsing. */
+    yaml_pack_sb(data, &sb);
+    Z_ASSERT_STREQUAL(sb.data, yaml);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
 
 Z_GROUP_EXPORT(yaml)
 {
@@ -1655,6 +1677,42 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_EQ(field.seq->datas.tab[0].scalar.u, 3UL);
         Z_HELPER_RUN(z_check_yaml_scalar(&field.seq->datas.tab[1], YAML_SCALAR_NULL,
                                          3, 3, 3, 4));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Packing simple data */
+
+    Z_TEST(pack, "test packing of simple data") {
+        t_scope;
+        yaml_data_t scalar;
+        yaml_data_t data;
+        yaml_data_t data2;
+
+        /* empty obj */
+        t_yaml_data_new_obj(&data, 0);
+        Z_HELPER_RUN(z_check_yaml_pack(&data, "~"));
+
+        /* empty obj in seq */
+        t_yaml_data_new_seq(&data2, 1);
+        yaml_seq_add_data(&data2, data);
+        Z_HELPER_RUN(z_check_yaml_pack(&data2, "- ~"));
+
+        /* empty seq */
+        t_yaml_data_new_seq(&data, 0);
+        Z_HELPER_RUN(z_check_yaml_pack(&data, "~"));
+
+        /* empty seq in obj */
+        t_yaml_data_new_obj(&data2, 1);
+        yaml_obj_add_field(&data2, LSTR("a"), data);
+        Z_HELPER_RUN(z_check_yaml_pack(&data2, "a: ~"));
+
+        /* seq in seq */
+        t_yaml_data_new_seq(&data, 1);
+        yaml_data_set_bool(&scalar, true);
+        yaml_seq_add_data(&data, scalar);
+        t_yaml_data_new_seq(&data2, 1);
+        yaml_seq_add_data(&data2, data);
+        Z_HELPER_RUN(z_check_yaml_pack(&data2, "- - true"));
     } Z_TEST_END;
 
     /* }}} */
