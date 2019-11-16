@@ -16,7 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
+#include "el.h"
 #include "zchk-helpers.h"
+#include "z.h"
 
 
 void z_load_keys(lstr_t libcommon_path, sb_t *priv, sb_t *priv_encrypted,
@@ -47,4 +49,31 @@ void z_load_keys(lstr_t libcommon_path, sb_t *priv, sb_t *priv_encrypted,
     {
         e_fatal("cannot read public key");
     }
+}
+
+int z_run_command(const char * nonnull file,
+                  const char * nullable argv[],
+                  const char * nullable envp[],
+                  int timeout, int expected_status,
+                  sb_t *output)
+{
+    __block _Bool finished = false;
+    __block int block_status = 0;
+    int status;
+
+    el_spawn_child_capture(file, argv, envp, timeout, NULL,
+                           ^void (el_t ev, pid_t pid, int st, lstr_t out) {
+        block_status = st;
+        sb_add_lstr(output, out);
+        finished = true;
+    }, NULL);
+
+    do {
+        el_loop_timeout(100);
+    } while (!finished);
+
+    status = block_status;
+    Z_ASSERT_EQ(status, expected_status);
+
+    Z_HELPER_END;
 }

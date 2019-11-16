@@ -395,7 +395,7 @@ def build(ctx):
             'tpl-funcs.c',
 
             'z.blk',
-            'zchk-helpers.c',
+            'zchk-helpers.blk',
             'zlib-wrapper.c',
         ]
     )

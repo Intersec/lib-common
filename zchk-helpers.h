@@ -33,4 +33,20 @@
 void z_load_keys(lstr_t libcommon_path, sb_t *priv, sb_t *priv_encrypted,
                  sb_t *pub);
 
+/** Z helper to run a command, check its status and capture its output.
+ *
+ *
+ * \param[in]  file    \ref el_spawn_child_capture
+ * \param[in]  argv    \ref el_spawn_child_capture
+ * \param[in]  envp    \ref el_spawn_child_capture
+ * \param[in]  timeout \ref el_spawn_child_capture
+ * \param[in]  expected_status  expected return code of the command
+ * \param[out] output  output of the command (stdout + stderr)
+ */
+int z_run_command(const char * nonnull file,
+                  const char * nullable argv[],
+                  const char * nullable envp[],
+                  int timeout, int expected_status,
+                  sb_t *out);
+
 #endif /* PLATFORM_LIB_COMMON_ZCHK_HELPERS_H */
