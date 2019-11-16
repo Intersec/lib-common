@@ -122,9 +122,8 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         /* Check smilint compliance level 6 */
         sb_write_file(&sb, new_path);
         cmd = t_lstr_fmt("smilint -s -e -l 6 -i notification-not-reversible "
-                         "-p %s %s",
-                         "test-data/snmp/mibs/REF-INTERSEC-MIB.txt",
-                         new_path);
+                         "-p %*pM/test-data/snmp/mibs/REF-INTERSEC-MIB.txt "
+                         "%s", LSTR_FMT_ARG(z_cmddir_g), new_path);
         Z_ASSERT_ZERO(system(cmd.s));
 
         z_wipe(pkgs);
