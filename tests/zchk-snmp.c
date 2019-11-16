@@ -18,8 +18,9 @@
 
 /* LCOV_EXCL_START */
 
-#include "iop-snmp.h"
-#include "z.h"
+#include <lib-common/iop-snmp.h>
+#include <lib-common/z.h>
+#include <lib-common/zchk-helpers.h>
 
 #include "test-data/snmp/snmp_test.iop.h"
 #include "test-data/snmp/snmp_test_doc.iop.h"
@@ -35,16 +36,6 @@ static qv_t(mib_rev) t_z_fill_up_revisions(void)
     mib_register_revision(&revisions, "201003091349Z", "Initial release");
 
     return revisions;
-}
-
-static void z_init(qv_t(pkg) *pkgs)
-{
-    qv_init(pkgs);
-}
-
-static void z_wipe(qv_t(pkg) pkgs)
-{
-    qv_wipe(&pkgs);
 }
 
 static int z_check_wanted_file(const char *filename, sb_t *sb)
@@ -63,6 +54,21 @@ static int z_check_wanted_file(const char *filename, sb_t *sb)
     Z_HELPER_END;
 }
 
+static int z_run_smilint(qv_t(cstr) *args)
+{
+    SB_1k(out);
+
+    qv_push(args, "-s");
+    qv_push(args, "-e");
+    qv_push(args, "-l6");
+    qv_append(args, NULL);
+
+    Z_HELPER_RUN(z_run_command("smilint", args->tab, NULL, 1000, 0, &out));
+    Z_ASSERT_LSTREQUAL(LSTR_SB_V(&out), LSTR_EMPTY_V);
+
+    Z_HELPER_END;
+}
+
 Z_GROUP_EXPORT(iop_snmp_mib)
 {
     Z_TEST(test_intersec_mib_generated, "compare generated and ref file") {
@@ -72,14 +78,14 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         qv_t(mib_rev) revisions = t_z_fill_up_revisions();
         qv_t(pkg) pkgs;
 
-        z_init(&pkgs);
+        qv_init(&pkgs);
 
         qv_append(&pkgs, &snmp_intersec_test__pkg);
         iop_write_mib(&sb, &pkgs, &revisions);
 
         Z_HELPER_RUN(z_check_wanted_file(ref_file, &sb));
 
-        z_wipe(pkgs);
+        qv_wipe(&pkgs);
     } Z_TEST_END;
 
     Z_TEST(test_intersec_mib_smilint, "test intersec mib using smilint") {
@@ -88,19 +94,20 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         qv_t(mib_rev) revisions = t_z_fill_up_revisions();
         qv_t(pkg) pkgs;
         char *path = t_fmt("%*pM/intersec", LSTR_FMT_ARG(z_tmpdir_g));
-        lstr_t cmd;
+        qv_t(cstr) smilint_args;
 
-        z_init(&pkgs);
+        qv_init(&pkgs);
 
         qv_append(&pkgs, &snmp_intersec_test__pkg);
         iop_write_mib(&sb, &pkgs, &revisions);
 
         /* Check smilint compliance level 6 */
         sb_write_file(&sb, path);
-        cmd = t_lstr_fmt("smilint -s -e -l 6 %s", path);
-        Z_ASSERT_ZERO(system(cmd.s));
+        t_qv_init(&smilint_args, 8);
+        qv_append(&smilint_args, path);
+        Z_HELPER_RUN(z_run_smilint(&smilint_args));
 
-        z_wipe(pkgs);
+        qv_wipe(&pkgs);
     } Z_TEST_END;
 
     Z_TEST(test_entire_mib, "test complete mib") {
@@ -109,10 +116,9 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         qv_t(mib_rev) revisions = t_z_fill_up_revisions();
         qv_t(pkg) pkgs;
         const char *ref_file = "test-data/snmp/mibs/REF-TEST-MIB.txt";
-        char *new_path = t_fmt("%*pM/tst", LSTR_FMT_ARG(z_tmpdir_g));
-        lstr_t cmd;
+        qv_t(cstr) smilint_args;
 
-        z_init(&pkgs);
+        qv_init(&pkgs);
 
         qv_append(&pkgs, &snmp_test__pkg);
 
@@ -120,13 +126,16 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         Z_HELPER_RUN(z_check_wanted_file(ref_file, &sb));
 
         /* Check smilint compliance level 6 */
-        sb_write_file(&sb, new_path);
-        cmd = t_lstr_fmt("smilint -s -e -l 6 -i notification-not-reversible "
-                         "-p %*pM/test-data/snmp/mibs/REF-INTERSEC-MIB.txt "
-                         "%s", LSTR_FMT_ARG(z_cmddir_g), new_path);
-        Z_ASSERT_ZERO(system(cmd.s));
+        t_qv_init(&smilint_args, 8);
+        qv_append(&smilint_args, "-inotification-not-reversible");
+        qv_append(&smilint_args,
+                  t_fmt("-p%*pM/test-data/snmp/mibs/REF-INTERSEC-MIB.txt",
+                        LSTR_FMT_ARG(z_cmddir_g)));
+        qv_append(&smilint_args,
+                  t_fmt("%*pM%s", LSTR_FMT_ARG(z_cmddir_g), ref_file));
+        Z_HELPER_RUN(z_run_smilint(&smilint_args));
 
-        z_wipe(pkgs);
+        qv_wipe(&pkgs);
     } Z_TEST_END;
 
 } Z_GROUP_END;
