@@ -23,7 +23,7 @@ import json
 
 SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
-IOPC = os.path.join(SELF_PATH, 'iopc')
+IOPC = os.path.join(SELF_PATH, '../../iopc/iopc')
 
 import zpycore as z
 import subprocess
@@ -111,8 +111,8 @@ class IopcTest(z.TestCase):
                     '-Wnested-externs', '-Wdeclaration-after-statement',
                     '-Wno-format-zero-length', '-Wno-uninitialized',
                     '-D_GNU_SOURCE',
-                    '-I' + os.path.join(SELF_PATH, '../lib-common/compat'),
-                    '-I' + os.path.join(SELF_PATH, '..'),
+                    '-I' + os.path.join(SELF_PATH, '../../compat'),
+                    '-I' + os.path.join(SELF_PATH, '../../'),
                     os.path.join(TEST_PATH, iop_c) ]
 
         gcc_p = subprocess.Popen(gcc_args, stderr=subprocess.PIPE)

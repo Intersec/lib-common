@@ -15,33 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable, invalid-name
+# pylint: disable = undefined-variable
 
-ctx.IopcOptions(ctx, json_path='.', ts_path='.')
-
-ctx.set_group('iopc')
-
-ctx.stlib(target='libiopc', source=[
-    'iopc.fc',
-    'iopc-dso.c',
-    'iopc-lex.l',
-    'iopc-parser.c',
-    'iopc-pretty.c',
-    'iopc-typer.blk',
-    'iopctokens.c',
-    'iopc-write.c',
-
-    'iopc-lang-c.blk',
-    'iopc-lang-json.blk',
-    'iopc-lang-typescript.c',
-])
-
-ctx.iopc_tgen = ctx.program(target='iopc', source='iopc.c',
-                            use=['libiopc', 'libcommon-minimal'])
-
-ctx.set_group('code_compiling')
-
-ctx.stlib(target='libiopsq', source=[
-    'iopc-iopsq.c',
-    'iopsq.iop',
-])
+ctx.program(target='zchk', source='zchk.c',
+            use=['libiopsq', 'libiopc', 'tstiop', 'libcommon'])

@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iop-json.h"
-#include "iopc-iopsq.h"
-#include "../tests/iop/tstiop.iop.h"
+#include <lib-common/iop-json.h>
+#include <lib-common/iopc/iopc-iopsq.h>
+#include <lib-common/tests/iop/tstiop.iop.h>
 
 #include <lib-common/z.h>
 
@@ -703,6 +703,6 @@ Z_GROUP_EXPORT(iopsq) {
 int main(int argc, char **argv)
 {
     z_setup(argc, argv);
-    z_register_exports(PLATFORM_PATH LIBCOMMON_PATH "iopc/");
+    z_register_exports(PLATFORM_PATH LIBCOMMON_PATH "tests/iopc/");
     return z_run();
 }
