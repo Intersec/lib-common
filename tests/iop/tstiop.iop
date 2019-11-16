@@ -410,7 +410,8 @@ struct JpackEmptyStruct {
  * They can be used by anyone that would need that completeness, but they have
  * to be maintained as the IOPs evolve or as it seems to become necessary.
  *
- * There is a JSON sample for tstiop.FullStruct in samples/z-full-struct.json.
+ * There is a JSON sample for tstiop.FullStruct in
+ * tests/samples/z-full-struct.json.
  */
 
 enum TestEnum {

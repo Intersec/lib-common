@@ -17,10 +17,6 @@
 ###########################################################################
 # pylint: disable = undefined-variable
 
-ctx.IopcOptions(ctx,
-                json_path='../../json',
-                ts_path='../../iop-core')
-
 ctx.stlib(target='tst-snmp-iop', features='c cstlib', source=[
     'snmp_test.iop',
     'snmp_test_doc.iop',

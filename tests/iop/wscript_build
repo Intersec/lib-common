@@ -17,7 +17,7 @@
 ###########################################################################
 # pylint: disable = undefined-variable
 
-ctx.IopcOptions(ctx, includes='..')
+ctx.IopcOptions(ctx)
 
 ctx.stlib(target='tstiop', features='c cstlib', source=[
     'tstiop.iop',

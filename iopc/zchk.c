@@ -18,7 +18,7 @@
 
 #include "iop-json.h"
 #include "iopc-iopsq.h"
-#include "../iop/tstiop.iop.h"
+#include "../tests/iop/tstiop.iop.h"
 
 #include <lib-common/z.h>
 

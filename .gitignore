@@ -19,21 +19,6 @@ iopsq-t*
 /core-version.c
 /http-hdr.c
 
-/zchk
-/zchk-iop-plugin.so
-/ztst-asn1-wr
-/ztst-blob-iconv
-/ztst-hattrie
-/ztst-httpd
-/ztst-iprintf
-/ztst-iprintf-fp
-/ztst-iprintf-glibc
-/ztst-lzo
-/ztst-mem
-/ztst-qps
-/ztst-qpscheck
-/ztst-sort
-/ztst-tpl
 /dso-compatibility-check
 
 /common.so
@@ -50,9 +35,6 @@ iopsq-t*
 
 mem.stack.data.*
 mem.fifo.data.*
-
-test-data/snmp/*.iop.h
-test-data/snmp/*.iop.c
 
 # buildbot artefacts/buildbot.supp
 /buildbot.supp

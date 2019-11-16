@@ -403,12 +403,11 @@ def build(ctx):
     # }}}
 
     ctx.recurse([
-        'iop',
         'iop-tutorial',
         'pxcc',
         'iopy',
-        'test-data/snmp',
         'bench',
+        'tests',
     ])
 
     # {{{ iop-snmp library
@@ -424,94 +423,6 @@ def build(ctx):
     ctx.program(target='dso-compatibility-check', features='c cprogram',
                 source='dso-compatibility-check.blk',
                 use='libcommon')
-
-    # }}}
-    # {{{ zchk and ztst-*
-
-    ctx.stlib(target='zchk-iop-ressources', source='zchk-iop-ressources.c')
-
-    ctx.program(target='zchk',
-        source=[
-            'zchk.c',
-
-            'zchk-asn1-per.c',
-            'zchk-asn1-writer.c',
-            'zchk-bithacks.c',
-            'zchk-container.blk',
-            'zchk-core-bithacks.c',
-            'zchk-core-obj.c',
-            'zchk-core-rand.c',
-            'zchk-el.blk',
-            'zchk-farch.c',
-            'zchk-farch.fc',
-            'zchk-file-log.c',
-            'zchk-hash.c',
-            'zchk-hat.blk',
-            'zchk-iop.blk',
-            'zchk-iop.c',
-            'zchk-iop-core-obj.blk',
-            'zchk-iop-rpc.c',
-            'zchk-iop-yaml.c',
-            'zchk-iprintf.c',
-            'zchk-log.blk',
-            'zchk-mem.c',
-            'zchk-module.c',
-            'zchk-parseopt.c',
-            'zchk-snmp.c',
-            'zchk-sort.c',
-            'zchk-str.c',
-            'zchk-thrjob.blk',
-            'zchk-time.c',
-            'zchk-unix.blk',
-            'zchk-xmlpp.c',
-            'zchk-xmlr.c',
-        ],
-        use=[
-            'iop-snmp',
-            'tstiop',
-            'tst-snmp-iop',
-            'zchk-iop-ressources',
-        ], use_whole='libcommon')
-
-    ctx.shlib(target='zchk-iop-plugin', source=[
-        'zchk-iop-plugin.c',
-    ], use=[
-        'libcommon',
-        'zchk-iop-ressources',
-    ], remove_dynlibs=True)
-
-    ctx.program(target='ztst-httpd', source='ztst-httpd.c',
-                use='libcommon tstiop')
-
-    ctx.program(target='ztst-tpl', source='ztst-tpl.c',
-                use='libcommon')
-
-    ctx.program(target='ztst-iprintf', source='ztst-iprintf.c',
-                use='libcommon')
-
-    ctx.program(target='ztst-iprintf-fp', source='ztst-iprintf-fp.c',
-                use='libcommon',
-                cflags=['-Wno-format', '-Wno-missing-format-attribute',
-                        '-Wno-format-nonliteral'])
-
-    ctx.program(target='ztst-iprintf-glibc', source='ztst-iprintf-glibc.c',
-                use='libcommon',
-                cflags=['-Wno-format', '-Wno-missing-format-attribute',
-                        '-Wno-format-nonliteral'])
-
-    ctx.program(target='ztst-lzo', source='ztst-lzo.c', use='libcommon')
-
-    ctx.program(target='ztst-qps', features="c cprogram",
-                source='ztst-qps.blk', use='libcommon')
-
-    ctx.program(target='ztst-qpscheck', features="c cprogram",
-                source='ztst-qpscheck.blk', use='libcommon')
-
-    ctx.program(target='ztst-hattrie', features="c cprogram",
-                source='ztst-hattrie.blk', use='libcommon')
-
-    ctx.program(target='ztst-mem', features="c cprogram",
-                source='ztst-mem.blk', use='libcommon')
 
     # }}}
 
