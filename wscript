@@ -341,7 +341,7 @@ def build(ctx):
     ])
 
     # Full lib-common library
-    libcommon = ctx.stlib(target='libcommon',
+    ctx.stlib(target='libcommon',
         features='c cstlib',
         use=['libcommon-iop', 'libcommon-minimal', 'openssl', 'zlib'],
         source=[
