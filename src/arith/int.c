@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
-#include "z.h"
+#include <lib-common/arith.h>
+#include <lib-common/z.h>
 
 uint64_t const powerof10[16] = {
     1LL,

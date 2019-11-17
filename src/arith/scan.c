@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
+#include <lib-common/arith.h>
 #ifndef __SSE2__
 #   error "scan requires SSE2"
 #endif

@@ -19,8 +19,8 @@
 #include <math.h>
 #include <float.h>
 
-#include "arith.h"
-#include "z.h"
+#include <lib-common/arith.h>
+#include <lib-common/z.h>
 
 double double_round(double val, uint8_t precision)
 {

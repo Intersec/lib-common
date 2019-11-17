@@ -29,11 +29,11 @@
 #endif
 #endif
 
-#include "arith-endianess.h"
-#include "arith-cmp.h"
-#include "arith-float.h"
-#include "arith-str.h"
-#include "arith-scan.h"
+#include "src/arith/endianess.h"
+#include "src/arith/cmp.h"
+#include "src/arith/float.h"
+#include "src/arith/str.h"
+#include "src/arith/scan.h"
 
 unsigned gcd(unsigned a, unsigned b);
 unsigned gcd_euclid(unsigned a, unsigned b);

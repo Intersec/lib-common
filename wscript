@@ -345,9 +345,10 @@ def build(ctx):
         features='c cstlib',
         use=['libcommon-iop', 'libcommon-minimal', 'openssl', 'zlib'],
         source=[
-            'arith-int.c',
-            'arith-float.c',
-            'arith-scan.c',
+            'src/arith/int.c',
+            'src/arith/float.c',
+            'src/arith/scan.c',
+
             'asn1.c',
             'asn1-writer.c',
             'asn1-per.c',
