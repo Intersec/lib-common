@@ -17,41 +17,25 @@
 ###########################################################################
 # pylint: disable = undefined-variable
 
-# FIXME: in previous version of iopy we had a clever way of compiling iopy
-# into two different libraries iopy2.so for python2 and iopy3.so for python3,
-# and allow the module to also be able to be loaded as iopy.so with a symlink.
-# Unfortunately, this is is not currently possible with cython because the
-# python module name is dependent of the cython .pyx file name.
-# So we just use python2 for now and we hope that we can fix it later.
-
-
-ctx(rule='${VERSION_SH} rcsid iopy > ${TGT}',
-    target='iopy-version.c', always=True)
-
-# IOPy python2 is required.
-
-ctx.shlib(target='iopy/python2/iopy', features='c cshlib', source=[
-    'libcommon_cython.pxc',
-    'iopy_rpc.pxc',
-    'iopy_rpc.c',
-    'iopy.pyx',
-    'iopy-version.c',
+ctx.program(target='zchk-iopy-dso2', features='c cprogram', source=[
+    'zchk-iopy-dso.c',
+    'zchk-iopy-dso.fc',
 ], use=[
     'python2',
     'libcommon',
-], depends_on='iopy-version.c')
+], depends_on=[
+    'iopy/python2/iopy',
+])
 
 if ctx.env.PYTHON3_CONFIG:
-
-    ctx.shlib(target='iopy/python3/iopy', features='c cshlib', source=[
-        'libcommon_cython.pxc',
-        'iopy_rpc.pxc',
-        'iopy_rpc.c',
-        'iopy.pyx',
-        'iopy-version.c',
+    ctx.program(target='zchk-iopy-dso3', features='c cprogram', source=[
+        'zchk-iopy-dso.c',
+        'zchk-iopy-dso.fc',
     ], use=[
         'python3',
         'libcommon',
     ], depends_on=[
-        'iopy-version.c',
+        'iopy/python3/iopy',
     ])
+
+ctx.recurse('testsuite')

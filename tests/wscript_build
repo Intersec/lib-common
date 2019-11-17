@@ -110,5 +110,6 @@ ctx.program(target='ztst-mem', features="c cprogram",
 ctx.recurse([
     'iop',
     'iopc',
+    'iopy',
     'test-data/snmp',
 ])
