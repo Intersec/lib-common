@@ -16,9 +16,10 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "asn1-per.h"
-#include "z.h"
-#include "iop.h"
+#include <lib-common/asn1-per.h>
+#include <lib-common/z.h>
+#include <lib-common/iop.h>
+
 #include "iop/tstiop.iop.h"
 
 /* {{{ Choice */

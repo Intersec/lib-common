@@ -19,7 +19,7 @@
 #ifndef IS_LIB_INET_ASN1_PER_MACROS_H
 #define IS_LIB_INET_ASN1_PER_MACROS_H
 
-#include "asn1.h"
+#include <lib-common/asn1.h>
 
 static inline asn1_field_t
 *asn1_desc_get_last_field(asn1_desc_t *desc)

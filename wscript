@@ -349,9 +349,9 @@ def build(ctx):
             'src/arith/float.c',
             'src/arith/scan.c',
 
-            'asn1.c',
-            'asn1-writer.c',
-            'asn1-per.c',
+            'src/asn1/asn1.c',
+            'src/asn1/writer.c',
+            'src/asn1/per.c',
 
             'bit-buf.c',
             'bit-wah.c',

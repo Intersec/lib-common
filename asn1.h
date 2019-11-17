@@ -20,8 +20,9 @@
 #define IS_LIB_COMMON_ASN1_H
 
 #include <lib-common/arith.h>
-#include "asn1-macros.h"
-#include "asn1-writer.h"
+
+#include "src/asn1/macros.h"
+#include "src/asn1/writer.h"
 
 #define ASN1_TAG_INVALID   0xFFFFFFFF
 

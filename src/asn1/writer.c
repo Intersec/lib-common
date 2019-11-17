@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "asn1.h"
-#include "z.h"
-#include "thr.h"
+#include <lib-common/asn1.h>
+#include <lib-common/z.h>
+#include <lib-common/thr.h>
 
 static void asn1_wipe(void)
 {

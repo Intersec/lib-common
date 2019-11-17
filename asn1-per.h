@@ -91,7 +91,7 @@
 #define IS_LIB_INET_ASN1_PER_H
 
 #include "asn1.h"
-#include "asn1-per-macros.h"
+#include "src/asn1/per-macros.h"
 
 #define ASN1_MAX_LEN  SIZE_MAX /* FIXME put real ASN1_MAX_LEN instead */
 
