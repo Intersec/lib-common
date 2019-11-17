@@ -16,9 +16,10 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "core-mem-bench.h"
-#include "unix.h"
-#include "thr.h"
+#include <lib-common/unix.h>
+#include <lib-common/thr.h>
+
+#include "mem-bench.h"
 
 static logger_t mem_bench_logger_g = LOGGER_INIT_INHERITS(NULL, "mem-bench");
 

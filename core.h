@@ -77,8 +77,8 @@
 #define __ISLIBC__
 
 #define IPRINTF_HIDE_STDIO 1
-#include "core-os-features.h"
-#include "core-macros.h"
+#include "src/core/os-features.h"
+#include "src/core/macros.h"
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic push
@@ -91,18 +91,18 @@
 #ifdef __cplusplus
 }
 #endif
-#include "core-macros++.h"
+#include "src/core/macros++.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "core-bithacks.h"
-#include "core-blocks.h"
-#include "core-errors.h"
-#include "core-mem.h"
-#include "core-mem-stack.h"
-#include "core-types.h"
-#include "core-stdlib.h"
-#include "core-obj.h"
+#include "src/core/bithacks.h"
+#include "src/core/blocks.h"
+#include "src/core/errors.h"
+#include "src/core/mem.h"
+#include "src/core/mem-stack.h"
+#include "src/core/types.h"
+#include "src/core/stdlib.h"
+#include "src/core/obj.h"
 
 #include "str-ctype.h"
 #include "str-iprintf.h"
@@ -111,8 +111,8 @@ extern "C" {
 #include "str-l.h"
 #include "str-buf.h"
 #include "str-stream.h"
-#include "core-str.h"
-#include "core-module.h"
+#include "src/core/str.h"
+#include "src/core/module.h"
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic pop

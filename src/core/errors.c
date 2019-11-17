@@ -18,8 +18,8 @@
 
 #include <execinfo.h> /* backtrace_symbols_fd */
 
-#include "core.h"
-#include "unix.h"
+#include <lib-common/core.h>
+#include <lib-common/unix.h>
 
 #define XWRITE(s)  IGNORE(xwrite(fd, s, strlen(s)))
 

@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
+#include <lib-common/arith.h>
 
 #define BIT(x, n)   (((x) >> (n)) & 1)
 #define BC4(x)      BIT(x, 0) + BIT(x, 1) + BIT(x, 2) + BIT(x, 3)

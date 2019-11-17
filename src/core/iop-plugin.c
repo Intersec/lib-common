@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iop.h"
+#include <lib-common/iop.h>
 #include "core.iop.h"
 
 IOP_EXPORT_PACKAGES_COMMON;

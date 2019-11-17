@@ -19,9 +19,9 @@
 #ifndef IS_LIB_COMMON_CORE_MEM_BENCH_H
 #define IS_LIB_COMMON_CORE_MEM_BENCH_H
 
-#include "core.h"
-#include "datetime.h"
-#include "log.h"
+#include <lib-common/core.h>
+#include <lib-common/datetime.h>
+#include <lib-common/log.h>
 
 /* for timing individual function */
 typedef struct mem_bench_func_t {

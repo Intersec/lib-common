@@ -16,14 +16,14 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "container-dlist.h"
-#include "datetime.h"
-#include "el.h"
-#include "str-buf-pp.h"
-#include "thr.h"
+#include <lib-common/container-dlist.h>
+#include <lib-common/datetime.h>
+#include <lib-common/el.h>
+#include <lib-common/str-buf-pp.h>
+#include <lib-common/thr.h>
 
 #ifdef MEM_BENCH
-#include "core-mem-bench.h"
+#include "mem-bench.h"
 
 #define WRITE_PERIOD  256
 #endif

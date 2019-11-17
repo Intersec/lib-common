@@ -32,11 +32,11 @@
 
 #include <malloc.h>
 
-#include "core.h"
-#include "datetime.h"
-#include "el.h"
-#include "log.h"
-#include "thr.h"
+#include <lib-common/core.h>
+#include <lib-common/datetime.h>
+#include <lib-common/el.h>
+#include <lib-common/log.h>
+#include <lib-common/thr.h>
 
 /* Libc allocator {{{ */
 

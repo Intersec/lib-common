@@ -18,11 +18,11 @@
 
 #include <pthread.h>
 
-#include "log.h"
-#include "el.h"
-#include "container-qvector.h"
-#include "container-qhash.h"
-#include "unix.h"
+#include <lib-common/log.h>
+#include <lib-common/el.h>
+#include <lib-common/container-qvector.h>
+#include <lib-common/container-qhash.h>
+#include <lib-common/unix.h>
 
 /* {{{ Type definition */
 /* {{{ methods */

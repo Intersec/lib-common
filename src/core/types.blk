@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "core.h"
+#include <lib-common/core.h>
 
 /* {{{ Built-in comparison blocks */
 

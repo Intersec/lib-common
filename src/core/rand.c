@@ -17,7 +17,7 @@
 /***************************************************************************/
 
 #include <pthread.h>
-#include "core.h"
+#include <lib-common/core.h>
 
 static __thread struct {
     unsigned int seed;

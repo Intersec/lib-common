@@ -21,7 +21,7 @@
 #else
 #define IS_LIB_COMMON_CORE_MEM_STACK_H
 
-#include "container-dlist.h"
+#include <lib-common/container-dlist.h>
 
 /*
  * Stacked memory allocator

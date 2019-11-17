@@ -16,15 +16,15 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "core.h"
-#include "el.h"
-#include "log.h"
-#include "str-buf-pp.h"
+#include <lib-common/core.h>
+#include <lib-common/el.h>
+#include <lib-common/log.h>
+#include <lib-common/str-buf-pp.h>
 
 #ifdef MEM_BENCH
 
-#include "core-mem-bench.h"
-#include "thr.h"
+#include "mem-bench.h"
+#include <lib-common/thr.h>
 
 #define WRITE_PERIOD 256
 #endif

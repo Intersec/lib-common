@@ -21,7 +21,7 @@
 #else
 #define IS_LIB_COMMON_CORE_OBJ_H
 
-#include "core.h"
+#include <lib-common/core.h>
 
 /** \defgroup lc_obj Intersec Object Oriented C
  *

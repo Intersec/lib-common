@@ -16,12 +16,12 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
-#include "container-dlist.h"
-#include "el.h"
-#include "str-buf-pp.h"
-#include "thr.h"
-#include "log.h"
+#include <lib-common/arith.h>
+#include <lib-common/container-dlist.h>
+#include <lib-common/el.h>
+#include <lib-common/str-buf-pp.h>
+#include <lib-common/thr.h>
+#include <lib-common/log.h>
 
 /*
  * Ring memory allocator
