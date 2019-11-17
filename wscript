@@ -240,10 +240,11 @@ def build(ctx):
         source=[
             'core-version.c',
 
-            'container-qhash.c',
-            'container-qvector.blk',
-            'container-rbtree.c',
-            'container-ring.c',
+            'src/container/qhash.c',
+            'src/container/qvector.blk',
+            'src/container/rbtree.c',
+            'src/container/ring.c',
+
             'core-bithacks.c',
             'core-obj.c',
             'core-rand.c',

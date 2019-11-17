@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "container-qhash.h"
-#include "container-qvector.h"
-#include "arith.h"
+#include <lib-common/container-qhash.h>
+#include <lib-common/container-qvector.h>
+#include <lib-common/arith.h>
 
 #define QH_SETBITS_MASK  ((size_t)0x5555555555555555ULL)
 
@@ -276,7 +276,7 @@ size_t qhash_memory_footprint(const qhash_t *qh)
 #define putK(qh, pos, k)   (getK(qh, pos) = (k))
 #define hashK(qh, pos, k)  qhash_hash_u32(qh, k)
 #define iseqK(qh, k1, k2)  ((k1) == (k2))
-#include "container-qhash.in.c"
+#include "qhash.in.c"
 
 #define F(x)               x##64
 #define key_t              uint64_t
@@ -284,7 +284,7 @@ size_t qhash_memory_footprint(const qhash_t *qh)
 #define putK(qh, pos, k)   (getK(qh, pos) = (k))
 #define hashK(qh, pos, k)  qhash_hash_u64(qh, k)
 #define iseqK(qh, k1, k2)  ((k1) == (k2))
-#include "container-qhash.in.c"
+#include "qhash.in.c"
 
 #define MAY_CACHE_HASHES   1
 #define F(x)               x##_ptr
@@ -295,7 +295,7 @@ size_t qhash_memory_footprint(const qhash_t *qh)
 #define putK(qh, pos, k)   (getK(qh, pos) = (k))
 #define hashK(qh, pos, k)  ((qh)->hashes ? (qh)->hashes[pos] : (*hf)(qh, k))
 #define iseqK(qh, k1, k2)  (*equ)(qh, k1, k2)
-#include "container-qhash.in.c"
+#include "qhash.in.c"
 
 #define MAY_CACHE_HASHES   1
 #define QH_DEEP_COPY
@@ -307,4 +307,4 @@ size_t qhash_memory_footprint(const qhash_t *qh)
 #define putK(qh, pos, k)   memcpy(getK(qh, pos), k, (qh)->k_size)
 #define hashK(qh, pos, k)  ((qh)->hashes ? (qh)->hashes[pos] : (*hf)(qh, k))
 #define iseqK(qh, k1, k2)  (*equ)(qh, k1, k2)
-#include "container-qhash.in.c"
+#include "qhash.in.c"

@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "container-rbtree.h"
+#include <lib-common/container-rbtree.h>
 
 #define rb_parent(n)      ((rb_node_t *)((n)->__parent & ~1))
 #define rb_color(n)       (n->__parent & 1)
