@@ -407,10 +407,10 @@ def build(ctx):
     # }}}
 
     ctx.recurse([
-        'iop-tutorial',
         'src/pxcc',
         'src/iopy',
         'bench',
+        'examples',
         'tests',
     ])
 
