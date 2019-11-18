@@ -214,7 +214,7 @@ extern void *MALLOC(size_t);
 static __thread double private_mem[PRIVATE_mem];
 static __thread double *pmem_next;
 
-#include "thr.h"
+#include <lib-common/thr.h>
 
 __attribute((constructor))
 static void private_mem_initialize(void)

@@ -18,8 +18,8 @@
 
 #include <math.h>
 
-#include "net.h"
-#include "unix.h"
+#include <lib-common/net.h>
+#include <lib-common/unix.h>
 
 const char __sb_slop[1];
 

@@ -187,8 +187,8 @@ def configure(ctx):
     # str-l-obfuscate.c
     customize_source_file('lstr_obfuscate source file',
                           'lstr_obfuscate_src',
-                          'str-l-obfuscate-default.c',
-                          'str-l-obfuscate.c')
+                          'src/core/str-l-obfuscate-default.c',
+                          'src/core/str-l-obfuscate.c')
 
     # Ichannels SSL certificate/key
     customize_source_file('Ichannel SSL certificate',
@@ -256,6 +256,21 @@ def build(ctx):
             'src/core/mem.blk',
             'src/core/module.c',
             'src/core/types.blk',
+            'src/core/str.c',
+            'src/core/str-buf-gsm.c',
+            'src/core/str-buf-quoting.c',
+            'src/core/str-buf-pp.c',
+            'src/core/str-buf.c',
+            'src/core/str-conv.c',
+            'src/core/str-ctype.c',
+            'src/core/str-dtoa.c',
+            'src/core/str-iprintf.c',
+            'src/core/str-l.c',
+            'src/core/str-l-obfuscate.c',
+            'src/core/str-num.c',
+            'src/core/str-outbuf.c',
+            'src/core/str-path.c',
+            'src/core/str-stream.c',
 
             'compat/data.c',
             'compat/runtime.c',
@@ -292,21 +307,6 @@ def build(ctx):
             'qlzo-d.c',
 
             'sort.blk',
-            'str.c',
-            'str-buf-gsm.c',
-            'str-buf-quoting.c',
-            'str-buf-pp.c',
-            'str-buf.c',
-            'str-conv.c',
-            'str-ctype.c',
-            'str-dtoa.c',
-            'str-iprintf.c',
-            'str-l.c',
-            'str-l-obfuscate.c',
-            'str-num.c',
-            'str-outbuf.c',
-            'str-path.c',
-            'str-stream.c',
 
             'thr.c',
             'thr-evc.c',

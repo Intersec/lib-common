@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "core.h"
+#include <lib-common/core.h>
 
 /** Skips initial blanks as per isspace(c).
  *

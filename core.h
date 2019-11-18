@@ -104,14 +104,15 @@ extern "C" {
 #include "src/core/stdlib.h"
 #include "src/core/obj.h"
 
-#include "str-ctype.h"
-#include "str-iprintf.h"
-#include "str-num.h"
-#include "str-conv.h"
-#include "str-l.h"
-#include "str-buf.h"
-#include "str-stream.h"
+#include "src/core/str-ctype.h"
+#include "src/core/str-iprintf.h"
+#include "src/core/str-num.h"
+#include "src/core/str-conv.h"
+#include "src/core/str-l.h"
+#include "src/core/str-buf.h"
+#include "src/core/str-stream.h"
 #include "src/core/str.h"
+
 #include "src/core/module.h"
 
 #if __has_feature(nullability)

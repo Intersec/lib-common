@@ -20,7 +20,7 @@
  * that could be overridden using 'ctx.lstr_obfuscate_src' at waf configure.
  */
 
-#include "core.h"
+#include <lib-common/core.h>
 
 void lstr_obfuscate(lstr_t in, uint64_t key, lstr_t out)
 {

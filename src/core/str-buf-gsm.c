@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "core.h"
+#include <lib-common/core.h>
 
 
 /* Convert GSM charset to Unicode.

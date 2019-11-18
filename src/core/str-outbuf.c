@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "unix.h"
-#include "str-outbuf.h"
+#include <lib-common/unix.h>
+#include <lib-common/str-outbuf.h>
 
 void ob_check_invariants(outbuf_t *ob)
 {

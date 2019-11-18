@@ -17,7 +17,7 @@
 /***************************************************************************/
 
 #include <endian.h>
-#include "core.h"
+#include <lib-common/core.h>
 
 /* This code only works on regular architectures: we assume
  *  - integer types are either 32 bit or 64 bit long.

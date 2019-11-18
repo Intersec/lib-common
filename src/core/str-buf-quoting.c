@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "core.h"
-#include "container-qvector.h"
-#include "sort.h"
+#include <lib-common/core.h>
+#include <lib-common/container-qvector.h>
+#include <lib-common/sort.h>
 
 static const char __b64[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

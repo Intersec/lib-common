@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "core.h"
-#include "arith.h"
+#include <lib-common/core.h>
+#include <lib-common/arith.h>
 
 uint8_t const __utf8_mark[7] = { 0x00, 0x00, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc };
 

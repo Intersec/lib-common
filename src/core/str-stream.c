@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "net.h"
-#include "container-qvector.h"
+#include <lib-common/net.h>
+#include <lib-common/container-qvector.h>
 
 int ps_copyv(pstream_t *ps, struct iovec *iov, size_t *iov_len, int *flags)
 {

@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "unix.h"
-#include "core.h"
+#include <lib-common/unix.h>
+#include <lib-common/core.h>
 
 /* {{{ Base helpers */
 

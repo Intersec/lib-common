@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "core.h"
+#include <lib-common/core.h>
 
 static ALWAYS_INLINE int64_t
 memtoip_impl(const byte *s, int _len, const byte **endp,

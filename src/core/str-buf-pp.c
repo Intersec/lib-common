@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "str-buf-pp.h"
+#include <lib-common/str-buf-pp.h>
 
 static void sb_add_cell(sb_t *out, const struct table_hdr_t *col,
                         int col_size, bool is_hdr, bool is_last,
