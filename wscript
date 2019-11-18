@@ -408,8 +408,8 @@ def build(ctx):
 
     ctx.recurse([
         'iop-tutorial',
-        'pxcc',
-        'iopy',
+        'src/pxcc',
+        'src/iopy',
         'bench',
         'tests',
     ])
