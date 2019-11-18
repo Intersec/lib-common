@@ -34,13 +34,13 @@
  *  http://csrc.nist.gov/publications/fips/fips180-2/fips180-2.pdf
  */
 
-#include "z.h"
-#include "hash.h"
+#include <lib-common/z.h>
+#include <lib-common/hash.h>
 
 #define ATTRS
 #define F(x)  x
 
-#include "hash-sha2.in.c"
+#include "sha2.in.c"
 
 #undef F
 #undef ATTRS

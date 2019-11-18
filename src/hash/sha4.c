@@ -34,7 +34,7 @@
  *  http://csrc.nist.gov/publications/fips/fips180-2/fips180-2.pdf
  */
 
-#include "hash.h"
+#include <lib-common/hash.h>
 
 /*
  * 64-bit integer manipulation macros (big endian)

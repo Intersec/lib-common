@@ -34,7 +34,7 @@
  *  http://www.ietf.org/rfc/rfc1321.txt
  */
 
-#include "hash.h"
+#include <lib-common/hash.h>
 
 /*
  * MD5 context setup

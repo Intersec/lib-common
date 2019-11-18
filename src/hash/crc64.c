@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "hash.h"
+#include <lib-common/hash.h>
 
 /*
  *
@@ -34,8 +34,8 @@
  *
  */
 
-#include "hash-crc.h"
-#include "hash-crc64-table.in.c"
+#include "crc.h"
+#include "crc64-table.in.c"
 
 static ALWAYS_INLINE
 uint64_t naive_icrc64(uint64_t crc, const uint8_t *buf, ssize_t len)

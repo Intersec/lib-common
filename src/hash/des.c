@@ -35,7 +35,7 @@
  *  http://csrc.nist.gov/publications/fips/fips46-3/fips46-3.pdf
  */
 
-#include "hash.h"
+#include <lib-common/hash.h>
 
 /*
  * Expanded DES S-boxes

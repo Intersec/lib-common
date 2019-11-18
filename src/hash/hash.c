@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "hash.h"
+#include <lib-common/hash.h>
 
 uint32_t hsieh_hash(const void *_data, ssize_t len)
 {

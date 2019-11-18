@@ -35,7 +35,7 @@
  *  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
  */
 
-#include "hash.h"
+#include <lib-common/hash.h>
 
 /*
  * Forward S-box

@@ -38,7 +38,7 @@ enum {
 
 #define ATTRS
 #define F(x)  x
-#include "hash-iop.in.h"
+#include "iop.in.h"
 #undef F
 #undef ATTRS
 

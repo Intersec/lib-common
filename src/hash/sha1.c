@@ -34,8 +34,8 @@
  *  http://www.itl.nist.gov/fipspubs/fip180-1.htm
  */
 
-#include "z.h"
-#include "hash.h"
+#include <lib-common/z.h>
+#include <lib-common/hash.h>
 
 /*
  * SHA-1 context setup

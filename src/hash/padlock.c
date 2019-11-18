@@ -35,7 +35,7 @@
  *  programming_guide.pdf
  */
 
-#include "hash.h"
+#include <lib-common/hash.h>
 
 #if defined(XYSSL_HAVE_X86)
 
