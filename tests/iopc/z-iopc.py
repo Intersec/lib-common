@@ -23,7 +23,7 @@ import json
 
 SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
-IOPC = os.path.join(SELF_PATH, '../../iopc/iopc')
+IOPC = os.path.join(SELF_PATH, '../../src/iopc/iopc')
 
 import zpycore as z
 import subprocess

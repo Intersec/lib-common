@@ -325,8 +325,10 @@ def build(ctx):
 
     # }}}
 
-    ctx.recurse('tools')
-    ctx.recurse('iopc')
+    ctx.recurse([
+        'src/tools',
+        'src/iopc',
+    ])
 
     ctx.set_group('code_compiling')
 

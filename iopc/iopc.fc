@@ -1,6 +1,0 @@
-#!farchc
-
-iopc_farch
-
-../iop-compat.h
-../iop-internals.h
