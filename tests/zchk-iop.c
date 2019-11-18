@@ -19,17 +19,19 @@
 /* LCOV_EXCL_START */
 
 #include <math.h>
+
+#include <lib-common/core.h>
+#include <lib-common/datetime.h>
+#include <lib-common/thr.h>
+#include <lib-common/unix.h>
+#include <lib-common/z.h>
+#include <lib-common/iop-json.h>
+#include <lib-common/src/iop/priv.h>
+#include <lib-common/src/iop/ic.iop.h>
+
 #include "zchk-iop.h"
-#include "core.h"
-#include "datetime.h"
-#include "thr.h"
-#include "unix.h"
-#include "z.h"
-#include "iop-json.h"
-#include "iop-priv.h"
 #include "iop/tstiop.iop.h"
 #include "iop/tstiop2.iop.h"
-#include "ic.iop.h"
 #include "iop/tstiop_inheritance.iop.h"
 #include "iop/tstiop_backward_compat.iop.h"
 #include "iop/tstiop_backward_compat_deleted_struct_1.iop.h"

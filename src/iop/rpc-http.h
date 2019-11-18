@@ -22,7 +22,7 @@
 #define IS_LIB_COMMON_IOP_RPC_HTTP_H
 #ifndef __cplusplus
 
-#include "iop-json.h"
+#include <lib-common/iop-json.h>
 
 /**************************************************************************/
 /* HTTP Queries                                                           */

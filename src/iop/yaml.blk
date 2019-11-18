@@ -18,11 +18,12 @@
 
 #include <math.h>
 
-#include "unix.h"
-#include "yaml.h"
-#include "iop-yaml.h"
-#include "iop-helpers.in.c"
-#include "log.h"
+#include <lib-common/unix.h>
+#include <lib-common/yaml.h>
+#include <lib-common/log.h>
+#include <lib-common/iop-yaml.h>
+
+#include "src/iop/helpers.in.c"
 
 static struct iop_yaml_g {
     logger_t logger;

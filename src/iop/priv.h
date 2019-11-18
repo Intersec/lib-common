@@ -19,7 +19,7 @@
 #ifndef IS_LIB_COMMON_IOP_PRIV_H
 #define IS_LIB_COMMON_IOP_PRIV_H
 
-#include "iop.h"
+#include <lib-common/iop.h>
 
 /* {{{ class_id/class_name qm declarations */
 

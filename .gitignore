@@ -24,9 +24,6 @@ iopsq-t*
 /common.so
 /core-iop-plugin.so
 
-/utils/ic-cert.pem
-/utils/ic-key.pem
-
 /json
 /.build*
 /build

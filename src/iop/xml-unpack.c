@@ -16,9 +16,10 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "xmlr.h"
-#include "iop.h"
-#include "iop-helpers.in.c"
+#include <lib-common/xmlr.h>
+#include <lib-common/iop.h>
+
+#include "helpers.in.c"
 
 static __thread qm_t(part) *parts_g;
 

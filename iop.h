@@ -19,8 +19,8 @@
 #ifndef IS_LIB_COMMON_IOP_H
 #define IS_LIB_COMMON_IOP_H
 
-#include "container-qhash.h"
-#include "container-qvector.h"
+#include <lib-common/container-qhash.h>
+#include <lib-common/container-qvector.h>
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic push
@@ -30,8 +30,8 @@
 #endif
 #endif
 
-#include "iop-cfolder.h"
-#include "iop-internals.h"
+#include "src/iop/cfolder.h"
+#include "src/iop/internals.h"
 
 #define IOP_ABI_VERSION  2
 
@@ -2531,10 +2531,10 @@ MODULE_DECLARE(iop);
 
 void iop_module_register(void);
 
-#include "iop-macros.h"
-#include "iop-xml.h"
-#include "iop-dso.h"
-#include "iop-core-obj.h"
+#include "src/iop/macros.h"
+#include "src/iop/xml.h"
+#include "src/iop/dso.h"
+#include "src/iop/core-obj.h"
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic pop

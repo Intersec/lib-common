@@ -16,13 +16,14 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "log.h"
-#include "unix.h"
-#include "iop-rpc.h"
-#include "str-buf-pp.h"
-#include "iop.h"
-#include "iop-rpc-channel.fc.c"
-#include "ssl.h"
+#include <lib-common/log.h>
+#include <lib-common/unix.h>
+#include <lib-common/iop-rpc.h>
+#include <lib-common/str-buf-pp.h>
+#include <lib-common/iop.h>
+#include <lib-common/ssl.h>
+
+#include "rpc-channel.fc.c"
 
 /* IC_MSG_STREAM_CONTROL messages uses the "slot" to encode the command.
  */
@@ -332,8 +333,8 @@ static int ic_verify_callback(int preverify_ok, X509_STORE_CTX *store_ctx)
 static int ic_initialize(void *arg)
 {
     t_scope;
-    lstr_t tls_key = t_farch_get_data(ic_fc_g, "utils/ic-key.pem");
-    lstr_t tls_cert = t_farch_get_data(ic_fc_g, "utils/ic-cert.pem");
+    lstr_t tls_key = t_farch_get_data(ic_fc_g, "ic-key.pem");
+    lstr_t tls_cert = t_farch_get_data(ic_fc_g, "ic-cert.pem");
     SB_1k(errbuf);
 
     _G.certificate = ssl_ctx_convert_certificate_lstr(tls_cert);

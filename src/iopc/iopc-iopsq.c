@@ -19,7 +19,7 @@
 #include "iopc-iopsq.h"
 #include "iopc-priv.h"
 
-#include <lib-common/iop-priv.h>
+#include <lib-common/src/iop/priv.h>
 
 /* {{{ IOP-described package to iopc_pkg_t */
 /* {{{ Helpers */

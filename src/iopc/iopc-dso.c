@@ -130,9 +130,9 @@ iopc_build(const char *pfxdir, bool display_pfx, const qm_t(iopc_env) *env,
     iopc_pkg_t *pkg;
     lstr_t farch;
 
-    farch = t_farch_get_data(iopc_farch, "../iop-compat.h");
+    farch = t_farch_get_data(iopc_farch, "../../src/iop/compat.h");
     sb_add_lstr(&sb, farch);
-    farch = t_farch_get_data(iopc_farch, "../iop-internals.h");
+    farch = t_farch_get_data(iopc_farch, "../../src/iop/internals.h");
     sb_add_lstr(&sb, farch);
 
     iopc_g.prefix_dir     = pfxdir;

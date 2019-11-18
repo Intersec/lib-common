@@ -193,12 +193,12 @@ def configure(ctx):
     # Ichannels SSL certificate/key
     customize_source_file('Ichannel SSL certificate',
                           'ic_cert_src',
-                          'utils/ic-cert-default.pem',
-                          'utils/ic-cert.pem')
+                          'src/iop/ic-cert-default.pem',
+                          'src/iop/ic-cert.pem')
     customize_source_file('Ichannel SSL private key',
                           'ic_key_src',
-                          'utils/ic-key-default.pem',
-                          'utils/ic-key.pem')
+                          'src/iop/ic-key-default.pem',
+                          'src/iop/ic-key.pem')
 
     # }}}
 
@@ -293,11 +293,11 @@ def build(ctx):
             'src/hash/sha2.c',
             'src/hash/sha4.c',
 
-            'iop.blk',
-            'iop-dso.c',
-            'iop-cfolder.c',
-            'iop-core-obj.blk',
-            'iop-void.c',
+            'src/iop/iop.blk',
+            'src/iop/dso.c',
+            'src/iop/cfolder.c',
+            'src/iop/core-obj.blk',
+            'src/iop/void.c',
 
             'log.c',
 
@@ -340,7 +340,7 @@ def build(ctx):
                     ts_path='iop-core')
     ctx.stlib(target='libcommon-iop', features='c cstlib', source=[
         'core.iop',
-        'ic.iop',
+        'src/iop/ic.iop',
     ])
 
     # Full lib-common library
@@ -371,15 +371,15 @@ def build(ctx):
 
             'yaml.c',
 
-            'iop-json.blk',
-            'iop-yaml.blk',
-            'iop-rpc-channel.fc',
-            'iop-rpc-channel.blk',
-            'iop-rpc-http-pack.c',
-            'iop-rpc-http-unpack.c',
-            'iop-xml-pack.c',
-            'iop-xml-unpack.c',
-            'iop-xml-wsdl.blk',
+            'src/iop/json.blk',
+            'src/iop/yaml.blk',
+            'src/iop/rpc-channel.fc',
+            'src/iop/rpc-channel.blk',
+            'src/iop/rpc-http-pack.c',
+            'src/iop/rpc-http-unpack.c',
+            'src/iop/xml-pack.c',
+            'src/iop/xml-unpack.c',
+            'src/iop/xml-wsdl.blk',
 
             'log-iop.c',
 
@@ -417,8 +417,8 @@ def build(ctx):
     # {{{ iop-snmp library
 
     ctx.stlib(target='iop-snmp', source=[
-        'iop-snmp-doc.c',
-        'iop-snmp-mib.c',
+        'src/iop/snmp-doc.c',
+        'src/iop/snmp-mib.c',
     ], use='libcommon')
 
     # }}}

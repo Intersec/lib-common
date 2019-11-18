@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "xmlpp.h"
-#include "iop-rpc.h"
+#include <lib-common/xmlpp.h>
+#include <lib-common/iop-rpc.h>
 
 static __thread lstr_t err_ctx_g = LSTR_NULL;
 

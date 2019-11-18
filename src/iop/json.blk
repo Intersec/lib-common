@@ -17,10 +17,11 @@
 /***************************************************************************/
 
 #include <math.h>
-#include "unix.h"
-#include "iop-json.h"
-#include "iop-helpers.in.c"
-#include "thr.h"
+#include <lib-common/unix.h>
+#include <lib-common/iop-json.h>
+#include <lib-common/thr.h>
+
+#include "helpers.in.c"
 
 /* {{{ lexing json */
 

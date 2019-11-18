@@ -18,8 +18,8 @@
 
 /* XXX Make this file syntastic-compatible. */
 #ifndef F_NAME
-#  include "iop.h"
-#  include "iop-helpers.in.c"
+#  include <lib-common/iop.h>
+#  include "helpers.in.c"
 #  define F(x)  x
 #  define F_NAME  __unused__ static default_func
 #  define ON_FIELD  default_on_field

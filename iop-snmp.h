@@ -19,7 +19,7 @@
 #ifndef IS_LIB_COMMON_IOP_SNMP_H
 #define IS_LIB_COMMON_IOP_SNMP_H
 
-#include "iop.h"
+#include <lib-common/iop.h>
 
 /* {{{ Local type definitions */
 

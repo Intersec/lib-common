@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iop-snmp.h"
-#include "log.h"
+#include <lib-common/iop-snmp.h>
+#include <lib-common/log.h>
 
 #include <sysexits.h>
 #include <lib-common/parseopt.h>

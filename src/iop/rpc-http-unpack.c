@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "xmlr.h"
-#include "iop-rpc.h"
+#include <lib-common/xmlr.h>
+#include <lib-common/iop-rpc.h>
 
 void ichttp_cb_wipe(ichttp_cb_t *rpc)
 {

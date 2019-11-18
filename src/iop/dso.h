@@ -23,7 +23,7 @@
 
 #include <dlfcn.h>
 
-#include "farch.h"
+#include <lib-common/farch.h>
 
 qm_kvec_t(iop_struct, lstr_t, const iop_struct_t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);

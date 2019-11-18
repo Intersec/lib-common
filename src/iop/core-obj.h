@@ -21,8 +21,8 @@
 #else
 #define IS_LIB_COMMON_IOP_CORE_OBJ_H
 
-#include "core.h"
-#include "container-qhash.h"
+#include <lib-common/core.h>
+#include <lib-common/container-qhash.h>
 
 /** IOP Core Obj.
  *

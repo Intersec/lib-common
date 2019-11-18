@@ -19,12 +19,13 @@
 #include <float.h>
 #include <math.h>
 #include <lib-common/container-htlist.h>
-#include "iop-priv.h"
-#include "arith.h"
-#include "core.h"
-#include "iop-helpers.in.c"
-#include "thr.h"
-#include "sort.h"
+#include <lib-common/arith.h>
+#include <lib-common/core.h>
+#include <lib-common/thr.h>
+#include <lib-common/sort.h>
+
+#include "priv.h"
+#include "helpers.in.c"
 
 
 static struct {
@@ -2928,7 +2929,7 @@ void iop_filter_bitmap_apply(const iop_struct_t *st, void *vec, int *len,
 
 #define ATTRS
 #define F(x)  x
-#include "iop-hashing-values.in.c"
+#include "hashing-values.in.c"
 #undef F
 #undef ATTRS
 
@@ -5361,7 +5362,7 @@ static int on_field_cb(const iop_struct_t *st_desc, void *st_ptr,
 #define ON_FIELD          on_field_cb
 #define ON_FIELD_DONE()   ON_FIELD_DONE_WSTACK()
 #define SET_INDEX(index)  SET_INDEX_WSTACK(index)
-#include "iop-for-each.in.c"
+#include "for-each.in.c"
 
 int iop_for_each_field(const iop_struct_t *nullable st_desc,
                        void *nonnull st_ptr,
@@ -5400,7 +5401,7 @@ static int on_field_const_cb(
 #define ON_FIELD          on_field_const_cb
 #define ON_FIELD_DONE()   ON_FIELD_DONE_WSTACK()
 #define SET_INDEX(index)  SET_INDEX_WSTACK(index)
-#include "iop-for-each.in.c"
+#include "for-each.in.c"
 
 int iop_for_each_field_const(
     const iop_struct_t *nullable st_desc,
@@ -5431,7 +5432,7 @@ static int call_field_fast_cb(const iop_struct_t *st_desc, void *st_ptr,
 #define F_ARGS    cb
 #define F(x)      x##_blk_fast
 #define ON_FIELD  call_field_fast_cb
-#include "iop-for-each.in.c"
+#include "for-each.in.c"
 
 /* }}} */
 /* {{{ iop_for_each_field_const_fast() */
@@ -5450,7 +5451,7 @@ static int call_field_const_fast_cb(const iop_struct_t *st_desc,
 #define F(x)      x##_blk_const_fast
 #define MODIFIER  const
 #define ON_FIELD  call_field_const_fast_cb
-#include "iop-for-each.in.c"
+#include "for-each.in.c"
 
 /* }}} */
 /* {{{ iop_for_each_st() */
@@ -5485,7 +5486,7 @@ static int call_st_cb(const iop_struct_t *st_desc, void *st_ptr,
 #define ON_FIELD_DONE()   ON_FIELD_DONE_WSTACK()
 #define SET_INDEX(index)  SET_INDEX_WSTACK(index)
 
-#include "iop-for-each.in.c"
+#include "for-each.in.c"
 
 int iop_for_each_st(const iop_struct_t *nullable st_desc,
                     void *nonnull st_ptr,
@@ -5535,7 +5536,7 @@ static int call_st_const_cb(const iop_struct_t *st_desc,
 #define ON_FIELD_DONE()   ON_FIELD_DONE_WSTACK()
 #define SET_INDEX(index)  SET_INDEX_WSTACK(index)
 
-#include "iop-for-each.in.c"
+#include "for-each.in.c"
 
 int iop_for_each_st_const(const iop_struct_t *nullable st_desc,
                           const void *nonnull st_ptr,
@@ -5562,7 +5563,7 @@ static int call_st_cb_fast(const iop_struct_t *st_desc, void *st_ptr,
 #define F_ARGS     cb
 #define F(x)       x##_st_blk_fast
 #define ON_STRUCT  call_st_cb_fast
-#include "iop-for-each.in.c"
+#include "for-each.in.c"
 
 /* }}} */
 /* {{{ iop_for_each_st_const_fast() */
@@ -5579,7 +5580,7 @@ static int call_st_const_fast_cb(const iop_struct_t *st_desc, void *st_ptr,
 #define F(x)       x##_st_const_fast_blk
 #define MODIFIER   const
 #define ON_STRUCT  call_st_const_fast_cb
-#include "iop-for-each.in.c"
+#include "for-each.in.c"
 
 /* }}} */
 

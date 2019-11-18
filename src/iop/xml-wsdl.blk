@@ -19,8 +19,9 @@
 #include <lib-common/xmlpp.h>
 #include <lib-common/container-qvector.h>
 #include <lib-common/container-qhash.h>
-#include "iop.h"
-#include <lib-common/iop-helpers.in.c>
+#include <lib-common/iop.h>
+
+#include "helpers.in.c"
 
 qvector_t(iop_type, const iop_struct_t *);
 qvector_t(iop_enum, const iop_enum_t *);

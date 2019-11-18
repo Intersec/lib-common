@@ -17,8 +17,8 @@
 /***************************************************************************/
 
 #include <math.h>
-#include "iop.h"
-#include "iop-helpers.in.c"
+#include <lib-common/iop.h>
+#include "helpers.in.c"
 
 static void xpack_struct(sb_t *, const iop_struct_t *, const void *, unsigned);
 static void xpack_class(sb_t *, const iop_struct_t *, const void *, unsigned);

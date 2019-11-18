@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iop.h"
-#include "iop-priv.h"
+#include <lib-common/iop.h>
+#include "priv.h"
 
 qm_khptr_ckey_t(iop_dso_by_handle, void, iop_dso_t *);
 

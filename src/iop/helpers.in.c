@@ -19,7 +19,7 @@
 #ifndef IS_IOP_HELPERS_IN1_C
 #define IS_IOP_HELPERS_IN1_C
 
-#include "arith.h"
+#include <lib-common/arith.h>
 
 #define IOP_WIRE_FMT(o)          ((uint8_t)(o) >> 5)
 #define IOP_WIRE_MASK(m)         (IOP_WIRE_##m << 5)

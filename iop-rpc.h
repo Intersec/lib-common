@@ -19,12 +19,12 @@
 #ifndef IS_LIB_COMMON_IOP_RPC_H
 #define IS_LIB_COMMON_IOP_RPC_H
 
-#include "el.h"
-#include "net.h"
-#include "unix.h"
-#include "iop.h"
-#include "http.h"
-#include "ic.iop.h"
+#include <lib-common/el.h>
+#include <lib-common/net.h>
+#include <lib-common/unix.h>
+#include <lib-common/iop.h>
+#include <lib-common/http.h>
+#include <lib-common/src/iop/ic.iop.h>
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic push
@@ -79,8 +79,8 @@ static inline const char * nonnull ic_status_to_string(ic_status_t s)
 #undef CASE
 }
 
-#include "iop-rpc-channel.h"
-#include "iop-rpc-http.h"
+#include "src/iop/rpc-channel.h"
+#include "src/iop/rpc-http.h"
 
 
 /** \brief get the description of the currently unpacked RPC.

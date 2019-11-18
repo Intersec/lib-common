@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iop.h"
+#include <lib-common/iop.h>
 
 static void iop_core_obj_wipe(iop_core_obj_t *obj)
 {

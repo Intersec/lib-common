@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iop-helpers.in.c"
+#include "helpers.in.c"
 
 struct iop_hash_ctx {
     size_t   pos;

@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iop.h"
+#include <lib-common/iop.h>
 
 iop_struct_t const iop__void__s = {
     .fullname   = LSTR_IMMED("Void"),
