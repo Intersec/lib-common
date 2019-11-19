@@ -20,11 +20,11 @@
 #define IS_LIB_INET_HTTP_H
 #ifndef __cplusplus
 
-#include "zlib-wrapper.h"
-#include "el.h"
-#include "net.h"
-#include "container-qhash.h"
-#include "ssl.h"
+#include <lib-common/zlib-wrapper.h>
+#include <lib-common/el.h>
+#include <lib-common/net.h>
+#include <lib-common/container-qhash.h>
+#include <lib-common/ssl.h>
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic push

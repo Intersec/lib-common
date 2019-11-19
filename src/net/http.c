@@ -20,12 +20,13 @@
 #include <lib-common/datetime.h>
 
 #include <lib-common/http.h>
-#include <lib-common/httptokens.h>
 
 #include <lib-common/iop.h>
 #include <lib-common/src/core/core.iop.h>
 
 #include <openssl/ssl.h>
+
+#include "httptokens.h"
 
 static struct {
     logger_t logger;

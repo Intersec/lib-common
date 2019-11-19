@@ -17,7 +17,6 @@ iopsq-t*
 /Upgrading.html
 /conf-parser.c
 /core-version.c
-/http-hdr.c
 
 /dso-compatibility-check
 

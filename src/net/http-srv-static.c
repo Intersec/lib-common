@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "datetime.h"
-#include "http.h"
+#include <lib-common/datetime.h>
+#include <lib-common/http.h>
 
 static void mime_put_http_ctype(outbuf_t *ob, const char *path)
 {

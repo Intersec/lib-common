@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "http.h"
+#include <lib-common/http.h>
 
 lstr_t const http_method_str[HTTP_METHOD__MAX] = {
 #define V(v) [HTTP_METHOD_##v] = LSTR_IMMED(#v)

@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "el.h"
-#include "net.h"
+#include <lib-common/el.h>
+#include <lib-common/net.h>
 
 static void net_rctl_cron_cb(el_t ev, data_t priv)
 {

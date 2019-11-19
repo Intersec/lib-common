@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "net.h"
-#include "unix.h"
+#include <lib-common/net.h>
+#include <lib-common/unix.h>
 
 int sctp_enable_events(int sd, int flags)
 {

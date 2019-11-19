@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "net.h"
-#include "unix.h"
+#include <lib-common/net.h>
+#include <lib-common/unix.h>
 
 static int sock_reuseaddr(int sock)
 {

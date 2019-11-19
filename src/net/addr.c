@@ -17,9 +17,9 @@
 /***************************************************************************/
 
 #include <netdb.h>
-#include "z.h"
-#include "net.h"
-#include "hash.h"
+#include <lib-common/z.h>
+#include <lib-common/net.h>
+#include <lib-common/hash.h>
 
 bool sockunion_equal(const sockunion_t *a1, const sockunion_t *a2)
 {

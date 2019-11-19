@@ -19,11 +19,11 @@
 #ifndef IS_LIB_COMMON_NET_H
 #define IS_LIB_COMMON_NET_H
 
-#include "core.h"
+#include <lib-common/core.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include "sctp.h"
+#include <lib-common/sctp.h>
 #ifdef SCTP_ADAPTION_LAYER
    /* see http://www1.ietf.org/mail-archive/web/tsvwg/current/msg05971.html */
 #  define SCTP_ADAPTATION_LAYER         SCTP_ADAPTION_LAYER
@@ -40,10 +40,10 @@
 #endif
 #endif
 
-#include "net-addr.h"
-#include "net-socket.h"
-#include "net-sctp.h"
-#include "net-rate.h"
+#include <lib-common/src/net/addr.h>
+#include <lib-common/src/net/socket.h>
+#include <lib-common/src/net/sctp.h>
+#include <lib-common/src/net/rate.h>
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic pop

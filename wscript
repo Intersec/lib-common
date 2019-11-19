@@ -362,11 +362,11 @@ def build(ctx):
             'file-bin.c',
             'file-log.blk',
 
-            'http.c',
-            'http-hdr.perf',
-            'http-srv-static.c',
-            'http-def.c',
-            'httptokens.c',
+            'src/net/http.c',
+            'src/net/http-hdr.perf',
+            'src/net/http-srv-static.c',
+            'src/net/http-def.c',
+            'src/net/httptokens.c',
 
             'yaml.c',
 
@@ -382,10 +382,10 @@ def build(ctx):
 
             'log-iop.c',
 
-            'net-addr.c',
-            'net-sctp.c',
-            'net-socket.c',
-            'net-rate.blk',
+            'src/net/addr.c',
+            'src/net/sctp.c',
+            'src/net/socket.c',
+            'src/net/rate.blk',
 
             'qpage.c',
             'qps.blk',
