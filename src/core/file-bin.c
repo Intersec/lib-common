@@ -16,10 +16,10 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
-#include "log.h"
-#include "file-bin.h"
-#include "unix.h"
+#include <lib-common/arith.h>
+#include <lib-common/log.h>
+#include <lib-common/file-bin.h>
+#include <lib-common/unix.h>
 
 /* File header */
 #define CURRENT_VERSION  1

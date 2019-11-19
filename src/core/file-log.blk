@@ -19,12 +19,12 @@
 #include <glob.h>
 #include <sys/resource.h>
 
-#include "file-log.h"
-#include "el.h"
-#include "iop-json.h"
-#include "unix.h"
-#include "thr.h"
-#include "log.h"
+#include <lib-common/file-log.h>
+#include <lib-common/el.h>
+#include <lib-common/iop-json.h>
+#include <lib-common/unix.h>
+#include <lib-common/thr.h>
+#include <lib-common/log.h>
 
 static logger_t logger_g = LOGGER_INIT(NULL, "file-log", LOG_INHERITS);
 

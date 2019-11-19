@@ -19,7 +19,7 @@
 #ifndef IS_LIB_COMMON_FILE_H
 #define IS_LIB_COMMON_FILE_H
 
-#include "core.h"
+#include <lib-common/core.h>
 
 /* simplified stdio */
 

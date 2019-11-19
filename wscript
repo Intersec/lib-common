@@ -357,10 +357,9 @@ def build(ctx):
 
             'src/core/bit-buf.c',
             'src/core/bit-wah.c',
-
-            'file.c',
-            'file-bin.c',
-            'file-log.blk',
+            'src/core/file.c',
+            'src/core/file-bin.c',
+            'src/core/file-log.blk',
 
             'src/net/http.c',
             'src/net/http-hdr.perf',
