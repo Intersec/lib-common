@@ -625,6 +625,10 @@ outbuf_t *httpd_reply_hdrs_start(httpd_query_t *q, int code, bool force_uncachea
             code, LSTR_FMT_ARG(http_code_to_str(code)));
     ob_add(ob, date_cache_g.buf, sizeof(date_cache_g.buf) - 1);
     ob_adds(ob, "Accept-Encoding: identity, gzip, deflate\r\n");
+
+    /* XXX: For CORS purposes, allow all origins for now */
+    ob_adds(ob, "Access-Control-Allow-Origin: *\r\n");
+
     if (q->owner && q->owner->connection_close) {
         if (!q->conn_close) {
             ob_adds(ob, "Connection: close\r\n");
@@ -1751,6 +1755,19 @@ static void httpd_do_any(httpd_t *w, httpd_query_t *q, httpd_qinfo_t *req)
                          "%*pM %*pM HTTP/1.%d", LSTR_FMT_ARG(ms),
                          (int)ps_len(&req->query), req->query.s,
                          HTTP_MINOR(req->http_version));
+        } else
+        if (method == HTTP_METHOD_OPTIONS) {
+            /* For CORS purposes, handle OPTIONS if not handled above */
+            outbuf_t *ob = httpd_reply_hdrs_start(q, HTTP_CODE_NO_CONTENT,
+                                                  false);
+
+            ob_adds(ob, "Access-Control-Allow-Methods: "
+                    "POST, GET, OPTIONS\r\n");
+            ob_adds(ob, "Access-Control-Allow-Headers: "
+                    "Authorization, Content-Type\r\n");
+
+            httpd_reply_hdrs_done(q, 0, false);
+            httpd_reply_done(q);
         } else {
             httpd_reject(q, NOT_IMPLEMENTED,
                          "no handler for %*pM", LSTR_FMT_ARG(ms));
