@@ -356,8 +356,8 @@ def build(ctx):
             'src/asn1/writer.c',
             'src/asn1/per.c',
 
-            'bit-buf.c',
-            'bit-wah.c',
+            'src/core/bit-buf.c',
+            'src/core/bit-wah.c',
 
             'file.c',
             'file-bin.c',

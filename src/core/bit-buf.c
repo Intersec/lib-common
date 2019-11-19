@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "bit-buf.h"
-#include "bit-stream.h"
+#include <lib-common/bit-buf.h>
+#include <lib-common/bit-stream.h>
 
 bb_t *bb_init(bb_t *bb)
 {
