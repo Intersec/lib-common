@@ -19,9 +19,9 @@
 #ifndef IS_LIB_COMMON_LOG_IOP_H
 #define IS_LIB_COMMON_LOG_IOP_H
 
-#include "log.h"
-#include "core.iop.h"
-#include "iop-rpc.h"
+#include <lib-common/log.h>
+#include <lib-common/src/core/core.iop.h>
+#include <lib-common/iop-rpc.h>
 
 /* {{{ Configuration */
 

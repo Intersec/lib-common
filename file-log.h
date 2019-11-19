@@ -19,10 +19,10 @@
 #ifndef IS_LIB_COMMON_LOG_FILE_H
 #define IS_LIB_COMMON_LOG_FILE_H
 
-#include "file-bin.h"
-#include "file.h"
-#include "core.iop.h"
-#include "container-qhash.h"
+#include <lib-common/file-bin.h>
+#include <lib-common/file.h>
+#include <lib-common/src/core/core.iop.h>
+#include <lib-common/container-qhash.h>
 
 /* This module provides auto rotating log files: log files are rotated
  * automatically depending on file size or data, or both.

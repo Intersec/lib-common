@@ -16,14 +16,14 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "unix.h"
-#include "datetime.h"
+#include <lib-common/unix.h>
+#include <lib-common/datetime.h>
 
-#include "http.h"
-#include "httptokens.h"
+#include <lib-common/http.h>
+#include <lib-common/httptokens.h>
 
-#include "iop.h"
-#include "core.iop.h"
+#include <lib-common/iop.h>
+#include <lib-common/src/core/core.iop.h>
 
 #include <openssl/ssl.h>
 

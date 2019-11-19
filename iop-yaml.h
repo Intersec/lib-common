@@ -19,8 +19,8 @@
 #ifndef IS_LIB_COMMON_IOP_YAML_H
 #define IS_LIB_COMMON_IOP_YAML_H
 
-#include "iop-json.h"
-#include "core.iop.h"
+#include <lib-common/iop-json.h>
+#include <lib-common/src/core/core.iop.h>
 
 /* {{{ Parsing */
 

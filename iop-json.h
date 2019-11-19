@@ -19,9 +19,9 @@
 #ifndef IS_LIB_COMMON_IOP_JSON_H
 #define IS_LIB_COMMON_IOP_JSON_H
 
-#include "file.h"
-#include "iop.h"
-#include "core.iop.h"
+#include <lib-common/file.h>
+#include <lib-common/iop.h>
+#include <lib-common/src/core/core.iop.h>
 
 /* {{{ Private API and definitions */
 

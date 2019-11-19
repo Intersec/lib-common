@@ -339,7 +339,7 @@ def build(ctx):
                     json_path='json',
                     ts_path='iop-core')
     ctx.stlib(target='libcommon-iop', features='c cstlib', source=[
-        'core.iop',
+        'src/core/core.iop',
         'src/iop/ic.iop',
     ])
 

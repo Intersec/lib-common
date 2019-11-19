@@ -18,9 +18,10 @@
 
 #include <sys/wait.h>
 
-#include "z.h"
-#include "iop-rpc.h"
-#include "core.iop.h"
+#include <lib-common/z.h>
+#include <lib-common/iop-rpc.h>
+#include <lib-common/src/core/core.iop.h>
+
 #include "iop/tstiop_rpc.iop.h"
 
 typedef struct ctx_t {
