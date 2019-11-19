@@ -18,8 +18,8 @@
 
 #include <locale.h>
 
-#include "datetime.h"
-#include "thr.h"
+#include <lib-common/datetime.h>
+#include <lib-common/thr.h>
 
 /*
  *  Portable interface to the CPU cycle counter

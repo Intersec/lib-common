@@ -246,6 +246,8 @@ def build(ctx):
             'src/container/ring.c',
 
             'src/core/bithacks.c',
+            'src/core/datetime.c',
+            'src/core/datetime-iso8601.c',
             'src/core/obj.c',
             'src/core/rand.c',
             'src/core/mem-fifo.c',
@@ -274,9 +276,6 @@ def build(ctx):
 
             'compat/data.c',
             'compat/runtime.c',
-
-            'datetime.c',
-            'datetime-iso8601.c',
 
             'el.blk',
 
