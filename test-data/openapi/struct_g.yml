@@ -70,7 +70,9 @@ components:
           type: string
           default: "fo\"o?cbar\u00e9\u00a9"
         k:
-          $ref: "#/components/schemas/tstiop.MyEnumA"
+          allOf:
+            - $ref: "#/components/schemas/tstiop.MyEnumA"
+          default: 2
         l:
           type: number
           format: double

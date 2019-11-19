@@ -578,28 +578,35 @@ static scalar_value_t *t_attr_get_value(const iop_field_attr_t *attr,
     return NULL;
 }
 
-static void
+static bool
 apply_raw_field_constraints(const iop_field_attrs_t *attrs,
                             const iop_field_t *field,
                             schema_object_t *schema)
 {
+    bool did_update = false;
+
     for (int i = 0; i < attrs->attrs_len; i++) {
         const iop_field_attr_t *attr = &attrs->attrs[i];
 
         switch (attr->type) {
           case IOP_FIELD_MIN:
+            did_update = true;
             schema->minimum = t_attr_get_value(attr, field->type);
             break;
           case IOP_FIELD_MAX:
+            did_update = true;
             schema->maximum = t_attr_get_value(attr, field->type);
             break;
           case IOP_FIELD_MIN_LENGTH:
+            did_update = true;
             OPT_SET(schema->min_length, attr->args[0].v.i64);
             break;
           case IOP_FIELD_MAX_LENGTH:
+            did_update = true;
             OPT_SET(schema->max_length, attr->args[0].v.i64);
             break;
           case IOP_FIELD_PATTERN:
+            did_update = true;
             schema->pattern = attr->args[0].v.s;
             break;
           default:
@@ -615,14 +622,18 @@ apply_raw_field_constraints(const iop_field_attrs_t *attrs,
           || schema->minimum->type == SCALAR_UINT64)
         &&  schema->minimum->i == 0)
         {
+            did_update = true;
             schema->minimum->i = 1;
         }
     }
     if (TST_BIT(&attrs->flags, IOP_FIELD_NON_EMPTY)
     &&  !OPT_ISSET(schema->min_length))
     {
+        did_update = true;
         OPT_SET(schema->min_length, 1);
     }
+
+    return did_update;
 }
 
 static void
@@ -678,6 +689,8 @@ t_get_iop_field_defval(const iop_field_t *desc)
         break;
 
       case IOP_T_ENUM:
+        /* FIXME: use string repr, as we type ENUM as string in the
+         * schema */
         val->i = desc->u0.defval_enum;
         val->type = SCALAR_INT64;
         break;
@@ -701,6 +714,7 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
     schema_object_t *schema;
     const iop_help_t *help;
     bool is_v2;
+    bool has_update = false;
 
     if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
         return NULL;
@@ -778,7 +792,9 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
     }
 
     if (attrs) {
-        apply_raw_field_constraints(attrs, desc, schema);
+        has_update |= apply_raw_field_constraints(attrs, desc, schema);
+        /* FIXME: must transform the schema into an allOf if it is a REF
+         * and has_update is true */
     }
 
     switch (desc->repeat) {
@@ -795,6 +811,7 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
         }
       } break;
       case IOP_R_DEFVAL:
+        has_update = true;
         schema->defval = t_get_iop_field_defval(desc);
         break;
       default:
@@ -803,10 +820,25 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
 
     get_field_help(attrs, &help, &is_v2);
     if (help) {
+        has_update = true;
         schema->description = t_iop_help_to_string(help, false);
         if (is_v2) {
             schema->example = help->example;
         }
+    }
+
+    if (has_update && schema->type == TYPE_REF) {
+        /* We cannot specify any fields with the REF type... so
+         * a allOf must be used to split the ref from the details */
+        schema_object_t *ref;
+
+        t_qv_init(&schema->all_of, 1);
+        ref = t_new(schema_object_t, 1);
+        ref->type = TYPE_REF;
+        ref->name = schema->name;
+        qv_append(&schema->all_of, ref);
+        schema->type = TYPE_NONE;
+        schema->name = LSTR_NULL_V;
     }
 
     return schema;

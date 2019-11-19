@@ -297,7 +297,9 @@ components:
           minimum: -2147483648
           maximum: 2147483647
         b:
-          $ref: "#/components/schemas/tstiop_dox.MyStruct"
+          description: "local comment for MyIface.funA.in.b\n\ncomment for b of funA.in"
+          allOf:
+            - $ref: "#/components/schemas/tstiop_dox.MyStruct"
       example: "{\"aParam\":1,\"b\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13}}"
     tstiop_dox.MyClass:
       type: object
