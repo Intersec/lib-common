@@ -420,13 +420,6 @@ def build(ctx):
     ], use='libcommon')
 
     # }}}
-    # {{{ dso-compatibility-check
-
-    ctx.program(target='dso-compatibility-check', features='c cprogram',
-                source='dso-compatibility-check.blk',
-                use='libcommon')
-
-    # }}}
 
 
 # }}}

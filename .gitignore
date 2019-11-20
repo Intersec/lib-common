@@ -18,8 +18,6 @@ iopsq-t*
 /conf-parser.c
 /core-version.c
 
-/dso-compatibility-check
-
 /common.so
 /core-iop-plugin.so
 

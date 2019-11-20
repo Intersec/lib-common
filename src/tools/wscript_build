@@ -23,3 +23,7 @@ ctx.farchc_tgen = ctx.program(target='farchc', source='farchc.c',
 with ctx.UseGroup(ctx, 'code_compiling'):
     ctx.program(target='str-ctype-maker', source='str-ctype-maker.c',
                 use='libcommon')
+
+    ctx.program(target='dso-compatibility-check', features='c cprogram',
+                source='dso-compatibility-check.blk',
+                use='libcommon')
