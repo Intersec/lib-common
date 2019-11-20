@@ -150,22 +150,22 @@ Z_GROUP_EXPORT(iop_yaml)
                                         _must_be_equal, _exp))
 
         /* default is to skip everything optional */
-        TST_FLAGS(0, true, true, "~");
+        TST_FLAGS(0, true, true, "{}");
         /* NO_WHITESPACES is not valid for YAML */
         TST_FLAGS(IOP_JPACK_NO_WHITESPACES, true, true,
                   "def: 1\n"
-                  "rep: ~");
+                  "rep: []");
         /* FIXME: NO_TRAILING_EOL to handle */
         TST_FLAGS(IOP_JPACK_NO_TRAILING_EOL, true, true,
                   "def: 1\n"
-                  "rep: ~");
+                  "rep: []");
 
         /* SKIP_DEFAULT */
-        TST_FLAGS(IOP_JPACK_SKIP_DEFAULT, true, true, "rep: ~");
+        TST_FLAGS(IOP_JPACK_SKIP_DEFAULT, true, true, "rep: []");
         st_jpack.def = 2;
         TST_FLAGS(flags | IOP_JPACK_SKIP_DEFAULT, true, true,
                   "def: 2\n"
-                  "rep: ~");
+                  "rep: []");
         st_jpack.def = 1;
 
         /* SKIP_EMPTY_ARRAYS */
@@ -336,13 +336,13 @@ Z_GROUP_EXPORT(iop_yaml)
                                         &empty_jpack, _flags, false,         \
                                         _must_be_equal, _exp))
 
-        TST(flags, true, "~");
+        TST(flags, true, "{}");
 
         OPT_SET(empty_jpack.sub.priv, 8);
         TST(flags, true,
             "sub:\n"
             "  priv: 8");
-        TST(flags | IOP_JPACK_SKIP_PRIVATE, false, "~");
+        TST(flags | IOP_JPACK_SKIP_PRIVATE, false, "{}");
         OPT_CLR(empty_jpack.sub.priv);
 
         OPT_SET(empty_jpack.sub.opt, 12);
@@ -376,7 +376,7 @@ Z_GROUP_EXPORT(iop_yaml)
         empty_jpack.sub.opt_st = &sub_st;
         TST(flags, true,
             "sub:\n"
-            "  optSt: ~");
+            "  optSt: {}");
         empty_jpack.sub.opt_st = NULL;
 
         clsb.a = 10;
@@ -390,7 +390,7 @@ Z_GROUP_EXPORT(iop_yaml)
         empty_jpack.sub.cls = &clsc.super;
         TST(flags, true,
             "sub:\n"
-            "  cls: !tstiop.JpackEmptyClsC ~");
+            "  cls: !tstiop.JpackEmptyClsC {}");
         empty_jpack.sub.cls = &clsb;
 
 #undef TST
@@ -846,17 +846,22 @@ Z_GROUP_EXPORT(iop_yaml)
             NULL);
 
         /* ~ can be used to indicate a field is present */
-        TST(&tstiop__my_struct_a_opt__s, "v: ~", NULL);
+        TST(&tstiop__my_struct_a_opt__s, "v: ~", "v: {}");
+        TST(&tstiop__my_struct_a_opt__s, "v: {}", NULL);
         /* ~ can also be used for optional void fields */
         TST(&tstiop__my_struct_a_opt__s, "w: ~", NULL);
 
         /* ~ can be unpacked into a struct */
-        TST(&tstiop__my_struct_a_opt__s, "~", NULL);
-        TST(&tstiop__jpack_empty_cls_a__s, "!tstiop.JpackEmptyClsC ~", NULL);
+        TST(&tstiop__my_struct_a_opt__s, "~", "{}");
+        TST(&tstiop__jpack_empty_cls_a__s, "!tstiop.JpackEmptyClsC ~",
+            "!tstiop.JpackEmptyClsC {}");
+        TST(&tstiop__jpack_empty_cls_a__s, "!tstiop.JpackEmptyClsC {}", NULL);
+
 
         /* a tag can be specified for a struct too, but will be removed on
          * packing */
-        TST(&tstiop__my_struct_a_opt__s, "!tstiop.MyStructAOpt ~", "~");
+        TST(&tstiop__my_struct_a_opt__s, "!tstiop.MyStructAOpt ~", "{}");
+        TST(&tstiop__my_struct_a_opt__s, "!tstiop.MyStructAOpt {}", "{}");
         /* idem for a union */
         TST(&tstiop__test_union__s, "!tstiop.TestUnion i: 42", "i: 42");
         TST(&tstiop__my_struct_a_opt__s,
@@ -865,7 +870,6 @@ Z_GROUP_EXPORT(iop_yaml)
             "l:\n"
             "  ua: 0"
         );
-
 
         /* unpacking a class as a base class should work */
         TST(&tstiop__my_class2__s,
@@ -965,12 +969,12 @@ Z_GROUP_EXPORT(iop_yaml)
         /* check constraints on arrays */
         iop_init(tstiop__constraint_s, &s);
         TST_ERROR(&tstiop__constraint_s__s, &s,
-            "~",
+            "{}",
             "1:1: cannot unpack YAML as a `tstiop.ConstraintS` IOP struct: "
             "field `s` is invalid: in type tstiop.ConstraintS: "
             "empty array not allowed for field `s`\n"
-            "~\n"
-            "^");
+            "{}\n"
+            "^^");
 
         /* check constraint on field */
         s.s.tab = &string;

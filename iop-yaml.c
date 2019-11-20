@@ -1036,10 +1036,6 @@ t_append_iop_struct_to_fields(const iop_struct_t * nonnull desc,
             continue;
         }
 
-        if (n == 0) {
-            /* not skipped, but no element: put a null scalar */
-            yaml_data_set_null(&field_data);
-        } else
         if (n == 1 && !repeated) {
             t_iop_field_to_yaml_data(fdesc, ptr, 0, flags, &field_data);
         } else {

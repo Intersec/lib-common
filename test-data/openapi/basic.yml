@@ -6,12 +6,12 @@ info:
 servers:
   - url: "http://localhost:1337/tes"
     description: server description
-paths: ~
+paths: {}
 components:
-  schemas: ~
+  schemas: {}
   securitySchemes:
     my_sec:
       type: http
       scheme: basic
 security:
-  - my_sec: ~
+  - my_sec: []

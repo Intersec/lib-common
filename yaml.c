@@ -481,6 +481,21 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
         out->scalar.type = YAML_SCALAR_DOUBLE;
         out->scalar.d = NAN;
         return 0;
+    } else
+    /* XXX: this is a bit ugly. We do not parse the inline json that is
+     * allowed in standard yaml, but the canonical way of writing an empty seq
+     * or obj is with '[]' or '{}'. This is handled here as it makes it
+     * really simple, but we are generating non-scalar data in a "scalar"
+     * function... */
+    if (lstr_ascii_iequal(line, LSTR("[]"))) {
+        out->type = YAML_DATA_SEQ;
+        out->seq = mp_new(env->mp, yaml_seq_t, 1);
+        return 0;
+    } else
+    if (lstr_ascii_iequal(line, LSTR("{}"))) {
+        out->type = YAML_DATA_OBJ;
+        out->obj = mp_new(env->mp, yaml_obj_t, 1);
+        return 0;
     }
 
     /* try to parse it as a integer, then as a float. Otherwise, it is
@@ -841,9 +856,9 @@ static int yaml_pack_seq(const yaml_pack_env_t * nonnull env,
 
     if (seq->datas.len == 0) {
         if (to_indent) {
-            PUTS(" ~");
+            PUTS(" []");
         } else {
-            PUTS("~");
+            PUTS("[]");
         }
         return res;
     }
@@ -895,9 +910,9 @@ static int yaml_pack_obj(const yaml_pack_env_t * nonnull env,
 
     if (obj->fields.len == 0) {
         if (to_indent) {
-            PUTS(" ~");
+            PUTS(" {}");
         } else {
-            PUTS("~");
+            PUTS("{}");
         }
         return res;
     }
@@ -1690,21 +1705,21 @@ Z_GROUP_EXPORT(yaml)
 
         /* empty obj */
         t_yaml_data_new_obj(&data, 0);
-        Z_HELPER_RUN(z_check_yaml_pack(&data, "~"));
+        Z_HELPER_RUN(z_check_yaml_pack(&data, "{}"));
 
         /* empty obj in seq */
         t_yaml_data_new_seq(&data2, 1);
         yaml_seq_add_data(&data2, data);
-        Z_HELPER_RUN(z_check_yaml_pack(&data2, "- ~"));
+        Z_HELPER_RUN(z_check_yaml_pack(&data2, "- {}"));
 
         /* empty seq */
         t_yaml_data_new_seq(&data, 0);
-        Z_HELPER_RUN(z_check_yaml_pack(&data, "~"));
+        Z_HELPER_RUN(z_check_yaml_pack(&data, "[]"));
 
         /* empty seq in obj */
         t_yaml_data_new_obj(&data2, 1);
         yaml_obj_add_field(&data2, LSTR("a"), data);
-        Z_HELPER_RUN(z_check_yaml_pack(&data2, "a: ~"));
+        Z_HELPER_RUN(z_check_yaml_pack(&data2, "a: []"));
 
         /* seq in seq */
         t_yaml_data_new_seq(&data, 1);
