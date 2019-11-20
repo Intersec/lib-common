@@ -355,9 +355,6 @@ def build(ctx):
             'bit-buf.c',
             'bit-wah.c',
 
-            'conf.c',
-            'conf-parser.l',
-
             'file.c',
             'file-bin.c',
             'file-log.blk',
@@ -386,9 +383,6 @@ def build(ctx):
             'net-sctp.c',
             'net-socket.c',
             'net-rate.blk',
-
-            'property.c',
-            'property-hash.c',
 
             'qpage.c',
             'qps.blk',
@@ -485,9 +479,6 @@ def build(ctx):
         'libcommon',
         'zchk-iop-ressources',
     ], remove_dynlibs=True)
-
-    ctx.program(target='ztst-cfgparser', source='ztst-cfgparser.c',
-                use='libcommon tstiop')
 
     ctx.program(target='ztst-httpd', source='ztst-httpd.c',
                 use='libcommon tstiop')

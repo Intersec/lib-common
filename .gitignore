@@ -23,7 +23,6 @@ iopsq-t*
 /zchk-iop-plugin.so
 /ztst-asn1-wr
 /ztst-blob-iconv
-/ztst-cfgparser
 /ztst-hattrie
 /ztst-httpd
 /ztst-iprintf
