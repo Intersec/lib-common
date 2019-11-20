@@ -21,6 +21,7 @@
 #include "parseopt.h"
 
 static struct {
+    bool help;
     const char *dso_path;
     const char *whitelist_path;
     const char *title;
@@ -34,11 +35,10 @@ static iop_dso_t *
 handle_args(int argc, char **argv)
 {
     const char *arg0 = NEXTARG(argc, argv);
-    bool help = false;
     iop_dso_t *dso;
     SB_1k(err);
     popt_t options[] = {
-        OPT_FLAG('h', "help", &help, "show help"),
+        OPT_FLAG('h', "help", &opts_g.help, "show help"),
         OPT_STR('d', "dso", &opts_g.dso_path, "path to IOP dso file"),
         OPT_STR('m', "module", &opts_g.module,
                 "fullname of the IOP module to use"),
@@ -50,8 +50,9 @@ handle_args(int argc, char **argv)
     };
 
     argc = parseopt(argc, argv, options, 0);
-    if (argc < 3 || help) {
-        makeusage(!help, arg0, "<name> <version> <route>", NULL, options);
+    if (argc < 3 || opts_g.help) {
+        makeusage(!opts_g.help, arg0, "<name> <version> <route>", NULL,
+                  options);
     }
 
     opts_g.title = NEXTARG(argc, argv);
