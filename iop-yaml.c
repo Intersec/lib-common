@@ -225,6 +225,7 @@ yaml_uint_to_iop_field(mem_pool_t * nonnull mp,
             *(int32_t *)out = u;
             return YUNPACK_OK;
         }
+        /* FIXME: allow the value if the enum is not strict? */
         return YUNPACK_INVALID_ENUM_VAL;
       default:
         return YUNPACK_TYPE_MISMATCH;
@@ -435,6 +436,8 @@ check_class(yunpack_env_t * nonnull env,
     if (env->flags & IOP_UNPACK_FORBID_PRIVATE
     &&  st->class_attrs->is_private)
     {
+        /* TODO: the error should probably be an "unknown type" to not expose
+         * the private name. To be done for JSON unpacker too. */
         sb_setf(&env->err.buf, "`%pL` is private and cannot be unpacked",
                 &st->fullname);
         return -1;

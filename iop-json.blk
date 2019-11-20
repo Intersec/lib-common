@@ -476,6 +476,8 @@ static int iop_json_lex_enum(iop_json_lex_t *ll, int terminator,
         const char *q;
 
         errno = 0;
+        /* FIXME: for strict enums, only integer values that matches enum
+         * values should be allowed. */
         ll->ctx->u.i = strtoull(s.s, &q, 0);
 
         if (errno || q != end) {
@@ -1549,6 +1551,8 @@ unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
     if (ll->flags & IOP_UNPACK_FORBID_PRIVATE
     &&  (*real_desc)->class_attrs->is_private)
     {
+        /* TODO: the error should probably be an "unknown type" to not expose
+         * the private name. To be done for YAML unpacker too. */
         return RJERROR_EXP_FMT("a non-private child of `%*pM`",
                                LSTR_FMT_ARG(desc->fullname));
     }
