@@ -246,40 +246,47 @@ def build(ctx):
             'src/container/ring.c',
 
             'src/core/bithacks.c',
-            'src/core/datetime.c',
             'src/core/datetime-iso8601.c',
-            'src/core/obj.c',
-            'src/core/rand.c',
+            'src/core/datetime.c',
+            'src/core/el.blk',
+            'src/core/errors.c',
+            'src/core/farch.c',
+            'src/core/log.c',
+            'src/core/mem-bench.c',
             'src/core/mem-fifo.c',
             'src/core/mem-ring.c',
             'src/core/mem-stack.c',
-            'src/core/mem-bench.c',
-            'src/core/errors.c',
             'src/core/mem.blk',
             'src/core/module.c',
-            'src/core/types.blk',
-            'src/core/str.c',
+            'src/core/obj.c',
+            'src/core/parseopt.c',
+            'src/core/qlzo-c.c',
+            'src/core/qlzo-d.c',
+            'src/core/rand.c',
+            'src/core/sort.blk',
             'src/core/str-buf-gsm.c',
-            'src/core/str-buf-quoting.c',
             'src/core/str-buf-pp.c',
+            'src/core/str-buf-quoting.c',
             'src/core/str-buf.c',
             'src/core/str-conv.c',
             'src/core/str-ctype.c',
             'src/core/str-dtoa.c',
             'src/core/str-iprintf.c',
-            'src/core/str-l.c',
             'src/core/str-l-obfuscate.c',
+            'src/core/str-l.c',
             'src/core/str-num.c',
             'src/core/str-outbuf.c',
             'src/core/str-path.c',
             'src/core/str-stream.c',
+            'src/core/str.c',
+            'src/core/types.blk',
+            'src/core/unix.blk',
+            'src/core/unix-fts.c',
+            'src/core/unix-psinfo.c',
+            'src/core/unix-linux.c',
 
             'compat/data.c',
             'compat/runtime.c',
-
-            'el.blk',
-
-            'farch.c',
 
             'src/hash/aes.c',
             'src/hash/crc32.c',
@@ -298,24 +305,10 @@ def build(ctx):
             'src/iop/core-obj.blk',
             'src/iop/void.c',
 
-            'log.c',
-
-            'parseopt.c',
-
-            'qlzo-c.c',
-            'qlzo-d.c',
-
-            'sort.blk',
-
             'thr.c',
             'thr-evc.c',
             'thr-job.blk',
             'thr-spsc.c',
-
-            'unix.blk',
-            'unix-fts.c',
-            'unix-psinfo.c',
-            'unix-linux.c',
 
             'xmlpp.c',
             'xmlr.c',
@@ -360,6 +353,9 @@ def build(ctx):
             'src/core/file.c',
             'src/core/file-bin.c',
             'src/core/file-log.blk',
+            'src/core/log-iop.c',
+            'src/core/z.blk',
+            'src/core/zchk-helpers.blk',
 
             'src/net/http.c',
             'src/net/http-hdr.perf',
@@ -379,8 +375,6 @@ def build(ctx):
             'src/iop/xml-unpack.c',
             'src/iop/xml-wsdl.blk',
 
-            'log-iop.c',
-
             'src/net/addr.c',
             'src/net/sctp.c',
             'src/net/socket.c',
@@ -396,8 +390,6 @@ def build(ctx):
             'tpl.c',
             'tpl-funcs.c',
 
-            'z.blk',
-            'zchk-helpers.blk',
             'zlib-wrapper.c',
         ]
     )

@@ -18,7 +18,7 @@
 
 #include <sysexits.h>
 
-#include "parseopt.h"
+#include <lib-common/parseopt.h>
 
 #define FLAG_SHORT 1
 #define FLAG_UNSET 2

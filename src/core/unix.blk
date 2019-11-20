@@ -24,12 +24,12 @@
 #include <termios.h>
 #include <sys/wait.h>
 
-#include "unix.h"
-#include "datetime.h"
-#include "container.h"
-#include "sort.h"
-#include "net.h"
-#include "thr.h"
+#include <lib-common/unix.h>
+#include <lib-common/datetime.h>
+#include <lib-common/container.h>
+#include <lib-common/sort.h>
+#include <lib-common/net.h>
+#include <lib-common/thr.h>
 
 /** Create a subdirectory path as mkdir -p.
  *

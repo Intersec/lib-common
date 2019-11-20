@@ -18,8 +18,8 @@
 
 #include <pthread.h>
 #include <sys/epoll.h>
-#include "unix.h"
-#include "thr.h"
+#include <lib-common/unix.h>
+#include <lib-common/thr.h>
 
 static struct {
     int fd;

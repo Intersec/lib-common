@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "el.h"
-#include "zchk-helpers.h"
-#include "z.h"
+#include <lib-common/el.h>
+#include <lib-common/zchk-helpers.h>
+#include <lib-common/z.h>
 
 
 void z_load_keys(lstr_t libcommon_path, sb_t *priv, sb_t *priv_encrypted,

@@ -24,9 +24,10 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <dirent.h>
-#include "unix.h"
-#include "datetime.h"
-#include "sort.h"
+
+#include <lib-common/unix.h>
+#include <lib-common/datetime.h>
+#include <lib-common/sort.h>
 
 /* {{{ psinfo_get */
 

@@ -18,8 +18,8 @@
 
 #include <sys/wait.h>
 
-#include "thr.h"
-#include "unix.h"
+#include <lib-common/thr.h>
+#include <lib-common/unix.h>
 
 pid_t psinfo_get_tracer_pid(pid_t pid)
 {

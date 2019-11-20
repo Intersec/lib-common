@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
-#include "qlzo.h"
+#include <lib-common/arith.h>
+#include <lib-common/qlzo.h>
 
 #define D_BITS          14
 #define D_MASK          ((1u << D_BITS) - 1)

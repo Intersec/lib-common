@@ -19,7 +19,7 @@
 #ifndef IS_LIB_COMMON_SORT_H
 #define IS_LIB_COMMON_SORT_H
 
-#include "core.h"
+#include <lib-common/core.h>
 
 /* {{{ Numeric optimized versions */
 
@@ -90,42 +90,42 @@ static inline size_t uniq_i64(int64_t base[], size_t n) {
 #define type_t   uint8_t
 #define bisect   bisect8
 #define contains contains8
-#include "sort-numeric.in.h"
+#include "src/core/sort-numeric.in.h"
 
 #define type_t   int8_t
 #define bisect   bisect_i8
 #define contains contains_i8
-#include "sort-numeric.in.h"
+#include "src/core/sort-numeric.in.h"
 
 #define type_t   uint16_t
 #define bisect   bisect16
 #define contains contains16
-#include "sort-numeric.in.h"
+#include "src/core/sort-numeric.in.h"
 
 #define type_t   int16_t
 #define bisect   bisect_i16
 #define contains contains_i16
-#include "sort-numeric.in.h"
+#include "src/core/sort-numeric.in.h"
 
 #define type_t   uint32_t
 #define bisect   bisect32
 #define contains contains32
-#include "sort-numeric.in.h"
+#include "src/core/sort-numeric.in.h"
 
 #define type_t   int32_t
 #define bisect   bisect_i32
 #define contains contains_i32
-#include "sort-numeric.in.h"
+#include "src/core/sort-numeric.in.h"
 
 #define type_t   uint64_t
 #define bisect   bisect64
 #define contains contains64
-#include "sort-numeric.in.h"
+#include "src/core/sort-numeric.in.h"
 
 #define type_t   int64_t
 #define bisect   bisect_i64
 #define contains contains_i64
-#include "sort-numeric.in.h"
+#include "src/core/sort-numeric.in.h"
 
 /* }}} */
 

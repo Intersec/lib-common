@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
-#include "qlzo.h"
+#include <lib-common/arith.h>
+#include <lib-common/qlzo.h>
 
 typedef struct ostream_t {
     uint8_t *b;

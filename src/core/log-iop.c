@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "log-iop.h"
+#include <lib-common/log-iop.h>
 
 __unused__
 static void log_iop_static_checks(void)

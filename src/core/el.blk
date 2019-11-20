@@ -18,13 +18,13 @@
 
 #include <sys/wait.h>
 #include <pthread.h>
-#include "container-qheap.h"
-#include "container-qhash.h"
-#include "datetime.h"
-#include "str-buf-pp.h"
-#include "log.h"
-#include "el.h"
-#include "thr.h"
+#include <lib-common/container-qheap.h>
+#include <lib-common/container-qhash.h>
+#include <lib-common/datetime.h>
+#include <lib-common/str-buf-pp.h>
+#include <lib-common/log.h>
+#include <lib-common/el.h>
+#include <lib-common/thr.h>
 
 static pthread_mutex_t big_lock_g;
 static bool use_big_lock_g = false;

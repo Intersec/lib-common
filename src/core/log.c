@@ -17,16 +17,16 @@
 /***************************************************************************/
 
 #include <fnmatch.h>
-#include "unix.h"
-#include "thr.h"
-#include "datetime.h"
-#include "container-qhash.h"
-#include "iop.h"
+#include <lib-common/unix.h>
+#include <lib-common/thr.h>
+#include <lib-common/datetime.h>
+#include <lib-common/container-qhash.h>
+#include <lib-common/iop.h>
 
-#include "log.h"
+#include <lib-common/log.h>
 
 #ifdef MEM_BENCH
-#include "core-mem-bench.h"
+#include <lib-common/core-mem-bench.h>
 #endif
 
 uint32_t log_conf_gen_g = 1;

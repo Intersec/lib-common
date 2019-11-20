@@ -18,7 +18,7 @@
 
 /* XXX Syntastic tranquility block. */
 #ifndef type_t
-# include "sort.h"
+# include <lib-common/sort.h>
 # define type_t uint8_t
 # define dsort dsort8
 # define uniq uniq8

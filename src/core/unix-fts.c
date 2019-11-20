@@ -20,7 +20,7 @@
 #undef _LARGEFILE64_SOURCE
 #undef _FILE_OFFSET_BITS
 #include <fts.h>
-#include "unix.h"
+#include <lib-common/unix.h>
 
 int rmdir_r(const char *dir, bool only_content)
 {

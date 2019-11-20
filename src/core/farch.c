@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "farch.h"
-#include "container-qhash.h"
-#include "qlzo.h"
+#include <lib-common/farch.h>
+#include <lib-common/container-qhash.h>
+#include <lib-common/qlzo.h>
 
 qm_khptr_ckey_t(persisted, farch_entry_t, lstr_t);
 

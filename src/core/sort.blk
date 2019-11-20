@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
-#include "sort.h"
+#include <lib-common/arith.h>
+#include <lib-common/sort.h>
 
 #define SIMPLE_SORT
 #define type_t   uint8_t
