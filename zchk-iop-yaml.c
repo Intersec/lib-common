@@ -619,37 +619,6 @@ Z_GROUP_EXPORT(iop_yaml)
                   "un: i: foo\n"
                   "       ^^^");
 
-        /* --- enum errors --- */
-
-        /* invalid string */
-        TST_ERROR("e: D",
-                  "1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is not valid for the enum `TestEnum`\n"
-                  "e: D\n"
-                  "   ^");
-        /* invalid number */
-        TST_ERROR("e: 999",
-                  "1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is not valid for the enum `TestEnum`\n"
-                  "e: 999\n"
-                  "   ^^^");
-        TST_ERROR("e: -10",
-                  "1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is not valid for the enum `TestEnum`\n"
-                  "e: -10\n"
-                  "   ^^^");
-        /* overflow is handled, integer for enums is an int32 */
-        TST_ERROR("e: -5000000000",
-                  "1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is out of range for the field of type enum\n"
-                  "e: -5000000000\n"
-                  "   ^^^^^^^^^^^");
-        TST_ERROR("e: 5000000000",
-                  "1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is out of range for the field of type enum\n"
-                  "e: 5000000000\n"
-                  "   ^^^^^^^^^^");
-
         /* --- blob errors --- */
 
         /* invalid b64 value */
@@ -778,6 +747,42 @@ Z_GROUP_EXPORT(iop_yaml)
         Z_ASSERT_STREQUAL(err.data, "cannot read file foo.yml: "
                           "No such file or directory");
 
+        /* --- enum errors --- */
+
+        st = &tstiop__struct_with_enum_strict__s;
+#undef ERR_COMMON
+#define ERR_COMMON  \
+        "cannot unpack YAML as a `tstiop.StructWithEnumStrict` IOP struct"
+
+        /* invalid string */
+        TST_ERROR("e: D",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is not valid for the enum `EnumStrict`\n"
+                  "e: D\n"
+                  "   ^");
+        /* invalid number */
+        TST_ERROR("e: 999",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is not valid for the enum `EnumStrict`\n"
+                  "e: 999\n"
+                  "   ^^^");
+        TST_ERROR("e: -10",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is not valid for the enum `EnumStrict`\n"
+                  "e: -10\n"
+                  "   ^^^");
+        /* overflow is handled, integer for enums is an int32 */
+        TST_ERROR("e: -5000000000",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is out of range for the field of type enum\n"
+                  "e: -5000000000\n"
+                  "   ^^^^^^^^^^^");
+        TST_ERROR("e: 5000000000",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is out of range for the field of type enum\n"
+                  "e: 5000000000\n"
+                  "   ^^^^^^^^^^");
+
 #undef ERR_COMMON
 #undef TST_ERROR
     } Z_TEST_END;
@@ -895,6 +900,15 @@ Z_GROUP_EXPORT(iop_yaml)
         TST(&tstiop__struct_with_negative_enum__s,
             "e: -2",
             "e: NEG");
+        /* unpacking an integer not matching any enum element is valid for
+         * a non-strict enum, and will be packed as an integer as well. */
+        TST(&tstiop__struct_with_negative_enum__s,
+            "e: -10",
+            NULL);
+        TST(&tstiop__struct_with_negative_enum__s,
+            "e: 10",
+            NULL);
+
 
 #undef TST
     } Z_TEST_END;

@@ -818,6 +818,16 @@ struct StructWithNegativeEnum {
     NegativeEnum e;
 };
 
+@strict
+enum EnumStrict {
+    A,
+};
+
+struct StructWithEnumStrict {
+    EnumStrict e;
+};
+
+
 /* }}} */
 /* {{{ iopc zchk */
 /* {{{ zchk iopsq.sub_struct */

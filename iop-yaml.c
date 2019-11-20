@@ -221,12 +221,13 @@ yaml_uint_to_iop_field(mem_pool_t * nonnull mp,
         return YUNPACK_OK;
       case IOP_T_ENUM:
         CHECK_MAX(u, INT32_MAX);
-        if (iop_enum_exists_desc(fdesc->u1.en_desc, u)) {
-            *(int32_t *)out = u;
-            return YUNPACK_OK;
+        if (TST_BIT(&fdesc->u1.en_desc->flags, IOP_ENUM_STRICT)
+        &&  !iop_enum_exists_desc(fdesc->u1.en_desc, u))
+        {
+            return YUNPACK_INVALID_ENUM_VAL;
         }
-        /* FIXME: allow the value if the enum is not strict? */
-        return YUNPACK_INVALID_ENUM_VAL;
+        *(int32_t *)out = u;
+        return YUNPACK_OK;
       default:
         return YUNPACK_TYPE_MISMATCH;
     }
@@ -269,11 +270,13 @@ yaml_int_to_iop_field(int64_t i, const iop_field_t * nonnull fdesc,
         return YUNPACK_OOB;
       case IOP_T_ENUM:
         CHECK_RANGE(i, INT32_MIN, INT32_MAX);
-        if (iop_enum_exists_desc(fdesc->u1.en_desc, i)) {
-            *(int32_t *)out = i;
-            return YUNPACK_OK;
+        if (TST_BIT(&fdesc->u1.en_desc->flags, IOP_ENUM_STRICT)
+        &&  !iop_enum_exists_desc(fdesc->u1.en_desc, i))
+        {
+            return YUNPACK_INVALID_ENUM_VAL;
         }
-        return YUNPACK_INVALID_ENUM_VAL;
+        *(int32_t *)out = i;
+        return YUNPACK_OK;
       default:
         return YUNPACK_TYPE_MISMATCH;
     }
