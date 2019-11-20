@@ -119,7 +119,8 @@ struct yaml_seq_t {
  *  "a tagged object"
  *  ...
  */
-const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data);
+const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data,
+                                        bool ignore_tag);
 
 /** Parse a YAML stream into a yaml data object.
  *

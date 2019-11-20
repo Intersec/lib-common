@@ -472,7 +472,7 @@ Z_GROUP_EXPORT(iop_yaml)
         /* use of tag */
         TST_ERROR("s: !str jojo",
                   "1:4: "ERR_COMMON": cannot set field `s`: "
-                  "specifying a tag is not allowed\n"
+                  "specifying a tag on a string value is not allowed\n"
                   "s: !str jojo\n"
                   "   ^^^^^^^^^");
 
@@ -592,15 +592,6 @@ Z_GROUP_EXPORT(iop_yaml)
                   "missing field `s`\n"
                   "st: i: 42\n"
                   "    ^^^^^");
-
-        /* --- union errors --- */
-
-        /* use of tag */
-        TST_ERROR("un: !tstiop.TestUnion i: 42",
-                  "1:5: "ERR_COMMON": cannot set field `un`: "
-                  "specifying a tag is not allowed\n"
-                  "un: !tstiop.TestUnion i: 42\n"
-                  "    ^^^^^^^^^^^^^^^^^^^^^^^");
 
         /* multiple keys */
         TST_ERROR("un: i: 42\n"
@@ -758,12 +749,13 @@ Z_GROUP_EXPORT(iop_yaml)
                   "o: ra\n"
                   "^^^^^");
 
-        /* cannot use tag */
+        /* wrong tag */
         /* TODO: location should be the tag */
-        TST_ERROR("!tstiop.MyUnionA o: ra\n",
-                  "1:1: "ERR_COMMON": specifying a tag is not allowed\n"
-                  "!tstiop.MyUnionA o: ra\n"
-                  "^^^^^^^^^^^^^^^^^^^^^^");
+        TST_ERROR("!tstiop.MyUnion o: ra\n",
+                  "1:1: "ERR_COMMON": wrong type `tstiop.MyUnion` "
+                  "provided in tag, expected `tstiop.MyUnionA`\n"
+                  "!tstiop.MyUnion o: ra\n"
+                  "^^^^^^^^^^^^^^^^^^^^^");
 
         /* wrong data type */
         TST_ERROR("yare yare\n",
@@ -854,6 +846,15 @@ Z_GROUP_EXPORT(iop_yaml)
         /* a tag can be specified for a struct too, but will be removed on
          * packing */
         TST(&tstiop__my_struct_a_opt__s, "!tstiop.MyStructAOpt ~", "~");
+        /* idem for a union */
+        TST(&tstiop__test_union__s, "!tstiop.TestUnion i: 42", "i: 42");
+        TST(&tstiop__my_struct_a_opt__s,
+            "l: !tstiop.MyUnionA\n"
+            "  ua: 0",
+            "l:\n"
+            "  ua: 0"
+        );
+
 
         /* unpacking a class as a base class should work */
         TST(&tstiop__my_class2__s,

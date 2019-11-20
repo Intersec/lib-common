@@ -378,12 +378,7 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
 
     if (data->type != YAML_DATA_OBJ) {
         sb_setf(&env->err.buf, "cannot unpack %s into a union",
-                yaml_data_get_type(data));
-        goto error;
-    }
-
-    if (data->tag.s) {
-        sb_setf(&env->err.buf, "specifying a tag is not allowed");
+                yaml_data_get_type(data, false));
         goto error;
     }
 
@@ -541,10 +536,6 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     const iop_struct_t *real_st = st;
     int nb_fields_matched;
 
-    if (st->is_union) {
-        return yaml_data_to_union(env, data, st, out);
-    }
-
     switch (data->type) {
       case YAML_DATA_SCALAR:
         if (data->scalar.type == YAML_SCALAR_NULL) {
@@ -552,8 +543,9 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
         }
         /* FALLTHROUGH */
       case YAML_DATA_SEQ:
-        sb_setf(&env->err.buf, "cannot unpack %s into a struct",
-                yaml_data_get_type(data));
+        sb_setf(&env->err.buf, "cannot unpack %s into a %s",
+                yaml_data_get_type(data, false),
+                real_st->is_union ? "union" : "struct");
         goto error;
       case YAML_DATA_OBJ:
         break;
@@ -582,6 +574,10 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
                 goto error;
             }
         }
+    }
+
+    if (st->is_union) {
+        return yaml_data_to_union(env, data, st, out);
     }
 
     if (iop_struct_is_class(real_st)) {
@@ -629,8 +625,8 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     return 0;
 
   error:
-    sb_prependf(&env->err.buf, "cannot unpack YAML as a `%pL` IOP struct: ",
-                &real_st->fullname);
+    sb_prependf(&env->err.buf, "cannot unpack YAML as a `%pL` IOP %s: ",
+                &real_st->fullname, real_st->is_union ? "union" : "struct");
     if (!env->err.data) {
         env->err.data = data;
     }
@@ -642,7 +638,7 @@ static void yaml_set_type_mismatch_err(yunpack_env_t * nonnull env,
                                        const iop_field_t * nonnull fdesc)
 {
     sb_setf(&env->err.buf, "cannot set %s in a field of type %s",
-            yaml_data_get_type(data),
+            yaml_data_get_type(data, false),
             iop_type_get_string_desc(fdesc->type));
     env->err.data = data;
 }
@@ -694,17 +690,20 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
                        const iop_field_t * nonnull fdesc,
                        bool in_array, void * nonnull out)
 {
-    if ((fdesc->type == IOP_T_STRUCT || fdesc->type == IOP_T_UNION)
-    &&  iop_field_is_reference(fdesc))
-    {
+    bool struct_or_union;
+
+    struct_or_union = fdesc->type == IOP_T_STRUCT
+                   || fdesc->type == IOP_T_UNION;
+    if (struct_or_union && iop_field_is_reference(fdesc)) {
         out = iop_field_ptr_alloc(env->mp, fdesc, out);
     } else
     if (fdesc->repeat == IOP_R_OPTIONAL && !iop_field_is_class(fdesc)) {
         out = iop_field_set_present(env->mp, fdesc, out);
     }
 
-    if (fdesc->type != IOP_T_STRUCT && data->tag.s) {
-        sb_setf(&env->err.buf, "specifying a tag is not allowed");
+    if (!struct_or_union && data->tag.s) {
+        sb_setf(&env->err.buf, "specifying a tag on %s is not allowed",
+                yaml_data_get_type(data, true));
         env->err.data = data;
         goto err;
     }
@@ -740,7 +739,7 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
         break;
 
       case YAML_DATA_OBJ:
-        if (fdesc->type == IOP_T_STRUCT || fdesc->type == IOP_T_UNION) {
+        if (struct_or_union) {
             if (yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc,
                                           out) < 0)
             {
@@ -766,9 +765,9 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
     logger_trace(&_G.logger, 2,
                  "unpack %s from "YAML_POS_FMT" up to "YAML_POS_FMT
                  " into field %pL of struct %pL",
-                 yaml_data_get_type(data), YAML_POS_ARG(data->pos_start),
-                 YAML_POS_ARG(data->pos_end), &fdesc->name,
-                 &st_desc->fullname);
+                 yaml_data_get_type(data, false),
+                 YAML_POS_ARG(data->pos_start), YAML_POS_ARG(data->pos_end),
+                 &fdesc->name, &st_desc->fullname);
     return 0;
 
   err:

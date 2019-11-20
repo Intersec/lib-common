@@ -61,37 +61,40 @@ typedef struct yaml_env_t {
 /* }}} */
 /* {{{ Utils */
 
-static const char *yaml_scalar_get_type(const yaml_data_t *data)
+static const char * nonnull
+yaml_scalar_get_type(const yaml_scalar_t * nonnull scalar, bool has_tag)
 {
-    switch (data->scalar.type) {
+    switch (scalar->type) {
       case YAML_SCALAR_STRING:
-        return (data->tag.s) ? "a tagged string value" : "a string value";
+        return has_tag ? "a tagged string value" : "a string value";
       case YAML_SCALAR_DOUBLE:
-        return (data->tag.s) ? "a tagged double value" : "a double value";
+        return has_tag ? "a tagged double value" : "a double value";
       case YAML_SCALAR_UINT:
-        return (data->tag.s) ? "a tagged unsigned integer value"
-                             : "an unsigned integer value";
+        return has_tag ? "a tagged unsigned integer value"
+                       : "an unsigned integer value";
       case YAML_SCALAR_INT:
-        return (data->tag.s) ? "a tagged integer value" : "an integer value";
+        return has_tag ? "a tagged integer value" : "an integer value";
       case YAML_SCALAR_BOOL:
-        return (data->tag.s) ? "a tagged boolean value" : "a boolean value";
+        return has_tag ? "a tagged boolean value" : "a boolean value";
       case YAML_SCALAR_NULL:
-        return (data->tag.s) ? "a tagged null value" : "a null value";
+        return has_tag ? "a tagged null value" : "a null value";
     }
 
     assert (false);
     return "";
 }
 
-const char *yaml_data_get_type(const yaml_data_t *data)
+const char *yaml_data_get_type(const yaml_data_t *data, bool ignore_tag)
 {
+    bool has_tag = data->tag.s && !ignore_tag;
+
     switch (data->type) {
       case YAML_DATA_OBJ:
-        return (data->tag.s) ? "a tagged object" : "an object";
+        return has_tag ? "a tagged object" : "an object";
       case YAML_DATA_SEQ:
-        return (data->tag.s) ? "a tagged sequence" : "a sequence";
+        return has_tag ? "a tagged sequence" : "a sequence";
       case YAML_DATA_SCALAR:
-        return yaml_scalar_get_type(data);
+        return yaml_scalar_get_type(&data->scalar, has_tag);
     }
 
     assert (false);
@@ -568,8 +571,8 @@ static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
     if (logger_is_traced(&_G.logger, 2)) {
         logger_trace_scope(&_G.logger, 2);
         logger_cont("parsed %s from "YAML_POS_FMT" up to "YAML_POS_FMT,
-                    yaml_data_get_type(out), YAML_POS_ARG(out->pos_start),
-                    YAML_POS_ARG(out->pos_end));
+                    yaml_data_get_type(out, false),
+                    YAML_POS_ARG(out->pos_start), YAML_POS_ARG(out->pos_end));
         if (out->type == YAML_DATA_SCALAR) {
             logger_cont(": %*pM", LSTR_FMT_ARG(yaml_data_get_span(out)));
         }
@@ -1286,7 +1289,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 16));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("unquoted string"));
         Z_ASSERT_NULL(data.tag.s);
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a string value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
@@ -1295,7 +1298,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 21));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("unquoted string"));
         Z_ASSERT_LSTREQUAL(data.tag, LSTR("tag"));
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged string value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "\" quoted: 5 \""));
@@ -1308,14 +1311,14 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
                                          1, 1, 1, 2));
         Z_ASSERT_NULL(data.tag.s);
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a null value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "!tag ~"));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
                                          1, 1, 1, 7));
         Z_ASSERT_LSTREQUAL(data.tag, LSTR("tag"));
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged null value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "null"));
@@ -1332,7 +1335,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 5));
         Z_ASSERT(data.scalar.b);
         Z_ASSERT_NULL(data.tag.s);
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a boolean value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "!tag true"));
@@ -1340,7 +1343,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 10));
         Z_ASSERT(data.scalar.b);
         Z_ASSERT_LSTREQUAL(data.tag, LSTR("tag"));
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged boolean value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "TrUE"));
@@ -1364,7 +1367,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 2));
         Z_ASSERT_EQ(data.scalar.u, 0UL);
         Z_ASSERT_NULL(data.tag.s);
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "an unsigned integer value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "!tag 0"));
@@ -1372,7 +1375,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 7));
         Z_ASSERT_EQ(data.scalar.u, 0UL);
         Z_ASSERT_LSTREQUAL(data.tag, LSTR("tag"));
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged unsigned integer value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "153"));
@@ -1391,7 +1394,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 3));
         Z_ASSERT_EQ(data.scalar.i, -1L);
         Z_ASSERT_NULL(data.tag.s);
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "an integer value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "!tag -1"));
@@ -1399,7 +1402,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 8));
         Z_ASSERT_EQ(data.scalar.i, -1L);
         Z_ASSERT_LSTREQUAL(data.tag, LSTR("tag"));
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged integer value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "-153"));
@@ -1413,7 +1416,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 4));
         Z_ASSERT_EQ(data.scalar.d, 0.5);
         Z_ASSERT_NULL(data.tag.s);
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a double value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "!tag 0.5"));
@@ -1421,7 +1424,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 9));
         Z_ASSERT_EQ(data.scalar.d, 0.5);
         Z_ASSERT_LSTREQUAL(data.tag, LSTR("tag"));
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged double value");
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "-1e3"));
@@ -1468,7 +1471,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
                                          1, 4, 1, 5));
         Z_ASSERT_EQ(field.scalar.u, 2UL);
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "an object");
 
         /* with tag */
@@ -1483,7 +1486,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
                                          1, 10, 1, 11));
         Z_ASSERT_EQ(field.scalar.u, 2UL);
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged object");
 
         /* imbricated objects */
@@ -1568,7 +1571,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data.seq->datas.tab[0],
                                          YAML_SCALAR_STRING, 1, 3, 1, 4));
         Z_ASSERT_LSTREQUAL(data.seq->datas.tab[0].scalar.s, LSTR("a"));
-        Z_ASSERT_STREQUAL(yaml_data_get_type(&data),
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a sequence");
 
         /* imbricated sequences */
