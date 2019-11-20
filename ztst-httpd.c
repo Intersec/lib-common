@@ -23,7 +23,7 @@
 #include "iop/tstiop.iop.h"
 
 static struct {
-    bool  port;
+    int  port;
     int   help;
     bool  wsdl;
 
