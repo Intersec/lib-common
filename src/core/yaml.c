@@ -155,6 +155,7 @@ typedef enum yaml_error_t {
     YAML_ERR_WRONG_INDENT,
     YAML_ERR_WRONG_OBJECT,
     YAML_ERR_TAB_CHARACTER,
+    YAML_ERR_INVALID_TAG,
 } yaml_error_t;
 
 static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
@@ -185,6 +186,9 @@ static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
         break;
       case YAML_ERR_TAB_CHARACTER:
         sb_addf(&env->err, "tab character detected, %s", msg);
+        break;
+      case YAML_ERR_INVALID_TAG:
+        sb_addf(&env->err, "invalid tag, %s", msg);
         break;
     }
 
@@ -230,7 +234,6 @@ static int
 yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
                    yaml_data_t *out)
 {
-    /* TODO: reject tags starting with anything but a letter */
     /* a-zA-Z0-9. */
     static const ctype_desc_t ctype_tag = { {
         0x00000000, 0x03ff4000, 0x07fffffe, 0x07fffffe,
@@ -243,10 +246,15 @@ yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
     assert (ps_peekc(env->ps) == '!');
     yaml_env_skipc(env);
 
+    if (!isalpha(ps_peekc(env->ps))) {
+        return yaml_env_set_err(env, YAML_ERR_INVALID_TAG,
+                                "must start with a letter");
+    }
+
     tag = ps_get_span(&env->ps, &ctype_tag);
-    if (ps_len(&tag) <= 0) {
-        return yaml_env_set_err(env, YAML_ERR_WRONG_DATA,
-                                "expected a string after '!'");
+    if (!isspace(ps_peekc(env->ps))) {
+        return yaml_env_set_err(env, YAML_ERR_INVALID_TAG,
+                                "must only contain alphanumeric characters");
     }
     tag_pos_end = yaml_env_get_pos(env);
 
@@ -1266,12 +1274,17 @@ Z_GROUP_EXPORT(yaml)
         /* wrong tag */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "!-",
-            "1:2: wrong type of data, expected a string after '!'"
+            "1:2: invalid tag, must start with a letter"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "!\"my type\"\n"
+            "!a-\n"
             "a: 5",
-            "1:2: wrong type of data, expected a string after '!'"
+            "1:3: invalid tag, must only contain alphanumeric characters"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "!4a\n"
+            "a: 5",
+            "1:2: invalid tag, must start with a letter"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "!tag1\n"
