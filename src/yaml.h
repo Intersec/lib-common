@@ -54,6 +54,14 @@ typedef struct yaml_pos_t {
     const char *s;
 } yaml_pos_t;
 
+/* Substring delimited by two positions in the parsed string. */
+typedef struct yaml_span_t {
+    /* Position in the parsed string where the data started */
+    yaml_pos_t start;
+    /* Position in the parsed string where the data ended */
+    yaml_pos_t end;
+} yaml_span_t;
+
 #define YAML_POS_FMT  "%u:%u"
 #define YAML_POS_ARG(p)  p.line_nb, p.col_nb
 
@@ -78,10 +86,7 @@ typedef enum yaml_data_type_t {
 } yaml_data_type_t;
 
 struct yaml_data_t {
-    /* Position in the parsed string where the data started */
-    yaml_pos_t pos_start;
-    /* Position in the parsed string where the data ended */
-    yaml_pos_t pos_end;
+    yaml_span_t span;
     union {
         yaml_scalar_t scalar;
         yaml_seq_t *seq;
@@ -98,6 +103,8 @@ qm_kvec_t(yaml_data, lstr_t, yaml_data_t, qhash_lstr_hash, qhash_lstr_equal);
 typedef struct yaml_key_data_t {
     lstr_t key;
     yaml_data_t data;
+
+    yaml_span_t key_span;
 } yaml_key_data_t;
 qvector_t(yaml_key_data, yaml_key_data_t);
 

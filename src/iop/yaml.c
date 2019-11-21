@@ -35,8 +35,8 @@ static struct iop_yaml_g {
 /* {{{ yunpack */
 
 typedef struct yunpack_error_t {
-    /* the yaml data that caused the error */
-    const yaml_data_t * nonnull data;
+    /* the yaml span where the error happened. */
+    const yaml_span_t * nonnull span;
     /* details of the error */
     sb_t buf;
 } yunpack_error_t;
@@ -155,8 +155,8 @@ set_string_from_stream(mem_pool_t * nonnull mp,
                        const yaml_data_t * nonnull data,
                        lstr_t * nonnull out)
 {
-    *out = mp_lstr_dups(mp, data->pos_start.s,
-                        data->pos_end.s - data->pos_start.s);
+    *out = mp_lstr_dups(mp, data->span.start.s,
+                        data->span.end.s - data->span.start.s);
 }
 
 static yunpack_res_t
@@ -380,6 +380,7 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
 {
     const iop_field_t *field_desc = NULL;
     const yaml_key_data_t *kd;
+    const yaml_span_t *span = &data->span;
 
     if (data->type != YAML_DATA_OBJ) {
         sb_setf(&env->err.buf, "cannot unpack %s into a union",
@@ -396,6 +397,7 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
     iop_field_find_by_name(st_desc, kd->key, NULL, &field_desc);
     if (!field_desc) {
         sb_setf(&env->err.buf, "unknown field `%pL`", &kd->key);
+        span = &kd->key_span;
         goto error;
     }
 
@@ -405,13 +407,14 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
                                out) < 0)
     {
         /* keep the data causing the issue in the err. */
-        data = env->err.data;
+        span = env->err.span;
         goto error;
     }
 
     if (check_constraints(st_desc, field_desc, out) < 0) {
         sb_setf(&env->err.buf, "field `%pL` is invalid: %s", &kd->key,
                 iop_get_err());
+        span = &kd->key_span;
         goto error;
     }
 
@@ -420,7 +423,7 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
   error:
     sb_prependf(&env->err.buf, "cannot unpack YAML as a `%pL` IOP union: ",
                 &st_desc->fullname);
-    env->err.data = data;
+    env->err.span = span;
     return -1;
 }
 
@@ -450,7 +453,7 @@ check_class(yunpack_env_t * nonnull env,
     return 0;
 }
 
-static const yaml_data_t * nullable
+static const yaml_key_data_t * nullable
 yaml_data_get_field_value(const yaml_data_t * nonnull data,
                           const lstr_t field_name)
 {
@@ -459,7 +462,7 @@ yaml_data_get_field_value(const yaml_data_t * nonnull data,
          * but keeps the code simple. */
         tab_for_each_ptr(pair, &data->obj->fields) {
             if (lstr_equal(pair->key, field_name)) {
-                return &pair->data;
+                return pair;
             }
         }
         return NULL;
@@ -491,7 +494,7 @@ yaml_skip_iop_field(yunpack_env_t * nonnull env,
 
 static int
 yaml_fill_iop_field(yunpack_env_t * nonnull env,
-                    const yaml_data_t * nonnull data,
+                    const yaml_key_data_t * nonnull kd,
                     const iop_struct_t * nonnull st,
                     const iop_field_t * nonnull fdesc, void * nonnull out)
 {
@@ -501,18 +504,20 @@ yaml_fill_iop_field(yunpack_env_t * nonnull env,
         attrs = iop_field_get_attrs(st, fdesc);
         if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
             sb_setf(&env->err.buf, "unknown field `%pL`", &fdesc->name);
+            env->err.span = &kd->key_span;
             return -1;
         }
     }
 
     out = (char *)out + fdesc->data_offs;
-    if (yaml_data_to_iop_field(env, data, st, fdesc, false, out) < 0) {
+    if (yaml_data_to_iop_field(env, &kd->data, st, fdesc, false, out) < 0) {
         return -1;
     }
 
     if (check_constraints(st, fdesc, out) < 0) {
         sb_setf(&env->err.buf, "field `%pL` is invalid: %s", &fdesc->name,
                 iop_get_err());
+        env->err.span = &kd->data.span;
         return -1;
     }
 
@@ -527,6 +532,7 @@ yaml_data_find_extra_key(yunpack_env_t * nonnull env,
     tab_for_each_ptr(pair, &data->obj->fields) {
         if (iop_field_find_by_name(st, pair->key, NULL, NULL) < 0) {
             sb_setf(&env->err.buf, "unknown field `%pL`", &pair->key);
+            env->err.span = &pair->key_span;
             return;
         }
     }
@@ -602,7 +608,7 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     st = real_st;
     nb_fields_matched = 0;
     iop_struct_for_each_field(field_desc, field_st, real_st) {
-        const yaml_data_t *val;
+        const yaml_key_data_t *val;
 
         val = yaml_data_get_field_value(data, field_desc->name);
         if (val) {
@@ -634,8 +640,8 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
   error:
     sb_prependf(&env->err.buf, "cannot unpack YAML as a `%pL` IOP %s: ",
                 &real_st->fullname, real_st->is_union ? "union" : "struct");
-    if (!env->err.data) {
-        env->err.data = data;
+    if (!env->err.span) {
+        env->err.span = &data->span;
     }
     return -1;
 }
@@ -647,7 +653,7 @@ static void yaml_set_type_mismatch_err(yunpack_env_t * nonnull env,
     sb_setf(&env->err.buf, "cannot set %s in a field of type %s",
             yaml_data_get_type(data, false),
             iop_type_get_string_desc(fdesc->type));
-    env->err.data = data;
+    env->err.span = &data->span;
 }
 
 /* }}} */
@@ -664,7 +670,7 @@ yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
 
     if (fdesc->repeat != IOP_R_REPEATED) {
         sb_sets(&env->err.buf, "cannot set a sequence in a non-array field");
-        env->err.data = data;
+        env->err.span = &data->span;
         return -1;
     }
 
@@ -711,7 +717,7 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
     if (!struct_or_union && data->tag.s) {
         sb_setf(&env->err.buf, "specifying a tag on %s is not allowed",
                 yaml_data_get_type(data, true));
-        env->err.data = data;
+        env->err.span = &data->span;
         goto err;
     }
 
@@ -722,13 +728,13 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
             break;
           case YUNPACK_INVALID_B64_VAL:
             sb_setf(&env->err.buf, "the value must be encoded in base64");
-            env->err.data = data;
+            env->err.span = &data->span;
             goto err;
           case YUNPACK_INVALID_ENUM_VAL:
             sb_setf(&env->err.buf,
                     "the value is not valid for the enum `%pL`",
                     &fdesc->u1.en_desc->name);
-            env->err.data = data;
+            env->err.span = &data->span;
             goto err;
           case YUNPACK_TYPE_MISMATCH:
             yaml_set_type_mismatch_err(env, data, fdesc);
@@ -737,7 +743,7 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
             sb_setf(&env->err.buf,
                     "the value is out of range for the field of type %s",
                     iop_type_get_string_desc(fdesc->type));
-            env->err.data = data;
+            env->err.span = &data->span;
             goto err;
           default:
             assert (false);
@@ -773,8 +779,9 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
                  "unpack %s from "YAML_POS_FMT" up to "YAML_POS_FMT
                  " into field %pL of struct %pL",
                  yaml_data_get_type(data, false),
-                 YAML_POS_ARG(data->pos_start), YAML_POS_ARG(data->pos_end),
-                 &fdesc->name, &st_desc->fullname);
+                 YAML_POS_ARG(data->span.start),
+                 YAML_POS_ARG(data->span.end), &fdesc->name,
+                 &st_desc->fullname);
     return 0;
 
   err:
@@ -795,18 +802,18 @@ static void yunpack_err_pretty_print(const yunpack_error_t *err,
     if (filename) {
         sb_addf(out, "%s:", filename);
     }
-    sb_addf(out, YAML_POS_FMT": %pL", YAML_POS_ARG(err->data->pos_start),
+    sb_addf(out, YAML_POS_FMT": %pL", YAML_POS_ARG(err->span->start),
             &err->buf);
 
-    one_liner = err->data->pos_end.line_nb
-             == err->data->pos_start.line_nb;
+    one_liner = err->span->end.line_nb
+             == err->span->start.line_nb;
 
     /* get the full line including pos_start */
-    ps.s = err->data->pos_start.s;
-    ps.s -= err->data->pos_start.col_nb - 1;
+    ps.s = err->span->start.s;
+    ps.s -= err->span->start.col_nb - 1;
 
     /* find the end of the line */
-    ps.s_end = one_liner ? err->data->pos_end.s - 1 : ps.s;
+    ps.s_end = one_liner ? err->span->end.s - 1 : ps.s;
     while (ps.s_end < full_input->s_end && *ps.s_end != '\n') {
         ps.s_end++;
     }
@@ -814,12 +821,12 @@ static void yunpack_err_pretty_print(const yunpack_error_t *err,
     sb_addf(out, "\n%*pM\n", PS_FMT_ARG(&ps));
 
     /* then display some indications or where the issue is */
-    for (unsigned i = 1; i < err->data->pos_start.col_nb; i++) {
+    for (unsigned i = 1; i < err->span->start.col_nb; i++) {
         sb_addc(out, ' ');
     }
     if (one_liner) {
-        for (unsigned i = err->data->pos_start.col_nb;
-             i < err->data->pos_end.col_nb; i++)
+        for (unsigned i = err->span->start.col_nb;
+             i < err->span->end.col_nb; i++)
         {
             sb_addc(out, '^');
         }
@@ -859,7 +866,7 @@ _t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
 
         if (!expect(iop_check_constraints_desc(st, val) >= 0)) {
             sb_setf(&unpack_env.err.buf, "invalid object: %s", iop_get_err());
-            unpack_env.err.data = &data;
+            unpack_env.err.span = &data.span;
             yunpack_err_pretty_print(&unpack_env.err, st, filename, ps,
                                      out_err);
             return -1;

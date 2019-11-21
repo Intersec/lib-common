@@ -585,13 +585,13 @@ Z_GROUP_EXPORT(iop_yaml)
         /* --- object field errors --- */
 
         /* unknown field in struct */
-        TST_ERROR("z: 42",
-                  "1:1: "ERR_COMMON": unknown field `z`\n"
+        TST_ERROR("b: true\n"
+                  "z: 42",
+                  "2:1: "ERR_COMMON": unknown field `z`\n"
                   "z: 42\n"
-                  "^^^^^");
+                  "^");
 
         /* missing field in struct */
-        /* TODO: weird location? */
         TST_ERROR("st: i: 42",
                   "1:5: "ERR_COMMON": cannot set field `st`: "
                   "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
@@ -614,7 +614,7 @@ Z_GROUP_EXPORT(iop_yaml)
                   "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
                   "unknown field `a`\n"
                   "un: a: 42\n"
-                  "    ^^^^^");
+                  "    ^");
 
         /* error on field unpacking */
         TST_ERROR("un: i: foo",
@@ -648,7 +648,6 @@ Z_GROUP_EXPORT(iop_yaml)
         /* --- class errors --- */
 
         /* abstract class */
-        /* TODO: improve location */
         TST_ERROR("o: i: 42",
                   "1:4: "ERR_COMMON": cannot set field `o`: "
                   "cannot unpack YAML as a `tstiop.TestClass` IOP struct: "
@@ -699,7 +698,7 @@ Z_GROUP_EXPORT(iop_yaml)
         TST_ERROR("priv: 42\n",
                   "1:1: "ERR_COMMON": unknown field `priv`\n"
                   "priv: 42\n"
-                  "^^^^^^^^");
+                  "^^^^");
 
         /* private class */
         TST_ERROR("myClass: !tstiop.MyClass2Priv\n"
@@ -722,7 +721,7 @@ Z_GROUP_EXPORT(iop_yaml)
         TST_ERROR("o: ra\n",
                   "1:1: "ERR_COMMON": unknown field `o`\n"
                   "o: ra\n"
-                  "^^^^^");
+                  "^");
 
         /* wrong tag */
         /* TODO: location should be the tag */
@@ -745,7 +744,7 @@ Z_GROUP_EXPORT(iop_yaml)
         Z_ASSERT_NEG(t_iop_yunpack_ptr_file(path, st, &res, &err));
         expected_err = t_fmt("%s:1:1: "ERR_COMMON": unknown field `o`\n"
                              "o: ra\n"
-                             "^^^^^", path);
+                             "^", path);
         Z_ASSERT_STREQUAL(err.data, expected_err);
 
         /* on unknown file */
@@ -964,7 +963,7 @@ Z_GROUP_EXPORT(iop_yaml)
             "field `u8` is invalid: in type tstiop.ConstraintU: "
             "violation of constraint nonZero on field u8\n"
             "u8: 0\n"
-            "^^^^^");
+            "^^");
 
         /* check constraints on arrays */
         iop_init(tstiop__constraint_s, &s);
@@ -982,11 +981,11 @@ Z_GROUP_EXPORT(iop_yaml)
         TST_ERROR(&tstiop__constraint_s__s, &s,
             "s:\n"
             "  - ora",
-            "1:1: cannot unpack YAML as a `tstiop.ConstraintS` IOP struct: "
+            "2:3: cannot unpack YAML as a `tstiop.ConstraintS` IOP struct: "
             "field `s` is invalid: in type tstiop.ConstraintS: "
             "violation of constraint minOccurs (2) on field s: length=1\n"
-            "s:\n"
-            "^ starting here");
+            "  - ora\n"
+            "  ^^^^^");
 
 #undef TST_ERROR
     } Z_TEST_END

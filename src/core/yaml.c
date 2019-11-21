@@ -101,10 +101,9 @@ const char *yaml_data_get_type(const yaml_data_t *data, bool ignore_tag)
     return "";
 }
 
-static lstr_t yaml_data_get_span(const yaml_data_t *data)
+static lstr_t yaml_data_get_span_lstr(const yaml_span_t * nonnull span)
 {
-    return LSTR_INIT_V(data->pos_start.s,
-                       data->pos_end.s - data->pos_start.s);
+    return LSTR_INIT_V(span->start.s, span->end.s - span->start.s);
 }
 
 static uint32_t yaml_env_get_column_nb(const yaml_env_t *env)
@@ -133,8 +132,8 @@ yaml_env_init_data_with_end(const yaml_env_t *env, yaml_data_type_t type,
 {
     p_clear(out, 1);
     out->type = type;
-    out->pos_start = pos_start;
-    out->pos_end = pos_end;
+    out->span.start = pos_start;
+    out->span.end = pos_end;
 }
 
 static void
@@ -256,7 +255,7 @@ yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
     }
 
     out->tag = LSTR_PS_V(&tag);
-    out->pos_start = pos_start;
+    out->span.start = pos_start;
     return 0;
 }
 
@@ -289,7 +288,7 @@ static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
         yaml_env_skipc(env);
 
         RETHROW(yaml_env_parse_data(env, min_indent + 1, &elem));
-        pos_end = elem.pos_end;
+        pos_end = elem.span.end;
         qv_append(&datas, elem);
 
         RETHROW(yaml_env_ltrim(env));
@@ -334,8 +333,12 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
         pstream_t ps_key;
         yaml_key_data_t *kd;
         uint32_t last_indent;
+        yaml_span_t key_span;
 
+        key_span.start = yaml_env_get_pos(env);
         ps_key = ps_get_span(&env->ps, &ctype_isalnum);
+        key_span.end = yaml_env_get_pos(env);
+
         if (ps_len(&ps_key) == 0) {
             return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
                                     "only alpha-numeric characters allowed");
@@ -346,6 +349,7 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
 
         kd = qv_growlen0(&fields, 1);
         kd->key = LSTR_PS_V(&ps_key);
+        kd->key_span = key_span;
         if (qh_add(lstr, &keys_hash, &kd->key) < 0) {
             return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
                                     "key is already declared in the object");
@@ -367,7 +371,7 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
             RETHROW(yaml_env_parse_data(env, min_indent + 1, &kd->data));
         }
 
-        pos_end = kd->data.pos_end;
+        pos_end = kd->data.span.end;
 
         RETHROW(yaml_env_ltrim(env));
         if (ps_done(&env->ps)) {
@@ -587,9 +591,12 @@ static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
         logger_trace_scope(&_G.logger, 2);
         logger_cont("parsed %s from "YAML_POS_FMT" up to "YAML_POS_FMT,
                     yaml_data_get_type(out, false),
-                    YAML_POS_ARG(out->pos_start), YAML_POS_ARG(out->pos_end));
+                    YAML_POS_ARG(out->span.start),
+                    YAML_POS_ARG(out->span.end));
         if (out->type == YAML_DATA_SCALAR) {
-            logger_cont(": %*pM", LSTR_FMT_ARG(yaml_data_get_span(out)));
+            lstr_t span = yaml_data_get_span_lstr(&out->span);
+
+            logger_cont(": %pL", &span);
         }
     }
     return 0;
@@ -1176,10 +1183,10 @@ z_check_yaml_data(const yaml_data_t *data, yaml_data_type_t type,
                   uint32_t end_line, uint32_t end_col)
 {
     Z_ASSERT_EQ(data->type, type);
-    Z_ASSERT_EQ(data->pos_start.line_nb, start_line);
-    Z_ASSERT_EQ(data->pos_start.col_nb, start_col);
-    Z_ASSERT_EQ(data->pos_end.line_nb, end_line);
-    Z_ASSERT_EQ(data->pos_end.col_nb, end_col);
+    Z_ASSERT_EQ(data->span.start.line_nb, start_line);
+    Z_ASSERT_EQ(data->span.start.col_nb, start_col);
+    Z_ASSERT_EQ(data->span.end.line_nb, end_line);
+    Z_ASSERT_EQ(data->span.end.col_nb, end_col);
 
     Z_HELPER_END;
 }
