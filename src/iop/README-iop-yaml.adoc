@@ -9,13 +9,10 @@ The syntax is based on https://yaml.org/spec/1.2/spec.html[YAML 1.2], but as the
 is overly complex, *a lot* of simplifications have been applied, as well as a few custom
 improvements.
 
-A better way to describe the supported syntax would be that it follows the
-https://github.com/openbohemians/diet-yaml[Diet YAML] simplification, but keeps type
-syntax for IOP classes descriptions:
-
-* No declarations
-* Only scalar keys
-* Types only allowed for IOP classes
+* No declarations.
+* Only alphanumeric keys starting with a letter are allowed: `[a-zA-Z]\w*`.
+* No inline JSON syntax allowed.
+* Types only allowed for IOP classes.
 * No anchors or references (yet, could be added in the future).
 
 == Mapping with IOP concepts
@@ -23,15 +20,17 @@ syntax for IOP classes descriptions:
 === Scalars
 
 * Booleans are written `true` or `false`.
-* Numbers can be written in many ways:
-** Decimal: `154`, `-154.56`, `+0.`
-** Octal: `0777`
-** Hexadecimal: `0xDADA`
-** Arithmetic computations: `1 + 2 << 10`
-** Binary prefixes: `500K`
+* Integers: `154`, `-23`.
+* Floating-point numbers: `-15.23`.
+** Special values are handled: `.Inf`, `-.Inf`, `.NaN`.
 * Null can be expressed with `null` or `~`
-* As long as it does not start with `-` or contains a `:`, a string can be written as is,
-  otherwise, it must be surrounded by quotes:
+* Strings can be written as is in most cases, but must be quoted if:
+** it starts with `!`, `&`, `*`, `-`, `"`, `.`, `[` or `{`.
+** it contains `:`, `#`, or non printable ascii characters.
+* When a string is quoted, some escape codes are handled:
+** `\a`, `\b`, `\e`, `\f`, `\n`, `\r`, `\t`, `\v`, `\"` and `\\` for classic
+   printf escape codes.
+** `\uXX`, `\uYYY` and `\uZZZZ` are interpreted as an UTF-8 code point.
 
 [source,YAML]
 ----
@@ -47,9 +46,10 @@ Arrays are written with every element on its own line, prefixed by a dash, with 
 
 [source,YAML]
 ----
-- name: foo
-  bar: 5
-- name: baz
+array:
+  - name: foo
+    bar: 5
+  - name: baz
 ----
 
 === Struct
@@ -78,34 +78,14 @@ class: !aaa.bbb.MyClass
 
 Sometimes, we simply want to indicate the presence of a field, or to use all default values:
 
-* Specify the key of a union, that has no value. In JSON, this looks like `"a": null`.
-* Specify a struct, but without specifying any value. In JSON, this looks like `"a": {}`
-
-For those cases, it is possible to use the `~` character, but also the `null` string.
+* For a field of type void, the `~` value should be used.
+* For an object with no keys, the `{}` syntax must be used.
+* For an array with no elements, the `[]` syntax must be used.
 
 [source,YAML]
 ----
 obj:
-  field: ~
-  union:
-    key: ~
-----
-
-== IOP YAML Grammar
-
-[source,EBNF]
-----
-yaml     = data
-data     = [ space+ ] scalar | sequence | obj
-scalar   = (null | boolean | number | string) "\n"
-sequence = indent "-" data { "\n" ?same-indent? "-" data }
-obj      = [ "!" [a-zA-Z\.]+ ] [ space+ | "\n" ] raw-obj
-raw-obj  = indent key ":" data { "\n" ?same-indent? key ":" data }
-string   = '"' .* '"' | [^-] + 
-key      = [a-zA-Z]+
-number   = <see above>
-boolean  = "true" | "false"
-null     = "~" | "null"
-indent   = space+
-space    = " "
+  voidField: ~
+  emptyStruct: {}
+  emptyArray: []
 ----

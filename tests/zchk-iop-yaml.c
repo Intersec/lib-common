@@ -155,7 +155,6 @@ Z_GROUP_EXPORT(iop_yaml)
         TST_FLAGS(IOP_JPACK_NO_WHITESPACES, true, true,
                   "def: 1\n"
                   "rep: []");
-        /* FIXME: NO_TRAILING_EOL to handle */
         TST_FLAGS(IOP_JPACK_NO_TRAILING_EOL, true, true,
                   "def: 1\n"
                   "rep: []");

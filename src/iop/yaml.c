@@ -52,9 +52,6 @@ typedef struct yunpack_env_t {
 
 /* {{{ Yaml scalar to iop field */
 
-/* FIXME: compare with JSON to have as few type mismatch as possible, for
- * backward-compatibility */
-
 typedef enum yunpack_res_t {
     YUNPACK_NULL_STRUCT_ERROR = -5,
     YUNPACK_INVALID_B64_VAL = -4,
