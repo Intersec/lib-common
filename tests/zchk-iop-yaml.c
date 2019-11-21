@@ -480,7 +480,7 @@ Z_GROUP_EXPORT(iop_yaml)
                   "1:4: "ERR_COMMON": cannot set field `s`: "
                   "specifying a tag on a string value is not allowed\n"
                   "s: !str jojo\n"
-                  "   ^^^^^^^^^");
+                  "   ^^^^");
 
         /* --- OOB --- */
 
@@ -637,13 +637,12 @@ Z_GROUP_EXPORT(iop_yaml)
         /* --- struct errors --- */
 
         /* wrong explicit tag */
-        /* TODO: location should be the tag */
         TST_ERROR("!tstiop.FullDefVal i8: 1",
                   "1:1: "ERR_COMMON": "
                   "wrong type `tstiop.FullDefVal` provided in tag, "
                   "expected `tstiop.FullOpt`\n"
                   "!tstiop.FullDefVal i8: 1\n"
-                  "^^^^^^^^^^^^^^^^^^^^^^^^");
+                  "^^^^^^^^^^^^^^^^^^");
 
         /* --- class errors --- */
 
@@ -663,7 +662,7 @@ Z_GROUP_EXPORT(iop_yaml)
                   "unknown type `foo` provided in tag, "
                   "or not a child of `tstiop.TestClass`\n"
                   "o: !foo\n"
-                  "   ^ starting here");
+                  "   ^^^^");
 
         /* unrelated class */
         TST_ERROR("o: !tstiop.MyClass1\n"
@@ -673,7 +672,7 @@ Z_GROUP_EXPORT(iop_yaml)
                   "unknown type `tstiop.MyClass1` provided in tag, "
                   "or not a child of `tstiop.TestClass`\n"
                   "o: !tstiop.MyClass1\n"
-                  "   ^ starting here");
+                  "   ^^^^^^^^^^^^^^^^");
 
         st = &tstiop__my_class2__s;
 #undef ERR_COMMON
@@ -687,7 +686,7 @@ Z_GROUP_EXPORT(iop_yaml)
                   "provided tag `tstiop.MyClass1` is not a child of "
                   "`tstiop.MyClass2`\n"
                   "!tstiop.MyClass1\n"
-                  "^ starting here");
+                  "^^^^^^^^^^^^^^^^");
 
         st = &tstiop__struct_jpack_flags__s;
 #undef ERR_COMMON
@@ -724,12 +723,11 @@ Z_GROUP_EXPORT(iop_yaml)
                   "^");
 
         /* wrong tag */
-        /* TODO: location should be the tag */
         TST_ERROR("!tstiop.MyUnion o: ra\n",
                   "1:1: "ERR_COMMON": wrong type `tstiop.MyUnion` "
                   "provided in tag, expected `tstiop.MyUnionA`\n"
                   "!tstiop.MyUnion o: ra\n"
-                  "^^^^^^^^^^^^^^^^^^^^^");
+                  "^^^^^^^^^^^^^^^");
 
         /* wrong data type */
         TST_ERROR("yare yare\n",

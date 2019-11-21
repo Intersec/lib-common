@@ -96,6 +96,7 @@ struct yaml_data_t {
 
     /* LSTR_NULL_V if untyped */
     lstr_t tag;
+    yaml_span_t tag_span;
 };
 qvector_t(yaml_data, yaml_data_t);
 qm_kvec_t(yaml_data, lstr_t, yaml_data_t, qhash_lstr_hash, qhash_lstr_equal);

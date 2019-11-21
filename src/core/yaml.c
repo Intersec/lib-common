@@ -236,7 +236,8 @@ yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
         0x00000000, 0x03ff4000, 0x07fffffe, 0x07fffffe,
         0x00000000, 0x00000000, 0x00000000, 0x00000000,
     } };
-    yaml_pos_t pos_start = yaml_env_get_pos(env);
+    yaml_pos_t tag_pos_start = yaml_env_get_pos(env);
+    yaml_pos_t tag_pos_end;
     pstream_t tag;
 
     assert (ps_peekc(env->ps) == '!');
@@ -247,6 +248,7 @@ yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
         return yaml_env_set_err(env, YAML_ERR_WRONG_DATA,
                                 "expected a string after '!'");
     }
+    tag_pos_end = yaml_env_get_pos(env);
 
     RETHROW(yaml_env_parse_data(env, min_indent, out));
     if (out->tag.s) {
@@ -255,7 +257,10 @@ yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
     }
 
     out->tag = LSTR_PS_V(&tag);
-    out->span.start = pos_start;
+    out->span.start = tag_pos_start;
+    out->tag_span.start = tag_pos_start;
+    out->tag_span.end = tag_pos_end;
+
     return 0;
 }
 

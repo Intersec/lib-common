@@ -540,6 +540,37 @@ yaml_data_find_extra_key(yunpack_env_t * nonnull env,
     assert (false);
 }
 
+static const iop_struct_t * nullable
+get_struct_from_tag(const iop_struct_t * nonnull st, const lstr_t tag,
+                    sb_t * nonnull err)
+{
+    if (iop_struct_is_class(st)) {
+        const iop_struct_t *real_st;
+
+        real_st = iop_get_class_by_fullname(st, tag);
+        if (!real_st) {
+            sb_setf(err, "unknown type `%pL` provided in tag, "
+                    "or not a child of `%pL`", &tag, &st->fullname);
+            return NULL;
+        }
+        if (!iop_class_is_a(real_st, st)) {
+            sb_setf(err, "provided tag `%pL` is not a child of `%pL`",
+                    &real_st->fullname, &st->fullname);
+            return NULL;
+        }
+
+        return real_st;
+    } else {
+        if (!lstr_equal(st->fullname, tag)) {
+            sb_setf(err, "wrong type `%pL` provided in tag, expected `%pL`",
+                    &tag, &st->fullname);
+            return NULL;
+        }
+
+        return st;
+    }
+}
+
 static int
 yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
                           const yaml_data_t * nonnull data,
@@ -565,27 +596,11 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     }
 
     if (data->tag.s) {
-        if (iop_struct_is_class(st)) {
-            real_st = iop_get_class_by_fullname(st, data->tag);
-            if (!real_st) {
-                sb_setf(&env->err.buf, "unknown type `%pL` provided in tag, "
-                        "or not a child of `%pL`", &data->tag,
-                        &st->fullname);
-                real_st = st;
-                goto error;
-            }
-            if (!iop_class_is_a(real_st, st)) {
-                sb_setf(&env->err.buf, "provided tag `%pL` is not a child of "
-                        "`%pL`", &real_st->fullname, &st->fullname);
-                real_st = st;
-                goto error;
-            }
-        } else {
-            if (!lstr_equal(st->fullname, data->tag)) {
-                sb_setf(&env->err.buf, "wrong type `%pL` provided in tag, "
-                        "expected `%pL`", &data->tag, &st->fullname);
-                goto error;
-            }
+        real_st = get_struct_from_tag(st, data->tag, &env->err.buf);
+        if (!real_st) {
+            env->err.span = &data->tag_span;
+            real_st = st;
+            goto error;
         }
     }
 
@@ -717,7 +732,7 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
     if (!struct_or_union && data->tag.s) {
         sb_setf(&env->err.buf, "specifying a tag on %s is not allowed",
                 yaml_data_get_type(data, true));
-        env->err.span = &data->span;
+        env->err.span = &data->tag_span;
         goto err;
     }
 
