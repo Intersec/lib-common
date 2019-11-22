@@ -21,7 +21,7 @@
 #else
 #define IS_LIB_COMMON_THR_JOB_H
 
-#include "unix.h"
+#include <lib-common/unix.h>
 
 #define THR_JOB_MAX   256
 

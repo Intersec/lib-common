@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "thr.h"
+#include <lib-common/thr.h>
 
 #if defined(__linux__)
 
@@ -142,7 +142,7 @@ void thr_ec_wipe(thr_evc_t *ec)
 #else
 
 #include <pthread.h>
-#include "datetime.h"
+#include <lib-common/datetime.h>
 
 thr_evc_t *thr_ec_init(thr_evc_t *ec)
 {

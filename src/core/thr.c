@@ -18,7 +18,7 @@
 
 #include <dlfcn.h>
 #include <pthread.h>
-#include "thr.h"
+#include <lib-common/thr.h>
 
 struct thr_hooks thr_hooks_g = {
     .init_cbs = DLIST_INIT(thr_hooks_g.init_cbs),

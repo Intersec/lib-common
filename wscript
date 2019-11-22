@@ -279,6 +279,10 @@ def build(ctx):
             'src/core/str-path.c',
             'src/core/str-stream.c',
             'src/core/str.c',
+            'src/core/thr-evc.c',
+            'src/core/thr-job.blk',
+            'src/core/thr-spsc.c',
+            'src/core/thr.c',
             'src/core/types.blk',
             'src/core/unix.blk',
             'src/core/unix-fts.c',
@@ -304,11 +308,6 @@ def build(ctx):
             'src/iop/cfolder.c',
             'src/iop/core-obj.blk',
             'src/iop/void.c',
-
-            'thr.c',
-            'thr-evc.c',
-            'thr-job.blk',
-            'thr-spsc.c',
 
             'xmlpp.c',
             'xmlr.c',

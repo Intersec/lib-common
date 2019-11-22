@@ -20,13 +20,13 @@
 #define IS_LIB_COMMON_THR_H
 
 #include <pthread.h>
-#include "core.h"
-#include "container-dlist.h"
+#include <lib-common/core.h>
+#include <lib-common/container-dlist.h>
 
-#include "thr-evc.h"
-#include "thr-job.h"
-#include "thr-spsc.h"
-#include "thr-mpsc.h"
+#include "src/core/thr-evc.h"
+#include "src/core/thr-job.h"
+#include "src/core/thr-spsc.h"
+#include "src/core/thr-mpsc.h"
 
 extern struct thr_hooks {
     dlist_t init_cbs;

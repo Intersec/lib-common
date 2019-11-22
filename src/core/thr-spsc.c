@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "thr.h"
+#include <lib-common/thr.h>
 
 spsc_queue_t *spsc_queue_init(spsc_queue_t *q, size_t v_size)
 {

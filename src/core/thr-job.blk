@@ -20,7 +20,7 @@
 #include <lib-common/datetime.h>
 #include <lib-common/el.h>
 #include <lib-common/unix.h>
-#include "thr.h"
+#include <lib-common/thr.h>
 
 #if !defined(__x86_64__) && !defined(__i386__)
 #  error "this file assumes a strict memory model and is probably buggy on !x86"
