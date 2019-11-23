@@ -20,10 +20,10 @@
 #define IS_LIB_COMMON_QPS_H
 
 #include <sysexits.h>
-#include "unix.h"
-#include "log.h"
-#include "thr.h"
-#include "el.h"
+#include <lib-common/unix.h>
+#include <lib-common/log.h>
+#include <lib-common/thr.h>
+#include <lib-common/el.h>
 
 /* define this flag to 1 to allow valgrind/asan to potentially detect incorect
  * QPS API usage (WARNING: the QPS spool storage format is not compatible with

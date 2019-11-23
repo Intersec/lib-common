@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
-#include "qps-hat.h"
+#include <lib-common/arith.h>
+#include <lib-common/qps-hat.h>
 
 /** \addtogroup qkv__ll__hat
  * \{

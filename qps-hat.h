@@ -19,9 +19,9 @@
 #ifndef IS_LIB_COMMON_QPS_HAT_H
 #define IS_LIB_COMMON_QPS_HAT_H
 
-#include "sort.h"
-#include "qps.h"
-#include "qps-bitmap.h"
+#include <lib-common/sort.h>
+#include <lib-common/qps.h>
+#include <lib-common/qps-bitmap.h>
 
 /** \defgroup qkv__ll__hat QPS HAT-Trie
  * \ingroup qkv__ll

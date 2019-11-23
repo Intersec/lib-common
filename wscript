@@ -353,6 +353,9 @@ def build(ctx):
             'src/core/file-bin.c',
             'src/core/file-log.blk',
             'src/core/log-iop.c',
+            'src/core/qps.blk',
+            'src/core/qps-hat.c',
+            'src/core/qps-bitmap.c',
             'src/core/z.blk',
             'src/core/zchk-helpers.blk',
 
@@ -380,9 +383,6 @@ def build(ctx):
             'src/net/rate.blk',
 
             'qpage.c',
-            'qps.blk',
-            'qps-hat.c',
-            'qps-bitmap.c',
 
             'ssl.blk',
 

@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
-#include "qps-bitmap.h"
-#include "z.h"
+#include <lib-common/arith.h>
+#include <lib-common/qps-bitmap.h>
+#include <lib-common/z.h>
 
 /* Deref {{{ */
 

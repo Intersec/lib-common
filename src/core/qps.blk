@@ -25,9 +25,9 @@
 #include <lib-common/qlzo.h>
 #include <lib-common/el.h>
 #include <lib-common/thr.h>
-#include "qps.h"
-#include "sort.h"
-#include "hash.h"
+#include <lib-common/qps.h>
+#include <lib-common/sort.h>
+#include <lib-common/hash.h>
 
 static struct {
     dlist_t qps_head;

@@ -19,7 +19,7 @@
 #ifndef IS_LIB_COMMON_QPS_BITMAP_H
 #define IS_LIB_COMMON_QPS_BITMAP_H
 
-#include "qps.h"
+#include <lib-common/qps.h>
 
 /** \defgroup qkv__ll__bitmap QPS Bitmap
  * \ingroup qkv__ll
