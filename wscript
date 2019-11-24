@@ -359,6 +359,8 @@ def build(ctx):
             'src/core/z.blk',
             'src/core/zchk-helpers.blk',
 
+            'src/crypto/ssl.blk',
+
             'src/net/http.c',
             'src/net/http-hdr.perf',
             'src/net/http-srv-static.c',
@@ -383,8 +385,6 @@ def build(ctx):
             'src/net/rate.blk',
 
             'qpage.c',
-
-            'ssl.blk',
 
             'zlib-wrapper.c',
         ]

@@ -19,9 +19,9 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <lib-common/z.h>
-#include "zchk-helpers.h"
-#include "ssl.h"
-#include "hash.h"
+#include <lib-common/zchk-helpers.h>
+#include <lib-common/ssl.h>
+#include <lib-common/hash.h>
 
 /* {{{ Module */
 
