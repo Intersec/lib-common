@@ -57,13 +57,13 @@
 #define GET_U32_BE(n,b,i)    ((n) = cpu_to_be32pu((b) + (i)))
 #define PUT_U32_BE(n,b,i)    (*acast(be32_t, (b) + (i)) = cpu_to_be32(n))
 
-#include "src/hash/aes.h"
-#include "src/hash/des.h"
-#include "src/hash/md5.h"
-#include "src/hash/padlock.h"
-#include "src/hash/sha1.h"
-#include "src/hash/sha2.h"
-#include "src/hash/sha4.h"
+#include "src/crypto/aes.h"
+#include "src/crypto/des.h"
+#include "src/crypto/md5.h"
+#include "src/crypto/padlock.h"
+#include "src/crypto/sha1.h"
+#include "src/crypto/sha2.h"
+#include "src/crypto/sha4.h"
 
 typedef struct jenkins_ctx {
     uint32_t hash;
@@ -116,7 +116,7 @@ static inline void hash32_finish(hash32_ctx *nonnull ctx, byte output[4])    \
 
 #undef HASH32_IMPL
 
-#include "src/hash/iop.h"
+#include "src/crypto/iop.h"
 
 uint32_t icrc32(uint32_t crc, const void * nonnull data, ssize_t len) __leaf;
 uint64_t icrc64(uint64_t crc, const void * nonnull data, ssize_t len) __leaf;
