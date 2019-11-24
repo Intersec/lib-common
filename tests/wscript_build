@@ -75,9 +75,6 @@ ctx.shlib(target='zchk-iop-plugin', source=[
 ctx.program(target='ztst-httpd', source='ztst-httpd.c',
             use='libcommon tstiop')
 
-ctx.program(target='ztst-tpl', source='ztst-tpl.c',
-            use='libcommon')
-
 ctx.program(target='ztst-iprintf', source='ztst-iprintf.c',
             use='libcommon')
 

@@ -12,7 +12,6 @@
 /ztst-qps
 /ztst-qpscheck
 /ztst-sort
-/ztst-tpl
 
 test-data/snmp/*.iop.h
 test-data/snmp/*.iop.c

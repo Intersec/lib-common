@@ -386,9 +386,6 @@ def build(ctx):
 
             'ssl.blk',
 
-            'tpl.c',
-            'tpl-funcs.c',
-
             'zlib-wrapper.c',
         ]
     )
