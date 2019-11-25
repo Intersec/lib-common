@@ -1003,7 +1003,8 @@ class IopcOptions(object):
             for include in Utils.to_list(includes):
                 node = self.path.find_node(include)
                 if node is None or not node.isdir():
-                    ctx.fatal('cannot find include {0}'.format(include))
+                    msg = 'cannot find IOP include {0} from {1}'
+                    ctx.fatal(msg.format(include, self.path))
                 self.includes.add(node)
         self.computed_includes = None
 
