@@ -25,9 +25,9 @@ lib-common, feel free to fork it first in your own repository.
 To include the waf-related build tools from lib-common, create a symlink of
 waftools from the lib-common to your project root directory:
 
- $ mkdir Build
- $ cd Build
- $ ln -s ../lib-common/Build/waftools
+ $ mkdir build
+ $ cd build
+ $ ln -s ../lib-common/build/waftools
 
 Then create a `wscript` file that will import the lib-common `waf` utilities:
 

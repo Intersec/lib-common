@@ -24,7 +24,7 @@ import sys
 from waflib import Context, Logs, Errors
 # pylint: enable = import-error
 
-waftoolsdir = os.path.join(os.getcwd(), 'Build', 'waftools')
+waftoolsdir = os.path.join(os.getcwd(), 'build', 'waftools')
 sys.path.insert(0, waftoolsdir)
 
 
@@ -74,7 +74,7 @@ def configure(ctx):
     # {{{ Dependencies
 
     # Scripts
-    ctx.recurse('Build')
+    ctx.recurse('build')
 
     # External programs
     ctx.find_program('gperf')
