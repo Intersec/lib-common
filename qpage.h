@@ -19,7 +19,7 @@
 #ifndef IS_LIB_COMMON_QPAGES_H
 #define IS_LIB_COMMON_QPAGES_H
 
-#include "core.h"
+#include <lib-common/core.h>
 
 /* ACHTUNG MINEN: QPAGE_SIZE must be an unsigned literal to force unsigned
  * arithmetics in expressions, and an uintptr_t to allow dirty masking against

@@ -19,8 +19,8 @@
 #ifndef IS_LIB_COMMON_YAML_H
 #define IS_LIB_COMMON_YAML_H
 
-#include "container-qvector.h"
-#include "container-qhash.h"
+#include <lib-common/container-qvector.h>
+#include <lib-common/container-qhash.h>
 
 /* {{{ AST types definitions */
 

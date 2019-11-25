@@ -20,8 +20,8 @@
 #define IS_LIB_COMMON_ZLIB_WRAPPER_H
 
 #include <zlib.h>
-#include "core.h"
-#include "str-outbuf.h"
+#include <lib-common/core.h>
+#include <lib-common/str-outbuf.h>
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic push

@@ -288,6 +288,8 @@ def build(ctx):
             'src/core/unix-fts.c',
             'src/core/unix-psinfo.c',
             'src/core/unix-linux.c',
+            'src/core/xmlpp.c',
+            'src/core/xmlr.c',
 
             'compat/data.c',
             'compat/runtime.c',
@@ -308,9 +310,6 @@ def build(ctx):
             'src/iop/cfolder.c',
             'src/iop/core-obj.blk',
             'src/iop/void.c',
-
-            'xmlpp.c',
-            'xmlr.c',
         ]
     )
 
@@ -349,15 +348,18 @@ def build(ctx):
 
             'src/core/bit-buf.c',
             'src/core/bit-wah.c',
-            'src/core/file.c',
             'src/core/file-bin.c',
             'src/core/file-log.blk',
+            'src/core/file.c',
             'src/core/log-iop.c',
-            'src/core/qps.blk',
-            'src/core/qps-hat.c',
+            'src/core/qpage.c',
             'src/core/qps-bitmap.c',
+            'src/core/qps-hat.c',
+            'src/core/qps.blk',
+            'src/core/yaml.c',
             'src/core/z.blk',
             'src/core/zchk-helpers.blk',
+            'src/core/zlib-wrapper.c',
 
             'src/crypto/ssl.blk',
 
@@ -366,8 +368,6 @@ def build(ctx):
             'src/net/http-srv-static.c',
             'src/net/http-def.c',
             'src/net/httptokens.c',
-
-            'yaml.c',
 
             'src/iop/json.blk',
             'src/iop/yaml.blk',
@@ -383,10 +383,6 @@ def build(ctx):
             'src/net/sctp.c',
             'src/net/socket.c',
             'src/net/rate.blk',
-
-            'qpage.c',
-
-            'zlib-wrapper.c',
         ]
     )
 
