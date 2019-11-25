@@ -111,7 +111,7 @@ class IopcTest(z.TestCase):
                     '-Wnested-externs', '-Wdeclaration-after-statement',
                     '-Wno-format-zero-length', '-Wno-uninitialized',
                     '-D_GNU_SOURCE',
-                    '-I' + os.path.join(SELF_PATH, '../../compat'),
+                    '-I' + os.path.join(SELF_PATH, '../../src/compat'),
                     '-I' + os.path.join(SELF_PATH, '../../'),
                     os.path.join(TEST_PATH, iop_c) ]
 

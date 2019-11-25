@@ -57,7 +57,7 @@ def configure(ctx):
     load_tools(ctx)
 
     # Export includes
-    ctx.register_global_includes(['.', 'compat'])
+    ctx.register_global_includes(['.', 'src/compat'])
 
     # {{{ Compilation flags
 
@@ -291,8 +291,8 @@ def build(ctx):
             'src/core/xmlpp.c',
             'src/core/xmlr.c',
 
-            'compat/data.c',
-            'compat/runtime.c',
+            'src/compat/data.c',
+            'src/compat/runtime.c',
 
             'src/crypto/aes.c',
             'src/crypto/crc32.c',
