@@ -71,7 +71,7 @@ understand how it works, you should read the https://waf.io/book/[Waf Book],
 but this is not necessary if you just want to use it.
 
 All the lib-common specificities and custom rules are defined in `waf` tools,
-located in the `waftools` directory.
+located in the `Buils/waftools` directory.
 
 The main entry point of the build system is the `wscript` file located at
 top-level of the repository. It loads the Intersec tools, defines the main
@@ -200,7 +200,7 @@ The following environment variables can be used at the configuration phase:
 `P` (string)::
     Specify the desired compilation profile (default, debug, release, ...).
     The complete list of available profiles is defined in
-    `waftools/backend.py`, variable `PROFILES`.
+    `Build/waftools/backend.py`, variable `PROFILES`.
     If not specified, the default profile is `default`.
 
 `NO_JAVA` (boolean)::
@@ -226,7 +226,7 @@ The following environment variables can be used at the configuration phase:
 `NO_DOUBLE_FPIC` (boolean)::
     If set, the compilation will be faster, but the produced binaries will be
     larger and the runtime performances will be affected.
-    Cf. `waftools/backend.py` for the details.
+    Cf. `Buils/waftools/backend.py` for the details.
     This is ignored in release profile.
 
 `FAKE_VERSIONS` (boolean)::
