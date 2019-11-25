@@ -1589,9 +1589,9 @@ def configure(ctx):
     ctx.find_program('objcopy', var='OBJCOPY')
 
     build_dir  = os.path.join(ctx.path.abspath(), 'Build')
-    ctx.find_program('_run_checks.sh', path_list=[build_dir],
+    ctx.find_program('run_checks.sh', path_list=[build_dir],
                      var='RUN_CHECKS_SH')
-    ctx.find_program('_tokens.sh', path_list=[build_dir], var='TOKENS_SH')
+    ctx.find_program('tokens.sh', path_list=[build_dir], var='TOKENS_SH')
     if ctx.find_program('ctags', mandatory=False):
         ctx.find_program('ctags.sh', path_list=[build_dir], var='CTAGS_SH')
 

@@ -125,7 +125,7 @@ set_www_env() {
 }
 
 
-"$(dirname "$0")"/_list_checks.py "$where" | (
+"$(dirname "$0")"/list_checks.py "$where" | (
 export Z_BEHAVE=1
 export Z_HARNESS=1
 export Z_TAG_SKIP="${Z_TAG_SKIP:-wip slow upgrade web perf}"
