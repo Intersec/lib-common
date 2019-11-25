@@ -15,6 +15,13 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+
+""" Utility to read mem-bench logs.
+
+Takes the log file as first argument.
+It plots the used memory/allocated memory graph.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
