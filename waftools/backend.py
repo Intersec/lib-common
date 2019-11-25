@@ -1369,7 +1369,7 @@ def profile_default(ctx,
 
     # Get compilation flags with cflags.sh
     ctx.find_program('cflags.sh', var='CFLAGS_SH',
-                     path_list=[os.path.join(ctx.path.abspath(), 'Config')])
+                     path_list=[os.path.join(ctx.path.abspath(), 'Build')])
 
     ctx.env.CFLAGS = get_cflags(ctx, [ctx.env.COMPILER_CC])
     ctx.env.CFLAGS += [
@@ -1588,11 +1588,10 @@ def configure(ctx):
     # Check dependencies
     ctx.find_program('objcopy', var='OBJCOPY')
 
-    config_dir = os.path.join(ctx.path.abspath(), 'Config')
     build_dir  = os.path.join(ctx.path.abspath(), 'Build')
     ctx.find_program('_run_checks.sh', path_list=[build_dir],
                      var='RUN_CHECKS_SH')
-    ctx.find_program('_tokens.sh', path_list=[config_dir], var='TOKENS_SH')
+    ctx.find_program('_tokens.sh', path_list=[build_dir], var='TOKENS_SH')
     if ctx.find_program('ctags', mandatory=False):
         ctx.find_program('ctags.sh', path_list=[build_dir], var='CTAGS_SH')
 
