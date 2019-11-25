@@ -1,0 +1,198 @@
+###########################################################################
+#                                                                         #
+# Copyright 2019 INTERSEC SA                                              #
+#                                                                         #
+# Licensed under the Apache License, Version 2.0 (the "License");         #
+# you may not use this file except in compliance with the License.        #
+# You may obtain a copy of the License at                                 #
+#                                                                         #
+#     http://www.apache.org/licenses/LICENSE-2.0                          #
+#                                                                         #
+# Unless required by applicable law or agreed to in writing, software     #
+# distributed under the License is distributed on an "AS IS" BASIS,       #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.#
+# See the License for the specific language governing permissions and     #
+# limitations under the License.                                          #
+#                                                                         #
+###########################################################################
+# pylint: disable = undefined-variable
+
+ctx.set_group('farchc')
+
+# {{{ libcommon-minimal library
+
+ctx(rule='${VERSION_SH} rcsid libcommon > ${TGT}',
+    target='core-version.c', cwd='.', always=True)
+
+# This minimal version of the lib-common contains only what's needed to
+# build farchc and iopc. As a consequence, it cannot contain .fc or .iop
+# files in its sources.
+ctx.stlib(target='libcommon-minimal', features='c cstlib', depends_on=[
+    'core-version.c',
+], use=[
+    'libxml',
+    'valgrind',
+    'compat',
+], source=[
+    'core-version.c',
+
+    'container/qhash.c',
+    'container/qvector.blk',
+    'container/rbtree.c',
+    'container/ring.c',
+
+    'core/bithacks.c',
+    'core/datetime-iso8601.c',
+    'core/datetime.c',
+    'core/el.blk',
+    'core/errors.c',
+    'core/farch.c',
+    'core/log.c',
+    'core/mem-bench.c',
+    'core/mem-fifo.c',
+    'core/mem-ring.c',
+    'core/mem-stack.c',
+    'core/mem.blk',
+    'core/module.c',
+    'core/obj.c',
+    'core/parseopt.c',
+    'core/qlzo-c.c',
+    'core/qlzo-d.c',
+    'core/rand.c',
+    'core/sort.blk',
+    'core/str-buf-gsm.c',
+    'core/str-buf-pp.c',
+    'core/str-buf-quoting.c',
+    'core/str-buf.c',
+    'core/str-conv.c',
+    'core/str-ctype.c',
+    'core/str-dtoa.c',
+    'core/str-iprintf.c',
+    'core/str-l-obfuscate.c',
+    'core/str-l.c',
+    'core/str-num.c',
+    'core/str-outbuf.c',
+    'core/str-path.c',
+    'core/str-stream.c',
+    'core/str.c',
+    'core/thr-evc.c',
+    'core/thr-job.blk',
+    'core/thr-spsc.c',
+    'core/thr.c',
+    'core/types.blk',
+    'core/unix.blk',
+    'core/unix-fts.c',
+    'core/unix-psinfo.c',
+    'core/unix-linux.c',
+    'core/xmlpp.c',
+    'core/xmlr.c',
+
+    'compat/data.c',
+    'compat/runtime.c',
+
+    'crypto/aes.c',
+    'crypto/crc32.c',
+    'crypto/crc64.c',
+    'crypto/des.c',
+    'crypto/hash.c',
+    'crypto/md5.c',
+    'crypto/padlock.c',
+    'crypto/sha1.c',
+    'crypto/sha2.c',
+    'crypto/sha4.c',
+
+    'iop/iop.blk',
+    'iop/dso.c',
+    'iop/cfolder.c',
+    'iop/core-obj.blk',
+    'iop/void.c',
+])
+
+# }}}
+
+ctx.recurse([
+    'tools',
+    'iopc',
+])
+
+ctx.set_group('code_compiling')
+
+# {{{ libcommon-iop / libcommon libraries
+
+# libcommon library containing only IOP symbols
+ctx.IopcOptions(ctx, class_range='1-499',
+                json_path='json',
+                ts_path='iop-core')
+ctx.stlib(target='libcommon-iop', features='c cstlib', source=[
+    'core/core.iop',
+    'iop/ic.iop',
+])
+
+# Full lib-common library
+ctx.stlib(target='libcommon', features='c cstlib', use=[
+    'libcommon-iop',
+    'libcommon-minimal',
+    'openssl',
+    'zlib',
+], source=[
+    'arith/int.c',
+    'arith/float.c',
+    'arith/scan.c',
+
+    'asn1/asn1.c',
+    'asn1/writer.c',
+    'asn1/per.c',
+
+    'core/bit-buf.c',
+    'core/bit-wah.c',
+    'core/file-bin.c',
+    'core/file-log.blk',
+    'core/file.c',
+    'core/log-iop.c',
+    'core/qpage.c',
+    'core/qps-bitmap.c',
+    'core/qps-hat.c',
+    'core/qps.blk',
+    'core/yaml.c',
+    'core/z.blk',
+    'core/zchk-helpers.blk',
+    'core/zlib-wrapper.c',
+
+    'crypto/ssl.blk',
+
+    'net/http.c',
+    'net/http-hdr.perf',
+    'net/http-srv-static.c',
+    'net/http-def.c',
+    'net/httptokens.c',
+
+    'iop/json.blk',
+    'iop/yaml.blk',
+    'iop/rpc-channel.fc',
+    'iop/rpc-channel.blk',
+    'iop/rpc-http-pack.c',
+    'iop/rpc-http-unpack.c',
+    'iop/xml-pack.c',
+    'iop/xml-unpack.c',
+    'iop/xml-wsdl.blk',
+
+    'net/addr.c',
+    'net/sctp.c',
+    'net/socket.c',
+    'net/rate.blk',
+])
+
+# }}}
+# {{{ iop-snmp library
+
+ctx.stlib(target='iop-snmp', source=[
+    'iop/snmp-doc.c',
+    'iop/snmp-mib.c',
+], use='libcommon')
+
+# }}}
+
+ctx.recurse([
+    'pxcc',
+    'iopy',
+])

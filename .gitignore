@@ -21,7 +21,6 @@ iopsq-t*
 /common.so
 /core-iop-plugin.so
 
-/json
 /.build*
 /build
 /.lock-waf*
