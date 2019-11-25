@@ -5,24 +5,14 @@
 *.pyc
 *.iop.h
 *.iop.c
+*.iop.json
 *.iop.ts
-
-iopsq.iop.*
-iopsq-t*
 
 .tags
 .syntastic*
 .local_vimrc.vim
 
-/Upgrading.html
-/conf-parser.c
-/core-version.c
-
-/common.so
-/core-iop-plugin.so
-
 /.build*
-/build
 /.lock-waf*
 
 mem.stack.data.*
