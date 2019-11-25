@@ -74,7 +74,7 @@ def configure(ctx):
     # {{{ Dependencies
 
     # Scripts
-    ctx.recurse('scripts')
+    ctx.recurse('Build')
 
     # External programs
     ctx.find_program('gperf')
