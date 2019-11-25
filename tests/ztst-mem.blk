@@ -16,12 +16,12 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "core.h"
-#include "el.h"
-#include "log.h"
-#include "parseopt.h"
-#include "thr.h"
-#include "unix.h"
+#include <lib-common/core.h>
+#include <lib-common/el.h>
+#include <lib-common/log.h>
+#include <lib-common/parseopt.h>
+#include <lib-common/thr.h>
+#include <lib-common/unix.h>
 
 /** Small utility to check the behavior of our allocators on the "long term".
  *

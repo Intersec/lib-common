@@ -18,8 +18,9 @@
 
 /* LCOV_EXCL_START */
 
-#include "z.h"
-#include "iop-yaml.h"
+#include <lib-common/z.h>
+#include <lib-common/iop-yaml.h>
+
 #include "iop/tstiop.iop.h"
 
 /* {{{ IOP testing helpers */

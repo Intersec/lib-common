@@ -3367,7 +3367,7 @@ const char *__asan_default_options(void)
 /** \} */
 /* Tests {{{ */
 
-#include "z.h"
+#include <lib-common/z.h>
 
 static int run_snapshot(qps_t *qps)
 {

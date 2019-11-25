@@ -252,7 +252,7 @@ char *t_print_bb(const bb_t *bb, size_t *len)
 
 /* Tests {{{ */
 
-#include "z.h"
+#include <lib-common/z.h>
 
 #define T_TEST_BB(bb, bits) \
     do {                                                                    \

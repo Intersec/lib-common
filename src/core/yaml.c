@@ -18,10 +18,10 @@
 
 #include <math.h>
 
-#include "unix.h"
-#include "yaml.h"
-#include "iop-json.h"
-#include "log.h"
+#include <lib-common/unix.h>
+#include <lib-common/yaml.h>
+#include <lib-common/iop-json.h>
+#include <lib-common/log.h>
 
 static struct yaml_g {
     logger_t logger;
@@ -596,7 +596,7 @@ MODULE_END()
 
 /* LCOV_EXCL_START */
 
-#include "z.h"
+#include <lib-common/z.h>
 
 /* {{{ Helpers */
 

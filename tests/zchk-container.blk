@@ -16,11 +16,11 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "container.h"
-#include "z.h"
-#include "sort.h"
-#include "thr.h"
-#include "datetime.h"
+#include <lib-common/container.h>
+#include <lib-common/z.h>
+#include <lib-common/sort.h>
+#include <lib-common/thr.h>
+#include <lib-common/datetime.h>
 
 /*{{{1 Qhash */
 

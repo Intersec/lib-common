@@ -18,7 +18,7 @@
 
 #include <lib-common/z.h>
 #include <lib-common/container.h>
-#include "qps-hat.h"
+#include <lib-common/qps-hat.h>
 
 #define _CHECK_TRIE      do { \
         Z_ASSERT(qhat_check_consistency(&trie));                             \

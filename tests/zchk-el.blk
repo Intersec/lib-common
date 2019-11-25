@@ -18,10 +18,10 @@
 
 /* LCOV_EXCL_START */
 
-#include "el.h"
-#include "net.h"
-#include "unix.h"
-#include "z.h"
+#include <lib-common/el.h>
+#include <lib-common/net.h>
+#include <lib-common/unix.h>
+#include <lib-common/z.h>
 
 struct z_el_data {
     int  calls;

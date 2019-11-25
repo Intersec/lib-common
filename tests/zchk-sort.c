@@ -18,8 +18,8 @@
 
 /* LCOV_EXCL_START */
 
-#include "sort.h"
-#include "z.h"
+#include <lib-common/sort.h>
+#include <lib-common/z.h>
 
 static int u64_cmp(const void *a, const void *b, void *arg)
 {

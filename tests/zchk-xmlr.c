@@ -18,8 +18,8 @@
 
 /* LCOV_EXCL_START */
 
-#include "xmlr.h"
-#include "z.h"
+#include <lib-common/xmlr.h>
+#include <lib-common/z.h>
 
 Z_GROUP_EXPORT(xmlr)
 {

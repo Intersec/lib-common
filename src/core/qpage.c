@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "container-qvector.h"
-#include "arith.h"
-#include "qpage.h"
+#include <lib-common/container-qvector.h>
+#include <lib-common/arith.h>
+#include <lib-common/qpage.h>
 
 /*
  * QPage allocator is inspired by qtlsf (look at qtlsf.[hc] for explanations).

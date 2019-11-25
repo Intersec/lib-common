@@ -18,8 +18,8 @@
 
 /* LCOV_EXCL_START */
 
-#include "hash.h"
-#include "z.h"
+#include <lib-common/hash.h>
+#include <lib-common/z.h>
 
 /* {{{ hash32 */
 

@@ -16,9 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "xmlpp.h"
-
-#include "z.h"
+#include <lib-common/xmlpp.h>
+#include <lib-common/z.h>
 
 Z_GROUP_EXPORT(xmlpp) {
     Z_TEST(xmlpp_tag_scope, "xmlpp_tag_scope") {

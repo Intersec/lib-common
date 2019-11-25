@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "datetime.h"
-#include "z.h"
+#include <lib-common/datetime.h>
+#include <lib-common/z.h>
 
 static struct tm z_create_tm(int year, int month, int day, int hour,
                              int minute, int second)

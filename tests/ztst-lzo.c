@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "qlzo.h"
+#include <lib-common/qlzo.h>
 
 #define MODE_C  0
 #define MODE_D  1

@@ -57,7 +57,7 @@ def configure(ctx):
     load_tools(ctx)
 
     # Export includes
-    ctx.register_global_includes(['.', 'src', 'compat'])
+    ctx.register_global_includes(['.', 'compat'])
 
     # {{{ Compilation flags
 

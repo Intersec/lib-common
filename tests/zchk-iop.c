@@ -28,6 +28,7 @@
 #include <lib-common/iop-json.h>
 #include <lib-common/iop/priv.h>
 #include <lib-common/iop/ic.iop.h>
+#include <lib-common/xmlr.h>
 
 #include "zchk-iop.h"
 #include "iop/tstiop.iop.h"
@@ -53,7 +54,6 @@
 #include "iop/tstiop_bpack_unregistered_class.iop.h"
 #include "iop/tstiop_void_type.iop.h"
 #include "iop/tstiop_wsdl.iop.h"
-#include "xmlr.h"
 #include "zchk-iop-ressources.h"
 
 qvector_t(my_struct_a, tstiop__my_struct_a__t);

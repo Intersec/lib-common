@@ -19,7 +19,7 @@
 #ifndef IS_ZCHK_IOP_RESSOURCES_H
 #define IS_ZCHK_IOP_RESSOURCES_H
 
-#include "iop.h"
+#include <lib-common/iop.h>
 
 IOP_DSO_DECLARE_RESSOURCE_CATEGORY(str, const char *);
 IOP_DSO_DECLARE_RESSOURCE_CATEGORY(int, int);

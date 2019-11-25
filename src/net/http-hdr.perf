@@ -22,7 +22,7 @@
 /* limitations under the License.                                          */
 /*                                                                         */
 /***************************************************************************/
-#include "http.h"
+#include <lib-common/http.h>
 #define in_word_set  \
     __attribute__((unused)) go_away_gperf(void);                          \
     const struct whdr *go_away_gperf(void) { return NULL; }               \

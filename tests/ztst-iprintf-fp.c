@@ -4,7 +4,7 @@
  * original file name: tfformat.c
  */
 
-#include "core.h"
+#include <lib-common/core.h>
 
 typedef struct {
     int line;

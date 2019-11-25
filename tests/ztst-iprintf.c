@@ -12,7 +12,7 @@
 #endif
 
 #if 1
-#include "core.h"
+#include <lib-common/core.h>
 #define ALT_FUNC  isnprintf
 #endif
 
@@ -5105,7 +5105,7 @@ sprint_ll_type sprint_lls[] = {
     { 0, 0, NULL, NULL },
 };
 
-#include "datetime.h"
+#include <lib-common/datetime.h>
 
 int main(void)
 {

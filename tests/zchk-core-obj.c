@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "core.h"
-#include "z.h"
+#include <lib-common/core.h>
+#include <lib-common/z.h>
 
 #define MY_BASE_OBJECT_FIELDS(pfx)                                           \
     OBJECT_FIELDS(pfx);                                                      \

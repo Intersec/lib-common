@@ -16,12 +16,12 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "zchk-iop.h"
+#include <lib-common/iop.h>
+#include <lib-common/z.h>
 
-#include "iop.h"
+#include "zchk-iop.h"
 #include "iop/tstiop.iop.h"
 
-#include "z.h"
 
 /* Check the IOP_CORE_OBJ_DECLARE generates the right prototypes. */
 static iop_core_obj_map_t *foo_mappings_g;

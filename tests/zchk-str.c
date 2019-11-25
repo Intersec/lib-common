@@ -20,9 +20,9 @@
 
 #include <math.h>
 
-#include "http.h"
-#include "str-buf-pp.h"
-#include "z.h"
+#include <lib-common/http.h>
+#include <lib-common/str-buf-pp.h>
+#include <lib-common/z.h>
 
 /* {{{ str */
 

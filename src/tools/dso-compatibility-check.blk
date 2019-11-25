@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iop.h"
-#include "parseopt.h"
+#include <lib-common/iop.h>
+#include <lib-common/parseopt.h>
 #include <sysexits.h>
 
 static struct compat_g {

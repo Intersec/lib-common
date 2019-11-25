@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "z.h"
-#include "farch.h"
+#include <lib-common/z.h>
+#include <lib-common/farch.h>
 #include "zchk-farch.fc.c"
 
 Z_GROUP_EXPORT(farch)

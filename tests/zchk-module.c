@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "z.h"
-#include "el.h"
-#include "core.h"
+#include <lib-common/z.h>
+#include <lib-common/el.h>
+#include <lib-common/core.h>
 
 /* mock module {{{ */
 

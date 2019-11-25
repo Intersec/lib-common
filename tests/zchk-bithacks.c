@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "arith.h"
-#include "z.h"
+#include <lib-common/arith.h>
+#include <lib-common/z.h>
 
 Z_GROUP_EXPORT(bithacks)
 {

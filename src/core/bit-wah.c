@@ -1774,7 +1774,7 @@ void wah_debug_print(const wah_t *wah, bool print_content)
 
 /* Tests {{{ */
 
-#include "z.h"
+#include <lib-common/z.h>
 
 Z_GROUP_EXPORT(wah)
 {

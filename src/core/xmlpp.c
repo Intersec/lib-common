@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "xmlpp.h"
+#include <lib-common/xmlpp.h>
 
 void xmlpp_open(xmlpp_t *pp, sb_t *buf)
 {

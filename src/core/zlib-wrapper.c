@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "zlib-wrapper.h"
+#include <lib-common/zlib-wrapper.h>
 
 ssize_t sb_add_compressed(sb_t *out, const void *data, size_t dlen,
                           int level, bool do_gzip)

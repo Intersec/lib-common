@@ -21,8 +21,8 @@
 #include <endian.h>
 #include <math.h>
 
-#include "core.h"
-#include "z.h"
+#include <lib-common/core.h>
+#include <lib-common/z.h>
 
 Z_GROUP_EXPORT(iprintf) {
     Z_TEST(double, "") {

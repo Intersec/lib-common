@@ -18,9 +18,9 @@
 
 #include <glob.h>
 
-#include "el.h"
-#include "file-log.h"
-#include "z.h"
+#include <lib-common/el.h>
+#include <lib-common/file-log.h>
+#include <lib-common/z.h>
 
 struct {
     int events[ LOG_FILE_DELETE + 1 ];

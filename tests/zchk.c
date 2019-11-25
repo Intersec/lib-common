@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "z.h"
-#include "bit.h"
+#include <lib-common/z.h>
+#include <lib-common/bit.h>
 
 Z_GROUP_EXPORT(endianess)
 {

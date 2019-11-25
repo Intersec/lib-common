@@ -18,7 +18,7 @@
 
 #include <lib-common/datetime.h>
 #include <lib-common/container.h>
-#include "qps-hat.h"
+#include <lib-common/qps-hat.h>
 
 #undef assert
 #define assert(Cond) if (unlikely(!(Cond))) {                                \

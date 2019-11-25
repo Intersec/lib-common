@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "xmlr.h"
-#include "thr.h"
+#include <lib-common/xmlr.h>
+#include <lib-common/thr.h>
 
 /* work around a bug in early 4.6 gcc releases */
 #if __GNUC__ == 4 && __GNUC_MINOR__ == 6 && __GNUC_PATCHLEVEL__ <= 1

@@ -16,8 +16,8 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "z.h"
-#include "parseopt.h"
+#include <lib-common/z.h>
+#include <lib-common/parseopt.h>
 
 static struct {
     bool a;
