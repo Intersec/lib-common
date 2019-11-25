@@ -16,12 +16,18 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/iop.h>
-#include <lib-common/iop-rpc.h>
-#include <lib-common/core/core.iop.h>
+#ifndef IS_LIB_COMMON_CONTAINER_H
+#define IS_LIB_COMMON_CONTAINER_H
 
-#include "test/dso.iop.h"
+#include <lib-common/core.h>
 
-IOP_EXPORT_PACKAGES_COMMON;
+#include <lib-common/container-dlist.h>
+#include <lib-common/container-htlist.h>
+#include <lib-common/container-qhash.h>
+#include <lib-common/container-qhugehash.h>
+#include <lib-common/container-qvector.h>
+#include <lib-common/container-qheap.h>
+#include <lib-common/container-rbtree.h>
+#include <lib-common/container-ring.h>
 
-IOP_EXPORT_PACKAGES(&test__dso__pkg);
+#endif

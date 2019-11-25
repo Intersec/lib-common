@@ -18,7 +18,7 @@
 
 #include <lib-common/iop.h>
 #include <lib-common/iop-rpc.h>
-#include <lib-common/src/core/core.iop.h>
+#include <lib-common/core/core.iop.h>
 
 #include "test.iop.h"
 #include "tst1.iop.h"

@@ -16,12 +16,11 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/iop.h>
-#include <lib-common/iop-rpc.h>
-#include <lib-common/core/core.iop.h>
+#ifndef IS_LIB_COMMON_BIT_H
+#define IS_LIB_COMMON_BIT_H
 
-#include "test/dso.iop.h"
+#include <lib-common/bit-buf.h>
+#include <lib-common/bit-stream.h>
+#include <lib-common/bit-wah.h>
 
-IOP_EXPORT_PACKAGES_COMMON;
-
-IOP_EXPORT_PACKAGES(&test__dso__pkg);
+#endif

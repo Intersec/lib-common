@@ -16,12 +16,46 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/iop.h>
-#include <lib-common/iop-rpc.h>
-#include <lib-common/core/core.iop.h>
+#ifndef IS_LIB_COMMON_ARITH_H
+#define IS_LIB_COMMON_ARITH_H
 
-#include "test/dso.iop.h"
+#include <lib-common/core.h>
 
-IOP_EXPORT_PACKAGES_COMMON;
+#if __has_feature(nullability)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wnullability-completeness"
+#if __has_warning("-Wnullability-completeness-on-arrays")
+#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
+#endif
+#endif
 
-IOP_EXPORT_PACKAGES(&test__dso__pkg);
+#include "arith/endianess.h"
+#include "arith/cmp.h"
+#include "arith/float.h"
+#include "arith/str.h"
+#include "arith/scan.h"
+
+unsigned gcd(unsigned a, unsigned b);
+unsigned gcd_euclid(unsigned a, unsigned b);
+unsigned gcd_stein(unsigned a, unsigned b);
+
+/** Count the number of multiples of a number in a range.
+ *
+ * Count the number of multiples of a number 'n' in the range 'min' --> 'max'
+ * (min and max included).
+ *
+ * \param[in]  n   The number 'n' whose we are counting the multiples.
+ * \param[in]  min The lower inclusive boundary of the range.
+ * \param[in]  max The upper inclusive boundary of the range.
+ *
+ * \return  The number of multiples of 'n' in the range min --> max.
+ */
+uint32_t get_multiples_nb_in_range(uint32_t n, uint32_t min, uint32_t max);
+
+extern uint64_t const powerof10[16];
+
+#if __has_feature(nullability)
+#pragma GCC diagnostic pop
+#endif
+
+#endif

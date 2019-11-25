@@ -3742,7 +3742,7 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir, sb_t *depbuf)
     } else {
         sb_adds(&buf,
                 "#include <lib-common/core.h>\n"
-                "#include <lib-common/src/iop/internals.h>\n"
+                "#include <lib-common/iop/internals.h>\n"
                 "\n");
     }
 

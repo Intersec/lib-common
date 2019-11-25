@@ -23,7 +23,7 @@
 #include <lib-common/log.h>
 #include <lib-common/iop-yaml.h>
 
-#include "src/iop/helpers.in.c"
+#include "iop/helpers.in.c"
 
 static struct iop_yaml_g {
     logger_t logger;

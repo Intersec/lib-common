@@ -17,7 +17,7 @@
 /***************************************************************************/
 
 #include <lib-common/iop.h>
-#include <lib-common/src/iop/ic.iop.h>
+#include <lib-common/iop/ic.iop.h>
 #include "zchk-iop-ressources.h"
 
 IOP_EXPORT_PACKAGES_COMMON;

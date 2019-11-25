@@ -17,7 +17,7 @@
 /***************************************************************************/
 
 #include <lib-common/iop.h>
-#include <lib-common/tests/iop/tstiop.iop.h>
+#include "../tests/iop/tstiop.iop.h"
 
 /* {{{ Now removed implementation of iop_class_for_each_field. */
 

@@ -17,10 +17,10 @@
 /***************************************************************************/
 
 #include <lib-common/iop-json.h>
-#include <lib-common/src/iopc/iopc-iopsq.h>
-#include <lib-common/tests/iop/tstiop.iop.h>
-
+#include <lib-common/iopc/iopc-iopsq.h>
 #include <lib-common/z.h>
+
+#include "../iop/tstiop.iop.h"
 
 /* {{{ Helpers */
 

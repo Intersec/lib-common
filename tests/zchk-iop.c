@@ -26,8 +26,8 @@
 #include <lib-common/unix.h>
 #include <lib-common/z.h>
 #include <lib-common/iop-json.h>
-#include <lib-common/src/iop/priv.h>
-#include <lib-common/src/iop/ic.iop.h>
+#include <lib-common/iop/priv.h>
+#include <lib-common/iop/ic.iop.h>
 
 #include "zchk-iop.h"
 #include "iop/tstiop.iop.h"
