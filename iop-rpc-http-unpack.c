@@ -192,6 +192,7 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
        .payload = q->received_body_length,
        .source = LSTR("webservice"),
        .workspace_id = OPT_NONE,
+       .dealias = tcb->force_dealias,
     );
     ic_cb_entry_t       *e;
 
@@ -204,7 +205,13 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
     ichttp_query_t *ic_q = obj_vcast(ichttp_query, q);
 
     if (ic_q && ic_q->ic_hdr) {
+        ic__simple_hdr__t *ic_simple_hdr;
+
         hdr = ic_q->ic_hdr;
+        ic_simple_hdr = IOP_UNION_GET(ic__hdr, hdr, simple);
+        if (expect(ic_simple_hdr)) {
+            ic_simple_hdr->dealias = tcb->force_dealias;
+        }
     } else {
         hdr = &default_hdr;
 

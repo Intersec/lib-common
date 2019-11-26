@@ -74,6 +74,7 @@ typedef struct httpd_trigger__ic_t {
     unsigned                 xpack_flags;
     unsigned                 jpack_flags;
     unsigned                 unpack_flags;
+    bool                     force_dealias;
 
     void (* nonnull on_reply)(const struct httpd_trigger__ic_t * nonnull,
                               const ichttp_query_t * nonnull, size_t res_size,
@@ -102,6 +103,13 @@ void httpd_trigger__ic_set_public(httpd_trigger__ic_t * nonnull tcb)
     tcb->unpack_flags |= IOP_UNPACK_FORBID_PRIVATE;
     tcb->xpack_flags  |= IOP_XPACK_SKIP_PRIVATE;
     tcb->jpack_flags  |= IOP_JPACK_SKIP_PRIVATE;
+}
+
+/* helper to force dealiasing on queries */
+static inline
+void httpd_trigger__ic_force_dealias(httpd_trigger__ic_t * nonnull tcb)
+{
+    tcb->force_dealias = true;
 }
 
 /** \brief internal do not use directly, or know what you're doing. */
