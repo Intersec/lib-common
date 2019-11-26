@@ -736,10 +736,13 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
         t_schema_set_integer(schema, TYPE_UINT32, 0, UINT16_MAX);
         break;
       case IOP_T_I32:
-        t_schema_set_integer(schema, TYPE_INT32, INT32_MIN, INT32_MAX);
+        schema->type = TYPE_INT32;
         break;
       case IOP_T_U32:
-        t_schema_set_integer(schema, TYPE_UINT32, 0, UINT32_MAX);
+        schema->type = TYPE_UINT32;
+        schema->minimum = t_new(scalar_value_t, 1);
+        schema->minimum->u = 0;
+        schema->minimum->type = SCALAR_UINT64;
         break;
       case IOP_T_I64:
         schema->type = TYPE_INT64;

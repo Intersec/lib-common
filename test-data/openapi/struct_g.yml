@@ -21,14 +21,11 @@ components:
           type: integer
           format: int32
           default: -1
-          minimum: -2147483648
-          maximum: 2147483647
         b:
           type: integer
           format: uint32
           default: 2
           minimum: 0
-          maximum: 4294967295
         cOfG:
           type: integer
           format: int32

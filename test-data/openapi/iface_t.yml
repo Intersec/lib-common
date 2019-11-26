@@ -38,8 +38,6 @@ components:
         i:
           type: integer
           format: int32
-          minimum: -2147483648
-          maximum: 2147483647
     tstiop.Iface.fRes:
       type: object
       required:
@@ -48,7 +46,5 @@ components:
         i:
           type: integer
           format: int32
-          minimum: -2147483648
-          maximum: 2147483647
 tags:
   - name: iface

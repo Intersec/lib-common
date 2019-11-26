@@ -16,8 +16,6 @@ components:
             ua:
               type: integer
               format: int32
-              minimum: -2147483648
-              maximum: 2147483647
         - type: object
           required:
             - ub
@@ -42,8 +40,6 @@ components:
             bval:
               type: integer
               format: int32
-              minimum: -2147483648
-              maximum: 2147483647
         - type: object
           required:
             - a
@@ -59,8 +55,6 @@ components:
         cval:
           type: integer
           format: int32
-          minimum: -2147483648
-          maximum: 2147483647
         b:
           $ref: "#/components/schemas/tstiop.MyUnionB"
         btab:

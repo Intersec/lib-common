@@ -17,8 +17,6 @@ components:
         int1:
           type: integer
           format: int32
-          minimum: -2147483648
-          maximum: 2147483647
       discriminator:
         propertyName: _class
     tstiop.MyClass2:
@@ -31,8 +29,6 @@ components:
             int2:
               type: integer
               format: int32
-              minimum: -2147483648
-              maximum: 2147483647
     tstiop.MyClass2Bis:
       allOf:
         - $ref: "#/components/schemas/tstiop.MyClass1"
@@ -43,8 +39,6 @@ components:
             int2:
               type: integer
               format: int32
-              minimum: -2147483648
-              maximum: 2147483647
     tstiop.MyClass3:
       allOf:
         - $ref: "#/components/schemas/tstiop.MyClass2"
@@ -56,8 +50,6 @@ components:
             int3:
               type: integer
               format: int32
-              minimum: -2147483648
-              maximum: 2147483647
             bool1:
               type: boolean
             string1:
@@ -68,21 +60,15 @@ components:
         opt:
           type: integer
           format: int32
-          minimum: -2147483648
-          maximum: 2147483647
         def:
           type: integer
           format: int32
           default: 1
-          minimum: -2147483648
-          maximum: 2147483647
         rep:
           type: array
           items:
             type: integer
             format: int32
-            minimum: -2147483648
-            maximum: 2147483647
         myClass:
           oneOf:
             - $ref: "#/components/schemas/tstiop.MyClass1"
@@ -97,15 +83,11 @@ components:
         a:
           type: integer
           format: int32
-          minimum: -2147483648
-          maximum: 2147483647
         b:
           type: array
           items:
             type: integer
             format: int32
-            minimum: -2147483648
-            maximum: 2147483647
     tstiop.MyUnionA:
       oneOf:
         - type: object
@@ -115,8 +97,6 @@ components:
             ua:
               type: integer
               format: int32
-              minimum: -2147483648
-              maximum: 2147483647
         - type: object
           required:
             - ub
