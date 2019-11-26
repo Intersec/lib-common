@@ -1541,14 +1541,14 @@ t_rpc_is_blacklisted(const iop_iface_t * nonnull iface,
     }
 }
 
-static void
+static bool
 t_iop_rpc_add(iop_openapi_t * nonnull oa, const iop_rpc_t * nonnull rpc,
               const iop_iface_alias_t * nonnull alias)
 {
     path_item_object_t *obj;
 
     if (t_rpc_is_blacklisted(alias->iface, rpc, &oa->rpcs_whitelist)) {
-        return;
+        return false;
     }
 
     obj = qv_growlen0(&oa->paths, 1);
@@ -1556,6 +1556,7 @@ t_iop_rpc_add(iop_openapi_t * nonnull oa, const iop_rpc_t * nonnull rpc,
     t_iop_rpc_to_operation_object(rpc, alias,
                                   &oa->components.existing_schemas,
                                   &oa->components.schemas, &obj->post);
+    return true;
 }
 
 static void
@@ -1566,6 +1567,7 @@ t_iop_iface_alias_add(iop_openapi_t * nonnull oa,
     tag_object_t *tag;
     const iop_help_t *help;
     t_SB_1k(sb);
+    bool has_rpcs = false;
 
     for (int j = 0; j < alias->iface->funs_len; j++) {
         const iop_rpc_t *rpc = &alias->iface->funs[j];
@@ -1577,7 +1579,7 @@ t_iop_iface_alias_add(iop_openapi_t * nonnull oa,
             continue;
         }
 
-        t_iop_rpc_add(oa, rpc, alias);
+        has_rpcs |= t_iop_rpc_add(oa, rpc, alias);
 
         /* loop on rpc aliases */
         if (TST_BIT(&rpc_flags, IOP_RPC_HAS_ALIAS)) {
@@ -1591,10 +1593,17 @@ t_iop_iface_alias_add(iop_openapi_t * nonnull oa,
                     const iop_rpc_attr_arg_t arg = attr.args[0];
                     const iop_rpc_t *falias = (const iop_rpc_t *)arg.v.p;
 
-                    t_iop_rpc_add(oa, falias, alias);
+                    has_rpcs |= t_iop_rpc_add(oa, falias, alias);
                 }
             }
         }
+    }
+
+    if (!has_rpcs) {
+        /* no RPCs have been added (probably because none was whitelisted).
+         * do not add a unused tag in that case which could leak info about
+         * an unexposed interface. */
+        return;
     }
 
     /* add a tag for the iface */

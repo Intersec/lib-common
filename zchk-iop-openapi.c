@@ -155,6 +155,13 @@ Z_GROUP_EXPORT(iop_openapi)
         t_iop_openapi_whitelist_rpc(oa, LSTR("invalid_name"));
         Z_ASSERT_NEG(t_iop_openapi_to_yaml(oa, &data, &err));
         Z_ASSERT_STREQUAL(err.data, "invalid whitelist");
+
+        /* When an interface does not have any whitelisted rpcs, it is not
+         * mentioned in the final document. */
+        oa = t_new_iop_openapi(LSTR("yay"), LSTR("0.0.1"),
+                               tstiop__both_iface__modp, LSTR("route"));
+        t_iop_openapi_whitelist_rpc(oa, LSTR("tstiop.Iface.f"));
+        Z_HELPER_RUN(z_check_yaml(oa, "iface_t.yml", false));
     } Z_TEST_END;
 
     Z_TEST(dox, "test inclusion of comments documentation") {

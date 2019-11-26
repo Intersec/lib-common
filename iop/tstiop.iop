@@ -960,3 +960,8 @@ interface Iface {
 module T {
     Iface iface;
 };
+
+module BothIface {
+    MyIfaceA a;
+    Iface iface;
+};
