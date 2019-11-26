@@ -42,8 +42,6 @@ typedef struct yunpack_error_t {
 } yunpack_error_t;
 
 typedef struct yunpack_env_t {
-    mem_pool_t *mp;
-
     yunpack_error_t err;
 
     /* Only IOP_UNPACK_FORBID_PRIVATE is handled. */
@@ -62,16 +60,16 @@ typedef enum yunpack_res_t {
 } yunpack_res_t;
 
 static int
-yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
-                          const yaml_data_t * nonnull data,
-                          const iop_struct_t * nonnull st,
-                          void * nonnull out);
+t_yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
+                            const yaml_data_t * nonnull data,
+                            const iop_struct_t * nonnull st,
+                            void * nonnull out);
 
 static yunpack_res_t
-yaml_nil_to_iop_field(yunpack_env_t * nonnull env,
-                      const yaml_data_t * nonnull data,
-                      const iop_field_t * nonnull fdesc,
-                      bool in_array, void * nonnull out)
+t_yaml_nil_to_iop_field(yunpack_env_t * nonnull env,
+                        const yaml_data_t * nonnull data,
+                        const iop_field_t * nonnull fdesc,
+                        bool in_array, void * nonnull out)
 {
     if (!in_array && fdesc->repeat == IOP_R_REPEATED) {
         lstr_t *arr = out;
@@ -91,8 +89,8 @@ yaml_nil_to_iop_field(yunpack_env_t * nonnull env,
         return YUNPACK_OK;
       case IOP_T_STRUCT:
       case IOP_T_UNION:
-        if (yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc,
-                                      out) < 0)
+        if (t_yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc,
+                                        out) < 0)
         {
             return YUNPACK_NULL_STRUCT_ERROR;
         }
@@ -103,26 +101,25 @@ yaml_nil_to_iop_field(yunpack_env_t * nonnull env,
 }
 
 static yunpack_res_t
-yaml_string_to_iop_field(mem_pool_t *mp, const lstr_t str,
-                         const iop_field_t * nonnull fdesc,
-                         void * nonnull out)
+t_yaml_string_to_iop_field(const lstr_t str,
+                           const iop_field_t * nonnull fdesc,
+                           void * nonnull out)
 {
     switch (fdesc->type) {
       case IOP_T_STRING:
       case IOP_T_XML:
-        *(lstr_t *)out = mp_lstr_dup(mp, str);
+        *(lstr_t *)out = t_lstr_dup(str);
         return YUNPACK_OK;
 
       case IOP_T_DATA: {
         sb_t  sb;
         /* TODO: factorize this with iop-json, iop-xml, etc */
         int   blen = DIV_ROUND_UP(str.len * 3, 4);
-        char *buf  = mp_new_raw(mp, char, blen + 1);
+        char *buf  = t_new_raw(char, blen + 1);
         lstr_t *data = out;
 
         sb_init_full(&sb, buf, 0, blen + 1, &mem_pool_static);
         if (sb_add_lstr_unb64(&sb, str) < 0) {
-            mp_delete(mp, &buf);
             return YUNPACK_INVALID_B64_VAL;
         }
         data->data = buf;
@@ -148,26 +145,24 @@ yaml_string_to_iop_field(mem_pool_t *mp, const lstr_t str,
 }
 
 static void
-set_string_from_stream(mem_pool_t * nonnull mp,
-                       const yaml_data_t * nonnull data,
-                       lstr_t * nonnull out)
+t_set_string_from_stream(const yaml_data_t * nonnull data,
+                         lstr_t * nonnull out)
 {
-    *out = mp_lstr_dups(mp, data->span.start.s,
-                        data->span.end.s - data->span.start.s);
+    *out = t_lstr_dups(data->span.start.s,
+                       data->span.end.s - data->span.start.s);
 }
 
 static yunpack_res_t
-yaml_double_to_iop_field(mem_pool_t * nonnull mp,
-                         const yaml_data_t * nonnull data,
-                         double d, const iop_field_t * nonnull fdesc,
-                         void * nonnull out)
+t_yaml_double_to_iop_field(const yaml_data_t * nonnull data,
+                           double d, const iop_field_t * nonnull fdesc,
+                           void * nonnull out)
 {
     switch (fdesc->type) {
       case IOP_T_DOUBLE:
         *(double *)out = d;
         return YUNPACK_OK;
       case IOP_T_STRING:
-        set_string_from_stream(mp, data, out);
+        t_set_string_from_stream(data, out);
         return YUNPACK_OK;
       default:
         return YUNPACK_TYPE_MISMATCH;
@@ -175,10 +170,9 @@ yaml_double_to_iop_field(mem_pool_t * nonnull mp,
 }
 
 static int
-yaml_uint_to_iop_field(mem_pool_t * nonnull mp,
-                       const yaml_data_t * nonnull data,
-                       uint64_t u, const iop_field_t * nonnull fdesc,
-                       void * nonnull out)
+t_yaml_uint_to_iop_field(const yaml_data_t * nonnull data,
+                         uint64_t u, const iop_field_t * nonnull fdesc,
+                         void * nonnull out)
 {
 #define CHECK_MAX(v, max)  THROW_IF(v > max, YUNPACK_OOB)
 
@@ -215,7 +209,7 @@ yaml_uint_to_iop_field(mem_pool_t * nonnull mp,
         *(uint64_t *)out = u;
         return YUNPACK_OK;
       case IOP_T_STRING:
-        set_string_from_stream(mp, data, out);
+        t_set_string_from_stream(data, out);
         return YUNPACK_OK;
       case IOP_T_ENUM:
         CHECK_MAX(u, INT32_MAX);
@@ -283,17 +277,16 @@ yaml_int_to_iop_field(int64_t i, const iop_field_t * nonnull fdesc,
 #undef CHECK_RANGE
 
 static int
-yaml_bool_to_iop_field(mem_pool_t * nonnull mp,
-                       const yaml_data_t * nonnull data,
-                       bool b, const iop_field_t * nonnull fdesc,
-                       void * nonnull out)
+t_yaml_bool_to_iop_field(const yaml_data_t * nonnull data,
+                         bool b, const iop_field_t * nonnull fdesc,
+                         void * nonnull out)
 {
     switch (fdesc->type) {
       case IOP_T_BOOL:
         *(bool *)out = b;
         return YUNPACK_OK;
       case IOP_T_STRING:
-        set_string_from_stream(mp, data, out);
+        t_set_string_from_stream(data, out);
         return YUNPACK_OK;
       default:
         return YUNPACK_TYPE_MISMATCH;
@@ -301,10 +294,10 @@ yaml_bool_to_iop_field(mem_pool_t * nonnull mp,
 }
 
 static yunpack_res_t
-yaml_scalar_to_iop_field(yunpack_env_t * nonnull env,
-                         const yaml_data_t * nonnull data,
-                         const iop_field_t * nonnull fdesc,
-                         bool in_array, void * nonnull out)
+t_yaml_scalar_to_iop_field(yunpack_env_t * nonnull env,
+                           const yaml_data_t * nonnull data,
+                           const iop_field_t * nonnull fdesc,
+                           bool in_array, void * nonnull out)
 {
     const yaml_scalar_t *scalar = &data->scalar;
 
@@ -313,25 +306,25 @@ yaml_scalar_to_iop_field(yunpack_env_t * nonnull env,
     if (!in_array && fdesc->repeat == IOP_R_REPEATED
     &&  scalar->type != YAML_SCALAR_NULL)
     {
-        lstr_t *arr = out;
+        iop_array_i8_t *arr = out;
 
-        out = mp_imalloc(env->mp, fdesc->size, 8, 0);
-        *arr = mp_lstr_init(env->mp, out, 1);
+        out = ta_new_raw(byte, fdesc->size, 8);
+        *arr = IOP_TYPED_ARRAY(i8, out, 1);
     }
 
     switch (scalar->type) {
       case YAML_SCALAR_NULL:
-        return yaml_nil_to_iop_field(env, data, fdesc, in_array, out);
+        return t_yaml_nil_to_iop_field(env, data, fdesc, in_array, out);
       case YAML_SCALAR_STRING:
-        return yaml_string_to_iop_field(env->mp, scalar->s, fdesc, out);
+        return t_yaml_string_to_iop_field(scalar->s, fdesc, out);
       case YAML_SCALAR_DOUBLE:
-        return yaml_double_to_iop_field(env->mp, data, scalar->d, fdesc, out);
+        return t_yaml_double_to_iop_field(data, scalar->d, fdesc, out);
       case YAML_SCALAR_UINT:
-        return yaml_uint_to_iop_field(env->mp, data, scalar->u, fdesc, out);
+        return t_yaml_uint_to_iop_field(data, scalar->u, fdesc, out);
       case YAML_SCALAR_INT:
         return yaml_int_to_iop_field(scalar->i, fdesc, out);
       case YAML_SCALAR_BOOL:
-        return yaml_bool_to_iop_field(env->mp, data, scalar->b, fdesc, out);
+        return t_yaml_bool_to_iop_field(data, scalar->b, fdesc, out);
     }
 
     assert (false);
@@ -346,11 +339,11 @@ yaml_scalar_to_iop_field(yunpack_env_t * nonnull env,
  * arrays are detected and scalars are automatically put in a single element
  * array. */
 static int
-yaml_data_to_iop_field(yunpack_env_t * nonnull env,
-                       const yaml_data_t * nonnull data,
-                       const iop_struct_t * nonnull st_desc,
-                       const iop_field_t * nonnull fdesc,
-                       bool in_array, void * nonnull out);
+t_yaml_data_to_iop_field(yunpack_env_t * nonnull env,
+                         const yaml_data_t * nonnull data,
+                         const iop_struct_t * nonnull st_desc,
+                         const iop_field_t * nonnull fdesc,
+                         bool in_array, void * nonnull out);
 
 static int
 check_constraints(const iop_struct_t * nonnull desc,
@@ -371,9 +364,9 @@ check_constraints(const iop_struct_t * nonnull desc,
 }
 
 static int
-yaml_data_to_union(yunpack_env_t * nonnull env,
-                   const yaml_data_t * nonnull data,
-                   const iop_struct_t * nonnull st_desc, void * nonnull out)
+t_yaml_data_to_union(yunpack_env_t * nonnull env,
+                     const yaml_data_t * nonnull data,
+                     const iop_struct_t * nonnull st_desc, void * nonnull out)
 {
     const iop_field_t *field_desc = NULL;
     const yaml_key_data_t *kd;
@@ -400,8 +393,8 @@ yaml_data_to_union(yunpack_env_t * nonnull env,
 
     iop_union_set_tag(st_desc, field_desc->tag, out);
     out = (char *)out + field_desc->data_offs;
-    if (yaml_data_to_iop_field(env, &kd->data, st_desc, field_desc, false,
-                               out) < 0)
+    if (t_yaml_data_to_iop_field(env, &kd->data, st_desc, field_desc, false,
+                                 out) < 0)
     {
         /* keep the data causing the issue in the err. */
         span = env->err.span;
@@ -471,11 +464,11 @@ yaml_data_get_field_value(const yaml_data_t * nonnull data,
 }
 
 static int
-yaml_skip_iop_field(yunpack_env_t * nonnull env,
-                    const iop_struct_t * nonnull st,
-                    const iop_field_t * nonnull fdesc, void * nonnull out)
+t_yaml_skip_iop_field(yunpack_env_t * nonnull env,
+                      const iop_struct_t * nonnull st,
+                      const iop_field_t * nonnull fdesc, void * nonnull out)
 {
-    if (iop_skip_absent_field_desc(env->mp, out, st, fdesc) < 0) {
+    if (iop_skip_absent_field_desc(t_pool(), out, st, fdesc) < 0) {
         const char *iop_err = iop_get_err();
 
         if (iop_err) {
@@ -490,10 +483,10 @@ yaml_skip_iop_field(yunpack_env_t * nonnull env,
 }
 
 static int
-yaml_fill_iop_field(yunpack_env_t * nonnull env,
-                    const yaml_key_data_t * nonnull kd,
-                    const iop_struct_t * nonnull st,
-                    const iop_field_t * nonnull fdesc, void * nonnull out)
+t_yaml_fill_iop_field(yunpack_env_t * nonnull env,
+                      const yaml_key_data_t * nonnull kd,
+                      const iop_struct_t * nonnull st,
+                      const iop_field_t * nonnull fdesc, void * nonnull out)
 {
     if (env->flags & IOP_UNPACK_FORBID_PRIVATE) {
         const iop_field_attrs_t *attrs;
@@ -507,7 +500,7 @@ yaml_fill_iop_field(yunpack_env_t * nonnull env,
     }
 
     out = (char *)out + fdesc->data_offs;
-    if (yaml_data_to_iop_field(env, &kd->data, st, fdesc, false, out) < 0) {
+    if (t_yaml_data_to_iop_field(env, &kd->data, st, fdesc, false, out) < 0) {
         return -1;
     }
 
@@ -569,10 +562,10 @@ get_struct_from_tag(const iop_struct_t * nonnull st, const lstr_t tag,
 }
 
 static int
-yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
-                          const yaml_data_t * nonnull data,
-                          const iop_struct_t * nonnull st,
-                          void * nonnull out)
+t_yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
+                            const yaml_data_t * nonnull data,
+                            const iop_struct_t * nonnull st,
+                            void * nonnull out)
 {
     const iop_struct_t *real_st = st;
     int nb_fields_matched;
@@ -602,7 +595,7 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     }
 
     if (st->is_union) {
-        return yaml_data_to_union(env, data, st, out);
+        return t_yaml_data_to_union(env, data, st, out);
     }
 
     if (iop_struct_is_class(real_st)) {
@@ -612,7 +605,7 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
             goto error;
         }
 
-        *out_class = mp_imalloc(env->mp, real_st->size, 8, MEM_RAW);
+        *out_class = ta_new_raw(byte, real_st->size, 8);
         *(const iop_struct_t **)(*out_class) = real_st;
         out = *out_class;
     }
@@ -624,13 +617,13 @@ yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
 
         val = yaml_data_get_field_value(data, field_desc->name);
         if (val) {
-            if (yaml_fill_iop_field(env, val, field_st, field_desc, out) < 0)
+            if (t_yaml_fill_iop_field(env, val, field_st, field_desc, out) < 0)
             {
                 goto error;
             }
             nb_fields_matched++;
         } else {
-            if (yaml_skip_iop_field(env, field_st, field_desc, out) < 0) {
+            if (t_yaml_skip_iop_field(env, field_st, field_desc, out) < 0) {
                 goto error;
             }
         }
@@ -672,12 +665,12 @@ static void yaml_set_type_mismatch_err(yunpack_env_t * nonnull env,
 /* {{{ Yaml seq to iop field */
 
 static int
-yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
-                      const yaml_data_t * nonnull data,
-                      const iop_struct_t * nonnull st_desc,
-                      const iop_field_t * nonnull fdesc, void * nonnull out)
+t_yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
+                        const yaml_data_t * nonnull data,
+                        const iop_struct_t * nonnull st_desc,
+                        const iop_field_t * nonnull fdesc, void * nonnull out)
 {
-    lstr_t *arr = out;
+    iop_array_i8_t *arr = out;
     int size = 0;
 
     if (fdesc->repeat != IOP_R_REPEATED) {
@@ -693,13 +686,12 @@ yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
 
         if (arr->len >= size) {
             size = p_alloc_nr(size);
-            arr->data = mp_irealloc(env->mp, arr->data,
-                                    arr->len * fdesc->size,
-                                    size * fdesc->size, 8, 0);
+            ta_realloc_from(&arr->tab, arr->len * fdesc->size,
+                            size * fdesc->size, 8);
         }
-        elem_out = (void *)(((char *)arr->data) + arr->len * fdesc->size);
-        RETHROW(yaml_data_to_iop_field(env, elem, st_desc, fdesc, true,
-                                       elem_out));
+        elem_out = (void *)(arr->tab + arr->len * fdesc->size);
+        RETHROW(t_yaml_data_to_iop_field(env, elem, st_desc, fdesc, true,
+                                         elem_out));
         arr->len++;
     }
 
@@ -710,20 +702,20 @@ yaml_seq_to_iop_field(yunpack_env_t * nonnull env,
 /* {{{ Yaml data to iop field */
 
 static int
-yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
-                       const iop_struct_t * nonnull st_desc,
-                       const iop_field_t * nonnull fdesc,
-                       bool in_array, void * nonnull out)
+t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
+                         const iop_struct_t * nonnull st_desc,
+                         const iop_field_t * nonnull fdesc,
+                         bool in_array, void * nonnull out)
 {
     bool struct_or_union;
 
     struct_or_union = fdesc->type == IOP_T_STRUCT
                    || fdesc->type == IOP_T_UNION;
     if (struct_or_union && iop_field_is_reference(fdesc)) {
-        out = iop_field_ptr_alloc(env->mp, fdesc, out);
+        out = iop_field_ptr_alloc(t_pool(), fdesc, out);
     } else
     if (fdesc->repeat == IOP_R_OPTIONAL && !iop_field_is_class(fdesc)) {
-        out = iop_field_set_present(env->mp, fdesc, out);
+        out = iop_field_set_present(t_pool(), fdesc, out);
     }
 
     if (!struct_or_union && data->tag.s) {
@@ -735,7 +727,7 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
-        switch (yaml_scalar_to_iop_field(env, data, fdesc, in_array, out)) {
+        switch (t_yaml_scalar_to_iop_field(env, data, fdesc, in_array, out)) {
           case YUNPACK_OK:
             break;
           case YUNPACK_INVALID_B64_VAL:
@@ -765,8 +757,8 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
       case YAML_DATA_OBJ:
         if (struct_or_union) {
-            if (yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc,
-                                          out) < 0)
+            if (t_yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc,
+                                            out) < 0)
             {
                 goto err;
             }
@@ -777,7 +769,7 @@ yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
         break;
 
       case YAML_DATA_SEQ:
-        if (yaml_seq_to_iop_field(env, data, st_desc, fdesc, out) < 0) {
+        if (t_yaml_seq_to_iop_field(env, data, st_desc, fdesc, out) < 0) {
             goto err;
         }
         break;
@@ -859,13 +851,12 @@ _t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
     RETHROW(t_yaml_parse(*ps, &data, out_err));
 
     p_clear(&unpack_env, 1);
-    unpack_env.mp = t_pool();
     unpack_env.err.buf = err;
     /* The YAML packer is made for public interfaces. Use flags that makes
      * sense in this context. In the future, they might be overridden if
      * some internal use-cases are found. */
     unpack_env.flags = IOP_UNPACK_FORBID_PRIVATE;
-    if (yaml_data_to_typed_struct(&unpack_env, &data, st, out) < 0) {
+    if (t_yaml_data_to_typed_struct(&unpack_env, &data, st, out) < 0) {
         yunpack_err_pretty_print(&unpack_env.err, st, filename, ps, out_err);
         return -1;
     }

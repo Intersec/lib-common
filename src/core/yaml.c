@@ -41,9 +41,6 @@ static struct yaml_g {
 /* {{{ Parsing types definitions */
 
 typedef struct yaml_env_t {
-    /* Memory pool to use for internal allocations. */
-    mem_pool_t *mp;
-
     /* String to parse. */
     pstream_t ps;
 
@@ -198,8 +195,8 @@ static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
 /* }}} */
 /* {{{ Parser */
 
-static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
-                               yaml_data_t *out);
+static int t_yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
+                                 yaml_data_t *out);
 
 /* {{{ Utils */
 
@@ -254,8 +251,8 @@ ps_startswith_yaml_key(pstream_t ps)
 /* {{{ Tag */
 
 static int
-yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
-                   yaml_data_t *out)
+t_yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
+                     yaml_data_t *out)
 {
     /* a-zA-Z0-9. */
     static const ctype_desc_t ctype_tag = { {
@@ -281,7 +278,7 @@ yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
     }
     tag_pos_end = yaml_env_get_pos(env);
 
-    RETHROW(yaml_env_parse_data(env, min_indent, out));
+    RETHROW(t_yaml_env_parse_data(env, min_indent, out));
     if (out->tag.s) {
         return yaml_env_set_err(env, YAML_ERR_WRONG_OBJECT,
                                 "two tags have been declared");
@@ -298,14 +295,14 @@ yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
 /* }}} */
 /* {{{ Seq */
 
-static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
-                              yaml_data_t *out)
+static int t_yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
+                                yaml_data_t *out)
 {
     qv_t(yaml_data) datas;
     yaml_pos_t pos_start = yaml_env_get_pos(env);
     yaml_pos_t pos_end = {0};
 
-    mp_qv_init(env->mp, &datas, 0);
+    t_qv_init(&datas, 0);
 
     assert (ps_startswith_yaml_seq_prefix(&env->ps));
 
@@ -316,7 +313,7 @@ static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
         /* skip '-' */
         yaml_env_skipc(env);
 
-        RETHROW(yaml_env_parse_data(env, min_indent + 1, &elem));
+        RETHROW(t_yaml_env_parse_data(env, min_indent + 1, &elem));
         pos_end = elem.span.end;
         qv_append(&datas, elem);
 
@@ -341,7 +338,7 @@ static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
     }
 
     yaml_env_init_data_with_end(env, YAML_DATA_SEQ, pos_start, pos_end, out);
-    out->seq = mp_new(env->mp, yaml_seq_t, 1);
+    out->seq = t_new(yaml_seq_t, 1);
     out->seq->datas = datas;
 
     return 0;
@@ -372,16 +369,17 @@ static int yaml_env_parse_key(yaml_env_t * nonnull env, lstr_t * nonnull key,
     return 0;
 }
 
-static int yaml_env_parse_obj(yaml_env_t *env, const uint32_t min_indent,
-                              yaml_data_t *out)
+static int
+t_yaml_env_parse_obj(yaml_env_t *env, const uint32_t min_indent,
+                     yaml_data_t *out)
 {
     qv_t(yaml_key_data) fields;
     yaml_pos_t pos_start = yaml_env_get_pos(env);
     yaml_pos_t pos_end = {0};
     qh_t(lstr) keys_hash;
 
-    mp_qv_init(env->mp, &fields, 0);
-    mp_qh_init(lstr, env->mp, &keys_hash, 0);
+    t_qv_init(&fields, 0);
+    t_qh_init(lstr, &keys_hash, 0);
 
     for (;;) {
         lstr_t key;
@@ -410,9 +408,9 @@ static int yaml_env_parse_obj(yaml_env_t *env, const uint32_t min_indent,
          */
         RETHROW(yaml_env_ltrim(env));
         if (ps_startswith_yaml_seq_prefix(&env->ps)) {
-            RETHROW(yaml_env_parse_data(env, min_indent, &kd->data));
+            RETHROW(t_yaml_env_parse_data(env, min_indent, &kd->data));
         } else {
-            RETHROW(yaml_env_parse_data(env, min_indent + 1, &kd->data));
+            RETHROW(t_yaml_env_parse_data(env, min_indent + 1, &kd->data));
         }
 
         pos_end = kd->data.span.end;
@@ -434,7 +432,7 @@ static int yaml_env_parse_obj(yaml_env_t *env, const uint32_t min_indent,
     }
 
     yaml_env_init_data_with_end(env, YAML_DATA_OBJ, pos_start, pos_end, out);
-    out->obj = mp_new(env->mp, yaml_obj_t, 1);
+    out->obj = t_new(yaml_obj_t, 1);
     out->obj->fields = fields;
     return 0;
 }
@@ -458,7 +456,7 @@ static pstream_t yaml_get_scalar_ps(pstream_t *ps)
     return scalar;
 }
 
-static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
+static int t_yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
 {
     lstr_t line;
     yaml_pos_t pos_start = yaml_env_get_pos(env);
@@ -471,7 +469,7 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
         parse_str_res_t res;
 
         yaml_env_skipc(env);
-        mp_sb_init(env->mp, &buf, 128);
+        t_sb_init(&buf, 128);
         /* XXX use a json util for escaping handling. To be factorized
          * outside of the json file however. */
         res = parse_quoted_string(&env->ps, &buf, &line_nb, &col_nb, '"');
@@ -540,12 +538,12 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
      * function... */
     if (lstr_ascii_iequal(line, LSTR("[]"))) {
         out->type = YAML_DATA_SEQ;
-        out->seq = mp_new(env->mp, yaml_seq_t, 1);
+        out->seq = t_new(yaml_seq_t, 1);
         return 0;
     } else
     if (lstr_ascii_iequal(line, LSTR("{}"))) {
         out->type = YAML_DATA_OBJ;
-        out->obj = mp_new(env->mp, yaml_obj_t, 1);
+        out->obj = t_new(yaml_obj_t, 1);
         return 0;
     }
 
@@ -594,8 +592,8 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
 /* }}} */
 /* {{{ Data */
 
-static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
-                               yaml_data_t *out)
+static int t_yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
+                                 yaml_data_t *out)
 {
     uint32_t cur_indent;
 
@@ -612,23 +610,23 @@ static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
     }
 
     if (ps_peekc(env->ps) == '!') {
-        RETHROW(yaml_env_parse_tag(env, min_indent, out));
+        RETHROW(t_yaml_env_parse_tag(env, min_indent, out));
         goto end;
     }
 
     if (ps_startswith_yaml_seq_prefix(&env->ps)) {
-        RETHROW(yaml_env_parse_seq(env, cur_indent, out));
+        RETHROW(t_yaml_env_parse_seq(env, cur_indent, out));
         goto end;
     }
 
     /* try to parse a key */
     if (ps_startswith_yaml_key(env->ps)) {
-        RETHROW(yaml_env_parse_obj(env, cur_indent, out));
+        RETHROW(t_yaml_env_parse_obj(env, cur_indent, out));
         goto end;
     }
 
     /* otherwise, parse the line as a scalar */
-    RETHROW(yaml_env_parse_scalar(env, out));
+    RETHROW(t_yaml_env_parse_scalar(env, out));
 
   end:
     if (logger_is_traced(&_G.logger, 2)) {
@@ -656,14 +654,13 @@ int t_yaml_parse(pstream_t ps, yaml_data_t *out, sb_t *out_err)
     t_SB_1k(err);
 
     p_clear(&env, 1);
-    env.mp = t_pool();
     env.err = err;
 
     env.ps = ps;
     env.pos_newline = ps.s;
     env.line_number = 1;
 
-    if (yaml_env_parse_data(&env, 0, out) < 0) {
+    if (t_yaml_env_parse_data(&env, 0, out) < 0) {
         sb_setsb(out_err, &env.err);
         return -1;
     }
