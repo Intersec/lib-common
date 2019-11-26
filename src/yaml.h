@@ -117,6 +117,8 @@ struct yaml_seq_t {
     qv_t(yaml_data) datas;
 };
 
+typedef struct yaml_presentation_t yaml_presentation_t;
+
 /* }}} */
 /* {{{ Parsing */
 
@@ -132,12 +134,18 @@ const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data,
 
 /** Parse a YAML stream into a yaml data object.
  *
- * \param[in]   ps   The pstream to parse.
- * \param[out]  out  The YAML data parsed.
- * \param[out]  err  Error buffer filled in case of error.
+ * \param[in]   ps            The pstream to parse.
+ * \param[out]  out           The YAML data parsed.
+ * \param[out]  presentation  Presentation information associated with the
+ *     parsed data. Used to repack the YAML data while keeping comments,
+ *     includes, etc. NULL can be given, in which case
+ *     no metadata is saved.
+ * \param[out]  err        Error buffer filled in case of error.
  * \return -1 on error, 0 otherwise.
  */
-int t_yaml_parse(pstream_t ps, yaml_data_t * nonnull out, sb_t * nonnull err);
+int t_yaml_parse(pstream_t ps, yaml_data_t * nonnull out,
+                 const yaml_presentation_t * nonnull * nullable presentation,
+                 sb_t * nonnull err);
 
 /* }}} */
 /* {{{ Packing */

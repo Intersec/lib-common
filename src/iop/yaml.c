@@ -848,7 +848,7 @@ _t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
     yunpack_env_t unpack_env;
     yaml_data_t data;
 
-    RETHROW(t_yaml_parse(*ps, &data, out_err));
+    RETHROW(t_yaml_parse(*ps, &data, NULL, out_err));
 
     p_clear(&unpack_env, 1);
     unpack_env.err.buf = err;
