@@ -347,7 +347,7 @@ static void add_struct_help(const iop_struct_t * nonnull st,
                             schema_object_t * nonnull schema)
 {
     const iop_help_t *help;
-    bool is_v2;
+    bool is_v2 = false;
 
     get_struct_help(st, &help, &is_v2);
     if (!help) {
@@ -454,7 +454,7 @@ t_iop_enum_to_schema_object(const iop_enum_t *en,
 {
     schema_object_t *obj;
     const iop_help_t *help;
-    bool is_v2;
+    bool is_v2 = false;
 
     if (qh_add(schemas, existing_schemas, &en->fullname) < 0) {
         return;
@@ -713,7 +713,7 @@ t_iop_field_to_schema_object(const iop_struct_t *st, const iop_field_t *desc,
     const iop_field_attrs_t *attrs = iop_field_get_attrs(st, desc);
     schema_object_t *schema;
     const iop_help_t *help;
-    bool is_v2;
+    bool is_v2 = false;
     bool has_update = false;
 
     if (attrs && TST_BIT(&attrs->flags, IOP_FIELD_PRIVATE)) {
@@ -1414,10 +1414,10 @@ t_iop_rpc_to_operation_object(const iop_rpc_t * nonnull rpc,
     const iop_help_t *arg_help;
     const iop_help_t *res_help;
     const iop_help_t *exn_help;
-    bool rpc_help_is_v2;
-    bool arg_help_is_v2;
-    bool res_help_is_v2;
-    bool exn_help_is_v2;
+    bool rpc_help_is_v2 = false;
+    bool arg_help_is_v2 = false;
+    bool res_help_is_v2 = false;
+    bool exn_help_is_v2 = false;
 
     p_clear(op, 1);
 
