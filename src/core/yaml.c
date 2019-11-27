@@ -201,6 +201,8 @@ static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
 static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
                                yaml_data_t *out);
 
+/* {{{ Utils */
+
 static int yaml_env_ltrim(yaml_env_t *env)
 {
     bool in_comment = false;
@@ -229,6 +231,27 @@ static int yaml_env_ltrim(yaml_env_t *env)
 
     return 0;
 }
+
+static bool
+ps_startswith_yaml_seq_prefix(const pstream_t *ps)
+{
+    if (!ps_has(ps, 2)) {
+        return false;
+    }
+
+    return ps->s[0] == '-' && isspace(ps->s[1]);
+}
+
+static bool
+ps_startswith_yaml_key(pstream_t ps)
+{
+    pstream_t key = ps_get_span(&ps, &ctype_isalnum);
+
+    return ps_len(&key) > 0 && ps_peekc(ps) == ':';
+}
+
+/* }}} */
+/* {{{ Tag */
 
 static int
 yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
@@ -272,15 +295,8 @@ yaml_env_parse_tag(yaml_env_t *env, const uint32_t min_indent,
     return 0;
 }
 
-static bool
-ps_startswith_yaml_seq_prefix(const pstream_t *ps)
-{
-    if (!ps_has(ps, 2)) {
-        return false;
-    }
-
-    return ps->s[0] == '-' && isspace(ps->s[1]);
-}
+/* }}} */
+/* {{{ Seq */
 
 static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
                               yaml_data_t *out)
@@ -331,8 +347,33 @@ static int yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
     return 0;
 }
 
-static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
-                                  yaml_data_t *out)
+/* }}} */
+/* {{{ Obj */
+
+static int yaml_env_parse_key(yaml_env_t * nonnull env, lstr_t * nonnull key,
+                              yaml_span_t * nonnull key_span)
+{
+    pstream_t ps_key;
+
+    key_span->start = yaml_env_get_pos(env);
+    ps_key = ps_get_span(&env->ps, &ctype_isalnum);
+    key_span->end = yaml_env_get_pos(env);
+
+    if (ps_len(&ps_key) == 0) {
+        return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
+                                "only alpha-numeric characters allowed");
+    } else
+    if (ps_getc(&env->ps) != ':') {
+        return yaml_env_set_err(env, YAML_ERR_BAD_KEY, "missing colon");
+    }
+
+    *key = LSTR_PS_V(&ps_key);
+
+    return 0;
+}
+
+static int yaml_env_parse_obj(yaml_env_t *env, const uint32_t min_indent,
+                              yaml_data_t *out)
 {
     qv_t(yaml_key_data) fields;
     yaml_pos_t pos_start = yaml_env_get_pos(env);
@@ -343,25 +384,15 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
     mp_qh_init(lstr, env->mp, &keys_hash, 0);
 
     for (;;) {
-        pstream_t ps_key;
+        lstr_t key;
         yaml_key_data_t *kd;
         uint32_t last_indent;
         yaml_span_t key_span;
 
-        key_span.start = yaml_env_get_pos(env);
-        ps_key = ps_get_span(&env->ps, &ctype_isalnum);
-        key_span.end = yaml_env_get_pos(env);
-
-        if (ps_len(&ps_key) == 0) {
-            return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
-                                    "only alpha-numeric characters allowed");
-        } else
-        if (ps_getc(&env->ps) != ':') {
-            return yaml_env_set_err(env, YAML_ERR_BAD_KEY, "missing colon");
-        }
+        RETHROW(yaml_env_parse_key(env, &key, &key_span));
 
         kd = qv_growlen0(&fields, 1);
-        kd->key = LSTR_PS_V(&ps_key);
+        kd->key = key;
         kd->key_span = key_span;
         if (qh_add(lstr, &keys_hash, &kd->key) < 0) {
             return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
@@ -407,6 +438,9 @@ static int yaml_env_parse_raw_obj(yaml_env_t *env, const uint32_t min_indent,
     out->obj->fields = fields;
     return 0;
 }
+
+/* }}} */
+/* {{{ Scalar */
 
 static pstream_t yaml_get_scalar_ps(pstream_t *ps)
 {
@@ -557,11 +591,12 @@ static int yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
     return 0;
 }
 
+/* }}} */
+/* {{{ Data */
+
 static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
                                yaml_data_t *out)
 {
-    pstream_t saved_ps;
-    pstream_t key;
     uint32_t cur_indent;
 
     RETHROW(yaml_env_ltrim(env));
@@ -587,14 +622,10 @@ static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
     }
 
     /* try to parse a key */
-    saved_ps = env->ps;
-    key = ps_get_span(&env->ps, &ctype_isalnum);
-    if (ps_len(&key) > 0 && ps_peekc(env->ps) == ':') {
-        env->ps = saved_ps;
-        RETHROW(yaml_env_parse_raw_obj(env, cur_indent, out));
+    if (ps_startswith_yaml_key(env->ps)) {
+        RETHROW(yaml_env_parse_obj(env, cur_indent, out));
         goto end;
     }
-    env->ps = saved_ps;
 
     /* otherwise, parse the line as a scalar */
     RETHROW(yaml_env_parse_scalar(env, out));
@@ -615,6 +646,7 @@ static int yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
     return 0;
 }
 
+/* }}} */
 /* }}} */
 /* {{{ Parser public API */
 
