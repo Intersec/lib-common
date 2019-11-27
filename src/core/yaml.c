@@ -640,7 +640,7 @@ int t_yaml_parse(pstream_t ps, yaml_data_t *out, sb_t *out_err)
 }
 
 /* }}} */
-/* {{{ Dumper */
+/* {{{ Packer */
 
 #define YAML_STD_INDENT  2
 
@@ -649,6 +649,12 @@ typedef struct yaml_pack_env_t {
     void *priv;
 } yaml_pack_env_t;
 
+/* "to_indent" indicates that we have already packed some data in the output,
+ * and that if we want to put some more data, we have to separate it from the
+ * previously packed data properly.
+ * For a scalar, this means adding a space
+ * For a key-data or an array elem, this means adding a newline + indent
+ */
 static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
                           const yaml_data_t * nonnull data, int indent_lvl,
                           bool to_indent);
@@ -949,6 +955,7 @@ static int yaml_pack_obj(const yaml_pack_env_t * nonnull env,
 }
 
 /* }}} */
+/* {{{ Pack data */
 
 static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
                           const yaml_data_t * nonnull data,
@@ -987,7 +994,8 @@ static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
 #undef INDENT
 
 /* }}} */
-/* {{{ Dumper public API */
+/* }}} */
+/* {{{ Pack public API */
 
 int yaml_pack(const yaml_data_t * nonnull data,
               yaml_pack_writecb_f * nonnull writecb, void * nullable priv)
