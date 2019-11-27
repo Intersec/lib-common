@@ -204,6 +204,22 @@ static int t_yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
 
 /* {{{ Utils */
 
+static void log_new_data(const yaml_data_t * nonnull data)
+{
+    if (logger_is_traced(&_G.logger, 2)) {
+        logger_trace_scope(&_G.logger, 2);
+        logger_cont("parsed %s from "YAML_POS_FMT" up to "YAML_POS_FMT,
+                    yaml_data_get_type(data, false),
+                    YAML_POS_ARG(data->span.start),
+                    YAML_POS_ARG(data->span.end));
+        if (data->type == YAML_DATA_SCALAR) {
+            lstr_t span = yaml_data_get_span_lstr(&data->span);
+
+            logger_cont(": %pL", &span);
+        }
+    }
+}
+
 static int yaml_env_ltrim(yaml_env_t *env)
 {
     bool in_comment = false;
@@ -444,16 +460,27 @@ t_yaml_env_parse_obj(yaml_env_t *env, const uint32_t min_indent,
 /* }}} */
 /* {{{ Scalar */
 
-static pstream_t yaml_env_get_scalar_ps(yaml_env_t * nonnull env)
+static pstream_t yaml_env_get_scalar_ps(yaml_env_t * nonnull env,
+                                        bool in_flow)
 {
     /* '\n' and '#' */
     static const ctype_desc_t ctype_scalarend = { {
         0x00000400, 0x00000008, 0x00000000, 0x00000000,
         0x00000000, 0x00000000, 0x00000000, 0x00000000,
     } };
+    /* '\n', '#', ']' or ',' */
+    static const ctype_desc_t ctype_scalarflowend = { {
+        0x00000400, 0x00001008, 0x20000000, 0x00000000,
+        0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    } };
     pstream_t scalar;
 
-    scalar = ps_get_cspan(&env->ps, &ctype_scalarend);
+    if (in_flow) {
+        scalar = ps_get_cspan(&env->ps, &ctype_scalarflowend);
+    } else {
+        scalar = ps_get_cspan(&env->ps, &ctype_scalarend);
+    }
+
     /* need to rtrim to remove extra spaces */
     ps_rtrim(&scalar);
 
@@ -573,7 +600,8 @@ yaml_parse_numeric_scalar(lstr_t line, yaml_scalar_t *out)
     return -1;
 }
 
-static int t_yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
+static int t_yaml_env_parse_scalar(yaml_env_t *env, bool in_flow,
+                                   yaml_data_t *out)
 {
     lstr_t line;
     yaml_pos_t pos_start;
@@ -583,10 +611,10 @@ static int t_yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
         return t_yaml_env_parse_quoted_string(env, out);
     }
 
-    /* get scalar string, ie up to newline or comment */
+    /* get scalar string, ie up to newline or comment, or ']' or ',' for flow
+     * context */
     pos_start = yaml_env_get_pos(env);
-    ps_line = yaml_env_get_scalar_ps(env);
-    /* this is caught by the ps_done check in the beginning of parse_data */
+    ps_line = yaml_env_get_scalar_ps(env, in_flow);
     assert (ps_len(&ps_line) > 0);
 
     line = LSTR_PS_V(&ps_line);
@@ -595,17 +623,13 @@ static int t_yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
     /* special strings */
     if (yaml_parse_special_scalar(line, &out->scalar) >= 0) {
         return 0;
-    } else
+    }
+
     /* XXX: this is a bit ugly. We do not parse the inps json that is
      * allowed in standard yaml, but the canonical way of writing an empty seq
      * or obj is with '[]' or '{}'. This is handled here as it makes it
      * really simple, but we are generating non-scalar data in a "scalar"
      * function... */
-    if (lstr_ascii_iequal(line, LSTR("[]"))) {
-        out->type = YAML_DATA_SEQ;
-        out->seq = t_new(yaml_seq_t, 1);
-        return 0;
-    } else
     if (lstr_ascii_iequal(line, LSTR("{}"))) {
         out->type = YAML_DATA_OBJ;
         out->obj = t_new(yaml_obj_t, 1);
@@ -621,6 +645,107 @@ static int t_yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
     out->scalar.type = YAML_SCALAR_STRING;
     out->scalar.s = line;
 
+    return 0;
+}
+
+/* }}} */
+/* {{{ Flow seq */
+
+static int t_yaml_env_parse_flow_data(yaml_env_t *env, yaml_data_t *out);
+
+/* A flow sequence begins with '[', ends with ']' and elements are separated
+ * by ','.
+ * Inside a flow sequence, block types (ie using indentation) are forbidden,
+ * and values can only be:
+ *  - a scalar
+ *  - a value pair: `a: b`
+ *  - a flow object: `{ ... }`
+ */
+static int
+t_yaml_env_parse_flow_seq(yaml_env_t *env, yaml_data_t *out)
+{
+    qv_t(yaml_data) datas;
+    yaml_pos_t pos_start = yaml_env_get_pos(env);
+
+    t_qv_init(&datas, 0);
+
+    /* skip '-' */
+    assert (ps_peekc(env->ps) == '[');
+    yaml_env_skipc(env);
+
+    for (;;) {
+        yaml_data_t elem;
+
+        RETHROW(yaml_env_ltrim(env));
+        if (ps_peekc(env->ps) == ']') {
+            yaml_env_skipc(env);
+            goto end;
+        }
+
+        RETHROW(t_yaml_env_parse_flow_data(env, &elem));
+        qv_append(&datas, elem);
+
+        RETHROW(yaml_env_ltrim(env));
+        switch (ps_peekc(env->ps)) {
+          case ']':
+            yaml_env_skipc(env);
+            goto end;
+          case ',':
+            yaml_env_skipc(env);
+            break;
+          default:
+            return yaml_env_set_err(env, YAML_ERR_WRONG_DATA,
+                                    "expected another element of sequence");
+        }
+    }
+
+  end:
+    yaml_env_init_data_with_end(env, YAML_DATA_SEQ, pos_start,
+                                yaml_env_get_pos(env), out);
+    out->seq = t_new(yaml_seq_t, 1);
+    out->seq->datas = datas;
+
+    return 0;
+}
+
+static int t_yaml_env_parse_flow_key_val(yaml_env_t *env, yaml_data_t *out)
+{
+    qv_t(yaml_key_data) fields;
+    yaml_key_data_t *kd;
+
+    t_qv_init(&fields, 1);
+    kd = qv_growlen0(&fields, 1);
+
+    RETHROW(yaml_env_parse_key(env, &kd->key, &kd->key_span));
+    RETHROW(yaml_env_ltrim(env));
+    RETHROW(t_yaml_env_parse_scalar(env, true, &kd->data));
+
+    yaml_env_init_data_with_end(env, YAML_DATA_OBJ, kd->key_span.start,
+                                kd->data.span.end, out);
+    out->obj = t_new(yaml_obj_t, 1);
+    out->obj->fields = fields;
+
+    return 0;
+}
+
+static int t_yaml_env_parse_flow_data(yaml_env_t *env, yaml_data_t *out)
+{
+    RETHROW(yaml_env_ltrim(env));
+    if (ps_done(&env->ps)) {
+        return yaml_env_set_err(env, YAML_ERR_MISSING_DATA,
+                                "unexpected end of line");
+    }
+
+    if (ps_peekc(env->ps) == '[') {
+        RETHROW(t_yaml_env_parse_flow_seq(env, out));
+    } else
+    if (ps_startswith_yaml_key(env->ps)) {
+        RETHROW(t_yaml_env_parse_flow_key_val(env, out));
+    } else {
+        RETHROW(t_yaml_env_parse_scalar(env, true, out));
+    }
+
+    log_new_data(out);
     return 0;
 }
 
@@ -646,36 +771,20 @@ static int t_yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
 
     if (ps_peekc(env->ps) == '!') {
         RETHROW(t_yaml_env_parse_tag(env, min_indent, out));
-        goto end;
-    }
-
+    } else
     if (ps_startswith_yaml_seq_prefix(&env->ps)) {
         RETHROW(t_yaml_env_parse_seq(env, cur_indent, out));
-        goto end;
-    }
-
-    /* try to parse a key */
+    } else
+    if (ps_peekc(env->ps) == '[') {
+        RETHROW(t_yaml_env_parse_flow_seq(env, out));
+    } else
     if (ps_startswith_yaml_key(env->ps)) {
         RETHROW(t_yaml_env_parse_obj(env, cur_indent, out));
-        goto end;
+    } else {
+        RETHROW(t_yaml_env_parse_scalar(env, false, out));
     }
 
-    /* otherwise, parse the line as a scalar */
-    RETHROW(t_yaml_env_parse_scalar(env, out));
-
-  end:
-    if (logger_is_traced(&_G.logger, 2)) {
-        logger_trace_scope(&_G.logger, 2);
-        logger_cont("parsed %s from "YAML_POS_FMT" up to "YAML_POS_FMT,
-                    yaml_data_get_type(out, false),
-                    YAML_POS_ARG(out->span.start),
-                    YAML_POS_ARG(out->span.end));
-        if (out->type == YAML_DATA_SCALAR) {
-            lstr_t span = yaml_data_get_span_lstr(&out->span);
-
-            logger_cont(": %pL", &span);
-        }
-    }
+    log_new_data(out);
     return 0;
 }
 
@@ -1833,6 +1942,99 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_EQ(field.seq->datas.tab[0].scalar.u, 3UL);
         Z_HELPER_RUN(z_check_yaml_scalar(&field.seq->datas.tab[1], YAML_SCALAR_NULL,
                                          3, 3, 3, 4));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Parsing flow sequence */
+
+    Z_TEST(parsing_flow_seq, "test parsing of flow sequences") {
+        t_scope;
+        yaml_data_t data;
+        const yaml_data_t *elem;
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "[]"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 1, 3));
+        Z_ASSERT_NULL(data.tag.s);
+        Z_ASSERT(data.seq->datas.len == 0);
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "[ ~ ]"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 1, 6));
+        Z_ASSERT(data.seq->datas.len == 1);
+        elem = &data.seq->datas.tab[0];
+        Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_NULL,
+                                         1, 3, 1, 4));
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "[ ~, ]"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 1, 7));
+        Z_ASSERT(data.seq->datas.len == 1);
+        elem = &data.seq->datas.tab[0];
+        Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_NULL,
+                                         1, 3, 1, 4));
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "[1 ,a:\n"
+            "2,c d ,]"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 2, 9));
+        Z_ASSERT(data.seq->datas.len == 3);
+
+        elem = &data.seq->datas.tab[0];
+        Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_UINT,
+                                         1, 2, 1, 3));
+        Z_ASSERT_EQ(elem->scalar.u, 1UL);
+
+        elem = &data.seq->datas.tab[1];
+        Z_HELPER_RUN(z_check_yaml_data(elem, YAML_DATA_OBJ, 1, 5, 2, 2));
+        Z_ASSERT_EQ(elem->obj->fields.len, 1);
+        Z_ASSERT_LSTREQUAL(elem->obj->fields.tab[0].key, LSTR("a"));
+        Z_HELPER_RUN(z_check_yaml_span(&elem->obj->fields.tab[0].key_span,
+                                       1, 5, 1, 6));
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem->obj->fields.tab[0].data,
+                                         YAML_SCALAR_UINT, 2, 1, 2, 2));
+        Z_ASSERT_EQ(elem->obj->fields.tab[0].data.scalar.u, 2UL);
+
+        elem = &data.seq->datas.tab[2];
+        Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_STRING,
+                                         2, 3, 2, 6));
+        Z_ASSERT_LSTREQUAL(elem->scalar.s, LSTR("c d"));
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "- [ ~,\n"
+            " [[ true, [ - 2 ] ]\n"
+            "   ] , -2 ,\n"
+            "]"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 4, 2));
+        Z_ASSERT(data.seq->datas.len == 1);
+        data = data.seq->datas.tab[0];
+
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 3, 4, 2));
+        Z_ASSERT(data.seq->datas.len == 3);
+        elem = &data.seq->datas.tab[0];
+        Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_NULL, 1, 5, 1, 6));
+        elem = &data.seq->datas.tab[2];
+        Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_INT, 3, 8, 3, 10));
+        elem = &data.seq->datas.tab[1];
+        Z_HELPER_RUN(z_check_yaml_data(elem, YAML_DATA_SEQ, 2, 2, 3, 5));
+        Z_ASSERT(elem->seq->datas.len == 1);
+
+        data = elem->seq->datas.tab[0];
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 2, 3, 2, 20));
+        Z_ASSERT(data.seq->datas.len == 2);
+        elem = &data.seq->datas.tab[0];
+        Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_BOOL, 2, 5, 2, 9));
+        elem = &data.seq->datas.tab[1];
+        Z_HELPER_RUN(z_check_yaml_data(elem, YAML_DATA_SEQ, 2, 11, 2, 18));
+        Z_ASSERT_EQ(elem->seq->datas.len, 1);
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem->seq->datas.tab[0],
+                                         YAML_SCALAR_STRING, 2, 13, 2, 16));
+        Z_ASSERT_LSTREQUAL(elem->seq->datas.tab[0].scalar.s, LSTR("- 2"));
     } Z_TEST_END;
 
     /* }}} */

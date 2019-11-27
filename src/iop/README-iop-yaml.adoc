@@ -11,7 +11,7 @@ improvements.
 
 * No declarations.
 * Only alphanumeric keys starting with a letter are allowed: `[a-zA-Z]\w*`.
-* No inline JSON syntax allowed.
+* No inline object syntax (JSON style) allowed.
 * Types only allowed for IOP classes.
 * No anchors or references (yet, could be added in the future).
 
@@ -50,6 +50,27 @@ array:
   - name: foo
     bar: 5
   - name: baz
+----
+
+They can also be written inline using `[` and `]`:
+
+[source,YAML]
+----
+array: [foo, 5, baz]
+----
+
+Only a limited subset of data can be used inside this syntax however:
+[source,YAML]
+----
+[
+    # Scalars are allowed, but ',' and ']' now ends strings:
+    string one,
+    "string, two",
+    # A key mapping will generate an object with this single mapping:
+    key: value,
+    # Additional inline sequences can be used:
+    [ foo, ~, ],
+]
 ----
 
 === Struct
