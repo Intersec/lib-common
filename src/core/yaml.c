@@ -1267,15 +1267,26 @@ static int z_t_yaml_test_parse_success(yaml_data_t *data, const char *yaml)
 }
 
 static int
+z_check_yaml_span(const yaml_span_t *span,
+                  uint32_t start_line, uint32_t start_col,
+                  uint32_t end_line, uint32_t end_col)
+{
+    Z_ASSERT_EQ(span->start.line_nb, start_line);
+    Z_ASSERT_EQ(span->start.col_nb, start_col);
+    Z_ASSERT_EQ(span->end.line_nb, end_line);
+    Z_ASSERT_EQ(span->end.col_nb, end_col);
+
+    Z_HELPER_END;
+}
+
+static int
 z_check_yaml_data(const yaml_data_t *data, yaml_data_type_t type,
                   uint32_t start_line, uint32_t start_col,
                   uint32_t end_line, uint32_t end_col)
 {
     Z_ASSERT_EQ(data->type, type);
-    Z_ASSERT_EQ(data->span.start.line_nb, start_line);
-    Z_ASSERT_EQ(data->span.start.col_nb, start_col);
-    Z_ASSERT_EQ(data->span.end.line_nb, end_line);
-    Z_ASSERT_EQ(data->span.end.col_nb, end_col);
+    Z_HELPER_RUN(z_check_yaml_span(&data->span, start_line, start_col,
+                                   end_line, end_col));
 
     Z_HELPER_END;
 }
@@ -1615,6 +1626,8 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_NULL(data.tag.s);
         Z_ASSERT(data.obj->fields.len == 1);
         Z_ASSERT_LSTREQUAL(data.obj->fields.tab[0].key, LSTR("a"));
+        Z_HELPER_RUN(z_check_yaml_span(&data.obj->fields.tab[0].key_span,
+                                       1, 1, 1, 2));
         field = data.obj->fields.tab[0].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
                                          1, 4, 1, 5));
@@ -1630,6 +1643,8 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_LSTREQUAL(data.tag, LSTR("tag1"));
         Z_ASSERT(data.obj->fields.len == 1);
         Z_ASSERT_LSTREQUAL(data.obj->fields.tab[0].key, LSTR("a"));
+        Z_HELPER_RUN(z_check_yaml_span(&data.obj->fields.tab[0].key_span,
+                                       1, 7, 1, 8));
         field = data.obj->fields.tab[0].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
                                          1, 10, 1, 11));
@@ -1660,17 +1675,23 @@ Z_GROUP_EXPORT(yaml)
 
         /* inner */
         Z_ASSERT_LSTREQUAL(data.obj->fields.tab[1].key, LSTR("inner"));
+        Z_HELPER_RUN(z_check_yaml_span(&data.obj->fields.tab[1].key_span,
+                                       2, 1, 2, 6));
         field = data.obj->fields.tab[1].data;
         Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_OBJ, 2, 8, 3, 13));
         Z_ASSERT_NULL(field.tag.s);
         Z_ASSERT(field.obj->fields.len == 2);
 
         Z_ASSERT_LSTREQUAL(field.obj->fields.tab[0].key, LSTR("b"));
+        Z_HELPER_RUN(z_check_yaml_span(&field.obj->fields.tab[0].key_span,
+                                       2, 8, 2, 9));
         field2 = field.obj->fields.tab[0].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_UINT,
                                          2, 11, 2, 12));
         Z_ASSERT_EQ(field2.scalar.u, 3UL);
         Z_ASSERT_LSTREQUAL(field.obj->fields.tab[1].key, LSTR("c"));
+        Z_HELPER_RUN(z_check_yaml_span(&field.obj->fields.tab[1].key_span,
+                                       3, 8, 3, 9));
         field2 = field.obj->fields.tab[1].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_INT,
                                          3, 11, 3, 13));
@@ -1678,6 +1699,8 @@ Z_GROUP_EXPORT(yaml)
 
         /* inner2 */
         Z_ASSERT_LSTREQUAL(data.obj->fields.tab[2].key, LSTR("inner2"));
+        Z_HELPER_RUN(z_check_yaml_span(&data.obj->fields.tab[2].key_span,
+                                       4, 1, 4, 7));
         field = data.obj->fields.tab[2].data;
         Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_OBJ, 4, 9, 6, 14));
         Z_ASSERT_LSTREQUAL(field.tag, LSTR("tag"));
