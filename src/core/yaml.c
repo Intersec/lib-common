@@ -456,42 +456,127 @@ static pstream_t yaml_get_scalar_ps(pstream_t *ps)
     return scalar;
 }
 
+static int
+t_yaml_env_parse_quoted_string(yaml_env_t *env, yaml_data_t *out)
+{
+    yaml_pos_t pos_start = yaml_env_get_pos(env);
+    int line_nb = 0;
+    int col_nb = 0;
+    sb_t buf;
+    parse_str_res_t res;
+
+    assert (ps_peekc(env->ps) == '"');
+    yaml_env_skipc(env);
+
+    t_sb_init(&buf, 128);
+    res = parse_quoted_string(&env->ps, &buf, &line_nb, &col_nb, '"');
+    switch (res) {
+      case PARSE_STR_ERR_UNCLOSED:
+        return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                "missing closing '\"'");
+      case PARSE_STR_ERR_EXP_SMTH:
+        return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                "invalid backslash");
+      case PARSE_STR_OK:
+        yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
+        out->scalar.type = YAML_SCALAR_STRING;
+        out->scalar.s = LSTR_SB_V(&buf);
+        return 0;
+    }
+
+    assert (false);
+    return yaml_env_set_err(env, YAML_ERR_BAD_STRING, "invalid string");
+}
+
+static int
+yaml_parse_special_scalar(lstr_t line, yaml_scalar_t *out)
+{
+    if (lstr_equal(line, LSTR("~"))
+    ||  lstr_ascii_iequal(line, LSTR("null")))
+    {
+        out->type = YAML_SCALAR_NULL;
+        return 0;
+    } else
+    if (lstr_ascii_iequal(line, LSTR("true"))) {
+        out->type = YAML_SCALAR_BOOL;
+        out->b = true;
+        return 0;
+    } else
+    if (lstr_ascii_iequal(line, LSTR("false"))) {
+        out->type = YAML_SCALAR_BOOL;
+        out->b = false;
+        return 0;
+    } else
+    if (lstr_ascii_iequal(line, LSTR("-.inf"))) {
+        out->type = YAML_SCALAR_DOUBLE;
+        out->d = -INFINITY;
+        return 0;
+    } else
+    if (lstr_ascii_iequal(line, LSTR(".inf"))) {
+        out->type = YAML_SCALAR_DOUBLE;
+        out->d = INFINITY;
+        return 0;
+    } else
+    if (lstr_ascii_iequal(line, LSTR(".nan"))) {
+        out->type = YAML_SCALAR_DOUBLE;
+        out->d = NAN;
+        return 0;
+    }
+
+    return -1;
+}
+
+static int
+yaml_parse_numeric_scalar(lstr_t line, yaml_scalar_t *out)
+{
+    double d;
+
+    if (line.s[0] == '-') {
+        int64_t i;
+
+        if (lstr_to_int64(line, &i) == 0) {
+            if (i >= 0) {
+                /* This can happen for -0 for example. Force to use UINT
+                 * in that case, to make sure INT is only used for < 0. */
+                out->type = YAML_SCALAR_UINT;
+                out->u = i;
+            } else {
+                out->type = YAML_SCALAR_INT;
+                out->i = i;
+            }
+            return 0;
+        }
+    } else {
+        uint64_t u;
+
+        if (lstr_to_uint64(line, &u) == 0) {
+            out->type = YAML_SCALAR_UINT;
+            out->u = u;
+            return 0;
+        }
+    }
+
+    if (lstr_to_double(line, &d) == 0) {
+        out->type = YAML_SCALAR_DOUBLE;
+        out->d = d;
+        return 0;
+    }
+
+    return -1;
+}
+
 static int t_yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
 {
     lstr_t line;
-    yaml_pos_t pos_start = yaml_env_get_pos(env);
+    yaml_pos_t pos_start;
     pstream_t span;
 
     if (ps_peekc(env->ps) == '"') {
-        int line_nb = 0;
-        int col_nb = 0;
-        sb_t buf;
-        parse_str_res_t res;
-
-        yaml_env_skipc(env);
-        t_sb_init(&buf, 128);
-        /* XXX use a json util for escaping handling. To be factorized
-         * outside of the json file however. */
-        res = parse_quoted_string(&env->ps, &buf, &line_nb, &col_nb, '"');
-        switch (res) {
-          case PARSE_STR_ERR_UNCLOSED:
-            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
-                                    "missing closing '\"'");
-          case PARSE_STR_ERR_EXP_SMTH:
-            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
-                                    "invalid backslash");
-          case PARSE_STR_OK:
-            yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
-            out->scalar.type = YAML_SCALAR_STRING;
-            out->scalar.s = LSTR_SB_V(&buf);
-            return 0;
-        }
-
-        assert (false);
-        return yaml_env_set_err(env, YAML_ERR_BAD_STRING, "invalid string");
+        return t_yaml_env_parse_quoted_string(env, out);
     }
 
     /* get scalar string, ie up to newline or comment */
+    pos_start = yaml_env_get_pos(env);
     span = yaml_get_scalar_ps(&env->ps);
     /* this is caught by the ps_done check in the beginning of parse_data */
     assert (ps_len(&span) > 0);
@@ -500,38 +585,10 @@ static int t_yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
     yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
 
     /* special strings */
-    if (lstr_equal(line, LSTR("~"))
-    ||  lstr_ascii_iequal(line, LSTR("null")))
-    {
-        out->scalar.type = YAML_SCALAR_NULL;
+    if (yaml_parse_special_scalar(line, &out->scalar) >= 0) {
         return 0;
     } else
-    if (lstr_ascii_iequal(line, LSTR("true"))) {
-        out->scalar.type = YAML_SCALAR_BOOL;
-        out->scalar.b = true;
-        return 0;
-    } else
-    if (lstr_ascii_iequal(line, LSTR("false"))) {
-        out->scalar.type = YAML_SCALAR_BOOL;
-        out->scalar.b = false;
-        return 0;
-    } else
-    if (lstr_ascii_iequal(line, LSTR("-.inf"))) {
-        out->scalar.type = YAML_SCALAR_DOUBLE;
-        out->scalar.d = -INFINITY;
-        return 0;
-    } else
-    if (lstr_ascii_iequal(line, LSTR(".inf"))) {
-        out->scalar.type = YAML_SCALAR_DOUBLE;
-        out->scalar.d = INFINITY;
-        return 0;
-    } else
-    if (lstr_ascii_iequal(line, LSTR(".nan"))) {
-        out->scalar.type = YAML_SCALAR_DOUBLE;
-        out->scalar.d = NAN;
-        return 0;
-    } else
-    /* XXX: this is a bit ugly. We do not parse the inline json that is
+    /* XXX: this is a bit ugly. We do not parse the inps json that is
      * allowed in standard yaml, but the canonical way of writing an empty seq
      * or obj is with '[]' or '{}'. This is handled here as it makes it
      * really simple, but we are generating non-scalar data in a "scalar"
@@ -547,45 +604,15 @@ static int t_yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
         return 0;
     }
 
-    /* try to parse it as a integer, then as a float. Otherwise, it is
-     * a string */
-    if (line.s[0] == '-') {
-        int64_t i;
-
-        if (lstr_to_int64(line, &i) == 0) {
-            if (i >= 0) {
-                /* This can happen for -0 for example. Force to use UINT
-                 * in that case, to make sure INT is only used for < 0. */
-                out->scalar.type = YAML_SCALAR_UINT;
-                out->scalar.u = i;
-            } else {
-                out->scalar.type = YAML_SCALAR_INT;
-                out->scalar.i = i;
-            }
-            return 0;
-        }
-    } else {
-        uint64_t u;
-
-        if (lstr_to_uint64(line, &u) == 0) {
-            out->scalar.type = YAML_SCALAR_UINT;
-            out->scalar.u = u;
-            return 0;
-        }
+    /* try to parse it as a int/uint or float */
+    if (yaml_parse_numeric_scalar(line, &out->scalar) >= 0) {
+        return 0;
     }
 
-    {
-        double d;
-
-        if (lstr_to_double(line, &d) == 0) {
-            out->scalar.type = YAML_SCALAR_DOUBLE;
-            out->scalar.d = d;
-            return 0;
-        }
-    }
-
+    /* If all else fail, it is a string. */
     out->scalar.type = YAML_SCALAR_STRING;
     out->scalar.s = line;
+
     return 0;
 }
 
