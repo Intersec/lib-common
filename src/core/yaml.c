@@ -153,6 +153,7 @@ typedef enum yaml_error_t {
     YAML_ERR_WRONG_OBJECT,
     YAML_ERR_TAB_CHARACTER,
     YAML_ERR_INVALID_TAG,
+    YAML_ERR_EXTRA_DATA,
 } yaml_error_t;
 
 static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
@@ -186,6 +187,9 @@ static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
         break;
       case YAML_ERR_INVALID_TAG:
         sb_addf(&env->err, "invalid tag, %s", msg);
+        break;
+      case YAML_ERR_EXTRA_DATA:
+        sb_addf(&env->err, "extra characters after data, %s", msg);
         break;
     }
 
@@ -688,6 +692,14 @@ int t_yaml_parse(pstream_t ps, yaml_data_t *out, sb_t *out_err)
     env.line_number = 1;
 
     if (t_yaml_env_parse_data(&env, 0, out) < 0) {
+        sb_setsb(out_err, &env.err);
+        return -1;
+    }
+
+    RETHROW(yaml_env_ltrim(&env));
+    if (!ps_done(&env.ps)) {
+        yaml_env_set_err(&env, YAML_ERR_EXTRA_DATA,
+                         "expected end of document");
         sb_setsb(out_err, &env.err);
         return -1;
     }
@@ -1401,6 +1413,14 @@ Z_GROUP_EXPORT(yaml)
             "\t- 3",
             "2:1: tab character detected, "
             "cannot use tab characters for indentation"
+        ));
+
+        /* extra data after the parsing */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "1\n"
+            "# comment\n"
+            "2",
+            "3:1: extra characters after data, expected end of document"
         ));
     } Z_TEST_END;
 
