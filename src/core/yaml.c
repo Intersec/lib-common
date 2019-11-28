@@ -444,7 +444,7 @@ t_yaml_env_parse_obj(yaml_env_t *env, const uint32_t min_indent,
 /* }}} */
 /* {{{ Scalar */
 
-static pstream_t yaml_get_scalar_ps(pstream_t *ps)
+static pstream_t yaml_env_get_scalar_ps(yaml_env_t * nonnull env)
 {
     /* '\n' and '#' */
     static const ctype_desc_t ctype_scalarend = { {
@@ -453,9 +453,13 @@ static pstream_t yaml_get_scalar_ps(pstream_t *ps)
     } };
     pstream_t scalar;
 
-    scalar = ps_get_cspan(ps, &ctype_scalarend);
+    scalar = ps_get_cspan(&env->ps, &ctype_scalarend);
     /* need to rtrim to remove extra spaces */
     ps_rtrim(&scalar);
+
+    /* Position the env ps to the end of the trimmed scalar ps, so that
+     * the span can be correctly computed. */
+    env->ps.s = scalar.s_end;
 
     return scalar;
 }
@@ -573,7 +577,7 @@ static int t_yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
 {
     lstr_t line;
     yaml_pos_t pos_start;
-    pstream_t span;
+    pstream_t ps_line;
 
     if (ps_peekc(env->ps) == '"') {
         return t_yaml_env_parse_quoted_string(env, out);
@@ -581,11 +585,11 @@ static int t_yaml_env_parse_scalar(yaml_env_t *env, yaml_data_t *out)
 
     /* get scalar string, ie up to newline or comment */
     pos_start = yaml_env_get_pos(env);
-    span = yaml_get_scalar_ps(&env->ps);
+    ps_line = yaml_env_get_scalar_ps(env);
     /* this is caught by the ps_done check in the beginning of parse_data */
-    assert (ps_len(&span) > 0);
+    assert (ps_len(&ps_line) > 0);
 
-    line = LSTR_PS_V(&span);
+    line = LSTR_PS_V(&ps_line);
     yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
 
     /* special strings */
@@ -1464,6 +1468,11 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
                                          1, 1, 1, 14));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR(" quoted: 5 "));
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "  trimmed   "));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
+                                         1, 3, 1, 10));
+        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("trimmed"));
 
         /* null */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "~"));
