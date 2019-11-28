@@ -468,9 +468,9 @@ static pstream_t yaml_env_get_scalar_ps(yaml_env_t * nonnull env,
         0x00000400, 0x00000008, 0x00000000, 0x00000000,
         0x00000000, 0x00000000, 0x00000000, 0x00000000,
     } };
-    /* '\n', '#', ']' or ',' */
+    /* '\n', '#', '{, '[', '}', ']' or ',' */
     static const ctype_desc_t ctype_scalarflowend = { {
-        0x00000400, 0x00001008, 0x20000000, 0x00000000,
+        0x00000400, 0x00001008, 0x28000000, 0x28000000,
         0x00000000, 0x00000000, 0x00000000, 0x00000000,
     } };
     pstream_t scalar;
@@ -615,24 +615,16 @@ static int t_yaml_env_parse_scalar(yaml_env_t *env, bool in_flow,
      * context */
     pos_start = yaml_env_get_pos(env);
     ps_line = yaml_env_get_scalar_ps(env, in_flow);
-    assert (ps_len(&ps_line) > 0);
+    if (ps_len(&ps_line) == 0) {
+        return yaml_env_set_err(env, YAML_ERR_MISSING_DATA,
+                                "unexpected character");
+    }
 
     line = LSTR_PS_V(&ps_line);
     yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
 
     /* special strings */
     if (yaml_parse_special_scalar(line, &out->scalar) >= 0) {
-        return 0;
-    }
-
-    /* XXX: this is a bit ugly. We do not parse the inps json that is
-     * allowed in standard yaml, but the canonical way of writing an empty seq
-     * or obj is with '[]' or '{}'. This is handled here as it makes it
-     * really simple, but we are generating non-scalar data in a "scalar"
-     * function... */
-    if (lstr_ascii_iequal(line, LSTR("{}"))) {
-        out->type = YAML_DATA_OBJ;
-        out->obj = t_new(yaml_obj_t, 1);
         return 0;
     }
 
@@ -651,7 +643,24 @@ static int t_yaml_env_parse_scalar(yaml_env_t *env, bool in_flow,
 /* }}} */
 /* {{{ Flow seq */
 
-static int t_yaml_env_parse_flow_data(yaml_env_t *env, yaml_data_t *out);
+static int t_yaml_env_parse_flow_key_data(yaml_env_t * nonnull env,
+                                          yaml_key_data_t * nonnull out);
+
+static void
+t_yaml_env_build_implicit_obj(yaml_env_t * nonnull env,
+                              yaml_key_data_t * nonnull kd,
+                              yaml_data_t * nonnull out)
+{
+    qv_t(yaml_key_data) fields;
+
+    t_qv_init(&fields, 1);
+    qv_append(&fields, *kd);
+
+    yaml_env_init_data_with_end(env, YAML_DATA_OBJ, kd->key_span.start,
+                                kd->data.span.end, out);
+    out->obj = t_new(yaml_obj_t, 1);
+    out->obj->fields = fields;
+}
 
 /* A flow sequence begins with '[', ends with ']' and elements are separated
  * by ','.
@@ -660,6 +669,7 @@ static int t_yaml_env_parse_flow_data(yaml_env_t *env, yaml_data_t *out);
  *  - a scalar
  *  - a value pair: `a: b`
  *  - a flow object: `{ ... }`
+ *  - a flow seq: `[ ... ]`
  */
 static int
 t_yaml_env_parse_flow_seq(yaml_env_t *env, yaml_data_t *out)
@@ -669,12 +679,12 @@ t_yaml_env_parse_flow_seq(yaml_env_t *env, yaml_data_t *out)
 
     t_qv_init(&datas, 0);
 
-    /* skip '-' */
+    /* skip '[' */
     assert (ps_peekc(env->ps) == '[');
     yaml_env_skipc(env);
 
     for (;;) {
-        yaml_data_t elem;
+        yaml_key_data_t kd;
 
         RETHROW(yaml_env_ltrim(env));
         if (ps_peekc(env->ps) == ']') {
@@ -682,8 +692,15 @@ t_yaml_env_parse_flow_seq(yaml_env_t *env, yaml_data_t *out)
             goto end;
         }
 
-        RETHROW(t_yaml_env_parse_flow_data(env, &elem));
-        qv_append(&datas, elem);
+        RETHROW(t_yaml_env_parse_flow_key_data(env, &kd));
+        if (kd.key.s) {
+            yaml_data_t obj;
+
+            t_yaml_env_build_implicit_obj(env, &kd, &obj);
+            qv_append(&datas, obj);
+        } else {
+            qv_append(&datas, kd.data);
+        }
 
         RETHROW(yaml_env_ltrim(env));
         switch (ps_peekc(env->ps)) {
@@ -708,27 +725,101 @@ t_yaml_env_parse_flow_seq(yaml_env_t *env, yaml_data_t *out)
     return 0;
 }
 
-static int t_yaml_env_parse_flow_key_val(yaml_env_t *env, yaml_data_t *out)
+/* }}} */
+/* {{{ Flow obj */
+
+/* A flow sequence begins with '{', ends with '}' and elements are separated
+ * by ','.
+ * Inside a flow sequence, block types (ie using indentation) are forbidden,
+ * and only value pairs are allowed: `key: <flow_data>`.
+ */
+static int
+t_yaml_env_parse_flow_obj(yaml_env_t *env, yaml_data_t *out)
 {
     qv_t(yaml_key_data) fields;
-    yaml_key_data_t *kd;
+    yaml_pos_t pos_start = yaml_env_get_pos(env);
 
-    t_qv_init(&fields, 1);
-    kd = qv_growlen0(&fields, 1);
+    t_qv_init(&fields, 0);
 
-    RETHROW(yaml_env_parse_key(env, &kd->key, &kd->key_span));
-    RETHROW(yaml_env_ltrim(env));
-    RETHROW(t_yaml_env_parse_scalar(env, true, &kd->data));
+    /* skip '{' */
+    assert (ps_peekc(env->ps) == '{');
+    yaml_env_skipc(env);
 
-    yaml_env_init_data_with_end(env, YAML_DATA_OBJ, kd->key_span.start,
-                                kd->data.span.end, out);
+    for (;;) {
+        yaml_key_data_t kd;
+
+        RETHROW(yaml_env_ltrim(env));
+        if (ps_peekc(env->ps) == '}') {
+            yaml_env_skipc(env);
+            goto end;
+        }
+
+        RETHROW(t_yaml_env_parse_flow_key_data(env, &kd));
+        if (!kd.key.s) {
+            env->ps.s = kd.data.span.start.s;
+            return yaml_env_set_err(env, YAML_ERR_WRONG_DATA,
+                                    "only key-value mappings are allowed "
+                                    "inside an object");
+        } else {
+            qv_append(&fields, kd);
+        }
+
+        RETHROW(yaml_env_ltrim(env));
+        switch (ps_peekc(env->ps)) {
+          case '}':
+            yaml_env_skipc(env);
+            goto end;
+          case ',':
+            yaml_env_skipc(env);
+            break;
+          default:
+            return yaml_env_set_err(env, YAML_ERR_WRONG_DATA,
+                                    "expected another element of object");
+        }
+    }
+
+  end:
+    yaml_env_init_data_with_end(env, YAML_DATA_OBJ, pos_start,
+                                yaml_env_get_pos(env), out);
     out->obj = t_new(yaml_obj_t, 1);
     out->obj->fields = fields;
 
     return 0;
 }
 
-static int t_yaml_env_parse_flow_data(yaml_env_t *env, yaml_data_t *out)
+/* }}} */
+/* {{{ Flow key-data */
+
+static int t_yaml_env_parse_flow_key_val(yaml_env_t *env,
+                                         yaml_key_data_t *out)
+{
+    yaml_key_data_t kd;
+
+    RETHROW(yaml_env_parse_key(env, &out->key, &out->key_span));
+    RETHROW(yaml_env_ltrim(env));
+    RETHROW(t_yaml_env_parse_flow_key_data(env, &kd));
+    if (kd.key.s) {
+        /* This means the value was a key val mapping:
+         *   a: b: c.
+         * Place the ps on the end of the second key, to point to the second
+         * colon. */
+        env->ps.s = kd.key_span.end.s;
+        return yaml_env_set_err(env, YAML_ERR_WRONG_DATA,
+                                "unexpected colon");
+    } else {
+        out->data = kd.data;
+    }
+
+    return 0;
+}
+
+/* As inside a flow context, implicit key-value mappings are allowed, It is
+ * easier to return a key_data object:
+ *  * if a key:value mapping is parsed, a yaml_key_data_t object is returned.
+ *  * otherwise, only out->data is filled, and out->key.s is set to NULL.
+ */
+static int t_yaml_env_parse_flow_key_data(yaml_env_t *env,
+                                          yaml_key_data_t *out)
 {
     RETHROW(yaml_env_ltrim(env));
     if (ps_done(&env->ps)) {
@@ -736,16 +827,23 @@ static int t_yaml_env_parse_flow_data(yaml_env_t *env, yaml_data_t *out)
                                 "unexpected end of line");
     }
 
-    if (ps_peekc(env->ps) == '[') {
-        RETHROW(t_yaml_env_parse_flow_seq(env, out));
-    } else
     if (ps_startswith_yaml_key(env->ps)) {
         RETHROW(t_yaml_env_parse_flow_key_val(env, out));
-    } else {
-        RETHROW(t_yaml_env_parse_scalar(env, true, out));
+        goto end;
     }
 
-    log_new_data(out);
+    out->key = LSTR_NULL_V;
+    if (ps_peekc(env->ps) == '[') {
+        RETHROW(t_yaml_env_parse_flow_seq(env, &out->data));
+    } else
+    if (ps_peekc(env->ps) == '{') {
+        RETHROW(t_yaml_env_parse_flow_obj(env, &out->data));
+    } else {
+        RETHROW(t_yaml_env_parse_scalar(env, true, &out->data));
+    }
+
+  end:
+    log_new_data(&out->data);
     return 0;
 }
 
@@ -777,6 +875,9 @@ static int t_yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
     } else
     if (ps_peekc(env->ps) == '[') {
         RETHROW(t_yaml_env_parse_flow_seq(env, out));
+    } else
+    if (ps_peekc(env->ps) == '{') {
+        RETHROW(t_yaml_env_parse_flow_obj(env, out));
     } else
     if (ps_startswith_yaml_key(env->ps)) {
         RETHROW(t_yaml_env_parse_obj(env, cur_indent, out));
@@ -1546,6 +1647,35 @@ Z_GROUP_EXPORT(yaml)
             "2",
             "3:1: extra characters after data, expected end of document"
         ));
+
+        /* flow seq */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "[a[",
+            "1:3: wrong type of data, expected another element of sequence"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "[",
+            "1:2: missing data, unexpected end of line"
+        ));
+
+        /* flow obj */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "{,",
+            "1:2: missing data, unexpected character"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "{foo}",
+            "1:2: wrong type of data, only key-value mappings are allowed "
+            "inside an object"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "{a: b[",
+            "1:6: wrong type of data, expected another element of object"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "{ a: b: c }",
+            "1:7: wrong type of data, unexpected colon"
+        ));
     } Z_TEST_END;
 
     /* }}} */
@@ -1950,6 +2080,7 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(parsing_flow_seq, "test parsing of flow sequences") {
         t_scope;
         yaml_data_t data;
+        const yaml_data_t *subdata;
         const yaml_data_t *elem;
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
@@ -2007,7 +2138,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
             "- [ ~,\n"
             " [[ true, [ - 2 ] ]\n"
-            "   ] , -2 ,\n"
+            "   ] , a:  [  -2] ,\n"
             "]"
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 4, 2));
@@ -2016,25 +2147,150 @@ Z_GROUP_EXPORT(yaml)
 
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 3, 4, 2));
         Z_ASSERT(data.seq->datas.len == 3);
+        /* first elem: ~ */
         elem = &data.seq->datas.tab[0];
         Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_NULL, 1, 5, 1, 6));
-        elem = &data.seq->datas.tab[2];
-        Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_INT, 3, 8, 3, 10));
+        /* second elem: [[ true, [-2]] */
         elem = &data.seq->datas.tab[1];
         Z_HELPER_RUN(z_check_yaml_data(elem, YAML_DATA_SEQ, 2, 2, 3, 5));
         Z_ASSERT(elem->seq->datas.len == 1);
 
-        data = elem->seq->datas.tab[0];
-        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 2, 3, 2, 20));
-        Z_ASSERT(data.seq->datas.len == 2);
-        elem = &data.seq->datas.tab[0];
+        /* [ true, [-2] ] */
+        subdata = &elem->seq->datas.tab[0];
+        Z_HELPER_RUN(z_check_yaml_data(subdata, YAML_DATA_SEQ, 2, 3, 2, 20));
+        Z_ASSERT(subdata->seq->datas.len == 2);
+        elem = &subdata->seq->datas.tab[0];
         Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_BOOL, 2, 5, 2, 9));
-        elem = &data.seq->datas.tab[1];
+        elem = &subdata->seq->datas.tab[1];
         Z_HELPER_RUN(z_check_yaml_data(elem, YAML_DATA_SEQ, 2, 11, 2, 18));
         Z_ASSERT_EQ(elem->seq->datas.len, 1);
         Z_HELPER_RUN(z_check_yaml_scalar(&elem->seq->datas.tab[0],
                                          YAML_SCALAR_STRING, 2, 13, 2, 16));
         Z_ASSERT_LSTREQUAL(elem->seq->datas.tab[0].scalar.s, LSTR("- 2"));
+
+        /* third elem: a: [-2] */
+        elem = &data.seq->datas.tab[2];
+        Z_HELPER_RUN(z_check_yaml_data(elem, YAML_DATA_OBJ, 3, 8, 3, 18));
+        Z_ASSERT_EQ(elem->obj->fields.len, 1);
+        /* [-2] */
+        Z_ASSERT_LSTREQUAL(elem->obj->fields.tab[0].key, LSTR("a"));
+        Z_HELPER_RUN(z_check_yaml_span(&elem->obj->fields.tab[0].key_span,
+                                       3, 8, 3, 9));
+        subdata = &elem->obj->fields.tab[0].data;
+        Z_HELPER_RUN(z_check_yaml_data(subdata, YAML_DATA_SEQ, 3, 12, 3, 18));
+        Z_ASSERT_EQ(subdata->seq->datas.len, 1);
+        Z_HELPER_RUN(z_check_yaml_scalar(&subdata->seq->datas.tab[0],
+                                         YAML_SCALAR_INT, 3, 15, 3, 17));
+        Z_ASSERT_EQ(subdata->seq->datas.tab[0].scalar.i, -2L);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Parsing flow object */
+
+    Z_TEST(parsing_flow_obj, "test parsing of flow objects") {
+        t_scope;
+        yaml_data_t data;
+        const yaml_key_data_t *elem;
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "{}"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 1, 3));
+        Z_ASSERT_NULL(data.tag.s);
+        Z_ASSERT(data.obj->fields.len == 0);
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "{ a: ~ }"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 1, 9));
+        Z_ASSERT(data.obj->fields.len == 1);
+        elem = &data.obj->fields.tab[0];
+        Z_ASSERT_LSTREQUAL(elem->key, LSTR("a"));
+        Z_HELPER_RUN(z_check_yaml_span(&elem->key_span, 1, 3, 1, 4));
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem->data, YAML_SCALAR_NULL,
+                                         1, 6, 1, 7));
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "{ a: foo, }"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 1, 12));
+        Z_ASSERT(data.obj->fields.len == 1);
+        elem = &data.obj->fields.tab[0];
+        Z_ASSERT_LSTREQUAL(elem->key, LSTR("a"));
+        Z_HELPER_RUN(z_check_yaml_span(&elem->key_span, 1, 3, 1, 4));
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem->data, YAML_SCALAR_STRING,
+                                         1, 6, 1, 9));
+        Z_ASSERT_LSTREQUAL(elem->data.scalar.s, LSTR("foo"));
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "{ a: ~ ,a:\n"
+            "2,}"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 2, 4));
+        Z_ASSERT(data.obj->fields.len == 2);
+        elem = &data.obj->fields.tab[0];
+        Z_ASSERT_LSTREQUAL(elem->key, LSTR("a"));
+        Z_HELPER_RUN(z_check_yaml_span(&elem->key_span, 1, 3, 1, 4));
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem->data, YAML_SCALAR_NULL,
+                                         1, 6, 1, 7));
+        elem = &data.obj->fields.tab[1];
+        Z_ASSERT_LSTREQUAL(elem->key, LSTR("a"));
+        Z_HELPER_RUN(z_check_yaml_span(&elem->key_span, 1, 9, 1, 10));
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem->data, YAML_SCALAR_UINT,
+                                         2, 1, 2, 2));
+        Z_ASSERT_EQ(elem->data.scalar.u, 2UL);
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data,
+            "- { a: [true,\n"
+            "   false,]\n"
+            "     , b: f   \n"
+            "  ,\n"
+            "    z: { y: 1  }}\n"
+            "- ~"
+        ));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 6, 4));
+        Z_ASSERT(data.seq->datas.len == 2);
+        Z_HELPER_RUN(z_check_yaml_scalar(&data.seq->datas.tab[1],
+                                         YAML_SCALAR_NULL, 6, 3, 6, 4));
+
+        data = data.seq->datas.tab[0];
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 3, 5, 18));
+        Z_ASSERT(data.seq->datas.len == 3);
+
+        elem = &data.obj->fields.tab[0];
+        Z_ASSERT_LSTREQUAL(elem->key, LSTR("a"));
+        Z_HELPER_RUN(z_check_yaml_span(&elem->key_span, 1, 5, 1, 6));
+        Z_HELPER_RUN(z_check_yaml_data(&elem->data, YAML_DATA_SEQ,
+                                         1, 8, 2, 11));
+        Z_ASSERT_EQ(elem->data.seq->datas.len,2);
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem->data.seq->datas.tab[0],
+                                         YAML_SCALAR_BOOL, 1, 9, 1, 13));
+        Z_ASSERT(elem->data.seq->datas.tab[0].scalar.b);
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem->data.seq->datas.tab[1],
+                                         YAML_SCALAR_BOOL, 2, 4, 2, 9));
+        Z_ASSERT(!elem->data.seq->datas.tab[1].scalar.b);
+
+        elem = &data.obj->fields.tab[1];
+        Z_ASSERT_LSTREQUAL(elem->key, LSTR("b"));
+        Z_HELPER_RUN(z_check_yaml_span(&elem->key_span, 3, 8, 3, 9));
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem->data, YAML_SCALAR_STRING,
+                                         3, 11, 3, 12));
+        Z_ASSERT_LSTREQUAL(elem->data.scalar.s, LSTR("f"));
+
+        elem = &data.obj->fields.tab[2];
+        Z_ASSERT_LSTREQUAL(elem->key, LSTR("z"));
+        Z_HELPER_RUN(z_check_yaml_span(&elem->key_span, 5, 5, 5, 6));
+        Z_HELPER_RUN(z_check_yaml_data(&elem->data, YAML_DATA_OBJ,
+                                       5, 8, 5, 17));
+        Z_ASSERT_EQ(elem->data.obj->fields.len, 1);
+
+        /* { y: 1 } */
+        elem = &elem->data.obj->fields.tab[0];
+        Z_ASSERT_LSTREQUAL(elem->key, LSTR("y"));
+        Z_HELPER_RUN(z_check_yaml_span(&elem->key_span, 5, 10, 5, 11));
+        Z_HELPER_RUN(z_check_yaml_scalar(&elem->data, YAML_SCALAR_UINT,
+                                         5, 13, 5, 14));
+        Z_ASSERT_EQ(elem->data.scalar.u, 1UL);
     } Z_TEST_END;
 
     /* }}} */

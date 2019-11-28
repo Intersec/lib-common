@@ -70,6 +70,8 @@ Only a limited subset of data can be used inside this syntax however:
     key: value,
     # Additional inline sequences can be used:
     [ foo, ~, ],
+    # Inline objects can be used:
+    { a: b, c: d }
 ]
 ----
 
@@ -83,6 +85,15 @@ struct:
   foo: 5
   bar: aa
 ----
+
+An inline syntax can be used as well:
+
+[source,YAML]
+----
+struct: { foo: 5, bar: aa }
+----
+
+See the inline sequence description for which values can be used in the inline syntax.
 
 === Class
 
