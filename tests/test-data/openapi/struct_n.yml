@@ -1,0 +1,22 @@
+openapi: 3.0.2
+info:
+  title: structs
+  version: 2.3.1
+servers:
+  - url: /
+paths: {}
+components:
+  schemas:
+    tstiop.MyStructN:
+      type: object
+      required:
+        - u
+        - i
+      properties:
+        u:
+          type: integer
+          format: uint64
+          minimum: 0
+        i:
+          type: integer
+          format: int64

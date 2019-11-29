@@ -1,0 +1,430 @@
+openapi: 3.0.2
+info:
+  title: tstdox
+  version: 1.0.1
+servers:
+  - url: /tstdox
+paths:
+  /iface/funA:
+    post:
+      tags:
+        - iface
+      summary: comment for funA of MyIface
+      description: "detailed description for funA of MyIface\n\nwarning for funA of MyIface"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funAArgs"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyIface.funARes"
+        '500':
+          description: "local comment for MyIface.funA.throw\n\ncomment for funA.throw"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyStruct"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /iface/funAa:
+    post:
+      tags:
+        - iface
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funAaArgs"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyIface.funAaRes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /iface/funB:
+    post:
+      tags:
+        - iface
+      summary: comment for MyIface.funB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funBArgs"
+      responses:
+        '200':
+          description: comment for MyIface.funB.out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyUnion"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /iface/funBal1:
+    post:
+      tags:
+        - iface
+      summary: comment for MyIface.funB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funBal1Args"
+      responses:
+        '200':
+          description: comment for MyIface.funB.out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyUnion"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /iface/funBal2:
+    post:
+      tags:
+        - iface
+      summary: comment for MyIface.funB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funBal2Args"
+      responses:
+        '200':
+          description: comment for MyIface.funB.out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyUnion"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /iface/funC:
+    post:
+      tags:
+        - iface
+      summary: comment for MyIface.funC
+      requestBody:
+        required: true
+        description: comment for MyIface.funC.in
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyStruct"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyIface.funCRes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /iface/funD:
+    post:
+      tags:
+        - iface
+      summary: front comment... and back comment for funD
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop_dox.MyIface.funDRes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /iface/funE:
+    post:
+      tags:
+        - iface
+      summary: Comment for funE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funEArgs"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /iface/funE1:
+    post:
+      tags:
+        - iface
+      summary: Comment for funE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funE1Args"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /iface/funE2:
+    post:
+      tags:
+        - iface
+      summary: Comment for funE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop_dox.MyIface.funE2Args"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+components:
+  schemas:
+    tstiop_dox.MyEnum:
+      type: string
+      description: "comment for MyEnum\n\ndetails for MyEnum \\word not a recognized keyword\n\nwarn for MyEnum"
+      enum:
+        - VAL_A
+        - VAL_B
+        - VAL_C
+    tstiop_dox.MyStruct:
+      type: object
+      description: comment for MyStruct
+      required:
+        - fieldA
+        - fieldB
+        - fieldC
+      properties:
+        fieldA:
+          type: integer
+          format: int32
+          description: comment for MyStruct.fieldA
+        fieldB:
+          $ref: "#/components/schemas/tstiop_dox.MyEnum"
+        fieldC:
+          type: integer
+          format: int32
+          description: comment for MyStruct.fieldC
+    tstiop_dox.MyIface.funAArgs:
+      type: object
+      description: local comment for MyIface.funA.in
+      required:
+        - aParam
+        - b
+      properties:
+        aParam:
+          type: integer
+          format: int32
+          description: "local comment for MyIface.funA.in.aParam\n\ncomment for aParam of funA.in\n                      it continues here"
+        b:
+          description: "local comment for MyIface.funA.in.b\n\ncomment for b of funA.in"
+          allOf:
+            - $ref: "#/components/schemas/tstiop_dox.MyStruct"
+      example: "{\"aParam\":1,\"b\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13}}"
+    tstiop_dox.MyClass:
+      type: object
+      properties:
+        _class:
+          type: string
+      discriminator:
+        propertyName: _class
+    tstiop_dox.MyIface.funARes:
+      type: object
+      description: local comment for MyIface.funA.out
+      required:
+        - d
+      properties:
+        c:
+          description: "local comment for MyIface.funA.out.c\n\ncomment for c of funA.out"
+          oneOf:
+            - $ref: "#/components/schemas/tstiop_dox.MyClass"
+          discriminator:
+            propertyName: _class
+        d:
+          type: integer
+          format: int32
+          description: "comment for \\ref d of funA.out\n2nd paragraph for \\p d of funA.out"
+      example: "{\"c\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13},\"d\":4}"
+    tstiop_dox.MyIface.funAaArgs:
+      type: object
+      description: comment for MyIface.funAa.in
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+    tstiop_dox.MyIface.funAaRes:
+      type: object
+      required:
+        - b
+      properties:
+        b:
+          type: integer
+          format: int32
+    tstiop_dox.MyIface.funBArgs:
+      type: object
+      description: comment for MyIface.funB.in
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+    tstiop_dox.MyUnion:
+      description: comment for MyUnion
+      oneOf:
+        - type: object
+          required:
+            - fieldA
+          properties:
+            fieldA:
+              type: boolean
+              description: comment for MyUnion.fieldA
+        - type: object
+          required:
+            - fieldB
+          properties:
+            fieldB:
+              type: boolean
+    tstiop_dox.MyIface.funBal1Args:
+      type: object
+      description: comment for MyIface.funB.in
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+    tstiop_dox.MyIface.funBal2Args:
+      type: object
+      description: comment for MyIface.funB.in
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+    tstiop_dox.MyIface.funCRes:
+      type: object
+      required:
+        - b
+      properties:
+        b:
+          type: integer
+          format: int32
+    Void:
+      type: object
+    tstiop_dox.MyIface.funDRes:
+      type: object
+      description: front comment... and back comment for res of funD
+      required:
+        - b
+      properties:
+        b:
+          type: integer
+          format: int32
+    tstiop_dox.MyIface.funEArgs:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          description: It is a \p comment for \ref a
+    tstiop_dox.MyIface.funE1Args:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          description: It is a \p comment for \ref a
+    tstiop_dox.MyIface.funE2Args:
+      type: object
+      required:
+        - a
+      properties:
+        a:
+          type: integer
+          format: int32
+          description: It is a \p comment for \ref a
+tags:
+  - name: iface
+    description: "comment for MyModule.iface\n\ncomment for MyIface"

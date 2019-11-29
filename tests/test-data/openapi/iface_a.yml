@@ -1,0 +1,389 @@
+openapi: 3.0.2
+info:
+  title: yay
+  version: 0.0.1
+servers:
+  - url: /yay
+paths:
+  /a/funA:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyIfaceA.funAArgs"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funARes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funb:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funbRes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funC:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyStructA"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyStructB"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funD:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyStructA"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funE:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funERes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funF:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyIfaceA.funFArgs"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyStructB"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funG:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funH:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funI:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funJ:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Void"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funK:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyStructA"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funKRes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funL:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyUnionA"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funM:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyStructA"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funMRes"
+        '500':
+          description: RPC error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funMExn"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funN:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyStructA"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funNRes"
+        '500':
+          description: RPC error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyAException"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funO:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyStructA"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyIfaceA.funORes"
+        '500':
+          description: RPC error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.MyExceptions"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+  /a/funAsync:
+    post:
+      tags:
+        - a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.MyIfaceA.funAsyncArgs"
+      responses:
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+tags:
+  - name: a

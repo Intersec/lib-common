@@ -1,0 +1,50 @@
+openapi: 3.0.2
+info:
+  title: yay
+  version: 0.0.1
+servers:
+  - url: /route
+paths:
+  /iface/f:
+    post:
+      tags:
+        - iface
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/tstiop.Iface.fArgs"
+      responses:
+        '200':
+          description: RPC success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tstiop.Iface.fRes"
+        default:
+          description: generic error
+          content:
+            text/html:
+              schema:
+                type: string
+components:
+  schemas:
+    tstiop.Iface.fArgs:
+      type: object
+      required:
+        - i
+      properties:
+        i:
+          type: integer
+          format: int32
+    tstiop.Iface.fRes:
+      type: object
+      required:
+        - i
+      properties:
+        i:
+          type: integer
+          format: int32
+tags:
+  - name: iface

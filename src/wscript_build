@@ -149,6 +149,7 @@ ctx.stlib(target='libcommon', features='c cstlib', use=[
     'core/file-log.blk',
     'core/file.c',
     'core/log-iop.c',
+    'core/parsing-helpers.c',
     'core/qpage.c',
     'core/qps-bitmap.c',
     'core/qps-hat.c',
@@ -167,7 +168,8 @@ ctx.stlib(target='libcommon', features='c cstlib', use=[
     'net/httptokens.c',
 
     'iop/json.blk',
-    'iop/yaml.blk',
+    'iop/openapi.blk',
+    'iop/yaml.c',
     'iop/rpc-channel.fc',
     'iop/rpc-channel.blk',
     'iop/rpc-http-pack.c',

@@ -811,6 +811,36 @@ class SmallChild : 2 : NoFieldParent {
     string c;
 };
 
+enum NegativeEnum {
+    NEG = -2,
+};
+
+struct StructWithNegativeEnum {
+    NegativeEnum e;
+};
+
+@strict
+enum EnumStrict {
+    A,
+};
+
+struct StructWithEnumStrict {
+    EnumStrict e;
+};
+
+
+/* }}} */
+/* {{{ zchk iop_openapi */
+
+struct ConstraintD {
+    @min(1.53)
+    double a;
+    @max(1.5e12)
+    double b;
+    @nonZero
+    double c;
+};
+
 /* }}} */
 /* {{{ iopc zchk */
 /* {{{ zchk iopsq.sub_struct */
@@ -929,5 +959,10 @@ interface Iface {
 };
 
 module T {
+    Iface iface;
+};
+
+module BothIface {
+    MyIfaceA a;
     Iface iface;
 };

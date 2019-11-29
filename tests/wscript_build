@@ -42,6 +42,7 @@ ctx.program(target='zchk', source=[
     'zchk-iop-core-obj.blk',
     'zchk-iop-rpc.c',
     'zchk-iop-yaml.c',
+    'zchk-iop-openapi.c',
     'zchk-iprintf.c',
     'zchk-log.blk',
     'zchk-mem.c',

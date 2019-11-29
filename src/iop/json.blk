@@ -18,6 +18,7 @@
 
 #include <math.h>
 #include <lib-common/unix.h>
+#include <lib-common/parsing-helpers.h>
 #include <lib-common/iop-json.h>
 #include <lib-common/thr.h>
 
@@ -476,6 +477,8 @@ static int iop_json_lex_enum(iop_json_lex_t *ll, int terminator,
         const char *q;
 
         errno = 0;
+        /* FIXME: for strict enums, only integer values that matches enum
+         * values should be allowed. */
         ll->ctx->u.i = strtoull(s.s, &q, 0);
 
         if (errno || q != end) {
@@ -667,102 +670,22 @@ static int iop_json_lex_char(iop_json_lex_t *ll, int terminator)
     }
 }
 
-int iop_json_parse_str(pstream_t *ps, sb_t *buf, int *line, int *col,
-                       int terminator)
-{
-    sb_reset(buf);
-
-    for (;;) {
-        for (unsigned i = 0; i < ps_len(ps); i++) {
-            if (PS_READAT(ps, i) == '\n') {
-                return IOP_JERR_UNCLOSED_STRING;
-            } else
-            if (PS_READAT(ps, i) == '\\') {
-                sb_add(buf, ps->p, i);
-                PS_SKIP(ps, *col, i);
-                goto parse_bslash;
-            } else
-            if (PS_READAT(ps, i) == terminator) {
-                sb_add(buf, ps->p, i);
-                PS_SKIP(ps, *col, i + 1);
-                return IOP_JSON_STRING;
-            }
-        }
-        return IOP_JERR_UNCLOSED_STRING;
-
-      parse_bslash:
-        if (!PS_HAS(ps, 2)) {
-            return IOP_JERR_EXP_SMTH;
-        }
-
-        switch (PS_READAT(ps, 1)) {
-            int a, b;
-
-          case 'a': case 'b': case 'e': case 't': case 'n': case 'v':
-          case 'f': case 'r':
-            sb_add_unquoted(buf, ps->p, 2);
-            PS_SKIP(ps, *col, 2);
-            continue;
-          case '\\': case '"': case '\'': case '/':
-            sb_addc(buf, PS_READAT(ps, 1));
-            PS_SKIP(ps, *col, 2);
-            continue;
-          case '0' ... '2':
-            if (PS_HAS(ps, 4)
-                &&  PS_READAT(ps, 2) >= '0' && PS_READAT(ps, 2) <= '7'
-                &&  PS_READAT(ps, 3) >= '0' && PS_READAT(ps, 3) <= '7')
-            {
-                sb_addc(buf, ((PS_READAT(ps, 1) - '0') << 6)
-                           | ((PS_READAT(ps, 2) - '0') << 3)
-                           |  (PS_READAT(ps, 3) - '0'));
-                PS_SKIP(ps, *col, 4);
-                continue;
-            }
-            if (PS_READAT(ps, 1) == '0') {
-                sb_addc(buf, '\0');
-                PS_SKIP(ps, *col, 2);
-                continue;
-            }
-            break;
-          case 'x':
-            if (PS_HAS(ps, 4) && (a = hexdecode(ps->s + 2)) >= 0) {
-                sb_addc(buf, a);
-                PS_SKIP(ps, *col, 4);
-                continue;
-            }
-            break;
-          case 'u':
-            if (PS_HAS(ps, 6) && (a = hexdecode(ps->s + 2)) >= 0
-                && (b = hexdecode(ps->s + 4)) >= 0)
-            {
-                sb_adduc(buf, (a << 8) | b);
-                PS_SKIP(ps, *col, 6);
-                continue;
-            }
-            break;
-          case '\n':
-            sb_add(buf, ps->p, 2);
-            PS_SKIP(ps, *col, 2);
-            _NEWLINE(*line, *col);
-            continue;
-        }
-        sb_add(buf, ps->p, 2);
-        PS_SKIP(ps, *col, 2);
-    }
-}
-
 static int iop_json_lex_str(iop_json_lex_t *ll, int terminator)
 {
-    int res;
+    parse_str_res_t res;
 
-    res = iop_json_parse_str(PS, &ll->ctx->b, &ll->ctx->line, &ll->ctx->col,
-                             terminator);
-    if (res == IOP_JERR_EXP_SMTH) {
+    res = parse_quoted_string(PS, &ll->ctx->b, &ll->ctx->line, &ll->ctx->col,
+                              terminator);
+    switch (res) {
+      case PARSE_STR_ERR_EXP_SMTH:
         return RJERROR_WARG(IOP_JERR_EXP_SMTH);
-    } else
-    if (res < 0) {
-        return JERROR(res);
+      case PARSE_STR_ERR_UNCLOSED:
+        return JERROR(IOP_JERR_UNCLOSED_STRING);
+      case PARSE_STR_OK:
+        return IOP_JSON_STRING;
     }
+
+    assert (false);
     return res;
 }
 
@@ -1629,6 +1552,8 @@ unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
     if (ll->flags & IOP_UNPACK_FORBID_PRIVATE
     &&  (*real_desc)->class_attrs->is_private)
     {
+        /* TODO: the error should probably be an "unknown type" to not expose
+         * the private name. To be done for YAML unpacker too. */
         return RJERROR_EXP_FMT("a non-private child of `%*pM`",
                                LSTR_FMT_ARG(desc->fullname));
     }

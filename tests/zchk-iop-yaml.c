@@ -18,9 +18,10 @@
 
 /* LCOV_EXCL_START */
 
+#include <math.h>
+
 #include <lib-common/z.h>
 #include <lib-common/iop-yaml.h>
-
 #include "iop/tstiop.iop.h"
 
 /* {{{ IOP testing helpers */
@@ -35,10 +36,10 @@ static int t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
 
     /* packing */
     if (flags == 0) {
-        Z_ASSERT_N(iop_ypack(st, v, iop_sb_write, out),
+        Z_ASSERT_N(iop_sb_ypack(out, st, v),
                    "YAML packing failure for %s", st->fullname.s);
     } else {
-        Z_ASSERT_N(iop_ypack_with_flags(st, v, iop_sb_write, out, flags),
+        Z_ASSERT_N(iop_sb_ypack_with_flags(out, st, v, flags),
                    "YAML packing failure for %s", st->fullname.s);
     }
 
@@ -149,22 +150,22 @@ Z_GROUP_EXPORT(iop_yaml)
                                         _must_be_equal, _exp))
 
         /* default is to skip everything optional */
-        TST_FLAGS(0, true, true, "~");
+        TST_FLAGS(0, true, true, "{}");
         /* NO_WHITESPACES is not valid for YAML */
         TST_FLAGS(IOP_JPACK_NO_WHITESPACES, true, true,
                   "def: 1\n"
-                  "rep: ~");
+                  "rep: []");
         /* FIXME: NO_TRAILING_EOL to handle */
         TST_FLAGS(IOP_JPACK_NO_TRAILING_EOL, true, true,
                   "def: 1\n"
-                  "rep: ~");
+                  "rep: []");
 
         /* SKIP_DEFAULT */
-        TST_FLAGS(IOP_JPACK_SKIP_DEFAULT, true, true, "rep: ~");
+        TST_FLAGS(IOP_JPACK_SKIP_DEFAULT, true, true, "rep: []");
         st_jpack.def = 2;
         TST_FLAGS(flags | IOP_JPACK_SKIP_DEFAULT, true, true,
                   "def: 2\n"
-                  "rep: ~");
+                  "rep: []");
         st_jpack.def = 1;
 
         /* SKIP_EMPTY_ARRAYS */
@@ -217,58 +218,102 @@ Z_GROUP_EXPORT(iop_yaml)
     /* }}} */
     Z_TEST(pack_string, "test IOP YAML string packing") { /* {{{ */
         tstiop__my_union_a__t obj;
+        const char invalid_utf8[3] = { 0xC0, 0x21, '\0' };
 
         obj = IOP_UNION(tstiop__my_union_a, us, LSTR(""));
 
-#define TST(str, _exp)                                                       \
+#define TST(str, _exp, _must_be_equal)                                       \
         do {                                                                 \
             obj.us = LSTR(str);                                              \
             Z_HELPER_RUN(iop_yaml_test_pack(&tstiop__my_union_a__s, &obj, 0, \
-                                            true, true, (_exp)));            \
+                                            true, (_must_be_equal), (_exp)));\
         } while(0)
 
         /* test cases when packing surrounds the string with quotes */
 
         /* for empty string */
-        TST("", "us: \"\"");
+        TST("", "us: \"\"", true);
 
         /* when starting with -, '&', '*' or '!' */
-        TST("- muda", "us: \"- muda\"");
-        TST("mu - da", "us: mu - da");
-        TST("&muda", "us: \"&muda\"");
-        TST("mu&da", "us: mu&da");
-        TST("*muda", "us: \"*muda\"");
-        TST("mu*da", "us: mu*da");
-        TST("!muda", "us: \"!muda\"");
-        TST("mu!da", "us: mu!da");
+        TST("- muda", "us: \"- muda\"", true);
+        TST("mu - da", "us: mu - da", true);
+        TST("&muda", "us: \"&muda\"", true);
+        TST("mu&da", "us: mu&da", true);
+        TST("*muda", "us: \"*muda\"", true);
+        TST("mu*da", "us: mu*da", true);
+        TST("!muda", "us: \"!muda\"", true);
+        TST("mu!da", "us: mu!da", true);
+
+        /* when starting with '[' or '{' */
+        TST("[mu\\da", "us: \"[mu\\\\da\"", true);
+        TST("]mu\\da", "us: ]mu\\da", true);
+        TST("{mu\\da", "us: \"{mu\\\\da\"", true);
+        TST("}mu\\da", "us: }mu\\da", true);
 
         /* when containing ':' or '#' */
-        TST(":muda", "us: \":muda\"");
-        TST(": muda", "us: \": muda\"");
-        TST("mu:da", "us: \"mu:da\"");
-        TST("mu: da", "us: \"mu: da\"");
-        TST("#muda", "us: \"#muda\"");
-        TST("# muda", "us: \"# muda\"");
-        TST("mu#da", "us: \"mu#da\"");
-        TST("mu# da", "us: \"mu# da\"");
+        TST(":muda", "us: \":muda\"", true);
+        TST(": muda", "us: \": muda\"", true);
+        TST("mu:da", "us: \"mu:da\"", true);
+        TST("mu: da", "us: \"mu: da\"", true);
+        TST("#muda", "us: \"#muda\"", true);
+        TST("# muda", "us: \"# muda\"", true);
+        TST("mu#da", "us: \"mu#da\"", true);
+        TST("mu# da", "us: \"mu# da\"", true);
 
         /* when containing quotes or \X characters */
-        TST("mu\"da", "us: mu\"da");
-        TST("\"muda", "us: \"\\\"muda\"");
-        TST("mu\rda\t", "us: \"mu\\rda\\t\"");
-        TST("\a \b \e \f \n \r \t \v",
-            "us: \"\\a \\b \\e \\f \\n \\r \\t \\v\"");
+        TST("mu\"da", "us: mu\"da", true);
+        TST("\"muda", "us: \"\\\"muda\"", true);
+        TST("mu\rda\t", "us: \"mu\\rda\\t\"", true);
+        TST("\a \b \e \f \n \r \t \\ \v",
+            "us: \"\\a \\b \\e \\f \\n \\r \\t \\\\ \\v\"", true);
 
-        TST("mùda", "us: \"m\\u00f9da\"");
+        /* with an invalid utf-8 character.
+         * The unpacked object won't be equal to the packed one, as the
+         * invalid character will be repacked as a valid utf-8 sequence */
+        TST(invalid_utf8, "us: \"\\u00c0!\"", false);
+
+        TST("\a \b \e \f \n \r \t \\ \v",
+            "us: \"\\a \\b \\e \\f \\n \\r \\t \\\\ \\v\"", true);
+
+        TST("mùda", "us: \"m\\u00f9da\"", true);
 
         /* when it would be parsed as something else */
-        TST("~", "us: \"~\"");
-        TST("null", "us: \"null\"");
-        TST("TruE", "us: TruE");
-        TST("FalSe", "us: FalSe");
+        TST("~", "us: \"~\"", true);
+        TST("null", "us: \"null\"", true);
+        TST("TruE", "us: TruE", true);
+        TST("FalSe", "us: FalSe", true);
 
-        TST("4.2", "us: 4.2");
-        TST("42", "us: 42");
+        TST("4.2", "us: 4.2", true);
+        TST("42", "us: 42", true);
+#undef TST
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(pack_corner_cases, "test IOP YAML corner cases packing") { /* {{{ */
+        tstiop__my_struct_a_opt__t obj;
+
+        iop_init(tstiop__my_struct_a_opt, &obj);
+
+#define TST(_exp, _test_unpack, _must_be_equal)                              \
+        do {                                                                 \
+            Z_HELPER_RUN(iop_yaml_test_pack(&tstiop__my_struct_a_opt__s,     \
+                                            &obj, 0, (_test_unpack),         \
+                                            (_must_be_equal), (_exp)));      \
+        } while(0)
+
+        /* test special double values */
+        OPT_SET(obj.m, INFINITY);
+        TST("m: .Inf", true, true);
+        OPT_SET(obj.m, -INFINITY);
+        TST("m: -.Inf", true, true);
+        OPT_SET(obj.m, NAN);
+        TST("m: .NaN", true, true);
+        OPT_CLR(obj.m);
+
+        /* test unknown integer enum value */
+        OPT_SET(obj.k, 42);
+        /* cannot unpack because value will be invalid */
+        TST("k: 42", false, false);
+
 #undef TST
     } Z_TEST_END;
     /* }}} */
@@ -291,13 +336,13 @@ Z_GROUP_EXPORT(iop_yaml)
                                         &empty_jpack, _flags, false,         \
                                         _must_be_equal, _exp))
 
-        TST(flags, true, "~");
+        TST(flags, true, "{}");
 
         OPT_SET(empty_jpack.sub.priv, 8);
         TST(flags, true,
             "sub:\n"
             "  priv: 8");
-        TST(flags | IOP_JPACK_SKIP_PRIVATE, false, "~");
+        TST(flags | IOP_JPACK_SKIP_PRIVATE, false, "{}");
         OPT_CLR(empty_jpack.sub.priv);
 
         OPT_SET(empty_jpack.sub.opt, 12);
@@ -331,7 +376,7 @@ Z_GROUP_EXPORT(iop_yaml)
         empty_jpack.sub.opt_st = &sub_st;
         TST(flags, true,
             "sub:\n"
-            "  optSt: ~");
+            "  optSt: {}");
         empty_jpack.sub.opt_st = NULL;
 
         clsb.a = 10;
@@ -345,7 +390,7 @@ Z_GROUP_EXPORT(iop_yaml)
         empty_jpack.sub.cls = &clsc.super;
         TST(flags, true,
             "sub:\n"
-            "  cls: !tstiop.JpackEmptyClsC ~");
+            "  cls: !tstiop.JpackEmptyClsC {}");
         empty_jpack.sub.cls = &clsb;
 
 #undef TST
@@ -400,6 +445,12 @@ Z_GROUP_EXPORT(iop_yaml)
                   "cannot set an integer value in a field of type string\n"
                   "s: -42\n"
                   "   ^^^");
+        /* bool -> scalar */
+        TST_ERROR("data: true",
+                  "1:7: "ERR_COMMON": cannot set field `data`: "
+                  "cannot set a boolean value in a field of type bytes\n"
+                  "data: true\n"
+                  "      ^^^^");
         /* seq -> scalar */
         TST_ERROR("s: - 42",
                   "1:4: "ERR_COMMON": cannot set field `s`: "
@@ -407,12 +458,11 @@ Z_GROUP_EXPORT(iop_yaml)
                   "s: - 42\n"
                   "   ^^^^");
         /* seq -> struct */
-        TST_ERROR("st: - 42",
-                  "1:5: "ERR_COMMON": cannot set field `st`: "
-                  "cannot unpack YAML as a `tstiop.TestStruct` IOP struct: "
+        TST_ERROR("- 42",
+                  "1:1: "ERR_COMMON": "
                   "cannot unpack a sequence into a struct\n"
-                  "st: - 42\n"
-                  "    ^^^^");
+                  "- 42\n"
+                  "^^^^");
         /* obj -> scalar */
         TST_ERROR("s: a: 42",
                   "1:4: "ERR_COMMON": cannot set field `s`: "
@@ -422,10 +472,15 @@ Z_GROUP_EXPORT(iop_yaml)
         /* scalar -> union */
         TST_ERROR("un: true",
                   "1:5: "ERR_COMMON": cannot set field `un`: "
-                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
-                  "cannot unpack a boolean value into a union\n"
+                  "cannot set a boolean value in a field of type union\n"
                   "un: true\n"
                   "    ^^^^");
+        /* use of tag */
+        TST_ERROR("s: !str jojo",
+                  "1:4: "ERR_COMMON": cannot set field `s`: "
+                  "specifying a tag on a string value is not allowed\n"
+                  "s: !str jojo\n"
+                  "   ^^^^^^^^^");
 
         /* --- OOB --- */
 
@@ -544,16 +599,6 @@ Z_GROUP_EXPORT(iop_yaml)
                   "st: i: 42\n"
                   "    ^^^^^");
 
-        /* --- union errors --- */
-
-        /* use of tag */
-        TST_ERROR("un: !tstiop.TestUnion i: 42",
-                  "1:5: "ERR_COMMON": cannot set field `un`: "
-                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
-                  "specifying a tag is not allowed\n"
-                  "un: !tstiop.TestUnion i: 42\n"
-                  "    ^^^^^^^^^^^^^^^^^^^^^^^");
-
         /* multiple keys */
         TST_ERROR("un: i: 42\n"
                   "    s: foo",
@@ -571,14 +616,14 @@ Z_GROUP_EXPORT(iop_yaml)
                   "un: a: 42\n"
                   "    ^^^^^");
 
-        /* --- enum errors --- */
-
-        /* invalid string */
-        TST_ERROR("e: D",
-                  "1:4: "ERR_COMMON": cannot set field `e`: "
-                  "the value is not valid for the enum `TestEnum`\n"
-                  "e: D\n"
-                  "   ^");
+        /* error on field unpacking */
+        TST_ERROR("un: i: foo",
+                  "1:8: "ERR_COMMON": cannot set field `un`: "
+                  "cannot unpack YAML as a `tstiop.TestUnion` IOP union: "
+                  "cannot set field `i`: "
+                  "cannot set a string value in a field of type int\n"
+                  "un: i: foo\n"
+                  "       ^^^");
 
         /* --- blob errors --- */
 
@@ -588,6 +633,17 @@ Z_GROUP_EXPORT(iop_yaml)
                   "the value must be encoded in base64\n"
                   "data: D\n"
                   "      ^");
+
+        /* --- struct errors --- */
+
+        /* wrong explicit tag */
+        /* TODO: location should be the tag */
+        TST_ERROR("!tstiop.FullDefVal i8: 1",
+                  "1:1: "ERR_COMMON": "
+                  "wrong type `tstiop.FullDefVal` provided in tag, "
+                  "expected `tstiop.FullOpt`\n"
+                  "!tstiop.FullDefVal i8: 1\n"
+                  "^^^^^^^^^^^^^^^^^^^^^^^^");
 
         /* --- class errors --- */
 
@@ -668,6 +724,21 @@ Z_GROUP_EXPORT(iop_yaml)
                   "o: ra\n"
                   "^^^^^");
 
+        /* wrong tag */
+        /* TODO: location should be the tag */
+        TST_ERROR("!tstiop.MyUnion o: ra\n",
+                  "1:1: "ERR_COMMON": wrong type `tstiop.MyUnion` "
+                  "provided in tag, expected `tstiop.MyUnionA`\n"
+                  "!tstiop.MyUnion o: ra\n"
+                  "^^^^^^^^^^^^^^^^^^^^^");
+
+        /* wrong data type */
+        TST_ERROR("yare yare\n",
+                  "1:1: "ERR_COMMON": "
+                  "cannot unpack a string value into a union\n"
+                  "yare yare\n"
+                  "^^^^^^^^^");
+
         /* test an error when unpacking a file: should display the filename */
         path = t_fmt("%*pM/test-data/yaml/invalid_union.yml",
                      LSTR_FMT_ARG(z_cmddir_g));
@@ -677,14 +748,56 @@ Z_GROUP_EXPORT(iop_yaml)
                              "^^^^^", path);
         Z_ASSERT_STREQUAL(err.data, expected_err);
 
+        /* on unknown file */
+        Z_ASSERT_NEG(t_iop_yunpack_ptr_file("foo.yml", st, &res, &err));
+        Z_ASSERT_STREQUAL(err.data, "cannot read file foo.yml: "
+                          "No such file or directory");
+
+        /* --- enum errors --- */
+
+        st = &tstiop__struct_with_enum_strict__s;
+#undef ERR_COMMON
+#define ERR_COMMON  \
+        "cannot unpack YAML as a `tstiop.StructWithEnumStrict` IOP struct"
+
+        /* invalid string */
+        TST_ERROR("e: D",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is not valid for the enum `EnumStrict`\n"
+                  "e: D\n"
+                  "   ^");
+        /* invalid number */
+        TST_ERROR("e: 999",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is not valid for the enum `EnumStrict`\n"
+                  "e: 999\n"
+                  "   ^^^");
+        TST_ERROR("e: -10",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is not valid for the enum `EnumStrict`\n"
+                  "e: -10\n"
+                  "   ^^^");
+        /* overflow is handled, integer for enums is an int32 */
+        TST_ERROR("e: -5000000000",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is out of range for the field of type enum\n"
+                  "e: -5000000000\n"
+                  "   ^^^^^^^^^^^");
+        TST_ERROR("e: 5000000000",
+                  "1:4: "ERR_COMMON": cannot set field `e`: "
+                  "the value is out of range for the field of type enum\n"
+                  "e: 5000000000\n"
+                  "   ^^^^^^^^^^");
+
 #undef ERR_COMMON
 #undef TST_ERROR
     } Z_TEST_END;
     /* }}} */
     Z_TEST(unpack, "test IOP YAML unpacking") { /* {{{ */
-#define TST(_st, _yaml)                                                      \
-        Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml), NULL))
+#define TST(_st, _yaml, _new_yaml)                                           \
+        Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml), (_new_yaml)))
 
+        /* test a lot of different types */
         TST(&tstiop__my_struct_a__s,
             "a: -1\n"
             "b: 2\n"
@@ -716,11 +829,47 @@ Z_GROUP_EXPORT(iop_yaml)
             "q: 17\n"
             "r: 18\n"
             "s: 19\n"
-            "t: 20"
+            "t: 20",
+            NULL
         );
 
+        /* test uint unpacking into different IOP number sizes */
+        TST(&tstiop__my_struct_a_opt__s,
+            "a: 5\n"
+            "b: 5\n"
+            "cOfMyStructA: 5\n"
+            "d: 5\n"
+            "e: 5\n"
+            "f: 5\n"
+            "g: 5\n"
+            "h: 5",
+            NULL);
+
+        /* ~ can be used to indicate a field is present */
+        TST(&tstiop__my_struct_a_opt__s, "v: ~", "v: {}");
+        TST(&tstiop__my_struct_a_opt__s, "v: {}", NULL);
+        /* ~ can also be used for optional void fields */
+        TST(&tstiop__my_struct_a_opt__s, "w: ~", NULL);
+
         /* ~ can be unpacked into a struct */
-        TST(&tstiop__my_struct_a_opt__s, "~");
+        TST(&tstiop__my_struct_a_opt__s, "~", "{}");
+        TST(&tstiop__jpack_empty_cls_a__s, "!tstiop.JpackEmptyClsC ~",
+            "!tstiop.JpackEmptyClsC {}");
+        TST(&tstiop__jpack_empty_cls_a__s, "!tstiop.JpackEmptyClsC {}", NULL);
+
+
+        /* a tag can be specified for a struct too, but will be removed on
+         * packing */
+        TST(&tstiop__my_struct_a_opt__s, "!tstiop.MyStructAOpt ~", "{}");
+        TST(&tstiop__my_struct_a_opt__s, "!tstiop.MyStructAOpt {}", "{}");
+        /* idem for a union */
+        TST(&tstiop__test_union__s, "!tstiop.TestUnion i: 42", "i: 42");
+        TST(&tstiop__my_struct_a_opt__s,
+            "l: !tstiop.MyUnionA\n"
+            "  ua: 0",
+            "l:\n"
+            "  ua: 0"
+        );
 
         /* unpacking a class as a base class should work */
         TST(&tstiop__my_class2__s,
@@ -729,13 +878,47 @@ Z_GROUP_EXPORT(iop_yaml)
             "int2: 2\n"
             "int3: 3\n"
             "bool1: true\n"
-            "string1: a");
+            "string1: a",
+            NULL);
 
         /* Test with a parent with more fields than the child */
         TST(&tstiop__small_child__s,
             "a: a\n"
             "b: b\n"
-            "c: c");
+            "c: c",
+            NULL);
+
+        /* unpacking list of struct inside struct */
+        TST(&tstiop__my_struct_c__s,
+            "a: 1\n"
+            "b:\n"
+            "  a: 2\n"
+            "c:\n"
+            "  - a: 3\n"
+            "    c:\n"
+            "      - a: 4\n"
+            "      - a: 5\n"
+            "  - a: 6",
+            NULL);
+
+        /* unpacking an integer inside an enum works, but is repacked as a
+         * string. */
+        TST(&tstiop__my_struct_a_opt__s,
+            "k: 0",
+            "k: A");
+        /* works with negative number as well */
+        TST(&tstiop__struct_with_negative_enum__s,
+            "e: -2",
+            "e: NEG");
+        /* unpacking an integer not matching any enum element is valid for
+         * a non-strict enum, and will be packed as an integer as well. */
+        TST(&tstiop__struct_with_negative_enum__s,
+            "e: -10",
+            NULL);
+        TST(&tstiop__struct_with_negative_enum__s,
+            "e: 10",
+            NULL);
+
 
 #undef TST
     } Z_TEST_END;
@@ -786,12 +969,12 @@ Z_GROUP_EXPORT(iop_yaml)
         /* check constraints on arrays */
         iop_init(tstiop__constraint_s, &s);
         TST_ERROR(&tstiop__constraint_s__s, &s,
-            "~",
+            "{}",
             "1:1: cannot unpack YAML as a `tstiop.ConstraintS` IOP struct: "
             "field `s` is invalid: in type tstiop.ConstraintS: "
             "empty array not allowed for field `s`\n"
-            "~\n"
-            "^");
+            "{}\n"
+            "^^");
 
         /* check constraint on field */
         s.s.tab = &string;

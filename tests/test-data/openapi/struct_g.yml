@@ -1,0 +1,79 @@
+openapi: 3.0.2
+info:
+  title: structs
+  version: 2.3.1
+servers:
+  - url: /
+paths: {}
+components:
+  schemas:
+    tstiop.MyEnumA:
+      type: string
+      enum:
+        - A
+        - B
+        - C
+        - D
+    tstiop.MyStructG:
+      type: object
+      properties:
+        a:
+          type: integer
+          format: int32
+          default: -1
+        b:
+          type: integer
+          format: uint32
+          default: 2
+          minimum: 0
+        cOfG:
+          type: integer
+          format: int32
+          default: 3
+          minimum: -128
+          maximum: 127
+        d:
+          type: integer
+          format: uint32
+          default: 4
+          minimum: 0
+          maximum: 255
+        e:
+          type: integer
+          format: int32
+          default: 5
+          minimum: -32768
+          maximum: 32767
+        f:
+          type: integer
+          format: uint32
+          default: 6
+          minimum: 0
+          maximum: 65535
+        g:
+          type: integer
+          format: int64
+          default: 7
+        h:
+          type: integer
+          format: uint64
+          default: 8
+          minimum: 0
+        i:
+          type: string
+          format: byte
+          default: default data value
+        j:
+          type: string
+          default: "fo\"o?cbar\u00e9\u00a9"
+        k:
+          allOf:
+            - $ref: "#/components/schemas/tstiop.MyEnumA"
+          default: 2
+        l:
+          type: number
+          format: double
+          default: 10.5
+        m:
+          type: boolean
+          default: true

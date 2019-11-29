@@ -80,47 +80,21 @@ int t_iop_yunpack_ptr_file(const char * nonnull filename,
 /* }}} */
 /* {{{ Generating YAML */
 
-enum iop_ypack_flags {
-    IOP_YPACK_DEFAULT = 0,
-};
-
-typedef int (iop_ypack_writecb_f)(void * nonnull priv,
-                                  const void * nonnull buf, int len);
-
 /** Convert an IOP C structure to IOP-YAML.
  *
  * See iop_ypack. This function can be used to provide specific packing flags.
  * *DO NOT USE THIS*. Use iop_ypack instead.
  */
-int iop_ypack_with_flags(const iop_struct_t * nonnull st,
-                         const void * nonnull value,
-                         iop_ypack_writecb_f * nonnull writecb,
-                         void * nonnull priv, unsigned flags);
-
-/** Convert an IOP C structure to IOP-YAML.
- *
- * This function packs an IOP structure into YAML format.
- *
- * \param[in] st       IOP structure description.
- * \param[in] value    Pointer on the IOP structure to pack.
- * \param[in] writecb  Callback to call when writing (like iop_sb_write).
- * \param[in] priv     Private data to give to the callback.
- * \param[in] flags    Packer flags bitfield (see iop_ypack_flags).
- */
-int iop_ypack(const iop_struct_t * nonnull st, const void * nonnull value,
-              iop_ypack_writecb_f * nonnull writecb,
-              void * nonnull priv);
+int iop_sb_ypack_with_flags(sb_t * nonnull sb,
+                            const iop_struct_t * nonnull st,
+                            const void * nonnull value, unsigned flags);
 
 /** Pack an IOP C structure to IOP-YAML in a sb_t.
  *
  * See iop_ypack().
  */
-static inline int
-iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
-             const void * nonnull value)
-{
-    return iop_ypack(st, value, &iop_sb_write, sb);
-}
+int iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
+                 const void * nonnull value);
 
 /** Pack an IOP C structure in an IOP-YAML file.
  *
