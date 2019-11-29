@@ -264,7 +264,12 @@ ps_startswith_yaml_key(pstream_t ps)
 {
     pstream_t key = ps_get_span(&ps, &ctype_isalnum);
 
-    return ps_len(&key) > 0 && ps_peekc(ps) == ':';
+    if (ps_len(&key) == 0 || ps_len(&ps) == 0) {
+        return false;
+    }
+
+    return ps.s[0] == ':'
+        && (ps_len(&ps) == 1 || isspace(ps.s[1]));
 }
 
 /* }}} */
@@ -1664,7 +1669,7 @@ Z_GROUP_EXPORT(yaml)
             "1:2: missing data, unexpected character"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "{foo}",
+            "{a:b}",
             "1:2: wrong type of data, only key-value mappings are allowed "
             "inside an object"
         ));
@@ -1712,6 +1717,11 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
                                          1, 3, 1, 10));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("trimmed"));
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "a:x:b"));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
+                                         1, 1, 1, 6));
+        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("a:x:b"));
 
         /* null */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, "~"));
