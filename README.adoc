@@ -141,6 +141,19 @@ To generate the python3 IOP interface, you also need the following packages:
 $ sudo apt-get install python3-dev python3-pip
 ---------------------------------
 
+==== Fedora 31
+
+You need to install the following packages to build the lib-common:
+
+---------------------------------
+$ sudo dnf install clang clang-devel flex gperf libxml2-devel openssl-devel valgrind-devel python2-devel
+---------------------------------
+
+To generate the python3 IOP interface, you also need the following package:
+---------------------------------
+$ sudo dnf install python3-devel
+---------------------------------
+
 === building the lib-common
 
 First of all, you have to configure your project, by running in the top-level
