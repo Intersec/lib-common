@@ -159,7 +159,7 @@ class UseGroup(object):
 
 def get_env_bool(self, name):
     val = os.environ.get(name, 0)
-    if isinstance(val, basestring):
+    if isinstance(val, str):
         return val.lower() in ['true', 'yes', '1']
     else:
         return int(val) == 1
@@ -182,9 +182,9 @@ def add_scan_in_signature(ctx):
         Note: https://gitlab.com/ita1024/waf/issues/2209 was open to fix this
               bug in waf, but it was rejected.
     '''
-    for (_, task) in waflib.Task.classes.iteritems():
+    for (_, task) in waflib.Task.classes.items():
         if task.scan:
-            task.hcode += str(Utils.h_fun(task.scan))
+            task.hcode += Utils.h_fun(task.scan).encode('utf-8')
 
 
 # }}}
