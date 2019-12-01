@@ -86,7 +86,14 @@ described in the https://waf.io/book/[waf documentation].
 
 The simplest approach is to https://waf.io/[download the waf executable] and
 install it in a directory already in your PATH environment, for example
-`/usr/local/bin`.
+`/usr/local/bin`:
+---------------------------------
+$ cd /usr/local/bin
+$ wget https://waf.io/waf-2.0.x
+$ ln -s waf-2.0.x waf
+$ chmod +x waf-2.0.x
+$ ./waf
+---------------------------------
 
 `waf` versions 2.0.8 and 2.0.18 are known to work fine, running the latest 2.0.x
 `waf` should also work fine.
