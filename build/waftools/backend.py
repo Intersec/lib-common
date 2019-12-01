@@ -171,7 +171,7 @@ def compile_fpic(ctx):
         def process_use_pic(tgen, use_attr):
             # for all the libraries used by tgen...
             use = tgen.to_list(getattr(tgen, use_attr, []))
-            for i in xrange(len(use)):
+            for i in range(len(use)):
                 use_name = use[i]
 
                 if use_name.endswith('.pic'):
