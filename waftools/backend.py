@@ -1404,19 +1404,26 @@ def profile_default(ctx,
         '-fvisibility=hidden',
     ]
 
-    ctx.env.CLANG = ctx.find_program('clang')
-    ctx.env.CLANG_FLAGS = get_cflags(ctx, ['clang'])
-    ctx.env.CLANG_REWRITE_FLAGS = get_cflags(ctx, ['clang', 'rewrite'])
-
-    ctx.env.CLANGXX = ctx.find_program('clang++')
-    ctx.env.CLANGXX_FLAGS = get_cflags(ctx, ['clang++'])
-    ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(ctx, ['clang++', 'rewrite'])
-
-    # Special clang flags
-    if 'clang' in ctx.env.COMPILER_CC:
+    if ctx.env.COMPILER_CC == 'clang':
+        # C compilation directly done using clang
         ctx.env.CFLAGS += ['-x', 'c']
-    if 'clang++' in ctx.env.COMPILER_CXX:
+    else:
+        # Probably compiling with gcc; we'll need the .blk -> .c rewriting
+        # pass with our modified clang
+        ctx.env.CLANG = ctx.find_program('clang')
+        ctx.env.CLANG_FLAGS = get_cflags(ctx, ['clang'])
+        ctx.env.CLANG_REWRITE_FLAGS = get_cflags(ctx, ['clang', 'rewrite'])
+
+    if ctx.env.COMPILER_CXX == 'clang++':
+        # C++ compilation directly done using clang
         ctx.env.CXXFLAGS += ['-x', 'c++']
+    else:
+        # Probably compiling with g++; we'll need the .blkk -> .cc rewriting
+        # pass with our modified clang
+        ctx.env.CLANGXX = ctx.find_program('clang++')
+        ctx.env.CLANGXX_FLAGS = get_cflags(ctx, ['clang++'])
+        ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(ctx,
+                                                   ['clang++', 'rewrite'])
 
     # Asserts
     if no_assert:
