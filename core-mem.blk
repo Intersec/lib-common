@@ -146,6 +146,12 @@ mem_pool_t mem_pool_libc = {
     .min_alignment = sizeof(void *)
 };
 
+__attr_noreturn__
+void __imalloc_too_large(void)
+{
+    logger_panic(&libc_g.logger, "you cannot allocate that much memory");
+}
+
 static void core_mem_libc_print_state(void)
 {
 #ifdef __GLIBC__
