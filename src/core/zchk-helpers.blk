@@ -33,18 +33,18 @@ void z_load_keys(lstr_t libcommon_path, sb_t *priv, sb_t *priv_encrypted,
      */
     t_scope;
 
-    if (sb_read_file(priv, t_fmt("%*pM/test-data/keys/priv.pem",
+    if (sb_read_file(priv, t_fmt("%*pM/tests/test-data/keys/priv.pem",
                                   LSTR_FMT_ARG(libcommon_path))) < 0)
     {
         e_fatal("cannot read private key");
     }
     if (sb_read_file(priv_encrypted,
-                     t_fmt("%*pM/test-data/keys/priv.encrypted.pem",
+                     t_fmt("%*pM/tests/test-data/keys/priv.encrypted.pem",
                            LSTR_FMT_ARG(libcommon_path))) < 0)
     {
         e_fatal("cannot read encrypted private key");
     }
-    if (sb_read_file(pub, t_fmt("%*pM/test-data/keys/pub.pem",
+    if (sb_read_file(pub, t_fmt("%*pM/tests/test-data/keys/pub.pem",
                                  LSTR_FMT_ARG(libcommon_path))) < 0)
     {
         e_fatal("cannot read public key");

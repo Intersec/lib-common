@@ -1229,6 +1229,7 @@ Z_GROUP_EXPORT(ssl)
          * $ echo 'secret pioupiou23' > a
          * $ openssl pkeyutl -encrypt -pubin -inkey pub.pem -in a -hexdump
          */
+        t_scope;
         SB_1k(priv);
         SB_1k(priv_encrypted);
         SB_1k(pub);
@@ -1236,7 +1237,8 @@ Z_GROUP_EXPORT(ssl)
         const lstr_t text = LSTR_IMMED("secret pioupiou23\n");
         const lstr_t text_garbage = LSTR_IMMED("bonjour openssl!\n");
 
-        z_load_keys(z_cmddir_g, &priv, &priv_encrypted, &pub);
+        z_load_keys(t_lstr_fmt("%pL/..", &z_cmddir_g), &priv,
+                    &priv_encrypted, &pub);
         strrand(sb_growlen(&text_rand, 1024), 1024, LSTR_NULL_V);
 
 /* {{{ PKEY */
