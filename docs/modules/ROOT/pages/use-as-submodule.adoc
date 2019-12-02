@@ -35,7 +35,6 @@ Then create a `wscript` file that will import the lib-common `waf` utilities:
 ----
 
 import os
-import waflib
 
 out = '.build-waf-%s' % os.environ.get('P', 'default') # <1>
 
