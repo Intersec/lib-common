@@ -1428,7 +1428,7 @@ def profile_default(ctx,
         ctx.env.CFLAGS += [fortify_source]
 
     # Checks
-    if ctx.get_env_bool('NOCHECK'):
+    if ctx.env.COMPILER_CC == 'clang' or ctx.get_env_bool('NOCHECK'):
         ctx.env.DO_CHECK = False
         log = 'no'
     else:
