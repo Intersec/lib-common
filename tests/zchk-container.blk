@@ -1,0 +1,1972 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <lib-common/container.h>
+#include <lib-common/z.h>
+#include <lib-common/sort.h>
+#include <lib-common/thr.h>
+#include <lib-common/datetime.h>
+
+/*{{{1 Qhash */
+
+/* Keep these here, it's to check the macros are used and built */
+qh_k32_t(test);
+qh_k64_t(test_qh_64);
+
+qm_k32_t(test, uint32_t);
+qm_k32_t(test_vlstr, lstr_t);
+qm_k32_t(test_p_val, uint32_t *);
+qm_k64_t(test_qh_64, uint32_t);
+
+qh_kptr_ckey_t(test_str, char, qhash_str_hash, qhash_str_equal);
+
+qm_kvec_t(test_lstr, lstr_t, uint32_t, qhash_lstr_hash, qhash_lstr_equal);
+qm_kptr_t(test_ptr,  void,   uint32_t, qhash_hash_ptr,  qhash_ptr_equal);
+qm_khptr_t(test_hptr,  void,   uint32_t);
+qm_khptr_ckey_t(test_hcptr,  void,   uint32_t);
+
+Z_GROUP_EXPORT(qhash)
+{
+    Z_TEST(qh_seal, "qh: seal") {
+        t_scope;
+        QH(u32, qh);
+        uint32_t *tab;
+        uint32_t *w;
+        int len = 514;
+        size_t footprint;
+
+        qh_init(u32, &qh);
+
+        for (int i = 0; i < len; i++) {
+            qh_add(u32, &qh, i);
+        }
+
+        Z_ASSERT_P(qh.old, "no resize started");
+        qh_seal(u32, &qh);
+        Z_ASSERT(!qh.old, "qh_seal() has not completed the resize");
+
+        Z_ASSERT_EQ(qh_len(u32, &qh), len,
+                    "ouch, qh_seal() changed the table length");
+
+        tab = t_new_raw(uint32_t, len);
+        w = tab;
+        qh_for_each_pos(u32, pos, &qh) {
+            *w++ = qh.keys[pos];
+        }
+        dsort32(tab, len);
+        for (int i = 0; i < len; i++) {
+            Z_ASSERT_EQ((int)tab[i], i, "%d is missing from the table", i);
+        }
+        footprint = qh_memory_footprint(u32, &qh);
+        qh_unseal(u32, &qh);
+        qh_clear(u32, &qh);
+        Z_ASSERT_EQ(qh_memory_footprint(u32, &qh), footprint,
+                    "at the time the test is written, qh_clear() "
+                    "is not supposed to change the memory footprint");
+        qh_seal(u32, &qh);
+        Z_ASSERT_LT(qh_memory_footprint(u32, &qh), footprint,
+                    "in that case, qh_seal() "
+                    "is supposed to reduce the memory footprint");
+        Z_ASSERT(!qh.old, "we still have an unfinished resize");
+
+        qh_wipe(u32, &qh);
+    } Z_TEST_END;
+
+    Z_TEST(qm_seal, "qm: seal") {
+        t_scope;
+        QM(test, qm);
+        uint32_t *tab;
+        uint32_t *w;
+        int len = 514;
+        size_t footprint;
+
+        qm_init(test, &qm);
+
+        for (int i = 0; i < len; i++) {
+            qm_add(test, &qm, i, i);
+        }
+
+        Z_ASSERT_P(qm.old, "no resize started");
+        qm_seal(test, &qm);
+        Z_ASSERT(!qm.old, "qm_seal() has not completed the resize");
+
+        Z_ASSERT_EQ(qm_len(test, &qm), len,
+                    "ouch, qm_seal() changed the table length");
+
+        tab = t_new_raw(uint32_t, len);
+        w = tab;
+        qm_for_each_pos(test, pos, &qm) {
+            *w++ = qm.keys[pos];
+        }
+        dsort32(tab, len);
+        for (int i = 0; i < len; i++) {
+            Z_ASSERT_EQ((int)tab[i], i, "%d is missing from the table", i);
+        }
+        footprint = qm_memory_footprint(test, &qm);
+        qm_unseal(test, &qm);
+        qm_clear(test, &qm);
+        Z_ASSERT_EQ(qm_memory_footprint(test, &qm), footprint,
+                    "at the time the test is written, qm_clear() "
+                    "is not supposed to change the memory footprint");
+        qm_seal(test, &qm);
+        Z_ASSERT_LT(qm_memory_footprint(test, &qm), footprint,
+                    "in that case, qm_seal() "
+                    "is supposed to reduce the memory footprint");
+        Z_ASSERT(!qm.old, "we still have an unfinished resize");
+
+        qm_wipe(test, &qm);
+    } Z_TEST_END;
+
+
+    Z_TEST(size_qh, "qh: count size") {
+        QH(test, h);
+        uint32_t min_size;
+
+        Z_ASSERT_ZERO(qh_memory_footprint(test,& h));
+
+        for (int i = 0; i < 100; i++) {
+            qh_add(test, &h, i);
+        }
+        min_size = h.hdr.size * (h.k_size + h.v_size);
+        Z_ASSERT_GT(qh_memory_footprint(test,& h), min_size);
+
+        qh_wipe(test, &h);
+
+        Z_ASSERT_ZERO(qh_memory_footprint(test, &h));
+    } Z_TEST_END;
+
+    Z_TEST(size_qm , "qm: count size") {
+        QM_CACHED(test, h);
+        uint32_t min_size;
+
+        Z_ASSERT_ZERO(qm_memory_footprint(test,& h));
+
+        for (int i = 0; i < 8; i++) {
+            qm_add(test, &h, i, i);
+        }
+        min_size = h.hdr.size * (h.k_size + h.v_size);
+        Z_ASSERT_GT(qm_memory_footprint(test,& h), min_size);
+
+        qm_wipe(test, &h);
+        Z_ASSERT_ZERO(qm_memory_footprint(test, &h));
+
+    } Z_TEST_END;
+
+    Z_TEST(insertion, "qhash: insertion") {
+        QH(test, h);
+        uint64_t bits[2] = { 0, 0 };
+
+        for (int i = 0; i < 128; i++) {
+            qh_add(test, &h, i);
+            SET_BIT(bits, i);
+        }
+        Z_ASSERT_EQ(h.hdr.len, 128U);
+
+        qh_for_each_pos(test, pos, &h) {
+            uint32_t v = h.keys[pos];
+
+            Z_ASSERT(v < bitsizeof(bits) && TST_BIT(bits, v));
+            CLR_BIT(bits, v);
+        }
+
+        Z_ASSERT(bits[0] == 0, "all values should have been seen");
+        Z_ASSERT(bits[1] == 0, "all values should have been seen");
+        qh_wipe(test, &h);
+    } Z_TEST_END;
+
+    Z_TEST(collision, "qhash: collision") {
+        QH(test, h);
+
+        for (int i = 0; i < 128; i++) {
+            qh_add(test, &h, i);
+        }
+
+        for (int i = 10; i < 128; i += 7) {
+            Z_ASSERT(qh_add(test, &h, i), "double insertion of %d", i);
+        }
+
+        qh_wipe(test, &h);
+    } Z_TEST_END;
+
+    Z_TEST(self , "qhash: self search") {
+        QH(test, h);
+
+        for (int i = 0; i < 128; i++) {
+            qh_add(test, &h, i);
+        }
+
+        for (int i = 128; i-- > 0; ) {
+            int32_t pos = qh_find(test, &h, i);
+
+            Z_ASSERT(pos >= 0, "qh_find should find %d", i);
+            qh_del_at(test, &h, pos);
+        }
+
+        Z_ASSERT_EQ(h.hdr.len, 0U);
+
+        qh_wipe(test, &h);
+    } Z_TEST_END;
+
+    Z_TEST(string, "qhash: string") {
+        const char *t1 = "test1";
+        const char *t2 = "test2";
+        int32_t pos;
+        QH(test_str, h);
+
+        qh_add(test_str, &h, t1);
+        qh_add(test_str, &h, t2);
+
+        pos = qh_find(test_str, &h, t1);
+        Z_ASSERT(pos >= 0, "qh_find should find %s", t1);
+        Z_ASSERT_STREQUAL(h.keys[pos], t1);
+
+        pos = qh_find(test_str, &h, t2);
+        Z_ASSERT(pos >= 0, "qh_find should find %s", t2);
+
+        Z_ASSERT_EQ(qh_len(test_str, &h), 2);
+
+        qh_del_at(test_str, &h, pos);
+        qh_for_each_pos(test_str, i, &h) {
+            Z_ASSERT_STREQUAL(h.keys[i], t1, "qh_for_each_pos has failed");
+        }
+
+        /* Remove t1 */
+        pos = qh_find(test_str, &h, t1);
+        Z_ASSERT(pos >= 0, "can't find t1 ('%s')", t1);
+        qh_del_at(test_str, &h, pos);
+        Z_ASSERT_EQ(qh_len(test_str, &h), 0);
+
+        qh_add(test_str, &h, t1);
+        Z_ASSERT_EQ(qh_len(test_str, &h), 1);
+
+        pos = qh_find(test_str, &h, t1);
+        Z_ASSERT(pos >= 0, "can't find t1 ('%s')", t1);
+        qh_for_each_pos(test_str, i, &h) {
+            Z_ASSERT_STREQUAL(h.keys[i], t1, "2nd qh_for_each_pos has failed");
+        }
+        qh_wipe(test_str, &h);
+    } Z_TEST_END;
+
+    Z_TEST(qh_hash , "qhash: qh_hash/qh_del_key_h") {
+        QH(test, h);
+
+        for (int i = 0; i < 128; i++) {
+            qh_add(test, &h, i);
+        }
+
+        for (int i = 128; i-- > 0; ) {
+            uint32_t hash = qh_hash(test, &h, i);
+            int32_t  pos;
+
+            pos = qh_del_key_h(test, &h, hash, i);
+            Z_ASSERT(pos >= 0, "qh_find should find %d", i);
+        }
+
+        Z_ASSERT_EQ(h.hdr.len, 0U);
+
+        for (int i = 0; i < 128; i++) {
+            qh_add(test, &h, i);
+        }
+        qh_for_each_pos(test, pos, &h) {
+            qh_deep_del_at(test, &h, pos, IGNORE);
+        }
+        Z_ASSERT_EQ(h.hdr.len, 0U);
+
+        /* delete some elements while iterating and check data integrity */
+        for (int i = 0; i < 128; i++) {
+            qh_add(test, &h, i);
+        }
+        qh_for_each_pos(test, pos, &h) {
+            if (h.keys[pos] & 1) {
+                qh_del_at(test, &h, pos);
+            }
+        }
+        Z_ASSERT_EQ(h.hdr.len, 64U);
+        for (int i = 0; i < 128; i += 2) {
+            Z_ASSERT_N(qh_find(test, &h, i));
+        }
+
+        qh_wipe(test, &h);
+    } Z_TEST_END;
+
+    Z_TEST(qm_hash , "qhash: qm_hash/qh_del_key_h") {
+        QM(test, h);
+
+        for (uint32_t i = 0; i < 128; i++) {
+            qm_add(test, &h, i, i);
+        }
+
+        for (uint32_t i = 128; i-- > 0; ) {
+            uint32_t hash = qm_hash(test, &h, i);
+            int32_t  pos;
+
+            pos = qm_del_key_h(test, &h, hash, i);
+            Z_ASSERT(pos >= 0, "qm_find should find %d", i);
+            Z_ASSERT_EQ(h.values[pos], i);
+        }
+
+        Z_ASSERT_EQ(h.hdr.len, 0U);
+
+        for (int i = 0; i < 128; i++) {
+            qm_add(test, &h, i, i);
+        }
+        qm_for_each_pos(test, pos, &h) {
+            qm_deep_del_at(test, &h, pos, IGNORE, IGNORE);
+        }
+        Z_ASSERT_EQ(h.hdr.len, 0U);
+
+        /* delete some elements while iterating and check data integrity */
+        for (int i = 0; i < 128; i++) {
+            qm_add(test, &h, i, i);
+        }
+        qm_for_each_pos(test, pos, &h) {
+            if (h.keys[pos] & 1) {
+                Z_ASSERT_EQ(h.keys[pos], h.values[pos]);
+                qm_del_at(test, &h, pos);
+            }
+        }
+        Z_ASSERT_EQ(h.hdr.len, 64U);
+        for (uint32_t i = 0; i < 128; i += 2) {
+            Z_ASSERT_EQ(qm_get_def(test, &h, i, UINT32_MAX), i);
+        }
+
+        qm_wipe(test, &h);
+    } Z_TEST_END;
+
+    Z_TEST(qm_put , "qhash: qm_put") {
+        lstr_t str;
+
+#define CHECK(type, key)  \
+        do {                                                                \
+            uint32_t pos;                                                   \
+                                                                            \
+            QM_CACHED(type, h);                                             \
+            pos = qm_put(type, &h, (key), 1, 0);                            \
+            Z_ASSERT_EQ(pos & QHASH_COLLISION, 0u);                         \
+            pos = qm_put(type, &h, (key), 2, 0);                            \
+            Z_ASSERT_NE(pos & QHASH_COLLISION, 0u);                         \
+            Z_ASSERT_EQ(h.values[pos & ~QHASH_COLLISION], 1u);              \
+            pos = qm_put(type, &h, (key), 2, QHASH_OVERWRITE);              \
+            Z_ASSERT_NE(pos & QHASH_COLLISION, 0u);                         \
+            Z_ASSERT_EQ(h.values[pos & ~QHASH_COLLISION], 2u);              \
+                                                                            \
+            qm_wipe(type, &h);                                              \
+        } while (0)
+
+        /* IKEY */
+        CHECK(test, 1);
+
+        /* VKEY */
+        str = LSTR("foo");
+        CHECK(test_lstr, &str);
+
+        /* PKEY */
+        CHECK(test_ptr, (void *)0xf00);
+
+#undef CHECK
+
+    } Z_TEST_END;
+
+    Z_TEST(qm_reserve , "qm: qm_reserve") {
+        lstr_t str;
+
+#define CHECK(type, key)                                                     \
+        do {                                                                 \
+            uint32_t pos;                                                    \
+                                                                             \
+            QM_CACHED(type, h);                                              \
+            pos = qm_reserve(type, &h, (key), 0);                            \
+            Z_ASSERT_EQ(pos & QHASH_COLLISION, 0u);                          \
+            h.values[pos] = 3u;                                              \
+            pos = qm_reserve(type, &h, (key), 0);                          \
+            Z_ASSERT_NE(pos & QHASH_COLLISION, 0u);                          \
+            Z_ASSERT_EQ(h.values[pos & ~QHASH_COLLISION], 3u);               \
+            pos = qm_reserve(type, &h, (key), QHASH_OVERWRITE);              \
+            Z_ASSERT_NE(pos & QHASH_COLLISION, 0u);                          \
+            Z_ASSERT_EQ(h.values[pos & ~QHASH_COLLISION], 3u);               \
+            qm_wipe(type, &h);                                               \
+        } while (0)
+
+        /* IKEY */
+        CHECK(test, 1);
+
+        /* VKEY */
+        str = LSTR("foo");
+        CHECK(test_lstr, &str);
+
+        /* PKEY */
+        CHECK(test_ptr, (void *)0xf00);
+
+#undef CHECK
+
+    } Z_TEST_END
+
+    Z_TEST(qm_get, "qhash: qm_get") {
+        t_scope;
+        qm_t(test) qm;
+        qm_t(test_p_val) qm2;
+        uint32_t val = 4242;
+        uint32_t *pval = &val;
+        uint32_t val_h;
+        uint32_t pval_h;
+
+        t_qm_init(test, &qm, 1);
+        qm_add(test, &qm, 42, val);
+        val_h = qm_hash(test, &qm, 42);
+
+        Z_ASSERT_EQ(qm_get(test, &qm, 42), val);
+        Z_ASSERT_EQ(qm_get_h(test, &qm, val_h, 42), val);
+        Z_ASSERT_EQ(qm_get_safe(test, &qm, 42), val);
+        Z_ASSERT_EQ(qm_get_safe_h(test, &qm, val_h, 42), val);
+        Z_ASSERT_EQ(*qm_get_p(test, &qm, 42), val);
+        Z_ASSERT_EQ(*qm_get_p_h(test, &qm, val_h, 42), val);
+        Z_ASSERT_EQ(*qm_get_p_safe(test, &qm, 42), val);
+        Z_ASSERT_EQ(*qm_get_p_safe_h(test, &qm, val_h, 42), val);
+
+        t_qm_init(test_p_val, &qm2, 1);
+        qm_add(test_p_val, &qm2, 42, pval);
+        pval_h = qm_hash(test_p_val, &qm2, 42);
+
+        Z_ASSERT(qm_get(test_p_val, &qm2, 42) == pval);
+        Z_ASSERT(qm_get_h(test_p_val, &qm2, pval_h, 42) == pval);
+        Z_ASSERT(qm_get_safe(test_p_val, &qm2, 42) == pval);
+        Z_ASSERT(qm_get_safe_h(test_p_val, &qm2, pval_h, 42) == pval);
+        Z_ASSERT(*qm_get_p(test_p_val, &qm2, 42) == pval);
+        Z_ASSERT(*qm_get_p_h(test_p_val, &qm2, pval_h, 42) == pval);
+        Z_ASSERT(*qm_get_p_safe(test_p_val, &qm2, 42) == pval);
+        Z_ASSERT(*qm_get_p_safe_h(test_p_val, &qm2, pval_h, 42) == pval);
+    } Z_TEST_END
+
+    Z_TEST(qm_get_def, "qhash: qm_get_def") {
+        t_scope;
+        qm_t(test) qm;
+        qm_t(test_p_val) qm2;
+        uint32_t val = 4242;
+        uint32_t *pval = &val;
+        uint32_t val_h;
+        uint32_t pval_h;
+
+        t_qm_init(test, &qm, 1);
+        qm_add(test, &qm, 42, val);
+        val_h = qm_hash(test, &qm, 42);
+
+        Z_ASSERT_EQ(qm_get_def(test, &qm, 42, 3U), val);
+        Z_ASSERT_EQ(qm_get_def(test, &qm, 0, 3U), 3U);
+        Z_ASSERT_EQ(qm_get_def_h(test, &qm, 42, val_h, 3U), val);
+        Z_ASSERT_EQ(qm_get_def_h(test, &qm, 0, val_h, 3U), 3U);
+        Z_ASSERT_EQ(qm_get_def_safe(test, &qm, 42, 3U), val);
+        Z_ASSERT_EQ(qm_get_def_safe(test, &qm, 0, 3U), 3U);
+        Z_ASSERT_EQ(qm_get_def_safe_h(test, &qm, 42, val_h, 3U), val);
+        Z_ASSERT_EQ(qm_get_def_safe_h(test, &qm, 0, val_h, 3U), 3U);
+
+        Z_ASSERT_EQ(*qm_get_def_p(test, &qm, 42, NULL), val);
+        Z_ASSERT(qm_get_def_p(test, &qm, 0, NULL) == NULL);
+        Z_ASSERT_EQ(*qm_get_def_p_h(test, &qm, 42, val_h, NULL), val);
+        Z_ASSERT(qm_get_def_p_h(test, &qm, 0, val_h, NULL) == NULL);
+        Z_ASSERT_EQ(*qm_get_def_p_safe(test, &qm, 42, NULL), val);
+        Z_ASSERT(qm_get_def_p_safe(test, &qm, 0, NULL) == NULL);
+        Z_ASSERT_EQ(*qm_get_def_p_safe_h(test, &qm, 42, val_h, NULL), val);
+        Z_ASSERT(qm_get_def_p_safe_h(test, &qm, 0, val_h, NULL) == NULL);
+
+        t_qm_init(test_p_val, &qm2, 1);
+        qm_add(test_p_val, &qm2, 42, pval);
+        pval_h = qm_hash(test_p_val, &qm2, 42);
+
+        Z_ASSERT(qm_get_def(test_p_val, &qm2, 42, NULL) == pval);
+        Z_ASSERT(qm_get_def(test_p_val, &qm2, 0, NULL) == NULL);
+        Z_ASSERT(qm_get_def_h(test_p_val, &qm2, 42, pval_h, NULL) == pval);
+        Z_ASSERT(qm_get_def_h(test_p_val, &qm2, 0, pval_h, NULL) == NULL);
+        Z_ASSERT(qm_get_def_safe(test_p_val, &qm2, 42, NULL) == pval);
+        Z_ASSERT(qm_get_def_safe(test_p_val, &qm2, 0, NULL) == NULL);
+        Z_ASSERT(qm_get_def_safe_h(test_p_val, &qm2, 42, pval_h,
+                                   NULL) == pval);
+        Z_ASSERT(qm_get_def_safe_h(test_p_val, &qm2, 0, pval_h,
+                                   NULL) == NULL);
+
+        Z_ASSERT(*qm_get_def_p(test_p_val, &qm2, 42, NULL) == pval);
+        Z_ASSERT(qm_get_def_p(test_p_val, &qm2, 0, NULL) == NULL);
+        Z_ASSERT(*qm_get_def_p_h(test_p_val, &qm2, 42, pval_h, NULL) == pval);
+        Z_ASSERT(qm_get_def_p_h(test_p_val, &qm2, 0, pval_h, NULL) == NULL);
+        Z_ASSERT(*qm_get_def_p_safe(test_p_val, &qm2, 42, NULL) == pval);
+        Z_ASSERT(qm_get_def_p_safe(test_p_val, &qm2, 0, NULL) == NULL);
+        Z_ASSERT(*qm_get_def_p_safe_h(test_p_val, &qm2, 42, pval_h,
+                                      NULL) == pval);
+        Z_ASSERT(qm_get_def_p_safe_h(test_p_val, &qm2, 0, pval_h,
+                                     NULL) == NULL);
+    } Z_TEST_END
+
+    Z_TEST(qm_fetch, "qhash: qm_fetch uint") {
+        t_scope;
+        qm_t(test) qm;
+        const qm_t(test) *qm_c = &qm;
+        uint32_t v = 42;
+        uint32_t *vp = NULL;
+
+        t_qm_init(test, &qm, 1);
+        qm_add(test, &qm, 1, 2);
+
+        Z_ASSERT_N(qm_fetch(test, &qm, 1, &v, 999));
+        Z_ASSERT_EQ(v, 2U);
+
+        Z_ASSERT_NEG(qm_fetch(test, &qm, 11, &v, 999));
+        Z_ASSERT_EQ(v, 999U);
+
+        Z_ASSERT_N(qm_fetch_p(test, &qm, 1, &vp, NULL));
+        Z_ASSERT_EQ(*vp, 2U);
+
+        Z_ASSERT_NEG(qm_fetch_p(test, &qm, 11, &vp, NULL));
+        Z_ASSERT(vp == NULL);
+
+        Z_ASSERT_N(qm_fetch_safe(test, qm_c, 1, &v, 999));
+        Z_ASSERT_N(qm_fetch_p_safe(test, qm_c, 1, &vp, NULL));
+    } Z_TEST_END
+
+    Z_TEST(qm_fetch_lstr, "qhash: qm_fetch uint") {
+        t_scope;
+        qm_t(test_vlstr) qm;
+        lstr_t v_ref = LSTR("42");
+        lstr_t v;
+        lstr_t *vp;
+
+        t_qm_init(test_vlstr, &qm, 1);
+        qm_add(test_vlstr, &qm, 1, v_ref);
+
+        Z_ASSERT_N(qm_fetch(test_vlstr, &qm, 1, &v, LSTR_NULL_V));
+        Z_ASSERT_LSTREQUAL(v, v_ref);
+
+        Z_ASSERT_NEG(qm_fetch(test_vlstr, &qm, 11, &v, LSTR_NULL_V));
+        Z_ASSERT_LSTREQUAL(v, LSTR_NULL_V);
+
+        Z_ASSERT_N(qm_fetch_p(test_vlstr, &qm, 1, &vp, NULL));
+        Z_ASSERT_LSTREQUAL(*vp, v_ref);
+
+        Z_ASSERT_NEG(qm_fetch_p(test_vlstr, &qm, 11, &vp, NULL));
+        Z_ASSERT(vp == NULL);
+    } Z_TEST_END
+
+    Z_TEST(qm_deep_del, "qhash: qm_deep_del") {
+        int32_t pos;
+        lstr_t s = LSTR_IMMED("test");
+        uint32_t hash;
+        QM(test_ptr, h);
+        bool passed_func = false;
+
+#define CHECK_DELETE(arg)  \
+        do { passed_func = true; } while (0)
+#define Z_CHECK_PASSED  \
+        do { Z_ASSERT(passed_func);  passed_func = false; } while (0)
+
+        qm_add(test_ptr, &h, &s, 0);
+        hash = qm_hash(test_ptr, &h, &s);
+        pos = qm_deep_del_key_h(test_ptr, &h, hash, &s, CHECK_DELETE, IGNORE);
+
+        Z_ASSERT_N(pos, "qm_find should find %*pM", LSTR_FMT_ARG(s));
+        Z_ASSERT_ZERO(qm_len(test_ptr, &h));
+        Z_CHECK_PASSED;
+        Z_ASSERT_NEG(qm_find(test_ptr, &h, &s));
+
+#undef CHECK_DELETE
+#undef Z_CHECK_PASSED
+
+        qm_wipe(test_ptr, &h);
+    } Z_TEST_END;
+
+    Z_TEST(pool, "qhash: pool") {
+        t_scope;
+        qh_t(test) h;
+        uint64_t bits[2] = { 0, 0 };
+
+        t_qh_init(test, &h, 128);
+
+        for (int i = 0; i < 128; i++) {
+            qh_add(test, &h, i);
+            SET_BIT(bits, i);
+        }
+        Z_ASSERT_EQ(h.hdr.len, 128U);
+
+        qh_for_each_pos(test, pos, &h) {
+            uint32_t v = h.keys[pos];
+
+            Z_ASSERT(v < bitsizeof(bits) && TST_BIT(bits, v));
+            CLR_BIT(bits, v);
+        }
+
+        Z_ASSERT(bits[0] == 0, "all values should have been seen");
+        Z_ASSERT(bits[1] == 0, "all values should have been seen");
+    } Z_TEST_END;
+
+    Z_TEST(shrink_bug , "qhash: test for hdr->bits overflow after shrink") {
+        qh_t(u32) qh;
+
+        qh_init(u32, &qh);
+
+        qh_set_minsize(u32, &qh, 1);
+        Z_ASSERT_N(qh_add(u32, &qh, 0));
+        Z_ASSERT_EQ(qh.hdr.size, 11U);
+        /* Force qh.hdr.size to grow up to x16 */
+        for (int i = 1; i < 8192; i++) {
+            Z_ASSERT_N(qh_add(u32, &qh, i));
+        }
+        Z_ASSERT_EQ(qh.hdr.size, 12289U);
+
+        /* Remove some elements */
+        for (int i = 1; i < 8191; i++) {
+            if (i % 42 == 0)
+                continue;
+            qh_del_key(u32, &qh, i);
+        }
+        Z_ASSERT_EQ(qh.hdr.len, 197U);
+        Z_ASSERT_EQ(qh.hdr.size, 12289U);
+
+        /* Now add one element which should force a shrink */
+        Z_ASSERT_N(qh_add(u32, &qh, 1));
+        Z_ASSERT_EQ(qh.hdr.len, 198U);
+        Z_ASSERT_EQ(qh.hdr.size, 3079U);
+        Z_ASSERT_P(qh.old);
+
+        qh_for_each_pos(u32, pos, &qh) {
+            qh_del_at(u32, &qh, pos);
+        }
+        Z_ASSERT_EQ(qh.hdr.len, 0U);
+
+        qh_wipe(u32, &qh);
+    } Z_TEST_END
+
+    Z_TEST(alloc_helpers, "qhash: check mp_q[hm]_new() helpers") {
+        t_scope;
+        qh_t(u32) *h32;
+        qm_t(test) *test_map;
+
+        r_newframe();
+
+        h32 = t_qh_new(u32, 64);
+        Z_ASSERT_P(h32);
+        h32 = t_qh_new(u32, 64);
+        Z_ASSERT_P(h32);
+
+        test_map = t_qm_new(test, 128);
+        Z_ASSERT_P(test_map);
+        test_map = r_qm_new(test, 128);
+        Z_ASSERT_P(test_map);
+
+        r_release(r_getframe());
+    } Z_TEST_END
+
+    Z_TEST(qm_get_const_keys,
+           "qm: check the API; const key pointer for getter/hash functions") {
+        t_scope;
+        qm_t(test_ptr) qm_;
+        qm_t(test_ptr) *qm = &qm_;
+        const qm_t(test_ptr) *const_qm = &qm_;
+        const void *const_ptr = NULL;
+
+        t_qm_init(test_ptr, qm, 0);
+        qm_add(test_ptr, qm, NULL, 1);
+
+        qm_hash    (test_ptr, qm,       const_ptr);
+        qm_get     (test_ptr, qm,       const_ptr);
+        qm_get_safe(test_ptr, const_qm, const_ptr);
+        qm_get_def (test_ptr, qm,       const_ptr, 0U);
+
+        qm_find    (test_ptr, qm,       const_ptr);
+
+        Z_ASSERT(true);
+    } Z_TEST_END
+
+    Z_TEST(qh_delete, "qh: check deletion, deep deletion") {
+        qh_t(ptr) *qh;
+
+        qh = qh_new(ptr, 0);
+        qh_add(ptr, qh, NULL);
+        qh_delete(ptr, &qh);
+        Z_ASSERT(qh == NULL);
+
+        qh = qh_new(ptr, 0);
+        qh_add(ptr, qh, p_new(int, 1));
+        qh_deep_delete(ptr, &qh, p_delete);
+        Z_ASSERT(qh == NULL);
+    } Z_TEST_END
+
+    Z_TEST(qm_delete, "qm: check deletion, deep deletion") {
+        qm_t(test_ptr) *qm;
+
+        qm = qm_new(test_ptr, 0);
+        qm_add(test_ptr, qm, NULL, 42);
+        qm_delete(test_ptr, &qm);
+        Z_ASSERT(qm == NULL);
+
+        qm = qm_new(test_ptr, 0);
+        qm_add(test_ptr, qm, p_new(int, 1), 42);
+        qm_deep_delete(test_ptr, &qm, p_delete, IGNORE);
+        Z_ASSERT(qm == NULL);
+    } Z_TEST_END
+
+    Z_TEST(for_each_pos_safety,
+           "qhash: check that *for_each* resist to pos overwrites")
+    {
+        int sz = 42;
+        qh_t(u32) *qh = qh_new(u32, sz);
+        qh_t(u32) *seen = qh_new(u32, sz);
+        int nb_iter = 0;
+
+        for (int i = 0; i < sz; i++) {
+            Z_ASSERT_N(qh_add(u32, qh, i));
+        }
+        qh_for_each_pos(u32, pos, qh) {
+            uint32_t key = qh->keys[pos];
+
+            pos = UINT32_MAX;
+            Z_ASSERT_N(qh_add(u32, seen, key), "key `%u' seen twice", key);
+            nb_iter++;
+        }
+        Z_ASSERT_EQ(qh_len(u32, qh), nb_iter,
+                    "number of loops in qh_for_each_pos "
+                    "mismatches the QH length");
+
+        qh_delete(u32, &qh);
+        qh_delete(u32, &seen);
+    } Z_TEST_END
+
+    Z_TEST(for_each_scope_safety,
+           "qhash: check that *for_each* is scope safe without parentheses")
+    {
+        int sz = 5;
+        int sl = 3;
+        qh_t(u32) *qh = qh_new(u32, sz);
+        int sum = 0;
+        int expected_sum = 0;
+
+        for (int i = 0; i < sz; i++) {
+            Z_ASSERT_N(qh_add(u32, qh, i));
+            expected_sum += i;
+        }
+
+        for (int i = 0; i < sl; i++)
+            qh_for_each_pos(u32, pos, qh)
+                sum += qh->keys[pos];
+
+        expected_sum *= sl;
+        Z_ASSERT_EQ(expected_sum, sum, "unexpected sum number");
+
+        qh_delete(u32, &qh);
+    } Z_TEST_END
+
+    Z_TEST(for_each_key_value,
+           "qhash: check *for_each_key* and *for_each_value* macro functions")
+    {
+        int sz = 5;
+        qh_t(u32) *qh = qh_new(u32, sz);
+        qm_t(test) *qm = qm_new(test, sz);
+        int expected_sum = 0;
+
+        for (int i = 1; i <= sz; i++) {
+            Z_ASSERT_N(qh_add(u32, qh, i));
+            Z_ASSERT_N(qm_add(test, qm, i, i * 10));
+            expected_sum += i;
+        }
+
+        /* _loop is the macro function call being tested.
+         * _k and _v are the variables set by _loop for the key and value.
+         * _k * 10 == _v.
+         */
+#define T(_loop, _k, _v)                                                     \
+        do {                                                                 \
+            int sum_key;                                                     \
+            int sum_value;                                                   \
+                                                                             \
+            sum_key = 0;                                                     \
+            sum_value = 0;                                                   \
+            _loop {                                                          \
+                sum_key += (_k);                                             \
+                sum_value += (_v);                                           \
+            }                                                                \
+            Z_ASSERT_EQ(expected_sum, sum_key,                               \
+                        "invalid sum key for " #_loop);                      \
+            Z_ASSERT_EQ(expected_sum * 10, sum_value,                        \
+                        "invalid sum value for " # _loop);                   \
+                                                                             \
+            sum_key = 0;                                                     \
+            sum_value = 0;                                                   \
+            _loop {                                                          \
+                sum_key += (_k);                                             \
+                sum_value += (_v);                                           \
+                if (sum_key > 0) {                                           \
+                    continue;                                                \
+                }                                                            \
+                /* Never executed */                                         \
+                sum_key += 7777;                                             \
+                sum_value += 9999;                                           \
+            }                                                                \
+            Z_ASSERT_EQ(expected_sum, sum_key,                               \
+                        "invalid sum key for " #_loop " with continue");     \
+            Z_ASSERT_EQ(expected_sum * 10, sum_value,                        \
+                        "invalid sum value for " #_loop " with continue");   \
+                                                                             \
+            sum_key = 0;                                                     \
+            sum_value = 0;                                                   \
+            _loop {                                                          \
+                sum_key += (_k);                                             \
+                sum_value += (_v);                                           \
+                if (sum_key > 0) {                                           \
+                    break;                                                   \
+                }                                                            \
+                /* Never executed */                                         \
+                sum_key += 7777;                                             \
+                sum_value += 9999;                                           \
+            }                                                                \
+            Z_ASSERT_LT(0, sum_key,                                          \
+                        "0 sum key for " #_loop " with break");              \
+            Z_ASSERT_GT(expected_sum, sum_key,                               \
+                        "invalid sum key for " #_loop " with break");        \
+            Z_ASSERT_LT(0, sum_value,                                        \
+                        "0 sum value for " #_loop " with break");            \
+            Z_ASSERT_GT(expected_sum * 10, sum_value,                        \
+                        "invalid sum value for " #_loop " with break");      \
+        } while (0)
+
+        T(qh_for_each_key(u32, k, qh), k, k * 10);
+        T(qh_for_each_key_p(u32, k, qh), *k, (*k) * 10);
+
+        T(qm_for_each_key(test, k, qm), k, k * 10);
+        T(qm_for_each_key_p(test, k, qm), *k, (*k) * 10);
+
+        T(qm_for_each_value(test, v, qm), v / 10, v);
+        T(qm_for_each_value_p(test, v, qm), (*v) / 10, *v);
+
+        T(qm_for_each_key_value(test, k, v, qm), k, v);
+        T(qm_for_each_key_p_value(test, k, v, qm), *k, v);
+        T(qm_for_each_key_value_p(test, k, v, qm), k, *v);
+        T(qm_for_each_key_p_value_p(test, k, v, qm), *k, *v);
+
+#undef T
+
+        qh_delete(u32, &qh);
+        qm_delete(test, &qm);
+    } Z_TEST_END
+} Z_GROUP_END
+
+/*1}}}*/
+/*{{{1 QHhash */
+
+/* Keep these here, it's to check the macros are used and built */
+qhh_k32_t(test, 16);
+qhh_k64_t(test_qh_64, 16);
+
+qhm_k32_t(test, 16, uint32_t);
+qhm_k64_t(test_qh_64, 16, uint32_t);
+
+qhh_kptr_ckey_t(test_str, 16, char, qhhash_str_hash, qhhash_str_equal);
+
+qhm_kvec_t(test_lstr, 16, lstr_t, uint32_t, qhhash_lstr_hash, qhhash_lstr_equal);
+qhm_kptr_t(test_ptr,  16, void,   uint32_t, qhhash_hash_ptr,  qhhash_ptr_equal);
+
+Z_GROUP_EXPORT(qhugehash)
+{
+    Z_TEST(insertion, "qhhash: insertion") {
+        qhh_t(test) h;
+        uint64_t bits[2] = { 0, 0 };
+
+        qhh_init(test, &h, false);
+
+        for (int i = 0; i < 128; i++) {
+            Z_ASSERT_N(qhh_add(test, &h, i));
+            SET_BIT(bits, i);
+        }
+        Z_ASSERT_EQ(h.hdr.len, 128U);
+
+        qhh_for_each_pos(test, pos, &h) {
+            uint32_t v = *qhh_key_p(test, &h, pos);
+
+            Z_ASSERT(v < bitsizeof(bits) && TST_BIT(bits, v));
+            CLR_BIT(bits, v);
+        }
+
+        Z_ASSERT(bits[0] == 0, "all values should have been seen");
+        Z_ASSERT(bits[1] == 0, "all values should have been seen");
+        qhh_deep_wipe(test, &h, IGNORE);
+    } Z_TEST_END;
+
+    Z_TEST(collision, "qhhash: collision") {
+        qhh_t(test) h;
+
+        qhh_init(test, &h, false);
+
+        for (int i = 0; i < 128; i++) {
+            Z_ASSERT_N(qhh_add(test, &h, i));
+        }
+
+        for (int i = 0; i < 128; i++) {
+            Z_ASSERT(qhh_add(test, &h, i), "double insertion of %d", i);
+        }
+
+        qhh_deep_clear(test, &h, IGNORE);
+        Z_ASSERT_ZERO(qhh_len(test, &h));
+        qhh_clear(test, &h);
+        qhh_wipe(test, &h);
+    } Z_TEST_END;
+
+    Z_TEST(self, "qhhash: self search") {
+        qhh_t(test) h;
+
+        qhh_init(test, &h, false);
+
+        for (int i = 0; i < 128; i++) {
+            Z_ASSERT_N(qhh_add(test, &h, i));
+        }
+        Z_ASSERT_EQ(qhh_len(test, &h), 128ul);
+
+        for (int i = 128; i-- > 0; ) {
+            int64_t pos = qhh_find(test, &h, i);
+
+            Z_ASSERT(pos >= 0, "qh_find should find %d", i);
+            qhh_del_at(test, &h, pos);
+        }
+
+        Z_ASSERT_ZERO(qhh_len(test, &h));
+
+        qhh_wipe(test, &h);
+    } Z_TEST_END;
+
+    Z_TEST(string, "qhhash: string") {
+        const char *t1 = "test1";
+        const char *t2 = "test2";
+        int64_t pos;
+        qhh_t(test_str) h;
+
+        qhh_init(test_str, &h, false);
+
+        Z_ASSERT_N(qhh_add(test_str, &h, t1));
+        Z_ASSERT_N(qhh_add(test_str, &h, t2));
+
+        pos = qhh_find(test_str, &h, t1);
+        Z_ASSERT(pos >= 0, "qh_find should find %s", t1);
+        Z_ASSERT_STREQUAL(*qhh_key_p(test_str, &h, pos), t1);
+
+        pos = qhh_find(test_str, &h, t2);
+        Z_ASSERT(pos >= 0, "qh_find should find %s", t2);
+
+        Z_ASSERT_EQ(qhh_len(test_str, &h), 2ul);
+
+        qhh_del_at(test_str, &h, pos);
+        Z_ASSERT_EQ(qhh_len(test_str, &h), 1ul);
+        qhh_for_each_pos(test_str, i, &h) {
+            Z_ASSERT_STREQUAL(*qhh_key_p(test_str, &h, i), t1,
+                              "qh_for_each_pos has failed");
+        }
+
+        /* Remove t1 */
+        pos = qhh_find(test_str, &h, t1);
+        Z_ASSERT(pos >= 0, "can't find t1 ('%s')", t1);
+        qhh_del_at(test_str, &h, pos);
+        Z_ASSERT_ZERO(qhh_len(test_str, &h));
+
+        qhh_add(test_str, &h, t1);
+        Z_ASSERT_EQ(qhh_len(test_str, &h), 1ul);
+
+        pos = qhh_find(test_str, &h, t1);
+        Z_ASSERT(pos >= 0, "can't find t1 ('%s')", t1);
+        qhh_for_each_pos(test_str, i, &h) {
+            Z_ASSERT_STREQUAL(*qhh_key_p(test_str, &h, i), t1,
+                              "2nd qh_for_each_pos has failed");
+        }
+        qhh_wipe(test_str, &h);
+    } Z_TEST_END;
+
+    Z_TEST(qhh_hash, "qhhash: qhh_hash/qhh_del_key_h") {
+        qhh_t(test) h;
+
+        qhh_init(test, &h, false);
+
+        for (int i = 0; i < 128; i++) {
+            Z_ASSERT_N(qhh_add(test, &h, i));
+        }
+
+        for (int i = 128; i-- > 0; ) {
+            uint32_t hash = qhh_hash(test, &h, i);
+            int64_t  pos;
+
+            pos = qhh_del_key_h(test, &h, hash, i);
+            Z_ASSERT(pos >= 0, "qh_find should find %d", i);
+        }
+
+        Z_ASSERT_ZERO(qhh_len(test, &h));
+
+        qhh_wipe(test, &h);
+    } Z_TEST_END;
+
+    Z_TEST(qhm_hash, "qhhash: qhm_hash/qhm_del_key_h") {
+        qhm_t(test) h;
+
+        qhm_init(test, &h, false);
+
+        for (uint32_t i = 0; i < 128; i++) {
+            Z_ASSERT_N(qhm_add(test, &h, i, i));
+        }
+
+        for (uint32_t i = 128; i-- > 0; ) {
+            uint32_t hash = qhm_hash(test, &h, i);
+            int64_t  pos;
+
+            pos = qhm_del_key_h(test, &h, hash, i);
+            Z_ASSERT(pos >= 0, "qm_find should find %d", i);
+            Z_ASSERT_EQ(*qhm_value_p(test, &h, pos), i);
+        }
+
+        Z_ASSERT_ZERO(qhm_len(test, &h));
+
+        qhm_deep_clear(test, &h, IGNORE, IGNORE);
+        qhm_clear(test, &h);
+        qhm_deep_wipe(test, &h, IGNORE, IGNORE);
+    } Z_TEST_END;
+
+    Z_TEST(qhm_put , "qhhash: qhm_put") {
+        lstr_t str;
+
+#define CHECK(type, key)  \
+        do {                                                                \
+            uint64_t pos;                                                   \
+            qhm_t(type) h;                                                  \
+                                                                            \
+            qhm_init(type, &h, true);                                       \
+            pos = qhm_put(type, &h, (key), 1, 0);                           \
+            Z_ASSERT_EQ(pos & QHASH_COLLISION, 0u);                         \
+            pos = qhm_put(type, &h, (key), 2, 0);                           \
+            Z_ASSERT_NE(pos & QHASH_COLLISION, 0u);                         \
+            Z_ASSERT_EQ(*qhm_value_p(type, &h, pos), 1u);                   \
+            pos = qhm_put(type, &h, (key), 2, QHASH_OVERWRITE);             \
+            Z_ASSERT_NE(pos & QHASH_COLLISION, 0u);                         \
+            Z_ASSERT_EQ(*qhm_value_p(type, &h, pos), 2u);                   \
+            qhm_wipe(type, &h);                                             \
+        } while (0)
+
+        /* IKEY */
+        CHECK(test, 1);
+
+        /* VKEY */
+        str = LSTR("foo");
+        CHECK(test_lstr, &str);
+
+        /* PKEY */
+        CHECK(test_ptr, (void *)0xf00);
+
+#undef CHECK
+
+    } Z_TEST_END
+
+    Z_TEST(qhm_reserve , "qhm: qhm_reserve") {
+        lstr_t str;
+
+#define CHECK(type, key)                                                     \
+        do {                                                                 \
+            uint64_t pos;                                                    \
+            qhm_t(type) h;                                                   \
+                                                                             \
+            qhm_init(type, &h, true);                                        \
+            pos = qhm_reserve(type, &h, (key), 0);                           \
+            Z_ASSERT_EQ(pos & QHASH_COLLISION, 0u);                          \
+            *qhm_value_p(type, &h, pos) = 3u;                                \
+            pos = qhm_reserve(type, &h, (key), 0);                           \
+            Z_ASSERT_NE(pos & QHASH_COLLISION, 0u);                          \
+            Z_ASSERT_EQ(*qhm_value_p(type, &h, pos), 3u);                    \
+            pos = qhm_reserve(type, &h, (key), QHASH_OVERWRITE);             \
+            Z_ASSERT_NE(pos & QHASH_COLLISION, 0u);                          \
+            Z_ASSERT_EQ(*qhm_value_p(type, &h, pos), 3u);                    \
+            qhm_wipe(type, &h);                                              \
+        } while (0)
+
+        /* IKEY */
+        CHECK(test, 1);
+
+        /* VKEY */
+        str = LSTR("foo");
+        CHECK(test_lstr, &str);
+
+        /* PKEY */
+        CHECK(test_ptr, (void *)0xf00);
+
+#undef CHECK
+
+    } Z_TEST_END
+
+    Z_TEST(for_each_safety,
+           "qhhash: check that *for_each* resist to pos overwrites")
+    {
+        int sz = 42;
+        qhh_t(test) qhh;
+        qh_t(u32) *seen = qh_new(u32, sz);
+        uint64_t nb_iter = 0;
+
+        qhh_init(test, &qhh, sz);
+        for (int i = 0; i < sz; i++) {
+            Z_ASSERT_N(qhh_add(test, &qhh, i));
+        }
+        qhh_for_each_pos(test, pos, &qhh) {
+            uint32_t key = *qhh_key_p(test, &qhh, pos);
+
+            pos = UINT64_MAX;
+            Z_ASSERT_N(qh_add(u32, seen, key), "key `%u' seen twice", key);
+            nb_iter++;
+        }
+        Z_ASSERT_EQ(qhh_len(test, &qhh), nb_iter,
+                    "number of loops in qh_for_each_pos "
+                    "mismatches the QHH length");
+
+        qhh_wipe(test, &qhh);
+        qh_delete(u32, &seen);
+    } Z_TEST_END
+
+} Z_GROUP_END
+
+/*1}}}*/
+/*{{{1 Qvectors */
+
+static int qv_sort_tst(int nb, struct timeval * nullable execution_time)
+{
+    t_scope;
+    qv_t(u32) tab;
+    struct timeval tv_start;
+
+    t_qv_init(&tab, nb);
+    for (int i = 0; i < nb; i++) {
+        qv_append(&tab, rand());
+    }
+
+    lp_gettv(&tv_start);
+
+    qv_sort(u32)(&tab, ^int (const uint32_t *v1, const uint32_t *v2) {
+        return CMP(*v1, *v2);
+    });
+
+    if (execution_time) {
+        struct timeval tv_end;
+
+        lp_gettv(&tv_end);
+        *execution_time = timeval_sub(tv_end, tv_start);
+    }
+
+    for (int i = 1; i < tab.len; i++) {
+        Z_ASSERT_GT(tab.tab[i], tab.tab[i - 1]);
+    }
+
+    Z_HELPER_END;
+}
+
+static void build_sorted_uniq_vec(qv_t(u32) *vec)
+{
+#define N  1024
+    int size = rand_range(0, N);
+
+    for (int i = 0; i < size; i++) {
+        qv_append(vec, rand_range(0, 4 * N));
+    }
+    dsort32(vec->tab, vec->len);
+    vec->len = uniq32(vec->tab, vec->len);
+#undef N
+}
+
+/* XXX: qv_diff/deep_extend/uniq performed in a separate function as block
+ * rewriting inside Z_GROUP_EXPORT breaks compilation */
+static void do_qv_diff(qv_t(u32) *vec1, qv_t(u32) *vec2,
+                       qv_t(u32) *add, qv_t(u32) *del, qv_t(u32) *inter)
+{
+    qv_diff(u32)(vec1, vec2, add, del, inter,
+                 ^int (const uint32_t *v1, const uint32_t *v2) {
+                     return CMP(*v1, *v2);
+                 });
+}
+
+static void do_qv_deep_extend(qv_t(str) *vec1, qv_t(str) *vec2)
+{
+    qv_deep_extend(str)(vec1, vec2,
+                        ^void (char **dst, char * const *src) {
+                            *dst = p_strdup(*src);
+                        });
+}
+
+static void do_qv_uniq(qv_t(u32) *uniqued_vec, qv_t(u32) *duplicated_vec)
+{
+    qv_uniq(u32)(uniqued_vec, ^int (const uint32_t *a, const uint32_t *b) {
+        return CMP(*a, *b);
+    },
+    ^void (uint32_t *v) {
+        qv_append(duplicated_vec, *v);
+    });
+}
+
+static _Bool qv_search_tst(void)
+{
+    t_scope;
+
+    qv_t(i32) vec;
+    int N = 10;
+    qv_cmp_b(i32) cmp = ^int (const int32_t* a, const int32_t* b){
+        return CMP(*a, *b);
+    };
+
+    t_qv_init(&vec, N);
+    for (int i = 0; i < N; i++)
+        qv_append(&vec, 1 + i * 2);
+
+    for (int i = -2; i < 2 * N + 2; i++) {
+        bool found_bisect = false;
+        int pos_bisect = qv_bisect(i32)(&vec, i, &found_bisect, cmp);
+        int pos_find = qv_find(i32)(&vec, i, true, cmp);
+        bool contain = qv_contains(i32)(&vec, i, true, cmp);
+
+        /* compare with result on assumed unsorted vector */
+        THROW_FALSE_IF(pos_find != qv_find(i32)(&vec, i, false, cmp));
+        THROW_FALSE_IF(contain != qv_contains(i32)(&vec, i, false, cmp));
+
+        if (i < 1) {
+            THROW_FALSE_IF(pos_bisect != 0);
+            THROW_FALSE_IF(pos_find != -1);
+        } else
+        if (i < 1 + N * 2) {
+            THROW_FALSE_IF(found_bisect != i % 2);
+            if (found_bisect) {
+                THROW_FALSE_IF(pos_bisect != (i - 1) / 2);
+                THROW_FALSE_IF(pos_find   != (i - 1) / 2);
+            } else {
+                THROW_FALSE_IF(pos_bisect != (i - 1) / 2 + 1);
+                THROW_FALSE_IF(pos_find   != -1);
+            }
+        } else {
+            THROW_FALSE_IF(found_bisect);
+            THROW_FALSE_IF(pos_bisect != N);
+            THROW_FALSE_IF(pos_find != -1);
+        }
+        THROW_FALSE_IF(found_bisect != contain);
+    }
+
+    return true;
+}
+
+Z_GROUP_EXPORT(qvector)
+{
+    Z_TEST(qv_for_each, "qvector: enumerations") {
+        t_scope;
+        uint32_t table[] = { 8, 9, 1, 2, 5 };
+        int it;
+        qv_t(u32) vec;
+
+        t_qv_init(&vec, countof(table));
+        it = 0;
+        tab_for_each_pos(pos, &vec) {
+            it++;
+        }
+        Z_ASSERT_ZERO(it);
+        tab_for_each_pos_safe(pos, &vec) {
+            it++;
+        }
+        Z_ASSERT_ZERO(it);
+
+        tab_for_each_ptr(ptr, &vec) {
+            it++;
+        }
+        Z_ASSERT_ZERO(it);
+
+        tab_for_each_entry(e, &vec) {
+            IGNORE(e);
+            it++;
+        }
+        Z_ASSERT_ZERO(it);
+
+        qv_splice(&vec, 0, 0, table, countof(table));
+
+        tab_for_each_pos(pos, &vec) {
+            Z_ASSERT_EQ(pos, it);
+            it++;
+        }
+        Z_ASSERT_EQ(it, vec.len);
+        tab_for_each_pos_safe(pos, &vec) {
+            it--;
+            Z_ASSERT_EQ(pos, it);
+        }
+        Z_ASSERT_ZERO(it);
+
+        it = 0;
+        tab_for_each_ptr(ptr, &vec) {
+            Z_ASSERT_EQ(*ptr, table[it]);
+            it++;
+        }
+        Z_ASSERT_EQ(it, vec.len);
+
+        it = 0;
+        tab_for_each_entry(e, &vec) {
+            Z_ASSERT_EQ(e, table[it]);
+            it++;
+        }
+        Z_ASSERT_EQ(it, vec.len);
+    } Z_TEST_END;
+
+    Z_TEST(qv_clip, "qvector: clip/shrink/skip") {
+        t_scope;
+        uint32_t table[] = { 8, 9, 1, 2, 5 };
+        qv_t(u32) vec;
+
+        t_qv_init(&vec, countof(table));
+
+        for (int i = 0; i <= countof(table); i++) {
+            qv_clear(&vec);
+            qv_splice(&vec, 0, 0, table, countof(table));
+            qv_clip(&vec, i);
+            Z_ASSERT_EQ(vec.len, i);
+            tab_enumerate(pos, u, &vec) {
+                Z_ASSERT_EQ(u, table[pos]);
+            }
+        }
+
+        for (int i = 0; i <= countof(table); i++) {
+            qv_clear(&vec);
+            qv_splice(&vec, 0, 0, table, countof(table));
+            qv_shrink(&vec, i);
+            Z_ASSERT_EQ(vec.len, countof(table) - i);
+            tab_enumerate(pos, u, &vec) {
+                Z_ASSERT_EQ(u, table[pos]);
+            }
+        }
+
+        for (int i = 0; i <= countof(table); i++) {
+            qv_clear(&vec);
+            qv_splice(&vec, 0, 0, table, countof(table));
+            qv_skip(&vec, i);
+            Z_ASSERT_EQ(vec.len, countof(table) - i);
+            tab_enumerate(pos, u, &vec) {
+                Z_ASSERT_EQ(u, table[i + pos]);
+            }
+        }
+    } Z_TEST_END;
+
+    Z_TEST(qv_sort, "qvector: qv_sort") {
+        struct timeval tv_nothread, tv_thread;
+
+        /* First test withtout threading. */
+        Z_ASSERT(!MODULE_IS_LOADED(thr));
+        Z_HELPER_RUN(qv_sort_tst(128, NULL));
+        Z_HELPER_RUN(qv_sort_tst(100000, &tv_nothread));
+
+        /* Then test with threading. */
+        MODULE_REQUIRE(thr);
+        Z_HELPER_RUN(qv_sort_tst(128, NULL));
+        Z_HELPER_RUN(qv_sort_tst(100000, &tv_thread));
+        MODULE_RELEASE(thr);
+
+        /* Using threads should be faster (but this is not guaranteed, so do
+         * not assert it). */
+        if (timeval_diffmsec(&tv_nothread, &tv_thread) <= 0) {
+            e_error("qv_sort monothread was faster than qv_sort multithread");
+        }
+    } Z_TEST_END;
+
+    Z_TEST(qv_diff, "qvector: qv_diff") {
+        /* {{{ */
+#define N  1024
+        t_scope;
+        qv_t(u32) vec1, vec2, add, del, inter;
+
+        t_qv_init(&vec1,  N);
+        t_qv_init(&vec2,  N);
+        t_qv_init(&add,   N);
+        t_qv_init(&del,   N);
+        t_qv_init(&inter, N);
+
+        build_sorted_uniq_vec(&vec1);
+        build_sorted_uniq_vec(&vec2);
+
+        do_qv_diff(&vec1, &vec2, &add, &del, &inter);
+
+        Z_ASSERT(add.len   == (int)uniq32(add.tab,   add.len));
+        Z_ASSERT(del.len   == (int)uniq32(del.tab,   del.len));
+        Z_ASSERT(inter.len == (int)uniq32(inter.tab, inter.len));
+
+        tab_for_each_entry(u, &add) {
+            Z_ASSERT(!contains32(u, vec1.tab, vec1.len)
+                 &&  contains32(u, vec2.tab, vec2.len));
+        }
+        tab_for_each_entry(u, &del) {
+            Z_ASSERT(contains32(u, vec1.tab, vec1.len)
+                 &&  !contains32(u, vec2.tab, vec2.len));
+        }
+        tab_for_each_entry(u, &inter) {
+            Z_ASSERT(contains32(u, vec1.tab, vec1.len)
+                 &&  contains32(u, vec2.tab, vec2.len));
+        }
+        tab_for_each_entry(u, &vec1) {
+            Z_ASSERT(contains32(u, vec2.tab, vec2.len)
+                 ||  contains32(u, del.tab,  del.len));
+            Z_ASSERT(!contains32(u, vec2.tab, vec2.len)
+                 ||  contains32(u, inter.tab, inter.len));
+        }
+        tab_for_each_entry(u, &vec2) {
+            Z_ASSERT(contains32(u, vec1.tab, vec1.len)
+                 ||  contains32(u, add.tab,  add.len));
+            Z_ASSERT(!contains32(u, vec1.tab, vec1.len)
+                 ||  contains32(u, inter.tab, inter.len));
+        }
+
+        /* Test that passing NULL to add, del and inter doesn't segfault */
+        do_qv_diff(&vec1, &vec2, NULL, NULL, NULL);
+#undef N
+        /* }}} */
+    } Z_TEST_END;
+
+    Z_TEST(qv_search, "qvector: bisect, find and contains") {
+        Z_ASSERT(qv_search_tst());
+    } Z_TEST_END;
+
+    Z_TEST(qv_extend, "qvector: extend") {
+        t_scope;
+        qv_t(i32) vec1;
+        qv_t(i32) vec2;
+        int N = 10;
+        int res = 0;
+        int awaiting_res = 0;
+
+        t_qv_init(&vec2, N);
+        t_qv_init(&vec1, N);
+        for (int i = 0; i < N; i++) {
+            qv_append(&vec1, i);
+            qv_append(&vec2, N + i);
+            awaiting_res += 2 * i + N;
+        }
+        qv_extend(&vec1, &vec2);
+
+        Z_ASSERT_EQ(vec1.len, 2 * N);
+        tab_enumerate(pos, entry, &vec1) {
+            Z_ASSERT_EQ(pos, entry);
+            res += entry;
+        }
+        Z_ASSERT_EQ(res, awaiting_res);
+
+        /* Extending self. */
+        t_qv_init(&vec1, 100);
+        for (int i = 0; i < (1 << 10); i++) {
+            qv_append(&vec1, i);
+        }
+
+        for (int i = 0; i < 10; i++) {
+            qv_extend(&vec1, &vec1);
+        }
+
+        Z_ASSERT_EQ(vec1.len, (1 << 20));
+        tab_enumerate(i, entry, &vec1) {
+            Z_ASSERT_EQ(entry, i % (1 << 10));
+        }
+    } Z_TEST_END;
+
+    Z_TEST(qv_deep_extend, "qvector: deep_extend") {
+        char palindrome[3][26] = {
+            "karineallaenirak",
+            "alemirasimovavomisarimela",
+            "engagelejeuquejelegagne"
+        };
+        qv_t(str) vec1;
+        qv_t(str) vec2;
+
+        qv_init(&vec1);
+        qv_init(&vec2);
+        qv_growlen(&vec1, 3);
+        for (int i = 0; i < 3; i++) {
+            vec1.tab[i] = p_strdup(palindrome[i]);
+            qv_append(&vec2, palindrome[i]);
+        }
+
+        do_qv_deep_extend(&vec1, &vec2);
+        Z_ASSERT_EQ(vec1.len, 6);
+        for (int i = 3; i < 6; i++) {
+            char *tmp = vec1.tab[i];
+
+            while (*tmp) {
+                *tmp -= 'a' - 'A';
+                tmp++;
+            }
+        }
+        tab_enumerate(pos, s2, &vec2) {
+            const char *s1 = vec1.tab[pos];
+
+            Z_ASSERT_EQ(strlen(s2), strlen(s1));
+            Z_ASSERT_ZERO(strncmp(s2, s1, strlen(s2)));
+        }
+        for (int i = 3; i < vec1.len; i++) {
+            Z_ASSERT_EQ(strlen(vec1.tab[i]), strlen(vec1.tab[i - 3]));
+            for (size_t len = 0; vec1.tab[i][len]; len++) {
+                char tmp1 = vec1.tab[i][len] + 'a' - 'A';
+
+                Z_ASSERT_EQ(tmp1, vec1.tab[i - 3][len]);
+            }
+        }
+        qv_deep_wipe(&vec1, p_delete);
+        qv_wipe(&vec2);
+    } Z_TEST_END;
+
+    Z_TEST(mp_qv_init, "qvector: mp_qv_init leak") {
+        qv_t(str) vec;
+
+        mp_qv_init(NULL, &vec, 0);
+        qv_deep_wipe(&vec, p_delete);
+
+        Z_ASSERT(true);
+    } Z_TEST_END;
+
+    Z_TEST(alloc_helpers, "qvector: check mp_qv_new() helpers") {
+        t_scope;
+        qv_t(u8) *vec8;
+        qv_t(u32) *vec32;
+
+        vec8 = t_qv_new(u8, 12);
+        Z_ASSERT_P(vec8);
+
+        r_newframe();
+        vec32 = r_qv_new(u32, 42);
+        Z_ASSERT_P(vec32);
+        r_release(r_getframe());
+    } Z_TEST_END
+
+    Z_TEST(qv_init_static, "qvector: qv_init_static() helper") {
+        t_scope;
+        qv_t(u32) vec;
+        qv_t(u32) vec2;
+        uint32_t tab[] = { 0, 1, 2, 3 };
+        const uint32_t ctab[] = { 0, 1, 2, 3 };
+        uint32_t *ttab = t_dup(tab, countof(tab));
+        const uint32_t *cttab = ttab;
+
+        qv_init_static(&vec, tab, countof(tab));
+        Z_ASSERT(vec.tab == tab);
+        Z_ASSERT_EQ(vec.len, countof(tab));
+
+        qv_init_static(&vec, ctab, countof(ctab));
+        Z_ASSERT(vec.tab == ctab);
+        Z_ASSERT_EQ(vec.len, countof(ctab));
+
+        qv_init_static(&vec, ttab, countof(tab));
+        Z_ASSERT(vec.tab == ttab);
+        Z_ASSERT_EQ(vec.len, countof(tab));
+
+        qv_init_static(&vec, cttab, countof(tab));
+        Z_ASSERT(vec.tab == cttab);
+        Z_ASSERT_EQ(vec.len, countof(tab));
+
+        qv_init_static_tab(&vec2, &vec);
+        Z_ASSERT(vec2.tab == vec.tab);
+        Z_ASSERT(vec2.len == vec.len);
+    } Z_TEST_END
+
+    Z_TEST(qv_deep_uniq, "qvector: qv_uniq()") {
+        t_scope;
+        const uint32_t sorted[] = { 1, 1, 3, 4, 6, 6, 6, 42, 7777, 7777 };
+        const uint32_t uniqued[] = { 1, 3, 4, 6, 42, 7777 };
+        const uint32_t duplicated[] = { 1, 6, 6, 7777 };
+        qv_t(u32) static_vec;
+        qv_t(u32) uniqued_vec;
+        qv_t(u32) duplicated_vec;
+
+        /* Init */
+        qv_init_static(&static_vec, sorted, countof(sorted));
+        t_qv_init(&uniqued_vec, static_vec.len);
+        qv_extend(&uniqued_vec, &static_vec);
+        t_qv_init(&duplicated_vec, countof(duplicated));
+
+        /* Uniq vec */
+        do_qv_uniq(&uniqued_vec, &duplicated_vec);
+
+        /* Test resulting vectors */
+        Z_ASSERT_EQUAL(uniqued_vec.tab, uniqued_vec.len, uniqued,
+                       countof(uniqued));
+        Z_ASSERT_EQUAL(duplicated_vec.tab, duplicated_vec.len, duplicated,
+                       countof(duplicated));
+    } Z_TEST_END
+
+    Z_TEST(qv_grow_get_alloc_size, "qvector: qv_grow_get_alloc_size()") {
+        t_scope;
+        qv_t(u32) vec;
+        uint64_t alloc_size;
+
+        t_qv_init(&vec, 0);
+
+        Z_ASSERT_GE(qv_grow_get_alloc_size(&vec, 9999), 9999U);
+
+        alloc_size = qv_grow_get_alloc_size(&vec, 5);
+        qv_growlen(&vec, 5);
+        Z_ASSERT_EQ(vec.size * sizeof(*vec.tab), alloc_size);
+    } Z_TEST_END
+} Z_GROUP_END;
+
+/*1}}}*/
+/*{{{1 Heap */
+
+typedef struct test_node_t {
+    int pos;
+    int val;
+} test_node_t;
+
+#define TEST_NODE_CMP(a, op, b)  ((a)->val op (b)->val)
+
+static ALWAYS_INLINE void test_node_set_pos(test_node_t *node, int pos)
+{
+    node->pos = pos;
+}
+
+qhp_min_t(test_heap, test_node_t *, TEST_NODE_CMP, test_node_set_pos);
+
+typedef struct test_node_inl_t {
+    uint8_t val;
+    int8_t  pos;
+} test_node_inl_t;
+
+#define TEST_NODE_INL_CMP(a, op, b)        ((a).val op (b).val)
+#define TEST_NODE_INL_SET_POS(node, _pos)  ((node).pos = _pos)
+
+qhp_min_t(inl_heap, test_node_inl_t, TEST_NODE_INL_CMP,
+          TEST_NODE_INL_SET_POS);
+
+Z_GROUP_EXPORT(qhp)
+{
+    Z_TEST(sort, "qhp: sort") {
+        qhp_t(i32_min)  qhp;
+        int32_t         tab[] = { 5, 2, 9, 7, 1, 3, 0, 8, 6, 4 };
+
+        qhp_inita(i32_min, &qhp, countof(tab));
+
+        for (int i = 0; i < countof(tab); i++) {
+            qhp_insert(i32_min, &qhp, tab[i]);
+            Z_ASSERT_EQ(qhp_len(i32_min, &qhp), i + 1, "unexpected length");
+        }
+
+        for (int i = 0; i < countof(tab); i++) {
+            int it;
+
+            Z_ASSERT(!qhp_is_empty(i32_min, &qhp), "qhp is empty");
+            it = qhp_take_first(i32_min, &qhp);
+
+            Z_ASSERT_EQ(it, i, "expected `%d', got `%d'", i, it);
+        }
+    } Z_TEST_END
+
+    Z_TEST(inline_struct, "qhp: inline structure") {
+        qhp_t(inl_heap)  qhp;
+        int32_t          tab[] = { 5, 2, 9, 7, 1, 3, 0, 8, 6, 4 };
+
+        qhp_inita(inl_heap, &qhp, countof(tab));
+
+        for (int i = 0; i < countof(tab); i++) {
+            test_node_inl_t node = { .val = tab[i] };
+            int pos;
+
+            pos = qhp_insert(inl_heap, &qhp, node);
+            node = qhp_get(inl_heap, &qhp, pos);
+            Z_ASSERT_EQ(pos, node.pos, "invalid position after insertion: "
+                        "expected `%d', got `%d'", pos, node.pos);
+        }
+
+        qhp_for_each_pos(inl_heap, pos, &qhp) {
+            test_node_inl_t node = qhp_get(inl_heap, &qhp, pos);
+            Z_ASSERT_EQ(pos, node.pos, "invalid position: "
+                        "expected `%d', got `%d'", pos, node.pos);
+        }
+    } Z_TEST_END
+
+    Z_TEST(getters, "qhp: inline getters helpers") {
+        qhp_t(i32_min)  qhp;
+        int32_t          tab[] = { 1, 2 };
+
+        qhp_inita(i32_min, &qhp, countof(tab));
+        carray_for_each_entry(i, tab) {
+            qhp_insert(i32_min, &qhp, i);
+        }
+
+        Z_ASSERT_EQ(qhp_len(i32_min, &qhp), 2);
+        Z_ASSERT(!qhp_is_empty(i32_min, &qhp));
+        Z_ASSERT_EQ(qhp_get(i32_min, &qhp, 0), 1);
+        Z_ASSERT_EQ(qhp_first(i32_min, &qhp), 1);
+        qhp_first(i32_min, &qhp) = 42;
+        qhp_fixup_first(i32_min, &qhp);
+        Z_ASSERT_EQ(qhp_first(i32_min, &qhp), 2);
+    } Z_TEST_END;
+
+    Z_TEST(remove, "qhp: remove") {
+        t_scope;
+        qhp_t(test_heap) qhp;
+        int             tab[]       = { 5, 2, 9, 7, 1, 3, 0, 8, 6, 4 };
+        int             to_remove[] = {       2,          6,       9 };
+        int             expected[]  = {    1, 2, 3,    5, 6, 7, 8,   };
+        test_node_t     nodes[countof(tab)];
+
+        STATIC_ASSERT (countof(expected)
+                    == countof(tab) - countof(to_remove));
+
+        p_clear(&nodes, 1);
+        t_qhp_init(test_heap, &qhp, 1024);
+
+        for (int i = 0; i < countof(tab); i++) {
+            nodes[i].val = tab[i];
+            qhp_insert(test_heap, &qhp, &nodes[i]);
+        }
+
+        for (int i = 0; i < countof(to_remove); i++) {
+            test_node_t *node = &nodes[to_remove[i]];
+            test_node_t *removed;
+
+            Z_ASSERT_EQ(qhp_len(test_heap, &qhp), countof(nodes) - i,
+                        "unexpected qhp length");
+            removed = qhp_remove(test_heap, &qhp, node->pos);
+            Z_ASSERT(node == removed, "removed wrong node");
+        }
+
+        Z_ASSERT_EQ(qhp_len(test_heap, &qhp), countof(expected),
+                    "unexpected qhp length");
+
+        for (int i = 0; i < countof(expected); i++) {
+            int val = qhp_take_first(test_heap, &qhp)->val;
+
+            Z_ASSERT_EQ(expected[i], val, "expected `%d', got `%d'",
+                        expected[i], val);
+        }
+
+        Z_ASSERT(qhp_is_empty(test_heap, &qhp), "qhp is not empty");
+    } Z_TEST_END
+
+    Z_TEST(lstr, "qhp: lstr") {
+        t_scope;
+        qhp_t(lstr_min)  qhp;
+        lstr_t           toto = LSTR("toto");
+        lstr_t           tata = LSTR("tata");
+        lstr_t           tutu = LSTR("tutu");
+
+        t_qhp_init(lstr_min, &qhp, 3);
+
+        qhp_insert(lstr_min, &qhp, &toto);
+        qhp_insert(lstr_min, &qhp, &tata);
+        qhp_insert(lstr_min, &qhp, &tutu);
+
+        Z_ASSERT_LSTREQUAL(tata, *qhp_take_first(lstr_min, &qhp),
+                           "expected \"toto\"");
+        Z_ASSERT_LSTREQUAL(toto, *qhp_take_first(lstr_min, &qhp),
+                           "expected \"tata\"");
+        Z_ASSERT_LSTREQUAL(tutu, *qhp_take_first(lstr_min, &qhp),
+                           "expected \"tutu\"");
+    } Z_TEST_END
+} Z_GROUP_END
+
+/*1}}}*/
+/*{{{1 Red-Black Tree */
+
+typedef struct {
+    int       v;
+    rb_node_t link;
+} rb_test_t;
+GENERIC_FUNCTIONS(rb_test_t, rb_test);
+
+#define RB_TEST_GET_KEY(rb_test)  (rb_test)->v
+
+rb_tree_t(rb_test, rb_test_t, int, link, RB_TEST_GET_KEY, CMP);
+
+Z_GROUP_EXPORT(rbt)
+{
+    Z_TEST(insert, "") {
+        rb_t(rb_test)  rbt;
+        rb_test_t     *t1, *t2;
+
+        rb_init(rb_test, &rbt);
+        t1 = rb_test_new();
+        t2 = rb_test_new();
+
+        t1->v = 2;
+        t2->v = 5;
+
+        Z_ASSERT_NULL(rb_insert(rb_test, &rbt, t1),  "insertion #1");
+        Z_ASSERT_NULL(rb_insert(rb_test, &rbt, t2),  "insertion #2");
+        Z_ASSERT(rb_find(rb_test, &rbt, 2) == t1,  "find #1");
+        Z_ASSERT_NULL(rb_find(rb_test, &rbt, 3), "find #2");
+        Z_ASSERT(rb_find(rb_test, &rbt, 5) == t2,  "find #3");
+        rb_remove(rb_test, &rbt, t1);
+        Z_ASSERT_NULL(rb_find(rb_test, &rbt, 2), "deletion #1");
+        Z_ASSERT(rb_find(rb_test, &rbt, 5) == t2,  "find #4");
+        rb_remove(rb_test, &rbt, t2);
+        Z_ASSERT_NULL(rb_find(rb_test, &rbt, 5), "deletion #2");
+
+        rb_test_delete(&t1);
+        rb_test_delete(&t2);
+    } Z_TEST_END
+
+    Z_TEST(upper_lower, "") {
+        rb_t(rb_test) rbt;
+
+        rb_init(rb_test, &rbt);
+        for (int i = 0; i <= 10; i++) {
+            rb_test_t *t = rb_test_new();
+
+            t->v = 2 * i;
+            Z_ASSERT_NULL(rb_insert(rb_test, &rbt, t), "%d", i);
+        }
+
+        for (int i = -1; i < 22; i++) {
+            rb_test_t *t;
+
+            if (!(i % 2)) {
+                Z_ASSERT(t = rb_find(rb_test, &rbt, i), "%d", i);
+                Z_ASSERT_EQ(i, t->v, "%d", i);
+
+                Z_ASSERT(t = rb_find_upper(rb_test, &rbt, i), "%d", i);
+                Z_ASSERT_EQ(i, t->v, "%d", i);
+
+                Z_ASSERT(t = rb_find_lower(rb_test, &rbt, i), "%d", i);
+                Z_ASSERT_EQ(i, t->v, "%d", i);
+            } else {
+                Z_ASSERT_NULL(rb_find(rb_test, &rbt, i), "%d", i);
+
+                if (i < 20) {
+                    Z_ASSERT(t = rb_find_upper(rb_test, &rbt, i), "%d", i);
+                    Z_ASSERT_EQ(i + 1, t->v, "%d", i);
+                } else {
+                    Z_ASSERT_NULL(rb_find_upper(rb_test, &rbt, i), "%d", i);
+                }
+
+                if (i > 0) {
+                    Z_ASSERT(t = rb_find_lower(rb_test, &rbt, i), "%d", i);
+                    Z_ASSERT_EQ(i - 1, t->v, "%d", i);
+                } else {
+                    Z_ASSERT_NULL(rb_find_lower(rb_test, &rbt, i), "%d", i);
+                }
+            }
+        }
+
+        rb_deep_wipe(rb_test, &rbt, rb_test_delete);
+    } Z_TEST_END;
+} Z_GROUP_END
+
+/*1}}}*/
+/*{{{1 HTList */
+
+typedef struct {
+    int id;
+    htnode_t node;
+} htlist_test_node_t;
+GENERIC_FUNCTIONS(htlist_test_node_t, htlist_test_node);
+
+static int htlist_nb_nodes(htlist_t *list)
+{
+    int nb_nodes = 0;
+
+    htlist_for_each(n, list)
+        nb_nodes++;
+
+    return nb_nodes;
+}
+
+Z_GROUP_EXPORT(htlist)
+{
+    Z_TEST(clear_add, "htlist:add value after clear") {
+        htlist_t list;
+        htlist_test_node_t *node;
+
+        htlist_init(&list);
+        Z_ASSERT_EQ(htlist_nb_nodes(&list), 0);
+
+        node = htlist_test_node_new();
+        htlist_add(&list, &node->node);
+        Z_ASSERT_EQ(htlist_nb_nodes(&list), 1);
+
+        htlist_deep_clear(&list, htlist_test_node_t, node,
+                          htlist_test_node_delete);
+        Z_ASSERT_EQ(htlist_nb_nodes(&list), 0);
+
+        node = htlist_test_node_new();
+        htlist_add(&list, &node->node);
+        Z_ASSERT_EQ(htlist_nb_nodes(&list), 1);
+
+        htlist_test_node_delete(&node);
+    } Z_TEST_END
+
+    Z_TEST(accessors, "htlist:accessors") {
+        htlist_t list;
+        htlist_test_node_t node1 = {.id = 1};
+        htlist_test_node_t node2 = {.id = 2};
+        htlist_test_node_t node3 = {.id = 3};
+        htlist_test_node_t node4 = {.id = 4};
+
+        htlist_init(&list);
+        Z_ASSERT_EQ(htlist_nb_nodes(&list), 0);
+
+        htlist_add(&list, &node1.node);
+        Z_ASSERT_EQ(htlist_nb_nodes(&list), 1);
+
+        htlist_add_tail(&list, &node2.node);
+        Z_ASSERT_EQ(htlist_nb_nodes(&list), 2);
+
+        htlist_add_tail(&list, &node3.node);
+        Z_ASSERT_EQ(htlist_nb_nodes(&list), 3);
+
+        /* List =  1 --> 2 --> 3 */
+        Z_ASSERT_EQ(htlist_first_entry(&list, htlist_test_node_t,
+                                       node)->id, 1);
+        Z_ASSERT_EQ(htlist_last_entry(&list, htlist_test_node_t,
+                                      node)->id, 3);
+        /* List =  2 --> 3 */
+        Z_ASSERT_EQ(htlist_pop_entry(&list, htlist_test_node_t,
+                                     node)->id, 1);
+        Z_ASSERT_EQ(htlist_first_entry(&list, htlist_test_node_t,
+                                       node)->id, 2);
+        assert (!htlist_is_empty(&list));
+        Z_ASSERT_EQ(htlist_last_entry(&list, htlist_test_node_t,
+                                      node)->id, 3);
+        /* List =  3 */
+        Z_ASSERT_EQ(htlist_pop_entry(&list, htlist_test_node_t,
+                                     node)->id, 2);
+        Z_ASSERT_EQ(htlist_first_entry(&list, htlist_test_node_t,
+                                       node)->id, 3);
+        assert (!htlist_is_empty(&list));
+        Z_ASSERT_EQ(htlist_last_entry(&list, htlist_test_node_t,
+                                      node)->id, 3);
+        /* List =  2 --> 3 */
+        htlist_add(&list, &node2.node);
+
+        Z_ASSERT_EQ(htlist_first_entry(&list, htlist_test_node_t,
+                                       node)->id, 2);
+        Z_ASSERT_EQ(htlist_last_entry(&list, htlist_test_node_t,
+                                      node)->id, 3);
+        /* List =  2 --> 3 --> 4 */
+        htlist_add_tail(&list, &node4.node);
+
+        Z_ASSERT_EQ(htlist_first_entry(&list, htlist_test_node_t,
+                                       node)->id, 2);
+        Z_ASSERT_EQ(htlist_last_entry(&list, htlist_test_node_t,
+                                      node)->id, 4);
+        Z_ASSERT_EQ(htlist_nb_nodes(&list), 3);
+
+        /* Empty list */
+        Z_ASSERT_EQ(htlist_pop_entry(&list, htlist_test_node_t,
+                                     node)->id, 2);
+        Z_ASSERT_EQ(htlist_pop_entry(&list, htlist_test_node_t,
+                                     node)->id, 3);
+        Z_ASSERT_EQ(htlist_pop_entry(&list, htlist_test_node_t,
+                                     node)->id, 4);
+        Z_ASSERT_EQ(htlist_nb_nodes(&list), 0);
+
+        /* List = 4 */
+        htlist_add_tail(&list, &node4.node);
+
+        Z_ASSERT_EQ(htlist_first_entry(&list, htlist_test_node_t,
+                                       node)->id, 4);
+        Z_ASSERT_EQ(htlist_last_entry(&list, htlist_test_node_t,
+                                      node)->id, 4);
+
+    } Z_TEST_END
+} Z_GROUP_END
+
+/*1}}}*/

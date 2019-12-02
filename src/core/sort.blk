@@ -1,0 +1,190 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <lib-common/arith.h>
+#include <lib-common/sort.h>
+
+#define SIMPLE_SORT
+#define type_t   uint8_t
+#define dsort    dsort8
+#define uniq     uniq8
+#include "sort-numeric.in.c"
+
+#define SIMPLE_SORT
+#define type_t    int8_t
+#define utype_t   uint8_t
+#define TYPE_MIN  INT8_MIN
+#define dsort     dsort_i8
+#include "sort-numeric.in.c"
+
+#define type_t   uint16_t
+#define dsort    dsort16
+#define uniq     uniq16
+#include "sort-numeric.in.c"
+
+#define type_t    int16_t
+#define utype_t   uint16_t
+#define TYPE_MIN  INT16_MIN
+#define dsort     dsort_i16
+#include "sort-numeric.in.c"
+
+#define type_t   uint32_t
+#define dsort    dsort32
+#define uniq     uniq32
+#include "sort-numeric.in.c"
+
+#define type_t    int32_t
+#define utype_t   uint32_t
+#define TYPE_MIN  INT32_MIN
+#define dsort     dsort_i32
+#include "sort-numeric.in.c"
+
+#define type_t   uint64_t
+#define dsort    dsort64
+#define uniq     uniq64
+#include "sort-numeric.in.c"
+
+#define type_t    int64_t
+#define utype_t   uint64_t
+#define TYPE_MIN  INT64_MIN
+#define dsort     dsort_i64
+#include "sort-numeric.in.c"
+
+#define t(ptr, p)  (((byte *)(ptr)) + (size * (p)))
+
+size_t uniq(void *data, size_t size, size_t nmemb, cmp_r_t *cmp,
+            void *cmp_arg, del_r_t * nullable del, void *del_arg)
+{
+    for (size_t i = 1; i < nmemb; i++) {
+        if (unlikely(cmp(t(data, i), t(data, i - 1), cmp_arg) == 0)) {
+            void *end = t(data, nmemb);
+            void *w   = t(data, i);
+            void *r   = t(data, i + 1);
+
+            if (del) {
+                del(w, del_arg);
+            }
+
+            for (;;) {
+                void *s = r;
+
+                while (r < end && cmp(r, t(w, -1), cmp_arg) == 0) {
+                    r = t(r, 1);
+                }
+
+                if (del) {
+                    for (; s < r; s = t(s, 1)) {
+                        del(s, del_arg);
+                    }
+                }
+
+                if (r == end) {
+                    break;
+                }
+
+                memcpy(w, r, size);
+                w = t(w, 1);
+                r = t(r, 1);
+            }
+            nmemb = ((byte *)w - (byte *)data) / size;
+            break;
+        }
+    }
+    return nmemb;
+}
+
+size_t bisect(const void *what, const void *data, size_t size, size_t nmemb,
+              bool *found, cmp_r_t *cmp, void *arg)
+{
+    size_t l = 0, r = nmemb;
+
+    while (l < r) {
+        size_t i = (l + r) / 2;
+        int d = cmp(what, t(data, i), arg);
+
+        if (d == 0) {
+            if (found) {
+                *found = true;
+            }
+            return i;
+        }
+        if (d < 0) {
+            r = i;
+        } else {
+            l = i + 1;
+        }
+    }
+    if (found) {
+        *found = false;
+    }
+    return r;
+}
+
+bool contains(const void *what, const void *data, size_t size, size_t nmemb,
+              cmp_r_t *cmp, void *arg)
+{
+    size_t l = 0, r = nmemb;
+
+    while (l < r) {
+        size_t i = (l + r) / 2;
+        int d = cmp(what, t(data, i), arg);
+
+        if (d == 0)
+            return true;
+        if (d < 0) {
+            r = i;
+        } else {
+            l = i + 1;
+        }
+    }
+    return false;
+}
+
+static int cmp_blk(const void *a, const void *b, void *arg)
+{
+    cmp_b cmp = arg;
+
+    return cmp(a, b);
+}
+
+static void del_blk(void *v, void *arg)
+{
+    del_b del = arg;
+
+    del(v);
+}
+
+size_t uniq_blk(void *data, size_t size, size_t nmemb, cmp_b cmp,
+                del_b nullable del)
+{
+    del_r_t *del_cb = del ? &del_blk : NULL;
+
+    return uniq(data, size, nmemb, &cmp_blk, cmp, del_cb, del);
+}
+
+size_t bisect_blk(const void *what, const void *data, size_t size,
+                  size_t nmemb, bool *found, cmp_b cmp)
+{
+    return bisect(what, data, size, nmemb, found, &cmp_blk, cmp);
+}
+
+bool contains_blk(const void *what, const void *data, size_t size,
+                  size_t nmemb, cmp_b cmp)
+{
+    return contains(what, data, size, nmemb, &cmp_blk, cmp);
+}

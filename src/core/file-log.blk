@@ -1,0 +1,672 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <glob.h>
+#include <sys/resource.h>
+
+#include <lib-common/file-log.h>
+#include <lib-common/el.h>
+#include <lib-common/iop-json.h>
+#include <lib-common/unix.h>
+#include <lib-common/thr.h>
+#include <lib-common/log.h>
+
+static logger_t logger_g = LOGGER_INIT(NULL, "file-log", LOG_INHERITS);
+
+/* {{{ log_file_t functions */
+
+log_file_t *log_file_init(log_file_t *log_file, const char *nametpl, int flags)
+{
+    const char *ext = path_ext(nametpl);
+    int len = strlen(nametpl);
+
+    p_clear(log_file, 1);
+    log_file->flags = flags;
+    log_file->mode = 0644;
+
+    if (len + 8 + 1 + 6 + 4 >= ssizeof(log_file->prefix)) {
+        logger_panic(&logger_g, "path format too long");
+    }
+    if (ext) {
+        pstrcpy(log_file->ext, sizeof(log_file->ext), ext + 1);
+        len -= strlen(ext);
+    } else {
+        pstrcpy(log_file->ext, sizeof(log_file->ext), "log");
+    }
+    pstrcpymem(log_file->prefix, sizeof(log_file->prefix), nametpl, len);
+
+    qh_init(u64, &log_file->files_being_compressed);
+    log_file->refcnt = 1;
+
+    return log_file;
+}
+
+log_file_t *log_file_new(const char *nametpl, int flags)
+{
+    return log_file_init(p_new_raw(log_file_t, 1), nametpl, flags);
+}
+
+static void log_file_wipe(log_file_t *log_file)
+{
+    qh_wipe(u64, &log_file->files_being_compressed);
+}
+
+REFCNT_DUP(log_file_t, log_file);
+REFCNT_DELETE(log_file_t, log_file);
+
+/* }}} */
+/* {{{ Background compression context. */
+
+typedef struct bgcompr_ctx_t {
+    log_file_t *log_file;
+    lstr_t      path;
+    time_t      ts;
+} bgcompr_ctx_t;
+
+GENERIC_NEW_INIT(bgcompr_ctx_t, bgcompr_ctx);
+
+static void bgcompr_ctx_wipe(bgcompr_ctx_t *ctx)
+{
+    lstr_wipe(&ctx->path);
+    log_file_delete(&ctx->log_file);
+}
+GENERIC_DELETE(bgcompr_ctx_t, bgcompr_ctx);
+
+/* }}} */
+/* {{{ */
+
+/* log file names should depend on rotation scheme: slower rotation
+ * scheme should shorten log filename so reopening it yields the same
+ * file
+ */
+static const char *t_build_real_path(log_file_t *log_file, time_t date)
+{
+    struct tm tm;
+
+    if (log_file->flags & LOG_FILE_UTCSTAMP) {
+        gmtime_r(&date, &tm);
+    } else {
+        localtime_r(&date, &tm);
+    }
+    return t_fmt("%s_" LOG_FILE_DATE_FMT ".%s",
+                 log_file->prefix, LOG_FILE_DATE_FMT_ARG(tm), log_file->ext);
+}
+
+#define GZIP_ERROR  "background compression of log file `%*pM` failed: "
+
+static void
+log_file_bgcompress_check(el_t ev, pid_t pid, int st, data_t priv)
+{
+    bgcompr_ctx_t *ctx = priv.ptr;
+
+    if (!WIFEXITED(st)) {
+        logger_error(&logger_g, GZIP_ERROR "gzip killed with signal %d (%s)",
+                     LSTR_FMT_ARG(ctx->path), WTERMSIG(st),
+                     sys_siglist[WTERMSIG(st)]);
+    } else
+    if (WEXITSTATUS(st) != 0) {
+        logger_error(&logger_g, GZIP_ERROR "gzip exited with status %d",
+                     LSTR_FMT_ARG(ctx->path), WEXITSTATUS(st));
+    }
+
+    /* Unlocking the file once the compression done. */
+    qh_del_key(u64, &ctx->log_file->files_being_compressed, ctx->ts);
+    bgcompr_ctx_delete(&ctx);
+}
+
+static void log_file_bgcompress(log_file_t *log_file, const char *path)
+{
+    bgcompr_ctx_t *ctx;
+    pid_t          pid;
+    time_t         ts;
+
+    if (log_file_get_file_stamp(log_file, path, &ts) < 0) {
+        return;
+    }
+
+    if (qh_add(u64, &log_file->files_being_compressed, ts) < 0) {
+        /* File is already being compressed. */
+        return;
+    }
+
+    ctx = bgcompr_ctx_new();
+    ctx->log_file = log_file_dup(log_file);
+    ctx->path = lstr_dups(path, -1);
+    ctx->ts = ts;
+
+    pid = ifork();
+    if (pid < 0) {
+        logger_error(&logger_g, "unable to fork gzip in the background, %m");
+        bgcompr_ctx_delete(&ctx);
+        return;
+    }
+    if (pid > 0) {
+        el_child_register(pid, log_file_bgcompress_check, ctx);
+    } else {
+        setsid();
+        setpriority(PRIO_PROCESS, getpid(), NZERO / 4);
+        execlp("gzip", "gzip", "-9", path, NULL);
+        logger_error(&logger_g, "execl failed: %m");
+        _exit(0);
+    }
+}
+
+static int qsort_strcmp(const void *sp1, const void *sp2)
+{
+    return strcmp(*(const char **)sp1, *(const char **)sp2);
+}
+
+static void log_file_call_cb(log_file_t *l, enum log_file_event evt,
+                             const char *fname)
+{
+    if (l->on_event) {
+        t_scope;
+
+        if (!fname) {
+            fname = t_build_real_path(l, l->open_date);
+        }
+
+        (*l->on_event)(l, evt, fname, l->priv_cb);
+    }
+}
+
+static void log_delete_file(log_file_t *log_file, const char *path,
+                            off_t size)
+{
+    time_t ts;
+
+    log_file_get_file_stamp(log_file, path, &ts);
+    if (qh_find(u64, &log_file->files_being_compressed, ts) >= 0) {
+        /* The file is being compressed, we prevent its deletion for the
+         * current rotation. */
+        return;
+    }
+
+    if (unlink(path) < 0) {
+        logger_error(&logger_g, "cannot delete log file `%s`: %m", path);
+    } else {
+        assert (log_file->total_size >= (uint64_t)size);
+        log_file->total_size -= size;
+        log_file_call_cb(log_file, LOG_FILE_DELETE, path);
+    }
+}
+
+static void log_check_invariants(log_file_t *log_file)
+{
+    t_scope;
+    glob_t globbuf;
+    char buf[PATH_MAX];
+    struct stat *sts;
+    char **fv;
+    int  fc;
+
+    snprintf(buf, sizeof(buf), "%s_????????_??????.%s{,.gz}",
+             log_file->prefix, log_file->ext);
+    if (glob(buf, GLOB_BRACE, NULL, &globbuf)) {
+        globfree(&globbuf);
+        return;
+    }
+
+    fv = globbuf.gl_pathv;
+    fc = globbuf.gl_pathc;
+    qsort(fv, fc, sizeof(fv[0]), qsort_strcmp);
+
+    log_file->total_size = 0;
+    sts = t_new_raw(struct stat, fc);
+    for (int i = 0; i < fc; i++) {
+        if (lstat(fv[i], &sts[i]) < 0 || !S_ISREG(sts[i].st_mode)) {
+            sts[i].st_size = 0;
+        } else {
+            log_file->total_size += sts[i].st_size;
+        }
+    }
+
+    if (log_file->max_files) {
+        for (; fc > log_file->max_files; fc--, fv++, sts++) {
+            if (log_file->flags & LOG_FILE_COMPRESS) {
+                if (strequal(path_extnul(fv[0]), ".gz")) {
+                    log_delete_file(log_file, fv[0], sts[0].st_size);
+                } else {
+                    break;
+                }
+            } else {
+                log_delete_file(log_file, fv[0], sts[0].st_size);
+            }
+        }
+    }
+
+    if (log_file->max_total_size) {
+        int64_t totalsize = (int64_t)log_file->max_total_size << 20;
+
+        for (int i = fc; i-- > 0; ) {
+            if ((log_file->flags & LOG_FILE_COMPRESS)
+            &&  !strequal(path_extnul(fv[i]), ".gz"))
+            {
+                /* XXX: uncompressed files must be compressed so skip it
+                 * while accounting totalsize */
+                continue;
+            }
+            totalsize -= sts[i].st_size;
+            if (totalsize < 0) {
+                for (int j = 0; j <= i; j++) {
+                    log_delete_file(log_file, fv[j], sts[j].st_size);
+                }
+                fv  += i + 1;
+                fc  -= i + 1;
+                /* the assignment to sts is unused, but kept to keep the
+                 * invariant between fv, sts and fc */
+                sts += i + 1;
+                IGNORE(sts);
+                break;
+            }
+        }
+    }
+
+    if (log_file->flags & LOG_FILE_COMPRESS) {
+        for (int i = 0; i < fc - 1; i++) {
+            if (!strequal(path_extnul(fv[i]), ".gz")) {
+                log_file_bgcompress(log_file, fv[i]);
+            }
+        }
+    }
+    globfree(&globbuf);
+}
+
+static void log_file_open_new(log_file_t *log_file, time_t date)
+{
+    t_scope;
+    const char *real_path;
+    bool existed;
+
+    real_path = t_build_real_path(log_file, date);
+    existed = access(real_path, R_OK) == 0;
+
+    log_file->open_date = date;
+
+    if (log_file->is_file_bin) {
+        log_file->_bin_internal = file_bin_create(LSTR(real_path),
+                                                  1 << 20, false);
+        if (log_file->_internal) {
+            log_file->total_size += log_file->_bin_internal->cur;
+        } else {
+            logger_error(&logger_g, "could not open log file `%s`: %m",
+                         real_path);
+        }
+    } else {
+        log_file->_internal = file_open(real_path, FILE_WRONLY | FILE_CREATE,
+                                        log_file->mode);
+        if (!log_file->_internal
+        ||  file_seek(log_file->_internal, 0, SEEK_END) == (off_t)-1)
+        {
+            logger_error(&logger_g, "could not open log file `%s`: %m",
+                         real_path);
+        }
+    }
+
+    if (!existed && log_file->_internal) {
+        log_file_call_cb(log_file, LOG_FILE_CREATE, NULL);
+    }
+
+    if (!(log_file->flags & LOG_FILE_NOSYMLINK)) {
+        char sym_path[PATH_MAX];
+
+        snprintf(sym_path, sizeof(sym_path), "%s%s.%s", log_file->prefix,
+                 log_file->flags & LOG_FILE_USE_LAST ? "_last" : "",
+                 log_file->ext);
+        unlink(sym_path);
+        if (symlink(real_path, sym_path)) {
+            logger_error(&logger_g, "could not symlink `%s` to `%s`: %m",
+                         real_path, sym_path);
+        }
+    }
+    log_check_invariants(log_file);
+}
+
+static void log_file_find_last_date(log_file_t *log_file)
+{
+    char buf[PATH_MAX];
+    glob_t globbuf;
+
+    snprintf(buf, sizeof(buf), "%s_????????_??????.%s",
+             log_file->prefix, log_file->ext);
+    if (!glob(buf, 0, NULL, &globbuf) && globbuf.gl_pathc) {
+        log_file_get_file_stamp(log_file,
+                                globbuf.gl_pathv[globbuf.gl_pathc - 1],
+                                &log_file->open_date);
+    }
+    globfree(&globbuf);
+}
+
+log_file_t *
+log_file_create_from_iop(const char *nametpl,
+                         const core__log_file_configuration__t *conf,
+                         bool use_file_bin, int flags,
+                         log_file_cb_f *on_event, void *priv)
+{
+    log_file_t *log_file;
+
+    if (conf->compress) {
+        flags |= LOG_FILE_COMPRESS;
+    }
+
+    log_file = log_file_new(nametpl, flags);
+
+    log_file_set_maxtotalsize(log_file, conf->total_max_size / (1024 * 1024));
+    log_file_set_maxfiles(log_file, conf->max_files);
+    log_file_set_maxsize(log_file, conf->max_size);
+    log_file_set_rotate_delay(log_file, conf->max_time);
+
+    if (on_event) {
+        log_file_set_file_cb(log_file, on_event, priv);
+    }
+    if (log_file_open(log_file, use_file_bin)) {
+        logger_error(&logger_g, "cannot open log file `%s`: %m", nametpl);
+        PROTECT_ERRNO(IGNORE(log_file_close(&log_file)));
+        return NULL;
+    }
+
+    logger_trace(&logger_g, 1, "opening %s, flags %x, json %*pS",
+                 nametpl, flags,
+                 IOP_ST_FMT_ARG(core__log_file_configuration, conf));
+
+    return log_file;
+}
+
+int log_file_open(log_file_t *log_file, bool use_file_bin)
+{
+    log_file->is_file_bin = use_file_bin;
+    log_file->open_date = time(NULL);
+
+    if (!(log_file->flags & LOG_FILE_FORCE_ROTATE)) {
+        log_file_find_last_date(log_file);
+    }
+
+    log_file_open_new(log_file, log_file->open_date);
+    if (!log_file->_internal) {
+        logger_trace(&logger_g, 1, "could not open first log file");
+        return -1;
+    }
+    return 0;
+}
+
+int log_file_close(log_file_t **lfp)
+{
+    int res = 0;
+
+    if (*lfp) {
+        log_file_t *log_file = *lfp;
+
+        log_file_flush(log_file);
+        if (log_file->is_file_bin) {
+            res = file_bin_close(&log_file->_bin_internal);
+        } else {
+            res = file_close(&log_file->_internal);
+        }
+        log_file_call_cb(log_file, LOG_FILE_CLOSE, NULL);
+        log_file_delete(lfp);
+    }
+    return res;
+}
+
+void log_file_set_maxsize(log_file_t *file, int max)
+{
+    if (max < 0) {
+        max = 0;
+    }
+    file->max_size = max;
+}
+
+void log_file_set_maxfiles(log_file_t *file, int maxfiles)
+{
+    if (maxfiles < 0) {
+        maxfiles = 0;
+    }
+    file->max_files = maxfiles;
+}
+
+void log_file_set_maxtotalsize(log_file_t *file, int maxtotalsize)
+{
+    file->max_total_size = MAX(0, maxtotalsize);
+}
+
+void log_file_set_rotate_delay(log_file_t *file, time_t delay)
+{
+    file->rotate_delay = delay;
+}
+
+void log_file_set_file_cb(log_file_t *file, log_file_cb_f *on_event,
+                          void *priv)
+{
+    file->on_event = on_event;
+    file->priv_cb = priv;
+}
+
+void log_file_set_mode(log_file_t *file, uint32_t mode)
+{
+    file->mode = mode;
+}
+
+static int log_file_rotate_(log_file_t *file, time_t now)
+{
+    if (file->open_date == now) {
+        return 0;
+    }
+
+    if (file->is_file_bin) {
+        RETHROW(file_bin_close(&file->_bin_internal));
+    } else {
+        RETHROW(file_close(&file->_internal));
+    }
+
+    log_file_call_cb(file, LOG_FILE_ROTATE, NULL);
+
+    log_file_open_new(file, now);
+    if (!file->_internal) {
+        logger_trace(&logger_g, 1, "could not rotate");
+        return -1;
+    }
+
+    return 0;
+}
+
+static int log_check_rotate(log_file_t *lf)
+{
+    if (lf->disable_rotation) {
+        return 0;
+    }
+
+    if (lf->max_size > 0) {
+        off_t size;
+
+        if (lf->is_file_bin) {
+            size = lf->_bin_internal->cur;
+        } else {
+            size = file_tell(lf->_internal);
+        }
+
+        if (size >= lf->max_size) {
+             return log_file_rotate_(lf, time(NULL));
+        }
+    }
+
+    if (lf->rotate_delay > 0) {
+        time_t now = time(NULL);
+
+        if (lf->open_date + lf->rotate_delay <= now) {
+            return log_file_rotate_(lf, now);
+        }
+    }
+
+    return 0;
+}
+
+int log_file_rotate(log_file_t *file)
+{
+    return log_file_rotate_(file, time(NULL));
+}
+
+int log_fprintf(log_file_t *log_file, const char *format, ...)
+{
+    int res;
+    va_list ap;
+
+    assert (!log_file->is_file_bin);
+
+    RETHROW(log_check_rotate(log_file));
+
+    va_start(ap, format);
+    res = file_writevf(log_file->_internal, format, ap);
+    va_end(ap);
+
+    if (res > 0) {
+        log_file->total_size += res;
+    }
+
+    return res;
+}
+
+int log_fwrite(log_file_t *log_file, const void *data, size_t len)
+{
+    RETHROW(log_check_rotate(log_file));
+
+    if (log_file->is_file_bin) {
+        off_t orig_pos = log_file->_bin_internal->cur;
+
+        RETHROW(file_bin_put_record(log_file->_bin_internal, data, len));
+        log_file->total_size += log_file->_bin_internal->cur - orig_pos;
+    } else {
+        RETHROW(file_write(log_file->_internal, data, len));
+        log_file->total_size += len;
+    }
+
+    return 0;
+}
+
+int log_fwritev(log_file_t *log_file, struct iovec *iov, size_t iovlen)
+{
+    ssize_t size;
+
+    assert (!log_file->is_file_bin);
+
+    RETHROW(log_check_rotate(log_file));
+
+    size = RETHROW(file_writev(log_file->_internal, iov, iovlen));
+    log_file->total_size += size;
+
+    return 0;
+}
+
+int log_file_flush(log_file_t *log_file)
+{
+    if (log_file->is_file_bin) {
+        if (log_file->_bin_internal) {
+            return file_bin_flush(log_file->_bin_internal);
+        }
+    } else {
+        if (log_file->_internal) {
+            return file_flush(log_file->_internal);
+        }
+    }
+
+    return 0;
+}
+
+void log_file_disable_rotation(log_file_t *file)
+{
+    file->disable_rotation = true;
+}
+
+int log_file_enable_rotation(log_file_t *file)
+{
+    file->disable_rotation = false;
+
+    return log_check_rotate(file);
+}
+
+int log_fwrite_transaction(log_file_t *file, int (^log_b)(void))
+{
+    uint64_t orig_total_size = file->total_size;
+    off_t fpos;
+
+    log_file_disable_rotation(file);
+
+    if (file->is_file_bin) {
+        fpos = file->_bin_internal->cur;
+    } else {
+        fpos = file_tell(file->_internal);
+    }
+
+    if (log_b() < 0) {
+        file->disable_rotation = false;
+
+        if (file->is_file_bin) {
+            IGNORE(file_bin_truncate(file->_bin_internal, fpos));
+        } else {
+            IGNORE(file_truncate(file->_internal, fpos));
+        }
+        file->total_size = orig_total_size;
+
+        return -1;
+    }
+
+    RETHROW(log_file_enable_rotation(file));
+
+    return 0;
+}
+
+int log_file_get_file_stamp(const log_file_t *file, const char *path,
+                            time_t *out)
+{
+    struct tm tm;
+    const byte *d;
+    int prefix_len = strlen(file->prefix);
+
+
+    if (strlen(path) < prefix_len + strlen("YYYYMMDD_hhmmss")) {
+        goto error;
+    }
+    d = (const byte *)path + prefix_len + 1;
+
+    p_clear(&tm, 1);
+    tm.tm_isdst = -1; /* We don't know current dst */
+    tm.tm_year = memtoip(d, 4, &d) - 1900;
+    tm.tm_mon  = memtoip(d, 2, &d) - 1;
+    tm.tm_mday = memtoip(d, 2, &d);
+    if (*d++ != '_') {
+        goto error;
+    }
+    tm.tm_hour = memtoip(d, 2, &d);
+    tm.tm_min  = memtoip(d, 2, &d);
+    tm.tm_sec  = memtoip(d, 2, &d);
+    if (file->flags & LOG_FILE_UTCSTAMP) {
+        *out = timegm(&tm);
+    } else {
+        *out = mktime(&tm);
+    }
+
+    return 0;
+
+  error:
+    logger_error(&logger_g, "failed to get the timestamp of file `%s`", path);
+    *out = 0;
+    assert (false);
+
+    return -1;
+}
+
+/* }}} */

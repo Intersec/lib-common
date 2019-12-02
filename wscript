@@ -24,7 +24,7 @@ import sys
 from waflib import Context, Logs, Errors
 # pylint: enable = import-error
 
-waftoolsdir = os.path.join(os.getcwd(), 'waftools')
+waftoolsdir = os.path.join(os.getcwd(), 'build', 'waftools')
 sys.path.insert(0, waftoolsdir)
 
 
@@ -57,7 +57,7 @@ def configure(ctx):
     load_tools(ctx)
 
     # Export includes
-    ctx.register_global_includes(['.', 'compat'])
+    ctx.register_global_includes(['.', 'src/compat'])
 
     # {{{ Compilation flags
 
@@ -74,7 +74,7 @@ def configure(ctx):
     # {{{ Dependencies
 
     # Scripts
-    ctx.recurse('scripts')
+    ctx.recurse('build')
 
     # External programs
     ctx.find_program('gperf')
@@ -187,18 +187,18 @@ def configure(ctx):
     # str-l-obfuscate.c
     customize_source_file('lstr_obfuscate source file',
                           'lstr_obfuscate_src',
-                          'str-l-obfuscate-default.c',
-                          'str-l-obfuscate.c')
+                          'src/core/str-l-obfuscate-default.c',
+                          'src/core/str-l-obfuscate.c')
 
     # Ichannels SSL certificate/key
     customize_source_file('Ichannel SSL certificate',
                           'ic_cert_src',
-                          'utils/ic-cert-default.pem',
-                          'utils/ic-cert.pem')
+                          'src/iop/ic-cert-default.pem',
+                          'src/iop/ic-cert.pem')
     customize_source_file('Ichannel SSL private key',
                           'ic_key_src',
-                          'utils/ic-key-default.pem',
-                          'utils/ic-key.pem')
+                          'src/iop/ic-key-default.pem',
+                          'src/iop/ic-key.pem')
 
     # }}}
 
@@ -224,302 +224,12 @@ def build(ctx):
 
     load_tools(ctx)
 
-    ctx.set_group('farchc')
-
-    # {{{ libcommon-minimal library
-
-    ctx(rule='${VERSION_SH} rcsid libcommon > ${TGT}',
-        target='core-version.c', cwd='.', always=True)
-
-    # This minimal version of the lib-common contains only what's needed to
-    # build farchc and iopc. As a consequence, it cannot contain .fc or .iop
-    # files in its sources.
-    ctx.stlib(target='libcommon-minimal',
-        depends_on='core-version.c',
-        use=['libxml', 'valgrind', 'compat'],
-        source=[
-            'core-version.c',
-
-            'container-qhash.c',
-            'container-qvector.blk',
-            'container-rbtree.c',
-            'container-ring.c',
-            'core-bithacks.c',
-            'core-obj.c',
-            'core-rand.c',
-            'core-mem-fifo.c',
-            'core-mem-ring.c',
-            'core-mem-stack.c',
-            'core-mem-bench.c',
-            'core-errors.c',
-            'core-mem.blk',
-            'core-module.c',
-            'core-types.blk',
-
-            'compat/data.c',
-            'compat/runtime.c',
-
-            'datetime.c',
-            'datetime-iso8601.c',
-
-            'el.blk',
-
-            'farch.c',
-
-            'hash-aes.c',
-            'hash-crc32.c',
-            'hash-crc64.c',
-            'hash-des.c',
-            'hash-hash.c',
-            'hash-md5.c',
-            'hash-padlock.c',
-            'hash-sha1.c',
-            'hash-sha2.c',
-            'hash-sha4.c',
-
-            'iop.blk',
-            'iop-dso.c',
-            'iop-cfolder.c',
-            'iop-core-obj.blk',
-            'iop-void.c',
-
-            'log.c',
-
-            'parseopt.c',
-
-            'qlzo-c.c',
-            'qlzo-d.c',
-
-            'sort.blk',
-            'str.c',
-            'str-buf-gsm.c',
-            'str-buf-quoting.c',
-            'str-buf-pp.c',
-            'str-buf.c',
-            'str-conv.c',
-            'str-ctype.c',
-            'str-dtoa.c',
-            'str-iprintf.c',
-            'str-l.c',
-            'str-l-obfuscate.c',
-            'str-num.c',
-            'str-outbuf.c',
-            'str-path.c',
-            'str-stream.c',
-
-            'thr.c',
-            'thr-evc.c',
-            'thr-job.blk',
-            'thr-spsc.c',
-
-            'unix.blk',
-            'unix-fts.c',
-            'unix-psinfo.c',
-            'unix-linux.c',
-
-            'xmlpp.c',
-            'xmlr.c',
-        ]
-    )
-
-    # }}}
-
-    ctx.recurse('tools')
-    ctx.recurse('iopc')
-
-    ctx.set_group('code_compiling')
-
-    # {{{ libcommon-iop / libcommon libraries
-
-    # libcommon library containing only IOP symbols
-    ctx.IopcOptions(ctx, class_range='1-499',
-                    json_path='json',
-                    ts_path='iop-core')
-    ctx.stlib(target='libcommon-iop', features='c cstlib', source=[
-        'core.iop',
-        'ic.iop',
-    ])
-
-    # Full lib-common library
-    ctx.stlib(target='libcommon',
-        features='c cstlib',
-        use=['libcommon-iop', 'libcommon-minimal', 'openssl', 'zlib'],
-        source=[
-            'arith-int.c',
-            'arith-float.c',
-            'arith-scan.c',
-            'asn1.c',
-            'asn1-writer.c',
-            'asn1-per.c',
-
-            'bit-buf.c',
-            'bit-wah.c',
-
-            'file.c',
-            'file-bin.c',
-            'file-log.blk',
-
-            'http.c',
-            'http-hdr.perf',
-            'http-srv-static.c',
-            'http-def.c',
-            'httptokens.c',
-
-            'yaml.c',
-            'parsing-helpers.c',
-
-            'iop-json.blk',
-            'iop-yaml.c',
-            'iop-rpc-channel.fc',
-            'iop-rpc-channel.blk',
-            'iop-rpc-http-pack.c',
-            'iop-rpc-http-unpack.c',
-            'iop-xml-pack.c',
-            'iop-xml-unpack.c',
-            'iop-xml-wsdl.blk',
-            'iop-openapi.blk',
-
-            'log-iop.c',
-
-            'net-addr.c',
-            'net-sctp.c',
-            'net-socket.c',
-            'net-rate.blk',
-
-            'qpage.c',
-            'qps.blk',
-            'qps-hat.c',
-            'qps-bitmap.c',
-
-            'ssl.blk',
-
-            'tpl.c',
-            'tpl-funcs.c',
-
-            'z.blk',
-            'zchk-helpers.c',
-            'zlib-wrapper.c',
-        ]
-    )
-
-    # }}}
-
     ctx.recurse([
-        'iop',
-        'iop-tutorial',
-        'pxcc',
-        'iopy',
-        'test-data/snmp',
+        'src',
         'bench',
+        'examples',
+        'tests',
     ])
-
-    # {{{ iop-snmp library
-
-    ctx.stlib(target='iop-snmp', source=[
-        'iop-snmp-doc.c',
-        'iop-snmp-mib.c',
-    ], use='libcommon')
-
-    # }}}
-    # {{{ dso-compatibility-check
-
-    ctx.program(target='dso-compatibility-check', features='c cprogram',
-                source='dso-compatibility-check.blk',
-                use='libcommon')
-
-    # }}}
-    # {{{ zchk and ztst-*
-
-    ctx.stlib(target='zchk-iop-ressources', source='zchk-iop-ressources.c')
-
-    ctx.program(target='zchk',
-        source=[
-            'zchk.c',
-
-            'zchk-asn1-per.c',
-            'zchk-asn1-writer.c',
-            'zchk-bithacks.c',
-            'zchk-container.blk',
-            'zchk-core-bithacks.c',
-            'zchk-core-obj.c',
-            'zchk-core-rand.c',
-            'zchk-el.blk',
-            'zchk-farch.c',
-            'zchk-farch.fc',
-            'zchk-file-log.c',
-            'zchk-hash.c',
-            'zchk-hat.blk',
-            'zchk-iop.blk',
-            'zchk-iop.c',
-            'zchk-iop-core-obj.blk',
-            'zchk-iop-rpc.c',
-            'zchk-iop-yaml.c',
-            'zchk-iop-openapi.c',
-            'zchk-iprintf.c',
-            'zchk-log.blk',
-            'zchk-mem.c',
-            'zchk-module.c',
-            'zchk-parseopt.c',
-            'zchk-snmp.c',
-            'zchk-sort.c',
-            'zchk-str.c',
-            'zchk-thrjob.blk',
-            'zchk-time.c',
-            'zchk-unix.blk',
-            'zchk-xmlpp.c',
-            'zchk-xmlr.c',
-        ],
-        use=[
-            'iop-snmp',
-            'tstiop',
-            'tst-snmp-iop',
-            'zchk-iop-ressources',
-        ], use_whole='libcommon')
-
-    ctx.shlib(target='zchk-iop-plugin', source=[
-        'zchk-iop-plugin.c',
-    ], use=[
-        'libcommon',
-        'zchk-iop-ressources',
-    ], remove_dynlibs=True)
-
-    ctx.program(target='ztst-httpd', source='ztst-httpd.c',
-                use='libcommon tstiop')
-
-    ctx.program(target='ztst-tpl', source='ztst-tpl.c',
-                use='libcommon')
-
-    ctx.program(target='ztst-iprintf', source='ztst-iprintf.c',
-                use='libcommon')
-
-    ctx.program(target='ztst-iprintf-fp', source='ztst-iprintf-fp.c',
-                use='libcommon',
-                cflags=['-Wno-format', '-Wno-missing-format-attribute',
-                        '-Wno-format-nonliteral'])
-
-    ctx.program(target='ztst-iprintf-glibc', source='ztst-iprintf-glibc.c',
-                use='libcommon',
-                cflags=['-Wno-format', '-Wno-missing-format-attribute',
-                        '-Wno-format-nonliteral'])
-
-    ctx.program(target='ztst-lzo', source='ztst-lzo.c', use='libcommon')
-
-    ctx.program(target='ztst-qps', features="c cprogram",
-                source='ztst-qps.blk', use='libcommon')
-
-    ctx.program(target='ztst-qpscheck', features="c cprogram",
-                source='ztst-qpscheck.blk', use='libcommon')
-
-    ctx.program(target='ztst-hattrie', features="c cprogram",
-                source='ztst-hattrie.blk', use='libcommon')
-
-    ctx.program(target='ztst-mem', features="c cprogram",
-                source='ztst-mem.blk', use='libcommon')
-
-    ctx.program(target='dso2openapi', source='dso2openapi.c',
-                use='libcommon')
-
-    # }}}
 
 
 # }}}

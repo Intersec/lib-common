@@ -5,55 +5,18 @@
 *.pyc
 *.iop.h
 *.iop.c
+*.iop.json
 *.iop.ts
-
-iopsq.iop.*
-iopsq-t*
 
 .tags
 .syntastic*
 .local_vimrc.vim
 
-/Upgrading.html
-/conf-parser.c
-/core-version.c
-/http-hdr.c
-
-/zchk
-/zchk-iop-plugin.so
-/ztst-asn1-wr
-/ztst-blob-iconv
-/ztst-hattrie
-/ztst-httpd
-/ztst-iprintf
-/ztst-iprintf-fp
-/ztst-iprintf-glibc
-/ztst-lzo
-/ztst-mem
-/ztst-qps
-/ztst-qpscheck
-/ztst-sort
-/ztst-tpl
-/dso-compatibility-check
-/dso2openapi
-
-/common.so
-/core-iop-plugin.so
-
-/str-l-obfuscate.c
-/utils/ic-cert.pem
-/utils/ic-key.pem
-
-/json
 /.build*
-/build
 /.lock-waf*
 
 mem.stack.data.*
 mem.fifo.data.*
-
-test-data/snmp/*.iop.h
-test-data/snmp/*.iop.c
 
 # buildbot artefacts/buildbot.supp
 /buildbot.supp

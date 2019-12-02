@@ -1,0 +1,6 @@
+#!farchc
+
+iopc_farch
+
+../../src/iop/compat.h
+../../src/iop/internals.h

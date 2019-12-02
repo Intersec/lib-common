@@ -1,8 +1,0 @@
-# IOP Compiler warnings
-.*mcg/iop/cfg.iop                 : .*new is a keyword in some languages.*
-.*mcg/iop/mcg.iop                 : .*delete is a keyword in some languages.*
-.*mcg/iop/msg.iop                 : .*delete is a keyword in some languages.*
-.*mcg/iop/msg.iop                 : .*new is a keyword in some languages.*
-.*mcg/modules/routing/routing.iop : .*class is a keyword in some languages.*
-.*.swf                            : .*incorrect sRGB profile.*
-make*                             : .*warning: jobserver unavailable: using -j1.*

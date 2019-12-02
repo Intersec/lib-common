@@ -1,0 +1,47 @@
+###########################################################################
+#                                                                         #
+# Copyright 2019 INTERSEC SA                                              #
+#                                                                         #
+# Licensed under the Apache License, Version 2.0 (the "License");         #
+# you may not use this file except in compliance with the License.        #
+# You may obtain a copy of the License at                                 #
+#                                                                         #
+#     http://www.apache.org/licenses/LICENSE-2.0                          #
+#                                                                         #
+# Unless required by applicable law or agreed to in writing, software     #
+# distributed under the License is distributed on an "AS IS" BASIS,       #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.#
+# See the License for the specific language governing permissions and     #
+# limitations under the License.                                          #
+#                                                                         #
+###########################################################################
+# pylint: disable = undefined-variable, invalid-name
+
+ctx.IopcOptions(ctx, json_path='.', ts_path='.')
+
+ctx.set_group('iopc')
+
+ctx.stlib(target='libiopc', source=[
+    'iopc.fc',
+    'iopc-dso.c',
+    'iopc-lex.l',
+    'iopc-parser.c',
+    'iopc-pretty.c',
+    'iopc-typer.blk',
+    'iopctokens.c',
+    'iopc-write.c',
+
+    'iopc-lang-c.blk',
+    'iopc-lang-json.blk',
+    'iopc-lang-typescript.c',
+])
+
+ctx.iopc_tgen = ctx.program(target='iopc', source='iopc.c',
+                            use=['libiopc', 'libcommon-minimal'])
+
+ctx.set_group('code_compiling')
+
+ctx.stlib(target='libiopsq', source=[
+    'iopc-iopsq.c',
+    'iopsq.iop',
+])

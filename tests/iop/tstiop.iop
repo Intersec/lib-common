@@ -1,0 +1,968 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+
+/* This file is used to test the IOPs and act as a non-regression test. This
+ * file should always compile correctly */
+package tstiop;
+
+/* Types of base */
+
+struct HashV1 {
+    bool?  b;
+    int[]  i;
+    string s;
+};
+
+struct HashV2 {
+    bool?  b;
+    long[] i;
+    string s;
+};
+
+struct Void {
+};
+
+@(test:gen1, 1)
+enum MyEnumA {
+    @(test:gen2, 2.2)
+    @alias(A_ALIAS)
+    A = 0x0,
+    B = 0x1,
+    @alias(C_ALIAS_1)
+    @alias(C_ALIAS_2)
+    C = 0x2,
+    @alias(D_ALIAS)
+    D = 0x10,
+};
+
+@strict
+enum MyEnumB {
+    A,
+    B,
+    C,
+};
+
+union MyUnionA {
+    int    ua;
+    byte   ub;
+    string us;
+};
+
+union MyUnionB {
+    int         bval;
+    MyUnionA    a;
+};
+
+union MyUnionC {
+    int iOfC;
+    double dOfC;
+};
+
+class MyClass1 : 1 {
+    int int1;
+};
+
+class MyClass2 : 2 : MyClass1 {
+    int int2;
+};
+
+class MyClass3 : 3 : MyClass2 {
+    int int3;
+    bool bool1;
+    string? string1;
+};
+
+class MyClass2Bis : 4 : MyClass1 {
+    int int2;
+};
+
+@private
+class MyClass2Priv : 5 : MyClass2 {
+};
+
+class MyClass1After : 1 {
+    int int1;
+};
+
+class MyClassEmpty : 5 : MyClass1After {
+};
+
+class MyClass2After : 2 : MyClassEmpty {
+    int int2;
+};
+
+@(test:gen3, "3")
+@(test:json, "field": { "f1": "val1", "f2": -1.0e2 } )
+struct MyStructA {
+    @(test:gen4, 4)
+    int a;
+    uint b;
+    byte cOfMyStructA;
+    ubyte d;
+    short e;
+    ushort f;
+    long g;
+    ulong h;
+    ulong[] htab;
+    bytes i;
+    string j;
+    xml xmlField;
+    MyEnumA k;
+    MyUnionA l;
+    MyUnionA& lr;
+    MyClass2 cls2;
+    double m;
+    bool n;
+    int p;
+    int q;
+    int r;
+    int s;
+    int t;
+    void u;
+};
+
+struct MyStructAOpt {
+    int? a;
+    uint? b;
+    byte? cOfMyStructA;
+    ubyte? d;
+    short? e;
+    ushort? f;
+    long? g;
+    ulong? h;
+    bytes? i;
+    string? j;
+    MyEnumA? k;
+    MyUnionA? l;
+    MyUnionA? lr;
+    double? m;
+    bool? n;
+    MyStructB? o;
+    MyClass2? cls2;
+    int? p;
+    int? q;
+    int? r;
+    int? s;
+    int? t;
+    int[] u;
+    Void? v;
+    void? w;
+};
+
+struct MyStructB {
+    int? a;
+    int[] b;
+};
+
+
+/* Recursion */
+struct MyStructC {
+    int a;
+    MyStructC? b;
+    MyStructC[] c;
+};
+
+/* Tags */
+struct MyStructD {
+0x2:
+    int a;
+42:
+    int b;
+};
+
+struct MyStructE {
+    int a;
+    MyUnionA b;
+    MyStructB c;
+};
+
+struct MyStructF {
+    string[] a;
+    bytes[] b;
+    MyStructB[] c;
+    MyUnionA[] d;
+    MyClass1[] e;
+    MyClass1? f;
+};
+
+/* Default values */
+struct MyStructG {
+    int a       = -1;
+    uint b      = 2;
+    byte cOfG   = 3;
+    ubyte d     = 4;
+    short e     = 5;
+    ushort f    = 6;
+    long g      = 7;
+    ulong h     = 8;
+    bytes i     = "default data value";
+    string j    = "fo\"o?cbaré©";
+    MyEnumA k   = MY_ENUM_A_C;
+    double l    = 10.5;
+    bool m      = true;
+};
+
+union MyUnionD {
+5:  int         ua;
+2:  byte        ub;
+10: MyStructG   ug;
+};
+
+/* Constant folding */
+struct MyStructH {
+    int a = 10 + 2 * 3 * 4 - 10;                    // 24 => 0x18
+    int b = 10 * 2 + 3 + 4 * 10;                    // 63 => 0x3f
+    int c = 8 + 4 + - 2 + 2 * - 5 / 2 + 1;          // 6
+    int d = 32 / 4 ** 2 / 2;                        // 1
+    int e = 8 / 4 / 2;                              // 1
+    int f = 8 / (4 / 2);                            // 4
+    int g = 4 ** 3 ** 2;                            // 262144 => 0x40000
+    int h = 4 + - 2 ** 2;                           // 0
+    int i = 1 + 4 ** 3 ** 1 + 1 - 1;                // 65 => 41
+    int j = 0xfffff & 32 << 2 | 3;                  // 131 => 0x83
+    int k = (1 << 17) - 1;                          // 131071 => 0x1ffff
+    int l = -1 + 2 * 30 + ~3;                       // 55 => 0x37
+};
+
+/* Constant folding with enums */
+enum MyEnumC {
+    A = 1 << 0,
+    B = 1 << 1,
+    C = 1 << 2,
+    D = 1 << 3,
+    E = 1 << 4,
+};
+
+/* Enum printf formatting with %*pE. */
+enum MyEnumD {
+    FOO = 0,
+    BAR = 2,
+    FOO_BAR = 4,
+};
+
+struct MyStructI {
+    int[]       i;
+    long[]      l;
+    ulong[]     u;
+    double[]    d;
+    MyEnumC[]   e;
+};
+
+struct MyStructJ {
+    int         cval;
+    MyUnionB    b;
+    MyUnionB[]  btab;
+};
+
+struct MyStructK {
+    MyStructJ   j;
+};
+
+struct MyStructL {
+    MyEnumA     a;
+    MyEnumB     b;
+    MyEnumB[]   btab;
+    MyEnumC     c;
+};
+
+struct MyStructM {
+    MyStructK   k;
+};
+
+struct MyStructN {
+    ulong u;
+    long i;
+};
+
+struct Repeated {
+    /* optimized fields */
+    byte[]   i8;
+    ubyte[]  u8;
+    bool[]   b;
+    short[]  i16;
+    ushort[] u16;
+
+    /* generic repeated values */
+    int[]    i32;
+    string[] s;
+};
+
+struct ConstraintS {
+    @maxOccurs(5) @min(1-(1 << 7))
+    byte[]      i8;
+    @maxOccurs(5) @min(1-(1 << 15))
+    short[]     i16;
+    @maxOccurs(5) @min(1-(1 << 31))
+    int[]       i32;
+    @maxOccurs(5) @min(1-(1 << 63))
+    long[]      i64;
+    @minOccurs(2) @maxOccurs(5) @minLength(4) @pattern("[a-zA-Z0-9_\-]*")
+    string[]    s;
+    @private
+    bool?       priv;
+    @private
+    bool        priv2 = true;
+    ConstraintS[] tab;
+};
+
+union ConstraintU {
+    @nonZero @max(1 << 7)
+    ubyte   u8;
+    @nonZero @max(1 << 15)
+    ushort  u16;
+    @nonZero @max(1 << 31)
+    uint    u32;
+    @nonZero @max(1 << 63)
+    ulong   u64;
+    @nonEmpty @cdata @maxLength(10) @pattern("[^\[\]]*")
+    string  s;
+    ConstraintS cs;
+};
+
+struct MyAException {
+    int    errcode;
+    string desc;
+};
+
+struct MyBException {
+    int    errcode;
+    string desc;
+    bool   foo;
+};
+
+union MyExceptions {
+    MyAException a;
+    MyBException b;
+};
+
+struct MyReferencedStruct {
+    int a;
+};
+
+union MyReferencedUnion {
+    int b;
+};
+
+struct MyRefStruct {
+    MyReferencedStruct& s;
+    MyReferencedUnion&   u;
+};
+
+union MyRefUnion {
+    MyReferencedStruct& s;
+    MyReferencedUnion&   u;
+};
+
+struct StructJpackFlags {
+    @private int? priv;
+    int? opt;
+    int def = 1;
+    int[] rep;
+    MyClass1? myClass;
+};
+
+class JpackEmptyClsA {
+    int a = 1;
+};
+
+class JpackEmptyClsB : 1 : JpackEmptyClsA {
+    int b = 2;
+};
+
+class JpackEmptyClsC : 2 : JpackEmptyClsB {
+    int c = 3;
+};
+
+struct JpackEmptySubStruct {
+    @private int? priv;
+    int? opt;
+    int def = 42;
+    int[] rep;
+    StructJpackFlags reqSt;
+    StructJpackFlags? optSt;
+    JpackEmptyClsB cls;
+};
+
+struct JpackEmptyStruct {
+    JpackEmptySubStruct sub;
+};
+
+/* {{{ zchk common */
+
+/* XXX These structs are supposed to cover all possible field types.
+ *
+ * They can be used by anyone that would need that completeness, but they have
+ * to be maintained as the IOPs evolve or as it seems to become necessary.
+ *
+ * There is a JSON sample for tstiop.FullStruct in
+ * tests/samples/z-full-struct.json.
+ */
+
+enum TestEnum {
+    A,
+    B,
+    C = 42,
+};
+
+union TestUnion {
+    int i;
+    string s;
+};
+
+struct TestStruct {
+    int i;
+    string s;
+};
+
+abstract class TestClass {
+    int i;
+};
+
+class TestClassChild : 42 : TestClass {
+    string s;
+};
+
+class TestClassChild2 : 43 : TestClass {
+    ulong u;
+};
+
+struct FullRequired {
+    byte i8;
+    ubyte u8;
+    short i16;
+    ushort u16;
+    int i32;
+    uint u32;
+    long i64;
+    ulong u64;
+    bool b;
+    TestEnum e;
+    double d;
+    string s;
+    bytes data;
+    TestUnion un;
+    TestStruct st;
+    TestClass o;
+    xml xml;
+    /* No mandatory void. */
+};
+
+struct FullRef {
+    TestUnion& un;
+    TestStruct& st;
+};
+
+struct FullOpt {
+    byte? i8;
+    ubyte? u8;
+    short? i16;
+    ushort? u16;
+    int? i32;
+    uint? u32;
+    long? i64;
+    ulong? u64;
+    bool? b;
+    TestEnum? e;
+    double? d;
+    string? s;
+    bytes? data;
+    TestUnion? un;
+    TestStruct? st;
+    TestClass? o;
+    xml? xml;
+    void? v;
+};
+
+struct FullDefVal {
+    byte i8 = -1;
+    ubyte u8 = 2;
+    short i16 = -3;
+    ushort u16 = 4;
+    int i32 = -5;
+    uint u32 = 6;
+    long i64 = -7;
+    ulong u64 = 8;
+    bool b = true;
+    TestEnum e = TEST_ENUM_C;
+    double d = 3.14;
+    string s = "Default value";
+    bytes data = "\x42";
+    xml xml = "<a></a>";
+};
+
+struct FullRepeated {
+    byte[] i8;
+    ubyte[] u8;
+    short[] i16;
+    ushort[] u16;
+    int[] i32;
+    uint[] u32;
+    long[] i64;
+    ulong[] u64;
+    bool[] b;
+    TestEnum[] e;
+    double[] d;
+    string[] s;
+    bytes[] data;
+    TestUnion[] un;
+    TestStruct[] st;
+    TestClass[] o;
+    xml[] xml;
+    /* No repeated void. */
+};
+
+struct FullStruct {
+    FullRequired required;
+    FullRef reference;
+    FullOpt optPresent;
+    FullOpt optAbsent;
+    FullDefVal defValPresent;
+    FullDefVal defValAbsent;
+    FullRepeated repeated;
+    FullRepeated repeatedEmpty;
+};
+
+/* }}} */
+/* {{{ zchk iop.iop_for_each_field */
+
+struct MiniStruct {
+    int a;
+};
+
+struct TabStruct {
+    MiniStruct[] tab;
+};
+
+union AOrB {
+    MiniStruct a;
+    int b;
+};
+
+class Ancestor {
+    string name;
+};
+
+class GrandPa : 1 : Ancestor {
+};
+
+class Daddy : 2 : GrandPa {
+    bool? b;
+};
+
+struct ObjContainer {
+    Ancestor obj;
+};
+
+struct ZIopForEach {
+    Void voidStruct1;
+    int integer;
+    uint? optUint1;
+    ulong[] ulongTab;
+    uint? optUint2;
+    MiniStruct miniStruct;
+    ulong[] emptyTab;
+    TabStruct& refTabStruct;
+    AOrB? optUnion1;
+    Void voidStruct2;
+    AOrB? optUnion2;
+    Ancestor ancestor;
+    Ancestor[] objTab;
+};
+
+/* }}} */
+/* {{{ zchk iop.iop_get_field_values */
+
+struct SimpleStruct {
+    string a;
+};
+
+class SimpleClass {
+    string b;
+};
+
+struct ZIopGetFieldValues {
+    int integer;
+    int[] integerTab;
+    int? optInteger;
+    void v;
+    void? optVoid;
+    SimpleStruct st;
+    SimpleStruct? optSt;
+    SimpleStruct& stRef;
+    SimpleStruct[] stTab;
+    SimpleClass obj;
+    SimpleClass? optObj;
+    SimpleClass[] objTab;
+};
+
+/* }}} */
+/* {{{ zchk iop.iop_first_diff_desc */
+
+@ctype(z_first_diff_c0__t)
+abstract class FirstDiffC0 {
+};
+
+@ctype(z_first_diff_c1__t)
+class FirstDiffC1 : 1 : FirstDiffC0 {
+    int i;
+};
+
+@ctype(z_first_diff_c2__t)
+class FirstDiffC2 : 2 : FirstDiffC0 {
+    long z = 51;
+};
+
+@ctype(z_first_diff_st__t)
+struct FirstDiffSt {
+    bool b;
+    int i;
+    string s;
+    int? optI;
+    string? optS;
+    int[] tab;
+    FirstDiffC0? o;
+};
+
+/* }}} */
+/* {{{ zchk asn1_aper.extended_choice */
+
+union Asn1ExtChoice {
+    int i;
+    string extS;
+    int extI;
+};
+
+/* }}} */
+/* {{{ zchk iop.iop_value_get_bpack_size */
+
+struct GetBpackSzSt {
+    int a;
+    string b;
+};
+
+enum GetBpackSzEn {
+    A,
+    B,
+};
+
+union GetBpackSzU {
+    byte i8;
+    ubyte u8;
+    short i16;
+    ushort u16;
+    int i32;
+    uint u32;
+    long i64;
+    ulong u64;
+    string s;
+    bool b;
+    GetBpackSzEn en;
+    GetBpackSzSt st;
+};
+
+/* }}} */
+/* {{{ zchk iop.iop_array_new */
+
+struct BasicStruct {
+    int i;
+};
+
+class BasicClass {
+    int i;
+};
+
+/* }}} */
+/* {{{ zchk iop.struct_packing */
+
+class SmallClass {
+    int i;
+};
+
+typedef SmallClass SmallClassTypedef;
+
+struct StructWithMandatoryObject {
+    int i1;
+    SmallClass c;
+    int i2;
+};
+
+struct StructWithTypedef {
+    int i1;
+    SmallClassTypedef c;
+    int i2;
+};
+
+struct StructWithOptionalObject {
+    int i1;
+    SmallClass? c;
+    int i2;
+};
+
+
+/* }}} */
+/* {{{ zchk iop.iop_filter */
+
+struct FilteredStruct {
+    int a   = -1;
+    uint b  = 2;
+    ubyte d = 4;
+    @(test:mayBeSkipped, true)
+    int[] c;
+    string s = "test";
+    @(test:mayBeSkipped, true)
+    string? longString;
+};
+
+/* }}} */
+/* {{{ zchk iop.nr_61968 */
+
+abstract class Alice {
+};
+
+class Bob : 1 : Alice {
+    int i;
+};
+
+/* }}} */
+/* {{{ zchk iop.xsort_and_xpsort */
+
+struct XsortStruct {
+    ubyte a;
+    string s;
+};
+
+/* }}} */
+/* {{{ zchk iop.iop_core_obj */
+
+abstract class Mammal {
+    string name;
+};
+
+class Fox : 1 : Mammal {
+};
+
+class Hound : 2 : Mammal {
+};
+
+/* }}} */
+/* {{{ zchk iop_blk.iop_field_path */
+
+struct Field {
+    int? tag;
+    string name;
+};
+
+struct Struct {
+    Field[] fields;
+};
+
+struct Package {
+    Struct[] structs;
+};
+
+/* }}} */
+/* {{{ zchk iop.bpack_error_unregistered_class */
+
+@ctype(tstiop_registered_class__t)
+class RegisteredClass : 1 {
+};
+
+/* }}} */
+/* {{{ zchk iop.bpack_error_unexpected_class_type */
+
+class RootClass : 1 {
+};
+
+class ChildClassA : 2 : RootClass {
+};
+
+class ChildClassB : 3 : RootClass {
+};
+
+/* }}} */
+/* {{{ zchk iop_yaml */
+
+class BigParent {
+    string a;
+    string b;
+    string? z;
+};
+
+class NoFieldParent : 1 : BigParent {
+};
+
+class SmallChild : 2 : NoFieldParent {
+    string c;
+};
+
+enum NegativeEnum {
+    NEG = -2,
+};
+
+struct StructWithNegativeEnum {
+    NegativeEnum e;
+};
+
+@strict
+enum EnumStrict {
+    A,
+};
+
+struct StructWithEnumStrict {
+    EnumStrict e;
+};
+
+
+/* }}} */
+/* {{{ zchk iop_openapi */
+
+struct ConstraintD {
+    @min(1.53)
+    double a;
+    @max(1.5e12)
+    double b;
+    @nonZero
+    double c;
+};
+
+/* }}} */
+/* {{{ iopc zchk */
+/* {{{ zchk iopsq.sub_struct */
+
+struct S1 {
+    int i;
+};
+
+struct S2 {
+    S1 st;
+    S1& stRef;
+    S1? stOpt;
+};
+
+/* }}} */
+/* {{{ zchk iopsq.array */
+
+struct ArrayTest {
+    int[] i;
+};
+
+/* }}} */
+/* {{{ zchk iopsq.enum_ */
+
+enum IopSqEnum {
+    VAL1,
+    VAL2 = 6,
+    VAL3,
+};
+
+struct IopSqEnumSt {
+    IopSqEnum en;
+};
+
+/* }}} */
+/* {{{ zchk iopsq.external_types */
+
+enum ExternalEnum {
+    A,
+    B,
+};
+
+struct ExternalStruct {
+    int i;
+};
+
+struct TestExternalTypes {
+    ExternalStruct st;
+    ExternalEnum en;
+};
+
+/* }}} */
+/* {{{ zchk iopsq.mp_iopsq_build_struct */
+
+struct TstBuildStruct {
+    int i1;
+    int i2;
+    string s;
+};
+
+/* }}} */
+/* {{{ zchk iopsq.type_table */
+
+struct TTBasicStruct {
+    int i;
+};
+
+enum TTBasicEnum {
+    A,
+    B,
+    C,
+    D,
+};
+
+struct TTComplexStruct {
+    string s;
+    TTBasicStruct stId1;
+    TTBasicEnum enId;
+    TTBasicStruct stTypeName;
+    TTBasicStruct stId2;
+    TTBasicEnum enTypeName;
+};
+
+/* }}} */
+/* }}} */
+
+/* Interfaces */
+
+@(test:gen5, 5)
+interface MyIfaceA {
+    @(test:gen6, 6)
+    funA      in (int a, MyStructA b)  out (MyUnionA c, int d);
+    funb                               out (int a, int b);
+    funC      in MyStructA             out MyStructB;
+    funD                               out MyStructA;
+    funE      in void                  out (int a);
+    funF      in (int a, int b)        out MyStructB;
+    funG                               out void;
+    funH      in void                  out void;
+    funI                               out void;
+    funJ      in void                  out void;
+    funK      in MyStructA             out (int a, int b);
+    funL      in MyUnionA              out void;
+    funM      in MyStructA             out (int a, int b) throw (int err);
+    funN      in MyStructA             out (int a, int b) throw MyAException;
+    funO      in MyStructA             out (int a, int b) throw MyExceptions;
+    funAsync  in (int test)            out null;
+};
+
+module MyModA {
+    MyIfaceA a;
+};
+
+interface Iface {
+    f in (int i) out (int i);
+};
+
+module T {
+    Iface iface;
+};
+
+module BothIface {
+    MyIfaceA a;
+    Iface iface;
+};

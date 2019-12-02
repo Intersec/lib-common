@@ -1,0 +1,465 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <lib-common/z.h>
+#include <lib-common/container.h>
+#include <lib-common/qps-hat.h>
+
+#define _CHECK_TRIE      do { \
+        Z_ASSERT(qhat_check_consistency(&trie));                             \
+        Z_HELPER_RUN(check_leak(&trie));                                     \
+    } while (0)
+#define CHECK_TRIE       if (!Z_HAS_MODE(FAST)) _CHECK_TRIE
+#define PRINT_TRIE  \
+    _CHECK_TRIE;                                                             \
+    if (e_name_is_traced(1, "trie/test")) qhat_debug_print(&trie, 0)
+
+static int check_leak(qhat_t *hat)
+{
+    qps_roots_t roots;
+
+    qps_roots_init(&roots);
+    qhat_get_qps_roots(hat, &roots);
+    Z_ASSERT_ZERO(qps_check_leaks(hat->qps, &roots));
+    qps_roots_wipe(&roots);
+    Z_HELPER_END;
+}
+
+static int test_zeros(qps_t *qps, uint8_t size)
+{
+    qps_handle_t htrie = qhat_create(qps, size, true);
+    qhat_t trie;
+    uint32_t count;
+    qhat_128_t zero = { 0, 0 };
+
+    qhat_init(&trie, qps, htrie);
+
+    /* Store 0s */
+    for (uint32_t i = 0; i < 100000; i++) {
+        qhat_set0(&trie, i, NULL);
+        CHECK_TRIE;
+    }
+    PRINT_TRIE;
+
+    count = 0;
+    qhat_for_each_unsafe (en, &trie) {
+        const void *slot = en.value;
+        Z_ASSERT_EQ(en.key, count);
+        Z_ASSERT_ZERO(memcmp(slot, &zero, size));
+        count++;
+    }
+    Z_ASSERT_EQ(100000u, count);
+
+    /* Remove one entry */
+    Z_ASSERT(qhat_remove(&trie, 0, NULL));
+    PRINT_TRIE;
+
+    count = 0;
+    qhat_for_each_unsafe (en, &trie) {
+        const void *slot = en.value;
+        Z_ASSERT_EQ(en.key, count + 1);
+        Z_ASSERT_ZERO(memcmp(slot, &zero, size));
+        count++;
+    }
+    Z_ASSERT_EQ(99999u, count);
+
+    /* Remove other entries from the end */
+    for (uint32_t i = 100000u; i-- > 1;) {
+        Z_ASSERT(qhat_remove(&trie, i, NULL));
+        CHECK_TRIE;
+    }
+    PRINT_TRIE;
+
+    qhat_destroy(&trie);
+    Z_HELPER_END;
+}
+
+
+static int test_128(qps_t *qps, bool null)
+{
+    qps_handle_t htrie = qhat_create(qps, 16, null);
+    qhat_t trie;
+
+    qhat_init(&trie, qps, htrie);
+    qhat_compute_counts(&trie, true);
+    Z_ASSERT_EQ(0u, trie.root->entry_count);
+    Z_ASSERT_EQ(trie.root->value_len, 16u);
+    Z_ASSERT_EQ(trie.desc->value_len, 16u);
+    Z_ASSERT_NULL(qhat_get(&trie, 0));
+    Z_ASSERT_NULL(qhat_get(&trie, 938483));
+
+    for (uint32_t i = 0; i < 1025; i++) {
+        uint32_t *slot = qhat_set(&trie, 0x40000400 - i);
+        *slot = bswap32(i + 0x400);
+        Z_ASSERT_EQ(i + 1, trie.root->entry_count);
+        CHECK_TRIE;
+    }
+    PRINT_TRIE;
+
+    for (uint32_t i = 0; i < 1025; i++) {
+        const uint32_t *slot = qhat_get(&trie, i + 0x40000000);
+        Z_ASSERT_EQ(*slot, bswap32(0x800 - i));
+    }
+
+    {
+        uint32_t pos = 0;
+        qhat_for_each_unsafe(en, &trie) {
+            const uint32_t *slot = en.value;
+            Z_ASSERT_EQ(en.key, pos + 0x40000000);
+            Z_ASSERT_EQ(*slot, bswap32(0x800 - pos));
+            pos++;
+        }
+        Z_ASSERT_EQ(pos, 1025u);
+    }
+
+    e_named_trace(3, "trie/test", "Removing key %x", 0x40000400 - 512);
+    PRINT_TRIE;
+    qhat_remove(&trie, 0x40000400 - 512, NULL);
+    Z_ASSERT_EQ(1024u, trie.root->entry_count);
+    for (uint32_t i = 0; i < 1025; i++) {
+        qhat_128_t val;
+        e_named_trace(3, "trie/test", "Removing key %x", 0x40000000 + i);
+        CHECK_TRIE;
+        qhat_remove(&trie, 0x40000000 + i, &val);
+        Z_ASSERT_ZERO(val.h);
+        if (i < 0x400 - 512) {
+            Z_ASSERT_EQ(val.l, bswap32(0x800 - i));
+            Z_ASSERT_EQ(1024u - (i + 1), trie.root->entry_count);
+        } else
+        if (i > 0x400 - 512) {
+            Z_ASSERT_EQ(val.l, bswap32(0x800 - i));
+            Z_ASSERT_EQ(1024u - i, trie.root->entry_count);
+        } else {
+            Z_ASSERT_ZERO(val.l);
+            Z_ASSERT_EQ(1024u - 1 - i + 1, trie.root->entry_count);
+        }
+    }
+    Z_ASSERT_EQ(0u, trie.root->entry_count);
+
+    for (uint32_t i = 0; i < 1024; i++) {
+        const void *slot = qhat_get(&trie, i + 0x40000001);
+        Z_ASSERT_NULL(slot);
+    }
+
+    PRINT_TRIE;
+    qps_snapshot(qps, NULL, 0, ^(uint32_t gen) { });
+    qps_snapshot_wait(qps);
+
+    qhat_destroy(&trie);
+    Z_HELPER_END;
+}
+
+static int test_64(qps_t *qps, bool null)
+{
+    qps_handle_t htrie = qhat_create(qps, 8, null);
+    qhat_t trie;
+
+    qhat_init(&trie, qps, htrie);
+    Z_ASSERT_NULL(qhat_get(&trie, 0));
+    Z_ASSERT_NULL(qhat_get(&trie, 938483));
+
+    for (uint32_t i = 0; i < 1025; i++) {
+        uint64_t *slot = qhat_set(&trie, 0x40000400 - i);
+        *slot = bswap64(i + 0x400);
+        CHECK_TRIE;
+    }
+    PRINT_TRIE;
+
+    for (uint32_t i = 0; i < 1025; i++) {
+        const uint64_t *slot = qhat_get(&trie, i + 0x40000000);
+        Z_ASSERT_EQ(*slot, bswap64(0x800 - i));
+    }
+
+    {
+        uint32_t pos = 0;
+        qhat_for_each_unsafe(en, &trie) {
+            const uint64_t *slot = en.value;
+            Z_ASSERT_EQ(en.key, pos + 0x40000000);
+            Z_ASSERT_EQ(*slot, bswap64(0x800 - pos));
+            pos++;
+        }
+        Z_ASSERT_EQ(pos, 1025u);
+    }
+
+    e_named_trace(3, "trie/test", "Removing key %x", 0x40000400 - 512);
+    PRINT_TRIE;
+    qhat_remove(&trie, 0x40000400 - 512, NULL);
+    for (uint32_t i = 0; i < 1025; i++) {
+        uint64_t val;
+        e_named_trace(3, "trie/test", "Removing key %x", 0x40000000 + i);
+        CHECK_TRIE;
+        qhat_remove(&trie, 0x40000000 + i, &val);
+        if (i != 0x400 - 512) {
+            Z_ASSERT_EQ(val, bswap64(0x800 - i));
+        } else {
+            Z_ASSERT_ZERO(val);
+        }
+    }
+
+    for (uint32_t i = 0; i < 1024; i++) {
+        const void *slot = qhat_get(&trie, i + 0x40000001);
+        Z_ASSERT_NULL(slot);
+    }
+
+    PRINT_TRIE;
+    qhat_destroy(&trie);
+    Z_HELPER_END;
+}
+
+static int test_32(qps_t *qps, bool null)
+{
+    qps_handle_t htrie = qhat_create(qps, 4, false);
+    qhat_t trie;
+
+    qhat_init(&trie, qps, htrie);
+    Z_ASSERT_NULL(qhat_get(&trie, 0));
+    Z_ASSERT_NULL(qhat_get(&trie, 938483));
+
+    for (uint32_t i = 0; i < 1025; i++) {
+        uint32_t *slot = qhat_set(&trie, 0x40000400 - i);
+        *slot = bswap32(i + 0x400);
+        CHECK_TRIE;
+    }
+    PRINT_TRIE;
+
+    for (uint32_t i = 0; i < 1025; i++) {
+        const uint32_t *slot = qhat_get(&trie, i + 0x40000000);
+        Z_ASSERT_EQ(*slot, bswap32(0x800 - i));
+    }
+
+    {
+        uint32_t pos = 0;
+        qhat_for_each_unsafe(en, &trie) {
+            const uint32_t *slot = en.value;
+            Z_ASSERT_EQ(en.key, pos + 0x40000000);
+            Z_ASSERT_EQ(*slot, bswap32(0x800 - pos));
+            pos++;
+        }
+        Z_ASSERT_EQ(pos, 1025u);
+    }
+
+    e_named_trace(3, "trie/test", "Removing key %x", 0x40000400 - 512);
+    PRINT_TRIE;
+    qhat_remove(&trie, 0x40000400 - 512, NULL);
+    for (uint32_t i = 0; i < 1025; i++) {
+        uint32_t val;
+        e_named_trace(3, "trie/test", "Removing key %x", 0x40000000 + i);
+        CHECK_TRIE;
+        qhat_remove(&trie, 0x40000000 + i, &val);
+        if (i != 0x400 - 512) {
+            Z_ASSERT_EQ(val, bswap32(0x800 - i));
+        } else {
+            Z_ASSERT_ZERO(val);
+        }
+    }
+
+    for (uint32_t i = 0; i < 1024; i++) {
+        const void *slot = qhat_get(&trie, i + 0x40000001);
+        Z_ASSERT_NULL(slot);
+    }
+
+    PRINT_TRIE;
+    qhat_destroy(&trie);
+    Z_HELPER_END;
+}
+
+static int test_16(qps_t *qps, bool null)
+{
+    qps_handle_t htrie = qhat_create(qps, 2, null);
+    qhat_t trie;
+
+    qhat_init(&trie, qps, htrie);
+    Z_ASSERT_NULL(qhat_get(&trie, 0));
+    Z_ASSERT_NULL(qhat_get(&trie, 938483));
+
+    for (uint32_t i = 0; i < 10000; i++) {
+        uint16_t *slot = qhat_set(&trie, i + 50);
+        *slot = i | 1;
+        CHECK_TRIE;
+    }
+    PRINT_TRIE;
+
+    if (null) {
+        for (uint32_t i = 0; i < 50; i++) {
+            Z_ASSERT_NULL(qhat_get(&trie, i));
+        }
+    }
+    for (uint32_t i = 0; i < 10000; i++) {
+        const uint16_t *slot = qhat_get(&trie, i + 50);
+        Z_ASSERT_EQ(*slot, (uint16_t)i | 1);
+    }
+
+    {
+        uint32_t i = 0;
+        qhat_for_each_unsafe(en, &trie) {
+            const uint16_t *slot = en.value;
+            if (en.key < 50) {
+                if (null) {
+                    Z_ASSERT_NULL(slot);
+                } else {
+                    Z_ASSERT(slot == NULL || *slot == 0);
+                }
+            } else
+            if (en.key < 10050) {
+                Z_ASSERT_EQ(*slot, (uint16_t)i | 1);
+                i++;
+            } else {
+                if (null) {
+                    Z_ASSERT_NULL(slot);
+                } else {
+                    Z_ASSERT(slot == NULL || *slot == 0);
+                }
+            }
+        }
+        Z_ASSERT_EQ(i, 10000u);
+    }
+
+    qhat_destroy(&trie);
+    Z_HELPER_END;
+}
+
+static int test_8(qps_t *qps, bool null)
+{
+    qps_handle_t htrie = qhat_create(qps, 1, null);
+    qhat_t trie;
+
+    qhat_init(&trie, qps, htrie);
+    Z_ASSERT_NULL(qhat_get(&trie, 0));
+    Z_ASSERT_NULL(qhat_get(&trie, 938483));
+
+    for (uint32_t i = 0; i < 10000; i++) {
+        uint8_t *slot = qhat_set(&trie, i + 50);
+        *slot = i | 1;
+        CHECK_TRIE;
+    }
+    PRINT_TRIE;
+
+    if (null) {
+        for (uint32_t i = 0; i < 50; i++) {
+            Z_ASSERT_NULL(qhat_get(&trie, i));
+        }
+    }
+    for (uint32_t i = 0; i < 10000; i++) {
+        const uint8_t *slot = qhat_get(&trie, i + 50);
+        Z_ASSERT_EQ(*slot, (uint8_t)i | 1);
+    }
+
+    {
+        uint32_t i = 0;
+        qhat_for_each_unsafe(en, &trie) {
+            const uint8_t *slot = en.value;
+            if (en.key < 50) {
+                if (null) {
+                    Z_ASSERT_NULL(slot);
+                } else {
+                    Z_ASSERT(slot == NULL || *slot == 0);
+                }
+            } else
+            if (en.key < 10050) {
+                Z_ASSERT_EQ(*slot, (uint8_t)i | 1, "error at %u", en.key);
+                i++;
+            } else {
+                if (null) {
+                    Z_ASSERT_NULL(slot, "error at %u", en.key);
+                } else {
+                    Z_ASSERT(slot == NULL || *slot == 0, "error at %u", en.key);
+                }
+            }
+        }
+        Z_ASSERT_EQ(i, 10000u);
+    }
+
+    qhat_destroy(&trie);
+    Z_HELPER_END;
+}
+
+Z_GROUP_EXPORT(qps_hat) {
+    qps_t *qps;
+
+    MODULE_REQUIRE(qps);
+
+    if (qps_exists(z_grpdir_g.s)) {
+        qps = qps_open(z_grpdir_g.s, "qps-hat", NULL);
+    } else {
+        qps = qps_create(z_grpdir_g.s, "qps-hat", 0755, NULL, 0);
+    }
+    assert (qps);
+
+    Z_TEST(128, "128bits no null") {
+        Z_HELPER_RUN(test_128(qps, false));
+    } Z_TEST_END;
+
+    Z_TEST(128_null, "128bits null") {
+        Z_HELPER_RUN(test_128(qps, true));
+    } Z_TEST_END;
+
+    Z_TEST(128_null_zero, "128bits null zeros") {
+        Z_HELPER_RUN(test_zeros(qps, 16));
+    } Z_TEST_END;
+
+    Z_TEST(64, "64bits no null") {
+        Z_HELPER_RUN(test_64(qps, false));
+    } Z_TEST_END;
+
+    Z_TEST(64_null, "64bits null") {
+        Z_HELPER_RUN(test_64(qps, true));
+    } Z_TEST_END;
+
+    Z_TEST(64_null_zero, "64bits null zeros") {
+        Z_HELPER_RUN(test_zeros(qps, 8));
+    } Z_TEST_END;
+
+    Z_TEST(32, "32bits no null") {
+        Z_HELPER_RUN(test_32(qps, false));
+    } Z_TEST_END;
+
+    Z_TEST(32_null, "32bits null") {
+        Z_HELPER_RUN(test_32(qps, true));
+    } Z_TEST_END;
+
+    Z_TEST(32_null_zero, "32bits null zeros") {
+        Z_HELPER_RUN(test_zeros(qps, 4));
+    } Z_TEST_END;
+
+    Z_TEST(16, "16bits no null") {
+        Z_HELPER_RUN(test_16(qps, false));
+    } Z_TEST_END;
+
+    Z_TEST(16_null, "16bits null") {
+        Z_HELPER_RUN(test_16(qps, true));
+    } Z_TEST_END;
+
+    Z_TEST(16_null_zero, "16bits null zeros") {
+        Z_HELPER_RUN(test_zeros(qps, 2));
+    } Z_TEST_END;
+
+    Z_TEST(8, "8bits no null") {
+        Z_HELPER_RUN(test_8(qps, false));
+    } Z_TEST_END;
+
+    Z_TEST(8_null, "8bits null") {
+        Z_HELPER_RUN(test_8(qps, true));
+    } Z_TEST_END;
+
+    Z_TEST(8_null_zero, "8bits null zeros") {
+        Z_HELPER_RUN(test_zeros(qps, 1));
+    } Z_TEST_END;
+
+    qps_close(&qps);
+    MODULE_RELEASE(qps);
+} Z_GROUP_END
