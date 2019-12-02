@@ -43,9 +43,7 @@ features. So its main dependencies are:
 
 glibc:: used extensively, in particular to interface with various Linux kernel
 facilities
-gcc:: base compiler
-clang:: used to pre-compile some C extensions towards C source code that gcc
-can compile
+clang:: base compiler
 waf:: build system
 cython:: to build the IOP python interface
 openssl:: various cryptography requirements
@@ -54,9 +52,7 @@ gperf:: GNU library for perfect hash function generation at
 https://www.gnu.org/software/gperf
 
 Most of dependencies can be installed using your own Linux distribution
-packages, with two exceptions:
-* waf
-* clang
+packages, with the exception of waf which is usually not packaged.
 
 === waf installation
 
@@ -91,19 +87,6 @@ $ ./waf
 
 `waf` versions 2.0.8 and 2.0.18 are known to work fine, running the latest 2.0.x
 `waf` should also work fine.
-
-=== clang
-
-Because of a https://bugs.llvm.org/show_bug.cgi?id=39533[bug in clang], clang
-cannot be used to build the lib-common except in debug mode without any
-optimizations (`-O0`). Because of this, we have put in place a two-phase build
-of some files (named `foo.blk` instead of `foo.c`) that are pre-compiled using
-a patched clang that generates gcc-compilable C code to support blocks. gcc is
-then used to produce the final object code.
-
-The patched clang has to be built from this clang fork:
-https://github.com/Intersec/clang/tree/clang/7.0/maint and placed in your
-PATH environment.
 
 === Cython
 
@@ -148,19 +131,17 @@ To generate the python3 IOP interface, you also need the following package:
 $ sudo dnf install python3-devel
 ---------------------------------
 
-=== building the lib-common
+=== Building lib-common
 
 First of all, you have to configure your project, by running in the top-level
 directory:
 ---------------------------------
-$ waf configure [--prefix=PREFIX]
+$ waf configure --check-c-compiler=clang --check-cxx-compiler=clang++
 ---------------------------------
 
-The installation prefix is controlled with the option `--prefix`.
-It is important to set it when you want to install the tools for example.
-This option will set the environment variable `${PREFIX}` in the wscript
-files.
-
+Note the two options `--check-xxx-compiler`, in order to compile with clang,
+which is the easiest way to compile the lib-common. If you prefer compiling
+with gcc, refer to the dedicated section below.
 
 If the configuration step triggers no error, then you are ready to build,
 which just consists in running:
@@ -205,7 +186,7 @@ Other commands are listed with `waf --help`. Here they are:
                     command to produce a coverage report.
                     Note that this is done when configuring the project.
 * `coverage-end`: end a coverage session and produce a report.
-* `app-delivery`: prepare an APP delivery (archive of the source code)
+* `app-delivery`: prepare an APP delivery (archive of the source code).
 
 ==== Supported environment variables
 
@@ -257,6 +238,30 @@ The following environment variables can be used at the configuration phase:
     the same sanitizer to load the compiled shared libraries with this option.
     This is only available for profiles that use sanitizers, i.e. asan or
     tsan.
+
+==== Compiling with gcc
+
+It is possible to compile the lib-common with gcc instead of clang if you
+prefer, but this is a bit harder.
+
+An important part of the lib-common uses the
+https://clang.llvm.org/docs/BlockLanguageSpec.html[blocks] clang extension,
+that is not supported by gcc.
+
+Because of this, we have put in place a two-phase build of some files
+(named `foo.blk` instead of `foo.c`) that are pre-compiled using a patched
+clang that generates gcc-compilable C code to support blocks. gcc is then
+used to produce the final object code.
+
+The patched clang has to be built from this clang fork:
+https://github.com/Intersec/clang/tree/clang/7.0/maint and placed in your
+PATH environment.
+
+Then, just configure the project without specifying the compiler
+(default is gcc):
+---------------------------------
+$ waf configure
+---------------------------------
 
 == Contributing
 
