@@ -43,17 +43,20 @@ static struct yaml_g {
 
 /* Presentation details applied to a specific node. */
 typedef struct yaml_presentation_node_t {
-    /* Comment prefixed before the node.
+    /* Comments prefixed before the node.
      *
      * For example:
      *
      * a:
      *   # Comment
+     *   # Second line
      *   b: ~
      *
-     * "Comment" is a prefix comment for "a.b".
+     * ["Comment", "Second line"] are the prefix comments for "a.b".
      */
-    lstr_t prefix_comment;
+    /* TODO: it would be better to use a static array container here, like
+     * lstr__array_t, but without the IOP dependencies. */
+    qv_t(lstr) prefix_comments;
 
     /* Comment inlined after the node.
      *
@@ -326,6 +329,10 @@ static int yaml_env_pres_push_path(yaml_env_presentation_t * nullable pres,
         res = qm_add(yaml_pres_node, &pres->nodes, &path, pres->next_node);
         assert (res == 0);
         pres->has_next_node = false;
+
+        logger_trace(&_G.logger, 2,
+                     "adding prefixed presentation details on path `%pL`",
+                     &path);
     }
 
     return prev_len;
@@ -357,12 +364,20 @@ static void t_yaml_env_handle_comment_ps(yaml_env_t * nonnull env,
 
     if (prefix) {
         pnode = t_yaml_env_pres_get_next_node(env->pres);
-        assert (pnode->prefix_comment.len == 0);
-        pnode->prefix_comment = comment;
+        if (pnode->prefix_comments.len == 0) {
+            t_qv_init(&pnode->prefix_comments, 1);
+        }
+        qv_append(&pnode->prefix_comments, comment);
+        logger_trace(&_G.logger, 2,
+                     "adding prefix comment `%pL` for the next node",
+                     &comment);
     } else {
         pnode = t_yaml_env_pres_get_current_node(env->pres);
         assert (pnode->inline_comment.len == 0);
         pnode->inline_comment = comment;
+        logger_trace(&_G.logger, 2,
+                     "adding inline comment `%pL` on path `%pL`",
+                     &comment, &env->pres->current_path);
     }
 }
 
@@ -615,9 +630,8 @@ t_yaml_env_parse_obj(yaml_env_t *env, const uint32_t min_indent,
          * that a subdata always has a strictly greater indentation level than
          * its containing data.
          */
-        RETHROW(yaml_env_ltrim(env));
-
         path_len = yaml_env_pres_push_path(env->pres, ".%pL", &kd->key);
+        RETHROW(yaml_env_ltrim(env));
 
         if (ps_startswith_yaml_seq_prefix(&env->ps)) {
             RETHROW(t_yaml_env_parse_data(env, min_indent, &kd->data));
@@ -1757,14 +1771,19 @@ static int z_check_inline_comment(const yaml_presentation_t * nonnull pres,
     Z_HELPER_END;
 }
 
-static int z_check_prefix_comment(const yaml_presentation_t * nonnull pres,
-                                  lstr_t path, lstr_t comment)
+static int z_check_prefix_comments(const yaml_presentation_t * nonnull pres,
+                                   lstr_t path, lstr_t *comments,
+                                   int len)
 {
     const yaml_presentation_node_t *pnode;
 
     pnode = qm_get_def_p_safe(yaml_pres_node, &pres->nodes, &path, NULL);
     Z_ASSERT_P(pnode);
-    Z_ASSERT_LSTREQUAL(pnode->prefix_comment, comment);
+    Z_ASSERT_EQ(len, pnode->prefix_comments.len);
+    tab_for_each_pos(pos, &pnode->prefix_comments) {
+        Z_ASSERT_LSTREQUAL(comments[pos], pnode->prefix_comments.tab[pos],
+                           "prefix comment number #%d differs", pos);
+    }
 
     Z_HELPER_END;
 }
@@ -2583,6 +2602,14 @@ Z_GROUP_EXPORT(yaml)
 
     /* {{{ Comment presentation */
 
+#define CHECK_PREFIX_COMMENTS(pres, path, ...)                               \
+    do {                                                                     \
+        lstr_t comments[] = { __VA_ARGS__ };                                 \
+                                                                             \
+        Z_HELPER_RUN(z_check_prefix_comments((pres), (path), comments,       \
+                                             countof(comments)));            \
+    } while (0)
+
     Z_TEST(comment_presentation, "test saving of comments in presentation") {
         t_scope;
         yaml_data_t data;
@@ -2595,8 +2622,7 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
-        Z_HELPER_RUN(z_check_prefix_comment(pres, LSTR_EMPTY_V,
-                                            LSTR("my scalar")));
+        CHECK_PREFIX_COMMENTS(pres, LSTR_EMPTY_V, LSTR("my scalar"));
 
         /* comment on a key => path is key */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
@@ -2615,12 +2641,52 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(2, qm_len(yaml_pres_node, &pres->nodes));
-        Z_HELPER_RUN(z_check_prefix_comment(pres, LSTR("[0]"),
-                                            LSTR("prefix comment")));
+        CHECK_PREFIX_COMMENTS(pres, LSTR("[0]"), LSTR("prefix comment"));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR("[0]"),
                                             LSTR("first")));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR("[1]"),
                                             LSTR("second")));
+
+        /* prefix comment with multiple lines */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
+            "key:\n"
+            "   # first line\n"
+            " # and second\n"
+            "     # bad indent is ok\n"
+            "  a: ~ # inline\n"
+            "       # this is lost"
+        ));
+        Z_ASSERT_P(pres);
+        Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
+        CHECK_PREFIX_COMMENTS(pres, LSTR(".key.a"),
+                              LSTR("first line"),
+                              LSTR("and second"),
+                              LSTR("bad indent is ok"));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key.a"),
+                                            LSTR("inline")));
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
+            "# prefix key\n"
+            "key: # inline key\n"
+            "# prefix [0]\n"
+            "- # inline [0]\n"
+            " # prefix key2\n"
+            " key2: ~ # inline key2"
+        ));
+        Z_ASSERT_P(pres);
+        Z_ASSERT_EQ(3, qm_len(yaml_pres_node, &pres->nodes));
+        CHECK_PREFIX_COMMENTS(pres, LSTR(".key"),
+                              LSTR("prefix key"));
+        CHECK_PREFIX_COMMENTS(pres, LSTR(".key[0]"),
+                              LSTR("prefix [0]"));
+        CHECK_PREFIX_COMMENTS(pres, LSTR(".key[0].key2"),
+                              LSTR("prefix key2"));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key"),
+                                            LSTR("inline key")));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key[0]"),
+                                            LSTR("inline [0]")));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key[0].key2"),
+                                            LSTR("inline key2")));
     } Z_TEST_END;
 
     /* }}} */
