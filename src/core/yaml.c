@@ -1155,9 +1155,17 @@ int t_yaml_parse(pstream_t ps, yaml_data_t *out,
 
 #define YAML_STD_INDENT  2
 
+typedef struct yaml_pack_env_presentation_t {
+    qm_t(yaml_pres_node) nodes;
+
+    /* Current path being packed. */
+    sb_t current_path;
+} yaml_pack_env_presentation_t;
+
 typedef struct yaml_pack_env_t {
     yaml_pack_writecb_f *write_cb;
     void *priv;
+    yaml_pack_env_presentation_t * nullable pres;
 } yaml_pack_env_t;
 
 /* "to_indent" indicates that we have already packed some data in the output,
@@ -1222,6 +1230,110 @@ static int do_indent(const yaml_pack_env_t *env, int indent)
     do {                                                                     \
         res += RETHROW(do_indent(env, lvl));                                 \
     } while (0)
+
+/* }}} */
+/* {{{ Presentation */
+
+/* XXX: need a prototype declaration to specify the __attr_printf__ */
+static int
+yaml_pack_env_pres_push_path(yaml_pack_env_presentation_t * nullable pres,
+                             const char *fmt, ...)
+    __attr_printf__(2, 3);
+
+static int
+yaml_pack_env_pres_push_path(yaml_pack_env_presentation_t * nullable pres,
+                             const char *fmt, ...)
+{
+    int prev_len;
+    va_list args;
+
+    if (!pres) {
+        return 0;
+    }
+
+    prev_len = pres->current_path.len;
+    va_start(args, fmt);
+    sb_addvf(&pres->current_path, fmt, args);
+    va_end(args);
+
+    return prev_len;
+}
+
+static void
+yaml_pack_env_pres_pop_path(yaml_pack_env_presentation_t * nullable pres,
+                            int prev_len)
+{
+    if (!pres) {
+        return;
+    }
+
+    sb_clip(&pres->current_path, prev_len);
+}
+
+static const yaml_presentation_node_t * nullable
+yaml_pack_env_get_pres_node(yaml_pack_env_presentation_t * nullable pres)
+{
+    lstr_t path;
+
+    if (!pres) {
+        return NULL;
+    }
+
+    path = LSTR_SB_V(&pres->current_path);
+    return qm_get_def_p_safe(yaml_pres_node, &pres->nodes, &path, NULL);
+}
+
+static int
+yaml_pack_pres_node_prefix(const yaml_pack_env_t * nonnull env,
+                           const yaml_presentation_node_t * nullable node,
+                           int indent_lvl, bool to_indent)
+{
+    int res = 0;
+    bool orig_to_indent = to_indent;
+
+    if (!node || node->prefix_comments.len == 0) {
+        return res;
+    }
+
+    tab_for_each_entry(comment, &node->prefix_comments) {
+        if (to_indent) {
+            PUTS("\n");
+            INDENT(indent_lvl);
+        } else {
+            to_indent = true;
+        }
+
+        PUTS("# ");
+        PUTLSTR(comment);
+    }
+
+    if (!orig_to_indent) {
+        PUTS("\n");
+        INDENT(indent_lvl);
+    }
+
+    return res;
+}
+
+static int
+yaml_pack_pres_node_inline(const yaml_pack_env_t * nonnull env,
+                           const yaml_presentation_node_t * nullable node,
+                           bool * nonnull to_indent)
+{
+    int res = 0;
+
+    if (node && node->inline_comment.len > 0) {
+        if (*to_indent) {
+            PUTS(" # ");
+        } else {
+            PUTS("# ");
+            *to_indent = true;
+        }
+        PUTLSTR(node->inline_comment);
+    }
+
+    return res;
+}
 
 /* }}} */
 /* {{{ Pack scalar */
@@ -1389,6 +1501,7 @@ static int yaml_pack_seq(const yaml_pack_env_t * nonnull env,
                          const yaml_seq_t * nonnull seq, int indent_lvl,
                          bool to_indent)
 {
+    const yaml_presentation_node_t *node;
     int res = 0;
 
     if (seq->datas.len == 0) {
@@ -1400,7 +1513,15 @@ static int yaml_pack_seq(const yaml_pack_env_t * nonnull env,
         return res;
     }
 
-    tab_for_each_ptr(data, &seq->datas) {
+    tab_for_each_pos(pos, &seq->datas) {
+        const yaml_data_t *data = &seq->datas.tab[pos];
+        int path_len;
+        bool data_to_indent = false;
+
+        path_len = yaml_pack_env_pres_push_path(env->pres, "[%d]", pos);
+        node = yaml_pack_env_get_pres_node(env->pres);
+        res += yaml_pack_pres_node_prefix(env, node, indent_lvl, to_indent);
+
         if (to_indent) {
             PUTS("\n");
             INDENT(indent_lvl);
@@ -1409,7 +1530,13 @@ static int yaml_pack_seq(const yaml_pack_env_t * nonnull env,
         }
         PUTS("- ");
 
-        res += RETHROW(yaml_pack_data(env, data, indent_lvl + 2, false));
+        if (data->type != YAML_DATA_SCALAR) {
+            res += yaml_pack_pres_node_inline(env, node, &data_to_indent);
+        }
+        res += RETHROW(yaml_pack_data(env, data, indent_lvl + 2,
+                                      data_to_indent));
+
+        yaml_pack_env_pres_pop_path(env->pres, path_len);
     }
 
     return res;
@@ -1423,6 +1550,12 @@ static int yaml_pack_key_data(const yaml_pack_env_t * nonnull env,
                               int indent_lvl, bool to_indent)
 {
     int res = 0;
+    int path_len;
+    const yaml_presentation_node_t *node;
+
+    path_len = yaml_pack_env_pres_push_path(env->pres, ".%pL", &key);
+    node = yaml_pack_env_get_pres_node(env->pres);
+    res += yaml_pack_pres_node_prefix(env, node, indent_lvl, to_indent);
 
     if (to_indent) {
         PUTS("\n");
@@ -1432,8 +1565,17 @@ static int yaml_pack_key_data(const yaml_pack_env_t * nonnull env,
     PUTLSTR(key);
     PUTS(":");
 
+    /* for scalars, we put the inline comment after the value:
+     *  key: val # comment
+     */
+    to_indent = true;
+    if (data->type != YAML_DATA_SCALAR) {
+        res += yaml_pack_pres_node_inline(env, node, &to_indent);
+    }
     res += RETHROW(yaml_pack_data(env, data, indent_lvl + YAML_STD_INDENT,
-                                  true));
+                                  to_indent));
+
+    yaml_pack_env_pres_pop_path(env->pres, path_len);
 
     return res;
 }
@@ -1485,9 +1627,14 @@ static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
     }
 
     switch (data->type) {
-      case YAML_DATA_SCALAR:
+      case YAML_DATA_SCALAR: {
+        const yaml_presentation_node_t *node;
+
         res += RETHROW(yaml_pack_scalar(env, &data->scalar, to_indent));
-        break;
+        node = yaml_pack_env_get_pres_node(env->pres);
+        to_indent = true;
+        res += yaml_pack_pres_node_inline(env, node, &to_indent);
+      } break;
       case YAML_DATA_SEQ:
         res += RETHROW(yaml_pack_seq(env, data->seq, indent_lvl, to_indent));
         break;
@@ -1495,6 +1642,19 @@ static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
         res += RETHROW(yaml_pack_obj(env, data->obj, indent_lvl, to_indent));
         break;
     }
+
+    return res;
+}
+
+static int yaml_pack_root_data(const yaml_pack_env_t * nonnull env,
+                               const yaml_data_t * nonnull data)
+{
+    const yaml_presentation_node_t *node;
+    int res = 0;
+
+    node = yaml_pack_env_get_pres_node(env->pres);
+    res += yaml_pack_pres_node_prefix(env, node, 0, false);
+    res += RETHROW(yaml_pack_data(env, data, 0, false));
 
     return res;
 }
@@ -1512,13 +1672,20 @@ int yaml_pack(const yaml_data_t * nonnull data,
               const yaml_presentation_t * nullable presentation,
               yaml_pack_writecb_f * nonnull writecb, void * nullable priv)
 {
-    const yaml_pack_env_t env = {
+    /* FIXME: must declare a t_scope */
+    yaml_pack_env_t env = {
         .write_cb = writecb,
         .priv = priv,
     };
 
+    if (presentation) {
+        env.pres = t_new(yaml_pack_env_presentation_t, 1);
+        env.pres->nodes = presentation->nodes;
+        t_sb_init(&env.pres->current_path, 1024);
+    }
+
     /* Always skip everything that can be skipped */
-    return yaml_pack_data(&env, data, 0, false);
+    return yaml_pack_root_data(&env, data);
 }
 
 static inline int sb_write(void * nonnull b, const void * nonnull buf,
@@ -2771,8 +2938,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
             "# my scalar\n"
             "3",
-
-            "3"
+            NULL
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
@@ -2782,7 +2948,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
             "a: 3 #the key is a   ",
 
-            "a: 3"
+            "a: 3 # the key is a"
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
@@ -2794,9 +2960,7 @@ Z_GROUP_EXPORT(yaml)
             "# prefix comment\n"
             "- 1 # first\n"
             "- 2 # second",
-
-            "- 1\n"
-            "- 2"
+            NULL
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(2, qm_len(yaml_pres_node, &pres->nodes));
@@ -2816,7 +2980,10 @@ Z_GROUP_EXPORT(yaml)
             "       # this is lost",
 
             "key:\n"
-            "  a: ~"
+            "  # first line\n"
+            "  # and second\n"
+            "  # bad indent is ok\n"
+            "  a: ~ # inline"
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
@@ -2835,8 +3002,12 @@ Z_GROUP_EXPORT(yaml)
             " # prefix key2\n"
             " key2: ~ # inline key2",
 
-            "key:\n"
-            "  - key2: ~"
+            "# prefix key\n"
+            "key: # inline key\n"
+            "  # prefix [0]\n"
+            "  - # inline [0]\n"
+            "    # prefix key2\n"
+            "    key2: ~ # inline key2"
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(3, qm_len(yaml_pres_node, &pres->nodes));
