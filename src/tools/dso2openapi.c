@@ -159,7 +159,7 @@ generate_openapi(const iop_mod_t * nonnull module)
         return -1;
     }
 
-    yaml_pack(&yaml, yaml_pack_write_stdout, NULL);
+    yaml_pack(&yaml, NULL, yaml_pack_write_stdout, NULL);
     printf("\n");
 
     return 0;

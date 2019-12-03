@@ -1509,6 +1509,7 @@ static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
 /* {{{ Pack public API */
 
 int yaml_pack(const yaml_data_t * nonnull data,
+              const yaml_presentation_t * nullable presentation,
               yaml_pack_writecb_f * nonnull writecb, void * nullable priv)
 {
     const yaml_pack_env_t env = {
@@ -1527,9 +1528,11 @@ static inline int sb_write(void * nonnull b, const void * nonnull buf,
     return len;
 }
 
-int yaml_pack_sb(const yaml_data_t * nonnull data, sb_t * nonnull sb)
+int yaml_pack_sb(const yaml_data_t * nonnull data,
+                 const yaml_presentation_t * nullable presentation,
+                 sb_t * nonnull sb)
 {
-    return yaml_pack(data, &sb_write, sb);
+    return yaml_pack(data, presentation, &sb_write, sb);
 }
 
 typedef struct yaml_pack_file_ctx_t {
@@ -1549,8 +1552,10 @@ static int iop_ypack_write_file(void *priv, const void *data, int len)
     return len;
 }
 
-int yaml_pack_file(const char *filename, unsigned file_flags,
-                   mode_t file_mode, const yaml_data_t *data, sb_t *err)
+int yaml_pack_file(const char * nonnull filename, unsigned file_flags,
+                   mode_t file_mode, const yaml_data_t * nonnull data,
+                   const yaml_presentation_t * nullable presentation,
+                   sb_t * nonnull err)
 {
     yaml_pack_file_ctx_t ctx;
     int res;
@@ -1563,7 +1568,7 @@ int yaml_pack_file(const char *filename, unsigned file_flags,
     }
     ctx.err = err;
 
-    res = yaml_pack(data, &iop_ypack_write_file, &ctx);
+    res = yaml_pack(data, presentation, &iop_ypack_write_file, &ctx);
     if (res < 0) {
         IGNORE(file_close(&ctx.file));
         return res;
@@ -1749,11 +1754,14 @@ z_check_yaml_scalar(const yaml_data_t *data, yaml_scalar_type_t type,
     Z_HELPER_END;
 }
 
-static int z_check_yaml_pack(const yaml_data_t *data, const char *yaml)
+static int
+z_check_yaml_pack(const yaml_data_t * nonnull data,
+                  const yaml_presentation_t * nullable presentation,
+                  const char *yaml)
 {
     SB_1k(sb);
 
-    yaml_pack_sb(data, &sb);
+    yaml_pack_sb(data, presentation, &sb);
     Z_ASSERT_STREQUAL(sb.data, yaml);
 
     Z_HELPER_END;
@@ -2573,21 +2581,21 @@ Z_GROUP_EXPORT(yaml)
 
         /* empty obj */
         t_yaml_data_new_obj(&data, 0);
-        Z_HELPER_RUN(z_check_yaml_pack(&data, "{}"));
+        Z_HELPER_RUN(z_check_yaml_pack(&data, NULL, "{}"));
 
         /* empty obj in seq */
         t_yaml_data_new_seq(&data2, 1);
         yaml_seq_add_data(&data2, data);
-        Z_HELPER_RUN(z_check_yaml_pack(&data2, "- {}"));
+        Z_HELPER_RUN(z_check_yaml_pack(&data2, NULL, "- {}"));
 
         /* empty seq */
         t_yaml_data_new_seq(&data, 0);
-        Z_HELPER_RUN(z_check_yaml_pack(&data, "[]"));
+        Z_HELPER_RUN(z_check_yaml_pack(&data, NULL, "[]"));
 
         /* empty seq in obj */
         t_yaml_data_new_obj(&data2, 1);
         yaml_obj_add_field(&data2, LSTR("a"), data);
-        Z_HELPER_RUN(z_check_yaml_pack(&data2, "a: []"));
+        Z_HELPER_RUN(z_check_yaml_pack(&data2, NULL, "a: []"));
 
         /* seq in seq */
         t_yaml_data_new_seq(&data, 1);
@@ -2595,7 +2603,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_seq_add_data(&data, scalar);
         t_yaml_data_new_seq(&data2, 1);
         yaml_seq_add_data(&data2, data);
-        Z_HELPER_RUN(z_check_yaml_pack(&data2, "- - true"));
+        Z_HELPER_RUN(z_check_yaml_pack(&data2, NULL, "- - true"));
     } Z_TEST_END;
 
     /* }}} */

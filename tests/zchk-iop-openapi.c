@@ -52,7 +52,7 @@ z_check_yaml(iop_openapi_t *openapi, const char *filename,
         /* remove the 5th element */
         qv_splice(&data.obj->fields, 4, 1, NULL, 0);
     }
-    yaml_pack_sb(&data, &sb);
+    yaml_pack_sb(&data, NULL, &sb);
 
     Z_HELPER_RUN(t_z_load_openapi_file(filename, &file));
     Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), file);

@@ -152,7 +152,9 @@ int t_yaml_parse(pstream_t ps, yaml_data_t * nonnull out,
 
 /** Pack a YAML data into a YAML string.
  */
-int yaml_pack_sb(const yaml_data_t * nonnull data, sb_t * nonnull sb);
+int yaml_pack_sb(const yaml_data_t * nonnull data,
+                 const yaml_presentation_t * nullable presentation,
+                 sb_t * nonnull sb);
 
 /** Pack a YAML data into a YAML file.
  *
@@ -161,10 +163,13 @@ int yaml_pack_sb(const yaml_data_t * nonnull data, sb_t * nonnull sb);
  *                        (\ref enum file_flags).
  * \param[in]  file_mode  The mode to use when opening the file.
  * \param[in]  data       The YAML data to pack.
+ * \param[in]  presentation  Optional presentation data, to reformat the YAML
+ *                           data properly.
  * \param[out] err        Buffer filled in case of error.
  */
 int yaml_pack_file(const char * nonnull filename, unsigned file_flags,
                    mode_t file_mode, const yaml_data_t * nonnull data,
+                   const yaml_presentation_t * nullable presentation,
                    sb_t * nonnull err);
 
 typedef int (yaml_pack_writecb_f)(void * nullable priv,
@@ -176,6 +181,7 @@ typedef int (yaml_pack_writecb_f)(void * nullable priv,
  * \p writecb is called for every data to be written, and is passed \p priv.
  */
 int yaml_pack(const yaml_data_t * nonnull data,
+              const yaml_presentation_t * nullable presentation,
               yaml_pack_writecb_f * nonnull writecb, void * nullable priv);
 
 /* }}} */

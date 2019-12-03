@@ -21,7 +21,9 @@
 #include <math.h>
 
 #include <lib-common/z.h>
+#include <lib-common/iop.h>
 #include <lib-common/iop-yaml.h>
+#include <lib-common/iop-json.h>
 #include "iop/tstiop.iop.h"
 
 /* {{{ IOP testing helpers */
@@ -36,10 +38,10 @@ static int t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
 
     /* packing */
     if (flags == 0) {
-        Z_ASSERT_N(iop_sb_ypack(out, st, v),
+        Z_ASSERT_N(iop_sb_ypack(out, st, v, NULL),
                    "YAML packing failure for %s", st->fullname.s);
     } else {
-        Z_ASSERT_N(iop_sb_ypack_with_flags(out, st, v, flags),
+        Z_ASSERT_N(iop_sb_ypack_with_flags(out, st, v, NULL, flags),
                    "YAML packing failure for %s", st->fullname.s);
     }
 
@@ -57,7 +59,7 @@ iop_yaml_test_unpack_error(const iop_struct_t *st, const char *yaml,
     SB_1k(err);
 
     ps = ps_initstr(yaml);
-    ret = t_iop_yunpack_ptr_ps(&ps, st, &res, &err);
+    ret = t_iop_yunpack_ptr_ps(&ps, st, &res, NULL, &err);
     Z_ASSERT_NEG(ret, "YAML unpacking unexpected success");
     if (exact_match) {
         Z_ASSERT_STREQUAL(err.data, expected_err);
@@ -74,6 +76,7 @@ iop_yaml_test_unpack(const iop_struct_t * nonnull st,
                      const char * nullable new_yaml)
 {
     t_scope;
+    const yaml_presentation_t *pres;
     const char *path;
     pstream_t ps;
     void *res = NULL;
@@ -83,7 +86,7 @@ iop_yaml_test_unpack(const iop_struct_t * nonnull st,
     SB_1k(packed);
 
     ps = ps_initstr(yaml);
-    ret = t_iop_yunpack_ptr_ps(&ps, st, &res, &err);
+    ret = t_iop_yunpack_ptr_ps(&ps, st, &res, &pres, &err);
     Z_ASSERT_N(ret, "YAML unpacking error: %pL", &err);
 
     Z_HELPER_RUN(t_z_yaml_pack_struct(st, res, 0, &packed));
@@ -91,8 +94,8 @@ iop_yaml_test_unpack(const iop_struct_t * nonnull st,
 
     /* Test iop_ypack_file / t_iop_yunpack_file */
     path = t_fmt("%*pM/tstyaml.yml", LSTR_FMT_ARG(z_tmpdir_g));
-    Z_ASSERT_N(iop_ypack_file(path, st, res, &err), "%pL", &err);
-    Z_ASSERT_N(t_iop_yunpack_ptr_file(path, st, &file_res, &err),
+    Z_ASSERT_N(iop_ypack_file(path, st, res, pres, &err), "%pL", &err);
+    Z_ASSERT_N(t_iop_yunpack_ptr_file(path, st, &file_res, NULL, &err),
                "%pL", &err);
     Z_ASSERT_IOPEQUAL_DESC(st, res, file_res);
 
@@ -114,7 +117,7 @@ static int iop_yaml_test_pack(const iop_struct_t *st, const void *value,
     if (test_unpack) {
         pstream_t ps = ps_initsb(&sb);
 
-        Z_ASSERT_N(t_iop_yunpack_ptr_ps(&ps, st, &unpacked, &err),
+        Z_ASSERT_N(t_iop_yunpack_ptr_ps(&ps, st, &unpacked, NULL, &err),
                    "YAML unpacking error (%s): %pL", st->fullname.s, &err);
         if (must_be_equal) {
             Z_ASSERT(iop_equals_desc(st, value, unpacked));
@@ -738,14 +741,14 @@ Z_GROUP_EXPORT(iop_yaml)
         /* test an error when unpacking a file: should display the filename */
         path = t_fmt("%*pM/test-data/yaml/invalid_union.yml",
                      LSTR_FMT_ARG(z_cmddir_g));
-        Z_ASSERT_NEG(t_iop_yunpack_ptr_file(path, st, &res, &err));
+        Z_ASSERT_NEG(t_iop_yunpack_ptr_file(path, st, &res, NULL, &err));
         expected_err = t_fmt("%s:1:1: "ERR_COMMON": unknown field `o`\n"
                              "o: ra\n"
                              "^", path);
         Z_ASSERT_STREQUAL(err.data, expected_err);
 
         /* on unknown file */
-        Z_ASSERT_NEG(t_iop_yunpack_ptr_file("foo.yml", st, &res, &err));
+        Z_ASSERT_NEG(t_iop_yunpack_ptr_file("foo.yml", st, &res, NULL, &err));
         Z_ASSERT_STREQUAL(err.data, "cannot read file foo.yml: "
                           "No such file or directory");
 
