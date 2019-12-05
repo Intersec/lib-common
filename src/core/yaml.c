@@ -69,6 +69,10 @@ typedef struct yaml_presentation_node_t {
      * "Comment" is an inline comment for "a.b".
      */
     lstr_t inline_comment;
+
+    /* The data is packed in flow syntax */
+    bool flow_mode;
+
 } yaml_presentation_node_t;
 
 qm_kvec_t(yaml_pres_node, lstr_t, yaml_presentation_node_t, qhash_lstr_hash,
@@ -379,6 +383,18 @@ static void t_yaml_env_handle_comment_ps(yaml_env_t * nonnull env,
                      "adding inline comment `%pL` on path `%pL`",
                      &comment, &env->pres->current_path);
     }
+}
+
+static void t_yaml_env_pres_set_flow_mode(yaml_env_t * nonnull env)
+{
+    yaml_presentation_node_t *pnode;
+
+    if (!env->pres) {
+        return;
+    }
+
+    pnode = t_yaml_env_pres_get_current_node(env->pres);
+    pnode->flow_mode = true;
 }
 
 /* }}} */
@@ -1085,9 +1101,11 @@ static int t_yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
     } else
     if (ps_peekc(env->ps) == '[') {
         RETHROW(t_yaml_env_parse_flow_seq(env, out));
+        t_yaml_env_pres_set_flow_mode(env);
     } else
     if (ps_peekc(env->ps) == '{') {
         RETHROW(t_yaml_env_parse_flow_obj(env, out));
+        t_yaml_env_pres_set_flow_mode(env);
     } else
     if (ps_startswith_yaml_key(env->ps)) {
         RETHROW(t_yaml_env_parse_obj(env, cur_indent, out));
@@ -1608,12 +1626,110 @@ static int yaml_pack_obj(const yaml_pack_env_t * nonnull env,
 }
 
 /* }}} */
+/* {{{ Pack flow */
+
+static int yaml_pack_flow_data(const yaml_pack_env_t * nonnull env,
+                               const yaml_data_t * nonnull data,
+                               bool can_omit_brackets);
+
+static int yaml_pack_flow_seq(const yaml_pack_env_t * nonnull env,
+                              const yaml_seq_t * nonnull seq)
+{
+    int res = 0;
+
+    if (seq->datas.len == 0) {
+        PUTS("[]");
+        return res;
+    }
+
+    PUTS("[ ");
+    tab_for_each_pos(pos, &seq->datas) {
+        const yaml_data_t *data = &seq->datas.tab[pos];
+
+        if (pos > 0) {
+            PUTS(", ");
+        }
+        res += RETHROW(yaml_pack_flow_data(env, data, true));
+    }
+    PUTS(" ]");
+
+    return res;
+}
+
+/* can_omit_brackets is used to prevent the packing of a single key object
+ * inside an object:
+ *   a: b: v
+ * which is not valid.
+ */
+static int yaml_pack_flow_obj(const yaml_pack_env_t * nonnull env,
+                              const yaml_obj_t * nonnull obj,
+                              bool can_omit_brackets)
+{
+    int res = 0;
+    bool omit_brackets;
+
+    if (obj->fields.len == 0) {
+        PUTS("{}");
+        return res;
+    }
+
+    omit_brackets = can_omit_brackets && obj->fields.len == 1;
+    if (!omit_brackets) {
+        PUTS("{ ");
+    }
+    tab_for_each_pos(pos, &obj->fields) {
+        const yaml_key_data_t *kd = &obj->fields.tab[pos];
+
+        if (pos > 0) {
+            PUTS(", ");
+        }
+        PUTLSTR(kd->key);
+        PUTS(": ");
+        res += RETHROW(yaml_pack_flow_data(env, &kd->data, false));
+    }
+    if (!omit_brackets) {
+        PUTS(" }");
+    }
+
+    return res;
+}
+
+static int yaml_pack_flow_data(const yaml_pack_env_t * nonnull env,
+                               const yaml_data_t * nonnull data,
+                               bool can_omit_brackets)
+{
+    int res = 0;
+
+    if (data->tag.s) {
+        /* cannot pack in flow mode with a tag: the tag will be lost. */
+        /* TODO: something must be done about this case rather than simply
+         * ignoring the tag... At the very least, revert the flow packing
+         * and pack it with the normal syntax. */
+    }
+
+    switch (data->type) {
+      case YAML_DATA_SCALAR:
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar, false));
+        break;
+      case YAML_DATA_SEQ:
+        res += RETHROW(yaml_pack_flow_seq(env, data->seq));
+        break;
+      case YAML_DATA_OBJ:
+        res += RETHROW(yaml_pack_flow_obj(env, data->obj, can_omit_brackets));
+        break;
+    }
+
+    return res;
+}
+
+/* }}} */
 /* {{{ Pack data */
 
 static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
                           const yaml_data_t * nonnull data,
                           int indent_lvl, bool to_indent)
 {
+    const yaml_presentation_node_t *node;
     int res = 0;
 
     if (data->tag.s) {
@@ -1626,10 +1742,16 @@ static int yaml_pack_data(const yaml_pack_env_t * nonnull env,
         to_indent = true;
     }
 
+    node = yaml_pack_env_get_pres_node(env->pres);
+    if (unlikely(node && node->flow_mode)) {
+        if (to_indent) {
+            PUTS(" ");
+        }
+        return yaml_pack_flow_data(env, data, false);
+    }
+
     switch (data->type) {
       case YAML_DATA_SCALAR: {
-        const yaml_presentation_node_t *node;
-
         res += RETHROW(yaml_pack_scalar(env, &data->scalar, to_indent));
         node = yaml_pack_env_get_pres_node(env->pres);
         to_indent = true;
@@ -2653,7 +2775,7 @@ Z_GROUP_EXPORT(yaml)
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL,
             "[ ~ ]",
-            "- ~"
+            NULL
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 1, 6));
         Z_ASSERT(data.seq->datas.len == 1);
@@ -2663,7 +2785,7 @@ Z_GROUP_EXPORT(yaml)
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL,
             "[ ~, ]",
-            "- ~"
+            "[ ~ ]"
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 1, 7));
         Z_ASSERT(data.seq->datas.len == 1);
@@ -2675,9 +2797,7 @@ Z_GROUP_EXPORT(yaml)
             "[1 ,a:\n"
             "2,c d ,]",
 
-            "- 1\n"
-            "- a: 2\n"
-            "- c d"
+            "[ 1, a: 2, c d ]"
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 2, 9));
         Z_ASSERT(data.seq->datas.len == 3);
@@ -2708,11 +2828,7 @@ Z_GROUP_EXPORT(yaml)
             "   ] , a:  [  -2] ,\n"
             "]",
 
-            "- - ~\n"
-            "  - - - true\n"
-            "      - - \"- 2\"\n"
-            "  - a:\n"
-            "      - -2"
+            "- [ ~, [ [ true, [ \"- 2\" ] ] ], a: [ -2 ] ]"
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 4, 2));
         Z_ASSERT(data.seq->datas.len == 1);
@@ -2775,7 +2891,7 @@ Z_GROUP_EXPORT(yaml)
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL,
             "{ a: ~ }",
-            "a: ~"
+            NULL
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 1, 9));
         Z_ASSERT(data.obj->fields.len == 1);
@@ -2787,7 +2903,7 @@ Z_GROUP_EXPORT(yaml)
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL,
             "{ a: foo, }",
-            "a: foo"
+            "{ a: foo }"
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 1, 12));
         Z_ASSERT(data.obj->fields.len == 1);
@@ -2803,8 +2919,7 @@ Z_GROUP_EXPORT(yaml)
             "{ a: ~ ,a:\n"
             "2,}",
 
-            "a: ~\n"
-            "a: 2"
+            "{ a: ~, a: 2 }"
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 2, 4));
         Z_ASSERT(data.obj->fields.len == 2);
@@ -2828,12 +2943,7 @@ Z_GROUP_EXPORT(yaml)
             "    z: { y: 1  }}\n"
             "- ~",
 
-            "- a:\n"
-            "    - true\n"
-            "    - false\n"
-            "  b: f\n"
-            "  z:\n"
-            "    y: 1\n"
+            "- { a: [ true, false ], b: f, z: { y: 1 } }\n"
             "- ~"
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 6, 4));
