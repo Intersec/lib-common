@@ -964,8 +964,10 @@ t_yaml_env_parse_flow_obj(yaml_env_t *env, yaml_data_t *out)
 {
     qv_t(yaml_key_data) fields;
     yaml_pos_t pos_start = yaml_env_get_pos(env);
+    qh_t(lstr) keys_hash;
 
     t_qv_init(&fields, 0);
+    t_qh_init(lstr, &keys_hash, 0);
 
     /* skip '{' */
     assert (ps_peekc(env->ps) == '{');
@@ -986,9 +988,13 @@ t_yaml_env_parse_flow_obj(yaml_env_t *env, yaml_data_t *out)
             return yaml_env_set_err(env, YAML_ERR_WRONG_DATA,
                                     "only key-value mappings are allowed "
                                     "inside an object");
-        } else {
-            qv_append(&fields, kd);
+        } else
+        if (qh_add(lstr, &keys_hash, &kd.key) < 0) {
+            env->ps.s = kd.key_span.start.s;
+            return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
+                                    "key is already declared in the object");
         }
+        qv_append(&fields, kd);
 
         RETHROW(yaml_env_ltrim(env));
         switch (ps_peekc(env->ps)) {
@@ -2191,6 +2197,10 @@ Z_GROUP_EXPORT(yaml)
             "a: 2",
             "2:3: invalid key, key is already declared in the object"
         ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "{ a: 1, a: 2}",
+            "1:9: invalid key, key is already declared in the object"
+        ));
 
         /* cannot use tab characters for indentation */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
@@ -2909,12 +2919,11 @@ Z_GROUP_EXPORT(yaml)
                                          1, 6, 1, 9));
         Z_ASSERT_LSTREQUAL(elem->data.scalar.s, LSTR("foo"));
 
-        /* FIXME: this should be an error */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL,
-            "{ a: ~ ,a:\n"
+            "{ a: ~ ,b:\n"
             "2,}",
 
-            "{ a: ~, a: 2 }"
+            "{ a: ~, b: 2 }"
         ));
         Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 2, 4));
         Z_ASSERT(data.obj->fields.len == 2);
@@ -2924,7 +2933,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&elem->data, YAML_SCALAR_NULL,
                                          1, 6, 1, 7));
         elem = &data.obj->fields.tab[1];
-        Z_ASSERT_LSTREQUAL(elem->key, LSTR("a"));
+        Z_ASSERT_LSTREQUAL(elem->key, LSTR("b"));
         Z_HELPER_RUN(z_check_yaml_span(&elem->key_span, 1, 9, 1, 10));
         Z_HELPER_RUN(z_check_yaml_scalar(&elem->data, YAML_SCALAR_UINT,
                                          2, 1, 2, 2));
