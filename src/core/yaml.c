@@ -426,8 +426,10 @@ static int yaml_env_ltrim(yaml_env_t *env)
         int c = ps_peekc(env->ps);
 
         if (c == '#') {
-            in_comment = true;
-            comment_ps = env->ps;
+            if (!in_comment) {
+                in_comment = true;
+                comment_ps = env->ps;
+            }
         } else
         if (c == '\n') {
             env->line_number++;
@@ -3060,14 +3062,14 @@ Z_GROUP_EXPORT(yaml)
 
         /* comment on a key => path is key */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
-            "a: 3 #the key is a   ",
+            "a: 3 #ticket is #42  ",
 
-            "a: 3 # the key is a"
+            "a: 3 # ticket is #42"
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".a"),
-                                            LSTR("the key is a")));
+                                            LSTR("ticket is #42")));
 
         /* comment on a list => path is index */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
