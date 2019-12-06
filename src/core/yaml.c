@@ -70,6 +70,20 @@ typedef struct yaml_presentation_node_t {
      */
     lstr_t inline_comment;
 
+    /* Empty lines before the data.
+     *
+     * Often used to space out blocks and make the document more readable:
+     *
+     * ---
+     * a: 2
+     *
+     * b: 3
+     * ---
+     *
+     * ".b" will have one empty line in its presentation node.
+     */
+    uint8_t empty_lines;
+
     /* The data is packed in flow syntax */
     bool flow_mode;
 
@@ -397,6 +411,18 @@ static void t_yaml_env_pres_set_flow_mode(yaml_env_t * nonnull env)
     pnode->flow_mode = true;
 }
 
+static void t_yaml_env_pres_add_empty_line(yaml_env_t * nonnull env)
+{
+    yaml_presentation_node_t *pnode;
+
+    if (!env->pres) {
+        return;
+    }
+
+    pnode = t_yaml_env_pres_get_next_node(env->pres);
+    pnode->empty_lines = MIN(pnode->empty_lines + 1, 200);
+}
+
 /* }}} */
 /* {{{ Utils */
 
@@ -432,6 +458,11 @@ static int yaml_env_ltrim(yaml_env_t *env)
             }
         } else
         if (c == '\n') {
+            if (env->pos_newline == env->ps.s) {
+                /* Two \n in a row, indicating an empty line. Save this
+                 * is the presentation data. */
+                t_yaml_env_pres_add_empty_line(env);
+            }
             env->line_number++;
             env->pos_newline = env->ps.s + 1;
             in_comment = false;
@@ -1311,8 +1342,13 @@ yaml_pack_pres_node_prefix(const yaml_pack_env_t * nonnull env,
     int res = 0;
     bool orig_to_indent = to_indent;
 
-    if (!node || node->prefix_comments.len == 0) {
+    if (!node || (node->empty_lines == 0 && node->prefix_comments.len == 0))
+    {
         return res;
+    }
+
+    for (uint8_t i = 0; i < node->empty_lines; i++) {
+        PUTS("\n");
     }
 
     tab_for_each_entry(comment, &node->prefix_comments) {
@@ -3139,6 +3175,50 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("inline [0]")));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key[0].key2"),
                                             LSTR("inline key2")));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Empty lines presentation */
+
+    Z_TEST(empty_lines_presentation, "") {
+        t_scope;
+        yaml_data_t data;
+        const yaml_presentation_t *pres = NULL;
+
+        /* comment on a scalar => path is empty */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
+            "\n"
+            "  # comment\n"
+            "\n"
+            "~",
+
+            "\n"
+            "\n"
+            "# comment\n"
+            "~"
+        ));
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
+            "# 1\n"
+            "a: # 2\n"
+            "\n"
+            "  - b: 3\n"
+            "\n"
+            "    c: 4\n"
+            "\n"
+            "  -"
+            "\n"
+            "    2",
+
+            "# 1\n"
+            "a: # 2\n"
+            "\n"
+            "  - b: 3\n"
+            "\n"
+            "    c: 4\n"
+            "\n"
+            "  - 2"
+        ));
     } Z_TEST_END;
 
     /* }}} */
