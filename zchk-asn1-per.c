@@ -305,7 +305,7 @@ Z_GROUP_EXPORT(asn1_aper) {
         } tests[3];
 
         tstiop__asn1_ext_choice__t out;
-        SB_1k(buf);
+        SB(buf, 42);
         pstream_t ps;
 
         tests[0].in = IOP_UNION(tstiop__asn1_ext_choice, i, 192);
