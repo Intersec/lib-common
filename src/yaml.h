@@ -135,6 +135,10 @@ const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data,
 /** Parse a YAML stream into a yaml data object.
  *
  * \param[in]   ps            The pstream to parse.
+ * \param[in]   filepath      Name of the file being parsed. Can be NULL if
+ *                            not applicable. If set, includes are evaluated
+ *                            relative to this path. If unset, they are
+ *                            evaluated relative to the cwd.
  * \param[out]  out           The YAML data parsed.
  * \param[out]  presentation  Presentation information associated with the
  *     parsed data. Used to repack the YAML data while keeping comments,
@@ -143,7 +147,8 @@ const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data,
  * \param[out]  err        Error buffer filled in case of error.
  * \return -1 on error, 0 otherwise.
  */
-int t_yaml_parse(pstream_t ps, yaml_data_t * nonnull out,
+int t_yaml_parse(pstream_t ps, const char * nullable filepath,
+                 yaml_data_t * nonnull out,
                  const yaml_presentation_t * nonnull * nullable presentation,
                  sb_t * nonnull err);
 

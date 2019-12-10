@@ -129,6 +129,9 @@ typedef struct yaml_env_t {
     /* String to parse. */
     pstream_t ps;
 
+    /* Path to the file being parsed. */
+    const char * nullable filepath;
+
     /* Current line number. */
     uint32_t line_number;
 
@@ -249,7 +252,16 @@ static int yaml_env_set_err(yaml_env_t *env, yaml_error_t type,
 {
     yaml_pos_t pos = yaml_env_get_pos(env);
 
-    sb_setf(&env->err, YAML_POS_FMT ": ", YAML_POS_ARG(pos));
+    if (env->filepath) {
+        char basename[PATH_MAX];
+
+        /* TODO: split dirname/basename on init instead of here. */
+        path_basename(basename, PATH_MAX, env->filepath);
+        sb_setf(&env->err, "%s:", basename);
+    } else {
+        sb_sets(&env->err, "<string>:");
+    }
+    sb_addf(&env->err, YAML_POS_FMT ": ", YAML_POS_ARG(pos));
 
     switch (type) {
       case YAML_ERR_BAD_KEY:
@@ -1177,7 +1189,7 @@ static int t_yaml_env_parse_data(yaml_env_t *env, const uint32_t min_indent,
 /* }}} */
 /* {{{ Parser public API */
 
-int t_yaml_parse(pstream_t ps, yaml_data_t *out,
+int t_yaml_parse(pstream_t ps, const char *filepath, yaml_data_t *out,
                  const yaml_presentation_t **presentation, sb_t *out_err)
 {
     yaml_env_t env;
@@ -1185,6 +1197,7 @@ int t_yaml_parse(pstream_t ps, yaml_data_t *out,
 
     p_clear(&env, 1);
     env.err = err;
+    env.filepath = filepath;
 
     env.ps = ps;
     env.pos_newline = ps.s;
@@ -2121,7 +2134,41 @@ static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
     yaml_data_t data;
     SB_1k(err);
 
-    Z_ASSERT_NEG(t_yaml_parse(ps_initstr(yaml), &data, NULL, &err));
+    Z_ASSERT_NEG(t_yaml_parse(ps_initstr(yaml), NULL, &data, NULL, &err));
+    Z_ASSERT_STREQUAL(err.data, expected_err,
+                      "wrong error message on yaml string `%s`", yaml);
+
+    Z_HELPER_END;
+}
+
+static int
+z_write_yaml_file(const char *filepath, const char *yaml)
+{
+    file_t *file;
+
+    file = file_open(filepath, FILE_WRONLY | FILE_CREATE | FILE_TRUNC, 0644);
+    Z_ASSERT_P(file);
+
+    file_puts(file, yaml);
+    file_puts(file, "\n");
+
+    Z_ASSERT_N(file_close(&file));
+
+    Z_HELPER_END;
+}
+
+static int z_yaml_test_file_parse_fail(const char *yaml,
+                                       const char *expected_err)
+{
+    t_scope;
+    yaml_data_t data;
+    const char *path;
+    SB_1k(err);
+
+    path = t_fmt("%pL/input.yml", &z_tmpdir_g);
+    Z_HELPER_RUN(z_write_yaml_file(path, yaml));
+
+    Z_ASSERT_NEG(t_yaml_parse(ps_initstr(yaml), path, &data, NULL, &err));
     Z_ASSERT_STREQUAL(err.data, expected_err,
                       "wrong error message on yaml string `%s`", yaml);
 
@@ -2143,7 +2190,7 @@ int z_t_yaml_test_parse_success(yaml_data_t * nonnull data,
     if (!pres) {
         pres = &p;
     }
-    Z_ASSERT_N(t_yaml_parse(ps_initstr(yaml), data, pres, &err),
+    Z_ASSERT_N(t_yaml_parse(ps_initstr(yaml), NULL, data, pres, &err),
                "yaml parsing failed: %pL", &err);
 
     if (!expected_repack) {
@@ -2247,108 +2294,108 @@ Z_GROUP_EXPORT(yaml)
         /* unexpected EOF */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "",
-            "1:1: missing data, unexpected end of line"
+            "<string>:1:1: missing data, unexpected end of line"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "  # my comment",
-            "1:15: missing data, unexpected end of line"
+            "<string>:1:15: missing data, unexpected end of line"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "key:",
-            "1:5: missing data, unexpected end of line"
+            "<string>:1:5: missing data, unexpected end of line"
         ));
 
         /* wrong object continuation */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "a: 5\nb",
-            "2:2: invalid key, missing colon"
+            "<string>:2:2: invalid key, missing colon"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "a: 5\n_:",
-            "2:1: invalid key, only alpha-numeric characters allowed"
+            "<string>:2:1: invalid key, only alpha-numeric characters allowed"
         ));
 
         /* wrong explicit string */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "\" unfinished string",
-            "1:2: expected string, missing closing '\"'"
+            "<string>:1:2: expected string, missing closing '\"'"
         ));
 
         /* wrong escaped code */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "\"\\",
-            "1:2: expected string, invalid backslash"
+            "<string>:1:2: expected string, invalid backslash"
         ));
 
         /* wrong tag */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "!-",
-            "1:2: invalid tag, must start with a letter"
+            "<string>:1:2: invalid tag, must start with a letter"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "!a-\n"
             "a: 5",
-            "1:3: invalid tag, must only contain alphanumeric characters"
+            "<string>:1:3: invalid tag, must only contain alphanumeric characters"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "!4a\n"
             "a: 5",
-            "1:2: invalid tag, must start with a letter"
+            "<string>:1:2: invalid tag, must start with a letter"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "!tag1\n"
             "!tag2\n"
             "a: 2",
-            "3:5: wrong object, two tags have been declared"
+            "<string>:3:5: wrong object, two tags have been declared"
         ));
 
         /* wrong list continuation */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "- 2\n"
             "-3",
-            "2:1: wrong type of data, expected another element of sequence"
+            "<string>:2:1: wrong type of data, expected another element of sequence"
         ));
 
         /* wrong indent */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "a: 2\n"
             " b: 3",
-            "2:2: wrong indentation, line not aligned with current object"
+            "<string>:2:2: wrong indentation, line not aligned with current object"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "- 2\n"
             " - 3",
-            "2:2: wrong indentation, line not aligned with current sequence"
+            "<string>:2:2: wrong indentation, line not aligned with current sequence"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "a: 1\n"
             "b:\n"
             "c: 3",
-            "3:1: wrong indentation, missing element"
+            "<string>:3:1: wrong indentation, missing element"
         ));
 
         /* wrong object */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "a: 1\n"
             "a: 2",
-            "2:3: invalid key, key is already declared in the object"
+            "<string>:2:3: invalid key, key is already declared in the object"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "{ a: 1, a: 2}",
-            "1:9: invalid key, key is already declared in the object"
+            "<string>:1:9: invalid key, key is already declared in the object"
         ));
 
         /* cannot use tab characters for indentation */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "a:\t1",
-            "1:3: tab character detected, "
+            "<string>:1:3: tab character detected, "
             "cannot use tab characters for indentation"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "a:\n"
             "\t- 2\n"
             "\t- 3",
-            "2:1: tab character detected, "
+            "<string>:2:1: tab character detected, "
             "cannot use tab characters for indentation"
         ));
 
@@ -2357,36 +2404,49 @@ Z_GROUP_EXPORT(yaml)
             "1\n"
             "# comment\n"
             "2",
-            "3:1: extra characters after data, expected end of document"
+            "<string>:3:1: extra characters after data, "
+            "expected end of document"
         ));
 
         /* flow seq */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "[a[",
-            "1:3: wrong type of data, expected another element of sequence"
+            "<string>:1:3: wrong type of data, "
+            "expected another element of sequence"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "[",
-            "1:2: missing data, unexpected end of line"
+            "<string>:1:2: missing data, unexpected end of line"
         ));
 
         /* flow obj */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "{,",
-            "1:2: missing data, unexpected character"
+            "<string>:1:2: missing data, unexpected character"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "{a:b}",
-            "1:2: wrong type of data, only key-value mappings are allowed "
-            "inside an object"
+            "<string>:1:2: wrong type of data, "
+            "only key-value mappings are allowed inside an object"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "{a: b[",
-            "1:6: wrong type of data, expected another element of object"
+            "<string>:1:6: wrong type of data, expected another element of object"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "{ a: b: c }",
-            "1:7: wrong type of data, unexpected colon"
+            "<string>:1:7: wrong type of data, unexpected colon"
+        ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Parsing file errors */
+
+    Z_TEST(parsing_file_errors, "errors when parsing YAML from files") {
+        /* unexpected EOF */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "",
+            "input.yml:1:1: missing data, unexpected end of line"
         ));
     } Z_TEST_END;
 

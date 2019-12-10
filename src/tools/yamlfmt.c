@@ -51,7 +51,7 @@ yaml_repack(const char * nullable filename, sb_t * nonnull err)
     }
 
     ps = ps_initlstr(&file);
-    if (t_yaml_parse(ps, &data, &pres, err) < 0) {
+    if (t_yaml_parse(ps, filename, &data, &pres, err) < 0) {
         lstr_wipe(&file);
         return -1;
     }
