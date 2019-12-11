@@ -241,6 +241,10 @@ struct StructContainer2 {
     NewRequiredField s;
 };
 
+struct StructContainer3 {
+    NewRequiredVoidField s;
+};
+
 struct InfiniteRecur1 {
     InfiniteRecur1? s;
 };
