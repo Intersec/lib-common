@@ -6857,7 +6857,7 @@ bool _iop_struct_is_optional(const iop_struct_t *st, bool forbid_abstract,
     for (int i = 0; i < st->fields_len; i++) {
         const iop_field_t *f = &st->fields[i];
 
-        if (f->repeat != IOP_R_REQUIRED) {
+        if (f->repeat != IOP_R_REQUIRED || f->type == IOP_T_VOID) {
             continue;
         }
         if (f->type != IOP_T_STRUCT
