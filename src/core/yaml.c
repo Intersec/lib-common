@@ -81,6 +81,8 @@ typedef struct yaml_presentation_node_t {
      * ---
      *
      * ".b" will have one empty line in its presentation node.
+     *
+     * WARNING: empty lines are capped to 2.
      */
     uint8_t empty_lines;
 
@@ -420,7 +422,7 @@ static void t_yaml_env_pres_add_empty_line(yaml_env_t * nonnull env)
     }
 
     pnode = t_yaml_env_pres_get_next_node(env->pres);
-    pnode->empty_lines = MIN(pnode->empty_lines + 1, 200);
+    pnode->empty_lines = MIN(pnode->empty_lines + 1, 2);
 }
 
 /* }}} */
@@ -3320,6 +3322,32 @@ Z_GROUP_EXPORT(yaml)
             "  - 3",
 
             NULL
+        ));
+
+        /* max two new lines */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
+            "\n\n\n\n"
+            "a: 4\n"
+            "\n\n\n"
+            "b: 3\n"
+            "\n"
+            "# comment\n"
+            "\n"
+            "c: 2\n"
+            "\n"
+            "d: 1\n"
+            "e: 0",
+
+            "\n\n"
+            "a: 4\n"
+            "\n\n"
+            "b: 3\n"
+            "\n\n"
+            "# comment\n"
+            "c: 2\n"
+            "\n"
+            "d: 1\n"
+            "e: 0"
         ));
     } Z_TEST_END;
 
