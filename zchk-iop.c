@@ -7246,6 +7246,7 @@ Z_GROUP_EXPORT(iop)
         tstiop_backward_compat__basic_union__t  basic_union;
         tstiop_backward_compat__basic_struct__t basic_struct;
         tstiop_backward_compat__basic_class__t  basic_class;
+        tstiop_backward_compat__struct_container1__t struct_container1;
         tstiop_backward_compat__parent_class_a__t *parent_class;
 
         basic_union = IOP_UNION(tstiop_backward_compat__basic_union, a, 12);
@@ -7253,6 +7254,10 @@ Z_GROUP_EXPORT(iop)
         iop_init(tstiop_backward_compat__basic_struct, &basic_struct);
         basic_struct.a = 12;
         basic_struct.b = LSTR("string");
+
+        iop_init(tstiop_backward_compat__struct_container1,
+                 &struct_container1);
+        struct_container1.s = basic_struct;
 
         iop_init(tstiop_backward_compat__basic_class, &basic_class);
         basic_class.a = 12;
@@ -7340,6 +7345,7 @@ Z_GROUP_EXPORT(iop)
         T_OK_ALL(basic_struct, &basic_struct, new_repeated_field);
         T_OK_ALL(basic_struct, &basic_struct, new_defval_field);
         T_OK_ALL(basic_struct, &basic_struct, new_required_void_field);
+        T_OK_ALL(struct_container1, &struct_container1, struct_container3);
 
         /* Renamed field. */
         T_OK(basic_struct, &basic_struct, renamed_field, IOP_COMPAT_BIN);
@@ -7557,17 +7563,9 @@ Z_GROUP_EXPORT(iop)
         }
 
         /* Field of type struct changed for an incompatible struct. */
-        {
-            tstiop_backward_compat__struct_container1__t struct_container1;
-
-            iop_init(tstiop_backward_compat__struct_container1,
-                     &struct_container1);
-            struct_container1.s = basic_struct;
-
-            T_KO_ALL(struct_container1, &struct_container1, struct_container2,
-                     "field `s`:"
-                     INDENT_LVL1 "new field `c` must not be required");
-        }
+        T_KO_ALL(struct_container1, &struct_container1, struct_container2,
+                 "field `s`:"
+                 INDENT_LVL1 "new field `c` must not be required");
 
         /* Infinite recursion in structure inclusion. */
         {
@@ -7683,8 +7681,6 @@ Z_GROUP_EXPORT(iop)
 
         /* Ignore backward incompatibilities */
         {
-            tstiop_backward_compat__struct_container1__t struct_container1;
-
             /* Json backward incompatibilities ignored */
             T_OK(basic_struct, NULL,
                  new_required_field_json_ignored,
@@ -7716,11 +7712,6 @@ Z_GROUP_EXPORT(iop)
 
             /* Nested ignored struct: must throw errors unless the root
              * struct is flagged as ignored. */
-
-            iop_init(tstiop_backward_compat__struct_container1,
-                     &struct_container1);
-            struct_container1.s = basic_struct;
-
             T_OK(struct_container1, NULL,
                  root_struct_json_ignored, IOP_COMPAT_JSON);
 
