@@ -98,13 +98,13 @@ struct yaml_presentation_t {
      * The format for the path is the following:
      *  * for a key: .<key>
      *  * for a seq: [idx]
+     *  * for a scalar: '!'
      * So for example:
      *
-     * .a.foo[2].b
-     * [0].b[2][0].c
-     *
-     * If the presentation applies to the root object that is a scalar, the
-     * key is LSTR_EMPTY.
+     * .a.foo[2].b => "a: { foo: [_, _, b: _] }"
+     *                                  ^
+     * [0].b[2][0].c! => "- b: [_, _, [c: _] ]"
+     *                                    ^
      */
     qm_t(yaml_pres_node) nodes;
 };
@@ -585,8 +585,6 @@ static int t_yaml_env_parse_seq(yaml_env_t *env, const uint32_t min_indent,
         pos_end = elem.span.end;
         qv_append(&datas, elem);
 
-        /* XXX: keep the current path for this ltrim, to handle inline
-         * comments */
         RETHROW(yaml_env_ltrim(env));
         yaml_env_pres_pop_path(env->pres, path_len);
 
@@ -689,9 +687,6 @@ t_yaml_env_parse_obj(yaml_env_t *env, const uint32_t min_indent,
         }
 
         pos_end = kd->data.span.end;
-
-        /* XXX: keep the current path for this ltrim, to handle inline
-         * comments */
         RETHROW(yaml_env_ltrim(env));
         yaml_env_pres_pop_path(env->pres, path_len);
 
@@ -859,8 +854,8 @@ yaml_parse_numeric_scalar(lstr_t line, yaml_scalar_t *out)
     return -1;
 }
 
-static int t_yaml_env_parse_scalar(yaml_env_t *env, bool in_flow,
-                                   yaml_data_t *out)
+static int _t_yaml_env_parse_scalar(yaml_env_t *env, bool in_flow,
+                                    yaml_data_t *out)
 {
     lstr_t line;
     yaml_pos_t pos_start;
@@ -895,6 +890,26 @@ static int t_yaml_env_parse_scalar(yaml_env_t *env, bool in_flow,
     /* If all else fail, it is a string. */
     out->scalar.type = YAML_SCALAR_STRING;
     out->scalar.s = line;
+
+    return 0;
+}
+
+static int t_yaml_env_parse_scalar(yaml_env_t *env, bool in_flow,
+                                   yaml_data_t *out)
+{
+    int path_len = 0;
+
+    if (!in_flow) {
+        path_len = yaml_env_pres_push_path(env->pres, "!");
+    }
+    RETHROW(_t_yaml_env_parse_scalar(env, in_flow, out));
+
+    if (!in_flow) {
+        /* XXX: keep the current path for this ltrim, to handle inline
+         * comments */
+        RETHROW(yaml_env_ltrim(env));
+        yaml_env_pres_pop_path(env->pres, path_len);
+    }
 
     return 0;
 }
@@ -1615,12 +1630,19 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
 {
     int res = 0;
     char ibuf[IBUF_LEN];
+    const yaml_presentation_node_t *node;
+    int path_len;
+
+    path_len = yaml_pack_env_push_path(env, "!");
+    node = yaml_pack_env_get_pres_node(env);
+    res += yaml_pack_pres_node_prefix(env, node, indent_lvl);
 
     yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
 
     switch (scalar->type) {
       case YAML_SCALAR_STRING:
-        return yaml_pack_string(env, scalar->s);
+        res += yaml_pack_string(env, scalar->s);
+        break;
 
       case YAML_SCALAR_DOUBLE: {
         int inf = isinf(scalar->d);
@@ -1659,6 +1681,10 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
         break;
     }
 
+    env->state = PACK_STATE_AFTER_DATA;
+    res += yaml_pack_pres_node_inline(env, node, true);
+    yaml_pack_env_pop_path(env, path_len);
+
     return res;
 }
 
@@ -1674,6 +1700,7 @@ static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
     if (seq->datas.len == 0) {
         yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
         PUTS("[]");
+        env->state = PACK_STATE_AFTER_DATA;
         return res;
     }
 
@@ -1688,10 +1715,8 @@ static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
         yaml_pack_goto_state(env, PACK_STATE_ON_DASH, indent_lvl);
         PUTS("-");
 
-        if (data->type != YAML_DATA_SCALAR) {
-            res += yaml_pack_pres_node_inline(env, node,
-                                              indent_lvl + YAML_STD_INDENT);
-        }
+        res += yaml_pack_pres_node_inline(env, node,
+                                          indent_lvl + YAML_STD_INDENT);
         res += RETHROW(yaml_pack_data(env, data,
                                       indent_lvl + YAML_STD_INDENT));
 
@@ -1725,9 +1750,7 @@ static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
      *  key: val # comment
      */
     indent_lvl += YAML_STD_INDENT;
-    if (data->type != YAML_DATA_SCALAR) {
-        res += yaml_pack_pres_node_inline(env, node, indent_lvl);
-    }
+    res += yaml_pack_pres_node_inline(env, node, indent_lvl);
     res += RETHROW(yaml_pack_data(env, data, indent_lvl));
 
     yaml_pack_env_pop_path(env, path_len);
@@ -1743,6 +1766,7 @@ static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
     if (obj->fields.len == 0) {
         yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
         PUTS("{}");
+        env->state = PACK_STATE_AFTER_DATA;
     } else {
         tab_for_each_ptr(pair, &obj->fields) {
             res += RETHROW(yaml_pack_key_data(env, pair->key, &pair->data,
@@ -1837,7 +1861,7 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
-        res += RETHROW(yaml_pack_scalar(env, &data->scalar, false));
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar, 0));
         break;
       case YAML_DATA_SEQ:
         res += RETHROW(yaml_pack_flow_seq(env, data->seq));
@@ -1846,6 +1870,7 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
         res += RETHROW(yaml_pack_flow_obj(env, data->obj, can_omit_brackets));
         break;
     }
+    env->state = PACK_STATE_CLEAN;
 
     return res;
 }
@@ -1877,32 +1902,14 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
     switch (data->type) {
       case YAML_DATA_SCALAR: {
         res += RETHROW(yaml_pack_scalar(env, &data->scalar, indent_lvl));
-        node = yaml_pack_env_get_pres_node(env);
-        env->state = PACK_STATE_AFTER_DATA;
-        res += yaml_pack_pres_node_inline(env, node, indent_lvl);
       } break;
       case YAML_DATA_SEQ:
         res += RETHROW(yaml_pack_seq(env, data->seq, indent_lvl));
-        env->state = PACK_STATE_AFTER_DATA;
         break;
       case YAML_DATA_OBJ:
         res += RETHROW(yaml_pack_obj(env, data->obj, indent_lvl));
-        env->state = PACK_STATE_AFTER_DATA;
         break;
     }
-
-    return res;
-}
-
-static int yaml_pack_root_data(yaml_pack_env_t * nonnull env,
-                               const yaml_data_t * nonnull data)
-{
-    const yaml_presentation_node_t *node;
-    int res = 0;
-
-    node = yaml_pack_env_get_pres_node(env);
-    res += yaml_pack_pres_node_prefix(env, node, 0);
-    res += RETHROW(yaml_pack_data(env, data, 0));
 
     return res;
 }
@@ -1932,7 +1939,7 @@ int yaml_pack(const yaml_data_t * nonnull data,
     sb_init(&env.current_path);
 
     /* Always skip everything that can be skipped */
-    res = yaml_pack_root_data(&env, data);
+    res = yaml_pack_data(&env, data, 0);
     sb_wipe(&env.current_path);
 
     return res;
@@ -3175,7 +3182,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         const yaml_presentation_t *pres = NULL;
 
-        /* comment on a scalar => path is empty */
+        /* comment on a scalar => not saved */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
             "# my scalar\n"
             "3",
@@ -3183,7 +3190,7 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
-        CHECK_PREFIX_COMMENTS(pres, LSTR_EMPTY_V, LSTR("my scalar"));
+        CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("my scalar"));
 
         /* comment on a key => path is key */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
@@ -3193,25 +3200,26 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
-        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".a"),
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".a!"),
                                             LSTR("ticket is #42")));
 
         /* comment on a list => path is index */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
             "# prefix comment\n"
             "- 1 # first\n"
-            "- 2 # second",
+            "- # item\n"
+            "  2 # second\n",
 
-            "# prefix comment\n"
-            "- 1 # first\n"
-            "- 2 # second\n"
+            NULL
         ));
         Z_ASSERT_P(pres);
-        Z_ASSERT_EQ(2, qm_len(yaml_pres_node, &pres->nodes));
+        Z_ASSERT_EQ(4, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR("[0]"), LSTR("prefix comment"));
-        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR("[0]"),
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR("[0]!"),
                                             LSTR("first")));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR("[1]"),
+                                            LSTR("item")));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR("[1]!"),
                                             LSTR("second")));
 
         /* prefix comment with multiple lines */
@@ -3220,23 +3228,30 @@ Z_GROUP_EXPORT(yaml)
             "   # first line\n"
             " # and second\n"
             "     # bad indent is ok\n"
-            "  a: ~ # inline\n"
-            "       # this is lost",
+            "  a: # inline a\n"
+            " # prefix scalar\n"
+            "     ~ # inline scalar\n"
+            "    # this is lost",
 
             "key:\n"
             "  # first line\n"
             "  # and second\n"
             "  # bad indent is ok\n"
-            "  a: ~ # inline\n"
+            "  a: # inline a\n"
+            "    # prefix scalar\n"
+            "    ~ # inline scalar\n"
         ));
         Z_ASSERT_P(pres);
-        Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
+        Z_ASSERT_EQ(2, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR(".key.a"),
                               LSTR("first line"),
                               LSTR("and second"),
                               LSTR("bad indent is ok"));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key.a"),
-                                            LSTR("inline")));
+                                            LSTR("inline a")));
+        CHECK_PREFIX_COMMENTS(pres, LSTR(".key.a!"), LSTR("prefix scalar"));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key.a!"),
+                                            LSTR("inline scalar")));
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
             "# prefix key\n"
@@ -3244,7 +3259,7 @@ Z_GROUP_EXPORT(yaml)
             "# prefix [0]\n"
             "- # inline [0]\n"
             " # prefix key2\n"
-            " key2: ~ # inline key2",
+            " key2: ~ # inline key2\n",
 
             "# prefix key\n"
             "key: # inline key\n"
@@ -3254,7 +3269,7 @@ Z_GROUP_EXPORT(yaml)
             "    key2: ~ # inline key2\n"
         ));
         Z_ASSERT_P(pres);
-        Z_ASSERT_EQ(3, qm_len(yaml_pres_node, &pres->nodes));
+        Z_ASSERT_EQ(4, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR(".key"),
                               LSTR("prefix key"));
         CHECK_PREFIX_COMMENTS(pres, LSTR(".key[0]"),
@@ -3265,7 +3280,7 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("inline key")));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key[0]"),
                                             LSTR("inline [0]")));
-        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key[0].key2"),
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key[0].key2!"),
                                             LSTR("inline key2")));
     } Z_TEST_END;
 
@@ -3277,17 +3292,17 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         const yaml_presentation_t *pres = NULL;
 
-        /* comment on a scalar => path is empty */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
             "\n"
             "  # comment\n"
             "\n"
-            "~",
+            "a: ~",
 
+            /* First empty lines, then prefix comment. */
             "\n"
             "\n"
             "# comment\n"
-            "~"
+            "a: ~"
         ));
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
@@ -3298,18 +3313,13 @@ Z_GROUP_EXPORT(yaml)
             "\n"
             "    c: 4\n"
             "\n"
-            "  -"
+            "  -\n"
             "\n"
-            "    2",
+            "    # foo\n"
+            "    2\n"
+            "  - 3",
 
-            "# 1\n"
-            "a: # 2\n"
-            "\n"
-            "  - b: 3\n"
-            "\n"
-            "    c: 4\n"
-            "\n"
-            "  - 2"
+            NULL
         ));
     } Z_TEST_END;
 
