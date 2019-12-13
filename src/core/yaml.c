@@ -1221,11 +1221,6 @@ int t_yaml_parse(pstream_t ps, const char *filepath, yaml_data_t *out,
         return -1;
     }
 
-    /* handle "next_node" if the document consists only of a scalar */
-    if (out->type == YAML_DATA_SCALAR) {
-        yaml_env_pres_push_path(env.pres, "");
-    }
-
     if (presentation) {
         yaml_presentation_t *pres;
 
@@ -1265,13 +1260,14 @@ typedef struct yaml_pack_env_t {
     yaml_pack_writecb_f *write_cb;
     void *priv;
     yaml_pack_state_t state;
+    int indent_lvl;
     const yaml_presentation_t * nullable pres;
     /* Current path being packed. */
     sb_t current_path;
 } yaml_pack_env_t;
 
 static int yaml_pack_data(yaml_pack_env_t * nonnull env,
-                          const yaml_data_t * nonnull data, int indent_lvl);
+                          const yaml_data_t * nonnull data);
 
 /* {{{ Utils */
 
@@ -1293,10 +1289,10 @@ static int do_write(const yaml_pack_env_t *env, const void *_buf, int len)
     return len;
 }
 
-static int do_indent(yaml_pack_env_t *env, int indent)
+static int do_indent(yaml_pack_env_t *env)
 {
     static lstr_t spaces = LSTR_IMMED("                                    ");
-    int todo = indent;
+    int todo = env->indent_lvl;
 
     while (todo > 0) {
         int res = (*env->write_cb)(env->priv, spaces.s,
@@ -1313,7 +1309,7 @@ static int do_indent(yaml_pack_env_t *env, int indent)
 
     env->state = PACK_STATE_CLEAN;
 
-    return indent;
+    return env->indent_lvl;
 }
 
 #define WRITE(data, len)                                                     \
@@ -1323,14 +1319,13 @@ static int do_indent(yaml_pack_env_t *env, int indent)
 #define PUTS(s)  WRITE(s, strlen(s))
 #define PUTLSTR(s)  WRITE(s.data, s.len)
 
-#define INDENT(lvl)                                                          \
+#define INDENT()                                                             \
     do {                                                                     \
-        res += RETHROW(do_indent(env, lvl));                                 \
+        res += RETHROW(do_indent(env));                                      \
     } while (0)
 
 static int yaml_pack_goto_state(yaml_pack_env_t *env,
-                                yaml_pack_state_t new_state,
-                                int indent_lvl)
+                                yaml_pack_state_t new_state)
 {
     int res = 0;
 
@@ -1376,7 +1371,7 @@ static int yaml_pack_goto_state(yaml_pack_env_t *env,
           case PACK_STATE_ON_KEY:
             /* a seq dash or a new key is put on a newline after the key */
             PUTS("\n");
-            INDENT(indent_lvl);
+            INDENT();
             break;
           case PACK_STATE_AFTER_DATA:
             break;
@@ -1388,7 +1383,7 @@ static int yaml_pack_goto_state(yaml_pack_env_t *env,
           case PACK_STATE_CLEAN:
           case PACK_STATE_ON_DASH:
           case PACK_STATE_ON_KEY:
-            INDENT(indent_lvl);
+            INDENT();
             break;
           case PACK_STATE_ON_NEWLINE:
           case PACK_STATE_AFTER_DATA:
@@ -1407,7 +1402,7 @@ static int yaml_pack_goto_state(yaml_pack_env_t *env,
           case PACK_STATE_ON_DASH:
           case PACK_STATE_ON_KEY:
             PUTS("\n");
-            INDENT(indent_lvl);
+            INDENT();
             break;
           case PACK_STATE_AFTER_DATA:
             break;
@@ -1480,7 +1475,7 @@ yaml_pack_empty_lines(yaml_pack_env_t * nonnull env, uint8_t nb_lines)
         return 0;
     }
 
-    yaml_pack_goto_state(env, PACK_STATE_ON_NEWLINE, 0);
+    yaml_pack_goto_state(env, PACK_STATE_ON_NEWLINE);
     for (uint8_t i = 0; i < nb_lines; i++) {
         PUTS("\n");
     }
@@ -1490,8 +1485,7 @@ yaml_pack_empty_lines(yaml_pack_env_t * nonnull env, uint8_t nb_lines)
 
 static int
 yaml_pack_pres_node_prefix(yaml_pack_env_t * nonnull env,
-                           const yaml_presentation_node_t * nullable node,
-                           int indent_lvl)
+                           const yaml_presentation_node_t * nullable node)
 {
     int res = 0;
 
@@ -1504,9 +1498,9 @@ yaml_pack_pres_node_prefix(yaml_pack_env_t * nonnull env,
     if (node->prefix_comments.len == 0) {
         return 0;
     }
-    yaml_pack_goto_state(env, PACK_STATE_ON_NEWLINE, indent_lvl);
+    yaml_pack_goto_state(env, PACK_STATE_ON_NEWLINE);
     tab_for_each_entry(comment, &node->prefix_comments) {
-        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN);
 
         PUTS("# ");
         PUTLSTR(comment);
@@ -1519,13 +1513,12 @@ yaml_pack_pres_node_prefix(yaml_pack_env_t * nonnull env,
 
 static int
 yaml_pack_pres_node_inline(yaml_pack_env_t * nonnull env,
-                           const yaml_presentation_node_t * nullable node,
-                           int indent_lvl)
+                           const yaml_presentation_node_t * nullable node)
 {
     int res = 0;
 
     if (node && node->inline_comment.len > 0) {
-        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN);
         PUTS("# ");
         PUTLSTR(node->inline_comment);
         PUTS("\n");
@@ -1640,8 +1633,7 @@ static int yaml_pack_string(const yaml_pack_env_t *env, lstr_t val)
 }
 
 static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
-                            const yaml_scalar_t * nonnull scalar,
-                            int indent_lvl)
+                            const yaml_scalar_t * nonnull scalar)
 {
     int res = 0;
     char ibuf[IBUF_LEN];
@@ -1650,9 +1642,9 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
 
     path_len = yaml_pack_env_push_path(env, "!");
     node = yaml_pack_env_get_pres_node(env);
-    res += yaml_pack_pres_node_prefix(env, node, indent_lvl);
+    res += yaml_pack_pres_node_prefix(env, node);
 
-    yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+    yaml_pack_goto_state(env, PACK_STATE_CLEAN);
 
     switch (scalar->type) {
       case YAML_SCALAR_STRING:
@@ -1697,7 +1689,7 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
     }
 
     env->state = PACK_STATE_AFTER_DATA;
-    res += yaml_pack_pres_node_inline(env, node, true);
+    res += yaml_pack_pres_node_inline(env, node);
     yaml_pack_env_pop_path(env, path_len);
 
     return res;
@@ -1707,13 +1699,13 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
 /* {{{ Pack sequence */
 
 static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
-                         const yaml_seq_t * nonnull seq, int indent_lvl)
+                         const yaml_seq_t * nonnull seq)
 {
     const yaml_presentation_node_t *node;
     int res = 0;
 
     if (seq->datas.len == 0) {
-        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN);
         PUTS("[]");
         env->state = PACK_STATE_AFTER_DATA;
         return res;
@@ -1725,15 +1717,15 @@ static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
 
         path_len = yaml_pack_env_push_path(env, "[%d]", pos);
         node = yaml_pack_env_get_pres_node(env);
-        res += yaml_pack_pres_node_prefix(env, node, indent_lvl);
+        res += yaml_pack_pres_node_prefix(env, node);
 
-        yaml_pack_goto_state(env, PACK_STATE_ON_DASH, indent_lvl);
+        yaml_pack_goto_state(env, PACK_STATE_ON_DASH);
         PUTS("-");
 
-        res += yaml_pack_pres_node_inline(env, node,
-                                          indent_lvl + YAML_STD_INDENT);
-        res += RETHROW(yaml_pack_data(env, data,
-                                      indent_lvl + YAML_STD_INDENT));
+        env->indent_lvl += YAML_STD_INDENT;
+        res += yaml_pack_pres_node_inline(env, node);
+        res += RETHROW(yaml_pack_data(env, data));
+        env->indent_lvl -= YAML_STD_INDENT;
 
         yaml_pack_env_pop_path(env, path_len);
     }
@@ -1746,8 +1738,7 @@ static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
 
 static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
                               const lstr_t key,
-                              const yaml_data_t * nonnull data,
-                              int indent_lvl)
+                              const yaml_data_t * nonnull data)
 {
     int res = 0;
     int path_len;
@@ -1755,18 +1746,19 @@ static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
 
     path_len = yaml_pack_env_push_path(env, ".%pL", &key);
     node = yaml_pack_env_get_pres_node(env);
-    res += yaml_pack_pres_node_prefix(env, node, indent_lvl);
+    res += yaml_pack_pres_node_prefix(env, node);
 
-    yaml_pack_goto_state(env, PACK_STATE_ON_KEY, indent_lvl);
+    yaml_pack_goto_state(env, PACK_STATE_ON_KEY);
     PUTLSTR(key);
     PUTS(":");
 
     /* for scalars, we put the inline comment after the value:
      *  key: val # comment
      */
-    indent_lvl += YAML_STD_INDENT;
-    res += yaml_pack_pres_node_inline(env, node, indent_lvl);
-    res += RETHROW(yaml_pack_data(env, data, indent_lvl));
+    env->indent_lvl += YAML_STD_INDENT;
+    res += yaml_pack_pres_node_inline(env, node);
+    res += RETHROW(yaml_pack_data(env, data));
+    env->indent_lvl -= YAML_STD_INDENT;
 
     yaml_pack_env_pop_path(env, path_len);
 
@@ -1774,18 +1766,17 @@ static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
 }
 
 static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
-                         const yaml_obj_t * nonnull obj, int indent_lvl)
+                         const yaml_obj_t * nonnull obj)
 {
     int res = 0;
 
     if (obj->fields.len == 0) {
-        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN);
         PUTS("{}");
         env->state = PACK_STATE_AFTER_DATA;
     } else {
         tab_for_each_ptr(pair, &obj->fields) {
-            res += RETHROW(yaml_pack_key_data(env, pair->key, &pair->data,
-                                              indent_lvl));
+            res += RETHROW(yaml_pack_key_data(env, pair->key, &pair->data));
         }
     }
 
@@ -1876,7 +1867,7 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
-        res += RETHROW(yaml_pack_scalar(env, &data->scalar, 0));
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar));
         break;
       case YAML_DATA_SEQ:
         res += RETHROW(yaml_pack_flow_seq(env, data->seq));
@@ -1894,13 +1885,13 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 /* {{{ Pack data */
 
 static int yaml_pack_data(yaml_pack_env_t * nonnull env,
-                          const yaml_data_t * nonnull data, int indent_lvl)
+                          const yaml_data_t * nonnull data)
 {
     const yaml_presentation_node_t *node;
     int res = 0;
 
     if (data->tag.s) {
-        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN);
         PUTS("!");
         PUTLSTR(data->tag);
         env->state = PACK_STATE_AFTER_DATA;
@@ -1908,7 +1899,7 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
 
     node = yaml_pack_env_get_pres_node(env);
     if (unlikely(node && node->flow_mode)) {
-        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN);
         res += yaml_pack_flow_data(env, data, false);
         env->state = PACK_STATE_AFTER_DATA;
         return res;
@@ -1916,13 +1907,13 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
 
     switch (data->type) {
       case YAML_DATA_SCALAR: {
-        res += RETHROW(yaml_pack_scalar(env, &data->scalar, indent_lvl));
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar));
       } break;
       case YAML_DATA_SEQ:
-        res += RETHROW(yaml_pack_seq(env, data->seq, indent_lvl));
+        res += RETHROW(yaml_pack_seq(env, data->seq));
         break;
       case YAML_DATA_OBJ:
-        res += RETHROW(yaml_pack_obj(env, data->obj, indent_lvl));
+        res += RETHROW(yaml_pack_obj(env, data->obj));
         break;
     }
 
@@ -1954,7 +1945,7 @@ int yaml_pack(const yaml_data_t * nonnull data,
     sb_init(&env.current_path);
 
     /* Always skip everything that can be skipped */
-    res = yaml_pack_data(&env, data, 0);
+    res = yaml_pack_data(&env, data);
     sb_wipe(&env.current_path);
 
     return res;
