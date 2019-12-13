@@ -1212,23 +1212,36 @@ int t_yaml_parse(pstream_t ps, yaml_data_t *out,
 
 #define YAML_STD_INDENT  2
 
+/* State describing the state of the packing "cursor".
+ *
+ * This is used to properly insert newlines & indentations between every key,
+ * sequence, data, comments, etc.
+ */
+typedef enum yaml_pack_state_t {
+    /* Clean state for writing. This state is required before writing any
+     * new data. */
+    PACK_STATE_CLEAN,
+    /* On sequence dash, ie the "-" of a new sequence element. */
+    PACK_STATE_ON_DASH,
+    /* On object key, ie the ":" of a new object key. */
+    PACK_STATE_ON_KEY,
+    /* On a newline */
+    PACK_STATE_ON_NEWLINE,
+    /* After having wrote data. */
+    PACK_STATE_AFTER_DATA,
+} yaml_pack_state_t;
+
 typedef struct yaml_pack_env_t {
     yaml_pack_writecb_f *write_cb;
     void *priv;
+    yaml_pack_state_t state;
     const yaml_presentation_t * nullable pres;
     /* Current path being packed. */
     sb_t current_path;
 } yaml_pack_env_t;
 
-/* "to_indent" indicates that we have already packed some data in the output,
- * and that if we want to put some more data, we have to separate it from the
- * previously packed data properly.
- * For a scalar, this means adding a space
- * For a key-data or an array elem, this means adding a newline + indent
- */
 static int yaml_pack_data(yaml_pack_env_t * nonnull env,
-                          const yaml_data_t * nonnull data, int indent_lvl,
-                          bool to_indent);
+                          const yaml_data_t * nonnull data, int indent_lvl);
 
 /* {{{ Utils */
 
@@ -1250,7 +1263,7 @@ static int do_write(const yaml_pack_env_t *env, const void *_buf, int len)
     return len;
 }
 
-static int do_indent(const yaml_pack_env_t *env, int indent)
+static int do_indent(yaml_pack_env_t *env, int indent)
 {
     static lstr_t spaces = LSTR_IMMED("                                    ");
     int todo = indent;
@@ -1268,6 +1281,8 @@ static int do_indent(const yaml_pack_env_t *env, int indent)
         todo -= res;
     }
 
+    env->state = PACK_STATE_CLEAN;
+
     return indent;
 }
 
@@ -1282,6 +1297,98 @@ static int do_indent(const yaml_pack_env_t *env, int indent)
     do {                                                                     \
         res += RETHROW(do_indent(env, lvl));                                 \
     } while (0)
+
+static int yaml_pack_goto_state(yaml_pack_env_t *env,
+                                yaml_pack_state_t new_state,
+                                int indent_lvl)
+{
+    int res = 0;
+
+    switch (env->state) {
+      case PACK_STATE_CLEAN:
+        switch (new_state) {
+          case PACK_STATE_ON_NEWLINE:
+            PUTS("\n");
+            break;
+          case PACK_STATE_AFTER_DATA:
+          case PACK_STATE_CLEAN:
+          case PACK_STATE_ON_DASH:
+          case PACK_STATE_ON_KEY:
+            break;
+        };
+        break;
+
+      case PACK_STATE_ON_DASH:
+        switch (new_state) {
+          case PACK_STATE_CLEAN:
+          case PACK_STATE_ON_KEY:
+          case PACK_STATE_ON_DASH:
+            /* a key or seq dash is put on the same line as the seq dash */
+            PUTS(" ");
+            break;
+          case PACK_STATE_ON_NEWLINE:
+            PUTS("\n");
+            break;
+          case PACK_STATE_AFTER_DATA:
+            break;
+        };
+        break;
+
+      case PACK_STATE_ON_KEY:
+        switch (new_state) {
+          case PACK_STATE_CLEAN:
+            PUTS(" ");
+            break;
+          case PACK_STATE_ON_NEWLINE:
+            PUTS("\n");
+            break;
+          case PACK_STATE_ON_DASH:
+          case PACK_STATE_ON_KEY:
+            /* a seq dash or a new key is put on a newline after the key */
+            PUTS("\n");
+            INDENT(indent_lvl);
+            break;
+          case PACK_STATE_AFTER_DATA:
+            break;
+        };
+        break;
+
+      case PACK_STATE_ON_NEWLINE:
+        switch (new_state) {
+          case PACK_STATE_CLEAN:
+          case PACK_STATE_ON_DASH:
+          case PACK_STATE_ON_KEY:
+            INDENT(indent_lvl);
+            break;
+          case PACK_STATE_ON_NEWLINE:
+          case PACK_STATE_AFTER_DATA:
+            break;
+        };
+        break;
+
+      case PACK_STATE_AFTER_DATA:
+        switch (new_state) {
+          case PACK_STATE_ON_NEWLINE:
+            PUTS("\n");
+            break;
+          case PACK_STATE_CLEAN:
+            PUTS(" ");
+            break;
+          case PACK_STATE_ON_DASH:
+          case PACK_STATE_ON_KEY:
+            PUTS("\n");
+            INDENT(indent_lvl);
+            break;
+          case PACK_STATE_AFTER_DATA:
+            break;
+        };
+        break;
+    }
+
+    env->state = new_state;
+
+    return res;
+}
 
 /* }}} */
 /* {{{ Presentation */
@@ -1335,57 +1442,64 @@ yaml_pack_env_get_pres_node(yaml_pack_env_t * nullable env)
 }
 
 static int
-yaml_pack_pres_node_prefix(const yaml_pack_env_t * nonnull env,
-                           const yaml_presentation_node_t * nullable node,
-                           int indent_lvl, bool to_indent)
+yaml_pack_empty_lines(yaml_pack_env_t * nonnull env, uint8_t nb_lines)
 {
     int res = 0;
-    bool orig_to_indent = to_indent;
 
-    if (!node || (node->empty_lines == 0 && node->prefix_comments.len == 0))
-    {
-        return res;
+    if (nb_lines == 0) {
+        return 0;
     }
 
-    for (uint8_t i = 0; i < node->empty_lines; i++) {
+    yaml_pack_goto_state(env, PACK_STATE_ON_NEWLINE, 0);
+    for (uint8_t i = 0; i < nb_lines; i++) {
         PUTS("\n");
-    }
-
-    tab_for_each_entry(comment, &node->prefix_comments) {
-        if (to_indent) {
-            PUTS("\n");
-            INDENT(indent_lvl);
-        } else {
-            to_indent = true;
-        }
-
-        PUTS("# ");
-        PUTLSTR(comment);
-    }
-
-    if (!orig_to_indent) {
-        PUTS("\n");
-        INDENT(indent_lvl);
     }
 
     return res;
 }
 
 static int
-yaml_pack_pres_node_inline(const yaml_pack_env_t * nonnull env,
+yaml_pack_pres_node_prefix(yaml_pack_env_t * nonnull env,
                            const yaml_presentation_node_t * nullable node,
-                           bool * nonnull to_indent)
+                           int indent_lvl)
+{
+    int res = 0;
+
+    if (!node) {
+        return 0;
+    }
+
+    res += yaml_pack_empty_lines(env, node->empty_lines);
+
+    if (node->prefix_comments.len == 0) {
+        return 0;
+    }
+    yaml_pack_goto_state(env, PACK_STATE_ON_NEWLINE, indent_lvl);
+    tab_for_each_entry(comment, &node->prefix_comments) {
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+
+        PUTS("# ");
+        PUTLSTR(comment);
+        PUTS("\n");
+        env->state = PACK_STATE_ON_NEWLINE;
+    }
+
+    return res;
+}
+
+static int
+yaml_pack_pres_node_inline(yaml_pack_env_t * nonnull env,
+                           const yaml_presentation_node_t * nullable node,
+                           int indent_lvl)
 {
     int res = 0;
 
     if (node && node->inline_comment.len > 0) {
-        if (*to_indent) {
-            PUTS(" # ");
-        } else {
-            PUTS("# ");
-            *to_indent = true;
-        }
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        PUTS("# ");
         PUTLSTR(node->inline_comment);
+        PUTS("\n");
+        env->state = PACK_STATE_ON_NEWLINE;
     }
 
     return res;
@@ -1495,16 +1609,14 @@ static int yaml_pack_string(const yaml_pack_env_t *env, lstr_t val)
     return res;
 }
 
-static int yaml_pack_scalar(const yaml_pack_env_t * nonnull env,
+static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
                             const yaml_scalar_t * nonnull scalar,
-                            bool to_indent)
+                            int indent_lvl)
 {
     int res = 0;
     char ibuf[IBUF_LEN];
 
-    if (to_indent) {
-        PUTS(" ");
-    }
+    yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
 
     switch (scalar->type) {
       case YAML_SCALAR_STRING:
@@ -1554,43 +1666,34 @@ static int yaml_pack_scalar(const yaml_pack_env_t * nonnull env,
 /* {{{ Pack sequence */
 
 static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
-                         const yaml_seq_t * nonnull seq, int indent_lvl,
-                         bool to_indent)
+                         const yaml_seq_t * nonnull seq, int indent_lvl)
 {
     const yaml_presentation_node_t *node;
     int res = 0;
 
     if (seq->datas.len == 0) {
-        if (to_indent) {
-            PUTS(" []");
-        } else {
-            PUTS("[]");
-        }
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        PUTS("[]");
         return res;
     }
 
     tab_for_each_pos(pos, &seq->datas) {
         const yaml_data_t *data = &seq->datas.tab[pos];
         int path_len;
-        bool data_to_indent = false;
 
         path_len = yaml_pack_env_push_path(env, "[%d]", pos);
         node = yaml_pack_env_get_pres_node(env);
-        res += yaml_pack_pres_node_prefix(env, node, indent_lvl, to_indent);
+        res += yaml_pack_pres_node_prefix(env, node, indent_lvl);
 
-        if (to_indent) {
-            PUTS("\n");
-            INDENT(indent_lvl);
-        } else {
-            to_indent = true;
-        }
-        PUTS("- ");
+        yaml_pack_goto_state(env, PACK_STATE_ON_DASH, indent_lvl);
+        PUTS("-");
 
         if (data->type != YAML_DATA_SCALAR) {
-            res += yaml_pack_pres_node_inline(env, node, &data_to_indent);
+            res += yaml_pack_pres_node_inline(env, node,
+                                              indent_lvl + YAML_STD_INDENT);
         }
-        res += RETHROW(yaml_pack_data(env, data, indent_lvl + 2,
-                                      data_to_indent));
+        res += RETHROW(yaml_pack_data(env, data,
+                                      indent_lvl + YAML_STD_INDENT));
 
         yaml_pack_env_pop_path(env, path_len);
     }
@@ -1602,8 +1705,9 @@ static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
 /* {{{ Pack object */
 
 static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
-                              const lstr_t key, const yaml_data_t * nonnull data,
-                              int indent_lvl, bool to_indent)
+                              const lstr_t key,
+                              const yaml_data_t * nonnull data,
+                              int indent_lvl)
 {
     int res = 0;
     int path_len;
@@ -1611,25 +1715,20 @@ static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
 
     path_len = yaml_pack_env_push_path(env, ".%pL", &key);
     node = yaml_pack_env_get_pres_node(env);
-    res += yaml_pack_pres_node_prefix(env, node, indent_lvl, to_indent);
+    res += yaml_pack_pres_node_prefix(env, node, indent_lvl);
 
-    if (to_indent) {
-        PUTS("\n");
-        INDENT(indent_lvl);
-    }
-
+    yaml_pack_goto_state(env, PACK_STATE_ON_KEY, indent_lvl);
     PUTLSTR(key);
     PUTS(":");
 
     /* for scalars, we put the inline comment after the value:
      *  key: val # comment
      */
-    to_indent = true;
+    indent_lvl += YAML_STD_INDENT;
     if (data->type != YAML_DATA_SCALAR) {
-        res += yaml_pack_pres_node_inline(env, node, &to_indent);
+        res += yaml_pack_pres_node_inline(env, node, indent_lvl);
     }
-    res += RETHROW(yaml_pack_data(env, data, indent_lvl + YAML_STD_INDENT,
-                                  to_indent));
+    res += RETHROW(yaml_pack_data(env, data, indent_lvl));
 
     yaml_pack_env_pop_path(env, path_len);
 
@@ -1637,26 +1736,17 @@ static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
 }
 
 static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
-                         const yaml_obj_t * nonnull obj, int indent_lvl,
-                         bool to_indent)
+                         const yaml_obj_t * nonnull obj, int indent_lvl)
 {
     int res = 0;
-    bool first = !to_indent;
 
     if (obj->fields.len == 0) {
-        if (to_indent) {
-            PUTS(" {}");
-        } else {
-            PUTS("{}");
-        }
-        return res;
-    }
-
-    tab_for_each_ptr(pair, &obj->fields) {
-        res += RETHROW(yaml_pack_key_data(env, pair->key, &pair->data,
-                                          indent_lvl, !first));
-        if (first) {
-            first = false;
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        PUTS("{}");
+    } else {
+        tab_for_each_ptr(pair, &obj->fields) {
+            res += RETHROW(yaml_pack_key_data(env, pair->key, &pair->data,
+                                              indent_lvl));
         }
     }
 
@@ -1666,11 +1756,11 @@ static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
 /* }}} */
 /* {{{ Pack flow */
 
-static int yaml_pack_flow_data(const yaml_pack_env_t * nonnull env,
+static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
                                const yaml_data_t * nonnull data,
                                bool can_omit_brackets);
 
-static int yaml_pack_flow_seq(const yaml_pack_env_t * nonnull env,
+static int yaml_pack_flow_seq(yaml_pack_env_t * nonnull env,
                               const yaml_seq_t * nonnull seq)
 {
     int res = 0;
@@ -1699,7 +1789,7 @@ static int yaml_pack_flow_seq(const yaml_pack_env_t * nonnull env,
  *   a: b: v
  * which is not valid.
  */
-static int yaml_pack_flow_obj(const yaml_pack_env_t * nonnull env,
+static int yaml_pack_flow_obj(yaml_pack_env_t * nonnull env,
                               const yaml_obj_t * nonnull obj,
                               bool can_omit_brackets)
 {
@@ -1732,7 +1822,7 @@ static int yaml_pack_flow_obj(const yaml_pack_env_t * nonnull env,
     return res;
 }
 
-static int yaml_pack_flow_data(const yaml_pack_env_t * nonnull env,
+static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
                                const yaml_data_t * nonnull data,
                                bool can_omit_brackets)
 {
@@ -1764,42 +1854,40 @@ static int yaml_pack_flow_data(const yaml_pack_env_t * nonnull env,
 /* {{{ Pack data */
 
 static int yaml_pack_data(yaml_pack_env_t * nonnull env,
-                          const yaml_data_t * nonnull data,
-                          int indent_lvl, bool to_indent)
+                          const yaml_data_t * nonnull data, int indent_lvl)
 {
     const yaml_presentation_node_t *node;
     int res = 0;
 
     if (data->tag.s) {
-        if (to_indent) {
-            PUTS(" !");
-        } else {
-            PUTS("!");
-        }
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        PUTS("!");
         PUTLSTR(data->tag);
-        to_indent = true;
+        env->state = PACK_STATE_AFTER_DATA;
     }
 
     node = yaml_pack_env_get_pres_node(env);
     if (unlikely(node && node->flow_mode)) {
-        if (to_indent) {
-            PUTS(" ");
-        }
-        return yaml_pack_flow_data(env, data, false);
+        yaml_pack_goto_state(env, PACK_STATE_CLEAN, indent_lvl);
+        res += yaml_pack_flow_data(env, data, false);
+        env->state = PACK_STATE_AFTER_DATA;
+        return res;
     }
 
     switch (data->type) {
       case YAML_DATA_SCALAR: {
-        res += RETHROW(yaml_pack_scalar(env, &data->scalar, to_indent));
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar, indent_lvl));
         node = yaml_pack_env_get_pres_node(env);
-        to_indent = true;
-        res += yaml_pack_pres_node_inline(env, node, &to_indent);
+        env->state = PACK_STATE_AFTER_DATA;
+        res += yaml_pack_pres_node_inline(env, node, indent_lvl);
       } break;
       case YAML_DATA_SEQ:
-        res += RETHROW(yaml_pack_seq(env, data->seq, indent_lvl, to_indent));
+        res += RETHROW(yaml_pack_seq(env, data->seq, indent_lvl));
+        env->state = PACK_STATE_AFTER_DATA;
         break;
       case YAML_DATA_OBJ:
-        res += RETHROW(yaml_pack_obj(env, data->obj, indent_lvl, to_indent));
+        res += RETHROW(yaml_pack_obj(env, data->obj, indent_lvl));
+        env->state = PACK_STATE_AFTER_DATA;
         break;
     }
 
@@ -1813,8 +1901,8 @@ static int yaml_pack_root_data(yaml_pack_env_t * nonnull env,
     int res = 0;
 
     node = yaml_pack_env_get_pres_node(env);
-    res += yaml_pack_pres_node_prefix(env, node, 0, false);
-    res += RETHROW(yaml_pack_data(env, data, 0, false));
+    res += yaml_pack_pres_node_prefix(env, node, 0);
+    res += RETHROW(yaml_pack_data(env, data, 0));
 
     return res;
 }
@@ -1834,6 +1922,7 @@ int yaml_pack(const yaml_data_t * nonnull data,
 {
     /* FIXME: must declare a t_scope */
     yaml_pack_env_t env = {
+        .state = PACK_STATE_ON_NEWLINE,
         .write_cb = writecb,
         .priv = priv,
         .pres = presentation,
@@ -3100,7 +3189,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
             "a: 3 #ticket is #42  ",
 
-            "a: 3 # ticket is #42"
+            "a: 3 # ticket is #42\n"
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
@@ -3112,7 +3201,10 @@ Z_GROUP_EXPORT(yaml)
             "# prefix comment\n"
             "- 1 # first\n"
             "- 2 # second",
-            NULL
+
+            "# prefix comment\n"
+            "- 1 # first\n"
+            "- 2 # second\n"
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(2, qm_len(yaml_pres_node, &pres->nodes));
@@ -3135,7 +3227,7 @@ Z_GROUP_EXPORT(yaml)
             "  # first line\n"
             "  # and second\n"
             "  # bad indent is ok\n"
-            "  a: ~ # inline"
+            "  a: ~ # inline\n"
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
@@ -3159,7 +3251,7 @@ Z_GROUP_EXPORT(yaml)
             "  # prefix [0]\n"
             "  - # inline [0]\n"
             "    # prefix key2\n"
-            "    key2: ~ # inline key2"
+            "    key2: ~ # inline key2\n"
         ));
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(3, qm_len(yaml_pres_node, &pres->nodes));
