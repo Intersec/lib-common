@@ -849,9 +849,14 @@ _t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
 {
     t_SB_1k(err);
     yunpack_env_t unpack_env;
+    yaml_parse_t *env = t_yaml_parse_new();
     yaml_data_t data;
+    int res = 0;
 
-    RETHROW(t_yaml_parse(*ps, filename, &data, pres, out_err));
+    if (t_yaml_parse_ps(env, *ps, &data, pres, out_err) < 0) {
+        res = -1;
+        goto end;
+    }
 
     p_clear(&unpack_env, 1);
     unpack_env.err.buf = err;
@@ -861,7 +866,8 @@ _t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
     unpack_env.flags = IOP_UNPACK_FORBID_PRIVATE;
     if (t_yaml_data_to_typed_struct(&unpack_env, &data, st, out) < 0) {
         yunpack_err_pretty_print(&unpack_env.err, st, filename, ps, out_err);
-        return -1;
+        res = -1;
+        goto end;
     }
 
     /* XXX: may be removed in the future, but useful while the code is still
@@ -875,12 +881,15 @@ _t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
             unpack_env.err.span = &data.span;
             yunpack_err_pretty_print(&unpack_env.err, st, filename, ps,
                                      out_err);
-            return -1;
+            res = -1;
+            goto end;
         }
     }
 #endif
 
-    return 0;
+  end:
+    yaml_parse_delete(&env);
+    return res;
 }
 
 int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,

@@ -119,9 +119,6 @@ struct yaml_seq_t {
 
 typedef struct yaml_presentation_t yaml_presentation_t;
 
-/* }}} */
-/* {{{ Parsing */
-
 /** Return a description of the data's type.
  *
  * The description will be formatted in this style:
@@ -132,8 +129,30 @@ typedef struct yaml_presentation_t yaml_presentation_t;
 const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data,
                                         bool ignore_tag);
 
+/* }}} */
+/* {{{ Parsing */
+
+typedef struct yaml_parse_t yaml_parse_t;
+
+/** Create a new YAML parsing object. */
+yaml_parse_t * nonnull t_yaml_parse_new(void);
+
+/** Delete a YAML parsing object.
+ *
+ * This function *must* be called once parsing is done, as even though the
+ * yaml_parse_t object is t_pool allocated, it might have assets that needs
+ * proper deallocations (for example, mmap'ed included files).
+ */
+void yaml_parse_delete(yaml_parse_t * nullable * nonnull self);
+
 /** Parse a YAML stream into a yaml data object.
  *
+ * Although the resulting YAML data is t_pool allocated, it will depend
+ * on data stored in the yaml_parse_t object. Therefore, the filetime of
+ * the YAML data *must* be contained within the lifetime of the YAML parse
+ * object.
+ *
+ * \param[in]   self          A YAML parsing object.
  * \param[in]   ps            The pstream to parse.
  * \param[in]   filepath      Name of the file being parsed. Can be NULL if
  *                            not applicable. If set, includes are evaluated
@@ -147,10 +166,11 @@ const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data,
  * \param[out]  err        Error buffer filled in case of error.
  * \return -1 on error, 0 otherwise.
  */
-int t_yaml_parse(pstream_t ps, const char * nullable filepath,
-                 yaml_data_t * nonnull out,
-                 const yaml_presentation_t * nonnull * nullable presentation,
-                 sb_t * nonnull err);
+int
+t_yaml_parse_ps(yaml_parse_t * nonnull self, pstream_t ps,
+                yaml_data_t * nonnull out,
+                const yaml_presentation_t * nonnull * nullable presentation,
+                sb_t * nonnull err);
 
 /* }}} */
 /* {{{ Packing */

@@ -34,6 +34,7 @@ yaml_repack(const char * nullable filename, sb_t * nonnull err)
 {
     t_scope;
     const yaml_presentation_t *pres = NULL;
+    yaml_parse_t *env;
     yaml_data_t data;
     lstr_t file;
     pstream_t ps;
@@ -50,9 +51,11 @@ yaml_repack(const char * nullable filename, sb_t * nonnull err)
         }
     }
 
+    env = t_yaml_parse_new();
     ps = ps_initlstr(&file);
-    if (t_yaml_parse(ps, filename, &data, &pres, err) < 0) {
+    if (t_yaml_parse_ps(env, ps, &data, &pres, err) < 0) {
         lstr_wipe(&file);
+        yaml_parse_delete(&env);
         return -1;
     }
 
@@ -60,6 +63,7 @@ yaml_repack(const char * nullable filename, sb_t * nonnull err)
     printf("\n");
 
     lstr_wipe(&file);
+    yaml_parse_delete(&env);
     return 0;
 }
 
