@@ -129,8 +129,13 @@ typedef struct yaml_parse_t {
     /* String to parse. */
     pstream_t ps;
 
-    /* Path to the file being parsed. */
-    const char * nullable filepath;
+    /* Name of the file being parsed.
+     *
+     * LSTR_NULL_V if a stream is being parsed.
+     */
+    lstr_t filename;
+    /* mmap'ed contents of the file. */
+    lstr_t file_contents;
 
     /* Current line number. */
     uint32_t line_number;
@@ -252,12 +257,8 @@ static int yaml_env_set_err(yaml_parse_t *env, yaml_error_t type,
 {
     yaml_pos_t pos = yaml_env_get_pos(env);
 
-    if (env->filepath) {
-        char basename[PATH_MAX];
-
-        /* TODO: split dirname/basename on init instead of here. */
-        path_basename(basename, PATH_MAX, env->filepath);
-        sb_setf(&env->err, "%s:", basename);
+    if (env->filename.s) {
+        sb_setf(&env->err, "%pL:", &env->filename);
     } else {
         sb_sets(&env->err, "<string>:");
     }
@@ -1204,32 +1205,54 @@ void yaml_parse_delete(yaml_parse_t **env)
     if (!(*env)) {
         return;
     }
-    /* TODO: deallocated mmap'ed files */
+    lstr_wipe(&(*env)->file_contents);
 }
 
-int t_yaml_parse_ps(yaml_parse_t *env, pstream_t ps, yaml_data_t *out,
-                    const yaml_presentation_t **presentation, sb_t *out_err)
+void yaml_parse_attach_ps(yaml_parse_t *env, pstream_t ps)
 {
     env->ps = ps;
     env->pos_newline = ps.s;
     env->line_number = 1;
+}
+
+int t_yaml_parse_attach_file(yaml_parse_t *env, lstr_t filename, sb_t *err)
+{
+    if (lstr_init_from_file(&env->file_contents, filename.s, PROT_READ,
+                            MAP_SHARED) < 0)
+    {
+        sb_setf(err, "cannot read file %pL: %m", &filename);
+        return -1;
+    }
+    env->filename = t_lstr_dup(filename);
+    yaml_parse_attach_ps(env, ps_initlstr(&env->file_contents));
+
+    return 0;
+}
+
+int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out,
+                 const yaml_presentation_t **presentation, sb_t *out_err)
+{
+    pstream_t saved_ps = env->ps;
+    int res = 0;
+
     if (presentation) {
         env->pres = t_new(yaml_env_presentation_t, 1);
         t_qm_init(yaml_pres_node, &env->pres->nodes, 0);
         t_sb_init(&env->pres->current_path, 1024);
     }
 
+    assert (env->ps.s && "yaml_parse_attach_ps/file must be called first");
     if (t_yaml_env_parse_data(env, 0, out) < 0) {
-        sb_setsb(out_err, &env->err);
-        return -1;
+        res = -1;
+        goto end;
     }
 
     RETHROW(yaml_env_ltrim(env));
     if (!ps_done(&env->ps)) {
         yaml_env_set_err(env, YAML_ERR_EXTRA_DATA,
                          "expected end of document");
-        sb_setsb(out_err, &env->err);
-        return -1;
+        res = -1;
+        goto end;
     }
 
     if (presentation) {
@@ -1240,7 +1263,24 @@ int t_yaml_parse_ps(yaml_parse_t *env, pstream_t ps, yaml_data_t *out,
         *presentation = pres;
     }
 
-    return 0;
+  end:
+    if (res < 0) {
+        sb_setsb(out_err, &env->err);
+    }
+    /* reset the stream to the input, so that it can be properly returned
+     * by yaml_parse_get_stream(). */
+    env->ps = saved_ps;
+    return res;
+}
+
+pstream_t yaml_parse_get_stream(const yaml_parse_t * nonnull self)
+{
+    return self->ps;
+}
+
+lstr_t yaml_parse_get_filename(const yaml_parse_t * nonnull self)
+{
+    return self->filename;
 }
 
 /* }}} */
@@ -2137,7 +2177,8 @@ static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
     yaml_parse_t *env = t_yaml_parse_new();
     SB_1k(err);
 
-    Z_ASSERT_NEG(t_yaml_parse_ps(env, ps_initstr(yaml), &data, NULL, &err));
+    yaml_parse_attach_ps(env, ps_initstr(yaml));
+    Z_ASSERT_NEG(t_yaml_parse(env, &data, NULL, &err));
     Z_ASSERT_STREQUAL(err.data, expected_err,
                       "wrong error message on yaml string `%s`", yaml);
     yaml_parse_delete(&env);
@@ -2173,7 +2214,8 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
     path = t_fmt("%pL/input.yml", &z_tmpdir_g);
     Z_HELPER_RUN(z_write_yaml_file(path, yaml));
 
-    Z_ASSERT_NEG(t_yaml_parse_ps(env, ps_initstr(yaml), &data, NULL, &err));
+    Z_ASSERT_N(t_yaml_parse_attach_file(env, LSTR(path), &err));
+    Z_ASSERT_NEG(t_yaml_parse(env, &data, NULL, &err));
     Z_ASSERT_STREQUAL(err.data, expected_err,
                       "wrong error message on yaml string `%s`", yaml);
     yaml_parse_delete(&env);
@@ -2197,7 +2239,8 @@ int z_t_yaml_test_parse_success(yaml_data_t * nonnull data,
     if (!pres) {
         pres = &p;
     }
-    Z_ASSERT_N(t_yaml_parse_ps(env, ps_initstr(yaml), data, pres, &err),
+    yaml_parse_attach_ps(env, ps_initstr(yaml));
+    Z_ASSERT_N(t_yaml_parse(env, data, pres, &err),
                "yaml parsing failed: %pL", &err);
 
     if (!expected_repack) {
@@ -2451,12 +2494,13 @@ Z_GROUP_EXPORT(yaml)
     /* {{{ Parsing file errors */
 
     Z_TEST(parsing_file_errors, "errors when parsing YAML from files") {
+        t_scope;
+        const char *err;
+
         /* unexpected EOF */
-        /* FIXME: add file parse API */
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "",
-            "<string>:1:1: missing data, unexpected end of line"
-        ));
+        err = t_fmt("%pL/input.yml:2:1: missing data, unexpected end of line",
+                    &z_tmpdir_g);
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail("", err));
     } Z_TEST_END;
 
     /* }}} */

@@ -797,16 +797,17 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
 /* }}} */
 
+/* FIXME: this should be a core/yaml.c helper */
 static void yunpack_err_pretty_print(const yunpack_error_t *err,
-                                     const iop_struct_t * nonnull st,
-                                     const char * nullable filename,
-                                     const pstream_t *full_input, sb_t *out)
+                                     const yaml_parse_t *env, sb_t *out)
 {
     pstream_t ps;
     bool one_liner;
+    pstream_t full_input = yaml_parse_get_stream(env);
+    lstr_t filename = yaml_parse_get_filename(env);
 
-    if (filename) {
-        sb_addf(out, "%s:", filename);
+    if (filename.s) {
+        sb_addf(out, "%pL:", &filename);
     }
     sb_addf(out, YAML_POS_FMT": %pL", YAML_POS_ARG(err->span->start),
             &err->buf);
@@ -820,7 +821,7 @@ static void yunpack_err_pretty_print(const yunpack_error_t *err,
 
     /* find the end of the line */
     ps.s_end = one_liner ? err->span->end.s - 1 : ps.s;
-    while (ps.s_end < full_input->s_end && *ps.s_end != '\n') {
+    while (ps.s_end < full_input.s_end && *ps.s_end != '\n') {
         ps.s_end++;
     }
     /* print the whole line */
@@ -842,21 +843,16 @@ static void yunpack_err_pretty_print(const yunpack_error_t *err,
 }
 
 static int
-_t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
-                  const char * nullable filename, void * nonnull out,
-                  const yaml_presentation_t * nonnull * nullable pres,
-                  sb_t * nonnull out_err)
+t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
+              void * nonnull out,
+              const yaml_presentation_t * nonnull * nullable pres,
+              sb_t * nonnull out_err)
 {
     t_SB_1k(err);
     yunpack_env_t unpack_env;
-    yaml_parse_t *env = t_yaml_parse_new();
     yaml_data_t data;
-    int res = 0;
 
-    if (t_yaml_parse_ps(env, *ps, &data, pres, out_err) < 0) {
-        res = -1;
-        goto end;
-    }
+    RETHROW(t_yaml_parse(env, &data, pres, out_err));
 
     p_clear(&unpack_env, 1);
     unpack_env.err.buf = err;
@@ -865,9 +861,8 @@ _t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
      * some internal use-cases are found. */
     unpack_env.flags = IOP_UNPACK_FORBID_PRIVATE;
     if (t_yaml_data_to_typed_struct(&unpack_env, &data, st, out) < 0) {
-        yunpack_err_pretty_print(&unpack_env.err, st, filename, ps, out_err);
-        res = -1;
-        goto end;
+        yunpack_err_pretty_print(&unpack_env.err, env, out_err);
+        return -1;
     }
 
     /* XXX: may be removed in the future, but useful while the code is still
@@ -879,17 +874,13 @@ _t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
         if (!expect(iop_check_constraints_desc(st, val) >= 0)) {
             sb_setf(&unpack_env.err.buf, "invalid object: %s", iop_get_err());
             unpack_env.err.span = &data.span;
-            yunpack_err_pretty_print(&unpack_env.err, st, filename, ps,
-                                     out_err);
-            res = -1;
-            goto end;
+            yunpack_err_pretty_print(&unpack_env.err, env, out_err);
+            return -1;
         }
     }
 #endif
 
-  end:
-    yaml_parse_delete(&env);
-    return res;
+    return 0;
 }
 
 int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
@@ -897,7 +888,16 @@ int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
                      const yaml_presentation_t * nonnull * nullable pres,
                      sb_t * nonnull out_err)
 {
-    return _t_iop_yunpack_ps(ps, st, NULL, out, pres, out_err);
+    yaml_parse_t *env;
+    int res;
+
+    env = t_yaml_parse_new();
+    yaml_parse_attach_ps(env, *ps);
+
+    res = t_iop_yunpack(env, st, out, pres, out_err);
+    yaml_parse_delete(&env);
+
+    return res;
 }
 
 static void * nonnull t_alloc_st_out(const iop_struct_t * nonnull st,
@@ -928,18 +928,15 @@ int t_iop_yunpack_file(const char * nonnull filename,
                        const yaml_presentation_t * nonnull * nullable pres,
                        sb_t * nonnull out_err)
 {
-    lstr_t file = LSTR_NULL_V;
-    pstream_t ps;
-    int res = 0;
+    yaml_parse_t *env;
+    int res;
 
-    if (lstr_init_from_file(&file, filename, PROT_READ, MAP_SHARED) < 0) {
-        sb_setf(out_err, "cannot read file %s: %m", filename);
-        return -1;
+    env = t_yaml_parse_new();
+    res = t_yaml_parse_attach_file(env, LSTR(filename), out_err);
+    if (res >= 0) {
+        res = t_iop_yunpack(env, st, out, pres, out_err);
     }
-
-    ps = ps_initlstr(&file);
-    res = _t_iop_yunpack_ps(&ps, st, filename, out, pres, out_err);
-    lstr_wipe(&file);
+    yaml_parse_delete(&env);
 
     return res;
 }

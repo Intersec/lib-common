@@ -30,45 +30,44 @@ static int yaml_pack_write_stdout(void * nullable priv,
 }
 
 static int
-yaml_repack(const char * nullable filename, sb_t * nonnull err)
+yaml_repack(lstr_t filename, sb_t * nonnull err)
 {
     t_scope;
     const yaml_presentation_t *pres = NULL;
     yaml_parse_t *env;
     yaml_data_t data;
-    lstr_t file;
-    pstream_t ps;
+    lstr_t file = LSTR_NULL_V;
+    int res = 0;
 
-    if (filename) {
-        if (lstr_init_from_file(&file, filename, PROT_READ, MAP_SHARED) < 0) {
-            sb_setf(err, "cannot read file %s: %m", filename);
-            return -1;
+    env = t_yaml_parse_new();
+    if (filename.s) {
+        if (t_yaml_parse_attach_file(env, filename, err) < 0) {
+            res = -1;
+            goto end;
         }
     } else {
         if (lstr_init_from_fd(&file, 0, PROT_READ, MAP_SHARED) < 0) {
             sb_setf(err, "cannot read from stdin: %m");
-            return -1;
+            res = -1;
+            goto end;
         }
+        yaml_parse_attach_ps(env, ps_initlstr(&file));
     }
 
-    env = t_yaml_parse_new();
-    ps = ps_initlstr(&file);
-    if (t_yaml_parse_ps(env, ps, &data, &pres, err) < 0) {
-        lstr_wipe(&file);
-        yaml_parse_delete(&env);
-        return -1;
+    if (t_yaml_parse(env, &data, &pres, err) >= 0) {
+        yaml_pack(&data, pres, yaml_pack_write_stdout, NULL);
+        printf("\n");
     }
 
-    yaml_pack(&data, pres, yaml_pack_write_stdout, NULL);
-    printf("\n");
-
+  end:
     lstr_wipe(&file);
     yaml_parse_delete(&env);
-    return 0;
+    return res;
 }
 
 int main(int argc, char **argv)
 {
+    lstr_t filename = LSTR_NULL_V;
     const char *arg0;
     popt_t options[] = {
         OPT_FLAG('h', "help", &opts_g.help, "show help"),
@@ -82,7 +81,10 @@ int main(int argc, char **argv)
         makeusage(!opts_g.help, arg0, "[<file>]", NULL, options);
     }
 
-    if (yaml_repack(argc >= 1 ? NEXTARG(argc, argv) : NULL, &err) < 0) {
+    if (argc >= 1) {
+        filename = LSTR(NEXTARG(argc, argv));
+    }
+    if (yaml_repack(filename, &err) < 0) {
         fprintf(stderr, "%.*s\n", err.len, err.data);
         return EXIT_FAILURE;
     }

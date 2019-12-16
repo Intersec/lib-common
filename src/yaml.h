@@ -145,7 +145,25 @@ yaml_parse_t * nonnull t_yaml_parse_new(void);
  */
 void yaml_parse_delete(yaml_parse_t * nullable * nonnull self);
 
+/** Attach a pstream_t to the yaml_parse_t object.
+ *
+ * The stream will be used when t_yaml_parse is called. In error messages,
+ * it will be referred as "<string>".
+ */
+void yaml_parse_attach_ps(yaml_parse_t * nonnull self, pstream_t ps);
+
+/** Attach a file to the yaml_parse_t object.
+ *
+ * The file will be mmap'ed and used when t_yaml_parse is called.
+ * `yaml_parse_delete` *must* be called to free the mmap.
+ */
+int t_yaml_parse_attach_file(yaml_parse_t * nonnull self, lstr_t filename,
+                             sb_t * nonnull err);
+
 /** Parse a YAML stream into a yaml data object.
+ *
+ * `yaml_parse_attach_ps` or `yaml_parse_attach_file` must have been called
+ * first.
  *
  * Although the resulting YAML data is t_pool allocated, it will depend
  * on data stored in the yaml_parse_t object. Therefore, the filetime of
@@ -154,10 +172,6 @@ void yaml_parse_delete(yaml_parse_t * nullable * nonnull self);
  *
  * \param[in]   self          A YAML parsing object.
  * \param[in]   ps            The pstream to parse.
- * \param[in]   filepath      Name of the file being parsed. Can be NULL if
- *                            not applicable. If set, includes are evaluated
- *                            relative to this path. If unset, they are
- *                            evaluated relative to the cwd.
  * \param[out]  out           The YAML data parsed.
  * \param[out]  presentation  Presentation information associated with the
  *     parsed data. Used to repack the YAML data while keeping comments,
@@ -167,10 +181,21 @@ void yaml_parse_delete(yaml_parse_t * nullable * nonnull self);
  * \return -1 on error, 0 otherwise.
  */
 int
-t_yaml_parse_ps(yaml_parse_t * nonnull self, pstream_t ps,
-                yaml_data_t * nonnull out,
-                const yaml_presentation_t * nonnull * nullable presentation,
-                sb_t * nonnull err);
+t_yaml_parse(yaml_parse_t * nonnull self, yaml_data_t * nonnull out,
+             const yaml_presentation_t * nonnull * nullable presentation,
+             sb_t * nonnull err);
+
+/** Retrieve the stream used when parsing.
+ *
+ * Return the stream that was attached to the yaml_parse_t object.
+ */
+pstream_t yaml_parse_get_stream(const yaml_parse_t * nonnull self);
+
+/** Retrieve the name of the file used when parsing.
+ *
+ * If a stream was used instead of a file, "<string>" is returned.
+ */
+lstr_t yaml_parse_get_filename(const yaml_parse_t * nonnull self);
 
 /* }}} */
 /* {{{ Packing */
