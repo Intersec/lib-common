@@ -58,12 +58,17 @@ void bb_reset(bb_t *bb)
 
 void bb_init_sb(bb_t *bb, sb_t *sb)
 {
-    sb_grow(sb, ROUND_UP(sb->len, 8) - sb->len);
-    bb_init_full(bb, sb->data, sb->len * 8, DIV_ROUND_UP(sb->size, 8), 8,
-                 sb->mp);
+    if (sb->data == __sb_slop) {
+        bb_init(bb);
+    } else {
+        /* bb->size is a number of 64 bits words so the sb size must be bigger
+         * than the sb length rounded up to 8 bytes */
+        sb_grow(sb, ROUND_UP(sb->len, 8) - sb->len);
+        bb_init_full(bb, sb->data, sb->len * 8, sb->size / 8, 8, sb->mp);
 
-    /* We took ownership of the memory so ensure clear the sb */
-    sb_init(sb);
+        /* We took ownership of the memory so ensure clear the sb */
+        sb_init(sb);
+    }
 }
 
 
@@ -71,8 +76,8 @@ void bb_transfer_to_sb(bb_t *bb, sb_t *sb)
 {
     sb_wipe(sb);
     bb_grow(bb, 8);
-    sb_init_full(sb, bb->data, DIV_ROUND_UP(bb->len, 8),
-                 bb->size * 8, bb->mp);
+    sb_init_full(sb, bb->data, DIV_ROUND_UP(bb->len, 8), bb->size * 8,
+                 bb->mp);
     bb->data = NULL;
     bb_wipe(bb);
     bb_init(bb);
@@ -503,6 +508,34 @@ Z_GROUP_EXPORT(bit_buf)
         Z_ASSERT(((intptr_t)bb.bytes) % 512 == 0);
 
         bb_wipe(&bb);
+    } Z_TEST_END;
+
+    Z_TEST(sb, "bit-buf: init/transfer sb") {
+        sb_t sb;
+        SB(sb2, 42);
+        bb_t bb;
+
+        sb_init(&sb);
+        bb_init_sb(&bb, &sb);
+
+        bb_add_bits(&bb, 0x2aa, 10); /* 1010101010 */
+        Z_ASSERT_EQ(bb.len, 10U);
+        Z_ASSERT_EQ(sb.len, 0);
+
+        bb_transfer_to_sb(&bb, &sb);
+        Z_ASSERT_EQ(bb.len, 0U);
+        Z_ASSERT_EQ(sb.len, 2);
+        Z_ASSERT_EQ(sb.data[0], 0xaa);
+        Z_ASSERT_EQ(sb.data[1], 0x2);
+
+        bb_init_sb(&bb, &sb2);
+
+        bb_add_bits(&bb, 0x2aa, 10); /* 1010101010 */
+        Z_ASSERT_EQ(bb.len, 10U);
+        Z_ASSERT_EQ(sb2.len, 0);
+
+        bb_wipe(&bb);
+        sb_wipe(&sb);
     } Z_TEST_END;
 
     Z_TEST(left_shit, "bit-buf: left shift") {

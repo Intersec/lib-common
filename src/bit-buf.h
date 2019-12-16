@@ -40,7 +40,7 @@ typedef struct bb_t {
             unsigned boffset : 3;
             size_t   b       : 61;
         };
-        size_t len;  /* Number of bit used */
+        size_t len;  /* Number of bits used */
     };
     size_t     size; /* Number of words allocated */
 
@@ -66,7 +66,7 @@ GENERIC_DELETE(bb_t, bb);
 /** Initialize a bit-buffer.
  *
  * \param[bb]        The buffer to initialize.
- * \param[buf]       The data buffer to used as the backend. Should be aligned on
+ * \param[buf]       The data buffer to use as backend. Should be aligned on
  *                   “alignement”.
  * \param[blen]      Number of already used bits in buffer.
  * \param[bsize]     Buffer size given in number of 64bit words.
@@ -130,18 +130,18 @@ void bb_reset(bb_t *bb);
 
 /** Initialize a bit-buffer from a string-buffer.
  *
- * The bit-buffer takes ownership of the memory and reset the sb so we're
+ * The bit-buffer takes ownership of the memory and resets the sb so we're
  * guaranteed no dangling pointers will remain in the sb if the bit-buffer
- * perform a reallocation sometime in the future.
+ * performs a reallocation sometime in the future.
  */
 void bb_init_sb(bb_t *bb, sb_t *sb);
 
 /** Transfer ownership of the memory to a sb.
  *
- * The bit-buffer lose is resetted during the operation and the sb gain full
+ * The bit-buffer is reset during the operation and the sb gains full
  * ownership of the memory.
  *
- * This operation do not preserve the bit-buffer alignment since sb don't
+ * This operation does not preserve the bit-buffer alignment since sb don't
  * support custom alignment.
  */
 void bb_transfer_to_sb(bb_t *bb, sb_t *sb);
