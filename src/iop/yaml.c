@@ -797,51 +797,6 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
 /* }}} */
 
-/* FIXME: this should be a core/yaml.c helper */
-static void yunpack_err_pretty_print(const yunpack_error_t *err,
-                                     const yaml_parse_t *env, sb_t *out)
-{
-    pstream_t ps;
-    bool one_liner;
-    pstream_t full_input = yaml_parse_get_stream(env);
-    lstr_t filename = yaml_parse_get_filename(env);
-
-    if (filename.s) {
-        sb_addf(out, "%pL:", &filename);
-    }
-    sb_addf(out, YAML_POS_FMT": %pL", YAML_POS_ARG(err->span->start),
-            &err->buf);
-
-    one_liner = err->span->end.line_nb
-             == err->span->start.line_nb;
-
-    /* get the full line including pos_start */
-    ps.s = err->span->start.s;
-    ps.s -= err->span->start.col_nb - 1;
-
-    /* find the end of the line */
-    ps.s_end = one_liner ? err->span->end.s - 1 : ps.s;
-    while (ps.s_end < full_input.s_end && *ps.s_end != '\n') {
-        ps.s_end++;
-    }
-    /* print the whole line */
-    sb_addf(out, "\n%*pM\n", PS_FMT_ARG(&ps));
-
-    /* then display some indications or where the issue is */
-    for (unsigned i = 1; i < err->span->start.col_nb; i++) {
-        sb_addc(out, ' ');
-    }
-    if (one_liner) {
-        for (unsigned i = err->span->start.col_nb;
-             i < err->span->end.col_nb; i++)
-        {
-            sb_addc(out, '^');
-        }
-    } else {
-        sb_adds(out, "^ starting here");
-    }
-}
-
 static int
 t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
               void * nonnull out,
@@ -861,7 +816,8 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
      * some internal use-cases are found. */
     unpack_env.flags = IOP_UNPACK_FORBID_PRIVATE;
     if (t_yaml_data_to_typed_struct(&unpack_env, &data, st, out) < 0) {
-        yunpack_err_pretty_print(&unpack_env.err, env, out_err);
+        yaml_parse_pretty_print_err(env, unpack_env.err.span,
+                                    LSTR_SB_V(&unpack_env.err.buf), out_err);
         return -1;
     }
 
@@ -872,9 +828,8 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
         void *val = iop_struct_is_class(st) ? *(void **)out : out;
 
         if (!expect(iop_check_constraints_desc(st, val) >= 0)) {
-            sb_setf(&unpack_env.err.buf, "invalid object: %s", iop_get_err());
-            unpack_env.err.span = &data.span;
-            yunpack_err_pretty_print(&unpack_env.err, env, out_err);
+            lstr_t err_msg = t_lstr_fmt("invalid object: %s", iop_get_err());
+            yaml_parse_pretty_print_err(env, &data.span, err_msg, out_err);
             return -1;
         }
     }

@@ -185,17 +185,23 @@ t_yaml_parse(yaml_parse_t * nonnull self, yaml_data_t * nonnull out,
              const yaml_presentation_t * nonnull * nullable presentation,
              sb_t * nonnull err);
 
-/** Retrieve the stream used when parsing.
+/** Pretty print an error message related to a parsed span.
  *
- * Return the stream that was attached to the yaml_parse_t object.
- */
-pstream_t yaml_parse_get_stream(const yaml_parse_t * nonnull self);
-
-/** Retrieve the name of the file used when parsing.
+ * The generated error message will look like this:
  *
- * If a stream was used instead of a file, "<string>" is returned.
+ * if the span is on a single line:
+ *  <filename>:<line>:<col>: <error_msg>
+ *  <line of span in parsed stream>
+ *      ^^^^^^^
+ *
+ * if the span is on multiple lines:
+ *  <filename>:<line>:<col>: <error_msg>
+ *  <first line of span in parsed stream>
+ *      ^ starting here
  */
-lstr_t yaml_parse_get_filename(const yaml_parse_t * nonnull self);
+void yaml_parse_pretty_print_err(const yaml_parse_t * nonnull env,
+                                 const yaml_span_t * nonnull span,
+                                 lstr_t error_msg, sb_t * nonnull out);
 
 /* }}} */
 /* {{{ Packing */
