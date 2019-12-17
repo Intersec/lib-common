@@ -26,12 +26,6 @@
 /** Checks that an IOP tag has an authorized value. */
 int iopc_check_tag_value(int tag, sb_t *err);
 
-/** Check that the name does not contain a character that is already a keyword
- * in some programmation language.
- */
-int iopc_check_name(lstr_t name, qv_t(iopc_attr) *nullable attrs,
-                    sb_t *nonnull err);
-
 /** Check for type incompatibilities in an IOPC field. */
 int iopc_check_field_type(const iopc_field_t *f, sb_t *err);
 

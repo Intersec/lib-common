@@ -1011,6 +1011,12 @@ void iopc_get_depends(iopc_pkg_t *pkg,
                       bool include_ifaces,
                       bool include_snmp);
 
+/** Check that the name is valid to use as an IOP type */
+int iopc_check_type_name(lstr_t name, sb_t * nullable err);
+
+/** Check that the name is valid to use as an IOP field name */
+int iopc_check_field_name(lstr_t name, sb_t * nullable err);
+
 static inline void iopc_parser_typer_initialize(void)
 {
     iopc_parser_initialize();

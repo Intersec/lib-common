@@ -55,22 +55,6 @@ static iopc_path_t *parse_path(lstr_t name, bool is_type, sb_t *err)
     return NULL;
 }
 
-static int iopc_check_type_name(lstr_t name, sb_t *err)
-{
-    RETHROW(iopc_check_name(name, NULL, err));
-
-    /* XXX Checked by iopc_check_name(). */
-    assert (name.len);
-
-    if (!isupper(name.s[0])) {
-        sb_setf(err, "`%pL': first character should be uppercase",
-                &name);
-        return -1;
-    }
-
-    return 0;
-}
-
 int iop_type_to_iop(iop_type_t type, iop__type__t *out)
 {
     switch (type) {
@@ -434,11 +418,7 @@ iopc_field_load(const iop__field__t *nonnull field_desc,
 {
     iopc_field_t *f = NULL;
 
-    if (iopc_check_name(field_desc->name, NULL, err) < 0) {
-        goto error;
-    }
-    if (!islower(field_desc->name.s[0])) {
-        sb_sets(err, "first field name character should be lowercase");
+    if (iopc_check_field_name(field_desc->name, err) < 0) {
         goto error;
     }
 
