@@ -41,7 +41,7 @@ yaml_repack(lstr_t filename, sb_t * nonnull err)
 
     env = t_yaml_parse_new();
     if (filename.s) {
-        if (t_yaml_parse_attach_file(env, filename, err) < 0) {
+        if (t_yaml_parse_attach_file(env, filename, LSTR_NULL_V, err) < 0) {
             res = -1;
             goto end;
         }

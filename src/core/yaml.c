@@ -133,9 +133,19 @@ typedef struct yaml_parse_t {
 
     /* Name of the file being parsed.
      *
+     * This is the name of the file as it was given to yaml_parse_attach_file.
+     * It can be an absolute or a relative path.
+     *
      * LSTR_NULL_V if a stream is being parsed.
      */
-    lstr_t filename;
+    lstr_t filepath;
+
+    /* Canonical path to the file being parsed.
+     *
+     * LSTR_NULL_V if a stream is being parsed.
+     */
+    lstr_t canonical_path;
+
     /* mmap'ed contents of the file. */
     lstr_t file_contents;
 
@@ -600,6 +610,7 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     const yaml_presentation_t **subpres_p = NULL;
     yaml_parse_t *subfile = NULL;
     yaml_data_t subdata;
+    char dirpath[PATH_MAX];
     SB_1k(err);
 
     if (!lstr_equal(data->tag, LSTR("include"))) {
@@ -613,8 +624,17 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         goto err;
     }
 
+    if (!expect(path_dirname(dirpath, PATH_MAX, env->canonical_path.s) >= 0))
+    {
+        sb_setf(&err, "error when retrieving path to directory of `%pL`",
+                &env->canonical_path);
+        goto err;
+    }
+
     subfile = t_yaml_parse_new();
-    if (t_yaml_parse_attach_file(subfile, data->scalar.s, &err) < 0) {
+    if (t_yaml_parse_attach_file(subfile, data->scalar.s, LSTR(dirpath),
+                                 &err) < 0)
+    {
         goto err;
 
     }
@@ -1288,15 +1308,24 @@ void yaml_parse_attach_ps(yaml_parse_t *env, pstream_t ps)
     env->line_number = 1;
 }
 
-int t_yaml_parse_attach_file(yaml_parse_t *env, lstr_t filename, sb_t *err)
+int t_yaml_parse_attach_file(yaml_parse_t *env, lstr_t filepath,
+                             lstr_t dirpath, sb_t *err)
 {
-    if (lstr_init_from_file(&env->file_contents, filename.s, PROT_READ,
+    char path[PATH_MAX];
+
+    env->filepath = t_lstr_dup(filepath);
+    if (dirpath.s) {
+        filepath = t_lstr_fmt("%pL/%pL", &dirpath, &filepath);
+    }
+    if (lstr_init_from_file(&env->file_contents, filepath.s, PROT_READ,
                             MAP_SHARED) < 0)
     {
-        sb_setf(err, "cannot read file %pL: %m", &filename);
+        sb_setf(err, "cannot read file %pL: %m", &env->filepath);
         return -1;
     }
-    env->filename = t_lstr_dup(filename);
+
+    path_canonify(path, PATH_MAX, filepath.s);
+    env->canonical_path = t_lstr_fmt("%s", path);
     yaml_parse_attach_ps(env, ps_initlstr(&env->file_contents));
 
     return 0;
@@ -1353,8 +1382,8 @@ void yaml_parse_pretty_print_err(const yaml_parse_t * nonnull env,
     pstream_t ps;
     bool one_liner;
 
-    if (env->filename.s) {
-        sb_addf(out, "%pL:", &env->filename);
+    if (env->filepath.s) {
+        sb_addf(out, "%pL:", &env->filepath);
     } else {
         sb_adds(out, "<string>:");
     }
@@ -2295,9 +2324,21 @@ static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
 }
 
 static int
-t_z_write_yaml_file(const char *filepath, const char *yaml,
-                    const char * nonnull * nullable out_path)
+z_create_tmp_subdir(const char *dirpath)
 {
+    t_scope;
+    const char *path;
+
+    path = t_fmt("%pL/%s", &z_tmpdir_g, dirpath);
+    Z_ASSERT_N(mkdir_p(path, 0777));
+
+    Z_HELPER_END;
+}
+
+static int
+z_write_yaml_file(const char *filepath, const char *yaml)
+{
+    t_scope;
     file_t *file;
     const char *path;
 
@@ -2310,10 +2351,6 @@ t_z_write_yaml_file(const char *filepath, const char *yaml,
 
     Z_ASSERT_N(file_close(&file));
 
-    if (out_path) {
-        *out_path = path;
-    }
-
     Z_HELPER_END;
 }
 
@@ -2322,13 +2359,12 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
 {
     t_scope;
     yaml_data_t data;
-    const char *path;
     yaml_parse_t *env = t_yaml_parse_new();
     SB_1k(err);
 
-    Z_HELPER_RUN(t_z_write_yaml_file("input.yml", yaml, &path));
-
-    Z_ASSERT_N(t_yaml_parse_attach_file(env, LSTR(path), &err));
+    Z_HELPER_RUN(z_write_yaml_file("input.yml", yaml));
+    Z_ASSERT_N(t_yaml_parse_attach_file(env, LSTR("input.yml"), z_tmpdir_g,
+               &err));
     Z_ASSERT_NEG(t_yaml_parse(env, &data, NULL, &err));
     Z_ASSERT_STREQUAL(err.data, expected_err,
                       "wrong error message on yaml string `%s`", yaml);
@@ -2353,6 +2389,8 @@ int z_t_yaml_test_parse_success(yaml_data_t * nonnull data,
     if (!pres) {
         pres = &p;
     }
+    /* hack to make relative inclusion work in z_tmpdir_g */
+    env->canonical_path = t_lstr_fmt("%pL/foo.yml", &z_tmpdir_g);
     yaml_parse_attach_ps(env, ps_initstr(yaml));
     Z_ASSERT_N(t_yaml_parse(env, data, pres, &err),
                "yaml parsing failed: %pL", &err);
@@ -2693,13 +2731,11 @@ Z_GROUP_EXPORT(yaml)
     /* {{{ Parsing file errors */
 
     Z_TEST(parsing_file_errors, "errors when parsing YAML from files") {
-        t_scope;
-        const char *err;
-
         /* unexpected EOF */
-        err = t_fmt("%pL/input.yml:2:1: missing data, unexpected end of line",
-                    &z_tmpdir_g);
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail("", err));
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "",
+            "input.yml:2:1: missing data, unexpected end of line"
+        ));
     } Z_TEST_END;
 
     /* }}} */
@@ -2707,23 +2743,90 @@ Z_GROUP_EXPORT(yaml)
 
     Z_TEST(include_errors, "errors when including YAML files") {
         /* !include tag must be applied on a string */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "!include 3",
 
-            "<string>:1:1: invalid include, "
+            "input.yml:1:1: invalid include, "
             "!include can only be used with strings\n"
             "!include 3\n"
             "^^^^^^^^^^"
         ));
 
         /* unknown file */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "!include foo.yml",
 
-            "<string>:1:1: invalid include, "
+            "input.yml:1:1: invalid include, "
             "cannot read file foo.yml: No such file or directory\n"
             "!include foo.yml\n"
             "^^^^^^^^^^^^^^^^"
+        ));
+
+        /* error in included file */
+        Z_HELPER_RUN(z_write_yaml_file("has_errors.yml", "[ 1, "));
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "!include has_errors.yml",
+
+            "input.yml:1:1: invalid include, "
+            "has_errors.yml:2:1: missing data, unexpected end of line\n"
+            "!include has_errors.yml\n"
+            "^^^^^^^^^^^^^^^^^^^^^^^"
+        ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Include */
+
+    Z_TEST(include, "") {
+        t_scope;
+        yaml_data_t data;
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "- a: 3\n"
+            "  b: { c: c }\n"
+            "- true"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL,
+            "a: ~\n"
+            "b: !include inner.yml\n"
+            "c: 3",
+
+            "a: ~\n"
+            "b:\n"
+            "  - a: 3\n"
+            "    b:\n"
+            "      c: c\n"
+            "  - true\n"
+            "c: 3"
+        ));
+
+        Z_HELPER_RUN(z_create_tmp_subdir("subdir/subsub"));
+        Z_HELPER_RUN(z_write_yaml_file("subdir/a.yml",
+            "- a\n"
+            "- !include b.yml\n"
+            "- !include ../d.yml"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("subdir/b.yml",
+            "- !include subsub/c.yml\n"
+            "- b"
+        ));
+        /* TODO d.yml is included twice, should be factorized instead of
+         * parsing the file twice. */
+        Z_HELPER_RUN(z_write_yaml_file("subdir/subsub/c.yml",
+            "- c\n"
+            "- !include ../../d.yml"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("d.yml",
+            "d"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL,
+            "!include subdir/a.yml",
+
+            "- a\n"
+            "- - - c\n"
+            "    - d\n"
+            "  - b\n"
+            "- d"
         ));
     } Z_TEST_END;
 

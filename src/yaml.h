@@ -156,9 +156,13 @@ void yaml_parse_attach_ps(yaml_parse_t * nonnull self, pstream_t ps);
  *
  * The file will be mmap'ed and used when t_yaml_parse is called.
  * `yaml_parse_delete` *must* be called to free the mmap.
+ *
+ * dirpath can be used to resolve relative imports. If set, \p filepath
+ * will be resolved relative to \p dirpath. If LSTR_NULL_V, \p filepath
+ * is resolved as is (so relative to the current working directory).
  */
-int t_yaml_parse_attach_file(yaml_parse_t * nonnull self, lstr_t filename,
-                             sb_t * nonnull err);
+int t_yaml_parse_attach_file(yaml_parse_t * nonnull self, lstr_t filepath,
+                             lstr_t dirpath, sb_t * nonnull err);
 
 /** Parse a YAML stream into a yaml data object.
  *
