@@ -590,7 +590,7 @@ t_yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     if (data->tag.s) {
         real_st = get_struct_from_tag(st, data->tag, &env->err.buf);
         if (!real_st) {
-            env->err.span = &data->tag_span;
+            env->err.span = data->tag_span;
             real_st = st;
             goto error;
         }
@@ -723,7 +723,7 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
     if (!struct_or_union && data->tag.s) {
         sb_setf(&env->err.buf, "specifying a tag on %s is not allowed",
                 yaml_data_get_type(data, true));
-        env->err.span = &data->tag_span;
+        env->err.span = data->tag_span;
         goto err;
     }
 
@@ -816,7 +816,7 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
      * some internal use-cases are found. */
     unpack_env.flags = IOP_UNPACK_FORBID_PRIVATE;
     if (t_yaml_data_to_typed_struct(&unpack_env, &data, st, out) < 0) {
-        yaml_parse_pretty_print_err(env, unpack_env.err.span,
+        yaml_parse_pretty_print_err(unpack_env.err.span,
                                     LSTR_SB_V(&unpack_env.err.buf), out_err);
         return -1;
     }
@@ -829,7 +829,7 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
 
         if (!expect(iop_check_constraints_desc(st, val) >= 0)) {
             lstr_t err_msg = t_lstr_fmt("invalid object: %s", iop_get_err());
-            yaml_parse_pretty_print_err(env, &data.span, err_msg, out_err);
+            yaml_parse_pretty_print_err(&data.span, err_msg, out_err);
             return -1;
         }
     }

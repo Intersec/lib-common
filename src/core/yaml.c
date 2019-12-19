@@ -127,6 +127,19 @@ typedef struct yaml_env_presentation_t {
 
 qvector_t(yaml_parse, yaml_parse_t *);
 
+typedef struct yaml_included_file_t {
+    /* Parsing context that included the current file. */
+    const yaml_parse_t * nonnull parent;
+
+    /** Data from the including file, that caused the inclusion.
+     *
+     * This is the "!include <file>" data. It is not stored in the including
+     * yaml_parse_t object, as the inclusion is transparent in its AST.
+     * However, it is stored here to provide proper error messages.
+     */
+    yaml_data_t data;
+} yaml_included_file_t;
+
 typedef struct yaml_parse_t {
     /* String to parse. */
     pstream_t ps;
@@ -162,8 +175,16 @@ typedef struct yaml_parse_t {
     /* Presentation details */
     yaml_env_presentation_t * nullable pres;
 
-    /* Included files */
+    /* Included files.
+     *
+     * List of parse context of every subfiles included. */
     qv_t(yaml_parse) subfiles;
+
+    /* Included details.
+     *
+     * This is set if the current file was included from another file.
+     */
+    yaml_included_file_t * nullable included;
 } yaml_parse_t;
 
 /* }}} */
@@ -233,6 +254,16 @@ static inline void yaml_env_skipc(yaml_parse_t *env)
     IGNORE(ps_getc(&env->ps));
 }
 
+static void yaml_span_init(yaml_span_t * nonnull span,
+                           const yaml_parse_t * nonnull env,
+                           yaml_pos_t pos_start, yaml_pos_t pos_end)
+{
+    p_clear(span, 1);
+    span->start = pos_start;
+    span->end = pos_end;
+    span->env = env;
+}
+
 static void
 yaml_env_init_data_with_end(const yaml_parse_t *env, yaml_data_type_t type,
                             yaml_pos_t pos_start, yaml_pos_t pos_end,
@@ -240,8 +271,7 @@ yaml_env_init_data_with_end(const yaml_parse_t *env, yaml_data_type_t type,
 {
     p_clear(out, 1);
     out->type = type;
-    out->span.start = pos_start;
-    out->span.end = pos_end;
+    yaml_span_init(&out->span, env, pos_start, pos_end);
 }
 
 static void
@@ -307,7 +337,7 @@ static int yaml_env_set_err_at(yaml_parse_t * nonnull env,
         break;
     }
 
-    yaml_parse_pretty_print_err(env, span, LSTR_SB_V(&err), &env->err);
+    yaml_parse_pretty_print_err(span, LSTR_SB_V(&err), &env->err);
 
     return -1;
 }
@@ -316,13 +346,17 @@ static int yaml_env_set_err(yaml_parse_t * nonnull env, yaml_error_t type,
                             const char * nonnull msg)
 {
     yaml_span_t span;
+    yaml_pos_t start;
+    yaml_pos_t end;
+
 
     /* build a span on the current position, to have a cursor on this
      * character in the pretty printed error message. */
-    span.start = yaml_env_get_pos(env);
-    span.end = span.start;
-    span.end.col_nb++;
-    span.end.s++;
+    start = yaml_env_get_pos(env);
+    end = start;
+    end.col_nb++;
+    end.s++;
+    yaml_span_init(&span, env, start, end);
 
     return yaml_env_set_err_at(env, &span, type, msg);
 }
@@ -597,8 +631,8 @@ t_yaml_env_parse_tag(yaml_parse_t *env, const uint32_t min_indent,
 
     out->tag = LSTR_PS_V(&tag);
     out->span.start = tag_pos_start;
-    out->tag_span.start = tag_pos_start;
-    out->tag_span.end = tag_pos_end;
+    out->tag_span = t_new(yaml_span_t, 1);
+    yaml_span_init(out->tag_span, env, tag_pos_start, tag_pos_end);
 
     return 0;
 }
@@ -638,22 +672,27 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         goto err;
 
     }
+    subfile->included = t_new(yaml_included_file_t, 1);
+    subfile->included->parent = env;
+    subfile->included->data = *data;
+    qv_append(&env->subfiles, subfile);
 
     if (env->pres) {
         subpres_p = &subpres;
     }
     if (t_yaml_parse(subfile, &subdata, subpres_p, &err) < 0) {
-        goto err;
+        /* no call to yaml_env_set_err, because the generated error message
+         * will already have all the including details. */
+        env->err = subfile->err;
+        return -1;
     }
 
     *data = subdata;
-    qv_append(&env->subfiles, subfile);
     return 0;
 
   err:
     yaml_env_set_err_at(env, &data->span, YAML_ERR_INVALID_INCLUDE,
                         t_fmt("%pL", &err));
-    yaml_parse_delete(&subfile);
     return -1;
 }
 
@@ -720,10 +759,10 @@ static int yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
                               yaml_span_t * nonnull key_span)
 {
     pstream_t ps_key;
+    yaml_pos_t key_pos_start = yaml_env_get_pos(env);
 
-    key_span->start = yaml_env_get_pos(env);
     ps_key = ps_get_span(&env->ps, &ctype_isalnum);
-    key_span->end = yaml_env_get_pos(env);
+    yaml_span_init(key_span, env, key_pos_start, yaml_env_get_pos(env));
 
     if (ps_len(&ps_key) == 0) {
         return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
@@ -1375,15 +1414,20 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out,
     return res;
 }
 
-void yaml_parse_pretty_print_err(const yaml_parse_t * nonnull env,
-                                 const yaml_span_t * nonnull span,
+void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
                                  lstr_t error_msg, sb_t * nonnull out)
 {
     pstream_t ps;
     bool one_liner;
 
-    if (env->filepath.s) {
-        sb_addf(out, "%pL:", &env->filepath);
+    if (span->env->included) {
+        yaml_parse_pretty_print_err(&span->env->included->data.span,
+                                    LSTR("error in included file"), out);
+        sb_addc(out, '\n');
+    }
+
+    if (span->env->filepath.s) {
+        sb_addf(out, "%pL:", &span->env->filepath);
     } else {
         sb_adds(out, "<string>:");
     }
@@ -1397,7 +1441,7 @@ void yaml_parse_pretty_print_err(const yaml_parse_t * nonnull env,
 
     /* find the end of the line */
     ps.s_end = one_liner ? span->end.s - 1 : ps.s;
-    while (ps.s_end < env->ps.s_end && *ps.s_end != '\n') {
+    while (ps.s_end < span->env->ps.s_end && *ps.s_end != '\n') {
         ps.s_end++;
     }
     if (ps_len(&ps) == 0) {
@@ -2763,14 +2807,20 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* error in included file */
-        Z_HELPER_RUN(z_write_yaml_file("has_errors.yml", "[ 1, "));
+        Z_HELPER_RUN(z_write_yaml_file("has_errors.yml",
+            "key: 1\n"
+            "key: 2"
+        ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "!include has_errors.yml",
 
-            "input.yml:1:1: invalid include, "
-            "has_errors.yml:2:1: missing data, unexpected end of line\n"
+            "input.yml:1:1: error in included file\n"
             "!include has_errors.yml\n"
-            "^^^^^^^^^^^^^^^^^^^^^^^"
+            "^^^^^^^^^^^^^^^^^^^^^^^\n"
+            "has_errors.yml:2:1: invalid key, "
+            "key is already declared in the object\n"
+            "key: 2\n"
+            "^^^"
         ));
     } Z_TEST_END;
 

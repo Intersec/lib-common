@@ -28,6 +28,7 @@ typedef struct yaml_data_t yaml_data_t;
 typedef struct yaml_scalar_t yaml_scalar_t;
 typedef struct yaml_obj_t yaml_obj_t;
 typedef struct yaml_seq_t yaml_seq_t;
+typedef struct yaml_parse_t yaml_parse_t;
 
 /* All possible types for YAML scalar values */
 typedef enum yaml_scalar_type_t {
@@ -60,6 +61,9 @@ typedef struct yaml_span_t {
     yaml_pos_t start;
     /* Position in the parsed string where the data ended */
     yaml_pos_t end;
+
+    /* Related parsing context */
+    const yaml_parse_t * nonnull env;
 } yaml_span_t;
 
 #define YAML_POS_FMT  "%u:%u"
@@ -96,7 +100,7 @@ struct yaml_data_t {
 
     /* LSTR_NULL_V if untyped */
     lstr_t tag;
-    yaml_span_t tag_span;
+    yaml_span_t * nullable tag_span;
 };
 qvector_t(yaml_data, yaml_data_t);
 qm_kvec_t(yaml_data, lstr_t, yaml_data_t, qhash_lstr_hash, qhash_lstr_equal);
@@ -131,8 +135,6 @@ const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data,
 
 /* }}} */
 /* {{{ Parsing */
-
-typedef struct yaml_parse_t yaml_parse_t;
 
 /** Create a new YAML parsing object. */
 yaml_parse_t * nonnull t_yaml_parse_new(void);
@@ -203,8 +205,7 @@ t_yaml_parse(yaml_parse_t * nonnull self, yaml_data_t * nonnull out,
  *  <first line of span in parsed stream>
  *      ^ starting here
  */
-void yaml_parse_pretty_print_err(const yaml_parse_t * nonnull env,
-                                 const yaml_span_t * nonnull span,
+void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
                                  lstr_t error_msg, sb_t * nonnull out);
 
 /* }}} */
