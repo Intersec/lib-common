@@ -125,6 +125,8 @@ typedef struct yaml_env_presentation_t {
 
 /* }}} */
 
+qvector_t(yaml_parse, yaml_parse_t *);
+
 typedef struct yaml_parse_t {
     /* String to parse. */
     pstream_t ps;
@@ -149,6 +151,9 @@ typedef struct yaml_parse_t {
 
     /* Presentation details */
     yaml_env_presentation_t * nullable pres;
+
+    /* Included files */
+    qv_t(yaml_parse) subfiles;
 } yaml_parse_t;
 
 /* }}} */
@@ -250,6 +255,7 @@ typedef enum yaml_error_t {
     YAML_ERR_TAB_CHARACTER,
     YAML_ERR_INVALID_TAG,
     YAML_ERR_EXTRA_DATA,
+    YAML_ERR_INVALID_INCLUDE,
 } yaml_error_t;
 
 static int yaml_env_set_err_at(yaml_parse_t * nonnull env,
@@ -285,6 +291,9 @@ static int yaml_env_set_err_at(yaml_parse_t * nonnull env,
         break;
       case YAML_ERR_EXTRA_DATA:
         sb_addf(&err, "extra characters after data, %s", msg);
+        break;
+      case YAML_ERR_INVALID_INCLUDE:
+        sb_addf(&err, "invalid include, %s", msg);
         break;
     }
 
@@ -582,6 +591,50 @@ t_yaml_env_parse_tag(yaml_parse_t *env, const uint32_t min_indent,
     out->tag_span.end = tag_pos_end;
 
     return 0;
+}
+
+static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
+                                     yaml_data_t * nonnull data)
+{
+    const yaml_presentation_t *subpres;
+    const yaml_presentation_t **subpres_p = NULL;
+    yaml_parse_t *subfile = NULL;
+    yaml_data_t subdata;
+    SB_1k(err);
+
+    if (!lstr_equal(data->tag, LSTR("include"))) {
+        return 0;
+    }
+
+    if (data->type != YAML_DATA_SCALAR
+    ||  data->scalar.type != YAML_SCALAR_STRING)
+    {
+        sb_sets(&err, "!include can only be used with strings");
+        goto err;
+    }
+
+    subfile = t_yaml_parse_new();
+    if (t_yaml_parse_attach_file(subfile, data->scalar.s, &err) < 0) {
+        goto err;
+
+    }
+
+    if (env->pres) {
+        subpres_p = &subpres;
+    }
+    if (t_yaml_parse(subfile, &subdata, subpres_p, &err) < 0) {
+        goto err;
+    }
+
+    *data = subdata;
+    qv_append(&env->subfiles, subfile);
+    return 0;
+
+  err:
+    yaml_env_set_err_at(env, &data->span, YAML_ERR_INVALID_INCLUDE,
+                        t_fmt("%pL", &err));
+    yaml_parse_delete(&subfile);
+    return -1;
 }
 
 /* }}} */
@@ -1181,6 +1234,7 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
 
     if (ps_peekc(env->ps) == '!') {
         RETHROW(t_yaml_env_parse_tag(env, min_indent, out));
+        RETHROW(t_yaml_env_handle_include(env, out));
     } else
     if (ps_startswith_yaml_seq_prefix(&env->ps)) {
         RETHROW(t_yaml_env_parse_seq(env, cur_indent, out));
@@ -1213,6 +1267,7 @@ yaml_parse_t *t_yaml_parse_new(void)
 
     env = t_new(yaml_parse_t, 1);
     t_sb_init(&env->err, 1024);
+    t_qv_init(&env->subfiles, 0);
 
     return env;
 }
@@ -1223,6 +1278,7 @@ void yaml_parse_delete(yaml_parse_t **env)
         return;
     }
     lstr_wipe(&(*env)->file_contents);
+    qv_deep_clear(&(*env)->subfiles, yaml_parse_delete);
 }
 
 void yaml_parse_attach_ps(yaml_parse_t *env, pstream_t ps)
@@ -2239,17 +2295,24 @@ static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
 }
 
 static int
-z_write_yaml_file(const char *filepath, const char *yaml)
+t_z_write_yaml_file(const char *filepath, const char *yaml,
+                    const char * nonnull * nullable out_path)
 {
     file_t *file;
+    const char *path;
 
-    file = file_open(filepath, FILE_WRONLY | FILE_CREATE | FILE_TRUNC, 0644);
+    path = t_fmt("%pL/%s", &z_tmpdir_g, filepath);
+    file = file_open(path, FILE_WRONLY | FILE_CREATE | FILE_TRUNC, 0644);
     Z_ASSERT_P(file);
 
     file_puts(file, yaml);
     file_puts(file, "\n");
 
     Z_ASSERT_N(file_close(&file));
+
+    if (out_path) {
+        *out_path = path;
+    }
 
     Z_HELPER_END;
 }
@@ -2263,8 +2326,7 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
     yaml_parse_t *env = t_yaml_parse_new();
     SB_1k(err);
 
-    path = t_fmt("%pL/input.yml", &z_tmpdir_g);
-    Z_HELPER_RUN(z_write_yaml_file(path, yaml));
+    Z_HELPER_RUN(t_z_write_yaml_file("input.yml", yaml, &path));
 
     Z_ASSERT_N(t_yaml_parse_attach_file(env, LSTR(path), &err));
     Z_ASSERT_NEG(t_yaml_parse(env, &data, NULL, &err));
@@ -2638,6 +2700,31 @@ Z_GROUP_EXPORT(yaml)
         err = t_fmt("%pL/input.yml:2:1: missing data, unexpected end of line",
                     &z_tmpdir_g);
         Z_HELPER_RUN(z_yaml_test_file_parse_fail("", err));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Include errors */
+
+    Z_TEST(include_errors, "errors when including YAML files") {
+        /* !include tag must be applied on a string */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "!include 3",
+
+            "<string>:1:1: invalid include, "
+            "!include can only be used with strings\n"
+            "!include 3\n"
+            "^^^^^^^^^^"
+        ));
+
+        /* unknown file */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "!include foo.yml",
+
+            "<string>:1:1: invalid include, "
+            "cannot read file foo.yml: No such file or directory\n"
+            "!include foo.yml\n"
+            "^^^^^^^^^^^^^^^^"
+        ));
     } Z_TEST_END;
 
     /* }}} */
