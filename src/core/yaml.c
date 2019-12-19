@@ -637,6 +637,19 @@ t_yaml_env_parse_tag(yaml_parse_t *env, const uint32_t min_indent,
     return 0;
 }
 
+static bool has_inclusion_loop(const yaml_parse_t * nonnull env,
+                               const lstr_t newfile)
+{
+    do {
+        if (lstr_equal(env->canonical_path, newfile)) {
+            return true;
+        }
+        env = env->included ? env->included->parent : NULL;
+    } while (env);
+
+    return false;
+}
+
 static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
                                      yaml_data_t * nonnull data)
 {
@@ -672,6 +685,11 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         goto err;
 
     }
+    if (has_inclusion_loop(env, subfile->canonical_path)) {
+        sb_sets(&err, "inclusion loop detected");
+        goto err;
+    }
+
     subfile->included = t_new(yaml_included_file_t, 1);
     subfile->included->parent = env;
     subfile->included->data = *data;
@@ -2821,6 +2839,41 @@ Z_GROUP_EXPORT(yaml)
             "key is already declared in the object\n"
             "key: 2\n"
             "^^^"
+        ));
+
+        /* loop detection: include one-self */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "!include input.yml",
+
+            "input.yml:1:1: invalid include, inclusion loop detected\n"
+            "!include input.yml\n"
+            "^^^^^^^^^^^^^^^^^^"
+        ));
+        /* loop detection: include a parent */
+        Z_HELPER_RUN(z_write_yaml_file("loop-1.yml",
+            "!include loop-2.yml"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("loop-2.yml",
+            "!include loop-3.yml"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("loop-3.yml",
+            "!include loop-1.yml"
+        ));
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "!include loop-1.yml",
+
+            "input.yml:1:1: error in included file\n"
+            "!include loop-1.yml\n"
+            "^^^^^^^^^^^^^^^^^^^\n"
+            "loop-1.yml:1:1: error in included file\n"
+            "!include loop-2.yml\n"
+            "^^^^^^^^^^^^^^^^^^^\n"
+            "loop-2.yml:1:1: error in included file\n"
+            "!include loop-3.yml\n"
+            "^^^^^^^^^^^^^^^^^^^\n"
+            "loop-3.yml:1:1: invalid include, inclusion loop detected\n"
+            "!include loop-1.yml\n"
+            "^^^^^^^^^^^^^^^^^^^"
         ));
     } Z_TEST_END;
 
