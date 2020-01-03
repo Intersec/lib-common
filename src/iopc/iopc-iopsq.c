@@ -513,6 +513,7 @@ iopc_struct_load(const iop__structure__t *nonnull st_desc,
     st->name = p_dupz(st_desc->name.s, st_desc->name.len);
     iop_structure_get_type_and_fields(st_desc, &st->type, &fields);
 
+    qv_grow(&st->fields, fields.len);
     tab_for_each_ptr(field_desc, &fields) {
         iopc_field_t *f;
 
