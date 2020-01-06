@@ -2036,8 +2036,11 @@ static qps_pg_t qps_pg_remap_int(qps_t *qps, qps_pg_t blk, size_t nsz)
     if ((nxt->flags & QPS_BLK_FREE) && bsz + nxt->size >= nsz) {
         size_t tsz = bsz + qps_pg_blk_remove(qps, blk + bsz);
 
-        if (tsz > nsz)
+        if (tsz > nsz) {
             qps_pg_blk_insert(qps, blk + nsz, tsz - nsz);
+        } else {
+            hdr[nsz].flags &= ~QPS_BLK_PREV_FREE;
+        }
         PG_UNDEF(qps, blk + nsz, tsz - nsz);
     } else {
         qps_pg_t res = qps_pg_map_int(qps, hdr->handle, nsz);
