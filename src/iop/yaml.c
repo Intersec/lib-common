@@ -1095,25 +1095,23 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
       | IOP_JPACK_SKIP_EMPTY_STRUCTS                                         \
       | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES
 
-int iop_sb_ypack_with_flags(sb_t * nonnull sb,
-                            const iop_struct_t * nonnull st,
-                            const void * nonnull value,
-                            const yaml_presentation_t * nullable presentation,
-                            unsigned flags)
+void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
+                               const iop_struct_t * nonnull st,
+                               const void * nonnull value,
+                               const yaml_presentation_t * nullable pres,
+                               unsigned flags)
 {
     yaml_data_t data;
 
     t_iop_struct_to_yaml_data(st, value, flags, &data);
-
-    return yaml_pack_sb(&data, presentation, sb);
+    yaml_pack_sb(&data, pres, sb);
 }
 
-int iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
-                 const void * nonnull value,
-                 const yaml_presentation_t * nullable presentation)
+void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
+                    const void * nonnull value,
+                    const yaml_presentation_t * nullable pres)
 {
-    return iop_sb_ypack_with_flags(sb, st, value, presentation,
-                                   DEFAULT_PACK_FLAGS);
+    t_iop_sb_ypack_with_flags(sb, st, value, pres, DEFAULT_PACK_FLAGS);
 }
 
 int (iop_ypack_file)(const char *filename, unsigned file_flags,
@@ -1122,6 +1120,7 @@ int (iop_ypack_file)(const char *filename, unsigned file_flags,
                      const yaml_presentation_t * nullable presentation,
                      sb_t * nonnull err)
 {
+    t_scope;
     yaml_data_t data;
 
     t_iop_struct_to_yaml_data(st, value, DEFAULT_PACK_FLAGS, &data);

@@ -4244,7 +4244,7 @@ cdef basestring format_py_obj_to_yaml(StructUnionBase py_obj):
 
     t_scope_ignore(t_scope_guard)
     mp_iop_py_obj_to_c_val(t_pool(), False, py_obj, &val)
-    iop_sb_ypack(&sb, struct_union_get_desc(py_obj), val, NULL)
+    t_iop_sb_ypack(&sb, struct_union_get_desc(py_obj), val, NULL)
     return lstr_to_py_str(LSTR_SB_V(&sb))
 
 

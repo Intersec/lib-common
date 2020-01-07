@@ -102,7 +102,7 @@ PXCC_EXPORT_SYMBOL(t_iop_bpack_struct);
 PXCC_EXPORT_SYMBOL(iop_jpack);
 PXCC_EXPORT_SYMBOL(iop_sb_write);
 
-PXCC_EXPORT_SYMBOL(iop_sb_ypack);
+PXCC_EXPORT_SYMBOL(t_iop_sb_ypack);
 PXCC_EXPORT_SYMBOL(t_iop_yunpack_ptr_ps);
 PXCC_EXPORT_SYMBOL(t_iop_yunpack_ptr_file);
 

@@ -94,19 +94,21 @@ t_iop_yunpack_ptr_file(const char * nonnull filename,
  * See iop_ypack. This function can be used to provide specific packing flags.
  * *DO NOT USE THIS*. Use iop_ypack instead.
  */
-int iop_sb_ypack_with_flags(sb_t * nonnull sb,
-                            const iop_struct_t * nonnull st,
-                            const void * nonnull value,
-                            const yaml_presentation_t * nullable presentation,
-                            unsigned flags);
+void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
+                               const iop_struct_t * nonnull st,
+                               const void * nonnull value,
+                               const yaml_presentation_t * nullable pres,
+                               unsigned flags);
 
 /** Pack an IOP C structure to IOP-YAML in a sb_t.
  *
  * See iop_ypack().
  */
-int iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
-                 const void * nonnull value,
-                 const yaml_presentation_t * nullable presentation);
+/* XXX: this is t_ function as the sb may be t_ allocated, and this would
+ * prevent declaring a new t_scope inside the function, which we need. */
+void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
+                    const void * nonnull value,
+                    const yaml_presentation_t * nullable pres);
 
 /** Pack an IOP C structure in an IOP-YAML file.
  *
