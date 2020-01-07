@@ -44,4 +44,6 @@ ctx.set_group('code_compiling')
 ctx.stlib(target='libiopsq', source=[
     'iopc-iopsq.c',
     'iopsq.iop',
+], use=[
+    'libiopc',
 ])
