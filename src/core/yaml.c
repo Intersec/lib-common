@@ -1527,7 +1527,7 @@ typedef struct yaml_pack_env_t {
     sb_t current_path;
 
     /* Error buffer. */
-    sb_t *err;
+    sb_t err;
 } yaml_pack_env_t;
 
 static int yaml_pack_data(yaml_pack_env_t * nonnull env,
@@ -1535,13 +1535,14 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
 
 /* {{{ Utils */
 
-static int do_write(const yaml_pack_env_t *env, const void *_buf, int len)
+static int do_write(yaml_pack_env_t *env, const void *_buf, int len)
 {
     const uint8_t *buf = _buf;
     int pos = 0;
 
     while (pos < len) {
-        int res = (*env->write_cb)(env->priv, buf + pos, len - pos, env->err);
+        int res = (*env->write_cb)(env->priv, buf + pos, len - pos,
+                                   &env->err);
 
         if (res < 0) {
             if (ERR_RW_RETRIABLE(errno)) {
@@ -1561,7 +1562,7 @@ static int do_indent(yaml_pack_env_t *env)
 
     while (todo > 0) {
         int res = (*env->write_cb)(env->priv, spaces.s, MIN(spaces.len, todo),
-                                   env->err);
+                                   &env->err);
 
         if (res < 0) {
             if (ERR_RW_RETRIABLE(errno)) {
@@ -1845,7 +1846,7 @@ static bool yaml_string_must_be_quoted(const lstr_t s)
     return false;
 }
 
-static int yaml_pack_string(const yaml_pack_env_t *env, lstr_t val)
+static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val)
 {
     int res = 0;
     pstream_t ps;
@@ -2197,25 +2198,42 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
 
 /* }}} */
 /* }}} */
-/* {{{ Pack public API */
+/* {{{ Pack env public API */
 
-int yaml_pack(const yaml_data_t * nonnull data,
+/** Initialize a new YAML packing context. */
+yaml_pack_env_t * nonnull t_yaml_pack_env_new(void)
+{
+    yaml_pack_env_t *env = t_new(yaml_pack_env_t, 1);
+
+    env->state = PACK_STATE_ON_NEWLINE;
+    t_sb_init(&env->current_path, 1024);
+    t_sb_init(&env->err, 1024);
+
+    return env;
+}
+
+/** Set the callback used to write data.
+ *
+ * The callback \p writecb will be called for every buffer than must be
+ * written.
+ */
+int yaml_pack(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
               const yaml_presentation_t * nullable presentation,
               yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
-              sb_t *err)
+              sb_t * nullable err)
 {
-    yaml_pack_env_t env = {
-        .state = PACK_STATE_ON_NEWLINE,
-        .write_cb = writecb,
-        .priv = priv,
-        .pres = presentation,
-        .err = err,
-    };
     int res;
 
-    sb_init(&env.current_path);
-    res = yaml_pack_data(&env, data);
-    sb_wipe(&env.current_path);
+    env->write_cb = writecb;
+    env->priv = priv;
+    env->pres = presentation;
+
+    sb_init(&env->current_path);
+    res = yaml_pack_data(env, data);
+    sb_wipe(&env->current_path);
+    if (res < 0 && err) {
+        sb_setsb(err, &env->err);
+    }
 
     return res;
 }
@@ -2227,18 +2245,16 @@ static inline int sb_write(void * nonnull b, const void * nonnull buf,
     return len;
 }
 
-int yaml_pack_sb(const yaml_data_t * nonnull data,
-                 const yaml_presentation_t * nullable presentation,
-                 sb_t * nonnull sb)
+void yaml_pack_sb(yaml_pack_env_t * nonnull env,
+                  const yaml_data_t * nonnull data,
+                  const yaml_presentation_t * nullable presentation,
+                  sb_t * nonnull sb)
 {
-    SB_1k(err);
     int res;
 
-    res = yaml_pack(data, presentation, &sb_write, sb, &err);
+    res = yaml_pack(env, data, presentation, &sb_write, sb, NULL);
     /* Should not fail when packing into a sb */
     assert (res >= 0);
-
-    return res;
 }
 
 typedef struct yaml_pack_file_ctx_t {
@@ -2258,7 +2274,8 @@ static int iop_ypack_write_file(void *priv, const void *data, int len,
     return len;
 }
 
-int yaml_pack_file(const char * nonnull filename, unsigned file_flags,
+int yaml_pack_file(yaml_pack_env_t * nonnull env,
+                   const char * nonnull filename, unsigned file_flags,
                    mode_t file_mode, const yaml_data_t * nonnull data,
                    const yaml_presentation_t * nullable presentation,
                    sb_t * nonnull err)
@@ -2273,7 +2290,8 @@ int yaml_pack_file(const char * nonnull filename, unsigned file_flags,
         return -1;
     }
 
-    res = yaml_pack(data, presentation, &iop_ypack_write_file, &ctx, err);
+    res = yaml_pack(env, data, presentation, &iop_ypack_write_file, &ctx,
+                    err);
     if (res < 0) {
         IGNORE(file_close(&ctx.file));
         return res;
@@ -2464,10 +2482,13 @@ static int z_yaml_test_file_pack_fail(const char *path,
                                       const yaml_data_t *data,
                                       const char *expected_err)
 {
+    t_scope;
     SB_1k(err);
+    yaml_pack_env_t *env = t_yaml_pack_env_new();
 
-    Z_ASSERT_NEG(yaml_pack_file(path, FILE_WRONLY | FILE_CREATE | FILE_TRUNC,
-                                0644, data, NULL, &err));
+    Z_ASSERT_NEG(yaml_pack_file(env, path,
+                                FILE_WRONLY | FILE_CREATE | FILE_TRUNC, 0644,
+                                data, NULL, &err));
     Z_ASSERT_STREQUAL(err.data, expected_err);
 
     Z_HELPER_END;
@@ -2482,7 +2503,8 @@ int z_t_yaml_test_parse_success(yaml_data_t * nonnull data,
                                 const char * nullable expected_repack)
 {
     const yaml_presentation_t *p;
-    yaml_parse_t *env = t_yaml_parse_new();
+    yaml_parse_t *parse_env = t_yaml_parse_new();
+    yaml_pack_env_t *pack_env = t_yaml_pack_env_new();
     SB_1k(err);
     SB_1k(repack);
 
@@ -2490,18 +2512,18 @@ int z_t_yaml_test_parse_success(yaml_data_t * nonnull data,
         pres = &p;
     }
     /* hack to make relative inclusion work in z_tmpdir_g */
-    env->canonical_path = t_lstr_fmt("%pL/foo.yml", &z_tmpdir_g);
-    yaml_parse_attach_ps(env, ps_initstr(yaml));
-    Z_ASSERT_N(t_yaml_parse(env, data, pres, &err),
+    parse_env->canonical_path = t_lstr_fmt("%pL/foo.yml", &z_tmpdir_g);
+    yaml_parse_attach_ps(parse_env, ps_initstr(yaml));
+    Z_ASSERT_N(t_yaml_parse(parse_env, data, pres, &err),
                "yaml parsing failed: %pL", &err);
 
     if (!expected_repack) {
         expected_repack = yaml;
     }
-    yaml_pack_sb(data, *pres, &repack);
+    yaml_pack_sb(pack_env, data, *pres, &repack);
     Z_ASSERT_STREQUAL(repack.data, expected_repack,
                       "repacking the parsed data leads to differences");
-    yaml_parse_delete(&env);
+    yaml_parse_delete(&parse_env);
 
     Z_HELPER_END;
 }
@@ -2548,9 +2570,11 @@ z_check_yaml_pack(const yaml_data_t * nonnull data,
                   const yaml_presentation_t * nullable presentation,
                   const char *yaml)
 {
+    t_scope;
     SB_1k(sb);
+    yaml_pack_env_t *env = t_yaml_pack_env_new();
 
-    yaml_pack_sb(data, presentation, &sb);
+    yaml_pack_sb(env, data, presentation, &sb);
     Z_ASSERT_STREQUAL(sb.data, yaml);
 
     Z_HELPER_END;

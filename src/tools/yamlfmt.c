@@ -56,7 +56,11 @@ yaml_repack(lstr_t filename, sb_t * nonnull err)
     }
 
     if (t_yaml_parse(env, &data, &pres, err) >= 0) {
-        res = yaml_pack(&data, pres, yaml_pack_write_stdout, NULL, err);
+        yaml_pack_env_t *pack_env;
+
+        pack_env = t_yaml_pack_env_new();
+        res = yaml_pack(pack_env, &data, pres, yaml_pack_write_stdout, NULL,
+                        err);
         printf("\n");
     }
 

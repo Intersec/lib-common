@@ -211,11 +211,42 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
 /* }}} */
 /* {{{ Packing */
 
+typedef struct yaml_pack_env_t yaml_pack_env_t;
+typedef int (yaml_pack_writecb_f)(void * nullable priv,
+                                  const void * nonnull buf, int len,
+                                  sb_t * nonnull err);
+
+/** Create a new YAML packing context. */
+yaml_pack_env_t * nonnull t_yaml_pack_env_new(void);
+
+/** Pack a YAML data.
+ *
+ * The callback \p writecb will be called for every buffer than must be
+ * written.
+ *
+ * Unless you need to write a custom writer, you probably want to use
+ * yaml_pack_sb or yaml_pack_file instead.
+ *
+ * \param[in]  env           Packing environment.
+ * \param[in]  data          The YAML data to pack.
+ * \param[in]  presentation  Optional presentation data, to reformat the YAML
+ *                           data properly.
+ * \param[in]  writecb       Callback called on every buffer that must be
+ *                           written.
+ * \param[in]  data          Private data passed to \p writecb.
+ * \param[out] err           Buffer filled in case of error.
+ */
+int yaml_pack(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
+              const yaml_presentation_t * nullable presentation,
+              yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
+              sb_t * nullable err);
+
 /** Pack a YAML data into a YAML string.
  */
-int yaml_pack_sb(const yaml_data_t * nonnull data,
-                 const yaml_presentation_t * nullable presentation,
-                 sb_t * nonnull sb);
+void yaml_pack_sb(yaml_pack_env_t * nonnull env,
+                  const yaml_data_t * nonnull data,
+                  const yaml_presentation_t * nullable presentation,
+                  sb_t * nonnull sb);
 
 /** Pack a YAML data into a YAML file.
  *
@@ -223,29 +254,12 @@ int yaml_pack_sb(const yaml_data_t * nonnull data,
  * \param[in]  file_flags The flags to use when opening the file
  *                        (\ref enum file_flags).
  * \param[in]  file_mode  The mode to use when opening the file.
- * \param[in]  data       The YAML data to pack.
- * \param[in]  presentation  Optional presentation data, to reformat the YAML
- *                           data properly.
- * \param[out] err        Buffer filled in case of error.
  */
-int yaml_pack_file(const char * nonnull filename, unsigned file_flags,
+int yaml_pack_file(yaml_pack_env_t * nonnull env,
+                   const char * nonnull filename, unsigned file_flags,
                    mode_t file_mode, const yaml_data_t * nonnull data,
                    const yaml_presentation_t * nullable presentation,
                    sb_t * nonnull err);
-
-typedef int (yaml_pack_writecb_f)(void * nullable priv,
-                                  const void * nonnull buf, int len,
-                                  sb_t * nonnull err);
-
-/** Pack a YAML data into any output.
- *
- * This function can be used to customize how to write the YAML result.
- * \p writecb is called for every data to be written, and is passed \p priv.
- */
-int yaml_pack(const yaml_data_t * nonnull data,
-              const yaml_presentation_t * nullable presentation,
-              yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
-              sb_t * nonnull err);
 
 /* }}} */
 /* {{{ Packing helpers */

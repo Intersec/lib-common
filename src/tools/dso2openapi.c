@@ -145,6 +145,7 @@ generate_openapi(const iop_mod_t * nonnull module)
     t_scope;
     iop_openapi_t *oa;
     yaml_data_t yaml;
+    yaml_pack_env_t *env;
     SB_1k(err);
 
     oa = t_new_iop_openapi(LSTR(opts_g.title), LSTR(opts_g.version),
@@ -160,7 +161,8 @@ generate_openapi(const iop_mod_t * nonnull module)
         return -1;
     }
 
-    yaml_pack(&yaml, NULL, yaml_pack_write_stdout, NULL, &err);
+    env = t_yaml_pack_env_new();
+    yaml_pack(env, &yaml, NULL, yaml_pack_write_stdout, NULL, &err);
     printf("\n");
 
     return 0;

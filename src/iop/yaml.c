@@ -1102,9 +1102,12 @@ void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
                                unsigned flags)
 {
     yaml_data_t data;
+    yaml_pack_env_t *env;
 
     t_iop_struct_to_yaml_data(st, value, flags, &data);
-    yaml_pack_sb(&data, pres, sb);
+
+    env = t_yaml_pack_env_new();
+    yaml_pack_sb(env, &data, pres, sb);
 }
 
 void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
@@ -1121,11 +1124,13 @@ int (iop_ypack_file)(const char *filename, unsigned file_flags,
                      sb_t * nonnull err)
 {
     t_scope;
+    yaml_pack_env_t *env;
     yaml_data_t data;
 
     t_iop_struct_to_yaml_data(st, value, DEFAULT_PACK_FLAGS, &data);
 
-    return yaml_pack_file(filename, file_flags, file_mode, &data,
+    env = t_yaml_pack_env_new();
+    return yaml_pack_file(env, filename, file_flags, file_mode, &data,
                           presentation, err);
 }
 
