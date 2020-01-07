@@ -133,7 +133,8 @@ t_whitelist_rpcs(iop_openapi_t *oa)
 }
 
 static int yaml_pack_write_stdout(void * nullable priv,
-                                  const void * nonnull buf, int len)
+                                  const void * nonnull buf, int len,
+                                  sb_t *err)
 {
     return printf("%.*s", len, (const char *)buf);
 }
@@ -159,7 +160,7 @@ generate_openapi(const iop_mod_t * nonnull module)
         return -1;
     }
 
-    yaml_pack(&yaml, NULL, yaml_pack_write_stdout, NULL);
+    yaml_pack(&yaml, NULL, yaml_pack_write_stdout, NULL, &err);
     printf("\n");
 
     return 0;

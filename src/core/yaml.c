@@ -1507,13 +1507,27 @@ typedef enum yaml_pack_state_t {
 } yaml_pack_state_t;
 
 typedef struct yaml_pack_env_t {
+    /* Write callback + priv data. */
     yaml_pack_writecb_f *write_cb;
     void *priv;
+
+    /* Current packing state.
+     *
+     * Used to prettify the output by correctly transitioning between states.
+     */
     yaml_pack_state_t state;
+
+    /* Indent level (in number of spaces). */
     int indent_lvl;
+
+    /* Presentation data, if provided. */
     const yaml_presentation_t * nullable pres;
+
     /* Current path being packed. */
     sb_t current_path;
+
+    /* Error buffer. */
+    sb_t *err;
 } yaml_pack_env_t;
 
 static int yaml_pack_data(yaml_pack_env_t * nonnull env,
@@ -1527,11 +1541,12 @@ static int do_write(const yaml_pack_env_t *env, const void *_buf, int len)
     int pos = 0;
 
     while (pos < len) {
-        int res = (*env->write_cb)(env->priv, buf + pos, len - pos);
+        int res = (*env->write_cb)(env->priv, buf + pos, len - pos, env->err);
 
         if (res < 0) {
-            if (ERR_RW_RETRIABLE(errno))
+            if (ERR_RW_RETRIABLE(errno)) {
                 continue;
+            }
             return -1;
         }
         pos += res;
@@ -1545,8 +1560,8 @@ static int do_indent(yaml_pack_env_t *env)
     int todo = env->indent_lvl;
 
     while (todo > 0) {
-        int res = (*env->write_cb)(env->priv, spaces.s,
-                                   MIN(spaces.len, todo));
+        int res = (*env->write_cb)(env->priv, spaces.s, MIN(spaces.len, todo),
+                                   env->err);
 
         if (res < 0) {
             if (ERR_RW_RETRIABLE(errno)) {
@@ -2186,20 +2201,19 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
 
 int yaml_pack(const yaml_data_t * nonnull data,
               const yaml_presentation_t * nullable presentation,
-              yaml_pack_writecb_f * nonnull writecb, void * nullable priv)
+              yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
+              sb_t *err)
 {
-    /* FIXME: must declare a t_scope */
     yaml_pack_env_t env = {
         .state = PACK_STATE_ON_NEWLINE,
         .write_cb = writecb,
         .priv = priv,
         .pres = presentation,
+        .err = err,
     };
     int res;
 
     sb_init(&env.current_path);
-
-    /* Always skip everything that can be skipped */
     res = yaml_pack_data(&env, data);
     sb_wipe(&env.current_path);
 
@@ -2207,7 +2221,7 @@ int yaml_pack(const yaml_data_t * nonnull data,
 }
 
 static inline int sb_write(void * nonnull b, const void * nonnull buf,
-                           int len)
+                           int len, sb_t * nonnull err)
 {
     sb_add(b, buf, len);
     return len;
@@ -2217,20 +2231,27 @@ int yaml_pack_sb(const yaml_data_t * nonnull data,
                  const yaml_presentation_t * nullable presentation,
                  sb_t * nonnull sb)
 {
-    return yaml_pack(data, presentation, &sb_write, sb);
+    SB_1k(err);
+    int res;
+
+    res = yaml_pack(data, presentation, &sb_write, sb, &err);
+    /* Should not fail when packing into a sb */
+    assert (res >= 0);
+
+    return res;
 }
 
 typedef struct yaml_pack_file_ctx_t {
     file_t *file;
-    sb_t *err;
 } yaml_pack_file_ctx_t;
 
-static int iop_ypack_write_file(void *priv, const void *data, int len)
+static int iop_ypack_write_file(void *priv, const void *data, int len,
+                                sb_t *err)
 {
     yaml_pack_file_ctx_t *ctx = priv;
 
     if (file_write(ctx->file, data, len) < 0) {
-        sb_addf(ctx->err, "cannot write in output file: %m");
+        sb_setf(err, "cannot write in output file: %m");
         return -1;
     }
 
@@ -2251,9 +2272,8 @@ int yaml_pack_file(const char * nonnull filename, unsigned file_flags,
         sb_setf(err, "cannot open output file `%s`: %m", filename);
         return -1;
     }
-    ctx.err = err;
 
-    res = yaml_pack(data, presentation, &iop_ypack_write_file, &ctx);
+    res = yaml_pack(data, presentation, &iop_ypack_write_file, &ctx, err);
     if (res < 0) {
         IGNORE(file_close(&ctx.file));
         return res;
@@ -2436,6 +2456,19 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
     Z_ASSERT_STREQUAL(err.data, expected_err,
                       "wrong error message on yaml string `%s`", yaml);
     yaml_parse_delete(&env);
+
+    Z_HELPER_END;
+}
+
+static int z_yaml_test_file_pack_fail(const char *path,
+                                      const yaml_data_t *data,
+                                      const char *expected_err)
+{
+    SB_1k(err);
+
+    Z_ASSERT_NEG(yaml_pack_file(path, FILE_WRONLY | FILE_CREATE | FILE_TRUNC,
+                                0644, data, NULL, &err));
+    Z_ASSERT_STREQUAL(err.data, expected_err);
 
     Z_HELPER_END;
 }
@@ -3713,6 +3746,25 @@ Z_GROUP_EXPORT(yaml)
         t_yaml_data_new_seq(&data2, 1);
         yaml_seq_add_data(&data2, data);
         Z_HELPER_RUN(z_check_yaml_pack(&data2, NULL, "- - true"));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Packing errors */
+
+    Z_TEST(pack_errors, "test packing errors") {
+        t_scope;
+        yaml_data_t data;
+        const char *path;
+        const char *expected_err;
+
+        /* Pack in a unknown directory */
+        path = t_fmt("%pL/unknown_dir/foo.yml", &z_tmpdir_g);
+
+        /* empty obj */
+        yaml_data_set_null(&data);
+        expected_err = t_fmt("cannot open output file `%s`: "
+                             "No such file or directory", path);
+        Z_HELPER_RUN(z_yaml_test_file_pack_fail(path, &data, expected_err));
     } Z_TEST_END;
 
     /* }}} */

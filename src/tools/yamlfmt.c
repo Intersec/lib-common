@@ -24,7 +24,8 @@ static struct {
 } opts_g;
 
 static int yaml_pack_write_stdout(void * nullable priv,
-                                  const void * nonnull buf, int len)
+                                  const void * nonnull buf, int len,
+                                  sb_t *err)
 {
     return printf("%.*s", len, (const char *)buf);
 }
@@ -55,7 +56,7 @@ yaml_repack(lstr_t filename, sb_t * nonnull err)
     }
 
     if (t_yaml_parse(env, &data, &pres, err) >= 0) {
-        yaml_pack(&data, pres, yaml_pack_write_stdout, NULL);
+        res = yaml_pack(&data, pres, yaml_pack_write_stdout, NULL, err);
         printf("\n");
     }
 

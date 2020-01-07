@@ -234,7 +234,8 @@ int yaml_pack_file(const char * nonnull filename, unsigned file_flags,
                    sb_t * nonnull err);
 
 typedef int (yaml_pack_writecb_f)(void * nullable priv,
-                                  const void * nonnull buf, int len);
+                                  const void * nonnull buf, int len,
+                                  sb_t * nonnull err);
 
 /** Pack a YAML data into any output.
  *
@@ -243,7 +244,8 @@ typedef int (yaml_pack_writecb_f)(void * nullable priv,
  */
 int yaml_pack(const yaml_data_t * nonnull data,
               const yaml_presentation_t * nullable presentation,
-              yaml_pack_writecb_f * nonnull writecb, void * nullable priv);
+              yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
+              sb_t * nonnull err);
 
 /* }}} */
 /* {{{ Packing helpers */
