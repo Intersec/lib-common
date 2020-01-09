@@ -1695,6 +1695,20 @@ static int yaml_pack_goto_state(yaml_pack_env_t *env,
     return res;
 }
 
+static int yaml_pack_tag(yaml_pack_env_t * nonnull env, const lstr_t tag)
+{
+    int res = 0;
+
+    if (tag.s) {
+        GOTO_STATE(CLEAN);
+        PUTS("!");
+        PUTLSTR(tag);
+        env->state = PACK_STATE_AFTER_DATA;
+    }
+
+    return res;
+}
+
 /* }}} */
 /* {{{ Presentation */
 
@@ -1913,7 +1927,8 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val)
 }
 
 static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
-                            const yaml_scalar_t * nonnull scalar)
+                            const yaml_scalar_t * nonnull scalar,
+                            const lstr_t tag)
 {
     int res = 0;
     char ibuf[IBUF_LEN];
@@ -1923,6 +1938,10 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
     path_len = yaml_pack_env_push_path(env, "!");
     node = yaml_pack_env_get_pres_node(env);
     res += yaml_pack_pres_node_prefix(env, node);
+
+    /* XXX: we need to pass the tag here to ensure we put it *after* the
+     * prefix comments */
+    res += yaml_pack_tag(env, tag);
 
     GOTO_STATE(CLEAN);
 
@@ -2147,7 +2166,7 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
-        res += RETHROW(yaml_pack_scalar(env, &data->scalar));
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar, LSTR_NULL_V));
         break;
       case YAML_DATA_SEQ:
         res += RETHROW(yaml_pack_flow_seq(env, data->seq));
@@ -2170,15 +2189,10 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
     const yaml_presentation_node_t *node;
     int res = 0;
 
-    if (data->tag.s) {
-        GOTO_STATE(CLEAN);
-        PUTS("!");
-        PUTLSTR(data->tag);
-        env->state = PACK_STATE_AFTER_DATA;
-    }
-
     node = yaml_pack_env_get_pres_node(env);
     if (unlikely(node && node->flow_mode)) {
+        res += yaml_pack_tag(env, data->tag);
+
         GOTO_STATE(CLEAN);
         res += yaml_pack_flow_data(env, data, false);
         env->state = PACK_STATE_AFTER_DATA;
@@ -2187,12 +2201,14 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
 
     switch (data->type) {
       case YAML_DATA_SCALAR: {
-        res += RETHROW(yaml_pack_scalar(env, &data->scalar));
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar, data->tag));
       } break;
       case YAML_DATA_SEQ:
+        res += yaml_pack_tag(env, data->tag);
         res += RETHROW(yaml_pack_seq(env, data->seq));
         break;
       case YAML_DATA_OBJ:
+        res += yaml_pack_tag(env, data->tag);
         res += RETHROW(yaml_pack_obj(env, data->obj));
         break;
     }
@@ -3942,6 +3958,21 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("inline [0]")));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key[0].key2!"),
                                             LSTR("inline key2")));
+
+        /* prefix comment must be written before tag */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
+            "# prefix key\n"
+            "!toto 3",
+
+            NULL
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
+            "# a\n"
+            "a: # b\n"
+            "  !foo b",
+
+            NULL
+        ));
     } Z_TEST_END;
 
     /* }}} */
