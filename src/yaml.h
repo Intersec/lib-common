@@ -147,7 +147,7 @@ typedef enum yaml_parse_flags_t {
     /** Save presentation data when parsing.
      *
      * The presentation data can then be retrieved using
-     * t_yaml_pack_env_get_presentation.
+     * t_yaml_data_get_presentation.
      */
     YAML_PARSE_GEN_PRES_DATA = 1 << 0,
 } yaml_parse_flags_t;
