@@ -1528,6 +1528,15 @@ typedef struct yaml_pack_env_t {
 
     /* Error buffer. */
     sb_t err;
+
+    /* Path to the output directory. */
+    const char * nullable outdirpath;
+
+    /* Flags to use when creating subfiles. */
+    unsigned file_flags;
+
+    /* mode to use when creating subfiles. */
+    mode_t file_mode;
 } yaml_pack_env_t;
 
 static int yaml_pack_data(yaml_pack_env_t * nonnull env,
@@ -2206,17 +2215,34 @@ yaml_pack_env_t * nonnull t_yaml_pack_env_new(void)
     yaml_pack_env_t *env = t_new(yaml_pack_env_t, 1);
 
     env->state = PACK_STATE_ON_NEWLINE;
+    env->file_flags = FILE_WRONLY | FILE_CREATE | FILE_TRUNC;
+    env->file_mode = 0644;
+
     t_sb_init(&env->current_path, 1024);
     t_sb_init(&env->err, 1024);
 
     return env;
 }
 
-/** Set the callback used to write data.
- *
- * The callback \p writecb will be called for every buffer than must be
- * written.
- */
+int t_yaml_pack_env_set_outdir(yaml_pack_env_t * nonnull env,
+                               const char * nonnull dirpath,
+                               sb_t * nonnull err)
+{
+    if (mkdir_p(dirpath, 0755) < 0) {
+        sb_sets(err, "could not create output directory: %m");
+        return -1;
+    }
+
+    env->outdirpath = t_strdup(dirpath);
+
+    return 0;
+}
+
+void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode)
+{
+    env->file_mode = mode;
+}
+
 int yaml_pack(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
               const yaml_presentation_t * nullable presentation,
               yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
@@ -2275,16 +2301,25 @@ static int iop_ypack_write_file(void *priv, const void *data, int len,
 }
 
 int yaml_pack_file(yaml_pack_env_t * nonnull env,
-                   const char * nonnull filename, unsigned file_flags,
-                   mode_t file_mode, const yaml_data_t * nonnull data,
+                   const char * nonnull filename,
+                   const yaml_data_t * nonnull data,
                    const yaml_presentation_t * nullable presentation,
                    sb_t * nonnull err)
 {
+    t_scope;
+    char path[PATH_MAX];
     yaml_pack_file_ctx_t ctx;
     int res;
 
+    if (env->outdirpath) {
+        path_extend(path, env->outdirpath, "%s", filename);
+    } else {
+        path_dirname(path, PATH_MAX, filename);
+        RETHROW(t_yaml_pack_env_set_outdir(env, path, err));
+    }
+
     p_clear(&ctx, 1);
-    ctx.file = file_open(filename, file_flags, file_mode);
+    ctx.file = file_open(filename, env->file_flags, env->file_mode);
     if (!ctx.file) {
         sb_setf(err, "cannot open output file `%s`: %m", filename);
         return -1;
@@ -2486,9 +2521,8 @@ static int z_yaml_test_file_pack_fail(const char *path,
     SB_1k(err);
     yaml_pack_env_t *env = t_yaml_pack_env_new();
 
-    Z_ASSERT_NEG(yaml_pack_file(env, path,
-                                FILE_WRONLY | FILE_CREATE | FILE_TRUNC, 0644,
-                                data, NULL, &err));
+    Z_ASSERT_N(t_yaml_pack_env_set_outdir(env, z_tmpdir_g.s, &err));
+    Z_ASSERT_NEG(yaml_pack_file(env, path, data, NULL, &err));
     Z_ASSERT_STREQUAL(err.data, expected_err);
 
     Z_HELPER_END;

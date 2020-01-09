@@ -113,8 +113,6 @@ void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
 /** Pack an IOP C structure in an IOP-YAML file.
  *
  * \param[in]  filename   The file in which the value is packed.
- * \param[in]  file_flags The flags to use when opening the file
- *                        (\ref enum file_flags).
  * \param[in]  file_mode  The mode to use when opening the file.
  * \param[in]  st         IOP structure description.
  * \param[in]  value      Pointer on the IOP structure to pack.
@@ -124,15 +122,15 @@ void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
  *                           presentation.
  * \param[out] err        Buffer filled in case of error.
  */
-int iop_ypack_file(const char * nonnull filename, unsigned file_flags,
-                   mode_t file_mode, const iop_struct_t * nonnull st,
+int iop_ypack_file(const char * nonnull filename, mode_t file_mode,
+                   const iop_struct_t * nonnull st,
                    const void * nonnull value,
                    const yaml_presentation_t * nullable presentation,
                    sb_t * nonnull err);
 
 #define iop_ypack_file(filename, st, value, presentation, err)               \
-    (iop_ypack_file)((filename), FILE_WRONLY | FILE_CREATE | FILE_TRUNC,     \
-                     0644, (st), (value), (presentation), (err))
+    (iop_ypack_file)((filename), 0644, (st), (value), (presentation), (err))
+
 /* }}} */
 
 MODULE_DECLARE(iop_yaml);

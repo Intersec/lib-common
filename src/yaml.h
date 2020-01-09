@@ -219,6 +219,32 @@ typedef int (yaml_pack_writecb_f)(void * nullable priv,
 /** Create a new YAML packing context. */
 yaml_pack_env_t * nonnull t_yaml_pack_env_new(void);
 
+/** Set the output directory.
+ *
+ * Files, including subfiles, will be created inside this directory.
+ * This function must be called in order for included subfiles to be recreated
+ * properly.
+ *
+ * \param[in]   env         The packing environment.
+ * \param[in]   dirpath     The path to the directory where files will be
+ *                          written. If non-existent, it will be created with
+ *                          permission 0755.
+ * \param[out]  err         Error buffer, filled iff -1 is returned.
+ */
+int t_yaml_pack_env_set_outdir(yaml_pack_env_t * nonnull env,
+                               const char * nonnull dirpath,
+                               sb_t * nonnull err);
+
+/** Set the mode to use when creating files.
+ *
+ * Files, including subfiles, will be created with this mode.
+ * By default, 0644 is used.
+ *
+ * \param[in]   env         The packing environment.
+ * \param[in]   file_mode   Mode to use when creating files.
+ */
+void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode);
+
 /** Pack a YAML data.
  *
  * The callback \p writecb will be called for every buffer than must be
@@ -250,14 +276,16 @@ void yaml_pack_sb(yaml_pack_env_t * nonnull env,
 
 /** Pack a YAML data into a YAML file.
  *
+ * \warning t_yaml_pack_env_set_outdir *must* have been called first.
+ *
  * \param[in]  filename   The file in which the value is packed.
  * \param[in]  file_flags The flags to use when opening the file
  *                        (\ref enum file_flags).
  * \param[in]  file_mode  The mode to use when opening the file.
  */
 int yaml_pack_file(yaml_pack_env_t * nonnull env,
-                   const char * nonnull filename, unsigned file_flags,
-                   mode_t file_mode, const yaml_data_t * nonnull data,
+                   const char * nonnull filename,
+                   const yaml_data_t * nonnull data,
                    const yaml_presentation_t * nullable presentation,
                    sb_t * nonnull err);
 
