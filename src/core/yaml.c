@@ -488,6 +488,8 @@ static void t_yaml_env_pres_set_flow_mode(yaml_parse_t * nonnull env)
 
     pnode = t_yaml_env_pres_get_current_node(env->pres);
     pnode->flow_mode = true;
+    logger_trace(&_G.logger, 2, "set flow mode on path `%pL`",
+                 &env->pres->current_path);
 }
 
 static void t_yaml_env_pres_add_empty_line(yaml_parse_t * nonnull env)
@@ -1107,12 +1109,18 @@ t_yaml_env_parse_flow_seq(yaml_parse_t *env, yaml_data_t *out)
 {
     qv_t(yaml_data) datas;
     yaml_pos_t pos_start = yaml_env_get_pos(env);
+    int path_len;
 
     t_qv_init(&datas, 0);
 
     /* skip '[' */
     assert (ps_peekc(env->ps) == '[');
     yaml_env_skipc(env);
+
+    /* For the purpose of presentation, a flow data is considered as presented
+     * as a scalar.
+     */
+    path_len = yaml_env_pres_push_path(env->pres, "!");
 
     for (;;) {
         yaml_key_data_t kd;
@@ -1153,6 +1161,10 @@ t_yaml_env_parse_flow_seq(yaml_parse_t *env, yaml_data_t *out)
     out->seq = t_new(yaml_seq_t, 1);
     out->seq->datas = datas;
 
+    /* get the inline comment for the flow data */
+    RETHROW(yaml_env_ltrim(env));
+    yaml_env_pres_pop_path(env->pres, path_len);
+
     return 0;
 }
 
@@ -1170,9 +1182,15 @@ t_yaml_env_parse_flow_obj(yaml_parse_t *env, yaml_data_t *out)
     qv_t(yaml_key_data) fields;
     yaml_pos_t pos_start = yaml_env_get_pos(env);
     qh_t(lstr) keys_hash;
+    int path_len;
 
     t_qv_init(&fields, 0);
     t_qh_init(lstr, &keys_hash, 0);
+
+    /* For the purpose of presentation, a flow data is considered as presented
+     * as a scalar.
+     */
+    path_len = yaml_env_pres_push_path(env->pres, "!");
 
     /* skip '{' */
     assert (ps_peekc(env->ps) == '{');
@@ -1220,6 +1238,10 @@ t_yaml_env_parse_flow_obj(yaml_parse_t *env, yaml_data_t *out)
                                 yaml_env_get_pos(env), out);
     out->obj = t_new(yaml_obj_t, 1);
     out->obj->fields = fields;
+
+    /* get the inline comment for the flow data */
+    RETHROW(yaml_env_ltrim(env));
+    yaml_env_pres_pop_path(env->pres, path_len);
 
     return 0;
 }
@@ -1928,16 +1950,18 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val)
 
 static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
                             const yaml_scalar_t * nonnull scalar,
-                            const lstr_t tag)
+                            const lstr_t tag, bool in_flow)
 {
     int res = 0;
     char ibuf[IBUF_LEN];
-    const yaml_presentation_node_t *node;
-    int path_len;
+    const yaml_presentation_node_t *node = NULL;
+    int path_len = 0;
 
-    path_len = yaml_pack_env_push_path(env, "!");
-    node = yaml_pack_env_get_pres_node(env);
-    res += yaml_pack_pres_node_prefix(env, node);
+    if (!in_flow) {
+        path_len = yaml_pack_env_push_path(env, "!");
+        node = yaml_pack_env_get_pres_node(env);
+        res += yaml_pack_pres_node_prefix(env, node);
+    }
 
     /* XXX: we need to pass the tag here to ensure we put it *after* the
      * prefix comments */
@@ -1988,8 +2012,10 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
     }
 
     env->state = PACK_STATE_AFTER_DATA;
-    res += yaml_pack_pres_node_inline(env, node);
-    yaml_pack_env_pop_path(env, path_len);
+    if (!in_flow) {
+        res += yaml_pack_pres_node_inline(env, node);
+        yaml_pack_env_pop_path(env, path_len);
+    }
 
     return res;
 }
@@ -2166,7 +2192,8 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
-        res += RETHROW(yaml_pack_scalar(env, &data->scalar, LSTR_NULL_V));
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar, LSTR_NULL_V,
+                                        true));
         break;
       case YAML_DATA_SEQ:
         res += RETHROW(yaml_pack_flow_seq(env, data->seq));
@@ -2188,20 +2215,30 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
 {
     const yaml_presentation_node_t *node;
     int res = 0;
+    int path_len = 0;
 
     node = yaml_pack_env_get_pres_node(env);
     if (unlikely(node && node->flow_mode)) {
+        path_len = yaml_pack_env_push_path(env, "!");
+        node = yaml_pack_env_get_pres_node(env);
+
+        res += yaml_pack_pres_node_prefix(env, node);
         res += yaml_pack_tag(env, data->tag);
 
         GOTO_STATE(CLEAN);
         res += yaml_pack_flow_data(env, data, false);
         env->state = PACK_STATE_AFTER_DATA;
+
+        res += yaml_pack_pres_node_inline(env, node);
+        yaml_pack_env_pop_path(env, path_len);
+
         return res;
     }
 
     switch (data->type) {
       case YAML_DATA_SCALAR: {
-        res += RETHROW(yaml_pack_scalar(env, &data->scalar, data->tag));
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar, data->tag,
+                                        false));
       } break;
       case YAML_DATA_SEQ:
         res += yaml_pack_tag(env, data->tag);
@@ -3970,6 +4007,21 @@ Z_GROUP_EXPORT(yaml)
             "# a\n"
             "a: # b\n"
             "  !foo b",
+
+            NULL
+        ));
+
+        /* inline comments with flow data */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
+            "- # prefix\n"
+            "  1 # inline\n",
+            NULL
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres,
+            "- # prefix\n"
+            "  [ 1 ] # inline\n"
+            "- # prefix2\n"
+            "  { a: b } # inline2\n",
 
             NULL
         ));
