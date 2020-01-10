@@ -143,8 +143,20 @@ const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data,
 /* }}} */
 /* {{{ Parsing */
 
-/** Create a new YAML parsing object. */
-yaml_parse_t * nonnull t_yaml_parse_new(void);
+typedef enum yaml_parse_flags_t {
+    /** Save presentation data when parsing.
+     *
+     * The presentation data can then be retrieved using
+     * t_yaml_pack_env_get_presentation.
+     */
+    YAML_PARSE_GEN_PRES_DATA = 1 << 0,
+} yaml_parse_flags_t;
+
+/** Create a new YAML parsing object.
+ *
+ * \param[in]  flags  bitfield of yaml_pack_flags_t elements.
+ */
+yaml_parse_t * nonnull t_yaml_parse_new(int flags);
 
 /** Delete a YAML parsing object.
  *
@@ -184,18 +196,12 @@ int t_yaml_parse_attach_file(yaml_parse_t * nonnull self, lstr_t filepath,
  * object.
  *
  * \param[in]   self          A YAML parsing object.
- * \param[in]   ps            The pstream to parse.
  * \param[out]  out           The YAML data parsed.
- * \param[out]  presentation  Presentation information associated with the
- *     parsed data. Used to repack the YAML data while keeping comments,
- *     includes, etc. NULL can be given, in which case
- *     no metadata is saved.
  * \param[out]  err        Error buffer filled in case of error.
  * \return -1 on error, 0 otherwise.
  */
 int
 t_yaml_parse(yaml_parse_t * nonnull self, yaml_data_t * nonnull out,
-             const yaml_presentation_t * nonnull * nullable presentation,
              sb_t * nonnull err);
 
 /** Pretty print an error message related to a parsed span.
@@ -214,6 +220,17 @@ t_yaml_parse(yaml_parse_t * nonnull self, yaml_data_t * nonnull out,
  */
 void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
                                  lstr_t error_msg, sb_t * nonnull out);
+
+/** Copy the presentation data associated with a parsed YAML data.
+ *
+ * This presentation data can then be used when repacking, to reformat the
+ * YAML document properly. It includes comments, includes, newlines, etc.
+ *
+ * \warning the flag YAML_PARSE_GEN_PRES_DATA must have been used when
+ * parsing the object.
+ */
+const yaml_presentation_t * nonnull
+t_yaml_data_get_presentation(const yaml_data_t * nonnull data);
 
 /* }}} */
 /* {{{ Packing */
@@ -262,8 +279,6 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode);
  *
  * \param[in]  env           Packing environment.
  * \param[in]  data          The YAML data to pack.
- * \param[in]  presentation  Optional presentation data, to reformat the YAML
- *                           data properly.
  * \param[in]  writecb       Callback called on every buffer that must be
  *                           written.
  * \param[in]  data          Private data passed to \p writecb.

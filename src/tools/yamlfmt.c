@@ -35,12 +35,13 @@ yaml_repack(lstr_t filename, sb_t * nonnull err)
 {
     t_scope;
     const yaml_presentation_t *pres = NULL;
+    yaml_pack_env_t *pack_env;
     yaml_parse_t *env;
     yaml_data_t data;
     lstr_t file = LSTR_NULL_V;
     int res = 0;
 
-    env = t_yaml_parse_new();
+    env = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
     if (filename.s) {
         if (t_yaml_parse_attach_file(env, filename, LSTR_NULL_V, err) < 0) {
             res = -1;
@@ -55,14 +56,17 @@ yaml_repack(lstr_t filename, sb_t * nonnull err)
         yaml_parse_attach_ps(env, ps_initlstr(&file));
     }
 
-    if (t_yaml_parse(env, &data, &pres, err) >= 0) {
-        yaml_pack_env_t *pack_env;
-
-        pack_env = t_yaml_pack_env_new();
-        res = yaml_pack(pack_env, &data, pres, yaml_pack_write_stdout, NULL,
-                        err);
-        printf("\n");
+    if (t_yaml_parse(env, &data, err) < 0) {
+        res = -1;
+        goto end;
     }
+
+    pres = t_yaml_data_get_presentation(&data);
+
+    pack_env = t_yaml_pack_env_new();
+    res = yaml_pack(pack_env, &data, pres, yaml_pack_write_stdout, NULL,
+                    err);
+    printf("\n");
 
   end:
     lstr_wipe(&file);

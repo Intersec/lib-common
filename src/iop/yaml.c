@@ -807,7 +807,10 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
     yunpack_env_t unpack_env;
     yaml_data_t data;
 
-    RETHROW(t_yaml_parse(env, &data, pres, out_err));
+    RETHROW(t_yaml_parse(env, &data, out_err));
+    if (pres) {
+        *pres = t_yaml_data_get_presentation(&data);
+    }
 
     p_clear(&unpack_env, 1);
     unpack_env.err.buf = err;
@@ -845,8 +848,13 @@ int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
 {
     yaml_parse_t *env;
     int res;
+    int flags = 0;
 
-    env = t_yaml_parse_new();
+    if (pres) {
+        flags = YAML_PARSE_GEN_PRES_DATA;
+    }
+
+    env = t_yaml_parse_new(flags);
     yaml_parse_attach_ps(env, *ps);
 
     res = t_iop_yunpack(env, st, out, pres, out_err);
@@ -885,8 +893,13 @@ int t_iop_yunpack_file(const char * nonnull filename,
 {
     yaml_parse_t *env;
     int res;
+    int flags = 0;
 
-    env = t_yaml_parse_new();
+    if (pres) {
+        flags = YAML_PARSE_GEN_PRES_DATA;
+    }
+
+    env = t_yaml_parse_new(flags);
     res = t_yaml_parse_attach_file(env, LSTR(filename), LSTR_NULL_V, out_err);
     if (res >= 0) {
         res = t_iop_yunpack(env, st, out, pres, out_err);

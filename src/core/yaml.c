@@ -187,6 +187,9 @@ typedef struct yaml_parse_t {
     /* mmap'ed contents of the file. */
     lstr_t file_contents;
 
+    /* Bitfield of yaml_parse_flags_t elements. */
+    int flags;
+
     /* Current line number. */
     uint32_t line_number;
 
@@ -656,8 +659,6 @@ static bool has_inclusion_loop(const yaml_parse_t * nonnull env,
 static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
                                      yaml_data_t * nonnull data)
 {
-    const yaml_presentation_t *subpres;
-    const yaml_presentation_t **subpres_p = NULL;
     yaml_parse_t *subfile = NULL;
     yaml_data_t subdata;
     char dirpath[PATH_MAX];
@@ -681,7 +682,7 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         goto err;
     }
 
-    subfile = t_yaml_parse_new();
+    subfile = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
     if (t_yaml_parse_attach_file(subfile, data->scalar.s, LSTR(dirpath),
                                  &err) < 0)
     {
@@ -698,10 +699,7 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     subfile->included->data = *data;
     qv_append(&env->subfiles, subfile);
 
-    if (env->pres) {
-        subpres_p = &subpres;
-    }
-    if (t_yaml_parse(subfile, &subdata, subpres_p, &err) < 0) {
+    if (t_yaml_parse(subfile, &subdata, &err) < 0) {
         /* no call to yaml_env_set_err, because the generated error message
          * will already have all the including details. */
         env->err = subfile->err;
@@ -1398,26 +1396,15 @@ t_yaml_add_pres_nodes(yaml_presentation_t * nonnull pres,
     }
 }
 
-static yaml_presentation_t * nonnull
-t_yaml_generate_presentation(const yaml_data_t * nonnull data)
-{
-    yaml_presentation_t *pres = t_new(yaml_presentation_t, 1);
-    t_SB_1k(path);
-
-    t_qm_init(yaml_pres_node, &pres->nodes, 0);
-    t_yaml_add_pres_nodes(pres, data, &path);
-
-    return pres;
-}
-
 /* }}} */
 /* {{{ Parser public API */
 
-yaml_parse_t *t_yaml_parse_new(void)
+yaml_parse_t *t_yaml_parse_new(int flags)
 {
     yaml_parse_t *env;
 
     env = t_new(yaml_parse_t, 1);
+    env->flags = flags;
     t_sb_init(&env->err, 1024);
     t_qv_init(&env->subfiles, 0);
 
@@ -1463,13 +1450,12 @@ int t_yaml_parse_attach_file(yaml_parse_t *env, lstr_t filepath,
     return 0;
 }
 
-int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out,
-                 const yaml_presentation_t **presentation, sb_t *out_err)
+int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
 {
     pstream_t saved_ps = env->ps;
     int res = 0;
 
-    if (presentation) {
+    if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
         env->pres = t_new(yaml_env_presentation_t, 1);
     }
 
@@ -1487,10 +1473,6 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out,
         goto end;
     }
 
-    if (presentation) {
-        *presentation = t_yaml_generate_presentation(out);
-    }
-
   end:
     if (res < 0) {
         sb_setsb(out_err, &env->err);
@@ -1499,6 +1481,18 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out,
      * by yaml_parse_get_stream(). */
     env->ps = saved_ps;
     return res;
+}
+
+const yaml_presentation_t * nonnull
+t_yaml_data_get_presentation(const yaml_data_t * nonnull data)
+{
+    yaml_presentation_t *pres = t_new(yaml_presentation_t, 1);
+    t_SB_1k(path);
+
+    t_qm_init(yaml_pres_node, &pres->nodes, 0);
+    t_yaml_add_pres_nodes(pres, data, &path);
+
+    return pres;
 }
 
 void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
@@ -2533,11 +2527,11 @@ static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
 {
     t_scope;
     yaml_data_t data;
-    yaml_parse_t *env = t_yaml_parse_new();
+    yaml_parse_t *env = t_yaml_parse_new(0);
     SB_1k(err);
 
     yaml_parse_attach_ps(env, ps_initstr(yaml));
-    Z_ASSERT_NEG(t_yaml_parse(env, &data, NULL, &err));
+    Z_ASSERT_NEG(t_yaml_parse(env, &data, &err));
     Z_ASSERT_STREQUAL(err.data, expected_err,
                       "wrong error message on yaml string `%s`", yaml);
     yaml_parse_delete(&env);
@@ -2581,13 +2575,13 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
 {
     t_scope;
     yaml_data_t data;
-    yaml_parse_t *env = t_yaml_parse_new();
+    yaml_parse_t *env = t_yaml_parse_new(0);
     SB_1k(err);
 
     Z_HELPER_RUN(z_write_yaml_file("input.yml", yaml));
     Z_ASSERT_N(t_yaml_parse_attach_file(env, LSTR("input.yml"), z_tmpdir_g,
                &err));
-    Z_ASSERT_NEG(t_yaml_parse(env, &data, NULL, &err));
+    Z_ASSERT_NEG(t_yaml_parse(env, &data, &err));
     Z_ASSERT_STREQUAL(err.data, expected_err,
                       "wrong error message on yaml string `%s`", yaml);
     yaml_parse_delete(&env);
@@ -2619,7 +2613,7 @@ int z_t_yaml_test_parse_success(yaml_data_t * nonnull data,
                                 const char * nullable expected_repack)
 {
     const yaml_presentation_t *p;
-    yaml_parse_t *parse_env = t_yaml_parse_new();
+    yaml_parse_t *parse_env = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
     yaml_pack_env_t *pack_env = t_yaml_pack_env_new();
     SB_1k(err);
     SB_1k(repack);
@@ -2630,8 +2624,9 @@ int z_t_yaml_test_parse_success(yaml_data_t * nonnull data,
     /* hack to make relative inclusion work in z_tmpdir_g */
     parse_env->canonical_path = t_lstr_fmt("%pL/foo.yml", &z_tmpdir_g);
     yaml_parse_attach_ps(parse_env, ps_initstr(yaml));
-    Z_ASSERT_N(t_yaml_parse(parse_env, data, pres, &err),
+    Z_ASSERT_N(t_yaml_parse(parse_env, data, &err),
                "yaml parsing failed: %pL", &err);
+    *pres = t_yaml_data_get_presentation(data);
 
     if (!expected_repack) {
         expected_repack = yaml;
