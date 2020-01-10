@@ -209,6 +209,7 @@ def configure(ctx):
 
 def build(ctx):
     # Declare 4 build groups:
+    #  - one for generating the "version" source files
     #  - one for compiling farchc
     #  - one for compiling iopc
     #  - one for compiling pxc (used in the tools repository)
@@ -217,6 +218,7 @@ def build(ctx):
     # This way we are sure farchc is generated before iopc (needed because it
     # uses a farch file), and iopc is generated before building the IOP files.
     # Refer to section "Building the compiler first" of the waf book.
+    ctx.add_group('gen_version')
     ctx.add_group('farchc')
     ctx.add_group('iopc')
     ctx.add_group('pxcc')
@@ -228,8 +230,9 @@ def build(ctx):
 
     # {{{ libcommon-minimal library
 
-    ctx(rule='${VERSION_SH} rcsid libcommon > ${TGT}',
-        target='core-version.c', cwd='.', always=True)
+    with ctx.UseGroup(ctx, 'gen_version'):
+        ctx(rule='${VERSION_SH} rcsid libcommon > ${TGT}',
+            target='core-version.c', cwd='.', always=True)
 
     # This minimal version of the lib-common contains only what's needed to
     # build farchc and iopc. As a consequence, it cannot contain .fc or .iop
@@ -341,7 +344,7 @@ def build(ctx):
     ])
 
     # Full lib-common library
-    libcommon = ctx.stlib(target='libcommon',
+    ctx.stlib(target='libcommon',
         features='c cstlib',
         use=['libcommon-iop', 'libcommon-minimal', 'openssl', 'zlib'],
         source=[
