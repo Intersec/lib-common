@@ -29,6 +29,8 @@ typedef struct yaml_scalar_t yaml_scalar_t;
 typedef struct yaml_obj_t yaml_obj_t;
 typedef struct yaml_seq_t yaml_seq_t;
 typedef struct yaml_parse_t yaml_parse_t;
+typedef struct yaml_presentation_node_t yaml_presentation_node_t;
+qvector_t(yaml_pres_node, yaml_presentation_node_t * nullable);
 
 /* All possible types for YAML scalar values */
 typedef enum yaml_scalar_type_t {
@@ -101,6 +103,8 @@ struct yaml_data_t {
     /* LSTR_NULL_V if untyped */
     lstr_t tag;
     yaml_span_t * nullable tag_span;
+
+    yaml_presentation_node_t * nullable presentation;
 };
 qvector_t(yaml_data, yaml_data_t);
 qm_kvec_t(yaml_data, lstr_t, yaml_data_t, qhash_lstr_hash, qhash_lstr_equal);
@@ -110,6 +114,7 @@ typedef struct yaml_key_data_t {
     yaml_data_t data;
 
     yaml_span_t key_span;
+    yaml_presentation_node_t * nullable key_presentation;
 } yaml_key_data_t;
 qvector_t(yaml_key_data, yaml_key_data_t);
 
@@ -119,6 +124,8 @@ struct yaml_obj_t {
 
 struct yaml_seq_t {
     qv_t(yaml_data) datas;
+
+    qv_t(yaml_pres_node) pres_nodes;
 };
 
 typedef struct yaml_presentation_t yaml_presentation_t;
