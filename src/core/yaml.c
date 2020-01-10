@@ -2302,21 +2302,44 @@ yaml_pack_included_data(yaml_pack_env_t * nonnull env,
                         const yaml_presentation_node_t * nonnull node)
 {
     yaml_presentation_include_t *inc;
-    const yaml_presentation_t *pres = env->pres;
+    const yaml_presentation_t *saved_pres = env->pres;
     int res;
     SB_1k(err);
 
     inc = node->included;
-    if (yaml_pack_write_subfile(env, inc, data, &err) < 0) {
-        sb_setf(&env->err, "error when packing subfile `%pL`: %pL",
-                    &inc->data.scalar.s, &err);
+    /* Only create subfiles if an outdir is set, ie if we are packing into
+     * files. */
+    if (env->outdirpath) {
+        if (yaml_pack_write_subfile(env, inc, data, &err) < 0) {
+            sb_setf(&env->err, "error when packing subfile `%pL`: %pL",
+                        &inc->data.scalar.s, &err);
+            return -1;
+        }
+
+        /* Make sure the presentation data is not used as the paths won't be
+         * correct when packing this data. */
+        env->pres = NULL;
+        res = yaml_pack_data(env, &inc->data);
+        env->pres = saved_pres;
+    } else {
+        SB_1k(new_path);
+        sb_t saved_path;
+
+        /* Inline the contents of the included data directly in the current
+         * stream. This is as easy as just packing data, but we need to also
+         * use the presentation data from the included files. To do so, the
+         * current_path must be reset. */
+
+        saved_path = env->current_path;
+
+        env->pres = inc->presentation;
+        env->current_path = new_path;
+        res = yaml_pack_data(env, data);
+
+        env->current_path = saved_path;
+        env->pres = saved_pres;
     }
 
-    /* Make sure the presentation data is not used as the paths won't be
-     * correct when packing this data. */
-    env->pres = NULL;
-    res = yaml_pack_data(env, &inc->data);
-    env->pres = pres;
 
     return res;
 }
@@ -2341,7 +2364,7 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
 
     /* If the node was included from another file, and we are packing files,
      * dump it in a new file. */
-    if (unlikely(node && node->included && env->outdirpath)) {
+    if (unlikely(node && node->included)) {
         return yaml_pack_included_data(env, data, node);
     }
 
@@ -3278,7 +3301,9 @@ Z_GROUP_EXPORT(yaml)
             "[ 4, 2 ] # packed"
         ));
         Z_HELPER_RUN(z_write_yaml_file("subpres/weird~name",
-            "joJo"
+            "jo: Jo\n"
+            "# o\n"
+            "o: ra"
         ));
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
             "- !include subpres/1.yml\n"
@@ -3286,10 +3311,10 @@ Z_GROUP_EXPORT(yaml)
 
             /* XXX: the presentation associated with the "!include" data is
              * not included, as the data is inlined. */
-            /* FIXME: presentation lost */
-            "- - 4\n"
-            "  - 2\n"
-            "- joJo"
+            "- [ 4, 2 ] # packed\n"
+            "- jo: Jo\n"
+            "  # o\n"
+            "  o: ra"
         ));
 
         Z_HELPER_RUN(z_create_tmp_subdir("newsubdir/in"));
@@ -3306,7 +3331,9 @@ Z_GROUP_EXPORT(yaml)
             "[ 4, 2 ] # packed\n"
         ));
         Z_HELPER_RUN(z_check_file("newsubdir/subpres/weird~name",
-            "joJo\n"
+            "jo: Jo\n"
+            "# o\n"
+            "o: ra\n"
         ));
         yaml_parse_delete(&env);
     } Z_TEST_END;
