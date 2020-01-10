@@ -265,21 +265,33 @@ static void yaml_span_init(yaml_span_t * nonnull span,
 }
 
 static void
-yaml_env_init_data_with_end(const yaml_parse_t *env, yaml_data_type_t type,
-                            yaml_pos_t pos_start, yaml_pos_t pos_end,
-                            yaml_data_t *out)
+yaml_env_start_data_with_pos(const yaml_parse_t * nonnull env,
+                             yaml_data_type_t type, yaml_pos_t pos_start,
+                             yaml_data_t * nonnull out)
 {
     p_clear(out, 1);
     out->type = type;
-    yaml_span_init(&out->span, env, pos_start, pos_end);
+    yaml_span_init(&out->span, env, pos_start, pos_start);
 }
 
 static void
-yaml_env_init_data(const yaml_parse_t *env, yaml_data_type_t type,
-                   yaml_pos_t pos_start, yaml_data_t *out)
+yaml_env_start_data(const yaml_parse_t * nonnull env, yaml_data_type_t type,
+                    yaml_data_t * nonnull out)
 {
-    yaml_env_init_data_with_end(env, type, pos_start, yaml_env_get_pos(env),
-                                out);
+    yaml_env_start_data_with_pos(env, type, yaml_env_get_pos(env), out);
+}
+
+static void
+yaml_env_end_data_with_pos(const yaml_parse_t * nonnull env,
+                           yaml_pos_t pos_end, yaml_data_t * nonnull out)
+{
+    out->span.end = pos_end;
+}
+
+static void
+yaml_env_end_data(const yaml_parse_t * nonnull env, yaml_data_t * nonnull out)
+{
+    yaml_env_end_data_with_pos(env, yaml_env_get_pos(env), out);
 }
 
 /* }}} */
@@ -723,12 +735,12 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
                                 yaml_data_t *out)
 {
     qv_t(yaml_data) datas;
-    yaml_pos_t pos_start = yaml_env_get_pos(env);
     yaml_pos_t pos_end = {0};
 
     t_qv_init(&datas, 0);
 
     assert (ps_startswith_yaml_seq_prefix(&env->ps));
+    yaml_env_start_data(env, YAML_DATA_SEQ, out);
 
     for (;;) {
         yaml_data_t elem;
@@ -765,7 +777,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
         }
     }
 
-    yaml_env_init_data_with_end(env, YAML_DATA_SEQ, pos_start, pos_end, out);
+    yaml_env_end_data_with_pos(env, pos_end, out);
     out->seq = t_new(yaml_seq_t, 1);
     out->seq->datas = datas;
 
@@ -802,12 +814,13 @@ t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
                      yaml_data_t *out)
 {
     qv_t(yaml_key_data) fields;
-    yaml_pos_t pos_start = yaml_env_get_pos(env);
     yaml_pos_t pos_end = {0};
     qh_t(lstr) keys_hash;
 
     t_qv_init(&fields, 0);
     t_qh_init(lstr, &keys_hash, 0);
+
+    yaml_env_start_data(env, YAML_DATA_OBJ, out);
 
     for (;;) {
         lstr_t key;
@@ -864,9 +877,10 @@ t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
         }
     }
 
-    yaml_env_init_data_with_end(env, YAML_DATA_OBJ, pos_start, pos_end, out);
+    yaml_env_end_data_with_pos(env, pos_end, out);
     out->obj = t_new(yaml_obj_t, 1);
     out->obj->fields = fields;
+
     return 0;
 }
 
@@ -907,7 +921,6 @@ static pstream_t yaml_env_get_scalar_ps(yaml_parse_t * nonnull env,
 static int
 t_yaml_env_parse_quoted_string(yaml_parse_t *env, yaml_data_t *out)
 {
-    yaml_pos_t pos_start = yaml_env_get_pos(env);
     int line_nb = 0;
     int col_nb = 0;
     sb_t buf;
@@ -926,7 +939,7 @@ t_yaml_env_parse_quoted_string(yaml_parse_t *env, yaml_data_t *out)
         return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
                                 "invalid backslash");
       case PARSE_STR_OK:
-        yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
+        yaml_env_end_data(env, out);
         out->scalar.type = YAML_SCALAR_STRING;
         out->scalar.s = LSTR_SB_V(&buf);
         return 0;
@@ -1017,16 +1030,15 @@ static int _t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
                                     yaml_data_t *out)
 {
     lstr_t line;
-    yaml_pos_t pos_start;
     pstream_t ps_line;
 
+    yaml_env_start_data(env, YAML_DATA_SCALAR, out);
     if (ps_peekc(env->ps) == '"') {
         return t_yaml_env_parse_quoted_string(env, out);
     }
 
     /* get scalar string, ie up to newline or comment, or ']' or ',' for flow
      * context */
-    pos_start = yaml_env_get_pos(env);
     ps_line = yaml_env_get_scalar_ps(env, in_flow);
     if (ps_len(&ps_line) == 0) {
         return yaml_env_set_err(env, YAML_ERR_MISSING_DATA,
@@ -1034,7 +1046,7 @@ static int _t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
     }
 
     line = LSTR_PS_V(&ps_line);
-    yaml_env_init_data(env, YAML_DATA_SCALAR, pos_start, out);
+    yaml_env_end_data(env, out);
 
     /* special strings */
     if (yaml_parse_special_scalar(line, &out->scalar) >= 0) {
@@ -1089,8 +1101,8 @@ t_yaml_env_build_implicit_obj(yaml_parse_t * nonnull env,
     t_qv_init(&fields, 1);
     qv_append(&fields, *kd);
 
-    yaml_env_init_data_with_end(env, YAML_DATA_OBJ, kd->key_span.start,
-                                kd->data.span.end, out);
+    yaml_env_start_data_with_pos(env, YAML_DATA_OBJ, kd->key_span.start, out);
+    yaml_env_end_data_with_pos(env, kd->data.span.end, out);
     out->obj = t_new(yaml_obj_t, 1);
     out->obj->fields = fields;
 }
@@ -1108,13 +1120,13 @@ static int
 t_yaml_env_parse_flow_seq(yaml_parse_t *env, yaml_data_t *out)
 {
     qv_t(yaml_data) datas;
-    yaml_pos_t pos_start = yaml_env_get_pos(env);
     int path_len;
 
     t_qv_init(&datas, 0);
 
     /* skip '[' */
     assert (ps_peekc(env->ps) == '[');
+    yaml_env_start_data(env, YAML_DATA_SEQ, out);
     yaml_env_skipc(env);
 
     /* For the purpose of presentation, a flow data is considered as presented
@@ -1156,8 +1168,7 @@ t_yaml_env_parse_flow_seq(yaml_parse_t *env, yaml_data_t *out)
     }
 
   end:
-    yaml_env_init_data_with_end(env, YAML_DATA_SEQ, pos_start,
-                                yaml_env_get_pos(env), out);
+    yaml_env_end_data(env, out);
     out->seq = t_new(yaml_seq_t, 1);
     out->seq->datas = datas;
 
@@ -1180,7 +1191,6 @@ static int
 t_yaml_env_parse_flow_obj(yaml_parse_t *env, yaml_data_t *out)
 {
     qv_t(yaml_key_data) fields;
-    yaml_pos_t pos_start = yaml_env_get_pos(env);
     qh_t(lstr) keys_hash;
     int path_len;
 
@@ -1194,6 +1204,7 @@ t_yaml_env_parse_flow_obj(yaml_parse_t *env, yaml_data_t *out)
 
     /* skip '{' */
     assert (ps_peekc(env->ps) == '{');
+    yaml_env_start_data(env, YAML_DATA_OBJ, out);
     yaml_env_skipc(env);
 
     for (;;) {
@@ -1234,8 +1245,7 @@ t_yaml_env_parse_flow_obj(yaml_parse_t *env, yaml_data_t *out)
     }
 
   end:
-    yaml_env_init_data_with_end(env, YAML_DATA_OBJ, pos_start,
-                                yaml_env_get_pos(env), out);
+    yaml_env_end_data(env, out);
     out->obj = t_new(yaml_obj_t, 1);
     out->obj->fields = fields;
 
