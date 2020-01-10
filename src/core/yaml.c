@@ -2510,7 +2510,9 @@ int yaml_pack_file(yaml_pack_env_t * nonnull env,
 
     /* End the file with a newline, as the packing ends immediately after
      * the last value. */
-    file_puts(ctx.file, "\n");
+    if (env->state != PACK_STATE_ON_NEWLINE) {
+        file_puts(ctx.file, "\n");
+    }
 
     if (file_close(&ctx.file) < 0) {
         sb_setf(err, "cannot close output file `%s`: %m", filename);
@@ -3301,8 +3303,7 @@ Z_GROUP_EXPORT(yaml)
             "!include in/sub.yml\n"
         ));
         Z_HELPER_RUN(z_check_file("newsubdir/subpres/in/sub.yml",
-            /* FIXME: extra newline */
-            "[ 4, 2 ] # packed\n\n"
+            "[ 4, 2 ] # packed\n"
         ));
         Z_HELPER_RUN(z_check_file("newsubdir/subpres/weird~name",
             "joJo\n"
