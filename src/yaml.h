@@ -287,17 +287,18 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode);
  * \param[in]  data          Private data passed to \p writecb.
  * \param[out] err           Buffer filled in case of error.
  */
-int yaml_pack(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
-              const yaml_presentation_t * nullable presentation,
-              yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
-              sb_t * nullable err);
+int
+t_yaml_pack(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
+            const yaml_presentation_t * nullable presentation,
+            yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
+            sb_t * nullable err);
 
 /** Pack a YAML data into a YAML string.
  */
-void yaml_pack_sb(yaml_pack_env_t * nonnull env,
-                  const yaml_data_t * nonnull data,
-                  const yaml_presentation_t * nullable presentation,
-                  sb_t * nonnull sb);
+void t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
+                    const yaml_data_t * nonnull data,
+                    const yaml_presentation_t * nullable presentation,
+                    sb_t * nonnull sb);
 
 /** Pack a YAML data into a YAML file.
  *
@@ -308,11 +309,11 @@ void yaml_pack_sb(yaml_pack_env_t * nonnull env,
  *                        (\ref enum file_flags).
  * \param[in]  file_mode  The mode to use when opening the file.
  */
-int yaml_pack_file(yaml_pack_env_t * nonnull env,
-                   const char * nonnull filename,
-                   const yaml_data_t * nonnull data,
-                   const yaml_presentation_t * nullable presentation,
-                   sb_t * nonnull err);
+int
+t_yaml_pack_file(yaml_pack_env_t * nonnull env, const char * nonnull filename,
+                 const yaml_data_t * nonnull data,
+                 const yaml_presentation_t * nullable presentation,
+                 sb_t * nonnull err);
 
 /* }}} */
 /* {{{ Packing helpers */

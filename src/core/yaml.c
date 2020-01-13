@@ -1648,8 +1648,8 @@ typedef struct yaml_pack_env_t {
     mode_t file_mode;
 } yaml_pack_env_t;
 
-static int yaml_pack_data(yaml_pack_env_t * nonnull env,
-                          const yaml_data_t * nonnull data);
+static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
+                            const yaml_data_t * nonnull data);
 
 /* {{{ Utils */
 
@@ -2090,8 +2090,8 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
 /* }}} */
 /* {{{ Pack sequence */
 
-static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
-                         const yaml_seq_t * nonnull seq)
+static int t_yaml_pack_seq(yaml_pack_env_t * nonnull env,
+                           const yaml_seq_t * nonnull seq)
 {
     int res = 0;
 
@@ -2121,7 +2121,7 @@ static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
 
         env->indent_lvl += YAML_STD_INDENT;
         res += yaml_pack_pres_node_inline(env, node);
-        res += RETHROW(yaml_pack_data(env, data));
+        res += RETHROW(t_yaml_pack_data(env, data));
         env->indent_lvl -= YAML_STD_INDENT;
 
         yaml_pack_env_pop_path(env, path_len);
@@ -2133,8 +2133,8 @@ static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
 /* }}} */
 /* {{{ Pack object */
 
-static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
-                              const yaml_key_data_t * nonnull kd)
+static int t_yaml_pack_key_data(yaml_pack_env_t * nonnull env,
+                                const yaml_key_data_t * nonnull kd)
 {
     int res = 0;
     int path_len = 0;
@@ -2157,7 +2157,7 @@ static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
      */
     env->indent_lvl += YAML_STD_INDENT;
     res += yaml_pack_pres_node_inline(env, node);
-    res += RETHROW(yaml_pack_data(env, &kd->data));
+    res += RETHROW(t_yaml_pack_data(env, &kd->data));
     env->indent_lvl -= YAML_STD_INDENT;
 
     yaml_pack_env_pop_path(env, path_len);
@@ -2176,7 +2176,7 @@ static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
         env->state = PACK_STATE_AFTER_DATA;
     } else {
         tab_for_each_ptr(pair, &obj->fields) {
-            res += RETHROW(yaml_pack_key_data(env, pair));
+            res += RETHROW(t_yaml_pack_key_data(env, pair));
         }
     }
 
@@ -2285,11 +2285,10 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 /* {{{ Pack include */
 
 static int
-yaml_pack_write_subfile(yaml_pack_env_t * nonnull env,
-                        yaml_presentation_include_t * nonnull inc,
-                        const yaml_data_t * nonnull subdata, sb_t *err)
+t_yaml_pack_write_subfile(yaml_pack_env_t * nonnull env,
+                          yaml_presentation_include_t * nonnull inc,
+                          const yaml_data_t * nonnull subdata, sb_t *err)
 {
-    t_scope;
     yaml_pack_env_t *subenv = t_yaml_pack_env_new();
     char fullpath[PATH_MAX];
     char canonical_path[PATH_MAX];
@@ -2311,13 +2310,14 @@ yaml_pack_write_subfile(yaml_pack_env_t * nonnull env,
 
 
     logger_trace(&_G.logger, 2, "packing subfile %pL", &inc->data.scalar.s);
-    return yaml_pack_file(subenv, fullpath, subdata, inc->presentation, err);
+    return t_yaml_pack_file(subenv, fullpath, subdata, inc->presentation,
+                            err);
 }
 
 static int
-yaml_pack_included_data(yaml_pack_env_t * nonnull env,
-                        const yaml_data_t * nonnull data,
-                        const yaml_presentation_node_t * nonnull node)
+t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
+                          const yaml_data_t * nonnull data,
+                          const yaml_presentation_node_t * nonnull node)
 {
     yaml_presentation_include_t *inc;
     const yaml_presentation_t *saved_pres = env->pres;
@@ -2328,7 +2328,7 @@ yaml_pack_included_data(yaml_pack_env_t * nonnull env,
     /* Only create subfiles if an outdir is set, ie if we are packing into
      * files. */
     if (env->outdirpath.s) {
-        if (yaml_pack_write_subfile(env, inc, data, &err) < 0) {
+        if (t_yaml_pack_write_subfile(env, inc, data, &err) < 0) {
             sb_setf(&env->err, "error when packing subfile `%pL`: %pL",
                         &inc->data.scalar.s, &err);
             return -1;
@@ -2337,7 +2337,7 @@ yaml_pack_included_data(yaml_pack_env_t * nonnull env,
         /* Make sure the presentation data is not used as the paths won't be
          * correct when packing this data. */
         env->pres = NULL;
-        res = yaml_pack_data(env, &inc->data);
+        res = t_yaml_pack_data(env, &inc->data);
         env->pres = saved_pres;
     } else {
         SB_1k(new_path);
@@ -2352,7 +2352,7 @@ yaml_pack_included_data(yaml_pack_env_t * nonnull env,
 
         env->pres = inc->presentation;
         env->current_path = new_path;
-        res = yaml_pack_data(env, data);
+        res = t_yaml_pack_data(env, data);
 
         env->current_path = saved_path;
         env->pres = saved_pres;
@@ -2365,8 +2365,8 @@ yaml_pack_included_data(yaml_pack_env_t * nonnull env,
 /* }}} */
 /* {{{ Pack data */
 
-static int yaml_pack_data(yaml_pack_env_t * nonnull env,
-                          const yaml_data_t * nonnull data)
+static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
+                            const yaml_data_t * nonnull data)
 {
     const yaml_presentation_node_t *node;
     int res = 0;
@@ -2383,7 +2383,7 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
     /* If the node was included from another file, and we are packing files,
      * dump it in a new file. */
     if (unlikely(node && node->included)) {
-        return yaml_pack_included_data(env, data, node);
+        return t_yaml_pack_included_data(env, data, node);
     }
 
     if (node) {
@@ -2402,7 +2402,7 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
             res += RETHROW(yaml_pack_scalar(env, &data->scalar, data->tag));
           } break;
           case YAML_DATA_SEQ:
-            res += RETHROW(yaml_pack_seq(env, data->seq));
+            res += RETHROW(t_yaml_pack_seq(env, data->seq));
             break;
           case YAML_DATA_OBJ:
             res += RETHROW(yaml_pack_obj(env, data->obj));
@@ -2463,10 +2463,11 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode)
     env->file_mode = mode;
 }
 
-int yaml_pack(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
-              const yaml_presentation_t * nullable presentation,
-              yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
-              sb_t * nullable err)
+int t_yaml_pack(yaml_pack_env_t * nonnull env,
+                const yaml_data_t * nonnull data,
+                const yaml_presentation_t * nullable presentation,
+                yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
+                sb_t * nullable err)
 {
     int res;
 
@@ -2475,7 +2476,7 @@ int yaml_pack(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
     env->pres = presentation;
 
     sb_init(&env->current_path);
-    res = yaml_pack_data(env, data);
+    res = t_yaml_pack_data(env, data);
     sb_wipe(&env->current_path);
     if (res < 0 && err) {
         sb_setsb(err, &env->err);
@@ -2491,14 +2492,14 @@ static inline int sb_write(void * nonnull b, const void * nonnull buf,
     return len;
 }
 
-void yaml_pack_sb(yaml_pack_env_t * nonnull env,
-                  const yaml_data_t * nonnull data,
-                  const yaml_presentation_t * nullable presentation,
-                  sb_t * nonnull sb)
+void t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
+                    const yaml_data_t * nonnull data,
+                    const yaml_presentation_t * nullable presentation,
+                    sb_t * nonnull sb)
 {
     int res;
 
-    res = yaml_pack(env, data, presentation, &sb_write, sb, NULL);
+    res = t_yaml_pack(env, data, presentation, &sb_write, sb, NULL);
     /* Should not fail when packing into a sb */
     assert (res >= 0);
 }
@@ -2520,13 +2521,12 @@ static int iop_ypack_write_file(void *priv, const void *data, int len,
     return len;
 }
 
-int yaml_pack_file(yaml_pack_env_t * nonnull env,
-                   const char * nonnull filename,
-                   const yaml_data_t * nonnull data,
-                   const yaml_presentation_t * nullable presentation,
-                   sb_t * nonnull err)
+int
+t_yaml_pack_file(yaml_pack_env_t * nonnull env, const char * nonnull filename,
+                 const yaml_data_t * nonnull data,
+                 const yaml_presentation_t * nullable presentation,
+                 sb_t * nonnull err)
 {
-    t_scope;
     char path[PATH_MAX];
     yaml_pack_file_ctx_t ctx;
     int res;
@@ -2545,8 +2545,8 @@ int yaml_pack_file(yaml_pack_env_t * nonnull env,
         return -1;
     }
 
-    res = yaml_pack(env, data, presentation, &iop_ypack_write_file, &ctx,
-                    err);
+    res = t_yaml_pack(env, data, presentation, &iop_ypack_write_file, &ctx,
+                      err);
     if (res < 0) {
         IGNORE(file_close(&ctx.file));
         return res;
@@ -2727,7 +2727,7 @@ z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
 
     env = t_yaml_pack_env_new();
     path = t_fmt("%pL/%s", &z_tmpdir_g, filepath);
-    Z_ASSERT_N(yaml_pack_file(env, path, data, presentation, &err),
+    Z_ASSERT_N(t_yaml_pack_file(env, path, data, presentation, &err),
                "cannot pack YAML file %s: %pL", filepath, &err);
 
     Z_HELPER_END;
@@ -2774,7 +2774,7 @@ static int z_yaml_test_file_pack_fail(const char *path,
     yaml_pack_env_t *env = t_yaml_pack_env_new();
 
     Z_ASSERT_N(t_yaml_pack_env_set_outdir(env, z_tmpdir_g.s, &err));
-    Z_ASSERT_NEG(yaml_pack_file(env, path, data, NULL, &err));
+    Z_ASSERT_NEG(t_yaml_pack_file(env, path, data, NULL, &err));
     Z_ASSERT_STREQUAL(err.data, expected_err);
 
     Z_HELPER_END;
@@ -2819,7 +2819,7 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
 
     /* repack using presentation data from the AST */
     pack_env = t_yaml_pack_env_new();
-    yaml_pack_sb(pack_env, data, NULL, &repack);
+    t_yaml_pack_sb(pack_env, data, NULL, &repack);
     Z_ASSERT_STREQUAL(repack.data, expected_repack,
                       "repacking the parsed data leads to differences");
     sb_reset(&repack);
@@ -2828,7 +2828,7 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
      * presentation data inside the AST */
     *pres = t_yaml_data_get_presentation(data);
     pack_env = t_yaml_pack_env_new();
-    yaml_pack_sb(pack_env, data, *pres, &repack);
+    t_yaml_pack_sb(pack_env, data, *pres, &repack);
     Z_ASSERT_STREQUAL(repack.data, expected_repack,
                       "repacking the parsed data leads to differences");
 
@@ -2885,7 +2885,7 @@ z_check_yaml_pack(const yaml_data_t * nonnull data,
     SB_1k(sb);
     yaml_pack_env_t *env = t_yaml_pack_env_new();
 
-    yaml_pack_sb(env, data, presentation, &sb);
+    t_yaml_pack_sb(env, data, presentation, &sb);
     Z_ASSERT_STREQUAL(sb.data, yaml);
 
     Z_HELPER_END;

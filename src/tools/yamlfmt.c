@@ -64,8 +64,8 @@ yaml_repack(lstr_t filename, sb_t * nonnull err)
     pres = t_yaml_data_get_presentation(&data);
 
     pack_env = t_yaml_pack_env_new();
-    res = yaml_pack(pack_env, &data, pres, yaml_pack_write_stdout, NULL,
-                    err);
+    res = t_yaml_pack(pack_env, &data, pres, yaml_pack_write_stdout, NULL,
+                      err);
     printf("\n");
 
   end:

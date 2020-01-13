@@ -162,7 +162,7 @@ generate_openapi(const iop_mod_t * nonnull module)
     }
 
     env = t_yaml_pack_env_new();
-    yaml_pack(env, &yaml, NULL, yaml_pack_write_stdout, NULL, &err);
+    t_yaml_pack(env, &yaml, NULL, yaml_pack_write_stdout, NULL, &err);
     printf("\n");
 
     return 0;

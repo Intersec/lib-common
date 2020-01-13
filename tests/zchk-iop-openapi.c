@@ -54,7 +54,7 @@ z_check_yaml(iop_openapi_t *openapi, const char *filename,
         qv_splice(&data.obj->fields, 4, 1, NULL, 0);
     }
     env = t_yaml_pack_env_new();
-    yaml_pack_sb(env, &data, NULL, &sb);
+    t_yaml_pack_sb(env, &data, NULL, &sb);
 
     Z_HELPER_RUN(t_z_load_openapi_file(filename, &file));
     Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), file);
