@@ -1700,6 +1700,9 @@ typedef enum yaml_pack_state_t {
     PACK_STATE_AFTER_DATA,
 } yaml_pack_state_t;
 
+qm_kvec_t(path_to_yaml_data, lstr_t, const yaml_data_t * nonnull,
+          qhash_lstr_hash, qhash_lstr_equal);
+
 typedef struct yaml_pack_env_t {
     /* Write callback + priv data. */
     yaml_pack_writecb_f *write_cb;
@@ -1729,8 +1732,15 @@ typedef struct yaml_pack_env_t {
     /* Flags to use when creating subfiles. */
     unsigned file_flags;
 
-    /* mode to use when creating subfiles. */
+    /* Mode to use when creating subfiles. */
     mode_t file_mode;
+
+    /* Packed subfiles.
+     *
+     * Associates paths to created subfiles with the yaml_data_t object packed
+     * in each subfile. This is used to handle shared subfiles.
+     */
+    qm_t(path_to_yaml_data) * nullable subfiles;
 } yaml_pack_env_t;
 
 static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
@@ -2369,34 +2379,152 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 /* }}} */
 /* {{{ Pack include */
 
-static int
-t_yaml_pack_write_subfile(yaml_pack_env_t * nonnull env,
-                          yaml_presentation_include_t * nonnull inc,
-                          const yaml_data_t * nonnull subdata, sb_t *err)
+enum subfile_status_t {
+    SUBFILE_TO_CREATE,
+    SUBFILE_TO_REUSE,
+    SUBFILE_TO_IGNORE,
+};
+
+/* check if data can be packed in the subfile given from its relative path
+ * from the env outdir */
+static enum subfile_status_t
+check_subfile(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
+              const char * nonnull relative_path)
 {
-    yaml_pack_env_t *subenv = t_yaml_pack_env_new();
     char fullpath[PATH_MAX];
-    char canonical_path[PATH_MAX];
+    lstr_t path;
+    int pos;
+
+    /* compute new outdir */
+    /* FIXME: expose path_simplify */
+    path_extend(fullpath, env->outdirpath.s, "%s", relative_path);
+    path = LSTR(fullpath);
+
+    assert (env->subfiles);
+    pos = qm_put(path_to_yaml_data, env->subfiles, &path, data, 0);
+    if (pos & QHASH_COLLISION) {
+        pos &= ~QHASH_COLLISION;
+        /* TODO: this may be optimized in some way with some sort of hashing,
+         * to avoid calling yaml_data_equals repeatedly. */
+        if (!yaml_data_equals(env->subfiles->values[pos], data)) {
+            return SUBFILE_TO_IGNORE;
+        } else {
+            return SUBFILE_TO_REUSE;
+        }
+    } else {
+        env->subfiles->keys[pos] = t_lstr_dup(path);
+        return SUBFILE_TO_CREATE;
+    }
+}
+
+static const char * nullable
+t_find_right_path(yaml_pack_env_t * nonnull env,
+                  const yaml_data_t * nonnull data, lstr_t initial_path,
+                  bool * nonnull reuse)
+{
+    const char *ext;
+    char *path;
+    lstr_t base;
+    int counter = 1;
+
+    path = t_fmt("%pL", &initial_path);
+    ext = path_ext(path);
+    base = ext ? LSTR_PTR_V(path, ext) : initial_path;
+
+    /* check base.ext, base~1.ext, etc until either the file does not exist,
+     * or the data to pack is identical to the data packed in the subfile. */
+    for (;;) {
+        switch (check_subfile(env, data, path)) {
+          case SUBFILE_TO_CREATE:
+            *reuse = false;
+            return path;
+
+          case SUBFILE_TO_REUSE:
+            logger_trace(&_G.logger, 2, "subfile `%s` reused", path);
+            *reuse = true;
+            return path;
+
+          case SUBFILE_TO_IGNORE:
+            logger_trace(&_G.logger, 2,
+                         "should have reused subfile `%s`, but the packed "
+                         "data is different", path);
+            break;
+        }
+
+        if (ext) {
+            path = t_fmt("%pL~%d%s", &base, counter++, ext);
+        } else {
+            path = t_fmt("%pL~%d", &base, counter++);
+        }
+    }
+}
+
+static int
+t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
+                         const yaml_data_t *including_data,
+                         lstr_t include_path)
+{
+    const yaml_presentation_t *saved_pres = env->pres;
+    yaml_data_t data;
+    int res;
+
+    /* Replace the path from the including data with the new path, relative
+     * from the output directory. */
+    data = *including_data;
+    data.scalar.s = include_path;
+
+    /* Make sure the presentation data is not used as the paths won't be
+     * correct when packing this data. */
+    env->pres = NULL;
+    res = t_yaml_pack_data(env, &data);
+    env->pres = saved_pres;
+
+    return res;
+}
+
+static int
+t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
+                      yaml_presentation_include_t * nonnull inc,
+                      const yaml_data_t * nonnull subdata)
+{
+    const char *path;
+    bool reuse;
 
     /* compute new outdir */
     assert (inc->data.type == YAML_DATA_SCALAR
         &&  inc->data.scalar.type == YAML_SCALAR_STRING);
-    path_extend(fullpath, env->outdirpath.s, "%pL", &inc->data.scalar.s);
 
-    path_canonify(canonical_path, PATH_MAX, fullpath);
     /* This is checked on parsing. Unless the presentation data has been
      * modified by hand, which is not possible yet, this should not fail. */
-    if (!expect(lstr_startswith(LSTR(canonical_path), env->outdirpath))) {
-        sb_setf(err, "subfile `%s` is not contained in the output directory "
-                "`%pL`, this is not allowed", canonical_path,
+    if (!expect(!lstr_startswith(inc->data.scalar.s, LSTR("..")))) {
+        sb_setf(&env->err, "subfile `%pL` is not contained in the output "
+                "directory `%pL`, this is not allowed", &inc->data.scalar.s,
                 &env->outdirpath);
         return -1;
     }
 
+    path = t_find_right_path(env, subdata, inc->data.scalar.s, &reuse);
+    if (!reuse) {
+        yaml_pack_env_t *subenv = t_yaml_pack_env_new();
+        SB_1k(err);
 
-    logger_trace(&_G.logger, 2, "packing subfile %pL", &inc->data.scalar.s);
-    return t_yaml_pack_file(subenv, fullpath, subdata, inc->presentation,
-                            err);
+        RETHROW(t_yaml_pack_env_set_outdir(subenv, env->outdirpath.s, &err));
+
+        /* Make sure the subfiles qm is shared, so that if this subfile also
+         * generate other subfiles, it is properly handled. */
+        subenv->subfiles = env->subfiles;
+
+        logger_trace(&_G.logger, 2, "packing subfile %s", path);
+        if (t_yaml_pack_file(subenv, path, subdata, inc->presentation,
+                             &err) < 0) {
+            sb_setf(&env->err, "error when packing subfile `%s`: %pL", path,
+                    &err);
+            return -1;
+        }
+
+    }
+
+    return t_yaml_pack_include_path(env, &inc->data, LSTR(path));
 }
 
 static int
@@ -2405,28 +2533,17 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
                           const yaml_presentation_node_t * nonnull node)
 {
     yaml_presentation_include_t *inc;
-    const yaml_presentation_t *saved_pres = env->pres;
-    int res;
-    SB_1k(err);
 
     inc = node->included;
     /* Only create subfiles if an outdir is set, ie if we are packing into
      * files. */
     if (env->outdirpath.s) {
-        if (t_yaml_pack_write_subfile(env, inc, data, &err) < 0) {
-            sb_setf(&env->err, "error when packing subfile `%pL`: %pL",
-                        &inc->data.scalar.s, &err);
-            return -1;
-        }
-
-        /* Make sure the presentation data is not used as the paths won't be
-         * correct when packing this data. */
-        env->pres = NULL;
-        res = t_yaml_pack_data(env, &inc->data);
-        env->pres = saved_pres;
+        return t_yaml_pack_inclusion(env, inc, data);
     } else {
+        const yaml_presentation_t *saved_pres = env->pres;
         SB_1k(new_path);
         sb_t saved_path;
+        int res;
 
         /* Inline the contents of the included data directly in the current
          * stream. This is as easy as just packing data, but we need to also
@@ -2441,10 +2558,9 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
 
         env->current_path = saved_path;
         env->pres = saved_pres;
+
+        return res;
     }
-
-
-    return res;
 }
 
 /* }}} */
@@ -2624,6 +2740,10 @@ t_yaml_pack_file(yaml_pack_env_t * nonnull env, const char * nonnull filename,
      * before. */
     path_dirname(path, PATH_MAX, filename);
     RETHROW(t_yaml_pack_env_set_outdir(env, path, err));
+
+    if (!env->subfiles) {
+        env->subfiles = t_qm_new(path_to_yaml_data, 0);
+    }
 
     p_clear(&ctx, 1);
     ctx.file = file_open(filename, env->file_flags, env->file_mode);
@@ -3385,6 +3505,93 @@ Z_GROUP_EXPORT(yaml)
             "  - b\n"
             "- d"
         ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Include shared files */
+
+    Z_TEST(include_shared_files, "") {
+        t_scope;
+        yaml_data_t data;
+        const yaml_presentation_t *pres;
+        yaml_parse_t *env;
+
+        Z_HELPER_RUN(z_create_tmp_subdir("sf/sub"));
+        Z_HELPER_RUN(z_write_yaml_file("sf/shared_1.yml", "1"));
+        Z_HELPER_RUN(z_write_yaml_file("sf/sub/shared_1.yml", "-1"));
+        Z_HELPER_RUN(z_write_yaml_file("sf/shared_2",
+            "!include sub/shared_1.yml"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "- !include sf/shared_1.yml\n"
+            "- !include sf/shared_1.yml\n"
+            "- !include sf/shared_1.yml\n"
+            "- !include sf/sub/shared_1.yml\n"
+            "- !include sf/sub/shared_1.yml\n"
+            "- !include sf/sub/shared_1.yml\n"
+            "- !include sf/shared_2\n"
+            "- !include sf/shared_2",
+
+            "- 1\n"
+            "- 1\n"
+            "- 1\n"
+            "- -1\n"
+            "- -1\n"
+            "- -1\n"
+            "- -1\n"
+            "- -1"
+        ));
+
+        /* repacking it will shared the same subfiles */
+        Z_HELPER_RUN(z_create_tmp_subdir("sf-pack-1"));
+        Z_HELPER_RUN(z_pack_yaml_file("sf-pack-1/root.yml", &data, pres));
+        Z_HELPER_RUN(z_check_file("sf-pack-1/root.yml",
+            "- !include sf/shared_1.yml\n"
+            "- !include sf/shared_1.yml\n"
+            "- !include sf/shared_1.yml\n"
+            "- !include sf/sub/shared_1.yml\n"
+            "- !include sf/sub/shared_1.yml\n"
+            "- !include sf/sub/shared_1.yml\n"
+            "- !include sf/shared_2\n"
+            "- !include sf/shared_2\n"
+        ));
+        Z_HELPER_RUN(z_check_file("sf-pack-1/sf/shared_1.yml", "1\n"));
+        Z_HELPER_RUN(z_check_file("sf-pack-1/sf/sub/shared_1.yml", "-1\n"));
+        Z_HELPER_RUN(z_check_file("sf-pack-1/sf/shared_2",
+            "!include sub/shared_1.yml\n"
+        ));
+
+        /* modifying some data will force the repacking to create new files */
+        data.seq->datas.tab[1].scalar.u = 2;
+        data.seq->datas.tab[2].scalar.u = 2;
+        data.seq->datas.tab[4].scalar.i = -2;
+        data.seq->datas.tab[5].scalar.i = -3;
+        data.seq->datas.tab[7].scalar.i = -3;
+        Z_HELPER_RUN(z_create_tmp_subdir("sf-pack-2"));
+        Z_HELPER_RUN(z_pack_yaml_file("sf-pack-2/root.yml", &data, pres));
+        Z_HELPER_RUN(z_check_file("sf-pack-2/root.yml",
+            "- !include sf/shared_1.yml\n"
+            "- !include sf/shared_1~1.yml\n"
+            "- !include sf/shared_1~1.yml\n"
+            "- !include sf/sub/shared_1.yml\n"
+            "- !include sf/sub/shared_1~1.yml\n"
+            "- !include sf/sub/shared_1~2.yml\n"
+            "- !include sf/shared_2\n"
+            "- !include sf/shared_2~1\n"
+        ));
+        Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_1.yml", "1\n"));
+        Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_1~1.yml", "2\n"));
+        Z_HELPER_RUN(z_check_file("sf-pack-2/sf/sub/shared_1.yml", "-1\n"));
+        Z_HELPER_RUN(z_check_file("sf-pack-2/sf/sub/shared_1~1.yml", "-2\n"));
+        Z_HELPER_RUN(z_check_file("sf-pack-2/sf/sub/shared_1~2.yml", "-3\n"));
+        Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_2",
+            "!include sub/shared_1.yml\n"
+        ));
+        Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_2~1",
+            "!include sub/shared_1~2.yml\n"
+        ));
+        yaml_parse_delete(&env);
+
     } Z_TEST_END;
 
     /* }}} */
