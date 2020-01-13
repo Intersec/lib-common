@@ -279,6 +279,9 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode);
  *
  * \param[in]  env           Packing environment.
  * \param[in]  data          The YAML data to pack.
+ * \param[in]  presentation  Presentation data to reformat the document
+ *                           properly. If NULL, the presentation data that may
+ *                           be present in \p data is used.
  * \param[in]  writecb       Callback called on every buffer that must be
  *                           written.
  * \param[in]  data          Private data passed to \p writecb.

@@ -1813,13 +1813,9 @@ yaml_pack_env_pop_path(yaml_pack_env_t * nullable env, int prev_len)
 static const yaml_presentation_node_t * nullable
 yaml_pack_env_get_pres_node(yaml_pack_env_t * nullable env)
 {
-    lstr_t path;
+    lstr_t path = LSTR_SB_V(&env->current_path);
 
-    if (!env->pres) {
-        return NULL;
-    }
-
-    path = LSTR_SB_V(&env->current_path);
+    assert (env->pres);
     return qm_get_def_safe(yaml_pres_node, &env->pres->nodes, &path, NULL);
 }
 
@@ -2051,7 +2047,6 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
 static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
                          const yaml_seq_t * nonnull seq)
 {
-    const yaml_presentation_node_t *node;
     int res = 0;
 
     if (seq->datas.len == 0) {
@@ -2062,11 +2057,17 @@ static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
     }
 
     tab_for_each_pos(pos, &seq->datas) {
+        const yaml_presentation_node_t *node = NULL;
         const yaml_data_t *data = &seq->datas.tab[pos];
-        int path_len;
+        int path_len = 0;
 
-        path_len = yaml_pack_env_push_path(env, "[%d]", pos);
-        node = yaml_pack_env_get_pres_node(env);
+        if (env->pres) {
+            path_len = yaml_pack_env_push_path(env, "[%d]", pos);
+            node = yaml_pack_env_get_pres_node(env);
+        } else
+        if (pos < seq->pres_nodes.len && seq->pres_nodes.tab[pos]) {
+            node = seq->pres_nodes.tab[pos];
+        }
         res += yaml_pack_pres_node_prefix(env, node);
 
         GOTO_STATE(ON_DASH);
@@ -2087,19 +2088,22 @@ static int yaml_pack_seq(yaml_pack_env_t * nonnull env,
 /* {{{ Pack object */
 
 static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
-                              const lstr_t key,
-                              const yaml_data_t * nonnull data)
+                              const yaml_key_data_t * nonnull kd)
 {
     int res = 0;
-    int path_len;
+    int path_len = 0;
     const yaml_presentation_node_t *node;
 
-    path_len = yaml_pack_env_push_path(env, ".%pL", &key);
-    node = yaml_pack_env_get_pres_node(env);
+    if (env->pres) {
+        path_len = yaml_pack_env_push_path(env, ".%pL", &kd->key);
+        node = yaml_pack_env_get_pres_node(env);
+    } else {
+        node = kd->key_presentation;
+    }
     res += yaml_pack_pres_node_prefix(env, node);
 
     GOTO_STATE(ON_KEY);
-    PUTLSTR(key);
+    PUTLSTR(kd->key);
     PUTS(":");
 
     /* for scalars, we put the inline comment after the value:
@@ -2107,7 +2111,7 @@ static int yaml_pack_key_data(yaml_pack_env_t * nonnull env,
      */
     env->indent_lvl += YAML_STD_INDENT;
     res += yaml_pack_pres_node_inline(env, node);
-    res += RETHROW(yaml_pack_data(env, data));
+    res += RETHROW(yaml_pack_data(env, &kd->data));
     env->indent_lvl -= YAML_STD_INDENT;
 
     yaml_pack_env_pop_path(env, path_len);
@@ -2126,7 +2130,7 @@ static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
         env->state = PACK_STATE_AFTER_DATA;
     } else {
         tab_for_each_ptr(pair, &obj->fields) {
-            res += RETHROW(yaml_pack_key_data(env, pair->key, &pair->data));
+            res += RETHROW(yaml_pack_key_data(env, pair));
         }
     }
 
@@ -2239,11 +2243,15 @@ static int yaml_pack_data(yaml_pack_env_t * nonnull env,
 {
     const yaml_presentation_node_t *node;
     int res = 0;
-    int path_len = 0;
 
-    path_len = yaml_pack_env_push_path(env, "!");
-    node = yaml_pack_env_get_pres_node(env);
-    yaml_pack_env_pop_path(env, path_len);
+    if (env->pres) {
+        int path_len = yaml_pack_env_push_path(env, "!");
+
+        node = yaml_pack_env_get_pres_node(env);
+        yaml_pack_env_pop_path(env, path_len);
+    } else {
+        node = data->presentation;
+    }
 
     if (node) {
         res += yaml_pack_pres_node_prefix(env, node);
@@ -2614,7 +2622,7 @@ int z_t_yaml_test_parse_success(yaml_data_t * nonnull data,
 {
     const yaml_presentation_t *p;
     yaml_parse_t *parse_env = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
-    yaml_pack_env_t *pack_env = t_yaml_pack_env_new();
+    yaml_pack_env_t *pack_env;
     SB_1k(err);
     SB_1k(repack);
 
@@ -2626,16 +2634,27 @@ int z_t_yaml_test_parse_success(yaml_data_t * nonnull data,
     yaml_parse_attach_ps(parse_env, ps_initstr(yaml));
     Z_ASSERT_N(t_yaml_parse(parse_env, data, &err),
                "yaml parsing failed: %pL", &err);
-    *pres = t_yaml_data_get_presentation(data);
 
     if (!expected_repack) {
         expected_repack = yaml;
     }
+
+    /* repack using presentation data from the AST */
+    pack_env = t_yaml_pack_env_new();
+    yaml_pack_sb(pack_env, data, NULL, &repack);
+    Z_ASSERT_STREQUAL(repack.data, expected_repack,
+                      "repacking the parsed data leads to differences");
+    sb_reset(&repack);
+
+    /* repack using yaml_presentation_t specification, and not the
+     * presentation data inside the AST */
+    *pres = t_yaml_data_get_presentation(data);
+    pack_env = t_yaml_pack_env_new();
     yaml_pack_sb(pack_env, data, *pres, &repack);
     Z_ASSERT_STREQUAL(repack.data, expected_repack,
                       "repacking the parsed data leads to differences");
-    yaml_parse_delete(&parse_env);
 
+    yaml_parse_delete(&parse_env);
     Z_HELPER_END;
 }
 
