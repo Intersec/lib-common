@@ -241,6 +241,91 @@ typedef struct yaml_parse_t {
 } yaml_parse_t;
 
 /* }}} */
+/* {{{ Equality */
+
+/* Equality is used to compare data to pack, in particular to ensure that
+ * two different yaml_data_t object that are packed in the same subfile are
+ * equal. Therefore, this functions tells whether two YAML data objects would
+ * pack the same way without presentation data, but is not a strong equality
+ * test.
+ * This is implemented only on actual values and not on presentation data.
+ * This is because the presentation objects cannot be modified outside of this
+ * file. If this changes, for example to allow the user to modify presentation
+ * data himself, then this function *must* be updated to take presentation
+ * data into account.
+ */
+static bool
+yaml_scalar_equals(const yaml_scalar_t * nonnull s1,
+                   const yaml_scalar_t * nonnull s2)
+{
+    if (s1->type != s2->type) {
+        return false;
+    }
+
+    switch (s1->type) {
+      case YAML_SCALAR_STRING:
+        return lstr_equal(s1->s, s2->s);
+      case YAML_SCALAR_DOUBLE:
+        return memcmp(&s1->d, &s2->d, sizeof(double)) == 0;
+      case YAML_SCALAR_UINT:
+        return s1->u == s2->u;
+      case YAML_SCALAR_INT:
+        return s1->i == s2->i;
+      case YAML_SCALAR_BOOL:
+        return s1->b == s2->b;
+      case YAML_SCALAR_NULL:
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+yaml_data_equals(const yaml_data_t * nonnull d1,
+                 const yaml_data_t * nonnull d2)
+{
+    if (d1->type != d2->type) {
+        return false;
+    }
+
+    switch (d1->type) {
+      case YAML_DATA_SCALAR:
+        return yaml_scalar_equals(&d1->scalar, &d2->scalar);
+      case YAML_DATA_SEQ:
+        if (d1->seq->datas.len != d2->seq->datas.len) {
+            return false;
+        }
+        tab_for_each_pos(pos, &d1->seq->datas) {
+            if (!yaml_data_equals(&d1->seq->datas.tab[pos],
+                                  &d2->seq->datas.tab[pos]))
+            {
+                return false;
+            }
+        }
+        break;
+      case YAML_DATA_OBJ:
+        if (d1->obj->fields.len != d2->obj->fields.len) {
+            return false;
+        }
+        tab_for_each_pos(pos, &d1->obj->fields) {
+            if (!lstr_equal(d1->obj->fields.tab[pos].key,
+                            d2->obj->fields.tab[pos].key))
+            {
+                return false;
+            }
+            if (!yaml_data_equals(&d1->obj->fields.tab[pos].data,
+                                  &d2->obj->fields.tab[pos].data))
+            {
+                return false;
+            }
+        }
+        break;
+    }
+
+    return true;
+}
+
+/* }}} */
 /* {{{ Utils */
 
 static const char * nonnull
@@ -4378,6 +4463,107 @@ Z_GROUP_EXPORT(yaml)
             "d: 1\n"
             "e: 0"
         ));
+    } Z_TEST_END;
+
+    /* }}} */
+
+    /* {{{ yaml_data_equals */
+
+    Z_TEST(yaml_data_equals, "") {
+        t_scope;
+        yaml_data_t d1;
+        yaml_data_t d2;
+        yaml_data_t elem;
+
+        yaml_data_set_string(&d1, LSTR("v"));
+        yaml_data_set_bool(&d2, false);
+
+        /* scalars with different types are never equal */
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        /* strings */
+        yaml_data_set_string(&d2, LSTR("v"));
+        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        yaml_data_set_string(&d2, LSTR("a"));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        /* double */
+        yaml_data_set_double(&d1, 1.2);
+        yaml_data_set_double(&d2, 1.2);
+        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        yaml_data_set_double(&d2, 1.20000001);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        /* uint */
+        yaml_data_set_uint(&d1, 1);
+        yaml_data_set_uint(&d2, 1);
+        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        yaml_data_set_uint(&d2, 2);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        /* uint */
+        yaml_data_set_int(&d1, -1);
+        yaml_data_set_int(&d2, -1);
+        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        yaml_data_set_int(&d2, -2);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        /* bool */
+        yaml_data_set_bool(&d1, true);
+        yaml_data_set_bool(&d2, true);
+        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        yaml_data_set_int(&d2, false);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        /* null */
+        yaml_data_set_null(&d1);
+        yaml_data_set_null(&d2);
+        Z_ASSERT(yaml_data_equals(&d1, &d2));
+
+        /* sequences */
+        t_yaml_data_new_seq(&d1, 1);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        t_yaml_data_new_seq(&d2, 1);
+        Z_ASSERT(yaml_data_equals(&d1, &d2));
+
+        yaml_data_set_string(&elem, LSTR("l"));
+        yaml_seq_add_data(&d1, elem);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        yaml_data_set_string(&elem, LSTR("d"));
+        yaml_seq_add_data(&d2, elem);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        d2.seq->datas.tab[0].scalar.s = LSTR("l");
+        Z_ASSERT(yaml_data_equals(&d1, &d2));
+
+        /* obj */
+        t_yaml_data_new_obj(&d1, 2);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        t_yaml_data_new_obj(&d2, 2);
+        Z_ASSERT(yaml_data_equals(&d1, &d2));
+
+        yaml_data_set_bool(&elem, true);
+        yaml_obj_add_field(&d1, LSTR("v"), elem);
+        yaml_obj_add_field(&d1, LSTR("a"), elem);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        yaml_data_set_bool(&elem, false);
+        yaml_obj_add_field(&d2, LSTR("v"), elem);
+        yaml_obj_add_field(&d2, LSTR("a"), elem);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        qv_clear(&d2.obj->fields);
+        yaml_data_set_bool(&elem, true);
+        yaml_obj_add_field(&d2, LSTR("a"), elem);
+        yaml_obj_add_field(&d2, LSTR("v"), elem);
+        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+
+        qv_clear(&d2.obj->fields);
+        yaml_obj_add_field(&d2, LSTR("v"), elem);
+        yaml_obj_add_field(&d2, LSTR("a"), elem);
+        Z_ASSERT(yaml_data_equals(&d1, &d2));
+
     } Z_TEST_END;
 
     /* }}} */
