@@ -1467,24 +1467,30 @@ void yaml_parse_attach_ps(yaml_parse_t *env, pstream_t ps)
     env->line_number = 1;
 }
 
-int t_yaml_parse_attach_file(yaml_parse_t *env, lstr_t filepath,
+int t_yaml_parse_attach_file(yaml_parse_t *env, const lstr_t filepath,
                              lstr_t dirpath, sb_t *err)
 {
-    char path[PATH_MAX];
+    lstr_t path;
+    char canonical_path[PATH_MAX];
 
     env->filepath = t_lstr_dup(filepath);
-    if (dirpath.s) {
-        filepath = t_lstr_fmt("%pL/%pL", &dirpath, &filepath);
+    path = dirpath.s ? t_lstr_fmt("%pL/%pL", &dirpath, &filepath) : filepath;
+
+    path_canonify(canonical_path, PATH_MAX, path.s);
+    env->canonical_path = t_lstr_dup(LSTR(canonical_path));
+    if (!lstr_startswith(env->canonical_path, dirpath)) {
+        sb_setf(err, "cannot include subfile `%pL`: only includes contained "
+                "in the directory of the including file are allowed",
+                &filepath);
+        return -1;
     }
-    if (lstr_init_from_file(&env->file_contents, filepath.s, PROT_READ,
+
+    if (lstr_init_from_file(&env->file_contents, canonical_path, PROT_READ,
                             MAP_SHARED) < 0)
     {
         sb_setf(err, "cannot read file %pL: %m", &env->filepath);
         return -1;
     }
-
-    path_canonify(path, PATH_MAX, filepath.s);
-    env->canonical_path = t_lstr_fmt("%s", path);
     yaml_parse_attach_ps(env, ps_initlstr(&env->file_contents));
 
     return 0;
@@ -1633,7 +1639,7 @@ typedef struct yaml_pack_env_t {
     sb_t err;
 
     /* Path to the output directory. */
-    const char * nullable outdirpath;
+    lstr_t outdirpath;
 
     /* Flags to use when creating subfiles. */
     unsigned file_flags;
@@ -2286,11 +2292,23 @@ yaml_pack_write_subfile(yaml_pack_env_t * nonnull env,
     t_scope;
     yaml_pack_env_t *subenv = t_yaml_pack_env_new();
     char fullpath[PATH_MAX];
+    char canonical_path[PATH_MAX];
 
     /* compute new outdir */
     assert (inc->data.type == YAML_DATA_SCALAR
         &&  inc->data.scalar.type == YAML_SCALAR_STRING);
-    path_extend(fullpath, env->outdirpath, "%pL", &inc->data.scalar.s);
+    path_extend(fullpath, env->outdirpath.s, "%pL", &inc->data.scalar.s);
+
+    path_canonify(canonical_path, PATH_MAX, fullpath);
+    /* This is checked on parsing. Unless the presentation data has been
+     * modified by hand, which is not possible yet, this should not fail. */
+    if (!expect(lstr_startswith(LSTR(canonical_path), env->outdirpath))) {
+        sb_setf(err, "subfile `%s` is not contained in the output directory "
+                "`%pL`, this is not allowed", canonical_path,
+                &env->outdirpath);
+        return -1;
+    }
+
 
     logger_trace(&_G.logger, 2, "packing subfile %pL", &inc->data.scalar.s);
     return yaml_pack_file(subenv, fullpath, subdata, inc->presentation, err);
@@ -2309,7 +2327,7 @@ yaml_pack_included_data(yaml_pack_env_t * nonnull env,
     inc = node->included;
     /* Only create subfiles if an outdir is set, ie if we are packing into
      * files. */
-    if (env->outdirpath) {
+    if (env->outdirpath.s) {
         if (yaml_pack_write_subfile(env, inc, data, &err) < 0) {
             sb_setf(&env->err, "error when packing subfile `%pL`: %pL",
                         &inc->data.scalar.s, &err);
@@ -2427,12 +2445,15 @@ int t_yaml_pack_env_set_outdir(yaml_pack_env_t * nonnull env,
                                const char * nonnull dirpath,
                                sb_t * nonnull err)
 {
+    char canonical_path[PATH_MAX];
+
     if (mkdir_p(dirpath, 0755) < 0) {
         sb_sets(err, "could not create output directory: %m");
         return -1;
     }
 
-    env->outdirpath = t_strdup(dirpath);
+    path_canonify(canonical_path, PATH_MAX, dirpath);
+    env->outdirpath = t_lstr_dup(LSTR(canonical_path));
 
     return 0;
 }
@@ -2510,8 +2531,8 @@ int yaml_pack_file(yaml_pack_env_t * nonnull env,
     yaml_pack_file_ctx_t ctx;
     int res;
 
-    if (env->outdirpath) {
-        path_extend(path, env->outdirpath, "%s", filename);
+    if (env->outdirpath.s) {
+        path_extend(path, env->outdirpath.s, "%s", filename);
     } else {
         path_dirname(path, PATH_MAX, filename);
         RETHROW(t_yaml_pack_env_set_outdir(env, path, err));
@@ -3227,6 +3248,17 @@ Z_GROUP_EXPORT(yaml)
             "!include loop-1.yml\n"
             "^^^^^^^^^^^^^^^^^^^"
         ));
+
+        /* includes must be in same directory as including file */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "!include ../input.yml",
+
+            "input.yml:1:1: invalid include, cannot include subfile "
+            "`../input.yml`: only includes contained in the directory of the "
+            "including file are allowed\n"
+            "!include ../input.yml\n"
+            "^^^^^^^^^^^^^^^^^^^^^"
+        ));
     } Z_TEST_END;
 
     /* }}} */
@@ -3257,7 +3289,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("subdir/a.yml",
             "- a\n"
             "- !include b.yml\n"
-            "- !include ../d.yml"
+            "- !include subsub/d.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("subdir/b.yml",
             "- !include subsub/c.yml\n"
@@ -3267,9 +3299,9 @@ Z_GROUP_EXPORT(yaml)
          * parsing the file twice. */
         Z_HELPER_RUN(z_write_yaml_file("subdir/subsub/c.yml",
             "- c\n"
-            "- !include ../../d.yml"
+            "- !include d.yml"
         ));
-        Z_HELPER_RUN(z_write_yaml_file("d.yml",
+        Z_HELPER_RUN(z_write_yaml_file("subdir/subsub/d.yml",
             "d"
         ));
         Z_HELPER_RUN(z_t_yaml_test_parse_success(NULL, NULL, NULL,
