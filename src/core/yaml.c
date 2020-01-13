@@ -2617,11 +2617,13 @@ t_yaml_pack_file(yaml_pack_env_t * nonnull env, const char * nonnull filename,
     int res;
 
     if (env->outdirpath.s) {
-        path_extend(path, env->outdirpath.s, "%s", filename);
-    } else {
-        path_dirname(path, PATH_MAX, filename);
-        RETHROW(t_yaml_pack_env_set_outdir(env, path, err));
+        filename = t_fmt("%pL/%s", &env->outdirpath, filename);
     }
+
+    /* Make sure the outdirpath is the full dirpath, even if it was set
+     * before. */
+    path_dirname(path, PATH_MAX, filename);
+    RETHROW(t_yaml_pack_env_set_outdir(env, path, err));
 
     p_clear(&ctx, 1);
     ctx.file = file_open(filename, env->file_flags, env->file_mode);
@@ -2846,21 +2848,6 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
     Z_ASSERT_STREQUAL(err.data, expected_err,
                       "wrong error message on yaml string `%s`", yaml);
     yaml_parse_delete(&env);
-
-    Z_HELPER_END;
-}
-
-static int z_yaml_test_file_pack_fail(const char *path,
-                                      const yaml_data_t *data,
-                                      const char *expected_err)
-{
-    t_scope;
-    SB_1k(err);
-    yaml_pack_env_t *env = t_yaml_pack_env_new();
-
-    Z_ASSERT_N(t_yaml_pack_env_set_outdir(env, z_tmpdir_g.s, &err));
-    Z_ASSERT_NEG(t_yaml_pack_file(env, path, data, NULL, &err));
-    Z_ASSERT_STREQUAL(err.data, expected_err);
 
     Z_HELPER_END;
 }
@@ -4230,25 +4217,6 @@ Z_GROUP_EXPORT(yaml)
         t_yaml_data_new_seq(&data2, 1);
         yaml_seq_add_data(&data2, data);
         Z_HELPER_RUN(z_check_yaml_pack(&data2, NULL, "- - true"));
-    } Z_TEST_END;
-
-    /* }}} */
-    /* {{{ Packing errors */
-
-    Z_TEST(pack_errors, "test packing errors") {
-        t_scope;
-        yaml_data_t data;
-        const char *path;
-        const char *expected_err;
-
-        /* Pack in a unknown directory */
-        path = t_fmt("%pL/unknown_dir/foo.yml", &z_tmpdir_g);
-
-        /* empty obj */
-        yaml_data_set_null(&data);
-        expected_err = t_fmt("cannot open output file `%s`: "
-                             "No such file or directory", path);
-        Z_HELPER_RUN(z_yaml_test_file_pack_fail(path, &data, expected_err));
     } Z_TEST_END;
 
     /* }}} */
