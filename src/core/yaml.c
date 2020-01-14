@@ -784,12 +784,7 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         goto err;
     }
 
-    if (!expect(path_dirname(dirpath, PATH_MAX, env->fullpath.s ?: "") >= 0))
-    {
-        sb_setf(&err, "error when retrieving path to directory of `%pL`",
-                &env->fullpath);
-        goto err;
-    }
+    path_dirname(dirpath, PATH_MAX, env->fullpath.s ?: "");
 
     logger_trace(&_G.logger, 2, "parsing subfile %pL", &data->scalar.s);
     subfile = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
@@ -2654,7 +2649,14 @@ int t_yaml_pack_env_set_outdir(yaml_pack_env_t * nonnull env,
         return -1;
     }
 
-    path_canonify(canonical_path, PATH_MAX, dirpath);
+    /* Should not fail because any errors should have been caught by
+     * mkdir_p first. */
+    if (!expect(path_canonify(canonical_path, PATH_MAX, dirpath) >= 0)) {
+        sb_setf(err, "cannot compute path to output directory `%s`: %m",
+                dirpath);
+        return -1;
+    }
+
     env->outdirpath = t_lstr_dup(LSTR(canonical_path));
 
     return 0;
@@ -3360,11 +3362,33 @@ Z_GROUP_EXPORT(yaml)
     /* {{{ Parsing file errors */
 
     Z_TEST(parsing_file_errors, "errors when parsing YAML from files") {
+        t_scope;
+        yaml_parse_t *env;
+        const char *path;
+        const char *filename;
+        SB_1k(err);
+
         /* unexpected EOF */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "",
             "input.yml:2:1: missing data, unexpected end of line"
         ));
+
+        env = t_yaml_parse_new(0);
+        Z_ASSERT_NEG(t_yaml_parse_attach_file(env, "unknown.yml", NULL, &err));
+        Z_ASSERT_STREQUAL(err.data, "cannot read file unknown.yml: "
+                          "No such file or directory");
+
+        filename = "unreadable.yml";
+        Z_HELPER_RUN(z_write_yaml_file(filename, "2"));
+        path = t_fmt("%pL/%s", &z_tmpdir_g, filename);
+        chmod(path, 220);
+
+        /* create a file but make it unreadable */
+        Z_ASSERT_NEG(t_yaml_parse_attach_file(env, filename, z_tmpdir_g.s,
+                                              &err));
+        Z_ASSERT_STREQUAL(err.data, "cannot read file unreadable.yml: "
+                          "Permission denied");
     } Z_TEST_END;
 
     /* }}} */
