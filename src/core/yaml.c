@@ -23,6 +23,7 @@
 #include <lib-common/log.h>
 #include <lib-common/file.h>
 #include <lib-common/unix.h>
+#include <lib-common/iop.h>
 
 static struct yaml_g {
     logger_t logger;
@@ -73,9 +74,7 @@ struct yaml_presentation_node_t {
      *
      * ["Comment", "Second line"] are the prefix comments for "a.b".
      */
-    /* TODO: it would be better to use a static array container here, like
-     * lstr__array_t, but without the IOP dependencies. */
-    qv_t(lstr) prefix_comments;
+    lstr__array_t prefix_comments;
 
     /* Comment inlined after the node.
      *
@@ -558,9 +557,9 @@ t_yaml_env_pres_get_next_node(yaml_env_presentation_t * nonnull pres)
 }
 
 static void t_yaml_env_handle_comment_ps(yaml_parse_t * nonnull env,
-                                         pstream_t comment_ps, bool prefix)
+                                         pstream_t comment_ps, bool prefix,
+                                         qv_t(lstr) * nonnull prefix_comments)
 {
-    yaml_presentation_node_t *pnode;
     lstr_t comment;
 
     if (!env->pres) {
@@ -572,13 +571,14 @@ static void t_yaml_env_handle_comment_ps(yaml_parse_t * nonnull env,
     comment = lstr_trim(LSTR_PS_V(&comment_ps));
 
     if (prefix) {
-        pnode = t_yaml_env_pres_get_next_node(env->pres);
-        if (pnode->prefix_comments.len == 0) {
-            t_qv_init(&pnode->prefix_comments, 1);
+        if (prefix_comments->len == 0) {
+            t_qv_init(prefix_comments, 1);
         }
-        qv_append(&pnode->prefix_comments, comment);
+        qv_append(prefix_comments, comment);
         logger_trace(&_G.logger, 2, "adding prefix comment `%pL`", &comment);
     } else {
+        yaml_presentation_node_t *pnode;
+
         pnode = t_yaml_env_pres_get_current_node(env->pres);
         assert (pnode->inline_comment.len == 0);
         pnode->inline_comment = comment;
@@ -587,6 +587,20 @@ static void t_yaml_env_handle_comment_ps(yaml_parse_t * nonnull env,
                          &comment);
         }
     }
+}
+
+static void
+yaml_env_set_prefix_comments(yaml_parse_t * nonnull env,
+                             qv_t(lstr) * nonnull prefix_comments)
+{
+    yaml_presentation_node_t *pnode;
+
+    if (!env->pres || prefix_comments->len == 0) {
+        return;
+    }
+
+    pnode = t_yaml_env_pres_get_next_node(env->pres);
+    pnode->prefix_comments = IOP_TYPED_ARRAY_TAB(lstr, prefix_comments);
 }
 
 static void t_yaml_env_pres_set_flow_mode(yaml_parse_t * nonnull env)
@@ -638,6 +652,9 @@ static int yaml_env_ltrim(yaml_parse_t *env)
     pstream_t comment_ps = ps_init(NULL, 0);
     bool in_comment = false;
     bool in_new_line = yaml_env_get_column_nb(env) == 1;
+    qv_t(lstr) prefix_comments;
+
+    p_clear(&prefix_comments, 1);
 
     while (!ps_done(&env->ps)) {
         int c = ps_peekc(env->ps);
@@ -658,7 +675,8 @@ static int yaml_env_ltrim(yaml_parse_t *env)
             env->pos_newline = env->ps.s + 1;
             in_comment = false;
             if (comment_ps.s != NULL) {
-                t_yaml_env_handle_comment_ps(env, comment_ps, in_new_line);
+                t_yaml_env_handle_comment_ps(env, comment_ps, in_new_line,
+                                             &prefix_comments);
                 comment_ps.s = NULL;
             }
             in_new_line = true;
@@ -675,8 +693,11 @@ static int yaml_env_ltrim(yaml_parse_t *env)
     }
 
     if (comment_ps.s != NULL) {
-        t_yaml_env_handle_comment_ps(env, comment_ps, in_new_line);
+        t_yaml_env_handle_comment_ps(env, comment_ps, in_new_line,
+                                     &prefix_comments);
     }
+
+    yaml_env_set_prefix_comments(env, &prefix_comments);
 
     return 0;
 }
