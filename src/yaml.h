@@ -21,6 +21,7 @@
 
 #include <lib-common/container-qvector.h>
 #include <lib-common/container-qhash.h>
+#include <lib-common/core/yaml.iop.h>
 
 /* {{{ AST types definitions */
 
@@ -29,8 +30,7 @@ typedef struct yaml_scalar_t yaml_scalar_t;
 typedef struct yaml_obj_t yaml_obj_t;
 typedef struct yaml_seq_t yaml_seq_t;
 typedef struct yaml_parse_t yaml_parse_t;
-typedef struct yaml_presentation_node_t yaml_presentation_node_t;
-qvector_t(yaml_pres_node, yaml_presentation_node_t * nullable);
+qvector_t(yaml_pres_node, yaml__presentation_node__t * nullable);
 
 /* All possible types for YAML scalar values */
 typedef enum yaml_scalar_type_t {
@@ -104,7 +104,7 @@ struct yaml_data_t {
     lstr_t tag;
     yaml_span_t * nullable tag_span;
 
-    yaml_presentation_node_t * nullable presentation;
+    yaml__presentation_node__t * nullable presentation;
 };
 qvector_t(yaml_data, yaml_data_t);
 qm_kvec_t(yaml_data, lstr_t, yaml_data_t, qhash_lstr_hash, qhash_lstr_equal);
@@ -114,7 +114,7 @@ typedef struct yaml_key_data_t {
     yaml_data_t data;
 
     yaml_span_t key_span;
-    yaml_presentation_node_t * nullable key_presentation;
+    yaml__presentation_node__t * nullable key_presentation;
 } yaml_key_data_t;
 qvector_t(yaml_key_data, yaml_key_data_t);
 
@@ -127,8 +127,6 @@ struct yaml_seq_t {
 
     qv_t(yaml_pres_node) pres_nodes;
 };
-
-typedef struct yaml_presentation_t yaml_presentation_t;
 
 /** Return a description of the data's type.
  *
@@ -231,7 +229,7 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
  * \warning the flag YAML_PARSE_GEN_PRES_DATA must have been used when
  * parsing the object.
  */
-const yaml_presentation_t * nonnull
+const yaml__document_presentation__t * nonnull
 t_yaml_data_get_presentation(const yaml_data_t * nonnull data);
 
 /* }}} */
@@ -312,8 +310,10 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode);
  * the parsed data through t_yaml_data_get_presentation, and then reused when
  * packing with this helper.
  */
-void yaml_pack_env_set_presentation(yaml_pack_env_t * nonnull env,
-                                    const yaml_presentation_t * nonnull pres);
+void yaml_pack_env_set_presentation(
+    yaml_pack_env_t * nonnull env,
+    const yaml__document_presentation__t * nonnull pres
+);
 
 /** Pack a YAML data.
  *

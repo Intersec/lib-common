@@ -42,109 +42,13 @@ static struct yaml_g {
 /* {{{ Parsing types definitions */
 /* {{{ Presentation */
 
-typedef struct yaml_presentation_include_t yaml_presentation_include_t;
-
-/* Details about an '!include' */
-struct yaml_presentation_include_t {
-    /** Include path.
-     *
-     * This is the exact path that was specified in the !include:
-     *
-     * !include <str> # path is equal to <str>
-     */
-    lstr_t path;
-
-    /** Presentation of the !include element. */
-    yaml_presentation_node_t *include_presentation;
-
-    /** Presentation details of the included file. */
-    const yaml_presentation_t * nonnull file_presentation;
-};
-
-/* Presentation details applied to a specific node. */
-struct yaml_presentation_node_t {
-    /* Comments prefixed before the node.
-     *
-     * For example:
-     *
-     * a:
-     *   # Comment
-     *   # Second line
-     *   b: ~
-     *
-     * ["Comment", "Second line"] are the prefix comments for "a.b".
-     */
-    lstr__array_t prefix_comments;
-
-    /* Comment inlined after the node.
-     *
-     * The comment is present at the end of the line where the node
-     * is declared. For example:
-     *
-     * a:
-     *   b: ~ # Comment
-     *
-     * "Comment" is an inline comment for "a.b".
-     */
-    lstr_t inline_comment;
-
-    /* Empty lines before the data.
-     *
-     * Often used to space out blocks and make the document more readable:
-     *
-     * ---
-     * a: 2
-     *
-     * b: 3
-     * ---
-     *
-     * ".b" will have one empty line in its presentation node.
-     *
-     * WARNING: empty lines are capped to 2.
-     */
-    uint8_t empty_lines;
-
-    /* The data is packed in flow syntax */
-    bool flow_mode;
-
-    /* If set, the node was parsed from an included file. */
-    yaml_presentation_include_t * nullable included;
-};
-
-qm_kvec_t(yaml_pres_node, lstr_t, const yaml_presentation_node_t * nonnull,
+qm_kvec_t(yaml_pres_node, lstr_t, const yaml__presentation_node__t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
 
-struct yaml_presentation_t {
-    /* Map of path -> presentation details.
-     *
-     * The format for the path is the following:
-     *  * for the data itself: '!'
-     *  * for a key: .<key>
-     *  * for a seq indicator: [idx]
-     * So for example:
-     *
-     * .a.foo[2].b  => "a: { foo: [_, _, b: _] }"
-     *                                   ^
-     * .a.foo[2].b! => "a: { foo: [_, _, b: _] }"
-     *                                      ^
-     * .a.foo!      => "a: { foo: [_, _, b: _] }"
-     *                       ^
-     * [0].b[2][0].c! => "- b: [_, _, [c: _] ]"
-     *                                    ^
-     *
-     * Some presentation data could be matched with either the complex data or
-     * its first element, for example:
-     *
-     * # A
-     * - 1
-     *
-     * The comment can be associated with the seq data itself, or with its
-     * first key.
-     * In practice, this is not an issue, as the parsing is stable, and the
-     * packing will handle this correctly.
-     */
+/* This is a yaml.DocumentPresentation transformed into a hashmap. */
+typedef struct yaml_presentation_t {
     qm_t(yaml_pres_node) nodes;
-};
+} yaml_presentation_t;
 
 /* Presentation details currently being constructed */
 typedef struct yaml_env_presentation_t {
@@ -157,7 +61,7 @@ typedef struct yaml_env_presentation_t {
      *
      * It can be NULL at the very beginning of the document.
      */
-    yaml_presentation_node_t * nonnull * nullable last_node;
+    yaml__presentation_node__t * nonnull * nullable last_node;
 
     /* Presentation detail for the next element to generate.
      *
@@ -165,7 +69,7 @@ typedef struct yaml_env_presentation_t {
      * example, with prefix comments), this element is filled, and retrieved
      * when the next element is created.
      */
-    yaml_presentation_node_t * nullable next_node;
+    yaml__presentation_node__t * nullable next_node;
 } yaml_env_presentation_t;
 
 /* }}} */
@@ -533,7 +437,7 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
 
 /* {{{ Presentation utils */
 
-static yaml_presentation_node_t * nonnull
+static yaml__presentation_node__t * nonnull
 t_yaml_env_pres_get_current_node(yaml_env_presentation_t * nonnull pres)
 {
     /* last_node should be set, otherwise this means we are at the very
@@ -541,16 +445,16 @@ t_yaml_env_pres_get_current_node(yaml_env_presentation_t * nonnull pres)
      * as prefix rather than inline. */
     assert (pres->last_node);
     if (!(*pres->last_node)) {
-        *pres->last_node = t_new(yaml_presentation_node_t, 1);
+        *pres->last_node = t_iop_new(yaml__presentation_node);
     }
     return *pres->last_node;
 }
 
-static yaml_presentation_node_t * nonnull
+static yaml__presentation_node__t * nonnull
 t_yaml_env_pres_get_next_node(yaml_env_presentation_t * nonnull pres)
 {
     if (!pres->next_node) {
-        pres->next_node = t_new(yaml_presentation_node_t, 1);
+        pres->next_node = t_iop_new(yaml__presentation_node);
     }
 
     return pres->next_node;
@@ -577,7 +481,7 @@ static void t_yaml_env_handle_comment_ps(yaml_parse_t * nonnull env,
         qv_append(prefix_comments, comment);
         logger_trace(&_G.logger, 2, "adding prefix comment `%pL`", &comment);
     } else {
-        yaml_presentation_node_t *pnode;
+        yaml__presentation_node__t *pnode;
 
         pnode = t_yaml_env_pres_get_current_node(env->pres);
         assert (pnode->inline_comment.len == 0);
@@ -593,7 +497,7 @@ static void
 yaml_env_set_prefix_comments(yaml_parse_t * nonnull env,
                              qv_t(lstr) * nonnull prefix_comments)
 {
-    yaml_presentation_node_t *pnode;
+    yaml__presentation_node__t *pnode;
 
     if (!env->pres || prefix_comments->len == 0) {
         return;
@@ -605,7 +509,7 @@ yaml_env_set_prefix_comments(yaml_parse_t * nonnull env,
 
 static void t_yaml_env_pres_set_flow_mode(yaml_parse_t * nonnull env)
 {
-    yaml_presentation_node_t *pnode;
+    yaml__presentation_node__t *pnode;
 
     if (!env->pres) {
         return;
@@ -618,7 +522,7 @@ static void t_yaml_env_pres_set_flow_mode(yaml_parse_t * nonnull env)
 
 static void t_yaml_env_pres_add_empty_line(yaml_parse_t * nonnull env)
 {
-    yaml_presentation_node_t *pnode;
+    yaml__presentation_node__t *pnode;
 
     if (!env->pres) {
         return;
@@ -832,18 +736,18 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     }
 
     if (env->pres) {
-        yaml_presentation_include_t *inc;
+        yaml__presentation_include__t *inc;
 
-        inc = t_new(yaml_presentation_include_t, 1);
+        inc = t_iop_new(yaml__presentation_include);
         inc->include_presentation = data->presentation;
         inc->path = data->scalar.s;
-        inc->file_presentation = t_yaml_data_get_presentation(&subdata);
+        inc->document_presentation = *t_yaml_data_get_presentation(&subdata);
 
         /* XXX: create a new presentation node for subdata, that indicates it
          * is included. We should not modify the existing presentation node
          * (if it exists), as it indicates the presentation of the subdata
          * in the subfile, and was saved in "inc->presentation". */
-        subdata.presentation = t_new(yaml_presentation_node_t, 1);
+        subdata.presentation = t_iop_new(yaml__presentation_node);
         subdata.presentation->included = inc;
     }
 
@@ -873,7 +777,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
     yaml_env_start_data(env, YAML_DATA_SEQ, out);
 
     for (;;) {
-        yaml_presentation_node_t *node = NULL;
+        yaml__presentation_node__t *node = NULL;
         yaml_data_t elem;
         uint32_t last_indent;
 
@@ -927,7 +831,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
 static int
 yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
                    yaml_span_t * nonnull key_span,
-                   yaml_presentation_node_t * nonnull * nullable node)
+                   yaml__presentation_node__t * nonnull * nullable node)
 {
     pstream_t ps_key;
     yaml_pos_t key_pos_start = yaml_env_get_pos(env);
@@ -973,7 +877,7 @@ t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
         yaml_key_data_t *kd;
         uint32_t last_indent;
         yaml_span_t key_span;
-        yaml_presentation_node_t *node;
+        yaml__presentation_node__t *node;
 
         RETHROW(yaml_env_parse_key(env, &key, &key_span, &node));
 
@@ -1477,26 +1381,31 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
 /* }}} */
 /* {{{ Generate presentations */
 
-static void yaml_pres_add_node(yaml_presentation_t * nonnull pres,
-                               const sb_t * nonnull sb_path,
-                               const yaml_presentation_node_t * nonnull node)
-{
-    int res;
-    lstr_t path = t_lstr_dup(LSTR_SB_V(sb_path));
+qvector_t(pres_mapping, yaml__presentation_node_mapping__t);
 
-    res = qm_add(yaml_pres_node, &pres->nodes, &path, node);
-    assert (res >= 0);
+static void
+add_mapping(const sb_t * nonnull sb_path,
+            const yaml__presentation_node__t * nonnull node,
+            qv_t(pres_mapping) * nonnull out)
+{
+    yaml__presentation_node_mapping__t *mapping;
+
+    mapping = qv_growlen(out, 1);
+    iop_init(yaml__presentation_node_mapping, mapping);
+
+    mapping->path = t_lstr_dup(LSTR_SB_V(sb_path));
+    mapping->node = *node;
 }
 
 static void
-t_yaml_add_pres_nodes(yaml_presentation_t * nonnull pres,
-                      const yaml_data_t * nonnull data, sb_t *path)
+t_yaml_add_pres_mappings(const yaml_data_t * nonnull data, sb_t *path,
+                         qv_t(pres_mapping) * nonnull mappings)
 {
     if (data->presentation) {
         int prev_len = path->len;
 
         sb_addc(path, '!');
-        yaml_pres_add_node(pres, path, data->presentation);
+        add_mapping(path, data->presentation, mappings);
         sb_clip(path, prev_len);
     }
 
@@ -1510,14 +1419,14 @@ t_yaml_add_pres_nodes(yaml_presentation_t * nonnull pres,
         tab_enumerate_ptr(pos, val, &data->seq->datas) {
             sb_addf(path, "[%d]", pos);
             if (pos < data->seq->pres_nodes.len) {
-                yaml_presentation_node_t *node;
+                yaml__presentation_node__t *node;
 
                 node = data->seq->pres_nodes.tab[pos];
                 if (node) {
-                    yaml_pres_add_node(pres, path, node);
+                    add_mapping(path, node, mappings);
                 }
             }
-            t_yaml_add_pres_nodes(pres, val, path);
+            t_yaml_add_pres_mappings(val, path, mappings);
             sb_clip(path, prev_len);
         }
       } break;
@@ -1528,9 +1437,9 @@ t_yaml_add_pres_nodes(yaml_presentation_t * nonnull pres,
         tab_for_each_ptr(kv, &data->obj->fields) {
             sb_addf(path, ".%pL", &kv->key);
             if (kv->key_presentation) {
-                yaml_pres_add_node(pres, path, kv->key_presentation);
+                add_mapping(path, kv->key_presentation, mappings);
             }
-            t_yaml_add_pres_nodes(pres, &kv->data, path);
+            t_yaml_add_pres_mappings(&kv->data, path, mappings);
             sb_clip(path, prev_len);
         }
       } break;
@@ -1640,14 +1549,35 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
     return res;
 }
 
-const yaml_presentation_t * nonnull
+const yaml__document_presentation__t * nonnull
 t_yaml_data_get_presentation(const yaml_data_t * nonnull data)
 {
-    yaml_presentation_t *pres = t_new(yaml_presentation_t, 1);
+    yaml__document_presentation__t *pres;
+    qv_t(pres_mapping) mappings;
     t_SB_1k(path);
 
+    pres = t_iop_new(yaml__document_presentation);
+    t_qv_init(&mappings, 0);
+    t_yaml_add_pres_mappings(data, &path, &mappings);
+    pres->mappings = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping,
+                                         &mappings);
+
+    return pres;
+}
+
+static const yaml_presentation_t * nonnull
+t_yaml_doc_pres_to_map(const yaml__document_presentation__t *doc_pres)
+{
+    yaml_presentation_t *pres = t_new(yaml_presentation_t, 1);
+
     t_qm_init(yaml_pres_node, &pres->nodes, 0);
-    t_yaml_add_pres_nodes(pres, data, &path);
+    tab_for_each_ptr(mapping, &doc_pres->mappings) {
+        int res;
+
+        res = qm_add(yaml_pres_node, &pres->nodes, &mapping->path,
+                     &mapping->node);
+        assert (res >= 0);
+    }
 
     return pres;
 }
@@ -1980,7 +1910,7 @@ yaml_pack_env_pop_path(yaml_pack_env_t * nullable env, int prev_len)
     sb_clip(&env->current_path, prev_len);
 }
 
-static const yaml_presentation_node_t * nullable
+static const yaml__presentation_node__t * nullable
 yaml_pack_env_get_pres_node(yaml_pack_env_t * nullable env)
 {
     lstr_t path = LSTR_SB_V(&env->current_path);
@@ -2008,7 +1938,7 @@ yaml_pack_empty_lines(yaml_pack_env_t * nonnull env, uint8_t nb_lines)
 
 static int
 yaml_pack_pres_node_prefix(yaml_pack_env_t * nonnull env,
-                           const yaml_presentation_node_t * nullable node)
+                           const yaml__presentation_node__t * nullable node)
 {
     int res = 0;
 
@@ -2036,7 +1966,7 @@ yaml_pack_pres_node_prefix(yaml_pack_env_t * nonnull env,
 
 static int
 yaml_pack_pres_node_inline(yaml_pack_env_t * nonnull env,
-                           const yaml_presentation_node_t * nullable node)
+                           const yaml__presentation_node__t * nullable node)
 {
     int res = 0;
 
@@ -2227,7 +2157,7 @@ static int t_yaml_pack_seq(yaml_pack_env_t * nonnull env,
     }
 
     tab_for_each_pos(pos, &seq->datas) {
-        const yaml_presentation_node_t *node = NULL;
+        const yaml__presentation_node__t *node = NULL;
         const yaml_data_t *data = &seq->datas.tab[pos];
         int path_len = 0;
 
@@ -2262,7 +2192,7 @@ static int t_yaml_pack_key_data(yaml_pack_env_t * nonnull env,
 {
     int res = 0;
     int path_len = 0;
-    const yaml_presentation_node_t *node;
+    const yaml__presentation_node__t *node;
 
     if (env->pres) {
         path_len = yaml_pack_env_push_path(env, ".%pL", &kd->key);
@@ -2491,7 +2421,7 @@ t_find_right_path(yaml_pack_env_t * nonnull env,
 
 static int
 t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
-                         const yaml_presentation_node_t *presentation,
+                         const yaml__presentation_node__t *pres,
                          lstr_t include_path)
 {
     const yaml_presentation_t *saved_pres = env->pres;
@@ -2500,7 +2430,7 @@ t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
 
     yaml_data_set_string(&data, include_path);
     data.tag = LSTR("include");
-    data.presentation = unconst_cast(yaml_presentation_node_t, presentation);
+    data.presentation = unconst_cast(yaml__presentation_node__t, pres);
 
     /* Make sure the presentation data is not used as the paths won't be
      * correct when packing this data. */
@@ -2513,7 +2443,7 @@ t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
 
 static int
 t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
-                      yaml_presentation_include_t * nonnull inc,
+                      yaml__presentation_include__t * nonnull inc,
                       const yaml_data_t * nonnull subdata)
 {
     const char *path;
@@ -2534,7 +2464,7 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
         SB_1k(err);
 
         RETHROW(t_yaml_pack_env_set_outdir(subenv, env->outdirpath.s, &err));
-        yaml_pack_env_set_presentation(subenv, inc->file_presentation);
+        yaml_pack_env_set_presentation(subenv, &inc->document_presentation);
 
         /* Make sure the subfiles qm is shared, so that if this subfile also
          * generate other subfiles, it is properly handled. */
@@ -2556,9 +2486,9 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
 static int
 t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
                           const yaml_data_t * nonnull data,
-                          const yaml_presentation_node_t * nonnull node)
+                          const yaml__presentation_node__t * nonnull node)
 {
-    yaml_presentation_include_t *inc;
+    yaml__presentation_include__t *inc;
 
     inc = node->included;
     if (env->flags & YAML_PACK_NO_SUBFILES) {
@@ -2582,7 +2512,7 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
 
         saved_path = env->current_path;
 
-        env->pres = inc->file_presentation;
+        env->pres = t_yaml_doc_pres_to_map(&inc->document_presentation);
         env->current_path = new_path;
         res = t_yaml_pack_data(env, data);
 
@@ -2599,7 +2529,7 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
 static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
                             const yaml_data_t * nonnull data)
 {
-    const yaml_presentation_node_t *node;
+    const yaml__presentation_node__t *node;
     int res = 0;
 
     if (env->pres) {
@@ -2706,10 +2636,12 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode)
     env->file_mode = mode;
 }
 
-void yaml_pack_env_set_presentation(yaml_pack_env_t * nonnull env,
-                                    const yaml_presentation_t * nonnull pres)
+void yaml_pack_env_set_presentation(
+    yaml_pack_env_t * nonnull env,
+    const yaml__document_presentation__t * nonnull pres
+)
 {
-    env->pres = pres;
+    env->pres = t_yaml_doc_pres_to_map(pres);
 }
 
 int t_yaml_pack(yaml_pack_env_t * nonnull env,
@@ -2966,7 +2898,8 @@ z_write_yaml_file(const char *filepath, const char *yaml)
 
 static int
 z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
-                 const yaml_presentation_t *presentation, unsigned flags)
+                 const yaml__document_presentation__t *presentation,
+                 unsigned flags)
 {
     t_scope;
     yaml_pack_env_t *env;
@@ -3034,12 +2967,12 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
  * much easier to write multiple lines without horrible indentation */
 static
 int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
-                                const yaml_presentation_t ** nullable pres,
+                                const yaml__document_presentation__t ** nullable pres,
                                 yaml_parse_t * nonnull * nullable env,
                                 const char * nonnull yaml,
                                 const char * nullable expected_repack)
 {
-    const yaml_presentation_t *p;
+    const yaml__document_presentation__t *p;
     yaml_pack_env_t *pack_env;
     yaml_data_t local_data;
     yaml_parse_t *local_env = NULL;
@@ -3129,7 +3062,7 @@ z_check_yaml_scalar(const yaml_data_t *data, yaml_scalar_type_t type,
 
 static int
 z_check_yaml_pack(const yaml_data_t * nonnull data,
-                  const yaml_presentation_t * nullable presentation,
+                  const yaml__document_presentation__t * nullable presentation,
                   const char *yaml)
 {
     t_scope;
@@ -3148,7 +3081,7 @@ z_check_yaml_pack(const yaml_data_t * nonnull data,
 static int z_check_inline_comment(const yaml_presentation_t * nonnull pres,
                                   lstr_t path, lstr_t comment)
 {
-    const yaml_presentation_node_t *pnode;
+    const yaml__presentation_node__t *pnode;
 
     pnode = qm_get_def_safe(yaml_pres_node, &pres->nodes, &path, NULL);
     Z_ASSERT_P(pnode);
@@ -3161,7 +3094,7 @@ static int z_check_prefix_comments(const yaml_presentation_t * nonnull pres,
                                    lstr_t path, lstr_t *comments,
                                    int len)
 {
-    const yaml_presentation_node_t *pnode;
+    const yaml__presentation_node__t *pnode;
 
     pnode = qm_get_def_safe(yaml_pres_node, &pres->nodes, &path, NULL);
     Z_ASSERT_P(pnode);
@@ -3620,7 +3553,7 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(include_shared_files, "") {
         t_scope;
         yaml_data_t data;
-        const yaml_presentation_t *pres;
+        const yaml__document_presentation__t *pres;
         yaml_parse_t *env;
 
         Z_HELPER_RUN(z_create_tmp_subdir("sf/sub"));
@@ -3707,7 +3640,7 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(include_presentation, "") {
         t_scope;
         yaml_data_t data;
-        const yaml_presentation_t *pres;
+        const yaml__document_presentation__t *pres;
         yaml_parse_t *env;
 
         Z_HELPER_RUN(z_create_tmp_subdir("subpres/in"));
@@ -4539,7 +4472,7 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(pack_flags, "test packing flags") {
         t_scope;
         yaml_data_t data;
-        const yaml_presentation_t *pres;
+        const yaml__document_presentation__t *pres;
         yaml_parse_t *env;
 
         Z_HELPER_RUN(z_write_yaml_file("not_recreated.yml", "1"));
@@ -4574,31 +4507,34 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(comment_presentation, "test saving of comments in presentation") {
         t_scope;
         yaml_data_t data;
-        const yaml_presentation_t *pres = NULL;
+        const yaml__document_presentation__t *doc_pres = NULL;
+        const yaml_presentation_t *pres;
 
         /* comment on a scalar => not saved */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
             "# my scalar\n"
             "3",
             NULL
         ));
+        pres = t_yaml_doc_pres_to_map(doc_pres);
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("my scalar"));
 
         /* comment on a key => path is key */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
             "a: 3 #ticket is #42  ",
 
             "a: 3 # ticket is #42\n"
         ));
+        pres = t_yaml_doc_pres_to_map(doc_pres);
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".a!"),
                                             LSTR("ticket is #42")));
 
         /* comment on a list => path is index */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
             "# prefix comment\n"
             "- 1 # first\n"
             "- # item\n"
@@ -4606,6 +4542,7 @@ Z_GROUP_EXPORT(yaml)
 
             NULL
         ));
+        pres = t_yaml_doc_pres_to_map(doc_pres);
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(4, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("prefix comment"));
@@ -4617,7 +4554,7 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("second")));
 
         /* prefix comment with multiple lines */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
             "key:\n"
             "   # first line\n"
             " # and second\n"
@@ -4635,6 +4572,7 @@ Z_GROUP_EXPORT(yaml)
             "    # prefix scalar\n"
             "    ~ # inline scalar\n"
         ));
+        pres = t_yaml_doc_pres_to_map(doc_pres);
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(3, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR(".key!"),
@@ -4647,7 +4585,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key.a!"),
                                             LSTR("inline scalar")));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
             "# prefix key\n"
             "key: # inline key\n"
             "# prefix [0]\n"
@@ -4662,6 +4600,7 @@ Z_GROUP_EXPORT(yaml)
             "    # prefix key2\n"
             "    key2: ~ # inline key2\n"
         ));
+        pres = t_yaml_doc_pres_to_map(doc_pres);
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(6, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR("!"),
@@ -4678,13 +4617,13 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("inline key2")));
 
         /* prefix comment must be written before tag */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
             "# prefix key\n"
             "!toto 3",
 
             NULL
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
             "# a\n"
             "a: # b\n"
             "  !foo b",
@@ -4693,12 +4632,12 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* inline comments with flow data */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
             "- # prefix\n"
             "  1 # inline\n",
             NULL
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
             "- # prefix\n"
             "  [ 1 ] # inline\n"
             "- # prefix2\n"
@@ -4714,7 +4653,7 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(empty_lines_presentation, "") {
         t_scope;
         yaml_data_t data;
-        const yaml_presentation_t *pres = NULL;
+        const yaml__document_presentation__t *pres = NULL;
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
             "\n"

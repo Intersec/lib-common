@@ -125,6 +125,7 @@ ctx.IopcOptions(ctx, class_range='1-499',
                 ts_path='iop-core')
 ctx.stlib(target='libcommon-iop', features='c cstlib', source=[
     'core/core.iop',
+    'core/yaml.iop',
     'iop/ic.iop',
 ])
 

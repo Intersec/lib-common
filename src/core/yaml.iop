@@ -1,0 +1,137 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+package yaml;
+
+/* Presentation details applied to a specific node.
+ *
+ * A node can be either:
+ *   * a YAML data (a scalar, an object or a sequence).
+ *   * the key of a field of a YAML object.
+ *   * the sequence indicator of an element of a YAML sequence.
+ */
+struct PresentationNode {
+    /** Comments prefixed before the node.
+     *
+     * For example:
+     *
+     * a:
+     *   # Comment
+     *   # Second line
+     *   b: ~
+     *
+     * ["Comment", "Second line"] are the prefix comments for "a.b".
+     */
+    string[] prefixComments;
+
+    /** Comment inlined after the node.
+     *
+     * The comment is present at the end of the line where the node
+     * is declared. For example:
+     *
+     * a:
+     *   b: ~ # Comment
+     *
+     * "Comment" is an inline comment for "a.b".
+     */
+    string? inlineComment;
+
+    /** Empty lines before the data.
+     *
+     * Often used to space out blocks and make the document more readable:
+     *
+     * ---
+     * a: 2
+     *
+     * b: 3
+     * ---
+     *
+     * ".b" will have one empty line in its presentation node.
+     *
+     * WARNING: empty lines are capped to 2.
+     */
+    ubyte emptyLines = 0;
+
+    /** The data is packed in flow syntax */
+    bool flowMode = false;
+
+    /** If set, the node was parsed from an included file. */
+    PresentationInclude? included;
+};
+
+struct PresentationNodeMapping {
+    /** Path the node in the document.
+     *
+     * The format for the path is the following:
+     *  * for the data itself: '!'
+     *  * for a key: .<key>
+     *  * for a seq indicator: [idx]
+     * So for example:
+     *
+     * .a.foo[2].b  => "a: { foo: [_, _, b: _] }"
+     *                                   ^
+     * .a.foo[2].b! => "a: { foo: [_, _, b: _] }"
+     *                                      ^
+     * .a.foo!      => "a: { foo: [_, _, b: _] }"
+     *                       ^
+     * [0].b[2][0].c! => "- b: [_, _, [c: _] ]"
+     *                                    ^
+     *
+     * Some presentation data could be matched with either the complex data or
+     * its first element, for example:
+     *
+     * # A
+     * - 1
+     *
+     * The comment can be associated with the seq data itself, or with its
+     * first key.
+     * In practice, this is not an issue, as the parsing is stable, and the
+     * packing will handle this correctly.
+     */
+    string path;
+
+    /** Presentation details for this node. */
+    PresentationNode node;
+};
+
+/** Description of the presentation of a whole document */
+struct DocumentPresentation {
+    /** Presentation details by nodes in the document. */
+    PresentationNodeMapping[] mappings;
+};
+
+/** Details about an '!include' */
+struct PresentationInclude {
+    /** Include path.
+     *
+     * This is the exact path that was specified in the !include:
+     *
+     * !include <str> # path is equal to <str>
+     */
+    string path;
+
+
+    /** Presentation of the !include element.
+     *
+     * Presentation associated with the '!include' node.
+     */
+    PresentationNode? includePresentation;
+
+    /** Presentation details of the included file. */
+    DocumentPresentation documentPresentation;
+};

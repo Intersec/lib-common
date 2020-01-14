@@ -44,7 +44,7 @@
 __must_check__
 int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
                      void * nonnull out,
-                     const yaml_presentation_t * nonnull * nullable pres,
+                     const yaml__document_presentation__t * nonnull * nullable pres,
                      sb_t * nonnull out_err);
 
 /** Convert IOP-YAML to an IOP C structure using the t_pool().
@@ -60,7 +60,7 @@ __must_check__
 int t_iop_yunpack_ptr_ps(pstream_t * nonnull ps,
                          const iop_struct_t * nonnull st,
                          void * nullable * nonnull out,
-                         const yaml_presentation_t * nonnull * nullable pres,
+                         const yaml__document_presentation__t * nonnull * nullable pres,
                          sb_t * nonnull out_err);
 
 /** Convert a YAML file into an IOP C structure using the t_pool().
@@ -71,7 +71,7 @@ __must_check__
 int t_iop_yunpack_file(const char * nonnull filename,
                        const iop_struct_t * nonnull st,
                        void * nullable * nonnull out,
-                       const yaml_presentation_t * nonnull * nullable pres,
+                       const yaml__document_presentation__t * nonnull * nullable pres,
                        sb_t * nonnull out_err);
 
 /** Convert a YAML file into an IOP C structure using the t_pool().
@@ -83,7 +83,7 @@ int
 t_iop_yunpack_ptr_file(const char * nonnull filename,
                        const iop_struct_t * nonnull st,
                        void * nullable * nonnull out,
-                       const yaml_presentation_t * nonnull * nullable pres,
+                       const yaml__document_presentation__t * nonnull * nullable pres,
                        sb_t * nonnull out_err);
 
 /* }}} */
@@ -97,7 +97,7 @@ t_iop_yunpack_ptr_file(const char * nonnull filename,
 void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
                                const iop_struct_t * nonnull st,
                                const void * nonnull value,
-                               const yaml_presentation_t * nullable pres,
+                               const yaml__document_presentation__t * nullable pres,
                                unsigned flags);
 
 /** Pack an IOP C structure to IOP-YAML in a sb_t.
@@ -108,7 +108,7 @@ void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
  * prevent declaring a new t_scope inside the function, which we need. */
 void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
                     const void * nonnull value,
-                    const yaml_presentation_t * nullable pres);
+                    const yaml__document_presentation__t * nullable pres);
 
 /** Pack an IOP C structure in an IOP-YAML file.
  *
@@ -125,7 +125,7 @@ void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
 int iop_ypack_file(const char * nonnull filename, mode_t file_mode,
                    const iop_struct_t * nonnull st,
                    const void * nonnull value,
-                   const yaml_presentation_t * nullable presentation,
+                   const yaml__document_presentation__t * nullable presentation,
                    sb_t * nonnull err);
 
 #define iop_ypack_file(filename, st, value, presentation, err)               \

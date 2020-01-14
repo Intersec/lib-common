@@ -800,7 +800,7 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 static int
 t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
               void * nonnull out,
-              const yaml_presentation_t * nonnull * nullable pres,
+              const yaml__document_presentation__t * nonnull * nullable pres,
               sb_t * nonnull out_err)
 {
     t_SB_1k(err);
@@ -843,7 +843,7 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
 
 int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
                      void * nonnull out,
-                     const yaml_presentation_t * nonnull * nullable pres,
+                     const yaml__document_presentation__t * nonnull * nullable pres,
                      sb_t * nonnull out_err)
 {
     yaml_parse_t *env;
@@ -879,7 +879,7 @@ static void * nonnull t_alloc_st_out(const iop_struct_t * nonnull st,
 int
 t_iop_yunpack_ptr_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
                      void * nullable * nonnull out,
-                     const yaml_presentation_t * nonnull * nullable pres,
+                     const yaml__document_presentation__t * nonnull * nullable pres,
                      sb_t * nonnull out_err)
 {
     return t_iop_yunpack_ps(ps, st, t_alloc_st_out(st, out), pres, out_err);
@@ -888,7 +888,7 @@ t_iop_yunpack_ptr_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
 int t_iop_yunpack_file(const char * nonnull filename,
                        const iop_struct_t * nonnull st,
                        void * nullable * nonnull out,
-                       const yaml_presentation_t * nonnull * nullable pres,
+                       const yaml__document_presentation__t * nonnull * nullable pres,
                        sb_t * nonnull out_err)
 {
     yaml_parse_t *env;
@@ -918,7 +918,7 @@ int
 t_iop_yunpack_ptr_file(const char * nonnull filename,
                        const iop_struct_t * nonnull st,
                        void * nullable * nonnull out,
-                       const yaml_presentation_t * nonnull * nullable pres,
+                       const yaml__document_presentation__t * nonnull * nullable pres,
                        sb_t * nonnull out_err)
 {
     return t_iop_yunpack_file(filename, st, t_alloc_st_out(st, out), pres,
@@ -1111,7 +1111,7 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
 void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
                                const iop_struct_t * nonnull st,
                                const void * nonnull value,
-                               const yaml_presentation_t * nullable pres,
+                               const yaml__document_presentation__t * nullable pres,
                                unsigned flags)
 {
     yaml_data_t data;
@@ -1128,14 +1128,14 @@ void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
 
 void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
                     const void * nonnull value,
-                    const yaml_presentation_t * nullable pres)
+                    const yaml__document_presentation__t * nullable pres)
 {
     t_iop_sb_ypack_with_flags(sb, st, value, pres, DEFAULT_PACK_FLAGS);
 }
 
 int (iop_ypack_file)(const char *filename, mode_t file_mode,
                      const iop_struct_t *st, const void * nonnull value,
-                     const yaml_presentation_t * nullable presentation,
+                     const yaml__document_presentation__t * nullable presentation,
                      sb_t * nonnull err)
 {
     t_scope;
