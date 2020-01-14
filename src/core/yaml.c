@@ -45,20 +45,19 @@ typedef struct yaml_presentation_include_t yaml_presentation_include_t;
 
 /* Details about an '!include' */
 struct yaml_presentation_include_t {
-    /** Include data node.
+    /** Include path.
      *
-     * This is the yaml data that caused the include, ie the
-     * "!include <str>" data.
+     * This is the exact path that was specified in the !include:
+     *
+     * !include <str> # path is equal to <str>
      */
-    yaml_data_t data;
+    lstr_t path;
+
+    /** Presentation of the !include element. */
+    yaml_presentation_node_t *include_presentation;
 
     /** Presentation details of the included file. */
-    const yaml_presentation_t * nonnull presentation;
-
-    /* If the included file contained only an include, this field will be
-     * set, so that the whole include chain can be recreated.
-     */
-    yaml_presentation_include_t * nonnull included;
+    const yaml_presentation_t * nonnull file_presentation;
 };
 
 /* Presentation details applied to a specific node. */
@@ -815,8 +814,9 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         yaml_presentation_include_t *inc;
 
         inc = t_new(yaml_presentation_include_t, 1);
-        inc->data = *data;
-        inc->presentation = t_yaml_data_get_presentation(&subdata);
+        inc->include_presentation = data->presentation;
+        inc->path = data->scalar.s;
+        inc->file_presentation = t_yaml_data_get_presentation(&subdata);
 
         /* XXX: create a new presentation node for subdata, that indicates it
          * is included. We should not modify the existing presentation node
@@ -2470,19 +2470,16 @@ t_find_right_path(yaml_pack_env_t * nonnull env,
 
 static int
 t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
-                         const yaml_data_t *including_data,
+                         const yaml_presentation_node_t *presentation,
                          lstr_t include_path)
 {
     const yaml_presentation_t *saved_pres = env->pres;
     yaml_data_t data;
     int res;
 
-    /* Replace the path from the including data with the new path, relative
-     * from the output directory. */
-    data = *including_data;
-    if (include_path.s) {
-        data.scalar.s = include_path;
-    }
+    yaml_data_set_string(&data, include_path);
+    data.tag = LSTR("include");
+    data.presentation = unconst_cast(yaml_presentation_node_t, presentation);
 
     /* Make sure the presentation data is not used as the paths won't be
      * correct when packing this data. */
@@ -2501,20 +2498,16 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
     const char *path;
     bool reuse;
 
-    /* compute new outdir */
-    assert (inc->data.type == YAML_DATA_SCALAR
-        &&  inc->data.scalar.type == YAML_SCALAR_STRING);
-
     /* This is checked on parsing. Unless the presentation data has been
      * modified by hand, which is not possible yet, this should not fail. */
-    if (!expect(!lstr_startswith(inc->data.scalar.s, LSTR("..")))) {
+    if (!expect(!lstr_startswith(inc->path, LSTR("..")))) {
         sb_setf(&env->err, "subfile `%pL` is not contained in the output "
-                "directory `%pL`, this is not allowed", &inc->data.scalar.s,
+                "directory `%pL`, this is not allowed", &inc->path,
                 &env->outdirpath);
         return -1;
     }
 
-    path = t_find_right_path(env, subdata, inc->data.scalar.s, &reuse);
+    path = t_find_right_path(env, subdata, inc->path, &reuse);
     if (!reuse) {
         yaml_pack_env_t *subenv = t_yaml_pack_env_new();
         SB_1k(err);
@@ -2526,7 +2519,7 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
         subenv->subfiles = env->subfiles;
 
         logger_trace(&_G.logger, 2, "packing subfile %s", path);
-        if (t_yaml_pack_file(subenv, path, subdata, inc->presentation,
+        if (t_yaml_pack_file(subenv, path, subdata, inc->file_presentation,
                              &err) < 0) {
             sb_setf(&env->err, "error when packing subfile `%s`: %pL", path,
                     &err);
@@ -2535,7 +2528,8 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
 
     }
 
-    return t_yaml_pack_include_path(env, &inc->data, LSTR(path));
+    return t_yaml_pack_include_path(env, inc->include_presentation,
+                                    LSTR(path));
 }
 
 static int
@@ -2547,7 +2541,8 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
 
     inc = node->included;
     if (env->flags & YAML_PACK_NO_SUBFILES) {
-        return t_yaml_pack_include_path(env, &inc->data, LSTR_NULL_V);
+        return t_yaml_pack_include_path(env, inc->include_presentation,
+                                        inc->path);
     } else
     /* Only create subfiles if an outdir is set, ie if we are packing into
      * files. */
@@ -2566,7 +2561,7 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
 
         saved_path = env->current_path;
 
-        env->pres = inc->presentation;
+        env->pres = inc->file_presentation;
         env->current_path = new_path;
         res = t_yaml_pack_data(env, data);
 
