@@ -21,8 +21,9 @@ ctx.set_group('farchc')
 
 # {{{ libcommon-minimal library
 
-ctx(rule='${VERSION_SH} rcsid libcommon > ${TGT}',
-    target='core-version.c', cwd='.', always=True)
+with ctx.UseGroup(ctx, 'gen_version'):
+    ctx(rule='${VERSION_SH} rcsid libcommon > ${TGT}',
+        target='core-version.c', cwd='.', always=True)
 
 # This minimal version of the lib-common contains only what's needed to
 # build farchc and iopc. As a consequence, it cannot contain .fc or .iop

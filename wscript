@@ -209,6 +209,7 @@ def configure(ctx):
 
 def build(ctx):
     # Declare 4 build groups:
+    #  - one for generating the "version" source files
     #  - one for compiling farchc
     #  - one for compiling iopc
     #  - one for compiling pxc (used in the tools repository)
@@ -217,6 +218,7 @@ def build(ctx):
     # This way we are sure farchc is generated before iopc (needed because it
     # uses a farch file), and iopc is generated before building the IOP files.
     # Refer to section "Building the compiler first" of the waf book.
+    ctx.add_group('gen_version')
     ctx.add_group('farchc')
     ctx.add_group('iopc')
     ctx.add_group('pxcc')
