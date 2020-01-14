@@ -2396,7 +2396,6 @@ check_subfile(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
     int pos;
 
     /* compute new outdir */
-    /* FIXME: expose path_simplify */
     path_extend(fullpath, env->outdirpath.s, "%s", relative_path);
     path = LSTR(fullpath);
 
@@ -2428,8 +2427,10 @@ t_find_right_path(yaml_pack_env_t * nonnull env,
     int counter = 1;
 
     path = t_fmt("%pL", &initial_path);
+    path_simplify(path);
+
     ext = path_ext(path);
-    base = ext ? LSTR_PTR_V(path, ext) : initial_path;
+    base = ext ? LSTR_PTR_V(path, ext) : LSTR(path);
 
     /* check base.ext, base~1.ext, etc until either the file does not exist,
      * or the data to pack is identical to the data packed in the subfile. */
@@ -3524,13 +3525,13 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
             "- !include sf/shared_1.yml\n"
-            "- !include sf/shared_1.yml\n"
+            "- !include sf/././shared_1.yml\n"
             "- !include sf/shared_1.yml\n"
             "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
+            "- !include sf/../sf/sub/shared_1.yml\n"
             "- !include sf/sub/shared_1.yml\n"
             "- !include sf/shared_2\n"
-            "- !include sf/shared_2",
+            "- !include ./sf/shared_2",
 
             "- 1\n"
             "- 1\n"
