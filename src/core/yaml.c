@@ -1740,6 +1740,9 @@ typedef struct yaml_pack_env_t {
     /* Mode to use when creating subfiles. */
     mode_t file_mode;
 
+    /* Bitfield of yaml_pack_flags_t elements. */
+    unsigned flags;
+
     /* Packed subfiles.
      *
      * Associates paths to created subfiles with the yaml_data_t object packed
@@ -2477,7 +2480,9 @@ t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
     /* Replace the path from the including data with the new path, relative
      * from the output directory. */
     data = *including_data;
-    data.scalar.s = include_path;
+    if (include_path.s) {
+        data.scalar.s = include_path;
+    }
 
     /* Make sure the presentation data is not used as the paths won't be
      * correct when packing this data. */
@@ -2541,6 +2546,9 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
     yaml_presentation_include_t *inc;
 
     inc = node->included;
+    if (env->flags & YAML_PACK_NO_SUBFILES) {
+        return t_yaml_pack_include_path(env, &inc->data, LSTR_NULL_V);
+    } else
     /* Only create subfiles if an outdir is set, ie if we are packing into
      * files. */
     if (env->outdirpath.s) {
@@ -2646,6 +2654,11 @@ yaml_pack_env_t * nonnull t_yaml_pack_env_new(void)
     t_sb_init(&env->err, 1024);
 
     return env;
+}
+
+void yaml_pack_env_set_flags(yaml_pack_env_t * nonnull env, unsigned flags)
+{
+    env->flags = flags;
 }
 
 int t_yaml_pack_env_set_outdir(yaml_pack_env_t * nonnull env,
@@ -2938,7 +2951,7 @@ z_write_yaml_file(const char *filepath, const char *yaml)
 
 static int
 z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
-                 const yaml_presentation_t *presentation)
+                 const yaml_presentation_t *presentation, unsigned flags)
 {
     t_scope;
     yaml_pack_env_t *env;
@@ -2946,6 +2959,9 @@ z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
     SB_1k(err);
 
     env = t_yaml_pack_env_new();
+    if (flags) {
+        yaml_pack_env_set_flags(env, flags);
+    }
     path = t_fmt("%pL/%s", &z_tmpdir_g, filepath);
     Z_ASSERT_N(t_yaml_pack_file(env, path, data, presentation, &err),
                "cannot pack YAML file %s: %pL", filepath, &err);
@@ -2962,6 +2978,16 @@ static int z_check_file(const char *path, const char *expected_contents)
     Z_ASSERT_N(lstr_init_from_file(&contents, path, PROT_READ, MAP_SHARED));
     Z_ASSERT_LSTREQUAL(contents, LSTR(expected_contents));
     lstr_wipe(&contents);
+
+    Z_HELPER_END;
+}
+
+static int z_check_file_do_not_exist(const char *path)
+{
+    t_scope;
+
+    path = t_fmt("%pL/%s", &z_tmpdir_g, path);
+    Z_ASSERT_NEG(access(path, F_OK));
 
     Z_HELPER_END;
 }
@@ -3603,7 +3629,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* repacking it will shared the same subfiles */
         Z_HELPER_RUN(z_create_tmp_subdir("sf-pack-1"));
-        Z_HELPER_RUN(z_pack_yaml_file("sf-pack-1/root.yml", &data, pres));
+        Z_HELPER_RUN(z_pack_yaml_file("sf-pack-1/root.yml", &data, pres, 0));
         Z_HELPER_RUN(z_check_file("sf-pack-1/root.yml",
             "- !include sf/shared_1.yml\n"
             "- !include sf/shared_1.yml\n"
@@ -3627,7 +3653,7 @@ Z_GROUP_EXPORT(yaml)
         data.seq->datas.tab[5].scalar.i = -3;
         data.seq->datas.tab[7].scalar.i = -3;
         Z_HELPER_RUN(z_create_tmp_subdir("sf-pack-2"));
-        Z_HELPER_RUN(z_pack_yaml_file("sf-pack-2/root.yml", &data, pres));
+        Z_HELPER_RUN(z_pack_yaml_file("sf-pack-2/root.yml", &data, pres, 0));
         Z_HELPER_RUN(z_check_file("sf-pack-2/root.yml",
             "- !include sf/shared_1.yml\n"
             "- !include sf/shared_1~1.yml\n"
@@ -3688,7 +3714,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         Z_HELPER_RUN(z_create_tmp_subdir("newsubdir/in"));
-        Z_HELPER_RUN(z_pack_yaml_file("newsubdir/root.yml", &data, pres));
+        Z_HELPER_RUN(z_pack_yaml_file("newsubdir/root.yml", &data, pres, 0));
         Z_HELPER_RUN(z_check_file("newsubdir/root.yml",
             "- !include subpres/1.yml\n"
             "- !include subpres/weird~name\n"
@@ -4483,6 +4509,32 @@ Z_GROUP_EXPORT(yaml)
         t_yaml_data_new_seq(&data2, 1);
         yaml_seq_add_data(&data2, data);
         Z_HELPER_RUN(z_check_yaml_pack(&data2, NULL, "- - true"));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Packing flags */
+
+    Z_TEST(pack_flags, "test packing flags") {
+        t_scope;
+        yaml_data_t data;
+        const yaml_presentation_t *pres;
+        yaml_parse_t *env;
+
+        Z_HELPER_RUN(z_write_yaml_file("not_recreated.yml", "1"));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "key: !include not_recreated.yml",
+
+            "key: 1"
+        ));
+
+        Z_HELPER_RUN(z_create_tmp_subdir("flags"));
+        Z_HELPER_RUN(z_pack_yaml_file("flags/root.yml", &data, pres,
+                                      YAML_PACK_NO_SUBFILES));
+        Z_HELPER_RUN(z_check_file("flags/root.yml",
+            "key: !include not_recreated.yml\n"
+        ));
+        Z_HELPER_RUN(z_check_file_do_not_exist("flags/not_recreated.yml"));
+        yaml_parse_delete(&env);
     } Z_TEST_END;
 
     /* }}} */

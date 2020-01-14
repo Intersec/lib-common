@@ -154,7 +154,7 @@ typedef enum yaml_parse_flags_t {
 
 /** Create a new YAML parsing object.
  *
- * \param[in]  flags  bitfield of yaml_pack_flags_t elements.
+ * \param[in]  flags  bitfield of yaml_parse_flags_t elements.
  */
 yaml_parse_t * nonnull t_yaml_parse_new(int flags);
 
@@ -244,6 +244,33 @@ typedef int (yaml_pack_writecb_f)(void * nullable priv,
 
 /** Create a new YAML packing context. */
 yaml_pack_env_t * nonnull t_yaml_pack_env_new(void);
+
+typedef enum yaml_pack_flags_t {
+    /** Do not recreate subfiles when packing.
+     *
+     * When repacking, the behavior is different whether we are packing into
+     * a file or not:
+     * * When packing into a file, included subfiles are recreated, and
+     *   "!include" datas are properly written.
+     * * Otherwise, the included data is inlined in the written output, and
+     *   the "!include" datas are lost.
+     *
+     * Sometimes however, we want to keep the "!include" datas, but avoid
+     * recreating all the subfiles. This is the case for example when
+     * reformating a document: we want to print out the document reformatted,
+     * with its proper includes, but avoid recreating the subfiles.
+     *
+     * This flag activates this behavior: it writes the "!include" data, but
+     * do not attempt to recreate subfiles.
+     */
+    YAML_PACK_NO_SUBFILES = 1 << 0,
+} yaml_pack_flags_t;
+
+/** Set YAML packing flags.
+ *
+ * \param[in]  flags  bitfield of yaml_pack_flags_t elements.
+ */
+void yaml_pack_env_set_flags(yaml_pack_env_t * nonnull env, unsigned flags);
 
 /** Set the output directory.
  *
