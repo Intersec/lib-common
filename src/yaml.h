@@ -182,8 +182,10 @@ void yaml_parse_attach_ps(yaml_parse_t * nonnull self, pstream_t ps);
  * will be resolved relative to \p dirpath. If LSTR_NULL_V, \p filepath
  * is resolved as is (so relative to the current working directory).
  */
-int t_yaml_parse_attach_file(yaml_parse_t * nonnull self, lstr_t filepath,
-                             lstr_t dirpath, sb_t * nonnull err);
+int
+t_yaml_parse_attach_file(yaml_parse_t * nonnull self,
+                         const char * nonnull filepath,
+                         const char * nullable dirpath, sb_t * nonnull err);
 
 /** Parse a YAML stream into a yaml data object.
  *

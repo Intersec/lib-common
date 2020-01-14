@@ -900,7 +900,7 @@ int t_iop_yunpack_file(const char * nonnull filename,
     }
 
     env = t_yaml_parse_new(flags);
-    res = t_yaml_parse_attach_file(env, LSTR(filename), LSTR_NULL_V, out_err);
+    res = t_yaml_parse_attach_file(env, filename, NULL, out_err);
     if (res >= 0) {
         res = t_iop_yunpack(env, st, out, pres, out_err);
     }

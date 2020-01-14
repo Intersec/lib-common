@@ -31,7 +31,7 @@ static int yaml_pack_write_stdout(void * nullable priv,
 }
 
 static int
-yaml_repack(lstr_t filename, sb_t * nonnull err)
+yaml_repack(const char *filename, sb_t * nonnull err)
 {
     t_scope;
     const yaml_presentation_t *pres = NULL;
@@ -42,8 +42,8 @@ yaml_repack(lstr_t filename, sb_t * nonnull err)
     int res = 0;
 
     env = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
-    if (filename.s) {
-        if (t_yaml_parse_attach_file(env, filename, LSTR_NULL_V, err) < 0) {
+    if (filename) {
+        if (t_yaml_parse_attach_file(env, filename, NULL, err) < 0) {
             res = -1;
             goto end;
         }
@@ -76,7 +76,7 @@ yaml_repack(lstr_t filename, sb_t * nonnull err)
 
 int main(int argc, char **argv)
 {
-    lstr_t filename = LSTR_NULL_V;
+    const char *filename = NULL;
     const char *arg0;
     popt_t options[] = {
         OPT_FLAG('h', "help", &opts_g.help, "show help"),
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
     }
 
     if (argc >= 1) {
-        filename = LSTR(NEXTARG(argc, argv));
+        filename = NEXTARG(argc, argv);
     }
     if (yaml_repack(filename, &err) < 0) {
         fprintf(stderr, "%.*s\n", err.len, err.data);

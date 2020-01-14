@@ -196,15 +196,15 @@ typedef struct yaml_parse_t {
      * This is the name of the file as it was given to yaml_parse_attach_file.
      * It can be an absolute or a relative path.
      *
-     * LSTR_NULL_V if a stream is being parsed.
+     * NULL if a stream is being parsed.
      */
-    lstr_t filepath;
+    const char * nullable filepath;
 
-    /* Canonical path to the file being parsed.
+    /* Fullpath to the file being parsed.
      *
      * LSTR_NULL_V if a stream is being parsed.
      */
-    lstr_t canonical_path;
+    lstr_t fullpath;
 
     /* mmap'ed contents of the file. */
     lstr_t file_contents;
@@ -754,7 +754,7 @@ static bool has_inclusion_loop(const yaml_parse_t * nonnull env,
                                const lstr_t newfile)
 {
     do {
-        if (lstr_equal(env->canonical_path, newfile)) {
+        if (lstr_equal(env->fullpath, newfile)) {
             return true;
         }
         env = env->included ? env->included->parent : NULL;
@@ -784,22 +784,22 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         goto err;
     }
 
-    if (!expect(path_dirname(dirpath, PATH_MAX, env->canonical_path.s) >= 0))
+    if (!expect(path_dirname(dirpath, PATH_MAX, env->fullpath.s ?: "") >= 0))
     {
         sb_setf(&err, "error when retrieving path to directory of `%pL`",
-                &env->canonical_path);
+                &env->fullpath);
         goto err;
     }
 
     logger_trace(&_G.logger, 2, "parsing subfile %pL", &data->scalar.s);
     subfile = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
-    if (t_yaml_parse_attach_file(subfile, data->scalar.s, LSTR(dirpath),
-                                 &err) < 0)
+    if (t_yaml_parse_attach_file(subfile, t_fmt("%pL", &data->scalar.s),
+                                 dirpath, &err) < 0)
     {
         goto err;
 
     }
-    if (has_inclusion_loop(env, subfile->canonical_path)) {
+    if (has_inclusion_loop(env, subfile->fullpath)) {
         sb_sets(&err, "inclusion loop detected");
         goto err;
     }
@@ -1552,28 +1552,28 @@ void yaml_parse_attach_ps(yaml_parse_t *env, pstream_t ps)
     env->line_number = 1;
 }
 
-int t_yaml_parse_attach_file(yaml_parse_t *env, const lstr_t filepath,
-                             lstr_t dirpath, sb_t *err)
+int
+t_yaml_parse_attach_file(yaml_parse_t *env, const char *filepath,
+                         const char *dirpath, sb_t *err)
 {
-    lstr_t path;
-    char canonical_path[PATH_MAX];
+    char path[PATH_MAX];
 
-    env->filepath = t_lstr_dup(filepath);
-    path = dirpath.s ? t_lstr_fmt("%pL/%pL", &dirpath, &filepath) : filepath;
+    env->filepath = t_strdup(filepath);
+    path_extend(path, dirpath ?: "", "%s", filepath);
+    path_simplify(path);
 
-    path_canonify(canonical_path, PATH_MAX, path.s);
-    env->canonical_path = t_lstr_dup(LSTR(canonical_path));
-    if (!lstr_startswith(env->canonical_path, dirpath)) {
-        sb_setf(err, "cannot include subfile `%pL`: only includes contained "
+    env->fullpath = t_lstr_dup(LSTR(path));
+    if (dirpath && !lstr_startswith(env->fullpath, LSTR(dirpath))) {
+        sb_setf(err, "cannot include subfile `%s`: only includes contained "
                 "in the directory of the including file are allowed",
-                &filepath);
+                filepath);
         return -1;
     }
 
-    if (lstr_init_from_file(&env->file_contents, canonical_path, PROT_READ,
+    if (lstr_init_from_file(&env->file_contents, env->fullpath.s, PROT_READ,
                             MAP_SHARED) < 0)
     {
-        sb_setf(err, "cannot read file %pL: %m", &env->filepath);
+        sb_setf(err, "cannot read file %s: %m", filepath);
         return -1;
     }
     yaml_parse_attach_ps(env, ps_initlstr(&env->file_contents));
@@ -1638,8 +1638,8 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
         sb_addc(out, '\n');
     }
 
-    if (span->env->filepath.s) {
-        sb_addf(out, "%pL:", &span->env->filepath);
+    if (span->env->filepath) {
+        sb_addf(out, "%s:", span->env->filepath);
     } else {
         sb_adds(out, "<string>:");
     }
@@ -2963,8 +2963,9 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
     SB_1k(err);
 
     Z_HELPER_RUN(z_write_yaml_file("input.yml", yaml));
-    Z_ASSERT_N(t_yaml_parse_attach_file(env, LSTR("input.yml"), z_tmpdir_g,
-               &err));
+    Z_ASSERT_N(t_yaml_parse_attach_file(env, "input.yml", z_tmpdir_g.s,
+                                        &err),
+               "%pL", &err);
     Z_ASSERT_NEG(t_yaml_parse(env, &data, &err));
     Z_ASSERT_STREQUAL(err.data, expected_err,
                       "wrong error message on yaml string `%s`", yaml);
@@ -3001,7 +3002,7 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
 
     *env = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
     /* hack to make relative inclusion work in z_tmpdir_g */
-    (*env)->canonical_path = t_lstr_fmt("%pL/foo.yml", &z_tmpdir_g);
+    (*env)->fullpath = t_lstr_fmt("%pL/foo.yml", &z_tmpdir_g);
     yaml_parse_attach_ps(*env, ps_initstr(yaml));
     Z_ASSERT_N(t_yaml_parse(*env, data, &err),
                "yaml parsing failed: %pL", &err);
