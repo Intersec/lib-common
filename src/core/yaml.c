@@ -1551,26 +1551,36 @@ int
 t_yaml_parse_attach_file(yaml_parse_t *env, const char *filepath,
                          const char *dirpath, sb_t *err)
 {
-    char path[PATH_MAX];
+    char fullpath[PATH_MAX];
 
-    env->filepath = t_strdup(filepath);
-    path_extend(path, dirpath ?: "", "%s", filepath);
-    path_simplify(path);
+    path_extend(fullpath, dirpath ?: "", "%s", filepath);
+    path_simplify(fullpath);
 
-    env->fullpath = t_lstr_dup(LSTR(path));
-    if (dirpath && !lstr_startswith(env->fullpath, LSTR(dirpath))) {
-        sb_setf(err, "cannot include subfile `%s`: only includes contained "
-                "in the directory of the including file are allowed",
-                filepath);
-        return -1;
+    /* detect includes that are not contained in the same directory */
+    if (dirpath) {
+        char relative_path[PATH_MAX];
+
+        /* to work with path_relative_to, dirpath must end with a '/' */
+        dirpath = t_fmt("%s/", dirpath);
+
+        path_relative_to(relative_path, dirpath, fullpath);
+        if (lstr_startswith(LSTR(relative_path), LSTR(".."))) {
+            sb_setf(err, "cannot include subfile `%s`: "
+                    "only includes contained in the directory of the "
+                    "including file are allowed", filepath);
+            return -1;
+        }
     }
 
-    if (lstr_init_from_file(&env->file_contents, env->fullpath.s, PROT_READ,
+    if (lstr_init_from_file(&env->file_contents, fullpath, PROT_READ,
                             MAP_SHARED) < 0)
     {
         sb_setf(err, "cannot read file %s: %m", filepath);
         return -1;
     }
+
+    env->filepath = t_strdup(filepath);
+    env->fullpath = t_lstr_dup(LSTR(fullpath));
     yaml_parse_attach_ps(env, ps_initlstr(&env->file_contents));
 
     return 0;
@@ -3379,16 +3389,39 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(err.data, "cannot read file unknown.yml: "
                           "No such file or directory");
 
+        /* create a file but make it unreadable */
         filename = "unreadable.yml";
         Z_HELPER_RUN(z_write_yaml_file(filename, "2"));
         path = t_fmt("%pL/%s", &z_tmpdir_g, filename);
         chmod(path, 220);
 
-        /* create a file but make it unreadable */
         Z_ASSERT_NEG(t_yaml_parse_attach_file(env, filename, z_tmpdir_g.s,
                                               &err));
         Z_ASSERT_STREQUAL(err.data, "cannot read file unreadable.yml: "
                           "Permission denied");
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Parsing file */
+
+    Z_TEST(parsing_file, "test parsing YAML files") {
+        t_scope;
+        yaml_parse_t *env;
+        const char *filename;
+        yaml_data_t data;
+        SB_1k(err);
+
+        /* make sure including a file relative to "." works */
+        filename = "rel_include.yml";
+        Z_HELPER_RUN(z_write_yaml_file(filename, "2"));
+        Z_ASSERT_N(chdir(z_tmpdir_g.s));
+
+        env = t_yaml_parse_new(0);
+        Z_ASSERT_N(t_yaml_parse_attach_file(env, filename, ".", &err));
+        Z_ASSERT_N(t_yaml_parse(env, &data, &err));
+        Z_ASSERT(data.type == YAML_DATA_SCALAR);
+        Z_ASSERT(data.scalar.type == YAML_SCALAR_UINT);
+        Z_ASSERT(data.scalar.u == 2);
     } Z_TEST_END;
 
     /* }}} */
