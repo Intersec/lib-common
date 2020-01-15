@@ -298,6 +298,23 @@ int t_yaml_pack_env_set_outdir(yaml_pack_env_t * nonnull env,
  */
 void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode);
 
+/** Set the presentation data to use when packing.
+ *
+ * When repacking YAML data, presentation data can be used to reformat it
+ * properly: with comments, newlines, includes, etc.
+ *
+ * If the YAML data was generated with a yaml_parse_env using the
+ * YAML_PARSE_GEN_PRES_DATA flag, the presentation data is included in the
+ * YAML data and will be used when repacking.
+ * However, if the YAML data is deserialized into an another format, then
+ * reserialized into new YAML data, the presentation data is lost. To still
+ * reformat the document properly, the presentation data can be extract from
+ * the parsed data through t_yaml_data_get_presentation, and then reused when
+ * packing with this helper.
+ */
+void yaml_pack_env_set_presentation(yaml_pack_env_t * nonnull env,
+                                    const yaml_presentation_t * nonnull pres);
+
 /** Pack a YAML data.
  *
  * The callback \p writecb will be called for every buffer than must be
@@ -318,16 +335,13 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode);
  */
 int
 t_yaml_pack(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
-            const yaml_presentation_t * nullable presentation,
             yaml_pack_writecb_f * nonnull writecb, void * nullable priv,
             sb_t * nullable err);
 
 /** Pack a YAML data into a YAML string.
  */
 void t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
-                    const yaml_data_t * nonnull data,
-                    const yaml_presentation_t * nullable presentation,
-                    sb_t * nonnull sb);
+                    const yaml_data_t * nonnull data, sb_t * nonnull sb);
 
 /** Pack a YAML data into a YAML file.
  *
@@ -340,9 +354,7 @@ void t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
  */
 int
 t_yaml_pack_file(yaml_pack_env_t * nonnull env, const char * nonnull filename,
-                 const yaml_data_t * nonnull data,
-                 const yaml_presentation_t * nullable presentation,
-                 sb_t * nonnull err);
+                 const yaml_data_t * nonnull data, sb_t * nonnull err);
 
 /* }}} */
 /* {{{ Packing helpers */

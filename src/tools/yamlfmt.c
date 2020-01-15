@@ -62,8 +62,7 @@ yaml_repack(const char *filename, sb_t * nonnull err)
 
     pack_env = t_yaml_pack_env_new();
     yaml_pack_env_set_flags(pack_env, YAML_PACK_NO_SUBFILES);
-    res = t_yaml_pack(pack_env, &data, NULL, yaml_pack_write_stdout, NULL,
-                      err);
+    res = t_yaml_pack(pack_env, &data, yaml_pack_write_stdout, NULL, err);
     printf("\n");
 
   end:
