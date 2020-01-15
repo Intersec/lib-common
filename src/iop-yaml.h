@@ -73,7 +73,7 @@ int t_iop_yunpack_ptr_ps(
 __must_check__
 int t_iop_yunpack_file(
     const char * nonnull filename, const iop_struct_t * nonnull st,
-    void * nullable * nonnull out,
+    void * nonnull out,
     const yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 );
