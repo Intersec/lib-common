@@ -1189,6 +1189,132 @@ int (iop_ypack_file)(const char *filename, mode_t file_mode,
 }
 
 /* }}} */
+/* {{{ JSON interfacing */
+
+qvector_t(pres_mapping, yaml__presentation_node_mapping__t);
+
+/* Convert an iopPath into a YAML presentation path.
+ *
+ * IOPs only handle structs as root data, so they always starts with a key
+ * name, without the '.' prefix. In YAML we always add the '.' prefix.
+ * In addition, the IOP path refers to values, and never to the seq identifier
+ * or obj key, so add a '!' at the end:
+ *
+ * iop_path => '.<iop_path>!'
+ *
+ * If prefix is set, it must be removed from the iop_path.
+ */
+static lstr_t t_iop_path_to_yaml_path(const lstr_t iop_path,
+                                      const lstr_t prefix)
+{
+    if (prefix.s) {
+        pstream_t ps = ps_initlstr(&iop_path);
+
+        assert (lstr_startswith(iop_path, prefix));
+        ps_skiplstr(&ps, prefix);
+
+        return t_lstr_fmt("%*pM!", PS_FMT_ARG(&ps));
+    } else {
+        return t_lstr_fmt(".%pL!", &iop_path);
+    }
+}
+
+/* Change the file extension to .yml */
+static lstr_t t_json_file_to_yaml_file(const lstr_t json_file)
+{
+    pstream_t ps = ps_initlstr(&json_file);
+
+    ps_clip_atlastchr(&ps, '.');
+
+    return t_lstr_fmt("%*pM.yml", PS_FMT_ARG(&ps));
+}
+
+/* Generate a node mapping for the subfile "base".
+ *
+ * All subfiles that starts with the same path as the base means that the were
+ * included from the base subfile, so they must be added to the document
+ * presentation of the base subfile.
+ */
+static void
+t_gen_mapping_from_common_inc(
+    const iop_json_subfile__t * nonnull base,
+    const iop_json_subfile__array_t * nonnull subfiles, const lstr_t prefix,
+    int * nonnull index, yaml__presentation_node_mapping__t * nonnull out
+)
+{
+    qv_t(pres_mapping) mappings;
+
+    t_qv_init(&mappings, 0);
+    while (*index < subfiles->len) {
+        const iop_json_subfile__t *subfile = &subfiles->tab[*index];
+
+        if (lstr_startswith(subfile->iop_path, base->iop_path)) {
+            *index += 1;
+            t_gen_mapping_from_common_inc(subfile, subfiles, base->iop_path,
+                                          index, qv_growlen(&mappings, 1));
+        } else {
+            break;
+        }
+    }
+
+    iop_init(yaml__presentation_node_mapping, out);
+    out->path = t_iop_path_to_yaml_path(base->iop_path, prefix);
+    out->node.included = t_iop_new(yaml__presentation_include);
+    out->node.included->path = t_json_file_to_yaml_file(base->file_path);
+    if (mappings.len > 0) {
+        out->node.included->document_presentation.mappings
+            = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping, &mappings);
+    }
+}
+
+yaml__document_presentation__t * nonnull
+t_build_yaml_pres_from_json_subfiles(
+    const iop_json_subfile__array_t * nonnull subfiles)
+{
+    yaml__document_presentation__t *pres;
+    qv_t(pres_mapping) mappings;
+    int index = 0;
+
+    t_qv_init(&mappings, 0);
+    /* XXX: JSON subfiles are flat, while YAML include presentation is
+     * hierarchical:
+     *
+     * JSON:
+     *   [("a",     "a.cf")
+     *    ("a.b",   "b.cf")
+     *    ("a.b.c", "c.cf")
+     *    ("a.b.d", "d.cf")
+     *    ("e",     "e.cf")]
+     *
+     * YAML:
+     *   [("a", "a.yml", [
+     *       ("b", "b.yml", [
+     *           ("c", "c.yml", []),
+     *           ("d", "d.yml", []),
+     *       ])
+     *       ("e", "e.yml", [])
+     *   )]
+     *
+     * We are guaranteed that the JSON subfiles are properly ordered like
+     * above, so to handle the conversion, every JSON subfile will try to
+     * consume the following subfiles if they share the same prefix iop path.
+     */
+    while (index < subfiles->len) {
+        const iop_json_subfile__t *subfile = &subfiles->tab[index];
+
+        index += 1;
+        t_gen_mapping_from_common_inc(subfile, subfiles, LSTR_NULL_V, &index,
+                                      qv_growlen(&mappings, 1));
+    }
+
+    pres = t_iop_new(yaml__document_presentation);
+    pres->mappings = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping,
+                                         &mappings);
+
+    return pres;
+}
+
+/* }}} */
 /* {{{ Module */
 
 static int iop_yaml_initialize(void *arg)

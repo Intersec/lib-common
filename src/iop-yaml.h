@@ -137,6 +137,21 @@ int iop_ypack_file(const char * nonnull filename, mode_t file_mode,
     (iop_ypack_file)((filename), 0644, (st), (value), (presentation), (err))
 
 /* }}} */
+/* {{{ JSON interfacing */
+
+/** Convert JSON subfiles to a YAML document presentation.
+ *
+ * This helper can be used to convert an IOP-JSON document into an IOP-YAML
+ * one. IOP-JSON only handles includes as "presentation data". This function
+ * can be used to convert those includes into a YAML document presentation,
+ * so that the repacked YAML data will keep the same includes and subfiles.
+ */
+yaml__document_presentation__t *
+t_build_yaml_pres_from_json_subfiles(
+    const iop_json_subfile__array_t * nonnull subfiles
+);
+
+/* }}} */
 
 MODULE_DECLARE(iop_yaml);
 

@@ -125,6 +125,29 @@ static int iop_yaml_test_pack(const iop_struct_t *st, const void *value,
     Z_HELPER_END;
 }
 
+static int
+z_test_json_subfiles_conversion(const iop_json_subfile__array_t *subfiles,
+                                const char *yaml_expected)
+{
+    t_scope;
+    yaml__document_presentation__t *pres;
+    yaml__document_presentation__t expected_pres;
+    pstream_t ps = ps_initstr(yaml_expected);
+    SB_1k(err);
+
+    pres = t_build_yaml_pres_from_json_subfiles(subfiles);
+
+    /* parse yaml to get expected pres */
+    Z_ASSERT_N(t_iop_yunpack_ps(&ps, &yaml__document_presentation__s,
+                                &expected_pres, NULL, &err),
+               "cannot unpack: %pL", &err);
+
+    Z_ASSERT_IOPEQUAL(yaml__document_presentation, pres, &expected_pres);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
 /* }}} */
 
 /* }}} */
@@ -1000,6 +1023,87 @@ Z_GROUP_EXPORT(iop_yaml)
             "  ^^^^^");
 
 #undef TST_ERROR
+    } Z_TEST_END
+    /* }}} */
+
+    Z_TEST(json_subfiles_conversion, "") { /* {{{ */
+        t_scope;
+        iop_json_subfile__array_t subfiles;
+
+        subfiles = T_IOP_ARRAY(iop_json_subfile, {
+            .iop_path = LSTR("a"),
+            .file_path = LSTR("a.cf"),
+        }, {
+            .iop_path = LSTR("b"),
+            .file_path = LSTR("b.cf"),
+        });
+
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
+            "mappings:\n"
+            "  - path: .a!\n"
+            "    node:\n"
+            "      included: { path: a.yml }\n"
+            "  - path: .b!\n"
+            "    node:\n"
+            "      included: { path: b.yml }"
+        ));
+
+        subfiles = T_IOP_ARRAY(iop_json_subfile, {
+            .iop_path = LSTR("a[1]"),
+            .file_path = LSTR("1.cf"),
+        }, {
+            .iop_path = LSTR("a[1].c[0].d"),
+            .file_path = LSTR("2.cf"),
+        }, {
+            .iop_path = LSTR("a[1].c[0].d.a[1]"),
+            .file_path = LSTR("3.cf"),
+        }, {
+            .iop_path = LSTR("a[1].c[0].d.b"),
+            .file_path = LSTR("4"),
+        }, {
+            .iop_path = LSTR("a[1].c[1]"),
+            .file_path = LSTR("5.json.cf"),
+        }, {
+            .iop_path = LSTR("a[2]"),
+            .file_path = LSTR("6.json"),
+        }, {
+            .iop_path = LSTR("a[2].f"),
+            .file_path = LSTR("7.cf"),
+        });
+
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
+            "mappings:\n"
+            "  - path: .a[1]!\n"
+            "    node:\n"
+            "      included:\n"
+            "        path: 1.yml\n"
+            "        documentPresentation:\n"
+            "          mappings:\n"
+            "            - path: .c[0].d!\n"
+            "              node:\n"
+            "                included:\n"
+            "                  path: 2.yml\n"
+            "                  documentPresentation:\n"
+            "                    mappings:\n"
+            "                      - path: .a[1]!\n"
+            "                        node:\n"
+            "                          included: { path: 3.yml }\n"
+            "                      - path: .b!\n"
+            "                        node:\n"
+            "                          included: { path: 4.yml }\n"
+            "            - path: .c[1]!\n"
+            "              node:\n"
+            "                included: { path: 5.json.yml }\n"
+            "  - path: .a[2]!\n"
+            "    node:\n"
+            "      included:\n"
+            "        path: 6.yml\n"
+            "        documentPresentation:\n"
+            "          mappings:\n"
+            "            - path: .f!\n"
+            "              node:\n"
+            "                included: { path: 7.yml }"
+        ));
     } Z_TEST_END
     /* }}} */
 
