@@ -741,7 +741,7 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         inc = t_iop_new(yaml__presentation_include);
         inc->include_presentation = data->presentation;
         inc->path = data->scalar.s;
-        inc->document_presentation = *t_yaml_data_get_presentation(&subdata);
+        t_yaml_data_get_presentation(&subdata, &inc->document_presentation);
 
         /* XXX: create a new presentation node for subdata, that indicates it
          * is included. We should not modify the existing presentation node
@@ -1549,20 +1549,19 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
     return res;
 }
 
-const yaml__document_presentation__t * nonnull
-t_yaml_data_get_presentation(const yaml_data_t * nonnull data)
+void t_yaml_data_get_presentation(
+    const yaml_data_t * nonnull data,
+    yaml__document_presentation__t * nonnull pres
+)
 {
-    yaml__document_presentation__t *pres;
     qv_t(pres_mapping) mappings;
-    t_SB_1k(path);
+    SB_1k(path);
 
-    pres = t_iop_new(yaml__document_presentation);
+    iop_init(yaml__document_presentation, pres);
     t_qv_init(&mappings, 0);
     t_yaml_add_pres_mappings(data, &path, &mappings);
     pres->mappings = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping,
                                          &mappings);
-
-    return pres;
 }
 
 static const yaml_presentation_t * nonnull
@@ -2967,12 +2966,12 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
  * much easier to write multiple lines without horrible indentation */
 static
 int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
-                                const yaml__document_presentation__t ** nullable pres,
+                                yaml__document_presentation__t *nullable pres,
                                 yaml_parse_t * nonnull * nullable env,
                                 const char * nonnull yaml,
                                 const char * nullable expected_repack)
 {
-    const yaml__document_presentation__t *p;
+    yaml__document_presentation__t p;
     yaml_pack_env_t *pack_env;
     yaml_data_t local_data;
     yaml_parse_t *local_env = NULL;
@@ -3009,9 +3008,9 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
 
     /* repack using yaml_presentation_t specification, and not the
      * presentation data inside the AST */
-    *pres = t_yaml_data_get_presentation(data);
+    t_yaml_data_get_presentation(data, pres);
     pack_env = t_yaml_pack_env_new();
-    yaml_pack_env_set_presentation(pack_env, *pres);
+    yaml_pack_env_set_presentation(pack_env, pres);
     t_yaml_pack_sb(pack_env, data, &repack);
     Z_ASSERT_STREQUAL(repack.data, expected_repack,
                       "repacking the parsed data leads to differences");
@@ -3553,7 +3552,7 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(include_shared_files, "") {
         t_scope;
         yaml_data_t data;
-        const yaml__document_presentation__t *pres;
+        yaml__document_presentation__t pres;
         yaml_parse_t *env;
 
         Z_HELPER_RUN(z_create_tmp_subdir("sf/sub"));
@@ -3584,7 +3583,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* repacking it will shared the same subfiles */
         Z_HELPER_RUN(z_create_tmp_subdir("sf-pack-1"));
-        Z_HELPER_RUN(z_pack_yaml_file("sf-pack-1/root.yml", &data, pres, 0));
+        Z_HELPER_RUN(z_pack_yaml_file("sf-pack-1/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("sf-pack-1/root.yml",
             "- !include sf/shared_1.yml\n"
             "- !include sf/shared_1.yml\n"
@@ -3608,7 +3607,7 @@ Z_GROUP_EXPORT(yaml)
         data.seq->datas.tab[5].scalar.i = -3;
         data.seq->datas.tab[7].scalar.i = -3;
         Z_HELPER_RUN(z_create_tmp_subdir("sf-pack-2"));
-        Z_HELPER_RUN(z_pack_yaml_file("sf-pack-2/root.yml", &data, pres, 0));
+        Z_HELPER_RUN(z_pack_yaml_file("sf-pack-2/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("sf-pack-2/root.yml",
             "- !include sf/shared_1.yml\n"
             "- !include sf/shared_1~1.yml\n"
@@ -3640,7 +3639,7 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(include_presentation, "") {
         t_scope;
         yaml_data_t data;
-        const yaml__document_presentation__t *pres;
+        yaml__document_presentation__t pres;
         yaml_parse_t *env;
 
         Z_HELPER_RUN(z_create_tmp_subdir("subpres/in"));
@@ -3669,7 +3668,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         Z_HELPER_RUN(z_create_tmp_subdir("newsubdir/in"));
-        Z_HELPER_RUN(z_pack_yaml_file("newsubdir/root.yml", &data, pres, 0));
+        Z_HELPER_RUN(z_pack_yaml_file("newsubdir/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("newsubdir/root.yml",
             "- !include subpres/1.yml\n"
             "- !include subpres/weird~name\n"
@@ -4472,7 +4471,7 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(pack_flags, "test packing flags") {
         t_scope;
         yaml_data_t data;
-        const yaml__document_presentation__t *pres;
+        yaml__document_presentation__t pres;
         yaml_parse_t *env;
 
         Z_HELPER_RUN(z_write_yaml_file("not_recreated.yml", "1"));
@@ -4483,7 +4482,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         Z_HELPER_RUN(z_create_tmp_subdir("flags"));
-        Z_HELPER_RUN(z_pack_yaml_file("flags/root.yml", &data, pres,
+        Z_HELPER_RUN(z_pack_yaml_file("flags/root.yml", &data, &pres,
                                       YAML_PACK_NO_SUBFILES));
         Z_HELPER_RUN(z_check_file("flags/root.yml",
             "key: !include not_recreated.yml\n"
@@ -4507,7 +4506,7 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(comment_presentation, "test saving of comments in presentation") {
         t_scope;
         yaml_data_t data;
-        const yaml__document_presentation__t *doc_pres = NULL;
+        yaml__document_presentation__t doc_pres;
         const yaml_presentation_t *pres;
 
         /* comment on a scalar => not saved */
@@ -4516,7 +4515,7 @@ Z_GROUP_EXPORT(yaml)
             "3",
             NULL
         ));
-        pres = t_yaml_doc_pres_to_map(doc_pres);
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("my scalar"));
@@ -4527,7 +4526,7 @@ Z_GROUP_EXPORT(yaml)
 
             "a: 3 # ticket is #42\n"
         ));
-        pres = t_yaml_doc_pres_to_map(doc_pres);
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".a!"),
@@ -4542,7 +4541,7 @@ Z_GROUP_EXPORT(yaml)
 
             NULL
         ));
-        pres = t_yaml_doc_pres_to_map(doc_pres);
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(4, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("prefix comment"));
@@ -4572,7 +4571,7 @@ Z_GROUP_EXPORT(yaml)
             "    # prefix scalar\n"
             "    ~ # inline scalar\n"
         ));
-        pres = t_yaml_doc_pres_to_map(doc_pres);
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(3, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR(".key!"),
@@ -4600,7 +4599,7 @@ Z_GROUP_EXPORT(yaml)
             "    # prefix key2\n"
             "    key2: ~ # inline key2\n"
         ));
-        pres = t_yaml_doc_pres_to_map(doc_pres);
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
         Z_ASSERT_P(pres);
         Z_ASSERT_EQ(6, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR("!"),
@@ -4653,7 +4652,7 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(empty_lines_presentation, "") {
         t_scope;
         yaml_data_t data;
-        const yaml__document_presentation__t *pres = NULL;
+        yaml__document_presentation__t pres;
 
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
             "\n"

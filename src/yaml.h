@@ -226,11 +226,16 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
  * This presentation data can then be used when repacking, to reformat the
  * YAML document properly. It includes comments, includes, newlines, etc.
  *
+ * The generated presentation depends on the lifetime of the environment used
+ * to parse \p data. If you need it to outlive the parsing env, it must be
+ * duplicated.
+ *
  * \warning the flag YAML_PARSE_GEN_PRES_DATA must have been used when
  * parsing the object.
  */
-const yaml__document_presentation__t * nonnull
-t_yaml_data_get_presentation(const yaml_data_t * nonnull data);
+void
+t_yaml_data_get_presentation(const yaml_data_t * nonnull data,
+                             yaml__document_presentation__t * nonnull pres);
 
 /* }}} */
 /* {{{ Packing */

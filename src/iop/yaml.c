@@ -809,7 +809,10 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
 
     RETHROW(t_yaml_parse(env, &data, out_err));
     if (pres) {
-        *pres = t_yaml_data_get_presentation(&data);
+        yaml__document_presentation__t doc_pres;
+
+        t_yaml_data_get_presentation(&data, &doc_pres);
+        *pres = t_iop_dup(yaml__document_presentation, &doc_pres);
     }
 
     p_clear(&unpack_env, 1);
@@ -841,10 +844,12 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
     return 0;
 }
 
-int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
-                     void * nonnull out,
-                     const yaml__document_presentation__t * nonnull * nullable pres,
-                     sb_t * nonnull out_err)
+int t_iop_yunpack_ps(
+    pstream_t * nonnull ps, const iop_struct_t * nonnull st,
+    void * nonnull out,
+    const yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t * nonnull out_err
+)
 {
     yaml_parse_t *env;
     int res;
@@ -877,19 +882,22 @@ static void * nonnull t_alloc_st_out(const iop_struct_t * nonnull st,
 }
 
 int
-t_iop_yunpack_ptr_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
-                     void * nullable * nonnull out,
-                     const yaml__document_presentation__t * nonnull * nullable pres,
-                     sb_t * nonnull out_err)
+t_iop_yunpack_ptr_ps(
+    pstream_t * nonnull ps, const iop_struct_t * nonnull st,
+    void * nullable * nonnull out,
+    const yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t * nonnull out_err
+)
 {
     return t_iop_yunpack_ps(ps, st, t_alloc_st_out(st, out), pres, out_err);
 }
 
-int t_iop_yunpack_file(const char * nonnull filename,
-                       const iop_struct_t * nonnull st,
-                       void * nullable * nonnull out,
-                       const yaml__document_presentation__t * nonnull * nullable pres,
-                       sb_t * nonnull out_err)
+int t_iop_yunpack_file(
+    const char * nonnull filename, const iop_struct_t * nonnull st,
+    void * nullable * nonnull out,
+    const yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t * nonnull out_err
+)
 {
     yaml_parse_t *env;
     int res;
@@ -914,12 +922,12 @@ int t_iop_yunpack_file(const char * nonnull filename,
  * See t_iop_junpack_ptr_ps.
  */
 __must_check__
-int
-t_iop_yunpack_ptr_file(const char * nonnull filename,
-                       const iop_struct_t * nonnull st,
-                       void * nullable * nonnull out,
-                       const yaml__document_presentation__t * nonnull * nullable pres,
-                       sb_t * nonnull out_err)
+int t_iop_yunpack_ptr_file(
+    const char * nonnull filename, const iop_struct_t * nonnull st,
+    void * nullable * nonnull out,
+    const yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t * nonnull out_err
+)
 {
     return t_iop_yunpack_file(filename, st, t_alloc_st_out(st, out), pres,
                               out_err);
