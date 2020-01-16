@@ -694,8 +694,14 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     yaml_data_t subdata;
     char dirpath[PATH_MAX];
     SB_1k(err);
+    bool raw;
 
-    if (!lstr_equal(data->tag, LSTR("include"))) {
+    if (lstr_equal(data->tag, LSTR("include"))) {
+        raw = false;
+    } else
+    if (lstr_equal(data->tag, LSTR("includeraw"))) {
+        raw = true;
+    } else {
         return 0;
     }
 
@@ -704,13 +710,19 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     if (data->type != YAML_DATA_SCALAR
     ||  data->scalar.type != YAML_SCALAR_STRING)
     {
-        sb_sets(&err, "!include can only be used with strings");
+        sb_setf(&err, "!%pL can only be used with strings", &data->tag);
         goto err;
     }
 
     path_dirname(dirpath, PATH_MAX, env->fullpath.s ?: "");
 
-    logger_trace(&_G.logger, 2, "parsing subfile %pL", &data->scalar.s);
+    if (raw) {
+        logger_trace(&_G.logger, 2, "copying raw subfile %pL",
+                     &data->scalar.s);
+    } else {
+        logger_trace(&_G.logger, 2, "parsing subfile %pL", &data->scalar.s);
+    }
+
     subfile = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
     if (t_yaml_parse_attach_file(subfile, t_fmt("%pL", &data->scalar.s),
                                  dirpath, &err) < 0)
@@ -728,11 +740,15 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     subfile->included->data = *data;
     qv_append(&env->subfiles, subfile);
 
-    if (t_yaml_parse(subfile, &subdata, &err) < 0) {
-        /* no call to yaml_env_set_err, because the generated error message
-         * will already have all the including details. */
-        env->err = subfile->err;
-        return -1;
+    if (raw) {
+        yaml_data_set_string(&subdata, subfile->file_contents);
+    } else {
+        if (t_yaml_parse(subfile, &subdata, &err) < 0) {
+            /* no call to yaml_env_set_err, because the generated error message
+             * will already have all the including details. */
+            env->err = subfile->err;
+            return -1;
+        }
     }
 
     if (env->pres) {
@@ -3688,6 +3704,42 @@ Z_GROUP_EXPORT(yaml)
             "jo: Jo\n"
             "# o\n"
             "o: ra\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Include raw */
+
+    Z_TEST(include_raw, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Write a JSON file */
+        Z_HELPER_RUN(z_create_tmp_subdir("raw"));
+        Z_HELPER_RUN(z_write_yaml_file("raw/inner.json",
+            "{\n"
+            "  \"foo\": 2\n"
+            "}"
+        ));
+        /* include it verbatim as a string in a YAML document */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "json: !includeraw raw/inner.json",
+
+            "json: \"{\\n  \\\"foo\\\": 2\\n}\\n\""
+        ));
+
+        /* check repacking with presentation */
+        Z_HELPER_RUN(z_pack_yaml_file("packraw/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("packraw/root.yml",
+            /* FIXME: must use includeraw */
+            "json: !include raw/inner.json\n"
+        ));
+        Z_HELPER_RUN(z_check_file("packraw/raw/inner.json",
+            /* FIXME: packed as a YAML string instead of raw */
+            "\"{\\n  \\\"foo\\\": 2\\n}\\n\"\n"
         ));
         yaml_parse_delete(&env);
     } Z_TEST_END;

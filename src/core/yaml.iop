@@ -125,7 +125,6 @@ struct PresentationInclude {
      */
     string path;
 
-
     /** Presentation of the !include element.
      *
      * Presentation associated with the '!include' node.
