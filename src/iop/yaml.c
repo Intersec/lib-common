@@ -1229,6 +1229,24 @@ static lstr_t t_json_file_to_yaml_file(const lstr_t json_file)
     return t_lstr_fmt("%*pM.yml", PS_FMT_ARG(&ps));
 }
 
+static bool
+included_iop_field_is_string(const iop_struct_t * nonnull st,
+                             lstr_t iop_path)
+{
+    t_scope;
+    const iop_field_path_t *field_path;
+    iop_full_type_t type;
+    bool is_array;
+
+    field_path = t_iop_field_path_compile(st, iop_path, NULL);
+    if (!field_path) {
+        return false;
+    }
+    iop_field_path_get_type(field_path, &type, &is_array);
+
+    return !is_array && type.type == IOP_T_STRING;
+}
+
 /* Generate a node mapping for the subfile "base".
  *
  * All subfiles that starts with the same path as the base means that the were
@@ -1239,7 +1257,8 @@ static void
 t_gen_mapping_from_common_inc(
     const iop_json_subfile__t * nonnull base,
     const iop_json_subfile__array_t * nonnull subfiles, const lstr_t prefix,
-    int * nonnull index, yaml__presentation_node_mapping__t * nonnull out
+    int * nonnull index, const iop_struct_t *nullable st,
+    yaml__presentation_node_mapping__t * nonnull out
 )
 {
     qv_t(pres_mapping) mappings;
@@ -1251,7 +1270,8 @@ t_gen_mapping_from_common_inc(
         if (lstr_startswith(subfile->iop_path, base->iop_path)) {
             *index += 1;
             t_gen_mapping_from_common_inc(subfile, subfiles, base->iop_path,
-                                          index, qv_growlen(&mappings, 1));
+                                          index, st,
+                                          qv_growlen(&mappings, 1));
         } else {
             break;
         }
@@ -1260,16 +1280,27 @@ t_gen_mapping_from_common_inc(
     iop_init(yaml__presentation_node_mapping, out);
     out->path = t_iop_path_to_yaml_path(base->iop_path, prefix);
     out->node.included = t_iop_new(yaml__presentation_include);
-    out->node.included->path = t_json_file_to_yaml_file(base->file_path);
     if (mappings.len > 0) {
         out->node.included->document_presentation.mappings
             = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping, &mappings);
+    }
+
+    if (st && included_iop_field_is_string(st, base->iop_path)) {
+        /* In IOP-JSON, if the include is done for a string field, it is
+         * included raw. */
+        out->node.included->path = base->file_path;
+        out->node.included->raw = true;
+    } else {
+        out->node.included->path = t_json_file_to_yaml_file(base->file_path);
+        out->node.included->raw = false;
     }
 }
 
 yaml__document_presentation__t * nonnull
 t_build_yaml_pres_from_json_subfiles(
-    const iop_json_subfile__array_t * nonnull subfiles)
+    const iop_json_subfile__array_t * nonnull subfiles,
+    const iop_struct_t * nullable st
+)
 {
     yaml__document_presentation__t *pres;
     qv_t(pres_mapping) mappings;
@@ -1304,7 +1335,7 @@ t_build_yaml_pres_from_json_subfiles(
 
         index += 1;
         t_gen_mapping_from_common_inc(subfile, subfiles, LSTR_NULL_V, &index,
-                                      qv_growlen(&mappings, 1));
+                                      st, qv_growlen(&mappings, 1));
     }
 
     pres = t_iop_new(yaml__document_presentation);

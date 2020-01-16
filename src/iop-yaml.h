@@ -145,10 +145,15 @@ int iop_ypack_file(const char * nonnull filename, mode_t file_mode,
  * one. IOP-JSON only handles includes as "presentation data". This function
  * can be used to convert those includes into a YAML document presentation,
  * so that the repacked YAML data will keep the same includes and subfiles.
+ *
+ * If type IOP struct definition that is referenced by the IOP path is
+ * provided with \p st, the generated presentation will use proper includes:
+ *   includeraw for strings, and include for the rest.
  */
 yaml__document_presentation__t *
 t_build_yaml_pres_from_json_subfiles(
-    const iop_json_subfile__array_t * nonnull subfiles
+    const iop_json_subfile__array_t * nonnull subfiles,
+    const iop_struct_t * nullable st
 );
 
 /* }}} */

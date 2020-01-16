@@ -127,6 +127,7 @@ static int iop_yaml_test_pack(const iop_struct_t *st, const void *value,
 
 static int
 z_test_json_subfiles_conversion(const iop_json_subfile__array_t *subfiles,
+                                const iop_struct_t *st,
                                 const char *yaml_expected)
 {
     t_scope;
@@ -135,7 +136,7 @@ z_test_json_subfiles_conversion(const iop_json_subfile__array_t *subfiles,
     pstream_t ps = ps_initstr(yaml_expected);
     SB_1k(err);
 
-    pres = t_build_yaml_pres_from_json_subfiles(subfiles);
+    pres = t_build_yaml_pres_from_json_subfiles(subfiles, st);
 
     /* parse yaml to get expected pres */
     Z_ASSERT_N(t_iop_yunpack_ps(&ps, &yaml__document_presentation__s,
@@ -1038,7 +1039,7 @@ Z_GROUP_EXPORT(iop_yaml)
             .file_path = LSTR("b.cf"),
         });
 
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles, NULL,
             "mappings:\n"
             "  - path: .a!\n"
             "    node:\n"
@@ -1071,7 +1072,7 @@ Z_GROUP_EXPORT(iop_yaml)
             .file_path = LSTR("7.cf"),
         });
 
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles, NULL,
             "mappings:\n"
             "  - path: .a[1]!\n"
             "    node:\n"
@@ -1110,6 +1111,48 @@ Z_GROUP_EXPORT(iop_yaml)
             "            - path: .f!\n"
             "              node:\n"
             "                included: { path: 7.yml, raw: false }"
+        ));
+
+        /* Test detection of raw inclues */
+        subfiles = T_IOP_ARRAY(iop_json_subfile, {
+            .iop_path = LSTR("i8"),
+            .file_path = LSTR("1.cf"),
+        }, {
+            .iop_path = LSTR("s"),
+            .file_path = LSTR("2.py"),
+        }, {
+            .iop_path = LSTR("un"),
+            .file_path = LSTR("3.cf"),
+        }, {
+            .iop_path = LSTR("un.s"),
+            .file_path = LSTR("4.py"),
+        }, {
+            .iop_path = LSTR("st.s"),
+            .file_path = LSTR("5.toto"),
+        });
+
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
+                                                     &tstiop__full_opt__s,
+            "mappings:\n"
+            "  - path: .i8!\n"
+            "    node:\n"
+            "      included: { path: 1.yml, raw: false }\n"
+            "  - path: .s!\n"
+            "    node:\n"
+            "      included: { path: 2.py, raw: true }\n"
+            "  - path: .un!\n"
+            "    node:\n"
+            "      included:\n"
+            "        path: 3.yml\n"
+            "        raw: false\n"
+            "        documentPresentation:\n"
+            "          mappings:\n"
+            "            - path: .s!\n"
+            "              node:\n"
+            "                included: { path: 4.py, raw: true }\n"
+            "  - path: .st.s!\n"
+            "    node:\n"
+            "      included: { path: 5.toto, raw: true }\n"
         ));
     } Z_TEST_END
     /* }}} */
