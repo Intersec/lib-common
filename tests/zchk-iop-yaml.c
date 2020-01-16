@@ -60,7 +60,9 @@ iop_yaml_test_unpack_error(const iop_struct_t *st, const char *yaml,
     if (exact_match) {
         Z_ASSERT_STREQUAL(err.data, expected_err);
     } else {
-        Z_ASSERT(lstr_contains(LSTR_SB_V(&err), LSTR(expected_err)));
+        Z_ASSERT(lstr_contains(LSTR_SB_V(&err), LSTR(expected_err)),
+                 "error mismatch: `%s` not contained in `%pL`", expected_err,
+                 &err);
     }
 
     Z_HELPER_END;
@@ -940,6 +942,13 @@ Z_GROUP_EXPORT(iop_yaml)
         TST_ERROR(&tstiop__my_struct_a_opt__s,
                   "u: wry",
                   "cannot set a string value in a field of type int");
+
+        /* integers must be unpackable into doubles */
+        TST(&tstiop__my_struct_a_opt__s, "m: 3", NULL);
+        TST(&tstiop__my_struct_a_opt__s, "m: -3", NULL);
+        /* reverse is not possible */
+        TST_ERROR(&tstiop__my_struct_a_opt__s, "a: 3.2",
+                  "cannot set a double value in a field of type int");
 
 #undef TST_ERROR
 #undef TST

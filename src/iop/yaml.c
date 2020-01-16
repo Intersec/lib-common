@@ -183,36 +183,49 @@ t_yaml_uint_to_iop_field(const yaml_data_t * nonnull data,
         CHECK_MAX(u, INT8_MAX);
         *(int8_t *)out = u;
         return YUNPACK_OK;
+
       case IOP_T_U8:
         CHECK_MAX(u, UINT8_MAX);
         *(uint8_t *)out = u;
         return YUNPACK_OK;
+
       case IOP_T_I16:
         CHECK_MAX(u, INT16_MAX);
         *(int16_t *)out = u;
         return YUNPACK_OK;
+
       case IOP_T_U16:
         CHECK_MAX(u, UINT16_MAX);
         *(uint16_t *)out = u;
         return YUNPACK_OK;
+
       case IOP_T_I32:
         CHECK_MAX(u, INT32_MAX);
         *(int32_t *)out = u;
         return YUNPACK_OK;
+
       case IOP_T_U32:
         CHECK_MAX(u, UINT32_MAX);
         *(uint32_t *)out = u;
         return YUNPACK_OK;
+
       case IOP_T_I64:
         CHECK_MAX(u, INT64_MAX);
         *(int64_t *)out = u;
         return YUNPACK_OK;
+
       case IOP_T_U64:
         *(uint64_t *)out = u;
         return YUNPACK_OK;
+
+      case IOP_T_DOUBLE:
+        *(double *)out = u;
+        return YUNPACK_OK;
+
       case IOP_T_STRING:
         t_set_string_from_stream(data, out);
         return YUNPACK_OK;
+
       case IOP_T_ENUM:
         CHECK_MAX(u, INT32_MAX);
         if (TST_BIT(&fdesc->u1.en_desc->flags, IOP_ENUM_STRICT)
@@ -222,6 +235,7 @@ t_yaml_uint_to_iop_field(const yaml_data_t * nonnull data,
         }
         *(int32_t *)out = u;
         return YUNPACK_OK;
+
       default:
         return YUNPACK_TYPE_MISMATCH;
     }
@@ -243,25 +257,37 @@ yaml_int_to_iop_field(int64_t i, const iop_field_t * nonnull fdesc,
         CHECK_RANGE(i, INT8_MIN, INT8_MAX);
         *(int8_t *)out = i;
         return YUNPACK_OK;
+
       case IOP_T_U8:
         return YUNPACK_OOB;
+
       case IOP_T_I16:
         CHECK_RANGE(i, INT16_MIN, INT16_MAX);
         *(int16_t *)out = i;
         return YUNPACK_OK;
+
       case IOP_T_U16:
         return YUNPACK_OOB;
+
       case IOP_T_I32:
         CHECK_RANGE(i, INT32_MIN, INT32_MAX);
         *(int32_t *)out = i;
         return YUNPACK_OK;
+
       case IOP_T_U32:
         return YUNPACK_OOB;
+
       case IOP_T_I64:
         *(int64_t *)out = i;
         return YUNPACK_OK;
+
       case IOP_T_U64:
         return YUNPACK_OOB;
+
+      case IOP_T_DOUBLE:
+        *(double *)out = i;
+        return YUNPACK_OK;
+
       case IOP_T_ENUM:
         CHECK_RANGE(i, INT32_MIN, INT32_MAX);
         if (TST_BIT(&fdesc->u1.en_desc->flags, IOP_ENUM_STRICT)
@@ -271,6 +297,7 @@ yaml_int_to_iop_field(int64_t i, const iop_field_t * nonnull fdesc,
         }
         *(int32_t *)out = i;
         return YUNPACK_OK;
+
       default:
         return YUNPACK_TYPE_MISMATCH;
     }
