@@ -74,7 +74,7 @@ iop_yaml_test_unpack(const iop_struct_t * nonnull st,
                      const char * nullable new_yaml)
 {
     t_scope;
-    const yaml__document_presentation__t *pres;
+    yaml__document_presentation__t *pres;
     const char *path;
     pstream_t ps;
     void *res = NULL;

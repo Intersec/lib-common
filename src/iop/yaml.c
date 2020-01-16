@@ -827,7 +827,7 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 static int
 t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
               void * nonnull out,
-              const yaml__document_presentation__t * nonnull * nullable pres,
+              yaml__document_presentation__t * nonnull * nullable pres,
               sb_t * nonnull out_err)
 {
     t_SB_1k(err);
@@ -874,7 +874,7 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
 int t_iop_yunpack_ps(
     pstream_t * nonnull ps, const iop_struct_t * nonnull st,
     void * nonnull out,
-    const yaml__document_presentation__t * nonnull * nullable pres,
+    yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 )
 {
@@ -912,7 +912,7 @@ int
 t_iop_yunpack_ptr_ps(
     pstream_t * nonnull ps, const iop_struct_t * nonnull st,
     void * nullable * nonnull out,
-    const yaml__document_presentation__t * nonnull * nullable pres,
+    yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 )
 {
@@ -922,7 +922,7 @@ t_iop_yunpack_ptr_ps(
 int t_iop_yunpack_file(
     const char * nonnull filename, const iop_struct_t * nonnull st,
     void * nonnull out,
-    const yaml__document_presentation__t * nonnull * nullable pres,
+    yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 )
 {
@@ -952,7 +952,7 @@ __must_check__
 int t_iop_yunpack_ptr_file(
     const char * nonnull filename, const iop_struct_t * nonnull st,
     void * nullable * nonnull out,
-    const yaml__document_presentation__t * nonnull * nullable pres,
+    yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 )
 {
