@@ -265,6 +265,13 @@ Z_GROUP_EXPORT(iop_yaml)
         TST("\a \b \e \f \n \r \t \\ \v",
             "us: \"\\a \\b \\e \\f \\n \\r \\t \\\\ \\v\"", true);
 
+        /* when containing spaces */
+        TST("mu da", "us: mu da", true);
+        TST(" muda", "us: \" muda\"", true);
+        TST("muda ", "us: \"muda \"", true);
+        TST(" ", "us: \" \"", true);
+        TST("", "us: \"\"", true);
+
         /* with an invalid utf-8 character.
          * The unpacked object won't be equal to the packed one, as the
          * invalid character will be repacked as a valid utf-8 sequence */

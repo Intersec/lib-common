@@ -2020,6 +2020,10 @@ static bool yaml_string_must_be_quoted(const lstr_t s)
     if (!lstr_match_ctype(s, &yaml_raw_string_contains)) {
         return true;
     }
+    /* cannot start or end with a space */
+    if (lstr_startswith(s, LSTR(" ")) || lstr_endswith(s, LSTR(" "))) {
+        return true;
+    }
     if (lstr_equal(s, LSTR("~")) || lstr_equal(s, LSTR("null"))) {
         return true;
     }
