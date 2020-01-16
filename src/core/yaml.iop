@@ -125,6 +125,9 @@ struct PresentationInclude {
      */
     string path;
 
+    /** Is the include raw. */
+    bool raw;
+
     /** Presentation of the !include element.
      *
      * Presentation associated with the '!include' node.

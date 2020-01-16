@@ -757,6 +757,7 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         inc = t_iop_new(yaml__presentation_include);
         inc->include_presentation = data->presentation;
         inc->path = data->scalar.s;
+        inc->raw = raw;
         t_yaml_data_get_presentation(&subdata, &inc->document_presentation);
 
         /* XXX: create a new presentation node for subdata, that indicates it
@@ -2440,15 +2441,15 @@ t_find_right_path(yaml_pack_env_t * nonnull env,
 
 static int
 t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
-                         const yaml__presentation_node__t *pres,
-                         lstr_t include_path)
+                         const yaml__presentation_node__t * nonnull pres,
+                         bool raw, lstr_t include_path)
 {
     const yaml_presentation_t *saved_pres = env->pres;
     yaml_data_t data;
     int res;
 
     yaml_data_set_string(&data, include_path);
-    data.tag = LSTR("include");
+    data.tag = raw ? LSTR("includeraw") : LSTR("include");
     data.presentation = unconst_cast(yaml__presentation_node__t, pres);
 
     /* Make sure the presentation data is not used as the paths won't be
@@ -2461,12 +2462,46 @@ t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
 }
 
 static int
+yaml_pack_write_raw_file(const yaml_pack_env_t * nonnull env,
+                         const char * nonnull filepath,
+                         const lstr_t contents, sb_t * nonnull err)
+{
+    t_scope;
+    const char *fullpath;
+    char fulldirpath[PATH_MAX];
+    file_t *file;
+
+    fullpath = t_fmt("%pL/%s", &env->outdirpath, filepath);
+
+    path_dirname(fulldirpath, PATH_MAX, fullpath);
+    if (mkdir_p(fulldirpath, 0755) < 0) {
+        sb_sets(err, "could not create output directory: %m");
+        return -1;
+    }
+
+    file = file_open(fullpath, env->file_flags, env->file_mode);
+    if (!file) {
+        sb_setf(err, "cannot open output file `%s`: %m", fullpath);
+        return -1;
+    }
+
+    if (file_write(file, contents.s, contents.len) < 0) {
+        sb_setf(err, "cannot write in output file: %m");
+        return -1;
+    }
+
+    IGNORE(file_close(&file));
+    return 0;
+}
+
+static int
 t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
                       yaml__presentation_include__t * nonnull inc,
                       const yaml_data_t * nonnull subdata)
 {
     const char *path;
     bool reuse;
+    bool raw;
 
     /* This is checked on parsing. Unless the presentation data has been
      * modified by hand, which is not possible yet, this should not fail. */
@@ -2477,28 +2512,51 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
         return -1;
     }
 
+    raw = inc->raw;
+    /* if the YAML data to dump is not a string, it changed and can no longer
+     * be packed raw. */
+    if (raw && (subdata->type != YAML_DATA_SCALAR
+            ||  subdata->scalar.type != YAML_SCALAR_STRING))
+    {
+        raw = false;
+    }
+
     path = t_find_right_path(env, subdata, inc->path, &reuse);
     if (!reuse) {
-        yaml_pack_env_t *subenv = t_yaml_pack_env_new();
         SB_1k(err);
 
-        RETHROW(t_yaml_pack_env_set_outdir(subenv, env->outdirpath.s, &err));
-        yaml_pack_env_set_presentation(subenv, &inc->document_presentation);
+        if (raw) {
+            logger_trace(&_G.logger, 2, "writing raw subfile %s", path);
+            if (yaml_pack_write_raw_file(env, path, subdata->scalar.s,
+                                         &err) < 0)
+            {
+                sb_setf(&env->err, "error when writing raw subfile `%s`: %pL",
+                        path, &err);
+                return -1;
+            }
+        } else {
+            yaml_pack_env_t *subenv = t_yaml_pack_env_new();
 
-        /* Make sure the subfiles qm is shared, so that if this subfile also
-         * generate other subfiles, it is properly handled. */
-        subenv->subfiles = env->subfiles;
+            RETHROW(t_yaml_pack_env_set_outdir(subenv, env->outdirpath.s,
+                                               &err));
+            yaml_pack_env_set_presentation(subenv,
+                                           &inc->document_presentation);
 
-        logger_trace(&_G.logger, 2, "packing subfile %s", path);
-        if (t_yaml_pack_file(subenv, path, subdata, &err) < 0) {
-            sb_setf(&env->err, "error when packing subfile `%s`: %pL", path,
-                    &err);
-            return -1;
+            /* Make sure the subfiles qm is shared, so that if this subfile
+             * also generate other subfiles, it is properly handled. */
+            subenv->subfiles = env->subfiles;
+
+            logger_trace(&_G.logger, 2, "packing subfile %s", path);
+            if (t_yaml_pack_file(subenv, path, subdata, &err) < 0) {
+                sb_setf(&env->err, "error when packing subfile `%s`: %pL", path,
+                        &err);
+                return -1;
+            }
         }
 
     }
 
-    return t_yaml_pack_include_path(env, inc->include_presentation,
+    return t_yaml_pack_include_path(env, inc->include_presentation, raw,
                                     LSTR(path));
 }
 
@@ -2512,7 +2570,7 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
     inc = node->included;
     if (env->flags & YAML_PACK_NO_SUBFILES) {
         return t_yaml_pack_include_path(env, inc->include_presentation,
-                                        inc->path);
+                                        inc->raw, inc->path);
     } else
     /* Only create subfiles if an outdir is set, ie if we are packing into
      * files. */
@@ -3714,6 +3772,8 @@ Z_GROUP_EXPORT(yaml)
     Z_TEST(include_raw, "") {
         t_scope;
         yaml_data_t data;
+        yaml_data_t new_data;
+        yaml_data_t bool_data;
         yaml__document_presentation__t pres;
         yaml_parse_t *env;
 
@@ -3726,21 +3786,43 @@ Z_GROUP_EXPORT(yaml)
         ));
         /* include it verbatim as a string in a YAML document */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
-            "json: !includeraw raw/inner.json",
+            "- !includeraw raw/inner.json",
 
-            "json: \"{\\n  \\\"foo\\\": 2\\n}\\n\""
+            "- \"{\\n  \\\"foo\\\": 2\\n}\\n\""
         ));
 
         /* check repacking with presentation */
         Z_HELPER_RUN(z_pack_yaml_file("packraw/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("packraw/root.yml",
-            /* FIXME: must use includeraw */
-            "json: !include raw/inner.json\n"
+            "- !includeraw raw/inner.json\n"
         ));
         Z_HELPER_RUN(z_check_file("packraw/raw/inner.json",
-            /* FIXME: packed as a YAML string instead of raw */
-            "\"{\\n  \\\"foo\\\": 2\\n}\\n\"\n"
+            "{\n"
+            "  \"foo\": 2\n"
+            "}\n"
         ));
+
+        /* if the included data is no longer a string, it will be dumped as
+         * a classic include. */
+        t_yaml_data_new_obj(&new_data, 2);
+        yaml_obj_add_field(&new_data, LSTR("json"), data.seq->datas.tab[0]);
+        yaml_data_set_bool(&bool_data, true);
+        yaml_obj_add_field(&new_data, LSTR("b"), bool_data);
+        data.seq->datas.tab[0] = new_data;
+        Z_HELPER_RUN(z_pack_yaml_file("packraw2/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("packraw2/root.yml",
+            /* TODO: we still keep the same file extension, which isn't ideal.
+             * Maybe adding a .yml on top of it (without removing the old
+             * extension) would be better, maybe even adding a prefix comment
+             * for the include explaining the file could no longer be packed
+             * raw. */
+            "- !include raw/inner.json\n"
+        ));
+        Z_HELPER_RUN(z_check_file("packraw2/raw/inner.json",
+            "json: \"{\\n  \\\"foo\\\": 2\\n}\\n\"\n"
+            "b: true\n"
+        ));
+
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
