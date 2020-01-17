@@ -1407,6 +1407,7 @@ def profile_default(ctx,
     if ctx.env.COMPILER_CC == 'clang':
         # C compilation directly done using clang
         ctx.env.CFLAGS += ['-x', 'c']
+        ctx.env.CLANG_FLAGS = ctx.env.CFLAGS
     else:
         # Probably compiling with gcc; we'll need the .blk -> .c rewriting
         # pass with our modified clang
@@ -1417,6 +1418,7 @@ def profile_default(ctx,
     if ctx.env.COMPILER_CXX == 'clang++':
         # C++ compilation directly done using clang
         ctx.env.CXXFLAGS += ['-x', 'c++']
+        ctx.env.CLANGXX_FLAGS = ctx.env.CXXFLAGS
     else:
         # Probably compiling with g++; we'll need the .blkk -> .cc rewriting
         # pass with our modified clang
