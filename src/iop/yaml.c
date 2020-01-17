@@ -1247,6 +1247,15 @@ included_iop_field_is_string(const iop_struct_t * nonnull st,
     return !is_array && type.type == IOP_T_STRING;
 }
 
+static lstr_t t_get_relative_path(const lstr_t from, const lstr_t to)
+{
+    char relpath[PATH_MAX];
+
+    path_relative_to(relpath, from.s, to.s);
+
+    return t_lstr_dup(LSTR(relpath));
+}
+
 /* Generate a node mapping for the subfile "base".
  *
  * All subfiles that starts with the same path as the base means that the were
@@ -1256,12 +1265,14 @@ included_iop_field_is_string(const iop_struct_t * nonnull st,
 static void
 t_gen_mapping_from_common_inc(
     const iop_json_subfile__t * nonnull base,
-    const iop_json_subfile__array_t * nonnull subfiles, const lstr_t prefix,
+    const iop_json_subfile__t * nullable parent,
+    const iop_json_subfile__array_t * nonnull subfiles,
     int * nonnull index, const iop_struct_t *nullable st,
     yaml__presentation_node_mapping__t * nonnull out
 )
 {
     qv_t(pres_mapping) mappings;
+    lstr_t relpath;
 
     t_qv_init(&mappings, 0);
     while (*index < subfiles->len) {
@@ -1269,16 +1280,24 @@ t_gen_mapping_from_common_inc(
 
         if (lstr_startswith(subfile->iop_path, base->iop_path)) {
             *index += 1;
-            t_gen_mapping_from_common_inc(subfile, subfiles, base->iop_path,
-                                          index, st,
+
+            t_gen_mapping_from_common_inc(subfile, base, subfiles, index, st,
                                           qv_growlen(&mappings, 1));
         } else {
             break;
         }
     }
 
+    if (parent) {
+        relpath = t_get_relative_path(parent->file_path, base->file_path);
+    } else {
+        relpath = base->file_path;
+    }
+
     iop_init(yaml__presentation_node_mapping, out);
-    out->path = t_iop_path_to_yaml_path(base->iop_path, prefix);
+    out->path = t_iop_path_to_yaml_path(base->iop_path,
+                                        parent ? parent->iop_path
+                                               : LSTR_NULL_V);
     out->node.included = t_iop_new(yaml__presentation_include);
     if (mappings.len > 0) {
         out->node.included->document_presentation.mappings
@@ -1288,10 +1307,10 @@ t_gen_mapping_from_common_inc(
     if (st && included_iop_field_is_string(st, base->iop_path)) {
         /* In IOP-JSON, if the include is done for a string field, it is
          * included raw. */
-        out->node.included->path = base->file_path;
+        out->node.included->path = relpath;
         out->node.included->raw = true;
     } else {
-        out->node.included->path = t_json_file_to_yaml_file(base->file_path);
+        out->node.included->path = t_json_file_to_yaml_file(relpath);
         out->node.included->raw = false;
     }
 }
@@ -1312,16 +1331,16 @@ t_build_yaml_pres_from_json_subfiles(
      *
      * JSON:
      *   [("a",     "a.cf")
-     *    ("a.b",   "b.cf")
-     *    ("a.b.c", "c.cf")
-     *    ("a.b.d", "d.cf")
+     *    ("a.b",   "dir/b.cf")
+     *    ("a.b.c", "dir/c.cf")
+     *    ("a.b.d", "dir/sub/d.cf")
      *    ("e",     "e.cf")]
      *
      * YAML:
      *   [("a", "a.yml", [
-     *       ("b", "b.yml", [
+     *       ("b", "dir/b.yml", [
      *           ("c", "c.yml", []),
-     *           ("d", "d.yml", []),
+     *           ("d", "sub/d.yml", []),
      *       ])
      *       ("e", "e.yml", [])
      *   )]
@@ -1334,8 +1353,8 @@ t_build_yaml_pres_from_json_subfiles(
         const iop_json_subfile__t *subfile = &subfiles->tab[index];
 
         index += 1;
-        t_gen_mapping_from_common_inc(subfile, subfiles, LSTR_NULL_V, &index,
-                                      st, qv_growlen(&mappings, 1));
+        t_gen_mapping_from_common_inc(subfile, NULL, subfiles, &index, st,
+                                      qv_growlen(&mappings, 1));
     }
 
     pres = t_iop_new(yaml__document_presentation);

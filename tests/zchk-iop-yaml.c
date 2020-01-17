@@ -1051,25 +1051,25 @@ Z_GROUP_EXPORT(iop_yaml)
 
         subfiles = T_IOP_ARRAY(iop_json_subfile, {
             .iop_path = LSTR("a[1]"),
-            .file_path = LSTR("1.cf"),
+            .file_path = LSTR("a/1.cf"),
         }, {
             .iop_path = LSTR("a[1].c[0].d"),
-            .file_path = LSTR("2.cf"),
+            .file_path = LSTR("a/d/2.cf"),
         }, {
             .iop_path = LSTR("a[1].c[0].d.a[1]"),
-            .file_path = LSTR("3.cf"),
+            .file_path = LSTR("a/d/a/3.cf"),
         }, {
             .iop_path = LSTR("a[1].c[0].d.b"),
-            .file_path = LSTR("4"),
+            .file_path = LSTR("a/d/4"),
         }, {
             .iop_path = LSTR("a[1].c[1]"),
-            .file_path = LSTR("5.json.cf"),
+            .file_path = LSTR("a/5.json.cf"),
         }, {
             .iop_path = LSTR("a[2]"),
             .file_path = LSTR("6.json"),
         }, {
             .iop_path = LSTR("a[2].f"),
-            .file_path = LSTR("7.cf"),
+            .file_path = LSTR("f/7.cf"),
         });
 
         Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles, NULL,
@@ -1077,21 +1077,21 @@ Z_GROUP_EXPORT(iop_yaml)
             "  - path: .a[1]!\n"
             "    node:\n"
             "      included:\n"
-            "        path: 1.yml\n"
+            "        path: a/1.yml\n"
             "        raw: false\n"
             "        documentPresentation:\n"
             "          mappings:\n"
             "            - path: .c[0].d!\n"
             "              node:\n"
             "                included:\n"
-            "                  path: 2.yml\n"
+            "                  path: d/2.yml\n"
             "                  raw: false\n"
             "                  documentPresentation:\n"
             "                    mappings:\n"
             "                      - path: .a[1]!\n"
             "                        node:\n"
             "                          included:\n"
-            "                            path: 3.yml\n"
+            "                            path: a/3.yml\n"
             "                            raw: false\n"
             "                      - path: .b!\n"
             "                        node:\n"
@@ -1110,10 +1110,10 @@ Z_GROUP_EXPORT(iop_yaml)
             "          mappings:\n"
             "            - path: .f!\n"
             "              node:\n"
-            "                included: { path: 7.yml, raw: false }"
+            "                included: { path: f/7.yml, raw: false }"
         ));
 
-        /* Test detection of raw inclues */
+        /* Test detection of raw includes */
         subfiles = T_IOP_ARRAY(iop_json_subfile, {
             .iop_path = LSTR("i8"),
             .file_path = LSTR("1.cf"),
