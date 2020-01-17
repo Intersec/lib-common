@@ -1378,11 +1378,15 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
     } else
     if (ps_peekc(env->ps) == '[') {
         RETHROW(t_yaml_env_parse_flow_seq(env, out));
-        t_yaml_env_pres_set_flow_mode(env);
+        if (out->seq->datas.len > 0) {
+            t_yaml_env_pres_set_flow_mode(env);
+        }
     } else
     if (ps_peekc(env->ps) == '{') {
         RETHROW(t_yaml_env_parse_flow_obj(env, out));
-        t_yaml_env_pres_set_flow_mode(env);
+        if (out->obj->fields.len > 0) {
+            t_yaml_env_pres_set_flow_mode(env);
+        }
     } else
     if (ps_startswith_yaml_key(env->ps)) {
         RETHROW(t_yaml_env_parse_obj(env, cur_indent, out));
@@ -1424,6 +1428,10 @@ t_yaml_add_pres_mappings(const yaml_data_t * nonnull data, sb_t *path,
         sb_addc(path, '!');
         add_mapping(path, data->presentation, mappings);
         sb_clip(path, prev_len);
+
+        if (data->presentation->included) {
+            return;
+        }
     }
 
     switch (data->type) {
