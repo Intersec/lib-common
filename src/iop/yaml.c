@@ -826,7 +826,7 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
 static int
 t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
-              void * nonnull out,
+              void * nonnull out, unsigned flags,
               yaml__document_presentation__t * nonnull * nullable pres,
               sb_t * nonnull out_err)
 {
@@ -844,10 +844,7 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
 
     p_clear(&unpack_env, 1);
     unpack_env.err.buf = err;
-    /* The YAML packer is made for public interfaces. Use flags that makes
-     * sense in this context. In the future, they might be overridden if
-     * some internal use-cases are found. */
-    unpack_env.flags = IOP_UNPACK_FORBID_PRIVATE;
+    unpack_env.flags = flags;
     if (t_yaml_data_to_typed_struct(&unpack_env, &data, st, out) < 0) {
         yaml_parse_pretty_print_err(unpack_env.err.span,
                                     LSTR_SB_V(&unpack_env.err.buf), out_err);
@@ -873,23 +870,23 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
 
 int t_iop_yunpack_ps(
     pstream_t * nonnull ps, const iop_struct_t * nonnull st,
-    void * nonnull out,
+    void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 )
 {
     yaml_parse_t *env;
     int res;
-    int flags = 0;
+    int yaml_flags = 0;
 
     if (pres) {
-        flags = YAML_PARSE_GEN_PRES_DATA;
+        yaml_flags = YAML_PARSE_GEN_PRES_DATA;
     }
 
-    env = t_yaml_parse_new(flags);
+    env = t_yaml_parse_new(yaml_flags);
     yaml_parse_attach_ps(env, *ps);
 
-    res = t_iop_yunpack(env, st, out, pres, out_err);
+    res = t_iop_yunpack(env, st, out, flags, pres, out_err);
     yaml_parse_delete(&env);
 
     return res;
@@ -911,33 +908,34 @@ static void * nonnull t_alloc_st_out(const iop_struct_t * nonnull st,
 int
 t_iop_yunpack_ptr_ps(
     pstream_t * nonnull ps, const iop_struct_t * nonnull st,
-    void * nullable * nonnull out,
+    void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 )
 {
-    return t_iop_yunpack_ps(ps, st, t_alloc_st_out(st, out), pres, out_err);
+    return t_iop_yunpack_ps(ps, st, t_alloc_st_out(st, out), flags, pres,
+                            out_err);
 }
 
 int t_iop_yunpack_file(
     const char * nonnull filename, const iop_struct_t * nonnull st,
-    void * nonnull out,
+    void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 )
 {
     yaml_parse_t *env;
     int res;
-    int flags = 0;
+    int yaml_flags = 0;
 
     if (pres) {
-        flags = YAML_PARSE_GEN_PRES_DATA;
+        yaml_flags = YAML_PARSE_GEN_PRES_DATA;
     }
 
-    env = t_yaml_parse_new(flags);
+    env = t_yaml_parse_new(yaml_flags);
     res = t_yaml_parse_attach_file(env, filename, NULL, out_err);
     if (res >= 0) {
-        res = t_iop_yunpack(env, st, out, pres, out_err);
+        res = t_iop_yunpack(env, st, out, flags, pres, out_err);
     }
     yaml_parse_delete(&env);
 
@@ -951,13 +949,13 @@ int t_iop_yunpack_file(
 __must_check__
 int t_iop_yunpack_ptr_file(
     const char * nonnull filename, const iop_struct_t * nonnull st,
-    void * nullable * nonnull out,
+    void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 )
 {
-    return t_iop_yunpack_file(filename, st, t_alloc_st_out(st, out), pres,
-                              out_err);
+    return t_iop_yunpack_file(filename, st, t_alloc_st_out(st, out), flags,
+                              pres, out_err);
 }
 
 /* }}} */
@@ -1137,8 +1135,7 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
 }
 
 #define DEFAULT_PACK_FLAGS                                                   \
-        IOP_JPACK_SKIP_PRIVATE                                               \
-      | IOP_JPACK_SKIP_DEFAULT                                               \
+        IOP_JPACK_SKIP_DEFAULT                                               \
       | IOP_JPACK_SKIP_EMPTY_ARRAYS                                          \
       | IOP_JPACK_SKIP_EMPTY_STRUCTS                                         \
       | IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES

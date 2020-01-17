@@ -3221,7 +3221,7 @@ cdef void *t_parse_lstr_yaml(const iop_struct_t *st, lstr_t val) except NULL:
 
     with nogil:
         ps = ps_initlstr(&val)
-        ret_code = t_iop_yunpack_ptr_ps(&ps, st, &res, NULL, &err)
+        ret_code = t_iop_yunpack_ptr_ps(&ps, st, &res, 0, NULL, &err)
 
     if ret_code < 0:
         raise Error('%s' % (lstr_to_py_str(LSTR_SB_V(&err))))
@@ -3554,7 +3554,7 @@ cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
         else:
             cassert(file_type == IOPY_SPECIAL_KWARGS_YAML)
             ret_code = t_iop_yunpack_ptr_file(filename_lstr.s, st, &data,
-                                              NULL, &err)
+                                              0, NULL, &err)
     if ret_code < 0:
         raise Error('cannot unpack input file %s: %s' %
                     (filename, lstr_to_py_str(LSTR_SB_V(&err))))

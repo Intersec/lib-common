@@ -33,18 +33,20 @@
  * This function cannot be used to unpack a class; use `t_iop_yunpack_ptr_ps`
  * instead.
  *
- * \param[in]  ps    The pstream_t to parse.
- * \param[in]  st    The IOP structure description.
- * \param[out] out   Pointer on the IOP structure to write.
- * \param[out] pres  If non NULL, it will be set to YAML presentation data
- *                   of the parsed YAML. See yaml.h for details.
- * \param[out] err   If the unpacking fails, this pointer is set to a
- *                   description of the error, allocated on the t_scope.
+ * \param[in]  ps     The pstream_t to parse.
+ * \param[in]  st     The IOP structure description.
+ * \param[out] out    Pointer on the IOP structure to write.
+ * \param[in]  flags  Bitfield of iop_unpack_flags_t elements. Only
+ *                    IOP_UNPACK_FORBID_PRIVATE is handled.
+ * \param[out] pres   If non NULL, it will be set to YAML presentation data
+ *                    of the parsed YAML. See yaml.h for details.
+ * \param[out] err    If the unpacking fails, this pointer is set to a
+ *                    description of the error, allocated on the t_scope.
  */
 __must_check__
 int t_iop_yunpack_ps(
     pstream_t * nonnull ps, const iop_struct_t * nonnull st,
-    void * nonnull out,
+    void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 );
@@ -61,7 +63,7 @@ int t_iop_yunpack_ps(
 __must_check__
 int t_iop_yunpack_ptr_ps(
     pstream_t * nonnull ps, const iop_struct_t * nonnull st,
-    void * nullable * nonnull out,
+    void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 );
@@ -73,7 +75,7 @@ int t_iop_yunpack_ptr_ps(
 __must_check__
 int t_iop_yunpack_file(
     const char * nonnull filename, const iop_struct_t * nonnull st,
-    void * nonnull out,
+    void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 );
@@ -86,7 +88,7 @@ __must_check__
 int
 t_iop_yunpack_ptr_file(
     const char * nonnull filename, const iop_struct_t * nonnull st,
-    void * nullable * nonnull out,
+    void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
 );
