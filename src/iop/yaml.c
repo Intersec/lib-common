@@ -659,7 +659,8 @@ t_yaml_data_to_typed_struct(yunpack_env_t * nonnull env,
     }
 
     if (data->type == YAML_DATA_OBJ
-    &&  unlikely(nb_fields_matched != data->obj->fields.len))
+    &&  unlikely(nb_fields_matched != data->obj->fields.len
+              && !(env->flags & IOP_UNPACK_IGNORE_UNKNOWN)))
     {
         /* There are fields in the YAML object that have not been matched.
          * The handling of this error is kept in a cold path, as it is

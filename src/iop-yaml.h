@@ -36,8 +36,9 @@
  * \param[in]  ps     The pstream_t to parse.
  * \param[in]  st     The IOP structure description.
  * \param[out] out    Pointer on the IOP structure to write.
- * \param[in]  flags  Bitfield of iop_unpack_flags_t elements. Only
- *                    IOP_UNPACK_FORBID_PRIVATE is handled.
+ * \param[in]  flags  Bitfield of iop_unpack_flags_t elements. See
+ *                    documentation of iop_unpack_flags_t to find out which
+ *                    flags are handled.
  * \param[out] pres   If non NULL, it will be set to YAML presentation data
  *                    of the parsed YAML. See yaml.h for details.
  * \param[out] err    If the unpacking fails, this pointer is set to a

@@ -2189,13 +2189,13 @@ static inline lstr_t t_iop_bpack_struct(const iop_struct_t * nonnull st,
 enum iop_unpack_flags {
     /** Allow the unpacker to skip unknown fields.
      *
-     * This flag applies to the json and xml packers.
+     * This flag applies to the json, yaml and xml packers.
      */
     IOP_UNPACK_IGNORE_UNKNOWN = (1U << 0),
 
     /** Make the unpacker reject private fields.
      *
-     * This flag applies to the binary, json and xml packers.
+     * This flag applies to the binary, json, yaml and xml packers.
      */
     IOP_UNPACK_FORBID_PRIVATE = (1U << 1),
 
