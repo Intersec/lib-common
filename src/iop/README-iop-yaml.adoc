@@ -11,7 +11,6 @@ improvements.
 
 * No declarations.
 * Only alphanumeric keys starting with a letter are allowed: `[a-zA-Z]\w*`.
-* No inline object syntax (JSON style) allowed.
 * Types only allowed for IOP classes.
 * No anchors or references (yet, could be added in the future).
 
@@ -121,3 +120,31 @@ obj:
   emptyStruct: {}
   emptyArray: []
 ----
+
+== Includes
+
+Other YAML files can be included using the `!include` tag:
+
+[source,YAML]
+----
+obj:
+  key: !include foo.yml
+----
+
+The YAML data declared in this file will be inlined in place of the
+`!include <path>`.
+
+It is also possible to include files of any type:
+
+[source,YAML]
+----
+obj:
+  key: !includeraw foo.json
+----
+
+The `!includeraw` will be replaced by a string holding the whole content of
+the included file.
+
+WARNING: Only includes from the same directory (or from subdirectories) are
+allowed. Includes from absolute paths or from parent directories are
+rejected, as they cannot be repacked in the same way safely.

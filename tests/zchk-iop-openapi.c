@@ -43,6 +43,7 @@ z_check_yaml(iop_openapi_t *openapi, const char *filename,
 {
     t_scope;
     yaml_data_t data;
+    yaml_pack_env_t *env;
     lstr_t file;
     SB_1k(sb);
     SB_1k(err);
@@ -52,7 +53,8 @@ z_check_yaml(iop_openapi_t *openapi, const char *filename,
         /* remove the 5th element */
         qv_splice(&data.obj->fields, 4, 1, NULL, 0);
     }
-    yaml_pack_sb(&data, NULL, &sb);
+    env = t_yaml_pack_env_new();
+    t_yaml_pack_sb(env, &data, &sb);
 
     Z_HELPER_RUN(t_z_load_openapi_file(filename, &file));
     Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), file);

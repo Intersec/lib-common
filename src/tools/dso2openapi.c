@@ -133,7 +133,8 @@ t_whitelist_rpcs(iop_openapi_t *oa)
 }
 
 static int yaml_pack_write_stdout(void * nullable priv,
-                                  const void * nonnull buf, int len)
+                                  const void * nonnull buf, int len,
+                                  sb_t *err)
 {
     return printf("%.*s", len, (const char *)buf);
 }
@@ -144,6 +145,7 @@ generate_openapi(const iop_mod_t * nonnull module)
     t_scope;
     iop_openapi_t *oa;
     yaml_data_t yaml;
+    yaml_pack_env_t *env;
     SB_1k(err);
 
     oa = t_new_iop_openapi(LSTR(opts_g.title), LSTR(opts_g.version),
@@ -159,7 +161,8 @@ generate_openapi(const iop_mod_t * nonnull module)
         return -1;
     }
 
-    yaml_pack(&yaml, NULL, yaml_pack_write_stdout, NULL);
+    env = t_yaml_pack_env_new();
+    t_yaml_pack(env, &yaml, yaml_pack_write_stdout, NULL, &err);
     printf("\n");
 
     return 0;

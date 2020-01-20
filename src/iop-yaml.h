@@ -33,19 +33,23 @@
  * This function cannot be used to unpack a class; use `t_iop_yunpack_ptr_ps`
  * instead.
  *
- * \param[in]  ps    The pstream_t to parse.
- * \param[in]  st    The IOP structure description.
- * \param[out] out   Pointer on the IOP structure to write.
- * \param[out] pres  If non NULL, it will be set to YAML presentation data
- *                   of the parsed YAML. See yaml.h for details.
- * \param[out] err   If the unpacking fails, this pointer is set to a
- *                   description of the error, allocated on the t_scope.
+ * \param[in]  ps     The pstream_t to parse.
+ * \param[in]  st     The IOP structure description.
+ * \param[out] out    Pointer on the IOP structure to write.
+ * \param[in]  flags  Bitfield of iop_unpack_flags_t elements. Only
+ *                    IOP_UNPACK_FORBID_PRIVATE is handled.
+ * \param[out] pres   If non NULL, it will be set to YAML presentation data
+ *                    of the parsed YAML. See yaml.h for details.
+ * \param[out] err    If the unpacking fails, this pointer is set to a
+ *                    description of the error, allocated on the t_scope.
  */
 __must_check__
-int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
-                     void * nonnull out,
-                     const yaml_presentation_t * nonnull * nullable pres,
-                     sb_t * nonnull out_err);
+int t_iop_yunpack_ps(
+    pstream_t * nonnull ps, const iop_struct_t * nonnull st,
+    void * nonnull out, unsigned flags,
+    yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t * nonnull out_err
+);
 
 /** Convert IOP-YAML to an IOP C structure using the t_pool().
  *
@@ -57,22 +61,24 @@ int t_iop_yunpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
  * a child).
  */
 __must_check__
-int t_iop_yunpack_ptr_ps(pstream_t * nonnull ps,
-                         const iop_struct_t * nonnull st,
-                         void * nullable * nonnull out,
-                         const yaml_presentation_t * nonnull * nullable pres,
-                         sb_t * nonnull out_err);
+int t_iop_yunpack_ptr_ps(
+    pstream_t * nonnull ps, const iop_struct_t * nonnull st,
+    void * nullable * nonnull out, unsigned flags,
+    yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t * nonnull out_err
+);
 
 /** Convert a YAML file into an IOP C structure using the t_pool().
  *
  * See t_iop_junpack_ps.
  */
 __must_check__
-int t_iop_yunpack_file(const char * nonnull filename,
-                       const iop_struct_t * nonnull st,
-                       void * nullable * nonnull out,
-                       const yaml_presentation_t * nonnull * nullable pres,
-                       sb_t * nonnull out_err);
+int t_iop_yunpack_file(
+    const char * nonnull filename, const iop_struct_t * nonnull st,
+    void * nonnull out, unsigned flags,
+    yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t * nonnull out_err
+);
 
 /** Convert a YAML file into an IOP C structure using the t_pool().
  *
@@ -80,11 +86,12 @@ int t_iop_yunpack_file(const char * nonnull filename,
  */
 __must_check__
 int
-t_iop_yunpack_ptr_file(const char * nonnull filename,
-                       const iop_struct_t * nonnull st,
-                       void * nullable * nonnull out,
-                       const yaml_presentation_t * nonnull * nullable pres,
-                       sb_t * nonnull out_err);
+t_iop_yunpack_ptr_file(
+    const char * nonnull filename, const iop_struct_t * nonnull st,
+    void * nullable * nonnull out, unsigned flags,
+    yaml__document_presentation__t * nonnull * nullable pres,
+    sb_t * nonnull out_err
+);
 
 /* }}} */
 /* {{{ Generating YAML */
@@ -94,25 +101,25 @@ t_iop_yunpack_ptr_file(const char * nonnull filename,
  * See iop_ypack. This function can be used to provide specific packing flags.
  * *DO NOT USE THIS*. Use iop_ypack instead.
  */
-int iop_sb_ypack_with_flags(sb_t * nonnull sb,
-                            const iop_struct_t * nonnull st,
-                            const void * nonnull value,
-                            const yaml_presentation_t * nullable presentation,
-                            unsigned flags);
+void t_iop_sb_ypack_with_flags(
+    sb_t * nonnull sb, const iop_struct_t * nonnull st,
+    const void * nonnull value,
+    const yaml__document_presentation__t * nullable pres, unsigned flags
+);
 
 /** Pack an IOP C structure to IOP-YAML in a sb_t.
  *
  * See iop_ypack().
  */
-int iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
-                 const void * nonnull value,
-                 const yaml_presentation_t * nullable presentation);
+/* XXX: this is t_ function as the sb may be t_ allocated, and this would
+ * prevent declaring a new t_scope inside the function, which we need. */
+void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
+                    const void * nonnull value,
+                    const yaml__document_presentation__t * nullable pres);
 
 /** Pack an IOP C structure in an IOP-YAML file.
  *
  * \param[in]  filename   The file in which the value is packed.
- * \param[in]  file_flags The flags to use when opening the file
- *                        (\ref enum file_flags).
  * \param[in]  file_mode  The mode to use when opening the file.
  * \param[in]  st         IOP structure description.
  * \param[in]  value      Pointer on the IOP structure to pack.
@@ -122,15 +129,35 @@ int iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
  *                           presentation.
  * \param[out] err        Buffer filled in case of error.
  */
-int iop_ypack_file(const char * nonnull filename, unsigned file_flags,
-                   mode_t file_mode, const iop_struct_t * nonnull st,
+int iop_ypack_file(const char * nonnull filename, mode_t file_mode,
+                   const iop_struct_t * nonnull st,
                    const void * nonnull value,
-                   const yaml_presentation_t * nullable presentation,
+                   const yaml__document_presentation__t * nullable presentation,
                    sb_t * nonnull err);
 
 #define iop_ypack_file(filename, st, value, presentation, err)               \
-    (iop_ypack_file)((filename), FILE_WRONLY | FILE_CREATE | FILE_TRUNC,     \
-                     0644, (st), (value), (presentation), (err))
+    (iop_ypack_file)((filename), 0644, (st), (value), (presentation), (err))
+
+/* }}} */
+/* {{{ JSON interfacing */
+
+/** Convert JSON subfiles to a YAML document presentation.
+ *
+ * This helper can be used to convert an IOP-JSON document into an IOP-YAML
+ * one. IOP-JSON only handles includes as "presentation data". This function
+ * can be used to convert those includes into a YAML document presentation,
+ * so that the repacked YAML data will keep the same includes and subfiles.
+ *
+ * If type IOP struct definition that is referenced by the IOP path is
+ * provided with \p st, the generated presentation will use proper includes:
+ *   includeraw for strings, and include for the rest.
+ */
+yaml__document_presentation__t *
+t_build_yaml_pres_from_json_subfiles(
+    const iop_json_subfile__array_t * nonnull subfiles,
+    const iop_struct_t * nullable st
+);
+
 /* }}} */
 
 MODULE_DECLARE(iop_yaml);
