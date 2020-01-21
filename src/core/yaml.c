@@ -24,6 +24,7 @@
 #include <lib-common/file.h>
 #include <lib-common/unix.h>
 #include <lib-common/iop.h>
+#include <lib-common/iop-json.h>
 
 static struct yaml_g {
     logger_t logger;
@@ -142,6 +143,140 @@ typedef struct yaml_parse_t {
     yaml_included_file_t * nullable included;
 } yaml_parse_t;
 
+qm_kvec_t(override_nodes, lstr_t, yaml_data_t, qhash_lstr_hash,
+          qhash_lstr_equal);
+qvector_t(override_nodes, yaml__presentation_override_node__t);
+
+/* Presentation details of an override.
+ *
+ * This object is used to build a yaml.PresentationOverride. See the document
+ * of this object for more details.
+ */
+typedef struct yaml_presentation_override_t {
+    /* List of nodes of the override. */
+    qv_t(override_nodes) nodes;
+
+    /* Current path from the override root point.
+     *
+     * Describe the path not from the document's root, but from the override's
+     * root. Used to build the nodes.
+     */
+    sb_t path;
+} yaml_presentation_override_t;
+
+/* Description of an override, used when packing.
+ *
+ * This object is used to properly pack overrides. It is the equivalent of
+ * a yaml.PresentationOverride, but with a qm instead of an array, so that
+ * nodes that were overridden can easily find the original value to repack.
+ */
+typedef struct yaml_pack_override_t {
+    /* Mappings of paths to original data. */
+    qm_t(override_nodes) nodes;
+} yaml_pack_override_t;
+
+/* }}} */
+/* {{{ IOP helpers */
+/* {{{ IOP scalar */
+
+static void
+t_yaml_data_to_iop(const yaml_data_t * nonnull data,
+                   yaml__data__t * nonnull out)
+{
+    yaml__scalar_value__t *scalar;
+
+    iop_init(yaml__data, out);
+    out->tag = data->tag;
+
+    /* TODO: for the moment, only scalars can be overridden, so only scalars
+     * needs to be serialized. Once overrides can replace any data, this
+     * function will have to be modified */
+    assert (data->type == YAML_DATA_SCALAR);
+    scalar = IOP_UNION_SET(yaml__data_value, &out->value, scalar);
+
+    switch (data->scalar.type) {
+#define CASE(_name, _prefix)                                                 \
+      case YAML_SCALAR_##_name:                                              \
+        *IOP_UNION_SET(yaml__scalar_value, scalar, _prefix)                  \
+            = data->scalar._prefix;                                          \
+        break
+
+      CASE(STRING, s);
+      CASE(DOUBLE, d);
+      CASE(UINT, u);
+      CASE(INT, i);
+      CASE(BOOL, b);
+
+#undef CASE
+
+      case YAML_SCALAR_NULL:
+        IOP_UNION_SET_V(yaml__scalar_value, scalar, nil);
+        break;
+    }
+}
+
+static void
+t_iop_data_to_yaml(const yaml__data__t * nonnull data,
+                   yaml_data_t * nonnull out)
+{
+    assert (IOP_UNION_IS(yaml__data_value, &data->value, scalar));
+
+    IOP_UNION_SWITCH(&data->value.scalar) {
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, s, s) {
+        yaml_data_set_string(out, s);
+      }
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, d, d) {
+        yaml_data_set_double(out, d);
+      }
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, u, u) {
+        yaml_data_set_uint(out, u);
+      }
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, i, i) {
+        yaml_data_set_int(out, i);
+      }
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, b, b)  {
+        yaml_data_set_bool(out, b);
+      }
+      IOP_UNION_CASE_V(yaml__scalar_value, &data->value.scalar, nil)  {
+        yaml_data_set_null(out);
+      }
+    }
+    out->tag = data->tag;
+}
+
+/* }}} */
+/* {{{ IOP Presentation Override */
+
+static yaml__presentation_override__t *
+t_presentation_override_to_iop(yaml_presentation_override_t * nonnull pres)
+{
+    yaml__presentation_override__t *out;
+
+    out = t_iop_new(yaml__presentation_override);
+    out->nodes = IOP_TYPED_ARRAY_TAB(yaml__presentation_override_node,
+                                     &pres->nodes);
+
+    return out;
+}
+
+static void t_iop_pres_override_to_pack_override(
+    const yaml__presentation_override__t * nonnull pres,
+    yaml_pack_override_t *out)
+{
+    p_clear(out, 1);
+    t_qm_init(override_nodes, &out->nodes, pres->nodes.len);
+
+    tab_for_each_ptr(node, &pres->nodes) {
+        yaml_data_t data;
+        int res;
+
+        t_iop_data_to_yaml(&node->original_data, &data);
+        res = qm_add(override_nodes, &out->nodes, &node->path, data);
+        assert (res >= 0);
+    }
+}
+
+/* }}} */
 /* }}} */
 /* {{{ Equality */
 
@@ -1412,19 +1547,35 @@ static int t_yaml_env_parse_flow_key_data(yaml_parse_t *env,
 
 /* {{{ Merging */
 
-static int yaml_env_merge_data(yaml_parse_t * nonnull env,
-                               const yaml_data_t * nonnull override,
-                               yaml_data_t * nonnull data);
+static int
+t_yaml_env_merge_data(yaml_parse_t * nonnull env,
+                      const yaml_data_t * nonnull override,
+                      yaml_presentation_override_t * nullable pres,
+                      yaml_data_t * nonnull data);
 
-static int yaml_env_merge_key_data(yaml_parse_t * nonnull env,
-                                   const yaml_key_data_t * nonnull override,
-                                   yaml_obj_t * nonnull obj)
+static int
+t_yaml_env_merge_key_data(yaml_parse_t * nonnull env,
+                          const yaml_key_data_t * nonnull override,
+                          yaml_presentation_override_t * nullable pres,
+                          yaml_obj_t * nonnull obj)
 {
     tab_for_each_ptr(data_pair, &obj->fields) {
         if (lstr_equal(data_pair->key, override->key)) {
+            int prev_len = 0;
+
+            if (pres) {
+                prev_len = pres->path.len;
+
+                sb_addf(&pres->path, ".%pL", &data_pair->key);
+            }
+
             /* key found, recurse the merging of the inner data */
-            return yaml_env_merge_data(env, &override->data,
-                                       &data_pair->data);
+            RETHROW(t_yaml_env_merge_data(env, &override->data,
+                                          pres, &data_pair->data));
+            if (pres) {
+                sb_clip(&pres->path, prev_len);
+            }
+            return 0;
         }
     }
 
@@ -1437,15 +1588,16 @@ static int yaml_env_merge_key_data(yaml_parse_t * nonnull env,
     return 0;
 }
 
-static int yaml_env_merge_obj(yaml_parse_t * nonnull env,
-                              const yaml_obj_t * nonnull override,
-                              yaml_obj_t * nonnull obj)
+static int t_yaml_env_merge_obj(yaml_parse_t * nonnull env,
+                                const yaml_obj_t * nonnull override,
+                                yaml_presentation_override_t * nullable pres,
+                                yaml_obj_t * nonnull obj)
 {
     /* XXX: O(n^2), not great but normal usecase would never override
      * every key of a huge object, so the tradeoff is fine.
      */
     tab_for_each_ptr(override_pair, &override->fields) {
-        RETHROW(yaml_env_merge_key_data(env, override_pair, obj));
+        RETHROW(t_yaml_env_merge_key_data(env, override_pair, pres, obj));
     }
 
     return 0;
@@ -1468,12 +1620,34 @@ static int yaml_env_merge_seq(yaml_parse_t * nonnull env,
     return 0;
 }
 
-static int yaml_env_merge_data(yaml_parse_t * nonnull env,
-                               const yaml_data_t * nonnull override,
-                               yaml_data_t * nonnull data)
+static void
+t_yaml_merge_scalar(const yaml_data_t * nonnull override,
+                    yaml_presentation_override_t * nullable pres,
+                    yaml_data_t * nonnull out)
+{
+    if (pres) {
+        yaml__presentation_override_node__t *node;
+
+        node = qv_growlen(&pres->nodes, 1);
+        iop_init(yaml__presentation_override_node, node);
+        node->path = t_lstr_dup(LSTR_SB_V(&pres->path));
+        t_yaml_data_to_iop(out, &node->original_data);
+    }
+
+    logger_trace(&_G.logger, 2,
+                 "merging scalar from "YAML_POS_FMT" up to "YAML_POS_FMT,
+                 YAML_POS_ARG(override->span.start),
+                 YAML_POS_ARG(override->span.end));
+    *out = *override;
+}
+
+static int
+t_yaml_env_merge_data(yaml_parse_t * nonnull env,
+                      const yaml_data_t * nonnull override,
+                      yaml_presentation_override_t * nullable pres,
+                      yaml_data_t * nonnull data)
 {
     if (data->type != override->type) {
-        t_scope;
         const char *msg;
 
         /* XXX: This could be allowed, and implemented by completely replacing
@@ -1488,19 +1662,27 @@ static int yaml_env_merge_data(yaml_parse_t * nonnull env,
     }
 
     switch (data->type) {
-      case YAML_DATA_SCALAR:
-        logger_trace(&_G.logger, 2,
-                     "merging scalar from "YAML_POS_FMT" up to "YAML_POS_FMT,
-                     YAML_POS_ARG(override->span.start),
-                     YAML_POS_ARG(override->span.end));
-        *data = *override;
-        break;
+      case YAML_DATA_SCALAR: {
+        int prev_len = 0;
+
+        if (pres) {
+            prev_len = pres->path.len;
+
+            sb_addc(&pres->path, '!');
+        }
+
+        t_yaml_merge_scalar(override, pres, data);
+
+        if (pres) {
+            sb_clip(&pres->path, prev_len);
+        }
+      } break;
       case YAML_DATA_SEQ:
         RETHROW(yaml_env_merge_seq(env, override->seq, &override->span,
                                    data->seq));
         break;
       case YAML_DATA_OBJ:
-        RETHROW(yaml_env_merge_obj(env, override->obj, data->obj));
+        RETHROW(t_yaml_env_merge_obj(env, override->obj, pres, data->obj));
         break;
     }
 
@@ -1516,6 +1698,7 @@ static int t_yaml_env_handle_override(yaml_parse_t *env,
 {
     uint32_t cur_indent;
     yaml_data_t override;
+    yaml_presentation_override_t *pres = NULL;
 
     /* To be an override, we want an object starting with an indent greater
      * than the min_indent. Not matching means no override, so we return
@@ -1543,7 +1726,19 @@ static int t_yaml_env_handle_override(yaml_parse_t *env,
                  YAML_POS_ARG(override.span.start),
                  YAML_POS_ARG(override.span.end));
 
-    RETHROW(yaml_env_merge_data(env, &override, out));
+    if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
+        pres = t_new(yaml_presentation_override_t, 1);
+        t_qv_init(&pres->nodes, 0);
+        t_sb_init(&pres->path, 1024);
+    }
+
+    RETHROW(t_yaml_env_merge_data(env, &override, pres, out));
+
+    if (pres) {
+        assert (out->presentation && out->presentation->included);
+        out->presentation->included->override
+            = t_presentation_override_to_iop(pres);
+    }
 
     return 0;
 }
@@ -1928,6 +2123,9 @@ typedef struct yaml_pack_env_t {
      * in each subfile. This is used to handle shared subfiles.
      */
     qm_t(path_to_yaml_data) * nullable subfiles;
+
+    /** Information about overridden values. */
+    yaml_pack_override_t * nullable override;
 } yaml_pack_env_t;
 
 static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
@@ -2098,6 +2296,18 @@ static int yaml_pack_tag(yaml_pack_env_t * nonnull env, const lstr_t tag)
     }
 
     return res;
+}
+
+static yaml_data_t * nullable
+yaml_pack_env_find_override(yaml_pack_env_t * nonnull env)
+{
+    lstr_t path;
+
+    if (!env->override) {
+        return NULL;
+    }
+    path = LSTR_SB_V(&env->current_path);
+    return qm_get_def_p(override_nodes, &env->override->nodes, &path, NULL);
 }
 
 /* }}} */
@@ -2602,6 +2812,85 @@ static bool yaml_data_can_use_flow_mode(const yaml_data_t * nonnull data)
 }
 
 /* }}} */
+/* {{{ Pack override */
+
+static void
+t_set_data_from_path(const yaml_data_t * nonnull data, pstream_t path,
+                     bool new, yaml_data_t * nonnull out)
+{
+    if (ps_peekc(path) == '!') {
+        *out = *data;
+    } else
+    if (ps_peekc(path) == '[') {
+        /* FIXME: not implemented yet */
+        assert (false);
+    } else
+    if (ps_peekc(path) == '.') {
+        yaml_data_t new_data;
+        pstream_t ps_key;
+        lstr_t key;
+
+        ps_skipc(&path, '.');
+        ps_key = ps_get_span(&path, &ctype_isalnum);
+        key = LSTR_PS_V(&ps_key);
+
+        if (new) {
+            t_yaml_data_new_obj(out, 1);
+        } else {
+            if (out->type != YAML_DATA_OBJ) {
+                /* FIXME: choose what to do in this case */
+                return;
+            }
+
+            tab_for_each_ptr(kd, &out->obj->fields) {
+                if (lstr_equal(kd->key, key)) {
+                    t_set_data_from_path(data, path, false, &kd->data);
+                    return;
+                }
+            }
+        }
+
+        t_set_data_from_path(data, path, true, &new_data);
+        yaml_obj_add_field(out, key, new_data);
+    }
+}
+
+static void
+t_build_yaml_data_from_override_nodes(
+    const qm_t(override_nodes) * nonnull nodes,
+    yaml_data_t * nonnull out
+)
+{
+    bool first = true;
+
+    qm_for_each_key_value_p(override_nodes, path, data, nodes) {
+        pstream_t ps = ps_initlstr(&path);
+
+        t_set_data_from_path(data, ps, first, out);
+        first = false;
+    }
+}
+
+static int
+t_yaml_pack_override(yaml_pack_env_t * nonnull env,
+                     const yaml_pack_override_t * nonnull override)
+{
+    int res = 0;
+    yaml_data_t data;
+    const yaml_presentation_t *pres = NULL;
+
+    /* rebuild a yaml data from the override nodes */
+    t_build_yaml_data_from_override_nodes(&override->nodes, &data);
+
+    /* pack the data in the output */
+    SWAP(const yaml_presentation_t *, pres, env->pres);
+    res = t_yaml_pack_data(env, &data);
+    SWAP(const yaml_presentation_t *, pres, env->pres);
+
+    return res;
+}
+
+/* }}} */
 /* {{{ Pack include */
 
 enum subfile_status_t {
@@ -2748,6 +3037,7 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
     const char *path;
     bool reuse;
     bool raw;
+    int res = 0;
 
     /* This is checked on parsing. Unless the presentation data has been
      * modified by hand, which is not possible yet, this should not fail. */
@@ -2768,7 +3058,12 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
     }
 
     path = t_find_right_path(env, subdata, inc->path, &reuse);
-    if (!reuse) {
+    /* FIXME: reuse with overrides */
+    if (reuse) {
+        res += RETHROW(t_yaml_pack_include_path(env,
+                                                inc->include_presentation,
+                                                raw, LSTR(path)));
+    } else {
         SB_1k(err);
 
         if (raw) {
@@ -2780,6 +3075,10 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
                         path, &err);
                 return -1;
             }
+
+            res += RETHROW(t_yaml_pack_include_path(env,
+                                                    inc->include_presentation,
+                                                    raw, LSTR(path)));
         } else {
             yaml_pack_env_t *subenv = t_yaml_pack_env_new();
 
@@ -2787,6 +3086,12 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
                                                &err));
             yaml_pack_env_set_presentation(subenv,
                                            &inc->document_presentation);
+
+            if (inc->override) {
+                subenv->override = t_new(yaml_pack_override_t, 1);
+                t_iop_pres_override_to_pack_override(inc->override,
+                                                     subenv->override);
+            }
 
             /* Make sure the subfiles qm is shared, so that if this subfile
              * also generate other subfiles, it is properly handled. */
@@ -2798,12 +3103,19 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
                         &err);
                 return -1;
             }
-        }
 
+            res += RETHROW(t_yaml_pack_include_path(env,
+                                                    inc->include_presentation,
+                                                    raw, LSTR(path)));
+
+            if (subenv->override) {
+                logger_trace(&_G.logger, 2, "packing override %s", path);
+                res += RETHROW(t_yaml_pack_override(env, subenv->override));
+            }
+        }
     }
 
-    return t_yaml_pack_include_path(env, inc->include_presentation, raw,
-                                    LSTR(path));
+    return res;
 }
 
 static int
@@ -2815,6 +3127,7 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
 
     inc = node->included;
     if (env->flags & YAML_PACK_NO_SUBFILES) {
+        /* FIXME: handle override */
         return t_yaml_pack_include_path(env, inc->include_presentation,
                                         inc->raw, inc->path);
     } else
@@ -2853,12 +3166,18 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
                             const yaml_data_t * nonnull data)
 {
     const yaml__presentation_node__t *node;
+    yaml_data_t *override = NULL;
+    const yaml_data_t *original_data = data;
     int res = 0;
 
     if (env->pres) {
         int path_len = yaml_pack_env_push_path(env, "!");
 
         node = yaml_pack_env_get_pres_node(env);
+        override = yaml_pack_env_find_override(env);
+        if (override) {
+            data = override;
+        }
         yaml_pack_env_pop_path(env, path_len);
     } else {
         node = data->presentation;
@@ -2896,6 +3215,10 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
 
     if (node) {
         res += yaml_pack_pres_node_inline(env, node);
+    }
+
+    if (override) {
+        *override = *original_data;
     }
 
     return res;
@@ -4077,6 +4400,9 @@ Z_GROUP_EXPORT(yaml)
 
     Z_TEST(override, "") {
         t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
 
         /* test override of scalars, object, sequence */
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
@@ -4085,7 +4411,7 @@ Z_GROUP_EXPORT(yaml)
             "c: - 3\n"
             "   - 4"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(NULL, NULL, NULL,
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
             "- !include inner.yml\n"
             "  a: 4\n"
             "  b:\n"
@@ -4102,6 +4428,26 @@ Z_GROUP_EXPORT(yaml)
             "    - 5\n"
             "  d: ~"
         ));
+        /* test recreation of override when packing into files */
+        Z_HELPER_RUN(z_pack_yaml_file("override_1/root.yml", &data, &pres, 0));
+        /* FIXME: handle added nodes + presentation */
+        Z_HELPER_RUN(z_check_file("override_1/root.yml",
+            "- !include inner.yml\n"
+            "  a: 4\n"
+            "  b:\n"
+            /* FIXME: buggy with flow mode */
+            "    c: c\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_1/inner.yml",
+            "a: 3\n"
+            "b: { c: ~, new: true }\n"
+            "c:\n"
+            "  - 3\n"
+            "  - 4\n"
+            "  - 5\n"
+            "d: ~\n"
+        ));
+        yaml_parse_delete(&env);
 
         /* test override of override through includes */
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml",

@@ -18,6 +18,54 @@
 
 package yaml;
 
+/* {{{ Serialized data */
+
+/** Value of a YAML scalar. */
+union ScalarValue {
+    string s;
+    double d;
+    ulong u;
+    long i;
+    bool b;
+    void nil;
+};
+
+/** Value of a YAML sequence. */
+struct SeqValue {
+    /** List of datas stored in the sequence. */
+    Data[] datas;
+};
+
+/** Value of a YAML object. */
+struct ObjValue {
+    /** List of key-value mappings stored in the object. */
+    KeyData[] fields;
+};
+
+union DataValue {
+    ScalarValue scalar;
+    SeqValue seq;
+    ObjValue obj;
+};
+
+/** Serialized YAML data. */
+struct Data {
+    /** Value of the data. */
+    DataValue value;
+
+    /** Optional tag. */
+    string? tag;
+};
+
+/** Key-Value pair */
+struct KeyData {
+    string key;
+    Data data;
+};
+
+/* }}} */
+/* {{{ Node presentation */
+
 /* Presentation details applied to a specific node.
  *
  * A node can be either:
@@ -74,6 +122,9 @@ struct PresentationNode {
     PresentationInclude? included;
 };
 
+/* }}} */
+/* {{{ Document presentation */
+
 struct PresentationNodeMapping {
     /** Path the node in the document.
      *
@@ -115,6 +166,9 @@ struct DocumentPresentation {
     PresentationNodeMapping[] mappings;
 };
 
+/* }}} */
+/* {{{ Include presentation */
+
 /** Details about an '!include' */
 struct PresentationInclude {
     /** Include path.
@@ -136,4 +190,51 @@ struct PresentationInclude {
 
     /** Presentation details of the included file. */
     DocumentPresentation documentPresentation;
+
+    PresentationOverride? override;
 };
+
+/* }}} */
+/* {{{ Override presentation */
+
+/** Mapping from a path to a overridden value. */
+struct PresentationOverrideNode {
+    /** Path from the root of the override data */
+    string path;
+
+    /** Original data that was replaced by the override. */
+    Data originalData;
+};
+
+/** Description of an override data.
+ *
+ * The presentation of an override stores the information that is needed to
+ * properly recreate the override on packing.
+ *
+ * It stores the override data in a flat way, associating paths to data that
+ * was replaced in the original AST.
+ *
+ * For example, with:
+ *
+ * foo.yml:
+ * a: { b: 1 }
+ *
+ * when parsing:
+ *
+ * !include foo.yml
+ * a: { b: 2 }
+ *
+ * We will store:
+ *  nodes: [{
+ *    path: ".a.b!",
+ *    originalData: {
+ *      "value": { "scalar": { "u": 1 } }
+ *    }
+ *  }]
+ */
+struct PresentationOverride {
+    /** List of overridden values, with their associated paths. */
+    PresentationOverrideNode[] nodes;
+};
+
+/* }}} */
