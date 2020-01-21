@@ -31,7 +31,7 @@
  *
  * QHAT-Trie is a a HAT-Trie implementation built on the top of \ref qps. It
  * provides an ordered mapping between fixed-length keys (32bits) and
- * fixed-length values.
+ * fixed-length values (<= 128 bits).
  *
  * \section nullables Nullable vs Non-nullable tries
  *
