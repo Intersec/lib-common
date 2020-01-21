@@ -184,6 +184,18 @@ yaml_scalar_equals(const yaml_scalar_t * nonnull s1,
 
 static bool
 yaml_data_equals(const yaml_data_t * nonnull d1,
+                 const yaml_data_t * nonnull d2);
+
+static bool
+yaml_key_data_equals(const yaml_key_data_t * nonnull kd1,
+                     const yaml_key_data_t * nonnull kd2)
+{
+    return lstr_equal(kd1->key, kd2->key)
+        && yaml_data_equals(&kd1->data, &kd2->data);
+}
+
+static bool
+yaml_data_equals(const yaml_data_t * nonnull d1,
                  const yaml_data_t * nonnull d2)
 {
     if (d1->type != d2->type) {
@@ -210,13 +222,8 @@ yaml_data_equals(const yaml_data_t * nonnull d1,
             return false;
         }
         tab_for_each_pos(pos, &d1->obj->fields) {
-            if (!lstr_equal(d1->obj->fields.tab[pos].key,
-                            d2->obj->fields.tab[pos].key))
-            {
-                return false;
-            }
-            if (!yaml_data_equals(&d1->obj->fields.tab[pos].data,
-                                  &d2->obj->fields.tab[pos].data))
+            if (!yaml_key_data_equals(&d1->obj->fields.tab[pos],
+                                      &d2->obj->fields.tab[pos]))
             {
                 return false;
             }
@@ -780,6 +787,17 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
 /* }}} */
 /* {{{ Seq */
 
+/** Get the presentation stored for the next node, and save in "last_node"
+ * to ensure inline presentation data uses this node. */
+static void
+yaml_env_pop_next_node(yaml_parse_t * nonnull env,
+                       yaml__presentation_node__t * nullable * nonnull node)
+{
+    *node = env->pres->next_node;
+    env->pres->next_node = NULL;
+    env->pres->last_node = node;
+}
+
 static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
                                 yaml_data_t *out)
 {
@@ -800,9 +818,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
 
         RETHROW(yaml_env_ltrim(env));
         if (env->pres) {
-            node = env->pres->next_node;
-            env->pres->next_node = NULL;
-            env->pres->last_node = &node;
+            yaml_env_pop_next_node(env, &node);
         }
 
         /* skip '-' */
@@ -855,9 +871,7 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
 
     RETHROW(yaml_env_ltrim(env));
     if (env->pres && node) {
-        *node = env->pres->next_node;
-        env->pres->next_node = NULL;
-        env->pres->last_node = node;
+        yaml_env_pop_next_node(env, node);
     }
 
     ps_key = ps_get_span(&env->ps, &ctype_isalnum);
@@ -1644,13 +1658,12 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
     sb_addf(out, "\n%*pM\n", PS_FMT_ARG(&ps));
 
     /* then display some indications or where the issue is */
-    for (unsigned i = 1; i < span->start.col_nb; i++) {
-        sb_addc(out, ' ');
+    if (span->start.col_nb > 1) {
+        sb_addnc(out, span->start.col_nb - 1, ' ');
     }
     if (one_liner) {
-        for (unsigned i = span->start.col_nb; i < span->end.col_nb; i++) {
-            sb_addc(out, '^');
-        }
+        assert (span->end.col_nb > span->start.col_nb);
+        sb_addnc(out, span->end.col_nb - span->start.col_nb, '^');
     } else {
         sb_adds(out, "^ starting here");
     }
@@ -1670,12 +1683,16 @@ typedef enum yaml_pack_state_t {
     /* Clean state for writing. This state is required before writing any
      * new data. */
     PACK_STATE_CLEAN,
+
     /* On sequence dash, ie the "-" of a new sequence element. */
     PACK_STATE_ON_DASH,
+
     /* On object key, ie the ":" of a new object key. */
     PACK_STATE_ON_KEY,
+
     /* On a newline */
     PACK_STATE_ON_NEWLINE,
+
     /* After having wrote data. */
     PACK_STATE_AFTER_DATA,
 } yaml_pack_state_t;
@@ -2392,10 +2409,10 @@ check_subfile(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
         pos &= ~QHASH_COLLISION;
         /* TODO: this may be optimized in some way with some sort of hashing,
          * to avoid calling yaml_data_equals repeatedly. */
-        if (!yaml_data_equals(env->subfiles->values[pos], data)) {
-            return SUBFILE_TO_IGNORE;
-        } else {
+        if (yaml_data_equals(env->subfiles->values[pos], data)) {
             return SUBFILE_TO_REUSE;
+        } else {
+            return SUBFILE_TO_IGNORE;
         }
     } else {
         env->subfiles->keys[pos] = t_lstr_dup(path);
