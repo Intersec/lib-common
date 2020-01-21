@@ -277,6 +277,21 @@ const char *yaml_data_get_type(const yaml_data_t *data, bool ignore_tag)
     return "";
 }
 
+static const char *yaml_data_get_data_type(const yaml_data_t *data)
+{
+    switch (data->type) {
+      case YAML_DATA_OBJ:
+        return "an object";
+      case YAML_DATA_SEQ:
+        return "a sequence";
+      case YAML_DATA_SCALAR:
+        return "a scalar";
+    }
+
+    assert (false);
+    return "";
+}
+
 static lstr_t yaml_data_get_span_lstr(const yaml_span_t * nonnull span)
 {
     return LSTR_INIT_V(span->start.s, span->end.s - span->start.s);
@@ -371,6 +386,7 @@ typedef enum yaml_error_t {
     YAML_ERR_INVALID_TAG,
     YAML_ERR_EXTRA_DATA,
     YAML_ERR_INVALID_INCLUDE,
+    YAML_ERR_INVALID_OVERRIDE,
 } yaml_error_t;
 
 static int yaml_env_set_err_at(yaml_parse_t * nonnull env,
@@ -409,6 +425,9 @@ static int yaml_env_set_err_at(yaml_parse_t * nonnull env,
         break;
       case YAML_ERR_INVALID_INCLUDE:
         sb_addf(&err, "invalid include, %s", msg);
+        break;
+      case YAML_ERR_INVALID_OVERRIDE:
+        sb_addf(&err, "cannot change types of data in override, %s", msg);
         break;
     }
 
@@ -1364,6 +1383,173 @@ static int t_yaml_env_parse_flow_key_data(yaml_parse_t *env,
 }
 
 /* }}} */
+/* {{{ Override */
+
+/* Some data can have an "override" that modifies the previously parsed
+ * content.
+ * This is for example true for !include, and would be true for anchors
+ * if implemented.
+ * These overrides are specified by defining an object on a greater
+ * indentation than the including object:
+ *
+ * - !include foo.yml
+ *   a: 2
+ *   b: 5
+ *
+ * or
+ *
+ * key: !include bar.yml
+ *   c: ~
+ *
+ * All the fields of the override are then merged in the modified data.
+ * The merge strategy is this one (only merge with the same yaml data type is
+ * allowed):
+ *  * for scalars, the override overwrites the original data.
+ *  * for sequences, all data from the override are added.
+ *  * for obj, matched keys means recursing the merge in the inner datas, and
+ *    unmatched keys are added.
+ */
+
+/* {{{ Merging */
+
+static int yaml_env_merge_data(yaml_parse_t * nonnull env,
+                               const yaml_data_t * nonnull override,
+                               yaml_data_t * nonnull data);
+
+static int yaml_env_merge_key_data(yaml_parse_t * nonnull env,
+                                   const yaml_key_data_t * nonnull override,
+                                   yaml_obj_t * nonnull obj)
+{
+    tab_for_each_ptr(data_pair, &obj->fields) {
+        if (lstr_equal(data_pair->key, override->key)) {
+            /* key found, recurse the merging of the inner data */
+            return yaml_env_merge_data(env, &override->data,
+                                       &data_pair->data);
+        }
+    }
+
+    /* key not found, add the pair to the object. */
+    logger_trace(&_G.logger, 2,
+                 "merge new key from "YAML_POS_FMT" up to "YAML_POS_FMT,
+                 YAML_POS_ARG(override->key_span.start),
+                 YAML_POS_ARG(override->key_span.end));
+    qv_append(&obj->fields, *override);
+    return 0;
+}
+
+static int yaml_env_merge_obj(yaml_parse_t * nonnull env,
+                              const yaml_obj_t * nonnull override,
+                              yaml_obj_t * nonnull obj)
+{
+    /* XXX: O(n^2), not great but normal usecase would never override
+     * every key of a huge object, so the tradeoff is fine.
+     */
+    tab_for_each_ptr(override_pair, &override->fields) {
+        RETHROW(yaml_env_merge_key_data(env, override_pair, obj));
+    }
+
+    return 0;
+}
+
+static int yaml_env_merge_seq(yaml_parse_t * nonnull env,
+                              const yaml_seq_t * nonnull override,
+                              const yaml_span_t * nonnull span,
+                              yaml_seq_t * nonnull seq)
+{
+    logger_trace(&_G.logger, 2,
+                 "merging seq from "YAML_POS_FMT" up to "YAML_POS_FMT
+                 " by appending its datas", YAML_POS_ARG(span->start),
+                 YAML_POS_ARG(span->end));
+
+    /* Until a proper syntax is found, seq merge are only additive */
+    qv_extend(&seq->datas, &override->datas);
+    qv_extend(&seq->pres_nodes, &override->pres_nodes);
+
+    return 0;
+}
+
+static int yaml_env_merge_data(yaml_parse_t * nonnull env,
+                               const yaml_data_t * nonnull override,
+                               yaml_data_t * nonnull data)
+{
+    if (data->type != override->type) {
+        t_scope;
+        const char *msg;
+
+        /* XXX: This could be allowed, and implemented by completely replacing
+         * the overridden data with the overriding one. However, the use-cases
+         * are not clear, and it could hide errors, so reject it until a
+         * valid use-case is found. */
+        msg = t_fmt("overridden data is %s and not %s",
+                    yaml_data_get_data_type(data),
+                    yaml_data_get_data_type(override));
+        return yaml_env_set_err_at(env, &override->span,
+                                   YAML_ERR_INVALID_OVERRIDE, msg);
+    }
+
+    switch (data->type) {
+      case YAML_DATA_SCALAR:
+        logger_trace(&_G.logger, 2,
+                     "merging scalar from "YAML_POS_FMT" up to "YAML_POS_FMT,
+                     YAML_POS_ARG(override->span.start),
+                     YAML_POS_ARG(override->span.end));
+        *data = *override;
+        break;
+      case YAML_DATA_SEQ:
+        RETHROW(yaml_env_merge_seq(env, override->seq, &override->span,
+                                   data->seq));
+        break;
+      case YAML_DATA_OBJ:
+        RETHROW(yaml_env_merge_obj(env, override->obj, data->obj));
+        break;
+    }
+
+    return 0;
+}
+
+/* }}} */
+/* {{{ Override */
+
+static int t_yaml_env_handle_override(yaml_parse_t *env,
+                                      const uint32_t min_indent,
+                                      yaml_data_t *out)
+{
+    uint32_t cur_indent;
+    yaml_data_t override;
+
+    /* To be an override, we want an object starting with an indent greater
+     * than the min_indent. Not matching means no override, so we return
+     * immediately. */
+    RETHROW(yaml_env_ltrim(env));
+    if (ps_done(&env->ps)) {
+        return 0;
+    }
+
+    cur_indent = yaml_env_get_column_nb(env);
+    if (cur_indent < min_indent) {
+        return 0;
+    }
+
+    /* TODO: technically, we could allow override of any type of data, not
+     * just obj, by removing this check. */
+    if (!ps_startswith_yaml_key(env->ps)) {
+        return 0;
+    }
+
+    RETHROW(t_yaml_env_parse_obj(env, cur_indent, &override));
+    logger_trace(&_G.logger, 2,
+                 "parsed override, %s from "YAML_POS_FMT" up to "YAML_POS_FMT,
+                 yaml_data_get_type(&override, false),
+                 YAML_POS_ARG(override.span.start),
+                 YAML_POS_ARG(override.span.end));
+
+    RETHROW(yaml_env_merge_data(env, &override, out));
+
+    return 0;
+}
+
+/* }}} */
+/* }}} */
 /* {{{ Data */
 
 static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
@@ -1386,6 +1572,7 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
     if (ps_peekc(env->ps) == '!') {
         RETHROW(t_yaml_env_parse_tag(env, min_indent, out));
         RETHROW(t_yaml_env_handle_include(env, out));
+        RETHROW(t_yaml_env_handle_override(env, min_indent + 1, out));
     } else
     if (ps_startswith_yaml_seq_prefix(&env->ps)) {
         RETHROW(t_yaml_env_parse_seq(env, cur_indent, out));
@@ -3883,6 +4070,131 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Override */
+
+    Z_TEST(override, "") {
+        t_scope;
+
+        /* test override of scalars, object, sequence */
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: 3\n"
+            "b: { c: c }\n"
+            "c: - 3\n"
+            "   - 4"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(NULL, NULL, NULL,
+            "- !include inner.yml\n"
+            "  a: 4\n"
+            "  b:\n"
+            "    new: true\n"
+            "    c: ~\n"
+            "  c: - 5\n"
+            "  d: ~",
+
+            "- a: 4\n"
+            "  b: { c: ~, new: true }\n"
+            "  c:\n"
+            "    - 3\n"
+            "    - 4\n"
+            "    - 5\n"
+            "  d: ~"
+        ));
+
+        /* test override of override through includes */
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml",
+            "# prefix gc a\n"
+            "a: 1 # inline gc 1\n"
+            "# prefix gc b\n"
+            "b: 2 # inline gc 2\n"
+            "# prefix gc c\n"
+            "c: 3 # inline gc 3\n"
+            "# prefix gc d\n"
+            "d: 4 # inline gc 4"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("child.yml",
+            "# prefix child g\n"
+            "g: !include grandchild.yml # inline include\n"
+            "  # prefix child c\n"
+            "  c: 5 # inline child 5"
+            "  # prefix child d\n"
+            "  d: 6 # inline child 6"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(NULL, NULL, NULL,
+            "# prefix seq\n"
+            "- !include child.yml\n"
+            "  # prefix g\n"
+            "  g: # inline g\n"
+            "    # prefix b\n"
+            "    b: 7 # inline 7\n"
+            "    # prefix c\n"
+            "    c: 8 # inline 8",
+
+            /* XXX: the presentation of the original file is used. This is
+             * a side effect of how the presentation is stored, but it isn't
+             * clear what would be the right behavior. Both have sensical
+             * meaning. */
+            "# prefix seq\n"
+            "-\n"
+            "  # prefix child g\n"
+            "  g:\n"
+            "    # prefix gc a\n"
+            "    a: 1 # inline gc 1\n"
+            "    # prefix gc b\n"
+            "    b: 7 # inline gc 2\n"
+            "    # prefix gc c\n"
+            "    c: 8 # inline gc 3\n"
+            "    # prefix gc d\n"
+            "    d: 6 # inline gc 4\n"
+        ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Override errors */
+
+    Z_TEST(override_errors, "") {
+        t_scope;
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: { b: { c: { d: { e: ~ } } } }"
+        ));
+
+        /* only objects allowed as overrides */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include inner.yml\n"
+            "  - 1\n"
+            "  - 2",
+
+            "input.yml:2:3: wrong indentation, "
+            "line not aligned with current object\n"
+            "  - 1\n"
+            "  ^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include inner.yml\n"
+            "   true",
+
+            "input.yml:2:4: wrong indentation, "
+            "line not aligned with current object\n"
+            "   true\n"
+            "   ^"
+        ));
+
+        /* must have same type as overridden data */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include inner.yml\n"
+            "  a:\n"
+            "    b:\n"
+            "      c:\n"
+            "        - 1",
+
+            "input.yml:5:9: cannot change types of data in override, "
+            "overridden data is an object and not a sequence\n"
+            "        - 1\n"
+            "        ^^^"
+        ));
     } Z_TEST_END;
 
     /* }}} */
