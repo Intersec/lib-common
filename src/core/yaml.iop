@@ -202,8 +202,20 @@ struct PresentationOverrideNode {
     /** Path from the root of the override data */
     string path;
 
-    /** Original data that was replaced by the override. */
-    Data originalData;
+    /** Original data that was replaced by the override.
+     *
+     * If unset, there was no original data, indicating the data was added
+     * by the override, and not replaced.
+     *
+     * Technically:
+     *  * If the path ends with a '!', we are referencing a YAML data that
+     *    was already present in the original AST, so originalData should be
+     *    set.
+     *  * If the path ends with a '[%d]' or a '.%s', we are referencing a seq
+     *    element or an object key itself and not its value, which would only
+     *    be valid for an addition, so originalData should be unset.
+     */
+    Data? originalData;
 };
 
 /** Description of an override data.
