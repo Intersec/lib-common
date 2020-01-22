@@ -173,6 +173,13 @@ typedef struct yaml_presentation_override_t {
 typedef struct yaml_pack_override_t {
     /* Mappings of paths to original data. */
     qm_t(override_nodes) nodes;
+
+    /* Original override presentation object.
+     *
+     * Used to iterate on the nodes in the right order when repacking the
+     * override objet.
+     */
+    const yaml__presentation_override__t * nonnull presentation;
 } yaml_pack_override_t;
 
 /* }}} */
@@ -263,6 +270,8 @@ static void t_iop_pres_override_to_pack_override(
     yaml_pack_override_t *out)
 {
     p_clear(out, 1);
+
+    out->presentation = pres;
     t_qm_init(override_nodes, &out->nodes, pres->nodes.len);
 
     tab_for_each_ptr(node, &pres->nodes) {
@@ -2979,19 +2988,24 @@ t_set_data_from_path(const yaml_data_t * nonnull data, pstream_t path,
 }
 
 static void
-t_build_yaml_data_from_override_nodes(
-    const qm_t(override_nodes) * nonnull nodes,
-    yaml_data_t * nonnull out
-)
+t_build_override_data(const yaml_pack_override_t * nonnull override,
+                      yaml_data_t * nonnull out)
 {
     bool first = true;
 
-    qm_for_each_key_value(override_nodes, path, data, nodes) {
-        pstream_t ps = ps_initlstr(&path);
+    /* Iterate on the presentation nodes, to make sure the data is recreated
+     * in the right order. */
+    tab_for_each_ptr(node, &override->presentation->nodes) {
+        const yaml_data_t *data;
+        pstream_t ps;
+
+        data = qm_get_safe(override_nodes, &override->nodes, &node->path);
 
         /* FIXME: This assert is probably wrong, as the inner layout can
          * change. */
         assert (data);
+
+        ps = ps_initlstr(&node->path);
         t_set_data_from_path(data, ps, first, out);
         first = false;
     }
@@ -3006,7 +3020,7 @@ t_yaml_pack_override(yaml_pack_env_t * nonnull env,
     const yaml_presentation_t *pres = NULL;
 
     /* rebuild a yaml data from the override nodes */
-    t_build_yaml_data_from_override_nodes(&override->nodes, &data);
+    t_build_override_data(override, &data);
 
     /* pack the data in the output */
     SWAP(const yaml_presentation_t *, pres, env->pres);
@@ -4563,15 +4577,14 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_pack_yaml_file("override_1/root.yml", &data, &pres, 0));
         /* FIXME: presentation */
         Z_HELPER_RUN(z_check_file("override_1/root.yml",
-            /* FIXME: wrong order */
             "- !include inner.yml\n"
             "  a: 4\n"
-            "  c:\n"
-            "    - 5\n"
-            "    - 6\n"
             "  b:\n"
             "    new: true\n"
             "    c: ~\n"
+            "  c:\n"
+            "    - 5\n"
+            "    - 6\n"
             "  d: ~\n"
         ));
         Z_HELPER_RUN(z_check_file("override_1/inner.yml",
