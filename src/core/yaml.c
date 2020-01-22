@@ -2773,20 +2773,32 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
     return res;
 }
 
-/** Make sure the data can be packed using flow mode.
- *
- * Flow mode is incompatible with the use of tags. If any data inside the
- * provided data has tags, flow mode cannot be used.
- */
-/* Recursing through the data to find out if it can be packed in a certain way
- * isn't ideal... This is acceptable here because flow data are usually very
- * small, and in the worst case, the whole data is in flow mode, so we only go
- * through the data twice.
- */
-static bool yaml_data_can_use_flow_mode(const yaml_data_t * nonnull data)
+/* }}} */
+/* {{{ Flow packable helpers */
+
+static bool
+yaml_env_path_contains_overrides(const yaml_pack_env_t * nonnull env)
+{
+    lstr_t path;
+
+    if (!env->override) {
+        return false;
+    }
+
+    path = LSTR_SB_V(&env->current_path);
+    qm_for_each_key(override_nodes, key, &env->override->nodes) {
+        if (lstr_startswith(key, path)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool yaml_data_contains_tags(const yaml_data_t * nonnull data)
 {
     if (data->tag.s) {
-        return false;
+        return true;
     }
 
     switch (data->type) {
@@ -2794,18 +2806,50 @@ static bool yaml_data_can_use_flow_mode(const yaml_data_t * nonnull data)
         break;
       case YAML_DATA_SEQ:
         tab_for_each_ptr(elem, &data->seq->datas) {
-            if (!yaml_data_can_use_flow_mode(elem)) {
-                return false;
+            if (yaml_data_contains_tags(elem)) {
+                return true;
             }
         }
         break;
       case YAML_DATA_OBJ:
         tab_for_each_ptr(kd, &data->obj->fields) {
-            if (!yaml_data_can_use_flow_mode(&kd->data)) {
-                return false;
+            if (yaml_data_contains_tags(&kd->data)) {
+                return true;
             }
         }
         break;
+    }
+
+    return false;
+}
+
+/** Make sure the data can be packed using flow mode.
+ *
+ * Flow mode is incompatible with the use of tags. If any data inside the
+ * provided data has tags, flow mode cannot be used.
+ */
+static bool
+yaml_env_data_can_use_flow_mode(const yaml_pack_env_t * nonnull env,
+                                const yaml_data_t * nonnull data)
+{
+    /* If the flow data contains overrides, it cannot be packed into flow
+     * mode. This isn't a hard limitation, but not implemented for the moment
+     * because:
+     *  * the use case seems limited
+     *  * this would complicate the flow packing a lot, as it does not handle
+     *    presentation.
+     */
+    if (yaml_env_path_contains_overrides(env)) {
+        return false;
+    }
+
+    /* Recursing through the data to find out if it can be packed in a certain
+     * way isn't ideal... This is acceptable here because flow data are
+     * usually very small, and in the worst case, the whole data is in flow
+     * mode, so we only go through the data twice.
+     */
+    if (yaml_data_contains_tags(data)) {
+        return false;
     }
 
     return true;
@@ -3195,7 +3239,8 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
 
     res += yaml_pack_tag(env, data->tag);
 
-    if (node && node->flow_mode && yaml_data_can_use_flow_mode(data)) {
+    if (node && node->flow_mode && yaml_env_data_can_use_flow_mode(env, data))
+    {
         GOTO_STATE(CLEAN);
         res += yaml_pack_flow_data(env, data, false);
         env->state = PACK_STATE_AFTER_DATA;
@@ -4435,12 +4480,13 @@ Z_GROUP_EXPORT(yaml)
             "- !include inner.yml\n"
             "  a: 4\n"
             "  b:\n"
-            /* FIXME: buggy with flow mode */
-            "    c: c\n"
+            "    c: ~\n"
         ));
         Z_HELPER_RUN(z_check_file("override_1/inner.yml",
             "a: 3\n"
-            "b: { c: ~, new: true }\n"
+            "b:\n"
+            "  c: c\n"
+            "  new: true\n"
             "c:\n"
             "  - 3\n"
             "  - 4\n"
