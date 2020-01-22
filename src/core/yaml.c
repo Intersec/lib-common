@@ -171,16 +171,32 @@ typedef struct yaml_presentation_override_t {
  * nodes that were overridden can easily find the original value to repack.
  */
 typedef struct yaml_pack_override_t {
-    /* Mappings of paths to original data. */
+    /* Mappings of absolute paths to original data.
+     *
+     * The paths are not the same as the ones in the presentation IOP. They
+     * are absolute path, from the root document and not from the override's
+     * root.
+     *
+     * This is needed in order to handle overrides of included data. The
+     * path in the included data is relative from the root of its file, which
+     * may be different from the path of the override nodes (for example,
+     * if the override was done in a file that included a file including the
+     * current file.
+     * */
     qm_t(override_nodes) nodes;
 
-    /* Original override presentation object.
+    /** List of the absolute paths.
      *
      * Used to iterate on the nodes in the right order when repacking the
      * override objet.
      */
+    qv_t(lstr) ordered_paths;
+
+    /* Original override presentation object.
+     */
     const yaml__presentation_override__t * nonnull presentation;
 } yaml_pack_override_t;
+qvector_t(pack_override, yaml_pack_override_t);
 
 /* }}} */
 /* {{{ IOP helpers */
@@ -267,28 +283,6 @@ t_presentation_override_to_iop(
     t_yaml_data_get_presentation(override_data, &out->presentation);
 
     return out;
-}
-
-static void t_iop_pres_override_to_pack_override(
-    const yaml__presentation_override__t * nonnull pres,
-    yaml_pack_override_t *out)
-{
-    p_clear(out, 1);
-
-    out->presentation = pres;
-    t_qm_init(override_nodes, &out->nodes, pres->nodes.len);
-
-    tab_for_each_ptr(node, &pres->nodes) {
-        yaml_data_t *data = NULL;
-        int res;
-
-        if (node->original_data) {
-            data = t_new(yaml_data_t, 1);
-            t_iop_data_to_yaml(node->original_data, data);
-        }
-        res = qm_add(override_nodes, &out->nodes, &node->path, data);
-        assert (res >= 0);
-    }
 }
 
 /* }}} */
@@ -2148,6 +2142,13 @@ typedef struct yaml_pack_env_t {
     /* Current path being packed. */
     sb_t current_path;
 
+    /* Path from the root document.
+     *
+     * Used for overrides through includes, see
+     * yaml_pack_override_t::absolute_path.
+     */
+    lstr_t absolute_path;
+
     /* Error buffer. */
     sb_t err;
 
@@ -2170,8 +2171,13 @@ typedef struct yaml_pack_env_t {
      */
     qm_t(path_to_yaml_data) * nullable subfiles;
 
-    /** Information about overridden values. */
-    yaml_pack_override_t * nullable override;
+    /** Information about overridden values.
+     *
+     * This is a *stack* of currently active overrides. The last element
+     * is the most recent override, and matching overridden values should thus
+     * be done in reverse order.
+     */
+    qv_t(pack_override) overrides;
 } yaml_pack_env_t;
 
 static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
@@ -2347,13 +2353,30 @@ static int yaml_pack_tag(yaml_pack_env_t * nonnull env, const lstr_t tag)
 static const yaml_data_t * nullable * nullable
 yaml_pack_env_find_override(yaml_pack_env_t * nonnull env)
 {
-    lstr_t path;
+    t_scope;
+    lstr_t abspath;
 
-    if (!env->override) {
+    if (env->overrides.len == 0) {
         return NULL;
     }
-    path = LSTR_SB_V(&env->current_path);
-    return qm_get_def_p(override_nodes, &env->override->nodes, &path, NULL);
+
+    /* FIXME: instead of having two separate buffers, and having to update
+     * abspath all the time, it would be much better to have "current_path"
+     * depend on abspath, simply starting from a later point in the string.
+     */
+    abspath = t_lstr_fmt("%pL%pL", &env->absolute_path, &env->current_path);
+
+    tab_for_each_pos_rev(ov_pos, &env->overrides) {
+        yaml_pack_override_t *override = &env->overrides.tab[ov_pos];
+        int qm_pos;
+
+        qm_pos = qm_find(override_nodes, &override->nodes, &abspath);
+        if (qm_pos >= 0) {
+            return &override->nodes.values[qm_pos];
+        }
+    }
+
+    return NULL;
 }
 
 /* }}} */
@@ -2851,16 +2874,15 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 static bool
 yaml_env_path_contains_overrides(const yaml_pack_env_t * nonnull env)
 {
-    lstr_t path;
+    t_scope;
+    lstr_t abspath;
 
-    if (!env->override) {
-        return false;
-    }
-
-    path = LSTR_SB_V(&env->current_path);
-    qm_for_each_key(override_nodes, key, &env->override->nodes) {
-        if (lstr_startswith(key, path)) {
-            return true;
+    abspath = t_lstr_fmt("%pL%pL", &env->absolute_path, &env->current_path);
+    tab_for_each_ptr(override, &env->overrides) {
+        qm_for_each_key(override_nodes, key, &override->nodes) {
+            if (lstr_startswith(key, abspath)) {
+                return true;
+            }
         }
     }
 
@@ -2930,6 +2952,35 @@ yaml_env_data_can_use_flow_mode(const yaml_pack_env_t * nonnull env,
 /* }}} */
 /* {{{ Pack override */
 
+static void t_iop_pres_override_to_pack_override(
+    const yaml_pack_env_t * nonnull env,
+    const yaml__presentation_override__t * nonnull pres,
+    yaml_pack_override_t *out)
+{
+    p_clear(out, 1);
+
+    out->presentation = pres;
+    t_qm_init(override_nodes, &out->nodes, pres->nodes.len);
+    t_qv_init(&out->ordered_paths, pres->nodes.len);
+
+    tab_for_each_ptr(node, &pres->nodes) {
+        yaml_data_t *data = NULL;
+        lstr_t path;
+        int res;
+
+        if (node->original_data) {
+            data = t_new(yaml_data_t, 1);
+            t_iop_data_to_yaml(node->original_data, data);
+        }
+        path = t_lstr_fmt("%pL%pL%pL", &env->absolute_path,
+                          &env->current_path, &node->path);
+        res = qm_add(override_nodes, &out->nodes, &path, data);
+        assert (res >= 0);
+
+        qv_append(&out->ordered_paths, path);
+    }
+}
+
 static void
 t_set_data_from_path(const yaml_data_t * nonnull data, pstream_t path,
                      bool new, yaml_data_t * nonnull out)
@@ -2997,19 +3048,22 @@ t_build_override_data(const yaml_pack_override_t * nonnull override,
 {
     bool first = true;
 
-    /* Iterate on the presentation nodes, to make sure the data is recreated
+    /* Iterate on the ordered paths, to make sure the data is recreated
      * in the right order. */
-    tab_for_each_ptr(node, &override->presentation->nodes) {
+    assert (override->ordered_paths.len == override->presentation->nodes.len);
+    tab_for_each_pos(pos, &override->ordered_paths) {
         const yaml_data_t *data;
         pstream_t ps;
 
-        data = qm_get_safe(override_nodes, &override->nodes, &node->path);
+        data = qm_get_safe(override_nodes, &override->nodes,
+                           &override->ordered_paths.tab[pos]);
 
         /* FIXME: This assert is probably wrong, as the inner layout can
          * change. */
         assert (data);
 
-        ps = ps_initlstr(&node->path);
+        /* Use the relative path here, to properly reconstruct the data. */
+        ps = ps_initlstr(&override->presentation->nodes.tab[pos].path);
         t_set_data_from_path(data, ps, first, out);
         first = false;
     }
@@ -3023,6 +3077,7 @@ t_yaml_pack_override(yaml_pack_env_t * nonnull env,
     yaml_data_t data;
     const yaml_presentation_t *pres;
     t_SB_1k(path);
+    lstr_t abspath;
 
     pres = t_yaml_doc_pres_to_map(&override->presentation->presentation);
 
@@ -3032,12 +3087,19 @@ t_yaml_pack_override(yaml_pack_env_t * nonnull env,
     /* Pack the data in the output. To reuse the right presentation, it must
      * be set in the env, and the path reset so that it matches the
      * presentation.
+     * To make the overrides work however, the absolute_path must be updated,
+     * so that they stay valid.
      */
+    /* TODO: Maybe create a new env? This is a bit of a mess. */
+    abspath = t_lstr_fmt("%pL%pL", &env->absolute_path, &env->current_path);
+
     SWAP(const yaml_presentation_t *, pres, env->pres);
     SWAP(sb_t, path, env->current_path);
+    SWAP(lstr_t, abspath, env->absolute_path);
 
     res = t_yaml_pack_data(env, &data);
 
+    SWAP(lstr_t, abspath, env->absolute_path);
     SWAP(sb_t, path, env->current_path);
     SWAP(const yaml_presentation_t *, pres, env->pres);
 
@@ -3235,16 +3297,21 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
                                                     raw, LSTR(path)));
         } else {
             yaml_pack_env_t *subenv = t_yaml_pack_env_new();
+            yaml_pack_override_t *override = NULL;
 
             RETHROW(t_yaml_pack_env_set_outdir(subenv, env->outdirpath.s,
                                                &err));
             yaml_pack_env_set_presentation(subenv,
                                            &inc->document_presentation);
 
+            subenv->absolute_path = t_lstr_fmt("%pL%pL", &env->absolute_path,
+                                               &env->current_path);
+
             if (inc->override) {
-                subenv->override = t_new(yaml_pack_override_t, 1);
-                t_iop_pres_override_to_pack_override(inc->override,
-                                                     subenv->override);
+                override = qv_growlen0(&env->overrides, 1);
+                t_iop_pres_override_to_pack_override(env, inc->override,
+                                                     override);
+                subenv->overrides = env->overrides;
             }
 
             /* Make sure the subfiles qm is shared, so that if this subfile
@@ -3262,9 +3329,10 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
                                                     inc->include_presentation,
                                                     raw, LSTR(path)));
 
-            if (subenv->override) {
+            if (override) {
+                qv_remove_last(&env->overrides);
                 logger_trace(&_G.logger, 2, "packing override %s", path);
-                res += RETHROW(t_yaml_pack_override(env, subenv->override));
+                res += RETHROW(t_yaml_pack_override(env, override));
             }
         }
     }
@@ -3400,6 +3468,7 @@ yaml_pack_env_t * nonnull t_yaml_pack_env_new(void)
 
     t_sb_init(&env->current_path, 1024);
     t_sb_init(&env->err, 1024);
+    t_qv_init(&env->overrides, 0);
 
     return env;
 }
@@ -4559,22 +4628,28 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         yaml__document_presentation__t pres;
         yaml_parse_t *env;
+        const char *grandchild;
+        const char *child;
+        const char *root;
 
         /* test override of scalars, object, sequence */
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
             "a: 3\n"
             "b: { c: c }\n"
-            "c: - 3\n"
-            "   - 4"
+            "c:\n"
+            "  - 3\n"
+            "  - 4"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        root =
             "- !include inner.yml\n"
             "  a: 4\n"
             "\n"
             "  b: { new: true, c: ~ }\n"
             "  c: [ 5, 6 ] # array\n"
             "  # prefix d\n"
-            "  d: ~",
+            "  d: ~";
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            root,
 
             "- a: 4\n"
             "  b: { c: ~, new: true }\n"
@@ -4586,17 +4661,12 @@ Z_GROUP_EXPORT(yaml)
             "  d: ~"
         ));
         /* test recreation of override when packing into files */
-        Z_HELPER_RUN(z_pack_yaml_file("override_1/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_pack_yaml_file("override_1/root.yml", &data, &pres,
+                                      0));
         Z_HELPER_RUN(z_check_file("override_1/root.yml",
-            "- !include inner.yml\n"
-            "  a: 4\n"
-            "\n"
-            "  b: { new: true, c: ~ }\n"
-            "  c: [ 5, 6 ] # array\n"
-            "  # prefix d\n"
-            "  d: ~\n"
-        ));
+                                  t_fmt("%s\n", root)));
         Z_HELPER_RUN(z_check_file("override_1/inner.yml",
+            /* XXX: lost flow mode, incompatible with override */
             "a: 3\n"
             "b:\n"
             "  c: c\n"
@@ -4607,7 +4677,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_parse_delete(&env);
 
         /* test override of override through includes */
-        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml",
+        grandchild =
             "# prefix gc a\n"
             "a: 1 # inline gc 1\n"
             "# prefix gc b\n"
@@ -4615,17 +4685,17 @@ Z_GROUP_EXPORT(yaml)
             "# prefix gc c\n"
             "c: 3 # inline gc 3\n"
             "# prefix gc d\n"
-            "d: 4 # inline gc 4"
-        ));
-        Z_HELPER_RUN(z_write_yaml_file("child.yml",
+            "d: 4 # inline gc 4";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+        child =
             "# prefix child g\n"
             "g: !include grandchild.yml # inline include\n"
             "  # prefix child c\n"
-            "  c: 5 # inline child 5"
+            "  c: 5 # inline child 5\n"
             "  # prefix child d\n"
-            "  d: 6 # inline child 6"
-        ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(NULL, NULL, NULL,
+            "  d: 6 # inline child 6";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
             "# prefix seq\n"
             "- !include child.yml\n"
             "  # prefix g\n"
@@ -4633,7 +4703,9 @@ Z_GROUP_EXPORT(yaml)
             "    # prefix b\n"
             "    b: 7 # inline 7\n"
             "    # prefix c\n"
-            "    c: 8 # inline 8",
+            "    c: 8 # inline 8";
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            root,
 
             /* XXX: the presentation of the original file is used. This is
              * a side effect of how the presentation is stored, but it isn't
@@ -4652,6 +4724,17 @@ Z_GROUP_EXPORT(yaml)
             "    # prefix gc d\n"
             "    d: 6 # inline gc 4\n"
         ));
+
+        /* test recreation of override when packing into files */
+        Z_HELPER_RUN(z_pack_yaml_file("override_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("override_2/grandchild.yml",
+                                  t_fmt("%s\n", grandchild)));
+        Z_HELPER_RUN(z_check_file("override_2/child.yml",
+                                  t_fmt("%s\n", child)));
+        Z_HELPER_RUN(z_check_file("override_2/root.yml",
+                                  t_fmt("%s\n", root)));
+        yaml_parse_delete(&env);
     } Z_TEST_END;
 
     /* }}} */
