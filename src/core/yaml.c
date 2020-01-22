@@ -2357,12 +2357,8 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 {
     int res = 0;
 
-    if (data->tag.s) {
-        /* cannot pack in flow mode with a tag: the tag will be lost. */
-        /* TODO: something must be done about this case rather than simply
-         * ignoring the tag... At the very least, revert the flow packing
-         * and pack it with the normal syntax. */
-    }
+    /* This is guaranteed by the yaml_data_can_use_flow_mode check. */
+    assert (!data->tag.s);
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
@@ -2378,6 +2374,44 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
     env->state = PACK_STATE_CLEAN;
 
     return res;
+}
+
+/** Make sure the data can be packed using flow mode.
+ *
+ * Flow mode is incompatible with the use of tags. If any data inside the
+ * provided data has tags, flow mode cannot be used.
+ */
+/* Recursing through the data to find out if it can be packed in a certain way
+ * isn't ideal... This is acceptable here because flow data are usually very
+ * small, and in the worst case, the whole data is in flow mode, so we only go
+ * through the data twice.
+ */
+static bool yaml_data_can_use_flow_mode(const yaml_data_t * nonnull data)
+{
+    if (data->tag.s) {
+        return false;
+    }
+
+    switch (data->type) {
+      case YAML_DATA_SCALAR:
+        break;
+      case YAML_DATA_SEQ:
+        tab_for_each_ptr(elem, &data->seq->datas) {
+            if (!yaml_data_can_use_flow_mode(elem)) {
+                return false;
+            }
+        }
+        break;
+      case YAML_DATA_OBJ:
+        tab_for_each_ptr(kd, &data->obj->fields) {
+            if (!yaml_data_can_use_flow_mode(&kd->data)) {
+                return false;
+            }
+        }
+        break;
+    }
+
+    return true;
 }
 
 /* }}} */
@@ -2655,7 +2689,7 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
 
     res += yaml_pack_tag(env, data->tag);
 
-    if (node && node->flow_mode) {
+    if (node && node->flow_mode && yaml_data_can_use_flow_mode(data)) {
         GOTO_STATE(CLEAN);
         res += yaml_pack_flow_data(env, data, false);
         env->state = PACK_STATE_AFTER_DATA;
@@ -4655,7 +4689,6 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
-
     /* {{{ Comment presentation */
 
 #define CHECK_PREFIX_COMMENTS(pres, path, ...)                               \
@@ -4875,7 +4908,37 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
+    /* {{{ Flow presentation */
 
+    Z_TEST(flow_presentation, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        const char *expected;
+
+        /* Make sure that flow syntax is reverted if a tag is added in the
+         * data. */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+            "a: { k: d }\n"
+            "b: [ 1, 2 ]",
+
+            NULL
+        ));
+        data.obj->fields.tab[0].data.obj->fields.tab[0].data.tag
+            = LSTR("tag1");
+        data.obj->fields.tab[1].data.seq->datas.tab[1].tag = LSTR("tag2");
+
+        expected =
+            "a:\n"
+            "  k: !tag1 d\n"
+            "b:\n"
+            "  - 1\n"
+            "  - !tag2 2";
+        Z_HELPER_RUN(z_check_yaml_pack(&data, NULL, expected));
+        Z_HELPER_RUN(z_check_yaml_pack(&data, &pres, expected));
+    } Z_TEST_END;
+
+    /* }}} */
     /* {{{ yaml_data_equals */
 
     Z_TEST(yaml_data_equals, "") {
