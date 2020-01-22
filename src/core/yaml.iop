@@ -247,6 +247,13 @@ struct PresentationOverrideNode {
 struct PresentationOverride {
     /** List of overridden values, with their associated paths. */
     PresentationOverrideNode[] nodes;
+
+    /** Presentation of the override data.
+     *
+     * This is the presentation of the whole override data. Used to repack
+     * the override data with the same presentation details.
+     */
+    DocumentPresentation presentation;
 };
 
 /* }}} */

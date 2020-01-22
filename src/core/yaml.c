@@ -253,14 +253,18 @@ t_iop_data_to_yaml(const yaml__data__t * nonnull data,
 /* }}} */
 /* {{{ IOP Presentation Override */
 
-static yaml__presentation_override__t *
-t_presentation_override_to_iop(yaml_presentation_override_t * nonnull pres)
+static yaml__presentation_override__t * nonnull
+t_presentation_override_to_iop(
+    const yaml_presentation_override_t * nonnull pres,
+    const yaml_data_t * nonnull override_data
+)
 {
     yaml__presentation_override__t *out;
 
     out = t_iop_new(yaml__presentation_override);
     out->nodes = IOP_TYPED_ARRAY_TAB(yaml__presentation_override_node,
                                      &pres->nodes);
+    t_yaml_data_get_presentation(override_data, &out->presentation);
 
     return out;
 }
@@ -1779,7 +1783,7 @@ static int t_yaml_env_handle_override(yaml_parse_t *env,
     if (pres) {
         assert (out->presentation && out->presentation->included);
         out->presentation->included->override
-            = t_presentation_override_to_iop(pres);
+            = t_presentation_override_to_iop(pres, &override);
     }
 
     return 0;
@@ -3017,14 +3021,24 @@ t_yaml_pack_override(yaml_pack_env_t * nonnull env,
 {
     int res = 0;
     yaml_data_t data;
-    const yaml_presentation_t *pres = NULL;
+    const yaml_presentation_t *pres;
+    t_SB_1k(path);
+
+    pres = t_yaml_doc_pres_to_map(&override->presentation->presentation);
 
     /* rebuild a yaml data from the override nodes */
     t_build_override_data(override, &data);
 
-    /* pack the data in the output */
+    /* Pack the data in the output. To reuse the right presentation, it must
+     * be set in the env, and the path reset so that it matches the
+     * presentation.
+     */
     SWAP(const yaml_presentation_t *, pres, env->pres);
+    SWAP(sb_t, path, env->current_path);
+
     res = t_yaml_pack_data(env, &data);
+
+    SWAP(sb_t, path, env->current_path);
     SWAP(const yaml_presentation_t *, pres, env->pres);
 
     return res;
@@ -4556,12 +4570,10 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
             "- !include inner.yml\n"
             "  a: 4\n"
-            "  b:\n"
-            "    new: true\n"
-            "    c: ~\n"
-            "  c:\n"
-            "    - 5\n"
-            "    - 6\n"
+            "\n"
+            "  b: { new: true, c: ~ }\n"
+            "  c: [ 5, 6 ] # array\n"
+            "  # prefix d\n"
             "  d: ~",
 
             "- a: 4\n"
@@ -4575,16 +4587,13 @@ Z_GROUP_EXPORT(yaml)
         ));
         /* test recreation of override when packing into files */
         Z_HELPER_RUN(z_pack_yaml_file("override_1/root.yml", &data, &pres, 0));
-        /* FIXME: presentation */
         Z_HELPER_RUN(z_check_file("override_1/root.yml",
             "- !include inner.yml\n"
             "  a: 4\n"
-            "  b:\n"
-            "    new: true\n"
-            "    c: ~\n"
-            "  c:\n"
-            "    - 5\n"
-            "    - 6\n"
+            "\n"
+            "  b: { new: true, c: ~ }\n"
+            "  c: [ 5, 6 ] # array\n"
+            "  # prefix d\n"
             "  d: ~\n"
         ));
         Z_HELPER_RUN(z_check_file("override_1/inner.yml",
