@@ -19,14 +19,19 @@
 
 ctx.program(target='gcd-bench', source='gcd-bench.c', use='libcommon')
 
+ctx.program(target='benches',
+            source=[
+                'benches-main.c',
+                'iprintf-speed.c',
+            ],
+            use='libcommon')
+
 ctx.program(target='iop-struct-for-each-bench',
             source='iop-struct-for-each-bench.c',
             use=[
                 'tstiop',
                 'libcommon'
             ])
-
-ctx.program(target='iprintf-speed', source='iprintf-speed.c', use='libcommon')
 
 ctx.program(target='mem-bench', source='mem-bench.c', use='libcommon')
 

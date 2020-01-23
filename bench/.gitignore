@@ -1,6 +1,6 @@
 /gcd-bench
 /iop-struct-for-each-bench
-/iprintf-speed
+/benches
 /mem-bench
 /qpsstress
 /threaded-operations-bench
