@@ -188,6 +188,7 @@ ctx.stlib(target='libcommon', features='c cstlib', depends_on=[
     'core/z.blk',
     'core/zchk-helpers.blk',
     'core/zlib-wrapper.c',
+    'core/zbenchmark.blk',
 
     'crypto/ssl.blk',
 

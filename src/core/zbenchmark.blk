@@ -1,0 +1,126 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2024 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <lib-common/container.h>
+#include <lib-common/log.h>
+#include <lib-common/datetime.h>
+#include <lib-common/parseopt.h>
+#include <lib-common/zbenchmark.h>
+
+/* {{{ Types */
+
+qm_kptr_ckey_t(zbenchmark_group, char, zbenchmark_group_t *, qhash_str_hash,
+               qhash_str_equal);
+
+/* }}} */
+
+static struct {
+    logger_t logger;
+    qm_t(zbenchmark_group) groups;
+    zbenchmark_group_t *current_group;
+} zbenchmark_g = {
+#define _G  zbenchmark_g
+    .logger = LOGGER_INIT_INHERITS(NULL, "zbenchmark"),
+    .groups = QM_INIT(zbenchmark_group, _G.groups),
+};
+
+#define DEFAULT_NB_RUNS  100
+
+static struct {
+    bool help;
+    int nb_runs;
+    char *test;
+} settings = {
+    .nb_runs = DEFAULT_NB_RUNS,
+};
+
+static popt_t popts[] = {
+    OPT_FLAG('h', "help", &settings.help, "show this help"),
+    OPT_INT('n', "nb_runs", &settings.nb_runs,
+            "number of executions for each benchmark (default 100)"),
+    OPT_STR('t', "test", &settings.test,
+            "tests or groups to run (is unset, all tests are ran)"),
+    OPT_END(),
+};
+
+/* {{{ Internal functions */
+
+void _zbenchmark_register_group(zbenchmark_group_t *group)
+{
+    if (qm_add(zbenchmark_group, &_G.groups, group->name, group) < 0) {
+        logger_panic(&_G.logger, "zbenchmark group `%s` is already "
+                     "registered", group->name);
+    }
+}
+
+bool _zbenchmark_should_run(const zbenchmark_group_t *group,
+                            const zbenchmark_t *bench)
+{
+    t_scope;
+    lstr_t test_fullname;
+
+    if (!settings.test) {
+        return true;
+    }
+
+    if (lstr_equal(LSTR(group->name), LSTR(settings.test))) {
+        return true;
+    }
+
+    test_fullname = t_lstr_fmt("%s.%s", group->name, bench->name);
+    if (lstr_equal(test_fullname, LSTR(settings.test))) {
+        return true;
+    }
+
+    return false;
+}
+
+int _zbenchmark_get_nb_runs(const zbenchmark_group_t *group,
+                            const zbenchmark_t *bench)
+{
+    return settings.nb_runs;
+}
+
+void _zbenchmark_print_stats(const zbenchmark_group_t *group,
+                             const zbenchmark_t *bench,
+                             proctimerstat_t *stats)
+{
+    /* TODO; use options to format. */
+    printf("%s.%s: %s\n", group->name, bench->name,
+           proctimerstat_report(stats, NULL));
+}
+
+/* }}} */
+/* {{{ Public functions */
+
+int zbenchmark_main(int argc, char **argv)
+{
+    const char *arg0 = NEXTARG(argc, argv);
+
+    argc = parseopt(argc, argv, popts, 0);
+    if (settings.help) {
+        makeusage(0, arg0, "", NULL, popts);
+    }
+
+    qm_for_each_value(zbenchmark_group, group, &_G.groups) {
+        (*group->func)();
+    }
+    return 0;
+}
+
+/* }}} */
