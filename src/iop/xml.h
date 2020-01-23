@@ -201,7 +201,7 @@ enum iop_xpack_flags {
  * \param[out] sb          Buffer used to write the generated XML.
  * \param[in]  st          IOP structure definition.
  * \param[in]  v           Pointer on the IOP structure to pack.
- * \param[in]  flags       Bitfield of iop_pack_flags.
+ * \param[in]  flags       Bitfield of iop_xpack_flags.
  *
  */
 void iop_xpack_flags(sb_t * nonnull sb, const iop_struct_t * nonnull st,
