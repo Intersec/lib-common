@@ -118,8 +118,11 @@ static struct {
     el_t              before;
     el_t              wakeel;
     thr_queue_t       main_queue;
+
+#ifdef __has_thr_acc
     uint64_t          reset_time;
     proctimer_t       st;
+#endif
 } thr_job_g;
 #define _G  thr_job_g
 
