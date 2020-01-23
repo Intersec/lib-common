@@ -23,6 +23,7 @@ ctx.program(target='benches',
             source=[
                 'benches-main.c',
                 'iprintf-speed.c',
+                'iop-pack.c',
             ],
             use='libcommon')
 
