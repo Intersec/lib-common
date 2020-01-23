@@ -662,7 +662,7 @@ const void *mem_stack_pool_push(mem_stack_pool_t *sp)
 }
 
 #ifdef MEM_BENCH
-void mem_stack_bench_pop(mem_stack_pool_t *sp, mem_stack_frame_t * frame)
+void mem_stack_pool_bench_pop(mem_stack_pool_t *sp, mem_stack_frame_t * frame)
 {
     mem_stack_blk_t *last_block = frame->blk;
     int32_t cused = sp->mem_bench->current_used;
@@ -686,7 +686,7 @@ void mem_stack_bench_pop(mem_stack_pool_t *sp, mem_stack_frame_t * frame)
         cused -= (last_block->area + last_block->size
                   - sp->stack->pos + sizeof(mem_stack_frame_t));
     }
-    if (cused <= 0 || mem_stack_is_at_top(sp)) {
+    if (cused <= 0 || mem_stack_pool_is_at_top(sp)) {
         cused = 0;
     }
     sp->mem_bench->current_used = cused;
@@ -696,12 +696,13 @@ void mem_stack_bench_pop(mem_stack_pool_t *sp, mem_stack_frame_t * frame)
 
 void mem_stack_print_stats(const mem_pool_t *mp) {
 #ifdef MEM_BENCH
+    const mem_stack_pool_t *sp = container_of(mp, mem_stack_pool_t, funcs);
+
     /* bypass mem_pool if demanded */
     if (!mem_pool_is_enabled()) {
         return;
     }
 
-    const mem_stack_pool_t *sp = container_of(mp, mem_stack_pool_t, funcs);
     mem_bench_print_human(sp->mem_bench, MEM_BENCH_PRINT_CURRENT);
 #endif
 }
@@ -715,7 +716,7 @@ void mem_stack_print_pools_stats(void) {
 
     spin_lock(&_G.all_pools_lock);
     dlist_for_each(n, &_G.all_pools) {
-        mem_stack_pool_t *mp = mem_stack_get_pool(n);
+        mem_stack_pool_t *mp = container_of(n, mem_stack_pool_t, pool_list);
 
         mem_bench_print_human(mp->mem_bench, MEM_BENCH_PRINT_CURRENT);
     }

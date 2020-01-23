@@ -26,7 +26,7 @@
 #include <lib-common/log.h>
 
 #ifdef MEM_BENCH
-#include <lib-common/core-mem-bench.h>
+#include "mem-bench.h"
 #endif
 
 uint32_t log_conf_gen_g = 1;

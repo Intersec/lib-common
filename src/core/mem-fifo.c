@@ -502,12 +502,13 @@ void mem_fifo_pool_stats(mem_pool_t *mp, ssize_t *allocated, ssize_t *used)
 void mem_fifo_pool_print_stats(mem_pool_t *mp)
 {
 #ifdef MEM_BENCH
+    mem_fifo_pool_t *mfp = container_of(mp, mem_fifo_pool_t, funcs);
+
     /* bypass mem_pool if demanded */
     if (!mem_pool_is_enabled()) {
         return;
     }
 
-    mem_fifo_pool_t *mfp = container_of(mp, mem_fifo_pool_t, funcs);
     mem_bench_print_human(&mfp->mem_bench, MEM_BENCH_PRINT_CURRENT);
 #endif
 }
