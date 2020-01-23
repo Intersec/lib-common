@@ -20,7 +20,6 @@
 #define IS_LIB_COMMON_TIME_H
 
 #include <sys/resource.h>
-#define PROCTIMER_USE_RUSAGE  0
 
 #include <lib-common/core.h>
 #include <lib-common/log.h>
@@ -658,9 +657,7 @@ bool is_expired(const struct timeval *date, const struct timeval *now,
  */
 typedef struct proctimer_t {
     struct timeval tv, tv1;
-#if PROCTIMER_USE_RUSAGE
     struct rusage ru, ru1;
-#endif
     unsigned long hc, hc1;
     unsigned int  elapsed_real;
     unsigned int  elapsed_user;
@@ -693,27 +690,18 @@ typedef struct proctimerstat_t {
 
 static inline void proctimer_start(proctimer_t *tp) {
     gettimeofday(&tp->tv, NULL);
-#if PROCTIMER_USE_RUSAGE
     getrusage(RUSAGE_SELF, &tp->ru);
-#endif
     tp->hc = hardclock();
 }
 
 static inline long long proctimer_stop(proctimer_t *tp) {
     tp->hc1 = hardclock();
-#if PROCTIMER_USE_RUSAGE
     getrusage(RUSAGE_SELF, &tp->ru1);
-#endif
     gettimeofday(&tp->tv1, NULL);
     tp->elapsed_real = timeval_diff(&tp->tv1, &tp->tv);
-#if PROCTIMER_USE_RUSAGE
     tp->elapsed_user = timeval_diff(&tp->ru1.ru_utime, &tp->ru.ru_utime);
     tp->elapsed_sys = timeval_diff(&tp->ru1.ru_stime, &tp->ru.ru_stime);
     tp->elapsed_proc = tp->elapsed_user + tp->elapsed_sys;
-#else
-    tp->elapsed_sys = 0;
-    tp->elapsed_proc = tp->elapsed_user = tp->elapsed_real;
-#endif
     tp->elapsed_hard = tp->hc1 - tp->hc;
     return tp->elapsed_proc;
 }
