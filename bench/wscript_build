@@ -25,6 +25,7 @@ ctx.program(target='benches',
                 'iprintf-speed.c',
                 'iop-pack.c',
                 'bithacks.c',
+                'thrjob.blk',
             ],
             use='libcommon')
 
