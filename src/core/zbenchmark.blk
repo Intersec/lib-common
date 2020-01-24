@@ -100,9 +100,8 @@ void _zbenchmark_print_stats(const zbenchmark_group_t *group,
                              const zbenchmark_t *bench,
                              proctimerstat_t *stats)
 {
-    /* TODO; use options to format. */
-    printf("%s.%s: %s\n", group->name, bench->name,
-           proctimerstat_report(stats, NULL));
+    printf("%s.%s;%s\n", group->name, bench->name,
+           proctimerstat_report(stats, "%n;%r;%p;%u;%s;%h"));
 }
 
 /* }}} */
@@ -116,6 +115,8 @@ int zbenchmark_main(int argc, char **argv)
     if (settings.help) {
         makeusage(0, arg0, "", NULL, popts);
     }
+
+    printf("test;samples;real;proc;user;sys;proc_cycl\n");
 
     qm_for_each_value(zbenchmark_group, group, &_G.groups) {
         (*group->func)();

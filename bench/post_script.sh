@@ -1,0 +1,1 @@
+sed -e "s/min=//g" | sed -E "s/(ms|cycles) max=/;/g" | sed -E "s/(ms|cycles) mean=/;/g" | sed -E "s/(ms|cycles)//g" | awk -e "BEGIN{FS=\";\"}{if (NR > 1) print $1; else print \"test;samples;real_min;real_max;real_mean;proc_min;proc_max;proc_mean;user_min;user_max;user_mean;sys_min;sys_max;sys_mean;proc_cycl_min;proc_cycl_max;proc_cycl_mean\"}"
