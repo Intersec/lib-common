@@ -1471,6 +1471,8 @@ def profile_default(ctx,
     # Generate fake versions?
     if allow_fake_versions and ctx.get_env_bool('FAKE_VERSIONS'):
         ctx.env.FAKE_VERSIONS = True
+        ctx.env.CFLAGS += ['-DFAKE_VERSIONS']
+        ctx.env.CXXFLAGS += ['-DFAKE_VERSIONS']
         log = 'yes'
     else:
         ctx.env.FAKE_VERSIONS = False
