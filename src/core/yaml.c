@@ -3215,24 +3215,34 @@ yaml_pack_write_raw_file(const yaml_pack_env_t * nonnull env,
 /* }}} */
 /* {{{ Pack subfile */
 
+static int write_nothing(void *b, const void *buf, int len, sb_t *err)
+{
+    return len;
+}
+
 static int
 t_yaml_pack_subfile_in_sb(yaml_pack_env_t * nonnull env,
                           const yaml__presentation_include__t * nonnull inc,
-                          const yaml_data_t * nonnull data,
+                          const yaml_data_t * nonnull data, bool no_subfiles,
                           sb_t * nonnull out, sb_t * nonnull err)
 {
     yaml_pack_env_t *subenv = t_yaml_pack_env_new();
-    const char *fullpath;
-    char dirpath[PATH_MAX];
 
-    fullpath = t_fmt("%pL/%pL", &env->outdirpath, &inc->path);
-    path_dirname(dirpath, PATH_MAX, fullpath);
+    if (!no_subfiles) {
+        const char *fullpath;
+        char dirpath[PATH_MAX];
 
-    RETHROW(t_yaml_pack_env_set_outdir(subenv, dirpath, err));
+        fullpath = t_fmt("%pL/%pL", &env->outdirpath, &inc->path);
+        path_dirname(dirpath, PATH_MAX, fullpath);
+
+        RETHROW(t_yaml_pack_env_set_outdir(subenv, dirpath, err));
+    }
+
     yaml_pack_env_set_presentation(subenv, &inc->document_presentation);
 
     sb_setsb(&subenv->absolute_path, &env->absolute_path);
     subenv->current_path_pos = subenv->absolute_path.len;
+    yaml_pack_env_set_flags(subenv, env->flags);
 
     subenv->overrides = env->overrides;
 
@@ -3240,57 +3250,42 @@ t_yaml_pack_subfile_in_sb(yaml_pack_env_t * nonnull env,
      * also generate other subfiles, it is properly handled. */
     subenv->subfiles = env->subfiles;
 
-    RETHROW(t_yaml_pack_sb(subenv, data, out, err));
+    if (no_subfiles) {
+        /* Go through the AST as if the file was packed, but do not actually
+         * write anything. This allows properly recreating the overrides. */
+        RETHROW(t_yaml_pack(subenv, data, &write_nothing, NULL, err));
+    } else {
+        RETHROW(t_yaml_pack_sb(subenv, data, out, err));
 
-    /* always ends with a newline when packing for a file */
-    if (out->len > 0 && out->data[out->len - 1] != '\n') {
-        sb_addc(out, '\n');
+        /* always ends with a newline when packing for a file */
+        if (out->len > 0 && out->data[out->len - 1] != '\n') {
+            sb_addc(out, '\n');
+        }
     }
 
     return 0;
 }
 
 static int
-t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
-                      yaml__presentation_include__t * nonnull inc,
-                      const yaml_data_t * nonnull subdata)
+t_yaml_pack_included_subfile(
+    yaml_pack_env_t * nonnull env,
+    const yaml__presentation_include__t * nonnull inc,
+    const yaml_data_t * nonnull subdata)
 {
-    yaml_pack_override_t *override = NULL;
     const char *path;
     bool reuse;
-    bool raw;
+    bool raw = inc->raw;
+    bool no_subfiles = env->flags & YAML_PACK_NO_SUBFILES;
     int res = 0;
     SB_1k(contents);
     SB_1k(err);
 
-    if (!env->subfiles) {
-        env->subfiles = t_qm_new(path_to_checksum, 0);
-    }
-
-    /* This is checked on parsing. Unless the presentation data has been
-     * modified by hand, which is not possible yet, this should not fail. */
-    if (!expect(!lstr_startswith(inc->path, LSTR("..")))) {
-        sb_setf(&env->err, "subfile `%pL` is not contained in the output "
-                "directory `%pL`, this is not allowed", &inc->path,
-                &env->outdirpath);
-        return -1;
-    }
-
-    raw = inc->raw;
     /* if the YAML data to dump is not a string, it changed and can no longer
      * be packed raw. */
     if (raw && (subdata->type != YAML_DATA_SCALAR
             ||  subdata->scalar.type != YAML_SCALAR_STRING))
     {
         raw = false;
-    }
-
-    /* add current override if it exists, so that it is used when the subdata
-     * is packed. */
-    if (inc->override) {
-        override = qv_growlen0(&env->overrides, 1);
-        t_iop_pres_override_to_pack_override(env, inc->override,
-                                             override);
     }
 
     if (raw) {
@@ -3306,13 +3301,24 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
          * the packing of the subdata), it is not possible to do some sort
          * of AST comparison to detect shared subfiles.
          */
-        if (t_yaml_pack_subfile_in_sb(env, inc, subdata, &contents,
-                                      &err) < 0)
+        if (t_yaml_pack_subfile_in_sb(env, inc, subdata, no_subfiles,
+                                      &contents, &err) < 0)
         {
             sb_setf(&env->err, "cannot pack subfile `%pL`: %pL", &inc->path,
                     &err);
             return -1;
         }
+    }
+
+    if (no_subfiles) {
+        /* we went through the inner AST and updated the override. Just
+         * print the include node. */
+        return t_yaml_pack_include_path(env, inc->include_presentation,
+                                        raw, inc->path);
+    }
+
+    if (!env->subfiles) {
+        env->subfiles = t_qm_new(path_to_checksum, 0);
     }
 
     path = t_find_right_path(env, &contents, inc->path, &reuse);
@@ -3322,7 +3328,7 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
                                                 raw, LSTR(path)));
     } else {
 
-        logger_trace(&_G.logger, 2, "writing %s subfile %s", raw ? "raw" : "",
+        logger_trace(&_G.logger, 2, "writing %ssubfile %s", raw ? "raw " : "",
                      path);
         if (yaml_pack_write_raw_file(env, path, LSTR_SB_V(&contents),
                                      &err) < 0)
@@ -3337,9 +3343,31 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
                                                 raw, LSTR(path)));
     }
 
+    return res;
+}
+
+static int
+t_yaml_pack_include_with_override(
+    yaml_pack_env_t * nonnull env,
+    yaml__presentation_include__t * nonnull inc,
+    const yaml_data_t * nonnull subdata)
+{
+    yaml_pack_override_t *override = NULL;
+    int res = 0;
+
+    /* add current override if it exists, so that it is used when the subdata
+     * is packed. */
+    if (inc->override) {
+        override = qv_growlen0(&env->overrides, 1);
+        t_iop_pres_override_to_pack_override(env, inc->override,
+                                             override);
+    }
+
+    res += RETHROW(t_yaml_pack_included_subfile(env, inc, subdata));
+
     if (override) {
         qv_remove_last(&env->overrides);
-        logger_trace(&_G.logger, 2, "packing override %s", path);
+        logger_trace(&_G.logger, 2, "packing override %pL", &inc->path);
         res += RETHROW(t_yaml_pack_override(env, override));
     }
 
@@ -3356,15 +3384,12 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
     yaml__presentation_include__t *inc;
 
     inc = node->included;
-    if (env->flags & YAML_PACK_NO_SUBFILES) {
-        /* FIXME: handle override */
-        return t_yaml_pack_include_path(env, inc->include_presentation,
-                                        inc->raw, inc->path);
-    } else
-    /* Only create subfiles if an outdir is set, ie if we are packing into
-     * files. */
-    if (env->outdirpath.s) {
-        return t_yaml_pack_inclusion(env, inc, data);
+    /* Write include node & override if:
+     *  * an outdir is set
+     *  * NO_SUBFILES is set, meaning we are recreating the file as is.
+     */
+    if (env->outdirpath.s || env->flags & YAML_PACK_NO_SUBFILES) {
+        return t_yaml_pack_include_with_override(env, inc, data);
     } else {
         const yaml_presentation_t *saved_pres = env->pres;
         unsigned current_path_pos = env->absolute_path.len;
@@ -3856,9 +3881,10 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
     Z_HELPER_END;
 }
 
-static int z_yaml_test_pack(const yaml_data_t * nonnull data,
-                            yaml__document_presentation__t * nullable pres,
-                            const char * nonnull expected_pack)
+static int
+z_yaml_test_pack(const yaml_data_t * nonnull data,
+                 yaml__document_presentation__t * nullable pres,
+                 unsigned flags, const char * nonnull expected_pack)
 {
     yaml_pack_env_t *pack_env;
     SB_1k(pack);
@@ -3868,6 +3894,7 @@ static int z_yaml_test_pack(const yaml_data_t * nonnull data,
     if (pres) {
         yaml_pack_env_set_presentation(pack_env, pres);
     }
+    yaml_pack_env_set_flags(pack_env, flags);
     Z_ASSERT_N(t_yaml_pack_sb(pack_env, data, &pack, &err));
     Z_ASSERT_STREQUAL(pack.data, expected_pack,
                       "repacking the parsed data leads to differences");
@@ -3911,12 +3938,12 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
     }
 
     /* repack using presentation data from the AST */
-    Z_HELPER_RUN(z_yaml_test_pack(data, NULL, expected_repack));
+    Z_HELPER_RUN(z_yaml_test_pack(data, NULL, 0, expected_repack));
 
     /* repack using yaml_presentation_t specification, and not the
      * presentation data inside the AST */
     t_yaml_data_get_presentation(data, pres);
-    Z_HELPER_RUN(z_yaml_test_pack(data, pres, expected_repack));
+    Z_HELPER_RUN(z_yaml_test_pack(data, pres, 0, expected_repack));
 
     if (local_env) {
         yaml_parse_delete(&local_env);
@@ -4706,6 +4733,10 @@ Z_GROUP_EXPORT(yaml)
             "  - 3\n"
             "  - 4\n"
         ));
+        Z_HELPER_RUN(z_check_file("override_1/root.yml",
+                                  t_fmt("%s\n", root)));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
         yaml_parse_delete(&env);
 
         /* test override of override through includes */
@@ -4717,7 +4748,7 @@ Z_GROUP_EXPORT(yaml)
             "# prefix gc c\n"
             "c: 3 # inline gc 3\n"
             "# prefix gc d\n"
-            "d: 4 # inline gc 4";
+            "d: 4 # inline gc 4\n";
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
         child =
             "# prefix child g\n"
@@ -4725,7 +4756,7 @@ Z_GROUP_EXPORT(yaml)
             "  # prefix child c\n"
             "  c: 5 # inline child 5\n"
             "  # prefix child d\n"
-            "  d: 6 # inline child 6";
+            "  d: 6 # inline child 6\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
             "# prefix seq\n"
@@ -4735,7 +4766,7 @@ Z_GROUP_EXPORT(yaml)
             "    # prefix b\n"
             "    b: 7 # inline 7\n"
             "    # prefix c\n"
-            "    c: 8 # inline 8";
+            "    c: 8 # inline 8\n";
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
             root,
 
@@ -4758,14 +4789,16 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* test recreation of override when packing into files */
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
         Z_HELPER_RUN(z_pack_yaml_file("override_2/root.yml", &data, &pres,
                                       0));
         Z_HELPER_RUN(z_check_file("override_2/grandchild.yml",
-                                  t_fmt("%s\n", grandchild)));
+                                  grandchild));
         Z_HELPER_RUN(z_check_file("override_2/child.yml",
-                                  t_fmt("%s\n", child)));
+                                  child));
         Z_HELPER_RUN(z_check_file("override_2/root.yml",
-                                  t_fmt("%s\n", root)));
+                                  root));
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
@@ -4823,6 +4856,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         yaml__document_presentation__t pres;
         yaml_parse_t *env;
+        const char *root;
 
         /* Test removal of added node */
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
@@ -4844,16 +4878,18 @@ Z_GROUP_EXPORT(yaml)
         data.seq->datas.tab[0].obj->fields.tab[2].data.scalar.u = 20;
 
         /* This value should get resolved in the override */
-        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_1", &data,
-                                                     &pres,
+        root =
             "- !include inner.yml\n"
             "  b: 10\n"
-            "  c: 20"
-        ));
+            "  c: 20";
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_1", &data,
+                                                     &pres, root));
         Z_HELPER_RUN(z_check_file("conflicts_1/inner.yml",
             "a: 1\n"
             "b: 2\n"
         ));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
 
         /* remove added node from AST */
         data.seq->datas.tab[0].obj->fields.len--;
@@ -4890,6 +4926,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         yaml__document_presentation__t pres;
         yaml_parse_t *env;
+        const char *root;
 
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml",
             "a: a\n"
@@ -4916,15 +4953,15 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* repack into a file: the included subfiles should be shared */
-        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_1",
-                                                     &data, &pres,
+        root =
             "- !include child.yml\n"
             "  a: 0\n"
             "- !include child.yml\n"
             "  a: 1\n"
             "- !include child.yml\n"
-            "  b: 2"
-        ));
+            "  b: 2";
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_1",
+                                                     &data, &pres, root));
         Z_HELPER_RUN(z_check_file("override_shared_1/child.yml",
             "!include grandchild.yml\n"
             "b: B\n"
@@ -4933,6 +4970,8 @@ Z_GROUP_EXPORT(yaml)
             "a: a\n"
             "b: b\n"
         ));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
 
         /* modify [0].b. This will modify its child, but the grandchild is
          * still shared. */
@@ -4958,11 +4997,16 @@ Z_GROUP_EXPORT(yaml)
             "a: a\n"
             "b: b\n"
         ));
+        /* When packing with NO_SUBFILES, we do not check for collisions,
+         * so the include path are kept. */
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
 
         /* reset [0].b, and modify [2].a. The grandchild will differ, but the
          * child is the same */
         data.seq->datas.tab[0].obj->fields.tab[1].data.scalar.s = LSTR("B");
         data.seq->datas.tab[2].obj->fields.tab[0].data.scalar.s = LSTR("A");
+
         Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_2",
                                                      &data, &pres,
             "- !include child.yml\n"
@@ -4988,6 +5032,8 @@ Z_GROUP_EXPORT(yaml)
             "a: A\n"
             "b: b\n"
         ));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
 
         yaml_parse_delete(&env);
     } Z_TEST_END;
