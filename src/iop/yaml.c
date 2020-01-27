@@ -825,28 +825,32 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
 /* }}} */
 
-static int
-t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
-              void * nonnull out, unsigned flags,
-              yaml__document_presentation__t * nonnull * nullable pres,
-              sb_t * nonnull out_err)
+static void * nonnull t_alloc_st_out(const iop_struct_t * nonnull st,
+                                     void * nullable * nonnull out)
+{
+    if (iop_struct_is_class(st)) {
+        /* "out" will be (re)allocated after, when the real packed class type
+         * will be known. */
+        return out;
+    } else {
+        *out = mp_irealloc(t_pool(), *out, 0, st->size, 8, MEM_RAW);
+        return *out;
+    }
+}
+
+int
+t_iop_yunpack_yaml_data(const yaml_data_t * nonnull data,
+                         const iop_struct_t * nonnull st,
+                         void * nonnull out, unsigned flags,
+                         sb_t * nonnull out_err)
 {
     t_SB_1k(err);
     yunpack_env_t unpack_env;
-    yaml_data_t data;
-
-    RETHROW(t_yaml_parse(env, &data, out_err));
-    if (pres) {
-        yaml__document_presentation__t doc_pres;
-
-        t_yaml_data_get_presentation(&data, &doc_pres);
-        *pres = t_iop_dup(yaml__document_presentation, &doc_pres);
-    }
 
     p_clear(&unpack_env, 1);
     unpack_env.err.buf = err;
     unpack_env.flags = flags;
-    if (t_yaml_data_to_typed_struct(&unpack_env, &data, st, out) < 0) {
+    if (t_yaml_data_to_typed_struct(&unpack_env, data, st, out) < 0) {
         yaml_parse_pretty_print_err(unpack_env.err.span,
                                     LSTR_SB_V(&unpack_env.err.buf), out_err);
         return -1;
@@ -860,13 +864,42 @@ t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
 
         if (!expect(iop_check_constraints_desc(st, val) >= 0)) {
             lstr_t err_msg = t_lstr_fmt("invalid object: %s", iop_get_err());
-            yaml_parse_pretty_print_err(&data.span, err_msg, out_err);
+            yaml_parse_pretty_print_err(&data->span, err_msg, out_err);
             return -1;
         }
     }
 #endif
 
     return 0;
+}
+
+int
+t_iop_yunpack_ptr_yaml_data(const yaml_data_t * nonnull data,
+                            const iop_struct_t * nonnull st,
+                            void * nullable * nonnull out, unsigned flags,
+                            sb_t * nonnull out_err)
+{
+    return t_iop_yunpack_yaml_data(data, st, t_alloc_st_out(st, out), flags,
+                                   out_err);
+}
+
+static int
+t_iop_yunpack(yaml_parse_t * nonnull env, const iop_struct_t * nonnull st,
+              void * nonnull out, unsigned flags,
+              yaml__document_presentation__t * nonnull * nullable pres,
+              sb_t * nonnull out_err)
+{
+    yaml_data_t data;
+
+    RETHROW(t_yaml_parse(env, &data, out_err));
+    if (pres) {
+        yaml__document_presentation__t doc_pres;
+
+        t_yaml_data_get_presentation(&data, &doc_pres);
+        *pres = t_iop_dup(yaml__document_presentation, &doc_pres);
+    }
+
+    return t_iop_yunpack_yaml_data(&data, st, out, flags, out_err);
 }
 
 int t_iop_yunpack_ps(
@@ -891,19 +924,6 @@ int t_iop_yunpack_ps(
     yaml_parse_delete(&env);
 
     return res;
-}
-
-static void * nonnull t_alloc_st_out(const iop_struct_t * nonnull st,
-                                     void * nullable * nonnull out)
-{
-    if (iop_struct_is_class(st)) {
-        /* "out" will be (re)allocated after, when the real packed class type
-         * will be known. */
-        return out;
-    } else {
-        *out = mp_irealloc(t_pool(), *out, 0, st->size, 8, MEM_RAW);
-        return *out;
-    }
 }
 
 int

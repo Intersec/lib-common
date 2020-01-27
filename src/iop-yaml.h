@@ -94,6 +94,30 @@ t_iop_yunpack_ptr_file(
     sb_t * nonnull out_err
 );
 
+/** Convert a YAML data into an IOP C structure using the t_pool().
+ *
+ * This function can be used if the YAML data has already been parsed. If
+ * that is not the case, you should use the others t_iop_yunpack functions
+ * instead.
+ */
+__must_check__
+int
+t_iop_yunpack_yaml_data(const yaml_data_t * nonnull data,
+                        const iop_struct_t * nonnull st,
+                        void * nonnull out, unsigned flags,
+                        sb_t * nonnull out_err);
+
+/** Convert a YAML data into an IOP C structure using the t_pool().
+ *
+ * See t_iop_yunpack_yaml_data.
+ */
+__must_check__
+int
+t_iop_yunpack_ptr_yaml_data(const yaml_data_t * nonnull data,
+                            const iop_struct_t * nonnull st,
+                            void * nullable * nonnull out, unsigned flags,
+                            sb_t * nonnull out_err);
+
 /* }}} */
 /* {{{ Generating YAML */
 

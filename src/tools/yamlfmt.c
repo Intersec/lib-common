@@ -16,10 +16,12 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/yaml.h>
+#include <lib-common/iop.h>
+#include <lib-common/iop-yaml.h>
 #include <lib-common/parseopt.h>
 
 static struct {
+    const char *dso_path;
     bool help;
 } opts_g;
 
@@ -30,8 +32,48 @@ static int yaml_pack_write_stdout(void * nullable priv,
     return printf("%.*s", len, (const char *)buf);
 }
 
+static const iop_struct_t * nullable
+retrieve_iop_type(const iop_dso_t * nonnull dso, const lstr_t tag,
+                  sb_t * nonnull err)
+{
+    const iop_struct_t *st;
+
+    if (!tag.s) {
+        sb_setf(err, "document should start with a tag equals to the "
+                "fullname of the IOP type serialized");
+        return NULL;
+    }
+
+    st = iop_dso_find_type(dso, tag);
+    if (!st) {
+        sb_setf(err, "unknown IOP type `%pL`", &tag);
+        return NULL;
+    }
+
+    return st;
+}
+
+
 static int
-yaml_repack(const char *filename, sb_t * nonnull err)
+parse_yaml(yaml_parse_t *env, const iop_dso_t * nullable dso,
+           yaml_data_t * nonnull data, sb_t * nonnull err)
+{
+    RETHROW(t_yaml_parse(env, data, err));
+
+    if (dso) {
+        const iop_struct_t *st;
+        void *out = NULL;
+
+        st = RETHROW_PN(retrieve_iop_type(dso, data->tag, err));
+        RETHROW(t_iop_yunpack_ptr_yaml_data(data, st, &out, 0, err));
+    }
+
+    return 0;
+}
+
+static int
+repack_yaml(const char * nullable filename, const iop_dso_t * nullable dso,
+            sb_t * nonnull err)
 {
     t_scope;
     yaml_pack_env_t *pack_env;
@@ -55,7 +97,7 @@ yaml_repack(const char *filename, sb_t * nonnull err)
         yaml_parse_attach_ps(env, ps_initlstr(&file));
     }
 
-    if (t_yaml_parse(env, &data, err) < 0) {
+    if (parse_yaml(env, dso, &data, err) < 0) {
         res = -1;
         goto end;
     }
@@ -71,29 +113,59 @@ yaml_repack(const char *filename, sb_t * nonnull err)
     return res;
 }
 
+static const char *description[] = {
+    "Validate & reformat a YAML document.",
+    "",
+    "If a file is not provided, the input is read from stdin.",
+    "If an IOP dso is provided, and the document starts with an IOP tag, ",
+    "the document will be validated with this IOP type.",
+    "",
+    "Here are a few examples:",
+    "",
+    "$ yamlfmt <input.yml # reformat the input",
+    "",
+    "$ yamlfmt -d iop.so input.yml # validate an IOP-YAML input",
+    "",
+};
+
 int main(int argc, char **argv)
 {
+    iop_dso_t *dso = NULL;
     const char *filename = NULL;
     const char *arg0;
     popt_t options[] = {
         OPT_FLAG('h', "help", &opts_g.help, "show help"),
+        OPT_STR('d', "dso", &opts_g.dso_path, "Path to IOP dso file"),
         OPT_END(),
     };
     SB_1k(err);
+    int ret = EXIT_SUCCESS;
 
     arg0 = NEXTARG(argc, argv);
     argc = parseopt(argc, argv, options, 0);
     if (opts_g.help) {
-        makeusage(!opts_g.help, arg0, "[<file>]", NULL, options);
+
+        makeusage(!opts_g.help, arg0, "[<file>]", description, options);
     }
 
     if (argc >= 1) {
         filename = NEXTARG(argc, argv);
     }
-    if (yaml_repack(filename, &err) < 0) {
-        fprintf(stderr, "%.*s\n", err.len, err.data);
-        return EXIT_FAILURE;
+
+    if (opts_g.dso_path) {
+        dso = iop_dso_open(opts_g.dso_path, LM_ID_BASE, &err);
+        if (!dso) {
+            fprintf(stderr, "cannot open dso `%s`: %pL", opts_g.dso_path,
+                    &err);
+            return EXIT_FAILURE;
+        }
     }
 
-    return EXIT_SUCCESS;
+    if (repack_yaml(filename, dso, &err) < 0) {
+        fprintf(stderr, "%.*s\n", err.len, err.data);
+        ret = EXIT_FAILURE;
+    }
+
+    iop_dso_close(&dso);
+    return ret;
 }
