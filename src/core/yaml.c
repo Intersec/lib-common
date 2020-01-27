@@ -4879,7 +4879,117 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("conflicts_3/inner.yml",
             "a: 1\n"
         ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
 
+    /* }}} */
+    /* {{{ Override shared subfiles */
+
+    Z_TEST(override_shared_subfiles, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml",
+            "a: a\n"
+            "b: b"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("child.yml",
+            "!include grandchild.yml\n"
+            "b: B"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "- !include child.yml\n"
+            "  a: 0\n"
+            "- !include child.yml\n"
+            "  a: 1\n"
+            "- !include child.yml\n"
+            "  b: 2",
+
+            "- a: 0\n"
+            "  b: B\n"
+            "- a: 1\n"
+            "  b: B\n"
+            "- a: a\n"
+            "  b: 2"
+        ));
+
+        /* repack into a file: the included subfiles should be shared */
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_1",
+                                                     &data, &pres,
+            "- !include child.yml\n"
+            "  a: 0\n"
+            "- !include child.yml\n"
+            "  a: 1\n"
+            "- !include child.yml\n"
+            "  b: 2"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_1/child.yml",
+            "!include grandchild.yml\n"
+            "b: B\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_1/grandchild.yml",
+            "a: a\n"
+            "b: b\n"
+        ));
+
+        /* modify [0].b. This will modify its child, but the grandchild is
+         * still shared. */
+        data.seq->datas.tab[0].obj->fields.tab[1].data.scalar.s = LSTR("B2");
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_2",
+                                                     &data, &pres,
+            "- !include child.yml\n"
+            "  a: 0\n"
+            "- !include child~1.yml\n"
+            "  a: 1\n"
+            "- !include child~1.yml\n"
+            "  b: 2"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/child.yml",
+            "!include grandchild.yml\n"
+            "b: B2\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/child~1.yml",
+            "!include grandchild.yml\n"
+            "b: B\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/grandchild.yml",
+            "a: a\n"
+            "b: b\n"
+        ));
+
+        /* reset [0].b, and modify [2].a. The grandchild will differ, but the
+         * child is the same */
+        data.seq->datas.tab[0].obj->fields.tab[1].data.scalar.s = LSTR("B");
+        data.seq->datas.tab[2].obj->fields.tab[0].data.scalar.s = LSTR("A");
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_2",
+                                                     &data, &pres,
+            "- !include child.yml\n"
+            "  a: 0\n"
+            "- !include child.yml\n"
+            "  a: 1\n"
+            "- !include child~1.yml\n"
+            "  b: 2"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/child.yml",
+            "!include grandchild.yml\n"
+            "b: B\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/child~1.yml",
+            "!include grandchild~1.yml\n"
+            "b: B\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/grandchild.yml",
+            "a: a\n"
+            "b: b\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/grandchild~1.yml",
+            "a: A\n"
+            "b: b\n"
+        ));
+
+        yaml_parse_delete(&env);
     } Z_TEST_END;
 
     /* }}} */
