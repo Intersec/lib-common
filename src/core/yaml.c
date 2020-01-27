@@ -3040,8 +3040,18 @@ t_set_data_from_path(const yaml_data_t * nonnull data, pstream_t path,
         if (new) {
             t_yaml_data_new_seq(out, 1);
         } else {
-            if (out->type != YAML_DATA_SEQ) {
-                /* FIXME: choose what to do in this case */
+            /* This assert should not fail unless the presentation data was
+             * malignly crafted. As it is created from a parsed AST, there
+             * cannot be mixed data types through common path.
+             * If this assert fails, it means the override contains paths
+             * such as:
+             *
+             * .foo.bar
+             * .foo[0]
+             *
+             * ie .foo is both an object and a sequence.
+             */
+            if (!expect(out->type == YAML_DATA_SEQ)) {
                 return;
             }
         }
@@ -3061,8 +3071,8 @@ t_set_data_from_path(const yaml_data_t * nonnull data, pstream_t path,
         if (new) {
             t_yaml_data_new_obj(out, 1);
         } else {
-            if (out->type != YAML_DATA_OBJ) {
-                /* FIXME: choose what to do in this case */
+            /* see related expect in the seq case */
+            if (!expect(out->type == YAML_DATA_OBJ)) {
                 return;
             }
 
