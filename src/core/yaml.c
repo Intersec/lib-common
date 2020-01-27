@@ -307,98 +307,6 @@ t_presentation_override_to_iop(
 
 /* }}} */
 /* }}} */
-/* {{{ Equality */
-
-/* Equality is used to compare data to pack, in particular to ensure that
- * two different yaml_data_t object that are packed in the same subfile are
- * equal. Therefore, this functions tells whether two YAML data objects would
- * pack the same way without presentation data, but is not a strong equality
- * test.
- * This is implemented only on actual values and not on presentation data.
- * This is because the presentation objects cannot be modified outside of this
- * file. If this changes, for example to allow the user to modify presentation
- * data himself, then this function *must* be updated to take presentation
- * data into account.
- */
-static bool
-yaml_scalar_equals(const yaml_scalar_t * nonnull s1,
-                   const yaml_scalar_t * nonnull s2)
-{
-    if (s1->type != s2->type) {
-        return false;
-    }
-
-    switch (s1->type) {
-      case YAML_SCALAR_STRING:
-        return lstr_equal(s1->s, s2->s);
-      case YAML_SCALAR_DOUBLE:
-        return memcmp(&s1->d, &s2->d, sizeof(double)) == 0;
-      case YAML_SCALAR_UINT:
-        return s1->u == s2->u;
-      case YAML_SCALAR_INT:
-        return s1->i == s2->i;
-      case YAML_SCALAR_BOOL:
-        return s1->b == s2->b;
-      case YAML_SCALAR_NULL:
-        return true;
-    }
-
-    return false;
-}
-
-static bool
-yaml_data_equals(const yaml_data_t * nonnull d1,
-                 const yaml_data_t * nonnull d2);
-
-static bool
-yaml_key_data_equals(const yaml_key_data_t * nonnull kd1,
-                     const yaml_key_data_t * nonnull kd2)
-{
-    return lstr_equal(kd1->key, kd2->key)
-        && yaml_data_equals(&kd1->data, &kd2->data);
-}
-
-static bool
-yaml_data_equals(const yaml_data_t * nonnull d1,
-                 const yaml_data_t * nonnull d2)
-{
-    if (d1->type != d2->type) {
-        return false;
-    }
-
-    switch (d1->type) {
-      case YAML_DATA_SCALAR:
-        return yaml_scalar_equals(&d1->scalar, &d2->scalar);
-      case YAML_DATA_SEQ:
-        if (d1->seq->datas.len != d2->seq->datas.len) {
-            return false;
-        }
-        tab_for_each_pos(pos, &d1->seq->datas) {
-            if (!yaml_data_equals(&d1->seq->datas.tab[pos],
-                                  &d2->seq->datas.tab[pos]))
-            {
-                return false;
-            }
-        }
-        break;
-      case YAML_DATA_OBJ:
-        if (d1->obj->fields.len != d2->obj->fields.len) {
-            return false;
-        }
-        tab_for_each_pos(pos, &d1->obj->fields) {
-            if (!yaml_key_data_equals(&d1->obj->fields.tab[pos],
-                                      &d2->obj->fields.tab[pos]))
-            {
-                return false;
-            }
-        }
-        break;
-    }
-
-    return true;
-}
-
-/* }}} */
 /* {{{ Utils */
 
 static const char * nonnull
@@ -2139,8 +2047,8 @@ typedef enum yaml_pack_state_t {
     PACK_STATE_AFTER_DATA,
 } yaml_pack_state_t;
 
-qm_kvec_t(path_to_yaml_data, lstr_t, const yaml_data_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(path_to_checksum, lstr_t, uint64_t, qhash_lstr_hash,
+          qhash_lstr_equal);
 
 typedef struct yaml_pack_env_t {
     /* Write callback + priv data. */
@@ -2195,10 +2103,10 @@ typedef struct yaml_pack_env_t {
 
     /* Packed subfiles.
      *
-     * Associates paths to created subfiles with the yaml_data_t object packed
-     * in each subfile. This is used to handle shared subfiles.
+     * Associates paths to created subfiles with a checksum of the file's
+     * content. This is used to handle shared subfiles.
      */
-    qm_t(path_to_yaml_data) * nullable subfiles;
+    qm_t(path_to_checksum) * nullable subfiles;
 
     /** Information about overridden values.
      *
@@ -3158,6 +3066,7 @@ t_yaml_pack_override(yaml_pack_env_t * nonnull env,
 
 /* }}} */
 /* {{{ Pack include */
+/* {{{ Subfile sharing handling */
 
 enum subfile_status_t {
     SUBFILE_TO_CREATE,
@@ -3168,7 +3077,7 @@ enum subfile_status_t {
 /* check if data can be packed in the subfile given from its relative path
  * from the env outdir */
 static enum subfile_status_t
-check_subfile(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
+check_subfile(yaml_pack_env_t * nonnull env, uint64_t checksum,
               const char * nonnull relative_path)
 {
     char fullpath[PATH_MAX];
@@ -3180,12 +3089,10 @@ check_subfile(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
     path = LSTR(fullpath);
 
     assert (env->subfiles);
-    pos = qm_put(path_to_yaml_data, env->subfiles, &path, data, 0);
+    pos = qm_put(path_to_checksum, env->subfiles, &path, checksum, 0);
     if (pos & QHASH_COLLISION) {
         pos &= ~QHASH_COLLISION;
-        /* TODO: this may be optimized in some way with some sort of hashing,
-         * to avoid calling yaml_data_equals repeatedly. */
-        if (yaml_data_equals(env->subfiles->values[pos], data)) {
+        if (env->subfiles->values[pos] == checksum) {
             return SUBFILE_TO_REUSE;
         } else {
             return SUBFILE_TO_IGNORE;
@@ -3197,14 +3104,19 @@ check_subfile(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
 }
 
 static const char * nullable
-t_find_right_path(yaml_pack_env_t * nonnull env,
-                  const yaml_data_t * nonnull data, lstr_t initial_path,
-                  bool * nonnull reuse)
+t_find_right_path(yaml_pack_env_t * nonnull env, sb_t * nonnull contents,
+                  lstr_t initial_path, bool * nonnull reuse)
 {
     const char *ext;
     char *path;
     lstr_t base;
     int counter = 1;
+    uint64_t checksum;
+
+    /* TODO: it would be more efficient to compute the checksum as the
+     * contents buffer is filled. */
+    /* TODO: use full 256bits hash to prevent collision? */
+    checksum = sha2_hash_64(contents->data, contents->len);
 
     path = t_fmt("%pL", &initial_path);
     path_simplify(path);
@@ -3215,7 +3127,7 @@ t_find_right_path(yaml_pack_env_t * nonnull env,
     /* check base.ext, base~1.ext, etc until either the file does not exist,
      * or the data to pack is identical to the data packed in the subfile. */
     for (;;) {
-        switch (check_subfile(env, data, path)) {
+        switch (check_subfile(env, checksum, path)) {
           case SUBFILE_TO_CREATE:
             *reuse = false;
             return path;
@@ -3240,6 +3152,10 @@ t_find_right_path(yaml_pack_env_t * nonnull env,
     }
 }
 
+/* }}} */
+/* {{{ Include node packing */
+
+/* Pack the "!include(raw)? <path>" node, with the right presentation. */
 static int
 t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
                          const yaml__presentation_node__t * nonnull pres,
@@ -3262,6 +3178,7 @@ t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
     return res;
 }
 
+/* write raw contents directly into the given filepath. */
 static int
 yaml_pack_write_raw_file(const yaml_pack_env_t * nonnull env,
                          const char * nonnull filepath,
@@ -3295,18 +3212,59 @@ yaml_pack_write_raw_file(const yaml_pack_env_t * nonnull env,
     return 0;
 }
 
+/* }}} */
+/* {{{ Pack subfile */
+
+static int
+t_yaml_pack_subfile_in_sb(yaml_pack_env_t * nonnull env,
+                          const yaml__presentation_include__t * nonnull inc,
+                          const yaml_data_t * nonnull data,
+                          sb_t * nonnull out, sb_t * nonnull err)
+{
+    yaml_pack_env_t *subenv = t_yaml_pack_env_new();
+    const char *fullpath;
+    char dirpath[PATH_MAX];
+
+    fullpath = t_fmt("%pL/%pL", &env->outdirpath, &inc->path);
+    path_dirname(dirpath, PATH_MAX, fullpath);
+
+    RETHROW(t_yaml_pack_env_set_outdir(subenv, dirpath, err));
+    yaml_pack_env_set_presentation(subenv, &inc->document_presentation);
+
+    sb_setsb(&subenv->absolute_path, &env->absolute_path);
+    subenv->current_path_pos = subenv->absolute_path.len;
+
+    subenv->overrides = env->overrides;
+
+    /* Make sure the subfiles qm is shared, so that if this subfile
+     * also generate other subfiles, it is properly handled. */
+    subenv->subfiles = env->subfiles;
+
+    RETHROW(t_yaml_pack_sb(subenv, data, out, err));
+
+    /* always ends with a newline when packing for a file */
+    if (out->len > 0 && out->data[out->len - 1] != '\n') {
+        sb_addc(out, '\n');
+    }
+
+    return 0;
+}
+
 static int
 t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
                       yaml__presentation_include__t * nonnull inc,
                       const yaml_data_t * nonnull subdata)
 {
+    yaml_pack_override_t *override = NULL;
     const char *path;
     bool reuse;
     bool raw;
     int res = 0;
+    SB_1k(contents);
+    SB_1k(err);
 
     if (!env->subfiles) {
-        env->subfiles = t_qm_new(path_to_yaml_data, 0);
+        env->subfiles = t_qm_new(path_to_checksum, 0);
     }
 
     /* This is checked on parsing. Unless the presentation data has been
@@ -3327,71 +3285,68 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
         raw = false;
     }
 
-    path = t_find_right_path(env, subdata, inc->path, &reuse);
-    /* FIXME: reuse with overrides */
+    /* add current override if it exists, so that it is used when the subdata
+     * is packed. */
+    if (inc->override) {
+        override = qv_growlen0(&env->overrides, 1);
+        t_iop_pres_override_to_pack_override(env, inc->override,
+                                             override);
+    }
+
+    if (raw) {
+        sb_set_lstr(&contents, subdata->scalar.s);
+    } else {
+        /* Pack the subdata, but in a sb, not in the subfile directly. As the
+         * subfile can be shared by multiple includes, we need to ensure
+         * the contents are the same to share the same filename, or use
+         * another one.
+         *
+         * Additionally, as packing the subfiles might have side-effects on
+         * the current env (mainly, overrides packed in this env depends on
+         * the packing of the subdata), it is not possible to do some sort
+         * of AST comparison to detect shared subfiles.
+         */
+        if (t_yaml_pack_subfile_in_sb(env, inc, subdata, &contents,
+                                      &err) < 0)
+        {
+            sb_setf(&env->err, "cannot pack subfile `%pL`: %pL", &inc->path,
+                    &err);
+            return -1;
+        }
+    }
+
+    path = t_find_right_path(env, &contents, inc->path, &reuse);
     if (reuse) {
         res += RETHROW(t_yaml_pack_include_path(env,
                                                 inc->include_presentation,
                                                 raw, LSTR(path)));
     } else {
-        SB_1k(err);
 
-        if (raw) {
-            logger_trace(&_G.logger, 2, "writing raw subfile %s", path);
-            if (yaml_pack_write_raw_file(env, path, subdata->scalar.s,
-                                         &err) < 0)
-            {
-                sb_setf(&env->err, "error when writing raw subfile `%s`: %pL",
-                        path, &err);
-                return -1;
-            }
-
-            res += RETHROW(t_yaml_pack_include_path(env,
-                                                    inc->include_presentation,
-                                                    raw, LSTR(path)));
-        } else {
-            yaml_pack_env_t *subenv = t_yaml_pack_env_new();
-            yaml_pack_override_t *override = NULL;
-
-            RETHROW(t_yaml_pack_env_set_outdir(subenv, env->outdirpath.s,
-                                               &err));
-            yaml_pack_env_set_presentation(subenv,
-                                           &inc->document_presentation);
-            sb_setsb(&subenv->absolute_path, &env->absolute_path);
-            subenv->current_path_pos = subenv->absolute_path.len;
-
-            if (inc->override) {
-                override = qv_growlen0(&env->overrides, 1);
-                t_iop_pres_override_to_pack_override(env, inc->override,
-                                                     override);
-                subenv->overrides = env->overrides;
-            }
-
-            /* Make sure the subfiles qm is shared, so that if this subfile
-             * also generate other subfiles, it is properly handled. */
-            subenv->subfiles = env->subfiles;
-
-            logger_trace(&_G.logger, 2, "packing subfile %s", path);
-            if (t_yaml_pack_file(subenv, path, subdata, &err) < 0) {
-                sb_setf(&env->err, "error when packing subfile `%s`: %pL", path,
-                        &err);
-                return -1;
-            }
-
-            res += RETHROW(t_yaml_pack_include_path(env,
-                                                    inc->include_presentation,
-                                                    raw, LSTR(path)));
-
-            if (override) {
-                qv_remove_last(&env->overrides);
-                logger_trace(&_G.logger, 2, "packing override %s", path);
-                res += RETHROW(t_yaml_pack_override(env, override));
-            }
+        logger_trace(&_G.logger, 2, "writing %s subfile %s", raw ? "raw" : "",
+                     path);
+        if (yaml_pack_write_raw_file(env, path, LSTR_SB_V(&contents),
+                                     &err) < 0)
+        {
+            sb_setf(&env->err, "error when writing subfile `%s`: %pL",
+                    path, &err);
+            return -1;
         }
+
+        res += RETHROW(t_yaml_pack_include_path(env,
+                                                inc->include_presentation,
+                                                raw, LSTR(path)));
+    }
+
+    if (override) {
+        qv_remove_last(&env->overrides);
+        logger_trace(&_G.logger, 2, "packing override %s", path);
+        res += RETHROW(t_yaml_pack_override(env, override));
     }
 
     return res;
 }
+
+/* }}} */
 
 static int
 t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
@@ -5978,106 +5933,6 @@ Z_GROUP_EXPORT(yaml)
             "  - !tag2 2";
         Z_HELPER_RUN(z_check_yaml_pack(&data, NULL, expected));
         Z_HELPER_RUN(z_check_yaml_pack(&data, &pres, expected));
-    } Z_TEST_END;
-
-    /* }}} */
-    /* {{{ yaml_data_equals */
-
-    Z_TEST(yaml_data_equals, "") {
-        t_scope;
-        yaml_data_t d1;
-        yaml_data_t d2;
-        yaml_data_t elem;
-
-        yaml_data_set_string(&d1, LSTR("v"));
-        yaml_data_set_bool(&d2, false);
-
-        /* scalars with different types are never equal */
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        /* strings */
-        yaml_data_set_string(&d2, LSTR("v"));
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
-        yaml_data_set_string(&d2, LSTR("a"));
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        /* double */
-        yaml_data_set_double(&d1, 1.2);
-        yaml_data_set_double(&d2, 1.2);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
-        yaml_data_set_double(&d2, 1.20000001);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        /* uint */
-        yaml_data_set_uint(&d1, 1);
-        yaml_data_set_uint(&d2, 1);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
-        yaml_data_set_uint(&d2, 2);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        /* uint */
-        yaml_data_set_int(&d1, -1);
-        yaml_data_set_int(&d2, -1);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
-        yaml_data_set_int(&d2, -2);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        /* bool */
-        yaml_data_set_bool(&d1, true);
-        yaml_data_set_bool(&d2, true);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
-        yaml_data_set_int(&d2, false);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        /* null */
-        yaml_data_set_null(&d1);
-        yaml_data_set_null(&d2);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
-
-        /* sequences */
-        t_yaml_data_new_seq(&d1, 1);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-        t_yaml_data_new_seq(&d2, 1);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
-
-        yaml_data_set_string(&elem, LSTR("l"));
-        yaml_seq_add_data(&d1, elem);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        yaml_data_set_string(&elem, LSTR("d"));
-        yaml_seq_add_data(&d2, elem);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        d2.seq->datas.tab[0].scalar.s = LSTR("l");
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
-
-        /* obj */
-        t_yaml_data_new_obj(&d1, 2);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-        t_yaml_data_new_obj(&d2, 2);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
-
-        yaml_data_set_bool(&elem, true);
-        yaml_obj_add_field(&d1, LSTR("v"), elem);
-        yaml_obj_add_field(&d1, LSTR("a"), elem);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        yaml_data_set_bool(&elem, false);
-        yaml_obj_add_field(&d2, LSTR("v"), elem);
-        yaml_obj_add_field(&d2, LSTR("a"), elem);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        qv_clear(&d2.obj->fields);
-        yaml_data_set_bool(&elem, true);
-        yaml_obj_add_field(&d2, LSTR("a"), elem);
-        yaml_obj_add_field(&d2, LSTR("v"), elem);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
-
-        qv_clear(&d2.obj->fields);
-        yaml_obj_add_field(&d2, LSTR("v"), elem);
-        yaml_obj_add_field(&d2, LSTR("a"), elem);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
-
     } Z_TEST_END;
 
     /* }}} */
