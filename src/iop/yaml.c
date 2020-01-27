@@ -1149,6 +1149,7 @@ void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
 {
     yaml_data_t data;
     yaml_pack_env_t *env;
+    int ret;
 
     t_iop_struct_to_yaml_data(st, value, flags, &data);
 
@@ -1156,7 +1157,8 @@ void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
     if (pres) {
         yaml_pack_env_set_presentation(env, pres);
     }
-    t_yaml_pack_sb(env, &data, sb);
+    ret = t_yaml_pack_sb(env, &data, sb, NULL);
+    assert (ret >= 0);
 }
 
 void t_iop_sb_ypack(sb_t * nonnull sb, const iop_struct_t * nonnull st,

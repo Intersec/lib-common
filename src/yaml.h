@@ -344,9 +344,14 @@ t_yaml_pack(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
             sb_t * nullable err);
 
 /** Pack a YAML data into a YAML string.
+ *
+ * This function can only fail if set_outdir has been called, which will lead
+ * to subfiles being recreated. If set_outdir has not been called however,
+ * this function does not fail.
  */
-void t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
-                    const yaml_data_t * nonnull data, sb_t * nonnull sb);
+int t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
+                   const yaml_data_t * nonnull data, sb_t * nonnull sb,
+                   sb_t * nullable err);
 
 /** Pack a YAML data into a YAML file.
  *

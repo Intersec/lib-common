@@ -3305,6 +3305,10 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
     bool raw;
     int res = 0;
 
+    if (!env->subfiles) {
+        env->subfiles = t_qm_new(path_to_yaml_data, 0);
+    }
+
     /* This is checked on parsing. Unless the presentation data has been
      * modified by hand, which is not possible yet, this should not fail. */
     if (!expect(!lstr_startswith(inc->path, LSTR("..")))) {
@@ -3588,14 +3592,11 @@ static inline int sb_write(void * nonnull b, const void * nonnull buf,
     return len;
 }
 
-void t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
-                    const yaml_data_t * nonnull data, sb_t * nonnull sb)
+int t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
+                   const yaml_data_t * nonnull data, sb_t * nonnull sb,
+                   sb_t * nullable err)
 {
-    int res;
-
-    res = t_yaml_pack(env, data, &sb_write, sb, NULL);
-    /* Should not fail when packing into a sb */
-    assert (res >= 0);
+    return t_yaml_pack(env, data, &sb_write, sb, err);
 }
 
 typedef struct yaml_pack_file_ctx_t {
@@ -3631,10 +3632,6 @@ t_yaml_pack_file(yaml_pack_env_t * nonnull env, const char * nonnull filename,
      * before. */
     path_dirname(path, PATH_MAX, filename);
     RETHROW(t_yaml_pack_env_set_outdir(env, path, err));
-
-    if (!env->subfiles) {
-        env->subfiles = t_qm_new(path_to_yaml_data, 0);
-    }
 
     p_clear(&ctx, 1);
     ctx.file = file_open(filename, env->file_flags, env->file_mode);
@@ -3837,6 +3834,30 @@ z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
     Z_HELPER_END;
 }
 
+static int
+z_pack_yaml_in_sb_with_subfiles(
+    const char *dirpath, const yaml_data_t *data,
+    const yaml__document_presentation__t *presentation,
+    const char *expected_res)
+{
+    t_scope;
+    yaml_pack_env_t *env;
+    SB_1k(out);
+    SB_1k(err);
+
+    env = t_yaml_pack_env_new();
+    dirpath = t_fmt("%pL/%s", &z_tmpdir_g, dirpath);
+    Z_ASSERT_N(t_yaml_pack_env_set_outdir(env, dirpath, &err));
+    if (presentation) {
+        yaml_pack_env_set_presentation(env, presentation);
+    }
+    Z_ASSERT_N(t_yaml_pack_sb(env, data, &out, &err),
+               "cannot pack YAML buffer: %pL", &err);
+    Z_ASSERT_STREQUAL(out.data, expected_res);
+
+    Z_HELPER_END;
+}
+
 static int z_check_file(const char *path, const char *expected_contents)
 {
     t_scope;
@@ -3886,12 +3907,13 @@ static int z_yaml_test_pack(const yaml_data_t * nonnull data,
 {
     yaml_pack_env_t *pack_env;
     SB_1k(pack);
+    SB_1k(err);
 
     pack_env = t_yaml_pack_env_new();
     if (pres) {
         yaml_pack_env_set_presentation(pack_env, pres);
     }
-    t_yaml_pack_sb(pack_env, data, &pack);
+    Z_ASSERT_N(t_yaml_pack_sb(pack_env, data, &pack, &err));
     Z_ASSERT_STREQUAL(pack.data, expected_pack,
                       "repacking the parsed data leads to differences");
 
@@ -3991,13 +4013,14 @@ z_check_yaml_pack(const yaml_data_t * nonnull data,
                   const char *yaml)
 {
     t_scope;
-    SB_1k(sb);
     yaml_pack_env_t *env = t_yaml_pack_env_new();
+    SB_1k(sb);
+    SB_1k(err);
 
     if (presentation) {
         yaml_pack_env_set_presentation(env, presentation);
     }
-    t_yaml_pack_sb(env, data, &sb);
+    Z_ASSERT_N(t_yaml_pack_sb(env, data, &sb, &err));
     Z_ASSERT_STREQUAL(sb.data, yaml);
 
     Z_HELPER_END;
@@ -4866,14 +4889,13 @@ Z_GROUP_EXPORT(yaml)
         data.seq->datas.tab[0].obj->fields.tab[2].data.scalar.u = 20;
 
         /* This value should get resolved in the override */
-        Z_HELPER_RUN(z_pack_yaml_file("conflicts_3/root.yml", &data, &pres,
-                                      0));
-        Z_HELPER_RUN(z_check_file("conflicts_3/root.yml",
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_1", &data,
+                                                     &pres,
             "- !include inner.yml\n"
             "  b: 10\n"
-            "  c: 20\n"
+            "  c: 20"
         ));
-        Z_HELPER_RUN(z_check_file("conflicts_3/inner.yml",
+        Z_HELPER_RUN(z_check_file("conflicts_1/inner.yml",
             "a: 1\n"
             "b: 2\n"
         ));
@@ -4883,25 +4905,23 @@ Z_GROUP_EXPORT(yaml)
 
         /* When packing into files, the override is normally recreated, but
          * here a node is removed. */
-        Z_HELPER_RUN(z_pack_yaml_file("conflicts_1/root.yml", &data, &pres,
-                                      0));
-        Z_HELPER_RUN(z_check_file("conflicts_1/root.yml",
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_2", &data,
+                                                     &pres,
             "- !include inner.yml\n"
-            "  b: 10\n"
+            "  b: 10"
         ));
-        Z_HELPER_RUN(z_check_file("conflicts_1/inner.yml",
+        Z_HELPER_RUN(z_check_file("conflicts_2/inner.yml",
             "a: 1\n"
             "b: 2\n"
         ));
 
         /* Remove node b as well. This will remove the override entirely. */
         data.seq->datas.tab[0].obj->fields.len--;
-        Z_HELPER_RUN(z_pack_yaml_file("conflicts_2/root.yml", &data, &pres,
-                                      0));
-        Z_HELPER_RUN(z_check_file("conflicts_2/root.yml",
-            "- !include inner.yml\n"
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_3", &data,
+                                                     &pres,
+            "- !include inner.yml"
         ));
-        Z_HELPER_RUN(z_check_file("conflicts_2/inner.yml",
+        Z_HELPER_RUN(z_check_file("conflicts_3/inner.yml",
             "a: 1\n"
         ));
 
