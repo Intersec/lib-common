@@ -143,8 +143,6 @@ typedef struct yaml_parse_t {
     yaml_included_file_t * nullable included;
 } yaml_parse_t;
 
-qm_kvec_t(override_nodes, lstr_t, const yaml_data_t * nullable,
-          qhash_lstr_hash, qhash_lstr_equal);
 qvector_t(override_nodes, yaml__presentation_override_node__t);
 
 /* Presentation details of an override.
@@ -164,6 +162,28 @@ typedef struct yaml_presentation_override_t {
     sb_t path;
 } yaml_presentation_override_t;
 
+/* Node to override, when packing. */
+typedef struct yaml_pack_override_node_t {
+    /* Data related to the override.
+     *
+     * When beginning to pack an override, this is set to the original data,
+     * the one replaced by the override on parsing.
+     * When the AST is packed, this data is retrieved and the overridden data
+     * is swapped and stored here.
+     * Then, the override data is packed using those datas.
+     */
+    const yaml_data_t * nullable data;
+
+    /* If the data has been found and retrieved. If false, the data has either
+     * not yet been found while packing the AST, or the node has disappeared
+     * from the AST.
+     */
+    bool found;
+} yaml_pack_override_node_t;
+
+qm_kvec_t(override_nodes, lstr_t, yaml_pack_override_node_t,
+          qhash_lstr_hash, qhash_lstr_equal);
+
 /* Description of an override, used when packing.
  *
  * This object is used to properly pack overrides. It is the equivalent of
@@ -171,7 +191,7 @@ typedef struct yaml_presentation_override_t {
  * nodes that were overridden can easily find the original value to repack.
  */
 typedef struct yaml_pack_override_t {
-    /* Mappings of absolute paths to original data.
+    /* Mappings of absolute paths to override pack nodes.
      *
      * The paths are not the same as the ones in the presentation IOP. They
      * are absolute path, from the root document and not from the override's
@@ -2359,7 +2379,7 @@ static int yaml_pack_tag(yaml_pack_env_t * nonnull env, const lstr_t tag)
     return res;
 }
 
-static const yaml_data_t * nullable * nullable
+static yaml_pack_override_node_t * nullable
 yaml_pack_env_find_override(yaml_pack_env_t * nonnull env)
 {
     t_scope;
@@ -2681,7 +2701,7 @@ static int t_yaml_pack_seq(yaml_pack_env_t * nonnull env,
     tab_for_each_pos(pos, &seq->datas) {
         const yaml__presentation_node__t *node = NULL;
         const yaml_data_t *data = &seq->datas.tab[pos];
-        const yaml_data_t **override = NULL;
+        yaml_pack_override_node_t *override = NULL;
         int path_len = 0;
 
         if (env->pres) {
@@ -2693,13 +2713,14 @@ static int t_yaml_pack_seq(yaml_pack_env_t * nonnull env,
         }
 
         override = yaml_pack_env_find_override(env);
-        if (override && likely(!(*override))) {
+        if (override && likely(!override->data)) {
             /* The node was added by an override. Save it in the override
              * data, and ignore the node. */
             logger_trace(&_G.logger, 2,
                          "not packing overridden data in path `%*pM`",
                          LSTR_FMT_ARG(yaml_pack_env_get_curpath(env)));
-            *override = data;
+            override->data = data;
+            override->found = true;
             goto next;
         }
 
@@ -2729,7 +2750,7 @@ static int t_yaml_pack_key_data(yaml_pack_env_t * nonnull env,
     int res = 0;
     int path_len = 0;
     const yaml__presentation_node__t *node;
-    const yaml_data_t **override = NULL;
+    yaml_pack_override_node_t *override = NULL;
 
     if (env->pres) {
         path_len = yaml_pack_env_push_path(env, ".%pL", &kd->key);
@@ -2739,12 +2760,13 @@ static int t_yaml_pack_key_data(yaml_pack_env_t * nonnull env,
     }
 
     override = yaml_pack_env_find_override(env);
-    if (override && likely(!(*override))) {
+    if (override && likely(!override->data)) {
         /* The node was added by an override. Save it in the override
          * data, and ignore the node. */
         logger_trace(&_G.logger, 2, "not packing overridden data in path "
                      "`%*pM`", LSTR_FMT_ARG(yaml_pack_env_get_curpath(env)));
-        *override = &kd->data;
+        override->data = &kd->data;
+        override->found = true;
         goto end;
     }
 
@@ -2976,6 +2998,7 @@ static void t_iop_pres_override_to_pack_override(
     t_qv_init(&out->ordered_paths, pres->nodes.len);
 
     tab_for_each_ptr(node, &pres->nodes) {
+        yaml_pack_override_node_t pack_node;
         yaml_data_t *data = NULL;
         lstr_t path;
         int res;
@@ -2984,8 +3007,11 @@ static void t_iop_pres_override_to_pack_override(
             data = t_new(yaml_data_t, 1);
             t_iop_data_to_yaml(node->original_data, data);
         }
+        p_clear(&pack_node, 1);
+        pack_node.data = data;
+
         path = t_lstr_fmt("%pL%pL", &env->absolute_path, &node->path);
-        res = qm_add(override_nodes, &out->nodes, &path, data);
+        res = qm_add(override_nodes, &out->nodes, &path, pack_node);
         assert (res >= 0);
 
         qv_append(&out->ordered_paths, path);
@@ -3053,7 +3079,7 @@ t_set_data_from_path(const yaml_data_t * nonnull data, pstream_t path,
     }
 }
 
-static void
+static int
 t_build_override_data(const yaml_pack_override_t * nonnull override,
                       yaml_data_t * nonnull out)
 {
@@ -3063,21 +3089,27 @@ t_build_override_data(const yaml_pack_override_t * nonnull override,
      * in the right order. */
     assert (override->ordered_paths.len == override->presentation->nodes.len);
     tab_for_each_pos(pos, &override->ordered_paths) {
-        const yaml_data_t *data;
+        const yaml_pack_override_node_t *node;
         pstream_t ps;
 
-        data = qm_get_safe(override_nodes, &override->nodes,
-                           &override->ordered_paths.tab[pos]);
+        node = qm_get_p_safe(override_nodes, &override->nodes,
+                             &override->ordered_paths.tab[pos]);
 
-        /* FIXME: This assert is probably wrong, as the inner layout can
-         * change. */
-        assert (data);
+        if (unlikely(!node->found)) {
+            /* This can happen if an overrided node is no longer present
+             * in the AST. In that case, ignore it.  */
+            continue;
+        }
+        assert (node->data);
 
         /* Use the relative path here, to properly reconstruct the data. */
         ps = ps_initlstr(&override->presentation->nodes.tab[pos].path);
-        t_set_data_from_path(data, ps, first, out);
+        t_set_data_from_path(node->data, ps, first, out);
         first = false;
     }
+
+    /* if first is still true, the override is empty and should be ignored. */
+    return first ? -1 : 0;
 }
 
 static int
@@ -3087,12 +3119,15 @@ t_yaml_pack_override(yaml_pack_env_t * nonnull env,
     int res = 0;
     yaml_data_t data;
     const yaml_presentation_t *pres;
-    unsigned current_path_pos = env->absolute_path.len;
-
-    pres = t_yaml_doc_pres_to_map(&override->presentation->presentation);
+    unsigned current_path_pos;
 
     /* rebuild a yaml data from the override nodes */
-    t_build_override_data(override, &data);
+    if (t_build_override_data(override, &data) < 0) {
+        return 0;
+    }
+
+    pres = t_yaml_doc_pres_to_map(&override->presentation->presentation);
+    current_path_pos = env->absolute_path.len;
 
     /* Pack the data in the output. To reuse the right presentation, it must
      * be set in the env, and the path reset so that it matches the
@@ -3389,7 +3424,7 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
                             const yaml_data_t * nonnull data)
 {
     const yaml__presentation_node__t *node;
-    const yaml_data_t **override = NULL;
+    yaml_pack_override_node_t *override = NULL;
     int res = 0;
 
     if (env->pres) {
@@ -3401,11 +3436,12 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
          * on keys or seq indicators. So *override should be not NULL, but
          * as a user can write its own presentation data, we cannot assert
          * it. */
-        if (override && likely(*override)) {
+        if (override && likely(override->data)) {
             logger_trace(&_G.logger, 2,
                          "packing non-overriden data in path `%*pM`",
                          LSTR_FMT_ARG(yaml_pack_env_get_curpath(env)));
-            SWAP(const yaml_data_t *, data, *override);
+            SWAP(const yaml_data_t *, data, override->data);
+            override->found = true;
         }
         yaml_pack_env_pop_path(env, path_len);
     } else {
@@ -3834,6 +3870,24 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
     Z_HELPER_END;
 }
 
+static int z_yaml_test_pack(const yaml_data_t * nonnull data,
+                            yaml__document_presentation__t * nullable pres,
+                            const char * nonnull expected_pack)
+{
+    yaml_pack_env_t *pack_env;
+    SB_1k(pack);
+
+    pack_env = t_yaml_pack_env_new();
+    if (pres) {
+        yaml_pack_env_set_presentation(pack_env, pres);
+    }
+    t_yaml_pack_sb(pack_env, data, &pack);
+    Z_ASSERT_STREQUAL(pack.data, expected_pack,
+                      "repacking the parsed data leads to differences");
+
+    Z_HELPER_END;
+}
+
 /* out parameter first to let the yaml string be last, which makes it
  * much easier to write multiple lines without horrible indentation */
 static
@@ -3844,11 +3898,9 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
                                 const char * nullable expected_repack)
 {
     yaml__document_presentation__t p;
-    yaml_pack_env_t *pack_env;
     yaml_data_t local_data;
     yaml_parse_t *local_env = NULL;
     SB_1k(err);
-    SB_1k(repack);
 
     if (!pres) {
         pres = &p;
@@ -3872,20 +3924,12 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
     }
 
     /* repack using presentation data from the AST */
-    pack_env = t_yaml_pack_env_new();
-    t_yaml_pack_sb(pack_env, data, &repack);
-    Z_ASSERT_STREQUAL(repack.data, expected_repack,
-                      "repacking the parsed data leads to differences");
-    sb_reset(&repack);
+    Z_HELPER_RUN(z_yaml_test_pack(data, NULL, expected_repack));
 
     /* repack using yaml_presentation_t specification, and not the
      * presentation data inside the AST */
     t_yaml_data_get_presentation(data, pres);
-    pack_env = t_yaml_pack_env_new();
-    yaml_pack_env_set_presentation(pack_env, pres);
-    t_yaml_pack_sb(pack_env, data, &repack);
-    Z_ASSERT_STREQUAL(repack.data, expected_repack,
-                      "repacking the parsed data leads to differences");
+    Z_HELPER_RUN(z_yaml_test_pack(data, pres, expected_repack));
 
     if (local_env) {
         yaml_parse_delete(&local_env);
@@ -4781,6 +4825,76 @@ Z_GROUP_EXPORT(yaml)
             "        - 1\n"
             "        ^^^"
         ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Override conflict handling */
+
+    Z_TEST(override_conflict_handling, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test removal of added node */
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: 1\n"
+            "b: 2"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "- !include inner.yml\n"
+            "  b: 3\n"
+            "  c: 4",
+
+            "- a: 1\n"
+            "  b: 3\n"
+            "  c: 4"
+        ));
+
+        /* modify value in the AST */
+        data.seq->datas.tab[0].obj->fields.tab[1].data.scalar.u = 10;
+        data.seq->datas.tab[0].obj->fields.tab[2].data.scalar.u = 20;
+
+        /* This value should get resolved in the override */
+        Z_HELPER_RUN(z_pack_yaml_file("conflicts_3/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("conflicts_3/root.yml",
+            "- !include inner.yml\n"
+            "  b: 10\n"
+            "  c: 20\n"
+        ));
+        Z_HELPER_RUN(z_check_file("conflicts_3/inner.yml",
+            "a: 1\n"
+            "b: 2\n"
+        ));
+
+        /* remove added node from AST */
+        data.seq->datas.tab[0].obj->fields.len--;
+
+        /* When packing into files, the override is normally recreated, but
+         * here a node is removed. */
+        Z_HELPER_RUN(z_pack_yaml_file("conflicts_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("conflicts_1/root.yml",
+            "- !include inner.yml\n"
+            "  b: 10\n"
+        ));
+        Z_HELPER_RUN(z_check_file("conflicts_1/inner.yml",
+            "a: 1\n"
+            "b: 2\n"
+        ));
+
+        /* Remove node b as well. This will remove the override entirely. */
+        data.seq->datas.tab[0].obj->fields.len--;
+        Z_HELPER_RUN(z_pack_yaml_file("conflicts_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("conflicts_2/root.yml",
+            "- !include inner.yml\n"
+        ));
+        Z_HELPER_RUN(z_check_file("conflicts_2/inner.yml",
+            "a: 1\n"
+        ));
+
     } Z_TEST_END;
 
     /* }}} */
