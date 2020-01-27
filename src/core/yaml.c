@@ -2139,15 +2139,24 @@ typedef struct yaml_pack_env_t {
     /* Presentation data, if provided. */
     const yaml_presentation_t * nullable pres;
 
-    /* Current path being packed. */
-    sb_t current_path;
-
     /* Path from the root document.
      *
-     * Used for overrides through includes, see
+     * When packing the root document, this is equivalent to the current path.
+     * However, when packing a subfile, this includes the path from the
+     * including document.
+     * To get the current path only, see yaml_pack_env_get_curpath.
+     *
+     * Absolute paths are used for overrides through includes, see
      * yaml_pack_override_t::absolute_path.
      */
-    lstr_t absolute_path;
+    sb_t absolute_path;
+
+    /* Start of current path being packed.
+     *
+     * This is the index of the start of the current path in the
+     * absolute_path buffer.
+     */
+    unsigned current_path_pos;
 
     /* Error buffer. */
     sb_t err;
@@ -2360,12 +2369,7 @@ yaml_pack_env_find_override(yaml_pack_env_t * nonnull env)
         return NULL;
     }
 
-    /* FIXME: instead of having two separate buffers, and having to update
-     * abspath all the time, it would be much better to have "current_path"
-     * depend on abspath, simply starting from a later point in the string.
-     */
-    abspath = t_lstr_fmt("%pL%pL", &env->absolute_path, &env->current_path);
-
+    abspath = LSTR_SB_V(&env->absolute_path);
     tab_for_each_pos_rev(ov_pos, &env->overrides) {
         yaml_pack_override_t *override = &env->overrides.tab[ov_pos];
         int qm_pos;
@@ -2399,9 +2403,9 @@ yaml_pack_env_push_path(yaml_pack_env_t * nullable env, const char *fmt,
         return 0;
     }
 
-    prev_len = env->current_path.len;
+    prev_len = env->absolute_path.len;
     va_start(args, fmt);
-    sb_addvf(&env->current_path, fmt, args);
+    sb_addvf(&env->absolute_path, fmt, args);
     va_end(args);
 
     return prev_len;
@@ -2414,13 +2418,20 @@ yaml_pack_env_pop_path(yaml_pack_env_t * nullable env, int prev_len)
         return;
     }
 
-    sb_clip(&env->current_path, prev_len);
+    sb_clip(&env->absolute_path, prev_len);
+}
+
+static lstr_t
+yaml_pack_env_get_curpath(const yaml_pack_env_t * nonnull env)
+{
+    return LSTR_PTR_V(env->absolute_path.data + env->current_path_pos,
+                      env->absolute_path.data + env->absolute_path.len);
 }
 
 static const yaml__presentation_node__t * nullable
-yaml_pack_env_get_pres_node(yaml_pack_env_t * nullable env)
+yaml_pack_env_get_pres_node(yaml_pack_env_t * nonnull env)
 {
-    lstr_t path = LSTR_SB_V(&env->current_path);
+    lstr_t path = yaml_pack_env_get_curpath(env);
 
     assert (env->pres);
     return qm_get_def_safe(yaml_pres_node, &env->pres->nodes, &path, NULL);
@@ -2685,8 +2696,9 @@ static int t_yaml_pack_seq(yaml_pack_env_t * nonnull env,
         if (override && likely(!(*override))) {
             /* The node was added by an override. Save it in the override
              * data, and ignore the node. */
-            logger_trace(&_G.logger, 2, "not packing overridden data in path "
-                         "`%pL`", &env->current_path);
+            logger_trace(&_G.logger, 2,
+                         "not packing overridden data in path `%*pM`",
+                         LSTR_FMT_ARG(yaml_pack_env_get_curpath(env)));
             *override = data;
             goto next;
         }
@@ -2731,7 +2743,7 @@ static int t_yaml_pack_key_data(yaml_pack_env_t * nonnull env,
         /* The node was added by an override. Save it in the override
          * data, and ignore the node. */
         logger_trace(&_G.logger, 2, "not packing overridden data in path "
-                     "`%pL`", &env->current_path);
+                     "`%*pM`", LSTR_FMT_ARG(yaml_pack_env_get_curpath(env)));
         *override = &kd->data;
         goto end;
     }
@@ -2877,7 +2889,7 @@ yaml_env_path_contains_overrides(const yaml_pack_env_t * nonnull env)
     t_scope;
     lstr_t abspath;
 
-    abspath = t_lstr_fmt("%pL%pL", &env->absolute_path, &env->current_path);
+    abspath = LSTR_SB_V(&env->absolute_path);
     tab_for_each_ptr(override, &env->overrides) {
         qm_for_each_key(override_nodes, key, &override->nodes) {
             if (lstr_startswith(key, abspath)) {
@@ -2972,8 +2984,7 @@ static void t_iop_pres_override_to_pack_override(
             data = t_new(yaml_data_t, 1);
             t_iop_data_to_yaml(node->original_data, data);
         }
-        path = t_lstr_fmt("%pL%pL%pL", &env->absolute_path,
-                          &env->current_path, &node->path);
+        path = t_lstr_fmt("%pL%pL", &env->absolute_path, &node->path);
         res = qm_add(override_nodes, &out->nodes, &path, data);
         assert (res >= 0);
 
@@ -3076,8 +3087,7 @@ t_yaml_pack_override(yaml_pack_env_t * nonnull env,
     int res = 0;
     yaml_data_t data;
     const yaml_presentation_t *pres;
-    t_SB_1k(path);
-    lstr_t abspath;
+    unsigned current_path_pos = env->absolute_path.len;
 
     pres = t_yaml_doc_pres_to_map(&override->presentation->presentation);
 
@@ -3087,20 +3097,15 @@ t_yaml_pack_override(yaml_pack_env_t * nonnull env,
     /* Pack the data in the output. To reuse the right presentation, it must
      * be set in the env, and the path reset so that it matches the
      * presentation.
-     * To make the overrides work however, the absolute_path must be updated,
-     * so that they stay valid.
      */
     /* TODO: Maybe create a new env? This is a bit of a mess. */
-    abspath = t_lstr_fmt("%pL%pL", &env->absolute_path, &env->current_path);
 
     SWAP(const yaml_presentation_t *, pres, env->pres);
-    SWAP(sb_t, path, env->current_path);
-    SWAP(lstr_t, abspath, env->absolute_path);
+    SWAP(unsigned, current_path_pos, env->current_path_pos);
 
     res = t_yaml_pack_data(env, &data);
 
-    SWAP(lstr_t, abspath, env->absolute_path);
-    SWAP(sb_t, path, env->current_path);
+    SWAP(unsigned, current_path_pos, env->current_path_pos);
     SWAP(const yaml_presentation_t *, pres, env->pres);
 
     return res;
@@ -3303,9 +3308,8 @@ t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
                                                &err));
             yaml_pack_env_set_presentation(subenv,
                                            &inc->document_presentation);
-
-            subenv->absolute_path = t_lstr_fmt("%pL%pL", &env->absolute_path,
-                                               &env->current_path);
+            sb_setsb(&subenv->absolute_path, &env->absolute_path);
+            subenv->current_path_pos = subenv->absolute_path.len;
 
             if (inc->override) {
                 override = qv_growlen0(&env->overrides, 1);
@@ -3359,23 +3363,20 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
         return t_yaml_pack_inclusion(env, inc, data);
     } else {
         const yaml_presentation_t *saved_pres = env->pres;
-        SB_1k(new_path);
-        sb_t saved_path;
+        unsigned current_path_pos = env->absolute_path.len;
         int res;
 
         /* Inline the contents of the included data directly in the current
          * stream. This is as easy as just packing data, but we need to also
          * use the presentation data from the included files. To do so, the
          * current_path must be reset. */
-
-        saved_path = env->current_path;
-
+        SWAP(unsigned, current_path_pos, env->current_path_pos);
         env->pres = t_yaml_doc_pres_to_map(&inc->document_presentation);
-        env->current_path = new_path;
+
         res = t_yaml_pack_data(env, data);
 
-        env->current_path = saved_path;
         env->pres = saved_pres;
+        SWAP(unsigned, current_path_pos, env->current_path_pos);
 
         return res;
     }
@@ -3401,8 +3402,9 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
          * as a user can write its own presentation data, we cannot assert
          * it. */
         if (override && likely(*override)) {
-            logger_trace(&_G.logger, 2, "packing non-overriden data in path "
-                         "`%pL`", &env->current_path);
+            logger_trace(&_G.logger, 2,
+                         "packing non-overriden data in path `%*pM`",
+                         LSTR_FMT_ARG(yaml_pack_env_get_curpath(env)));
             SWAP(const yaml_data_t *, data, *override);
         }
         yaml_pack_env_pop_path(env, path_len);
@@ -3466,7 +3468,7 @@ yaml_pack_env_t * nonnull t_yaml_pack_env_new(void)
     env->file_flags = FILE_WRONLY | FILE_CREATE | FILE_TRUNC;
     env->file_mode = 0644;
 
-    t_sb_init(&env->current_path, 1024);
+    t_sb_init(&env->absolute_path, 1024);
     t_sb_init(&env->err, 1024);
     t_qv_init(&env->overrides, 0);
 
@@ -3525,9 +3527,7 @@ int t_yaml_pack(yaml_pack_env_t * nonnull env,
     env->write_cb = writecb;
     env->priv = priv;
 
-    sb_init(&env->current_path);
     res = t_yaml_pack_data(env, data);
-    sb_wipe(&env->current_path);
     if (res < 0 && err) {
         sb_setsb(err, &env->err);
     }
