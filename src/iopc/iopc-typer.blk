@@ -82,7 +82,7 @@ pkg_provides_fields_for_param(iopc_pkg_t *pkg, iopc_field_t *field,
             /* Define parent */
             xt->loc = st->loc;
             xt->pkg = pkg;
-            xt->path = iopc_path_dup(pkg->name);
+            xt->path = iopc_path_retain(pkg->name);
             xt->name = p_strdup(st->name);
             xt->st = st;
 
@@ -139,7 +139,7 @@ iopc_ifaces_find_n_check(iopc_pkg_t *pkg, iopc_field_t *iface)
                   iface->loc, iface->type_name);
     }
     iopc_path_delete(&iface->type_path);
-    iface->type_path = iopc_path_dup(t_pkg->name);
+    iface->type_path = iopc_path_retain(t_pkg->name);
     return res;
 }
 
@@ -168,7 +168,7 @@ iopc_modules_find_n_check(iopc_pkg_t *pkg, iopc_extends_t *xt)
                   xt->loc, xt->name);
     }
     iopc_path_delete(&xt->path);
-    xt->path = iopc_path_dup(t_pkg->name);
+    xt->path = iopc_path_retain(t_pkg->name);
     return res;
 }
 
@@ -199,7 +199,7 @@ iopc_apply_typedef(const iopc_field_t *tdef, iopc_field_t *f, bool f_is_tdef)
     {
         f->type_pkg   = tdef->type_pkg;
         f->type_name  = p_strdup(tdef->type_name);
-        f->type_path  = iopc_path_dup(tdef->type_path);
+        f->type_path  = iopc_path_retain(tdef->type_path);
 
         if (tdef->has_external_type) {
             f->has_external_type = tdef->has_external_type;
@@ -211,7 +211,7 @@ iopc_apply_typedef(const iopc_field_t *tdef, iopc_field_t *f, bool f_is_tdef)
 
     RETHROW(iopc_check_field_attributes(f, f_is_tdef));
     tab_for_each_entry(e, &tdef->attrs) {
-        iopc_attr_t *attr = iopc_attr_dup(e);
+        iopc_attr_t *attr = iopc_attr_retain(e);
 
         RETHROW(iopc_field_add_attr(f, &attr, f_is_tdef));
     }
@@ -313,7 +313,7 @@ iopc_types_find_n_check(iopc_pkg_t *pkg, iopc_field_t *f, bool f_is_tdef)
     }
     iopc_path_delete(&f->type_path);
     if (f->type_pkg) {
-        f->type_path = iopc_path_dup(f->type_pkg->name);
+        f->type_path = iopc_path_retain(f->type_pkg->name);
     }
 
   check_defval:
@@ -412,7 +412,7 @@ resolve_pkg_parent_and_params(iopc_extends_t *xt, iopc_pkg_t *pkg,
     if (!xt->pkg) {
         xt->pkg = pkg;
         iopc_path_delete(&xt->path);
-        xt->path = iopc_path_dup(pkg->name);
+        xt->path = iopc_path_retain(pkg->name);
     } else
     if (xt->pkg != pkg) {
         t_push_loc(xt->loc, "in package %s, %s  %s, needs package %s "
@@ -605,7 +605,7 @@ static int iopc_module_check_extends(iopc_struct_t *mod, iopc_extends_t *xt)
                           pretty_path_dot(xt->pkg->name), xt->name, f->tag);
             }
         }
-        qv_append(&mod->fields, iopc_field_dup(f2));
+        qv_append(&mod->fields, iopc_field_retain(f2));
     }
     return 0;
 }

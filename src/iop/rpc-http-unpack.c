@@ -96,7 +96,7 @@ static int t_parse_soap(ichttp_query_t *iq,
                                     "unknown rpc");
         goto error;
     }
-    iq->cbe = *cbout = cbe = ichttp_cb_dup(tcb->impl.values[pos]);
+    iq->cbe = *cbout = cbe = ichttp_cb_retain(tcb->impl.values[pos]);
 
     XCHECK(iop_xunpack_ptr_flags(xr, t_pool(), cbe->fun->args, vout,
                                  tcb->unpack_flags));
@@ -162,7 +162,7 @@ int __t_ichttp_query_on_done_stage1(httpd_query_t *q, ichttp_cb_t **cbe,
         res = qm_find(ichttp_cbs, &tcb->impl, &s);
         if (res < 0)
             goto not_found;
-        iq->cbe = *cbe = ichttp_cb_dup(tcb->impl.values[res]);
+        iq->cbe = *cbe = ichttp_cb_retain(tcb->impl.values[res]);
 
         if (is_ctype_json(q->qinfo)) {
             iq->json = true;
@@ -384,7 +384,7 @@ ichttp_register_function(httpd_trigger__ic_t *tcb,
                "RPC %s.%s", alias->name.s, fun->name.s);
     /* Register RPC URI (duplicates "cb") */
     e_assert_n(panic, qm_add(ichttp_cbs, &tcb->impl, &cb->name_uri,
-                             ichttp_cb_dup(cb)),
+                             ichttp_cb_retain(cb)),
                "RPC %s.%s", alias->name.s, fun->name.s);
 
     return cb;

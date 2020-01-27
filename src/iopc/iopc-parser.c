@@ -730,7 +730,7 @@ static int __tk(iopc_parser_t *pp, int i, iopc_token_t **out_tk)
         RETHROW(iopc_next_token(pp->ld, false, &tk));
         if (!tk) {
             assert (tks->len && tks->tab[tks->len - 1]->token == ITOK_EOF);
-            tk = iopc_token_dup(tks->tab[tks->len - 1]);
+            tk = iopc_token_retain(tks->tab[tks->len - 1]);
         }
         qv_append(tks, tk);
     }
