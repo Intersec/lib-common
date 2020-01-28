@@ -1752,9 +1752,12 @@ static void httpd_do_any(httpd_t *w, httpd_query_t *q, httpd_qinfo_t *req)
         httpd_trigger_node_t *n      = &w->cfg->roots[method];
 
         if (n->cb || qm_len(http_path, &n->childs)) {
+            SB_1k(escaped);
+
+            sb_add_xmlescape(&escaped, req->query.s, ps_len(&req->query));
             httpd_reject(q, NOT_FOUND,
                          "%*pM %*pM HTTP/1.%d", LSTR_FMT_ARG(ms),
-                         (int)ps_len(&req->query), req->query.s,
+                         SB_FMT_ARG(&escaped),
                          HTTP_MINOR(req->http_version));
         } else
         if (method == HTTP_METHOD_OPTIONS) {
