@@ -1208,6 +1208,13 @@ int (iop_ypack_file)(const char *filename, mode_t file_mode,
     return t_yaml_pack_file(env, filename, &data, err);
 }
 
+void
+t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
+                   const void * nonnull value, yaml_data_t * nonnull data)
+{
+    t_iop_struct_to_yaml_data(desc, value, DEFAULT_PACK_FLAGS, data);
+}
+
 /* }}} */
 /* {{{ JSON interfacing */
 

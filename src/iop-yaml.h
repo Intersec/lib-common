@@ -163,6 +163,11 @@ int iop_ypack_file(const char * nonnull filename, mode_t file_mode,
 #define iop_ypack_file(filename, st, value, presentation, err)               \
     (iop_ypack_file)((filename), 0644, (st), (value), (presentation), (err))
 
+/** Convert an IOP C structure into a YAML data AST. */
+void
+t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
+                   const void * nonnull value, yaml_data_t * nonnull data);
+
 /* }}} */
 /* {{{ JSON interfacing */
 

@@ -24,6 +24,7 @@
 static struct {
     const char *dso_path;
     const char *type_name;
+    const char *output_path;
     bool json_input;
     bool help;
 } opts_g;
@@ -77,11 +78,35 @@ t_parse_yaml(yaml_parse_t *env, const iop_dso_t * nullable dso,
 }
 
 static int
+pack_yaml(yaml_data_t * nonnull data,
+          const yaml__document_presentation__t * nullable pres,
+          sb_t * nonnull err)
+{
+    t_scope;
+    yaml_pack_env_t *pack_env;
+    int res = 0;
+
+    pack_env = t_yaml_pack_env_new();
+    if (pres) {
+        t_yaml_pack_env_set_presentation(pack_env, pres);
+    }
+
+    if (opts_g.output_path) {
+        res = t_yaml_pack_file(pack_env, opts_g.output_path, data, err);
+    } else {
+        yaml_pack_env_set_flags(pack_env, YAML_PACK_NO_SUBFILES);
+        res = t_yaml_pack(pack_env, data, yaml_pack_write_stdout, NULL, err);
+        printf("\n");
+    }
+
+    return res;
+}
+
+static int
 repack_yaml(const char * nullable filename, const iop_dso_t * nullable dso,
             const iop_struct_t * nullable st, sb_t * nonnull err)
 {
     t_scope;
-    yaml_pack_env_t *pack_env;
     yaml_parse_t *env;
     yaml_data_t data;
     lstr_t file = LSTR_NULL_V;
@@ -107,10 +132,7 @@ repack_yaml(const char * nullable filename, const iop_dso_t * nullable dso,
         goto end;
     }
 
-    pack_env = t_yaml_pack_env_new();
-    yaml_pack_env_set_flags(pack_env, YAML_PACK_NO_SUBFILES);
-    res = t_yaml_pack(pack_env, &data, yaml_pack_write_stdout, NULL, err);
-    printf("\n");
+    res = pack_yaml(&data, NULL, err);
 
   end:
     lstr_wipe(&file);
@@ -124,12 +146,18 @@ repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
 {
     t_scope;
     lstr_t file = LSTR_NULL_V;
-    int res = 0;
     void *value = NULL;
-    SB_1k(buf);
+    yaml__document_presentation__t *pres;
+    qv_t(iop_json_subfile) subfiles;
+    iop_json_subfile__array_t subfiles_array;
+    yaml_data_t data;
+    int res = 0;
+
+    t_qv_init(&subfiles, 0);
 
     if (filename) {
-        RETHROW(t_iop_junpack_ptr_file(filename, st, &value, 0, NULL, err));
+        RETHROW(t_iop_junpack_ptr_file(filename, st, &value, 0, &subfiles,
+                                       err));
     } else {
         pstream_t ps;
 
@@ -145,8 +173,11 @@ repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
         }
     }
 
-    t_iop_sb_ypack(&buf, st, value, NULL);
-    printf("%s\n", buf.data);
+    subfiles_array = IOP_TYPED_ARRAY_TAB(iop_json_subfile, &subfiles);
+    pres = t_build_yaml_pres_from_json_subfiles(&subfiles_array, st);
+
+    t_iop_to_yaml_data(st, value, &data);
+    res = pack_yaml(&data, pres, err);
 
   end:
     lstr_wipe(&file);
@@ -183,6 +214,12 @@ static const char *description[] = {
     "The input can be provided in JSON, using the `-j` flag. Both a DSO ",
     "path and an IOP type name are required in that case.",
     "",
+    "When no output is specified, the input stream is reformated and ",
+    "written on stdout. In that case, included subfiles are not recreated.",
+    "If an output file is specified (`-o`), the whole document will be ",
+    "written, including subfiles. It is a good idea to thus always output ",
+    "in a subdirectory, to avoid writing subfiles everywhere.",
+    "",
     "Here are a few examples:",
     "",
     "# reformat the input",
@@ -197,6 +234,11 @@ static const char *description[] = {
     "# Convert an IOP-JSON input into a YAML document",
     "$ yamlfmt -d iop.so -t pkg.MyStruct -j input.json",
     "",
+    "# Convert an IOP-JSON input into a YAML document, and output it and ",
+    "# all the included subfiles in a new directory",
+    "$ yamlfmt -d iop.so -t pkg.MyStruct -j input.json -o out/doc.yml",
+    "",
+    NULL
 };
 
 int main(int argc, char **argv)
@@ -209,6 +251,8 @@ int main(int argc, char **argv)
         OPT_STR('d', "dso", &opts_g.dso_path, "Path to IOP dso file"),
         OPT_FLAG('j', "json", &opts_g.json_input, "Unpack the input as JSON"),
         OPT_STR('t', "type", &opts_g.type_name, "Name of the IOP type"),
+        OPT_STR('o', "output", &opts_g.output_path,
+                "Path to the output file"),
         OPT_END(),
     };
     SB_1k(err);
