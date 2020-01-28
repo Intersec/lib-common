@@ -1155,7 +1155,7 @@ void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
 
     env = t_yaml_pack_env_new();
     if (pres) {
-        yaml_pack_env_set_presentation(env, pres);
+        t_yaml_pack_env_set_presentation(env, pres);
     }
     ret = t_yaml_pack_sb(env, &data, sb, NULL);
     assert (ret >= 0);
@@ -1182,7 +1182,7 @@ int (iop_ypack_file)(const char *filename, mode_t file_mode,
     env = t_yaml_pack_env_new();
     yaml_pack_env_set_file_mode(env, file_mode);
     if (presentation) {
-        yaml_pack_env_set_presentation(env, presentation);
+        t_yaml_pack_env_set_presentation(env, presentation);
     }
 
     return t_yaml_pack_file(env, filename, &data, err);

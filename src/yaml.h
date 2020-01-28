@@ -315,7 +315,7 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode);
  * the parsed data through t_yaml_data_get_presentation, and then reused when
  * packing with this helper.
  */
-void yaml_pack_env_set_presentation(
+void t_yaml_pack_env_set_presentation(
     yaml_pack_env_t * nonnull env,
     const yaml__document_presentation__t * nonnull pres
 );

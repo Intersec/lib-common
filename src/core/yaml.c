@@ -3238,7 +3238,7 @@ t_yaml_pack_subfile_in_sb(yaml_pack_env_t * nonnull env,
         RETHROW(t_yaml_pack_env_set_outdir(subenv, dirpath, err));
     }
 
-    yaml_pack_env_set_presentation(subenv, &inc->document_presentation);
+    t_yaml_pack_env_set_presentation(subenv, &inc->document_presentation);
 
     sb_setsb(&subenv->absolute_path, &env->absolute_path);
     subenv->current_path_pos = subenv->absolute_path.len;
@@ -3533,7 +3533,7 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode)
     env->file_mode = mode;
 }
 
-void yaml_pack_env_set_presentation(
+void t_yaml_pack_env_set_presentation(
     yaml_pack_env_t * nonnull env,
     const yaml__document_presentation__t * nonnull pres
 )
@@ -3800,7 +3800,7 @@ z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
     }
     path = t_fmt("%pL/%s", &z_tmpdir_g, filepath);
     if (presentation) {
-        yaml_pack_env_set_presentation(env, presentation);
+        t_yaml_pack_env_set_presentation(env, presentation);
     }
     Z_ASSERT_N(t_yaml_pack_file(env, path, data, &err),
                "cannot pack YAML file %s: %pL", filepath, &err);
@@ -3823,7 +3823,7 @@ z_pack_yaml_in_sb_with_subfiles(
     dirpath = t_fmt("%pL/%s", &z_tmpdir_g, dirpath);
     Z_ASSERT_N(t_yaml_pack_env_set_outdir(env, dirpath, &err));
     if (presentation) {
-        yaml_pack_env_set_presentation(env, presentation);
+        t_yaml_pack_env_set_presentation(env, presentation);
     }
     Z_ASSERT_N(t_yaml_pack_sb(env, data, &out, &err),
                "cannot pack YAML buffer: %pL", &err);
@@ -3886,7 +3886,7 @@ z_yaml_test_pack(const yaml_data_t * nonnull data,
 
     pack_env = t_yaml_pack_env_new();
     if (pres) {
-        yaml_pack_env_set_presentation(pack_env, pres);
+        t_yaml_pack_env_set_presentation(pack_env, pres);
     }
     yaml_pack_env_set_flags(pack_env, flags);
     Z_ASSERT_N(t_yaml_pack_sb(pack_env, data, &pack, &err));
@@ -3994,7 +3994,7 @@ z_check_yaml_pack(const yaml_data_t * nonnull data,
     SB_1k(err);
 
     if (presentation) {
-        yaml_pack_env_set_presentation(env, presentation);
+        t_yaml_pack_env_set_presentation(env, presentation);
     }
     Z_ASSERT_N(t_yaml_pack_sb(env, data, &sb, &err));
     Z_ASSERT_STREQUAL(sb.data, yaml);
