@@ -17,11 +17,14 @@
 /***************************************************************************/
 
 #include <lib-common/iop.h>
+#include <lib-common/iop-json.h>
 #include <lib-common/iop-yaml.h>
 #include <lib-common/parseopt.h>
 
 static struct {
     const char *dso_path;
+    const char *type_name;
+    bool json_input;
     bool help;
 } opts_g;
 
@@ -33,20 +36,14 @@ static int yaml_pack_write_stdout(void * nullable priv,
 }
 
 static const iop_struct_t * nullable
-retrieve_iop_type(const iop_dso_t * nonnull dso, const lstr_t tag,
-                  sb_t * nonnull err)
+get_iop_type(const iop_dso_t * nonnull dso, const lstr_t name,
+             sb_t * nonnull err)
 {
     const iop_struct_t *st;
 
-    if (!tag.s) {
-        sb_setf(err, "document should start with a tag equals to the "
-                "fullname of the IOP type serialized");
-        return NULL;
-    }
-
-    st = iop_dso_find_type(dso, tag);
+    st = iop_dso_find_type(dso, name);
     if (!st) {
-        sb_setf(err, "unknown IOP type `%pL`", &tag);
+        sb_setf(err, "unknown IOP type `%pL`", &name);
         return NULL;
     }
 
@@ -55,16 +52,24 @@ retrieve_iop_type(const iop_dso_t * nonnull dso, const lstr_t tag,
 
 
 static int
-parse_yaml(yaml_parse_t *env, const iop_dso_t * nullable dso,
-           yaml_data_t * nonnull data, sb_t * nonnull err)
+t_parse_yaml(yaml_parse_t *env, const iop_dso_t * nullable dso,
+             const iop_struct_t * nullable st, yaml_data_t * nonnull data,
+             sb_t * nonnull err)
 {
     RETHROW(t_yaml_parse(env, data, err));
 
-    if (dso) {
-        const iop_struct_t *st;
+    if (dso && !st) {
+        if (!data->tag.s) {
+            sb_setf(err, "document should start with a tag equals to the "
+                    "fullname of the IOP type serialized");
+            return -1;
+        }
+        st = RETHROW_PN(get_iop_type(dso, data->tag, err));
+    }
+
+    if (st) {
         void *out = NULL;
 
-        st = RETHROW_PN(retrieve_iop_type(dso, data->tag, err));
         RETHROW(t_iop_yunpack_ptr_yaml_data(data, st, &out, 0, err));
     }
 
@@ -73,7 +78,7 @@ parse_yaml(yaml_parse_t *env, const iop_dso_t * nullable dso,
 
 static int
 repack_yaml(const char * nullable filename, const iop_dso_t * nullable dso,
-            sb_t * nonnull err)
+            const iop_struct_t * nullable st, sb_t * nonnull err)
 {
     t_scope;
     yaml_pack_env_t *pack_env;
@@ -97,7 +102,7 @@ repack_yaml(const char * nullable filename, const iop_dso_t * nullable dso,
         yaml_parse_attach_ps(env, ps_initlstr(&file));
     }
 
-    if (parse_yaml(env, dso, &data, err) < 0) {
+    if (t_parse_yaml(env, dso, st, &data, err) < 0) {
         res = -1;
         goto end;
     }
@@ -113,18 +118,84 @@ repack_yaml(const char * nullable filename, const iop_dso_t * nullable dso,
     return res;
 }
 
+static int
+repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
+            sb_t * nonnull err)
+{
+    t_scope;
+    lstr_t file = LSTR_NULL_V;
+    int res = 0;
+    void *value = NULL;
+    SB_1k(buf);
+
+    if (filename) {
+        RETHROW(t_iop_junpack_ptr_file(filename, st, &value, 0, NULL, err));
+    } else {
+        pstream_t ps;
+
+        if (lstr_init_from_fd(&file, 0, PROT_READ, MAP_SHARED) < 0) {
+            sb_setf(err, "cannot read from stdin: %m");
+            res = -1;
+            goto end;
+        }
+        ps = ps_initlstr(&file);
+        if (t_iop_junpack_ptr_ps(&ps, st, &value, 0, err) < 0) {
+            res = -1;
+            goto end;
+        }
+    }
+
+    t_iop_sb_ypack(&buf, st, value, NULL);
+    printf("%s\n", buf.data);
+
+  end:
+    lstr_wipe(&file);
+    return res;
+}
+
+static int
+parse_and_repack(const char * nullable filename,
+                 const iop_dso_t * nullable dso, sb_t * nonnull err)
+{
+    const iop_struct_t *st = NULL;
+
+    if (dso && opts_g.type_name) {
+        st = RETHROW_PN(get_iop_type(dso, LSTR(opts_g.type_name), err));
+    }
+
+    if (opts_g.json_input) {
+        return repack_json(filename, st, err);
+    } else {
+        return repack_yaml(filename, dso, st, err);
+    }
+}
+
 static const char *description[] = {
     "Validate & reformat a YAML document.",
     "",
     "If a file is not provided, the input is read from stdin.",
-    "If an IOP dso is provided, and the document starts with an IOP tag, ",
-    "the document will be validated with this IOP type.",
+    "",
+    "If an IOP dso is provided, the input will be validated as a serialized ",
+    "IOP struct. The IOP type can be provided with the `-t` option. If not ",
+    "provided, and the input is in YAML, the document must start with the ",
+    "name of the IOP type as a tag.",
+    "",
+    "The input can be provided in JSON, using the `-j` flag. Both a DSO ",
+    "path and an IOP type name are required in that case.",
     "",
     "Here are a few examples:",
     "",
-    "$ yamlfmt <input.yml # reformat the input",
+    "# reformat the input",
+    "$ yamlfmt <input.yml ",
     "",
-    "$ yamlfmt -d iop.so input.yml # validate an IOP-YAML input",
+    "# validate an IOP-YAML input with the type provided in the file",
+    "$ yamlfmt -d iop.so input.yml",
+    "",
+    "# validate an IOP-YAML input with an explicit type",
+    "$ yamlfmt -d iop.so -t pkg.MyStruct input.yml",
+    "",
+    "# Convert an IOP-JSON input into a YAML document",
+    "$ yamlfmt -d iop.so -t pkg.MyStruct -j input.json",
     "",
 };
 
@@ -136,6 +207,8 @@ int main(int argc, char **argv)
     popt_t options[] = {
         OPT_FLAG('h', "help", &opts_g.help, "show help"),
         OPT_STR('d', "dso", &opts_g.dso_path, "Path to IOP dso file"),
+        OPT_FLAG('j', "json", &opts_g.json_input, "Unpack the input as JSON"),
+        OPT_STR('t', "type", &opts_g.type_name, "Name of the IOP type"),
         OPT_END(),
     };
     SB_1k(err);
@@ -144,12 +217,16 @@ int main(int argc, char **argv)
     arg0 = NEXTARG(argc, argv);
     argc = parseopt(argc, argv, options, 0);
     if (opts_g.help) {
-
         makeusage(!opts_g.help, arg0, "[<file>]", description, options);
     }
 
     if (argc >= 1) {
         filename = NEXTARG(argc, argv);
+    }
+
+    if (opts_g.json_input && (!opts_g.dso_path || !opts_g.type_name)) {
+        fprintf(stderr, "both `-d` and `-t`` are required with JSON input");
+        return EXIT_FAILURE;
     }
 
     if (opts_g.dso_path) {
@@ -161,7 +238,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (repack_yaml(filename, dso, &err) < 0) {
+    if (parse_and_repack(filename, dso, &err) < 0) {
         fprintf(stderr, "%.*s\n", err.len, err.data);
         ret = EXIT_FAILURE;
     }
