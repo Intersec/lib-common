@@ -26,6 +26,7 @@ static struct {
     const char *type_name;
     const char *output_path;
     bool json_input;
+    bool raw_mode;
     bool help;
 } opts_g;
 
@@ -87,6 +88,14 @@ pack_yaml(yaml_data_t * nonnull data,
     int res = 0;
 
     pack_env = t_yaml_pack_env_new();
+    if (opts_g.raw_mode) {
+        /* use an empty document presentation to prevent any presentation
+         * data stored in the AST from being used. */
+        yaml__document_presentation__t empty_pres;
+
+        iop_init(yaml__document_presentation, &empty_pres);
+        t_yaml_pack_env_set_presentation(pack_env, &empty_pres);
+    } else
     if (pres) {
         t_yaml_pack_env_set_presentation(pack_env, pres);
     }
@@ -220,6 +229,10 @@ static const char *description[] = {
     "written, including subfiles. It is a good idea to thus always output ",
     "in a subdirectory, to avoid writing subfiles everywhere.",
     "",
+    "The whole document can also be written without any presentation ",
+    "details. This will write the whole YAML AST without includes, ",
+    "comments, etc."
+    "",
     "Here are a few examples:",
     "",
     "# reformat the input",
@@ -238,6 +251,9 @@ static const char *description[] = {
     "# all the included subfiles in a new directory",
     "$ yamlfmt -d iop.so -t pkg.MyStruct -j input.json -o out/doc.yml",
     "",
+    "# Output the raw AST of a YAML document",
+    "$ yamlfmt --raw doc.yml",
+    "",
     NULL
 };
 
@@ -253,6 +269,8 @@ int main(int argc, char **argv)
         OPT_STR('t', "type", &opts_g.type_name, "Name of the IOP type"),
         OPT_STR('o', "output", &opts_g.output_path,
                 "Path to the output file"),
+        OPT_FLAG('r', "raw", &opts_g.raw_mode,
+                 "Format without any presentation details."),
         OPT_END(),
     };
     SB_1k(err);
