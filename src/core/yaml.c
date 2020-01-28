@@ -3280,6 +3280,10 @@ t_yaml_pack_included_subfile(
     SB_1k(contents);
     SB_1k(err);
 
+    if (!env->subfiles) {
+        env->subfiles = t_qm_new(path_to_checksum, 0);
+    }
+
     /* if the YAML data to dump is not a string, it changed and can no longer
      * be packed raw. */
     if (raw && (subdata->type != YAML_DATA_SCALAR
@@ -3310,27 +3314,16 @@ t_yaml_pack_included_subfile(
         }
     }
 
-    if (no_subfiles) {
-        /* we went through the inner AST and updated the override. Just
-         * print the include node. */
-        return t_yaml_pack_include_path(env, inc->include_presentation,
-                                        raw, inc->path);
-    }
-
-    if (!env->subfiles) {
-        env->subfiles = t_qm_new(path_to_checksum, 0);
-    }
-
     path = t_find_right_path(env, &contents, inc->path, &reuse);
     if (reuse) {
         res += RETHROW(t_yaml_pack_include_path(env,
                                                 inc->include_presentation,
                                                 raw, LSTR(path)));
     } else {
-
         logger_trace(&_G.logger, 2, "writing %ssubfile %s", raw ? "raw " : "",
                      path);
-        if (yaml_pack_write_raw_file(env, path, LSTR_SB_V(&contents),
+        if (likely(!no_subfiles)
+        &&  yaml_pack_write_raw_file(env, path, LSTR_SB_V(&contents),
                                      &err) < 0)
         {
             sb_setf(&env->err, "error when writing subfile `%s`: %pL",
@@ -3388,7 +3381,7 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
      *  * an outdir is set
      *  * NO_SUBFILES is set, meaning we are recreating the file as is.
      */
-    if (env->outdirpath.s || env->flags & YAML_PACK_NO_SUBFILES) {
+    if (env->outdirpath.len > 0 || env->flags & YAML_PACK_NO_SUBFILES) {
         return t_yaml_pack_include_with_override(env, inc, data);
     } else {
         const yaml_presentation_t *saved_pres = env->pres;
@@ -3497,6 +3490,7 @@ yaml_pack_env_t * nonnull t_yaml_pack_env_new(void)
     env->state = PACK_STATE_ON_NEWLINE;
     env->file_flags = FILE_WRONLY | FILE_CREATE | FILE_TRUNC;
     env->file_mode = 0644;
+    env->outdirpath = LSTR_EMPTY_V;
 
     t_sb_init(&env->absolute_path, 1024);
     t_sb_init(&env->err, 1024);
@@ -3604,7 +3598,7 @@ t_yaml_pack_file(yaml_pack_env_t * nonnull env, const char * nonnull filename,
     yaml_pack_file_ctx_t ctx;
     int res;
 
-    if (env->outdirpath.s) {
+    if (env->outdirpath.len > 0) {
         filename = t_fmt("%pL/%s", &env->outdirpath, filename);
     }
 
