@@ -74,6 +74,14 @@ typedef struct yaml_env_presentation_t {
 } yaml_env_presentation_t;
 
 /* }}} */
+/* {{{ Variables */
+
+qvector_t(yaml_data_p, yaml_data_t * nonnull);
+
+qm_kvec_t(yaml_vars, lstr_t, qv_t(yaml_data_p), qhash_lstr_hash,
+          qhash_lstr_equal);
+
+/* }}} */
 
 qvector_t(yaml_parse, yaml_parse_t *);
 
@@ -141,6 +149,8 @@ typedef struct yaml_parse_t {
      * This is set if the current file was included from another file.
      */
     yaml_included_file_t * nullable included;
+
+    qm_t(yaml_vars) variables;
 } yaml_parse_t;
 
 qvector_t(override_nodes, yaml__presentation_override_node__t);
@@ -715,9 +725,15 @@ ps_startswith_yaml_seq_prefix(const pstream_t *ps)
 }
 
 static bool
-ps_startswith_yaml_key(pstream_t ps)
+ps_startswith_yaml_key(pstream_t ps, bool allow_variable)
 {
-    pstream_t key = ps_get_span(&ps, &ctype_isalnum);
+    pstream_t key;
+
+    if (allow_variable && ps_peekc(ps) == '$') {
+        IGNORE(ps_skipc(&ps, '$'));
+    }
+
+    key = ps_get_span(&ps, &ctype_isalnum);
 
     if (ps_len(&key) == 0 || ps_len(&ps) == 0) {
         return false;
@@ -725,6 +741,64 @@ ps_startswith_yaml_key(pstream_t ps)
 
     return ps.s[0] == ':'
         && (ps_len(&ps) == 1 || isspace(ps.s[1]));
+}
+
+/* }}} */
+/* {{{ Variables */
+
+static void
+t_yaml_env_add_var(yaml_parse_t * nonnull env, const lstr_t name,
+                   yaml_data_t * nonnull data)
+{
+    int pos;
+    qv_t(yaml_data_p) *vec;
+
+    pos = qm_reserve(yaml_vars, &env->variables, &name, 0);
+    if (pos & QHASH_COLLISION) {
+        vec = &env->variables.values[pos & ~QHASH_COLLISION];
+    } else {
+        env->variables.keys[pos] = t_lstr_dup(name);
+        vec = &env->variables.values[pos];
+        t_qv_init(vec, 1);
+    }
+    qv_append(vec, data);
+}
+
+static void
+yaml_env_merge_variables(yaml_parse_t * nonnull env,
+                           const qm_t(yaml_vars) * nonnull vars)
+{
+    qm_for_each_key_value_p(yaml_vars, name, vec, vars) {
+        int pos;
+
+        pos = qm_reserve(yaml_vars, &env->variables, &name, 0);
+        if (pos & QHASH_COLLISION) {
+            qv_extend(&env->variables.values[pos & ~QHASH_COLLISION], vec);
+        } else {
+            env->variables.values[pos] = *vec;
+        }
+    }
+}
+
+static void
+t_yaml_env_handle_variables(yaml_parse_t * nonnull env, const lstr_t val,
+                            yaml_data_t * nonnull data)
+{
+    pstream_t ps = ps_initlstr(&val);
+    pstream_t name;
+
+    /* check if the line is equal to '$<name>', and capture the name */
+    if (ps_skipc(&ps, '$') < 0) {
+        return;
+    }
+
+    name = ps_get_span(&ps, &ctype_isalnum);
+    if (ps_len(&ps) > 0) {
+        return;
+    }
+
+    /* add to the env the variable, and the data pointer */
+    t_yaml_env_add_var(env, LSTR_PS_V(&name), data);
 }
 
 /* }}} */
@@ -785,23 +859,14 @@ static bool has_inclusion_loop(const yaml_parse_t * nonnull env,
     return false;
 }
 
-static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
-                                     yaml_data_t * nonnull data)
+static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
+                                 yaml_data_t * nonnull data,
+                                 qm_t(yaml_vars) * nonnull variables)
 {
     yaml_parse_t *subfile = NULL;
     yaml_data_t subdata;
     char dirpath[PATH_MAX];
     SB_1k(err);
-    bool raw;
-
-    if (lstr_equal(data->tag, LSTR("include"))) {
-        raw = false;
-    } else
-    if (lstr_equal(data->tag, LSTR("includeraw"))) {
-        raw = true;
-    } else {
-        return 0;
-    }
 
     RETHROW(yaml_env_ltrim(env));
 
@@ -849,6 +914,8 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         }
     }
 
+    *variables = subfile->variables;
+
     if (env->pres) {
         yaml__presentation_include__t *inc;
 
@@ -873,6 +940,41 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     yaml_env_set_err_at(env, &data->span, YAML_ERR_INVALID_INCLUDE,
                         t_fmt("%pL", &err));
     return -1;
+}
+
+static int t_yaml_env_handle_override(yaml_parse_t *env,
+                                      const uint32_t min_indent,
+                                      yaml_data_t *out,
+                                      qm_t(yaml_vars) *variables);
+
+static int
+t_yaml_env_handle_include(yaml_parse_t * nonnull env,
+                          const uint32_t min_indent,
+                          yaml_data_t * nonnull data)
+{
+    qm_t(yaml_vars) vars;
+    bool raw;
+
+    if (lstr_equal(data->tag, LSTR("include"))) {
+        raw = false;
+    } else
+    if (lstr_equal(data->tag, LSTR("includeraw"))) {
+        raw = true;
+    } else {
+        return 0;
+    }
+
+    /* Parse and retrieve the included AST, and get the associated variables.
+     */
+    RETHROW(t_yaml_env_do_include(env, raw, data, &vars));
+
+    /* Parse and merge override into the AST. */
+    RETHROW(t_yaml_env_handle_override(env, min_indent, data, &vars));
+
+    /* merge remaining variables into current variables for the document. */
+    yaml_env_merge_variables(env, &vars);
+
+    return 0;
 }
 
 /* }}} */
@@ -904,7 +1006,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
 
     for (;;) {
         yaml__presentation_node__t *node = NULL;
-        yaml_data_t elem;
+        yaml_data_t *elem;
         uint32_t last_indent;
 
         RETHROW(yaml_env_ltrim(env));
@@ -915,11 +1017,11 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
         /* skip '-' */
         yaml_env_skipc(env);
 
-        RETHROW(t_yaml_env_parse_data(env, min_indent + 1, &elem));
+        elem = qv_growlen(&datas, 1);
+        RETHROW(t_yaml_env_parse_data(env, min_indent + 1, elem));
         RETHROW(yaml_env_ltrim(env));
 
-        pos_end = elem.span.end;
-        qv_append(&datas, elem);
+        pos_end = elem->span.end;
         qv_append(&pres, node);
 
         if (ps_done(&env->ps)) {
@@ -953,19 +1055,26 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
 /* {{{ Obj */
 
 static int
-yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
-                   yaml_span_t * nonnull key_span,
+yaml_env_parse_key(yaml_parse_t * nonnull env, bool allow_variable,
+                   lstr_t * nonnull key, yaml_span_t * nonnull key_span,
                    yaml__presentation_node__t * nonnull * nullable node)
 {
     pstream_t ps_key;
     yaml_pos_t key_pos_start = yaml_env_get_pos(env);
+    const char *start;
 
     RETHROW(yaml_env_ltrim(env));
     if (env->pres && node) {
         yaml_env_pop_next_node(env, node);
     }
 
-    ps_key = ps_get_span(&env->ps, &ctype_isalnum);
+    start = env->ps.s;
+    if (allow_variable && ps_peekc(env->ps) == '$') {
+        IGNORE(ps_skipc(&env->ps, '$'));
+    }
+    ps_skip_span(&env->ps, &ctype_isalnum);
+
+    ps_key = ps_initptr(start, env->ps.s);
     yaml_span_init(key_span, env, key_pos_start, yaml_env_get_pos(env));
 
     if (ps_len(&ps_key) == 0) {
@@ -983,7 +1092,7 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
 
 static int
 t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
-                     yaml_data_t *out)
+                     bool allow_variable, yaml_data_t *out)
 {
     qv_t(yaml_key_data) fields;
     yaml_pos_t pos_end = {0};
@@ -1001,7 +1110,8 @@ t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
         yaml_span_t key_span;
         yaml__presentation_node__t *node;
 
-        RETHROW(yaml_env_parse_key(env, &key, &key_span, &node));
+        RETHROW(yaml_env_parse_key(env, allow_variable, &key, &key_span,
+                                   &node));
 
         kd = qv_growlen0(&fields, 1);
         kd->key = key;
@@ -1233,6 +1343,8 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
     out->scalar.type = YAML_SCALAR_STRING;
     out->scalar.s = line;
 
+    t_yaml_env_handle_variables(env, line, out);
+
     return 0;
 }
 
@@ -1395,7 +1507,7 @@ static int t_yaml_env_parse_flow_key_val(yaml_parse_t *env,
 {
     yaml_key_data_t kd;
 
-    RETHROW(yaml_env_parse_key(env, &out->key, &out->key_span, NULL));
+    RETHROW(yaml_env_parse_key(env, false, &out->key, &out->key_span, NULL));
     RETHROW(yaml_env_ltrim(env));
     RETHROW(t_yaml_env_parse_flow_key_data(env, &kd));
     if (kd.key.s) {
@@ -1434,7 +1546,7 @@ static int t_yaml_env_parse_flow_key_data(yaml_parse_t *env,
                                 "unexpected end of line");
     }
 
-    if (ps_startswith_yaml_key(env->ps)) {
+    if (ps_startswith_yaml_key(env->ps, false)) {
         RETHROW(t_yaml_env_parse_flow_key_val(env, out));
         goto end;
     }
@@ -1557,8 +1669,10 @@ static int t_yaml_env_merge_obj(yaml_parse_t * nonnull env,
     /* XXX: O(n^2), not great but normal usecase would never override
      * every key of a huge object, so the tradeoff is fine.
      */
-    tab_for_each_ptr(override_pair, &override->fields) {
-        RETHROW(t_yaml_env_merge_key_data(env, override_pair, pres, obj));
+    tab_for_each_ptr(pair, &override->fields) {
+        if (!lstr_startswith(pair->key, LSTR("$"))) {
+            RETHROW(t_yaml_env_merge_key_data(env, pair, pres, obj));
+        }
     }
 
     return 0;
@@ -1660,9 +1774,46 @@ t_yaml_env_merge_data(yaml_parse_t * nonnull env,
 /* }}} */
 /* {{{ Override */
 
-static int t_yaml_env_handle_override(yaml_parse_t *env,
+static int
+t_override_replace_variables(yaml_parse_t * nonnull env,
+                             yaml_data_t * nonnull override,
+                             qm_t(yaml_vars) * nonnull variables)
+{
+    assert (override->type == YAML_DATA_OBJ);
+
+    tab_for_each_ptr(pair, &override->obj->fields) {
+        lstr_t name;
+        int pos;
+
+        if (!lstr_startswith(pair->key, LSTR("$"))) {
+            continue;
+        }
+
+        name = LSTR_INIT_V(pair->key.s + 1, pair->key.len - 1);
+
+        pos = qm_find(yaml_vars, variables, &name);
+        if (pos < 0) {
+            /* TODO: error */
+        }
+
+        /* Replace every occurrence of the variable with the provided data. */
+        tab_for_each_entry(elem, &variables->values[pos]) {
+            *elem = pair->data;
+        }
+
+        /* remove the variable from variables, to prevent matching twice,
+         * and to be able to keep in the qm the variables that are still
+         * active. */
+        qm_del_at(yaml_vars, variables, pos);
+    }
+
+    return 0;
+}
+
+static int t_yaml_env_handle_override(yaml_parse_t * nonnull env,
                                       const uint32_t min_indent,
-                                      yaml_data_t *out)
+                                      yaml_data_t * nonnull out,
+                                      qm_t(yaml_vars) * nonnull variables)
 {
     uint32_t cur_indent;
     yaml_data_t override;
@@ -1683,11 +1834,11 @@ static int t_yaml_env_handle_override(yaml_parse_t *env,
 
     /* TODO: technically, we could allow override of any type of data, not
      * just obj, by removing this check. */
-    if (!ps_startswith_yaml_key(env->ps)) {
+    if (!ps_startswith_yaml_key(env->ps, true)) {
         return 0;
     }
 
-    RETHROW(t_yaml_env_parse_obj(env, cur_indent, &override));
+    RETHROW(t_yaml_env_parse_obj(env, cur_indent, true, &override));
     logger_trace(&_G.logger, 2,
                  "parsed override, %s from "YAML_POS_FMT" up to "YAML_POS_FMT,
                  yaml_data_get_type(&override, false),
@@ -1700,6 +1851,7 @@ static int t_yaml_env_handle_override(yaml_parse_t *env,
         t_sb_init(&pres->path, 1024);
     }
 
+    RETHROW(t_override_replace_variables(env, &override, variables));
     RETHROW(t_yaml_env_merge_data(env, &override, pres, out));
 
     if (pres) {
@@ -1734,8 +1886,7 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
 
     if (ps_peekc(env->ps) == '!') {
         RETHROW(t_yaml_env_parse_tag(env, min_indent, out));
-        RETHROW(t_yaml_env_handle_include(env, out));
-        RETHROW(t_yaml_env_handle_override(env, min_indent + 1, out));
+        RETHROW(t_yaml_env_handle_include(env, min_indent + 1, out));
     } else
     if (ps_startswith_yaml_seq_prefix(&env->ps)) {
         RETHROW(t_yaml_env_parse_seq(env, cur_indent, out));
@@ -1752,8 +1903,8 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
             t_yaml_env_pres_set_flow_mode(env);
         }
     } else
-    if (ps_startswith_yaml_key(env->ps)) {
-        RETHROW(t_yaml_env_parse_obj(env, cur_indent, out));
+    if (ps_startswith_yaml_key(env->ps, false)) {
+        RETHROW(t_yaml_env_parse_obj(env, cur_indent, false, out));
     } else {
         RETHROW(t_yaml_env_parse_scalar(env, false, out));
     }
@@ -1846,6 +1997,7 @@ yaml_parse_t *t_yaml_parse_new(int flags)
     env->flags = flags;
     t_sb_init(&env->err, 1024);
     t_qv_init(&env->subfiles, 0);
+    t_qm_init(yaml_vars, &env->variables, 0);
 
     return env;
 }
@@ -6083,6 +6235,43 @@ Z_GROUP_EXPORT(yaml)
             "  - !tag2 2";
         Z_HELPER_RUN(z_check_yaml_pack(&data, NULL, expected));
         Z_HELPER_RUN(z_check_yaml_pack(&data, &pres, expected));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Variables */
+
+    Z_TEST(variables, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* test replacement of variables */
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a:\n"
+            "  - 1\n"
+            "  - $a\n"
+            "b:\n"
+            "  a: $a\n"
+            "  b: $ab"
+        ));
+        /* FIXME: if inner is a sequence, the override will fail */
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "!include inner.yml\n"
+            "$a: 3\n"
+            "$ab: - 1\n"
+            "     - 2",
+
+            "a:\n"
+            "  - 1\n"
+            "  - 3\n"
+            "b:\n"
+            "  a: 3\n"
+            "  b:\n"
+            "    - 1\n"
+            "    - 2"
+        ));
+        yaml_parse_delete(&env);
     } Z_TEST_END;
 
     /* }}} */
