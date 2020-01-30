@@ -828,7 +828,9 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
 
         pos = qm_find(yaml_vars, variables, &name);
         if (pos < 0) {
-            /* TODO: error */
+            yaml_env_set_err_at(env, &pair->key_span, YAML_ERR_BAD_KEY,
+                                "unknown variable");
+            return -1;
         }
 
         /* Replace every occurrence of the variable with the provided data. */
@@ -6417,6 +6419,27 @@ Z_GROUP_EXPORT(yaml)
             "  b: 4"
         ));
         yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Variable errors */
+
+    Z_TEST(variable_errors, "") {
+        t_scope;
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: $a"
+        ));
+
+        /* unknown variable being set */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include inner.yml\n"
+            "  $b: foo",
+
+            "input.yml:2:3: invalid key, unknown variable\n"
+            "  $b: foo\n"
+            "  ^^"
+        ));
     } Z_TEST_END;
 
     /* }}} */
