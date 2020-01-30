@@ -76,9 +76,27 @@ typedef struct yaml_env_presentation_t {
 /* }}} */
 /* {{{ Variables */
 
-qvector_t(yaml_data_p, yaml_data_t * nonnull);
+typedef struct yaml_variable_t {
+    /* Data using the variable. The set value for the variable will be set
+     * in the data, or replace it. */
+    yaml_data_t *data;
 
-qm_kvec_t(yaml_vars, lstr_t, qv_t(yaml_data_p), qhash_lstr_hash,
+    /* Is the variable in a string, or raw?
+     *
+     * Raw means any AST is valid:
+     *
+     * foo: $bar
+     *
+     * In string means it must be a string value, and will be set in the
+     * data:
+     *
+     * addr: "$host:ip"
+     */
+    bool in_string;
+} yaml_variable_t;
+qvector_t(yaml_variable, yaml_variable_t);
+
+qm_kvec_t(yaml_vars, lstr_t, qv_t(yaml_variable), qhash_lstr_hash,
           qhash_lstr_equal);
 
 /* }}} */
@@ -752,20 +770,23 @@ ps_startswith_yaml_key(pstream_t ps, bool must_be_variable)
 
 static void
 t_yaml_env_add_var(yaml_parse_t * nonnull env, const lstr_t name,
-                   yaml_data_t * nonnull data)
+                   yaml_variable_t var)
 {
     int pos;
-    qv_t(yaml_data_p) *vec;
+    qv_t(yaml_variable) *vec;
 
     pos = qm_reserve(yaml_vars, &env->variables, &name, 0);
     if (pos & QHASH_COLLISION) {
+        logger_trace(&_G.logger, 2, "add new occurrence of variable `%pL`",
+                     &name);
         vec = &env->variables.values[pos & ~QHASH_COLLISION];
     } else {
+        logger_trace(&_G.logger, 2, "add new variable `%pL`", &name);
         env->variables.keys[pos] = t_lstr_dup(name);
         vec = &env->variables.values[pos];
         t_qv_init(vec, 1);
     }
-    qv_append(vec, data);
+    qv_append(vec, var);
 }
 
 static void
@@ -775,6 +796,8 @@ yaml_env_merge_variables(yaml_parse_t * nonnull env,
     qm_for_each_key_value_p(yaml_vars, name, vec, vars) {
         int pos;
 
+        logger_trace(&_G.logger, 2, "add occurrences of variable `%pL` in "
+                     "including document", &name);
         pos = qm_reserve(yaml_vars, &env->variables, &name, 0);
         if (pos & QHASH_COLLISION) {
             qv_extend(&env->variables.values[pos & ~QHASH_COLLISION], vec);
@@ -790,6 +813,7 @@ t_yaml_env_add_variable(yaml_parse_t * nonnull env, const lstr_t val,
 {
     pstream_t ps = ps_initlstr(&val);
     pstream_t name;
+    yaml_variable_t var;
 
     /* check if the line is equal to '$<name>', and capture the name */
     if (ps_skipc(&ps, '$') < 0) {
@@ -802,12 +826,80 @@ t_yaml_env_add_variable(yaml_parse_t * nonnull env, const lstr_t val,
     }
 
     /* add to the env the variable, and the data pointer */
-    t_yaml_env_add_var(env, LSTR_PS_V(&name), data);
+    p_clear(&var, 1);
+    var.data = data;
+    var.in_string = false;
+    t_yaml_env_add_var(env, LSTR_PS_V(&name), var);
 }
 
-static int
-t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
-                     bool only_variables, yaml_data_t *out);
+/* Detect use of $foo in a quoted string, and add those variables in the
+ * env */
+/* TODO: must handle escaping! */
+static void
+t_yaml_env_add_variables_in_string(yaml_parse_t * nonnull env,
+                                   yaml_data_t * nonnull data)
+{
+    pstream_t ps;
+
+    assert (data->type == YAML_DATA_SCALAR
+         && data->scalar.type == YAML_SCALAR_STRING);
+
+    ps = ps_initlstr(&data->scalar.s);
+    for (;;) {
+        pstream_t name;
+
+        if (ps_skip_afterchr(&ps, '$') < 0) {
+            break;
+        }
+
+        name = ps_get_span(&ps, &ctype_isalnum);
+        if (ps_len(&name) > 0) {
+            yaml_variable_t var = {
+                .data = data,
+                .in_string = true,
+            };
+            t_yaml_env_add_var(env, LSTR_PS_V(&name), var);
+        }
+    }
+}
+
+/* Replace occurrences of $name with `value` in `data`. */
+static void
+t_data_set_string_variable(yaml_data_t * nonnull data,
+                           const lstr_t name, const lstr_t value)
+{
+    t_SB_1k(buf);
+    pstream_t ps;
+    pstream_t sub;
+
+    assert (data->type == YAML_DATA_SCALAR
+         && data->scalar.type == YAML_SCALAR_STRING);
+
+    ps = ps_initlstr(&data->scalar.s);
+
+    for (;;) {
+        /* copy up to next '$' */
+        if (ps_get_ps_chr(&ps, '$', &sub) < 0) {
+            /* no next '$', copy everything and stop */
+            sb_add_ps(&buf, ps);
+            break;
+        }
+
+        sb_add_ps(&buf, sub);
+
+        /* TODO: handle multiple variables */
+        ps_skipc(&ps, '$');
+        assert (ps_startswithlstr(&ps, name));
+        ps_skip(&ps, name.len);
+        sb_add_lstr(&buf, value);
+    }
+
+    logger_trace(&_G.logger, 2, "apply replacement %pL=%pL, data value "
+                 "changed from `%pL` to `%pL`", &name, &value,
+                 &data->scalar.s, &buf);
+
+    data->scalar.s = LSTR_SB_V(&buf);
+}
 
 static int
 t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
@@ -834,8 +926,22 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
         }
 
         /* Replace every occurrence of the variable with the provided data. */
-        tab_for_each_entry(elem, &variables->values[pos]) {
-            *elem = pair->data;
+        tab_for_each_ptr(var, &variables->values[pos]) {
+            if (var->in_string) {
+                if (pair->data.type != YAML_DATA_SCALAR
+                ||  pair->data.scalar.type != YAML_SCALAR_STRING)
+                {
+                    yaml_env_set_err_at(
+                        env, &pair->data.span, YAML_ERR_WRONG_DATA,
+                        "this variable can only be set with a string value"
+                    );
+                    return -1;
+                }
+                t_data_set_string_variable(var->data, name,
+                                           pair->data.scalar.s);
+            } else {
+                *var->data = pair->data;
+            }
         }
 
         /* remove the variable from variables, to prevent matching twice,
@@ -846,6 +952,10 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
 
     return 0;
 }
+
+static int
+t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
+                     bool only_variables, yaml_data_t *out);
 
 static int t_yaml_env_handle_variables(yaml_parse_t * nonnull env,
                                        const uint32_t min_indent,
@@ -1413,7 +1523,10 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
 
     yaml_env_start_data(env, YAML_DATA_SCALAR, out);
     if (ps_peekc(env->ps) == '"') {
-        return t_yaml_env_parse_quoted_string(env, out);
+        RETHROW(t_yaml_env_parse_quoted_string(env, out));
+        t_yaml_env_add_variables_in_string(env, out);
+
+        return 0;
     }
 
     /* get scalar string, ie up to newline or comment, or ']' or ',' for flow
@@ -6422,13 +6535,39 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
+    /* {{{ Variables in strings */
+
+    Z_TEST(variables_in_strings, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* test replacement of variables */
+        /* TODO: handle variables in flow context? */
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "- \"foo var is: `$foo`\"\n"
+            "- a: $foo"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "!include inner.yml\n"
+            "$foo: bar",
+
+            "- \"foo var is: `bar`\"\n"
+            "- a: bar"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
     /* {{{ Variable errors */
 
     Z_TEST(variable_errors, "") {
         t_scope;
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
-            "a: $a"
+            "a: $a\n"
+            "s: \"<$s>\""
         ));
 
         /* unknown variable being set */
@@ -6439,6 +6578,17 @@ Z_GROUP_EXPORT(yaml)
             "input.yml:2:3: invalid key, unknown variable\n"
             "  $b: foo\n"
             "  ^^"
+        ));
+
+        /* string-variable being set with wrong type */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include inner.yml\n"
+            "  $s: [ 1, 2 ]",
+
+            "input.yml:2:7: wrong type of data, "
+            "this variable can only be set with a string value\n"
+            "  $s: [ 1, 2 ]\n"
+            "      ^^^^^^^^"
         ));
     } Z_TEST_END;
 
