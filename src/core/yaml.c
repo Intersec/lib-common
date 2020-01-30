@@ -879,11 +879,13 @@ t_data_set_string_variable(yaml_data_t * nonnull data,
 
         sb_add_ps(&buf, sub);
 
-        /* TODO: handle multiple variables */
         ps_skipc(&ps, '$');
-        assert (ps_startswithlstr(&ps, name));
-        ps_skip(&ps, name.len);
-        sb_add_lstr(&buf, value);
+        if (ps_startswithlstr(&ps, name)) {
+            ps_skip(&ps, name.len);
+            sb_add_lstr(&buf, value);
+        } else {
+            sb_addc(&buf, '$');
+        }
     }
 
     logger_trace(&_G.logger, 2, "apply replacement %pL=%pL, data value "
@@ -6540,17 +6542,35 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
             "- \"foo var is: `$foo`\"\n"
             "- <$foo> unquoted also works </$foo>\n"
-            "- a: $foo"
+            "- a: $foo\n"
+            "  b: $foo-$foo-$qux-$foo"
         ));
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
             "!include inner.yml\n"
-            "$foo: bar",
+            "$foo: bar\n"
+            "$qux: c",
 
             "- \"foo var is: `bar`\"\n"
             "- <bar> unquoted also works </bar>\n"
-            "- a: bar"
+            "- a: bar\n"
+            "  b: bar-bar-c-bar"
         ));
         yaml_parse_delete(&env);
+
+        /* test partial modification of templated string */
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml",
+            "addr: \"$host:$port\""
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("child.yml",
+            "!include grandchild.yml\n"
+            "$port: \"80\""
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "!include child.yml\n"
+            "$host: website.org",
+
+            "addr: \"website.org:80\""
+        ));
     } Z_TEST_END;
 
     /* }}} */
