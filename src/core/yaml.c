@@ -392,9 +392,9 @@ static const char *yaml_data_get_data_type(const yaml_data_t *data)
     return "";
 }
 
-static lstr_t yaml_data_get_span_lstr(const yaml_span_t * nonnull span)
+lstr_t yaml_span_to_lstr(const yaml_span_t * nonnull span)
 {
-    return LSTR_INIT_V(span->start.s, span->end.s - span->start.s);
+    return LSTR_PTR_V(span->start.s, span->end.s);
 }
 
 static uint32_t yaml_env_get_column_nb(const yaml_parse_t *env)
@@ -670,7 +670,7 @@ static void log_new_data(const yaml_data_t * nonnull data)
                     YAML_POS_ARG(data->span.start),
                     YAML_POS_ARG(data->span.end));
         if (data->type == YAML_DATA_SCALAR) {
-            lstr_t span = yaml_data_get_span_lstr(&data->span);
+            lstr_t span = yaml_span_to_lstr(&data->span);
 
             logger_cont(": %pL", &span);
         }
@@ -922,17 +922,23 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
         /* Replace every occurrence of the variable with the provided data. */
         tab_for_each_ptr(var, &variables->values[pos]) {
             if (var->in_string) {
-                if (pair->data.type != YAML_DATA_SCALAR
-                ||  pair->data.scalar.type != YAML_SCALAR_STRING)
+                lstr_t value;
+
+                if (pair->data.type != YAML_DATA_SCALAR)
                 {
                     yaml_env_set_err_at(
                         env, &pair->data.span, YAML_ERR_WRONG_DATA,
-                        "this variable can only be set with a string value"
+                        "this variable can only be set with a scalar"
                     );
                     return -1;
                 }
-                t_data_set_string_variable(var->data, name,
-                                           pair->data.scalar.s);
+
+                if (pair->data.scalar.type == YAML_SCALAR_STRING) {
+                    value = pair->data.scalar.s;
+                } else {
+                    value = yaml_span_to_lstr(&pair->data.span);
+                }
+                t_data_set_string_variable(var->data, name, value);
             } else {
                 *var->data = pair->data;
             }
@@ -6563,7 +6569,7 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(z_write_yaml_file("child.yml",
             "!include grandchild.yml\n"
-            "$port: \"80\""
+            "$port: 80"
         ));
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
             "!include child.yml\n"
@@ -6601,7 +6607,7 @@ Z_GROUP_EXPORT(yaml)
             "  $s: [ 1, 2 ]",
 
             "input.yml:2:7: wrong type of data, "
-            "this variable can only be set with a string value\n"
+            "this variable can only be set with a scalar\n"
             "  $s: [ 1, 2 ]\n"
             "      ^^^^^^^^"
         ));
@@ -6610,7 +6616,7 @@ Z_GROUP_EXPORT(yaml)
             "  $t: [ 1, 2 ]",
 
             "input.yml:2:7: wrong type of data, "
-            "this variable can only be set with a string value\n"
+            "this variable can only be set with a scalar\n"
             "  $t: [ 1, 2 ]\n"
             "      ^^^^^^^^"
         ));

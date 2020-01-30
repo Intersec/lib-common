@@ -150,8 +150,7 @@ static void
 t_set_string_from_stream(const yaml_data_t * nonnull data,
                          lstr_t * nonnull out)
 {
-    *out = t_lstr_dups(data->span.start.s,
-                       data->span.end.s - data->span.start.s);
+    *out = t_lstr_dup(yaml_span_to_lstr(&data->span));
 }
 
 static yunpack_res_t

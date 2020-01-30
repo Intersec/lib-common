@@ -138,6 +138,9 @@ struct yaml_seq_t {
 const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data,
                                         bool ignore_tag);
 
+/** Return a lstr set to the contents described by the span. */
+lstr_t yaml_span_to_lstr(const yaml_span_t * nonnull span);
+
 /* }}} */
 /* {{{ Parsing */
 
