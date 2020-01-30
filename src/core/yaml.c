@@ -729,8 +729,12 @@ ps_startswith_yaml_key(pstream_t ps, bool must_be_variable)
 {
     pstream_t key;
 
-    if (must_be_variable && ps_skipc(&ps, '$') < 0) {
-        return false;
+    if (ps_peekc(ps) == '$') {
+        ps_skipc(&ps, '$');
+    } else {
+        if (must_be_variable) {
+            return false;
+        }
     }
 
     key = ps_get_span(&ps, &ctype_isalnum);
@@ -1130,8 +1134,8 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
 /* {{{ Obj */
 
 static int
-yaml_env_parse_key(yaml_parse_t * nonnull env, bool allow_variable,
-                   lstr_t * nonnull key, yaml_span_t * nonnull key_span,
+yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
+                   yaml_span_t * nonnull key_span,
                    yaml__presentation_node__t * nonnull * nullable node)
 {
     pstream_t ps_key;
@@ -1144,7 +1148,7 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, bool allow_variable,
     }
 
     start = env->ps.s;
-    if (allow_variable && ps_peekc(env->ps) == '$') {
+    if (ps_peekc(env->ps) == '$') {
         IGNORE(ps_skipc(&env->ps, '$'));
     }
     ps_skip_span(&env->ps, &ctype_isalnum);
@@ -1195,8 +1199,12 @@ t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
             }
         }
 
-        RETHROW(yaml_env_parse_key(env, only_variables, &key, &key_span,
-                                   &node));
+        RETHROW(yaml_env_parse_key(env, &key, &key_span, &node));
+        if (!only_variables && lstr_startswith(key, LSTR("$"))) {
+            return yaml_env_set_err_at(env, &key_span, YAML_ERR_BAD_KEY,
+                                       "cannot specify a variable value in "
+                                       "this context");
+        }
 
         kd = qv_growlen0(&fields, 1);
         kd->key = key;
@@ -1592,7 +1600,13 @@ static int t_yaml_env_parse_flow_key_val(yaml_parse_t *env,
 {
     yaml_key_data_t kd;
 
-    RETHROW(yaml_env_parse_key(env, false, &out->key, &out->key_span, NULL));
+    RETHROW(yaml_env_parse_key(env, &out->key, &out->key_span, NULL));
+    if (lstr_startswith(out->key, LSTR("$"))) {
+        return yaml_env_set_err_at(env, &out->key_span, YAML_ERR_BAD_KEY,
+                                   "cannot specify a variable value in "
+                                   "this context");
+    }
+
     RETHROW(yaml_env_ltrim(env));
     RETHROW(t_yaml_env_parse_flow_key_data(env, &kd));
     if (kd.key.s) {
@@ -4469,6 +4483,32 @@ Z_GROUP_EXPORT(yaml)
             "<string>:1:7: wrong type of data, unexpected colon\n"
             "{ a: b: c }\n"
             "      ^"
+        ));
+
+        /* Cannot use variables as keys outside of override context */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "$var: 3",
+
+            "<string>:1:1: invalid key, "
+            "cannot specify a variable value in this context\n"
+            "$var: 3\n"
+            "^^^^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "obj: { a: 2, $var: 3 }",
+
+            "<string>:1:14: invalid key, "
+            "cannot specify a variable value in this context\n"
+            "obj: { a: 2, $var: 3 }\n"
+            "             ^^^^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "obj: [ $var: 3 ]",
+
+            "<string>:1:8: invalid key, "
+            "cannot specify a variable value in this context\n"
+            "obj: [ $var: 3 ]\n"
+            "       ^^^^"
         ));
     } Z_TEST_END;
 
