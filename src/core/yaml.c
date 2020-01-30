@@ -963,7 +963,10 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
         logger_trace(&_G.logger, 2, "parsing subfile %pL", &data->scalar.s);
     }
 
-    subfile = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
+    subfile = t_yaml_parse_new(
+        YAML_PARSE_GEN_PRES_DATA
+      | YAML_PARSE_ALLOW_UNBOUND_VARIABLES
+    );
     if (t_yaml_parse_attach_file(subfile, t_fmt("%pL", &data->scalar.s),
                                  dirpath, &err) < 0)
     {
@@ -2118,6 +2121,25 @@ t_yaml_parse_attach_file(yaml_parse_t *env, const char *filepath,
     return 0;
 }
 
+static void
+set_unbound_variables_err(yaml_parse_t *env)
+{
+    SB_1k(buf);
+
+    /* build list of unbound variable names */
+    qm_for_each_key(yaml_vars, name, &env->variables) {
+        if (buf.len > 0) {
+            sb_adds(&buf, ", ");
+        }
+        sb_add_lstr(&buf, name);
+    }
+
+    /* TODO: maybe pretty printing the locations of the unbound variables
+     * would be useful */
+    sb_setf(&env->err, "the document is invalid: "
+            "there are unbound variables: %pL", &buf);
+}
+
 int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
 {
     pstream_t saved_ps = env->ps;
@@ -2137,6 +2159,14 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
     if (!ps_done(&env->ps)) {
         yaml_env_set_err(env, YAML_ERR_EXTRA_DATA,
                          "expected end of document");
+        res = -1;
+        goto end;
+    }
+
+    if (qm_len(yaml_vars, &env->variables) > 0
+    &&  !(env->flags & YAML_PARSE_ALLOW_UNBOUND_VARIABLES))
+    {
+        set_unbound_variables_err(env);
         res = -1;
         goto end;
     }
@@ -4509,6 +4539,19 @@ Z_GROUP_EXPORT(yaml)
             "cannot specify a variable value in this context\n"
             "obj: [ $var: 3 ]\n"
             "       ^^^^"
+        ));
+
+        /* Unbound variables are rejected by default */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "key: $var",
+
+            "the document is invalid: there are unbound variables: var"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(
+            "- $a\n"
+            "- $boo",
+
+            "the document is invalid: there are unbound variables: a, boo"
         ));
     } Z_TEST_END;
 

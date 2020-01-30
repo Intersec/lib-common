@@ -120,8 +120,14 @@ repack_yaml(const char * nullable filename, const iop_dso_t * nullable dso,
     yaml_data_t data;
     lstr_t file = LSTR_NULL_V;
     int res = 0;
+    unsigned flags = YAML_PARSE_GEN_PRES_DATA;
 
-    env = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
+    if (!dso && !st) {
+        /* no IOP validation, so variables can be unbound */
+        flags |= YAML_PARSE_ALLOW_UNBOUND_VARIABLES;
+    }
+
+    env = t_yaml_parse_new(flags);
     if (filename) {
         if (t_yaml_parse_attach_file(env, filename, NULL, err) < 0) {
             res = -1;

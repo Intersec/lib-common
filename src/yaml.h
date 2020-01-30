@@ -148,6 +148,22 @@ typedef enum yaml_parse_flags_t {
      * t_yaml_data_get_presentation.
      */
     YAML_PARSE_GEN_PRES_DATA = 1 << 0,
+
+    /** Allow unset variables in the parsed AST.
+     *
+     * YAML documents can have variables, that can be set by other including
+     * YAML documents. Usually, when parsing a yaml file for consumption,
+     * we need to AST to be complete, and thus to have all variables be
+     * properly set.
+     *
+     * However, when manipulating the YAML files themselves, keeping the
+     * variables unbound is required. This flag activates this behavior,
+     * and do not reject documents with unbound variables.
+     *
+     * \warning Do not use this flag if the parsed YAML data is to be
+     * interpreted.
+     */
+    YAML_PARSE_ALLOW_UNBOUND_VARIABLES = 1 << 1,
 } yaml_parse_flags_t;
 
 /** Create a new YAML parsing object.
