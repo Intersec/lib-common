@@ -120,6 +120,17 @@ struct PresentationNode {
 
     /** If set, the node was parsed from an included file. */
     PresentationInclude? included;
+
+    /** If set, this contains the value of the node pre-templating.
+     *
+     * If set, this node was modified through variables, and this field
+     * contains the original value of the node.
+     *
+     * \warning The node may have been modified multiple times if it contains
+     * multiple arguments, or it may be partial. This field contains the
+     * original string, and not any partial substitution done afterwards.
+     */
+    string? valueWithVariables;
 };
 
 /* }}} */
@@ -192,6 +203,8 @@ struct PresentationInclude {
     DocumentPresentation documentPresentation;
 
     PresentationOverride? override;
+
+    PresentationVariableSettings? variables;
 };
 
 /* }}} */
@@ -254,6 +267,23 @@ struct PresentationOverride {
      * the override data with the same presentation details.
      */
     DocumentPresentation presentation;
+};
+
+/* }}} */
+/* {{{ Variables presentation */
+
+/** Description of a variable settings data.
+ *
+ * The presentation of a variable settings stores the information that is
+ * needed to properly recreate the nodes settings the varialbes on packing.
+ *
+ * It stores the names of the variables set. Packing the inner AST with reuse
+ * the original, pre-substitution values, and use them to deduce the variable
+ * values.
+ */
+struct PresentationVariableSettings {
+    /** Names of variables set. */
+    string[] names;
 };
 
 /* }}} */
