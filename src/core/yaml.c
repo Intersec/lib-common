@@ -3752,17 +3752,24 @@ t_yaml_pack_included_subfile(
 }
 
 static int
-t_yaml_pack_variable_settings(yaml_pack_env_t * nonnull env,
-                              qm_t(active_vars) * nonnull vars)
+t_yaml_pack_variable_settings(
+    yaml_pack_env_t * nonnull env,
+    const yaml__presentation_variable_settings__t *var_pres,
+    qm_t(active_vars) * nonnull vars)
 {
     yaml_data_t data;
     const yaml_presentation_t *pres = NULL;
     int res;
 
-    t_yaml_data_new_obj(&data, qm_len(active_vars, vars));
-    qm_for_each_key_value_p(active_vars, name, var, vars) {
-        lstr_t var_name = t_lstr_fmt("$%pL", &name);
+    assert (var_pres->names.len == qm_len(active_vars, vars));
+    t_yaml_data_new_obj(&data, var_pres->names.len);
+    /* Iterate on the array and not the qm, to recreate the variable settings
+     * in the right order. */
+    tab_for_each_ptr(name, &var_pres->names) {
+        lstr_t var_name = t_lstr_fmt("$%pL", name);
+        const yaml_variable_value_t *var;
 
+        var = qm_get_p(active_vars, vars, name);
         if (var->data) {
             yaml_obj_add_field(&data, var_name, *var->data);
         }
@@ -3810,7 +3817,8 @@ t_yaml_pack_include_with_override(
     res += RETHROW(t_yaml_pack_included_subfile(env, inc, subdata));
 
     if (inc->variables) {
-        res += RETHROW(t_yaml_pack_variable_settings(env, &vars));
+        res += RETHROW(t_yaml_pack_variable_settings(env, inc->variables,
+                                                     &vars));
         qv_remove_last(&env->active_vars);
     }
 
@@ -6738,6 +6746,50 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("variables_2/child.yml", child));
         Z_HELPER_RUN(z_check_file("variables_2/grandchild.yml", grandchild));
 
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Variable used multiple times */
+
+    Z_TEST(variable_multiple, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+        const char *child;
+        const char *grandchild;
+
+        /* test replacement of variables */
+        grandchild =
+            "key: $var\n"
+            "key2: $var2\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+        child =
+            "inc: !include grandchild.yml\n"
+            "  $var: 1\n"
+            "other: $var\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "all: !include child.yml\n"
+            "  $var: 2\n"
+            "  $var2: 3\n";
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            root,
+
+            "all:\n"
+            "  inc:\n"
+            "    key: 1\n"
+            "    key2: 3\n"
+            "  other: 2"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_mul/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("var_mul/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_mul/child.yml", child));
+        Z_HELPER_RUN(z_check_file("var_mul/grandchild.yml", grandchild));
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
