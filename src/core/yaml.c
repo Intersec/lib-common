@@ -2419,6 +2419,8 @@ typedef struct yaml_variable_value_t {
 qm_kvec_t(active_vars, lstr_t, yaml_variable_value_t, qhash_lstr_hash,
           qhash_lstr_equal);
 
+qvector_t(active_vars, qm_t(active_vars));
+
 /* }}} */
 /* }}} */
 
@@ -2523,8 +2525,7 @@ typedef struct yaml_pack_env_t {
      * override, and matching variable values should thus be done in reverse
      * order.
      */
-    /* TODO: do the stack and test it */
-    qm_t(active_vars) active_vars;
+    qv_t(active_vars) active_vars;
 } yaml_pack_env_t;
 
 static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
@@ -3751,21 +3752,21 @@ t_yaml_pack_included_subfile(
 }
 
 static int
-t_yaml_pack_variable_settings(yaml_pack_env_t * nonnull env)
+t_yaml_pack_variable_settings(yaml_pack_env_t * nonnull env,
+                              qm_t(active_vars) * nonnull vars)
 {
     yaml_data_t data;
     const yaml_presentation_t *pres = NULL;
     int res;
 
-    t_yaml_data_new_obj(&data, qm_len(active_vars, &env->active_vars));
-    qm_for_each_key_value_p(active_vars, name, var, &env->active_vars) {
+    t_yaml_data_new_obj(&data, qm_len(active_vars, vars));
+    qm_for_each_key_value_p(active_vars, name, var, vars) {
         lstr_t var_name = t_lstr_fmt("$%pL", &name);
 
         if (var->data) {
             yaml_obj_add_field(&data, var_name, *var->data);
         }
     }
-    qm_clear(active_vars, &env->active_vars);
 
     if (data.obj->fields.len == 0) {
         return 0;
@@ -3785,6 +3786,7 @@ t_yaml_pack_include_with_override(
     const yaml_data_t * nonnull subdata)
 {
     yaml_pack_override_t *override = NULL;
+    qm_t(active_vars) vars;
     int res = 0;
 
     /* add current override if it exists, so that it is used when the subdata
@@ -3795,18 +3797,21 @@ t_yaml_pack_include_with_override(
                                              override);
     }
     if (inc->variables) {
+        t_qm_init(active_vars, &vars, inc->variables->names.len);
+
         tab_for_each_entry(name, &inc->variables->names) {
             yaml_variable_value_t var = {0};
 
-            /* TODO: handle multiple overrides */
-            qm_add(active_vars, &env->active_vars, &name, var);
+            qm_add(active_vars, &vars, &name, var);
         }
+        qv_append(&env->active_vars, vars);
     }
 
     res += RETHROW(t_yaml_pack_included_subfile(env, inc, subdata));
 
     if (inc->variables) {
-        res += RETHROW(t_yaml_pack_variable_settings(env));
+        res += RETHROW(t_yaml_pack_variable_settings(env, &vars));
+        qv_remove_last(&env->active_vars);
     }
 
     if (override) {
@@ -3864,22 +3869,27 @@ t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
 {
     yaml_variable_value_t *var;
 
-    var = qm_get_def_p(active_vars, &env->active_vars, &var_name, NULL);
-    if (!var) {
-        return -1;
-    }
+    tab_for_each_pos_rev(var_pos, &env->active_vars) {
+        const qm_t(active_vars) *vars = &env->active_vars.tab[var_pos];
 
-    logger_trace(&_G.logger, 2, "deduced value for variable `%pL` to %s",
-                 &var_name, yaml_data_get_type(data, false));
-
-    if (var) {
-        if (var->data) {
-            /* TODO: handle collisions */
+        var = qm_get_def_p_safe(active_vars, vars, &var_name, NULL);
+        if (!var) {
+            continue;
         }
-        var->data = data;
+
+        logger_trace(&_G.logger, 2, "deduced value for variable `%pL` to %s",
+                     &var_name, yaml_data_get_type(data, false));
+
+        if (var) {
+            if (var->data) {
+                /* TODO: handle collisions */
+            }
+            var->data = data;
+            return 0;
+        }
     }
 
-    return 0;
+    return -1;
 }
 
 /* Deduce values for active variables, by comparing the original string
@@ -4014,7 +4024,7 @@ yaml_pack_env_t * nonnull t_yaml_pack_env_new(void)
     t_sb_init(&env->absolute_path, 1024);
     t_sb_init(&env->err, 1024);
     t_qv_init(&env->overrides, 0);
-    t_qm_init(active_vars, &env->active_vars, 0);
+    t_qv_init(&env->active_vars, 0);
 
     return env;
 }
@@ -6654,6 +6664,8 @@ Z_GROUP_EXPORT(yaml)
         yaml_parse_t *env;
         const char *inner;
         const char *root;
+        const char *child;
+        const char *grandchild;
 
         /* test replacement of variables */
         inner =
@@ -6691,20 +6703,41 @@ Z_GROUP_EXPORT(yaml)
         yaml_parse_delete(&env);
 
         /* test combination of variables settings + override */
-        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+        grandchild =
             "var: $var\n"
+            "var2: $var2\n"
             "a: 0\n"
-            "b: 1"
-        ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
-            "- !include inner.yml\n"
+            "b: 1\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+        child =
+            "key: !include grandchild.yml\n"
             "  $var: 3\n"
-            "  b: 4",
+            /* FIXME: we should be able to say "b: $var2" here, but it does
+             * not work currently */
+            "  b: 5\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "!include child.yml\n"
+            "$var2: 4\n"
+            "key:\n"
+            "  a: a\n"
+            "  var: 1\n";
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            root,
 
-            "- var: 3\n"
-            "  a: 0\n"
-            "  b: 4"
+            "key:\n"
+            "  var: 1\n"
+            "  var2: 4\n"
+            "  a: a\n"
+            "  b: 5"
         ));
+
+        Z_HELPER_RUN(z_pack_yaml_file("variables_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("variables_2/root.yml", root));
+        Z_HELPER_RUN(z_check_file("variables_2/child.yml", child));
+        Z_HELPER_RUN(z_check_file("variables_2/grandchild.yml", grandchild));
+
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
