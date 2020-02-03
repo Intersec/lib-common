@@ -4047,11 +4047,9 @@ deduce_var_in_string(lstr_t tpl, lstr_t value, lstr_t * nonnull var_name,
             break;
         } else
         if (ps_done(&val_ps)) {
-            /* TODO: handle mismatch */
             return -1;
         } else
         if (c != ps_getc(&val_ps)) {
-            /* TODO: handle mismatch */
             return -1;
         }
     }
@@ -4120,7 +4118,6 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env, lstr_t var_string,
         pstream_t name;
 
         if (ps_skipc(&tpl_ps, '$') < 0) {
-            /* TODO: handle mismatch */
             return -1;
         }
         name = ps_get_span(&tpl_ps, &ctype_isalnum);
@@ -4170,15 +4167,21 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
     }
 
     if (node) {
-        if (node->value_with_variables.s
-        &&  t_deduce_variable_values(env, node->value_with_variables,
-                                     data) >= 0)
-        {
-            yaml_data_t *new_data = t_new(yaml_data_t, 1);
+        if (node->value_with_variables.s) {
+            if (t_deduce_variable_values(env, node->value_with_variables,
+                                         data) >= 0)
+            {
+                yaml_data_t *new_data = t_new(yaml_data_t, 1);
 
-            yaml_data_set_string(new_data, node->value_with_variables);
-            data = new_data;
+                yaml_data_set_string(new_data, node->value_with_variables);
+                data = new_data;
+            } else {
+                logger_trace(&_G.logger, 2, "change to template `%pL` "
+                             "not handled: template is lost",
+                             &node->value_with_variables);
+            }
         }
+
         res += yaml_pack_pres_node_prefix(env, node);
     }
 
@@ -4765,6 +4768,19 @@ static int z_check_prefix_comments(const yaml_presentation_t * nonnull pres,
         Z_ASSERT_LSTREQUAL(comments[pos], pnode->prefix_comments.tab[pos],
                            "prefix comment number #%d differs", pos);
     }
+
+    Z_HELPER_END;
+}
+
+static int
+z_test_var_in_str_change(const yaml_data_t * nonnull data,
+                         const yaml__document_presentation__t * nonnull pres,
+                         const char * nonnull root,
+                         const char * nonnull inner)
+{
+    Z_HELPER_RUN(z_pack_yaml_file("vc_str/root.yml", data, pres, 0));
+    Z_HELPER_RUN(z_check_file("vc_str/root.yml", root));
+    Z_HELPER_RUN(z_check_file("vc_str/inner.yml", inner));
 
     Z_HELPER_END;
 }
@@ -6863,9 +6879,9 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
-    /* {{{ Variables */
+    /* {{{ Variable */
 
-    Z_TEST(variables, "") {
+    Z_TEST(variable, "") {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -6994,9 +7010,9 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
-    /* {{{ Variables in strings */
+    /* {{{ Variable in string */
 
-    Z_TEST(variables_in_strings, "") {
+    Z_TEST(variable_in_string, "") {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -7101,6 +7117,172 @@ Z_GROUP_EXPORT(yaml)
             "  $t: [ 1, 2 ]\n"
             "      ^^^^^^^^"
         ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Raw variable modification handling */
+
+    Z_TEST(raw_variable_modif, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: $var"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "!include inner.yml\n"
+            "$var:\n"
+            "  b: 1\n"
+            "  c: 2",
+
+            "a:\n"
+            "  b: 1\n"
+            "  c: 2"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("vm_raw_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vm_raw_1/root.yml",
+            "!include inner.yml\n"
+            "$var:\n"
+            "  b: 1\n"
+            "  c: 2\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vm_raw_1/inner.yml",
+            "a: $var\n"
+        ));
+
+        /* any change to the AST is properly handled */
+        yaml_data_set_null(&data.obj->fields.tab[0].data);
+        Z_HELPER_RUN(z_pack_yaml_file("vm_raw_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vm_raw_2/root.yml",
+            "!include inner.yml\n"
+            "$var: ~\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vm_raw_2/inner.yml",
+            "a: $var\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ variable in string modification handling */
+
+    Z_TEST(variable_in_string_modif, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: <$var>"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "!include inner.yml\n"
+            "$var: yare",
+
+            "a: <yare>"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
+            "!include inner.yml\n"
+            "$var: yare\n",
+
+            "a: <$var>\n"
+        ));
+
+        /* changing the value while still matching the template will work */
+        data.obj->fields.tab[0].data.scalar.s = LSTR("<daze>");
+        Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
+            "!include inner.yml\n"
+            "$var: daze\n",
+
+            "a: <$var>\n"
+        ));
+
+        /* changing the value and not matching the template will lose the
+         * var */
+        data.obj->fields.tab[0].data.scalar.s = LSTR("<daze");
+        Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
+            "!include inner.yml\n",
+
+            "a: <daze\n"
+        ));
+
+        data.obj->fields.tab[0].data.scalar.s = LSTR("");
+        Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
+            "!include inner.yml\n",
+
+            "a: \"\"\n"
+        ));
+
+        data.obj->fields.tab[0].data.scalar.s = LSTR("d");
+        Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
+            "!include inner.yml\n",
+
+            "a: d\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ multiple variables modification handling */
+
+    Z_TEST(variable_multiple_modif, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: $par $ker"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "!include inner.yml\n"
+            "$par: \" he \"\n"
+            "$ker: roes",
+
+            "a: \" he  roes\""
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("vm_mul_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vm_mul_1/root.yml",
+            "!include inner.yml\n"
+            "$par: \" he \"\n"
+            "$ker: roes\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vm_mul_1/inner.yml",
+            "a: $par $ker\n"
+        ));
+
+        /* changing the value will always lose the variables */
+        data.obj->fields.tab[0].data.scalar.s = LSTR("her oes");
+
+        Z_HELPER_RUN(z_pack_yaml_file("vm_mul_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vm_mul_2/root.yml",
+            "!include inner.yml\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vm_mul_2/inner.yml",
+            "a: her oes\n"
+        ));
+        yaml_parse_delete(&env);
     } Z_TEST_END;
 
     /* }}} */
