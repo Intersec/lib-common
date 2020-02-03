@@ -3900,6 +3900,60 @@ t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
     return -1;
 }
 
+/* Deduce value of a variable inside a string. The template can be:
+ *
+ * - a raw variable: a: $var
+ * - a templated string with a single variable: a: "a_$var_b"
+ * - a templated string with multiple variables: a: "$var_$foo"
+ *
+ * We will handle the first two cases, not the last one.
+ */
+static int
+deduce_var_in_string(lstr_t tpl, lstr_t value, lstr_t * nonnull var_name,
+                     lstr_t * nonnull var_value)
+{
+    pstream_t tpl_ps = ps_initlstr(&tpl);
+    pstream_t val_ps = ps_initlstr(&value);
+    pstream_t name;
+
+    /* advance both streams until the variable or a mismatch is found */
+    while (!ps_done(&tpl_ps)) {
+        int c = ps_getc(&tpl_ps);
+
+        /* TODO: handle escaping */
+        if (c == '$') {
+            break;
+        } else
+        if (ps_done(&val_ps)) {
+            /* TODO: handle mismatch */
+            return -1;
+        } else
+        if (c != ps_getc(&val_ps)) {
+            /* TODO: handle mismatch */
+            return -1;
+        }
+    }
+
+    /* capture name of variable */
+    name = ps_get_span(&tpl_ps, &ctype_isalnum);
+    if (ps_len(&name) <= 0) {
+        return -1;
+    }
+
+    /* check if the rest of the template after the variable matches
+     * the value. If not, it means either the value changed, or there are
+     * multiple variables. */
+    value = LSTR_PS_V(&val_ps);
+    if (!lstr_endswith(value, LSTR_PS_V(&tpl_ps))) {
+        return -1;
+    }
+    value.len -= ps_len(&tpl_ps);
+
+    *var_name = LSTR_PS_V(&name);
+    *var_value = value;
+    return 0;
+}
+
 /* Deduce values for active variables, by comparing the original string
  * containing variables, with the value of the AST.
  *
@@ -3917,19 +3971,39 @@ static int
 t_deduce_variable_values(yaml_pack_env_t * nonnull env, lstr_t var_string,
                          const yaml_data_t * nonnull data)
 {
-    pstream_t ps = ps_initlstr(&var_string);
-    pstream_t name;
+    if (data->type == YAML_DATA_SCALAR
+    &&  data->scalar.type == YAML_SCALAR_STRING)
+    {
+        lstr_t var_name;
+        lstr_t var_value;
+        yaml_data_t *var_data;
 
-    /* TODO: handle more cases than just "$name" */
-    if (ps_skipc(&ps, '$') < 0) {
-        return -1;
-    }
-    name = ps_get_span(&ps, &ctype_isalnum);
-    if (ps_len(&name) <= 0 || !ps_done(&ps)) {
-        return -1;
-    }
+        if (deduce_var_in_string(var_string, data->scalar.s, &var_name,
+                                 &var_value) < 0)
+        {
+            return -1;
+        }
+        var_data = t_new(yaml_data_t, 1);
+        yaml_data_set_string(var_data, var_value);
 
-    return t_apply_variable_value(env, LSTR_PS_V(&name), data);
+        return t_apply_variable_value(env, var_name, var_data);
+    } else {
+        /* If data is not a string, it should be matched on a template
+         * containing only the variable, ie "$name". */
+        pstream_t tpl_ps = ps_initlstr(&var_string);
+        pstream_t name;
+
+        if (ps_skipc(&tpl_ps, '$') < 0) {
+            /* TODO: handle mismatch */
+            return -1;
+        }
+        name = ps_get_span(&tpl_ps, &ctype_isalnum);
+        if (ps_len(&name) <= 0 || !ps_done(&tpl_ps)) {
+            return -1;
+        }
+
+        return t_apply_variable_value(env, LSTR_PS_V(&name), data);
+    }
 }
 
 /* }}} */
@@ -6764,7 +6838,7 @@ Z_GROUP_EXPORT(yaml)
         /* test replacement of variables */
         grandchild =
             "key: $var\n"
-            "key2: $var2\n";
+            "key2: var2 is <$var2>\n";
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
         child =
             "inc: !include grandchild.yml\n"
@@ -6781,7 +6855,7 @@ Z_GROUP_EXPORT(yaml)
             "all:\n"
             "  inc:\n"
             "    key: 1\n"
-            "    key2: 3\n"
+            "    key2: var2 is <3>\n"
             "  other: 2"
         ));
 
@@ -6879,6 +6953,49 @@ Z_GROUP_EXPORT(yaml)
             "  $t: [ 1, 2 ]\n"
             "      ^^^^^^^^"
         ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ deduce_var_in_string */
+
+    Z_TEST(deduce_var_in_string, "") {
+
+#define TST(tpl, value, exp_var_name, exp_var_value)                         \
+        do {                                                                 \
+            lstr_t var_name;                                                 \
+            lstr_t var_value;                                                \
+                                                                             \
+            Z_ASSERT_N(deduce_var_in_string(LSTR(tpl), LSTR(value),          \
+                                            &var_name, &var_value),          \
+                       "tpl: %s, var: %s failed", (tpl), (value));           \
+            Z_ASSERT_LSTREQUAL(var_name, LSTR(exp_var_name));                \
+            Z_ASSERT_LSTREQUAL(var_value, LSTR(exp_var_value));              \
+        } while(0)
+
+#define TST_ERR(tpl, value)                                                  \
+        do {                                                                 \
+            lstr_t var_name;                                                 \
+            lstr_t var_value;                                                \
+                                                                             \
+            Z_ASSERT_NEG(deduce_var_in_string(LSTR(tpl), LSTR(value),        \
+                                              &var_name, &var_value));       \
+        } while(0)
+
+        TST_ERR("name", "foo");
+        TST_ERR("$", "foo");
+        TST_ERR("$_", "_");
+        TST("$name", "foo", "name", "foo");
+        TST("$name", "", "name", "");
+        TST("_$name_", "_foo_", "name", "foo");
+        TST("_$name_", "__", "name", "");
+        TST_ERR("_$name_", "_");
+        TST_ERR("_$name_", "_foo_a");
+
+        TST("_$name", "_foo_", "name", "foo_");
+        TST("$name_", "_foo_", "name", "_foo");
+
+#undef TST_ERR
+#undef TST
     } Z_TEST_END;
 
     /* }}} */
