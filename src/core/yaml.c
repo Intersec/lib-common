@@ -902,15 +902,29 @@ t_data_set_string_variable(yaml_data_t * nonnull data,
     data->scalar.s = LSTR_SB_V(&buf);
 }
 
+qvector_t(var_binding, yaml__presentation_variable_binding__t);
+
+static void
+add_var_binding(lstr_t var_name, const lstr_t value,
+                qv_t(var_binding) * nonnull bindings)
+{
+    yaml__presentation_variable_binding__t *binding = qv_growlen(bindings, 1);
+
+    iop_init(yaml__presentation_variable_binding, binding);
+    binding->var_name = var_name;
+    binding->value = value;
+}
+
 static int
 t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
                              yaml_data_t * nonnull override,
                              qm_t(yaml_vars) * nonnull variables,
-                             qv_t(lstr) * nullable variables_names)
+                             qv_t(var_binding) * nullable bindings)
 {
     assert (override->type == YAML_DATA_OBJ);
 
     tab_for_each_ptr(pair, &override->obj->fields) {
+        lstr_t string_value = LSTR_NULL_V;
         lstr_t name;
         int pos;
 
@@ -919,9 +933,6 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
         }
 
         name = LSTR_INIT_V(pair->key.s + 1, pair->key.len - 1);
-        if (variables_names) {
-            qv_append(variables_names, name);
-        }
 
         pos = qm_find(yaml_vars, variables, &name);
         if (pos < 0) {
@@ -933,26 +944,30 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
         /* Replace every occurrence of the variable with the provided data. */
         tab_for_each_ptr(var, &variables->values[pos]) {
             if (var->in_string) {
-                lstr_t value;
+                if (!string_value.s) {
+                    if (pair->data.type != YAML_DATA_SCALAR) {
+                        yaml_env_set_err_at(
+                            env, &pair->data.span, YAML_ERR_WRONG_DATA,
+                            "this variable can only be set with a scalar"
+                        );
+                        return -1;
+                    }
 
-                if (pair->data.type != YAML_DATA_SCALAR)
-                {
-                    yaml_env_set_err_at(
-                        env, &pair->data.span, YAML_ERR_WRONG_DATA,
-                        "this variable can only be set with a scalar"
-                    );
-                    return -1;
+                    if (pair->data.scalar.type == YAML_SCALAR_STRING) {
+                        string_value = pair->data.scalar.s;
+                    } else {
+                        string_value = yaml_span_to_lstr(&pair->data.span);
+                    }
                 }
-
-                if (pair->data.scalar.type == YAML_SCALAR_STRING) {
-                    value = pair->data.scalar.s;
-                } else {
-                    value = yaml_span_to_lstr(&pair->data.span);
-                }
-                t_data_set_string_variable(var->data, name, value);
+                t_data_set_string_variable(var->data, name, string_value);
             } else {
                 *var->data = pair->data;
+
             }
+        }
+
+        if (bindings) {
+            add_var_binding(name, string_value, bindings);
         }
 
         /* remove the variable from variables, to prevent matching twice,
@@ -1000,15 +1015,17 @@ t_yaml_env_handle_variables(yaml_parse_t * nonnull env,
                  YAML_POS_ARG(data.span.start), YAML_POS_ARG(data.span.end));
 
     if (pres) {
-        qv_t(lstr) variables_names;
+        qv_t(var_binding) bindings;
 
-        t_qv_init(&variables_names, data.obj->fields.len);
+        t_qv_init(&bindings, data.obj->fields.len);
 
         RETHROW(t_yaml_env_replace_variables(env, &data, variables,
-                                             &variables_names));
+                                             &bindings));
 
         pres->variables = t_iop_new(yaml__presentation_variable_settings);
-        pres->variables->names = IOP_TYPED_ARRAY_TAB(lstr, &variables_names);
+        pres->variables->bindings
+            = IOP_TYPED_ARRAY_TAB(yaml__presentation_variable_binding,
+                                  &bindings);
     } else {
         RETHROW(t_yaml_env_replace_variables(env, &data, variables, NULL));
     }
@@ -2410,13 +2427,22 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
 /* {{{ Variables */
 
 /** Deduced value of a variable. */
-typedef struct yaml_variable_value_t {
+typedef struct yaml_pack_variable_t {
+    /* Name of the variable */
+    lstr_t name;
+
     /* If NULL, variable's value has not been deduced yet. */
-    const yaml_data_t * nullable data;
-} yaml_variable_value_t;
+    const yaml_data_t * nullable deduced_value;
+
+    /* Original value used for the variable. Only set if the variable was
+     * used in strings, see PresentationVariableBinding::value */
+    lstr_t original_value;
+} yaml_pack_variable_t;
+
+qvector_t(pack_var, yaml_pack_variable_t * nonnull);
 
 /* Mapping from variable name, to deduced value */
-qm_kvec_t(active_vars, lstr_t, yaml_variable_value_t, qhash_lstr_hash,
+qm_kvec_t(active_vars, lstr_t, yaml_pack_variable_t, qhash_lstr_hash,
           qhash_lstr_equal);
 
 qvector_t(active_vars, qm_t(active_vars));
@@ -3761,17 +3787,18 @@ t_yaml_pack_variable_settings(
     const yaml_presentation_t *pres = NULL;
     int res;
 
-    assert (var_pres->names.len == qm_len(active_vars, vars));
-    t_yaml_data_new_obj(&data, var_pres->names.len);
+    assert (var_pres->bindings.len == qm_len(active_vars, vars));
+    t_yaml_data_new_obj(&data, var_pres->bindings.len);
+
     /* Iterate on the array and not the qm, to recreate the variable settings
      * in the right order. */
-    tab_for_each_ptr(name, &var_pres->names) {
-        lstr_t var_name = t_lstr_fmt("$%pL", name);
-        const yaml_variable_value_t *var;
+    tab_for_each_ptr(binding, &var_pres->bindings) {
+        lstr_t var_name = t_lstr_fmt("$%pL", &binding->var_name);
+        const yaml_pack_variable_t *var;
 
-        var = qm_get_p(active_vars, vars, name);
-        if (var->data) {
-            yaml_obj_add_field(&data, var_name, *var->data);
+        var = qm_get_p(active_vars, vars, &binding->var_name);
+        if (var->deduced_value) {
+            yaml_obj_add_field(&data, var_name, *var->deduced_value);
         }
     }
 
@@ -3804,12 +3831,15 @@ t_yaml_pack_include_with_override(
                                              override);
     }
     if (inc->variables) {
-        t_qm_init(active_vars, &vars, inc->variables->names.len);
+        t_qm_init(active_vars, &vars, inc->variables->bindings.len);
 
-        tab_for_each_entry(name, &inc->variables->names) {
-            yaml_variable_value_t var = {0};
+        tab_for_each_ptr(binding, &inc->variables->bindings) {
+            yaml_pack_variable_t var = {
+                .name = binding->var_name,
+                .original_value = binding->value,
+            };
 
-            qm_add(active_vars, &vars, &name, var);
+            qm_add(active_vars, &vars, &binding->var_name, var);
         }
         qv_append(&env->active_vars, vars);
     }
@@ -3871,11 +3901,29 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
 /* }}} */
 /* {{{ Variables */
 
+static yaml_pack_variable_t * nullable
+t_yaml_env_find_var(yaml_pack_env_t * nonnull env, lstr_t var_name)
+{
+    tab_for_each_pos_rev(var_pos, &env->active_vars) {
+        const qm_t(active_vars) *vars = &env->active_vars.tab[var_pos];
+        yaml_pack_variable_t *var;
+
+        var = qm_get_def_p_safe(active_vars, vars, &var_name, NULL);
+        if (!var) {
+            continue;
+        }
+
+        return var;
+    }
+
+    return NULL;
+}
+
 static int
 t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
                        const yaml_data_t * nonnull data)
 {
-    yaml_variable_value_t *var;
+    yaml_pack_variable_t *var;
 
     tab_for_each_pos_rev(var_pos, &env->active_vars) {
         const qm_t(active_vars) *vars = &env->active_vars.tab[var_pos];
@@ -3889,15 +3937,84 @@ t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
                      &var_name, yaml_data_get_type(data, false));
 
         if (var) {
-            if (var->data) {
+            if (var->deduced_value) {
                 /* TODO: handle collisions */
             }
-            var->data = data;
+            var->deduced_value = data;
             return 0;
         }
     }
 
     return -1;
+}
+
+/* Apply the original values of the variables to the template.
+ * If the result is equal to ast_value, the variables did not change (*), and
+ * their original values can thus be used.
+ *
+ * (*) Theorically, the variables can change while the template result stays
+ * the same, through some symmetric modifications. This is quite out of the
+ * scope we want to handle.
+ */
+static int
+t_apply_original_var_values(yaml_pack_env_t * nonnull env, const lstr_t tpl,
+                            const lstr_t ast_value)
+{
+    t_SB_1k(buf);
+    pstream_t ps;
+    pstream_t sub;
+    qv_t(pack_var) matched_vars;
+
+    ps = ps_initlstr(&tpl);
+    t_qv_init(&matched_vars, 1);
+
+    for (;;) {
+        pstream_t name;
+        yaml_pack_variable_t *var;
+
+        /* copy up to next '$' */
+        if (ps_get_ps_chr(&ps, '$', &sub) < 0) {
+            /* no next '$', copy everything and stop */
+            sb_add_ps(&buf, ps);
+            break;
+        }
+
+        sb_add_ps(&buf, sub);
+
+        ps_skipc(&ps, '$');
+        name = ps_get_span(&ps, &ctype_isalnum);
+        if (ps_len(&name) <= 0) {
+            return -1;
+        }
+        var = t_yaml_env_find_var(env, LSTR_PS_V(&name));
+        if (!var || !var->original_value.s) {
+            return -1;
+        }
+
+        sb_add_lstr(&buf, var->original_value);
+        qv_append(&matched_vars, var);
+    }
+
+    if (!lstr_equal(ast_value, LSTR_SB_V(&buf))) {
+        return -1;
+    }
+
+    /* The strings matches. Apply the original value as the deduced value for
+     * all used variables */
+    tab_for_each_entry(var, &matched_vars) {
+        yaml_data_t *data;
+
+        assert (var->original_value.s);
+        data = t_new(yaml_data_t, 1);
+        yaml_data_set_string(data, var->original_value);
+
+        t_apply_variable_value(env, var->name, data);
+    }
+
+    logger_trace(&_G.logger, 2, "template `%pL` did not change: re-use same "
+                 "values for variables used", &tpl);
+
+    return 0;
 }
 
 /* Deduce value of a variable inside a string. The template can be:
@@ -3906,7 +4023,12 @@ t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
  * - a templated string with a single variable: a: "a_$var_b"
  * - a templated string with multiple variables: a: "$var_$foo"
  *
- * We will handle the first two cases, not the last one.
+ * This function handles the first two cases. The last one is not attempted.
+ * Even if it can be done in some cases, there are cases that can only be
+ * resolved through complex regex-style matching, and there are ambiguous
+ * cases, such as:
+ *  * template: "$foo_$bar"
+ *  * value: "a_b_c_d_e"
  */
 static int
 deduce_var_in_string(lstr_t tpl, lstr_t value, lstr_t * nonnull var_name,
@@ -3957,13 +4079,6 @@ deduce_var_in_string(lstr_t tpl, lstr_t value, lstr_t * nonnull var_name,
 /* Deduce values for active variables, by comparing the original string
  * containing variables, with the value of the AST.
  *
- * For example:
- *   var_string = "$name_$a"
- *   data = string: "toto_t"
- *
- * => name = toto
- *    a = t
- *
  * If all variables cannot be deduced, -1 is returned, and the original string
  * with variables is not used.
  */
@@ -3978,6 +4093,17 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env, lstr_t var_string,
         lstr_t var_value;
         yaml_data_t *var_data;
 
+        /* First, use the original values of variables to see if the value is
+         * still the same. This allows repacking in the same way if the value
+         * did not change, without trying to deduce changes that are very
+         * rare. */
+        if (t_apply_original_var_values(env, var_string, data->scalar.s) >= 0)
+        {
+            return 0;
+        }
+
+        /* Otherwise, try to deduce variable values, but the implementation is
+         * limited. */
         if (deduce_var_in_string(var_string, data->scalar.s, &var_name,
                                  &var_value) < 0)
         {
@@ -6875,41 +7001,63 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         yaml__document_presentation__t pres;
         yaml_parse_t *env;
+        const char *root;
+        const char *inner;
+        const char *child;
+        const char *grandchild;
 
         /* test replacement of variables */
         /* TODO: handle variables in flow context? */
-        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+        inner =
             "- \"foo var is: `$foo`\"\n"
             "- <$foo> unquoted also works </$foo>\n"
             "- a: $foo\n"
-            "  b: $foo-$foo-$qux-$foo"
-        ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "  b: $foo-$foo-$qux-$foo\n";
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
+
+        root =
             "!include inner.yml\n"
             "$foo: bar\n"
-            "$qux: c",
+            "$qux: c\n";
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            root,
 
             "- \"foo var is: `bar`\"\n"
             "- <bar> unquoted also works </bar>\n"
             "- a: bar\n"
             "  b: bar-bar-c-bar"
         ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_str/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("var_str/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_str/inner.yml", inner));
         yaml_parse_delete(&env);
 
         /* test partial modification of templated string */
-        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml",
-            "addr: \"$host:$port\""
-        ));
-        Z_HELPER_RUN(z_write_yaml_file("child.yml",
+        grandchild = "addr: \"$host:$port\"\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+
+        child =
             "!include grandchild.yml\n"
-            "$port: 80"
-        ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "$port: 80\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+
+        root =
             "!include child.yml\n"
-            "$host: website.org",
+            "$host: website.org\n";
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            root,
 
             "addr: \"website.org:80\""
         ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_str2/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("var_str2/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_str2/child.yml", child));
+        Z_HELPER_RUN(z_check_file("var_str2/grandchild.yml", grandchild));
+        yaml_parse_delete(&env);
     } Z_TEST_END;
 
     /* }}} */

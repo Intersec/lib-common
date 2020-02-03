@@ -272,6 +272,23 @@ struct PresentationOverride {
 /* }}} */
 /* {{{ Variables presentation */
 
+/** Binding of a value on a variable. */
+struct PresentationVariableBinding {
+    /** Name of the variable bound. */
+    string varName;
+
+    /** Value of the variable.
+     *
+     * This is not set if the value was not a scalar (i.e., the variable
+     * was used to insert data in the AST, and not injected into strings).
+     *
+     * This is useful to properly repack bindings that were merged into
+     * strings. It is used to detect if the strings has not changed, and if
+     * those values can thus be re-used.
+     */
+    string? value;
+};
+
 /** Description of a variable settings data.
  *
  * The presentation of a variable settings stores the information that is
@@ -282,8 +299,8 @@ struct PresentationOverride {
  * values.
  */
 struct PresentationVariableSettings {
-    /** Names of variables set. */
-    string[] names;
+    /** Bindings contained in the settings data. */
+    PresentationVariableBinding[] bindings;
 };
 
 /* }}} */
