@@ -2566,8 +2566,10 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
 /* {{{ Packing types */
 /* {{{ Variables */
 
+typedef struct yaml_pack_variable_t yaml_pack_variable_t;
+
 /** Deduced value of a variable. */
-typedef struct yaml_pack_variable_t {
+struct yaml_pack_variable_t {
     /* Name of the variable */
     lstr_t name;
 
@@ -2577,7 +2579,28 @@ typedef struct yaml_pack_variable_t {
     /* Original value used for the variable. Only set if the variable was
      * used in strings, see PresentationVariableBinding::value */
     lstr_t original_value;
-} yaml_pack_variable_t;
+
+    /* Chaining to a new variable, created in result of a conflict.
+     *
+     * If the variable is used in multiple places, but deduced values do
+     * not match, the conflict resolution will add new variables to hold
+     * the different values.
+     * These new variables must not match any existing names in any active
+     * vars map, and must be reusable if multiple deduce values matches.
+     *
+     * For example:
+     *  Resolving [ $foo, $foo, <$foo>] with [ 1, 2, <2> ] should yield:
+     *   [ $foo, ${foo~1}, <${foo~1}> ]
+     *   and
+     *     $foo: 1
+     *     ${foo~1}: 2
+     *
+     * Chaining the conflicts directly in the original variable object makes
+     * it easier to resolve them rather than adding them directly in the
+     * active_vars map.
+     */
+    yaml_pack_variable_t * nullable conflict;
+};
 
 qvector_t(pack_var, yaml_pack_variable_t * nonnull);
 
@@ -3917,6 +3940,15 @@ t_yaml_pack_included_subfile(
     return res;
 }
 
+static lstr_t t_yaml_format_variable(lstr_t name)
+{
+    if (lstr_match_ctype(name, &ctype_isalnum)) {
+        return t_lstr_fmt("$%pL", &name);
+    } else {
+        return t_lstr_fmt("${%pL}", &name);
+    }
+}
+
 static int
 t_yaml_pack_variable_settings(
     yaml_pack_env_t * nonnull env,
@@ -3933,17 +3965,16 @@ t_yaml_pack_variable_settings(
     /* Iterate on the array and not the qm, to recreate the variable settings
      * in the right order. */
     tab_for_each_ptr(binding, &var_pres->bindings) {
-        lstr_t var_name;
         const yaml_pack_variable_t *var;
 
-        if (lstr_match_ctype(binding->var_name, &ctype_isalnum)) {
-            var_name = t_lstr_fmt("$%pL", &binding->var_name);
-        } else {
-            var_name = t_lstr_fmt("${%pL}", &binding->var_name);
-        }
         var = qm_get_p(active_vars, vars, &binding->var_name);
-        if (var->deduced_value) {
-            yaml_obj_add_field(&data, var_name, *var->deduced_value);
+        while (var) {
+            if (var->deduced_value) {
+                lstr_t var_name = t_yaml_format_variable(var->name);
+
+                yaml_obj_add_field(&data, var_name, *var->deduced_value);
+            }
+            var = var->conflict;
         }
     }
 
@@ -4064,33 +4095,85 @@ t_yaml_env_find_var(yaml_pack_env_t * nonnull env, lstr_t var_name)
     return NULL;
 }
 
-static int
-t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
-                       const yaml_data_t * nonnull data)
+static yaml_pack_variable_t * nullable
+t_find_var(yaml_pack_env_t * nonnull env, lstr_t name)
 {
-    yaml_pack_variable_t *var;
-
     tab_for_each_pos_rev(var_pos, &env->active_vars) {
         const qm_t(active_vars) *vars = &env->active_vars.tab[var_pos];
+        yaml_pack_variable_t *var;
 
-        var = qm_get_def_p_safe(active_vars, vars, &var_name, NULL);
-        if (!var) {
-            continue;
-        }
-
-        logger_trace(&_G.logger, 2, "deduced value for variable `%pL` to %s",
-                     &var_name, yaml_data_get_type(data, false));
-
+        var = qm_get_def_p_safe(active_vars, vars, &name, NULL);
         if (var) {
-            if (var->deduced_value) {
-                /* TODO: handle collisions */
-            }
-            var->deduced_value = data;
-            return 0;
+            return var;
         }
     }
 
-    return -1;
+    return NULL;
+}
+
+static void
+t_resolve_var_conflict(yaml_pack_env_t * nonnull env,
+                       yaml_pack_variable_t * nonnull var,
+                       const yaml_data_t * nonnull data,
+                       lstr_t * nonnull new_name)
+{
+    lstr_t orig_var_name = var->name;
+    yaml_pack_variable_t *next_var = var->conflict;
+    unsigned cnt = 1;
+
+    /* try to match to existant conflict resolution, or get to the end
+     * of the chain */
+    while (next_var) {
+        if (yaml_data_equals(next_var->deduced_value, data)) {
+            *new_name = next_var->name;
+            return;
+        }
+        var = next_var;
+        next_var = next_var->conflict;
+        cnt++;
+    }
+
+    for (;;) {
+        lstr_t var_name = t_lstr_fmt("%pL~%d", &orig_var_name, cnt++);
+
+        if (t_find_var(env, var_name)) {
+            /* This name actually exists in a surrounding env, do not use it.
+             */
+            continue;
+        }
+        var->conflict = t_new(yaml_pack_variable_t, 1);
+        var->conflict->name = var_name;
+        var->conflict->deduced_value = data;
+        *new_name = var_name;
+        break;
+    }
+}
+
+static int
+t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
+                       const yaml_data_t * nonnull data,
+                       lstr_t * nonnull new_name)
+{
+    yaml_pack_variable_t *var;
+
+    var = t_find_var(env, var_name);
+    if (!var) {
+        return -1;
+    }
+
+    if (var->deduced_value) {
+        if (!yaml_data_equals(var->deduced_value, data)) {
+            t_resolve_var_conflict(env, var, data, new_name);
+            return 0;
+        }
+    } else {
+        var->deduced_value = data;
+    }
+
+    logger_trace(&_G.logger, 2, "deduced value for variable `%pL` "
+                 "to %s", &var_name, yaml_data_get_type(data, false));
+    *new_name = LSTR_NULL_V;
+    return 0;
 }
 
 /* Apply the original values of the variables to the template.
@@ -4148,12 +4231,14 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env, const lstr_t tpl,
      * all used variables */
     tab_for_each_entry(var, &matched_vars) {
         yaml_data_t *data;
+        lstr_t new_name;
 
         assert (var->original_value.s);
         data = t_new(yaml_data_t, 1);
         yaml_data_set_string(data, var->original_value);
 
-        t_apply_variable_value(env, var->name, data);
+        /* FIXME: use new_name */
+        t_apply_variable_value(env, var->name, data, &new_name);
     }
 
     logger_trace(&_G.logger, 2, "template `%pL` did not change: re-use same "
@@ -4226,9 +4311,12 @@ deduce_var_in_string(lstr_t tpl, lstr_t value, lstr_t * nonnull var_name,
  * with variables is not used.
  */
 static int
-t_deduce_variable_values(yaml_pack_env_t * nonnull env, lstr_t var_string,
-                         const yaml_data_t * nonnull data)
+t_deduce_variable_values(yaml_pack_env_t * nonnull env,
+                         const yaml_data_t * nonnull data,
+                         lstr_t * nonnull var_string)
 {
+    lstr_t new_name;
+
     if (data->type == YAML_DATA_SCALAR
     &&  data->scalar.type == YAML_SCALAR_STRING)
     {
@@ -4240,14 +4328,15 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env, lstr_t var_string,
          * still the same. This allows repacking in the same way if the value
          * did not change, without trying to deduce changes that are very
          * rare. */
-        if (t_apply_original_var_values(env, var_string, data->scalar.s) >= 0)
+        if (t_apply_original_var_values(env, *var_string,
+                                        data->scalar.s) >= 0)
         {
             return 0;
         }
 
         /* Otherwise, try to deduce variable values, but the implementation is
          * limited. */
-        if (deduce_var_in_string(var_string, data->scalar.s, &var_name,
+        if (deduce_var_in_string(*var_string, data->scalar.s, &var_name,
                                  &var_value) < 0)
         {
             return -1;
@@ -4255,11 +4344,12 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env, lstr_t var_string,
         var_data = t_new(yaml_data_t, 1);
         yaml_data_set_string(var_data, var_value);
 
-        return t_apply_variable_value(env, var_name, var_data);
+        /* FIXME: use new_name */
+        return t_apply_variable_value(env, var_name, var_data, &new_name);
     } else {
         /* If data is not a string, it should be matched on a template
          * containing only the variable, ie "$name". */
-        pstream_t tpl_ps = ps_initlstr(&var_string);
+        pstream_t tpl_ps = ps_initlstr(var_string);
         lstr_t name;
 
         if (ps_skipc(&tpl_ps, '$') < 0) {
@@ -4270,7 +4360,11 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env, lstr_t var_string,
             return -1;
         }
 
-        return t_apply_variable_value(env, name, data);
+        RETHROW(t_apply_variable_value(env, name, data, &new_name));
+        if (new_name.s) {
+            *var_string = t_yaml_format_variable(new_name);
+        }
+        return 0;
     }
 }
 
@@ -4313,12 +4407,12 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
 
     if (node) {
         if (node->value_with_variables.s) {
-            if (t_deduce_variable_values(env, node->value_with_variables,
-                                         data) >= 0)
-            {
+            lstr_t tpl = node->value_with_variables;
+
+            if (t_deduce_variable_values(env, data, &tpl) >= 0) {
                 yaml_data_t *new_data = t_new(yaml_data_t, 1);
 
-                yaml_data_set_string(new_data, node->value_with_variables);
+                yaml_data_set_string(new_data, tpl);
                 data = new_data;
             } else {
                 logger_trace(&_G.logger, 2, "change to template `%pL` "
@@ -7426,6 +7520,60 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(z_check_file("vm_mul_2/inner.yml",
             "a: her oes\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Raw variable conflict handling */
+
+    Z_TEST(raw_variable_conflict, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "- $var\n"
+            "- $var\n"
+            "- $var\n"
+            "- $var\n"
+            "- $var\n"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "!include inner.yml\n"
+            "$var: 1\n",
+
+            "- 1\n"
+            "- 1\n"
+            "- 1\n"
+            "- 1\n"
+            "- 1"
+        ));
+
+        /* modify AST to get: [ 1, 2, 2, 1, ~ ] */
+        yaml_data_set_uint(&data.seq->datas.tab[1], 2);
+        yaml_data_set_uint(&data.seq->datas.tab[2], 2);
+        yaml_data_set_null(&data.seq->datas.tab[4]);
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("vc_raw_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vc_raw_1/root.yml",
+            "!include inner.yml\n"
+            "$var: 1\n"
+            "${var~1}: 2\n"
+            "${var~2}: ~\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vc_raw_1/inner.yml",
+            "- $var\n"
+            "- ${var~1}\n"
+            "- ${var~1}\n"
+            "- $var\n"
+            "- ${var~2}\n"
         ));
         yaml_parse_delete(&env);
     } Z_TEST_END;
