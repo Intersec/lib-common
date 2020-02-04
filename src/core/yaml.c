@@ -742,27 +742,55 @@ ps_startswith_yaml_seq_prefix(const pstream_t *ps)
     return ps->s[0] == '-' && isspace(ps->s[1]);
 }
 
+/* Parse a variable name, following a '$' character.
+ *
+ * Those forms are valid:
+ * [:alnum:]+, ie $foo, $bB9 but not $a_b
+ * \{[^}]+\}, ie ${anything}
+ */
+static lstr_t
+ps_parse_variable_name(pstream_t * nonnull ps)
+{
+    pstream_t name;
+
+    if (ps_skipc(ps, '{') >= 0) {
+        if (ps_get_ps_chr_and_skip(ps, '}', &name) < 0) {
+            return LSTR_NULL_V;
+        }
+    } else {
+        name = ps_get_span(ps, &ctype_isalnum);
+    }
+
+    if (ps_len(&name) <= 0) {
+        return LSTR_NULL_V;
+    }
+
+    return LSTR_PS_V(&name);
+}
+
 static bool
 ps_startswith_yaml_key(pstream_t ps, bool must_be_variable)
 {
-    pstream_t key;
+    pstream_t ps_key;
+    lstr_t key;
 
     if (ps_peekc(ps) == '$') {
         ps_skipc(&ps, '$');
+        key = ps_parse_variable_name(&ps);
     } else {
         if (must_be_variable) {
             return false;
         }
+
+        ps_key = ps_get_span(&ps, &ctype_isalnum);
+        key = LSTR_PS_V(&ps_key);
     }
 
-    key = ps_get_span(&ps, &ctype_isalnum);
-
-    if (ps_len(&key) == 0 || ps_len(&ps) == 0) {
+    if (key.len == 0 || ps_len(&ps) == 0) {
         return false;
     }
 
-    return ps.s[0] == ':'
-        && (ps_len(&ps) == 1 || isspace(ps.s[1]));
+    return ps.s[0] == ':' && (ps_len(&ps) == 1 || isspace(ps.s[1]));
 }
 
 /* }}} */
@@ -817,6 +845,7 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
     pstream_t ps;
     qh_t(lstr) variables_found;
     bool whole = false;
+    bool starts_with_dollar;
 
     assert (data->type == YAML_DATA_SCALAR
          && data->scalar.type == YAML_SCALAR_STRING);
@@ -824,19 +853,20 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
     t_qh_init(lstr, &variables_found, 0);
 
     ps = ps_initlstr(&data->scalar.s);
+    starts_with_dollar = ps_peekc(ps) == '$';
     for (;;) {
-        pstream_t ps_name;
+        lstr_t name;
 
         if (ps_skip_afterchr(&ps, '$') < 0) {
             break;
         }
 
-        ps_name = ps_get_span(&ps, &ctype_isalnum);
+        name = ps_parse_variable_name(&ps);
         /* TODO: error on else */
-        if (ps_len(&ps_name) > 0) {
-            lstr_t name = LSTR_PS_V(&ps_name);
-
-            if (name.len + 1 == data->scalar.s.len) {
+        if (name.s) {
+            if (ps_done(&ps) && starts_with_dollar
+            &&  qh_len(lstr, &variables_found) == 0)
+            {
                 /* The whole string is this variable */
                 whole = true;
             }
@@ -877,6 +907,9 @@ t_data_set_string_variable(yaml_data_t * nonnull data,
     ps = ps_initlstr(&data->scalar.s);
 
     for (;;) {
+        pstream_t cpy;
+        lstr_t var_name;
+
         /* copy up to next '$' */
         if (ps_get_ps_chr(&ps, '$', &sub) < 0) {
             /* no next '$', copy everything and stop */
@@ -886,13 +919,19 @@ t_data_set_string_variable(yaml_data_t * nonnull data,
 
         sb_add_ps(&buf, sub);
 
-        ps_skipc(&ps, '$');
-        if (ps_startswithlstr(&ps, name)) {
-            ps_skip(&ps, name.len);
+        cpy = ps;
+        ps_skipc(&cpy, '$');
+        var_name = ps_parse_variable_name(&cpy);
+        if (lstr_equal(var_name, name)) {
             sb_add_lstr(&buf, value);
         } else {
-            sb_addc(&buf, '$');
+            pstream_t var_string;
+
+            if (expect(ps_get_ps_upto(&ps, cpy.b, &var_string) >= 0)) {
+                sb_add_ps(&buf, var_string);
+            }
         }
+        ps = cpy;
     }
 
     logger_trace(&_G.logger, 2, "apply replacement %pL=%pL, data value "
@@ -932,7 +971,14 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
             continue;
         }
 
-        name = LSTR_INIT_V(pair->key.s + 1, pair->key.len - 1);
+        if (pair->key.s[pair->key.len - 1] == '}') {
+            /* key is ${toto}, remove two leading characters and one
+             * trailing */
+            name = LSTR_INIT_V(pair->key.s + 2, pair->key.len - 3);
+        } else {
+            /* key is $toto, remove one leading character. */
+            name = LSTR_INIT_V(pair->key.s + 1, pair->key.len - 1);
+        }
 
         pos = qm_find(yaml_vars, variables, &name);
         if (pos < 0) {
@@ -1309,8 +1355,10 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
     start = env->ps.s;
     if (ps_peekc(env->ps) == '$') {
         IGNORE(ps_skipc(&env->ps, '$'));
+        ps_parse_variable_name(&env->ps);
+    } else {
+        ps_skip_span(&env->ps, &ctype_isalnum);
     }
-    ps_skip_span(&env->ps, &ctype_isalnum);
 
     ps_key = ps_initptr(start, env->ps.s);
     yaml_span_init(key_span, env, key_pos_start, yaml_env_get_pos(env));
@@ -3793,9 +3841,14 @@ t_yaml_pack_variable_settings(
     /* Iterate on the array and not the qm, to recreate the variable settings
      * in the right order. */
     tab_for_each_ptr(binding, &var_pres->bindings) {
-        lstr_t var_name = t_lstr_fmt("$%pL", &binding->var_name);
+        lstr_t var_name;
         const yaml_pack_variable_t *var;
 
+        if (lstr_match_ctype(binding->var_name, &ctype_isalnum)) {
+            var_name = t_lstr_fmt("$%pL", &binding->var_name);
+        } else {
+            var_name = t_lstr_fmt("${%pL}", &binding->var_name);
+        }
         var = qm_get_p(active_vars, vars, &binding->var_name);
         if (var->deduced_value) {
             yaml_obj_add_field(&data, var_name, *var->deduced_value);
@@ -3969,7 +4022,7 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env, const lstr_t tpl,
     t_qv_init(&matched_vars, 1);
 
     for (;;) {
-        pstream_t name;
+        lstr_t name;
         yaml_pack_variable_t *var;
 
         /* copy up to next '$' */
@@ -3982,11 +4035,11 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env, const lstr_t tpl,
         sb_add_ps(&buf, sub);
 
         ps_skipc(&ps, '$');
-        name = ps_get_span(&ps, &ctype_isalnum);
-        if (ps_len(&name) <= 0) {
+        name = ps_parse_variable_name(&ps);
+        if (!name.s) {
             return -1;
         }
-        var = t_yaml_env_find_var(env, LSTR_PS_V(&name));
+        var = t_yaml_env_find_var(env, name);
         if (!var || !var->original_value.s) {
             return -1;
         }
@@ -4036,7 +4089,7 @@ deduce_var_in_string(lstr_t tpl, lstr_t value, lstr_t * nonnull var_name,
 {
     pstream_t tpl_ps = ps_initlstr(&tpl);
     pstream_t val_ps = ps_initlstr(&value);
-    pstream_t name;
+    lstr_t name;
 
     /* advance both streams until the variable or a mismatch is found */
     while (!ps_done(&tpl_ps)) {
@@ -4055,8 +4108,8 @@ deduce_var_in_string(lstr_t tpl, lstr_t value, lstr_t * nonnull var_name,
     }
 
     /* capture name of variable */
-    name = ps_get_span(&tpl_ps, &ctype_isalnum);
-    if (ps_len(&name) <= 0) {
+    name = ps_parse_variable_name(&tpl_ps);
+    if (!name.s) {
         return -1;
     }
 
@@ -4069,7 +4122,7 @@ deduce_var_in_string(lstr_t tpl, lstr_t value, lstr_t * nonnull var_name,
     }
     value.len -= ps_len(&tpl_ps);
 
-    *var_name = LSTR_PS_V(&name);
+    *var_name = name;
     *var_value = value;
     return 0;
 }
@@ -4115,17 +4168,17 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env, lstr_t var_string,
         /* If data is not a string, it should be matched on a template
          * containing only the variable, ie "$name". */
         pstream_t tpl_ps = ps_initlstr(&var_string);
-        pstream_t name;
+        lstr_t name;
 
         if (ps_skipc(&tpl_ps, '$') < 0) {
             return -1;
         }
-        name = ps_get_span(&tpl_ps, &ctype_isalnum);
-        if (ps_len(&name) <= 0 || !ps_done(&tpl_ps)) {
+        name = ps_parse_variable_name(&tpl_ps);
+        if (!name.s || !ps_done(&tpl_ps)) {
             return -1;
         }
 
-        return t_apply_variable_value(env, LSTR_PS_V(&name), data);
+        return t_apply_variable_value(env, name, data);
     }
 }
 
@@ -6898,12 +6951,12 @@ Z_GROUP_EXPORT(yaml)
             "    - $a\n"
             "- b:\n"
             "    a: $a\n"
-            "    b: $ab\n";
+            "    b: ${a-b}\n";
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
         root =
             "!include inner.yml\n"
             "$a: 3\n"
-            "$ab:\n"
+            "${a-b}:\n"
             "  - 1\n"
             "  - 2\n";
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
@@ -7026,9 +7079,9 @@ Z_GROUP_EXPORT(yaml)
         /* TODO: handle variables in flow context? */
         inner =
             "- \"foo var is: `$foo`\"\n"
-            "- <$foo> unquoted also works </$foo>\n"
+            "- <${foo}> unquoted also works </$foo>\n"
             "- a: $foo\n"
-            "  b: $foo-$foo-$qux-$foo\n";
+            "  b: $foo${foo}a${qux}-$qux\n";
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
 
         root =
@@ -7041,7 +7094,7 @@ Z_GROUP_EXPORT(yaml)
             "- \"foo var is: `bar`\"\n"
             "- <bar> unquoted also works </bar>\n"
             "- a: bar\n"
-            "  b: bar-bar-c-bar"
+            "  b: barbarac-c"
         ));
 
         /* pack into files, to test repacking of variables */
