@@ -271,14 +271,15 @@ int iop_field_find_by_name(const iop_struct_t * nonnull st, const lstr_t name,
  *                 allocated.
  * \param[in]  value  the pointer to an iop structure of the type \p fdesc
  *                    belongs to.
- * \param[in]  desc   IOP structure description.
+ * \param[in]  desc   IOP structure description (optional: only used for
+ *                    setting struct desc in \p iop_err_g).
  * \param[in]  fdesc  the descriptor of the field to fill.
  *
  * \return  0 if the field was filled, -1 otherwise.
  */
 __must_check__
 int iop_skip_absent_field_desc(mem_pool_t * nonnull mp, void * nonnull value,
-                               const iop_struct_t * nonnull sdesc,
+                               const iop_struct_t * nullable sdesc,
                                const iop_field_t * nonnull fdesc);
 
 int iop_ranges_search(int const * nonnull ranges, int ranges_len, int tag);
