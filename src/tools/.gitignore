@@ -1,5 +1,6 @@
 /str-ctype-maker
 /farchc
 /dso-compatibility-check
+/dso-find-free-class-id
 /dso2openapi
 /yamlfmt

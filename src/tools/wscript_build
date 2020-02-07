@@ -28,6 +28,10 @@ with ctx.UseGroup(ctx, 'code_compiling'):
                 source='dso-compatibility-check.blk',
                 use='libcommon')
 
+    ctx.program(target='dso-find-free-class-id',
+                source='dso-find-free-class-id.c',
+                use='libcommon')
+
     ctx.program(target='dso2openapi', source='dso2openapi.c',
                 use='libcommon')
 
