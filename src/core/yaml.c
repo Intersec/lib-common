@@ -985,18 +985,15 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
 }
 
 /* Replace occurrences of $name with `value` in `data`. */
-static void
-t_data_set_string_variable(yaml_data_t * nonnull data,
-                           const lstr_t name, const lstr_t value)
+static lstr_t
+t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
+                   const lstr_t value)
 {
     t_SB_1k(buf);
     pstream_t ps;
     pstream_t sub;
 
-    assert (data->type == YAML_DATA_SCALAR
-         && data->scalar.type == YAML_SCALAR_STRING);
-
-    ps = ps_initlstr(&data->scalar.s);
+    ps = ps_initlstr(&tpl_string);
 
     for (;;) {
         pstream_t cpy;
@@ -1028,9 +1025,9 @@ t_data_set_string_variable(yaml_data_t * nonnull data,
 
     logger_trace(&_G.logger, 2, "apply replacement %pL=%pL, data value "
                  "changed from `%pL` to `%pL`", &name, &value,
-                 &data->scalar.s, &buf);
+                 &tpl_string, &buf);
 
-    data->scalar.s = LSTR_SB_V(&buf);
+    return LSTR_SB_V(&buf);
 }
 
 qvector_t(var_binding, yaml__presentation_variable_binding__t);
@@ -1097,7 +1094,12 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
                         string_value = yaml_span_to_lstr(&pair->data.span);
                     }
                 }
-                t_data_set_string_variable(var->data, name, string_value);
+
+                assert (var->data->type == YAML_DATA_SCALAR
+                     && var->data->scalar.type == YAML_SCALAR_STRING);
+                var->data->scalar.s
+                    = t_tpl_set_variable(var->data->scalar.s, name,
+                                         string_value);
             } else {
                 *var->data = pair->data;
 
@@ -4185,15 +4187,15 @@ t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
  * scope we want to handle.
  */
 static int
-t_apply_original_var_values(yaml_pack_env_t * nonnull env, const lstr_t tpl,
-                            const lstr_t ast_value)
+t_apply_original_var_values(yaml_pack_env_t * nonnull env,
+                            const lstr_t ast_value, lstr_t * nonnull tpl)
 {
     t_SB_1k(buf);
     pstream_t ps;
     pstream_t sub;
     qv_t(pack_var) matched_vars;
 
-    ps = ps_initlstr(&tpl);
+    ps = ps_initlstr(tpl);
     t_qv_init(&matched_vars, 1);
 
     for (;;) {
@@ -4237,12 +4239,18 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env, const lstr_t tpl,
         data = t_new(yaml_data_t, 1);
         yaml_data_set_string(data, var->original_value);
 
-        /* FIXME: use new_name */
-        t_apply_variable_value(env, var->name, data, &new_name);
+        RETHROW(t_apply_variable_value(env, var->name, data, &new_name));
+        if (new_name.s) {
+            /* Even though the string did not change, the value has
+             * conflicted, and a new name must used. Replace in the template
+             * the old name with a variable using the new name. */
+            *tpl = t_tpl_set_variable(*tpl, var->name,
+                                      t_yaml_format_variable(new_name));
+        }
     }
 
     logger_trace(&_G.logger, 2, "template `%pL` did not change: re-use same "
-                 "values for variables used", &tpl);
+                 "values for variables used", tpl);
 
     return 0;
 }
@@ -4328,8 +4336,7 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env,
          * still the same. This allows repacking in the same way if the value
          * did not change, without trying to deduce changes that are very
          * rare. */
-        if (t_apply_original_var_values(env, *var_string,
-                                        data->scalar.s) >= 0)
+        if (t_apply_original_var_values(env, data->scalar.s, var_string) >= 0)
         {
             return 0;
         }
@@ -4344,8 +4351,13 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env,
         var_data = t_new(yaml_data_t, 1);
         yaml_data_set_string(var_data, var_value);
 
-        /* FIXME: use new_name */
-        return t_apply_variable_value(env, var_name, var_data, &new_name);
+        RETHROW(t_apply_variable_value(env, var_name, var_data, &new_name));
+        if (new_name.s) {
+            /* The value has conflicted, and a new name must used. Replace
+             * the old name with a variable using the new name */
+            new_name = t_yaml_format_variable(new_name);
+            *var_string = t_tpl_set_variable(*var_string, var_name, new_name);
+        }
     } else {
         /* If data is not a string, it should be matched on a template
          * containing only the variable, ie "$name". */
@@ -4364,8 +4376,9 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env,
         if (new_name.s) {
             *var_string = t_yaml_format_variable(new_name);
         }
-        return 0;
     }
+
+    return 0;
 }
 
 /* }}} */
@@ -7574,6 +7587,141 @@ Z_GROUP_EXPORT(yaml)
             "- ${var~1}\n"
             "- $var\n"
             "- ${var~2}\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ variable in string conflict handling */
+
+    Z_TEST(variable_in_string_conflict, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "- $var\n"
+            "- \" $var \"\n"
+            "- <$var>\n"
+            "- $var $var $var\n"
+            "- <$var>\n"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "!include inner.yml\n"
+            "$var: ga\n",
+
+            "- ga\n"
+            "- \" ga \"\n"
+            "- <ga>\n"
+            "- ga ga ga\n"
+            "- <ga>"
+        ));
+
+        /* modify AST to get: [ bu, " ga ", <zo>, ga meu bu, ga zo, <bu> ] */
+        yaml_data_set_string(&data.seq->datas.tab[0], LSTR("bu"));
+        yaml_data_set_string(&data.seq->datas.tab[2], LSTR("<zo>"));
+        yaml_data_set_string(&data.seq->datas.tab[3], LSTR("ga meu bu"));
+        yaml_data_set_string(&data.seq->datas.tab[4], LSTR("<bu>"));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("vc_str_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vc_str_1/root.yml",
+            "!include inner.yml\n"
+            /* First value deduced is taken as the true value. */
+            "$var: bu\n"
+            /* Other deduced values are added as conflicts */
+            "${var~1}: ga\n"
+            "${var~2}: zo\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vc_str_1/inner.yml",
+            "- $var\n"
+
+            /* String did not change, but the value was already deduced to
+             * a new string. */
+            "- \" ${var~1} \"\n"
+
+            /* Value changed, but template is simple, so new value is deduced.
+             */
+            "- <${var~2}>\n"
+
+            /* Loss of template due to use of multiple variables. */
+            "- ga meu bu\n"
+
+            /* Value changed, but match the deduced value, so template do not
+             * change. */
+            "- <$var>\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ multiple variables conflict handling */
+
+    Z_TEST(variable_multiple_conflict, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "- $foo\n"
+            "- $bar\n"
+            "- $foo $foo\n"
+            "- $foo $bar\n"
+            "- $foo $bar $foo\n"
+            "- $bar $bar $foo\n"
+            "- $foo $bar\n"
+        ));
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            "!include inner.yml\n"
+            "$foo: ga\n"
+            "$bar: bu\n",
+
+            "- ga\n"
+            "- bu\n"
+            "- ga ga\n"
+            "- ga bu\n"
+            "- ga bu ga\n"
+            "- bu bu ga\n"
+            "- ga bu"
+        ));
+
+        /* force $foo and $bar to be deduced to a new string */
+        yaml_data_set_string(&data.seq->datas.tab[0], LSTR("zo"));
+        yaml_data_set_string(&data.seq->datas.tab[1], LSTR("meu"));
+        yaml_data_set_string(&data.seq->datas.tab[6], LSTR("zo meu"));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("vc_mul_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vc_mul_1/root.yml",
+            "!include inner.yml\n"
+            "$foo: zo\n"
+            "${foo~1}: ga\n"
+            "$bar: meu\n"
+            "${bar~1}: bu\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vc_mul_1/inner.yml",
+            "- $foo\n"
+            "- $bar\n"
+            /* Value did not change, but names conflicted: this is properly
+             * handled */
+            "- ${foo~1} ${foo~1}\n"
+            "- ${foo~1} ${bar~1}\n"
+            "- ${foo~1} ${bar~1} ${foo~1}\n"
+            "- ${bar~1} ${bar~1} ${foo~1}\n"
+            /* Even though the value matches the new variables, the old
+             * variable values do not apply, and the template uses multiple
+             * variables, so it is lost */
+            "- zo meu\n"
         ));
         yaml_parse_delete(&env);
     } Z_TEST_END;
