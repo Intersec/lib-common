@@ -93,8 +93,23 @@ typedef struct yaml_variable_t {
      * addr: "$host:ip"
      */
     bool in_string;
+
+    /* Bitmap indicating which '$' char are variables.
+     *
+     * If the template has escaped some '$' characters, we will end up with
+     * a string with multiple '$', some being variables, some not. This bitmap
+     * allows finding out which one are variables.
+     *
+     * For example:
+     * "$a \\$b \\\\$$c" will give the string "$a $b \\$$c", and the bitmap
+     * [0x09] (first and fourth '$' are variables).
+     *
+     * \warning If the bitmap is NOT set (ie len == 0), then it means every
+     * '$' is a variable.
+     */
+    qv_t(u8) var_bitmap;
 } yaml_variable_t;
-qvector_t(yaml_variable, yaml_variable_t);
+qvector_t(yaml_variable, yaml_variable_t * nonnull);
 
 qm_kvec_t(yaml_vars, lstr_t, qv_t(yaml_variable), qhash_lstr_hash,
           qhash_lstr_equal);
@@ -886,11 +901,14 @@ ps_startswith_yaml_key(pstream_t ps, bool must_be_variable)
 }
 
 static int
-yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf)
+yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf,
+                         qv_t(u8) * nonnull var_bitmap,
+                         bool * nonnull has_escaped_dollars)
 {
     int line_nb = 0;
     int col_nb = 0;
     pstream_t start = env->ps;
+    int var_pos = 0;
 
     while (!ps_done(&env->ps)) {
         switch (ps_peekc(env->ps)) {
@@ -905,12 +923,29 @@ yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf)
 
           case '\\':
             sb_add(buf, start.p, env->ps.s - start.s);
+            if (ps_has(&env->ps, 2) && env->ps.b[1] == '$') {
+                /* escaped '$', this is not a variable */
+                sb_addc(buf, '$');
+                ps_skip(&env->ps, 2);
+                var_pos += 1;
+                *has_escaped_dollars = true;
+            } else
             if (parse_backslash(&env->ps, buf, &line_nb, &col_nb) < 0) {
                 return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
                                         "invalid backslash");
             }
             start = env->ps;
             break;
+
+          case '$':
+            /* variable */
+            if (var_bitmap->len * 8 <= var_pos) {
+                qv_growlen0(var_bitmap, var_pos / 8 + 1 - var_bitmap->len);
+            }
+            SET_BIT(var_bitmap->tab, var_pos);
+            var_pos += 1;
+
+            /* FALLTHROUGH */
 
           default:
             ps_skip(&env->ps, 1);
@@ -926,7 +961,7 @@ yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf)
 
 static void
 t_yaml_env_add_var(yaml_parse_t * nonnull env, const lstr_t name,
-                   yaml_variable_t var)
+                   yaml_variable_t * nonnull var)
 {
     int pos;
     qv_t(yaml_variable) *vec;
@@ -965,15 +1000,16 @@ yaml_env_merge_variables(yaml_parse_t * nonnull env,
 
 /* Detect use of $foo in a quoted string, and add those variables in the
  * env */
-/* TODO: must handle escaping! */
 static void
 t_yaml_env_add_variables(yaml_parse_t * nonnull env,
-                         yaml_data_t * nonnull data, bool in_string)
+                         yaml_data_t * nonnull data, bool in_string,
+                         qv_t(u8) * nullable var_bitmap)
 {
     pstream_t ps;
     qh_t(lstr) variables_found;
     bool whole = false;
     bool starts_with_dollar;
+    unsigned var_pos = 0;
 
     assert (data->type == YAML_DATA_SCALAR
          && data->scalar.type == YAML_SCALAR_STRING);
@@ -987,6 +1023,10 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
 
         if (ps_skip_afterchr(&ps, '$') < 0) {
             break;
+        }
+        var_pos += 1;
+        if (var_bitmap && !TST_BIT(var_bitmap->tab, var_pos - 1)) {
+            continue;
         }
 
         name = ps_parse_variable_name(&ps);
@@ -1003,10 +1043,14 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
     }
 
     if (qh_len(lstr, &variables_found) > 0) {
-        yaml_variable_t var = {
-            .data = data,
-            .in_string = in_string || !whole,
-        };
+        yaml_variable_t *var = t_new(yaml_variable_t, 1);
+
+        var->data = data;
+        var->in_string = in_string || !whole;
+        if (var_bitmap) {
+            var->var_bitmap = *var_bitmap;
+        }
+
         qh_for_each_key(lstr, name, &variables_found) {
             t_yaml_env_add_var(env, name, var);
         }
@@ -1020,16 +1064,28 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
     }
 }
 
-/* Replace occurrences of $name with `value` in `data`. */
+/* Replace occurrences of $name with `value` in `data`.
+ *
+ * If var_bitmap is non-NULL, it is used to detect which '$' characters
+ * are used for variables.
+ * After the substitution, the var_bitmap is replaced by an updated one
+ * (without the variables that were replaced).
+ */
 static lstr_t
 t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
-                   const lstr_t value)
+                   const lstr_t value, qv_t(u8) * nullable var_bitmap)
 {
     t_SB_1k(buf);
     pstream_t ps;
     pstream_t sub;
+    qv_t(u8) new_bitmap;
+    int bitmap_pos = 0;
+    int new_bitmap_pos = 0;
 
     ps = ps_initlstr(&tpl_string);
+    if (var_bitmap) {
+        t_qv_init(&new_bitmap, 0);
+    }
 
     for (;;) {
         pstream_t cpy;
@@ -1041,9 +1097,18 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
             sb_add_ps(&buf, ps);
             break;
         }
-
         sb_add_ps(&buf, sub);
 
+        /* TODO: handle oob ? */
+        if (var_bitmap && !TST_BIT(var_bitmap->tab, bitmap_pos)) {
+            bitmap_pos += 1;
+            new_bitmap_pos += 1;
+            /* add '$' and continue to get to next '$' char */
+            sb_addc(&buf, ps_getc(&ps));
+            continue;
+        }
+
+        bitmap_pos += 1;
         cpy = ps;
         ps_skipc(&cpy, '$');
         var_name = ps_parse_variable_name(&cpy);
@@ -1055,6 +1120,14 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
             if (expect(ps_get_ps_upto(&ps, cpy.b, &var_string) >= 0)) {
                 sb_add_ps(&buf, var_string);
             }
+            if (var_bitmap) {
+                if (new_bitmap.len * 8 <= new_bitmap_pos) {
+                    qv_growlen0(&new_bitmap,
+                                new_bitmap_pos / 8 + 1 - new_bitmap.len);
+                }
+                SET_BIT(new_bitmap.tab, new_bitmap_pos);
+                new_bitmap_pos += 1;
+            }
         }
         ps = cpy;
     }
@@ -1062,6 +1135,9 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
     logger_trace(&_G.logger, 2, "apply replacement %pL=%pL, data value "
                  "changed from `%pL` to `%pL`", &name, &value,
                  &tpl_string, &buf);
+    if (var_bitmap) {
+        *var_bitmap = new_bitmap;
+    }
 
     return LSTR_SB_V(&buf);
 }
@@ -1113,7 +1189,7 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
         }
 
         /* Replace every occurrence of the variable with the provided data. */
-        tab_for_each_ptr(var, &variables->values[pos]) {
+        tab_for_each_entry(var, &variables->values[pos]) {
             if (var->in_string) {
                 if (!string_value.s) {
                     if (pair->data.type != YAML_DATA_SCALAR) {
@@ -1133,9 +1209,12 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
 
                 assert (var->data->type == YAML_DATA_SCALAR
                      && var->data->scalar.type == YAML_SCALAR_STRING);
-                var->data->scalar.s
-                    = t_tpl_set_variable(var->data->scalar.s, name,
-                                         string_value);
+                var->data->scalar.s = t_tpl_set_variable(
+                    var->data->scalar.s,
+                    name,
+                    string_value,
+                    var->var_bitmap.len > 0 ? &var->var_bitmap : NULL
+                );
             } else {
                 *var->data = pair->data;
 
@@ -1630,7 +1709,9 @@ static pstream_t yaml_env_get_scalar_ps(yaml_parse_t * nonnull env,
 }
 
 static int
-t_yaml_env_parse_quoted_string(yaml_parse_t *env, yaml_data_t *out)
+t_yaml_env_parse_quoted_string(yaml_parse_t *env, yaml_data_t *out,
+                               qv_t(u8) * nonnull var_bitmap,
+                               bool * nonnull has_escaped_dollars)
 {
     sb_t buf;
 
@@ -1638,7 +1719,8 @@ t_yaml_env_parse_quoted_string(yaml_parse_t *env, yaml_data_t *out)
     yaml_env_skipc(env);
 
     t_sb_init(&buf, 128);
-    RETHROW(yaml_parse_quoted_string(env, &buf));
+    RETHROW(yaml_parse_quoted_string(env, &buf, var_bitmap,
+                                     has_escaped_dollars));
 
     yaml_env_end_data(env, out);
     out->scalar.type = YAML_SCALAR_STRING;
@@ -1732,7 +1814,12 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
 
     yaml_env_start_data(env, YAML_DATA_SCALAR, out);
     if (ps_peekc(env->ps) == '"') {
-        RETHROW(t_yaml_env_parse_quoted_string(env, out));
+        qv_t(u8) var_bitmap;
+        bool has_escaped_dollars = false;
+
+        t_qv_init(&var_bitmap, 0);
+        RETHROW(t_yaml_env_parse_quoted_string(env, out, &var_bitmap,
+                                               &has_escaped_dollars));
 
         if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
             yaml__presentation_node__t *node;
@@ -1741,7 +1828,15 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
             node->quoted = true;
         }
 
-        t_yaml_env_add_variables(env, out, true);
+        if (var_bitmap.len > 0) {
+            if (has_escaped_dollars) {
+                /* fast case: has variables but no escaping: do not bother
+                 * with the bitmap */
+                t_yaml_env_add_variables(env, out, true, &var_bitmap);
+            } else {
+                t_yaml_env_add_variables(env, out, true, NULL);
+            }
+        }
 
         return 0;
     }
@@ -1771,7 +1866,7 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
     out->scalar.type = YAML_SCALAR_STRING;
     out->scalar.s = line;
 
-    t_yaml_env_add_variables(env, out, false);
+    t_yaml_env_add_variables(env, out, false, NULL);
 
     return 0;
 }
@@ -4284,8 +4379,9 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
             /* Even though the string did not change, the value has
              * conflicted, and a new name must used. Replace in the template
              * the old name with a variable using the new name. */
+            /* TODO: use var bitmap */
             *tpl = t_tpl_set_variable(*tpl, var->name,
-                                      t_yaml_format_variable(new_name));
+                                      t_yaml_format_variable(new_name), NULL);
         }
     }
 
@@ -4396,7 +4492,9 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env,
             /* The value has conflicted, and a new name must used. Replace
              * the old name with a variable using the new name */
             new_name = t_yaml_format_variable(new_name);
-            *var_string = t_tpl_set_variable(*var_string, var_name, new_name);
+            /* TODO: use var bitmap */
+            *var_string = t_tpl_set_variable(*var_string, var_name, new_name,
+                                             NULL);
         }
     } else {
         /* If data is not a string, it should be matched on a template
@@ -7771,6 +7869,75 @@ Z_GROUP_EXPORT(yaml)
              * variables, so it is lost */
             "- zo meu\n"
         ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ escaped variables */
+
+    Z_TEST(variable_escaped, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+        const char *inner;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        inner =
+            /* Not quoting the string won't handle escaping */
+            "- $foo\n"
+            "- \\$foo\n"
+            "- <\\$foo>\n"
+            "- <$foo \\$foo \\$$foo>\n"
+            "- $foo\\$foo\n"
+
+            /* Quoting the string will handle escaping */
+            "- \"$foo\"\n"
+            "- \"\\$foo\"\n"
+            "- \"<\\$foo>\"\n"
+            "- \"<$foo \\$foo \\$$foo>\"\n"
+            "- \"$foo\\$foo\"\n";
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
+        root =
+            "!include inner.yml\n"
+            "$foo: ga\n";
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            root,
+
+            "- ga\n"
+            "- \\ga\n"
+            "- <\\ga>\n"
+            "- <ga \\ga \\$ga>\n"
+            "- ga\\ga\n"
+            "- \"ga\"\n"
+            /* FIXME: escaping of '$' on packing */
+            "- \"$foo\"\n"
+            "- \"<$foo>\"\n"
+            "- \"<ga $foo $ga>\"\n"
+            "- \"ga$foo\""
+        ));
+
+        Z_ASSERT_LSTREQUAL(data.seq->datas.tab[6].scalar.s,
+                           LSTR("$foo"));
+        Z_ASSERT_LSTREQUAL(data.seq->datas.tab[7].scalar.s,
+                           LSTR("<$foo>"));
+        Z_ASSERT_LSTREQUAL(data.seq->datas.tab[8].scalar.s,
+                           LSTR("<ga $foo $ga>"));
+        Z_ASSERT_LSTREQUAL(data.seq->datas.tab[9].scalar.s,
+                           LSTR("ga$foo"));
+
+        /* FIXME: handle it on repack */
+#if 0
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_esc_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("var_esc_1/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_esc_1/inner.yml", inner));
+#endif
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
