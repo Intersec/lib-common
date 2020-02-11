@@ -885,6 +885,42 @@ ps_startswith_yaml_key(pstream_t ps, bool must_be_variable)
     return ps.s[0] == ':' && (ps_len(&ps) == 1 || isspace(ps.s[1]));
 }
 
+static int
+yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf)
+{
+    int line_nb = 0;
+    int col_nb = 0;
+    pstream_t start = env->ps;
+
+    while (!ps_done(&env->ps)) {
+        switch (ps_peekc(env->ps)) {
+          case '\n':
+            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                    "missing closing '\"'");
+
+          case '"':
+            sb_add(buf, start.p, env->ps.s - start.s);
+            ps_skip(&env->ps, 1);
+            return 0;
+
+          case '\\':
+            sb_add(buf, start.p, env->ps.s - start.s);
+            if (parse_backslash(&env->ps, buf, &line_nb, &col_nb) < 0) {
+                return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                        "invalid backslash");
+            }
+            start = env->ps;
+            break;
+
+          default:
+            ps_skip(&env->ps, 1);
+            break;
+        }
+    }
+
+    return yaml_env_set_err(env, YAML_ERR_BAD_STRING, "missing closing '\"'");
+}
+
 /* }}} */
 /* {{{ Variables */
 
@@ -1596,32 +1632,19 @@ static pstream_t yaml_env_get_scalar_ps(yaml_parse_t * nonnull env,
 static int
 t_yaml_env_parse_quoted_string(yaml_parse_t *env, yaml_data_t *out)
 {
-    int line_nb = 0;
-    int col_nb = 0;
     sb_t buf;
-    parse_str_res_t res;
 
     assert (ps_peekc(env->ps) == '"');
     yaml_env_skipc(env);
 
     t_sb_init(&buf, 128);
-    res = parse_quoted_string(&env->ps, &buf, &line_nb, &col_nb, '"');
-    switch (res) {
-      case PARSE_STR_ERR_UNCLOSED:
-        return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
-                                "missing closing '\"'");
-      case PARSE_STR_ERR_EXP_SMTH:
-        return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
-                                "invalid backslash");
-      case PARSE_STR_OK:
-        yaml_env_end_data(env, out);
-        out->scalar.type = YAML_SCALAR_STRING;
-        out->scalar.s = LSTR_SB_V(&buf);
-        return 0;
-    }
+    RETHROW(yaml_parse_quoted_string(env, &buf));
 
-    assert (false);
-    return yaml_env_set_err(env, YAML_ERR_BAD_STRING, "invalid string");
+    yaml_env_end_data(env, out);
+    out->scalar.type = YAML_SCALAR_STRING;
+    out->scalar.s = LSTR_SB_V(&buf);
+
+    return 0;
 }
 
 static int
@@ -5102,13 +5125,12 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* wrong explicit string */
-        /* TODO: weird span? */
         Z_HELPER_RUN(z_yaml_test_parse_fail(
             "\" unfinished string",
 
-            "<string>:1:2: expected string, missing closing '\"'\n"
+            "<string>:1:20: expected string, missing closing '\"'\n"
             "\" unfinished string\n"
-            " ^"
+            "                   ^"
         ));
 
         /* wrong escaped code */
