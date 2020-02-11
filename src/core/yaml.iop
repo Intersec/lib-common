@@ -118,6 +118,14 @@ struct PresentationNode {
     /** The data is packed in flow syntax */
     bool flowMode = false;
 
+    /** The data was quoted.
+     *
+     * This only makes sense for string scalars. If true, the string will
+     * be quoted when packed. If false, the string will still be quoted if it
+     * contains characters that requires it.
+     */
+    bool quoted = false;
+
     /** If set, the node was parsed from an included file. */
     PresentationInclude? included;
 

@@ -1710,6 +1710,14 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
     yaml_env_start_data(env, YAML_DATA_SCALAR, out);
     if (ps_peekc(env->ps) == '"') {
         RETHROW(t_yaml_env_parse_quoted_string(env, out));
+
+        if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
+            yaml__presentation_node__t *node;
+
+            node = t_yaml_env_pres_get_current_node(env->pres);
+            node->quoted = true;
+        }
+
         t_yaml_env_add_variables(env, out, true);
 
         return 0;
@@ -3037,7 +3045,9 @@ yaml_pack_pres_node_inline(yaml_pack_env_t * nonnull env,
  */
 #define IBUF_LEN  25
 
-static bool yaml_string_must_be_quoted(const lstr_t s)
+static bool
+yaml_string_must_be_quoted(const lstr_t s,
+                           const yaml__presentation_node__t * nullable pres)
 {
     /* '!', '&', '*', '-', '"' and '.' have special YAML meaning.
      * Technically, '-' is only forbidden if followed by a space,
@@ -3061,6 +3071,10 @@ static bool yaml_string_must_be_quoted(const lstr_t s)
         return true;
     }
 
+    if (pres && pres->quoted) {
+        return true;
+    }
+
     /* cannot start with those characters */
     if (ctype_desc_contains(&yaml_invalid_raw_string_start, s.s[0])) {
         return true;
@@ -3080,12 +3094,13 @@ static bool yaml_string_must_be_quoted(const lstr_t s)
     return false;
 }
 
-static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val)
+static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val,
+                            const yaml__presentation_node__t * nullable pres)
 {
     int res = 0;
     pstream_t ps;
 
-    if (!yaml_string_must_be_quoted(val)) {
+    if (!yaml_string_must_be_quoted(val, pres)) {
         PUTLSTR(val);
         return res;
     }
@@ -3137,9 +3152,10 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val)
     return res;
 }
 
-static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
-                            const yaml_scalar_t * nonnull scalar,
-                            const lstr_t tag)
+static int
+yaml_pack_scalar(yaml_pack_env_t * nonnull env,
+                 const yaml_scalar_t * nonnull scalar, const lstr_t tag,
+                 const yaml__presentation_node__t * nullable pres)
 {
     int res = 0;
     char ibuf[IBUF_LEN];
@@ -3148,7 +3164,7 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
 
     switch (scalar->type) {
       case YAML_SCALAR_STRING:
-        res += yaml_pack_string(env, scalar->s);
+        res += yaml_pack_string(env, scalar->s, pres);
         break;
 
       case YAML_SCALAR_DOUBLE: {
@@ -3398,7 +3414,8 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
-        res += RETHROW(yaml_pack_scalar(env, &data->scalar, LSTR_NULL_V));
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar, LSTR_NULL_V,
+                                        NULL));
         break;
       case YAML_DATA_SEQ:
         res += RETHROW(yaml_pack_flow_seq(env, data->seq));
@@ -4447,7 +4464,8 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
     } else {
         switch (data->type) {
           case YAML_DATA_SCALAR: {
-            res += RETHROW(yaml_pack_scalar(env, &data->scalar, data->tag));
+            res += RETHROW(yaml_pack_scalar(env, &data->scalar, data->tag,
+                                            node));
           } break;
           case YAML_DATA_SEQ:
             res += RETHROW(t_yaml_pack_seq(env, data->seq));
@@ -6130,6 +6148,14 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
                                          1, 1, 1, 6));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("a:x:b"));
+
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+            "\"true\"",
+            "\"true\""
+        ));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
+                                         1, 1, 1, 7));
+        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("true"));
 
         /* null */
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
