@@ -1761,33 +1761,9 @@ static void httpd_do_any(httpd_t *w, httpd_query_t *q, httpd_qinfo_t *req)
     }
 }
 
-static void httpd_do_trace_on_data(httpd_query_t *q, pstream_t ps)
-{
-    outbuf_t *ob = httpd_get_ob(q);
-    size_t dlen = ps_len(&ps);
-
-    if (dlen) {
-        ob_addf(ob, "\r\n%zx\r\n", dlen);
-        ob_add(ob, ps.s, dlen);
-    }
-}
-
 static void httpd_do_trace(httpd_t *w, httpd_query_t *q, httpd_qinfo_t *req)
 {
-    outbuf_t *ob;
-
-    if (q->http_version == HTTP_1_0) {
-        httpd_reject(q, NOT_IMPLEMENTED, "TRACE on HTTP/1.0 isn't supported");
-        return;
-    }
-
-    q->on_data = &httpd_do_trace_on_data;
-    q->on_done = &httpd_reply_done;
-    ob = httpd_reply_hdrs_start(q, HTTP_CODE_OK, false);
-    ob_adds(ob, "Content-Type: message/http\r\n");
-    httpd_reply_hdrs_done(q, -1, true);
-    ob_addf(ob, "\r\n%zx\r\n", ps_len(&req->hdrs_ps));
-    ob_add(ob, req->hdrs_ps.s, ps_len(&req->hdrs_ps));
+    httpd_reject(q, METHOD_NOT_ALLOWED, "TRACE method is not allowed");
 }
 
 static int httpd_on_event(el_t evh, int fd, short events, data_t priv)
