@@ -34,6 +34,8 @@ lstr_t const http_method_str[HTTP_METHOD__MAX] = {
 /* rfc 2616: §6.1.1: Status Code and Reason Phrase */
 lstr_t http_code_to_str(http_code_t code)
 {
+    STATIC_ASSERT(IOP_HTTP_METHOD_max == HTTP_METHOD__MAX - 1);
+
     switch (code) {
 #define CASE(c, v)  case HTTP_CODE_##c: return LSTR(v)
         CASE(CONTINUE                , "Continue");
