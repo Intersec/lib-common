@@ -4382,6 +4382,7 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
     for (;;) {
         lstr_t name;
         yaml_pack_variable_t *var;
+        pstream_t cpy;
 
         /* copy up to next '$' */
         if (ps_get_ps_chr(&ps, '$', &sub) < 0) {
@@ -4399,6 +4400,7 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
             continue;
         }
 
+        cpy = ps;
         ps_skipc(&ps, '$');
         name = ps_parse_variable_name(&ps);
         if (!name.s) {
@@ -4406,6 +4408,10 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
         }
         var = t_yaml_env_find_var(env, name);
         if (!var || !var->original_value.s) {
+            if (env->flags & YAML_PACK_ALLOW_UNBOUND_VARIABLES) {
+                sb_add(&buf, cpy.p, ps.s - cpy.s);
+                continue;
+            }
             return -1;
         }
 
@@ -8037,7 +8043,8 @@ Z_GROUP_EXPORT(yaml)
 
         grandchild =
             "- \"$a \\$a $b \\$b \\$c $c $d \\$d "
-                "$e $e \\$e $f \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\"\n";
+                "$e $e \\$e $f \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\"\n"
+            "- $g\n";
         /* bitmap: 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0.
          * ie: 0x65, 0x0B.
          * the last '0' is not part of the bitmap, this allows testing proper
@@ -8056,12 +8063,15 @@ Z_GROUP_EXPORT(yaml)
         root =
             "!include child.yml\n"
             "$e: e k s\n"
-            "$c: cee\n";
+            "$c: cee\n"
+            "$g:\n"
+            "  - ~\n";
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
             root,
 
             "- \"a \\$a b \\$b \\$c cee D: \\$d "
-                "e k s e k s \\$e y \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\""
+                "e k s e k s \\$e y \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\"\n"
+            "- - ~"
         ));
 
         Z_ASSERT_LSTREQUAL(
@@ -8083,17 +8093,19 @@ Z_GROUP_EXPORT(yaml)
             YAML_PARSE_ALLOW_UNBOUND_VARIABLES, &data, &pres, &env,
             child,
 
-            /* FIXME: repacking data using variables escapes it */
+            /* repacking raw, without includes, will lose the variables,
+             * and thus the string is packed as is, losing variable data */
             "- \"a \\$a b \\$b \\$c \\$c D: \\$d "
-                "\\$e \\$e \\$e y \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\""
+                "\\$e \\$e \\$e y \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\"\n"
+            "- \"\\$g\""
         ));
 
-#if 0
+        /* But repacking with files (and with the right flag) will work fine.
+         */
         Z_HELPER_RUN(z_pack_yaml_file("var_esc_3/child.yml", &data, &pres,
-                                      0));
+                                      YAML_PACK_ALLOW_UNBOUND_VARIABLES));
         Z_HELPER_RUN(z_check_file("var_esc_3/child.yml", child));
         Z_HELPER_RUN(z_check_file("var_esc_3/grandchild.yml", grandchild));
-#endif
         yaml_parse_delete(&env);
 
     } Z_TEST_END;

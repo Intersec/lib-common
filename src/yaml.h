@@ -286,6 +286,15 @@ typedef enum yaml_pack_flags_t {
      * do not attempt to recreate subfiles.
      */
     YAML_PACK_NO_SUBFILES = 1 << 0,
+
+    /** Allow unbound variables when repacking.
+     *
+     * This is supposed to be used when a document has been parsed with the
+     * YAML_PARSE_ALLOW_UNBOUND_VARIABLES flag. It ensures that if variables
+     * are not found when repacking, there are still properly repacked as
+     * unbound variables.
+     */
+    YAML_PACK_ALLOW_UNBOUND_VARIABLES = 1 << 1,
 } yaml_pack_flags_t;
 
 /** Set YAML packing flags.
