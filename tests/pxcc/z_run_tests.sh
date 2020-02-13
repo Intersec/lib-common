@@ -1,3 +1,4 @@
+#!/bin/bash -u
 ###########################################################################
 #                                                                         #
 # Copyright 2019 INTERSEC SA                                              #
@@ -15,30 +16,31 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable=undefined-variable,invalid-name
 
-zchk_mod_source = [
-    'zchk_cmod.pxc',
-    'zchk_mod.pyx',
-    'zchk_cmod.c',
-]
+RES=0
 
-zchk_mod_cflags = [
-    '-Wno-unused-parameter',
-    '-Wno-shadow',
-    '-Wno-redundant-decls',
-]
+run_test() {
+    echo
+    echo "# $1"
+    eval "$1"
+    RES=$(( RES + $? ))
+}
 
+main() {
+    local script_dir
 
-if ctx.env.PYTHON2_CONFIG:
-    ctx.shlib(target='zchk_mod/python2/zchk_mod', features='c cshlib',
-              source=zchk_mod_source, cflags=zchk_mod_cflags, use=[
-                  'python2',
-              ])
+    script_dir=$(dirname "$(readlink -f "$0")")
+    RES=0
 
+    if [ -f "$script_dir/zchk_mod/python2/zchk_mod.so" ] ; then
+        run_test "python2 $script_dir/z_pxcc.py"
+    fi
 
-if ctx.env.PYTHON3_CONFIG:
-    ctx.shlib(target='zchk_mod/python3/zchk_mod', features='c cshlib',
-              source=zchk_mod_source, cflags=zchk_mod_cflags, use=[
-                  'python3',
-              ])
+    if [ -f "$script_dir/zchk_mod/python3/zchk_mod.so" ] ; then
+        run_test "python3 $script_dir/z_pxcc.py"
+    fi
+
+    return $RES
+}
+
+main

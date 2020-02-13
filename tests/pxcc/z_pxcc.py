@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 ###########################################################################
 #                                                                         #
 # Copyright 2019 INTERSEC SA                                              #
@@ -15,30 +16,16 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable=undefined-variable,invalid-name
 
-zchk_mod_source = [
-    'zchk_cmod.pxc',
-    'zchk_mod.pyx',
-    'zchk_cmod.c',
-]
-
-zchk_mod_cflags = [
-    '-Wno-unused-parameter',
-    '-Wno-shadow',
-    '-Wno-redundant-decls',
-]
+import zpycore as z
+import zchk_mod
 
 
-if ctx.env.PYTHON2_CONFIG:
-    ctx.shlib(target='zchk_mod/python2/zchk_mod', features='c cshlib',
-              source=zchk_mod_source, cflags=zchk_mod_cflags, use=[
-                  'python2',
-              ])
+@z.ZGroup
+class PxccTests(z.TestCase):
+    def test_cubic(self):
+        self.assertEqual(zchk_mod.cubic(4), 4**3)
 
 
-if ctx.env.PYTHON3_CONFIG:
-    ctx.shlib(target='zchk_mod/python3/zchk_mod', features='c cshlib',
-              source=zchk_mod_source, cflags=zchk_mod_cflags, use=[
-                  'python3',
-              ])
+if __name__ == "__main__":
+    z.main()

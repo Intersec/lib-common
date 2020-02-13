@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 ###########################################################################
 #                                                                         #
 # Copyright 2019 INTERSEC SA                                              #
@@ -15,30 +16,15 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable=undefined-variable,invalid-name
+# pylint: disable=import-error
 
-zchk_mod_source = [
-    'zchk_cmod.pxc',
-    'zchk_mod.pyx',
-    'zchk_cmod.c',
-]
+import sys
 
-zchk_mod_cflags = [
-    '-Wno-unused-parameter',
-    '-Wno-shadow',
-    '-Wno-redundant-decls',
-]
+if sys.version_info[0] < 3:
+    from .python2 import zchk_mod as _zchk_mod_so
+else:
+    from .python3 import zchk_mod as _zchk_mod_so
 
+globals().update(_zchk_mod_so.__dict__)
 
-if ctx.env.PYTHON2_CONFIG:
-    ctx.shlib(target='zchk_mod/python2/zchk_mod', features='c cshlib',
-              source=zchk_mod_source, cflags=zchk_mod_cflags, use=[
-                  'python2',
-              ])
-
-
-if ctx.env.PYTHON3_CONFIG:
-    ctx.shlib(target='zchk_mod/python3/zchk_mod', features='c cshlib',
-              source=zchk_mod_source, cflags=zchk_mod_cflags, use=[
-                  'python3',
-              ])
+del sys, _zchk_mod_so
