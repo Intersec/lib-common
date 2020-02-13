@@ -64,6 +64,27 @@ struct KeyData {
 };
 
 /* }}} */
+/* {{{ Template presentation */
+
+struct PresentationTemplate {
+    /** This is the original value of the template, before any substitution.
+     *
+     * \warning The node may have been modified multiple times if it contains
+     * multiple arguments, or it may be partial. This field contains the
+     * original string, and not any partial substitution done afterwards.
+     */
+    string originalValue;
+
+    /** Bitmap of escaped characters.
+     *
+     * If set, the template contains both variables and escaped '$'
+     * characters. To distinguish the two, a bitmap is used, where 1 indicates
+     * that a '$' is a variable, and 0 indicates a raw '$' character.
+     */
+    ubyte[] variablesBitmap;
+};
+
+/* }}} */
 /* {{{ Node presentation */
 
 /* Presentation details applied to a specific node.
@@ -138,7 +159,7 @@ struct PresentationNode {
      * multiple arguments, or it may be partial. This field contains the
      * original string, and not any partial substitution done afterwards.
      */
-    string? valueWithVariables;
+    PresentationTemplate? tpl;
 };
 
 /* }}} */
