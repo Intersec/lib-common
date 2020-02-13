@@ -77,6 +77,10 @@ typedef struct yaml_env_presentation_t {
 /* {{{ Variables */
 
 typedef struct yaml_variable_t {
+    /* FIXME: keeping a raw pointer on a yaml_data_t is very flimsy, and this
+     * design should be reworked.
+     * For example, it prevents properly handling variables in overrides.
+     */
     /* Data using the variable. The set value for the variable will be set
      * in the data, or replace it. */
     yaml_data_t *data;
@@ -1358,7 +1362,6 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
                                  qm_t(yaml_vars) * nonnull variables)
 {
     yaml_parse_t *subfile = NULL;
-    yaml_data_t subdata;
     char dirpath[PATH_MAX];
     SB_1k(err);
 
@@ -1401,9 +1404,9 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
     qv_append(&env->subfiles, subfile);
 
     if (raw) {
-        yaml_data_set_string(&subdata, subfile->file_contents);
+        yaml_data_set_string(data, subfile->file_contents);
     } else {
-        if (t_yaml_parse(subfile, &subdata, &err) < 0) {
+        if (t_yaml_parse(subfile, data, &err) < 0) {
             /* no call to yaml_env_set_err, because the generated error message
              * will already have all the including details. */
             env->err = subfile->err;
@@ -1417,20 +1420,19 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
         yaml__presentation_include__t *inc;
 
         inc = t_iop_new(yaml__presentation_include);
-        inc->include_presentation = data->presentation;
-        inc->path = data->scalar.s;
+        inc->include_presentation = subfile->included->data.presentation;
+        inc->path = subfile->included->data.scalar.s;
         inc->raw = raw;
-        t_yaml_data_get_presentation(&subdata, &inc->document_presentation);
+        t_yaml_data_get_presentation(data, &inc->document_presentation);
 
-        /* XXX: create a new presentation node for subdata, that indicates it
+        /* XXX: create a new presentation node for data, that indicates it
          * is included. We should not modify the existing presentation node
-         * (if it exists), as it indicates the presentation of the subdata
+         * (if it exists), as it indicates the presentation of the data
          * in the subfile, and was saved in "inc->presentation". */
-        subdata.presentation = t_iop_new(yaml__presentation_node);
-        subdata.presentation->included = inc;
+        data->presentation = t_iop_new(yaml__presentation_node);
+        data->presentation->included = inc;
     }
 
-    *data = subdata;
     return 0;
 
   err:
@@ -7461,6 +7463,38 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("variables_2/child.yml", child));
         Z_HELPER_RUN(z_check_file("variables_2/grandchild.yml", grandchild));
 
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Variable in scalar */
+
+    Z_TEST(variable_in_scalar, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *inner;
+        const char *root;
+
+        /* modify a template through a direct include of the scalar */
+        inner = "$a $b\n";
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
+        root =
+            "!include inner.yml\n"
+            "$a: pi\n"
+            "$b: ka\n";
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            root,
+
+            "pi ka"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_scalar_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("var_scalar_1/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_scalar_1/inner.yml", inner));
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
