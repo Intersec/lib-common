@@ -17,39 +17,36 @@
 #                                                                         #
 ###########################################################################
 
-RES=0
-
 run_test() {
     echo
     echo "# $1"
     eval "$1"
-    let "RES=$RES + $?"
+    RES=$(( RES + $? ))
 }
 
 main() {
-    local tools_python_dir
-    local waf_list
+    local script_dir
 
-    tools_python_dir=$(dirname "$(readlink -f "$0")")
-    cd "$tools_python_dir" || exit -1
-    waf_list="$(waf list)"
+    script_dir=$(dirname "$(readlink -f "$0")")
+    RES=0
 
-    if grep -qs "iopy/python2/iopy" <<<"$waf_list" ; then
-        run_test "python2 $tools_python_dir/z_iopy.py"
+    if [ -f "$script_dir/iopy/python2/iopy.so" ] ; then
+        run_test "python2 $script_dir/z_iopy.py"
     fi
 
-    if grep -qs "zchk-iopy-dso2" <<<"$waf_list" ; then
-        run_test "$tools_python_dir/zchk-iopy-dso2"
+    if [ -f "$script_dir/zchk-iopy-dso2" ] ; then
+        run_test "$script_dir/zchk-iopy-dso2"
     fi
 
-    if grep -qs "iopy/python3/iopy" <<<"$waf_list" ; then
-        run_test "python3 $tools_python_dir/z_iopy.py"
+    if [ -f "$script_dir/iopy/python3/iopy.so" ] ; then
+        run_test "python3 $script_dir/z_iopy.py"
     fi
 
-    if grep -qs "zchk-iopy-dso3" <<<"$waf_list" ; then
-        run_test "$tools_python_dir/zchk-iopy-dso3"
+    if [ -f "$script_dir/zchk-iopy-dso3" ] ; then
+        run_test "$script_dir/zchk-iopy-dso3"
     fi
+
+    return $RES
 }
 
 main
-exit $RES
