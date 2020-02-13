@@ -1009,7 +1009,7 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
     qh_t(lstr) variables_found;
     bool whole = false;
     bool starts_with_dollar;
-    unsigned var_pos = 0;
+    int var_pos = 0;
 
     assert (data->type == YAML_DATA_SCALAR
          && data->scalar.type == YAML_SCALAR_STRING);
@@ -1025,7 +1025,9 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
             break;
         }
         var_pos += 1;
-        if (var_bitmap && !TST_BIT(var_bitmap->tab, var_pos - 1)) {
+        if (var_bitmap && !(var_pos - 1 < var_bitmap->len * 8
+                         && TST_BIT(var_bitmap->tab, var_pos - 1)))
+        {
             continue;
         }
 
@@ -1104,8 +1106,9 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
         }
         sb_add_ps(&buf, sub);
 
-        /* TODO: handle oob ? */
-        if (var_bitmap && !TST_BIT(var_bitmap->tab, bitmap_pos)) {
+        if (var_bitmap && !(bitmap_pos < var_bitmap->len * 8
+                         && TST_BIT(var_bitmap->tab, bitmap_pos)))
+        {
             bitmap_pos += 1;
             new_bitmap_pos += 1;
             /* add '$' and continue to get to next '$' char */
@@ -1835,10 +1838,10 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
 
         if (var_bitmap.len > 0) {
             if (has_escaped_dollars) {
-                /* fast case: has variables but no escaping: do not bother
-                 * with the bitmap */
                 t_yaml_env_add_variables(env, out, true, &var_bitmap);
             } else {
+                /* fast case: has variables but no escaping: do not bother
+                 * with the bitmap */
                 t_yaml_env_add_variables(env, out, true, NULL);
             }
         }
@@ -3279,7 +3282,8 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val,
                 var_pos++;
 
                 if (var_bitmap->len == 0
-                ||  TST_BIT(var_bitmap->tab, var_pos - 1))
+                ||  (var_pos - 1 < var_bitmap->len * 8
+                  && TST_BIT(var_bitmap->tab, var_pos - 1)))
                 {
                     PUTS("$");
                     break;
@@ -4387,9 +4391,10 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
         }
         sb_add_ps(&buf, sub);
 
-        /* TODO: handle oob? */
         var_pos += 1;
-        if (var_bitmap && !TST_BIT(var_bitmap->tab, var_pos - 1)) {
+        if (var_bitmap && !(var_pos - 1 < var_bitmap->len * 8
+                         && TST_BIT(var_bitmap->tab, var_pos - 1)))
+        {
             sb_addc(&buf, ps_getc(&ps));
             continue;
         }
@@ -5094,11 +5099,11 @@ z_yaml_test_pack(const yaml_data_t * nonnull data,
 /* out parameter first to let the yaml string be last, which makes it
  * much easier to write multiple lines without horrible indentation */
 static
-int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
-                                yaml__document_presentation__t *nullable pres,
-                                yaml_parse_t * nonnull * nullable env,
-                                const char * nonnull yaml,
-                                const char * nullable expected_repack)
+int _z_t_yaml_test_parse_success(
+    unsigned flags, yaml_data_t * nullable data,
+    yaml__document_presentation__t *nullable pres,
+    yaml_parse_t * nonnull * nullable env, const char * nonnull yaml,
+    const char * nullable expected_repack)
 {
     yaml__document_presentation__t p;
     yaml_data_t local_data;
@@ -5115,7 +5120,7 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
         env = &local_env;
     }
 
-    *env = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
+    *env = t_yaml_parse_new(flags | YAML_PARSE_GEN_PRES_DATA);
     /* hack to make relative inclusion work in z_tmpdir_g */
     (*env)->fullpath = t_lstr_fmt("%pL/foo.yml", &z_tmpdir_g);
     yaml_parse_attach_ps(*env, ps_initstr(yaml));
@@ -5139,6 +5144,17 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
     }
 
     Z_HELPER_END;
+}
+
+static
+int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
+                                yaml__document_presentation__t *nullable pres,
+                                yaml_parse_t * nonnull * nullable env,
+                                const char * nonnull yaml,
+                                const char * nullable expected_repack)
+{
+    return _z_t_yaml_test_parse_success(0, data, pres, env, yaml,
+                                        expected_repack);
 }
 
 static int
@@ -7953,6 +7969,8 @@ Z_GROUP_EXPORT(yaml)
         yaml_parse_t *env;
         const char *root;
         const char *inner;
+        const char *child;
+        const char *grandchild;
 
         /* Test how changing in the parsed AST the value introduced by a
          * variable is reflected when repacking */
@@ -8013,6 +8031,71 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("var_esc_1/root.yml", root));
         Z_HELPER_RUN(z_check_file("var_esc_1/inner.yml", inner));
         yaml_parse_delete(&env);
+
+        /* Test partial substitutions with escaped characters, + go above
+         * 8 '$' characters to test bitmap alloc */
+
+        grandchild =
+            "- \"$a \\$a $b \\$b \\$c $c $d \\$d "
+                "$e $e \\$e $f \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\"\n";
+        /* bitmap: 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0.
+         * ie: 0x65, 0x0B.
+         * the last '0' is not part of the bitmap, this allows testing proper
+         * OOB tests on the bitmap.
+         */
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+
+        child =
+            "!include grandchild.yml\n"
+            "$f: y\n"
+            "$a: a\n"
+            "$d: \"D:\"\n"
+            "$b: b\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+
+        root =
+            "!include child.yml\n"
+            "$e: e k s\n"
+            "$c: cee\n";
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            root,
+
+            "- \"a \\$a b \\$b \\$c cee D: \\$d "
+                "e k s e k s \\$e y \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\""
+        ));
+
+        Z_ASSERT_LSTREQUAL(
+            data.seq->datas.tab[0].scalar.s,
+            LSTR("a $a b $b $c cee D: $d "
+                 "e k s e k s $e y $f1 $f2 $f3 $f4 $f5")
+        );
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_esc_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("var_esc_2/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_esc_2/child.yml", child));
+        Z_HELPER_RUN(z_check_file("var_esc_2/grandchild.yml", grandchild));
+        yaml_parse_delete(&env);
+
+        /* parse only child, look at ast, and repack */
+        Z_HELPER_RUN(_z_t_yaml_test_parse_success(
+            YAML_PARSE_ALLOW_UNBOUND_VARIABLES, &data, &pres, &env,
+            child,
+
+            /* FIXME: repacking data using variables escapes it */
+            "- \"a \\$a b \\$b \\$c \\$c D: \\$d "
+                "\\$e \\$e \\$e y \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\""
+        ));
+
+#if 0
+        Z_HELPER_RUN(z_pack_yaml_file("var_esc_3/child.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("var_esc_3/child.yml", child));
+        Z_HELPER_RUN(z_check_file("var_esc_3/grandchild.yml", grandchild));
+#endif
+        yaml_parse_delete(&env);
+
     } Z_TEST_END;
 
     /* }}} */
