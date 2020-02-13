@@ -15,14 +15,12 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable
+#cython: language_level=2
 
+cdef extern from "../pxcc/cython_export_fix.h":
+    pass
 
-with ctx.UseGroup(ctx, 'pxcc'):
-    ctx.pxcc_tgen = ctx.program(target='pxcc', features='c cprogram', source=[
-        'pxcc.c',
-        'pxcc.fc',
-    ], use=[
-        'clang',
-        'libcommon-minimal',
-    ])
+cimport zchk_cmod
+
+def cubic(int a):
+    return zchk_cmod.square(a) * a

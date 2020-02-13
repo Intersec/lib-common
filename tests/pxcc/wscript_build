@@ -15,12 +15,19 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-#cython: language_level=2
+# pylint: disable = undefined-variable
 
-cdef extern from "cython_export_fix.h":
-    pass
 
-cimport zchk_cmod
-
-def cubic(int a):
-    return zchk_cmod.square(a) * a
+ctx.shlib(target='zchk_mod', features='c cshlib', source=[
+    'zchk_cmod.pxc',
+    'zchk_mod.pyx',
+    'zchk_cmod.c',
+], use=[
+    'python2',
+], cflags=[
+    '-Wno-unused-parameter',
+    '-Wno-shadow',
+    '-Wno-redundant-decls',
+], depends_on=[
+    'pxcc',
+])

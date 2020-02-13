@@ -109,5 +109,6 @@ ctx.recurse([
     'iop',
     'iopc',
     'iopy',
+    'pxcc',
     'test-data/snmp',
 ])
