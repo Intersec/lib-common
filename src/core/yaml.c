@@ -1089,6 +1089,19 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
     return 0;
 }
 
+static int
+count_dollar_characters(const lstr_t value)
+{
+    pstream_t ps = ps_initlstr(&value);
+    int cnt = 0;
+
+    while (ps_skip_afterchr(&ps, '$') >= 0) {
+        cnt++;
+    }
+
+    return cnt;
+}
+
 /* Replace occurrences of $name with `value` in `data`.
  *
  * If var_bitmap is non-NULL, it is used to detect which '$' characters
@@ -1098,18 +1111,23 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
  */
 static lstr_t
 t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
-                   const lstr_t value, qv_t(u8) * nullable var_bitmap)
+                   const lstr_t value, qv_t(u8) * nonnull var_bitmap)
 {
     t_SB_1k(buf);
     pstream_t ps;
     pstream_t sub;
-    qv_t(u8) new_bitmap;
+    qv_t(u8) *new_bitmap = NULL;
     int bitmap_pos = 0;
     int new_bitmap_pos = 0;
+    int nb_raw_dollars;
+
+    /* If the string to insert contains '$' characters, we need to properly
+     * consider them to generate the right bitmap. */
+    nb_raw_dollars = count_dollar_characters(value);
 
     ps = ps_initlstr(&tpl_string);
-    if (var_bitmap) {
-        t_qv_init(&new_bitmap, 0);
+    if (var_bitmap->len > 0 || nb_raw_dollars > 0) {
+        new_bitmap = t_qv_new(u8, 0);
     }
 
     for (;;) {
@@ -1124,8 +1142,8 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
         }
         sb_add_ps(&buf, sub);
 
-        if (var_bitmap && !(bitmap_pos < var_bitmap->len * 8
-                         && TST_BIT(var_bitmap->tab, bitmap_pos)))
+        if (var_bitmap->len > 0 && !(bitmap_pos < var_bitmap->len * 8
+                                  && TST_BIT(var_bitmap->tab, bitmap_pos)))
         {
             bitmap_pos += 1;
             new_bitmap_pos += 1;
@@ -1140,18 +1158,19 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
         var_name = ps_parse_variable_name(&cpy);
         if (lstr_equal(var_name, name)) {
             sb_add_lstr(&buf, value);
+            new_bitmap_pos += nb_raw_dollars;
         } else {
             pstream_t var_string;
 
             if (expect(ps_get_ps_upto(&ps, cpy.b, &var_string) >= 0)) {
                 sb_add_ps(&buf, var_string);
             }
-            if (var_bitmap) {
-                if (new_bitmap.len * 8 <= new_bitmap_pos) {
-                    qv_growlen0(&new_bitmap,
-                                new_bitmap_pos / 8 + 1 - new_bitmap.len);
+            if (new_bitmap) {
+                if (new_bitmap->len * 8 <= new_bitmap_pos) {
+                    qv_growlen0(new_bitmap,
+                                new_bitmap_pos / 8 + 1 - new_bitmap->len);
                 }
-                SET_BIT(new_bitmap.tab, new_bitmap_pos);
+                SET_BIT(new_bitmap->tab, new_bitmap_pos);
                 new_bitmap_pos += 1;
             }
         }
@@ -1161,8 +1180,8 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
     logger_trace(&_G.logger, 2, "apply replacement %pL=%pL, data value "
                  "changed from `%pL` to `%pL`", &name, &value,
                  &tpl_string, &buf);
-    if (var_bitmap) {
-        *var_bitmap = new_bitmap;
+    if (new_bitmap) {
+        *var_bitmap = *new_bitmap;
     }
 
     return LSTR_SB_V(&buf);
@@ -1239,7 +1258,7 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
                     var->data->scalar.s,
                     name,
                     string_value,
-                    var->var_bitmap.len > 0 ? &var->var_bitmap : NULL
+                    &var->var_bitmap
                 );
             } else {
                 *var->data = pair->data;
@@ -4395,7 +4414,7 @@ t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
 static int
 t_apply_original_var_values(yaml_pack_env_t * nonnull env,
                             const lstr_t ast_value,
-                            qv_t(u8) * nullable var_bitmap,
+                            qv_t(u8) * nonnull var_bitmap,
                             lstr_t * nonnull tpl)
 {
     t_SB_1k(buf);
@@ -4421,8 +4440,8 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
         sb_add_ps(&buf, sub);
 
         var_pos += 1;
-        if (var_bitmap && !(var_pos - 1 < var_bitmap->len * 8
-                         && TST_BIT(var_bitmap->tab, var_pos - 1)))
+        if (var_bitmap->len > 0 && !(var_pos - 1 < var_bitmap->len * 8
+                                  && TST_BIT(var_bitmap->tab, var_pos - 1)))
         {
             sb_addc(&buf, ps_getc(&ps));
             continue;
@@ -4493,7 +4512,7 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
  */
 static int
 deduce_var_in_string(lstr_t tpl, lstr_t value,
-                     const qv_t(u8) * nullable bitmap,
+                     const qv_t(u8) * nonnull bitmap,
                      lstr_t * nonnull var_name, lstr_t * nonnull var_value)
 {
     pstream_t tpl_ps = ps_initlstr(&tpl);
@@ -4506,8 +4525,8 @@ deduce_var_in_string(lstr_t tpl, lstr_t value,
         int c = ps_getc(&tpl_ps);
 
         if (c == '$') {
-            if (!bitmap || (var_pos < bitmap->len * 8
-                         && TST_BIT(bitmap->tab, var_pos)))
+            if (bitmap->len == 0 || (var_pos < bitmap->len * 8
+                                  && TST_BIT(bitmap->tab, var_pos)))
             {
                 /* var found */
                 break;
@@ -4557,13 +4576,9 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env,
 {
     lstr_t new_name;
     qv_t(u8) var_bitmap;
-    qv_t(u8) *bitmap = NULL;
 
-    if (variables_bitmap->len > 0) {
-        t_qv_init(&var_bitmap, 0);
-        qv_extend(&var_bitmap, variables_bitmap);
-        bitmap = &var_bitmap;
-    }
+    t_qv_init(&var_bitmap, 0);
+    qv_extend(&var_bitmap, variables_bitmap);
 
     if (data->type == YAML_DATA_SCALAR
     &&  data->scalar.type == YAML_SCALAR_STRING)
@@ -4576,7 +4591,7 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env,
          * still the same. This allows repacking in the same way if the value
          * did not change, without trying to deduce changes that are very
          * rare. */
-        if (t_apply_original_var_values(env, data->scalar.s, bitmap,
+        if (t_apply_original_var_values(env, data->scalar.s, &var_bitmap,
                                         var_string) >= 0)
         {
             return 0;
@@ -4584,7 +4599,7 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env,
 
         /* Otherwise, try to deduce variable values, but the implementation is
          * limited. */
-        if (deduce_var_in_string(*var_string, data->scalar.s, bitmap,
+        if (deduce_var_in_string(*var_string, data->scalar.s, &var_bitmap,
                                  &var_name, &var_value) < 0)
         {
             return -1;
@@ -4598,7 +4613,7 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env,
              * the old name with a variable using the new name */
             new_name = t_yaml_format_variable(new_name);
             *var_string = t_tpl_set_variable(*var_string, var_name, new_name,
-                                             bitmap);
+                                             &var_bitmap);
         }
     } else {
         /* If data is not a string, it should be matched on a template
@@ -8171,28 +8186,28 @@ Z_GROUP_EXPORT(yaml)
         child =
             "!include grandchild.yml\n"
             "$f: y\n"
-            "$a: a\n"
+            "$a: \"a\\$\\$\\$a\"\n"
             "$d: \"D:\"\n"
             "$b: b\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
 
         root =
             "!include child.yml\n"
+            "$c: \"c\\$e\\$e\"\n"
             "$e: e k s\n"
-            "$c: cee\n"
             "$g:\n"
             "  - ~\n";
         Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
             root,
 
-            "- \"a \\$a b \\$b \\$c cee D: \\$d "
+            "- \"a\\$\\$\\$a \\$a b \\$b \\$c c\\$e\\$e D: \\$d "
                 "e k s e k s \\$e y \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\"\n"
             "- - ~"
         ));
 
         Z_ASSERT_LSTREQUAL(
             data.seq->datas.tab[0].scalar.s,
-            LSTR("a $a b $b $c cee D: $d "
+            LSTR("a$$$a $a b $b $c c$e$e D: $d "
                  "e k s e k s $e y $f1 $f2 $f3 $f4 $f5")
         );
 
@@ -8211,7 +8226,7 @@ Z_GROUP_EXPORT(yaml)
 
             /* repacking raw, without includes, will lose the variables,
              * and thus the string is packed as is, losing variable data */
-            "- \"a \\$a b \\$b \\$c \\$c D: \\$d "
+            "- \"a\\$\\$\\$a \\$a b \\$b \\$c \\$c D: \\$d "
                 "\\$e \\$e \\$e y \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\"\n"
             "- \"\\$g\""
         ));
@@ -8224,6 +8239,40 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("var_esc_3/grandchild.yml", grandchild));
         yaml_parse_delete(&env);
 
+        /* Test partial substitutions, in a string with no escaped characters,
+         * but some are introduced by substitutions */
+
+        grandchild =
+            "- $a $b $c $a $b $c\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+
+        child =
+            "!include grandchild.yml\n"
+            "$b: \"<\\$b>\"\n"
+            "$a: \"<\\$a>\"\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+
+        root =
+            "!include child.yml\n"
+            "$c: \"<\\$c>\"\n";
+        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+            root,
+
+            "- \"<\\$a> <\\$b> <\\$c> <\\$a> <\\$b> <\\$c>\""
+        ));
+
+        Z_ASSERT_LSTREQUAL(
+            data.seq->datas.tab[0].scalar.s,
+            LSTR("<$a> <$b> <$c> <$a> <$b> <$c>")
+        );
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_esc_4/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("var_esc_4/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_esc_4/child.yml", child));
+        Z_HELPER_RUN(z_check_file("var_esc_4/grandchild.yml", grandchild));
+        yaml_parse_delete(&env);
     } Z_TEST_END;
 
     /* }}} */
@@ -8233,65 +8282,66 @@ Z_GROUP_EXPORT(yaml)
         t_scope;
         qv_t(u8) bitmap;
 
-#define TST(tpl, value, bitmap, exp_var_name, exp_var_value)                 \
+        t_qv_init(&bitmap, 1);
+
+#define TST(tpl, value, exp_var_name, exp_var_value)                         \
         do {                                                                 \
             lstr_t var_name;                                                 \
             lstr_t var_value;                                                \
                                                                              \
-            Z_ASSERT_N(deduce_var_in_string(LSTR(tpl), LSTR(value), (bitmap),\
+            Z_ASSERT_N(deduce_var_in_string(LSTR(tpl), LSTR(value), &bitmap, \
                                             &var_name, &var_value),          \
                        "tpl: %s, var: %s failed", (tpl), (value));           \
             Z_ASSERT_LSTREQUAL(var_name, LSTR(exp_var_name));                \
             Z_ASSERT_LSTREQUAL(var_value, LSTR(exp_var_value));              \
         } while(0)
 
-#define TST_ERR(tpl, value, bitmap)                                          \
+#define TST_ERR(tpl, value)                                                  \
         do {                                                                 \
             lstr_t var_name;                                                 \
             lstr_t var_value;                                                \
                                                                              \
             Z_ASSERT_NEG(deduce_var_in_string(LSTR(tpl), LSTR(value),        \
-                                              (bitmap), &var_name,           \
+                                              &bitmap, &var_name,            \
                                               &var_value));                  \
         } while(0)
 
-        TST_ERR("name", "foo", NULL);
-        TST_ERR("$", "foo", NULL);
-        TST_ERR("$_", "_", NULL);
-        TST("$name", "foo", NULL, "name", "foo");
-        TST("$name", "", NULL, "name", "");
-        TST("_$name_", "_foo_", NULL, "name", "foo");
-        TST("_$name_", "__", NULL, "name", "");
-        TST_ERR("_$name_", "_", NULL);
-        TST_ERR("_$name_", "_foo_a", NULL);
+        TST_ERR("name", "foo");
+        TST_ERR("$", "foo");
+        TST_ERR("$_", "_");
+        TST("$name", "foo", "name", "foo");
+        TST("$name", "", "name", "");
+        TST("_$name_", "_foo_", "name", "foo");
+        TST("_$name_", "__", "name", "");
+        TST_ERR("_$name_", "_");
+        TST_ERR("_$name_", "_foo_a");
 
-        TST("_$name", "_foo_", NULL, "name", "foo_");
-        TST("$name_", "_foo_", NULL, "name", "_foo");
+        TST("_$name", "_foo_", "name", "foo_");
+        TST("$name_", "_foo_", "name", "_foo");
 
-        t_qv_init(&bitmap, 1);
         qv_append(&bitmap, 0x1);
-        TST("$a $b $c", "ga $b $c", &bitmap, "a", "ga");
-        TST_ERR("$a $b $c", "$a ga b", &bitmap);
-        TST_ERR("$a $b $c", "a ga $b", &bitmap);
-        TST_ERR("$a $b $c", "$a $b", &bitmap);
-        TST_ERR("$a $b $c", "$a ga $c", &bitmap);
-        TST_ERR("$a $b $c", "$a $b ga", &bitmap);
+        TST("$a $b $c", "ga $b $c", "a", "ga");
+        TST_ERR("$a $b $c", "$a ga b");
+        TST_ERR("$a $b $c", "a ga $b");
+        TST_ERR("$a $b $c", "$a $b");
+        TST_ERR("$a $b $c", "$a ga $c");
+        TST_ERR("$a $b $c", "$a $b ga");
 
         bitmap.tab[0] = 0x2;
-        TST("$a $b $c", "$a ga $c", &bitmap, "b", "ga");
-        TST_ERR("$a $b $c", "$a ga b", &bitmap);
-        TST_ERR("$a $b $c", "a ga $b", &bitmap);
-        TST_ERR("$a $b $c", "$a $b", &bitmap);
-        TST_ERR("$a $b $c", "ga $b $c", &bitmap);
-        TST_ERR("$a $b $c", "$a $b ga", &bitmap);
+        TST("$a $b $c", "$a ga $c", "b", "ga");
+        TST_ERR("$a $b $c", "$a ga b");
+        TST_ERR("$a $b $c", "a ga $b");
+        TST_ERR("$a $b $c", "$a $b");
+        TST_ERR("$a $b $c", "ga $b $c");
+        TST_ERR("$a $b $c", "$a $b ga");
 
         bitmap.tab[0] = 0x4;
-        TST("$a $b $c", "$a $b ga", &bitmap, "c", "ga");
-        TST_ERR("$a $b $c", "$a ga b", &bitmap);
-        TST_ERR("$a $b $c", "a ga $b", &bitmap);
-        TST_ERR("$a $b $c", "$a $b", &bitmap);
-        TST_ERR("$a $b $c", "ga $b $c", &bitmap);
-        TST_ERR("$a $b $c", "$a ga $c", &bitmap);
+        TST("$a $b $c", "$a $b ga", "c", "ga");
+        TST_ERR("$a $b $c", "$a ga b");
+        TST_ERR("$a $b $c", "a ga $b");
+        TST_ERR("$a $b $c", "$a $b");
+        TST_ERR("$a $b $c", "ga $b $c");
+        TST_ERR("$a $b $c", "$a ga $c");
 
 #undef TST_ERR
 #undef TST
