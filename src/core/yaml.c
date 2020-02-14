@@ -4994,8 +4994,8 @@ MODULE_END()
 
 /* {{{ Helpers */
 
-static int _z_yaml_test_parse_fail(unsigned flags,
-                                   const char *yaml, const char *expected_err)
+static int z_yaml_test_parse_fail(unsigned flags,
+                                  const char *yaml, const char *expected_err)
 {
     t_scope;
     yaml_data_t data;
@@ -5009,11 +5009,6 @@ static int _z_yaml_test_parse_fail(unsigned flags,
     yaml_parse_delete(&env);
 
     Z_HELPER_END;
-}
-
-static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
-{
-    return _z_yaml_test_parse_fail(0, yaml, expected_err);
 }
 
 static int
@@ -5162,11 +5157,11 @@ z_yaml_test_pack(const yaml_data_t * nonnull data,
 /* out parameter first to let the yaml string be last, which makes it
  * much easier to write multiple lines without horrible indentation */
 static
-int _z_t_yaml_test_parse_success(
-    unsigned flags, yaml_data_t * nullable data,
+int t_z_yaml_test_parse_success(
+    yaml_data_t * nullable data,
     yaml__document_presentation__t *nullable pres,
-    yaml_parse_t * nonnull * nullable env, const char * nonnull yaml,
-    const char * nullable expected_repack)
+    yaml_parse_t * nonnull * nullable env, unsigned flags,
+    const char * nonnull yaml, const char * nullable expected_repack)
 {
     yaml__document_presentation__t p;
     yaml_data_t local_data;
@@ -5207,17 +5202,6 @@ int _z_t_yaml_test_parse_success(
     }
 
     Z_HELPER_END;
-}
-
-static
-int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
-                                yaml__document_presentation__t *nullable pres,
-                                yaml_parse_t * nonnull * nullable env,
-                                const char * nonnull yaml,
-                                const char * nullable expected_repack)
-{
-    return _z_t_yaml_test_parse_success(0, data, pres, env, yaml,
-                                        expected_repack);
 }
 
 static int
@@ -5328,18 +5312,18 @@ Z_GROUP_EXPORT(yaml)
 
     Z_TEST(parsing_errors, "errors when parsing yaml") {
         /* unexpected EOF */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "",
             "<string>:1:1: missing data, unexpected end of line"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "  # my comment",
 
             "<string>:1:15: missing data, unexpected end of line\n"
             "  # my comment\n"
             "              ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "key:",
 
             "<string>:1:5: missing data, unexpected end of line\n"
@@ -5348,14 +5332,14 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* wrong object continuation */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a: 5\nb",
 
             "<string>:2:2: invalid key, missing colon\n"
             "b\n"
             " ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a: 5\n_:",
 
             "<string>:2:1: invalid key, "
@@ -5365,7 +5349,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* wrong explicit string */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "\" unfinished string",
 
             "<string>:1:20: expected string, missing closing '\"'\n"
@@ -5374,7 +5358,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* wrong escaped code */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "\"\\",
 
             "<string>:1:2: expected string, invalid backslash\n"
@@ -5383,14 +5367,14 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* wrong tag */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "!-",
 
             "<string>:1:2: invalid tag, must start with a letter\n"
             "!-\n"
             " ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "!a-\n"
             "a: 5",
 
@@ -5399,7 +5383,7 @@ Z_GROUP_EXPORT(yaml)
             "!a-\n"
             "  ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "!4a\n"
             "a: 5",
 
@@ -5408,7 +5392,7 @@ Z_GROUP_EXPORT(yaml)
             " ^"
         ));
         /* TODO: improve span */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "!tag1\n"
             "!tag2\n"
             "a: 2",
@@ -5419,7 +5403,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* wrong list continuation */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "- 2\n"
             "-3",
 
@@ -5430,7 +5414,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* wrong indent */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a: 2\n"
             " b: 3",
 
@@ -5439,7 +5423,7 @@ Z_GROUP_EXPORT(yaml)
             " b: 3\n"
             " ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "- 2\n"
             " - 3",
 
@@ -5448,7 +5432,7 @@ Z_GROUP_EXPORT(yaml)
             " - 3\n"
             " ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a: 1\n"
             "b:\n"
             "c: 3",
@@ -5459,7 +5443,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* wrong object */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "foo: 1\n"
             "foo: 2",
 
@@ -5468,7 +5452,7 @@ Z_GROUP_EXPORT(yaml)
             "foo: 2\n"
             "^^^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "{ a: 1, a: 2}",
 
             "<string>:1:9: invalid key, "
@@ -5478,7 +5462,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* cannot use tab characters for indentation */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a:\t1",
 
             "<string>:1:3: tab character detected, "
@@ -5486,7 +5470,7 @@ Z_GROUP_EXPORT(yaml)
             "a:\t1\n"
             "  ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a:\n"
             "\t- 2\n"
             "\t- 3",
@@ -5498,7 +5482,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* extra data after the parsing */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "1\n"
             "# comment\n"
             "2",
@@ -5510,7 +5494,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* flow seq */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "[a[",
 
             "<string>:1:3: wrong type of data, "
@@ -5518,7 +5502,7 @@ Z_GROUP_EXPORT(yaml)
             "[a[\n"
             "  ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "[",
 
             "<string>:1:2: missing data, unexpected end of line\n"
@@ -5527,14 +5511,14 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* flow obj */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "{,",
 
             "<string>:1:2: missing data, unexpected character\n"
             "{,\n"
             " ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "{a:b}",
 
             "<string>:1:2: wrong type of data, "
@@ -5542,7 +5526,7 @@ Z_GROUP_EXPORT(yaml)
             "{a:b}\n"
             " ^^^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "{a: b[",
 
             "<string>:1:6: wrong type of data, "
@@ -5550,7 +5534,7 @@ Z_GROUP_EXPORT(yaml)
             "{a: b[\n"
             "     ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "{ a: b: c }",
 
             "<string>:1:7: wrong type of data, unexpected colon\n"
@@ -5559,7 +5543,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* Cannot use variables as keys outside of override context */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "$var: 3",
 
             "<string>:1:1: invalid key, "
@@ -5567,7 +5551,7 @@ Z_GROUP_EXPORT(yaml)
             "$var: 3\n"
             "^^^^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "obj: { a: 2, $var: 3 }",
 
             "<string>:1:14: invalid key, "
@@ -5575,7 +5559,7 @@ Z_GROUP_EXPORT(yaml)
             "obj: { a: 2, $var: 3 }\n"
             "             ^^^^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "obj: [ $var: 3 ]",
 
             "<string>:1:8: invalid key, "
@@ -5585,12 +5569,12 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* Unbound variables are rejected by default */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "key: $var",
 
             "the document is invalid: there are unbound variables: var"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "- $a\n"
             "- $boo",
 
@@ -5598,7 +5582,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* Use of variables can be forbidden */
-        Z_HELPER_RUN(_z_yaml_test_parse_fail(YAML_PARSE_FORBID_VARIABLES,
+        Z_HELPER_RUN(z_yaml_test_parse_fail(YAML_PARSE_FORBID_VARIABLES,
             "key: 1\n"
             "a: <use of $var>\n",
 
@@ -5764,7 +5748,7 @@ Z_GROUP_EXPORT(yaml)
             "  b: { c: c }\n"
             "- true"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(NULL, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
             "a: ~\n"
             "b: !include inner.yml\n"
             "c: 3",
@@ -5796,7 +5780,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("subdir/subsub/d.yml",
             "d"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(NULL, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
             "!include subdir/a.yml",
 
             "- a\n"
@@ -5822,7 +5806,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("sf/shared_2",
             "!include sub/shared_1.yml"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "- !include sf/shared_1.yml\n"
             "- !include sf/././shared_1.yml\n"
             "- !include sf/shared_1.yml\n"
@@ -5916,7 +5900,7 @@ Z_GROUP_EXPORT(yaml)
             "# o\n"
             "o: ra"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "- !include subpres/1.yml\n"
             "- !include subpres/weird~name",
 
@@ -5968,7 +5952,7 @@ Z_GROUP_EXPORT(yaml)
             "}"
         ));
         /* include it verbatim as a string in a YAML document */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "- !includeraw raw/inner.json",
 
             "- \"{\\n  \\\"foo\\\": 2\\n}\\n\""
@@ -6037,7 +6021,7 @@ Z_GROUP_EXPORT(yaml)
             "  c: [ 5, 6 ] # array\n"
             "  # prefix d\n"
             "  d: ~";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             "- a: 4\n"
@@ -6097,7 +6081,7 @@ Z_GROUP_EXPORT(yaml)
             "    b: 7 # inline 7\n"
             "    # prefix c\n"
             "    c: 8 # inline 8\n";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             /* XXX: the presentation of the original file is used. This is
@@ -6193,7 +6177,7 @@ Z_GROUP_EXPORT(yaml)
             "a: 1\n"
             "b: 2"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "- !include inner.yml\n"
             "  b: 3\n"
             "  c: 4",
@@ -6266,7 +6250,7 @@ Z_GROUP_EXPORT(yaml)
             "!include grandchild.yml\n"
             "b: B"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "- !include child.yml\n"
             "  a: 0\n"
             "- !include child.yml\n"
@@ -6376,7 +6360,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
 
         /* string */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "unquoted string",
             NULL
         ));
@@ -6387,7 +6371,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a string value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag unquoted string",
             NULL
         ));
@@ -6398,7 +6382,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged string value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "\" quoted: 5 \"",
             NULL
         ));
@@ -6406,7 +6390,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 14));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR(" quoted: 5 "));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "  trimmed   ",
             "trimmed"
         ));
@@ -6414,7 +6398,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 3, 1, 10));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("trimmed"));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a:x:b",
             "\"a:x:b\""
         ));
@@ -6422,7 +6406,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 6));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("a:x:b"));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "\"true\"",
             "\"true\""
         ));
@@ -6430,7 +6414,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 7));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("true"));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "\"\\$a\"",
             "\"\\$a\""
         ));
@@ -6439,7 +6423,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("$a"));
 
         /* null */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "~",
             NULL
         ));
@@ -6449,7 +6433,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a null value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag ~",
             NULL
         ));
@@ -6459,14 +6443,14 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged null value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "null",
             "~"
         ));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
                                          1, 1, 1, 5));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "NulL",
             "~"
         ));
@@ -6474,7 +6458,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 5));
 
         /* bool */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "true",
             NULL
         ));
@@ -6485,7 +6469,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a boolean value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag true",
             NULL
         ));
@@ -6496,7 +6480,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged boolean value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "TrUE",
             "true"
         ));
@@ -6504,7 +6488,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 5));
         Z_ASSERT(data.scalar.b);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "false",
             NULL
         ));
@@ -6512,7 +6496,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 6));
         Z_ASSERT(!data.scalar.b);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "FALse",
             "false"
         ));
@@ -6521,7 +6505,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT(!data.scalar.b);
 
         /* uint */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "0",
             NULL
         ));
@@ -6532,7 +6516,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "an unsigned integer value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag 0",
             NULL
         ));
@@ -6543,7 +6527,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged unsigned integer value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "153",
             NULL
         ));
@@ -6552,7 +6536,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_EQ(data.scalar.u, 153UL);
 
         /* -0 will still generate UINT */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "-0",
             "0"
         ));
@@ -6560,7 +6544,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 3));
 
         /* int */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "-1",
             NULL));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_INT,
@@ -6570,7 +6554,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "an integer value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag -1",
             NULL
         ));
@@ -6581,7 +6565,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged integer value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "-153",
             NULL
         ));
@@ -6590,7 +6574,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_EQ(data.scalar.i, -153L);
 
         /* double */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "0.5",
             NULL
         ));
@@ -6601,7 +6585,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a double value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag 0.5",
             NULL
         ));
@@ -6613,7 +6597,7 @@ Z_GROUP_EXPORT(yaml)
                           "a tagged double value");
 
         /* TODO: should a dot be added to show its a floating-point number. */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "-1e3",
             "-1000"
         ));
@@ -6621,7 +6605,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 5));
         Z_ASSERT_EQ(data.scalar.d, -1000.0);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "-.Inf",
             NULL
         ));
@@ -6629,7 +6613,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 6));
         Z_ASSERT_EQ(isinf(data.scalar.d), -1);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             ".INf",
             ".Inf"
         ));
@@ -6637,7 +6621,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 5));
         Z_ASSERT_EQ(isinf(data.scalar.d), 1);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             ".NAN",
             ".NaN"
         ));
@@ -6658,7 +6642,7 @@ Z_GROUP_EXPORT(yaml)
         logger_set_level(LSTR("yaml"), LOG_TRACE + 2, 0);
 
         /* one liner */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a: 2",
             NULL
         ));
@@ -6676,7 +6660,7 @@ Z_GROUP_EXPORT(yaml)
                           "an object");
 
         /* with tag */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag1 a: 2",
 
             "!tag1\n"
@@ -6696,7 +6680,7 @@ Z_GROUP_EXPORT(yaml)
                           "a tagged object");
 
         /* imbricated objects */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a: 2\n"
             "inner: b: 3\n"
             "       c: -4\n"
@@ -6785,7 +6769,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t elem;
 
         /* one liner */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- a",
             NULL
         ));
@@ -6799,7 +6783,7 @@ Z_GROUP_EXPORT(yaml)
                           "a sequence");
 
         /* imbricated sequences */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- \"a: 2\"\n"
             "- - 5\n"
             "  - -5\n"
@@ -6867,7 +6851,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t field;
 
         /* sequence on same level as key */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a:\n"
             "- 3\n"
             "- ~",
@@ -6900,7 +6884,7 @@ Z_GROUP_EXPORT(yaml)
         const yaml_data_t *subdata;
         const yaml_data_t *elem;
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "[]",
             NULL
         ));
@@ -6908,7 +6892,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_NULL(data.tag.s);
         Z_ASSERT(data.seq->datas.len == 0);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "[ ~ ]",
             NULL
         ));
@@ -6918,7 +6902,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_NULL,
                                          1, 3, 1, 4));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "[ ~, ]",
             "[ ~ ]"
         ));
@@ -6928,7 +6912,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_NULL,
                                          1, 3, 1, 4));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "[1 ,a:\n"
             "2,c d ,]",
 
@@ -6957,7 +6941,7 @@ Z_GROUP_EXPORT(yaml)
                                          2, 3, 2, 6));
         Z_ASSERT_LSTREQUAL(elem->scalar.s, LSTR("c d"));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- [ ~,\n"
             " [[ true, [ - 2 ] ]\n"
             "   ] , a:  [  -2] ,\n"
@@ -7016,7 +7000,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         const yaml_key_data_t *elem;
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "{}",
             NULL
         ));
@@ -7024,7 +7008,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_NULL(data.tag.s);
         Z_ASSERT(data.obj->fields.len == 0);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "{ a: ~ }",
             NULL
         ));
@@ -7036,7 +7020,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&elem->data, YAML_SCALAR_NULL,
                                          1, 6, 1, 7));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "{ a: foo, }",
             "{ a: foo }"
         ));
@@ -7049,7 +7033,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 6, 1, 9));
         Z_ASSERT_LSTREQUAL(elem->data.scalar.s, LSTR("foo"));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "{ a: ~ ,b:\n"
             "2,}",
 
@@ -7069,7 +7053,7 @@ Z_GROUP_EXPORT(yaml)
                                          2, 1, 2, 2));
         Z_ASSERT_EQ(elem->data.scalar.u, 2UL);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- { a: [true,\n"
             "   false,]\n"
             "     , b: f   \n"
@@ -7171,7 +7155,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_parse_t *env;
 
         Z_HELPER_RUN(z_write_yaml_file("not_recreated.yml", "1"));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "key: !include not_recreated.yml",
 
             "key: 1"
@@ -7205,7 +7189,7 @@ Z_GROUP_EXPORT(yaml)
         const yaml_presentation_t *pres;
 
         /* comment on a scalar => not saved */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "# my scalar\n"
             "3",
             NULL
@@ -7216,7 +7200,7 @@ Z_GROUP_EXPORT(yaml)
         CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("my scalar"));
 
         /* comment on a key => path is key */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "a: 3 #ticket is #42  ",
 
             "a: 3 # ticket is #42\n"
@@ -7228,7 +7212,7 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("ticket is #42")));
 
         /* comment on a list => path is index */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "# prefix comment\n"
             "- 1 # first\n"
             "- # item\n"
@@ -7248,7 +7232,7 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("second")));
 
         /* prefix comment with multiple lines */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "key:\n"
             "   # first line\n"
             " # and second\n"
@@ -7279,7 +7263,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key.a!"),
                                             LSTR("inline scalar")));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "# prefix key\n"
             "key: # inline key\n"
             "# prefix [0]\n"
@@ -7311,13 +7295,13 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("inline key2")));
 
         /* prefix comment must be written before tag */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "# prefix key\n"
             "!toto 3",
 
             NULL
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "# a\n"
             "a: # b\n"
             "  !foo b",
@@ -7326,12 +7310,12 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* inline comments with flow data */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- # prefix\n"
             "  1 # inline\n",
             NULL
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- # prefix\n"
             "  [ 1 ] # inline\n"
             "- # prefix2\n"
@@ -7349,7 +7333,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         yaml__document_presentation__t pres;
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, NULL, 0,
             "\n"
             "  # comment\n"
             "\n"
@@ -7362,7 +7346,7 @@ Z_GROUP_EXPORT(yaml)
             "a: ~"
         ));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, NULL, 0,
             "# 1\n"
             "a: # 2\n"
             "\n"
@@ -7380,7 +7364,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* max two new lines */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, NULL, 0,
             "\n\n\n\n"
             "a: 4\n"
             "\n\n\n"
@@ -7417,7 +7401,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* Make sure that flow syntax is reverted if a tag is added in the
          * data. */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, NULL, 0,
             "a: { k: d }\n"
             "b: [ 1, 2 ]",
 
@@ -7465,7 +7449,7 @@ Z_GROUP_EXPORT(yaml)
             "${a-b}:\n"
             "  - 1\n"
             "  - 2\n";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             "- a:\n"
@@ -7505,7 +7489,7 @@ Z_GROUP_EXPORT(yaml)
             "key:\n"
             "  a: a\n"
             "  var: 1\n";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             "key:\n"
@@ -7542,7 +7526,7 @@ Z_GROUP_EXPORT(yaml)
             "!include inner.yml\n"
             "$a: pi\n"
             "$b: ka\n";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             "pi ka"
@@ -7582,7 +7566,7 @@ Z_GROUP_EXPORT(yaml)
             "all: !include child.yml\n"
             "  $var: 2\n"
             "  $var2: 3\n";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             "all:\n"
@@ -7626,7 +7610,7 @@ Z_GROUP_EXPORT(yaml)
             "!include inner.yml\n"
             "$foo: bar\n"
             "$qux: c\n";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             "- \"foo var is: `bar`\"\n"
@@ -7653,7 +7637,7 @@ Z_GROUP_EXPORT(yaml)
         root =
             "!include child.yml\n"
             "$host: website.org\n";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             "addr: \"website.org:80\""
@@ -7745,7 +7729,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
             "a: $var"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
             "$var:\n"
             "  b: 1\n"
@@ -7799,7 +7783,7 @@ Z_GROUP_EXPORT(yaml)
             "a: <$var>\n"
             "b: \"<\\$a \\$b $var \\$c>\""
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
             "$var: yare",
 
@@ -7873,7 +7857,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
             "a: $par $ker"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
             "$par: \" he \"\n"
             "$ker: roes",
@@ -7926,7 +7910,7 @@ Z_GROUP_EXPORT(yaml)
             "- $var\n"
             "- $var\n"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
             "$var: 1\n",
 
@@ -7980,7 +7964,7 @@ Z_GROUP_EXPORT(yaml)
             "- $var $var $var\n"
             "- <$var>\n"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
             "$var: ga\n",
 
@@ -8050,7 +8034,7 @@ Z_GROUP_EXPORT(yaml)
             "- $bar $bar $foo\n"
             "- $foo $bar\n"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
             "$foo: ga\n"
             "$bar: bu\n",
@@ -8136,7 +8120,7 @@ Z_GROUP_EXPORT(yaml)
             "!include inner.yml\n"
             "$foo: ga\n"
             "$bar: bu\n";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             "- ga\n"
@@ -8197,7 +8181,7 @@ Z_GROUP_EXPORT(yaml)
             "$e: e k s\n"
             "$g:\n"
             "  - ~\n";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             "- \"a\\$\\$\\$a \\$a b \\$b \\$c c\\$e\\$e D: \\$d "
@@ -8220,8 +8204,8 @@ Z_GROUP_EXPORT(yaml)
         yaml_parse_delete(&env);
 
         /* parse only child, look at ast, and repack */
-        Z_HELPER_RUN(_z_t_yaml_test_parse_success(
-            YAML_PARSE_ALLOW_UNBOUND_VARIABLES, &data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(
+            &data, &pres, &env, YAML_PARSE_ALLOW_UNBOUND_VARIABLES,
             child,
 
             /* repacking raw, without includes, will lose the variables,
@@ -8255,7 +8239,7 @@ Z_GROUP_EXPORT(yaml)
         root =
             "!include child.yml\n"
             "$c: \"<\\$c>\"\n";
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
             "- \"<\\$a> <\\$b> <\\$c> <\\$a> <\\$b> <\\$c>\""
