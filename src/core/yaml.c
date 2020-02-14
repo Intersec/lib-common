@@ -892,26 +892,27 @@ ps_startswith_yaml_seq_prefix(const pstream_t *ps)
     return ps->s[0] == '-' && isspace(ps->s[1]);
 }
 
-/* Parse a variable name, following a '$' character.
+/* Parse a variable name, following a '$(' pattern.
  *
- * Those forms are valid:
- * [:alnum:]+, ie $foo, $bB9 but not $a_b
- * \{[^}]+\}, ie ${anything}
+ * Must be [a-zA-Z][a-ZA-Z0-9-_~]+ up to the ')'.
  */
 static lstr_t
 ps_parse_variable_name(pstream_t * nonnull ps)
 {
+    /* r:48-57 r:65-90 r:97-122 s:'-_~'
+     * ie: 0-9a-zA-Z-_~
+     */
+    ctype_desc_t const ctype_var_allowed_chars = { {
+        0x00000000, 0x03ff2000, 0x87fffffe, 0x47fffffe,
+        0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    } };
     pstream_t name;
 
-    if (ps_skipc(ps, '{') >= 0) {
-        if (ps_get_ps_chr_and_skip(ps, '}', &name) < 0) {
-            return LSTR_NULL_V;
-        }
-    } else {
-        name = ps_get_span(ps, &ctype_isalnum);
+    name = ps_get_span(ps, &ctype_var_allowed_chars);
+    if (ps_len(&name) <= 0 || !isalpha(name.s[0])) {
+        return LSTR_NULL_V;
     }
-
-    if (ps_len(&name) <= 0) {
+    if (ps_skipc(ps, ')') < 0) {
         return LSTR_NULL_V;
     }
 
@@ -924,8 +925,8 @@ ps_startswith_yaml_key(pstream_t ps, bool must_be_variable)
     pstream_t ps_key;
     lstr_t key;
 
-    if (ps_peekc(ps) == '$') {
-        ps_skipc(&ps, '$');
+    if (ps_peekc(ps) == '$' && ps_has(&ps, 2) && ps.b[1] == '(') {
+        ps_skip(&ps, 2);
         key = ps_parse_variable_name(&ps);
     } else {
         if (must_be_variable) {
@@ -966,10 +967,12 @@ yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf,
 
           case '\\':
             sb_add(buf, start.p, env->ps.s - start.s);
-            if (ps_has(&env->ps, 2) && env->ps.b[1] == '$') {
+            if (ps_has(&env->ps, 3) && env->ps.b[1] == '$'
+            &&  env->ps.b[2] == '(')
+            {
                 /* escaped '$', this is not a variable */
-                sb_addc(buf, '$');
-                ps_skip(&env->ps, 2);
+                sb_adds(buf, "$(");
+                ps_skip(&env->ps, 3);
                 var_pos += 1;
                 *has_escaped_dollars = true;
             } else
@@ -981,9 +984,13 @@ yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf,
             break;
 
           case '$':
-            /* variable */
-            var_bitmap_set_bit(var_bitmap, var_pos);
-            var_pos += 1;
+            if (ps_has(&env->ps, 2) && env->ps.b[1] == '(') {
+                /* variable */
+                var_bitmap_set_bit(var_bitmap, var_pos);
+                var_pos += 1;
+                ps_skip(&env->ps, 2);
+                break;
+            }
 
             /* FALLTHROUGH */
 
@@ -1064,6 +1071,11 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
         if (ps_skip_afterchr(&ps, '$') < 0) {
             break;
         }
+        if (ps_peekc(ps) != '(') {
+            continue;
+        }
+        ps_skip(&ps, 1);
+
         var_pos += 1;
         if (var_bitmap && !var_bitmap_test_bit(var_bitmap, var_pos - 1)) {
             continue;
@@ -1126,14 +1138,15 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
     return 0;
 }
 
-static int
-count_dollar_characters(const lstr_t value)
+static int count_escaped_vars(const lstr_t value)
 {
     pstream_t ps = ps_initlstr(&value);
     int cnt = 0;
 
     while (ps_skip_afterchr(&ps, '$') >= 0) {
-        cnt++;
+        if (ps_peekc(ps) == '(') {
+            cnt++;
+        }
     }
 
     return cnt;
@@ -1158,9 +1171,9 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
     int new_bitmap_pos = 0;
     int nb_raw_dollars;
 
-    /* If the string to insert contains '$' characters, we need to properly
+    /* If the string to insert contains '$(' patterns, we need to properly
      * consider them to generate the right bitmap. */
-    nb_raw_dollars = count_dollar_characters(value);
+    nb_raw_dollars = count_escaped_vars(value);
 
     ps = ps_initlstr(&tpl_string);
     if (var_bitmap->len > 0 || nb_raw_dollars > 0) {
@@ -1178,6 +1191,11 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
             break;
         }
         sb_add_ps(&buf, sub);
+        if (!ps_has(&ps, 2) || ps.s[1] != '(') {
+            ps_skip(&ps, 1);
+            sb_addc(&buf, '$');
+            continue;
+        }
 
         if (!var_bitmap_test_bit(var_bitmap, bitmap_pos)) {
             bitmap_pos += 1;
@@ -1189,7 +1207,7 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
 
         bitmap_pos += 1;
         cpy = ps;
-        ps_skipc(&cpy, '$');
+        ps_skip(&cpy, 2);
         var_name = ps_parse_variable_name(&cpy);
         if (lstr_equal(var_name, name)) {
             sb_add_lstr(&buf, value);
@@ -1208,7 +1226,7 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
         ps = cpy;
     }
 
-    logger_trace(&_G.logger, 2, "apply replacement %pL=%pL, data value "
+    logger_trace(&_G.logger, 2, "apply replacement $(%pL)=%pL, data value "
                  "changed from `%pL` to `%pL`", &name, &value,
                  &tpl_string, &buf);
     if (new_bitmap) {
@@ -1248,14 +1266,9 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
             continue;
         }
 
-        if (pair->key.s[pair->key.len - 1] == '}') {
-            /* key is ${toto}, remove two leading characters and one
-             * trailing */
-            name = LSTR_INIT_V(pair->key.s + 2, pair->key.len - 3);
-        } else {
-            /* key is $toto, remove one leading character. */
-            name = LSTR_INIT_V(pair->key.s + 1, pair->key.len - 1);
-        }
+        /* key is $(toto), remove two leading characters and one
+         * trailing */
+        name = LSTR_INIT_V(pair->key.s + 2, pair->key.len - 3);
 
         pos = qm_find(yaml_vars, variables, &name);
         if (pos < 0) {
@@ -1672,8 +1685,9 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
     }
 
     start = env->ps.s;
-    if (ps_peekc(env->ps) == '$') {
-        IGNORE(ps_skipc(&env->ps, '$'));
+    if (ps_has(&env->ps, 2) && env->ps.s[0] == '$' && env->ps.s[1] == '(') {
+        ps_skip(&env->ps, 2);
+        /* TODO: throw error */
         ps_parse_variable_name(&env->ps);
     } else {
         ps_skip_span(&env->ps, &ctype_isalnum);
@@ -3324,8 +3338,8 @@ yaml_string_must_be_quoted(const lstr_t s,
             return true;
         }
     } else {
-        /* If not a template, use of '$' must be escaped, and thus quoted */
-        if (memchr(s.s, '$', s.len)) {
+        /* If not a template, use of '$(' must be escaped, and thus quoted. */
+        if (lstr_contains(s, LSTR("$("))) {
             return true;
         }
     }
@@ -3394,17 +3408,23 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val,
         }
         switch (c) {
           case '$':
+            if (ps_peekc(ps) != '(') {
+                PUTS("$");
+                break;
+            }
+            ps_skip(&ps, 1);
+
             /* If in a template, we need to quote '$'. Otherwise, we must
              * keep it as is if it is a variable */
             if (var_bitmap) {
                 var_pos++;
 
                 if (var_bitmap_test_bit(var_bitmap, var_pos - 1)) {
-                    PUTS("$");
+                    PUTS("$(");
                     break;
                 }
             }
-            PUTS("\\$");
+            PUTS("\\$(");
             break;
           case '"':  PUTS("\\\""); break;
           case '\\': PUTS("\\\\"); break;
@@ -4237,11 +4257,7 @@ t_yaml_pack_included_subfile(
 
 static lstr_t t_yaml_format_variable(lstr_t name)
 {
-    if (lstr_match_ctype(name, &ctype_isalnum)) {
-        return t_lstr_fmt("$%pL", &name);
-    } else {
-        return t_lstr_fmt("${%pL}", &name);
-    }
+    return t_lstr_fmt("$(%pL)", &name);
 }
 
 static int
@@ -4506,6 +4522,11 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
             break;
         }
         sb_add_ps(&buf, sub);
+        if (!ps_has(&ps, 2) || ps.s[1] != '(') {
+            ps_skip(&ps, 1);
+            sb_addc(&buf, '$');
+            continue;
+        }
 
         var_pos += 1;
         if (!var_bitmap_test_bit(var_bitmap, var_pos - 1)) {
@@ -4514,7 +4535,7 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
         }
 
         cpy = ps;
-        ps_skipc(&ps, '$');
+        ps_skip(&ps, 2);
         name = ps_parse_variable_name(&ps);
         if (!name.s) {
             return -1;
@@ -4565,15 +4586,15 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
 
 /* Deduce value of a variable inside a string. The template can be:
  *
- * - a raw variable: a: $var
- * - a templated string with a single variable: a: "a_$var_b"
- * - a templated string with multiple variables: a: "$var_$foo"
+ * - a raw variable: a: $(var)
+ * - a templated string with a single variable: a: "a_$(var)_b"
+ * - a templated string with multiple variables: a: "$(var)_$(foo)"
  *
  * This function handles the first two cases. The last one is not attempted.
  * Even if it can be done in some cases, there are cases that can only be
  * resolved through complex regex-style matching, and there are ambiguous
  * cases, such as:
- *  * template: "$foo_$bar"
+ *  * template: "$(foo)_$(bar)"
  *  * value: "a_b_c_d_e"
  */
 static int
@@ -4590,11 +4611,12 @@ deduce_var_in_string(lstr_t tpl, lstr_t value,
     while (!ps_done(&tpl_ps)) {
         int c = ps_getc(&tpl_ps);
 
-        if (c == '$') {
+        if (c == '$' && ps_peekc(tpl_ps) == '(') {
             if (bitmap->len == 0 || (var_pos < bitmap->len * 8
                                   && TST_BIT(bitmap->tab, var_pos)))
             {
                 /* var found */
+                ps_skip(&tpl_ps, 1);
                 break;
             }
             var_pos++;
@@ -4683,11 +4705,11 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env,
         }
     } else {
         /* If data is not a string, it should be matched on a template
-         * containing only the variable, ie "$name". */
+         * containing only the variable, ie "$(name)". */
         pstream_t tpl_ps = ps_initlstr(var_string);
         lstr_t name;
 
-        if (ps_skipc(&tpl_ps, '$') < 0) {
+        if (ps_skipc(&tpl_ps, '$') < 0 || ps_skipc(&tpl_ps, '(') < 0) {
             return -1;
         }
         name = ps_parse_variable_name(&tpl_ps);
@@ -5610,39 +5632,39 @@ Z_GROUP_EXPORT(yaml)
 
         /* Cannot use variables as keys outside of override context */
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "$var: 3",
+            "$(var): 3",
 
             "<string>:1:1: invalid key, "
             "cannot specify a variable value in this context\n"
-            "$var: 3\n"
-            "^^^^"
+            "$(var): 3\n"
+            "^^^^^^"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "obj: { a: 2, $var: 3 }",
+            "obj: { a: 2, $(var): 3 }",
 
             "<string>:1:14: invalid key, "
             "cannot specify a variable value in this context\n"
-            "obj: { a: 2, $var: 3 }\n"
-            "             ^^^^"
+            "obj: { a: 2, $(var): 3 }\n"
+            "             ^^^^^^"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "obj: [ $var: 3 ]",
+            "obj: [ $(var): 3 ]",
 
             "<string>:1:8: invalid key, "
             "cannot specify a variable value in this context\n"
-            "obj: [ $var: 3 ]\n"
-            "       ^^^^"
+            "obj: [ $(var): 3 ]\n"
+            "       ^^^^^^"
         ));
 
         /* Unbound variables are rejected by default */
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "key: $var",
+            "key: $(var)",
 
             "the document is invalid: there are unbound variables: var"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "- $a\n"
-            "- $boo",
+            "- $(a)\n"
+            "- $(boo)",
 
             "the document is invalid: there are unbound variables: a, boo"
         ));
@@ -5650,12 +5672,12 @@ Z_GROUP_EXPORT(yaml)
         /* Use of variables can be forbidden */
         Z_HELPER_RUN(z_yaml_test_parse_fail(YAML_PARSE_FORBID_VARIABLES,
             "key: 1\n"
-            "a: <use of $var>\n",
+            "a: <use of $(var)>\n",
 
             "<string>:2:4: use of variables is forbidden, "
             "cannot use variables in this context\n"
-            "a: <use of $var>\n"
-            "   ^^^^^^^^^^^^^"
+            "a: <use of $(var)>\n"
+            "   ^^^^^^^^^^^^^^^"
         ));
     } Z_TEST_END;
 
@@ -5804,12 +5826,12 @@ Z_GROUP_EXPORT(yaml)
 
         /* cannot use variables in include string */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include $file.yml",
+            "!include $(file).yml",
 
             "input.yml:1:10: use of variables is forbidden, "
             "cannot use variables in this context\n"
-            "!include $file.yml\n"
-            "         ^^^^^^^^^"
+            "!include $(file).yml\n"
+            "         ^^^^^^^^^^^"
         ));
     } Z_TEST_END;
 
@@ -6492,11 +6514,19 @@ Z_GROUP_EXPORT(yaml)
 
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "\"\\$a\"",
-            "\"\\$a\""
+            "\"\\\\$a\""
         ));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
                                          1, 1, 1, 6));
-        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("$a"));
+        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("\\$a"));
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "\"\\$(a\"",
+            "\"\\$(a\""
+        ));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
+                                         1, 1, 1, 7));
+        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("$(a"));
 
         /* null */
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
@@ -7514,15 +7544,15 @@ Z_GROUP_EXPORT(yaml)
         inner =
             "- a:\n"
             "    - 1\n"
-            "    - $a\n"
+            "    - $(a)\n"
             "- b:\n"
-            "    a: $a\n"
-            "    b: ${a-b}\n";
+            "    a: $(a)\n"
+            "    b: $(a-b)\n";
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
         root =
             "!include inner.yml\n"
-            "$a: 3\n"
-            "${a-b}:\n"
+            "$(a): 3\n"
+            "$(a-b):\n"
             "  - 1\n"
             "  - 2\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
@@ -7547,21 +7577,21 @@ Z_GROUP_EXPORT(yaml)
 
         /* test combination of variables settings + override */
         grandchild =
-            "var: $var\n"
-            "var2: $var2\n"
+            "var: $(var)\n"
+            "var2: $(var_2)\n"
             "a: 0\n"
             "b: 1\n";
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
         child =
             "key: !include grandchild.yml\n"
-            "  $var: 3\n"
+            "  $(var): 3\n"
             /* TODO: we should be able to say "b: $var2" here, but it does
              * not work currently. See FIXME in yaml_variable_t. */
             "  b: 5\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
             "!include child.yml\n"
-            "$var2: 4\n"
+            "$(var_2): 4\n"
             "key:\n"
             "  a: a\n"
             "  var: 1\n";
@@ -7596,12 +7626,12 @@ Z_GROUP_EXPORT(yaml)
         const char *root;
 
         /* modify a template through a direct include of the scalar */
-        inner = "$a $b\n";
+        inner = "$(a) $(b)\n";
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
         root =
             "!include inner.yml\n"
-            "$a: pi\n"
-            "$b: ka\n";
+            "$(a): pi\n"
+            "$(b): ka\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -7630,18 +7660,18 @@ Z_GROUP_EXPORT(yaml)
 
         /* test replacement of variables */
         grandchild =
-            "key: $var\n"
-            "key2: var2 is <$var2>\n";
+            "key: $(var)\n"
+            "key2: var2 is <$(var2)>\n";
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
         child =
             "inc: !include grandchild.yml\n"
-            "  $var: 1\n"
-            "other: $var\n";
+            "  $(var): 1\n"
+            "other: $(var)\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
             "all: !include child.yml\n"
-            "  $var: 2\n"
-            "  $var2: 3\n";
+            "  $(var): 2\n"
+            "  $(var2): 3\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -7676,16 +7706,16 @@ Z_GROUP_EXPORT(yaml)
         /* test replacement of variables */
         /* TODO: handle variables in flow context? */
         inner =
-            "- \"foo var is: `$foo`\"\n"
-            "- <${foo}> unquoted also works </$foo>\n"
-            "- a: $foo\n"
-            "  b: $foo${foo}a${qux}-$qux\n";
+            "- \"foo var is: `$(foo)`\"\n"
+            "- <$(foo)> unquoted also works </$(foo)>\n"
+            "- a: $(foo)\n"
+            "  b: $(foo)$(foo)a$(qux)-$(qux)\n";
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
 
         root =
             "!include inner.yml\n"
-            "$foo: bar\n"
-            "$qux: c\n";
+            "$(foo): bar\n"
+            "$(qux): c\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -7702,17 +7732,17 @@ Z_GROUP_EXPORT(yaml)
         yaml_parse_delete(&env);
 
         /* test partial modification of templated string */
-        grandchild = "addr: \"$host:$port\"\n";
+        grandchild = "addr: \"$(host):$(port)\"\n";
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
 
         child =
             "!include grandchild.yml\n"
-            "$port: 80\n";
+            "$(port): 80\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
 
         root =
             "!include child.yml\n"
-            "$host: website.org\n";
+            "$(host): website.org\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -7734,77 +7764,85 @@ Z_GROUP_EXPORT(yaml)
         t_scope;
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
-            "a: $a\n"
-            "s: \"<$s>\"\n"
-            "t: <$t>"
+            "a: $(a)\n"
+            "s: \"<$(s)>\"\n"
+            "t: <$(t)>"
         ));
 
         /* unknown variable being set */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
-            "  $b: foo",
+            "  $(b): foo",
 
             "input.yml:2:3: invalid key, unknown variable\n"
-            "  $b: foo\n"
-            "  ^^"
+            "  $(b): foo\n"
+            "  ^^^^"
         ));
 
         /* string-variable being set with wrong type */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
-            "  $s: [ 1, 2 ]",
+            "  $(s): [ 1, 2 ]",
 
-            "input.yml:2:7: wrong type of data, "
+            "input.yml:2:9: wrong type of data, "
             "this variable can only be set with a scalar\n"
-            "  $s: [ 1, 2 ]\n"
-            "      ^^^^^^^^"
+            "  $(s): [ 1, 2 ]\n"
+            "        ^^^^^^^^"
         ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
-            "  $t: [ 1, 2 ]",
+            "  $(t): [ 1, 2 ]",
 
-            "input.yml:2:7: wrong type of data, "
+            "input.yml:2:9: wrong type of data, "
             "this variable can only be set with a scalar\n"
-            "  $t: [ 1, 2 ]\n"
-            "      ^^^^^^^^"
+            "  $(t): [ 1, 2 ]\n"
+            "        ^^^^^^^^"
         ));
 
         /* cannot use variables in variable settings or overrides. */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
-            "  $a: $t",
+            "  $(a): $(t)",
 
-            "input.yml:2:7: use of variables is forbidden, "
+            "input.yml:2:9: use of variables is forbidden, "
             "cannot use variables in this context\n"
-            "  $a: $t\n"
-            "      ^^"
+            "  $(a): $(t)\n"
+            "        ^^^^"
         ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
-            "  t: <$a>",
+            "  t: <$(a)>",
 
             "input.yml:2:6: use of variables is forbidden, "
             "cannot use variables in this context\n"
-            "  t: <$a>\n"
-            "     ^^^^"
+            "  t: <$(a)>\n"
+            "     ^^^^^^"
         ));
 
         /* invalid variable name */
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "a: $",
+            "a: $()",
 
             "<string>:1:4: invalid variable, "
             "the string contains a variable with an invalid name\n"
-            "a: $\n"
-            "   ^"
+            "a: $()\n"
+            "   ^^^"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "a: \"a \\$b $b $-\"",
+            "a: $(5a)",
 
             "<string>:1:4: invalid variable, "
             "the string contains a variable with an invalid name\n"
-            "a: \"a \\$b $b $-\"\n"
-            "   ^^^^^^^^^^^^^"
+            "a: $(5a)\n"
+            "   ^^^^^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: \"a \\$(b) $(b) $(-)\"",
+
+            "<string>:1:4: invalid variable, "
+            "the string contains a variable with an invalid name\n"
+            "a: \"a \\$(b) $(b) $(-)\"\n"
+            "   ^^^^^^^^^^^^^^^^^^^"
         ));
     } Z_TEST_END;
 
@@ -7821,11 +7859,11 @@ Z_GROUP_EXPORT(yaml)
          * variable is reflected when repacking */
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
-            "a: $var"
+            "a: $(var)"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$var:\n"
+            "$(var):\n"
             "  b: 1\n"
             "  c: 2",
 
@@ -7839,12 +7877,12 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vm_raw_1/root.yml",
             "!include inner.yml\n"
-            "$var:\n"
+            "$(var):\n"
             "  b: 1\n"
             "  c: 2\n"
         ));
         Z_HELPER_RUN(z_check_file("vm_raw_1/inner.yml",
-            "a: $var\n"
+            "a: $(var)\n"
         ));
 
         /* any change to the AST is properly handled */
@@ -7853,10 +7891,10 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vm_raw_2/root.yml",
             "!include inner.yml\n"
-            "$var: ~\n"
+            "$(var): ~\n"
         ));
         Z_HELPER_RUN(z_check_file("vm_raw_2/inner.yml",
-            "a: $var\n"
+            "a: $(var)\n"
         ));
         yaml_parse_delete(&env);
     } Z_TEST_END;
@@ -7874,46 +7912,46 @@ Z_GROUP_EXPORT(yaml)
          * variable is reflected when repacking */
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
-            "a: <$var>\n"
-            "b: \"<\\$a \\$b $var \\$c>\""
+            "a: <$(var)>\n"
+            "b: \"<\\$(a) $b $(var) \\$(c>\""
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$var: yare",
+            "$(var): yare",
 
             "a: <yare>\n"
-            "b: \"<\\$a \\$b yare \\$c>\""
+            "b: \"<\\$(a) $b yare \\$(c>\""
         ));
 
         /* pack into files, to test repacking of variables */
         Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
             "!include inner.yml\n"
-            "$var: yare\n",
+            "$(var): yare\n",
 
-            "a: <$var>\n"
-            "b: \"<\\$a \\$b $var \\$c>\"\n"
+            "a: <$(var)>\n"
+            "b: \"<\\$(a) $b $(var) \\$(c>\"\n"
         ));
 
         /* changing the value while still matching the template will work */
         data.obj->fields.tab[0].data.scalar.s = LSTR("<daze>");
-        data.obj->fields.tab[1].data.scalar.s = LSTR("<$a $b daze $c>");
+        data.obj->fields.tab[1].data.scalar.s = LSTR("<$(a) $b daze $(c>");
         Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
             "!include inner.yml\n"
-            "$var: daze\n",
+            "$(var): daze\n",
 
-            "a: <$var>\n"
-            "b: \"<\\$a \\$b $var \\$c>\"\n"
+            "a: <$(var)>\n"
+            "b: \"<\\$(a) $b $(var) \\$(c>\"\n"
         ));
 
         /* changing the value and not matching the template will lose the
          * var */
         data.obj->fields.tab[0].data.scalar.s = LSTR("<daze");
-        data.obj->fields.tab[1].data.scalar.s = LSTR("<$a b daze $c>");
+        data.obj->fields.tab[1].data.scalar.s = LSTR("<$(a) b daze $(c>");
         Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
             "!include inner.yml\n",
 
             "a: <daze\n"
-            "b: \"<\\$a b daze \\$c>\"\n"
+            "b: \"<\\$(a) b daze \\$(c>\"\n"
         ));
 
         data.obj->fields.tab[0].data.scalar.s = LSTR("");
@@ -7949,12 +7987,12 @@ Z_GROUP_EXPORT(yaml)
          * variable is reflected when repacking */
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
-            "a: $par $ker"
+            "a: $(par) $(ker)"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$par: \" he \"\n"
-            "$ker: roes",
+            "$(par): \" he \"\n"
+            "$(ker): roes",
 
             "a: \" he  roes\""
         ));
@@ -7964,11 +8002,11 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vm_mul_1/root.yml",
             "!include inner.yml\n"
-            "$par: \" he \"\n"
-            "$ker: roes\n"
+            "$(par): \" he \"\n"
+            "$(ker): roes\n"
         ));
         Z_HELPER_RUN(z_check_file("vm_mul_1/inner.yml",
-            "a: $par $ker\n"
+            "a: $(par) $(ker)\n"
         ));
 
         /* changing the value will always lose the variables */
@@ -7998,15 +8036,15 @@ Z_GROUP_EXPORT(yaml)
          * variable is reflected when repacking */
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
-            "- $var\n"
-            "- $var\n"
-            "- $var\n"
-            "- $var\n"
-            "- $var\n"
+            "- $(var)\n"
+            "- $(var)\n"
+            "- $(var)\n"
+            "- $(var)\n"
+            "- $(var)\n"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$var: 1\n",
+            "$(var): 1\n",
 
             "- 1\n"
             "- 1\n"
@@ -8025,16 +8063,16 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vc_raw_1/root.yml",
             "!include inner.yml\n"
-            "$var: 1\n"
-            "${var~1}: 2\n"
-            "${var~2}: ~\n"
+            "$(var): 1\n"
+            "$(var~1): 2\n"
+            "$(var~2): ~\n"
         ));
         Z_HELPER_RUN(z_check_file("vc_raw_1/inner.yml",
-            "- $var\n"
-            "- ${var~1}\n"
-            "- ${var~1}\n"
-            "- $var\n"
-            "- ${var~2}\n"
+            "- $(var)\n"
+            "- $(var~1)\n"
+            "- $(var~1)\n"
+            "- $(var)\n"
+            "- $(var~2)\n"
         ));
         yaml_parse_delete(&env);
     } Z_TEST_END;
@@ -8052,15 +8090,15 @@ Z_GROUP_EXPORT(yaml)
          * variable is reflected when repacking */
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
-            "- $var\n"
-            "- \" $var \"\n"
-            "- <$var>\n"
-            "- $var $var $var\n"
-            "- <$var>\n"
+            "- $(var)\n"
+            "- \" $(var) \"\n"
+            "- <$(var)>\n"
+            "- $(var) $(var) $(var)\n"
+            "- <$(var)>\n"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$var: ga\n",
+            "$(var): ga\n",
 
             "- ga\n"
             "- \" ga \"\n"
@@ -8081,28 +8119,28 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("vc_str_1/root.yml",
             "!include inner.yml\n"
             /* First value deduced is taken as the true value. */
-            "$var: bu\n"
+            "$(var): bu\n"
             /* Other deduced values are added as conflicts */
-            "${var~1}: ga\n"
-            "${var~2}: zo\n"
+            "$(var~1): ga\n"
+            "$(var~2): zo\n"
         ));
         Z_HELPER_RUN(z_check_file("vc_str_1/inner.yml",
-            "- $var\n"
+            "- $(var)\n"
 
             /* String did not change, but the value was already deduced to
              * a new string. */
-            "- \" ${var~1} \"\n"
+            "- \" $(var~1) \"\n"
 
             /* Value changed, but template is simple, so new value is deduced.
              */
-            "- <${var~2}>\n"
+            "- <$(var~2)>\n"
 
             /* Loss of template due to use of multiple variables. */
             "- ga meu bu\n"
 
             /* Value changed, but match the deduced value, so template do not
              * change. */
-            "- <$var>\n"
+            "- <$(var)>\n"
         ));
         yaml_parse_delete(&env);
     } Z_TEST_END;
@@ -8120,18 +8158,18 @@ Z_GROUP_EXPORT(yaml)
          * variable is reflected when repacking */
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
-            "- $foo\n"
-            "- $bar\n"
-            "- $foo $foo\n"
-            "- $foo $bar\n"
-            "- $foo $bar $foo\n"
-            "- $bar $bar $foo\n"
-            "- $foo $bar\n"
+            "- $(foo)\n"
+            "- $(bar)\n"
+            "- $(foo) $(foo)\n"
+            "- $(foo) $(bar)\n"
+            "- $(foo) $(bar) $(foo)\n"
+            "- $(bar) $(bar) $(foo)\n"
+            "- $(foo) $(bar)\n"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$foo: ga\n"
-            "$bar: bu\n",
+            "$(foo): ga\n"
+            "$(bar): bu\n",
 
             "- ga\n"
             "- bu\n"
@@ -8152,20 +8190,20 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vc_mul_1/root.yml",
             "!include inner.yml\n"
-            "$foo: zo\n"
-            "${foo~1}: ga\n"
-            "$bar: meu\n"
-            "${bar~1}: bu\n"
+            "$(foo): zo\n"
+            "$(foo~1): ga\n"
+            "$(bar): meu\n"
+            "$(bar~1): bu\n"
         ));
         Z_HELPER_RUN(z_check_file("vc_mul_1/inner.yml",
-            "- $foo\n"
-            "- $bar\n"
+            "- $(foo)\n"
+            "- $(bar)\n"
             /* Value did not change, but names conflicted: this is properly
              * handled */
-            "- ${foo~1} ${foo~1}\n"
-            "- ${foo~1} ${bar~1}\n"
-            "- ${foo~1} ${bar~1} ${foo~1}\n"
-            "- ${bar~1} ${bar~1} ${foo~1}\n"
+            "- $(foo~1) $(foo~1)\n"
+            "- $(foo~1) $(bar~1)\n"
+            "- $(foo~1) $(bar~1) $(foo~1)\n"
+            "- $(bar~1) $(bar~1) $(foo~1)\n"
             /* Even though the value matches the new variables, the old
              * variable values do not apply, and the template uses multiple
              * variables, so it is lost */
@@ -8192,28 +8230,26 @@ Z_GROUP_EXPORT(yaml)
 
         inner =
             /* Not quoting the string won't handle escaping */
-            "- $foo\n"
-            "- \\$foo\n"
-            "- \\\\$foo\n"
-            "- <\\$foo>\n"
-            /* FIXME: need {} to avoid having the replacement of $foo changing
-             * the parsed name from $bar to $barga */
-            "- <$foo \\$foo \\${bar}$foo>\n"
-            "- $foo\\$bar$bar\\\\$foo\n"
+            "- $(foo)\n"
+            "- \\$(foo)\n"
+            "- \\\\$(foo)\n"
+            "- <\\$(foo)>\n"
+            "- <$(foo) \\$(foo) \\$(bar)$(foo)>\n"
+            "- $(foo)\\$(bar)$(bar)\\\\$(foo)\n"
 
             /* Quoting the string will handle escaping */
-            "- \"$foo\"\n"
-            "- \"\\$foo\"\n"
-            "- \"\\\\$foo\"\n"
-            "- \"<\\$foo>\"\n"
-            "- \"<$foo \\$foo \\$bar$foo>\"\n"
-            "- \"$foo\\$bar$bar\\\\$foo\"\n";
+            "- \"$(foo)\"\n"
+            "- \"\\$(foo)\"\n"
+            "- \"\\\\$(foo)\"\n"
+            "- \"<\\$(foo)>\"\n"
+            "- \"<$(foo) \\$(foo) \\$(bar)$(foo)>\"\n"
+            "- \"$(foo)\\$(bar)$(bar)\\\\$(foo)\"\n";
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
         root =
             "!include inner.yml\n"
-            "$foo: ga\n"
-            "$bar: bu\n";
+            "$(foo): ga\n"
+            "$(bar): bu\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -8224,21 +8260,21 @@ Z_GROUP_EXPORT(yaml)
             "- <ga \\ga \\buga>\n"
             "- ga\\bubu\\\\ga\n"
             "- ga\n"
-            "- \"\\$foo\"\n"
+            "- \"\\$(foo)\"\n"
             "- \\ga\n"
-            "- \"<\\$foo>\"\n"
-            "- \"<ga \\$foo \\$barga>\"\n"
-            "- \"ga\\$barbu\\\\ga\""
+            "- \"<\\$(foo)>\"\n"
+            "- \"<ga \\$(foo) \\$(bar)ga>\"\n"
+            "- \"ga\\$(bar)bu\\\\ga\""
         ));
 
         Z_ASSERT_LSTREQUAL(data.seq->datas.tab[7].scalar.s,
-                           LSTR("$foo"));
+                           LSTR("$(foo)"));
         Z_ASSERT_LSTREQUAL(data.seq->datas.tab[9].scalar.s,
-                           LSTR("<$foo>"));
+                           LSTR("<$(foo)>"));
         Z_ASSERT_LSTREQUAL(data.seq->datas.tab[10].scalar.s,
-                           LSTR("<ga $foo $barga>"));
+                           LSTR("<ga $(foo) $(bar)ga>"));
         Z_ASSERT_LSTREQUAL(data.seq->datas.tab[11].scalar.s,
-                           LSTR("ga$barbu\\ga"));
+                           LSTR("ga$(bar)bu\\ga"));
 
         /* pack into files, to test repacking of variables */
         Z_HELPER_RUN(z_pack_yaml_file("var_esc_1/root.yml", &data, &pres,
@@ -8251,9 +8287,10 @@ Z_GROUP_EXPORT(yaml)
          * 8 '$' characters to test bitmap alloc */
 
         grandchild =
-            "- \"$a \\$a $b \\$b \\$c $c $d \\$d "
-                "$e $e \\$e $f \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\"\n"
-            "- $g\n";
+            "- \"$(a) \\$(a) $(b) \\$(b) \\$(c) $(c) $(d) \\$(d) "
+                "$(e) $(e) \\$(e) $(f) "
+                "\\$(f1) \\$(f2) \\$(f3) \\$(f4) \\$(f5)\"\n"
+            "- $(g)\n";
         /* bitmap: 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0.
          * ie: 0x65, 0x0B.
          * the last '0' is not part of the bitmap, this allows testing proper
@@ -8263,30 +8300,32 @@ Z_GROUP_EXPORT(yaml)
 
         child =
             "!include grandchild.yml\n"
-            "$f: y\n"
-            "$a: \"a\\$\\$\\$a\"\n"
-            "$d: \"D:\"\n"
-            "$b: b\n";
+            "$(f): y\n"
+            "$(a): \"a\\$(\\$(\\$(a))\"\n"
+            "$(d): \"D:\"\n"
+            "$(b): b\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
 
         root =
             "!include child.yml\n"
-            "$c: \"c\\$e\\$e\"\n"
-            "$e: e k s\n"
-            "$g:\n"
+            "$(c): \"c\\$(e)\\$(e)\"\n"
+            "$(e): e k s\n"
+            "$(g):\n"
             "  - ~\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
-            "- \"a\\$\\$\\$a \\$a b \\$b \\$c c\\$e\\$e D: \\$d "
-                "e k s e k s \\$e y \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\"\n"
+            "- \"a\\$(\\$(\\$(a)) \\$(a) b \\$(b) \\$(c) c\\$(e)\\$(e) "
+                "D: \\$(d) e k s e k s \\$(e) y "
+                "\\$(f1) \\$(f2) \\$(f3) \\$(f4) \\$(f5)\"\n"
             "- - ~"
         ));
 
         Z_ASSERT_LSTREQUAL(
             data.seq->datas.tab[0].scalar.s,
-            LSTR("a$$$a $a b $b $c c$e$e D: $d "
-                 "e k s e k s $e y $f1 $f2 $f3 $f4 $f5")
+            LSTR("a$($($(a)) $(a) b $(b) $(c) c$(e)$(e) "
+                 "D: $(d) e k s e k s $(e) y "
+                 "$(f1) $(f2) $(f3) $(f4) $(f5)")
         );
 
         /* pack into files, to test repacking of variables */
@@ -8304,9 +8343,10 @@ Z_GROUP_EXPORT(yaml)
 
             /* repacking raw, without includes, will lose the variables,
              * and thus the string is packed as is, losing variable data */
-            "- \"a\\$\\$\\$a \\$a b \\$b \\$c \\$c D: \\$d "
-                "\\$e \\$e \\$e y \\$f1 \\$f2 \\$f3 \\$f4 \\$f5\"\n"
-            "- \"\\$g\""
+            "- \"a\\$(\\$(\\$(a)) \\$(a) b \\$(b) \\$(c) \\$(c) "
+                "D: \\$(d) \\$(e) \\$(e) \\$(e) y "
+                "\\$(f1) \\$(f2) \\$(f3) \\$(f4) \\$(f5)\"\n"
+            "- \"\\$(g)\""
         ));
 
         /* But repacking with files (and with the right flag) will work fine.
@@ -8321,27 +8361,27 @@ Z_GROUP_EXPORT(yaml)
          * but some are introduced by substitutions */
 
         grandchild =
-            "- $a $b $c $a $b $c\n";
+            "- $(a) $(b) $(c) $(a) $(b) $(c)\n";
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
 
         child =
             "!include grandchild.yml\n"
-            "$b: \"<\\$b>\"\n"
-            "$a: \"<\\$a>\"\n";
+            "$(b): \"<\\$(b)>\"\n"
+            "$(a): \"<\\$(a)>\"\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
 
         root =
             "!include child.yml\n"
-            "$c: \"<\\$c>\"\n";
+            "$(c): \"<\\$(c)>\"\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
-            "- \"<\\$a> <\\$b> <\\$c> <\\$a> <\\$b> <\\$c>\""
+            "- \"<\\$(a)> <\\$(b)> <\\$(c)> <\\$(a)> <\\$(b)> <\\$(c)>\""
         ));
 
         Z_ASSERT_LSTREQUAL(
             data.seq->datas.tab[0].scalar.s,
-            LSTR("<$a> <$b> <$c> <$a> <$b> <$c>")
+            LSTR("<$(a)> <$(b)> <$(c)> <$(a)> <$(b)> <$(c)>")
         );
 
         /* pack into files, to test repacking of variables */
@@ -8386,40 +8426,41 @@ Z_GROUP_EXPORT(yaml)
 
         TST_ERR("name", "foo");
         TST_ERR("$", "foo");
-        TST_ERR("$_", "_");
-        TST("$name", "foo", "name", "foo");
-        TST("$name", "", "name", "");
-        TST("_$name_", "_foo_", "name", "foo");
-        TST("_$name_", "__", "name", "");
-        TST_ERR("_$name_", "_");
-        TST_ERR("_$name_", "_foo_a");
+        TST_ERR("$()", "foo");
+        TST_ERR("$(_", "_");
+        TST("$(name)", "foo", "name", "foo");
+        TST("$(name)", "", "name", "");
+        TST("_$(name)_", "_foo_", "name", "foo");
+        TST("_$(name)_", "__", "name", "");
+        TST_ERR("_$(name)_", "_");
+        TST_ERR("_$(name)_", "_foo_a");
 
-        TST("_$name", "_foo_", "name", "foo_");
-        TST("$name_", "_foo_", "name", "_foo");
+        TST("_$(name)", "_foo_", "name", "foo_");
+        TST("$(name)_", "_foo_", "name", "_foo");
 
         qv_append(&bitmap, 0x1);
-        TST("$a $b $c", "ga $b $c", "a", "ga");
-        TST_ERR("$a $b $c", "$a ga b");
-        TST_ERR("$a $b $c", "a ga $b");
-        TST_ERR("$a $b $c", "$a $b");
-        TST_ERR("$a $b $c", "$a ga $c");
-        TST_ERR("$a $b $c", "$a $b ga");
+        TST("$(a) $(b) $(c)", "ga $(b) $(c)", "a", "ga");
+        TST_ERR("$(a) $(b) $(c)", "$(a) ga b");
+        TST_ERR("$(a) $(b) $(c)", "a ga $(b)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) $(b)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) ga $(c)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) $(b) ga");
 
         bitmap.tab[0] = 0x2;
-        TST("$a $b $c", "$a ga $c", "b", "ga");
-        TST_ERR("$a $b $c", "$a ga b");
-        TST_ERR("$a $b $c", "a ga $b");
-        TST_ERR("$a $b $c", "$a $b");
-        TST_ERR("$a $b $c", "ga $b $c");
-        TST_ERR("$a $b $c", "$a $b ga");
+        TST("$(a) $(b) $(c)", "$(a) ga $(c)", "b", "ga");
+        TST_ERR("$(a) $(b) $(c)", "$(a) ga b");
+        TST_ERR("$(a) $(b) $(c)", "a ga $(b)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) $(b)");
+        TST_ERR("$(a) $(b) $(c)", "ga $(b) $(c)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) $(b) ga");
 
         bitmap.tab[0] = 0x4;
-        TST("$a $b $c", "$a $b ga", "c", "ga");
-        TST_ERR("$a $b $c", "$a ga b");
-        TST_ERR("$a $b $c", "a ga $b");
-        TST_ERR("$a $b $c", "$a $b");
-        TST_ERR("$a $b $c", "ga $b $c");
-        TST_ERR("$a $b $c", "$a ga $c");
+        TST("$(a) $(b) $(c)", "$(a) $(b) ga", "c", "ga");
+        TST_ERR("$(a) $(b) $(c)", "$(a) ga b");
+        TST_ERR("$(a) $(b) $(c)", "a ga $(b)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) $(b)");
+        TST_ERR("$(a) $(b) $(c)", "ga $(b) $(c)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) ga $(c)");
 
 #undef TST_ERR
 #undef TST
