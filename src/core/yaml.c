@@ -1686,9 +1686,14 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
 
     start = env->ps.s;
     if (ps_has(&env->ps, 2) && env->ps.s[0] == '$' && env->ps.s[1] == '(') {
+        lstr_t name;
+
         ps_skip(&env->ps, 2);
-        /* TODO: throw error */
-        ps_parse_variable_name(&env->ps);
+        name = ps_parse_variable_name(&env->ps);
+        if (!name.s) {
+            return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
+                                    "invalid variable name");
+        }
     } else {
         ps_skip_span(&env->ps, &ctype_isalnum);
     }
@@ -7797,6 +7802,17 @@ Z_GROUP_EXPORT(yaml)
             "input.yml:2:3: invalid key, unknown variable\n"
             "  $(b): foo\n"
             "  ^^^^"
+        ));
+
+        /* wrong key syntax in variable settings */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include inner.yml\n"
+            "  $(a): foo\n"
+            "  $(-): bar",
+
+            "input.yml:3:6: invalid key, invalid variable name\n"
+            "  $(-): bar\n"
+            "     ^"
         ));
 
         /* string-variable being set with wrong type */
