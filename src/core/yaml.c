@@ -1356,9 +1356,28 @@ t_yaml_env_handle_variables(yaml_parse_t * nonnull env,
 /* }}} */
 /* {{{ Tag */
 
+typedef enum yaml_tag_type_t {
+    YAML_TAG_TYPE_NONE,
+    YAML_TAG_TYPE_INCLUDE,
+    YAML_TAG_TYPE_INCLUDERAW,
+} yaml_tag_type_t;
+
+static yaml_tag_type_t get_tag_type(const lstr_t tag)
+{
+    if (lstr_equal(tag, LSTR("include"))) {
+        return YAML_TAG_TYPE_INCLUDE;
+    } else
+    if (lstr_equal(tag, LSTR("includeraw"))) {
+        return YAML_TAG_TYPE_INCLUDERAW;
+    } else {
+        return YAML_TAG_TYPE_NONE;
+    }
+}
+
 static int
-t_yaml_env_parse_tag(yaml_parse_t *env, const uint32_t min_indent,
-                     yaml_data_t *out)
+t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
+                     yaml_data_t * nonnull out,
+                     yaml_tag_type_t * nonnull type)
 {
     /* a-zA-Z0-9. */
     static const ctype_desc_t ctype_tag = { {
@@ -1368,6 +1387,8 @@ t_yaml_env_parse_tag(yaml_parse_t *env, const uint32_t min_indent,
     yaml_pos_t tag_pos_start = yaml_env_get_pos(env);
     yaml_pos_t tag_pos_end;
     pstream_t tag;
+    unsigned flags = env->flags;
+    int res;
 
     assert (ps_peekc(env->ps) == '!');
     yaml_env_skipc(env);
@@ -1384,7 +1405,21 @@ t_yaml_env_parse_tag(yaml_parse_t *env, const uint32_t min_indent,
     }
     tag_pos_end = yaml_env_get_pos(env);
 
-    RETHROW(t_yaml_env_parse_data(env, min_indent, out));
+    *type = get_tag_type(LSTR_PS_V(&tag));
+    switch (*type) {
+      case YAML_TAG_TYPE_INCLUDE:
+      case YAML_TAG_TYPE_INCLUDERAW:
+        flags = flags | YAML_PARSE_FORBID_VARIABLES;
+        break;
+      default:
+        break;
+    }
+
+    SWAP(unsigned, env->flags, flags);
+    res = t_yaml_env_parse_data(env, min_indent, out);
+    SWAP(unsigned, env->flags, flags);
+    RETHROW(res);
+
     if (out->tag.s) {
         return yaml_env_set_err(env, YAML_ERR_WRONG_OBJECT,
                                 "two tags have been declared");
@@ -1501,23 +1536,13 @@ static int t_yaml_env_handle_override(yaml_parse_t *env,
 
 static int
 t_yaml_env_handle_include(yaml_parse_t * nonnull env,
-                          const uint32_t min_indent,
+                          const uint32_t min_indent, bool raw,
                           yaml_data_t * nonnull data)
 {
     yaml__presentation_include__t *pres;
     qm_t(yaml_vars) vars;
-    bool raw;
     unsigned flags;
     int res = 0;
-
-    if (lstr_equal(data->tag, LSTR("include"))) {
-        raw = false;
-    } else
-    if (lstr_equal(data->tag, LSTR("includeraw"))) {
-        raw = true;
-    } else {
-        return 0;
-    }
 
     /* Parse and retrieve the included AST, and get the associated variables.
      */
@@ -2451,8 +2476,21 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
     }
 
     if (ps_peekc(env->ps) == '!') {
-        RETHROW(t_yaml_env_parse_tag(env, min_indent, out));
-        RETHROW(t_yaml_env_handle_include(env, min_indent + 1, out));
+        yaml_tag_type_t type = YAML_TAG_TYPE_NONE;
+
+        RETHROW(t_yaml_env_parse_tag(env, min_indent, out, &type));
+        switch (type) {
+          case YAML_TAG_TYPE_INCLUDE:
+            RETHROW(t_yaml_env_handle_include(env, min_indent + 1, false,
+                                              out));
+            break;
+          case YAML_TAG_TYPE_INCLUDERAW:
+            RETHROW(t_yaml_env_handle_include(env, min_indent + 1, true,
+                                              out));
+            break;
+          case YAML_TAG_TYPE_NONE:
+            break;
+        }
     } else
     if (ps_startswith_yaml_seq_prefix(&env->ps)) {
         RETHROW(t_yaml_env_parse_seq(env, cur_indent, out));
@@ -5751,6 +5789,16 @@ Z_GROUP_EXPORT(yaml)
             "including file are allowed\n"
             "!include ../input.yml\n"
             "^^^^^^^^^^^^^^^^^^^^^"
+        ));
+
+        /* cannot use variables in include string */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "!include $file.yml",
+
+            "input.yml:1:10: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "!include $file.yml\n"
+            "         ^^^^^^^^^"
         ));
     } Z_TEST_END;
 
