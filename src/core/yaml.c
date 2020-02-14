@@ -1445,8 +1445,8 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
     RETHROW(res);
 
     if (out->tag.s) {
-        return yaml_env_set_err(env, YAML_ERR_WRONG_OBJECT,
-                                "two tags have been declared");
+        return yaml_env_set_err_at(env, out->tag_span, YAML_ERR_WRONG_OBJECT,
+                                   "two tags have been declared");
     }
 
     out->tag = LSTR_PS_V(&tag);
@@ -5510,9 +5510,9 @@ Z_GROUP_EXPORT(yaml)
             "!tag2\n"
             "a: 2",
 
-            "<string>:3:5: wrong object, two tags have been declared\n"
-            "a: 2\n"
-            "    ^"
+            "<string>:2:1: wrong object, two tags have been declared\n"
+            "!tag2\n"
+            "^^^^^"
         ));
 
         /* wrong list continuation */
