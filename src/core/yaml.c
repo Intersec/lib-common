@@ -598,6 +598,7 @@ typedef enum yaml_error_t {
     YAML_ERR_EXTRA_DATA,
     YAML_ERR_INVALID_INCLUDE,
     YAML_ERR_INVALID_OVERRIDE,
+    YAML_ERR_FORBIDDEN_VAR,
 } yaml_error_t;
 
 static int yaml_env_set_err_at(yaml_parse_t * nonnull env,
@@ -639,6 +640,9 @@ static int yaml_env_set_err_at(yaml_parse_t * nonnull env,
         break;
       case YAML_ERR_INVALID_OVERRIDE:
         sb_addf(&err, "cannot change types of data in override, %s", msg);
+        break;
+      case YAML_ERR_FORBIDDEN_VAR:
+        sb_addf(&err, "use of variables is forbidden, %s", msg);
         break;
     }
 
@@ -1004,7 +1008,7 @@ yaml_env_merge_variables(yaml_parse_t * nonnull env,
 
 /* Detect use of $foo in a quoted string, and add those variables in the
  * env */
-static void
+static int
 t_yaml_env_add_variables(yaml_parse_t * nonnull env,
                          yaml_data_t * nonnull data, bool in_string,
                          qv_t(u8) * nullable var_bitmap)
@@ -1049,8 +1053,16 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
     }
 
     if (qh_len(lstr, &variables_found) > 0) {
-        yaml_variable_t *var = t_new(yaml_variable_t, 1);
+        yaml_variable_t *var;
 
+        if (env->flags & YAML_PARSE_FORBID_VARIABLES) {
+            return yaml_env_set_err_at(
+                env, &data->span, YAML_ERR_FORBIDDEN_VAR,
+                "cannot use variables in this context"
+            );
+        }
+
+        var = t_new(yaml_variable_t, 1);
         var->data = data;
         var->in_string = in_string || !whole;
         if (var_bitmap) {
@@ -1073,6 +1085,8 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
             }
         }
     }
+
+    return 0;
 }
 
 /* Replace occurrences of $name with `value` in `data`.
@@ -1299,6 +1313,7 @@ t_yaml_env_handle_variables(yaml_parse_t * nonnull env,
 
     return 0;
 }
+
 /* }}} */
 /* {{{ Tag */
 
@@ -1453,6 +1468,8 @@ t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     yaml__presentation_include__t *pres;
     qm_t(yaml_vars) vars;
     bool raw;
+    unsigned flags;
+    int res = 0;
 
     if (lstr_equal(data->tag, LSTR("include"))) {
         raw = false;
@@ -1468,16 +1485,24 @@ t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     RETHROW(t_yaml_env_do_include(env, raw, data, &vars));
     pres = data->presentation ? data->presentation->included : NULL;
 
-    /* Parse and apply variables. */
-    RETHROW(t_yaml_env_handle_variables(env, min_indent, &vars, pres));
+    /* Forbid use of variables in variables settings & overrides, that would
+     * be really complex to handle properly. */
+    flags = env->flags;
+    env->flags |= YAML_PARSE_FORBID_VARIABLES;
 
-    /* Parse and merge overrides. */
-    RETHROW(t_yaml_env_handle_override(env, min_indent, data));
+    /* Parse and apply variables. idem for overrides. */
+    if (t_yaml_env_handle_variables(env, min_indent, &vars, pres) >= 0
+    &&  t_yaml_env_handle_override(env, min_indent, data) >= 0)
+    {
+        /* Save remaining variables into current variables for the document.
+         */
+        yaml_env_merge_variables(env, &vars);
+    } else {
+        res = -1;
+    }
 
-    /* Save remaining variables into current variables for the document. */
-    yaml_env_merge_variables(env, &vars);
-
-    return 0;
+    env->flags = flags;
+    return res;
 }
 
 /* }}} */
@@ -1840,11 +1865,12 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
 
         if (var_bitmap.len > 0) {
             if (has_escaped_dollars) {
-                t_yaml_env_add_variables(env, out, true, &var_bitmap);
+                RETHROW(t_yaml_env_add_variables(env, out, true,
+                                                 &var_bitmap));
             } else {
                 /* fast case: has variables but no escaping: do not bother
                  * with the bitmap */
-                t_yaml_env_add_variables(env, out, true, NULL);
+                RETHROW(t_yaml_env_add_variables(env, out, true, NULL));
             }
         }
 
@@ -1876,7 +1902,7 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
     out->scalar.type = YAML_SCALAR_STRING;
     out->scalar.s = line;
 
-    t_yaml_env_add_variables(env, out, false, NULL);
+    RETHROW(t_yaml_env_add_variables(env, out, false, NULL));
 
     return 0;
 }
@@ -4953,11 +4979,12 @@ MODULE_END()
 
 /* {{{ Helpers */
 
-static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
+static int _z_yaml_test_parse_fail(unsigned flags,
+                                   const char *yaml, const char *expected_err)
 {
     t_scope;
     yaml_data_t data;
-    yaml_parse_t *env = t_yaml_parse_new(0);
+    yaml_parse_t *env = t_yaml_parse_new(flags);
     SB_1k(err);
 
     yaml_parse_attach_ps(env, ps_initstr(yaml));
@@ -4967,6 +4994,11 @@ static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
     yaml_parse_delete(&env);
 
     Z_HELPER_END;
+}
+
+static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
+{
+    return _z_yaml_test_parse_fail(0, yaml, expected_err);
 }
 
 static int
@@ -5548,6 +5580,17 @@ Z_GROUP_EXPORT(yaml)
             "- $boo",
 
             "the document is invalid: there are unbound variables: a, boo"
+        ));
+
+        /* Use of variables can be forbidden */
+        Z_HELPER_RUN(_z_yaml_test_parse_fail(YAML_PARSE_FORBID_VARIABLES,
+            "key: 1\n"
+            "a: <use of $var>\n",
+
+            "<string>:2:4: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "a: <use of $var>\n"
+            "   ^^^^^^^^^^^^^"
         ));
     } Z_TEST_END;
 
@@ -7437,8 +7480,8 @@ Z_GROUP_EXPORT(yaml)
         child =
             "key: !include grandchild.yml\n"
             "  $var: 3\n"
-            /* FIXME: we should be able to say "b: $var2" here, but it does
-             * not work currently */
+            /* TODO: we should be able to say "b: $var2" here, but it does
+             * not work currently. See FIXME in yaml_variable_t. */
             "  b: 5\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
@@ -7649,6 +7692,26 @@ Z_GROUP_EXPORT(yaml)
             "this variable can only be set with a scalar\n"
             "  $t: [ 1, 2 ]\n"
             "      ^^^^^^^^"
+        ));
+
+        /* cannot use variables in variable settings or overrides. */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include inner.yml\n"
+            "  $a: $t",
+
+            "input.yml:2:7: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "  $a: $t\n"
+            "      ^^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include inner.yml\n"
+            "  t: <$a>",
+
+            "input.yml:2:6: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "  t: <$a>\n"
+            "     ^^^^"
         ));
     } Z_TEST_END;
 

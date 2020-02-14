@@ -152,6 +152,9 @@ typedef enum yaml_parse_flags_t {
      */
     YAML_PARSE_GEN_PRES_DATA = 1 << 0,
 
+    /** Forbid use of variables. */
+    YAML_PARSE_FORBID_VARIABLES = 1 << 1,
+
     /** Allow unset variables in the parsed AST.
      *
      * YAML documents can have variables, that can be set by other including
@@ -166,7 +169,7 @@ typedef enum yaml_parse_flags_t {
      * \warning Do not use this flag if the parsed YAML data is to be
      * interpreted.
      */
-    YAML_PARSE_ALLOW_UNBOUND_VARIABLES = 1 << 1,
+    YAML_PARSE_ALLOW_UNBOUND_VARIABLES = 1 << 2,
 } yaml_parse_flags_t;
 
 /** Create a new YAML parsing object.
