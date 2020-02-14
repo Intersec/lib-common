@@ -5137,6 +5137,8 @@ z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
 {
     t_scope;
     yaml_pack_env_t *env;
+    yaml_parse_t *parse_env;
+    yaml_data_t parsed_data;
     char *path;
     SB_1k(err);
 
@@ -5150,6 +5152,24 @@ z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
     }
     Z_ASSERT_N(t_yaml_pack_file(env, path, data, &err),
                "cannot pack YAML file %s: %pL", filepath, &err);
+
+    if (flags & YAML_PACK_NO_SUBFILES) {
+        /* this does not repack the full ast, so do not try to reparse it */
+        return 0;
+    }
+
+    /* parse file and ensure the resulting AST is equal to what was packed. */
+    if (flags & YAML_PACK_ALLOW_UNBOUND_VARIABLES) {
+        parse_env = t_yaml_parse_new(YAML_PARSE_ALLOW_UNBOUND_VARIABLES);
+    } else {
+        parse_env = t_yaml_parse_new(0);
+    }
+    Z_ASSERT_N(t_yaml_parse_attach_file(parse_env, filepath, z_tmpdir_g.s,
+                                        &err));
+    Z_ASSERT_N(t_yaml_parse(parse_env, &parsed_data, &err),
+               "could not reparse the packed file: %pL", &err);
+
+    Z_ASSERT(yaml_data_equals(data, &parsed_data));
 
     Z_HELPER_END;
 }
