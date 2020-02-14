@@ -33,13 +33,6 @@ static struct yaml_g {
     .logger = LOGGER_INIT(NULL, "yaml", LOG_INHERITS),
 };
 
-/* Missing features:
- *
- * #1
- * Tab characters are forbidden, because it makes the indentation computation
- * harder than with simple spaces. It could be handled properly however.
- */
-
 /* {{{ Parsing types definitions */
 /* {{{ Presentation */
 
@@ -3983,8 +3976,6 @@ t_yaml_pack_override(yaml_pack_env_t * nonnull env,
      * be set in the env, and the path reset so that it matches the
      * presentation.
      */
-    /* TODO: Maybe create a new env? This is a bit of a mess. */
-
     SWAP(const yaml_presentation_t *, pres, env->pres);
     SWAP(unsigned, current_path_pos, env->current_path_pos);
 
@@ -4320,7 +4311,7 @@ t_yaml_pack_variable_settings(
 static int
 t_yaml_pack_include_with_override(
     yaml_pack_env_t * nonnull env,
-    yaml__presentation_include__t * nonnull inc,
+    const yaml__presentation_include__t * nonnull inc,
     const yaml_data_t * nonnull subdata)
 {
     yaml_pack_override_t *override = NULL;
@@ -4372,7 +4363,7 @@ t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
                           const yaml_data_t * nonnull data,
                           const yaml__presentation_node__t * nonnull node)
 {
-    yaml__presentation_include__t *inc;
+    const yaml__presentation_include__t *inc;
 
     inc = node->included;
     /* Write include node & override if:
@@ -5906,8 +5897,6 @@ Z_GROUP_EXPORT(yaml)
             "- !include subsub/c.yml\n"
             "- b"
         ));
-        /* TODO d.yml is included twice, should be factorized instead of
-         * parsing the file twice. */
         Z_HELPER_RUN(z_write_yaml_file("subdir/subsub/c.yml",
             "- c\n"
             "- !include d.yml"
