@@ -584,6 +584,37 @@ yaml_env_end_data(yaml_parse_t * nonnull env, yaml_data_t * nonnull out)
 }
 
 /* }}} */
+/* {{{ Var bitmap utils */
+
+/* Var bitmap is a bitmap indicating which '$' characters are variables.
+ *
+ * The rules are:
+ *  * if len is 0, then it means all '$' are variables (ie, the bitmap is full
+ *    1's).
+ *  * otherwise, only set bits are variables. OOB accessing is allowed, it
+ *    just means it is evaluated to 0.
+ */
+
+static void var_bitmap_set_bit(qv_t(u8) * nonnull bitmap, int pos)
+{
+    if (bitmap->len * 8 <= pos) {
+        qv_growlen0(bitmap, pos / 8 + 1 - bitmap->len);
+    }
+    SET_BIT(bitmap->tab, pos);
+}
+
+static bool var_bitmap_test_bit(const qv_t(u8) * nonnull bitmap, int pos)
+{
+    if (bitmap->len == 0) {
+        return true;
+    }
+    if (pos < bitmap->len * 8 && TST_BIT(bitmap->tab, pos)) {
+        return true;
+    }
+    return false;
+}
+
+/* }}} */
 /* {{{ Errors */
 
 typedef enum yaml_error_t {
@@ -947,10 +978,7 @@ yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf,
 
           case '$':
             /* variable */
-            if (var_bitmap->len * 8 <= var_pos) {
-                qv_growlen0(var_bitmap, var_pos / 8 + 1 - var_bitmap->len);
-            }
-            SET_BIT(var_bitmap->tab, var_pos);
+            var_bitmap_set_bit(var_bitmap, var_pos);
             var_pos += 1;
 
             /* FALLTHROUGH */
@@ -1033,9 +1061,7 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
             break;
         }
         var_pos += 1;
-        if (var_bitmap && !(var_pos - 1 < var_bitmap->len * 8
-                         && TST_BIT(var_bitmap->tab, var_pos - 1)))
-        {
+        if (var_bitmap && !var_bitmap_test_bit(var_bitmap, var_pos - 1)) {
             continue;
         }
 
@@ -1142,9 +1168,7 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
         }
         sb_add_ps(&buf, sub);
 
-        if (var_bitmap->len > 0 && !(bitmap_pos < var_bitmap->len * 8
-                                  && TST_BIT(var_bitmap->tab, bitmap_pos)))
-        {
+        if (!var_bitmap_test_bit(var_bitmap, bitmap_pos)) {
             bitmap_pos += 1;
             new_bitmap_pos += 1;
             /* add '$' and continue to get to next '$' char */
@@ -1166,11 +1190,7 @@ t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
                 sb_add_ps(&buf, var_string);
             }
             if (new_bitmap) {
-                if (new_bitmap->len * 8 <= new_bitmap_pos) {
-                    qv_growlen0(new_bitmap,
-                                new_bitmap_pos / 8 + 1 - new_bitmap->len);
-                }
-                SET_BIT(new_bitmap->tab, new_bitmap_pos);
+                var_bitmap_set_bit(new_bitmap, new_bitmap_pos);
                 new_bitmap_pos += 1;
             }
         }
@@ -3285,7 +3305,8 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val,
 {
     int res = 0;
     pstream_t ps;
-    u8__array_t * nullable var_bitmap = NULL;
+    qv_t(u8) bitmap;
+    qv_t(u8) *var_bitmap = NULL;
     int var_pos = 0;
 
     if (!yaml_string_must_be_quoted(val, pres)) {
@@ -3294,7 +3315,8 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val,
     }
 
     if (pres && pres->tpl) {
-        var_bitmap = &pres->tpl->variables_bitmap;
+        qv_init_static_tab(&bitmap, &pres->tpl->variables_bitmap);
+        var_bitmap = &bitmap;
     }
 
     ps = ps_initlstr(&val);
@@ -3328,10 +3350,7 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val,
             if (var_bitmap) {
                 var_pos++;
 
-                if (var_bitmap->len == 0
-                ||  (var_pos - 1 < var_bitmap->len * 8
-                  && TST_BIT(var_bitmap->tab, var_pos - 1)))
-                {
+                if (var_bitmap_test_bit(var_bitmap, var_pos - 1)) {
                     PUTS("$");
                     break;
                 }
@@ -4440,9 +4459,7 @@ t_apply_original_var_values(yaml_pack_env_t * nonnull env,
         sb_add_ps(&buf, sub);
 
         var_pos += 1;
-        if (var_bitmap->len > 0 && !(var_pos - 1 < var_bitmap->len * 8
-                                  && TST_BIT(var_bitmap->tab, var_pos - 1)))
-        {
+        if (!var_bitmap_test_bit(var_bitmap, var_pos - 1)) {
             sb_addc(&buf, ps_getc(&ps));
             continue;
         }
