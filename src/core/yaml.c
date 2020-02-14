@@ -2526,13 +2526,25 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
         RETHROW(t_yaml_env_parse_seq(env, cur_indent, out));
     } else
     if (ps_peekc(env->ps) == '[') {
-        RETHROW(t_yaml_env_parse_flow_seq(env, out));
+        unsigned flags = env->flags;
+        int res;
+
+        env->flags |= YAML_PARSE_FORBID_VARIABLES;
+        res = t_yaml_env_parse_flow_seq(env, out);
+        env->flags = flags;
+        RETHROW(res);
         if (out->seq->datas.len > 0) {
             t_yaml_env_pres_set_flow_mode(env);
         }
     } else
     if (ps_peekc(env->ps) == '{') {
-        RETHROW(t_yaml_env_parse_flow_obj(env, out));
+        unsigned flags = env->flags;
+        int res;
+
+        env->flags |= YAML_PARSE_FORBID_VARIABLES;
+        res = t_yaml_env_parse_flow_obj(env, out);
+        env->flags = flags;
+        RETHROW(res);
         if (out->obj->fields.len > 0) {
             t_yaml_env_pres_set_flow_mode(env);
         }
@@ -7879,6 +7891,24 @@ Z_GROUP_EXPORT(yaml)
             "the string contains a variable with an invalid name\n"
             "a: \"a \\$(b) $(b) $(-)\"\n"
             "   ^^^^^^^^^^^^^^^^^^^"
+        ));
+
+        /* cannot use variables in flow context */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: [ 1, 2, $(b) ]",
+
+            "<string>:1:12: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "a: [ 1, 2, $(b) ]\n"
+            "           ^^^^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: { a: 1, b: $(b) }",
+
+            "<string>:1:15: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "a: { a: 1, b: $(b) }\n"
+            "              ^^^^"
         ));
     } Z_TEST_END;
 
