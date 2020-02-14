@@ -629,6 +629,7 @@ typedef enum yaml_error_t {
     YAML_ERR_EXTRA_DATA,
     YAML_ERR_INVALID_INCLUDE,
     YAML_ERR_INVALID_OVERRIDE,
+    YAML_ERR_INVALID_VAR,
     YAML_ERR_FORBIDDEN_VAR,
 } yaml_error_t;
 
@@ -671,6 +672,9 @@ static int yaml_env_set_err_at(yaml_parse_t * nonnull env,
         break;
       case YAML_ERR_INVALID_OVERRIDE:
         sb_addf(&err, "cannot change types of data in override, %s", msg);
+        break;
+      case YAML_ERR_INVALID_VAR:
+        sb_addf(&err, "invalid variable, %s", msg);
         break;
       case YAML_ERR_FORBIDDEN_VAR:
         sb_addf(&err, "use of variables is forbidden, %s", msg);
@@ -1066,7 +1070,14 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
         }
 
         name = ps_parse_variable_name(&ps);
-        /* TODO: error on else */
+        if (!name.s) {
+            /* TODO: Ideally, the span should point to the '$' starting the
+             * variable. This isn't easy to do so however, in the case of a
+             * quoted string. */
+            return yaml_env_set_err_at(env, &data->span, YAML_ERR_INVALID_VAR,
+                "the string contains a variable with an invalid name");
+        }
+
         if (name.s) {
             if (ps_done(&ps) && starts_with_dollar
             &&  qh_len(lstr, &variables_found) == 0)
@@ -7776,6 +7787,24 @@ Z_GROUP_EXPORT(yaml)
             "cannot use variables in this context\n"
             "  t: <$a>\n"
             "     ^^^^"
+        ));
+
+        /* invalid variable name */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: $",
+
+            "<string>:1:4: invalid variable, "
+            "the string contains a variable with an invalid name\n"
+            "a: $\n"
+            "   ^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: \"a \\$b $b $-\"",
+
+            "<string>:1:4: invalid variable, "
+            "the string contains a variable with an invalid name\n"
+            "a: \"a \\$b $b $-\"\n"
+            "   ^^^^^^^^^^^^^"
         ));
     } Z_TEST_END;
 
