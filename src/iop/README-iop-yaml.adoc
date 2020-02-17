@@ -123,23 +123,23 @@ obj:
 
 == Includes
 
-Other YAML files can be included using the `!include` tag:
+Other YAML files can be included using the `!include` syntax:
 
 [source,YAML]
 ----
 obj:
-  key: !include foo.yml
+  key: !include:foo.yml
 ----
 
 The YAML data declared in this file will be inlined in place of the
-`!include <path>`.
+`!include:<path>`.
 
 It is also possible to include files of any type:
 
 [source,YAML]
 ----
 obj:
-  key: !includeraw foo.json
+  key: !includeraw:foo.json
 ----
 
 The `!includeraw` will be replaced by a string holding the whole content of
@@ -156,7 +156,7 @@ by specifying an object after the include:
 
 [source,YAML]
 ----
-obj: !include foo.yml
+obj: !include:foo.yml
   key: 3
   obj:
     a: 4
@@ -190,7 +190,7 @@ Then:
 
 [source,YAML]
 ----
-inner: !include inner.yml
+inner: !include:inner.yml
   obj: 2
 ----
 
@@ -201,7 +201,7 @@ any scalar type with any other scalar type is however fine.
 
 [source,YAML]
 ----
-inner: !include inner.yml
+inner: !include:inner.yml
   foo: foo
 ----
 
@@ -213,7 +213,7 @@ will add the key `foo` in the object (which will have 4 keys: `key`, `obj`,
 
 [source,YAML]
 ----
-inner: !include inner.yml
+inner: !include:inner.yml
   obj:
     c: 4
 ----
@@ -225,7 +225,7 @@ and `foo`).
 
 [source,YAML]
 ----
-inner: !include inner.yml
+inner: !include:inner.yml
   seq:
     - ~
 ----
@@ -238,7 +238,7 @@ override:
 
 [source,YAML]
 ----
-inner: !include inner.yml
+inner: !include:inner.yml
   key: -1
   obj:
     c: c
@@ -284,20 +284,21 @@ The variables can then be set by specifying their values after including the fil
 
 [source,YAML]
 ----
-!include inner.yml
-$(a): 5
-$(b): bee
-$(raw):
-  - 1
-  - s: s
-    z: z
+!include:inner.yml
+variables:
+  a: 5
+  b: bee
+  raw:
+    - 1
+    - s: s
+      z: z
 ----
 
 This will give the following object:
 
 [source,YAML]
 ----
-!include inner.yml
+!include:inner.yml
 raw:
   - 1
   - s: s
@@ -326,8 +327,9 @@ Additionally, variables cannot be used in any variable expressions, or in overri
 
 [source,YAML]
 ----
-!include inner.yml
-$(var): $(foo) # This is not allowed
+!include:inner.yml
+variables:
+  var: $(foo) # This is not allowed
 field:
   val: $(bar) # Not allowed either
 ----
