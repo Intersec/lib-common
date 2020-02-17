@@ -1416,7 +1416,7 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
     }
 
     tag = ps_get_span(&env->ps, &ctype_tag);
-    if (!isspace(ps_peekc(env->ps))) {
+    if (!isspace(ps_peekc(env->ps)) && !ps_done(&env->ps)) {
         return yaml_env_set_err(env, YAML_ERR_INVALID_TAG,
                                 "must only contain alphanumeric characters");
     }
@@ -2487,15 +2487,12 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
     uint32_t cur_indent;
 
     RETHROW(yaml_env_ltrim(env));
-    if (ps_done(&env->ps)) {
-        return yaml_env_set_err(env, YAML_ERR_MISSING_DATA,
-                                "unexpected end of line");
-    }
-
     cur_indent = yaml_env_get_column_nb(env);
-    if (cur_indent < min_indent) {
-        return yaml_env_set_err(env, YAML_ERR_WRONG_INDENT,
-                                "missing element");
+    if (cur_indent < min_indent || ps_done(&env->ps)) {
+        yaml_env_start_data(env, YAML_DATA_SCALAR, out);
+        yaml_env_end_data(env, out);
+        out->scalar.type = YAML_SCALAR_NULL;
+        return 0;
     }
 
     if (ps_peekc(env->ps) == '!') {
@@ -5427,26 +5424,6 @@ Z_GROUP_EXPORT(yaml)
     /* {{{ Parsing errors */
 
     Z_TEST(parsing_errors, "errors when parsing yaml") {
-        /* unexpected EOF */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "",
-            "<string>:1:1: missing data, unexpected end of line"
-        ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "  # my comment",
-
-            "<string>:1:15: missing data, unexpected end of line\n"
-            "  # my comment\n"
-            "              ^"
-        ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "key:",
-
-            "<string>:1:5: missing data, unexpected end of line\n"
-            "key:\n"
-            "    ^"
-        ));
-
         /* wrong object continuation */
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a: 5\nb",
@@ -5547,15 +5524,6 @@ Z_GROUP_EXPORT(yaml)
             "line not aligned with current sequence\n"
             " - 3\n"
             " ^"
-        ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "a: 1\n"
-            "b:\n"
-            "c: 3",
-
-            "<string>:3:1: wrong indentation, missing element\n"
-            "c: 3\n"
-            "^"
         ));
 
         /* wrong object */
@@ -5718,12 +5686,6 @@ Z_GROUP_EXPORT(yaml)
         const char *path;
         const char *filename;
         SB_1k(err);
-
-        /* unexpected EOF */
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "",
-            "input.yml:2:1: missing data, unexpected end of line"
-        ));
 
         env = t_yaml_parse_new(0);
         Z_ASSERT_NEG(t_yaml_parse_attach_file(env, "unknown.yml", NULL, &err));
@@ -6589,6 +6551,21 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
                                          1, 1, 1, 5));
 
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "",
+            "~"
+        ));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
+                                         1, 1, 1, 1));
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "!v",
+            "!v ~"
+        ));
+        Z_ASSERT_LSTREQUAL(data.tag, LSTR("v"));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
+                                         1, 1, 1, 3));
+
         /* bool */
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "true",
@@ -6817,7 +6794,7 @@ Z_GROUP_EXPORT(yaml)
             "inner: b: 3\n"
             "       c: -4\n"
             "inner2: !tag\n"
-            "  d: ~\n"
+            "  d:\n"
             "  e: my-label\n"
             "f: 1.2",
 
@@ -6876,8 +6853,9 @@ Z_GROUP_EXPORT(yaml)
 
         Z_ASSERT_LSTREQUAL(field.obj->fields.tab[0].key, LSTR("d"));
         field2 = field.obj->fields.tab[0].data;
+        /* TODO: span could be better, on the previous line */
         Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_NULL,
-                                         5, 6, 5, 7));
+                                         6, 3, 6, 3));
         Z_ASSERT_LSTREQUAL(field.obj->fields.tab[1].key, LSTR("e"));
         field2 = field.obj->fields.tab[1].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_STRING,
@@ -6919,7 +6897,7 @@ Z_GROUP_EXPORT(yaml)
             "- \"a: 2\"\n"
             "- - 5\n"
             "  - -5\n"
-            "- ~\n"
+            "-\n"
             "-\n"
             "  !tag - TRUE\n"
             "- FALSE\n",
@@ -6955,8 +6933,9 @@ Z_GROUP_EXPORT(yaml)
 
         /* null */
         elem = data.seq->datas.tab[2];
+        /* TODO: span could be better */
         Z_HELPER_RUN(z_check_yaml_scalar(&elem, YAML_SCALAR_NULL,
-                                         4, 3, 4, 4));
+                                         5, 1, 5, 1));
 
         /* subseq */
         elem = data.seq->datas.tab[3];
