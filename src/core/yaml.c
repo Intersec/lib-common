@@ -2779,7 +2779,8 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
     }
     sb_addf(out, YAML_POS_FMT": %pL", YAML_POS_ARG(span->start), &error_msg);
 
-    one_liner = span->end.line_nb == span->start.line_nb;
+    one_liner = span->end.line_nb == span->start.line_nb
+             && span->end.col_nb != span->start.col_nb;
 
     /* get the full line including pos_start */
     ps.s = span->start.s;
@@ -7754,11 +7755,21 @@ Z_GROUP_EXPORT(yaml)
         /* wrong variable settings */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
-            "  variables: 2",
+            "  variables:",
 
-            "input.yml:2:14: wrong type of data, variable settings must be an object\n"
-            "  variables: 2\n"
-            "             ^"
+            "input.yml:3:1: wrong type of data, "
+            "variable settings must be an object"
+        ));
+        /* TODO: improve span for empty null scalar */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include inner.yml\n"
+            "  variables:\n"
+            "key2: 3",
+
+            "input.yml:3:1: wrong type of data, "
+            "variable settings must be an object\n"
+            "key2: 3\n"
+            "^ starting here"
         ));
 
         /* unknown variable being set */
