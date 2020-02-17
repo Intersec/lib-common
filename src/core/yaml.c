@@ -1245,26 +1245,15 @@ add_var_binding(lstr_t var_name, const lstr_t value,
 
 static int
 t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
-                             yaml_data_t * nonnull override,
+                             const yaml_obj_t * nonnull override,
                              qm_t(yaml_vars) * nonnull variables,
                              qv_t(var_binding) * nullable bindings)
 {
-    assert (override->type == YAML_DATA_OBJ);
-
-    tab_for_each_ptr(pair, &override->obj->fields) {
+    tab_for_each_ptr(pair, &override->fields) {
         lstr_t string_value = LSTR_NULL_V;
-        lstr_t name;
         int pos;
 
-        if (!lstr_startswith(pair->key, LSTR("$"))) {
-            continue;
-        }
-
-        /* key is $(toto), remove two leading characters and one
-         * trailing */
-        name = LSTR_INIT_V(pair->key.s + 2, pair->key.len - 3);
-
-        pos = qm_find(yaml_vars, variables, &name);
+        pos = qm_find(yaml_vars, variables, &pair->key);
         if (pos < 0) {
             yaml_env_set_err_at(env, &pair->key_span, YAML_ERR_BAD_KEY,
                                 "unknown variable");
@@ -1294,7 +1283,7 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
                      && var->data->scalar.type == YAML_SCALAR_STRING);
                 var->data->scalar.s = t_tpl_set_variable(
                     var->data->scalar.s,
-                    name,
+                    pair->key,
                     string_value,
                     &var->var_bitmap
                 );
@@ -1305,67 +1294,13 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
         }
 
         if (bindings) {
-            add_var_binding(name, string_value, bindings);
+            add_var_binding(pair->key, string_value, bindings);
         }
 
         /* remove the variable from variables, to prevent matching twice,
          * and to be able to keep in the qm the variables that are still
          * active. */
         qm_del_at(yaml_vars, variables, pos);
-    }
-
-    return 0;
-}
-
-static int
-t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
-                     bool only_variables, yaml_data_t *out);
-
-static int
-t_yaml_env_handle_variables(yaml_parse_t * nonnull env,
-                            const uint32_t min_indent,
-                            qm_t(yaml_vars) * nonnull variables,
-                            yaml__presentation_include__t * nullable pres)
-{
-    uint32_t cur_indent;
-    yaml_data_t data;
-
-    /* Variables are specified as an object with keys starting with '$', with
-     * an indent >= to min_indent. */
-    RETHROW(yaml_env_ltrim(env));
-    if (ps_done(&env->ps)) {
-        return 0;
-    }
-
-    cur_indent = yaml_env_get_column_nb(env);
-    if (cur_indent < min_indent) {
-        return 0;
-    }
-
-    if (!ps_startswith_yaml_key(env->ps, true)) {
-        return 0;
-    }
-
-    RETHROW(t_yaml_env_parse_obj(env, cur_indent, true, &data));
-    logger_trace(&_G.logger, 2, "parsed variable values, "
-                 "%s from "YAML_POS_FMT" up to "YAML_POS_FMT,
-                 yaml_data_get_type(&data, false),
-                 YAML_POS_ARG(data.span.start), YAML_POS_ARG(data.span.end));
-
-    if (pres) {
-        qv_t(var_binding) bindings;
-
-        t_qv_init(&bindings, data.obj->fields.len);
-
-        RETHROW(t_yaml_env_replace_variables(env, &data, variables,
-                                             &bindings));
-
-        pres->variables = t_iop_new(yaml__presentation_variable_settings);
-        pres->variables->bindings
-            = IOP_TYPED_ARRAY_TAB(yaml__presentation_variable_binding,
-                                  &bindings);
-    } else {
-        RETHROW(t_yaml_env_replace_variables(env, &data, variables, NULL));
     }
 
     return 0;
@@ -1548,9 +1483,12 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
     return -1;
 }
 
-static int t_yaml_env_handle_override(yaml_parse_t *env,
-                                      const uint32_t min_indent,
-                                      yaml_data_t *out);
+static int
+t_yaml_env_handle_override(yaml_parse_t * nonnull env,
+                           const uint32_t min_indent,
+                           qm_t(yaml_vars) * nonnull variables,
+                           yaml__presentation_include__t * nullable pres,
+                           yaml_data_t * nonnull out);
 
 static int
 t_yaml_env_handle_include(yaml_parse_t * nonnull env,
@@ -1572,10 +1510,8 @@ t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     flags = env->flags;
     env->flags |= YAML_PARSE_FORBID_VARIABLES;
 
-    /* Parse and apply variables. idem for overrides. */
-    if (t_yaml_env_handle_variables(env, min_indent, &vars, pres) >= 0
-    &&  t_yaml_env_handle_override(env, min_indent, data) >= 0)
-    {
+    /* Parse and apply override, including variable settings */
+    if (t_yaml_env_handle_override(env, min_indent, &vars, pres, data) >= 0) {
         /* Save remaining variables into current variables for the document.
          */
         yaml_env_merge_variables(env, &vars);
@@ -2433,13 +2369,54 @@ t_yaml_env_merge_data(yaml_parse_t * nonnull env,
 /* }}} */
 /* {{{ Override */
 
-static int t_yaml_env_handle_override(yaml_parse_t * nonnull env,
-                                      const uint32_t min_indent,
-                                      yaml_data_t * nonnull out)
+/* Set variables in the AST.
+ *
+ * \param[in]      env   The parsing environment.
+ * \param[in]      data  The data containing variables bindings.
+ * \param[in,out]  variables  Information about unbound variables in the AST.
+ * \param[out]     pres  Presentation details.
+ */
+static int
+yaml_env_set_variables(yaml_parse_t * nonnull env,
+                       const yaml_data_t * nonnull data,
+                       qm_t(yaml_vars) * nonnull variables,
+                       yaml__presentation_include__t * nullable pres)
+{
+    if (data->type != YAML_DATA_OBJ) {
+        return yaml_env_set_err_at(env, &data->span, YAML_ERR_WRONG_DATA,
+                                   "variable settings must be an object");
+    }
+
+    if (pres) {
+        qv_t(var_binding) bindings;
+
+        t_qv_init(&bindings, data->obj->fields.len);
+
+        RETHROW(t_yaml_env_replace_variables(env, data->obj, variables,
+                                             &bindings));
+
+        pres->variables = t_iop_new(yaml__presentation_variable_settings);
+        pres->variables->bindings
+            = IOP_TYPED_ARRAY_TAB(yaml__presentation_variable_binding,
+                                  &bindings);
+    } else {
+        RETHROW(t_yaml_env_replace_variables(env, data->obj, variables,
+                                             NULL));
+    }
+
+    return 0;
+}
+
+static int
+t_yaml_env_handle_override(yaml_parse_t * nonnull env,
+                           const uint32_t min_indent,
+                           qm_t(yaml_vars) * nonnull variables,
+                           yaml__presentation_include__t * nullable pres,
+                           yaml_data_t * nonnull out)
 {
     uint32_t cur_indent;
     yaml_data_t override;
-    yaml_presentation_override_t *pres = NULL;
+    yaml_presentation_override_t *ov_pres = NULL;
 
     /* To be an override, we want an object starting with an indent greater
      * than the min_indent. Not matching means no override, so we return
@@ -2467,18 +2444,42 @@ static int t_yaml_env_handle_override(yaml_parse_t * nonnull env,
                  YAML_POS_ARG(override.span.start),
                  YAML_POS_ARG(override.span.end));
 
-    if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
-        pres = t_new(yaml_presentation_override_t, 1);
-        t_qv_init(&pres->nodes, 0);
-        t_sb_init(&pres->path, 1024);
+    if (pres) {
+        ov_pres = t_new(yaml_presentation_override_t, 1);
+        t_qv_init(&ov_pres->nodes, 0);
+        t_sb_init(&ov_pres->path, 1024);
     }
 
-    RETHROW(t_yaml_env_merge_data(env, &override, pres, out));
+    /* If the first key of the obj is "variables", use it to set variables
+     * in the AST. */
+    /* TODO: this forbids overriding a "variables" field. This could be fixed
+     * by adding a more explicit syntax in that case, for example:
+     *
+     * !include
+     *   path: foo.yml
+     *   variables: ...
+     *   override: ...
+     *
+     * For the moment, it isn't a big deal however.
+     */
+    if (override.obj->fields.len > 0
+    &&  lstr_equal(override.obj->fields.tab[0].key, LSTR("variables")))
+    {
+        yaml_obj_t *obj = override.obj;
 
-    if (pres) {
-        assert (out->presentation && out->presentation->included);
-        out->presentation->included->override
-            = t_presentation_override_to_iop(pres, &override);
+        RETHROW(yaml_env_set_variables(env, &obj->fields.tab[0].data,
+                                       variables, pres));
+        obj->fields.tab++;
+        obj->fields.len--;
+        if (obj->fields.len == 0) {
+            return 0;
+        }
+    }
+
+    RETHROW(t_yaml_env_merge_data(env, &override, ov_pres, out));
+
+    if (ov_pres) {
+        pres->override = t_presentation_override_to_iop(ov_pres, &override);
     }
 
     return 0;
@@ -4297,11 +4298,12 @@ t_yaml_pack_variable_settings(
     qm_t(active_vars) * nonnull vars)
 {
     yaml_data_t data;
+    yaml_data_t obj;
     const yaml_presentation_t *pres = NULL;
     int res;
 
     assert (var_pres->bindings.len == qm_len(active_vars, vars));
-    t_yaml_data_new_obj(&data, var_pres->bindings.len);
+    t_yaml_data_new_obj(&obj, var_pres->bindings.len);
 
     /* Iterate on the array and not the qm, to recreate the variable settings
      * in the right order. */
@@ -4311,18 +4313,19 @@ t_yaml_pack_variable_settings(
         var = qm_get_p(active_vars, vars, &binding->var_name);
         while (var) {
             if (var->deduced_value) {
-                lstr_t var_name = t_yaml_format_variable(var->name);
-
-                yaml_obj_add_field(&data, var_name, *var->deduced_value);
+                yaml_obj_add_field(&obj, var->name, *var->deduced_value);
             }
             var = var->conflict;
         }
     }
 
-    if (data.obj->fields.len == 0) {
+    if (obj.obj->fields.len == 0) {
         return 0;
     }
+    t_yaml_data_new_obj(&data, 1);
+    yaml_obj_add_field(&data, LSTR("variables"), obj);
 
+    /* TODO: presentation for vars */
     SWAP(const yaml_presentation_t *, pres, env->pres);
     res = t_yaml_pack_data(env, &data);
     SWAP(const yaml_presentation_t *, pres, env->pres);
@@ -7588,10 +7591,11 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
         root =
             "!include inner.yml\n"
-            "$(a): 3\n"
-            "$(a-b):\n"
-            "  - 1\n"
-            "  - 2\n";
+            "variables:\n"
+            "  a: 3\n"
+            "  a-b:\n"
+            "    - 1\n"
+            "    - 2\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -7621,14 +7625,16 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
         child =
             "key: !include grandchild.yml\n"
-            "  $(var): 3\n"
+            "  variables:\n"
+            "    var: 3\n"
             /* TODO: we should be able to say "b: $var2" here, but it does
              * not work currently. See FIXME in yaml_variable_t. */
             "  b: 5\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
             "!include child.yml\n"
-            "$(var_2): 4\n"
+            "variables:\n"
+            "  var_2: 4\n"
             "key:\n"
             "  a: a\n"
             "  var: 1\n";
@@ -7667,8 +7673,9 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
         root =
             "!include inner.yml\n"
-            "$(a): pi\n"
-            "$(b): ka\n";
+            "variables:\n"
+            "  a: pi\n"
+            "  b: ka\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -7702,13 +7709,15 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
         child =
             "inc: !include grandchild.yml\n"
-            "  $(var): 1\n"
+            "  variables:\n"
+            "    var: 1\n"
             "other: $(var)\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
             "all: !include child.yml\n"
-            "  $(var): 2\n"
-            "  $(var2): 3\n";
+            "  variables:\n"
+            "    var: 2\n"
+            "    var2: 3\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -7751,8 +7760,9 @@ Z_GROUP_EXPORT(yaml)
 
         root =
             "!include inner.yml\n"
-            "$(foo): bar\n"
-            "$(qux): c\n";
+            "variables:\n"
+            "  foo: bar\n"
+            "  qux: c\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -7774,12 +7784,14 @@ Z_GROUP_EXPORT(yaml)
 
         child =
             "!include grandchild.yml\n"
-            "$(port): 80\n";
+            "variables:\n"
+            "  port: 80\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
 
         root =
             "!include child.yml\n"
-            "$(host): website.org\n";
+            "variables:\n"
+            "  host: website.org\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -7806,56 +7818,59 @@ Z_GROUP_EXPORT(yaml)
             "t: <$(t)>"
         ));
 
+        /* wrong variable settings */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include inner.yml\n"
+            "  variables: 2",
+
+            "input.yml:2:14: wrong type of data, variable settings must be an object\n"
+            "  variables: 2\n"
+            "             ^"
+        ));
+
         /* unknown variable being set */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
-            "  $(b): foo",
+            "  variables:\n"
+            "    b: foo",
 
-            "input.yml:2:3: invalid key, unknown variable\n"
-            "  $(b): foo\n"
-            "  ^^^^"
-        ));
-
-        /* wrong key syntax in variable settings */
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
-            "  $(a): foo\n"
-            "  $(-): bar",
-
-            "input.yml:3:6: invalid key, invalid variable name\n"
-            "  $(-): bar\n"
-            "     ^"
+            "input.yml:3:5: invalid key, unknown variable\n"
+            "    b: foo\n"
+            "    ^"
         ));
 
         /* string-variable being set with wrong type */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
-            "  $(s): [ 1, 2 ]",
+            "  variables:\n"
+            "    s: [ 1, 2 ]",
 
-            "input.yml:2:9: wrong type of data, "
+            "input.yml:3:8: wrong type of data, "
             "this variable can only be set with a scalar\n"
-            "  $(s): [ 1, 2 ]\n"
-            "        ^^^^^^^^"
+            "    s: [ 1, 2 ]\n"
+            "       ^^^^^^^^"
         ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
-            "  $(t): [ 1, 2 ]",
+            "  variables:\n"
+            "    t: [ 1, 2 ]",
 
-            "input.yml:2:9: wrong type of data, "
+            "input.yml:3:8: wrong type of data, "
             "this variable can only be set with a scalar\n"
-            "  $(t): [ 1, 2 ]\n"
-            "        ^^^^^^^^"
+            "    t: [ 1, 2 ]\n"
+            "       ^^^^^^^^"
         ));
 
         /* cannot use variables in variable settings or overrides. */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
-            "  $(a): $(t)",
+            "  variables:\n"
+            "    a: $(t)",
 
-            "input.yml:2:9: use of variables is forbidden, "
+            "input.yml:3:8: use of variables is forbidden, "
             "cannot use variables in this context\n"
-            "  $(a): $(t)\n"
-            "        ^^^^"
+            "    a: $(t)\n"
+            "       ^^^^"
         ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "key: !include inner.yml\n"
@@ -7929,9 +7944,10 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$(var):\n"
-            "  b: 1\n"
-            "  c: 2",
+            "variables:\n"
+            "  var:\n"
+            "    b: 1\n"
+            "    c: 2",
 
             "a:\n"
             "  b: 1\n"
@@ -7943,9 +7959,10 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vm_raw_1/root.yml",
             "!include inner.yml\n"
-            "$(var):\n"
-            "  b: 1\n"
-            "  c: 2\n"
+            "variables:\n"
+            "  var:\n"
+            "    b: 1\n"
+            "    c: 2\n"
         ));
         Z_HELPER_RUN(z_check_file("vm_raw_1/inner.yml",
             "a: $(var)\n"
@@ -7957,7 +7974,8 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vm_raw_2/root.yml",
             "!include inner.yml\n"
-            "$(var): ~\n"
+            "variables:\n"
+            "  var: ~\n"
         ));
         Z_HELPER_RUN(z_check_file("vm_raw_2/inner.yml",
             "a: $(var)\n"
@@ -7983,7 +8001,8 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$(var): yare",
+            "variables:\n"
+            "  var: yare",
 
             "a: <yare>\n"
             "b: \"<\\$(a) $b yare \\$(c>\""
@@ -7992,7 +8011,8 @@ Z_GROUP_EXPORT(yaml)
         /* pack into files, to test repacking of variables */
         Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
             "!include inner.yml\n"
-            "$(var): yare\n",
+            "variables:\n"
+            "  var: yare\n",
 
             "a: <$(var)>\n"
             "b: \"<\\$(a) $b $(var) \\$(c>\"\n"
@@ -8003,7 +8023,8 @@ Z_GROUP_EXPORT(yaml)
         data.obj->fields.tab[1].data.scalar.s = LSTR("<$(a) $b daze $(c>");
         Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
             "!include inner.yml\n"
-            "$(var): daze\n",
+            "variables:\n"
+            "  var: daze\n",
 
             "a: <$(var)>\n"
             "b: \"<\\$(a) $b $(var) \\$(c>\"\n"
@@ -8057,8 +8078,9 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$(par): \" he \"\n"
-            "$(ker): roes",
+            "variables:\n"
+            "  par: \" he \"\n"
+            "  ker: roes",
 
             "a: \" he  roes\""
         ));
@@ -8068,8 +8090,9 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vm_mul_1/root.yml",
             "!include inner.yml\n"
-            "$(par): \" he \"\n"
-            "$(ker): roes\n"
+            "variables:\n"
+            "  par: \" he \"\n"
+            "  ker: roes\n"
         ));
         Z_HELPER_RUN(z_check_file("vm_mul_1/inner.yml",
             "a: $(par) $(ker)\n"
@@ -8110,7 +8133,8 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$(var): 1\n",
+            "variables:\n"
+            "  var: 1\n",
 
             "- 1\n"
             "- 1\n"
@@ -8129,9 +8153,10 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vc_raw_1/root.yml",
             "!include inner.yml\n"
-            "$(var): 1\n"
-            "$(var~1): 2\n"
-            "$(var~2): ~\n"
+            "variables:\n"
+            "  var: 1\n"
+            "  var~1: 2\n"
+            "  var~2: ~\n"
         ));
         Z_HELPER_RUN(z_check_file("vc_raw_1/inner.yml",
             "- $(var)\n"
@@ -8164,7 +8189,8 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$(var): ga\n",
+            "variables:\n"
+            "  var: ga\n",
 
             "- ga\n"
             "- \" ga \"\n"
@@ -8184,11 +8210,12 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vc_str_1/root.yml",
             "!include inner.yml\n"
+            "variables:\n"
             /* First value deduced is taken as the true value. */
-            "$(var): bu\n"
+            "  var: bu\n"
             /* Other deduced values are added as conflicts */
-            "$(var~1): ga\n"
-            "$(var~2): zo\n"
+            "  var~1: ga\n"
+            "  var~2: zo\n"
         ));
         Z_HELPER_RUN(z_check_file("vc_str_1/inner.yml",
             "- $(var)\n"
@@ -8234,8 +8261,9 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "!include inner.yml\n"
-            "$(foo): ga\n"
-            "$(bar): bu\n",
+            "variables:\n"
+            "  foo: ga\n"
+            "  bar: bu\n",
 
             "- ga\n"
             "- bu\n"
@@ -8256,10 +8284,11 @@ Z_GROUP_EXPORT(yaml)
                                       0));
         Z_HELPER_RUN(z_check_file("vc_mul_1/root.yml",
             "!include inner.yml\n"
-            "$(foo): zo\n"
-            "$(foo~1): ga\n"
-            "$(bar): meu\n"
-            "$(bar~1): bu\n"
+            "variables:\n"
+            "  foo: zo\n"
+            "  foo~1: ga\n"
+            "  bar: meu\n"
+            "  bar~1: bu\n"
         ));
         Z_HELPER_RUN(z_check_file("vc_mul_1/inner.yml",
             "- $(foo)\n"
@@ -8314,8 +8343,9 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
         root =
             "!include inner.yml\n"
-            "$(foo): ga\n"
-            "$(bar): bu\n";
+            "variables:\n"
+            "  foo: ga\n"
+            "  bar: bu\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -8366,18 +8396,20 @@ Z_GROUP_EXPORT(yaml)
 
         child =
             "!include grandchild.yml\n"
-            "$(f): y\n"
-            "$(a): \"a\\$(\\$(\\$(a))\"\n"
-            "$(d): \"D:\"\n"
-            "$(b): b\n";
+            "variables:\n"
+            "  f: y\n"
+            "  a: \"a\\$(\\$(\\$(a))\"\n"
+            "  d: \"D:\"\n"
+            "  b: b\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
 
         root =
             "!include child.yml\n"
-            "$(c): \"c\\$(e)\\$(e)\"\n"
-            "$(e): e k s\n"
-            "$(g):\n"
-            "  - ~\n";
+            "variables:\n"
+            "  c: \"c\\$(e)\\$(e)\"\n"
+            "  e: e k s\n"
+            "  g:\n"
+            "    - ~\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -8432,13 +8464,15 @@ Z_GROUP_EXPORT(yaml)
 
         child =
             "!include grandchild.yml\n"
-            "$(b): \"<\\$(b)>\"\n"
-            "$(a): \"<\\$(a)>\"\n";
+            "variables:\n"
+            "  b: \"<\\$(b)>\"\n"
+            "  a: \"<\\$(a)>\"\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
 
         root =
             "!include child.yml\n"
-            "$(c): \"<\\$(c)>\"\n";
+            "variables:\n"
+            "  c: \"<\\$(c)>\"\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
