@@ -102,10 +102,10 @@ pack_yaml(yaml_data_t * nonnull data,
     }
 
     if (opts_g.output_path) {
-        flags |= YAML_PACK_NO_SUBFILES;
         yaml_pack_env_set_flags(pack_env, flags);
         res = t_yaml_pack_file(pack_env, opts_g.output_path, data, err);
     } else {
+        flags |= YAML_PACK_NO_SUBFILES;
         yaml_pack_env_set_flags(pack_env, flags);
         res = t_yaml_pack(pack_env, data, yaml_pack_write_stdout, NULL, err);
         printf("\n");
