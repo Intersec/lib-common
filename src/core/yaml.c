@@ -340,7 +340,6 @@ t_presentation_override_to_iop(
     out = t_iop_new(yaml__presentation_override);
     out->nodes = IOP_TYPED_ARRAY_TAB(yaml__presentation_override_node,
                                      &pres->nodes);
-    t_yaml_data_get_presentation(override_data, &out->presentation);
 
     return out;
 }
@@ -1307,10 +1306,10 @@ typedef enum yaml_tag_type_t {
 
 static yaml_tag_type_t get_tag_type(const lstr_t tag)
 {
-    if (lstr_equal(tag, LSTR("include"))) {
+    if (lstr_startswith(tag, LSTR("include:"))) {
         return YAML_TAG_TYPE_INCLUDE;
     } else
-    if (lstr_equal(tag, LSTR("includeraw"))) {
+    if (lstr_startswith(tag, LSTR("includeraw:"))) {
         return YAML_TAG_TYPE_INCLUDERAW;
     } else {
         return YAML_TAG_TYPE_NONE;
@@ -1322,9 +1321,9 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
                      yaml_data_t * nonnull out,
                      yaml_tag_type_t * nonnull type)
 {
-    /* a-zA-Z0-9. */
+    /* r:32-127 -s:'[]{}, ' */
     static const ctype_desc_t ctype_tag = { {
-        0x00000000, 0x03ff4000, 0x07fffffe, 0x07fffffe,
+        0x00000000, 0xffffeffe, 0xd7ffffff, 0xd7ffffff,
         0x00000000, 0x00000000, 0x00000000, 0x00000000,
     } };
     yaml_pos_t tag_pos_start = yaml_env_get_pos(env);
@@ -1344,7 +1343,7 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
     tag = ps_get_span(&env->ps, &ctype_tag);
     if (!isspace(ps_peekc(env->ps)) && !ps_done(&env->ps)) {
         return yaml_env_set_err(env, YAML_ERR_INVALID_TAG,
-                                "must only contain alphanumeric characters");
+                                "wrong character in tag");
     }
     tag_pos_end = yaml_env_get_pos(env);
 
@@ -1390,7 +1389,7 @@ static bool has_inclusion_loop(const yaml_parse_t * nonnull env,
 }
 
 static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
-                                 yaml_data_t * nonnull data,
+                                 lstr_t path, yaml_data_t * nonnull data,
                                  qm_t(yaml_vars) * nonnull variables)
 {
     yaml_parse_t *subfile = NULL;
@@ -1399,28 +1398,20 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
 
     RETHROW(yaml_env_ltrim(env));
 
-    if (data->type != YAML_DATA_SCALAR
-    ||  data->scalar.type != YAML_SCALAR_STRING)
-    {
-        sb_setf(&err, "!%pL can only be used with strings", &data->tag);
-        goto err;
-    }
-
     path_dirname(dirpath, PATH_MAX, env->fullpath.s ?: "");
 
     if (raw) {
-        logger_trace(&_G.logger, 2, "copying raw subfile %pL",
-                     &data->scalar.s);
+        logger_trace(&_G.logger, 2, "copying raw subfile %pL", &path);
     } else {
-        logger_trace(&_G.logger, 2, "parsing subfile %pL", &data->scalar.s);
+        logger_trace(&_G.logger, 2, "parsing subfile %pL", &path);
     }
 
     subfile = t_yaml_parse_new(
         YAML_PARSE_GEN_PRES_DATA
       | YAML_PARSE_ALLOW_UNBOUND_VARIABLES
     );
-    if (t_yaml_parse_attach_file(subfile, t_fmt("%pL", &data->scalar.s),
-                                 dirpath, &err) < 0)
+    if (t_yaml_parse_attach_file(subfile, t_fmt("%pL", &path), dirpath,
+                                 &err) < 0)
     {
         goto err;
 
@@ -1452,8 +1443,9 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
         yaml__presentation_include__t *inc;
 
         inc = t_iop_new(yaml__presentation_include);
-        inc->include_presentation = subfile->included->data.presentation;
-        inc->path = subfile->included->data.scalar.s;
+        t_yaml_data_get_presentation(&subfile->included->data,
+                                     &inc->include_presentation);
+        inc->path = path;
         inc->raw = raw;
         t_yaml_data_get_presentation(data, &inc->document_presentation);
 
@@ -1475,7 +1467,7 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
 
 static int
 t_yaml_env_handle_override(yaml_parse_t * nonnull env,
-                           const uint32_t min_indent,
+                           yaml_data_t * nonnull override,
                            qm_t(yaml_vars) * nonnull variables,
                            yaml__presentation_include__t * nullable pres,
                            yaml_data_t * nonnull out);
@@ -1487,30 +1479,28 @@ t_yaml_env_handle_include(yaml_parse_t * nonnull env,
 {
     yaml__presentation_include__t *pres;
     qm_t(yaml_vars) vars;
-    unsigned flags;
-    int res = 0;
+    pstream_t path = ps_initlstr(&data->tag);
+    yaml_data_t override = *data;
+
+    if (raw) {
+        ps_skip(&path, strlen("includeraw:"));
+    } else {
+        ps_skip(&path, strlen("include:"));
+    }
 
     /* Parse and retrieve the included AST, and get the associated variables.
      */
-    RETHROW(t_yaml_env_do_include(env, raw, data, &vars));
+    RETHROW(t_yaml_env_do_include(env, raw, LSTR_PS_V(&path), data, &vars));
     pres = data->presentation ? data->presentation->included : NULL;
 
-    /* Forbid use of variables in variables settings & overrides, that would
-     * be really complex to handle properly. */
-    flags = env->flags;
-    env->flags |= YAML_PARSE_FORBID_VARIABLES;
-
     /* Parse and apply override, including variable settings */
-    if (t_yaml_env_handle_override(env, min_indent, &vars, pres, data) >= 0) {
-        /* Save remaining variables into current variables for the document.
-         */
-        yaml_env_merge_variables(env, &vars);
-    } else {
-        res = -1;
-    }
+    RETHROW(t_yaml_env_handle_override(env, &override, &vars, pres, data));
 
-    env->flags = flags;
-    return res;
+    /* Save remaining variables into current variables for the document.
+     */
+    yaml_env_merge_variables(env, &vars);
+
+    return 0;
 }
 
 /* }}} */
@@ -2368,46 +2358,32 @@ yaml_env_set_variables(yaml_parse_t * nonnull env,
 
 static int
 t_yaml_env_handle_override(yaml_parse_t * nonnull env,
-                           const uint32_t min_indent,
+                           yaml_data_t * nonnull override,
                            qm_t(yaml_vars) * nonnull variables,
                            yaml__presentation_include__t * nullable pres,
                            yaml_data_t * nonnull out)
 {
-    uint32_t cur_indent;
-    yaml_data_t override;
     yaml_presentation_override_t *ov_pres = NULL;
 
-    /* To be an override, we want an object starting with an indent greater
-     * than the min_indent. Not matching means no override, so we return
-     * immediately. */
-    RETHROW(yaml_env_ltrim(env));
-    if (ps_done(&env->ps)) {
+    if (override->type == YAML_DATA_SCALAR
+    &&  override->scalar.type == YAML_SCALAR_NULL)
+    {
+        /* no overrides, standard '!include:foo.yml' case. */
         return 0;
     }
 
-    cur_indent = yaml_env_get_column_nb(env);
-    if (cur_indent < min_indent) {
-        return 0;
+    if (override->type != YAML_DATA_OBJ) {
+        return yaml_env_set_err_at(env, &override->span, YAML_ERR_WRONG_DATA,
+                                   "override data after include "
+                                   "must be an object");
     }
-
-    /* TODO: technically, we could allow override of any type of data, not
-     * just obj, by removing this check. */
-    if (!ps_startswith_yaml_key(env->ps)) {
-        return 0;
-    }
-
-    RETHROW(t_yaml_env_parse_obj(env, cur_indent, &override));
-    logger_trace(&_G.logger, 2,
-                 "parsed override, %s from "YAML_POS_FMT" up to "YAML_POS_FMT,
-                 yaml_data_get_type(&override, false),
-                 YAML_POS_ARG(override.span.start),
-                 YAML_POS_ARG(override.span.end));
 
     if (pres) {
         ov_pres = t_new(yaml_presentation_override_t, 1);
         t_qv_init(&ov_pres->nodes, 0);
         t_sb_init(&ov_pres->path, 1024);
     }
+
 
     /* If the first key of the obj is "variables", use it to set variables
      * in the AST. */
@@ -2421,10 +2397,10 @@ t_yaml_env_handle_override(yaml_parse_t * nonnull env,
      *
      * For the moment, it isn't a big deal however.
      */
-    if (override.obj->fields.len > 0
-    &&  lstr_equal(override.obj->fields.tab[0].key, LSTR("variables")))
+    if (override->obj->fields.len > 0
+    &&  lstr_equal(override->obj->fields.tab[0].key, LSTR("variables")))
     {
-        yaml_obj_t *obj = override.obj;
+        yaml_obj_t *obj = override->obj;
 
         RETHROW(yaml_env_set_variables(env, &obj->fields.tab[0].data,
                                        variables, pres));
@@ -2435,10 +2411,10 @@ t_yaml_env_handle_override(yaml_parse_t * nonnull env,
         }
     }
 
-    RETHROW(t_yaml_env_merge_data(env, &override, ov_pres, out));
+    RETHROW(t_yaml_env_merge_data(env, override, ov_pres, out));
 
     if (ov_pres) {
-        pres->override = t_presentation_override_to_iop(ov_pres, &override);
+        pres->override = t_presentation_override_to_iop(ov_pres, override);
     }
 
     return 0;
@@ -3905,12 +3881,10 @@ t_set_data_from_path(const yaml_data_t * nonnull data, pstream_t path,
     }
 }
 
-static int
+static void
 t_build_override_data(const yaml_pack_override_t * nonnull override,
                       yaml_data_t * nonnull out)
 {
-    bool first = true;
-
     /* Iterate on the ordered paths, to make sure the data is recreated
      * in the right order. */
     assert (override->ordered_paths.len == override->presentation->nodes.len);
@@ -3930,44 +3904,8 @@ t_build_override_data(const yaml_pack_override_t * nonnull override,
 
         /* Use the relative path here, to properly reconstruct the data. */
         ps = ps_initlstr(&override->presentation->nodes.tab[pos].path);
-        t_set_data_from_path(node->data, ps, first, out);
-        first = false;
+        t_set_data_from_path(node->data, ps, false, out);
     }
-
-    /* if first is still true, the override is empty and should be ignored. */
-    return first ? -1 : 0;
-}
-
-static int
-t_yaml_pack_override(yaml_pack_env_t * nonnull env,
-                     const yaml_pack_override_t * nonnull override)
-{
-    int res = 0;
-    yaml_data_t data;
-    const yaml_presentation_t *pres;
-    unsigned current_path_pos;
-
-    /* rebuild a yaml data from the override nodes */
-    if (t_build_override_data(override, &data) < 0) {
-        return 0;
-    }
-
-    pres = t_yaml_doc_pres_to_map(&override->presentation->presentation);
-    current_path_pos = env->absolute_path.len;
-
-    /* Pack the data in the output. To reuse the right presentation, it must
-     * be set in the env, and the path reset so that it matches the
-     * presentation.
-     */
-    SWAP(const yaml_presentation_t *, pres, env->pres);
-    SWAP(unsigned, current_path_pos, env->current_path_pos);
-
-    res = t_yaml_pack_data(env, &data);
-
-    SWAP(unsigned, current_path_pos, env->current_path_pos);
-    SWAP(const yaml_presentation_t *, pres, env->pres);
-
-    return res;
 }
 
 /* }}} */
@@ -4061,25 +3999,33 @@ t_find_right_path(yaml_pack_env_t * nonnull env, sb_t * nonnull contents,
 /* }}} */
 /* {{{ Include node packing */
 
-/* Pack the "!include(raw)? <path>" node, with the right presentation. */
+/* Pack the "!include(raw)?:<path>" node, with the right presentation. */
 static int
 t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
-                         const yaml__presentation_node__t * nonnull pres,
-                         bool raw, lstr_t include_path)
+                         const yaml__document_presentation__t * nonnull dpres,
+                         bool raw, lstr_t include_path,
+                         yaml_data_t * nonnull data)
 {
-    const yaml_presentation_t *saved_pres = env->pres;
-    yaml_data_t data;
+    const yaml_presentation_t *pres;
+    unsigned current_path_pos;
     int res;
 
-    yaml_data_set_string(&data, include_path);
-    data.tag = raw ? LSTR("includeraw") : LSTR("include");
-    data.presentation = unconst_cast(yaml__presentation_node__t, pres);
+    if (raw) {
+        data->tag = t_lstr_fmt("includeraw:%pL", &include_path);
+    } else {
+        data->tag = t_lstr_fmt("include:%pL", &include_path);
+    }
 
-    /* Make sure the presentation data is not used as the paths won't be
-     * correct when packing this data. */
-    env->pres = NULL;
-    res = t_yaml_pack_data(env, &data);
-    env->pres = saved_pres;
+    pres = t_yaml_doc_pres_to_map(dpres);
+    current_path_pos = env->absolute_path.len;
+
+    SWAP(const yaml_presentation_t *, pres, env->pres);
+    SWAP(unsigned, current_path_pos, env->current_path_pos);
+
+    res = t_yaml_pack_data(env, data);
+
+    SWAP(unsigned, current_path_pos, env->current_path_pos);
+    SWAP(const yaml_presentation_t *, pres, env->pres);
 
     return res;
 }
@@ -4177,11 +4123,10 @@ static int
 t_yaml_pack_included_subfile(
     yaml_pack_env_t * nonnull env,
     const yaml__presentation_include__t * nonnull inc,
-    const yaml_data_t * nonnull subdata)
+    const yaml_data_t * nonnull subdata,
+    bool * nonnull raw, const char * nonnull * nonnull path)
 {
-    const char *path;
     bool reuse;
-    bool raw = inc->raw;
     bool no_subfiles = env->flags & YAML_PACK_NO_SUBFILES;
     int res = 0;
     SB_1k(contents);
@@ -4193,13 +4138,14 @@ t_yaml_pack_included_subfile(
 
     /* if the YAML data to dump is not a string, it changed and can no longer
      * be packed raw. */
-    if (raw && (subdata->type != YAML_DATA_SCALAR
-            ||  subdata->scalar.type != YAML_SCALAR_STRING))
+    *raw = inc->raw;
+    if (*raw && (subdata->type != YAML_DATA_SCALAR
+             ||  subdata->scalar.type != YAML_SCALAR_STRING))
     {
-        raw = false;
+        *raw = false;
     }
 
-    if (raw) {
+    if (*raw) {
         sb_set_lstr(&contents, subdata->scalar.s);
     } else {
         /* Pack the subdata, but in a sb, not in the subfile directly. As the
@@ -4221,44 +4167,32 @@ t_yaml_pack_included_subfile(
         }
     }
 
-    path = t_find_right_path(env, &contents, inc->path, &reuse);
-    if (reuse) {
-        res += RETHROW(t_yaml_pack_include_path(env,
-                                                inc->include_presentation,
-                                                raw, LSTR(path)));
-    } else {
+    *path = t_find_right_path(env, &contents, inc->path, &reuse);
+    if (!reuse) {
         logger_trace(&_G.logger, 2, "writing %ssubfile %s", raw ? "raw " : "",
-                     path);
+                     *path);
         if (likely(!no_subfiles)
-        &&  yaml_pack_write_raw_file(env, path, LSTR_SB_V(&contents),
+        &&  yaml_pack_write_raw_file(env, *path, LSTR_SB_V(&contents),
                                      &err) < 0)
         {
             sb_setf(&env->err, "error when writing subfile `%s`: %pL",
-                    path, &err);
+                    *path, &err);
             return -1;
         }
-
-        res += RETHROW(t_yaml_pack_include_path(env,
-                                                inc->include_presentation,
-                                                raw, LSTR(path)));
     }
 
     return res;
 }
 
-static int
-t_yaml_pack_variable_settings(
-    yaml_pack_env_t * nonnull env,
+static void
+t_build_variable_settings(
     const yaml__presentation_variable_settings__t *var_pres,
-    qm_t(active_vars) * nonnull vars)
+    qm_t(active_vars) * nonnull vars, yaml_data_t * nonnull out)
 {
     yaml_data_t data;
-    yaml_data_t obj;
-    const yaml_presentation_t *pres = NULL;
-    int res;
 
     assert (var_pres->bindings.len == qm_len(active_vars, vars));
-    t_yaml_data_new_obj(&obj, var_pres->bindings.len);
+    t_yaml_data_new_obj(&data, var_pres->bindings.len);
 
     /* Iterate on the array and not the qm, to recreate the variable settings
      * in the right order. */
@@ -4268,24 +4202,15 @@ t_yaml_pack_variable_settings(
         var = qm_get_p(active_vars, vars, &binding->var_name);
         while (var) {
             if (var->deduced_value) {
-                yaml_obj_add_field(&obj, var->name, *var->deduced_value);
+                yaml_obj_add_field(&data, var->name, *var->deduced_value);
             }
             var = var->conflict;
         }
     }
 
-    if (obj.obj->fields.len == 0) {
-        return 0;
+    if (data.obj->fields.len > 0) {
+        yaml_obj_add_field(out, LSTR("variables"), data);
     }
-    t_yaml_data_new_obj(&data, 1);
-    yaml_obj_add_field(&data, LSTR("variables"), obj);
-
-    /* TODO: presentation for vars */
-    SWAP(const yaml_presentation_t *, pres, env->pres);
-    res = t_yaml_pack_data(env, &data);
-    SWAP(const yaml_presentation_t *, pres, env->pres);
-
-    return res;
 }
 
 static int
@@ -4296,7 +4221,9 @@ t_yaml_pack_include_with_override(
 {
     yaml_pack_override_t *override = NULL;
     qm_t(active_vars) vars;
-    int res = 0;
+    bool raw;
+    const char *path;
+    yaml_data_t settings;
 
     /* add current override if it exists, so that it is used when the subdata
      * is packed. */
@@ -4319,21 +4246,32 @@ t_yaml_pack_include_with_override(
         qv_append(&env->active_vars, vars);
     }
 
-    res += RETHROW(t_yaml_pack_included_subfile(env, inc, subdata));
+    /* Pack the contents of the subfile. Retrieve whether it is a raw include
+     * or not, and the exact path (after collision resolution).
+     */
+    RETHROW(t_yaml_pack_included_subfile(env, inc, subdata, &raw, &path));
 
-    if (inc->variables) {
-        res += RETHROW(t_yaml_pack_variable_settings(env, inc->variables,
-                                                     &vars));
-        qv_remove_last(&env->active_vars);
+    /* Create an object from possible variables and overrides */
+    if (inc->variables || override) {
+
+        t_yaml_data_new_obj(&settings,
+                            override ? override->ordered_paths.len + 1 : 1);
+
+        if (inc->variables) {
+            t_build_variable_settings(inc->variables, &vars, &settings);
+            qv_remove_last(&env->active_vars);
+        }
+
+        if (override) {
+            qv_remove_last(&env->overrides);
+            t_build_override_data(override, &settings);
+        }
+    } else {
+        yaml_data_set_null(&settings);
     }
 
-    if (override) {
-        qv_remove_last(&env->overrides);
-        logger_trace(&_G.logger, 2, "packing override %pL", &inc->path);
-        res += RETHROW(t_yaml_pack_override(env, override));
-    }
-
-    return res;
+    return t_yaml_pack_include_path(env, &inc->include_presentation, raw,
+                                    LSTR(path), &settings);
 }
 
 /* }}} */
@@ -5463,12 +5401,11 @@ Z_GROUP_EXPORT(yaml)
             " ^"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "!a-\n"
+            "!a,\n"
             "a: 5",
 
-            "<string>:1:3: invalid tag, "
-            "must only contain alphanumeric characters\n"
-            "!a-\n"
+            "<string>:1:3: invalid tag, wrong character in tag\n"
+            "!a,\n"
             "  ^"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
@@ -5700,24 +5637,14 @@ Z_GROUP_EXPORT(yaml)
     /* {{{ Include errors */
 
     Z_TEST(include_errors, "errors when including YAML files") {
-        /* !include tag must be applied on a string */
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include 3",
-
-            "input.yml:1:1: invalid include, "
-            "!include can only be used with strings\n"
-            "!include 3\n"
-            "^^^^^^^^^^"
-        ));
-
         /* unknown file */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include foo.yml",
+            "!include:foo.yml",
 
             "input.yml:1:1: invalid include, "
             "cannot read file foo.yml: No such file or directory\n"
-            "!include foo.yml\n"
-            "^^^^^^^^^^^^^^^^"
+            "!include:foo.yml\n"
+            "^ starting here"
         ));
 
         /* error in included file */
@@ -5726,11 +5653,11 @@ Z_GROUP_EXPORT(yaml)
             "key: 2"
         ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include has_errors.yml",
+            "!include:has_errors.yml",
 
             "input.yml:1:1: error in included file\n"
-            "!include has_errors.yml\n"
-            "^^^^^^^^^^^^^^^^^^^^^^^\n"
+            "!include:has_errors.yml\n"
+            "^ starting here\n"
             "has_errors.yml:2:1: invalid key, "
             "key is already declared in the object\n"
             "key: 2\n"
@@ -5739,58 +5666,48 @@ Z_GROUP_EXPORT(yaml)
 
         /* loop detection: include one-self */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include input.yml",
+            "!include:input.yml",
 
             "input.yml:1:1: invalid include, inclusion loop detected\n"
-            "!include input.yml\n"
-            "^^^^^^^^^^^^^^^^^^"
+            "!include:input.yml\n"
+            "^ starting here"
         ));
         /* loop detection: include a parent */
         Z_HELPER_RUN(z_write_yaml_file("loop-1.yml",
-            "!include loop-2.yml"
+            "!include:loop-2.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("loop-2.yml",
-            "!include loop-3.yml"
+            "!include:loop-3.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("loop-3.yml",
-            "!include loop-1.yml"
+            "!include:loop-1.yml"
         ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include loop-1.yml",
+            "!include:loop-1.yml",
 
             "input.yml:1:1: error in included file\n"
-            "!include loop-1.yml\n"
-            "^^^^^^^^^^^^^^^^^^^\n"
+            "!include:loop-1.yml\n"
+            "^ starting here\n"
             "loop-1.yml:1:1: error in included file\n"
-            "!include loop-2.yml\n"
-            "^^^^^^^^^^^^^^^^^^^\n"
+            "!include:loop-2.yml\n"
+            "^ starting here\n"
             "loop-2.yml:1:1: error in included file\n"
-            "!include loop-3.yml\n"
-            "^^^^^^^^^^^^^^^^^^^\n"
+            "!include:loop-3.yml\n"
+            "^ starting here\n"
             "loop-3.yml:1:1: invalid include, inclusion loop detected\n"
-            "!include loop-1.yml\n"
-            "^^^^^^^^^^^^^^^^^^^"
+            "!include:loop-1.yml\n"
+            "^ starting here"
         ));
 
         /* includes must be in same directory as including file */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include ../input.yml",
+            "!include:../input.yml",
 
             "input.yml:1:1: invalid include, cannot include subfile "
             "`../input.yml`: only includes contained in the directory of the "
             "including file are allowed\n"
-            "!include ../input.yml\n"
-            "^^^^^^^^^^^^^^^^^^^^^"
-        ));
-
-        /* cannot use variables in include string */
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include $(file).yml",
-
-            "input.yml:1:10: use of variables is forbidden, "
-            "cannot use variables in this context\n"
-            "!include $(file).yml\n"
-            "         ^^^^^^^^^^^"
+            "!include:../input.yml\n"
+            "^ starting here"
         ));
     } Z_TEST_END;
 
@@ -5807,7 +5724,7 @@ Z_GROUP_EXPORT(yaml)
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
             "a: ~\n"
-            "b: !include inner.yml\n"
+            "b: !include:inner.yml\n"
             "c: 3",
 
             "a: ~\n"
@@ -5821,22 +5738,22 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_create_tmp_subdir("subdir/subsub"));
         Z_HELPER_RUN(z_write_yaml_file("subdir/a.yml",
             "- a\n"
-            "- !include b.yml\n"
-            "- !include subsub/d.yml"
+            "- !include:b.yml\n"
+            "- !include:subsub/d.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("subdir/b.yml",
-            "- !include subsub/c.yml\n"
+            "- !include:subsub/c.yml\n"
             "- b"
         ));
         Z_HELPER_RUN(z_write_yaml_file("subdir/subsub/c.yml",
             "- c\n"
-            "- !include d.yml"
+            "- !include:d.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("subdir/subsub/d.yml",
             "d"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
-            "!include subdir/a.yml",
+            "!include:subdir/a.yml",
 
             "- a\n"
             "- - - c\n"
@@ -5859,17 +5776,17 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("sf/shared_1.yml", "1"));
         Z_HELPER_RUN(z_write_yaml_file("sf/sub/shared_1.yml", "-1"));
         Z_HELPER_RUN(z_write_yaml_file("sf/shared_2",
-            "!include sub/shared_1.yml"
+            "!include:sub/shared_1.yml"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/././shared_1.yml\n"
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/../sf/sub/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/shared_2\n"
-            "- !include ./sf/shared_2",
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/././shared_1.yml\n"
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/../sf/sub/shared_1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/shared_2\n"
+            "- !include:./sf/shared_2",
 
             "- 1\n"
             "- 1\n"
@@ -5885,19 +5802,19 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_create_tmp_subdir("sf-pack-1"));
         Z_HELPER_RUN(z_pack_yaml_file("sf-pack-1/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("sf-pack-1/root.yml",
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/shared_2\n"
-            "- !include sf/shared_2\n"
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/shared_2\n"
+            "- !include:sf/shared_2\n"
         ));
         Z_HELPER_RUN(z_check_file("sf-pack-1/sf/shared_1.yml", "1\n"));
         Z_HELPER_RUN(z_check_file("sf-pack-1/sf/sub/shared_1.yml", "-1\n"));
         Z_HELPER_RUN(z_check_file("sf-pack-1/sf/shared_2",
-            "!include sub/shared_1.yml\n"
+            "!include:sub/shared_1.yml\n"
         ));
 
         /* modifying some data will force the repacking to create new files */
@@ -5909,14 +5826,14 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_create_tmp_subdir("sf-pack-2"));
         Z_HELPER_RUN(z_pack_yaml_file("sf-pack-2/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("sf-pack-2/root.yml",
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/shared_1~1.yml\n"
-            "- !include sf/shared_1~1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/sub/shared_1~1.yml\n"
-            "- !include sf/sub/shared_1~2.yml\n"
-            "- !include sf/shared_2\n"
-            "- !include sf/shared_2~1\n"
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/shared_1~1.yml\n"
+            "- !include:sf/shared_1~1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/sub/shared_1~1.yml\n"
+            "- !include:sf/sub/shared_1~2.yml\n"
+            "- !include:sf/shared_2\n"
+            "- !include:sf/shared_2~1\n"
         ));
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_1.yml", "1\n"));
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_1~1.yml", "2\n"));
@@ -5924,10 +5841,10 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/sub/shared_1~1.yml", "-2\n"));
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/sub/shared_1~2.yml", "-3\n"));
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_2",
-            "!include sub/shared_1.yml\n"
+            "!include:sub/shared_1.yml\n"
         ));
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_2~1",
-            "!include sub/shared_1~2.yml\n"
+            "!include:sub/shared_1~2.yml\n"
         ));
         yaml_parse_delete(&env);
 
@@ -5945,7 +5862,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_create_tmp_subdir("subpres/in"));
         Z_HELPER_RUN(z_write_yaml_file("subpres/1.yml",
             "# Included!\n"
-            "!include in/sub.yml"
+            "!include:in/sub.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("subpres/in/sub.yml",
             "[ 4, 2 ] # packed"
@@ -5956,8 +5873,8 @@ Z_GROUP_EXPORT(yaml)
             "o: ra"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "- !include subpres/1.yml\n"
-            "- !include subpres/weird~name",
+            "- !include:subpres/1.yml\n"
+            "- !include:subpres/weird~name",
 
             /* XXX: the presentation associated with the "!include" data is
              * not included, as the data is inlined. */
@@ -5970,12 +5887,12 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_create_tmp_subdir("newsubdir/in"));
         Z_HELPER_RUN(z_pack_yaml_file("newsubdir/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("newsubdir/root.yml",
-            "- !include subpres/1.yml\n"
-            "- !include subpres/weird~name\n"
+            "- !include:subpres/1.yml\n"
+            "- !include:subpres/weird~name\n"
         ));
         Z_HELPER_RUN(z_check_file("newsubdir/subpres/1.yml",
             "# Included!\n"
-            "!include in/sub.yml\n"
+            "!include:in/sub.yml\n"
         ));
         Z_HELPER_RUN(z_check_file("newsubdir/subpres/in/sub.yml",
             "[ 4, 2 ] # packed\n"
@@ -6008,7 +5925,7 @@ Z_GROUP_EXPORT(yaml)
         ));
         /* include it verbatim as a string in a YAML document */
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "- !includeraw raw/inner.json",
+            "- !includeraw:raw/inner.json",
 
             "- \"{\\n  \\\"foo\\\": 2\\n}\\n\""
         ));
@@ -6016,7 +5933,7 @@ Z_GROUP_EXPORT(yaml)
         /* check repacking with presentation */
         Z_HELPER_RUN(z_pack_yaml_file("packraw/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("packraw/root.yml",
-            "- !includeraw raw/inner.json\n"
+            "- !includeraw:raw/inner.json\n"
         ));
         Z_HELPER_RUN(z_check_file("packraw/raw/inner.json",
             "{\n"
@@ -6038,7 +5955,7 @@ Z_GROUP_EXPORT(yaml)
              * extension) would be better, maybe even adding a prefix comment
              * for the include explaining the file could no longer be packed
              * raw. */
-            "- !include raw/inner.json\n"
+            "- !include:raw/inner.json\n"
         ));
         Z_HELPER_RUN(z_check_file("packraw2/raw/inner.json",
             "json: \"{\\n  \\\"foo\\\": 2\\n}\\n\"\n"
@@ -6069,7 +5986,7 @@ Z_GROUP_EXPORT(yaml)
             "  - 4"
         ));
         root =
-            "- !include inner.yml\n"
+            "- !include:inner.yml\n"
             "  a: 4\n"
             "\n"
             "  b: { new: true, c: ~ }\n"
@@ -6121,16 +6038,18 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
         child =
             "# prefix child g\n"
-            "g: !include grandchild.yml # inline include\n"
-            "  # prefix child c\n"
+            "g:\n"
+            "  # prefix include gc\n"
+            "  !include:grandchild.yml\n"
             "  c: 5 # inline child 5\n"
             "  # prefix child d\n"
             "  d: 6 # inline child 6\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
             "# prefix seq\n"
-            "- !include child.yml\n"
-            "  # prefix g\n"
+            "-\n"
+            "  # prefix include c\n"
+            "  !include:child.yml\n"
             "  g: # inline g\n"
             "    # prefix b\n"
             "    b: 7 # inline 7\n"
@@ -6183,28 +6102,19 @@ Z_GROUP_EXPORT(yaml)
 
         /* only objects allowed as overrides */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
+            "key: !include:inner.yml\n"
             "  - 1\n"
             "  - 2",
 
-            "input.yml:2:3: wrong indentation, "
-            "line not aligned with current object\n"
-            "  - 1\n"
-            "  ^"
-        ));
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
-            "   true",
-
-            "input.yml:2:4: wrong indentation, "
-            "line not aligned with current object\n"
-            "   true\n"
-            "   ^"
+            "input.yml:1:6: wrong type of data, "
+            "override data after include must be an object\n"
+            "key: !include:inner.yml\n"
+            "     ^ starting here"
         ));
 
         /* must have same type as overridden data */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
+            "key: !include:inner.yml\n"
             "  a:\n"
             "    b:\n"
             "      c:\n"
@@ -6233,7 +6143,7 @@ Z_GROUP_EXPORT(yaml)
             "b: 2"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "- !include inner.yml\n"
+            "- !include:inner.yml\n"
             "  b: 3\n"
             "  c: 4",
 
@@ -6248,7 +6158,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* This value should get resolved in the override */
         root =
-            "- !include inner.yml\n"
+            "- !include:inner.yml\n"
             "  b: 10\n"
             "  c: 20";
         Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_1", &data,
@@ -6267,7 +6177,7 @@ Z_GROUP_EXPORT(yaml)
          * here a node is removed. */
         Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_2", &data,
                                                      &pres,
-            "- !include inner.yml\n"
+            "- !include:inner.yml\n"
             "  b: 10"
         ));
         Z_HELPER_RUN(z_check_file("conflicts_2/inner.yml",
@@ -6279,7 +6189,9 @@ Z_GROUP_EXPORT(yaml)
         data.seq->datas.tab[0].obj->fields.len--;
         Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_3", &data,
                                                      &pres,
-            "- !include inner.yml"
+            /* TODO: we lost the overrides, so we pack an empty obj. It would
+             * be cleaner to pach an empty null. */
+            "- !include:inner.yml {}"
         ));
         Z_HELPER_RUN(z_check_file("conflicts_3/inner.yml",
             "a: 1\n"
@@ -6302,15 +6214,15 @@ Z_GROUP_EXPORT(yaml)
             "b: b"
         ));
         Z_HELPER_RUN(z_write_yaml_file("child.yml",
-            "!include grandchild.yml\n"
+            "!include:grandchild.yml\n"
             "b: B"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "- !include child.yml\n"
+            "- !include:child.yml\n"
             "  a: 0\n"
-            "- !include child.yml\n"
+            "- !include:child.yml\n"
             "  a: 1\n"
-            "- !include child.yml\n"
+            "- !include:child.yml\n"
             "  b: 2",
 
             "- a: 0\n"
@@ -6323,16 +6235,16 @@ Z_GROUP_EXPORT(yaml)
 
         /* repack into a file: the included subfiles should be shared */
         root =
-            "- !include child.yml\n"
+            "- !include:child.yml\n"
             "  a: 0\n"
-            "- !include child.yml\n"
+            "- !include:child.yml\n"
             "  a: 1\n"
-            "- !include child.yml\n"
+            "- !include:child.yml\n"
             "  b: 2";
         Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_1",
                                                      &data, &pres, root));
         Z_HELPER_RUN(z_check_file("override_shared_1/child.yml",
-            "!include grandchild.yml\n"
+            "!include:grandchild.yml\n"
             "b: B\n"
         ));
         Z_HELPER_RUN(z_check_file("override_shared_1/grandchild.yml",
@@ -6347,19 +6259,19 @@ Z_GROUP_EXPORT(yaml)
         data.seq->datas.tab[0].obj->fields.tab[1].data.scalar.s = LSTR("B2");
         Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_2",
                                                      &data, &pres,
-            "- !include child.yml\n"
+            "- !include:child.yml\n"
             "  a: 0\n"
-            "- !include child~1.yml\n"
+            "- !include:child~1.yml\n"
             "  a: 1\n"
-            "- !include child~1.yml\n"
+            "- !include:child~1.yml\n"
             "  b: 2"
         ));
         Z_HELPER_RUN(z_check_file("override_shared_2/child.yml",
-            "!include grandchild.yml\n"
+            "!include:grandchild.yml\n"
             "b: B2\n"
         ));
         Z_HELPER_RUN(z_check_file("override_shared_2/child~1.yml",
-            "!include grandchild.yml\n"
+            "!include:grandchild.yml\n"
             "b: B\n"
         ));
         Z_HELPER_RUN(z_check_file("override_shared_2/grandchild.yml",
@@ -6378,19 +6290,19 @@ Z_GROUP_EXPORT(yaml)
 
         Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_2",
                                                      &data, &pres,
-            "- !include child.yml\n"
+            "- !include:child.yml\n"
             "  a: 0\n"
-            "- !include child.yml\n"
+            "- !include:child.yml\n"
             "  a: 1\n"
-            "- !include child~1.yml\n"
+            "- !include:child~1.yml\n"
             "  b: 2"
         ));
         Z_HELPER_RUN(z_check_file("override_shared_2/child.yml",
-            "!include grandchild.yml\n"
+            "!include:grandchild.yml\n"
             "b: B\n"
         ));
         Z_HELPER_RUN(z_check_file("override_shared_2/child~1.yml",
-            "!include grandchild~1.yml\n"
+            "!include:grandchild~1.yml\n"
             "b: B\n"
         ));
         Z_HELPER_RUN(z_check_file("override_shared_2/grandchild.yml",
@@ -7236,7 +7148,7 @@ Z_GROUP_EXPORT(yaml)
 
         Z_HELPER_RUN(z_write_yaml_file("not_recreated.yml", "1"));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "key: !include not_recreated.yml",
+            "key: !include:not_recreated.yml",
 
             "key: 1"
         ));
@@ -7245,7 +7157,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_pack_yaml_file("flags/root.yml", &data, &pres,
                                       YAML_PACK_NO_SUBFILES));
         Z_HELPER_RUN(z_check_file("flags/root.yml",
-            "key: !include not_recreated.yml\n"
+            "key: !include:not_recreated.yml\n"
         ));
         Z_HELPER_RUN(z_check_file_do_not_exist("flags/not_recreated.yml"));
         yaml_parse_delete(&env);
@@ -7524,7 +7436,7 @@ Z_GROUP_EXPORT(yaml)
             "    b: $(a-b)\n";
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
         root =
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  a: 3\n"
             "  a-b:\n"
@@ -7558,7 +7470,7 @@ Z_GROUP_EXPORT(yaml)
             "b: 1\n";
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
         child =
-            "key: !include grandchild.yml\n"
+            "key: !include:grandchild.yml\n"
             "  variables:\n"
             "    var: 3\n"
             /* TODO: we should be able to say "b: $var2" here, but it does
@@ -7566,7 +7478,7 @@ Z_GROUP_EXPORT(yaml)
             "  b: 5\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
-            "!include child.yml\n"
+            "!include:child.yml\n"
             "variables:\n"
             "  var_2: 4\n"
             "key:\n"
@@ -7606,7 +7518,7 @@ Z_GROUP_EXPORT(yaml)
         inner = "$(a) $(b)\n";
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
         root =
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  a: pi\n"
             "  b: ka\n";
@@ -7642,13 +7554,13 @@ Z_GROUP_EXPORT(yaml)
             "key2: var2 is <$(var2)>\n";
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
         child =
-            "inc: !include grandchild.yml\n"
+            "inc: !include:grandchild.yml\n"
             "  variables:\n"
             "    var: 1\n"
             "other: $(var)\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
-            "all: !include child.yml\n"
+            "all: !include:child.yml\n"
             "  variables:\n"
             "    var: 2\n"
             "    var2: 3\n";
@@ -7693,7 +7605,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
 
         root =
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  foo: bar\n"
             "  qux: c\n";
@@ -7717,13 +7629,13 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
 
         child =
-            "!include grandchild.yml\n"
+            "!include:grandchild.yml\n"
             "variables:\n"
             "  port: 80\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
 
         root =
-            "!include child.yml\n"
+            "!include:child.yml\n"
             "variables:\n"
             "  host: website.org\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
@@ -7754,7 +7666,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* wrong variable settings */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
+            "key: !include:inner.yml\n"
             "  variables:",
 
             "input.yml:3:1: wrong type of data, "
@@ -7762,7 +7674,7 @@ Z_GROUP_EXPORT(yaml)
         ));
         /* TODO: improve span for empty null scalar */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
+            "key: !include:inner.yml\n"
             "  variables:\n"
             "key2: 3",
 
@@ -7774,7 +7686,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* unknown variable being set */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
+            "key: !include:inner.yml\n"
             "  variables:\n"
             "    b: foo",
 
@@ -7785,7 +7697,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* string-variable being set with wrong type */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
+            "key: !include:inner.yml\n"
             "  variables:\n"
             "    s: [ 1, 2 ]",
 
@@ -7795,7 +7707,7 @@ Z_GROUP_EXPORT(yaml)
             "       ^^^^^^^^"
         ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
+            "key: !include:inner.yml\n"
             "  variables:\n"
             "    t: [ 1, 2 ]",
 
@@ -7807,7 +7719,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* cannot use variables in variable settings or overrides. */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
+            "key: !include:inner.yml\n"
             "  variables:\n"
             "    a: $(t)",
 
@@ -7817,7 +7729,7 @@ Z_GROUP_EXPORT(yaml)
             "       ^^^^"
         ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include inner.yml\n"
+            "key: !include:inner.yml\n"
             "  t: <$(a)>",
 
             "input.yml:2:6: use of variables is forbidden, "
@@ -7887,7 +7799,7 @@ Z_GROUP_EXPORT(yaml)
             "a: $(var)"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  var:\n"
             "    b: 1\n"
@@ -7902,7 +7814,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_pack_yaml_file("vm_raw_1/root.yml", &data, &pres,
                                       0));
         Z_HELPER_RUN(z_check_file("vm_raw_1/root.yml",
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  var:\n"
             "    b: 1\n"
@@ -7917,7 +7829,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_pack_yaml_file("vm_raw_2/root.yml", &data, &pres,
                                       0));
         Z_HELPER_RUN(z_check_file("vm_raw_2/root.yml",
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  var: ~\n"
         ));
@@ -7944,7 +7856,7 @@ Z_GROUP_EXPORT(yaml)
             "b: \"<\\$(a) $b $(var) \\$(c>\""
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  var: yare",
 
@@ -7954,7 +7866,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* pack into files, to test repacking of variables */
         Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  var: yare\n",
 
@@ -7966,7 +7878,7 @@ Z_GROUP_EXPORT(yaml)
         data.obj->fields.tab[0].data.scalar.s = LSTR("<daze>");
         data.obj->fields.tab[1].data.scalar.s = LSTR("<$(a) $b daze $(c>");
         Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  var: daze\n",
 
@@ -7979,7 +7891,7 @@ Z_GROUP_EXPORT(yaml)
         data.obj->fields.tab[0].data.scalar.s = LSTR("<daze");
         data.obj->fields.tab[1].data.scalar.s = LSTR("<$(a) b daze $(c>");
         Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
-            "!include inner.yml\n",
+            "!include:inner.yml {}\n",
 
             "a: <daze\n"
             "b: \"<\\$(a) b daze \\$(c>\"\n"
@@ -7988,7 +7900,7 @@ Z_GROUP_EXPORT(yaml)
         data.obj->fields.tab[0].data.scalar.s = LSTR("");
         data.obj->fields.tab[1].data.scalar.s = LSTR("<a b d c>");
         Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
-            "!include inner.yml\n",
+            "!include:inner.yml {}\n",
 
             "a: \"\"\n"
             "b: <a b d c>\n"
@@ -7997,7 +7909,7 @@ Z_GROUP_EXPORT(yaml)
         data.obj->fields.tab[0].data.scalar.s = LSTR("d");
         data.obj->fields.tab[1].data.scalar.s = LSTR("d");
         Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
-            "!include inner.yml\n",
+            "!include:inner.yml {}\n",
 
             "a: d\n"
             "b: d\n"
@@ -8021,7 +7933,7 @@ Z_GROUP_EXPORT(yaml)
             "a: $(par) $(ker)"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  par: \" he \"\n"
             "  ker: roes",
@@ -8033,7 +7945,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_pack_yaml_file("vm_mul_1/root.yml", &data, &pres,
                                       0));
         Z_HELPER_RUN(z_check_file("vm_mul_1/root.yml",
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  par: \" he \"\n"
             "  ker: roes\n"
@@ -8048,7 +7960,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_pack_yaml_file("vm_mul_2/root.yml", &data, &pres,
                                       0));
         Z_HELPER_RUN(z_check_file("vm_mul_2/root.yml",
-            "!include inner.yml\n"
+            "!include:inner.yml {}\n"
         ));
         Z_HELPER_RUN(z_check_file("vm_mul_2/inner.yml",
             "a: her oes\n"
@@ -8076,7 +7988,7 @@ Z_GROUP_EXPORT(yaml)
             "- $(var)\n"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  var: 1\n",
 
@@ -8096,7 +8008,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_pack_yaml_file("vc_raw_1/root.yml", &data, &pres,
                                       0));
         Z_HELPER_RUN(z_check_file("vc_raw_1/root.yml",
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  var: 1\n"
             "  var~1: 2\n"
@@ -8132,7 +8044,7 @@ Z_GROUP_EXPORT(yaml)
             "- <$(var)>\n"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  var: ga\n",
 
@@ -8153,7 +8065,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_pack_yaml_file("vc_str_1/root.yml", &data, &pres,
                                       0));
         Z_HELPER_RUN(z_check_file("vc_str_1/root.yml",
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             /* First value deduced is taken as the true value. */
             "  var: bu\n"
@@ -8204,7 +8116,7 @@ Z_GROUP_EXPORT(yaml)
             "- $(foo) $(bar)\n"
         ));
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  foo: ga\n"
             "  bar: bu\n",
@@ -8227,7 +8139,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_pack_yaml_file("vc_mul_1/root.yml", &data, &pres,
                                       0));
         Z_HELPER_RUN(z_check_file("vc_mul_1/root.yml",
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  foo: zo\n"
             "  foo~1: ga\n"
@@ -8286,7 +8198,7 @@ Z_GROUP_EXPORT(yaml)
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
         root =
-            "!include inner.yml\n"
+            "!include:inner.yml\n"
             "variables:\n"
             "  foo: ga\n"
             "  bar: bu\n";
@@ -8339,7 +8251,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
 
         child =
-            "!include grandchild.yml\n"
+            "!include:grandchild.yml\n"
             "variables:\n"
             "  f: y\n"
             "  a: \"a\\$(\\$(\\$(a))\"\n"
@@ -8348,7 +8260,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
 
         root =
-            "!include child.yml\n"
+            "!include:child.yml\n"
             "variables:\n"
             "  c: \"c\\$(e)\\$(e)\"\n"
             "  e: e k s\n"
@@ -8407,14 +8319,14 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
 
         child =
-            "!include grandchild.yml\n"
+            "!include:grandchild.yml\n"
             "variables:\n"
             "  b: \"<\\$(b)>\"\n"
             "  a: \"<\\$(a)>\"\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
 
         root =
-            "!include child.yml\n"
+            "!include:child.yml\n"
             "variables:\n"
             "  c: \"<\\$(c)>\"\n";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
