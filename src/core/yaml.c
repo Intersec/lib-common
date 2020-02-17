@@ -893,43 +893,13 @@ static ctype_desc_t const ctype_yaml_key_chars = { {
     0x00000000, 0x00000000, 0x00000000, 0x00000000,
 } };
 
-/* Parse a variable name, following a '$(' pattern.
- *
- * Must be [a-zA-Z][a-ZA-Z0-9-_~]+ up to the ')'.
- */
-static lstr_t
-ps_parse_variable_name(pstream_t * nonnull ps)
-{
-    pstream_t name;
-
-    name = ps_get_span(ps, &ctype_yaml_key_chars);
-    if (ps_len(&name) <= 0 || !isalpha(name.s[0])) {
-        return LSTR_NULL_V;
-    }
-    if (ps_skipc(ps, ')') < 0) {
-        return LSTR_NULL_V;
-    }
-
-    return LSTR_PS_V(&name);
-}
-
-static bool
-ps_startswith_yaml_key(pstream_t ps, bool must_be_variable)
+static bool ps_startswith_yaml_key(pstream_t ps)
 {
     pstream_t ps_key;
     lstr_t key;
 
-    if (ps_peekc(ps) == '$' && ps_has(&ps, 2) && ps.b[1] == '(') {
-        ps_skip(&ps, 2);
-        key = ps_parse_variable_name(&ps);
-    } else {
-        if (must_be_variable) {
-            return false;
-        }
-
-        ps_key = ps_get_span(&ps, &ctype_yaml_key_chars);
-        key = LSTR_PS_V(&ps_key);
-    }
+    ps_key = ps_get_span(&ps, &ctype_yaml_key_chars);
+    key = LSTR_PS_V(&ps_key);
 
     if (key.len == 0 || ps_len(&ps) == 0) {
         return false;
@@ -1037,6 +1007,26 @@ yaml_env_merge_variables(yaml_parse_t * nonnull env,
             env->variables.values[pos] = *vec;
         }
     }
+}
+
+/* Parse a variable name, following a '$(' pattern.
+ *
+ * Must be [a-zA-Z][a-ZA-Z0-9-_~]+ up to the ')'.
+ */
+static lstr_t
+ps_parse_variable_name(pstream_t * nonnull ps)
+{
+    pstream_t name;
+
+    name = ps_get_span(ps, &ctype_yaml_key_chars);
+    if (ps_len(&name) <= 0 || !isalpha(name.s[0])) {
+        return LSTR_NULL_V;
+    }
+    if (ps_skipc(ps, ')') < 0) {
+        return LSTR_NULL_V;
+    }
+
+    return LSTR_PS_V(&name);
 }
 
 /* Detect use of $foo in a quoted string, and add those variables in the
@@ -1607,36 +1597,20 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
 {
     pstream_t ps_key;
     yaml_pos_t key_pos_start = yaml_env_get_pos(env);
-    const char *start;
 
     RETHROW(yaml_env_ltrim(env));
     if (env->pres && node) {
         yaml_env_pop_next_node(env, node);
     }
 
-    start = env->ps.s;
-    if (ps_has(&env->ps, 2) && env->ps.s[0] == '$' && env->ps.s[1] == '(') {
-        lstr_t name;
-
-        ps_skip(&env->ps, 2);
-        name = ps_parse_variable_name(&env->ps);
-        if (!name.s) {
-            return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
-                                    "invalid variable name");
-        }
-    } else {
-        ps_skip_span(&env->ps, &ctype_yaml_key_chars);
-    }
-
-    ps_key = ps_initptr(start, env->ps.s);
+    ps_key = ps_get_span(&env->ps, &ctype_yaml_key_chars);
     yaml_span_init(key_span, env, key_pos_start, yaml_env_get_pos(env));
 
     if (ps_len(&ps_key) == 0) {
         return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
                                 "invalid character used");
     } else
-    /* FIXME: remove the '$' test after rework of variables */
-    if (!isalpha(ps_key.s[0]) && ps_key.s[0] != '$') {
+    if (!isalpha(ps_key.s[0])) {
         return yaml_env_set_err_at(env, key_span, YAML_ERR_BAD_KEY,
                                    "name must start with an alphabetic "
                                    "character");
@@ -1652,7 +1626,7 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
 
 static int
 t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
-                     bool only_variables, yaml_data_t *out)
+                     yaml_data_t *out)
 {
     qv_t(yaml_key_data) fields;
     yaml_pos_t pos_end = {0};
@@ -1670,22 +1644,7 @@ t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
         yaml_span_t key_span;
         yaml__presentation_node__t *node;
 
-        if (only_variables) {
-            RETHROW(yaml_env_ltrim(env));
-            if (ps_peekc(env->ps) != '$') {
-                /* If only_variables is true, we only want to parse variable
-                 * sets, so as soon as we don't seem to be in this context,
-                 * we stop. */
-                break;
-            }
-        }
-
         RETHROW(yaml_env_parse_key(env, &key, &key_span, &node));
-        if (!only_variables && lstr_startswith(key, LSTR("$"))) {
-            return yaml_env_set_err_at(env, &key_span, YAML_ERR_BAD_KEY,
-                                       "cannot specify a variable value in "
-                                       "this context");
-        }
 
         kd = qv_growlen0(&fields, 1);
         kd->key = key;
@@ -2141,7 +2100,7 @@ static int t_yaml_env_parse_flow_key_data(yaml_parse_t *env,
                                 "unexpected end of line");
     }
 
-    if (ps_startswith_yaml_key(env->ps, false)) {
+    if (ps_startswith_yaml_key(env->ps)) {
         RETHROW(t_yaml_env_parse_flow_key_val(env, out));
         goto end;
     }
@@ -2433,11 +2392,11 @@ t_yaml_env_handle_override(yaml_parse_t * nonnull env,
 
     /* TODO: technically, we could allow override of any type of data, not
      * just obj, by removing this check. */
-    if (!ps_startswith_yaml_key(env->ps, false)) {
+    if (!ps_startswith_yaml_key(env->ps)) {
         return 0;
     }
 
-    RETHROW(t_yaml_env_parse_obj(env, cur_indent, false, &override));
+    RETHROW(t_yaml_env_parse_obj(env, cur_indent, &override));
     logger_trace(&_G.logger, 2,
                  "parsed override, %s from "YAML_POS_FMT" up to "YAML_POS_FMT,
                  yaml_data_get_type(&override, false),
@@ -2555,8 +2514,8 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
             t_yaml_env_pres_set_flow_mode(env);
         }
     } else
-    if (ps_startswith_yaml_key(env->ps, false)) {
-        RETHROW(t_yaml_env_parse_obj(env, cur_indent, false, out));
+    if (ps_startswith_yaml_key(env->ps)) {
+        RETHROW(t_yaml_env_parse_obj(env, cur_indent, out));
     } else {
         RETHROW(t_yaml_env_parse_scalar(env, false, out));
     }
@@ -4286,11 +4245,6 @@ t_yaml_pack_included_subfile(
     return res;
 }
 
-static lstr_t t_yaml_format_variable(lstr_t name)
-{
-    return t_lstr_fmt("$(%pL)", &name);
-}
-
 static int
 t_yaml_pack_variable_settings(
     yaml_pack_env_t * nonnull env,
@@ -4518,6 +4472,11 @@ t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
                  "to %s", &var_name, yaml_data_get_type(data, false));
     *new_name = LSTR_NULL_V;
     return 0;
+}
+
+static lstr_t t_yaml_format_variable(lstr_t name)
+{
+    return t_lstr_fmt("$(%pL)", &name);
 }
 
 /* Apply the original values of the variables to the template.
@@ -5659,32 +5618,6 @@ Z_GROUP_EXPORT(yaml)
             "<string>:1:7: wrong type of data, unexpected colon\n"
             "{ a: b: c }\n"
             "      ^"
-        ));
-
-        /* Cannot use variables as keys outside of override context */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "$(var): 3",
-
-            "<string>:1:1: invalid key, "
-            "cannot specify a variable value in this context\n"
-            "$(var): 3\n"
-            "^^^^^^"
-        ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "obj: { a: 2, $(var): 3 }",
-
-            "<string>:1:14: invalid key, "
-            "cannot specify a variable value in this context\n"
-            "obj: { a: 2, $(var): 3 }\n"
-            "             ^^^^^^"
-        ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "obj: [ $(var): 3 ]",
-
-            "<string>:1:8: invalid key, "
-            "cannot specify a variable value in this context\n"
-            "obj: [ $(var): 3 ]\n"
-            "       ^^^^^^"
         ));
 
         /* Unbound variables are rejected by default */
