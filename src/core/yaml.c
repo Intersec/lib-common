@@ -885,6 +885,14 @@ ps_startswith_yaml_seq_prefix(const pstream_t *ps)
     return ps->s[0] == '-' && isspace(ps->s[1]);
 }
 
+/* r:48-57 r:65-90 r:97-122 s:'-_~'
+ * ie: 0-9a-zA-Z-_~
+ */
+static ctype_desc_t const ctype_yaml_key_chars = { {
+    0x00000000, 0x03ff2000, 0x87fffffe, 0x47fffffe,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000,
+} };
+
 /* Parse a variable name, following a '$(' pattern.
  *
  * Must be [a-zA-Z][a-ZA-Z0-9-_~]+ up to the ')'.
@@ -892,16 +900,9 @@ ps_startswith_yaml_seq_prefix(const pstream_t *ps)
 static lstr_t
 ps_parse_variable_name(pstream_t * nonnull ps)
 {
-    /* r:48-57 r:65-90 r:97-122 s:'-_~'
-     * ie: 0-9a-zA-Z-_~
-     */
-    ctype_desc_t const ctype_var_allowed_chars = { {
-        0x00000000, 0x03ff2000, 0x87fffffe, 0x47fffffe,
-        0x00000000, 0x00000000, 0x00000000, 0x00000000,
-    } };
     pstream_t name;
 
-    name = ps_get_span(ps, &ctype_var_allowed_chars);
+    name = ps_get_span(ps, &ctype_yaml_key_chars);
     if (ps_len(&name) <= 0 || !isalpha(name.s[0])) {
         return LSTR_NULL_V;
     }
@@ -926,7 +927,7 @@ ps_startswith_yaml_key(pstream_t ps, bool must_be_variable)
             return false;
         }
 
-        ps_key = ps_get_span(&ps, &ctype_isalnum);
+        ps_key = ps_get_span(&ps, &ctype_yaml_key_chars);
         key = LSTR_PS_V(&ps_key);
     }
 
@@ -1688,7 +1689,7 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
                                     "invalid variable name");
         }
     } else {
-        ps_skip_span(&env->ps, &ctype_isalnum);
+        ps_skip_span(&env->ps, &ctype_yaml_key_chars);
     }
 
     ps_key = ps_initptr(start, env->ps.s);
@@ -1696,7 +1697,13 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
 
     if (ps_len(&ps_key) == 0) {
         return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
-                                "only alpha-numeric characters allowed");
+                                "invalid character used");
+    } else
+    /* FIXME: remove the '$' test after rework of variables */
+    if (!isalpha(ps_key.s[0]) && ps_key.s[0] != '$') {
+        return yaml_env_set_err_at(env, key_span, YAML_ERR_BAD_KEY,
+                                   "name must start with an alphabetic "
+                                   "character");
     } else
     if (ps_getc(&env->ps) != ':') {
         return yaml_env_set_err(env, YAML_ERR_BAD_KEY, "missing colon");
@@ -5451,11 +5458,18 @@ Z_GROUP_EXPORT(yaml)
             " ^"
         ));
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
-            "a: 5\n_:",
+            "a: 5\n%:",
 
-            "<string>:2:1: invalid key, "
-            "only alpha-numeric characters allowed\n"
-            "_:\n"
+            "<string>:2:1: invalid key, invalid character used\n"
+            "%:\n"
+            "^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "5: ~",
+
+            "<string>:1:1: invalid key, "
+            "name must start with an alphabetic character\n"
+            "5: ~\n"
             "^"
         ));
 
