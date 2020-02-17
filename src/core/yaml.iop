@@ -147,6 +147,13 @@ struct PresentationNode {
      */
     bool quoted = false;
 
+    /** The null data was empty.
+     *
+     * This only makes sense for null scalars. If true, the scalar will be
+     * packed as "", otherwise as "~".
+     */
+    bool emptyNull = false;
+
     /** If set, the node was parsed from an included file. */
     PresentationInclude? included;
 

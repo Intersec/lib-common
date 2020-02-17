@@ -2492,6 +2492,14 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
         yaml_env_start_data(env, YAML_DATA_SCALAR, out);
         yaml_env_end_data(env, out);
         out->scalar.type = YAML_SCALAR_NULL;
+
+        if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
+            yaml__presentation_node__t *node;
+
+            node = t_yaml_env_pres_get_current_node(env->pres);
+            node->empty_null = true;
+        }
+
         return 0;
     }
 
@@ -3463,6 +3471,15 @@ yaml_pack_scalar(yaml_pack_env_t * nonnull env,
     int res = 0;
     char ibuf[IBUF_LEN];
 
+    if (unlikely(scalar->type == YAML_SCALAR_NULL && pres
+              && pres->empty_null))
+    {
+        /* special case for empty null scalar: do nothing. This allows
+         * factorizing the GOTO_STATE as the other cases will all write
+         * something. */
+        goto end;
+    }
+
     GOTO_STATE(CLEAN);
 
     switch (scalar->type) {
@@ -3507,6 +3524,7 @@ yaml_pack_scalar(yaml_pack_env_t * nonnull env,
         break;
     }
 
+  end:
     env->state = PACK_STATE_AFTER_DATA;
 
     return res;
@@ -6553,14 +6571,14 @@ Z_GROUP_EXPORT(yaml)
 
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "",
-            "~"
+            ""
         ));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
                                          1, 1, 1, 1));
 
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!v",
-            "!v ~"
+            "!v"
         ));
         Z_ASSERT_LSTREQUAL(data.tag, LSTR("v"));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
@@ -6803,7 +6821,7 @@ Z_GROUP_EXPORT(yaml)
             "  b: 3\n"
             "  c: -4\n"
             "inner2: !tag\n"
-            "  d: ~\n"
+            "  d:\n"
             "  e: my-label\n"
             "f: 1.2"
         ));
@@ -6905,7 +6923,7 @@ Z_GROUP_EXPORT(yaml)
             "- \"a: 2\"\n"
             "- - 5\n"
             "  - -5\n"
-            "- ~\n"
+            "-\n"
             "- !tag\n"
             "  - true\n"
             "- false"
