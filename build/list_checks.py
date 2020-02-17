@@ -38,7 +38,6 @@ GROUPS = [
     ("behave", re.compile(r".*/behave"),     None),
     ("web",    re.compile(r".*testem.json"), IS_FILE),
     ("web",    re.compile(r".*/check_php"),  None),
-    ("C",      re.compile(r".*\.py"),        IS_FILE),
     ("C",      re.compile(r".+"),            IS_EXEC)  # default case
 ]
 RE_TAGS = re.compile(r"@([A-Za-z0-9_]+)")
