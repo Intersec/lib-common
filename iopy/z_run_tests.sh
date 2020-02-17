@@ -30,6 +30,8 @@ main() {
     script_dir=$(dirname "$(readlink -f "$0")")
     RES=0
 
+    export LSAN_OPTIONS="suppressions=$script_dir/python-leaks.supp"
+
     if [ -f "$script_dir/iopy/python2/iopy.so" ] ; then
         run_test "python2 $script_dir/z_iopy.py"
     fi
