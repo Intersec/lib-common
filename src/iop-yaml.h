@@ -36,8 +36,9 @@
  * \param[in]  ps     The pstream_t to parse.
  * \param[in]  st     The IOP structure description.
  * \param[out] out    Pointer on the IOP structure to write.
- * \param[in]  flags  Bitfield of iop_unpack_flags_t elements. Only
- *                    IOP_UNPACK_FORBID_PRIVATE is handled.
+ * \param[in]  flags  Bitfield of iop_unpack_flags_t elements. See
+ *                    documentation of iop_unpack_flags_t to find out which
+ *                    flags are handled.
  * \param[out] pres   If non NULL, it will be set to YAML presentation data
  *                    of the parsed YAML. See yaml.h for details.
  * \param[out] err    If the unpacking fails, this pointer is set to a
@@ -93,6 +94,30 @@ t_iop_yunpack_ptr_file(
     sb_t * nonnull out_err
 );
 
+/** Convert a YAML data into an IOP C structure using the t_pool().
+ *
+ * This function can be used if the YAML data has already been parsed. If
+ * that is not the case, you should use the others t_iop_yunpack functions
+ * instead.
+ */
+__must_check__
+int
+t_iop_yunpack_yaml_data(const yaml_data_t * nonnull data,
+                        const iop_struct_t * nonnull st,
+                        void * nonnull out, unsigned flags,
+                        sb_t * nonnull out_err);
+
+/** Convert a YAML data into an IOP C structure using the t_pool().
+ *
+ * See t_iop_yunpack_yaml_data.
+ */
+__must_check__
+int
+t_iop_yunpack_ptr_yaml_data(const yaml_data_t * nonnull data,
+                            const iop_struct_t * nonnull st,
+                            void * nullable * nonnull out, unsigned flags,
+                            sb_t * nonnull out_err);
+
 /* }}} */
 /* {{{ Generating YAML */
 
@@ -137,6 +162,11 @@ int iop_ypack_file(const char * nonnull filename, mode_t file_mode,
 
 #define iop_ypack_file(filename, st, value, presentation, err)               \
     (iop_ypack_file)((filename), 0644, (st), (value), (presentation), (err))
+
+/** Convert an IOP C structure into a YAML data AST. */
+void
+t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
+                   const void * nonnull value, yaml_data_t * nonnull data);
 
 /* }}} */
 /* {{{ JSON interfacing */

@@ -24,6 +24,7 @@
 #include <lib-common/file.h>
 #include <lib-common/unix.h>
 #include <lib-common/iop.h>
+#include <lib-common/iop-json.h>
 
 static struct yaml_g {
     logger_t logger;
@@ -31,13 +32,6 @@ static struct yaml_g {
 #define _G yaml_g
     .logger = LOGGER_INIT(NULL, "yaml", LOG_INHERITS),
 };
-
-/* Missing features:
- *
- * #1
- * Tab characters are forbidden, because it makes the indentation computation
- * harder than with simple spaces. It could be handled properly however.
- */
 
 /* {{{ Parsing types definitions */
 /* {{{ Presentation */
@@ -71,6 +65,51 @@ typedef struct yaml_env_presentation_t {
      */
     yaml__presentation_node__t * nullable next_node;
 } yaml_env_presentation_t;
+
+/* }}} */
+/* {{{ Variables */
+
+typedef struct yaml_variable_t {
+    /* FIXME: keeping a raw pointer on a yaml_data_t is very flimsy, and this
+     * design should be reworked.
+     * For example, it prevents properly handling variables in overrides.
+     */
+    /* Data using the variable. The set value for the variable will be set
+     * in the data, or replace it. */
+    yaml_data_t *data;
+
+    /* Is the variable in a string, or raw?
+     *
+     * Raw means any AST is valid:
+     *
+     * foo: $bar
+     *
+     * In string means it must be a string value, and will be set in the
+     * data:
+     *
+     * addr: "$host:ip"
+     */
+    bool in_string;
+
+    /* Bitmap indicating which '$' char are variables.
+     *
+     * If the template has escaped some '$' characters, we will end up with
+     * a string with multiple '$', some being variables, some not. This bitmap
+     * allows finding out which one are variables.
+     *
+     * For example:
+     * "$a \\$b \\\\$$c" will give the string "$a $b \\$$c", and the bitmap
+     * [0x09] (first and fourth '$' are variables).
+     *
+     * \warning If the bitmap is NOT set (ie len == 0), then it means every
+     * '$' is a variable.
+     */
+    qv_t(u8) var_bitmap;
+} yaml_variable_t;
+qvector_t(yaml_variable, yaml_variable_t * nonnull);
+
+qm_kvec_t(yaml_vars, lstr_t, qv_t(yaml_variable), qhash_lstr_hash,
+          qhash_lstr_equal);
 
 /* }}} */
 
@@ -140,8 +179,172 @@ typedef struct yaml_parse_t {
      * This is set if the current file was included from another file.
      */
     yaml_included_file_t * nullable included;
+
+    qm_t(yaml_vars) variables;
 } yaml_parse_t;
 
+qvector_t(override_nodes, yaml__presentation_override_node__t);
+
+/* Presentation details of an override.
+ *
+ * This object is used to build a yaml.PresentationOverride. See the document
+ * of this object for more details.
+ */
+typedef struct yaml_presentation_override_t {
+    /* List of nodes of the override. */
+    qv_t(override_nodes) nodes;
+
+    /* Current path from the override root point.
+     *
+     * Describe the path not from the document's root, but from the override's
+     * root. Used to build the nodes.
+     */
+    sb_t path;
+} yaml_presentation_override_t;
+
+/* Node to override, when packing. */
+typedef struct yaml_pack_override_node_t {
+    /* Data related to the override.
+     *
+     * When beginning to pack an override, this is set to the original data,
+     * the one replaced by the override on parsing.
+     * When the AST is packed, this data is retrieved and the overridden data
+     * is swapped and stored here.
+     * Then, the override data is packed using those datas.
+     */
+    const yaml_data_t * nullable data;
+
+    /* If the data has been found and retrieved. If false, the data has either
+     * not yet been found while packing the AST, or the node has disappeared
+     * from the AST.
+     */
+    bool found;
+} yaml_pack_override_node_t;
+
+qm_kvec_t(override_nodes, lstr_t, yaml_pack_override_node_t,
+          qhash_lstr_hash, qhash_lstr_equal);
+
+/* Description of an override, used when packing.
+ *
+ * This object is used to properly pack overrides. It is the equivalent of
+ * a yaml.PresentationOverride, but with a qm instead of an array, so that
+ * nodes that were overridden can easily find the original value to repack.
+ */
+typedef struct yaml_pack_override_t {
+    /* Mappings of absolute paths to override pack nodes.
+     *
+     * The paths are not the same as the ones in the presentation IOP. They
+     * are absolute path, from the root document and not from the override's
+     * root.
+     *
+     * This is needed in order to handle overrides of included data. The
+     * path in the included data is relative from the root of its file, which
+     * may be different from the path of the override nodes (for example,
+     * if the override was done in a file that included a file including the
+     * current file.
+     * */
+    qm_t(override_nodes) nodes;
+
+    /** List of the absolute paths.
+     *
+     * Used to iterate on the nodes in the right order when repacking the
+     * override objet.
+     */
+    qv_t(lstr) ordered_paths;
+
+    /* Original override presentation object.
+     */
+    const yaml__presentation_override__t * nonnull presentation;
+} yaml_pack_override_t;
+qvector_t(pack_override, yaml_pack_override_t);
+
+/* }}} */
+/* {{{ IOP helpers */
+/* {{{ IOP scalar */
+
+static void
+t_yaml_data_to_iop(const yaml_data_t * nonnull data,
+                   yaml__data__t * nonnull out)
+{
+    yaml__scalar_value__t *scalar;
+
+    out->tag = data->tag;
+
+    /* TODO: for the moment, only scalars can be overridden, so only scalars
+     * needs to be serialized. Once overrides can replace any data, this
+     * function will have to be modified */
+    assert (data->type == YAML_DATA_SCALAR);
+    scalar = IOP_UNION_SET(yaml__data_value, &out->value, scalar);
+
+    switch (data->scalar.type) {
+#define CASE(_name, _prefix)                                                 \
+      case YAML_SCALAR_##_name:                                              \
+        *IOP_UNION_SET(yaml__scalar_value, scalar, _prefix)                  \
+            = data->scalar._prefix;                                          \
+        break
+
+      CASE(STRING, s);
+      CASE(DOUBLE, d);
+      CASE(UINT, u);
+      CASE(INT, i);
+      CASE(BOOL, b);
+
+#undef CASE
+
+      case YAML_SCALAR_NULL:
+        IOP_UNION_SET_V(yaml__scalar_value, scalar, nil);
+        break;
+    }
+}
+
+static void
+t_iop_data_to_yaml(const yaml__data__t * nonnull data,
+                   yaml_data_t * nonnull out)
+{
+    assert (IOP_UNION_IS(yaml__data_value, &data->value, scalar));
+
+    IOP_UNION_SWITCH(&data->value.scalar) {
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, s, s) {
+        yaml_data_set_string(out, s);
+      }
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, d, d) {
+        yaml_data_set_double(out, d);
+      }
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, u, u) {
+        yaml_data_set_uint(out, u);
+      }
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, i, i) {
+        yaml_data_set_int(out, i);
+      }
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, b, b)  {
+        yaml_data_set_bool(out, b);
+      }
+      IOP_UNION_CASE_V(yaml__scalar_value, &data->value.scalar, nil)  {
+        yaml_data_set_null(out);
+      }
+    }
+    out->tag = data->tag;
+}
+
+/* }}} */
+/* {{{ IOP Presentation Override */
+
+static yaml__presentation_override__t * nonnull
+t_presentation_override_to_iop(
+    const yaml_presentation_override_t * nonnull pres,
+    const yaml_data_t * nonnull override_data
+)
+{
+    yaml__presentation_override__t *out;
+
+    out = t_iop_new(yaml__presentation_override);
+    out->nodes = IOP_TYPED_ARRAY_TAB(yaml__presentation_override_node,
+                                     &pres->nodes);
+
+    return out;
+}
+
+/* }}} */
 /* }}} */
 /* {{{ Equality */
 
@@ -277,9 +480,24 @@ const char *yaml_data_get_type(const yaml_data_t *data, bool ignore_tag)
     return "";
 }
 
-static lstr_t yaml_data_get_span_lstr(const yaml_span_t * nonnull span)
+static const char *yaml_data_get_data_type(const yaml_data_t *data)
 {
-    return LSTR_INIT_V(span->start.s, span->end.s - span->start.s);
+    switch (data->type) {
+      case YAML_DATA_OBJ:
+        return "an object";
+      case YAML_DATA_SEQ:
+        return "a sequence";
+      case YAML_DATA_SCALAR:
+        return "a scalar";
+    }
+
+    assert (false);
+    return "";
+}
+
+lstr_t yaml_span_to_lstr(const yaml_span_t * nonnull span)
+{
+    return LSTR_PTR_V(span->start.s, span->end.s);
 }
 
 static uint32_t yaml_env_get_column_nb(const yaml_parse_t *env)
@@ -358,6 +576,37 @@ yaml_env_end_data(yaml_parse_t * nonnull env, yaml_data_t * nonnull out)
 }
 
 /* }}} */
+/* {{{ Var bitmap utils */
+
+/* Var bitmap is a bitmap indicating which '$' characters are variables.
+ *
+ * The rules are:
+ *  * if len is 0, then it means all '$' are variables (ie, the bitmap is full
+ *    1's).
+ *  * otherwise, only set bits are variables. OOB accessing is allowed, it
+ *    just means it is evaluated to 0.
+ */
+
+static void var_bitmap_set_bit(qv_t(u8) * nonnull bitmap, int pos)
+{
+    if (bitmap->len * 8 <= pos) {
+        qv_growlen0(bitmap, pos / 8 + 1 - bitmap->len);
+    }
+    SET_BIT(bitmap->tab, pos);
+}
+
+static bool var_bitmap_test_bit(const qv_t(u8) * nonnull bitmap, int pos)
+{
+    if (bitmap->len == 0) {
+        return true;
+    }
+    if (pos < bitmap->len * 8 && TST_BIT(bitmap->tab, pos)) {
+        return true;
+    }
+    return false;
+}
+
+/* }}} */
 /* {{{ Errors */
 
 typedef enum yaml_error_t {
@@ -371,6 +620,9 @@ typedef enum yaml_error_t {
     YAML_ERR_INVALID_TAG,
     YAML_ERR_EXTRA_DATA,
     YAML_ERR_INVALID_INCLUDE,
+    YAML_ERR_INVALID_OVERRIDE,
+    YAML_ERR_INVALID_VAR,
+    YAML_ERR_FORBIDDEN_VAR,
 } yaml_error_t;
 
 static int yaml_env_set_err_at(yaml_parse_t * nonnull env,
@@ -409,6 +661,15 @@ static int yaml_env_set_err_at(yaml_parse_t * nonnull env,
         break;
       case YAML_ERR_INVALID_INCLUDE:
         sb_addf(&err, "invalid include, %s", msg);
+        break;
+      case YAML_ERR_INVALID_OVERRIDE:
+        sb_addf(&err, "cannot change types of data in override, %s", msg);
+        break;
+      case YAML_ERR_INVALID_VAR:
+        sb_addf(&err, "invalid variable, %s", msg);
+        break;
+      case YAML_ERR_FORBIDDEN_VAR:
+        sb_addf(&err, "use of variables is forbidden, %s", msg);
         break;
     }
 
@@ -551,7 +812,7 @@ static void log_new_data(const yaml_data_t * nonnull data)
                     YAML_POS_ARG(data->span.start),
                     YAML_POS_ARG(data->span.end));
         if (data->type == YAML_DATA_SCALAR) {
-            lstr_t span = yaml_data_get_span_lstr(&data->span);
+            lstr_t span = yaml_span_to_lstr(&data->span);
 
             logger_cont(": %pL", &span);
         }
@@ -623,34 +884,453 @@ ps_startswith_yaml_seq_prefix(const pstream_t *ps)
     return ps->s[0] == '-' && isspace(ps->s[1]);
 }
 
-static bool
-ps_startswith_yaml_key(pstream_t ps)
-{
-    pstream_t key = ps_get_span(&ps, &ctype_isalnum);
+/* r:48-57 r:65-90 r:97-122 s:'-_~'
+ * ie: 0-9a-zA-Z-_~
+ */
+static ctype_desc_t const ctype_yaml_key_chars = { {
+    0x00000000, 0x03ff2000, 0x87fffffe, 0x47fffffe,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000,
+} };
 
-    if (ps_len(&key) == 0 || ps_len(&ps) == 0) {
+static bool ps_startswith_yaml_key(pstream_t ps)
+{
+    pstream_t ps_key;
+    lstr_t key;
+
+    ps_key = ps_get_span(&ps, &ctype_yaml_key_chars);
+    key = LSTR_PS_V(&ps_key);
+
+    if (key.len == 0 || ps_len(&ps) == 0) {
         return false;
     }
 
-    return ps.s[0] == ':'
-        && (ps_len(&ps) == 1 || isspace(ps.s[1]));
+    return ps.s[0] == ':' && (ps_len(&ps) == 1 || isspace(ps.s[1]));
+}
+
+static int
+yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf,
+                         qv_t(u8) * nonnull var_bitmap,
+                         bool * nonnull has_escaped_dollars)
+{
+    int line_nb = 0;
+    int col_nb = 0;
+    pstream_t start = env->ps;
+    int var_pos = 0;
+
+    while (!ps_done(&env->ps)) {
+        switch (ps_peekc(env->ps)) {
+          case '\n':
+            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                    "missing closing '\"'");
+
+          case '"':
+            sb_add(buf, start.p, env->ps.s - start.s);
+            ps_skip(&env->ps, 1);
+            return 0;
+
+          case '\\':
+            sb_add(buf, start.p, env->ps.s - start.s);
+            if (ps_has(&env->ps, 3) && env->ps.b[1] == '$'
+            &&  env->ps.b[2] == '(')
+            {
+                /* escaped '$', this is not a variable */
+                sb_adds(buf, "$(");
+                ps_skip(&env->ps, 3);
+                var_pos += 1;
+                *has_escaped_dollars = true;
+            } else
+            if (parse_backslash(&env->ps, buf, &line_nb, &col_nb) < 0) {
+                return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                        "invalid backslash");
+            }
+            start = env->ps;
+            break;
+
+          case '$':
+            if (ps_has(&env->ps, 2) && env->ps.b[1] == '(') {
+                /* variable */
+                var_bitmap_set_bit(var_bitmap, var_pos);
+                var_pos += 1;
+                ps_skip(&env->ps, 2);
+                break;
+            }
+
+            /* FALLTHROUGH */
+
+          default:
+            ps_skip(&env->ps, 1);
+            break;
+        }
+    }
+
+    return yaml_env_set_err(env, YAML_ERR_BAD_STRING, "missing closing '\"'");
+}
+
+/* }}} */
+/* {{{ Variables */
+
+static void
+t_yaml_env_add_var(yaml_parse_t * nonnull env, const lstr_t name,
+                   yaml_variable_t * nonnull var)
+{
+    int pos;
+    qv_t(yaml_variable) *vec;
+
+    pos = qm_reserve(yaml_vars, &env->variables, &name, 0);
+    if (pos & QHASH_COLLISION) {
+        logger_trace(&_G.logger, 2, "add new occurrence of variable `%pL`",
+                     &name);
+        vec = &env->variables.values[pos & ~QHASH_COLLISION];
+    } else {
+        logger_trace(&_G.logger, 2, "add new variable `%pL`", &name);
+        env->variables.keys[pos] = t_lstr_dup(name);
+        vec = &env->variables.values[pos];
+        t_qv_init(vec, 1);
+    }
+    qv_append(vec, var);
+}
+
+static void
+yaml_env_merge_variables(yaml_parse_t * nonnull env,
+                           const qm_t(yaml_vars) * nonnull vars)
+{
+    qm_for_each_key_value_p(yaml_vars, name, vec, vars) {
+        int pos;
+
+        logger_trace(&_G.logger, 2, "add occurrences of variable `%pL` in "
+                     "including document", &name);
+        pos = qm_reserve(yaml_vars, &env->variables, &name, 0);
+        if (pos & QHASH_COLLISION) {
+            qv_extend(&env->variables.values[pos & ~QHASH_COLLISION], vec);
+        } else {
+            env->variables.values[pos] = *vec;
+        }
+    }
+}
+
+/* Parse a variable name, following a '$(' pattern.
+ *
+ * Must be [a-zA-Z][a-ZA-Z0-9-_~]+ up to the ')'.
+ */
+static lstr_t
+ps_parse_variable_name(pstream_t * nonnull ps)
+{
+    pstream_t name;
+
+    name = ps_get_span(ps, &ctype_yaml_key_chars);
+    if (ps_len(&name) <= 0 || !isalpha(name.s[0])) {
+        return LSTR_NULL_V;
+    }
+    if (ps_skipc(ps, ')') < 0) {
+        return LSTR_NULL_V;
+    }
+
+    return LSTR_PS_V(&name);
+}
+
+/* Detect use of $foo in a quoted string, and add those variables in the
+ * env */
+static int
+t_yaml_env_add_variables(yaml_parse_t * nonnull env,
+                         yaml_data_t * nonnull data, bool in_string,
+                         qv_t(u8) * nullable var_bitmap)
+{
+    pstream_t ps;
+    qh_t(lstr) variables_found;
+    bool whole = false;
+    bool starts_with_dollar;
+    int var_pos = 0;
+
+    assert (data->type == YAML_DATA_SCALAR
+         && data->scalar.type == YAML_SCALAR_STRING);
+
+    t_qh_init(lstr, &variables_found, 0);
+
+    ps = ps_initlstr(&data->scalar.s);
+    starts_with_dollar = ps_peekc(ps) == '$';
+    for (;;) {
+        lstr_t name;
+
+        if (ps_skip_afterchr(&ps, '$') < 0) {
+            break;
+        }
+        if (ps_peekc(ps) != '(') {
+            continue;
+        }
+        ps_skip(&ps, 1);
+
+        var_pos += 1;
+        if (var_bitmap && !var_bitmap_test_bit(var_bitmap, var_pos - 1)) {
+            continue;
+        }
+
+        name = ps_parse_variable_name(&ps);
+        if (!name.s) {
+            /* TODO: Ideally, the span should point to the '$' starting the
+             * variable. This isn't easy to do so however, in the case of a
+             * quoted string. */
+            return yaml_env_set_err_at(env, &data->span, YAML_ERR_INVALID_VAR,
+                "the string contains a variable with an invalid name");
+        }
+
+        if (name.s) {
+            if (ps_done(&ps) && starts_with_dollar
+            &&  qh_len(lstr, &variables_found) == 0)
+            {
+                /* The whole string is this variable */
+                whole = true;
+            }
+            qh_add(lstr, &variables_found, &name);
+        }
+    }
+
+    if (qh_len(lstr, &variables_found) > 0) {
+        yaml_variable_t *var;
+
+        if (env->flags & YAML_PARSE_FORBID_VARIABLES) {
+            return yaml_env_set_err_at(
+                env, &data->span, YAML_ERR_FORBIDDEN_VAR,
+                "cannot use variables in this context"
+            );
+        }
+
+        var = t_new(yaml_variable_t, 1);
+        var->data = data;
+        var->in_string = in_string || !whole;
+        if (var_bitmap) {
+            var->var_bitmap = *var_bitmap;
+        }
+
+        qh_for_each_key(lstr, name, &variables_found) {
+            t_yaml_env_add_var(env, name, var);
+        }
+
+        if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
+            yaml__presentation_node__t *node;
+
+            node = t_yaml_env_pres_get_current_node(env->pres);
+            node->tpl = t_iop_new(yaml__presentation_template);
+            node->tpl->original_value = data->scalar.s;
+            if (var_bitmap) {
+                node->tpl->variables_bitmap
+                    = IOP_TYPED_ARRAY_TAB(u8, var_bitmap);
+            }
+        }
+    }
+
+    return 0;
+}
+
+static int count_escaped_vars(const lstr_t value)
+{
+    pstream_t ps = ps_initlstr(&value);
+    int cnt = 0;
+
+    while (ps_skip_afterchr(&ps, '$') >= 0) {
+        if (ps_peekc(ps) == '(') {
+            cnt++;
+        }
+    }
+
+    return cnt;
+}
+
+/* Replace occurrences of $name with `value` in `data`.
+ *
+ * If var_bitmap is non-NULL, it is used to detect which '$' characters
+ * are used for variables.
+ * After the substitution, the var_bitmap is replaced by an updated one
+ * (without the variables that were replaced).
+ */
+static lstr_t
+t_tpl_set_variable(const lstr_t tpl_string, const lstr_t name,
+                   const lstr_t value, qv_t(u8) * nonnull var_bitmap)
+{
+    t_SB_1k(buf);
+    pstream_t ps;
+    pstream_t sub;
+    qv_t(u8) *new_bitmap = NULL;
+    int bitmap_pos = 0;
+    int new_bitmap_pos = 0;
+    int nb_raw_dollars;
+
+    /* If the string to insert contains '$(' patterns, we need to properly
+     * consider them to generate the right bitmap. */
+    nb_raw_dollars = count_escaped_vars(value);
+
+    ps = ps_initlstr(&tpl_string);
+    if (var_bitmap->len > 0 || nb_raw_dollars > 0) {
+        new_bitmap = t_qv_new(u8, 0);
+    }
+
+    for (;;) {
+        pstream_t cpy;
+        lstr_t var_name;
+
+        /* copy up to next '$' */
+        if (ps_get_ps_chr(&ps, '$', &sub) < 0) {
+            /* no next '$', copy everything and stop */
+            sb_add_ps(&buf, ps);
+            break;
+        }
+        sb_add_ps(&buf, sub);
+        if (!ps_has(&ps, 2) || ps.s[1] != '(') {
+            ps_skip(&ps, 1);
+            sb_addc(&buf, '$');
+            continue;
+        }
+
+        if (!var_bitmap_test_bit(var_bitmap, bitmap_pos)) {
+            bitmap_pos += 1;
+            new_bitmap_pos += 1;
+            /* add '$' and continue to get to next '$' char */
+            sb_addc(&buf, ps_getc(&ps));
+            continue;
+        }
+
+        bitmap_pos += 1;
+        cpy = ps;
+        ps_skip(&cpy, 2);
+        var_name = ps_parse_variable_name(&cpy);
+        if (lstr_equal(var_name, name)) {
+            sb_add_lstr(&buf, value);
+            new_bitmap_pos += nb_raw_dollars;
+        } else {
+            pstream_t var_string;
+
+            if (expect(ps_get_ps_upto(&ps, cpy.b, &var_string) >= 0)) {
+                sb_add_ps(&buf, var_string);
+            }
+            if (new_bitmap) {
+                var_bitmap_set_bit(new_bitmap, new_bitmap_pos);
+                new_bitmap_pos += 1;
+            }
+        }
+        ps = cpy;
+    }
+
+    logger_trace(&_G.logger, 2, "apply replacement $(%pL)=%pL, data value "
+                 "changed from `%pL` to `%pL`", &name, &value,
+                 &tpl_string, &buf);
+    if (new_bitmap) {
+        *var_bitmap = *new_bitmap;
+    }
+
+    return LSTR_SB_V(&buf);
+}
+
+qvector_t(var_binding, yaml__presentation_variable_binding__t);
+
+static void
+add_var_binding(lstr_t var_name, const lstr_t value,
+                qv_t(var_binding) * nonnull bindings)
+{
+    yaml__presentation_variable_binding__t *binding = qv_growlen(bindings, 1);
+
+    iop_init(yaml__presentation_variable_binding, binding);
+    binding->var_name = var_name;
+    binding->value = value;
+}
+
+static int
+t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
+                             const yaml_obj_t * nonnull override,
+                             qm_t(yaml_vars) * nonnull variables,
+                             qv_t(var_binding) * nullable bindings)
+{
+    tab_for_each_ptr(pair, &override->fields) {
+        lstr_t string_value = LSTR_NULL_V;
+        int pos;
+
+        pos = qm_find(yaml_vars, variables, &pair->key);
+        if (pos < 0) {
+            yaml_env_set_err_at(env, &pair->key_span, YAML_ERR_BAD_KEY,
+                                "unknown variable");
+            return -1;
+        }
+
+        /* Replace every occurrence of the variable with the provided data. */
+        tab_for_each_entry(var, &variables->values[pos]) {
+            if (var->in_string) {
+                if (!string_value.s) {
+                    if (pair->data.type != YAML_DATA_SCALAR) {
+                        yaml_env_set_err_at(
+                            env, &pair->data.span, YAML_ERR_WRONG_DATA,
+                            "this variable can only be set with a scalar"
+                        );
+                        return -1;
+                    }
+
+                    if (pair->data.scalar.type == YAML_SCALAR_STRING) {
+                        string_value = pair->data.scalar.s;
+                    } else {
+                        string_value = yaml_span_to_lstr(&pair->data.span);
+                    }
+                }
+
+                assert (var->data->type == YAML_DATA_SCALAR
+                     && var->data->scalar.type == YAML_SCALAR_STRING);
+                var->data->scalar.s = t_tpl_set_variable(
+                    var->data->scalar.s,
+                    pair->key,
+                    string_value,
+                    &var->var_bitmap
+                );
+            } else {
+                *var->data = pair->data;
+
+            }
+        }
+
+        if (bindings) {
+            add_var_binding(pair->key, string_value, bindings);
+        }
+
+        /* remove the variable from variables, to prevent matching twice,
+         * and to be able to keep in the qm the variables that are still
+         * active. */
+        qm_del_at(yaml_vars, variables, pos);
+    }
+
+    return 0;
 }
 
 /* }}} */
 /* {{{ Tag */
 
-static int
-t_yaml_env_parse_tag(yaml_parse_t *env, const uint32_t min_indent,
-                     yaml_data_t *out)
+typedef enum yaml_tag_type_t {
+    YAML_TAG_TYPE_NONE,
+    YAML_TAG_TYPE_INCLUDE,
+    YAML_TAG_TYPE_INCLUDERAW,
+} yaml_tag_type_t;
+
+static yaml_tag_type_t get_tag_type(const lstr_t tag)
 {
-    /* a-zA-Z0-9. */
+    if (lstr_startswith(tag, LSTR("include:"))) {
+        return YAML_TAG_TYPE_INCLUDE;
+    } else
+    if (lstr_startswith(tag, LSTR("includeraw:"))) {
+        return YAML_TAG_TYPE_INCLUDERAW;
+    } else {
+        return YAML_TAG_TYPE_NONE;
+    }
+}
+
+static int
+t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
+                     yaml_data_t * nonnull out,
+                     yaml_tag_type_t * nonnull type)
+{
+    /* r:32-127 -s:'[]{}, ' */
     static const ctype_desc_t ctype_tag = { {
-        0x00000000, 0x03ff4000, 0x07fffffe, 0x07fffffe,
+        0x00000000, 0xffffeffe, 0xd7ffffff, 0xd7ffffff,
         0x00000000, 0x00000000, 0x00000000, 0x00000000,
     } };
     yaml_pos_t tag_pos_start = yaml_env_get_pos(env);
     yaml_pos_t tag_pos_end;
     pstream_t tag;
+    unsigned flags = env->flags;
+    int res;
 
     assert (ps_peekc(env->ps) == '!');
     yaml_env_skipc(env);
@@ -661,16 +1341,30 @@ t_yaml_env_parse_tag(yaml_parse_t *env, const uint32_t min_indent,
     }
 
     tag = ps_get_span(&env->ps, &ctype_tag);
-    if (!isspace(ps_peekc(env->ps))) {
+    if (!isspace(ps_peekc(env->ps)) && !ps_done(&env->ps)) {
         return yaml_env_set_err(env, YAML_ERR_INVALID_TAG,
-                                "must only contain alphanumeric characters");
+                                "wrong character in tag");
     }
     tag_pos_end = yaml_env_get_pos(env);
 
-    RETHROW(t_yaml_env_parse_data(env, min_indent, out));
+    *type = get_tag_type(LSTR_PS_V(&tag));
+    switch (*type) {
+      case YAML_TAG_TYPE_INCLUDE:
+      case YAML_TAG_TYPE_INCLUDERAW:
+        flags = flags | YAML_PARSE_FORBID_VARIABLES;
+        break;
+      default:
+        break;
+    }
+
+    SWAP(unsigned, env->flags, flags);
+    res = t_yaml_env_parse_data(env, min_indent, out);
+    SWAP(unsigned, env->flags, flags);
+    RETHROW(res);
+
     if (out->tag.s) {
-        return yaml_env_set_err(env, YAML_ERR_WRONG_OBJECT,
-                                "two tags have been declared");
+        return yaml_env_set_err_at(env, out->tag_span, YAML_ERR_WRONG_OBJECT,
+                                   "two tags have been declared");
     }
 
     out->tag = LSTR_PS_V(&tag);
@@ -694,45 +1388,30 @@ static bool has_inclusion_loop(const yaml_parse_t * nonnull env,
     return false;
 }
 
-static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
-                                     yaml_data_t * nonnull data)
+static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
+                                 lstr_t path, yaml_data_t * nonnull data,
+                                 qm_t(yaml_vars) * nonnull variables)
 {
     yaml_parse_t *subfile = NULL;
-    yaml_data_t subdata;
     char dirpath[PATH_MAX];
     SB_1k(err);
-    bool raw;
-
-    if (lstr_equal(data->tag, LSTR("include"))) {
-        raw = false;
-    } else
-    if (lstr_equal(data->tag, LSTR("includeraw"))) {
-        raw = true;
-    } else {
-        return 0;
-    }
 
     RETHROW(yaml_env_ltrim(env));
-
-    if (data->type != YAML_DATA_SCALAR
-    ||  data->scalar.type != YAML_SCALAR_STRING)
-    {
-        sb_setf(&err, "!%pL can only be used with strings", &data->tag);
-        goto err;
-    }
 
     path_dirname(dirpath, PATH_MAX, env->fullpath.s ?: "");
 
     if (raw) {
-        logger_trace(&_G.logger, 2, "copying raw subfile %pL",
-                     &data->scalar.s);
+        logger_trace(&_G.logger, 2, "copying raw subfile %pL", &path);
     } else {
-        logger_trace(&_G.logger, 2, "parsing subfile %pL", &data->scalar.s);
+        logger_trace(&_G.logger, 2, "parsing subfile %pL", &path);
     }
 
-    subfile = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
-    if (t_yaml_parse_attach_file(subfile, t_fmt("%pL", &data->scalar.s),
-                                 dirpath, &err) < 0)
+    subfile = t_yaml_parse_new(
+        YAML_PARSE_GEN_PRES_DATA
+      | YAML_PARSE_ALLOW_UNBOUND_VARIABLES
+    );
+    if (t_yaml_parse_attach_file(subfile, t_fmt("%pL", &path), dirpath,
+                                 &err) < 0)
     {
         goto err;
 
@@ -748,9 +1427,9 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     qv_append(&env->subfiles, subfile);
 
     if (raw) {
-        yaml_data_set_string(&subdata, subfile->file_contents);
+        yaml_data_set_string(data, subfile->file_contents);
     } else {
-        if (t_yaml_parse(subfile, &subdata, &err) < 0) {
+        if (t_yaml_parse(subfile, data, &err) < 0) {
             /* no call to yaml_env_set_err, because the generated error message
              * will already have all the including details. */
             env->err = subfile->err;
@@ -758,30 +1437,79 @@ static int t_yaml_env_handle_include(yaml_parse_t * nonnull env,
         }
     }
 
+    *variables = subfile->variables;
+
     if (env->pres) {
         yaml__presentation_include__t *inc;
 
         inc = t_iop_new(yaml__presentation_include);
-        inc->include_presentation = data->presentation;
-        inc->path = data->scalar.s;
-        inc->raw = raw;
-        t_yaml_data_get_presentation(&subdata, &inc->document_presentation);
 
-        /* XXX: create a new presentation node for subdata, that indicates it
+        if (subfile->included->data.type != YAML_DATA_SCALAR
+        ||  subfile->included->data.scalar.type != YAML_SCALAR_NULL
+        ||  subfile->included->data.presentation != NULL)
+        {
+            /* Only do this if the included data is not a raw null scalar, to
+             * avoid filling the presentation with clutter. */
+            t_yaml_data_get_presentation(&subfile->included->data,
+                                         &inc->include_presentation);
+        }
+
+        inc->path = path;
+        inc->raw = raw;
+        t_yaml_data_get_presentation(data, &inc->document_presentation);
+
+        /* XXX: create a new presentation node for data, that indicates it
          * is included. We should not modify the existing presentation node
-         * (if it exists), as it indicates the presentation of the subdata
+         * (if it exists), as it indicates the presentation of the data
          * in the subfile, and was saved in "inc->presentation". */
-        subdata.presentation = t_iop_new(yaml__presentation_node);
-        subdata.presentation->included = inc;
+        data->presentation = t_iop_new(yaml__presentation_node);
+        data->presentation->included = inc;
     }
 
-    *data = subdata;
     return 0;
 
   err:
     yaml_env_set_err_at(env, &data->span, YAML_ERR_INVALID_INCLUDE,
                         t_fmt("%pL", &err));
     return -1;
+}
+
+static int
+t_yaml_env_handle_override(yaml_parse_t * nonnull env,
+                           yaml_data_t * nonnull override,
+                           qm_t(yaml_vars) * nonnull variables,
+                           yaml__presentation_include__t * nullable pres,
+                           yaml_data_t * nonnull out);
+
+static int
+t_yaml_env_handle_include(yaml_parse_t * nonnull env,
+                          const uint32_t min_indent, bool raw,
+                          yaml_data_t * nonnull data)
+{
+    yaml__presentation_include__t *pres;
+    qm_t(yaml_vars) vars;
+    pstream_t path = ps_initlstr(&data->tag);
+    yaml_data_t override = *data;
+
+    if (raw) {
+        ps_skip(&path, strlen("includeraw:"));
+    } else {
+        ps_skip(&path, strlen("include:"));
+    }
+
+    /* Parse and retrieve the included AST, and get the associated variables.
+     */
+    RETHROW(t_yaml_env_do_include(env, raw, LSTR_PS_V(&path), data, &vars));
+    pres = data->presentation ? data->presentation->included : NULL;
+
+    /* Parse and apply override, including variable settings */
+    RETHROW(t_yaml_env_handle_override(env, &override, &vars, pres, data));
+
+    /* Save remaining variables into current variables for the document.
+     */
+    yaml_env_merge_variables(env, &vars);
+
+    return 0;
 }
 
 /* }}} */
@@ -813,7 +1541,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
 
     for (;;) {
         yaml__presentation_node__t *node = NULL;
-        yaml_data_t elem;
+        yaml_data_t *elem;
         uint32_t last_indent;
 
         RETHROW(yaml_env_ltrim(env));
@@ -824,11 +1552,11 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
         /* skip '-' */
         yaml_env_skipc(env);
 
-        RETHROW(t_yaml_env_parse_data(env, min_indent + 1, &elem));
+        elem = qv_growlen(&datas, 1);
+        RETHROW(t_yaml_env_parse_data(env, min_indent + 1, elem));
         RETHROW(yaml_env_ltrim(env));
 
-        pos_end = elem.span.end;
-        qv_append(&datas, elem);
+        pos_end = elem->span.end;
         qv_append(&pres, node);
 
         if (ps_done(&env->ps)) {
@@ -874,12 +1602,17 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
         yaml_env_pop_next_node(env, node);
     }
 
-    ps_key = ps_get_span(&env->ps, &ctype_isalnum);
+    ps_key = ps_get_span(&env->ps, &ctype_yaml_key_chars);
     yaml_span_init(key_span, env, key_pos_start, yaml_env_get_pos(env));
 
     if (ps_len(&ps_key) == 0) {
         return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
-                                "only alpha-numeric characters allowed");
+                                "invalid character used");
+    } else
+    if (!isalpha(ps_key.s[0])) {
+        return yaml_env_set_err_at(env, key_span, YAML_ERR_BAD_KEY,
+                                   "name must start with an alphabetic "
+                                   "character");
     } else
     if (ps_getc(&env->ps) != ':') {
         return yaml_env_set_err(env, YAML_ERR_BAD_KEY, "missing colon");
@@ -999,34 +1732,24 @@ static pstream_t yaml_env_get_scalar_ps(yaml_parse_t * nonnull env,
 }
 
 static int
-t_yaml_env_parse_quoted_string(yaml_parse_t *env, yaml_data_t *out)
+t_yaml_env_parse_quoted_string(yaml_parse_t *env, yaml_data_t *out,
+                               qv_t(u8) * nonnull var_bitmap,
+                               bool * nonnull has_escaped_dollars)
 {
-    int line_nb = 0;
-    int col_nb = 0;
     sb_t buf;
-    parse_str_res_t res;
 
     assert (ps_peekc(env->ps) == '"');
     yaml_env_skipc(env);
 
     t_sb_init(&buf, 128);
-    res = parse_quoted_string(&env->ps, &buf, &line_nb, &col_nb, '"');
-    switch (res) {
-      case PARSE_STR_ERR_UNCLOSED:
-        return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
-                                "missing closing '\"'");
-      case PARSE_STR_ERR_EXP_SMTH:
-        return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
-                                "invalid backslash");
-      case PARSE_STR_OK:
-        yaml_env_end_data(env, out);
-        out->scalar.type = YAML_SCALAR_STRING;
-        out->scalar.s = LSTR_SB_V(&buf);
-        return 0;
-    }
+    RETHROW(yaml_parse_quoted_string(env, &buf, var_bitmap,
+                                     has_escaped_dollars));
 
-    assert (false);
-    return yaml_env_set_err(env, YAML_ERR_BAD_STRING, "invalid string");
+    yaml_env_end_data(env, out);
+    out->scalar.type = YAML_SCALAR_STRING;
+    out->scalar.s = LSTR_SB_V(&buf);
+
+    return 0;
 }
 
 static int
@@ -1114,7 +1837,32 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
 
     yaml_env_start_data(env, YAML_DATA_SCALAR, out);
     if (ps_peekc(env->ps) == '"') {
-        return t_yaml_env_parse_quoted_string(env, out);
+        qv_t(u8) var_bitmap;
+        bool has_escaped_dollars = false;
+
+        t_qv_init(&var_bitmap, 0);
+        RETHROW(t_yaml_env_parse_quoted_string(env, out, &var_bitmap,
+                                               &has_escaped_dollars));
+
+        if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
+            yaml__presentation_node__t *node;
+
+            node = t_yaml_env_pres_get_current_node(env->pres);
+            node->quoted = true;
+        }
+
+        if (var_bitmap.len > 0) {
+            if (has_escaped_dollars) {
+                RETHROW(t_yaml_env_add_variables(env, out, true,
+                                                 &var_bitmap));
+            } else {
+                /* fast case: has variables but no escaping: do not bother
+                 * with the bitmap */
+                RETHROW(t_yaml_env_add_variables(env, out, true, NULL));
+            }
+        }
+
+        return 0;
     }
 
     /* get scalar string, ie up to newline or comment, or ']' or ',' for flow
@@ -1141,6 +1889,8 @@ static int t_yaml_env_parse_scalar(yaml_parse_t *env, bool in_flow,
     /* If all else fail, it is a string. */
     out->scalar.type = YAML_SCALAR_STRING;
     out->scalar.s = line;
+
+    RETHROW(t_yaml_env_add_variables(env, out, false, NULL));
 
     return 0;
 }
@@ -1305,6 +2055,12 @@ static int t_yaml_env_parse_flow_key_val(yaml_parse_t *env,
     yaml_key_data_t kd;
 
     RETHROW(yaml_env_parse_key(env, &out->key, &out->key_span, NULL));
+    if (lstr_startswith(out->key, LSTR("$"))) {
+        return yaml_env_set_err_at(env, &out->key_span, YAML_ERR_BAD_KEY,
+                                   "cannot specify a variable value in "
+                                   "this context");
+    }
+
     RETHROW(yaml_env_ltrim(env));
     RETHROW(t_yaml_env_parse_flow_key_data(env, &kd));
     if (kd.key.s) {
@@ -1364,6 +2120,317 @@ static int t_yaml_env_parse_flow_key_data(yaml_parse_t *env,
 }
 
 /* }}} */
+/* {{{ Override */
+
+/* Some data can have an "override" that modifies the previously parsed
+ * content.
+ * This is for example true for !include, and would be true for anchors
+ * if implemented.
+ * These overrides are specified by defining an object on a greater
+ * indentation than the including object:
+ *
+ * - !include foo.yml
+ *   a: 2
+ *   b: 5
+ *
+ * or
+ *
+ * key: !include bar.yml
+ *   c: ~
+ *
+ * All the fields of the override are then merged in the modified data.
+ * The merge strategy is this one (only merge with the same yaml data type is
+ * allowed):
+ *  * for scalars, the override overwrites the original data.
+ *  * for sequences, all data from the override are added.
+ *  * for obj, matched keys means recursing the merge in the inner datas, and
+ *    unmatched keys are added.
+ */
+
+/* {{{ Merging */
+
+static void
+yaml_pres_override_add_node(const lstr_t path,
+                            const yaml_data_t * nullable data,
+                            qv_t(override_nodes) * nonnull nodes)
+
+{
+    yaml__presentation_override_node__t *node;
+
+    node = qv_growlen(nodes, 1);
+    iop_init(yaml__presentation_override_node, node);
+    node->path = path;
+    if (data) {
+        node->original_data = t_iop_new(yaml__data);
+        t_yaml_data_to_iop(data, node->original_data);
+    }
+}
+
+static int
+t_yaml_env_merge_data(yaml_parse_t * nonnull env,
+                      const yaml_data_t * nonnull override,
+                      yaml_presentation_override_t * nullable pres,
+                      yaml_data_t * nonnull data);
+
+static int
+t_yaml_env_merge_key_data(yaml_parse_t * nonnull env,
+                          const yaml_key_data_t * nonnull override,
+                          yaml_presentation_override_t * nullable pres,
+                          yaml_obj_t * nonnull obj)
+{
+    int prev_len = 0;
+
+    tab_for_each_ptr(data_pair, &obj->fields) {
+        if (lstr_equal(data_pair->key, override->key)) {
+            if (pres) {
+                prev_len = pres->path.len;
+
+                sb_addf(&pres->path, ".%pL", &data_pair->key);
+            }
+
+            /* key found, recurse the merging of the inner data */
+            RETHROW(t_yaml_env_merge_data(env, &override->data,
+                                          pres, &data_pair->data));
+            if (pres) {
+                sb_clip(&pres->path, prev_len);
+            }
+            return 0;
+        }
+    }
+
+    /* key not found, add the pair to the object. */
+    logger_trace(&_G.logger, 2,
+                 "merge new key from "YAML_POS_FMT" up to "YAML_POS_FMT,
+                 YAML_POS_ARG(override->key_span.start),
+                 YAML_POS_ARG(override->key_span.end));
+    qv_append(&obj->fields, *override);
+
+    if (pres) {
+        lstr_t path = t_lstr_fmt("%pL.%pL", &pres->path, &override->key);
+
+        yaml_pres_override_add_node(path, NULL, &pres->nodes);
+    }
+
+    return 0;
+}
+
+static int t_yaml_env_merge_obj(yaml_parse_t * nonnull env,
+                                const yaml_obj_t * nonnull override,
+                                yaml_presentation_override_t * nullable pres,
+                                yaml_obj_t * nonnull obj)
+{
+    /* XXX: O(n^2), not great but normal usecase would never override
+     * every key of a huge object, so the tradeoff is fine.
+     */
+    tab_for_each_ptr(pair, &override->fields) {
+        if (!lstr_startswith(pair->key, LSTR("$"))) {
+            RETHROW(t_yaml_env_merge_key_data(env, pair, pres, obj));
+        }
+    }
+
+    return 0;
+}
+
+static int yaml_env_merge_seq(yaml_parse_t * nonnull env,
+                              const yaml_seq_t * nonnull override,
+                              const yaml_span_t * nonnull span,
+                              yaml_presentation_override_t * nullable pres,
+                              yaml_seq_t * nonnull seq)
+{
+    logger_trace(&_G.logger, 2,
+                 "merging seq from "YAML_POS_FMT" up to "YAML_POS_FMT
+                 " by appending its datas", YAML_POS_ARG(span->start),
+                 YAML_POS_ARG(span->end));
+
+    if (pres) {
+        int len = seq->datas.len;
+        for (int i = 0; i < override->datas.len; i++) {
+            lstr_t path = t_lstr_fmt("%pL[%d]", &pres->path, len + i);
+
+            yaml_pres_override_add_node(path, NULL, &pres->nodes);
+        }
+    }
+
+    /* Until a proper syntax is found, seq merge are only additive */
+    qv_extend(&seq->datas, &override->datas);
+    qv_extend(&seq->pres_nodes, &override->pres_nodes);
+
+    return 0;
+}
+
+static void
+t_yaml_merge_scalar(const yaml_data_t * nonnull override,
+                    yaml_presentation_override_t * nullable pres,
+                    yaml_data_t * nonnull out)
+{
+    if (pres) {
+        lstr_t path = t_lstr_dup(LSTR_SB_V(&pres->path));
+
+        yaml_pres_override_add_node(path, out, &pres->nodes);
+    }
+
+    logger_trace(&_G.logger, 2,
+                 "merging scalar from "YAML_POS_FMT" up to "YAML_POS_FMT,
+                 YAML_POS_ARG(override->span.start),
+                 YAML_POS_ARG(override->span.end));
+    *out = *override;
+}
+
+static int
+t_yaml_env_merge_data(yaml_parse_t * nonnull env,
+                      const yaml_data_t * nonnull override,
+                      yaml_presentation_override_t * nullable pres,
+                      yaml_data_t * nonnull data)
+{
+    if (data->type != override->type) {
+        const char *msg;
+
+        /* XXX: This could be allowed, and implemented by completely replacing
+         * the overridden data with the overriding one. However, the use-cases
+         * are not clear, and it could hide errors, so reject it until a
+         * valid use-case is found. */
+        msg = t_fmt("overridden data is %s and not %s",
+                    yaml_data_get_data_type(data),
+                    yaml_data_get_data_type(override));
+        return yaml_env_set_err_at(env, &override->span,
+                                   YAML_ERR_INVALID_OVERRIDE, msg);
+    }
+
+    switch (data->type) {
+      case YAML_DATA_SCALAR: {
+        int prev_len = 0;
+
+        if (pres) {
+            prev_len = pres->path.len;
+
+            sb_addc(&pres->path, '!');
+        }
+
+        t_yaml_merge_scalar(override, pres, data);
+
+        if (pres) {
+            sb_clip(&pres->path, prev_len);
+        }
+      } break;
+      case YAML_DATA_SEQ:
+        RETHROW(yaml_env_merge_seq(env, override->seq, &override->span,
+                                   pres, data->seq));
+        break;
+      case YAML_DATA_OBJ:
+        RETHROW(t_yaml_env_merge_obj(env, override->obj, pres, data->obj));
+        break;
+    }
+
+    return 0;
+}
+
+/* }}} */
+/* {{{ Override */
+
+/* Set variables in the AST.
+ *
+ * \param[in]      env   The parsing environment.
+ * \param[in]      data  The data containing variables bindings.
+ * \param[in,out]  variables  Information about unbound variables in the AST.
+ * \param[out]     pres  Presentation details.
+ */
+static int
+yaml_env_set_variables(yaml_parse_t * nonnull env,
+                       const yaml_data_t * nonnull data,
+                       qm_t(yaml_vars) * nonnull variables,
+                       yaml__presentation_include__t * nullable pres)
+{
+    if (data->type != YAML_DATA_OBJ) {
+        return yaml_env_set_err_at(env, &data->span, YAML_ERR_WRONG_DATA,
+                                   "variable settings must be an object");
+    }
+
+    if (pres) {
+        qv_t(var_binding) bindings;
+
+        t_qv_init(&bindings, data->obj->fields.len);
+
+        RETHROW(t_yaml_env_replace_variables(env, data->obj, variables,
+                                             &bindings));
+
+        pres->variables = t_iop_new(yaml__presentation_variable_settings);
+        pres->variables->bindings
+            = IOP_TYPED_ARRAY_TAB(yaml__presentation_variable_binding,
+                                  &bindings);
+    } else {
+        RETHROW(t_yaml_env_replace_variables(env, data->obj, variables,
+                                             NULL));
+    }
+
+    return 0;
+}
+
+static int
+t_yaml_env_handle_override(yaml_parse_t * nonnull env,
+                           yaml_data_t * nonnull override,
+                           qm_t(yaml_vars) * nonnull variables,
+                           yaml__presentation_include__t * nullable pres,
+                           yaml_data_t * nonnull out)
+{
+    yaml_presentation_override_t *ov_pres = NULL;
+
+    if (override->type == YAML_DATA_SCALAR
+    &&  override->scalar.type == YAML_SCALAR_NULL)
+    {
+        /* no overrides, standard '!include:foo.yml' case. */
+        return 0;
+    }
+
+    if (override->type != YAML_DATA_OBJ) {
+        return yaml_env_set_err_at(env, &override->span, YAML_ERR_WRONG_DATA,
+                                   "override data after include "
+                                   "must be an object");
+    }
+
+    if (pres) {
+        ov_pres = t_new(yaml_presentation_override_t, 1);
+        t_qv_init(&ov_pres->nodes, 0);
+        t_sb_init(&ov_pres->path, 1024);
+    }
+
+
+    /* If the first key of the obj is "variables", use it to set variables
+     * in the AST. */
+    /* TODO: this forbids overriding a "variables" field. This could be fixed
+     * by adding a more explicit syntax in that case, for example:
+     *
+     * !include
+     *   path: foo.yml
+     *   variables: ...
+     *   override: ...
+     *
+     * For the moment, it isn't a big deal however.
+     */
+    if (override->obj->fields.len > 0
+    &&  lstr_equal(override->obj->fields.tab[0].key, LSTR("variables")))
+    {
+        yaml_obj_t *obj = override->obj;
+
+        RETHROW(yaml_env_set_variables(env, &obj->fields.tab[0].data,
+                                       variables, pres));
+        obj->fields.tab++;
+        obj->fields.len--;
+        if (obj->fields.len == 0) {
+            return 0;
+        }
+    }
+
+    RETHROW(t_yaml_env_merge_data(env, override, ov_pres, out));
+
+    if (ov_pres) {
+        pres->override = t_presentation_override_to_iop(ov_pres, override);
+    }
+
+    return 0;
+}
+
+/* }}} */
+/* }}} */
 /* {{{ Data */
 
 static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
@@ -1372,32 +2439,62 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
     uint32_t cur_indent;
 
     RETHROW(yaml_env_ltrim(env));
-    if (ps_done(&env->ps)) {
-        return yaml_env_set_err(env, YAML_ERR_MISSING_DATA,
-                                "unexpected end of line");
-    }
-
     cur_indent = yaml_env_get_column_nb(env);
-    if (cur_indent < min_indent) {
-        return yaml_env_set_err(env, YAML_ERR_WRONG_INDENT,
-                                "missing element");
+    if (cur_indent < min_indent || ps_done(&env->ps)) {
+        yaml_env_start_data(env, YAML_DATA_SCALAR, out);
+        yaml_env_end_data(env, out);
+        out->scalar.type = YAML_SCALAR_NULL;
+
+        if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
+            yaml__presentation_node__t *node;
+
+            node = t_yaml_env_pres_get_current_node(env->pres);
+            node->empty_null = true;
+        }
+
+        return 0;
     }
 
     if (ps_peekc(env->ps) == '!') {
-        RETHROW(t_yaml_env_parse_tag(env, min_indent, out));
-        RETHROW(t_yaml_env_handle_include(env, out));
+        yaml_tag_type_t type = YAML_TAG_TYPE_NONE;
+
+        RETHROW(t_yaml_env_parse_tag(env, min_indent, out, &type));
+        switch (type) {
+          case YAML_TAG_TYPE_INCLUDE:
+            RETHROW(t_yaml_env_handle_include(env, min_indent + 1, false,
+                                              out));
+            break;
+          case YAML_TAG_TYPE_INCLUDERAW:
+            RETHROW(t_yaml_env_handle_include(env, min_indent + 1, true,
+                                              out));
+            break;
+          case YAML_TAG_TYPE_NONE:
+            break;
+        }
     } else
     if (ps_startswith_yaml_seq_prefix(&env->ps)) {
         RETHROW(t_yaml_env_parse_seq(env, cur_indent, out));
     } else
     if (ps_peekc(env->ps) == '[') {
-        RETHROW(t_yaml_env_parse_flow_seq(env, out));
+        unsigned flags = env->flags;
+        int res;
+
+        env->flags |= YAML_PARSE_FORBID_VARIABLES;
+        res = t_yaml_env_parse_flow_seq(env, out);
+        env->flags = flags;
+        RETHROW(res);
         if (out->seq->datas.len > 0) {
             t_yaml_env_pres_set_flow_mode(env);
         }
     } else
     if (ps_peekc(env->ps) == '{') {
-        RETHROW(t_yaml_env_parse_flow_obj(env, out));
+        unsigned flags = env->flags;
+        int res;
+
+        env->flags |= YAML_PARSE_FORBID_VARIABLES;
+        res = t_yaml_env_parse_flow_obj(env, out);
+        env->flags = flags;
+        RETHROW(res);
         if (out->obj->fields.len > 0) {
             t_yaml_env_pres_set_flow_mode(env);
         }
@@ -1496,6 +2593,7 @@ yaml_parse_t *t_yaml_parse_new(int flags)
     env->flags = flags;
     t_sb_init(&env->err, 1024);
     t_qv_init(&env->subfiles, 0);
+    t_qm_init(yaml_vars, &env->variables, 0);
 
     return env;
 }
@@ -1555,6 +2653,25 @@ t_yaml_parse_attach_file(yaml_parse_t *env, const char *filepath,
     return 0;
 }
 
+static void
+set_unbound_variables_err(yaml_parse_t *env)
+{
+    SB_1k(buf);
+
+    /* build list of unbound variable names */
+    qm_for_each_key(yaml_vars, name, &env->variables) {
+        if (buf.len > 0) {
+            sb_adds(&buf, ", ");
+        }
+        sb_add_lstr(&buf, name);
+    }
+
+    /* TODO: maybe pretty printing the locations of the unbound variables
+     * would be useful */
+    sb_setf(&env->err, "the document is invalid: "
+            "there are unbound variables: %pL", &buf);
+}
+
 int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
 {
     pstream_t saved_ps = env->ps;
@@ -1574,6 +2691,14 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
     if (!ps_done(&env->ps)) {
         yaml_env_set_err(env, YAML_ERR_EXTRA_DATA,
                          "expected end of document");
+        res = -1;
+        goto end;
+    }
+
+    if (qm_len(yaml_vars, &env->variables) > 0
+    &&  !(env->flags & YAML_PARSE_ALLOW_UNBOUND_VARIABLES))
+    {
+        set_unbound_variables_err(env);
         res = -1;
         goto end;
     }
@@ -1639,7 +2764,8 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
     }
     sb_addf(out, YAML_POS_FMT": %pL", YAML_POS_ARG(span->start), &error_msg);
 
-    one_liner = span->end.line_nb == span->start.line_nb;
+    one_liner = span->end.line_nb == span->start.line_nb
+             && span->end.col_nb != span->start.col_nb;
 
     /* get the full line including pos_start */
     ps.s = span->start.s;
@@ -1671,6 +2797,55 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
 
 /* }}} */
 /* {{{ Packer */
+/* {{{ Packing types */
+/* {{{ Variables */
+
+typedef struct yaml_pack_variable_t yaml_pack_variable_t;
+
+/** Deduced value of a variable. */
+struct yaml_pack_variable_t {
+    /* Name of the variable */
+    lstr_t name;
+
+    /* If NULL, variable's value has not been deduced yet. */
+    const yaml_data_t * nullable deduced_value;
+
+    /* Original value used for the variable. Only set if the variable was
+     * used in strings, see PresentationVariableBinding::value */
+    lstr_t original_value;
+
+    /* Chaining to a new variable, created in result of a conflict.
+     *
+     * If the variable is used in multiple places, but deduced values do
+     * not match, the conflict resolution will add new variables to hold
+     * the different values.
+     * These new variables must not match any existing names in any active
+     * vars map, and must be reusable if multiple deduce values matches.
+     *
+     * For example:
+     *  Resolving [ $foo, $foo, <$foo>] with [ 1, 2, <2> ] should yield:
+     *   [ $foo, ${foo~1}, <${foo~1}> ]
+     *   and
+     *     $foo: 1
+     *     ${foo~1}: 2
+     *
+     * Chaining the conflicts directly in the original variable object makes
+     * it easier to resolve them rather than adding them directly in the
+     * active_vars map.
+     */
+    yaml_pack_variable_t * nullable conflict;
+};
+
+qvector_t(pack_var, yaml_pack_variable_t * nonnull);
+
+/* Mapping from variable name, to deduced value */
+qm_kvec_t(active_vars, lstr_t, yaml_pack_variable_t, qhash_lstr_hash,
+          qhash_lstr_equal);
+
+qvector_t(active_vars, qm_t(active_vars));
+
+/* }}} */
+/* }}} */
 
 #define YAML_STD_INDENT  2
 
@@ -1697,8 +2872,8 @@ typedef enum yaml_pack_state_t {
     PACK_STATE_AFTER_DATA,
 } yaml_pack_state_t;
 
-qm_kvec_t(path_to_yaml_data, lstr_t, const yaml_data_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(path_to_checksum, lstr_t, uint64_t, qhash_lstr_hash,
+          qhash_lstr_equal);
 
 typedef struct yaml_pack_env_t {
     /* Write callback + priv data. */
@@ -1717,8 +2892,24 @@ typedef struct yaml_pack_env_t {
     /* Presentation data, if provided. */
     const yaml_presentation_t * nullable pres;
 
-    /* Current path being packed. */
-    sb_t current_path;
+    /* Path from the root document.
+     *
+     * When packing the root document, this is equivalent to the current path.
+     * However, when packing a subfile, this includes the path from the
+     * including document.
+     * To get the current path only, see yaml_pack_env_get_curpath.
+     *
+     * Absolute paths are used for overrides through includes, see
+     * yaml_pack_override_t::absolute_path.
+     */
+    sb_t absolute_path;
+
+    /* Start of current path being packed.
+     *
+     * This is the index of the start of the current path in the
+     * absolute_path buffer.
+     */
+    unsigned current_path_pos;
 
     /* Error buffer. */
     sb_t err;
@@ -1737,10 +2928,27 @@ typedef struct yaml_pack_env_t {
 
     /* Packed subfiles.
      *
-     * Associates paths to created subfiles with the yaml_data_t object packed
-     * in each subfile. This is used to handle shared subfiles.
+     * Associates paths to created subfiles with a checksum of the file's
+     * content. This is used to handle shared subfiles.
      */
-    qm_t(path_to_yaml_data) * nullable subfiles;
+    qm_t(path_to_checksum) * nullable subfiles;
+
+    /** Information about overridden values.
+     *
+     * This is a *stack* of currently active overrides. The last element
+     * is the most recent override, and matching overridden values should thus
+     * be done in reverse order.
+     */
+    qv_t(pack_override) overrides;
+
+    /** Information about substituted variables.
+     *
+     * This is a *stack* of currently active variables (i.e., variable names
+     * that are handled by an override). The last element is the most recent
+     * override, and matching variable values should thus be done in reverse
+     * order.
+     */
+    qv_t(active_vars) active_vars;
 } yaml_pack_env_t;
 
 static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
@@ -1913,6 +3121,30 @@ static int yaml_pack_tag(yaml_pack_env_t * nonnull env, const lstr_t tag)
     return res;
 }
 
+static yaml_pack_override_node_t * nullable
+yaml_pack_env_find_override(yaml_pack_env_t * nonnull env)
+{
+    t_scope;
+    lstr_t abspath;
+
+    if (env->overrides.len == 0) {
+        return NULL;
+    }
+
+    abspath = LSTR_SB_V(&env->absolute_path);
+    tab_for_each_pos_rev(ov_pos, &env->overrides) {
+        yaml_pack_override_t *override = &env->overrides.tab[ov_pos];
+        int qm_pos;
+
+        qm_pos = qm_find(override_nodes, &override->nodes, &abspath);
+        if (qm_pos >= 0) {
+            return &override->nodes.values[qm_pos];
+        }
+    }
+
+    return NULL;
+}
+
 /* }}} */
 /* {{{ Presentation */
 
@@ -1933,9 +3165,9 @@ yaml_pack_env_push_path(yaml_pack_env_t * nullable env, const char *fmt,
         return 0;
     }
 
-    prev_len = env->current_path.len;
+    prev_len = env->absolute_path.len;
     va_start(args, fmt);
-    sb_addvf(&env->current_path, fmt, args);
+    sb_addvf(&env->absolute_path, fmt, args);
     va_end(args);
 
     return prev_len;
@@ -1948,13 +3180,20 @@ yaml_pack_env_pop_path(yaml_pack_env_t * nullable env, int prev_len)
         return;
     }
 
-    sb_clip(&env->current_path, prev_len);
+    sb_clip(&env->absolute_path, prev_len);
+}
+
+static lstr_t
+yaml_pack_env_get_curpath(const yaml_pack_env_t * nonnull env)
+{
+    return LSTR_PTR_V(env->absolute_path.data + env->current_path_pos,
+                      env->absolute_path.data + env->absolute_path.len);
 }
 
 static const yaml__presentation_node__t * nullable
-yaml_pack_env_get_pres_node(yaml_pack_env_t * nullable env)
+yaml_pack_env_get_pres_node(yaml_pack_env_t * nonnull env)
 {
-    lstr_t path = LSTR_SB_V(&env->current_path);
+    lstr_t path = yaml_pack_env_get_curpath(env);
 
     assert (env->pres);
     return qm_get_def_safe(yaml_pres_node, &env->pres->nodes, &path, NULL);
@@ -2030,7 +3269,9 @@ yaml_pack_pres_node_inline(yaml_pack_env_t * nonnull env,
  */
 #define IBUF_LEN  25
 
-static bool yaml_string_must_be_quoted(const lstr_t s)
+static bool
+yaml_string_must_be_quoted(const lstr_t s,
+                           const yaml__presentation_node__t * nullable pres)
 {
     /* '!', '&', '*', '-', '"' and '.' have special YAML meaning.
      * Technically, '-' is only forbidden if followed by a space,
@@ -2054,6 +3295,23 @@ static bool yaml_string_must_be_quoted(const lstr_t s)
         return true;
     }
 
+    if (pres && pres->quoted) {
+        return true;
+    }
+
+    /* If string is a template, only quote if the template contains an
+     * escaped var */
+    if (pres && pres->tpl) {
+        if (pres->tpl->variables_bitmap.len > 0) {
+            return true;
+        }
+    } else {
+        /* If not a template, use of '$(' must be escaped, and thus quoted. */
+        if (lstr_contains(s, LSTR("$("))) {
+            return true;
+        }
+    }
+
     /* cannot start with those characters */
     if (ctype_desc_contains(&yaml_invalid_raw_string_start, s.s[0])) {
         return true;
@@ -2073,22 +3331,31 @@ static bool yaml_string_must_be_quoted(const lstr_t s)
     return false;
 }
 
-static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val)
+static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val,
+                            const yaml__presentation_node__t * nullable pres)
 {
     int res = 0;
     pstream_t ps;
+    qv_t(u8) bitmap;
+    qv_t(u8) *var_bitmap = NULL;
+    int var_pos = 0;
 
-    if (!yaml_string_must_be_quoted(val)) {
+    if (!yaml_string_must_be_quoted(val, pres)) {
         PUTLSTR(val);
         return res;
+    }
+
+    if (pres && pres->tpl) {
+        qv_init_static_tab(&bitmap, &pres->tpl->variables_bitmap);
+        var_bitmap = &bitmap;
     }
 
     ps = ps_initlstr(&val);
     PUTS("\"");
     while (!ps_done(&ps)) {
-        /* r:32-127 -s:'\\"' */
+        /* r:32-127 -s:'\\"$' */
         static ctype_desc_t const safe_chars = { {
-            0x00000000, 0xfffffffb, 0xefffffff, 0xffffffff,
+            0x00000000, 0xffffffeb, 0xefffffff, 0xffffffff,
                 0x00000000, 0x00000000, 0x00000000, 0x00000000,
         } };
         const uint8_t *p = ps.b;
@@ -2108,6 +3375,25 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val)
             c = ps_getc(&ps);
         }
         switch (c) {
+          case '$':
+            if (ps_peekc(ps) != '(') {
+                PUTS("$");
+                break;
+            }
+            ps_skip(&ps, 1);
+
+            /* If in a template, we need to quote '$'. Otherwise, we must
+             * keep it as is if it is a variable */
+            if (var_bitmap) {
+                var_pos++;
+
+                if (var_bitmap_test_bit(var_bitmap, var_pos - 1)) {
+                    PUTS("$(");
+                    break;
+                }
+            }
+            PUTS("\\$(");
+            break;
           case '"':  PUTS("\\\""); break;
           case '\\': PUTS("\\\\"); break;
           case '\a': PUTS("\\a"); break;
@@ -2130,18 +3416,28 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val)
     return res;
 }
 
-static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
-                            const yaml_scalar_t * nonnull scalar,
-                            const lstr_t tag)
+static int
+yaml_pack_scalar(yaml_pack_env_t * nonnull env,
+                 const yaml_scalar_t * nonnull scalar, const lstr_t tag,
+                 const yaml__presentation_node__t * nullable pres)
 {
     int res = 0;
     char ibuf[IBUF_LEN];
+
+    if (unlikely(scalar->type == YAML_SCALAR_NULL && pres
+              && pres->empty_null))
+    {
+        /* special case for empty null scalar: do nothing. This allows
+         * factorizing the GOTO_STATE as the other cases will all write
+         * something. */
+        goto end;
+    }
 
     GOTO_STATE(CLEAN);
 
     switch (scalar->type) {
       case YAML_SCALAR_STRING:
-        res += yaml_pack_string(env, scalar->s);
+        res += yaml_pack_string(env, scalar->s, pres);
         break;
 
       case YAML_SCALAR_DOUBLE: {
@@ -2181,6 +3477,7 @@ static int yaml_pack_scalar(yaml_pack_env_t * nonnull env,
         break;
     }
 
+  end:
     env->state = PACK_STATE_AFTER_DATA;
 
     return res;
@@ -2204,6 +3501,7 @@ static int t_yaml_pack_seq(yaml_pack_env_t * nonnull env,
     tab_for_each_pos(pos, &seq->datas) {
         const yaml__presentation_node__t *node = NULL;
         const yaml_data_t *data = &seq->datas.tab[pos];
+        yaml_pack_override_node_t *override = NULL;
         int path_len = 0;
 
         if (env->pres) {
@@ -2213,6 +3511,19 @@ static int t_yaml_pack_seq(yaml_pack_env_t * nonnull env,
         if (pos < seq->pres_nodes.len && seq->pres_nodes.tab[pos]) {
             node = seq->pres_nodes.tab[pos];
         }
+
+        override = yaml_pack_env_find_override(env);
+        if (override && likely(!override->data)) {
+            /* The node was added by an override. Save it in the override
+             * data, and ignore the node. */
+            logger_trace(&_G.logger, 2,
+                         "not packing overridden data in path `%*pM`",
+                         LSTR_FMT_ARG(yaml_pack_env_get_curpath(env)));
+            override->data = data;
+            override->found = true;
+            goto next;
+        }
+
         res += yaml_pack_pres_node_prefix(env, node);
 
         GOTO_STATE(ON_DASH);
@@ -2223,6 +3534,7 @@ static int t_yaml_pack_seq(yaml_pack_env_t * nonnull env,
         res += RETHROW(t_yaml_pack_data(env, data));
         env->indent_lvl -= YAML_STD_INDENT;
 
+      next:
         yaml_pack_env_pop_path(env, path_len);
     }
 
@@ -2238,6 +3550,7 @@ static int t_yaml_pack_key_data(yaml_pack_env_t * nonnull env,
     int res = 0;
     int path_len = 0;
     const yaml__presentation_node__t *node;
+    yaml_pack_override_node_t *override = NULL;
 
     if (env->pres) {
         path_len = yaml_pack_env_push_path(env, ".%pL", &kd->key);
@@ -2245,6 +3558,18 @@ static int t_yaml_pack_key_data(yaml_pack_env_t * nonnull env,
     } else {
         node = kd->key_presentation;
     }
+
+    override = yaml_pack_env_find_override(env);
+    if (override && likely(!override->data)) {
+        /* The node was added by an override. Save it in the override
+         * data, and ignore the node. */
+        logger_trace(&_G.logger, 2, "not packing overridden data in path "
+                     "`%*pM`", LSTR_FMT_ARG(yaml_pack_env_get_curpath(env)));
+        override->data = &kd->data;
+        override->found = true;
+        goto end;
+    }
+
     res += yaml_pack_pres_node_prefix(env, node);
 
     GOTO_STATE(ON_KEY);
@@ -2259,6 +3584,7 @@ static int t_yaml_pack_key_data(yaml_pack_env_t * nonnull env,
     res += RETHROW(t_yaml_pack_data(env, &kd->data));
     env->indent_lvl -= YAML_STD_INDENT;
 
+  end:
     yaml_pack_env_pop_path(env, path_len);
 
     return res;
@@ -2357,16 +3683,13 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 {
     int res = 0;
 
-    if (data->tag.s) {
-        /* cannot pack in flow mode with a tag: the tag will be lost. */
-        /* TODO: something must be done about this case rather than simply
-         * ignoring the tag... At the very least, revert the flow packing
-         * and pack it with the normal syntax. */
-    }
+    /* This is guaranteed by the yaml_data_can_use_flow_mode check. */
+    assert (!data->tag.s);
 
     switch (data->type) {
       case YAML_DATA_SCALAR:
-        res += RETHROW(yaml_pack_scalar(env, &data->scalar, LSTR_NULL_V));
+        res += RETHROW(yaml_pack_scalar(env, &data->scalar, LSTR_NULL_V,
+                                        NULL));
         break;
       case YAML_DATA_SEQ:
         res += RETHROW(yaml_pack_flow_seq(env, data->seq));
@@ -2381,7 +3704,222 @@ static int yaml_pack_flow_data(yaml_pack_env_t * nonnull env,
 }
 
 /* }}} */
+/* {{{ Flow packable helpers */
+
+static bool
+yaml_env_path_contains_overrides(const yaml_pack_env_t * nonnull env)
+{
+    t_scope;
+    lstr_t abspath;
+
+    abspath = LSTR_SB_V(&env->absolute_path);
+    tab_for_each_ptr(override, &env->overrides) {
+        qm_for_each_key(override_nodes, key, &override->nodes) {
+            if (lstr_startswith(key, abspath)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+static bool yaml_data_contains_tags(const yaml_data_t * nonnull data)
+{
+    if (data->tag.s) {
+        return true;
+    }
+
+    switch (data->type) {
+      case YAML_DATA_SCALAR:
+        break;
+      case YAML_DATA_SEQ:
+        tab_for_each_ptr(elem, &data->seq->datas) {
+            if (yaml_data_contains_tags(elem)) {
+                return true;
+            }
+        }
+        break;
+      case YAML_DATA_OBJ:
+        tab_for_each_ptr(kd, &data->obj->fields) {
+            if (yaml_data_contains_tags(&kd->data)) {
+                return true;
+            }
+        }
+        break;
+    }
+
+    return false;
+}
+
+/** Make sure the data can be packed using flow mode.
+ *
+ * Flow mode is incompatible with the use of tags. If any data inside the
+ * provided data has tags, flow mode cannot be used.
+ */
+static bool
+yaml_env_data_can_use_flow_mode(const yaml_pack_env_t * nonnull env,
+                                const yaml_data_t * nonnull data)
+{
+    /* If the flow data contains overrides, it cannot be packed into flow
+     * mode. This isn't a hard limitation, but not implemented for the moment
+     * because:
+     *  * the use case seems limited
+     *  * this would complicate the flow packing a lot, as it does not handle
+     *    presentation.
+     */
+    if (yaml_env_path_contains_overrides(env)) {
+        return false;
+    }
+
+    /* Recursing through the data to find out if it can be packed in a certain
+     * way isn't ideal... This is acceptable here because flow data are
+     * usually very small, and in the worst case, the whole data is in flow
+     * mode, so we only go through the data twice.
+     */
+    if (yaml_data_contains_tags(data)) {
+        return false;
+    }
+
+    return true;
+}
+
+/* }}} */
+/* {{{ Pack override */
+
+static void t_iop_pres_override_to_pack_override(
+    const yaml_pack_env_t * nonnull env,
+    const yaml__presentation_override__t * nonnull pres,
+    yaml_pack_override_t *out)
+{
+    p_clear(out, 1);
+
+    out->presentation = pres;
+    t_qm_init(override_nodes, &out->nodes, pres->nodes.len);
+    t_qv_init(&out->ordered_paths, pres->nodes.len);
+
+    tab_for_each_ptr(node, &pres->nodes) {
+        yaml_pack_override_node_t pack_node;
+        yaml_data_t *data = NULL;
+        lstr_t path;
+        int res;
+
+        if (node->original_data) {
+            data = t_new(yaml_data_t, 1);
+            t_iop_data_to_yaml(node->original_data, data);
+        }
+        p_clear(&pack_node, 1);
+        pack_node.data = data;
+
+        path = t_lstr_fmt("%pL%pL", &env->absolute_path, &node->path);
+        res = qm_add(override_nodes, &out->nodes, &path, pack_node);
+        assert (res >= 0);
+
+        qv_append(&out->ordered_paths, path);
+    }
+}
+
+static void
+t_set_data_from_path(const yaml_data_t * nonnull data, pstream_t path,
+                     bool new, yaml_data_t * nonnull out)
+{
+    if (ps_peekc(path) == '!' || ps_len(&path) == 0) {
+        /* The ps_len == 0 can happen for added datas. The path ends with
+         * [%d] or .%s, to mark the seq elem/obj key as the node being added.
+         */
+        *out = *data;
+    } else
+    if (ps_peekc(path) == '[') {
+        yaml_data_t new_data;
+
+        ps_skipc(&path, '.');
+        /* We do not care about the index, because it is relative to the
+         * overridden AST, not relevant here. Here, we only want to create
+         * a sequence holding all our elements. */
+        ps_skip_afterchr(&path, ']');
+
+        if (new) {
+            t_yaml_data_new_seq(out, 1);
+        } else {
+            /* This assert should not fail unless the presentation data was
+             * malignly crafted. As it is created from a parsed AST, there
+             * cannot be mixed data types through common path.
+             * If this assert fails, it means the override contains paths
+             * such as:
+             *
+             * .foo.bar
+             * .foo[0]
+             *
+             * ie .foo is both an object and a sequence.
+             */
+            if (!expect(out->type == YAML_DATA_SEQ)) {
+                return;
+            }
+        }
+
+        t_set_data_from_path(data, path, true, &new_data);
+        yaml_seq_add_data(out, new_data);
+    } else
+    if (ps_peekc(path) == '.') {
+        yaml_data_t new_data;
+        pstream_t ps_key;
+        lstr_t key;
+
+        ps_skipc(&path, '.');
+        ps_key = ps_get_span(&path, &ctype_isalnum);
+        key = LSTR_PS_V(&ps_key);
+
+        if (new) {
+            t_yaml_data_new_obj(out, 1);
+        } else {
+            /* see related expect in the seq case */
+            if (!expect(out->type == YAML_DATA_OBJ)) {
+                return;
+            }
+
+            tab_for_each_ptr(kd, &out->obj->fields) {
+                if (lstr_equal(kd->key, key)) {
+                    t_set_data_from_path(data, path, false, &kd->data);
+                    return;
+                }
+            }
+        }
+
+        t_set_data_from_path(data, path, true, &new_data);
+        yaml_obj_add_field(out, key, new_data);
+    }
+}
+
+static void
+t_build_override_data(const yaml_pack_override_t * nonnull override,
+                      yaml_data_t * nonnull out)
+{
+    /* Iterate on the ordered paths, to make sure the data is recreated
+     * in the right order. */
+    assert (override->ordered_paths.len == override->presentation->nodes.len);
+    tab_for_each_pos(pos, &override->ordered_paths) {
+        const yaml_pack_override_node_t *node;
+        pstream_t ps;
+
+        node = qm_get_p_safe(override_nodes, &override->nodes,
+                             &override->ordered_paths.tab[pos]);
+
+        if (unlikely(!node->found)) {
+            /* This can happen if an overrided node is no longer present
+             * in the AST. In that case, ignore it.  */
+            continue;
+        }
+        assert (node->data);
+
+        /* Use the relative path here, to properly reconstruct the data. */
+        ps = ps_initlstr(&override->presentation->nodes.tab[pos].path);
+        t_set_data_from_path(node->data, ps, false, out);
+    }
+}
+
+/* }}} */
 /* {{{ Pack include */
+/* {{{ Subfile sharing handling */
 
 enum subfile_status_t {
     SUBFILE_TO_CREATE,
@@ -2392,7 +3930,7 @@ enum subfile_status_t {
 /* check if data can be packed in the subfile given from its relative path
  * from the env outdir */
 static enum subfile_status_t
-check_subfile(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
+check_subfile(yaml_pack_env_t * nonnull env, uint64_t checksum,
               const char * nonnull relative_path)
 {
     char fullpath[PATH_MAX];
@@ -2404,12 +3942,10 @@ check_subfile(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
     path = LSTR(fullpath);
 
     assert (env->subfiles);
-    pos = qm_put(path_to_yaml_data, env->subfiles, &path, data, 0);
+    pos = qm_put(path_to_checksum, env->subfiles, &path, checksum, 0);
     if (pos & QHASH_COLLISION) {
         pos &= ~QHASH_COLLISION;
-        /* TODO: this may be optimized in some way with some sort of hashing,
-         * to avoid calling yaml_data_equals repeatedly. */
-        if (yaml_data_equals(env->subfiles->values[pos], data)) {
+        if (env->subfiles->values[pos] == checksum) {
             return SUBFILE_TO_REUSE;
         } else {
             return SUBFILE_TO_IGNORE;
@@ -2421,14 +3957,19 @@ check_subfile(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
 }
 
 static const char * nullable
-t_find_right_path(yaml_pack_env_t * nonnull env,
-                  const yaml_data_t * nonnull data, lstr_t initial_path,
-                  bool * nonnull reuse)
+t_find_right_path(yaml_pack_env_t * nonnull env, sb_t * nonnull contents,
+                  lstr_t initial_path, bool * nonnull reuse)
 {
     const char *ext;
     char *path;
     lstr_t base;
     int counter = 1;
+    uint64_t checksum;
+
+    /* TODO: it would be more efficient to compute the checksum as the
+     * contents buffer is filled. */
+    /* TODO: use full 256bits hash to prevent collision? */
+    checksum = sha2_hash_64(contents->data, contents->len);
 
     path = t_fmt("%pL", &initial_path);
     path_simplify(path);
@@ -2439,7 +3980,7 @@ t_find_right_path(yaml_pack_env_t * nonnull env,
     /* check base.ext, base~1.ext, etc until either the file does not exist,
      * or the data to pack is identical to the data packed in the subfile. */
     for (;;) {
-        switch (check_subfile(env, data, path)) {
+        switch (check_subfile(env, checksum, path)) {
           case SUBFILE_TO_CREATE:
             *reuse = false;
             return path;
@@ -2464,28 +4005,67 @@ t_find_right_path(yaml_pack_env_t * nonnull env,
     }
 }
 
+/* }}} */
+/* {{{ Include node packing */
+
+/* Generation presentation for include data to hide the '~', and generate:
+ *  !include:path
+ * instead of:
+ *  !include:path ~
+ */
+static yaml__document_presentation__t * nonnull
+t_gen_default_include_presentation(void)
+{
+    yaml__presentation_node_mapping__t *mapping;
+    yaml__document_presentation__t *pres;
+
+    mapping = t_iop_new(yaml__presentation_node_mapping);
+    mapping->path = LSTR("!");
+    mapping->node.empty_null = true;
+
+    pres = t_iop_new(yaml__document_presentation);
+    pres->mappings = IOP_TYPED_ARRAY(yaml__presentation_node_mapping,
+                                     mapping, 1);
+
+    return pres;
+}
+
+/* Pack the "!include(raw)?:<path>" node, with the right presentation. */
 static int
 t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
-                         const yaml__presentation_node__t * nonnull pres,
-                         bool raw, lstr_t include_path)
+                         const yaml__document_presentation__t * nonnull dpres,
+                         bool raw, lstr_t include_path,
+                         yaml_data_t * nonnull data)
 {
-    const yaml_presentation_t *saved_pres = env->pres;
-    yaml_data_t data;
+    const yaml_presentation_t *pres;
+    unsigned current_path_pos;
     int res;
 
-    yaml_data_set_string(&data, include_path);
-    data.tag = raw ? LSTR("includeraw") : LSTR("include");
-    data.presentation = unconst_cast(yaml__presentation_node__t, pres);
+    if (raw) {
+        data->tag = t_lstr_fmt("includeraw:%pL", &include_path);
+    } else {
+        data->tag = t_lstr_fmt("include:%pL", &include_path);
+    }
 
-    /* Make sure the presentation data is not used as the paths won't be
-     * correct when packing this data. */
-    env->pres = NULL;
-    res = t_yaml_pack_data(env, &data);
-    env->pres = saved_pres;
+    if (dpres->mappings.len == 0) {
+        dpres = t_gen_default_include_presentation();
+    }
+    pres = t_yaml_doc_pres_to_map(dpres);
+
+    current_path_pos = env->absolute_path.len;
+
+    SWAP(const yaml_presentation_t *, pres, env->pres);
+    SWAP(unsigned, current_path_pos, env->current_path_pos);
+
+    res = t_yaml_pack_data(env, data);
+
+    SWAP(unsigned, current_path_pos, env->current_path_pos);
+    SWAP(const yaml_presentation_t *, pres, env->pres);
 
     return res;
 }
 
+/* write raw contents directly into the given filepath. */
 static int
 yaml_pack_write_raw_file(const yaml_pack_env_t * nonnull env,
                          const char * nonnull filepath,
@@ -2519,110 +4099,597 @@ yaml_pack_write_raw_file(const yaml_pack_env_t * nonnull env,
     return 0;
 }
 
-static int
-t_yaml_pack_inclusion(yaml_pack_env_t * nonnull env,
-                      yaml__presentation_include__t * nonnull inc,
-                      const yaml_data_t * nonnull subdata)
-{
-    const char *path;
-    bool reuse;
-    bool raw;
+/* }}} */
+/* {{{ Pack subfile */
 
-    /* This is checked on parsing. Unless the presentation data has been
-     * modified by hand, which is not possible yet, this should not fail. */
-    if (!expect(!lstr_startswith(inc->path, LSTR("..")))) {
-        sb_setf(&env->err, "subfile `%pL` is not contained in the output "
-                "directory `%pL`, this is not allowed", &inc->path,
-                &env->outdirpath);
-        return -1;
+static int write_nothing(void *b, const void *buf, int len, sb_t *err)
+{
+    return len;
+}
+
+static int
+t_yaml_pack_subfile_in_sb(yaml_pack_env_t * nonnull env,
+                          const yaml__presentation_include__t * nonnull inc,
+                          const yaml_data_t * nonnull data, bool no_subfiles,
+                          sb_t * nonnull out, sb_t * nonnull err)
+{
+    yaml_pack_env_t *subenv = t_yaml_pack_env_new();
+
+    if (!no_subfiles) {
+        const char *fullpath;
+        char dirpath[PATH_MAX];
+
+        fullpath = t_fmt("%pL/%pL", &env->outdirpath, &inc->path);
+        path_dirname(dirpath, PATH_MAX, fullpath);
+
+        RETHROW(t_yaml_pack_env_set_outdir(subenv, dirpath, err));
     }
 
-    raw = inc->raw;
+    t_yaml_pack_env_set_presentation(subenv, &inc->document_presentation);
+
+    sb_setsb(&subenv->absolute_path, &env->absolute_path);
+    subenv->current_path_pos = subenv->absolute_path.len;
+    yaml_pack_env_set_flags(subenv, env->flags);
+
+    subenv->overrides = env->overrides;
+    subenv->active_vars = env->active_vars;
+
+    /* Make sure the subfiles qm is shared, so that if this subfile
+     * also generate other subfiles, it is properly handled. */
+    subenv->subfiles = env->subfiles;
+
+    if (no_subfiles) {
+        /* Go through the AST as if the file was packed, but do not actually
+         * write anything. This allows properly recreating the overrides. */
+        RETHROW(t_yaml_pack(subenv, data, &write_nothing, NULL, err));
+    } else {
+        RETHROW(t_yaml_pack_sb(subenv, data, out, err));
+
+        /* always ends with a newline when packing for a file */
+        if (out->len > 0 && out->data[out->len - 1] != '\n') {
+            sb_addc(out, '\n');
+        }
+    }
+
+    return 0;
+}
+
+static int
+t_yaml_pack_included_subfile(
+    yaml_pack_env_t * nonnull env,
+    const yaml__presentation_include__t * nonnull inc,
+    const yaml_data_t * nonnull subdata,
+    bool * nonnull raw, const char * nonnull * nonnull path)
+{
+    bool reuse;
+    bool no_subfiles = env->flags & YAML_PACK_NO_SUBFILES;
+    int res = 0;
+    SB_1k(contents);
+    SB_1k(err);
+
+    if (!env->subfiles) {
+        env->subfiles = t_qm_new(path_to_checksum, 0);
+    }
+
     /* if the YAML data to dump is not a string, it changed and can no longer
      * be packed raw. */
-    if (raw && (subdata->type != YAML_DATA_SCALAR
-            ||  subdata->scalar.type != YAML_SCALAR_STRING))
+    *raw = inc->raw;
+    if (*raw && (subdata->type != YAML_DATA_SCALAR
+             ||  subdata->scalar.type != YAML_SCALAR_STRING))
     {
-        raw = false;
+        *raw = false;
     }
 
-    path = t_find_right_path(env, subdata, inc->path, &reuse);
+    if (*raw) {
+        sb_set_lstr(&contents, subdata->scalar.s);
+    } else {
+        /* Pack the subdata, but in a sb, not in the subfile directly. As the
+         * subfile can be shared by multiple includes, we need to ensure
+         * the contents are the same to share the same filename, or use
+         * another one.
+         *
+         * Additionally, as packing the subfiles might have side-effects on
+         * the current env (mainly, overrides packed in this env depends on
+         * the packing of the subdata), it is not possible to do some sort
+         * of AST comparison to detect shared subfiles.
+         */
+        if (t_yaml_pack_subfile_in_sb(env, inc, subdata, no_subfiles,
+                                      &contents, &err) < 0)
+        {
+            sb_setf(&env->err, "cannot pack subfile `%pL`: %pL", &inc->path,
+                    &err);
+            return -1;
+        }
+    }
+
+    *path = t_find_right_path(env, &contents, inc->path, &reuse);
     if (!reuse) {
-        SB_1k(err);
+        logger_trace(&_G.logger, 2, "writing %ssubfile %s", raw ? "raw " : "",
+                     *path);
+        if (likely(!no_subfiles)
+        &&  yaml_pack_write_raw_file(env, *path, LSTR_SB_V(&contents),
+                                     &err) < 0)
+        {
+            sb_setf(&env->err, "error when writing subfile `%s`: %pL",
+                    *path, &err);
+            return -1;
+        }
+    }
 
-        if (raw) {
-            logger_trace(&_G.logger, 2, "writing raw subfile %s", path);
-            if (yaml_pack_write_raw_file(env, path, subdata->scalar.s,
-                                         &err) < 0)
-            {
-                sb_setf(&env->err, "error when writing raw subfile `%s`: %pL",
-                        path, &err);
-                return -1;
+    return res;
+}
+
+static void
+t_build_variable_settings(
+    const yaml__presentation_variable_settings__t *var_pres,
+    qm_t(active_vars) * nonnull vars, yaml_data_t * nonnull out)
+{
+    yaml_data_t data;
+
+    assert (var_pres->bindings.len == qm_len(active_vars, vars));
+    t_yaml_data_new_obj(&data, var_pres->bindings.len);
+
+    /* Iterate on the array and not the qm, to recreate the variable settings
+     * in the right order. */
+    tab_for_each_ptr(binding, &var_pres->bindings) {
+        const yaml_pack_variable_t *var;
+
+        var = qm_get_p(active_vars, vars, &binding->var_name);
+        while (var) {
+            if (var->deduced_value) {
+                yaml_obj_add_field(&data, var->name, *var->deduced_value);
             }
-        } else {
-            yaml_pack_env_t *subenv = t_yaml_pack_env_new();
+            var = var->conflict;
+        }
+    }
 
-            RETHROW(t_yaml_pack_env_set_outdir(subenv, env->outdirpath.s,
-                                               &err));
-            yaml_pack_env_set_presentation(subenv,
-                                           &inc->document_presentation);
+    if (data.obj->fields.len > 0) {
+        yaml_obj_add_field(out, LSTR("variables"), data);
+    }
+}
 
-            /* Make sure the subfiles qm is shared, so that if this subfile
-             * also generate other subfiles, it is properly handled. */
-            subenv->subfiles = env->subfiles;
+static int
+t_yaml_pack_include_with_override(
+    yaml_pack_env_t * nonnull env,
+    const yaml__presentation_include__t * nonnull inc,
+    const yaml_data_t * nonnull subdata)
+{
+    yaml_pack_override_t *override = NULL;
+    qm_t(active_vars) vars;
+    bool raw;
+    const char *path;
+    yaml_data_t settings;
 
-            logger_trace(&_G.logger, 2, "packing subfile %s", path);
-            if (t_yaml_pack_file(subenv, path, subdata, &err) < 0) {
-                sb_setf(&env->err, "error when packing subfile `%s`: %pL", path,
-                        &err);
-                return -1;
-            }
+    /* add current override if it exists, so that it is used when the subdata
+     * is packed. */
+    if (inc->override) {
+        override = qv_growlen0(&env->overrides, 1);
+        t_iop_pres_override_to_pack_override(env, inc->override,
+                                             override);
+    }
+    if (inc->variables) {
+        t_qm_init(active_vars, &vars, inc->variables->bindings.len);
+
+        tab_for_each_ptr(binding, &inc->variables->bindings) {
+            yaml_pack_variable_t var = {
+                .name = binding->var_name,
+                .original_value = binding->value,
+            };
+
+            qm_add(active_vars, &vars, &binding->var_name, var);
+        }
+        qv_append(&env->active_vars, vars);
+    }
+
+    /* Pack the contents of the subfile. Retrieve whether it is a raw include
+     * or not, and the exact path (after collision resolution).
+     */
+    RETHROW(t_yaml_pack_included_subfile(env, inc, subdata, &raw, &path));
+
+    /* Create an object from possible variables and overrides */
+    if (inc->variables || override) {
+
+        t_yaml_data_new_obj(&settings,
+                            override ? override->ordered_paths.len + 1 : 1);
+
+        if (inc->variables) {
+            t_build_variable_settings(inc->variables, &vars, &settings);
+            qv_remove_last(&env->active_vars);
         }
 
+        if (override) {
+            qv_remove_last(&env->overrides);
+            t_build_override_data(override, &settings);
+        }
+    } else {
+        yaml_data_set_null(&settings);
     }
 
-    return t_yaml_pack_include_path(env, inc->include_presentation, raw,
-                                    LSTR(path));
+    return t_yaml_pack_include_path(env, &inc->include_presentation, raw,
+                                    LSTR(path), &settings);
 }
+
+/* }}} */
 
 static int
 t_yaml_pack_included_data(yaml_pack_env_t * nonnull env,
                           const yaml_data_t * nonnull data,
                           const yaml__presentation_node__t * nonnull node)
 {
-    yaml__presentation_include__t *inc;
+    const yaml__presentation_include__t *inc;
 
     inc = node->included;
-    if (env->flags & YAML_PACK_NO_SUBFILES) {
-        return t_yaml_pack_include_path(env, inc->include_presentation,
-                                        inc->raw, inc->path);
-    } else
-    /* Only create subfiles if an outdir is set, ie if we are packing into
-     * files. */
-    if (env->outdirpath.s) {
-        return t_yaml_pack_inclusion(env, inc, data);
+    /* Write include node & override if:
+     *  * an outdir is set
+     *  * NO_SUBFILES is set, meaning we are recreating the file as is.
+     */
+    if (env->outdirpath.len > 0 || env->flags & YAML_PACK_NO_SUBFILES) {
+        return t_yaml_pack_include_with_override(env, inc, data);
     } else {
         const yaml_presentation_t *saved_pres = env->pres;
-        SB_1k(new_path);
-        sb_t saved_path;
+        unsigned current_path_pos = env->absolute_path.len;
         int res;
 
         /* Inline the contents of the included data directly in the current
          * stream. This is as easy as just packing data, but we need to also
          * use the presentation data from the included files. To do so, the
          * current_path must be reset. */
-
-        saved_path = env->current_path;
-
+        SWAP(unsigned, current_path_pos, env->current_path_pos);
         env->pres = t_yaml_doc_pres_to_map(&inc->document_presentation);
-        env->current_path = new_path;
+
         res = t_yaml_pack_data(env, data);
 
-        env->current_path = saved_path;
         env->pres = saved_pres;
+        SWAP(unsigned, current_path_pos, env->current_path_pos);
 
         return res;
     }
+}
+
+/* }}} */
+/* {{{ Variables */
+
+static yaml_pack_variable_t * nullable
+t_yaml_env_find_var(yaml_pack_env_t * nonnull env, lstr_t var_name)
+{
+    tab_for_each_pos_rev(var_pos, &env->active_vars) {
+        const qm_t(active_vars) *vars = &env->active_vars.tab[var_pos];
+        yaml_pack_variable_t *var;
+
+        var = qm_get_def_p_safe(active_vars, vars, &var_name, NULL);
+        if (!var) {
+            continue;
+        }
+
+        return var;
+    }
+
+    return NULL;
+}
+
+static yaml_pack_variable_t * nullable
+t_find_var(yaml_pack_env_t * nonnull env, lstr_t name)
+{
+    tab_for_each_pos_rev(var_pos, &env->active_vars) {
+        const qm_t(active_vars) *vars = &env->active_vars.tab[var_pos];
+        yaml_pack_variable_t *var;
+
+        var = qm_get_def_p_safe(active_vars, vars, &name, NULL);
+        if (var) {
+            return var;
+        }
+    }
+
+    return NULL;
+}
+
+static void
+t_resolve_var_conflict(yaml_pack_env_t * nonnull env,
+                       yaml_pack_variable_t * nonnull var,
+                       const yaml_data_t * nonnull data,
+                       lstr_t * nonnull new_name)
+{
+    lstr_t orig_var_name = var->name;
+    yaml_pack_variable_t *next_var = var->conflict;
+    unsigned cnt = 1;
+
+    /* try to match to existant conflict resolution, or get to the end
+     * of the chain */
+    while (next_var) {
+        if (yaml_data_equals(next_var->deduced_value, data)) {
+            *new_name = next_var->name;
+            return;
+        }
+        var = next_var;
+        next_var = next_var->conflict;
+        cnt++;
+    }
+
+    for (;;) {
+        lstr_t var_name = t_lstr_fmt("%pL~%d", &orig_var_name, cnt++);
+
+        if (t_find_var(env, var_name)) {
+            /* This name actually exists in a surrounding env, do not use it.
+             */
+            continue;
+        }
+        var->conflict = t_new(yaml_pack_variable_t, 1);
+        var->conflict->name = var_name;
+        var->conflict->deduced_value = data;
+        *new_name = var_name;
+        break;
+    }
+}
+
+static int
+t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
+                       const yaml_data_t * nonnull data,
+                       lstr_t * nonnull new_name)
+{
+    yaml_pack_variable_t *var;
+
+    var = t_find_var(env, var_name);
+    if (!var) {
+        return -1;
+    }
+
+    if (var->deduced_value) {
+        if (!yaml_data_equals(var->deduced_value, data)) {
+            t_resolve_var_conflict(env, var, data, new_name);
+            return 0;
+        }
+    } else {
+        var->deduced_value = data;
+    }
+
+    logger_trace(&_G.logger, 2, "deduced value for variable `%pL` "
+                 "to %s", &var_name, yaml_data_get_type(data, false));
+    *new_name = LSTR_NULL_V;
+    return 0;
+}
+
+static lstr_t t_yaml_format_variable(lstr_t name)
+{
+    return t_lstr_fmt("$(%pL)", &name);
+}
+
+/* Apply the original values of the variables to the template.
+ * If the result is equal to ast_value, the variables did not change (*), and
+ * their original values can thus be used.
+ *
+ * (*) Theorically, the variables can change while the template result stays
+ * the same, through some symmetric modifications. This is quite out of the
+ * scope we want to handle.
+ */
+static int
+t_apply_original_var_values(yaml_pack_env_t * nonnull env,
+                            const lstr_t ast_value,
+                            qv_t(u8) * nonnull var_bitmap,
+                            lstr_t * nonnull tpl)
+{
+    t_SB_1k(buf);
+    pstream_t ps;
+    pstream_t sub;
+    qv_t(pack_var) matched_vars;
+    int var_pos = 0;
+
+    ps = ps_initlstr(tpl);
+    t_qv_init(&matched_vars, 1);
+
+    for (;;) {
+        lstr_t name;
+        yaml_pack_variable_t *var;
+        pstream_t cpy;
+
+        /* copy up to next '$' */
+        if (ps_get_ps_chr(&ps, '$', &sub) < 0) {
+            /* no next '$', copy everything and stop */
+            sb_add_ps(&buf, ps);
+            break;
+        }
+        sb_add_ps(&buf, sub);
+        if (!ps_has(&ps, 2) || ps.s[1] != '(') {
+            ps_skip(&ps, 1);
+            sb_addc(&buf, '$');
+            continue;
+        }
+
+        var_pos += 1;
+        if (!var_bitmap_test_bit(var_bitmap, var_pos - 1)) {
+            sb_addc(&buf, ps_getc(&ps));
+            continue;
+        }
+
+        cpy = ps;
+        ps_skip(&ps, 2);
+        name = ps_parse_variable_name(&ps);
+        if (!name.s) {
+            return -1;
+        }
+        var = t_yaml_env_find_var(env, name);
+        if (!var || !var->original_value.s) {
+            if (env->flags & YAML_PACK_ALLOW_UNBOUND_VARIABLES) {
+                sb_add(&buf, cpy.p, ps.s - cpy.s);
+                continue;
+            }
+            return -1;
+        }
+
+        sb_add_lstr(&buf, var->original_value);
+        qv_append(&matched_vars, var);
+    }
+
+    if (!lstr_equal(ast_value, LSTR_SB_V(&buf))) {
+        return -1;
+    }
+
+    /* The strings matches. Apply the original value as the deduced value for
+     * all used variables */
+    tab_for_each_entry(var, &matched_vars) {
+        yaml_data_t *data;
+        lstr_t new_name;
+
+        assert (var->original_value.s);
+        data = t_new(yaml_data_t, 1);
+        yaml_data_set_string(data, var->original_value);
+
+        RETHROW(t_apply_variable_value(env, var->name, data, &new_name));
+        if (new_name.s) {
+            /* Even though the string did not change, the value has
+             * conflicted, and a new name must used. Replace in the template
+             * the old name with a variable using the new name. */
+            *tpl = t_tpl_set_variable(*tpl, var->name,
+                                      t_yaml_format_variable(new_name),
+                                      var_bitmap);
+        }
+    }
+
+    logger_trace(&_G.logger, 2, "template `%pL` did not change: re-use same "
+                 "values for variables used", tpl);
+
+    return 0;
+}
+
+/* Deduce value of a variable inside a string. The template can be:
+ *
+ * - a raw variable: a: $(var)
+ * - a templated string with a single variable: a: "a_$(var)_b"
+ * - a templated string with multiple variables: a: "$(var)_$(foo)"
+ *
+ * This function handles the first two cases. The last one is not attempted.
+ * Even if it can be done in some cases, there are cases that can only be
+ * resolved through complex regex-style matching, and there are ambiguous
+ * cases, such as:
+ *  * template: "$(foo)_$(bar)"
+ *  * value: "a_b_c_d_e"
+ */
+static int
+deduce_var_in_string(lstr_t tpl, lstr_t value,
+                     const qv_t(u8) * nonnull bitmap,
+                     lstr_t * nonnull var_name, lstr_t * nonnull var_value)
+{
+    pstream_t tpl_ps = ps_initlstr(&tpl);
+    pstream_t val_ps = ps_initlstr(&value);
+    lstr_t name;
+    int var_pos = 0;
+
+    /* advance both streams until the variable or a mismatch is found */
+    while (!ps_done(&tpl_ps)) {
+        int c = ps_getc(&tpl_ps);
+
+        if (c == '$' && ps_peekc(tpl_ps) == '(') {
+            if (bitmap->len == 0 || (var_pos < bitmap->len * 8
+                                  && TST_BIT(bitmap->tab, var_pos)))
+            {
+                /* var found */
+                ps_skip(&tpl_ps, 1);
+                break;
+            }
+            var_pos++;
+        }
+
+        if (ps_done(&val_ps)) {
+            return -1;
+        } else
+        if (c != ps_getc(&val_ps)) {
+            return -1;
+        }
+    }
+
+    /* capture name of variable */
+    name = ps_parse_variable_name(&tpl_ps);
+    if (!name.s) {
+        return -1;
+    }
+
+    /* check if the rest of the template after the variable matches
+     * the value. If not, it means either the value changed, or there are
+     * multiple variables. */
+    value = LSTR_PS_V(&val_ps);
+    if (!lstr_endswith(value, LSTR_PS_V(&tpl_ps))) {
+        return -1;
+    }
+    value.len -= ps_len(&tpl_ps);
+
+    *var_name = name;
+    *var_value = value;
+    return 0;
+}
+
+/* Deduce values for active variables, by comparing the original string
+ * containing variables, with the value of the AST.
+ *
+ * If all variables cannot be deduced, -1 is returned, and the original string
+ * with variables is not used.
+ */
+static int
+t_deduce_variable_values(yaml_pack_env_t * nonnull env,
+                         const yaml_data_t * nonnull data,
+                         const u8__array_t * nonnull variables_bitmap,
+                         lstr_t * nonnull var_string)
+{
+    lstr_t new_name;
+    qv_t(u8) var_bitmap;
+
+    t_qv_init(&var_bitmap, 0);
+    qv_extend(&var_bitmap, variables_bitmap);
+
+    if (data->type == YAML_DATA_SCALAR
+    &&  data->scalar.type == YAML_SCALAR_STRING)
+    {
+        lstr_t var_name;
+        lstr_t var_value;
+        yaml_data_t *var_data;
+
+        /* First, use the original values of variables to see if the value is
+         * still the same. This allows repacking in the same way if the value
+         * did not change, without trying to deduce changes that are very
+         * rare. */
+        if (t_apply_original_var_values(env, data->scalar.s, &var_bitmap,
+                                        var_string) >= 0)
+        {
+            return 0;
+        }
+
+        /* Otherwise, try to deduce variable values, but the implementation is
+         * limited. */
+        if (deduce_var_in_string(*var_string, data->scalar.s, &var_bitmap,
+                                 &var_name, &var_value) < 0)
+        {
+            return -1;
+        }
+        var_data = t_new(yaml_data_t, 1);
+        yaml_data_set_string(var_data, var_value);
+
+        RETHROW(t_apply_variable_value(env, var_name, var_data, &new_name));
+        if (new_name.s) {
+            /* The value has conflicted, and a new name must used. Replace
+             * the old name with a variable using the new name */
+            new_name = t_yaml_format_variable(new_name);
+            *var_string = t_tpl_set_variable(*var_string, var_name, new_name,
+                                             &var_bitmap);
+        }
+    } else {
+        /* If data is not a string, it should be matched on a template
+         * containing only the variable, ie "$(name)". */
+        pstream_t tpl_ps = ps_initlstr(var_string);
+        lstr_t name;
+
+        if (ps_skipc(&tpl_ps, '$') < 0 || ps_skipc(&tpl_ps, '(') < 0) {
+            return -1;
+        }
+        name = ps_parse_variable_name(&tpl_ps);
+        if (!name.s || !ps_done(&tpl_ps)) {
+            return -1;
+        }
+
+        RETHROW(t_apply_variable_value(env, name, data, &new_name));
+        if (new_name.s) {
+            *var_string = t_yaml_format_variable(new_name);
+        }
+    }
+
+    return 0;
 }
 
 /* }}} */
@@ -2632,12 +4699,25 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
                             const yaml_data_t * nonnull data)
 {
     const yaml__presentation_node__t *node;
+    yaml_pack_override_node_t *override = NULL;
     int res = 0;
 
     if (env->pres) {
         int path_len = yaml_pack_env_push_path(env, "!");
 
         node = yaml_pack_env_get_pres_node(env);
+        override = yaml_pack_env_find_override(env);
+        /* This should only be a replace, as additions can only be done
+         * on keys or seq indicators. So *override should be not NULL, but
+         * as a user can write its own presentation data, we cannot assert
+         * it. */
+        if (override && likely(override->data)) {
+            logger_trace(&_G.logger, 2,
+                         "packing non-overriden data in path `%*pM`",
+                         LSTR_FMT_ARG(yaml_pack_env_get_curpath(env)));
+            SWAP(const yaml_data_t *, data, override->data);
+            override->found = true;
+        }
         yaml_pack_env_pop_path(env, path_len);
     } else {
         node = data->presentation;
@@ -2651,18 +4731,41 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
 
     if (node) {
         res += yaml_pack_pres_node_prefix(env, node);
+
+        if (node->tpl) {
+            lstr_t tpl = node->tpl->original_value;
+
+            if (t_deduce_variable_values(env, data,
+                                         &node->tpl->variables_bitmap,
+                                         &tpl) >= 0)
+            {
+                yaml_data_t *new_data = t_new(yaml_data_t, 1);
+
+                yaml_data_set_string(new_data, tpl);
+                data = new_data;
+            } else {
+                logger_trace(&_G.logger, 2, "change to template `%pL` "
+                             "not handled: template is lost",
+                             &node->tpl->original_value);
+                /* presentation applies to the template. If losing the
+                 * template, lose the presentation. */
+                node = NULL;
+            }
+        }
     }
 
     res += yaml_pack_tag(env, data->tag);
 
-    if (node && node->flow_mode) {
+    if (node && node->flow_mode && yaml_env_data_can_use_flow_mode(env, data))
+    {
         GOTO_STATE(CLEAN);
         res += yaml_pack_flow_data(env, data, false);
         env->state = PACK_STATE_AFTER_DATA;
     } else {
         switch (data->type) {
           case YAML_DATA_SCALAR: {
-            res += RETHROW(yaml_pack_scalar(env, &data->scalar, data->tag));
+            res += RETHROW(yaml_pack_scalar(env, &data->scalar, data->tag,
+                                            node));
           } break;
           case YAML_DATA_SEQ:
             res += RETHROW(t_yaml_pack_seq(env, data->seq));
@@ -2697,9 +4800,12 @@ yaml_pack_env_t * nonnull t_yaml_pack_env_new(void)
     env->state = PACK_STATE_ON_NEWLINE;
     env->file_flags = FILE_WRONLY | FILE_CREATE | FILE_TRUNC;
     env->file_mode = 0644;
+    env->outdirpath = LSTR_EMPTY_V;
 
-    t_sb_init(&env->current_path, 1024);
+    t_sb_init(&env->absolute_path, 1024);
     t_sb_init(&env->err, 1024);
+    t_qv_init(&env->overrides, 0);
+    t_qv_init(&env->active_vars, 0);
 
     return env;
 }
@@ -2738,7 +4844,7 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode)
     env->file_mode = mode;
 }
 
-void yaml_pack_env_set_presentation(
+void t_yaml_pack_env_set_presentation(
     yaml_pack_env_t * nonnull env,
     const yaml__document_presentation__t * nonnull pres
 )
@@ -2756,9 +4862,7 @@ int t_yaml_pack(yaml_pack_env_t * nonnull env,
     env->write_cb = writecb;
     env->priv = priv;
 
-    sb_init(&env->current_path);
     res = t_yaml_pack_data(env, data);
-    sb_wipe(&env->current_path);
     if (res < 0 && err) {
         sb_setsb(err, &env->err);
     }
@@ -2773,14 +4877,11 @@ static inline int sb_write(void * nonnull b, const void * nonnull buf,
     return len;
 }
 
-void t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
-                    const yaml_data_t * nonnull data, sb_t * nonnull sb)
+int t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
+                   const yaml_data_t * nonnull data, sb_t * nonnull sb,
+                   sb_t * nullable err)
 {
-    int res;
-
-    res = t_yaml_pack(env, data, &sb_write, sb, NULL);
-    /* Should not fail when packing into a sb */
-    assert (res >= 0);
+    return t_yaml_pack(env, data, &sb_write, sb, err);
 }
 
 typedef struct yaml_pack_file_ctx_t {
@@ -2808,7 +4909,7 @@ t_yaml_pack_file(yaml_pack_env_t * nonnull env, const char * nonnull filename,
     yaml_pack_file_ctx_t ctx;
     int res;
 
-    if (env->outdirpath.s) {
+    if (env->outdirpath.len > 0) {
         filename = t_fmt("%pL/%s", &env->outdirpath, filename);
     }
 
@@ -2816,10 +4917,6 @@ t_yaml_pack_file(yaml_pack_env_t * nonnull env, const char * nonnull filename,
      * before. */
     path_dirname(path, PATH_MAX, filename);
     RETHROW(t_yaml_pack_env_set_outdir(env, path, err));
-
-    if (!env->subfiles) {
-        env->subfiles = t_qm_new(path_to_yaml_data, 0);
-    }
 
     p_clear(&ctx, 1);
     ctx.file = file_open(filename, env->file_flags, env->file_mode);
@@ -2951,11 +5048,12 @@ MODULE_END()
 
 /* {{{ Helpers */
 
-static int z_yaml_test_parse_fail(const char *yaml, const char *expected_err)
+static int z_yaml_test_parse_fail(unsigned flags,
+                                  const char *yaml, const char *expected_err)
 {
     t_scope;
     yaml_data_t data;
-    yaml_parse_t *env = t_yaml_parse_new(0);
+    yaml_parse_t *env = t_yaml_parse_new(flags);
     SB_1k(err);
 
     yaml_parse_attach_ps(env, ps_initstr(yaml));
@@ -3005,6 +5103,8 @@ z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
 {
     t_scope;
     yaml_pack_env_t *env;
+    yaml_parse_t *parse_env;
+    yaml_data_t parsed_data;
     char *path;
     SB_1k(err);
 
@@ -3014,10 +5114,52 @@ z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
     }
     path = t_fmt("%pL/%s", &z_tmpdir_g, filepath);
     if (presentation) {
-        yaml_pack_env_set_presentation(env, presentation);
+        t_yaml_pack_env_set_presentation(env, presentation);
     }
     Z_ASSERT_N(t_yaml_pack_file(env, path, data, &err),
                "cannot pack YAML file %s: %pL", filepath, &err);
+
+    if (flags & YAML_PACK_NO_SUBFILES) {
+        /* this does not repack the full ast, so do not try to reparse it */
+        return 0;
+    }
+
+    /* parse file and ensure the resulting AST is equal to what was packed. */
+    if (flags & YAML_PACK_ALLOW_UNBOUND_VARIABLES) {
+        parse_env = t_yaml_parse_new(YAML_PARSE_ALLOW_UNBOUND_VARIABLES);
+    } else {
+        parse_env = t_yaml_parse_new(0);
+    }
+    Z_ASSERT_N(t_yaml_parse_attach_file(parse_env, filepath, z_tmpdir_g.s,
+                                        &err));
+    Z_ASSERT_N(t_yaml_parse(parse_env, &parsed_data, &err),
+               "could not reparse the packed file: %pL", &err);
+
+    Z_ASSERT(yaml_data_equals(data, &parsed_data));
+
+    Z_HELPER_END;
+}
+
+static int
+z_pack_yaml_in_sb_with_subfiles(
+    const char *dirpath, const yaml_data_t *data,
+    const yaml__document_presentation__t *presentation,
+    const char *expected_res)
+{
+    t_scope;
+    yaml_pack_env_t *env;
+    SB_1k(out);
+    SB_1k(err);
+
+    env = t_yaml_pack_env_new();
+    dirpath = t_fmt("%pL/%s", &z_tmpdir_g, dirpath);
+    Z_ASSERT_N(t_yaml_pack_env_set_outdir(env, dirpath, &err));
+    if (presentation) {
+        t_yaml_pack_env_set_presentation(env, presentation);
+    }
+    Z_ASSERT_N(t_yaml_pack_sb(env, data, &out, &err),
+               "cannot pack YAML buffer: %pL", &err);
+    Z_ASSERT_STREQUAL(out.data, expected_res);
 
     Z_HELPER_END;
 }
@@ -3065,21 +5207,40 @@ static int z_yaml_test_file_parse_fail(const char *yaml,
     Z_HELPER_END;
 }
 
+static int
+z_yaml_test_pack(const yaml_data_t * nonnull data,
+                 yaml__document_presentation__t * nullable pres,
+                 unsigned flags, const char * nonnull expected_pack)
+{
+    yaml_pack_env_t *pack_env;
+    SB_1k(pack);
+    SB_1k(err);
+
+    pack_env = t_yaml_pack_env_new();
+    if (pres) {
+        t_yaml_pack_env_set_presentation(pack_env, pres);
+    }
+    yaml_pack_env_set_flags(pack_env, flags);
+    Z_ASSERT_N(t_yaml_pack_sb(pack_env, data, &pack, &err));
+    Z_ASSERT_STREQUAL(pack.data, expected_pack,
+                      "repacking the parsed data leads to differences");
+
+    Z_HELPER_END;
+}
+
 /* out parameter first to let the yaml string be last, which makes it
  * much easier to write multiple lines without horrible indentation */
 static
-int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
-                                yaml__document_presentation__t *nullable pres,
-                                yaml_parse_t * nonnull * nullable env,
-                                const char * nonnull yaml,
-                                const char * nullable expected_repack)
+int t_z_yaml_test_parse_success(
+    yaml_data_t * nullable data,
+    yaml__document_presentation__t *nullable pres,
+    yaml_parse_t * nonnull * nullable env, unsigned flags,
+    const char * nonnull yaml, const char * nullable expected_repack)
 {
     yaml__document_presentation__t p;
-    yaml_pack_env_t *pack_env;
     yaml_data_t local_data;
     yaml_parse_t *local_env = NULL;
     SB_1k(err);
-    SB_1k(repack);
 
     if (!pres) {
         pres = &p;
@@ -3091,7 +5252,7 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
         env = &local_env;
     }
 
-    *env = t_yaml_parse_new(YAML_PARSE_GEN_PRES_DATA);
+    *env = t_yaml_parse_new(flags | YAML_PARSE_GEN_PRES_DATA);
     /* hack to make relative inclusion work in z_tmpdir_g */
     (*env)->fullpath = t_lstr_fmt("%pL/foo.yml", &z_tmpdir_g);
     yaml_parse_attach_ps(*env, ps_initstr(yaml));
@@ -3103,20 +5264,12 @@ int z_t_yaml_test_parse_success(yaml_data_t * nullable data,
     }
 
     /* repack using presentation data from the AST */
-    pack_env = t_yaml_pack_env_new();
-    t_yaml_pack_sb(pack_env, data, &repack);
-    Z_ASSERT_STREQUAL(repack.data, expected_repack,
-                      "repacking the parsed data leads to differences");
-    sb_reset(&repack);
+    Z_HELPER_RUN(z_yaml_test_pack(data, NULL, 0, expected_repack));
 
     /* repack using yaml_presentation_t specification, and not the
      * presentation data inside the AST */
     t_yaml_data_get_presentation(data, pres);
-    pack_env = t_yaml_pack_env_new();
-    yaml_pack_env_set_presentation(pack_env, pres);
-    t_yaml_pack_sb(pack_env, data, &repack);
-    Z_ASSERT_STREQUAL(repack.data, expected_repack,
-                      "repacking the parsed data leads to differences");
+    Z_HELPER_RUN(z_yaml_test_pack(data, pres, 0, expected_repack));
 
     if (local_env) {
         yaml_parse_delete(&local_env);
@@ -3168,13 +5321,14 @@ z_check_yaml_pack(const yaml_data_t * nonnull data,
                   const char *yaml)
 {
     t_scope;
-    SB_1k(sb);
     yaml_pack_env_t *env = t_yaml_pack_env_new();
+    SB_1k(sb);
+    SB_1k(err);
 
     if (presentation) {
-        yaml_pack_env_set_presentation(env, presentation);
+        t_yaml_pack_env_set_presentation(env, presentation);
     }
-    t_yaml_pack_sb(env, data, &sb);
+    Z_ASSERT_N(t_yaml_pack_sb(env, data, &sb, &err));
     Z_ASSERT_STREQUAL(sb.data, yaml);
 
     Z_HELPER_END;
@@ -3209,6 +5363,19 @@ static int z_check_prefix_comments(const yaml_presentation_t * nonnull pres,
     Z_HELPER_END;
 }
 
+static int
+z_test_var_in_str_change(const yaml_data_t * nonnull data,
+                         const yaml__document_presentation__t * nonnull pres,
+                         const char * nonnull root,
+                         const char * nonnull inner)
+{
+    Z_HELPER_RUN(z_pack_yaml_file("vc_str/root.yml", data, pres, 0));
+    Z_HELPER_RUN(z_check_file("vc_str/root.yml", root));
+    Z_HELPER_RUN(z_check_file("vc_str/inner.yml", inner));
+
+    Z_HELPER_END;
+}
+
 /* }}} */
 
 Z_GROUP_EXPORT(yaml)
@@ -3218,55 +5385,41 @@ Z_GROUP_EXPORT(yaml)
     /* {{{ Parsing errors */
 
     Z_TEST(parsing_errors, "errors when parsing yaml") {
-        /* unexpected EOF */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "",
-            "<string>:1:1: missing data, unexpected end of line"
-        ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "  # my comment",
-
-            "<string>:1:15: missing data, unexpected end of line\n"
-            "  # my comment\n"
-            "              ^"
-        ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "key:",
-
-            "<string>:1:5: missing data, unexpected end of line\n"
-            "key:\n"
-            "    ^"
-        ));
-
         /* wrong object continuation */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a: 5\nb",
 
             "<string>:2:2: invalid key, missing colon\n"
             "b\n"
             " ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "a: 5\n_:",
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: 5\n%:",
 
-            "<string>:2:1: invalid key, "
-            "only alpha-numeric characters allowed\n"
-            "_:\n"
+            "<string>:2:1: invalid key, invalid character used\n"
+            "%:\n"
+            "^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "5: ~",
+
+            "<string>:1:1: invalid key, "
+            "name must start with an alphabetic character\n"
+            "5: ~\n"
             "^"
         ));
 
         /* wrong explicit string */
-        /* TODO: weird span? */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "\" unfinished string",
 
-            "<string>:1:2: expected string, missing closing '\"'\n"
+            "<string>:1:20: expected string, missing closing '\"'\n"
             "\" unfinished string\n"
-            " ^"
+            "                   ^"
         ));
 
         /* wrong escaped code */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "\"\\",
 
             "<string>:1:2: expected string, invalid backslash\n"
@@ -3275,23 +5428,22 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* wrong tag */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "!-",
 
             "<string>:1:2: invalid tag, must start with a letter\n"
             "!-\n"
             " ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "!a-\n"
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "!a,\n"
             "a: 5",
 
-            "<string>:1:3: invalid tag, "
-            "must only contain alphanumeric characters\n"
-            "!a-\n"
+            "<string>:1:3: invalid tag, wrong character in tag\n"
+            "!a,\n"
             "  ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "!4a\n"
             "a: 5",
 
@@ -3300,18 +5452,18 @@ Z_GROUP_EXPORT(yaml)
             " ^"
         ));
         /* TODO: improve span */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "!tag1\n"
             "!tag2\n"
             "a: 2",
 
-            "<string>:3:5: wrong object, two tags have been declared\n"
-            "a: 2\n"
-            "    ^"
+            "<string>:2:1: wrong object, two tags have been declared\n"
+            "!tag2\n"
+            "^^^^^"
         ));
 
         /* wrong list continuation */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "- 2\n"
             "-3",
 
@@ -3322,7 +5474,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* wrong indent */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a: 2\n"
             " b: 3",
 
@@ -3331,7 +5483,7 @@ Z_GROUP_EXPORT(yaml)
             " b: 3\n"
             " ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "- 2\n"
             " - 3",
 
@@ -3340,18 +5492,9 @@ Z_GROUP_EXPORT(yaml)
             " - 3\n"
             " ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
-            "a: 1\n"
-            "b:\n"
-            "c: 3",
-
-            "<string>:3:1: wrong indentation, missing element\n"
-            "c: 3\n"
-            "^"
-        ));
 
         /* wrong object */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "foo: 1\n"
             "foo: 2",
 
@@ -3360,7 +5503,7 @@ Z_GROUP_EXPORT(yaml)
             "foo: 2\n"
             "^^^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "{ a: 1, a: 2}",
 
             "<string>:1:9: invalid key, "
@@ -3370,7 +5513,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* cannot use tab characters for indentation */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a:\t1",
 
             "<string>:1:3: tab character detected, "
@@ -3378,7 +5521,7 @@ Z_GROUP_EXPORT(yaml)
             "a:\t1\n"
             "  ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a:\n"
             "\t- 2\n"
             "\t- 3",
@@ -3390,7 +5533,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* extra data after the parsing */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "1\n"
             "# comment\n"
             "2",
@@ -3402,7 +5545,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* flow seq */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "[a[",
 
             "<string>:1:3: wrong type of data, "
@@ -3410,7 +5553,7 @@ Z_GROUP_EXPORT(yaml)
             "[a[\n"
             "  ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "[",
 
             "<string>:1:2: missing data, unexpected end of line\n"
@@ -3419,14 +5562,14 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* flow obj */
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "{,",
 
             "<string>:1:2: missing data, unexpected character\n"
             "{,\n"
             " ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "{a:b}",
 
             "<string>:1:2: wrong type of data, "
@@ -3434,7 +5577,7 @@ Z_GROUP_EXPORT(yaml)
             "{a:b}\n"
             " ^^^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "{a: b[",
 
             "<string>:1:6: wrong type of data, "
@@ -3442,12 +5585,36 @@ Z_GROUP_EXPORT(yaml)
             "{a: b[\n"
             "     ^"
         ));
-        Z_HELPER_RUN(z_yaml_test_parse_fail(
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "{ a: b: c }",
 
             "<string>:1:7: wrong type of data, unexpected colon\n"
             "{ a: b: c }\n"
             "      ^"
+        ));
+
+        /* Unbound variables are rejected by default */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "key: $(var)",
+
+            "the document is invalid: there are unbound variables: var"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "- $(a)\n"
+            "- $(boo)",
+
+            "the document is invalid: there are unbound variables: a, boo"
+        ));
+
+        /* Use of variables can be forbidden */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(YAML_PARSE_FORBID_VARIABLES,
+            "key: 1\n"
+            "a: <use of $(var)>\n",
+
+            "<string>:2:4: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "a: <use of $(var)>\n"
+            "   ^^^^^^^^^^^^^^^"
         ));
     } Z_TEST_END;
 
@@ -3460,12 +5627,6 @@ Z_GROUP_EXPORT(yaml)
         const char *path;
         const char *filename;
         SB_1k(err);
-
-        /* unexpected EOF */
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "",
-            "input.yml:2:1: missing data, unexpected end of line"
-        ));
 
         env = t_yaml_parse_new(0);
         Z_ASSERT_NEG(t_yaml_parse_attach_file(env, "unknown.yml", NULL, &err));
@@ -3511,24 +5672,14 @@ Z_GROUP_EXPORT(yaml)
     /* {{{ Include errors */
 
     Z_TEST(include_errors, "errors when including YAML files") {
-        /* !include tag must be applied on a string */
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include 3",
-
-            "input.yml:1:1: invalid include, "
-            "!include can only be used with strings\n"
-            "!include 3\n"
-            "^^^^^^^^^^"
-        ));
-
         /* unknown file */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include foo.yml",
+            "!include:foo.yml",
 
             "input.yml:1:1: invalid include, "
             "cannot read file foo.yml: No such file or directory\n"
-            "!include foo.yml\n"
-            "^^^^^^^^^^^^^^^^"
+            "!include:foo.yml\n"
+            "^ starting here"
         ));
 
         /* error in included file */
@@ -3537,11 +5688,11 @@ Z_GROUP_EXPORT(yaml)
             "key: 2"
         ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include has_errors.yml",
+            "!include:has_errors.yml",
 
             "input.yml:1:1: error in included file\n"
-            "!include has_errors.yml\n"
-            "^^^^^^^^^^^^^^^^^^^^^^^\n"
+            "!include:has_errors.yml\n"
+            "^ starting here\n"
             "has_errors.yml:2:1: invalid key, "
             "key is already declared in the object\n"
             "key: 2\n"
@@ -3550,48 +5701,48 @@ Z_GROUP_EXPORT(yaml)
 
         /* loop detection: include one-self */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include input.yml",
+            "!include:input.yml",
 
             "input.yml:1:1: invalid include, inclusion loop detected\n"
-            "!include input.yml\n"
-            "^^^^^^^^^^^^^^^^^^"
+            "!include:input.yml\n"
+            "^ starting here"
         ));
         /* loop detection: include a parent */
         Z_HELPER_RUN(z_write_yaml_file("loop-1.yml",
-            "!include loop-2.yml"
+            "!include:loop-2.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("loop-2.yml",
-            "!include loop-3.yml"
+            "!include:loop-3.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("loop-3.yml",
-            "!include loop-1.yml"
+            "!include:loop-1.yml"
         ));
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include loop-1.yml",
+            "!include:loop-1.yml",
 
             "input.yml:1:1: error in included file\n"
-            "!include loop-1.yml\n"
-            "^^^^^^^^^^^^^^^^^^^\n"
+            "!include:loop-1.yml\n"
+            "^ starting here\n"
             "loop-1.yml:1:1: error in included file\n"
-            "!include loop-2.yml\n"
-            "^^^^^^^^^^^^^^^^^^^\n"
+            "!include:loop-2.yml\n"
+            "^ starting here\n"
             "loop-2.yml:1:1: error in included file\n"
-            "!include loop-3.yml\n"
-            "^^^^^^^^^^^^^^^^^^^\n"
+            "!include:loop-3.yml\n"
+            "^ starting here\n"
             "loop-3.yml:1:1: invalid include, inclusion loop detected\n"
-            "!include loop-1.yml\n"
-            "^^^^^^^^^^^^^^^^^^^"
+            "!include:loop-1.yml\n"
+            "^ starting here"
         ));
 
         /* includes must be in same directory as including file */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "!include ../input.yml",
+            "!include:../input.yml",
 
             "input.yml:1:1: invalid include, cannot include subfile "
             "`../input.yml`: only includes contained in the directory of the "
             "including file are allowed\n"
-            "!include ../input.yml\n"
-            "^^^^^^^^^^^^^^^^^^^^^"
+            "!include:../input.yml\n"
+            "^ starting here"
         ));
     } Z_TEST_END;
 
@@ -3606,9 +5757,9 @@ Z_GROUP_EXPORT(yaml)
             "  b: { c: c }\n"
             "- true"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(NULL, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
             "a: ~\n"
-            "b: !include inner.yml\n"
+            "b: !include:inner.yml\n"
             "c: 3",
 
             "a: ~\n"
@@ -3622,24 +5773,22 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_create_tmp_subdir("subdir/subsub"));
         Z_HELPER_RUN(z_write_yaml_file("subdir/a.yml",
             "- a\n"
-            "- !include b.yml\n"
-            "- !include subsub/d.yml"
+            "- !include:b.yml\n"
+            "- !include:subsub/d.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("subdir/b.yml",
-            "- !include subsub/c.yml\n"
+            "- !include:subsub/c.yml\n"
             "- b"
         ));
-        /* TODO d.yml is included twice, should be factorized instead of
-         * parsing the file twice. */
         Z_HELPER_RUN(z_write_yaml_file("subdir/subsub/c.yml",
             "- c\n"
-            "- !include d.yml"
+            "- !include:d.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("subdir/subsub/d.yml",
             "d"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(NULL, NULL, NULL,
-            "!include subdir/a.yml",
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
+            "!include:subdir/a.yml",
 
             "- a\n"
             "- - - c\n"
@@ -3662,17 +5811,17 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("sf/shared_1.yml", "1"));
         Z_HELPER_RUN(z_write_yaml_file("sf/sub/shared_1.yml", "-1"));
         Z_HELPER_RUN(z_write_yaml_file("sf/shared_2",
-            "!include sub/shared_1.yml"
+            "!include:sub/shared_1.yml"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/././shared_1.yml\n"
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/../sf/sub/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/shared_2\n"
-            "- !include ./sf/shared_2",
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/././shared_1.yml\n"
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/../sf/sub/shared_1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/shared_2\n"
+            "- !include:./sf/shared_2",
 
             "- 1\n"
             "- 1\n"
@@ -3688,19 +5837,19 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_create_tmp_subdir("sf-pack-1"));
         Z_HELPER_RUN(z_pack_yaml_file("sf-pack-1/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("sf-pack-1/root.yml",
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/shared_2\n"
-            "- !include sf/shared_2\n"
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/shared_2\n"
+            "- !include:sf/shared_2\n"
         ));
         Z_HELPER_RUN(z_check_file("sf-pack-1/sf/shared_1.yml", "1\n"));
         Z_HELPER_RUN(z_check_file("sf-pack-1/sf/sub/shared_1.yml", "-1\n"));
         Z_HELPER_RUN(z_check_file("sf-pack-1/sf/shared_2",
-            "!include sub/shared_1.yml\n"
+            "!include:sub/shared_1.yml\n"
         ));
 
         /* modifying some data will force the repacking to create new files */
@@ -3712,14 +5861,14 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_create_tmp_subdir("sf-pack-2"));
         Z_HELPER_RUN(z_pack_yaml_file("sf-pack-2/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("sf-pack-2/root.yml",
-            "- !include sf/shared_1.yml\n"
-            "- !include sf/shared_1~1.yml\n"
-            "- !include sf/shared_1~1.yml\n"
-            "- !include sf/sub/shared_1.yml\n"
-            "- !include sf/sub/shared_1~1.yml\n"
-            "- !include sf/sub/shared_1~2.yml\n"
-            "- !include sf/shared_2\n"
-            "- !include sf/shared_2~1\n"
+            "- !include:sf/shared_1.yml\n"
+            "- !include:sf/shared_1~1.yml\n"
+            "- !include:sf/shared_1~1.yml\n"
+            "- !include:sf/sub/shared_1.yml\n"
+            "- !include:sf/sub/shared_1~1.yml\n"
+            "- !include:sf/sub/shared_1~2.yml\n"
+            "- !include:sf/shared_2\n"
+            "- !include:sf/shared_2~1\n"
         ));
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_1.yml", "1\n"));
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_1~1.yml", "2\n"));
@@ -3727,10 +5876,10 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/sub/shared_1~1.yml", "-2\n"));
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/sub/shared_1~2.yml", "-3\n"));
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_2",
-            "!include sub/shared_1.yml\n"
+            "!include:sub/shared_1.yml\n"
         ));
         Z_HELPER_RUN(z_check_file("sf-pack-2/sf/shared_2~1",
-            "!include sub/shared_1~2.yml\n"
+            "!include:sub/shared_1~2.yml\n"
         ));
         yaml_parse_delete(&env);
 
@@ -3748,7 +5897,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_create_tmp_subdir("subpres/in"));
         Z_HELPER_RUN(z_write_yaml_file("subpres/1.yml",
             "# Included!\n"
-            "!include in/sub.yml"
+            "!include:in/sub.yml"
         ));
         Z_HELPER_RUN(z_write_yaml_file("subpres/in/sub.yml",
             "[ 4, 2 ] # packed"
@@ -3758,9 +5907,9 @@ Z_GROUP_EXPORT(yaml)
             "# o\n"
             "o: ra"
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
-            "- !include subpres/1.yml\n"
-            "- !include subpres/weird~name",
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "- !include:subpres/1.yml\n"
+            "- !include:subpres/weird~name",
 
             /* XXX: the presentation associated with the "!include" data is
              * not included, as the data is inlined. */
@@ -3773,12 +5922,12 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_create_tmp_subdir("newsubdir/in"));
         Z_HELPER_RUN(z_pack_yaml_file("newsubdir/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("newsubdir/root.yml",
-            "- !include subpres/1.yml\n"
-            "- !include subpres/weird~name\n"
+            "- !include:subpres/1.yml\n"
+            "- !include:subpres/weird~name\n"
         ));
         Z_HELPER_RUN(z_check_file("newsubdir/subpres/1.yml",
             "# Included!\n"
-            "!include in/sub.yml\n"
+            "!include:in/sub.yml\n"
         ));
         Z_HELPER_RUN(z_check_file("newsubdir/subpres/in/sub.yml",
             "[ 4, 2 ] # packed\n"
@@ -3788,6 +5937,28 @@ Z_GROUP_EXPORT(yaml)
             "# o\n"
             "o: ra\n"
         ));
+
+        /* Test erasing the include presentation for a node. The include tags
+         * should still be:
+         *  !include:path
+         * and not:
+         *  !include:path ~
+         */
+        tab_for_each_ptr(mapping, &pres.mappings) {
+            if (lstr_equal(mapping->path, LSTR("[0]!"))) {
+                Z_ASSERT(mapping->node.included);
+                iop_init(yaml__document_presentation,
+                         &mapping->node.included->include_presentation);
+                break;
+            }
+        }
+        Z_HELPER_RUN(z_pack_yaml_file("newsubdir2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("newsubdir2/root.yml",
+            "- !include:subpres/1.yml\n"
+            "- !include:subpres/weird~name\n"
+        ));
+
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
@@ -3810,8 +5981,8 @@ Z_GROUP_EXPORT(yaml)
             "}"
         ));
         /* include it verbatim as a string in a YAML document */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
-            "- !includeraw raw/inner.json",
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "- !includeraw:raw/inner.json",
 
             "- \"{\\n  \\\"foo\\\": 2\\n}\\n\""
         ));
@@ -3819,7 +5990,7 @@ Z_GROUP_EXPORT(yaml)
         /* check repacking with presentation */
         Z_HELPER_RUN(z_pack_yaml_file("packraw/root.yml", &data, &pres, 0));
         Z_HELPER_RUN(z_check_file("packraw/root.yml",
-            "- !includeraw raw/inner.json\n"
+            "- !includeraw:raw/inner.json\n"
         ));
         Z_HELPER_RUN(z_check_file("packraw/raw/inner.json",
             "{\n"
@@ -3841,12 +6012,366 @@ Z_GROUP_EXPORT(yaml)
              * extension) would be better, maybe even adding a prefix comment
              * for the include explaining the file could no longer be packed
              * raw. */
-            "- !include raw/inner.json\n"
+            "- !include:raw/inner.json\n"
         ));
         Z_HELPER_RUN(z_check_file("packraw2/raw/inner.json",
             "json: \"{\\n  \\\"foo\\\": 2\\n}\\n\"\n"
             "b: true\n"
         ));
+
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Override */
+
+    Z_TEST(override, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *grandchild;
+        const char *child;
+        const char *root;
+
+        /* test override of scalars, object, sequence */
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: 3\n"
+            "b: { c: c }\n"
+            "c:\n"
+            "  - 3\n"
+            "  - 4"
+        ));
+        root =
+            "- !include:inner.yml\n"
+            "  a: 4\n"
+            "\n"
+            "  b: { new: true, c: ~ }\n"
+            "  c: [ 5, 6 ] # array\n"
+            "  # prefix d\n"
+            "  d: ~";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "- a: 4\n"
+            "  b: { c: ~, new: true }\n"
+            "  c:\n"
+            "    - 3\n"
+            "    - 4\n"
+            "    - 5\n"
+            "    - 6\n"
+            "  d: ~"
+        ));
+        /* test recreation of override when packing into files */
+        Z_HELPER_RUN(z_pack_yaml_file("override_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("override_1/root.yml",
+                                  t_fmt("%s\n", root)));
+        Z_HELPER_RUN(z_check_file("override_1/inner.yml",
+            /* XXX: lost flow mode, incompatible with override */
+            "a: 3\n"
+            "b:\n"
+            "  c: c\n"
+            "c:\n"
+            "  - 3\n"
+            "  - 4\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_1/root.yml",
+                                  t_fmt("%s\n", root)));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
+        yaml_parse_delete(&env);
+
+        /* test override of override through includes */
+        grandchild =
+            "# prefix gc a\n"
+            "a: 1 # inline gc 1\n"
+            "# prefix gc b\n"
+            "b: 2 # inline gc 2\n"
+            "# prefix gc c\n"
+            "c: 3 # inline gc 3\n"
+            "# prefix gc d\n"
+            "d: 4 # inline gc 4\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+        child =
+            "# prefix child g\n"
+            "g:\n"
+            "  # prefix include gc\n"
+            "  !include:grandchild.yml\n"
+            "  c: 5 # inline child 5\n"
+            "  # prefix child d\n"
+            "  d: 6 # inline child 6\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "# prefix seq\n"
+            "-\n"
+            "  # prefix include c\n"
+            "  !include:child.yml\n"
+            "  g: # inline g\n"
+            "    # prefix b\n"
+            "    b: 7 # inline 7\n"
+            "    # prefix c\n"
+            "    c: 8 # inline 8\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            /* XXX: the presentation of the original file is used. This is
+             * a side effect of how the presentation is stored, but it isn't
+             * clear what would be the right behavior. Both have sensical
+             * meaning. */
+            "# prefix seq\n"
+            "-\n"
+            "  # prefix child g\n"
+            "  g:\n"
+            "    # prefix gc a\n"
+            "    a: 1 # inline gc 1\n"
+            "    # prefix gc b\n"
+            "    b: 7 # inline gc 2\n"
+            "    # prefix gc c\n"
+            "    c: 8 # inline gc 3\n"
+            "    # prefix gc d\n"
+            "    d: 6 # inline gc 4\n"
+        ));
+
+        /* test recreation of override when packing into files */
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
+        Z_HELPER_RUN(z_pack_yaml_file("override_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("override_2/grandchild.yml",
+                                  grandchild));
+        Z_HELPER_RUN(z_check_file("override_2/child.yml",
+                                  child));
+        Z_HELPER_RUN(z_check_file("override_2/root.yml",
+                                  root));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Override errors */
+
+    Z_TEST(override_errors, "") {
+        t_scope;
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: { b: { c: { d: { e: ~ } } } }"
+        ));
+
+        /* only objects allowed as overrides */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include:inner.yml\n"
+            "  - 1\n"
+            "  - 2",
+
+            "input.yml:1:6: wrong type of data, "
+            "override data after include must be an object\n"
+            "key: !include:inner.yml\n"
+            "     ^ starting here"
+        ));
+
+        /* must have same type as overridden data */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include:inner.yml\n"
+            "  a:\n"
+            "    b:\n"
+            "      c:\n"
+            "        - 1",
+
+            "input.yml:5:9: cannot change types of data in override, "
+            "overridden data is an object and not a sequence\n"
+            "        - 1\n"
+            "        ^^^"
+        ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Override conflict handling */
+
+    Z_TEST(override_conflict_handling, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+
+        /* Test removal of added node */
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: 1\n"
+            "b: 2"
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "- !include:inner.yml\n"
+            "  b: 3\n"
+            "  c: 4",
+
+            "- a: 1\n"
+            "  b: 3\n"
+            "  c: 4"
+        ));
+
+        /* modify value in the AST */
+        data.seq->datas.tab[0].obj->fields.tab[1].data.scalar.u = 10;
+        data.seq->datas.tab[0].obj->fields.tab[2].data.scalar.u = 20;
+
+        /* This value should get resolved in the override */
+        root =
+            "- !include:inner.yml\n"
+            "  b: 10\n"
+            "  c: 20";
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_1", &data,
+                                                     &pres, root));
+        Z_HELPER_RUN(z_check_file("conflicts_1/inner.yml",
+            "a: 1\n"
+            "b: 2\n"
+        ));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
+
+        /* remove added node from AST */
+        data.seq->datas.tab[0].obj->fields.len--;
+
+        /* When packing into files, the override is normally recreated, but
+         * here a node is removed. */
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_2", &data,
+                                                     &pres,
+            "- !include:inner.yml\n"
+            "  b: 10"
+        ));
+        Z_HELPER_RUN(z_check_file("conflicts_2/inner.yml",
+            "a: 1\n"
+            "b: 2\n"
+        ));
+
+        /* Remove node b as well. This will remove the override entirely. */
+        data.seq->datas.tab[0].obj->fields.len--;
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("conflicts_3", &data,
+                                                     &pres,
+            /* TODO: we lost the overrides, so we pack an empty obj. It would
+             * be cleaner to pach an empty null. */
+            "- !include:inner.yml {}"
+        ));
+        Z_HELPER_RUN(z_check_file("conflicts_3/inner.yml",
+            "a: 1\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Override shared subfiles */
+
+    Z_TEST(override_shared_subfiles, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml",
+            "a: a\n"
+            "b: b"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("child.yml",
+            "!include:grandchild.yml\n"
+            "b: B"
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "- !include:child.yml\n"
+            "  a: 0\n"
+            "- !include:child.yml\n"
+            "  a: 1\n"
+            "- !include:child.yml\n"
+            "  b: 2",
+
+            "- a: 0\n"
+            "  b: B\n"
+            "- a: 1\n"
+            "  b: B\n"
+            "- a: a\n"
+            "  b: 2"
+        ));
+
+        /* repack into a file: the included subfiles should be shared */
+        root =
+            "- !include:child.yml\n"
+            "  a: 0\n"
+            "- !include:child.yml\n"
+            "  a: 1\n"
+            "- !include:child.yml\n"
+            "  b: 2";
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_1",
+                                                     &data, &pres, root));
+        Z_HELPER_RUN(z_check_file("override_shared_1/child.yml",
+            "!include:grandchild.yml\n"
+            "b: B\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_1/grandchild.yml",
+            "a: a\n"
+            "b: b\n"
+        ));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
+
+        /* modify [0].b. This will modify its child, but the grandchild is
+         * still shared. */
+        data.seq->datas.tab[0].obj->fields.tab[1].data.scalar.s = LSTR("B2");
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_2",
+                                                     &data, &pres,
+            "- !include:child.yml\n"
+            "  a: 0\n"
+            "- !include:child~1.yml\n"
+            "  a: 1\n"
+            "- !include:child~1.yml\n"
+            "  b: 2"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/child.yml",
+            "!include:grandchild.yml\n"
+            "b: B2\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/child~1.yml",
+            "!include:grandchild.yml\n"
+            "b: B\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/grandchild.yml",
+            "a: a\n"
+            "b: b\n"
+        ));
+        /* When packing with NO_SUBFILES, we do not check for collisions,
+         * so the include path are kept. */
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
+
+        /* reset [0].b, and modify [2].a. The grandchild will differ, but the
+         * child is the same */
+        data.seq->datas.tab[0].obj->fields.tab[1].data.scalar.s = LSTR("B");
+        data.seq->datas.tab[2].obj->fields.tab[0].data.scalar.s = LSTR("A");
+
+        Z_HELPER_RUN(z_pack_yaml_in_sb_with_subfiles("override_shared_2",
+                                                     &data, &pres,
+            "- !include:child.yml\n"
+            "  a: 0\n"
+            "- !include:child.yml\n"
+            "  a: 1\n"
+            "- !include:child~1.yml\n"
+            "  b: 2"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/child.yml",
+            "!include:grandchild.yml\n"
+            "b: B\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/child~1.yml",
+            "!include:grandchild~1.yml\n"
+            "b: B\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/grandchild.yml",
+            "a: a\n"
+            "b: b\n"
+        ));
+        Z_HELPER_RUN(z_check_file("override_shared_2/grandchild~1.yml",
+            "a: A\n"
+            "b: b\n"
+        ));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, YAML_PACK_NO_SUBFILES,
+                                      root));
 
         yaml_parse_delete(&env);
     } Z_TEST_END;
@@ -3859,7 +6384,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
 
         /* string */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "unquoted string",
             NULL
         ));
@@ -3870,7 +6395,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a string value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag unquoted string",
             NULL
         ));
@@ -3881,7 +6406,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged string value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "\" quoted: 5 \"",
             NULL
         ));
@@ -3889,7 +6414,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 14));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR(" quoted: 5 "));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "  trimmed   ",
             "trimmed"
         ));
@@ -3897,7 +6422,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 3, 1, 10));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("trimmed"));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a:x:b",
             "\"a:x:b\""
         ));
@@ -3905,8 +6430,32 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 6));
         Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("a:x:b"));
 
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "\"true\"",
+            "\"true\""
+        ));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
+                                         1, 1, 1, 7));
+        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("true"));
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "\"\\$a\"",
+            "\"\\\\$a\""
+        ));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
+                                         1, 1, 1, 6));
+        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("\\$a"));
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "\"\\$(a\"",
+            "\"\\$(a\""
+        ));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_STRING,
+                                         1, 1, 1, 7));
+        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("$(a"));
+
         /* null */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "~",
             NULL
         ));
@@ -3916,7 +6465,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a null value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag ~",
             NULL
         ));
@@ -3926,22 +6475,37 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged null value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "null",
             "~"
         ));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
                                          1, 1, 1, 5));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "NulL",
             "~"
         ));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
                                          1, 1, 1, 5));
 
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "",
+            ""
+        ));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
+                                         1, 1, 1, 1));
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "!v",
+            "!v"
+        ));
+        Z_ASSERT_LSTREQUAL(data.tag, LSTR("v"));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_NULL,
+                                         1, 1, 1, 3));
+
         /* bool */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "true",
             NULL
         ));
@@ -3952,7 +6516,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a boolean value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag true",
             NULL
         ));
@@ -3963,7 +6527,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged boolean value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "TrUE",
             "true"
         ));
@@ -3971,7 +6535,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 5));
         Z_ASSERT(data.scalar.b);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "false",
             NULL
         ));
@@ -3979,7 +6543,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 6));
         Z_ASSERT(!data.scalar.b);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "FALse",
             "false"
         ));
@@ -3988,7 +6552,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT(!data.scalar.b);
 
         /* uint */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "0",
             NULL
         ));
@@ -3999,7 +6563,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "an unsigned integer value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag 0",
             NULL
         ));
@@ -4010,7 +6574,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged unsigned integer value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "153",
             NULL
         ));
@@ -4019,7 +6583,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_EQ(data.scalar.u, 153UL);
 
         /* -0 will still generate UINT */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "-0",
             "0"
         ));
@@ -4027,7 +6591,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 3));
 
         /* int */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "-1",
             NULL));
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_INT,
@@ -4037,7 +6601,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "an integer value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag -1",
             NULL
         ));
@@ -4048,7 +6612,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a tagged integer value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "-153",
             NULL
         ));
@@ -4057,7 +6621,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_EQ(data.scalar.i, -153L);
 
         /* double */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "0.5",
             NULL
         ));
@@ -4068,7 +6632,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false),
                           "a double value");
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag 0.5",
             NULL
         ));
@@ -4080,7 +6644,7 @@ Z_GROUP_EXPORT(yaml)
                           "a tagged double value");
 
         /* TODO: should a dot be added to show its a floating-point number. */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "-1e3",
             "-1000"
         ));
@@ -4088,7 +6652,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 5));
         Z_ASSERT_EQ(data.scalar.d, -1000.0);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "-.Inf",
             NULL
         ));
@@ -4096,7 +6660,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 6));
         Z_ASSERT_EQ(isinf(data.scalar.d), -1);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             ".INf",
             ".Inf"
         ));
@@ -4104,7 +6668,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 1, 1, 5));
         Z_ASSERT_EQ(isinf(data.scalar.d), 1);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             ".NAN",
             ".NaN"
         ));
@@ -4125,7 +6689,7 @@ Z_GROUP_EXPORT(yaml)
         logger_set_level(LSTR("yaml"), LOG_TRACE + 2, 0);
 
         /* one liner */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a: 2",
             NULL
         ));
@@ -4143,7 +6707,7 @@ Z_GROUP_EXPORT(yaml)
                           "an object");
 
         /* with tag */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "!tag1 a: 2",
 
             "!tag1\n"
@@ -4163,12 +6727,12 @@ Z_GROUP_EXPORT(yaml)
                           "a tagged object");
 
         /* imbricated objects */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a: 2\n"
             "inner: b: 3\n"
             "       c: -4\n"
             "inner2: !tag\n"
-            "  d: ~\n"
+            "  d:\n"
             "  e: my-label\n"
             "f: 1.2",
 
@@ -4177,7 +6741,7 @@ Z_GROUP_EXPORT(yaml)
             "  b: 3\n"
             "  c: -4\n"
             "inner2: !tag\n"
-            "  d: ~\n"
+            "  d:\n"
             "  e: my-label\n"
             "f: 1.2"
         ));
@@ -4227,8 +6791,9 @@ Z_GROUP_EXPORT(yaml)
 
         Z_ASSERT_LSTREQUAL(field.obj->fields.tab[0].key, LSTR("d"));
         field2 = field.obj->fields.tab[0].data;
+        /* TODO: span could be better, on the previous line */
         Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_NULL,
-                                         5, 6, 5, 7));
+                                         6, 3, 6, 3));
         Z_ASSERT_LSTREQUAL(field.obj->fields.tab[1].key, LSTR("e"));
         field2 = field.obj->fields.tab[1].data;
         Z_HELPER_RUN(z_check_yaml_scalar(&field2, YAML_SCALAR_STRING,
@@ -4252,7 +6817,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t elem;
 
         /* one liner */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- a",
             NULL
         ));
@@ -4266,11 +6831,11 @@ Z_GROUP_EXPORT(yaml)
                           "a sequence");
 
         /* imbricated sequences */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- \"a: 2\"\n"
             "- - 5\n"
             "  - -5\n"
-            "- ~\n"
+            "-\n"
             "-\n"
             "  !tag - TRUE\n"
             "- FALSE\n",
@@ -4278,7 +6843,7 @@ Z_GROUP_EXPORT(yaml)
             "- \"a: 2\"\n"
             "- - 5\n"
             "  - -5\n"
-            "- ~\n"
+            "-\n"
             "- !tag\n"
             "  - true\n"
             "- false"
@@ -4306,8 +6871,9 @@ Z_GROUP_EXPORT(yaml)
 
         /* null */
         elem = data.seq->datas.tab[2];
+        /* TODO: span could be better */
         Z_HELPER_RUN(z_check_yaml_scalar(&elem, YAML_SCALAR_NULL,
-                                         4, 3, 4, 4));
+                                         5, 1, 5, 1));
 
         /* subseq */
         elem = data.seq->datas.tab[3];
@@ -4334,7 +6900,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t field;
 
         /* sequence on same level as key */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a:\n"
             "- 3\n"
             "- ~",
@@ -4367,7 +6933,7 @@ Z_GROUP_EXPORT(yaml)
         const yaml_data_t *subdata;
         const yaml_data_t *elem;
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "[]",
             NULL
         ));
@@ -4375,7 +6941,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_NULL(data.tag.s);
         Z_ASSERT(data.seq->datas.len == 0);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "[ ~ ]",
             NULL
         ));
@@ -4385,7 +6951,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_NULL,
                                          1, 3, 1, 4));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "[ ~, ]",
             "[ ~ ]"
         ));
@@ -4395,7 +6961,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(elem, YAML_SCALAR_NULL,
                                          1, 3, 1, 4));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "[1 ,a:\n"
             "2,c d ,]",
 
@@ -4424,7 +6990,7 @@ Z_GROUP_EXPORT(yaml)
                                          2, 3, 2, 6));
         Z_ASSERT_LSTREQUAL(elem->scalar.s, LSTR("c d"));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- [ ~,\n"
             " [[ true, [ - 2 ] ]\n"
             "   ] , a:  [  -2] ,\n"
@@ -4483,7 +7049,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         const yaml_key_data_t *elem;
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "{}",
             NULL
         ));
@@ -4491,7 +7057,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_NULL(data.tag.s);
         Z_ASSERT(data.obj->fields.len == 0);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "{ a: ~ }",
             NULL
         ));
@@ -4503,7 +7069,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&elem->data, YAML_SCALAR_NULL,
                                          1, 6, 1, 7));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "{ a: foo, }",
             "{ a: foo }"
         ));
@@ -4516,7 +7082,7 @@ Z_GROUP_EXPORT(yaml)
                                          1, 6, 1, 9));
         Z_ASSERT_LSTREQUAL(elem->data.scalar.s, LSTR("foo"));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "{ a: ~ ,b:\n"
             "2,}",
 
@@ -4536,7 +7102,7 @@ Z_GROUP_EXPORT(yaml)
                                          2, 1, 2, 2));
         Z_ASSERT_EQ(elem->data.scalar.u, 2UL);
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- { a: [true,\n"
             "   false,]\n"
             "     , b: f   \n"
@@ -4638,8 +7204,8 @@ Z_GROUP_EXPORT(yaml)
         yaml_parse_t *env;
 
         Z_HELPER_RUN(z_write_yaml_file("not_recreated.yml", "1"));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, &env,
-            "key: !include not_recreated.yml",
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "key: !include:not_recreated.yml",
 
             "key: 1"
         ));
@@ -4648,14 +7214,13 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_pack_yaml_file("flags/root.yml", &data, &pres,
                                       YAML_PACK_NO_SUBFILES));
         Z_HELPER_RUN(z_check_file("flags/root.yml",
-            "key: !include not_recreated.yml\n"
+            "key: !include:not_recreated.yml\n"
         ));
         Z_HELPER_RUN(z_check_file_do_not_exist("flags/not_recreated.yml"));
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
     /* }}} */
-
     /* {{{ Comment presentation */
 
 #define CHECK_PREFIX_COMMENTS(pres, path, ...)                               \
@@ -4673,7 +7238,7 @@ Z_GROUP_EXPORT(yaml)
         const yaml_presentation_t *pres;
 
         /* comment on a scalar => not saved */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "# my scalar\n"
             "3",
             NULL
@@ -4684,7 +7249,7 @@ Z_GROUP_EXPORT(yaml)
         CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("my scalar"));
 
         /* comment on a key => path is key */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "a: 3 #ticket is #42  ",
 
             "a: 3 # ticket is #42\n"
@@ -4696,7 +7261,7 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("ticket is #42")));
 
         /* comment on a list => path is index */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "# prefix comment\n"
             "- 1 # first\n"
             "- # item\n"
@@ -4716,7 +7281,7 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("second")));
 
         /* prefix comment with multiple lines */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "key:\n"
             "   # first line\n"
             " # and second\n"
@@ -4747,7 +7312,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key.a!"),
                                             LSTR("inline scalar")));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &doc_pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "# prefix key\n"
             "key: # inline key\n"
             "# prefix [0]\n"
@@ -4779,13 +7344,13 @@ Z_GROUP_EXPORT(yaml)
                                             LSTR("inline key2")));
 
         /* prefix comment must be written before tag */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "# prefix key\n"
             "!toto 3",
 
             NULL
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "# a\n"
             "a: # b\n"
             "  !foo b",
@@ -4794,12 +7359,12 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* inline comments with flow data */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- # prefix\n"
             "  1 # inline\n",
             NULL
         ));
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, NULL, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "- # prefix\n"
             "  [ 1 ] # inline\n"
             "- # prefix2\n"
@@ -4817,7 +7382,7 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         yaml__document_presentation__t pres;
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, NULL, 0,
             "\n"
             "  # comment\n"
             "\n"
@@ -4830,7 +7395,7 @@ Z_GROUP_EXPORT(yaml)
             "a: ~"
         ));
 
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, NULL, 0,
             "# 1\n"
             "a: # 2\n"
             "\n"
@@ -4848,7 +7413,7 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         /* max two new lines */
-        Z_HELPER_RUN(z_t_yaml_test_parse_success(&data, &pres, NULL,
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, NULL, 0,
             "\n\n\n\n"
             "a: 4\n"
             "\n\n\n"
@@ -4875,7 +7440,1046 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
+    /* {{{ Flow presentation */
 
+    Z_TEST(flow_presentation, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        const char *expected;
+
+        /* Make sure that flow syntax is reverted if a tag is added in the
+         * data. */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, NULL, 0,
+            "a: { k: d }\n"
+            "b: [ 1, 2 ]",
+
+            NULL
+        ));
+        data.obj->fields.tab[0].data.obj->fields.tab[0].data.tag
+            = LSTR("tag1");
+        data.obj->fields.tab[1].data.seq->datas.tab[1].tag = LSTR("tag2");
+
+        expected =
+            "a:\n"
+            "  k: !tag1 d\n"
+            "b:\n"
+            "  - 1\n"
+            "  - !tag2 2";
+        Z_HELPER_RUN(z_check_yaml_pack(&data, NULL, expected));
+        Z_HELPER_RUN(z_check_yaml_pack(&data, &pres, expected));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Variable */
+
+    Z_TEST(variable, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *inner;
+        const char *root;
+        const char *child;
+        const char *grandchild;
+
+        /* test replacement of variables */
+        inner =
+            "- a:\n"
+            "    - 1\n"
+            "    - $(a)\n"
+            "- b:\n"
+            "    a: $(a)\n"
+            "    b: $(a-b)\n";
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
+        root =
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  a: 3\n"
+            "  a-b:\n"
+            "    - 1\n"
+            "    - 2\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "- a:\n"
+            "    - 1\n"
+            "    - 3\n"
+            "- b:\n"
+            "    a: 3\n"
+            "    b:\n"
+            "      - 1\n"
+            "      - 2"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("variables_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("variables_1/root.yml", root));
+        Z_HELPER_RUN(z_check_file("variables_1/inner.yml", inner));
+        yaml_parse_delete(&env);
+
+        /* test combination of variables settings + override */
+        grandchild =
+            "var: $(var)\n"
+            "var2: $(var_2)\n"
+            "a: 0\n"
+            "b: 1\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+        child =
+            "key: !include:grandchild.yml\n"
+            "  variables:\n"
+            "    var: 3\n"
+            /* TODO: we should be able to say "b: $var2" here, but it does
+             * not work currently. See FIXME in yaml_variable_t. */
+            "  b: 5\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "!include:child.yml\n"
+            "variables:\n"
+            "  var_2: 4\n"
+            "key:\n"
+            "  a: a\n"
+            "  var: 1\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "key:\n"
+            "  var: 1\n"
+            "  var2: 4\n"
+            "  a: a\n"
+            "  b: 5"
+        ));
+
+        Z_HELPER_RUN(z_pack_yaml_file("variables_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("variables_2/root.yml", root));
+        Z_HELPER_RUN(z_check_file("variables_2/child.yml", child));
+        Z_HELPER_RUN(z_check_file("variables_2/grandchild.yml", grandchild));
+
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Variable in scalar */
+
+    Z_TEST(variable_in_scalar, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *inner;
+        const char *root;
+
+        /* modify a template through a direct include of the scalar */
+        inner = "$(a) $(b)\n";
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
+        root =
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  a: pi\n"
+            "  b: ka\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "pi ka"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_scalar_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("var_scalar_1/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_scalar_1/inner.yml", inner));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Variable used multiple times */
+
+    Z_TEST(variable_multiple, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+        const char *child;
+        const char *grandchild;
+
+        /* test replacement of variables */
+        grandchild =
+            "key: $(var)\n"
+            "key2: var2 is <$(var2)>\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+        child =
+            "inc: !include:grandchild.yml\n"
+            "  variables:\n"
+            "    var: 1\n"
+            "other: $(var)\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "all: !include:child.yml\n"
+            "  variables:\n"
+            "    var: 2\n"
+            "    var2: 3\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "all:\n"
+            "  inc:\n"
+            "    key: 1\n"
+            "    key2: var2 is <3>\n"
+            "  other: 2"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_mul/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("var_mul/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_mul/child.yml", child));
+        Z_HELPER_RUN(z_check_file("var_mul/grandchild.yml", grandchild));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Variable in string */
+
+    Z_TEST(variable_in_string, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+        const char *inner;
+        const char *child;
+        const char *grandchild;
+
+        /* test replacement of variables */
+        /* TODO: handle variables in flow context? */
+        inner =
+            "- \"foo var is: `$(foo)`\"\n"
+            "- <$(foo)> unquoted also works </$(foo)>\n"
+            "- a: $(foo)\n"
+            "  b: $(foo)$(foo)a$(qux)-$(qux)\n";
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
+
+        root =
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  foo: bar\n"
+            "  qux: c\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "- \"foo var is: `bar`\"\n"
+            "- <bar> unquoted also works </bar>\n"
+            "- a: bar\n"
+            "  b: barbarac-c"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_str/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("var_str/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_str/inner.yml", inner));
+        yaml_parse_delete(&env);
+
+        /* test partial modification of templated string */
+        grandchild = "addr: \"$(host):$(port)\"\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+
+        child =
+            "!include:grandchild.yml\n"
+            "variables:\n"
+            "  port: 80\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+
+        root =
+            "!include:child.yml\n"
+            "variables:\n"
+            "  host: website.org\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "addr: \"website.org:80\""
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_str2/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("var_str2/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_str2/child.yml", child));
+        Z_HELPER_RUN(z_check_file("var_str2/grandchild.yml", grandchild));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Variable errors */
+
+    Z_TEST(variable_errors, "") {
+        t_scope;
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: $(a)\n"
+            "s: \"<$(s)>\"\n"
+            "t: <$(t)>"
+        ));
+
+        /* wrong variable settings */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include:inner.yml\n"
+            "  variables:",
+
+            "input.yml:3:1: wrong type of data, "
+            "variable settings must be an object"
+        ));
+        /* TODO: improve span for empty null scalar */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include:inner.yml\n"
+            "  variables:\n"
+            "key2: 3",
+
+            "input.yml:3:1: wrong type of data, "
+            "variable settings must be an object\n"
+            "key2: 3\n"
+            "^ starting here"
+        ));
+
+        /* unknown variable being set */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include:inner.yml\n"
+            "  variables:\n"
+            "    b: foo",
+
+            "input.yml:3:5: invalid key, unknown variable\n"
+            "    b: foo\n"
+            "    ^"
+        ));
+
+        /* string-variable being set with wrong type */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include:inner.yml\n"
+            "  variables:\n"
+            "    s: [ 1, 2 ]",
+
+            "input.yml:3:8: wrong type of data, "
+            "this variable can only be set with a scalar\n"
+            "    s: [ 1, 2 ]\n"
+            "       ^^^^^^^^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include:inner.yml\n"
+            "  variables:\n"
+            "    t: [ 1, 2 ]",
+
+            "input.yml:3:8: wrong type of data, "
+            "this variable can only be set with a scalar\n"
+            "    t: [ 1, 2 ]\n"
+            "       ^^^^^^^^"
+        ));
+
+        /* cannot use variables in variable settings or overrides. */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include:inner.yml\n"
+            "  variables:\n"
+            "    a: $(t)",
+
+            "input.yml:3:8: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "    a: $(t)\n"
+            "       ^^^^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include:inner.yml\n"
+            "  t: <$(a)>",
+
+            "input.yml:2:6: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "  t: <$(a)>\n"
+            "     ^^^^^^"
+        ));
+
+        /* invalid variable name */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: $()",
+
+            "<string>:1:4: invalid variable, "
+            "the string contains a variable with an invalid name\n"
+            "a: $()\n"
+            "   ^^^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: $(5a)",
+
+            "<string>:1:4: invalid variable, "
+            "the string contains a variable with an invalid name\n"
+            "a: $(5a)\n"
+            "   ^^^^^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: \"a \\$(b) $(b) $(-)\"",
+
+            "<string>:1:4: invalid variable, "
+            "the string contains a variable with an invalid name\n"
+            "a: \"a \\$(b) $(b) $(-)\"\n"
+            "   ^^^^^^^^^^^^^^^^^^^"
+        ));
+
+        /* cannot use variables in flow context */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: [ 1, 2, $(b) ]",
+
+            "<string>:1:12: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "a: [ 1, 2, $(b) ]\n"
+            "           ^^^^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a: { a: 1, b: $(b) }",
+
+            "<string>:1:15: use of variables is forbidden, "
+            "cannot use variables in this context\n"
+            "a: { a: 1, b: $(b) }\n"
+            "              ^^^^"
+        ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Raw variable modification handling */
+
+    Z_TEST(raw_variable_modif, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: $(var)"
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  var:\n"
+            "    b: 1\n"
+            "    c: 2",
+
+            "a:\n"
+            "  b: 1\n"
+            "  c: 2"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("vm_raw_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vm_raw_1/root.yml",
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  var:\n"
+            "    b: 1\n"
+            "    c: 2\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vm_raw_1/inner.yml",
+            "a: $(var)\n"
+        ));
+
+        /* any change to the AST is properly handled */
+        yaml_data_set_null(&data.obj->fields.tab[0].data);
+        Z_HELPER_RUN(z_pack_yaml_file("vm_raw_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vm_raw_2/root.yml",
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  var: ~\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vm_raw_2/inner.yml",
+            "a: $(var)\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ variable in string modification handling */
+
+    Z_TEST(variable_in_string_modif, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: <$(var)>\n"
+            "b: \"<\\$(a) $b $(var) \\$(c>\""
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  var: yare",
+
+            "a: <yare>\n"
+            "b: \"<\\$(a) $b yare \\$(c>\""
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  var: yare\n",
+
+            "a: <$(var)>\n"
+            "b: \"<\\$(a) $b $(var) \\$(c>\"\n"
+        ));
+
+        /* changing the value while still matching the template will work */
+        data.obj->fields.tab[0].data.scalar.s = LSTR("<daze>");
+        data.obj->fields.tab[1].data.scalar.s = LSTR("<$(a) $b daze $(c>");
+        Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  var: daze\n",
+
+            "a: <$(var)>\n"
+            "b: \"<\\$(a) $b $(var) \\$(c>\"\n"
+        ));
+
+        /* changing the value and not matching the template will lose the
+         * var */
+        data.obj->fields.tab[0].data.scalar.s = LSTR("<daze");
+        data.obj->fields.tab[1].data.scalar.s = LSTR("<$(a) b daze $(c>");
+        Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
+            "!include:inner.yml {}\n",
+
+            "a: <daze\n"
+            "b: \"<\\$(a) b daze \\$(c>\"\n"
+        ));
+
+        data.obj->fields.tab[0].data.scalar.s = LSTR("");
+        data.obj->fields.tab[1].data.scalar.s = LSTR("<a b d c>");
+        Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
+            "!include:inner.yml {}\n",
+
+            "a: \"\"\n"
+            "b: <a b d c>\n"
+        ));
+
+        data.obj->fields.tab[0].data.scalar.s = LSTR("d");
+        data.obj->fields.tab[1].data.scalar.s = LSTR("d");
+        Z_HELPER_RUN(z_test_var_in_str_change(&data, &pres,
+            "!include:inner.yml {}\n",
+
+            "a: d\n"
+            "b: d\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ multiple variables modification handling */
+
+    Z_TEST(variable_multiple_modif, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "a: $(par) $(ker)"
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  par: \" he \"\n"
+            "  ker: roes",
+
+            "a: \" he  roes\""
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("vm_mul_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vm_mul_1/root.yml",
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  par: \" he \"\n"
+            "  ker: roes\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vm_mul_1/inner.yml",
+            "a: $(par) $(ker)\n"
+        ));
+
+        /* changing the value will always lose the variables */
+        data.obj->fields.tab[0].data.scalar.s = LSTR("her oes");
+
+        Z_HELPER_RUN(z_pack_yaml_file("vm_mul_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vm_mul_2/root.yml",
+            "!include:inner.yml {}\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vm_mul_2/inner.yml",
+            "a: her oes\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Raw variable conflict handling */
+
+    Z_TEST(raw_variable_conflict, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "- $(var)\n"
+            "- $(var)\n"
+            "- $(var)\n"
+            "- $(var)\n"
+            "- $(var)\n"
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  var: 1\n",
+
+            "- 1\n"
+            "- 1\n"
+            "- 1\n"
+            "- 1\n"
+            "- 1"
+        ));
+
+        /* modify AST to get: [ 1, 2, 2, 1, ~ ] */
+        yaml_data_set_uint(&data.seq->datas.tab[1], 2);
+        yaml_data_set_uint(&data.seq->datas.tab[2], 2);
+        yaml_data_set_null(&data.seq->datas.tab[4]);
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("vc_raw_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vc_raw_1/root.yml",
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  var: 1\n"
+            "  var~1: 2\n"
+            "  var~2: ~\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vc_raw_1/inner.yml",
+            "- $(var)\n"
+            "- $(var~1)\n"
+            "- $(var~1)\n"
+            "- $(var)\n"
+            "- $(var~2)\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ variable in string conflict handling */
+
+    Z_TEST(variable_in_string_conflict, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "- $(var)\n"
+            "- \" $(var) \"\n"
+            "- <$(var)>\n"
+            "- $(var) $(var) $(var)\n"
+            "- <$(var)>\n"
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  var: ga\n",
+
+            "- ga\n"
+            "- \" ga \"\n"
+            "- <ga>\n"
+            "- ga ga ga\n"
+            "- <ga>"
+        ));
+
+        /* modify AST to get: [ bu, " ga ", <zo>, ga meu bu, ga zo, <bu> ] */
+        yaml_data_set_string(&data.seq->datas.tab[0], LSTR("bu"));
+        yaml_data_set_string(&data.seq->datas.tab[2], LSTR("<zo>"));
+        yaml_data_set_string(&data.seq->datas.tab[3], LSTR("ga meu bu"));
+        yaml_data_set_string(&data.seq->datas.tab[4], LSTR("<bu>"));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("vc_str_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vc_str_1/root.yml",
+            "!include:inner.yml\n"
+            "variables:\n"
+            /* First value deduced is taken as the true value. */
+            "  var: bu\n"
+            /* Other deduced values are added as conflicts */
+            "  var~1: ga\n"
+            "  var~2: zo\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vc_str_1/inner.yml",
+            "- $(var)\n"
+
+            /* String did not change, but the value was already deduced to
+             * a new string. */
+            "- \" $(var~1) \"\n"
+
+            /* Value changed, but template is simple, so new value is deduced.
+             */
+            "- <$(var~2)>\n"
+
+            /* Loss of template due to use of multiple variables. */
+            "- ga meu bu\n"
+
+            /* Value changed, but match the deduced value, so template do not
+             * change. */
+            "- <$(var)>\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ multiple variables conflict handling */
+
+    Z_TEST(variable_multiple_conflict, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "- $(foo)\n"
+            "- $(bar)\n"
+            "- $(foo) $(foo)\n"
+            "- $(foo) $(bar)\n"
+            "- $(foo) $(bar) $(foo)\n"
+            "- $(bar) $(bar) $(foo)\n"
+            "- $(foo) $(bar)\n"
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  foo: ga\n"
+            "  bar: bu\n",
+
+            "- ga\n"
+            "- bu\n"
+            "- ga ga\n"
+            "- ga bu\n"
+            "- ga bu ga\n"
+            "- bu bu ga\n"
+            "- ga bu"
+        ));
+
+        /* force $foo and $bar to be deduced to a new string */
+        yaml_data_set_string(&data.seq->datas.tab[0], LSTR("zo"));
+        yaml_data_set_string(&data.seq->datas.tab[1], LSTR("meu"));
+        yaml_data_set_string(&data.seq->datas.tab[6], LSTR("zo meu"));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("vc_mul_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("vc_mul_1/root.yml",
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  foo: zo\n"
+            "  foo~1: ga\n"
+            "  bar: meu\n"
+            "  bar~1: bu\n"
+        ));
+        Z_HELPER_RUN(z_check_file("vc_mul_1/inner.yml",
+            "- $(foo)\n"
+            "- $(bar)\n"
+            /* Value did not change, but names conflicted: this is properly
+             * handled */
+            "- $(foo~1) $(foo~1)\n"
+            "- $(foo~1) $(bar~1)\n"
+            "- $(foo~1) $(bar~1) $(foo~1)\n"
+            "- $(bar~1) $(bar~1) $(foo~1)\n"
+            /* Even though the value matches the new variables, the old
+             * variable values do not apply, and the template uses multiple
+             * variables, so it is lost */
+            "- zo meu\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ escaped variables */
+
+    Z_TEST(variable_escaped, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+        const char *inner;
+        const char *child;
+        const char *grandchild;
+
+        /* Test how changing in the parsed AST the value introduced by a
+         * variable is reflected when repacking */
+
+        inner =
+            /* Not quoting the string won't handle escaping */
+            "- $(foo)\n"
+            "- \\$(foo)\n"
+            "- \\\\$(foo)\n"
+            "- <\\$(foo)>\n"
+            "- <$(foo) \\$(foo) \\$(bar)$(foo)>\n"
+            "- $(foo)\\$(bar)$(bar)\\\\$(foo)\n"
+
+            /* Quoting the string will handle escaping */
+            "- \"$(foo)\"\n"
+            "- \"\\$(foo)\"\n"
+            "- \"\\\\$(foo)\"\n"
+            "- \"<\\$(foo)>\"\n"
+            "- \"<$(foo) \\$(foo) \\$(bar)$(foo)>\"\n"
+            "- \"$(foo)\\$(bar)$(bar)\\\\$(foo)\"\n";
+
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
+        root =
+            "!include:inner.yml\n"
+            "variables:\n"
+            "  foo: ga\n"
+            "  bar: bu\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "- ga\n"
+            "- \\ga\n"
+            "- \\\\ga\n"
+            "- <\\ga>\n"
+            "- <ga \\ga \\buga>\n"
+            "- ga\\bubu\\\\ga\n"
+            "- ga\n"
+            "- \"\\$(foo)\"\n"
+            "- \\ga\n"
+            "- \"<\\$(foo)>\"\n"
+            "- \"<ga \\$(foo) \\$(bar)ga>\"\n"
+            "- \"ga\\$(bar)bu\\\\ga\""
+        ));
+
+        Z_ASSERT_LSTREQUAL(data.seq->datas.tab[7].scalar.s,
+                           LSTR("$(foo)"));
+        Z_ASSERT_LSTREQUAL(data.seq->datas.tab[9].scalar.s,
+                           LSTR("<$(foo)>"));
+        Z_ASSERT_LSTREQUAL(data.seq->datas.tab[10].scalar.s,
+                           LSTR("<ga $(foo) $(bar)ga>"));
+        Z_ASSERT_LSTREQUAL(data.seq->datas.tab[11].scalar.s,
+                           LSTR("ga$(bar)bu\\ga"));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_esc_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("var_esc_1/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_esc_1/inner.yml", inner));
+        yaml_parse_delete(&env);
+
+        /* Test partial substitutions with escaped characters, + go above
+         * 8 '$' characters to test bitmap alloc */
+
+        grandchild =
+            "- \"$(a) \\$(a) $(b) \\$(b) \\$(c) $(c) $(d) \\$(d) "
+                "$(e) $(e) \\$(e) $(f) "
+                "\\$(f1) \\$(f2) \\$(f3) \\$(f4) \\$(f5)\"\n"
+            "- $(g)\n";
+        /* bitmap: 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0.
+         * ie: 0x65, 0x0B.
+         * the last '0' is not part of the bitmap, this allows testing proper
+         * OOB tests on the bitmap.
+         */
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+
+        child =
+            "!include:grandchild.yml\n"
+            "variables:\n"
+            "  f: y\n"
+            "  a: \"a\\$(\\$(\\$(a))\"\n"
+            "  d: \"D:\"\n"
+            "  b: b\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+
+        root =
+            "!include:child.yml\n"
+            "variables:\n"
+            "  c: \"c\\$(e)\\$(e)\"\n"
+            "  e: e k s\n"
+            "  g:\n"
+            "    - ~\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "- \"a\\$(\\$(\\$(a)) \\$(a) b \\$(b) \\$(c) c\\$(e)\\$(e) "
+                "D: \\$(d) e k s e k s \\$(e) y "
+                "\\$(f1) \\$(f2) \\$(f3) \\$(f4) \\$(f5)\"\n"
+            "- - ~"
+        ));
+
+        Z_ASSERT_LSTREQUAL(
+            data.seq->datas.tab[0].scalar.s,
+            LSTR("a$($($(a)) $(a) b $(b) $(c) c$(e)$(e) "
+                 "D: $(d) e k s e k s $(e) y "
+                 "$(f1) $(f2) $(f3) $(f4) $(f5)")
+        );
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_esc_2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("var_esc_2/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_esc_2/child.yml", child));
+        Z_HELPER_RUN(z_check_file("var_esc_2/grandchild.yml", grandchild));
+        yaml_parse_delete(&env);
+
+        /* parse only child, look at ast, and repack */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(
+            &data, &pres, &env, YAML_PARSE_ALLOW_UNBOUND_VARIABLES,
+            child,
+
+            /* repacking raw, without includes, will lose the variables,
+             * and thus the string is packed as is, losing variable data */
+            "- \"a\\$(\\$(\\$(a)) \\$(a) b \\$(b) \\$(c) \\$(c) "
+                "D: \\$(d) \\$(e) \\$(e) \\$(e) y "
+                "\\$(f1) \\$(f2) \\$(f3) \\$(f4) \\$(f5)\"\n"
+            "- \"\\$(g)\""
+        ));
+
+        /* But repacking with files (and with the right flag) will work fine.
+         */
+        Z_HELPER_RUN(z_pack_yaml_file("var_esc_3/child.yml", &data, &pres,
+                                      YAML_PACK_ALLOW_UNBOUND_VARIABLES));
+        Z_HELPER_RUN(z_check_file("var_esc_3/child.yml", child));
+        Z_HELPER_RUN(z_check_file("var_esc_3/grandchild.yml", grandchild));
+        yaml_parse_delete(&env);
+
+        /* Test partial substitutions, in a string with no escaped characters,
+         * but some are introduced by substitutions */
+
+        grandchild =
+            "- $(a) $(b) $(c) $(a) $(b) $(c)\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+
+        child =
+            "!include:grandchild.yml\n"
+            "variables:\n"
+            "  b: \"<\\$(b)>\"\n"
+            "  a: \"<\\$(a)>\"\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+
+        root =
+            "!include:child.yml\n"
+            "variables:\n"
+            "  c: \"<\\$(c)>\"\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "- \"<\\$(a)> <\\$(b)> <\\$(c)> <\\$(a)> <\\$(b)> <\\$(c)>\""
+        ));
+
+        Z_ASSERT_LSTREQUAL(
+            data.seq->datas.tab[0].scalar.s,
+            LSTR("<$(a)> <$(b)> <$(c)> <$(a)> <$(b)> <$(c)>")
+        );
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_esc_4/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("var_esc_4/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_esc_4/child.yml", child));
+        Z_HELPER_RUN(z_check_file("var_esc_4/grandchild.yml", grandchild));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ deduce_var_in_string */
+
+    Z_TEST(deduce_var_in_string, "") {
+        t_scope;
+        qv_t(u8) bitmap;
+
+        t_qv_init(&bitmap, 1);
+
+#define TST(tpl, value, exp_var_name, exp_var_value)                         \
+        do {                                                                 \
+            lstr_t var_name;                                                 \
+            lstr_t var_value;                                                \
+                                                                             \
+            Z_ASSERT_N(deduce_var_in_string(LSTR(tpl), LSTR(value), &bitmap, \
+                                            &var_name, &var_value),          \
+                       "tpl: %s, var: %s failed", (tpl), (value));           \
+            Z_ASSERT_LSTREQUAL(var_name, LSTR(exp_var_name));                \
+            Z_ASSERT_LSTREQUAL(var_value, LSTR(exp_var_value));              \
+        } while(0)
+
+#define TST_ERR(tpl, value)                                                  \
+        do {                                                                 \
+            lstr_t var_name;                                                 \
+            lstr_t var_value;                                                \
+                                                                             \
+            Z_ASSERT_NEG(deduce_var_in_string(LSTR(tpl), LSTR(value),        \
+                                              &bitmap, &var_name,            \
+                                              &var_value));                  \
+        } while(0)
+
+        TST_ERR("name", "foo");
+        TST_ERR("$", "foo");
+        TST_ERR("$()", "foo");
+        TST_ERR("$(_", "_");
+        TST("$(name)", "foo", "name", "foo");
+        TST("$(name)", "", "name", "");
+        TST("_$(name)_", "_foo_", "name", "foo");
+        TST("_$(name)_", "__", "name", "");
+        TST_ERR("_$(name)_", "_");
+        TST_ERR("_$(name)_", "_foo_a");
+
+        TST("_$(name)", "_foo_", "name", "foo_");
+        TST("$(name)_", "_foo_", "name", "_foo");
+
+        qv_append(&bitmap, 0x1);
+        TST("$(a) $(b) $(c)", "ga $(b) $(c)", "a", "ga");
+        TST_ERR("$(a) $(b) $(c)", "$(a) ga b");
+        TST_ERR("$(a) $(b) $(c)", "a ga $(b)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) $(b)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) ga $(c)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) $(b) ga");
+
+        bitmap.tab[0] = 0x2;
+        TST("$(a) $(b) $(c)", "$(a) ga $(c)", "b", "ga");
+        TST_ERR("$(a) $(b) $(c)", "$(a) ga b");
+        TST_ERR("$(a) $(b) $(c)", "a ga $(b)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) $(b)");
+        TST_ERR("$(a) $(b) $(c)", "ga $(b) $(c)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) $(b) ga");
+
+        bitmap.tab[0] = 0x4;
+        TST("$(a) $(b) $(c)", "$(a) $(b) ga", "c", "ga");
+        TST_ERR("$(a) $(b) $(c)", "$(a) ga b");
+        TST_ERR("$(a) $(b) $(c)", "a ga $(b)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) $(b)");
+        TST_ERR("$(a) $(b) $(c)", "ga $(b) $(c)");
+        TST_ERR("$(a) $(b) $(c)", "$(a) ga $(c)");
+
+#undef TST_ERR
+#undef TST
+    } Z_TEST_END;
+
+    /* }}} */
     /* {{{ yaml_data_equals */
 
     Z_TEST(yaml_data_equals, "") {

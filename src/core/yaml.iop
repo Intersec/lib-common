@@ -18,6 +18,75 @@
 
 package yaml;
 
+/* {{{ Serialized data */
+
+/** Value of a YAML scalar. */
+union ScalarValue {
+    string s;
+    double d;
+    ulong u;
+    long i;
+    bool b;
+    void nil;
+};
+
+/** Value of a YAML sequence. */
+struct SeqValue {
+    /** List of datas stored in the sequence. */
+    Data[] datas;
+};
+
+/** Value of a YAML object. */
+struct ObjValue {
+    /** List of key-value mappings stored in the object. */
+    KeyData[] fields;
+};
+
+union DataValue {
+    ScalarValue scalar;
+    SeqValue seq;
+    ObjValue obj;
+};
+
+/** Serialized YAML data. */
+struct Data {
+    /** Value of the data. */
+    DataValue value;
+
+    /** Optional tag. */
+    string? tag;
+};
+
+/** Key-Value pair */
+struct KeyData {
+    string key;
+    Data data;
+};
+
+/* }}} */
+/* {{{ Template presentation */
+
+struct PresentationTemplate {
+    /** This is the original value of the template, before any substitution.
+     *
+     * \warning The node may have been modified multiple times if it contains
+     * multiple arguments, or it may be partial. This field contains the
+     * original string, and not any partial substitution done afterwards.
+     */
+    string originalValue;
+
+    /** Bitmap of escaped characters.
+     *
+     * If set, the template contains both variables and escaped '$'
+     * characters. To distinguish the two, a bitmap is used, where 1 indicates
+     * that a '$' is a variable, and 0 indicates a raw '$' character.
+     */
+    ubyte[] variablesBitmap;
+};
+
+/* }}} */
+/* {{{ Node presentation */
+
 /* Presentation details applied to a specific node.
  *
  * A node can be either:
@@ -70,9 +139,38 @@ struct PresentationNode {
     /** The data is packed in flow syntax */
     bool flowMode = false;
 
+    /** The data was quoted.
+     *
+     * This only makes sense for string scalars. If true, the string will
+     * be quoted when packed. If false, the string will still be quoted if it
+     * contains characters that requires it.
+     */
+    bool quoted = false;
+
+    /** The null data was empty.
+     *
+     * This only makes sense for null scalars. If true, the scalar will be
+     * packed as "", otherwise as "~".
+     */
+    bool emptyNull = false;
+
     /** If set, the node was parsed from an included file. */
     PresentationInclude? included;
+
+    /** If set, this contains the value of the node pre-templating.
+     *
+     * If set, this node was modified through variables, and this field
+     * contains the original value of the node.
+     *
+     * \warning The node may have been modified multiple times if it contains
+     * multiple arguments, or it may be partial. This field contains the
+     * original string, and not any partial substitution done afterwards.
+     */
+    PresentationTemplate? tpl;
 };
+
+/* }}} */
+/* {{{ Document presentation */
 
 struct PresentationNodeMapping {
     /** Path the node in the document.
@@ -115,6 +213,9 @@ struct DocumentPresentation {
     PresentationNodeMapping[] mappings;
 };
 
+/* }}} */
+/* {{{ Include presentation */
+
 /** Details about an '!include' */
 struct PresentationInclude {
     /** Include path.
@@ -132,8 +233,103 @@ struct PresentationInclude {
      *
      * Presentation associated with the '!include' node.
      */
-    PresentationNode? includePresentation;
+    DocumentPresentation includePresentation;
 
     /** Presentation details of the included file. */
     DocumentPresentation documentPresentation;
+
+    PresentationOverride? override;
+
+    PresentationVariableSettings? variables;
 };
+
+/* }}} */
+/* {{{ Override presentation */
+
+/** Mapping from a path to a overridden value. */
+struct PresentationOverrideNode {
+    /** Path from the root of the override data */
+    string path;
+
+    /** Original data that was replaced by the override.
+     *
+     * If unset, there was no original data, indicating the data was added
+     * by the override, and not replaced.
+     *
+     * Technically:
+     *  * If the path ends with a '!', we are referencing a YAML data that
+     *    was already present in the original AST, so originalData should be
+     *    set.
+     *  * If the path ends with a '[%d]' or a '.%s', we are referencing a seq
+     *    element or an object key itself and not its value, which would only
+     *    be valid for an addition, so originalData should be unset.
+     */
+    Data? originalData;
+};
+
+/** Description of an override data.
+ *
+ * The presentation of an override stores the information that is needed to
+ * properly recreate the override on packing.
+ *
+ * It stores the override data in a flat way, associating paths to data that
+ * was replaced in the original AST.
+ *
+ * For example, with:
+ *
+ * foo.yml:
+ * a: { b: 1 }
+ *
+ * when parsing:
+ *
+ * !include foo.yml
+ * a: { b: 2 }
+ *
+ * We will store:
+ *  nodes: [{
+ *    path: ".a.b!",
+ *    originalData: {
+ *      "value": { "scalar": { "u": 1 } }
+ *    }
+ *  }]
+ */
+struct PresentationOverride {
+    /** List of overridden values, with their associated paths. */
+    PresentationOverrideNode[] nodes;
+};
+
+/* }}} */
+/* {{{ Variables presentation */
+
+/** Binding of a value on a variable. */
+struct PresentationVariableBinding {
+    /** Name of the variable bound. */
+    string varName;
+
+    /** Value of the variable.
+     *
+     * This is not set if the value was not a scalar (i.e., the variable
+     * was used to insert data in the AST, and not injected into strings).
+     *
+     * This is useful to properly repack bindings that were merged into
+     * strings. It is used to detect if the strings has not changed, and if
+     * those values can thus be re-used.
+     */
+    string? value;
+};
+
+/** Description of a variable settings data.
+ *
+ * The presentation of a variable settings stores the information that is
+ * needed to properly recreate the nodes settings the varialbes on packing.
+ *
+ * It stores the names of the variables set. Packing the inner AST with reuse
+ * the original, pre-substitution values, and use them to deduce the variable
+ * values.
+ */
+struct PresentationVariableSettings {
+    /** Bindings contained in the settings data. */
+    PresentationVariableBinding[] bindings;
+};
+
+/* }}} */

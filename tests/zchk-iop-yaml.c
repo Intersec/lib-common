@@ -70,7 +70,7 @@ iop_yaml_test_unpack_error(const iop_struct_t *st, unsigned flags,
 }
 
 static int
-iop_yaml_test_unpack(const iop_struct_t * nonnull st,
+iop_yaml_test_unpack(const iop_struct_t * nonnull st, unsigned flags,
                      const char * nonnull yaml,
                      const char * nullable new_yaml)
 {
@@ -85,7 +85,7 @@ iop_yaml_test_unpack(const iop_struct_t * nonnull st,
     SB_1k(packed);
 
     ps = ps_initstr(yaml);
-    ret = t_iop_yunpack_ptr_ps(&ps, st, &res, 0, &pres, &err);
+    ret = t_iop_yunpack_ptr_ps(&ps, st, &res, flags, &pres, &err);
     Z_ASSERT_N(ret, "YAML unpacking error: %pL", &err);
 
     t_z_yaml_pack_struct(st, res, 0, &packed);
@@ -440,6 +440,9 @@ Z_GROUP_EXPORT(iop_yaml)
 #define TST_ERROR(_flags, _yaml, _error)                                     \
         Z_HELPER_RUN(iop_yaml_test_unpack_error(st, (_flags), (_yaml),       \
                                                 (_error), true))
+#define TST(_flags, _yaml, _new_yaml)                                        \
+        Z_HELPER_RUN(iop_yaml_test_unpack(st, (_flags), (_yaml),             \
+                                          (_new_yaml)))
 
         st = &tstiop__full_opt__s;
 #define ERR_COMMON  \
@@ -623,6 +626,7 @@ Z_GROUP_EXPORT(iop_yaml)
                   "<string>:2:1: "ERR_COMMON": unknown field `z`\n"
                   "z: 42\n"
                   "^");
+        TST(IOP_UNPACK_IGNORE_UNKNOWN, "z: 42", "{}");
 
         /* missing field in struct */
         TST_ERROR(0, "st: i: 42",
@@ -823,12 +827,13 @@ Z_GROUP_EXPORT(iop_yaml)
                   "   ^^^^^^^^^^");
 
 #undef ERR_COMMON
+#undef TST
 #undef TST_ERROR
     } Z_TEST_END;
     /* }}} */
     Z_TEST(unpack, "test IOP YAML unpacking") { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
-        Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml), (_new_yaml)))
+        Z_HELPER_RUN(iop_yaml_test_unpack((_st), 0, (_yaml), (_new_yaml)))
 
         /* test a lot of different types */
         TST(&tstiop__my_struct_a__s,
@@ -958,7 +963,7 @@ Z_GROUP_EXPORT(iop_yaml)
     /* }}} */
     Z_TEST(unpack_compat, "test YAML unpacking backward compat") { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
-        Z_HELPER_RUN(iop_yaml_test_unpack((_st), (_yaml), (_new_yaml)))
+        Z_HELPER_RUN(iop_yaml_test_unpack((_st), 0, (_yaml), (_new_yaml)))
 #define TST_ERROR(_st, _yaml, _error)                                        \
         Z_HELPER_RUN(iop_yaml_test_unpack_error((_st), 0, (_yaml), (_error), \
                                                 false))

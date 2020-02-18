@@ -123,23 +123,23 @@ obj:
 
 == Includes
 
-Other YAML files can be included using the `!include` tag:
+Other YAML files can be included using the `!include` syntax:
 
 [source,YAML]
 ----
 obj:
-  key: !include foo.yml
+  key: !include:foo.yml
 ----
 
 The YAML data declared in this file will be inlined in place of the
-`!include <path>`.
+`!include:<path>`.
 
 It is also possible to include files of any type:
 
 [source,YAML]
 ----
 obj:
-  key: !includeraw foo.json
+  key: !includeraw:foo.json
 ----
 
 The `!includeraw` will be replaced by a string holding the whole content of
@@ -148,3 +148,188 @@ the included file.
 WARNING: Only includes from the same directory (or from subdirectories) are
 allowed. Includes from absolute paths or from parent directories are
 rejected, as they cannot be repacked in the same way safely.
+
+== Overrides
+
+YAML data included from other files can be modified locally. This is done
+by specifying an object after the include:
+
+[source,YAML]
+----
+obj: !include:foo.yml
+  key: 3
+  obj:
+    a: 4
+    b: 5
+  seq:
+    - 1
+    - 2
+----
+
+The merge of the two objects are quite limited for the moment. Here are
+the few rules to know:
+
+- The included data must be an object, it cannot be a scalar or a
+sequence.
+
+- The structure of the override must match the structure of the
+included data.  For example, if `inner.yml` is:
+
+[source,YAML]
+----
+key: 1
+obj:
+  a: 2
+  b: 3
+seq:
+  - 4
+  - 5
+----
+
+Then:
+
+[source,YAML]
+----
+inner: !include:inner.yml
+  obj: 2
+----
+
+is invalid, because obj is an object and not a scalar. Matching
+any scalar type with any other scalar type is however fine.
+
+- If a key is not found in the included object: it is added:
+
+[source,YAML]
+----
+inner: !include:inner.yml
+  foo: foo
+----
+
+will add the key `foo` in the object (which will have 4 keys: `key`, `obj`,
+`seq` and `foo`).
+
+- If a key is found, we will merge the content of the key from the override
+  with the content of the key from the included object.
+
+[source,YAML]
+----
+inner: !include:inner.yml
+  obj:
+    c: 4
+----
+
+will add the key `c` in the `obj` object (which will have 3 keys: `a`, `b`
+and `foo`).
+
+- If a sequence object is being merged, it is appended to the included sequence.
+
+[source,YAML]
+----
+inner: !include:inner.yml
+  seq:
+    - ~
+----
+
+will add the nil scalar to the `seq` sequence (which will have 3 elements:
+`4`, `5` and `~`).
+
+To put it all together, keeping our `inner.yml` example, if we use this
+override:
+
+[source,YAML]
+----
+inner: !include:inner.yml
+  key: -1
+  obj:
+    c: c
+    a: a
+  seq:
+    - ~
+----
+
+We will end up with the following object:
+
+[source,YAML]
+----
+inner:
+  key: -1
+  obj:
+    a: a
+    b: 3
+    c: c
+  seq:
+    - 4
+    - 5
+    - ~
+----
+
+== Variables
+
+Variables can be used in a document, and specified when including it. This
+allows direct modification of any data inside the document, without having to
+specify the full path as in an override. It also allows modification of multiple
+data with a single variable.
+
+Here is an example, for `inner.yml`:
+
+[source,YAML]
+----
+raw: $(raw)
+str1: variable a is `$(a)` and b is `$(b)`
+a: $(a)
+ab: "$(a): $(b)"
+----
+
+The variables can then be set by specifying their values after including the file:
+
+[source,YAML]
+----
+!include:inner.yml
+variables:
+  a: 5
+  b: bee
+  raw:
+    - 1
+    - s: s
+      z: z
+----
+
+This will give the following object:
+
+[source,YAML]
+----
+!include:inner.yml
+raw:
+  - 1
+  - s: s
+    z: z
+str1: variable a is `5` and b is `bee`
+a: 5
+ab: "5: bee"
+----
+
+Variables that are used inside a string (like `a` and `b`) must be scalars.
+Otherwise, the variable can be any type of data (like `raw`).
+
+To use `$(` in a string without declaring a variable, the sequence must be escaped:
+
+[source,YAML]
+----
+# This is simply a string equals to `$(a)`
+str1: "\$(a)"
+
+# This is a \ character followed by a variable
+# escaping only works in quotes
+str2: \$(a)
+----
+
+Additionally, variables cannot be used in any variable expressions, or in overrides:
+
+[source,YAML]
+----
+!include:inner.yml
+variables:
+  var: $(foo) # This is not allowed
+field:
+  val: $(bar) # Not allowed either
+----

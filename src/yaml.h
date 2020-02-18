@@ -138,6 +138,9 @@ struct yaml_seq_t {
 const char * nonnull yaml_data_get_type(const yaml_data_t * nonnull data,
                                         bool ignore_tag);
 
+/** Return a lstr set to the contents described by the span. */
+lstr_t yaml_span_to_lstr(const yaml_span_t * nonnull span);
+
 /* }}} */
 /* {{{ Parsing */
 
@@ -148,6 +151,25 @@ typedef enum yaml_parse_flags_t {
      * t_yaml_data_get_presentation.
      */
     YAML_PARSE_GEN_PRES_DATA = 1 << 0,
+
+    /** Forbid use of variables. */
+    YAML_PARSE_FORBID_VARIABLES = 1 << 1,
+
+    /** Allow unset variables in the parsed AST.
+     *
+     * YAML documents can have variables, that can be set by other including
+     * YAML documents. Usually, when parsing a yaml file for consumption,
+     * we need to AST to be complete, and thus to have all variables be
+     * properly set.
+     *
+     * However, when manipulating the YAML files themselves, keeping the
+     * variables unbound is required. This flag activates this behavior,
+     * and do not reject documents with unbound variables.
+     *
+     * \warning Do not use this flag if the parsed YAML data is to be
+     * interpreted.
+     */
+    YAML_PARSE_ALLOW_UNBOUND_VARIABLES = 1 << 2,
 } yaml_parse_flags_t;
 
 /** Create a new YAML parsing object.
@@ -267,6 +289,15 @@ typedef enum yaml_pack_flags_t {
      * do not attempt to recreate subfiles.
      */
     YAML_PACK_NO_SUBFILES = 1 << 0,
+
+    /** Allow unbound variables when repacking.
+     *
+     * This is supposed to be used when a document has been parsed with the
+     * YAML_PARSE_ALLOW_UNBOUND_VARIABLES flag. It ensures that if variables
+     * are not found when repacking, there are still properly repacked as
+     * unbound variables.
+     */
+    YAML_PACK_ALLOW_UNBOUND_VARIABLES = 1 << 1,
 } yaml_pack_flags_t;
 
 /** Set YAML packing flags.
@@ -315,7 +346,7 @@ void yaml_pack_env_set_file_mode(yaml_pack_env_t * nonnull env, mode_t mode);
  * the parsed data through t_yaml_data_get_presentation, and then reused when
  * packing with this helper.
  */
-void yaml_pack_env_set_presentation(
+void t_yaml_pack_env_set_presentation(
     yaml_pack_env_t * nonnull env,
     const yaml__document_presentation__t * nonnull pres
 );
@@ -344,9 +375,14 @@ t_yaml_pack(yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
             sb_t * nullable err);
 
 /** Pack a YAML data into a YAML string.
+ *
+ * This function can only fail if set_outdir has been called, which will lead
+ * to subfiles being recreated. If set_outdir has not been called however,
+ * this function does not fail.
  */
-void t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
-                    const yaml_data_t * nonnull data, sb_t * nonnull sb);
+int t_yaml_pack_sb(yaml_pack_env_t * nonnull env,
+                   const yaml_data_t * nonnull data, sb_t * nonnull sb,
+                   sb_t * nullable err);
 
 /** Pack a YAML data into a YAML file.
  *

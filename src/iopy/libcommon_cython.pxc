@@ -105,7 +105,9 @@ PXCC_EXPORT_SYMBOL(iop_sb_write);
 /* Fix bug in pxcc when ordering dependencies required by t_iop_yunpack.
  * yaml__presentation_include__t depends on yaml__document_presentation__t,
  * so it must be declared after it.
+ * Same issue with yaml__key_data__t.
  */
+PXCC_EXPORT_TYPE(yaml__key_data__t);
 PXCC_EXPORT_TYPE(yaml__presentation_include__t);
 
 PXCC_EXPORT_SYMBOL(t_iop_sb_ypack);

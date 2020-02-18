@@ -670,22 +670,49 @@ static int iop_json_lex_char(iop_json_lex_t *ll, int terminator)
     }
 }
 
+static int iop_json_parse_str(pstream_t *ps, sb_t *buf, int *line, int *col,
+                              int terminator)
+{
+    sb_reset(buf);
+
+    for (;;) {
+        for (unsigned i = 0; i < ps_len(ps); i++) {
+            if (ps->b[i] == '\n') {
+                return IOP_JERR_UNCLOSED_STRING;
+            } else
+            if (ps->b[i] == '\\') {
+                sb_add(buf, ps->p, i);
+                PS_SKIP(ps, *col, i);
+                goto parse_bslash;
+            } else
+            if (ps->b[i] == terminator) {
+                sb_add(buf, ps->p, i);
+                PS_SKIP(ps, *col, i + 1);
+                return IOP_JSON_STRING;
+            }
+        }
+        return IOP_JERR_UNCLOSED_STRING;
+
+      parse_bslash:
+        if (parse_backslash(ps, buf, line, col) < 0) {
+            return IOP_JERR_EXP_SMTH;
+        }
+    }
+}
+
 static int iop_json_lex_str(iop_json_lex_t *ll, int terminator)
 {
-    parse_str_res_t res;
+    int res;
 
-    res = parse_quoted_string(PS, &ll->ctx->b, &ll->ctx->line, &ll->ctx->col,
-                              terminator);
-    switch (res) {
-      case PARSE_STR_ERR_EXP_SMTH:
+    res = iop_json_parse_str(PS, &ll->ctx->b, &ll->ctx->line, &ll->ctx->col,
+                             terminator);
+    if (res == IOP_JERR_EXP_SMTH) {
         return RJERROR_WARG(IOP_JERR_EXP_SMTH);
-      case PARSE_STR_ERR_UNCLOSED:
-        return JERROR(IOP_JERR_UNCLOSED_STRING);
-      case PARSE_STR_OK:
-        return IOP_JSON_STRING;
+    } else
+    if (res < 0) {
+        return JERROR(res);
     }
 
-    assert (false);
     return res;
 }
 
