@@ -1443,8 +1443,17 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
         yaml__presentation_include__t *inc;
 
         inc = t_iop_new(yaml__presentation_include);
-        t_yaml_data_get_presentation(&subfile->included->data,
-                                     &inc->include_presentation);
+
+        if (subfile->included->data.type != YAML_DATA_SCALAR
+        ||  subfile->included->data.scalar.type != YAML_SCALAR_NULL
+        ||  subfile->included->data.presentation != NULL)
+        {
+            /* Only do this if the included data is not a raw null scalar, to
+             * avoid filling the presentation with clutter. */
+            t_yaml_data_get_presentation(&subfile->included->data,
+                                         &inc->include_presentation);
+        }
+
         inc->path = path;
         inc->raw = raw;
         t_yaml_data_get_presentation(data, &inc->document_presentation);
@@ -3999,6 +4008,28 @@ t_find_right_path(yaml_pack_env_t * nonnull env, sb_t * nonnull contents,
 /* }}} */
 /* {{{ Include node packing */
 
+/* Generation presentation for include data to hide the '~', and generate:
+ *  !include:path
+ * instead of:
+ *  !include:path ~
+ */
+static yaml__document_presentation__t * nonnull
+t_gen_default_include_presentation(void)
+{
+    yaml__presentation_node_mapping__t *mapping;
+    yaml__document_presentation__t *pres;
+
+    mapping = t_iop_new(yaml__presentation_node_mapping);
+    mapping->path = LSTR("!");
+    mapping->node.empty_null = true;
+
+    pres = t_iop_new(yaml__document_presentation);
+    pres->mappings = IOP_TYPED_ARRAY(yaml__presentation_node_mapping,
+                                     mapping, 1);
+
+    return pres;
+}
+
 /* Pack the "!include(raw)?:<path>" node, with the right presentation. */
 static int
 t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
@@ -4016,7 +4047,11 @@ t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
         data->tag = t_lstr_fmt("include:%pL", &include_path);
     }
 
+    if (dpres->mappings.len == 0) {
+        dpres = t_gen_default_include_presentation();
+    }
     pres = t_yaml_doc_pres_to_map(dpres);
+
     current_path_pos = env->absolute_path.len;
 
     SWAP(const yaml_presentation_t *, pres, env->pres);
@@ -5902,6 +5937,28 @@ Z_GROUP_EXPORT(yaml)
             "# o\n"
             "o: ra\n"
         ));
+
+        /* Test erasing the include presentation for a node. The include tags
+         * should still be:
+         *  !include:path
+         * and not:
+         *  !include:path ~
+         */
+        tab_for_each_ptr(mapping, &pres.mappings) {
+            if (lstr_equal(mapping->path, LSTR("[0]!"))) {
+                Z_ASSERT(mapping->node.included);
+                iop_init(yaml__document_presentation,
+                         &mapping->node.included->include_presentation);
+                break;
+            }
+        }
+        Z_HELPER_RUN(z_pack_yaml_file("newsubdir2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("newsubdir2/root.yml",
+            "- !include:subpres/1.yml\n"
+            "- !include:subpres/weird~name\n"
+        ));
+
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
