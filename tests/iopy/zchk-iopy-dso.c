@@ -267,6 +267,6 @@ Z_GROUP_EXPORT(iopy_dso) {
 int main(int argc, char **argv)
 {
     z_setup(argc, argv);
-    z_register_exports("python/zchk-iopy-dso.c");
+    z_register_exports(PLATFORM_PATH LIBCOMMON_PATH "tests/iopy/");
     return z_run();
 }
