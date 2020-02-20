@@ -32,13 +32,8 @@ main() {
     script_dir=$(dirname "$(readlink -f "$0")")
     RES=0
 
-    if [ -f "$script_dir/zchk_mod/python2/zchk_mod.so" ] ; then
-        run_test "python2 $script_dir/z_pxcc.py"
-    fi
-
-    if [ -f "$script_dir/zchk_mod/python3/zchk_mod.so" ] ; then
-        run_test "python3 $script_dir/z_pxcc.py"
-    fi
+    # TODO: run z_pxcc.py directly with ZFile
+    run_test "python3 $script_dir/z_pxcc.py"
 
     return $RES
 }

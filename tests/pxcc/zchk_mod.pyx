@@ -15,7 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-#cython: language_level=2
+#cython: language_level=3
 
 cdef extern from "../pxcc/cython_export_fix.h":
     pass
