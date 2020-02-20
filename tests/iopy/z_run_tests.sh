@@ -32,21 +32,9 @@ main() {
 
     export LSAN_OPTIONS="suppressions=$script_dir/python-leaks.supp"
 
-    if [ -f "$script_dir/iopy/python2/iopy.so" ] ; then
-        run_test "python2 $script_dir/z_iopy.py"
-    fi
-
-    if [ -f "$script_dir/zchk-iopy-dso2" ] ; then
-        run_test "$script_dir/zchk-iopy-dso2"
-    fi
-
-    if [ -f "$script_dir/iopy/python3/iopy.so" ] ; then
-        run_test "python3 $script_dir/z_iopy.py"
-    fi
-
-    if [ -f "$script_dir/zchk-iopy-dso3" ] ; then
-        run_test "$script_dir/zchk-iopy-dso3"
-    fi
+    # TODO: use z_iopy.py directly in ZFile
+    run_test "python3 $script_dir/z_iopy.py"
+    run_test "$script_dir/zchk-iopy-dso"
 
     return $RES
 }

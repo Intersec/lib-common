@@ -333,7 +333,7 @@ class IopyTest(z.TestCase):
         s.on_connect = None
         s.on_disconnect = None
 
-        p_args = ['python', os.path.join(SELF_PATH, 'z_iopy_process1.py'),
+        p_args = ['python3', os.path.join(SELF_PATH, 'z_iopy_process1.py'),
                   self.plugin_file, uri]
         proc = subprocess.Popen(p_args)
         self.assertIsNotNone(proc)
