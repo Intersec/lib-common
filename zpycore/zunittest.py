@@ -1,3 +1,4 @@
+#/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ###########################################################################
 #                                                                         #
@@ -89,7 +90,7 @@ def public(sym):
     __all__.append(sym.__name__)
     return sym
 
-class _LoadTests(object):
+class _LoadTests:
     """
     _LoadTests
 
