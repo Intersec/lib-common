@@ -375,7 +375,7 @@ def get_linter_flags(ctx, flags_key):
         if key == 'INCLUDES' or key.startswith('INCLUDES_'):
             include_flags += ['-I' + value for value in ctx.env[key]]
 
-    return ctx.env[flags_key] + ctx.env.CFLAGS_python2 + include_flags
+    return ctx.env[flags_key] + ctx.env.CFLAGS_python3 + include_flags
 
 
 def gen_local_vimrc(ctx):
