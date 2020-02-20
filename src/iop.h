@@ -2061,6 +2061,15 @@ struct iop_enum_value {
         .v = ({ pfx##__t _v = (_val); _v; })                                 \
     }
 
+/** Same as \ref IOP_ENUM_FMT_ARG_FLAGS but with explicit description pointer.
+ */
+#define IOP_ENUM_DESC_FMT_ARG_FLAGS(_desc, _val, _flags)                     \
+    (_flags),                                                                \
+    &(struct iop_enum_value){                                                \
+        .desc = (_desc),                                                     \
+        .v = (_val),                                                         \
+    }
+
 /** Provide the appropriate arguments to print the litteral form of an enum
  *  with the %*pE modifier.
  *

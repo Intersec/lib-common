@@ -1605,7 +1605,8 @@ static int iop_first_diff(const iop_struct_t *st,
                           const void *v1, const void *v2,
                           sb_t *field_path, sb_t *diff_desc);
 
-static inline void iop_value_print(iop_type_t type, const void *v, sb_t *buf)
+static inline void iop_value_print(iop_type_t type, const iop_enum_t *en_desc,
+                                   const void *v, sb_t *buf)
 {
     switch (type) {
       case IOP_T_BOOL:
@@ -1623,12 +1624,17 @@ static inline void iop_value_print(iop_type_t type, const void *v, sb_t *buf)
       CASE_NUMBER(IOP_T_I16, "%d", int16_t);
       CASE_NUMBER(IOP_T_U32, "%u", uint32_t);
       CASE_NUMBER(IOP_T_I32, "%d", int32_t);
-      CASE_NUMBER(IOP_T_ENUM, "%d", int32_t);
       CASE_NUMBER(IOP_T_U64, "%ju", uint64_t);
       CASE_NUMBER(IOP_T_I64, "%jd", int64_t);
       CASE_NUMBER(IOP_T_DOUBLE, "%f", double);
 
 #undef CASE_NUMBER
+
+      case IOP_T_ENUM:
+        sb_addf(buf, "%*pE", IOP_ENUM_DESC_FMT_ARG_FLAGS(en_desc,
+                                                         *(const int32_t *)v,
+                                                         IOP_ENUM_FMT_FULL));
+        break;
 
       case IOP_T_STRING:
       case IOP_T_XML:
@@ -1726,10 +1732,16 @@ static int __iop_first_diff(const iop_struct_t *st,
                 t2 = &IOP_FIELD(const uint8_t, r2, i * fdesc->size);
 
                 if (!iop_value_equals(fdesc->type, t1, t2)) {
+                    const iop_enum_t *en_desc = NULL;
+
+                    if (fdesc->type == IOP_T_ENUM) {
+                        en_desc = fdesc->u1.en_desc;
+                    }
+
                     sb_sets(diff_desc, "value differs (`");
-                    iop_value_print(fdesc->type, t1, diff_desc);
+                    iop_value_print(fdesc->type, en_desc, t1, diff_desc);
                     sb_adds(diff_desc, "` vs `");
-                    iop_value_print(fdesc->type, t2, diff_desc);
+                    iop_value_print(fdesc->type, en_desc, t2, diff_desc);
                     sb_adds(diff_desc, "`)");
 
                     goto print_field;

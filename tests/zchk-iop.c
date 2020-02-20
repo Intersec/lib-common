@@ -8099,6 +8099,15 @@ Z_GROUP_EXPORT(iop)
                                        &diff_desc));
         Z_ASSERT_STREQUAL(diff_desc.data, "field `o`: class type differs "
                           "(tstiop.FirstDiffC1 vs tstiop.FirstDiffC2)");
+
+        d2 = d1;
+        OPT_SET(d1.e, FIRST_DIFF_ENUM_A);
+        OPT_SET(d2.e, FIRST_DIFF_ENUM_C);
+
+        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
+                                       &diff_desc));
+        Z_ASSERT_STREQUAL(diff_desc.data, "field `e`: "
+                          "value differs (`A(0)` vs `C(2)`)");
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_nonreg_ioptag_union_unpack, "test iop_tag all bytes set (i32 vs u16)") { /* {{{ */
