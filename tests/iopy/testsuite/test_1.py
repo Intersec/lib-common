@@ -16,10 +16,7 @@
 #                                                                         #
 ###########################################################################
 
-import z_compatibility
 
-@z_compatibility.metaclass
-class test_ClassA(object):
-    __metaclass__ = _iopy_register.metaclass
+class test_ClassA(metaclass=_iopy_register.metaclass):
     def user_method(self):
         return self.field1 == 1
