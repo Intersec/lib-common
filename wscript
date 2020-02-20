@@ -129,18 +129,16 @@ def configure(ctx):
     # }}}
     # {{{ Python 3
 
-    try:
-        ctx.find_program(['python3-config', 'python3.6-config'],
-                         var='PYTHON3_CONFIG')
-    except Errors.ConfigurationError as e:
-        Logs.debug('cannot configure python3: %s', e.msg)
-    else:
-        py_cflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--includes'])
-        ctx.env.append_unique('CFLAGS_python3', py_cflags.strip().split(' '))
+    ctx.find_program('python3')
+    ctx.find_program(['python3-config', 'python3.6-config'],
+                     var='PYTHON3_CONFIG')
 
-        py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--ldflags'])
-        ctx.env.append_unique('LDFLAGS_python3',
-                              py_ldflags.strip().split(' '))
+    py_cflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--includes'])
+    ctx.env.append_unique('CFLAGS_python3', py_cflags.strip().split(' '))
+
+    py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--ldflags'])
+    ctx.env.append_unique('LDFLAGS_python3',
+                          py_ldflags.strip().split(' '))
 
     # }}}
     # {{{ lib clang
