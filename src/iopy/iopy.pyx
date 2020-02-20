@@ -68,9 +68,9 @@ cdef extern from "libcommon_cython.h" nogil:
     lstr_t LSTR_INIT_V(const char *, int)
     extern lstr_t LSTR_NULL_V
     lstr_t LSTR_SB_V(const sb_t *)
-    void *LSTR_FMT_ARG(...)
-    char *t_fmt(...)
-    lstr_t t_lstr_fmt(...)
+    void *LSTR_FMT_ARG(lstr_t)
+    char *t_fmt(const char *, ...)
+    lstr_t t_lstr_fmt(const char *, ...)
 
     ctypedef sb_t sb_scope_t
     sb_scope_t sb_scope_init(int)
@@ -79,8 +79,8 @@ cdef extern from "libcommon_cython.h" nogil:
     sb_scope_t t_sb_scope_init(int)
     sb_scope_t t_sb_scope_init_1k()
     sb_scope_t t_sb_scope_init_8k()
-    void sb_addf(...)
-    void sb_prependf(...)
+    void sb_addf(sb_t *, const char *, ...)
+    void sb_prependf(sb_t *, const char *, ...)
 
     cbool is_ic_hdr_simple_hdr(const ic__hdr__t *)
     ic__hdr__t *t_iop_new_ic_hdr()
