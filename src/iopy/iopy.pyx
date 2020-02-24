@@ -8134,8 +8134,8 @@ def metaclass_cls_new(_InternalBaseHolder mcs, object name, tuple bases,
     cdef dict init_kwargs
     cdef dict fields_kwargs
     cdef object custom_init
+    cdef object spec
     cdef object args
-    cdef object _
     cdef object keywords
     cdef object defaults
     cdef object covars
@@ -8183,7 +8183,10 @@ def metaclass_cls_new(_InternalBaseHolder mcs, object name, tuple bases,
 
     custom_init = dct.get('__custom_init__', None)
     if custom_init:
-        args, _, keywords, defaults = inspect.getargspec(custom_init)
+        spec = inspect.getfullargspec(custom_init)
+        args = spec[0]
+        keywords = spec[2]
+        defaults = spec[3]
         all_kwargs = keywords is not None
         if defaults:
             covars = args[-len(defaults):]
