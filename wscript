@@ -101,32 +101,6 @@ def configure(ctx):
         Logs.info('missing Linux UAPI SCTP header,'
                   ' it will be replaced by a custom one')
 
-    # {{{ Python 2
-
-    # TODO waf: use waf python tool for that?
-    ctx.find_program('python2')
-
-    # Check version is >= 2.6
-    py_ver = ctx.cmd_and_log(ctx.env.PYTHON2 + ['--version'],
-                             output=Context.STDERR)
-    py_ver = py_ver.strip()[len('Python '):]
-    py_ver_minor = int(py_ver.split('.')[1])
-    if py_ver_minor not in [6, 7]:
-        ctx.fatal('unsupported python version {0}'.format(py_ver))
-
-    # Get compilation flags
-    if py_ver_minor == 6:
-        ctx.find_program('python2.6-config', var='PYTHON2_CONFIG')
-    else:
-        ctx.find_program('python2.7-config', var='PYTHON2_CONFIG')
-
-    py_cflags = ctx.cmd_and_log(ctx.env.PYTHON2_CONFIG + ['--includes'])
-    ctx.env.append_unique('CFLAGS_python2', py_cflags.strip().split(' '))
-
-    py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON2_CONFIG + ['--ldflags'])
-    ctx.env.append_unique('LDFLAGS_python2', py_ldflags.strip().split(' '))
-
-    # }}}
     # {{{ Python 3
 
     ctx.find_program('python3')
