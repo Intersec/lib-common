@@ -1,4 +1,4 @@
-#!/bin/bash -u
+#!/bin/bash -eu
 ###########################################################################
 #                                                                         #
 # Copyright 2019 INTERSEC SA                                              #
@@ -17,26 +17,12 @@
 #                                                                         #
 ###########################################################################
 
-run_test() {
-    echo
-    echo "# $1"
-    eval "$1"
-    RES=$(( RES + $? ))
-}
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 main() {
-    local script_dir
+    export LSAN_OPTIONS="suppressions=$SCRIPT_DIR/python-leaks.supp"
 
-    script_dir=$(dirname "$(readlink -f "$0")")
-    RES=0
-
-    export LSAN_OPTIONS="suppressions=$script_dir/python-leaks.supp"
-
-    # TODO: use z_iopy.py directly in ZFile
-    run_test "python3 $script_dir/z_iopy.py"
-    run_test "$script_dir/zchk-iopy-dso"
-
-    return $RES
+    "$SCRIPT_DIR/zchk-iopy-dso" "$@"
 }
 
-main
+main "$@"
