@@ -475,7 +475,7 @@ class IopyTest(z.TestCase):
         self.r.test.StructF(s='', i=[0])
         exp = (r"^error when parsing test.StructF: "
                r"field s \(type: ?str\) is required but absent; "
-               r"field i \(type: ?long\[\]\) is not allowed: empty array$")
+               r"field i \(type: ?int\[\]\) is not allowed: empty array$")
         with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.StructF()
 
