@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ###########################################################################
 #                                                                         #
@@ -18,8 +18,6 @@
 #                                                                         #
 ###########################################################################
 
-from __future__ import print_function
-from __future__ import unicode_literals
 
 import sys
 import re
@@ -77,7 +75,7 @@ POS_LT_LEN = "too many missing tests: "
 # }}}
 
 
-class Result(object):
+class Result:
     name = None
     time = 0.0
     status = "pass"
@@ -117,11 +115,11 @@ class Result(object):
 
     def _compute(self, items):
         results = dict((k, []) for k in self.z_status_nb)
-        for item in iter(items):
+        for item in items:
             item.compute()
-            for k in iter(results.keys()):
+            for k in results.keys():
                 results[k].append(getattr(item, k))
-        for k, v in results.iteritems():
+        for k, v in results.items():
             setattr(self, k, sum(v))
 
     @property
@@ -132,7 +130,7 @@ class Result(object):
         return "{:0>8}".format(datetime.timedelta(seconds=int(self.time)))
 
 
-class Step(object):
+class Step:
 
     def __init__(self, number, name, status, filename, line, time):
         self.number = int(number)
@@ -148,13 +146,13 @@ class Step(object):
             self.filename, self.line).encode('utf-8')
 
 
-class Test(object):
+class Test:
 
     def __init__(self, number, name, status, time=0.0, comment=""):
         self.number = int(number)
         self.status = status
         self.name = name
-        self.time = float(time) if isinstance(time, (str, unicode)) else time
+        self.time = float(time) if isinstance(time, str) else time
         self.comment = comment
         self.steps = []
 
@@ -183,7 +181,7 @@ class Group(Result):
 
     def compute(self):
         results = dict.fromkeys(EXTENDED_STATUS, 0)
-        for test in self.tests.itervalues():
+        for test in self.tests.values():
             results[test.status] += 1
         self.skipped_nb = results['skip']
         self.passed_nb = results['pass'] + results['todo-pass']
@@ -394,13 +392,10 @@ class Error(object):
         return "\n".join([":  {0}".format(t) for t in self.traces])
 
     def z_error(self):
-        return ": - {0:s}: {1}".format(self, self.status)
-
-    def __unicode__(self):
-        return "{0}.{1}".format(self.groupName, self.testName.strip())
+        return ": - {0:s}: {1}".format(str(self), self.status)
 
     def __str__(self):
-        return  unicode(self).encode('utf8')
+        return "{0}.{1}".format(self.groupName, self.testName.strip())
 
 
 class StreamParser(object):
@@ -429,7 +424,10 @@ class StreamParser(object):
         self.line_counter += 1
         if self.do_break:
             return
-        line = line.decode('utf-8', 'replace').strip()
+
+        if isinstance(line, bytes):
+            line = line.decode('utf-8', 'replace')
+        line = line.strip()
 
         # The buildbot adds a token within the lines to announce stderr/stdout
         # outputs. This rule checks if this prefix is in the line. It then
@@ -475,7 +473,7 @@ class StreamParser(object):
                         LEN_POS_DIFF(POS_LT_LEN, self.group_pos,
                                      self.group_len)
                     )
-                    for i in xrange(self.group_pos, self.group_len):
+                    for i in range(self.group_pos, self.group_len):
                         test_name = self.missing_test_name(
                             self.group_name, i + 1, self.group_len)
                         test = Test(i, test_name, "missing")
@@ -499,7 +497,7 @@ class StreamParser(object):
                         self.product.name, self.suite_fullname,
                         self.group_name, test_name, self.context, "missing")
                     self.res.errors.append(self.error)
-                    for i in xrange(self.group_pos, self.group_len):
+                    for i in range(self.group_pos, self.group_len):
                         test_name = self.missing_test_name(
                             self.group_name, i + 1,self.group_len)
                         test = Test(i, test_name, "missing")
@@ -582,7 +580,7 @@ class StreamParser(object):
                         LEN_POS_DIFF(POS_LT_LEN, self.group_pos,
                                      self.group_len)
                     )
-                    for i in xrange(self.group_pos, n):
+                    for i in range(self.group_pos, n):
                         test_name = self.missing_test_name(
                             self.group_name, i, n)
                         test = Test(i, test_name, "missing")
@@ -645,7 +643,7 @@ class StreamParser(object):
                 LEN_POS_DIFF(POS_GT_LEN, self.group_pos, self.group_len))
             assert self.group_len - self.group_pos < 1000, (
                 LEN_POS_DIFF(POS_LT_LEN, self.group_pos, self.group_len))
-            for i in xrange(self.group_pos, self.group_len):
+            for i in range(self.group_pos, self.group_len):
                 test_name = self.missing_test_name(
                     self.group_name, i + 1, self.group_len)
                 test = Test(i, test_name, "missing")
@@ -666,8 +664,8 @@ def main():
             stream_parser.parse_line(line)
 
     rept = stream_parser.gen_report()
-    print(rept.z_report().encode('utf8'))
-    if len(rept.errors):
+    print(rept.z_report())
+    if rept.errors:
         if not all([e.status.startswith('todo') for e in rept.errors]):
             return -1
     return 0

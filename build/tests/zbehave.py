@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #vim:set fileencoding=utf-8:
 ###########################################################################
 #                                                                         #
@@ -18,8 +18,6 @@
 #                                                                         #
 ###########################################################################
 
-from __future__ import unicode_literals
-from __future__ import absolute_import
 
 from behave.formatter.base import Formatter
 from behave.formatter.formatters import register as __behave_register
@@ -79,7 +77,7 @@ class ZFormatter(Formatter):
             self.stream.flush()
             if self.__exn:
                 for line in self.__exn.split('\n'):
-                    print ":", line
+                    print(":", line)
             self.__count += 1
 
         # Print only skipped steps on running scenario (only in case of error)
