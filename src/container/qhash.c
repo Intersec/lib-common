@@ -87,11 +87,13 @@ static void qhash_resize_start(qhash_t *qh)
     if (newsize > hdr->size) {
         assert (!hdr->mp || !hdr->mp->realloc_fallback);
         qh->keys = mp_irealloc(hdr->mp, qh->keys, hdr->size * qh->k_size,
-                               newsize * qh->k_size, 8, MEM_RAW);
+                               newsize * qh->k_size, __BIGGEST_ALIGNMENT__,
+                               MEM_RAW);
         if (qh->v_size) {
             qh->values = mp_irealloc(hdr->mp, qh->values,
                                      hdr->size * qh->v_size,
-                                     newsize * qh->v_size, 8, MEM_RAW);
+                                     newsize * qh->v_size,
+                                     __BIGGEST_ALIGNMENT__, MEM_RAW);
         }
         if (qh->h_size) {
             qh->hashes = mp_irealloc(hdr->mp, qh->hashes,
@@ -118,11 +120,13 @@ static void qhash_resize_done(qhash_t *qh)
 
     if (qh->old->size > size) {
         qh->keys = mp_irealloc(hdr->mp, qh->keys, qh->old->size * qh->k_size,
-                               size * qh->k_size, 8, MEM_RAW);
+                               size * qh->k_size, __BIGGEST_ALIGNMENT__,
+                               MEM_RAW);
         if (qh->v_size) {
             qh->values = mp_irealloc(hdr->mp, qh->values,
                                      qh->old->size * qh->v_size,
-                                     size * qh->v_size, 8, MEM_RAW);
+                                     size * qh->v_size, __BIGGEST_ALIGNMENT__,
+                                     MEM_RAW);
         }
         if (qh->h_size) {
             qh->hashes = mp_irealloc(hdr->mp, qh->hashes,

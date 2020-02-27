@@ -464,6 +464,10 @@ enum sign {
     })
 #define put_unaligned(ptr, v)  put_unaligned_type(typeof(v), ptr, v)
 
+#ifndef __BIGGEST_ALIGNMENT__
+# define __BIGGEST_ALIGNMENT__  16
+#endif
+
 /* }}} */
 /* {{{ Types */
 

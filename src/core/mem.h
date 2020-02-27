@@ -302,10 +302,6 @@ __attribute__((error("you cannot allocate that much memory")))
 #endif
 extern void __imalloc_too_large(void);
 
-#ifndef __BIGGEST_ALIGNMENT__
-# define __BIGGEST_ALIGNMENT__  16
-#endif
-
 #ifdef PAGE_SIZE
 # undef PAGE_SIZE
 #endif
