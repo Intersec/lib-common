@@ -28,11 +28,6 @@
 #define WRITE_PERIOD  256
 #endif
 
-#ifndef __BIGGEST_ALIGNMENT__
-#define __BIGGEST_ALIGNMENT__  16
-#endif
-
-#define DEFAULT_ALIGNMENT  __BIGGEST_ALIGNMENT__
 #ifndef NDEBUG
 # define MIN_ALIGNMENT  sizeof(void *)
 #else
