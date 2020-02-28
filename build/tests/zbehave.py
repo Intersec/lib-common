@@ -19,13 +19,18 @@
 ###########################################################################
 
 
-from behave.formatter.base import Formatter
-from behave.formatter.formatters import register as __behave_register
-from behave.__main__ import main as __behave_main
-import behave.model
-import zpycore.util
 import sys
 import os
+import behave.model
+import zpycore.util
+
+from behave.formatter.base import Formatter
+from behave.__main__ import main as behave_main
+
+try:
+    from behave.formatter._registry import register as behave_register
+except ImportError:
+    from behave.formatter.formatters import register as behave_register
 
 
 class ZFormatter(Formatter):
@@ -47,7 +52,10 @@ class ZFormatter(Formatter):
     step_tpl = "# {0:>2}-{1:<2} {2} {3} {4}:{5:<3}   # ({6:>.3f}s)\n"
 
     def __init__(self, stream, config):
-        Formatter.__init__(self, stream, config)
+        # Force show_skipped to order the formatter to be called for skipped
+        # features.
+        config.show_skipped = True
+        super().__init__(stream, config)
         self.reset()
 
     def reset(self):
@@ -114,7 +122,12 @@ class ZFormatter(Formatter):
 
     def result(self, step_result):
         self.__steps += 1
-        status = self.status.get(step_result.status, "skip")
+
+        status = step_result.status
+        if not isinstance(status, str):
+            status = status.name
+
+        status = self.status.get(status, "skip")
 
         if self.__status == "skip":
             self.__status = status
@@ -148,8 +161,8 @@ class ZFormatter(Formatter):
 
 def run_behave():
     with zpycore.util.wipe_children_register():
-        __behave_register(ZFormatter)
-        sys.exit(__behave_main())
+        behave_register(ZFormatter)
+        sys.exit(behave_main())
 
 
 if __name__ == '__main__':
