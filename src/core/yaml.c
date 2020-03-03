@@ -945,11 +945,11 @@ ps_startswith_yaml_seq_prefix(const pstream_t *ps)
     return ps->s[0] == '-' && isspace(ps->s[1]);
 }
 
-/* r:48-57 r:65-90 r:97-122 s:'-_~'
+/* r:48-57 r:65-90 r:97-122 s:'-_~<'
  * ie: 0-9a-zA-Z-_~
  */
 static ctype_desc_t const ctype_yaml_key_chars = { {
-    0x00000000, 0x03ff2000, 0x87fffffe, 0x47fffffe,
+    0x00000000, 0x13ff2000, 0x87fffffe, 0x47fffffe,
     0x00000000, 0x00000000, 0x00000000, 0x00000000,
 } };
 
@@ -1667,11 +1667,13 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
     ps_key = ps_get_span(&env->ps, &ctype_yaml_key_chars);
     yaml_span_init(key_span, env, key_pos_start, yaml_env_get_pos(env));
 
+    *key = LSTR_PS_V(&ps_key);
+
     if (ps_len(&ps_key) == 0) {
         return yaml_env_set_err(env, YAML_ERR_BAD_KEY,
                                 "invalid character used");
     } else
-    if (!isalpha(ps_key.s[0])) {
+    if (unlikely(!isalpha(ps_key.s[0]) && !lstr_equal(*key, LSTR("<<")))) {
         return yaml_env_set_err_at(env, key_span, YAML_ERR_BAD_KEY,
                                    "name must start with an alphabetic "
                                    "character");
@@ -1680,14 +1682,105 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
         return yaml_env_set_err(env, YAML_ERR_BAD_KEY, "missing colon");
     }
 
-    *key = LSTR_PS_V(&ps_key);
+    return 0;
+}
+
+static void
+t_add_merge_kd(yaml_key_data_t * nonnull kd,
+               qv_t(yaml_key_data) * nonnull out_fields,
+               qh_t(lstr) * nonnull keys_hash)
+{
+    if (qh_add(lstr, keys_hash, &kd->key) < 0) {
+        /* The field already exists, go through the existing ones to
+         * find it, and copy over it */
+        /* XXX: that's a deviation from the spec, which specifies the
+         * key should be ignored here. However, this does not match up
+         * with how our overrides works. */
+        tab_for_each_ptr(existing_kd, out_fields) {
+            if (lstr_equal(existing_kd->key, kd->key)) {
+                *existing_kd = *kd;
+                break;
+            }
+        }
+    } else {
+        qv_append(out_fields, *kd);
+    }
+}
+
+static void
+t_add_merge_elem(const qv_t(yaml_key_data) * nonnull fields,
+                 qv_t(yaml_key_data) * nonnull out_fields,
+                 qh_t(lstr) * nonnull keys_hash)
+{
+    tab_for_each_ptr(kd, fields) {
+        t_add_merge_kd(kd, out_fields, keys_hash);
+    }
+}
+
+static int
+t_add_merge_data(yaml_parse_t * nonnull env, const yaml_data_t * nonnull data,
+                 qv_t(yaml_key_data) * nonnull out_fields,
+                 qh_t(lstr) * nonnull keys_hash)
+{
+    switch (data->type) {
+      case YAML_DATA_SCALAR:
+      case YAML_DATA_SEQ:
+        return yaml_env_set_err_at(env, &data->span,
+                                   YAML_ERR_WRONG_DATA, "must be an object");
+      case YAML_DATA_OBJ:
+        t_add_merge_elem(&data->obj->fields, out_fields, keys_hash);
+        break;
+    }
 
     return 0;
 }
 
 static int
-t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
-                     yaml_data_t *out)
+t_handle_merge_key(yaml_parse_t * nonnull env, yaml_data_t * nonnull out)
+{
+    qv_t(yaml_key_data) fields;
+    qh_t(lstr) keys_hash;
+    const yaml_data_t *mk_data;
+
+    /* TODO: handle tag? */
+
+    t_qv_init(&fields, 0);
+    t_qh_init(lstr, &keys_hash, 0);
+
+    assert (out->type == YAML_DATA_OBJ
+        &&  out->obj->fields.len >= 1
+        &&  lstr_equal(out->obj->fields.tab[0].key, LSTR("<<")));
+    mk_data = &out->obj->fields.tab[0].data;
+
+    /* First, handle every element in merge key. */
+    switch (mk_data->type) {
+      case YAML_DATA_SEQ:
+        tab_for_each_ptr(subdata, &mk_data->seq->datas) {
+            RETHROW(t_add_merge_data(env, subdata, &fields, &keys_hash));
+        }
+        break;
+
+      case YAML_DATA_SCALAR:
+      case YAML_DATA_OBJ:
+        RETHROW(t_add_merge_data(env, mk_data, &fields, &keys_hash));
+        break;
+    }
+
+    /* Then, consider all the remaining fields as one big override. */
+    out->obj->fields.tab++;
+    out->obj->fields.len--;
+    if (out->obj->fields.len > 0) {
+        t_add_merge_elem(&out->obj->fields, &fields, &keys_hash);
+    }
+
+    out->obj->fields = fields;
+
+    return 0;
+}
+
+static int
+t_yaml_env_parse_obj(yaml_parse_t * nonnull env, const uint32_t min_indent,
+                     yaml_data_t * nonnull out)
 {
     qv_t(yaml_key_data) fields;
     yaml_pos_t pos_end = {0};
@@ -1714,6 +1807,10 @@ t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
             return yaml_env_set_err_at(env, &key_span, YAML_ERR_BAD_KEY,
                                        "key is already declared in the "
                                        "object");
+        }
+        if (unlikely(fields.len > 1 && lstr_equal(key, LSTR("<<")))) {
+            return yaml_env_set_err_at(env, &key_span, YAML_ERR_BAD_KEY,
+                                       "TODO");
         }
 
         /* XXX: This is a hack to handle the tricky case where a sequence
@@ -1755,6 +1852,11 @@ t_yaml_env_parse_obj(yaml_parse_t *env, const uint32_t min_indent,
     yaml_env_end_data_with_pos(env, pos_end, out);
     out->obj = t_new(yaml_obj_t, 1);
     out->obj->fields = fields;
+
+    if (unlikely(fields.len > 0 && lstr_equal(fields.tab[0].key, LSTR("<<"))))
+    {
+        RETHROW(t_handle_merge_key(env, out));
+    }
 
     return 0;
 }
@@ -2117,11 +2219,6 @@ static int t_yaml_env_parse_flow_key_val(yaml_parse_t *env,
     yaml_key_data_t kd;
 
     RETHROW(yaml_env_parse_key(env, &out->key, &out->key_span, NULL));
-    if (lstr_startswith(out->key, LSTR("$"))) {
-        return yaml_env_set_err_at(env, &out->key_span, YAML_ERR_BAD_KEY,
-                                   "cannot specify a variable value in "
-                                   "this context");
-    }
 
     RETHROW(yaml_env_ltrim(env));
     RETHROW(t_yaml_env_parse_flow_key_data(env, &kd));
@@ -5449,6 +5546,18 @@ z_test_var_in_str_change(const yaml_data_t * nonnull data,
     Z_HELPER_END;
 }
 
+static int
+z_test_pretty_print(const yaml_span_t * nonnull span,
+                    const char * nonnull expected_err)
+{
+    SB_1k(buf);
+
+    yaml_parse_pretty_print_err(span, LSTR("err"), &buf);
+    Z_ASSERT_STREQUAL(buf.data, expected_err);
+
+    Z_HELPER_END;
+}
+
 /* }}} */
 
 Z_GROUP_EXPORT(yaml)
@@ -6523,6 +6632,74 @@ Z_GROUP_EXPORT(yaml)
                                       root));
 
         yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Merge key */
+
+    Z_TEST(merge_key, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml_data_t *f;
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "a:\n"
+            "  <<:\n"
+            "    - x: 1\n"
+            "      y: 2\n"
+            "      w: 8\n"
+            "    - { x: 3, z: -1, p: 0 }\n"
+            "  p: 3\n"
+            "  w: a\n"
+            "  q: ~",
+
+            "a:\n"
+            "  x: 3\n"
+            "  y: 2\n"
+            "  w: a\n"
+            "  z: -1\n"
+            "  p: 3\n"
+            "  q: ~"
+        ));
+
+        f = &data.obj->fields.tab[0].data;
+        /* Test correct spans for all fields */
+        Z_HELPER_RUN(z_test_pretty_print(
+            &f->obj->fields.tab[0].key_span,
+            "<string>:6:9: err\n"
+            "    - { x: 3, z: -1, p: 0 }\n"
+            "        ^"
+        ));
+        Z_HELPER_RUN(z_test_pretty_print(
+            &f->obj->fields.tab[0].data.span,
+            "<string>:6:12: err\n"
+            "    - { x: 3, z: -1, p: 0 }\n"
+            "           ^"
+        ));
+        Z_HELPER_RUN(z_test_pretty_print(
+            &f->obj->fields.tab[1].key_span,
+            "<string>:4:7: err\n"
+            "      y: 2\n"
+            "      ^"
+        ));
+        Z_HELPER_RUN(z_test_pretty_print(
+            &f->obj->fields.tab[1].data.span,
+            "<string>:4:10: err\n"
+            "      y: 2\n"
+            "         ^"
+        ));
+        Z_HELPER_RUN(z_test_pretty_print(
+            &f->obj->fields.tab[4].key_span,
+            "<string>:7:3: err\n"
+            "  p: 3\n"
+            "  ^"
+        ));
+        Z_HELPER_RUN(z_test_pretty_print(
+            &f->obj->fields.tab[4].data.span,
+            "<string>:7:6: err\n"
+            "  p: 3\n"
+            "     ^"
+        ));
     } Z_TEST_END;
 
     /* }}} */
