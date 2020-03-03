@@ -8476,9 +8476,9 @@ cdef class Plugin:
             If the wrapped class's base at given index is not a IOP type, a
             TypeError exception is raised.
         force_replace : bool, optional
-            If the IOP type has already been upgraded and force_replace is set
-            to False, a TypeError exception is raised. force_replace should
-            only be used in tests.
+            If True, all the upgrades already performed for the IOP type will
+            be replaced by this one. If False, we will add this upgrade to the
+            other upgrades of the IOP type. Default is False.
         """
         cdef int index_i = 0
         cdef object cls
@@ -8487,7 +8487,7 @@ cdef class Plugin:
             cdef object iopy_child = cls.__bases__[index_i]
             cdef object fullname
             cdef _InternalTypeClasses classes
-            cdef object old_base
+            cdef object old_bases
             cdef object new_bases
 
             try:
@@ -8512,12 +8512,16 @@ cdef class Plugin:
                 raise TypeError('%s is not the current IOP public of %s' %
                                 (iopy_child, fullname))
 
-            old_base = classes.proxy_cls
-            if not force_replace and iopy_child.__bases__ != (old_base,):
-                raise TypeError("%s is already upgraded" % fullname)
+            if force_replace:
+                old_bases = (classes.proxy_cls,)
+            else:
+                old_bases = iopy_child.__bases__
 
-            new_bases = cls.__bases__[:index_i] + (old_base,) \
-                      + cls.__bases__[index_i + 1:]
+            new_bases = (
+                cls.__bases__[:index_i]
+              + old_bases
+              + cls.__bases__[index_i + 1:]
+            )
             cls.__bases__ = new_bases
             iopy_child.__bases__ = (cls,)
 

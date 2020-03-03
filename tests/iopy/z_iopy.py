@@ -2269,6 +2269,25 @@ class IopyV3Tests(z.TestCase):
         container = self.r.test.UnionB(a=None)
         self.assertEqual(container.a.i, 1)
 
+    def test_multiple_upgrades(self):
+        # pylint: disable=unused-variable
+        @self.r.upgrade(force_replace=True)
+        class ClassA1(self.r.test.ClassA):
+            def foo(self):
+                return self.field1
+
+        # pylint: disable=unused-variable
+        @self.r.upgrade()
+        class ClassA2(self.r.test.ClassA):
+            def bar(self):
+                return getattr(self, 'optField', None)
+
+        a = self.r.test.ClassA(field1=74, optField=558)
+        self.assertEqual(a.foo(), 74,
+                         'multiple upgrades of class have failed')
+        self.assertEqual(a.bar(), 558,
+                         'multiple upgrades of class have failed')
+
 
 @z.ZGroup
 class IopyDsoTests(z.TestCase):
