@@ -141,6 +141,21 @@ typedef struct yaml_parse_t {
      */
     const char * nullable filepath;
 
+    /* Path to the "root" directory.
+     *
+     * The "root" directory is the directory of the initial file imported.
+     * All includes are allowed inside this directory, so that includes from
+     * sibling directories is allowed, for example:
+     *
+     * toto/ <-- this is the root directory
+     *   root.yml <-- first file included
+     *   sub1/
+     *     a.yml <-- can include ../sub2/b.yml
+     *   sub2/
+     *     b.yml
+     */
+    const char * nullable rootdirpath;
+
     /* Fullpath to the file being parsed.
      *
      * LSTR_NULL_V if a stream is being parsed.
@@ -1456,6 +1471,7 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
         YAML_PARSE_GEN_PRES_DATA
       | YAML_PARSE_ALLOW_UNBOUND_VARIABLES
     );
+    subfile->rootdirpath = env->rootdirpath;
     if (t_yaml_parse_attach_file(subfile, t_fmt("%pL", &path), dirpath,
                                  &err) < 0)
     {
@@ -2669,14 +2685,22 @@ t_yaml_parse_attach_file(yaml_parse_t *env, const char *filepath,
     path_extend(fullpath, dirpath ?: "", "%s", filepath);
     path_simplify(fullpath);
 
-    /* detect includes that are not contained in the same directory */
-    if (dirpath) {
-        char relative_path[PATH_MAX];
+    if (!env->rootdirpath && dirpath) {
+        lstr_t lstr_dirpath = LSTR(dirpath);
 
         /* to work with path_relative_to, dirpath must end with a '/' */
-        dirpath = t_fmt("%s/", dirpath);
+        if (lstr_endswith(lstr_dirpath, LSTR("/"))) {
+            env->rootdirpath = t_fmt("%pL", &lstr_dirpath);
+        } else {
+            env->rootdirpath = t_fmt("%pL/", &lstr_dirpath);
+        }
+    }
 
-        path_relative_to(relative_path, dirpath, fullpath);
+    /* detect includes that are not contained in the root directory */
+    if (env->rootdirpath) {
+        char relative_path[PATH_MAX];
+
+        path_relative_to(relative_path, env->rootdirpath, fullpath);
         if (lstr_startswith(LSTR(relative_path), LSTR(".."))) {
             sb_setf(err, "cannot include subfile `%s`: "
                     "only includes contained in the directory of the "
@@ -5793,6 +5817,29 @@ Z_GROUP_EXPORT(yaml)
             "!include:../input.yml\n"
             "^ starting here"
         ));
+
+        Z_HELPER_RUN(z_create_tmp_subdir("a/b"));
+        Z_HELPER_RUN(z_write_yaml_file("a/b/gc.yml",
+            "gc: !include:../../c.yml"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("c.yml",
+            "c: !include:../p.yml"
+        ));
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "!include:a/b/gc.yml",
+
+            "input.yml:1:1: error in included file\n"
+            "!include:a/b/gc.yml\n"
+            "^ starting here\n"
+            "a/b/gc.yml:1:5: error in included file\n"
+            "gc: !include:../../c.yml\n"
+            "    ^ starting here\n"
+            "../../c.yml:1:4: invalid include, cannot include subfile "
+            "`../p.yml`: only includes contained in the directory of the "
+            "including file are allowed\n"
+            "c: !include:../p.yml\n"
+            "   ^ starting here"
+        ));
     } Z_TEST_END;
 
     /* }}} */
@@ -5800,6 +5847,9 @@ Z_GROUP_EXPORT(yaml)
 
     Z_TEST(include, "") {
         t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
             "- a: 3\n"
@@ -5845,6 +5895,56 @@ Z_GROUP_EXPORT(yaml)
             "  - b\n"
             "- d"
         ));
+
+        /* Parent includes that stays in the "root" directory are allowed:
+         *
+         * root.yml (include x/b.yml)
+         * x/
+         *   y/
+         *     a.yml (include ../../d.yml)
+         *   b.yml (include ../c.yml)
+         * c.yml (include x/y/a.yml)
+         * d.yml
+         *
+         */
+        Z_HELPER_RUN(z_create_tmp_subdir("x/y"));
+        Z_HELPER_RUN(z_write_yaml_file("x/y/a.yml",
+            "a: !include:../../d.yml"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("x/b.yml",
+            "b: !include:../c.yml"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("c.yml",
+            "c: !include:x/y/a.yml"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("d.yml",
+            "d"
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "!include:x/b.yml",
+
+            "b:\n"
+            "  c:\n"
+            "    a: d"
+        ));
+
+        Z_HELPER_RUN(z_pack_yaml_file("inc-rel/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("inc-rel/root.yml",
+            "!include:x/b.yml\n"
+        ));
+        Z_HELPER_RUN(z_check_file("inc-rel/x/y/a.yml",
+            "a: !include:../../d.yml\n"
+        ));
+        Z_HELPER_RUN(z_check_file("inc-rel/x/b.yml",
+            "b: !include:../c.yml\n"
+        ));
+        Z_HELPER_RUN(z_check_file("inc-rel/c.yml",
+            "c: !include:x/y/a.yml\n"
+        ));
+        Z_HELPER_RUN(z_check_file("inc-rel/d.yml",
+            "d\n"
+        ));
+        yaml_parse_delete(&env);
     } Z_TEST_END;
 
     /* }}} */
