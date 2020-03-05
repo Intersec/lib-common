@@ -1755,11 +1755,17 @@ t_add_merge_data(yaml_parse_t * nonnull env, const yaml_data_t * nonnull data,
                  qh_t(lstr) * nonnull keys_hash,
                  qv_t(mk_elem) * nullable pres)
 {
+    if (data->tag.s) {
+        return yaml_env_set_err_at(env, data->tag_span, YAML_ERR_INVALID_TAG,
+                                   "cannot use tags in a merge key");
+    }
+
     switch (data->type) {
       case YAML_DATA_SCALAR:
       case YAML_DATA_SEQ:
-        return yaml_env_set_err_at(env, &data->span,
-                                   YAML_ERR_WRONG_DATA, "must be an object");
+        return yaml_env_set_err_at(env, &data->span, YAML_ERR_WRONG_DATA,
+                                   "value of merge key must be an object, or "
+                                   "a list of objects");
       case YAML_DATA_OBJ:
         t_add_merge_elem(&data->obj->fields, out_fields, keys_hash, pres);
         break;
@@ -1778,8 +1784,6 @@ t_handle_merge_key(yaml_parse_t * nonnull env, yaml_data_t * nonnull out)
     yaml__document_presentation__t *data_pres = NULL;
     const yaml_data_t *mk_data;
 
-    /* TODO: handle tag? */
-
     t_qv_init(&fields, 0);
     t_qh_init(lstr, &keys_hash, 0);
     if (env->pres) {
@@ -1787,6 +1791,9 @@ t_handle_merge_key(yaml_parse_t * nonnull env, yaml_data_t * nonnull out)
         pres_elems_p = &pres_elems;
         data_pres = t_iop_new(yaml__document_presentation);
         t_yaml_data_get_presentation(out, data_pres);
+        if (out->presentation) {
+            iop_init(yaml__presentation_node, out->presentation);
+        }
     }
 
     assert (out->type == YAML_DATA_OBJ
@@ -1869,7 +1876,8 @@ t_yaml_env_parse_obj(yaml_parse_t * nonnull env, const uint32_t min_indent,
         }
         if (unlikely(fields.len > 1 && lstr_equal(key, LSTR("<<")))) {
             return yaml_env_set_err_at(env, &key_span, YAML_ERR_BAD_KEY,
-                                       "TODO");
+                                       "merge key must be the first key in "
+                                       "the object");
         }
 
         /* XXX: This is a hack to handle the tricky case where a sequence
@@ -6019,6 +6027,47 @@ Z_GROUP_EXPORT(yaml)
             "a: <use of $(var)>\n"
             "   ^^^^^^^^^^^^^^^"
         ));
+
+        /* Merge key must be first */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "key: 1\n"
+            "<<: { a: 2 }",
+
+            "<string>:2:1: invalid key, "
+            "merge key must be the first key in the object\n"
+            "<<: { a: 2 }\n"
+            "^^"
+        ));
+
+        /* merge key must contain an object, or a sequence of objects */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "<<: 2",
+
+            "<string>:1:5: wrong type of data, "
+            "value of merge key must be an object, or a list of objects\n"
+            "<<: 2\n"
+            "    ^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "<<:\n"
+            "  - a: 2\n"
+            "  - - 2",
+
+            "<string>:3:5: wrong type of data, "
+            "value of merge key must be an object, or a list of objects\n"
+            "  - - 2\n"
+            "    ^^^"
+        ));
+
+        /* merge key elements must not use tags */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "<<: !foo { a: 2 }\n",
+
+            "<string>:1:5: invalid tag, "
+            "cannot use tags in a merge key\n"
+            "<<: !foo { a: 2 }\n"
+            "    ^^^^"
+        ));
     } Z_TEST_END;
 
     /* }}} */
@@ -6860,10 +6909,45 @@ Z_GROUP_EXPORT(yaml)
 
     Z_TEST(merge_key, "") {
         t_scope;
-        yaml__document_presentation__t pres;
+        yaml__document_presentation__t empty_pres;
         yaml_data_t data;
         yaml_data_t *f;
 
+        /* Allow packing with empty presentation, to get raw AST */
+        iop_init(yaml__document_presentation, &empty_pres);
+
+        /* test with a single merge key */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "!foo\n"
+            "<<:\n"
+            "  a: 2\n"
+            "  d: ~",
+
+            NULL
+        ));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &empty_pres, 0,
+            "!foo\n"
+            "a: 2\n"
+            "d: ~"
+        ));
+
+        /* merge key + obj */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "<<:\n"
+            "  a: 2\n"
+            "  d: ~\n"
+            "a: 1\n"
+            "c: 3",
+
+            NULL
+        ));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &empty_pres, 0,
+            "a: 1\n"
+            "d: ~\n"
+            "c: 3"
+        ));
+
+        /* multiple merge elements + obj */
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a:\n"
             "  <<:\n"
@@ -6877,10 +6961,7 @@ Z_GROUP_EXPORT(yaml)
 
             NULL
         ));
-
-        /* Test packing with empty presentation, to get raw AST */
-        iop_init(yaml__document_presentation, &pres);
-        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, 0,
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &empty_pres, 0,
             "a:\n"
             "  x: 3\n"
             "  y: 2\n"
@@ -6928,6 +7009,88 @@ Z_GROUP_EXPORT(yaml)
             "  p: 3\n"
             "     ^"
         ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Merge key with includes */
+
+    Z_TEST(merge_key_with_includes, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t empty_pres;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *child1;
+        const char *child2;
+        const char *gc2;
+        const char *root;
+
+        child1 =
+            "# This is child1 values\n"
+            "a: se\n"
+            "b:\n"
+            "  - ki # comment\n"
+            "  - ro\n";
+        Z_HELPER_RUN(z_write_yaml_file("child1.yml", child1));
+        gc2 =
+            "c: shu\n";
+        Z_HELPER_RUN(z_write_yaml_file("gc2.yml", gc2));
+        child2 =
+            "!include:gc2.yml\n"
+            "d: ar\n";
+        Z_HELPER_RUN(z_write_yaml_file("child2.yml", child2));
+        root =
+            "# Add default values\n"
+            "<<:\n"
+            "  # goty\n"
+            "  - !include:child1.yml\n"
+            /* FIXME: '  # bad\n' is not saved, to fix! */
+            /* "  # bad\n" */
+            "  - !include:child2.yml\n"
+            "    d: ra\n"
+            "\n"
+            "# Then add specific values\n"
+            "e: ISS\n";
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "# Add default values\n"
+            "<<:\n"
+            "  # goty\n"
+            "  -\n"
+            "    # This is child1 values\n"
+            "    a: se\n"
+            "    b:\n"
+            "      - ki # comment\n"
+            "      - ro\n"
+            "  - c: shu\n"
+            "    d: ra\n"
+            "\n"
+            "# Then add specific values\n"
+            "e: ISS"
+        ));
+
+        /* Test packing with empty presentation, to get raw AST */
+        iop_init(yaml__document_presentation, &empty_pres);
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &empty_pres, 0,
+            "a: se\n"
+            "b:\n"
+            "  - ki\n"
+            "  - ro\n"
+            "c: shu\n"
+            "d: ra\n"
+            "e: ISS"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("merge_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("merge_1/root.yml", root));
+        Z_HELPER_RUN(z_check_file("merge_1/child1.yml", child1));
+        Z_HELPER_RUN(z_check_file("merge_1/child2.yml", child2));
+        Z_HELPER_RUN(z_check_file("merge_1/gc2.yml", gc2));
+        yaml_parse_delete(&env);
     } Z_TEST_END;
 
     /* }}} */
