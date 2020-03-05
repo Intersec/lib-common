@@ -3856,17 +3856,6 @@ qvector_t(elems, qm_t(key_to_data));
 qvector_t(qv_kd, qv_t(yaml_key_data));
 
 static void
-merge_elem_find_and_swap(const qm_t(key_to_data) * nonnull map, lstr_t key,
-                         const yaml_data_t * nullable * nonnull value)
-{
-    int pos = qm_find_safe(key_to_data, map, &key);
-
-    if (pos >= 0) {
-        SWAP(const yaml_data_t * nullable, *value, map->values[pos]);
-    }
-}
-
-static void
 t_merge_elems_to_data(qv_t(qv_kd) * nonnull objs, bool has_only_merge_key,
                       yaml_data_t * nonnull out)
 {
@@ -3963,7 +3952,15 @@ static void t_yaml_build_obj_with_merge_keys(
 
         qm_for_each_key_value_p(key_to_data, key, value, elem_map) {
             for (int pos2 = pos + 1; pos2 < elems.len; pos2++) {
-                merge_elem_find_and_swap(&elems.tab[pos2], key, value);
+                qm_t(key_to_data) *map2 = &elems.tab[pos2];
+                int map_pos;
+
+                map_pos = qm_find_safe(key_to_data, map2, &key);
+                if (map_pos >= 0) {
+                    SWAP(const yaml_data_t * nullable, *value,
+                         map2->values[map_pos]);
+                    break;
+                }
             }
         }
 
@@ -7039,6 +7036,18 @@ Z_GROUP_EXPORT(yaml)
             "<string>:7:6: err\n"
             "  p: 3\n"
             "     ^"
+        ));
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "<<:\n"
+            "  - x: 1\n"
+            "  - x: 2\n"
+            "x: 3",
+
+            NULL
+        ));
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &empty_pres, 0,
+            "x: 3"
         ));
     } Z_TEST_END;
 
