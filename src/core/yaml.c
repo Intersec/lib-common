@@ -1688,7 +1688,8 @@ yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
 static void
 t_add_merge_kd(yaml_key_data_t * nonnull kd,
                qv_t(yaml_key_data) * nonnull out_fields,
-               qh_t(lstr) * nonnull keys_hash)
+               qh_t(lstr) * nonnull keys_hash,
+               yaml__presentation_merge_key_elem_key__t * nullable pres)
 {
     if (qh_add(lstr, keys_hash, &kd->key) < 0) {
         /* The field already exists, go through the existing ones to
@@ -1698,6 +1699,11 @@ t_add_merge_kd(yaml_key_data_t * nonnull kd,
          * with how our overrides works. */
         tab_for_each_ptr(existing_kd, out_fields) {
             if (lstr_equal(existing_kd->key, kd->key)) {
+                if (pres) {
+                    pres->original_data = t_iop_new(yaml__data);
+                    t_yaml_data_to_iop(&existing_kd->data,
+                                       pres->original_data);
+                }
                 *existing_kd = *kd;
                 break;
             }
@@ -1707,20 +1713,47 @@ t_add_merge_kd(yaml_key_data_t * nonnull kd,
     }
 }
 
+qvector_t(elem_keys, yaml__presentation_merge_key_elem_key__t);
+qvector_t(mk_elem, yaml__presentation_merge_key_elem__t);
+
 static void
 t_add_merge_elem(const qv_t(yaml_key_data) * nonnull fields,
                  qv_t(yaml_key_data) * nonnull out_fields,
-                 qh_t(lstr) * nonnull keys_hash)
+                 qh_t(lstr) * nonnull keys_hash,
+                 qv_t(mk_elem) * nullable pres)
 {
+    yaml__presentation_merge_key_elem__t *elem_pres = NULL;
+    qv_t(elem_keys) pres_keys;
+
+    if (pres) {
+        elem_pres = qv_growlen(pres, 1);
+        iop_init(yaml__presentation_merge_key_elem, elem_pres);
+        t_qv_init(&pres_keys, fields->len);
+    }
+
     tab_for_each_ptr(kd, fields) {
-        t_add_merge_kd(kd, out_fields, keys_hash);
+        yaml__presentation_merge_key_elem_key__t *pres_key = NULL;
+
+        if (pres) {
+            pres_key = qv_growlen(&pres_keys, 1);
+            iop_init(yaml__presentation_merge_key_elem_key, pres_key);
+            pres_key->key = kd->key;
+        }
+        t_add_merge_kd(kd, out_fields, keys_hash, pres_key);
+    }
+
+    if (pres) {
+        elem_pres->keys
+            = IOP_TYPED_ARRAY_TAB(yaml__presentation_merge_key_elem_key,
+                                  &pres_keys);
     }
 }
 
 static int
 t_add_merge_data(yaml_parse_t * nonnull env, const yaml_data_t * nonnull data,
                  qv_t(yaml_key_data) * nonnull out_fields,
-                 qh_t(lstr) * nonnull keys_hash)
+                 qh_t(lstr) * nonnull keys_hash,
+                 qv_t(mk_elem) * nullable pres)
 {
     switch (data->type) {
       case YAML_DATA_SCALAR:
@@ -1728,7 +1761,7 @@ t_add_merge_data(yaml_parse_t * nonnull env, const yaml_data_t * nonnull data,
         return yaml_env_set_err_at(env, &data->span,
                                    YAML_ERR_WRONG_DATA, "must be an object");
       case YAML_DATA_OBJ:
-        t_add_merge_elem(&data->obj->fields, out_fields, keys_hash);
+        t_add_merge_elem(&data->obj->fields, out_fields, keys_hash, pres);
         break;
     }
 
@@ -1740,12 +1773,21 @@ t_handle_merge_key(yaml_parse_t * nonnull env, yaml_data_t * nonnull out)
 {
     qv_t(yaml_key_data) fields;
     qh_t(lstr) keys_hash;
+    qv_t(mk_elem) pres_elems;
+    qv_t(mk_elem) *pres_elems_p = NULL;
+    yaml__document_presentation__t *data_pres = NULL;
     const yaml_data_t *mk_data;
 
     /* TODO: handle tag? */
 
     t_qv_init(&fields, 0);
     t_qh_init(lstr, &keys_hash, 0);
+    if (env->pres) {
+        t_qv_init(&pres_elems, 0);
+        pres_elems_p = &pres_elems;
+        data_pres = t_iop_new(yaml__document_presentation);
+        t_yaml_data_get_presentation(out, data_pres);
+    }
 
     assert (out->type == YAML_DATA_OBJ
         &&  out->obj->fields.len >= 1
@@ -1756,13 +1798,15 @@ t_handle_merge_key(yaml_parse_t * nonnull env, yaml_data_t * nonnull out)
     switch (mk_data->type) {
       case YAML_DATA_SEQ:
         tab_for_each_ptr(subdata, &mk_data->seq->datas) {
-            RETHROW(t_add_merge_data(env, subdata, &fields, &keys_hash));
+            RETHROW(t_add_merge_data(env, subdata, &fields, &keys_hash,
+                                     pres_elems_p));
         }
         break;
 
       case YAML_DATA_SCALAR:
       case YAML_DATA_OBJ:
-        RETHROW(t_add_merge_data(env, mk_data, &fields, &keys_hash));
+        RETHROW(t_add_merge_data(env, mk_data, &fields, &keys_hash,
+                                 pres_elems_p));
         break;
     }
 
@@ -1770,7 +1814,22 @@ t_handle_merge_key(yaml_parse_t * nonnull env, yaml_data_t * nonnull out)
     out->obj->fields.tab++;
     out->obj->fields.len--;
     if (out->obj->fields.len > 0) {
-        t_add_merge_elem(&out->obj->fields, &fields, &keys_hash);
+        t_add_merge_elem(&out->obj->fields, &fields, &keys_hash,
+                         pres_elems_p);
+    }
+
+    if (env->pres) {
+        yaml__presentation_node__t *pnode;
+        yaml__presentation_merge_key__t *mk;
+
+        mk = t_iop_new(yaml__presentation_merge_key);
+        mk->elements = IOP_TYPED_ARRAY_TAB(yaml__presentation_merge_key_elem,
+                                           &pres_elems);
+        mk->has_only_merge_key = out->obj->fields.len == 0;
+        mk->presentation = data_pres;
+
+        pnode = t_yaml_env_pres_get_current_node(env->pres);
+        pnode->merge_key = mk;
     }
 
     out->obj->fields = fields;
@@ -2699,7 +2758,7 @@ t_yaml_add_pres_mappings(const yaml_data_t * nonnull data, sb_t *path,
         add_mapping(path, data->presentation, mappings);
         sb_clip(path, prev_len);
 
-        if (data->presentation->included) {
+        if (data->presentation->included || data->presentation->merge_key) {
             return;
         }
     }

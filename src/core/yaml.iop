@@ -167,6 +167,12 @@ struct PresentationNode {
      * original string, and not any partial substitution done afterwards.
      */
     PresentationTemplate? tpl;
+
+    /** If set, the object contains a merge key.
+     *
+     * This is only valid for objects.
+     */
+    PresentationMergeKey? mergeKey;
 };
 
 /* }}} */
@@ -330,6 +336,86 @@ struct PresentationVariableBinding {
 struct PresentationVariableSettings {
     /** Bindings contained in the settings data. */
     PresentationVariableBinding[] bindings;
+};
+
+/* }}} */
+/* {{{ Merge key presentation */
+
+/** Description of a key in an element of a merge key */
+struct PresentationMergeKeyElemKey {
+    /** Name of the key modified by the merge key element */
+    string key;
+
+    /** Original data that was replaced by the merge key element.
+     *
+     * If unset, there was no original data, indicating the data was added,
+     * and not replaced.
+     */
+    Data? originalData;
+};
+
+/** Description of an element of a merge key */
+struct PresentationMergeKeyElem {
+    /** Details on keys modified by the element. */
+    PresentationMergeKeyElemKey[] keys;
+};
+
+/** Description of a merge key.
+ *
+ * If a object used a merge key, it looks like this:
+ *
+ *  <<:
+ *    - <data1>
+ *    - <data2>
+ *  key1: ...
+ *  key2: ...
+ *
+ * As the keys specified after the merge key also are "merged" in the
+ * resulting object, this is equivalent to:
+ *
+ *  <<:
+ *    - <data1>
+ *    - <data2>
+ *    - key1: ...
+ *      key2: ...
+ *
+ * Every data in the seq of the merge key is an override.
+ */
+struct PresentationMergeKey {
+    /** Override details for every data in the merge key.
+     *
+     * In the previous example, that would be 3 elements:
+     *  - <data1>
+     *  - <data2>
+     *  - key1: ...
+     *    key2: ...
+     */
+    PresentationMergeKeyElem[] elements;
+
+    /** Presentation of the data. */
+    /* FIXME: should not be optional, but this causes a bug in pxcc which
+     * blocks the iopy compilation... */
+    DocumentPresentation? presentation;
+
+    /** Whether the object only contains a single merge key.
+     *
+     * If true, all overrides are put in the merge key:
+     *
+     *  <<:
+     *    - <data1>
+     *    - <data2>
+     *    - key1: ...
+     *      key2: ...
+     *
+     * If false, the last override is inlined in the object:
+     *
+     *  <<:
+     *    - <data1>
+     *    - <data2>
+     *  key1: ...
+     *  key2: ...
+     */
+    bool hasOnlyMergeKey;
 };
 
 /* }}} */
