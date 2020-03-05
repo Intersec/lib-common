@@ -3904,9 +3904,11 @@ static void t_yaml_build_obj_with_merge_keys(
     const yaml__presentation_merge_key__t * nonnull pres,
     yaml_data_t * nonnull out)
 {
+    qv_t(yaml_key_data) *fields = NULL;
     qm_t(key_to_data) ast_map;
     qv_t(elems) elems;
     qv_t(qv_kd) objs;
+    bool has_only_merge_key = pres->has_only_merge_key;
 
     /* Build key => data for current AST. */
     t_qm_init(key_to_data, &ast_map, obj->fields.len);
@@ -3926,7 +3928,16 @@ static void t_yaml_build_obj_with_merge_keys(
         t_qm_init(key_to_data, map, elem->keys.len);
         tab_for_each_ptr(elem_key, &elem->keys) {
             const yaml_data_t *elem_data = NULL;
+            int ast_pos;
             int pos;
+
+            /* make sure key still exists in AST. Otherwise, it means the ast
+             * was modified since the presentation generation, so ignore this
+             * key. */
+            ast_pos = qm_find_safe(key_to_data, &ast_map, &elem_key->key);
+            if (ast_pos < 0) {
+                continue;
+            }
 
             if (elem_key->original_data) {
                 yaml_data_t *_elem_data = t_new(yaml_data_t, 1);
@@ -3934,9 +3945,7 @@ static void t_yaml_build_obj_with_merge_keys(
                 t_iop_data_to_yaml(elem_key->original_data, _elem_data);
                 elem_data = _elem_data;
             } else {
-                /* data was added to the ast. Get back the original data from
-                 * the AST */
-                merge_elem_find_and_swap(&ast_map, elem_key->key, &elem_data);
+                SWAP(const yaml_data_t *, elem_data, ast_map.values[ast_pos]);
             }
             pos = qm_add(key_to_data, map, &elem_key->key, elem_data);
             assert (pos >= 0);
@@ -3951,7 +3960,6 @@ static void t_yaml_build_obj_with_merge_keys(
     for (int pos = 0; pos < elems.len; pos++) {
         const yaml__presentation_merge_key_elem__t *elem;
         qm_t(key_to_data) *elem_map = &elems.tab[pos];
-        qv_t(yaml_key_data) *fields;
 
         qm_for_each_key_value_p(key_to_data, key, value, elem_map) {
             for (int pos2 = pos + 1; pos2 < elems.len; pos2++) {
@@ -3966,7 +3974,7 @@ static void t_yaml_build_obj_with_merge_keys(
         tab_for_each_ptr(key, &elem->keys) {
             const yaml_data_t * nullable val;
 
-            val = qm_get(key_to_data, elem_map, &key->key);
+            val = qm_get_def(key_to_data, elem_map, &key->key, NULL);
             if (val) {
                 yaml_key_data_t *kd = qv_growlen(fields, 1);
 
@@ -3975,16 +3983,39 @@ static void t_yaml_build_obj_with_merge_keys(
                 kd->data = *val;
             }
         }
+        if (fields->len == 0) {
+            qv_remove_last(&objs);
+            if (pos == elems.len - 1 && !has_only_merge_key) {
+                has_only_merge_key = true;
+            }
+        }
     }
 
     /* If some values are left, it means the AST changed before repack. Add
      * it to the last element if inlined, or create a a new inlined one. */
-    /* TODO: handle that */
-    qm_for_each_value(key_to_data, value, &ast_map) {
-        assert (!value);
+    tab_for_each_ptr(obj_kd, &obj->fields) {
+        const yaml_data_t *value;
+
+        value = qm_get_def(key_to_data, &ast_map, &obj_kd->key, NULL);
+        if (value) {
+            yaml_key_data_t *kd;
+
+            if (has_only_merge_key) {
+                fields = qv_growlen(&objs, 1);
+                t_qv_init(fields, 0);
+                has_only_merge_key = false;
+            } else {
+                fields = &objs.tab[objs.len - 1];
+            }
+
+            kd = qv_growlen(fields, 1);
+            p_clear(kd, 1);
+            kd->key = obj_kd->key;
+            kd->data = *value;
+        }
     }
 
-    t_merge_elems_to_data(&objs, pres->has_only_merge_key, out);
+    t_merge_elems_to_data(&objs, has_only_merge_key, out);
 }
 
 static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
@@ -7090,6 +7121,144 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("merge_1/child1.yml", child1));
         Z_HELPER_RUN(z_check_file("merge_1/child2.yml", child2));
         Z_HELPER_RUN(z_check_file("merge_1/gc2.yml", gc2));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Merge key modification handling */
+
+    Z_TEST(merge_key_modif_handling, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        yaml_data_t new_data;
+        yaml_data_t new_scalar;
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "<<:\n"
+            "  - { x: 1, y: 2, z: 3 }\n"
+            "  - { a: a, y: 3, c: c }\n"
+            "z: z\n"
+            "c: C",
+
+            NULL
+        ));
+        /* modify data to:
+         *  - remove one override: x, y, z
+         *  - change a value used in one element and after: c
+         *  - add a new element: k
+         */
+        t_yaml_data_new_obj(&new_data, 3);
+
+        yaml_data_set_string(&new_scalar, LSTR("O"));
+        yaml_obj_add_field(&new_data, LSTR("c"), new_scalar);
+
+        yaml_data_set_string(&new_scalar, LSTR("a"));
+        yaml_obj_add_field(&new_data, LSTR("a"), new_scalar);
+
+        yaml_data_set_string(&new_scalar, LSTR("K"));
+        yaml_obj_add_field(&new_data, LSTR("k"), new_scalar);
+
+        Z_HELPER_RUN(z_yaml_test_pack(&new_data, &pres, 0,
+            "<<:\n"
+            "  a: a\n"
+            "  c: c\n"
+            "c: O\n"
+            "k: K"
+        ));
+        yaml_parse_delete(&env);
+
+        /* test removal of keys not in merge key */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "<<: { x: x }\n"
+            "y: y\n"
+            "z: z",
+
+            NULL
+        ));
+
+        /* Remove y and z */
+        data.obj->fields.len -= 2;
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, 0,
+            "<<: { x: x }"
+        ));
+
+        /* change z */
+        data.obj->fields.len += 2;
+        data.obj->fields.tab[2].key = LSTR("a");
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, 0,
+            "<<: { x: x }\n"
+            "y: y\n"
+            "a: z"
+        ));
+
+        /* change y as well */
+        data.obj->fields.tab[1].key = LSTR("b");
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, 0,
+            "<<: { x: x }\n"
+            "b: y\n"
+            "a: z"
+        ));
+        yaml_parse_delete(&env);
+
+        /* test addition of new keys, spilling outside the merge key */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "<<: { x: x }",
+
+            NULL
+        ));
+
+        t_yaml_data_new_obj(&new_data, 2);
+        yaml_data_set_string(&new_scalar, LSTR("0"));
+        yaml_obj_add_field(&new_data, LSTR("x"), new_scalar);
+        yaml_data_set_string(&new_scalar, LSTR("1"));
+        yaml_obj_add_field(&new_data, LSTR("y"), new_scalar);
+
+        Z_HELPER_RUN(z_yaml_test_pack(&new_data, &pres, 0,
+            "<<: { x: 0 }\n"
+            "y: 1"
+        ));
+        yaml_parse_delete(&env);
+
+        /* test suppression of last merge element, and addition of new fields.
+         */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "<<:\n"
+            "  - { x: x }\n"
+            "  - { y: y }",
+
+            NULL
+        ));
+
+        t_yaml_data_new_obj(&new_data, 2);
+        yaml_data_set_string(&new_scalar, LSTR("x"));
+        yaml_obj_add_field(&new_data, LSTR("x"), new_scalar);
+        Z_HELPER_RUN(z_yaml_test_pack(&new_data, &pres, 0,
+            "<<:\n"
+            "  x: x"
+        ));
+
+        yaml_data_set_string(&new_scalar, LSTR("z"));
+        yaml_obj_add_field(&new_data, LSTR("z"), new_scalar);
+        Z_HELPER_RUN(z_yaml_test_pack(&new_data, &pres, 0,
+            "<<:\n"
+            "  x: x\n"
+            "z: z"
+        ));
+
+        new_data.obj->fields.tab[0].key = LSTR("y");
+        Z_HELPER_RUN(z_yaml_test_pack(&new_data, &pres, 0,
+            "<<:\n"
+            "  y: x\n"
+            "z: z"
+        ));
+
+        new_data.obj->fields.len--;
+        Z_HELPER_RUN(z_yaml_test_pack(&new_data, &pres, 0,
+            "<<:\n"
+            "  y: x"
+        ));
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
