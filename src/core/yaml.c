@@ -3371,6 +3371,29 @@ yaml_pack_env_find_override(yaml_pack_env_t * nonnull env)
     return NULL;
 }
 
+static int t_yaml_pack_data_with_doc_pres(
+    yaml_pack_env_t * nonnull env, const yaml_data_t * nonnull data,
+    const yaml__document_presentation__t * nonnull doc_pres)
+{
+    const yaml_presentation_t *pres;
+    unsigned current_path_pos;
+    int res;
+
+    pres = t_yaml_doc_pres_to_map(doc_pres);
+
+    current_path_pos = env->absolute_path.len;
+
+    SWAP(const yaml_presentation_t *, pres, env->pres);
+    SWAP(unsigned, current_path_pos, env->current_path_pos);
+
+    res = t_yaml_pack_data(env, data);
+
+    SWAP(unsigned, current_path_pos, env->current_path_pos);
+    SWAP(const yaml_presentation_t *, pres, env->pres);
+
+    return res;
+}
+
 /* }}} */
 /* {{{ Presentation */
 
@@ -3819,8 +3842,146 @@ static int t_yaml_pack_key_data(yaml_pack_env_t * nonnull env,
     return res;
 }
 
+qm_kvec_t(key_to_data, lstr_t, const yaml_data_t * nullable, qhash_lstr_hash,
+          qhash_lstr_equal);
+qvector_t(elems, qm_t(key_to_data));
+qvector_t(qv_kd, qv_t(yaml_key_data));
+
+static void
+merge_elem_find_and_swap(const qm_t(key_to_data) * nonnull map, lstr_t key,
+                         const yaml_data_t * nullable * nonnull value)
+{
+    int pos = qm_find_safe(key_to_data, map, &key);
+
+    if (pos >= 0) {
+        SWAP(const yaml_data_t * nullable, *value, map->values[pos]);
+    }
+}
+
+static void
+t_merge_elems_to_data(qv_t(qv_kd) * nonnull objs, bool has_only_merge_key,
+                      yaml_data_t * nonnull out)
+{
+    yaml_data_t merge_data;
+    qv_t(yaml_key_data) *last_elem = NULL;
+
+    assert (objs->len > 0);
+
+    if (!has_only_merge_key && objs->len > 0) {
+        last_elem = &objs->tab[objs->len - 1];
+        objs->len--;
+    }
+
+    if (objs->len == 1) {
+        t_yaml_data_new_obj2(&merge_data, &objs->tab[0]);
+    } else {
+        t_yaml_data_new_seq(&merge_data, objs->len);
+        tab_for_each_ptr(kds, objs) {
+            yaml_data_t data;
+
+            t_yaml_data_new_obj2(&data, kds);
+            yaml_seq_add_data(&merge_data, data);
+        }
+    }
+
+    t_yaml_data_new_obj(out, last_elem ? last_elem->len + 1 : 1);
+    yaml_obj_add_field(out, LSTR("<<"), merge_data);
+    if (last_elem) {
+        qv_extend(&out->obj->fields, last_elem);
+    }
+}
+
+static void t_yaml_build_obj_with_merge_keys(
+    const yaml_obj_t * nonnull obj,
+    const yaml__presentation_merge_key__t * nonnull pres,
+    yaml_data_t * nonnull out)
+{
+    qm_t(key_to_data) ast_map;
+    qv_t(elems) elems;
+    qv_t(qv_kd) objs;
+
+    /* Build key => data for current AST. */
+    t_qm_init(key_to_data, &ast_map, obj->fields.len);
+    tab_for_each_ptr(kd, &obj->fields) {
+        int pos;
+
+        pos = qm_add(key_to_data, &ast_map, &kd->key, &kd->data);
+        assert (pos >= 0);
+    }
+
+    /* Build map of key => data for every element. If original data is
+     * missing, get it from the AST. */
+    t_qv_init(&elems, pres->elements.len);
+    tab_for_each_ptr(elem, &pres->elements) {
+        qm_t(key_to_data) *map = qv_growlen(&elems, 1);
+
+        t_qm_init(key_to_data, map, elem->keys.len);
+        tab_for_each_ptr(elem_key, &elem->keys) {
+            const yaml_data_t *elem_data = NULL;
+            int pos;
+
+            if (elem_key->original_data) {
+                yaml_data_t *_elem_data = t_new(yaml_data_t, 1);
+
+                t_iop_data_to_yaml(elem_key->original_data, _elem_data);
+                elem_data = _elem_data;
+            } else {
+                /* data was added to the ast. Get back the original data from
+                 * the AST */
+                merge_elem_find_and_swap(&ast_map, elem_key->key, &elem_data);
+            }
+            pos = qm_add(key_to_data, map, &elem_key->key, elem_data);
+            assert (pos >= 0);
+        }
+    }
+
+    /* Then, iterate on every element but the last one. For every field,
+     * get the earliest value of this field by looking in the elements in
+     * increasing order. Repeat.
+     */
+    t_qv_init(&objs, elems.len);
+    for (int pos = 0; pos < elems.len; pos++) {
+        const yaml__presentation_merge_key_elem__t *elem;
+        qm_t(key_to_data) *elem_map = &elems.tab[pos];
+        qv_t(yaml_key_data) *fields;
+
+        qm_for_each_key_value_p(key_to_data, key, value, elem_map) {
+            for (int pos2 = pos + 1; pos2 < elems.len; pos2++) {
+                merge_elem_find_and_swap(&elems.tab[pos2], key, value);
+            }
+        }
+
+        /* Build an object with those values */
+        elem = &pres->elements.tab[pos];
+        fields = qv_growlen(&objs, 1);
+        t_qv_init(fields, elem->keys.len);
+        tab_for_each_ptr(key, &elem->keys) {
+            const yaml_data_t * nullable val;
+
+            val = qm_get(key_to_data, elem_map, &key->key);
+            if (val) {
+                yaml_key_data_t *kd = qv_growlen(fields, 1);
+
+                p_clear(kd, 1);
+                kd->key = key->key;
+                kd->data = *val;
+            }
+        }
+    }
+
+    /* If some values are left, it means the AST changed before repack. Add
+     * it to the last element if inlined, or create a a new inlined one. */
+    /* TODO: handle that */
+    qm_for_each_value(key_to_data, value, &ast_map) {
+        assert (!value);
+    }
+
+    t_merge_elems_to_data(&objs, pres->has_only_merge_key, out);
+}
+
 static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
-                         const yaml_obj_t * nonnull obj)
+                         const yaml_obj_t * nonnull obj,
+                         const yaml__presentation_node__t * nullable pres)
 {
     int res = 0;
 
@@ -3828,6 +3989,14 @@ static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
         GOTO_STATE(CLEAN);
         PUTS("{}");
         env->state = PACK_STATE_AFTER_DATA;
+    } else
+    if (unlikely(pres && pres->merge_key)) {
+        yaml_data_t data;
+
+        t_yaml_build_obj_with_merge_keys(obj, pres->merge_key, &data);
+
+        t_yaml_pack_data_with_doc_pres(env, &data,
+                                       pres->merge_key->presentation);
     } else {
         tab_for_each_ptr(pair, &obj->fields) {
             res += RETHROW(t_yaml_pack_key_data(env, pair));
@@ -4266,10 +4435,6 @@ t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
                          bool raw, lstr_t include_path,
                          yaml_data_t * nonnull data)
 {
-    const yaml_presentation_t *pres;
-    unsigned current_path_pos;
-    int res;
-
     if (raw) {
         data->tag = t_lstr_fmt("includeraw:%pL", &include_path);
     } else {
@@ -4279,19 +4444,8 @@ t_yaml_pack_include_path(yaml_pack_env_t * nonnull env,
     if (dpres->mappings.len == 0) {
         dpres = t_gen_default_include_presentation();
     }
-    pres = t_yaml_doc_pres_to_map(dpres);
 
-    current_path_pos = env->absolute_path.len;
-
-    SWAP(const yaml_presentation_t *, pres, env->pres);
-    SWAP(unsigned, current_path_pos, env->current_path_pos);
-
-    res = t_yaml_pack_data(env, data);
-
-    SWAP(unsigned, current_path_pos, env->current_path_pos);
-    SWAP(const yaml_presentation_t *, pres, env->pres);
-
-    return res;
+    return t_yaml_pack_data_with_doc_pres(env, data, dpres);
 }
 
 /* write raw contents directly into the given filepath. */
@@ -5000,7 +5154,7 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
             res += RETHROW(t_yaml_pack_seq(env, data->seq));
             break;
           case YAML_DATA_OBJ:
-            res += RETHROW(yaml_pack_obj(env, data->obj));
+            res += RETHROW(yaml_pack_obj(env, data->obj, node));
             break;
         }
     }
@@ -5239,6 +5393,14 @@ void t_yaml_data_new_obj(yaml_data_t *data, int capacity)
     data->type = YAML_DATA_OBJ;
     data->obj = t_new(yaml_obj_t, 1);
     t_qv_init(&data->obj->fields, capacity);
+}
+
+void t_yaml_data_new_obj2(yaml_data_t *data, qv_t(yaml_key_data) *fields)
+{
+    p_clear(data, 1);
+    data->type = YAML_DATA_OBJ;
+    data->obj = t_new(yaml_obj_t, 1);
+    data->obj->fields = *fields;
 }
 
 void yaml_obj_add_field(yaml_data_t *data, lstr_t key, yaml_data_t val)
@@ -6698,6 +6860,7 @@ Z_GROUP_EXPORT(yaml)
 
     Z_TEST(merge_key, "") {
         t_scope;
+        yaml__document_presentation__t pres;
         yaml_data_t data;
         yaml_data_t *f;
 
@@ -6712,6 +6875,12 @@ Z_GROUP_EXPORT(yaml)
             "  w: a\n"
             "  q: ~",
 
+            NULL
+        ));
+
+        /* Test packing with empty presentation, to get raw AST */
+        iop_init(yaml__document_presentation, &pres);
+        Z_HELPER_RUN(z_yaml_test_pack(&data, &pres, 0,
             "a:\n"
             "  x: 3\n"
             "  y: 2\n"

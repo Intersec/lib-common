@@ -414,6 +414,9 @@ void t_yaml_data_new_obj(yaml_data_t * nonnull data, int nb_fields_capacity);
 void yaml_obj_add_field(yaml_data_t * nonnull data, lstr_t key,
                         yaml_data_t val);
 
+void t_yaml_data_new_obj2(yaml_data_t * nonnull data,
+                          qv_t(yaml_key_data) * nonnull fields);
+
 /* }}} */
 
 MODULE_DECLARE(yaml);
