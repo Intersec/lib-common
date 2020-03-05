@@ -7273,6 +7273,64 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
+    /* {{{ Merge key with override */
+
+    Z_TEST(merge_key_with_override, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *child;
+        const char *root;
+
+        /* TODO: overrides do not work well with merge keys. This is a
+         * test example showing how it behaves... */
+
+        child =
+            "<<:\n"
+            "  - { x: x, y: [ 1, 2 ], w: 2 }\n"
+            "  - { x: X, z: z, w: 3 }\n"
+            "x:\n"
+            "  a: A\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "!include:child.yml\n"
+            "w: 4\n"
+            "x:\n"
+            "  a: ~\n"
+            "  b: b\n"
+            "y:\n"
+            "  - 3\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "<<:\n"
+            "  - { x: x, y: [ 1, 2, 3 ], w: 2 }\n"
+            "  - { x: X, z: z, w: 4 }\n"
+            "x:\n"
+            "  a: ~\n"
+            "  b: b"
+        ));
+
+        Z_HELPER_RUN(z_pack_yaml_file("merge_ov_1/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("merge_ov_1/root.yml",
+            "!include:child.yml\n"
+            "x:\n"
+            "  a: ~\n"
+            "  b: b\n"
+        ));
+        Z_HELPER_RUN(z_check_file("merge_ov_1/child.yml",
+            "<<:\n"
+            "  - { x: x, y: [ 1, 2, 3 ], w: 2 }\n"
+            "  - { x: X, z: z, w: 4 }\n"
+            "x:\n"
+            "  a: A\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
     /* {{{ Parsing scalars */
 
     Z_TEST(parsing_scalar, "test parsing of scalars") {
