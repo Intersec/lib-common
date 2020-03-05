@@ -46,9 +46,14 @@ Arrays are written with every element on its own line, prefixed by a dash, with 
 [source,YAML]
 ----
 array:
-  - name: foo
-    bar: 5
-  - name: baz
+  - foo
+  - 5
+  - baz
+objects:
+  - name: abe
+    age: 24
+  - name: boo
+    age: 72
 ----
 
 They can also be written inline using `[` and `]`:
