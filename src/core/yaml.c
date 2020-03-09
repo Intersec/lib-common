@@ -2206,6 +2206,7 @@ t_yaml_env_parse_flow_seq(yaml_parse_t *env, yaml_data_t *out)
     yaml_env_end_data(env, out);
     out->seq = t_new(yaml_seq_t, 1);
     out->seq->datas = datas;
+    t_qv_init(&out->seq->pres_nodes, 0);
 
     return 0;
 }
