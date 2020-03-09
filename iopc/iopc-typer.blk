@@ -1497,12 +1497,21 @@ get_structs_t_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
         if (field_is_pointer(field)) {
             iopc_add_depends(pkg, field->type_pkg, t_weak_deps);
         } else {
+            /* TODO If the field is a struct, add the dependencies for the
+             * struct as well. */
             iopc_add_depends(pkg, field->type_pkg, t_deps);
         }
     }
-    if (st->extends.len) {
+    while (st && st->extends.len) {
+        iopc_extends_t *parent;
+
+        /* XXX As the attribute of all the class ancestors are copied to the
+         * associated C struct, we've got a direct dependency on all ancestors
+         * packages. */
         assert (st->extends.len == 1);
-        iopc_add_depends(pkg, st->extends.tab[0]->pkg, t_deps);
+        parent = st->extends.tab[0];
+        iopc_add_depends(pkg, parent->pkg, t_deps);
+        st = parent->st;
     }
 }
 
