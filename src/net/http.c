@@ -1929,7 +1929,7 @@ el_t httpd_listen(sockunion_t *su, httpd_cfg_t *cfg)
         return NULL;
     }
     return el_unref(el_fd_register(fd, true, POLLIN, httpd_on_accept,
-                                   httpd_cfg_dup(cfg)));
+                                   httpd_cfg_retain(cfg)));
 }
 
 void httpd_unlisten(el_t *ev)
@@ -1950,7 +1950,7 @@ httpd_t *httpd_spawn(int fd, httpd_cfg_t *cfg)
     el_fd_f *el_cb = cfg->ssl_ctx ? &httpd_tls_handshake : &httpd_on_event;
 
     cfg->nb_conns++;
-    w->cfg         = httpd_cfg_dup(cfg);
+    w->cfg         = httpd_cfg_retain(cfg);
     w->ev          = el_unref(el_fd_register(fd, true, POLLIN, el_cb, w));
     w->max_queries = cfg->max_queries;
     if (cfg->ssl_ctx) {
@@ -2779,7 +2779,7 @@ httpc_t *httpc_connect_as(const sockunion_t *su,
     fd = RETHROW_NP(connectx_as(-1, su, 1, su_src, SOCK_STREAM, IPPROTO_TCP,
                                 O_NONBLOCK, 0));
     w  = obj_new_of_class(httpc, cfg->httpc_cls);
-    w->cfg         = httpc_cfg_dup(cfg);
+    w->cfg         = httpc_cfg_retain(cfg);
     w->ev          = el_unref(el_fd_register(fd, true, POLLOUT,
                                              &httpc_on_connect, w));
     w->max_queries = cfg->max_queries;
@@ -2795,7 +2795,7 @@ httpc_t *httpc_spawn(int fd, httpc_cfg_t *cfg, httpc_pool_t *pool)
 {
     httpc_t *w = obj_new_of_class(httpc, cfg->httpc_cls);
 
-    w->cfg         = httpc_cfg_dup(cfg);
+    w->cfg         = httpc_cfg_retain(cfg);
     w->ev          = el_unref(el_fd_register(fd, true, POLLIN,
                                              &httpc_on_event, w));
     w->max_queries = cfg->max_queries;

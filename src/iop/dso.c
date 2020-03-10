@@ -285,6 +285,7 @@ static void iop_dso_wipe(iop_dso_t *dso)
     }
 }
 REFCNT_NEW(iop_dso_t, iop_dso);
+REFCNT_RELEASE(iop_dso_t, iop_dso);
 REFCNT_DELETE(iop_dso_t, iop_dso);
 
 static int iop_dso_register_(iop_dso_t *dso, sb_t *err);

@@ -614,6 +614,12 @@ struct ZIopGetFieldValues {
 /* }}} */
 /* {{{ zchk iop.iop_first_diff_desc */
 
+enum FirstDiffEnum {
+    A,
+    B,
+    C,
+};
+
 @ctype(z_first_diff_c0__t)
 abstract class FirstDiffC0 {
 };
@@ -637,6 +643,7 @@ struct FirstDiffSt {
     string? optS;
     int[] tab;
     FirstDiffC0? o;
+    FirstDiffEnum? e;
 };
 
 /* }}} */

@@ -348,21 +348,60 @@ t_presentation_override_to_iop(
 /* }}} */
 /* {{{ Equality */
 
-/* Equality is used to compare data to pack, in particular to ensure that
- * two different yaml_data_t object that are packed in the same subfile are
- * equal. Therefore, this functions tells whether two YAML data objects would
- * pack the same way without presentation data, but is not a strong equality
- * test.
- * This is implemented only on actual values and not on presentation data.
- * This is because the presentation objects cannot be modified outside of this
- * file. If this changes, for example to allow the user to modify presentation
- * data himself, then this function *must* be updated to take presentation
- * data into account.
- */
+/* XXX: canonical string version of a scalar. Used for weak comparisons
+ * between different types of scalars */
+static lstr_t
+t_yaml_scalar_to_string(const yaml_scalar_t * nonnull scalar)
+{
+    switch (scalar->type) {
+      case YAML_SCALAR_STRING:
+        return scalar->s;
+
+      case YAML_SCALAR_DOUBLE: {
+        int inf = isinf(scalar->d);
+
+        if (inf == 1) {
+            return LSTR(".Inf");
+        } else
+        if (inf == -1) {
+            return LSTR("-.Inf");
+        } else
+        if (isnan(scalar->d)) {
+            return LSTR(".NaN");
+        } else {
+            return t_lstr_fmt("%g", scalar->d);
+        }
+      } break;
+
+      case YAML_SCALAR_UINT:
+        return t_lstr_fmt("%ju", scalar->u);
+
+      case YAML_SCALAR_INT:
+        return t_lstr_fmt("%jd", scalar->i);
+
+      case YAML_SCALAR_BOOL:
+        return scalar->b ? LSTR("true") : LSTR("false");
+
+      case YAML_SCALAR_NULL:
+        return LSTR("~");
+    }
+
+    assert (false);
+    return LSTR("");
+}
+
 static bool
 yaml_scalar_equals(const yaml_scalar_t * nonnull s1,
-                   const yaml_scalar_t * nonnull s2)
+                   const yaml_scalar_t * nonnull s2, bool strong)
 {
+    if (!strong) {
+        t_scope;
+        lstr_t v1 = t_yaml_scalar_to_string(s1);
+        lstr_t v2 = t_yaml_scalar_to_string(s2);
+
+        return lstr_equal(v1, v2);
+    }
+
     if (s1->type != s2->type) {
         return false;
     }
@@ -387,19 +426,26 @@ yaml_scalar_equals(const yaml_scalar_t * nonnull s1,
 
 static bool
 yaml_data_equals(const yaml_data_t * nonnull d1,
-                 const yaml_data_t * nonnull d2);
+                 const yaml_data_t * nonnull d2, bool strong);
 
 static bool
 yaml_key_data_equals(const yaml_key_data_t * nonnull kd1,
-                     const yaml_key_data_t * nonnull kd2)
+                     const yaml_key_data_t * nonnull kd2, bool strong)
 {
     return lstr_equal(kd1->key, kd2->key)
-        && yaml_data_equals(&kd1->data, &kd2->data);
+        && yaml_data_equals(&kd1->data, &kd2->data, strong);
 }
 
+/* Compare two yaml data recursively.
+ *
+ * Comparison can be weak or strong.
+ * If strong, scalars must have the exact same type.
+ * If weak, scalars are considered equal if their string representations are
+ * the same.
+ */
 static bool
 yaml_data_equals(const yaml_data_t * nonnull d1,
-                 const yaml_data_t * nonnull d2)
+                 const yaml_data_t * nonnull d2, bool strong)
 {
     if (d1->type != d2->type) {
         return false;
@@ -407,14 +453,14 @@ yaml_data_equals(const yaml_data_t * nonnull d1,
 
     switch (d1->type) {
       case YAML_DATA_SCALAR:
-        return yaml_scalar_equals(&d1->scalar, &d2->scalar);
+        return yaml_scalar_equals(&d1->scalar, &d2->scalar, strong);
       case YAML_DATA_SEQ:
         if (d1->seq->datas.len != d2->seq->datas.len) {
             return false;
         }
         tab_for_each_pos(pos, &d1->seq->datas) {
             if (!yaml_data_equals(&d1->seq->datas.tab[pos],
-                                  &d2->seq->datas.tab[pos]))
+                                  &d2->seq->datas.tab[pos], strong))
             {
                 return false;
             }
@@ -426,7 +472,7 @@ yaml_data_equals(const yaml_data_t * nonnull d1,
         }
         tab_for_each_pos(pos, &d1->obj->fields) {
             if (!yaml_key_data_equals(&d1->obj->fields.tab[pos],
-                                      &d2->obj->fields.tab[pos]))
+                                      &d2->obj->fields.tab[pos], strong))
             {
                 return false;
             }
@@ -2823,11 +2869,11 @@ struct yaml_pack_variable_t {
      * vars map, and must be reusable if multiple deduce values matches.
      *
      * For example:
-     *  Resolving [ $foo, $foo, <$foo>] with [ 1, 2, <2> ] should yield:
-     *   [ $foo, ${foo~1}, <${foo~1}> ]
+     *  Resolving [ $(foo), $(foo), <$(foo)>] with [ 1, 2, <2> ] should yield:
+     *   [ $(foo), $(foo~1), <$(foo~1)> ]
      *   and
-     *     $foo: 1
-     *     ${foo~1}: 2
+     *     $(foo): 1
+     *     $(foo~1): 2
      *
      * Chaining the conflicts directly in the original variable object makes
      * it easier to resolve them rather than adding them directly in the
@@ -3416,6 +3462,9 @@ static int yaml_pack_string(yaml_pack_env_t *env, lstr_t val,
     return res;
 }
 
+/* XXX: If modifying this function, changes must be reflected in
+ * t_yaml_scalar_to_string.
+ */
 static int
 yaml_pack_scalar(yaml_pack_env_t * nonnull env,
                  const yaml_scalar_t * nonnull scalar, const lstr_t tag,
@@ -4396,7 +4445,7 @@ t_resolve_var_conflict(yaml_pack_env_t * nonnull env,
     /* try to match to existant conflict resolution, or get to the end
      * of the chain */
     while (next_var) {
-        if (yaml_data_equals(next_var->deduced_value, data)) {
+        if (yaml_data_equals(next_var->deduced_value, data, false)) {
             *new_name = next_var->name;
             return;
         }
@@ -4434,7 +4483,7 @@ t_apply_variable_value(yaml_pack_env_t * nonnull env, lstr_t var_name,
     }
 
     if (var->deduced_value) {
-        if (!yaml_data_equals(var->deduced_value, data)) {
+        if (!yaml_data_equals(var->deduced_value, data, false)) {
             t_resolve_var_conflict(env, var, data, new_name);
             return 0;
         }
@@ -5135,7 +5184,7 @@ z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
     Z_ASSERT_N(t_yaml_parse(parse_env, &parsed_data, &err),
                "could not reparse the packed file: %pL", &err);
 
-    Z_ASSERT(yaml_data_equals(data, &parsed_data));
+    Z_ASSERT(yaml_data_equals(data, &parsed_data, true));
 
     Z_HELPER_END;
 }
@@ -7640,6 +7689,120 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
+    /* {{{ Variable scalars used multiple times */
+
+    Z_TEST(variable_multiple_scalar, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+        const char *inner;
+
+        /* test use of non-string scalars in multiple contexts */
+        inner =
+            "ur: $(u)\n"
+            "us: <$(u)>\n"
+            "ir: $(i)\n"
+            "is: <$(i)>\n"
+            "nr: $(n)\n"
+            "ns: <$(n)>\n"
+            "br: $(b)\n"
+            "bs: <$(b)>\n"
+            "sr: $(s)\n"
+            "ss: <$(s)>\n"
+            "dr: $(d)\n"
+            "ds: <$(d)>\n"
+            "d2r: $(d2)\n"
+            "d2s: <$(d2)>\n";
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml", inner));
+        root =
+            "inc: !include:inner.yml\n"
+            "  variables:\n"
+            "    u: 42\n"
+            "    i: -23\n"
+            "    n: ~\n"
+            "    b: false\n"
+            "    s: \"2\"\n"
+            "    d: 12.73\n"
+            "    d2: .NaN\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "inc:\n"
+            "  ur: 42\n"
+            "  us: <42>\n"
+            "  ir: -23\n"
+            "  is: <-23>\n"
+            "  nr: ~\n"
+            "  ns: <~>\n"
+            "  br: false\n"
+            "  bs: <false>\n"
+            "  sr: 2\n"
+            "  ss: <2>\n"
+            "  dr: 12.73\n"
+            "  ds: <12.73>\n"
+            "  d2r: .NaN\n"
+            "  d2s: <.NaN>"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_mul_s/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("var_mul_s/root.yml", root));
+        Z_HELPER_RUN(z_check_file("var_mul_s/inner.yml", inner));
+        yaml_parse_delete(&env);
+
+        /* using non canonical representations won't properly match the
+         * variables. */
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml",
+            "nr: $(n)\n"
+            "ns: <$(n)>\n"
+            "br: $(b)\n"
+            "bs: <$(b)>\n"
+            "dr: $(d)\n"
+            "ds: <$(d)>\n"
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "inc: !include:inner.yml\n"
+            "  variables:\n"
+            "    n: null\n"
+            "    b: tRuE\n"
+            "    d: 10.2e-3\n",
+
+            "inc:\n"
+            "  nr: ~\n"
+            "  ns: <null>\n"
+            "  br: true\n"
+            "  bs: <tRuE>\n"
+            "  dr: 0.0102\n"
+            "  ds: <10.2e-3>"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("var_mul_s2/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("var_mul_s2/root.yml",
+            "inc: !include:inner.yml\n"
+            "  variables:\n"
+            "    n: ~\n"
+            "    n~1: \"null\"\n"
+            "    b: true\n"
+            "    b~1: tRuE\n"
+            "    d: 0.0102\n"
+            "    d~1: 10.2e-3\n"
+        ));
+        Z_HELPER_RUN(z_check_file("var_mul_s2/inner.yml",
+            "nr: $(n)\n"
+            "ns: <$(n~1)>\n"
+            "br: $(b)\n"
+            "bs: <$(b~1)>\n"
+            "dr: $(d)\n"
+            "ds: <$(d~1)>\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
     /* {{{ Variable in string */
 
     Z_TEST(variable_in_string, "") {
@@ -8480,9 +8643,9 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
-    /* {{{ yaml_data_equals */
+    /* {{{ yaml_data_equals strong */
 
-    Z_TEST(yaml_data_equals, "") {
+    Z_TEST(yaml_data_equals_strong, "") {
         t_scope;
         yaml_data_t d1;
         yaml_data_t d2;
@@ -8492,91 +8655,202 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_set_bool(&d2, false);
 
         /* scalars with different types are never equal */
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         /* strings */
         yaml_data_set_string(&d2, LSTR("v"));
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        Z_ASSERT(yaml_data_equals(&d1, &d2, true));
         yaml_data_set_string(&d2, LSTR("a"));
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         /* double */
         yaml_data_set_double(&d1, 1.2);
         yaml_data_set_double(&d2, 1.2);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        Z_ASSERT(yaml_data_equals(&d1, &d2, true));
         yaml_data_set_double(&d2, 1.20000001);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         /* uint */
         yaml_data_set_uint(&d1, 1);
         yaml_data_set_uint(&d2, 1);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        Z_ASSERT(yaml_data_equals(&d1, &d2, true));
         yaml_data_set_uint(&d2, 2);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         /* uint */
         yaml_data_set_int(&d1, -1);
         yaml_data_set_int(&d2, -1);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        Z_ASSERT(yaml_data_equals(&d1, &d2, true));
         yaml_data_set_int(&d2, -2);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         /* bool */
         yaml_data_set_bool(&d1, true);
         yaml_data_set_bool(&d2, true);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        Z_ASSERT(yaml_data_equals(&d1, &d2, true));
         yaml_data_set_int(&d2, false);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         /* null */
         yaml_data_set_null(&d1);
         yaml_data_set_null(&d2);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        Z_ASSERT(yaml_data_equals(&d1, &d2, true));
 
         /* sequences */
         t_yaml_data_new_seq(&d1, 1);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
         t_yaml_data_new_seq(&d2, 1);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        Z_ASSERT(yaml_data_equals(&d1, &d2, true));
 
         yaml_data_set_string(&elem, LSTR("l"));
         yaml_seq_add_data(&d1, elem);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         yaml_data_set_string(&elem, LSTR("d"));
         yaml_seq_add_data(&d2, elem);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         d2.seq->datas.tab[0].scalar.s = LSTR("l");
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        Z_ASSERT(yaml_data_equals(&d1, &d2, true));
 
         /* obj */
         t_yaml_data_new_obj(&d1, 2);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
         t_yaml_data_new_obj(&d2, 2);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        Z_ASSERT(yaml_data_equals(&d1, &d2, true));
 
         yaml_data_set_bool(&elem, true);
         yaml_obj_add_field(&d1, LSTR("v"), elem);
         yaml_obj_add_field(&d1, LSTR("a"), elem);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         yaml_data_set_bool(&elem, false);
         yaml_obj_add_field(&d2, LSTR("v"), elem);
         yaml_obj_add_field(&d2, LSTR("a"), elem);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         qv_clear(&d2.obj->fields);
         yaml_data_set_bool(&elem, true);
         yaml_obj_add_field(&d2, LSTR("a"), elem);
         yaml_obj_add_field(&d2, LSTR("v"), elem);
-        Z_ASSERT(!yaml_data_equals(&d1, &d2));
+        Z_ASSERT(!yaml_data_equals(&d1, &d2, true));
 
         qv_clear(&d2.obj->fields);
         yaml_obj_add_field(&d2, LSTR("v"), elem);
         yaml_obj_add_field(&d2, LSTR("a"), elem);
-        Z_ASSERT(yaml_data_equals(&d1, &d2));
+        Z_ASSERT(yaml_data_equals(&d1, &d2, true));
 
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ yaml_data_equals_weak */
+
+    Z_TEST(yaml_data_equals_weak, "") {
+        yaml_data_t d1;
+        yaml_data_t d2;
+
+        /* test weak equality between different types of scalars */
+#define TST(v1, v2, strong_res, weak_res)                                    \
+        do {                                                                 \
+            Z_ASSERT_EQ(yaml_data_equals((v1), (v2), true), (strong_res),    \
+                        "invalid strong equality result");                   \
+            Z_ASSERT_EQ(yaml_data_equals((v1), (v2), false), (weak_res),     \
+                        "invalid weak equality result");                     \
+        } while (0)
+
+        /* bool */
+        yaml_data_set_bool(&d1, true);
+        yaml_data_set_bool(&d2, true);
+        TST(&d1, &d2, true, true);
+
+        yaml_data_set_string(&d2, LSTR("true"));
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_string(&d2, LSTR("false"));
+        TST(&d1, &d2, false, false);
+
+        yaml_data_set_bool(&d1, false);
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_null(&d2);
+        TST(&d1, &d2, false, false);
+
+        /* uint */
+        yaml_data_set_uint(&d1, 5);
+        yaml_data_set_uint(&d2, 5);
+        TST(&d1, &d2, true, true);
+
+        yaml_data_set_string(&d2, LSTR("5"));
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_string(&d2, LSTR("05"));
+        TST(&d1, &d2, false, false);
+
+        yaml_data_set_int(&d2, 5);
+        TST(&d1, &d2, false, true);
+
+        /* int */
+        yaml_data_set_int(&d1, -5);
+        yaml_data_set_int(&d2, -5);
+        TST(&d1, &d2, true, true);
+
+        yaml_data_set_string(&d2, LSTR("-5"));
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_string(&d2, LSTR("5"));
+        TST(&d1, &d2, false, false);
+
+        yaml_data_set_int(&d1, 5);
+        TST(&d1, &d2, false, true);
+
+        /* double */
+        yaml_data_set_double(&d1, 1);
+        yaml_data_set_double(&d2, 1);
+        TST(&d1, &d2, true, true);
+
+        yaml_data_set_uint(&d2, 1);
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_int(&d2, 1);
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_string(&d2, LSTR("1"));
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_double(&d1, -1.4);
+        yaml_data_set_string(&d2, LSTR("-1.4"));
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_int(&d2, -1);
+        TST(&d1, &d2, false, false);
+
+        yaml_data_set_double(&d1, INFINITY);
+        yaml_data_set_string(&d2, LSTR(".Inf"));
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_double(&d1, -INFINITY);
+        TST(&d1, &d2, false, false);
+
+        yaml_data_set_string(&d2, LSTR("-.Inf"));
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_double(&d1, NAN);
+        yaml_data_set_string(&d2, LSTR(".NaN"));
+        TST(&d1, &d2, false, true);
+
+        yaml_data_set_string(&d2, LSTR(".NAN"));
+        TST(&d1, &d2, false, false);
+
+        /* null */
+        yaml_data_set_null(&d1);
+        yaml_data_set_null(&d2);
+        TST(&d1, &d2, true, true);
+
+        yaml_data_set_string(&d2, LSTR(""));
+        TST(&d1, &d2, false, false);
+
+        yaml_data_set_string(&d2, LSTR("~"));
+        TST(&d1, &d2, false, true);
     } Z_TEST_END;
 
     /* }}} */

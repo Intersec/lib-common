@@ -66,7 +66,8 @@ static void log_file_wipe(log_file_t *log_file)
     qh_wipe(u64, &log_file->files_being_compressed);
 }
 
-REFCNT_DUP(log_file_t, log_file);
+REFCNT_RETAIN(log_file_t, log_file);
+REFCNT_RELEASE(log_file_t, log_file);
 REFCNT_DELETE(log_file_t, log_file);
 
 /* }}} */
@@ -145,7 +146,7 @@ static void log_file_bgcompress(log_file_t *log_file, const char *path)
     }
 
     ctx = bgcompr_ctx_new();
-    ctx->log_file = log_file_dup(log_file);
+    ctx->log_file = log_file_retain(log_file);
     ctx->path = lstr_dups(path, -1);
     ctx->ts = ts;
 

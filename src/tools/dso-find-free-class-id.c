@@ -84,9 +84,10 @@ int main(int argc, char *argv[])
     const char *arg0 = NEXTARG(argc, argv);
     int class_id_min;
     int class_id_max;
+    int first_available_id = -1;
     const char *fullname;
     const iop_obj_t *obj;
-    int ret = EX_DATAERR;
+    bool used_ids_hdr_printed = false;
 
     argc = parseopt(argc, argv, popt_g, 0);
     if (argc != 3 || _G.help) {
@@ -118,17 +119,33 @@ int main(int argc, char *argv[])
     }
 
     for (int i = class_id_min; i <= class_id_max; i++) {
-        if (!iop_get_class_by_id(obj->desc.st, i)) {
-            printf("first available class id in the family of `%s` is %d\n",
-                   fullname, i);
-            ret = 0;
-            goto end;
+        const iop_struct_t *st = iop_get_class_by_id(obj->desc.st, i);
+
+        if (st) {
+            if (!used_ids_hdr_printed) {
+                printf("Used class ids in the family of `%s`:\n", fullname);
+                used_ids_hdr_printed = true;
+            }
+            printf("    %d (`%*pM`)\n", i, LSTR_FMT_ARG(st->fullname));
+        } else
+        if (first_available_id < 0) {
+            first_available_id = i;
         }
     }
 
-    printf("no available class id found in the family of `%s`\n", fullname);
+    if (used_ids_hdr_printed) {
+        printf("\n\n");
+    }
+
+    if (first_available_id >= 0) {
+        printf("First available class id in the family of `%s` is %d\n",
+               fullname, first_available_id);
+    } else {
+        printf("No available class id found in the family of `%s`\n",
+               fullname);
+    }
 
   end:
     iop_dso_close(&dso);
-    return ret;
+    return first_available_id >= 0 ? 0 : EX_DATAERR;
 }

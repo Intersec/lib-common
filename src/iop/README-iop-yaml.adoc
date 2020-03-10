@@ -219,7 +219,7 @@ inner: !include:inner.yml
 ----
 
 will add the key `c` in the `obj` object (which will have 3 keys: `a`, `b`
-and `foo`).
+and `c`).
 
 - If a sequence object is being merged, it is appended to the included sequence.
 
