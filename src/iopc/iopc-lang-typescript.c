@@ -140,7 +140,7 @@ static void iopc_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
     qv_inita(&t_weak_deps, 1024);
     qv_inita(&i_deps, 1024);
 
-    iopc_get_depends(pkg, &t_deps, &t_weak_deps, &i_deps, false, false);
+    iopc_get_depends(pkg, &t_deps, &t_weak_deps, &i_deps, 0);
 
     if (_G.enable_iop_backbone) {
         bool import_struct = false;

@@ -209,7 +209,8 @@ static void sb_add_depends(iopc_pkg_t *pkg, sb_t *depbuf)
     t_qv_init(&t_weak_deps, 16);
     t_qv_init(&i_deps, 16);
 
-    iopc_get_depends(pkg, &t_deps, &t_weak_deps, &i_deps, true, true);
+    iopc_get_depends(pkg, &t_deps, &t_weak_deps, &i_deps,
+                     IOPC_GET_DEPENDS_INCLUDE_ALL);
 
     tab_for_each_entry(dep, &t_deps) {
         sb_addf(depbuf, "%s\n", dep->file);

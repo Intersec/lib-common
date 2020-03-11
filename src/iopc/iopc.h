@@ -1004,12 +1004,27 @@ int iopc_resolve(iopc_pkg_t *pkg);
 int iopc_resolve_second_pass(iopc_pkg_t *pkg);
 void iopc_types_fold(iopc_pkg_t *pkg);
 void iopc_depends_uniquify(qv_t(iopc_pkg) *deps);
-void iopc_get_depends(iopc_pkg_t *pkg,
-                      qv_t(iopc_pkg) *t_deps,
-                      qv_t(iopc_pkg) *t_weak_deps,
-                      qv_t(iopc_pkg) *i_deps,
-                      bool include_ifaces,
-                      bool include_snmp);
+
+/** Flags to be used by iopc_get_depends(). */
+typedef enum iopc_get_depends_flags_t {
+    /** Include the iface dependencies. */
+    IOPC_GET_DEPENDS_INCLUDE_IFACES          = 1 << 0,
+
+    /** Include the SNMP structures dependencies. */
+    IOPC_GET_DEPENDS_INCLUDE_SNMP            = 1 << 1,
+
+    /** Include the dependencies of all ancestors of the classes. */
+    IOPC_GET_DEPENDS_INCLUDE_CLASS_ANCESTORS = 1 << 2,
+
+    /** Include all possible dependencies. */
+    IOPC_GET_DEPENDS_INCLUDE_ALL = IOPC_GET_DEPENDS_INCLUDE_IFACES
+                                 | IOPC_GET_DEPENDS_INCLUDE_SNMP
+                                 | IOPC_GET_DEPENDS_INCLUDE_CLASS_ANCESTORS,
+} iopc_get_depends_flags_t;
+
+void iopc_get_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
+                      qv_t(iopc_pkg) *t_weak_deps, qv_t(iopc_pkg) *i_deps,
+                      unsigned flags);
 
 /** Check that the name is valid to use as an IOP type */
 int iopc_check_type_name(lstr_t name, sb_t * nullable err);
