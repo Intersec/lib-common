@@ -1491,7 +1491,8 @@ field_is_pointer(iopc_field_t *field)
 
 static void
 get_structs_t_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
-                      qv_t(iopc_pkg) *t_weak_deps, iopc_struct_t *st)
+                      qv_t(iopc_pkg) *t_weak_deps, iopc_struct_t *st,
+                      unsigned flags)
 {
     tab_for_each_entry(field, &st->fields) {
         if (field_is_pointer(field)) {
@@ -1512,6 +1513,10 @@ get_structs_t_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
         parent = st->extends.tab[0];
         iopc_add_depends(pkg, parent->pkg, t_deps);
         st = parent->st;
+
+        if (!(flags & IOPC_GET_DEPENDS_INCLUDE_CLASS_ANCESTORS)) {
+            break;
+        }
     }
 }
 
@@ -1546,22 +1551,23 @@ void iopc_depends_uniquify(qv_t(iopc_pkg) *deps)
     });
 }
 
-void iopc_get_depends(iopc_pkg_t *pkg,
-                      qv_t(iopc_pkg) *t_deps,
-                      qv_t(iopc_pkg) *t_weak_deps,
-                      qv_t(iopc_pkg) *i_deps,
-                      bool include_ifaces,
-                      bool include_snmp)
+void iopc_get_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
+                      qv_t(iopc_pkg) *t_weak_deps, qv_t(iopc_pkg) *i_deps,
+                      unsigned flags)
 {
     tab_for_each_entry(st, &pkg->structs) {
-        if (!include_snmp && iopc_is_snmp_st(st->type)) {
+        if (!(flags & IOPC_GET_DEPENDS_INCLUDE_SNMP)
+        &&  iopc_is_snmp_st(st->type))
+        {
             continue;
         }
-        get_structs_t_depends(pkg, t_deps, t_weak_deps, st);
+        get_structs_t_depends(pkg, t_deps, t_weak_deps, st, flags);
     }
 
     tab_for_each_entry(iface, &pkg->ifaces) {
-        if (!include_snmp && iopc_is_snmp_iface(iface->type)) {
+        if (!(flags & IOPC_GET_DEPENDS_INCLUDE_SNMP)
+        &&  iopc_is_snmp_iface(iface->type))
+        {
             continue;
         }
 
@@ -1600,7 +1606,7 @@ void iopc_get_depends(iopc_pkg_t *pkg,
             }
         }
     }
-    if (include_ifaces) {
+    if (flags & IOPC_GET_DEPENDS_INCLUDE_IFACES) {
         tab_for_each_entry(mod, &pkg->modules) {
             get_structs_depends(pkg, i_deps, mod);
         }
