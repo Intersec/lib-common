@@ -130,8 +130,7 @@ def configure(ctx):
     # {{{ Python 3
 
     try:
-        ctx.find_program(['python3-config', 'python3.6-config'],
-                         var='PYTHON3_CONFIG')
+        ctx.find_program('python3-config', var='PYTHON3_CONFIG')
     except Errors.ConfigurationError as e:
         Logs.debug('cannot configure python3: %s', e.msg)
     else:
