@@ -338,24 +338,6 @@ def deploy_shlib(self):
     self.link_task.outputs = [tgt]
 
 
-@TaskGen.feature('jar')
-@TaskGen.after_method('jar_files')
-def deploy_jar(self):
-    # Build Java jar files in the corresponding source directory
-    assert (len(self.jar_task.outputs) == 1)
-    node = self.jar_task.outputs[0]
-    self.jar_task.outputs = [node.get_src()]
-
-
-@TaskGen.feature('deploy_javac')
-@TaskGen.after_method('apply_java')
-def deploy_javac(self):
-    src = self.outdir.make_node(self.destfile)
-    tgt = self.outdir.get_src().make_node(self.destfile)
-    tsk = self.create_task('DeployTarget', src=src, tgt=tgt)
-    tsk.set_run_after(self.javac_task)
-
-
 # }}}
 # {{{ remove_dynlibs: option to remove all dynamic libraries at link
 

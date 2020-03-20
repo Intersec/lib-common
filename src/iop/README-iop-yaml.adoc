@@ -46,9 +46,14 @@ Arrays are written with every element on its own line, prefixed by a dash, with 
 [source,YAML]
 ----
 array:
-  - name: foo
-    bar: 5
-  - name: baz
+  - foo
+  - 5
+  - baz
+objects:
+  - name: abe
+    age: 24
+  - name: boo
+    age: 72
 ----
 
 They can also be written inline using `[` and `]`:
@@ -333,3 +338,79 @@ variables:
 field:
   val: $(bar) # Not allowed either
 ----
+
+== Merge keys
+
+A merge key can be used to inline multiple objects into one. For example:
+
+[source,YAML]
+----
+<<:
+  a: 1
+  b: 2
+a: 3
+c: 4
+----
+
+This is equivalent to:
+
+[source,YAML]
+----
+a: 3
+b: 2
+c: 4
+----
+
+This can be useful with includes. Set of parameters can be moved in separate
+files, and then included in an object using a merge key:
+
+[source,YAML]
+----
+<<:
+  - !include:feature_1.yml
+  - !include:feature_2.yml
+  - !include:feature_3.yml
+foo: bar
+...
+----
+
+The merging rules are very simple:
+
+- if a key already exists in the object, the value is overwrote by the
+  new value. This is the case for `a` in the example above.
+- Otherwise, the key is added in the object.
+
+If the merge key contains a list of objects, they are merged in order,
+so the first object will add keys, and the subsequent objects will modify
+those keys.
+
+For example:
+
+[source,YAML]
+----
+<<:
+  - { a: 1, b: 1, c: 1 }
+  - { a: 2, b: 2, d: 2 }
+a: 3
+e: 3
+----
+
+This is equivalent to:
+
+[source,YAML]
+----
+a: 3
+b: 2
+c: 1
+d: 2
+e: 3
+----
+
+- key `a` is added by the first object, then modified by the second one,
+  then finally modified after the merge key.
+- key `b` is added by the first object, then modified by the second one.
+- key `c` is added by the first object.
+- key `d` is added by the second object.
+- key `e` is added after the merge key.
+
+NOTE: The merge key *must* be the first key of the object.
