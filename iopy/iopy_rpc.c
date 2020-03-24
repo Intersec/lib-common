@@ -1220,9 +1220,10 @@ void iopy_rpc_module_stop(void)
 
     old_thr_status = _G.el_thr_status;
     _G.el_thr_status = EL_THR_STOPPED;
-    if (old_thr_status != EL_THR_NOT_STARTED
-    &&  expect(old_thr_status != EL_THR_STOPPED))
-    {
+
+    switch (old_thr_status) {
+      case EL_THR_STARTING:
+      case EL_THR_STARTED: {
         el_t el = el_signal_register(SIGINT, &el_loop_thread_on_term, NULL);
 
         iopy_el_mutex_unlock();
@@ -1230,8 +1231,12 @@ void iopy_rpc_module_stop(void)
         pthread_join(_G.el_thread, NULL);
 
         el_unregister(&el);
-    } else {
+      } break;
+
+      case EL_THR_NOT_STARTED:
+      case EL_THR_STOPPED:
         iopy_el_mutex_unlock();
+        break;
     }
 }
 
