@@ -100,5 +100,18 @@ int sctp_recvmsg(int s, void *msg, size_t len, struct sockaddr *from,
 /** Return the address length for an address family. */
 int sctp_getaddrlen(sa_family_t family);
 
+#ifdef HAVE_LINUX_UAPI_SCTP_H
+# define sctp_peer_addr_state_is_active(state) ((state) == SCTP_ACTIVE)
+#else
+/** This function allows to correctly interpret an sctp_spinfo_state return by
+ * Linux.
+ *
+ * Under RHEL 6 with kernel version 2.6.32 and a stable version >= 358,
+ * the SCTP_ACTIVE internal value 2 when it is reported as 1 in public
+ * headers. It is a backward incompatible change introduced by mistake in the
+ * Kernel.
+ */
+bool sctp_peer_addr_state_is_active(enum sctp_spinfo_state state);
+#endif
 
 #endif /* IS_LIB_COMMON_SCTP_H */
