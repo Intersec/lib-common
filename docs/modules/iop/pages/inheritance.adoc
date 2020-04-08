@@ -199,7 +199,7 @@ structure, using the `__init` helper:
 
 test__b2__t b2;
 
-test__b2__init(&b2);
+iop_init(test__b2, &b2);
 
 ----
 
@@ -213,9 +213,10 @@ generated structure, and that's why initialization of class containers must be
 done *very carefully*.
 
 To take the example of the `ClassContainer` structure defined just above,
-calling `test__class_container__init` will set the `class_container_a1` pointer
-to NULL, and trying to pack it just after would be invalid since `A1` is a
-mantatory field in `ClassContainer` (the consequence will be a crash).
+calling `iop_init(test__class_container, ...)` will set the
+`class_container_a1` pointer to NULL, and trying to pack it just after would
+be invalid since `A1` is a mantatory field in `ClassContainer`
+(the consequence will be a crash).
 
 To get a fully valid `ClassContainer` instance, the `a1` pointer should be
 manually set to a valid `A1` class instance (or one of its children).
@@ -328,7 +329,7 @@ IOP_CLASS_EXACT_SWITCH(my_instance) {
 
 First of all, the IOP packages containing classes definitions have to be
 registered *before* trying to pack or unpack any class. This will also make the
-class_id collision checks that were discusses above:
+class_id collision checks that were discussed above:
 
 [source,c]
 ----
@@ -338,7 +339,7 @@ IOP_REGISTER_PACKAGES(&test__pkg);
 ----
 
 Then, the binary packing/unpacking of a class object can be done with the
-`__bpack`/`__bunpack_ptr` helpers.
+`*_bpack`/`*_bunpack_ptr` helpers.
 
 When unpacking, a *double-pointer* on the destination object is given. It is
 allocated (or reallocated). Here is a simple example of unpacking:
@@ -348,9 +349,11 @@ allocated (or reallocated). Here is a simple example of unpacking:
 
 t_scope;
 test__a1__t *foo = NULL;
-lstr_t input = <get packed data from somewhere>;
+pstream_t input = <get packed data from somewhere>;
 
-if (t_test__a1__bunpack_ptr(&input, &foo) < 0) {
+if (iop_bunpack_ptr(t_pool(), &test__a1__s, (void **)&foo, input,
+    false) < 0)
+{
     /* error handling */
 } else {
     /* successful unpack */
