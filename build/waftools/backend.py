@@ -884,7 +884,14 @@ def process_lex(self, node):
 # {{{ FC
 
 
-class Fc2c(Task):
+class FirstInputStrTask(Task):
+
+    def __str__(self):
+        node = self.inputs[0]
+        return node.path_from(node.ctx.launch_node())
+
+
+class Fc2c(FirstInputStrTask):
     run_str = ['rm -f ${TGT}', '${FARCHC} -c -o ${TGT} ${SRC[0].abspath()}']
     color   = 'BLUE'
     before  = ['Blk2c', 'Blkk2cc', 'ClangCheck']
@@ -913,11 +920,7 @@ class Fc2c(Task):
                 else:
                     variable_name_found = True
 
-        # fc files must be rebuilt if farchc changes
-        deps.append(node.ctx.farchc_tgen.link_task.outputs[0])
-
         return (deps, None)
-
 
 
 @extension('.fc')
@@ -935,7 +938,8 @@ def process_fc(self, node):
     h_node = node.change_ext_src('.fc.c')
     if not h_node in self.env.GEN_FILES:
         self.env.GEN_FILES.add(h_node)
-        farch_task = self.create_task('Fc2c', [node], h_node)
+        inputs = [node, ctx.farchc_tgen.link_task.outputs[0]]
+        farch_task = self.create_task('Fc2c', inputs, h_node)
         farch_task.set_run_after(ctx.farchc_task)
 
 
@@ -1073,7 +1077,7 @@ class IopcOptions:
         return self.computed_includes
 
 
-class Iop2c(Task):
+class Iop2c(FirstInputStrTask):
     color   = 'BLUE'
     ext_out = ['.h', '.c']
     before  = ['Blk2c', 'Blkk2cc', 'ClangCheck']
@@ -1097,7 +1101,7 @@ class Iop2c(Task):
         # exec_command does not seem to allow dropping the output :-(...
         cmd = ('{iopc} {includes} --depends {depfile} -o {outdir} {source} '
                '> /dev/null 2>&1')
-        cmd = cmd.format(iopc=self.env.IOPC,
+        cmd = cmd.format(iopc=self.inputs[1].abspath(),
                          includes=self.env.IOP_INCLUDES,
                          depfile=depfile.abspath(),
                          outdir=self.outputs[0].parent.abspath(),
@@ -1110,16 +1114,13 @@ class Iop2c(Task):
         deps = depfile.read().splitlines()
         deps = [node.ctx.root.make_node(dep) for dep in deps]
 
-        # IOP files must be rebuilt if iopc changes
-        deps.append(node.ctx.iopc_tgen.link_task.outputs[0])
-
         return (deps, None)
 
     def run(self):
         cmd = ('{iopc} --Wextra --language {languages} '
                '--c-resolve-includes --typescript-enable-backbone '
                '{includes} {class_range} {json_output} {ts_output} {source}')
-        cmd = cmd.format(iopc=self.env.IOPC,
+        cmd = cmd.format(iopc=self.inputs[1].abspath(),
                          languages=self.env.IOP_LANGUAGES,
                          includes=self.env.IOP_INCLUDES,
                          class_range=self.env.IOP_CLASS_RANGE,
@@ -1154,7 +1155,6 @@ def process_iop(self, node):
         ctx.iopc_tgen.post()
     if not hasattr(ctx, 'iopc_task'):
         ctx.iopc_task = ctx.iopc_tgen.link_task
-        ctx.env.IOPC = ctx.iopc_tgen.link_task.outputs[0].abspath()
 
     # Handle file
     c_node = node.change_ext_src('.iop.c')
@@ -1181,8 +1181,10 @@ def process_iop(self, node):
             ts_path = package_path + '.iop.ts'
             outputs.append(opts.ts_node.make_node(ts_path))
 
-        # Create iopc task
-        task = self.create_task('Iop2c', node, outputs)
+        # Create iopc task (add iopc itself in the inputs so that IOP files
+        # are rebuilt if iopc changes)
+        inputs = [node, ctx.iopc_tgen.link_task.outputs[0]]
+        task = self.create_task('Iop2c', inputs, outputs)
         task.set_run_after(ctx.iopc_task)
 
         # Set options in environment
@@ -1210,24 +1212,16 @@ def process_ld(self, node):
 # {{{ PXC
 
 
-class Pxc2Pxd(Task):
-    run_str = '${PXCC} ${CPPPATH_ST:INCPATHS} ${SRC} -o ${TGT}'
+class Pxc2Pxd(FirstInputStrTask):
+    run_str = '${PXCC} ${CPPPATH_ST:INCPATHS} ${SRC[0].abspath()} -o ${TGT}'
     color   = 'BLUE'
     before  = 'cython'
     after   = 'Iop2c'
+    scan    = c_preproc.scan # pxc files are C-like files
 
     @classmethod
     def keyword(cls):
         return 'Pxcc'
-
-    def scan(self):
-        # pxc files are C-like files: call standard C preprocessor
-        (deps, raw) = c_preproc.scan(self)
-
-        # pxc files must be rebuilt when pxcc changes
-        deps.append(self.inputs[0].ctx.pxcc_tgen.link_task.outputs[0])
-
-        return (deps, raw)
 
 
 @extension('.pxc')
@@ -1246,7 +1240,8 @@ def process_pxcc(self, node):
 
     if pxd_node not in self.env.GEN_FILES:
         self.env.GEN_FILES.add(pxd_node)
-        pxc_task = self.create_task('Pxc2Pxd', [node], [pxd_node],
+        inputs = [node, ctx.pxcc_tgen.link_task.outputs[0]]
+        pxc_task = self.create_task('Pxc2Pxd', inputs, [pxd_node],
                                     cwd=self.env.PROJECT_ROOT)
         pxc_task.set_run_after(ctx.pxcc_task)
 

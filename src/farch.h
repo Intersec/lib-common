@@ -85,19 +85,42 @@ char * nullable farch_get_filename(const farch_entry_t * nonnull file,
 
 /** Get the uncompressed content of a farch entry.
  *
+ * \param[in]  entry  the farch entry.
+ * \return  the uncompressed content.
+ */
+lstr_t t_farch_unarchive(const farch_entry_t * nonnull entry);
+
+/** Similar to t_farch_unarchive, but make the data persistent.
+ *
+ * The persisted data will be freed when the farch module is released.
+ *
+ * \param[in]  entry  the farch entry.
+ * \return  the uncompressed content.
+ */
+lstr_t farch_unarchive_persist(const farch_entry_t * nonnull entry);
+
+/** Get the uncompressed content of a farch entry by its name.
+ *
  * Finds a farch entry by its name in a farch archive, and return its
- * uncompressed content.  If the name is not provided, the content of the
+ * uncompressed content. If the name is not provided, the content of the
  * first entry is returned.
  *
+ * \param[in]  files  the farch archive.
+ * \param[in]  name   the name of farch entry to find.
  * \return  the uncompressed content if the entry is found,
  *          LSTR_NULL otherwise.
  */
 lstr_t t_farch_get_data(const farch_entry_t * nonnull files,
                         const char * nullable name);
 
-/** Similar to t_farch_get_uncompressed, but make the data persistent.
+/** Similar to t_farch_get_data, but make the data persistent.
  *
  * The persisted data will be freed when the farch module is released.
+ *
+ * \param[in]  files  the farch archive.
+ * \param[in]  name   the name of farch entry to find.
+ * \return  the uncompressed content if the entry is found,
+ *          LSTR_NULL otherwise.
  */
 lstr_t farch_get_data_persist(const farch_entry_t * nonnull files,
                               const char * nullable name);

@@ -90,7 +90,7 @@ static const farch_entry_t *farch_get_entry(const farch_entry_t files[],
 }
 
 /** Unarchive and append a '\0' if needed. */
-static lstr_t t_farch_unarchive(const farch_entry_t *entry)
+lstr_t t_farch_unarchive(const farch_entry_t *entry)
 {
     lstr_t res;
     char real_name[FARCH_MAX_FILENAME];
@@ -128,25 +128,13 @@ static lstr_t t_farch_unarchive(const farch_entry_t *entry)
     e_panic("cannot uncompress farch entry `%s`", real_name);
 }
 
-lstr_t t_farch_get_data(const farch_entry_t *files, const char *name)
-{
-    const farch_entry_t *entry = name ? farch_get_entry(files, name) : files;
-
-    return entry ? t_farch_unarchive(entry) : LSTR_NULL_V;
-}
-
-lstr_t farch_get_data_persist(const farch_entry_t *files, const char *name)
+lstr_t farch_unarchive_persist(const farch_entry_t * nonnull entry)
 {
     t_scope;
-    const farch_entry_t *entry = name ? farch_get_entry(files, name) : files;
     lstr_t content;
     int pos;
 
     assert (MODULE_IS_LOADED(farch));
-
-    if (!entry) {
-        return LSTR_NULL_V;
-    }
 
     pos = qm_reserve(persisted, &_G.persisted, entry, 0);
     if (pos & QHASH_COLLISION) {
@@ -158,6 +146,20 @@ lstr_t farch_get_data_persist(const farch_entry_t *files, const char *name)
     _G.persisted.values[pos] = content;
 
     return content;
+}
+
+lstr_t t_farch_get_data(const farch_entry_t *files, const char *name)
+{
+    const farch_entry_t *entry = name ? farch_get_entry(files, name) : files;
+
+    return entry ? t_farch_unarchive(entry) : LSTR_NULL_V;
+}
+
+lstr_t farch_get_data_persist(const farch_entry_t *files, const char *name)
+{
+    const farch_entry_t *entry = name ? farch_get_entry(files, name) : files;
+
+    return entry ? farch_unarchive_persist(entry) : LSTR_NULL_V;
 }
 
 /* }}} */
