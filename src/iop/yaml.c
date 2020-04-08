@@ -984,7 +984,7 @@ int t_iop_yunpack_ptr_file(
 static void
 t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
                           const void * nonnull value, int flags,
-                          yaml_data_t * nonnull data);
+                          yaml_data_t * nonnull data, bool top_level);
 
 static void
 t_iop_field_to_yaml_data(const iop_field_t * nonnull fdesc,
@@ -1028,7 +1028,7 @@ t_iop_field_to_yaml_data(const iop_field_t * nonnull fdesc,
       case IOP_T_STRUCT: {
         const void *v = iop_json_get_struct_field_value(fdesc, ptr, j);
 
-        t_iop_struct_to_yaml_data(fdesc->u1.st_desc, v, flags, data);
+        t_iop_struct_to_yaml_data(fdesc->u1.st_desc, v, flags, data, false);
       } break;
 
       case IOP_T_STRING:
@@ -1105,7 +1105,7 @@ t_append_iop_struct_to_fields(const iop_struct_t * nonnull desc,
 static void
 t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
                           const void * nonnull value, int flags,
-                          yaml_data_t * nonnull data)
+                          yaml_data_t * nonnull data, bool top_level)
 {
     if (iop_struct_is_class(desc)) {
         qv_t(iop_struct) parents;
@@ -1124,7 +1124,8 @@ t_iop_struct_to_yaml_data(const iop_struct_t * nonnull desc,
 
         /* Write type of class */
         if (desc != real_desc
-        ||  !(flags & IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES))
+        ||  !(flags & IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES)
+        ||  top_level)
         {
             tag = lstr_dupc(real_desc->fullname);
         }
@@ -1170,7 +1171,7 @@ void t_iop_sb_ypack_with_flags(sb_t * nonnull sb,
     yaml_pack_env_t *env;
     int ret;
 
-    t_iop_struct_to_yaml_data(st, value, flags, &data);
+    t_iop_struct_to_yaml_data(st, value, flags, &data, true);
 
     env = t_yaml_pack_env_new();
     if (pres) {
@@ -1196,7 +1197,7 @@ int (iop_ypack_file)(const char *filename, mode_t file_mode,
     yaml_pack_env_t *env;
     yaml_data_t data;
 
-    t_iop_struct_to_yaml_data(st, value, DEFAULT_PACK_FLAGS, &data);
+    t_iop_struct_to_yaml_data(st, value, DEFAULT_PACK_FLAGS, &data, true);
 
     env = t_yaml_pack_env_new();
     yaml_pack_env_set_file_mode(env, file_mode);
@@ -1211,7 +1212,7 @@ void
 t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
                    const void * nonnull value, yaml_data_t * nonnull data)
 {
-    t_iop_struct_to_yaml_data(desc, value, DEFAULT_PACK_FLAGS, data);
+    t_iop_struct_to_yaml_data(desc, value, DEFAULT_PACK_FLAGS, data, true);
 }
 
 /* }}} */

@@ -921,6 +921,7 @@ Z_GROUP_EXPORT(iop_yaml)
 
         /* Test with a parent with more fields than the child */
         TST(&tstiop__small_child__s,
+            "!tstiop.SmallChild\n"
             "a: a\n"
             "b: b\n"
             "c: c",
