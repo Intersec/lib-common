@@ -6709,7 +6709,7 @@ Z_GROUP_EXPORT(iop)
         SB_1k(sb);
         tstiop__my_struct_b__t b;
         tstiop__my_class1__t c;
-        tstiop__my_class1__t *c_ptr;
+        tstiop__my_class1__t *c_ptr = NULL;
 
         iop_init(tstiop__my_struct_b, &b);
         Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__my_struct_b__s, &b, 0));
@@ -8007,24 +8007,6 @@ Z_GROUP_EXPORT(iop)
          * as the file no longer exists */
         iop_dso_close(&dso1);
         iop_dso_close(&dso2);
-    } Z_TEST_END;
-    /* }}} */
-    Z_TEST(nr_47521, "test bug while unpacking json with bunpack") { /* {{{ */
-        /* test that bunpack does not crash when trying to unpack json */
-        t_scope;
-        SB_1k(sb);
-        tstiop__my_struct_b__t b;
-        tstiop__my_class1__t c;
-        tstiop__my_class1__t *c_ptr;
-
-        iop_init(tstiop__my_struct_b, &b);
-        Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__my_struct_b__s, &b, 0));
-        Z_ASSERT_NEG(t_iop_bunpack(&LSTR_SB_V(&sb), tstiop__my_struct_b, &b));
-
-        iop_init(tstiop__my_class1, &c);
-        Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__my_class1__s, &c, 0));
-        Z_ASSERT_NEG(iop_bunpack_ptr(t_pool(), &tstiop__my_class1__s,
-                                     (void **)&c_ptr, ps_initsb(&sb), false));
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_first_diff_desc, "test iop_first_diff_desc()") { /* {{{ */
