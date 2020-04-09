@@ -7251,6 +7251,7 @@ Z_GROUP_EXPORT(iop)
         tstiop_backward_compat__basic_class__t  basic_class;
         tstiop_backward_compat__struct_container1__t struct_container1;
         tstiop_backward_compat__parent_class_a__t *parent_class;
+        tstiop_backward_compat__empty_struct__t empty_struct;
 
         basic_union = IOP_UNION(tstiop_backward_compat__basic_union, a, 12);
 
@@ -7265,6 +7266,8 @@ Z_GROUP_EXPORT(iop)
         iop_init(tstiop_backward_compat__basic_class, &basic_class);
         basic_class.a = 12;
         basic_class.b = LSTR("string");
+
+        iop_init(tstiop_backward_compat__empty_struct, &empty_struct);
 
 #define T_OK(_type1, _obj1, _type2, _flags)  \
         do {                                                                 \
@@ -7305,17 +7308,37 @@ Z_GROUP_EXPORT(iop)
 #define INDENT_LVL3  "\n  |   |   | "
 #define INDENT_LVL4  "\n  |   |   |   | "
 
+        /* Struct to root when no fields are set is OK */
+        T_OK_ALL(empty_struct, &empty_struct, empty_class);
+
         /* Basic struct to class transitions. */
         T_KO_ALL(basic_struct, &basic_struct, basic_union,
                  "was a struct and is now a union");
         T_KO_ALL(basic_union, &basic_union, basic_struct,
                  "was a union and is now a struct");
-        T_KO_ALL(basic_struct, &basic_struct, basic_abstract_class,
-                 "was a struct and is now a class");
 
-        T_KO(basic_struct, &basic_struct, basic_class, IOP_COMPAT_BIN,
-             "was a struct and is now a class");
-        T_OK(basic_struct, &basic_struct, basic_class, IOP_COMPAT_JSON);
+        /* struct to abstract class is KO */
+        T_KO_ALL(basic_struct, &basic_struct, basic_abstract_class,
+                 "was a struct and is now an abstract class");
+
+        /* Struct to root class is OK */
+        T_OK_ALL(basic_struct, &basic_struct, basic_class);
+
+        /* Struct to child class is OK for JSON only */
+        T_KO(basic_struct, &basic_struct, basic_class_child, IOP_COMPAT_BIN,
+             "was a struct and is now a child class");
+
+        /* TODO: add checks for the JSON case
+         *
+         * T_OK(basic_struct, &basic_struct, basic_class_child,
+         *      IOP_COMPAT_JSON);
+         */
+
+        /* Struct to root class with missing fields is KO */
+        T_KO(basic_struct, &basic_struct, basic_class_parent, IOP_COMPAT_BIN,
+             "field `a` -> `b`:\n  | incompatible types");
+        T_KO(basic_struct, &basic_struct, basic_class_parent, IOP_COMPAT_JSON,
+             "field `a` does not exist anymore");
 
         T_KO(basic_class, &basic_class, basic_abstract_class, IOP_COMPAT_BIN,
              "is an abstract class but was not abstract");

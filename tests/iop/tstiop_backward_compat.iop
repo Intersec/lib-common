@@ -37,6 +37,14 @@ class BasicClass {
     string b;
 };
 
+class BasicClassParent {
+    string b;
+};
+
+class BasicClassChild : 1 : BasicClassParent {
+    bool a;
+};
+
 abstract class BasicAbstractClass {
     bool a;
     string b;
@@ -47,6 +55,14 @@ struct StructWithRepeatedField {
     int a;
     string[] b;
     int c;
+};
+
+struct EmptyStruct {
+    int? a;
+};
+
+class EmptyClass {
+    int? a;
 };
 
 /* }}} */

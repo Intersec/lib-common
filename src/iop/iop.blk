@@ -4853,25 +4853,38 @@ static int unpack_class(mem_pool_t *mp, const iop_struct_t *desc,
 {
     const iop_struct_t *real_desc;
     iop_wire_type_t wt;
-    uint32_t tag;
+    uint32_t tag = 1;
     uint16_t child_id = 0;
+    pstream_t saved_ps = *ps;
 
-    PS_WANT(!ps_done(ps));
+    if (likely(!ps_done(ps))) {
+        /* Get the class id of the packed class instance */
+        PS_CHECK(__get_tag_wt(ps, &tag, &wt));
+    }
 
-    /* Get the class id of the packed class instance */
-    PS_CHECK(__get_tag_wt(ps, &tag, &wt));
-    PS_WANT(tag == 0);
-    PS_CHECK(__get_class_id(ps, wt, &child_id));
+    if (unlikely(tag != 0)) {
+        /* struct -> class backward compat handling, ok if the class has no
+         * parents. */
+        if (desc->class_attrs->parent) {
+            iop_set_err("invalid binary encoding for value of type `%*pM`",
+                        LSTR_FMT_ARG(desc->fullname));
+            return -1;
+        }
+        *ps = saved_ps;
+        real_desc = desc;
+    } else {
+        PS_CHECK(__get_class_id(ps, wt, &child_id));
 
-    if (unlikely(!(real_desc = iop_get_class_by_id(desc, child_id)))) {
-        SB_1k(err);
+        if (unlikely(!(real_desc = iop_get_class_by_id(desc, child_id)))) {
+            SB_1k(err);
 
-        sb_addf(&err, "cannot find child %d of class '%*pM'",
-                child_id, LSTR_FMT_ARG(desc->fullname));
-        e_trace(0, "%*pM; missing IOP_REGISTER_PACKAGES?",
-                SB_FMT_ARG(&err));
-        iop_set_err2(&LSTR_SB_V(&err));
-        return -1;
+            sb_addf(&err, "cannot find child %d of class '%*pM'",
+                    child_id, LSTR_FMT_ARG(desc->fullname));
+            e_trace(0, "%*pM; missing IOP_REGISTER_PACKAGES?",
+                    SB_FMT_ARG(&err));
+            iop_set_err2(&LSTR_SB_V(&err));
+            return -1;
+        }
     }
 
     if (real_desc != desc) {
@@ -7030,8 +7043,15 @@ __iop_struct_check_backward_compat(const iop_struct_t *st1,
         res = -1;
     }
     if (!iop_struct_is_class(st1) && iop_struct_is_class(st2)) {
-        if (!(flags & IOP_COMPAT_JSON) || st2->class_attrs->is_abstract) {
-            iop_compat_add_err(ctx, "was a struct and is now a class");
+        if (st2->class_attrs->is_abstract) {
+            iop_compat_add_err(ctx,
+                               "was a struct and is now an abstract class");
+            res = -1;
+        } else
+        if (st2->class_attrs->parent) {
+            /* TODO: this is theoretically possible for JSON, but the checks
+             * on all the fields are missing and should be added here. */
+            iop_compat_add_err(ctx, "was a struct and is now a child class");
             res = -1;
         }
     }
