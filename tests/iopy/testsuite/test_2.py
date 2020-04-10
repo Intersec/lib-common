@@ -16,10 +16,7 @@
 #                                                                         #
 ###########################################################################
 
-import z_compatibility
 
-@z_compatibility.metaclass
-class test_ClassB(object):
-    __metaclass__ = _iopy_register.metaclass
+class test_ClassB(metaclass=_iopy_register.metaclass):
     def user_method(self):
         return self.field2 == 2 and super(test_ClassB, self).user_method()

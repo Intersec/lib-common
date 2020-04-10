@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 
 #vim:set fileencoding=utf-8
@@ -44,7 +44,6 @@ In manual mode
 """
 
 
-from __future__ import print_function
 import os
 from os import path as osp
 import sys
@@ -107,7 +106,7 @@ def get_intersec_poi(output, root):
             return reg.group(1)
     return None
 
-class Cores(object):
+class Cores:
     def __init__(self, rootpath='.'):
         self.cores = []
         self.rootpath = rootpath
@@ -168,7 +167,7 @@ class Cores(object):
     def _gdb_cmd(cmd, fullpath, core):
         # prepare CMD
         gdb_cmd = NamedTemporaryFile(delete=False)
-        gdb_cmd.write('\n'.join(cmd))
+        gdb_cmd.write('\n'.join(cmd).encode('utf-8'))
         gdb_cmd.close()
 
         # launch gdb
@@ -183,7 +182,7 @@ class Cores(object):
         with open("/dev/null", "w") as f_:
             stdout = check_output(cmd, stderr=f_)
         os.unlink(gdb_cmd.name)
-        return stdout
+        return stdout.decode('utf-8')
 
     def find_binary_fullpath(self, core):
         fullpath = None

@@ -16,10 +16,7 @@
 #                                                                         #
 ###########################################################################
 
-import z_compatibility
 
-@z_compatibility.metaclass
-class test_emptystuffs_EmptyStruct(object):
-    __metaclass__ = _iopy_register.metaclass
+class test_emptystuffs_EmptyStruct(metaclass=_iopy_register.metaclass):
     def fun(self):
         return True

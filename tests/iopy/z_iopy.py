@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #vim:set fileencoding=utf-8:
 ###########################################################################
 #                                                                         #
@@ -26,14 +26,11 @@ import warnings
 import subprocess
 import threading
 
-from six.moves import xrange
-
 SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
 
 import zpycore as z
 import iopy
-import z_compatibility
 
 
 PORT_COUNT = 9900
@@ -83,14 +80,14 @@ def z_iopy_test_threads_and_forks(iface, obj_a, exp_res, do_threads,
     res_codes = []
 
     if do_threads:
-        for _ in xrange(10):
+        for _ in range(10):
             t = threading.Thread(target=z_iopy_thread_cb,
                                  args=(iface, obj_a, res_list))
             t.start()
             threads.append(t)
 
     if do_forks:
-        for _ in xrange(10):
+        for _ in range(10):
             new_pid = os.fork()
             assert new_pid >= 0
             if new_pid == 0:
@@ -214,9 +211,8 @@ class IopyTest(z.TestCase):
         self.assertEqual(exp, b.__xml__())
 
     def test_custom_methods(self):
-        @z_compatibility.metaclass  # pylint: disable=unused-variable
-        class test_ClassA(object):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=unused-variable
+        class test_ClassA(metaclass=self.r.metaclass):
             def fun(self):
                 return self.field1
 
@@ -333,7 +329,7 @@ class IopyTest(z.TestCase):
         s.on_connect = None
         s.on_disconnect = None
 
-        p_args = ['python', os.path.join(SELF_PATH, 'z_iopy_process1.py'),
+        p_args = ['python3', os.path.join(SELF_PATH, 'z_iopy_process1.py'),
                   self.plugin_file, uri]
         proc = subprocess.Popen(p_args)
         self.assertIsNotNone(proc)
@@ -414,48 +410,41 @@ class IopyTest(z.TestCase):
 
     def test_unicode(self):
         # unicode string and non unicode strings
-        b = self.r.test.StructB(a=z_compatibility.b('string a'),
-                                b=z_compatibility.u('string b'),
-                                tab=[z_compatibility.b('first string'),
-                                     z_compatibility.u('second string')])
+        b = self.r.test.StructB(a=b'string a', b='string b',
+                                tab=[b'first string', 'second string'])
         j = b.__json__()
         self.assertEqual(b, self.r.test.StructB(_json=j),
                          "unicode strings in iopy fields failed")
         b2 = self.r.test.StructB(a='string a', b='string b',
                                  tab=['first string', 'second string'])
         self.assertTrue(b == b2, "string fields comparison failed")
-        b3 = self.r.test.StructB(a=z_compatibility.u('non asçii éé', 'utf-8'),
+        b3 = self.r.test.StructB(a='non asçii éé',
                                  b='', tab=[])
         self.assertTrue(b3 == self.r.test.StructB(_json=b3.__json__()),
                         "real unicode fields failed")
-        u = self.r.test.UnionA(s=z_compatibility.b('bytes string'))
+        u = self.r.test.UnionA(s=b'bytes string')
         j = u.__json__()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
                          "string in iopy union failed")
-        u = self.r.test.UnionA(s=z_compatibility.u('unicode string'))
+        u = self.r.test.UnionA(s='unicode string')
         j = u.__json__()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
                          "unicode string in iopy union failed")
-        u = self.r.test.UnionA(s=z_compatibility.b('bytes string'))
+        u = self.r.test.UnionA(s=b'bytes string')
         j = u.__json__()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
                          "bytes string in iopy union failed")
-        kwargs = {'a': '0', z_compatibility.u('b'): '1', 'tab':[]}
-        b = self.p.test.StructB(**kwargs)
-        j = b.__json__()
-        self.assertEqual(b, self.p.test.StructB(_json=j),
-                         "unicode keys in iopy object failed")
 
     def test_constraints(self):
         self.r.test.UnionA(i=100)
         a = self.r.test.UnionA(100)
         a.i = 1
         exp = r"violation of constraint max \(100\) on field i: val=101$"
-        with self.assertRaisesRegexp(iopy.Error, exp):
+        with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.UnionA(i=101)
-        with self.assertRaisesRegexp(iopy.Error, exp):
+        with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.UnionA(101)
-        with self.assertRaisesRegexp(iopy.Error, exp):
+        with self.assertRaisesRegex(iopy.Error, exp):
             a.i = 101
         self.assertEqual(a.i, 1)
 
@@ -467,9 +456,9 @@ class IopyTest(z.TestCase):
                r"invalid selected union field .+a.+: in a of type "
                r"test\.UnionA: violation of constraint max \(100\) on "
                r"field i: val=101$")
-        with self.assertRaisesRegexp(iopy.Error, exp):
+        with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.UnionB(a=101)
-        with self.assertRaisesRegexp(iopy.Error, exp):
+        with self.assertRaisesRegex(iopy.Error, exp):
             b.a = 101
         self.assertEqual(getattr(b.a, 'i', None), 1)
 
@@ -477,17 +466,17 @@ class IopyTest(z.TestCase):
         b.field1 = 1
         exp = (r"violation of constraint max \(1000\) on field field1: "
                r"val=1001$")
-        with self.assertRaisesRegexp(iopy.Error, exp):
+        with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.ClassB(field1=1001)
-        with self.assertRaisesRegexp(iopy.Error, exp):
+        with self.assertRaisesRegex(iopy.Error, exp):
             b.field1 = 1001
         self.assertEqual(b.field1, 1)
 
         self.r.test.StructF(s='', i=[0])
         exp = (r"^error when parsing test.StructF: "
                r"field s \(type: ?str\) is required but absent; "
-               r"field i \(type: ?long\[\]\) is not allowed: empty array$")
-        with self.assertRaisesRegexp(iopy.Error, exp):
+               r"field i \(type: ?int\[\]\) is not allowed: empty array$")
+        with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.StructF()
 
         a = self.r.test.StructA()
@@ -497,7 +486,7 @@ class IopyTest(z.TestCase):
         exp = (r"^error when parsing test.StructA: "
                r"invalid argument .+tu.+: in tu\[1\] of type test.UnionA: "
                r"violation of constraint max \(100\) on field i: val=101$")
-        with self.assertRaisesRegexp(iopy.Error, exp):
+        with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.StructA(tu=[100, 101])
 
         b = self.r.test.ConstraintsB(name='ab', i=1000)
@@ -507,7 +496,7 @@ class IopyTest(z.TestCase):
                r"name: a b; invalid argument .+i.+: in type "
                r"test.ConstraintsB: violation of constraint max \(1000\) "
                r"on field i: val=1001$")
-        with self.assertRaisesRegexp(iopy.Error, exp):
+        with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.ConstraintsB(name='a b', i=1001)
 
     def test_unsigned_long_reading(self):
@@ -540,7 +529,7 @@ class IopyTest(z.TestCase):
     def test_required_fields(self):
         exp = (r"^error when parsing test.StructB: field a \(type: ?str\) is "
                r"required but absent$")
-        with self.assertRaisesRegexp(iopy.Error, exp):
+        with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.StructB(b='')
 
     def test_unspecified_optional_fields(self):
@@ -550,9 +539,8 @@ class IopyTest(z.TestCase):
         self.assertEqual(e, self.r.test.StructE(d=d))
 
     def test_custom_init(self):
-        @z_compatibility.metaclass  # pylint: disable=unused-variable
-        class test_ClassA(object):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=unused-variable
+        class test_ClassA(metaclass=self.r.metaclass):
             def __custom_init__(self, field1=10, _my_field='value'):
                 self._my_field = _my_field
 
@@ -583,9 +571,8 @@ class IopyTest(z.TestCase):
         self.assertEqual(getattr(a, '_my_field', None), 'test',
                          'custom init of custom value has failed')
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_ClassA(object):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=function-redefined
+        class test_ClassA(metaclass=self.r.metaclass):
             def __custom_init__(self, field1=10, _my_field='value'):
                 var = field1 * 10 # check #33039
                 setattr(self, 'optField', var)
@@ -599,9 +586,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(getattr(a, 'optField', None), 100,
                          'custom init with internal variables has failed')
 
-        @z_compatibility.metaclass
-        class test_ClassB(object):
-            __metaclass__ = self.r.metaclass
+        class test_ClassB(metaclass=self.r.metaclass):
             def __custom_init__(self, field1=20):
                 # pylint: disable=bad-super-call
                 super(test_ClassB, self).__custom_init__(field1=field1)
@@ -613,9 +598,8 @@ class IopyTest(z.TestCase):
         self.assertEqual(getattr(b, 'field2', None), 42,
                          'custom init inheritance has failed')
 
-        @z_compatibility.metaclass  # pylint: disable=unused-variable
-        class test_StructA(object):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=unused-variable
+        class test_StructA(metaclass=self.r.metaclass):
             r = self.r   # pylint: disable=invalid-name
             def __custom_init__(self, **kwargs):
                 self.class_a = self.r.test.ClassA(**kwargs)
@@ -627,23 +611,20 @@ class IopyTest(z.TestCase):
                          'custom init with kwargs failed')
 
         # reinitialize ClassB and StructA
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_ClassB(object):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=function-redefined
+        class test_ClassB(metaclass=self.r.metaclass):
+            pass
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_StructA(object):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=function-redefined
+        class test_StructA(metaclass=self.r.metaclass):
+            pass
 
     def test_custom_inheritance(self):
-        class CommonClass1(object):
+        class CommonClass1:
             def foo(self):
                 self.common_val1 = 42
 
-        @z_compatibility.metaclass
-        class test_StructA(CommonClass1):
-            __metaclass__ = self.r.metaclass
-
+        class test_StructA(CommonClass1, metaclass=self.r.metaclass):
             def foo(self):
                 # pylint: disable=bad-super-call
                 super(test_StructA, self).foo()
@@ -654,7 +635,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(st.common_val1, 42)
         self.assertEqual(st.common_val2, 12)
 
-        class BaseCommonClass1(object):
+        class BaseCommonClass1:
             def bar(self):
                 self.common_val2 = 7777
 
@@ -663,31 +644,32 @@ class IopyTest(z.TestCase):
                 self.bar()
                 self.common_val1 = 84
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_StructA(CommonClass2, CommonClass1):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=function-redefined
+        class test_StructA(CommonClass2, CommonClass1,
+                           metaclass=self.r.metaclass):
+            pass
 
         st = self.r.test.StructA()
         st.foo()
         self.assertEqual(st.common_val1, 84)
         self.assertEqual(st.common_val2, 7777)
 
-        class CommonClass3(object):
+        class CommonClass3:
             def __init__(self, *args, **kwargs):
                 # pylint: disable=bad-super-call
                 super(CommonClass3, self).__init__(*args, **kwargs)
                 self.common_val1 = 10
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_StructA(CommonClass3):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=function-redefined
+        class test_StructA(CommonClass3, metaclass=self.r.metaclass):
+            pass
 
         st = self.r.test.StructA()
         self.assertEqual(st.common_val1, 10)
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_StructA(object):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=function-redefined
+        class test_StructA(metaclass=self.r.metaclass):
+            pass
 
         st = self.r.test.StructA()
         self.assertFalse(hasattr(self.r.test.StructA, 'foo'))
@@ -695,22 +677,20 @@ class IopyTest(z.TestCase):
         self.assertFalse(hasattr(st, 'common_val2'))
 
         # Test consistent MRO
-        class CommonClass4(object):
+        class CommonClass4:
             pass
 
-        @z_compatibility.metaclass  # pylint: disable=unused-variable
-        class test_ClassA(CommonClass4):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=unused-variable
+        class test_ClassA(CommonClass4, metaclass=self.r.metaclass):
+            pass
 
-        @z_compatibility.metaclass  # pylint: disable=unused-variable
-        class test_ClassB(CommonClass4):
-            __metaclass__ = self.r.metaclass
+        # pylint: disable=unused-variable
+        class test_ClassB(CommonClass4, metaclass=self.r.metaclass):
+            pass
 
     def test_json_serialize(self):
-        @z_compatibility.metaclass  # pylint: disable=unused-variable
-        class test_StructA(object):
-            __metaclass__ = self.r.metaclass
-
+        # pylint: disable=unused-variable
+        class test_StructA(metaclass=self.r.metaclass):
             def __custom_init__(self, arg1=0):
                 self.var1 = arg1
 
@@ -732,10 +712,8 @@ class IopyTest(z.TestCase):
     def run_test_copy(self, is_deepcopy):
         copy_method = copy.deepcopy if is_deepcopy else copy.copy
 
-        @z_compatibility.metaclass  # pylint: disable=unused-variable
-        class test_StructA(object):
-            __metaclass__ = self.r.metaclass
-
+        # pylint: disable=unused-variable
+        class test_StructA(metaclass=self.r.metaclass):
             def __custom_init__(self, val=0, **kwargs):
                 self.val = val
                 self.__dict__.update(kwargs)
@@ -856,7 +834,7 @@ class IopyTest(z.TestCase):
 
     def test_unhashable(self):
         def _check_unhashable(x):
-            with self.assertRaisesRegexp(TypeError, 'unhashable type'):
+            with self.assertRaisesRegex(TypeError, 'unhashable type'):
                 hash(x)
 
         # Test classes are unhashable
@@ -872,10 +850,8 @@ class IopyTest(z.TestCase):
         _check_unhashable(self.r.test.EnumA('A'))
 
         # Test we can redefine the hash if needed
-        @z_compatibility.metaclass  # pylint: disable=unused-variable
-        class test_StructA(object):
-            __metaclass__ = self.r.metaclass
-
+        # pylint: disable=unused-variable
+        class test_StructA(metaclass=self.r.metaclass):
             def __hash__(self):
                 return id(self)
 
@@ -997,7 +973,7 @@ class IopyTest(z.TestCase):
     def test_abstract_class(self):
         """Test we cannot instantiate an abstract class"""
         msg = 'Cannot instantiate an abstract class'
-        with self.assertRaisesRegexp(iopy.Error, msg):
+        with self.assertRaisesRegex(iopy.Error, msg):
             self.r.test.ConstraintsA(name='plop')
 
     def test_from_file_child_class(self):
@@ -1012,10 +988,7 @@ class IopyTest(z.TestCase):
     def test_type_metaclass_double_upgrade(self):
         """Test type metaclass with double level of upgrade"""
         #pylint: disable=unused-variable, function-redefined
-        @z_compatibility.metaclass
-        class test_EnumA(object):
-            __metaclass__ = self.p.metaclass
-
+        class test_EnumA(metaclass=self.r.metaclass):
             @staticmethod
             def foo():
                 return 'foo'
@@ -1033,10 +1006,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(a2.bar(), 'bar')
         self.assertEqual(a1, a2)
 
-        @z_compatibility.metaclass
-        class test_ClassA(object):
-            __metaclass__ = self.p.metaclass
-
+        class test_ClassA(metaclass=self.r.metaclass):
             @staticmethod
             def foo():
                 return 'foo'
@@ -1539,18 +1509,18 @@ class IopyTest(z.TestCase):
 
         # Fail test not a class
         exp = r'IOPy type `test.StructA` is not a class'
-        with self.assertRaisesRegexp(TypeError, exp):
+        with self.assertRaisesRegex(TypeError, exp):
             self.r.test.StructA({'_class': 'test.ClassA'})
 
         # Fail test unknown type
         exp = r'unknown IOPy type `plop.Plip`'
-        with self.assertRaisesRegexp(TypeError, exp):
+        with self.assertRaisesRegex(TypeError, exp):
             self.r.test.ClassA({'_class': 'plop.Plip'})
 
         # Fail test not a valid child
         exp = (r'IOPy type `test.ClassC` is not a child type of IOPy type '
                r'`test.ClassA`')
-        with self.assertRaisesRegexp(TypeError, exp):
+        with self.assertRaisesRegex(TypeError, exp):
             self.r.test.ClassA({'_class': 'test.ClassC'})
 
 
@@ -1583,10 +1553,8 @@ class IopyIfaceTests(z.TestCase):
         self.s.listen(uri=self.uri)
 
     def test_iopy_iface(self):
-        @z_compatibility.metaclass  # pylint: disable=unused-variable
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
-
+        # pylint: disable=unused-variable
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
             cls_attr = 0
 
             def __custom_init__(self):
@@ -1658,10 +1626,8 @@ class IopyIfaceTests(z.TestCase):
         self.assertIsNone(ret.ov)
 
     def test_iopy_iface_hooks(self):
-        @z_compatibility.metaclass  # pylint: disable=unused-variable
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
-
+        # pylint: disable=unused-variable
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
             def __pre_hook__(self, rpc, *args, **kwargs):
                 self.pre_hook_rpc = rpc
                 self.pre_hook_args = args
@@ -1698,9 +1664,8 @@ class IopyIfaceTests(z.TestCase):
         self.assertEqual(attr, exp, 'post_hook failed for rpc argument;'
                          ' value: %s; expected: %s' % (attr, exp))
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
+        # pylint: disable=function-redefined
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
             r = self.r  # pylint: disable=invalid-name
 
             def __pre_hook__(self, rpc, *args, **kwargs):
@@ -1714,9 +1679,8 @@ class IopyIfaceTests(z.TestCase):
         self.assertEqual(ret, 0, 'hooks arguments/result replacement failed'
                          '; result: %s; expected: 0' % ret)
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
+        # pylint: disable=function-redefined
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
             r = self.r  # pylint: disable=invalid-name
 
             def __pre_hook__(self, rpc, *args, **kwargs):
@@ -1738,9 +1702,9 @@ class IopyIfaceTests(z.TestCase):
             self.attr2 = 1
 
         # define class before setting default pre/post hooks
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
+        # pylint: disable=function-redefined
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
+            pass
 
         self.r.default_pre_hook = default_pre_hook
         self.r.default_post_hook = default_post_hook
@@ -1754,9 +1718,9 @@ class IopyIfaceTests(z.TestCase):
                          ' value: %s; expected: %s' % (attr, 1))
 
         # define class after setting default pre/post hooks
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
+        # pylint: disable=function-redefined
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
+            pass
 
         iface.funA(a=self.r.test.ClassA())
         attr = getattr(iface, 'attr1', None)
@@ -1767,10 +1731,8 @@ class IopyIfaceTests(z.TestCase):
                          ' value: %s; expected: %s' % (attr, 1))
 
         # custom pre/post hooks are used instead of default pre/post hooks
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
-
+        # pylint: disable=function-redefined
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
             def __pre_hook__(self, rpc, *args, **kwargs):
                 self.attr1 = 2
 
@@ -1793,9 +1755,8 @@ class IopyIfaceTests(z.TestCase):
         def iface_post_hook_1(self, rpc, res):
             self.attr2 = 3
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
+        # pylint: disable=function-redefined
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
             __pre_hook__ = iface_pre_hook_1
             __post_hook__ = iface_post_hook_1
 
@@ -1815,9 +1776,9 @@ class IopyIfaceTests(z.TestCase):
         def iface_post_hook_2(self, rpc, res):
             self.attr2 = 4
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
+        # pylint: disable=function-redefined
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
+            pass
 
         type(iface).__pre_hook__ = iface_pre_hook_2
         type(iface).__post_hook__ = iface_post_hook_2
@@ -1851,9 +1812,9 @@ class IopyIfaceTests(z.TestCase):
         del type(iface).__pre_hook__
         del type(iface).__post_hook__
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
+        # pylint: disable=function-redefined
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
+            pass
 
         iface.funA(a=self.r.test.ClassA())
         attr = getattr(iface, 'attr1', None)
@@ -1869,14 +1830,12 @@ class IopyIfaceTests(z.TestCase):
         c = self.r.connect(self.uri)
         iface = c.test_ModuleA.interfaceA
 
-        class CommonClass1(object):
+        class CommonClass1:
             def foo(self):
                 self.common_val1 = 42
 
-        @z_compatibility.metaclass
-        class test_InterfaceA(CommonClass1):
-            __metaclass__ = self.r.metaclass_interfaces
-
+        class test_InterfaceA(CommonClass1,
+                              metaclass=self.r.metaclass_interfaces):
             def foo(self):
                 # pylint: disable=bad-super-call
                 super(test_InterfaceA, self).foo()
@@ -1886,7 +1845,7 @@ class IopyIfaceTests(z.TestCase):
         self.assertEqual(iface.common_val1, 42)
         self.assertEqual(iface.common_val2, 12)
 
-        class BaseCommonClass1(object):
+        class BaseCommonClass1:
             def bar(self):
                 self.common_val2 = 7777
 
@@ -1895,9 +1854,10 @@ class IopyIfaceTests(z.TestCase):
                 self.bar()
                 self.common_val1 = 84
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_InterfaceA(CommonClass2, CommonClass1):
-            __metaclass__ = self.r.metaclass_interfaces
+        # pylint: disable=function-redefined
+        class test_InterfaceA(CommonClass2, CommonClass1,
+                              metaclass=self.r.metaclass_interfaces):
+            pass
 
         iface.foo()
         self.assertEqual(iface.common_val1, 84)
@@ -1907,9 +1867,9 @@ class IopyIfaceTests(z.TestCase):
         c = self.r.connect(self.uri)
         iface = c.test_ModuleA.interfaceA
 
-        @z_compatibility.metaclass  # pylint: disable=function-redefined
-        class test_InterfaceA(object):
-            __metaclass__ = self.r.metaclass_interfaces
+        # pylint: disable=function-redefined
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
+            pass
 
         self.assertFalse(hasattr(iface, 'common_val1'))
         self.assertFalse(hasattr(iface, 'common_val2'))
@@ -1948,9 +1908,7 @@ class IopyIfaceTests(z.TestCase):
     def test_iface_metaclass_double_upgrade(self):
         """Test iface metaclass with double level of upgrade"""
         #pylint: disable=unused-variable, function-redefined
-        @z_compatibility.metaclass
-        class test_InterfaceA(object):
-            __metaclass__ = self.p.metaclass_interfaces
+        class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
             @staticmethod
             def foo():
                 return 'foo'
@@ -2046,7 +2004,7 @@ class IopyVoidTest(z.TestCase): # {{{
 
         # check setting to anything but None fails
         msg = r"invalid type: got int \(0\), expected NoneType"
-        with self.assertRaisesRegexp(iopy.Error, msg):
+        with self.assertRaisesRegex(iopy.Error, msg):
             u.a = 0
         # try setting other field, then setting back our void field
         u.b = 0
@@ -2056,7 +2014,7 @@ class IopyVoidTest(z.TestCase): # {{{
         self.assertIsNone(u.a)
 
         msg = (r"[Ii]nvalid argument .plumbus.")
-        with self.assertRaisesRegexp(iopy.Error, msg):
+        with self.assertRaisesRegex(iopy.Error, msg):
             _ = self.r.testvoid.VoidUnion(plumbus=666)
 
     def test_void_struct_required(self):
@@ -2071,7 +2029,7 @@ class IopyVoidTest(z.TestCase): # {{{
         self.assertIsNone(s.a)
         # setting to anything but None fails
         msg = r"invalid type: got int \(0\), expected NoneType"
-        with self.assertRaisesRegexp(iopy.Error, msg):
+        with self.assertRaisesRegex(iopy.Error, msg):
             s.a = 0
         # deleting required field fails
         with self.assertRaises(iopy.Error):
@@ -2091,7 +2049,7 @@ class IopyVoidTest(z.TestCase): # {{{
         self.assertIsNone(s.a)
         # check setting to anything but None fails
         msg = r"invalid type: got int \(0\), expected NoneType"
-        with self.assertRaisesRegexp(iopy.Error, msg):
+        with self.assertRaisesRegex(iopy.Error, msg):
             s.a = 0
         # check deleting optional field clears it
         del(s.a)
@@ -2127,7 +2085,7 @@ class IopyV3Tests(z.TestCase):
                          'method of upgraded class has failed')
 
     def test_multiple_inheritance(self):
-        class BaseClassA(object):
+        class BaseClassA:
             def __init__(self, base_val, *args, **kwargs):
                 super(BaseClassA, self).__init__(*args, **kwargs)
                 self.base_val = base_val
@@ -2310,6 +2268,25 @@ class IopyV3Tests(z.TestCase):
 
         container = self.r.test.UnionB(a=None)
         self.assertEqual(container.a.i, 1)
+
+    def test_multiple_upgrades(self):
+        # pylint: disable=unused-variable
+        @self.r.upgrade(force_replace=True)
+        class ClassA1(self.r.test.ClassA):
+            def foo(self):
+                return self.field1
+
+        # pylint: disable=unused-variable
+        @self.r.upgrade()
+        class ClassA2(self.r.test.ClassA):
+            def bar(self):
+                return getattr(self, 'optField', None)
+
+        a = self.r.test.ClassA(field1=74, optField=558)
+        self.assertEqual(a.foo(), 74,
+                         'multiple upgrades of class have failed')
+        self.assertEqual(a.bar(), 558,
+                         'multiple upgrades of class have failed')
 
 
 @z.ZGroup

@@ -15,14 +15,14 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-#cython: language_level=2
+#cython: language_level=3
 # XXX: Cython is complaining about its own code with warn.undeclared.
 #      Activate manually to see the warning.
 #-cython: warn.undeclared=True
 
 cimport cython
 
-from cpython.version cimport PY_MAJOR_VERSION, PY_VERSION_HEX
+from cpython.version cimport PY_VERSION_HEX
 from cpython.object cimport (
     Py_EQ, Py_NE, Py_LT, Py_LE, Py_GT, Py_GE, PyObject_Str
 )
@@ -68,9 +68,9 @@ cdef extern from "libcommon_cython.h" nogil:
     lstr_t LSTR_INIT_V(const char *, int)
     extern lstr_t LSTR_NULL_V
     lstr_t LSTR_SB_V(const sb_t *)
-    void *LSTR_FMT_ARG(...)
-    char *t_fmt(...)
-    lstr_t t_lstr_fmt(...)
+    void *LSTR_FMT_ARG(lstr_t)
+    char *t_fmt(const char *, ...)
+    lstr_t t_lstr_fmt(const char *, ...)
 
     ctypedef sb_t sb_scope_t
     sb_scope_t sb_scope_init(int)
@@ -79,8 +79,8 @@ cdef extern from "libcommon_cython.h" nogil:
     sb_scope_t t_sb_scope_init(int)
     sb_scope_t t_sb_scope_init_1k()
     sb_scope_t t_sb_scope_init_8k()
-    void sb_addf(...)
-    void sb_prependf(...)
+    void sb_addf(sb_t *, const char *, ...)
+    void sb_prependf(sb_t *, const char *, ...)
 
     cbool is_ic_hdr_simple_hdr(const ic__hdr__t *)
     ic__hdr__t *t_iop_new_ic_hdr()
@@ -125,7 +125,7 @@ cdef extern from "version.h" nogil:
 
 
 cdef extern from "iopy_cython_export_fix.h":
-    const char *PyUnicode_AsUTF8AndSize(unicode obj,
+    const char *PyUnicode_AsUTF8AndSize(str obj,
                                         Py_ssize_t *size) except NULL
 
 
@@ -175,13 +175,13 @@ cdef dict class_attrs_dict_g = {
 # {{{ Helpers
 
 
-cdef inline bytes py_unicode_to_py_bytes(unicode val):
-    """Encode python unicode to python bytes.
+cdef inline bytes py_str_to_py_bytes(str val):
+    """Encode python str to python bytes.
 
     Parameters
     ----------
     val
-        The unicode object ton encode.
+        The str object to encode.
 
     Returns
     -------
@@ -190,22 +190,22 @@ cdef inline bytes py_unicode_to_py_bytes(unicode val):
     return val.encode('UTF-8', 'strict')
 
 
-cdef inline unicode py_bytes_to_py_unicode(bytes val):
-    """Decode python bytes to python unicode.
+cdef inline str py_bytes_to_py_str(bytes val):
+    """Decode python bytes to python str.
 
     Parameters
     ----------
     val
-        The bytes object ton encode.
+        The bytes object to encode.
 
     Returns
     -------
-        The decoded python unicode.
+        The decoded python str.
     """
     return val.decode('UTF-8', 'strict')
 
 
-cdef inline basestring c_str_to_py_str(const char *val):
+cdef inline str c_str_to_py_str(const char *val):
     """Convert C string to python string.
 
     Parameters
@@ -217,10 +217,7 @@ cdef inline basestring c_str_to_py_str(const char *val):
     -------
         The python string
     """
-    if PY_MAJOR_VERSION < 3:
-        return <basestring><bytes>val
-    else:
-        return val.decode('UTF-8', 'strict')
+    return val.decode('UTF-8', 'strict')
 
 
 cdef inline bytes lstr_to_py_bytes(lstr_t lstr):
@@ -238,8 +235,8 @@ cdef inline bytes lstr_to_py_bytes(lstr_t lstr):
     return lstr.s[:lstr.len]
 
 
-cdef inline unicode lstr_to_py_unicode(lstr_t lstr):
-    """Convert lstr_t to python unicode.
+cdef inline str lstr_to_py_str(lstr_t lstr):
+    """Convert lstr_t to python str.
 
     Parameters
     ----------
@@ -248,27 +245,9 @@ cdef inline unicode lstr_to_py_unicode(lstr_t lstr):
 
     Returns
     -------
-        The python unicode.
+        The python str.
     """
     return (lstr.s[:lstr.len]).decode('UTF-8', 'strict')
-
-
-cdef inline basestring lstr_to_py_str(lstr_t lstr):
-    """Convert lstr_t to python string.
-
-    Parameters
-    ----------
-    lstr
-        The lstr_t to convert.
-
-    Returns
-    -------
-        The python string.
-    """
-    if PY_MAJOR_VERSION < 3:
-        return <basestring>lstr_to_py_bytes(lstr)
-    else:
-        return <basestring>lstr_to_py_unicode(lstr)
 
 
 cdef inline lstr_t mp_lstr_opt_force_alloc(mem_pool_t *mp, lstr_t val,
@@ -316,17 +295,16 @@ cdef inline lstr_t mp_py_bytes_to_lstr(mem_pool_t *mp, bytes obj,
     return mp_lstr_opt_force_alloc(mp, res, force_alloc)
 
 
-cdef inline lstr_t mp_py_unicode_to_lstr(mem_pool_t *mp,
-                                         unicode obj,
-                                         cbool force_alloc) except *:
-    """Convert python unicode to lstr_t.
+cdef inline lstr_t mp_py_str_to_lstr(mem_pool_t *mp, str obj,
+                                     cbool force_alloc) except *:
+    """Convert python str to lstr_t.
 
     Parameters
     ----------
     mp
         The memory pool used in for allocations.
     obj
-        The python unicode to convert.
+        The python str to convert.
 
     Returns
     -------
@@ -342,7 +320,7 @@ cdef inline lstr_t mp_py_unicode_to_lstr(mem_pool_t *mp,
         res = LSTR_INIT_V(val, size)
         return mp_lstr_opt_force_alloc(mp, res, force_alloc)
     else:
-        return mp_py_bytes_to_lstr(mp, py_unicode_to_py_bytes(obj), True)
+        return mp_py_bytes_to_lstr(mp, py_str_to_py_bytes(obj), True)
 
 
 cdef inline lstr_t mp_py_obj_to_lstr(mem_pool_t *mp, object obj,
@@ -365,8 +343,8 @@ cdef inline lstr_t mp_py_obj_to_lstr(mem_pool_t *mp, object obj,
     """
     if isinstance(obj, bytes):
         return mp_py_bytes_to_lstr(mp, <bytes>obj, force_alloc)
-    elif isinstance(obj, unicode):
-        return mp_py_unicode_to_lstr(mp, <unicode>obj, force_alloc)
+    elif isinstance(obj, str):
+        return mp_py_str_to_lstr(mp, <str>obj, force_alloc)
     else:
         return mp_py_obj_to_lstr(mp, PyObject_Str(obj), True)
 
@@ -392,7 +370,7 @@ cdef inline cbool qhash_while(qhash_t *qh, uint32_t *pos):
     return pos[0] < UINT32_MAX
 
 
-cdef inline basestring make_py_pkg_name(basestring pkg_name):
+cdef inline str make_py_pkg_name(str pkg_name):
     """Create python package name from C iop package name.
 
     Parameters
@@ -411,13 +389,13 @@ cdef inline basestring make_py_pkg_name(basestring pkg_name):
 @cython.final
 cdef class IopPath:
     """Internal class to describe path of an iop symbol."""
-    cdef basestring iop_fullname
-    cdef basestring py_name
-    cdef basestring pkg_name
-    cdef basestring local_name
+    cdef str iop_fullname
+    cdef str py_name
+    cdef str pkg_name
+    cdef str local_name
 
 
-cdef IopPath make_iop_path(basestring iop_fullname):
+cdef IopPath make_iop_path(str iop_fullname):
     """Create iop symbol path description from iop symbol fullname.
 
     Parameters
@@ -539,7 +517,7 @@ cdef object get_warning_time_str():
     str
         The current time description.
     """
-    return '%d: %s' % (time.time(), time.ctime())
+    return '%d: %s' % (int(time.time()), time.ctime())
 
 
 cdef inline cbool iop_struct_is_same_or_child_of(const iop_struct_t *child,
@@ -1133,9 +1111,9 @@ cdef class EnumBase(Basic):
         cdef int self_val = self.val
         cdef int other_val
 
-        if isinstance(other, (int, long)):
+        if isinstance(other, int):
             other_val = other
-        elif isinstance(other, (bytes, unicode)):
+        elif isinstance(other, str):
             other_val = 0
             enum_parse_str_value(enum_get_desc(self), other, &other_val)
         elif (isinstance(other, EnumBase)
@@ -1250,12 +1228,12 @@ cdef int enum_set(EnumBase py_en, object val) except -1:
         -1 in case of exception, 0 otherwise.
     """
     cdef const iop_enum_t *en
-    cdef basestring val_str
+    cdef str val_str
 
-    if isinstance(val, (int, long)):
+    if isinstance(val, int):
         py_en.val = val
         return 0
-    elif isinstance(val, (bytes, unicode)):
+    elif isinstance(val, str):
         val_str = val
     else:
         raise Error('%s is not a str or int' % val)
@@ -1265,7 +1243,7 @@ cdef int enum_set(EnumBase py_en, object val) except -1:
     return 0
 
 
-cdef int enum_parse_str_value(const iop_enum_t *en, basestring val_str,
+cdef int enum_parse_str_value(const iop_enum_t *en, str val_str,
                               int *res) except -1:
     """Parse enum string value and set it to res.
 
@@ -1305,7 +1283,7 @@ cdef int enum_parse_str_value(const iop_enum_t *en, basestring val_str,
     return 0
 
 
-cdef cbool enum_find_val_by_name(const iop_enum_t *en, basestring val,
+cdef cbool enum_find_val_by_name(const iop_enum_t *en, str val,
                                  int *res):
     """Find enum integer value from string value.
 
@@ -1323,7 +1301,7 @@ cdef cbool enum_find_val_by_name(const iop_enum_t *en, basestring val,
         True if the value was found, False otherwise.
     """
     cdef int i
-    cdef basestring name_str
+    cdef str name_str
     cdef const iop_enum_alias_t *alias
 
     for i in range(en.enum_len):
@@ -1343,7 +1321,7 @@ cdef cbool enum_find_val_by_name(const iop_enum_t *en, basestring val,
     return False
 
 
-cdef basestring enum_get_as_name(EnumBase py_en):
+cdef str enum_get_as_name(EnumBase py_en):
     """Get enum value as string.
 
     Parameters
@@ -1449,7 +1427,7 @@ cdef dict enum_make_iop_generic_attributes(const iop_enum_t *en,
     """
     cdef int i
     cdef const iop_enum_attr_t *attr
-    cdef basestring attr_key
+    cdef str attr_key
     cdef object attr_val
     cdef dict res = {}
 
@@ -1497,7 +1475,7 @@ cdef dict enum_make_iop_values_descriptions(const iop_enum_t *en):
         The IOP enum values descriptions as a dict.
     """
     cdef int i
-    cdef basestring name_str
+    cdef str name_str
     cdef dict res = {}
 
     for i in range(en.enum_len):
@@ -1558,7 +1536,7 @@ cdef dict enum_make_iop_value_generic_attributes(
     cdef int i
     cdef const iop_enum_value_attrs_t *attrs
     cdef const iop_enum_value_attr_t *attr
-    cdef basestring attr_key
+    cdef str attr_key
     cdef object attr_val
     cdef dict res = {}
 
@@ -2001,7 +1979,7 @@ cdef class IopStructUnionFieldDescription:
     """
     cdef readonly IopHelpDescription help
     cdef readonly dict generic_attributes
-    cdef readonly basestring iop_type
+    cdef readonly str iop_type
     cdef readonly object py_type
     cdef readonly object default_value
     cdef readonly bool optional
@@ -2018,7 +1996,7 @@ cdef class IopStructUnionFieldDescription:
     cdef readonly bool cdata
     cdef readonly bool non_zero
     cdef readonly bool non_empty
-    cdef readonly basestring pattern
+    cdef readonly str pattern
 
 
 # {{{ Helpers
@@ -2149,20 +2127,13 @@ cdef void add_error_field_type(const iop_field_t *field, sb_t *err):
      or ftype == IOP_T_U32
      or ftype == IOP_T_I64
      or ftype == IOP_T_U64):
-        # For python 3, int and long are the same. When the name of the long
-        # type is 'int'. Since we want to keep the same description between
-        # python 2 and python 3, just use 'long'.
-        sb_adds(err, "long")
-        return
+        py_field_type = int
     elif ftype == IOP_T_BOOL:
         py_field_type = bool
     elif ftype == IOP_T_DOUBLE:
         py_field_type = float
     elif ftype == IOP_T_XML or ftype == IOP_T_STRING:
-        if PY_MAJOR_VERSION < 3:
-            py_field_type = bytes
-        else:
-            py_field_type = unicode
+        py_field_type = str
     elif ftype == IOP_T_DATA:
         py_field_type = bytes
     elif ftype == IOP_T_VOID:
@@ -2210,9 +2181,9 @@ cdef int add_error_convert_field(const iop_field_t *field, object py_obj,
         -1 in case of unexpected python exception. 0 otherwise.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef basestring py_obj_type_name
+    cdef str py_obj_type_name
     cdef lstr_t py_obj_type_name_lstr
-    cdef basestring py_obj_repr
+    cdef object py_obj_repr
     cdef lstr_t py_obj_repr_lstr
 
     t_scope_ignore(t_scope_guard)
@@ -2748,7 +2719,7 @@ cdef int mp_iop_py_obj_field_to_c_val(mem_pool_t *mp, cbool force_str_dup,
         -1 in case of python exception. 0 otherwise.
     """
     cdef iop_type_t ftype = field.type
-    cdef basestring py_str
+    cdef str py_str
     cdef bytes py_bytes
     cdef EnumBase py_enum
     cdef object py_enum_cls
@@ -2983,7 +2954,7 @@ cdef int mp_iop_py_struct_to_c_val(mem_pool_t *mp, cbool force_str_dup,
         -1 in case of python exception. 0 otherwise.
     """
     cdef const iop_field_t *field
-    cdef basestring field_name
+    cdef str field_name
     cdef object field_obj
     cdef void *field_res
     cdef int i
@@ -3164,7 +3135,7 @@ cdef object get_special_kwargs(dict kwargs, IopySpecialKwargsType *val_type,
     else:
         return None
 
-    if not isinstance(res, bytes) and not isinstance(res, unicode):
+    if not isinstance(res, (bytes, str)):
         raise Error('invalid type for parameter %s: expected string' % key)
 
     return res
@@ -3728,13 +3699,13 @@ cdef cbool check_exact_object_field_type(const iop_field_t *field,
      or iop_type == IOP_T_U32
      or iop_type == IOP_T_I64
      or iop_type == IOP_T_U64):
-        return isinstance(py_obj, (int, long))
+        return isinstance(py_obj, int)
     elif iop_type == IOP_T_BOOL:
         return isinstance(py_obj, bool)
     elif iop_type == IOP_T_DOUBLE:
         return isinstance(py_obj, float)
     elif iop_type == IOP_T_XML or iop_type == IOP_T_STRING:
-        return isinstance(py_obj, basestring)
+        return isinstance(py_obj, str)
     elif iop_type == IOP_T_DATA:
         return isinstance(py_obj, bytes)
     elif iop_type == IOP_T_VOID:
@@ -3794,23 +3765,15 @@ cdef object implicit_convert_field(const iop_field_t *field, object py_obj,
     is_converted[0] = False
 
     if iop_type == IOP_T_XML or iop_type == IOP_T_STRING:
-        # Convert unicode to bytes for python 2, bytes to unicode for
-        # python 3.
-        if PY_MAJOR_VERSION < 3:
-            if isinstance(py_obj, unicode):
-                py_obj = py_unicode_to_py_bytes(<unicode>py_obj)
-                is_converted[0] = True
-                return py_obj
-        else:
-            if isinstance(py_obj, bytes):
-                py_obj = py_bytes_to_py_unicode(<bytes>py_obj)
-                is_converted[0] = True
-                return py_obj
+        if isinstance(py_obj, bytes):
+            py_obj = py_bytes_to_py_str(<bytes>py_obj)
+            is_converted[0] = True
+            return py_obj
 
     elif iop_type == IOP_T_DATA:
-        # Convert unicode to bytes.
-        if isinstance(py_obj, unicode):
-            py_obj = py_unicode_to_py_bytes(<unicode>py_obj)
+        # Convert str to bytes.
+        if isinstance(py_obj, str):
+            py_obj = py_str_to_py_bytes(<str>py_obj)
             is_converted[0] = True
             return py_obj
 
@@ -4199,7 +4162,7 @@ cdef int iopy_kwargs_to_jpack_flags(dict kwargs, cbool reset):
     return flags
 
 
-cdef basestring format_py_obj_to_json(StructUnionBase py_obj, dict kwargs):
+cdef str format_py_obj_to_json(StructUnionBase py_obj, dict kwargs):
     """Format struct or union object to json str.
 
     Parameters
@@ -4226,7 +4189,7 @@ cdef basestring format_py_obj_to_json(StructUnionBase py_obj, dict kwargs):
     return lstr_to_py_str(LSTR_SB_V(&sb))
 
 
-cdef basestring format_py_obj_to_yaml(StructUnionBase py_obj):
+cdef str format_py_obj_to_yaml(StructUnionBase py_obj):
     """Format struct or union object to yaml str.
 
     Parameters
@@ -4270,7 +4233,7 @@ cdef bytes format_py_obj_to_bin(StructUnionBase py_obj):
     return lstr_to_py_bytes(bin_lstr)
 
 
-cdef basestring format_py_obj_to_hex(StructUnionBase py_obj):
+cdef str format_py_obj_to_hex(StructUnionBase py_obj):
     """Format struct or union object to hex str.
 
     Parameters
@@ -4301,7 +4264,7 @@ cdef basestring format_py_obj_to_hex(StructUnionBase py_obj):
     return lstr_to_py_str(LSTR_INIT_V(hex_str, res_size))
 
 
-cdef basestring format_py_obj_to_xml(StructUnionBase py_obj, dict kwargs):
+cdef str format_py_obj_to_xml(StructUnionBase py_obj, dict kwargs):
     """Format struct or union object to sml str.
 
     Parameters
@@ -4543,7 +4506,7 @@ cdef void get_struct_union_desc_class(const iop_struct_t *st, sb_t *sb):
     get_struct_union_desc_fields(st, sb)
 
 
-cdef basestring get_struct_union_desc(const iop_struct_t *st):
+cdef str get_struct_union_desc(const iop_struct_t *st):
     """Return the description of the struct or union.
 
     Parameters
@@ -4672,19 +4635,13 @@ cdef object struct_union_get_py_type_of_field(Plugin plugin,
      or ftype == IOP_T_U32
      or ftype == IOP_T_I64
      or ftype == IOP_T_U64):
-        if PY_MAJOR_VERSION < 3:
-            py_type = int
-        else:
-            py_type = long
+        py_type = int
     elif ftype == IOP_T_BOOL:
         py_type = bool
     elif ftype == IOP_T_DOUBLE:
         py_type = float
     elif ftype == IOP_T_XML or ftype == IOP_T_STRING:
-        if PY_MAJOR_VERSION < 3:
-            py_type = bytes
-        else:
-            py_type = unicode
+        py_type = str
     elif ftype == IOP_T_DATA:
         py_type = bytes
     elif ftype == IOP_T_VOID:
@@ -4700,7 +4657,7 @@ cdef object struct_union_get_py_type_of_field(Plugin plugin,
     return py_type
 
 
-cdef basestring struct_union_get_iop_type_of_field(Plugin plugin,
+cdef str struct_union_get_iop_type_of_field(Plugin plugin,
                                                    const iop_field_t *field,
                                                    iop_type_t ftype):
     """Get the iop type of a field as a string.
@@ -4718,7 +4675,7 @@ cdef basestring struct_union_get_iop_type_of_field(Plugin plugin,
     -------
         The iop type of the field.
     """
-    cdef basestring res
+    cdef str res
 
     if (ftype == IOP_T_I8
      or ftype == IOP_T_U8
@@ -4769,7 +4726,7 @@ cdef dict struct_union_make_iop_generic_attributes(
     cdef unsigned flags = st.flags
     cdef int i
     cdef const iop_struct_attr_t *attr
-    cdef basestring attr_key
+    cdef str attr_key
     cdef object attr_val
     cdef dict res = {}
 
@@ -4880,7 +4837,7 @@ cdef int struct_union_make_iop_field_description(
     cdef const iop_field_attr_t *attr
     cdef dict generic_attributes = {}
     cdef cbool is_gen_attr
-    cdef basestring gen_attr_key
+    cdef str gen_attr_key
     cdef object gen_attr_val = None
     cdef const iop_help_t *iop_help = NULL
     cdef cbool is_help_v2 = False
@@ -4898,7 +4855,7 @@ cdef int struct_union_make_iop_field_description(
     cdef bool cdata = False
     cdef bool non_zero = False
     cdef bool non_empty = False
-    cdef basestring pattern = None
+    cdef str pattern = None
 
     # Get default value.
     if frepeat == IOP_R_DEFVAL:
@@ -5108,7 +5065,7 @@ cdef class UnionBase(StructUnionBase):
     #q.qrrdquery.Key
     Union qrrdquery.Key
     #q.qrrdquery.Key.__values__()
-    {'s': <type 'str'>, 't': <type 'long'>}
+    {'s': <type 'str'>, 't': <type 'int'>}
     #print(q.qrrdquery.Key.__desc__())
     union qrrdquery.Key:
      - s [REQUIRED ] IOP_T_STRING
@@ -5201,7 +5158,7 @@ cdef class UnionBase(StructUnionBase):
         cdef cbool is_valid
         cdef cbool is_explicit
         cdef const iop_field_t *old_field
-        cdef basestring old_field_name
+        cdef str old_field_name
         cdef object py_res
 
         iop_type = struct_union_get_iop_type(self)
@@ -5919,7 +5876,7 @@ cdef int t_struct_init_field(StructBase py_st, const iop_struct_t *st,
         -1 in case of invalid fields.
         0 otherwise.
     """
-    cdef basestring field_name_str
+    cdef str field_name_str
     cdef object py_obj
 
     field_name_str = lstr_to_py_str(field.name)
@@ -5938,7 +5895,7 @@ cdef int t_struct_init_field(StructBase py_st, const iop_struct_t *st,
 
 
 cdef int struct_init_void_field(StructBase py_st, const iop_field_t *field,
-                                basestring field_name_str,
+                                str field_name_str,
                                 dict kwargs) except -1:
     """Init void field of structure from kwargs.
 
@@ -5965,7 +5922,7 @@ cdef int struct_init_void_field(StructBase py_st, const iop_field_t *field,
 cdef int t_struct_init_missing_fields(StructBase py_st,
                                       const iop_struct_t *st,
                                       const iop_field_t *field,
-                                      basestring field_name_str,
+                                      str field_name_str,
                                       void **empty_val,
                                       sb_t *err) except -2:
     """Init missing field of structure.
@@ -6018,7 +5975,7 @@ cdef int t_struct_init_missing_fields(StructBase py_st,
 
 cdef int struct_init_provided_field(StructBase py_st, const iop_struct_t *st,
                                     const iop_field_t *field,
-                                    basestring field_name_str, object py_obj,
+                                    str field_name_str, object py_obj,
                                     sb_t *err) except -2:
     """Init field with provided python object of structure.
 
@@ -6381,7 +6338,7 @@ cdef class _InternalModuleHolder(type):
         str
             The representation of the IOP module.
         """
-        cdef basestring module_fullname = lstr_to_py_str(cls.module.fullname)
+        cdef str module_fullname = lstr_to_py_str(cls.module.fullname)
         cdef list ifaces_name = []
         cdef uint16_t i
         cdef const iop_iface_alias_t *iface_alias
@@ -6441,7 +6398,7 @@ cdef class _InternalIfaceHolder(_InternalBaseHolder):
 
 
 cdef object _InternalIfaceNameWrapper
-class _InternalIfaceNameWrapper(str if PY_MAJOR_VERSION < 3 else unicode):
+class _InternalIfaceNameWrapper(str):
     """Internal class to make __name__ of iface class to act like both as a
     property and as a method.
     """
@@ -6468,7 +6425,7 @@ cdef class _InternalIfaceBaseMetaclass(type):
             The representation of the IOP interface.
         """
         cdef _InternalIfaceHolder holder = type(cls)
-        cdef basestring iface_fullname = lstr_to_py_str(holder.iface.fullname)
+        cdef str iface_fullname = lstr_to_py_str(holder.iface.fullname)
         cdef list rpcs_name = []
         cdef uint16_t i
         cdef const iop_rpc_t *rpc
@@ -6664,7 +6621,7 @@ cdef class RPCBase:
         str
             The description of the RPC.
         """
-        cdef basestring rpc_name
+        cdef str rpc_name
         cdef object arg_type
 
         rpc_name = 'RPC ' + lstr_to_py_str(self.rpc.name)
@@ -6683,7 +6640,7 @@ cdef class RPCBase:
             The representation of the RPC.
         """
         cdef const iop_iface_t *iface = self.iface_holder.iface
-        cdef basestring iface_fullname = lstr_to_py_str(iface.fullname)
+        cdef str iface_fullname = lstr_to_py_str(iface.fullname)
 
         return 'RPC %s::%s' % (iface_fullname, lstr_to_py_str(self.rpc.name))
 
@@ -6780,7 +6737,7 @@ cdef Module create_module(_InternalModuleHolder cls, ChannelBase channel,
     cdef Module res = <Module>cls.__new__(cls)
     cdef uint16_t i
     cdef const iop_iface_alias_t *iface_alias
-    cdef basestring iface_name
+    cdef str iface_name
     cdef object iface_cls
     cdef _InternalIface py_iface
 
@@ -6914,7 +6871,7 @@ cdef class Channel(ChannelBase):
     cdef Plugin plugin
     cdef ic__hdr__t *def_hdr
     cdef iopy_ic_client_t *ic_client
-    cdef readonly basestring uri
+    cdef readonly str uri
     cdef public int default_timeout
 
     def __init__(Channel self, Plugin plugin, object uri=None, *,
@@ -7137,7 +7094,7 @@ cdef int create_client_rpc(const iop_rpc_t *rpc,
         -1 in case of exception, 0 otherwise.
     """
     cdef RPC py_rpc = RPC.__new__(RPC)
-    cdef basestring rpc_name
+    cdef str rpc_name
     cdef object py_cls_base
     cdef object py_cls_rpc
     cdef RPCImplWrapper wrapper
@@ -7839,7 +7796,7 @@ cdef int create_server_rpc(const iop_rpc_t *rpc,
         -1 in case of exception, 0 otherwise.
     """
     cdef RPCServer py_rpc = RPCServer.__new__(RPCServer)
-    cdef basestring rpc_name
+    cdef str rpc_name
 
     py_rpc.rpc = rpc
     py_rpc.iface_holder = iface_holder
@@ -8128,14 +8085,13 @@ def metaclass_cls_new(_InternalBaseHolder mcs, object name, tuple bases,
     cdef object iopy_proxy
     cdef object iopy_public
     cdef _InternalBaseHolder iopy_metaclass
-    cdef object x
     cdef list field_names
     cdef cbool all_kwargs
     cdef dict init_kwargs
     cdef dict fields_kwargs
     cdef object custom_init
+    cdef object spec
     cdef object args
-    cdef object _
     cdef object keywords
     cdef object defaults
     cdef object covars
@@ -8183,7 +8139,10 @@ def metaclass_cls_new(_InternalBaseHolder mcs, object name, tuple bases,
 
     custom_init = dct.get('__custom_init__', None)
     if custom_init:
-        args, _, keywords, defaults = inspect.getargspec(custom_init)
+        spec = inspect.getfullargspec(custom_init)
+        args = spec[0]
+        keywords = spec[2]
+        defaults = spec[3]
         all_kwargs = keywords is not None
         if defaults:
             covars = args[-len(defaults):]
@@ -8268,7 +8227,6 @@ def metaclass_iface_cls_new(_InternalBaseHolder mcs, object name, tuple bases,
     cdef object iopy_proxy
     cdef object iopy_public
     cdef _InternalBaseHolder iopy_metaclass
-    cdef object x
     cdef object cls
 
     if not mcs.is_metaclass_upgraded:
@@ -8518,9 +8476,9 @@ cdef class Plugin:
             If the wrapped class's base at given index is not a IOP type, a
             TypeError exception is raised.
         force_replace : bool, optional
-            If the IOP type has already been upgraded and force_replace is set
-            to False, a TypeError exception is raised. force_replace should
-            only be used in tests.
+            If True, all the upgrades already performed for the IOP type will
+            be replaced by this one. If False, we will add this upgrade to the
+            other upgrades of the IOP type. Default is False.
         """
         cdef int index_i = 0
         cdef object cls
@@ -8529,7 +8487,7 @@ cdef class Plugin:
             cdef object iopy_child = cls.__bases__[index_i]
             cdef object fullname
             cdef _InternalTypeClasses classes
-            cdef object old_base
+            cdef object old_bases
             cdef object new_bases
 
             try:
@@ -8554,12 +8512,16 @@ cdef class Plugin:
                 raise TypeError('%s is not the current IOP public of %s' %
                                 (iopy_child, fullname))
 
-            old_base = classes.proxy_cls
-            if not force_replace and iopy_child.__bases__ != (old_base,):
-                raise TypeError("%s is already upgraded" % fullname)
+            if force_replace:
+                old_bases = (classes.proxy_cls,)
+            else:
+                old_bases = iopy_child.__bases__
 
-            new_bases = cls.__bases__[:index_i] + (old_base,) \
-                      + cls.__bases__[index_i + 1:]
+            new_bases = (
+                cls.__bases__[:index_i]
+              + old_bases
+              + cls.__bases__[index_i + 1:]
+            )
             cls.__bases__ = new_bases
             iopy_child.__bases__ = (cls,)
 
@@ -8844,8 +8806,8 @@ cdef iop_dso_t *plugin_open_dso(Plugin plugin, object dso_path) except NULL:
     cdef iop_dso_t *dso
 
     if dso_path is not None:
-        if isinstance(dso_path, unicode):
-            dso_path_bytes = py_unicode_to_py_bytes(<unicode>dso_path)
+        if isinstance(dso_path, str):
+            dso_path_bytes = py_str_to_py_bytes(<str>dso_path)
         elif isinstance(dso_path, bytes):
             dso_path_bytes = <bytes>dso_path
         else:
@@ -8896,7 +8858,7 @@ cdef void plugin_add_package(Plugin plugin, const iop_pkg_t *pkg):
     pkg
         The C iop package.
     """
-    cdef basestring pkg_name
+    cdef str pkg_name
     cdef Package py_pkg
     cdef const iop_enum_t *const *enums
     cdef const iop_struct_t *const *structs
@@ -8920,7 +8882,7 @@ cdef void plugin_add_package(Plugin plugin, const iop_pkg_t *pkg):
         structs += 1
 
 
-cdef Package plugin_create_or_get_py_pkg(Plugin plugin, basestring pkg_name):
+cdef Package plugin_create_or_get_py_pkg(Plugin plugin, str pkg_name):
     """Create or get existing package from the plugin.
 
     Parameters
@@ -8943,7 +8905,7 @@ cdef Package plugin_create_or_get_py_pkg(Plugin plugin, basestring pkg_name):
     return py_pkg
 
 
-cdef inline dict plugin_make_class_attrs_dict(basestring qualname):
+cdef inline dict plugin_make_class_attrs_dict(str qualname):
     """Make class attrs dict used when creating classes.
 
     Warning: For optimization purposes, the same dict instance is returned
@@ -8966,7 +8928,7 @@ cdef _InternalTypeClasses plugin_add_enum(Plugin plugin, Package py_pkg,
     en
         The iop enum descrition.
     """
-    cdef basestring iop_fullname = lstr_to_py_str(en.fullname)
+    cdef str iop_fullname = lstr_to_py_str(en.fullname)
     cdef IopPath iop_path = make_iop_path(iop_fullname)
     cdef _InternalEnumType enum_type
     cdef _InternalTypeClasses classes
@@ -9027,7 +8989,7 @@ cdef _InternalTypeClasses plugin_add_struct_union(Plugin plugin,
     st
         The iop struct or union description.
     """
-    cdef basestring iop_fullname = lstr_to_py_str(st.fullname)
+    cdef str iop_fullname = lstr_to_py_str(st.fullname)
     cdef cbool is_class
     cdef IopPath iop_path
     cdef _InternalTypeClasses classes
@@ -9133,7 +9095,7 @@ cdef _InternalTypeClasses plugin_create_or_get_parent_classes(
     """
     cdef const iop_struct_t *st
     cdef _InternalTypeClasses root_classes
-    cdef basestring iop_fullname
+    cdef str iop_fullname
     cdef object classes_obj
     cdef IopPath iop_path
     cdef Package py_pkg
@@ -9180,7 +9142,7 @@ cdef _InternalTypeClasses plugin_add_type(
         of the class.
     """
     cdef _InternalTypeClasses classes
-    cdef basestring proxy_name = iop_path.py_name + '_proxy'
+    cdef str proxy_name = iop_path.py_name + '_proxy'
 
     classes = _InternalTypeClasses.__new__(_InternalTypeClasses)
 
@@ -9212,7 +9174,7 @@ cdef void plugin_add_module(Plugin plugin, const iop_mod_t *module):
     module
         The module to add.
     """
-    cdef basestring iop_fullname
+    cdef str iop_fullname
     cdef _InternalModuleHolder py_module
     cdef IopPath iop_path
     cdef uint16_t i
@@ -9256,11 +9218,11 @@ cdef object plugin_add_iface(Plugin plugin, const iop_iface_t *iface):
     object
         The public class of the interface
     """
-    cdef basestring iop_fullname
+    cdef str iop_fullname
     cdef _InternalTypeClasses classes
-    cdef basestring metaclass_name
+    cdef str metaclass_name
     cdef _InternalIfaceHolder metaclass
-    cdef basestring proxy_name
+    cdef str proxy_name
     cdef object proxy_cls
     cdef object public_cls
     cdef IopPath iop_path
@@ -9268,7 +9230,7 @@ cdef object plugin_add_iface(Plugin plugin, const iop_iface_t *iface):
     cdef uint16_t i
     cdef const iop_rpc_t *rpc
     cdef RPCBase py_rpc
-    cdef basestring rpc_name
+    cdef str rpc_name
 
     iop_fullname = lstr_to_py_str(iface.fullname)
     classes = <_InternalTypeClasses>plugin.interfaces.get(iop_fullname)
@@ -9362,7 +9324,7 @@ cdef void plugin_add_iface_rpc_st(Plugin plugin, const iop_struct_t *st):
     st
         The IOP struct or union description.
     """
-    cdef basestring iop_fullname = lstr_to_py_str(st.fullname)
+    cdef str iop_fullname = lstr_to_py_str(st.fullname)
     cdef IopPath iop_path
 
     if iop_fullname in plugin.types:
@@ -9446,7 +9408,7 @@ cdef void plugin_remove_package(Plugin plugin, const iop_pkg_t *pkg):
     pkg
         The C iop package.
     """
-    cdef basestring pkg_name
+    cdef str pkg_name
     cdef Package py_pkg
     cdef const iop_enum_t *const *enums
     cdef const iop_struct_t *const *structs
@@ -9485,7 +9447,7 @@ cdef void plugin_remove_enum(Plugin plugin, const iop_enum_t *en):
     en
         The iop enum descrition.
     """
-    cdef basestring iop_fullname = lstr_to_py_str(en.fullname)
+    cdef str iop_fullname = lstr_to_py_str(en.fullname)
 
     plugin.types.pop(iop_fullname, None)
 
@@ -9500,7 +9462,7 @@ cdef void plugin_remove_struct_union(Plugin plugin, const iop_struct_t *st):
     en
         The iop enum descrition.
     """
-    cdef basestring iop_fullname = lstr_to_py_str(st.fullname)
+    cdef str iop_fullname = lstr_to_py_str(st.fullname)
 
     plugin.types.pop(iop_fullname, None)
 
@@ -9515,11 +9477,11 @@ cdef void plugin_remove_module(Plugin plugin, const iop_mod_t *module):
     module
         The module to remove.
     """
-    cdef basestring iop_fullname
+    cdef str iop_fullname
     cdef _InternalModuleHolder py_module
     cdef uint16_t i
     cdef const iop_iface_alias_t *iface_alias
-    cdef basestring iface_fullname
+    cdef str iface_fullname
 
     iop_fullname = lstr_to_py_str(module.fullname)
     py_module = <_InternalModuleHolder>plugin.modules.get(iop_fullname)
@@ -9550,7 +9512,7 @@ cdef void plugin_remove_iface(Plugin plugin, const iop_iface_t *iface):
     iface
         The interface to remove.
     """
-    cdef basestring iop_fullname
+    cdef str iop_fullname
     cdef _InternalTypeClasses classes
     cdef IopPath iop_path
     cdef Package py_pkg
@@ -9589,7 +9551,7 @@ cdef void plugin_run_register_scripts(Plugin plugin, const iop_dso_t *dso):
     cdef const farch_entry_t *script
     cdef const farch_entry_t * const *script_ptr
     cdef lstr_t script_data
-    cdef basestring script_str
+    cdef str script_str
     cdef farch_name_t name
     cdef object message
 

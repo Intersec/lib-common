@@ -102,7 +102,7 @@ to tests (and only them).
 
 def filter_out_zchk(ctx):
     for g in ctx.groups:
-        for i in xrange(len(g) - 1, -1, -1):
+        for i in range(len(g) - 1, -1, -1):
             tgen = g[i]
             features = tgen.to_list(getattr(tgen, 'features', []))
             if  tgen.name.startswith('zchk') and 'c' in features:
@@ -357,7 +357,7 @@ def get_linter_flags(ctx, flags_key):
         if key == 'INCLUDES' or key.startswith('INCLUDES_'):
             include_flags += ['-I' + value for value in ctx.env[key]]
 
-    return ctx.env[flags_key] + ctx.env.CFLAGS_python2 + include_flags
+    return ctx.env[flags_key] + ctx.env.CFLAGS_python3 + include_flags
 
 
 def gen_local_vimrc(ctx):
@@ -538,7 +538,7 @@ def get_old_gen_files(ctx):
                     gen_files.append(parent_node.make_node(name))
         # Do not recurse in hidden directories (in particular the .build one),
         # this is useless
-        for i in xrange(len(dirnames) - 1, -1, -1):
+        for i in range(len(dirnames) - 1, -1, -1):
             if dirnames[i].startswith('.'):
                 del dirnames[i]
 
@@ -975,7 +975,7 @@ def process_tokens(self, node):
 # {{{ IOP
 
 # IOPC options for a given sources path
-class IopcOptions(object):
+class IopcOptions:
 
     def __init__(self, ctx, path=None, class_range=None, includes=None,
                  json_path=None, ts_path=None):

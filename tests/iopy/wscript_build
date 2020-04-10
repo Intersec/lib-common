@@ -17,25 +17,14 @@
 ###########################################################################
 # pylint: disable = undefined-variable
 
-ctx.program(target='zchk-iopy-dso2', features='c cprogram', source=[
+ctx.program(target='zchk-iopy-dso', features='c cprogram', source=[
     'zchk-iopy-dso.c',
     'zchk-iopy-dso.fc',
 ], use=[
-    'python2',
+    'python3',
     'libcommon',
 ], depends_on=[
-    'iopy/python2/iopy',
+    'iopy',
 ])
-
-if ctx.env.PYTHON3_CONFIG:
-    ctx.program(target='zchk-iopy-dso3', features='c cprogram', source=[
-        'zchk-iopy-dso.c',
-        'zchk-iopy-dso.fc',
-    ], use=[
-        'python3',
-        'libcommon',
-    ], depends_on=[
-        'iopy/python3/iopy',
-    ])
 
 ctx.recurse('testsuite')

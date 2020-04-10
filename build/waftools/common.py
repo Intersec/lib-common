@@ -139,7 +139,7 @@ Is equivalent to:
    do_something()
    ctx.set_group(previous_group)
 """
-class UseGroup(object):
+class UseGroup:
 
     def __init__(self, ctx, group):
         self.ctx = ctx
@@ -182,7 +182,7 @@ def add_scan_in_signature(ctx):
         Note: https://gitlab.com/ita1024/waf/issues/2209 was open to fix this
               bug in waf, but it was rejected.
     '''
-    for (_, task) in waflib.Task.classes.items():
+    for task in waflib.Task.classes.values():
         if task.scan:
             task.hcode += Utils.h_fun(task.scan).encode('utf-8')
 

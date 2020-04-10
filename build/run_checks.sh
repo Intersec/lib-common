@@ -73,19 +73,6 @@ else
     }
 fi
 
-PYTHON_BINARIES=${PYTHON_BINARIES:-"python2.7 python2.6"}
-for bin in $PYTHON_BINARIES; do
-    if $bin -V &> /dev/null ; then
-        pybin="$bin"
-        break
-    fi
-done
-
-if [ -z "$pybin" ] ; then
-    say_color error "python 2.6 or greater is required to run tests"
-    exit 1
-fi
-
 tmp=$(mktemp)
 tmp2=$(mktemp)
 corelist=$(mktemp)
@@ -157,7 +144,7 @@ coredump="$(dirname "$0")"/tests/core_dump.py
 while read -r zd line; do
     t="${zd}${line}"
     say_color info "starting suite $t..."
-    [ -n "$coredump" ] && $pybin $coredump list > $corelist
+    [ -n "$coredump" ] && $coredump list > $corelist
 
     start=$(date '+%s')
     case ./"$t" in
@@ -166,13 +153,9 @@ while read -r zd line; do
             res=1
             set_www_env $PWD/"$productdir"
             if [ $? -eq 0 ]; then
-                $pybin "$BUILD_DIR/tests/zbehave.py" $BEHAVE_FLAGS "$productdir"/ci/features
+                "$BUILD_DIR/tests/zbehave.py" $BEHAVE_FLAGS "$productdir"/ci/features
                 res=$?
             fi
-            ;;
-        *.py)
-            $pybin ./$t
-            res=$?
             ;;
         *testem.json)
             cd $zd
@@ -181,7 +164,7 @@ while read -r zd line; do
             cd - &>/dev/null
             ;;
         */check_php)
-            $pybin "$(dirname "$0")"/tests/check_php.py "$zd"
+            "$(dirname "$0")"/tests/check_php.py "$zd"
             res=$?
             ;;
         *)
@@ -189,7 +172,7 @@ while read -r zd line; do
             res=$?
             ;;
     esac
-    [ -n "$coredump" ] && $pybin $coredump --format z -i @$corelist -r $PWD diff
+    [ -n "$coredump" ] && $coredump --format z -i @$corelist -r $PWD diff
 
     if [ $res -eq 0 ] ; then
         end=$(date '+%s')
@@ -208,7 +191,7 @@ if [ $res -ne 0 ]; then
 fi
 
 # whatever the previous status, set an error if a test failed
-if ! $pybin "$BUILD_DIR/tests/zparser.py" "$tmp" > "$tmp2"; then
+if ! "$BUILD_DIR/tests/zparser.py" "$tmp" > "$tmp2"; then
     res=1
 fi
 cat $tmp2 | post_process

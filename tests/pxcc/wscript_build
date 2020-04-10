@@ -15,30 +15,17 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable=undefined-variable,invalid-name
+# pylint: disable=undefined-variable
 
-zchk_mod_source = [
+
+ctx.shlib(target='zchk_mod', features='c cshlib', source=[
     'zchk_cmod.pxc',
     'zchk_mod.pyx',
     'zchk_cmod.c',
-]
-
-zchk_mod_cflags = [
+], cflags=[
     '-Wno-unused-parameter',
     '-Wno-shadow',
     '-Wno-redundant-decls',
-]
-
-
-if ctx.env.PYTHON2_CONFIG:
-    ctx.shlib(target='zchk_mod/python2/zchk_mod', features='c cshlib',
-              source=zchk_mod_source, cflags=zchk_mod_cflags, use=[
-                  'python2',
-              ])
-
-
-if ctx.env.PYTHON3_CONFIG:
-    ctx.shlib(target='zchk_mod/python3/zchk_mod', features='c cshlib',
-              source=zchk_mod_source, cflags=zchk_mod_cflags, use=[
-                  'python3',
-              ])
+], use=[
+    'python3',
+])

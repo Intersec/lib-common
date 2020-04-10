@@ -1,4 +1,4 @@
-#!/bin/bash -u
+#!/bin/bash -eu
 ###########################################################################
 #                                                                         #
 # Copyright 2019 INTERSEC SA                                              #
@@ -17,30 +17,12 @@
 #                                                                         #
 ###########################################################################
 
-RES=0
-
-run_test() {
-    echo
-    echo "# $1"
-    eval "$1"
-    RES=$(( RES + $? ))
-}
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 main() {
-    local script_dir
+    export LSAN_OPTIONS="suppressions=$SCRIPT_DIR/python-leaks.supp"
 
-    script_dir=$(dirname "$(readlink -f "$0")")
-    RES=0
-
-    if [ -f "$script_dir/zchk_mod/python2/zchk_mod.so" ] ; then
-        run_test "python2 $script_dir/z_pxcc.py"
-    fi
-
-    if [ -f "$script_dir/zchk_mod/python3/zchk_mod.so" ] ; then
-        run_test "python3 $script_dir/z_pxcc.py"
-    fi
-
-    return $RES
+    "$SCRIPT_DIR/zchk-iopy-dso" "$@"
 }
 
-main
+main "$@"
