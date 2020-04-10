@@ -44,10 +44,11 @@ EOF
 
 git_product_version() {
     product="$1"
+    tagversion="${2:-$product}"
 
-    revision=$(git describe --match "$product/*" 2>/dev/null || git rev-parse --short HEAD)${dirty}
+    revision=$(git describe --match "$tagversion/*" 2>/dev/null || git rev-parse --short HEAD)${dirty}
 
-    version=$(basename `(git describe --match "$product/*" 2>/dev/null || echo "$product/0.0.0") \
+    version=$(basename `(git describe --match "$tagversion/*" 2>/dev/null || echo "$tagversion/0.0.0") \
               | grep -E -o "[0-9]+\.[0-9]+\.[0-9]+"`)
     version_major=$(echo $version |cut -d '.' -f 1)
     version_minor=$(echo $version |cut -d '.' -f 2)
