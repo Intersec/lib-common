@@ -562,7 +562,7 @@ def get_old_gen_files(ctx):
 
     # The files that are still in gen_files are old ones that should not be on
     # disk anymore.
-    return sorted(gen_files)
+    return sorted(gen_files, key=lambda x: x.abspath())
 
 
 def old_gen_files_detect(ctx):
