@@ -163,11 +163,15 @@ ctx.stlib(target='libcommon', features='c cstlib', use=[
 
     'crypto/ssl.blk',
 
+    'net/addr.c',
     'net/http.c',
     'net/http-hdr.perf',
     'net/http-srv-static.c',
     'net/http-def.c',
     'net/httptokens.c',
+    'net/sctp.c',
+    'net/socket.c',
+    'net/rate.blk',
 
     'iop/json.blk',
     'iop/openapi.blk',
@@ -180,10 +184,8 @@ ctx.stlib(target='libcommon', features='c cstlib', use=[
     'iop/xml-unpack.c',
     'iop/xml-wsdl.blk',
 
-    'net/addr.c',
-    'net/sctp.c',
-    'net/socket.c',
-    'net/rate.blk',
+    'prometheus-client/core.c',
+    'prometheus-client/metrics.c',
 ])
 
 # }}}

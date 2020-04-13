@@ -1,0 +1,259 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2020 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+/* LCOV_EXCL_START */
+
+#include <lib-common/thr.h>
+#include <lib-common/prometheus-client.h>
+#include <lib-common/z.h>
+
+#include <lib-common/prometheus-client/priv.h>
+
+/* {{{ counter_value_thread_safety */
+
+static int z_counter_value_thread_safety(void)
+{
+    thr_syn_t syn;
+    prom_counter_t *counter;
+    double val;
+
+    MODULE_REQUIRE(prometheus_client);
+
+    /* Create a counter */
+    counter = prom_counter_new("test_counter", "test counter");
+
+    /* Its value should be 0 */
+    val = obj_vcall(counter, get_value);
+    Z_ASSERT_EQ(val, 0.);
+
+    /* Increment its value from different threads */
+    thr_syn_init(&syn);
+    for (int i = 0; i < 1000; i++) {
+        thr_syn_schedule_b(&syn, ^{
+            obj_vcall(counter, inc);
+            obj_vcall(counter, add, 2.);
+        });
+    }
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+
+    /* Its value should be 3000 */
+    val = obj_vcall(counter, get_value);
+    Z_ASSERT_EQ(val, 3000.);
+
+    MODULE_RELEASE(prometheus_client);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
+/* {{{ gauge_value_thread_safety */
+
+static int z_gauge_value_thread_safety(void)
+{
+    thr_syn_t syn;
+    prom_gauge_t *gauge;
+    double val;
+
+    MODULE_REQUIRE(prometheus_client);
+
+    /* Create a gauge */
+    gauge = prom_gauge_new("test_gauge", "test gauge");
+
+    /* Its value should be 0 */
+    val = obj_vcall(gauge, get_value);
+    Z_ASSERT_EQ(val, 0.);
+
+    /* Modify its value from different threads */
+    thr_syn_init(&syn);
+    for (int i = 0; i < 1000; i++) {
+        thr_syn_schedule_b(&syn, ^{
+            obj_vcall(gauge, inc);
+            obj_vcall(gauge, add, 6.);
+            obj_vcall(gauge, sub, 2.);
+            obj_vcall(gauge, dec);
+            obj_vcall(gauge, dec);
+        });
+    }
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+
+    /* Its value should be 3000 */
+    val = obj_vcall(gauge, get_value);
+    Z_ASSERT_EQ(val, 3000.);
+
+    MODULE_RELEASE(prometheus_client);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
+
+Z_GROUP_EXPORT(prometheus_client) {
+
+    MODULE_REQUIRE(thr);
+
+    Z_TEST(metrics_name, "test metrics name validation") {
+#define T_OK(_name)  Z_ASSERT_N(prom_metric_check_name(LSTR(_name)))
+#define T_KO(_name)  Z_ASSERT_NEG(prom_metric_check_name(LSTR(_name)))
+
+        T_KO("");
+        T_KO("123");
+        T_KO("1basic_name");
+        T_KO(" invalid_space");
+        T_KO("invalid space");
+        T_KO("invalid!character");
+
+        T_OK("basic_name");
+        T_OK("basic_name_1");
+        T_OK("with:colon");
+        T_OK(":withColon");
+        T_OK("_leading_underscore");
+
+#undef T_OK
+#undef T_KO
+    } Z_TEST_END;
+
+    Z_TEST(metrics_label_name, "test metrics label name validation") {
+#define T_OK(_name)  Z_ASSERT_N(prom_metric_check_label_name(_name))
+#define T_KO(_name)  Z_ASSERT_NEG(prom_metric_check_label_name(_name))
+
+        T_KO("");
+        T_KO("__reserved");
+        T_KO("123");
+        T_KO("1basic_name");
+        T_KO(" invalid_space");
+        T_KO("invalid space");
+        T_KO("invalid!character");
+        T_KO("with:colon");
+
+        T_OK("basic_name");
+        T_OK("basic_name_1");
+        T_OK("_leadingUnderscore");
+
+#undef T_OK
+#undef T_KO
+    } Z_TEST_END;
+
+    Z_TEST(metrics_basics, "test metrics creation") {
+        prom_counter_t *counter;
+        prom_counter_t *counter_child;
+        prom_gauge_t *gauge;
+        prom_gauge_t *gauge_child;
+
+        MODULE_REQUIRE(prometheus_client);
+
+        /* Create a counter, and check its fields */
+        counter = prom_counter_new("test_counter", "test counter",
+                                   "label1", "label2");
+        Z_ASSERT_LSTREQUAL(counter->name, LSTR("test_counter"));
+        Z_ASSERT_LSTREQUAL(counter->documentation, LSTR("test counter"));
+        Z_ASSERT_EQ(counter->label_names.len, 2);
+        Z_ASSERT_STREQUAL(counter->label_names.tab[0], "label1");
+        Z_ASSERT_STREQUAL(counter->label_names.tab[1], "label2");
+        Z_ASSERT_EQ(counter->label_values.len, 0);
+        Z_ASSERT_EQ(counter->value, 0.);
+
+        /* Create a child, and check its fields */
+        counter_child = prom_counter_labels(counter, "v1", "v2");
+        Z_ASSERT(counter_child->parent == counter);
+        Z_ASSERT_NULL(counter_child->name.s);
+        Z_ASSERT_NULL(counter_child->documentation.s);
+        Z_ASSERT_EQ(counter_child->label_names.len, 0);
+        Z_ASSERT_EQ(counter_child->label_values.len, 2);
+        Z_ASSERT_STREQUAL(counter_child->label_values.tab[0], "v1");
+        Z_ASSERT_STREQUAL(counter_child->label_values.tab[1], "v2");
+        Z_ASSERT_EQ(counter_child->value, 0.);
+
+        /* Calling prom_counter_labels again with the same labels should
+         * return the same pointer */
+        Z_ASSERT(prom_counter_labels(counter, "v1", "v2") == counter_child);
+
+        /* But with different values, it should return a different pointer */
+        Z_ASSERT(prom_counter_labels(counter, "v1", "v3") != counter_child);
+
+        /* Increment counter value */
+        obj_vcall(counter_child, inc);
+        obj_vcall(counter_child, add, 2.);
+        Z_ASSERT_EQ(counter_child->value, 3.);
+        Z_ASSERT_EQ(obj_vcall(counter_child, get_value), 3.);
+
+        /* Remove child, an re-create it */
+        prom_counter_remove(counter, "v1", "v2");
+        counter_child = prom_counter_labels(counter, "v1", "v2");
+
+        /* The value should be 0 */
+        Z_ASSERT_EQ(counter_child->value, 0);
+        obj_vcall(counter_child, add, 2.);
+
+        /* Clear the parent (which will remove the child), and re-create the
+         * child. The value should be 0 again. */
+        obj_vcall(counter, clear);
+        counter_child = prom_counter_labels(counter, "v1", "v2");
+        Z_ASSERT_EQ(counter_child->value, 0);
+
+        /* Create a gauge without labels */
+        gauge = prom_gauge_new("gauge_without_labels",
+                               "gauge without labels");
+        Z_ASSERT_EQ(gauge->label_names.len, 0);
+        Z_ASSERT_EQ(gauge->label_values.len, 0);
+
+        /* Test gauge operations */
+        Z_ASSERT_EQ(gauge->value, 0);
+        obj_vcall(gauge, inc);
+        Z_ASSERT_EQ(gauge->value, 1);
+        obj_vcall(gauge, add, 0.5);
+        Z_ASSERT_EQ(gauge->value, 1.5);
+        obj_vcall(gauge, dec);
+        Z_ASSERT_EQ(gauge->value, 0.5);
+        obj_vcall(gauge, sub, 2.5);
+        Z_ASSERT_EQ(gauge->value, -2);
+        obj_vcall(gauge, set, -10);
+        Z_ASSERT_EQ(gauge->value, -10);
+        obj_delete(&gauge);
+
+        /* Create a gauge with children */
+        gauge = prom_gauge_new("test_gauge", "test gauge", "label");
+        gauge_child = prom_gauge_labels(gauge, "label value");
+        Z_ASSERT(gauge_child->parent == gauge);
+        Z_ASSERT_EQ(gauge_child->label_names.len, 0);
+        Z_ASSERT_EQ(gauge_child->label_values.len, 1);
+        Z_ASSERT_STREQUAL(gauge_child->label_values.tab[0], "label value");
+
+        MODULE_RELEASE(prometheus_client);
+    } Z_TEST_END;
+
+    Z_TEST(counter_value_thread_safety,
+           "test thread safety of counter value modification")
+    {
+        /* Not implemented directly here because of block rewriting issues */
+        Z_HELPER_RUN(z_counter_value_thread_safety());
+    } Z_TEST_END;
+
+    Z_TEST(gauge_value_thread_safety,
+           "test thread safety of gauge value modification")
+    {
+        /* Not implemented directly here because of block rewriting issues */
+        Z_HELPER_RUN(z_gauge_value_thread_safety());
+    } Z_TEST_END;
+
+    MODULE_RELEASE(thr);
+
+} Z_GROUP_END;
+
+/* LCOV_EXCL_STOP */
