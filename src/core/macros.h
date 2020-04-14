@@ -167,6 +167,10 @@
 # define __cold
 #endif
 
+#if !(__GNUC_PREREQ(4, 5) || __has_builtin(builtin_unreachable))
+# define __builtin_unreachable() assert (false)
+#endif
+
 #if __GNUC_PREREQ(4, 6) || __has_attribute(leaf)
 # define __leaf __attribute__((leaf))
 #else
