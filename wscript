@@ -109,7 +109,15 @@ def configure(ctx):
     py_cflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--includes'])
     ctx.env.append_unique('CFLAGS_python3', py_cflags.strip().split(' '))
 
-    py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--ldflags'])
+    try:
+        # pylint: disable=line-too-long
+        # First, use '--embed' for python 3.8+.
+        # See https://docs.python.org/3/whatsnew/3.8.html#debug-build-uses-the-same-abi-as-release-build
+        py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
+                                     ['--ldflags', '--embed'])
+    except Errors.WafError:
+        py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--ldflags'])
+
     ctx.env.append_unique('LDFLAGS_python3', py_ldflags.strip().split(' '))
 
     # }}}
