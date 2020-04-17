@@ -828,6 +828,7 @@ int iopc_do_typescript(iopc_pkg_t *pkg, const char *outdir, sb_t *depbuf)
 
     sb_adds(&buf, RO_WARN);
     sb_adds(&buf, "/* tslint:disable */\n");
+    sb_adds(&buf, "/* eslint-disable */\n");
     iopc_dump_imports(&buf, pkg);
 
     iopc_dump_enums(&buf, pkg);
