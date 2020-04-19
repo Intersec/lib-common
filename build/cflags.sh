@@ -64,6 +64,11 @@ get_internal_clang_args()
                 echo $2
                 shift 2
                 ;;
+            '"'-fgnuc-version=*)
+                # keep this flag for clang 10
+                echo $1
+                shift 1
+                ;;
             *)
                 shift
                 ;;
