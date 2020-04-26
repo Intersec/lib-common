@@ -3,8 +3,6 @@
 # Thomas Nagy, 2010-2015
 # Romain Le Godais, Nicolas Pauss, 2018
 
-# pylint: disable=super-on-old-class
-
 import re
 
 # pylint: disable=import-error

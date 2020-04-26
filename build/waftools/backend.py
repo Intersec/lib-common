@@ -547,7 +547,7 @@ def get_old_gen_files(ctx):
     git_files = set(get_git_files_recur(ctx))
 
     # Filter-out from gen_files the files that are committed
-    gen_files = set([node for node in gen_files if node not in git_files])
+    gen_files = {node for node in gen_files if node not in git_files}
 
     # Filter-out the files that are produced by the build system.
     # This requires to post all task generators.
@@ -744,7 +744,7 @@ def init_c_ctx(self):
 @TaskGen.feature('c')
 @TaskGen.after_method('propagate_uselib_vars')
 def update_blk2c_envs(self):
-    if not len(self.blk2c_tasks):
+    if not self.blk2c_tasks:
         return
 
     # Compute clang extra cflags from gcc flags
@@ -802,7 +802,7 @@ def init_cxx_ctx(self):
 @TaskGen.feature('cxx')
 @TaskGen.after_method('propagate_uselib_vars')
 def update_blk2cc_envs(self):
-    if len(self.blkk2cc_tasks):
+    if self.blkk2cc_tasks:
         # Compute clang extra cflags from g++ flags
         extra_flags = compute_clang_extra_cflags(
             self, self.env.CLANGXX_REWRITE_FLAGS, 'CXXFLAGS')
@@ -1068,7 +1068,7 @@ class IopcOptions:
             includes = set()
             seen_opts = set()
             self.get_includes_recursive(includes, seen_opts)
-            if len(includes):
+            if includes:
                 nodes = [node.abspath() for node in includes]
                 nodes.sort()
                 self.computed_includes = '-I{0}'.format(':'.join(nodes))
@@ -1264,7 +1264,7 @@ class ClangCheck(Task):
 @TaskGen.feature('c')
 @TaskGen.after_method('propagate_uselib_vars')
 def update_clang_check_envs(self):
-    if len(self.clang_check_tasks):
+    if self.clang_check_tasks:
         # Compute clang extra cflags from gcc flags
         extra_flags = compute_clang_extra_cflags(self, self.env.CLANG_FLAGS,
                                                  'CFLAGS')

@@ -21,7 +21,7 @@ import os
 import sys
 
 # pylint: disable = import-error
-from waflib import Context, Logs, Errors
+from waflib import Logs, Errors
 # pylint: enable = import-error
 
 waftoolsdir = os.path.join(os.getcwd(), 'build', 'waftools')
