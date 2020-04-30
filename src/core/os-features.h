@@ -16,9 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#if !defined(IS_LIB_COMMON_CORE_H) || defined(IS_LIB_COMMON_CORE_OS_FEATURES_H)
-#  error "you must include core.h instead"
-#else
+#ifndef IS_LIB_COMMON_CORE_OS_FEATURES_H
 #define IS_LIB_COMMON_CORE_OS_FEATURES_H
 
 /*---------------- Guess the OS ----------------*/
@@ -43,5 +41,23 @@
 #ifndef SO_FILEEXT
 # define SO_FILEEXT  ".so"
 #endif
+
+/* {{{ __CLANG_PREREQ / __GNUC_PREREQ */
+
+#if defined(__clang__)
+# define __CLANG_PREREQ(maj, min) \
+    ((__clang_major__ << 16) + __clang_minor__ >= ((maj) << 16) + (min))
+#elif !defined(__CLANG_PREREQ)
+# define __CLANG_PREREQ(maj, min)  0
+#endif
+
+#if !defined(__GNUC_PREREQ) && defined(__GNUC__) && defined(__GNUC_MINOR__)
+#  define __GNUC_PREREQ(maj, min) \
+       ((__GNUC__ << 16) + __GNUC_MINOR__ >= ((maj) << 16) + (min))
+#elif !defined(__GNUC_PREREQ)
+#  define __GNUC_PREREQ(maj, min)   0
+#endif
+
+/* }}} */
 
 #endif
