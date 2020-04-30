@@ -32,3 +32,6 @@ ctx.program(target='mem-bench', source='mem-bench.c', use='libcommon')
 
 ctx.program(target='qpsstress', features='c cprogram',
             source='qpsstress.blk', use='libcommon')
+
+ctx.program(target='threaded-operations-bench', features='c cprogram',
+            source='threaded-operations-bench.blk', use='libcommon')

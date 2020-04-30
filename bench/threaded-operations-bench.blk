@@ -1,0 +1,237 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2019 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+/* The purpose of this bench utility is to test the performances of
+ * multithreaded numeric operations (mostly on doubles) with various
+ * techniques. */
+
+#include <lib-common/core/os-features.h>
+
+#if defined(__clang__) || __GNUC_PREREQ(4, 9)
+
+/* XXX: we need to include the system stdatomic.h instead of the compat one to
+ *      use atomic double type. */
+#define INCLUDE_SYS_STDATOMIC
+
+#include <lib-common/datetime.h>
+#include <lib-common/thr.h>
+
+/* {{{ Bench threaded operations on simple double type (not thread safe) */
+
+static void bench_double(int nb_jobs, int nb_loop_per_job)
+{
+    struct timeval tv_start;
+    struct timeval tv_end;
+    struct timeval tv_diff;
+    thr_syn_t syn;
+    __block double val = 0.;
+
+    lp_gettv(&tv_start);
+
+    thr_syn_init(&syn);
+
+    for (int i = 0; i < nb_jobs; i++) {
+        thr_syn_schedule_b(&syn, ^{
+            for (int j = 0; j < nb_loop_per_job; j++) {
+                val += 10.;
+                val += 2.;
+                val -= 11.;
+            }
+        });
+    }
+
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+
+    lp_gettv(&tv_end);
+    tv_diff = timeval_sub(tv_end, tv_start);
+    e_info("operations done on double type in %ld.%06ldsec (val = %f)",
+           tv_diff.tv_sec, tv_diff.tv_usec, val);
+}
+
+/* }}} */
+/* {{{ Bench threaded operations on atomic uint64_t type */
+
+static void bench_atomic_u64(int nb_job, int nb_loop_per_job)
+{
+    t_scope;
+    struct timeval tv_start;
+    struct timeval tv_end;
+    struct timeval tv_diff;
+    thr_syn_t syn;
+    _Atomic uint64_t *val = t_new(_Atomic uint64_t, 1);
+
+    lp_gettv(&tv_start);
+
+    thr_syn_init(&syn);
+    atomic_init(val, 0);
+
+    for (int i = 0; i < nb_job; i++) {
+        thr_syn_schedule_b(&syn, ^{
+            for (int j = 0; j < nb_loop_per_job; j++) {
+                atomic_fetch_add(val, 10);
+                atomic_fetch_add(val, 2);
+                atomic_fetch_sub(val, 11);
+            }
+        });
+    }
+
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+
+    lp_gettv(&tv_end);
+    tv_diff = timeval_sub(tv_end, tv_start);
+    e_info("operations done on atomic uint64 type in %ld.%06ldsec "
+           "(val = %jd)",
+           tv_diff.tv_sec, tv_diff.tv_usec, atomic_load(val));
+}
+
+/* }}} */
+/* {{{ Bench threaded operations on atomic double type */
+
+static void atomic_double_add(_Atomic double *out, double to_add)
+{
+    double old = atomic_load(out);
+
+    for (;;) {
+        double new = old + to_add;
+
+        if (atomic_compare_exchange_weak(out, &old, new)) {
+            return;
+        }
+    }
+}
+
+static void bench_atomic_double(int nb_job, int nb_loop_per_job)
+{
+    t_scope;
+    struct timeval tv_start;
+    struct timeval tv_end;
+    struct timeval tv_diff;
+    thr_syn_t syn;
+    _Atomic double *val = t_new(_Atomic double, 1);
+
+    lp_gettv(&tv_start);
+
+    thr_syn_init(&syn);
+    atomic_init(val, 0.);
+
+    for (int i = 0; i < nb_job; i++) {
+        thr_syn_schedule_b(&syn, ^{
+            for (int j = 0; j < nb_loop_per_job; j++) {
+                atomic_double_add(val, 10.);
+                atomic_double_add(val, 2.);
+                atomic_double_add(val, -11.);
+            }
+        });
+    }
+
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+
+    lp_gettv(&tv_end);
+    tv_diff = timeval_sub(tv_end, tv_start);
+    e_info("operations done on atomic double type in %ld.%06ldsec (val = %f)",
+           tv_diff.tv_sec, tv_diff.tv_usec, atomic_load(val));
+}
+
+/* }}} */
+/* {{{ Bench threaded operations on double using spinlock */
+
+static void
+spinlock_double_add(spinlock_t *spinlock, double *out, double to_add)
+{
+    spin_lock(spinlock);
+    *out += to_add;
+    spin_unlock(spinlock);
+}
+
+static void bench_spinlock_double(int nb_job, int nb_loop_per_job)
+{
+    t_scope;
+    struct timeval tv_start;
+    struct timeval tv_end;
+    struct timeval tv_diff;
+    thr_syn_t syn;
+    __block double val = 0;
+    __block spinlock_t spinlock = 0;
+
+    lp_gettv(&tv_start);
+
+    thr_syn_init(&syn);
+
+    for (int i = 0; i < nb_job; i++) {
+        thr_syn_schedule_b(&syn, ^{
+            for (int j = 0; j < nb_loop_per_job; j++) {
+                spinlock_double_add(&spinlock, &val, 10.);
+                spinlock_double_add(&spinlock, &val, 2.);
+                spinlock_double_add(&spinlock, &val, -11.);
+            }
+        });
+    }
+
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+
+    lp_gettv(&tv_end);
+    tv_diff = timeval_sub(tv_end, tv_start);
+    e_info("operations done on spinlock double type in %ld.%06ldsec "
+           "(val = %f)", tv_diff.tv_sec, tv_diff.tv_usec, val);
+}
+
+/* }}} */
+
+int main(int argc, char **argv)
+{
+    int nb_jobs = 100;
+    int nb_loop_per_job = 100000;
+
+    MODULE_REQUIRE(thr);
+
+    e_info("first battery of tests with maximal concurrency:");
+    bench_double(nb_jobs, nb_loop_per_job);
+    bench_atomic_u64(nb_jobs, nb_loop_per_job);
+    bench_atomic_double(nb_jobs, nb_loop_per_job);
+    bench_spinlock_double(nb_jobs, nb_loop_per_job);
+
+    e_info("");
+    e_info("second battery of tests without concurrency:");
+    nb_loop_per_job *= nb_jobs;
+    nb_jobs = 1;
+    bench_double(nb_jobs, nb_loop_per_job);
+    bench_atomic_u64(nb_jobs, nb_loop_per_job);
+    bench_atomic_double(nb_jobs, nb_loop_per_job);
+    bench_spinlock_double(nb_jobs, nb_loop_per_job);
+
+    MODULE_RELEASE(thr);
+    return 0;
+}
+
+#else
+
+#include <sysexits.h>
+#include <lib-common/log.h>
+
+int main(int argc, char **argv)
+{
+    e_error("your compiler does not natively support atomics (required for "
+            "using atomic double type)");
+    return EX_UNAVAILABLE;
+}
+
+#endif /* defined(__clang__) || __GNUC_PREREQ(4, 9) */

@@ -3,3 +3,4 @@
 /iprintf-speed
 /mem-bench
 /qpsstress
+/threaded-operations-bench
