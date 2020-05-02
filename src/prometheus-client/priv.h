@@ -56,4 +56,7 @@ int prom_metric_check_label_name(const char *label_name);
  */
 void prom_collector_bridge(const dlist_t *collector, sb_t *out);
 
+/** Module for HTTP server for scraping. */
+MODULE_DECLARE(prometheus_client_http);
+
 #endif /* PROMETHEUS_CLIENT_PRIV_H */

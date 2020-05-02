@@ -41,4 +41,5 @@ static int prometheus_client_shutdown(void)
 }
 
 MODULE_BEGIN(prometheus_client)
+    MODULE_DEPENDS_ON(prometheus_client_http);
 MODULE_END()

@@ -19,7 +19,10 @@
 #ifndef IS_LIB_COMMON_PROMETHEUS_CLIENT_H
 #define IS_LIB_COMMON_PROMETHEUS_CLIENT_H
 
+#include <netinet/in.h>
+
 #include <lib-common/core.h>
+#include <lib-common/core/core.iop.h>
 #include <lib-common/container-qvector.h>
 
 /** Prometheus client.
@@ -355,6 +358,30 @@ OBJ_CLASS(prom_gauge, prom_simple_value_metric,
  */
 #define prom_gauge_remove(gauge, ...)  \
     prom_metric_remove(obj_vcast(prom_metric, gauge), __VA_ARGS__)
+
+/* }}} */
+/* {{{ HTTP server for scraping */
+
+/** Start the HTTP server for scraping.
+ *
+ * \param[in]  cfg  HTTP configuration of the server.
+ * \param[out] err  error buffer, filled in case of error.
+ *
+ * \return  0 on success, a negative value on error.
+ */
+int prom_http_start_server(const core__httpd_cfg__t *cfg,
+                           sb_t * nullable err);
+
+/** Get the information of the running HTTP server.
+ *
+ * Useful if the port was automatically attributed.
+ *
+ * \param[out] host  the listening host.
+ * \param[out] port  the listening port.
+ * \param[out] fd    the file descriptor of the server.
+ */
+void prom_http_get_infos(lstr_t * nullable host, in_port_t * nullable port,
+                         int * nullable fd);
 
 /* }}} */
 /* {{{ Module */

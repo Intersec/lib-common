@@ -186,6 +186,7 @@ ctx.stlib(target='libcommon', features='c cstlib', use=[
 
     'prometheus-client/core.c',
     'prometheus-client/metrics.c',
+    'prometheus-client/http.c',
 ])
 
 # }}}
