@@ -192,7 +192,6 @@ Other commands are listed with `waf --help`. Here they are:
                     command to produce a coverage report.
                     Note that this is done when configuring the project.
 * `coverage-end`: end a coverage session and produce a report.
-* `app-delivery`: prepare an APP delivery (archive of the source code).
 
 ==== Supported environment variables
 

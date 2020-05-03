@@ -312,82 +312,6 @@ class PylintClass(BuildContext):
 
 
 # }}}
-# {{{ APP delivery
-
-
-def app_delivery(ctx):
-    if ctx.cmd != 'app-delivery':
-        return
-
-    # Create temporary working directory
-    tmp_dir = ctx.bldnode.make_node('app-delivery')
-    tmp_dir.delete(evict=False)
-    tmp_dir.mkdir()
-
-    # Build archive name and node
-    cur_branch = ctx.cmd_and_log('git rev-parse --abbrev-ref HEAD',
-                                 quiet=Context.BOTH, cwd=ctx.srcnode).strip()
-    cur_rev = ctx.cmd_and_log('git rev-parse HEAD',
-                              quiet=Context.BOTH, cwd=ctx.srcnode).strip()
-    archive_name = '{0}-{1}'.format(cur_branch, cur_rev)
-    archive_node = tmp_dir.make_node(archive_name + '.tar')
-
-    # Create main archive
-    print('Creating main archive...')
-    cmd = 'git archive --prefix=intersec-{0}/ -o {1} HEAD'
-    ctx.cmd_and_log(cmd.format(archive_name, archive_node.abspath()),
-                    quiet=Context.BOTH, cwd=ctx.srcnode)
-
-    # Concatenate it with archives of each submodule
-    cmd = 'git submodule foreach --recursive | cut -d"\'" -f2'
-    submodules = ctx.cmd_and_log(cmd, quiet=Context.BOTH, cwd=ctx.srcnode)
-    for sub_path in submodules.strip().splitlines():
-        print('Appending {0} submodule archive...'.format(sub_path))
-
-        sub_name = sub_path.replace('/', '.')
-        sub_archive_name = 'submodule-tmp-{0}.tar'.format(sub_name)
-        sub_archive_node = tmp_dir.make_node(sub_archive_name)
-        submodule_node = ctx.srcnode.make_node(sub_path)
-
-        # Build temporary submodule archive
-        cmd = 'git archive --prefix=intersec-{0}/{1}/ -o {2} HEAD'
-        cmd = cmd.format(archive_name, sub_path, sub_archive_node.abspath())
-        ctx.cmd_and_log(cmd, quiet=Context.BOTH, cwd=submodule_node)
-
-        # Concatenate it with the main archive
-        cmd = 'tar --concatenate --file={0} {1}'
-        cmd = cmd.format(archive_node.abspath(), sub_archive_node.abspath())
-        ctx.cmd_and_log(cmd, quiet=Context.BOTH)
-
-        # Remove the temporary submodule archive
-        sub_archive_node.delete()
-
-    # Compress it
-    print('Compressing main archive...')
-    cmd = 'bzip2 {0}'.format(archive_node.abspath())
-    ctx.cmd_and_log(cmd, quiet=Context.BOTH)
-    archive_node = archive_node.change_ext('.tar.bz2')
-
-    # Move it in the source directory
-    final_node = ctx.srcnode.make_node(archive_node.name)
-    os.rename(archive_node.abspath(), final_node.abspath())
-
-    print('APP archive ready: {0}'.format(final_node.abspath()))
-    print('Now, move it to papyrus and proceed to the APP delivery')
-
-    # Clean temporary directory
-    tmp_dir.delete()
-
-    # Interrupt the build
-    ctx.groups = []
-
-
-class AppDelivery(BuildContext):
-    '''prepare an APP delivery (archive of the source code)'''
-    cmd = 'app-delivery'
-
-
-# }}}
 
 # {{{ configure
 
@@ -417,7 +341,6 @@ def build(ctx):
     # Register pre/post functions
     ctx.add_pre_fun(add_scan_in_signature)
     ctx.add_pre_fun(run_pylint)
-    ctx.add_pre_fun(app_delivery)
     ctx.add_post_fun(run_checks)
 
 
