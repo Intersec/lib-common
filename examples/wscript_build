@@ -17,6 +17,10 @@
 ###########################################################################
 # pylint: disable = undefined-variable
 
+bld.program(target='ex-prometheus-client', source=[
+    'ex-prometheus-client.c',
+], use='libcommon')
+
 ctx.recurse([
     'iop-tutorial',
 ])
