@@ -252,6 +252,69 @@ Z_GROUP_EXPORT(prometheus_client) {
         Z_HELPER_RUN(z_gauge_value_thread_safety());
     } Z_TEST_END;
 
+    Z_TEST(text_exposition, "test the metrics exposition in text format") {
+        t_scope;
+        SB_1k(text);
+        prom_counter_t *counter;
+        prom_counter_t *counter_child;
+        prom_gauge_t *gauge;
+        prom_gauge_t *gauge_child;
+        lstr_t expected;
+        const char *path;
+
+        MODULE_REQUIRE(prometheus_client);
+
+        /* Add a simple counter with no labels */
+        counter = prom_counter_new("zchk:counter_no_label",
+                                   "Simple counter with no label");
+        counter->value = 12345.5;
+
+        /* Add a counter with two labels */
+        counter = prom_counter_new("zchk:counter_with_labels",
+                                   "A counter with two labels (and a \\ in "
+                                   "its description)",
+                                   "label_1", "label_2");
+        counter_child = prom_counter_labels(counter, "value\n1", "value\\2");
+        counter_child->value = 12;
+        counter_child = prom_counter_labels(counter, "value 3", "value 4!");
+        counter_child->value = 25;
+
+        /* Add a simple gauge with no label */
+        gauge = prom_gauge_new("zchk:gauge_no_label",
+                               "Simple gauge with no label "
+                               "(but a line break\nin its description)");
+        gauge->value = 5000;
+
+        /* Add a gauge with one label */
+        gauge = prom_gauge_new("zchk:gauge_with_one_label",
+                               "A gauge with two one label",
+                               "aFunnyLabel");
+        gauge_child = prom_gauge_labels(gauge, "funnyLabelValue");
+        gauge_child->value = -12345.5;
+        prom_gauge_labels(gauge, "non initialized value");
+
+        /* Add a metric without samples */
+        prom_gauge_new("zchk:gauge_without_samples",
+                       "A gauge without samples",
+                       "label");
+
+
+        /* Run the collector bridge function, to expose the declared metrics
+         * as text. */
+        prom_collector_bridge(&prom_collector_g, &text);
+
+        /* Compare it with the expected result */
+        path = t_fmt("%*pM/test-data/prometheus-client/"
+                     "test-exposition-expected.txt",
+                     LSTR_FMT_ARG(z_cmddir_g));
+        Z_ASSERT_ZERO(lstr_init_from_file(&expected, path,
+                                          PROT_READ, MAP_SHARED));
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&text), expected);
+        lstr_wipe(&expected);
+
+        MODULE_RELEASE(prometheus_client);
+    } Z_TEST_END;
+
     MODULE_RELEASE(thr);
 
 } Z_GROUP_END;

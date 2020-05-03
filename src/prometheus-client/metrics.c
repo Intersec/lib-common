@@ -408,3 +408,86 @@ OBJ_VTABLE(prom_gauge)
 OBJ_VTABLE_END()
 
 /* }}} */
+/* {{{ Bridge function for exposition in text format */
+
+static void bridge_simple_value(prom_simple_value_metric_t *metric, sb_t *out)
+{
+    lstr_t name = metric->parent ? metric->parent->name : metric->name;
+    double value = obj_vcall(metric, get_value);
+
+    sb_add_lstr(out, name);
+
+    if (metric->label_values.len) {
+        sb_addc(out, '{');
+        for (int i = 0; i < metric->label_values.len; i++) {
+            const char *label_name = metric->parent->label_names.tab[i];
+            const char *label_value = metric->label_values.tab[i];
+
+            if (i > 0) {
+                sb_addc(out, ',');
+            }
+            sb_addf(out, "%s=\"", label_name);
+            sb_adds_slashes(out, label_value, "\\\n", "\\n");
+            sb_addc(out, '"');
+        }
+        sb_addc(out, '}');
+    }
+
+    sb_addf(out, " %g\n", value);
+}
+
+void prom_collector_bridge(const dlist_t *collector, sb_t *out)
+{
+    prom_metric_t *metric;
+
+    dlist_for_each_entry(metric, collector, siblings_list) {
+        lstr_t metric_type = LSTR_NULL_V;
+
+        /* Skip metrics without samples */
+        if (metric->label_names.len
+        &&  !qm_len(prom_metric, metric->children_by_labels))
+        {
+            continue;
+        }
+
+        if (out->len) {
+            sb_adds(out, "\n");
+        }
+
+        /* Add HELP and TYPE */
+        sb_addf(out, "# HELP %*pM ", LSTR_FMT_ARG(metric->name));
+        sb_add_slashes(out,
+                       metric->documentation.s, metric->documentation.len,
+                       "\\\n", "\\n");
+        sb_addc(out, '\n');
+
+        /* Add TYPE */
+        if (obj_is_a(metric, prom_counter)) {
+            metric_type = LSTR("counter");
+        } else
+        if (obj_is_a(metric, prom_gauge)) {
+            metric_type = LSTR("gauge");
+        } else {
+            assert (false);
+        }
+        sb_addf(out, "# TYPE %*pM %*pM\n",
+                LSTR_FMT_ARG(metric->name),
+                LSTR_FMT_ARG(metric_type));
+
+        /* Add values */
+        if (is_metric_observable(metric)) {
+            bridge_simple_value(obj_vcast(prom_simple_value_metric, metric),
+                                out);
+        } else {
+            prom_simple_value_metric_t *child;
+
+            dlist_for_each_entry(child, &metric->children_list,
+                                 siblings_list)
+            {
+                bridge_simple_value(child, out);
+            }
+        }
+    }
+}
+
+/* }}} */

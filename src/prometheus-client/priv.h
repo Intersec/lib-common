@@ -47,4 +47,13 @@ int prom_metric_check_name(lstr_t name);
  */
 int prom_metric_check_label_name(const char *label_name);
 
+/** Bridge function for default metric exposition format.
+ *
+ * It fills the output buffer with the metrics of the collector exposed in the
+ * default metric exposition format, described here:
+ *
+ * https://prometheus.io/docs/instrumenting/exposition_formats
+ */
+void prom_collector_bridge(const dlist_t *collector, sb_t *out);
+
 #endif /* PROMETHEUS_CLIENT_PRIV_H */

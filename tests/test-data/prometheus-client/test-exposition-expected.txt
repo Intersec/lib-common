@@ -1,0 +1,17 @@
+# HELP zchk:counter_no_label Simple counter with no label
+# TYPE zchk:counter_no_label counter
+zchk:counter_no_label 12345.5
+
+# HELP zchk:counter_with_labels A counter with two labels (and a \\ in its description)
+# TYPE zchk:counter_with_labels counter
+zchk:counter_with_labels{label_1="value\n1",label_2="value\\2"} 12
+zchk:counter_with_labels{label_1="value 3",label_2="value 4!"} 25
+
+# HELP zchk:gauge_no_label Simple gauge with no label (but a line break\nin its description)
+# TYPE zchk:gauge_no_label gauge
+zchk:gauge_no_label 5000
+
+# HELP zchk:gauge_with_one_label A gauge with two one label
+# TYPE zchk:gauge_with_one_label gauge
+zchk:gauge_with_one_label{aFunnyLabel="funnyLabelValue"} -12345.5
+zchk:gauge_with_one_label{aFunnyLabel="non initialized value"} 0
