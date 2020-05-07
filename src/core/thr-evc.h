@@ -89,8 +89,8 @@
  */
 
 typedef struct thr_evc_t {
-    atomic_uint_fast64_t key;
-    atomic_uint          waiters;
+    atomic_uint64_t key;
+    atomic_uint waiters;
 #ifndef OS_LINUX
     pthread_mutex_t mutex;
     pthread_cond_t  cond;

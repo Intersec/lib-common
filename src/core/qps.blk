@@ -1692,7 +1692,7 @@ qps_gc_compact(qps_t *qps, uint32_t no, qps_map_t *map, qv_t(qps_gcmap) maps)
 static void qps_gc(qps_t *qps, uint32_t gc_gen)
 {
     uint64_t allocated = 0, disk_usage = 0;
-    uint_fast16_t enabled = QPS_GC_ENABLED;
+    uint16_t enabled = QPS_GC_ENABLED;
     qv_t(qps_gcmap) maps;
 
     assert (!qps->snapshotting);

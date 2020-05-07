@@ -242,7 +242,7 @@ typedef struct qps_t {
 
     dir_lock_t   lock;
     int          dfd;
-    atomic_uint_fast16_t gc_state;   /* QPS_GC_* mask */
+    atomic_uint16_t gc_state;   /* QPS_GC_* mask */
     uint16_t     snapshotting;
     uint32_t     generation;
     qv_t(qpsm)   maps;

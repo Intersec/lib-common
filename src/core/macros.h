@@ -461,6 +461,17 @@ enum sign {
 /* }}} */
 /* {{{ Types */
 
+/* Useful atomics not defined in standard */
+typedef _Atomic(int8_t)   atomic_int8_t;
+typedef _Atomic(uint8_t)  atomic_uint8_t;
+typedef _Atomic(int16_t)  atomic_int16_t;
+typedef _Atomic(uint16_t) atomic_uint16_t;
+typedef _Atomic(int32_t)  atomic_int32_t;
+typedef _Atomic(uint32_t) atomic_uint32_t;
+typedef _Atomic(int64_t)  atomic_int64_t;
+typedef _Atomic(uint64_t) atomic_uint64_t;
+typedef _Atomic(ssize_t)  atomic_ssize_t;
+
 typedef uint64_t cpu64_t;
 typedef uint64_t __bitwise__ be64_t;
 typedef uint64_t __bitwise__ le64_t;
