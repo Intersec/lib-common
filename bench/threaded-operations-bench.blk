@@ -22,11 +22,9 @@
 
 #include <lib-common/core/os-features.h>
 
-#if defined(__clang__) || __GNUC_PREREQ(4, 9)
-
 /* XXX: we need to include the system stdatomic.h instead of the compat one to
  *      use atomic double type. */
-#define INCLUDE_SYS_STDATOMIC
+#if defined(__clang__) || __GNUC_PREREQ(4, 9)
 
 #include <lib-common/datetime.h>
 #include <lib-common/thr.h>

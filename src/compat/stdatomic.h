@@ -44,12 +44,24 @@
  *
  * $FreeBSD: src/include/stdatomic.h,v 1.10.2.2 2012/05/30 19:21:54 theraven Exp $
  */
-#ifndef _STDATOMIC_H_
-#define    _STDATOMIC_H_
+#ifndef _LIBCOMMON_STDATOMIC_H_
+#define    _LIBCOMMON_STDATOMIC_H_
 
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <lib-common/core/os-features.h>
+
+#if (defined(__clang__) || __GNUC_PREREQ(4, 9)) && !defined(__cplusplus)
+
+/* If the compiler support C11 atomics, just include the standard header.
+ * In C++ mode, do not include it however, as C11 is not C++ compatible.
+ */
+# include_next <stdatomic.h>
+
+#else
+
+/* Otherwise, use the bsd shim */
 
 #if !defined(__has_feature)
 #define __has_feature(x) 0
@@ -365,4 +377,6 @@ typedef atomic_bool            atomic_flag;
 #define    atomic_flag_test_and_set(object)                \
     atomic_flag_test_and_set_explicit(object, memory_order_seq_cst)
 
-#endif /* !_STDATOMIC_H_ */
+#endif /* !use C11 stdatomic.h */
+
+#endif /* !_LIBCOMMON_STDATOMIC_H_ */

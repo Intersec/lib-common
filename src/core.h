@@ -56,13 +56,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
-#ifdef INCLUDE_SYS_STDATOMIC
-# include <stdatomic.h>
-#else
-# include <compat-stdatomic.h>
-#endif /* INCLUDE_SYS_STDATOMIC */
-
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
