@@ -1928,8 +1928,8 @@ el_t httpd_listen(sockunion_t *su, httpd_cfg_t *cfg)
     if (fd < 0) {
         return NULL;
     }
-    return el_unref(el_fd_register(fd, true, POLLIN, httpd_on_accept,
-                                   httpd_cfg_retain(cfg)));
+    return el_fd_register(fd, true, POLLIN, httpd_on_accept,
+                          httpd_cfg_retain(cfg));
 }
 
 void httpd_unlisten(el_t *ev)
@@ -1951,7 +1951,7 @@ httpd_t *httpd_spawn(int fd, httpd_cfg_t *cfg)
 
     cfg->nb_conns++;
     w->cfg         = httpd_cfg_retain(cfg);
-    w->ev          = el_unref(el_fd_register(fd, true, POLLIN, el_cb, w));
+    w->ev          = el_fd_register(fd, true, POLLIN, el_cb, w);
     w->max_queries = cfg->max_queries;
     if (cfg->ssl_ctx) {
         w->ssl = SSL_new(cfg->ssl_ctx);
@@ -2780,8 +2780,7 @@ httpc_t *httpc_connect_as(const sockunion_t *su,
                                 O_NONBLOCK, 0));
     w  = obj_new_of_class(httpc, cfg->httpc_cls);
     w->cfg         = httpc_cfg_retain(cfg);
-    w->ev          = el_unref(el_fd_register(fd, true, POLLOUT,
-                                             &httpc_on_connect, w));
+    w->ev          = el_fd_register(fd, true, POLLOUT, &httpc_on_connect, w);
     w->max_queries = cfg->max_queries;
     el_fd_watch_activity(w->ev, POLLINOUT, w->cfg->noact_delay);
     w->busy        = true;
@@ -2796,8 +2795,7 @@ httpc_t *httpc_spawn(int fd, httpc_cfg_t *cfg, httpc_pool_t *pool)
     httpc_t *w = obj_new_of_class(httpc, cfg->httpc_cls);
 
     w->cfg         = httpc_cfg_retain(cfg);
-    w->ev          = el_unref(el_fd_register(fd, true, POLLIN,
-                                             &httpc_on_event, w));
+    w->ev          = el_fd_register(fd, true, POLLIN, &httpc_on_event, w);
     w->max_queries = cfg->max_queries;
     el_fd_watch_activity(w->ev, POLLINOUT, w->cfg->noact_delay);
     httpc_set_mask(w);
