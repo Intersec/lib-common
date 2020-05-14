@@ -39,6 +39,14 @@ baz: "- I have to be escaped"
 addr: "127.0.0.1:80"
 ----
 
+* It is also possible to use binary data with the `!bin` tag. In that
+  case, the data must be written in base64.
+
+[source,YAML]
+----
+data: !bin ewogICJmb28iOiAyCn0K
+----
+
 === Arrays
 
 Arrays are written with every element on its own line, prefixed by a dash, with the same indentation:
@@ -147,8 +155,8 @@ obj:
   key: !includeraw:foo.json
 ----
 
-The `!includeraw` will be replaced by a string holding the whole content of
-the included file.
+The `!includeraw` will be replaced by a binary data holding the whole content
+of the included file.
 
 WARNING: Only includes from the same directory (or from subdirectories) are
 allowed. Includes from absolute paths or from parent directories are
