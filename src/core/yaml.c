@@ -303,6 +303,7 @@ t_yaml_data_to_iop(const yaml_data_t * nonnull data,
       CASE(UINT, u);
       CASE(INT, i);
       CASE(BOOL, b);
+      CASE(BYTES, s);
 
 #undef CASE
 
@@ -337,6 +338,9 @@ t_iop_data_to_yaml(const yaml__data__t * nonnull data,
       IOP_UNION_CASE_V(yaml__scalar_value, &data->value.scalar, nil)  {
         yaml_data_set_null(out);
       }
+      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, data, bytes) {
+        yaml_data_set_bytes(out, bytes);
+      }
     }
     out->tag = data->tag;
 }
@@ -370,6 +374,7 @@ t_yaml_scalar_to_string(const yaml_scalar_t * nonnull scalar)
 {
     switch (scalar->type) {
       case YAML_SCALAR_STRING:
+      case YAML_SCALAR_BYTES:
         return scalar->s;
 
       case YAML_SCALAR_DOUBLE: {
@@ -423,6 +428,7 @@ yaml_scalar_equals(const yaml_scalar_t * nonnull s1,
 
     switch (s1->type) {
       case YAML_SCALAR_STRING:
+      case YAML_SCALAR_BYTES:
         return lstr_equal(s1->s, s2->s);
       case YAML_SCALAR_DOUBLE:
         return memcmp(&s1->d, &s2->d, sizeof(double)) == 0;
@@ -518,6 +524,8 @@ yaml_scalar_get_type(const yaml_scalar_t * nonnull scalar, bool has_tag)
         return has_tag ? "a tagged boolean value" : "a boolean value";
       case YAML_SCALAR_NULL:
         return has_tag ? "a tagged null value" : "a null value";
+      case YAML_SCALAR_BYTES:
+        return "a binary value";
     }
 
     assert (false);
@@ -1378,6 +1386,33 @@ static yaml_tag_type_t get_tag_type(const lstr_t tag)
 }
 
 static int
+t_handle_binary_tag(yaml_parse_t * nonnull env, yaml_data_t * nonnull data)
+{
+    if (data->type != YAML_DATA_SCALAR
+    ||  data->scalar.type != YAML_SCALAR_STRING)
+    {
+        return yaml_env_set_err_at(env, &data->span, YAML_ERR_WRONG_DATA,
+                                   "binary tag can only be used on strings");
+    } else {
+        sb_t  sb;
+        /* TODO: factorize this with iop-json, iop-xml, etc */
+        int   blen = DIV_ROUND_UP(data->scalar.s.len * 3, 4);
+        char *buf  = t_new_raw(char, blen + 1);
+
+        sb_init_full(&sb, buf, 0, blen + 1, &mem_pool_static);
+        if (sb_add_lstr_unb64(&sb, data->scalar.s) < 0) {
+            return yaml_env_set_err_at(env, &data->span, YAML_ERR_WRONG_DATA,
+                                       "binary data must be base64 encoded");
+        }
+        data->scalar.s = LSTR_DATA_V(buf, sb.len);
+        data->scalar.type = YAML_SCALAR_BYTES;
+        data->tag = LSTR_NULL_V;
+    }
+
+    return 0;
+}
+
+static int
 t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
                      yaml_data_t * nonnull out,
                      yaml_tag_type_t * nonnull type)
@@ -1432,6 +1467,10 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
     out->span.start = tag_pos_start;
     out->tag_span = t_new(yaml_span_t, 1);
     yaml_span_init(out->tag_span, env, tag_pos_start, tag_pos_end);
+
+    if (lstr_equal(out->tag, LSTR("bin"))) {
+        RETHROW(t_handle_binary_tag(env, out));
+    }
 
     return 0;
 }
@@ -3741,6 +3780,14 @@ yaml_pack_scalar(yaml_pack_env_t * nonnull env,
       case YAML_SCALAR_NULL:
         PUTS("~");
         break;
+
+      case YAML_SCALAR_BYTES: {
+        t_scope;
+        t_SB_1k(sb);
+
+        sb_addlstr_b64(&sb, scalar->s, -1);
+        res += yaml_pack_string(env, LSTR_SB_V(&sb), pres);
+      } break;
     }
 
   end:
@@ -5179,7 +5226,14 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
         }
     }
 
-    res += yaml_pack_tag(env, data->tag);
+    if (unlikely(data->type == YAML_DATA_SCALAR
+              && data->scalar.type == YAML_SCALAR_BYTES))
+    {
+        /* TODO: a bytes scalar should not have a set tag, to check */
+        res += yaml_pack_tag(env, LSTR("bin"));
+    } else {
+        res += yaml_pack_tag(env, data->tag);
+    }
 
     if (node && node->flow_mode && yaml_env_data_can_use_flow_mode(env, data))
     {
@@ -5413,6 +5467,12 @@ void yaml_data_set_bool(yaml_data_t *data, bool b)
 void yaml_data_set_null(yaml_data_t *data)
 {
     SET_SCALAR(data, NULL);
+}
+
+void yaml_data_set_bytes(yaml_data_t *data, lstr_t bytes)
+{
+    SET_SCALAR(data, BYTES);
+    data->scalar.s = bytes;
 }
 
 void t_yaml_data_new_seq(yaml_data_t *data, int capacity)
@@ -6101,6 +6161,25 @@ Z_GROUP_EXPORT(yaml)
             "cannot use tags in a merge key\n"
             "<<: !foo { a: 2 }\n"
             "    ^^^^"
+        ));
+
+        /* invalid base64 */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "!bin foo",
+
+            "<string>:1:1: wrong type of data, "
+            "binary data must be base64 encoded\n"
+            "!bin foo\n"
+            "^^^^^^^^"
+        ));
+        /* invalid binary tag use */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "!bin a: 2",
+
+            "<string>:1:1: wrong type of data, "
+            "binary tag can only be used on strings\n"
+            "!bin a: 2\n"
+            "^^^^^^^^^"
         ));
     } Z_TEST_END;
 
@@ -7640,6 +7719,34 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_DOUBLE,
                                          1, 1, 1, 5));
         Z_ASSERT(isnan(data.scalar.d));
+
+        /* binary */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "!bin SGk=",
+            NULL
+        ));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_BYTES,
+                                         1, 1, 1, 10));
+        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR("Hi"));
+        Z_ASSERT_NULL(data.tag.s);
+        Z_ASSERT_STREQUAL(yaml_data_get_type(&data, false), "a binary value");
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "!bin ABCDEFGH",
+            NULL
+        ));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_BYTES,
+                                         1, 1, 1, 14));
+        Z_ASSERT_LSTREQUAL(data.scalar.s,
+                           LSTR_DATA_V("\x00\x10\x83\x10\x51\x87", 6));
+
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
+            "!bin \"1234\"",
+            NULL
+        ));
+        Z_HELPER_RUN(z_check_yaml_scalar(&data, YAML_SCALAR_BYTES,
+                                         1, 1, 1, 12));
+        Z_ASSERT_LSTREQUAL(data.scalar.s, LSTR_DATA_V("\xd7\x6d\xf8", 3));
     } Z_TEST_END;
 
     /* }}} */

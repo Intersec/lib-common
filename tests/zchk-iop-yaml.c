@@ -662,15 +662,6 @@ Z_GROUP_EXPORT(iop_yaml)
                   "un: i: foo\n"
                   "       ^^^");
 
-        /* --- blob errors --- */
-
-        /* invalid b64 value */
-        TST_ERROR(0, "data: D",
-                  "<string>:1:7: "ERR_COMMON": cannot set field `data`: "
-                  "the value must be encoded in base64\n"
-                  "data: D\n"
-                  "      ^");
-
         /* --- struct errors --- */
 
         /* wrong explicit tag */
@@ -848,7 +839,7 @@ Z_GROUP_EXPORT(iop_yaml)
             "htab:\n"
             "  - 9\n"
             "  - 10\n"
-            "i: YmxvYg==\n"
+            "i: !bin YmxvYg==\n"
             "j: foo\n"
             "xmlField: <b><bar /><foobar attr=\"value\">baz</foobar></b>\n"
             "k: B\n"

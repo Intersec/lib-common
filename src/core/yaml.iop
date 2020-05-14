@@ -28,6 +28,7 @@ union ScalarValue {
     long i;
     bool b;
     void nil;
+    bytes data;
 };
 
 /** Value of a YAML sequence. */

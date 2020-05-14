@@ -45,7 +45,9 @@ typedef enum yaml_scalar_type_t {
     /* true or false */
     YAML_SCALAR_BOOL,
     /* ~ or null */
-    YAML_SCALAR_NULL
+    YAML_SCALAR_NULL,
+    /* binary string, declared with !bin */
+    YAML_SCALAR_BYTES,
 } yaml_scalar_type_t;
 
 /* Position in the parsed string */
@@ -406,6 +408,7 @@ void yaml_data_set_uint(yaml_data_t * nonnull data, uint64_t u);
 void yaml_data_set_int(yaml_data_t * nonnull data, int64_t i);
 void yaml_data_set_bool(yaml_data_t * nonnull data, bool b);
 void yaml_data_set_null(yaml_data_t * nonnull data);
+void yaml_data_set_bytes(yaml_data_t *data, lstr_t bytes);
 
 void t_yaml_data_new_seq(yaml_data_t * nonnull data, int capacity);
 void yaml_seq_add_data(yaml_data_t * nonnull data, yaml_data_t val);

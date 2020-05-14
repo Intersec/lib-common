@@ -110,24 +110,9 @@ t_yaml_string_to_iop_field(const lstr_t str,
     switch (fdesc->type) {
       case IOP_T_STRING:
       case IOP_T_XML:
+      case IOP_T_DATA:
         *(lstr_t *)out = t_lstr_dup(str);
         return YUNPACK_OK;
-
-      case IOP_T_DATA: {
-        sb_t  sb;
-        /* TODO: factorize this with iop-json, iop-xml, etc */
-        int   blen = DIV_ROUND_UP(str.len * 3, 4);
-        char *buf  = t_new_raw(char, blen + 1);
-        lstr_t *data = out;
-
-        sb_init_full(&sb, buf, 0, blen + 1, &mem_pool_static);
-        if (sb_add_lstr_unb64(&sb, str) < 0) {
-            return YUNPACK_INVALID_B64_VAL;
-        }
-        data->data = buf;
-        data->len  = sb.len;
-        return YUNPACK_OK;
-      }
 
       case IOP_T_ENUM: {
         bool found;
@@ -344,6 +329,7 @@ t_yaml_scalar_to_iop_field(yunpack_env_t * nonnull env,
       case YAML_SCALAR_NULL:
         return t_yaml_nil_to_iop_field(env, data, fdesc, in_array, out);
       case YAML_SCALAR_STRING:
+      case YAML_SCALAR_BYTES:
         return t_yaml_string_to_iop_field(scalar->s, fdesc, out);
       case YAML_SCALAR_DOUBLE:
         return t_yaml_double_to_iop_field(data, scalar->d, fdesc, out);
@@ -1032,19 +1018,16 @@ t_iop_field_to_yaml_data(const iop_field_t * nonnull fdesc,
       } break;
 
       case IOP_T_STRING:
-      case IOP_T_XML:
+      case IOP_T_XML: {
+        lstr_t sv = IOP_FIELD(const lstr_t, ptr, j);
+
+        yaml_data_set_string(data, sv);
+      } break;
+
       case IOP_T_DATA: {
         lstr_t sv = IOP_FIELD(const lstr_t, ptr, j);
 
-        if (fdesc->type == IOP_T_DATA && sv.len > 0) {
-            t_SB_1k(sb);
-
-            sb_reset(&sb);
-            sb_addlstr_b64(&sb, sv, -1);
-            yaml_data_set_string(data, LSTR_SB_V(&sb));
-        } else {
-            yaml_data_set_string(data, sv);
-        }
+        yaml_data_set_bytes(data, sv);
       } break;
 
       case IOP_T_VOID:
