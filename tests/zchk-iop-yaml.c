@@ -1141,6 +1141,15 @@ Z_GROUP_EXPORT(iop_yaml)
         }, {
             .iop_path = LSTR("st.s"),
             .file_path = LSTR("5.toto"),
+        }, {
+            .iop_path = LSTR("data"),
+            .file_path = LSTR("key.pem.enc"),
+        }, {
+            .iop_path = LSTR("e"),
+            .file_path = LSTR("enum"),
+        }, {
+            .iop_path = LSTR("xml"),
+            .file_path = LSTR("doc.xml"),
         });
 
         Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
@@ -1165,6 +1174,15 @@ Z_GROUP_EXPORT(iop_yaml)
             "  - path: .st.s!\n"
             "    node:\n"
             "      included: { path: 5.toto, raw: true }\n"
+            "  - path: .data!\n"
+            "    node:\n"
+            "      included: { path: key.pem.enc, raw: true }\n"
+            "  - path: .e!\n"
+            "    node:\n"
+            "      included: { path: enum.yml, raw: false }\n"
+            "  - path: .xml!\n"
+            "    node:\n"
+            "      included: { path: doc.xml, raw: true }\n"
         ));
     } Z_TEST_END
     /* }}} */

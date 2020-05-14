@@ -1257,8 +1257,7 @@ static lstr_t t_json_file_to_yaml_file(const lstr_t json_file)
 }
 
 static bool
-included_iop_field_is_string(const iop_struct_t * nonnull st,
-                             lstr_t iop_path)
+included_iop_field_is_raw(const iop_struct_t * nonnull st, lstr_t iop_path)
 {
     t_scope;
     const iop_field_path_t *field_path;
@@ -1270,8 +1269,18 @@ included_iop_field_is_string(const iop_struct_t * nonnull st,
         return false;
     }
     iop_field_path_get_type(field_path, &type, &is_array);
+    if (is_array) {
+        return false;
+    }
 
-    return !is_array && type.type == IOP_T_STRING;
+    switch (type.type) {
+      case IOP_T_STRING:
+      case IOP_T_DATA:
+      case IOP_T_XML:
+        return true;
+      default:
+        return false;
+    }
 }
 
 static lstr_t t_get_relative_path(const lstr_t from, const lstr_t to)
@@ -1331,9 +1340,9 @@ t_gen_mapping_from_common_inc(
             = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping, &mappings);
     }
 
-    if (st && included_iop_field_is_string(st, base->iop_path)) {
-        /* In IOP-JSON, if the include is done for a string field, it is
-         * included raw. */
+    if (st && included_iop_field_is_raw(st, base->iop_path)) {
+        /* In IOP-JSON, if the include is done for a string/data/xml field,
+         * it is included raw. */
         out->node.included->path = relpath;
         out->node.included->raw = true;
     } else {
