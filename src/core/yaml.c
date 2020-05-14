@@ -1490,6 +1490,11 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
 
     if (raw) {
         yaml_data_set_string(data, subfile->file_contents);
+        /* As the include is raw, we do not want the span to point to the
+         * content of the include, as it may be binary. So use the span
+         * of the "!include" node.
+         */
+        data->span = subfile->included->data.span;
     } else {
         if (t_yaml_parse(subfile, data, &err) < 0) {
             /* no call to yaml_env_set_err, because the generated error message
@@ -6542,6 +6547,12 @@ Z_GROUP_EXPORT(yaml)
             "- !includeraw:raw/inner.json",
 
             "- \"{\\n  \\\"foo\\\": 2\\n}\\n\""
+        ));
+        Z_HELPER_RUN(z_test_pretty_print(
+            &data.seq->datas.tab[0].span,
+            "<string>:1:3: err\n"
+            "- !includeraw:raw/inner.json\n"
+            "  ^^^^^^^^^^^^^^^^^^^^^^^^^^"
         ));
 
         /* check repacking with presentation */
