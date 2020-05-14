@@ -1528,7 +1528,7 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
     qv_append(&env->subfiles, subfile);
 
     if (raw) {
-        yaml_data_set_string(data, subfile->file_contents);
+        yaml_data_set_bytes(data, subfile->file_contents);
         /* As the include is raw, we do not want the span to point to the
          * content of the include, as it may be binary. So use the span
          * of the "!include" node.
@@ -4626,6 +4626,23 @@ t_yaml_pack_subfile_in_sb(yaml_pack_env_t * nonnull env,
     return 0;
 }
 
+static bool
+yaml_data_can_be_packed_raw(const yaml_data_t * nonnull data)
+{
+    if (data->type != YAML_DATA_SCALAR) {
+        return false;
+    }
+
+    switch (data->scalar.type) {
+      case YAML_SCALAR_STRING:
+      case YAML_SCALAR_BYTES:
+        return true;
+
+      default:
+        return false;
+    }
+}
+
 static int
 t_yaml_pack_included_subfile(
     yaml_pack_env_t * nonnull env,
@@ -4646,10 +4663,8 @@ t_yaml_pack_included_subfile(
     /* if the YAML data to dump is not a string, it changed and can no longer
      * be packed raw. */
     *raw = inc->raw;
-    if (*raw && (subdata->type != YAML_DATA_SCALAR
-             ||  subdata->scalar.type != YAML_SCALAR_STRING))
-    {
-        *raw = false;
+    if (*raw) {
+        *raw = yaml_data_can_be_packed_raw(subdata);
     }
 
     if (*raw) {
@@ -5590,9 +5605,9 @@ z_write_yaml_file(const char *filepath, const char *yaml)
 }
 
 static int
-z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
-                 const yaml__document_presentation__t *presentation,
-                 unsigned flags)
+_z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
+                  const yaml__document_presentation__t *presentation,
+                  unsigned flags, bool check_reparse_equals)
 {
     t_scope;
     yaml_pack_env_t *env;
@@ -5628,9 +5643,19 @@ z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
     Z_ASSERT_N(t_yaml_parse(parse_env, &parsed_data, &err),
                "could not reparse the packed file: %pL", &err);
 
-    Z_ASSERT(yaml_data_equals(data, &parsed_data, true));
+    if (check_reparse_equals) {
+        Z_ASSERT(yaml_data_equals(data, &parsed_data, true));
+    }
 
     Z_HELPER_END;
+}
+
+static int
+z_pack_yaml_file(const char *filepath, const yaml_data_t *data,
+                 const yaml__document_presentation__t *presentation,
+                 unsigned flags)
+{
+    return _z_pack_yaml_file(filepath, data, presentation, flags, true);
 }
 
 static int
@@ -6625,7 +6650,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             "- !includeraw:raw/inner.json",
 
-            "- \"{\\n  \\\"foo\\\": 2\\n}\\n\""
+            "- !bin ewogICJmb28iOiAyCn0K"
         ));
         Z_HELPER_RUN(z_test_pretty_print(
             &data.seq->datas.tab[0].span,
@@ -6636,6 +6661,23 @@ Z_GROUP_EXPORT(yaml)
 
         /* check repacking with presentation */
         Z_HELPER_RUN(z_pack_yaml_file("packraw/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("packraw/root.yml",
+            "- !includeraw:raw/inner.json\n"
+        ));
+        Z_HELPER_RUN(z_check_file("packraw/raw/inner.json",
+            "{\n"
+            "  \"foo\": 2\n"
+            "}\n"
+        ));
+
+        /* check that repacking as a string instead of bytes does not change
+         * the result. */
+        Z_HELPER_RUN(z_check_yaml_scalar(&data.seq->datas.tab[0],
+                                         YAML_SCALAR_BYTES, 1, 3, 1, 29));
+        data.seq->datas.tab[0].scalar.type = YAML_SCALAR_STRING;
+        Z_HELPER_RUN(_z_pack_yaml_file("packraw/root.yml", &data, &pres, 0,
+                                       false));
+        data.seq->datas.tab[0].scalar.type = YAML_SCALAR_BYTES;
         Z_HELPER_RUN(z_check_file("packraw/root.yml",
             "- !includeraw:raw/inner.json\n"
         ));
@@ -6662,7 +6704,7 @@ Z_GROUP_EXPORT(yaml)
             "- !include:raw/inner.json\n"
         ));
         Z_HELPER_RUN(z_check_file("packraw2/raw/inner.json",
-            "json: \"{\\n  \\\"foo\\\": 2\\n}\\n\"\n"
+            "json: !bin ewogICJmb28iOiAyCn0K\n"
             "b: true\n"
         ));
 
