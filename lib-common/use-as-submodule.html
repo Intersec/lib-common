@@ -85,6 +85,9 @@
   <li class="nav-item" data-depth="2">
     <a class="nav-link" href="base/modules.html">Modules</a>
   </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base/threads.html">Thread jobs</a>
+  </li>
 </ul>
   </li>
 </ul>
@@ -206,11 +209,13 @@ lib-common, feel free to fork it first in your own repository.
 <div class="sectionbody">
 <div class="paragraph">
 <p>To include the waf-related build tools from lib-common, create a symlink of
-waftoolsdir from the lib-common to your project root directory:</p>
+the <code>waftools</code> directory from the lib-common to your project root directory:</p>
 </div>
 <div class="literalblock">
 <div class="content">
-<pre>$ ln -s lib-common/waftoolsdir</pre>
+<pre>$ mkdir build
+$ cd build
+$ ln -s ../lib-common/build/waftools</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -219,7 +224,6 @@ waftoolsdir from the lib-common to your project root directory:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">import os
-import waflib
 
 out = '.build-waf-%s' % os.environ.get('P', 'default') <i class="conum" data-value="1"></i><b>(1)</b>
 

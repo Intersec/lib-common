@@ -85,6 +85,9 @@
   <li class="nav-item" data-depth="2">
     <a class="nav-link" href="base/modules.html">Modules</a>
   </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base/threads.html">Thread jobs</a>
+  </li>
 </ul>
   </li>
 </ul>
@@ -356,13 +359,13 @@ avoids using bloated C99 standard macros such as <code>PRIu64</code> or <code>PR
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>uint64_t v = 0xCAFEBABEDEADBEEF
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">uint64_t v = 0xCAFEBABEDEADBEEF
 
 /* C99 standard */
 printf("%"PRIx64", v);
 
 /* Intersec's version */
-printf("%jx", v);</pre>
+printf("%jx", v);</code></pre>
 </div>
 </div>
 <div class="ulist">

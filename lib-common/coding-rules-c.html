@@ -85,6 +85,9 @@
   <li class="nav-item" data-depth="2">
     <a class="nav-link" href="base/modules.html">Modules</a>
   </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base/threads.html">Thread jobs</a>
+  </li>
 </ul>
   </li>
 </ul>
@@ -249,7 +252,7 @@ per line (unless it’s in a string ;p)</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>do1(); do2(); /* bad */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">do1(); do2(); /* bad */
 
 if (cond) { do_sth(); } /* bad */
 
@@ -259,7 +262,7 @@ struct foo {
     int a;              /* good */
     char b, c;          /* good */
     int d; char e;      /* bad  */
-};</pre>
+};</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -272,7 +275,7 @@ current indentation level.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>int main(void)
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int main(void)
 {
     switch (foo) {
       case 1:     /* good */
@@ -283,7 +286,7 @@ current indentation level.</p>
     }
   done:           /* good */
     (void)0;
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -297,11 +300,11 @@ would overflow the columns count).</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>switch (foo) { /* good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">switch (foo) { /* good */
 }
 
 switch(foo) { /* bad */
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -313,8 +316,8 @@ switch(foo) { /* bad */
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>1 + 3 * (3 &lt;&lt; 2); /* good */
-1+2*3;            /* bad  */</pre>
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">1 + 3 * (3 &lt;&lt; 2); /* good */
+1+2*3;            /* bad  */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -327,9 +330,9 @@ mandatory.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>fn(1, 2, 3); /* good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">fn(1, 2, 3); /* good */
 fn(1,2,3);   /* bad */
-return ;     /* bad */</pre>
+return ;     /* bad */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -345,8 +348,8 @@ flags probably tricky code.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>++i; /* bad  */
-i++; /* good */</pre>
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">++i; /* bad  */
+i++; /* good */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -373,11 +376,11 @@ previous line). Push the bracket on the next line.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo
 &amp;&amp;  bar)
 {
     /* do stuff */
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -389,7 +392,7 @@ previous line). Push the bracket on the next line.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>/* Good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* Good */
 if (cond1) {
 } else
 if (cond2) {
@@ -400,7 +403,7 @@ if (cond2) {
 if (cond1) {
 } else if (cond2) {
 } else {
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -412,7 +415,7 @@ if (cond1) {
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>if (foo) { /* good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">if (foo) { /* good */
 }
 
 if (foo)   /* bad  */
@@ -454,7 +457,7 @@ if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo   /* good */
 &amp;&amp;  bar)
 {
     return 0;
-}</pre>
+}</code></pre>
 </div>
 </div>
 </div>
@@ -489,13 +492,13 @@ a = pretty_long_condition ? another_quite_long_stuff
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>switch (val) {
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">switch (val) {
     int a = 1; /* bad; the init is not run */
 
   case A:
     a = 0;
     break;
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -530,7 +533,7 @@ are not linked to the <code>switch() case:</code> construct.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>switch (val) {
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">switch (val) {
   case CONSTANT0:
     code;
     break;
@@ -555,7 +558,7 @@ are not linked to the <code>switch() case:</code> construct.</p>
 
     code;
   } break;
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -568,7 +571,7 @@ are not linked to the <code>switch() case:</code> construct.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>switch (val) {
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">switch (val) {
   case A:
     code;
   case B: /* bad, may be a fall through or a missing break */
@@ -583,7 +586,7 @@ switch (val) {
   case B:
     code;
     break;
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -617,8 +620,8 @@ of code).</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>int main(void) { /* bad */
-}</pre>
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int main(void) { /* bad */
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -630,10 +633,10 @@ of code).</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>fn(1, 2, 3);        /* good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">fn(1, 2, 3);        /* good */
 fn (1, 2, 3);       /* bad  */
 assert (condition); /* good */
-assert(condition);  /* bad  */</pre>
+assert(condition);  /* bad  */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -646,8 +649,8 @@ the opening paren column, unless it’s after the 40th column:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre> some_call(struct-&gt;bar, 19 * long_variable_name, i++,
-          i_love_long_variables_too_much_for_my_sake);</pre>
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c"> some_call(struct-&gt;bar, 19 * long_variable_name, i++,
+          i_love_long_variables_too_much_for_my_sake);</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -662,10 +665,10 @@ function calls.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>void something_short(void); /* good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void something_short(void); /* good */
 
 struct very_long_type_tag *
-something_not_very_short(int, struct bar *, int, void *); /* good */</pre>
+something_not_very_short(int, struct bar *, int, void *); /* good */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -678,7 +681,7 @@ limited number of lines</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>static void
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">static void
 something_not_very_short(struct my_struct *a,
                          struct my_struct *b); /* bad, could fit on only 2 lines */
 
@@ -686,7 +689,7 @@ static void
 something_not_very_short(struct my_struct *a, struct my_struct *b); /* good */
 
 static void something_not_very_short(struct my_struct *a,
-                                     struct my_struct *b) /* good */</pre>
+                                     struct my_struct *b) /* good */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -778,7 +781,7 @@ for further error management.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>int my_parser_run(const char *s, const char **out, my_struct *s); /* good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int my_parser_run(const char *s, const char **out, my_struct *s); /* good */
 
 bool can_i_has_more_beer(void); /* good */
 
@@ -786,7 +789,7 @@ object_t *build_object(const char *url); /* good */
 
 bool my_connect(const char *url); /* bad: should really use int */
 
-parser_t *do_parse(const char *s, parser_state_t **state); /* bad: several returned value should be treated the same way */</pre>
+parser_t *do_parse(const char *s, parser_state_t **state); /* bad: several returned value should be treated the same way */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -965,10 +968,10 @@ if (res) {
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>#define GOOD  1
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define GOOD  1
 #define BAD 2
 #define GOOD_FN(a, b)  body
-#define BAD_FN(a, b) bad_body</pre>
+#define BAD_FN(a, b) bad_body</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -981,9 +984,9 @@ semi-colon should be in the invocation, not in the macro:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>#define BAD_MACRO(_a)  do_something(_a);
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define BAD_MACRO(_a)  do_something(_a);
 
-#define GOOD_MACRO(_a)  do_something(_a)</pre>
+#define GOOD_MACRO(_a)  do_something(_a)</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -997,9 +1000,9 @@ semi-colon should be in the invocation, not in the macro:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>#define BAD_MACRO(_a)  { char *a = (_a); foo(a); bar(a); }
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define BAD_MACRO(_a)  { char *a = (_a); foo(a); bar(a); }
 
-#define GOOD_MACRO(_a)  do { char *a = (_a); foo(a); bar(a); } while (0)</pre>
+#define GOOD_MACRO(_a)  do { char *a = (_a); foo(a); bar(a); } while (0)</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1029,7 +1032,7 @@ lines macros simple</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>/* GOOD macros */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* GOOD macros */
 #define GOOD_MACRO(a)  do {                                                  \
         do_something();                                                      \
         do_something_else();                                                 \
@@ -1063,7 +1066,7 @@ lines macros simple</p>
 #define BAD_MACRO(a)  do { \
         do_something();                                                      \
         do_something_else();                                                 \
-    } while (0)                                                              \</pre>
+    } while (0)                                                              \</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1112,7 +1115,7 @@ of a header file doesn’t count for indent levels.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>#ifndef MY_HEADER_GUARD
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#ifndef MY_HEADER_GUARD
 #define MY_HEADER_GUARD
 
 #ifdef __GNUC__
@@ -1126,7 +1129,7 @@ of a header file doesn’t count for indent levels.</p>
 # error "go away, loser"
 #endif /*__GNUC__ */
 
-#endif /* MY_HEADER_GUARD */</pre>
+#endif /* MY_HEADER_GUARD */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1197,9 +1200,9 @@ using the C99 for loop variable inline declarations is recommended:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>for (int i = 0; i &lt; 99; i++) { /* good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">for (int i = 0; i &lt; 99; i++) { /* good */
     /* ... */
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1213,7 +1216,7 @@ line, one statement). <code>t_scope</code> is considered as a declaration.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>{ /* bad */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">{ /* bad */
     int foo;
     do_something();
     do_something2();
@@ -1235,7 +1238,7 @@ line, one statement). <code>t_scope</code> is considered as a declaration.</p>
     int foo;
 
     do_something();
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1249,7 +1252,7 @@ but not adviced:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>int a = 0, b = 0; /* bad */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int a = 0, b = 0; /* bad */
 
 int *a, b; /* bad */
 
@@ -1263,7 +1266,7 @@ int a, b; /* allowed */
 
 int a, b = 0; /* bad */
 
-my_type_t a, b; /* bad */</pre>
+my_type_t a, b; /* bad */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1275,7 +1278,7 @@ my_type_t a, b; /* bad */</pre>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>{
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">{
     int important_variable =
         long_function_which_does_not_fit_into_one_line();                        /* bad */
 }
@@ -1300,7 +1303,7 @@ my_type_t a, b; /* bad */</pre>
     variable = long_fonction_with_parameters(parameter1, parameter2,
                                              parameter3);                       /* good */
 
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1312,13 +1315,13 @@ my_type_t a, b; /* bad */</pre>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>const char *var_name; /* good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">const char *var_name; /* good */
 
 int fun(char * foo);  /* bad */
 char* baz;            /* bad */
 
 char *p, *q;          /* good, or not so good because you should declare them
-                         on separate lines… */</pre>
+                         on separate lines… */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1332,12 +1335,12 @@ used, <code>const</code> is pushed after the type:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>int foo(const char *arg); /* good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int foo(const char *arg); /* good */
 int foo(char const *arg); /* bad  */
 
 static const int a = 2;   /* bad  */
 static char const * const str_array[] = { /* good */
-}</pre>
+}</code></pre>
 </div>
 </div>
 </div>
@@ -1361,11 +1364,11 @@ functional types and the <code>_b</code> suffix for blocks types.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>enum foo {
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">enum foo {
    FOO_0,
    FOO_1,
    FOO_MAX, /* good */
-};</pre>
+};</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1379,14 +1382,14 @@ the closing bracket.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre> enum foo {
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c"> enum foo {
     FOO_0,
     FOO_1,
 };
 
 typedef struct bar_t {
     /* ... */
-} bar_t;</pre>
+} bar_t;</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1399,14 +1402,14 @@ typedef struct bar_t {
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>typedef enum bar_t {
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef enum bar_t {
 } bar_t;
 
 enum foo {
    FOO_0,
    FOO_1,
    FOO_MAX, /* good */
-};</pre>
+};</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1418,11 +1421,11 @@ enum foo {
 </div>
 <div class="listingblock">
 <div class="content">
-<pre> int fun(void (*cb)(int, int, int))
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c"> int fun(void (*cb)(int, int, int))
 {
     (*cb)(1, 2, 3); /* good */
     cb(1, 2, 3);    /* bad */
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="sect2">
@@ -1436,10 +1439,10 @@ enum foo {
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>foo *foo_new(void);
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">foo *foo_new(void);
 foo *foo_init(foo *);
 void foo_wipe(foo *);
-void foo_delete(foo **);</pre>
+void foo_delete(foo **);</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1452,7 +1455,7 @@ is:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>static inline foo *foo_new(void)
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">static inline foo *foo_new(void)
 {
     return foo_init(p_new_raw(foo, 1));
 }
@@ -1473,7 +1476,7 @@ static inline void foo_delete(foo **v)
         foo_wipe(*v);
         p_delete(v);
     }
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1750,7 +1753,7 @@ would have a noticeable performance impact</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>static int bar_initialize(void *arg)
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">static int bar_initialize(void *arg)
 {
     ...
 }
@@ -1762,7 +1765,7 @@ static int bar_shutdown(void)
 
 MODULE_BEGIN(bar)
     ...
-MODULE_END()</pre>
+MODULE_END()</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1775,8 +1778,8 @@ functions:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>void bar_initialize(...);
-void bar_shutdown(...);</pre>
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void bar_initialize(...);
+void bar_shutdown(...);</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1804,10 +1807,10 @@ zero for errors</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>/* This is a very long comment which
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* This is a very long comment which
  * requires multiple lines to fit in
  * this document.
- */</pre>
+ */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1819,13 +1822,13 @@ zero for errors</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>#if 0 /* dead code */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#if 0 /* dead code */
     dead_code(1, 2, 3);
 #else
     real_code(1, 2, 3);
 #endif
 
-/* dead_code(1, 2, 3); */ /* bad */</pre>
+/* dead_code(1, 2, 3); */ /* bad */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1859,8 +1862,8 @@ both must be rewritten.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>while (true) { /* bad */
-}</pre>
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">while (true) { /* bad */
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1872,13 +1875,13 @@ both must be rewritten.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>/* Good */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* Good */
 for (size_t i = limit; i-- &gt; 0; ) {
 }
 
 /* Bad, condition is always true since i is unsigned */
 for (size_t i = limit - 1; i &gt;= 0; i--) {
-}</pre>
+}</code></pre>
 </div>
 </div>
 </div>
@@ -1931,12 +1934,12 @@ use <code>pstrcpy(buf, sizeof(buf), string);</code></p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>{
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">{
     t_scope;
     char *buf = t_new_raw(char, BUFSIZ);
 
     ...
-}</pre>
+}</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1949,10 +1952,10 @@ prefixed by <code>t_</code>.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre>static char *t_get_name(int id)
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">static char *t_get_name(int id)
 {
     return t_fmt(NULL, "name-%d", id);
-}</pre>
+}</code></pre>
 </div>
 </div>
 </div>

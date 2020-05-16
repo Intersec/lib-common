@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Thread Jobs :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="modules.html">Modules</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="threads.html">Thread jobs</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Base library</li>
+    <li class="crumb"><a href="threads.html">Thread jobs</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Thread Jobs</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_jobs_and_queues">Jobs and Queues</a>
+<ul class="sectlevel2">
+<li><a href="#_jobs">Jobs</a></li>
+<li><a href="#_unordered_execution">Unordered execution</a></li>
+<li><a href="#_ordered_execution">Ordered execution</a></li>
+<li><a href="#_synchronisation_points">Synchronisation points</a></li>
+</ul>
+</li>
+<li><a href="#_usage_patterns">Usage patterns</a>
+<ul class="sectlevel2">
+<li><a href="#_divide_conquer">Divide &amp; Conquer</a>
+<ul class="sectlevel3">
+<li><a href="#_base">Base</a></li>
+<li><a href="#_double_explosion">Double explosion</a></li>
+</ul>
+</li>
+<li><a href="#_post_notify">Post &amp; Notify</a>
+<ul class="sectlevel3">
+<li><a href="#_base_2">Base</a></li>
+<li><a href="#_map_reduce">Map-Reduce</a></li>
+<li><a href="#_mpsc_queue"><code>mpsc</code>-queue</a></li>
+</ul>
+</li>
+<li><a href="#_limited_parallelism">Limited parallelism</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Thread Jobs library is the lib-common implementation of the job posting
+programming model. Its main inspiration is
+<a href="https://developer.apple.com/library/mac/#documentation/Performance/Reference/GCD_libdispatch_Ref/Reference/reference.html">Apple&#8217;s GCD library</a>.
+The main difference resides in the integration of GCD in the operating system
+and the roots of the runtime.</p>
+</div>
+<div class="paragraph">
+<p>The POSIX model for parallelism has its roots at a time where computers had few
+processors and cores. It uses threads with explicit locking (using mutexes,
+condition variables, semaphores). This has some issues:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>the optimal cases are those with very few concurrence since contended locks
+behave badly</p>
+</li>
+<li>
+<p>neither the language nor the compiler knows about locks and so
+neither is able to provide good-practice or static validation. As a consequence
+this is error-prone</p>
+</li>
+<li>
+<p>everything in that context bear some overhead: allocations are slower,
+taking/releasing locks must be done explicitly (and in the right order), &#8230;&#8203;</p>
+</li>
+<li>
+<p>the code is hard to debug and validate for developers</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>The job posting paradigm provides a highly scalable approach to concurrent
+programming since there&#8217;s no more locks. Instead, each concurrent piece of code
+(named job) is posted in queues. Then, the actual parallelism is performed by
+the runtime that will schedule the jobs on the available CPUs. Serialization is
+performed using queues or synchronization points.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_jobs_and_queues"><a class="anchor" href="#_jobs_and_queues"></a>Jobs and Queues</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_jobs"><a class="anchor" href="#_jobs"></a>Jobs</h3>
+<div class="paragraph">
+<p>In the <code>thr-job</code> library, a job can be either a small context structure or a
+block. The first solution can be used in case your job are complex while the
+second offers a great readability by inlining the code of the job simply as a
+kind of branch of another function.</p>
+</div>
+<div class="paragraph">
+<p>To use the block variant, simply use the <code>_b</code> variants of the functions, while
+the context based variant necessitate that you create a structure type that
+extends the <code>thr_job_t</code> structure, create one instance, post a job and then
+destroy the object.</p>
+</div>
+<div class="paragraph">
+<p>The following code example (taken from <a href="../dev-c.html" class="page">the Block documentation</a>)
+shows in a simple use case (doing "something" on every element of a vector),
+how both approach differ.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Without parallelism</dt>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void apply_to_all_map(qv_t(map) *maps)
+{
+    qv_for_each_pos(map, pos, maps) {
+        map_t *map = maps-&gt;tab[pos];
+
+        do_something1(map);
+        do_something2(map);
+    }
+}</code></pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Parallelism without blocks</dt>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">struct apply_to_map_ctx_t {
+    thr_job_t job;
+    mapt_t *map;
+};
+
+static void apply_to_map_job(thr_job_t *job)
+{
+    struct apply_to_map_ctx_t *ctx
+        = container_of(job, struct apply_to_map_ctx_t, job);
+
+    do_something1(ctx-&gt;map);
+    do_something2(ctx-&gt;map);
+    p_delete(&amp;job); /* Don't forget to deallocate the job */
+}
+
+void apply_to_all_map(qv_t(map) *maps)
+{
+    thr_syn_t syn;
+
+    thr_syn_init(&amp;syn);
+    qv_for_each_pos(map, pos, maps) {
+        /* We allocate the context because is needs
+         * to persists until the job is executed
+         * (with is out of scope of the loop.
+         */
+        struct apply_to_map_ctx_t *ctx
+            = p_new(struct apply_to_map_ctx_t, 1);
+
+        ctx-&gt;job.run = &amp;apply_to_map_job;
+        ctx-&gt;map = maps-&gt;tab[pos];
+        thr_syn_schedule(&amp;syn, &amp;ctx-&gt;job);
+    }
+    thr_syn_wait(&amp;syn);
+    thr_syn_wipe(&amp;syn);
+}</code></pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Parallelism with blocks</dt>
+</dl>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void apply_to_all_map(qv_t(map) *maps)
+{
+    thr_syn_t syn;
+
+    thr_syn_init(&amp;syn);
+    qv_for_each_pos(map, pos, maps) {
+        map_t *map = maps-&gt;tab[pos];
+
+        /* The allocation and variable
+         * capture is automatic thanks
+         * to the Block's runtime.
+         */
+        thr_syn_schedule_b(&amp;syn, ^{
+            do_something1(map);
+            do_something2(map);
+        });
+    }
+    thr_syn_wait(&amp;syn);
+    thr_syn_wipe(&amp;syn);
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>As you can see, using the Block version is much less intrusive (in that case)
+since it allows jobs to be posted by simply adding a <code>thr_syn_schedule_b</code>
+around the body of the loop.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_unordered_execution"><a class="anchor" href="#_unordered_execution"></a>Unordered execution</h3>
+<div class="paragraph">
+<p>Jobs can be posted in an unordered fashion. For this, use the <code>thr_schedule</code>
+function family. Unless there are too many awaiting jobs, this function simply
+puts the job in a pending job queue and returns immediately (if the queue is
+full - 256 awaiting jobs, the job get executed immediately). Jobs posted that
+way can be executed concurrently, which means they must be very careful not
+having side effects on shared memory.</p>
+</div>
+<div class="paragraph">
+<p>Scheduling jobs for unordered execution is the most efficient solution in term
+of parallelism. It scales gracefully to the number of CPUs, so it the solution
+of choice whenever you have to bring parallelism to some code. However, it has
+constraints, the main one is that you must ensure that each job is
+self-contained and won&#8217;t touch memory used by other jobs. Moreover, if you want
+optimal performances, you&#8217;ll want the context of each job to be 64-bytes
+aligned in order to avoid sharing a CPU cache-line with another job, which
+would hurt the performances with CPU-level locking.</p>
+</div>
+<div class="paragraph">
+<p>If we take back our loop example, we post one job per entry of the vector using
+<code>thr_syn_schedule_b</code>. This means that we post a lot of jobs that can be
+executed in a totally random order (and they will be due to the fact some jobs
+will get transferred from a CPU queue to another).</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_ordered_execution"><a class="anchor" href="#_ordered_execution"></a>Ordered execution</h3>
+<div class="paragraph">
+<p>Sometimes we need to ensure that actions are executed sequentially. This
+happens when some action interacts with thread-unsafe resources, for example,
+if you want to interact with the event loop (or ichannels). In that case, the
+solution is to put the job in a queue.</p>
+</div>
+<div class="paragraph">
+<p>Queues are instantiated using <code>thr_queue_create()</code> (excepted the default
+special <code>thr_queue_main_g</code>, that is created by the <code>thr-job</code> runtime). Then you
+can post jobs in them using the <code>thr_queue</code> function family. Job posting on a
+queue is thread-safe, and the execution of a queue is guaranteed to be ordered
+and sequential. There&#8217;s absolutely no guarantee however that a job posted on a
+queue will be executed immediately or in the same thread as the one in which it
+get posted.</p>
+</div>
+<div class="paragraph">
+<p>The mostly used queue is <code>thr_queue_main_g</code>. Every job posted on that queue is
+guaranteed to be executed on the main thread and thus it is used for example to
+send the result of a job back in a ichannel. That particular queue is
+automatically consumed whenever the event loop is executed or when a
+<code>thr_syn_wait</code> is used on the main thread. Moreover, when the event loop is
+idle and a job is queued on <code>thr_queue_main_g</code>, the event loop is automatically
+waken up and the job get consumed immediately.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_synchronisation_points"><a class="anchor" href="#_synchronisation_points"></a>Synchronisation points</h3>
+<div class="paragraph">
+<p>In order to be able to wait for the completion of some jobs, you can place a
+synchronization point by calling <code>thr_syn_wait()</code>. For this, you must queue or
+schedule you job with the <code>_syn</code> variant of the call and provide a <code>thr_syn_t</code>
+previously initialized.</p>
+</div>
+<div class="paragraph">
+<p>A <code>thr_syn_t</code> can be used several times and can be waited concurrently by
+several threads.</p>
+</div>
+<div class="paragraph">
+<p>The queue API offers a helper <code>thr_queue_sync</code> that post a job on a queue and
+wait for the job to be finished. Be careful in using this because jobs posted
+using that function must not use <code>thr_queue_sync</code> on the same queue themselves
+(the queue is not reentrant).</p>
+</div>
+<div class="paragraph">
+<p>In a general rule of thumb, synchronization must be done carefully because it
+can lead to deadlocks in case of misuse.</p>
+</div>
+<div class="paragraph">
+<p>Moreover, using a <code>thr_syn_t</code> is often mandatory, even in purely asynchronous
+jobs because it can be used to wait for the termination of all background
+tasks.</p>
+</div>
+<div class="paragraph">
+<p>Our loop example above use a <code>thr_syn_t</code> to ensure that even if each individual
+job is performed asynchronously, the whole processing remains synchronous.</p>
+</div>
+<div class="paragraph">
+<p><code>thr_syn_wait()</code> may spawn new threads, so using it inside recursive jobs is
+forbidden. If jobs spawns children jobs (recursively), we usually want the job
+to wait for all children before returning, so we used thr_syn_wait() to
+synchronize at their end. However, this could create a huge amount of threads
+suddenly similar to a fork bomb.</p>
+</div>
+<div class="paragraph">
+<p>For example, this pattern (spawn/wait/done) should never be used:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void do_job()
+{
+   thr_syn_t syn;
+
+   /* do stuff */
+
+   /* spawn children */
+   thr_syn_init(&amp;syn);
+   for (int i = 0; i &lt; n; i++) {
+      thr_syn_schedule_b(&amp;syn, ^{
+         do_job();
+      });
+   }
+   thr_syn_wait(&amp;syn);
+   /* all data is ready, end of children */
+   end_of_current_job_level()
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Instead, you should use only one <code>thr_syn_t</code> (hence only one <code>thr_syn_wait()</code>),
+and passing a callback that will be executed by the last job:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void do_job(thr_syn_t *syn, block_t end_of_parent_job)
+{
+   atomic_uint count = ATOMIC_VAR_INIT(n);
+
+   /* do stuff */
+
+   /* spawn children */
+   for (int i = 0; i &lt; n; i++) {
+       thr_syn_schedule_b(&amp;syn, ^{
+           do_job(syn, ^{
+               if (atomic_fetch_sub(&amp;count, 1) == 1) {
+                  /* last child executes this function's  */
+                  end_of_current_job_level();
+                  /* last child also executes parent continuation */
+                  end_of_parent_job();
+               }
+           });
+       });
+   }
+}
+
+void main_call()
+{
+    thr_syn_t syn;
+
+    thr_syn_init(&amp;syn);
+    do_job(&amp;syn, ^{
+        /* called after everything ended, you probably want to
+         * set a local variable */
+    });
+    thr_syn_wait(&amp;syn);
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_usage_patterns"><a class="anchor" href="#_usage_patterns"></a>Usage patterns</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This section show some simple usage pattern that can be easily reproduced.</p>
+</div>
+<div class="sect2">
+<h3 id="_divide_conquer"><a class="anchor" href="#_divide_conquer"></a>Divide &amp; Conquer</h3>
+<div class="sect3">
+<h4 id="_base"><a class="anchor" href="#_base"></a>Base</h4>
+<div class="paragraph">
+<p>This is the use case demonstrated above:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>a data set get split in a multitude of small data chunks</p>
+</li>
+<li>
+<p>each data chunk is processed independently</p>
+</li>
+<li>
+<p>we wait for the completion of the job</p>
+</li>
+</ul>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Vector</th>
+<th class="tableblock halign-left valign-top">Tree</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void apply_to_all_map(qv_t(map) *maps)
+{
+    thr_syn_t syn;
+
+    thr_syn_init(&amp;syn);
+    qv_for_each_pos(map, pos, maps) {
+        map_t *map = maps-&gt;tab[pos];
+
+        thr_syn_schedule_b(&amp;syn, ^{
+            do_something(map);
+        });
+    }
+    thr_syn_wait(&amp;syn);
+    thr_syn_wipe(&amp;syn);
+}</code></pre>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">typedef tree_t {
+    tree_t *left;
+    tree_t *right;
+
+    map_t *map; /* ... payload */
+} tree_t;
+
+static void apply_to_tree(thr_syn_t *syn, tree_t *tree)
+{
+    if (!tree) {
+        return;
+    }
+    thr_syn_schedule_b(syn, ^{
+        apply_to_tree(syn, tree-&gt;left);
+    });
+    thr_syn_schedule_b(syn, ^{
+        apply_to_tree(syn, tree-&gt;right);
+    });
+    do_something(tree-&gt;map);
+}
+
+void apply_to_all_tree(tree_t *tree)
+{
+    thr_syn_t syn;
+
+    thr_syn_init(&amp;syn);
+    apply_to_tree(&amp;syn, tree);
+    thr_syn_wait(&amp;syn);
+    thr_syn_wipe(&amp;syn);
+}</code></pre>
+</div>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_double_explosion"><a class="anchor" href="#_double_explosion"></a>Double explosion</h4>
+<div class="paragraph">
+<p>In case you are using large data set, it can be clever to first post
+coarse-grained jobs which themselves will post fine-grained jobs. This is
+because the CPU-local queue is limited to 256 pending jobs, so if you post a
+lot of jobs in it, a lot of them will get executed immediately hitting the peak
+parallelism. Moreover, since posting a job is not totally free (a few hundreds
+of CPU cycles), you may want to keep the fine-grained ones to be large enough
+to overweight that cost.</p>
+</div>
+<div class="paragraph">
+<p>A constant named <code>thr_parallelism_g</code> exposes the number of processing threads.
+You can use it to estimate the number of coarse-grained jobs to post (usually a
+small factor of that constant, such a 2 times).</p>
+</div>
+<div class="paragraph">
+<p>Here is the vector example rewritten with that double-explosion pattern:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void apply_to_all_map(qv_t(map) *maps)
+{
+    t_scope;
+    int jobs_per_coarse = DIV_ROUND_UP(maps-&gt;len / (2 * thr_parallelism_g));
+    thr_syn_t *syn = t_new_raw(thr_syn_t, 1);
+
+    thr_syn_init(syn);
+
+    for (int i = 0; i &lt; maps-&gt;len; i += jobs_per_coarse) {
+        thr_syn_schedule_b(syn, ^{
+            for (int j = i; j &lt; MIN(maps-&gt;len, i + jobs_per_coarse); j++) {
+                map_t *map = maps-&gt;tab[j];
+                thr_syn_schedule_b(syn, ^{
+                    do_something(map);
+                });
+            }
+        });
+    }
+    thr_syn_wait(syn);
+    thr_syn_wipe(syn);
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_post_notify"><a class="anchor" href="#_post_notify"></a>Post &amp; Notify</h3>
+<div class="sect3">
+<h4 id="_base_2"><a class="anchor" href="#_base_2"></a>Base</h4>
+<div class="paragraph">
+<p>The post-notify pattern lets you perform some task in background and then
+notify the main thread when the task is finished. It may uses a queue for the
+background tasks and always use the main (or another) queue for the
+notification. This is a useful pattern in case you have long-running tasks that
+must not block the program but that require to provide user-feedback on
+termination.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Background computation</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Background <code>fsync()</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void IOP_RPC_IMPL(compute, do)
+{
+    thr_schedule_b(^{
+        int res = do_computation();
+        thr_queue_b(thr_queue_main_g, ^{
+            ic_reply(NULL, slot, .res = res);
+        });
+    });
+}</code></pre>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">static thr_queue_t *queue_g;
+
+void IOP_RPC_IMPL(data, sync)
+{
+    thr_queue_b(queue_g, ^{
+        fsync(_G.data_fd);
+        thr_queue_b(thr_queue_main_g, ^{
+            ic_reply(NULL, slot);
+        });
+    });
+}</code></pre>
+</div>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_map_reduce"><a class="anchor" href="#_map_reduce"></a>Map-Reduce</h4>
+<div class="paragraph">
+<p>A common variant is the Map-Reduce pattern. In that pattern, we have two
+passes:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the map pass that apply a processing independently on each element of the
+dataset</p>
+</li>
+<li>
+<p>the reduce pass that aggregate the results</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void map_reduce(qv_t(map) *maps)
+{
+    __block reduce_t res;
+    __block int pending = maps-&gt;len;
+    thr_queue_t *reduce_queue = thr_queue_create();
+
+    qv_for_each_pos(maps, pos, maps) {
+        map_t *map = maps-&gt;tab[pos];
+
+        thr_schedule_b(^{
+            intermediate_t map_res = do_map(map);
+            thr_queue_b(reduce_queue, ^{
+                do_reduce(res, map_res);
+                pending--;
+                if (pending == 0) {
+                    thr_queue_g(thr_queue_main_g, ^{
+                        has_result(res);
+                    });
+                }
+            });
+        });
+    }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_mpsc_queue"><a class="anchor" href="#_mpsc_queue"></a><code>mpsc</code>-queue</h4>
+<div class="paragraph">
+<p>The MPSC queue (multiple producers, single consumer) provide a lower level
+approach. Instead of posting jobs in a queue, you post data in a queue and if
+the queue was empty then you post a job that will consume it. This approach
+could be used in a database commit management. However, this has caveats
+(mostly because you have not ordering guarantee on the notification part) so
+use it with a lot of care.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_limited_parallelism"><a class="anchor" href="#_limited_parallelism"></a>Limited parallelism</h3>
+<div class="paragraph">
+<p>Sometime, you may want to post asynchronous jobs but limit the actual amount of
+parallelism to something well under to the number of CPUs. For this, you can
+instantiate a set of queues (no more that the maximum parallelism you want to
+allow) and dispatch your jobs in those queues. Jobs are executed sequentially
+in each queue but in random order across queues so, you fall back the
+"unordered" processing case.</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

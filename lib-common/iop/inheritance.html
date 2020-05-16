@@ -85,6 +85,9 @@
   <li class="nav-item" data-depth="2">
     <a class="nav-link" href="../base/modules.html">Modules</a>
   </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../base/threads.html">Thread jobs</a>
+  </li>
 </ul>
   </li>
 </ul>
@@ -440,7 +443,7 @@ structure, using the <code>__init</code> helper:</p>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">test__b2__t b2;
 
-test__b2__init(&amp;b2);</code></pre>
+iop_init(test__b2, &amp;b2);</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -457,9 +460,10 @@ done <strong>very carefully</strong>.</p>
 </div>
 <div class="paragraph">
 <p>To take the example of the <code>ClassContainer</code> structure defined just above,
-calling <code>test<em>class_container</em>init</code> will set the <code>class_container_a1</code> pointer
-to NULL, and trying to pack it just after would be invalid since <code>A1</code> is a
-mantatory field in <code>ClassContainer</code> (the consequence will be a crash).</p>
+calling <code>iop_init(test__class_container, &#8230;&#8203;)</code> will set the
+<code>class_container_a1</code> pointer to NULL, and trying to pack it just after would
+be invalid since <code>A1</code> is a mantatory field in <code>ClassContainer</code>
+(the consequence will be a crash).</p>
 </div>
 <div class="paragraph">
 <p>To get a fully valid <code>ClassContainer</code> instance, the <code>a1</code> pointer should be
@@ -580,7 +584,7 @@ IOP_CLASS_EXACT_SWITCH(my_instance) {
 <div class="paragraph">
 <p>First of all, the IOP packages containing classes definitions have to be
 registered <strong>before</strong> trying to pack or unpack any class. This will also make the
-class_id collision checks that were discusses above:</p>
+class_id collision checks that were discussed above:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -589,7 +593,7 @@ class_id collision checks that were discusses above:</p>
 </div>
 <div class="paragraph">
 <p>Then, the binary packing/unpacking of a class object can be done with the
-<code><em>bpack</code>/<code></em>bunpack_ptr</code> helpers.</p>
+<code>*_bpack</code>/<code>*_bunpack_ptr</code> helpers.</p>
 </div>
 <div class="paragraph">
 <p>When unpacking, a <strong>double-pointer</strong> on the destination object is given. It is
@@ -599,9 +603,11 @@ allocated (or reallocated). Here is a simple example of unpacking:</p>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">t_scope;
 test__a1__t *foo = NULL;
-lstr_t input = &lt;get packed data from somewhere&gt;;
+pstream_t input = &lt;get packed data from somewhere&gt;;
 
-if (t_test__a1__bunpack_ptr(&amp;input, &amp;foo) &lt; 0) {
+if (iop_bunpack_ptr(t_pool(), &amp;test__a1__s, (void **)&amp;foo, input,
+    false) &lt; 0)
+{
     /* error handling */
 } else {
     /* successful unpack */
