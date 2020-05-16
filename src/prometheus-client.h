@@ -30,41 +30,8 @@
  * This is a simple implementation of a Prometheus (https://prometheus.io/)
  * client, integrated to the lib-common.
  *
- * \section limitations Limitations
- *
- * It tries to stick to the spirit of the "Writing client libraries" page
- * (https://prometheus.io/docs/instrumenting/writing_clientlibs), but
- * simplifications were made with our use-cases in mind:
- *
- *  - there is a unique collector (so no collector registry), and all metrics
- *    are automatically registered in it when using the high-level helpers.
- *  - only counter and gauge metrics are implemented (at least for now).
- *  - metrics creation/deletion is NOT thread safe, so metrics and children
- *    must be created from the thread of the event loop; however, modifying
- *    the value of of an existing metric is thread safe (using the provided
- *    helpers).
- *
- * \section error_handling Error handling
- *
- * Errors at metrics creation (ie. invalid metric or label name, invalid
- * number of labels when creating a child, ...) are fatal errors: the program
- * stops when it happens, with a proper error and generating a core dump.
- *
- * We have made this choice because this kind of errors are programatic
- * errors, and are supposed to happen as soon as the program is launched, so
- * cannot happen in production if the code was properly tested.
- *
- * Thanks to that, the users of the API do not have to handle these error
- * cases, which simplifies the code.
- *
- * \section memory_management Memory management
- *
- * User's code usually do not have to manually destroy created metrics since
- * all the allocated memory is automatically destroyed when the
- * prometheus_client module is released.
- *
- * However, it is still possible to call obj_delete on created objects if
- * needed.
+ * Read the documentation here:
+ * https://intersec.github.io/lib-common/lib-common/base/prometheus-client.html
  */
 
 /* {{{ Base metric class */

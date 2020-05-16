@@ -19,6 +19,7 @@ It also contains higher level libraries:
 * tracing and reporting primitives
 * program argument parser
 * ASN1 parser / writer
+* A prometheus client
 * ...
 
 It is also the home of our IOP library. The IOP (Intersec Object Packer) is a

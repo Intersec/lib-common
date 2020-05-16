@@ -1,0 +1,167 @@
+= Prometheus client
+:toc: :numbered:
+
+The lib-common provides a simple implementation of a
+https://prometheus.io/[Prometheus] client.
+
+== Resources
+
+Its header file is `src/prometheus-client.h`. All structures and APIs are
+documented there.
+
+Unit tests are in `tests/zchk-prometheus.blk`.
+
+An example program using the prometheus client to expose dummy metrics is in
+`examples/ex-prometheus-client.c`.
+
+== Limitations
+
+It tries to stick to the spirit of the
+https://prometheus.io/docs/instrumenting/writing_clientlibs[Writing client libraries]
+page, but simplifications were made with our use-cases in mind:
+
+* there is a unique collector (so no collector registry), and all metrics are
+  automatically registered in it when using the high-level helpers.
+* only counter and gauge metrics are implemented (at least for now).
+* metrics creation/deletion is NOT thread safe, so metrics and children must
+  be created from the thread of the event loop; however, modifying the value
+  of an existing metric is thread safe (using the provided helpers).
+
+== Error handling
+
+Errors at metrics creation (ie. invalid metric or label name, invalid number
+of labels when creating a child, ...) are fatal errors: the program stops
+when it happens, with a proper error and generating a core dump.
+
+We have made this choice because this kind of errors are programmatic errors,
+and are supposed to happen as soon as the program is launched, so cannot
+happen in production if the code was properly tested.
+
+Thanks to that, the users of the API do not have to handle these error cases,
+which simplifies the code.
+
+== Memory management
+
+User's code usually do not have to manually destroy created metrics since all
+the allocated memory is automatically destroyed when the `prometheus_client`
+module is released.
+
+However, it is still possible to call `obj_delete` on created objects if
+needed.
+
+== Usage
+
+In order to use the Prometheus client, you must first activate the
+`prometheus_client` xref:base:modules.adoc[module]. So either you work in a
+module that depends on `prometheus_client`, or you have to manually require
+it:
+
+[source,c]
+----
+#include <lib-common/prometeus-client.h>
+
+MODULE_REQUIRE(prometheus_client);
+
+/* YOUR CODE HERE */
+
+MODULE_RELEASE(prometheus_client);
+----
+
+Then, you can call `prom_http_start_server` to start the scraping HTTP server.
+It requires to build a configuration structure first, with the address to
+listen on:
+
+[source,c]
+----
+#include <lib-common/iop.h>
+
+SB_1k(err);
+core__httpd_cfg__t httpd_cfg;
+
+iop_init(core__httpd_cfg, &httpd_cfg);
+httpd_cfg.bind_addr = "0.0.0.0:8080";
+if (prom_http_start_server(&httpd_cfg, &err) < 0) {
+    e_fatal("cannot start HTTP server: %*pM", SB_FMT_ARG(&err));
+}
+----
+
+You can create counter/gauge metrics using respectively `prom_counter_new` and
+`prom_gauge_new`. These helpers take as argument the name of the metric, its
+description, and a variable number of label names (or no label name for simple
+metrics):
+
+
+[source,c]
+----
+prom_counter_t *counter_no_label;
+prom_counter_t *counter_labels;
+prom_gauge_t   *gauge_labels;
+
+counter_no_label = prom_counter_new(
+    "counter_no_label",
+    "A simple counter without label",
+);
+
+counter_labels = prom_counter_new(
+    "counter_labels",
+    "A counter with two labels"
+    "label1", "label2",
+);
+
+gauge_no_label = prom_gauge_new(
+    "gauge_no_label",
+    "A simple gauge without label",
+);
+----
+
+The methods `add` and `inc` can be used to respectively add a value to a
+counter or increment it. The method `get_value` can be used to get a metric
+value in a thread-safe manner:
+
+[source,c]
+----
+double value;
+
+obj_vcall(counter_no_label, add, 2.);
+obj_vcall(counter_no_label, inc);
+
+value = obj_vcall(counter_no_label, get_value);
+/* value == 3 here */
+----
+
+The gauge metrics support the methods `add`, `inc`, `sub`, `dec` and `set`:
+
+[source,c]
+----
+double value;
+
+obj_vcall(gauge_no_label, add, 4.);
+obj_vcall(gauge_no_label, inc);
+obj_vcall(gauge_no_label, sub, 3);
+obj_vcall(gauge_no_label, dec);
+
+value = obj_vcall(gauge_no_label, get_value);
+/* value == 1 here */
+
+obj_vcall(gauge_no_label, set, -12.5);
+
+value = obj_vcall(gauge_no_label, get_value);
+/* value == -12.5 here */
+----
+
+The helpers `prom_counter_labels` and `prom_gauge_labels` can be used to get
+children metrics, for metrics having labels. It must be called with the same
+number of label values as the number of label names in the parent metric.
+The result is also a metric pointer, that can be cached for later use, and
+supports the same methods to modify the value:
+
+[source,c]
+----
+prom_counter_t *counter_child;
+
+counter_child = prom_counter_labels(counter_labels, "value 1", "value 2");
+obj_vcall(counter_child, inc);
+----
+
+You can also read `examples/ex-prometheus-client.c` for a full example
+program, with an event loop integration.
