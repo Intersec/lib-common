@@ -6930,7 +6930,7 @@ cdef class Channel(ChannelBase):
         str
             The representation of the client IC channel.
         """
-        cdef list modules = self.__dict__.keys()
+        cdef list modules = list(self.__dict__.keys())
 
         modules.sort()
         return 'Channel to %s (Modules: %s)' % (self.uri, modules)
@@ -7629,7 +7629,7 @@ cdef class ChannelServer(ChannelBase):
         str
             The representation of the server IC channel.
         """
-        cdef list modules = self.__dict__.keys()
+        cdef list modules = list(self.__dict__.keys())
 
         modules.sort()
         return 'Channel Server (Modules: %s)' % modules
