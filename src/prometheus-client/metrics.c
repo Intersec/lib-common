@@ -16,6 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
+#include <math.h>
 #include <lib-common/container-qhash.h>
 
 #include "priv.h"
@@ -405,6 +406,123 @@ OBJ_VTABLE(prom_gauge)
     prom_gauge.sub = prom_gauge_sub;
     prom_gauge.dec = prom_gauge_dec;
     prom_gauge.set = prom_gauge_set;
+OBJ_VTABLE_END()
+
+/* }}} */
+/* {{{ prom_histogram_t */
+
+static void prom_histogram_wipe(prom_histogram_t *self)
+{
+    p_delete(&self->bucket_upper_bounds);
+    p_delete(&self->bucket_counts);
+}
+
+static void prom_histogram_register(prom_histogram_t *self)
+{
+    super_call(prom_histogram, self, do_register);
+
+    /* Check that "le" is not used as a label name */
+    tab_for_each_entry(label, &self->label_names) {
+        if (strequal(label, "le")) {
+            prom_metric_panic(obj_vcast(prom_metric, self), "do_register",
+                              "label name `le` is reserved for histograms");
+        }
+    }
+}
+
+static void (prom_histogram_set_buckets)(prom_histogram_t *self,
+                                         const qv_t(double) *upper_bounds)
+{
+    double prev_bound = -INFINITY;
+
+    /* Consistency checks */
+    if (self->parent) {
+        prom_metric_panic(obj_vcast(prom_metric, self), "set_buckets",
+                          "buckets can only be set on parent histogram");
+    }
+    if (self->nb_buckets || self->bucket_upper_bounds) {
+        prom_metric_panic(obj_vcast(prom_metric, self), "set_buckets",
+                          "buckets are already set");
+    }
+    if (!upper_bounds->len) {
+        prom_metric_panic(obj_vcast(prom_metric, self), "set_buckets",
+                          "upper_bounds table is empty");
+    }
+    tab_for_each_entry(bound, upper_bounds) {
+        if (!isfinite(bound)) {
+            prom_metric_panic(obj_vcast(prom_metric, self), "set_buckets",
+                              "upper bounds must be finite");
+        }
+        if (bound <= prev_bound) {
+            prom_metric_panic(obj_vcast(prom_metric, self), "set_buckets",
+                              "upper_bounds must be sorted");
+        }
+        prev_bound = bound;
+    }
+
+    /* Create buckets */
+    self->nb_buckets = upper_bounds->len;
+    self->bucket_upper_bounds = p_new_raw(double, upper_bounds->len);
+    p_copy(self->bucket_upper_bounds, upper_bounds->tab, upper_bounds->len);
+    if (is_metric_observable(obj_ccast(prom_metric, self))) {
+        self->bucket_counts = p_new(double, upper_bounds->len);
+    }
+}
+
+static prom_histogram_t *
+(prom_histogram_labels)(prom_histogram_t *self,
+                        const qv_t(cstr) *label_values)
+{
+    prom_metric_t *child_metric;
+    prom_histogram_t *child;
+
+    /* Get the child metric */
+    child_metric = super_call(prom_histogram, self, labels, label_values);
+    child = obj_vcast(prom_histogram, child_metric);
+
+    /* Create the buckets counts if the child was just created */
+    if (!child->bucket_counts) {
+        child->nb_buckets = self->nb_buckets;
+        child->bucket_counts = p_new(double, self->nb_buckets);
+    }
+
+    return child;
+}
+
+static void prom_histogram_observe(prom_histogram_t *self, double value)
+{
+    prom_histogram_t *parent = self->parent ?: self;
+
+    if (!is_metric_observable(obj_ccast(prom_metric, self))) {
+        prom_metric_panic(obj_vcast(prom_metric, self), "observe",
+                          "histogram is not observable");
+    }
+    if (!self->nb_buckets) {
+        prom_metric_panic(obj_vcast(prom_metric, self), "observe",
+                          "histogram buckets were not initialized");
+    }
+
+    spin_lock(&self->lock);
+
+    self->count++;
+    self->sum += value;
+
+    for (int i = self->nb_buckets; i-- > 0;) {
+        if (value > parent->bucket_upper_bounds[i]) {
+            break;
+        }
+        self->bucket_counts[i]++;
+    }
+
+    spin_unlock(&self->lock);
+}
+
+OBJ_VTABLE(prom_histogram)
+    prom_histogram.wipe        = prom_histogram_wipe;
+    prom_histogram.do_register = prom_histogram_register;
+    prom_histogram.set_buckets = prom_histogram_set_buckets;
+    prom_histogram.labels      = prom_histogram_labels;
+    prom_histogram.observe     = prom_histogram_observe;
 OBJ_VTABLE_END()
 
 /* }}} */

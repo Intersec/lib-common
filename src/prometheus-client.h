@@ -140,6 +140,8 @@ prom_metric_t *prom_metric_new(const object_class_t *cls,
     } while (0)
 
 
+/* {{{ Simple value metric */
+
 #define PROM_SIMPLE_VALUE_METRIC_FIELDS(pfx) \
     PROM_METRIC_FIELDS(pfx);                                                 \
                                                                              \
@@ -173,6 +175,7 @@ prom_metric_t *prom_metric_new(const object_class_t *cls,
 OBJ_CLASS(prom_simple_value_metric, prom_metric,
           PROM_SIMPLE_VALUE_METRIC_FIELDS, PROM_SIMPLE_VALUE_METRIC_METHODS);
 
+/* }}} */
 /* }}} */
 /* {{{ Counter metric */
 
@@ -325,6 +328,127 @@ OBJ_CLASS(prom_gauge, prom_simple_value_metric,
  */
 #define prom_gauge_remove(gauge, ...)  \
     prom_metric_remove(obj_vcast(prom_metric, gauge), __VA_ARGS__)
+
+/* }}} */
+/* {{{ Histogram metric */
+
+/* A histogram is a metric that samples observations (usually things like
+ * request durations or response sizes) and counts them in configurable
+ * buckets. It also provides a sum of all observed values.
+ *
+ * More details here:
+ * https://prometheus.io/docs/concepts/metric_types/#histogram
+ */
+
+#define PROM_HISTOGRAM_FIELDS(pfx) \
+    PROM_METRIC_FIELDS(pfx);                                                 \
+                                                                             \
+    /** Spinlock used for threaded access.                                   \
+     *                                                                       \
+     * Cf. PROM_SIMPLE_VALUE_METRIC_FIELDS for explanation.                  \
+     */                                                                      \
+    spinlock_t lock;                                                         \
+                                                                             \
+    /* Buckets configuration (only set in parent metric) */                  \
+    int nb_buckets;                                                          \
+    double *bucket_upper_bounds;                                             \
+                                                                             \
+    /* Histogram value and buckets.                                          \
+     *                                                                       \
+     * These fields MUST NOT be modified manually; always use the provided   \
+     * observe() method.                                                     \
+     * They are only set in observable metrics.                              \
+     */                                                                      \
+    double count;                                                            \
+    double sum;                                                              \
+    double *bucket_counts;                                                   \
+
+
+#define PROM_HISTOGRAM_METHODS(type_t) \
+    PROM_METRIC_METHODS(type_t);                                             \
+                                                                             \
+    /** Set the buckets.                                                     \
+     *                                                                       \
+     * This MUST be called on the parent metric before observing values.     \
+     * The provided upper bounds MUST be sorted, and MUST NOT contain the    \
+     * infinite value.                                                       \
+     */                                                                      \
+    void (*set_buckets)(type_t *self, const qv_t(double) *upper_bounds);     \
+                                                                             \
+    /** Observe the given value. */                                          \
+    void (*observe)(type_t *self, double value);                             \
+
+
+OBJ_CLASS(prom_histogram, prom_metric,
+          PROM_HISTOGRAM_FIELDS, PROM_HISTOGRAM_METHODS);
+
+/** All-in-one helper to declare and register a histogram metric.
+ *
+ * \warning the buckets of the histogram have to be set after that and before
+ *          observing the histogram, by using the helpers provided below.
+ *
+ * \param[in]  name           name of the histogram
+ * \param[in]  documentation  description of the histogram
+ * \param[in]  ...            the label names of the histogram (empty if the
+ *                            histogram has no label)
+ *
+ * \return  the newly created metric, that was registered in the collector
+ */
+#define prom_histogram_new(name, documentation, ...)  \
+    ({                                                                       \
+        const char *__labels[] = { __VA_ARGS__ };                            \
+        prom_metric_t *__new_metric;                                         \
+                                                                             \
+        __new_metric = prom_metric_new(obj_class(prom_histogram),            \
+                                       name, documentation,                  \
+                                       __labels, countof(__labels));         \
+        (prom_histogram_t *)__new_metric;                                    \
+    })
+
+/** Set the buckets used for an histogram metric, by giving the ordered list
+ *  of upper bounds.
+ *
+ * \param[in]  histogram  name histogram (parent) metric
+ * \param[in]  ...        the list of ordered upper bounds (double type)
+ */
+#define prom_histogram_set_buckets(histogram, ...)  \
+    do {                                                                     \
+        const double __upper_bounds[] = { __VA_ARGS__ };                     \
+        qv_t(double) __upper_bounds_qv;                                      \
+                                                                             \
+        qv_init_static(&__upper_bounds_qv, __upper_bounds,                   \
+                       countof(__upper_bounds));                             \
+        obj_vcall(histogram, set_buckets, &__upper_bounds_qv);               \
+    } while (0)
+
+/** Histogram default buckets.
+ *
+ * The default buckets are tailored to broadly measure the response time
+ * (in seconds) of a network service. Most likely, however, you will be
+ * required to define buckets customized to your use case.
+ *
+ * (inspired by official golang client default buckets)
+ */
+#define PROM_DEFAULT_BUCKETS  .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10
+
+/** Set the default buckets for an histogram metric. */
+#define prom_histogram_set_default_buckets(histogram)  \
+    prom_histogram_set_buckets(histogram, PROM_DEFAULT_BUCKETS)
+
+/** Get the child histogram corresponding to the given label values.
+ *
+ * This a convenience wrapper around the labels() method of the prom_metric_t
+ * class.
+ *
+ * \param[in]  histogram  the parent histogram
+ * \param[in]  ...        the label values (must be in the same number as the
+ *                        label names in the parent).
+ *
+ * \return  the child histogram
+ */
+#define prom_histogram_labels(histogram, ...)  \
+    (prom_histogram_t *)prom_metric_labels(obj_vcast(prom_metric, histogram),\
+                                           __VA_ARGS__)
 
 /* }}} */
 /* {{{ HTTP server for scraping */

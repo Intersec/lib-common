@@ -103,6 +103,58 @@ static int z_gauge_value_thread_safety(void)
 }
 
 /* }}} */
+/* {{{ histogram_value_thread_safety */
+
+static int z_histogram_value_thread_safety(void)
+{
+    const int nb_loops = 1000;
+    thr_syn_t syn;
+    prom_histogram_t *histogram;
+
+    MODULE_REQUIRE(prometheus_client);
+
+    /* Create a histogram */
+    histogram = prom_histogram_new("test_histogram", "test histogram");
+    prom_histogram_set_buckets(histogram, 10, 20, 50, 100);
+
+    /* It should have 4 buckets, initialized to 0 */
+    Z_ASSERT_EQ(histogram->nb_buckets, 4);
+    Z_ASSERT_P(histogram->bucket_counts);
+    for (int i = 0; i < 4; i++) {
+        Z_ASSERT_ZERO(histogram->bucket_counts[i]);
+    }
+
+    /* Observe its value from different threads */
+    thr_syn_init(&syn);
+    for (int i = 0; i < nb_loops; i++) {
+        thr_syn_schedule_b(&syn, ^{
+            /* Twice in bucket 0 */
+            obj_vcall(histogram, observe, 5);
+            obj_vcall(histogram, observe, 10);
+            /* Once in bucket 2 */
+            obj_vcall(histogram, observe, 45);
+            /* Once outside buckets */
+            obj_vcall(histogram, observe, 101);
+        });
+    }
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+
+    /* Check the values */
+    Z_ASSERT_EQ(histogram->count, 4 * nb_loops);
+    Z_ASSERT_EQ(histogram->sum, (5 + 10 + 45 + 101) * nb_loops);
+
+    Z_ASSERT_EQ(histogram->bucket_counts[0], 2 * nb_loops);
+    Z_ASSERT_EQ(histogram->bucket_counts[1], 2 * nb_loops);
+    Z_ASSERT_EQ(histogram->bucket_counts[2], (2 + 1) * nb_loops);
+    Z_ASSERT_EQ(histogram->bucket_counts[3], (2 + 1) * nb_loops);
+
+    MODULE_RELEASE(prometheus_client);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
 
 Z_GROUP_EXPORT(prometheus_client) {
 
@@ -150,7 +202,8 @@ Z_GROUP_EXPORT(prometheus_client) {
 #undef T_KO
     } Z_TEST_END;
 
-    Z_TEST(metrics_basics, "test metrics creation") {
+    Z_TEST(single_value_metrics_basics,
+           "test single value metrics metrics creation") {
         prom_counter_t *counter;
         prom_counter_t *counter_child;
         prom_gauge_t *gauge;
@@ -238,6 +291,53 @@ Z_GROUP_EXPORT(prometheus_client) {
         MODULE_RELEASE(prometheus_client);
     } Z_TEST_END;
 
+    Z_TEST(histogram_basics, "test histogram metrics creation") {
+        const double default_buckets[] = { PROM_DEFAULT_BUCKETS };
+        prom_histogram_t *histogram;
+        prom_histogram_t *child;
+
+        MODULE_REQUIRE(prometheus_client);
+
+        /* Create an histogram without labels and with default buckets */
+        histogram = prom_histogram_new("histogram_without_labels",
+                                       "histogram without labels");
+        prom_histogram_set_default_buckets(histogram);
+
+        /* Check the buckets were properly initialized */
+        Z_ASSERT_EQ(histogram->nb_buckets, countof(default_buckets));
+        Z_ASSERT_P(histogram->bucket_upper_bounds);
+        Z_ASSERT_P(histogram->bucket_counts);
+        for (int i = 0; i < countof(default_buckets); i++) {
+            Z_ASSERT_EQ(histogram->bucket_upper_bounds[i],
+                        default_buckets[i]);
+            Z_ASSERT_ZERO(histogram->bucket_counts[i]);
+        }
+
+
+        /* Now try an histogram with labels */
+        histogram = prom_histogram_new("histogram_with_labels",
+                                       "histogram with labels", "label");
+        prom_histogram_set_default_buckets(histogram);
+
+        /* It should have buckets upper bounds, but no values */
+        Z_ASSERT_EQ(histogram->nb_buckets, countof(default_buckets));
+        Z_ASSERT_P(histogram->bucket_upper_bounds);
+        Z_ASSERT_NULL(histogram->bucket_counts);
+
+        /* Create a child, and check it has bucket values */
+        child = prom_histogram_labels(histogram, "label value");
+        Z_ASSERT_P(child);
+        Z_ASSERT_EQ(child->nb_buckets, countof(default_buckets));
+        Z_ASSERT_NULL(child->bucket_upper_bounds);
+        Z_ASSERT_P(child->bucket_counts);
+        for (int i = 0; i < countof(default_buckets); i++) {
+            Z_ASSERT_ZERO(child->bucket_counts[i]);
+        }
+
+
+        MODULE_RELEASE(prometheus_client);
+    } Z_TEST_END;
+
     Z_TEST(counter_value_thread_safety,
            "test thread safety of counter value modification")
     {
@@ -250,6 +350,13 @@ Z_GROUP_EXPORT(prometheus_client) {
     {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_gauge_value_thread_safety());
+    } Z_TEST_END;
+
+    Z_TEST(histogram_value_thread_safety,
+           "test thread safety of histogram value modification")
+    {
+        /* Not implemented directly here because of block rewriting issues */
+        Z_HELPER_RUN(z_histogram_value_thread_safety());
     } Z_TEST_END;
 
     Z_TEST(text_exposition, "test the metrics exposition in text format") {
