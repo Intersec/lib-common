@@ -18,6 +18,7 @@
 
 #include "net.h"
 #include "unix.h"
+#include <sys/utsname.h>
 
 int sctp_enable_events(int sd, int flags)
 {
@@ -330,3 +331,51 @@ void sctp_dump_notif(char *buf, int len)
         break;
     }
 }
+
+#ifndef HAVE_LINUX_UAPI_SCTP_H
+bool sctp_peer_addr_state_is_active(enum sctp_spinfo_state state)
+{
+    static unsigned real_active_value;
+
+    t_scope;
+    struct utsname buf;
+    pstream_t      ps;
+    int            stable_ver;
+
+    /* Avoid retrieving SCTP_ACTIVE if it was already done */
+    THROW_IF(real_active_value, state == real_active_value);
+
+    /* Use the value provided in the header at compile-time as default */
+    real_active_value = SCTP_ACTIVE;
+
+    /* Only for centos/rhel */
+    if (!expect(!access("/etc/redhat-release", F_OK) && !uname(&buf))) {
+        e_warning("OS not supported");
+        return state == real_active_value;
+    }
+
+    /* Release format:  major.minor.revision-stableversion.elX.x86_64 */
+    ps = ps_initstr(buf.release);
+    if (ps_skiplstr(&ps, LSTR("2.6.32-")) < 0) {
+        /* Kernel not affected */
+        goto end;
+    }
+    stable_ver = ps_geti(&ps);
+    if (stable_ver >= 358) {
+        /** For RHEL with kernel version 2.6.32 and a stable version >= 358,
+         * the SCTP_ACTIVE has the value 2.
+         * The sctp_spinfo_state enum was updated on the kernel side.
+         *
+         * Only the RHEL/Centos Release 6 was impacted (started from Release
+         * 6.4).
+         */
+        real_active_value = 2;
+    }
+
+  end:
+    e_info("kernel:%s, header active state:%d, real active state: %d",
+           buf.release, SCTP_ACTIVE, real_active_value);
+
+    return state == real_active_value;
+}
+#endif
