@@ -22,7 +22,7 @@ page, but simplifications were made with our use-cases in mind:
 
 * there is a unique collector (so no collector registry), and all metrics are
   automatically registered in it when using the high-level helpers.
-* only counter and gauge metrics are implemented (at least for now).
+* only counter, gauge and histogram metrics are implemented (at least for now).
 * metrics creation/deletion is NOT thread safe, so metrics and children must
   be created from the thread of the event loop; however, modifying the value
   of an existing metric is thread safe (using the provided helpers).
@@ -51,6 +51,8 @@ needed.
 
 == Usage
 
+=== Initializing module
+
 In order to use the Prometheus client, you must first activate the
 `prometheus_client` xref:base:modules.adoc[module]. So either you work in a
 module that depends on `prometheus_client`, or you have to manually require
@@ -66,6 +68,8 @@ MODULE_REQUIRE(prometheus_client);
 
 MODULE_RELEASE(prometheus_client);
 ----
+
+=== Running HTTP scraping server
 
 Then, you can call `prom_http_start_server` to start the scraping HTTP server.
 It requires to build a configuration structure first, with the address to
@@ -84,6 +88,8 @@ if (prom_http_start_server(&httpd_cfg, &err) < 0) {
     e_fatal("cannot start HTTP server: %*pM", SB_FMT_ARG(&err));
 }
 ----
+
+=== Creating and using counter/gauge metrics
 
 You can create counter/gauge metrics using respectively `prom_counter_new` and
 `prom_gauge_new`. These helpers take as argument the name of the metric, its
@@ -162,6 +168,52 @@ prom_counter_t *counter_child;
 counter_child = prom_counter_labels(counter_labels, "value 1", "value 2");
 obj_vcall(counter_child, inc);
 ----
+
+=== Creating and using histogram metrics
+
+Histogram metrics can be created with `prom_histogram_new`, just as
+counter/gauge. Once created, the buckets *MUST* be set using one of the
+provided helpers:
+
+* `prom_histogram_set_default_buckets` to set the default buckets
+  cf `PROM_DEFAULT_BUCKETS` define).
+* `prom_histogram_set_buckets` to manually specify the buckets.
+* `prom_histogram_set_linear_buckets` to use a linear distribution as buckets.
+* `prom_histogram_set_exponential_buckets` to use an exponential distribution
+  as buckets.
+
+[source,c]
+----
+prom_histogram_t *histo_manual;
+prom_histogram_t *histo_linear;
+
+histo_manual = prom_histogram_new(
+    "histogram_manual_buckets",
+    "An histogram with manually-defined buckets (and no label)",
+);
+prom_histogram_set_buckets(histo_manual, 0.5, 1, 3, 6, 10);
+
+histo_linear = prom_histogram_new(
+    "histogram_linear_buckets",
+    "An histogram with linear buckets (and two label)",
+    "label1", "label2",
+);
+prom_histogram_set_linear_buckets(histo_linear, 10, 10, 5);
+----
+
+Then the method `observe` is used to observe a value:
+
+[source,c]
+----
+prom_histogram_t *histo_child;
+
+obj_vcall(histo_manual, observe, 3.14);
+
+histo_child = prom_histogram_labels(histo_linear, "value 1", "value 2");
+obj_vcall(histo_child, observe, 25);
+----
+
+=== Full example program
 
 You can also read `examples/ex-prometheus-client.c` for a full example
 program, with an event loop integration.
