@@ -469,6 +469,68 @@ static void (prom_histogram_set_buckets)(prom_histogram_t *self,
     }
 }
 
+void prom_histogram_set_linear_buckets(prom_histogram_t *self,
+                                       double start, double width, int count)
+{
+    t_scope;
+    qv_t(double) upper_bounds;
+
+    /* Consistency checks */
+    if (!isfinite(start) || !isfinite(width)) {
+        prom_metric_panic(obj_vcast(prom_metric, self), "set_linear_buckets",
+                          "start and width must be finite numbers");
+    }
+    if (width <= 0 || count <= 0) {
+        prom_metric_panic(obj_vcast(prom_metric, self), "set_linear_buckets",
+                          "width and count must be strictly positive");
+    }
+
+    /* Build upper bounds vector */
+    t_qv_init(&upper_bounds, count);
+    for (int i = 0; i < count; i++) {
+        qv_append(&upper_bounds, start);
+        start += width;
+    }
+
+    /* Set the buckets in the histogram */
+    obj_vcall(self, set_buckets, &upper_bounds);
+}
+
+void prom_histogram_set_exponential_buckets(prom_histogram_t *self,
+                                            double start, double factor,
+                                            int count)
+{
+    t_scope;
+    qv_t(double) upper_bounds;
+
+    /* Consistency checks */
+    if (!isfinite(start) || !isfinite(factor)) {
+        prom_metric_panic(obj_vcast(prom_metric, self),
+                          "set_exponential_buckets",
+                          "start and factor must be finite numbers");
+    }
+    if (start <= 0 || count <= 0) {
+        prom_metric_panic(obj_vcast(prom_metric, self),
+                          "set_exponential_buckets",
+                          "start and count must be strictly positive");
+    }
+    if (factor <= 1) {
+        prom_metric_panic(obj_vcast(prom_metric, self),
+                          "set_exponential_buckets",
+                          "factor must be strictly greater than 1");
+    }
+
+    /* Build upper bounds vector */
+    t_qv_init(&upper_bounds, count);
+    for (int i = 0; i < count; i++) {
+        qv_append(&upper_bounds, start);
+        start *= factor;
+    }
+
+    /* Set the buckets in the histogram */
+    obj_vcall(self, set_buckets, &upper_bounds);
+}
+
 static prom_histogram_t *
 (prom_histogram_labels)(prom_histogram_t *self,
                         const qv_t(cstr) *label_values)

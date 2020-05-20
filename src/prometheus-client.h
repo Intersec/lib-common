@@ -435,6 +435,32 @@ OBJ_CLASS(prom_histogram, prom_metric,
 #define prom_histogram_set_default_buckets(histogram)  \
     prom_histogram_set_buckets(histogram, PROM_DEFAULT_BUCKETS)
 
+/** Set linear buckets for an histogram metric.
+ *
+ * Sets \p count buckets, each \p width wide, where the lowest bucket has an
+ * upper bound of \p start.
+ *
+ * \p count and \p width MUST be strictly positive.
+ * \p start and \p width MUST be finite numbers.
+ */
+void prom_histogram_set_linear_buckets(prom_histogram_t *histogram,
+                                       double start, double width, int count);
+
+/** Set exponential buckets for an histogram metric.
+ *
+ * Sets \p count buckets, where the lowest bucket has an upper bound of
+ * \p start and each following bucket's upper bound is \p factor times the
+ * previous bucket's upper bound.
+ *
+ * \p start and \p count MUST be strictly positive.
+ * \p factor MUST be strictly greater than 1.
+ * \p start and \p factor MUST be finite numbers.
+ */
+void prom_histogram_set_exponential_buckets(prom_histogram_t *histogram,
+                                            double start, double factor,
+                                            int count);
+
+
 /** Get the child histogram corresponding to the given label values.
  *
  * This a convenience wrapper around the labels() method of the prom_metric_t

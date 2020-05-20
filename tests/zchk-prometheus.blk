@@ -335,6 +335,31 @@ Z_GROUP_EXPORT(prometheus_client) {
         }
 
 
+        /* Test linear buckets creation */
+        histogram = prom_histogram_new("histogram_linear",
+                                       "histogram with linear buckets");
+        prom_histogram_set_linear_buckets(histogram, -10, 10, 5);
+        Z_ASSERT_EQ(histogram->nb_buckets, 5);
+        Z_ASSERT_P(histogram->bucket_upper_bounds);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[0], -10);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[1],   0);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[2],  10);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[3],  20);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[4],  30);
+
+        /* Test exponential buckets creation */
+        histogram = prom_histogram_new("histogram_exponential",
+                                       "histogram with exponential buckets");
+        prom_histogram_set_exponential_buckets(histogram, 1, 10, 5);
+        Z_ASSERT_EQ(histogram->nb_buckets, 5);
+        Z_ASSERT_P(histogram->bucket_upper_bounds);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[0], 1);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[1], 10);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[2], 100);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[3], 1000);
+        Z_ASSERT_EQ(histogram->bucket_upper_bounds[4], 10000);
+
+
         MODULE_RELEASE(prometheus_client);
     } Z_TEST_END;
 
