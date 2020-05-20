@@ -391,6 +391,8 @@ Z_GROUP_EXPORT(prometheus_client) {
         prom_counter_t *counter_child;
         prom_gauge_t *gauge;
         prom_gauge_t *gauge_child;
+        prom_histogram_t *histo;
+        prom_histogram_t *histo_child;
         lstr_t expected;
         const char *path;
 
@@ -430,6 +432,31 @@ Z_GROUP_EXPORT(prometheus_client) {
                        "A gauge without samples",
                        "label");
 
+        /* Add an histogram with no label */
+        histo = prom_histogram_new("zchk:histogram_no_label",
+                                   "Histogram with no label");
+        prom_histogram_set_linear_buckets(histo, 10, 10, 3);
+        obj_vcall(histo, observe, 5);
+        obj_vcall(histo, observe, 10);
+        obj_vcall(histo, observe, 12);
+        obj_vcall(histo, observe, 27);
+        obj_vcall(histo, observe, 30);
+        obj_vcall(histo, observe, 200);
+
+        /* Add an histogram with two labels */
+        histo = prom_histogram_new("zchk:histogram_labels",
+                                   "Histogram with two labels",
+                                   "label1", "label2");
+        prom_histogram_set_exponential_buckets(histo, 10, 10, 3);
+
+        histo_child = prom_histogram_labels(histo, "value 1", "value 2");
+        obj_vcall(histo_child, observe, -12);
+        obj_vcall(histo_child, observe, 50);
+        obj_vcall(histo_child, observe, 100);
+        obj_vcall(histo_child, observe, 500);
+        obj_vcall(histo_child, observe, 5000);
+
+        histo_child = prom_histogram_labels(histo, "value 3", "value 4");
 
         /* Run the collector bridge function, to expose the declared metrics
          * as text. */

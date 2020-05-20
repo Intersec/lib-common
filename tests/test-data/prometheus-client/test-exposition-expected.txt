@@ -15,3 +15,28 @@ zchk:gauge_no_label 5000
 # TYPE zchk:gauge_with_one_label gauge
 zchk:gauge_with_one_label{aFunnyLabel="funnyLabelValue"} -12345.5
 zchk:gauge_with_one_label{aFunnyLabel="non initialized value"} 0
+
+# HELP zchk:histogram_no_label Histogram with no label
+# TYPE zchk:histogram_no_label histogram
+zchk:histogram_no_label_bucket{le="10"} 2
+zchk:histogram_no_label_bucket{le="20"} 3
+zchk:histogram_no_label_bucket{le="30"} 5
+zchk:histogram_no_label_bucket{le="+Inf"} 6
+zchk:histogram_no_label_sum 284
+zchk:histogram_no_label_count 6
+
+# HELP zchk:histogram_labels Histogram with two labels
+# TYPE zchk:histogram_labels histogram
+zchk:histogram_labels_bucket{label1="value 1",label2="value 2",le="10"} 1
+zchk:histogram_labels_bucket{label1="value 1",label2="value 2",le="100"} 3
+zchk:histogram_labels_bucket{label1="value 1",label2="value 2",le="1000"} 4
+zchk:histogram_labels_bucket{label1="value 1",label2="value 2",le="+Inf"} 5
+zchk:histogram_labels_sum{label1="value 1",label2="value 2"} 5638
+zchk:histogram_labels_count{label1="value 1",label2="value 2"} 5
+
+zchk:histogram_labels_bucket{label1="value 3",label2="value 4",le="10"} 0
+zchk:histogram_labels_bucket{label1="value 3",label2="value 4",le="100"} 0
+zchk:histogram_labels_bucket{label1="value 3",label2="value 4",le="1000"} 0
+zchk:histogram_labels_bucket{label1="value 3",label2="value 4",le="+Inf"} 0
+zchk:histogram_labels_sum{label1="value 3",label2="value 4"} 0
+zchk:histogram_labels_count{label1="value 3",label2="value 4"} 0

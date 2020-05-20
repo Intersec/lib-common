@@ -616,6 +616,81 @@ static void bridge_simple_value(prom_simple_value_metric_t *metric, sb_t *out)
     sb_addf(out, " %g\n", value);
 }
 
+static void bridge_histogram(prom_histogram_t *metric, sb_t *out)
+{
+    SB_1k(label_names);
+    prom_histogram_t *parent = metric->parent ?: metric;
+
+    /* Build a buffer containing label names */
+    for (int i = 0; i < metric->label_values.len; i++) {
+        const char *label_name = metric->parent->label_names.tab[i];
+        const char *label_value = metric->label_values.tab[i];
+
+        if (i > 0) {
+            sb_addc(&label_names, ',');
+        }
+        sb_addf(&label_names, "%s=\"", label_name);
+        sb_adds_slashes(&label_names, label_value, "\\\n", "\\n");
+        sb_addc(&label_names, '"');
+    }
+
+    /* Lock metric (for accessing values) */
+    spin_lock(&metric->lock);
+
+    /* Add the line for each bucket */
+    for (int i = 0; i < metric->nb_buckets; i++) {
+        sb_add_lstr(out, parent->name);
+        sb_addf(out, "_bucket{%*pM", SB_FMT_ARG(&label_names));
+        if (metric->label_values.len) {
+            sb_addc(out, ',');
+        }
+        sb_addf(out, "le=\"%g\"} %g\n",
+                parent->bucket_upper_bounds[i],
+                metric->bucket_counts[i]);
+    }
+
+    /* Add the line for the "+Inf" bucket */
+    sb_add_lstr(out, parent->name);
+    sb_addf(out, "_bucket{%*pM", SB_FMT_ARG(&label_names));
+    if (metric->label_values.len) {
+        sb_addc(out, ',');
+    }
+    sb_addf(out, "le=\"+Inf\"} %g\n", metric->count);
+
+    /* Add the sum line */
+    sb_add_lstr(out, parent->name);
+    sb_adds(out, "_sum");
+    if (metric->label_values.len) {
+        sb_addf(out, "{%*pM}", SB_FMT_ARG(&label_names));
+    }
+    sb_addf(out, " %g\n", metric->sum);
+
+    /* Add the count line */
+    sb_add_lstr(out, parent->name);
+    sb_adds(out, "_count");
+    if (metric->label_values.len) {
+        sb_addf(out, "{%*pM}", SB_FMT_ARG(&label_names));
+    }
+    sb_addf(out, " %g\n", metric->count);
+
+    sb_addc(out, '\n');
+
+    /* Unlock metric */
+    spin_unlock(&metric->lock);
+}
+
+static void bridge_metric(prom_metric_t *metric, sb_t *out)
+{
+    prom_simple_value_metric_t *simple_value;
+
+    simple_value = obj_dynvcast(prom_simple_value_metric, metric);
+    if (simple_value) {
+        bridge_simple_value(simple_value, out);
+    } else {
+        bridge_histogram(obj_vcast(prom_histogram, metric), out);
+    }
+}
+
 void prom_collector_bridge(const dlist_t *collector, sb_t *out)
 {
     prom_metric_t *metric;
@@ -630,7 +705,11 @@ void prom_collector_bridge(const dlist_t *collector, sb_t *out)
             continue;
         }
 
-        if (out->len) {
+        /* Ensure there is an empty line between each metric */
+        if (out->len >= 2
+        &&  (out->data[out->len - 1] != '\n'
+          || out->data[out->len - 2] != '\n'))
+        {
             sb_adds(out, "\n");
         }
 
@@ -647,6 +726,9 @@ void prom_collector_bridge(const dlist_t *collector, sb_t *out)
         } else
         if (obj_is_a(metric, prom_gauge)) {
             metric_type = LSTR("gauge");
+        } else
+        if (obj_is_a(metric, prom_histogram)) {
+            metric_type = LSTR("histogram");
         } else {
             assert (false);
         }
@@ -656,17 +738,20 @@ void prom_collector_bridge(const dlist_t *collector, sb_t *out)
 
         /* Add values */
         if (is_metric_observable(metric)) {
-            bridge_simple_value(obj_vcast(prom_simple_value_metric, metric),
-                                out);
+            bridge_metric(metric, out);
         } else {
-            prom_simple_value_metric_t *child;
+            prom_metric_t *child;
 
             dlist_for_each_entry(child, &metric->children_list,
                                  siblings_list)
             {
-                bridge_simple_value(child, out);
+                bridge_metric(child, out);
             }
         }
+    }
+
+    if (out->len && out->data[out->len - 1] == '\n') {
+        sb_shrink(out, 1);
     }
 }
 
