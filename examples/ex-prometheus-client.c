@@ -26,9 +26,10 @@ static struct {
     el_t blocker;
 
     /* Prometheus metrics */
-    prom_counter_t *counter_no_label;
-    prom_counter_t *counter_labels;
-    prom_gauge_t   *gauge_labels;
+    prom_counter_t   *counter_no_label;
+    prom_counter_t   *counter_labels;
+    prom_gauge_t     *gauge_labels;
+    prom_histogram_t *histo_no_label;
     el_t metrics_cron;
 
     /* Command-line options */
@@ -74,6 +75,9 @@ static void metrics_cron(el_t el, data_t data)
     prom_gauge_random(-100,   0);
     prom_gauge_random(   0, 100);
     prom_gauge_random(-100, 100);
+
+    /* Observe the histogram with a random number */
+    obj_vcall(_G.histo_no_label, observe, rand_ranged(0, 120));
 }
 
 /* }}} */
@@ -141,6 +145,11 @@ int main(int argc, char **argv)
         "between min and max",
         "min", "max",
     );
+    _G.histo_no_label = prom_histogram_new(
+        "ex:histogram_no_label",
+        "An histogram with linear buckets from 10 to 100 (step 10)",
+    );
+    prom_histogram_set_linear_buckets(_G.histo_no_label, 10, 10, 10);
 
     /* Register the cron that will be called every second to update the
      * metrics values */
