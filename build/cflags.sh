@@ -85,9 +85,6 @@ build_flags()
         ( is_cpp && echo -std=gnu++98 ) || echo -std=gnu99
     fi
 
-    # optimize even more
-    echo -O2
-
     if is_clang; then
         if test "$2" != "rewrite"; then
             echo -fdiagnostics-show-category=name

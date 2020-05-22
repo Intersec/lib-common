@@ -1340,6 +1340,7 @@ def profile_default(ctx,
                     allow_no_double_fpic=True,
                     allow_fake_versions=True,
                     use_sanitizer=False,
+                    optim_level=2,
                     fortify_source='-D_FORTIFY_SOURCE=2'):
 
     # Load C/C++ compilers
@@ -1351,6 +1352,11 @@ def profile_default(ctx,
                      path_list=[os.path.join(ctx.path.abspath(), 'build')])
 
     ctx.env.CFLAGS = get_cflags(ctx, [ctx.env.COMPILER_CC])
+
+    oflags = ['-O' + str(optim_level)]
+    ctx.env.CFLAGS += oflags
+    ctx.env.CXXFLAGS += oflags
+
     ctx.env.CFLAGS += [
         '-g',
         '-fno-omit-frame-pointer',
@@ -1391,7 +1397,9 @@ def profile_default(ctx,
         # pass with our modified clang
         ctx.env.CLANG = ctx.find_program('clang')
         ctx.env.CLANG_FLAGS = get_cflags(ctx, ['clang'])
+        ctx.env.CLANG_FLAGS += oflags
         ctx.env.CLANG_REWRITE_FLAGS = get_cflags(ctx, ['clang', 'rewrite'])
+        ctx.env.CLANG_REWRITE_FLAGS += oflags
 
     if ctx.env.COMPILER_CXX == 'clang++':
         # C++ compilation directly done using clang
@@ -1402,8 +1410,10 @@ def profile_default(ctx,
         # pass with our modified clang
         ctx.env.CLANGXX = ctx.find_program('clang++')
         ctx.env.CLANGXX_FLAGS = get_cflags(ctx, ['clang++'])
+        ctx.env.CLANGXX_FLAGS += oflags
         ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(ctx,
                                                    ['clang++', 'rewrite'])
+        ctx.env.CLANGXX_REWRITE_FLAGS += oflags
 
     # Asserts
     if no_assert:
@@ -1480,18 +1490,14 @@ def profile_default(ctx,
 def profile_debug(ctx, allow_no_double_fpic=True, use_sanitizer=False):
     profile_default(ctx, fortify_source=None,
                     allow_no_double_fpic=allow_no_double_fpic,
-                    use_sanitizer=use_sanitizer)
-
-    pattern = re.compile("^-O[0-9]$")
-    ctx.env.CFLAGS = [f for f in ctx.env.CFLAGS if not pattern.match(f)]
+                    use_sanitizer=use_sanitizer, optim_level=0)
 
     cflags = [
-        '-O0', '-Wno-uninitialized', '-fno-inline', '-fno-inline-functions',
-        '-g3', '-gdwarf-2',
+        '-Wno-uninitialized', '-fno-inline', '-fno-inline-functions', '-g3',
+        '-gdwarf-2',
     ]
     ctx.env.CFLAGS += cflags
     ctx.env.CXXFLAGS += cflags
-
 
 
 def profile_release(ctx):
