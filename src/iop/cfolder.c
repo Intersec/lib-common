@@ -103,7 +103,9 @@ static int cf_reduce(qv_t(cf_elem) *stack)
 {
     iop_cfolder_elem_t eleft, op, eright, res;
     bool unary = false;
+
     cf_elem_init(&res);
+    cf_elem_init(&eleft);
 
     CF_WANT(stack->len >= 2);
     cf_stack_pop(stack, &eright);

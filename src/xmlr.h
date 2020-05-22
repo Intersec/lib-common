@@ -96,7 +96,7 @@ int xmlr_node_get_local_name(xml_reader_t xr, lstr_t *out);
 
 static inline int xmlr_node_is(xml_reader_t xr, const char *s, size_t len)
 {
-    lstr_t name;
+    lstr_t name = LSTR_NULL_V;
 
     return !RETHROW(xmlr_node_is_closing(xr))
         && RETHROW(xmlr_node_get_local_name(xr, &name)) >= 0
