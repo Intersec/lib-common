@@ -228,10 +228,14 @@ static prom_metric_t *
     /* Consistency checks */
     prom_metric_check_labels(self, "labels", label_values);
 
+    spin_lock(&self->lock);
+
     /* Lookup */
     pos = qm_reserve(prom_metric, self->children_by_labels, label_values, 0);
     if (pos & QHASH_COLLISION) {
-        return self->children_by_labels->values[pos ^ QHASH_COLLISION];
+        child = self->children_by_labels->values[pos ^ QHASH_COLLISION];
+        spin_unlock(&self->lock);
+        return child;
     }
 
     /* Create child */
@@ -246,6 +250,8 @@ static prom_metric_t *
 
     self->children_by_labels->keys[pos] = &child->label_values;
     self->children_by_labels->values[pos] = child;
+
+    spin_unlock(&self->lock);
 
     return child;
 }
@@ -317,9 +323,9 @@ prom_metric_t *prom_metric_new(const object_class_t *cls,
 static void
 simple_value_metric_add(prom_simple_value_metric_t *self, double to_add)
 {
-    spin_lock(&self->value_lock);
+    spin_lock(&self->lock);
     self->value += to_add;
-    spin_unlock(&self->value_lock);
+    spin_unlock(&self->lock);
 }
 
 static double
@@ -327,9 +333,9 @@ prom_simple_value_metric_get_value(prom_simple_value_metric_t *self)
 {
     double res;
 
-    spin_lock(&self->value_lock);
+    spin_lock(&self->lock);
     res = self->value;
-    spin_unlock(&self->value_lock);
+    spin_unlock(&self->lock);
 
     return res;
 }
@@ -394,9 +400,9 @@ static void prom_gauge_dec(prom_gauge_t *self)
 static void prom_gauge_set(prom_gauge_t *self, double value)
 {
     if (expect(is_metric_observable(&self->super.super))) {
-        spin_lock(&self->value_lock);
+        spin_lock(&self->lock);
         self->value = value;
-        spin_unlock(&self->value_lock);
+        spin_unlock(&self->lock);
     }
 }
 
@@ -593,7 +599,6 @@ OBJ_VTABLE_END()
 static void bridge_simple_value(prom_simple_value_metric_t *metric, sb_t *out)
 {
     lstr_t name = metric->parent ? metric->parent->name : metric->name;
-    double value = obj_vcall(metric, get_value);
 
     sb_add_lstr(out, name);
 
@@ -613,7 +618,7 @@ static void bridge_simple_value(prom_simple_value_metric_t *metric, sb_t *out)
         sb_addc(out, '}');
     }
 
-    sb_addf(out, " %g\n", value);
+    sb_addf(out, " %g\n", metric->value);
 }
 
 static void bridge_histogram(prom_histogram_t *metric, sb_t *out)
@@ -633,9 +638,6 @@ static void bridge_histogram(prom_histogram_t *metric, sb_t *out)
         sb_adds_slashes(&label_names, label_value, "\\\n", "\\n");
         sb_addc(&label_names, '"');
     }
-
-    /* Lock metric (for accessing values) */
-    spin_lock(&metric->lock);
 
     /* Add the line for each bucket */
     for (int i = 0; i < metric->nb_buckets; i++) {
@@ -674,12 +676,9 @@ static void bridge_histogram(prom_histogram_t *metric, sb_t *out)
     sb_addf(out, " %g\n", metric->count);
 
     sb_addc(out, '\n');
-
-    /* Unlock metric */
-    spin_unlock(&metric->lock);
 }
 
-static void bridge_metric(prom_metric_t *metric, sb_t *out)
+static void bridge_sample(prom_metric_t *metric, sb_t *out)
 {
     prom_simple_value_metric_t *simple_value;
 
@@ -691,63 +690,73 @@ static void bridge_metric(prom_metric_t *metric, sb_t *out)
     }
 }
 
+static void prom_collector_bridge_metric(prom_metric_t *metric, sb_t *out)
+{
+    lstr_t metric_type = LSTR_NULL_V;
+
+    /* Skip metrics without samples */
+    if (metric->label_names.len
+    &&  !qm_len(prom_metric, metric->children_by_labels))
+    {
+        return;
+    }
+
+    /* Ensure there is an empty line between each metric */
+    if (out->len >= 2
+    &&  (out->data[out->len - 1] != '\n'
+      || out->data[out->len - 2] != '\n'))
+    {
+        sb_adds(out, "\n");
+    }
+
+    /* Add HELP and TYPE */
+    sb_addf(out, "# HELP %*pM ", LSTR_FMT_ARG(metric->name));
+    sb_add_slashes(out,
+                   metric->documentation.s, metric->documentation.len,
+                   "\\\n", "\\n");
+    sb_addc(out, '\n');
+
+    /* Add TYPE */
+    if (obj_is_a(metric, prom_counter)) {
+        metric_type = LSTR("counter");
+    } else
+    if (obj_is_a(metric, prom_gauge)) {
+        metric_type = LSTR("gauge");
+    } else
+    if (obj_is_a(metric, prom_histogram)) {
+        metric_type = LSTR("histogram");
+    } else {
+        assert (false);
+    }
+    sb_addf(out, "# TYPE %*pM %*pM\n",
+            LSTR_FMT_ARG(metric->name),
+            LSTR_FMT_ARG(metric_type));
+
+    /* Add values */
+    if (is_metric_observable(metric)) {
+        bridge_sample(metric, out);
+    } else {
+        prom_metric_t *child;
+
+        dlist_for_each_entry(child, &metric->children_list,
+                             siblings_list)
+        {
+            spin_lock(&child->lock);
+            bridge_sample(child, out);
+            spin_unlock(&child->lock);
+        }
+    }
+}
+
 void prom_collector_bridge(const dlist_t *collector, sb_t *out)
 {
     prom_metric_t *metric;
 
     dlist_for_each_entry(metric, collector, siblings_list) {
-        lstr_t metric_type = LSTR_NULL_V;
 
-        /* Skip metrics without samples */
-        if (metric->label_names.len
-        &&  !qm_len(prom_metric, metric->children_by_labels))
-        {
-            continue;
-        }
-
-        /* Ensure there is an empty line between each metric */
-        if (out->len >= 2
-        &&  (out->data[out->len - 1] != '\n'
-          || out->data[out->len - 2] != '\n'))
-        {
-            sb_adds(out, "\n");
-        }
-
-        /* Add HELP and TYPE */
-        sb_addf(out, "# HELP %*pM ", LSTR_FMT_ARG(metric->name));
-        sb_add_slashes(out,
-                       metric->documentation.s, metric->documentation.len,
-                       "\\\n", "\\n");
-        sb_addc(out, '\n');
-
-        /* Add TYPE */
-        if (obj_is_a(metric, prom_counter)) {
-            metric_type = LSTR("counter");
-        } else
-        if (obj_is_a(metric, prom_gauge)) {
-            metric_type = LSTR("gauge");
-        } else
-        if (obj_is_a(metric, prom_histogram)) {
-            metric_type = LSTR("histogram");
-        } else {
-            assert (false);
-        }
-        sb_addf(out, "# TYPE %*pM %*pM\n",
-                LSTR_FMT_ARG(metric->name),
-                LSTR_FMT_ARG(metric_type));
-
-        /* Add values */
-        if (is_metric_observable(metric)) {
-            bridge_metric(metric, out);
-        } else {
-            prom_metric_t *child;
-
-            dlist_for_each_entry(child, &metric->children_list,
-                                 siblings_list)
-            {
-                bridge_metric(child, out);
-            }
-        }
+        spin_lock(&metric->lock);
+        prom_collector_bridge_metric(metric, out);
+        spin_unlock(&metric->lock);
     }
 
     if (out->len && out->data[out->len - 1] == '\n') {

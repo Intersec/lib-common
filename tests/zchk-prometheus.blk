@@ -24,6 +24,55 @@
 
 #include <lib-common/prometheus-client/priv.h>
 
+/* {{{ metric_labels_thread_safety */
+
+static int z_metric_labels_thread_safety(void)
+{
+    t_scope;
+    const int nb_children = 1000;
+    thr_syn_t syn;
+    prom_counter_t *counter;
+    prom_metric_t *child;
+    bool *seen = t_new(bool, nb_children);
+
+    MODULE_REQUIRE(prometheus_client);
+
+    /* Create a counter */
+    counter = prom_counter_new("test_counter", "test counter", "label");
+
+    /* Create children from different threads */
+    thr_syn_init(&syn);
+    for (int i = 0; i < nb_children; i++) {
+        thr_syn_schedule_b(&syn, ^{
+            t_scope;
+
+            prom_metric_labels(counter, t_fmt("%d", i));
+        });
+    }
+    thr_syn_wait(&syn);
+    thr_syn_wipe(&syn);
+
+    /* Check all the children were actually created */
+    dlist_for_each_entry(child, &counter->children_list, siblings_list) {
+        lstr_t label = LSTR(child->label_values.tab[0]);
+        int child_ind;
+
+        Z_ASSERT_N(lstr_to_int(label, &child_ind));
+        Z_ASSERT_N(child_ind);
+        Z_ASSERT_LT(child_ind, nb_children);
+        Z_ASSERT(!seen[child_ind]);
+        seen[child_ind] = true;
+    }
+    for (int i = 0; i < nb_children; i++) {
+        Z_ASSERT(seen[i]);
+    }
+
+    MODULE_RELEASE(prometheus_client);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
 /* {{{ counter_value_thread_safety */
 
 static int z_counter_value_thread_safety(void)
@@ -361,6 +410,13 @@ Z_GROUP_EXPORT(prometheus_client) {
 
 
         MODULE_RELEASE(prometheus_client);
+    } Z_TEST_END;
+
+    Z_TEST(metric_labels_thread_safety,
+           "test thread safety of labels() method")
+    {
+        /* Not implemented directly here because of block rewriting issues */
+        Z_HELPER_RUN(z_metric_labels_thread_safety());
     } Z_TEST_END;
 
     Z_TEST(counter_value_thread_safety,

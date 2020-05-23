@@ -23,9 +23,10 @@ page, but simplifications were made with our use-cases in mind:
 * there is a unique collector (so no collector registry), and all metrics are
   automatically registered in it when using the high-level helpers.
 * only counter, gauge and histogram metrics are implemented (at least for now).
-* metrics creation/deletion is NOT thread safe, so metrics and children must
-  be created from the thread of the event loop; however, modifying the value
-  of an existing metric is thread safe (using the provided helpers).
+* parent metrics creation/deletion is NOT thread safe, so they must be created
+  from the thread of the event loop; however, modifying the value of an
+  existing metric (using the provided helpers) and creating children metrics
+  using the `labels()` method and variants is thread safe.
 
 == Error handling
 

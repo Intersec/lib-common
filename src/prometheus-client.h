@@ -53,6 +53,22 @@ union qm_prom_metric_t;
     qv_t(cstr) label_values;                                                 \
     pfx##_t * nullable parent;                                               \
                                                                              \
+    /** Spinlock used for threaded access.                                   \
+     *                                                                       \
+     * It is used for both parent and children metrics, when thread-safe     \
+     * access is needed.                                                     \
+     *                                                                       \
+     * Note that for accessing metrics values we are using spinlocks instead \
+     * of atomic doubles because:                                            \
+     *  - using atomic doubles require gcc >= 4.9, and we have to support    \
+     *    RedHat 7 that has gcc 4.8.                                         \
+     *  - spinlocks have better performances in case there is no concurrency \
+     *    which is the case in most of our code (but atomic doubles are      \
+     *    slightly better in case of high concurrency). The bench tool       \
+     *    bench/threaded-operations-bench demonstrates that.                 \
+     */                                                                      \
+    spinlock_t lock;                                                         \
+                                                                             \
     /* Common fields */                                                      \
     dlist_t siblings_list;                                                   \
 
@@ -74,6 +90,8 @@ union qm_prom_metric_t;
      *                                                                       \
      * The program aborts in case of error.                                  \
      *                                                                       \
+     * This operation is NOT thread-safe.                                    \
+     *                                                                       \
      * XXX: not simply called "register" because it is a reserved keyword in \
      *      C...                                                             \
      */                                                                      \
@@ -84,6 +102,8 @@ union qm_prom_metric_t;
      * This is usually not needed as all metrics are destroyed when module   \
      * prometheus_client is shutdown.                                        \
      * Unregistered metrics must be manually destroyed.                      \
+     *                                                                       \
+     * This operation is NOT thread-safe.                                    \
      */                                                                      \
     void (*unregister)(type_t *self);                                        \
                                                                              \
@@ -94,7 +114,10 @@ union qm_prom_metric_t;
      *                                                                       \
      * The returned child is created if needed. It is safe to keep a pointer \
      * on the returned value, as long as it (or the parent metric) is not    \
-     * explicitly destroyed.                                                 \
+     * explicitly destroyed. And it is encouraged in performance-critical    \
+     * pieces of code.                                                       \
+     *                                                                       \
+     * This operation is thread-safe.                                        \
      */                                                                      \
     type_t *(*labels)(type_t *self, const qv_t(cstr) *label_values);         \
                                                                              \
@@ -102,10 +125,15 @@ union qm_prom_metric_t;
      *                                                                       \
      * Should be callled only on parent metrics having label names, and with \
      * the correct number of label values. The program will abort otherwise. \
+     *                                                                       \
+     * This operation is NOT thread-safe.                                    \
      */                                                                      \
     void (*remove)(type_t *self, const qv_t(cstr) *label_values);            \
                                                                              \
-    /** Remove all the child metrics. */                                     \
+    /** Remove all the child metrics.                                        \
+     *                                                                       \
+     * This operation is NOT thread-safe.                                    \
+     */                                                                      \
     void (*clear)(type_t *self);                                             \
 
 /** Base class for all prometheus metric. */
@@ -151,18 +179,6 @@ prom_metric_t *prom_metric_new(const object_class_t *cls,
      * If you need thread safety, use the provided helpers.                  \
      */                                                                      \
     double value;                                                            \
-                                                                             \
-    /** Spinlock used for threaded access.                                   \
-     *                                                                       \
-     * We are using spinlocks instead of atomic doubles because:             \
-     *  - using atomic doubles require gcc >= 4.9, and we have to support    \
-     *    RedHat 7 that has gcc 4.8.                                         \
-     *  - spinlocks have better performances in case there is no concurrency \
-     *    which is the case in most of our code (but atomic doubles are      \
-     *    slightly better in case of high concurrency). The bench tool       \
-     *    bench/threaded-operations-bench demonstrates that.                 \
-     */                                                                      \
-    spinlock_t value_lock;                                                   \
 
 
 #define PROM_SIMPLE_VALUE_METRIC_METHODS(type_t) \
@@ -342,12 +358,6 @@ OBJ_CLASS(prom_gauge, prom_simple_value_metric,
 
 #define PROM_HISTOGRAM_FIELDS(pfx) \
     PROM_METRIC_FIELDS(pfx);                                                 \
-                                                                             \
-    /** Spinlock used for threaded access.                                   \
-     *                                                                       \
-     * Cf. PROM_SIMPLE_VALUE_METRIC_FIELDS for explanation.                  \
-     */                                                                      \
-    spinlock_t lock;                                                         \
                                                                              \
     /* Buckets configuration (only set in parent metric) */                  \
     int nb_buckets;                                                          \
