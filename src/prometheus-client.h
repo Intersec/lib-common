@@ -486,6 +486,40 @@ void prom_histogram_set_exponential_buckets(prom_histogram_t *histogram,
     (prom_histogram_t *)prom_metric_labels(obj_vcast(prom_metric, histogram),\
                                            __VA_ARGS__)
 
+
+/** Context structure for histogram timer. */
+typedef struct prom_histogram_timer_ctx_t {
+    prom_histogram_t *histogram;
+    struct timeval tv_start;
+} prom_histogram_timer_ctx_t;
+
+/** Start a histogram timer. */
+prom_histogram_timer_ctx_t
+prom_histogram_timer_start(prom_histogram_t *histogram);
+
+/** Finish an histogram timer.
+ *
+ * It observes observe the histogram with the duration from the call of
+ * \ref prom_histogram_timer_start, in seconds.
+ */
+void prom_histogram_timer_finish(prom_histogram_timer_ctx_t *ctx);
+
+
+/** Observe the execution time of a block of code in an histogram.
+ *
+ * Use this helper to measure the execution time of a block of code:
+ *
+ *  {
+ *      prom_histogram_timer_scope(histogram);
+ *
+ *      ...
+ *  }
+ */
+#define prom_histogram_timer_scope(_histogram)  \
+    __attribute__((unused,cleanup(prom_histogram_timer_finish)))             \
+    prom_histogram_timer_ctx_t PFX_LINE(rom_histogram_timer_ctx_) =          \
+        prom_histogram_timer_start(_histogram)
+
 /* }}} */
 /* {{{ HTTP server for scraping */
 

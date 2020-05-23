@@ -17,7 +17,9 @@
 /***************************************************************************/
 
 #include <math.h>
+
 #include <lib-common/container-qhash.h>
+#include <lib-common/datetime.h>
 
 #include "priv.h"
 
@@ -592,6 +594,30 @@ OBJ_VTABLE(prom_histogram)
     prom_histogram.labels      = prom_histogram_labels;
     prom_histogram.observe     = prom_histogram_observe;
 OBJ_VTABLE_END()
+
+
+prom_histogram_timer_ctx_t
+prom_histogram_timer_start(prom_histogram_t *histogram)
+{
+    prom_histogram_timer_ctx_t res;
+
+    p_clear(&res, 1);
+    res.histogram = histogram;
+    lp_gettv(&res.tv_start);
+
+    return res;
+}
+
+void prom_histogram_timer_finish(prom_histogram_timer_ctx_t *ctx)
+{
+    struct timeval tv_end;
+    double duration;
+
+    lp_gettv(&tv_end);
+
+    duration = timeval_diff64(&tv_end, &ctx->tv_start) / 1000000.;
+    obj_vcall(ctx->histogram, observe, duration);
+}
 
 /* }}} */
 /* {{{ Bridge function for exposition in text format */

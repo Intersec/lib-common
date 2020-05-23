@@ -440,6 +440,32 @@ Z_GROUP_EXPORT(prometheus_client) {
         Z_HELPER_RUN(z_histogram_value_thread_safety());
     } Z_TEST_END;
 
+    Z_TEST(text_histogram_timer, "test prom_histogram_timer_scope") {
+        prom_histogram_t *histo;
+
+        MODULE_REQUIRE(prometheus_client);
+
+        /* Create an histogram */
+        histo = prom_histogram_new("histogram_timer", "test histogram timer");
+        prom_histogram_set_default_buckets(histo);
+
+        /* Use prom_histogram_timer_scope to measure the timing of a block
+         * with a sleep of 1000 microseconds */
+        {
+            prom_histogram_timer_scope(histo);
+
+            usleep(1000);
+        }
+
+        /* Check the timing was properly measured. We cannot expect an exact
+         * value, so check realistic bounds. */
+        Z_ASSERT_EQ(histo->count, 1);
+        Z_ASSERT_GE(histo->sum, 0.001);
+        Z_ASSERT_LT(histo->sum, 0.002);
+
+        MODULE_RELEASE(prometheus_client);
+    } Z_TEST_END;
+
     Z_TEST(text_exposition, "test the metrics exposition in text format") {
         t_scope;
         SB_1k(text);

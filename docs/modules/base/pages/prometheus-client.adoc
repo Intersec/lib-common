@@ -214,6 +214,32 @@ histo_child = prom_histogram_labels(histo_linear, "value 1", "value 2");
 obj_vcall(histo_child, observe, 25);
 ----
 
+The library also provides tools to observe the execution time of code.
+The functions `prom_histogram_timer_start` / `prom_histogram_timer_finish`
+can be used manually:
+
+[source,c]
+----
+prom_histogram_t *histo_timing = prom_histogram_new(...);
+prom_histogram_timer_ctx_t timer_ctx;
+
+timer_ctx = prom_histogram_timer_start(histo_timing);
+/* ... code to time ... */
+prom_histogram_timer_finish(&timer_ctx);
+----
+
+Or directly use `prom_histogram_timer_scope` to measure the execution time
+of a block of code:
+
+[source,c]
+----
+{
+    prom_histogram_timer_scope(histo_timing);
+
+    /* ... code to time ... */
+}
+----
+
 === Full example program
 
 You can also read `examples/ex-prometheus-client.c` for a full example

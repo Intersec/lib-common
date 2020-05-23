@@ -30,6 +30,7 @@ static struct {
     prom_counter_t   *counter_labels;
     prom_gauge_t     *gauge_labels;
     prom_histogram_t *histo_no_label;
+    prom_histogram_t *histo_timing;
     el_t metrics_cron;
 
     /* Command-line options */
@@ -78,6 +79,14 @@ static void metrics_cron(el_t el, data_t data)
 
     /* Observe the histogram with a random number */
     obj_vcall(_G.histo_no_label, observe, rand_ranged(0, 120));
+
+    /* Example of usage of prom_histogram_timer_scope */
+    {
+        prom_histogram_timer_scope(_G.histo_timing);
+        int useconds = rand_range(0, 1000);
+
+        usleep(useconds);
+    }
 }
 
 /* }}} */
@@ -150,6 +159,11 @@ int main(int argc, char **argv)
         "An histogram with linear buckets from 10 to 100 (step 10)",
     );
     prom_histogram_set_linear_buckets(_G.histo_no_label, 10, 10, 10);
+    _G.histo_timing = prom_histogram_new(
+        "ex:histogram_timer_seconds",
+        "An histogram to observe he duration of a block of code",
+    );
+    prom_histogram_set_linear_buckets(_G.histo_timing, 0.0001, 0.0001, 10);
 
     /* Register the cron that will be called every second to update the
      * metrics values */
