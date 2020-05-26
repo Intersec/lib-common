@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Prometheus client :: Intersec lib-common Documentation</title>
+    <meta name="generator" content="Antora 2.1.2">
+    <link rel="stylesheet" href="../../_/css/site.css">
+    <link rel="icon" href="../../_/img/favicon.png" type="image/png">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
+      <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <div class="navbar-end">
+            </div>
+    </div>
+  </nav>
+</header>
+<div class="main-wrapper">
+<div class="navigation-container" data-component="lib-common" data-version="master">
+  <aside class="navigation">
+    <div class="panels">
+<div class="navigation-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Principles</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../philosophy.html">Philosophy</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Coding rules</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../coding-rules-c.html">Coding Rules for C-based languages</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../dev-c.html">C Language for the lib-common</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Use the lib-common</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../use-as-submodule.html">Integrate the lib-common as a submodule</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">Base library</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="base.html">C library enhancements</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="mem-alloc.html">Memory allocators</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="string.html">String library</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="containers.html">Containers</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="logging.html">Logging</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="modules.html">Modules</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="threads.html">Thread jobs</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="prometheus-client.html">Prometheus client</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-toggle"></button>
+    <span class="nav-text">IOP</span>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/base.html">IOP Basics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/wire-format.html">Wire format</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/inheritance.html">Class inheritance</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/iop-attributes.html">IOP attributes</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="../iop/library-c.html">C library</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="navigation-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">Lib-common Documentation</span>
+    <span class="version">master</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">Lib-common Documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="../index.html">master</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+  <main class="main">
+<div class="toolbar" role="navigation">
+  <button class="navigation-toggle"></button>
+<nav class="crumbs" aria-label="breadcrumbs">
+  <ul>
+    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
+    <li class="crumb">Base library</li>
+    <li class="crumb"><a href="prometheus-client.html">Prometheus client</a></li>
+  </ul>
+</nav>
+</div>
+<article
+class="doc"
+>
+<h1>Prometheus client</h1>
+<div id="toc" class="toc">
+<div id="toctitle">Table of Contents</div>
+<ul class="sectlevel1">
+<li><a href="#_resources">Resources</a></li>
+<li><a href="#_limitations">Limitations</a></li>
+<li><a href="#_error_handling">Error handling</a></li>
+<li><a href="#_memory_management">Memory management</a></li>
+<li><a href="#_usage">Usage</a>
+<ul class="sectlevel2">
+<li><a href="#_initializing_module">Initializing module</a></li>
+<li><a href="#_running_http_scraping_server">Running HTTP scraping server</a></li>
+<li><a href="#_creating_and_using_countergauge_metrics">Creating and using counter/gauge metrics</a></li>
+<li><a href="#_creating_and_using_histogram_metrics">Creating and using histogram metrics</a></li>
+<li><a href="#_full_example_program">Full example program</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>The lib-common provides a simple implementation of a
+<a href="https://prometheus.io/">Prometheus</a> client.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_resources"><a class="anchor" href="#_resources"></a>Resources</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Its header file is <code>src/prometheus-client.h</code>. All structures and APIs are
+documented there.</p>
+</div>
+<div class="paragraph">
+<p>Unit tests are in <code>tests/zchk-prometheus.blk</code>.</p>
+</div>
+<div class="paragraph">
+<p>An example program using the prometheus client to expose dummy metrics is in
+<code>examples/ex-prometheus-client.c</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_limitations"><a class="anchor" href="#_limitations"></a>Limitations</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>It tries to stick to the spirit of the
+<a href="https://prometheus.io/docs/instrumenting/writing_clientlibs">Writing client libraries</a>
+page, but simplifications were made with our use-cases in mind:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>there is a unique collector (so no collector registry), and all metrics are
+automatically registered in it when using the high-level helpers.</p>
+</li>
+<li>
+<p>only counter, gauge and histogram metrics are implemented (at least for now).</p>
+</li>
+<li>
+<p>parent metrics creation/deletion is NOT thread safe, so they must be created
+from the thread of the event loop; however, modifying the value of an
+existing metric (using the provided helpers) and creating children metrics
+using the <code>labels()</code> method and variants is thread safe.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_error_handling"><a class="anchor" href="#_error_handling"></a>Error handling</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Errors at metrics creation (ie. invalid metric or label name, invalid number
+of labels when creating a child, &#8230;&#8203;) are fatal errors: the program stops
+when it happens, with a proper error and generating a core dump.</p>
+</div>
+<div class="paragraph">
+<p>We have made this choice because this kind of errors are programmatic errors,
+and are supposed to happen as soon as the program is launched, so cannot
+happen in production if the code was properly tested.</p>
+</div>
+<div class="paragraph">
+<p>Thanks to that, the users of the API do not have to handle these error cases,
+which simplifies the code.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_memory_management"><a class="anchor" href="#_memory_management"></a>Memory management</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>User&#8217;s code usually do not have to manually destroy created metrics since all
+the allocated memory is automatically destroyed when the <code>prometheus_client</code>
+module is released.</p>
+</div>
+<div class="paragraph">
+<p>However, it is still possible to call <code>obj_delete</code> on created objects if
+needed.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_usage"><a class="anchor" href="#_usage"></a>Usage</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_initializing_module"><a class="anchor" href="#_initializing_module"></a>Initializing module</h3>
+<div class="paragraph">
+<p>In order to use the Prometheus client, you must first activate the
+<code>prometheus_client</code> <a href="modules.html" class="page">module</a>. So either you work in a
+module that depends on <code>prometheus_client</code>, or you have to manually require
+it:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;lib-common/prometeus-client.h&gt;
+
+MODULE_REQUIRE(prometheus_client);
+
+/* YOUR CODE HERE */
+
+MODULE_RELEASE(prometheus_client);</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_running_http_scraping_server"><a class="anchor" href="#_running_http_scraping_server"></a>Running HTTP scraping server</h3>
+<div class="paragraph">
+<p>Then, you can call <code>prom_http_start_server</code> to start the scraping HTTP server.
+It requires to build a configuration structure first, with the address to
+listen on:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#include &lt;lib-common/iop.h&gt;
+
+SB_1k(err);
+core__httpd_cfg__t httpd_cfg;
+
+iop_init(core__httpd_cfg, &amp;httpd_cfg);
+httpd_cfg.bind_addr = "0.0.0.0:8080";
+if (prom_http_start_server(&amp;httpd_cfg, &amp;err) &lt; 0) {
+    e_fatal("cannot start HTTP server: %*pM", SB_FMT_ARG(&amp;err));
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_creating_and_using_countergauge_metrics"><a class="anchor" href="#_creating_and_using_countergauge_metrics"></a>Creating and using counter/gauge metrics</h3>
+<div class="paragraph">
+<p>You can create counter/gauge metrics using respectively <code>prom_counter_new</code> and
+<code>prom_gauge_new</code>. These helpers take as argument the name of the metric, its
+description, and a variable number of label names (or no label name for simple
+metrics):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">prom_counter_t *counter_no_label;
+prom_counter_t *counter_labels;
+prom_gauge_t   *gauge_labels;
+
+counter_no_label = prom_counter_new(
+    "counter_no_label",
+    "A simple counter without label",
+);
+
+counter_labels = prom_counter_new(
+    "counter_labels",
+    "A counter with two labels"
+    "label1", "label2",
+);
+
+gauge_no_label = prom_gauge_new(
+    "gauge_no_label",
+    "A simple gauge without label",
+);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The methods <code>add</code> and <code>inc</code> can be used to respectively add a value to a
+counter or increment it. The method <code>get_value</code> can be used to get a metric
+value in a thread-safe manner:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">double value;
+
+obj_vcall(counter_no_label, add, 2.);
+obj_vcall(counter_no_label, inc);
+
+value = obj_vcall(counter_no_label, get_value);
+/* value == 3 here */</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The gauge metrics support the methods <code>add</code>, <code>inc</code>, <code>sub</code>, <code>dec</code> and <code>set</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">double value;
+
+obj_vcall(gauge_no_label, add, 4.);
+obj_vcall(gauge_no_label, inc);
+obj_vcall(gauge_no_label, sub, 3);
+obj_vcall(gauge_no_label, dec);
+
+value = obj_vcall(gauge_no_label, get_value);
+/* value == 1 here */
+
+obj_vcall(gauge_no_label, set, -12.5);
+
+value = obj_vcall(gauge_no_label, get_value);
+/* value == -12.5 here */</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The helpers <code>prom_counter_labels</code> and <code>prom_gauge_labels</code> can be used to get
+children metrics, for metrics having labels. It must be called with the same
+number of label values as the number of label names in the parent metric.
+The result is also a metric pointer, that can be cached for later use, and
+supports the same methods to modify the value:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">prom_counter_t *counter_child;
+
+counter_child = prom_counter_labels(counter_labels, "value 1", "value 2");
+obj_vcall(counter_child, inc);</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_creating_and_using_histogram_metrics"><a class="anchor" href="#_creating_and_using_histogram_metrics"></a>Creating and using histogram metrics</h3>
+<div class="paragraph">
+<p>Histogram metrics can be created with <code>prom_histogram_new</code>, just as
+counter/gauge. Once created, the buckets <strong>MUST</strong> be set using one of the
+provided helpers:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>prom_histogram_set_default_buckets</code> to set the default buckets
+cf <code>PROM_DEFAULT_BUCKETS</code> define).</p>
+</li>
+<li>
+<p><code>prom_histogram_set_buckets</code> to manually specify the buckets.</p>
+</li>
+<li>
+<p><code>prom_histogram_set_linear_buckets</code> to use a linear distribution as buckets.</p>
+</li>
+<li>
+<p><code>prom_histogram_set_exponential_buckets</code> to use an exponential distribution
+as buckets.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">prom_histogram_t *histo_manual;
+prom_histogram_t *histo_linear;
+
+histo_manual = prom_histogram_new(
+    "histogram_manual_buckets",
+    "An histogram with manually-defined buckets (and no label)",
+);
+prom_histogram_set_buckets(histo_manual, 0.5, 1, 3, 6, 10);
+
+histo_linear = prom_histogram_new(
+    "histogram_linear_buckets",
+    "An histogram with linear buckets (and two label)",
+    "label1", "label2",
+);
+prom_histogram_set_linear_buckets(histo_linear, 10, 10, 5);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Then the method <code>observe</code> is used to observe a value:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">prom_histogram_t *histo_child;
+
+obj_vcall(histo_manual, observe, 3.14);
+
+histo_child = prom_histogram_labels(histo_linear, "value 1", "value 2");
+obj_vcall(histo_child, observe, 25);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The library also provides tools to observe the execution time of code.
+The functions <code>prom_histogram_timer_start</code> / <code>prom_histogram_timer_finish</code>
+can be used manually:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">prom_histogram_t *histo_timing = prom_histogram_new(...);
+prom_histogram_timer_ctx_t timer_ctx;
+
+timer_ctx = prom_histogram_timer_start(histo_timing);
+/* ... code to time ... */
+prom_histogram_timer_finish(&amp;timer_ctx);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Or directly use <code>prom_histogram_timer_scope</code> to measure the execution time
+of a block of code:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">{
+    prom_histogram_timer_scope(histo_timing);
+
+    /* ... code to time ... */
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_full_example_program"><a class="anchor" href="#_full_example_program"></a>Full example program</h3>
+<div class="paragraph">
+<p>You can also read <code>examples/ex-prometheus-client.c</code> for a full example
+program, with an event loop integration.</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+  </main>
+</div>
+<footer class="footer">
+  <p>Intersec © - Confidential</p>
+</footer>
+<script src="../../_/js/site.js"></script>
+<script async src="../../_/js/vendor/highlight.js"></script>
+  </body>
+</html>
