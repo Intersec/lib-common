@@ -40,18 +40,7 @@
 #include <linux/types.h>
 #include <sys/socket.h>
 
-/** If the linux uapi sctp header is available, this one will be used to
- * include the required structures and constants.
- * This header is present for kernel version >= 4.0.
- *
- * If this header is not present, the header linux-uapi-sctp.h is used. This
- * one contains the required structures and constants.
- */
-#ifdef HAVE_LINUX_UAPI_SCTP_H
 #include <linux/sctp.h>
-#else
-#include "linux-uapi-sctp.h"
-#endif /* HAVE_LINUX_UAPI_SCTP_H */
 
 /** Socket option layer for SCTP */
 #ifndef SOL_SCTP
@@ -99,19 +88,5 @@ int sctp_recvmsg(int s, void *msg, size_t len, struct sockaddr *from,
 
 /** Return the address length for an address family. */
 int sctp_getaddrlen(sa_family_t family);
-
-#ifdef HAVE_LINUX_UAPI_SCTP_H
-# define sctp_peer_addr_state_is_active(state) ((state) == SCTP_ACTIVE)
-#else
-/** This function allows to correctly interpret an sctp_spinfo_state return by
- * Linux.
- *
- * Under RHEL 6 with kernel version 2.6.32 and a stable version >= 358,
- * the SCTP_ACTIVE internal value 2 when it is reported as 1 in public
- * headers. It is a backward incompatible change introduced by mistake in the
- * Kernel.
- */
-bool sctp_peer_addr_state_is_active(enum sctp_spinfo_state state);
-#endif
 
 #endif /* IS_LIB_COMMON_SCTP_H */

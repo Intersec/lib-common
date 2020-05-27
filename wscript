@@ -89,18 +89,6 @@ def configure(ctx):
     ctx.check_cfg(package='valgrind', uselib_store='valgrind',
                   args=['--cflags'])
 
-    # Linux UAPI SCTP header
-    sctp_h = '/usr/include/linux/sctp.h'
-    if os.path.exists(sctp_h):
-        sctp_flag = '-DHAVE_LINUX_UAPI_SCTP_H'
-        ctx.env.CFLAGS.append(sctp_flag)
-        ctx.env.CLANG_FLAGS.append(sctp_flag)
-        ctx.env.CLANG_REWRITE_FLAGS.append(sctp_flag)
-        ctx.msg('Checking for Linux UAPI SCTP header', sctp_h)
-    else:
-        Logs.info('missing Linux UAPI SCTP header,'
-                  ' it will be replaced by a custom one')
-
     # {{{ Python 2
 
     # TODO waf: use waf python tool for that?
