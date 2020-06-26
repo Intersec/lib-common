@@ -2020,17 +2020,21 @@ class IopyVoidTest(z.TestCase): # {{{
     def test_void_struct_required(self):
         # required void arg can be omited
         s = self.r.testvoid.VoidRequired()
-        self.assertIsNone(s.a)
-        # required void arg can be passed as None
+        self.assertFalse(hasattr(s, 'a'))
+
+        # required void arg can be passed as None, or any other value
+        # in any case, it should not be present in the final object
         s = self.r.testvoid.VoidRequired(a=None)
-        self.assertIsNone(s.a)
-        # setting to None works
+        self.assertFalse(hasattr(s, 'a'))
+        s = self.r.testvoid.VoidRequired(a='plop')
+        self.assertFalse(hasattr(s, 'a'))
+
+        # manually setting it with any value works but has no effect
         s.a = None
-        self.assertIsNone(s.a)
-        # setting to anything but None fails
-        msg = r"invalid type: got int \(0\), expected NoneType"
-        with self.assertRaisesRegex(iopy.Error, msg):
-            s.a = 0
+        self.assertFalse(hasattr(s, 'a'))
+        s.a = 'plop'
+        self.assertFalse(hasattr(s, 'a'))
+
         # deleting required field fails
         with self.assertRaises(iopy.Error):
             del(s.a)
@@ -2043,17 +2047,20 @@ class IopyVoidTest(z.TestCase): # {{{
         # optional void arg can be skipped
         s = self.r.testvoid.VoidOptional()
         self.assertFalse(hasattr(s, 'a'))
+
         # setting to None works
         s.a = None
         self.assertEqual(str(s), "{\n    \"a\": null\n}\n")
         self.assertIsNone(s.a)
-        # check setting to anything but None fails
-        msg = r"invalid type: got int \(0\), expected NoneType"
-        with self.assertRaisesRegex(iopy.Error, msg):
-            s.a = 0
+
         # check deleting optional field clears it
         del(s.a)
         self.assertFalse(hasattr(s, 'a'))
+
+        # Setting to anything but None behave the same way
+        s.a = 'toto'
+        self.assertEqual(str(s), "{\n    \"a\": null\n}\n")
+        self.assertIsNone(s.a)
 # }}}
 
 # pylint: disable=super-on-old-class, bad-super-call

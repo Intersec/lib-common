@@ -5530,6 +5530,12 @@ cdef class StructBase(StructUnionBase):
 
         field = find_field_in_st_by_name(st, name, NULL)
         if field:
+            if field.type == IOP_T_VOID:
+                # We try to set a void field, we should ignore it if the field
+                # is not optional, or set it to None if it is optional.
+                struct_set_present_void_field(self, field, name)
+                return
+
             is_valid = False
             py_res = struct_convert_provided_field(self, st, field, value,
                                                    &is_valid, &err)
@@ -5880,24 +5886,30 @@ cdef int t_struct_init_field(StructBase py_st, const iop_struct_t *st,
     cdef object py_obj
 
     field_name_str = lstr_to_py_str(field.name)
+    if field.type == IOP_T_VOID:
+        # When the field is of type void, we should ignore it if it is not
+        # provided, or ignore it if it is provided but not optional,
+        # or set it to None if it is provided and optional.
+        if field_name_str in kwargs:
+            struct_set_present_void_field(py_st, field, field_name_str)
+        return 0
+
     py_obj = kwargs.get(field_name_str)
     if py_obj is None:
-        if field.type == IOP_T_VOID:
-            struct_init_void_field(py_st, field, field_name_str, kwargs)
-            return 0
-        else:
-            return t_struct_init_missing_fields(py_st, st, field,
-                                                field_name_str, empty_val,
-                                                err)
+        return t_struct_init_missing_fields(py_st, st, field, field_name_str,
+                                            empty_val, err)
 
     return struct_init_provided_field(py_st, st, field, field_name_str,
                                       py_obj, err)
 
 
-cdef int struct_init_void_field(StructBase py_st, const iop_field_t *field,
-                                str field_name_str,
-                                dict kwargs) except -1:
-    """Init void field of structure from kwargs.
+cdef int struct_set_present_void_field(StructBase py_st,
+                                       const iop_field_t *field,
+                                       str field_name_str) except -1:
+    """Set void field of structure.
+
+    If the field is not optional, it is ignored.
+    If the field is optional, it is set to None.
 
     Parameters
     ----------
@@ -5906,18 +5918,17 @@ cdef int struct_init_void_field(StructBase py_st, const iop_field_t *field,
     field
         The field to init.
     field_name_str
-        The python str name of the field
-    kwargs
-        The dictionary of arguments.
+        The python str name of the field.
 
     Returns
     -------
         -1 if an unexpected python error occurs. 0 otherwise.
     """
-    if field.repeat != IOP_R_OPTIONAL or field_name_str in kwargs:
+    if field.repeat == IOP_R_OPTIONAL:
         PyObject_GenericSetAttr(py_st, field_name_str, None)
 
     return 0
+
 
 cdef int t_struct_init_missing_fields(StructBase py_st,
                                       const iop_struct_t *st,
