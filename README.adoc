@@ -88,29 +88,15 @@ $ ./waf
 `waf` versions 2.0.8 and 2.0.18 are known to work fine, running the latest 2.0.x
 `waf` should also work fine.
 
-=== Cython
+=== Dependencies
+==== List of packages per Linux distribution
 
-To build the IOP python interface component, cython >= 0.29 is required. It can
-be installed using pip:
-
----------------------------------
-$ pip install cython
----------------------------------
-
-To also build the python3 IOP interface:
-
----------------------------------
-$ pip3 install cython
----------------------------------
-
-=== List of packages per Linux distribution
-
-==== Debian 9, Debian 10 or Ubuntu 18.04
+===== Debian 9, Debian 10 or Ubuntu 18.04
 
 You need to install the following packages to build the lib-common:
 
 ---------------------------------
-$ sudo apt-get install python-dev python-pip flex gperf pkg-config exuberant-ctags libxml2-dev libssl-dev valgrind
+$ sudo apt-get install clang libclang-dev python-dev python-pip flex gperf pkg-config exuberant-ctags libxml2-dev libssl-dev
 ---------------------------------
 
 To generate the python3 IOP interface, you also need the following packages:
@@ -118,17 +104,51 @@ To generate the python3 IOP interface, you also need the following packages:
 $ sudo apt-get install python3-dev python3-pip
 ---------------------------------
 
-==== Fedora 31
+Optionally, you can also install the following packages for a complete
+installation:
+---------------------------------
+$ sudo apt-get install exuberant-ctags valgrind
+---------------------------------
+
+===== Fedora 31
 
 You need to install the following packages to build the lib-common:
 
 ---------------------------------
-$ sudo dnf install clang clang-devel flex gperf libxml2-devel openssl-devel valgrind-devel python2-devel
+$ sudo dnf install clang clang-devel flex gperf libxml2-devel openssl-devel python2-devel
 ---------------------------------
 
 To generate the python3 IOP interface, you also need the following package:
 ---------------------------------
 $ sudo dnf install python3-devel
+---------------------------------
+
+Optionally, you can also install the following packages for a complete
+installation:
+---------------------------------
+$ sudo dnf install ctags-etags valgrind-devel
+---------------------------------
+
+==== Cython
+
+To build the IOP python interface component, cython >= 0.29 is required. It can
+be installed using pip:
+
+---------------------------------
+$ sudo python2 -m pip install cython>=0.29
+---------------------------------
+
+==== Python packages
+
+In order to run the tests, the following python packages need to be installed
+with pip:
+---------------------------------
+$ sudo python2 -m pip install psutil six
+---------------------------------
+
+To run the tests with python3, you need to do the same for python3:
+---------------------------------
+$ sudo python3 -m pip install psutil six
 ---------------------------------
 
 === Building lib-common
