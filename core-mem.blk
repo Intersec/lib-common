@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(HAVE_VALGRIND) && HAVE_VALGRIND
 #  include <valgrind.h>
 #  include <memcheck.h>
 #else

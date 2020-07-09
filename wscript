@@ -88,7 +88,7 @@ def configure(ctx):
     ctx.check_cfg(package='zlib', uselib_store='zlib',
                   args=['--cflags', '--libs'])
     ctx.check_cfg(package='valgrind', uselib_store='valgrind',
-                  args=['--cflags'])
+                  args=['--cflags'], mandatory=False)
 
     # {{{ Python 2
 
