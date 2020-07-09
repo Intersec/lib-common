@@ -160,16 +160,32 @@ def configure(ctx):
     # }}}
     # {{{ lib clang
 
-    clang_format = ctx.find_program('clang-format')
-    clang_real_path = os.path.realpath(clang_format[0])
-    clang_root_dir = os.path.realpath(os.path.join(clang_real_path, '../..'))
+    # If clang is used as the C compiler, use it instead of default clang.
+    if ctx.env.COMPILER_CC == 'clang':
+        clang_cmd = ctx.env.CC[0]
+    else:
+        clang_cmd = 'clang'
+
+    # Use -print-prog-name to get the true path of clang as it can be hidden
+    # behind ccache.
+    clang_bin_exe = ctx.cmd_and_log([clang_cmd, '-print-prog-name=clang'])
+    clang_bin_exe = os.path.realpath(clang_bin_exe.strip())
+    clang_bin_dir = os.path.dirname(clang_bin_exe)
+    clang_root_dir = os.path.dirname(clang_bin_dir)
 
     ctx.env.append_value('LIB_clang', ['clang'])
-    ctx.env.append_value('STLIBPATH_clang', [clang_root_dir + '/lib'])
-    ctx.env.append_value('RPATH_clang', [clang_root_dir + '/lib'])
-    ctx.env.append_value('INCLUDES_clang', [clang_root_dir + '/include'])
+    ctx.env.append_value('STLIBPATH_clang',
+                         [os.path.join(clang_root_dir, 'lib')])
+    ctx.env.append_value('RPATH_clang',
+                         [os.path.join(clang_root_dir, 'lib')])
+    ctx.env.append_value('INCLUDES_clang',
+                         [os.path.join(clang_root_dir, 'include')])
 
     ctx.msg('Checking for clang lib', clang_root_dir)
+
+    ctx.check_cc(header_name='clang-c/Index.h', use='clang',
+                 errmsg='clang-c not available in clang lib, libclang-dev '
+                        'may be missing', nocheck=True)
 
     # }}}
     # {{{ cython
