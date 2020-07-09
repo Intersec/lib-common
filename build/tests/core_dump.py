@@ -54,7 +54,6 @@ from tempfile import NamedTemporaryFile
 from glob import glob
 import argparse
 import shutil
-from six import iteritems
 
 CORE_PATTERN = "/proc/sys/kernel/core_pattern"
 DEBUG = os.getenv('CORE_DEBUG', False)
@@ -133,7 +132,7 @@ class Cores:
              '%p': r'\d+',
              '%e': '(?P<exe>[A-Za-z-_]*)',
             }
-        for k, v in iteritems(r):
+        for k, v in r.items():
             pattern = pattern.replace(k, v)
 
         assert '%' not in pattern, \
