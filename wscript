@@ -19,6 +19,7 @@
 
 import os
 import sys
+import shlex
 
 # pylint: disable = import-error
 from waflib import Context, Logs, Errors
@@ -109,10 +110,10 @@ def configure(ctx):
         ctx.find_program('python2.7-config', var='PYTHON2_CONFIG')
 
     py_cflags = ctx.cmd_and_log(ctx.env.PYTHON2_CONFIG + ['--includes'])
-    ctx.env.append_unique('CFLAGS_python2', py_cflags.strip().split(' '))
+    ctx.env.append_unique('CFLAGS_python2', shlex.split(py_cflags))
 
     py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON2_CONFIG + ['--ldflags'])
-    ctx.env.append_unique('LDFLAGS_python2', py_ldflags.strip().split(' '))
+    ctx.env.append_unique('LDFLAGS_python2', shlex.split(py_ldflags))
 
     # }}}
     # {{{ Python 3
@@ -124,7 +125,7 @@ def configure(ctx):
         Logs.debug('cannot configure python3: %s', e.msg)
     else:
         py_cflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--includes'])
-        ctx.env.append_unique('CFLAGS_python3', py_cflags.strip().split(' '))
+        ctx.env.append_unique('CFLAGS_python3', shlex.split(py_cflags))
 
         try:
             # pylint: disable=line-too-long
@@ -136,8 +137,7 @@ def configure(ctx):
             py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
                                          ['--ldflags'])
 
-        ctx.env.append_unique('LDFLAGS_python3',
-                              py_ldflags.strip().split(' '))
+        ctx.env.append_unique('LDFLAGS_python3', shlex.split(py_ldflags))
 
     # }}}
     # {{{ lib clang
