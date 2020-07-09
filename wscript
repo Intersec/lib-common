@@ -125,19 +125,37 @@ def configure(ctx):
         Logs.debug('cannot configure python3: %s', e.msg)
     else:
         py_cflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--includes'])
-        ctx.env.append_unique('CFLAGS_python3', shlex.split(py_cflags))
+        py_cflags = shlex.split(py_cflags)
+        ctx.env.append_unique('CFLAGS_python3', py_cflags)
+
+        py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--ldflags'])
+        py_ldflags = shlex.split(py_ldflags)
+        ctx.env.append_unique('LDFLAGS_python3', py_ldflags)
+
+        # pylint: disable=line-too-long
+        # We need to '--embed' for python 3.8+ for standalone executables.
+        # See https://docs.python.org/3/whatsnew/3.8.html#debug-build-uses-the-same-abi-as-release-build
+        # For python < 3.8, the cflags and ldflags are the same for both
+        # shared libraries and standalone executables.
+        try:
+            py_embed_cflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
+                                              ['--includes', '--embed'])
+        except Errors.WafError:
+            py_embed_cflags = py_cflags
+        else:
+            py_embed_cflags = shlex.split(py_embed_cflags)
+
+        ctx.env.append_unique('CFLAGS_python3_embed', py_embed_cflags)
 
         try:
-            # pylint: disable=line-too-long
-            # First, use '--embed' for python 3.8+.
-            # See https://docs.python.org/3/whatsnew/3.8.html#debug-build-uses-the-same-abi-as-release-build
-            py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
-                                         ['--ldflags', '--embed'])
+            py_embed_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
+                                               ['--ldflags', '--embed'])
         except Errors.WafError:
-            py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
-                                         ['--ldflags'])
+            py_embed_ldflags = py_ldflags
+        else:
+            py_embed_ldflags = shlex.split(py_embed_ldflags)
 
-        ctx.env.append_unique('LDFLAGS_python3', shlex.split(py_ldflags))
+        ctx.env.append_unique('LDFLAGS_python3_embed', py_embed_ldflags)
 
     # }}}
     # {{{ lib clang

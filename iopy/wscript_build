@@ -68,7 +68,7 @@ if ctx.env.PYTHON3_CONFIG:
         'zchk-iopy-dso.c',
         'zchk-iopy-dso.fc',
     ], use=[
-        'python3',
+        'python3_embed',
         'libcommon',
     ])
 
