@@ -2174,7 +2174,7 @@ Z_GROUP_EXPORT(str)
     } Z_TEST_END;
 
     Z_TEST(sb_add_expandenv, "sb: sb_add_expandenv") {
-        const char *var = getenv("USER");
+        const char *var = getenv("HOME");
         SB_1k(data);
         SB_1k(expected);
 
@@ -2188,19 +2188,19 @@ Z_GROUP_EXPORT(str)
 
         T("toto", "toto");
         T("", "");
-        T("$USER", "%s", var);
-        T("${USER}", "%s", var);
-        T("$USER ", "%s ", var);
-        T("$USER$USER", "%s%s", var, var);
-        T("/$USER/", "/%s/", var);
-        T("Hello ${USER}!", "Hello %s!", var);
+        T("$HOME", "%s", var);
+        T("${HOME}", "%s", var);
+        T("$HOME ", "%s ", var);
+        T("$HOME$HOME", "%s%s", var, var);
+        T("/$HOME/", "/%s/", var);
+        T("Hello ${HOME}!", "Hello %s!", var);
         T("\\$", "$");
-        T("\\\\$USER", "\\%s", var);
+        T("\\\\$HOME", "\\%s", var);
 
 #undef T
 #define T_ERR(str)  Z_ASSERT_NEG(sb_adds_expandenv(&data, str))
 
-        T_ERR("${USER");
+        T_ERR("${HOME");
         T_ERR("$$");
 
 #undef T_ERR
