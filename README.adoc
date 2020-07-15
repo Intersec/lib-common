@@ -110,6 +110,11 @@ installation:
 $ sudo apt-get install exuberant-ctags valgrind
 ---------------------------------
 
+In order to run the tests, the following packages also need to be installed:
+---------------------------------
+$ sudo apt-get install smitools snmp-mibs-downloader
+---------------------------------
+
 ===== Fedora 31
 
 You need to install the following packages to build the lib-common:
@@ -127,6 +132,11 @@ Optionally, you can also install the following packages for a complete
 installation:
 ---------------------------------
 $ sudo dnf install ctags-etags valgrind-devel
+---------------------------------
+
+In order to run the tests, the following packages also need to be installed:
+---------------------------------
+$ sudo dnf install libsmi diffutils
 ---------------------------------
 
 ==== Cython
