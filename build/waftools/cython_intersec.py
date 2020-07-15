@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # encoding: utf-8
 # Thomas Nagy, 2010-2015
 # Romain Le Godais, Nicolas Pauss, 2018
