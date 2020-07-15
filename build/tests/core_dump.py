@@ -135,9 +135,11 @@ class Cores:
         for k, v in r.items():
             pattern = pattern.replace(k, v)
 
-        assert '%' not in pattern, \
-                'Update %s or this script to manage template %s' % (
-                    CORE_PATTERN, pattern)
+        if '%' in pattern:
+            debug('Update %s or this script to manage template %s' % (
+                CORE_PATTERN, pattern))
+            return
+
         debug("CORE_REGEX = ", pattern)
         self.core_regex = re.compile(pattern)
 
@@ -202,6 +204,10 @@ class Cores:
 
         # fallback to recursive search of binary
         if not exe or not osp.isfile(fullpath):
+            if not self.core_regex:
+                debug('Cores are not handled')
+                return None
+
             res = self.core_regex.match(core)
             if not res:
                 print('Failed to execute core-pattern', file=sys.stderr)
