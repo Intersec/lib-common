@@ -1,0 +1,58 @@
+strategy:
+  matrix:
+    ubuntu-16.04:
+      imageName: "ubuntu-16.04"
+    ubuntu-18.04:
+      imageName: "ubuntu-18.04"
+    ubuntu-20.04:
+      imageName: "ubuntu-20.04"
+  maxParallel: 3
+
+pool:
+  vmImage: $(imageName)
+
+steps:
+  - bash: |
+      sudo apt-get update && \
+      sudo apt-get install \
+        curl \
+        clang \
+        libclang-dev \
+        python3-dev \
+        python3-pip \
+        flex \
+        gperf \
+        pkg-config \
+        exuberant-ctags \
+        libxml2-dev \
+        libssl-dev \
+        smitools \
+        snmp-mibs-downloader \
+        exuberant-ctags \
+        valgrind
+    displayName: Install system dependencies
+
+  - bash: |
+      sudo python3 -m pip install --upgrade pip && \
+      sudo python3 -m pip install setuptools && \
+      sudo python3 -m pip install cython>=0.29 psutil
+    displayName: Install python dependencies
+
+  - bash: |
+      sudo curl https://waf.io/waf-2.0.20 -o /usr/local/bin/waf && \
+      sudo chmod +x /usr/local/bin/waf && \
+      sudo waf --help 2>&1 >/dev/null
+    displayName: Install waf
+
+  - script: waf configure
+    env:
+      CC: 'clang'
+      CXX: 'clang++'
+      P: 'asan'
+    displayName: Configure
+
+  - script: waf build
+    displayName: Compile
+
+  - script: waf check
+    displayName: Check
