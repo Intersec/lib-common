@@ -2569,10 +2569,10 @@ Z_GROUP_EXPORT(iop)
                                           "json_uc_p1"));
 
         /* Test iop_jpack_file failure */
-        Z_ASSERT_NEG(iop_jpack_file("/path/to/unknown/dir.json", st_sk,
+        Z_ASSERT_NEG(iop_jpack_file("/proc/path/to/unknown/dir.json", st_sk,
                                     &json_sk_res, 0, &err));
         Z_ASSERT_STREQUAL(err.data, "cannot open output file "
-                          "`/path/to/unknown/dir.json`: "
+                          "`/proc/path/to/unknown/dir.json`: "
                           "No such file or directory");
 
         /* Test packer flags. */
@@ -2829,8 +2829,8 @@ Z_GROUP_EXPORT(iop)
         T_KO(tstiop__my_struct_a_opt, "misplaced-include",
              "3:5: expected a valid member name, got `@'");
         T_KO(tstiop__my_struct_a_opt, "unknown-file",
-             "3:19: cannot read file `/path/to/unknown/file`: No such file "
-             "or directory");
+             "3:19: cannot read file `/proc/path/to/unknown/file`: "
+             "No such file or directory");
         T_KO(tstiop__my_struct_a_opt, "int",
              "3:19: file inclusion not supported for int fields");
         T_KO(tstiop__my_struct_a_opt, "json",
@@ -2985,14 +2985,13 @@ Z_GROUP_EXPORT(iop)
         /* Basic failure cases */
         CLEAR_SUB_FILES();
         ADD_SUB_FILE(NULL, &obj_basic_string.j, "j",
-                     "/path/to/unknown/file.txt");
-        exp_err = "cannot create directory `/path/to/unknown`: "
-                  "Permission denied";
+                     "/proc/path/to/unknown/file.txt");
+        exp_err = "cannot create directory `/proc/path/to/unknown`";
         T_KO(tstiop__my_struct_a_opt, &obj_basic_string, exp_err);
 
         CLEAR_SUB_FILES();
         ADD_SUB_FILE(&tstiop__my_struct_c__s, obj_struct.b, "b",
-                     "/path/to/unknown/file.json");
+                     "/proc/path/to/unknown/file.json");
         T_KO(tstiop__my_struct_c, &obj_struct, exp_err);
 
         /* Basic string */
