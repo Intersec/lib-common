@@ -1637,8 +1637,9 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
 {
     qv_t(yaml_data) datas;
     qv_t(yaml_pres_node) pres;
-    yaml_pos_t pos_end = {0};
+    yaml_pos_t pos_end;
 
+    p_clear(&pos_end, 1);
     t_qv_init(&datas, 0);
     t_qv_init(&pres, 0);
 
@@ -1893,9 +1894,10 @@ t_yaml_env_parse_obj(yaml_parse_t * nonnull env, const uint32_t min_indent,
                      yaml_data_t * nonnull out)
 {
     qv_t(yaml_key_data) fields;
-    yaml_pos_t pos_end = {0};
+    yaml_pos_t pos_end;
     qh_t(lstr) keys_hash;
 
+    p_clear(&pos_end, 1);
     t_qv_init(&fields, 0);
     t_qh_init(lstr, &keys_hash, 0);
 
