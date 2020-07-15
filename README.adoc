@@ -156,12 +156,12 @@ $ sudo python3 -m pip install psutil six
 First of all, you have to configure your project, by running in the top-level
 directory:
 ---------------------------------
-$ waf configure --check-c-compiler=clang --check-cxx-compiler=clang++
+$ CC=clang CXX=clang++ waf configure
 ---------------------------------
 
-Note the two options `--check-xxx-compiler`, in order to compile with clang,
-which is the easiest way to compile the lib-common. If you prefer compiling
-with gcc, refer to the dedicated section below.
+Note the two environment variables `CC` and `CXX`, in order to compile with
+clang, which is the easiest way to compile the lib-common. If you prefer
+compiling with gcc, refer to the dedicated section below.
 
 If the configuration step triggers no error, then you are ready to build,
 which just consists in running:
