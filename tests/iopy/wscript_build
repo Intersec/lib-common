@@ -21,7 +21,7 @@ ctx.program(target='zchk-iopy-dso', features='c cprogram', source=[
     'zchk-iopy-dso.c',
     'zchk-iopy-dso.fc',
 ], use=[
-    'python3',
+    'python3_embed',
     'libcommon',
 ], depends_on=[
     'iopy',

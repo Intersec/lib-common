@@ -977,7 +977,7 @@ enum mem_tool {
     MEM_TOOL_ANY      = 0xffffffff,
 };
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(HAVE_VALGRIND) && HAVE_VALGRIND
 #  if defined(__VALGRIND_MAJOR__) && defined(__VALGRIND_MINOR__)
 #    define __HAS_VALGRIND_VERSION  1
 #  else
