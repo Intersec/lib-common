@@ -1,4 +1,4 @@
 {
     "a": 1,
-    "j": @include("/path/to/unknown/file")
+    "j": @include("/proc/path/to/unknown/file")
 }
