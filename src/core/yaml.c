@@ -1637,8 +1637,9 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
 {
     qv_t(yaml_data) datas;
     qv_t(yaml_pres_node) pres;
-    yaml_pos_t pos_end = {0};
+    yaml_pos_t pos_end;
 
+    p_clear(&pos_end, 1);
     t_qv_init(&datas, 0);
     t_qv_init(&pres, 0);
 
@@ -1893,9 +1894,10 @@ t_yaml_env_parse_obj(yaml_parse_t * nonnull env, const uint32_t min_indent,
                      yaml_data_t * nonnull out)
 {
     qv_t(yaml_key_data) fields;
-    yaml_pos_t pos_end = {0};
+    yaml_pos_t pos_end;
     qh_t(lstr) keys_hash;
 
+    p_clear(&pos_end, 1);
     t_qv_init(&fields, 0);
     t_qh_init(lstr, &keys_hash, 0);
 
@@ -2890,6 +2892,7 @@ t_yaml_parse_attach_file(yaml_parse_t *env, const char *filepath,
                          const char *dirpath, sb_t *err)
 {
     char fullpath[PATH_MAX];
+    char realpath[PATH_MAX];
 
     path_extend(fullpath, dirpath ?: "", "%s", filepath);
     path_simplify(fullpath);
@@ -2926,7 +2929,24 @@ t_yaml_parse_attach_file(yaml_parse_t *env, const char *filepath,
     }
 
     env->filepath = t_strdup(filepath);
-    env->fullpath = t_lstr_dup(LSTR(fullpath));
+
+    /* Canonify to resolve symbolic links, and to make sure includes
+     * are resolved relative to the real path to the file. */
+    if (path_canonify(realpath, PATH_MAX, fullpath) < 0) {
+        sb_setf(err, "cannot canonify path %s: %m", fullpath);
+        return -1;
+    }
+
+    if (!strequal(realpath, fullpath)) {
+        char realdirpath[PATH_MAX];
+
+        path_dirname(realdirpath, PATH_MAX, realpath);
+        env->rootdirpath = t_fmt("%s/", realdirpath);
+        logger_trace(&_G.logger, 2,
+                     "include done through a symbolic link, root path is "
+                     "updated to `%s`", env->rootdirpath);
+    }
+    env->fullpath = t_lstr_dup(LSTR(realpath));
     yaml_parse_attach_ps(env, ps_initlstr(&env->file_contents));
 
     return 0;
@@ -5749,11 +5769,12 @@ z_yaml_test_pack(const yaml_data_t * nonnull data,
 /* out parameter first to let the yaml string be last, which makes it
  * much easier to write multiple lines without horrible indentation */
 static
-int t_z_yaml_test_parse_success(
+int t_z_yaml_test_parse_success_from_dir(
     yaml_data_t * nullable data,
     yaml__document_presentation__t *nullable pres,
     yaml_parse_t * nonnull * nullable env, unsigned flags,
-    const char * nonnull yaml, const char * nullable expected_repack)
+    const char * nullable rootdir, const char * nonnull yaml,
+    const char * nullable expected_repack)
 {
     yaml__document_presentation__t p;
     yaml_data_t local_data;
@@ -5769,10 +5790,13 @@ int t_z_yaml_test_parse_success(
     if (!env) {
         env = &local_env;
     }
+    if (!rootdir) {
+        rootdir = z_tmpdir_g.s;
+    }
 
     *env = t_yaml_parse_new(flags | YAML_PARSE_GEN_PRES_DATA);
-    /* hack to make relative inclusion work in z_tmpdir_g */
-    (*env)->fullpath = t_lstr_fmt("%pL/foo.yml", &z_tmpdir_g);
+    /* hack to make relative inclusion work from the rootdir */
+    (*env)->fullpath = t_lstr_fmt("%s/foo.yml", rootdir);
     yaml_parse_attach_ps(*env, ps_initstr(yaml));
     Z_ASSERT_N(t_yaml_parse(*env, data, &err),
                "yaml parsing failed: %pL", &err);
@@ -5794,6 +5818,17 @@ int t_z_yaml_test_parse_success(
     }
 
     Z_HELPER_END;
+}
+
+static
+int t_z_yaml_test_parse_success(
+    yaml_data_t * nullable data,
+    yaml__document_presentation__t *nullable pres,
+    yaml_parse_t * nonnull * nullable env, unsigned flags,
+    const char * nonnull yaml, const char * nullable expected_repack)
+{
+    return t_z_yaml_test_parse_success_from_dir(data, pres, env, flags,
+                                                NULL, yaml, expected_repack);
 }
 
 static int
@@ -6709,6 +6744,111 @@ Z_GROUP_EXPORT(yaml)
         ));
 
         yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Include with symbolic links */
+
+    Z_TEST(include_with_symlink, "") {
+        t_scope;
+        const char *path;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+
+        Z_HELPER_RUN(z_write_yaml_file("a.yml",
+            "a from top dir"
+        ));
+
+        Z_HELPER_RUN(z_create_tmp_subdir("subdir"));
+        Z_HELPER_RUN(z_write_yaml_file("subdir/sym.yml",
+            "- !include:a.yml\n"
+            "- !include:b.yml"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("subdir/b.yml",
+            "I am b"
+        ));
+
+        path = t_fmt("%pL/symlink.yml", &z_tmpdir_g);
+        Z_ASSERT_N(symlink("subdir/sym.yml", path), "%m");
+
+        /* This should fail: the include a.yml should not match
+         * the top dir one. */
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "!include:symlink.yml",
+
+            "<string>:1:1: invalid include, cannot read file symlink.yml: "
+            "No such file or directory\n"
+            "!include:symlink.yml\n"
+            "^^^^^^^^^^^^^^^^^^^^"
+        ));
+
+        Z_HELPER_RUN(z_write_yaml_file("subdir/a.yml",
+            "a from sub dir"
+        ));
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            "- !include:a.yml\n"
+            "- !include:symlink.yml",
+
+            "- a from top dir\n"
+            "- - a from sub dir\n"
+            "  - I am b"
+        ));
+
+        /* repack: this will cause conflict on a.yml */
+        Z_HELPER_RUN(z_pack_yaml_file("out/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("out/root.yml",
+            "- !include:a.yml\n"
+            "- !include:symlink.yml\n"
+        ));
+        Z_HELPER_RUN(z_check_file("out/a.yml",
+            "a from top dir\n"
+        ));
+        Z_HELPER_RUN(z_check_file("out/symlink.yml",
+            "- !include:a~1.yml\n"
+            "- !include:b.yml\n"
+        ));
+        Z_HELPER_RUN(z_check_file("out/a~1.yml",
+            "a from sub dir\n"
+        ));
+        Z_HELPER_RUN(z_check_file("out/b.yml",
+            "I am b\n"
+        ));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Include with symbolic links and root dir */
+
+    Z_TEST(include_symlink_rootdir, "") {
+        t_scope;
+        const char *path;
+
+        /* Including through a symbolic link resets the root dir, to allow
+         * relative includes from a symbolic link outside of the original
+         * root dir. */
+        Z_HELPER_RUN(z_create_tmp_subdir("root_subdir"));
+        Z_HELPER_RUN(z_create_tmp_subdir("sym_subdir"));
+
+        Z_HELPER_RUN(z_write_yaml_file("sym_subdir/sym.yml",
+            "!include:a.yml\n"
+        ));
+        Z_HELPER_RUN(z_write_yaml_file("sym_subdir/a.yml",
+            "I am a from sym dir"
+        ));
+        path = t_fmt("%pL/root_subdir/symlink.yml", &z_tmpdir_g);
+        Z_ASSERT_N(symlink("../sym_subdir/sym.yml", path), "%m");
+
+
+        /* This should fail: the include a.yml should not match
+         * the top dir one. */
+        path = t_fmt("%pL/root_subdir", &z_tmpdir_g);
+        Z_HELPER_RUN(t_z_yaml_test_parse_success_from_dir(
+            NULL, NULL, NULL, 0, path,
+            "!include:symlink.yml",
+
+            "I am a from sym dir"
+        ));
     } Z_TEST_END;
 
     /* }}} */

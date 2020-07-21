@@ -19,6 +19,7 @@
 
 import os
 import sys
+import shlex
 
 # pylint: disable = import-error
 from waflib import Logs, Errors
@@ -87,7 +88,7 @@ def configure(ctx):
     ctx.check_cfg(package='zlib', uselib_store='zlib',
                   args=['--cflags', '--libs'])
     ctx.check_cfg(package='valgrind', uselib_store='valgrind',
-                  args=['--cflags'])
+                  args=['--cflags'], mandatory=False)
 
     # {{{ Python 3
 
@@ -95,32 +96,67 @@ def configure(ctx):
     ctx.find_program('python3-config', var='PYTHON3_CONFIG')
 
     py_cflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--includes'])
-    ctx.env.append_unique('CFLAGS_python3', py_cflags.strip().split(' '))
+    py_cflags = shlex.split(py_cflags)
+    ctx.env.append_unique('CFLAGS_python3', py_cflags)
+
+    py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--ldflags'])
+    py_ldflags = shlex.split(py_ldflags)
+    ctx.env.append_unique('LDFLAGS_python3', py_ldflags)
+
+    # pylint: disable=line-too-long
+    # We need to '--embed' for python 3.8+ for standalone executables.
+    # See https://docs.python.org/3/whatsnew/3.8.html#debug-build-uses-the-same-abi-as-release-build
+    # For python < 3.8, the cflags and ldflags are the same for both
+    # shared libraries and standalone executables.
+    try:
+        py_embed_cflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
+                                          ['--includes', '--embed'])
+    except Errors.WafError:
+        py_embed_cflags = py_cflags
+    else:
+        py_embed_cflags = shlex.split(py_embed_cflags)
+
+    ctx.env.append_unique('CFLAGS_python3_embed', py_embed_cflags)
 
     try:
-        # pylint: disable=line-too-long
-        # First, use '--embed' for python 3.8+.
-        # See https://docs.python.org/3/whatsnew/3.8.html#debug-build-uses-the-same-abi-as-release-build
-        py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
-                                     ['--ldflags', '--embed'])
+        py_embed_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
+                                           ['--ldflags', '--embed'])
     except Errors.WafError:
-        py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--ldflags'])
+        py_embed_ldflags = py_ldflags
+    else:
+        py_embed_ldflags = shlex.split(py_embed_ldflags)
 
-    ctx.env.append_unique('LDFLAGS_python3', py_ldflags.strip().split(' '))
+    ctx.env.append_unique('LDFLAGS_python3_embed', py_embed_ldflags)
 
     # }}}
     # {{{ lib clang
 
-    clang_format = ctx.find_program('clang-format')
-    clang_real_path = os.path.realpath(clang_format[0])
-    clang_root_dir = os.path.realpath(os.path.join(clang_real_path, '../..'))
+    # If clang is used as the C compiler, use it instead of default clang.
+    if ctx.env.COMPILER_CC == 'clang':
+        clang_cmd = ctx.env.CC[0]
+    else:
+        clang_cmd = 'clang'
+
+    # Use -print-prog-name to get the true path of clang as it can be hidden
+    # behind ccache.
+    clang_bin_exe = ctx.cmd_and_log([clang_cmd, '-print-prog-name=clang'])
+    clang_bin_exe = os.path.realpath(clang_bin_exe.strip())
+    clang_bin_dir = os.path.dirname(clang_bin_exe)
+    clang_root_dir = os.path.dirname(clang_bin_dir)
 
     ctx.env.append_value('LIB_clang', ['clang'])
-    ctx.env.append_value('STLIBPATH_clang', [clang_root_dir + '/lib'])
-    ctx.env.append_value('RPATH_clang', [clang_root_dir + '/lib'])
-    ctx.env.append_value('INCLUDES_clang', [clang_root_dir + '/include'])
+    ctx.env.append_value('STLIBPATH_clang',
+                         [os.path.join(clang_root_dir, 'lib')])
+    ctx.env.append_value('RPATH_clang',
+                         [os.path.join(clang_root_dir, 'lib')])
+    ctx.env.append_value('INCLUDES_clang',
+                         [os.path.join(clang_root_dir, 'include')])
 
     ctx.msg('Checking for clang lib', clang_root_dir)
+
+    ctx.check_cc(header_name='clang-c/Index.h', use='clang',
+                 errmsg='clang-c not available in clang lib, libclang-dev '
+                        'may be missing', nocheck=True)
 
     # }}}
     # {{{ cython

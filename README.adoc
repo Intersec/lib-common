@@ -95,47 +95,62 @@ $ ./waf
 `waf` versions 2.0.8 and 2.0.18 are known to work fine, running the latest 2.0.x
 `waf` should also work fine.
 
-=== Cython
+=== Dependencies
+==== List of packages per Linux distribution
+
+===== Debian 9, Debian 10 or Ubuntu 18.04
+
+You need to install the following packages to build the lib-common:
+
+---------------------------------
+$ sudo apt-get install clang libclang-dev python3-dev python3-pip flex gperf pkg-config exuberant-ctags libxml2-dev libssl-dev
+---------------------------------
+
+Optionally, you can also install the following packages for a complete
+installation:
+---------------------------------
+$ sudo apt-get install exuberant-ctags valgrind
+---------------------------------
+
+In order to run the tests, the following packages also need to be installed:
+---------------------------------
+$ sudo apt-get install smitools snmp-mibs-downloader
+---------------------------------
+
+===== Fedora 31
+
+You need to install the following packages to build the lib-common:
+
+---------------------------------
+$ sudo dnf install clang clang-devel flex gperf libxml2-devel openssl-devel python3-devel
+---------------------------------
+
+Optionally, you can also install the following packages for a complete
+installation:
+---------------------------------
+$ sudo dnf install ctags-etags valgrind-devel
+---------------------------------
+
+In order to run the tests, the following packages also need to be installed:
+---------------------------------
+$ sudo dnf install libsmi diffutils
+---------------------------------
+
+==== Cython
 
 To build the IOP python interface component, cython >= 0.29 is required. It can
 be installed using pip:
 
 ---------------------------------
-$ pip install cython
+$ sudo python3 -m pip install cython>=0.29
 ---------------------------------
 
-To also build the python3 IOP interface:
+==== Python packages
 
+In order to run the tests, the following python packages need to be installed
+with pip:
 ---------------------------------
-$ pip3 install cython
----------------------------------
-
-=== List of packages per Linux distribution
-
-==== Debian 9, Debian 10 or Ubuntu 18.04
-
-You need to install the following packages to build the lib-common:
-
----------------------------------
-$ sudo apt-get install python-dev python-pip flex gperf pkg-config exuberant-ctags libxml2-dev libssl-dev valgrind
----------------------------------
-
-To generate the python3 IOP interface, you also need the following packages:
----------------------------------
-$ sudo apt-get install python3-dev python3-pip
----------------------------------
-
-==== Fedora 31
-
-You need to install the following packages to build the lib-common:
-
----------------------------------
-$ sudo dnf install clang clang-devel flex gperf libxml2-devel openssl-devel valgrind-devel python2-devel
----------------------------------
-
-To generate the python3 IOP interface, you also need the following package:
----------------------------------
-$ sudo dnf install python3-devel
+$ sudo python3 -m pip install psutil
 ---------------------------------
 
 === Building lib-common
@@ -143,12 +158,12 @@ $ sudo dnf install python3-devel
 First of all, you have to configure your project, by running in the top-level
 directory:
 ---------------------------------
-$ waf configure --check-c-compiler=clang --check-cxx-compiler=clang++
+$ CC=clang CXX=clang++ waf configure
 ---------------------------------
 
-Note the two options `--check-xxx-compiler`, in order to compile with clang,
-which is the easiest way to compile the lib-common. If you prefer compiling
-with gcc, refer to the dedicated section below.
+Note the two environment variables `CC` and `CXX`, in order to compile with
+clang, which is the easiest way to compile the lib-common. If you prefer
+compiling with gcc, refer to the dedicated section below.
 
 If the configuration step triggers no error, then you are ready to build,
 which just consists in running:
