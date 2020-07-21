@@ -43,12 +43,10 @@ int bindx(int sock, const sockunion_t *addrs, int cnt,
 {
     int to_close = -1;
 
-#ifdef HAVE_NETINET_SCTP_H
     if (proto != IPPROTO_SCTP && cnt != 1) {
         errno = EINVAL;
         return -1;
     }
-#endif
 
     if (sock < 0) {
         to_close = sock = RETHROW(socket(addrs->family, type, proto));
@@ -60,16 +58,13 @@ int bindx(int sock, const sockunion_t *addrs, int cnt,
     if (fd_set_features(sock, flags))
         goto error;
 
-#ifdef HAVE_NETINET_SCTP_H
     if (proto != IPPROTO_SCTP || cnt == 1) {
-#endif
         if (addrs->family == AF_UNIX) {
             unlink(addrs->sunix.sun_path);
         }
 
         if (bind(sock, &addrs->sa, sockunion_len(addrs)) < 0)
             goto error;
-#ifdef HAVE_NETINET_SCTP_H
     } else {
         socklen_t sz = 0;
         while (cnt-- > 0) {
@@ -84,7 +79,6 @@ int bindx(int sock, const sockunion_t *addrs, int cnt,
         if (setsockopt(sock, SOL_SCTP, SCTP_SOCKOPT_BINDX_ADD, addrs, sz))
             goto error;
     }
-#endif
 
     return sock;
 
@@ -122,12 +116,10 @@ int connectx_as(int sock, const sockunion_t *addrs, int cnt,
 {
     int to_close = -1;
 
-#ifdef HAVE_NETINET_SCTP_H
     if (proto != IPPROTO_SCTP && cnt != 1) {
         errno = EINVAL;
         return -1;
     }
-#endif
 
     if (sock < 0) {
         to_close = sock = RETHROW(socket(addrs->family, type, proto));
@@ -148,15 +140,12 @@ int connectx_as(int sock, const sockunion_t *addrs, int cnt,
         setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     }
 
-#ifdef HAVE_NETINET_SCTP_H
     if (proto != IPPROTO_SCTP || cnt == 1) {
-#endif
         if (connect(sock, &addrs->sa, sockunion_len(addrs)) < 0
         &&  !ERR_CONNECT_RETRIABLE(errno))
         {
             goto error;
         }
-#ifdef HAVE_NETINET_SCTP_H
     } else {
         socklen_t sz = 0;
         while (cnt-- > 0) {
@@ -171,7 +160,6 @@ int connectx_as(int sock, const sockunion_t *addrs, int cnt,
         if (setsockopt(sock, SOL_SCTP, SCTP_SOCKOPT_CONNECTX, addrs, sz))
             goto error;
     }
-#endif
 
     return sock;
 
