@@ -22,6 +22,7 @@
 
 #include "net.h"
 #include "unix.h"
+#include <sys/utsname.h>
 
 int sctp_enable_events(int sd, int flags)
 {
