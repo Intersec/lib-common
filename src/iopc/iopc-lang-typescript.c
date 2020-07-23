@@ -373,7 +373,8 @@ enum {
     OBJECT_FIELD = 1 << 0,
     DEFVAL_AS_OPT = 1 << 1,
     USE_MODEL = 1 << 2,
-    USE_PARAM = 1 << 3
+    USE_PARAM = 1 << 3,
+    IN_UNION = 1 << 4,
 };
 
 static void iopc_dump_field_type(sb_t *buf, const iopc_pkg_t *pkg,
@@ -448,6 +449,16 @@ static void iopc_dump_field(sb_t *buf, const iopc_pkg_t *pkg,
 
           case IOP_R_REPEATED:
             if (flags & USE_PARAM) {
+                sb_addc(buf, '?');
+            }
+            break;
+
+          case IOP_R_REQUIRED:
+            /* Make a void field in struct optional, so that it does not have
+             * to be specified when building the type.
+             * However, do not make it optional if it is an element of a
+             * union, as the field is a discriminant. */
+            if (unlikely(field->kind == IOP_T_VOID && !(flags & IN_UNION))) {
                 sb_addc(buf, '?');
             }
             break;
@@ -608,7 +619,7 @@ static void iopc_dump_union(sb_t *buf, const char *indent,
             sb_addf(buf, "\n%s    | ", indent);
         }
         sb_adds(buf, "{ ");
-        iopc_dump_field(buf, pkg, field, OBJECT_FIELD);
+        iopc_dump_field(buf, pkg, field, OBJECT_FIELD | IN_UNION);
         sb_adds(buf, " }");
         first = false;
     }
@@ -659,12 +670,14 @@ static void iopc_dump_union(sb_t *buf, const char *indent,
                 sb_addf(buf, "\n%s    | ", indent);
             }
             sb_adds(buf, "{ ");
-            iopc_dump_field(buf, pkg, field, OBJECT_FIELD | USE_PARAM);
+            iopc_dump_field(buf, pkg, field,
+                            OBJECT_FIELD | USE_PARAM | IN_UNION);
             sb_adds(buf, " }");
 
             if (field->kind == IOP_T_UNION || field->kind == IOP_T_STRUCT) {
                 sb_addf(buf, "\n%s    | { ", indent);
-                iopc_dump_field(buf, pkg, field, OBJECT_FIELD | USE_MODEL);
+                iopc_dump_field(buf, pkg, field,
+                                OBJECT_FIELD | USE_MODEL | IN_UNION);
                 sb_adds(buf, " }");
             }
 
@@ -678,7 +691,8 @@ static void iopc_dump_union(sb_t *buf, const char *indent,
         tab_for_each_entry(field, &st->fields) {
             if (!is_name_reserved_in_model(field->name, true)) {
                 sb_addf(buf, "%s    public ", indent);
-                iopc_dump_field(buf, pkg, field, OBJECT_FIELD | USE_MODEL);
+                iopc_dump_field(buf, pkg, field,
+                                OBJECT_FIELD | USE_MODEL | IN_UNION);
                 sb_adds(buf, " | undefined;\n");
             }
         }
