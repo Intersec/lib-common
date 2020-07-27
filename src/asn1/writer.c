@@ -1226,7 +1226,7 @@ static int asn1_unpack_field(pstream_t *ps, const asn1_field_t *spec,
         break;
 
       case ASN1_OBJ_MODE(OPTIONAL):
-        if (!ps_done(ps)
+        if (!ps_done(ps) && *ps->b
         &&  (!asn1_field_is_tagged(spec) || *ps->b == spec->tag))
         {
             void *value;
@@ -1322,7 +1322,11 @@ asn1_unpack_u_choice_val(pstream_t *ps, const asn1_field_t *choice_spec,
             e_trace(1, "missing mandatory choice %s", choice_spec->name);
             return -1;
         } else {
-            e_trace(2, "nothing found for tag %2x", *ps->b);
+            if (ps_done(ps)) {
+                e_trace(2, "end of stream");
+            }  else {
+                e_trace(2, "nothing found for tag %2x", *ps->b);
+            }
             return 0;
         }
     }
