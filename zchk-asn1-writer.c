@@ -992,3 +992,48 @@ Z_GROUP_EXPORT(asn1_bit_string) {
         Z_ASSERT_EQ(*bs.data, 0x80);
     } Z_TEST_END;
 } Z_GROUP_END
+
+typedef struct nr_opt_ot_eoc_t {
+    int8_t  i;
+    lstr_t  ot;
+} nr_opt_ot_eoc_t;
+
+static ASN1_SEQUENCE_DESC_BEGIN(desc, nr_opt_ot_eoc);
+    asn1_reg_scalar(desc, nr_opt_ot_eoc, i, ASN1_TAG_INTEGER);
+    asn1_reg_opt_open_type(desc, nr_opt_ot_eoc, ot);
+ASN1_SEQUENCE_DESC_END(desc);
+
+typedef enum nr_opt_ot_eoc_type {
+    NR_OPT_OT_EOC_TYPE_A = 1,
+} nr_opt_ot_eoc_type_t;
+
+typedef struct nr_opt_ot_eoc_c_t {
+    enum nr_opt_ot_eoc_type type;
+    union {
+        nr_opt_ot_eoc_t a;
+    };
+} nr_opt_ot_eoc_c_t;
+
+static ASN1_CHOICE_DESC_BEGIN(desc, nr_opt_ot_eoc_c, nr_opt_ot_eoc_type,
+                              type);
+    asn1_reg_sequence(desc, nr_opt_ot_eoc_c, nr_opt_ot_eoc, a,
+                      ASN1_MK_TAG_C(CONTEXT_SPECIFIC, 1));
+ASN1_CHOICE_DESC_END(desc);
+
+Z_GROUP_EXPORT(asn1_nr) {
+    Z_TEST(nr_opt_ot_eoc, "confusion between optional open type and eoc") {
+        t_scope;
+        nr_opt_ot_eoc_c_t v;
+        pstream_t ps;
+        lstr_t    stream;
+
+        stream = LSTR_IMMED_V("\xa1\x80\x02\x01\x02\x00\x00");
+        ps = ps_initlstr(&stream);
+        p_clear(&v, 1);
+        Z_ASSERT_N(asn1_unpack(nr_opt_ot_eoc_c, &ps, t_pool(), &v, false));
+        Z_ASSERT_EQ((int)v.type, NR_OPT_OT_EOC_TYPE_A);
+        Z_ASSERT_EQ(v.a.i, 2);
+        Z_ASSERT_NULL(v.a.ot.data);
+        Z_ASSERT_EQ(v.a.ot.len, 0);
+    } Z_TEST_END
+} Z_GROUP_END
