@@ -560,4 +560,16 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_LSTREQUAL(res_lstr, LSTR("1 jour, 2 heures"));
 
     } Z_TEST_END;
+
+    Z_TEST(t_time_spent_to_str, "") {
+        t_scope;
+        struct timeval start_tv;
+        lstr_t s;
+
+        lp_gettv(&start_tv);
+        start_tv.tv_sec -= 1;
+        s = LSTR(t_time_spent_to_str(start_tv));
+        Z_ASSERT(lstr_startswith(s, LSTR("1.")), "s=%pL", &s);
+        Z_ASSERT(lstr_endswith(s, LSTR(" sec")), "s=%pL", &s);
+    } Z_TEST_END;
 } Z_GROUP_END

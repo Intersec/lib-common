@@ -812,5 +812,15 @@ void timing_scope_finish(timing_scope_ctx_t *ctx);
                            _timeout_ms, _fmt, ##__VA_ARGS__)
 
 /* }}} */
+/* {{{ t_time_spent_to_str() */
+
+/** Print the time difference between \p from_tv and now with a microsecond
+ * precision.
+ *
+ * Output example: "42.103481 sec".
+ */
+const char *nonnull t_time_spent_to_str(struct timeval from_tv);
+
+/* }}} */
 
 #endif /* IS_LIB_COMMON_TIMEVAL_H */
