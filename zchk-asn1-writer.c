@@ -578,6 +578,30 @@ Z_GROUP_EXPORT(asn1_ber)
                         0x00, 0x00,
             0x01, 0x01, 0x03,
         };
+        /* Trailing field with tag encoded on 2 bytes */
+        static uint8_t const in3[] = {
+            0x76, 0x80,
+                        /* Declared fields. */
+                        0x12, 0x01, 0x01,
+                        0x34, 0x01, 0x02,
+                        /* Trailing field. */
+                        0xbf, 0x1f, 0x03, 0x82, 0x01, 0x01,
+                        /* EOC */
+                        0x00, 0x00,
+            0x01, 0x01, 0x03,
+        };
+        /* Trailing field with tag encoded on 3 bytes */
+        static uint8_t const in4[] = {
+            0x76, 0x80,
+                        /* Declared fields. */
+                        0x12, 0x01, 0x01,
+                        0x34, 0x01, 0x02,
+                        /* Trailing field. */
+                        0xbf, 0x81, 0x1f, 0x03, 0x82, 0x01, 0x01,
+                        /* EOC */
+                        0x00, 0x00,
+            0x01, 0x01, 0x03,
+        };
 
         il_trailing_t t;
         pstream_t ps;
@@ -589,7 +613,20 @@ Z_GROUP_EXPORT(asn1_ber)
         Z_ASSERT_EQ(t.t.i1, 1);
         Z_ASSERT_EQ(t.t.i2, 2);
         Z_ASSERT_EQ(t.i, 3);
+
         ps = ps_init(in2, sizeof(in2));
+        Z_ASSERT_N(asn1_unpack(il_trailing, &ps, t_pool(), &t, false));
+        Z_ASSERT_EQ(t.t.i1, 1);
+        Z_ASSERT_EQ(t.t.i2, 2);
+        Z_ASSERT_EQ(t.i, 3);
+
+        ps = ps_init(in3, sizeof(in3));
+        Z_ASSERT_N(asn1_unpack(il_trailing, &ps, t_pool(), &t, false));
+        Z_ASSERT_EQ(t.t.i1, 1);
+        Z_ASSERT_EQ(t.t.i2, 2);
+        Z_ASSERT_EQ(t.i, 3);
+
+        ps = ps_init(in4, sizeof(in4));
         Z_ASSERT_N(asn1_unpack(il_trailing, &ps, t_pool(), &t, false));
         Z_ASSERT_EQ(t.t.i1, 1);
         Z_ASSERT_EQ(t.t.i2, 2);
