@@ -1547,7 +1547,8 @@ void iprintf_register_formatter(int modifier, formatter_f *formatter)
     struct formatter_t *old = &put_memory_fmt_g[(unsigned char)modifier];
 
     if ((old->is_raw && old->raw_formatter != formatter)
-    ||  (!old->is_raw && old->ptr_formatter)) {
+    ||  (!old->is_raw && old->ptr_formatter))
+    {
         e_panic("trying to overload already defined memory formatter for "
                 "modifier '%c'", modifier);
     }
@@ -1561,8 +1562,10 @@ void iprintf_register_pointer_formatter(int modifier,
 {
     struct formatter_t *old = &put_memory_fmt_g[(unsigned char)modifier];
 
-    if ((!old->is_raw && old->ptr_formatter != formatter)
-    ||  (old->is_raw && old->raw_formatter)) {
+    if ((!old->is_raw && old->ptr_formatter
+      && old->ptr_formatter != formatter)
+    ||  (old->is_raw && old->raw_formatter))
+    {
         e_panic("trying to overload already defined memory formatter for "
                 "modifier '%c'", modifier);
     }
