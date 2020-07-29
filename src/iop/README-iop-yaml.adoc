@@ -158,9 +158,14 @@ obj:
 The `!includeraw` will be replaced by a binary data holding the whole content
 of the included file.
 
-WARNING: Only includes from the same directory (or from subdirectories) are
-allowed. Includes from absolute paths or from parent directories are
-rejected, as they cannot be repacked in the same way safely.
+WARNING: Only includes that stay in the same directory as the root file
+(the first parsed file) are allowed.
+For example, when parsing `/foo/root.yml`, this file can include
+`bar/a.yml`, and this file can itself include `../b.yml`
+(i.e. `/foo/b.yml`), but it cannot include `../../b.yml`, as this file is
+outside the root directory `/foo`.
+This rule is here to ensure that the whole document can be repacked in a
+self-contained directory.
 
 == Overrides
 

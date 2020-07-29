@@ -953,6 +953,31 @@ void __asn1_set_int(void *st, const asn1_field_t *desc, int v)
     }
 }
 
+static int asn1_skip_ber_tag(pstream_t *ps)
+{
+    if (!ps_has(ps, 1)) {
+        e_trace(1, "error: no tag to read, stream end");
+        return -1;
+    }
+
+    /** Skip ASN1 BER tag according to ITU-T X.690 § 8.1.2. */
+    if (unlikely((ps->b[0] & 0x1f) == 0x1f)) {
+        /* Tag is encoded on more bytes. */
+        do {
+            __ps_skip(ps, 1);
+
+            if (unlikely(!ps_has(ps, 1))) {
+                e_trace(1, "error: missing byte in extended tag");
+                return -1;
+            }
+            /* While bit 8 is on there are more bytes to read */
+        } while (ps->b[0] >> 7);
+    }
+    __ps_skip(ps, 1);
+
+    return 0;
+}
+
 int asn1_get_ber_field(pstream_t *ps, bool indef_father, pstream_t *sub_ps)
 {
     uint32_t data_size;
@@ -969,7 +994,7 @@ int asn1_get_ber_field(pstream_t *ps, bool indef_father, pstream_t *sub_ps)
         }
 
         if (ps->b[0]) {
-            __ps_skip(ps, 1);
+            RETHROW(asn1_skip_ber_tag(ps));
 
             if (RETHROW(ber_decode_len32(ps, &data_size))) {
                 n_eoc++;
@@ -1581,3 +1606,33 @@ Z_GROUP_EXPORT(asn1_packer)
     } Z_TEST_END;
 } Z_GROUP_END;
 
+Z_GROUP_EXPORT(asn1_unpacker)
+{
+    Z_TEST(skip_ber_tag, "asn1: skip ber tag") {
+        pstream_t ps;
+
+        byte const tag_length1[] = { 0x56, };
+        byte const tag_length2[] = { 0xbf, 0x1f, };
+        byte const tag_length3[] = { 0xbf, 0x81, 0x1f, };
+
+        ps = ps_init(tag_length1, sizeof(tag_length1));
+        Z_ASSERT_N(asn1_skip_ber_tag(&ps));
+        Z_ASSERT(ps_done(&ps));
+
+        ps = ps_init(tag_length2, sizeof(tag_length2));
+        Z_ASSERT_N(asn1_skip_ber_tag(&ps));
+        Z_ASSERT(ps_done(&ps));
+
+        /* Check truncated tag */
+        ps = ps_init(tag_length2, sizeof(tag_length2) - 1);
+        Z_ASSERT_NEG(asn1_skip_ber_tag(&ps));
+
+        ps = ps_init(tag_length3, sizeof(tag_length3));
+        Z_ASSERT_N(asn1_skip_ber_tag(&ps));
+        Z_ASSERT(ps_done(&ps));
+
+        /* Check truncated tag */
+        ps = ps_init(tag_length3, sizeof(tag_length3) - 1);
+        Z_ASSERT_NEG(asn1_skip_ber_tag(&ps));
+    } Z_TEST_END;
+} Z_GROUP_END;
