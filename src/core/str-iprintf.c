@@ -422,7 +422,7 @@ struct formatter_t {
     bool is_raw;
 };
 
-static struct formatter_t put_memory_fmt[256] = {
+static struct formatter_t put_memory_fmt_g[256] = {
     ['M'] = { { .raw_formatter = &fmt_output_raw }, .is_raw = true },
     ['X'] = { { .raw_formatter = &fmt_output_hex }, .is_raw = true },
     ['x'] = { { .raw_formatter = &fmt_output_hex }, .is_raw = true },
@@ -443,7 +443,7 @@ ssize_t fmt_output_chunk(FILE *stream, char *str, size_t size,
         out_len = RETHROW(fmt_output_raw(modifier, lp, len, stream,
                                          str, size));
     } else {
-        format = &put_memory_fmt[(unsigned char)modifier];
+        format = &put_memory_fmt_g[(unsigned char)modifier];
 
         if (format->is_raw) {
             if (!expect(format->raw_formatter)) {
@@ -556,8 +556,8 @@ static int fmt_output(FILE *stream, char *str, size_t size,
          * and %*pX for "put hexadecimal content here".
          */
         if (format[0] == '*' && format[1] == 'p'
-        &&  put_memory_fmt[(unsigned char)format[2]].is_raw
-        &&  put_memory_fmt[(unsigned char)format[2]].raw_formatter)
+        &&  put_memory_fmt_g[(unsigned char)format[2]].is_raw
+        &&  put_memory_fmt_g[(unsigned char)format[2]].raw_formatter)
         {
             modifier = format[2];
             format += 3;
@@ -570,8 +570,8 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             goto haslp;
         } else
         if (format[0] == 'p'
-        &&  !put_memory_fmt[(unsigned char)format[1]].is_raw
-        &&  put_memory_fmt[(unsigned char)format[1]].ptr_formatter)
+        &&  !put_memory_fmt_g[(unsigned char)format[1]].is_raw
+        &&  put_memory_fmt_g[(unsigned char)format[1]].ptr_formatter)
         {
             modifier = format[1];
             format += 2;
@@ -1544,7 +1544,7 @@ static int exponent(char *p0, int expn, int fmtch)
 
 void iprintf_register_formatter(int modifier, formatter_f *formatter)
 {
-    struct formatter_t *old = &put_memory_fmt[(unsigned char)modifier];
+    struct formatter_t *old = &put_memory_fmt_g[(unsigned char)modifier];
 
     if ((old->is_raw && old->raw_formatter != formatter)
     ||  (!old->is_raw && old->ptr_formatter)) {
@@ -1559,7 +1559,7 @@ void iprintf_register_formatter(int modifier, formatter_f *formatter)
 void iprintf_register_pointer_formatter(int modifier,
                                         pointer_formatter_f *formatter)
 {
-    struct formatter_t *old = &put_memory_fmt[(unsigned char)modifier];
+    struct formatter_t *old = &put_memory_fmt_g[(unsigned char)modifier];
 
     if ((!old->is_raw && old->ptr_formatter != formatter)
     ||  (old->is_raw && old->raw_formatter)) {
