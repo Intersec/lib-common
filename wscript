@@ -90,6 +90,10 @@ def configure(ctx):
     ctx.check_cfg(package='valgrind', uselib_store='valgrind',
                   args=['--cflags'], mandatory=False)
 
+    ctx.find_program('smilint', mandatory=False)
+    if ctx.env.SMILINT:
+        ctx.define('HAVE_SMILINT', 1)
+
     # {{{ Python 3
 
     ctx.find_program('python3')

@@ -56,6 +56,7 @@ static int z_check_wanted_file(const char *filename, sb_t *sb)
 
 static int z_run_smilint(qv_t(cstr) *args)
 {
+#ifdef HAVE_SMILINT
     SB_1k(out);
 
     qv_push(args, "-s");
@@ -65,6 +66,10 @@ static int z_run_smilint(qv_t(cstr) *args)
 
     Z_HELPER_RUN(z_run_command("smilint", args->tab, NULL, 1000, 0, &out));
     Z_ASSERT_LSTREQUAL(LSTR_SB_V(&out), LSTR_EMPTY_V);
+#else
+    e_warning("`smilint` executable is missing, tests not executed");
+    Z_ASSERT(true);
+#endif
 
     Z_HELPER_END;
 }
