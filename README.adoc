@@ -236,6 +236,11 @@ The following environment variables can be used at the configuration phase:
     You may also want to set it to speedup the build.
     This is ignored in release profile.
 
+`NOASSERT` (boolean)::
+    If set, the assertions and debug-related code won't be compiled.
+    By default, assertions are disabled in `release` and `mem-bench`
+    profiles, and enabled in all the others.
+
 `NO_DOUBLE_FPIC` (boolean)::
     If set, the compilation will be faster, but the produced binaries will be
     larger and the runtime performances will be affected.

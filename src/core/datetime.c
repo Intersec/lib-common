@@ -941,3 +941,16 @@ void timing_scope_finish(timing_scope_ctx_t *ctx)
 }
 
 /* }}} */
+/* {{{ t_time_spent_to_str() */
+
+const char *t_time_spent_to_str(struct timeval from_tv)
+{
+    struct timeval tv;
+
+    lp_gettv(&tv);
+    tv = timeval_sub(tv, from_tv);
+
+    return t_fmt("%ld.%06ld sec", tv.tv_sec, tv.tv_usec);
+}
+
+/* }}} */
