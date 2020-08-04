@@ -1416,10 +1416,14 @@ def profile_default(ctx,
         ctx.env.CLANGXX_REWRITE_FLAGS += oflags
 
     # Asserts
-    if no_assert:
+    if no_assert or ctx.get_env_bool('NOASSERT'):
         ctx.env.NDEBUG = True
         ctx.env.CFLAGS += ['-DNDEBUG']
         ctx.env.CXXFLAGS += ['-DNDEBUG']
+        log = 'no'
+    else:
+        log = 'yes'
+    ctx.msg('Enable asserts', log)
 
     if fortify_source is not None:
         ctx.env.CFLAGS += [fortify_source]
