@@ -755,13 +755,26 @@ const char *proctimer_report(proctimer_t *tp, const char *fmt);
  * For example:
  *
  *    {
- *        timing_scope(&_G.logger, 100, "desc");
+ *        timing_scope(&_G.logger, "desc");
  *
  *        ...
  *    }
  *
- * will emit a warning if the block of code takes 500ms of more to execute, or
- * emit a trace of level 1 otherwise.
+ * will emit a log with the execution time of the block of code (starting from
+ * the call to "timing_scope_start()").
+ *
+ * It can also avoid emitting the log if the execution time is below a given
+ * threshold, or emit a trace of level 1 otherwise.
+ *
+ *     {
+ *         // Emit a notice if the blocks takes more than 100ms.
+ *         timing_scope_threshold(&_G.logger, 100, "desc");
+ *
+ *         // Emit a warning if the blocks takes more than 500ms.
+ *         timing_scope_timeout(&_G.logger, 500, "desc");
+ *
+ *         ...
+ *     }
  *
  * You can also use the low level functions \ref timing_scope_start and
  * \ref timing_scope_finish.
@@ -773,28 +786,35 @@ typedef struct timing_scope_ctx_t {
     const char *func;
     int line;
     struct timeval tv_start;
-    int64_t timeout_ms;
+    int64_t threshold_ms;
+    int log_level;
 } timing_scope_ctx_t;
 
 /** Start a timing scope.
  *
- * \param[in]  logger      logger on which the log will be emitted.
- * \param[in]  file        source file of the code scope.
- * \param[in]  func        function where the code scope is.
- * \param[in]  line        line of the code scope in the source file.
- * \param[in]  timeout_ms  if the timing scope takes more than this amount of
- *                         milliseconds, a warning will be emitted; otherwise,
- *                         the timing will be printed in a trace of level 1.
- * \param[in]  fmt         description of the block of scope to profile; will
- *                         be used in the log.
+ * \param[in]  logger  Logger on which the log will be emitted.
+ * \param[in]  file    Source file of the code scope.
+ * \param[in]  func    Function where the code scope is.
+ * \param[in]  line    Line of the code scope in the source file.
+ *
+ * \param[in]  threshold_ms  If the timing scope takes more than this amount
+ *                           of milliseconds, a log will be emitted;
+ *                           otherwise, the timing will be printed in
+ *                           a trace of level 1.
+ *
+ * \param[in]  level  Log level to use if the scope execution takes more than
+                      \p threshold_ms milliseconds.
+ *
+ * \param[in]  fmt  Description of the block of scope to profile; will
+ *                  be used in the log.
  *
  * \return  a timing scope context.
  */
-__attr_printf__(6, 7)
+__attr_printf__(7, 8)
 timing_scope_ctx_t
 timing_scope_start(logger_t *logger,
                    const char *file, const char *func, int line,
-                   int64_t timeout_ms, const char *fmt, ...);
+                   int64_t threshold_ms, int level, const char *fmt, ...);
 
 /** Finish a timing scope.
  *
@@ -805,11 +825,34 @@ timing_scope_start(logger_t *logger,
  */
 void timing_scope_finish(timing_scope_ctx_t *ctx);
 
-#define timing_scope(_logger, _timeout_ms, _fmt, ...)                        \
+#define _timing_scope(_logger, _threshold_ms, _level, _fmt, ...)             \
     __attribute__((unused,cleanup(timing_scope_finish)))                     \
     timing_scope_ctx_t PFX_LINE(timer_scope_ctx_) =                          \
-        timing_scope_start(_logger, __FILE__, __func__, __LINE__,            \
-                           _timeout_ms, _fmt, ##__VA_ARGS__)
+        timing_scope_start((_logger), __FILE__, __func__, __LINE__,          \
+                           (_threshold_ms), (_level), _fmt, ##__VA_ARGS__)
+
+/** Emit a \p LOG_NOTICE log with the time spent in the scope.
+ *
+ * Format = "<fmt> done in <sec>.<µsec>sec".
+ */
+#define timing_scope(_logger, _fmt, ...)                                     \
+    _timing_scope((_logger), 0, LOG_NOTICE, _fmt, ##__VA_ARGS__)
+
+/** Emit a \p LOG_NOTICE log with the time spent in the scope if the time
+ * spent in the scope exceeds the threshold.
+ *
+ * Format = "<fmt> done in <sec>.<µsec>sec (threshold = <sec>.<µsec>sec)".
+ */
+#define timing_scope_threshold(_logger, _threshold_ms, _fmt, ...)            \
+    _timing_scope((_logger), (_threshold_ms), LOG_NOTICE, _fmt, ##__VA_ARGS__)
+
+/** Emit a \p LOG_WARNING log with the time spent in the scope if the time
+ * spent in the scope exceeds the timeout.
+ *
+ * Format = "<fmt> done in <sec>.<µsec>sec (threshold = <sec>.<µsec>sec)".
+ */
+#define timing_scope_timeout(_logger, _timeout_ms, _fmt, ...)                \
+    _timing_scope((_logger), (_timeout_ms), LOG_WARNING, _fmt, ##__VA_ARGS__)
 
 /* }}} */
 /* {{{ t_time_spent_to_str() */

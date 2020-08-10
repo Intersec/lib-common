@@ -889,7 +889,7 @@ __attribute__((weak)) uint64_t lp_getcsec(void)
 timing_scope_ctx_t
 timing_scope_start(logger_t *logger,
                    const char *file, const char *func, int line,
-                   int64_t timeout_ms, const char *fmt, ...)
+                   int64_t threshold_ms, int level, const char *fmt, ...)
 {
     va_list va;
     timing_scope_ctx_t res;
@@ -899,7 +899,8 @@ timing_scope_start(logger_t *logger,
     res.file       = file;
     res.func       = func;
     res.line       = line;
-    res.timeout_ms = timeout_ms;
+    res.threshold_ms = threshold_ms;
+    res.log_level = level;
 
     va_start(va, fmt);
     res.desc = lstr_vfmt(fmt, va);
@@ -917,24 +918,28 @@ void timing_scope_finish(timing_scope_ctx_t *ctx)
 
     lp_gettv(&tv_end);
 
-    if (timeval_diffmsec(&tv_end, &ctx->tv_start) >= ctx->timeout_ms) {
-        level = LOG_WARNING;
+    if (timeval_diffmsec(&tv_end, &ctx->tv_start) >= ctx->threshold_ms) {
+        level = ctx->log_level;
     } else {
         level = LOG_TRACE + 1;
     }
 
     if (logger_has_level(ctx->logger, level)) {
+        SB_1k(log_buf);
         struct timeval tv_diff;
 
         tv_diff = timeval_sub(tv_end, ctx->tv_start);
 
+        sb_setf(&log_buf, "%*pM done in %ld.%06ldsec",
+                LSTR_FMT_ARG(ctx->desc), tv_diff.tv_sec, tv_diff.tv_usec);
+        if (ctx->threshold_ms > 0) {
+            sb_addf(&log_buf, " (threshold = %ld.%06ldsec)",
+                    ctx->threshold_ms / 1000,
+                    (ctx->threshold_ms % 1000) * 1000);
+        }
         __logger_log(ctx->logger, level, NULL, -1,
                      ctx->file, ctx->func, ctx->line,
-                     "%*pM done in %ld.%06ldsec (expected less than "
-                     "%ld.%06ldsec)",
-                     LSTR_FMT_ARG(ctx->desc),
-                     tv_diff.tv_sec, tv_diff.tv_usec,
-                     ctx->timeout_ms / 1000, (ctx->timeout_ms % 1000) * 1000);
+                     "%*pM", SB_FMT_ARG(&log_buf));
     }
 
     lstr_wipe(&ctx->desc);
