@@ -549,8 +549,11 @@ void iop_field_get_type(const iop_field_t *nonnull field,
 
 typedef struct iop_field_path_t iop_field_path_t;
 
-/** Build an IOP field path on the t_stack.
+/** Build an IOP field path on a specified memory pool.
  *
+ * \param[in] mp    The memory pool on which the allocation will be done.
+ *                  Can be NULL to use malloc.
+ * \param[in] st    The structure type of the values containing the fields.
  * \param[in] path  Full path to the field. Can contain:
  *     - Subfields: 'foo.bar'.
  *     - Array indexes: 'elts[0].v', 'a.array[-1]' (negative indexes means
@@ -558,10 +561,56 @@ typedef struct iop_field_path_t iop_field_path_t;
  *     element).
  *     - Wildcard indexes: 'elts[*].v', 'a.array[*]', 'structs[*].fields[*]':
  *     can be used when wanting to iterate on all elements of an array.
+ * \param[out] err  The error description in case of error.
+ * \return The IOP field path allocated on the memory pool. NULL in case of
+ * error.
  */
 const iop_field_path_t *nullable
+mp_iop_field_path_compile(mem_pool_t *nullable mp,
+                          const iop_struct_t *nonnull st,
+                          lstr_t path, sb_t *nullable err);
+
+/** Build an IOP field path on the t_stack.
+ *
+ * \see mp_iop_field_path_compile.
+ */
+static inline const iop_field_path_t *nullable
 t_iop_field_path_compile(const iop_struct_t *nonnull st,
-                         lstr_t path, sb_t *nullable err);
+                         lstr_t path, sb_t *nullable err)
+{
+    return mp_iop_field_path_compile(t_pool(), st, path, err);
+}
+
+/** Build an IOP field path on the standard libc allocator.
+ *
+ * \see mp_iop_field_path_compile.
+ */
+static inline const iop_field_path_t *nullable
+iop_field_path_compile(const iop_struct_t *nonnull st,
+                       lstr_t path, sb_t *nullable err)
+{
+    return mp_iop_field_path_compile(NULL, st, path, err);
+}
+
+/** Delete an IOP field path allocated on the specfied memory pool.
+ *
+ * \param[in] mp     The memory pool on which the allocation was be done.
+ *                   Can be NULL to use malloc.
+ * \param[in] fp_ptr A pointer to the IOP field path to delete.
+ */
+void
+mp_iop_field_path_delete(mem_pool_t *nullable mp,
+                         const iop_field_path_t *nullable *nonnull fp_ptr);
+
+/** Delete an IOP field path allocated on the standard libc allocator.
+ *
+ * \see mp_iop_field_path_delete.
+ */
+static inline void
+iop_field_path_delete(const iop_field_path_t *nullable *nonnull fp_ptr)
+{
+    mp_iop_field_path_delete(NULL, fp_ptr);
+}
 
 /** Get the type associated with a given field path.
  *

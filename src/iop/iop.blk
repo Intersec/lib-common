@@ -1998,12 +1998,23 @@ struct iop_field_path_t {
     bool is_array_len : 1;
 };
 
-static iop_field_path_t *t_iop_field_path_init(iop_field_path_t *fp)
+static iop_field_path_t *mp_iop_field_path_init(mem_pool_t *nullable mp,
+                                                iop_field_path_t *fp)
 {
     p_clear(fp, 1);
-    t_qv_init(&fp->steps, 16);
+    mp_qv_init(mp, &fp->steps, 16);
 
     return fp;
+}
+
+static inline iop_field_path_t *t_iop_field_path_init(iop_field_path_t *fp)
+{
+    return mp_iop_field_path_init(t_pool(), fp);
+}
+
+static void iop_field_path_wipe(iop_field_path_t *fp)
+{
+    qv_wipe(&fp->steps);
 }
 
 /* {{{ Get */
@@ -2125,8 +2136,8 @@ static int iop_get_fieldp(const void *nonnull data,
 #define FIELD_PATH_ALLOW_WILDCARD  (1 << 0)
 
 static int
-t_iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
-                         int flags, iop_field_path_t *fp, sb_t *err)
+iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
+                       int flags, iop_field_path_t *fp, sb_t *err)
 {
     const iop_field_t *fdesc = NULL;
     pstream_t field_path_ps = ps_initlstr(&field_path_s);
@@ -2271,16 +2282,29 @@ t_iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
 /* {{{ IOP field path public API */
 
 const iop_field_path_t *nullable
-t_iop_field_path_compile(const iop_struct_t *nonnull st, lstr_t path,
-                         sb_t *nullable err)
+mp_iop_field_path_compile(mem_pool_t *nullable mp,
+                          const iop_struct_t *nonnull st, lstr_t path,
+                          sb_t *nullable err)
 {
     iop_field_path_t *fp;
 
-    fp = t_iop_field_path_init(t_new_raw(iop_field_path_t, 1));
-    RETHROW_NP(t_iop_compile_field_path(st, path, FIELD_PATH_ALLOW_WILDCARD,
-                                        fp, err));
+    fp = mp_iop_field_path_init(mp, mp_new_raw(mp, iop_field_path_t, 1));
+    RETHROW_NP(iop_compile_field_path(st, path, FIELD_PATH_ALLOW_WILDCARD,
+                                      fp, err));
 
     return fp;
+}
+
+void
+mp_iop_field_path_delete(mem_pool_t *nullable mp,
+                         const iop_field_path_t *nullable *nonnull fp_ptr)
+{
+    if (*fp_ptr) {
+        iop_field_path_t **fp_ptr_mut = (iop_field_path_t **)fp_ptr;
+
+        iop_field_path_wipe(*fp_ptr_mut);
+        mp_delete(mp, fp_ptr_mut);
+    }
 }
 
 void iop_field_path_get_type(const iop_field_path_t *nonnull fp,
@@ -2479,8 +2503,8 @@ int iop_msort_desc(const iop_struct_t *st, void *vec, int len,
         iop_sort_priv_t *priv = &sorts.tab[pos];
 
         t_iop_field_path_init(&priv->fp);
-        RETHROW(t_iop_compile_field_path(st, sort->field_path, 0, &priv->fp,
-                                         err));
+        RETHROW(iop_compile_field_path(st, sort->field_path, 0, &priv->fp,
+                                       err));
 
         if (priv->fp.fdesc
         &&  priv->fp.fdesc->type == IOP_T_VOID
@@ -2780,7 +2804,7 @@ __t_iop_filter(const iop_struct_t *st, const void *vec, int len,
 
     t_iop_field_path_init(&fp);
     /* TODO Support wildcards. */
-    RETHROW(t_iop_compile_field_path(st, field_path, 0, &fp, err));
+    RETHROW(iop_compile_field_path(st, field_path, 0, &fp, err));
     assert (fp.is_typename || fp.fdesc);
 
     if (OPT_ISSET(is_set)) {
