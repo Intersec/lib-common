@@ -61,13 +61,11 @@ static int do_call(char * const argv[], sb_t *err)
             sb_setf(err, "waitpid: %m");
         }
         if (WIFEXITED(status)) {
-            MODULE_METHOD_RUN_INT(at_fork_on_child_terminated, pid);
             return WEXITSTATUS(status) ? -1 : 0;
         }
         if (WIFSIGNALED(status)) {
             sb_setf(err, "%s killed with signal %s", argv[0],
                     sys_siglist[WTERMSIG(status)]);
-            MODULE_METHOD_RUN_INT(at_fork_on_child_terminated, pid);
             return -1;
         }
     }
