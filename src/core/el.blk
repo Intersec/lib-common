@@ -704,12 +704,16 @@ static void el_sigchld_hook(ev_t *ev, int signo, data_t priv)
      * another loop.
      */
     qm_for_each_pos(ev_assoc, pos, &_G.childs) {
-        ev_sigchld_assoc_t ev_assoc;
-        int status;
+        int pid = _G.childs.keys[pos];
+        int status = 0;
+        int res;
 
-        ev_assoc.pid = _G.childs.keys[pos];
-        if (waitpid(ev_assoc.pid, &status, WNOHANG) == ev_assoc.pid) {
+        res = waitpid(pid, &status, WNOHANG);
+        if (res == pid || (res == -1 && errno == ECHILD)) {
+            ev_sigchld_assoc_t ev_assoc;
+
             /* The child process is dead. */
+            ev_assoc.pid = pid;
             ev_assoc.child = _G.childs.values[pos];
             if (likely(ev_assoc.child)) {
                 ev_assoc.child->child.status = status;
