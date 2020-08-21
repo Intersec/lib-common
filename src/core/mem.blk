@@ -188,7 +188,7 @@ void core_mem_set_malloc_trim_pad(size_t pad)
 
 static void call_malloc_trim(size_t pad)
 {
-    timing_scope(&libc_g.logger, 500, "malloc_trim");
+    timing_scope_timeout(&libc_g.logger, 500, "malloc_trim");
 
     malloc_trim(pad);
 }
