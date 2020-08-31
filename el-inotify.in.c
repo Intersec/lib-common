@@ -101,7 +101,7 @@ static int inotify_cb(el_t el, int fd, short flags, data_t data)
             pos = qm_find(ev, &inotify_g.watches, e->wd);
             if (pos < 0) {
                 if (e->mask & IN_Q_OVERFLOW) {
-                    e_fatal("overflow of the inotify queue. Two many events "
+                    e_fatal("overflow of the inotify queue. Too many events "
                             "occured in a short amount of time. You should "
                             "consider increasing the value of "
                             "/proc/sys/fs/inotify/max_queued_events");
