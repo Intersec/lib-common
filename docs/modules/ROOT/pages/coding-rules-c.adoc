@@ -104,34 +104,39 @@ i++; /* good */
 
 == if else
 
-* When the condition of a control flow statement spans on multiple lines, push
-  the boolean operator on the beginning of the next line (and optionnaly put
-  two spaces after so that the next condition is aligned after the paren on the
-  previous line). Push the bracket on the next line.
+* When the condition of a control flow statement spans on multiple lines, keep
+  the boolean operator at the end of the line, and align the next statement
+  on the new line with the first statement. Push the bracket on the next line.
 
 [source,c]
 ----
-if (test1 && test2 && ... && foo
-&&  bar)
+if (test1 && test2 && ... && foo &&
+    bar)
+{
+    /* do stuff */
+}
+if (test1 && test2 &&
+    (test3 || test4 ||
+     test5))
 {
     /* do stuff */
 }
 ----
 
-* `elsif` statements are aligned this way:
+* `else if` statements are kept on a single line:
 
 [source,c]
 ----
 /* Good */
 if (cond1) {
-} else
-if (cond2) {
+} else if (cond2) {
 } else {
 }
 
 /* Bad */
 if (cond1) {
-} else if (cond2) {
+} else
+if (cond2) {
 } else {
 }
 ----
@@ -174,12 +179,12 @@ if (foo) { /* good */
     return 1;
 }
 
-if (test1 && test2 && ... && foo   /* bad */
-&&  bar)
+if (test1 && test2 && ... && foo && /* bad */
+    bar)
     return 0;
 
-if (test1 && test2 && ... && foo   /* good */
-&&  bar)
+if (test1 && test2 && ... && foo && /* good */
+    bar)
 {
     return 0;
 }
@@ -303,14 +308,12 @@ int main(void) { /* bad */
 }
 ----
 
-* No spaces between a function call and the parenthesis, except for asserts.
+* No spaces between a function call and the parenthesis.
 
 [source,c]
 ----
 fn(1, 2, 3);        /* good */
 fn (1, 2, 3);       /* bad  */
-assert (condition); /* good */
-assert(condition);  /* bad  */
 ----
 
 * When the argument list of a function call spans on multiple lines, indent at
@@ -380,7 +383,7 @@ detected.
   allocate memory for the arguments or put them on the stack.
 ** When such a function returns a positive value (0 included), then it was
 successful. When it returns a negative one, then it failed. This follows the
-usuall POSIX and Unix behaviours in the matter.
+usual POSIX and Unix behaviours in the matter.
 ** Using boolean returning functions is possible, though the name of the
 function _must_ contain `is` or `has`, or anything that makes the reader
 understand that the answer is either `yes` or `no`.
@@ -514,14 +517,14 @@ if (res) {
 
 == Macros / Preprocessor directives
 
-* Use at least two spaces between a macro name and its implementation:
+* Use a single space between a macro name and its implementation:
 
 [source,c]
 ----
-#define GOOD  1
-#define BAD 2
-#define GOOD_FN(a, b)  body
-#define BAD_FN(a, b) bad_body
+#define GOOD 1
+#define BAD  2
+#define GOOD_FN(a, b) body
+#define BAD_FN(a, b)  bad_body
 ----
 
 * Function-like macro should be used the same way functions are used: the
@@ -530,9 +533,9 @@ if (res) {
 [source,c]
 ----
 
-#define BAD_MACRO(_a)  do_something(_a);
+#define BAD_MACRO(_a) do_something(_a);
 
-#define GOOD_MACRO(_a)  do_something(_a)
+#define GOOD_MACRO(_a) do_something(_a)
 
 ----
 
@@ -543,9 +546,9 @@ if (res) {
 [source,c]
 ----
 
-#define BAD_MACRO(_a)  { char *a = (_a); foo(a); bar(a); }
+#define BAD_MACRO(_a) { char *a = (_a); foo(a); bar(a); }
 
-#define GOOD_MACRO(_a)  do { char *a = (_a); foo(a); bar(a); } while (0)
+#define GOOD_MACRO(_a) do { char *a = (_a); foo(a); bar(a); } while (0)
 
 ----
 
@@ -561,17 +564,17 @@ lines macros simple
 ----
 
 /* GOOD macros */
-#define GOOD_MACRO(a)  do {                                                  \
+#define GOOD_MACRO(a) do {                                                   \
         do_something();                                                      \
         do_something_else();                                                 \
     } while (0)
 
-#define GOOD_MACRO(a)  do { \
+#define GOOD_MACRO(a) do { \
         do_something();                                                      \
         do_something_else();                                                 \
     } while (0)
 
-#define GOOD_MACRO(a)  \
+#define GOOD_MACRO(a) \
     do {                                                                     \
         do_something();                                                      \
         do_something_else();                                                 \
@@ -579,19 +582,19 @@ lines macros simple
 
 
 /* BAD macro: buggy indentation */
-#define BAD_MACRO(a)  do { \
+#define BAD_MACRO(a) do { \
     do_something();                                                          \
     do_something_else();                                                     \
 } while (0)
 
 /* BAD macro: non-aligned \ */
-#define BAD_MACRO(a)  do { \
+#define BAD_MACRO(a) do { \
         do_something(); \
         do_something_else(); \
     } while (0)
 
 /* BAD macro: trailing \ */
-#define BAD_MACRO(a)  do { \
+#define BAD_MACRO(a) do { \
         do_something();                                                      \
         do_something_else();                                                 \
     } while (0)                                                              \
@@ -637,7 +640,7 @@ with a header guard when it is not.
 #define MY_HEADER_GUARD
 
 #ifdef __GNUC__
-# define foo(a)  __builtin_bar(a)
+# define foo(a) __builtin_bar(a)
 # ifdef __GLIBC__
 #   define WE_ARE_USING_A_GLIBC
 # else
