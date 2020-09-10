@@ -40,21 +40,21 @@ struct foo {
 };
 ----
 
-* labels (including switch `case` constructs) are indented 2 spaces behind the
-  current indentation level.
+* labels (including switch `case` constructs) are not indented.
+  They stay at the same level as the previous block indent.
 
 [source,c]
 ----
 int main(void)
 {
     switch (foo) {
-      case 1:     /* good */
+    case 1:       /* good */
         break;
         case 2:   /* bad */
-    case 3:       /* bad */
+      case 3:     /* bad */
         goto done;
     }
-  done:           /* good */
+done:             /* good */
     (void)0;
 }
 ----
@@ -216,52 +216,52 @@ a = pretty_long_condition ? another_quite_long_stuff
 switch (val) {
     int a = 1; /* bad; the init is not run */
 
-  case A:
+case A:
     a = 0;
     break;
 }
 ----
 
 * In case the case contains some variable declarations:
-** Put the opening brace on the same line as the case if the code covers a
-single `case`, on the next line, aligned with the case on the other case or if
-the case line is too long
-** Put the closing brace at the beginning of a new line, aligned with the case
-statements.
-** If a `break` is to be put, put it at one space after the closing brace.
+** Put the opening brace on a newline after the last case, at one
+   level of indentation greater than the case labels. Put the closing
+   brace on a newline as well, on the same level of indentation as the opening
+   brace.
+** If a `break` is to be put, put it on a newline after the closing brace.
 ** `continue` and `return` statements must be kept in the code block since they
 are not linked to the `switch() case:` construct.
 ** The code in the block is one-time indented from the `switch` statement
 
 [source,c]
 ----
-switch (val) {
-  case CONSTANT0:
-    code;
-    break;
+void foo(void)
+{
+    switch (val) {
+    case CONSTANT0:
+        code;
+        break;
 
-  case CONSTANT1: {
-    var declarations;
+    case CONSTANT1: {
+        var declarations;
 
-    code;
-    return var;
-  }
+        code;
+        return var;
+    }
 
-  case CONSTANT2: {
-    var declarations;
+    case CONSTANT2: {
+        var declarations;
 
-    code;
-  } break;
+        code;
+    } break;
 
-  case CONSTANT3:
-  case CONSTANT4:
-  {
-    var declarations;
+    case CONSTANT3:
+    case CONSTANT4: {
+        var declarations;
 
-    code;
-  } break;
+        code;
+    } break;
+    }
 }
-
 ----
 
 * when a case fall through the following case, this explicit `/* FALLTHROUGH
@@ -270,18 +270,18 @@ switch (val) {
 [source,c]
 ----
 switch (val) {
-  case A:
+case A:
     code;
-  case B: /* bad, may be a fall through or a missing break */
+case B: /* bad, may be a fall through or a missing break */
     code;
     break;
 }
 
 switch (val) {
-  case A:
+case A:
     code;
     /* FALLTHROUGH */ /* good */
-  case B:
+case B:
     code;
     break;
 }
@@ -291,8 +291,21 @@ switch (val) {
   enum (unless you have hundreds of elements to put in the `switch`). It allows
   the compiler to display warnings about missing cases whenever the enumeration
   changed. It applies for IOP unions as well.
-* Block rules apply to `switch/case` equivalent such as
-  `IOP_UNION_SWITCH/IOP_UNION_CASE`
+* Block rules apply to `switch/case` macros equivalent such as
+  `IOP_UNION_SWITCH/IOP_UNION_CASE`. They are not actual labels, so both the
+  case and the code inside the case are indented:
+
+[source,c]
+----
+IOP_UNION_SWITCH(val) {
+    IOP_UNION_CASE(iop__type, val, union_name, v) {
+        foo();
+    }
+    IOP_UNION_DEFAULT() {
+        bar();
+    }
+}
+----
 
 
 == Functions
