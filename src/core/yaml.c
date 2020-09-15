@@ -1331,60 +1331,86 @@ add_var_binding(lstr_t var_name, const lstr_t value,
     binding->value = value;
 }
 
+qm_kvec_t(str_value, lstr_t, lstr_t, qhash_lstr_hash, qhash_lstr_equal);
+
 static int
-t_yaml_env_replace_variable(yaml_parse_t * nonnull env,
-                            yaml_data_t * nonnull data,
-                            const lstr_t var_name,
-                            yaml_data_t * nonnull var_value,
-                            lstr_t * nonnull string_value)
+t_yaml_scalar_replace_variables(yaml_parse_t * nonnull env,
+                                yaml_data_t * nonnull data,
+                                const yaml_obj_t * nonnull vars,
+                                qm_t(str_value) * nonnull string_values)
 {
-    switch (data->type) {
-      case YAML_DATA_SCALAR:
-        if (!data->variable
-        ||  qh_del_key(lstr, &data->variable->var_names, &var_name) < 0)
-        {
-            return 0;
+    if (!data->variable) {
+        return 0;
+    }
+
+    tab_for_each_ptr(pair, &vars->fields) {
+        if (qh_del_key(lstr, &data->variable->var_names, &pair->key) < 0) {
+            continue;
         }
         if (data->variable->in_string) {
-            if (!string_value->s) {
-                if (var_value->type != YAML_DATA_SCALAR) {
+            lstr_t string_value;
+            int pos;
+
+            pos = qm_reserve(str_value, string_values, &pair->key, 0);
+            if (pos & QHASH_COLLISION) {
+                pos &= ~QHASH_COLLISION;
+                string_value = string_values->values[pos];
+            } else {
+                if (pair->data.type != YAML_DATA_SCALAR) {
                     yaml_env_set_err_at(
-                        env, &var_value->span, YAML_ERR_WRONG_DATA,
+                        env, &pair->data.span, YAML_ERR_WRONG_DATA,
                         "this variable can only be set with a scalar"
                     );
                     return -1;
                 }
 
-                if (var_value->scalar.type == YAML_SCALAR_STRING) {
-                    *string_value = var_value->scalar.s;
+                if (pair->data.scalar.type == YAML_SCALAR_STRING) {
+                    string_value = pair->data.scalar.s;
                 } else {
-                    *string_value = yaml_span_to_lstr(&var_value->span);
+                    string_value = yaml_span_to_lstr(&pair->data.span);
                 }
+                string_values->values[pos] = string_value;
             }
 
             assert (data->scalar.type == YAML_SCALAR_STRING);
             data->scalar.s = t_tpl_set_variable(
-                data->scalar.s, var_name, *string_value,
+                data->scalar.s, pair->key, string_value,
                 &data->variable->var_bitmap
             );
             if (qh_len(lstr, &data->variable->var_names) == 0) {
                 data->variable = NULL;
+                return 0;
             }
         } else {
-            *data = *var_value;
+            *data = pair->data;
+            return 0;
         }
+    }
 
+    return 0;
+}
+
+static int
+t_yaml_data_replace_variables(yaml_parse_t * nonnull env,
+                              yaml_data_t * nonnull data,
+                              const yaml_obj_t * nonnull vars,
+                              qm_t(str_value) * nonnull string_values)
+{
+    switch (data->type) {
+      case YAML_DATA_SCALAR:
+        RETHROW(t_yaml_scalar_replace_variables(env, data, vars,
+                                                string_values));
         break;
       case YAML_DATA_SEQ:
         tab_for_each_ptr(elem, &data->seq->datas) {
-            RETHROW(t_yaml_env_replace_variable(env, elem, var_name,
-                                                var_value, string_value));
+            RETHROW(t_yaml_data_replace_variables(env, elem, vars,
+                                                  string_values));
         }
         break;
       case YAML_DATA_OBJ:
         tab_for_each_ptr(kd, &data->obj->fields) {
-            RETHROW(t_yaml_env_replace_variable(env, &kd->data, var_name,
-                                                var_value, string_value));
+            RETHROW(t_yaml_data_replace_variables(env, &kd->data, vars,
+                                                  string_values));
         }
         break;
     }
@@ -1399,22 +1425,29 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
                              yaml_data_t * nonnull data,
                              qv_t(var_binding) * nullable bindings)
 {
-    tab_for_each_ptr(pair, &override->fields) {
-        lstr_t string_value = LSTR_NULL_V;
+    qm_t(str_value) string_values;
 
+    tab_for_each_ptr(pair, &override->fields) {
         if (qh_del_key(lstr, vars_set, &pair->key) < 0) {
             yaml_env_set_err_at(env, &pair->key_span, YAML_ERR_BAD_KEY,
                                 "unknown variable");
             return -1;
         }
+    }
 
-        /* FIXME: this is bad, we go through the AST for *every* variable.
-         * Should be reworked to go through the AST once, and replace any vars
-         * in the override. */
-        RETHROW(t_yaml_env_replace_variable(env, data, pair->key, &pair->data,
-                                            &string_value));
+    t_qm_init(str_value, &string_values, override->fields.len);
+    RETHROW(t_yaml_data_replace_variables(env, data, override,
+                                          &string_values));
 
-        if (bindings) {
+    if (bindings) {
+        tab_for_each_ptr(pair, &override->fields) {
+            lstr_t string_value = LSTR_NULL_V;
+            int pos;
+
+            pos = qm_find(str_value, &string_values, &pair->key);
+            if (pos >= 0) {
+                string_value = string_values.values[pos];
+            }
             add_var_binding(pair->key, string_value, bindings);
         }
     }
