@@ -69,15 +69,7 @@ typedef struct yaml_env_presentation_t {
 /* }}} */
 /* {{{ Variables */
 
-typedef struct yaml_variable_t {
-    /* FIXME: keeping a raw pointer on a yaml_data_t is very flimsy, and this
-     * design should be reworked.
-     * For example, it prevents properly handling variables in overrides.
-     */
-    /* Data using the variable. The set value for the variable will be set
-     * in the data, or replace it. */
-    yaml_data_t *data;
-
+struct yaml_variable_t {
     /* Is the variable in a string, or raw?
      *
      * Raw means any AST is valid:
@@ -105,11 +97,10 @@ typedef struct yaml_variable_t {
      * '$' is a variable.
      */
     qv_t(u8) var_bitmap;
-} yaml_variable_t;
-qvector_t(yaml_variable, yaml_variable_t * nonnull);
 
-qm_kvec_t(yaml_vars, lstr_t, qv_t(yaml_variable), qhash_lstr_hash,
-          qhash_lstr_equal);
+    /* Set of variable names used in this data. */
+    qh_t(lstr) var_names;
+};
 
 /* }}} */
 
@@ -195,7 +186,8 @@ typedef struct yaml_parse_t {
      */
     yaml_included_file_t * nullable included;
 
-    qm_t(yaml_vars) variables;
+    /* Hash of unbounded vars in the document. */
+    qh_t(lstr) unbounded_vars;
 } yaml_parse_t;
 
 qvector_t(override_nodes, yaml__presentation_override_node__t);
@@ -1103,43 +1095,18 @@ yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf,
 /* {{{ Variables */
 
 static void
-t_yaml_env_add_var(yaml_parse_t * nonnull env, const lstr_t name,
-                   yaml_variable_t * nonnull var)
+yaml_env_add_vars(yaml_parse_t * nonnull env, const qh_t(lstr) * nonnull vars)
 {
-    int pos;
-    qv_t(yaml_variable) *vec;
-
-    pos = qm_reserve(yaml_vars, &env->variables, &name, 0);
-    if (pos & QHASH_COLLISION) {
-        logger_trace(&_G.logger, 2, "add new occurrence of variable `%pL`",
-                     &name);
-        vec = &env->variables.values[pos & ~QHASH_COLLISION];
-    } else {
-        logger_trace(&_G.logger, 2, "add new variable `%pL`", &name);
-        env->variables.keys[pos] = t_lstr_dup(name);
-        vec = &env->variables.values[pos];
-        t_qv_init(vec, 1);
-    }
-    qv_append(vec, var);
-}
-
-static void
-yaml_env_merge_variables(yaml_parse_t * nonnull env,
-                           const qm_t(yaml_vars) * nonnull vars)
-{
-    qm_for_each_key_value_p(yaml_vars, name, vec, vars) {
-        int pos;
-
-        logger_trace(&_G.logger, 2, "add occurrences of variable `%pL` in "
-                     "including document", &name);
-        pos = qm_reserve(yaml_vars, &env->variables, &name, 0);
-        if (pos & QHASH_COLLISION) {
-            qv_extend(&env->variables.values[pos & ~QHASH_COLLISION], vec);
+    qh_for_each_key_p(lstr, name, vars) {
+        if (qh_add(lstr, &env->unbounded_vars, name) < 0) {
+            logger_trace(&_G.logger, 2, "add new occurrence of variable `%pL`",
+                         name);
         } else {
-            env->variables.values[pos] = *vec;
+            logger_trace(&_G.logger, 2, "add new variable `%pL`", name);
         }
     }
 }
+
 
 /* Parse a variable name, following a '$(' pattern.
  *
@@ -1227,16 +1194,15 @@ t_yaml_env_add_variables(yaml_parse_t * nonnull env,
             );
         }
 
+        yaml_env_add_vars(env, &variables_found);
+
         var = t_new(yaml_variable_t, 1);
-        var->data = data;
         var->in_string = in_string || !whole;
         if (var_bitmap) {
             var->var_bitmap = *var_bitmap;
         }
-
-        qh_for_each_key(lstr, name, &variables_found) {
-            t_yaml_env_add_var(env, name, var);
-        }
+        var->var_names = variables_found;
+        data->variable = var;
 
         if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
             yaml__presentation_node__t *node;
@@ -1366,63 +1332,91 @@ add_var_binding(lstr_t var_name, const lstr_t value,
 }
 
 static int
+t_yaml_env_replace_variable(yaml_parse_t * nonnull env,
+                            yaml_data_t * nonnull data,
+                            const lstr_t var_name,
+                            yaml_data_t * nonnull var_value,
+                            lstr_t * nonnull string_value)
+{
+    switch (data->type) {
+      case YAML_DATA_SCALAR:
+        if (!data->variable
+        ||  qh_del_key(lstr, &data->variable->var_names, &var_name) < 0)
+        {
+            return 0;
+        }
+        if (data->variable->in_string) {
+            if (!string_value->s) {
+                if (var_value->type != YAML_DATA_SCALAR) {
+                    yaml_env_set_err_at(
+                        env, &var_value->span, YAML_ERR_WRONG_DATA,
+                        "this variable can only be set with a scalar"
+                    );
+                    return -1;
+                }
+
+                if (var_value->scalar.type == YAML_SCALAR_STRING) {
+                    *string_value = var_value->scalar.s;
+                } else {
+                    *string_value = yaml_span_to_lstr(&var_value->span);
+                }
+            }
+
+            assert (data->scalar.type == YAML_SCALAR_STRING);
+            data->scalar.s = t_tpl_set_variable(
+                data->scalar.s, var_name, *string_value,
+                &data->variable->var_bitmap
+            );
+            if (qh_len(lstr, &data->variable->var_names) == 0) {
+                data->variable = NULL;
+            }
+        } else {
+            *data = *var_value;
+        }
+
+        break;
+      case YAML_DATA_SEQ:
+        tab_for_each_ptr(elem, &data->seq->datas) {
+            RETHROW(t_yaml_env_replace_variable(env, elem, var_name,
+                                                var_value, string_value));
+        }
+        break;
+      case YAML_DATA_OBJ:
+        tab_for_each_ptr(kd, &data->obj->fields) {
+            RETHROW(t_yaml_env_replace_variable(env, &kd->data, var_name,
+                                                var_value, string_value));
+        }
+        break;
+    }
+
+    return 0;
+}
+
+static int
 t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
                              const yaml_obj_t * nonnull override,
-                             qm_t(yaml_vars) * nonnull variables,
+                             qh_t(lstr) * nonnull vars_set,
+                             yaml_data_t * nonnull data,
                              qv_t(var_binding) * nullable bindings)
 {
     tab_for_each_ptr(pair, &override->fields) {
         lstr_t string_value = LSTR_NULL_V;
-        int pos;
 
-        pos = qm_find(yaml_vars, variables, &pair->key);
-        if (pos < 0) {
+        if (qh_del_key(lstr, vars_set, &pair->key) < 0) {
             yaml_env_set_err_at(env, &pair->key_span, YAML_ERR_BAD_KEY,
                                 "unknown variable");
             return -1;
         }
 
-        /* Replace every occurrence of the variable with the provided data. */
-        tab_for_each_entry(var, &variables->values[pos]) {
-            if (var->in_string) {
-                if (!string_value.s) {
-                    if (pair->data.type != YAML_DATA_SCALAR) {
-                        yaml_env_set_err_at(
-                            env, &pair->data.span, YAML_ERR_WRONG_DATA,
-                            "this variable can only be set with a scalar"
-                        );
-                        return -1;
-                    }
-
-                    if (pair->data.scalar.type == YAML_SCALAR_STRING) {
-                        string_value = pair->data.scalar.s;
-                    } else {
-                        string_value = yaml_span_to_lstr(&pair->data.span);
-                    }
-                }
-
-                assert (var->data->type == YAML_DATA_SCALAR
-                     && var->data->scalar.type == YAML_SCALAR_STRING);
-                var->data->scalar.s = t_tpl_set_variable(
-                    var->data->scalar.s,
-                    pair->key,
-                    string_value,
-                    &var->var_bitmap
-                );
-            } else {
-                *var->data = pair->data;
-
-            }
-        }
+        /* FIXME: this is bad, we go through the AST for *every* variable.
+         * Should be reworked to go through the AST once, and replace any vars
+         * in the override. */
+        RETHROW(t_yaml_env_replace_variable(env, data, pair->key, &pair->data,
+                                            &string_value));
 
         if (bindings) {
             add_var_binding(pair->key, string_value, bindings);
         }
-
-        /* remove the variable from variables, to prevent matching twice,
-         * and to be able to keep in the qm the variables that are still
-         * active. */
-        qm_del_at(yaml_vars, variables, pos);
     }
 
     return 0;
@@ -1554,7 +1548,7 @@ static bool has_inclusion_loop(const yaml_parse_t * nonnull env,
 
 static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
                                  lstr_t path, yaml_data_t * nonnull data,
-                                 qm_t(yaml_vars) * nonnull variables)
+                                 qh_t(lstr) * nonnull unbounded_vars)
 {
     yaml_parse_t *subfile = NULL;
     char dirpath[PATH_MAX];
@@ -1607,7 +1601,7 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
         }
     }
 
-    *variables = subfile->variables;
+    *unbounded_vars = subfile->unbounded_vars;
 
     if (env->pres) {
         yaml__presentation_include__t *inc;
@@ -1647,7 +1641,7 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
 static int
 t_yaml_env_handle_override(yaml_parse_t * nonnull env,
                            yaml_data_t * nonnull override,
-                           qm_t(yaml_vars) * nonnull variables,
+                           qh_t(lstr) * nonnull vars,
                            yaml__presentation_include__t * nullable pres,
                            yaml_data_t * nonnull out);
 
@@ -1657,7 +1651,7 @@ t_yaml_env_handle_include(yaml_parse_t * nonnull env,
                           yaml_data_t * nonnull data)
 {
     yaml__presentation_include__t *pres;
-    qm_t(yaml_vars) vars;
+    qh_t(lstr) vars;
     pstream_t path = ps_initlstr(&data->tag);
     yaml_data_t override = *data;
 
@@ -1675,9 +1669,8 @@ t_yaml_env_handle_include(yaml_parse_t * nonnull env,
     /* Parse and apply override, including variable settings */
     RETHROW(t_yaml_env_handle_override(env, &override, &vars, pres, data));
 
-    /* Save remaining variables into current variables for the document.
-     */
-    yaml_env_merge_variables(env, &vars);
+    /* Save remaining unbounded variables into the current document. */
+    yaml_env_add_vars(env, &vars);
 
     return 0;
 }
@@ -2679,30 +2672,32 @@ t_yaml_env_merge_data(yaml_parse_t * nonnull env,
  */
 static int
 yaml_env_set_variables(yaml_parse_t * nonnull env,
-                       const yaml_data_t * nonnull data,
-                       qm_t(yaml_vars) * nonnull variables,
+                       const yaml_data_t * nonnull var_bindings,
+                       qh_t(lstr) * nonnull vars_set,
+                       yaml_data_t * nonnull ast,
                        yaml__presentation_include__t * nullable pres)
 {
-    if (data->type != YAML_DATA_OBJ) {
-        return yaml_env_set_err_at(env, &data->span, YAML_ERR_WRONG_DATA,
+    if (var_bindings->type != YAML_DATA_OBJ) {
+        return yaml_env_set_err_at(env, &var_bindings->span,
+                                   YAML_ERR_WRONG_DATA,
                                    "variable settings must be an object");
     }
 
     if (pres) {
         qv_t(var_binding) bindings;
 
-        t_qv_init(&bindings, data->obj->fields.len);
+        t_qv_init(&bindings, var_bindings->obj->fields.len);
 
-        RETHROW(t_yaml_env_replace_variables(env, data->obj, variables,
-                                             &bindings));
+        RETHROW(t_yaml_env_replace_variables(env, var_bindings->obj, vars_set,
+                                             ast, &bindings));
 
         pres->variables = t_iop_new(yaml__presentation_variable_settings);
         pres->variables->bindings
             = IOP_TYPED_ARRAY_TAB(yaml__presentation_variable_binding,
                                   &bindings);
     } else {
-        RETHROW(t_yaml_env_replace_variables(env, data->obj, variables,
-                                             NULL));
+        RETHROW(t_yaml_env_replace_variables(env, var_bindings->obj, vars_set,
+                                             ast, NULL));
     }
 
     return 0;
@@ -2711,7 +2706,7 @@ yaml_env_set_variables(yaml_parse_t * nonnull env,
 static int
 t_yaml_env_handle_override(yaml_parse_t * nonnull env,
                            yaml_data_t * nonnull override,
-                           qm_t(yaml_vars) * nonnull variables,
+                           qh_t(lstr) * nonnull vars,
                            yaml__presentation_include__t * nullable pres,
                            yaml_data_t * nonnull out)
 {
@@ -2754,8 +2749,8 @@ t_yaml_env_handle_override(yaml_parse_t * nonnull env,
     {
         yaml_obj_t *obj = override->obj;
 
-        RETHROW(yaml_env_set_variables(env, &obj->fields.tab[0].data,
-                                       variables, pres));
+        RETHROW(yaml_env_set_variables(env, &obj->fields.tab[0].data, vars,
+                                       out, pres));
         obj->fields.tab++;
         obj->fields.len--;
         if (obj->fields.len == 0) {
@@ -2936,7 +2931,7 @@ yaml_parse_t *t_yaml_parse_new(int flags)
     env->flags = flags;
     t_sb_init(&env->err, 1024);
     t_qv_init(&env->subfiles, 0);
-    t_qm_init(yaml_vars, &env->variables, 0);
+    t_qh_init(lstr, &env->unbounded_vars, 0);
 
     return env;
 }
@@ -3028,7 +3023,7 @@ set_unbound_variables_err(yaml_parse_t *env)
     SB_1k(buf);
 
     /* build list of unbound variable names */
-    qm_for_each_key(yaml_vars, name, &env->variables) {
+    qh_for_each_key(lstr, name, &env->unbounded_vars) {
         if (buf.len > 0) {
             sb_adds(&buf, ", ");
         }
@@ -3064,7 +3059,7 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
         goto end;
     }
 
-    if (qm_len(yaml_vars, &env->variables) > 0
+    if (qh_len(lstr, &env->unbounded_vars) > 0
     &&  !(env->flags & YAML_PARSE_ALLOW_UNBOUND_VARIABLES))
     {
         set_unbound_variables_err(env);
