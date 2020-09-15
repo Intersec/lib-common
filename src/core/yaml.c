@@ -1483,8 +1483,6 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
     yaml_pos_t tag_pos_start = yaml_env_get_pos(env);
     yaml_pos_t tag_pos_end;
     pstream_t tag;
-    unsigned flags = env->flags;
-    int res;
 
     assert (ps_peekc(env->ps) == '!');
     yaml_env_skipc(env);
@@ -1502,19 +1500,8 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
     tag_pos_end = yaml_env_get_pos(env);
 
     *type = get_tag_type(LSTR_PS_V(&tag));
-    switch (*type) {
-      case YAML_TAG_TYPE_INCLUDE:
-      case YAML_TAG_TYPE_INCLUDERAW:
-        flags = flags | YAML_PARSE_FORBID_VARIABLES;
-        break;
-      default:
-        break;
-    }
 
-    SWAP(unsigned, env->flags, flags);
-    res = t_yaml_env_parse_data(env, min_indent, out);
-    SWAP(unsigned, env->flags, flags);
-    RETHROW(res);
+    RETHROW(t_yaml_env_parse_data(env, min_indent, out));
 
     if (out->tag.s) {
         return yaml_env_set_err_at(env, out->tag_span, YAML_ERR_WRONG_OBJECT,
@@ -7719,6 +7706,47 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
+    /* {{{ Merge key with variables */
+
+    Z_TEST(merge_key_with_variables, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *child;
+        const char *root;
+
+        /* TODO: overrides do not work well with merge keys. This is a
+         * test example showing how it behaves... */
+
+        child =
+            "<<:\n"
+            "  a: $(a)\n"
+            "  b:\n"
+            "    c: <$(c)>\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "!include:child.yml\n"
+            "variables:\n"
+            "  a: 1\n"
+            "  c: 2\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "<<:\n"
+            "  a: 1\n"
+            "  b:\n"
+            "    c: <2>"
+        ));
+
+        Z_HELPER_RUN(z_pack_yaml_file("merge_var/root.yml", &data, &pres,
+                                      0));
+        Z_HELPER_RUN(z_check_file("merge_var/root.yml", root));
+        Z_HELPER_RUN(z_check_file("merge_var/child.yml", child));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
     /* {{{ Parsing scalars */
 
     Z_TEST(parsing_scalar, "test parsing of scalars") {
@@ -8900,14 +8928,15 @@ Z_GROUP_EXPORT(yaml)
             "key: !include:grandchild.yml\n"
             "  variables:\n"
             "    var: 3\n"
-            /* TODO: we should be able to say "b: $var2" here, but it does
-             * not work currently. See FIXME in yaml_variable_t. */
-            "  b: 5\n";
+            "    var_2: $(var_3)\n"
+            "  b: $(var_3)\n"
+            "  c: $(var_4)\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
             "!include:child.yml\n"
             "variables:\n"
-            "  var_2: 4\n"
+            "  var_3: 4\n"
+            "  var_4: 5\n"
             "key:\n"
             "  a: a\n"
             "  var: 1\n";
@@ -8918,7 +8947,8 @@ Z_GROUP_EXPORT(yaml)
             "  var: 1\n"
             "  var2: 4\n"
             "  a: a\n"
-            "  b: 5"
+            "  b: 4\n"
+            "  c: 5"
         ));
 
         Z_HELPER_RUN(z_pack_yaml_file("variables_2/root.yml", &data, &pres,
@@ -9256,27 +9286,6 @@ Z_GROUP_EXPORT(yaml)
             "this variable can only be set with a scalar\n"
             "    t: [ 1, 2 ]\n"
             "       ^^^^^^^^"
-        ));
-
-        /* cannot use variables in variable settings or overrides. */
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include:inner.yml\n"
-            "  variables:\n"
-            "    a: $(t)",
-
-            "input.yml:3:8: use of variables is forbidden, "
-            "cannot use variables in this context\n"
-            "    a: $(t)\n"
-            "       ^^^^"
-        ));
-        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
-            "key: !include:inner.yml\n"
-            "  t: <$(a)>",
-
-            "input.yml:2:6: use of variables is forbidden, "
-            "cannot use variables in this context\n"
-            "  t: <$(a)>\n"
-            "     ^^^^^^"
         ));
 
         /* invalid variable name */
