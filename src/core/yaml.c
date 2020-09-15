@@ -277,39 +277,76 @@ qvector_t(pack_override, yaml_pack_override_t);
 /* {{{ IOP helpers */
 /* {{{ IOP scalar */
 
+qvector_t(yaml_iop_data, yaml__data__t);
+qvector_t(yaml_iop_key_data, yaml__key_data__t);
+
 static void
 t_yaml_data_to_iop(const yaml_data_t * nonnull data,
                    yaml__data__t * nonnull out)
 {
-    yaml__scalar_value__t *scalar;
 
     out->tag = data->tag;
 
-    /* TODO: for the moment, only scalars can be overridden, so only scalars
-     * needs to be serialized. Once overrides can replace any data, this
-     * function will have to be modified */
-    assert (data->type == YAML_DATA_SCALAR);
-    scalar = IOP_UNION_SET(yaml__data_value, &out->value, scalar);
+    switch (data->type) {
+      case YAML_DATA_SCALAR: {
+        yaml__scalar_value__t *scalar;
 
-    switch (data->scalar.type) {
+        scalar = IOP_UNION_SET(yaml__data_value, &out->value, scalar);
+
+        switch (data->scalar.type) {
 #define CASE(_name, _prefix)                                                 \
-      case YAML_SCALAR_##_name:                                              \
-        *IOP_UNION_SET(yaml__scalar_value, scalar, _prefix)                  \
-            = data->scalar._prefix;                                          \
-        break
+          case YAML_SCALAR_##_name:                                          \
+            *IOP_UNION_SET(yaml__scalar_value, scalar, _prefix)              \
+                = data->scalar._prefix;                                      \
+            break
 
-      CASE(STRING, s);
-      CASE(DOUBLE, d);
-      CASE(UINT, u);
-      CASE(INT, i);
-      CASE(BOOL, b);
-      CASE(BYTES, s);
+          CASE(STRING, s);
+          CASE(DOUBLE, d);
+          CASE(UINT, u);
+          CASE(INT, i);
+          CASE(BOOL, b);
+          CASE(BYTES, s);
 
 #undef CASE
 
-      case YAML_SCALAR_NULL:
-        IOP_UNION_SET_V(yaml__scalar_value, scalar, nil);
-        break;
+          case YAML_SCALAR_NULL:
+            IOP_UNION_SET_V(yaml__scalar_value, scalar, nil);
+            break;
+        }
+      } break;
+
+      case YAML_DATA_SEQ: {
+        qv_t(yaml_iop_data) datas;
+        yaml__seq_value__t *seq_value;
+
+        t_qv_init(&datas, data->seq->datas.len);
+        tab_for_each_ptr(seq_elem, &data->seq->datas) {
+            yaml__data__t *iop_elem = qv_growlen(&datas, 1);
+
+            iop_init(yaml__data, iop_elem);
+            t_yaml_data_to_iop(seq_elem, iop_elem);
+        }
+        seq_value = IOP_UNION_SET(yaml__data_value, &out->value, seq);
+        iop_init(yaml__seq_value, seq_value);
+        seq_value->datas = IOP_TYPED_ARRAY_TAB(yaml__data, &datas);
+      } break;
+
+      case YAML_DATA_OBJ: {
+        qv_t(yaml_iop_key_data) kds;
+        yaml__obj_value__t *obj_value;
+
+        t_qv_init(&kds, data->obj->fields.len);
+        tab_for_each_ptr(kd, &data->obj->fields) {
+            yaml__key_data__t *iop_kd = qv_growlen(&kds, 1);
+
+            iop_init(yaml__key_data, iop_kd);
+            iop_kd->key = lstr_dupc(kd->key);
+            t_yaml_data_to_iop(&kd->data, &iop_kd->data);
+        }
+        obj_value = IOP_UNION_SET(yaml__data_value, &out->value, obj);
+        iop_init(yaml__obj_value, obj_value);
+        obj_value->fields = IOP_TYPED_ARRAY_TAB(yaml__key_data, &kds);
+      } break;
     }
 }
 
@@ -317,31 +354,58 @@ static void
 t_iop_data_to_yaml(const yaml__data__t * nonnull data,
                    yaml_data_t * nonnull out)
 {
-    assert (IOP_UNION_IS(yaml__data_value, &data->value, scalar));
+    switch (data->value.iop_tag) {
+      case IOP_UNION_TAG(yaml__data_value, scalar):
+        IOP_UNION_SWITCH(&data->value.scalar) {
+          IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, s, s) {
+            yaml_data_set_string(out, s);
+          }
+          IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, d, d) {
+            yaml_data_set_double(out, d);
+          }
+          IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, u, u) {
+            yaml_data_set_uint(out, u);
+          }
+          IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, i, i) {
+            yaml_data_set_int(out, i);
+          }
+          IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, b, b)  {
+            yaml_data_set_bool(out, b);
+          }
+          IOP_UNION_CASE_V(yaml__scalar_value, &data->value.scalar, nil)  {
+            yaml_data_set_null(out);
+          }
+          IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, data, bytes) {
+            yaml_data_set_bytes(out, bytes);
+          }
+        }
+        break;
 
-    IOP_UNION_SWITCH(&data->value.scalar) {
-      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, s, s) {
-        yaml_data_set_string(out, s);
-      }
-      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, d, d) {
-        yaml_data_set_double(out, d);
-      }
-      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, u, u) {
-        yaml_data_set_uint(out, u);
-      }
-      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, i, i) {
-        yaml_data_set_int(out, i);
-      }
-      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, b, b)  {
-        yaml_data_set_bool(out, b);
-      }
-      IOP_UNION_CASE_V(yaml__scalar_value, &data->value.scalar, nil)  {
-        yaml_data_set_null(out);
-      }
-      IOP_UNION_CASE(yaml__scalar_value, &data->value.scalar, data, bytes) {
-        yaml_data_set_bytes(out, bytes);
-      }
+      case IOP_UNION_TAG(yaml__data_value, seq): {
+        const yaml__seq_value__t *seq = &data->value.seq;
+
+        t_yaml_data_new_seq(out, seq->datas.len);
+        tab_for_each_ptr(elem, &seq->datas) {
+            yaml_data_t out_elem;
+
+            t_iop_data_to_yaml(elem, &out_elem);
+            yaml_seq_add_data(out, out_elem);
+        }
+      } break;
+
+      case IOP_UNION_TAG(yaml__data_value, obj): {
+        const yaml__obj_value__t *obj = &data->value.obj;
+
+        t_yaml_data_new_obj(out, obj->fields.len);
+        tab_for_each_ptr(kd, &obj->fields) {
+            yaml_data_t out_data;
+
+            t_iop_data_to_yaml(&kd->data, &out_data);
+            yaml_obj_add_field(out, kd->key, out_data);
+        }
+      } break;
     }
+
     out->tag = data->tag;
 }
 
@@ -7309,7 +7373,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a:\n"
             "  <<:\n"
-            "    - x: 1\n"
+            "    - x: { a: 1, b: [ 1, 2, z: 5 ] }\n"
             "      y: 2\n"
             "      w: 8\n"
             "    - { x: 3, z: -1, p: 0 }\n"
