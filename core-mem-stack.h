@@ -131,6 +131,7 @@ typedef struct mem_stack_pool_t {
 
     dlist_t        pool_list;
     char * nonnull name;
+    pthread_t      pthread_id;
 
 #ifdef MEM_BENCH
     /* never mind data : bench */
