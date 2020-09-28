@@ -691,7 +691,7 @@ typedef struct iop_dso_vt_t {
         _dup_array;                                                          \
     })
 
-#define T_IOP_ARRAY_DUP(array)  IOP_ARRAY_DUP(t_pool(), array)
+#define T_IOP_ARRAY_DUP(array)  IOP_ARRAY_DUP(t_pool(), (array))
 
 #define IOP_ARRAY_ELEM_TYPE(_iop_type)                                       \
     typeof(*cast(IOP_ARRAY_T(_iop_type) *, 0)->tab)
