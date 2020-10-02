@@ -445,7 +445,7 @@ t_yaml_scalar_to_string(const yaml_scalar_t * nonnull scalar)
         if (isnan(scalar->d)) {
             return LSTR(".NaN");
         } else {
-            return t_lstr_fmt("%g", scalar->d);
+            return t_lstr_fmt("%.15g", scalar->d);
         }
       } break;
 
@@ -3862,7 +3862,7 @@ yaml_pack_scalar(yaml_pack_env_t * nonnull env,
         if (isnan(scalar->d)) {
             PUTS(".NaN");
         } else {
-            WRITE(ibuf, sprintf(ibuf, "%g", scalar->d));
+            WRITE(ibuf, sprintf(ibuf, "%.15g", scalar->d));
         }
       } break;
 
@@ -10214,6 +10214,34 @@ Z_GROUP_EXPORT(yaml)
 
         yaml_data_set_string(&d2, LSTR("~"));
         TST(&d1, &d2, false, true);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Double packing */
+
+    Z_TEST(double_packing, "") {
+        t_scope;
+
+        /* Doubles are packed with enough precision to repack those values
+         * as they were written. */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
+            "- 3.14159265\n"
+            "- 0.25\n"
+            "- 0.666666666666\n"
+            "- 1.23e+20",
+
+            NULL
+        ));
+
+        /* When written in scientific style, or when too big, the repacking
+         * will change. */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
+            "- 12e3\n"
+            "- 0.66666666666666666667\n",
+
+            "- 12000\n"
+            "- 0.666666666666667"
+        ));
     } Z_TEST_END;
 
     /* }}} */
