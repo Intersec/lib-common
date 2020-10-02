@@ -1367,6 +1367,15 @@ t_yaml_scalar_replace_variables(yaml_parse_t * nonnull env,
             lstr_t string_value;
             int pos;
 
+            if (pair->data.variable) {
+                yaml_env_set_err_at(
+                    env, &pair->data.span, YAML_ERR_INVALID_VAR,
+                    "a variable used in templated strings cannot reference "
+                    "other variables"
+                );
+                return -1;
+            }
+
             pos = qm_reserve(str_value, string_values, &pair->key, 0);
             if (pos & QHASH_COLLISION) {
                 pos &= ~QHASH_COLLISION;
@@ -7787,7 +7796,7 @@ Z_GROUP_EXPORT(yaml)
 
         child =
             "<<:\n"
-            "  a: $(a)\n"
+            "  a: \"$(a) \\$(b)\"\n"
             "  b:\n"
             "    c: <$(c)>\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
@@ -7800,7 +7809,7 @@ Z_GROUP_EXPORT(yaml)
             root,
 
             "<<:\n"
-            "  a: 1\n"
+            "  a: \"1 \\$(b)\"\n"
             "  b:\n"
             "    c: <2>"
         ));
@@ -9079,9 +9088,9 @@ Z_GROUP_EXPORT(yaml)
             "key: !include:grandchild.yml\n"
             "  variables:\n"
             "    var: 3\n"
-            "    var_2: $(var_3)\n"
+            "    var_2: \"$(var_3) \\$(var_4)\"\n"
             "  b: $(var_3)\n"
-            "  c: $(var_4)\n";
+            "  c: \"\\$(var_4): $(var_4)\"\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
             "!include:child.yml\n"
@@ -9096,10 +9105,10 @@ Z_GROUP_EXPORT(yaml)
 
             "key:\n"
             "  var: 1\n"
-            "  var2: 4\n"
+            "  var2: \"4 \\$(var_4)\"\n"
             "  a: a\n"
             "  b: 4\n"
-            "  c: 5"
+            "  c: \"\\$(var_4): 5\""
         ));
 
         Z_HELPER_RUN(z_pack_yaml_file("variables_2/root.yml", &data, &pres,
@@ -10047,6 +10056,120 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_check_file("var_esc_4/root.yml", root));
         Z_HELPER_RUN(z_check_file("var_esc_4/child.yml", child));
         Z_HELPER_RUN(z_check_file("var_esc_4/grandchild.yml", grandchild));
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ escaped variables in variables */
+
+    Z_TEST(escaped_variables_in_variables, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+        const char *child;
+        const char *grandchild;
+
+        /* test replacement of variables */
+        grandchild =
+            "a: \"$(a) \\$(b) $(c) \\$(d) $(e)\"\n"
+            "b: \"\\$(a) $(b) $(c) $(d) $(e)\"\n"
+            "c: \"\\$(a) $(b) \\$(c) $(d) $(e)\"\n"
+            "d: \"$(a) \\$(b) \\$(c) \\$(d) $(e)\"\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+        child =
+            "!include:grandchild.yml\n"
+            "variables:\n"
+            "  b: z\n"
+            "  c: \"c<\\$(b)>\"\n"
+            "  a: y\n"
+            "  d: \"d<\\$(c) \\$(d)>\"\n"
+            "e: \"$(a) \\$(b) $(c) \\$(d) $(e)\"\n"
+            "f: \"$(a) $(b) \\$(c) \\$(d) $(e)\"\n";
+
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "!include:child.yml\n"
+            "variables:\n"
+            "  a: 1\n"
+            "  b: 2\n"
+            "  c: 3\n"
+            "  e: 5\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "a: \"y \\$(b) c<\\$(b)> \\$(d) 5\"\n"
+            "b: \"\\$(a) z c<\\$(b)> d<\\$(c) \\$(d)> 5\"\n"
+            "c: \"\\$(a) z \\$(c) d<\\$(c) \\$(d)> 5\"\n"
+            "d: \"y \\$(b) \\$(c) \\$(d) 5\"\n"
+            "e: \"1 \\$(b) 3 \\$(d) 5\"\n"
+            "f: \"1 2 \\$(c) \\$(d) 5\""
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("varsvars/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("varsvars/root.yml", root));
+        Z_HELPER_RUN(z_check_file("varsvars/child.yml", child));
+        Z_HELPER_RUN(z_check_file("varsvars/grandchild.yml", grandchild));
+
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ escaped variables in variables */
+
+    Z_TEST(escaped_variables_in_variables2, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+        const char *child;
+        const char *grandchild;
+
+        /* test replacement of variables */
+        grandchild =
+            "a: $(a)\n"
+            "b: $(b)\n"
+            "c: $(c)\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+        child =
+            "!include:grandchild.yml\n"
+            "variables:\n"
+            "  b: $(a)\n"
+            "  c:\n"
+            "    a: $(a)\n"
+            "    b: \"$(a) $(b)\"\n"
+            "    c: 3\n"
+            "d:\n"
+            "  c: $(c)\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "!include:child.yml\n"
+            "variables:\n"
+            "  a: A\n"
+            "  b: B\n"
+            "  c: C\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "a: A\n"
+            "b: A\n"
+            "c:\n"
+            "  a: A\n"
+            "  b: A B\n"
+            "  c: 3\n"
+            "d:\n"
+            "  c: C"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("varsvars/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("varsvars/root.yml", root));
+        Z_HELPER_RUN(z_check_file("varsvars/child.yml", child));
+        Z_HELPER_RUN(z_check_file("varsvars/grandchild.yml", grandchild));
+
         yaml_parse_delete(&env);
     } Z_TEST_END;
 
