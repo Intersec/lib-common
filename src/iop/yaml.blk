@@ -348,10 +348,15 @@ t_yaml_scalar_to_iop_field(yunpack_env_t * nonnull env,
 /* }}} */
 /* {{{ Yaml data to union */
 
-/* XXX: the in_array argument is required for the "scalar -> [scalar]"
- * backward compat. When unpacking a sequence, it is false, but when true,
- * arrays are detected and scalars are automatically put in a single element
- * array. */
+/* XXX: the in_array argument is required for two cases:
+ *
+ * #1: the "scalar -> [scalar]" backward compat.
+ * When unpacking a sequence, it is true, but when false, arrays are detected
+ * and scalars are automatically put in a single element array.
+ *
+ * #2: the "- - a" unpacking into an array. arrays of arrays are not handled
+ * in IOP, so unpacking an array when already inside an array is rejected.
+ * */
 static int
 t_yaml_data_to_iop_field(yunpack_env_t * nonnull env,
                          const yaml_data_t * nonnull data,
@@ -784,6 +789,16 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
         break;
 
       case YAML_DATA_SEQ:
+        if (in_array) {
+            sb_setf(&env->err.buf,
+                    "cannot unpack an array as an element of an array, "
+                    "did you insert one too many - ?");
+            env->err.span = &data->span;
+            /* XXX: do not goto err, the "cannot set field" will be set
+             * in the previous t_yaml_seq_to_iop_field.
+             */
+            return -1;
+        }
         if (t_yaml_seq_to_iop_field(env, data, st_desc, fdesc, out) < 0) {
             goto err;
         }
