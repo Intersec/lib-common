@@ -26,9 +26,14 @@
 Z_GROUP_EXPORT(hash32) {
     Z_TEST(jenkins, "jenkins") {
         lstr_t s = LSTR("hakunamatata");
+        lstr_t s_upper = LSTR("HAKUNAMATATA");
 
         Z_ASSERT_EQ(jenkins_hash(s.s, -1), 0xb536a6ee);
         Z_ASSERT_EQ(jenkins_hash(s.s, s.len), 0xb536a6ee);
+
+        Z_ASSERT_EQ(jenkins_hash_ascii_lower(s.s, s.len), 0xb536a6ee);
+        Z_ASSERT_EQ(jenkins_hash_ascii_lower(s_upper.s, s_upper.len),
+                    0xb536a6ee);
     } Z_TEST_END;
 
     Z_TEST(murmur_hash3_x86_32, "murmur_hash3_x86_32") {

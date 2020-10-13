@@ -4,3 +4,4 @@
 /mem-bench
 /qpsstress
 /threaded-operations-bench
+/container-bench
