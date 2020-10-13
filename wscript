@@ -552,6 +552,9 @@ def build(ctx):
     ctx.program(target='ztst-mem', features="c cprogram",
                 source='ztst-mem.blk', use='libcommon')
 
+    ctx.program(target='container-bench', features="c cprogram",
+                source='container-bench.c', use='libcommon')
+
     # }}}
 
 

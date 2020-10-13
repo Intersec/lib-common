@@ -1234,11 +1234,7 @@ qhash_lstr_equal(const qhash_t * nullable qh, const lstr_t * nonnull s1,
 static inline uint32_t
 qhash_lstr_ascii_ihash(const qhash_t * nullable qh, const lstr_t * nonnull ls)
 {
-    t_scope;
-    lstr_t tmp = t_lstr_dup(*ls);
-
-    lstr_ascii_tolower(&tmp);
-    return qhash_lstr_hash(qh, &tmp);
+    return jenkins_hash_ascii_lower(ls->s, ls->len);
 }
 
 static inline bool
@@ -1259,6 +1255,7 @@ qh_k32_t(u32);
 qh_k64_t(u64);
 qh_kptr_t(str,   char,    qhash_str_hash,  qhash_str_equal);
 qh_kvec_t(lstr,  lstr_t,  qhash_lstr_hash, qhash_lstr_equal);
+qh_kvec_t(ilstr, lstr_t,  qhash_lstr_ascii_ihash, qhash_lstr_ascii_iequal);
 qh_khptr_t(ptr, void);
 
 qh_kptr_ckey_t(cstr, char, qhash_str_hash, qhash_str_equal);
