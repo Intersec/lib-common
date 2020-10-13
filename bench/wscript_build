@@ -35,3 +35,6 @@ ctx.program(target='qpsstress', features='c cprogram',
 
 ctx.program(target='threaded-operations-bench', features='c cprogram',
             source='threaded-operations-bench.blk', use='libcommon')
+
+ctx.program(target='container-bench', features="c cprogram",
+            source='container-bench.c', use='libcommon')
