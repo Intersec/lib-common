@@ -421,26 +421,36 @@ static int z_assert_iop_eq_desc(const struct iop_struct_t *st,
 /* }}} */
 /* {{{ zchk iop.iop_field_path_compile */
 
-static int _z_check_field_path_compile(const iop_struct_t *st, lstr_t path,
-                                       iop_type_t exp_type, bool exp_is_array,
-                                       const iop_struct_t *nullable exp_st,
-                                       const iop_enum_t *nullable exp_en,
-                                       lstr_t exp_error)
+static int _z_check_field_path_compile(
+    const iop_struct_t *st, lstr_t path, const void *nullable value,
+    iop_type_t exp_type, bool exp_is_array,
+    const iop_struct_t *nullable exp_st, const iop_enum_t *nullable exp_en,
+    lstr_t exp_error)
 {
     t_scope;
     SB_1k(err);
     iop_full_type_t type;
     bool is_array;
-    const iop_field_path_t *fp;
+    int res;
 
-    fp = t_iop_field_path_compile(st, path, &err);
+    if (value) {
+        res = iop_obj_get_field_type(st, value, path, &type, &is_array, &err);
+    } else {
+        const iop_field_path_t *fp = NULL;
+
+        fp = t_iop_field_path_compile(st, path, &err);
+        if (exp_error.s) {
+            res = fp ? 0 : -1;
+        } else {
+            Z_ASSERT_P(fp, "%pL", &err);
+            iop_field_path_get_type(fp, &type, &is_array);
+        }
+    }
+
     if (exp_error.s) {
-        Z_ASSERT_NULL(fp, "unexpected success");
+        Z_ASSERT_NEG(res, "unexpected success");
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), exp_error);
     } else {
-        Z_ASSERT_P(fp, "%pL", &err);
-
-        iop_field_path_get_type(fp, &type, &is_array);
         Z_ASSERT_EQ(type.type, exp_type);
         Z_ASSERT_EQ(is_array, exp_is_array);
         if (exp_st) {
@@ -458,14 +468,15 @@ static int _z_check_field_path_compile(const iop_struct_t *st, lstr_t path,
     Z_HELPER_END;
 }
 
-static int z_check_field_path_compile(const iop_struct_t *st, lstr_t path,
-                                      iop_type_t exp_type, bool exp_is_array,
-                                      const iop_struct_t *nullable exp_st,
-                                      const iop_enum_t *nullable exp_en,
-                                      lstr_t exp_error)
+static int z_check_field_path_compile(
+    const iop_struct_t *st, lstr_t path, const void *nullable value,
+    iop_type_t exp_type, bool exp_is_array,
+    const iop_struct_t *nullable exp_st, const iop_enum_t *nullable exp_en,
+    lstr_t exp_error)
 {
-    Z_HELPER_RUN(_z_check_field_path_compile(st, path, exp_type, exp_is_array,
-                                             exp_st, exp_en, exp_error),
+    Z_HELPER_RUN(_z_check_field_path_compile(st, path, value, exp_type,
+                                             exp_is_array, exp_st, exp_en,
+                                             exp_error),
                  "%pL:%pL", &st->fullname, &path);
     Z_HELPER_END;
 }
@@ -4774,54 +4785,98 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_field_path_compile, "test iop_field_path compilation") { /* {{{ */
-#define TEST(pfx, _path, _exp_type, _exp_is_array, _exp_st, _exp_en,         \
+        t_scope;
+        tstiop__my_struct_f__t msf;
+        tstiop__my_class3__t mc;
+        tstiop__my_class3__t mc2;
+
+#define TEST(pfx, _path, _value, _exp_type, _exp_is_array, _exp_st, _exp_en, \
              _exp_error)                                                     \
         Z_HELPER_RUN(z_check_field_path_compile(&pfx##__s, LSTR(_path),      \
+                                                (_value),                    \
                                                 (_exp_type),                 \
                                                 (_exp_is_array),             \
                                                 (_exp_st), (_exp_en),        \
                                                 (_exp_error)))
 
-#define TEST_SCALAR(pfx, _path, _exp_type, _exp_is_array)                    \
-        TEST(pfx, (_path), (_exp_type), (_exp_is_array), NULL, NULL,         \
-             LSTR_NULL_V)
-#define TEST_ST(pfx, _path, _exp_type, _exp_is_array, st_pfx)                \
-        TEST(pfx, (_path), (_exp_type), (_exp_is_array), &st_pfx##__s, NULL, \
-             LSTR_NULL_V)
-#define TEST_ENUM(pfx, _path, _exp_is_array, en_pfx)                         \
-        TEST(pfx, (_path), IOP_T_ENUM, (_exp_is_array), NULL, &en_pfx##__e,  \
-             LSTR_NULL_V)
-#define TEST_ERROR(pfx, _path, _error)                                       \
-        TEST(pfx, (_path), IOP_T_VOID, false, NULL, NULL, LSTR(_error))
+#define TEST_SCALAR(pfx, _path, _value, _exp_type, _exp_is_array)            \
+        TEST(pfx, (_path), (_value), (_exp_type), (_exp_is_array), NULL,     \
+             NULL, LSTR_NULL_V)
+#define TEST_ST(pfx, _path, _value, _exp_type, _exp_is_array, st_pfx)        \
+        TEST(pfx, (_path), (_value), (_exp_type), (_exp_is_array),           \
+             &st_pfx##__s, NULL, LSTR_NULL_V)
+#define TEST_ENUM(pfx, _path, _value, _exp_is_array, en_pfx)                 \
+        TEST(pfx, (_path), (_value), IOP_T_ENUM, (_exp_is_array), NULL,      \
+             &en_pfx##__e, LSTR_NULL_V)
+#define TEST_ERROR(pfx, _path, _value, _error)                               \
+        TEST(pfx, (_path), (_value), IOP_T_VOID, false, NULL, NULL,          \
+             LSTR(_error))
 
-        TEST_ERROR(tstiop__my_struct_a, "",
+        TEST_ERROR(tstiop__my_struct_a, "", NULL,
                    "cannot process empty field path");
-        TEST_SCALAR(tstiop__my_struct_a, "htab", IOP_T_U64, true);
-        TEST_SCALAR(tstiop__my_struct_a, "htab[5]", IOP_T_U64, false);
-        TEST_SCALAR(tstiop__my_struct_a, "htab[*]", IOP_T_U64, false);
-        TEST_ERROR(tstiop__my_struct_a, "htab[5*]",
+        TEST_SCALAR(tstiop__my_struct_a, "htab", NULL, IOP_T_U64, true);
+        TEST_SCALAR(tstiop__my_struct_a, "htab[5]", NULL, IOP_T_U64, false);
+        TEST_SCALAR(tstiop__my_struct_a, "htab[*]", NULL, IOP_T_U64, false);
+        TEST_ERROR(tstiop__my_struct_a, "htab[5*]", NULL,
                    "cannot read index for field `htab': syntax error");
-        TEST_ST(tstiop__my_struct_a, "cls2", IOP_T_STRUCT, false,
+        TEST_ST(tstiop__my_struct_a, "cls2", NULL, IOP_T_STRUCT, false,
                 tstiop__my_class2);
-        TEST_ST(tstiop__my_struct_f, "d", IOP_T_UNION, true,
+        TEST_ST(tstiop__my_struct_f, "d", NULL, IOP_T_UNION, true,
                 tstiop__my_union_a);
-        TEST_ERROR(tstiop__my_struct_f, "d.ub",
+        TEST_ERROR(tstiop__my_struct_f, "d.ub", NULL,
                    "cannot process field path `d.ub', field `d' "
                    "is repeated in structure `tstiop.MyStructF'");
-        TEST_ERROR(tstiop__my_struct_f, "d[*].ub[0]",
+        TEST_ERROR(tstiop__my_struct_f, "d[*].ub[0]", NULL,
                    "got index but field `tstiop.MyUnionA:ub' "
                    "is not repeated");
-        TEST_SCALAR(tstiop__my_struct_a, "cls2._class", IOP_T_STRING, false);
-        TEST_ERROR(tstiop__my_struct_a, "cls2._class.sub",
+        TEST_SCALAR(tstiop__my_struct_a, "cls2._class", NULL,
+                    IOP_T_STRING, false);
+        TEST_ERROR(tstiop__my_struct_a, "cls2._class.sub", NULL,
                    "cannot fetch subfield of a typename");
-        TEST_ERROR(tstiop__my_struct_a, "lr._class",
+        TEST_ERROR(tstiop__my_struct_a, "lr._class", NULL,
                    "cannot fetch typename of a non-class field");
-        TEST_ERROR(tstiop__my_struct_a, "lr._class.sub",
+        TEST_ERROR(tstiop__my_struct_a, "lr._class.sub", NULL,
                    "cannot fetch typename of a non-class field");
-        TEST_ENUM(tstiop__my_struct_a, "k", false, tstiop__my_enum_a);
-        TEST_ERROR(tstiop__my_struct_a_opt, "o.c",
+        TEST_ENUM(tstiop__my_struct_a, "k", NULL, false, tstiop__my_enum_a);
+        TEST_ERROR(tstiop__my_struct_a_opt, "o.c", NULL,
                    "cannot process field path `o.c', field `c' is unknown "
                    "in structure `tstiop.MyStructB'");
+
+        iop_init(tstiop__my_struct_f, &msf);
+        iop_init(tstiop__my_class3, &mc);
+        msf.f = &mc.super.super;
+
+        TEST_SCALAR(tstiop__my_struct_f, "f.int1", NULL, IOP_T_I32, false);
+        TEST_ERROR(tstiop__my_struct_f, "f.int2", NULL,
+                   "cannot process field path `f.int2', field `int2' is unknown "
+                   "in structure `tstiop.MyClass1'");
+        TEST_SCALAR(tstiop__my_struct_f, "f.int2", &msf, IOP_T_I32, false);
+        TEST_ERROR(tstiop__my_struct_f, "f.int4", &msf,
+                   "cannot process field path `f.int4', field `int4' is unknown "
+                   "in structure `tstiop.MyClass3'");
+
+        msf.e = T_IOP_ARRAY_NEW(tstiop__my_class1, 1);
+        msf.e.tab[0] = &mc.super.super;
+        TEST_ERROR(tstiop__my_struct_f, "e[0].int2", NULL,
+                   "cannot process field path `e[0].int2', field `int2' is unknown "
+                   "in structure `tstiop.MyClass1'");
+        TEST_SCALAR(tstiop__my_struct_f, "e[0].int2", &msf, IOP_T_I32, false);
+        TEST_ERROR(tstiop__my_struct_f, "e[*].int2", &msf,
+                   "unexpected wildcard");
+        TEST_ERROR(tstiop__my_struct_f, "e[8].int2", &msf,
+                   "the path up to the field `int2` is not valid for the "
+                   "provided value");
+
+        TEST_SCALAR(tstiop__my_class3, "int2", &mc, IOP_T_I32, false);
+        TEST_SCALAR(tstiop__my_class1, "int2", &mc, IOP_T_I32, false);
+        TEST_ERROR(tstiop__my_class1, "int2", NULL,
+                   "cannot process field path `int2', field `int2' is unknown "
+                   "in structure `tstiop.MyClass1'");
+
+        iop_init(tstiop__my_class3, &mc2);
+        mc.next_class = &mc2.super.super;
+        TEST_SCALAR(tstiop__my_struct_f, "e[0].nextClass.bool1", &msf, IOP_T_BOOL,
+                    false);
 
 #undef TEST_SCALAR
 #undef TEST_ST
@@ -5864,9 +5919,12 @@ Z_GROUP_EXPORT(iop)
                 TEST_FIELD(f, STRING, "string1", st, cls3);
                 break;
               case 3:
-                TEST_FIELD(f, I32, "int2", st, cls2);
+                TEST_FIELD(f, STRUCT, "nextClass", st, cls3);
                 break;
               case 4:
+                TEST_FIELD(f, I32, "int2", st, cls2);
+                break;
+              case 5:
                 TEST_FIELD(f, I32, "int1", st, cls1);
                 break;
               default:
@@ -5874,7 +5932,7 @@ Z_GROUP_EXPORT(iop)
             }
             i++;
         }
-        Z_ASSERT_EQ(i, 5);
+        Z_ASSERT_EQ(i, 6);
 
         i = 0;
         iop_obj_for_each_field(f, st, &cls2) {
@@ -5921,9 +5979,12 @@ Z_GROUP_EXPORT(iop)
                 TEST_FIELD(f, STRING, "string1", st, cls3);
                 break;
               case 3:
-                TEST_FIELD(f, I32, "int2", st, cls2);
+                TEST_FIELD(f, STRUCT, "nextClass", st, cls3);
                 break;
               case 4:
+                TEST_FIELD(f, I32, "int2", st, cls2);
+                break;
+              case 5:
                 TEST_FIELD(f, I32, "int1", st, cls1);
                 break;
               default:

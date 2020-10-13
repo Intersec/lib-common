@@ -560,8 +560,8 @@ typedef struct iop_field_path_t iop_field_path_t;
  *     can be used when wanting to iterate on all elements of an array.
  */
 const iop_field_path_t *nullable
-t_iop_field_path_compile(const iop_struct_t *nonnull st,
-                         lstr_t path, sb_t *nullable err);
+t_iop_field_path_compile(const iop_struct_t *nonnull st, lstr_t path,
+                         sb_t *nullable err);
 
 /** Get the type associated with a given field path.
  *
@@ -571,6 +571,35 @@ t_iop_field_path_compile(const iop_struct_t *nonnull st,
 void iop_field_path_get_type(const iop_field_path_t *nonnull fp,
                              iop_full_type_t *nonnull type,
                              bool *nonnull is_array);
+
+/** Get the type of a field for a given IOP object.
+ *
+ * This function differs from
+ * \ref t_iop_field_path_compile + \ref iop_field_path_get_type in that it
+ * applies to a specific IOP object, and is not generic on any object of a
+ * given type. This allows the path to use fields from subclasses used by this
+ * IOP object.
+ * For example, the path "arrayOfParentClass[1].fieldOfSubclass" cannot be
+ * used with t_iop_field_path_compile. However, if passed to this function,
+ * it will be able to resolve the type, if the given IOP object has the right
+ * subclass in this path.
+ *
+ * \warning. Wildcard indexes cannot be used with this function.
+ *
+ * \param[in] st         Type of the IOP object.
+ * \param[in] value      Pointer to the IOP object.
+ * \param[in] path       Path to the IOP field. See
+ *                       \ref t_iop_field_path_compile for the syntax.
+ * \param[out] type      Type of the IOP field for the given IOP object.
+ * \param[out] is_array  True if the field is an array.
+ * \param[out] err  The error description in case of error.
+ *
+ * \return -1 In case of error, 0 otherwise.
+ */
+int iop_obj_get_field_type(const iop_struct_t *nonnull st,
+                           const void *nonnull value, lstr_t path,
+                           iop_full_type_t *nonnull type,
+                           bool *nonnull is_array, sb_t *nullable err);
 
 #ifdef __has_blocks
 

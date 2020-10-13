@@ -54,6 +54,14 @@ components:
               type: boolean
             string1:
               type: string
+            nextClass:
+              oneOf:
+                - $ref: "#/components/schemas/tstiop.MyClass1"
+                - $ref: "#/components/schemas/tstiop.MyClass2"
+                - $ref: "#/components/schemas/tstiop.MyClass2Bis"
+                - $ref: "#/components/schemas/tstiop.MyClass3"
+              discriminator:
+                propertyName: _class
     tstiop.StructJpackFlags:
       type: object
       properties:
