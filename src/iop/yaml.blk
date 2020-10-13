@@ -1240,18 +1240,17 @@ static lstr_t t_json_file_to_yaml_file(const lstr_t json_file)
 }
 
 static bool
-included_iop_field_is_raw(const iop_struct_t * nonnull st, lstr_t iop_path)
+included_iop_field_is_raw(const iop_struct_t * nonnull st,
+                          const void * nullable value, lstr_t iop_path)
 {
-    t_scope;
-    const iop_field_path_t *field_path;
     iop_full_type_t type;
     bool is_array;
 
-    field_path = t_iop_field_path_compile(st, iop_path, NULL);
-    if (!field_path) {
+    if (iop_obj_get_field_type(st, value, iop_path, &type, &is_array,
+                               NULL) < 0)
+    {
         return false;
     }
-    iop_field_path_get_type(field_path, &type, &is_array);
     if (is_array) {
         return false;
     }
@@ -1287,6 +1286,7 @@ t_gen_mapping_from_common_inc(
     const iop_json_subfile__t * nullable parent,
     const qv_t(iop_json_subfile) * nonnull subfiles,
     int * nonnull index, const iop_struct_t *nullable st,
+    const void * nullable value,
     yaml__presentation_node_mapping__t * nonnull out
 )
 {
@@ -1308,7 +1308,7 @@ t_gen_mapping_from_common_inc(
             *index += 1;
 
             t_gen_mapping_from_common_inc(subfile, base, subfiles, index, st,
-                                          qv_growlen(&mappings, 1));
+                                          value, qv_growlen(&mappings, 1));
         } else {
             break;
         }
@@ -1330,7 +1330,7 @@ t_gen_mapping_from_common_inc(
             = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping, &mappings);
     }
 
-    if (st && included_iop_field_is_raw(st, base->iop_path)) {
+    if (st && included_iop_field_is_raw(st, value, base->iop_path)) {
         /* In IOP-JSON, if the include is done for a string/data/xml field,
          * it is included raw. */
         out->node.included->path = relpath;
@@ -1344,7 +1344,8 @@ t_gen_mapping_from_common_inc(
 yaml__document_presentation__t * nonnull
 t_build_yaml_pres_from_json_subfiles(
     const iop_json_subfile__array_t * nonnull subfiles,
-    const iop_struct_t * nullable st
+    const iop_struct_t * nullable st,
+    const void *nullable value
 )
 {
     yaml__document_presentation__t *pres;
@@ -1392,7 +1393,7 @@ t_build_yaml_pres_from_json_subfiles(
 
         index += 1;
         t_gen_mapping_from_common_inc(subfile, NULL, &includes, &index, st,
-                                      qv_growlen(&mappings, 1));
+                                      value, qv_growlen(&mappings, 1));
     }
 
     pres = t_iop_new(yaml__document_presentation);

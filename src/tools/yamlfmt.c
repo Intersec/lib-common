@@ -192,7 +192,7 @@ repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
     }
 
     subfiles_array = IOP_TYPED_ARRAY_TAB(iop_json_subfile, &subfiles);
-    pres = t_build_yaml_pres_from_json_subfiles(&subfiles_array, st);
+    pres = t_build_yaml_pres_from_json_subfiles(&subfiles_array, st, value);
 
     t_iop_to_yaml_data(st, value, &data);
     res = pack_yaml(&data, pres, err);

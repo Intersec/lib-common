@@ -185,7 +185,8 @@ t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
 yaml__document_presentation__t *
 t_build_yaml_pres_from_json_subfiles(
     const iop_json_subfile__array_t * nonnull subfiles,
-    const iop_struct_t * nullable st
+    const iop_struct_t * nullable st,
+    const void * nullable value
 );
 
 /* }}} */
