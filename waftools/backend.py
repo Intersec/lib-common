@@ -389,7 +389,16 @@ def gen_local_vimrc(ctx):
         if flag.startswith('-D'):
             flags[i] = '-D"' + flag[2:] + '"'
 
+    # for older versions of ALE
     content += "let g:ale_c_clang_options = '\n"
+    content += "    \\ "
+    content += " ".join(flags)
+    content += "\n"
+    content += "\\'\n"
+
+    # for ALE 3.0+
+    # https://github.com/dense-analysis/ale/issues/3299
+    content += "let g:ale_c_cc_options = '\n"
     content += "    \\ "
     content += " ".join(flags)
     content += "\n"
