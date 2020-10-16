@@ -1053,26 +1053,26 @@ Z_GROUP_EXPORT(iop_yaml)
         ));
 
         subfiles = T_IOP_ARRAY(iop_json_subfile, {
+            .iop_path = LSTR("a[1].c[1]"),
+            .file_path = LSTR("a/5.json.cf"),
+        }, {
             .iop_path = LSTR("a[1]"),
             .file_path = LSTR("a/1.cf"),
         }, {
             .iop_path = LSTR("a[1].c[0].d"),
             .file_path = LSTR("a/d/2.cf"),
         }, {
-            .iop_path = LSTR("a[1].c[0].d.a[1]"),
-            .file_path = LSTR("a/d/a/3.cf"),
-        }, {
             .iop_path = LSTR("a[1].c[0].d.b"),
             .file_path = LSTR("a/d/4"),
-        }, {
-            .iop_path = LSTR("a[1].c[1]"),
-            .file_path = LSTR("a/5.json.cf"),
         }, {
             .iop_path = LSTR("a[2]"),
             .file_path = LSTR("6.json"),
         }, {
             .iop_path = LSTR("a[2].f"),
             .file_path = LSTR("f/7.cf"),
+        }, {
+            .iop_path = LSTR("a[1].c[0].d.a[1]"),
+            .file_path = LSTR("a/d/a/3.cf"),
         });
 
         Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles, NULL,
@@ -1146,12 +1146,21 @@ Z_GROUP_EXPORT(iop_yaml)
         Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
                                                      &tstiop__full_opt__s,
             "mappings:\n"
+            "  - path: .data!\n"
+            "    node:\n"
+            "      included: { path: key.pem.enc, raw: true }\n"
+            "  - path: .e!\n"
+            "    node:\n"
+            "      included: { path: enum.yml, raw: false }\n"
             "  - path: .i8!\n"
             "    node:\n"
             "      included: { path: 1.yml, raw: false }\n"
             "  - path: .s!\n"
             "    node:\n"
             "      included: { path: 2.py, raw: true }\n"
+            "  - path: .st.s!\n"
+            "    node:\n"
+            "      included: { path: 5.toto, raw: true }\n"
             "  - path: .un!\n"
             "    node:\n"
             "      included:\n"
@@ -1162,15 +1171,6 @@ Z_GROUP_EXPORT(iop_yaml)
             "            - path: .s!\n"
             "              node:\n"
             "                included: { path: 4.py, raw: true }\n"
-            "  - path: .st.s!\n"
-            "    node:\n"
-            "      included: { path: 5.toto, raw: true }\n"
-            "  - path: .data!\n"
-            "    node:\n"
-            "      included: { path: key.pem.enc, raw: true }\n"
-            "  - path: .e!\n"
-            "    node:\n"
-            "      included: { path: enum.yml, raw: false }\n"
             "  - path: .xml!\n"
             "    node:\n"
             "      included: { path: doc.xml, raw: true }\n"
