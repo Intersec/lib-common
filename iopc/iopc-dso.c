@@ -65,7 +65,7 @@ static int do_call(char * const argv[], sb_t *err)
         }
         if (WIFSIGNALED(status)) {
             sb_setf(err, "%s killed with signal %s", argv[0],
-                    sys_siglist[WTERMSIG(status)]);
+                    strsignal(WTERMSIG(status)));
             return -1;
         }
     }

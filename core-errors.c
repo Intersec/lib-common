@@ -42,7 +42,7 @@ void ps_dump_backtrace(int signum, const char *prog, int fd, bool full)
 
     if (signum >= 0) {
         n = snprintf(buf, sizeof(buf), "---> %s[%d] %s at %jd\n\n",
-                     prog, getpid(), sys_siglist[signum], time(NULL));
+                     prog, getpid(), strsignal(signum), time(NULL));
     } else {
         n = snprintf(buf, sizeof(buf),
                      "---> %s[%d] expect violation at %jd\n\n",
