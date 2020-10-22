@@ -117,7 +117,7 @@ log_file_bgcompress_check(el_t ev, pid_t pid, int st, data_t priv)
     if (!WIFEXITED(st)) {
         logger_error(&logger_g, GZIP_ERROR "gzip killed with signal %d (%s)",
                      LSTR_FMT_ARG(ctx->path), WTERMSIG(st),
-                     sys_siglist[WTERMSIG(st)]);
+                     strsignal(WTERMSIG(st)));
     } else
     if (WEXITSTATUS(st) != 0) {
         logger_error(&logger_g, GZIP_ERROR "gzip exited with status %d",

@@ -1260,7 +1260,7 @@ static int call_cmd(const char *args[], sb_t *err)
         }
         if (WIFSIGNALED(status)) {
             fprintf(stderr, "%s killed with signal %s",
-                    prg_name, sys_siglist[WTERMSIG(status)]);
+                    prg_name, strsignal(WTERMSIG(status)));
             return -1;
         }
     }
