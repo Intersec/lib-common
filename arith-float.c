@@ -24,8 +24,13 @@
 
 double double_round(double val, uint8_t precision)
 {
-    double val_floor = floor(val);
+    double val_floor;
 
+    if (isinf(val) || isnan(val)) {
+        return val;
+    }
+
+    val_floor = floor(val);
     if (!expect(precision < countof(powerof10))) {
         return val;
     }
@@ -95,6 +100,9 @@ Z_GROUP_EXPORT(arithfloat)
 
         T(-12.6, 0, -13.);
 #undef T
+        Z_ASSERT_NE(isinf(double_round(INFINITY, 3)), 0);
+        Z_ASSERT_NE(isinf(double_round(-INFINITY, 3)), 0);
+        Z_ASSERT_NE(isnan(double_round(NAN, 3)), 0);
     } Z_TEST_END
 
     Z_TEST(double_round_significant, "double_round_significant") {
