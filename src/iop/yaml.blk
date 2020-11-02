@@ -1285,7 +1285,7 @@ static void
 t_gen_mapping_from_common_inc(
     const iop_json_subfile__t * nonnull base,
     const iop_json_subfile__t * nullable parent,
-    const iop_json_subfile__array_t * nonnull subfiles,
+    const qv_t(iop_json_subfile) * nonnull subfiles,
     int * nonnull index, const iop_struct_t *nullable st,
     yaml__presentation_node_mapping__t * nonnull out
 )
@@ -1297,7 +1297,14 @@ t_gen_mapping_from_common_inc(
     while (*index < subfiles->len) {
         const iop_json_subfile__t *subfile = &subfiles->tab[*index];
 
-        if (lstr_startswith(subfile->iop_path, base->iop_path)) {
+        if (lstr_startswith(subfile->iop_path, base->iop_path)
+        &&  subfile->iop_path.len > base->iop_path.len)
+        {
+            int c = subfile->iop_path.s[base->iop_path.len];
+
+            if (c != '[' && c != '.') {
+                break;
+            }
             *index += 1;
 
             t_gen_mapping_from_common_inc(subfile, base, subfiles, index, st,
@@ -1342,6 +1349,7 @@ t_build_yaml_pres_from_json_subfiles(
 {
     yaml__document_presentation__t *pres;
     qv_t(pres_mapping) mappings;
+    qv_t(iop_json_subfile) includes;
     int index = 0;
 
     t_qv_init(&mappings, 0);
@@ -1368,11 +1376,22 @@ t_build_yaml_pres_from_json_subfiles(
      * above, so to handle the conversion, every JSON subfile will try to
      * consume the following subfiles if they share the same prefix iop path.
      */
-    while (index < subfiles->len) {
-        const iop_json_subfile__t *subfile = &subfiles->tab[index];
+
+    /* we need to sort the json includes first, so that we can properly
+     * nest them in YAML */
+    t_qv_init(&includes, subfiles->len);
+    qv_extend(&includes, subfiles);
+    qv_sort(iop_json_subfile)(&includes,
+                              ^int (const iop_json_subfile__t *v1,
+                                    const iop_json_subfile__t *v2) {
+        return lstr_cmp(v1->iop_path, v2->iop_path);
+    });
+
+    while (index < includes.len) {
+        const iop_json_subfile__t *subfile = &includes.tab[index];
 
         index += 1;
-        t_gen_mapping_from_common_inc(subfile, NULL, subfiles, &index, st,
+        t_gen_mapping_from_common_inc(subfile, NULL, &includes, &index, st,
                                       qv_growlen(&mappings, 1));
     }
 

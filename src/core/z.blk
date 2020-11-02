@@ -725,7 +725,7 @@ static bool _z_group_run(void)
     }
     if (WIFSIGNALED(st)) {
         do_bail_out("exit with signal %d %s", WTERMSIG(st),
-                    sys_siglist[WTERMSIG(st)]);
+                    strsignal(WTERMSIG(st)));
     } else {
         do_bail_out("should not happen");
     }

@@ -175,7 +175,7 @@ ctx.stlib(target='libcommon', features='c cstlib', use=[
 
     'iop/json.blk',
     'iop/openapi.blk',
-    'iop/yaml.c',
+    'iop/yaml.blk',
     'iop/rpc-channel.fc',
     'iop/rpc-channel.blk',
     'iop/rpc-http-pack.c',
