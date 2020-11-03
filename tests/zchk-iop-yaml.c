@@ -832,6 +832,20 @@ Z_GROUP_EXPORT(iop_yaml)
                   "     ^^^");
 
 #undef ERR_COMMON
+
+        /* obj -> seq */
+        st = &tstiop__my_struct_f__s;
+#undef ERR_COMMON
+#define ERR_COMMON  \
+        "cannot unpack YAML as a `tstiop.MyStructF` IOP struct"
+
+        TST_ERROR(0, "c: a: 2",
+                  "<string>:1:4: "ERR_COMMON": cannot set field `c`: "
+                  "cannot unpack an object into an array\n"
+                  "c: a: 2\n"
+                  "   ^^^^");
+
+#undef ERR_COMMON
 #undef TST
 #undef TST_ERROR
     } Z_TEST_END;

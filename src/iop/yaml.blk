@@ -777,6 +777,12 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
 
       case YAML_DATA_OBJ:
         if (struct_or_union) {
+            if (!in_array && fdesc->repeat == IOP_R_REPEATED) {
+                sb_sets(&env->err.buf,
+                        "cannot unpack an object into an array");
+                env->err.span = &data->span;
+                goto err;
+            }
             if (t_yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc,
                                             out) < 0)
             {
@@ -819,7 +825,9 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
     return 0;
 
   err:
-    sb_prependf(&env->err.buf, "cannot set field `%pL`: ", &fdesc->name);
+    if (!in_array) {
+        sb_prependf(&env->err.buf, "cannot set field `%pL`: ", &fdesc->name);
+    }
     return -1;
 }
 
