@@ -228,14 +228,6 @@ The following environment variables can be used at the configuration phase:
     task-generators, which can be `True` to bypass the checks of all the
     source files, or a list of files to not check.
 
-`NOCOMPRESS` (boolean)::
-    If set, the build-system doesn't compress the debug section of binaries
-    leading to larger binary files. This can be used if you have to work
-    with tools that does not support compressed-debug sections (like
-    valgrind, pahole or some old version of gdb).
-    You may also want to set it to speedup the build.
-    This is ignored in release profile.
-
 `NOASSERT` (boolean)::
     If set, the assertions and debug-related code won't be compiled.
     By default, assertions are disabled in `release` and `mem-bench`
