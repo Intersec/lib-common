@@ -128,7 +128,7 @@ static int iop_yaml_test_pack(const iop_struct_t *st, const void *value,
 
 static int
 z_test_json_subfiles_conversion(const iop_json_subfile__array_t *subfiles,
-                                const iop_struct_t *st,
+                                const iop_struct_t *st, const void *value,
                                 const char *yaml_expected)
 {
     t_scope;
@@ -137,7 +137,7 @@ z_test_json_subfiles_conversion(const iop_json_subfile__array_t *subfiles,
     pstream_t ps = ps_initstr(yaml_expected);
     SB_1k(err);
 
-    pres = t_build_yaml_pres_from_json_subfiles(subfiles, st);
+    pres = t_build_yaml_pres_from_json_subfiles(subfiles, st, value);
 
     /* parse yaml to get expected pres */
     Z_ASSERT_N(t_iop_yunpack_ps(&ps, &yaml__document_presentation__s,
@@ -1033,6 +1033,8 @@ Z_GROUP_EXPORT(iop_yaml)
     Z_TEST(json_subfiles_conversion, "") { /* {{{ */
         t_scope;
         iop_json_subfile__array_t subfiles;
+        tstiop__full_opt__t full_opt_val;
+        tstiop__test_class_child__t tcc_val;
 
         subfiles = T_IOP_ARRAY(iop_json_subfile, {
             .iop_path = LSTR("a"),
@@ -1042,7 +1044,7 @@ Z_GROUP_EXPORT(iop_yaml)
             .file_path = LSTR("b.cf"),
         });
 
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles, NULL,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles, NULL, NULL,
             "mappings:\n"
             "  - path: .a!\n"
             "    node:\n"
@@ -1075,7 +1077,7 @@ Z_GROUP_EXPORT(iop_yaml)
             .file_path = LSTR("a/d/a/3.cf"),
         });
 
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles, NULL,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles, NULL, NULL,
             "mappings:\n"
             "  - path: .a[1]!\n"
             "    node:\n"
@@ -1145,6 +1147,7 @@ Z_GROUP_EXPORT(iop_yaml)
 
         Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
                                                      &tstiop__full_opt__s,
+                                                     NULL,
             "mappings:\n"
             "  - path: .data!\n"
             "    node:\n"
@@ -1174,6 +1177,35 @@ Z_GROUP_EXPORT(iop_yaml)
             "  - path: .xml!\n"
             "    node:\n"
             "      included: { path: doc.xml, raw: true }\n"
+        ));
+
+        /* Test path through a class using child fields */
+        subfiles = T_IOP_ARRAY(iop_json_subfile, {
+            .iop_path = LSTR("o.s"),
+            .file_path = LSTR("os.txt"),
+        });
+
+        /* No value provided: not raw by default */
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
+                                                     &tstiop__full_opt__s,
+                                                     NULL,
+            "mappings:\n"
+            "  - path: .o.s!\n"
+            "    node:\n"
+            "      included: { path: os.yml, raw: false }\n"
+        ));
+
+        /* Value provided: string is detected */
+        iop_init(tstiop__full_opt, &full_opt_val);
+        iop_init(tstiop__test_class_child, &tcc_val);
+        full_opt_val.o = &tcc_val.super;
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
+                                                     &tstiop__full_opt__s,
+                                                     &full_opt_val,
+            "mappings:\n"
+            "  - path: .o.s!\n"
+            "    node:\n"
+            "      included: { path: os.txt, raw: true }\n"
         ));
     } Z_TEST_END
     /* }}} */

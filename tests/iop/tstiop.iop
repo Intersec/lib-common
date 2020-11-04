@@ -86,6 +86,7 @@ class MyClass3 : 3 : MyClass2 {
     int int3;
     bool bool1;
     string? string1;
+    MyClass1? nextClass;
 };
 
 class MyClass2Bis : 4 : MyClass1 {

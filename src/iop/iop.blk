@@ -1939,6 +1939,7 @@ typedef enum field_step_type_t {
     FIELD_STEP_TYPE_INDIRECTION,
     FIELD_STEP_TYPE_UNION_FIELD,
     FIELD_STEP_TYPE_GOTO_INDEX,
+    FIELD_STEP_TYPE_OBJ_CAST,
     FIELD_STEP_TYPE_SCAN_ARRAY,
 } field_step_type_t;
 
@@ -1962,6 +1963,10 @@ typedef struct field_step_t {
         /* For step type FIELD_STEP_TYPE_GOTO_INDEX, index of the field in the
          * array. */
         int index;
+
+        /* For step type FIELD_STEP_TYPE_OBJ_CAST, description of the
+         * subclass to cast to. */
+        const iop_struct_t *subclass_st;
     } u;
 } field_step_t;
 GENERIC_INIT(field_step_t, field_step);
@@ -2019,6 +2024,60 @@ static void iop_field_path_wipe(iop_field_path_t *fp)
 
 /* {{{ Get */
 
+static iop_value_from_field_res_t
+field_step_run(const field_step_t *step, const void **data)
+{
+    switch (step->type) {
+      case FIELD_STEP_TYPE_MOVE:
+        *data = ((const byte *)*data) + step->u.offset;
+        break;
+
+      case FIELD_STEP_TYPE_INDIRECTION:
+        /* Pointed structure or union (optional), or classes */
+        *data = *((void **)*data);
+        if (!(*data)) {
+            /* TODO Error for mandatory fields maybe ? */
+            return IOP_FIELD_NOT_SET;
+        }
+        break;
+
+      case FIELD_STEP_TYPE_UNION_FIELD:
+        /* Check if the selected member of the union is the one we want
+         * (the one specified in field_path), and if not this object is
+         * considered as NULL in the sort/filter. */
+        THROW_IF(*(const uint16_t *)*data != step->u.union_tag,
+                 IOP_FIELD_NOT_SET);
+        break;
+
+      case FIELD_STEP_TYPE_GOTO_INDEX: {
+        const i8__array_t *array = *data;
+        ssize_t index = step->u.index;
+
+        if (index < 0) {
+            /* Negative index: array[-1] is the last element of 'array'.
+             */
+            index = array->len + index;
+        }
+        THROW_IF(index >= array->len || index < 0, IOP_FIELD_NOT_SET);
+
+        *data = array->tab + index * step->array_element_sz;
+      } break;
+
+      case FIELD_STEP_TYPE_OBJ_CAST: {
+        const iop_struct_t *real_st = *(const iop_struct_t **)*data;
+
+        THROW_IF(!iop_class_is_a(real_st, step->u.subclass_st),
+                 IOP_FIELD_NOT_SET);
+      } break;
+
+      case FIELD_STEP_TYPE_SCAN_ARRAY:
+        assert (false);
+        break;
+    }
+
+    return 0;
+}
+
 /* Get the field(s) associated to a field path for a given IOP
  * struct/class/union either with a callback or by getting a value. */
 static iop_value_from_field_res_t
@@ -2037,41 +2096,6 @@ iop_field_path_run(const iop_field_path_t *nonnull field_path,
         const field_step_t *step = &field_path->steps.tab[i];
 
         switch (step->type) {
-          case FIELD_STEP_TYPE_MOVE:
-            data = ((const byte *)data) + step->u.offset;
-            break;
-
-          case FIELD_STEP_TYPE_INDIRECTION:
-            /* Pointed structure or union (optional), or classes */
-            data = *((void **)data);
-            if (!data) {
-                /* TODO Error for mandatory fields maybe ? */
-                return IOP_FIELD_NOT_SET;
-            }
-            break;
-
-          case FIELD_STEP_TYPE_UNION_FIELD:
-            /* Check if the selected member of the union is the one we want
-             * (the one specified in field_path), and if not this object is
-             * considered as NULL in the sort/filter. */
-            THROW_IF(*(const uint16_t *)data != step->u.union_tag,
-                     IOP_FIELD_NOT_SET);
-            break;
-
-          case FIELD_STEP_TYPE_GOTO_INDEX: {
-            const i8__array_t *array = data;
-            ssize_t index = step->u.index;
-
-            if (index < 0) {
-                /* Negative index: array[-1] is the last element of 'array'.
-                 */
-                index = array->len + index;
-            }
-            THROW_IF(index >= array->len || index < 0, IOP_FIELD_NOT_SET);
-
-            data = array->tab + index * step->array_element_sz;
-          } break;
-
           case FIELD_STEP_TYPE_SCAN_ARRAY: {
             const i8__array_t *array = data;
 
@@ -2091,6 +2115,10 @@ iop_field_path_run(const iop_field_path_t *nonnull field_path,
 
             return 0;
           } break;
+
+          default:
+            RETHROW(field_step_run(step, &data));
+            break;
         }
     }
 
@@ -2135,14 +2163,29 @@ static int iop_get_fieldp(const void *nonnull data,
  * 'iop_field_path_for_each_value()'. */
 #define FIELD_PATH_ALLOW_WILDCARD  (1 << 0)
 
+static void
+field_step_fast_forward(qv_t(field_step) *nonnull steps,
+                        int *nonnull step_offset, const void **nonnull value)
+{
+    while (*step_offset < steps->len) {
+        if (field_step_run(&steps->tab[*step_offset], value) < 0) {
+            *value = NULL;
+            return;
+        }
+        (*step_offset)++;
+    }
+}
+
 static int
 iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
-                       int flags, iop_field_path_t *fp, sb_t *err)
+                       int flags, const void *nullable value,
+                       iop_field_path_t *fp, sb_t *err)
 {
     const iop_field_t *fdesc = NULL;
     pstream_t field_path_ps = ps_initlstr(&field_path_s);
     const iop_struct_t *it = st;
     field_step_t *step;
+    int step_offset = 0;
 
     /* Don't use the same field path twice. */
     assert (!fp->steps.len);
@@ -2153,6 +2196,7 @@ iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
         }
         return -1;
     }
+
     step = NULL;
     while (!ps_done(&field_path_ps)) {
         pstream_t fname;
@@ -2189,6 +2233,30 @@ iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
         if (iop_field_find_by_name(it, LSTR_PS_V(&fname), NULL,
                                    &fdesc) < 0)
         {
+            if (value && iop_struct_is_class(it)) {
+                /* Go through the path built until now. If the value is
+                 * properly resolved, get the real type instead of the parent
+                 * type, and try to resolve the field name with that real
+                 * type. */
+                field_step_fast_forward(&fp->steps, &step_offset, &value);
+                if (!value) {
+                    if (err) {
+                        sb_addf(err, "the path up to the field `%*pM` is not "
+                                "valid for the provided value",
+                                PS_FMT_ARG(&fname));
+                    }
+                    return -1;
+                }
+                it = *(const iop_struct_t **)value;
+                if (iop_field_find_by_name(it, LSTR_PS_V(&fname), &it,
+                                           &fdesc) >= 0)
+                {
+                    step = field_step_init(qv_growlen(&fp->steps, 1));
+                    step->type = FIELD_STEP_TYPE_OBJ_CAST;
+                    step->u.subclass_st = it;
+                    goto valid_field;
+                }
+            }
             if (err) {
                 sb_addf(err, "cannot process field path `%*pM', "
                         "field `%*pM' is unknown in structure `%*pM'",
@@ -2198,6 +2266,7 @@ iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
             return -1;
         }
 
+      valid_field:
         if (it->is_union) {
             step = field_step_init(qv_growlen(&fp->steps, 1));
             step->type = FIELD_STEP_TYPE_UNION_FIELD;
@@ -2290,7 +2359,7 @@ mp_iop_field_path_compile(mem_pool_t *nullable mp,
 
     fp = mp_iop_field_path_init(mp, mp_new_raw(mp, iop_field_path_t, 1));
     RETHROW_NP(iop_compile_field_path(st, path, FIELD_PATH_ALLOW_WILDCARD,
-                                      fp, err));
+                                      NULL, fp, err));
 
     return fp;
 }
@@ -2341,6 +2410,21 @@ int iop_field_path_for_each_value(const iop_field_path_t *nonnull fp,
 {
     THROW_ERR_IF(iop_field_path_run(fp, st_ptr, 0, NULL, on_value) ==
                  IOP_FIELD_ERROR);
+    return 0;
+}
+
+int iop_obj_get_field_type(const iop_struct_t *nonnull st,
+                           const void *nonnull value, lstr_t path,
+                           iop_full_type_t *nonnull type,
+                           bool *nonnull is_array, sb_t *nullable err)
+{
+    t_scope;
+    iop_field_path_t *fp;
+
+    fp = t_iop_field_path_init(t_new_raw(iop_field_path_t, 1));
+    RETHROW(iop_compile_field_path(st, path, 0, value, fp, err));
+
+    iop_field_path_get_type(fp, type, is_array);
     return 0;
 }
 
@@ -2503,8 +2587,8 @@ int iop_msort_desc(const iop_struct_t *st, void *vec, int len,
         iop_sort_priv_t *priv = &sorts.tab[pos];
 
         t_iop_field_path_init(&priv->fp);
-        RETHROW(iop_compile_field_path(st, sort->field_path, 0, &priv->fp,
-                                       err));
+        RETHROW(iop_compile_field_path(st, sort->field_path, 0, NULL,
+                                       &priv->fp, err));
 
         if (priv->fp.fdesc
         &&  priv->fp.fdesc->type == IOP_T_VOID
@@ -2804,7 +2888,7 @@ __t_iop_filter(const iop_struct_t *st, const void *vec, int len,
 
     t_iop_field_path_init(&fp);
     /* TODO Support wildcards. */
-    RETHROW(iop_compile_field_path(st, field_path, 0, &fp, err));
+    RETHROW(iop_compile_field_path(st, field_path, 0, NULL, &fp, err));
     assert (fp.is_typename || fp.fdesc);
 
     if (OPT_ISSET(is_set)) {

@@ -273,6 +273,34 @@ static int parse_long_opt(popt_state_t *st, char *arg, popt_t *opts)
     }
 }
 
+static int parse_param(const char *arg, const char *param_name,
+                       enum popt_kind kind, size_t int_vsize, void *val)
+{
+    popt_t opt;
+    popt_state_t optst;
+
+    opt_state_init(&optst, 1, (char **)&arg, 0);
+    optst.p = arg;
+
+    p_clear(&opt, 1);
+    opt.kind = kind;
+    opt.lng = param_name;
+    opt.int_vsize = int_vsize;
+    opt.value = val;
+
+    return get_value(&optst, &opt, 0);
+}
+
+int parseopt_geti(const char *arg, const char *param_name, int *val)
+{
+    return parse_param(arg, param_name, OPTION_INT, sizeof(*val), val);
+}
+
+int parseopt_getu(const char *arg, const char *param_name, unsigned *val)
+{
+    return parse_param(arg, param_name, OPTION_UINT, sizeof(*val), val);
+}
+
 static void copyinits(popt_t *opts)
 {
     for (;;) {
