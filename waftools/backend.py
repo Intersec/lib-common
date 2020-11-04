@@ -231,39 +231,6 @@ def compile_sanitizer(ctx):
 
 
 # }}}
-# {{{ Patch C tasks for compression
-
-
-def patch_c_tasks_for_compression(ctx):
-    '''
-    This function recreates the c, cprogram and cshlib task classes in order
-    to add the compression of the debug sections using objcopy.
-    We can't simply replace the run_str field of each class because it was
-    already compiled into a 'run' method at this point.
-    '''
-    # pylint: disable = invalid-name
-    compress_str = '${OBJCOPY} --compress-debug-sections ${TGT}'
-
-    class c(Task):
-        run_str = [c_tool.c.orig_run_str, compress_str]
-        vars    = c_tool.c.vars
-        ext_in  = c_tool.c.ext_in
-        scan    = c_preproc.scan
-    c_tool.c = c
-
-    class cprogram(ccroot.link_task):
-        run_str = [c_tool.cprogram.orig_run_str, compress_str]
-        vars    = c_tool.cprogram.vars
-        ext_out = c_tool.cprogram.ext_out
-        inst_to = c_tool.cprogram.inst_to
-    c_tool.cprogram = cprogram
-
-    class cshlib(cprogram):
-        inst_to = c_tool.cshlib.inst_to
-    c_tool.cshlib = cshlib
-
-
-# }}}
 # {{{ Execute commands from project root
 
 def register_get_cwd():
@@ -1362,7 +1329,6 @@ def get_cflags(ctx, args):
 
 def profile_default(ctx,
                     no_assert=False,
-                    allow_no_compress=True,
                     allow_no_double_fpic=True,
                     allow_fake_versions=True,
                     use_sanitizer=False,
@@ -1453,28 +1419,6 @@ def profile_default(ctx,
         log = 'yes'
     ctx.msg('Do checks', log)
 
-    # Compression
-    if allow_no_compress and ctx.get_env_bool('NOCOMPRESS'):
-        ctx.env.DO_COMPRESS = False
-        log = 'no'
-    else:
-        ctx.env.DO_COMPRESS = True
-        log = 'yes'
-
-        ld_help = ctx.cmd_and_log('ld --help')
-        if 'compress-debug-sections' in ld_help:
-            ctx.env.LDFLAGS += ['-Xlinker', '--compress-debug-sections=zlib']
-        else:
-            Logs.warn('Compression requested but ld do not support it')
-
-        objcopy_help = ctx.cmd_and_log('objcopy --help')
-        if 'compress-debug-sections' in objcopy_help:
-            ctx.env.DO_OBJCOPY_COMPRESS = True
-        else:
-            Logs.warn('Compression requested but objcopy do not support it')
-
-    ctx.msg('Do compression', log)
-
     # Disable double fPIC compilation for shared libraries?
     if allow_no_double_fpic and ctx.get_env_bool('NO_DOUBLE_FPIC'):
         ctx.env.DO_DOUBLE_FPIC = False
@@ -1526,7 +1470,6 @@ def profile_debug(ctx, allow_no_double_fpic=True, use_sanitizer=False):
 
 def profile_release(ctx):
     profile_default(ctx, no_assert=True,
-                    allow_no_compress=False,
                     allow_no_double_fpic=False,
                     allow_fake_versions=False)
     ctx.env.LINKFLAGS += ['-Wl,-x', '-rdynamic']
@@ -1642,9 +1585,6 @@ def build(ctx):
     ctx.env.PROJECT_ROOT = ctx.srcnode
     ctx.env.GEN_FILES = set()
     ctx.env.CHECKED_FILES = set()
-
-    if ctx.env.DO_OBJCOPY_COMPRESS:
-        patch_c_tasks_for_compression(ctx)
 
     register_get_cwd()
 

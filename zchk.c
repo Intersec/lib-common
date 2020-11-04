@@ -18,6 +18,7 @@
 
 #include "z.h"
 #include "bit.h"
+#include "parseopt.h"
 
 Z_GROUP_EXPORT(endianess)
 {
@@ -699,6 +700,33 @@ Z_GROUP_EXPORT(bit_stream)
     /* }}} */
 } Z_GROUP_END;
 
+/* {{{ parseopt */
+
+Z_GROUP_EXPORT(parseopt) {
+    Z_TEST(parseopt_geti, "") {
+        int i = 0;
+
+        Z_ASSERT_N(parseopt_geti("42", "ARG", &i));
+        Z_ASSERT_EQ(i, 42);
+        Z_ASSERT_N(parseopt_geti("-4368", "ARG", &i));
+        Z_ASSERT_EQ(i, -4368);
+
+        Z_ASSERT_NEG(parseopt_geti("x", "ARG", &i));
+        Z_ASSERT_NEG(parseopt_geti("12t", "ARG", &i));
+    } Z_TEST_END;
+
+    Z_TEST(parseopt_getu, "") {
+        unsigned u = 0;
+
+        Z_ASSERT_N(parseopt_getu("42", "ARG", &u));
+        Z_ASSERT_EQ(u, 42u);
+        Z_ASSERT_NEG(parseopt_getu("-4368", "ARG", &u));
+        Z_ASSERT_NEG(parseopt_getu("x", "ARG", &u));
+        Z_ASSERT_NEG(parseopt_getu("12t", "ARG", &u));
+    } Z_TEST_END;
+} Z_GROUP_END;
+
+/* }}} */
 /* {{{ core-macros.h */
 
 Z_GROUP_EXPORT(core_macros) {

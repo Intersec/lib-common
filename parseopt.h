@@ -84,6 +84,25 @@ __attribute__((noreturn))
 void makeversion(int ret, const char * nullable name,
                  const char * nonnull (* nullable get_version)(void));
 
+/** Parse an integer argument (supposedly positional).
+ *
+ * Use the internal parseopt parsers to read an integer.
+ *
+ * \example  if (parseopt_geti(NEXTARG(argc, argv), "MYARG", &val) < 0) {
+ *               goto usage;
+ *           }
+ *
+ * Note: negative values may be recognized as unknown short-form options by
+ * parseopt() (FIXME).
+ * In that case, the caller can use the "--" (no more options) marker.
+ */
+int parseopt_geti(const char *nonnull arg, const char *nonnull param_name,
+                  int *nonnull val);
+
+/** Parse an unsigned integer argument (supposedly positional). */
+int parseopt_getu(const char *nonnull arg, const char *nonnull param_name,
+                  unsigned *nonnull val);
+
 #if __has_feature(nullability)
 #pragma GCC diagnostic pop
 #endif
