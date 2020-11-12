@@ -525,6 +525,7 @@ mem_stack_pool_t *mem_stack_pool_init(mem_stack_pool_t *sp, const char *name,
 #endif
 
     sp->name = p_strdup(name);
+    sp->pthread_id = pthread_self();
 
     spin_lock(&_G.all_pools_lock);
     dlist_add_tail(&_G.all_pools, &sp->pool_list);
@@ -791,15 +792,25 @@ thr_hooks(t_pool_init, t_pool_wipe);
 
 __thread mem_stack_pool_t t_pool_g;
 
-static void mem_stack_reset_all_pools_at_fork(void)
+static void mem_stack_fix_all_pools_at_fork(void)
 {
-    dlist_init(&_G.all_pools);
+    mem_stack_pool_t *sp;
+
+    /* When a process forks, the stack pools of the main thread remain (like
+     * t_pool_g or log_thr_g.mp_stack), but the stack pools of other threads
+     * are no longer valid. This is only a problem when the forked process
+     * does not call exec. */
+    dlist_for_each_entry(sp, &_G.all_pools, pool_list) {
+        if (!pthread_equal(sp->pthread_id, pthread_self())) {
+            dlist_remove(&sp->pool_list);
+        }
+    }
 }
 
 __attribute__((constructor))
 static void mem_stack_all_pools_init_at_fork(void)
 {
-    pthread_atfork(NULL, NULL, &mem_stack_reset_all_pools_at_fork);
+    pthread_atfork(NULL, NULL, &mem_stack_fix_all_pools_at_fork);
 }
 
 /* {{{ Module (for print_state method) */
