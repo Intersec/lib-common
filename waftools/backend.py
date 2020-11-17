@@ -376,6 +376,14 @@ def gen_local_vimrc(ctx):
     content += "\n"
     content += "\\'\n"
 
+    # for ALE 3.0+
+    # https://github.com/dense-analysis/ale/issues/3299
+    content += "let g:ale_c_cc_options = '\n"
+    content += "    \\ "
+    content += " ".join(flags)
+    content += "\n"
+    content += "\\'\n"
+
     # Bind :make to waf
     content += r"set makeprg=LC_ALL=C\ NO_WWW=1\ waf"
     content += "\n"
