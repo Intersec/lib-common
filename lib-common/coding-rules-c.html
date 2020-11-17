@@ -271,8 +271,8 @@ struct foo {
 <div class="ulist">
 <ul>
 <li>
-<p>labels (including switch <code>case</code> constructs) are indented 2 spaces behind the
-current indentation level.</p>
+<p>labels (including switch <code>case</code> constructs) are not indented.
+They stay at the same level as the previous block indent.</p>
 </li>
 </ul>
 </div>
@@ -281,13 +281,13 @@ current indentation level.</p>
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int main(void)
 {
     switch (foo) {
-      case 1:     /* good */
+    case 1:       /* good */
         break;
         case 2:   /* bad */
-    case 3:       /* bad */
+      case 3:     /* bad */
         goto done;
     }
-  done:           /* good */
+done:             /* good */
     (void)0;
 }</code></pre>
 </div>
@@ -370,17 +370,22 @@ i++; /* good */</code></pre>
 <div class="ulist">
 <ul>
 <li>
-<p>When the condition of a control flow statement spans on multiple lines, push
-the boolean operator on the beginning of the next line (and optionnaly put
-two spaces after so that the next condition is aligned after the paren on the
-previous line). Push the bracket on the next line.</p>
+<p>When the condition of a control flow statement spans on multiple lines, keep
+the boolean operator at the end of the line, and align the next statement
+on the new line with the first statement. Push the bracket on the next line.</p>
 </li>
 </ul>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo
-&amp;&amp;  bar)
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo &amp;&amp;
+    bar)
+{
+    /* do stuff */
+}
+if (test1 &amp;&amp; test2 &amp;&amp;
+    (test3 || test4 ||
+     test5))
 {
     /* do stuff */
 }</code></pre>
@@ -389,7 +394,7 @@ previous line). Push the bracket on the next line.</p>
 <div class="ulist">
 <ul>
 <li>
-<p><code>elsif</code> statements are aligned this way:</p>
+<p><code>else if</code> statements are kept on a single line:</p>
 </li>
 </ul>
 </div>
@@ -397,14 +402,14 @@ previous line). Push the bracket on the next line.</p>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* Good */
 if (cond1) {
-} else
-if (cond2) {
+} else if (cond2) {
 } else {
 }
 
 /* Bad */
 if (cond1) {
-} else if (cond2) {
+} else
+if (cond2) {
 } else {
 }</code></pre>
 </div>
@@ -452,12 +457,12 @@ if (foo) { /* good */
     return 1;
 }
 
-if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo   /* bad */
-&amp;&amp;  bar)
+if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo &amp;&amp; /* bad */
+    bar)
     return 0;
 
-if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo   /* good */
-&amp;&amp;  bar)
+if (test1 &amp;&amp; test2 &amp;&amp; ... &amp;&amp; foo &amp;&amp; /* good */
+    bar)
 {
     return 0;
 }</code></pre>
@@ -498,7 +503,7 @@ a = pretty_long_condition ? another_quite_long_stuff
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">switch (val) {
     int a = 1; /* bad; the init is not run */
 
-  case A:
+case A:
     a = 0;
     break;
 }</code></pre>
@@ -511,16 +516,13 @@ a = pretty_long_condition ? another_quite_long_stuff
 <div class="ulist">
 <ul>
 <li>
-<p>Put the opening brace on the same line as the case if the code covers a
-single <code>case</code>, on the next line, aligned with the case on the other case or if
-the case line is too long</p>
+<p>Put the opening brace on a newline after the last case, at one
+level of indentation greater than the case labels. Put the closing
+brace on a newline as well, on the same level of indentation as the opening
+brace.</p>
 </li>
 <li>
-<p>Put the closing brace at the beginning of a new line, aligned with the case
-statements.</p>
-</li>
-<li>
-<p>If a <code>break</code> is to be put, put it at one space after the closing brace.</p>
+<p>If a <code>break</code> is to be put, put it on a newline after the closing brace.</p>
 </li>
 <li>
 <p><code>continue</code> and <code>return</code> statements must be kept in the code block since they
@@ -536,31 +538,33 @@ are not linked to the <code>switch() case:</code> construct.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">switch (val) {
-  case CONSTANT0:
-    code;
-    break;
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">void foo(void)
+{
+    switch (val) {
+    case CONSTANT0:
+        code;
+        break;
 
-  case CONSTANT1: {
-    var declarations;
+    case CONSTANT1: {
+        var declarations;
 
-    code;
-    return var;
-  }
+        code;
+        return var;
+    }
 
-  case CONSTANT2: {
-    var declarations;
+    case CONSTANT2: {
+        var declarations;
 
-    code;
-  } break;
+        code;
+    } break;
 
-  case CONSTANT3:
-  case CONSTANT4:
-  {
-    var declarations;
+    case CONSTANT3:
+    case CONSTANT4: {
+        var declarations;
 
-    code;
-  } break;
+        code;
+    } break;
+    }
 }</code></pre>
 </div>
 </div>
@@ -575,18 +579,18 @@ are not linked to the <code>switch() case:</code> construct.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">switch (val) {
-  case A:
+case A:
     code;
-  case B: /* bad, may be a fall through or a missing break */
+case B: /* bad, may be a fall through or a missing break */
     code;
     break;
 }
 
 switch (val) {
-  case A:
+case A:
     code;
     /* FALLTHROUGH */ /* good */
-  case B:
+case B:
     code;
     break;
 }</code></pre>
@@ -601,10 +605,23 @@ the compiler to display warnings about missing cases whenever the enumeration
 changed. It applies for IOP unions as well.</p>
 </li>
 <li>
-<p>Block rules apply to <code>switch/case</code> equivalent such as
-<code>IOP_UNION_SWITCH/IOP_UNION_CASE</code></p>
+<p>Block rules apply to <code>switch/case</code> macros equivalent such as
+<code>IOP_UNION_SWITCH/IOP_UNION_CASE</code>. They are not actual labels, so both the
+case and the code inside the case are indented:</p>
 </li>
 </ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">IOP_UNION_SWITCH(val) {
+    IOP_UNION_CASE(iop__type, val, union_name, v) {
+        foo();
+    }
+    IOP_UNION_DEFAULT() {
+        bar();
+    }
+}</code></pre>
+</div>
 </div>
 </div>
 </div>
@@ -630,16 +647,14 @@ of code).</p>
 <div class="ulist">
 <ul>
 <li>
-<p>No spaces between a function call and the parenthesis, except for asserts.</p>
+<p>No spaces between a function call and the parenthesis.</p>
 </li>
 </ul>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">fn(1, 2, 3);        /* good */
-fn (1, 2, 3);       /* bad  */
-assert (condition); /* good */
-assert(condition);  /* bad  */</code></pre>
+fn (1, 2, 3);       /* bad  */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -765,7 +780,7 @@ allocate memory for the arguments or put them on the stack.</p>
 <li>
 <p>When such a function returns a positive value (0 included), then it was
 successful. When it returns a negative one, then it failed. This follows the
-usuall POSIX and Unix behaviours in the matter.</p>
+usual POSIX and Unix behaviours in the matter.</p>
 </li>
 <li>
 <p>Using boolean returning functions is possible, though the name of the
@@ -965,16 +980,16 @@ if (res) {
 <div class="ulist">
 <ul>
 <li>
-<p>Use at least two spaces between a macro name and its implementation:</p>
+<p>Use a single space between a macro name and its implementation:</p>
 </li>
 </ul>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define GOOD  1
-#define BAD 2
-#define GOOD_FN(a, b)  body
-#define BAD_FN(a, b) bad_body</code></pre>
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define GOOD 1
+#define BAD  2
+#define GOOD_FN(a, b) body
+#define BAD_FN(a, b)  bad_body</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -987,9 +1002,9 @@ semi-colon should be in the invocation, not in the macro:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define BAD_MACRO(_a)  do_something(_a);
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define BAD_MACRO(_a) do_something(_a);
 
-#define GOOD_MACRO(_a)  do_something(_a)</code></pre>
+#define GOOD_MACRO(_a) do_something(_a)</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1003,9 +1018,9 @@ semi-colon should be in the invocation, not in the macro:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define BAD_MACRO(_a)  { char *a = (_a); foo(a); bar(a); }
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">#define BAD_MACRO(_a) { char *a = (_a); foo(a); bar(a); }
 
-#define GOOD_MACRO(_a)  do { char *a = (_a); foo(a); bar(a); } while (0)</code></pre>
+#define GOOD_MACRO(_a) do { char *a = (_a); foo(a); bar(a); } while (0)</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1036,17 +1051,17 @@ lines macros simple</p>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">/* GOOD macros */
-#define GOOD_MACRO(a)  do {                                                  \
+#define GOOD_MACRO(a) do {                                                   \
         do_something();                                                      \
         do_something_else();                                                 \
     } while (0)
 
-#define GOOD_MACRO(a)  do { \
+#define GOOD_MACRO(a) do { \
         do_something();                                                      \
         do_something_else();                                                 \
     } while (0)
 
-#define GOOD_MACRO(a)  \
+#define GOOD_MACRO(a) \
     do {                                                                     \
         do_something();                                                      \
         do_something_else();                                                 \
@@ -1054,19 +1069,19 @@ lines macros simple</p>
 
 
 /* BAD macro: buggy indentation */
-#define BAD_MACRO(a)  do { \
+#define BAD_MACRO(a) do { \
     do_something();                                                          \
     do_something_else();                                                     \
 } while (0)
 
 /* BAD macro: non-aligned \ */
-#define BAD_MACRO(a)  do { \
+#define BAD_MACRO(a) do { \
         do_something(); \
         do_something_else(); \
     } while (0)
 
 /* BAD macro: trailing \ */
-#define BAD_MACRO(a)  do { \
+#define BAD_MACRO(a) do { \
         do_something();                                                      \
         do_something_else();                                                 \
     } while (0)                                                              \</code></pre>
@@ -1122,7 +1137,7 @@ of a header file doesn’t count for indent levels.</p>
 #define MY_HEADER_GUARD
 
 #ifdef __GNUC__
-# define foo(a)  __builtin_bar(a)
+# define foo(a) __builtin_bar(a)
 # ifdef __GLIBC__
 #   define WE_ARE_USING_A_GLIBC
 # else
