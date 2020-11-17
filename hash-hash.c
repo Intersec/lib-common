@@ -86,6 +86,23 @@ uint32_t jenkins_hash(const void *_s, ssize_t len)
     return get_unaligned_cpu32(output);
 }
 
+uint32_t jenkins_hash_ascii_lower(const void *_s, ssize_t len)
+{
+    const byte *s = _s;
+    byte output[4];
+    jenkins_ctx ctx;
+
+    if (len < 0) {
+        len = strlen((const char *)s);
+    }
+
+    jenkins_starts(&ctx);
+    jenkins_update_ascii_lower(&ctx, _s, len);
+    jenkins_finish(&ctx, output);
+
+    return get_unaligned_cpu32(output);
+}
+
 void jenkins_starts(jenkins_ctx *ctx)
 {
     ctx->hash = 0;
@@ -102,6 +119,25 @@ void jenkins_update(jenkins_ctx *ctx, const void *input, ssize_t len)
 
     while (len-- > 0) {
         hash += *s++;
+        hash += hash << 10;
+        hash ^= hash >> 6;
+    }
+
+    ctx->hash = hash;
+}
+
+void jenkins_update_ascii_lower(jenkins_ctx *ctx, const void *input,
+                                ssize_t len)
+{
+    const byte *s = input;
+    uint32_t hash = ctx->hash;
+
+    if (len <= 0) {
+        return;
+    }
+
+    while (len-- > 0) {
+        hash += tolower(*s++);
         hash += hash << 10;
         hash ^= hash >> 6;
     }

@@ -72,6 +72,9 @@ typedef struct jenkins_ctx {
 void jenkins_starts(jenkins_ctx * nonnull ctx) __leaf;
 void jenkins_update(jenkins_ctx * nonnull ctx, const void * nonnull input,
                     ssize_t len) __leaf;
+void jenkins_update_ascii_lower(jenkins_ctx *nonnull ctx,
+                                const void *nonnull input,
+                                ssize_t len) __leaf;
 void jenkins_finish(jenkins_ctx * nonnull ctx, byte output[4]) __leaf;
 
 typedef struct murmur_hash3_x86_32_ctx {
@@ -123,6 +126,14 @@ uint64_t icrc64(uint64_t crc, const void * nonnull data, ssize_t len) __leaf;
 
 uint32_t hsieh_hash(const void * nonnull s, ssize_t len) __leaf;
 uint32_t jenkins_hash(const void * nonnull s, ssize_t len) __leaf;
+
+/** Variant of jenkins_hash() but lowering the input ASCII string.
+ *
+ * This variant of the jenkins_hash() function is useful when dealing with
+ * case-insensitive ASCII strings. It will apply the tolower() function on
+ * every character of the input string when computing the hash.
+ */
+uint32_t jenkins_hash_ascii_lower(const void *nonnull s, ssize_t len) __leaf;
 
 #ifdef __cplusplus
 #define murmur_128bits_buf char out[]
