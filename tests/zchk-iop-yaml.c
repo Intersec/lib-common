@@ -817,6 +817,34 @@ Z_GROUP_EXPORT(iop_yaml)
                   "e: 5000000000\n"
                   "   ^^^^^^^^^^");
 
+        /* --- array errors --- */
+
+        st = &tstiop__my_struct_a_opt__s;
+#undef ERR_COMMON
+#define ERR_COMMON  \
+        "cannot unpack YAML as a `tstiop.MyStructAOpt` IOP struct"
+
+        TST_ERROR(0, "u: - - 2",
+                  "<string>:1:6: "ERR_COMMON": cannot set field `u`: "
+                  "cannot unpack an array as an element of an array, "
+                  "did you insert one too many - ?\n"
+                  "u: - - 2\n"
+                  "     ^^^");
+
+#undef ERR_COMMON
+
+        /* obj -> seq */
+        st = &tstiop__my_struct_f__s;
+#undef ERR_COMMON
+#define ERR_COMMON  \
+        "cannot unpack YAML as a `tstiop.MyStructF` IOP struct"
+
+        TST_ERROR(0, "c: a: 2",
+                  "<string>:1:4: "ERR_COMMON": cannot set field `c`: "
+                  "cannot unpack an object into an array\n"
+                  "c: a: 2\n"
+                  "   ^^^^");
+
 #undef ERR_COMMON
 #undef TST
 #undef TST_ERROR

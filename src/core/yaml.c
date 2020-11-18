@@ -1661,9 +1661,10 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
 
         elem = qv_growlen(&datas, 1);
         RETHROW(t_yaml_env_parse_data(env, min_indent + 1, elem));
+
+        pos_end = yaml_env_get_pos(env);
         RETHROW(yaml_env_ltrim(env));
 
-        pos_end = elem->span.end;
         qv_append(&pres, node);
 
         if (ps_done(&env->ps)) {
@@ -1685,7 +1686,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
         }
     }
 
-    yaml_env_end_data_with_pos(env, pos_end, out);
+    yaml_env_end_data(env, out);
     out->seq = t_new(yaml_seq_t, 1);
     out->seq->datas = datas;
     out->seq->pres_nodes = pres;
@@ -1943,7 +1944,7 @@ t_yaml_env_parse_obj(yaml_parse_t * nonnull env, const uint32_t min_indent,
             RETHROW(t_yaml_env_parse_data(env, min_indent + 1, &kd->data));
         }
 
-        pos_end = kd->data.span.end;
+        pos_end = yaml_env_get_pos(env);
         kd->key_presentation = node;
         RETHROW(yaml_env_ltrim(env));
 
@@ -6985,6 +6986,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
             "a: { b: { c: { d: { e: ~ } } } }"
         ));
+        Z_HELPER_RUN(z_write_yaml_file("override.yml", "2"));
 
         /* only objects allowed as overrides */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
@@ -6997,6 +6999,18 @@ Z_GROUP_EXPORT(yaml)
             "key: !include:inner.yml\n"
             "     ^ starting here"
         ));
+        /* See ticket #73983. An override from an include should get a proper
+         * span. We test this by triggering an error on the override. */
+        Z_HELPER_RUN(z_yaml_test_file_parse_fail(
+            "key: !include:inner.yml\n"
+            "  - !include:override.yml",
+
+            "input.yml:1:6: wrong type of data, "
+            "override data after include must be an object\n"
+            "key: !include:inner.yml\n"
+            "     ^ starting here"
+        ));
+
 
         /* must have same type as overridden data */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
@@ -7009,7 +7023,7 @@ Z_GROUP_EXPORT(yaml)
             "input.yml:5:9: cannot change types of data in override, "
             "overridden data is an object and not a sequence\n"
             "        - 1\n"
-            "        ^^^"
+            "        ^ starting here"
         ));
     } Z_TEST_END;
 
@@ -8103,7 +8117,7 @@ Z_GROUP_EXPORT(yaml)
             "- false"
         ));
 
-        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 7, 8));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_SEQ, 1, 1, 8, 1));
         Z_ASSERT_EQ(data.seq->datas.len, 5);
 
         /* "a: 2" */
@@ -8114,7 +8128,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* subseq */
         elem = data.seq->datas.tab[1];
-        Z_HELPER_RUN(z_check_yaml_data(&elem, YAML_DATA_SEQ, 2, 3, 3, 7));
+        Z_HELPER_RUN(z_check_yaml_data(&elem, YAML_DATA_SEQ, 2, 3, 4, 1));
         Z_ASSERT_EQ(elem.seq->datas.len, 2);
         Z_HELPER_RUN(z_check_yaml_scalar(&elem.seq->datas.tab[0], YAML_SCALAR_UINT,
                                          2, 5, 2, 6));
@@ -8131,7 +8145,7 @@ Z_GROUP_EXPORT(yaml)
 
         /* subseq */
         elem = data.seq->datas.tab[3];
-        Z_HELPER_RUN(z_check_yaml_data(&elem, YAML_DATA_SEQ, 6, 3, 6, 14));
+        Z_HELPER_RUN(z_check_yaml_data(&elem, YAML_DATA_SEQ, 6, 3, 7, 1));
         Z_ASSERT_LSTREQUAL(elem.tag, LSTR("tag"));
         Z_ASSERT_EQ(elem.seq->datas.len, 1);
         Z_HELPER_RUN(z_check_yaml_scalar(&elem.seq->datas.tab[0], YAML_SCALAR_BOOL,
