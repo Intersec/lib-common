@@ -219,17 +219,6 @@ struct qps_gcmap_t {
 };
 qvector_t(qps_gcmap, qps_gcmap_t);
 
-enum {
-    /*
-     * bit 0: disabled(0) / enabled(1)
-     * bit 1: pending(0)  / running(1)
-     */
-    QPS_GC_DISABLED  = 0,
-    QPS_GC_ENABLED   = 1,
-    QPS_GC_CANCELLED = 2,
-    QPS_GC_RUNNING   = 3,
-};
-
 #ifdef __has_blocks
 typedef void (BLOCK_CARET qps_notify_b)(uint32_t gen);
 #else
@@ -242,7 +231,6 @@ typedef struct qps_t {
 
     dir_lock_t   lock;
     int          dfd;
-    atomic_uint_fast16_t gc_state;   /* QPS_GC_* mask */
     uint16_t     snapshotting;
     uint32_t     generation;
     qv_t(qpsm)   maps;
@@ -258,21 +246,17 @@ typedef struct qps_t {
     uint32_t     handles_max;
     uint32_t     handles_freelist;
     uint32_t     handles_gc_gen;
-    atomic_uint  gc_gen;
-    struct ev_t *gc_idle;
 
     /* Allocator state, private */
     qps_pghdr_t *hdrs;
     qps_map_t   *gc_map;     /* do not use, filled for the SIGBUS handler */
-    thr_syn_t    snap_syn;
+    thr_syn_t    snapshot_syn;
     el_t         snap_el;
     el_t         snap_timer_el;
     qps_notify_b snap_notify;
     pid_t        snap_pid;
     struct timeval snap_start;
     uint32_t     snap_gen;
-
-    thr_syn_t    gc_syn;
 
     struct {
 #define QPS_PGL2_SHIFT       5U
@@ -329,6 +313,19 @@ uint32_t  qps_snapshot(qps_t *qps, const void *data, size_t dlen,
                        void (BLOCK_CARET notify)(uint32_t gen));
 #endif
 
+/** Get a thr syn to use for thr jobs that should synchronize with the
+ * snapshots.
+ *
+ * Can be used for example if you want to spare CPU time in the main thread
+ * because of a big operation, but the operation has to be completed before
+ * potential snapshots:
+ *
+ * > thr_syn_queue_b(qps_get_snapshot_syn(my_qps, _G.my_queue, ^{
+ * >     // big operation
+ * > });
+ */
+thr_syn_t *qps_get_snapshot_syn(qps_t *qps);
+
 /** Backup a qps.
  * This function shall not be called during a snapshot.
  *
@@ -341,10 +338,19 @@ uint32_t  qps_snapshot(qps_t *qps, const void *data, size_t dlen,
  *         -3  error on source
  *         -4  error on destination
  */
-int       qps_backup(qps_t *qps, int dfd_dst, bool link_as_copy);
-bool      qps_gc_enable(qps_t *qps);
-bool      qps_gc_disable(qps_t *qps);
-void      qps_snapshot_wait(qps_t *qps);
+int qps_backup(qps_t *qps, int dfd_dst, bool link_as_copy);
+
+/* TODO Document what the QPS handle garbage collector actually does and how.
+ */
+/** Run the QPS handle garbage collector.
+ *
+ * Can only be run from main thread otherwise the call will have no effect.
+ *
+ * \warning it's invalid to run the GC while a snapshot is going on!
+ */
+void qps_gc_run(qps_t *qps);
+
+void qps_snapshot_wait(qps_t *qps);
 
 /* }}} */
 /* qps: Allocation routines {{{ */
