@@ -2533,9 +2533,9 @@ static int yaml_env_merge_seq(yaml_parse_t * nonnull env,
 }
 
 static void
-t_yaml_merge_scalar(const yaml_data_t * nonnull override,
-                    yaml_presentation_override_t * nullable pres,
-                    yaml_data_t * nonnull out)
+t_yaml_merge_data(const yaml_data_t * nonnull override,
+                  yaml_presentation_override_t * nullable pres,
+                  yaml_data_t * nonnull out)
 {
     if (pres) {
         lstr_t path = t_lstr_dup(LSTR_SB_V(&pres->path));
@@ -2544,7 +2544,7 @@ t_yaml_merge_scalar(const yaml_data_t * nonnull override,
     }
 
     logger_trace(&_G.logger, 2,
-                 "merging scalar from "YAML_POS_FMT" up to "YAML_POS_FMT,
+                 "merging data from "YAML_POS_FMT" up to "YAML_POS_FMT,
                  YAML_POS_ARG(override->span.start),
                  YAML_POS_ARG(override->span.end));
     *out = *override;
@@ -2556,7 +2556,12 @@ t_yaml_env_merge_data(yaml_parse_t * nonnull env,
                       yaml_presentation_override_t * nullable pres,
                       yaml_data_t * nonnull data)
 {
-    if (data->type != override->type) {
+    /* "nil" value is "unpackable" into anything (it can mean empty
+     * array/object), so allow it to be overriden into anything. */
+    if (data->type != override->type &&
+        (data->type != YAML_DATA_SCALAR ||
+         data->scalar.type != YAML_SCALAR_NULL))
+    {
         const char *msg;
 
         /* XXX: This could be allowed, and implemented by completely replacing
@@ -2580,7 +2585,7 @@ t_yaml_env_merge_data(yaml_parse_t * nonnull env,
             sb_addc(&pres->path, '!');
         }
 
-        t_yaml_merge_scalar(override, pres, data);
+        t_yaml_merge_data(override, pres, data);
 
         if (pres) {
             sb_clip(&pres->path, prev_len);
@@ -6884,7 +6889,10 @@ Z_GROUP_EXPORT(yaml)
             "  - 3\n"
             "  - 4\n"
             "d: {}\n"
-            "e: []"
+            "e: []\n"
+            "f:\n"
+            "g: ~\n"
+            "h: ~"
         ));
         root =
             "- !include:inner.yml\n"
@@ -6896,8 +6904,11 @@ Z_GROUP_EXPORT(yaml)
             "    dd: 7\n"
             "  e:\n"
             "    - []\n"
-            "  # prefix f\n"
-            "  f: ~";
+            "  f: [ 1 ]\n"
+            "  g: { b: 3 }\n"
+            "  h: str\n"
+            "  # prefix i\n"
+            "  i: ~";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -6912,7 +6923,12 @@ Z_GROUP_EXPORT(yaml)
             "    dd: 7\n"
             "  e:\n"
             "    - []\n"
-            "  f: ~"
+            "  f:\n"
+            "    - 1\n"
+            "  g:\n"
+            "    b: 3\n"
+            "  h: str\n"
+            "  i: ~"
         ));
         /* test recreation of override when packing into files */
         Z_HELPER_RUN(z_pack_yaml_file("override_1/root.yml", &data, &pres,
@@ -6929,6 +6945,9 @@ Z_GROUP_EXPORT(yaml)
             "  - 4\n"
             "d: {}\n"
             "e: []\n"
+            "f:\n"
+            "g: ~\n"
+            "h: ~\n"
         ));
         Z_HELPER_RUN(z_check_file("override_1/root.yml",
                                   t_fmt("%s\n", root)));
