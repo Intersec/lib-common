@@ -1601,6 +1601,7 @@ static qps_t *qps_new(int dfd, const char *name)
     qps->lock = DIR_LOCK_INIT_V;
     qps->generation = 1;
     qps->handles_gc_gen = 1;
+    thr_syn_init(&qps->snapshot_syn);
     qps->hdrs = p_new(qps_pghdr_t, 1);
 
     dlist_add(&_G.qps_head, &qps->qps_link);
@@ -1845,6 +1846,11 @@ void qps_handle_allow_memory(qps_t *qps, qps_handle_t id, qps_ptr_t *ptr)
 
     mem_tool_allow_memory(res, blk->rz_alloc_size, true);
 #endif
+}
+
+thr_syn_t *qps_get_snapshot_syn(qps_t *qps)
+{
+    return &qps->snapshot_syn;
 }
 
 /* }}} */
@@ -2605,6 +2611,8 @@ static void qps_snapshot_bg_done(el_t el, pid_t pid, int status, data_t data)
     qps->snap_el = NULL;
 
     thr_schedule_b(^{
+        thr_syn_wait(&qps->snapshot_syn);
+
         thr_queue_b(thr_queue_main_g, ^{
             struct timeval end;
 
@@ -2881,6 +2889,8 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
 void qps_snapshot_wait(qps_t *qps)
 {
     if (qps->snapshotting) {
+        thr_syn_wait(&qps->snapshot_syn);
+
         if (qps->snap_el) {
             thr_schedule_b(^{
                 int status;
@@ -3038,6 +3048,8 @@ static void __qps_close(qps_t **qpsp, bool do_cleanup)
     if (qps) {
         logger_trace(&qps->logger, 2, "qps_closing(%p)", qps);
         qps_snapshot_wait(qps);
+        thr_syn_wait(&qps->snapshot_syn);
+        thr_syn_wipe(&qps->snapshot_syn);
 
         tab_for_each_pos(i, &qps->maps) {
             qps_map_t *map = qps->maps.tab[i];
