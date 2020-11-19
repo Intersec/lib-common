@@ -23,7 +23,6 @@
 #include <lib-common/datetime.h>
 #include <lib-common/unix.h>
 #include <lib-common/qlzo.h>
-#include <lib-common/el.h>
 #include <lib-common/thr.h>
 #include "qps.h"
 #include "sort.h"
@@ -1602,8 +1601,7 @@ static qps_t *qps_new(int dfd, const char *name)
     qps->lock = DIR_LOCK_INIT_V;
     qps->generation = 1;
     qps->handles_gc_gen = 1;
-    thr_syn_init(&qps->gc_syn);
-    thr_syn_init(&qps->snap_syn);
+    thr_syn_init(&qps->snapshot_syn);
     qps->hdrs = p_new(qps_pghdr_t, 1);
 
     dlist_add(&_G.qps_head, &qps->qps_link);
@@ -1686,27 +1684,15 @@ qps_gc_compact(qps_t *qps, uint32_t no, qps_map_t *map, qv_t(qps_gcmap) maps)
     logger_trace(&qps->tracing_logger, 1, "gc compaction done");
     qv_wipe(&maps);
     assert (!qps->snapshotting);
-    atomic_fetch_sub(&qps->gc_state, 2);
     return 0;
 }
 
-static void qps_gc(qps_t *qps, uint32_t gc_gen)
+static void qps_gc(qps_t *qps)
 {
     uint64_t allocated = 0, disk_usage = 0;
-    uint_fast16_t enabled = QPS_GC_ENABLED;
     qv_t(qps_gcmap) maps;
 
     assert (!qps->snapshotting);
-    if (atomic_load(&qps->gc_gen) != gc_gen) {
-        logger_trace(&qps->tracing_logger, 2, "ignored stalled gc");
-        return;
-    }
-    if (!atomic_compare_exchange_strong(&qps->gc_state, &enabled,
-                                        QPS_GC_RUNNING))
-    {
-        logger_trace(&qps->tracing_logger, 2, "ignored cancelled gc");
-        return;
-    }
 
     logger_trace(&qps->tracing_logger, 1, "start gc");
     qps_m_check_maps(qps);
@@ -1755,7 +1741,7 @@ static void qps_gc(qps_t *qps, uint32_t gc_gen)
         return CMP(m1->mark, m2->mark) ?: qps_gen_cmp(m1->gen, m2->gen);
     });
 
-    if (atomic_load(&qps->gc_state) == QPS_GC_RUNNING) {
+    {
         qps_map_t *map;
         uint32_t no;
 
@@ -1775,63 +1761,15 @@ static void qps_gc(qps_t *qps, uint32_t gc_gen)
     logger_trace(&qps->tracing_logger, 1, "cancelled gc");
   end_no_trace:
     qv_wipe(&maps);
-    atomic_fetch_sub(&qps->gc_state, 2);
     qps_m_check_maps(qps);
 }
 
-static void qps_gc_on_idle(el_t ev, data_t priv)
+void qps_gc_run(qps_t *qps)
 {
-    qps_t *qps = priv.ptr;
-
-    if (atomic_load(&qps->gc_state) & QPS_GC_ENABLED) {
-        if (atomic_load(&qps->gc_syn.pending) == 0) {
-            uint32_t gc_gen = atomic_fetch_add(&qps->gc_gen, 1) + 1;
-
-            logger_trace(&qps->tracing_logger, 1, "schedule gc");
-            qps_gc(qps, gc_gen);
-        }
-    }
-}
-
-/** Enable the handle GC.
- *
- * The garbage collector is disabled by default.  Note that each time
- * qps_snapshot is called, qps snapshotting is disabled, it's up to the user
- * to handle gc reactivation.
- *
- * \warning it's invalid to activate the GC while a snapshot is going on!
- *
- * \return the previous state of the GC (true for enabled, false else).
- */
-bool qps_gc_enable(qps_t *qps)
-{
-    int prev = atomic_fetch_or(&qps->gc_state, QPS_GC_ENABLED);
-
-    logger_trace(&qps->tracing_logger, 1, "enable gc");
     if (thr_is_on_queue(thr_queue_main_g)) {
-        qps_gc_on_idle(NULL, (data_t){ .ptr = qps });
+        logger_trace(&qps->tracing_logger, 1, "run gc");
+        qps_gc(qps);
     }
-    return prev & QPS_GC_ENABLED;
-}
-
-/** Disable and cancels the handle GC.
- *
- * Disallow the execution of the garbage collection. Waits to be sure no GC is
- * currently running.
- *
- * \param[in]   qps   the qps
- * \param[in]   wait  whether it waits for GC job to be completely gone.
- *
- * \return the previous state of the GC (true for enabled, false else).
- */
-bool qps_gc_disable(qps_t *qps)
-{
-    int prev = atomic_fetch_and(&qps->gc_state, ~QPS_GC_ENABLED);
-
-    logger_trace(&qps->tracing_logger, 1, "disable gc");
-    if (prev & QPS_GC_RUNNING)
-        thr_syn_wait(&qps->gc_syn);
-    return prev & QPS_GC_ENABLED;
 }
 
 /* }}} */
@@ -1908,6 +1846,11 @@ void qps_handle_allow_memory(qps_t *qps, qps_handle_t id, qps_ptr_t *ptr)
 
     mem_tool_allow_memory(res, blk->rz_alloc_size, true);
 #endif
+}
+
+thr_syn_t *qps_get_snapshot_syn(qps_t *qps)
+{
+    return &qps->snapshot_syn;
 }
 
 /* }}} */
@@ -2502,8 +2445,6 @@ qps_t *_qps_open(const char *path, const char *name, bool load_whole_spool,
 
     fd  = RETHROW_NP(open(path, O_RDONLY));
     qps = qps_new(fd, name);
-    qps->gc_idle = el_idle_register(qps_gc_on_idle, qps);
-    el_unregister(&qps->gc_idle);
 
     if (qps_lock(qps) < 0) {
         goto out_close;
@@ -2670,7 +2611,7 @@ static void qps_snapshot_bg_done(el_t el, pid_t pid, int status, data_t data)
     qps->snap_el = NULL;
 
     thr_schedule_b(^{
-        thr_syn_wait(&qps->snap_syn);
+        thr_syn_wait(&qps->snapshot_syn);
 
         thr_queue_b(thr_queue_main_g, ^{
             struct timeval end;
@@ -2847,7 +2788,6 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
 
     qps->snap_gen = qps->generation;
     lp_gettv(&qps->snap_start);
-    qps_gc_disable(qps);
     qps->snapshotting = true;
     qps->generation  += 2;
     qps->snap_notify = Block_copy(notify);
@@ -2949,7 +2889,7 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
 void qps_snapshot_wait(qps_t *qps)
 {
     if (qps->snapshotting) {
-        thr_syn_wait(&qps->snap_syn);
+        thr_syn_wait(&qps->snapshot_syn);
 
         if (qps->snap_el) {
             thr_schedule_b(^{
@@ -3107,13 +3047,9 @@ static void __qps_close(qps_t **qpsp, bool do_cleanup)
 
     if (qps) {
         logger_trace(&qps->logger, 2, "qps_closing(%p)", qps);
-        el_unregister(&qps->gc_idle);
-        qps_gc_disable(qps);
-        thr_syn_wait(&qps->gc_syn);
         qps_snapshot_wait(qps);
-        thr_syn_wait(&qps->snap_syn);
-        thr_syn_wipe(&qps->gc_syn);
-        thr_syn_wipe(&qps->snap_syn);
+        thr_syn_wait(&qps->snapshot_syn);
+        thr_syn_wipe(&qps->snapshot_syn);
 
         tab_for_each_pos(i, &qps->maps) {
             qps_map_t *map = qps->maps.tab[i];

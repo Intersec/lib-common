@@ -124,7 +124,7 @@ static void qsnapshot(void)
     qv_splice(&_G.snap_free_list, 0, _G.snap_free_list.len,
               _G.free_list.tab, _G.free_list.len);
     qps_snapshot(_G.qps, NULL, 0, ^(uint32_t gen) {
-        qps_gc_enable(_G.qps);
+        qps_gc_run(_G.qps);
     });
     e_info(">>>>>>>>>>>>>>>  snapshot");
 }
@@ -143,7 +143,7 @@ static void qreopen(void)
               _G.snap_free_list.tab, _G.snap_free_list.len);
     qps_close(&_G.qps);
     _G.qps = qps_open(_G.path, "stress", NULL);
-    qps_gc_enable(_G.qps);
+    qps_gc_run(_G.qps);
     e_info(">>>>>>>>>>>>>>>  reopen  <<<<<<<<<<<<<<<<");
 }
 
