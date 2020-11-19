@@ -3825,13 +3825,6 @@ static int t_yaml_pack_seq(yaml_pack_env_t * nonnull env,
 {
     int res = 0;
 
-    if (seq->datas.len == 0) {
-        GOTO_STATE(CLEAN);
-        PUTS("[]");
-        env->state = PACK_STATE_AFTER_DATA;
-        return res;
-    }
-
     tab_for_each_pos(pos, &seq->datas) {
         const yaml__presentation_node__t *node = NULL;
         const yaml_data_t *data = &seq->datas.tab[pos];
@@ -3870,6 +3863,15 @@ static int t_yaml_pack_seq(yaml_pack_env_t * nonnull env,
 
       next:
         yaml_pack_env_pop_path(env, path_len);
+    }
+
+    if (res == 0) {
+        /* XXX: This can happen if all elements come from an override: in
+         * that case, pack an empty array. */
+        GOTO_STATE(CLEAN);
+        PUTS("[]");
+        env->state = PACK_STATE_AFTER_DATA;
+        return res;
     }
 
     return res;
@@ -4096,9 +4098,7 @@ static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
     int res = 0;
 
     if (obj->fields.len == 0) {
-        GOTO_STATE(CLEAN);
-        PUTS("{}");
-        env->state = PACK_STATE_AFTER_DATA;
+        goto empty;
     } else
     if (unlikely(pres && pres->merge_key)) {
         yaml_data_t data;
@@ -4111,8 +4111,20 @@ static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
         tab_for_each_ptr(pair, &obj->fields) {
             res += RETHROW(t_yaml_pack_key_data(env, pair));
         }
+
+        if (res == 0) {
+            /* XXX: This can happen if all keys come from an override: in
+             * that case, pack an empty object. */
+            goto empty;
+        }
     }
 
+    return res;
+
+  empty:
+    GOTO_STATE(CLEAN);
+    PUTS("{}");
+    env->state = PACK_STATE_AFTER_DATA;
     return res;
 }
 
@@ -6870,7 +6882,9 @@ Z_GROUP_EXPORT(yaml)
             "b: { c: c }\n"
             "c:\n"
             "  - 3\n"
-            "  - 4"
+            "  - 4\n"
+            "d: {}\n"
+            "e: []"
         ));
         root =
             "- !include:inner.yml\n"
@@ -6878,8 +6892,12 @@ Z_GROUP_EXPORT(yaml)
             "\n"
             "  b: { new: true, c: ~ }\n"
             "  c: [ 5, 6 ] # array\n"
-            "  # prefix d\n"
-            "  d: ~";
+            "  d:\n"
+            "    dd: 7\n"
+            "  e:\n"
+            "    - []\n"
+            "  # prefix f\n"
+            "  f: ~";
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
             root,
 
@@ -6890,7 +6908,11 @@ Z_GROUP_EXPORT(yaml)
             "    - 4\n"
             "    - 5\n"
             "    - 6\n"
-            "  d: ~"
+            "  d:\n"
+            "    dd: 7\n"
+            "  e:\n"
+            "    - []\n"
+            "  f: ~"
         ));
         /* test recreation of override when packing into files */
         Z_HELPER_RUN(z_pack_yaml_file("override_1/root.yml", &data, &pres,
@@ -6905,6 +6927,8 @@ Z_GROUP_EXPORT(yaml)
             "c:\n"
             "  - 3\n"
             "  - 4\n"
+            "d: {}\n"
+            "e: []\n"
         ));
         Z_HELPER_RUN(z_check_file("override_1/root.yml",
                                   t_fmt("%s\n", root)));
