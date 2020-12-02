@@ -654,16 +654,18 @@ static void yaml_span_init(yaml_span_t * nonnull span,
     span->env = env;
 }
 
+/* XXX: this function is reentrant, in the case of a tagged data. It is
+ * called first to initialize the data with the tag, then a second time
+ * to initialize with the YAML value */
 static void
 yaml_env_start_data_with_pos(yaml_parse_t * nonnull env,
                              yaml_data_type_t type, yaml_pos_t pos_start,
-                             yaml_data_t * nonnull out)
+                             bool use_prefix_pres, yaml_data_t * nonnull out)
 {
-    p_clear(out, 1);
     out->type = type;
     yaml_span_init(&out->span, env, pos_start, pos_start);
 
-    if (env->pres && env->pres->next_node) {
+    if (use_prefix_pres && env->pres && env->pres->next_node) {
         /* Get the saved presentation details that were stored for the next
          * data (ie this one).
          */
@@ -680,7 +682,7 @@ static void
 yaml_env_start_data(yaml_parse_t * nonnull env, yaml_data_type_t type,
                     yaml_data_t * nonnull out)
 {
-    yaml_env_start_data_with_pos(env, type, yaml_env_get_pos(env), out);
+    yaml_env_start_data_with_pos(env, type, yaml_env_get_pos(env), true, out);
 }
 
 static void
@@ -892,7 +894,6 @@ static void t_yaml_env_handle_comment_ps(yaml_parse_t * nonnull env,
         yaml__presentation_node__t *pnode;
 
         pnode = t_yaml_env_pres_get_current_node(env->pres);
-        assert (pnode->inline_comment.len == 0);
         pnode->inline_comment = comment;
         if (env->pres->last_node) {
             logger_trace(&_G.logger, 2, "adding inline comment `%pL`",
@@ -1529,8 +1530,12 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
         0x00000000, 0x00000000, 0x00000000, 0x00000000,
     } };
     yaml_pos_t tag_pos_start = yaml_env_get_pos(env);
-    yaml_pos_t tag_pos_end;
     pstream_t tag;
+
+    if (out->tag.s) {
+        return yaml_env_set_err(env, YAML_ERR_WRONG_OBJECT,
+                                "two tags have been declared");
+    }
 
     assert (ps_peekc(env->ps) == '!');
     yaml_env_skipc(env);
@@ -1545,21 +1550,19 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
         return yaml_env_set_err(env, YAML_ERR_INVALID_TAG,
                                 "wrong character in tag");
     }
-    tag_pos_end = yaml_env_get_pos(env);
 
     *type = get_tag_type(LSTR_PS_V(&tag));
 
+    yaml_env_start_data_with_pos(env, YAML_DATA_SCALAR, tag_pos_start, true,
+                                 out);
+    out->tag = LSTR_PS_V(&tag);
+    yaml_env_end_data(env, out);
+    out->tag_span = t_new(yaml_span_t, 1);
+    *out->tag_span = out->span;
+
     RETHROW(t_yaml_env_parse_data(env, min_indent, out));
 
-    if (out->tag.s) {
-        return yaml_env_set_err_at(env, out->tag_span, YAML_ERR_WRONG_OBJECT,
-                                   "two tags have been declared");
-    }
-
-    out->tag = LSTR_PS_V(&tag);
-    out->span.start = tag_pos_start;
-    out->tag_span = t_new(yaml_span_t, 1);
-    yaml_span_init(out->tag_span, env, tag_pos_start, tag_pos_end);
+    out->span.start = out->tag_span->start;
 
     if (lstr_equal(out->tag, LSTR("bin"))) {
         RETHROW(t_handle_binary_tag(env, out));
@@ -1751,7 +1754,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
         /* skip '-' */
         yaml_env_skipc(env);
 
-        elem = qv_growlen(&datas, 1);
+        elem = qv_growlen0(&datas, 1);
         RETHROW(t_yaml_env_parse_data(env, min_indent + 1, elem));
 
         pos_end = yaml_env_get_pos(env);
@@ -2281,7 +2284,8 @@ t_yaml_env_build_implicit_obj(yaml_parse_t * nonnull env,
     t_qv_init(&fields, 1);
     qv_append(&fields, *kd);
 
-    yaml_env_start_data_with_pos(env, YAML_DATA_OBJ, kd->key_span.start, out);
+    yaml_env_start_data_with_pos(env, YAML_DATA_OBJ, kd->key_span.start,
+                                 true, out);
     yaml_env_end_data_with_pos(env, kd->data.span.end, out);
     out->obj = t_new(yaml_obj_t, 1);
     out->obj->fields = fields;
@@ -2321,6 +2325,7 @@ t_yaml_env_parse_flow_seq(yaml_parse_t *env, yaml_data_t *out)
         if (kd.key.s) {
             yaml_data_t obj;
 
+            p_clear(&obj, 1);
             t_yaml_env_build_implicit_obj(env, &kd, &obj);
             qv_append(&datas, obj);
         } else {
@@ -2806,6 +2811,7 @@ t_yaml_env_handle_override(yaml_parse_t * nonnull env,
 /* }}} */
 /* {{{ Data */
 
+/* XXX: out must have been initialized prior to the call */
 static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
                                  yaml_data_t *out)
 {
@@ -2814,8 +2820,13 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
     RETHROW(yaml_env_ltrim(env));
     cur_indent = yaml_env_get_column_nb(env);
     if (cur_indent < min_indent || ps_done(&env->ps)) {
-        yaml_env_start_data(env, YAML_DATA_SCALAR, out);
-        yaml_env_end_data(env, out);
+        yaml_pos_t pos = yaml_env_get_pos(env);
+
+        /* XXX: do not use prefix presentation details. Those have been filled
+         * while searching for a data we did not found, and thus apply to the
+         * next data, and not to this 'null' node. */
+        yaml_env_start_data_with_pos(env, YAML_DATA_SCALAR, pos, false, out);
+        yaml_env_end_data_with_pos(env, pos, out);
         out->scalar.type = YAML_SCALAR_NULL;
 
         if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
@@ -3081,6 +3092,7 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
     }
 
     assert (env->ps.s && "yaml_parse_attach_ps/file must be called first");
+    p_clear(out, 1);
     if (t_yaml_env_parse_data(env, 0, out) < 0) {
         res = -1;
         goto end;
@@ -3849,12 +3861,18 @@ yaml_pack_scalar(yaml_pack_env_t * nonnull env,
     int res = 0;
     char ibuf[IBUF_LEN];
 
-    if (unlikely(scalar->type == YAML_SCALAR_NULL && pres
-              && pres->empty_null))
+    if (unlikely(scalar->type == YAML_SCALAR_NULL && pres &&
+                 pres->empty_null))
     {
-        /* special case for empty null scalar: do nothing. This allows
-         * factorizing the GOTO_STATE as the other cases will all write
-         * something. */
+        if (env->state == PACK_STATE_ON_NEWLINE) {
+            /* This can happen if the previous data had an inline comment
+             * for example. Do not do anything and stay in state ON_NEWLINE,
+             * moving to state AFTER_DATA would add another invalid newline.
+             */
+            return 0;
+        }
+        /* Empty null scalar. Do not write anything, and mark the state as
+         * AFTER_DATA. */
         goto end;
     }
 
@@ -6136,7 +6154,7 @@ Z_GROUP_EXPORT(yaml)
 
             "<string>:2:1: wrong object, two tags have been declared\n"
             "!tag2\n"
-            "^^^^^"
+            "^"
         ));
 
         /* wrong list continuation */
@@ -8682,8 +8700,45 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         yaml__document_presentation__t doc_pres;
         const yaml_presentation_t *pres;
+        lstr_t key;
 
-        /* comment on a scalar => not saved */
+        /* comments around a tag */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
+            "# prefix\n"
+            "!foo # inline tag\n"
+            "# prefix val\n"
+            "a # inline val",
+
+            "# prefix val\n"
+            "!foo a # inline val\n"
+        ));
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
+        Z_ASSERT_P(pres);
+        Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
+        CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("prefix val"));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR("!"),
+                                            LSTR("inline val")));
+
+        /* comments around a null value */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
+            "# prefix a\n"
+            "a: # inline a\n"
+            "# prefix b\n"
+            "b: 2",
+            NULL
+        ));
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
+        Z_ASSERT_P(pres);
+        Z_ASSERT_EQ(4, qm_len(yaml_pres_node, &pres->nodes));
+        CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("prefix a"));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".a"),
+                                            LSTR("inline a")));
+        CHECK_PREFIX_COMMENTS(pres, LSTR(".b"), LSTR("prefix b"));
+        /* last element is .a! for the empty_null flag */
+        key = LSTR(".a!");
+        Z_ASSERT_N(qm_find_safe(yaml_pres_node, &pres->nodes, &key));
+
+        /* comment on a scalar => saved on '!' */
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "# my scalar\n"
             "3",
@@ -8818,6 +8873,54 @@ Z_GROUP_EXPORT(yaml)
 
             NULL
         ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Comment presentation with include */
+
+    Z_TEST(comment_presentation_with_include, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t doc_pres;
+        const yaml_presentation_t *pres;
+        yaml_parse_t *env;
+        const char *root;
+        const yaml__presentation_node__t *pnode;
+        lstr_t path;
+
+        /* test replacement of variables */
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml", "2"));
+        root =
+            "# prefix a\n"
+            "a: !include:inner.yml # inline a\n"
+            "\n"
+            "# prefix b\n"
+            "b: 3 # inline b\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, &env, 0,
+            root,
+
+            "# prefix a\n"
+            "a: 2\n"
+            "\n"
+            "# prefix b\n"
+            "b: 3 # inline b\n"
+        ));
+
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
+        Z_ASSERT_P(pres);
+        Z_ASSERT_EQ(4, qm_len(yaml_pres_node, &pres->nodes));
+
+        CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("prefix a"));
+
+        CHECK_PREFIX_COMMENTS(pres, LSTR(".b"), LSTR("prefix b"));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".b!"),
+                                            LSTR("inline b")));
+
+        path = LSTR(".a!");
+        pnode = qm_get_def_safe(yaml_pres_node, &pres->nodes, &path, NULL);
+        Z_ASSERT_P(pnode);
+        Z_ASSERT_P(pnode->included);
+        Z_ASSERT_LSTREQUAL(pnode->included->path, LSTR("inner.yml"));
     } Z_TEST_END;
 
     /* }}} */
