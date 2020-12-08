@@ -31,7 +31,10 @@
 static struct {
     dlist_t qps_head;
     bool    in_snapshot_fork;
+
     void  (*sighandler)(int, siginfo_t *, void *);
+    struct sigaction prev_sigsegv;
+    struct sigaction prev_sigbus;
 
     logger_t logger;
 } qps_store_g = {
@@ -3280,21 +3283,27 @@ void qps_get_usage(const qps_t *qps, struct qps_stats *st)
 
 static int qps_initialize(void *sighandler)
 {
-    struct sigaction prev;
     struct sigaction act = {
         .sa_sigaction = qps_on_segfault,
         .sa_flags     = SA_SIGINFO,
     };
 
     sigfillset(&act.sa_mask);
-    sigaction(SIGSEGV, &act, &prev);
-    sigaction(SIGBUS, &act, NULL);
-    _G.sighandler = prev.sa_sigaction;
+    sigaction(SIGSEGV, &act, &_G.prev_sigsegv);
+    sigaction(SIGBUS, &act, &_G.prev_sigbus);
+    _G.sighandler = _G.prev_sigsegv.sa_sigaction;
+
     return 0;
 }
 
 static int qps_shutdown(void)
 {
+    _G.sighandler = NULL;
+
+    /* Reestablish previous signal handlers. */
+    sigaction(SIGBUS, &_G.prev_sigbus, NULL);
+    sigaction(SIGSEGV, &_G.prev_sigsegv, NULL);
+
     return 0;
 }
 
