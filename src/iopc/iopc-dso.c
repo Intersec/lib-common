@@ -61,7 +61,13 @@ static int do_call(char * const argv[], sb_t *err)
             sb_setf(err, "waitpid: %m");
         }
         if (WIFEXITED(status)) {
-            return WEXITSTATUS(status) ? -1 : 0;
+            int exit_status = WEXITSTATUS(status);
+
+            if (exit_status) {
+                sb_setf(err, "%s returned %d", argv[0], exit_status);
+                return -1;
+            }
+            return 0;
         }
         if (WIFSIGNALED(status)) {
             sb_setf(err, "%s killed with signal %s", argv[0],
