@@ -414,15 +414,24 @@ bool _z_assert_cmp(const char *file, int lno, const char *op, bool res,
 
 static void sb_put_string(sb_t *sb, lstr_t s)
 {
-    for (int i = 0; i < s.len; i++) {
-        if (!isprint(s.s[i]) && !isspace(s.s[i])) {
+    SB_1k(escaped);
+
+    sb_add_slashes(&escaped, s.s, s.len, "\a\b\t\n\v\f\r\\",  "abtnvfr\\");
+
+    for (int i = 0; i < escaped.len; i++) {
+        int c = escaped.data[i];
+
+        if (!isprint((unsigned char)c)) {
+            /* Got an non-printable character that cannot be escaped
+             * print the whole string in hexadecimal. */
             sb_adds(sb, "X'");
             sb_add_hex(sb, s.s, s.len);
             sb_adds(sb, "'");
             return;
         }
     }
-    sb_add_slashes(sb, s.s, s.len, "\a\b\t\n\v\f\r\\", "abtnvfr\\");
+
+    sb_addsb(sb, &escaped);
 }
 
 bool _z_assert_lstrequal(const char *file, int lno,
