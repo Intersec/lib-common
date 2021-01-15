@@ -1825,4 +1825,10 @@ opt_bool_t ic_hdr_get_dealias(const ic__hdr__t * nullable hdr);
  */
 int ic_hdr_set_dealias(ic__hdr__t * nullable hdr, bool dealias);
 
+/** Get the SSL context used by the ichannel library. */
+SSL_CTX * nonnull ic_get_ssl_ctx(void);
+
+/** Get the SSL certificate used by the ichannel library. */
+X509 * nonnull ic_get_certificate(void);
+
 #endif

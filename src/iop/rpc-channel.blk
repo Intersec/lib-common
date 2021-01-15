@@ -330,6 +330,16 @@ static int ic_verify_callback(int preverify_ok, X509_STORE_CTX *store_ctx)
     return (cert && X509_cmp(cert, _G.certificate) == 0) ? 1 : preverify_ok;
 }
 
+SSL_CTX *ic_get_ssl_ctx(void)
+{
+    return _G.ssl_ctx;
+}
+
+X509 *ic_get_certificate(void)
+{
+    return _G.certificate;
+}
+
 static int ic_initialize(void *arg)
 {
     t_scope;
