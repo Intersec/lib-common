@@ -101,10 +101,10 @@ build_flags()
             echo -fgcse-after-reload
         fi
     fi
-    # know where the warnings come from
-    echo -fdiagnostics-show-option
 
     if test "$2" != "rewrite"; then
+        # know where the warnings come from
+        echo -fdiagnostics-show-option
         # let the type char be unsigned by default
         echo -funsigned-char
         # do not use strict aliasing, pointers of different types may alias.
