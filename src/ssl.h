@@ -532,12 +532,22 @@ ssize_t ssl_read(SSL *ssl, void *buf, size_t len);
 
 /** Wrapper to SSL_write that mimic write(2).
  *
+ * \warning: because of the implementation of the underlying function
+ *           SSL_write(), ssl_write() behaves slightly differently than
+ *           write() when it fails with a retriable error (ie. when
+ *           res < 0 and ERR_RW_RETRIABLE(errno) is true). In that case:
+ * - the next calls MUST take the same arguments (same data and length -
+ *   the pointer on the data can change), until it succeeds (even partially).
+ * - some data could actually have been written on the socket, and thus the
+ *   remote peer can receive a part of the data even if ssl_write() fails.
+ *
  * \param[in]  ssl  The ssl context for which data must be sent. It must be
  *                  configured to allow partial write. (See
  *                  SSL_MODE_ENABLE_PARTIAL_WRITE and
  *                  SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER options).
  * \param[in]  buf  The buffer to write.
  * \param[in]  len  The number of bytes to send from `buf`.
+ *
  * \return the number of bytes sent.
  */
 ssize_t ssl_write(SSL *ssl, const void *buf, size_t len);
