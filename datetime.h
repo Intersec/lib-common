@@ -518,7 +518,11 @@ static inline int time_parse_iso8601s(const char *s, time_t *res)
  * That function parses a string from one of those three formats:
  * - ISO8601: YYYY-MM-DD[Thh:mm:ss][TZ]
  * - RFC822: [Day, ]D month YYYY hh:mm:ss[ TZ]
- * - Unix timestamp in decimal
+ * - Unix timestamp in decimal; it is expected to be in seconds but values
+ *   greater than 30000000000 are considered in milliseconds, and converted to
+ *   seconds.
+ *   For information, 30000000000 is "Fri 30 Aug 2920 07:20:00 AM CEST" in
+ *   seconds, and "Mon 14 Dec 1970 06:20:00 AM CET" in milliseconds.
  *
  * The parsing is done case insensitively. The timezone is optional, when
  * omitted, the local timezone is used. When present it must have one of the
@@ -529,7 +533,7 @@ static inline int time_parse_iso8601s(const char *s, time_t *res)
  * - +/-hh
  *
  * \param[in,out] ps the stream from which the date should be parsed.
- * \param[out]    res the timestamp.
+ * \param[out]    res the timestamp (in seconds).
  * \return a negative value in case of error.
  */
 int time_parse(pstream_t *ps, time_t *res);
