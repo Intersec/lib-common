@@ -83,7 +83,7 @@ def find_exe(name, root):
     ret = set()
     for dirpath, _, filenames in os.walk(root):
         if name in filenames:
-            ret.add(osp.realpath("{0}/{1}".format(dirpath, name))
+            ret.add(osp.realpath("{0}/{1}".format(dirpath, name)))
     if len(ret) != 1:
         debug("binary %s not found or more than once" % name)
         return None
