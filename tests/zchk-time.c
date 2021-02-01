@@ -332,6 +332,9 @@ Z_GROUP_EXPORT(time)
         /* Timestamp */
         CHECK_DATE("1173180853", 1173180853);
 
+        /* Timestamp in milliseconds */
+        CHECK_DATE("1610975666575", 1610975666);
+
         /* ISO 8601 YYYY-MM-DD format */
         CHECK_DATE("2007-03-06", 1173135600);
         CHECK_DATE("2007-3-06",  1173135600);

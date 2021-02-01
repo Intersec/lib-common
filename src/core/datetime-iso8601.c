@@ -342,6 +342,10 @@ int time_parse(pstream_t *ps, time_t *d)
         if (errno || !ps_done(ps)) {
             return -1;
         }
+        /* Support millisecond timestamps (convert them to seconds). */
+        if (unlikely(*d >= 30000000000)) {
+            *d /= 1000;
+        }
         return 0;
     }
 #undef PARSE_FORMAT
