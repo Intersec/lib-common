@@ -977,6 +977,14 @@ Z_GROUP_EXPORT(iop_yaml)
             "e: 10",
             NULL);
 
+        /* unpacking anything into void is allowed */
+        TST(&tstiop__my_struct_a_opt__s, "w: str", "w: ~");
+        TST(&tstiop__my_struct_a_opt__s, "w: 3.5", "w: ~");
+        TST(&tstiop__my_struct_a_opt__s, "w: 53", "w: ~");
+        TST(&tstiop__my_struct_a_opt__s, "w: -27", "w: ~");
+        TST(&tstiop__my_struct_a_opt__s, "w: true", "w: ~");
+        TST(&tstiop__my_struct_a_opt__s, "w: { a: 2 }", "w: ~");
+        TST(&tstiop__my_struct_a_opt__s, "w: [1, 2]", "w: ~");
 
 #undef TST
     } Z_TEST_END;

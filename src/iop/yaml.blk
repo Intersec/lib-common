@@ -87,8 +87,6 @@ t_yaml_nil_to_iop_field(yunpack_env_t * nonnull env,
       case IOP_T_DATA:
         *(lstr_t *)out = LSTR_NULL_V;
         return YUNPACK_OK;
-      case IOP_T_VOID:
-        return YUNPACK_OK;
       case IOP_T_STRUCT:
       case IOP_T_UNION:
         if (t_yaml_data_to_typed_struct(env, data, fdesc->u1.st_desc,
@@ -736,6 +734,17 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
     } else
     if (fdesc->repeat == IOP_R_OPTIONAL && !iop_field_is_class(fdesc)) {
         out = iop_field_set_present(t_pool(), fdesc, out);
+    }
+
+    if (fdesc->type == IOP_T_VOID) {
+        logger_trace(&_G.logger, 2,
+                     "discarded %s from "YAML_POS_FMT" up to "YAML_POS_FMT
+                     " as field %pL of struct %pL is void",
+                     yaml_data_get_type(data, false),
+                     YAML_POS_ARG(data->span.start),
+                     YAML_POS_ARG(data->span.end), &fdesc->name,
+                     &st_desc->fullname);
+        return 0;
     }
 
     if (!struct_or_union && data->tag.s) {
