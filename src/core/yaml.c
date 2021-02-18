@@ -864,8 +864,23 @@ static void t_yaml_env_handle_comment_ps(yaml_parse_t * nonnull env,
     }
 
     comment_ps.s_end = env->ps.s;
-    ps_skipc(&comment_ps, '#');
-    comment = lstr_trim(LSTR_PS_V(&comment_ps));
+    __ps_skipc(&comment_ps, '#');
+    if (ps_peekc(comment_ps) == ' ') {
+        /* do not save leading space in the comment string. This space is
+         * expected and desired, so:
+         *  * this saves some space in the presentation data
+         *  * this normalizes the space when repacking
+         */
+        __ps_skip(&comment_ps, 1);
+    }
+
+    /* XXX: do not left-trim: we want to keep the leading spaces so that
+     * yaml code can be commented out, for example:
+     * # a:
+     * #   - 1
+     * #   - 2
+     */
+    comment = lstr_rtrim(LSTR_PS_V(&comment_ps));
 
     if (prefix) {
         if (prefix_comments->len == 0) {
@@ -8715,7 +8730,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "key:\n"
             "   # first line\n"
-            " # and second\n"
+            " #   and second\n"
             "     # bad indent is ok\n"
             "  a: # inline a\n"
             " # prefix scalar\n"
@@ -8724,7 +8739,7 @@ Z_GROUP_EXPORT(yaml)
 
             "key:\n"
             "  # first line\n"
-            "  # and second\n"
+            "  #   and second\n"
             "  # bad indent is ok\n"
             "  a: # inline a\n"
             "    # prefix scalar\n"
@@ -8735,7 +8750,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_EQ(3, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR(".key!"),
                               LSTR("first line"),
-                              LSTR("and second"),
+                              LSTR("  and second"),
                               LSTR("bad indent is ok"));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key.a"),
                                             LSTR("inline a")));
