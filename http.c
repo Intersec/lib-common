@@ -2383,8 +2383,11 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
 
     if (iop_cfg->tls_on) {
         SB_1k(err);
+        char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
+        int fd;
+        int ret;
 
-        if (!iop_cfg->tls_cert_path.s) {
+        if (!iop_cfg->tls_cert.s) {
             logger_error(&_G.logger, "tls: no certificate provided");
             return -1;
         }
@@ -2393,7 +2396,25 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
             logger_error(&_G.logger, "tls: init: %*pM", SB_FMT_ARG(&err));
             return -1;
         }
-        if (httpc_cfg_tls_add_verify_file(cfg, iop_cfg->tls_cert_path) < 0) {
+
+        if ((fd = mkstemp(path)) < 0) {
+            logger_error(&_G.logger, "tls: failed to create a temporary path "
+                         "to dump certificate: %m");
+            return -1;
+        }
+
+        ret = xwrite(fd, iop_cfg->tls_cert.s, iop_cfg->tls_cert.len);
+        p_close(&fd);
+        if (ret < 0) {
+            logger_error(&_G.logger, "tls: failed to dump certificate in "
+                         "temporary file `%s`: %m", path);
+            unlink(path);
+            return -1;
+        }
+
+        ret = httpc_cfg_tls_add_verify_file(cfg, LSTR(path));
+        unlink(path);
+        if (ret < 0) {
             httpc_cfg_tls_wipe(cfg);
             logger_error(&_G.logger, "tls: failed to load certificate");
             return -1;
