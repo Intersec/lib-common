@@ -121,7 +121,7 @@ components:
         b:
           type: number
           format: double
-          maximum: 1.5e+12
+          maximum: 1500000000000
         c:
           type: number
           format: double

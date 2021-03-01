@@ -445,7 +445,7 @@ t_yaml_scalar_to_string(const yaml_scalar_t * nonnull scalar)
         if (isnan(scalar->d)) {
             return LSTR(".NaN");
         } else {
-            return t_lstr_fmt("%g", scalar->d);
+            return t_lstr_fmt("%.15g", scalar->d);
         }
       } break;
 
@@ -654,16 +654,18 @@ static void yaml_span_init(yaml_span_t * nonnull span,
     span->env = env;
 }
 
+/* XXX: this function is reentrant, in the case of a tagged data. It is
+ * called first to initialize the data with the tag, then a second time
+ * to initialize with the YAML value */
 static void
 yaml_env_start_data_with_pos(yaml_parse_t * nonnull env,
                              yaml_data_type_t type, yaml_pos_t pos_start,
-                             yaml_data_t * nonnull out)
+                             bool use_prefix_pres, yaml_data_t * nonnull out)
 {
-    p_clear(out, 1);
     out->type = type;
     yaml_span_init(&out->span, env, pos_start, pos_start);
 
-    if (env->pres && env->pres->next_node) {
+    if (use_prefix_pres && env->pres && env->pres->next_node) {
         /* Get the saved presentation details that were stored for the next
          * data (ie this one).
          */
@@ -680,7 +682,7 @@ static void
 yaml_env_start_data(yaml_parse_t * nonnull env, yaml_data_type_t type,
                     yaml_data_t * nonnull out)
 {
-    yaml_env_start_data_with_pos(env, type, yaml_env_get_pos(env), out);
+    yaml_env_start_data_with_pos(env, type, yaml_env_get_pos(env), true, out);
 }
 
 static void
@@ -864,8 +866,23 @@ static void t_yaml_env_handle_comment_ps(yaml_parse_t * nonnull env,
     }
 
     comment_ps.s_end = env->ps.s;
-    ps_skipc(&comment_ps, '#');
-    comment = lstr_trim(LSTR_PS_V(&comment_ps));
+    __ps_skipc(&comment_ps, '#');
+    if (ps_peekc(comment_ps) == ' ') {
+        /* do not save leading space in the comment string. This space is
+         * expected and desired, so:
+         *  * this saves some space in the presentation data
+         *  * this normalizes the space when repacking
+         */
+        __ps_skip(&comment_ps, 1);
+    }
+
+    /* XXX: do not left-trim: we want to keep the leading spaces so that
+     * yaml code can be commented out, for example:
+     * # a:
+     * #   - 1
+     * #   - 2
+     */
+    comment = lstr_rtrim(LSTR_PS_V(&comment_ps));
 
     if (prefix) {
         if (prefix_comments->len == 0) {
@@ -877,7 +894,6 @@ static void t_yaml_env_handle_comment_ps(yaml_parse_t * nonnull env,
         yaml__presentation_node__t *pnode;
 
         pnode = t_yaml_env_pres_get_current_node(env->pres);
-        assert (pnode->inline_comment.len == 0);
         pnode->inline_comment = comment;
         if (env->pres->last_node) {
             logger_trace(&_G.logger, 2, "adding inline comment `%pL`",
@@ -1351,6 +1367,15 @@ t_yaml_scalar_replace_variables(yaml_parse_t * nonnull env,
             lstr_t string_value;
             int pos;
 
+            if (pair->data.variable) {
+                yaml_env_set_err_at(
+                    env, &pair->data.span, YAML_ERR_INVALID_VAR,
+                    "a variable used in templated strings cannot reference "
+                    "other variables"
+                );
+                return -1;
+            }
+
             pos = qm_reserve(str_value, string_values, &pair->key, 0);
             if (pos & QHASH_COLLISION) {
                 pos &= ~QHASH_COLLISION;
@@ -1514,8 +1539,12 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
         0x00000000, 0x00000000, 0x00000000, 0x00000000,
     } };
     yaml_pos_t tag_pos_start = yaml_env_get_pos(env);
-    yaml_pos_t tag_pos_end;
     pstream_t tag;
+
+    if (out->tag.s) {
+        return yaml_env_set_err(env, YAML_ERR_WRONG_OBJECT,
+                                "two tags have been declared");
+    }
 
     assert (ps_peekc(env->ps) == '!');
     yaml_env_skipc(env);
@@ -1530,21 +1559,19 @@ t_yaml_env_parse_tag(yaml_parse_t * nonnull env, const uint32_t min_indent,
         return yaml_env_set_err(env, YAML_ERR_INVALID_TAG,
                                 "wrong character in tag");
     }
-    tag_pos_end = yaml_env_get_pos(env);
 
     *type = get_tag_type(LSTR_PS_V(&tag));
 
+    yaml_env_start_data_with_pos(env, YAML_DATA_SCALAR, tag_pos_start, true,
+                                 out);
+    out->tag = LSTR_PS_V(&tag);
+    yaml_env_end_data(env, out);
+    out->tag_span = t_new(yaml_span_t, 1);
+    *out->tag_span = out->span;
+
     RETHROW(t_yaml_env_parse_data(env, min_indent, out));
 
-    if (out->tag.s) {
-        return yaml_env_set_err_at(env, out->tag_span, YAML_ERR_WRONG_OBJECT,
-                                   "two tags have been declared");
-    }
-
-    out->tag = LSTR_PS_V(&tag);
-    out->span.start = tag_pos_start;
-    out->tag_span = t_new(yaml_span_t, 1);
-    yaml_span_init(out->tag_span, env, tag_pos_start, tag_pos_end);
+    out->span.start = out->tag_span->start;
 
     if (lstr_equal(out->tag, LSTR("bin"))) {
         RETHROW(t_handle_binary_tag(env, out));
@@ -1736,7 +1763,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
         /* skip '-' */
         yaml_env_skipc(env);
 
-        elem = qv_growlen(&datas, 1);
+        elem = qv_growlen0(&datas, 1);
         RETHROW(t_yaml_env_parse_data(env, min_indent + 1, elem));
 
         pos_end = yaml_env_get_pos(env);
@@ -2266,7 +2293,8 @@ t_yaml_env_build_implicit_obj(yaml_parse_t * nonnull env,
     t_qv_init(&fields, 1);
     qv_append(&fields, *kd);
 
-    yaml_env_start_data_with_pos(env, YAML_DATA_OBJ, kd->key_span.start, out);
+    yaml_env_start_data_with_pos(env, YAML_DATA_OBJ, kd->key_span.start,
+                                 true, out);
     yaml_env_end_data_with_pos(env, kd->data.span.end, out);
     out->obj = t_new(yaml_obj_t, 1);
     out->obj->fields = fields;
@@ -2306,6 +2334,7 @@ t_yaml_env_parse_flow_seq(yaml_parse_t *env, yaml_data_t *out)
         if (kd.key.s) {
             yaml_data_t obj;
 
+            p_clear(&obj, 1);
             t_yaml_env_build_implicit_obj(env, &kd, &obj);
             qv_append(&datas, obj);
         } else {
@@ -2791,6 +2820,7 @@ t_yaml_env_handle_override(yaml_parse_t * nonnull env,
 /* }}} */
 /* {{{ Data */
 
+/* XXX: out must have been initialized prior to the call */
 static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
                                  yaml_data_t *out)
 {
@@ -2799,8 +2829,13 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
     RETHROW(yaml_env_ltrim(env));
     cur_indent = yaml_env_get_column_nb(env);
     if (cur_indent < min_indent || ps_done(&env->ps)) {
-        yaml_env_start_data(env, YAML_DATA_SCALAR, out);
-        yaml_env_end_data(env, out);
+        yaml_pos_t pos = yaml_env_get_pos(env);
+
+        /* XXX: do not use prefix presentation details. Those have been filled
+         * while searching for a data we did not found, and thus apply to the
+         * next data, and not to this 'null' node. */
+        yaml_env_start_data_with_pos(env, YAML_DATA_SCALAR, pos, false, out);
+        yaml_env_end_data_with_pos(env, pos, out);
         out->scalar.type = YAML_SCALAR_NULL;
 
         if (env->flags & YAML_PARSE_GEN_PRES_DATA) {
@@ -3066,6 +3101,7 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
     }
 
     assert (env->ps.s && "yaml_parse_attach_ps/file must be called first");
+    p_clear(out, 1);
     if (t_yaml_env_parse_data(env, 0, out) < 0) {
         res = -1;
         goto end;
@@ -3834,12 +3870,18 @@ yaml_pack_scalar(yaml_pack_env_t * nonnull env,
     int res = 0;
     char ibuf[IBUF_LEN];
 
-    if (unlikely(scalar->type == YAML_SCALAR_NULL && pres
-              && pres->empty_null))
+    if (unlikely(scalar->type == YAML_SCALAR_NULL && pres &&
+                 pres->empty_null))
     {
-        /* special case for empty null scalar: do nothing. This allows
-         * factorizing the GOTO_STATE as the other cases will all write
-         * something. */
+        if (env->state == PACK_STATE_ON_NEWLINE) {
+            /* This can happen if the previous data had an inline comment
+             * for example. Do not do anything and stay in state ON_NEWLINE,
+             * moving to state AFTER_DATA would add another invalid newline.
+             */
+            return 0;
+        }
+        /* Empty null scalar. Do not write anything, and mark the state as
+         * AFTER_DATA. */
         goto end;
     }
 
@@ -3862,7 +3904,7 @@ yaml_pack_scalar(yaml_pack_env_t * nonnull env,
         if (isnan(scalar->d)) {
             PUTS(".NaN");
         } else {
-            WRITE(ibuf, sprintf(ibuf, "%g", scalar->d));
+            WRITE(ibuf, sprintf(ibuf, "%.15g", scalar->d));
         }
       } break;
 
@@ -6121,7 +6163,7 @@ Z_GROUP_EXPORT(yaml)
 
             "<string>:2:1: wrong object, two tags have been declared\n"
             "!tag2\n"
-            "^^^^^"
+            "^"
         ));
 
         /* wrong list continuation */
@@ -7754,7 +7796,7 @@ Z_GROUP_EXPORT(yaml)
 
         child =
             "<<:\n"
-            "  a: $(a)\n"
+            "  a: \"$(a) \\$(b)\"\n"
             "  b:\n"
             "    c: <$(c)>\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
@@ -7767,7 +7809,7 @@ Z_GROUP_EXPORT(yaml)
             root,
 
             "<<:\n"
-            "  a: 1\n"
+            "  a: \"1 \\$(b)\"\n"
             "  b:\n"
             "    c: <2>"
         ));
@@ -8667,8 +8709,45 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_t data;
         yaml__document_presentation__t doc_pres;
         const yaml_presentation_t *pres;
+        lstr_t key;
 
-        /* comment on a scalar => not saved */
+        /* comments around a tag */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
+            "# prefix\n"
+            "!foo # inline tag\n"
+            "# prefix val\n"
+            "a # inline val",
+
+            "# prefix val\n"
+            "!foo a # inline val\n"
+        ));
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
+        Z_ASSERT_P(pres);
+        Z_ASSERT_EQ(1, qm_len(yaml_pres_node, &pres->nodes));
+        CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("prefix val"));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR("!"),
+                                            LSTR("inline val")));
+
+        /* comments around a null value */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
+            "# prefix a\n"
+            "a: # inline a\n"
+            "# prefix b\n"
+            "b: 2",
+            NULL
+        ));
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
+        Z_ASSERT_P(pres);
+        Z_ASSERT_EQ(4, qm_len(yaml_pres_node, &pres->nodes));
+        CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("prefix a"));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".a"),
+                                            LSTR("inline a")));
+        CHECK_PREFIX_COMMENTS(pres, LSTR(".b"), LSTR("prefix b"));
+        /* last element is .a! for the empty_null flag */
+        key = LSTR(".a!");
+        Z_ASSERT_N(qm_find_safe(yaml_pres_node, &pres->nodes, &key));
+
+        /* comment on a scalar => saved on '!' */
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "# my scalar\n"
             "3",
@@ -8715,7 +8794,7 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, NULL, 0,
             "key:\n"
             "   # first line\n"
-            " # and second\n"
+            " #   and second\n"
             "     # bad indent is ok\n"
             "  a: # inline a\n"
             " # prefix scalar\n"
@@ -8724,7 +8803,7 @@ Z_GROUP_EXPORT(yaml)
 
             "key:\n"
             "  # first line\n"
-            "  # and second\n"
+            "  #   and second\n"
             "  # bad indent is ok\n"
             "  a: # inline a\n"
             "    # prefix scalar\n"
@@ -8735,7 +8814,7 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_EQ(3, qm_len(yaml_pres_node, &pres->nodes));
         CHECK_PREFIX_COMMENTS(pres, LSTR(".key!"),
                               LSTR("first line"),
-                              LSTR("and second"),
+                              LSTR("  and second"),
                               LSTR("bad indent is ok"));
         Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".key.a"),
                                             LSTR("inline a")));
@@ -8803,6 +8882,54 @@ Z_GROUP_EXPORT(yaml)
 
             NULL
         ));
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Comment presentation with include */
+
+    Z_TEST(comment_presentation_with_include, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t doc_pres;
+        const yaml_presentation_t *pres;
+        yaml_parse_t *env;
+        const char *root;
+        const yaml__presentation_node__t *pnode;
+        lstr_t path;
+
+        /* test replacement of variables */
+        Z_HELPER_RUN(z_write_yaml_file("inner.yml", "2"));
+        root =
+            "# prefix a\n"
+            "a: !include:inner.yml # inline a\n"
+            "\n"
+            "# prefix b\n"
+            "b: 3 # inline b\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &doc_pres, &env, 0,
+            root,
+
+            "# prefix a\n"
+            "a: 2\n"
+            "\n"
+            "# prefix b\n"
+            "b: 3 # inline b\n"
+        ));
+
+        pres = t_yaml_doc_pres_to_map(&doc_pres);
+        Z_ASSERT_P(pres);
+        Z_ASSERT_EQ(4, qm_len(yaml_pres_node, &pres->nodes));
+
+        CHECK_PREFIX_COMMENTS(pres, LSTR("!"), LSTR("prefix a"));
+
+        CHECK_PREFIX_COMMENTS(pres, LSTR(".b"), LSTR("prefix b"));
+        Z_HELPER_RUN(z_check_inline_comment(pres, LSTR(".b!"),
+                                            LSTR("inline b")));
+
+        path = LSTR(".a!");
+        pnode = qm_get_def_safe(yaml_pres_node, &pres->nodes, &path, NULL);
+        Z_ASSERT_P(pnode);
+        Z_ASSERT_P(pnode->included);
+        Z_ASSERT_LSTREQUAL(pnode->included->path, LSTR("inner.yml"));
     } Z_TEST_END;
 
     /* }}} */
@@ -8961,9 +9088,9 @@ Z_GROUP_EXPORT(yaml)
             "key: !include:grandchild.yml\n"
             "  variables:\n"
             "    var: 3\n"
-            "    var_2: $(var_3)\n"
+            "    var_2: \"$(var_3) \\$(var_4)\"\n"
             "  b: $(var_3)\n"
-            "  c: $(var_4)\n";
+            "  c: \"\\$(var_4): $(var_4)\"\n";
         Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
         root =
             "!include:child.yml\n"
@@ -8978,10 +9105,10 @@ Z_GROUP_EXPORT(yaml)
 
             "key:\n"
             "  var: 1\n"
-            "  var2: 4\n"
+            "  var2: \"4 \\$(var_4)\"\n"
             "  a: a\n"
             "  b: 4\n"
-            "  c: 5"
+            "  c: \"\\$(var_4): 5\""
         ));
 
         Z_HELPER_RUN(z_pack_yaml_file("variables_2/root.yml", &data, &pres,
@@ -9933,6 +10060,120 @@ Z_GROUP_EXPORT(yaml)
     } Z_TEST_END;
 
     /* }}} */
+    /* {{{ escaped variables in variables */
+
+    Z_TEST(escaped_variables_in_variables, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+        const char *child;
+        const char *grandchild;
+
+        /* test replacement of variables */
+        grandchild =
+            "a: \"$(a) \\$(b) $(c) \\$(d) $(e)\"\n"
+            "b: \"\\$(a) $(b) $(c) $(d) $(e)\"\n"
+            "c: \"\\$(a) $(b) \\$(c) $(d) $(e)\"\n"
+            "d: \"$(a) \\$(b) \\$(c) \\$(d) $(e)\"\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+        child =
+            "!include:grandchild.yml\n"
+            "variables:\n"
+            "  b: z\n"
+            "  c: \"c<\\$(b)>\"\n"
+            "  a: y\n"
+            "  d: \"d<\\$(c) \\$(d)>\"\n"
+            "e: \"$(a) \\$(b) $(c) \\$(d) $(e)\"\n"
+            "f: \"$(a) $(b) \\$(c) \\$(d) $(e)\"\n";
+
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "!include:child.yml\n"
+            "variables:\n"
+            "  a: 1\n"
+            "  b: 2\n"
+            "  c: 3\n"
+            "  e: 5\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "a: \"y \\$(b) c<\\$(b)> \\$(d) 5\"\n"
+            "b: \"\\$(a) z c<\\$(b)> d<\\$(c) \\$(d)> 5\"\n"
+            "c: \"\\$(a) z \\$(c) d<\\$(c) \\$(d)> 5\"\n"
+            "d: \"y \\$(b) \\$(c) \\$(d) 5\"\n"
+            "e: \"1 \\$(b) 3 \\$(d) 5\"\n"
+            "f: \"1 2 \\$(c) \\$(d) 5\""
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("varsvars/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("varsvars/root.yml", root));
+        Z_HELPER_RUN(z_check_file("varsvars/child.yml", child));
+        Z_HELPER_RUN(z_check_file("varsvars/grandchild.yml", grandchild));
+
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ escaped variables in variables */
+
+    Z_TEST(escaped_variables_in_variables2, "") {
+        t_scope;
+        yaml_data_t data;
+        yaml__document_presentation__t pres;
+        yaml_parse_t *env;
+        const char *root;
+        const char *child;
+        const char *grandchild;
+
+        /* test replacement of variables */
+        grandchild =
+            "a: $(a)\n"
+            "b: $(b)\n"
+            "c: $(c)\n";
+        Z_HELPER_RUN(z_write_yaml_file("grandchild.yml", grandchild));
+        child =
+            "!include:grandchild.yml\n"
+            "variables:\n"
+            "  b: $(a)\n"
+            "  c:\n"
+            "    a: $(a)\n"
+            "    b: \"$(a) $(b)\"\n"
+            "    c: 3\n"
+            "d:\n"
+            "  c: $(c)\n";
+        Z_HELPER_RUN(z_write_yaml_file("child.yml", child));
+        root =
+            "!include:child.yml\n"
+            "variables:\n"
+            "  a: A\n"
+            "  b: B\n"
+            "  c: C\n";
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, &pres, &env, 0,
+            root,
+
+            "a: A\n"
+            "b: A\n"
+            "c:\n"
+            "  a: A\n"
+            "  b: A B\n"
+            "  c: 3\n"
+            "d:\n"
+            "  c: C"
+        ));
+
+        /* pack into files, to test repacking of variables */
+        Z_HELPER_RUN(z_pack_yaml_file("varsvars/root.yml", &data, &pres, 0));
+        Z_HELPER_RUN(z_check_file("varsvars/root.yml", root));
+        Z_HELPER_RUN(z_check_file("varsvars/child.yml", child));
+        Z_HELPER_RUN(z_check_file("varsvars/grandchild.yml", grandchild));
+
+        yaml_parse_delete(&env);
+    } Z_TEST_END;
+
+    /* }}} */
     /* {{{ deduce_var_in_string */
 
     Z_TEST(deduce_var_in_string, "") {
@@ -10214,6 +10455,34 @@ Z_GROUP_EXPORT(yaml)
 
         yaml_data_set_string(&d2, LSTR("~"));
         TST(&d1, &d2, false, true);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Double packing */
+
+    Z_TEST(double_packing, "") {
+        t_scope;
+
+        /* Doubles are packed with enough precision to repack those values
+         * as they were written. */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
+            "- 3.14159265\n"
+            "- 0.25\n"
+            "- 0.666666666666\n"
+            "- 1.23e+20",
+
+            NULL
+        ));
+
+        /* When written in scientific style, or when too big, the repacking
+         * will change. */
+        Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
+            "- 12e3\n"
+            "- 0.66666666666666666667\n",
+
+            "- 12000\n"
+            "- 0.666666666666667"
+        ));
     } Z_TEST_END;
 
     /* }}} */
