@@ -636,6 +636,14 @@ Z_GROUP_EXPORT(iop_yaml)
                   "st: i: 42\n"
                   "    ^^^^^");
 
+        /* using null for a struct with mandatory fields */
+        TST_ERROR(0, "st: ~",
+                  "<string>:1:5: "ERR_COMMON": cannot set field `st`: "
+                  "cannot unpack a null value into a struct with mandatory "
+                  "fields\n"
+                  "st: ~\n"
+                  "    ^");
+
         /* multiple keys */
         TST_ERROR(0, "un: i: 42\n"
                   "    s: foo",

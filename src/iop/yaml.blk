@@ -778,9 +778,12 @@ t_yaml_data_to_iop_field(yunpack_env_t *env, const yaml_data_t * nonnull data,
                     iop_type_get_string_desc(fdesc->type));
             env->err.span = &data->span;
             goto err;
-          default:
-            assert (false);
-            return -1;
+          case YUNPACK_NULL_STRUCT_ERROR:
+            sb_setf(&env->err.buf,
+                    "cannot unpack a null value into a struct with mandatory "
+                    "fields");
+            env->err.span = &data->span;
+            goto err;
         }
         break;
 
