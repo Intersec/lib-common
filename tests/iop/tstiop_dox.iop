@@ -36,6 +36,11 @@ abstract class MyClass {
     static int    val  = 10; //!< comment for val of MyClass
 };
 
+class MyClassChild : 1 : MyClass {
+    /** Name. */
+    static string name = "my-class-child";
+};
+
 /** comment for MyIface
  */
 interface MyIface {

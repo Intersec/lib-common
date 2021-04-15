@@ -492,7 +492,7 @@ t_class_field_to_schema_object(const iop_struct_t *class_desc,
     /* When using a class, it is not possible to point only to the class
      * schema directly, as any of the child is a valid response as well.
      * To handle this, the schema for the field must be a oneOf of all
-     * possible children.
+     * possible children (excluding abstract classes).
      */
     qv_t(iop_struct) children;
     qv_t(iop_struct) *_children_p = &children;
@@ -512,7 +512,9 @@ t_class_field_to_schema_object(const iop_struct_t *class_desc,
 
     /* add all children to the schemas, and build a list of them */
     iop_for_each_registered_classes(^(const iop_struct_t *st) {
-        if (iop_class_is_a(st, class_desc) && !st->class_attrs->is_private) {
+        if (iop_class_is_a(st, class_desc) && !st->class_attrs->is_private &&
+            !st->class_attrs->is_abstract)
+        {
             qv_t(iop_struct) *children_p = _children_p;
 
             qv_append(children_p, st);
