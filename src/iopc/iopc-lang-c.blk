@@ -1172,10 +1172,6 @@ iopc_iface_dump_tdef_hdr(sb_t *buf, const char *pkg_name, iopc_iface_t *iface)
     const char *iname = pp_to_c(iface->name);
     const char *ibase = t_fmt("%s__%s", pkg_name, iname);
 
-    if (!iface->funs.len) {
-        return;
-    }
-
     tab_for_each_entry(fun, &iface->funs) {
         const char *fbase = t_fmt("%s__%s", ibase, pp_to_c(fun->name));
 
