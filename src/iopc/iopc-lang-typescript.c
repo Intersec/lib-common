@@ -483,8 +483,6 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
             indent, st_name, pp_dot(pkg->name), st->iface ? "." : "",
             st->iface ? st->iface->name : "", st_name);
 
-    iopc_struct_sort_fields(st, BY_POS);
-
     sb_addf(buf, "%sexport interface %s", indent, st_name);
     if (iopc_is_class(st->type) && st->extends.len) {
         const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
@@ -607,8 +605,6 @@ static void iopc_dump_union(sb_t *buf, const char *indent,
     if (!st_name) {
         st_name = st->name;
     }
-
-    iopc_struct_sort_fields(st, BY_POS);
 
     sb_addc(buf, '\n');
 

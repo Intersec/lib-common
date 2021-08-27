@@ -76,13 +76,13 @@ static inline int iopc_tag_len(int32_t tag)
 
 static void iopc_field_compute_size(iopc_field_t *f);
 
-static iopc_field_t *iopc_struct_bubble_field(iopc_struct_t *st, int pos,
-                                              size_t size)
+static iopc_field_t *iopc_bubble_field(qv_t(iopc_field) *fields, int pos,
+                                       size_t size)
 {
     int lost = INT_MAX, match = 0;
-    iopc_field_t **tab = st->fields.tab + pos;
+    iopc_field_t **tab = fields->tab + pos;
 
-    for (int i = 0; i < st->fields.len - pos; i++) {
+    for (int i = 0; i < fields->len - pos; i++) {
         iopc_field_t *f = tab[i];
         int f_lost = ROUND_UP(size, f->align) - size;
 
@@ -101,34 +101,18 @@ static iopc_field_t *iopc_struct_bubble_field(iopc_struct_t *st, int pos,
     return tab[0];
 }
 
-void iopc_struct_sort_fields(iopc_struct_t *st, sort_order_t order)
+/* TODO Do it systematically somewhere else. */
+static void iopc_struct_build_fields_by_tag(iopc_struct_t *st)
 {
-    if (st->fields_sort_order == order) {
+    if (st->fields_by_tag.len == st->fields.len) {
         return;
     }
 
-    switch (order) {
-      case BY_TAG:
-        qv_sort(iopc_field)(&st->fields,
-            ^int (iopc_field_t * const *f1, iopc_field_t * const *f2) {
-                return (*f1)->tag - (*f2)->tag;
-            });
-        break;
-
-      case BY_POS:
-        qv_sort(iopc_field)(&st->fields,
-            ^int (iopc_field_t * const *f1, iopc_field_t * const *f2) {
-                return (*f1)->field_pos - (*f2)->field_pos;
-            });
-        break;
-
-      case UNSORTED:
-        assert (false);
-        break;
-    }
-
-    st->fields_sort_order = order;
-    st->optimized = false;
+    qv_extend(&st->fields_by_tag, &st->fields);
+    qv_sort(iopc_field)(&st->fields_by_tag, ^int (iopc_field_t * const *f1,
+                                                  iopc_field_t * const *f2) {
+        return (*f1)->tag - (*f2)->tag;
+    });
 }
 
 /** Calculate sizes and alignments then and optimize the fields order to
@@ -163,7 +147,8 @@ static void iopc_struct_optimize(iopc_struct_t *st)
     }
     orig_size = ROUND_UP(orig_size, st->align);
 
-    iopc_struct_sort_fields(st, BY_TAG);
+    iopc_struct_build_fields_by_tag(st);
+    qv_extend(&st->fields_in_c_struct_order, &st->fields_by_tag);
 
     if (st->type == STRUCT_TYPE_UNION) {
         /*
@@ -172,8 +157,8 @@ static void iopc_struct_optimize(iopc_struct_t *st)
          * so its align is at least 2, and its size is an alignment + max size
          * of any member of the union.
          */
-        for (int i = 0; i < st->fields.len; i++) {
-            size = MAX(size, st->fields.tab[i]->size);
+        tab_for_each_entry(f, &st->fields) {
+            size = MAX(size, f->size);
         }
         size     = ROUND_UP(size, st->align);
         st->size = st->align + size;
@@ -189,9 +174,14 @@ static void iopc_struct_optimize(iopc_struct_t *st)
                                      NULL) < 0;
     }
 
-    for (int i = 0; i < st->fields.len; i++) {
-        iopc_field_t *f = do_reorder ? iopc_struct_bubble_field(st, i, size)
-                                     : st->fields.tab[i];
+    for (int i = 0; i < st->fields_in_c_struct_order.len; i++) {
+        iopc_field_t *f;
+
+        if (do_reorder) {
+            f = iopc_bubble_field(&st->fields_in_c_struct_order, i, size);
+        } else {
+            f = st->fields_in_c_struct_order.tab[i];
+        }
 
         size = ROUND_UP(size, f->align) + f->size;
     }
@@ -211,9 +201,6 @@ static void iopc_struct_optimize(iopc_struct_t *st)
 #endif
 
     st->optimized = true;
-    if (do_reorder) {
-        st->fields_sort_order = UNSORTED;
-    }
 }
 
 /* }}} */
@@ -913,11 +900,10 @@ iopc_snmp_field_dump_tdef_hdr(sb_t *buf, const char *pkg_name,
 
 
 static void
-iopc_struct_dump_fields(sb_t *buf, int ident, iopc_field_t *const *fields,
-                        int len)
+iopc_struct_dump_fields(sb_t *buf, int ident, const qv_t(iopc_field) *fields)
 {
-    for (int i = 0; i < len; i++) {
-        pp_field_with_type(buf, fields[i], ident);
+    tab_for_each_entry(f, fields) {
+        pp_field_with_type(buf, f, ident);
     }
 }
 
@@ -974,7 +960,7 @@ static void iopc_struct_dump_hdr_class(sb_t *buf, iopc_struct_t *st)
         sb_addf(buf, "/* fields of %s__%s__t */\n",
                 pp_under(parents_pkgs.tab[pos]->name), pp_to_c(st->name));
         iopc_struct_optimize(st);
-        iopc_struct_dump_fields(buf, ident, st->fields.tab, st->fields.len);
+        iopc_struct_dump_fields(buf, ident, &st->fields_in_c_struct_order);
         ident -= 4;
         sb_addnc(buf, ident, ' ');
         sb_adds(buf, "};\n");
@@ -1019,9 +1005,11 @@ static void iopc_struct_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
         }
 
         if (st->contains_snmp_info) {
-            iopc_struct_dump_snmp_fields(buf, 4, st->fields.tab, st->fields.len);
+            iopc_struct_dump_snmp_fields(buf, 4,
+                                         st->fields_in_c_struct_order.tab,
+                                         st->fields_in_c_struct_order.len);
         } else {
-            iopc_struct_dump_fields(buf, 4, st->fields.tab, st->fields.len);
+            iopc_struct_dump_fields(buf, 4, &st->fields_in_c_struct_order);
         }
 
         sb_adds(buf, "};\n");
@@ -1063,7 +1051,7 @@ static void iopc_union_dump_tag_cst(sb_t *buf, const char *tbase,
     }
 
     sb_addf(buf, "typedef enum %s__tag_t {\n", tbase);
-    tab_for_each_entry(f, &st->fields) {
+    tab_for_each_entry(f, &st->fields_by_tag) {
         /* Tag of the field (enum) */
         sb_addf(buf, "    %s__%s__ft = %d,\n", tbase, pp_to_c(f->name),
                 f->tag);
@@ -1095,7 +1083,7 @@ static void iopc_union_dump_tag_cst(sb_t *buf, const char *tbase,
 static void iopc_union_dump_fdesc_cst(sb_t *buf, const char *tbase,
                                     const iopc_struct_t *st)
 {
-    tab_enumerate(pos, f, &st->fields) {
+    tab_enumerate(pos, f, &st->fields_by_tag) {
         sb_addf(buf, "#define %s__%s__fdesc  %s__s.fields[%d]\n",
                 tbase, pp_to_c(f->name), tbase, pos);
     }
@@ -1108,7 +1096,7 @@ static void iopc_union_dump_fdesc_cst(sb_t *buf, const char *tbase,
                 assert (lstr_endswith(arg->v.s, LSTR("__t")));
                 ctype = LSTR_INIT_V(arg->v.s.s, arg->v.s.len - 3);
 
-                tab_for_each_entry(f, &st->fields) {
+                tab_for_each_entry(f, &st->fields_by_tag) {
                     sb_addf(buf, "#define %*pM__%s__fdesc  %s__%s__fdesc\n",
                             LSTR_FMT_ARG(ctype), pp_to_c(f->name),
                             tbase, pp_to_c(f->name));
@@ -1130,6 +1118,7 @@ static void iopc_union_dump_hdr(sb_t *buf, const char *pkg_name,
     iopc_struct_optimize(st);
 
     sb_adds(buf, "/*----- XXX private data, do not use directly -{{{-*/\n");
+
     iopc_union_dump_tag_cst(buf, tbase, st);
     sb_addc(buf, '\n');
     iopc_union_dump_fdesc_cst(buf, tbase, st);
@@ -1138,7 +1127,7 @@ static void iopc_union_dump_hdr(sb_t *buf, const char *pkg_name,
     sb_addf(buf, "struct %s__t {\n", tbase);
     sb_addf(buf, "    %s__tag_t iop_tag;\n", tbase);
     sb_addf(buf, "    union {\n");
-    tab_for_each_entry(f, &st->fields) {
+    tab_for_each_entry(f, &st->fields_in_c_struct_order) {
         pp_field_with_type(buf, f, 8);
     }
     sb_addf(buf, "    };\n"
@@ -1269,10 +1258,10 @@ iopc_module_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
             "/*----- module %s.%s -----*/\n",
             pretty_path_dot(pkg->name), mod->name);
 
-    iopc_struct_sort_fields(mod, BY_TAG);
-
-    for (int i = 0; i < mod->fields.len; i++) {
-        iopc_field_t *f = mod->fields.tab[i];
+    iopc_struct_build_fields_by_tag(mod);
+    assert(mod->fields_by_tag.len == mod->fields.len);
+    for (int i = 0; i < mod->fields_by_tag.len; i++) {
+        iopc_field_t *f = mod->fields_by_tag.tab[i];
 
         sb_addf(buf,
                 "#define %s__%s__TAG    0x%04x\n"
@@ -1390,7 +1379,8 @@ iopc_dump_field_src(sb_t *buf, const iopc_struct_t *st, const char *tbase,
     if (!iopc_is_snmp_obj(st->type)) {
         if (iopc_struct_is_field_ignored(f)) {
             if (st->type == STRUCT_TYPE_UNION) {
-                tab_for_each_entry(f2, &st->fields) {
+                assert(st->fields_by_tag.len == st->fields.len);
+                tab_for_each_entry(f2, &st->fields_by_tag) {
                     if (!iopc_struct_is_field_ignored(f2)) {
                         sb_addf(buf,
                                 "        .data_offs = offsetof(%s__t, %s),\n",
@@ -2809,13 +2799,15 @@ static void iopc_struct_check_constraints(iopc_struct_t *st)
           case IOP_T_STRUCT:
           case IOP_T_UNION:
             iopc_struct_check_constraints(f->struct_def);
-            if (f->struct_def->has_constraints)
+            if (f->struct_def->has_constraints) {
                 st->has_constraints = true;
+            }
             break;
 
           case IOP_T_ENUM:
-            if (iopc_has_constraints(&f->enum_def->attrs))
+            if (iopc_has_constraints(&f->enum_def->attrs)) {
                 st->has_constraints = true;
+            }
             break;
 
           default:
@@ -2901,15 +2893,16 @@ static iop_array_i32_t mp_iopc_struct_build_ranges(mem_pool_t *mp,
     qv_t(i32) t;
     int last_tag = INT_MIN;
 
-    mp_qv_init(mp, &t, 2 * st->fields.len + 1);
-    tab_enumerate(i, f, &st->fields) {
+    assert(st->fields_by_tag.len == st->fields.len);
+    mp_qv_init(mp, &t, 2 * st->fields_by_tag.len + 1);
+    tab_enumerate(i, f, &st->fields_by_tag) {
         if (++last_tag != f->tag) {
             qv_append(&t, i);
             qv_append(&t, f->tag);
             last_tag = f->tag;
         }
     }
-    qv_append(&t, st->fields.len);
+    qv_append(&t, st->fields_by_tag.len);
     mp_realloc_from(mp, &t.tab, t.size, t.len);
 
     return IOP_TYPED_ARRAY_TAB(i32, &t);
@@ -3005,7 +2998,6 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
     iop_array_i32_t t;
     bool has_attrs;
 
-    iopc_struct_sort_fields(st, BY_TAG);
     sb_addf(buf, "/* %s %s.%s {""{{ */\n\n",
             comment, pretty_path_dot(pkg->name), sname);
 
@@ -3040,7 +3032,8 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
             char *fbase;
             iopc_extends_t *xt;
 
-            tab_for_each_entry(field, &st->fields) {
+            assert(st->fields_by_tag.len == st->fields.len);
+            tab_for_each_entry(field, &st->fields_by_tag) {
                 fbase = t_fmt("%s__%s", tbase, pp_to_c(field->name));
                 xt = field->parents.tab[0];
 
@@ -3053,7 +3046,8 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
         if (iopc_is_snmp_st(st->type)) {
             char *fbase;
 
-            tab_for_each_entry(field, &st->fields) {
+            assert(st->fields_by_tag.len == st->fields.len);
+            tab_for_each_entry(field, &st->fields_by_tag) {
                 fbase = t_fmt("%s__%s", tbase, pp_to_c(field->name));
 
                 iopc_dump_snmp_attrs(buf, st, pkg, fbase, field->tag,
@@ -3064,7 +3058,8 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
         /* check attributes and generate everything that is needed for
          * <tbase>__desc_fields_attrs (attributes, constraints func and help)
          */
-        tab_for_each_entry(field, &st->fields) {
+        assert(st->fields_by_tag.len == st->fields.len);
+        tab_for_each_entry(field, &st->fields_by_tag) {
             iopc_attrs_t attrs;
 
             iopc_attrs_init(&attrs);
@@ -3082,7 +3077,8 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
             sb_addf(buf,
                     "static iop_field_attrs_t const %s__desc_fields_attrs[] = {\n",
                     tbase);
-            tab_enumerate(i, f, &st->fields) {
+            assert(st->fields_by_tag.len == st->fields.len);
+            tab_enumerate(i, f, &st->fields_by_tag) {
                 iopc_dump_field_attrs_src(buf, st, tbase, f,
                                           &fields_attrs.tab[i]);
             }
@@ -3092,7 +3088,8 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
         /* generate <tbase>__desc_fields */
         sb_addf(buf, "static iop_field_t %s%s__desc_fields[] = {\n", CONST,
                 tbase);
-        tab_enumerate(i, f, &st->fields) {
+        assert(st->fields_by_tag.len == st->fields.len);
+        tab_enumerate(i, f, &st->fields_by_tag) {
             iopc_dump_field_src(buf, st, tbase, f, &fields_attrs.tab[i]);
         }
         sb_adds(buf,
@@ -3465,8 +3462,9 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
             "\n"
             "static iop_iface_alias_t const %s__aliases[] = {\n",
             pretty_path_dot(pkg->name), mod->name, mbase);
-    for (int i = 0; i < mod->fields.len; i++) {
-        iopc_field_t *f = mod->fields.tab[i];
+    assert(mod->fields_by_tag.len == mod->fields.len);
+    for (int i = 0; i < mod->fields_by_tag.len; i++) {
+        iopc_field_t *f = mod->fields_by_tag.tab[i];
 
         sb_addf(buf,
                 "    {\n"
@@ -3486,7 +3484,8 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
         SB_1k(help_body);
 
         SET_BIT(&flags, IOP_MOD_EXTENDED);
-        tab_for_each_entry(f, &mod->fields) {
+        assert(mod->fields_by_tag.len == mod->fields.len);
+        tab_for_each_entry(f, &mod->fields_by_tag) {
             int len = has_help(&f->comments);
             const char *fname = pp_to_c(f->name);
 
@@ -4010,8 +4009,9 @@ mp_iopc_struct_to_desc(mem_pool_t *mp, iopc_struct_t *st,
         offset = sizeof(uint16_t);
     }
 
-    fields = mp_new_raw(mp, iop_field_t, st->fields.len);
-    tab_for_each_entry(f, &st->fields) {
+    assert(st->fields_by_tag.len == st->fields.len);
+    fields = mp_new_raw(mp, iop_field_t, st->fields_in_c_struct_order.len);
+    tab_for_each_entry(f, &st->fields_in_c_struct_order) {
         if (mp_iopc_field_to_desc(mp, f, st, &offset, &fields[f->field_pos],
                                   err) < 0)
         {
@@ -4025,19 +4025,18 @@ mp_iopc_struct_to_desc(mem_pool_t *mp, iopc_struct_t *st,
          * depends of the IOP union field with the biggest alignment. This
          * loop realigns all the fields offsets on the biggest offset.
          */
-        tab_for_each_pos(pos, &st->fields) {
+        tab_for_each_pos(pos, &st->fields_in_c_struct_order) {
             fields[pos].data_offs = offset;
         }
     }
 
-    iopc_struct_sort_fields(st, BY_TAG);
     ranges = mp_iopc_struct_build_ranges(mp, st);
 
     {
         iop_struct_t _st_desc = {
             .fullname = mp_build_fullname(mp, pkg, st->name),
             .fields = fields,
-            .fields_len = st->fields.len,
+            .fields_len = st->fields_in_c_struct_order.len,
             .ranges = ranges.tab,
             .ranges_len = ranges.len / 2,
             .size = st->size, /* TODO Check correctness */

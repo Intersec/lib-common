@@ -708,12 +708,6 @@ static inline void iopc_attrs_wipe(iopc_attrs_t *attrs)
 /* Used to detect duplicated ids in an inheritance tree */
 qm_k32_t(id_class, struct iopc_struct_t *);
 
-typedef enum sort_order_t {
-    UNSORTED,
-    BY_POS,
-    BY_TAG,
-} sort_order_t;
-
 typedef struct iopc_struct_t {
     uint16_t   size;
     uint8_t    align;
@@ -746,8 +740,11 @@ typedef struct iopc_struct_t {
     };
     struct iopc_struct_t *same_as;
     struct iopc_iface_t  *iface;
-    sort_order_t       fields_sort_order;
     qv_t(iopc_field)   fields;
+
+    qv_t(iopc_field)   fields_by_tag;
+    qv_t(iopc_field)   fields_in_c_struct_order;
+
     qv_t(iopc_field)   static_fields;
     int                nb_real_static_fields; /**< those with a defval */
     qv_t(iopc_extends) extends;
@@ -765,6 +762,8 @@ typedef struct iopc_struct_t {
 static inline iopc_struct_t *iopc_struct_init(iopc_struct_t *st) {
     p_clear(st, 1);
     qv_init(&st->fields);
+    qv_init(&st->fields_by_tag);
+    qv_init(&st->fields_in_c_struct_order);
     qv_init(&st->static_fields);
     qv_init(&st->extends);
     qv_init(&st->attrs);
@@ -776,6 +775,8 @@ static inline void iopc_struct_delete(iopc_struct_t **);
 static inline void iopc_iface_delete(struct iopc_iface_t **);
 static inline void iopc_struct_wipe(iopc_struct_t *st) {
     qv_deep_wipe(&st->extends, iopc_extends_delete);
+    qv_wipe(&st->fields_by_tag);
+    qv_wipe(&st->fields_in_c_struct_order);
     qv_deep_wipe(&st->fields, iopc_field_delete);
     qv_deep_wipe(&st->static_fields, iopc_field_delete);
     qv_deep_wipe(&st->attrs, iopc_attr_delete);
@@ -1067,7 +1068,6 @@ static inline void iopc_parser_typer_shutdown(void)
 /*----- utilities -----*/
 
 int iopc_field_get_signed(const iopc_field_t *f, bool *is_signed);
-void iopc_struct_sort_fields(iopc_struct_t *st, sort_order_t order);
 
 /*----- writing output files -----*/
 

@@ -776,7 +776,6 @@ iopc_struct_dump_json(const iopc_write_buf_t *wbuf, const char *pkg_name,
     dump_gen_attrs(wbuf, &st->attrs);
 
     LINE_START_OBJ_CKEY(wbuf, "fields");
-    iopc_struct_sort_fields(st, BY_POS);
     RETHROW(dump_fields(wbuf, &st->fields));
     LINE_END_OBJ(wbuf);
     return 0;
