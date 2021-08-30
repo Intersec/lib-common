@@ -2775,8 +2775,7 @@ parse_function_stmt(iopc_parser_t *pp, qv_t(iopc_attr) *attrs,
         goto error;
     }
 
-    qv_splice(&fun->attrs, fun->attrs.len, 0,
-              attrs->tab, attrs->len);
+    qv_extend(&fun->attrs, attrs);
 
     if (!(fun->name = iopc_lower_ident(pp))
     ||  check_name(fun->name, TK(pp, 0, goto error)->loc, &fun->attrs) < 0

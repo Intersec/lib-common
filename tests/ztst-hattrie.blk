@@ -189,7 +189,7 @@ static void run_rand_test(qps_t *qps, bool is_nullable, uint32_t count,
         }
         qv_append(&data, val);
     }
-    qv_splice(&cpy, 0, 0, data.tab, data.len);
+    qv_extend(&cpy, &data);
     qh_wipe(u32, &h);
 
     qhat_init(&trie, qps, htrie);

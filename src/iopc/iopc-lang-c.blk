@@ -3553,8 +3553,8 @@ iopc_pkg_dump_src(sb_t *buf, iopc_pkg_t *pkg,
     qv_t(iopc_pkg) deps;
 
     t_qv_init(&deps, 1024);
-    qv_splice(&deps, deps.len, 0, t_deps->tab, t_deps->len);
-    qv_splice(&deps, deps.len, 0, i_deps->tab, i_deps->len);
+    qv_extend(&deps, t_deps);
+    qv_extend(&deps, i_deps);
     iopc_depends_uniquify(&deps);
 
     sb_addf(buf,
