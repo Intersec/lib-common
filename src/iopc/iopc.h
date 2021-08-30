@@ -1006,26 +1006,45 @@ int iopc_resolve_second_pass(iopc_pkg_t *pkg);
 void iopc_types_fold(iopc_pkg_t *pkg);
 void iopc_depends_uniquify(qv_t(iopc_pkg) *deps);
 
-/** Flags to be used by iopc_get_depends(). */
-typedef enum iopc_get_depends_flags_t {
+/** Flags to be used by iopc_pkg_get_deps(). */
+typedef enum iopc_pkg_get_deps_flags_t {
     /** Include the iface dependencies. */
-    IOPC_GET_DEPENDS_INCLUDE_IFACES          = 1 << 0,
+    IOPC_PKG_GET_DEPS_INCLUDE_IFACES          = 1 << 0,
 
     /** Include the SNMP structures dependencies. */
-    IOPC_GET_DEPENDS_INCLUDE_SNMP            = 1 << 1,
+    IOPC_PKG_GET_DEPS_INCLUDE_SNMP            = 1 << 1,
 
     /** Include the dependencies of all ancestors of the classes. */
-    IOPC_GET_DEPENDS_INCLUDE_CLASS_ANCESTORS = 1 << 2,
+    IOPC_PKG_GET_DEPS_INCLUDE_CLASS_ANCESTORS = 1 << 2,
 
     /** Include all possible dependencies. */
-    IOPC_GET_DEPENDS_INCLUDE_ALL = IOPC_GET_DEPENDS_INCLUDE_IFACES
-                                 | IOPC_GET_DEPENDS_INCLUDE_SNMP
-                                 | IOPC_GET_DEPENDS_INCLUDE_CLASS_ANCESTORS,
-} iopc_get_depends_flags_t;
+    IOPC_PKG_GET_DEPS_INCLUDE_ALL = IOPC_PKG_GET_DEPS_INCLUDE_IFACES
+                                  | IOPC_PKG_GET_DEPS_INCLUDE_SNMP
+                                  | IOPC_PKG_GET_DEPS_INCLUDE_CLASS_ANCESTORS,
+} iopc_pkg_get_deps_flags_t;
 
-void iopc_get_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
-                      qv_t(iopc_pkg) *t_weak_deps, qv_t(iopc_pkg) *i_deps,
-                      unsigned flags);
+/** For a given IOPC package, list the other IOPC packages it depends on.
+ *
+ * \param[in] flags  Flags from \p iopc_pkg_get_deps_flags_t.
+
+ * \param[out] t_deps  Dependencies for which complete types definitions
+ *                     will be needed. These complete definitions are meant to
+ *                     be found in header files "<package>-t.iop.h".
+ *
+ * \param[out] t_weak_deps  Dependencies for which only forward types
+ *                          declarations are needed (for example when a struct
+ *                          attribute is a pointer).
+ *                          These definitions are meant to be found in header
+ *                          files "<package>-t.iop.h".
+ *
+ * \param[out] i_deps  Dependencies induced by interfaces definitions.
+ *                     Interfaces and modules stuff are not dumped in the same
+ *                     header as structs/union/classes so their dependencies
+ *                     are listed separately.
+ */
+void iopc_pkg_get_deps(iopc_pkg_t *pkg, unsigned flags,
+                       qv_t(iopc_pkg) *t_deps, qv_t(iopc_pkg) *t_weak_deps,
+                       qv_t(iopc_pkg) *i_deps);
 
 /** Check that the name is valid to use as an IOP type */
 int iopc_check_type_name(lstr_t name, sb_t * nullable err);

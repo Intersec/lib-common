@@ -3726,8 +3726,8 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     qv_inita(&i_deps, 1024);
 
     pkg_name = pp_under(pkg->name);
-    iopc_get_depends(pkg, &t_deps, &t_weak_deps, &i_deps,
-                     IOPC_GET_DEPENDS_INCLUDE_ALL);
+    iopc_pkg_get_deps(pkg, IOPC_PKG_GET_DEPS_INCLUDE_ALL,
+                      &t_deps, &t_weak_deps, &i_deps);
 
     iopc_set_path(outdir, pkg, "-tdef.iop.h", sizeof(path), path,
                   !!iopc_do_c_g.iop_compat_header);

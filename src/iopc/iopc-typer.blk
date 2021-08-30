@@ -1514,7 +1514,7 @@ get_structs_t_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
         iopc_add_depends(pkg, parent->pkg, t_deps);
         st = parent->st;
 
-        if (!(flags & IOPC_GET_DEPENDS_INCLUDE_CLASS_ANCESTORS)) {
+        if (!(flags & IOPC_PKG_GET_DEPS_INCLUDE_CLASS_ANCESTORS)) {
             break;
         }
     }
@@ -1551,12 +1551,12 @@ void iopc_depends_uniquify(qv_t(iopc_pkg) *deps)
     });
 }
 
-void iopc_get_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
-                      qv_t(iopc_pkg) *t_weak_deps, qv_t(iopc_pkg) *i_deps,
-                      unsigned flags)
+void iopc_pkg_get_deps(iopc_pkg_t *pkg, unsigned flags,
+                       qv_t(iopc_pkg) *t_deps, qv_t(iopc_pkg) *t_weak_deps,
+                       qv_t(iopc_pkg) *i_deps)
 {
     tab_for_each_entry(st, &pkg->structs) {
-        if (!(flags & IOPC_GET_DEPENDS_INCLUDE_SNMP)
+        if (!(flags & IOPC_PKG_GET_DEPS_INCLUDE_SNMP)
         &&  iopc_is_snmp_st(st->type))
         {
             continue;
@@ -1565,7 +1565,7 @@ void iopc_get_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
     }
 
     tab_for_each_entry(iface, &pkg->ifaces) {
-        if (!(flags & IOPC_GET_DEPENDS_INCLUDE_SNMP)
+        if (!(flags & IOPC_PKG_GET_DEPS_INCLUDE_SNMP)
         &&  iopc_is_snmp_iface(iface->type))
         {
             continue;
@@ -1606,7 +1606,7 @@ void iopc_get_depends(iopc_pkg_t *pkg, qv_t(iopc_pkg) *t_deps,
             }
         }
     }
-    if (flags & IOPC_GET_DEPENDS_INCLUDE_IFACES) {
+    if (flags & IOPC_PKG_GET_DEPS_INCLUDE_IFACES) {
         tab_for_each_entry(mod, &pkg->modules) {
             get_structs_depends(pkg, i_deps, mod);
         }
