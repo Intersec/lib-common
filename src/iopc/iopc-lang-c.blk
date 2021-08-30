@@ -3782,15 +3782,15 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     tab_for_each_entry(dep, &t_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, "-t.iop.h", dep, pkg));
     }
+    if (t_deps.len || t_weak_deps.len) {
+        sb_adds(&buf, "\n");
+    }
+
     sb_adds(&buf,
             "#if __has_feature(nullability)\n"
             "#pragma GCC diagnostic push\n"
             "#pragma GCC diagnostic error \"-Wnullability-completeness\"\n"
             "#endif\n\n");
-
-    if (t_deps.len || t_weak_deps.len) {
-        sb_adds(&buf, "\n");
-    }
 
     tab_for_each_entry(en, &pkg->enums) {
         iopc_enum_dump_hdr(&buf, pkg_name, en);

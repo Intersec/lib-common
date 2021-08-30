@@ -5,11 +5,11 @@
 #include "tstgen-tdef.iop.h"
 
 #include "pkg_a-tdef.iop.h"
+
 #if __has_feature(nullability)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wnullability-completeness"
 #endif
-
 
 EXPORT iop_enum_t const tstgen__my_enum_a__e;
 EXPORT iop_enum_t const * const nonnull tstgen__my_enum_a__ep;
