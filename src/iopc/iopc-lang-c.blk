@@ -3704,7 +3704,7 @@ static int put_include(sb_t *sb, const char *ext,
                 pretty_path(pkg->name), iop_path);
 }
 
-int iopc_do_c(iopc_pkg_t *pkg, const char *outdir, sb_t *depbuf)
+int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
 {
     SB_8k(buf);
     qv_t(iopc_pkg) t_deps, t_weak_deps, i_deps;

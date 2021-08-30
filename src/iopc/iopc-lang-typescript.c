@@ -833,7 +833,7 @@ static void iopc_dump_ifaces(sb_t *buf, iopc_pkg_t *pkg)
     sb_adds(buf, "}\n");
 }
 
-int iopc_do_typescript(iopc_pkg_t *pkg, const char *outdir, sb_t *depbuf)
+int iopc_do_typescript(iopc_pkg_t *pkg, const char *outdir)
 {
     SB_8k(buf);
     char path[PATH_MAX];

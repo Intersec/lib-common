@@ -1106,9 +1106,9 @@ extern struct iopc_do_typescript_globs {
     bool enable_iop_backbone;
 } iopc_do_typescript_g;
 
-int iopc_do_c(iopc_pkg_t *pkg, const char *outdir, sb_t *depbuf);
-int iopc_do_json(iopc_pkg_t *pkg, const char *outdir, sb_t *depbuf);
-int iopc_do_typescript(iopc_pkg_t *pkg, const char *outdir, sb_t *depbuf);
+int iopc_do_c(iopc_pkg_t *pkg, const char *outdir);
+int iopc_do_json(iopc_pkg_t *pkg, const char *outdir);
+int iopc_do_typescript(iopc_pkg_t *pkg, const char *outdir);
 
 /*----- IOPC DSO -----*/
 

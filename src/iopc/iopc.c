@@ -132,7 +132,7 @@ static int parse_class_id_range(const char *class_id_range)
 static char const * const only_stdin[] = { "-", NULL };
 
 struct doit {
-    int (*cb)(iopc_pkg_t *, const char *, sb_t *);
+    int (*cb)(iopc_pkg_t *, const char *);
     const char *outpath;
 };
 qvector_t(doit, struct doit);
@@ -294,7 +294,7 @@ int main(int argc, char **argv)
         iopc_types_fold(pkg);
 
         tab_for_each_ptr(doit, &doits) {
-            if ((*doit->cb)(pkg, doit->outpath, &deps) < 0) {
+            if ((*doit->cb)(pkg, doit->outpath) < 0) {
                 iopc_parser_typer_shutdown();
                 goto error;
             }

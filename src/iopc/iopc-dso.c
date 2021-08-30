@@ -163,11 +163,11 @@ iopc_build(const char *pfxdir, bool display_pfx, const qm_t(iopc_env) *env,
 
     iopc_types_fold(pkg);
 
-    if (iopc_do_c(pkg, outdir, NULL) < 0) {
+    if (iopc_do_c(pkg, outdir) < 0) {
         goto error;
     }
 
-    if (is_main_pkg && iopc_do_json(pkg, outdir, NULL) < 0) {
+    if (is_main_pkg && iopc_do_json(pkg, outdir) < 0) {
         goto error;
     }
 
