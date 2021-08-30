@@ -1155,6 +1155,28 @@ static int iopc_fun_n_aliases(const iopc_fun_t *fun)
 }
 
 static void
+iopc_fun_struct_dump_tdef_hdr(sb_t *buf, const char *pkg_name,
+                              const char *ibase, const char *fbase,
+                              const char *fun_type, iopc_fun_struct_t *fun_st)
+{
+    if (iopc_fun_struct_is_void(fun_st)) {
+        sb_addf(buf, "typedef iop__void__t %s_%s__t;\n", fbase, fun_type);
+    } else {
+        if (fun_st->is_anonymous) {
+            iopc_struct_dump_tdef_hdr(buf, pkg_name, fun_st->anonymous_struct,
+                                      ibase);
+        } else {
+            /* When the function argument is just a reference to another
+             * structure, we just yield several alias using macros */
+            sb_addf(buf, "typedef %s__%s__t %s_%s__t;\n",
+                    pp_under(fun_st->existing_struct->type_path),
+                    pp_to_c(fun_st->existing_struct->type_name), fbase,
+                    fun_type);
+        }
+    }
+}
+
+static void
 iopc_iface_dump_tdef_hdr(sb_t *buf, const char *pkg_name, iopc_iface_t *iface)
 {
     t_scope;
@@ -1164,45 +1186,23 @@ iopc_iface_dump_tdef_hdr(sb_t *buf, const char *pkg_name, iopc_iface_t *iface)
     tab_for_each_entry(fun, &iface->funs) {
         const char *fbase = t_fmt("%s__%s", ibase, pp_to_c(fun->name));
 
-        if (fun->arg) {
-            if (fun->arg_is_anonymous) {
-                iopc_struct_dump_tdef_hdr(buf, pkg_name, fun->arg, ibase);
-            } else {
-                /* When the function argument is just a reference to another
-                 * structure, we just yield several alias using macros */
-                sb_addf(buf, "typedef %s__%s__t %s_args__t;\n",
-                        pp_under(fun->farg->type_path),
-                        pp_to_c(fun->farg->type_name), fbase);
-            }
-        } else {
-            sb_addf(buf, "typedef iop__void__t %s_args__t;\n", fbase);
-        }
-        if (fun->res) {
-            if (fun->res_is_anonymous) {
-                iopc_struct_dump_tdef_hdr(buf, pkg_name, fun->res, ibase);
-            } else {
-                /* When the function argument is just a reference to another
-                 * structure, we just yield several alias using macros */
-                sb_addf(buf, "typedef %s__%s__t %s_res__t;\n",
-                        pp_under(fun->fres->type_path),
-                        pp_to_c(fun->fres->type_name), fbase);
-            }
-        } else {
-            sb_addf(buf, "typedef iop__void__t %s_res__t;\n", fbase);
-        }
-        if (fun->exn) {
-            if (fun->exn_is_anonymous) {
-                iopc_struct_dump_tdef_hdr(buf, pkg_name, fun->exn, ibase);
-            } else {
-                /* When the function argument is just a reference to another
-                 * structure, we just yield several alias using macros */
-                sb_addf(buf, "typedef %s__%s__t %s_exn__t;\n",
-                        pp_under(fun->fexn->type_path),
-                        pp_to_c(fun->fexn->type_name), fbase);
-            }
-        } else {
-            sb_addf(buf, "typedef iop__void__t %s_exn__t;\n", fbase);
-        }
+        iopc_fun_struct_dump_tdef_hdr(buf, pkg_name, ibase, fbase, "args",
+                                      &fun->arg);
+        iopc_fun_struct_dump_tdef_hdr(buf, pkg_name, ibase, fbase, "res",
+                                      &fun->res);
+        iopc_fun_struct_dump_tdef_hdr(buf, pkg_name, ibase, fbase, "exn",
+                                      &fun->exn);
+    }
+}
+
+static void
+iopc_fun_struct_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
+                         const char *pkg_name, const char *ibase,
+                         iopc_fun_struct_t *fun_st)
+{
+    if (fun_st->is_anonymous && fun_st->anonymous_struct) {
+        iopc_struct_dump_hdr(buf, pkg, pkg_name, fun_st->anonymous_struct,
+                             ibase);
     }
 }
 
@@ -1225,15 +1225,10 @@ iopc_iface_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
     tab_for_each_entry(fun, &iface->funs) {
         char *fbase = t_fmt("%s__%s", ibase, pp_to_c(fun->name));
 
-        if (fun->arg && fun->arg_is_anonymous) {
-            iopc_struct_dump_hdr(buf, pkg, pkg_name, fun->arg, ibase);
-        }
-        if (fun->res && fun->res_is_anonymous) {
-            iopc_struct_dump_hdr(buf, pkg, pkg_name, fun->res, ibase);
-        }
-        if (fun->exn && fun->exn_is_anonymous) {
-            iopc_struct_dump_hdr(buf, pkg, pkg_name, fun->exn, ibase);
-        }
+        iopc_fun_struct_dump_hdr(buf, pkg, pkg_name, ibase, &fun->arg);
+        iopc_fun_struct_dump_hdr(buf, pkg, pkg_name, ibase, &fun->res);
+        iopc_fun_struct_dump_hdr(buf, pkg, pkg_name, ibase, &fun->exn);
+
         sb_addf(buf,
                 "#define %s__rpc__tag    0x%04x\n"
                 "#define %s__rpc__async  %d\n"
@@ -2474,6 +2469,24 @@ iopc_dump_rpc_attr(iopc_attr_t *attr, sb_t *sb_na, sb_t *sb_alias,
 }
 
 static void
+iopc_dump_fun_struct_attrs(sb_t *buf, int help_type, const char *tbase,
+                           const char *cname, const char *ext,
+                           const iopc_fun_struct_t *fun_st,
+                           iopc_attrs_t *attrs, sb_t *attrs_body)
+{
+    if (fun_st->is_anonymous || !fun_st->existing_struct) {
+        return;
+    }
+
+    iopc_dump_help_and_ref(buf, attrs_body, help_type, "rpc", tbase, cname,
+                           ext, &fun_st->existing_struct->comments);
+    if (has_help(&fun_st->existing_struct->comments)) {
+        SET_BIT(&attrs->flags, help_type);
+        attrs->attrs_len++;
+    }
+}
+
+static void
 iopc_dump_rpc_attrs(sb_t *buf, const char *tbase, const iopc_fun_t *f,
                     iopc_attrs_t *attrs, unsigned *n_func_and_alias)
 {
@@ -2488,23 +2501,12 @@ iopc_dump_rpc_attrs(sb_t *buf, const char *tbase, const iopc_fun_t *f,
         attrs->attrs_len++;
     }
 
-#define CHECK_HELP_ARG(X, Y)                                                 \
-    do {                                                                     \
-        if (f->Y##_is_anonymous || !f->f##Y)                                 \
-            break;                                                           \
-        iopc_dump_help_and_ref(buf, &attrs_body,                             \
-                               RPC_ATTR_HELP(X), "rpc",                      \
-                               tbase, cname, "rpc_"#Y, &f->f##Y->comments);  \
-        if (has_help(&f->f##Y->comments)) {                                  \
-            SET_BIT(&attrs->flags, RPC_ATTR_HELP(X));                        \
-            attrs->attrs_len++;                                              \
-        }                                                                    \
-    } while (0)
-
-    CHECK_HELP_ARG(ARG, arg);
-    CHECK_HELP_ARG(RES, res);
-    CHECK_HELP_ARG(EXN, exn);
-#undef CHECK_HELP_ARG
+    iopc_dump_fun_struct_attrs(buf, IOP_RPC_ATTR_ARG_HELP_V2, tbase, cname,
+                               "rpc_arg", &f->arg, attrs, &attrs_body);
+    iopc_dump_fun_struct_attrs(buf, IOP_RPC_ATTR_RES_HELP_V2, tbase, cname,
+                               "rpc_res", &f->res, attrs, &attrs_body);
+    iopc_dump_fun_struct_attrs(buf, IOP_RPC_ATTR_EXN_HELP_V2, tbase, cname,
+                               "rpc_exn", &f->exn, attrs, &attrs_body);
 
     tab_for_each_entry(attr, &f->attrs) {
         iopc_dump_rpc_attr(attr, &attrs_body, &attrs_body_alias, attrs, tbase,
@@ -3214,55 +3216,52 @@ t_iopc_get_aliases(const iopc_fun_t *fun, const char *suffix,
     }
 }
 
-static inline void
+static void
+iopc_register_fun_struct(sb_t *buf, const char *ibase,
+                         const iopc_fun_struct_t *fun_st,
+                         const char *falias_name, const char *falias_sfx,
+                         const char *fun_st_name)
+{
+    t_scope;
+
+    if (falias_name) {
+        falias_name = t_fmt("%s_%s", falias_name, falias_sfx);
+    }
+
+    if (iopc_fun_struct_is_void(fun_st)) {
+        sb_addf(buf,
+                "        .%s    = &iop__void__s,\n", fun_st_name);
+    } else {
+        if (fun_st->is_anonymous) {
+            sb_addf(buf,
+                    "        .%s    = &%s__%s__s,\n",
+                    fun_st_name, ibase,
+                    pp_to_c(falias_name ?: fun_st->anonymous_struct->name));
+        } else {
+            sb_addf(buf,
+                    "        .%s    = &%s__%s__s,\n",
+                    fun_st_name, ibase,
+                    pp_to_c(falias_name ?: fun_st->existing_struct->name));
+        }
+    }
+}
+
+static void
 iopc_register_fun(sb_t *buf, const char *ibase, const iopc_fun_t *f,
                   const char *falias_name)
 {
-    const char *fname = falias_name ? falias_name : f->name;
-
     sb_addf(buf,
-            "    {\n"
-            "        .name      = LSTR_IMMED(\"%s\"),\n"
-            "        .tag       = %d,\n",
-            fname, f->tag);
+        "    {\n"
+        "        .name      = LSTR_IMMED(\"%s\"),\n"
+        "        .tag       = %d,\n",
+        falias_name ?: f->name, f->tag);
 
-#define REGISTER_FUN_VAR(_var, _varname, _fvarname, _is_anonymous, _t)       \
-        do {                                                                 \
-            if (_var) {                                                      \
-                if (_is_anonymous) {                                         \
-                    sb_addf(buf,                                             \
-                            "        ." _t "    = &%s__%s__s,\n",            \
-                            ibase, pp_to_c(_varname));                       \
-                } else {                                                     \
-                    sb_addf(buf,                                             \
-                            "        ." _t "    = &%s__%s__s,\n",            \
-                            ibase, pp_to_c(_fvarname));                      \
-                }                                                            \
-            } else {                                                         \
-                sb_addf(buf,                                                 \
-                        "        ." _t "    = &iop__void__s,\n");            \
-            }                                                                \
-        } while (0)
-
-    if (!falias_name) {
-        REGISTER_FUN_VAR(f->arg, f->arg->name, f->farg->name,
-                         f->arg_is_anonymous, "args  ");
-        REGISTER_FUN_VAR(f->res, f->res->name, f->fres->name,
-                         f->res_is_anonymous, "result");
-        REGISTER_FUN_VAR(f->exn, f->exn->name, f->fexn->name,
-                         f->exn_is_anonymous, "exn   ");
-    } else {
-        t_scope;
-        const char *argname = t_fmt("%s_args", falias_name);
-        const char *resname = t_fmt("%s_res", falias_name);
-        const char *exnname = t_fmt("%s_exn", falias_name);
-
-        REGISTER_FUN_VAR(f->arg, argname, argname, f->arg_is_anonymous, "args  ");
-        REGISTER_FUN_VAR(f->res, resname, resname, f->res_is_anonymous, "result");
-        REGISTER_FUN_VAR(f->exn, exnname, exnname, f->exn_is_anonymous, "exn   ");
-    }
-
-#undef REGISTER_FUN_VAR
+    iopc_register_fun_struct(buf, ibase, &f->arg, falias_name, "args",
+                             "args  ");
+    iopc_register_fun_struct(buf, ibase, &f->res, falias_name, "res",
+                             "result");
+    iopc_register_fun_struct(buf, ibase, &f->exn, falias_name, "exn",
+                             "exn   ");
 
     if (f->fun_is_async) {
         sb_addf(buf,
@@ -3340,6 +3339,38 @@ iopc_iface_dump_rpc_attrs(sb_t *buf, const char *ibase, iopc_iface_t *iface)
 }
 
 static int
+iopc_iface_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
+                           const char *pkg_name, const char *ibase,
+                           const iopc_fun_t *fun,
+                           const iopc_fun_struct_t *fun_st, const char *type)
+{
+    t_scope;
+    qv_t(lstr) aliases;
+
+    if (iopc_fun_struct_is_void(fun_st)) {
+        return 0;
+    }
+    t_qv_init(&aliases, 0);
+    t_iopc_get_aliases(fun, type, &aliases);
+
+    if (fun_st->is_anonymous) {
+        RETHROW(iopc_struct_dump_src(buf, pkg, pkg_name,
+                                     fun_st->anonymous_struct, &aliases, NULL,
+                                     0));
+    } else {
+        /* When the function argument is just a reference to another
+         * structure, we just yield several #define. */
+        iopc_dump_rpc_defines(buf, ibase, fun_st->existing_struct, NULL);
+        tab_for_each_entry(alias, &aliases) {
+            iopc_dump_rpc_defines(buf, ibase, fun_st->existing_struct,
+                                  alias.s);
+        }
+    }
+
+    return 0;
+}
+
+static int
 iopc_iface_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
                     const char *pkg_name, iopc_iface_t *iface)
 {
@@ -3356,11 +3387,12 @@ iopc_iface_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
         SET_BIT(&iface->flags, IOP_IFACE_IS_SNMP_IFACE);
 
         tab_for_each_entry(fun, &iface->funs) {
-            if (fun->arg) {
+            if (!iopc_fun_struct_is_void(&fun->arg)) {
                 /* snmpIface can only have "args" and anonymous funs */
                 t_iopc_get_aliases(fun, "Args", &aliases);
-                if (fun->arg_is_anonymous) {
-                    RETHROW(iopc_struct_dump_src(buf, pkg, pkg_name, fun->arg,
+                if (fun->arg.is_anonymous) {
+                    RETHROW(iopc_struct_dump_src(buf, pkg, pkg_name,
+                                                 fun->arg.anonymous_struct,
                                                  &aliases,
                                                  pp_to_c(iface->name),
                                                  fun->tag));
@@ -3371,31 +3403,12 @@ iopc_iface_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
         }
     } else {
         tab_for_each_entry(fun, &iface->funs) {
-#define HANDLE_FUN_VAR(_var, _fvar, is_anonymous, type)                      \
-            do {                                                             \
-                if (_var) {                                                  \
-                    t_iopc_get_aliases(fun, type, &aliases);                 \
-                    if (is_anonymous) {                                      \
-                        RETHROW(iopc_struct_dump_src(buf, pkg, pkg_name,     \
-                                                     _var, &aliases, NULL,   \
-                                                     0));                    \
-                    } else {                                                 \
-                        /* When the function argument is just a              \
-                         * reference to another structure, we just           \
-                         * yield several #define. */                         \
-                        iopc_dump_rpc_defines(buf, ibase, _fvar, NULL);      \
-                        tab_for_each_entry(alias, &aliases) {           \
-                            iopc_dump_rpc_defines(buf, ibase, _fvar,         \
-                                                  alias.s);                  \
-                        }                                                    \
-                    }                                                        \
-                }                                                            \
-            } while (0)
-
-            HANDLE_FUN_VAR(fun->arg, fun->farg, fun->arg_is_anonymous, "Args");
-            HANDLE_FUN_VAR(fun->res, fun->fres, fun->res_is_anonymous, "Res");
-            HANDLE_FUN_VAR(fun->exn, fun->fexn, fun->exn_is_anonymous, "Exn");
-#undef HANDLE_FUN_VAR
+            iopc_iface_struct_dump_src(buf, pkg, pkg_name, ibase, fun,
+                                       &fun->arg, "Args");
+            iopc_iface_struct_dump_src(buf, pkg, pkg_name, ibase, fun,
+                                       &fun->res, "Res");
+            iopc_iface_struct_dump_src(buf, pkg, pkg_name, ibase, fun,
+                                       &fun->exn, "Exn");
         }
     }
 

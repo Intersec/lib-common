@@ -1080,31 +1080,28 @@ static void debug_dump_dox(qv_t(iopc_dox) comments, const char *name)
       ? pretty_path_dot((iopc_path_t *)(_n)) : (const char *)(_n)))
 #endif
 
-typedef enum iopc_dox_arg_dir_t {
-    IOPC_DOX_ARG_DIR_IN,
-    IOPC_DOX_ARG_DIR_OUT,
-    IOPC_DOX_ARG_DIR_THROW,
-
-    IOPC_DOX_ARG_DIR_count,
-} iopc_dox_arg_dir_t;
-
-static lstr_t iopc_dox_arg_dir_to_lstr(iopc_dox_arg_dir_t dir)
+static lstr_t iopc_fun_struct_type_to_lstr(iopc_fun_struct_type_t dir)
 {
     switch (dir) {
-      case IOPC_DOX_ARG_DIR_IN:    return LSTR("in");
-      case IOPC_DOX_ARG_DIR_OUT:   return LSTR("out");
-      case IOPC_DOX_ARG_DIR_THROW: return LSTR("throw");
+    case IOPC_FUN_ARGS:
+        return LSTR("in");
 
-      default:
-        print_error("invalid doxygen arg dir %d", dir);
-        return LSTR_NULL_V;
+    case IOPC_FUN_RES:
+        return LSTR("out");
+
+    case IOPC_FUN_EXN:
+        return LSTR("throw");
     }
+
+    print_error("invalid doxygen arg dir %d", dir);
+    return LSTR_NULL_V;
 }
 
-static int iopc_dox_check_param_dir(lstr_t dir_name, iopc_dox_arg_dir_t *out)
+static int iopc_dox_check_param_dir(lstr_t dir_name,
+                                    iopc_fun_struct_type_t *out)
 {
-    for (int i = 0; i < IOPC_DOX_ARG_DIR_count; i++) {
-        if (lstr_equal(dir_name, iopc_dox_arg_dir_to_lstr(i))) {
+    for (int i = 0; i < 3; i++) {
+        if (lstr_equal(dir_name, iopc_fun_struct_type_to_lstr(i))) {
             *out = i;
             return 0;
         }
@@ -1175,32 +1172,51 @@ iopc_dox_type_is_related(iopc_dox_type_t dox_type, iopc_attr_type_t attr_type)
     return dox_type != IOPC_DOX_TYPE_PARAM || attr_type == IOPC_ATTR_T_RPC;
 }
 
-static iopc_field_t *
-iopc_dox_arg_find_in_fun(lstr_t name, iopc_dox_arg_dir_t dir,
-                         const iopc_fun_t* fun)
+static const iopc_fun_struct_t *
+iopc_fun_get_struct_const(const iopc_fun_t *fun,
+                          iopc_fun_struct_type_t type)
 {
-    switch(dir) {
-#define CASE_DIR(X, Y)                                                       \
-      case IOPC_DOX_ARG_DIR_##X:                                             \
-        if (!fun->Y##_is_anonymous) {                                        \
-            if (name.len)                                                    \
-                return NULL;                                                 \
-            return fun->f##Y;                                                \
-        }                                                                    \
-        tab_for_each_entry(f, &fun->Y->fields) {                  \
-            if (lstr_equal(name, LSTR(f->name)))                             \
-                return f;                                                    \
-        }                                                                    \
-        return NULL;
+    switch (type) {
+    case IOPC_FUN_ARGS:
+        return &fun->arg;
 
-      CASE_DIR(IN, arg);
-      CASE_DIR(OUT, res);
-      CASE_DIR(THROW, exn);
+    case IOPC_FUN_RES:
+        return &fun->res;
 
-      default: return NULL;
-
-#undef CASE_DIR
+    case IOPC_FUN_EXN:
+        return &fun->exn;
     }
+
+    return NULL;
+}
+
+static iopc_fun_struct_t *
+iopc_fun_get_struct(iopc_fun_t *fun, iopc_fun_struct_type_t type)
+{
+    return unconst_cast(iopc_fun_struct_t,
+                        iopc_fun_get_struct_const(fun, type));
+}
+
+static iopc_field_t *
+iopc_dox_arg_find_in_fun(lstr_t name, iopc_fun_struct_type_t dir,
+                         const iopc_fun_t *fun)
+{
+    const iopc_fun_struct_t *fun_st = NULL;
+
+    fun_st = RETHROW_P(iopc_fun_get_struct_const(fun, dir));
+
+    if (fun_st->is_anonymous) {
+        tab_for_each_entry(f, &fun_st->anonymous_struct->fields) {
+            if (lstr_equal(LSTR(f->name), name)) {
+                return f;
+            }
+        }
+        return NULL;
+    }
+
+    THROW_NULL_IF(name.len);
+
+    return fun_st->existing_struct;
 }
 
 static void dox_chunk_params_args_validate(dox_chunk_t *chunk)
@@ -1501,7 +1517,8 @@ static int
 build_dox_param(const iopc_fun_t *owner, qv_t(iopc_dox) *res,
                 dox_chunk_t *chunk)
 {
-    iopc_dox_arg_dir_t dir;
+    iopc_fun_struct_type_t dir;
+    const iopc_fun_struct_t *fun_st;
 
     if (!chunk->params.len) {
         throw_loc("doxygen param direction not specified", chunk->loc);
@@ -1517,17 +1534,12 @@ build_dox_param(const iopc_fun_t *owner, qv_t(iopc_dox) *res,
                   LSTR_FMT_ARG(chunk->params.tab[0]));
     }
 
-#define TEST_ANONYMOUS(X, Y)  \
-    (dir == IOPC_DOX_ARG_DIR_##X && !owner->Y##_is_anonymous)
-
-    if (TEST_ANONYMOUS(IN, arg) || TEST_ANONYMOUS(OUT, res)
-    ||  TEST_ANONYMOUS(THROW, exn))
-    {
+    fun_st = iopc_fun_get_struct_const(owner, dir);
+    if (fun_st && !fun_st->is_anonymous) {
         qv_deep_wipe(&chunk->params_args, lstr_wipe);
         qv_append(&chunk->params_args, LSTR_EMPTY_V);
         chunk->paragraph0_args_len = 0;
     }
-#undef TEST_ANONYMOUS
 
     dox_chunk_params_args_validate(chunk);
 
@@ -2613,14 +2625,8 @@ static int parse_typedef_stmt(iopc_parser_t *pp, iopc_field_t *out)
     return 0;
 }
 
-enum {
-    IOP_F_ARGS = 0,
-    IOP_F_RES  = 1,
-    IOP_F_EXN  = 2,
-};
-
-static int parse_function_desc(iopc_parser_t *pp, int what, iopc_fun_t *fun,
-                               qv_t(dox_chunk) *chunks,
+static int parse_function_desc(iopc_parser_t *pp, iopc_fun_struct_type_t what,
+                               iopc_fun_t *fun, qv_t(dox_chunk) *chunks,
                                iopc_iface_type_t iface_type, bool *res)
 {
     static char const * const type_names[] = { "Args", "Res", "Exn", };
@@ -2639,32 +2645,23 @@ static int parse_function_desc(iopc_parser_t *pp, int what, iopc_fun_t *fun,
         return 0;
     }
 
-    if (fun->fun_is_async && (what == IOP_F_EXN)) {
+    if (fun->fun_is_async && (what == IOPC_FUN_EXN)) {
         throw_loc("async functions cannot throw", TK_N(pp, 0)->loc);
     }
-    if (is_snmp_iface && (what == IOP_F_EXN || what == IOP_F_RES)) {
+    if (is_snmp_iface && (what == IOPC_FUN_EXN || what == IOPC_FUN_RES)) {
         throw_loc("snmpIface cannot out and/or throw", TK_N(pp, 0)->loc);
     }
 
     DROP(pp, 1);
     if (SKIP_N(pp, '(')) {
-        switch (what) {
-          case IOP_F_ARGS:
-            sptr = &fun->arg;
-            fun->arg_is_anonymous = true;
-            break;
-          case IOP_F_RES:
-            sptr = &fun->res;
-            fun->res_is_anonymous = true;
-            break;
-          case IOP_F_EXN:
-            sptr = &fun->exn;
-            fun->exn_is_anonymous = true;
-            break;
-          default:
+        iopc_fun_struct_t *fun_st;
+
+        fun_st = iopc_fun_get_struct(fun, what);
+        if (!fun_st) {
             abort();
         }
-
+        fun_st->is_anonymous = true;
+        sptr = &fun_st->anonymous_struct;
         *sptr = iopc_struct_new();
         (*sptr)->name = asprintf("%s%s", fun->name, type_name);
         (*sptr)->loc = TK_N(pp, 0)->loc;
@@ -2684,7 +2681,7 @@ static int parse_function_desc(iopc_parser_t *pp, int what, iopc_fun_t *fun,
         throw_loc("null is not supported by snmpIface RPCs",
                   TK_N(pp, 0)->loc);
     } else
-    if ((what == IOP_F_RES) && SKIP_KW_N(pp, "null")) {
+    if ((what == IOPC_FUN_RES) && SKIP_KW_N(pp, "null")) {
         fun->fun_is_async = true;
     } else
     if (is_snmp_iface) {
@@ -2693,6 +2690,7 @@ static int parse_function_desc(iopc_parser_t *pp, int what, iopc_fun_t *fun,
     } else {                        /* fname in Type ... */
         iop_type_t type = get_type_kind(TK_N(pp, 0));
         iopc_field_t *f;
+        iopc_fun_struct_t *fun_st;
 
         if (type != IOP_T_STRUCT) {
             throw_loc("a structure (or a union) type was expected here"
@@ -2700,22 +2698,12 @@ static int parse_function_desc(iopc_parser_t *pp, int what, iopc_fun_t *fun,
         }
 
         /* We use a field to store the type of the function argument. */
-        switch (what) {
-          case IOP_F_ARGS:
-            fptr = &fun->farg;
-            fun->arg_is_anonymous = false;
-            break;
-          case IOP_F_RES:
-            fptr = &fun->fres;
-            fun->res_is_anonymous = false;
-            break;
-          case IOP_F_EXN:
-            fptr = &fun->fexn;
-            fun->exn_is_anonymous = false;
-            break;
-          default:
+        fun_st = iopc_fun_get_struct(fun, what);
+        if (!fun_st) {
             abort();
         }
+        fun_st->is_anonymous = false;
+        fptr = &fun_st->existing_struct;
 
         f = iopc_field_new();
         *fptr = f;
@@ -2785,14 +2773,14 @@ parse_function_stmt(iopc_parser_t *pp, qv_t(iopc_attr) *attrs,
     }
 
     /* Parse function desc */
-    if (parse_function_desc(pp, IOP_F_ARGS, fun, &arg_chunks, type,
+    if (parse_function_desc(pp, IOPC_FUN_ARGS, fun, &arg_chunks, type,
                             &res_res) < 0)
     {
         goto error;
     }
-    if (parse_function_desc(pp, IOP_F_RES, fun, &arg_chunks, type,
+    if (parse_function_desc(pp, IOPC_FUN_RES, fun, &arg_chunks, type,
                             &res_res) < 0
-    ||  parse_function_desc(pp, IOP_F_EXN, fun, &arg_chunks, type,
+    ||  parse_function_desc(pp, IOPC_FUN_EXN, fun, &arg_chunks, type,
                             &exn_res) < 0)
     {
         goto error;

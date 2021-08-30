@@ -847,28 +847,37 @@ GENERIC_NEW(iopc_enum_t, iopc_enum);
 GENERIC_DELETE(iopc_enum_t, iopc_enum);
 qvector_t(iopc_enum, iopc_enum_t *);
 
+typedef enum iopc_fun_struct_type_t {
+    IOPC_FUN_ARGS,
+    IOPC_FUN_RES,
+    IOPC_FUN_EXN,
+} iopc_fun_struct_type_t;
+
+/* Argument, result or exception type for a given RPC. */
+typedef struct iopc_fun_struct_t {
+    union {
+        iopc_struct_t *anonymous_struct;
+        iopc_field_t *existing_struct;
+    };
+    bool is_anonymous;
+} iopc_fun_struct_t;
+
+static inline bool iopc_fun_struct_is_void(const iopc_fun_struct_t *fun_st)
+{
+    return !fun_st->anonymous_struct;
+}
+
 typedef struct iopc_fun_t {
     iopc_loc_t loc;
     int        tag;
     int        pos; /* To sort funs by order of appearance in iface. */
     char      *name;
 
-    bool arg_is_anonymous : 1;
-    bool res_is_anonymous : 1;
-    bool exn_is_anonymous : 1;
-    bool fun_is_async     : 1;
-    union {
-        iopc_struct_t *arg;
-        iopc_field_t  *farg; /* When we reference an existing structure */
-    };
-    union {
-        iopc_struct_t *res;
-        iopc_field_t  *fres; /* When we reference an existing structure */
-    };
-    union {
-        iopc_struct_t *exn;
-        iopc_field_t  *fexn; /* When we reference an existing structure */
-    };
+    bool fun_is_async;
+
+    iopc_fun_struct_t arg;
+    iopc_fun_struct_t res;
+    iopc_fun_struct_t exn;
 
     qv_t(iopc_attr) attrs;
     qv_t(iopc_dox)  comments;
@@ -879,17 +888,17 @@ static inline iopc_fun_t *iopc_fun_init(iopc_fun_t *fun) {
     qv_init(&fun->comments);
     return fun;
 }
-static inline void iopc_fun_wipe(iopc_fun_t *fun) {
-#define DELETE(v) \
-    if (fun->v##_is_anonymous) {                \
-        iopc_struct_delete(&fun->v);            \
-    } else {                                    \
-        iopc_field_delete(&fun->f##v);          \
+static inline void iopc_fun_struct_wipe(iopc_fun_struct_t *fun_st) {
+    if (fun_st->is_anonymous) {
+        iopc_struct_delete(&fun_st->anonymous_struct);
+    } else {
+        iopc_field_delete(&fun_st->existing_struct);
     }
-    DELETE(arg);
-    DELETE(res);
-    DELETE(exn);
-#undef DELETE
+}
+static inline void iopc_fun_wipe(iopc_fun_t *fun) {
+    iopc_fun_struct_wipe(&fun->arg);
+    iopc_fun_struct_wipe(&fun->res);
+    iopc_fun_struct_wipe(&fun->exn);
     p_delete(&fun->name);
     qv_deep_wipe(&fun->attrs, iopc_attr_delete);
     qv_deep_wipe(&fun->comments, iopc_dox_wipe);

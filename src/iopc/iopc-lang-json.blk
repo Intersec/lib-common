@@ -785,8 +785,26 @@ iopc_struct_dump_json(const iopc_write_buf_t *wbuf, const char *pkg_name,
 /*{{{ interfaces */
 
 static void
+iopc_fun_struct_dump_json(const iopc_write_buf_t *wbuf, const char *key,
+                          const char *help_key, const char *fbase,
+                          const iopc_fun_struct_t *fun_st)
+{
+    if (iopc_fun_struct_is_void(fun_st)) {
+        return;
+    }
+    if (fun_st->is_anonymous) {
+        LINE_KEY_VAL_FMT(wbuf, key, QUOTE("%s.%s"), fbase,
+                         fun_st->anonymous_struct->name);
+    } else {
+        dump_field_type_obj(wbuf, key, fun_st->existing_struct);
+        (iopc_dox_dump_json)(wbuf, &fun_st->existing_struct->comments,
+                             help_key);
+    }
+}
+
+static void
 iopc_iface_dump_json(const iopc_write_buf_t *wbuf, const char *pkg_name,
-                     iopc_iface_t *iface)
+                     const iopc_iface_t *iface)
 {
     t_scope;
     const char *fbase = t_fmt("%s.%s", pkg_name, iface->name);
@@ -818,24 +836,10 @@ iopc_iface_dump_json(const iopc_write_buf_t *wbuf, const char *pkg_name,
 
         dump_gen_attrs(wbuf, &fun->attrs);
 
-#define DUMP_FUN_PARAM(_key, X)                                            \
-    do {                                                                   \
-        if (!fun->X)                                                       \
-            break;                                                         \
-        if (fun->X##_is_anonymous) {                                       \
-            LINE_CKEY_VAL_FMT(wbuf, _key, QUOTE("%s.%s"),                  \
-                              fbase, fun->X->name);                        \
-        } else {                                                           \
-            dump_field_type_obj(wbuf, _key, fun->f##X);                    \
-            (iopc_dox_dump_json)(wbuf, &fun->f##X->comments, _key "Help"); \
-        }                                                                  \
-    } while (0)
-
-        DUMP_FUN_PARAM("in", arg);
-        DUMP_FUN_PARAM("out", res);
-        DUMP_FUN_PARAM("throw", exn);
-
-#undef DUMP_FUN_PARAM
+        iopc_fun_struct_dump_json(wbuf, "in", "inHelp", fbase, &fun->arg);
+        iopc_fun_struct_dump_json(wbuf, "out", "outHelp", fbase, &fun->res);
+        iopc_fun_struct_dump_json(wbuf, "throw", "throwHelp", fbase,
+                                  &fun->exn);
 
         if (fun->fun_is_async) {
             LINE_CKEY_TRUE(wbuf, "async");
@@ -890,6 +894,21 @@ iopc_module_dump_json(const iopc_write_buf_t *wbuf, const char *pkg_name,
 }
 
 /*}}} */
+
+/* Dump the description of the anonymous type of the arg/res/exn, if any. */
+static int
+iopc_fun_struct_type_dump_json(iopc_write_buf_t *wbuf,
+                               const iopc_fun_struct_t *fun_st,
+                               const char *fbase)
+{
+    if (fun_st->is_anonymous && fun_st->anonymous_struct) {
+        LINE_START_OBJ(wbuf);
+        RETHROW(iopc_struct_dump_json(wbuf, fbase, fun_st->anonymous_struct));
+        LINE_END_OBJ(wbuf);
+    }
+
+    return 0;
+}
 
 int iopc_do_json(iopc_pkg_t *pkg, const char *outdir)
 {
@@ -946,20 +965,9 @@ int iopc_do_json(iopc_pkg_t *pkg, const char *outdir)
             t_scope;
             const char *fbase = t_fmt("%s.%s", pkg_name, iface->name);
 
-#define DUMP_FUN_PARAM(what) \
-            do {                                                            \
-                if (fun->what && fun->what##_is_anonymous) {                \
-                    LINE_START_OBJ(&wbuf);                                  \
-                    RETHROW(iopc_struct_dump_json(&wbuf, fbase, fun->what));\
-                    LINE_END_OBJ(&wbuf);                                    \
-                }                                                           \
-            } while (0)
-
-            DUMP_FUN_PARAM(arg);
-            DUMP_FUN_PARAM(res);
-            DUMP_FUN_PARAM(exn);
-
-#undef DUMP_FUN_PARAM
+            RETHROW(iopc_fun_struct_type_dump_json(&wbuf, &fun->arg, fbase));
+            RETHROW(iopc_fun_struct_type_dump_json(&wbuf, &fun->res, fbase));
+            RETHROW(iopc_fun_struct_type_dump_json(&wbuf, &fun->exn, fbase));
         }
     }
 

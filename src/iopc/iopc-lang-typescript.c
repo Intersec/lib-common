@@ -179,9 +179,9 @@ static void iopc_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
         tab_for_each_entry(iface, &pkg->ifaces) {
             if (iface->type == IFACE_TYPE_IFACE) {
                 tab_for_each_entry(rpc, &iface->funs) {
-                    if ((rpc->arg && rpc->arg_is_anonymous)
-                    ||  (rpc->res && rpc->res_is_anonymous)
-                    ||  (rpc->exn && rpc->exn_is_anonymous))
+                    if ((rpc->arg.is_anonymous && rpc->arg.anonymous_struct)
+                    ||  (rpc->res.is_anonymous && rpc->res.anonymous_struct)
+                    ||  (rpc->exn.is_anonymous && rpc->exn.anonymous_struct))
                     {
                         import_struct = true;
                         import_coll = true;
@@ -724,56 +724,40 @@ static void iopc_dump_structs(sb_t *buf, iopc_pkg_t *pkg)
     }
 }
 
+static void
+iopc_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
+                         const iopc_fun_t *rpc, const char *type,
+                         const iopc_fun_struct_t *fun_st)
+{
+    if (iopc_fun_struct_is_void(fun_st)) {
+        sb_addf(buf, "        export type %s%s = void;\n", rpc->name, type);
+    } else {
+        if (fun_st->is_anonymous) {
+            iopc_dump_struct(buf, "        ", pkg, fun_st->anonymous_struct,
+                             t_fmt("%s%s", rpc->name, type));
+        } else {
+            sb_addf(buf, "        export type %s%s = ", rpc->name, type);
+            iopc_dump_field_basetype(buf, pkg, fun_st->existing_struct, NULL);
+            sb_adds(buf, ";\n");
+        }
+    }
+}
+
 static void iopc_dump_rpc(sb_t *buf, const iopc_pkg_t *pkg,
                           const iopc_fun_t *rpc)
 {
     t_scope;
 
-    if (rpc->arg) {
-        if (rpc->arg_is_anonymous) {
-            iopc_dump_struct(buf, "        ", pkg, rpc->arg,
-                             t_fmt("%sArgs", rpc->name));
-        } else {
-            sb_addf(buf, "        export type %sArgs = ", rpc->name);
-            iopc_dump_field_basetype(buf, pkg, rpc->farg, NULL);
-            sb_adds(buf, ";\n");
-        }
-    } else {
-        sb_addf(buf, "        export type %sArgs = void;\n", rpc->name);
-    }
-
-    if (rpc->res) {
-        if (rpc->res_is_anonymous) {
-            iopc_dump_struct(buf, "        ", pkg, rpc->res,
-                             t_fmt("%sRes", rpc->name));
-        } else {
-            sb_addf(buf, "        export type %sRes = ", rpc->name);
-            iopc_dump_field_basetype(buf, pkg, rpc->fres, NULL);
-            sb_adds(buf, ";\n");
-        }
-    } else {
-        sb_addf(buf, "        export type %sRes = void;\n", rpc->name);
-    }
-
-    if (rpc->exn) {
-        if (rpc->exn_is_anonymous) {
-            iopc_dump_struct(buf, "        ", pkg, rpc->exn,
-                             t_fmt("%sExn", rpc->name));
-        } else {
-            sb_addf(buf, "        export type %sExn = ", rpc->name);
-            iopc_dump_field_basetype(buf, pkg, rpc->fexn, NULL);
-            sb_adds(buf, ";\n");
-        }
-    } else {
-        sb_addf(buf, "        export type %sExn = void;\n", rpc->name);
-    }
+    iopc_dump_rpc_fun_struct(buf, pkg, rpc, "Args", &rpc->arg);
+    iopc_dump_rpc_fun_struct(buf, pkg, rpc, "Res", &rpc->res);
+    iopc_dump_rpc_fun_struct(buf, pkg, rpc, "Exn", &rpc->exn);
 
     sb_addf(buf, "        export type %s = (", rpc->name);
-    if (rpc->arg) {
-        if (rpc->arg_is_anonymous) {
+    if (!iopc_fun_struct_is_void(&rpc->arg)) {
+        if (rpc->arg.is_anonymous) {
             bool first = true;
 
-            tab_for_each_entry(field, &rpc->arg->fields) {
+            tab_for_each_entry(field, &rpc->arg.anonymous_struct->fields) {
                 if (!first) {
                     sb_adds(buf, ", ");
                 }
@@ -782,7 +766,8 @@ static void iopc_dump_rpc(sb_t *buf, const iopc_pkg_t *pkg,
             }
         } else {
             sb_adds(buf, "arg: ");
-            iopc_dump_field_basetype(buf, pkg, rpc->farg, NULL);
+            iopc_dump_field_basetype(buf, pkg, rpc->arg.existing_struct,
+                                     NULL);
         }
     }
     sb_adds(buf, ") => ");
@@ -790,7 +775,7 @@ static void iopc_dump_rpc(sb_t *buf, const iopc_pkg_t *pkg,
     if (rpc->fun_is_async) {
         sb_adds(buf, "void");
     } else
-    if (rpc->res) {
+    if (!iopc_fun_struct_is_void(&rpc->res)) {
         sb_addf(buf, "Promise<%sRes>", rpc->name);
     } else {
         sb_adds(buf, "Promise<void>");

@@ -572,11 +572,12 @@ static int iopc_snmp_iface_resolve(iopc_pkg_t *pkg, iopc_iface_t *iface)
 
     /* Resolve rpcs in funs */
     tab_for_each_entry(fun, &iface->funs) {
-        if (!fun->arg) {
+        if (iopc_fun_struct_is_void(&fun->arg)) {
             continue;
         }
-        fun->arg->contains_snmp_info = true;
-        tab_for_each_entry(field, &fun->arg->fields) {
+        assert(fun->arg.is_anonymous);
+        fun->arg.anonymous_struct->contains_snmp_info = true;
+        tab_for_each_entry(field, &fun->arg.anonymous_struct->fields) {
             if (!resolved) {
                 throw_loc("snmpIface should have an attribute snmpParamsFrom",
                           iface->loc);
@@ -851,6 +852,22 @@ static int iopc_t_resolve(iopc_pkg_t *pkg)
     return 0;
 }
 
+static int iopc_i_resolve_fun_struct(iopc_pkg_t *pkg, iopc_iface_t *iface,
+                                     iopc_fun_struct_t *fun_st)
+{
+    if (!iopc_fun_struct_is_void(fun_st)) {
+        if (fun_st->is_anonymous) {
+            RETHROW(iopc_struct_resolve(pkg, fun_st->anonymous_struct));
+            fun_st->anonymous_struct->iface = iface;
+        } else {
+            RETHROW(iopc_types_find_n_check(pkg, fun_st->existing_struct,
+                                            false));
+        }
+    }
+
+    return 0;
+}
+
 static int iopc_i_resolve(iopc_pkg_t *pkg)
 {
     if (pkg->i_resolved) {
@@ -864,30 +881,9 @@ static int iopc_i_resolve(iopc_pkg_t *pkg)
     pkg->i_resolving = true;
     tab_for_each_entry(iface, &pkg->ifaces) {
         tab_for_each_entry(fun, &iface->funs) {
-            if (fun->arg) {
-                if (fun->arg_is_anonymous) {
-                    RETHROW(iopc_struct_resolve(pkg, fun->arg));
-                    fun->arg->iface = iface;
-                } else {
-                    RETHROW(iopc_types_find_n_check(pkg, fun->farg, false));
-                }
-            }
-            if (fun->res) {
-                if (fun->res_is_anonymous) {
-                    RETHROW(iopc_struct_resolve(pkg, fun->res));
-                    fun->res->iface = iface;
-                } else {
-                    RETHROW(iopc_types_find_n_check(pkg, fun->fres, false));
-                }
-            }
-            if (fun->exn) {
-                if (fun->exn_is_anonymous) {
-                    RETHROW(iopc_struct_resolve(pkg, fun->exn));
-                    fun->exn->iface = iface;
-                } else {
-                    RETHROW(iopc_types_find_n_check(pkg, fun->fexn, false));
-                }
-            }
+            RETHROW(iopc_i_resolve_fun_struct(pkg, iface, &fun->arg));
+            RETHROW(iopc_i_resolve_fun_struct(pkg, iface, &fun->res));
+            RETHROW(iopc_i_resolve_fun_struct(pkg, iface, &fun->exn));
         }
     }
     tab_for_each_entry(mod, &pkg->modules) {
@@ -1443,14 +1439,14 @@ void iopc_types_fold(iopc_pkg_t *pkg)
                           });
 
         tab_for_each_entry(fun, &iface->funs) {
-            if (fun->arg && fun->arg_is_anonymous) {
-                iopc_type_fold_one(&h, fun->arg);
+            if (fun->arg.is_anonymous && fun->arg.anonymous_struct) {
+                iopc_type_fold_one(&h, fun->arg.anonymous_struct);
             }
-            if (fun->res && fun->res_is_anonymous) {
-                iopc_type_fold_one(&h, fun->res);
+            if (fun->res.is_anonymous && fun->res.anonymous_struct) {
+                iopc_type_fold_one(&h, fun->res.anonymous_struct);
             }
-            if (fun->exn && fun->exn_is_anonymous) {
-                iopc_type_fold_one(&h, fun->exn);
+            if (fun->exn.is_anonymous && fun->exn.anonymous_struct) {
+                iopc_type_fold_one(&h, fun->exn.anonymous_struct);
             }
         }
     }
@@ -1551,6 +1547,19 @@ void iopc_depends_uniquify(qv_t(iopc_pkg) *deps)
     });
 }
 
+static void iopc_fun_struct_get_deps(iopc_pkg_t *pkg,
+                                     iopc_fun_struct_t *fun_st,
+                                     qv_t(iopc_pkg) *i_deps)
+{
+    if (!iopc_fun_struct_is_void(fun_st)) {
+        if (fun_st->is_anonymous) {
+            get_structs_depends(pkg, i_deps, fun_st->anonymous_struct);
+        } else {
+            iopc_add_depends(pkg, fun_st->existing_struct->type_pkg, i_deps);
+        }
+    }
+}
+
 void iopc_pkg_get_deps(iopc_pkg_t *pkg, unsigned flags,
                        qv_t(iopc_pkg) *t_deps, qv_t(iopc_pkg) *t_weak_deps,
                        qv_t(iopc_pkg) *i_deps)
@@ -1575,35 +1584,23 @@ void iopc_pkg_get_deps(iopc_pkg_t *pkg, unsigned flags,
         get_ifaces_t_depends(pkg, t_deps, iface);
 
         tab_for_each_entry(fun, &iface->funs) {
-            if (fun->arg) {
-                if (fun->arg_is_anonymous) {
-                    get_structs_depends(pkg, i_deps, fun->arg);
-                } else {
-                    iopc_add_depends(pkg, fun->farg->type_pkg, i_deps);
-                }
-                if (iopc_is_snmp_iface(iface->type)) {
-                    /* If snmpIface add dependencies necessary for the fun
-                     * fields */
-                    tab_for_each_entry(field, &fun->arg->fields) {
-                        iopc_add_depends(pkg, field->parents.tab[0]->pkg,
-                                         t_deps);
-                    }
-                }
-            }
-            if (fun->res) {
-                if (fun->res_is_anonymous) {
-                    get_structs_depends(pkg, i_deps, fun->res);
-                } else {
-                    iopc_add_depends(pkg, fun->fres->type_pkg, i_deps);
+            iopc_fun_struct_get_deps(pkg, &fun->arg, i_deps);
+            if (!iopc_fun_struct_is_void(&fun->arg)
+            &&  iopc_is_snmp_iface(iface->type))
+            {
+                assert(fun->arg.is_anonymous);
+
+                /* If snmpIface add dependencies necessary for the fun
+                 * fields */
+                tab_for_each_entry(field,
+                                   &fun->arg.anonymous_struct->fields)
+                {
+                    iopc_add_depends(pkg, field->parents.tab[0]->pkg,
+                                     t_deps);
                 }
             }
-            if (fun->exn) {
-                if (fun->exn_is_anonymous) {
-                    get_structs_depends(pkg, i_deps, fun->exn);
-                } else {
-                    iopc_add_depends(pkg, fun->fexn->type_pkg, i_deps);
-                }
-            }
+            iopc_fun_struct_get_deps(pkg, &fun->res, i_deps);
+            iopc_fun_struct_get_deps(pkg, &fun->exn, i_deps);
         }
     }
     if (flags & IOPC_PKG_GET_DEPS_INCLUDE_IFACES) {
