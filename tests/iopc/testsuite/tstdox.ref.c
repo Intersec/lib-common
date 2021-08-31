@@ -1172,8 +1172,6 @@ const iop_struct_t tstdox__my_iface_a__fun_b_args__s = {
     .st_attrs   = &tstdox__my_iface_a__fun_b_args__s_desc_attrs,
 };
 iop_struct_t const * const tstdox__my_iface_a__fun_b_args__sp = &tstdox__my_iface_a__fun_b_args__s;
-
-/* }}} */
 const iop_struct_t tstdox__my_iface_a__fun_bal1_args__s = {
     .fullname   = LSTR_IMMED("tstdox.MyIfaceA.funBal1Args"),
     .fields     = tstdox__my_iface_a__fun_aa_args__desc_fields,
@@ -1185,8 +1183,6 @@ const iop_struct_t tstdox__my_iface_a__fun_bal1_args__s = {
     .st_attrs   = &tstdox__my_iface_a__fun_b_args__s_desc_attrs,
 };
 iop_struct_t const * const tstdox__my_iface_a__fun_bal1_args__sp = &tstdox__my_iface_a__fun_bal1_args__s;
-
-/* }}} */
 const iop_struct_t tstdox__my_iface_a__fun_bal2_args__s = {
     .fullname   = LSTR_IMMED("tstdox.MyIfaceA.funBal2Args"),
     .fields     = tstdox__my_iface_a__fun_aa_args__desc_fields,
@@ -1295,8 +1291,6 @@ const iop_struct_t tstdox__my_iface_a__fun_e_args__s = {
     .fields_attrs = tstdox__my_iface_a__fun_e_args__desc_fields_attrs,
 };
 iop_struct_t const * const tstdox__my_iface_a__fun_e_args__sp = &tstdox__my_iface_a__fun_e_args__s;
-
-/* }}} */
 const iop_struct_t tstdox__my_iface_a__fun_e1_args__s = {
     .fullname   = LSTR_IMMED("tstdox.MyIfaceA.funE1Args"),
     .fields     = tstdox__my_iface_a__fun_e_args__desc_fields,
@@ -1308,8 +1302,6 @@ const iop_struct_t tstdox__my_iface_a__fun_e1_args__s = {
     .fields_attrs = tstdox__my_iface_a__fun_e_args__desc_fields_attrs,
 };
 iop_struct_t const * const tstdox__my_iface_a__fun_e1_args__sp = &tstdox__my_iface_a__fun_e1_args__s;
-
-/* }}} */
 const iop_struct_t tstdox__my_iface_a__fun_e2_args__s = {
     .fullname   = LSTR_IMMED("tstdox.MyIfaceA.funE2Args"),
     .fields     = tstdox__my_iface_a__fun_e_args__desc_fields,
@@ -1664,8 +1656,6 @@ const iop_struct_t tstdox__my_iface_c__fun_a_args__s = {
     .size       = sizeof(tstdox__my_iface_c__fun_a_args__t),
 };
 iop_struct_t const * const tstdox__my_iface_c__fun_a_args__sp = &tstdox__my_iface_c__fun_a_args__s;
-
-/* }}} */
 const iop_struct_t tstdox__my_iface_c__fun_a2_args__s = {
     .fullname   = LSTR_IMMED("tstdox.MyIfaceC.funA2Args"),
     .fields     = tstdox__my_iface_b__fun_a_args__desc_fields,

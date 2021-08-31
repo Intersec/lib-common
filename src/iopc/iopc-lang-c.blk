@@ -2987,8 +2987,6 @@ write_struct(sb_t *buf, const iopc_struct_t *st, const iopc_pkg_t *pkg,
     sb_addf(buf, "iop_struct_t const * const %s__sp = &%s__s;\n",
             tbase, tbase);
 
-    sb_adds(buf, "\n/* }""}} */\n");
-
     return 0;
 }
 
@@ -3164,6 +3162,8 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
                                  has_attrs));
         }
     }
+
+    sb_adds(buf, "\n/* }""}} */\n");
 
     return 0;
 }
