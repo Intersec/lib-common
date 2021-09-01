@@ -60,9 +60,7 @@ typedef _Bool cbool;
 /* Macros for ichannels */
 #define ichannel_get_cmd(ic)  (ic)->cmd
 
-/* iop dso resources */
-#define iopy_dso_get_scripts(dso)                                            \
-    IOP_DSO_GET_RESSOURCES(dso, iopy_on_register)
+/* Farch declarations */
 typedef char farch_name_t[FARCH_MAX_FILENAME];
 
 #endif

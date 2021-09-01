@@ -201,5 +201,6 @@ ctx.stlib(target='iop-snmp', source=[
 
 ctx.recurse([
     'pxcc',
+    'cython',
     'iopy',
 ])

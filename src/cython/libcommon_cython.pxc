@@ -18,7 +18,7 @@
 
 #include "libcommon_cython.h"
 
-PXCC_EXPORT_FILE("libcommon_cython.h");
+PXCC_EXPORT_FILE("<lib-common/cython/libcommon_cython.h>");
 
 PXCC_EXPORT_TYPE(int8_t);
 PXCC_EXPORT_TYPE(uint8_t);

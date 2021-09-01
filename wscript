@@ -321,9 +321,11 @@ def configure(ctx):
     # }}}
     # {{{ cython
 
+    cython_src_path = ctx.path.make_node('src/cython').abspath()
     ctx.env.append_unique('CYTHONFLAGS', [
         '--warning-errors',
-        '--warning-extra'
+        '--warning-extra',
+        '-I' + cython_src_path,
     ])
     ctx.env.CYTHONSUFFIX = '.pyx'
 

@@ -17,18 +17,8 @@
 ###########################################################################
 # pylint: disable = undefined-variable
 
-ctx(rule='${VERSION_SH} rcsid iopy > ${TGT}',
-    target='iopy-version.c', always=True)
-
-ctx.shlib(target='iopy', features='c cshlib', source=[
-    'iopy_rpc.pxc',
-    'iopy_rpc.c',
-    'iopy.pyx',
-    'iopy-version.c',
+ctx(target='libcommon-cython-pxc', features='c', source=[
+    'libcommon_cython.pxc',
 ], use=[
-    'python3',
     'libcommon',
-    'libcommon-cython-pxc',
-], depends_on=[
-    'iopy-version.c',
 ])
