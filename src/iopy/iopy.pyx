@@ -49,9 +49,9 @@ cdef extern from "Python.h":
     PyThreadState* PyEval_SaveThread() nogil
     void PyEval_RestoreThread(PyThreadState *) nogil
 
-from iopy_rpc cimport *
+from iopy_rpc_pxc cimport *
 
-from libcommon_cython cimport *
+from libcommon_cython_pxc cimport *
 
 cdef extern from "libcommon_cython.h" nogil:
     # Some macros that cannot be exported with pxcc

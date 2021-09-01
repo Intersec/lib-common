@@ -22,6 +22,6 @@ mem.fifo.data.*
 /buildbot.supp
 
 # cython stuff
-*.pxd
+*_pxc.pxd
 *.pyx.c
 *.pyx.h

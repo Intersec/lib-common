@@ -20,7 +20,7 @@
 cdef extern from "../pxcc/cython_export_fix.h":
     pass
 
-cimport zchk_cmod
+cimport zchk_cmod_pxc
 
 def cubic(int a):
-    return zchk_cmod.square(a) * a
+    return zchk_cmod_pxc.square(a) * a

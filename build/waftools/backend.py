@@ -1216,7 +1216,7 @@ def process_pxcc(self, node):
         ctx.env.PXCC = ctx.pxcc_tgen.link_task.outputs[0].abspath()
 
     # Handle file
-    pxd_node = node.change_ext_src('.pxd')
+    pxd_node = node.change_ext_src('_pxc.pxd')
 
     if pxd_node not in self.env.GEN_FILES:
         self.env.GEN_FILES.add(pxd_node)
