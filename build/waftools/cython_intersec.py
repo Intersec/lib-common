@@ -4,11 +4,13 @@
 # Romain Le Godais, Nicolas Pauss, 2018
 
 import re
+import os.path as osp
 
 # pylint: disable=import-error
 from waflib import Task, Logs
 from waflib.TaskGen import extension
 from waflib.Tools import c as c_tool
+from waflib.Node import Node
 # pylint: enable = import-error
 
 
@@ -118,15 +120,34 @@ class CythonC(c_tool.c):
 
 
 CY_API_PAT = re.compile(r'\s*?cdef\s*?(public|api)\w*')
-RE_CYT = re.compile(r"""
-    ^\s*                           # must begin with some whitespace characters
-    (?:from\s+(\w+)(?:\.\w+)*\s+)? # optionally match "from foo(.baz)*" and
+RE_INC_DIRS = re.compile(r'-I(.*)')
+RE_IMPORT_CYT = re.compile(r"""
+    ^\s*                           # may begin with some whitespace characters
+    (?:from\s+([\w.]+)*\s+)?       # optionally match "from foo(.baz)*" and
                                    # capture foo
     c?import\s(\w+|[*])            # require "import bar" and capture bar
+    """, re.M | re.VERBOSE)
+RE_INCLUDE_CYT = re.compile(r"""
+    ^\s*                           # may begin with some whitespace characters
+    include\s+[\"'](.+)[\"']       # capture include path
     """, re.M | re.VERBOSE)
 
 
 class cython(Task.Task): # pylint: disable=invalid-name
+    class ScannerState:
+        """Class to hold the state on scan method."""
+        __slots__ = ('inc_dirs', 'nodes', 'found', 'missing', 'has_api',
+                     'has_public')
+
+        def __init__(self):
+            self.inc_dirs = []
+            self.nodes = set()
+            self.found = []
+            self.missing = []
+            self.has_api = False
+            self.has_public = False
+
+
     run_str = '${CYTHON} ${CYTHONFLAGS} -o ${TGT[0].abspath()} ${SRC}'
     color   = 'GREEN'
 
@@ -169,64 +190,137 @@ class cython(Task.Task): # pylint: disable=invalid-name
 
     def scan(self):
         """
-        Return the dependent files (.pxd) by looking in the include folders.
+        Return the dependent files (.pxd, .pxi) by looking in the include
+        folders.
         Put the headers to generate in the custom list "bld.raw_deps".
-        To inspect the scanne results use::
+        To inspect the scanner results use::
 
             $ waf clean build --zones=deps
         """
         node = self.inputs[0]
-        txt = node.read()
+        state = self.ScannerState()
 
-        mods = set()
-        for m in RE_CYT.finditer(txt):
-            if m.group(1):  # matches "from foo import bar"
-                mods.add(m.group(1))
-            else:
-                mods.add(m.group(2))
+        # build list of inc_dirs
+        self.scan_parse_inc_dirs(state)
 
-        Logs.debug('cython: mods %r', mods)
-        incs = getattr(self.generator, 'cython_includes', [])
-        incs = [self.generator.path.find_dir(x) for x in incs]
-        incs.append(node.parent)
-
-        found = []
-        missing = []
-        for x in sorted(mods):
-            for y in incs:
-                k = y.find_resource(x + '.pxd')
-                if k:
-                    found.append(k)
-                    break
-            else:
-                missing.append(x)
+        # scan pyx node
+        self.scan_node(state, node)
 
         # the cython file implicitly depends on a pxd file that might be
         # present
         implicit = node.parent.find_resource(node.name[:-3] + 'pxd')
         if implicit:
-            found.append(implicit)
-
-        Logs.debug('cython: found %r', found)
+            state.found.append(implicit)
 
         # Now the .h created - store them in bld.raw_deps for later use
-        has_api = False
-        has_public = False
+        name = node.name.replace('.pyx', '')
+        cython_suffix = self.env.CYTHONSUFFIX
+        if state.has_api:
+            state.missing.append('header:%s_api%s.h' % (name, cython_suffix))
+        if state.has_public:
+            state.missing.append('header:%s%s.h' % (name, cython_suffix))
+
+        Logs.debug('cython: found %r, missing %r', state.found, state.missing)
+
+        return (state.found, state.missing)
+
+    def scan_parse_inc_dirs(self, state):
+        """
+        Populate the include directories in the scan state
+        """
+        path_find = self.generator.path.find_node
+        root_find = self.generator.bld.root.find_node
+
+        cython_flags = getattr(self.env, 'CYTHONFLAGS', [])
+        it = iter(cython_flags)
+        for flag in it:
+            m = RE_INC_DIRS.match(flag)
+            if not m:
+                continue
+
+            inc_dir = m.group(1)
+            if not inc_dir:
+                # If the include directory is not attached to -I, look for the
+                # next flag
+                inc_dir = next(it, None)
+                if inc_dir is None:
+                    # End of iterator
+                    break
+
+            if isinstance(inc_dir, Node):
+                node = inc_dir
+            elif osp.isabs(inc_dir):
+                node = root_find(inc_dir)
+            else:
+                node = path_find(inc_dir)
+
+            if node:
+                state.inc_dirs.append(node)
+
+    def scan_node(self, state, node):
+        """
+        Scan the dependencies of the file located at the given node
+        recursively.
+        """
+
+        state.nodes.add(node)
+        txt = node.read()
+
+        inc_dirs = state.inc_dirs[:]
+        inc_dirs.append(node.parent)
+
+        # first with the inc_dirs
+        includes = set()
+        for m in RE_INCLUDE_CYT.finditer(txt):
+            includes.add(m.group(1))
+        Logs.debug('cython: includes %r', includes)
+
+        for include in sorted(includes):
+            self.scan_dependency(state, inc_dirs, include, include, True)
+
+        # second with the import
+        mods = set()
+        for m in RE_IMPORT_CYT.finditer(txt):
+            if m.group(1):  # matches "from foo import bar"
+                mods.add(m.group(1))
+            else:
+                mods.add(m.group(2))
+        Logs.debug('cython: mods %r', mods)
+
+        for mod in sorted(mods):
+            mod_file_name = mod.replace('.', '/') + '.pxd'
+            self.scan_dependency(state, inc_dirs, mod, mod_file_name, False)
+
+        # Check if some functions are exported
         for l in txt.splitlines():
             if CY_API_PAT.match(l):
                 if ' api ' in l:
-                    has_api = True
+                    state.has_api = True
                 if ' public ' in l:
-                    has_public = True
-        name = node.name.replace('.pyx', '')
-        cython_suffix = self.env.CYTHONSUFFIX
-        if has_api:
-            missing.append('header:%s_api%s.h' % (name, cython_suffix))
-        if has_public:
-            missing.append('header:%s%s.h' % (name, cython_suffix))
+                    state.has_public = True
 
-        return (found, missing)
+    def scan_dependency(self, state, inc_dirs, dep_orig_name,
+                        dep_file_name, can_be_abs):
+        """
+        Look for a dependency in all includes directories and scan it
+        recursively if found.
+        """
+        if can_be_abs and dep_file_name.startswith('/'):
+            # When dependency is a file with absolute path, create dep_node
+            # from the root directory only
+            inc_dirs = [self.generator.bld.root]
 
+        for inc_dir in inc_dirs:
+            dep_node = inc_dir.find_resource(dep_file_name)
+            if dep_node:
+                if dep_node in state.nodes:
+                    # Skip already processed node
+                    break
+                state.found.append(dep_node)
+                self.scan_node(state, dep_node)
+                break
+        else:
+            state.missing.append(dep_orig_name)
 
 # }}}
 
