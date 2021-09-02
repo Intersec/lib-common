@@ -16,24 +16,25 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef IS_CYTHON_FIXES_H
-#define IS_CYTHON_FIXES_H
+#include <lib-common/xmlr.h>
+PXCC_EXPORT_FILE("<lib-common/xmlr.h>");
 
-/* These macros are redefined by Cython */
-#ifdef likely
-#  undef likely
-#endif
-#ifdef unlikely
-#  undef unlikely
-#endif
-#ifdef __unused__
-#  undef __unused__
-#endif
+PXCC_EXPORT_SYMBOL(xmlr_setup);
+PXCC_EXPORT_SYMBOL(xmlr_node_is_s);
+PXCC_EXPORT_SYMBOL(xmlr_node_open_s);
+PXCC_EXPORT_SYMBOL(xmlr_node_try_open_s);
+PXCC_EXPORT_SYMBOL(xmlr_next_sibling);
 
-/* Disable clang comma warnings for Python >= 3.9 */
-#if defined(__clang__)                                                       \
- && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 9))
-#  pragma GCC diagnostic ignored "-Wcomma"
-#endif
+PXCC_EXPORT_SYMBOL(xmlr_node_close);
+PXCC_EXPORT_SYMBOL(xmlr_close);
+PXCC_EXPORT_SYMBOL(xmlr_get_err);
 
-#endif /* IS_CYTHON_FIXES_H */
+
+#include <lib-common/xmlpp.h>
+PXCC_EXPORT_FILE("<lib-common/xmlpp.h>");
+
+PXCC_EXPORT_SYMBOL(xmlpp_open);
+PXCC_EXPORT_SYMBOL(xmlpp_open_banner);
+PXCC_EXPORT_SYMBOL(xmlpp_close);
+PXCC_EXPORT_SYMBOL(xmlpp_opentag);
+PXCC_EXPORT_SYMBOL(xmlpp_putattr);

@@ -16,64 +16,15 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "libcommon_cython.h"
+/* {{{ Iop */
 
-PXCC_EXPORT_FILE("<lib-common/cython/libcommon_cython.h>");
-
-PXCC_EXPORT_TYPE(int8_t);
-PXCC_EXPORT_TYPE(uint8_t);
-PXCC_EXPORT_TYPE(int16_t);
-PXCC_EXPORT_TYPE(uint16_t);
-PXCC_EXPORT_TYPE(int32_t);
-PXCC_EXPORT_TYPE(uint32_t);
-PXCC_EXPORT_TYPE(int64_t);
-PXCC_EXPORT_TYPE(uint64_t);
-
-PXCC_EXPORT_TYPE(opt_i8_t);
-PXCC_EXPORT_TYPE(opt_u8_t);
-PXCC_EXPORT_TYPE(opt_i16_t);
-PXCC_EXPORT_TYPE(opt_u16_t);
-PXCC_EXPORT_TYPE(opt_i32_t);
-PXCC_EXPORT_TYPE(opt_u32_t);
-PXCC_EXPORT_TYPE(opt_i64_t);
-PXCC_EXPORT_TYPE(opt_u64_t);
-PXCC_EXPORT_TYPE(opt_bool_t);
-PXCC_EXPORT_TYPE(opt_enum_t);
-PXCC_EXPORT_TYPE(opt_double_t);
+#include <lib-common/iop.h>
+PXCC_EXPORT_FILE("<lib-common/iop.h>");
 
 PXCC_EXPORT_TYPE(iop_array_u8_t);
 PXCC_EXPORT_TYPE(iop_help_t);
 PXCC_EXPORT_TYPE(enum iop_enum_flags_t);
 PXCC_EXPORT_TYPE(enum iop_struct_flags_t);
-
-PXCC_EXPORT_TYPE(enum iop_jpack_flags);
-
-PXCC_EXPORT_TYPE(ic_status_t);
-PXCC_EXPORT_TYPE(ic__hdr__t);
-PXCC_EXPORT_SYMBOL(ic__hdr__s);
-PXCC_EXPORT_TYPE(ic__simple_hdr__t);
-PXCC_EXPORT_SYMBOL(ic__pkg);
-
-PXCC_EXPORT_SYMBOL(mem_stack_push);
-PXCC_EXPORT_SYMBOL(mem_stack_pop);
-PXCC_EXPORT_SYMBOL(t_pool);
-
-PXCC_EXPORT_SYMBOL(qhash_scan);
-
-PXCC_EXPORT_SYMBOL(sb_add_lstr);
-PXCC_EXPORT_SYMBOL(sb_adds);
-PXCC_EXPORT_SYMBOL(sb_addsb);
-PXCC_EXPORT_SYMBOL(sb_reset);
-
-PXCC_EXPORT_SYMBOL(ps_init);
-PXCC_EXPORT_SYMBOL(ps_initlstr);
-PXCC_EXPORT_SYMBOL(ps_done);
-
-PXCC_EXPORT_SYMBOL(mp_lstr_dup);
-PXCC_EXPORT_SYMBOL(lstr_dup);
-PXCC_EXPORT_SYMBOL(lstr_equal);
-PXCC_EXPORT_SYMBOL(lstr_init_from_file);
-PXCC_EXPORT_SYMBOL(lstr_wipe);
 
 PXCC_EXPORT_SYMBOL(iop_struct_is_class);
 PXCC_EXPORT_SYMBOL(iop_field_is_reference);
@@ -89,18 +40,57 @@ PXCC_EXPORT_SYMBOL(iop_class_static_fields_have_type);
 PXCC_EXPORT_SYMBOL(iop_class_static_field_type);
 PXCC_EXPORT_SYMBOL(iop_enum_to_str_desc);
 
-PXCC_EXPORT_SYMBOL(iop_dso_open);
-PXCC_EXPORT_SYMBOL(iop_dso_load_handle);
-PXCC_EXPORT_SYMBOL(iop_dso_close);
-
-PXCC_EXPORT_SYMBOL(t_iop_junpack_ptr_ps);
-PXCC_EXPORT_SYMBOL(t_iop_junpack_ptr_file);
 PXCC_EXPORT_SYMBOL(iop_bunpack_ptr);
 PXCC_EXPORT_SYMBOL(iop_bunpack_multi);
 PXCC_EXPORT_SYMBOL(t_iop_bpack_struct);
 
+PXCC_EXPORT_SYMBOL(t_iop_new_desc);
+PXCC_EXPORT_SYMBOL(mp_iop_new_desc);
+
+PXCC_EXPORT_SYMBOL(iop_union_get_tag);
+PXCC_EXPORT_SYMBOL(iop_union_set_tag);
+
+PXCC_EXPORT_SYMBOL(iop_skip_absent_field_desc);
+
+PXCC_EXPORT_SYMBOL(t_iop_xunpack_ptr);
+PXCC_EXPORT_SYMBOL(iop_xpack_flags);
+
+PXCC_EXPORT_SYMBOL(iop_dso_open);
+PXCC_EXPORT_SYMBOL(iop_dso_load_handle);
+PXCC_EXPORT_SYMBOL(iop_dso_close);
+
+/* }}} */
+/* {{{ Iop-Json */
+
+#include <lib-common/iop-json.h>
+PXCC_EXPORT_FILE("<lib-common/iop-json.h>");
+
+PXCC_EXPORT_TYPE(enum iop_jpack_flags);
 PXCC_EXPORT_SYMBOL(iop_jpack);
 PXCC_EXPORT_SYMBOL(iop_sb_write);
+
+PXCC_EXPORT_SYMBOL(t_iop_junpack_ptr_ps);
+PXCC_EXPORT_SYMBOL(t_iop_junpack_ptr_file);
+
+/* }}} */
+/* {{{ Iop-RPC */
+
+#include <lib-common/iop-rpc.h>
+PXCC_EXPORT_FILE("<lib-common/iop-rpc.h>");
+
+PXCC_EXPORT_TYPE(ic_status_t);
+PXCC_EXPORT_TYPE(ic__hdr__t);
+PXCC_EXPORT_SYMBOL(ic__hdr__s);
+PXCC_EXPORT_TYPE(ic__simple_hdr__t);
+PXCC_EXPORT_SYMBOL(ic__pkg);
+
+PXCC_EXPORT_SYMBOL(ic_status_to_string);
+
+/* }}} */
+/* {{{ Iop-Yaml */
+
+#include <lib-common/iop-yaml.h>
+PXCC_EXPORT_FILE("<lib-common/iop-yaml.h>");
 
 /* Fix bug in pxcc when ordering dependencies required by t_iop_yunpack.
  * yaml__presentation_include__t depends on yaml__document_presentation__t,
@@ -114,39 +104,4 @@ PXCC_EXPORT_SYMBOL(t_iop_sb_ypack);
 PXCC_EXPORT_SYMBOL(t_iop_yunpack_ptr_ps);
 PXCC_EXPORT_SYMBOL(t_iop_yunpack_ptr_file);
 
-PXCC_EXPORT_SYMBOL(xmlr_setup);
-PXCC_EXPORT_SYMBOL(xmlr_node_is_s);
-PXCC_EXPORT_SYMBOL(xmlr_node_open_s);
-PXCC_EXPORT_SYMBOL(xmlr_node_try_open_s);
-PXCC_EXPORT_SYMBOL(xmlr_next_sibling);
-
-PXCC_EXPORT_SYMBOL(xmlr_node_close);
-PXCC_EXPORT_SYMBOL(xmlr_close);
-PXCC_EXPORT_SYMBOL(xmlr_get_err);
-PXCC_EXPORT_SYMBOL(t_iop_xunpack_ptr);
-
-PXCC_EXPORT_SYMBOL(xmlpp_open);
-PXCC_EXPORT_SYMBOL(xmlpp_open_banner);
-PXCC_EXPORT_SYMBOL(xmlpp_close);
-PXCC_EXPORT_SYMBOL(xmlpp_opentag);
-PXCC_EXPORT_SYMBOL(xmlpp_putattr);
-PXCC_EXPORT_SYMBOL(iop_xpack_flags);
-
-PXCC_EXPORT_SYMBOL(strconv_hexdecode);
-PXCC_EXPORT_SYMBOL(strconv_hexencode);
-
-PXCC_EXPORT_SYMBOL(iop_union_get_tag);
-PXCC_EXPORT_SYMBOL(iop_union_set_tag);
-
-PXCC_EXPORT_SYMBOL(t_iop_new_desc);
-PXCC_EXPORT_SYMBOL(mp_irealloc);
-PXCC_EXPORT_SYMBOL(mp_imalloc);
-PXCC_EXPORT_SYMBOL(mp_iop_new_desc);
-
-PXCC_EXPORT_SYMBOL(iop_skip_absent_field_desc);
-
-PXCC_EXPORT_SYMBOL(ic_status_to_string);
-
-PXCC_EXPORT_TYPE(farch_entry_t);
-PXCC_EXPORT_SYMBOL(t_farch_get_data);
-PXCC_EXPORT_SYMBOL(farch_get_filename);
+/* }}} */

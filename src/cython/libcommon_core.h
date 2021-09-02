@@ -16,19 +16,17 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef IS_PYTHON_LIBCOMMON_CYTHON_H
-#define IS_PYTHON_LIBCOMMON_CYTHON_H
+#ifndef IS_CYTHON_LIBCOMMON_CORE_H
+#define IS_CYTHON_LIBCOMMON_CORE_H
 
-#include <lib-common/iop.h>
-#include <lib-common/iop-yaml.h>
-#include <lib-common/xmlr.h>
-#include <lib-common/xmlpp.h>
-#include <lib-common/iop-rpc.h>
-#include <lib-common/farch.h>
-#include <lib-common/thr.h>
+#include <Python.h>
+#include <lib-common/core.h>
 
 /* Macro for c99 bool. */
 typedef _Bool cbool;
+
+/* Macro to do a C assert in cython */
+#define cassert(...)  assert(__VA_ARGS__)
 
 /* Macros to use t_scope in cython */
 #define t_scope_t                                                            \
@@ -47,20 +45,9 @@ typedef _Bool cbool;
 #define t_sb_scope_init_1k()  t_sb_scope_init(1 << 10)
 #define t_sb_scope_init_8k()  t_sb_scope_init(8 << 10)
 
-/* Macro to do a C assert in cython */
-#define cassert(...)  assert(__VA_ARGS__)
-
-/* Macros for ic hdr */
-#define is_ic_hdr_simple_hdr(hdr)  IOP_UNION_IS(ic__hdr, (hdr), simple)
-#define t_iop_new_ic_hdr()  t_iop_new(ic__hdr)
-#define iop_init_ic_simple_hdr(hdr)  iop_init(ic__simple_hdr, (hdr))
-#define iop_ic_hdr_from_simple_hdr(hdr)  IOP_UNION(ic__hdr, simple, (hdr))
-#define iop_dup_ic_hdr(hdr)  iop_dup(ic__hdr, (hdr))
-
-/* Macros for ichannels */
-#define ichannel_get_cmd(ic)  (ic)->cmd
-
-/* Farch declarations */
-typedef char farch_name_t[FARCH_MAX_FILENAME];
-
+/* Fix compile error for missing PyUnicode_AsUTF8AndSize for Python < 3.3. */
+#if PY_VERSION_HEX < 0x03030000
+#  define PyUnicode_AsUTF8AndSize(...)  ({ assert(false); NULL; })
 #endif
+
+#endif /* IS_CYTHON_LIBCOMMON_CORE_H */

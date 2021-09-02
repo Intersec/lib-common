@@ -33,6 +33,7 @@ from cpython cimport bool
 from libc.errno cimport errno
 from libc.string cimport strerror
 
+
 cdef extern from "Python.h":
     # Get raw builtin objects from Python.h
     ctypedef extern class builtins.Exception[object PyBaseExceptionObject]:
@@ -47,7 +48,14 @@ cdef extern from "Python.h":
     PyThreadState* PyEval_SaveThread() nogil
     void PyEval_RestoreThread(PyThreadState *) nogil
 
-from libcommon_cython cimport *
+
+from libcommon_core cimport *
+from libcommon_container cimport *
+from libcommon_iop cimport *
+from libcommon_xml cimport *
+from libcommon_farch cimport *
+from libcommon_thr cimport *
+
 
 cdef extern from "<lib-common/farch.h>":
     """
@@ -55,8 +63,6 @@ cdef extern from "<lib-common/farch.h>":
         IOP_DSO_GET_RESSOURCES(dso, iopy_on_register)
     """
     const farch_entry_t * const *iopy_dso_get_scripts(const iop_dso_t *)
-
-from iopy_rpc_pxc cimport *
 
 cdef extern from "version.h" nogil:
     """
@@ -67,8 +73,13 @@ cdef extern from "version.h" nogil:
     int IOPY_PATCH
     extern const char *iopy_git_revision
 
-cdef extern from "iopy_cython_export_fix.h":
+cdef extern from "iopy_cython_export.h":
     pass
+
+from iopy_rpc_pxc cimport *
+
+# Must be added after all includes and imports.
+from cython_fixes cimport *
 
 
 # Import python modules that are used when using IOPy module.

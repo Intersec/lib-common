@@ -15,14 +15,30 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable
+#cython: language_level=3
 
-ctx(target='libcommon-cython-pxc', features='c', source=[
-    'libcommon_core.pxc',
-    'libcommon_container.pxc',
-    'libcommon_iop.pxc',
-    'libcommon_xml.pxc',
-    'libcommon_farch.pxc',
-], use=[
-    'libcommon',
-])
+from libc.stdint cimport UINT32_MAX
+
+from libcommon_core cimport *
+from libcommon_container_pxc cimport *
+
+
+cdef inline cbool qhash_while(qhash_t *qh, uint32_t *pos):
+    """Loop through a qhash.
+
+    Parameters
+    ----------
+    qh
+        The qhash to loop through.
+    pos
+        The position in the loop. It will be updated by the function. It must
+        be incremented to get the next value before calling this function.
+
+    Returns
+    -------
+        True if pos is a valid position, False otherwise.
+    """
+    if qh.hdr.len == 0:
+        return False
+    pos[0] = qhash_scan(qh, pos[0])
+    return pos[0] < UINT32_MAX

@@ -15,14 +15,12 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable
+#cython: language_level=3
 
-ctx(target='libcommon-cython-pxc', features='c', source=[
-    'libcommon_core.pxc',
-    'libcommon_container.pxc',
-    'libcommon_iop.pxc',
-    'libcommon_xml.pxc',
-    'libcommon_farch.pxc',
-], use=[
-    'libcommon',
-])
+from libcommon_farch_pxc cimport *
+
+cdef extern from "<lib-common/farch.h>" nogil:
+    """
+    typedef char farch_name_t[FARCH_MAX_FILENAME];
+    """
+    ctypedef char farch_name_t[0]

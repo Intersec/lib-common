@@ -16,24 +16,16 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef IS_CYTHON_FIXES_H
-#define IS_CYTHON_FIXES_H
+#ifndef IS_CYTHON_LIBCOMMON_THR_H
+#define IS_CYTHON_LIBCOMMON_THR_H
 
-/* These macros are redefined by Cython */
-#ifdef likely
-#  undef likely
-#endif
-#ifdef unlikely
-#  undef unlikely
-#endif
-#ifdef __unused__
-#  undef __unused__
+#include <Python.h>
+
+/* Fix deprecated warning of PyEval_InitThreads for Python >= 3.9. */
+#if PY_VERSION_HEX < 0x03090000
+#  define py_eval_init_threads() PyEval_InitThreads()
+#else
+#  define py_eval_init_threads() do { } while(0)
 #endif
 
-/* Disable clang comma warnings for Python >= 3.9 */
-#if defined(__clang__)                                                       \
- && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 9))
-#  pragma GCC diagnostic ignored "-Wcomma"
-#endif
-
-#endif /* IS_CYTHON_FIXES_H */
+#endif /* IS_CYTHON_LIBCOMMON_THR_H */

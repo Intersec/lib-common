@@ -16,24 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef IS_CYTHON_FIXES_H
-#define IS_CYTHON_FIXES_H
+#include <lib-common/container.h>
+PXCC_EXPORT_FILE("<lib-common/container.h>");
 
-/* These macros are redefined by Cython */
-#ifdef likely
-#  undef likely
-#endif
-#ifdef unlikely
-#  undef unlikely
-#endif
-#ifdef __unused__
-#  undef __unused__
-#endif
-
-/* Disable clang comma warnings for Python >= 3.9 */
-#if defined(__clang__)                                                       \
- && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 9))
-#  pragma GCC diagnostic ignored "-Wcomma"
-#endif
-
-#endif /* IS_CYTHON_FIXES_H */
+PXCC_EXPORT_SYMBOL(qhash_scan);

@@ -16,24 +16,19 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef IS_CYTHON_FIXES_H
-#define IS_CYTHON_FIXES_H
+#ifndef IS_CYTHON_LIBCOMMON_IOP_H
+#define IS_CYTHON_LIBCOMMON_IOP_H
 
-/* These macros are redefined by Cython */
-#ifdef likely
-#  undef likely
-#endif
-#ifdef unlikely
-#  undef unlikely
-#endif
-#ifdef __unused__
-#  undef __unused__
-#endif
+#include <lib-common/iop.h>
 
-/* Disable clang comma warnings for Python >= 3.9 */
-#if defined(__clang__)                                                       \
- && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 9))
-#  pragma GCC diagnostic ignored "-Wcomma"
-#endif
+/* Macros for ic hdr */
+#define is_ic_hdr_simple_hdr(hdr)  IOP_UNION_IS(ic__hdr, (hdr), simple)
+#define t_iop_new_ic_hdr()  t_iop_new(ic__hdr)
+#define iop_init_ic_simple_hdr(hdr)  iop_init(ic__simple_hdr, (hdr))
+#define iop_ic_hdr_from_simple_hdr(hdr)  IOP_UNION(ic__hdr, simple, (hdr))
+#define iop_dup_ic_hdr(hdr)  iop_dup(ic__hdr, (hdr))
 
-#endif /* IS_CYTHON_FIXES_H */
+/* Macros for ichannels */
+#define ichannel_get_cmd(ic)  (ic)->cmd
+
+#endif /* IS_CYTHON_LIBCOMMON_IOP_H */

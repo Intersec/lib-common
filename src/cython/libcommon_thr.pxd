@@ -15,14 +15,13 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable
+#cython: language_level=3
 
-ctx(target='libcommon-cython-pxc', features='c', source=[
-    'libcommon_core.pxc',
-    'libcommon_container.pxc',
-    'libcommon_iop.pxc',
-    'libcommon_xml.pxc',
-    'libcommon_farch.pxc',
-], use=[
-    'libcommon',
-])
+
+cdef extern from "<lib-common/thr.h>" nogil:
+    void c_thr_attach "thr_attach" ()
+    void c_thr_detach "thr_detach" ()
+
+
+cdef extern from "<lib-common/cython/libcommon_thr.h>" nogil:
+    void py_eval_init_threads()

@@ -19,23 +19,30 @@
 
 from cpython.version cimport PY_VERSION_HEX
 from cpython.object cimport PyObject_Str
-from libc.stdint cimport UINT32_MAX
 
-from libcommon_cython_pxc cimport *
+from libcommon_core_pxc cimport *
 
 
 # {{{ Definitions
 
 
-cdef extern from "<lib-common/cython/cython_fixes.h>":
-    const char *PyUnicode_AsUTF8AndSize(str obj,
-                                        Py_ssize_t *size) except NULL
-    void py_eval_init_threads()
-
-
-cdef extern from "<lib-common/cython/libcommon_cython.h>" nogil:
-    # Some macros that cannot be exported with pxcc
+cdef extern from "<lib-common/cython/libcommon_core.h>" nogil:
     ctypedef _Bool cbool
+
+    cbool unlikely(cbool)
+    cbool likely(cbool)
+    void cassert(...)
+
+    int ROUND_UP(int, int)
+    cbool TST_BIT(const void *, int)
+
+    void *p_clear(void *, int)
+    void p_delete(void **)
+
+    int MEM_BY_FRAME
+    int MEM_RAW
+    int PROT_READ
+    int MAP_SHARED
 
     ctypedef const void *t_scope_t
     t_scope_t t_scope_init()
@@ -43,7 +50,6 @@ cdef extern from "<lib-common/cython/libcommon_cython.h>" nogil:
     uint8_t *t_new_u8(int)
     char *t_new_char(int)
 
-    int ROUND_UP(int, int)
     lstr_t LSTR(const char *)
     lstr_t LSTR_INIT_V(const char *, int)
     extern lstr_t LSTR_NULL_V
@@ -62,35 +68,9 @@ cdef extern from "<lib-common/cython/libcommon_cython.h>" nogil:
     void sb_addf(sb_t *, const char *, ...)
     void sb_prependf(sb_t *, const char *, ...)
 
-    cbool is_ic_hdr_simple_hdr(const ic__hdr__t *)
-    ic__hdr__t *t_iop_new_ic_hdr()
-    void iop_init_ic_simple_hdr(ic__simple_hdr__t *)
-    ic__hdr__t iop_ic_hdr_from_simple_hdr(ic__simple_hdr__t)
-    ic__hdr__t *iop_dup_ic_hdr(const ic__hdr__t *)
+    const char *PyUnicode_AsUTF8AndSize(str obj,
+                                        Py_ssize_t *size) except NULL
 
-    ctypedef struct ichannel_t:
-        pass
-    int32_t ichannel_get_cmd(const ichannel_t *ic)
-
-    cbool TST_BIT(const void *, int)
-    xml_reader_t xmlr_g
-    cbool unlikely(cbool)
-    cbool likely(cbool)
-    void cassert(...)
-    void *p_clear(void *, int)
-    void p_delete(void **)
-    Lmid_t LM_ID_BASE
-    int MEM_BY_FRAME
-    int MEM_RAW
-    int PROT_READ
-    int MAP_SHARED
-    int IOP_XPACK_LITERAL_ENUMS
-    int IOP_XPACK_SKIP_PRIVATE
-
-    ctypedef char farch_name_t[0]
-
-    void c_thr_attach "thr_attach" ()
-    void c_thr_detach "thr_detach" ()
 
 # }}}
 # {{{ Helpers
@@ -321,27 +301,6 @@ cdef inline lstr_t mp_py_obj_to_lstr(mem_pool_t *mp, object obj,
         return mp_py_str_to_lstr(mp, <str>obj, force_alloc)
     else:
         return mp_py_obj_to_lstr(mp, PyObject_Str(obj), True)
-
-
-cdef inline cbool qhash_while(qhash_t *qh, uint32_t *pos):
-    """Loop through a qhash.
-
-    Parameters
-    ----------
-    qh
-        The qhash to loop through.
-    pos
-        The position in the loop. It will be updated by the function. It must
-        be incremented to get the next value before calling this function.
-
-    Returns
-    -------
-        True if pos is a valid position, False otherwise.
-    """
-    if qh.hdr.len == 0:
-        return False
-    pos[0] = qhash_scan(qh, pos[0])
-    return pos[0] < UINT32_MAX
 
 
 # }}}

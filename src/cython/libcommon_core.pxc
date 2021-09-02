@@ -1,0 +1,84 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2021 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <lib-common/core.h>
+PXCC_EXPORT_FILE("<lib-common/core.h>");
+
+/* {{{ Basic types */
+
+PXCC_EXPORT_TYPE(int8_t);
+PXCC_EXPORT_TYPE(uint8_t);
+PXCC_EXPORT_TYPE(int16_t);
+PXCC_EXPORT_TYPE(uint16_t);
+PXCC_EXPORT_TYPE(int32_t);
+PXCC_EXPORT_TYPE(uint32_t);
+PXCC_EXPORT_TYPE(int64_t);
+PXCC_EXPORT_TYPE(uint64_t);
+
+PXCC_EXPORT_TYPE(opt_i8_t);
+PXCC_EXPORT_TYPE(opt_u8_t);
+PXCC_EXPORT_TYPE(opt_i16_t);
+PXCC_EXPORT_TYPE(opt_u16_t);
+PXCC_EXPORT_TYPE(opt_i32_t);
+PXCC_EXPORT_TYPE(opt_u32_t);
+PXCC_EXPORT_TYPE(opt_i64_t);
+PXCC_EXPORT_TYPE(opt_u64_t);
+PXCC_EXPORT_TYPE(opt_bool_t);
+PXCC_EXPORT_TYPE(opt_enum_t);
+PXCC_EXPORT_TYPE(opt_double_t);
+
+/* }}} */
+/* {{{ Memory */
+
+PXCC_EXPORT_SYMBOL(mp_irealloc);
+PXCC_EXPORT_SYMBOL(mp_imalloc);
+PXCC_EXPORT_SYMBOL(mem_stack_push);
+PXCC_EXPORT_SYMBOL(mem_stack_pop);
+PXCC_EXPORT_SYMBOL(t_pool);
+
+/* }}} */
+/* {{{ Lstr */
+
+PXCC_EXPORT_SYMBOL(mp_lstr_dup);
+PXCC_EXPORT_SYMBOL(lstr_dup);
+PXCC_EXPORT_SYMBOL(lstr_equal);
+PXCC_EXPORT_SYMBOL(lstr_init_from_file);
+PXCC_EXPORT_SYMBOL(lstr_wipe);
+
+/* }}} */
+/* {{{ Sb */
+
+PXCC_EXPORT_SYMBOL(sb_add_lstr);
+PXCC_EXPORT_SYMBOL(sb_adds);
+PXCC_EXPORT_SYMBOL(sb_addsb);
+PXCC_EXPORT_SYMBOL(sb_reset);
+
+/* }}} */
+/* {{{ Ps */
+
+PXCC_EXPORT_SYMBOL(ps_init);
+PXCC_EXPORT_SYMBOL(ps_initlstr);
+PXCC_EXPORT_SYMBOL(ps_done);
+
+/* }}} */
+/* {{{ Strconv */
+
+PXCC_EXPORT_SYMBOL(strconv_hexdecode);
+PXCC_EXPORT_SYMBOL(strconv_hexencode);
+
+/* }}} */
