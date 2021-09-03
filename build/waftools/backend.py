@@ -318,13 +318,17 @@ def remove_dynamic_libs(self):
 # {{{ .local_vimrc.vim / syntastic configuration generation
 
 
-def get_linter_flags(ctx, flags_key):
+def get_linter_flags(ctx, flags_key, include_python3=True):
     include_flags = []
     for key in ctx.env:
         if key == 'INCLUDES' or key.startswith('INCLUDES_'):
             include_flags += ['-I' + value for value in ctx.env[key]]
 
-    return ctx.env[flags_key] + ctx.env.CFLAGS_python3 + include_flags
+    flags = ctx.env[flags_key][:]
+    if include_python3:
+        flags += ctx.env.CFLAGS_python3
+    flags += include_flags
+    return flags
 
 
 def gen_local_vimrc(ctx):
@@ -361,6 +365,13 @@ def gen_local_vimrc(ctx):
     content += r"set errorformat^=\%D%*\\a:\ Entering\ directory\ `%f/"
     content += ctx.bldnode.name
     content += "'\n"
+
+    # Set flags for cython
+    content += "let g:ale_pyrex_cython_options = '\n"
+    content += "    \\ "
+    content += " ".join(get_linter_flags(ctx, 'CYTHONFLAGS', False))
+    content += "\n"
+    content += "\\'\n"
 
     if hasattr(ctx, 'vimrc_additions'):
         for cb in ctx.vimrc_additions:
