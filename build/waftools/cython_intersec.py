@@ -97,13 +97,14 @@ class CythonC(c_tool.c):
         # Save task environment
         self.env.stash()
 
-        # Add needed clags to ignore warnings
+        # Add needed cflags to ignore warnings
         self.env.append_unique('CFLAGS', [
             '-Wno-unused-function',
             '-Wno-unused-parameter',
             '-Wno-shadow',
             '-Wno-redundant-decls',
             '-Wno-uninitialized',
+            '-Wno-declaration-after-statement',
         ])
 
         # Call original run method
