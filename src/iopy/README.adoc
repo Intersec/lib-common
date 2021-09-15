@@ -14,15 +14,11 @@ https://cython.readthedocs.io/en/latest/src/userguide/extension_types.html
 - Exception handling for cdef functions:
 https://cython.readthedocs.io/en/latest/src/userguide/language_basics.html#error-return-values
 
-- String types for Python 2 and 3, we use `basestring` to be fully compatible:
-https://cython.readthedocs.io/en/latest/src/tutorial/strings.html
-
 
 == How Cython is used in IOPy
 
-To export the C types and symbols from lib-common to IOPy, we use PXCC with
-the file `libcommon_cython.pxc`.
-See pxcc/README.adoc for more explanation about PXCC.
+We use Cython source files from Lib-common to import symbols and types from
+Lib-common. See `src/cython/README.adoc`.
 
 All the IOPy exposed classes and all the code that manipulate Python objects
 are handled by Cython in `iopy.pyx`.
@@ -95,6 +91,6 @@ $1 = {
 }
 ----
 
-Cython also provides a wrapper to demangle Cython symbol names, but are
+Cython also provides a wrapper to demangle Cython symbol names, but there are
 currently some conflict with the installed GDB version and Python on standard
 Intersec debian.
