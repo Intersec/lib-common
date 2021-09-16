@@ -75,7 +75,7 @@ class CythonC(c_tool.c):
         # Add needed defines so that preprocessor works
         self.env.append_unique('DEFINES', [
             'Py_PYTHON_H',
-            'PY_VERSION_HEX=0x02070000',
+            'PY_VERSION_HEX=' + self.env.PYTHON_HEXVERSION,
         ])
 
         # Call original preprocessor
@@ -342,3 +342,6 @@ def configure(ctx):
     if hasattr(ctx.options, 'cython_flags'):
         ctx.env.CYTHONFLAGS = ctx.options.cython_flags
     ctx.env.CYTHONSUFFIX = ctx.options.cython_suffix
+    ctx.env.PYTHON_HEXVERSION = ctx.cmd_and_log(ctx.env.PYTHON + [
+        '-c', 'import sys; print(hex(sys.hexversion))'
+    ]).strip()
