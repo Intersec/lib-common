@@ -8613,17 +8613,15 @@ cdef void plugin_load_dso(Plugin plugin, iop_dso_t *dso):
     dso
         The C IOP dso.
     """
-    cdef uint32_t pos
+    cdef QHashIterator it
 
-    pos = 0
-    while qhash_while(&dso.pkg_h.qh, &pos):
-        plugin_add_package(plugin, dso.pkg_h.values[pos])
-        pos += 1
+    it = qhash_iter_make(&dso.pkg_h.qh)
+    while qhash_iter_next(&it):
+        plugin_add_package(plugin, dso.pkg_h.values[it.pos])
 
-    pos = 0
-    while qhash_while(&dso.mod_h.qh, &pos):
-        plugin_add_module(plugin, dso.mod_h.values[pos])
-        pos += 1
+    it = qhash_iter_make(&dso.mod_h.qh)
+    while qhash_iter_next(&it):
+        plugin_add_module(plugin, dso.mod_h.values[it.pos])
 
 
 cdef void plugin_add_package(Plugin plugin, const iop_pkg_t *pkg):
@@ -9164,17 +9162,15 @@ cdef void plugin_unload_dso(Plugin plugin, iop_dso_t *dso):
     dso
         The IOP dso to unload.
     """
-    cdef uint32_t pos
+    cdef QHashIterator it
 
-    pos = 0
-    while qhash_while(&dso.pkg_h.qh, &pos):
-        plugin_remove_package(plugin, dso.pkg_h.values[pos])
-        pos += 1
+    it = qhash_iter_make(&dso.pkg_h.qh)
+    while qhash_iter_next(&it):
+        plugin_remove_package(plugin, dso.pkg_h.values[it.pos])
 
-    pos = 0
-    while qhash_while(&dso.mod_h.qh, &pos):
-        plugin_remove_module(plugin, dso.mod_h.values[pos])
-        pos += 1
+    it = qhash_iter_make(&dso.mod_h.qh)
+    while qhash_iter_next(&it):
+        plugin_remove_module(plugin, dso.mod_h.values[it.pos])
 
 
 cdef void plugin_remove_package(Plugin plugin, const iop_pkg_t *pkg):

@@ -23,22 +23,71 @@ from libcommon_core cimport *
 from libcommon_container_pxc cimport *
 
 
-cdef inline cbool qhash_while(qhash_t *qh, uint32_t *pos):
-    """Loop through a qhash.
+cdef struct QHashIterator:
+    # Iterator on a qhash.
+    #
+    # It is typically used like this:
+    #
+    #   cdef QHashIterator it
+    #
+    #   it = qhash_iter_make(&some_qm.qh)
+    #   while qhash_iter_next(&it):
+    #       do_something(some_qm.values[it.pos])
+    #
+    # Fields
+    # ------
+    # qh
+    #     The qhash to iterate on.
+    # pos
+    #     The current item position.
+    # next_pos
+    #     The next item position to look for.
+    #
+    # Functions
+    # ---------
+    # qhash_iter_make()
+    #     Make an iterator from a qhash.
+    # qhash_iter_next()
+    #     Advance the iterator to next item.
+    const qhash_t *qh
+    uint32_t pos
+    uint32_t next_pos
+
+
+cdef inline QHashIterator qhash_iter_make(const qhash_t *qh):
+    """Make a new qhash iterator
 
     Parameters
     ----------
     qh
-        The qhash to loop through.
-    pos
-        The position in the loop. It will be updated by the function. It must
-        be incremented to get the next value before calling this function.
+        The qhash to iterate on.
 
     Returns
     -------
-        True if pos is a valid position, False otherwise.
+        The qhash iterator.
     """
-    if qh.hdr.len == 0:
+    cdef QHashIterator it
+
+    it.qh = qh
+    it.pos = 0 if qh.hdr.len > 0 else UINT32_MAX
+    it.next_pos = 0
+    return it
+
+
+cdef inline cbool qhash_iter_next(QHashIterator *it):
+    """Advance the iterator to next item.
+
+    Parameters
+    ----------
+    it
+        The qhash iterator.
+
+    Returns
+    -------
+        True if the iterator has a next item, False otherwise.
+    """
+    if it.pos == UINT32_MAX:
         return False
-    pos[0] = qhash_scan(qh, pos[0])
-    return pos[0] < UINT32_MAX
+    it.pos = qhash_scan(it.qh, it.next_pos)
+    it.next_pos = it.pos + 1
+    return it.pos < UINT32_MAX
