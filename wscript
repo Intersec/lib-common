@@ -33,7 +33,28 @@ sys.path.insert(0, waftoolsdir)
 
 out = ".build-waf-%s" % os.environ.get('P', 'default')
 
+# {{{ helpers
 
+
+def remove_prefix(text, prefix):
+    if text.startswith(prefix):
+        return text[len(prefix):]
+    return text
+
+
+
+def load_tools(ctx):
+    ctx.load('common', tooldir=waftoolsdir)
+    ctx.load('backend', tooldir=waftoolsdir)
+    for tool in getattr(ctx, 'extra_waftools', []):
+        ctx.load(tool, tooldir=waftoolsdir)
+
+    # Configure waf to re-evaluate hashes only when file timestamp/size
+    # change. This is way faster on no-op builds.
+    ctx.load('md5_tstamp')
+
+
+# }}}
 # {{{ poetry
 
 
@@ -182,22 +203,6 @@ def build_with_poetry(ctx):
 
 
 # }}}
-# {{{ load tools
-
-
-def load_tools(ctx):
-    ctx.load('common', tooldir=waftoolsdir)
-    ctx.load('backend', tooldir=waftoolsdir)
-    for tool in getattr(ctx, 'extra_waftools', []):
-        ctx.load(tool, tooldir=waftoolsdir)
-
-    # Configure waf to re-evaluate hashes only when file timestamp/size
-    # change. This is way faster on no-op builds.
-    ctx.load('md5_tstamp')
-
-
-
-# }}}
 # {{{ options
 
 
@@ -255,9 +260,13 @@ def configure(ctx):
     ctx.find_program('python3')
     ctx.find_program('python3-config', var='PYTHON3_CONFIG')
 
-    py_cflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--includes'])
-    py_cflags = shlex.split(py_cflags)
-    ctx.env.append_unique('CFLAGS_python3', py_cflags)
+    # We need to remove -I prefix to use Python include paths in INCLUDES
+    # variables.
+    py_includes = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--includes'])
+    py_includes = shlex.split(py_includes)
+    py_includes = [remove_prefix(x, '-I') for x in py_includes]
+    ctx.env.append_unique('INCLUDES_python3', py_includes)
+    ctx.env.append_unique('INCLUDES_python3_embed', py_includes)
 
     py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--ldflags'])
     py_ldflags = shlex.split(py_ldflags)
@@ -266,18 +275,8 @@ def configure(ctx):
     # pylint: disable=line-too-long
     # We need to '--embed' for python 3.8+ for standalone executables.
     # See https://docs.python.org/3/whatsnew/3.8.html#debug-build-uses-the-same-abi-as-release-build
-    # For python < 3.8, the cflags and ldflags are the same for both
-    # shared libraries and standalone executables.
-    try:
-        py_embed_cflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
-                                          ['--includes', '--embed'])
-    except Errors.WafError:
-        py_embed_cflags = py_cflags
-    else:
-        py_embed_cflags = shlex.split(py_embed_cflags)
-
-    ctx.env.append_unique('CFLAGS_python3_embed', py_embed_cflags)
-
+    # For python < 3.8, ldflags are the same for both shared libraries and
+    # standalone executables.
     try:
         py_embed_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG +
                                            ['--ldflags', '--embed'])
