@@ -177,18 +177,87 @@ cdef dict class_attrs_dict_g = {
 
 
 cdef inline bytes py_unicode_to_py_bytes(unicode val):
-    """Encode python unicode to python bytes.
+    """Encode python unicode to python bytes with UTF-8 codec.
 
     Parameters
     ----------
     val
-        The unicode object ton encode.
+        The unicode object to encode.
 
     Returns
     -------
         The encoded python bytes.
     """
-    return val.encode('UTF-8', 'strict')
+    return val.encode('utf8', 'strict')
+
+
+cdef inline bytes c_str_len_to_py_bytes(const char *val, Py_ssize_t length):
+    """Convert C string with length to python bytes.
+
+    Parameters
+    ----------
+    val
+        The C string to convert.
+    length
+        The length of the C string.
+
+    Returns
+    -------
+        The converted python bytes.
+    """
+    return val[:length]
+
+
+cdef inline bytes c_str_to_py_bytes(const char *val):
+    """Convert C string to python bytes.
+
+    Parameters
+    ----------
+    val
+        The C string to convert.
+
+    Returns
+    -------
+        The converted python bytes.
+    """
+    return c_str_len_to_py_bytes(val, len(val))
+
+
+cdef inline unicode c_str_len_to_py_unicode(const char *val,
+                                            Py_ssize_t length):
+    """Decode C string with length to python unicode.
+
+    We use UTF-8 codec with backslash replace error handling.
+    Malformed data is replaced by a backslashed escape sequence, (i.e. \\xXX).
+    See https://docs.python.org/3/library/codecs.html#error-handlers.
+
+    Parameters
+    ----------
+    val
+        The C string to decode.
+    length
+        The length of the C string.
+
+    Returns
+    -------
+        The decoded python unicode.
+    """
+    return val[:length].decode('utf8', 'backslashreplace')
+
+
+cdef inline unicode c_str_to_py_unicode(const char *val):
+    """Decode C string to python unicode.
+
+    Parameters
+    ----------
+    val
+        The C string to decode.
+
+    Returns
+    -------
+        The decoded python unicode.
+    """
+    return c_str_len_to_py_unicode(val, len(val))
 
 
 cdef inline unicode py_bytes_to_py_unicode(bytes val):
@@ -197,13 +266,34 @@ cdef inline unicode py_bytes_to_py_unicode(bytes val):
     Parameters
     ----------
     val
-        The bytes object ton encode.
+        The bytes object to decode.
 
     Returns
     -------
         The decoded python unicode.
     """
-    return val.decode('UTF-8', 'strict')
+    return c_str_len_to_py_unicode(val, len(val))
+
+
+cdef inline basestring c_str_len_to_py_str(const char *val,
+                                           Py_ssize_t length):
+    """Convert C string with length to python string.
+
+    Parameters
+    ----------
+    val
+        The C string to convert.
+    length
+        The length of the C string.
+
+    Returns
+    -------
+        The converted python string.
+    """
+    if PY_MAJOR_VERSION < 3:
+        return <basestring>c_str_len_to_py_bytes(val, length)
+    else:
+        return <basestring>c_str_len_to_py_unicode(val, length)
 
 
 cdef inline basestring c_str_to_py_str(const char *val):
@@ -216,12 +306,9 @@ cdef inline basestring c_str_to_py_str(const char *val):
 
     Returns
     -------
-        The python string
+        The converted python string.
     """
-    if PY_MAJOR_VERSION < 3:
-        return <basestring><bytes>val
-    else:
-        return val.decode('UTF-8', 'strict')
+    return c_str_len_to_py_str(val, len(val))
 
 
 cdef inline bytes lstr_to_py_bytes(lstr_t lstr):
@@ -236,7 +323,7 @@ cdef inline bytes lstr_to_py_bytes(lstr_t lstr):
     -------
         The python bytes.
     """
-    return lstr.s[:lstr.len]
+    return c_str_len_to_py_bytes(lstr.s, lstr.len)
 
 
 cdef inline unicode lstr_to_py_unicode(lstr_t lstr):
@@ -251,7 +338,7 @@ cdef inline unicode lstr_to_py_unicode(lstr_t lstr):
     -------
         The python unicode.
     """
-    return (lstr.s[:lstr.len]).decode('UTF-8', 'strict')
+    return c_str_len_to_py_unicode(lstr.s, lstr.len)
 
 
 cdef inline basestring lstr_to_py_str(lstr_t lstr):
@@ -266,10 +353,7 @@ cdef inline basestring lstr_to_py_str(lstr_t lstr):
     -------
         The python string.
     """
-    if PY_MAJOR_VERSION < 3:
-        return <basestring>lstr_to_py_bytes(lstr)
-    else:
-        return <basestring>lstr_to_py_unicode(lstr)
+    return c_str_len_to_py_str(lstr.s, lstr.len)
 
 
 cdef inline lstr_t mp_lstr_opt_force_alloc(mem_pool_t *mp, lstr_t val,

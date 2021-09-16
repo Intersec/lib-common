@@ -1532,6 +1532,27 @@ class IopyTest(z.TestCase):
         with self.assertRaisesRegexp(TypeError, exp):
             self.r.test.ClassA({'_class': 'test.ClassC'})
 
+    def test_different_str_encoding(self):
+        if sys.version_info < (3,):
+            # Only test when Python strings are unicode on Python 3.
+            return
+
+        utf8_json = b'''
+        {
+            "s": "M\xc3\xa9xico"
+        }
+        '''
+        union = self.r.test.UnionA(_json=utf8_json)
+        self.assertEqual(u'México', union.s)
+
+        latin1_json = b'''
+        {
+            "s": "M\xe9xico"
+        }
+        '''
+        union = self.r.test.UnionA(_json=latin1_json)
+        self.assertEqual(u'M\\xe9xico', union.s)
+
 
 @z.ZGroup
 class IopyIfaceTests(z.TestCase):
