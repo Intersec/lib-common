@@ -20,9 +20,10 @@
 import os
 import sys
 import shlex
+import shutil
 
 # pylint: disable = import-error
-from waflib import Logs, Errors
+from waflib import Logs, Errors, Options
 # pylint: enable = import-error
 
 waftoolsdir = os.path.join(os.getcwd(), 'build', 'waftools')
@@ -32,11 +33,131 @@ sys.path.insert(0, waftoolsdir)
 out = ".build-waf-%s" % os.environ.get('P', 'default')
 
 
-# {{{ options
+# {{{ poetry
+
+
+def poetry_force_lang_env():
+    """The python package `click` used by poetry expects $LC_ALL and $LANG to
+    be set.
+    In some environment, they are not set.
+    So we should force it in that case.
+    """
+    if 'LC_ALL' not in os.environ:
+        os.environ['LC_ALL'] = 'en_US.UTF-8'
+    if 'LANG' not in os.environ:
+        os.environ['LANG'] = 'en_US.UTF-8'
+
+
+def run_waf_with_poetry(ctx):
+    Logs.info('Waf: Run waf in poetry environment')
+
+    # Force POETRY_ACTIVE as older versions of poetry don't set it on
+    # `poetry run`, but set it on `poetry shell`.
+    os.environ['POETRY_ACTIVE'] = '1'
+
+    exit_code = ctx.exec_command(ctx.env.POETRY + ['run'] + sys.argv,
+                                 stdout=None, stderr=None)
+    if exit_code != 0:
+        sys.exit(exit_code)
+
+    del os.environ['POETRY_ACTIVE']
+
+
+def poetry_install(ctx):
+    before_poetry_install = getattr(ctx, 'before_poetry_install', None)
+    if before_poetry_install is not None:
+        before_poetry_install(ctx)
+
+    # Install poetry packages
+    if ctx.exec_command(ctx.env.POETRY + ['install'], stdout=None,
+                        stderr=None):
+        ctx.fatal('poetry install failed')
+
+    after_poetry_install = getattr(ctx, 'after_poetry_install', None)
+    if after_poetry_install is not None:
+        after_poetry_install(ctx)
+
+
+def rerun_waf_configure_with_poetry(ctx):
+    if ctx.get_env_bool('POETRY_ACTIVE'):
+        # Poetry is already activated, do nothing.
+        return
+
+    # Set _IN_WAF_POETRY to avoid doing the poetry configuration twice.
+    os.environ['_IN_POETRY_WAF_CONFIGURE'] = '1'
+
+    # Run waf with poetry.
+    run_waf_with_poetry(ctx)
+
+    # Get lockfile for waf in poetry environment.
+    poetry_waf_lockfile = ctx.cmd_and_log(
+        ctx.env.POETRY + ['run', 'python3', '-c',
+        (
+            "import sys; import os; "
+            "print(os.environ.get('WAFLOCK', "
+            "      '.lock-waf_%s_build' % sys.platform))"
+        )
+    ]).strip()
+
+    # If poetry_waf_lock_file is different from the current lockfile, we need
+    # to copy it.
+    if poetry_waf_lockfile != Options.lockfile:
+        shutil.copy(poetry_waf_lockfile, Options.lockfile)
+
+    # Do nothing more on configure.
+    sys.exit(0)
+
+
+def configure_with_poetry(ctx):
+    if ctx.path != ctx.srcnode and not getattr(ctx, 'use_poetry', False):
+        # The current project is not lib-common and Poetry is not used for the
+        # current project.
+        return
+
+    if ctx.get_env_bool('NO_POETRY'):
+        Logs.warn('Waf: Disabling poetry support')
+        return
+
+    poetry_force_lang_env()
+    ctx.find_program('poetry')
+
+    if not ctx.get_env_bool('_IN_POETRY_WAF_CONFIGURE'):
+        # We are not in waf run by Poetry, install Poetry
+        poetry_install(ctx)
+
+    ctx.env.HAVE_POETRY = True
+    rerun_waf_configure_with_poetry(ctx)
+
+
+def rerun_waf_build_with_poetry(ctx):
+    if ctx.get_env_bool('POETRY_ACTIVE'):
+        # Poetry is already activated, do nothing.
+        return
+
+    # Reset current directory to launch directory.
+    os.chdir(ctx.launch_dir)
+
+    # Run waf with poetry.
+    run_waf_with_poetry(ctx)
+
+    # Do nothing more on build.
+    sys.exit(0)
+
+
+def build_with_poetry(ctx):
+    if not ctx.env.HAVE_POETRY:
+        return
+
+    poetry_force_lang_env()
+    rerun_waf_build_with_poetry(ctx)
+
+
+# }}}
+# {{{ load tools
 
 
 def load_tools(ctx):
-    ctx.load('common',  tooldir=waftoolsdir)
+    ctx.load('common', tooldir=waftoolsdir)
     ctx.load('backend', tooldir=waftoolsdir)
     for tool in getattr(ctx, 'extra_waftools', []):
         ctx.load(tool, tooldir=waftoolsdir)
@@ -44,6 +165,11 @@ def load_tools(ctx):
     # Configure waf to re-evaluate hashes only when file timestamp/size
     # change. This is way faster on no-op builds.
     ctx.load('md5_tstamp')
+
+
+
+# }}}
+# {{{ options
 
 
 def options(ctx):
@@ -55,6 +181,7 @@ def options(ctx):
 
 
 def configure(ctx):
+    configure_with_poetry(ctx)
     load_tools(ctx)
 
     # Export includes
@@ -214,6 +341,8 @@ def configure(ctx):
 
 
 def build(ctx):
+    build_with_poetry(ctx)
+
     # Declare 4 build groups:
     #  - one for generating the "version" source files
     #  - one for compiling farchc
