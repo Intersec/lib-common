@@ -78,9 +78,7 @@ interface MyIface {
         /** local comment for MyIface.funA.out
          *
          *  @example "c": {
-         *               "fieldA": 11,
-         *               "fieldB": 12,
-         *               "fieldC": 13
+         *               "_class": "tstiop_dox.MyClassChild",
          *           },
          *           "d": 4
          */

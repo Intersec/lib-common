@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -613,6 +613,9 @@ dump_constraint(const iopc_write_buf_t *wbuf, const iopc_field_t *f,
 
       case IOPC_ATTR_SNMP_INDEX:
         /* TODO */
+        break;
+
+      case IOPC_ATTR_FORCE_FIELD_NAME:
         break;
 
       default:

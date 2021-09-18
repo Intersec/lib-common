@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -15,6 +15,8 @@
 /* limitations under the License.                                          */
 /*                                                                         */
 /***************************************************************************/
+
+#include <math.h>
 
 #include <lib-common/core.h>
 
@@ -471,4 +473,20 @@ int strtoull_ext(const char *s, uint64_t *out, const char **tail, int base)
     return memtoxll_ext(s, 0, false, out, (const void **)tail, base, false);
 }
 
+double strtod_allow_subnormal(const char *nptr, char **endptr)
+{
+    double res = 0.;
+
+    errno = 0;
+    res = strtod(nptr, endptr);
+
+    if (errno) {
+        assert(errno == ERANGE);
+        if (fpclassify(res) == FP_SUBNORMAL) {
+            errno = 0;
+        }
+    }
+
+    return res;
+}
 /*}}} */

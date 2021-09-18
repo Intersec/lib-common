@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -33,8 +33,110 @@ static struct yaml_g {
     .logger = LOGGER_INIT(NULL, "yaml", LOG_INHERITS),
 };
 
-/* {{{ Parsing types definitions */
-/* {{{ Presentation */
+/** YAML handling.
+ *
+ * Introduction
+ * ============
+ *
+ * This file contains all code related to YAML, in three main parts:
+ *  * Parsing (file | string -> [AST, presentation])
+ *  * Packing ([AST, presentation] -> file | string)
+ *  * AST API: creating/manipulating YAML AST from code.
+ *
+ * Not all of YAML 1.2 is supported, and custom features are added on top of
+ * it. See README-iop-yaml.adoc for a description of handled features.
+ *
+ * In addition to AST, presentation data is parsed and used when packing.
+ * Presentation data is everything that is related to how a document is
+ * written, so that it can be repacked in the exact same way. This includes:
+ *  - empty lines
+ *  - comments
+ *  - alternatives syntaxes (null or ~, flow mode or not, etc)
+ *  - files includes
+ *  - variables
+ *  - overrides
+ *
+ * For example, when parsing
+ *
+ * a: !include:foo.yml
+ *   variables:
+ *     b: 3 # comment
+ *
+ * with "foo.yml" being "var_b: $(b)"
+ *
+ * The parsed AST will be the final resolved document, such as:
+ *
+ * a:
+ *   var_b: 3
+ *
+ * And the presentation data will contain:
+ *  - the include details
+ *  - the variable details
+ *  - the inline comment
+ *
+ * For this reason, there is very important rule for every new feature:
+ *
+ * /!\ Any new parsing syntax must have a presentation counterpart /!\
+ *
+ * All tests often check that parsing then repacking keeps the document the
+ * same, to ensure this rule is always verified.
+ *
+ * Presentation
+ * ============
+ *
+ * After parsing, presentation data is returned decoupled from the AST, for
+ * two main reasons:
+ *  * The AST is usually used to deserialize the data into another object
+ *    representation (for example, iop/yaml.c converts the AST into an IOP
+ *    object). By keeping the presentation data separated from the AST, it can
+ *    be saved while the AST is discarded after being deserialized. Then, when
+ *    the object is serialized again into a YAML ast, the presentation data
+ *    can be re-used during packign.
+ *  * We want to allow modification of the AST, for example through automatic
+ *    migration of the object deserialized from the AST. The presentation data
+ *    must thus be separated from the AST.
+ *
+ * The consequence of this separation is that:
+ *
+ * /!\ There is no guarantee during repacking that the AST matches the /!\
+ * /!\ presentation, it may have been modified.                        /!\
+ *
+ * This fact is the cause of most of the complexity of the presentation
+ * handling during repacking, for example:
+ * * if a file was included multiple times, the AST might have changed, so
+ *   a single file cannot be used when repacking
+ * * if a variable was mused multiple times, same thing
+ * * if an override was used, the underlying AST might have changed, rendering
+ *   the override invalid
+ * * ...
+ *
+ * Presentation layout
+ * ===================
+ *
+ * Presentation data is stored inside the YAML datas during parsing. Then,
+ * it is converted into IOP when parsing is over. This IOP associates
+ * presentation data to AST nodes using paths with this syntax:
+ *  '.a': applies to the 'a' key of the YAML object
+ *  '[0]': applies to the first element of the YAML array
+ *  '!': applies to the YAML value
+ *
+ * For example:
+ *
+ *  '.a!': value of the key 'a'
+ *  '[1].b[2]!': value of the 2nd element of the key b of the first element
+ *  '!': value of the document
+ *  '.a.b': key 'b' inside key 'a'.
+ *
+ * There is a distinction between a value and a key/element because
+ * presentation data can be associated with one or the other:
+ *
+ * a: # a
+ *   3 # b
+ *
+ * Comment "a" is associated with ".a", comment "b" is associated with ".a!".
+ */
+
+/* {{{ yaml_env_presentation_t */
 
 qm_kvec_t(yaml_pres_node, lstr_t, const yaml__presentation_node__t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
@@ -67,207 +169,7 @@ typedef struct yaml_env_presentation_t {
 } yaml_env_presentation_t;
 
 /* }}} */
-/* {{{ Variables */
-
-struct yaml_variable_t {
-    /* Is the variable in a string, or raw?
-     *
-     * Raw means any AST is valid:
-     *
-     * foo: $bar
-     *
-     * In string means it must be a string value, and will be set in the
-     * data:
-     *
-     * addr: "$host:ip"
-     */
-    bool in_string;
-
-    /* Bitmap indicating which '$' char are variables.
-     *
-     * If the template has escaped some '$' characters, we will end up with
-     * a string with multiple '$', some being variables, some not. This bitmap
-     * allows finding out which one are variables.
-     *
-     * For example:
-     * "$a \\$b \\\\$$c" will give the string "$a $b \\$$c", and the bitmap
-     * [0x09] (first and fourth '$' are variables).
-     *
-     * \warning If the bitmap is NOT set (ie len == 0), then it means every
-     * '$' is a variable.
-     */
-    qv_t(u8) var_bitmap;
-
-    /* Set of variable names used in this data. */
-    qh_t(lstr) var_names;
-};
-
-/* }}} */
-
-qvector_t(yaml_parse, yaml_parse_t *);
-
-typedef struct yaml_included_file_t {
-    /* Parsing context that included the current file. */
-    const yaml_parse_t * nonnull parent;
-
-    /** Data from the including file, that caused the inclusion.
-     *
-     * This is the "!include <file>" data. It is not stored in the including
-     * yaml_parse_t object, as the inclusion is transparent in its AST.
-     * However, it is stored here to provide proper error messages.
-     */
-    yaml_data_t data;
-} yaml_included_file_t;
-
-typedef struct yaml_parse_t {
-    /* String to parse. */
-    pstream_t ps;
-
-    /* Name of the file being parsed.
-     *
-     * This is the name of the file as it was given to yaml_parse_attach_file.
-     * It can be an absolute or a relative path.
-     *
-     * NULL if a stream is being parsed.
-     */
-    const char * nullable filepath;
-
-    /* Path to the "root" directory.
-     *
-     * The "root" directory is the directory of the initial file imported.
-     * All includes are allowed inside this directory, so that includes from
-     * sibling directories is allowed, for example:
-     *
-     * toto/ <-- this is the root directory
-     *   root.yml <-- first file included
-     *   sub1/
-     *     a.yml <-- can include ../sub2/b.yml
-     *   sub2/
-     *     b.yml
-     */
-    const char * nullable rootdirpath;
-
-    /* Fullpath to the file being parsed.
-     *
-     * LSTR_NULL_V if a stream is being parsed.
-     */
-    lstr_t fullpath;
-
-    /* mmap'ed contents of the file. */
-    lstr_t file_contents;
-
-    /* Bitfield of yaml_parse_flags_t elements. */
-    int flags;
-
-    /* Current line number. */
-    uint32_t line_number;
-
-    /* Pointer to the first character of the current line.
-     * Used to compute current column number of ps->s */
-    const char *pos_newline;
-
-    /* Error buffer. */
-    sb_t err;
-
-    /* Presentation details.
-     *
-     * Can be NULL if the user did not asked for presentation details.
-     */
-    yaml_env_presentation_t * nullable pres;
-
-    /* Included files.
-     *
-     * List of parse context of every subfiles included. */
-    qv_t(yaml_parse) subfiles;
-
-    /* Included details.
-     *
-     * This is set if the current file was included from another file.
-     */
-    yaml_included_file_t * nullable included;
-
-    /* Hash of unbounded vars in the document. */
-    qh_t(lstr) unbounded_vars;
-} yaml_parse_t;
-
-qvector_t(override_nodes, yaml__presentation_override_node__t);
-
-/* Presentation details of an override.
- *
- * This object is used to build a yaml.PresentationOverride. See the document
- * of this object for more details.
- */
-typedef struct yaml_presentation_override_t {
-    /* List of nodes of the override. */
-    qv_t(override_nodes) nodes;
-
-    /* Current path from the override root point.
-     *
-     * Describe the path not from the document's root, but from the override's
-     * root. Used to build the nodes.
-     */
-    sb_t path;
-} yaml_presentation_override_t;
-
-/* Node to override, when packing. */
-typedef struct yaml_pack_override_node_t {
-    /* Data related to the override.
-     *
-     * When beginning to pack an override, this is set to the original data,
-     * the one replaced by the override on parsing.
-     * When the AST is packed, this data is retrieved and the overridden data
-     * is swapped and stored here.
-     * Then, the override data is packed using those datas.
-     */
-    const yaml_data_t * nullable data;
-
-    /* If the data has been found and retrieved. If false, the data has either
-     * not yet been found while packing the AST, or the node has disappeared
-     * from the AST.
-     */
-    bool found;
-} yaml_pack_override_node_t;
-
-qm_kvec_t(override_nodes, lstr_t, yaml_pack_override_node_t,
-          qhash_lstr_hash, qhash_lstr_equal);
-
-/* Description of an override, used when packing.
- *
- * This object is used to properly pack overrides. It is the equivalent of
- * a yaml.PresentationOverride, but with a qm instead of an array, so that
- * nodes that were overridden can easily find the original value to repack.
- */
-typedef struct yaml_pack_override_t {
-    /* Mappings of absolute paths to override pack nodes.
-     *
-     * The paths are not the same as the ones in the presentation IOP. They
-     * are absolute path, from the root document and not from the override's
-     * root.
-     *
-     * This is needed in order to handle overrides of included data. The
-     * path in the included data is relative from the root of its file, which
-     * may be different from the path of the override nodes (for example,
-     * if the override was done in a file that included a file including the
-     * current file.
-     * */
-    qm_t(override_nodes) nodes;
-
-    /** List of the absolute paths.
-     *
-     * Used to iterate on the nodes in the right order when repacking the
-     * override objet.
-     */
-    qv_t(lstr) ordered_paths;
-
-    /* Original override presentation object.
-     */
-    const yaml__presentation_override__t * nonnull presentation;
-} yaml_pack_override_t;
-qvector_t(pack_override, yaml_pack_override_t);
-
-/* }}} */
-/* {{{ IOP helpers */
-/* {{{ IOP scalar */
+/* {{{ Data -> IOP, IOP -> Data */
 
 qvector_t(yaml_iop_data, yaml__data__t);
 qvector_t(yaml_iop_key_data, yaml__key_data__t);
@@ -402,24 +304,65 @@ t_iop_data_to_yaml(const yaml__data__t * nonnull data,
 }
 
 /* }}} */
-/* {{{ IOP Presentation Override */
+/* {{{ Data -> description string */
 
-static yaml__presentation_override__t * nonnull
-t_presentation_override_to_iop(
-    const yaml_presentation_override_t * nonnull pres,
-    const yaml_data_t * nonnull override_data
-)
+static const char * nonnull
+yaml_scalar_get_type(const yaml_scalar_t * nonnull scalar, bool has_tag)
 {
-    yaml__presentation_override__t *out;
+    switch (scalar->type) {
+      case YAML_SCALAR_STRING:
+        return has_tag ? "a tagged string value" : "a string value";
+      case YAML_SCALAR_DOUBLE:
+        return has_tag ? "a tagged double value" : "a double value";
+      case YAML_SCALAR_UINT:
+        return has_tag ? "a tagged unsigned integer value"
+                       : "an unsigned integer value";
+      case YAML_SCALAR_INT:
+        return has_tag ? "a tagged integer value" : "an integer value";
+      case YAML_SCALAR_BOOL:
+        return has_tag ? "a tagged boolean value" : "a boolean value";
+      case YAML_SCALAR_NULL:
+        return has_tag ? "a tagged null value" : "a null value";
+      case YAML_SCALAR_BYTES:
+        return "a binary value";
+    }
 
-    out = t_iop_new(yaml__presentation_override);
-    out->nodes = IOP_TYPED_ARRAY_TAB(yaml__presentation_override_node,
-                                     &pres->nodes);
-
-    return out;
+    assert (false);
+    return "";
 }
 
-/* }}} */
+const char *yaml_data_get_type(const yaml_data_t *data, bool ignore_tag)
+{
+    bool has_tag = data->tag.s && !ignore_tag;
+
+    switch (data->type) {
+      case YAML_DATA_OBJ:
+        return has_tag ? "a tagged object" : "an object";
+      case YAML_DATA_SEQ:
+        return has_tag ? "a tagged sequence" : "a sequence";
+      case YAML_DATA_SCALAR:
+        return yaml_scalar_get_type(&data->scalar, has_tag);
+    }
+
+    assert (false);
+    return "";
+}
+
+static const char *yaml_data_get_data_type(const yaml_data_t *data)
+{
+    switch (data->type) {
+      case YAML_DATA_OBJ:
+        return "an object";
+      case YAML_DATA_SEQ:
+        return "a sequence";
+      case YAML_DATA_SCALAR:
+        return "a scalar";
+    }
+
+    assert (false);
+    return "";
+}
+
 /* }}} */
 /* {{{ Equality */
 
@@ -445,7 +388,7 @@ t_yaml_scalar_to_string(const yaml_scalar_t * nonnull scalar)
         if (isnan(scalar->d)) {
             return LSTR(".NaN");
         } else {
-            return t_lstr_fmt("%.15g", scalar->d);
+            return t_lstr_fmt("%.17g", scalar->d);
         }
       } break;
 
@@ -561,64 +504,97 @@ yaml_data_equals(const yaml_data_t * nonnull d1,
 }
 
 /* }}} */
-/* {{{ Utils */
+/* {{{ Parser */
+/* {{{ yaml_parse_t */
 
-static const char * nonnull
-yaml_scalar_get_type(const yaml_scalar_t * nonnull scalar, bool has_tag)
-{
-    switch (scalar->type) {
-      case YAML_SCALAR_STRING:
-        return has_tag ? "a tagged string value" : "a string value";
-      case YAML_SCALAR_DOUBLE:
-        return has_tag ? "a tagged double value" : "a double value";
-      case YAML_SCALAR_UINT:
-        return has_tag ? "a tagged unsigned integer value"
-                       : "an unsigned integer value";
-      case YAML_SCALAR_INT:
-        return has_tag ? "a tagged integer value" : "an integer value";
-      case YAML_SCALAR_BOOL:
-        return has_tag ? "a tagged boolean value" : "a boolean value";
-      case YAML_SCALAR_NULL:
-        return has_tag ? "a tagged null value" : "a null value";
-      case YAML_SCALAR_BYTES:
-        return "a binary value";
-    }
+qvector_t(yaml_parse, yaml_parse_t *);
 
-    assert (false);
-    return "";
-}
+typedef struct yaml_included_file_t {
+    /* Parsing context that included the current file. */
+    const yaml_parse_t * nonnull parent;
 
-const char *yaml_data_get_type(const yaml_data_t *data, bool ignore_tag)
-{
-    bool has_tag = data->tag.s && !ignore_tag;
+    /** Data from the including file, that caused the inclusion.
+     *
+     * This is the "!include <file>" data. It is not stored in the including
+     * yaml_parse_t object, as the inclusion is transparent in its AST.
+     * However, it is stored here to provide proper error messages.
+     */
+    yaml_data_t data;
+} yaml_included_file_t;
 
-    switch (data->type) {
-      case YAML_DATA_OBJ:
-        return has_tag ? "a tagged object" : "an object";
-      case YAML_DATA_SEQ:
-        return has_tag ? "a tagged sequence" : "a sequence";
-      case YAML_DATA_SCALAR:
-        return yaml_scalar_get_type(&data->scalar, has_tag);
-    }
+typedef struct yaml_parse_t {
+    /* String to parse. */
+    pstream_t ps;
 
-    assert (false);
-    return "";
-}
+    /* Name of the file being parsed.
+     *
+     * This is the name of the file as it was given to yaml_parse_attach_file.
+     * It can be an absolute or a relative path.
+     *
+     * NULL if a stream is being parsed.
+     */
+    const char * nullable filepath;
 
-static const char *yaml_data_get_data_type(const yaml_data_t *data)
-{
-    switch (data->type) {
-      case YAML_DATA_OBJ:
-        return "an object";
-      case YAML_DATA_SEQ:
-        return "a sequence";
-      case YAML_DATA_SCALAR:
-        return "a scalar";
-    }
+    /* Path to the "root" directory.
+     *
+     * The "root" directory is the directory of the initial file imported.
+     * All includes are allowed inside this directory, so that includes from
+     * sibling directories is allowed, for example:
+     *
+     * toto/ <-- this is the root directory
+     *   root.yml <-- first file included
+     *   sub1/
+     *     a.yml <-- can include ../sub2/b.yml
+     *   sub2/
+     *     b.yml
+     */
+    const char * nullable rootdirpath;
 
-    assert (false);
-    return "";
-}
+    /* Fullpath to the file being parsed.
+     *
+     * LSTR_NULL_V if a stream is being parsed.
+     */
+    lstr_t fullpath;
+
+    /* mmap'ed contents of the file. */
+    lstr_t file_contents;
+
+    /* Bitfield of yaml_parse_flags_t elements. */
+    int flags;
+
+    /* Current line number. */
+    uint32_t line_number;
+
+    /* Pointer to the first character of the current line.
+     * Used to compute current column number of ps->s */
+    const char *pos_newline;
+
+    /* Error buffer. */
+    sb_t err;
+
+    /* Presentation details.
+     *
+     * Can be NULL if the user did not asked for presentation details.
+     */
+    yaml_env_presentation_t * nullable pres;
+
+    /* Included files.
+     *
+     * List of parse context of every subfiles included. */
+    qv_t(yaml_parse) subfiles;
+
+    /* Included details.
+     *
+     * This is set if the current file was included from another file.
+     */
+    yaml_included_file_t * nullable included;
+
+    /* Hash of unbounded vars in the document. */
+    qh_t(lstr) unbounded_vars;
+} yaml_parse_t;
+
+/* }}} */
+/* {{{ yaml_span_t */
 
 lstr_t yaml_span_to_lstr(const yaml_span_t * nonnull span)
 {
@@ -703,34 +679,76 @@ yaml_env_end_data(yaml_parse_t * nonnull env, yaml_data_t * nonnull out)
 }
 
 /* }}} */
-/* {{{ Var bitmap utils */
+/* {{{ yaml_variable_t */
 
-/* Var bitmap is a bitmap indicating which '$' characters are variables.
+struct yaml_variable_t {
+    /* Is the variable in a string, or raw?
+     *
+     * Raw means any AST is valid:
+     *
+     * foo: $bar
+     *
+     * In string means it must be a string value, and will be set in the
+     * data:
+     *
+     * addr: "$host:ip"
+     */
+    bool in_string;
+
+    /* Bitmap indicating which '$' char are variables.
+     *
+     * If the template has escaped some '$' characters, we will end up with
+     * a string with multiple '$', some being variables, some not. This bitmap
+     * allows finding out which one are variables.
+     *
+     * For example:
+     * "$a \\$b \\\\$$c" will give the string "$a $b \\$$c", and the bitmap
+     * [0x09] (first and fourth '$' are variables).
+     *
+     * \warning If the bitmap is NOT set (ie len == 0), then it means every
+     * '$' is a variable.
+     */
+    qv_t(u8) var_bitmap;
+
+    /* Set of variable names used in this data. */
+    qh_t(lstr) var_names;
+};
+
+/* }}} */
+/* {{{ yaml_presentation_override_t */
+
+qvector_t(override_nodes, yaml__presentation_override_node__t);
+
+/* Presentation details of an override.
  *
- * The rules are:
- *  * if len is 0, then it means all '$' are variables (ie, the bitmap is full
- *    1's).
- *  * otherwise, only set bits are variables. OOB accessing is allowed, it
- *    just means it is evaluated to 0.
+ * This object is used to build a yaml.PresentationOverride. See the document
+ * of this object for more details.
  */
+typedef struct yaml_presentation_override_t {
+    /* List of nodes of the override. */
+    qv_t(override_nodes) nodes;
 
-static void var_bitmap_set_bit(qv_t(u8) * nonnull bitmap, int pos)
-{
-    if (bitmap->len * 8 <= pos) {
-        qv_growlen0(bitmap, pos / 8 + 1 - bitmap->len);
-    }
-    SET_BIT(bitmap->tab, pos);
-}
+    /* Current path from the override root point.
+     *
+     * Describe the path not from the document's root, but from the override's
+     * root. Used to build the nodes.
+     */
+    sb_t path;
+} yaml_presentation_override_t;
 
-static bool var_bitmap_test_bit(const qv_t(u8) * nonnull bitmap, int pos)
+static yaml__presentation_override__t * nonnull
+t_presentation_override_to_iop(
+    const yaml_presentation_override_t * nonnull pres,
+    const yaml_data_t * nonnull override_data
+)
 {
-    if (bitmap->len == 0) {
-        return true;
-    }
-    if (pos < bitmap->len * 8 && TST_BIT(bitmap->tab, pos)) {
-        return true;
-    }
-    return false;
+    yaml__presentation_override__t *out;
+
+    out = t_iop_new(yaml__presentation_override);
+    out->nodes = IOP_TYPED_ARRAY_TAB(yaml__presentation_override_node,
+                                     &pres->nodes);
+
+    return out;
 }
 
 /* }}} */
@@ -825,11 +843,6 @@ static int yaml_env_set_err(yaml_parse_t * nonnull env, yaml_error_t type,
 }
 
 /* }}} */
-/* {{{ Parser */
-
-static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
-                                 yaml_data_t *out);
-
 /* {{{ Presentation utils */
 
 static yaml__presentation_node__t * nonnull
@@ -942,7 +955,38 @@ static void t_yaml_env_pres_add_empty_line(yaml_parse_t * nonnull env)
 }
 
 /* }}} */
-/* {{{ Utils */
+/* {{{ Var bitmap utils */
+
+/* Var bitmap is a bitmap indicating which '$' characters are variables.
+ *
+ * The rules are:
+ *  * if len is 0, then it means all '$' are variables (ie, the bitmap is full
+ *    1's).
+ *  * otherwise, only set bits are variables. OOB accessing is allowed, it
+ *    just means it is evaluated to 0.
+ */
+
+static void var_bitmap_set_bit(qv_t(u8) * nonnull bitmap, int pos)
+{
+    if (bitmap->len * 8 <= pos) {
+        qv_growlen0(bitmap, pos / 8 + 1 - bitmap->len);
+    }
+    SET_BIT(bitmap->tab, pos);
+}
+
+static bool var_bitmap_test_bit(const qv_t(u8) * nonnull bitmap, int pos)
+{
+    if (bitmap->len == 0) {
+        return true;
+    }
+    if (pos < bitmap->len * 8 && TST_BIT(bitmap->tab, pos)) {
+        return true;
+    }
+    return false;
+}
+
+/* }}} */
+/* {{{ Parsing utils */
 
 static void log_new_data(const yaml_data_t * nonnull data)
 {
@@ -1046,65 +1090,6 @@ static bool ps_startswith_yaml_key(pstream_t ps)
     }
 
     return ps.s[0] == ':' && (ps_len(&ps) == 1 || isspace(ps.s[1]));
-}
-
-static int
-yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf,
-                         qv_t(u8) * nonnull var_bitmap,
-                         bool * nonnull has_escaped_dollars)
-{
-    int line_nb = 0;
-    int col_nb = 0;
-    pstream_t start = env->ps;
-    int var_pos = 0;
-
-    while (!ps_done(&env->ps)) {
-        switch (ps_peekc(env->ps)) {
-          case '\n':
-            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
-                                    "missing closing '\"'");
-
-          case '"':
-            sb_add(buf, start.p, env->ps.s - start.s);
-            ps_skip(&env->ps, 1);
-            return 0;
-
-          case '\\':
-            sb_add(buf, start.p, env->ps.s - start.s);
-            if (ps_has(&env->ps, 3) && env->ps.b[1] == '$'
-            &&  env->ps.b[2] == '(')
-            {
-                /* escaped '$', this is not a variable */
-                sb_adds(buf, "$(");
-                ps_skip(&env->ps, 3);
-                var_pos += 1;
-                *has_escaped_dollars = true;
-            } else
-            if (parse_backslash(&env->ps, buf, &line_nb, &col_nb) < 0) {
-                return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
-                                        "invalid backslash");
-            }
-            start = env->ps;
-            break;
-
-          case '$':
-            if (ps_has(&env->ps, 2) && env->ps.b[1] == '(') {
-                /* variable */
-                var_bitmap_set_bit(var_bitmap, var_pos);
-                var_pos += 1;
-                ps_skip(&env->ps, 2);
-                break;
-            }
-
-            /* FALLTHROUGH */
-
-          default:
-            ps_skip(&env->ps, 1);
-            break;
-        }
-    }
-
-    return yaml_env_set_err(env, YAML_ERR_BAD_STRING, "missing closing '\"'");
 }
 
 /* }}} */
@@ -1481,6 +1466,10 @@ t_yaml_env_replace_variables(yaml_parse_t * nonnull env,
 }
 
 /* }}} */
+
+static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
+                                 yaml_data_t *out);
+
 /* {{{ Tag */
 
 typedef enum yaml_tag_type_t {
@@ -2112,6 +2101,66 @@ static pstream_t yaml_env_get_scalar_ps(yaml_parse_t * nonnull env,
 
     return scalar;
 }
+
+static int
+yaml_parse_quoted_string(yaml_parse_t * nonnull env, sb_t * nonnull buf,
+                         qv_t(u8) * nonnull var_bitmap,
+                         bool * nonnull has_escaped_dollars)
+{
+    int line_nb = 0;
+    int col_nb = 0;
+    pstream_t start = env->ps;
+    int var_pos = 0;
+
+    while (!ps_done(&env->ps)) {
+        switch (ps_peekc(env->ps)) {
+          case '\n':
+            return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                    "missing closing '\"'");
+
+          case '"':
+            sb_add(buf, start.p, env->ps.s - start.s);
+            ps_skip(&env->ps, 1);
+            return 0;
+
+          case '\\':
+            sb_add(buf, start.p, env->ps.s - start.s);
+            if (ps_has(&env->ps, 3) && env->ps.b[1] == '$'
+            &&  env->ps.b[2] == '(')
+            {
+                /* escaped '$', this is not a variable */
+                sb_adds(buf, "$(");
+                ps_skip(&env->ps, 3);
+                var_pos += 1;
+                *has_escaped_dollars = true;
+            } else
+            if (parse_backslash(&env->ps, buf, &line_nb, &col_nb) < 0) {
+                return yaml_env_set_err(env, YAML_ERR_BAD_STRING,
+                                        "invalid backslash");
+            }
+            start = env->ps;
+            break;
+
+          case '$':
+            if (ps_has(&env->ps, 2) && env->ps.b[1] == '(') {
+                /* variable */
+                var_bitmap_set_bit(var_bitmap, var_pos);
+                var_pos += 1;
+                ps_skip(&env->ps, 2);
+                break;
+            }
+
+            /* FALLTHROUGH */
+
+          default:
+            ps_skip(&env->ps, 1);
+            break;
+        }
+    }
+
+    return yaml_env_set_err(env, YAML_ERR_BAD_STRING, "missing closing '\"'");
+}
+
 
 static int
 t_yaml_env_parse_quoted_string(yaml_parse_t *env, yaml_data_t *out,
@@ -2791,6 +2840,14 @@ t_yaml_env_handle_override(yaml_parse_t * nonnull env,
      *   variables: ...
      *   override: ...
      *
+     * This "verbose" syntax would allow using variables in raw includes as
+     * well:
+     *
+     * !include
+     *   path: foo.json
+     *   mode: raw
+     *   variables: ...
+     *
      * For the moment, it isn't a big deal however.
      */
     if (override->obj->fields.len > 0
@@ -2904,7 +2961,8 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
 
 /* }}} */
 /* }}} */
-/* {{{ Generate presentations */
+/* {{{ Parser public API */
+/* {{{ t_yaml_data_get_presentation */
 
 qvector_t(pres_mapping, yaml__presentation_node_mapping__t);
 
@@ -2975,8 +3033,22 @@ t_yaml_add_pres_mappings(const yaml_data_t * nonnull data, sb_t *path,
     }
 }
 
+void t_yaml_data_get_presentation(
+    const yaml_data_t * nonnull data,
+    yaml__document_presentation__t * nonnull pres
+)
+{
+    qv_t(pres_mapping) mappings;
+    SB_1k(path);
+
+    iop_init(yaml__document_presentation, pres);
+    t_qv_init(&mappings, 0);
+    t_yaml_add_pres_mappings(data, &path, &mappings);
+    pres->mappings = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping,
+                                         &mappings);
+}
+
 /* }}} */
-/* {{{ Parser public API */
 
 yaml_parse_t *t_yaml_parse_new(int flags)
 {
@@ -3133,38 +3205,6 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
     return res;
 }
 
-void t_yaml_data_get_presentation(
-    const yaml_data_t * nonnull data,
-    yaml__document_presentation__t * nonnull pres
-)
-{
-    qv_t(pres_mapping) mappings;
-    SB_1k(path);
-
-    iop_init(yaml__document_presentation, pres);
-    t_qv_init(&mappings, 0);
-    t_yaml_add_pres_mappings(data, &path, &mappings);
-    pres->mappings = IOP_TYPED_ARRAY_TAB(yaml__presentation_node_mapping,
-                                         &mappings);
-}
-
-static const yaml_presentation_t * nonnull
-t_yaml_doc_pres_to_map(const yaml__document_presentation__t *doc_pres)
-{
-    yaml_presentation_t *pres = t_new(yaml_presentation_t, 1);
-
-    t_qm_init(yaml_pres_node, &pres->nodes, 0);
-    tab_for_each_ptr(mapping, &doc_pres->mappings) {
-        int res;
-
-        res = qm_add(yaml_pres_node, &pres->nodes, &mapping->path,
-                     &mapping->node);
-        assert (res >= 0);
-    }
-
-    return pres;
-}
-
 void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
                                  lstr_t error_msg, sb_t * nonnull out)
 {
@@ -3218,7 +3258,7 @@ void yaml_parse_pretty_print_err(const yaml_span_t * nonnull span,
 /* }}} */
 /* {{{ Packer */
 /* {{{ Packing types */
-/* {{{ Variables */
+/* {{{ yaml_pack_variable_t */
 
 typedef struct yaml_pack_variable_t yaml_pack_variable_t;
 
@@ -3265,7 +3305,66 @@ qm_kvec_t(active_vars, lstr_t, yaml_pack_variable_t, qhash_lstr_hash,
 qvector_t(active_vars, qm_t(active_vars));
 
 /* }}} */
+/* {{{ yaml_pack_override_t */
+
+/* Node to override, when packing. */
+typedef struct yaml_pack_override_node_t {
+    /* Data related to the override.
+     *
+     * When beginning to pack an override, this is set to the original data,
+     * the one replaced by the override on parsing.
+     * When the AST is packed, this data is retrieved and the overridden data
+     * is swapped and stored here.
+     * Then, the override data is packed using those datas.
+     */
+    const yaml_data_t * nullable data;
+
+    /* If the data has been found and retrieved. If false, the data has either
+     * not yet been found while packing the AST, or the node has disappeared
+     * from the AST.
+     */
+    bool found;
+} yaml_pack_override_node_t;
+
+qm_kvec_t(override_nodes, lstr_t, yaml_pack_override_node_t,
+          qhash_lstr_hash, qhash_lstr_equal);
+
+/* Description of an override, used when packing.
+ *
+ * This object is used to properly pack overrides. It is the equivalent of
+ * a yaml.PresentationOverride, but with a qm instead of an array, so that
+ * nodes that were overridden can easily find the original value to repack.
+ */
+typedef struct yaml_pack_override_t {
+    /* Mappings of absolute paths to override pack nodes.
+     *
+     * The paths are not the same as the ones in the presentation IOP. They
+     * are absolute path, from the root document and not from the override's
+     * root.
+     *
+     * This is needed in order to handle overrides of included data. The
+     * path in the included data is relative from the root of its file, which
+     * may be different from the path of the override nodes (for example,
+     * if the override was done in a file that included a file including the
+     * current file.
+     * */
+    qm_t(override_nodes) nodes;
+
+    /** List of the absolute paths.
+     *
+     * Used to iterate on the nodes in the right order when repacking the
+     * override objet.
+     */
+    qv_t(lstr) ordered_paths;
+
+    /* Original override presentation object.
+     */
+    const yaml__presentation_override__t * nonnull presentation;
+} yaml_pack_override_t;
+qvector_t(pack_override, yaml_pack_override_t);
+
 /* }}} */
+/* {{{ yaml_pack_env_t */
 
 #define YAML_STD_INDENT  2
 
@@ -3371,10 +3470,12 @@ typedef struct yaml_pack_env_t {
     qv_t(active_vars) active_vars;
 } yaml_pack_env_t;
 
+/* }}} */
+/* }}} */
+/* {{{ Utils */
+
 static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
                             const yaml_data_t * nonnull data);
-
-/* {{{ Utils */
 
 static int do_write(yaml_pack_env_t *env, const void *_buf, int len)
 {
@@ -3563,6 +3664,23 @@ yaml_pack_env_find_override(yaml_pack_env_t * nonnull env)
     }
 
     return NULL;
+}
+
+static const yaml_presentation_t * nonnull
+t_yaml_doc_pres_to_map(const yaml__document_presentation__t *doc_pres)
+{
+    yaml_presentation_t *pres = t_new(yaml_presentation_t, 1);
+
+    t_qm_init(yaml_pres_node, &pres->nodes, 0);
+    tab_for_each_ptr(mapping, &doc_pres->mappings) {
+        int res;
+
+        res = qm_add(yaml_pres_node, &pres->nodes, &mapping->path,
+                     &mapping->node);
+        assert (res >= 0);
+    }
+
+    return pres;
 }
 
 static int t_yaml_pack_data_with_doc_pres(
@@ -3904,7 +4022,7 @@ yaml_pack_scalar(yaml_pack_env_t * nonnull env,
         if (isnan(scalar->d)) {
             PUTS(".NaN");
         } else {
-            WRITE(ibuf, sprintf(ibuf, "%.15g", scalar->d));
+            WRITE(ibuf, sprintf(ibuf, "%.17g", scalar->d));
         }
       } break;
 
@@ -5443,7 +5561,7 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
 
 /* }}} */
 /* }}} */
-/* {{{ Pack env public API */
+/* {{{ Packer public API */
 
 /** Initialize a new YAML packing context. */
 yaml_pack_env_t * nonnull t_yaml_pack_env_new(void)
@@ -5599,7 +5717,7 @@ t_yaml_pack_file(yaml_pack_env_t * nonnull env, const char * nonnull filename,
 }
 
 /* }}} */
-/* {{{ AST helpers */
+/* {{{ AST helpers public API */
 
 #define SET_SCALAR(data, scalar_type)                                        \
     do {                                                                     \
@@ -7535,8 +7653,7 @@ Z_GROUP_EXPORT(yaml)
             "<<:\n"
             "  # goty\n"
             "  - !include:child1.yml\n"
-            /* FIXME: '  # bad\n' is not saved, to fix! */
-            /* "  # bad\n" */
+            "  # bad\n"
             "  - !include:child2.yml\n"
             "    d: ra\n"
             "\n"
@@ -7555,6 +7672,7 @@ Z_GROUP_EXPORT(yaml)
             "    b:\n"
             "      - ki # comment\n"
             "      - ro\n"
+            "  # bad\n"
             "  - c: shu\n"
             "    d: ra\n"
             "\n"
@@ -9278,15 +9396,15 @@ Z_GROUP_EXPORT(yaml)
             "  variables:\n"
             "    n: null\n"
             "    b: tRuE\n"
-            "    d: 10.2e-3\n",
+            "    d: 10.0e-3\n",
 
             "inc:\n"
             "  nr: ~\n"
             "  ns: <null>\n"
             "  br: true\n"
             "  bs: <tRuE>\n"
-            "  dr: 0.0102\n"
-            "  ds: <10.2e-3>"
+            "  dr: 0.01\n"
+            "  ds: <10.0e-3>"
         ));
 
         /* pack into files, to test repacking of variables */
@@ -9299,8 +9417,8 @@ Z_GROUP_EXPORT(yaml)
             "    n~1: \"null\"\n"
             "    b: true\n"
             "    b~1: tRuE\n"
-            "    d: 0.0102\n"
-            "    d~1: 10.2e-3\n"
+            "    d: 0.01\n"
+            "    d~1: 10.0e-3\n"
         ));
         Z_HELPER_RUN(z_check_file("var_mul_s2/inner.yml",
             "nr: $(n)\n"
@@ -10421,8 +10539,8 @@ Z_GROUP_EXPORT(yaml)
         yaml_data_set_string(&d2, LSTR("1"));
         TST(&d1, &d2, false, true);
 
-        yaml_data_set_double(&d1, -1.4);
-        yaml_data_set_string(&d2, LSTR("-1.4"));
+        yaml_data_set_double(&d1, -1.5);
+        yaml_data_set_string(&d2, LSTR("-1.5"));
         TST(&d1, &d2, false, true);
 
         yaml_data_set_int(&d2, -1);
@@ -10466,10 +10584,9 @@ Z_GROUP_EXPORT(yaml)
         /* Doubles are packed with enough precision to repack those values
          * as they were written. */
         Z_HELPER_RUN(t_z_yaml_test_parse_success(NULL, NULL, NULL, 0,
-            "- 3.14159265\n"
             "- 0.25\n"
-            "- 0.666666666666\n"
-            "- 1.23e+20",
+            "- 1.23e+20\n"
+            "- 18014398509481982",
 
             NULL
         ));
@@ -10481,7 +10598,7 @@ Z_GROUP_EXPORT(yaml)
             "- 0.66666666666666666667\n",
 
             "- 12000\n"
-            "- 0.666666666666667"
+            "- 0.66666666666666663"
         ));
     } Z_TEST_END;
 

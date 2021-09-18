@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -155,112 +155,112 @@ ASN1_DESC(test_1);
 ASN1_DESC(test_2);
 ASN1_DESC(test_3);
 
-ASN1_DESC_BEGIN(desc, test_0);
-    asn1_reg_scalar(desc, test_0, x, 0xab);
-    asn1_reg_scalar(desc, test_0, y, 0xcd);
-    asn1_reg_scalar(desc, test_0, z, 0xef);
-    asn1_reg_scalar(desc, test_0, t, 0xef);
-    asn1_reg_scalar(desc, test_0, u64_1, 0x64);
-    asn1_reg_scalar(desc, test_0, u64_2, 0x64);
-    asn1_reg_scalar(desc, test_0, u64_3, 0x64);
-    asn1_reg_scalar(desc, test_0, b, 0xbb);
-    asn1_reg_enum(desc, test_0, test_tf, tf, 0x0f);
-ASN1_DESC_END(desc);
+ASN1_DESC_BEGIN(test_0);
+    asn1_reg_scalar(test_0, x, 0xab);
+    asn1_reg_scalar(test_0, y, 0xcd);
+    asn1_reg_scalar(test_0, z, 0xef);
+    asn1_reg_scalar(test_0, t, 0xef);
+    asn1_reg_scalar(test_0, u64_1, 0x64);
+    asn1_reg_scalar(test_0, u64_2, 0x64);
+    asn1_reg_scalar(test_0, u64_3, 0x64);
+    asn1_reg_scalar(test_0, b, 0xbb);
+    asn1_reg_enum(test_0, test_tf, tf, 0x0f);
+ASN1_DESC_END(test_0);
 
-ASN1_DESC_BEGIN(desc, test_1);
-    asn1_reg_opt_string(desc, test_1, opt, 0x00);
-    asn1_reg_string(desc, test_1, string, 0xab);
-    asn1_reg_string(desc, test_1, bs, 0xb5);
-ASN1_DESC_END(desc);
+ASN1_DESC_BEGIN(test_1);
+    asn1_reg_opt_string(test_1, opt, 0x00);
+    asn1_reg_string(test_1, string, 0xab);
+    asn1_reg_string(test_1, bs, 0xb5);
+ASN1_DESC_END(test_1);
 
-ASN1_DESC_BEGIN(desc, test_2);
-    asn1_reg_opt_sequence(desc, test_2, test_0, opt_t0, 0x32);
-    asn1_reg_sequence(desc, test_2, test_1, t1, 0x34);
-ASN1_DESC_END(desc);
+ASN1_DESC_BEGIN(test_2);
+    asn1_reg_opt_sequence(test_2, test_0, opt_t0, 0x32);
+    asn1_reg_sequence(test_2, test_1, t1, 0x34);
+ASN1_DESC_END(test_2);
 
-ASN1_DESC_BEGIN(desc, test_3);
-    asn1_reg_ext(desc, test_3, ph, 0x77);
-    asn1_reg_opt_ext(desc, test_3, ph_opt, 0x99);
-ASN1_DESC_END(desc);
+ASN1_DESC_BEGIN(test_3);
+    asn1_reg_ext(test_3, ph, 0x77);
+    asn1_reg_opt_ext(test_3, ph_opt, 0x99);
+ASN1_DESC_END(test_3);
 
-static ASN1_DESC_BEGIN(desc, test_rdr_rec1);
-    asn1_reg_scalar(desc, test_rdr_rec1, b, 0xbb);
-    asn1_reg_skip(desc, "test_skip", 0x55);
-    asn1_reg_scalar(desc, test_rdr_rec1, u32, 0x16);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(test_rdr_rec1);
+    asn1_reg_scalar(test_rdr_rec1, b, 0xbb);
+    asn1_reg_skip(test_rdr_rec1, "test_skip", 0x55);
+    asn1_reg_scalar(test_rdr_rec1, u32, 0x16);
+ASN1_DESC_END(test_rdr_rec1);
 
-static ASN1_SEQUENCE_DESC_BEGIN(desc, simple_array);
-    asn1_reg_seq_of_sequence(desc, simple_array, test_rdr_rec1, array, 0xaa);
-ASN1_SEQUENCE_DESC_END(desc);
+static ASN1_SEQUENCE_DESC_BEGIN(simple_array);
+    asn1_reg_seq_of_sequence(simple_array, test_rdr_rec1, array, 0xaa);
+ASN1_SEQUENCE_DESC_END(simple_array);
 
-static ASN1_DESC_BEGIN(desc, test_rdr_rec2);
-    asn1_reg_scalar(desc, test_rdr_rec2, vec, 0x85);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(test_rdr_rec2);
+    asn1_reg_scalar(test_rdr_rec2, vec, 0x85);
+ASN1_DESC_END(test_rdr_rec2);
 
-static ASN1_DESC_BEGIN(desc, test_reader);
-    asn1_reg_scalar(desc, test_reader, i1, 0x12);
-    asn1_reg_scalar(desc, test_reader, i2, 0x34);
-    asn1_reg_string(desc, test_reader, str, 0x82);
-    asn1_reg_scalar(desc, test_reader, oi3, 0x56);
-    asn1_reg_string(desc, test_reader, bstr, 0x83);
-    asn1_reg_sequence(desc, test_reader, test_rdr_rec2, vec, 0xa4);
-    asn1_reg_scalar(desc, test_reader, oi4, 0x78);
-    asn1_reg_skip(desc, "test_skip", ASN1_TAG_INVALID);
-    asn1_reg_sequence(desc, test_reader, test_rdr_rec1, rec1, 0xec);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(test_reader);
+    asn1_reg_scalar(test_reader, i1, 0x12);
+    asn1_reg_scalar(test_reader, i2, 0x34);
+    asn1_reg_string(test_reader, str, 0x82);
+    asn1_reg_scalar(test_reader, oi3, 0x56);
+    asn1_reg_string(test_reader, bstr, 0x83);
+    asn1_reg_sequence(test_reader, test_rdr_rec2, vec, 0xa4);
+    asn1_reg_scalar(test_reader, oi4, 0x78);
+    asn1_reg_skip(test_reader, "test_skip", ASN1_TAG_INVALID);
+    asn1_reg_sequence(test_reader, test_rdr_rec1, rec1, 0xec);
+ASN1_DESC_END(test_reader);
 
-static ASN1_CHOICE_DESC_BEGIN(desc, test_choice, choice_type, type);
-    asn1_reg_scalar(desc, test_choice, choice1, 0x23);
-    asn1_reg_scalar(desc, test_choice, choice2, 0x34);
-    asn1_reg_scalar(desc, test_choice, choice3, 0x45);
-    asn1_reg_sequence(desc, test_choice, test_rdr_rec1, rec1, 0xec);
-ASN1_CHOICE_DESC_END(desc);
+static ASN1_CHOICE_DESC_BEGIN(test_choice, choice_type, type);
+    asn1_reg_scalar(test_choice, choice1, 0x23);
+    asn1_reg_scalar(test_choice, choice2, 0x34);
+    asn1_reg_scalar(test_choice, choice3, 0x45);
+    asn1_reg_sequence(test_choice, test_rdr_rec1, rec1, 0xec);
+ASN1_CHOICE_DESC_END(test_choice);
 
-static __ASN1_IOP_CHOICE_DESC_BEGIN(desc, test_iop_choice);
-    asn1_reg_scalar(desc, test_iop_choice, u8,  0x80);
-    asn1_reg_scalar(desc, test_iop_choice, i16, 0x81);
-    asn1_reg_scalar(desc, test_iop_choice, u16, 0x82);
-ASN1_CHOICE_DESC_END(desc);
+static __ASN1_IOP_CHOICE_DESC_BEGIN(test_iop_choice);
+    asn1_reg_scalar(test_iop_choice, u8,  0x80);
+    asn1_reg_scalar(test_iop_choice, i16, 0x81);
+    asn1_reg_scalar(test_iop_choice, u16, 0x82);
+ASN1_CHOICE_DESC_END(test_iop_choice);
 
-static ASN1_DESC_BEGIN(desc, test_u_choice);
-    asn1_reg_scalar(desc, test_u_choice, i, ASN1_TAG_INTEGER);
-    asn1_reg_untagged_choice(desc, test_u_choice, test_choice, choice);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(test_u_choice);
+    asn1_reg_scalar(test_u_choice, i, ASN1_TAG_INTEGER);
+    asn1_reg_untagged_choice(test_u_choice, test_choice, choice);
+ASN1_DESC_END(test_u_choice);
 
-static ASN1_DESC_BEGIN(desc, test_vector);
-    asn1_reg_seq_of_untagged_choice(desc, test_vector, test_choice, choice);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(test_vector);
+    asn1_reg_seq_of_untagged_choice(test_vector, test_choice, choice);
+ASN1_DESC_END(test_vector);
 
-static ASN1_DESC_BEGIN(desc, test_array);
-    asn1_reg_seq_of_untagged_choice(desc, test_array, test_choice, choice);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(test_array);
+    asn1_reg_seq_of_untagged_choice(test_array, test_choice, choice);
+ASN1_DESC_END(test_array);
 
-static ASN1_DESC_BEGIN(desc, il_test);
-    asn1_reg_scalar(desc, il_test, i1, 0x12);
-    asn1_reg_scalar(desc, il_test, i2, 0x34);
-    asn1_reg_skip  (desc, "skip", 0x55);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(il_test);
+    asn1_reg_scalar(il_test, i1, 0x12);
+    asn1_reg_scalar(il_test, i2, 0x34);
+    asn1_reg_skip(il_test, "skip", 0x55);
+ASN1_DESC_END(il_test);
 
-static ASN1_DESC_BEGIN(desc, il_test_base);
-    asn1_reg_sequence(desc, il_test_base, il_test, t, 0x76);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(il_test_base);
+    asn1_reg_sequence(il_test_base, il_test, t, 0x76);
+ASN1_DESC_END(il_test_base);
 
-static ASN1_DESC_BEGIN(desc, il_trailing);
-    asn1_reg_sequence(desc, il_trailing, il_test, t, 0x76);
-    asn1_reg_scalar(desc, il_trailing, i, 0x01);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(il_trailing);
+    asn1_reg_sequence(il_trailing, il_test, t, 0x76);
+    asn1_reg_scalar(il_trailing, i, 0x01);
+ASN1_DESC_END(il_trailing);
 
-static ASN1_DESC_BEGIN(desc, il_rec);
-    asn1_reg_scalar(desc, il_rec, v32, 0x12);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(il_rec);
+    asn1_reg_scalar(il_rec, v32, 0x12);
+ASN1_DESC_END(il_rec);
 
-static ASN1_DESC_BEGIN(desc, il_rec_vec);
-    asn1_reg_seq_of_sequence(desc, il_rec_vec, il_rec, rec, 0x34);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(il_rec_vec);
+    asn1_reg_seq_of_sequence(il_rec_vec, il_rec, rec, 0x34);
+ASN1_DESC_END(il_rec_vec);
 
-static ASN1_DESC_BEGIN(desc, il_rec_base);
-    asn1_reg_sequence(desc, il_rec_base, il_rec_vec, vec, 0x66);
-ASN1_DESC_END(desc);
+static ASN1_DESC_BEGIN(il_rec_base);
+    asn1_reg_sequence(il_rec_base, il_rec_vec, vec, 0x66);
+ASN1_DESC_END(il_rec_base);
 
 uint8_t il_test_input[] = {
     0x76, 0x80,
@@ -974,11 +974,11 @@ typedef struct open_type_t {
     lstr_t ot3;
 } open_type_t;
 
-static ASN1_SEQUENCE_DESC_BEGIN(desc, open_type);
-    asn1_reg_open_type(desc, open_type, ot1);
-    asn1_reg_opt_open_type(desc, open_type, ot2);
-    asn1_reg_opt_open_type(desc, open_type, ot3);
-ASN1_SEQUENCE_DESC_END(desc);
+static ASN1_SEQUENCE_DESC_BEGIN(open_type);
+    asn1_reg_open_type(open_type, ot1);
+    asn1_reg_opt_open_type(open_type, ot2);
+    asn1_reg_opt_open_type(open_type, ot3);
+ASN1_SEQUENCE_DESC_END(open_type);
 
 Z_GROUP_EXPORT(asn1_open_type)
 {
@@ -1035,10 +1035,10 @@ typedef struct nr_opt_ot_eoc_t {
     lstr_t  ot;
 } nr_opt_ot_eoc_t;
 
-static ASN1_SEQUENCE_DESC_BEGIN(desc, nr_opt_ot_eoc);
-    asn1_reg_scalar(desc, nr_opt_ot_eoc, i, ASN1_TAG_INTEGER);
-    asn1_reg_opt_open_type(desc, nr_opt_ot_eoc, ot);
-ASN1_SEQUENCE_DESC_END(desc);
+static ASN1_SEQUENCE_DESC_BEGIN(nr_opt_ot_eoc);
+    asn1_reg_scalar(nr_opt_ot_eoc, i, ASN1_TAG_INTEGER);
+    asn1_reg_opt_open_type(nr_opt_ot_eoc, ot);
+ASN1_SEQUENCE_DESC_END(nr_opt_ot_eoc);
 
 typedef enum nr_opt_ot_eoc_type {
     NR_OPT_OT_EOC_TYPE_A = 1,
@@ -1051,11 +1051,11 @@ typedef struct nr_opt_ot_eoc_c_t {
     };
 } nr_opt_ot_eoc_c_t;
 
-static ASN1_CHOICE_DESC_BEGIN(desc, nr_opt_ot_eoc_c, nr_opt_ot_eoc_type,
+static ASN1_CHOICE_DESC_BEGIN(nr_opt_ot_eoc_c, nr_opt_ot_eoc_type,
                               type);
-    asn1_reg_sequence(desc, nr_opt_ot_eoc_c, nr_opt_ot_eoc, a,
+    asn1_reg_sequence(nr_opt_ot_eoc_c, nr_opt_ot_eoc, a,
                       ASN1_MK_TAG_C(CONTEXT_SPECIFIC, 1));
-ASN1_CHOICE_DESC_END(desc);
+ASN1_CHOICE_DESC_END(nr_opt_ot_eoc_c);
 
 Z_GROUP_EXPORT(asn1_nr) {
     Z_TEST(nr_opt_ot_eoc, "confusion between optional open type and eoc") {

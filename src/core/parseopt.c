@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -449,6 +449,15 @@ void makeversion(int ret, const char *name, const char *(*get_version)(void))
                 printf("%s %s (%s)\n",
                        version->name, version->version,
                        version->git_revision);
+            }
+        }
+
+        if (core_deps_revision_nb_g) {
+            printf("\nDependencies:\n");
+            for (int i = 0; i < core_deps_revision_nb_g; i++) {
+                dep_revision_t *dep = &core_deps_revision_g[i];
+
+                printf("  %s: %s\n", dep->dep_name, dep->dep_revision);
             }
         }
     }

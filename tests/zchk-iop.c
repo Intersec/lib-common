@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -26,6 +26,7 @@
 #include <lib-common/unix.h>
 #include <lib-common/z.h>
 #include <lib-common/iop-json.h>
+#include <lib-common/iop-yaml.h>
 #include <lib-common/iop/priv.h>
 #include <lib-common/iop/ic.iop.h>
 #include <lib-common/xmlr.h>
@@ -33,6 +34,9 @@
 #include "zchk-iop.h"
 #include "iop/tstiop.iop.h"
 #include "iop/tstiop2.iop.h"
+#include "iop/tstiop_dox.iop.h"
+#include "iop/tstiop_dox_invalid_example_struct.iop.h"
+#include "iop/tstiop_dox_invalid_example_rpc.iop.h"
 #include "iop/tstiop_inheritance.iop.h"
 #include "iop/tstiop_backward_compat.iop.h"
 #include "iop/tstiop_backward_compat_deleted_struct_1.iop.h"
@@ -653,6 +657,15 @@ static int z_iop_filter_check_opt(const char *field, bool must_be_set,
 /* }}} */
 /* {{{ Other helpers (waiting proper folds). */
 
+#define IOP_XML_HEADER \
+    "<root"                                                                  \
+    " xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""                        \
+    " xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
+
+#define IOP_XML_HEADER_FULL IOP_XML_HEADER ">\n"
+
+#define IOP_XML_FOOTER "</root>\n"
+
 static int iop_xml_test_struct(const iop_struct_t *st, void *v,
                                const char *info)
 {
@@ -669,8 +682,7 @@ static int iop_xml_test_struct(const iop_struct_t *st, void *v,
      *      functions. */
     t_sb_init(&sb, 100);
 
-    sb_adds(&sb, "<root xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-            "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"");
+    sb_adds(&sb, IOP_XML_HEADER);
     if (iop_struct_is_class(st)) {
         const iop_struct_t *real_st = *(const iop_struct_t **)v;
 
@@ -680,9 +692,9 @@ static int iop_xml_test_struct(const iop_struct_t *st, void *v,
     sb_addc(&sb, '>');
     len = sb.len;
     iop_xpack(&sb, st, v, false, true);
-    sb_adds(&sb, "</root>");
+    sb_adds(&sb, IOP_XML_FOOTER);
 
-    s = t_lstr_dups(sb.data + len, sb.len - len - 7);
+    s = t_lstr_dups(sb.data + len, sb.len - len - strlen(IOP_XML_FOOTER));
 
     /* unpacking */
     Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
@@ -722,8 +734,7 @@ static int iop_xml_test_struct_invalid(const iop_struct_t *st, void *v,
      *      functions. */
     t_sb_init(&sb, 100);
 
-    sb_adds(&sb, "<root xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-            "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"");
+    sb_adds(&sb, IOP_XML_HEADER);
     if (iop_struct_is_class(st)) {
         const iop_struct_t *real_st = *(const iop_struct_t **)v;
 
@@ -732,7 +743,7 @@ static int iop_xml_test_struct_invalid(const iop_struct_t *st, void *v,
     }
     sb_addc(&sb, '>');
     iop_xpack(&sb, st, v, false, true);
-    sb_adds(&sb, "</root>");
+    sb_adds(&sb, IOP_XML_FOOTER);
 
     /* unpacking */
     Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
@@ -1448,6 +1459,7 @@ static int z_check_static_field_type(const iop_struct_t *st,
 Z_GROUP_EXPORT(iop)
 {
     IOP_REGISTER_PACKAGES(&tstiop__pkg,
+                          &tstiop_dox__pkg,
                           &tstiop_inheritance__pkg,
                           &tstiop_backward_compat__pkg);
 
@@ -2014,10 +2026,7 @@ Z_GROUP_EXPORT(iop)
             tstiop__my_struct_f__t sf_ret;
             SB_1k(sb);
 
-            sb_adds(&sb, "<root "
-                    "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-                    "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
-                    ">\n");
+            sb_adds(&sb, IOP_XML_HEADER_FULL);
             sb_adds(&sb,
                     "<unk1></unk1>"
                     "<a>foo</a><a>bar</a><a>foobar</a>"
@@ -2025,7 +2034,7 @@ Z_GROUP_EXPORT(iop)
                     "<c><unk2>foo</unk2></c><c><a>55</a><unk3 /></c><c />"
                     "<c><a>55</a><b>2</b><unk3 /></c>"
                     "<unk4>foo</unk4>");
-            sb_adds(&sb, "</root>\n");
+            sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_sf, &sf_ret);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
@@ -2053,17 +2062,14 @@ Z_GROUP_EXPORT(iop)
             qm_add(part, &parts, &foo, LSTR("part cid foo"));
             qm_add(part, &parts, &bar, LSTR("part cid bar"));
 
-            sb_adds(&sb, "<root "
-                    "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-                    "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
-                    ">\n");
+            sb_adds(&sb, IOP_XML_HEADER_FULL);
             sb_adds(&sb,
                     "<a></a><a/><a>foo</a>"
                     "<a href=\'cid:foo\'/>"
                     "<a><inc:Include href=\'cid:bar\' xmlns:inc=\"url\" /></a>"
                     "<b>VGVzdA==</b>"
                     "<b href=\'cid:foo\'/>");
-            sb_adds(&sb, "</root>\n");
+            sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_sf, &sf_ret);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
@@ -2086,16 +2092,13 @@ Z_GROUP_EXPORT(iop)
             tstiop__my_struct_a_opt__t sa_opt;
             SB_1k(sb);
 
-            sb_adds(&sb, "<root "
-                    "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-                    "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
-                    ">\n");
+            sb_adds(&sb, IOP_XML_HEADER_FULL);
             sb_adds(&sb,
                     "<a>42</a>"
                     "<b>0x10</b>"
                     "<e>-42</e>"
                     "<f>0x42</f>");
-            sb_adds(&sb, "</root>\n");
+            sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_sa_opt, &sa_opt);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
@@ -2136,10 +2139,9 @@ Z_GROUP_EXPORT(iop)
             Z_HELPER_RUN(iop_xml_test_struct(st_cs, &cs, "cs"));
 
             /* packing (private values should be skipped) */
-            sb_adds(&sb, "<root xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-                    "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">");
+            sb_adds(&sb, IOP_XML_HEADER_FULL);
             iop_xpack_flags(&sb, st_cs, &cs, IOP_XPACK_SKIP_PRIVATE);
-            sb_adds(&sb, "</root>");
+            sb_adds(&sb, IOP_XML_FOOTER);
 
             Z_ASSERT_NULL(strstr(sb.data, "<priv>"));
             Z_ASSERT_NULL(strstr(sb.data, "<priv2>"));
@@ -2159,14 +2161,11 @@ Z_GROUP_EXPORT(iop)
             /* now test that unpacking only works when private values are not
              * specified */
             sb_reset(&sb);
-            sb_adds(&sb, "<root "
-                    "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-                    "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
-                    ">\n");
+            sb_adds(&sb, IOP_XML_HEADER_FULL);
             sb_adds(&sb,
                     "<s>abcd</s>"
                     "<s>abcd</s>");
-            sb_adds(&sb, "</root>\n");
+            sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_cs, &cs);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
@@ -2175,15 +2174,12 @@ Z_GROUP_EXPORT(iop)
             xmlr_close(&xmlr_g);
 
             sb_reset(&sb);
-            sb_adds(&sb, "<root "
-                    "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-                    "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
-                    ">\n");
+            sb_adds(&sb, IOP_XML_HEADER_FULL);
             sb_adds(&sb,
                     "<s>abcd</s>"
                     "<s>abcd</s>"
                     "<priv>true</priv>");
-            sb_adds(&sb, "</root>\n");
+            sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_cs, &cs);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
@@ -2192,15 +2188,12 @@ Z_GROUP_EXPORT(iop)
             xmlr_close(&xmlr_g);
 
             sb_reset(&sb);
-            sb_adds(&sb, "<root "
-                    "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-                    "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
-                    ">\n");
+            sb_adds(&sb, IOP_XML_HEADER_FULL);
             sb_adds(&sb,
                     "<s>abcd</s>"
                     "<s>abcd</s>"
                     "<priv2>true</priv2>");
-            sb_adds(&sb, "</root>\n");
+            sb_adds(&sb, IOP_XML_FOOTER);
 
             iop_init_desc(st_cs, &cs);
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
@@ -2719,6 +2712,20 @@ Z_GROUP_EXPORT(iop)
             empty_jpack.sub.cls = &clsb;
 
 #undef TST
+        }
+
+        /* Test forceFieldName attribute */
+        {
+            tstiop__force_field_name_struct__t jns = {
+                .abc_def = 44,
+                .a_b_c   = LSTR("dgdfhfh"),
+            };
+            const char *jns_str = "{\"abc_def\":44,\"ABC\":\"dgdfhfh\"}";
+
+            Z_HELPER_RUN(
+                iop_json_test_pack(&tstiop__force_field_name_struct__s, &jns,
+                                   IOP_JPACK_MINIMAL, true, true, jns_str)
+            );
         }
 
         iop_dso_close(&dso);
@@ -8217,10 +8224,9 @@ Z_GROUP_EXPORT(iop)
                     IOP_UNION_TAG(tstiop__my_union_a, ua));
 
         /* pack/unpack xml */
-        sb_adds(&sb, "<root xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "
-                "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">");
+        sb_adds(&sb, IOP_XML_HEADER_FULL);
         iop_xpack(&sb, &tstiop__my_union_b__s, &src, false, false);
-        sb_adds(&sb, "</root>");
+        sb_adds(&sb, IOP_XML_FOOTER);
         memset(&dst, 0xFF, sizeof(tstiop__my_union_b__t));
         Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));
         ret = iop_xunpack(xmlr_g, t_pool(), &tstiop__my_union_b__s, &dst);
@@ -8455,13 +8461,10 @@ Z_GROUP_EXPORT(iop)
             SB(sb, 10);                                                      \
             int ret;                                                         \
             void *res = NULL;                                                \
-            sb_adds(&sb,                                                     \
-                    "<root xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "  \
-                    "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""\
-                    ">");                                                    \
+            sb_adds(&sb, IOP_XML_HEADER_FULL);                               \
             iop_xpack(&sb, &tstiop_void_type__##type##_to_void__s, &s_##type,\
                       false, false);                                         \
-            sb_adds(&sb, "</root>");                                         \
+            sb_adds(&sb, IOP_XML_FOOTER);                                    \
             Z_ASSERT_N(xmlr_setup(&xmlr_g, sb.data, sb.len));                \
             ret = iop_xunpack_ptr(xmlr_g, t_pool(),                          \
                                   &tstiop_void_type__void_required__s, &res);\
@@ -8741,6 +8744,91 @@ Z_GROUP_EXPORT(iop)
                           "class 'tstiop.ChildClassA' (id 2) "
                           "is not a child of 'tstiop.ChildClassB' (id 3) "
                           "as expected");
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(double_subnormal_packing, "test packing/unpacking of subnormal doubles") { /* {{{ */
+        /* The purpose of this test is to check that IOP packing/unpacking of
+         * double subnormal values is both possible, and gives the same
+         * result. */
+        t_scope;
+        SB_1k(buf);
+        SB_1k(err);
+        pstream_t ps;
+        tstiop__my_struct_a_opt__t my_struct_in = {
+            .m = OPT(4.68120573995851602e-310),
+        };
+        tstiop__my_struct_a_opt__t *my_struct_out;
+
+        /* Test in json. */
+        sb_reset(&buf);
+        Z_ASSERT_N(iop_sb_jpack(&buf, &tstiop__my_struct_a_opt__s,
+                                &my_struct_in, 0));
+
+        my_struct_out = NULL;
+        ps = ps_initsb(&buf);
+        Z_ASSERT_N(t_iop_junpack_ptr_ps(&ps, &tstiop__my_struct_a_opt__s,
+                                        (void **)&my_struct_out,
+                                        0, &err),
+                   "json unpacking failure: %*pM", SB_FMT_ARG(&err));
+        Z_ASSERT_IOPEQUAL(tstiop__my_struct_a_opt, my_struct_out,
+                          &my_struct_in);
+
+
+        /* Test in XML. */
+        sb_setf(&buf, IOP_XML_HEADER_FULL);
+        iop_xpack_flags(&buf, &tstiop__my_struct_a_opt__s, &my_struct_in, 0);
+        sb_adds(&buf, IOP_XML_FOOTER);
+
+        my_struct_out = NULL;
+        Z_ASSERT_N(xmlr_setup(&xmlr_g, buf.data, buf.len));
+        Z_ASSERT_N(t_iop_xunpack_ptr(xmlr_g,
+                                     &tstiop__my_struct_a_opt__s,
+                                     (void **)&my_struct_out),
+                   "XML unpacking failure: %s", xmlr_get_err());
+        Z_ASSERT_IOPEQUAL(tstiop__my_struct_a_opt, my_struct_out,
+                          &my_struct_in);
+
+
+        /* Test in YAML. */
+        sb_reset(&buf);
+        t_iop_sb_ypack(&buf, &tstiop__my_struct_a_opt__s, &my_struct_in,
+                       NULL);
+        my_struct_out = NULL;
+        ps = ps_initsb(&buf);
+        Z_ASSERT_N(t_iop_yunpack_ptr_ps(&ps, &tstiop__my_struct_a_opt__s,
+                                        (void **)&my_struct_out,
+                                        0, NULL, &err),
+                   "YAML unpacking failure: %*pM", SB_FMT_ARG(&err));
+
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(iop_check_package_examples, "test iop_check_rpc_example") { /* {{{ */
+        SB_1k(err);
+        const char *exp_err;
+
+        /* Examples in tstiop_dox.iop should be valid. */
+        Z_ASSERT_N(iop_check_package_examples(&tstiop_dox__pkg, &err));
+
+        /* tstiop_dox_invalid_example_struct should be detected as invalid */
+        Z_ASSERT_NEG(iop_check_package_examples(
+                &tstiop_dox_invalid_example_struct__pkg,
+                &err));
+        exp_err = "invalid example for "
+                  "`tstiop_dox_invalid_example_struct.MyStruct`: "
+                  "1:11: cannot parse number `\"not an integer\"'";
+        Z_ASSERT_STREQUAL(err.data, exp_err);
+
+        /* tstiop_dox_invalid_example_rpc also */
+        sb_reset(&err);
+        Z_ASSERT_NEG(iop_check_package_examples(
+                &tstiop_dox_invalid_example_rpc__pkg,
+                &err));
+        exp_err = "invalid example for argument of RPC "
+                  "`tstiop_dox_invalid_example_rpc.MyIface.funA`: "
+                  "1:2: expected field of struct "
+                  "tstiop_dox_invalid_example_rpc.MyStruct, "
+                  "got `\"unknownField\"'";
+        Z_ASSERT_STREQUAL(err.data, exp_err);
     } Z_TEST_END;
     /* }}} */
 

@@ -1,6 +1,6 @@
 ###########################################################################
 #                                                                         #
-# Copyright 2020 INTERSEC SA                                              #
+# Copyright 2021 INTERSEC SA                                              #
 #                                                                         #
 # Licensed under the Apache License, Version 2.0 (the "License");         #
 # you may not use this file except in compliance with the License.        #
@@ -361,6 +361,10 @@ def gen_local_vimrc(ctx):
     content += r"set errorformat^=\%D%*\\a:\ Entering\ directory\ `%f/"
     content += ctx.bldnode.name
     content += "'\n"
+
+    if hasattr(ctx, 'vimrc_additions'):
+        for cb in ctx.vimrc_additions:
+            content += cb(ctx)
 
     # Write file if it changed
     node = ctx.srcnode.make_node('.local_vimrc.vim')

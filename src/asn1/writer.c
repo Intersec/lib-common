@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -78,7 +78,7 @@ static const char *asn1_mode_name(enum obj_mode mode)
 static void e_trace_desc(int level, const char *txt,
                         const asn1_desc_t *desc, int pos, int depth)
 {
-    const asn1_field_t *spec = &desc->vec.tab[pos];
+    const asn1_field_t *spec = &desc->fields.tab[pos];
     bool disp_type_name = spec->type == ASN1_OBJ_TYPE(OPAQUE)
                        || spec->type == ASN1_OBJ_TYPE(SEQUENCE)
                        || spec->type == ASN1_OBJ_TYPE(CHOICE)
@@ -86,7 +86,7 @@ static void e_trace_desc(int level, const char *txt,
 
     e_trace(3, "%s %*s(%d/%d) %s:%s%s%s:%s", txt,
         (depth % 16) * 2, "",
-        pos + 1, desc->vec.len,
+        pos + 1, desc->fields.len,
         asn1_mode_name(spec->mode), asn1_type_name(spec->type),
         disp_type_name ? ":" : "", disp_type_name ? spec->oc_t_name : "",
         spec->name);
@@ -493,8 +493,8 @@ static int asn1_pack_sequence_size(const void *st,
 {
     int len = 0;
 
-    for (int i = 0; i < desc->vec.len; i++) {
-        asn1_field_t *spec = &desc->vec.tab[i];
+    for (int i = 0; i < desc->fields.len; i++) {
+        asn1_field_t *spec = &desc->fields.tab[i];
 
         RETHROW(asn1_pack_field_size(st, spec, stack, &len));
     }
@@ -538,13 +538,13 @@ static int asn1_pack_choice_size(const void *st, const asn1_desc_t *desc,
     const asn1_field_t *selector_spec;
     int choice;
 
-    assert (desc->vec.len > 1);
+    assert (desc->fields.len > 1);
 
-    selector_spec = &desc->vec.tab[0];
+    selector_spec = &desc->fields.tab[0];
 
     choice = __asn1_get_int(st, selector_spec);
-    assert (choice > 0 && choice < desc->vec.len);
-    choice_spec = &desc->vec.tab[choice];
+    assert (choice > 0 && choice < desc->fields.len);
+    choice_spec = &desc->fields.tab[choice];
 
     RETHROW(asn1_pack_field_size(st, choice_spec, stack, &len));
 
@@ -718,8 +718,8 @@ static uint8_t *asn1_pack_sequence(uint8_t *dst, const void *st,
                                    const asn1_desc_t *desc, int32_t depth,
                                    qv_t(i32) *stack)
 {
-    for (int i = 0; i < desc->vec.len; i++) {
-        const asn1_field_t *spec = &desc->vec.tab[i];
+    for (int i = 0; i < desc->fields.len; i++) {
+        const asn1_field_t *spec = &desc->fields.tab[i];
 
         e_trace_desc(1, "serializing", desc, i, depth);
         dst = asn1_pack_field(dst, st, spec, depth, stack);
@@ -736,13 +736,13 @@ static uint8_t *asn1_pack_choice(uint8_t *dst, const void *st,
     const asn1_field_t *selector_spec;
     int choice;
 
-    assert (desc->vec.len > 1);
+    assert (desc->fields.len > 1);
 
-    selector_spec = &desc->vec.tab[0];
+    selector_spec = &desc->fields.tab[0];
 
     choice = __asn1_get_int(st, selector_spec);
-    assert (choice > 0 && choice < desc->vec.len);
-    choice_spec = &desc->vec.tab[choice];
+    assert (choice > 0 && choice < desc->fields.len);
+    choice_spec = &desc->fields.tab[choice];
 
     e_trace_desc(1, "serializing", desc, choice, depth);
     return asn1_pack_field(dst, st, choice_spec, depth, stack);
@@ -775,9 +775,10 @@ static uint8_t *asn1_pack_rec(uint8_t *dst, const void *st,
 void asn1_reg_field(asn1_desc_t *desc, asn1_field_t *field)
 {
     /* TODO check what can be checked */
-    if (desc->vec.len > 0
-    &&  (field->mode == ASN1_OBJ_MODE(SEQ_OF)
-     ||  desc->vec.tab[desc->vec.len - 1].mode == ASN1_OBJ_MODE(SEQ_OF)))
+    if (desc->fields.len > 0 &&
+        (field->mode == ASN1_OBJ_MODE(SEQ_OF) ||
+         desc->fields.tab[desc->fields.len - 1].mode ==
+         ASN1_OBJ_MODE(SEQ_OF)))
     {
         e_fatal("ASN.1 field %s should be explicitly "
                 "tagged as a sequence", field->name);
@@ -794,12 +795,12 @@ void asn1_reg_field(asn1_desc_t *desc, asn1_field_t *field)
         field->is_extension = true;
     } else {
         if (field->mode == ASN1_OBJ_MODE(OPTIONAL)) {
-            qv_append(&desc->opt_fields, desc->vec.len);
+            qv_append(&desc->opt_fields, desc->fields.len);
         }
     }
 
     asn1_field_init_info(field);
-    qv_append(&desc->vec, *field);
+    qv_append(&desc->fields, *field);
 }
 
 static void asn1_choice_desc_set_field(asn1_choice_desc_t *desc,
@@ -809,9 +810,9 @@ static void asn1_choice_desc_set_field(asn1_choice_desc_t *desc,
         const asn1_desc_t *sub_choice_desc = field->u.comp;
 
         /* XXX i = 0 is for enum field */
-        for (int i = 1; i < sub_choice_desc->vec.len; i++) {
+        for (int i = 1; i < sub_choice_desc->fields.len; i++) {
             const asn1_field_t *sub_choice_field =
-                &sub_choice_desc->vec.tab[i];
+                &sub_choice_desc->fields.tab[i];
 
             asn1_choice_desc_set_field(desc, sub_choice_field, idx);
         }
@@ -836,8 +837,8 @@ void asn1_build_choice_table(asn1_choice_desc_t *desc)
 
     p_clear(desc->choice_table, sizeof(desc->choice_table));
 
-    for (int i = 1; i < desc->desc.vec.len; i++) {
-        asn1_field_t *spec = &desc->desc.vec.tab[i];
+    for (int i = 1; i < desc->desc.fields.len; i++) {
+        asn1_field_t *spec = &desc->desc.fields.tab[i];
 
         asn1_choice_desc_set_field(desc, spec, i);
     }
@@ -1194,17 +1195,20 @@ static int asn1_sequenceof_len(pstream_t ps, uint8_t tag)
     return len;
 }
 
-void asn1_alloc_seq_of(void *st, int count, const asn1_field_t *field,
-                       mem_pool_t *mp)
+static void asn1_alloc_seq_of(void *st, int count, const asn1_field_t *field,
+                              mem_pool_t *mp)
 {
     if (field->pointed) {
         asn1_void_array_t *array = GET_PTR(st, field, asn1_void_array_t);
+        char *mem;
 
         array->data = mp_new_raw(mp, void *, count);
         array->len  = count;
 
-        for (int i = 0; i < count; i++) {
-            array->data[i] = mp_new_raw(mp, char, field->size);
+        mem = mp_new_raw(mp, char, field->size * array->len);
+        for (int i = 0; i < array->len; i++) {
+            array->data[i] = mem;
+            mem += field->size;
         }
     } else {
         asn1_void_vector_t *vector = GET_PTR(st, field, asn1_void_vector_t);
@@ -1303,7 +1307,7 @@ static int asn1_unpack_choice(pstream_t *ps, const asn1_desc_t *_desc,
     const asn1_choice_desc_t *desc =
         container_of(_desc, asn1_choice_desc_t, desc);
     const asn1_field_t *spec;
-    const asn1_field_t *selector_spec = &desc->desc.vec.tab[0];
+    const asn1_field_t *selector_spec = &desc->desc.fields.tab[0];
     int choice;
     uint8_t tag;
 
@@ -1319,7 +1323,7 @@ static int asn1_unpack_choice(pstream_t *ps, const asn1_desc_t *_desc,
         return -1;
     }
 
-    spec = &desc->desc.vec.tab[choice];
+    spec = &desc->desc.fields.tab[choice];
     __asn1_set_int(st, selector_spec, choice);
     e_trace_desc(1, "unpacking", &desc->desc, choice, depth);
     RETHROW(asn1_unpack_field(ps, spec, mem_pool, depth, st, copy,
@@ -1337,7 +1341,7 @@ asn1_unpack_u_choice_val(pstream_t *ps, const asn1_field_t *choice_spec,
     int choice;
     const asn1_choice_desc_t *choice_desc =
         container_of(choice_spec->u.comp, asn1_choice_desc_t, desc);
-    const qv_t(asn1_field) *vec = &choice_desc->desc.vec;
+    const qv_t(asn1_field) *vec = &choice_desc->desc.fields;
     const asn1_field_t *selector_spec = &vec->tab[0];
 
     if (ps_done(ps)
@@ -1411,7 +1415,7 @@ asn1_unpack_seq_of_u_choice(pstream_t *ps, const asn1_field_t *choice_spec,
 
     for (int i = 0; i < len; i++) {
         int choice = asn1_find_choice(choice_desc, *ps->b);
-        const asn1_field_t *spec = &choice_desc->desc.vec.tab[choice];
+        const asn1_field_t *spec = &choice_desc->desc.fields.tab[choice];
         void *choice_st;
         if (choice_spec->pointed) {
             choice_st = GET_PTR(st, choice_spec, asn1_void_array_t)->data[i];
@@ -1466,8 +1470,8 @@ static int asn1_unpack_sequence(pstream_t *ps, const asn1_desc_t *desc,
                                 mem_pool_t *mem_pool, int depth, void *st,
                                 bool copy, bool indef_len)
 {
-    for (int i = 0; i < desc->vec.len; i++) {
-        const asn1_field_t *spec = &desc->vec.tab[i];
+    for (int i = 0; i < desc->fields.len; i++) {
+        const asn1_field_t *spec = &desc->fields.tab[i];
 
         e_trace_desc(1, "unpacking", desc, i, depth);
 

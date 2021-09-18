@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -19,14 +19,7 @@
 #ifndef IS_LIB_COMMON_CORE_H
 #define IS_LIB_COMMON_CORE_H
 
-#define LIB_COMMON_VERSION  "master"
-#define LIB_COMMON_MAJOR    9999
-#define LIB_COMMON_MINOR    1
-#define __LIB_COMMON_VER(Maj, Min)  (((Maj) << 16) | Min)
-
-#define LIB_COMMON_PREREQ(Maj, Min)                                          \
-    (__LIB_COMMON_VER(Maj, Min) <= __LIB_COMMON_VER(LIB_COMMON_MAJOR,        \
-                                                    LIB_COMMON_MINOR))
+#define LIB_COMMON_VERSION  "2021.04"
 
 #if HAS_LIBCOMMON_REPOSITORY
 # define LIBCOMMON_PATH "lib-common/"

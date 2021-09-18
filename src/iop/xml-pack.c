@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -114,7 +114,7 @@ xpack_value(sb_t *sb, const iop_struct_t *desc, const iop_field_t *f,
         if (isinf(d)) {
             sb_adds(sb, d < 0 ? "-INF" : "INF");
         } else {
-            sb_addf(sb, "%.17e", d);
+            sb_addf(sb, "%.17g", d);
         }
         break;
       case IOP_T_BOOL:

@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -204,7 +204,7 @@ static void logger_wipe_child(logger_t *logger)
             } else {
 #ifndef NDEBUG
                 logger_panic(&_G.root_logger,
-                             "leaked logger %*pM, cannot wipe %*pM",
+                             "leaked logger `%*pM`, cannot wipe `%*pM`",
                              LSTR_FMT_ARG(child->full_name),
                              LSTR_FMT_ARG(logger->full_name));
 #endif

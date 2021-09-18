@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -90,12 +90,5 @@ int ber_decode_uint64(pstream_t *ps, uint64_t *_val);
 int ber_decode_oid(const byte *p, int size, int *oid, int size_oid);
 
 int ber_decode_bit_string_len(pstream_t *ps);
-
-/* {{{ Private functions */
-
-void asn1_alloc_seq_of(void *st, int count, const asn1_field_t *field,
-                       mem_pool_t *mp);
-
-/* }}} */
 
 #endif

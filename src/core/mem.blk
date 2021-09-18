@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -575,6 +575,19 @@ void core_push_version(bool is_main_version, const char *name,
     core_versions_g[ind].name            = name;
     core_versions_g[ind].version         = version;
     core_versions_g[ind].git_revision    = git_revision;
+}
+
+dep_revision_t core_deps_revision_g[8];
+int core_deps_revision_nb_g;
+
+void core_push_dep_revision(const char *dep_name, const char *dep_revision)
+{
+    int dep_pos = core_deps_revision_nb_g;
+
+    assert (dep_pos < countof(core_deps_revision_g));
+    core_deps_revision_g[dep_pos].dep_name     = dep_name;
+    core_deps_revision_g[dep_pos].dep_revision = dep_revision;
+    core_deps_revision_nb_g++;
 }
 
 extern const char libcommon_git_revision[];

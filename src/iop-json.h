@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -621,6 +621,31 @@ iop_json_get_n_and_ptr(const iop_struct_t * nonnull desc, unsigned flags,
                        const iop_field_t * nonnull fdesc,
                        const void * nonnull value, int * nonnull n,
                        bool * nonnull is_skipped);
+
+/* }}} */
+/* {{{ Check IOP json examples */
+
+/** Check the validity of the JSON examples contained in an IOP package.
+ *
+ * IOP language supports providing examples of objects instanciation, using
+ * the "example" doxygen tag. Each provided example must be a valid json
+ * representation of the documented object.
+ *
+ * However, iopc only checks that each provided example is valid json, but not
+ * that it actually corresponds to the documented object (this would require
+ * having the iop_struct_t and the json unpacker, which is not possible in
+ * iopc).
+ *
+ * The purpose of this function is to check the consistency of the examples
+ * contained in a package, at runtime.
+ *
+ * \param[in]   pkg  the package to check.
+ * \param[out]  err  buffer to fill in case of error.
+ *
+ * \return  0 in case of success, -1 in case of error.
+ */
+int iop_check_package_examples(const iop_pkg_t *nonnull pkg,
+                               sb_t *nonnull err);
 
 /* }}} */
 

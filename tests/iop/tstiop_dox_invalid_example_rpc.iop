@@ -1,0 +1,15 @@
+package tstiop_dox_invalid_example_rpc;
+
+struct MyStruct {
+    int fieldA;
+};
+
+interface MyIface {
+    funA
+       /** local comment for MyIface.funA.in
+        *
+        *  @example "unknownField": 1
+        */
+        in MyStruct
+        out void;
+};

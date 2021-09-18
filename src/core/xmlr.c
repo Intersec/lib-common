@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -527,7 +527,7 @@ static int xmlr_val_dbl(xml_reader_t xr, const char *s, double *dblp)
     if (!s)
         return xmlr_fail(xr, "node value is missing");
     errno = 0;
-    *dblp = strtod(s, (char **)&s);
+    *dblp = strtod_allow_subnormal(s, (char **)&s);
     if (skipspaces(s)[0] || errno)
         return xmlr_fail(xr, "node value is not a valid number");
     return 0;
@@ -686,7 +686,7 @@ static int xmlr_attr_dbl(xml_reader_t xr, const char *name, const char *s,
     if (!s)
         return xmlr_fail(xr, "[%s] value is missing", name);
     errno = 0;
-    *dblp = strtod(s, (char **)&s);
+    *dblp = strtod_allow_subnormal(s, (char **)&s);
     if (skipspaces(s)[0] || errno)
         return xmlr_fail(xr, "[%s] value is not a valid number", name);
     return 0;

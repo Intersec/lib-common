@@ -322,7 +322,7 @@ components:
           type: integer
           format: int32
           description: "comment for \\ref d of funA.out\n2nd paragraph for \\p d of funA.out"
-      example: "{\"c\":{\"fieldA\":11,\"fieldB\":12,\"fieldC\":13},\"d\":4}"
+      example: "{\"c\":{\"_class\":\"tstiop_dox.MyClassChild\"},\"d\":4}"
     tstiop_dox.MyIface.funAaArgs:
       type: object
       description: comment for MyIface.funAa.in

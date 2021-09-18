@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -2521,14 +2521,18 @@ httpc_t *httpc_pool_launch(httpc_pool_t *pool)
     return httpc_connect_as(&pool->su, pool->su_src, pool->cfg, pool);
 }
 
+static inline bool httpc_pool_reach_limit(httpc_pool_t *pool)
+{
+    return (pool->len >= pool->max_len ||
+           (pool->len_global && *pool->len_global >= pool->max_len_global));
+}
+
 httpc_t *httpc_pool_get(httpc_pool_t *pool)
 {
     httpc_t *httpc;
 
-    if (dlist_is_empty(&pool->ready_list)) {
-        if (pool->len >= pool->max_len
-        ||  (pool->len_global && *pool->len_global >= pool->max_len_global))
-        {
+    if (!httpc_pool_has_ready(pool)) {
+        if (httpc_pool_reach_limit(pool)) {
             return NULL;
         }
         httpc = RETHROW_P(httpc_connect_as(&pool->su, pool->su_src, pool->cfg,
@@ -2543,6 +2547,16 @@ httpc_t *httpc_pool_get(httpc_pool_t *pool)
     httpc = dlist_first_entry(&pool->ready_list, httpc_t, pool_link);
     dlist_move_tail(&pool->ready_list, &httpc->pool_link);
     return httpc;
+}
+
+bool httpc_pool_has_ready(httpc_pool_t * nonnull pool)
+{
+    return !dlist_is_empty(&pool->ready_list);
+}
+
+bool httpc_pool_can_query(httpc_pool_t * nonnull pool)
+{
+    return httpc_pool_has_ready(pool) || !httpc_pool_reach_limit(pool);
 }
 
 static httpc_t *httpc_init(httpc_t *w)

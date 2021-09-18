@@ -247,6 +247,13 @@ int pfx##__check(pfx##__t *v);
 |N/A
 |unions/enums
 |disallow some union fields (or enum values) for that use case
+
+|forceFieldName
+|2021.04
+|N/A
+|N/A
+|all fields
+|allows the field names that do not respect camel case notation
 |===
 
 Example:

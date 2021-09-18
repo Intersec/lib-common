@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -405,7 +405,7 @@ static int iop_json_lex_number(iop_json_lex_t *ll)
     }
 
     errno = 0;
-    d = strtod(p, (char **)&pd);
+    d = strtod_allow_subnormal(p, (char **)&pd);
     is_d_err = errno;
     d_count = pd - p;
 
@@ -1237,7 +1237,8 @@ static int unpack_val(iop_json_lex_t *ll, const iop_field_t *fdesc,
 
           case IOP_T_DOUBLE:
             errno = 0;
-            ll->ctx->u.d = strtod(ll->ctx->b.data, (char **)&q);
+            ll->ctx->u.d = strtod_allow_subnormal(ll->ctx->b.data,
+                                                  (char **)&q);
             if (errno || q != (const char *)ll->ctx->b.data + ll->ctx->b.len)
                 return RJERROR_WARG(IOP_JERR_PARSE_NUM);
             goto do_double;
@@ -2731,7 +2732,7 @@ static int __pack_txt(const iop_struct_t *desc, const void *value, int lvl,
                 if (isnan(d) || isinf(d)) {
                     PUTS("null");
                 } else {
-                    WRITE(ibuf, sprintf(ibuf, "%.17e", d));
+                    WRITE(ibuf, sprintf(ibuf, "%.17g", d));
                 }
               } break;
 
@@ -3157,6 +3158,155 @@ __attribute__((constructor))
 static void iop_struct_formatter_register(void)
 {
     iprintf_register_formatter('S', &iop_struct_formatter);
+}
+
+/* }}} */
+/* {{{ Check IOP json examples */
+
+static int iop_check_struct_example(const iop_struct_t *st, sb_t *err)
+{
+    unsigned flags = st->flags;
+
+    if (!TST_BIT(&flags, IOP_STRUCT_EXTENDED) || !st->st_attrs) {
+        return 0;
+    }
+
+    for (int i = 0; i < st->st_attrs->attrs_len; i++) {
+        t_scope;
+        SB_1k(json_err);
+        const iop_struct_attr_t *attr = &st->st_attrs->attrs[i];
+        const iop_help_t *help;
+        pstream_t example;
+        void *obj = NULL;
+
+        if (attr->type != IOP_STRUCT_ATTR_HELP_V2) {
+            continue;
+        }
+
+        help = attr->args[0].v.p;
+        if (!help->example.len) {
+            continue;
+        }
+
+        example = ps_initlstr(&help->example);
+        if (t_iop_junpack_ptr_ps(&example, st, &obj, 0, &json_err) < 0) {
+            sb_addf(err, "invalid example for `%*pM`: %*pM",
+                    LSTR_FMT_ARG(st->fullname), SB_FMT_ARG(&json_err));
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+static int iop_check_rpc_example(const iop_iface_t *iface,
+                                 const iop_rpc_t *rpc,
+                                 lstr_t example,
+                                 const char *what,
+                                 const iop_struct_t *nullable st,
+                                 sb_t *err)
+{
+    t_scope;
+    SB_1k(json_err);
+    pstream_t example_ps = ps_initlstr(&example);
+    void *obj = NULL;
+
+    if (!expect(st)) {
+        sb_addf(err, "example is set for %s of RPC `%*pM.%*pM` "
+                "but type does not exist",
+                what, LSTR_FMT_ARG(iface->fullname),
+                LSTR_FMT_ARG(rpc->name));
+        return -1;
+    }
+
+    if (t_iop_junpack_ptr_ps(&example_ps, st, &obj, 0, &json_err) < 0) {
+        sb_addf(err, "invalid example for %s of RPC `%*pM.%*pM`: %*pM",
+                what, LSTR_FMT_ARG(iface->fullname), LSTR_FMT_ARG(rpc->name),
+                SB_FMT_ARG(&json_err));
+        return -1;
+    }
+
+    return 0;
+}
+
+static int iop_check_rpc_examples(const iop_iface_t *iface,
+                                  const iop_rpc_t *rpc,
+                                  sb_t *err)
+{
+    const iop_rpc_attrs_t *attrs;
+
+    if (rpc->args) {
+        RETHROW(iop_check_struct_example(rpc->args, err));
+    }
+    if (rpc->result) {
+        RETHROW(iop_check_struct_example(rpc->result, err));
+    }
+    if (rpc->exn) {
+        RETHROW(iop_check_struct_example(rpc->exn, err));
+    }
+
+    attrs = iop_rpc_get_attrs(iface, rpc);
+    if (!attrs) {
+        return 0;
+    }
+
+    for (int i = 0; i < attrs->attrs_len; i++) {
+        const iop_rpc_attr_t *attr = &attrs->attrs[i];
+        const char *what = NULL;
+        const iop_struct_t *st = NULL;
+        const iop_help_t *help;
+
+        switch (attr->type) {
+        case IOP_RPC_ATTR_ARG_HELP_V2:
+            what = "argument";
+            st = rpc->args;
+            break;
+
+        case IOP_RPC_ATTR_RES_HELP_V2:
+            what = "result";
+            st = rpc->result;
+            break;
+
+        case IOP_RPC_ATTR_EXN_HELP_V2:
+            what = "exception";
+            st = rpc->exn;
+            break;
+
+        default:
+            break;
+        }
+
+        help = attr->args[0].v.p;
+        if (what && help->example.len) {
+            RETHROW(iop_check_rpc_example(iface, rpc, help->example,
+                                          what, st, err));
+        }
+    }
+
+    return 0;
+}
+
+int iop_check_package_examples(const iop_pkg_t *pkg, sb_t *err)
+{
+    /* Check struct/classes examples. */
+    for (const iop_struct_t *const *it = pkg->structs; *it; it++) {
+        const iop_struct_t *desc = *it;
+
+        RETHROW(iop_check_struct_example(desc, err));
+    }
+
+    /* Check RPC examples. */
+    for (const iop_iface_t *const *it = pkg->ifaces; *it; it++) {
+        const iop_iface_t *iface = *it;
+
+        for (int i = 0; i < iface->funs_len; i++) {
+            const iop_rpc_t *rpc = &iface->funs[i];
+
+            RETHROW(iop_check_rpc_examples(iface, rpc, err));
+        }
+    }
+
+    return 0;
 }
 
 /* }}} */

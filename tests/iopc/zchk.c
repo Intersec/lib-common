@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -694,6 +694,13 @@ Z_GROUP_EXPORT(iopsq) {
                         "wrong size for type %s",
                         iop_type_get_string_desc(type->type));
         }
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(iopc_check_field_name, "test iopc_check_field_name") { /* {{{ */
+        SB_1k(err);
+
+        Z_ASSERT_N(iopc_check_field_name(LSTR("validFieldName"), &err));
+        Z_ASSERT_NEG(iopc_check_field_name(LSTR("INVALID_FIELD_NAME"), &err));
     } Z_TEST_END;
     /* }}} */
 } Z_GROUP_END;

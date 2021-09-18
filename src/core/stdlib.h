@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -74,8 +74,30 @@ typedef struct core_version_t {
 extern core_version_t core_versions_g[8];
 extern int core_versions_nb_g;
 
+/** Push a product revision to be printed in the help of parseopt.
+ *
+ * \param[in] is_main_version main versions are printed first.
+ * \param[in] name            name of the product.
+ * \param[in] version         version of the product.
+ * \param[in] git_revision    git revision of the product.
+ */
 void core_push_version(bool is_main_version, const char * nonnull name,
                        const char * nonnull version,
                        const char * nonnull git_revision);
+
+typedef struct dep_revision_t {
+    const char * nonnull dep_name;
+    const char * nonnull dep_revision;
+} dep_revision_t;
+extern dep_revision_t core_deps_revision_g[8];
+extern int core_deps_revision_nb_g;
+
+/** Push a dependency revision to be printed in the help of parseopt.
+ *
+ * \param[in] dep_name     name of the dependency
+ * \param[in] dep_revision revision of the dependency.
+ */
+void core_push_dep_revision(const char * nonnull dep_name,
+                            const char * nonnull dep_revision);
 
 #endif

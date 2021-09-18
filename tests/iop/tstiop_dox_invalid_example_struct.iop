@@ -1,0 +1,9 @@
+package tstiop_dox_invalid_example_struct;
+
+/** comment for MyStruct.
+ *
+ * \example "fieldA": "not an integer"
+ */
+struct MyStruct {
+    int fieldA;
+};

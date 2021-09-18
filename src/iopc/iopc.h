@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -340,6 +340,7 @@ typedef enum iopc_attr_id_t {
     IOPC_ATTR_SNMP_PARAM,
     IOPC_ATTR_SNMP_INDEX,
     IOPC_ATTR_TS_NO_COLL,
+    IOPC_ATTR_FORCE_FIELD_NAME,
 } iopc_attr_id_t;
 
 /* types on which an attribute can apply */

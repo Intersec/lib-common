@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -1082,6 +1082,47 @@ Z_GROUP_EXPORT(str)
 #undef TD
 #undef DOUBLE_CMP
 #undef DOUBLE_ABS
+    } Z_TEST_END;
+
+    Z_TEST(strtod_allow_subnormal, "str: strtod_allow_subnormal") {
+#define T_OK(str, val_exp)  \
+        do {                                                                 \
+            errno = 0;                                                       \
+            Z_ASSERT_EQ(strtod_allow_subnormal(str, NULL), val_exp);         \
+            Z_ASSERT_EQ(errno, 0);                                           \
+        } while (0)
+
+        T_OK("0", 0);
+        T_OK("1", 1);
+        T_OK("-1", -1);
+#undef T_OK
+
+#define T_SUBNORMAL(str, val_exp)  \
+        do {                                                                 \
+            double res;                                                      \
+                                                                             \
+            errno = 0;                                                       \
+            res = strtod_allow_subnormal(str, NULL);                         \
+            Z_ASSERT_EQ(errno, 0);                                           \
+            Z_ASSERT_EQ(fpclassify(res), FP_SUBNORMAL);                      \
+                                                                             \
+            strtod(str, NULL);                                               \
+            Z_ASSERT_EQ(errno, ERANGE);                                      \
+        } while (0)
+
+        T_SUBNORMAL("4.68120573995851602e-310", 4.68120573995851602e-310);
+        T_SUBNORMAL("-4.68120573995851602e-310", -4.68120573995851602e-310);
+#undef T_SUBNORMAL
+
+#define T_OVERFLOW(str)  \
+        do {                                                                 \
+            errno = 0;                                                       \
+            strtod_allow_subnormal(str, NULL);                               \
+            Z_ASSERT_EQ(errno, ERANGE);                                      \
+        } while (0)
+
+        T_OVERFLOW("1e99999");
+#undef T_OVERFLOW
     } Z_TEST_END;
 
     Z_TEST(memtoxllp, "str: memtoxllp") {

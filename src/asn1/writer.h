@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -434,7 +434,7 @@ qvector_t(asn1_field, asn1_field_t);
 /** \brief Message descriptor.
   */
 typedef struct asn1_desc_t {
-    qv_t(asn1_field)      vec;
+    qv_t(asn1_field)      fields;
     size_t                size;
     enum asn1_cstd_type   type;
 
@@ -462,7 +462,7 @@ GENERIC_NEW(asn1_desc_t, asn1_desc);
 
 static inline void asn1_desc_wipe(asn1_desc_t *desc)
 {
-    qv_wipe(&desc->vec);
+    qv_wipe(&desc->fields);
     qv_wipe(&desc->opt_fields);
 }
 GENERIC_DELETE(asn1_desc_t, asn1_desc);

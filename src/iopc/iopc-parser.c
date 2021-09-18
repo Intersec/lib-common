@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2020 INTERSEC SA                                              */
+/* Copyright 2021 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -115,7 +115,10 @@ static int iopc_check_name(lstr_t name, qv_t(iopc_attr) *nullable attrs,
         return -1;
     }
 
-    if (memchr(name.s, '_', name.len)) {
+    if (memchr(name.s, '_', name.len) &&
+        (!attrs ||
+         iopc_attr_check(attrs, IOPC_ATTR_FORCE_FIELD_NAME, NULL) < 0))
+    {
         if (err) {
             sb_setf(err, "%pL contains a _", &name);
         }
@@ -660,6 +663,10 @@ static void init_attributes(void)
     d->flags |= IOPC_ATTR_F_DECL;
     d->types |= IOPC_ATTR_T_STRUCT;
     d->types |= IOPC_ATTR_T_UNION;
+
+    d = add_attr(IOPC_ATTR_FORCE_FIELD_NAME, "forceFieldName");
+    d->flags |= IOPC_ATTR_F_FIELD_ALL;
+    d->types |= IOPC_ATTR_T_ALL_FIELDS;
 #undef ADD_ATTR_ARG
 }
 
@@ -2136,15 +2143,18 @@ parse_field_stmt(iopc_parser_t *pp, iopc_struct_t *st, qv_t(iopc_attr) *attrs,
         goto error;
     }
     f->name = dup_ident(TK(pp, 0, goto error));
-    if (strchr(f->name, '_')) {
-        error_loc("identifier '%s' contains a _",
-                  TK(pp, 0, goto error)->loc, f->name);
-        goto error;
-    }
-    if (!islower(f->name[0])) {
-        error_loc("first character must be lowercased (got %s)",
-                  TK(pp, 0, goto error)->loc, f->name);
-        goto error;
+
+    if (iopc_attr_check(attrs, IOPC_ATTR_FORCE_FIELD_NAME, NULL) < 0) {
+        if (strchr(f->name, '_')) {
+            error_loc("identifier '%s' contains a _",
+                      TK(pp, 0, goto error)->loc, f->name);
+            goto error;
+        }
+        if (!islower(f->name[0])) {
+            error_loc("first character must be lowercased (got %s)",
+                      TK(pp, 0, goto error)->loc, f->name);
+            goto error;
+        }
     }
 
     name_loc = TK(pp, 0, goto error)->loc;
