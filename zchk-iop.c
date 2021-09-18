@@ -2030,13 +2030,15 @@ Z_GROUP_EXPORT(iop)
 
         {
             t_scope;
+            lstr_t foo = LSTR("foo");
+            lstr_t bar = LSTR("bar");
             tstiop__my_struct_f__t sf_ret;
             SB_1k(sb);
             qm_t(part) parts;
 
             qm_init_cached(part, &parts);
-            qm_add(part, &parts, &LSTR_IMMED_V("foo"), LSTR("part cid foo"));
-            qm_add(part, &parts, &LSTR_IMMED_V("bar"), LSTR("part cid bar"));
+            qm_add(part, &parts, &foo, LSTR("part cid foo"));
+            qm_add(part, &parts, &bar, LSTR("part cid bar"));
 
             sb_adds(&sb, "<root "
                     "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" "

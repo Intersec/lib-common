@@ -175,6 +175,10 @@ typedef union data_t {
     uint64_t u64;
 } data_t;
 
+#define DATA_U32(_u) (data_t){ .u32 = (_u) }
+#define DATA_U64(_u) (data_t){ .u64 = (_u) }
+#define DATA_PTR(_ptr) (data_t){ .ptr = (_ptr) }
+
 /* }}} */
 
 #ifdef __has_blocks

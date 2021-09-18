@@ -64,6 +64,11 @@ get_internal_clang_args()
                 echo $2
                 shift 2
                 ;;
+            '"'-fgnuc-version=*)
+                # keep this flag for clang 10
+                echo $1
+                shift 1
+                ;;
             *)
                 shift
                 ;;
@@ -209,6 +214,17 @@ EOF
     #echo -Wcast-qual
     if gcc_prereq 6.0; then
         echo -Wno-shift-negative-value
+    fi
+
+    if gcc_prereq 11.0; then
+        # do not warn about stringop-overflow which has a lot of
+        # false-positive, see
+        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=88443
+        echo -Wno-stringop-overflow
+        # do not warn about stringop-overread which has a lot of
+        # false-positive, see
+        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=97048
+        echo -Wno-stringop-overread
     fi
 
     if is_cpp; then

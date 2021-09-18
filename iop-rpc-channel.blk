@@ -499,16 +499,20 @@ ic_msg_init_for_reply(ichannel_t *ic, ic_msg_t *msg, uint64_t slot, int cmd)
     msg->cmd  = -cmd;
 }
 
-int ic_hook_ctx_save(ic_hook_ctx_t *ctx)
+static void ic_hook_ctx_save_current(void)
 {
-    return qm_add(ic_hook_ctx, &_G.hook_ctxs, ctx->slot, ctx);
+    if (_G.ic_hook_ctx) {
+        IGNORE(expect(qm_add(ic_hook_ctx, &_G.hook_ctxs, _G.ic_hook_ctx->slot,
+                      _G.ic_hook_ctx) >= 0));
+        _G.ic_hook_ctx = NULL;
+    }
 }
 
 ic_hook_ctx_t *ic_hook_ctx_new(uint64_t slot, ssize_t extra)
 {
     if (_G.ic_hook_ctx) {
         assert (_G.ic_hook_ctx->slot != slot);
-        ic_hook_ctx_save(_G.ic_hook_ctx);
+        ic_hook_ctx_save_current();
     }
     _G.ic_hook_ctx = p_new_extra_field(ic_hook_ctx_t, data, extra);
     _G.ic_hook_ctx->slot = slot;
@@ -550,10 +554,19 @@ ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot, const ic_cb_entry_t *e,
         _G.post_hook = e->post_hook;
         _G.rpc = e->rpc;
         _G.post_args = e->post_hook_args;
+        if (_G.ic_hook_ctx) {
+            assert (_G.ic_hook_ctx->slot != slot);
+            /* XXX Make sure "_G.ic_hook_ctx" is null or we won't be
+             * able to detect errors in pre_hook.
+             */
+            ic_hook_ctx_save_current();
+        }
         (*e->pre_hook)(ic, slot, hdr, e->pre_hook_args, hdr_modified);
         /* XXX: if we reply to the query during pre_hook then
-         *      ic_hook_flow.ic_hook_ctx will be NULL, so we mustn't
-         *      call the implementation of the RPC
+         * _G.ic_hook_ctx will be NULL, and we mustn't call the implementation
+         * of the RPC
+         * TODO: it would be better to rely on a pre_hook return code than on
+         * _G.ic_hook_ctx
          */
         if (!_G.ic_hook_ctx) {
             return -1;

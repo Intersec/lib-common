@@ -1139,19 +1139,44 @@ ssize_t ssl_writev(int fd, const struct iovec *iov, int iovcnt, void *priv)
     return total_wr > 0 ? total_wr : -1;
 }
 
+static ssize_t __ssl_sb_read(sb_t *sb, const sb_t *orig, SSL *ssl, int len)
+{
+    char *buf;
+    ssize_t res;
+
+    buf = sb_grow(sb, len);
+    res = ssl_read(ssl, buf, len);
+
+    if (res < 0) {
+        return __sb_rewind_adds(sb, orig);
+    }
+
+    __sb_fixlen(sb, sb->len + res);
+    return res;
+}
+
 ssize_t ssl_sb_read(sb_t *sb, SSL *ssl, int hint)
 {
     sb_t orig = *sb;
-    char *buf;
-    int res;
+    int nb_pending;
 
-    buf = sb_grow(sb, hint <= 0 ? BUFSIZ : hint);
-    res = ssl_read(ssl, buf, sb_avail(sb));
-    if (res < 0) {
-        return __sb_rewind_adds(sb, &orig);
+    /* First read the wanted size. */
+    RETHROW(__ssl_sb_read(sb, &orig, ssl, hint <= 0 ? BUFSIZ : hint));
+
+    /* Then check if there are bufferized data in the SSL context; if so then
+     * we MUST read them now because the socket might have been entirely read
+     * by openssl, and otherwise we could end-up in the deadlock described in
+     * the documentation of ssl_read.
+     */
+    while ((nb_pending = SSL_pending(ssl)) > 0) {
+        ssize_t res = RETHROW(__ssl_sb_read(sb, &orig, ssl, nb_pending));
+
+        if (res == 0) {
+            break;
+        }
     }
-    __sb_fixlen(sb, sb->len + res);
-    return res;
+
+    return sb->len - orig.len;
 }
 
 /* }}} */

@@ -17,6 +17,7 @@
 /***************************************************************************/
 
 #include "z.h"
+#include "unix.h"
 #include "bit.h"
 #include "parseopt.h"
 
@@ -113,6 +114,7 @@ Z_GROUP_EXPORT(bit_stream)
     Z_TEST(len, "bit_stream: check length") {
         byte data[128];
 
+        p_clear(&data, 1);
         Z_CHECK_LENGTH(bs_init_ptr(data, data), 0);
         Z_CHECK_LENGTH(bs_init_ptr(&data[1], &data[1]), 0);
         Z_CHECK_LENGTH(bs_init_ptr(&data[2], &data[2]), 0);
@@ -152,6 +154,7 @@ Z_GROUP_EXPORT(bit_stream)
         bit_stream_t bs;
         byte data[128];
 
+        p_clear(&data, 1);
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_skip(&bs, 1025));
@@ -182,6 +185,7 @@ Z_GROUP_EXPORT(bit_stream)
         bit_stream_t bs;
         byte data[128];
 
+        p_clear(&data, 1);
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_shrink(&bs, 1025));
@@ -212,6 +216,7 @@ Z_GROUP_EXPORT(bit_stream)
         bit_stream_t bs;
         byte data[128];
 
+        p_clear(&data, 1);
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_skip_upto(&bs, data, 1025));
@@ -242,6 +247,7 @@ Z_GROUP_EXPORT(bit_stream)
         bit_stream_t bs;
         byte data[128];
 
+        p_clear(&data, 1);
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_clip_at(&bs, data, 1025));
@@ -276,6 +282,7 @@ Z_GROUP_EXPORT(bit_stream)
         bit_stream_t n;
         byte data[128];
 
+        p_clear(&data, 1);
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_extract_after(&bs, data, 1025, &n));
@@ -319,6 +326,7 @@ Z_GROUP_EXPORT(bit_stream)
         bit_stream_t n;
         byte data[128];
 
+        p_clear(&data, 1);
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_get_bs_upto(&bs, data, 1025, &n));
@@ -357,6 +365,7 @@ Z_GROUP_EXPORT(bit_stream)
         bit_stream_t n;
         byte data[128];
 
+        p_clear(&data, 1);
         bs = bs_init_ptr(data, &data[128]);
 
         Z_ASSERT_NEG(bs_get_bs(&bs, 1025, &n));
@@ -898,6 +907,65 @@ Z_GROUP_EXPORT(core_macros) {
     } Z_TEST_END;
 
     /* }}} */
+} Z_GROUP_END;
+
+/* }}} */
+/* {{{ core-errors.h */
+
+static void print_int(int fd, data_t data)
+{
+    int i = *(const int *)data.ptr;
+
+    dprintf(fd, "i = %d\n", i);
+}
+
+static int z_check_debug_file(const char *path, const char *func,
+                              const char *file, int line, int i)
+{
+    SB_1k(fbuf);
+    SB_1k(exp);
+
+    Z_ASSERT_N(sb_read_file(&fbuf, path), "cannot read file `%s`", path);
+
+    sb_addf(&exp, "\nAdditional user context:\n");
+    sb_addf(&exp, "\n[0] in %s() from %s:%d\n", func, file, line);
+    sb_addf(&exp, "i = %d\n", i);
+    Z_ASSERT_STREQUAL(fbuf.data, exp.data);
+
+    Z_HELPER_END;
+}
+
+Z_GROUP_EXPORT(core_errors) {
+    Z_TEST(debug_stack, "") {
+        t_scope;
+        int i = 42;
+        const char *path;
+        int fd;
+
+        int line = __LINE__ + 1;
+        debug_stack_scope(DATA_PTR(&i), &print_int);
+
+        path = t_fmt("%pL.debug", &z_tmpdir_g);
+
+        /* Create the file. */
+        fd = open(path, O_EXCL | O_CREAT | O_WRONLY, 0600);
+        Z_ASSERT_N(fd, "cannot create .debug file `%s`", path);
+        p_close(&fd);
+
+        Z_ASSERT_N(_debug_stack_print(path));
+        Z_HELPER_RUN(z_check_debug_file(path, __func__, __FILE__, line, i));
+
+        /* Clean the file. */
+        fd = open(path, O_TRUNC | O_CREAT | O_WRONLY, 0600);
+        Z_ASSERT_N(fd, "cannot create .debug file `%s`", path);
+        p_close(&fd);
+
+        /* Change the value of "i" and check that we can see the new value if
+         * we generate the .debug file again. */
+        i = 51;
+        Z_ASSERT_N(_debug_stack_print(path));
+        Z_HELPER_RUN(z_check_debug_file(path, __func__, __FILE__, line, i));
+    } Z_TEST_END;
 } Z_GROUP_END;
 
 /* }}} */

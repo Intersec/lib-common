@@ -102,7 +102,7 @@ to tests (and only them).
 
 def filter_out_zchk(ctx):
     for g in ctx.groups:
-        for i in xrange(len(g) - 1, -1, -1):
+        for i in range(len(g) - 1, -1, -1):
             tgen = g[i]
             features = tgen.to_list(getattr(tgen, 'features', []))
             if  tgen.name.startswith('zchk') and 'c' in features:
@@ -532,7 +532,7 @@ def get_old_gen_files(ctx):
                     gen_files.append(parent_node.make_node(name))
         # Do not recurse in hidden directories (in particular the .build one),
         # this is useless
-        for i in xrange(len(dirnames) - 1, -1, -1):
+        for i in range(len(dirnames) - 1, -1, -1):
             if dirnames[i].startswith('.'):
                 del dirnames[i]
 
@@ -1344,7 +1344,7 @@ def profile_default(ctx,
 
     ctx.env.CFLAGS = get_cflags(ctx, [ctx.env.COMPILER_CC])
     ctx.env.CFLAGS += [
-        '-g',
+        '-ggdb3',
         '-fno-omit-frame-pointer',
         '-fvisibility=hidden',
     ]
@@ -1366,7 +1366,7 @@ def profile_default(ctx,
 
     ctx.env.CXXFLAGS = get_cflags(ctx, [ctx.env.COMPILER_CXX])
     ctx.env.CXXFLAGS += [
-        '-g',
+        '-ggdb3',
         '-D__STDC_LIMIT_MACROS',
         '-D__STDC_CONSTANT_MACROS',
         '-D__STDC_FORMAT_MACROS',
@@ -1461,7 +1461,7 @@ def profile_debug(ctx, allow_no_double_fpic=True, use_sanitizer=False):
 
     cflags = [
         '-O0', '-Wno-uninitialized', '-fno-inline', '-fno-inline-functions',
-        '-g3', '-gdwarf-2',
+        '-gdwarf-2',
     ]
     ctx.env.CFLAGS += cflags
     ctx.env.CXXFLAGS += cflags

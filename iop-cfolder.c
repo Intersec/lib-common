@@ -103,6 +103,9 @@ static int cf_reduce(qv_t(cf_elem) *stack)
 {
     iop_cfolder_elem_t eleft, op, eright, res;
     bool unary = false;
+
+    cf_elem_init(&eleft);
+    cf_elem_init(&op);
     cf_elem_init(&res);
 
     CF_WANT(stack->len >= 2);
@@ -411,6 +414,8 @@ iop_cfolder_get_result(iop_cfolder_t *folder, uint64_t *res, bool *is_signed)
 {
     int ret;
     iop_cfolder_elem_t elem;
+
+    cf_elem_init(&elem);
 
     if (folder->stack.len == 0)
         return CF_ERR(INVALID, "there is nothing on the stack");

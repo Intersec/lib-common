@@ -2545,6 +2545,7 @@ static void httpc_wipe(httpc_t *w)
     http_zlib_wipe(w);
     ob_wipe(&w->ob);
     httpc_cfg_delete(&w->cfg);
+    SSL_free(w->ssl);
 }
 
 static void httpc_disconnect(httpc_t *w)

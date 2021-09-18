@@ -84,41 +84,28 @@ int lzo_copy_backptr(ostream_t *os, const uint8_t *out_orig,
     const uint8_t *src = os->b - back;
     uint8_t *dst = os->b;
 
-    if (unlikely(src < out_orig))
+    if (unlikely(src < out_orig)) {
         return LZO_ERR_BACKPTR_OVERRUN;
-    if (unlikely(dst + sz > os->b_end))
+    }
+    if (unlikely(dst + sz > os->b_end)) {
         return LZO_ERR_OUTPUT_OVERRUN;
+    }
 
     if (back == 1) {
         memset(dst, *src, sz);
         os->b += sz;
         return 0;
     }
-    if (back >= 8) {
-        while (likely(sz >= 8)) {
-            put_unaligned_cpu64(dst, get_unaligned_cpu64(src));
-            dst += 8;
-            src += 8;
-            sz  -= 8;
-        }
-    } else
-    if (back >= 4) {
-        while (likely(sz >= 4)) {
-            put_unaligned_cpu32(dst, get_unaligned_cpu32(src));
-            dst += 4;
-            src += 4;
-            sz  -= 4;
-        }
-    } else {
-        while (likely(sz >= 4)) {
-            put_unaligned_cpu16(dst, get_unaligned_cpu16(src));
-            dst += 2;
-            src += 2;
-            sz  -= 2;
-        }
+
+    while (sz >= back) {
+        memcpy(dst, src, back);
+        dst += back;
+        src += back;
+        sz -= back;
     }
-    while (sz-- > 0)
+    while (sz-- > 0) {
         *dst++ = *src++;
+    }
     os->b = dst;
     return 0;
 }

@@ -885,7 +885,9 @@ parse_constant_integer(iopc_parser_t *pp, int paren, uint64_t *res,
             if (tk->token == '(') {
                 nparen++;
             }
-            if (iop_cfolder_feed_operator(pp->cfolder, tk->token) < 0) {
+            if (iop_cfolder_feed_operator(pp->cfolder,
+                                          (iop_cfolder_op_t)tk->token) < 0)
+            {
                 throw_loc("error when feeding the constant folder with `%c'",
                           tk->loc, tk->token);
             }
@@ -899,7 +901,9 @@ parse_constant_integer(iopc_parser_t *pp, int paren, uint64_t *res,
                 goto end;
             }
 
-            if (iop_cfolder_feed_operator(pp->cfolder, tk->token) < 0) {
+            if (iop_cfolder_feed_operator(pp->cfolder,
+                                          (iop_cfolder_op_t)tk->token) < 0)
+            {
                 throw_loc("error when feeding the constant folder with `%c'",
                           tk->loc, tk->token);
             }
