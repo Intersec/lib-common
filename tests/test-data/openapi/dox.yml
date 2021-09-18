@@ -336,6 +336,7 @@ components:
         b:
           type: integer
           format: int32
+      example: "{\"b\":3}"
     tstiop_dox.MyIface.funBArgs:
       type: object
       description: comment for MyIface.funB.in

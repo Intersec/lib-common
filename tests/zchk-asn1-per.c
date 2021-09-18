@@ -266,6 +266,17 @@ static int z_translate_ints_seq(const ints_seq_base_t *base,
 }
 
 /* }}} */
+/* {{{ Octet string. */
+
+typedef struct {
+    lstr_t str;
+} z_octet_string_t;
+
+static ASN1_SEQUENCE_DESC_BEGIN(desc, z_octet_string);
+    asn1_reg_string(desc, z_octet_string, str, 0);
+ASN1_SEQUENCE_DESC_END(desc);
+
+/* }}} */
 
 Z_GROUP_EXPORT(asn1_aper) {
     /* {{{ Choice. */
@@ -430,6 +441,28 @@ Z_GROUP_EXPORT(asn1_aper) {
         Z_ASSERT_N(t_aper_decode(&ps, struct1, false, &s1[1]),
                    "decoding failure");
         Z_ASSERT_EQ(s1[1].e1, s1[0].e1);
+    } Z_TEST_END;
+
+    /* }}} */
+    /* {{{ Frgamented octet string. */
+
+    Z_TEST(fragmented_octet_string, "") {
+        sb_t buf;
+        sb_t str;
+        z_octet_string_t os;
+
+        sb_init(&buf);
+        sb_init(&str);
+        for (int i = 0; i < 123456; i++) {
+            sb_addc(&str, (char)i);
+        }
+
+        p_clear(&os, 1);
+        os.str = LSTR_SB_V(&str);
+        Z_ASSERT_NEG(aper_encode(&buf, z_octet_string, &os),
+                     "unexpected success");
+        sb_wipe(&str);
+        sb_wipe(&buf);
     } Z_TEST_END;
 
     /* }}} */

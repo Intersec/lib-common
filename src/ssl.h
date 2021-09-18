@@ -523,6 +523,31 @@ ssl_do_handshake(SSL *ssl, el_t nullable ev, int fd, sb_t * nullable rbuf);
 
 /** Wrapper to SSL_read that mimic read(2).
  *
+ * \warning please carefully read what follows:
+ *
+ * Unlike read(), ssl_read() can actually read more data from the file
+ * descriptor than returned (the rest being bufferized internally by openssl,
+ * cf. SSL_pending()).
+ *
+ * This behavior can cause deadlocks in the following situation:
+ * - the event loop selects the file descriptor for reading and calls the
+ *   on_event applicative callback.
+ * - this on_event callback calls ssl_read() with a given size; ssl_read()
+ *   returns the given size, but for its internal purposes it actually reads
+ *   all the data on the file descriptor.
+ * - the process goes back in event loop.
+ *
+ * In this situation, some data was not read by the applicative code, but the
+ * file descriptor won't ever be selected for reading by the event loop
+ * because there is no more data to read on the file descriptor -> the data
+ * bufferized by openssl is lost.
+ *
+ * \ref ssl_sb_read is safe to use in this context as it workarounds the
+ * problem.
+ *
+ * For more information, cf. this discussion on the subject:
+ * https://openssl-dev.openssl.narkive.com/yBiaSl0l/non-blocking-ssl-read-api-problem
+ *
  * \param[in]  ssl  The ssl context for which data must be received.
  * \param[in]  buf  The buffer into which data are received.
  * \param[in]  len  The maximum number of bytes to receive into `buf`.
@@ -559,12 +584,13 @@ ssize_t ssl_write(SSL *ssl, const void *buf, size_t len);
  */
 ssize_t ssl_writev(int fd, const struct iovec *iov, int iovcnt, void *priv);
 
-/* A sb_read function for reading TLS connections.
+/** A sb_read function for reading TLS connections.
  *
  * \param[in]  sb  The string buffer for receiving data.
  * \param[in]  ssl  The SSL context associated to the connection.
  * \param[in]  hint  Expected number of bytes received. Defaults to BUFSIZ
- *                   when hint is 0.
+ *                   when hint is 0. It can actually read more data than
+ *                   asked.
  * \return the number of bytes read on success, and -1 on error. If an error
  *         because the socket would block, errno is set to EAGAIN.
  */

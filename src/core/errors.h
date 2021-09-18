@@ -200,4 +200,47 @@ bool e_expect(bool cond, const char * nonnull expr, const char * nonnull file,
 #define expect(Cond)  \
     e_expect((Cond), TOSTR(Cond), __FILE__, __LINE__, __func__)
 
-#endif
+/* {{{ debug_stack_* */
+
+/** Function executed when writing the .debug file.
+ *
+ * This callback is called when a crash happens in the debug stack scope where
+ * the callback has been registered.
+ *
+ * \warning It should write the user data using \p dprintf. Please notice that
+ *          our custom formats (%*pM, %pL, %*pS, ...) wont work in this
+ *          context.
+ *
+ * \warning This code is called in the context of a crash, some contextual
+ *          data may be invalid or corrupted.
+ *
+ * \warning Do not use malloc or functions that could use malloc in the
+ *          callback. It could result in deadlocks.
+ */
+typedef void (debug_stack_cb_f)(int fd, data_t data);
+
+/** Register some data in the debug stack.
+ *
+ * \param[in] _data  User data that should be dumped into .debug file in case
+ *                   of crash during the scope execution.
+ *
+ * \param[in] _cb  Function that writes the data into .debug file in case of
+ *                 crash. See \p debug_stack_cb_f.
+ */
+#define debug_stack_scope(_data, _cb)                                        \
+    data_t __func__##_debug_##__LINE__                                       \
+    __attribute__((unused, cleanup(debug_stack_pop))) =                      \
+    debug_stack_push(__func__, __FILE__, __LINE__, (_data), (_cb))
+
+/* Private functions. */
+data_t debug_stack_push(const char *nonnull func,
+                        const char *nonnull file, int line,
+                        data_t data, debug_stack_cb_f *nonnull cb);
+void debug_stack_pop(data_t *nonnull priv);
+
+/** Append user debug info into .debug file. */
+int _debug_stack_print(const char *nonnull path);
+
+/* }}} */
+
+#endif /* IS_LIB_COMMON_CORE_ERRORS_H */

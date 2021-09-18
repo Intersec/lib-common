@@ -511,8 +511,9 @@ Z_GROUP_EXPORT(bit_buf)
     } Z_TEST_END;
 
     Z_TEST(sb, "bit-buf: init/transfer sb") {
+        t_scope;
         sb_t sb;
-        SB(sb2, 42);
+        t_SB(sb2, 42);
         bb_t bb;
 
         sb_init(&sb);

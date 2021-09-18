@@ -1333,7 +1333,7 @@ def profile_default(ctx,
     ctx.env.CXXFLAGS += oflags
 
     ctx.env.CFLAGS += [
-        '-g',
+        '-ggdb3',
         '-fno-omit-frame-pointer',
         '-fvisibility=hidden',
     ]
@@ -1355,7 +1355,7 @@ def profile_default(ctx,
 
     ctx.env.CXXFLAGS = get_cflags(ctx, [ctx.env.COMPILER_CXX])
     ctx.env.CXXFLAGS += [
-        '-g',
+        '-ggdb3',
         '-D__STDC_LIMIT_MACROS',
         '-D__STDC_CONSTANT_MACROS',
         '-D__STDC_FORMAT_MACROS',
@@ -1450,8 +1450,7 @@ def profile_debug(ctx, allow_no_double_fpic=True, use_sanitizer=False):
                     use_sanitizer=use_sanitizer, optim_level=0)
 
     cflags = [
-        '-Wno-uninitialized', '-fno-inline', '-fno-inline-functions', '-g3',
-        '-gdwarf-2',
+        '-Wno-uninitialized', '-fno-inline', '-fno-inline-functions'
     ]
     ctx.env.CFLAGS += cflags
     ctx.env.CXXFLAGS += cflags

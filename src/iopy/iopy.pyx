@@ -127,6 +127,7 @@ cdef extern from "version.h" nogil:
 cdef extern from "iopy_cython_export_fix.h":
     const char *PyUnicode_AsUTF8AndSize(str obj,
                                         Py_ssize_t *size) except NULL
+    void py_eval_init_threads()
 
 
 # Import python modules that are used when using IOPy module.
@@ -1056,6 +1057,16 @@ cdef class EnumBase(Basic):
         return self.val
 
     def __int__(EnumBase self):
+        """Cast from enum to int.
+
+        Returns
+        -------
+        int
+            The integer value of the enum.
+        """
+        return self.val
+
+    def __index__(EnumBase self):
         """Cast from enum to int.
 
         Returns
@@ -9910,7 +9921,7 @@ cdef int init_iopy_atexit() except -1:
 
 
 init_iopy_atexit()
-PyEval_InitThreads()
+py_eval_init_threads()
 iopy_rpc_module_init()
 init_module_versions()
 init_thread_attach()

@@ -18,7 +18,9 @@
 
 #include <execinfo.h> /* backtrace_symbols_fd */
 
+#include <lib-common/container.h>
 #include <lib-common/core.h>
+#include <lib-common/thr.h>
 #include <lib-common/unix.h>
 
 #define XWRITE(s)  IGNORE(xwrite(fd, s, strlen(s)))
@@ -169,6 +171,77 @@ void ps_write_backtrace(int signum, bool allow_fork)
                       STDERR_FILENO, false);
 #endif
     errno = saved_errno;
+
+    _debug_stack_print(path);
+    errno = saved_errno;
 }
 
 #undef XWRITE
+
+typedef struct debug_info_t {
+    const char *func;
+    const char *file;
+    debug_stack_cb_f *cb;
+    data_t data;
+    int line;
+} debug_info_t;
+
+qvector_t(debug_stack, debug_info_t)
+
+static __thread qv_t(debug_stack) debug_stack_g;
+
+static void debug_stack_init(void)
+{
+    qv_init(&debug_stack_g);
+}
+
+static void debug_stack_wipe(void)
+{
+    qv_wipe(&debug_stack_g);
+}
+
+thr_hooks(debug_stack_init, debug_stack_wipe);
+
+data_t debug_stack_push(const char *nonnull func,
+                        const char *nonnull file, int line,
+                        data_t data, debug_stack_cb_f *nonnull cb)
+{
+    debug_info_t *info = qv_growlen0(&debug_stack_g, 1);
+
+    info->func = func;
+    info->file = file;
+    info->line = line;
+    info->cb = cb;
+    info->data = data;
+
+    return data;
+}
+
+void debug_stack_pop(data_t *nonnull data)
+{
+    qv_shrink(&debug_stack_g, 1);
+}
+
+int _debug_stack_print(const char *nonnull path)
+{
+    int fd;
+
+    if (!debug_stack_g.len) {
+        return 0;
+    }
+
+    /* XXX The file is supposed to exist already. */
+    fd = RETHROW(open(path, O_WRONLY | O_APPEND, 0600));
+
+    dprintf(fd, "\nAdditional user context:\n");
+
+    tab_for_each_pos_rev(i, &debug_stack_g) {
+        const debug_info_t *info = &debug_stack_g.tab[i];
+
+        dprintf(fd, "\n[%d] in %s() from %s:%d\n",
+                i, info->func, info->file, info->line);
+        (info->cb)(fd, info->data);
+    }
+
+    return p_close(&fd);
+}

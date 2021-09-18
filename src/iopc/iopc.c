@@ -249,7 +249,7 @@ int main(int argc, char **argv)
     opts.c_outpath    = opts.c_outpath ?: opts.outpath;
     opts.json_outpath = opts.json_outpath ?: opts.outpath;
 
-    _G.prefix_dir     = getcwd(NULL, MAXPATHLEN);
+    _G.prefix_dir     = getcwd(NULL, 0);
     _G.display_prefix = true;
 
     log_set_handler(&iopc_log_handler);
