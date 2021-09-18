@@ -213,6 +213,17 @@ EOF
         echo -Wno-shift-negative-value
     fi
 
+    if gcc_prereq 11.0; then
+        # do not warn about stringop-overflow which has a lot of
+        # false-positive, see
+        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=88443
+        echo -Wno-stringop-overflow
+        # do not warn about stringop-overread which has a lot of
+        # false-positive, see
+        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=97048
+        echo -Wno-stringop-overread
+    fi
+
     if is_cpp; then
         if test "$2" != "rewrite"; then
             echo -fno-rtti

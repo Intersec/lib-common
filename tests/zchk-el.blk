@@ -89,7 +89,7 @@ static int z_spawn_child(void)
 
     Z_ASSERT_N(pid);
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 100; i++) {
         el_loop_timeout(500);
         if (done) {
             return 0;
@@ -113,7 +113,7 @@ static int z_spawn_child_capture(void)
 
     Z_ASSERT_N(pid);
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 100; i++) {
         el_loop_timeout(500);
         if (capture.s) {
             lstr_t _capture = capture;
@@ -142,7 +142,7 @@ static int z_spawn_child_capture_timeout(void)
 
     Z_ASSERT_N(pid);
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 100; i++) {
         el_loop_timeout(500);
         if (status) {
             /* Program should have been interrupted because of a timeout. */

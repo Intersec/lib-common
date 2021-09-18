@@ -28,6 +28,13 @@
 #  define PyUnicode_AsUTF8AndSize(...)  ({ assert(false); NULL; })
 #endif
 
+/* Fix deprecated warning of PyEval_InitThreads for Python >= 3.9. */
+#if PY_VERSION_HEX < 0x03090000
+#  define py_eval_init_threads() PyEval_InitThreads()
+#else
+#  define py_eval_init_threads() do { } while(0)
+#endif
+
 /* Export public functions for the DSO. */
 EXPORT const iop_struct_t *Iopy_struct_union_type_get_desc(PyObject *);
 EXPORT bool Iopy_has_pytype_from_fullname(PyObject *);

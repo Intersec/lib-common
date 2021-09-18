@@ -1747,7 +1747,8 @@ static void qps_gc(qps_t *qps)
         uint32_t no;
 
         no = qps_map_find_no(qps);
-        qps->gc_map = map = qps_map_m_create_raw(qps, no);
+        map = qps_map_m_create_raw(qps, no);
+        qps->gc_map = map;
         map->hdr.generation = qps->generation;
 
         if (qps_gc_compact(qps, no, map, maps) < 0) {
@@ -2146,7 +2147,8 @@ static void *qps_alloc_int(qps_t *qps, uint32_t id, size_t asked)
 
     blk->handle = id;
     qps_map_of(blk)->hdr.allocated += size + QPS_MBLK_HDRSZ;
-    *qps_handle_slot(qps, id) = res = qps_encode(blk->data);
+    res = qps_encode(blk->data);
+    *qps_handle_slot(qps, id) = res;
 #if QPS_USE_REDZONES
     mem_tool_malloclike(blk->data, asked, 8, false);
     mem_tool_allow_memory(blk->data, asked, false);
@@ -2320,7 +2322,8 @@ void *qps_alloc(qps_t *qps, uint32_t *id, size_t size)
     qps_m_check_maps(qps);
     TRACE_ALLOC("frag", "alloc  (%p, ??, %zd) = ...", qps, size);
     if (likely(size < QPS_ALLOC_MAX)) {
-        *id = h = qps_handle_new(qps);
+        h = qps_handle_new(qps);
+        *id = h;
         res = qps_alloc_int(qps, h, size);
     }
     TRACE_ALLOC("frag", "alloc  (%p, %d, %zd) = "QPS_PTR_FMT" (%zd)",

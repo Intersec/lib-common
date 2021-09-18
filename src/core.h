@@ -97,10 +97,10 @@ extern "C" {
 #endif
 #include "core/bithacks.h"
 #include "core/blocks.h"
+#include "core/types.h"
 #include "core/errors.h"
 #include "core/mem.h"
 #include "core/mem-stack.h"
-#include "core/types.h"
 #include "core/stdlib.h"
 #include "core/obj.h"
 

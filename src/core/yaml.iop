@@ -100,10 +100,12 @@ struct PresentationNode {
      *
      * For example:
      *
+     * -----
      * a:
      *   # Comment
      *   # Second line
      *   b: ~
+     * -----
      *
      * ["Comment", "Second line"] are the prefix comments for "a.b".
      */
@@ -114,8 +116,10 @@ struct PresentationNode {
      * The comment is present at the end of the line where the node
      * is declared. For example:
      *
+     * -----
      * a:
      *   b: ~ # Comment
+     * -----
      *
      * "Comment" is an inline comment for "a.b".
      */
@@ -125,11 +129,11 @@ struct PresentationNode {
      *
      * Often used to space out blocks and make the document more readable:
      *
-     * ---
+     * -----
      * a: 2
      *
      * b: 3
-     * ---
+     * -----
      *
      * ".b" will have one empty line in its presentation node.
      *
@@ -188,6 +192,7 @@ struct PresentationNodeMapping {
      *  * for a seq indicator: [idx]
      * So for example:
      *
+     * -----
      * .a.foo[2].b  => "a: { foo: [_, _, b: _] }"
      *                                   ^
      * .a.foo[2].b! => "a: { foo: [_, _, b: _] }"
@@ -196,12 +201,15 @@ struct PresentationNodeMapping {
      *                       ^
      * [0].b[2][0].c! => "- b: [_, _, [c: _] ]"
      *                                    ^
+     * -----
      *
      * Some presentation data could be matched with either the complex data or
      * its first element, for example:
      *
+     * -----
      * # A
      * - 1
+     * -----
      *
      * The comment can be associated with the seq data itself, or with its
      * first key.
@@ -284,21 +292,28 @@ struct PresentationOverrideNode {
  *
  * For example, with:
  *
+ * -----
  * foo.yml:
  * a: { b: 1 }
+ * -----
  *
  * when parsing:
  *
+ * -----
  * !include foo.yml
  * a: { b: 2 }
+ * -----
  *
  * We will store:
+ *
+ * -----
  *  nodes: [{
  *    path: ".a.b!",
  *    originalData: {
  *      "value": { "scalar": { "u": 1 } }
  *    }
  *  }]
+ * -----
  */
 struct PresentationOverride {
     /** List of overridden values, with their associated paths. */
@@ -365,20 +380,24 @@ struct PresentationMergeKeyElem {
  *
  * If a object used a merge key, it looks like this:
  *
+ * -----
  *  <<:
  *    - <data1>
  *    - <data2>
  *  key1: ...
  *  key2: ...
+ * -----
  *
  * As the keys specified after the merge key also are "merged" in the
  * resulting object, this is equivalent to:
  *
+ * -----
  *  <<:
  *    - <data1>
  *    - <data2>
  *    - key1: ...
  *      key2: ...
+ * -----
  *
  * Every data in the seq of the merge key is an override.
  */
@@ -386,10 +405,13 @@ struct PresentationMergeKey {
     /** Override details for every data in the merge key.
      *
      * In the previous example, that would be 3 elements:
+     *
+     * -----
      *  - <data1>
      *  - <data2>
      *  - key1: ...
      *    key2: ...
+     * -----
      */
     PresentationMergeKeyElem[] elements;
 
@@ -402,19 +424,23 @@ struct PresentationMergeKey {
      *
      * If true, all overrides are put in the merge key:
      *
+     * -----
      *  <<:
      *    - <data1>
      *    - <data2>
      *    - key1: ...
      *      key2: ...
+     * -----
      *
      * If false, the last override is inlined in the object:
      *
+     * -----
      *  <<:
      *    - <data1>
      *    - <data2>
      *  key1: ...
      *  key2: ...
+     * -----
      */
     bool hasOnlyMergeKey;
 };

@@ -665,10 +665,10 @@ static void write_help_string(sb_t *buf, const char *s)
 #define NAME_HELP_FMT_ARG(_bname, _fname, _ext)  \
     NAME_FIELD_FMT_ARG(_bname, _fname, _ext)
 
-static bool has_comments(const qv_t(iopc_dox) *comments)
+static bool has_help(const qv_t(iopc_dox) *comments)
 {
-    tab_for_each_ptr(comment, comments) {
-        if (comment->type != IOPC_DOX_TYPE_EXAMPLE) {
+    for (int i = 0; i <= IOPC_DOX_TYPE_SIMPLE; i++) {
+        if (iopc_dox_find_type(comments, i)) {
             return true;
         }
     }
@@ -720,10 +720,10 @@ iopc_dump_help_and_ref(sb_t *buf_help, sb_t *buf_ref,
                        const char *bname, const char *fname, const char *ext,
                        const qv_t(iopc_dox) *comments)
 {
-    if (!has_comments(comments))
-        return;
-    iopc_dump_help(buf_help, bname, fname, ext, comments);
-    iopc_dump_help_ref(buf_ref, type, attr_kind, bname, fname, ext);
+    if (has_help(comments)) {
+        iopc_dump_help(buf_help, bname, fname, ext, comments);
+        iopc_dump_help_ref(buf_ref, type, attr_kind, bname, fname, ext);
+    }
 }
 
 static void
@@ -740,14 +740,13 @@ iopc_dump_attrs_only_help(sb_t *buf, int type, const char *attr_kind,
                           const char *bname, const char *fname,
                           const char *ext, const qv_t(iopc_dox) *comments)
 {
-    if (!has_comments(comments))
-        return;
+    if (has_help(comments)) {
+        iopc_dump_help(buf, bname, fname, ext, comments);
 
-    iopc_dump_help(buf, bname, fname, ext, comments);
-
-    iopc_dump_attr_table_head(buf, attr_kind, bname, fname, ext);
-    iopc_dump_help_ref(buf, type, attr_kind, bname, fname, ext);
-    sb_addf(buf, "};\n");
+        iopc_dump_attr_table_head(buf, attr_kind, bname, fname, ext);
+        iopc_dump_help_ref(buf, type, attr_kind, bname, fname, ext);
+        sb_addf(buf, "};\n");
+    }
 }
 
 static void
@@ -1504,7 +1503,7 @@ iopc_dump_static_field_src(sb_t *buf, const iopc_field_t *f, const char *name)
 {
     lstr_t type;
 
-    if (has_comments(&f->comments)) {
+    if (has_help(&f->comments)) {
         iopc_dump_attrs_only_help(buf, ATTR_HELP(FIELD), "field",
                                   name, "", "sf", &f->comments);
 
@@ -1556,7 +1555,7 @@ iopc_dump_static_field_src(sb_t *buf, const iopc_field_t *f, const char *name)
     }
     sb_addf(buf, "    .type  = %*pM,\n", LSTR_FMT_ARG(type));
 
-    if (has_comments(&f->comments)) {
+    if (has_help(&f->comments)) {
         sb_addf(buf, "    .attrs = &%s__sf_desc_attrs,\n", name);
     }
 
@@ -1730,7 +1729,7 @@ static void iopc_dump_gen_attr(sb_t *buf, const iopc_attr_t *attr,
         SB_1k(attrs_body);                                                   \
         int type;                                                            \
         bool _res;                                                           \
-        int nbr_attrs = has_comments(&_ptr->comments) ? 1 : 0;               \
+        int nbr_attrs = has_help(&_ptr->comments) ? 1 : 0;                   \
                                                                              \
         iopc_dump_help_and_ref(_out, &attrs_body, ATTR_HELP(_what),          \
                                _kind, _name, "", _ext, &_ptr->comments);     \
@@ -1751,7 +1750,7 @@ static void iopc_dump_gen_attr(sb_t *buf, const iopc_attr_t *attr,
         if (nbr_attrs > 0) {                                                 \
             unsigned help_flag;                                              \
                                                                              \
-            help_flag = has_comments(&_ptr->comments)                        \
+            help_flag = has_help(&_ptr->comments)                            \
                       ? BITMASK_NTH(unsigned, ATTR_HELP(_what)) : 0;         \
             SET_BIT(_flags, _flag);                                          \
                                                                              \
@@ -2324,7 +2323,7 @@ iopc_dump_field_attrs(sb_t *buf, const iopc_struct_t *st, const char *tbase,
 
     iopc_dump_help_and_ref(buf, &attrs_body, ATTR_HELP(FIELD), "field",
                            tbase, cname, "f", &f->comments);
-    if (has_comments(&f->comments)) {
+    if (has_help(&f->comments)) {
         attrs->attrs_len++;
         SET_BIT(&attrs->flags, ATTR_HELP(FIELD));
     }
@@ -2498,7 +2497,7 @@ iopc_dump_rpc_attrs(sb_t *buf, const char *tbase, const iopc_fun_t *f,
 
     iopc_dump_help_and_ref(buf, &attrs_body, ATTR_HELP(RPC), "rpc",
                            tbase, cname, "rpc", &f->comments);
-    if (has_comments(&f->comments)) {
+    if (has_help(&f->comments)) {
         SET_BIT(&attrs->flags, ATTR_HELP(RPC));
         attrs->attrs_len++;
     }
@@ -2510,7 +2509,7 @@ iopc_dump_rpc_attrs(sb_t *buf, const char *tbase, const iopc_fun_t *f,
         iopc_dump_help_and_ref(buf, &attrs_body,                             \
                                RPC_ATTR_HELP(X), "rpc",                      \
                                tbase, cname, "rpc_"#Y, &f->f##Y->comments);  \
-        if (has_comments(&f->f##Y->comments)) {                              \
+        if (has_help(&f->f##Y->comments)) {                                  \
             SET_BIT(&attrs->flags, RPC_ATTR_HELP(X));                        \
             attrs->attrs_len++;                                              \
         }                                                                    \
@@ -2707,7 +2706,7 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
         lstr_ascii_tolower(&fname);
 
         sb_reset(&v_attrs_body);
-        if (has_comments(&f->comments)) {
+        if (has_help(&f->comments)) {
             iopc_dump_help_and_ref(buf, &v_attrs_body,
                                    ATTR_HELP(ENUM_VALUE), "enum_value",
                                    tbase, fname.s, "v", &f->comments);
@@ -3481,8 +3480,9 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
                 "    },\n",
                 f->name, pp_under(f->type_path), pp_to_c(f->type_name),
                 f->tag);
-        if (has_comments(&f->comments))
+        if (has_help(&f->comments)) {
             ifaces_have_comments = true;
+        }
     }
     sb_adds(buf, "};\n");
 
@@ -3491,7 +3491,7 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
 
         SET_BIT(&flags, IOP_MOD_EXTENDED);
         tab_for_each_entry(f, &mod->fields) {
-            int len = has_comments(&f->comments);
+            int len = has_help(&f->comments);
             const char *fname = pp_to_c(f->name);
 
             iopc_dump_attrs_only_help(buf, ATTR_HELP(MOD_IFACE),
@@ -3505,7 +3505,7 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
                      "%s__m_desc_if_attrs[] = {\n%*pM};\n",
                 mbase, SB_FMT_ARG(&help_body));
     }
-    if (has_comments(&mod->comments)) {
+    if (has_help(&mod->comments)) {
         SET_BIT(&flags, IOP_MOD_EXTENDED);
         iopc_dump_attrs_only_help(buf, ATTR_HELP(MOD), "mod",
                                   mbase, "", "m", &mod->comments);
@@ -3526,7 +3526,7 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
         sb_addf(buf,
             "    .flags      = %u,\n", flags);
     }
-    if (has_comments(&mod->comments)) {
+    if (has_help(&mod->comments)) {
         sb_addf(buf,
             "    .mod_attrs  = &%s__m_desc_attrs,\n", mbase);
     }
@@ -3680,7 +3680,8 @@ static int put_include(sb_t *sb, const char *ext,
         if (!strendswith(dep_path, iop_path, (const char **)&p))
             goto no_rel;
         assert (p > dep_path && p[-1] == '/');
-        *--p = '\0';
+        --p;
+        dep_path[p - dep_path] = '\0';
         pfx = common_prefix(our_path, dep_path);
         while (pfx > 0 && our_path[pfx - 1] != '/')
             pfx--;

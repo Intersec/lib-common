@@ -302,6 +302,10 @@ components:
           type: string
       discriminator:
         propertyName: _class
+    tstiop_dox.MyClassChild:
+      allOf:
+        - $ref: "#/components/schemas/tstiop_dox.MyClass"
+        - type: object
     tstiop_dox.MyIface.funARes:
       type: object
       description: local comment for MyIface.funA.out
@@ -311,7 +315,7 @@ components:
         c:
           description: "local comment for MyIface.funA.out.c\n\ncomment for c of funA.out"
           oneOf:
-            - $ref: "#/components/schemas/tstiop_dox.MyClass"
+            - $ref: "#/components/schemas/tstiop_dox.MyClassChild"
           discriminator:
             propertyName: _class
         d:
@@ -336,6 +340,7 @@ components:
         b:
           type: integer
           format: int32
+      example: "{\"b\":3}"
     tstiop_dox.MyIface.funBArgs:
       type: object
       description: comment for MyIface.funB.in
