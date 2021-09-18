@@ -196,9 +196,7 @@ logger_t *logger_new(logger_t *parent, lstr_t name, int default_level,
 static void logger_wipe_child(logger_t *logger)
 {
     if (!dlist_is_empty(&logger->children) && logger->children.next) {
-        logger_t *child;
-
-        dlist_for_each_entry(child, &logger->children, siblings) {
+        dlist_for_each_entry(logger_t, child, &logger->children, siblings) {
             if (child->is_static) {
                 logger_wipe_child(child);
             } else {
@@ -275,7 +273,6 @@ void __logger_do_refresh(logger_t *logger)
 
     if (!logger->full_name.s) {
         int pos = 0;
-        logger_t *sibling;
 
         logger_compute_fullname(logger);
 
@@ -283,7 +280,9 @@ void __logger_do_refresh(logger_t *logger)
         assert (logger->default_level >= LOG_INHERITS);
         assert (logger->defined_level >= LOG_UNDEFINED);
 
-        dlist_for_each_entry(sibling, &logger->parent->children, siblings) {
+        dlist_for_each_entry(logger_t, sibling, &logger->parent->children,
+                             siblings)
+        {
             assert (!lstr_equal(sibling->name, logger->name));
         }
         dlist_add(&logger->parent->children, &logger->siblings);
@@ -341,7 +340,6 @@ logger_t *logger_get_by_name(lstr_t name)
     logger_t *logger = &log_g.root_logger;
 
     while (!ps_done(&ps)) {
-        logger_t *child = NULL;
         logger_t *next  = NULL;
         pstream_t n;
 
@@ -350,7 +348,7 @@ logger_t *logger_get_by_name(lstr_t name)
             ps = ps_init(NULL, 0);
         }
 
-        dlist_for_each_entry(child, &logger->children, siblings) {
+        dlist_for_each_entry(logger_t, child, &logger->children, siblings) {
             if (lstr_equal(child->name, LSTR_PS_V(&n))) {
                 next = child;
                 break;

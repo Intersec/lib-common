@@ -467,3 +467,18 @@ void makeversion(int ret, const char *name, const char *(*get_version)(void))
            "line of products for telecommunications operators\n");
     exit(ret);
 }
+
+void opt_vec_extend(qv_t(popt) *nonnull vec,
+                    const popt_t *nonnull opts, int len)
+{
+    /* Get rid of the terminating OPT_END() if any. */
+    if (vec->len && tab_last(vec)->kind == OPTION_END) {
+        qv_shrink(vec, 1);
+    }
+    qv_splice(vec, vec->len, 0, opts, len);
+
+    /* Make sure the vector ends with OPT_END(). */
+    if (!vec->len || tab_last(vec)->kind != OPTION_END) {
+        qv_append(vec, (popt_t)OPT_END());
+    }
+}

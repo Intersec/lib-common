@@ -807,7 +807,6 @@ static void core_mem_ring_print_state(void)
     size_t   total_alloc_sz = 0;
     uint64_t total_alloc_nb = 0;
     int nb_ring_pool = 0;
-    ring_pool_t *rp;
 
     qv_init_static(&hdr, hdr_data, hdr_size);
     t_qv_init(&rows, 200);
@@ -822,7 +821,7 @@ static void core_mem_ring_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(rp, &_G.all_pools, pool_list) {
+    dlist_for_each_entry(ring_pool_t, rp, &_G.all_pools, pool_list) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);

@@ -825,7 +825,7 @@ Z_GROUP_EXPORT(asn1_ber)
         blen = asn1_pack_size(test_iop_choice, &choice, &stack);
         Z_ASSERT_EQ(blen, ber.len);
         asn1_pack(test_iop_choice, buf, &choice, &stack);
-        Z_ASSERT_LSTREQUAL(ber, LSTR_INIT_V((const char *)buf, blen));
+        Z_ASSERT_DATAEQUAL(ber, LSTR_INIT_V((const char *)buf, blen));
         qv_wipe(&stack);
     } Z_TEST_END;
 
@@ -1000,7 +1000,7 @@ Z_GROUP_EXPORT(asn1_open_type)
         Z_ASSERT_N(asn1_unpack(open_type, &ps, t_pool(), &ot, false));
         len = asn1_pack_size(open_type, &ot, &stack);
         asn1_pack(open_type, buf, &ot, &stack);
-        Z_ASSERT_LSTREQUAL(LSTR_INIT_V((char *)buf, len),
+        Z_ASSERT_DATAEQUAL(LSTR_INIT_V((char *)buf, len),
                            LSTR_INIT_V((char *)want_ot, sizeof(want_ot)));
     } Z_TEST_END;
 } Z_GROUP_END

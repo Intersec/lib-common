@@ -31,9 +31,9 @@ static int prometheus_client_initialize(void *arg)
 
 static int prometheus_client_shutdown(void)
 {
-    prom_metric_t *metric;
-
-    dlist_for_each_entry(metric, &prom_collector_g, siblings_list) {
+    dlist_for_each_entry(prom_metric_t, metric, &prom_collector_g,
+                         siblings_list)
+    {
         obj_delete(&metric);
     }
 

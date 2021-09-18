@@ -93,6 +93,7 @@ __qvector_sort(qvector_t * nonnull vec, size_t v_size,
         __qv_sort(vec->tab, v_size, vec->len, cmp);
     }
 }
+void __qvector_shuffle(qvector_t * nonnull vec, size_t v_size);
 void __qvector_diff(const qvector_t * nonnull vec1,
                     const qvector_t * nonnull vec2,
                     qvector_t * nullable add, qvector_t * nullable del,
@@ -409,13 +410,19 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
 
 #define qv_deep_extend(n)                   qv_##n##_deep_extend
 #define qv_cpy_b(n)                         qv_##n##_cpy_b
-#endif
+#endif /* #ifdef __has_blocks */
 #define qv_qsort(vec, cmp)                                                   \
     ({  typeof(*(vec)) *__vec = (vec);                                       \
         int (*__cb)(__qv_typeof(vec) const *, __qv_typeof(vec) const *)      \
             = (cmp);                                                         \
         qsort(__vec->qv.tab, __vec->qv.len, __qv_sz(vec),                    \
               (int (*)(const void *, const void *))__cb);                    \
+    })
+
+/** Shuffle a vector using the Fisher-Yates shuffle algorithm (O(n)). */
+#define qv_shuffle(vec)                                                      \
+    ({  typeof(*(vec)) *__vec = (vec);                                       \
+        __qvector_shuffle(&__vec->qv, __qv_sz(vec));                         \
     })
 
 #define __qv_splice(vec, pos, rm_len, inserted_len)                          \

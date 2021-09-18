@@ -76,7 +76,6 @@ static void
 get_configurations_recursive(logger_t *logger, lstr_t prefix,
                              qv_t(logger_conf) *res)
 {
-    logger_t *child;
     core__logger_configuration__t conf;
 
     /* called first as it can force the update of several parameters
@@ -100,7 +99,7 @@ get_configurations_recursive(logger_t *logger, lstr_t prefix,
         prefix = LSTR_NULL_V;
     }
 
-    dlist_for_each_entry(child, &logger->children, siblings) {
+    dlist_for_each_entry(logger_t, child, &logger->children, siblings) {
         get_configurations_recursive(child, prefix, res);
     }
 }

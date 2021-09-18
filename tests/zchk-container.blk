@@ -1256,6 +1256,17 @@ static _Bool qv_search_tst(void)
     return true;
 }
 
+static bool vec_is_sorted(const qv_t(u32) *vec)
+{
+    for (int i = 0; i < vec->len; i++) {
+        if (vec->tab[i] != (uint32_t)i) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 Z_GROUP_EXPORT(qvector)
 {
     Z_TEST(qv_for_each, "qvector: enumerations") {
@@ -1605,6 +1616,34 @@ Z_GROUP_EXPORT(qvector)
         qv_growlen(&vec, 5);
         Z_ASSERT_EQ(vec.size * sizeof(*vec.tab), alloc_size);
     } Z_TEST_END
+
+    Z_TEST(qv_shuffle, "qvector: qv_shuffle()") {
+        t_scope;
+        qv_t(u32) vec;
+        qh_t(u32) values;
+
+        /* Build a sorted vector with values from 0 to 99 */
+        t_qv_init(&vec, 100);
+        for (uint32_t i = 0; i < 100; i++) {
+            qv_append(&vec, i);
+        }
+        Z_ASSERT(vec_is_sorted(&vec));
+
+        /* Shuffle it. */
+        qv_shuffle(&vec);
+
+        /* Check that it still has all the elements, without duplicate. */
+        t_qh_init(u32, &values, 100);
+        Z_ASSERT_EQ(vec.len, 100);
+        tab_for_each_entry(val, &vec) {
+            Z_ASSERT_LE(val, 99u);
+            Z_ASSERT_N(qh_add(u32, &values, val));
+        }
+
+        /* Check that it is not sorted anymore. */
+        Z_ASSERT(!vec_is_sorted(&vec));
+    } Z_TEST_END
+
 } Z_GROUP_END;
 
 /*1}}}*/

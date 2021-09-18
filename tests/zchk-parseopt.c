@@ -38,6 +38,32 @@ static popt_t popts_g[] = {
     OPT_END(),
 };
 
+static int z_popt_check_equals(const popt_t *opt1, const popt_t *opt2)
+{
+    Z_ASSERT_EQ(opt1->kind, opt2->kind);
+    Z_ASSERT_EQ(opt1->shrt, opt2->shrt);
+    Z_ASSERT_LSTREQUAL(LSTR_OPT(opt1->lng), LSTR_OPT(opt2->lng));
+    Z_ASSERT_EQ(!!opt1->lng, !!opt2->lng);
+    Z_ASSERT(opt1->value == opt2->value);
+    Z_ASSERT_EQ(opt1->init, opt2->init);
+    Z_ASSERT_LSTREQUAL(LSTR_OPT(opt1->help), LSTR_OPT(opt2->help));
+    Z_ASSERT_EQ(!!opt1->help, !!opt2->help);
+    Z_ASSERT_EQ(opt1->int_vsize, opt2->int_vsize);
+    Z_HELPER_END;
+}
+
+static int z_popts_len(const popt_t *opts)
+{
+    int len = 1;
+
+    while (opts->kind != OPTION_END) {
+        len++;
+        opts++;
+    }
+
+    return len;
+}
+
 Z_GROUP_EXPORT(parseopt)
 {
     Z_TEST(basic, "basic valid test") {
@@ -206,5 +232,33 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.c, -12);
         Z_ASSERT_EQ(_G.d, 8777u);
         Z_ASSERT_EQ(_G.e, 'c');
+    } Z_TEST_END;
+
+    Z_TEST(opt_vec_extend, "OPT_VEC_EXTEND") {
+        t_scope;
+        qv_t(popt) opts;
+
+        t_qv_init(&opts, 0);
+        OPT_VEC_EXTEND_VA(&opts,
+            OPT_GROUP("Options:"),
+            OPT_FLAG('a', "opta", &_G.a, "Opt a"),
+            OPT_STR( 'b', "optb", &_G.b, "Opt b"),
+            OPT_END(),
+        );
+        OPT_VEC_EXTEND_VA(&opts,
+            OPT_INT( 'c', "optc", &_G.c, "Opt c"),
+            OPT_UINT('d', "optd", &_G.d, "Opt d"),
+            OPT_END(),
+        );
+        OPT_VEC_EXTEND_VA(&opts,
+            OPT_CHAR('e', "opte", &_G.e, "Opt e"),
+        );
+
+        Z_ASSERT_EQ(opts.len, z_popts_len(popts_g));
+
+        tab_enumerate_ptr(i, opt, &opts) {
+            Z_HELPER_RUN(z_popt_check_equals(opt, &popts_g[i]),
+                         "option [%d] differs", i);
+        }
     } Z_TEST_END;
 } Z_GROUP_END

@@ -221,8 +221,8 @@ bool _z_assert_cmp(const char *file, int lno, const char *op, bool res,
                    const char *rvs, z_val_t rv,
                    const char *fmt, ...);
 
-__attr_printf__(7, 8)
-bool _z_assert_lstrequal(const char *file, int lno,
+__attr_printf__(8, 9)
+bool _z_assert_lstrequal(const char *file, int lno, bool use_hex,
                          const char *lhs, lstr_t lh,
                          const char *rhs, lstr_t rh,
                          const char *fmt, ...);
@@ -436,19 +436,36 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
 #define Z_ASSERT_GE(lhs, rhs, ...)  Z_ASSERT_CMP(lhs, >=, rhs, ##__VA_ARGS__)
 #define Z_ASSERT_ZERO(e, ...)       Z_ASSERT_EQ(e, (typeof(e))0, ##__VA_ARGS__)
 
+/** Compare two printable strings.
+ *
+ * This macro supports and expects UTF-8 strings. If the failure message you
+ * get with this macro contains only UTF-8 gibberish, then maybe you should
+ * use \p Z_ASSERT_DATAEQUAL instead.
+ */
 #define Z_ASSERT_LSTREQUAL(lhs, rhs, ...) \
-    ({ if (_z_assert_lstrequal(__FILE__, __LINE__, #lhs, lhs, #rhs, rhs,  \
-                               ""__VA_ARGS__))                            \
+    ({ if (_z_assert_lstrequal(__FILE__, __LINE__, false,                    \
+                               #lhs, lhs, #rhs, rhs,                         \
+                               ""__VA_ARGS__))                               \
         goto _z_step_end; })
+
+/** Compare two null-terminated printable strings. */
 #define Z_ASSERT_STREQUAL(lhs, rhs, ...) \
-    ({ if (_z_assert_lstrequal(__FILE__, __LINE__, #lhs,                     \
-                               LSTR(lhs), #rhs, LSTR(rhs), ""__VA_ARGS__))   \
+    ({ if (_z_assert_lstrequal(__FILE__, __LINE__, false,                    \
+                               #lhs, LSTR(lhs), #rhs, LSTR(rhs),             \
+                               ""__VA_ARGS__))                               \
+        goto _z_step_end; })
+
+/** Compare two non-printable strings. */
+#define Z_ASSERT_DATAEQUAL(lhs, rhs, ...) \
+    ({ if (_z_assert_lstrequal(__FILE__, __LINE__, true,                     \
+                               #lhs, lhs, #rhs, rhs,                         \
+                               ""__VA_ARGS__))                               \
         goto _z_step_end; })
 
 #define Z_ASSERT_EQUAL(lt, ll, rt, rl, ...) \
     ({  STATIC_ASSERT(__builtin_types_compatible_p(                       \
                typeof(*(lt)) const *, typeof(*(rt)) const *));            \
-        if (_z_assert_lstrequal(__FILE__, __LINE__,                       \
+        if (_z_assert_lstrequal(__FILE__, __LINE__, false,                \
                #lt, LSTR_INIT_V((void *)(lt), sizeof((lt)[0]) * (ll)),    \
                #rt, LSTR_INIT_V((void *)(rt), sizeof((rt)[0]) * (rl)),    \
                ""__VA_ARGS__))                                            \

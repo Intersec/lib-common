@@ -1010,9 +1010,7 @@ static void httpd_set_mask(httpd_t *w)
 
 static void httpd_flush_answered(httpd_t *w)
 {
-    httpd_query_t *q;
-
-    dlist_for_each_entry(q, &w->query_list, query_link) {
+    dlist_for_each_entry(httpd_query_t, q, &w->query_list, query_link) {
         if (q->own_ob) {
             ob_merge_delete(&w->ob, &q->ob);
             q->own_ob = false;
@@ -2221,7 +2219,8 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
         if (!w->busy) {
             obj_vcall(w, set_busy);
         }
-        dlist_for_each_entry_continue(q, q, &w->query_list, query_link) {
+        dlist_for_each_entry_continue(q, &w->query_list, query_link)
+        {
             httpc_query_abort(q);
         }
         ob_wipe(&w->ob);

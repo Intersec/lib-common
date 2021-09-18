@@ -1025,7 +1025,7 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
     iop_bpack(dst, st, v, szs.tab);
 
     /* packing with strict flag should give the same result */
-    Z_ASSERT_LSTREQUAL(t_iop_bpack_struct_flags(st, v, flags |
+    Z_ASSERT_DATAEQUAL(t_iop_bpack_struct_flags(st, v, flags |
                                                 IOP_BPACK_STRICT),
                        LSTR_INIT_V((const char *)dst, len));
 
@@ -1038,7 +1038,7 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
     Z_ASSERT_LE(szs.len, szs2.len);
     dst2 = t_new(byte, len2);
     iop_bpack(dst2, st, v, szs2.tab);
-    Z_ASSERT_LSTREQUAL(LSTR_INIT_V((const char *)dst, len),
+    Z_ASSERT_DATAEQUAL(LSTR_INIT_V((const char *)dst, len),
                        LSTR_INIT_V((const char *)dst2, len2));
 
     /* test flag to force monothread */
@@ -1048,7 +1048,7 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
     Z_ASSERT_EQ(szs.len, szs2.len);
     dst2 = t_new(byte, len2);
     iop_bpack(dst2, st, v, szs2.tab);
-    Z_ASSERT_LSTREQUAL(LSTR_INIT_V((const char *)dst, len),
+    Z_ASSERT_DATAEQUAL(LSTR_INIT_V((const char *)dst, len),
                        LSTR_INIT_V((const char *)dst2, len2));
     module_release(MODULE(thr));
 
@@ -1110,7 +1110,7 @@ static int iop_std_test_struct_invalid(const iop_struct_t *st, void *v,
     byte *dst;
 
     /* packing with strict flag should fail */
-    Z_ASSERT_LSTREQUAL(t_iop_bpack_struct_flags(st, v, IOP_BPACK_STRICT),
+    Z_ASSERT_DATAEQUAL(t_iop_bpack_struct_flags(st, v, IOP_BPACK_STRICT),
                        LSTR_NULL_V);
     Z_ASSERT_STREQUAL(iop_get_err(), err);
 

@@ -377,18 +377,34 @@ static inline void dlist_cut_at(dlist_t *src, dlist_t *e, dlist_t *dst)
     __dlist_for_each_rev((pos)->prev, n, head, )
 
 
-/* Loops macros for dlists (iterate with a dlist entry that has to be declared
- * before the loop). */
-#define __dlist_for_each_entry(pos, n, head, member) \
-    __dlist_for_each(pos, __real_##n, head,                        \
+#define __dlist_for_each_entry(pos, type_t, n, head, member) \
+    FOR_INSTR1(_dlist_for_each_entry##entry_var, type_t *n) \
+    __dlist_for_each(pos, __real_##n, head, \
                      n = dlist_entry_of(__real_##n, n, member))
 
-#define dlist_for_each_entry(n, head, member) \
-    __dlist_for_each_entry((head)->next, n, head, member)
+/** In a dlist \p head, iterate on each entry using a local variable \p n to
+ * iterate.
+ *
+ * The caller should provide the entry type \p type_t and the anchor attribute
+ * \p member that links the list together.
+ */
+#define dlist_for_each_entry(type_t, n, head, member) \
+    __dlist_for_each_entry((head)->next, type_t, n, head, member)
+
+/** Iterate on each entry of a dlist, starting from the element \p pos. */
 #define dlist_for_each_entry_start(pos, n, head, member) \
-    __dlist_for_each_entry(&(pos)->member, n, head, member)
-#define dlist_for_each_entry_continue(pos, n, head, member) \
-    __dlist_for_each_entry((pos)->member.next, n, head, member)
+    __dlist_for_each_entry(&(pos)->member, typeof(*pos), n, head, member)
+
+/** Iterate on each entry of a dlist, starting from the element after \p pos.
+ */
+#define dlist_for_each_entry_after(pos, n, head, member) \
+    __dlist_for_each_entry((pos)->member.next, typeof(*pos), n, head, member)
+
+/** Iterate on each entry of a dlist, starting from the element after \p n and
+ * reusing \p n to iterate in the list. */
+#define dlist_for_each_entry_continue(n, head, member) \
+    __dlist_for_each((n)->member.next, __real_##n, head,                     \
+                     n = dlist_entry_of(__real_##n, n, member))
 
 
 #endif

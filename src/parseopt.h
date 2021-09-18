@@ -20,6 +20,7 @@
 #define IS_LIB_COMMON_PARSEOPT_H
 
 #include <lib-common/core.h>
+#include <lib-common/container.h>
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic push
@@ -74,6 +75,35 @@ typedef struct popt_t {
 #define OPT_VERSION(name, f)   { OPTION_VERSION, 'V', "version",             \
                                  (void *)(name), (intptr_t)(f),              \
                                  "show version information", 0 }
+
+qvector_t(popt, popt_t);
+
+/** Append options into a vector of popt_t.
+ *
+ * Make sure that the vector ends with a \p OPT_END().
+ *
+ * This function will ignore provided \p OPT_END() (when given as last
+ * element) as it handles the terminating option by itself. It will also
+ * remove the current terminating \p OPT_END() (if any) before appending new
+ * options.
+ */
+void opt_vec_extend(qv_t(popt) *nonnull vec,
+                    const popt_t *nonnull opts, int len);
+
+/** Append a list of options in a vector of popt_t.
+ *
+ * Also handles \p OPT_END() option in the same fashion as \p
+ * opt_vec_extend().
+ */
+#define OPT_VEC_EXTEND_VA(_vec, ...)                                         \
+    do {                                                                     \
+        popt_t opt_vec_ext_array_[] = {                                      \
+            __VA_ARGS__                                                      \
+        };                                                                   \
+                                                                             \
+        opt_vec_extend((_vec), opt_vec_ext_array_,                           \
+                       countof(opt_vec_ext_array_));                         \
+    } while (0)
 
 int parseopt(int argc, char * nullable * nonnull argv,
              popt_t * nonnull opts, int flags);

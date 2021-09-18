@@ -295,6 +295,22 @@ void __qv_sort(void *a, size_t v_size, size_t n, qvector_cmp_b cmp)
 
 /* }}} */
 
+void __qvector_shuffle(qvector_t * nonnull vec, size_t v_size)
+{
+    /* XXX: index 0 is excluded from the loop, which is intended in
+     *      Fisher-Yates shuffle algorithm.  */
+    for (int i = vec->len - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        uint8_t tmp[v_size];
+
+#define nth(_i)  ((void *)((uint8_t *)(vec->tab) + (_i) * v_size))
+        memcpy(tmp, nth(j), v_size);
+        memcpy(nth(j), nth(i), v_size);
+        memcpy(nth(i), tmp, v_size);
+#undef nth
+    }
+}
+
 void __qvector_diff(const qvector_t *vec1, const qvector_t *vec2,
                     qvector_t *add, qvector_t *del, qvector_t *inter,
                     size_t v_size, size_t v_align, qvector_cmp_b cmp)

@@ -32,7 +32,6 @@ static int z_metric_labels_thread_safety(void)
     const int nb_children = 1000;
     thr_syn_t syn;
     prom_counter_t *counter;
-    prom_metric_t *child;
     bool *seen = t_new(bool, nb_children);
 
     MODULE_REQUIRE(prometheus_client);
@@ -53,7 +52,9 @@ static int z_metric_labels_thread_safety(void)
     thr_syn_wipe(&syn);
 
     /* Check all the children were actually created */
-    dlist_for_each_entry(child, &counter->children_list, siblings_list) {
+    dlist_for_each_entry(prom_metric_t, child, &counter->children_list,
+                         siblings_list)
+    {
         lstr_t label = LSTR(child->label_values.tab[0]);
         int child_ind;
 

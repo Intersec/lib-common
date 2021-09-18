@@ -123,7 +123,7 @@ static int z_test_seq_ext(const sequence1_t *in, lstr_t exp_encoding)
 
     Z_ASSERT_N(aper_encode(&buf, sequence1, in), "encoding failure");
     /* TODO switch to bits */
-    Z_ASSERT_LSTREQUAL(exp_encoding, LSTR_SB_V(&buf),
+    Z_ASSERT_DATAEQUAL(exp_encoding, LSTR_SB_V(&buf),
                        "unexpected encoding value");
 
     memset(&out, 0xff, sizeof(out));
@@ -132,7 +132,7 @@ static int z_test_seq_ext(const sequence1_t *in, lstr_t exp_encoding)
                "decoding failure (full sequence)");
     Z_ASSERT_OPT_EQ(out.root1, in->root1);
     Z_ASSERT_EQ(out.root2, in->root2);
-    Z_ASSERT_LSTREQUAL(out.ext1, in->ext1);
+    Z_ASSERT_DATAEQUAL(out.ext1, in->ext1);
     Z_ASSERT_OPT_EQ(out.ext2, in->ext2);
     Z_ASSERT_OPT_EQ(out.ext3, in->ext3);
 
@@ -149,7 +149,7 @@ static int z_test_seq_ext(const sequence1_t *in, lstr_t exp_encoding)
                "decoding failure (partial sequence)");
     Z_ASSERT_OPT_EQ(out_partial.root1, in->root1);
     Z_ASSERT_EQ(out_partial.root2, in->root2);
-    Z_ASSERT_LSTREQUAL(out_partial.ext1, in->ext1);
+    Z_ASSERT_DATAEQUAL(out_partial.ext1, in->ext1);
 
     Z_HELPER_END;
 }
@@ -519,7 +519,7 @@ z_test_aper_octet_string(const asn1_cnt_info_t *info,
     Z_ASSERT_N(t_aper_decode_octet_string(&bs, info, copy,
                                           &decoded_octet_string),
                "decoding error");
-    Z_ASSERT_LSTREQUAL(LSTR(octet_string), decoded_octet_string,
+    Z_ASSERT_DATAEQUAL(LSTR(octet_string), decoded_octet_string,
                        "the decoded octet string is not the same "
                        "as the one initially encoded");
 
@@ -1259,7 +1259,7 @@ Z_GROUP_EXPORT(asn1_aper) {
         carray_for_each_ptr(t, tests) {
             sb_reset(&buf);
             Z_ASSERT_N(aper_encode(&buf, tstiop__asn1_ext_choice_, &t->in));
-            Z_ASSERT_LSTREQUAL(t->aper_bytes, LSTR_SB_V(&buf));
+            Z_ASSERT_DATAEQUAL(t->aper_bytes, LSTR_SB_V(&buf));
             ps = ps_initsb(&buf);
             Z_ASSERT_N(t_aper_decode(&ps, tstiop__asn1_ext_choice_, false,
                                      &out));
@@ -1358,8 +1358,7 @@ Z_GROUP_EXPORT(asn1_aper) {
         s1[0].e1 = BAR;
 
         Z_ASSERT_N(aper_encode(&buf, struct1, &s1[0]), "encoding failure");
-        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&buf), expected_encoding, "%*pX",
-                           SB_FMT_ARG(&buf));
+        Z_ASSERT_DATAEQUAL(LSTR_SB_V(&buf), expected_encoding);
         ps = ps_initsb(&buf);
         Z_ASSERT_N(t_aper_decode(&ps, struct1, false, &s1[1]),
                    "decoding failure");
@@ -1404,7 +1403,7 @@ Z_GROUP_EXPORT(asn1_aper) {
         Z_HELPER_RUN(z_ps_skip_and_check_eq(&ps, &str_ps, ps_len(&str_ps)));
         ps = ps_initsb(&buf);
         Z_ASSERT_N(t_aper_decode(&ps, z_octet_string, false, &os_after));
-        Z_ASSERT_LSTREQUAL(os_before.str, os_after.str);
+        Z_ASSERT_DATAEQUAL(os_before.str, os_after.str);
 
         /* Special case: all the data is in the fragments
          * (a single 16k fragment in this case). */
@@ -1517,7 +1516,7 @@ Z_GROUP_EXPORT(asn1_aper) {
                        "unexpected failure (supposedly already tested with "
                        "fragmented_octet_string)");
         }
-        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&buf), LSTR_SB_V(&os_buf));
+        Z_ASSERT_DATAEQUAL(LSTR_SB_V(&buf), LSTR_SB_V(&os_buf));
         exp_ps = ps_initsb(&os_buf);
         Z_HELPER_RUN(z_ps_skip_and_check_eq(&ps, &exp_ps, ps_len(&exp_ps)));
         Z_ASSERT(ps_done(&ps));

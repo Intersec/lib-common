@@ -762,9 +762,7 @@ static void prom_collector_bridge_metric(prom_metric_t *metric, sb_t *out)
     if (is_metric_observable(metric)) {
         bridge_sample(metric, out);
     } else {
-        prom_metric_t *child;
-
-        dlist_for_each_entry(child, &metric->children_list,
+        dlist_for_each_entry(prom_metric_t, child, &metric->children_list,
                              siblings_list)
         {
             spin_lock(&child->lock);
@@ -776,10 +774,7 @@ static void prom_collector_bridge_metric(prom_metric_t *metric, sb_t *out)
 
 void prom_collector_bridge(const dlist_t *collector, sb_t *out)
 {
-    prom_metric_t *metric;
-
-    dlist_for_each_entry(metric, collector, siblings_list) {
-
+    dlist_for_each_entry(prom_metric_t, metric, collector, siblings_list) {
         spin_lock(&metric->lock);
         prom_collector_bridge_metric(metric, out);
         spin_unlock(&metric->lock);

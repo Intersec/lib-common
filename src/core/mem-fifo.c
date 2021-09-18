@@ -555,7 +555,6 @@ static void core_mem_fifo_print_state(void)
     size_t   total_occupied = 0;
     uint32_t total_nb_pages = 0;
     int nb_fifo_pool = 0;
-    mem_fifo_pool_t *fp;
 
     qv_init_static(&hdr, hdr_data, hdr_size);
     t_qv_init(&rows, 200);
@@ -570,7 +569,7 @@ static void core_mem_fifo_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(fp, &_G.all_pools, pool_list) {
+    dlist_for_each_entry(mem_fifo_pool_t, fp, &_G.all_pools, pool_list) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);

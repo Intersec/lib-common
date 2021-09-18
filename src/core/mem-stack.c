@@ -120,13 +120,12 @@ frame_get_next_blk(mem_stack_pool_t *sp, mem_stack_blk_t *cur, size_t alignment,
                    size_t size)
 {
     size_t deleted_size = 0;
-    mem_stack_blk_t *blk;
 
 #ifdef MEM_BENCH
     sp->mem_bench->alloc.nb_slow_path++;
 #endif
 
-    dlist_for_each_entry_continue(cur, blk, &sp->blk_list, blk_list) {
+    dlist_for_each_entry_after(cur, blk, &sp->blk_list, blk_list) {
         size_t needed_size = size;
         uint8_t *aligned_area;
 
@@ -444,12 +443,10 @@ static void *sp_push_libc(mem_stack_pool_t *sp)
 const void *mem_stack_pool_pop_libc(mem_stack_pool_t *sp)
 {
     mem_stack_frame_t *frame = sp->stack;
-    mem_stack_blk_t *blk;
 
     sp->stack = mem_stack_pool_prev(frame);
 
-    dlist_for_each_entry_continue(frame->blk, blk, &sp->blk_list,
-                                       blk_list) {
+    dlist_for_each_entry_after(frame->blk, blk, &sp->blk_list, blk_list) {
         uint8_t *ptr = (uint8_t *)(blk + 1) - blk->size;
 
         dlist_remove(&blk->blk_list);
@@ -738,7 +735,7 @@ void mem_stack_pool_protect(mem_stack_pool_t *sp, const mem_stack_frame_t *up_to
         size_t remainsz = frame_end(sp->stack) - sp->stack->pos;
 
         mem_tool_disallow_memory(sp->stack->pos, remainsz);
-        dlist_for_each_entry_continue(blk, blk, &sp->blk_list, blk_list) {
+        dlist_for_each_entry_continue(blk, &sp->blk_list, blk_list) {
             if (blk == end_blk) {
                 mem_tool_disallow_memory(blk->area, end - blk->area);
                 break;
@@ -794,13 +791,11 @@ __thread mem_stack_pool_t t_pool_g;
 
 static void mem_stack_fix_all_pools_at_fork(void)
 {
-    mem_stack_pool_t *sp;
-
     /* When a process forks, the stack pools of the main thread remain (like
      * t_pool_g or log_thr_g.mp_stack), but the stack pools of other threads
      * are no longer valid. This is only a problem when the forked process
      * does not call exec. */
-    dlist_for_each_entry(sp, &_G.all_pools, pool_list) {
+    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, pool_list) {
         if (!pthread_equal(sp->pthread_id, pthread_self())) {
             dlist_remove(&sp->pool_list);
         }
@@ -844,7 +839,6 @@ static void core_mem_stack_print_state(void)
     size_t   total_alloc_sz = 0;
     uint32_t total_alloc_nb = 0;
     int nb_stack_pool = 0;
-    mem_stack_pool_t *sp;
 
     qv_init_static(&hdr, hdr_data, hdr_size);
     t_qv_init(&rows, 200);
@@ -859,7 +853,7 @@ static void core_mem_stack_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(sp, &_G.all_pools, pool_list) {
+    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, pool_list) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);

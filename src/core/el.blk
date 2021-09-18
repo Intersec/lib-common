@@ -260,11 +260,10 @@ __must_check__
 static uint8_t ev_cache_list(dlist_t *l)
 {
     static uint8_t generation = 1;
-    ev_t *ev;
 
     generation += 2;
     qv_clear(&_G.cache);
-    dlist_for_each_entry(ev, l, ev_list) {
+    dlist_for_each_entry(ev_t, ev, l, ev_list) {
         ev->generation = generation;
         qv_append(&_G.cache, ev);
     }

@@ -416,15 +416,13 @@ DO_REFCNT(iopy_ic_server_t, iopy_ic_server);
 static void iopy_ic_server_clear(iopy_ic_server_t *server,
                                  bool use_wait_for_stop)
 {
-    iopy_ic_peer_t *peer;
-
     if (!server->el_ic) {
         return;
     }
 
     el_unregister(&server->el_ic);
 
-    dlist_for_each_entry(peer, &server->peers, node) {
+    dlist_for_each_entry(iopy_ic_peer_t, peer, &server->peers, node) {
         iopy_ic_peer_delete(&peer);
     }
 
@@ -775,9 +773,9 @@ GENERIC_DELETE(iopy_ic_client_t, iopy_ic_client);
 /** Process destroyed iopy ic clients in the event loop. */
 static void iopy_ic_client_el_process(void)
 {
-    iopy_ic_client_t *client;
-
-    dlist_for_each_entry(client, &_G.destroyed_clients, destroyed) {
+    dlist_for_each_entry(iopy_ic_client_t, client, &_G.destroyed_clients,
+                         destroyed)
+    {
         iopy_ic_client_delete(&client);
     }
     dlist_init(&_G.destroyed_clients);
