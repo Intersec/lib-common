@@ -60,3 +60,6 @@ steps:
     env:
       ASAN_OPTIONS: 'handle_segv=0:detect_leaks=1'
     displayName: Check
+
+  - script: waf pylint
+    displayName: Pylint
