@@ -1,0 +1,265 @@
+[MASTER]
+
+# Profiled execution.
+profile=no
+
+# Add files or directories to the blacklist. They should be base names, not
+# paths.
+ignore=
+
+# Pickle collected data for later comparisons.
+persistent=no
+
+# List of plugins (as comma separated values of python modules names) to load,
+# usually to register additional checkers.
+load-plugins=
+
+# Whitelist C extensions.
+extension-pkg-whitelist=iopy, zchk_mod
+
+
+[MESSAGES CONTROL]
+
+disable=missing-class-docstring,
+        missing-function-docstring,
+        missing-module-docstring,
+        too-many-lines,
+        superfluous-parens,
+        bad-whitespace,
+        duplicate-code,
+        too-many-ancestors,
+        too-many-instance-attributes,
+        too-few-public-methods,
+        too-many-public-methods,
+        too-many-return-statements,
+        too-many-branches,
+        too-many-arguments,
+        too-many-locals,
+        too-many-statements,
+        too-many-boolean-expressions,
+        too-many-nested-blocks,
+        exec-used,
+        attribute-defined-outside-init,
+        arguments-differ,
+        signature-differs,
+        no-init,
+        global-statement,
+        unused-argument,
+        no-member,
+        wrong-import-position,
+        wrong-import-order,
+        ungrouped-imports,
+        redefined-variable-type,
+        locally-enabled,
+        pointless-string-statement,
+        inconsistent-return-statements,
+        no-else-return,
+        no-else-continue,
+        no-else-break,
+        no-else-raise,
+        consider-using-in,
+        consider-using-enumerate,
+        consider-using-ternary,
+        consider-using-get,
+        chained-comparison,
+        cell-var-from-loop,
+        keyword-arg-before-vararg
+
+
+[REPORTS]
+
+# Set the output format. Available formats are text, parseable, colorized, msvs
+# (visual studio) and html
+output-format=text
+
+# Put messages in a separate file for each module / package specified on the
+# command line instead of printing them on stdout. Reports (if any) will be
+# written in a file name "pylint_global.[txt|html]".
+files-output=no
+
+# Tells whether to display a full report or only the messages
+reports=no
+
+
+[VARIABLES]
+
+# Tells whether we should check for unused import in __init__ files.
+init-import=no
+
+# A regular expression matching the beginning of the name of dummy variables
+# (i.e. not used).
+dummy-variables-rgx=_|dummy
+
+# List of additional names supposed to be defined in builtins. Remember that
+# you should avoid to define new builtins when possible.
+additional-builtins=_iop_registry
+
+
+[TYPECHECK]
+
+# Tells whether missing members accessed in mixin class should be ignored. A
+# mixin class is detected if its name ends with "mixin" (case insensitive).
+ignore-mixin-members=yes
+
+# List of classes names for which member attributes should not be checked
+# (useful for classes with attributes dynamically set).
+ignored-classes=
+
+# When zope mode is activated, add a predefined set of Zope acquired attributes
+# to generated-members.
+zope=no
+
+# List of members which are set dynamically and missed by pylint inference
+# system, and so shouldn't trigger E0201 when accessed. Python regular
+# expressions are accepted.
+generated-members=ZGroup,
+    SkipTest,
+    FunctionTestCase,
+    TestCase,
+    TestLoader,
+    TestResult,
+    TestSuite,
+    ZFlags,
+    ZGroup,
+    ZTodo,
+    assertAlmostEqual,
+    assertAlmostEquals,
+    assertDictContainsSubset,
+    assertDictEqual,
+    assertEqual,
+    assertEquals,
+    assertFalse,
+    assertGreater,
+    assertGreaterEqual,
+    assertIn,
+    assertIs,
+    assertIsInstance,
+    assertIsNone,
+    assertIsNot,
+    assertIsNotNone,
+    assertItemsEqual,
+    assertLess,
+    assertLessEqual,
+    assertListEqual,
+    assertMultiLineEqual,
+    assertNotAlmostEqual,
+    assertNotAlmostEquals,
+    assertNotEqual,
+    assertNotEquals,
+    assertNotIn,
+    assertNotIsInstance,
+    assertNotRegexpMatches,
+    assertRaises,
+    assertRaisesRegexp,
+    assertRegexpMatches,
+    assertSequenceEqual,
+    assertSetEqual,
+    assertTrue,
+    assertTupleEqual,
+    main
+
+
+[SIMILARITIES]
+
+# Minimum lines number of a similarity.
+min-similarity-lines=4
+
+# Ignore comments when computing similarities.
+ignore-comments=yes
+
+# Ignore docstrings when computing similarities.
+ignore-docstrings=yes
+
+
+[BASIC]
+
+# List of builtins function names that should not be used, separated by a comma
+bad-functions=map,filter,apply,input
+
+# Regular expression which should only match correct module names
+module-rgx=(([a-z_][a-z0-9_-]*)|([A-Z][a-zA-Z0-9]+))$
+
+# Regular expression which should only match correct module level names
+const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
+
+# Regular expression which should only match correct class names
+class-rgx=^(([a-z](_?[a-z])*_[A-Z][a-zA-Z0-9]*(_[a-z][a-z0-9A-Z]*[A-Z][a-z]+)?)|(_?[A-Z][a-zA-Z0-9]*))$
+
+# Regular expression which should only match correct function names
+function-rgx=(([a-z_][a-z0-9_]*)|(setUpModule)|(tearDownModule))$
+
+# Regular expression which should only match correct method names
+method-rgx=(([a-z_][a-z0-9_]*)|(setUp)|(tearDown)|(setUpClass)|(tearDownClass))$
+
+# Regular expression which should only match correct instance attribute names
+attr-rgx=[a-z_][a-z0-9_]*$
+
+# Regular expression which should only match correct argument names
+argument-rgx=[a-z_][a-z0-9_]*$
+
+# Regular expression which should only match correct variable names
+variable-rgx=[a-z_][a-z0-9_]*$
+
+# Regular expression which should only match correct list comprehension /
+# generator expression variable names
+inlinevar-rgx=[A-Za-z_][A-Za-z0-9_]*$
+
+# Good variable names which should always be accepted, separated by a comma
+good-names=_
+
+# Bad variable names which should always be refused, separated by a comma
+bad-names=
+
+
+[MISCELLANEOUS]
+
+# List of note tags to take in consideration, separated by a comma.
+notes=
+
+
+[FORMAT]
+
+# Maximum number of characters on a single line.
+max-line-length=78
+
+# String used as indentation unit. This is usually " " (4 spaces) or "\t" (1
+# tab).
+indent-string='    '
+
+
+[IMPORTS]
+
+# Deprecated modules which should not be used, separated by a comma
+deprecated-modules=regsub, string, TERMIOS, Bastion, rexec, udiodev,
+    bgenlocations, buildtools, bundlebuilder, Canvas, compiler, dircache, dl,
+    fpformat, gensuitemodule, ihooks, imageop, imgfile, linuxaudiodev, mhlib,
+    mimetools, multifile, new, pure, statvfs, sunaudiodev, test.testall,
+    toaiff
+
+# Create a graph of every (i.e. internal and external) dependencies in the
+# given file (report RP0402 must not be disabled)
+import-graph=
+
+# Create a graph of external dependencies in the given file (report RP0402 must
+# not be disabled)
+ext-import-graph=
+
+# Create a graph of internal dependencies in the given file (report RP0402 must
+# not be disabled)
+int-import-graph=
+
+
+[CLASSES]
+
+# List of method names used to declare (i.e. assign) instance attributes.
+defining-attr-methods=
+
+# List of valid names for the first argument in a class method.
+valid-classmethod-first-arg=cls
+
+
+[EXCEPTIONS]
+
+# Exceptions that will emit a warning when being caught. Defaults to
+# "Exception"
+overgeneral-exceptions=Exception
