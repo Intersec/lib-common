@@ -18,6 +18,7 @@
 # pylint: disable = invalid-name, bad-continuation
 
 import os
+import os.path as osp
 import sys
 import shlex
 import shutil
@@ -63,6 +64,31 @@ def run_waf_with_poetry(ctx):
     del os.environ['POETRY_ACTIVE']
 
 
+def poetry_no_srv_tools(ctx):
+    # Get python site packages from poetry
+    ctx.poetry_site_packages = ctx.cmd_and_log(
+        ctx.env.POETRY + ["run", "python3", "-c",
+        (
+            "import distutils.sysconfig; "
+            "print(distutils.sysconfig.get_python_lib())"
+        )
+    ]).strip()
+
+    # Write intersec no srv tools path file.
+    # We use a `.pth` that is automatically loaded by python.
+    # See https://docs.python.org/3/library/site.html
+    no_srv_tools_file = osp.join(ctx.poetry_site_packages,
+                                 '_intersec_no_srv_tools.pth')
+    with open(no_srv_tools_file, 'w') as f:
+        # Remove /srv/tools from sys.path. We don't want to depend on the
+        # outdated packages in /srv/tools.
+        f.write(
+            "import sys; sys.path = ["
+            "    x for x in sys.path if not x.startswith('/srv/tools')"
+            "]\n"
+        )
+
+
 def poetry_install(ctx):
     before_poetry_install = getattr(ctx, 'before_poetry_install', None)
     if before_poetry_install is not None:
@@ -72,6 +98,9 @@ def poetry_install(ctx):
     if ctx.exec_command(ctx.env.POETRY + ['install'], stdout=None,
                         stderr=None):
         ctx.fatal('poetry install failed')
+
+    # Remove /srv/tools from python path in poetry
+    poetry_no_srv_tools(ctx)
 
     after_poetry_install = getattr(ctx, 'after_poetry_install', None)
     if after_poetry_install is not None:
