@@ -353,7 +353,7 @@ class Global(Result):
             self.passed, self.skipped, self.failed)
 
 
-class Error(object):
+class Error:
 
     def __init__(self, product, suite, group, test, context, status="fail"):
         self.productName = product  # pylint: disable=invalid-name
@@ -398,7 +398,7 @@ class Error(object):
         return "{0}.{1}".format(self.groupName, self.testName.strip())
 
 
-class StreamParser(object):
+class StreamParser:
     def __init__(self, stats=None):
         self.suite = None
         self.group = None
@@ -420,29 +420,29 @@ class StreamParser(object):
         self.bad_number_test_name = "bad-number: {0}.{1}".format
         self.line_counter = 0
 
-    def parse_line(self, line):
+    def parse_line(self, stream_line):
         self.line_counter += 1
         if self.do_break:
             return
 
-        if isinstance(line, bytes):
-            line = line.decode('utf-8', 'replace')
-        line = line.strip()
+        if isinstance(stream_line, bytes):
+            stream_line = stream_line.decode('utf-8', 'replace')
+        stream_line = stream_line.strip()
 
         # The buildbot adds a token within the lines to announce stderr/stdout
         # outputs. This rule checks if this prefix is in the line. It then
         # removes the token if the stream type has not changed otherwise it
         # splits the line in two.
-        r = RE_HEADER.match(line)
+        r = RE_HEADER.match(stream_line)
         if r is not None:
             _, cur_stream  = r.groups()
             sub_token = r'\g<1>'
             if cur_stream != self.last_stream:
                 sub_token += r'\n'
             self.last_stream = cur_stream
-            line = RE_HEADER.sub(sub_token, line)
+            stream_line = RE_HEADER.sub(sub_token, stream_line)
 
-        lines = line.split('\n')
+        lines = stream_line.split('\n')
         for line in lines:
             if not line:
                 continue

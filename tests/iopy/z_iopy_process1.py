@@ -31,36 +31,41 @@ import warnings
 import time
 import iopy
 
-plugin_file = sys.argv[1]
-uri         = sys.argv[2]
+def main():
+    plugin_file = sys.argv[1]
+    uri         = sys.argv[2]
 
-p = iopy.Plugin(plugin_file)
-r = p.register()
+    p = iopy.Plugin(plugin_file)
+    r = p.register()
 
-connected = False
-t0 = time.time()
-while not connected and time.time() - t0 < 30:
-    try:
-        c = r.connect(uri)
-        connected = True
-    except iopy.Error as e:
-        if str(e) != 'unable to connect to {0}'.format(uri):
-            raise e
+    connected = False
+    t0 = time.time()
+    while not connected and time.time() - t0 < 30:
+        try:
+            c = r.connect(uri)
+            connected = True
+        except iopy.Error as e:
+            if str(e) != 'unable to connect to {0}'.format(uri):
+                raise e
 
-if not connected:
-    sys.exit(100)
+    if not connected:
+        sys.exit(100)
 
-# XXX: the server will disconnect inside its RPC impl
-warnings.filterwarnings("ignore", category=iopy.Warning,
-                        message='.*lost connection.*')
+    # XXX: the server will disconnect inside its RPC impl
+    warnings.filterwarnings("ignore", category=iopy.Warning,
+                            message='.*lost connection.*')
 
-res = c.test_ModuleA.interfaceA.funA(a=r.test.ClassB(field1=1),
-                                     _login='root', _password='1234')
+    res = c.test_ModuleA.interfaceA.funA(a=r.test.ClassB(field1=1),
+                                         _login='root', _password='1234')
 
-c.disconnect()
+    c.disconnect()
 
-warnings.resetwarnings()
+    warnings.resetwarnings()
 
-if res.res != 1:
-    sys.exit(101)
-sys.exit(0)
+    if res.res != 1:
+        sys.exit(101)
+    sys.exit(0)
+
+
+if __name__ == '__main__':
+    main()

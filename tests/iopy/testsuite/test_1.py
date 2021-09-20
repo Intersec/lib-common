@@ -15,6 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# pylint: disable = undefined-variable
 
 
 class test_ClassA(metaclass=_iopy_register.metaclass):

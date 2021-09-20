@@ -15,6 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# pylint: disable = undefined-variable, no-self-use
 
 
 class test_emptystuffs_EmptyStruct(metaclass=_iopy_register.metaclass):

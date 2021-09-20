@@ -56,7 +56,7 @@ import argparse
 import shutil
 
 CORE_PATTERN = "/proc/sys/kernel/core_pattern"
-DEBUG = os.getenv('CORE_DEBUG', False)
+DEBUG = os.getenv('CORE_DEBUG', None)
 
 # general stuff
 GDB_CMD = [

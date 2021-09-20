@@ -211,7 +211,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(exp, b.__xml__())
 
     def test_custom_methods(self):
-        # pylint: disable=unused-variable
+        # pylint: disable=unused-variable, undefined-variable
         class test_ClassA(metaclass=self.r.metaclass):
             def fun(self):
                 return self.field1
@@ -340,6 +340,8 @@ class IopyTest(z.TestCase):
         self.assertEqual(proc.returncode, 0, msg)
 
     def test_objects_comparisons(self):
+        # pylint: disable=comparison-with-itself
+
         u1 = self.r.test.UnionA(a=self.r.test.ClassB(field1=1, field2=2))
         u2 = self.r.test.UnionA(a=self.r.test.ClassB(field1=1, field2=2))
         u3 = self.r.test.UnionA(a=self.r.test.ClassB(field1=1, field2=3))
@@ -539,7 +541,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(e, self.r.test.StructE(d=d))
 
     def test_custom_init(self):
-        # pylint: disable=unused-variable
+        # pylint: disable=unused-variable, undefined-variable
         class test_ClassA(metaclass=self.r.metaclass):
             def __custom_init__(self, field1=10, _my_field='value'):
                 self._my_field = _my_field
@@ -588,8 +590,7 @@ class IopyTest(z.TestCase):
 
         class test_ClassB(metaclass=self.r.metaclass):
             def __custom_init__(self, field1=20):
-                # pylint: disable=bad-super-call
-                super(test_ClassB, self).__custom_init__(field1=field1)
+                super().__custom_init__(field1=field1)
                 self.field2 = 42
 
         b = self.r.test.ClassB()
@@ -598,7 +599,6 @@ class IopyTest(z.TestCase):
         self.assertEqual(getattr(b, 'field2', None), 42,
                          'custom init inheritance has failed')
 
-        # pylint: disable=unused-variable
         class test_StructA(metaclass=self.r.metaclass):
             r = self.r   # pylint: disable=invalid-name
             def __custom_init__(self, **kwargs):
@@ -620,14 +620,14 @@ class IopyTest(z.TestCase):
             pass
 
     def test_custom_inheritance(self):
+        # pylint: disable=unused-variable, undefined-variable
         class CommonClass1:
             def foo(self):
                 self.common_val1 = 42
 
         class test_StructA(CommonClass1, metaclass=self.r.metaclass):
             def foo(self):
-                # pylint: disable=bad-super-call
-                super(test_StructA, self).foo()
+                super().foo()
                 self.common_val2 = 12
 
         st = self.r.test.StructA()
@@ -656,7 +656,6 @@ class IopyTest(z.TestCase):
 
         class CommonClass3:
             def __init__(self, *args, **kwargs):
-                # pylint: disable=bad-super-call
                 super(CommonClass3, self).__init__(*args, **kwargs)
                 self.common_val1 = 10
 
@@ -689,7 +688,7 @@ class IopyTest(z.TestCase):
             pass
 
     def test_json_serialize(self):
-        # pylint: disable=unused-variable
+        # pylint: disable=unused-variable, undefined-variable
         class test_StructA(metaclass=self.r.metaclass):
             def __custom_init__(self, arg1=0):
                 self.var1 = arg1
@@ -712,7 +711,7 @@ class IopyTest(z.TestCase):
     def run_test_copy(self, is_deepcopy):
         copy_method = copy.deepcopy if is_deepcopy else copy.copy
 
-        # pylint: disable=unused-variable
+        # pylint: disable=unused-variable, undefined-variable
         class test_StructA(metaclass=self.r.metaclass):
             def __custom_init__(self, val=0, **kwargs):
                 self.val = val
@@ -850,7 +849,7 @@ class IopyTest(z.TestCase):
         _check_unhashable(self.r.test.EnumA('A'))
 
         # Test we can redefine the hash if needed
-        # pylint: disable=unused-variable
+        # pylint: disable=unused-variable, undefined-variable
         class test_StructA(metaclass=self.r.metaclass):
             def __hash__(self):
                 return id(self)
@@ -987,7 +986,8 @@ class IopyTest(z.TestCase):
 
     def test_type_metaclass_double_upgrade(self):
         """Test type metaclass with double level of upgrade"""
-        #pylint: disable=unused-variable, function-redefined
+        # pylint: disable=unused-variable, function-redefined
+        # pylint: disable=undefined-variable
         class test_EnumA(metaclass=self.r.metaclass):
             @staticmethod
             def foo():
@@ -1553,7 +1553,7 @@ class IopyIfaceTests(z.TestCase):
         self.s.listen(uri=self.uri)
 
     def test_iopy_iface(self):
-        # pylint: disable=unused-variable
+        # pylint: disable=unused-variable, undefined-variable
         class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
             cls_attr = 0
 
@@ -1626,7 +1626,7 @@ class IopyIfaceTests(z.TestCase):
         self.assertIsNone(ret.ov)
 
     def test_iopy_iface_hooks(self):
-        # pylint: disable=unused-variable
+        # pylint: disable=unused-variable, undefined-variable
         class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
             def __pre_hook__(self, rpc, *args, **kwargs):
                 self.pre_hook_rpc = rpc
@@ -1834,11 +1834,11 @@ class IopyIfaceTests(z.TestCase):
             def foo(self):
                 self.common_val1 = 42
 
+        # pylint: disable=unused-variable, undefined-variable
         class test_InterfaceA(CommonClass1,
                               metaclass=self.r.metaclass_interfaces):
             def foo(self):
-                # pylint: disable=bad-super-call
-                super(test_InterfaceA, self).foo()
+                super().foo()
                 self.common_val2 = 12
 
         iface.foo()
@@ -1907,7 +1907,8 @@ class IopyIfaceTests(z.TestCase):
 
     def test_iface_metaclass_double_upgrade(self):
         """Test iface metaclass with double level of upgrade"""
-        #pylint: disable=unused-variable, function-redefined
+        # pylint: disable=unused-variable, function-redefined
+        # pylint: disable=undefined-variable
         class test_InterfaceA(metaclass=self.r.metaclass_interfaces):
             @staticmethod
             def foo():
@@ -2063,7 +2064,6 @@ class IopyVoidTest(z.TestCase): # {{{
         self.assertIsNone(s.a)
 # }}}
 
-# pylint: disable=super-on-old-class, bad-super-call
 @z.ZGroup
 class IopyV3Tests(z.TestCase):
     def setUp(self):

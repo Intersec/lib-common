@@ -248,7 +248,7 @@ def ZFlags(*flags): # pylint: disable=invalid-name
         if any([f in _TAG_OR for f in func_flags]) and "wip" not in fl:
             func.__unittest_skip__ = False
             return func
-        if len(fl):
+        if fl:
             return unittest.skip("skipping tests flagged with %s" %
                                  (" ".join(fl)))(func)
         return func
@@ -296,7 +296,7 @@ class _ZTextTestResult(unittest.TextTestResult):
 
     def debug(self, err):
         if self.debug_on:
-            import ipdb
+            import ipdb # pylint: disable = import-outside-toplevel
             _, _, exc_traceback = err
             ipdb.post_mortem(exc_traceback)
 
@@ -348,7 +348,7 @@ class _ZTestResult(unittest.TestResult):
             tid = getattr(test, '_testMethodName', None)
         sys.stdout.write("%d %s %s # (%.3fs)" %
                          (self.testsRun, what, tid, run_time))
-        if len(rest):
+        if rest:
             sys.stdout.write(rest)
         sys.stdout.write("\n")
 
