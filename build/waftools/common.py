@@ -303,7 +303,8 @@ def run_pylint(ctx):
     # Create tasks to check them using pylint
     for f in files.splitlines():
         node = path.make_node(f)
-        ctx(rule='pylint ${SRC}', source=node, path=path, always=True)
+        ctx(rule='pylint ${SRC}', source=node, path=path, cwd=ctx.srcnode,
+            always=True)
 
 
 class PylintClass(BuildContext):
