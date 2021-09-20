@@ -39,4 +39,7 @@
 #define _Null_unspecified
 #define _Nullable
 
+/* Ignore unused variables */
+#pragma GCC diagnostic ignored "-Wunused"
+
 #endif /* IS_PXCC_HEADER_H */
