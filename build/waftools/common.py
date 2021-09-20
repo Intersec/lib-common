@@ -297,7 +297,8 @@ def run_pylint(ctx):
 
     # Get list of committed python files under the launch directory
     path = ctx.launch_node()
-    files = ctx.cmd_and_log('git ls-files "*.py" "**/*.py"', cwd=path,
+    files = ctx.cmd_and_log('git ls-files "*.py" "**/*.py" "wscript*" '
+                            '"**/wscript*"', cwd=path,
                             quiet=Context.BOTH).strip()
 
     # Create tasks to check them using pylint
