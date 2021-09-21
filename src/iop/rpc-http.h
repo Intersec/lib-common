@@ -24,6 +24,8 @@
 
 #include <lib-common/iop-json.h>
 
+/* {{{ Server-side rpc-http */
+
 /**************************************************************************/
 /* HTTP Queries                                                           */
 /**************************************************************************/
@@ -514,6 +516,8 @@ lstr_t ichttp_err_ctx_get(void);
 void __ichttp_err_ctx_set(lstr_t err_ctx);
 /** clear the error context */
 void __ichttp_err_ctx_clear(void);
+
+/* }}} */
 
 #endif
 #endif
