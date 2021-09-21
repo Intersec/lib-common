@@ -55,7 +55,7 @@ glibc:: used extensively, in particular to interface with various Linux kernel
 facilities
 clang:: base compiler
 waf:: build system
-cython:: to build the IOP python interface
+poetry:: managing Python dependencies
 openssl:: various cryptography requirements
 flex:: IOP syntax lexer at https://github.com/westes/flex
 gperf:: GNU library for perfect hash function generation at
@@ -139,22 +139,12 @@ In order to run the tests, the following packages also need to be installed:
 $ sudo dnf install libsmi diffutils
 ---------------------------------
 
-==== Cython
+==== Poetry
 
-To build the IOP python interface component, cython >= 0.29 is required. It can
-be installed using pip:
-
----------------------------------
-$ sudo python3 -m pip install cython>=0.29
----------------------------------
-
-==== Python packages
-
-In order to run the tests, the following python packages need to be installed
-with pip:
----------------------------------
-$ sudo python3 -m pip install psutil
----------------------------------
+Poetry is used to install Python dependencies used on compilation (Cython),
+and in tests.
+To install Poetry, follow the instructions on the official documentation:
+https://python-poetry.org/docs/#osx--linux--bashonwindows-install-instructions
 
 === Building lib-common
 
