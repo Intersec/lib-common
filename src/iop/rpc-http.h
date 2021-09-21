@@ -24,6 +24,36 @@
 
 #include <lib-common/iop-json.h>
 
+/*
+ * RPC-HTTP: a library for wrapping and exposing IoP RPCs as HTTP-based API
+ * end-points.
+ *
+ * At the server side, this api enables the calling code to wrap a set of RPCs
+ * under a common server url such as http[s]://api.example.com/v1/.
+ * This is done as follows:
+ *  - create a httpd_trigger__ic_t (subclassed from httpd_trigger) using
+ *    httpd_trigger__ic_new.
+ *  - register the trigger for the server url using httpd_trigger_register.
+ *  - register the IoP RPCs.
+ *  <code>
+ *  ...
+ *    hrpc_trigger = httpd_trigger__ic_new(&iop_mod, api_schema, MAX_REQ_SZ);
+ *    httpd_trigger_register(httpd_cfg, POST, server_url, &hrpc_trigger->cb);
+ *    ichttp_register(hrpc_trigger, iop_mod_name, iop_interface, rpc1);
+ *    ichttp_register(hrpc_trigger, iop_mod_name, iop_interface, rpc2);
+ *  ...
+ *  </code>
+ * The trigger then handles the unpacking of http requests into the
+ * corresponding rpc in two modes: XML mode or JSON mode. The XML mode is
+ * compatible with SOAP. This step involves finding the rpc to invoke and
+ * deserializing input parameters for the rpc. For the response,
+ * the corresponding packing process is done automatically by ic_reply.
+ *
+ *
+ * At the client side, this api enables the calling code to call HTTP RPCs and
+ * consume their responses (in JSON format).
+ */
+
 /* {{{ Server-side rpc-http */
 
 /**************************************************************************/
@@ -516,6 +546,296 @@ lstr_t ichttp_err_ctx_get(void);
 void __ichttp_err_ctx_set(lstr_t err_ctx);
 /** clear the error context */
 void __ichttp_err_ctx_clear(void);
+
+/* }}} */
+/* {{{ Client-side rpc-http */
+
+#if __has_feature(nullability)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnullability-completeness"
+#endif
+
+/* {{{ HTTP channel */
+
+typedef struct http_iop_msg_t http_iop_msg_t;
+typedef OPT_OF(http_code_t) opt_http_code_t;
+
+/** IOP HTTP query callback.
+ *
+ * \param[in] msg       The HTTP query message built for the query.
+ * \param[in] status    The status of the RPC call.
+ * \param[in] http_code The HTTP code of the query.
+ * \param[in] res       The result returned by the RPC (only set if status is
+ *                      IC_MSG_OK).
+ * \param[in] exn       The exception thrown by the RPC (only set if status
+ *                      is IC_MSG_EXN).
+ */
+typedef void (*http_iop_cb_f)(http_iop_msg_t *msg, ic_status_t status,
+                              opt_http_code_t http_code, void * nullable res,
+                              void * nullable exn);
+
+struct http_iop_msg_t {
+    /** HTTP query used by the RPC call. */
+    httpc_query_t query;
+
+    /** IOP interface alias. */
+    const iop_iface_alias_t *iface_alias;
+
+    /** RPC called. */
+    const iop_rpc_t *rpc;
+
+    /** Query callback function. */
+    http_iop_cb_f cb;
+
+    /** RPC args, only set if the query needs to be retried. */
+    void *args;
+
+    /** Link to pending queries list. */
+    htnode_t link;
+
+    /** Timestamp at which the message was added to the channel. */
+    time_t query_time;
+
+    /** User defined data associated with the query. */
+    byte priv[];
+};
+
+typedef struct http_iop_channel_t http_iop_channel_t;
+
+typedef struct {
+    /** The URL of this channel. */
+    http_url_t url;
+
+    /** Connection pool of this channel. */
+    httpc_pool_t pool;
+
+    /** Base path used by all query. */
+    lstr_t base_path;
+
+    /** The channel of the remote. */
+    http_iop_channel_t *channel;
+} http_iop_channel_remote_t;
+
+qvector_t(http_iop_channel_remote, http_iop_channel_remote_t *);
+
+/** Callback called when a connection to a remote cannot be established. */
+typedef void (*on_connection_error_f)(http_iop_channel_remote_t *remote,
+                                      int errnum);
+/** Callback called when a connection of the channel is ready. */
+typedef void (*on_ready_f)(http_iop_channel_t *);
+
+struct http_iop_channel_t {
+    qv_t(http_iop_channel_remote) remotes;
+
+    lstr_t user;
+    lstr_t password;
+
+    uint32_t response_max_size;
+    bool     encode_url;
+
+    on_connection_error_f on_connection_error_cb;
+    on_ready_f            on_ready_cb;
+
+    uint16_t query_timeout;
+    el_t     timeout_queries_el;
+
+    void *priv;
+
+    /** Channel pending queries.
+     *
+     * If no connection is available when a query is fired, queries will be
+     * added to this list.
+     * They will be retried as soon as a connection is ready.
+     */
+    htlist_t queries;
+};
+
+typedef struct http_iop_channel_cfg_t {
+    /** The URLs of the remote.
+     *
+     * There must be at leat one URL. Others are used in a failover mode, in
+     * their order of declaration.
+     */
+    iop_array_lstr_t urls;
+
+    /** IOP HTTP client configuration. */
+    const core__httpc_cfg__t * nonnull iop_cfg;
+
+    /** Maximum number of allowed connections.
+     *
+     * Default is 1.
+     */
+    opt_u32_t max_conn;
+
+    /** Maximum time before a query is automatically cancelled, in seconds.
+     *
+     * Default is 10 seconds.
+     */
+    opt_u16_t query_timeout;
+
+    /** Maximum query response size, in bytes.
+     *
+     * Default is 1 << 20.
+     */
+    opt_u32_t response_max_size;
+
+    /** Whether the URL should be automatically encoded or not.
+     *
+     * Default is true.
+     */
+    opt_bool_t encode_url;
+
+    /** User used for authentification.
+     *
+     * Leave empty to disable authentication.
+     */
+    lstr_t user;
+
+    /** Password used for authentification.
+     *
+     * Must be set if \ref user is.
+     */
+    lstr_t password;
+
+    /** On connection error callback. */
+    on_connection_error_f nullable on_connection_error_cb;
+
+    /** On connection ready callback. */
+    on_ready_f nullable on_ready_cb;
+
+    /** User defined data associated with this channel. */
+    void * nullable priv;
+} http_iop_channel_cfg_t;
+
+/** Create an HTTP channel.
+ *
+ * \param[in]  channel       The channel to initialize.
+ * \param[in]  url           The URL of the channel.
+ * \param[in]  cfg           An HTTP client configuration.
+ * \param[in]  max_conn      Maximum number of allowed connection.
+ * \param[in]  query_timeout Maximum time in second before a query is
+ *                           automatically cancelled.
+ * \param[out] err           Error buffer.
+ *
+ * \return 0 on success, a negative value on error.
+ */
+http_iop_channel_t *http_iop_channel_create(const http_iop_channel_cfg_t *cfg,
+                                            sb_t *err);
+
+http_iop_channel_remote_t *
+http_iop_channel_remote_init(http_iop_channel_remote_t *remote);
+void http_iop_channel_remote_wipe(http_iop_channel_remote_t *remote);
+GENERIC_NEW(http_iop_channel_remote_t, http_iop_channel_remote);
+GENERIC_DELETE(http_iop_channel_remote_t, http_iop_channel_remote);
+
+http_iop_channel_t *http_iop_channel_init(http_iop_channel_t *channel);
+void http_iop_channel_wipe(http_iop_channel_t *channel);
+GENERIC_NEW(http_iop_channel_t, http_iop_channel);
+GENERIC_DELETE(http_iop_channel_t, http_iop_channel);
+
+void http_iop_channel_close_clients(http_iop_channel_t *channel);
+
+/* }}} */
+/* {{{ Query */
+/* {{{ Query struct */
+
+http_iop_msg_t *http_iop_msg_new(int len);
+
+#define http_iop_msg_p(_t, _v)                                               \
+    ({                                                                       \
+        http_iop_msg_t *_query = http_iop_msg_new(sizeof(_t));               \
+                                                                             \
+        *acast(_t, _query->priv) = *(_v);                                    \
+        _query;                                                              \
+    })
+#define http_iop_msg(_t, ...)  http_iop_msg_p(_t, (&(_t){ __VA_ARGS__ }))
+
+/* }}} */
+
+/** Send a query through an IOP HTTP channel.
+ *
+ * This is the low level function, you should use http_iop_query_cb or
+ * http_iop_query.
+ *
+ * \param[in]  channel    the #http_iop_channel_t to send the query to.
+ * \param[in]  msg        the #http_query_msg_t to fill.
+ * \param[in]  query_data the IOP query args.
+ */
+void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
+                     void *query_data);
+
+#define IOP_RPC_S(_mod, _if, _rpc, what)  _mod##__##_if(_rpc##_##what##__s)
+
+/** \brief builds the argument list of the HTTP reply callback of an rpc.
+ *
+ * \see http_iop_cb_f for the arguments.
+ *
+ * \param[in]  _mod name of the package+module of the RPC
+ * \param[in]  _if  name of the interface of the RPC
+ * \param[in]  _rpc name of the rpc
+*/
+#define IOP_HTTP_RPC_CB_ARGS(_mod, _if, _rpc)                                \
+    http_iop_msg_t *msg, ic_status_t status, opt_http_code_t http_code,      \
+    IOP_RPC_T(_mod, _if, _rpc, res) * nullable res,                          \
+    IOP_RPC_T(_mod, _if, _rpc, exn) * nullable exn
+
+/** \brief builds an HTTP RPC Callback prototype.
+ *
+ * \see http_iop_cb_f for the arguments.
+ *
+ * \param[in]  _mod name of the package+module of the RPC
+ * \param[in]  _if  name of the interface of the RPC
+ * \param[in]  _rpc name of the rpc
+ */
+#define IOP_HTTP_RPC_CB(_mod, _if, _rpc)                                     \
+    IOP_RPC_NAME(_mod, _if, _rpc, cb)(IOP_HTTP_RPC_CB_ARGS(_mod, _if, _rpc))
+
+/** \brief helper to send a query to a given http channel.
+ *
+ * \param[in]  _ic    the #http_iop_channel_t to send the query to.
+ * \param[in]  _msg   the #http_query_msg_t to fill.
+ * \param[in]  _cb    the rpc reply callback to use
+ * \param[in]  _mod   name of the package+module of the RPC
+ * \param[in]  _if    name of the interface of the RPC
+ * \param[in]  _rpc   name of the rpc
+ * \param[in]  ...
+ *   the initializers of the value on the form <tt>.field = value</tt>
+ */
+#define http_iop_query_cb(_http_channel, _msg, _cb, _mod, _if, _rpc, ...)    \
+    do {                                                                     \
+        IOP_RPC_T(_mod, _if, _rpc, args)  _args;                             \
+        http_iop_msg_t *__msg = (_msg);                                      \
+        void (*__cb)(IOP_HTTP_RPC_CB_ARGS(_mod, _if, _rpc)) = (_cb);         \
+                                                                             \
+        __msg->cb = (http_iop_cb_f)__cb;                                     \
+        __msg->iface_alias = _mod##__##_if##__alias;                         \
+        __msg->rpc = IOP_RPC(_mod, _if, _rpc);                               \
+        assert(__msg->rpc);                                                  \
+                                                                             \
+        _args = (IOP_RPC_T(_mod, _if, _rpc, args)){ __VA_ARGS__ };           \
+        http_iop_query_((_http_channel), __msg, &_args);                     \
+   } while (0)
+
+/** \brief helper to send a query to a given http channel, computes callback name..
+ *
+ * \param[in]  _ic    the #http_iop_channel_t to send the query to.
+ * \param[in]  _msg   the #http_query_msg_t to fill.
+ * \param[in]  _mod   name of the package+module of the RPC
+ * \param[in]  _if    name of the interface of the RPC
+ * \param[in]  _rpc   name of the rpc
+ * \param[in]  ...
+ *   the initializers of the value on the form <tt>.field = value</tt>
+ */
+#define http_iop_query(_http_channel, _msg, _mod, _if, _rpc, ...)            \
+    http_iop_query_cb((_http_channel), (_msg),                               \
+                      IOP_RPC_NAME(_mod, _if, _rpc, cb), _mod,               \
+                      _if, _rpc, __VA_ARGS__)
+
+/* }}} */
+
+#if __has_feature(nullability)
+#pragma GCC diagnostic pop
+#endif
 
 /* }}} */
 
