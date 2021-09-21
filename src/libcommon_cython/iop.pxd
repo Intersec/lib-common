@@ -15,14 +15,23 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable
+#cython: language_level=3
 
-ctx(target='libcommon-cython-pxc', features='c', source=[
-    'libcommon_core.pxc',
-    'libcommon_container.pxc',
-    'libcommon_iop.pxc',
-    'libcommon_xml.pxc',
-    'libcommon_farch.pxc',
-], use=[
-    'libcommon',
-])
+from libcommon_cython.core cimport *
+from libcommon_cython.iop_pxc cimport *
+
+
+cdef extern from "<lib-common/libcommon_cython/iop.h>" nogil:
+    cbool is_ic_hdr_simple_hdr(const ic__hdr__t *)
+    ic__hdr__t *t_iop_new_ic_hdr()
+    void iop_init_ic_simple_hdr(ic__simple_hdr__t *)
+    ic__hdr__t iop_ic_hdr_from_simple_hdr(ic__simple_hdr__t)
+    ic__hdr__t *iop_dup_ic_hdr(const ic__hdr__t *)
+
+    ctypedef struct ichannel_t:
+        pass
+    int32_t ichannel_get_cmd(const ichannel_t *ic)
+
+    Lmid_t LM_ID_BASE
+    int IOP_XPACK_LITERAL_ENUMS
+    int IOP_XPACK_SKIP_PRIVATE

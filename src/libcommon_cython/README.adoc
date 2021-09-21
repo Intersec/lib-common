@@ -11,8 +11,14 @@ documentation: https://cython.readthedocs.io/
 
 == Cython source files in Lib-common
 
-The directory `src/cython` is added to the include directories in
+The directory `src` is added to the include directories in
 `CYTHONFLAGS` on `waf configure`.
+To include lib-common Cython source files, the following syntax should be
+used:
+[source,python]
+----
+from libcommon_cython.xxx cimport *
+----
 
 Cython source files in Lib-common are split in a similar way as the C source
 files.

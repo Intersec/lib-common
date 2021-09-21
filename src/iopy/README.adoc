@@ -18,7 +18,7 @@ https://cython.readthedocs.io/en/latest/src/userguide/language_basics.html#error
 == How Cython is used in IOPy
 
 We use Cython source files from Lib-common to import symbols and types from
-Lib-common. See `src/cython/README.adoc`.
+Lib-common. See `src/libcommon_cython/README.adoc`.
 
 All the IOPy exposed classes and all the code that manipulate Python objects
 are handled by Cython in `iopy.pyx`.

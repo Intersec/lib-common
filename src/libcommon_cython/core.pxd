@@ -20,13 +20,13 @@
 from cpython.version cimport PY_VERSION_HEX
 from cpython.object cimport PyObject_Str
 
-from libcommon_core_pxc cimport *
+from libcommon_cython.core_pxc cimport *
 
 
 # {{{ Definitions
 
 
-cdef extern from "<lib-common/cython/libcommon_core.h>" nogil:
+cdef extern from "<lib-common/libcommon_cython/core.h>" nogil:
     ctypedef _Bool cbool
 
     cbool unlikely(cbool)

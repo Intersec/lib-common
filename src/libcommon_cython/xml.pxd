@@ -17,11 +17,7 @@
 ###########################################################################
 #cython: language_level=3
 
+from libcommon_cython.xml_pxc cimport *
 
-cdef extern from "<lib-common/thr.h>" nogil:
-    void c_thr_attach "thr_attach" ()
-    void c_thr_detach "thr_detach" ()
-
-
-cdef extern from "<lib-common/cython/libcommon_thr.h>" nogil:
-    void py_eval_init_threads()
+cdef extern from "<lib-common/xmlr.h>" nogil:
+    xml_reader_t xmlr_g

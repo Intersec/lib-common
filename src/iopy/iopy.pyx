@@ -49,12 +49,12 @@ cdef extern from "Python.h":
     void PyEval_RestoreThread(PyThreadState *) nogil
 
 
-from libcommon_core cimport *
-from libcommon_container cimport *
-from libcommon_iop cimport *
-from libcommon_xml cimport *
-from libcommon_farch cimport *
-from libcommon_thr cimport *
+from libcommon_cython.core cimport *
+from libcommon_cython.container cimport *
+from libcommon_cython.iop cimport *
+from libcommon_cython.xml cimport *
+from libcommon_cython.farch cimport *
+from libcommon_cython.thr cimport *
 
 
 cdef extern from "<lib-common/farch.h>":
@@ -79,7 +79,7 @@ cdef extern from "iopy_cython_export.h":
 from iopy_rpc_pxc cimport *
 
 # Must be added after all includes and imports.
-from cython_fixes cimport *
+from libcommon_cython.cython_fixes cimport *
 
 
 # Import python modules that are used when using IOPy module.

@@ -19,8 +19,8 @@
 
 from libc.stdint cimport UINT32_MAX
 
-from libcommon_core cimport *
-from libcommon_container_pxc cimport *
+from libcommon_cython.core cimport *
+from libcommon_cython.container_pxc cimport *
 
 
 cdef struct QHashIterator:

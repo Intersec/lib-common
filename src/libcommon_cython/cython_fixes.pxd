@@ -17,10 +17,5 @@
 ###########################################################################
 #cython: language_level=3
 
-from libcommon_farch_pxc cimport *
-
-cdef extern from "<lib-common/farch.h>" nogil:
-    """
-    typedef char farch_name_t[FARCH_MAX_FILENAME];
-    """
-    ctypedef char farch_name_t[0]
+cdef extern from "<lib-common/libcommon_cython/cython_fixes.h>":
+    pass
