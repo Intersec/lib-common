@@ -363,118 +363,105 @@ int addr_filter_matches(const addr_filter_t *filter, const sockunion_t *peer)
     return 0;
 }
 
-Z_GROUP_EXPORT(net_addr)
+static int getport(const char *str, const char **end)
 {
-    t_scope;
-#define NET_ADDR_IPV4  "1.1.1.1"
-#define NET_ADDR_IPV6  "1:1:1:1:1:1:1:1"
-#define NET_ADDR_PORT  4242
+    long port;
 
-    lstr_t ipv4 = LSTR(NET_ADDR_IPV4);
-    lstr_t ipv6 = LSTR(NET_ADDR_IPV6);
-    lstr_t tcp_ipv4 = LSTR(NET_ADDR_IPV4 ":" TOSTR(NET_ADDR_PORT));
-    lstr_t tcp_ipv6 = LSTR("[" NET_ADDR_IPV6 "]:" TOSTR(NET_ADDR_PORT));
+    if (strtolp(str, end, 10, &port, STRTOLP_CHECK_RANGE, 1, 65535)) {
+        return -1;
+    }
+    return port;
+}
 
-#define CHECK_FILTER(_res, _cidr, _addr, _mask)                              \
-    do {                                                                     \
-        Z_ASSERT_N(addr_filter_build(LSTR(_cidr), &filter));                 \
-        Z_ASSERT_EQ((_res), addr_filter_matches(&filter, &su));              \
-                                                                             \
-        if (filter.family == AF_INET) {                                      \
-            inet_ntop(AF_INET, &filter.u.v4.addr, buf, sizeof(buf));         \
-            Z_ASSERT_LSTREQUAL(LSTR(buf), LSTR(_addr));                      \
-            inet_ntop(AF_INET, &filter.u.v4.mask, buf, sizeof(buf));         \
-            Z_ASSERT_LSTREQUAL(LSTR(buf), LSTR(_mask));                      \
-        } else {                                                             \
-            inet_ntop(AF_INET6, &filter.u.v6.addr, buf, sizeof(buf));        \
-            Z_ASSERT_LSTREQUAL(LSTR(buf), LSTR(_addr));                      \
-            inet_ntop(AF_INET6, &filter.u.v6.mask, buf, sizeof(buf));        \
-            Z_ASSERT_LSTREQUAL(LSTR(buf), LSTR(_mask));                      \
-        }                                                                    \
-    } while (0)
+int parse_http_url(const char *url_path, bool allow_https, http_url_t *url)
+{
+    static bool first_call = true;
+    static ctype_desc_t ctype_isurlseparator;
+    pstream_t ps;
+    pstream_t host_ps, user_ps, pass_ps, path_ps;
 
-    Z_TEST(ipv4, "IPv4") {
-        sockunion_t su;
-        addr_filter_t filter;
-        char buf[INET6_ADDRSTRLEN];
+    RETHROW_PN(url);
+    p_clear(url, 1);
+    url->port = 80;
 
-        Z_ASSERT_N(addr_info(&su, AF_INET, ps_initlstr(&ipv4),
-                             NET_ADDR_PORT));
-        Z_ASSERT_LSTREQUAL(ipv4, t_sockunion_gethost_lstr(&su));
-        Z_ASSERT_EQ(NET_ADDR_PORT, sockunion_getport(&su));
-        Z_ASSERT_LSTREQUAL(t_addr_fmt_lstr(&su), tcp_ipv4);
+    ps = ps_initstr(url_path);
 
-        CHECK_FILTER(0, "1.1.1.2/25", "1.1.1.0", "255.255.255.128");
-        CHECK_FILTER(-1, "1.1.1.130/25", "1.1.1.128", "255.255.255.128");
-        CHECK_FILTER(-1, "192.168.0.1/16", "192.168.0.0", "255.255.0.0");
-        CHECK_FILTER(-1, "1.1.1.3/32", "1.1.1.3", "255.255.255.255");
-        CHECK_FILTER(0, "2.2.2.2/0", "0.0.0.0", "0.0.0.0");
-        CHECK_FILTER(0, "1.1.1.1", "1.1.1.1", "255.255.255.255");
-        CHECK_FILTER(-1, "1.1.1.4", "1.1.1.4", "255.255.255.255");
-
-    } Z_TEST_END;
-
-    Z_TEST(ipv6, "IPv6") {
-        sockunion_t su;
-        addr_filter_t filter;
-        char buf[INET6_ADDRSTRLEN];
-
-        Z_ASSERT_N(addr_info(&su, AF_INET6, ps_initlstr(&ipv6),
-                             NET_ADDR_PORT));
-        Z_ASSERT_LSTREQUAL(ipv6, t_sockunion_gethost_lstr(&su));
-        Z_ASSERT_EQ(NET_ADDR_PORT, sockunion_getport(&su));
-        Z_ASSERT_LSTREQUAL(t_addr_fmt_lstr(&su), tcp_ipv6);
-
-        CHECK_FILTER(0, "1:1:1:1:1:1:1:2/65", "1:1:1:1::",
-                     "ffff:ffff:ffff:ffff:8000::");
-        CHECK_FILTER(-1, "1:1:1:1:abcd:1:1:2/65", "1:1:1:1:8000::",
-                     "ffff:ffff:ffff:ffff:8000::");
-        CHECK_FILTER(-1, "fe80::202:b3ff:fe1e:8329/32",
-                     "fe80::", "ffff:ffff::");
-        CHECK_FILTER(-1, "1:1:1:1:1:1:1:3/128", "1:1:1:1:1:1:1:3",
-                     "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
-        CHECK_FILTER(0, "2:2:2:2:2:2:2:2/0", "::", "::");
-        CHECK_FILTER(0, "1:1:1:1:1:1:1:1", "1:1:1:1:1:1:1:1",
-                     "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
-        CHECK_FILTER(-1, "1:1:1:1:1:1:1:3", "1:1:1:1:1:1:1:3",
-                     "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
-    } Z_TEST_END;
-    Z_TEST(sockunion_for_each, "sockunion_for_each") {
-        lstr_t ip = LSTR("127.0.0.1:1337");
-        SB_1k(sus_buf);
-        int idx = 0;
-        sockunion_t su;
-
-        addr_resolve("IPv4", tcp_ipv4, &su);
-        sb_add(&sus_buf, &su, sockunion_len(&su));
-        addr_resolve("IPv6", tcp_ipv6, &su);
-        sb_add(&sus_buf, &su, sockunion_len(&su));
-        addr_resolve("IP", ip, &su);
-        sb_add(&sus_buf, &su, sockunion_len(&su));
-
-        sockunion_for_each(sock, (sockunion_t *)sus_buf.data, 3) {
-            switch (idx) {
-              case 0:
-                Z_ASSERT_LSTREQUAL(t_addr_fmt_lstr(sock), tcp_ipv4);
-                break;
-              case 1:
-                Z_ASSERT_LSTREQUAL(t_addr_fmt_lstr(sock), tcp_ipv6);
-                break;
-              case 2:
-                Z_ASSERT_LSTREQUAL(t_addr_fmt_lstr(sock), ip);
-                break;
-              default:
-                Z_ASSERT(false);
-                break;
-            }
-            idx++;
+    /* A URL should always start with "http://" or "https://" with proxy */
+    PS_WANT(!ps_skipstr(&ps, "http"));
+    if (allow_https) {
+        if (ps_startswith(&ps, "s", 1)) {
+            url->port = 443;
         }
-        Z_ASSERT_EQ(idx, 3);
-    } Z_TEST_END;
+        ps_skipstr(&ps, "s");
+    }
+    PS_WANT(!ps_skipstr(&ps, "://"));
+    PS_WANT(!ps_done(&ps));
 
-#undef CHECK_FILTER
-#undef NET_ADDR_PORT
-#undef NET_ADDR_IPV6
-#undef NET_ADDR_IPV4
+    if (unlikely(first_call)) {
+        ctype_desc_build(&ctype_isurlseparator, ":/@");
+        first_call = false;
+    }
 
-} Z_GROUP_END;
+
+    host_ps = ps;
+    user_ps = ps_get_cspan(&ps, &ctype_isurlseparator);
+
+#define PS_COPY(_field, _ps)  \
+    pstrcpymem(url->_field, sizeof(url->_field), _ps.s, ps_len(&_ps))
+
+    if (!ps_done(&ps) && *ps.s == ':') {
+        /* Colon is either the separator of user:passwd
+         * or the separator of host:port */
+        __ps_skip(&ps, 1);
+        pass_ps = ps_get_cspan(&ps, &ctype_isurlseparator);
+        if (!ps_done(&ps) && *ps.s == '@') {
+            /* @ is the separator of user:passwd@host so assume
+             * the colon was a user:passwd separator */
+            __ps_skip(&ps, 1);
+            PS_WANT(!ps_done(&ps));
+            PS_WANT(!ps_done(&user_ps));
+            PS_WANT(!ps_done(&pass_ps));
+            PS_COPY(user, user_ps);
+            PS_COPY(pass, pass_ps);
+
+            host_ps = ps_get_cspan(&ps, &ctype_isurlseparator);
+            if (!ps_done(&ps) && *ps.s == ':') {
+                __ps_skip(&ps, 1);
+                url->port = getport(ps.s, &ps.s);
+            }
+        } else {
+            /* The colon was a port separator so the preceding
+             * part was the host (not the user) */
+            host_ps = user_ps;
+            url->port = getport(pass_ps.s, &pass_ps.s);
+        }
+    } else {
+        host_ps = user_ps;
+    }
+
+    PS_WANT(url->port > 0);
+
+    /* hostname cannot be empty */
+    PS_WANT(!ps_done(&host_ps));
+
+    /* After parsing the host part, we must have reach a path separator */
+    PS_WANT(ps_done(&ps) || *ps.s == '/');
+    PS_COPY(host, host_ps);
+
+    /* Parse path */
+    if (ps_done(&ps)) {
+        pstrcpy(url->path, sizeof(url->path), "/");
+        pstrcpy(url->path_without_args, sizeof(url->path_without_args), "/");
+    } else {
+        PS_COPY(path, ps);
+        if (ps_get_ps_chr(&ps, '?', &path_ps) < 0) {
+            path_ps = ps;
+            ps = ps_init(NULL, 0);
+        }
+        PS_COPY(path_without_args, path_ps);
+        PS_COPY(args, ps);
+    }
+#undef PS_COPY
+
+    return 0;
+}

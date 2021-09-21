@@ -220,4 +220,30 @@ static inline int addr_resolve(const char * nonnull what, const lstr_t s,
     return 0;
 }
 
+#define HTTP_URL_CREDS_SIZE  128
+#define HTTP_URL_HOST_SIZE   128
+#define HTTP_URL_PATH_SIZE   512
+
+typedef struct http_url_t {
+    char user[HTTP_URL_CREDS_SIZE];
+    char pass[HTTP_URL_CREDS_SIZE];
+    char host[HTTP_URL_HOST_SIZE];
+    int port;
+    char path[HTTP_URL_PATH_SIZE];
+    char args[HTTP_URL_PATH_SIZE];
+    char path_without_args[HTTP_URL_PATH_SIZE];
+} http_url_t;
+
+/** Parse an http url into its components (http_url_t).
+ *
+ * \param[in]  url_path    full http(s) url to parse
+ * \param[in]  allow_https whether to accept https urls
+ *
+ * \param[out] url         parsed url components
+ *
+ * \return  0 if success, -1 if error
+ */
+int parse_http_url(const char *nonnull url_path, bool allow_https,
+                   http_url_t *nonnull url);
+
 #endif

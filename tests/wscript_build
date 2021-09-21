@@ -47,6 +47,7 @@ ctx.program(target='zchk', source=[
     'zchk-log.blk',
     'zchk-mem.c',
     'zchk-module.c',
+    'zchk-net.c',
     'zchk-parseopt.c',
     'zchk-prometheus.blk',
     'zchk-snmp.c',
