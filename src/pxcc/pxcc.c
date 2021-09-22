@@ -399,7 +399,6 @@ static int t_register_type_cursor(CXCursor cursor, qv_t(cstr) *type_stack)
     return res;
 }
 
-
 static CXChildVisitResult
 t_visit_register_type_fields(CXCursor cursor, CXCursor parent,
                              CXClientData data)
@@ -415,11 +414,6 @@ t_visit_register_type_fields(CXCursor cursor, CXCursor parent,
         break;
 
       case CXCursor_UnionDecl:
-        if (clang_Cursor_isAnonymous(cursor)) {
-            return CXChildVisit_Recurse;
-        }
-        break;
-
       case CXCursor_StructDecl:
         return CXChildVisit_Recurse;
 
@@ -1065,13 +1059,6 @@ visit_print_type_fields(CXCursor cursor, CXCursor parent, CXClientData data)
         break;
 
       case CXCursor_UnionDecl:
-        if (clang_Cursor_isAnonymous(cursor)
-        &&  qm_find(cxcursor_name, &_G.anonymous_types, &cursor) < 0)
-        {
-            return CXChildVisit_Recurse;
-        }
-        break;
-
       case CXCursor_StructDecl:
         if (qm_find(cxcursor_name, &_G.anonymous_types, &cursor) < 0) {
             return CXChildVisit_Recurse;

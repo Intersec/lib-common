@@ -104,6 +104,19 @@ typedef struct different_name_struct_t {
 } different_name_struct_t;
 typedef different_name_struct_t different_name_typedef_struct_t;
 
+union non_typedef_union_t {
+    int a;
+};
+
+typedef union {
+    int plop;
+} only_typedef_union_t;
+
+typedef union different_name_union_t {
+    int a;
+} different_name_union_t;
+typedef different_name_union_t different_name_typedef_union_t;
+
 typedef void *void_ptr_t;
 typedef int array_ptr_t[5];
 

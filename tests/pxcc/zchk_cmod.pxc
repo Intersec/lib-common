@@ -17,7 +17,6 @@
 /***************************************************************************/
 
 #include "zchk_cmod.h"
-
 PXCC_EXPORT_FILE("zchk_cmod.h");
 
 /* {{{ Types & symbols syntax */
@@ -40,6 +39,11 @@ PXCC_EXPORT_TYPE(empty_enum_t);
 PXCC_EXPORT_TYPE(struct non_typedef_struct_t);
 PXCC_EXPORT_TYPE(only_typedef_struct_t);
 PXCC_EXPORT_TYPE(different_name_typedef_struct_t);
+
+PXCC_EXPORT_TYPE(union non_typedef_union_t);
+PXCC_EXPORT_TYPE(only_typedef_union_t);
+PXCC_EXPORT_TYPE(different_name_typedef_union_t);
+
 PXCC_EXPORT_TYPE(void_ptr_t);
 PXCC_EXPORT_TYPE(array_ptr_t);
 
