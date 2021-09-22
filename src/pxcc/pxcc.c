@@ -30,7 +30,7 @@
 
 #define PXCC_MAJOR  1
 #define PXCC_MINOR  0
-#define PXCC_PATCH  0
+#define PXCC_PATCH  1
 
 #define PXCC_EXPORT_FILE_PREFIX    "pxcc_exported_file_"
 #define PXCC_EXPORT_TYPE_PREFIX    "pxcc_exported_type_"
