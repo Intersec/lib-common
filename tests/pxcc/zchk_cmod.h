@@ -68,7 +68,7 @@ typedef struct struct_t {
         STRUCT_ENUM2,
     } anon_en;
     struct {
-        uint64_t st1;
+        unsigned long long st1;
         struct {
             long st2;
         } st3;
@@ -154,31 +154,31 @@ typedef struct crazy_field_t {
 
 typedef struct qhash_hdr_t {
     /* size_t     * nonnull bits; */
-    uint32_t    len;
-    uint32_t    size;
+    unsigned int len;
+    unsigned int size;
     /* mem_pool_t * nullable mp; */
 } qhash_hdr_t;
 
 #define STRUCT_QHASH_T(key_t, val_t)                                         \
     struct {                                                                 \
-        qhash_hdr_t  hdr;                                                    \
-        qhash_hdr_t *old;                                                    \
-        key_t       *keys;                                                   \
-        val_t       *values;                                                 \
-        uint32_t    *hashes;                                                 \
-        uint32_t     ghosts;                                                 \
-        uint8_t      h_size;                                                 \
-        uint8_t      k_size;                                                 \
-        uint16_t     v_size;                                                 \
-        uint32_t     minsize;                                                \
+        qhash_hdr_t    hdr;                                                  \
+        qhash_hdr_t   *old;                                                  \
+        key_t         *keys;                                                 \
+        val_t         *values;                                               \
+        unsigned int  *hashes;                                               \
+        unsigned int   ghosts;                                               \
+        unsigned char  h_size;                                               \
+        unsigned char  k_size;                                               \
+        unsigned short v_size;                                               \
+        unsigned int   minsize;                                              \
     }
 
-/* uint8_t allow us to use pointer arith on ->{values,vec} */
-typedef STRUCT_QHASH_T(uint8_t, uint8_t) qhash_t;
+/* unsigned char allow us to use pointer arith on ->{values,vec} */
+typedef STRUCT_QHASH_T(unsigned char, unsigned char) qhash_t;
 
 typedef union qh_u32_t {
     qhash_t qh;
-    STRUCT_QHASH_T(uint32_t, void);
+    STRUCT_QHASH_T(unsigned int, void);
 } qh_u32_t;
 
 /* Recursive reference between struct and callback */
