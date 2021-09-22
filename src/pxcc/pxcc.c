@@ -40,10 +40,41 @@ typedef enum CXChildVisitResult CXChildVisitResult;
 typedef enum CXCursorKind CXCursorKind;
 typedef enum CXErrorCode CXErrorCode;
 
+typedef enum pxcc_record_name_status_t {
+    /** The record name is new. */
+    PXCC_RECORD_NAME_NEW,
+
+    /** The record name has been visited one. */
+    PXCC_RECORD_NAME_VISITED,
+
+    /** A forwarded record has been generated. */
+    PXCC_RECORD_NAME_FORWARDED,
+
+    /** The definition record has been registered. */
+    PXCC_RECORD_NAME_COMPLETED,
+} pxcc_record_name_status_t;
+
+typedef struct pxcc_record_name_t {
+    lstr_t name;
+    pxcc_record_name_status_t status;
+} pxcc_record_name_t;
+
+static void pxcc_record_name_wipe(pxcc_record_name_t *record_name)
+{
+    lstr_wipe(&record_name->name);
+}
+
+GENERIC_DELETE(pxcc_record_name_t, pxcc_record_name);
+GENERIC_NEW_INIT(pxcc_record_name_t, pxcc_record_name);
+
+qm_kvec_t(pxcc_record_name, lstr_t, pxcc_record_name_t *,
+          qhash_lstr_hash, qhash_lstr_equal);
+
 typedef enum pxcc_record_kind_t {
     PXCC_RECORD_CANONICAL_TYPE,
     PXCC_RECORD_TYPEDEF,
     PXCC_RECORD_SYMBOL,
+    PXCC_RECORD_FORWARD,
 } pxcc_record_kind_t;
 
 /* See http://cython.readthedocs.io/en/latest/src/userguide/external_C_code.html#styles-of-struct-union-and-enum-declaration
@@ -90,13 +121,13 @@ static struct {
     pxcc_opts_t opts;
     lstr_t current_file;
     qv_t(lstr) files;
-    qh_t(lstr) names;
+    qm_t(pxcc_record_name) record_names;
     qv_t(pxcc_record) records;
     qm_t(cxcursor_name) anonymous_types;
     bool close_stdout;
 } pxcc_g = {
 #define _G  pxcc_g
-    .names = QH_INIT(lstr, _G.names),
+    .record_names = QM_INIT(pxcc_record_name, _G.record_names),
     .anonymous_types = QM_INIT(anonymous_types, _G.anonymous_types),
 };
 
@@ -155,10 +186,9 @@ static lstr_t get_unconst_type_spelling(CXString spelling)
     return LSTR_PS_V(&ps);
 }
 
-static pxcc_typedef_kind_t get_typedef_kind(CXType type)
+static pxcc_typedef_kind_t
+get_typedef_kind(CXType type, CXType underlying_type)
 {
-    CXCursor cursor = clang_getTypeDeclaration(type);
-    CXType underlying_type = get_underlying_type(cursor);
     CXType canonical_type;
     CXString type_spelling;
     lstr_t type_spelling_str;
@@ -286,40 +316,53 @@ static int check_current_file_is_set(CXCursor cursor)
     return 0;
 }
 
-static lstr_t add_new_name(lstr_t name)
+static pxcc_record_name_t *get_or_add_new_record_name(lstr_t name)
 {
-    int pos = qh_put(lstr, &_G.names, &name, 0);
+    uint32_t pos;
+    pxcc_record_name_t *record_name;
 
+    pos = qm_reserve(pxcc_record_name, &_G.record_names, &name, 0);
     if (pos & QHASH_COLLISION) {
-        return LSTR_NULL_V;
+        return _G.record_names.values[pos ^ QHASH_COLLISION];
     }
 
-    name = lstr_dup(name);
-    _G.names.keys[pos] = name;
-    return lstr_dupc(name);
+    record_name = pxcc_record_name_new();
+    record_name->name = lstr_dup(name);
+    _G.record_names.keys[pos] = record_name->name;
+    _G.record_names.values[pos] = record_name;
+    return record_name;
 }
 
-static lstr_t add_new_name_type(CXType type)
+static pxcc_record_name_t *get_or_add_new_record_name_type(CXType type)
 {
     CXString spelling = clang_getTypeSpelling(type);
     lstr_t name = get_unconst_type_spelling(spelling);
+    pxcc_record_name_t *record_name;
 
-    name = add_new_name(name);
+    record_name = get_or_add_new_record_name(name);
     clang_disposeString(spelling);
-    return name;
+    return record_name;
 }
 
-static pxcc_record_t *add_new_record(lstr_t name, CXCursor cursor,
-                                     pxcc_record_kind_t kind)
+static pxcc_record_t *nullable
+add_new_record(pxcc_record_name_t *record_name, CXCursor cursor,
+               pxcc_record_kind_t kind)
 {
     pxcc_record_t *record;
 
+    if (record_name->status == PXCC_RECORD_NAME_COMPLETED) {
+        /* No record to add if it is already completed. */
+        return NULL;
+    }
+
     record = qv_growlen(&_G.records, 1);
     p_clear(record, 1);
-    record->name = name;
+    record->name = lstr_dupc(record_name->name);
     record->file = _G.current_file;
     record->cursor = cursor;
     record->kind = kind;
+
+    record_name->status = PXCC_RECORD_NAME_COMPLETED;
 
     return record;
 }
@@ -397,51 +440,79 @@ t_visit_register_type_fields(CXCursor cursor, CXCursor parent,
     return CXChildVisit_Continue;
 }
 
-static void add_new_typedef_record(lstr_t name, CXCursor cursor,
+static void add_new_typedef_record(pxcc_record_name_t *record_name,
+                                   CXCursor cursor,
                                    pxcc_typedef_kind_t typedef_kind)
 {
     pxcc_record_t *record;
 
-    record = add_new_record(name, cursor, PXCC_RECORD_TYPEDEF);
-    record->typedef_kind = typedef_kind;
+    record = add_new_record(record_name, cursor, PXCC_RECORD_TYPEDEF);
+    if (record) {
+        record->typedef_kind = typedef_kind;
+    }
 }
 
 static int t_register_typedef_type(CXType type, qv_t(cstr) *type_stack)
 {
-    CXCursor cursor = clang_getTypeDeclaration(type);
-    lstr_t name = add_new_name_type(type);
+    pxcc_record_name_t *record_name;
+    CXCursor cursor;
+    CXType underlying_type;
     pxcc_typedef_kind_t typedef_kind;
 
-    if (!name.s) {
+    record_name = get_or_add_new_record_name_type(type);
+    switch (record_name->status) {
+    case PXCC_RECORD_NAME_NEW:
+        /* It is new, process it as usual. */
+        record_name->status = PXCC_RECORD_NAME_VISITED;
+        break;
+
+    case PXCC_RECORD_NAME_VISITED:
+        /* Recursive call for this record name.
+         * We need to continue until it is resolved by forwarding canonical
+         * type.
+         */
+        break;
+
+    case PXCC_RECORD_NAME_FORWARDED:
+        /* Should not happen. */
+        assert(false);
+        break;
+
+    case PXCC_RECORD_NAME_COMPLETED:
+        /* The record was already registered, nothing to do here. */
         return 0;
     }
 
-    typedef_kind = get_typedef_kind(type);
+    cursor = clang_getTypeDeclaration(type);
+    underlying_type = get_underlying_type(cursor);
+    typedef_kind = get_typedef_kind(type, underlying_type);
 
-    if (typedef_kind == PXCC_TYPEDEF_UNNAMED) {
+    switch (typedef_kind) {
+    case PXCC_TYPEDEF_UNNAMED:
         if (clang_visitChildren(cursor, t_visit_register_type_fields,
                                 type_stack))
         {
             return -1;
         }
-        add_new_typedef_record(name, cursor, typedef_kind);
-    } else {
-        CXType underlying_type = get_underlying_type(cursor);
+        add_new_typedef_record(record_name, cursor, typedef_kind);
+        break;
 
+    default: {
         switch (underlying_type.kind) {
-          case CXType_FunctionNoProto:
-          case CXType_FunctionProto:
+        case CXType_FunctionNoProto:
+        case CXType_FunctionProto:
             /* In case of typedef to function, we need to do first add the
              * record and then register the type. */
-            add_new_typedef_record(name, cursor, typedef_kind);
+            add_new_typedef_record(record_name, cursor, typedef_kind);
             RETHROW(t_register_type(underlying_type, type_stack));
             break;
 
-          default:
+        default:
             RETHROW(t_register_type(underlying_type, type_stack));
-            add_new_typedef_record(name, cursor, typedef_kind);
+            add_new_typedef_record(record_name, cursor, typedef_kind);
             break;
         }
+    } break;
     }
 
     return 0;
@@ -482,29 +553,58 @@ static const ctype_desc_t *get_non_anonymous_ctype(void)
 
 static int t_register_record_enum_type(CXType type, qv_t(cstr) *type_stack)
 {
-    const ctype_desc_t *non_anonymous_ctype = get_non_anonymous_ctype();
-    CXString spelling = clang_getTypeSpelling(type);
-    lstr_t name = get_unconst_type_spelling(spelling);
-    CXCursor cursor = clang_getTypeDeclaration(type);
-    bool is_anonymous = !lstr_match_ctype(name, non_anonymous_ctype);
+    const ctype_desc_t *non_anonymous_ctype;
+    CXString spelling;
+    lstr_t name;
+    CXCursor cursor;
+    bool is_anonymous;
+    pxcc_record_name_t *record_name;
     lstr_t canonical_name;
     qv_t(cstr) local_type_stack;
 
+    spelling = clang_getTypeSpelling(type);
+    name = get_unconst_type_spelling(spelling);
+    cursor = clang_getTypeDeclaration(type);
+
+    non_anonymous_ctype = get_non_anonymous_ctype();
+    is_anonymous = !lstr_match_ctype(name, non_anonymous_ctype);
     if (is_anonymous) {
+        /* When the record is anonymous, we need to create a custom type in
+         * Cython */
         const char *prefix = get_cursor_kind_prefix(cursor);
 
         RETHROW_PN(prefix);
         name = t_concat_type_stack(type_stack, "__", prefix, "_t");
     }
 
-    name = add_new_name(name);
+    record_name = get_or_add_new_record_name(name);
     clang_disposeString(spelling);
-    if (!name.s) {
+
+    switch (record_name->status) {
+    case PXCC_RECORD_NAME_NEW:
+        /* It is new, process it as usual. */
+        record_name->status = PXCC_RECORD_NAME_VISITED;
+        break;
+
+    case PXCC_RECORD_NAME_VISITED:
+        /* Recursive call for this record name.
+         * Create a forward record, and wait for complete record later on.
+         */
+        add_new_record(record_name, cursor, PXCC_RECORD_FORWARD);
+        record_name->status = PXCC_RECORD_NAME_FORWARDED;
+        return 0;
+
+    case PXCC_RECORD_NAME_FORWARDED:
+    case PXCC_RECORD_NAME_COMPLETED:
+        /* The record was already forwarded or registered,
+         * nothing to do here. */
         return 0;
     }
 
-    canonical_name = get_canonical_record_enum_type_name(name);
+    canonical_name = get_canonical_record_enum_type_name(record_name->name);
     if (is_anonymous) {
+        /* When the record is anonymous, we want to register the name of the
+         * custom type corresponding to the cursor */
         qm_add(cxcursor_name, &_G.anonymous_types, &cursor, canonical_name);
     } else {
         t_qv_init(&local_type_stack, 1);
@@ -517,7 +617,7 @@ static int t_register_record_enum_type(CXType type, qv_t(cstr) *type_stack)
         return -1;
     }
 
-    add_new_record(name, cursor, PXCC_RECORD_CANONICAL_TYPE);
+    add_new_record(record_name, cursor, PXCC_RECORD_CANONICAL_TYPE);
 
     return 0;
 }
@@ -597,33 +697,49 @@ type_decl_visitor(CXCursor cursor, CXCursor parent, CXClientData data)
     return CXChildVisit_Continue;
 }
 
-static lstr_t add_new_name_symbol(CXCursor cursor)
+static pxcc_record_name_t *get_or_add_new_record_name_symbol(CXCursor cursor)
 {
     CXString spelling = clang_getCursorSpelling(cursor);
     lstr_t name = LSTR(clang_getCString(spelling));
+    pxcc_record_name_t *record_name;
 
-    name = add_new_name(name);
+    record_name = get_or_add_new_record_name(name);
     clang_disposeString(spelling);
-    return name;
+    return record_name;
 }
 
 static int register_symbol(CXCursor cursor)
 {
     t_scope;
-    lstr_t name;
+    pxcc_record_name_t *record_name;
     qv_t(cstr) type_stack;
 
     cursor = clang_getCursorReferenced(cursor);
-    name = add_new_name_symbol(cursor);
+    record_name = get_or_add_new_record_name_symbol(cursor);
 
-    if (!name.s) {
+    switch (record_name->status) {
+    case PXCC_RECORD_NAME_NEW:
+        /* It is new, process it as usual. */
+        record_name->status = PXCC_RECORD_NAME_VISITED;
+        break;
+
+    case PXCC_RECORD_NAME_VISITED:
+    case PXCC_RECORD_NAME_FORWARDED:
+        /* Should not happen, recursive call should not be present for
+         * symbols. */
+        assert(false);
+        break;
+
+    case PXCC_RECORD_NAME_COMPLETED:
+        /* The record was already forwarded or registered,
+         * nothing to do here. */
         return 0;
     }
 
     t_qv_init(&type_stack, 0);
     RETHROW(t_register_type_cursor(cursor, &type_stack));
 
-    add_new_record(name, cursor, PXCC_RECORD_SYMBOL);
+    add_new_record(record_name, cursor, PXCC_RECORD_SYMBOL);
 
     return 0;
 }
@@ -1126,6 +1242,12 @@ static int print_symbol(pxcc_record_t *record)
     return 0;
 }
 
+static int print_forward(pxcc_record_t *record)
+{
+    printf("    cdef %pL\n\n", &record->name);
+    return 0;
+}
+
 static void print_header(void)
 {
     printf(
@@ -1162,6 +1284,10 @@ static int _print_registered_types_and_symbols(void)
 
           case PXCC_RECORD_SYMBOL:
             RETHROW(print_symbol(record));
+            break;
+
+          case PXCC_RECORD_FORWARD:
+            RETHROW(print_forward(record));
             break;
         }
     }
@@ -1494,7 +1620,8 @@ int main(int argc, char *argv[])
     res = do_parse(argc, argv);
 
     qv_deep_wipe(&_G.files, lstr_wipe);
-    qh_deep_wipe(lstr, &_G.names, lstr_wipe);
+    qm_deep_wipe(pxcc_record_name, &_G.record_names, IGNORE,
+                 pxcc_record_name_delete);
     qv_wipe(&_G.records);
 
     return res;

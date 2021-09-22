@@ -54,6 +54,8 @@ PXCC_EXPORT_TYPE(crazy_field_t);
 
 PXCC_EXPORT_TYPE(qh_u32_t);
 
+PXCC_EXPORT_TYPE(recursive_ref_cb_f);
+
 /* }}} */
 /* {{{ Python->C call */
 

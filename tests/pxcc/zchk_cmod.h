@@ -168,6 +168,13 @@ typedef union qh_u32_t {
     STRUCT_QHASH_T(uint32_t, void);
 } qh_u32_t;
 
+/* Recursive reference between struct and callback */
+typedef struct recursive_ref_struct_t recursive_ref_struct_t;
+typedef void (*recursive_ref_cb_f)(recursive_ref_struct_t *);
+struct recursive_ref_struct_t {
+    recursive_ref_cb_f cb;
+};
+
 /* }}} */
 /* {{{ Python->C call */
 
