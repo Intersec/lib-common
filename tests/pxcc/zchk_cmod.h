@@ -188,6 +188,50 @@ struct recursive_ref_struct_t {
     recursive_ref_cb_f cb;
 };
 
+/* Cython keywords */
+typedef struct cython_keywords_t {
+    int False;
+    int None;
+    int True;
+    int and;
+    int as;
+    int async;
+    int await;
+    int cimport;
+    int class;
+    int def;
+    int del;
+    int elif;
+    int except;
+    int finally;
+    int from;
+    int global;
+    int include;
+    int import;
+    int in;
+    int is;
+    int lambda;
+    int nonlocal;
+    int not;
+    int or;
+    int pass;
+    int raise;
+    int try;
+    int with;
+    int yield;
+} cython_keywords_t;
+
+typedef struct include include;
+union import;
+typedef union import with;
+enum except {
+    finally,
+};
+typedef union {
+    enum except pass;
+} raise;
+void yield(void);
+
 /* }}} */
 /* {{{ Python->C call */
 

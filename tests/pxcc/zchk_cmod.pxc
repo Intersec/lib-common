@@ -60,6 +60,14 @@ PXCC_EXPORT_TYPE(qh_u32_t);
 
 PXCC_EXPORT_TYPE(recursive_ref_cb_f);
 
+PXCC_EXPORT_TYPE(cython_keywords_t);
+PXCC_EXPORT_TYPE(include);
+PXCC_EXPORT_TYPE(union import);
+PXCC_EXPORT_TYPE(with);
+PXCC_EXPORT_TYPE(enum except);
+PXCC_EXPORT_TYPE(raise);
+PXCC_EXPORT_SYMBOL(yield);
+
 /* }}} */
 /* {{{ Python->C call */
 

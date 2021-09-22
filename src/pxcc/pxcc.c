@@ -36,6 +36,44 @@
 #define PXCC_EXPORT_TYPE_PREFIX    "pxcc_exported_type_"
 #define PXCC_EXPORT_SYMBOL_PREFIX  "pxcc_exported_symbol_"
 
+static lstr_t cython_keywords_to_escape_g[] = {
+    LSTR_IMMED("and"),
+    LSTR_IMMED("cimport"),
+    LSTR_IMMED("class"),
+    LSTR_IMMED("def"),
+    LSTR_IMMED("del"),
+    LSTR_IMMED("elif"),
+    LSTR_IMMED("except"),
+    LSTR_IMMED("finally"),
+    LSTR_IMMED("from"),
+    LSTR_IMMED("global"),
+    LSTR_IMMED("include"),
+    LSTR_IMMED("import"),
+    LSTR_IMMED("in"),
+    LSTR_IMMED("is"),
+    LSTR_IMMED("lambda"),
+    LSTR_IMMED("nonlocal"),
+    LSTR_IMMED("not"),
+    LSTR_IMMED("or"),
+    LSTR_IMMED("pass"),
+    LSTR_IMMED("raise"),
+    LSTR_IMMED("try"),
+    LSTR_IMMED("with"),
+    LSTR_IMMED("yield"),
+
+/* XXX: The following words are officially keywords for Python, but do not
+ * trigger an error with Cython.
+ */
+#if 0
+    LSTR_IMMED("False"),
+    LSTR_IMMED("None"),
+    LSTR_IMMED("True"),
+    LSTR_IMMED("as"),
+    LSTR_IMMED("async"),
+    LSTR_IMMED("await"),
+#endif
+};
+
 typedef enum CXChildVisitResult CXChildVisitResult;
 typedef enum CXCursorKind CXCursorKind;
 typedef enum CXErrorCode CXErrorCode;
@@ -125,10 +163,12 @@ static struct {
     qv_t(pxcc_record) records;
     qm_t(cxcursor_name) anonymous_types;
     bool close_stdout;
+    qh_t(lstr) cython_keywords_to_escape;
 } pxcc_g = {
 #define _G  pxcc_g
     .record_names = QM_INIT(pxcc_record_name, _G.record_names),
     .anonymous_types = QM_INIT(anonymous_types, _G.anonymous_types),
+    .cython_keywords_to_escape = QH_INIT(lstr, _G.cython_keywords_to_escape),
 };
 
 /* {{{ Helpers */
@@ -802,6 +842,66 @@ static int register_types_symbols(CXTranslationUnit translation_unit)
 /* }}} */
 /* {{{ Print */
 
+static bool is_cython_keyword_to_escape(lstr_t name)
+{
+    return qh_find(lstr, &_G.cython_keywords_to_escape, &name) >= 0;
+}
+
+static lstr_t t_format_cython_keyword(lstr_t name)
+{
+    return t_lstr_fmt("c_%pL", &name);
+}
+
+static lstr_t t_escape_cython_keyword(lstr_t name)
+{
+    if (is_cython_keyword_to_escape(name)) {
+        lstr_t formatted_name = t_format_cython_keyword(name);
+
+        return t_lstr_fmt("%pL \"%pL\"", &formatted_name, &name);
+    }
+    return name;
+}
+
+static lstr_t t_escape_cython_keyword_record(const pxcc_record_t *record)
+{
+    pstream_t name_ps;
+    pstream_t prefix_ps = ps_init(NULL, 0);
+    lstr_t name_lstr;
+
+    name_ps = ps_initlstr(&record->name);
+    ps_get_ps_chr_and_skip(&name_ps, ' ', &prefix_ps);
+    name_lstr = LSTR_PS_V(&name_ps);
+    if (is_cython_keyword_to_escape(name_lstr)) {
+        lstr_t prefix_lstr = LSTR_PS_V(&prefix_ps);
+        lstr_t formatted_name = t_format_cython_keyword(name_lstr);
+        const char *space = prefix_ps.s ? " ": "";
+
+        return t_lstr_fmt("%pL%s%pL \"%pL\"", &prefix_lstr, space,
+                          &formatted_name, &name_lstr);
+    }
+
+    return lstr_dupc(record->name);
+}
+
+static lstr_t t_escape_cython_keyword_type(CXType type, bool use_canonical)
+{
+    CXString spelling = clang_getTypeSpelling(type);
+    lstr_t name = LSTR(clang_getCString(spelling));
+
+    if (use_canonical) {
+        name = get_canonical_record_enum_type_name(name);
+    }
+
+    if (is_cython_keyword_to_escape(name)) {
+        name = t_format_cython_keyword(name);
+    } else {
+        name = t_lstr_dup(name);
+    }
+
+    clang_disposeString(spelling);
+    return name;
+}
+
 typedef struct pxcc_print_field_t {
     sb_t sb_before;
     sb_t sb_after;
@@ -850,7 +950,6 @@ static void t_print_parentheses_prev_is_ptr(pxcc_print_field_t *ctx,
         t_print_field_add_before(ctx, "(");
         t_print_field_add_after(ctx, ")");
     }
-
 }
 
 static lstr_t t_concat_print_field(pxcc_print_field_t *ctx)
@@ -864,10 +963,9 @@ static lstr_t t_concat_print_field(pxcc_print_field_t *ctx)
 
 static void t_print_canonical_type(CXType type, pxcc_print_field_t *ctx)
 {
-    CXString type_spelling = clang_getTypeSpelling(type);
+    lstr_t name = t_escape_cython_keyword_type(type, false);
 
-    t_print_field_add_before(ctx, "%s ", clang_getCString(type_spelling));
-    clang_disposeString(type_spelling);
+    t_print_field_add_before(ctx, "%pL ", &name);
 }
 
 static void t_print_bool_type(CXType type, pxcc_print_field_t *ctx)
@@ -930,13 +1028,11 @@ static CXType t_print_function_type(CXType type, pxcc_print_field_t *ctx)
 static void t_print_record_enum_field(CXType type, pxcc_print_field_t *ctx)
 {
     CXCursor cursor = clang_getTypeDeclaration(type);
-    CXString spelling = clang_getTypeSpelling(type);
     int pos = qm_find(cxcursor_name, &_G.anonymous_types, &cursor);
     lstr_t name;
 
     if (pos < 0) {
-        name = LSTR(clang_getCString(spelling));
-        name = get_canonical_record_enum_type_name(name);
+        name = t_escape_cython_keyword_type(type, true);
     } else {
         name = _G.anonymous_types.values[pos];
     }
@@ -946,7 +1042,6 @@ static void t_print_record_enum_field(CXType type, pxcc_print_field_t *ctx)
     if (clang_isConstQualifiedType(type)) {
         t_print_field_add_before(ctx, "const ");
     }
-    clang_disposeString(spelling);
 }
 
 static void t_print_field_type(CXType type, pxcc_print_field_t *ctx)
@@ -1015,12 +1110,14 @@ static void print_field_definition(CXCursor cursor, CXType type)
     pxcc_print_field_t ctx;
     CXString cursor_spelling;
     const char *cursor_spelling_str;
+    lstr_t name;
     lstr_t res;
 
     t_pxcc_print_field_init(&ctx);
     cursor_spelling = clang_getCursorSpelling(cursor);
     cursor_spelling_str = clang_getCString(cursor_spelling);
-    t_print_field_add_after(&ctx, "%s", cursor_spelling_str);
+    name = t_escape_cython_keyword(LSTR(cursor_spelling_str));
+    t_print_field_add_after(&ctx, "%pL", &name);
     clang_disposeString(cursor_spelling);
 
     t_print_field_type(type, &ctx);
@@ -1098,10 +1195,14 @@ static int print_type_fields(CXCursor cursor)
 
 static int print_enum_field(CXCursor cursor, CXType decl_type)
 {
+    t_scope;
     CXString cursor_spelling;
+    lstr_t name;
 
     cursor_spelling = clang_getCursorSpelling(cursor);
-    printf("        %s = ", clang_getCString(cursor_spelling));
+    name = LSTR(clang_getCString(cursor_spelling));
+    name = t_escape_cython_keyword(name);
+    printf("        %pL = ", &name);
     clang_disposeString(cursor_spelling);
 
     switch (decl_type.kind) {
@@ -1170,7 +1271,11 @@ static int print_enum_fields(CXCursor cursor)
 
 static int print_canonical_type(pxcc_record_t *record)
 {
-    printf("    cdef %pL:\n", &record->name);
+    t_scope;
+    lstr_t name;
+
+    name = t_escape_cython_keyword_record(record);
+    printf("    cdef %pL:\n", &name);
     if (clang_getCursorKind(record->cursor) == CXCursor_EnumDecl) {
         RETHROW(print_enum_fields(record->cursor));
     } else {
@@ -1198,24 +1303,33 @@ static const char *get_unnamed_typedef_kind_prefix(CXCursor cursor)
     return get_cursor_kind_prefix(canonical_cursor);
 }
 
+static int print_unnamed_typedef(pxcc_record_t *record)
+{
+    t_scope;
+    const char *prefix;
+    lstr_t name;
+
+    prefix = RETHROW_PN(get_unnamed_typedef_kind_prefix(record->cursor));
+    name = t_escape_cython_keyword_record(record);
+    printf("    ctypedef %s%pL:\n", prefix, &name);
+    print_type_fields(record->cursor);
+    return 0;
+}
+
 static int print_typedef(pxcc_record_t *record)
 {
     switch (record->typedef_kind) {
-      case PXCC_TYPEDEF_TRANSPARENT:
+    case PXCC_TYPEDEF_TRANSPARENT:
         /* Do not print transparent typedef. */
         break;
 
-      case PXCC_TYPEDEF_DIFFERENT:
+    case PXCC_TYPEDEF_DIFFERENT:
         print_different_typedef(record);
         break;
 
-      case PXCC_TYPEDEF_UNNAMED: {
-        const char *prefix = get_unnamed_typedef_kind_prefix(record->cursor);
-
-        RETHROW_PN(prefix);
-        printf("    ctypedef %s%pL:\n", prefix, &record->name);
-        print_type_fields(record->cursor);
-      } break;
+    case PXCC_TYPEDEF_UNNAMED:
+        RETHROW(print_unnamed_typedef(record));
+        break;
     }
 
     return 0;
@@ -1231,7 +1345,11 @@ static int print_symbol(pxcc_record_t *record)
 
 static int print_forward(pxcc_record_t *record)
 {
-    printf("    cdef %pL\n\n", &record->name);
+    t_scope;
+    lstr_t name;
+
+    name = t_escape_cython_keyword_record(record);
+    printf("    cdef %pL\n\n", &name);
     return 0;
 }
 
@@ -1554,6 +1672,15 @@ static int do_parse(int argc, char *argv[])
 /* }}} */
 /* {{{ Main */
 
+static void make_cython_keywords_to_escape_qh(void)
+{
+    qh_set_minsize(lstr, &_G.cython_keywords_to_escape,
+                   countof(cython_keywords_to_escape_g));
+    carray_for_each_entry(keyword, cython_keywords_to_escape_g) {
+        qh_add(lstr, &_G.cython_keywords_to_escape, &keyword);
+    }
+}
+
 static popt_t options_g[] = {
     OPT_FLAG('h', "help",    &_G.opts.help,    "show this help"),
     OPT_FLAG('v', "version", &_G.opts.version, "show version"),
@@ -1604,12 +1731,14 @@ int main(int argc, char *argv[])
         makeusage(!_G.opts.help, arg0, small_usage_g, usage_g, options_g);
     }
 
+    make_cython_keywords_to_escape_qh();
     res = do_parse(argc, argv);
 
     qv_deep_wipe(&_G.files, lstr_wipe);
     qm_deep_wipe(pxcc_record_name, &_G.record_names, IGNORE,
                  pxcc_record_name_delete);
     qv_wipe(&_G.records);
+    qh_wipe(lstr, &_G.cython_keywords_to_escape);
 
     return res;
 }
