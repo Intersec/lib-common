@@ -177,7 +177,7 @@ cdef dict class_attrs_dict_g = {
 
 
 cdef inline bytes py_str_to_py_bytes(str val):
-    """Encode python str to python bytes.
+    """Encode python str to python bytes with UTF-8 codec.
 
     Parameters
     ----------
@@ -188,26 +188,28 @@ cdef inline bytes py_str_to_py_bytes(str val):
     -------
         The encoded python bytes.
     """
-    return val.encode('UTF-8', 'strict')
+    return val.encode('utf8', 'strict')
 
 
-cdef inline str py_bytes_to_py_str(bytes val):
-    """Decode python bytes to python str.
+cdef inline bytes c_str_len_to_py_bytes(const char *val, Py_ssize_t length):
+    """Convert C string with length to python bytes.
 
     Parameters
     ----------
     val
-        The bytes object to encode.
+        The C string to convert.
+    length
+        The length of the C string.
 
     Returns
     -------
-        The decoded python str.
+        The converted python bytes.
     """
-    return val.decode('UTF-8', 'strict')
+    return val[:length]
 
 
-cdef inline str c_str_to_py_str(const char *val):
-    """Convert C string to python string.
+cdef inline bytes c_str_to_py_bytes(const char *val):
+    """Convert C string to python bytes.
 
     Parameters
     ----------
@@ -216,9 +218,60 @@ cdef inline str c_str_to_py_str(const char *val):
 
     Returns
     -------
-        The python string
+        The converted python bytes.
     """
-    return val.decode('UTF-8', 'strict')
+    return c_str_len_to_py_bytes(val, len(val))
+
+
+cdef inline str c_str_len_to_py_str(const char *val, Py_ssize_t length):
+    """Decode C string with length to python str.
+
+    We use UTF-8 codec with backslash replace error handling.
+    Malformed data is replaced by a backslashed escape sequence, (i.e. \\xXX).
+    See https://docs.python.org/3/library/codecs.html#error-handlers.
+
+    Parameters
+    ----------
+    val
+        The C string to decode.
+    length
+        The length of the C string.
+
+    Returns
+    -------
+        The decoded python str.
+    """
+    return val[:length].decode('utf8', 'backslashreplace')
+
+
+cdef inline str c_str_to_py_str(const char *val):
+    """Decode C string to python str.
+
+    Parameters
+    ----------
+    val
+        The C string to decode.
+
+    Returns
+    -------
+        The decoded python str.
+    """
+    return c_str_len_to_py_str(val, len(val))
+
+
+cdef inline str py_bytes_to_py_str(bytes val):
+    """Decode python bytes to python str.
+
+    Parameters
+    ----------
+    val
+        The bytes object to decode.
+
+    Returns
+    -------
+        The decoded python str.
+    """
+    return c_str_len_to_py_str(val, len(val))
 
 
 cdef inline bytes lstr_to_py_bytes(lstr_t lstr):
@@ -233,7 +286,7 @@ cdef inline bytes lstr_to_py_bytes(lstr_t lstr):
     -------
         The python bytes.
     """
-    return lstr.s[:lstr.len]
+    return c_str_len_to_py_bytes(lstr.s, lstr.len)
 
 
 cdef inline str lstr_to_py_str(lstr_t lstr):
@@ -248,7 +301,7 @@ cdef inline str lstr_to_py_str(lstr_t lstr):
     -------
         The python str.
     """
-    return (lstr.s[:lstr.len]).decode('UTF-8', 'strict')
+    return c_str_len_to_py_str(lstr.s, lstr.len)
 
 
 cdef inline lstr_t mp_lstr_opt_force_alloc(mem_pool_t *mp, lstr_t val,
