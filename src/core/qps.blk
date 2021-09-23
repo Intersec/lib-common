@@ -758,7 +758,7 @@ static void qps_unquarantine_nos(qps_t *qps)
 {
     char buf[32];
 
-    qv_extend(&qps->no_free, &qps->no_blocked);
+    qv_extend_tab(&qps->no_free, &qps->no_blocked);
     dsort32(qps->no_free.tab, qps->no_free.len);
 
     for (int i = 0; i < qps->no_blocked.len; i++) {

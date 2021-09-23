@@ -1373,7 +1373,7 @@ static lstr_t iopc_struct_sig(iopc_struct_t *st)
 
         /* Dump fields */
         t_qv_init(&tab, st->fields.len);
-        qv_extend(&tab, &st->fields);
+        qv_extend_tab(&tab, &st->fields);
         qv_sort(iopc_field)(&tab,
             ^int (iopc_field_t * const *f1, iopc_field_t * const *f2)
         {

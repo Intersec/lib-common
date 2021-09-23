@@ -50,8 +50,7 @@ z_check_yaml(iop_openapi_t *openapi, const char *filename,
 
     Z_ASSERT_N(t_iop_openapi_to_yaml(openapi, &data, &err));
     if (remove_schemas) {
-        /* remove the 5th element */
-        qv_splice(&data.obj->fields, 4, 1, NULL, 0);
+        qv_remove(&data.obj->fields, 4);
     }
     env = t_yaml_pack_env_new();
     Z_ASSERT_N(t_yaml_pack_sb(env, &data, &sb, NULL));

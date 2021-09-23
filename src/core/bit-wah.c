@@ -850,8 +850,7 @@ static void wah_add_literal(wah_t *map, const uint8_t *src, uint64_t count)
                      (_G.bits_in_bucket - bucket_len) / WAH_BIT_IN_WORD);
 
         *wah_last_run_count(map) += to_add;
-        qv_splice(bucket, bucket->len, 0,
-                  (wah_word_t *)src, to_add);
+        qv_extend(bucket, (wah_word_t *)src, to_add);
 
         count    -= to_add * 4;
         src      += to_add * 4;
@@ -981,7 +980,7 @@ void wah_copy_run(wah_t *map, wah_word_enum_t *run, wah_word_enum_t *data)
 
         *wah_last_run_count(map) += count;
         bucket = tab_last(&map->_buckets);
-        qv_splice(bucket, bucket->len, 0, words, count);
+        qv_extend(bucket, words, count);
         if (data->reverse) {
             for (int i = bucket->len - count; i < bucket->len; i++) {
                 bucket->tab[i].literal = ~bucket->tab[i].literal;
@@ -1494,8 +1493,7 @@ from_data_split_chunk(from_data_ctx_t *ctx, wah_header_t head, uint64_t words)
     }
 
     /* In any case, we copy all the previous chunks. */
-    qv_splice(ctx->bucket, ctx->bucket->len, 0,
-              ctx->tab, ctx->pos - 2);
+    qv_extend(ctx->bucket, ctx->tab, ctx->pos - 2);
 
     /* Deal with the run. */
     if (ctx->bucket_len + head.words * WAH_BIT_IN_WORD > _G.bits_in_bucket) {
@@ -1537,8 +1535,7 @@ from_data_split_chunk(from_data_ctx_t *ctx, wah_header_t head, uint64_t words)
 
             count = (_G.bits_in_bucket - ctx->bucket_len) / WAH_BIT_IN_WORD;
             qv_append(ctx->bucket, (wah_word_t){ .count = count });
-            qv_splice(ctx->bucket, ctx->bucket->len, 0,
-                      &ctx->tab[ctx->pos], count);
+            qv_extend(ctx->bucket, &ctx->tab[ctx->pos], count);
 
             ctx->bucket = wah_create_bucket(ctx->map, 0);
             ctx->map->previous_run_pos = -1;
@@ -1554,8 +1551,7 @@ from_data_split_chunk(from_data_ctx_t *ctx, wah_header_t head, uint64_t words)
 
         /* We can safely copy the rest of the uncompressed words. */
         qv_append(ctx->bucket, (wah_word_t){ .count = words });
-        qv_splice(ctx->bucket, ctx->bucket->len, 0,
-                  &ctx->tab[ctx->pos], words);
+        qv_extend(ctx->bucket, &ctx->tab[ctx->pos], words);
         ctx->bucket_len += words * WAH_BIT_IN_WORD;
         ctx->pos += words;
         break;
@@ -1611,8 +1607,7 @@ wah_t *mp_wah_init_from_data(mem_pool_t *mp, wah_t *map, pstream_t data)
                     /* We have an opened bucket, add this chunk. */
                     map->previous_run_pos = map->last_run_pos;
                     map->last_run_pos     = ctx.bucket->len;
-                    qv_splice(ctx.bucket, ctx.bucket->len, 0,
-                              &ctx.tab[ctx.pos - 2], words + 2);
+                    qv_extend(ctx.bucket, &ctx.tab[ctx.pos - 2], words + 2);
                 } else {
                     /* No opened bucket, the chunk will be added after. */
                     map->previous_run_pos = map->last_run_pos;

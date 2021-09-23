@@ -522,13 +522,29 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
 #define qv_appendp(vec, v)               qv_append(vec, *(v))
 #define qv_pushp(vec, v)                 qv_push(vec, *(v))
 
-#define qv_extend(vec, _tab)                                                 \
+/** Append the elements from an array characterized by a pointer and a length.
+
+ *
+ * \param[in] _ptr  Pointer to the first element of the array.
+ * \param[in] _len  The length of array to append.
+ */
+#define qv_extend(vec, _ptr, _len)                                           \
     ({                                                                       \
-        typeof(_tab) __tab = (_tab);                                         \
-        int __len = __tab->len;                                              \
-        typeof(*(vec)->tab) *__w = qv_growlen((vec), __len);                 \
+        int _qv_extend_len = (_len);                                         \
+        __qv_typeof(vec) *_qv_extend_w = qv_growlen((vec), _qv_extend_len);  \
                                                                              \
-        p_copy(__w, __tab->tab, __len);                                      \
+        p_copy(_qv_extend_w, (_ptr), _qv_extend_len);                        \
+    })
+
+/** Append the elements from an array-like structure.
+ *
+ * \param[in] _tab  Array-like structure with attributes \p tab and \p len.
+ */
+#define qv_extend_tab(vec, _tab)                                             \
+    ({                                                                       \
+        typeof(_tab) _qv_extend_tab_tab = (_tab);                            \
+                                                                             \
+        qv_extend((vec), _qv_extend_tab_tab->tab, _qv_extend_tab_tab->len);  \
     })
 
 #define qv_copy(vec_out, vec_in)                                             \

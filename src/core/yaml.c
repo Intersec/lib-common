@@ -2681,8 +2681,8 @@ static int yaml_env_merge_seq(yaml_parse_t * nonnull env,
     }
 
     /* Until a proper syntax is found, seq merge are only additive */
-    qv_extend(&seq->datas, &override->datas);
-    qv_extend(&seq->pres_nodes, &override->pres_nodes);
+    qv_extend_tab(&seq->datas, &override->datas);
+    qv_extend_tab(&seq->pres_nodes, &override->pres_nodes);
 
     return 0;
 }
@@ -4204,7 +4204,7 @@ t_merge_elems_to_data(qv_t(qv_kd) * nonnull objs, bool has_only_merge_key,
     t_yaml_data_new_obj(out, last_elem ? last_elem->len + 1 : 1);
     yaml_obj_add_field(out, LSTR("<<"), merge_data);
     if (last_elem) {
-        qv_extend(&out->obj->fields, last_elem);
+        qv_extend_tab(&out->obj->fields, last_elem);
     }
 }
 
@@ -5396,7 +5396,7 @@ t_deduce_variable_values(yaml_pack_env_t * nonnull env,
     qv_t(u8) var_bitmap;
 
     t_qv_init(&var_bitmap, 0);
-    qv_extend(&var_bitmap, variables_bitmap);
+    qv_extend_tab(&var_bitmap, variables_bitmap);
 
     if (data->type == YAML_DATA_SCALAR
     &&  data->scalar.type == YAML_SCALAR_STRING)

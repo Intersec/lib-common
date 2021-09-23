@@ -108,7 +108,7 @@ static void iopc_struct_build_fields_by_tag(iopc_struct_t *st)
         return;
     }
 
-    qv_extend(&st->fields_by_tag, &st->fields);
+    qv_extend_tab(&st->fields_by_tag, &st->fields);
     qv_sort(iopc_field)(&st->fields_by_tag, ^int (iopc_field_t * const *f1,
                                                   iopc_field_t * const *f2) {
         return (*f1)->tag - (*f2)->tag;
@@ -148,7 +148,7 @@ static void iopc_struct_optimize(iopc_struct_t *st)
     orig_size = ROUND_UP(orig_size, st->align);
 
     iopc_struct_build_fields_by_tag(st);
-    qv_extend(&st->fields_in_c_struct_order, &st->fields_by_tag);
+    qv_extend_tab(&st->fields_in_c_struct_order, &st->fields_by_tag);
 
     if (st->type == STRUCT_TYPE_UNION) {
         /*
@@ -3561,8 +3561,8 @@ iopc_pkg_dump_src(sb_t *buf, iopc_pkg_t *pkg,
     qv_t(iopc_pkg) deps;
 
     t_qv_init(&deps, 1024);
-    qv_extend(&deps, t_deps);
-    qv_extend(&deps, i_deps);
+    qv_extend_tab(&deps, t_deps);
+    qv_extend_tab(&deps, i_deps);
     iopc_depends_uniquify(&deps);
 
     sb_addf(buf,

@@ -1297,7 +1297,7 @@ Z_GROUP_EXPORT(qvector)
         }
         Z_ASSERT_ZERO(it);
 
-        qv_splice(&vec, 0, 0, table, countof(table));
+        qv_extend(&vec, table, countof(table));
 
         tab_for_each_pos(pos, &vec) {
             Z_ASSERT_EQ(pos, it);
@@ -1334,7 +1334,7 @@ Z_GROUP_EXPORT(qvector)
 
         for (int i = 0; i <= countof(table); i++) {
             qv_clear(&vec);
-            qv_splice(&vec, 0, 0, table, countof(table));
+            qv_extend(&vec, table, countof(table));
             qv_clip(&vec, i);
             Z_ASSERT_EQ(vec.len, i);
             tab_enumerate(pos, u, &vec) {
@@ -1344,7 +1344,7 @@ Z_GROUP_EXPORT(qvector)
 
         for (int i = 0; i <= countof(table); i++) {
             qv_clear(&vec);
-            qv_splice(&vec, 0, 0, table, countof(table));
+            qv_extend(&vec, table, countof(table));
             qv_shrink(&vec, i);
             Z_ASSERT_EQ(vec.len, countof(table) - i);
             tab_enumerate(pos, u, &vec) {
@@ -1354,7 +1354,7 @@ Z_GROUP_EXPORT(qvector)
 
         for (int i = 0; i <= countof(table); i++) {
             qv_clear(&vec);
-            qv_splice(&vec, 0, 0, table, countof(table));
+            qv_extend(&vec, table, countof(table));
             qv_skip(&vec, i);
             Z_ASSERT_EQ(vec.len, countof(table) - i);
             tab_enumerate(pos, u, &vec) {
@@ -1440,7 +1440,7 @@ Z_GROUP_EXPORT(qvector)
         Z_ASSERT(qv_search_tst());
     } Z_TEST_END;
 
-    Z_TEST(qv_extend, "qvector: extend") {
+    Z_TEST(qv_extend_tab, "qvector: extend") {
         t_scope;
         qv_t(i32) vec1;
         qv_t(i32) vec2;
@@ -1455,7 +1455,7 @@ Z_GROUP_EXPORT(qvector)
             qv_append(&vec2, N + i);
             awaiting_res += 2 * i + N;
         }
-        qv_extend(&vec1, &vec2);
+        qv_extend_tab(&vec1, &vec2);
 
         Z_ASSERT_EQ(vec1.len, 2 * N);
         tab_enumerate(pos, entry, &vec1) {
@@ -1471,7 +1471,7 @@ Z_GROUP_EXPORT(qvector)
         }
 
         for (int i = 0; i < 10; i++) {
-            qv_extend(&vec1, &vec1);
+            qv_extend_tab(&vec1, &vec1);
         }
 
         Z_ASSERT_EQ(vec1.len, (1 << 20));
@@ -1590,7 +1590,7 @@ Z_GROUP_EXPORT(qvector)
         /* Init */
         qv_init_static(&static_vec, sorted, countof(sorted));
         t_qv_init(&uniqued_vec, static_vec.len);
-        qv_extend(&uniqued_vec, &static_vec);
+        qv_extend_tab(&uniqued_vec, &static_vec);
         t_qv_init(&duplicated_vec, countof(duplicated));
 
         /* Uniq vec */

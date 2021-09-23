@@ -1416,7 +1416,7 @@ t_build_yaml_pres_from_json_subfiles(
     /* we need to sort the json includes first, so that we can properly
      * nest them in YAML */
     t_qv_init(&includes, subfiles->len);
-    qv_extend(&includes, subfiles);
+    qv_extend_tab(&includes, subfiles);
     qv_sort(iop_json_subfile)(&includes,
                               ^int (const iop_json_subfile__t *v1,
                                     const iop_json_subfile__t *v2) {

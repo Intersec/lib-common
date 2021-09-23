@@ -475,7 +475,7 @@ void opt_vec_extend(qv_t(popt) *nonnull vec,
     if (vec->len && tab_last(vec)->kind == OPTION_END) {
         qv_shrink(vec, 1);
     }
-    qv_splice(vec, vec->len, 0, opts, len);
+    qv_extend(vec, opts, len);
 
     /* Make sure the vector ends with OPT_END(). */
     if (!vec->len || tab_last(vec)->kind != OPTION_END) {

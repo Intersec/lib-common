@@ -3533,7 +3533,7 @@ static int __iop_bpack_size_threaded(const iop_field_t *fdesc,
         szs->tab[chunks_szs_offs + i] = res.tab[i].packed_len;
         szs->tab[chunks_packed_size_offs + i] =
             szs->len - chunks_packed_size_offs;
-        qv_extend(szs, &res.tab[i].szs);
+        qv_extend_tab(szs, &res.tab[i].szs);
         qv_wipe(&res.tab[i].szs);
     }
     thr_syn_wipe(&syn);
