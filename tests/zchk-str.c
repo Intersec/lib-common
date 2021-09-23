@@ -170,7 +170,7 @@ Z_GROUP_EXPORT(str)
         SB_1k(sb);
         lstr_t raw = LSTR("test32@localhost-#!$;*");
 
-        sb_add_urlencode(&sb, raw.s, raw.len);
+        sb_add_lstr_urlencode(&sb, raw);
         Z_ASSERT_LSTREQUAL(LSTR("test32%40localhost-%23%21%24%3B%2A"),
                            LSTR_SB_V(&sb));
     } Z_TEST_END;
@@ -2372,15 +2372,15 @@ Z_GROUP_EXPORT(str)
         /* Data encoded with base64url should not be decoded with base64.
          * The opposite is also true.
          */
-        Z_ASSERT_N(sb_add_lstr_unb64(&data_decoded, LSTR("wQA/03e=")));
-        Z_ASSERT_NEG(sb_add_lstr_unb64(&data_decoded, LSTR("wQA-03e=")));
-        Z_ASSERT_NEG(sb_add_lstr_unb64(&data_decoded, LSTR("wQA_03e=")));
-        Z_ASSERT_NEG(sb_add_lstr_unb64(&data_decoded, LSTR("wQA&03e=")));
+        Z_ASSERT_N(sb_adds_unb64(&data_decoded, "wQA/03e="));
+        Z_ASSERT_NEG(sb_adds_unb64(&data_decoded, "wQA-03e="));
+        Z_ASSERT_NEG(sb_adds_unb64(&data_decoded, "wQA_03e="));
+        Z_ASSERT_NEG(sb_adds_unb64(&data_decoded, "wQA&03e="));
 
-        Z_ASSERT_N(sb_add_lstr_unb64url(&data_decoded, LSTR("wQA_03e=")));
-        Z_ASSERT_NEG(sb_add_lstr_unb64url(&data_decoded, LSTR("wQA/03e=")));
-        Z_ASSERT_NEG(sb_add_lstr_unb64url(&data_decoded, LSTR("wQA+03e=")));
-        Z_ASSERT_NEG(sb_add_lstr_unb64url(&data_decoded, LSTR("wQA&03e=")));
+        Z_ASSERT_N(sb_adds_unb64url(&data_decoded, "wQA_03e="));
+        Z_ASSERT_NEG(sb_adds_unb64url(&data_decoded, "wQA/03e="));
+        Z_ASSERT_NEG(sb_adds_unb64url(&data_decoded, "wQA+03e="));
+        Z_ASSERT_NEG(sb_adds_unb64url(&data_decoded, "wQA&03e="));
     } Z_TEST_END
 
 } Z_GROUP_END;
@@ -2827,8 +2827,8 @@ Z_GROUP_EXPORT(conv)
         ({  lstr_t in    = input;                                            \
             lstr_t exp_s = expected;                                         \
             SB_1k(in_hex); SB_1k(exp_hex);                                   \
-            sb_add_hex(&in_hex, in.s, in.len);                               \
-            sb_add_hex(&exp_hex, exp_s.s, exp_s.len);                        \
+            sb_add_lstr_hex(&in_hex, in);                                    \
+            sb_add_lstr_hex(&exp_hex, exp_s);                                \
             sb_reset(&tmp);                                                  \
             sb_reset(&out);                                                  \
             sb_conv_from_gsm_hex(&tmp, in_hex.data, in_hex.len);             \

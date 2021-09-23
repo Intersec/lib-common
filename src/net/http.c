@@ -942,7 +942,7 @@ static inline void t_ps_get_http_var_parse_elem(pstream_t elem, lstr_t *out)
         sb_t sb;
 
         t_sb_init(&sb, ps_len(&elem));
-        sb_add_urldecode(&sb, elem.p, ps_len(&elem));
+        sb_add_lstr_urldecode(&sb, LSTR_PS_V(&elem));
         *out = lstr_init_(sb.data, sb.len, MEM_STACK);
     } else {
         *out = LSTR_PS_V(&elem);
@@ -1752,7 +1752,7 @@ static void httpd_do_any(httpd_t *w, httpd_query_t *q, httpd_qinfo_t *req)
         if (n->cb || qm_len(http_path, &n->childs)) {
             SB_1k(escaped);
 
-            sb_add_xmlescape(&escaped, req->query.s, ps_len(&req->query));
+            sb_add_lstr_xmlescape(&escaped, LSTR_PS_V(&req->query));
             httpd_reject(q, NOT_FOUND,
                          "%*pM %*pM HTTP/1.%d", LSTR_FMT_ARG(ms),
                          SB_FMT_ARG(&escaped),

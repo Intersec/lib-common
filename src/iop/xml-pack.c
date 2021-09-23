@@ -133,14 +133,14 @@ xpack_value(sb_t *sb, const iop_struct_t *desc, const iop_field_t *f,
                 sb_add(sb, s->s, s->len);
                 sb_adds(sb, "]]>");
             } else {
-                sb_add_xmlescape(sb, s->s, s->len);
+                sb_add_lstr_xmlescape(sb, *s);
             }
         }
         break;
       case IOP_T_DATA:
         s = v;
         if (s->len)
-            sb_addlstr_b64(sb, *s, -1);
+            sb_add_lstr_b64(sb, *s, -1);
         break;
       case IOP_T_XML:
         s = v;

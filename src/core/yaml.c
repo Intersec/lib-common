@@ -4050,7 +4050,7 @@ yaml_pack_scalar(yaml_pack_env_t * nonnull env,
         t_scope;
         t_SB_1k(sb);
 
-        sb_addlstr_b64(&sb, scalar->s, -1);
+        sb_add_lstr_b64(&sb, scalar->s, -1);
         res += yaml_pack_string(env, LSTR_SB_V(&sb), pres);
       } break;
     }

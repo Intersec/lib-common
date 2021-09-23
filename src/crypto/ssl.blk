@@ -819,7 +819,7 @@ rsa_verif_t *rsa_verif_hex_new(lstr_t pub_key, rsa_hash_algo_t algo,
 {
     SB_1k(bin);
 
-    RETHROW_NP(sb_add_unhex(&bin, hex_sig.s, hex_sig.len));
+    RETHROW_NP(sb_add_lstr_unhex(&bin, hex_sig));
     return rsa_verif_new(pub_key, algo, LSTR_SB_V(&bin), pass_cb);
 }
 

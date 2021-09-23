@@ -189,6 +189,26 @@ void sb_add_unslashes(sb_t *sb, const void *_data, int len,
     sb_add(sb, p, end - p);
 }
 
+#define SB_DEFINE_ADDS(sfx)                                                  \
+    void sb_adds_##sfx(sb_t * nonnull sb, const char * nonnull s)            \
+    {                                                                        \
+        sb_add_##sfx(sb, s, strlen(s));                                      \
+    }                                                                        \
+    void sb_add_lstr_##sfx(sb_t * nonnull sb, lstr_t s)                      \
+    {                                                                        \
+        sb_add_##sfx(sb, s.s, s.len);                                        \
+    }
+
+#define SB_DEFINE_ADDS_ERR(sfx)                                              \
+    int sb_adds_##sfx(sb_t * nonnull sb, const char * nonnull s)             \
+    {                                                                        \
+        return sb_add_##sfx(sb, s, strlen(s));                               \
+    }                                                                        \
+    int sb_add_lstr_##sfx(sb_t * nonnull sb, lstr_t s)                       \
+    {                                                                        \
+        return sb_add_##sfx(sb, s.s, s.len);                                 \
+    }
+
 int sb_add_expandenv(sb_t *sb, const void *data, int len)
 {
     sb_t orig = *sb;
@@ -247,6 +267,8 @@ int sb_add_expandenv(sb_t *sb, const void *data, int len)
     }
     return 0;
 }
+
+SB_DEFINE_ADDS_ERR(expandenv);
 
 static char const __c_unescape[] = {
     ['a'] = '\a', ['b'] = '\b', ['e'] = '\e', ['t'] = '\t', ['n'] = '\n',
@@ -313,6 +335,7 @@ void sb_add_unquoted(sb_t *sb, const void *data, int len)
         sb_addc(sb, '\\');
     }
 }
+SB_DEFINE_ADDS(unquoted);
 
 void sb_add_urlencode(sb_t *sb, const void *_data, int len)
 {
@@ -335,6 +358,7 @@ void sb_add_urlencode(sb_t *sb, const void *_data, int len)
         }
     }
 }
+SB_DEFINE_ADDS(urlencode);
 
 void sb_add_urldecode(sb_t *sb, const void *data, int len)
 {
@@ -364,6 +388,7 @@ void sb_add_urldecode(sb_t *sb, const void *data, int len)
         p += 3;
     }
 }
+SB_DEFINE_ADDS(urldecode);
 
 void sb_urldecode(sb_t *sb)
 {
@@ -410,8 +435,9 @@ void sb_add_hex(sb_t *sb, const void *data, int len)
         *s++ = __str_digits_upper[(*p >> 0) & 0x0f];
     }
 }
+SB_DEFINE_ADDS(hex);
 
-int  sb_add_unhex(sb_t *sb, const void *data, int len)
+int sb_add_unhex(sb_t *sb, const void *data, int len)
 {
     sb_t orig = *sb;
     char *s;
@@ -429,6 +455,7 @@ int  sb_add_unhex(sb_t *sb, const void *data, int len)
     }
     return 0;
 }
+SB_DEFINE_ADDS_ERR(unhex);
 
 void sb_add_xmlescape(sb_t *sb, const void *data, int len)
 {
@@ -457,6 +484,7 @@ void sb_add_xmlescape(sb_t *sb, const void *data, int len)
         }
     }
 }
+SB_DEFINE_ADDS(xmlescape);
 
 int sb_add_xmlunescape(sb_t *sb, const void *data, int len)
 {
@@ -577,6 +605,7 @@ int sb_add_xmlunescape(sb_t *sb, const void *data, int len)
   error:
     return __sb_rewind_adds(sb, &orig);
 }
+SB_DEFINE_ADDS_ERR(xmlunescape);
 
 /* OG: should take width as a parameter */
 void sb_add_qpe(sb_t *sb, const void *data, int len)
@@ -628,6 +657,7 @@ void sb_add_qpe(sb_t *sb, const void *data, int len)
     if (sb->data[sb->len - 1] != '\n')
         sb_adds(sb, "=\r\n");
 }
+SB_DEFINE_ADDS(qpe);
 
 void sb_add_unqpe(sb_t *sb, const void *data, int len)
 {
@@ -674,6 +704,7 @@ void sb_add_unqpe(sb_t *sb, const void *data, int len)
         }
     }
 }
+SB_DEFINE_ADDS(unqpe);
 
 
 /* computes a slightly overestimated size to write srclen bytes with `ppline`
@@ -807,6 +838,11 @@ void sb_add_b64(sb_t *dst, const void *_src, int len, int width)
     sb_add_b64_finish(dst, &ctx);
 }
 
+void sb_adds_b64(sb_t * nonnull sb, const char * nonnull s, int width)
+{
+    sb_add_b64(sb, s, strlen(s), width);
+}
+
 void sb_add_lstr_b64(sb_t * nonnull sb, lstr_t data, int width)
 {
     sb_add_b64(sb, data.s, data.len, width);
@@ -898,11 +934,13 @@ int sb_add_unb64(sb_t *sb, const void *data, int len)
 {
     return _sb_add_unb64(sb, data, len, __decode_base64);
 }
+SB_DEFINE_ADDS_ERR(unb64);
 
 int sb_add_unb64url(sb_t *sb, const void *data, int len)
 {
     return _sb_add_unb64(sb, data, len, __decode_base64url);
 }
+SB_DEFINE_ADDS_ERR(unb64url);
 
 void sb_add_csvescape(sb_t *sb, int sep, const void *data, int len)
 {

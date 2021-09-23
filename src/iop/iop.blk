@@ -1644,7 +1644,7 @@ static inline void iop_value_print(iop_type_t type, const iop_enum_t *en_desc,
       case IOP_T_DATA: {
         lstr_t data = *(const lstr_t *)v;
 
-        sb_add_hex(buf, data.data, data.len);
+        sb_add_lstr_hex(buf, data);
       } break;
 
       case IOP_T_VOID:

@@ -700,26 +700,6 @@ int sb_recvfrom(sb_t * nonnull sb, int fd, int hint, int flags,
 /* usual quoting mechanisms (base64, addslashes, ...)                     */
 /**************************************************************************/
 
-#define __SB_DEFINE_ADDS(sfx, name)                                          \
-    static inline void sb_adds_##sfx(sb_t * nonnull sb,                      \
-                                     const char * nonnull s)                 \
-    {                                                                        \
-        sb_add_##sfx(sb, s, strlen(s));                                      \
-    }                                                                        \
-    static inline void sb_add_lstr_##sfx(sb_t * nonnull sb, lstr_t s) {      \
-        sb_add_##sfx(sb, s.s, s.len);                                        \
-    }
-#define __SB_DEFINE_ADDS_ERR(sfx, name)                                      \
-    static inline int sb_adds_##sfx(sb_t * nonnull sb,                       \
-                                    const char * nonnull s)                  \
-    {                                                                        \
-        return sb_add_##sfx(sb, s, strlen(s));                               \
-    }                                                                        \
-    static inline int sb_add_lstr_##sfx(sb_t * nonnull sb, lstr_t s) {       \
-        return sb_add_##sfx(sb, s.s, s.len);                                 \
-    }
-
-
 void sb_add_slashes(sb_t * nonnull sb, const void * nonnull data, int len,
                     const char * nonnull toesc,
                     const char * nonnull esc) __leaf;
@@ -748,39 +728,66 @@ sb_adds_unslashes(sb_t * nonnull sb, const char * nonnull s,
  */
 int sb_add_expandenv(sb_t * nonnull sb, const void * nonnull data, int len)
     __leaf;
-__SB_DEFINE_ADDS_ERR(expandenv, "ExpandingEnv");
+int sb_adds_expandenv(sb_t * nonnull sb, const char * nonnull s) __leaf;
+int sb_add_lstr_expandenv(sb_t * nonnull sb, lstr_t s) __leaf;
 
 void sb_add_unquoted(sb_t * nonnull sb, const void * nonnull data, int len)
     __leaf;
-__SB_DEFINE_ADDS(unquoted, "Unquoted");
+void sb_adds_unquoted(sb_t * nonnull sb, const char * nonnull s) __leaf;
+void sb_add_lstr_unquoted(sb_t * nonnull sb, lstr_t s) __leaf;
 
 void sb_add_urlencode(sb_t * nonnull sb, const void * nonnull data, int len)
     __leaf;
+void sb_adds_urlencode(sb_t * nonnull sb, const char * nonnull s) __leaf;
+void sb_add_lstr_urlencode(sb_t * nonnull sb, lstr_t s) __leaf;
+
 void sb_add_urldecode(sb_t * nonnull sb, const void * nonnull data, int len)
     __leaf;
+void sb_adds_urldecode(sb_t * nonnull sb, const char * nonnull s) __leaf;
+void sb_add_lstr_urldecode(sb_t * nonnull sb, lstr_t s) __leaf;
+
 void sb_urldecode(sb_t * nonnull sb) __leaf;
-__SB_DEFINE_ADDS(urlencode, "EncodingURL");
-__SB_DEFINE_ADDS(urldecode, "DecodingURL");
 
 void sb_add_hex(sb_t * nonnull sb, const void * nonnull data, int len) __leaf;
-int  sb_add_unhex(sb_t * nonnull sb, const void * nonnull data, int len)
+void sb_adds_hex(sb_t * nonnull sb, const char * nonnull s) __leaf;
+void sb_add_lstr_hex(sb_t * nonnull sb, lstr_t s) __leaf;
+
+int sb_add_unhex(sb_t * nonnull sb, const void * nonnull data, int len)
     __leaf;
-__SB_DEFINE_ADDS(hex, "Hex");
-__SB_DEFINE_ADDS_ERR(unhex, "Unhex");
+int sb_adds_unhex(sb_t * nonnull sb, const char * nonnull s) __leaf;
+int sb_add_lstr_unhex(sb_t * nonnull sb, lstr_t s) __leaf;
 
 /* this all assumes utf8 data ! */
 void sb_add_xmlescape(sb_t * nonnull sb, const void * nonnull data, int len)
     __leaf;
-int  sb_add_xmlunescape(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-__SB_DEFINE_ADDS(xmlescape, "EscapingXML");
-__SB_DEFINE_ADDS_ERR(xmlunescape, "UnescapingXML");
+void sb_adds_xmlescape(sb_t * nonnull sb, const char * nonnull s) __leaf;
+void sb_add_lstr_xmlescape(sb_t * nonnull sb, lstr_t s) __leaf;
 
+/* FIXME This function has no dedicated unit test at all ! */
+int sb_add_xmlunescape(sb_t * nonnull sb, const void * nonnull data, int len)
+    __leaf;
+int sb_adds_xmlunescape(sb_t * nonnull sb, const char * nonnull s) __leaf;
+int sb_add_lstr_xmlunescape(sb_t * nonnull sb, lstr_t s) __leaf;
+
+/* FIXME This function has no dedicated unit test at all ! */
+
+/** Encode data to "Quoted-Printable".
+ *
+ * \note "qpe" is for Quoted-Printable Escaping.
+ */
 void sb_add_qpe(sb_t * nonnull sb, const void * nonnull data, int len) __leaf;
+void sb_adds_qpe(sb_t * nonnull sb, const char * nonnull s) __leaf;
+void sb_add_lstr_qpe(sb_t * nonnull sb, lstr_t s) __leaf;
+
+/* FIXME This function has no dedicated unit test at all ! */
+/** Decode "Quoted-Printable" data.
+ *
+ * \note "qpe" is for Quoted-Printable Escaping.
+ */
 void sb_add_unqpe(sb_t * nonnull sb, const void * nonnull data, int len)
     __leaf;
-__SB_DEFINE_ADDS(qpe, "EscapingAsQuotedPrintable");
-__SB_DEFINE_ADDS(unqpe, "UnescapingQuotedPrintable");
+void sb_adds_unqpe(sb_t * nonnull sb, const char * nonnull s) __leaf;
+void sb_add_lstr_unqpe(sb_t * nonnull sb, lstr_t s) __leaf;
 
 typedef struct sb_b64_ctx_t {
     short packs_per_line;
@@ -831,6 +838,7 @@ void sb_add_b64_finish(sb_t * nonnull sb, sb_b64_ctx_t * nonnull ctx)
 void sb_add_b64(sb_t * nonnull sb, const void * nonnull data,
                 int len, int width) __leaf;
 
+void sb_adds_b64(sb_t * nonnull sb, const char * nonnull s, int width);
 void sb_add_lstr_b64(sb_t * nonnull sb, lstr_t data, int width);
 
 /** Decode data from base64.
@@ -840,18 +848,10 @@ void sb_add_lstr_b64(sb_t * nonnull sb, lstr_t data, int width);
  * \param[in]  len  number of bytes to decode.
  * \return 0 on success, -1 on error. The sb is unchanged on error.
  */
-int  sb_add_unb64(sb_t * nonnull sb, const void * nonnull data, int len)
+int sb_add_unb64(sb_t * nonnull sb, const void * nonnull data, int len)
     __leaf;
-static inline void sb_adds_b64(sb_t * nonnull sb, const char * nonnull s,
-                               int width)
-{
-    sb_add_b64(sb, s, strlen(s), width);
-}
-static inline void sb_addlstr_b64(sb_t * nonnull sb, lstr_t s, int width)
-{
-    sb_add_b64(sb, s.s, s.len, width);
-}
-__SB_DEFINE_ADDS_ERR(unb64, "DecodingBase64");
+int sb_adds_unb64(sb_t * nonnull sb, const char * nonnull s) __leaf;
+int sb_add_lstr_unb64(sb_t * nonnull sb, lstr_t s) __leaf;
 
 /** base64url encoder/decoder.
  *
@@ -872,14 +872,15 @@ void sb_add_b64url(sb_t * nonnull sb, const void * nonnull data,
 
 void sb_add_lstr_b64url(sb_t * nonnull sb, lstr_t data, int width);
 
-int  sb_add_unb64url(sb_t * nonnull sb, const void * nonnull data, int len)
+int sb_add_unb64url(sb_t * nonnull sb, const void * nonnull data, int len)
     __leaf;
+int sb_adds_unb64url(sb_t * nonnull sb, const char * nonnull s) __leaf;
+int sb_add_lstr_unb64url(sb_t * nonnull sb, lstr_t s) __leaf;
 static inline void sb_adds_b64url(sb_t * nonnull sb, const char * nonnull s,
                                   int width)
 {
     sb_add_b64url(sb, s, strlen(s), width);
 }
-__SB_DEFINE_ADDS_ERR(unb64url, "DecodingBase64Url");
 
 /** Append the CSV-escaped version of the string in the given sb.
  *
