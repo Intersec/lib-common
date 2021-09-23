@@ -1480,6 +1480,21 @@ Z_GROUP_EXPORT(qvector)
         }
     } Z_TEST_END;
 
+    Z_TEST(qv_extend_va, "qvector: extend (variadic version)") {
+        t_scope;
+        qv_t(i32) vec;
+        int exp[] = { 2, 3, 5, 7, 11, 13, 17 };
+
+        t_qv_init(&vec, 0);
+        qv_extend_va(&vec, 2, 3, 5, 7);
+        qv_extend_va(&vec, 11, 13, 17);
+
+        Z_ASSERT_EQ(vec.len, countof(exp));
+        tab_enumerate(i, prime, &vec) {
+            Z_ASSERT_EQ(prime, exp[i]);
+        }
+    } Z_TEST_END;
+
     Z_TEST(qv_deep_extend, "qvector: deep_extend") {
         char palindrome[3][26] = {
             "karineallaenirak",

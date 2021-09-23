@@ -536,6 +536,17 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
         p_copy(_qv_extend_w, (_ptr), _qv_extend_len);                        \
     })
 
+/** Append several elements (variadic macro).
+ *
+ * \example qv_extend_va(&my_u32_vec, 42, 43, 44);
+ */
+#define qv_extend_va(vec, ...)                                               \
+    ({                                                                       \
+        __qv_typeof(vec) _qv_extend_va_array[] = { __VA_ARGS__ };            \
+                                                                             \
+        qv_extend((vec), _qv_extend_va_array, countof(_qv_extend_va_array)); \
+    })
+
 /** Append the elements from an array-like structure.
  *
  * \param[in] _tab  Array-like structure with attributes \p tab and \p len.
