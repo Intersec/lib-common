@@ -1,14 +1,15 @@
-## What is pxcc
+== What is pxcc
 
 Pxcc is a tool to export C types and symbols specified in a `.pxc` file to a
 Cython definition file `.pxd`.
 
-## What is a `.pxc` file
+== What is a `.pxc` file
 
 A `.pxc` file is a C file describing which C types and symbols should be
 exported to a Cython definition file. Here is an example of a `toto.pxc`
 file:
-```
+[source,c]
+----
 #include "toto.h"
 
 PXCC_EXPORT_FILE("toto.h");
@@ -16,7 +17,7 @@ PXCC_EXPORT_FILE("toto.h");
 PXCC_EXPORT_TYPE(my_struct_t);
 PXCC_EXPORT_SYMBOL(my_func);
 PXCC_EXPORT_SYMBOL(MY_CONST);
-```
+----
 
 A `.pxc` is internally interpreted as a C header file, so you must first
 `#include` all the headers containing the types and symbols you want to
@@ -37,11 +38,12 @@ produced by clang and the types cannot be resolved. So if you want to export
 a macro to Cython, you need to manually do it.
 https://cython.readthedocs.io/en/latest/src/userguide/external_C_code.html
 
-## Result of pxcc
+== Result of pxcc
 
 The result file of the pxcc tool is a `.pxd` cython definition file.
 In our previous example, we have `toto.h`:
-```
+[source,c]
+----
 typedef struct my_struct_t {
     int a;
     double b;
@@ -65,10 +67,11 @@ typedef enum my_enum_t {
 } my_enum_t;
 
 extern const my_enum_t MY_CONST;
-```
+----
 
 The result of the command `pxcc toto.pxc -o toto.pxd` will be a `toto.pxd`:
-```
+[source,python]
+----
 from libcpp cimport bool as _Bool
 
 cdef extern from "toto.h" nogil:
@@ -93,19 +96,21 @@ cdef extern from "toto.h" nogil:
         MY_ENUM_C = -70,
 
     const my_enum_t MY_CONST
-  ```
+----
+
 As you can see, all the types used by `my_func` and `MY_CONST` are also
 exported.
 
 You can then use `toto.pxd` in your Cython module file `.pyx`:
-```
+[source,python]
+----
 from toto cimport *
 
 def foo():
     print(sizeof(my_struct_t))
-```
+----
 
-## How it works internally
+== How it works internally
 
 We use `libclang` to construct and go through the AST.
 `PXCC_EXPORT_FILE()`, `PXCC_EXPORT_TYPE()`, `PXCC_EXPORT_SYMBOL()` are macros
@@ -113,17 +118,18 @@ that will be catch by pxcc.
 We first parse and detect the types and symbols to export, and then print them
 in the correct Cython format in the order of dependencies.
 
-## TODO
+== TODO
 
 Pxcc does not accept macros. This could be done with `libclang` but requires a
 lot of digging into `libclang` documentation and will have a lot of
 restrictions since we can only manipulate real C types with Cython.
 
-## Known bugs
+== Known bugs
 
 Pxcc fails to export the following struct:
-```
+[source,c]
+----
 struct broken_t {
     const struct broken_t *(*plop)(int);
 };
-```
+----

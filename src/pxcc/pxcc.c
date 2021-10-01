@@ -1455,7 +1455,7 @@ static char const * const usage_g[] = {
 "Pxcc is a tool to export C types and symbols specified in a '.pxc' file to ",
 "a Cython definition file '.pxd'.",
 "",
-"See README.md of pxcc for more information.",
+"See README.adoc of pxcc for more information.",
 "",
 "ARGUMENTS",
 "    [-h]:        show this help",
