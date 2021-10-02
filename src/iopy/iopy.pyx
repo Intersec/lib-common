@@ -5265,11 +5265,12 @@ cdef class StructBase(StructUnionBase):
         st = struct_union_get_desc(self)
 
         if iop_struct_is_class(st) and st.class_attrs.is_abstract:
-            raise Error('Cannot instantiate an abstract class')
+            raise Error('cannot instantiate an abstract class: %s' %
+                        lstr_to_py_str(st.fullname))
 
         for key in kwargs:
             if not find_field_in_st_by_name(st, key, NULL):
-                raise Error('Invalid key %s, allowed: %s' %
+                raise Error('invalid key %s, allowed: %s' %
                             (key, self.__iopslots__()))
 
         if t_struct_init_fields(self, st, st, kwargs, &empty_val, &err) < 0:

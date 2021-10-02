@@ -971,7 +971,7 @@ class IopyTest(z.TestCase):
 
     def test_abstract_class(self):
         """Test we cannot instantiate an abstract class"""
-        msg = 'Cannot instantiate an abstract class'
+        msg = 'cannot instantiate an abstract class: test.ConstraintsA'
         with self.assertRaisesRegex(iopy.Error, msg):
             self.r.test.ConstraintsA(name='plop')
 
