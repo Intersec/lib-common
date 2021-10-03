@@ -1553,6 +1553,21 @@ class IopyTest(z.TestCase):
         union = self.r.test.UnionA(_json=latin1_json)
         self.assertEqual(u'M\\xe9xico', union.s)
 
+    def test_init_class_twice_with_dict(self):
+        class_b_dict = {
+            '_class': 'test.ClassB',
+            'field1': 28,
+            'field2': 78
+        }
+
+        union_a_1 = self.r.test.UnionA({
+            'a': class_b_dict
+        })
+        union_a_2 = self.r.test.UnionA({
+            'a': class_b_dict
+        })
+        self.assertEqual(union_a_1, union_a_2)
+
 
 @z.ZGroup
 class IopyIfaceTests(z.TestCase):
