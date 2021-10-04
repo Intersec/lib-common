@@ -1692,10 +1692,7 @@ cdef class _InternalStructUnionMetaclass(type):
             args = ()
             kwargs = new_kwargs
 
-        cls = struct_union_get_real_cls_from_kwargs(cls, kwargs)
-        obj = cls.__new__(cls, *args, **kwargs)
-        obj.__init__(*args, **kwargs)
-        return obj
+        return struct_union_get_cls_and_create_obj(cls, args, kwargs)
 
     @property
     def __dict__(_InternalStructUnionType cls):
@@ -3687,13 +3684,26 @@ cdef dict struct_union_parse_dict_args(tuple args, dict kwargs):
     return <dict>first_arg
 
 
-cdef object struct_union_get_real_cls_from_kwargs(object cls, dict kwargs):
-    """Get the real class of the object to instantiate from the kwargs.
+cdef StructUnionBase struct_union_create_obj(object cls, tuple args,
+                                             dict kwargs):
+    cdef object obj
+
+    obj = cls.__new__(cls, *args, **kwargs)
+    obj.__init__(*args, **kwargs)
+    return obj
+
+
+cdef StructUnionBase struct_union_get_cls_and_create_obj(
+    object cls, tuple args, dict kwargs):
+    """Get the real class of the object and create it from the args and
+    kwargs.
 
     Parameters
     ----------
     cls
         The parent IOPy class.
+    args
+        The positional arguments.
     kwargs
         The keyword arguments.
 
@@ -3709,9 +3719,12 @@ cdef object struct_union_get_real_cls_from_kwargs(object cls, dict kwargs):
     cdef _InternalTypeClasses type_classes
     cdef object real_cls
 
-    real_cls_name = kwargs.pop('_class', None)
+    real_cls_name = kwargs.get('_class', None)
     if real_cls_name is None:
-        return cls
+        return struct_union_create_obj(cls, args, kwargs)
+
+    kwargs = kwargs.copy()
+    del kwargs['_class']
 
     iop_type = struct_union_get_iop_type_cls(cls)
     st = iop_type.desc
@@ -3728,7 +3741,7 @@ cdef object struct_union_get_real_cls_from_kwargs(object cls, dict kwargs):
     if not issubclass(real_cls, cls):
         raise TypeError('IOPy type `%s` is not a child type of IOPy type `%s`'
                        % (real_cls.__name__, cls.__name__))
-    return real_cls
+    return struct_union_create_obj(real_cls, args, kwargs)
 
 
 # }}}
