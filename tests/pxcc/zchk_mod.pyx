@@ -17,10 +17,9 @@
 ###########################################################################
 #cython: language_level=3
 
-cdef extern from "../pxcc/cython_export_fix.h":
-    pass
-
 cimport zchk_cmod_pxc
+
+from libcommon_cython.cython_fixes cimport *
 
 def cubic(int a):
     return zchk_cmod_pxc.square(a) * a

@@ -16,24 +16,50 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef IS_CYTHON_FIXES_H
-#define IS_CYTHON_FIXES_H
+#ifndef IS_LIBCOMMON_CYTHON_FIXES_H
+#define IS_LIBCOMMON_CYTHON_FIXES_H
+
+#include <Python.h>
 
 /* These macros are redefined by Cython */
 #ifdef likely
 #  undef likely
-#endif
+#endif /* likely */
 #ifdef unlikely
 #  undef unlikely
-#endif
+#endif /* unlikely */
 #ifdef __unused__
 #  undef __unused__
-#endif
+#endif /* __unused__ */
 
-/* Disable clang comma warnings for Python >= 3.9 */
+/* Disable clang comma warnings for Clang >= 3.9 */
 #if defined(__clang__)                                                       \
  && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 9))
 #  pragma GCC diagnostic ignored "-Wcomma"
-#endif
+#endif /* Clang >= 3.9 */
 
-#endif /* IS_CYTHON_FIXES_H */
+/* Redefine PyMODINIT_FUNC to properly export init function on Python < 3.9 */
+#if PY_VERSION_HEX < 0x03090000
+
+# ifndef EXPORT
+#   ifdef __GNUC__
+#     define EXPORT extern __attribute__((visibility("default")))
+#   else /* __GNUC__ */
+#     define EXPORT extern
+#   endif /* __GNUC__ */
+# endif /* EXPORT */
+
+#  ifndef PyMODINIT_FUNC
+#    error "PyMODINIT_FUNC should be defined"
+#  endif /* PyMODINIT_FUNC */
+
+#  if PY_MAJOR_VERSION < 3
+#    error "invalid python version, python >= 3 is required"
+#  endif /*  PY_MAJOR_VERSION < 3 */
+
+#  undef PyMODINIT_FUNC
+#  define PyMODINIT_FUNC EXPORT PyObject *
+
+#endif /* PY_VERSION_HEX < 0x03090000 */
+
+#endif /* IS_LIBCOMMON_CYTHON_FIXES_H */

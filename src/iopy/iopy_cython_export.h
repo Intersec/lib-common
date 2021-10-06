@@ -39,10 +39,4 @@ EXPORT PyObject *Iopy_from_iop_struct_or_union(PyObject *,
                                                const void *);
 EXPORT PyObject *Iopy_make_plugin_from_handle(void *handle, const char *path);
 
-#if PY_MAJOR_VERSION < 3
-EXPORT PyMODINIT_FUNC initiopy(void);
-#else
-EXPORT PyMODINIT_FUNC PyInit_iopy(void);
-#endif
-
 #endif /* IS_IOPY_CYTHON_EXPORT_FIX_H */
