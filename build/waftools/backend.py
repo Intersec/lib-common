@@ -702,6 +702,19 @@ class CoverageReportClass(BuildContext):
 # {{{ BLK
 
 
+def ensure_clang_rewrite_blocks(ctx):
+    # Ensure clang_rewrite_block tgen is posted
+    if not getattr(ctx.clang_rewrite_blocks_tgen, 'posted', False):
+        ctx.clang_rewrite_blocks_tgen.post()
+    if not hasattr(ctx, 'clang_rewrite_block_task'):
+        ctx.clang_rewrite_blocks_task = (
+            ctx.clang_rewrite_blocks_tgen.link_task
+        )
+        ctx.env.CLANG_REWRITE_BLOCKS = (
+            ctx.clang_rewrite_blocks_tgen.link_task.outputs[0].abspath()
+        )
+
+
 def compute_clang_extra_cflags(self, clang_flags, cflags):
     ''' Compute clang cflags for a task generator from CFLAGS '''
     def keep_flag(flag):
@@ -715,8 +728,8 @@ def compute_clang_extra_cflags(self, clang_flags, cflags):
 
 class Blk2c(Task):
     run_str = ['rm -f ${TGT}',
-               ('${CLANG_BLOCK_REWRITER} -cc1 -x c ${CLANG_REWRITE_FLAGS} '
-                '${CLANG_CFLAGS} -rewrite-blocks -DIS_CLANG_BLOCKS_REWRITER '
+               ('${CLANG_REWRITE_BLOCKS} -x c ${CLANG_REWRITE_FLAGS} '
+                '${CLANG_CFLAGS} -DIS_CLANG_BLOCKS_REWRITER '
                 '${CLANG_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
                 '${SRC} -o ${TGT}')]
     ext_out = [ '.c' ]
@@ -758,6 +771,7 @@ def process_blk(self, node):
         self.create_compiled_task('c', node)
     else:
         # clang is not our C compiler -> it has to be rewritten first
+        ensure_clang_rewrite_blocks(self.bld)
         blk_c_node = node.change_ext_src('.blk.c')
 
         if not blk_c_node in self.env.GEN_FILES:
@@ -776,9 +790,9 @@ def process_blk(self, node):
 
 class Blkk2cc(Task):
     run_str = ['rm -f ${TGT}',
-               ('${CLANGXX_BLOCK_REWRITER} -cc1 -x c++ '
-                '${CLANGXX_REWRITE_FLAGS} ${CLANGXX_EXTRA_CFLAGS} '
-                '-rewrite-blocks ${CPPPATH_ST:INCPATHS} ${SRC} -o ${TGT}')]
+               ('${CLANG_REWRITE_BLOCKS} -x c++ ${CLANGXX_REWRITE_FLAGS} '
+                '${CLANGXX_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
+                '${SRC} -o ${TGT}')]
     ext_out = [ '.cc' ]
     color = 'CYAN'
 
@@ -813,6 +827,7 @@ def process_blkk(self, node):
         self.create_compiled_task('cxx', node)
     else:
         # clang++ is not our C++ compiler -> it has to be rewritten first
+        ensure_clang_rewrite_blocks(self.bld)
         blkk_cc_node = node.change_ext_src('.blkk.cc')
 
         if not blkk_cc_node in self.env.GEN_FILES:
@@ -1434,15 +1449,6 @@ def get_cflags(ctx, args):
     return flags.strip().replace('"', '').split(' ')
 
 
-def check_clang_rewrite_blocks(ctx, cc):
-    if ctx.get_env_bool('LIB_COMMON_NO_CLANG_REWRITE_BLOCKS_CHECK'):
-        return
-
-    cmd = "'{0}' -cc1 -rewrite-blocks </dev/null >/dev/null".format(cc)
-    if ctx.exec_command(cmd, stdout=None, stderr=None):
-        ctx.fatal('`{0}` does not support -rewrite-blocks'.format(cc))
-
-
 def profile_default(ctx,
                     no_assert=False,
                     allow_no_double_fpic=True,
@@ -1511,11 +1517,6 @@ def profile_default(ctx,
         ctx.env.CLANG_REWRITE_FLAGS = get_cflags(
             ctx, ctx.env.CLANG + ['rewrite'])
         ctx.env.CLANG_REWRITE_FLAGS += oflags
-        ctx.env.CLANG_BLOCK_REWRITER = [
-            os.environ.get('LIB_COMMON_CLANG_BLOCK_REWRITER',
-                           ctx.env.CLANG[0])
-        ]
-        check_clang_rewrite_blocks(ctx, ctx.env.CLANG_BLOCK_REWRITER[0])
 
     if ctx.env.COMPILER_CXX == 'clang++':
         # C++ compilation directly done using clang
@@ -1529,11 +1530,6 @@ def profile_default(ctx,
         ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(
             ctx, ctx.env.CLANGXX + ['rewrite'])
         ctx.env.CLANGXX_REWRITE_FLAGS += oflags
-        ctx.env.CLANGXX_BLOCK_REWRITER = [
-            os.environ.get('LIB_COMMON_CLANGXX_BLOCK_REWRITER',
-                           ctx.env.CLANGXX[0])
-        ]
-        check_clang_rewrite_blocks(ctx, ctx.env.CLANGXX_BLOCK_REWRITER[0])
 
     # Asserts
     if no_assert or ctx.get_env_bool('NOASSERT'):
