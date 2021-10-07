@@ -53,7 +53,9 @@ features. So its main dependencies are:
 
 glibc:: used extensively, in particular to interface with various Linux kernel
 facilities
-clang:: base compiler
+llvm:: base compiler toolchain
+libclang-dev:: base c and cpp compiler development library
+clang:: base c and cpp compiler
 waf:: build system
 poetry:: managing Python dependencies
 openssl:: various cryptography requirements

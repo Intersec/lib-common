@@ -290,29 +290,26 @@ def configure(ctx):
     # }}}
     # {{{ lib clang
 
-    # If clang is used as the C compiler, use it instead of default clang.
-    if ctx.env.COMPILER_CC == 'clang':
-        clang_cmd = ctx.env.CC[0]
-    else:
-        clang_cmd = 'clang'
+    ctx.find_program('llvm-config', var='LLVM_CONFIG',
+                     errmsg='llvm-config not found, please install llvm')
 
-    # Use -print-prog-name to get the true path of clang as it can be hidden
-    # behind ccache.
-    clang_bin_exe = ctx.cmd_and_log([clang_cmd, '-print-prog-name=clang'])
-    clang_bin_exe = os.path.realpath(clang_bin_exe.strip())
-    clang_bin_dir = os.path.dirname(clang_bin_exe)
-    clang_root_dir = os.path.dirname(clang_bin_dir)
+    llvm_flags_env_args = {
+        'LDFLAGS_llvm': ['--ldflags'],
+        'RPATH_llvm': ['--libdir'],
+        'INCLUDES_llvm': ['--includedir'],
+    }
+
+    for env_name, cmd_args in llvm_flags_env_args.items():
+        llvm_flags = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + cmd_args)
+        llvm_flags = shlex.split(llvm_flags)
+        ctx.env.append_unique(env_name, llvm_flags)
 
     ctx.env.append_value('LIB_clang', ['clang'])
-    ctx.env.append_value('STLIBPATH_clang',
-                         [os.path.join(clang_root_dir, 'lib')])
-    ctx.env.append_value('RPATH_clang',
-                         [os.path.join(clang_root_dir, 'lib')])
-    ctx.env.append_value('INCLUDES_clang',
-                         [os.path.join(clang_root_dir, 'include')])
+    ctx.env.LDFLAGS_clang = ctx.env.LDFLAGS_llvm
+    ctx.env.RPATH_clang = ctx.env.RPATH_llvm
+    ctx.env.INCLUDES_clang = ctx.env.INCLUDES_llvm
 
-    ctx.msg('Checking for clang lib', clang_root_dir)
-
+    ctx.msg('Checking for clang lib', ctx.env.INCLUDES_clang)
     ctx.check_cc(header_name='clang-c/Index.h', use='clang',
                  errmsg='clang-c not available in clang lib, libclang-dev '
                         'may be missing', nocheck=True)
