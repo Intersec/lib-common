@@ -112,6 +112,7 @@ ctx.stlib(target='libcommon-minimal', features='c cstlib', depends_on=[
 # }}}
 
 ctx.recurse([
+    'clang-rewrite-blocks',
     'tools',
     'iopc',
 ])

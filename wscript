@@ -288,12 +288,14 @@ def configure(ctx):
     ctx.env.append_unique('LDFLAGS_python3_embed', py_embed_ldflags)
 
     # }}}
-    # {{{ lib clang
+    # {{{ lib llvm/clang
 
     ctx.find_program('llvm-config', var='LLVM_CONFIG',
                      errmsg='llvm-config not found, please install llvm')
 
+    # Get llvm flags
     llvm_flags_env_args = {
+        'CXXFLAGS_llvm': ['--cxxflags'],
         'LDFLAGS_llvm': ['--ldflags'],
         'RPATH_llvm': ['--libdir'],
         'INCLUDES_llvm': ['--includedir'],
@@ -304,10 +306,23 @@ def configure(ctx):
         llvm_flags = shlex.split(llvm_flags)
         ctx.env.append_unique(env_name, llvm_flags)
 
+    llvm_libs = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--libs'])
+    llvm_libs = shlex.split(llvm_libs)
+    llvm_libs = [x[len('-l'):] for x in llvm_libs]
+    ctx.env.append_value('LIB_llvm', llvm_libs)
+
+    # Get clang flags
     ctx.env.append_value('LIB_clang', ['clang'])
     ctx.env.LDFLAGS_clang = ctx.env.LDFLAGS_llvm
     ctx.env.RPATH_clang = ctx.env.RPATH_llvm
     ctx.env.INCLUDES_clang = ctx.env.INCLUDES_llvm
+
+    # Get clang cpp flags
+    ctx.env.append_value('LIB_clang_cpp', ['clang-cpp'])
+    ctx.env.CXXFLAGS_clang_cpp = ctx.env.CXXFLAGS_llvm
+    ctx.env.LDFLAGS_clang_cpp = ctx.env.LDFLAGS_clang
+    ctx.env.RPATH_clang_cpp = ctx.env.RPATH_clang
+    ctx.env.INCLUDES_clang_cpp = ctx.env.INCLUDES_clang
 
     ctx.msg('Checking for clang lib', ctx.env.INCLUDES_clang)
     ctx.check_cc(header_name='clang-c/Index.h', use='clang',
@@ -372,6 +387,7 @@ def build(ctx):
 
     # Declare 4 build groups:
     #  - one for generating the "version" source files
+    #  - one for compiling clang-rewrite-blocks
     #  - one for compiling farchc
     #  - one for compiling iopc
     #  - one for compiling pxc (used in the tools repository)
@@ -381,6 +397,7 @@ def build(ctx):
     # uses a farch file), and iopc is generated before building the IOP files.
     # Refer to section "Building the compiler first" of the waf book.
     ctx.add_group('gen_version')
+    ctx.add_group('clang_rewrite_blocks')
     ctx.add_group('farchc')
     ctx.add_group('iopc')
     ctx.add_group('pxcc')
