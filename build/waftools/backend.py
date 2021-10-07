@@ -1354,6 +1354,7 @@ def profile_default(ctx,
     ctx.env.CFLAGS = get_cflags(ctx, ctx.env.CC)
 
     oflags = ['-O' + str(optim_level)]
+    ctx.env.OFLAGS = oflags
     ctx.env.CFLAGS += oflags
     ctx.env.CXXFLAGS += oflags
 

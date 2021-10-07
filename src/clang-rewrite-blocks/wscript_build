@@ -15,7 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable
+# pylint: disable = undefined-variable, invalid-name
 
 # TODO: activate when clang-rewrite-blocks uses the same version as clang and
 #       llvm-config.
@@ -32,14 +32,19 @@ if (False and
                 'clang_cpp',
             ])
 
-        # Remove flags not compatible with clang and llvm.
-        ctx.clang_rewrite_blocks_tgen.env.CFLAGS = []
-        ctx.clang_rewrite_blocks_tgen.env.CLANG_FLAGS = []
-        ctx.clang_rewrite_blocks_tgen.env.CLANG_REWRITE_FLAGS = []
+        # Get common flags supported by clang and llvm.
+        flags = ctx.env.OFLAGS + ['-ggdb3']
+        if ctx.env.NDEBUG:
+            flags += ['-DNDEBUG']
 
-        ctx.clang_rewrite_blocks_tgen.env.CXXFLAGS = []
-        ctx.clang_rewrite_blocks_tgen.env.CLANGXX_FLAGS = []
-        ctx.clang_rewrite_blocks_tgen.env.CLANGXX_REWRITE_FLAGS = []
+        # Use common flags supported by clang and llvm.
+        ctx.clang_rewrite_blocks_tgen.env.CFLAGS = flags
+        ctx.clang_rewrite_blocks_tgen.env.CLANG_FLAGS = flags
+        ctx.clang_rewrite_blocks_tgen.env.CLANG_REWRITE_FLAGS = flags
+
+        ctx.clang_rewrite_blocks_tgen.env.CXXFLAGS = flags
+        ctx.clang_rewrite_blocks_tgen.env.CLANGXX_FLAGS = flags
+        ctx.clang_rewrite_blocks_tgen.env.CLANGXX_REWRITE_FLAGS = flags
 
         ctx.clang_rewrite_blocks_tgen.env.LDFLAGS = []
         ctx.clang_rewrite_blocks_tgen.env.LINKFLAGS = []

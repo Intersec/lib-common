@@ -18,10 +18,12 @@
 #include <clang/AST/ASTConsumer.h>
 
 namespace clang {
+
 std::unique_ptr<ASTConsumer>
 CreateBlocksRewriter(const std::string &InFile, std::unique_ptr<raw_ostream> OS,
                      DiagnosticsEngine &Diags, const LangOptions &LOpts,
                      bool SilenceRewriteMacroWarning);
+
 };
 
 #endif /* IS_CLANG_REWRITE_BLOCKS_HPP */
