@@ -37,6 +37,7 @@
 #include <clang/Basic/Diagnostic.h>
 #include <clang/Basic/IdentifierTable.h>
 #include <clang/Basic/SourceManager.h>
+#include <clang/Basic/Version.h>
 #include <clang/Lex/Lexer.h>
 #include <clang/Rewrite/Core/Rewriter.h>
 #include <llvm/ADT/DenseSet.h>
@@ -341,8 +342,13 @@ std::unique_ptr<ASTConsumer>
 clang::CreateBlocksRewriter(const std::string &InFile, std::unique_ptr<raw_ostream> OS,
                             DiagnosticsEngine &Diags, const LangOptions &LOpts,
                             bool SilenceRewriteMacroWarning) {
+#if CLANG_VERSION_MAJOR >= 10
+  return std::make_unique<RewriteBlocks>(InFile, std::move(OS), Diags, LOpts,
+                                         SilenceRewriteMacroWarning);
+#else
   return llvm::make_unique<RewriteBlocks>(InFile, std::move(OS), Diags, LOpts,
                                           SilenceRewriteMacroWarning);
+#endif /* CLANG_VERSION_MAJOR >= 10 */
 }
 
 void RewriteBlocks::Initialize(ASTContext &context)

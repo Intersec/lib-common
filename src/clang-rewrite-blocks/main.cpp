@@ -26,6 +26,7 @@
 
 
 #include <clang/Basic/DiagnosticFrontend.h>
+#include <clang/Basic/Version.h>
 #include <clang/Driver/DriverDiagnostic.h>
 #include <clang/Driver/Options.h>
 #include <clang/Frontend/CompilerInstance.h>
@@ -90,13 +91,18 @@ RewriteBlocksAction::CreateASTConsumer(CompilerInstance &CI,
 static bool ExecuteCompilerInvocationRewriteBlock(CompilerInstance *Clang) {
   // Honor -help.
   if (Clang->getFrontendOpts().ShowHelp) {
+#if CLANG_VERSION_MAJOR >= 10
+    driver::getDriverOptTable().PrintHelp(
+#else
     std::unique_ptr<OptTable> Opts = driver::createDriverOptTable();
-    Opts->PrintHelp(llvm::outs(),
-                    "clang-rewrite-blocks [options] file.blk -o file.blk.c",
-                    "LLVM 'Clang' Compiler Rewriter Block: "
-                    "http://clang.llvm.org http://intersec.com",
-                    /*Include=*/driver::options::CC1Option,
-                    /*Exclude=*/0, /*ShowAllAliases=*/false);
+    Opts->PrintHelp(
+#endif /* CLANG_VERSION_MAJOR >= 10 */
+      llvm::outs(),
+      "clang-rewrite-blocks [options] file.blk -o file.blk.c",
+      "LLVM 'Clang' Compiler Rewriter Block: "
+      "http://clang.llvm.org http://intersec.com",
+      /*Include=*/driver::options::CC1Option,
+      /*Exclude=*/0, /*ShowAllAliases=*/false);
     return true;
   }
 
@@ -134,7 +140,11 @@ static bool ExecuteCompilerInvocationRewriteBlock(CompilerInstance *Clang) {
   if (Clang->getDiagnostics().hasErrorOccurred())
     return false;
   // Create and execute the frontend action.
+#if CLANG_VERSION_MAJOR >= 10
+  std::unique_ptr<FrontendAction> Act(std::make_unique<RewriteBlocksAction>());
+#else
   std::unique_ptr<FrontendAction> Act(llvm::make_unique<RewriteBlocksAction>());
+#endif /* CLANG_VERSION_MAJOR >= 10 */
   if (!Act)
     return false;
   bool Success = Clang->ExecuteAction(*Act);
@@ -170,11 +180,25 @@ int main(int argc, const char **argv) {
     new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
   DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagClient);
-  bool Success = CompilerInvocation::CreateFromArgs(
-      Clang->getInvocation(), &argv[1], argv + argc, Diags);
 
-  if (Clang->getFrontendOpts().TimeTrace)
+  ArrayRef<const char*> Args(argv + 1, argv + argc);
+
+#if CLANG_VERSION_MAJOR >= 10
+  bool Success = CompilerInvocation::CreateFromArgs(
+      Clang->getInvocation(), Args, Diags);
+#else
+  bool Success = CompilerInvocation::CreateFromArgs(
+      Clang->getInvocation(), Args.begin(), Args.end(), Diags);
+#endif /* CLANG_VERSION_MAJOR >= 10 */
+
+  if (Clang->getFrontendOpts().TimeTrace) {
+#if CLANG_VERSION_MAJOR >= 10
+    llvm::timeTraceProfilerInitialize(
+        Clang->getFrontendOpts().TimeTraceGranularity, Argv0);
+#else
     llvm::timeTraceProfilerInitialize();
+#endif /* CLANG_VERSION_MAJOR >= 10 */
+  }
 
   // Infer the builtin include path if unspecified.
   if (Clang->getHeaderSearchOpts().UseBuiltinIncludes &&
