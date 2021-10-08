@@ -278,9 +278,4 @@ EOF
     fi
 }
 
-if test "$2" = "rewrite"; then
-    # Fails if clang does not support block rewriting
-    "$cc" -cc1 -rewrite-blocks < /dev/null > /dev/null
-fi
-
 build_flags "$@" | tr '\n' ' '

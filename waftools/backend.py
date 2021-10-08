@@ -1327,6 +1327,15 @@ def get_cflags(ctx, args):
     return flags.strip().replace('"', '').split(' ')
 
 
+def check_clang_rewrite_blocks(ctx, cc):
+    if ctx.get_env_bool('LIB_COMMON_NO_CLANG_REWRITE_BLOCKS_CHECK'):
+        return
+
+    cmd = "'{0}' -cc1 -rewrite-blocks </dev/null >/dev/null".format(cc)
+    if ctx.exec_command(cmd, stdout=None, stderr=None):
+        ctx.fatal('`{0}` does not support -rewrite-blocks'.format(cc))
+
+
 def profile_default(ctx,
                     no_assert=False,
                     allow_no_double_fpic=True,
@@ -1385,6 +1394,7 @@ def profile_default(ctx,
         ctx.env.CLANG_FLAGS = get_cflags(ctx, ctx.env.CLANG)
         ctx.env.CLANG_REWRITE_FLAGS = get_cflags(
             ctx, ctx.env.CLANG + ['rewrite'])
+        check_clang_rewrite_blocks(ctx, ctx.env.CLANG[0])
 
     if ctx.env.COMPILER_CXX == 'clang++':
         # C++ compilation directly done using clang
@@ -1397,6 +1407,7 @@ def profile_default(ctx,
         ctx.env.CLANGXX_FLAGS = get_cflags(ctx, ctx.env.CLANGXX)
         ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(
             ctx, ctx.env.CLANGXX + ['rewrite'])
+        check_clang_rewrite_blocks(ctx, ctx.env.CLANGXX[0])
 
     # Asserts
     if no_assert or ctx.get_env_bool('NOASSERT'):
