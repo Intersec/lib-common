@@ -38,6 +38,7 @@ from waflib.Tools import c as c_tool
 from waflib.Tools import c_preproc
 from waflib.Tools import cxx
 from waflib.Tools import ccroot
+from waflib.Utils import check_exe
 # pylint: enable = import-error
 
 
@@ -1322,14 +1323,39 @@ def options(ctx):
 # {{{ llvm/clang
 
 def llvm_clang_configure(ctx):
-    # Use llvm-config
-    ctx.find_program('llvm-config', var='LLVM_CONFIG',
-                     errmsg='llvm-config not found, please install llvm')
+    # Supported versions
+    llvm_supported_versions = (9, 10, 11, 12)
 
-    # Get llvm version
-    llvm_version = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--version'])
-    llvm_version = tuple(map(int, llvm_version.strip().split('.')))
-    llvm_version_major = llvm_version[0]
+    # Find llvm-config
+    llvm_version_major = None
+
+    # Try default version first
+    if ctx.find_program('llvm-config', var='LLVM_CONFIG', mandatory=False):
+        # Get llvm version
+        llvm_version = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--version'])
+        llvm_version = tuple(map(int, llvm_version.strip().split('.')))
+        llvm_version_major = llvm_version[0]
+
+        if llvm_version_major not in llvm_supported_versions:
+            Logs.warn('llvm-config found with version {0}, '
+                      'but is not supported by lib-common, '
+                      'lib-common only supports llvm versions {1}'
+                      .format(llvm_version_major, llvm_supported_versions))
+            llvm_version_major = None
+            del ctx.env.LLVM_CONFIG
+
+    # If supported version not found, try explicit versions
+    if llvm_version_major is None:
+        for version in reversed(llvm_supported_versions):
+            if ctx.find_program('llvm-config-{0}'.format(version),
+                                var='LLVM_CONFIG', mandatory=False):
+                llvm_version_major = version
+                break
+        else:
+            ctx.fatal('supported version of llvm-config not found, '
+                      'lib-common only supports llvm versions {0}, '
+                      'please install supported version of llvm-dev or '
+                      'llvm-devel'.format(llvm_supported_versions))
 
     # Get llvm flags
     llvm_flags_env_args = {
@@ -1371,7 +1397,7 @@ def llvm_clang_configure(ctx):
     ctx.msg('Checking for libclang', ctx.env.INCLUDES_clang)
     ctx.check_cc(header_name='clang-c/Index.h', use='clang',
                  errmsg='clang-c not available in libclang, libclang-dev '
-                 'may be missing', nocheck=True)
+                        'or clang-devel may be missing', nocheck=True)
 
     # Get clang binaries from llvm
     llvm_bindir = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--bindir'])
@@ -1382,12 +1408,20 @@ def llvm_clang_configure(ctx):
         ctx.env.CLANG = ctx.env.CC
     else:
         ctx.env.CLANG = [osp.join(llvm_bindir, 'clang')]
+    ctx.msg("Checking for program 'clang'", ctx.env.CLANG[0])
+    if not check_exe(ctx.env.CLANG[0]):
+        ctx.fatal('`{0}` is not a valid executable, clang may be missing'
+                  .format(ctx.env.CLANG[0]))
 
     # Set clang++ if used as C++ compiler, otherwise, use llvm version
     if ctx.env.COMPILER_CXX == 'clang++':
         ctx.env.CLANGXX = ctx.env.CXX
     else:
         ctx.env.CLANGXX = [osp.join(llvm_bindir, 'clang++')]
+    ctx.msg("Checking for program 'clang++'", ctx.env.CLANGXX[0])
+    if not check_exe(ctx.env.CLANGXX[0]):
+        ctx.fatal('`{0}` is not a valid executable, clang++ may be missing'
+                  .format(ctx.env.CLANGXX[0]))
 
 
 # }}}
