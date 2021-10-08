@@ -17,10 +17,7 @@
 ###########################################################################
 # pylint: disable = undefined-variable, invalid-name
 
-# TODO: activate when clang-rewrite-blocks uses the same version as clang and
-#       llvm-config.
-if (False and
-        ctx.env.COMPILER_CC != 'clang' and ctx.env.COMPILER_CXX != 'clang++'):
+if ctx.env.COMPILER_CC != 'clang' and ctx.env.COMPILER_CXX != 'clang++':
     with ctx.UseGroup(ctx, 'clang_rewrite_blocks'):
         ctx.clang_rewrite_blocks_tgen = ctx.program(
             target='clang-rewrite-blocks', features='cxx cxxprogram', source=[

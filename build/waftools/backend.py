@@ -23,6 +23,8 @@ Contains the code needed for backend compilation.
 import datetime
 import os
 import re
+import shlex
+import os.path as osp
 from itertools import chain
 
 # pylint: disable = import-error
@@ -1317,6 +1319,78 @@ def options(ctx):
 
 # }}}
 # {{{ configure
+# {{{ llvm/clang
+
+def llvm_clang_configure(ctx):
+    # Use llvm-config
+    ctx.find_program('llvm-config', var='LLVM_CONFIG',
+                     errmsg='llvm-config not found, please install llvm')
+
+    # Get llvm version
+    llvm_version = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--version'])
+    llvm_version = tuple(map(int, llvm_version.strip().split('.')))
+    llvm_version_major = llvm_version[0]
+
+    # Get llvm flags
+    llvm_flags_env_args = {
+        'CXXFLAGS_llvm': ['--cxxflags'],
+        'LDFLAGS_llvm': ['--ldflags'],
+        'RPATH_llvm': ['--libdir'],
+        'INCLUDES_llvm': ['--includedir'],
+    }
+
+    for env_name, cmd_args in llvm_flags_env_args.items():
+        llvm_flags = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + cmd_args)
+        llvm_flags = shlex.split(llvm_flags)
+        ctx.env.append_unique(env_name, llvm_flags)
+
+    llvm_libs = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--libs'])
+    llvm_libs = shlex.split(llvm_libs)
+    llvm_libs = [x[len('-l'):] for x in llvm_libs]
+    ctx.env.append_value('LIB_llvm', llvm_libs)
+
+    # Get clang flags
+    ctx.env.append_value('LIB_clang', ['clang'])
+    ctx.env.LDFLAGS_clang = ctx.env.LDFLAGS_llvm
+    ctx.env.RPATH_clang = ctx.env.RPATH_llvm
+    ctx.env.INCLUDES_clang = ctx.env.INCLUDES_llvm
+
+    # Get clang cpp flags
+    # On some installations of clang, the symlinks
+    # libclang-cpp.so.x -> libclang-cpp-x.so
+    # libclang-cpp-x.so -> libclang-cpp.so are not done.
+    # Use filename instead.
+    clang_cpp_lib = ':libclang-cpp.so.{0}'.format(llvm_version_major)
+    ctx.env.append_value('LIB_clang_cpp', [clang_cpp_lib])
+    ctx.env.CXXFLAGS_clang_cpp =  ctx.env.CXXFLAGS_llvm
+    ctx.env.LDFLAGS_clang_cpp =  ctx.env.LDFLAGS_clang
+    ctx.env.RPATH_clang_cpp = ctx.env.RPATH_clang
+    ctx.env.INCLUDES_clang_cpp = ctx.env.INCLUDES_clang
+
+    # Check installation of libclang
+    ctx.msg('Checking for libclang', ctx.env.INCLUDES_clang)
+    ctx.check_cc(header_name='clang-c/Index.h', use='clang',
+                 errmsg='clang-c not available in libclang, libclang-dev '
+                 'may be missing', nocheck=True)
+
+    # Get clang binaries from llvm
+    llvm_bindir = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--bindir'])
+    llvm_bindir = llvm_bindir.strip()
+
+    # Set clang if used as C compiler, otherwise, use llvm version
+    if ctx.env.COMPILER_CC == 'clang':
+        ctx.env.CLANG = ctx.env.CC
+    else:
+        ctx.env.CLANG = [osp.join(llvm_bindir, 'clang')]
+
+    # Set clang++ if used as C++ compiler, otherwise, use llvm version
+    if ctx.env.COMPILER_CXX == 'clang++':
+        ctx.env.CLANGXX = ctx.env.CXX
+    else:
+        ctx.env.CLANGXX = [osp.join(llvm_bindir, 'clang++')]
+
+
+# }}}
 # {{{ compilation profiles
 
 
@@ -1342,10 +1416,12 @@ def profile_default(ctx,
                     use_sanitizer=False,
                     optim_level=2,
                     fortify_source='-D_FORTIFY_SOURCE=2'):
-
     # Load C/C++ compilers
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
+
+    # Load llvm/clang
+    llvm_clang_configure(ctx)
 
     # Get compilation flags with cflags.sh
     ctx.find_program('cflags.sh', var='CFLAGS_SH',
@@ -1396,7 +1472,6 @@ def profile_default(ctx,
     else:
         # Probably compiling with gcc; we'll need the .blk -> .c rewriting
         # pass with our modified clang
-        ctx.env.CLANG = ctx.find_program('clang')
         ctx.env.CLANG_FLAGS = get_cflags(ctx, ctx.env.CLANG)
         ctx.env.CLANG_FLAGS += oflags
         ctx.env.CLANG_REWRITE_FLAGS = get_cflags(
@@ -1415,7 +1490,6 @@ def profile_default(ctx,
     else:
         # Probably compiling with g++; we'll need the .blkk -> .cc rewriting
         # pass with our modified clang
-        ctx.env.CLANGXX = ctx.find_program('clang++')
         ctx.env.CLANGXX_FLAGS = get_cflags(ctx, ctx.env.CLANGXX)
         ctx.env.CLANGXX_FLAGS += oflags
         ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(

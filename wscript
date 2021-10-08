@@ -288,58 +288,6 @@ def configure(ctx):
     ctx.env.append_unique('LDFLAGS_python3_embed', py_embed_ldflags)
 
     # }}}
-    # {{{ lib llvm/clang
-
-    ctx.find_program('llvm-config', var='LLVM_CONFIG',
-                     errmsg='llvm-config not found, please install llvm')
-
-    # Get llvm version
-    llvm_version = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--version'])
-    llvm_version = tuple(map(int, llvm_version.strip().split('.')))
-    llvm_version_major = llvm_version[0]
-
-    # Get llvm flags
-    llvm_flags_env_args = {
-        'CXXFLAGS_llvm': ['--cxxflags'],
-        'LDFLAGS_llvm': ['--ldflags'],
-        'RPATH_llvm': ['--libdir'],
-        'INCLUDES_llvm': ['--includedir'],
-    }
-
-    for env_name, cmd_args in llvm_flags_env_args.items():
-        llvm_flags = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + cmd_args)
-        llvm_flags = shlex.split(llvm_flags)
-        ctx.env.append_unique(env_name, llvm_flags)
-
-    llvm_libs = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--libs'])
-    llvm_libs = shlex.split(llvm_libs)
-    llvm_libs = [x[len('-l'):] for x in llvm_libs]
-    ctx.env.append_value('LIB_llvm', llvm_libs)
-
-    # Get clang flags
-    ctx.env.append_value('LIB_clang', ['clang'])
-    ctx.env.LDFLAGS_clang = ctx.env.LDFLAGS_llvm
-    ctx.env.RPATH_clang = ctx.env.RPATH_llvm
-    ctx.env.INCLUDES_clang = ctx.env.INCLUDES_llvm
-
-    # Get clang cpp flags
-    # On some installations of clang, the symlinks
-    # libclang-cpp.so.x -> libclang-cpp-x.so
-    # libclang-cpp-x.so -> libclang-cpp.so are not done.
-    # Use filename instead.
-    clang_cpp_lib = ':libclang-cpp.so.{0}'.format(llvm_version_major)
-    ctx.env.append_value('LIB_clang_cpp', [clang_cpp_lib])
-    ctx.env.CXXFLAGS_clang_cpp =  ctx.env.CXXFLAGS_llvm
-    ctx.env.LDFLAGS_clang_cpp =  ctx.env.LDFLAGS_clang
-    ctx.env.RPATH_clang_cpp = ctx.env.RPATH_clang
-    ctx.env.INCLUDES_clang_cpp = ctx.env.INCLUDES_clang
-
-    ctx.msg('Checking for clang lib', ctx.env.INCLUDES_clang)
-    ctx.check_cc(header_name='clang-c/Index.h', use='clang',
-                 errmsg='clang-c not available in clang lib, libclang-dev '
-                        'may be missing', nocheck=True)
-
-    # }}}
     # {{{ cython
 
     src_path = ctx.path.make_node('src').abspath()
