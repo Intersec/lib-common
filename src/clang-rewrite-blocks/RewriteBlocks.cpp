@@ -897,9 +897,17 @@ Stmt *RewriteBlocks::RewriteLocalVariableExternalStorage(DeclRefExpr *DRE) {
   if (VarDecl *Var = dyn_cast<VarDecl>(VD))
     if (!ImportedLocalExternalDecls.count(Var))
       return DRE;
+
+#if CLANG_VERSION_MAJOR >= 11
+  Expr *Exp = UnaryOperator::Create(
+      const_cast<ASTContext &>(*Context), DRE, UO_Deref, DRE->getType(),
+      VK_LValue, OK_Ordinary, DRE->getLocation(), false, FPOptionsOverride());
+#else
   Expr *Exp = new (Context) UnaryOperator(DRE, UO_Deref, DRE->getType(),
                                           VK_LValue, OK_Ordinary,
                                           DRE->getLocation(), false);
+#endif /* CLANG_VERSION_MAJOR >= 11 */
+
   // Need parens to enforce precedence.
   ParenExpr *PE = new (Context) ParenExpr(SourceLocation(), SourceLocation(),
                                           Exp);
@@ -1674,11 +1682,22 @@ Stmt *RewriteBlocks::SynthBlockInitExpr(BlockExpr *Exp,
                                    &Context->Idents.get(DescData.c_str()),
                                    Context->VoidPtrTy, 0,
                                    SC_Static);
+
+#if CLANG_VERSION_MAJOR >= 11
+  UnaryOperator *DescRefExpr = UnaryOperator::Create(
+      const_cast<ASTContext &>(*Context),
+      new (Context) DeclRefExpr(*Context, NewVD, false, Context->VoidPtrTy,
+                                VK_LValue, SourceLocation()),
+      UO_AddrOf, Context->getPointerType(Context->VoidPtrTy), VK_RValue,
+      OK_Ordinary, SourceLocation(), false, FPOptionsOverride());
+#else
   UnaryOperator *DescRefExpr = new (Context) UnaryOperator(
         new (Context) DeclRefExpr(*Context, NewVD, false, Context->VoidPtrTy,
                                   VK_LValue, SourceLocation()),
         UO_AddrOf, Context->getPointerType(Context->VoidPtrTy), VK_RValue,
         OK_Ordinary, SourceLocation(), false);
+#endif /* CLANG_VERSION_MAJOR >= 11 */
+
   InitExprs.push_back(DescRefExpr);
 
   // Add initializers for any closure decl refs.
@@ -1700,9 +1719,15 @@ Stmt *RewriteBlocks::SynthBlockInitExpr(BlockExpr *Exp,
         if (HasLocalVariableExternalStorage(*I)) {
           QualType QT = (*I)->getType();
           QT = Context->getPointerType(QT);
+#if CLANG_VERSION_MAJOR >= 11
+          Exp = UnaryOperator::Create(
+              const_cast<ASTContext &>(*Context), Exp, UO_AddrOf, QT, VK_RValue,
+              OK_Ordinary, SourceLocation(), false, FPOptionsOverride());
+#else
           Exp = new (Context) UnaryOperator(Exp, UO_AddrOf, QT, VK_RValue,
                                             OK_Ordinary, SourceLocation(),
                                             false);
+#endif /* CLANG_VERSION_MAJOR >= 11 */
         }
 
       }
@@ -1740,11 +1765,19 @@ Stmt *RewriteBlocks::SynthBlockInitExpr(BlockExpr *Exp,
         }
       // captured nested byref variable has its address passed. Do not take
       // its address again.
-      if (!isNestedCapturedVar)
+      if (!isNestedCapturedVar) {
+#if CLANG_VERSION_MAJOR >= 11
+          Exp = UnaryOperator::Create(
+              const_cast<ASTContext &>(*Context), Exp, UO_AddrOf,
+              Context->getPointerType(Exp->getType()), VK_RValue, OK_Ordinary,
+              SourceLocation(), false, FPOptionsOverride());
+#else
           Exp = new (Context) UnaryOperator(Exp, UO_AddrOf,
                                      Context->getPointerType(Exp->getType()),
                                      VK_RValue, OK_Ordinary, SourceLocation(),
                                      false);
+#endif /* CLANG_VERSION_MAJOR >= 11 */
+      }
       Exp = NoTypeInfoCStyleCastExpr(Context, castT, CK_BitCast, Exp);
       InitExprs.push_back(Exp);
     }

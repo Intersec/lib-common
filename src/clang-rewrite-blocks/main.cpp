@@ -131,7 +131,11 @@ static bool ExecuteCompilerInvocationRewriteBlock(CompilerInstance *Clang) {
     std::unique_ptr<PluginASTAction> P(it->instantiate());
     if (P->getActionType() == PluginASTAction::ReplaceAction) {
       Clang->getFrontendOpts().ProgramAction = clang::frontend::PluginAction;
+#if CLANG_VERSION_MAJOR >= 11
+      Clang->getFrontendOpts().ActionName = it->getName().str();
+#else
       Clang->getFrontendOpts().ActionName = it->getName();
+#endif /* CLANG_VERSION_MAJOR >= 11 */
       break;
     }
   }

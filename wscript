@@ -293,6 +293,11 @@ def configure(ctx):
     ctx.find_program('llvm-config', var='LLVM_CONFIG',
                      errmsg='llvm-config not found, please install llvm')
 
+    # Get llvm version
+    llvm_version = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--version'])
+    llvm_version = tuple(map(int, llvm_version.strip().split('.')))
+    llvm_version_major = llvm_version[0]
+
     # Get llvm flags
     llvm_flags_env_args = {
         'CXXFLAGS_llvm': ['--cxxflags'],
@@ -318,9 +323,14 @@ def configure(ctx):
     ctx.env.INCLUDES_clang = ctx.env.INCLUDES_llvm
 
     # Get clang cpp flags
-    ctx.env.append_value('LIB_clang_cpp', ['clang-cpp'])
-    ctx.env.CXXFLAGS_clang_cpp = ctx.env.CXXFLAGS_llvm
-    ctx.env.LDFLAGS_clang_cpp = ctx.env.LDFLAGS_clang
+    # On some installations of clang, the symlinks
+    # libclang-cpp.so.x -> libclang-cpp-x.so
+    # libclang-cpp-x.so -> libclang-cpp.so are not done.
+    # Use filename instead.
+    clang_cpp_lib = ':libclang-cpp.so.{0}'.format(llvm_version_major)
+    ctx.env.append_value('LIB_clang_cpp', [clang_cpp_lib])
+    ctx.env.CXXFLAGS_clang_cpp =  ctx.env.CXXFLAGS_llvm
+    ctx.env.LDFLAGS_clang_cpp =  ctx.env.LDFLAGS_clang
     ctx.env.RPATH_clang_cpp = ctx.env.RPATH_clang
     ctx.env.INCLUDES_clang_cpp = ctx.env.INCLUDES_clang
 
