@@ -1342,7 +1342,7 @@ def profile_default(ctx,
     ctx.find_program('cflags.sh', var='CFLAGS_SH',
                      path_list=[os.path.join(ctx.path.abspath(), 'Config')])
 
-    ctx.env.CFLAGS = get_cflags(ctx, [ctx.env.COMPILER_CC])
+    ctx.env.CFLAGS = get_cflags(ctx, ctx.env.CC)
     ctx.env.CFLAGS += [
         '-ggdb3',
         '-fno-omit-frame-pointer',
@@ -1364,7 +1364,7 @@ def profile_default(ctx,
         'rt',
     ]
 
-    ctx.env.CXXFLAGS = get_cflags(ctx, [ctx.env.COMPILER_CXX])
+    ctx.env.CXXFLAGS = get_cflags(ctx, ctx.env.CXX)
     ctx.env.CXXFLAGS += [
         '-ggdb3',
         '-D__STDC_LIMIT_MACROS',
@@ -1382,8 +1382,9 @@ def profile_default(ctx,
         # Probably compiling with gcc; we'll need the .blk -> .c rewriting
         # pass with our modified clang
         ctx.env.CLANG = ctx.find_program('clang')
-        ctx.env.CLANG_FLAGS = get_cflags(ctx, ['clang'])
-        ctx.env.CLANG_REWRITE_FLAGS = get_cflags(ctx, ['clang', 'rewrite'])
+        ctx.env.CLANG_FLAGS = get_cflags(ctx, ctx.env.CLANG)
+        ctx.env.CLANG_REWRITE_FLAGS = get_cflags(
+            ctx, ctx.env.CLANG + ['rewrite'])
 
     if ctx.env.COMPILER_CXX == 'clang++':
         # C++ compilation directly done using clang
@@ -1393,9 +1394,9 @@ def profile_default(ctx,
         # Probably compiling with g++; we'll need the .blkk -> .cc rewriting
         # pass with our modified clang
         ctx.env.CLANGXX = ctx.find_program('clang++')
-        ctx.env.CLANGXX_FLAGS = get_cflags(ctx, ['clang++'])
-        ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(ctx,
-                                                   ['clang++', 'rewrite'])
+        ctx.env.CLANGXX_FLAGS = get_cflags(ctx, ctx.env.CLANGXX)
+        ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(
+            ctx, ctx.env.CLANGXX + ['rewrite'])
 
     # Asserts
     if no_assert or ctx.get_env_bool('NOASSERT'):
