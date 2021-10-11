@@ -55,6 +55,8 @@ static struct {
     /* Loggers */
     logger_t logger;
     logger_t tracing_logger;
+
+    bool tls_disabled;
 } ic_g = {
 #define _G  ic_g
     .logger = LOGGER_INIT_INHERITS(NULL, "ic"),
@@ -2560,6 +2562,20 @@ void ic_nop(ichannel_t *ic)
     ic_sc_do(ic, IC_SC_NOP, NULL, 0);
 }
 
+static bool ic_is_tls_enabled(ichannel_t *ic)
+{
+    return ic->tls_required && !_G.tls_disabled;
+}
+
+bool ic_set_tls_disabled(bool val)
+{
+    bool prev = _G.tls_disabled;
+
+    _G.tls_disabled = val;
+
+    return prev;
+}
+
 /* The version message is only sent at startup. We don't want to use ic_write
  * because some process are queuing queries even if the IC is not queuable.
  *
@@ -2571,7 +2587,7 @@ static int ic_version_write(ichannel_t *ic, int fd)
     char buffer[16];
     uint16_t flags = 0;
 
-    if (ic->tls_required) {
+    if (ic_is_tls_enabled(ic)) {
         flags |= 0x8000;
     }
 
@@ -2759,6 +2775,10 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
         vflags = get_unaligned_le16(data + 2);
         ic->peer_version = version;
         if (vflags & 0x8000) {
+            if (_G.tls_disabled) {
+                logger_warning(&_G.logger, "peer asked for TLS activation, "
+                               "but it is disabled globally");
+            }
             ic->tls_required = true;
         }
         sb_skip(buf, IC_MSG_HDR_LEN + dlen);
@@ -2767,7 +2787,7 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
     }
 
     /* Compatibility checks. */
-    if (ic->tls_required) {
+    if (ic_is_tls_enabled(ic)) {
         assert (!ic->is_unix);
         if (ic->peer_version < 1) {
             if (ic->is_spawned) {

@@ -1824,4 +1824,18 @@ SSL_CTX * nonnull ic_get_ssl_ctx(void);
 /** Get the SSL certificate used by the ichannel library. */
 X509 * nonnull ic_get_certificate(void);
 
+/** Disable IChannel encryption globally.
+ *
+ * By default, encryption is
+ * - enabled for SOCK_STREAM (except if ic->tls_enabled is manually
+ *   disabled, although it can be toggled back by an encrypted peer)
+ * - disabled for AF_UNIX
+ *
+ * Setting this to true will disable all ichannel encryption.
+ *
+ * \param[in]  val  whether encryption should be disabled or not
+ * \return  if encryption was disabled before the call or not
+ */
+bool ic_set_tls_disabled(bool val);
+
 #endif
