@@ -237,22 +237,33 @@ int main(int argc, const char **argv) {
   if (llvm::timeTraceProfilerEnabled()) {
     SmallString<128> Path(Clang->getFrontendOpts().OutputFile);
     llvm::sys::path::replace_extension(Path, "json");
+#if CLANG_VERSION_MAJOR >= 12
+    auto profilerOutput = Clang->createOutputFile(
+        Path.str(), /*Binary=*/false, /*RemoveFileOnSignal=*/false,
+        /*useTemporary=*/false);
+#else
     auto profilerOutput =
         Clang->createOutputFile(Path.str(),
                                 /*Binary=*/false,
                                 /*RemoveFileOnSignal=*/false, "",
                                 /*Extension=*/"json",
                                 /*useTemporary=*/false);
+#endif /* CLANG_VERSION_MAJOR >= 12 */
 
-    llvm::timeTraceProfilerWrite(*profilerOutput);
-    // FIXME(ibiryukov): make profilerOutput flush in destructor instead.
-    profilerOutput->flush();
-    llvm::timeTraceProfilerCleanup();
+    if (profilerOutput) {
+        llvm::timeTraceProfilerWrite(*profilerOutput);
+        // FIXME(ibiryukov): make profilerOutput flush in destructor instead.
+        profilerOutput->flush();
+        llvm::timeTraceProfilerCleanup();
+#if CLANG_VERSION_MAJOR >= 12
+        Clang->clearOutputFiles(false);
+#endif /* CLANG_VERSION_MAJOR >= 12 */
 
-    llvm::errs() << "Time trace json-file dumped to " << Path.str() << "\n";
-    llvm::errs()
-        << "Use chrome://tracing or Speedscope App "
-           "(https://www.speedscope.app) for flamegraph visualization\n";
+        llvm::errs() << "Time trace json-file dumped to " << Path.str() << "\n";
+        llvm::errs()
+            << "Use chrome://tracing or Speedscope App "
+               "(https://www.speedscope.app) for flamegraph visualization\n";
+    }
   }
 
   // Our error handler depends on the Diagnostics object, which we're

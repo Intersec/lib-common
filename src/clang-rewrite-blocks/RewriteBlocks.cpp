@@ -364,9 +364,15 @@ void RewriteBlocks::Initialize(ASTContext &context)
 
   // Get the ID and start/end of the main file.
   MainFileID = SM->getMainFileID();
+#if CLANG_VERSION_MAJOR >= 12
+  llvm::MemoryBufferRef MainBuf = SM->getBufferOrFake(MainFileID);
+  MainFileStart = MainBuf.getBufferStart();
+  MainFileEnd = MainBuf.getBufferEnd();
+#else
   const llvm::MemoryBuffer *MainBuf = SM->getBuffer(MainFileID);
   MainFileStart = MainBuf->getBufferStart();
   MainFileEnd = MainBuf->getBufferEnd();
+#endif /* CLANG_VERSION_MAJOR >= 12 */
 
   Rewrite.setSourceMgr(Context->getSourceManager(), Context->getLangOpts());
   if (LangOpts.MicrosoftExt) {
@@ -456,8 +462,14 @@ QualType RewriteBlocks::getSimpleFunctionType(QualType result,
 CStyleCastExpr* RewriteBlocks::NoTypeInfoCStyleCastExpr(ASTContext *Ctx, QualType Ty,
                                          CastKind Kind, Expr *E) {
   TypeSourceInfo *TInfo = Ctx->getTrivialTypeSourceInfo(Ty, SourceLocation());
+#if CLANG_VERSION_MAJOR >= 12
+  return CStyleCastExpr::Create(*Ctx, Ty, VK_RValue, Kind, E, nullptr,
+                                FPOptionsOverride(), TInfo,
+                                SourceLocation(), SourceLocation());
+#else
   return CStyleCastExpr::Create(*Ctx, Ty, VK_RValue, Kind, E, 0, TInfo,
                                 SourceLocation(), SourceLocation());
+#endif /* CLANG_VERSION_MAJOR >= 12 */
 }
 
 /// convertBlockPointerToFunctionPointer - Converts a block-pointer type
@@ -1800,8 +1812,14 @@ Stmt *RewriteBlocks::SynthBlockInitExpr(BlockExpr *Exp,
                                          Context->IntTy, SourceLocation());
   InitExprs.push_back(FlagExp);
 
+#if CLANG_VERSION_MAJOR >= 12
+  NewRep = CallExpr::Create(*Context, DRE, InitExprs, FType, VK_LValue,
+                            SourceLocation(), FPOptionsOverride());
+#else
   NewRep = CallExpr::Create(*Context, DRE, InitExprs, FType, VK_LValue,
                             SourceLocation());
+#endif /* CLANG_VERSION_MAJOR >= 12 */
+
   NewRep = NoTypeInfoCStyleCastExpr(Context, Context->VoidPtrTy,
                                     CK_BitCast, NewRep);
   NewRep = NoTypeInfoCStyleCastExpr(Context, FType, CK_BitCast,
@@ -1904,8 +1922,14 @@ Stmt *RewriteBlocks::SynthesizeBlockCall(CallExpr *Exp, const Expr *BlockExp) {
        E = Exp->arg_end(); I != E; ++I) {
     BlkExprs.push_back(*I);
   }
+#if CLANG_VERSION_MAJOR >= 12
+  CallExpr *CE =
+      CallExpr::Create(*Context, PE, BlkExprs, Exp->getType(), VK_RValue,
+                       SourceLocation(), FPOptionsOverride());
+#else
   CallExpr *CE = CallExpr::Create(*Context, PE, BlkExprs, Exp->getType(),
                                   VK_RValue, SourceLocation());
+#endif /* CLANG_VERSION_MAJOR >= 12 */
   return CE;
 }
 
