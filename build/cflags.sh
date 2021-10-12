@@ -2,7 +2,7 @@
 
 cc="$1"
 
-clang_version="$("$cc" --version | grep 'clang version' | cut -d ' ' -f 3)"
+clang_version="$("$cc" --version | grep -o 'clang version [0-9.]\+' | cut -d ' ' -f 3)"
 version=$("$cc" -dumpfullversion -dumpversion)
 
 prereq() {
@@ -26,7 +26,7 @@ prereq() {
 
 gcc_prereq()
 {
-    case "$cc" in
+    case "$(basename "$cc")" in
         cc*|gcc*|c++*|g++*) ;;
         *) return 1;
     esac
@@ -35,7 +35,7 @@ gcc_prereq()
 
 is_clang()
 {
-    case "$cc" in
+    case "$(basename "$cc")" in
         clang*|*c*-analyzer) return 0;;
         *) return 1;;
     esac
@@ -49,7 +49,7 @@ clang_prereq()
 
 is_cpp()
 {
-    case "$cc" in
+    case "$(basename "$cc")" in
         *++*) return 0;;
         *) return 1;;
     esac
@@ -266,13 +266,13 @@ EOF
     echo -D_GNU_SOURCE # $(getconf LFS_CFLAGS)
 
     if test "$2" = rewrite; then
-        get_internal_clang_args $("$cc" -x c${cc#clang} -'###' /dev/null 2>&1 | grep 'cc1')
+        if is_cpp; then
+            file_type="c++"
+        else
+            file_type="c"
+        fi
+        get_internal_clang_args $("$cc" -x $file_type -'###' /dev/null 2>&1 | grep 'cc1')
     fi
 }
-
-if test "$2" = "rewrite"; then
-    # Fails if clang does not support block rewriting
-    "$cc" -cc1 -rewrite-blocks < /dev/null > /dev/null
-fi
 
 build_flags "$@" | tr '\n' ' '
