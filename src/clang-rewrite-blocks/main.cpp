@@ -24,6 +24,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+/*
+ * This file is adapted from `clang/tools/driver/cc1_main.cpp` and
+ * `clang/lib/FrontendTool/ExecuteCompilerInvocation.cpp`.
+ */
 
 #include <clang/Basic/DiagnosticFrontend.h>
 #include <clang/Basic/Version.h>

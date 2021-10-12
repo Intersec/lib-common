@@ -28,6 +28,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+/*
+ * This file is adapted from `clang/lib/Frontend/Rewrite/RewriteObjC.cpp`.
+ */
+
 #include <clang/Rewrite/Frontend/ASTConsumers.h>
 #include <clang/AST/AST.h>
 #include <clang/AST/ASTConsumer.h>

@@ -1,0 +1,66 @@
+= clang-rewrite-blocks
+
+== What is clang-rewrite-blocks
+
+An important part of the lib-common uses the
+https://clang.llvm.org/docs/BlockLanguageSpec.html[blocks] clang extension,
+that is not supported by gcc.
+
+Because of this, we have put in place a two-phase build of some files
+(named `foo.blk` instead of `foo.c`) that are pre-compiled using a special
+tool named `clang-rewrite-blocks`. gcc is then used to produce the final
+object code.
+
+`clang-rewrite-blocks` is compiled and used automatically by the build-system.
+
+`clang-rewrite-blocks` is adapted from clang and uses llvm and clang as
+libraries to pre-compile `.blk` and `.blkk` files to `.blk.c` and `.blkk.cpp`
+files.
+
+== Support a new version of llvm/clang
+
+`clang-rewrite-blocks` uses the C++ API of llvm/clang that is not stable
+between different versions of llvm/clang. So `clang-rewrite-blocks` is very
+likely to break when using a newer version of llvm/clang.
+
+Fortunately, the source files of `clang-rewrite-blocks` are adapted from
+source files in clang, so most of the incompatibilities can be resolved by
+looking at the source files in the new version of clang.
+
+To support a new version of llvm/clang, follow these steps:
+
+1. Add the new version to the list of supported versions in
+`build/waftools/backend.py::llvm_clang_configure()`.
+
+2. Try to compile lib-common. There should be some errors when compiling
+`src/clang-rewrite-blocks/RewriteBlocks.cpp` and
+`src/clang-rewrite-blocks/main.cpp`.
+
+3. Look at `clang/lib/Frontend/Rewrite/RewriteObjC.cpp` to see if similar
+lines have been modified in the newer version of clang for
+`src/clang-rewrite-blocks/RewriteBlocks.cpp`. +
+For each modification in `clang/lib/Frontend/Rewrite/RewriteObjC.cpp`
+corresponding to an error, port it to
+`src/clang-rewrite-blocks/RewriteBlocks.cpp`. +
+Surround the modification with a `#if` on the macro constant
+`CLANG_VERSION_MAJOR` in order to keep the compatibility with older version of
+clang. +
+For example:
++
+[source,cpp]
+----
+#if CLANG_VERSION_MAJOR >= 10
+  return std::make_unique<RewriteBlocks>(InFile, std::move(OS), Diags, LOpts,
+                                         SilenceRewriteMacroWarning);
+#else
+  return llvm::make_unique<RewriteBlocks>(InFile, std::move(OS), Diags, LOpts,
+                                          SilenceRewriteMacroWarning);
+#endif /* CLANG_VERSION_MAJOR >= 10 */
+----
+
+4. Do the same with `clang/tools/driver/cc1_main.cpp` and
+`clang/lib/FrontendTool/ExecuteCompilerInvocation.cpp` for
+`src/clang-rewrite-blocks/main.cpp`.
+
+5. Compile and check the whole lib-common. If it works, congratulation, you
+have supported a newer version of llvm/clang in `clang-rewrite-blocks`!
