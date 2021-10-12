@@ -16,6 +16,7 @@ steps:
         curl \
         clang \
         libclang-dev \
+        llvm-dev \
         python3-dev \
         python3-pip \
         flex \
@@ -29,6 +30,14 @@ steps:
         exuberant-ctags \
         valgrind
     displayName: Install system dependencies
+
+  - bash: |
+      sudo apt-get install \
+        clang-9 \
+        libclang-9-dev \
+        llvm-9-dev
+    condition: eq(variables['imageName'], 'ubuntu-18.04')
+    displayName: Install llvm/clang 9 for ubuntu 18.04
 
   - bash: |
       sudo python3 -m pip install --upgrade pip && \
@@ -47,19 +56,31 @@ steps:
     displayName: Install waf
 
   - script: waf configure
+    displayName: Configure with GCC, default
+
+  - script: waf build
+    displayName: Compile with GCC, default
+
+  - script: waf check
+    displayName: Check with GCC, default
+
+  - script: waf clean
+    displayName: Clean-up
+
+  - script: waf configure
     env:
       CC: 'clang'
       CXX: 'clang++'
       P: 'asan'
-    displayName: Configure
+    displayName: Configure with Clang, ASan
 
   - script: waf build
-    displayName: Compile
+    displayName: Compile with Clang, ASan
 
   - script: waf check
     env:
       ASAN_OPTIONS: 'handle_segv=0:detect_leaks=1'
-    displayName: Check
+    displayName: Check with Clang, ASan
 
   - script: waf pylint
-    displayName: Pylint
+    displayName: Check with pylint
