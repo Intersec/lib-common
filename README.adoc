@@ -254,6 +254,25 @@ The following environment variables can be used at the configuration phase:
     This is only available for profiles that use sanitizers, i.e. asan or
     tsan.
 
+`LIB_COMMON_NO_CLANG_REWRITE_BLOCKS_CHECK` (boolean)::
+    On `waf configure`, when <<gcc, compiling with gcc>>, the build-system
+    checks that `clang` is a patched version that supports `-rewrite-blocks`
+    argument.
+    This check can be disabled by setting this environment variable.
+    *WARNING*: Even when this check is disabled, the build-system still
+    expects `clang` to support `-rewrite-blocks`.
+
+`LIB_COMMON_CLANG_BLOCK_REWRITER` (string)::
+    Path to the executable used to transpile C code files with blocks when
+    <<gcc, compiling with gcc>>. The executable is expected to support
+    `-rewrite-blocks` argument. By default, `clang` is used directly.
+
+`LIB_COMMON_CLANGXX_BLOCK_REWRITER` (string)::
+    Same as `LIB_COMMON_CLANG_BLOCK_REWRITER` but for C++ code files with
+    blocks.
+
+
+[[gcc]]
 ==== Compiling with gcc
 
 It is possible to compile the lib-common with gcc instead of clang if you

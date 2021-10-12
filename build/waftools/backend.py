@@ -697,8 +697,8 @@ def compute_clang_extra_cflags(self, clang_flags, cflags):
 
 class Blk2c(Task):
     run_str = ['rm -f ${TGT}',
-               ('${CLANG} -cc1 -x c ${CLANG_REWRITE_FLAGS} ${CLANG_CFLAGS} '
-                '-rewrite-blocks -DIS_CLANG_BLOCKS_REWRITER '
+               ('${CLANG_BLOCK_REWRITER} -cc1 -x c ${CLANG_REWRITE_FLAGS} '
+                '${CLANG_CFLAGS} -rewrite-blocks -DIS_CLANG_BLOCKS_REWRITER '
                 '${CLANG_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
                 '${SRC} -o ${TGT}')]
     ext_out = [ '.c' ]
@@ -758,9 +758,9 @@ def process_blk(self, node):
 
 class Blkk2cc(Task):
     run_str = ['rm -f ${TGT}',
-               ('${CLANGXX} -cc1 -x c++ ${CLANGXX_REWRITE_FLAGS} '
-                '${CLANGXX_EXTRA_CFLAGS} -rewrite-blocks '
-                '${CPPPATH_ST:INCPATHS} ${SRC} -o ${TGT}')]
+               ('${CLANGXX_BLOCK_REWRITER} -cc1 -x c++ '
+                '${CLANGXX_REWRITE_FLAGS} ${CLANGXX_EXTRA_CFLAGS} '
+                '-rewrite-blocks ${CPPPATH_ST:INCPATHS} ${SRC} -o ${TGT}')]
     ext_out = [ '.cc' ]
     color = 'CYAN'
 
@@ -1310,6 +1310,15 @@ def get_cflags(ctx, args):
     return flags.strip().replace('"', '').split(' ')
 
 
+def check_clang_rewrite_blocks(ctx, cc):
+    if ctx.get_env_bool('LIB_COMMON_NO_CLANG_REWRITE_BLOCKS_CHECK'):
+        return
+
+    cmd = "'{0}' -cc1 -rewrite-blocks </dev/null >/dev/null".format(cc)
+    if ctx.exec_command(cmd, stdout=None, stderr=None):
+        ctx.fatal('`{0}` does not support -rewrite-blocks'.format(cc))
+
+
 def profile_default(ctx,
                     no_assert=False,
                     allow_no_double_fpic=True,
@@ -1326,7 +1335,7 @@ def profile_default(ctx,
     ctx.find_program('cflags.sh', var='CFLAGS_SH',
                      path_list=[os.path.join(ctx.path.abspath(), 'build')])
 
-    ctx.env.CFLAGS = get_cflags(ctx, [ctx.env.COMPILER_CC])
+    ctx.env.CFLAGS = get_cflags(ctx, ctx.env.CC)
 
     oflags = ['-O' + str(optim_level)]
     ctx.env.CFLAGS += oflags
@@ -1353,7 +1362,7 @@ def profile_default(ctx,
         'rt',
     ]
 
-    ctx.env.CXXFLAGS = get_cflags(ctx, [ctx.env.COMPILER_CXX])
+    ctx.env.CXXFLAGS = get_cflags(ctx, ctx.env.CXX)
     ctx.env.CXXFLAGS += [
         '-ggdb3',
         '-D__STDC_LIMIT_MACROS',
@@ -1371,10 +1380,16 @@ def profile_default(ctx,
         # Probably compiling with gcc; we'll need the .blk -> .c rewriting
         # pass with our modified clang
         ctx.env.CLANG = ctx.find_program('clang')
-        ctx.env.CLANG_FLAGS = get_cflags(ctx, ['clang'])
+        ctx.env.CLANG_FLAGS = get_cflags(ctx, ctx.env.CLANG)
         ctx.env.CLANG_FLAGS += oflags
-        ctx.env.CLANG_REWRITE_FLAGS = get_cflags(ctx, ['clang', 'rewrite'])
+        ctx.env.CLANG_REWRITE_FLAGS = get_cflags(
+            ctx, ctx.env.CLANG + ['rewrite'])
         ctx.env.CLANG_REWRITE_FLAGS += oflags
+        ctx.env.CLANG_BLOCK_REWRITER = [
+            os.environ.get('LIB_COMMON_CLANG_BLOCK_REWRITER',
+                           ctx.env.CLANG[0])
+        ]
+        check_clang_rewrite_blocks(ctx, ctx.env.CLANG_BLOCK_REWRITER[0])
 
     if ctx.env.COMPILER_CXX == 'clang++':
         # C++ compilation directly done using clang
@@ -1384,11 +1399,16 @@ def profile_default(ctx,
         # Probably compiling with g++; we'll need the .blkk -> .cc rewriting
         # pass with our modified clang
         ctx.env.CLANGXX = ctx.find_program('clang++')
-        ctx.env.CLANGXX_FLAGS = get_cflags(ctx, ['clang++'])
+        ctx.env.CLANGXX_FLAGS = get_cflags(ctx, ctx.env.CLANGXX)
         ctx.env.CLANGXX_FLAGS += oflags
-        ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(ctx,
-                                                   ['clang++', 'rewrite'])
+        ctx.env.CLANGXX_REWRITE_FLAGS = get_cflags(
+            ctx, ctx.env.CLANGXX + ['rewrite'])
         ctx.env.CLANGXX_REWRITE_FLAGS += oflags
+        ctx.env.CLANGXX_BLOCK_REWRITER = [
+            os.environ.get('LIB_COMMON_CLANGXX_BLOCK_REWRITER',
+                           ctx.env.CLANGXX[0])
+        ]
+        check_clang_rewrite_blocks(ctx, ctx.env.CLANGXX_BLOCK_REWRITER[0])
 
     # Asserts
     if no_assert or ctx.get_env_bool('NOASSERT'):
