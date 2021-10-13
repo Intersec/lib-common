@@ -65,7 +65,7 @@ PXCC_EXPORT_TYPE(include);
 PXCC_EXPORT_TYPE(union import);
 PXCC_EXPORT_TYPE(with);
 PXCC_EXPORT_TYPE(enum except);
-PXCC_EXPORT_TYPE(raise);
+PXCC_EXPORT_TYPE(elif);
 PXCC_EXPORT_SYMBOL(yield);
 
 /* }}} */

@@ -229,7 +229,7 @@ enum except {
 };
 typedef union {
     enum except pass;
-} raise;
+} elif;
 void yield(void);
 
 /* }}} */

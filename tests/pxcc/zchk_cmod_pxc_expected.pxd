@@ -203,7 +203,7 @@ cdef extern from "zchk_cmod.h" nogil:
     cdef enum c_except "except":
         c_finally "finally" = 0,
 
-    ctypedef union c_raise "raise":
+    ctypedef union c_elif "elif":
         c_except c_pass "pass"
 
     void c_yield "yield"()
