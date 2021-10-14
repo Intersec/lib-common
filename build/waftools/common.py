@@ -283,6 +283,13 @@ def add_custom_install(self):
     tsk.run_after = set(self.tasks)
     tsk.run_after.remove(tsk)
 
+    # Tasks specified with `depends_on` needs to be done before executing the
+    # custom install.
+    deps = getattr(self, 'depends_on', [])
+    for name in self.to_list(deps):
+        other = self.bld.get_tgen_by_name(name)
+        for other_tsk in other.tasks:
+            tsk.set_run_after(other_tsk)
 
 # }}}
 # {{{ pylint
