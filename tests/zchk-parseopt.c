@@ -25,6 +25,7 @@ static struct {
     int c;
     unsigned d;
     char e;
+    uint64_t f;
 } zchk_parseopt_g;
 #define _G  zchk_parseopt_g
 
@@ -35,6 +36,7 @@ static popt_t popts_g[] = {
     OPT_INT( 'c', "optc", &_G.c, "Opt c"),
     OPT_UINT('d', "optd", &_G.d, "Opt d"),
     OPT_CHAR('e', "opte", &_G.e, "Opt e"),
+    OPT_UINT('f', "optf", &_G.f, "Opt f"),
     OPT_END(),
 };
 
@@ -73,6 +75,7 @@ Z_GROUP_EXPORT(parseopt)
             "-c", "-12",
             "--optd=8777",
             "-e", "c",
+            "--optf=4848447481871454",
             "plic",
             "ploc",
         };
@@ -90,6 +93,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.c, -12);
         Z_ASSERT_EQ(_G.d, 8777u);
         Z_ASSERT_EQ(_G.e, 'c');
+        Z_ASSERT_EQ(_G.f, 4848447481871454ull);
     } Z_TEST_END;
 
     Z_TEST(optional, "opts are optionals") {
@@ -253,6 +257,10 @@ Z_GROUP_EXPORT(parseopt)
         OPT_VEC_EXTEND_VA(&opts,
             OPT_CHAR('e', "opte", &_G.e, "Opt e"),
         );
+        OPT_VEC_EXTEND_VA(&opts,
+            OPT_UINT('f', "optf", &_G.f, "Opt f"),
+            OPT_END(),
+        );
 
         Z_ASSERT_EQ(opts.len, z_popts_len(popts_g));
 
@@ -261,4 +269,52 @@ Z_GROUP_EXPORT(parseopt)
                          "option [%d] differs", i);
         }
     } Z_TEST_END;
+
+    Z_TEST(unset_args_copy_init,
+           "test unset args '--no-' and copy init feature")
+    {
+        /* XXX: This test acks as non-regression test for
+         * 99334d2841229 and 4c4670dbece02.
+         * The only way to reproduce the bugs are to use the "--no-" feature
+         * because it is the only use case for field "init".
+         */
+        const char *argv[] = {
+            "-a",
+            "--no-opta",
+
+            "--optb", "plop",
+            "--no-optb",
+
+            "-c", "-12",
+            "--no-optc",
+
+            "--optd=8777",
+            "--no-optd",
+
+            "-e", "c",
+            "--no-opte",
+
+            "--optf=4848447481871454",
+            "--no-optf",
+        };
+        int argc = countof(argv);
+
+        p_clear(&_G, 1);
+        _G.a = true;
+        _G.b = "plip";
+        _G.c = -872;
+        _G.d = 457u;
+        _G.e = 'e';
+        _G.f = 0x1234567890ABCDEFull;
+
+        Z_ASSERT_N(parseopt(argc, (char **)argv, popts_g, 0));
+
+        Z_ASSERT(!_G.a);
+        Z_ASSERT_STREQUAL(_G.b, "plip");
+        Z_ASSERT_EQ(_G.c, -872);
+        Z_ASSERT_EQ(_G.d, 457u);
+        Z_ASSERT_EQ(_G.e, 'e');
+        Z_ASSERT_EQ(_G.f, 0x1234567890ABCDEFull);
+    } Z_TEST_END;
+
 } Z_GROUP_END
