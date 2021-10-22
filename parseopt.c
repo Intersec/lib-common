@@ -301,13 +301,37 @@ int parseopt_getu(const char *arg, const char *param_name, unsigned *val)
     return parse_param(arg, param_name, OPTION_UINT, sizeof(*val), val);
 }
 
+static intptr_t get_int_init(popt_t *opt)
+{
+    switch (opt->int_vsize) {
+#define CASE(_sc) case _sc / 8:                                              \
+        if (opt->kind == OPTION_UINT) {                                      \
+            return *(uint##_sc##_t *)opt->value;                             \
+        } else {                                                             \
+            return *(int##_sc##_t *)opt->value;                              \
+        }                                                                    \
+        break
+
+        CASE(8);
+        CASE(16);
+        CASE(32);
+        CASE(64);
+
+#undef CASE
+
+      default: e_panic("should not happen");
+    }
+
+    return 0;
+}
+
 static void copyinits(popt_t *opts)
 {
     for (;;) {
         switch (opts->kind) {
-          case OPTION_FLAG:
           case OPTION_INT:
-            opts->init = *(int *)opts->value;
+          case OPTION_UINT:
+            opts->init = get_int_init(opts);
             break;
           case OPTION_STR:
             opts->init = (intptr_t)*(const char **)opts->value;
@@ -315,7 +339,9 @@ static void copyinits(popt_t *opts)
           case OPTION_CHAR:
             opts->init = *(char *)opts->value;
             break;
-          default:
+          case OPTION_FLAG:
+          case OPTION_GROUP:
+          case OPTION_VERSION:
             break;
           case OPTION_END:
             return;
