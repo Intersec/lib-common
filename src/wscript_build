@@ -130,8 +130,33 @@ ctx.stlib(target='libcommon-iop', features='c cstlib', source=[
     'iop/ic.iop',
 ])
 
+# {{{ HPACK auto-generated files
+
+ctx(rule=(
+    'net/hpack-generate-huffman-tables.py for-encoding '
+    '--rfc net/rfc7541-tables.txt --out ${TGT}'
+), cwd='.', source=[
+    'net/rfc7541-tables.txt',
+    'net/hpack-generate-huffman-tables.py',
+    'net/hpack-priv.h'
+], target='net/hpack-huffman-encoding-table.c')
+
+ctx(rule=(
+    'net/hpack-generate-huffman-tables.py for-decoding '
+    '--rfc net/rfc7541-tables.txt --out ${TGT}'
+), cwd='.', source=[
+    'net/rfc7541-tables.txt',
+    'net/hpack-generate-huffman-tables.py',
+    'net/hpack-priv.h'
+], target='net/hpack-huffman-decoding-table.c')
+
+# }}}
+
 # Full lib-common library
-ctx.stlib(target='libcommon', features='c cstlib', use=[
+ctx.stlib(target='libcommon', features='c cstlib', depends_on=[
+    'net/hpack-huffman-encoding-table.c',
+    'net/hpack-huffman-decoding-table.c'
+], use=[
     'libcommon-iop',
     'libcommon-minimal',
     'openssl',
@@ -164,6 +189,9 @@ ctx.stlib(target='libcommon', features='c cstlib', use=[
     'crypto/ssl.blk',
 
     'net/addr.c',
+    'net/hpack-huffman-decoding-table.c',
+    'net/hpack-huffman-encoding-table.c',
+    'net/hpack.c',
     'net/http.c',
     'net/http-hdr.perf',
     'net/http-srv-static.c',
