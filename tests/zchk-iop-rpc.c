@@ -170,10 +170,10 @@ Z_GROUP_EXPORT(iop_rpc)
         qm_t(ic_cbs) impl_aux = QM_INIT(ic_cbs, impl_aux);
 
         ic_init(&ic);
-        ic_set_local(&ic);
+        ic_set_local(&ic, false);
 
         _G.ic_aux = ic_new();
-        ic_set_local(_G.ic_aux);
+        ic_set_local(_G.ic_aux, false);
 
         for (int force_pack = 0; force_pack <= 1; force_pack++) {
             for (int force_dup = 0; force_dup <= !force_pack; force_dup++) {

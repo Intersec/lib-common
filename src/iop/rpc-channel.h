@@ -578,6 +578,14 @@ struct ichannel_t {
                                    messages, but some process does enqueue
                                    messages before the IC being queuable */
     bool is_local     :  1;
+    bool is_local_async : 1; /**< Indicate that the query and replies on this
+                              * local ichannel should not be handled
+                              * synchronously. Instead they should be queued
+                              * and handled only after returning to the event
+                              * loop.
+                              * The purpose is to avoid side effects when a
+                              * module mixes both local and remote ichannels.
+                              */
     bool is_trusted   :  1;   /**< set to true for internal ichannels     */
     bool is_public    :  1;   /**< setting this flag to true causses private
                                    fields to be omitted on outgoing messages
@@ -621,6 +629,14 @@ struct ichannel_t {
     htnode_t    * nullable last_normal_prio_msg;
                                /**< last message of msg_list having
                                              the priority NORMAL */
+    /* queues of queries and replies of local async channel (see
+     * is_local_async). */
+    htlist_t local_async_queries;
+    htlist_t local_async_replies;
+    el_t nullable local_async_el; /**< timer used to handle local async
+                                   * queries and replies
+                                   */
+
     int current_fd; /**< used to store the current fd                       */
     int pending;    /**< number of pending queries (for peak warning)       */
     int queue_len;  /**< length of the query queue, without canceled        */
@@ -658,8 +674,10 @@ static inline bool ic_is_local(const ichannel_t * nonnull ic) {
     return ic->is_local;
 }
 
-static inline void ic_set_local(ichannel_t * nonnull ic) {
+static inline void ic_set_local(ichannel_t * nonnull ic, bool is_local_async)
+{
     ic->is_local = true;
+    ic->is_local_async = is_local_async;
     ic->client_addr = LSTR("127.0.0.1");
 }
 

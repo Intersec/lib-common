@@ -782,6 +782,19 @@ static void ic_cancel_all(ichannel_t *ic)
             ic_msg_delete(&msg);
         }
     }
+
+    while (!htlist_is_empty(&ic->local_async_queries)) {
+        msg = htlist_pop_entry(&ic->local_async_queries, ic_msg_t, msg_link);
+        __ic_msg_reply_err(ic, msg, IC_MSG_ABORT);
+        if (msg->cmd <= 0 || msg->slot == 0) {
+            ic_msg_delete(&msg);
+        }
+    }
+    while (!htlist_is_empty(&ic->local_async_replies)) {
+        msg = htlist_pop_entry(&ic->local_async_replies, ic_msg_t, msg_link);
+        ic_msg_delete(&msg);
+    }
+
     ic->last_normal_prio_msg = NULL;
 
     h = ic->queries;
@@ -2050,6 +2063,7 @@ void ic_wipe(ichannel_t *ic)
     lstr_wipe(&ic->remote_addr);
     lstr_wipe(&ic->client_addr);
     ic->is_wiped   = true;
+    el_unregister(&ic->local_async_el);
 }
 
 static int ic_event(el_t ev, int fd, short events, data_t priv)
@@ -2276,6 +2290,62 @@ ic_query_local_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
     }
 }
 
+static void ic_local_reply(ichannel_t *ic, ic_msg_t *msg);
+
+static void
+ic_local_async_flush(el_t el, data_t data)
+{
+    ichannel_t *ic = data.ptr;
+    htlist_t replies;
+    htlist_t queries;
+
+    el_unregister(&ic->local_async_el);
+    /* XXX: We do not iterate directly on ichannel queries and replies list.
+     * The reason is to ensure that handling queries and replies could
+     * trigger new queries which would then be handled synchronously.
+     * Moving the current list of queries and replies to separate variables
+     * ensure that those new queries will not be handled right away.
+     */
+    replies = ic->local_async_replies;
+    htlist_init(&ic->local_async_replies);
+    queries = ic->local_async_queries;
+    htlist_init(&ic->local_async_queries);
+
+    while (!htlist_is_empty(&replies)) {
+        ic_msg_t *msg;
+
+        msg = htlist_pop_entry(&replies, ic_msg_t, msg_link);
+        ic_local_reply(ic, msg);
+    }
+
+    while (!htlist_is_empty(&queries)) {
+        ic_msg_t *msg;
+
+        msg = htlist_pop_entry(&queries, ic_msg_t, msg_link);
+        /* FIXME: handle flags */
+        ic_query_local_flags(ic, msg, 0);
+    }
+}
+
+static void ic_local_async_schedule_flush(ichannel_t *ic)
+{
+    if (!ic->local_async_el) {
+        ic->local_async_el = el_before_register(ic_local_async_flush, ic);
+    }
+}
+
+static void
+ic_query_local_async_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
+{
+    __ic_bpack(msg, msg->rpc->args, msg->data);
+    msg->force_pack = true;
+
+    /* flags are not supported in local async mode for the moment. */
+    assert(!flags);
+    htlist_add_tail(&ic->local_async_queries, &msg->msg_link);
+    ic_local_async_schedule_flush(ic);
+}
+
 void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
 {
     /* if that crashes, one of the IC_MSG_ABORT callback reenqueues directly in
@@ -2285,7 +2355,7 @@ void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
 
     msg->ic = ic;
 
-    if (msg->timeout > 0) {
+    if (msg->timeout > 0 && !ic->is_local_async) {
         msg->timeout_timer = el_timer_register(msg->timeout, 0,
                                                EL_TIMER_LOWRES,
                                                ic_msg_on_timeout, msg);
@@ -2312,7 +2382,11 @@ void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
         ic->queue_len++;
     }
     if (ic_is_local(ic)) {
-        ic_query_local_flags(ic, msg, flags);
+        if (ic->is_local_async) {
+            ic_query_local_async_flags(ic, msg, flags);
+        } else {
+            ic_query_local_flags(ic, msg, flags);
+        }
     } else {
         ic_queue(ic, msg, flags);
     }
@@ -2453,7 +2527,12 @@ static void ic_local_reply(ichannel_t *ic, ic_msg_t *msg)
 static void ic_queue_for_reply(ichannel_t *ic, ic_msg_t *msg)
 {
     if (ic_is_local(ic)) {
-        ic_local_reply(ic, msg);
+        if (ic->is_local_async) {
+            htlist_add_tail(&ic->local_async_replies, &msg->msg_link);
+            ic_local_async_schedule_flush(ic);
+        } else {
+            ic_local_reply(ic, msg);
+        }
     } else {
         ic_queue(ic, msg, 0);
     }
