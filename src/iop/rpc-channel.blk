@@ -2242,10 +2242,42 @@ static void ic_msg_on_timeout(el_t ev, el_data_t data)
     }
 }
 
-void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
+static void
+ic_query_local_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
 {
+    const void *data;
+    int dlen;
+    const ic_msg_t *unpacked_msg;
     bool async = msg->async;
 
+    ic_msg_update_flags(msg, &flags);
+    ic_update_pending(ic, msg->slot);
+    assert (msg->force_pack == !!msg->dlen);
+    if (msg->force_pack) {
+        data = (char *)msg->data + IC_MSG_HDR_LEN;
+        dlen = msg->dlen - IC_MSG_HDR_LEN;
+        assert (dlen >= 0);
+        unpacked_msg = NULL;
+    } else {
+        data = NULL;
+        dlen = 0;
+        unpacked_msg = msg;
+    }
+    if (ic_read_process_query(ic, msg->cmd, msg->slot, flags, data, dlen,
+                              unpacked_msg) < 0)
+    {
+        logger_panic(&_G.logger, "invalid query for local ic");
+    }
+    /* XXX: we can't use the msg here because if async is false, msg will be
+     * deleted when calling ic_reply.
+     */
+    if (async) {
+        ic_msg_delete(&msg);
+    }
+}
+
+void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
+{
     /* if that crashes, one of the IC_MSG_ABORT callback reenqueues directly in
      * that ichannel_t which is forbidden, fix the code
      */
@@ -2260,7 +2292,7 @@ void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
         el_unref(msg->timeout_timer);
     }
 
-    if (!async) {
+    if (!msg->async) {
         unsigned start = ic->nextslot;
 
         do {
@@ -2280,31 +2312,7 @@ void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
         ic->queue_len++;
     }
     if (ic_is_local(ic)) {
-        const void *data;
-        int dlen;
-        const ic_msg_t *unpacked_msg;
-
-        ic_msg_update_flags(msg, &flags);
-        ic_update_pending(ic, msg->slot);
-        assert (msg->force_pack == !!msg->dlen);
-        if (msg->force_pack) {
-            data = (char *)msg->data + IC_MSG_HDR_LEN;
-            dlen = msg->dlen - IC_MSG_HDR_LEN;
-            assert (dlen >= 0);
-            unpacked_msg = NULL;
-        } else {
-            data = NULL;
-            dlen = 0;
-            unpacked_msg = msg;
-        }
-        if (ic_read_process_query(ic, msg->cmd, msg->slot, flags, data, dlen,
-                                  unpacked_msg) < 0)
-        {
-            logger_panic(&_G.logger, "invalid query for local ic");
-        }
-        if (async) {
-            ic_msg_delete(&msg);
-        }
+        ic_query_local_flags(ic, msg, flags);
     } else {
         ic_queue(ic, msg, flags);
     }
@@ -2424,23 +2432,28 @@ ic_msg_new_for_reply(ichannel_t **ic, uint64_t slot, int cmd)
     return NULL;
 }
 
+static void ic_local_reply(ichannel_t *ic, ic_msg_t *msg)
+{
+    const void *data = NULL;
+    int dlen = 0;
+
+    if (msg->dlen) {
+        assert (msg->force_pack
+                || (-msg->cmd != IC_MSG_OK && -msg->cmd != IC_MSG_EXN));
+
+        data = (char *)msg->data + IC_MSG_HDR_LEN;
+        dlen = msg->dlen - IC_MSG_HDR_LEN;
+        assert (dlen >= 0);
+    }
+    ic_read_process_answer(ic, msg->cmd, msg->slot, data, dlen,
+                           msg->force_pack ? NULL : msg);
+    ic_msg_delete(&msg);
+}
+
 static void ic_queue_for_reply(ichannel_t *ic, ic_msg_t *msg)
 {
     if (ic_is_local(ic)) {
-        const void *data = NULL;
-        int dlen = 0;
-
-        if (msg->dlen) {
-            assert (msg->force_pack
-                    || (-msg->cmd != IC_MSG_OK && -msg->cmd != IC_MSG_EXN));
-
-            data = (char *)msg->data + IC_MSG_HDR_LEN;
-            dlen = msg->dlen - IC_MSG_HDR_LEN;
-            assert (dlen >= 0);
-        }
-        ic_read_process_answer(ic, msg->cmd, msg->slot, data, dlen,
-                               msg->force_pack ? NULL : msg);
-        ic_msg_delete(&msg);
+        ic_local_reply(ic, msg);
     } else {
         ic_queue(ic, msg, 0);
     }
