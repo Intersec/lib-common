@@ -35,6 +35,11 @@ static struct {
     core__log_level__t  level;
     ctx_t               ctx;
     int echo_rpc_answered;
+    bool reply_callback_called;
+    bool reply_callback_called_synchronously;
+    bool sub_query_called;
+    bool sub_query_called_synchronously;
+    bool reply_status_is_abort;
 } z_iop_rpc_g;
 #define _G  z_iop_rpc_g
 
@@ -56,6 +61,31 @@ static void IOP_RPC_IMPL(core__core, log, set_root_level)
     arg->level++;
 }
 
+static void IOP_RPC_IMPL(core__core, log, reset_logger_level)
+{
+    _G.sub_query_called = true;
+    ic_reply(NULL, slot, core__core, log, reset_logger_level,
+             .level = 0);
+}
+
+static void IOP_RPC_CB(core__core, log, reset_logger_level)
+{
+}
+
+static void IOP_RPC_IMPL(core__core, log, reset_root_level)
+{
+    _G.sub_query_called = false;
+    ic_query2(ic, ic_msg_new(0), core__core, log, reset_logger_level,
+              .full_name = LSTR(""));
+
+    _G.reply_callback_called = false;
+    ic_reply(NULL, slot, core__core, log, reset_root_level,
+             .level = 0);
+
+    _G.reply_callback_called_synchronously = _G.reply_callback_called;
+    _G.sub_query_called_synchronously = _G.sub_query_called;
+}
+
 #define RPC_CB()                                 \
     do {                                         \
         _G.status = status;                      \
@@ -72,6 +102,15 @@ static void IOP_RPC_CB(core__core, log, set_root_level)
         RPC_CB();
     }
 }
+
+static void IOP_RPC_CB(core__core, log, reset_root_level)
+{
+    _G.reply_callback_called = true;
+
+    _G.reply_status_is_abort = status == IC_MSG_ABORT;
+    _G.level = res ? res->level : INT32_MIN;
+}
+
 
 static void IOP_RPC_IMPL(core__core, log, set_logger_level)
 {
@@ -291,6 +330,47 @@ Z_GROUP_EXPORT(iop_rpc)
             qm_wipe(ic_cbs, &impl);
             ic_delete(&ic1);
         }
+    } Z_TEST_END;
+
+    Z_TEST(ic_local_async, "iop-rpc: ic local async") {
+        ichannel_t ic;
+        qm_t(ic_cbs) impl = QM_INIT(ic_cbs, impl);
+
+        ic_register(&impl, core__core, log, reset_root_level);
+        ic_register(&impl, core__core, log, reset_logger_level);
+
+        ic_init(&ic);
+        ic_set_local(&ic, true);
+        ic.impl = &impl;
+
+        g_result_init();
+
+        ic_query2(&ic, ic_msg_new(0), core__core, log, reset_root_level);
+        Z_ASSERT_EQ(_G.level, INT32_MIN);
+        /* First timeout will only execute the query. We need a second one to
+         * execute the reply (which will modify the level).
+         */
+        el_loop_timeout(0);
+        el_loop_timeout(0);
+        Z_ASSERT_EQ(_G.level, 0);
+        Z_ASSERT(_G.reply_callback_called);
+        Z_ASSERT(!_G.reply_callback_called_synchronously);
+        Z_ASSERT(!_G.sub_query_called_synchronously);
+        Z_ASSERT(_G.sub_query_called);
+        Z_ASSERT(!_G.reply_status_is_abort);
+
+        _G.reply_callback_called = false;
+        ic_query2(&ic, ic_msg_new(0), core__core, log, reset_root_level);
+        ic_wipe(&ic);
+        Z_ASSERT(_G.reply_callback_called);
+        Z_ASSERT(_G.reply_status_is_abort);
+        qm_wipe(ic_cbs, &impl);
+
+        /* Check that ic is correctly cleaned up. If this el_loop_timeout
+         * call crash, it means that the pending query was not correctly
+         * wiped.
+         */
+        el_loop_timeout(0);
     } Z_TEST_END;
 
     MODULE_RELEASE(ic);
