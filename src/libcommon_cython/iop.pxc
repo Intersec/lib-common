@@ -39,6 +39,7 @@ PXCC_EXPORT_SYMBOL(iop_equals_desc);
 PXCC_EXPORT_SYMBOL(iop_class_static_fields_have_type);
 PXCC_EXPORT_SYMBOL(iop_class_static_field_type);
 PXCC_EXPORT_SYMBOL(iop_enum_to_str_desc);
+PXCC_EXPORT_SYMBOL(iop_field_get_attrs);
 
 PXCC_EXPORT_SYMBOL(iop_bunpack_ptr);
 PXCC_EXPORT_SYMBOL(iop_bunpack_multi);

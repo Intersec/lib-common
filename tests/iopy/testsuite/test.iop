@@ -137,6 +137,19 @@ class StaticAttrsC : 2 : StaticAttrsB {
     static string strAttr = "truc";
 };
 
+struct StructToDict {
+    StructA structA;
+
+    @private
+    int? privateField;
+
+    int[] emptyArray;
+
+    testvoid.VoidUnion voidUnion;
+    testvoid.VoidOptional voidOptional;
+    testvoid.VoidRequired voidRequired;
+};
+
 /** Brief enum documentation.
  *
  * Detailed enum documentation.

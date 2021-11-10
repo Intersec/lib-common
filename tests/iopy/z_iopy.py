@@ -25,6 +25,7 @@ import copy
 import warnings
 import subprocess
 import threading
+import json
 
 SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
@@ -209,6 +210,145 @@ class IopyTest(z.TestCase):
         exp = ('<test.StructB><a>plop</a><b>plip</b>'
                '<tab>plup</tab></test.StructB>')
         self.assertEqual(exp, b.to_xml())
+
+    def test_to_dict(self):
+        options_list = [
+            'skip_private',
+            'skip_default',
+            'skip_empty_arrays',
+            'skip_empty_structs',
+            'skip_class_names',
+            'skip_optional_class_names',
+            'enums_as_int',
+            'minimal',
+        ]
+        def check_json_compat_options(obj):
+            self.assertEqual(json.loads(obj.to_json()), obj.to_dict())
+            for option in options_list:
+                kwargs = { option: True }
+                self.assertEqual(json.loads(obj.to_json(**kwargs)),
+                                 obj.to_dict(**kwargs))
+
+        # Create struct to check
+        dict_struct_to_dict = {
+            'structA': {
+                'e': 'B',
+                'a': {
+                    '_class': 'test.ClassB',
+                    'field1': 0,
+                    'field2': 87,
+                },
+                'u': {
+                    's': 'aaaa',
+                },
+                'tu': [{
+                    'i': 77,
+                }, {
+                    's': 'pouet',
+                }, {
+                    'a': {
+                        '_class': 'test.ClassA',
+                        'field1': 7,
+                        'optField': 642
+                    }
+                }]
+            },
+            'privateField': 12,
+            'emptyArray': [],
+            'voidUnion': {
+                'a': None,
+            },
+            'voidOptional': {
+                'a': None,
+            },
+            'voidRequired': {}
+        }
+
+        struct_to_dict = self.p.test.StructToDict(dict_struct_to_dict)
+
+        # Check plain struct with everything printed
+        self.assertEqual(dict_struct_to_dict, struct_to_dict.to_dict())
+
+        # Check minimal option
+        minimal_dict_struct_to_dict = {
+            'structA': {
+                'e': 'B',
+                'a': {
+                    '_class': 'test.ClassB',
+                    'field2': 87,
+                },
+                'u': {
+                    's': 'aaaa',
+                },
+                'tu': [{
+                    'i': 77,
+                }, {
+                    's': 'pouet',
+                }, {
+                    'a': {
+                        'field1': 7,
+                        'optField': 642
+                    }
+                }]
+            },
+            'privateField': 12,
+            'voidUnion': {
+                'a': None,
+            },
+            'voidOptional': {
+                'a': None,
+            },
+        }
+
+        self.assertEqual(minimal_dict_struct_to_dict,
+                         struct_to_dict.to_dict(minimal=True))
+
+        # Check JSON compatibility and all options
+        check_json_compat_options(struct_to_dict)
+
+
+        # Check with a class directly
+        dict_class_b = {
+            '_class': 'test.ClassB',
+            'field1': 1,
+            'field2': 0,
+        }
+
+        class_b = self.p.test.ClassA(dict_class_b)
+        self.assertEqual(dict_class_b, class_b.to_dict())
+
+        # Check minimal option
+        minimal_dict_class_b = {
+            'field1': 1,
+        }
+        self.assertEqual(minimal_dict_class_b, class_b.to_dict(minimal=True))
+
+        # Check JSON compatibility and all options
+        check_json_compat_options(class_b)
+
+
+        # Check with a union
+        dict_union_a = {
+            'a': {
+                '_class': 'test.ClassA',
+                'field1': 0,
+                'optField': 987,
+            }
+        }
+
+        union_a = self.p.test.UnionA(dict_union_a)
+        self.assertEqual(dict_union_a, union_a.to_dict())
+
+        # Check minimal option
+        minimal_dict_union_a = {
+            'a': {
+                'optField': 987,
+            }
+        }
+        self.assertEqual(minimal_dict_union_a, union_a.to_dict(minimal=True))
+
+        # Check JSON compatibility and all options
+        check_json_compat_options(union_a)
 
     def test_custom_methods(self):
         # pylint: disable=unused-variable, undefined-variable
@@ -2186,9 +2326,9 @@ class IopyV3Tests(z.TestCase):
 
         path = os.path.join(TEST_PATH, 'test_struct_a.json')
         with open(path, 'r') as f:
-            json = f.read()
+            json_struct = f.read()
 
-        a = self.r.test.StructA(_json=json)
+        a = self.r.test.StructA(_json=json_struct)
         self.assertEqual(a.my_val, 12)
         self.assertIsInstance(a.a, self.r.test.ClassB)
         self.assertEqual(a.a.field1, 30)

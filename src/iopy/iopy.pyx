@@ -1080,12 +1080,13 @@ cdef str enum_get_as_name(EnumBase py_en):
     cdef sb_scope_t sb = sb_scope_init_1k()
     cdef const iop_enum_t *en = enum_get_desc(py_en)
     cdef int val = py_en.val
+    cdef lstr_t val_lstr
     cdef int i
     cdef int en_val
 
-    for i in range(en.enum_len):
-        if val == en.values[i]:
-            return lstr_to_py_str(en.names[i])
+    val_lstr = iop_enum_to_str_desc(en, val)
+    if val_lstr.s:
+        return lstr_to_py_str(val_lstr)
 
     for i in range(en.enum_len):
         en_val = en.values[i]
@@ -4179,6 +4180,89 @@ cdef str format_py_obj_to_xml(StructUnionBase py_obj, dict kwargs):
     return lstr_to_py_str(LSTR_SB_V(&sb))
 
 
+cdef object struct_union_export_dict_field(Plugin plugin,
+                                           cbool is_union,
+                                           object py_field_obj,
+                                           const iop_field_t *field,
+                                           unsigned flags,
+                                           cbool *is_skipped):
+    """Export field of struct or union to a primitive python object.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    st
+        The struct or union description.
+    py_field_obj
+        The python field object to export.
+    field
+        The field description.
+    flags
+        The jpack flags used to dump the dict.
+    is_skipped
+        Set to True if the field should be skipped and not put in the dict.
+
+    Returns
+    -------
+        The primitive python object of the field.
+    """
+    cdef iop_type_t ftype = field.type
+    cdef const iop_enum_t *en
+    cdef EnumBase py_enum
+    cdef object py_enum_cls
+    cdef lstr_t enum_val_lstr
+    cdef object def_obj
+
+    if ftype == IOP_T_ENUM:
+        en = field.u1.en_desc
+
+        if likely(isinstance(py_field_obj, EnumBase)):
+            py_enum = <EnumBase>py_field_obj
+        else:
+            py_enum_cls = plugin_get_class_type_en(plugin, en)
+            py_enum = py_enum_cls(py_field_obj)
+
+        enum_val_lstr = iop_enum_to_str_desc(enum_get_desc(py_enum),
+                                             py_enum.val)
+        if enum_val_lstr.s:
+            py_field_obj = lstr_to_py_str(enum_val_lstr)
+        else:
+            py_field_obj = py_enum.val
+
+        if ((flags & IOP_JPACK_SKIP_DEFAULT) and
+                field.repeat == IOP_R_DEFVAL and
+                field.u0.defval_enum == py_enum.val):
+            is_skipped[0] = True
+            return None
+
+    elif ftype == IOP_T_UNION:
+        py_field_obj = union_export_to_dict(<UnionBase>py_field_obj, flags)
+
+    elif ftype == IOP_T_STRUCT:
+        py_field_obj = struct_export_to_dict(<StructBase>py_field_obj,
+                                             field.u1.st_desc, flags)
+
+        if ((flags & IOP_JPACK_SKIP_EMPTY_STRUCTS) and
+                field.repeat == IOP_R_REQUIRED and not is_union and
+                not py_field_obj):
+            is_skipped[0] = True
+            return None
+
+    elif (ftype == IOP_T_VOID and field.repeat == IOP_R_REQUIRED and
+            not is_union):
+        is_skipped[0] = True
+        return None
+
+    elif (flags & IOP_JPACK_SKIP_DEFAULT) and field.repeat == IOP_R_DEFVAL:
+        def_obj = struct_union_field_make_default_obj(field)
+        if py_field_obj == def_obj:
+            is_skipped[0] = True
+            return None
+
+    return py_field_obj
+
+
 # }}}
 # {{{ Get fields name
 
@@ -4510,8 +4594,8 @@ cdef object struct_union_get_py_type_of_field(Plugin plugin,
 
 
 cdef str struct_union_get_iop_type_of_field(Plugin plugin,
-                                                   const iop_field_t *field,
-                                                   iop_type_t ftype):
+                                            const iop_field_t *field,
+                                            iop_type_t ftype):
     """Get the iop type of a field as a string.
 
     Parameters
@@ -4681,7 +4765,6 @@ cdef int struct_union_make_iop_field_description(
     -------
         -1 in case of exception, 0 otherwise.
     """
-    cdef lstr_t def_str
     cdef object default_value = None
     cdef bool optional = False
     cdef bool repeated = False
@@ -4711,31 +4794,7 @@ cdef int struct_union_make_iop_field_description(
 
     # Get default value.
     if frepeat == IOP_R_DEFVAL:
-        if (ftype == IOP_T_I8
-         or ftype == IOP_T_U8
-         or ftype == IOP_T_I16
-         or ftype == IOP_T_U16
-         or ftype == IOP_T_I32
-         or ftype == IOP_T_U32
-         or ftype == IOP_T_I64
-         or ftype == IOP_T_U64):
-            default_value = field.u1.defval_u64
-        elif ftype == IOP_T_BOOL:
-            default_value = field.u1.defval_u64 != 0
-        elif ftype == IOP_T_DOUBLE:
-            default_value = field.u1.defval_d
-        elif ftype == IOP_T_ENUM:
-            def_str = iop_enum_to_str_desc(field.u1.en_desc,
-                                           field.u0.defval_enum)
-            default_value = lstr_to_py_str(def_str)
-        elif (ftype == IOP_T_STRING
-           or ftype == IOP_T_XML
-           or ftype == IOP_T_DATA):
-            def_str = LSTR_INIT_V(<const char *>field.u1.defval_data,
-                                  field.u0.defval_len)
-            default_value = lstr_to_py_str(def_str)
-        else:
-            cassert(False)
+        default_value = struct_union_field_make_default_obj(field)
     elif frepeat == IOP_R_OPTIONAL:
         optional = True
     elif frepeat == IOP_R_REPEATED:
@@ -4824,6 +4883,53 @@ cdef int struct_union_make_iop_field_description(
     res.pattern = pattern
 
     return 0
+
+
+cdef object struct_union_field_make_default_obj(const iop_field_t *field):
+    """Make a Python object corresponding to default value of the field.
+
+    Parameters
+    ----------
+    field
+        The C iop field.
+
+    Returns
+    -------
+        A Python object corresponding to the default value of the fields.
+    """
+    cdef iop_type_t ftype = field.type
+    cdef lstr_t def_str
+    cdef object default_value = None
+
+    cassert(field.repeat == IOP_R_DEFVAL)
+
+    if (ftype == IOP_T_I8
+     or ftype == IOP_T_U8
+     or ftype == IOP_T_I16
+     or ftype == IOP_T_U16
+     or ftype == IOP_T_I32
+     or ftype == IOP_T_U32
+     or ftype == IOP_T_I64
+     or ftype == IOP_T_U64):
+        default_value = field.u1.defval_u64
+    elif ftype == IOP_T_BOOL:
+        default_value = field.u1.defval_u64 != 0
+    elif ftype == IOP_T_DOUBLE:
+        default_value = field.u1.defval_d
+    elif ftype == IOP_T_ENUM:
+        def_str = iop_enum_to_str_desc(field.u1.en_desc,
+                                       field.u0.defval_enum)
+        default_value = lstr_to_py_str(def_str)
+    elif (ftype == IOP_T_STRING
+       or ftype == IOP_T_XML
+       or ftype == IOP_T_DATA):
+        def_str = LSTR_INIT_V(<const char *>field.u1.defval_data,
+                              field.u0.defval_len)
+        default_value = lstr_to_py_str(def_str)
+    else:
+        cassert(False)
+
+    return default_value
 
 
 cdef object iop_field_min_max_attr_value(iop_type_t ftype,
@@ -5093,6 +5199,46 @@ cdef class UnionBase(StructUnionBase):
         struct_union_init_iop_description(iop_type, res)
         return res
 
+    def to_dict(UnionBase self, **kwargs):
+        """Deeply convert the union object to a dict.
+
+        It is a faster version of doing `json.loads(obj.to_json())`.
+
+        Parameters
+        ----------
+        skip_private : bool, optional
+            Skip the private fields (lossy).
+        skip_default : bool, optional
+            Skip fields having their default value.
+        skip_empty_arrays : bool, optional
+            Skip empty repeated fields.
+        skip_empty_structs : bool, optional
+            Skip empty sub-structures.
+        skip_class_names : bool, optional
+            Skip class names (lossy).
+        skip_optional_class_names : bool, optional
+            Skip class names when not needed.
+            If set, the class names won't be written if they are equal to the
+            actual type of the field (missing class names are supported by the
+            unpacker in that case).
+        minimal : bool, optional
+            Produce the smallest non-lossy possible dict.
+            This is:
+                skip_default +
+                skip_empty_arrays +
+                skip_empty_structs +
+                skip_optional_class_names
+
+        Returns
+        -------
+        dict
+            The dict containing the values of the union object.
+        """
+        cdef unsigned flags
+
+        flags = iopy_kwargs_to_jpack_flags(kwargs, True)
+        return union_export_to_dict(self, flags)
+
 
 cdef class Union(UnionBase):
     """Union class for backward compatibility"""
@@ -5291,6 +5437,45 @@ cdef inline dict union_get_values(UnionBase py_obj):
         union.
     """
     return struct_union_get_values_of_cls(type(py_obj), False)
+
+
+cdef dict union_export_to_dict(UnionBase py_obj, unsigned flags):
+    """Deeply convert the union object to a dict.
+
+    It is a faster version of doing `json.loads(obj.to_json())`.
+
+    Parameters
+    ----------
+    py_obj
+        The union python object to export.
+    flags
+        The jpack flags used to dump the dict.
+
+    Returns
+    -------
+        The dict containing the values of the union object.
+    """
+
+    cdef const iop_struct_t *st
+    cdef Plugin plugin
+    cdef const iop_field_t *field
+    cdef str py_field_name
+    cdef object py_field_obj
+
+    iop_type = struct_union_get_iop_type(py_obj)
+    st = iop_type.desc
+    plugin = iop_type.plugin
+
+    field = &st.fields[py_obj.field_index]
+    py_field_name = lstr_to_py_str(field.name)
+
+    py_field_obj = getattr(py_obj, py_field_name)
+    py_field_obj = struct_union_export_dict_field(
+        plugin, True, py_field_obj, field, flags, NULL)
+
+    return {
+        py_field_name: py_field_obj
+    }
 
 
 # }}}
@@ -5494,6 +5679,46 @@ cdef class StructBase(StructUnionBase):
             struct_res = IopStructDescription.__new__(IopStructDescription)
             struct_union_init_iop_description(iop_type, struct_res)
             return struct_res
+
+    def to_dict(StructBase self, **kwargs):
+        """Deeply convert the struct object to a dict.
+
+        It is a faster version of doing `json.loads(obj.to_json())`.
+
+        Parameters
+        ----------
+        skip_private : bool, optional
+            Skip the private fields (lossy).
+        skip_default : bool, optional
+            Skip fields having their default value.
+        skip_empty_arrays : bool, optional
+            Skip empty repeated fields.
+        skip_empty_structs : bool, optional
+            Skip empty sub-structures.
+        skip_class_names : bool, optional
+            Skip class names (lossy).
+        skip_optional_class_names : bool, optional
+            Skip class names when not needed.
+            If set, the class names won't be written if they are equal to the
+            actual type of the field (missing class names are supported by the
+            unpacker in that case).
+        minimal : bool, optional
+            Produce the smallest non-lossy possible dict.
+            This is:
+                skip_default +
+                skip_empty_arrays +
+                skip_empty_structs +
+                skip_optional_class_names
+
+        Returns
+        -------
+        dict
+            The dict containing the values of the struct object.
+        """
+        cdef unsigned flags
+
+        flags = iopy_kwargs_to_jpack_flags(kwargs, True)
+        return struct_export_to_dict(self, NULL, flags)
 
 
 cdef class Struct(StructBase):
@@ -6244,6 +6469,155 @@ cdef dict struct_get_class_attrs(object cls):
         'is_abstract': attrs.is_abstract,
     }
 
+
+cdef dict struct_export_to_dict(StructBase py_obj,
+                                const iop_struct_t *base_st,
+                                unsigned flags):
+    """Deeply convert the struct object to a dict.
+
+    It is a faster version of doing `json.loads(obj.to_json())`.
+
+    Parameters
+    ----------
+    py_obj
+        The struct python object to export.
+    base_st
+        The base structure description from the structure field.
+        Can be NULL if py_obj is from a field.
+    flags
+        The jpack flags used to dump the dict.
+
+    Returns
+    -------
+        The dict containing the values of the struct object.
+    """
+    cdef _InternalStructUnionType iop_type
+    cdef const iop_struct_t *st
+    cdef Plugin plugin
+    cdef dict res
+
+    iop_type = struct_union_get_iop_type(py_obj)
+    st = iop_type.desc
+    plugin = iop_type.plugin
+
+    res = {}
+
+    if (iop_struct_is_class(st) and
+            not (flags & IOP_JPACK_SKIP_CLASS_NAMES) and
+            not ((flags & IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES) and
+                 (not base_st or base_st == st))):
+        res['_class'] = lstr_to_py_str(st.fullname)
+
+    while st:
+        struct_fill_fields_dict(plugin, py_obj, st, flags, res)
+        st = get_iop_struct_parent(st)
+    return res
+
+
+cdef int struct_fill_fields_dict(Plugin plugin, StructBase py_obj,
+                                 const iop_struct_t *st, unsigned flags,
+                                 dict res) except -1:
+    """Fill the dict of fields of the struct.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    py_obj
+        The struct python object to export.
+    st
+        The struct description.
+    flags
+        The jpack flags used to dump the dict.
+    res
+        The dictionary of fields to fill.
+
+    Returns
+    -------
+        -1 in case of exception, 0 otherwise.
+    """
+    cdef int i
+    cdef str py_field_name
+    cdef const iop_field_t *field
+    cdef cbool is_skipped
+    cdef object py_dict_field
+
+    for i in range(st.fields_len):
+        field = &st.fields[i]
+        py_field_name = lstr_to_py_str(field.name)
+
+        is_skipped = False
+        py_dict_field = struct_fill_fields_dict_field(plugin, py_obj, st,
+                                                      field, py_field_name,
+                                                      flags, &is_skipped)
+        if not is_skipped:
+            res[py_field_name] = py_dict_field
+
+
+cdef object struct_fill_fields_dict_field(Plugin plugin, StructBase py_obj,
+                                          const iop_struct_t *st,
+                                          const iop_field_t *field,
+                                          str py_field_name,
+                                          unsigned flags, cbool *is_skipped):
+    """Get field of the struct to be exported to a dict.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    py_obj
+        The struct python object to export.
+    st
+        The struct description.
+    field
+        The field to export.
+    py_field_name
+        The name of the field as a Python string.
+    flags
+        The jpack flags used to dump the dict.
+    is_skipped
+        Set to True if the field should be skipped and not put in the dict.
+
+    Returns
+    -------
+        The object of the field or None with is_skipped set to True if the
+        field should be skipped.
+    """
+    cdef const iop_field_attrs_t *attrs
+    cdef object py_field_obj
+    cdef list py_field_list
+    cdef object py_dict_field
+
+    if flags & IOP_JPACK_SKIP_PRIVATE:
+        attrs = iop_field_get_attrs(st, field)
+        if attrs and TST_BIT(&attrs.flags, IOP_FIELD_PRIVATE):
+            is_skipped[0] = True
+            return None
+
+    try:
+        py_field_obj = getattr(py_obj, py_field_name)
+    except AttributeError:
+        # Optional
+        is_skipped[0] = True
+        return None
+
+    if field.repeat == IOP_R_REPEATED:
+        py_field_list = py_field_obj
+
+        if (flags & IOP_JPACK_SKIP_EMPTY_ARRAYS) and not py_field_list:
+            is_skipped[0] = True
+            return None
+
+        py_dict_field = [
+            struct_union_export_dict_field(plugin, False, x, field, flags,
+                                           NULL)
+            for x in py_field_list
+        ]
+    else:
+        py_dict_field = struct_union_export_dict_field(
+            plugin, False, py_field_obj, field, flags, is_skipped)
+
+    return py_dict_field
 
 # }}}
 # }}}
