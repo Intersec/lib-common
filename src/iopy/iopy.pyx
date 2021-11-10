@@ -691,9 +691,7 @@ cdef class EnumBase(Basic):
         str
             The enum IOP fullname.
         """
-        cdef const iop_enum_t *en = enum_get_desc_cls(cls)
-
-        return lstr_to_py_str(en.fullname)
+        return enum_get_fullname(cls)
 
     @classmethod
     def __fullname__(object cls):
@@ -704,7 +702,7 @@ cdef class EnumBase(Basic):
         str
             The enum IOP fullname.
         """
-        return cls.fullname()
+        return enum_get_fullname(cls)
 
     @classmethod
     def values(object cls):
@@ -718,17 +716,8 @@ cdef class EnumBase(Basic):
         """
         return enum_get_values(cls)
 
-    @classmethod
-    def __values__(object cls):
-        """Return the dict of allowed values.
-
-        Returns
-        -------
-        dict(str, int)
-            The dict of values with the name as key and the integer value as
-            value.
-        """
-        return enum_get_values(cls)
+    # Deprecated, use values() instead.
+    __values__ = values
 
     @classmethod
     def ranges(object cls):
@@ -739,24 +728,10 @@ cdef class EnumBase(Basic):
         dict(int, int)
             The ranges of the IOP enum.
         """
-        cdef const iop_enum_t *en = enum_get_desc_cls(cls)
-        cdef dict res = {}
-        cdef int i
+        return enum_get_ranges(cls)
 
-        for i in range(en.ranges_len):
-            res[i] = en.ranges[i]
-        return res
-
-    @classmethod
-    def __ranges__(object cls):
-        """Return the ranges of the enum.
-
-        Returns
-        -------
-        dict(int, int)
-            The ranges of the IOP enum.
-        """
-        return cls.ranges()
+    # Deprecated, use ranges() instead.
+    __ranges__ = ranges
 
     @classmethod
     def get_iop_description(object cls):
@@ -1127,6 +1102,23 @@ cdef str enum_get_as_name(EnumBase py_en):
         return 'undefined'
 
 
+cdef str enum_get_fullname(object cls):
+    """Return the fullname of the enum.
+
+    Parameters
+    ----------
+    cls
+        The enum python class type.
+
+    Returns
+    -------
+        The enum IOP fullname.
+    """
+    cdef const iop_enum_t *en = enum_get_desc_cls(cls)
+
+    return lstr_to_py_str(en.fullname)
+
+
 cdef dict enum_get_values(object cls):
     """Return the dict of allowed values.
 
@@ -1146,6 +1138,28 @@ cdef dict enum_get_values(object cls):
 
     for i in range(en.enum_len):
         res[lstr_to_py_str(en.names[i])] = en.values[i]
+    return res
+
+
+cdef dict enum_get_ranges(object cls):
+    """Return the ranges of the enum.
+
+    Parameters
+    ----------
+    cls
+        The enum class type.
+
+    Returns
+    -------
+    dict(int, int)
+        The ranges of the IOP enum.
+    """
+    cdef const iop_enum_t *en = enum_get_desc_cls(cls)
+    cdef dict res = {}
+    cdef int i
+
+    for i in range(en.ranges_len):
+        res[i] = en.ranges[i]
     return res
 
 
@@ -1460,13 +1474,8 @@ cdef class StructUnionBase(Basic):
         """
         return unpack_file_from_args_to_py_obj(cls, kwargs)
 
-    @classmethod
-    def __from_file__(object cls, **kwargs):
-        """Unpack an IOPy struct or union from a file.
-
-        See StructUnionBase::from_file()
-        """
-        return unpack_file_from_args_to_py_obj(cls, kwargs)
+    # Deprecated, use from_file() instead.
+    __from_file__ = from_file
 
     def __richcmp__(StructUnionBase self, object other, int op):
         """Compare struct or union with another value.
@@ -1507,7 +1516,7 @@ cdef class StructUnionBase(Basic):
         equal = iop_equals_desc(self_st, self_val, other_val)
         return equal == (op == Py_EQ)
 
-    def __json__(StructUnionBase self, **kwargs):
+    def to_json(StructUnionBase self, **kwargs):
         """Format the struct or union object as JSON.
 
         Parameters
@@ -1531,7 +1540,10 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_json(self, kwargs)
 
-    def __yaml__(StructUnionBase self):
+    # Deprecated, use to_json() instead.
+    __json__ = to_json
+
+    def to_yaml(StructUnionBase self):
         """Format the struct or union object as YAML.
 
         Returns
@@ -1541,7 +1553,10 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_yaml(self)
 
-    def __bin__(StructUnionBase self):
+    # Deprecated, use to_yaml() instead.
+    __yaml__ = to_yaml
+
+    def to_bin(StructUnionBase self):
         """Format the struct or union object as binary.
 
         Returns
@@ -1551,11 +1566,10 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_bin(self)
 
-    # XXX: Ugly hack to avoid that cython uses __hex__ as the function to
-    # convert a number to hexadecimal with the hex() function.
-    # See https://cython.readthedocs.io/en/latest/src/userguide/special_methods.html?highlight=__hex__#numeric-conversions
-    @property
-    def __hex__(StructUnionBase self):
+    # Deprecated, use to_bin() instead.
+    __bin__ = to_bin
+
+    def to_hex(StructUnionBase self):
         """Format the struct or union object as hex.
 
         Returns
@@ -1563,13 +1577,12 @@ cdef class StructUnionBase(Basic):
         str
             The formatted string.
         """
-        cdef object wrap
+        return format_py_obj_to_hex(self)
 
-        def wrap():
-            return format_py_obj_to_hex(self)
-        return wrap
+    # Deprecated, use to_hex() instead.
+    __hex__ = to_hex
 
-    def __xml__(StructUnionBase self, **kwargs):
+    def to_xml(StructUnionBase self, **kwargs):
         """Format the struct or union object as XML.
 
         Parameters
@@ -1589,6 +1602,9 @@ cdef class StructUnionBase(Basic):
             The formatted string.
         """
         return format_py_obj_to_xml(self, kwargs)
+
+    # Deprecated, use to_xml() instead.
+    __xml__ = to_xml
 
     def __str__(StructUnionBase self):
         """Return the string representation as JSON of the struct or union
@@ -1616,7 +1632,7 @@ cdef class StructUnionBase(Basic):
         return lstr_to_py_str(st.fullname)
 
     @classmethod
-    def __get_fields_name__(object cls):
+    def get_fields_name(object cls):
         """Get the list of name of fields of struct or union.
 
         Returns
@@ -1624,35 +1640,27 @@ cdef class StructUnionBase(Basic):
         list
             The list of name of fields.
         """
-        cdef const iop_struct_t *st
-        cdef list l
+        return struct_union_get_fields_name(cls)
 
-        st = struct_union_get_iop_type_cls(cls).desc
-        l = []
-        fill_fields_name_list(st, l)
-        return l
+    # Deprecated, use get_fields_name() instead.
+    __get_fields_name__ = get_fields_name
 
     @classmethod
-    def __desc__(object cls):
+    def get_desc(object cls):
         """Return the description of the struct or union.
 
         Returns
         -------
             The string description of the struct or union.
         """
-        cdef const iop_struct_t *st
+        return get_struct_union_desc(cls)
 
-        st = struct_union_get_iop_type_cls(cls).desc
-        return get_struct_union_desc(st)
+    # Deprecated, use get_desc() instead.
+    __desc__ = get_desc
 
     @classmethod
-    def __values__(object cls):
+    def get_values(object cls):
         """Return the values of the struct or union type as dict.
-
-        Parameters
-        ----------
-        cls : object
-            The struct or union class type.
 
         Returns
         -------
@@ -1661,6 +1669,9 @@ cdef class StructUnionBase(Basic):
             struct or union.
         """
         return struct_union_get_values_of_cls(cls, False)
+
+    # Deprecated, use get_values() instead.
+    __values__ = get_values
 
 
 cdef class IopStructUnionDescription:
@@ -4169,6 +4180,28 @@ cdef int fill_fields_name_list(const iop_struct_t *st, list l) except -1:
 # {{{ Description
 
 
+cdef list struct_union_get_fields_name(object cls):
+    """Get the list of name of fields of struct or union.
+
+    Parameters
+    ----------
+    cls
+        The struct or union iop class type.
+
+    Returns
+    -------
+    list
+        The list of name of fields.
+    """
+    cdef const iop_struct_t *st
+    cdef list l
+
+    st = struct_union_get_iop_type_cls(cls).desc
+    l = []
+    fill_fields_name_list(st, l)
+    return l
+
+
 cdef void get_struct_union_desc_fields(const iop_struct_t *st, sb_t *sb):
     """Get the description of the fields of the struct or union.
 
@@ -4287,20 +4320,24 @@ cdef void get_struct_union_desc_class(const iop_struct_t *st, sb_t *sb):
     get_struct_union_desc_fields(st, sb)
 
 
-cdef str get_struct_union_desc(const iop_struct_t *st):
+cdef str get_struct_union_desc(object cls):
     """Return the description of the struct or union.
 
     Parameters
     ----------
-    st
-        The struct or union iop description.
+    cls
+        The struct or union iop class type.
 
     Returns
     -------
         The string description of the struct or union.
     """
     cdef sb_scope_t sb = sb_scope_init_1k()
-    cdef cbool is_class = iop_struct_is_class(st)
+    cdef const iop_struct_t *st
+    cdef cbool is_class
+
+    st = struct_union_get_iop_type_cls(cls).desc
+    is_class = iop_struct_is_class(st)
 
     if st.is_union:
         sb_adds(&sb, 'union ')
@@ -4327,7 +4364,7 @@ cdef dict struct_union_get_values_of_cls(object cls, cbool skip_optionals):
     Parameters
     ----------
     cls
-        The union class type.
+        The struct or union iop class type.
     skip_optionals
         When True, the optional fields of a struct are skipped to respect
         IOPyV1 compatibility.
@@ -4833,21 +4870,21 @@ cdef class UnionBase(StructUnionBase):
     """Iopy Union object
 
     Setting a valid members of this object erase the previous ones.
-    __values__() return a list of all allowed members.
+    get_values() return a list of all allowed members.
     Objects are callable to create new instances.
 
     Almost all methods from Iopy struct class are available for union class
     (like special constructors using _[json|yaml|xml|hex|bin]
-    or dumper methods __[json|yaml|xml|hex|bin]__() ])
+    or methods to_[json|yaml|xml|hex|bin]() ])
 
     Demo:
     #import iopy
     #q = iopy.Plugin("~/dev/mmsx/qrrd/iop/qrrd-iop-plugin.so")
     #q.qrrdquery.Key
     Union qrrdquery.Key
-    #q.qrrdquery.Key.__values__()
+    #q.qrrdquery.Key.get_values()
     {'s': <type 'str'>, 't': <type 'int'>}
-    #print(q.qrrdquery.Key.__desc__())
+    #print(q.qrrdquery.Key.get_desc())
     union qrrdquery.Key:
      - s [REQUIRED ] IOP_T_STRING
      - t [REQUIRED ] IOP_T_U32
@@ -4857,7 +4894,7 @@ cdef class UnionBase(StructUnionBase):
     #a.t = 12L
     #a
     Union qrrdquery.Key: t = 12L
-    #a.__key__()
+    #a.get_key()
     't'
     """
     cdef int field_index
@@ -4865,7 +4902,7 @@ cdef class UnionBase(StructUnionBase):
     def __init__(UnionBase self, *args, **kwargs):
         """Contructor of the Union.
 
-        See __values__() for allowed keys and argument.
+        See get_values() for allowed keys and argument.
         When field can be guess unambiguously from argument type, named
         keyword is not required, only the argument.
 
@@ -4894,7 +4931,7 @@ cdef class UnionBase(StructUnionBase):
         """
         union_set(self, args, kwargs)
 
-    def __object__(UnionBase self):
+    def get_object(UnionBase self):
         """Get the currently set object.
 
         Returns
@@ -4904,7 +4941,10 @@ cdef class UnionBase(StructUnionBase):
         """
         return union_get_object(self)
 
-    def __key__(UnionBase self):
+    # Deprecated, use get_object() instead.
+    __object__ = get_object
+
+    def get_key(UnionBase self):
         """Get the currently set field name.
 
         Returns
@@ -4912,10 +4952,10 @@ cdef class UnionBase(StructUnionBase):
         str
             The field name of the currently set field.
         """
-        cdef const iop_struct_t *st = struct_union_get_desc(self)
-        cdef const iop_field_t *field = &st.fields[self.field_index]
+        return union_get_key(self)
 
-        return lstr_to_py_str(field.name)
+    # Deprecated, use get_key() instead.
+    __key__ = get_key
 
     def __setattr__(UnionBase self, object name, object value):
         """Set attribute of union.
@@ -5095,6 +5135,25 @@ cdef object union_get_object(UnionBase py_obj):
     return getattr(py_obj, lstr_to_py_str(field.name))
 
 
+cdef object union_get_key(UnionBase py_obj):
+    """Get the currently set field name.
+
+    Parameters
+    ----------
+    py_obj
+        The union python object.
+
+    Returns
+    -------
+    str
+        The field name of the currently set field.
+    """
+    cdef const iop_struct_t *st = struct_union_get_desc(py_obj)
+    cdef const iop_field_t *field = &st.fields[py_obj.field_index]
+
+    return lstr_to_py_str(field.name)
+
+
 cdef int union_set(UnionBase py_obj, tuple args, dict kwargs) except -1:
     """Set the union value from arguments.
 
@@ -5214,22 +5273,22 @@ cdef class StructBase(StructUnionBase):
     Objects are callable to create new instances. Fields of the new instance
     are passed as named arguments and must conform to the IOP structure.
     Arguments with value None are ignored.
-    __desc__() can be called to get a description of the internal IOP
+    get_desc() can be called to get a description of the internal IOP
     structure.
     You can also create new instances from json, yaml, bin, xml or
     hexadecimal iop packed strings by creating the object with a single
     argument named _json, _yaml, _xml, _bin or _hex.
 
     You can dump thoses struct into json, yaml, bin, xml or hexadecimal
-    iop-packed string using methods __json__, __yaml__, __bin__, __xml__
-    or __hex__.
+    iop-packed string using methods to_json(), to_yaml(), to_bin(), to_xml()
+    or to_hex().
 
     Demo:
     #import iopy
     #q = iopy.Plugin("~/dev/mmsx/qrrd/iop/qrrd-iop-plugin.so")
     #q.qrrdquery.KeyFull
     Struct qrrdquery.KeyFull:{'key': '', 'aggrs': 0L}
-    #print(q.qrrdquery.KeyFull.__desc__())
+    #print(q.qrrdquery.KeyFull.get_desc())
     structure qrrdquery.KeyFull:
      - key [REQUIRED ] IOP_T_STRING
      - aggrs [REQUIRED ] IOP_T_U32
@@ -5240,7 +5299,7 @@ cdef class StructBase(StructUnionBase):
             "aggrs": 23
     }
     #a.key = "lili"
-    #print(a.__xml__())
+    #print(a.to_xml())
     <qrrdquery.KeyFull><key>lili</key><aggrs>23</aggrs></qrrdquery.KeyFull>
     #b = q.qrrdquery.KeyFull(_json = "{"key": "juju","aggrs":46}")
     #b
@@ -5271,7 +5330,7 @@ cdef class StructBase(StructUnionBase):
         for key in kwargs:
             if not find_field_in_st_by_name(st, key, NULL):
                 raise Error('invalid key %s, allowed: %s' %
-                            (key, self.__iopslots__()))
+                            (key, self.get_iopslots()))
 
         if t_struct_init_fields(self, st, st, kwargs, &empty_val, &err) < 0:
             raise Error("error when parsing %s: %s" %
@@ -5279,7 +5338,7 @@ cdef class StructBase(StructUnionBase):
                          lstr_to_py_str(LSTR_SB_V(&err))))
 
     @classmethod
-    def __iopslots__(object cls):
+    def get_iopslots(object cls):
         """ Return a list of all available IOP slots.
 
         Returns
@@ -5287,12 +5346,10 @@ cdef class StructBase(StructUnionBase):
         str
             The list of IOP slots.
         """
-        cdef sb_scope_t sb = sb_scope_init_1k()
-        cdef const iop_struct_t *st
+        return struct_get_iopslots(cls)
 
-        st = struct_union_get_iop_type_cls(cls).desc
-        iopslots_from_st(st, &sb)
-        return lstr_to_py_str(LSTR_SB_V(&sb))
+    # Deprecated, use get_iopslots() instead.
+    __iopslots__ = get_iopslots
 
     def __setattr__(StructBase self, object name, object value):
         """Set attribute of struct.
@@ -5350,7 +5407,7 @@ cdef class StructBase(StructUnionBase):
         py_object_generic_delattr(self, name)
 
     @classmethod
-    def __get_class_attrs__(object cls):
+    def get_class_attrs(object cls):
         """Return the class attributes.
 
         Returns
@@ -5370,36 +5427,10 @@ cdef class StructBase(StructUnionBase):
             is_abstract : bool
                 Notices if the class is abstract.
         """
-        cdef const iop_struct_t *st
-        cdef const iop_class_attrs_t *attrs
-        cdef dict cls_statics
-        cdef dict statics
-        cdef object base
+        return struct_get_class_attrs(cls)
 
-        st = struct_union_get_iop_type_cls(cls).desc
-        if not iop_struct_is_class(st):
-            return None
-
-        attrs = st.class_attrs
-
-        cls_statics = {}
-        populate_static_fields_cls(st, cls_statics)
-
-        statics = {}
-        populate_static_fields_parent(st, statics)
-        statics.update(cls_statics)
-
-        if attrs.parent:
-            base = lstr_to_py_str(attrs.parent.fullname)
-        else:
-            base = ''
-
-        return {
-            'base': base,
-            'statics': statics,
-            'cls_statics': cls_statics,
-            'is_abstract': attrs.is_abstract,
-        }
+    # Deprecated, use get_class_attrs() instead.
+    __get_class_attrs__ = get_class_attrs
 
     def __repr__(StructBase self):
         """Return the represention of the structure."""
@@ -6102,6 +6133,84 @@ cdef int class_init_static_iop_descriptions_parent(Plugin plugin,
     return 0
 
 
+cdef str struct_get_iopslots(object cls):
+    """ Return a list of all available IOP slots.
+
+    Parameters
+    ----------
+    cls
+        The struct iop class type.
+
+    Returns
+    -------
+    str
+        The list of IOP slots.
+    """
+    cdef sb_scope_t sb = sb_scope_init_1k()
+    cdef const iop_struct_t *st
+
+    st = struct_union_get_iop_type_cls(cls).desc
+    iopslots_from_st(st, &sb)
+    return lstr_to_py_str(LSTR_SB_V(&sb))
+
+
+cdef dict struct_get_class_attrs(object cls):
+    """Return the class attributes.
+
+    Parameters
+    ----------
+    cls
+        The struct iop class type.
+
+    Returns
+    -------
+    dict
+        If the iop structure is not a class then return None.
+        Else, return a dictionary with the following entries:
+        base : str
+            The fullname of the base class. It is an empty string when
+            there is no base class.
+        statics : dict
+            Dictionary whose keys are the static fields names and values
+            are statics fields values. It is an empty dictionary when
+            there is no static fields.
+        cls_statics : dict
+            Dictionary which contains the class's own static fields.
+        is_abstract : bool
+            Notices if the class is abstract.
+    """
+    cdef const iop_struct_t *st
+    cdef const iop_class_attrs_t *attrs
+    cdef dict cls_statics
+    cdef dict statics
+    cdef object base
+
+    st = struct_union_get_iop_type_cls(cls).desc
+    if not iop_struct_is_class(st):
+        return None
+
+    attrs = st.class_attrs
+
+    cls_statics = {}
+    populate_static_fields_cls(st, cls_statics)
+
+    statics = {}
+    populate_static_fields_parent(st, statics)
+    statics.update(cls_statics)
+
+    if attrs.parent:
+        base = lstr_to_py_str(attrs.parent.fullname)
+    else:
+        base = ''
+
+    return {
+        'base': base,
+        'statics': statics,
+        'cls_statics': cls_statics,
+        'is_abstract': attrs.is_abstract,
+    }
+
+
 # }}}
 # }}}
 # {{{ RPCs
@@ -6422,7 +6531,7 @@ cdef class RPCBase:
             return rpc_name
         arg_type = plugin_get_class_type_st(self.iface_holder.plugin,
                                             self.rpc.args)
-        return '%s, argument: %s' % (rpc_name, arg_type.__desc__())
+        return '%s, argument: %s' % (rpc_name, arg_type.get_desc())
 
     def __repr__(RPCBase self):
         """Return the representation of the RPC.
@@ -7922,7 +8031,7 @@ def metaclass_cls_new(_InternalBaseHolder mcs, object name, tuple bases,
     bases += (iopy_proxy,)
 
     try:
-        field_names = iopy_proxy.__get_fields_name__()
+        field_names = iopy_proxy.get_fields_name()
     except AttributeError:
         field_names = []
 
@@ -8140,8 +8249,8 @@ cdef class Plugin:
     cdef iop_dso_t *dso
     cdef dict types
     cdef dict interfaces
-    cdef dict modules
     cdef dict additional_dsos
+    cdef readonly dict modules
     cdef readonly object metaclass
     cdef readonly object metaclass_interfaces
 
@@ -8197,16 +8306,27 @@ cdef class Plugin:
         iop_dso_close(&self.dso)
 
     @property
-    def __dsopath__(Plugin self):
+    def dsopath(Plugin self):
         """Get the path of the IOP plugin"""
         return lstr_to_py_str(self.dso.path)
 
     @property
+    def __dsopath__(Plugin self):
+        """Get the path of the IOP plugin.
+
+        Deprecated, use dsopath instead.
+        """
+        return lstr_to_py_str(self.dso.path)
+
+    @property
     def __modules__(Plugin self):
-        """Get the modules of the IOP plugin"""
+        """Get the modules of the IOP plugin.
+
+        Deprecated, use modules instead.
+        """
         return self.modules
 
-    def __get_type_from_fullname__(Plugin self, object fullname):
+    def get_type_from_fullname(Plugin self, object fullname):
         """Get the public class for the given IOP type fullname.
 
         Parameters
@@ -8218,14 +8338,12 @@ cdef class Plugin:
         -------
             The public class of the IOP type.
         """
-        cdef _InternalTypeClasses classes
+        return plugin_get_type_from_fullname(self, fullname)
 
-        classes = plugin_get_type_classes(self, fullname)
-        if classes is None:
-            raise KeyError('unknown IOPy type `%s`' % fullname)
-        return classes.public_cls
+    # Deprecated, use get_type_from_fullname() instead.
+    __get_type_from_fullname__ = get_type_from_fullname
 
-    def __get_iface_type_from_fullname__(Plugin self, object fullname):
+    def get_iface_type_from_fullname(Plugin self, object fullname):
         """Get the public class for the given IOP interface fullname.
 
         Parameters
@@ -8237,12 +8355,10 @@ cdef class Plugin:
         -------
             The public class of the IOP interface.
         """
-        cdef _InternalTypeClasses classes
+        return plugin_get_iface_type_from_fullname(self, fullname)
 
-        classes = plugin_get_interface_classes(self, fullname)
-        if classes is None:
-            raise KeyError('unknown IOPy interface `%s`' % fullname)
-        return classes.public_cls
+    # Deprecated, use get_iface_type_from_fullname() instead.
+    __get_iface_type_from_fullname__ = get_iface_type_from_fullname
 
     def register(Plugin self):
         """Get legacy IOPy register.
@@ -8401,7 +8517,7 @@ cdef class Plugin:
     def ChannelServer(Plugin self):
         """Create an IC channel server.
 
-        Deprecated, use chanel_server() instead.
+        Deprecated, use channel_server() instead.
 
         Returns
         -------
@@ -8481,6 +8597,51 @@ cdef class Plugin:
         plugin_unload_dso(self, additional_dso.dso)
         iop_dso_close(&additional_dso.dso)
         del self.additional_dsos[key]
+
+
+cdef object plugin_get_type_from_fullname(Plugin plugin, object fullname):
+    """Get the public class for the given IOP type fullname.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    fullname
+        The fullname of the IOP type.
+
+    Returns
+    -------
+        The public class of the IOP type.
+    """
+    cdef _InternalTypeClasses classes
+
+    classes = plugin_get_type_classes(plugin, fullname)
+    if classes is None:
+        raise KeyError('unknown IOPy type `%s`' % fullname)
+    return classes.public_cls
+
+
+cdef object plugin_get_iface_type_from_fullname(Plugin plugin,
+                                                object fullname):
+    """Get the public class for the given IOP interface fullname.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    fullname
+        The fullname of the IOP interface.
+
+    Returns
+    -------
+        The public class of the IOP interface.
+    """
+    cdef _InternalTypeClasses classes
+
+    classes = plugin_get_interface_classes(plugin, fullname)
+    if classes is None:
+        raise KeyError('unknown IOPy interface `%s`' % fullname)
+    return classes.public_cls
 
 
 cdef inline _InternalTypeClasses plugin_get_type_classes(Plugin plugin,
@@ -9428,7 +9589,7 @@ cdef public const iop_struct_t *Iopy_struct_union_type_get_desc(object cls):
 
 
 cdef public cbool Iopy_has_pytype_from_fullname(object obj):
-    """Check if object has __get_type_from_fullname__ attribute.
+    """Check if object has get_type_from_fullname attribute.
 
     Parameters
     ----------
@@ -9437,10 +9598,10 @@ cdef public cbool Iopy_has_pytype_from_fullname(object obj):
 
     Returns
     -------
-        True of the object has '__get_type_from_fullname__' attribute, False
+        True of the object has 'get_type_from_fullname' attribute, False
         otherwise.
     """
-    return hasattr(obj, '__get_type_from_fullname__')
+    return hasattr(obj, 'get_type_from_fullname')
 
 
 cdef public object Iopy_get_pytype_from_fullname_(object obj,
@@ -9458,7 +9619,7 @@ cdef public object Iopy_get_pytype_from_fullname_(object obj,
     -------
         The IOPy class type.
     """
-    return obj.__get_type_from_fullname__(lstr_to_py_str(fullname))
+    return obj.get_type_from_fullname(lstr_to_py_str(fullname))
 
 
 cdef public cbool Iopy_Struct_to_iop_ptr(mem_pool_t *mp, void **ptr,

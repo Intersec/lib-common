@@ -138,7 +138,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 42)
         self.assertEqual(b.field2, 10)
         self.assertEqual(b.optField, 20)
-        b2 = self.r.test.ClassB.__from_file__(_json=path)
+        b2 = self.r.test.ClassB.from_file(_json=path)
         self.assertEqual(b, b2)
 
     def test_from_file_yaml(self):
@@ -147,7 +147,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 9)
         self.assertEqual(b.field2, 8)
         self.assertEqual(b.optField, 7)
-        b2 = self.r.test.ClassB.__from_file__(_yaml=path)
+        b2 = self.r.test.ClassB.from_file(_yaml=path)
         self.assertEqual(b, b2)
 
     def test_from_str_yaml(self):
@@ -163,7 +163,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 45)
         self.assertEqual(b.field2, 20)
         self.assertEqual(b.optField, 36)
-        b2 = self.r.test.ClassB.__from_file__(_xml=path)
+        b2 = self.r.test.ClassB.from_file(_xml=path)
         self.assertEqual(b, b2)
 
     def test_from_file_hex(self):
@@ -172,7 +172,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 1)
         self.assertEqual(b.field2, 2)
         self.assertEqual(b.optField, 3)
-        b2 = self.r.test.ClassB.__from_file__(_hex=path)
+        b2 = self.r.test.ClassB.from_file(_hex=path)
         self.assertEqual(b, b2)
 
     def test_from_file_bin(self):
@@ -181,34 +181,34 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 4)
         self.assertEqual(b.field2, 5)
         self.assertEqual(b.optField, 6)
-        b2 = self.r.test.ClassB.__from_file__(_bin=path)
+        b2 = self.r.test.ClassB.from_file(_bin=path)
         self.assertEqual(b, b2)
 
-    def test__json__(self):
+    def test_to_json(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = '{"a":"plop","b":"plip","tab":["plup"]}'
-        self.assertEqual(exp, b.__json__(minimal=True))
+        self.assertEqual(exp, b.to_json(minimal=True))
 
-    def test__yaml__(self):
+    def test_to_yaml(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = 'a: plop\nb: plip\ntab:\n  - plup'
-        self.assertEqual(exp, b.__yaml__())
+        self.assertEqual(exp, b.to_yaml())
 
-    def test__bin__(self):
+    def test_to_bin(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = b'\x01\x05plop\x00\x02\x05plip\x00\x03\x05plup\x00'
-        self.assertEqual(exp, b.__bin__())
+        self.assertEqual(exp, b.to_bin())
 
-    def test__hex__(self):
+    def test_to_hex(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = '0105706c6f70000205706c6970000305706c757000'
-        self.assertEqual(exp, b.__hex__())
+        self.assertEqual(exp, b.to_hex())
 
-    def test__xml__(self):
+    def test_to_xml(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = ('<test.StructB><a>plop</a><b>plip</b>'
                '<tab>plup</tab></test.StructB>')
-        self.assertEqual(exp, b.__xml__())
+        self.assertEqual(exp, b.to_xml())
 
     def test_custom_methods(self):
         # pylint: disable=unused-variable, undefined-variable
@@ -378,35 +378,35 @@ class IopyTest(z.TestCase):
     def test_packing(self):
         u = self.r.test.UnionA(self.r.test.ClassB(field1=1, field2=2))
         # check union packing after unamed field init
-        j = u.__json__()
+        j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j))
         # check union field init from a cast
         a = self.r.test.StructA(u=self.r.test.ClassB(field2=1))
-        j = a.__json__()
+        j = a.to_json()
         self.assertEqual(a, self.r.test.StructA(_json=j))
         # check struct field init from union and packing
         a = self.r.test.StructA(a=u)
-        j = a.__json__()
+        j = a.to_json()
         self.assertEqual(a, self.r.test.StructA(_json=j))
         # check enum field init from cast and packing
         a = self.r.test.StructA(e=0)
-        j = a.__json__()
+        j = a.to_json()
         self.assertEqual(a, self.r.test.StructA(_json=j))
         a = self.r.test.StructA(e='A')
-        j = a.__json__()
+        j = a.to_json()
         self.assertEqual(a, self.r.test.StructA(_json=j))
 
         # check compact option is working
-        j = a.__json__(compact=True)
+        j = a.to_json(compact=True)
         self.assertEqual(a, self.r.test.StructA(_json=j))
 
         # check that private fields are skipped
         c = self.r.test.StructC(u=1, priv = "toto")
         d = self.r.test.StructC(u=1)
-        j = c.__json__()
+        j = c.to_json()
         self.assertEqual(c, self.r.test.StructC(_json=j))
 
-        j = c.__json__(skip_private=True)
+        j = c.to_json(skip_private=True)
         self.assertNotEqual(c, self.r.test.StructC(_json=j))
         self.assertEqual(d, self.r.test.StructC(_json=j))
 
@@ -414,7 +414,7 @@ class IopyTest(z.TestCase):
         # unicode string and non unicode strings
         b = self.r.test.StructB(a=b'string a', b='string b',
                                 tab=[b'first string', 'second string'])
-        j = b.__json__()
+        j = b.to_json()
         self.assertEqual(b, self.r.test.StructB(_json=j),
                          "unicode strings in iopy fields failed")
         b2 = self.r.test.StructB(a='string a', b='string b',
@@ -422,18 +422,18 @@ class IopyTest(z.TestCase):
         self.assertTrue(b == b2, "string fields comparison failed")
         b3 = self.r.test.StructB(a='non asçii éé',
                                  b='', tab=[])
-        self.assertTrue(b3 == self.r.test.StructB(_json=b3.__json__()),
+        self.assertTrue(b3 == self.r.test.StructB(_json=b3.to_json()),
                         "real unicode fields failed")
         u = self.r.test.UnionA(s=b'bytes string')
-        j = u.__json__()
+        j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
                          "string in iopy union failed")
         u = self.r.test.UnionA(s='unicode string')
-        j = u.__json__()
+        j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
                          "unicode string in iopy union failed")
         u = self.r.test.UnionA(s=b'bytes string')
-        j = u.__json__()
+        j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
                          "bytes string in iopy union failed")
 
@@ -562,7 +562,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(getattr(a, 'field1', None), 11,
                          'custom init of iop field has failed')
 
-        a = self.r.test.ClassA(_bin=a.__bin__())
+        a = self.r.test.ClassA(_bin=a.to_bin())
         self.assertEqual(getattr(a, '_my_field', None), 'value',
                          '__custom_init__ method has not been called'
                          ' from iop creation')
@@ -826,7 +826,7 @@ class IopyTest(z.TestCase):
 
     def test_static_attrs(self):
         exp_static_attrs = {'intAttr': 999, 'strAttr': 'truc'}
-        class_attrs = self.r.test.StaticAttrsC.__get_class_attrs__()
+        class_attrs = self.r.test.StaticAttrsC.get_class_attrs()
         self.assertEqual(class_attrs['statics'], exp_static_attrs)
         self.assertEqual(self.r.test.StaticAttrsB.intAttr, 999)
         self.assertEqual(self.r.test.StaticAttrsB.strAttr, 'plop')
@@ -964,10 +964,10 @@ class IopyTest(z.TestCase):
         self.assertEqual(a_alias_a, a_lower)
 
     def test_union_object_key(self):
-        """Test union __object__ and __key__ methods"""
+        """Test union get_object() and get_key() methods"""
         a = self.r.test.UnionA(i=58)
-        self.assertEqual(a.__object__(), 58)
-        self.assertEqual(a.__key__(), 'i')
+        self.assertEqual(a.get_object(), 58)
+        self.assertEqual(a.get_key(), 'i')
 
     def test_abstract_class(self):
         """Test we cannot instantiate an abstract class"""
@@ -2485,6 +2485,57 @@ class IopyCompatibilityTests(z.TestCase):
 
         union_a_keys = set(('i', 'a', 'tab', 's'))
         self.assertEqual(set(vars(self.p.test.UnionA).keys()), union_a_keys)
+
+    def test_deprecated_underscore_methods(self):
+        """Test deprecated underscore methods of the different classes are
+        aliases to the new methods.
+        """
+        def check_method(obj, methods):
+            for old_method_name, new_method_name in methods:
+                self.assertEqual(getattr(obj, old_method_name),
+                                 getattr(obj, new_method_name))
+
+        # EnumBase
+        check_method(iopy.EnumBase, [
+            ('__values__', 'values'),
+            ('__ranges__', 'ranges'),
+        ])
+
+        # StructUnionBase
+        check_method(iopy.StructUnionBase, [
+            ('__from_file__', 'from_file'),
+            ('__json__', 'to_json'),
+            ('__yaml__', 'to_yaml'),
+            ('__bin__', 'to_bin'),
+            ('__hex__', 'to_hex'),
+            ('__xml__', 'to_xml'),
+            ('__get_fields_name__', 'get_fields_name'),
+            ('__desc__', 'get_desc'),
+            ('__values__', 'get_values'),
+        ])
+
+        # UnionBase
+        check_method(iopy.UnionBase, [
+            ('__object__', 'get_object'),
+            ('__key__', 'get_key'),
+        ])
+
+        # StructBase
+        check_method(iopy.StructBase, [
+            ('__iopslots__', 'get_iopslots'),
+            ('__get_class_attrs__', 'get_class_attrs'),
+        ])
+
+        # Plugin
+        check_method(iopy.Plugin, [
+            ('__get_type_from_fullname__', 'get_type_from_fullname'),
+            ('__get_iface_type_from_fullname__',
+             'get_iface_type_from_fullname'),
+        ])
+        check_method(self.p, [
+            ('__dsopath__', 'dsopath'),
+            ('__modules__', 'modules'),
+        ])
 
 
 if __name__ == "__main__":
