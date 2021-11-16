@@ -95,12 +95,14 @@ RewriteBlocksAction::CreateASTConsumer(CompilerInstance &CI,
 static bool ExecuteCompilerInvocationRewriteBlock(CompilerInstance *Clang) {
   // Honor -help.
   if (Clang->getFrontendOpts().ShowHelp) {
-#if CLANG_VERSION_MAJOR >= 10
+#if CLANG_VERSION_MAJOR >= 13
+    driver::getDriverOptTable().printHelp(
+#elif CLANG_VERSION_MAJOR >= 10
     driver::getDriverOptTable().PrintHelp(
 #else
     std::unique_ptr<OptTable> Opts = driver::createDriverOptTable();
     Opts->PrintHelp(
-#endif /* CLANG_VERSION_MAJOR >= 10 */
+#endif /* CLANG_VERSION_MAJOR >= 13 || CLANG_VERSION_MAJOR >= 10 */
       llvm::outs(),
       "clang-rewrite-blocks [options] file.blk -o file.blk.c",
       "LLVM 'Clang' Compiler Rewriter Block: "

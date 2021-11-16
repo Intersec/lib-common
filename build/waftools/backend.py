@@ -1339,7 +1339,7 @@ def options(ctx):
 
 def llvm_clang_configure(ctx):
     # Supported versions
-    llvm_supported_versions = (9, 10, 11, 12)
+    llvm_supported_versions = (9, 10, 11, 12, 13)
 
     # Find llvm-config
     llvm_version_major = None

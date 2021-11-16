@@ -448,6 +448,10 @@ void RewriteBlocks::Initialize(ASTContext &context)
   Preamble += "# line 1 \"" + InFileName + "\"\n";
 }
 
+#if CLANG_VERSION_MAJOR >= 13
+#define VK_RValue VK_PRValue
+#endif /* CLANG_VERSION_MAJOR >= 13 */
+
 // We avoid calling Type::isBlockPointerType(), since it operates on the
 // canonical type. We only care if the top-level type is a closure pointer.
 static bool isTopLevelBlockPointerType(QualType T)
