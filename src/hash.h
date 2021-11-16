@@ -204,7 +204,7 @@ static inline uint32_t mem_hash32(const void * nonnull data, ssize_t len)
 
 static inline uint32_t u64_hash32(uint64_t u64)
 {
-    return (uint32_t)(u64) ^ (uint32_t)(u64 >> 32);
+    return mem_hash32(&u64, sizeof(u64));
 }
 
 uint64_t identity_hash_64(const void * nonnull data, ssize_t len);

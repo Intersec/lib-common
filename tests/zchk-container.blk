@@ -482,21 +482,21 @@ Z_GROUP_EXPORT(qhash)
 
         Z_ASSERT_EQ(qm_get_def(test, &qm, 42, 3U), val);
         Z_ASSERT_EQ(qm_get_def(test, &qm, 0, 3U), 3U);
-        Z_ASSERT_EQ(qm_get_def_h(test, &qm, 42, val_h, 3U), val);
-        Z_ASSERT_EQ(qm_get_def_h(test, &qm, 0, val_h, 3U), 3U);
+        Z_ASSERT_EQ(qm_get_def_h(test, &qm, val_h, 42, 3U), val);
+        Z_ASSERT_EQ(qm_get_def_h(test, &qm, val_h, 0, 3U), 3U);
         Z_ASSERT_EQ(qm_get_def_safe(test, &qm, 42, 3U), val);
         Z_ASSERT_EQ(qm_get_def_safe(test, &qm, 0, 3U), 3U);
-        Z_ASSERT_EQ(qm_get_def_safe_h(test, &qm, 42, val_h, 3U), val);
-        Z_ASSERT_EQ(qm_get_def_safe_h(test, &qm, 0, val_h, 3U), 3U);
+        Z_ASSERT_EQ(qm_get_def_safe_h(test, &qm, val_h, 42, 3U), val);
+        Z_ASSERT_EQ(qm_get_def_safe_h(test, &qm, val_h, 0, 3U), 3U);
 
         Z_ASSERT_EQ(*qm_get_def_p(test, &qm, 42, NULL), val);
         Z_ASSERT(qm_get_def_p(test, &qm, 0, NULL) == NULL);
-        Z_ASSERT_EQ(*qm_get_def_p_h(test, &qm, 42, val_h, NULL), val);
-        Z_ASSERT(qm_get_def_p_h(test, &qm, 0, val_h, NULL) == NULL);
+        Z_ASSERT_EQ(*qm_get_def_p_h(test, &qm, val_h, 42, NULL), val);
+        Z_ASSERT(qm_get_def_p_h(test, &qm, val_h, 0, NULL) == NULL);
         Z_ASSERT_EQ(*qm_get_def_p_safe(test, &qm, 42, NULL), val);
         Z_ASSERT(qm_get_def_p_safe(test, &qm, 0, NULL) == NULL);
-        Z_ASSERT_EQ(*qm_get_def_p_safe_h(test, &qm, 42, val_h, NULL), val);
-        Z_ASSERT(qm_get_def_p_safe_h(test, &qm, 0, val_h, NULL) == NULL);
+        Z_ASSERT_EQ(*qm_get_def_p_safe_h(test, &qm, val_h, 42, NULL), val);
+        Z_ASSERT(qm_get_def_p_safe_h(test, &qm, val_h, 0, NULL) == NULL);
 
         t_qm_init(test_p_val, &qm2, 1);
         qm_add(test_p_val, &qm2, 42, pval);
@@ -504,24 +504,24 @@ Z_GROUP_EXPORT(qhash)
 
         Z_ASSERT(qm_get_def(test_p_val, &qm2, 42, NULL) == pval);
         Z_ASSERT(qm_get_def(test_p_val, &qm2, 0, NULL) == NULL);
-        Z_ASSERT(qm_get_def_h(test_p_val, &qm2, 42, pval_h, NULL) == pval);
-        Z_ASSERT(qm_get_def_h(test_p_val, &qm2, 0, pval_h, NULL) == NULL);
+        Z_ASSERT(qm_get_def_h(test_p_val, &qm2, pval_h, 42, NULL) == pval);
+        Z_ASSERT(qm_get_def_h(test_p_val, &qm2, pval_h, 0, NULL) == NULL);
         Z_ASSERT(qm_get_def_safe(test_p_val, &qm2, 42, NULL) == pval);
         Z_ASSERT(qm_get_def_safe(test_p_val, &qm2, 0, NULL) == NULL);
-        Z_ASSERT(qm_get_def_safe_h(test_p_val, &qm2, 42, pval_h,
+        Z_ASSERT(qm_get_def_safe_h(test_p_val, &qm2, pval_h, 42,
                                    NULL) == pval);
-        Z_ASSERT(qm_get_def_safe_h(test_p_val, &qm2, 0, pval_h,
+        Z_ASSERT(qm_get_def_safe_h(test_p_val, &qm2, pval_h, 0,
                                    NULL) == NULL);
 
         Z_ASSERT(*qm_get_def_p(test_p_val, &qm2, 42, NULL) == pval);
         Z_ASSERT(qm_get_def_p(test_p_val, &qm2, 0, NULL) == NULL);
-        Z_ASSERT(*qm_get_def_p_h(test_p_val, &qm2, 42, pval_h, NULL) == pval);
-        Z_ASSERT(qm_get_def_p_h(test_p_val, &qm2, 0, pval_h, NULL) == NULL);
+        Z_ASSERT(*qm_get_def_p_h(test_p_val, &qm2, pval_h, 42, NULL) == pval);
+        Z_ASSERT(qm_get_def_p_h(test_p_val, &qm2, pval_h, 0, NULL) == NULL);
         Z_ASSERT(*qm_get_def_p_safe(test_p_val, &qm2, 42, NULL) == pval);
         Z_ASSERT(qm_get_def_p_safe(test_p_val, &qm2, 0, NULL) == NULL);
-        Z_ASSERT(*qm_get_def_p_safe_h(test_p_val, &qm2, 42, pval_h,
+        Z_ASSERT(*qm_get_def_p_safe_h(test_p_val, &qm2, pval_h, 42,
                                       NULL) == pval);
-        Z_ASSERT(qm_get_def_p_safe_h(test_p_val, &qm2, 0, pval_h,
+        Z_ASSERT(qm_get_def_p_safe_h(test_p_val, &qm2, pval_h, 0,
                                      NULL) == NULL);
     } Z_TEST_END
 

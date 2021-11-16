@@ -170,7 +170,7 @@ static inline void qhash_del_at(qhash_t * nonnull qh, uint32_t pos)
 
 static inline uint32_t qhash_hash_u32(const qhash_t * nullable qh, uint32_t u32)
 {
-    return u32;
+    return mem_hash32(&u32, sizeof(u32));
 }
 static inline uint32_t qhash_hash_u64(const qhash_t * nullable qh, uint64_t u64)
 {

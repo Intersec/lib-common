@@ -35,6 +35,7 @@ static struct {
     bool opt_ascii_iqhash;
     bool opt_qv_sort;
     bool opt_qv_shuffle;
+    bool opt_uint_qhash;
 } ztst_container_g = {
 #define _G  ztst_container_g
     .logger = LOGGER_INIT_INHERITS(NULL, "ztst-container"),
@@ -241,6 +242,53 @@ static void ztst_run_qv_shuffle(void)
 }
 
 /* }}} */
+/* {{{ U32/U64 qhash */
+
+static void ztst_run_uint_qhash(void)
+{
+    qh_t(u32) h_u32;
+    qh_t(u64) h_u64;
+
+    qh_init(u32, &h_u32);
+    qh_init(u64, &h_u64);
+
+#define STEP 150000
+
+#define RUN_TEST(name, qh) \
+    do {                                                                     \
+        proctimerstat_t st;                                                  \
+        proctimer_t pt;                                                      \
+                                                                             \
+        p_clear(&st, 1);                                                     \
+        for (uint64_t start = 1; start < 5 * STEP; start += STEP) {          \
+            qh_clear(name, &qh);                                             \
+            proctimer_start(&pt);                                            \
+            for (uint64_t i = start; i <= start + STEP; i++) {               \
+                /* lookup key 0 at each step, this can be quite slow in case \
+                 * of collisions */                                          \
+                                                                             \
+                qh_find_safe(name, &qh, 0);                                  \
+                qh_add(name, &qh, i);                                        \
+            }                                                                \
+            proctimer_stop(&pt);                                             \
+            proctimerstat_addsample(&st, &pt);                               \
+        }                                                                    \
+        logger_notice(&_G.logger, "%d values inserted in qh in %s",          \
+                      5 * STEP, proctimerstat_report(&st, NULL));            \
+    } while (0)
+
+    logger_notice(&_G.logger, "u32 bench");
+    RUN_TEST(u32, h_u32);
+    logger_notice(&_G.logger, "u64 bench");
+    RUN_TEST(u64, h_u64);
+
+    qh_wipe(u32, &h_u32);
+    qh_wipe(u64, &h_u64);
+#undef RUN_TEST
+#undef STEP
+}
+
+/* }}} */
 
 static popt_t popts_g[] = {
     OPT_FLAG('h', "help", &_G.opt_help, "show this help"),
@@ -249,6 +297,8 @@ static popt_t popts_g[] = {
     OPT_FLAG('s', "qv-sort", &_G.opt_qv_sort, "run qv_sort/qv_qsort benches"),
     OPT_FLAG('r', "qv-shuffle", &_G.opt_qv_shuffle,
              "run qv_shuffle benches"),
+    OPT_FLAG('u', "uint-qhash", &_G.opt_uint_qhash,
+             "run UINT32/UINT64 qhash tests"),
     OPT_END(),
 };
 
@@ -271,6 +321,10 @@ int main(int argc, char **argv)
 
     if (_G.opt_qv_shuffle) {
         ztst_run_qv_shuffle();
+    }
+
+    if (_G.opt_uint_qhash) {
+        ztst_run_uint_qhash();
     }
 
     return 0;
