@@ -756,6 +756,12 @@ Z_GROUP_EXPORT(core_macros) {
 
         OPT_SET(src, 8008);
         OPT_CLR(dst);
+
+        Z_ASSERT_EQ(OPT_DEFVAL(dst, 42), 42u);
+        Z_ASSERT_EQ(OPT_DEF0(dst), 0u);
+        Z_ASSERT_EQ(OPT_DEFVAL(src, 42), 8008u);
+        Z_ASSERT_EQ(OPT_DEF0(src), 8008u);
+
         Z_ASSERT(OPT_IS(src, 8008));
         Z_ASSERT(!OPT_IS(dst, 8008));
         Z_ASSERT(!OPT_TEST(dst, >=, 1));

@@ -133,9 +133,17 @@ typedef opt_bool_t         opt__Bool_t;
         &__p_opt->v;                                                         \
     })
 #define OPT_VAL(_v)  ({ typeof(_v) _opt = (_v); *OPT_VAL_P(&(_opt)); })
-#define OPT_DEFVAL(_v, _defval)                       \
-    ({ typeof(_v) __v = (_v);                         \
-       (__v).has_field ? (__v).v : (_defval); })
+
+/** Get the value of an optional field, use a default value if not set. */
+#define OPT_DEFVAL(_v, _defval)                                              \
+    ({                                                                       \
+        typeof(_v) opt_defval_val_ = (_v);                                   \
+        opt_defval_val_.has_field ? opt_defval_val_.v : (_defval);           \
+    })
+
+/** Same as \p OPT_DEFVAL but the default value is zero. */
+#define OPT_DEF0(_v) OPT_DEFVAL(_v, 0)
+
 #define OPT_GET(_v)  \
     ({ typeof(_v) __v = (_v); __v->has_field ? &__v->v : NULL; })
 
