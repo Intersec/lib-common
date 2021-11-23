@@ -114,6 +114,17 @@ typedef opt_bool_t         opt__Bool_t;
 
 /** Tell whether the optional field is set or not. */
 #define OPT_ISSET(_v)  ((_v).has_field == true)
+
+/** Tell whether the optional field is set and checks a given condition. */
+#define OPT_TEST(_opt, _op, _val)                                            \
+    ({                                                                       \
+        typeof(_opt) opt_is_val_ = (_opt);                                   \
+        OPT_ISSET(opt_is_val_) && OPT_VAL(opt_is_val_) _op (_val);           \
+    })
+
+/** Thell whether the optional field is set with a given value. */
+#define OPT_IS(_op, _val) OPT_TEST((_op), ==, (_val))
+
 /** Get the optional field value. */
 #define OPT_VAL_P(_v)                                                        \
     ({                                                                       \

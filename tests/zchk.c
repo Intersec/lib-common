@@ -755,6 +755,13 @@ Z_GROUP_EXPORT(core_macros) {
         opt_u32_t src, dst;
 
         OPT_SET(src, 8008);
+        OPT_CLR(dst);
+        Z_ASSERT(OPT_IS(src, 8008));
+        Z_ASSERT(!OPT_IS(dst, 8008));
+        Z_ASSERT(!OPT_TEST(dst, >=, 1));
+        Z_ASSERT(OPT_TEST(src, >, 8007));
+        Z_ASSERT(!OPT_TEST(src, >, 8008));
+
         OPT_COPY(dst, src);
 
         Z_ASSERT(OPT_ISSET(dst));
