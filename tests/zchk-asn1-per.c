@@ -1637,8 +1637,8 @@ Z_GROUP_EXPORT(asn1_aper) {
         z_indef_len_t before;
         z_indef_len_t after;
 #define OCTET_STRING_LEN  68000
-        SB(os, OCTET_STRING_LEN + 1);
-        SB(buf, OCTET_STRING_LEN + 1);
+        t_SB(os, OCTET_STRING_LEN + 1);
+        t_SB(buf, OCTET_STRING_LEN + 1);
         pstream_t ps;
         pstream_t os_ps;
         lstr_t pattern = LSTR("9UFH8904YUhjdlqeijf");
