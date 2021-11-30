@@ -19,7 +19,7 @@
 #ifndef IS_LIB_COMMON_CORE_H
 #define IS_LIB_COMMON_CORE_H
 
-#define LIB_COMMON_VERSION  "master"
+#define LIB_COMMON_VERSION  "2021.10"
 
 #if HAS_LIBCOMMON_REPOSITORY
 # define LIBCOMMON_PATH "lib-common/"
