@@ -77,7 +77,7 @@
  * (functions qps_pg_*). This allocator returns contiguous sets of pages.
  * Sizes are in pages (of #QPS_PAGE_SIZE octets). The allocation book-keeping
  * is maintained externally and dumped in the QPS meta data (\p meta.qps)
- * every now and while.
+ * every now and then (TODO be a bit more specific about it).
  *
  * The second allocator is a TLSF (http://rtportal.upv.es/rtmalloc/)
  * allocator. Like in TLSF the allocation book-keeping is stored inside the
@@ -110,7 +110,7 @@
  * location), then it's up to you to ensure that the enclosing directory has
  * been created by you with the proper permissions.
  *
- * \note Do rememeber that on NFS directory creation isn't atomic.
+ * \note Do remember that on NFS directory creation isn't atomic.
  */
 
 /** Type of a qps page handle.

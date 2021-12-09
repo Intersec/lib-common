@@ -1777,6 +1777,8 @@ void qps_gc_run(qps_t *qps)
 /** @} */
 /* public: helpers {{{ */
 
+/* TODO This function looks bad. It would really need some cleaning and some
+ * doc. */
 static ALWAYS_INLINE void qps_zero_helper(uint8_t *p, uint8_t *end)
 {
     uint8_t *q = p;
