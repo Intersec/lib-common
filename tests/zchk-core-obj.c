@@ -142,8 +142,8 @@ Z_GROUP_EXPORT(core_obj)
         desc = t_get_obj_desc_indirect(&child_obj->super);
         Z_ASSERT_LSTREQUAL(desc, LSTR("a: 7, b: 1"));
 
-        obj_release(child_obj);
-        obj_release(base_obj);
+        obj_delete(&child_obj);
+        obj_delete(&base_obj);
     } Z_TEST_END;
 
     Z_TEST(extended, "test extended vtable") {
@@ -157,6 +157,50 @@ Z_GROUP_EXPORT(core_obj)
         /* Test get_extented_b */
         Z_ASSERT_EQ(!child_obj->b, obj_vcall(child_obj, get_extended_b));
 
-        obj_release(child_obj);
+        obj_delete(&child_obj);
+    } Z_TEST_END;
+
+    Z_TEST(refcounting, "test refcounting") {
+        my_base_object_t *obj;
+        my_base_object_t *tmp;
+
+        obj = obj_new(my_base_object);
+        Z_ASSERT_EQ(obj->refcnt, 1);
+        obj_release(&obj);
+        Z_ASSERT_NULL(obj, "obj_release() should reset the pointer if the "
+                      "object was destroyed");
+
+        obj = obj_new(my_base_object);
+        obj_retain(obj);
+        Z_ASSERT_EQ(obj->refcnt, 2);
+        obj_retain(obj);
+        Z_ASSERT_EQ(obj->refcnt, 3);
+        obj_release(&obj);
+        Z_ASSERT_P(obj, "obj_release() should not reset the pointer if the "
+                   "object was not destroyed");
+        Z_ASSERT_EQ(obj->refcnt, 2);
+        obj_retain(obj);
+        Z_ASSERT_EQ(obj->refcnt, 3);
+        obj_release(&obj);
+        Z_ASSERT_P(obj);
+        Z_ASSERT_EQ(obj->refcnt, 2);
+        obj_release(&obj);
+        Z_ASSERT_P(obj);
+        Z_ASSERT_EQ(obj->refcnt, 1);
+        obj_release(&obj);
+        Z_ASSERT_NULL(obj, "obj_release() should reset the pointer if the "
+                      "object was destroyed");
+
+        obj = obj_new(my_base_object);
+        obj_retain(obj);
+        tmp = obj;
+        obj_delete(&obj);
+        Z_ASSERT_NULL(obj, "obj_delete() should reset the object pointer "
+                      "even if it was not destroyed");
+        obj = tmp;
+        Z_ASSERT_EQ(obj->refcnt, 1);
+        obj_delete(&obj);
+        Z_ASSERT_NULL(obj, "obj_delete() should always reset the object "
+                      "pointer");
     } Z_TEST_END;
 } Z_GROUP_END

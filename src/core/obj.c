@@ -104,28 +104,31 @@ static object_t *obj_retain_(object_t *obj)
     }
 }
 
-static void obj_release_(object_t *obj)
+static void obj_release_(object_t *obj, bool *nullable destroyed)
 {
     assert (obj->mp != &mem_pool_static);
 
     if (obj->refcnt > 1) {
         --obj->refcnt;
-        return;
-    }
-    if (obj->refcnt == 1) {
-        if (obj_vmethod(obj, can_wipe) && !obj_vcall(obj, can_wipe))
-            return;
-        obj_wipe_real(obj);
-        mp_delete(obj->mp, &obj);
-        return;
+    } else if (obj->refcnt == 1) {
+        if (obj_vmethod(obj, can_wipe) && !obj_vcall(obj, can_wipe)) {
+            /* FIXME This 'can_wipe' method smells bad. Remove it. */
+        } else {
+            obj_wipe_real(obj);
+            mp_delete(obj->mp, &obj);
+        }
+    } else {
+        switch (obj->refcnt) {
+          case 0:
+            e_panic("object refcounting issue");
+          default:
+            /* Probably a memory corruption we should have hit 0 first. */
+            e_panic("should not happen");
+        }
     }
 
-    switch (obj->refcnt) {
-      case 0:
-        e_panic("object refcounting issue");
-      default:
-        /* WTF?! probably a memory corruption we should have hit 0 first */
-        e_panic("should not happen");
+    if (destroyed) {
+        *destroyed = !obj;
     }
 }
 

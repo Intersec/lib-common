@@ -349,16 +349,28 @@
     mem_pool_t * nullable mp;                                                \
     ssize_t refcnt
 
-/** Virtual functions for the root object class.
+/** Methods for the root object class.
  *
  * \param type_t object instance type.
  */
 #define OBJECT_METHODS(type_t)                                               \
-    type_t  * nonnull (*nonnull init)(type_t * nonnull);                     \
-    void     (*nonnull wipe)(type_t * nonnull);                              \
-    type_t  * nonnull (*nonnull retain)(type_t * nonnull);                   \
-    void     (*nonnull release)(type_t * nonnull);                           \
-    bool     (*nonnull can_wipe)(type_t * nonnull)
+    type_t *nonnull (*nonnull init)(type_t *nonnull);                        \
+    void (*nonnull wipe)(type_t *nonnull);                                   \
+    type_t *nonnull (*nonnull retain)(type_t *nonnull);                      \
+                                                                             \
+    /** Remove a reference to an object.                                     \
+     *                                                                       \
+     * Decrement the reference counter and delete the object if it was the   \
+     * last reference. The default implementation isn't really meant to be   \
+     * replaced but it can be extended for tracing and debug.                \
+     *                                                                       \
+     * \param[in] obj  Object to release.                                    \
+     *                                                                       \
+     * \param[out] destroyed  Set to true if the object was destroyed.       \
+     */                                                                      \
+    void (*nonnull release)(type_t *nonnull obj, bool *nullable destroyed);  \
+                                                                             \
+    bool (*nonnull can_wipe)(type_t *nonnull)
 
 typedef struct object_t object_t;
 OBJ_CLASS_NO_TYPEDEF_(object, object, OBJECT_FIELDS, OBJECT_METHODS,
@@ -579,18 +591,36 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
 
 /** Release object instance.
  *
- * The default implementation will decrement the object's reference counting
- * by 1.
- * When the object's reference couting reaches 0, the object will
- * automatically be wiped and deleted depending of the memory pool.
+ * Wrapper for 'release' method.
+ *
+ * \param[in, out] op  Object to release. If the object has only one
+ *                     reference left, then it is destroyed and \p *op is set
+ *                     to NULL. Otherwise, \p *op is left unchanged.
  */
-#define obj_release(o)  obj_vcall(o, release)
+#define obj_release(op) \
+do {                                                                         \
+    typeof(**op) **obj_release_obj = (op);                                   \
+    bool obj_release_obj_destroyed = false;                                  \
+                                                                             \
+    obj_vcall(*obj_release_obj, release, &obj_release_obj_destroyed);        \
+    if (obj_release_obj_destroyed) {                                         \
+        *obj_release_obj = NULL;                                             \
+    }                                                                        \
+} while (0)
 
 /** Delete object instance.
  *
  * If the object instance is not NULL, it will be released and set to NULL.
  */
-#define obj_delete(op)  ({ if (*(op)) obj_release(*(op)); *(op) = NULL; })
+#define obj_delete(op) \
+do {                                                                         \
+    typeof(**op) **obj_delete_obj = (op);                                    \
+                                                                             \
+    if (*obj_delete_obj) {                                                   \
+        obj_vcall(*obj_delete_obj, release, NULL);                           \
+        *obj_delete_obj = NULL;                                              \
+    }                                                                        \
+} while (0)
 
 /** Init object instance with static memory pool.
  *

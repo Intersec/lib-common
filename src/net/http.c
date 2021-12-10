@@ -541,7 +541,7 @@ static ALWAYS_INLINE void httpd_query_detach(httpd_query_t *q)
         }
         w->queries_done -= q->answered;
         q->owner = NULL;
-        obj_release(q);
+        obj_release(&q);
     }
 }
 
@@ -1042,7 +1042,7 @@ static void httpd_query_done(httpd_t *w, httpd_query_t *q)
         w->state = HTTP_PARSER_IDLE;
     }
     w->chunk_length = 0;
-    obj_release(q);
+    obj_release(&q);
 }
 
 static void httpd_mark_query_answered(httpd_query_t *q)
@@ -1061,7 +1061,7 @@ static void httpd_mark_query_answered(httpd_query_t *q)
         }
     }
     q->expect100cont = false;
-    obj_release(q);
+    obj_release(&q);
 }
 
 qvector_t(qhdr, http_qhdr_t);
@@ -1868,9 +1868,9 @@ static int httpd_on_event(el_t evh, int fd, short events, data_t priv)
 
         q = dlist_last_entry(&w->query_list, httpd_query_t, query_link);
         if (!q->parsed) {
-            obj_release(q);
+            obj_release(&q);
             if (!q->answered) {
-                obj_release(q);
+                obj_release(&q);
             }
         }
     }
@@ -2460,8 +2460,8 @@ void httpc_pool_close_clients(httpc_pool_t *pool)
 
     dlist_splice(&lst, &pool->busy_list);
     dlist_splice(&lst, &pool->ready_list);
-    dlist_for_each(it, &lst) {
-        obj_release(dlist_entry(it, httpc_t, pool_link));
+    dlist_for_each_entry(httpc_t, w, &lst, pool_link) {
+        obj_release(&w);
     }
 }
 
@@ -2471,11 +2471,11 @@ void httpc_pool_wipe(httpc_pool_t *pool, bool wipe_conns)
 
     dlist_splice(&l, &pool->busy_list);
     dlist_splice(&l, &pool->ready_list);
-    dlist_for_each(it, &l) {
+    dlist_for_each_entry(httpc_t, w, &l, pool_link) {
         if (wipe_conns) {
-            obj_release(dlist_entry(it, httpc_t, pool_link));
+            obj_release(&w);
         } else {
-            httpc_pool_detach(dlist_entry(it, httpc_t, pool_link));
+            httpc_pool_detach(w);
         }
     }
     lstr_wipe(&pool->host);
