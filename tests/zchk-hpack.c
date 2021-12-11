@@ -117,3 +117,89 @@ Z_GROUP_EXPORT(hpack_huffman) {
 } Z_GROUP_END;
 
 /* }}} */
+/* {{{ Integer coding */
+
+static int
+z_hpack_encode_int(uint32_t in, uint8_t prefix_bits, lstr_t expected)
+{
+    byte out[8];
+    int len;
+
+    len = hpack_encode_int(in, prefix_bits, out);
+    Z_ASSERT_N(len);
+    Z_ASSERT_DATAEQUAL(LSTR_INIT_V((char *)out, len), expected);
+    Z_HELPER_END;
+}
+
+static int
+z_hpack_decode_int(lstr_t in, uint8_t prefix_bits, uint32_t expected)
+{
+    int rc;
+    uint32_t val;
+    pstream_t ps_in = ps_initlstr(&in);
+
+    rc = hpack_decode_int(&ps_in, prefix_bits, &val);
+    Z_ASSERT_N(rc);
+    Z_ASSERT(ps_done(&ps_in));
+    Z_ASSERT_EQ(val, expected);
+    Z_HELPER_END;
+}
+
+static int
+z_hpack_int_test(uint32_t val, uint8_t prefix_bits, lstr_t coded_int_hex)
+{
+    t_scope;
+    lstr_t coded_int;
+
+    coded_int = t_z_hex_decode(coded_int_hex);
+    assert(coded_int.data);
+    Z_HELPER_RUN(z_hpack_encode_int(val, prefix_bits, coded_int));
+    Z_HELPER_RUN(z_hpack_decode_int(coded_int, prefix_bits, val));
+    Z_HELPER_END;
+}
+
+Z_GROUP_EXPORT(hpack_enc_int) {
+#define ZT_TEST(val, prefix_bits, coded_int)                                 \
+    Z_HELPER_RUN(z_hpack_int_test(val, prefix_bits, LSTR_IMMED_V(coded_int)))
+
+    Z_TEST(hpack_enc_int_corner, "integer encoding of corner cases") {
+        ZT_TEST(0, 1, "00");
+        ZT_TEST(0, 7, "00");
+        ZT_TEST(0, 8, "00");
+        ZT_TEST(1, 1, "01  00");
+        ZT_TEST(1, 7, "01");
+        ZT_TEST(1, 8, "01");
+        ZT_TEST(127, 1, "01 7E");
+        ZT_TEST(127, 7, "7F 00");
+        ZT_TEST(127, 8, "7F");
+        ZT_TEST(128, 1, "01 7F");
+        ZT_TEST(128, 7, "7F 01");
+        ZT_TEST(128, 8, "80");
+        ZT_TEST(255, 1, "01 FE 01");
+        ZT_TEST(255, 7, "7F 80 01");
+        ZT_TEST(255, 8, "FF  00");
+        ZT_TEST(0x7FFFFFFFu, 1, "01 FE FF FF FF 07");
+        ZT_TEST(0x7FFFFFFFu, 7, "7F 80 FF FF FF 07");
+        ZT_TEST(0x7FFFFFFFu, 8, "FF 80 FE FF FF 07");
+        ZT_TEST(0xFFFFFFFFu, 1, "01 FE FF FF FF 0F");
+        ZT_TEST(0xFFFFFFFFu, 7, "7F 80 FF FF FF 0F");
+        ZT_TEST(0xFFFFFFFFu, 8, "FF 80 FE FF FF 0F");
+    } Z_TEST_END;
+
+    Z_TEST(hpack_enc_int_simple, "integer encoding of simple cases") {
+        ZT_TEST(0, 8, "00");
+        ZT_TEST(4, 4, "04");
+        ZT_TEST(30, 5, "1E");
+        ZT_TEST(31, 5, "1F 00");
+    } Z_TEST_END;
+
+    Z_TEST(hpack_enc_int_rfc, "integer decoding of rfc7541 examples") {
+        ZT_TEST(10, 5, "0A");
+        ZT_TEST(1337, 5, "1F 9A 0A");
+        ZT_TEST(42, 8, "2A");
+    } Z_TEST_END;
+
+#undef ZT_TEST
+} Z_GROUP_END;
+
+/* }}} */

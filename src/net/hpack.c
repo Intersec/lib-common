@@ -104,3 +104,63 @@ int hpack_decode_huffman(lstr_t str, void *out_)
 }
 
 /* }}} */
+/* {{{ Integer encoding & decoding */
+
+int hpack_encode_int(uint32_t val, uint8_t prefix_bits, byte out[8])
+{
+    byte *out_ = out;
+    uint32_t max_prefix_num;
+
+    /* RFC 7541 §5.1: Integer Representation */
+    assert(prefix_bits >= 1 && prefix_bits <= 8);
+    max_prefix_num = (1u << prefix_bits) - 1;
+    if (val < max_prefix_num) {
+        *out++ = val;
+    } else {
+        *out++ = max_prefix_num;
+        val -= max_prefix_num;
+        for (; val >> 7; val >>= 7) {
+            *out++ = 0x80u | val;
+        }
+        *out++ = val;
+    }
+    return out - out_;
+}
+
+int hpack_decode_int(pstream_t *in, uint8_t prefix_bits, uint32_t *val)
+{
+    byte b;
+    unsigned m;
+    uint64_t res;
+    uint32_t max_prefix_num;
+
+    /* RFC 7541 §5.1: Integer Representation */
+    /* Implementation limits: value <= UINT32_MAX && coded size <= 8 bytes */
+    assert(prefix_bits >= 1 && prefix_bits <= 8);
+    max_prefix_num = (1u << prefix_bits) - 1;
+    THROW_ERR_IF(ps_done(in));
+    b = max_prefix_num & __ps_getc(in);
+    if (b < max_prefix_num) {
+        *val = b;
+        return 0;
+    }
+    res = 0;
+    m = 0;
+    for (int i = 1; i < 8; i++) {
+        THROW_ERR_IF(ps_done(in));
+        b = __ps_getc(in);
+        res |= ((uint64_t)(0x7Fu & b)) << m;
+        m += 7;
+        if (b < 128) {
+            res += max_prefix_num;
+            /* check for overflow */
+            THROW_ERR_IF(res > UINT32_MAX);
+            *val = res;
+            return 0;
+        }
+    }
+    /* coded integer overruns the 8-byte size limit */
+    return -1;
+}
+
+/* }}} */

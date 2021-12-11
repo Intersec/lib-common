@@ -52,9 +52,7 @@ typedef struct hpack_huffdec_trans_t {
 /* Huffman state-transition table based on 4-bit chunks (i.e., nibbles) */
 extern const hpack_huffdec_trans_t hpack_huffdec_trans_tab_g[256][16];
 
-/**
- * Return the length of the huffman-coded version of \p str
- */
+/** Return the length of the huffman-coded version of \p str */
 static inline size_t hpack_get_huffman_len(lstr_t str)
 {
     size_t bits = 0;
@@ -67,8 +65,7 @@ static inline size_t hpack_get_huffman_len(lstr_t str)
     return DIV_ROUND_UP(bits, 8U);
 }
 
-/**
- * Return a worst case estimate for the length of the huffman-coded version of
+/** Return a worst case estimate for the length of the huffman-coded version
  * \p str
  */
 static inline size_t hpack_get_huffman_len_estimate(lstr_t str)
@@ -76,8 +73,7 @@ static inline size_t hpack_get_huffman_len_estimate(lstr_t str)
     return 4 * str.len;
 }
 
-/**
- * Write at most \p len bytes of the huffman-coded version of \p str
+/** Write at most \p len bytes of the huffman-coded version of \p str
  *
  * \return the number of bytes written
  */
@@ -91,6 +87,23 @@ int hpack_encode_huffman(lstr_t str, void *out, int len);
  * for the decoded length is the same length of \p str.
  */
 int hpack_decode_huffman(lstr_t str, void *out);
+
+/* }}} */
+/* {{{ Integer encoding & decoding */
+
+/** Write HPACK-encoded integer \p val to \p out prefixed by zero bits
+ *
+ * \param prefix_bits number of bits (LSB) used in the first byte of \p out
+ * \return the number of bytes written to \p out
+ */
+int hpack_encode_int(uint32_t val, uint8_t prefix_bits, byte out[8]);
+
+/** Decode an HPACK-coded integer from \p in to \p val
+ *
+ * \param prefix_bits number of bits (LSB) used in the first byte of \p out
+ * \return 0 on success, -1 on error
+ */
+int hpack_decode_int(pstream_t *in, uint8_t prefix_bits, uint32_t *val);
 
 /* }}} */
 
