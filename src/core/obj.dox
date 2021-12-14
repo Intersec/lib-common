@@ -72,14 +72,6 @@
   Though it's possible to implement various factories that will generate
   objects properly.
 
-  To help with reference counting and various delayed deletion schemes,
-  objects also provide a <tt>boo can_wipe(type_t *)</tt> method. This method is
-  called (if it exists, else a <b>true</b> return value is assumed) each
-  time someone calls <tt>obj_delete</tt> on your object. If it returns
-  <b>false</b>, then the object is <em>not really</em> deinitialized, only the
-  pointer passed as an argument is set to <tt>NULL</tt>. THIS FEATURE IS
-  DEPRECATED USE BUILTIN REFCOUNTING INSTEAD.
-
   Objects are refcounted in builtin, with two methods: <tt>retain</tt> and
   <tt>release</tt> working like in ObjC. Objects are either created as
   automatic variable with <tt>obj_init</tt> and released with

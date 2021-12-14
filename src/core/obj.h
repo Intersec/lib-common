@@ -368,9 +368,7 @@
      *                                                                       \
      * \param[out] destroyed  Set to true if the object was destroyed.       \
      */                                                                      \
-    void (*nonnull release)(type_t *nonnull obj, bool *nullable destroyed);  \
-                                                                             \
-    bool (*nonnull can_wipe)(type_t *nonnull)
+    void (*nonnull release)(type_t *nonnull obj, bool *nullable destroyed)
 
 typedef struct object_t object_t;
 OBJ_CLASS_NO_TYPEDEF_(object, object, OBJECT_FIELDS, OBJECT_METHODS,
