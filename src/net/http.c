@@ -2664,6 +2664,7 @@ static int httpc_on_event(el_t evh, int fd, short events, data_t priv)
                 return 0;
             }
         }
+        st = HTTPC_STATUS_TIMEOUT;
         goto close;
     }
 
