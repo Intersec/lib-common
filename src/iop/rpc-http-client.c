@@ -71,7 +71,7 @@ http_iop_channel_t *http_iop_channel_init(http_iop_channel_t *channel)
 {
     p_clear(channel, 1);
     qv_init(&channel->remotes);
-    htlist_init(&channel->queries);
+    htlist_init(&channel->queries_waiting_conn);
 
     return channel;
 }
@@ -80,9 +80,9 @@ void http_iop_channel_wipe(http_iop_channel_t *channel)
     lstr_wipe(&channel->user);
     lstr_wipe(&channel->password);
     qv_deep_wipe(&channel->remotes, http_iop_channel_remote_delete);
-    htlist_deep_clear(&channel->queries, http_iop_msg_t, link,
+    htlist_deep_clear(&channel->queries_waiting_conn, http_iop_msg_t, link,
                       http_iop_msg_delete);
-    el_unregister(&channel->timeout_queries_el);
+    el_unregister(&channel->queries_conn_timeout_el);
 }
 
 static void
@@ -92,14 +92,14 @@ on_connection_ready(httpc_pool_t *pool, httpc_t *httpc)
     htlist_t temp;
 
     remote = container_of(pool, http_iop_channel_remote_t, pool);
-    htlist_move(&temp, &remote->channel->queries);
+    htlist_move(&temp, &remote->channel->queries_waiting_conn);
     while (!htlist_is_empty(&temp)) {
         http_iop_msg_t *msg;
 
         msg = htlist_pop_entry(&temp, http_iop_msg_t, link);
         http_iop_query_(remote->channel, msg, NULL);
         if (!httpc_pool_can_query(pool)) {
-            htlist_splice(&remote->channel->queries, &temp);
+            htlist_splice(&remote->channel->queries_waiting_conn, &temp);
             return;
         }
     }
@@ -139,7 +139,8 @@ http_iop_channel_create(const http_iop_channel_cfg_t *cfg, sb_t *err)
 {
     http_iop_channel_t *res = http_iop_channel_new();
 
-    res->query_timeout = OPT_DEFVAL(cfg->query_timeout, 10);
+    res->connection_timeout_msec = OPT_DEFVAL(cfg->connection_timeout_msec,
+                                              10 * 1000);
     res->response_max_size = OPT_DEFVAL(cfg->response_max_size, 1 << 20);
     res->encode_url = OPT_DEFVAL(cfg->encode_url, true);
     res->user = lstr_dup(cfg->user);
@@ -176,7 +177,7 @@ http_iop_channel_create(const http_iop_channel_cfg_t *cfg, sb_t *err)
             goto error;
         }
 
-        remote->pool.max_len = OPT_DEFVAL(cfg->max_conn, 1);
+        remote->pool.max_len = OPT_DEFVAL(cfg->max_connections, 1);
         remote->pool.on_ready = on_connection_ready;
         remote->pool.on_connect_error = on_connect_error;
         remote->channel = res;
@@ -192,43 +193,47 @@ error:
 }
 
 static void http_iop_register_timeout_check(http_iop_channel_t *channel,
-                                            uint16_t timeout);
+                                            int64_t timeout);
 
 static void http_iop_timeout_queries(el_t el, data_t data)
 {
     http_iop_channel_t *channel = data.ptr;
-    uint32_t next_check = UINT32_MAX;
-    time_t now = lp_getsec();
+    struct timeval now;
 
-    while (!htlist_is_empty(&channel->queries)) {
+    channel->queries_conn_timeout_el = NULL;
+    lp_gettv(&now);
+
+    while (!htlist_is_empty(&channel->queries_waiting_conn)) {
         http_iop_msg_t *msg;
+        struct timeval msg_expiry;
+        struct timeval time_left;
 
-        msg = htlist_first_entry(&channel->queries, http_iop_msg_t, link);
-        if (msg->query_time + channel->query_timeout < now) {
-            logger_trace(&_G.logger, 1, "canceling query `%*pM`: timeout "
-                         "reached", LSTR_FMT_ARG(msg->rpc->name));
-            msg->cb(msg, IC_MSG_CANCELED, (opt_http_code_t)OPT_NONE, NULL,
+        msg = htlist_first_entry(&channel->queries_waiting_conn,
+                                 http_iop_msg_t, link);
+        msg_expiry = timeval_addmsec(msg->query_time,
+                                     channel->connection_timeout_msec);
+        if (is_expired(&msg_expiry, &now, &time_left)) {
+            logger_trace(&_G.logger, 1, "canceling query `%*pM`: connection "
+                         "timeout reached", LSTR_FMT_ARG(msg->rpc->name));
+            msg->cb(msg, IC_MSG_TIMEDOUT, (opt_http_code_t)OPT_NONE, NULL,
                     NULL);
-            htlist_pop_entry(&channel->queries, http_iop_msg_t, link);
+            htlist_pop_entry(&channel->queries_waiting_conn, http_iop_msg_t,
+                             link);
             http_iop_msg_delete(&msg);
         } else {
-            next_check = MIN(lp_getsec() - msg->query_time, next_check);
+            int64_t next_check = timeval_to_msec(time_left);
+
+            http_iop_register_timeout_check(channel, next_check);
             break;
         }
-    }
-    if (!htlist_is_empty(&channel->queries)) {
-        http_iop_register_timeout_check(channel, next_check);
-    } else {
-        channel->timeout_queries_el = NULL;
     }
 }
 
 static void http_iop_register_timeout_check(http_iop_channel_t *channel,
-                                            uint16_t timeout)
+                                            int64_t timeout)
 {
-    channel->timeout_queries_el = el_unref(
-        el_timer_register(timeout * 1000, 0, 0, &http_iop_timeout_queries,
-                          channel)
+    channel->queries_conn_timeout_el = el_unref(
+        el_timer_register(timeout, 0, 0, &http_iop_timeout_queries, channel)
     );
 }
 
@@ -365,24 +370,28 @@ void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
             break;
         }
     }
-    if (!msg->query_time) {
-        msg->query_time = lp_getsec();
+    if (timeval_is_eq0(msg->query_time)) {
+        lp_gettv(&msg->query_time);
     }
     if (!w) {
         logger_trace(&_G.logger, 1,
-                     "no connection ready, query `%*pM` will be retried",
-                     LSTR_FMT_ARG(msg->rpc->name));
+                     "no connection ready, query `%*pM` will wait for "
+                     "connection", LSTR_FMT_ARG(msg->rpc->name));
         if (!msg->args) {
             msg->args = mp_iop_dup_desc_flags_sz(NULL, msg->rpc->args, args,
                                                  0, NULL);
         }
-        htlist_add_tail(&channel->queries, &msg->link);
-        if (!channel->timeout_queries_el) {
-            http_iop_register_timeout_check(channel, channel->query_timeout);
+        htlist_add_tail(&channel->queries_waiting_conn, &msg->link);
+        if (!channel->queries_conn_timeout_el) {
+            http_iop_register_timeout_check(
+                channel, channel->connection_timeout_msec);
         }
         return;
     }
 
+    if (htlist_is_empty(&channel->queries_waiting_conn)) {
+        el_unregister(&channel->queries_conn_timeout_el);
+    }
     if (channel->response_max_size) {
         httpc_bufferize(&msg->query, channel->response_max_size);
     }
