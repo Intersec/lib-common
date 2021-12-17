@@ -85,37 +85,125 @@ void http_iop_channel_wipe(http_iop_channel_t *channel)
     el_unregister(&channel->queries_conn_timeout_el);
 }
 
-static void
-on_connection_ready(httpc_pool_t *pool, httpc_t *httpc)
+static void http_iop_start_msg(http_iop_channel_t *channel,
+                               http_iop_channel_remote_t *remote,
+                               httpc_t *httpc, http_iop_msg_t *msg,
+                               void *query_args);
+
+static int http_iop_get_ready_remote(http_iop_channel_t *channel,
+                                     bool do_connection,
+                                     http_iop_channel_remote_t **remote_ptr,
+                                     httpc_t **httpc_ptr)
 {
-    http_iop_channel_remote_t *remote;
-    htlist_t temp;
+    tab_for_each_entry(remote, &channel->remotes) {
+        httpc_t *httpc;
 
-    remote = container_of(pool, http_iop_channel_remote_t, pool);
-    htlist_move(&temp, &remote->channel->queries_waiting_conn);
-    while (!htlist_is_empty(&temp)) {
-        http_iop_msg_t *msg;
+        if (!do_connection && !httpc_pool_has_ready(&remote->pool)) {
+            /* We don't want to recreate the connections and the remote
+             * doesn't have a ready connection.
+             */
+            continue;
+        }
 
-        msg = htlist_pop_entry(&temp, http_iop_msg_t, link);
-        http_iop_query_(remote->channel, msg, NULL);
-        if (!httpc_pool_can_query(pool)) {
-            htlist_splice(&remote->channel->queries_waiting_conn, &temp);
-            return;
+        httpc = httpc_pool_get(&remote->pool);
+        if (httpc) {
+            *remote_ptr = remote;
+            *httpc_ptr = httpc;
+            return 0;
         }
     }
-    if (httpc_pool_has_ready(pool) && remote->channel->on_ready_cb) {
-        (*remote->channel->on_ready_cb)(remote->channel);
+    return -1;
+}
+
+static void http_iop_restart_messages(http_iop_channel_t *channel)
+{
+    htlist_t temp;
+
+    htlist_move(&temp, &channel->queries_waiting_conn);
+    while (!htlist_is_empty(&temp)) {
+        http_iop_channel_remote_t *remote;
+        httpc_t *httpc;
+        http_iop_msg_t *msg;
+
+        if (http_iop_get_ready_remote(channel, false, &remote, &httpc) < 0) {
+            htlist_splice(&channel->queries_waiting_conn, &temp);
+            return;
+        }
+
+        msg = htlist_pop_entry(&temp, http_iop_msg_t, link);
+        http_iop_start_msg(channel, remote, httpc, msg, msg->args);
     }
 }
 
-static void on_connect_error(const struct httpc_t *httpc, int errnum)
+static void http_iop_on_connection_ready(httpc_pool_t *pool, httpc_t *httpc)
 {
     http_iop_channel_remote_t *remote;
+    http_iop_channel_t *channel;
+
+    remote = container_of(pool, http_iop_channel_remote_t, pool);
+    channel = remote->channel;
+
+    logger_trace(&_G.logger, 1, "connection on remote `%*pM` ready",
+                 LSTR_FMT_ARG(remote->pool.host));
+
+    http_iop_restart_messages(channel);
+
+    if (httpc_pool_has_ready(pool) && channel->on_ready_cb) {
+        (*channel->on_ready_cb)(channel);
+    }
+}
+
+static bool http_iop_channel_has_remote_connections(
+    const http_iop_channel_t *channel,
+    const http_iop_channel_remote_t *disconnecting_remote)
+{
+    tab_for_each_entry(remote, &channel->remotes) {
+        int len = remote->pool.len;
+
+        if (remote == disconnecting_remote) {
+            /* One connection is being disconnected. */
+            len--;
+        }
+
+        if (len > 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void http_iop_on_connect_error(const httpc_t *httpc, int errnum)
+{
+    http_iop_channel_remote_t *remote;
+    http_iop_channel_t *channel;
 
     remote = container_of(httpc->pool, http_iop_channel_remote_t, pool);
+    channel = remote->channel;
 
-    if (remote->channel->on_connection_error_cb) {
-        (*remote->channel->on_connection_error_cb)(remote, errnum);
+    logger_trace(&_G.logger, 1, "connection on remote `%*pM` error: %s",
+                 LSTR_FMT_ARG(remote->pool.host), strerror(errnum));
+
+    http_iop_restart_messages(channel);
+
+    if (channel->on_connection_error_cb) {
+        (*channel->on_connection_error_cb)(remote, errnum);
+    }
+
+    if (!http_iop_channel_has_remote_connections(channel, remote)) {
+        /* Cancel remaining messages when there are no available remote
+         * connections anymore. */
+        while (!htlist_is_empty(&channel->queries_waiting_conn)) {
+            http_iop_msg_t *msg;
+
+            msg = htlist_first_entry(&channel->queries_waiting_conn,
+                                     http_iop_msg_t, link);
+            msg->cb(msg, IC_MSG_CANCELED, (opt_http_code_t)OPT_NONE, NULL,
+                    NULL);
+            htlist_pop_entry(&channel->queries_waiting_conn,
+                             http_iop_msg_t, link);
+            http_iop_msg_delete(&msg);
+        }
     }
 }
 
@@ -178,8 +266,8 @@ http_iop_channel_create(const http_iop_channel_cfg_t *cfg, sb_t *err)
         }
 
         remote->pool.max_len = OPT_DEFVAL(cfg->max_connections, 1);
-        remote->pool.on_ready = on_connection_ready;
-        remote->pool.on_connect_error = on_connect_error;
+        remote->pool.on_ready = http_iop_on_connection_ready;
+        remote->pool.on_connect_error = http_iop_on_connect_error;
         remote->channel = res;
 
         qv_append(&res->remotes, remote);
@@ -354,40 +442,14 @@ http_iop_on_query_done(httpc_query_t *http_query, httpc_status_t httpc_status)
     http_iop_msg_delete(&msg);
 }
 
-void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
-                     void *args)
+static void http_iop_start_msg(http_iop_channel_t *channel,
+                               http_iop_channel_remote_t *remote,
+                               httpc_t *httpc, http_iop_msg_t *msg,
+                               void *args)
 {
-    httpc_t *w = NULL;
-    outbuf_t *ob;
-    http_iop_channel_remote_t *remote;
     SB_1k(sb);
     SB_1k(query_data);
-    void *query_args = args ? args : msg->args;
-
-    tab_for_each_entry(r, &channel->remotes) {
-        if ((w = httpc_pool_get(&r->pool))) {
-            remote = r;
-            break;
-        }
-    }
-    if (timeval_is_eq0(msg->query_time)) {
-        lp_gettv(&msg->query_time);
-    }
-    if (!w) {
-        logger_trace(&_G.logger, 1,
-                     "no connection ready, query `%*pM` will wait for "
-                     "connection", LSTR_FMT_ARG(msg->rpc->name));
-        if (!msg->args) {
-            msg->args = mp_iop_dup_desc_flags_sz(NULL, msg->rpc->args, args,
-                                                 0, NULL);
-        }
-        htlist_add_tail(&channel->queries_waiting_conn, &msg->link);
-        if (!channel->queries_conn_timeout_el) {
-            http_iop_register_timeout_check(
-                channel, channel->connection_timeout_msec);
-        }
-        return;
-    }
+    outbuf_t *ob;
 
     if (htlist_is_empty(&channel->queries_waiting_conn)) {
         el_unregister(&channel->queries_conn_timeout_el);
@@ -396,7 +458,7 @@ void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
         httpc_bufferize(&msg->query, channel->response_max_size);
     }
     msg->query.on_done = http_iop_on_query_done;
-    httpc_query_attach(&msg->query, w);
+    httpc_query_attach(&msg->query, httpc);
     if (channel->encode_url) {
         sb_add_urlencode(&sb, remote->base_path.s, remote->base_path.len);
         sb_addc(&sb, '/');
@@ -421,13 +483,41 @@ void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
     ob = httpc_get_ob(&msg->query);
     ob_adds(ob, "Content-Type: application/json\r\n");
     httpc_query_hdrs_done(&msg->query, -1, false);
-    iop_sb_jpack(&query_data, msg->rpc->args, query_args, 0);
+    iop_sb_jpack(&query_data, msg->rpc->args, args, 0);
     ob_addsb(ob, &query_data);
 
     logger_trace(&_G.logger, 1, "%*pM/%*pM: `%*pM`",
                  LSTR_FMT_ARG(msg->iface_alias->name),
                  LSTR_FMT_ARG(msg->rpc->name), SB_FMT_ARG(&query_data));
     httpc_query_done(&msg->query);
+}
+
+void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
+                     void *args)
+{
+    http_iop_channel_remote_t *remote;
+    httpc_t *httpc;
+
+    if (timeval_is_eq0(msg->query_time)) {
+        lp_gettv(&msg->query_time);
+    }
+    if (http_iop_get_ready_remote(channel, true, &remote, &httpc) < 0) {
+        logger_trace(&_G.logger, 1,
+                     "no connection ready, query `%*pM` will wait for "
+                     "connection", LSTR_FMT_ARG(msg->rpc->name));
+        if (!msg->args) {
+            msg->args = mp_iop_dup_desc_flags_sz(NULL, msg->rpc->args, args,
+                                                 0, NULL);
+        }
+        htlist_add_tail(&channel->queries_waiting_conn, &msg->link);
+        if (!channel->queries_conn_timeout_el) {
+            http_iop_register_timeout_check(
+                channel, channel->connection_timeout_msec);
+        }
+        return;
+    }
+
+    http_iop_start_msg(channel, remote, httpc, msg, args);
 }
 
 /* }}} */
