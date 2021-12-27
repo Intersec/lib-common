@@ -909,12 +909,10 @@ iopc_struct_dump_fields(sb_t *buf, int ident, const qv_t(iopc_field) *fields)
 
 static void
 iopc_struct_dump_snmp_fields(sb_t *buf, int ident,
-                             iopc_field_t *const *fields, int len)
+                             const qv_t(iopc_field) *fields)
 {
-    for (int i = 0; i < len; i++) {
-        iopc_field_t *field_origin = fields[i]->field_origin;
-
-        pp_field_with_type(buf, field_origin, ident);
+    tab_for_each_entry(f, fields) {
+        pp_field_with_type(buf, f->field_origin, ident);
     }
 }
 
@@ -1006,8 +1004,7 @@ static void iopc_struct_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
 
         if (st->contains_snmp_info) {
             iopc_struct_dump_snmp_fields(buf, 4,
-                                         st->fields_in_c_struct_order.tab,
-                                         st->fields_in_c_struct_order.len);
+                                         &st->fields_in_c_struct_order);
         } else {
             iopc_struct_dump_fields(buf, 4, &st->fields_in_c_struct_order);
         }
