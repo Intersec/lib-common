@@ -18,7 +18,6 @@
 
 #include <lib-common/container-qvector.h>
 #include <lib-common/sort.h>
-#include <lib-common/thr.h>
 
 static void __qvector_reset(qvector_t *vec, size_t v_size, size_t threshold)
 {
@@ -136,161 +135,16 @@ void *__qvector_splice(qvector_t *vec, size_t v_size, size_t v_align,
 
 /* {{{ qv_sort */
 
-typedef struct qv_sort_thr_job_t {
-    thr_job_t job;
-
-    void *a;
-    size_t v_size;
-    size_t n;
-    qvector_cmp_b cmp;
-} qv_sort_thr_job_t;
-
-GENERIC_FUNCTIONS(qv_sort_thr_job_t, qv_sort_thr_job);
-
-static void qv_sort_thr_job(thr_job_t *job, thr_syn_t *syn);
-
-static void ____qv_sort(void *a, size_t v_size, size_t n, qvector_cmp_b cmp,
-                        thr_syn_t *syn)
+static int qv_sort_cmp(const void *a, const void *b, void *priv)
 {
-    uint8_t tmp[v_size], meantmp[v_size];
-    void   *mean, *i, *j;
-    size_t  n1;
+    qvector_cmp_b cmp = priv;
 
-#define swap(p,q)        ({ memcpy(tmp, p, v_size);      \
-                            memcpy(p, q, v_size);        \
-                            memcpy(q, tmp, v_size); })
-#define nth(base, i)     ((void *)((uint8_t *)(base) + (i) * v_size))
-
-    if (n <= 1) {
-        return;
-    }
-
-    for (;;) {
-        i = a;
-        j = nth(a, n - 1);
-
-        if (cmp(i, j) > 0) {
-            swap(i, j);
-        }
-        if (n == 2) {
-            return;
-        }
-
-        mean = nth(i, n >> 1);
-        if (cmp(i, mean) > 0) {
-            swap(i, mean);
-        } else
-        if (cmp(mean, j) > 0) {
-            swap(j, mean);
-        }
-
-        if (n == 3) {
-            return;         /* in case of 3 items */
-        }
-
-        memcpy(meantmp, mean, v_size);  /* cause *mean is gonna change */
-        for (;;) {
-            /* We do not have guards in these loops because we assume
-             * compare(x, x) returns 0.  If the comparison function is not
-             * regular and returns != 0 on identical arguments, all bets
-             * are off and this code may crash.
-             */
-            do {
-                i = nth(i, 1);
-            } while (cmp(meantmp, i) > 0);  /* find GE in left part */
-
-            do {
-                j = nth(j, -1);
-            } while (cmp(j, meantmp) > 0);  /* find LE in right part */
-
-            if (i < j) {
-                swap(i, j);        /* swap if needed */
-                continue;
-            }
-            break;
-        }
-
-        /* i >= j : we're done and need to recurse on both ranges.
-         * either i == j   : don't look at the ith element
-         * or     i == j+1 : and split between them.
-         */
-
-        /* Fix ranges: [a..i[ U [j+1..a+n[ become [a..a+n[ U [j..j+n1[ */
-        j  = nth(j, 1);
-        n1 = ((uint8_t *)nth(a, n) - (uint8_t *)j) / v_size;
-        n  = ((uint8_t *)i - (uint8_t *)a) / v_size;
-
-        /* We want to recurse on [a..a+n[ and [j..j+n1[, but in order
-         * to minimize stack usage, we only recurse on the smaller
-         * range and loop on the other.  First test the intersection as it may
-         * cause to loop on the larger segment.
-         */
-        if (n <= n1) {
-            SWAP(size_t, n, n1);
-            SWAP(void *, a, j);
-        }
-
-        if (n1 > 1) {
-            if (syn) {
-                qv_sort_thr_job_t *job = qv_sort_thr_job_new();
-
-                job->job.run = &qv_sort_thr_job;
-                job->a = j;
-                job->v_size = v_size;
-                job->n = n1;
-                job->cmp = cmp;
-                thr_syn_schedule(syn, &job->job);
-            } else {
-                ____qv_sort(j, v_size, n1, cmp, syn);
-            }
-        }
-    }
-#undef nth
-#undef swap
+    return cmp(a, b);
 }
 
-static void qv_sort_thr_job(thr_job_t *job, thr_syn_t *syn)
+void __qv_sort(void *tab, size_t v_size, size_t len, qvector_cmp_b cmp)
 {
-    qv_sort_thr_job_t *sj = (qv_sort_thr_job_t *)job;
-
-    ____qv_sort(sj->a, sj->v_size, sj->n, sj->cmp, syn);
-    qv_sort_thr_job_delete(&sj);
-}
-
-static void ___qv_sort(void *a, size_t v_size, size_t n, qvector_cmp_b cmp)
-{
-    /* Use parallelism of the thread jobs are available, and if the vector is
-     * large enough so that it is worth doing. */
-    if (MODULE_IS_LOADED(thr) && n > 50000) {
-        thr_syn_t syn;
-
-        thr_syn_init(&syn);
-
-        ____qv_sort(a, v_size, n, cmp, &syn);
-
-        thr_syn_wait(&syn);
-        thr_syn_wipe(&syn);
-    } else {
-        ____qv_sort(a, v_size, n, cmp, NULL);
-    }
-}
-
-__flatten
-void __qv_sort32(void *a, size_t n, qvector_cmp_b cmp)
-{
-    ___qv_sort(a, 4, n, cmp);
-}
-
-__flatten
-void __qv_sort64(void *a, size_t n, qvector_cmp_b cmp)
-{
-    ___qv_sort(a, 8, n, cmp);
-}
-
-__flatten
-void __qv_sort(void *a, size_t v_size, size_t n, qvector_cmp_b cmp)
-{
-    ___qv_sort(a, v_size, n, cmp);
+    qsort_r(tab, len, v_size, qv_sort_cmp, cmp);
 }
 
 /* }}} */

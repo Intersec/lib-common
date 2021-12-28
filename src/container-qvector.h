@@ -75,24 +75,10 @@ void * nonnull __qvector_splice(qvector_t * nonnull, size_t v_size,
                                 int inserted_len)
     __leaf;
 #ifdef __has_blocks
-void __qv_sort32(void * nonnull a, size_t n, qvector_cmp_b nonnull cmp);
-void __qv_sort64(void * nonnull a, size_t n, qvector_cmp_b nonnull cmp);
-void __qv_sort(void * nonnull a, size_t v_size, size_t n,
+
+void __qv_sort(void * nonnull tab, size_t v_size, size_t len,
                qvector_cmp_b nonnull cmp);
 
-static ALWAYS_INLINE void
-__qvector_sort(qvector_t * nonnull vec, size_t v_size,
-               qvector_cmp_b nonnull cmp)
-{
-    if (v_size == 8) {
-        __qv_sort64(vec->tab, vec->len, cmp);
-    } else
-    if (v_size == 4) {
-        __qv_sort32(vec->tab, vec->len, cmp);
-    } else {
-        __qv_sort(vec->tab, v_size, vec->len, cmp);
-    }
-}
 void __qvector_shuffle(qvector_t * nonnull vec, size_t v_size);
 void __qvector_diff(const qvector_t * nonnull vec1,
                     const qvector_t * nonnull vec2,
@@ -227,7 +213,8 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
     static inline void pfx##_sort(pfx##_t * nonnull vec,                    \
                                   pfx##_cmp_b nonnull cmp)                  \
     {                                                                       \
-        __qvector_sort(&vec->qv, sizeof(val_t), (qvector_cmp_b)cmp);        \
+        __qv_sort(vec->qv.tab, sizeof(val_t), vec->qv.len,                  \
+                  (qvector_cmp_b)cmp);                                      \
     }                                                                       \
     __unused__                                                              \
     static inline void                                                      \
@@ -400,17 +387,21 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
 #define t_qv_new(n, sz)  mp_qv_new(n, t_pool(), (sz))
 #define r_qv_new(n, sz)  mp_qv_new(n, r_pool(), (sz))
 
-#ifdef __has_blocks
-/* You must be in a .blk to use qv_sort/qv_deep_extend, because it
- * expects blocks !
+/** Sort a vector, using qsort(3).
+ *
+ * \warning When sorting a numeric vector, prefer using dsortX/dsort_iX
+ *          (with X = 8, 16, 32 or 64) that are faster and easier to use.
+ *
+ * Otherwise, prefer using this helper over \ref qv_sort (that should only be
+ * used if blocks features are really needed) because this is the fastest.
+ *
+ * Example of usage:
+ *
+ *  qv_t(lstr) vec;
+ *
+ *  ...
+ *  qv_qsort(&vec, &lstr_cmp_p);
  */
-#define qv_sort(n)                          qv_##n##_sort
-#define qv_cmp_b(n)                         qv_##n##_cmp_b
-#define qv_del_b(n)                         qv_##n##_del_b
-
-#define qv_deep_extend(n)                   qv_##n##_deep_extend
-#define qv_cpy_b(n)                         qv_##n##_cpy_b
-#endif /* #ifdef __has_blocks */
 #define qv_qsort(vec, cmp)                                                   \
     ({  typeof(*(vec)) *__vec = (vec);                                       \
         int (*__cb)(__qv_typeof(vec) const *, __qv_typeof(vec) const *)      \
@@ -418,6 +409,33 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
         qsort(__vec->qv.tab, __vec->qv.len, __qv_sz(vec),                    \
               (int (*)(const void *, const void *))__cb);                    \
     })
+
+#ifdef __has_blocks
+
+/** Sort a vector, using a block-based API.
+ *
+ * \warning \ref qv_qsort should be preferred, unless you really need blocks
+ *          features (ie. context capture), as it is ~20% faster (because not
+ *          impacted by the blocks overhead).
+ *
+ * Example of usage:
+ *
+ *   bool reverse = <some_condition>;
+ *   int multiply = reverse ? -1 : 1;
+ *
+ *   qv_sort(u32)(&vec, ^int (const uint32_t *v1, const uint32_t *v2) {
+ *       return multiply * CMP(*v1, *v2);
+ *   });
+ */
+#define qv_sort(n)                          qv_##n##_sort
+
+#define qv_cmp_b(n)                         qv_##n##_cmp_b
+#define qv_del_b(n)                         qv_##n##_del_b
+
+#define qv_deep_extend(n)                   qv_##n##_deep_extend
+#define qv_cpy_b(n)                         qv_##n##_cpy_b
+
+#endif /* #ifdef __has_blocks */
 
 /** Shuffle a vector using the Fisher-Yates shuffle algorithm (O(n)). */
 #define qv_shuffle(vec)                                                      \
