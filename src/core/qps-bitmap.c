@@ -123,11 +123,21 @@ void delete_nodes(qps_bitmap_t *map)
         STATIC_ASSERT(sizeof(qps_bitmap_dispatch_t)
             == QPS_BITMAP_DISPATCH * 3 * sizeof(uint16_t));
         while ((pos = scan_non_zero16(buf, pos, 3 * QPS_BITMAP_DISPATCH)) >= 0) {
-            int p = pos / 3, r = pos % 3;
+            qps_bitmap_node_t node;
+            int p = pos / 3;
+            int r = pos % 3;
 
+            node = (*dispatch)[p].node;
+            if (!expect(node > 0)) {
+                /* XXX: "node" is not supposed to be 0 here, but it was
+                 * observed on some production platforms; when it happens,
+                 * following values of "node" are garbage and thus
+                 * qps_pg_unmap crashes, so just avoid the crash.
+                 */
+                break;
+            }
+            qps_pg_unmap(map->qps, node);
             pos += 3 - r;
-            assert ((*dispatch)[p].node != 0);
-            qps_pg_unmap(map->qps, (*dispatch)[p].node);
         }
         qps_pg_unmap(map->qps, map->root->roots[i]);
     }
