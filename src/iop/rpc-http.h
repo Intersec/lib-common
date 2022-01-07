@@ -594,7 +594,7 @@ struct http_iop_msg_t {
     htnode_t link;
 
     /** Timestamp at which the message was added to the channel. */
-    time_t query_time;
+    struct timeval query_time;
 
     /** User defined data associated with the query. */
     byte priv[];
@@ -636,18 +636,18 @@ struct http_iop_channel_t {
     on_connection_error_f on_connection_error_cb;
     on_ready_f            on_ready_cb;
 
-    uint16_t query_timeout;
-    el_t     timeout_queries_el;
+    uint32_t connection_timeout_msec;
+    el_t     queries_conn_timeout_el;
 
     void *priv;
 
-    /** Channel pending queries.
+    /** Channel queries waiting for connection.
      *
      * If no connection is available when a query is fired, queries will be
      * added to this list.
      * They will be retried as soon as a connection is ready.
      */
-    htlist_t queries;
+    htlist_t queries_waiting_conn;
 };
 
 typedef struct http_iop_channel_cfg_t {
@@ -665,13 +665,17 @@ typedef struct http_iop_channel_cfg_t {
      *
      * Default is 1.
      */
-    opt_u32_t max_conn;
+    opt_u32_t max_connections;
 
-    /** Maximum time before a query is automatically cancelled, in seconds.
+    /** Maximum time allowed for a connection to etablish before a query is
+     * automatically cancelled, in milliseconds.
      *
-     * Default is 10 seconds.
+     * Default is 10 000 milliseconds, 10 seconds.
+     *
+     * Once the connection has been established, iop_cfg->noact_delay is used
+     * to determine the inactivity timeout of the connection.
      */
-    opt_u16_t query_timeout;
+    opt_u32_t connection_timeout_msec;
 
     /** Maximum query response size, in bytes.
      *
