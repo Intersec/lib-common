@@ -127,11 +127,6 @@
 #   define ALWAYS_INLINE inline
 # endif
 # define NEVER_INLINE __attribute__((noinline))
-# if __GNUC_PREREQ(4, 5) || defined(__clang__)
-#   define __deprecated__(msg)    __attribute__((deprecated(msg)))
-# else
-#   define __deprecated__(msg)    __attribute__((deprecated))
-# endif
 #else
 # ifndef EXPORT
 #   define EXPORT  extern
