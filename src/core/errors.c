@@ -56,6 +56,7 @@ void ps_dump_backtrace(int signum, const char *prog, int fd, bool full)
 
     bt = backtrace(arr, countof(arr));
     backtrace_symbols_fd(arr, bt, fd);
+    fsync(fd);
 
     if (full) {
         int maps_fd = open("/proc/self/smaps", O_RDONLY);
