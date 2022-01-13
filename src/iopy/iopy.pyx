@@ -1521,17 +1521,41 @@ cdef class StructUnionBase(Basic):
 
         Parameters
         ----------
-        skip_private : bool, optional
-            Skip the private fields when dumping the JSON.
         no_whitespaces : bool, optional
             Generate JSON without identation, spaces, ...
+        no_trailing_eol : bool, optional
+            Do not append '\\n' when done.
+        skip_private : bool, optional
+            Skip the private fields when dumping the JSON (lossy).
         skip_default : bool, optional
             Skip fields having their default value.
+            This is good to make the JSON more compact, but is dangerous if a
+            default value changes.
         skip_empty_arrays : bool, optional
             Skip empty repeated fields.
+        skip_empty_structs : bool, optional
+            Skip empty sub-structures.
+        shorten_data : bool, optional
+            Shorten long data strings when not writing a file (lossy).
+            Data longer than 25 characters will be replaced by
+            "XXXXXXXXXXX …(skip x bytes)… YYYYYYYYYYY" where only the first
+            and last 11 characters are kept.
+        skip_class_names : bool, optional
+            Skip class names (lossy).
+        skip_optional_class_names : bool, optional
+            Skip class names when not needed.
+            If set, the class names won't be written if they are equal to the
+            actual type of the field (missing class names are supported by the
+            unpacker in that case).
         minimal : bool, optional
-            Produce the smallest possible JSON.
-            This is compact + skip_default + skip_empty_arrays.
+            Produce the smallest non-lossy possible JSON.
+            This is:
+                no_whitespaces +
+                no_trailing_eol +
+                skip_default +
+                skip_empty_arrays +
+                skip_empty_structs +
+                skip_optional_class_names
 
         Returns
         -------
@@ -3938,12 +3962,22 @@ cdef int iopy_kwargs_to_jpack_flags(dict kwargs, cbool reset):
     if kwargs is not None:
         if kwargs.get('no_whitespaces'):
             flags |= IOP_JPACK_NO_WHITESPACES
+        if kwargs.get('no_trailing_eol'):
+            flags |= IOP_JPACK_NO_TRAILING_EOL
         if kwargs.get('skip_private'):
             flags |= IOP_JPACK_SKIP_PRIVATE
         if kwargs.get('skip_default'):
             flags |= IOP_JPACK_SKIP_DEFAULT
         if kwargs.get('skip_empty_arrays'):
             flags |= IOP_JPACK_SKIP_EMPTY_ARRAYS
+        if kwargs.get('skip_empty_structs'):
+            flags |= IOP_JPACK_SKIP_EMPTY_STRUCTS
+        if kwargs.get('shorten_data'):
+            flags |= IOP_JPACK_SHORTEN_DATA
+        if kwargs.get('skip_class_names'):
+            flags |= IOP_JPACK_SKIP_CLASS_NAMES
+        if kwargs.get('skip_optional_class_names'):
+            flags |= IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES
         if kwargs.get('minimal'):
             flags |= IOP_JPACK_MINIMAL
 
@@ -9539,19 +9573,7 @@ def set_json_flags(**kwargs):
     """Set the default json pack flags to use when converting an Iopy object
     to a JSON representation.
 
-    Parameters
-    ----------
-    skip_private : bool, optional
-        Skip the private fields when dumping the JSON.
-    no_whitespaces : bool, optional
-        Generate JSON without identation, spaces, ...
-    skip_default : bool, optional
-        Skip fields having their default value.
-    skip_empty_arrays : bool, optional
-        Skip empty repeated fields.
-    minimal : bool, optional
-        Produce the smallest possible JSON.
-        This is compact + skip_default + skip_empty_arrays.
+    See StructUnionBase::to_json() for the accepted parameters.
     """
     iopy_g.jpack_flags = iopy_kwargs_to_jpack_flags(kwargs, True)
 

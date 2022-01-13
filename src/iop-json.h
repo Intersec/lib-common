@@ -357,7 +357,7 @@ enum iop_jpack_flags {
      */
     IOP_JPACK_NO_TRAILING_EOL = (1U << 2),
 
-    /** Don't pack private fields.
+    /** Don't pack private fields (lossy).
      *
      * Use this flag when packing objects on a public interface. This will
      * omit private fields from the generated JSON.
@@ -404,7 +404,7 @@ enum iop_jpack_flags {
      */
     IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES = (1U << 10),
 
-    /** Produce the smallest possible json. */
+    /** Produce the smallest non-lossy possible json. */
     IOP_JPACK_MINIMAL = IOP_JPACK_NO_WHITESPACES
                       | IOP_JPACK_NO_TRAILING_EOL
                       | IOP_JPACK_SKIP_DEFAULT
