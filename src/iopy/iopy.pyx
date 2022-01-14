@@ -107,7 +107,7 @@ import traceback
 
 # Global type for the module.
 cdef struct IopyGlobal:
-    int jpack_flags # Default json pack flags
+    unsigned jpack_flags # Default json pack flags
 
 
 # Global variable for the module.
@@ -3937,7 +3937,7 @@ cdef int check_field_constraints(const iop_struct_t *st,
 # }}}
 # {{{ Format python object to str
 
-cdef int iopy_kwargs_to_jpack_flags(dict kwargs, cbool reset):
+cdef unsigned iopy_kwargs_to_jpack_flags(dict kwargs, cbool reset):
     """Get the json pack flags according to the json pack arguments.
 
     Parameters
@@ -3954,7 +3954,7 @@ cdef int iopy_kwargs_to_jpack_flags(dict kwargs, cbool reset):
     """
     # XXX: use the UNSAFE_INTEGERS so that the products not having lib-common
     #      d64486277c70ed2 can unpack the big numbers serialized.
-    cdef int flags = IOP_JPACK_UNSAFE_INTEGERS
+    cdef unsigned flags = IOP_JPACK_UNSAFE_INTEGERS
 
     if not reset:
         flags |= iopy_g.jpack_flags
@@ -4005,7 +4005,7 @@ cdef str format_py_obj_to_json(StructUnionBase py_obj, dict kwargs):
     cdef t_scope_t t_scope_guard = t_scope_init()
     cdef sb_scope_t sb = sb_scope_init_8k()
     cdef void *val = NULL
-    cdef int flags
+    cdef unsigned flags
 
     t_scope_ignore(t_scope_guard)
     mp_iop_py_obj_to_c_val(t_pool(), False, py_obj, &val)
