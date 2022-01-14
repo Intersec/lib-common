@@ -1384,6 +1384,35 @@ Z_GROUP_EXPORT(qvector)
         }
     } Z_TEST_END;
 
+    Z_TEST(qv_qsort, "qvector: qv_qsort") {
+        lstr_t table[] = {
+            LSTR("a"),
+            LSTR("b"),
+            LSTR("A"),
+            LSTR("B"),
+        };
+        qv_t(lstr) vec;
+
+        qv_init_static(&vec, table, countof(table));
+
+        /* Test sorting the vector in a case-sensitive way */
+        qv_qsort(&vec, &lstr_ascii_icmp_p);
+        Z_ASSERT_EQ(vec.len, 4);
+        Z_ASSERT_LSTREQUAL(vec.tab[0], LSTR("a"));
+        Z_ASSERT_LSTREQUAL(vec.tab[1], LSTR("A"));
+        Z_ASSERT_LSTREQUAL(vec.tab[2], LSTR("b"));
+        Z_ASSERT_LSTREQUAL(vec.tab[3], LSTR("B"));
+
+        /* Test sorting the vector in a case-insensitive way */
+        qv_qsort(&vec, &lstr_cmp_p);
+        Z_ASSERT_EQ(vec.len, 4);
+        Z_ASSERT_LSTREQUAL(vec.tab[0], LSTR("A"));
+        Z_ASSERT_LSTREQUAL(vec.tab[1], LSTR("B"));
+        Z_ASSERT_LSTREQUAL(vec.tab[2], LSTR("a"));
+        Z_ASSERT_LSTREQUAL(vec.tab[3], LSTR("b"));
+
+    } Z_TEST_END;
+
     Z_TEST(qv_diff, "qvector: qv_diff") {
         /* {{{ */
 #define N  1024
