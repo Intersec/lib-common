@@ -430,8 +430,29 @@ static ALWAYS_INLINE int lstr_cmp(const lstr_t s1, const lstr_t s2)
     return memcmp(s1.s, s2.s, len) ?: CMP(s1.len, s2.len);
 }
 
+/** Alternative version of \ref lstr_cmp that takes pointers as arguments.
+ *
+ * Can be used with qv_qsort.
+ */
+static ALWAYS_INLINE int lstr_cmp_p(const lstr_t * nonnull s1,
+                                    const lstr_t * nonnull s2)
+{
+    return lstr_cmp(*s1, *s2);
+}
+
 /** Returns "memcmp" ordering of lowercase \v s1 and lowercase \v s2.  */
 int lstr_ascii_icmp(const lstr_t s1, const lstr_t s2);
+
+/** Alternative version of \ref lstr_ascii_icmp that takes pointers as
+ * arguments.
+ *
+ * Can be used with qv_qsort.
+ */
+static inline int lstr_ascii_icmp_p(const lstr_t * nonnull s1,
+                                    const lstr_t * nonnull s2)
+{
+    return lstr_ascii_icmp(*s1, *s2);
+}
 
 /** Returns whether \v s1 and \v s2 contents are equal. */
 static ALWAYS_INLINE bool lstr_equal(const lstr_t s1, const lstr_t s2)
