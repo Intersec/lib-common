@@ -106,5 +106,17 @@ int hpack_encode_int(uint32_t val, uint8_t prefix_bits, byte out[8]);
 int hpack_decode_int(pstream_t *in, uint8_t prefix_bits, uint32_t *val);
 
 /* }}} */
+/* {{{ Header tables */
 
-#endif /* ! IS_LIB_COMMON_NET_HPACK_PRIV_H */
+int hpack_stbl_find_hdr(lstr_t key, lstr_t val);
+void hpack_enc_dtbl_add_hdr(hpack_enc_dtbl_t *dtbl, lstr_t key, lstr_t val,
+                            uint16_t key_id, uint16_t val_id);
+int hpack_enc_dtbl_find_hdr(hpack_enc_dtbl_t *dtbl, uint16_t key_id,
+                            uint16_t val_id);
+void hpack_dec_dtbl_add_hdr(hpack_dec_dtbl_t *dtbl, lstr_t key, lstr_t val);
+hpack_dec_dtbl_entry_t *
+hpack_dec_dtbl_get_ent(hpack_dec_dtbl_t *dtbl, int idx);
+
+/* }}} */
+
+#endif /* !IS_LIB_COMMON_NET_HPACK_PRIV_H */

@@ -203,3 +203,360 @@ Z_GROUP_EXPORT(hpack_enc_int) {
 } Z_GROUP_END;
 
 /* }}} */
+/* {{{ Header tables */
+
+static int z_hpack_stbl_search_test(lstr_t key, lstr_t val, int exp_idx) {
+    int idx = hpack_stbl_find_hdr(key, val);
+
+    Z_ASSERT_EQ(idx, exp_idx);
+    Z_HELPER_END;
+}
+
+static int z_hpack_enc_dtbl_size_test(hpack_enc_dtbl_t *dtbl, int len,
+                                      uint32_t sz, uint32_t sz_lim)
+{
+    Z_ASSERT_EQ(dtbl->entries.len, len);
+    Z_ASSERT_EQ(dtbl->tbl_size, sz);
+    Z_ASSERT_EQ(dtbl->tbl_size_limit, sz_lim);
+    Z_HELPER_END;
+}
+
+static int
+z_hpack_enc_dtbl_search_test(hpack_enc_dtbl_t *dtbl, uint16_t key_id,
+                             uint16_t val_id, int exp_idx)
+{
+    int idx = hpack_enc_dtbl_find_hdr(dtbl, key_id, val_id);
+
+    Z_ASSERT_EQ(idx, exp_idx);
+    Z_HELPER_END;
+}
+
+static int z_hpack_dec_dtbl_size_test(hpack_dec_dtbl_t *dtbl, int len,
+                                      uint32_t sz, uint32_t sz_lim)
+{
+    Z_ASSERT_EQ(dtbl->entries.len, len);
+    Z_ASSERT_EQ(dtbl->tbl_size, sz);
+    Z_ASSERT_EQ(dtbl->tbl_size_limit, sz_lim);
+    Z_HELPER_END;
+}
+
+Z_GROUP_EXPORT(hpack_tables) {
+#define HPACK_STBL_SEARCH(exp_idx, k, v)                                               \
+    Z_HELPER_RUN(                                                            \
+        z_hpack_stbl_search_test(LSTR_IMMED_V(k), LSTR_IMMED_V(v), exp_idx))
+
+    Z_TEST(hpack_stbl_search_exact, "search yields exact match in the STBL") {
+        HPACK_STBL_SEARCH(0, "", "");
+        HPACK_STBL_SEARCH(1, ":authority", "");
+        HPACK_STBL_SEARCH(2, ":method", "GET");
+        HPACK_STBL_SEARCH(3, ":method", "POST");
+        HPACK_STBL_SEARCH(4, ":path", "/");
+        HPACK_STBL_SEARCH(5, ":path", "/index.html");
+        HPACK_STBL_SEARCH(6, ":scheme", "http");
+        HPACK_STBL_SEARCH(7, ":scheme", "https");
+        HPACK_STBL_SEARCH(8, ":status", "200");
+        HPACK_STBL_SEARCH(9, ":status", "204");
+        HPACK_STBL_SEARCH(10, ":status", "206");
+        HPACK_STBL_SEARCH(11, ":status", "304");
+        HPACK_STBL_SEARCH(12, ":status", "400");
+        HPACK_STBL_SEARCH(13, ":status", "404");
+        HPACK_STBL_SEARCH(14, ":status", "500");
+        HPACK_STBL_SEARCH(15, "accept-charset", "");
+        HPACK_STBL_SEARCH(16, "accept-encoding", "gzip, deflate");
+        HPACK_STBL_SEARCH(17, "accept-language", "");
+        HPACK_STBL_SEARCH(18, "accept-ranges", "");
+        HPACK_STBL_SEARCH(19, "accept", "");
+        HPACK_STBL_SEARCH(20, "access-control-allow-origin", "");
+        HPACK_STBL_SEARCH(21, "age", "");
+        HPACK_STBL_SEARCH(22, "allow", "");
+        HPACK_STBL_SEARCH(23, "authorization", "");
+        HPACK_STBL_SEARCH(24, "cache-control", "");
+        HPACK_STBL_SEARCH(25, "content-disposition", "");
+        HPACK_STBL_SEARCH(26, "content-encoding", "");
+        HPACK_STBL_SEARCH(27, "content-language", "");
+        HPACK_STBL_SEARCH(28, "content-length", "");
+        HPACK_STBL_SEARCH(29, "content-location", "");
+        HPACK_STBL_SEARCH(30, "content-range", "");
+        HPACK_STBL_SEARCH(31, "content-type", "");
+        HPACK_STBL_SEARCH(32, "cookie", "");
+        HPACK_STBL_SEARCH(33, "date", "");
+        HPACK_STBL_SEARCH(34, "etag", "");
+        HPACK_STBL_SEARCH(35, "expect", "");
+        HPACK_STBL_SEARCH(36, "expires", "");
+        HPACK_STBL_SEARCH(37, "from", "");
+        HPACK_STBL_SEARCH(38, "host", "");
+        HPACK_STBL_SEARCH(39, "if-match", "");
+        HPACK_STBL_SEARCH(40, "if-modified-since", "");
+        HPACK_STBL_SEARCH(41, "if-none-match", "");
+        HPACK_STBL_SEARCH(42, "if-range", "");
+        HPACK_STBL_SEARCH(43, "if-unmodified-since", "");
+        HPACK_STBL_SEARCH(44, "last-modified", "");
+        HPACK_STBL_SEARCH(45, "link", "");
+        HPACK_STBL_SEARCH(46, "location", "");
+        HPACK_STBL_SEARCH(47, "max-forwards", "");
+        HPACK_STBL_SEARCH(48, "proxy-authenticate", "");
+        HPACK_STBL_SEARCH(49, "proxy-authorization", "");
+        HPACK_STBL_SEARCH(50, "range", "");
+        HPACK_STBL_SEARCH(51, "referer", "");
+        HPACK_STBL_SEARCH(52, "refresh", "");
+        HPACK_STBL_SEARCH(53, "retry-after", "");
+        HPACK_STBL_SEARCH(54, "server", "");
+        HPACK_STBL_SEARCH(55, "set-cookie", "");
+        HPACK_STBL_SEARCH(56, "strict-transport-security", "");
+        HPACK_STBL_SEARCH(57, "transfer-encoding", "");
+        HPACK_STBL_SEARCH(58, "user-agent", "");
+        HPACK_STBL_SEARCH(59, "vary", "");
+        HPACK_STBL_SEARCH(60, "via", "");
+        HPACK_STBL_SEARCH(61, "www-authenticate", "");
+    } Z_TEST_END;
+
+    Z_TEST(hpack_stbl_search_empty,
+           "search yields partial match in the STBL for static hdrs whose "
+           "values replaced by the emtpy string in the STBL") {
+
+        HPACK_STBL_SEARCH(-2, ":method", "");
+        HPACK_STBL_SEARCH(-4, ":path", "");
+        HPACK_STBL_SEARCH(-6, ":scheme", "");
+        HPACK_STBL_SEARCH(-8, ":status", "");
+        HPACK_STBL_SEARCH(-16, "accept-encoding", "");
+    } Z_TEST_END;
+
+    Z_TEST(hpack_stbl_search_part,
+           "search yields partial matches in the STBL") {
+
+        HPACK_STBL_SEARCH(-1, ":authority", "dum-val");
+        HPACK_STBL_SEARCH(-2, ":method", "dum-val");
+        HPACK_STBL_SEARCH(-4, ":path", "dum-val");
+        HPACK_STBL_SEARCH(-6, ":scheme", "dum-val");
+        HPACK_STBL_SEARCH(-8, ":status", "dum-val");
+        HPACK_STBL_SEARCH(-15, "accept-charset", "dum-val");
+        HPACK_STBL_SEARCH(-16, "accept-encoding", "dum-val");
+        HPACK_STBL_SEARCH(-17, "accept-language", "dum-val");
+        HPACK_STBL_SEARCH(-18, "accept-ranges", "dum-val");
+        HPACK_STBL_SEARCH(-19, "accept", "dum-val");
+        HPACK_STBL_SEARCH(-20, "access-control-allow-origin", "dum-val");
+        HPACK_STBL_SEARCH(-21, "age", "dum-val");
+        HPACK_STBL_SEARCH(-22, "allow", "dum-val");
+        HPACK_STBL_SEARCH(-23, "authorization", "dum-val");
+        HPACK_STBL_SEARCH(-24, "cache-control", "dum-val");
+        HPACK_STBL_SEARCH(-25, "content-disposition", "dum-val");
+        HPACK_STBL_SEARCH(-26, "content-encoding", "dum-val");
+        HPACK_STBL_SEARCH(-27, "content-language", "dum-val");
+        HPACK_STBL_SEARCH(-28, "content-length", "dum-val");
+        HPACK_STBL_SEARCH(-29, "content-location", "dum-val");
+        HPACK_STBL_SEARCH(-30, "content-range", "dum-val");
+        HPACK_STBL_SEARCH(-31, "content-type", "dum-val");
+        HPACK_STBL_SEARCH(-32, "cookie", "dum-val");
+        HPACK_STBL_SEARCH(-33, "date", "dum-val");
+        HPACK_STBL_SEARCH(-34, "etag", "dum-val");
+        HPACK_STBL_SEARCH(-35, "expect", "dum-val");
+        HPACK_STBL_SEARCH(-36, "expires", "dum-val");
+        HPACK_STBL_SEARCH(-37, "from", "dum-val");
+        HPACK_STBL_SEARCH(-38, "host", "dum-val");
+        HPACK_STBL_SEARCH(-39, "if-match", "dum-val");
+        HPACK_STBL_SEARCH(-40, "if-modified-since", "dum-val");
+        HPACK_STBL_SEARCH(-41, "if-none-match", "dum-val");
+        HPACK_STBL_SEARCH(-42, "if-range", "dum-val");
+        HPACK_STBL_SEARCH(-43, "if-unmodified-since", "dum-val");
+        HPACK_STBL_SEARCH(-44, "last-modified", "dum-val");
+        HPACK_STBL_SEARCH(-45, "link", "dum-val");
+        HPACK_STBL_SEARCH(-46, "location", "dum-val");
+        HPACK_STBL_SEARCH(-47, "max-forwards", "dum-val");
+        HPACK_STBL_SEARCH(-48, "proxy-authenticate", "dum-val");
+        HPACK_STBL_SEARCH(-49, "proxy-authorization", "dum-val");
+        HPACK_STBL_SEARCH(-50, "range", "dum-val");
+        HPACK_STBL_SEARCH(-51, "referer", "dum-val");
+        HPACK_STBL_SEARCH(-52, "refresh", "dum-val");
+        HPACK_STBL_SEARCH(-53, "retry-after", "dum-val");
+        HPACK_STBL_SEARCH(-54, "server", "dum-val");
+        HPACK_STBL_SEARCH(-55, "set-cookie", "dum-val");
+        HPACK_STBL_SEARCH(-56, "strict-transport-security", "dum-val");
+        HPACK_STBL_SEARCH(-57, "transfer-encoding", "dum-val");
+        HPACK_STBL_SEARCH(-58, "user-agent", "dum-val");
+        HPACK_STBL_SEARCH(-59, "vary", "dum-val");
+        HPACK_STBL_SEARCH(-60, "via", "dum-val");
+        HPACK_STBL_SEARCH(-61, "www-authenticate", "dum-val");
+    } Z_TEST_END;
+
+#undef HPACK_STBL_SEARCH
+#define HPACK_STBL_SEARCH(exp_idx, k)                                                  \
+    Z_HELPER_RUN(                                                            \
+        z_hpack_stbl_search_test(LSTR_IMMED_V(k), LSTR_NULL_V, exp_idx))
+
+    Z_TEST(hpack_stbl_search_key, "search for key matches in the STBL") {
+
+        HPACK_STBL_SEARCH(1, ":authority");
+        HPACK_STBL_SEARCH(2, ":method");
+        HPACK_STBL_SEARCH(4, ":path");
+        HPACK_STBL_SEARCH(6, ":scheme");
+        HPACK_STBL_SEARCH(8, ":status");
+        HPACK_STBL_SEARCH(15, "accept-charset");
+        HPACK_STBL_SEARCH(16, "accept-encoding");
+        HPACK_STBL_SEARCH(17, "accept-language");
+        HPACK_STBL_SEARCH(18, "accept-ranges");
+        HPACK_STBL_SEARCH(19, "accept");
+        HPACK_STBL_SEARCH(20, "access-control-allow-origin");
+        HPACK_STBL_SEARCH(21, "age");
+        HPACK_STBL_SEARCH(22, "allow");
+        HPACK_STBL_SEARCH(23, "authorization");
+        HPACK_STBL_SEARCH(24, "cache-control");
+        HPACK_STBL_SEARCH(25, "content-disposition");
+        HPACK_STBL_SEARCH(26, "content-encoding");
+        HPACK_STBL_SEARCH(27, "content-language");
+        HPACK_STBL_SEARCH(28, "content-length");
+        HPACK_STBL_SEARCH(29, "content-location");
+        HPACK_STBL_SEARCH(30, "content-range");
+        HPACK_STBL_SEARCH(31, "content-type");
+        HPACK_STBL_SEARCH(32, "cookie");
+        HPACK_STBL_SEARCH(33, "date");
+        HPACK_STBL_SEARCH(34, "etag");
+        HPACK_STBL_SEARCH(35, "expect");
+        HPACK_STBL_SEARCH(36, "expires");
+        HPACK_STBL_SEARCH(37, "from");
+        HPACK_STBL_SEARCH(38, "host");
+        HPACK_STBL_SEARCH(39, "if-match");
+        HPACK_STBL_SEARCH(40, "if-modified-since");
+        HPACK_STBL_SEARCH(41, "if-none-match");
+        HPACK_STBL_SEARCH(42, "if-range");
+        HPACK_STBL_SEARCH(43, "if-unmodified-since");
+        HPACK_STBL_SEARCH(44, "last-modified");
+        HPACK_STBL_SEARCH(45, "link");
+        HPACK_STBL_SEARCH(46, "location");
+        HPACK_STBL_SEARCH(47, "max-forwards");
+        HPACK_STBL_SEARCH(48, "proxy-authenticate");
+        HPACK_STBL_SEARCH(49, "proxy-authorization");
+        HPACK_STBL_SEARCH(50, "range");
+        HPACK_STBL_SEARCH(51, "referer");
+        HPACK_STBL_SEARCH(52, "refresh");
+        HPACK_STBL_SEARCH(53, "retry-after");
+        HPACK_STBL_SEARCH(54, "server");
+        HPACK_STBL_SEARCH(55, "set-cookie");
+        HPACK_STBL_SEARCH(56, "strict-transport-security");
+        HPACK_STBL_SEARCH(57, "transfer-encoding");
+        HPACK_STBL_SEARCH(58, "user-agent");
+        HPACK_STBL_SEARCH(59, "vary");
+        HPACK_STBL_SEARCH(60, "via");
+        HPACK_STBL_SEARCH(61, "www-authenticate");
+    } Z_TEST_END;
+
+#undef HPACK_STBL_SEARCH
+    Z_TEST(hpack_dtbl_search, "search for matches in the DTBL") {
+        hpack_enc_dtbl_t dtbl;
+
+#define HPACK_DTBL_SZCHCK(cnt, sz, sz_lim)                                   \
+    Z_HELPER_RUN(z_hpack_enc_dtbl_size_test(&dtbl, cnt, sz, sz_lim))
+
+#define HPACK_DTBL_INSERT(kid, vid, k, v)                                    \
+    do {                                                                     \
+        hpack_enc_dtbl_add_hdr(&dtbl, LSTR_IMMED_V(k), LSTR_IMMED_V(v), kid, \
+                               vid);                                         \
+    } while (0)
+
+#define HPACK_DTBL_SEARCH(exp_idx, kid, vid)                                 \
+    Z_HELPER_RUN(z_hpack_enc_dtbl_search_test(&dtbl, kid, vid, exp_idx));
+
+        hpack_enc_dtbl_init(&dtbl);
+        hpack_enc_dtbl_init_settings(&dtbl, 128);
+
+        /* Example: application specific (well-known) header pairs
+         * well-known keys: x-custom-keyN is tokenized as N (N > 0)
+         * well-known values: x-custom-valN is tokenized as N (N > 0) */
+
+        HPACK_DTBL_SZCHCK(0, 0, 128);
+        HPACK_DTBL_SEARCH(0, 1, 1);
+        HPACK_DTBL_SEARCH(0, 2, 1);
+        HPACK_DTBL_INSERT(2, 1, "x-custom-key2", "x-custom-val1");
+        HPACK_DTBL_SZCHCK(1, 13 + 13 + 32, 128);
+        HPACK_DTBL_SEARCH(0, 1, 1);
+        HPACK_DTBL_SEARCH(1, 2, 1);
+        HPACK_DTBL_SEARCH(-1, 2, 2);
+        HPACK_DTBL_SEARCH(1, 2, 0);
+        HPACK_DTBL_INSERT(1, 1, "x-custom-key1", "x-custom-val1");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32), 128);
+        HPACK_DTBL_SEARCH(1, 1, 1);
+        HPACK_DTBL_SEARCH(2, 2, 1);
+        HPACK_DTBL_SEARCH(2, 2, 0);
+        HPACK_DTBL_SEARCH(-2, 2, 2);
+        /* a case of repetition */
+        /* XXX: not error, but, should be avoided for efficiency */
+        HPACK_DTBL_INSERT(1, 1, "x-custom-key1", "x-custom-val1");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32), 128);
+        HPACK_DTBL_SEARCH(1, 1, 1);
+        HPACK_DTBL_SEARCH(0, 2, 1);
+        HPACK_DTBL_SEARCH(0, 2, 0);
+        HPACK_DTBL_SEARCH(0, 2, 2);
+        /* a case of non-token pair */
+        /* XXX: not error, but, should be avoided for efficiency */
+        HPACK_DTBL_INSERT(0, 0, "x-custom-key__", "x-custom-val__");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32) + 2, 128);
+        HPACK_DTBL_SEARCH(2, 1, 1);
+        HPACK_DTBL_SEARCH(0, 2, 1);
+        HPACK_DTBL_SEARCH(0, 2, 0);
+        HPACK_DTBL_SEARCH(0, 2, 2);
+        HPACK_DTBL_INSERT(3, 3, "x-custom-key3", "x-custom-val3");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32) + 2, 128);
+        HPACK_DTBL_SEARCH(0, 1, 1);
+        HPACK_DTBL_SEARCH(0, 2, 1);
+        HPACK_DTBL_SEARCH(0, 2, 0);
+        HPACK_DTBL_SEARCH(0, 2, 2);
+        HPACK_DTBL_SEARCH(1, 3, 3);
+        HPACK_DTBL_INSERT(4, 4, "x-custom-key4", "x-custom-val4");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32), 128);
+        HPACK_DTBL_SEARCH(0, 1, 1);
+        HPACK_DTBL_SEARCH(0, 2, 1);
+        HPACK_DTBL_SEARCH(2, 3, 3);
+        HPACK_DTBL_SEARCH(1, 4, 4);
+        /* a case of token key but non-token value */
+        HPACK_DTBL_INSERT(3, 0, "x-custom-key3", "x-custom-val__");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32) + 1, 128);
+        HPACK_DTBL_SEARCH(0, 1, 1);
+        HPACK_DTBL_SEARCH(0, 2, 1);
+        HPACK_DTBL_SEARCH(-1, 3, 3);
+        HPACK_DTBL_SEARCH(1, 3, 0);
+        HPACK_DTBL_SEARCH(2, 4, 4);
+
+        hpack_enc_dtbl_wipe(&dtbl);
+
+#undef HPACK_DTBL_SEARCH
+#undef HPACK_DTBL_INSERT
+#undef HPACK_DTBL_SZCHCK
+    } Z_TEST_END;
+
+    Z_TEST(hpack_dtbl_insert, "insertions into the decoder's DTBL") {
+        hpack_dec_dtbl_t dtbl;
+
+#define HPACK_DTBL_SZCHCK(cnt, sz, sz_lim)                                   \
+    Z_HELPER_RUN(z_hpack_dec_dtbl_size_test(&dtbl, cnt, sz, sz_lim))
+
+#define HPACK_DTBL_INSERT(k, v)                                              \
+    do {                                                                     \
+        hpack_dec_dtbl_add_hdr(&dtbl, LSTR_IMMED_V(k), LSTR_IMMED_V(v));     \
+    } while (0)
+
+        hpack_dec_dtbl_init(&dtbl);
+        hpack_dec_dtbl_init_settings(&dtbl, 128);
+
+        HPACK_DTBL_SZCHCK(0, 0, 128);
+        HPACK_DTBL_INSERT("x-custom-key2", "x-custom-val1");
+        HPACK_DTBL_SZCHCK(1, 13 + 13 + 32, 128);
+        HPACK_DTBL_INSERT("x-custom-key1", "x-custom-val1");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32), 128);
+        HPACK_DTBL_INSERT("x-custom-key1", "x-custom-val1");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32), 128);
+        HPACK_DTBL_INSERT("x-custom-key__", "x-custom-val__");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32) + 2, 128);
+        HPACK_DTBL_INSERT("x-custom-key3", "x-custom-val3");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32) + 2, 128);
+        HPACK_DTBL_INSERT("x-custom-key4", "x-custom-val4");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32), 128);
+        HPACK_DTBL_INSERT("x-custom-key3", "x-custom-val__");
+        HPACK_DTBL_SZCHCK(2, 2 * (13 + 13 + 32) + 1, 128);
+
+        hpack_dec_dtbl_wipe(&dtbl);
+
+#undef HPACK_DTBL_INSERT
+#undef HPACK_DTBL_SZCHCK
+    } Z_TEST_END;
+} Z_GROUP_END;
+
+/* }}} */

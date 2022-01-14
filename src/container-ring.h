@@ -115,6 +115,11 @@ void generic_ring_ensure(generic_ring *r, int newlen, int el_siz)
     }                                                                  \
                                                                        \
     __unused__                                                         \
+    static inline type_t *pfx##_ring_get_ptr(pfx##_ring *r, int n) {   \
+        return r->tab + pfx##_ring_pos(r, n);                          \
+    }                                                                  \
+                                                                       \
+    __unused__                                                         \
     static inline type_t *pfx##_ring_get_first_ptr(pfx##_ring *r) {    \
         return r->len > 0 ? r->tab + r->first : NULL;                  \
     }                                                                  \
