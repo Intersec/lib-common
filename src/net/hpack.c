@@ -545,7 +545,6 @@ static void hpack_enc_dtbl_evict_last_entry(hpack_enc_dtbl_t *dtbl)
     }
 }
 
-__unused__
 static void hpack_enc_dtbl_resize(hpack_enc_dtbl_t *dtbl)
 {
     assert(dtbl->tbl_size_limit <= dtbl->tbl_size_max);
@@ -673,7 +672,6 @@ static void hpack_dec_dtbl_evict_last_entry(hpack_dec_dtbl_t *dtbl)
     lstr_wipe(&e.val);
 }
 
-__unused__
 static void hpack_dec_dtbl_resize(hpack_dec_dtbl_t *dtbl)
 {
     assert(dtbl->tbl_size_limit <= dtbl->tbl_size_max);
@@ -712,4 +710,369 @@ hpack_dec_dtbl_get_ent(hpack_dec_dtbl_t *dtbl, int idx)
 }
 
 /* }}} */
+/* }}} */
+/* {{{ Encoding API */
+
+static int
+hpack_write_int(uint32_t n, uint8_t prefix_bits, uint8_t mask, byte *out)
+{
+    int len;
+
+    len = hpack_encode_int( n, prefix_bits, out);
+    *out = mask | *out;
+    return len;
+}
+
+int hpack_encoder_write_dts_update(hpack_enc_dtbl_t *nonnull dtbl,
+                                   uint32_t new_sz,
+                                   byte out[HPACK_BUFLEN_INT])
+{
+    int len;
+
+    len = hpack_write_int(new_sz, 5, 0x20u, out);
+    dtbl->tbl_size_limit = new_sz;
+    hpack_enc_dtbl_resize(dtbl);
+    return len;
+}
+
+static int hpack_write_str(lstr_t s, int zlen, byte *out_)
+{
+    byte *out = out_;
+    uint32_t n = zlen ? zlen : s.len;
+    uint8_t mask = zlen ? 0x80u : 0x00u;
+
+    out += hpack_write_int(n, 7, mask, out);
+    if (zlen) {
+        out += hpack_encode_huffman(s, out, zlen);
+    } else {
+        /* as is */
+        p_copy(out, s.s, s.len);
+        out += s.len;
+    }
+    return out - out_;
+}
+
+int hpack_encoder_write_hdr(hpack_enc_dtbl_t *nonnull dtbl, lstr_t key,
+                            lstr_t val, uint16_t key_id, uint16_t val_id,
+                            unsigned flags, byte *out_)
+{
+    t_scope;
+    byte *out = out_;
+    int idx_stbl = 0;
+    int idx_dtbl = 0;
+    int idx;
+    uint8_t prefix_bits;
+    unsigned start_byte_mask;
+    int zlen;
+    bool add_dtbl;
+
+    assert(dtbl->tbl_size_limit <= dtbl->tbl_size_max);
+    /* XXX: negative indices signal partial match (key-part only) */
+    if (!(flags & HPACK_FLG_SKIP_STBL)) {
+        if (flags & HPACK_FLG_SKIP_VAL) {
+            idx_stbl = -hpack_stbl_find_hdr_by_key(&key);
+            if (idx_stbl) {
+                /* found a partial match in the static table and a perfect
+                 * match is not required. So, we can start the encoding. */
+                goto encode;
+            }
+        } else {
+            idx_stbl = hpack_stbl_find_hdr(key, val);
+            if (idx_stbl > 0) {
+                /* found a perfect match in the static table. No need to look
+                 * in the dynamic one. So, we can start the encoding. */
+                goto encode;
+            }
+        }
+    }
+    /* Static table is skipped or a match was not found or partial. Look for a
+     * better match in the dynamic table unless it is skipped. */
+    if (key_id && !(flags & HPACK_FLG_SKIP_DTBL)) {
+        if (flags & HPACK_FLG_SKIP_VAL || !val_id) {
+            idx_dtbl = -hpack_enc_dtbl_find_hdr(dtbl, key_id, 0);
+            if (idx_dtbl) {
+                /* found a partial match in the dynamic table and a perfect
+                 * match is not required. */
+                goto encode;
+            }
+        } else {
+            idx_dtbl = hpack_enc_dtbl_find_hdr(dtbl, key_id, val_id);
+        }
+    }
+encode:
+    if (idx_stbl > 0 || idx_dtbl > 0) {
+        /* full match: i.e., value is part of the match */
+        idx = idx_stbl > 0 ? idx_stbl : HPACK_STBL_IDX_MAX + idx_dtbl;
+        /* Indexed Header Representation */
+        out += hpack_write_int(idx, 7, 0x80u, out);
+        goto done;
+    }
+    /* value not matched: Non-Indexed Header Representation */
+    /* Q: shall we add to the DTBL? */
+    /* A: add only if forced by flags, or, it is a token header and not
+     * forbidden by flags. */
+    add_dtbl =
+        (flags & HPACK_FLG_ADD_DTBL) ||
+        (key_id &&
+         !(flags & (HPACK_FLG_NVRADD_DTBL | HPACK_FLG_NOADD_DTBL)));
+    if (!add_dtbl) {
+        /* Literal Header Field Never Indexed or Without Indexing */
+        prefix_bits = 4;
+        start_byte_mask = flags & HPACK_FLG_NVRADD_DTBL ? 0x10u : 0x00u;
+    } else {
+        /* Literal Header Field with Incremental Indexing */
+        prefix_bits = 6;
+        start_byte_mask = 0x40u;
+        hpack_enc_dtbl_add_hdr(dtbl, key, val, key_id, val_id);
+    }
+    assert(idx_stbl <= 0 && idx_dtbl <= 0);
+    if (!idx_stbl && !idx_dtbl) {
+        /* New Name */
+        idx = 0;
+    } else {
+        /* Indexed Name */
+        idx = idx_stbl ? -idx_stbl : HPACK_STBL_IDX_MAX - idx_dtbl;
+    }
+    /* encode key : write index */
+    out += hpack_write_int(idx, prefix_bits, start_byte_mask, out);
+    if (idx) {
+        goto encode_value;
+    }
+    /* encode key: New Name */
+    assert(!idx_stbl && !idx_dtbl);
+    if (flags & HPACK_FLG_LWR_KEY) {
+        key = t_lstr_dup(key);
+        lstr_ascii_tolower(&key);
+    }
+    /* Q: shall we zip? */
+    /* A: Don't zip if prevented by flags, if not, ...*/
+    if (flags & HPACK_FLG_NOZIP_KEY) {
+        zlen = 0;
+    } else {
+        /* zip the key, ... */
+        zlen = hpack_get_huffman_len(key);
+        /* but only if efficient or forced by flags */
+        zlen = zlen < key.len ? zlen : flags & HPACK_FLG_ZIP_KEY ? zlen : 0;
+    }
+    /* zip key if zlen > 0 */
+    out += hpack_write_str(key, zlen, out);
+encode_value:
+    /* encode value: Q: shall we zip? */
+    /* A: Don't zip if prevented by flags, if not, ...*/
+    if (flags & HPACK_FLG_NOZIP_VAL) {
+        zlen = 0;
+    } else {
+        /* zip the value, ... */
+        zlen = hpack_get_huffman_len(val);
+        /* but only if efficient or forced by flags */
+        zlen = zlen < val.len ? zlen : flags & HPACK_FLG_ZIP_VAL ? zlen : 0;
+    }
+    /* zip val if zlen > 0 */
+    out += hpack_write_str(val, zlen, out);
+done:
+    return out - out_;
+}
+
+/* }}} */
+/* {{{ Decoding API */
+
+static struct {
+    logger_t logger;
+} hpack_g = {
+    .logger = LOGGER_INIT_INHERITS(NULL, "hpack"),
+};
+
+#define LOGE(fmt, ...) logger_error(&hpack_g.logger, fmt, ##__VA_ARGS__)
+
+int hpack_decoder_read_dts_update_(hpack_dec_dtbl_t *dtbl, pstream_t *in)
+{
+    uint32_t new_sz;
+
+    assert(ps_has(in, 1) && (0xE0u & in->b[0]) == 0x20u);
+    if (hpack_decode_int(in, 5, &new_sz)) {
+        return LOGE("unable to decode the size of a dts update");
+    }
+    if (new_sz > dtbl->tbl_size_max) {
+        return LOGE("won't resize dtbl to %u beyond the max %u", new_sz,
+                    dtbl->tbl_size_max);
+    }
+    dtbl->tbl_size_limit = new_sz;
+    hpack_dec_dtbl_resize(dtbl);
+    return 1;
+}
+
+
+/* flags for hpack_xhdr_t */
+enum {
+    XHDR_ADD_DTBL = 1 << 0,
+    XHDR_NEW_KEY  = 1 << 1,
+    XHDR_NEW_VAL  = 1 << 2,
+    XHDR_RAW_KEY  = 1 << 3,
+    XHDR_RAW_VAL  = 1 << 4,
+};
+
+int hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
+                              hpack_xhdr_t *xhdr)
+{
+    uint32_t idx;
+    bool new_val;
+    bool add_dtbl;
+    uint8_t prefix_bits;
+    unsigned flags;
+    pstream_t key;
+    pstream_t val;
+    uint32_t len;
+    uint32_t keylen;
+    uint32_t vallen;
+
+    assert(dtbl->tbl_size_limit <= dtbl->tbl_size_max);
+    assert(ps_has(in, 1));
+    if (in->b[0] >= 0x80u) {
+        /* Indexed Header Representation */
+        prefix_bits = 7;
+        add_dtbl = new_val = false;
+    } else if (in->b[0] >= 0x40u) {
+        /* Literal Header Field Representation with Incremental Indexing */
+        prefix_bits = 6;
+        add_dtbl = new_val = true;
+    } else if (in->b[0] >= 0x20u) {
+        return LOGE("unexpected dts update while reading a header");
+    } else {
+        /* Literal Header Representation without Indexing / Never Indexed */
+        prefix_bits = 4;
+        new_val = true;
+        add_dtbl = false;
+    }
+    if (hpack_decode_int(in, prefix_bits, &idx)) {
+        return LOGE("unable to decode a header's index");
+    }
+    if (!idx && !new_val) {
+        /* Indexed Header Representation with 0 index */
+        return LOGE("unexpected index: 0");
+    }
+    flags = 0;
+    if (!idx) {
+        /* New Name (key) */
+        flags |= XHDR_NEW_KEY;
+        flags = in->b[0] < 0x80 ? flags | XHDR_RAW_KEY : flags;
+        if (hpack_decode_int(in, 7, &len)) {
+            return LOGE("unable to decode the key length");
+        }
+        if (!ps_has(in, len)) {
+            return LOGE("key length is bigger than the containing header");
+        }
+        key = __ps_get_ps(in, len);
+        /* XXX: huffman encoding maximum compression ratio: 5/8 */
+        keylen = (flags & XHDR_RAW_KEY) ? len : 2u * len;
+    } else if (idx <= HPACK_STBL_IDX_MAX) {
+        keylen = hpack_stbl_g[idx].key.len;
+        vallen = hpack_stbl_g[idx].val.len;
+    } else if (idx <= HPACK_STBL_IDX_MAX + dtbl->entries.len) {
+        int idx_ = idx - HPACK_STBL_IDX_MAX - 1;
+        hpack_dec_dtbl_entry_t *ent = hpack_dec_dtbl_get_ent(dtbl, idx_);
+
+        keylen = ent->key.len;
+        vallen = ent->val.len;
+    } else {
+        return LOGE("unexpected idx: %u", idx);
+    }
+    if (new_val) {
+        flags |= XHDR_NEW_VAL;
+        flags = in->b[0] < 0x80 ? flags | XHDR_RAW_VAL : flags;
+        if (hpack_decode_int(in, 7, &len)) {
+            return LOGE("unable to decode the value length");
+        }
+        if (!ps_has(in, len)) {
+            return LOGE("value length is bigger than the containing header");
+        }
+        val = __ps_get_ps(in, len);
+        /* XXX: huffman encoding maximum compression ratio: 5/8 */
+        vallen = (flags & XHDR_RAW_KEY) ? len : 2u * len;
+    }
+    if (add_dtbl) {
+        flags |= XHDR_ADD_DTBL;
+    }
+    xhdr->flags = flags;
+    if (idx) {
+        xhdr->idx = idx;
+    } else {
+        xhdr->key = key;
+    }
+    if (new_val) {
+        xhdr->val = val;
+    }
+    return keylen + vallen;
+}
+
+int hpack_decoder_write_hdr(hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr,
+                            byte *out_, int *keylen)
+{
+    byte *out = out_;
+    hpack_dec_dtbl_entry_t *ent = NULL;
+    lstr_t key;
+    lstr_t val;
+    int len;
+
+    if (xhdr->flags & XHDR_NEW_KEY) {
+        assert(xhdr->flags & XHDR_NEW_VAL);
+        if (xhdr->flags & XHDR_RAW_KEY) {
+            p_copy(out, xhdr->key.b, ps_len(&xhdr->key));
+            key = LSTR_PS_V(&xhdr->key);
+        } else {
+            len = hpack_decode_huffman(LSTR_PS_V(&xhdr->key), out);
+            if (len < 0) {
+                return LOGE("unable to decode zipped key");
+            }
+            key = LSTR_DATA_V(out, len);
+        }
+    } else {
+        int idx = xhdr->idx;
+
+        assert(idx > 0 && idx <= HPACK_STBL_IDX_MAX + dtbl->entries.len);
+        if (idx <= HPACK_STBL_IDX_MAX) {
+            key = hpack_stbl_g[idx].key;
+            val = hpack_stbl_g[idx].val;
+        } else {
+            int idx_ = idx - HPACK_STBL_IDX_MAX - 1;
+            ent = hpack_dec_dtbl_get_ent(dtbl, idx_);
+
+            key = ent->key;
+            val = ent->val;
+        }
+        p_copy(out, key.s, key.len);
+    }
+    out += key.len;
+    *out++ = ':';
+    *out++ = ' ';
+    if (xhdr->flags & XHDR_NEW_VAL) {
+        if (xhdr->flags & XHDR_RAW_VAL) {
+            p_copy(out, xhdr->val.b, ps_len(&xhdr->val));
+            val = LSTR_PS_V(&xhdr->val);
+        } else {
+            len = hpack_decode_huffman(LSTR_PS_V(&xhdr->val), out);
+            if (len < 0) {
+                return LOGE("unable to decode zipped value");
+            }
+            val = LSTR_DATA_V(out, len);
+        }
+    } else {
+        p_copy(out, val.s, val.len);
+    }
+    out += val.len;
+    *out++ = '\r';
+    *out++ = '\n';
+    if (xhdr->flags & XHDR_ADD_DTBL) {
+        assert(xhdr->flags & XHDR_NEW_VAL);
+        if (xhdr->flags & XHDR_NEW_KEY) {
+            key = lstr_dup(key);
+        } else if (ent) {
+            lstr_transfer(&key, &ent->key);
+        }
+        val = lstr_dup(val);
+        hpack_dec_dtbl_add_hdr(dtbl, key, val);
+    }
+    *keylen = key.len;
+    return out - out_;
+}
+
 /* }}} */
