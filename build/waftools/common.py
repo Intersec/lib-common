@@ -24,7 +24,7 @@ import os
 
 # pylint: disable = import-error
 import waflib
-from waflib import Build, Context, TaskGen, Logs, Utils
+from waflib import Build, Context, TaskGen, Logs, Utils, Errors
 
 from waflib.Build import BuildContext, inst
 from waflib.Node import Node
@@ -34,9 +34,52 @@ from waflib.Task import Task, compile_fun, SKIP_ME, RUN_ME
 # {{{ depends_on
 
 
+def check_circular_dependencies(self, tgen, path, seen):
+    """
+    Recursively check that there is no cycle in depends_on/use dependencies of
+    "self" task generator.
+
+    Waf already checks this for "use" dependencies, but not for "depends_on"
+    as this is not native.
+
+    Cycles are forbidden because it can cause undefined behaviors in the build
+    system.
+    """
+    deps  = list(tgen.to_list(getattr(tgen, 'depends_on', [])))
+    deps += list(tgen.to_list(getattr(tgen, 'use', [])))
+
+    for name in deps:
+        if name in seen:
+            continue
+        seen.add(name)
+
+        if name == self.name:
+            raise Errors.WafError('cycle detected in use/depends_on from '
+                                  'tgen `%s`: %s' %
+                                  (self.name, ' -> '.join(path)))
+        try:
+            other = self.bld.get_tgen_by_name(name)
+        except Errors.WafError:
+            pass
+        else:
+            path.append(name)
+            check_circular_dependencies(self, other, path, seen)
+            path.pop()
+
+
 @TaskGen.feature('*')
 @TaskGen.before_method('process_rule')
-def post_deps(self):
+def post_depends_on(self):
+    """
+    Post the depends_on dependencies of the "self" task generator.
+
+    "depends_on" can be used in the definition of a task generator to define a
+    list or other task generators that must be also posted when it is posted.
+    Unlike "use", it does not propagate the variables, so for example a binary
+    won't be linked against its "depends_on" libraries.
+    """
+    check_circular_dependencies(self, self, [], set())
+
     deps = getattr(self, 'depends_on', [])
     for name in self.to_list(deps):
         other = self.bld.get_tgen_by_name(name)
