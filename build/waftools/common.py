@@ -87,6 +87,43 @@ def post_depends_on(self):
 
 
 # }}}
+# {{{ use
+
+
+def check_used(self, name):
+    try:
+        self.bld.get_tgen_by_name(name)
+        return
+    except Errors.WafError:
+        pass
+
+    # No task generator matching the name.
+    # Look for a variable 'XXX_<name>' in the environment.
+    sfx = '_' + name
+    for var in self.env:
+        if var.endswith(sfx):
+            return
+
+    raise Errors.WafError(
+        'In task generator `{tgen}` (path={path}): '
+        'cannot find tgen or env variable that matches '
+        '`{name}`'.format(tgen=self.name, path=self.path, name=name))
+
+
+@TaskGen.feature('*')
+@TaskGen.before_method('process_rule')
+def check_libs(self):
+    """
+    Check that each element listed in "use" exists either as a task generator
+    or as a flag set in the environment.
+    """
+    used = getattr(self, 'use', [])
+    used = self.to_list(used)
+    for name in used:
+        check_used(self, name)
+
+
+# }}}
 # {{{ Run checks
 
 

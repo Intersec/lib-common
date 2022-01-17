@@ -33,7 +33,6 @@ ctx.stlib(target='libcommon-minimal', features='c cstlib', depends_on=[
 ], use=[
     'libxml',
     'valgrind',
-    'compat',
 ], source=[
     'core-version.c',
 
