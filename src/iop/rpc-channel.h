@@ -538,6 +538,30 @@ extern qm_t(ic_cbs) const ic_no_impl;
 struct ichannel_t {
     uint32_t id;
 
+    /** Name of the ichannel.
+     *
+     * This name is used for exploitability purposes only.
+     */
+    lstr_t name;
+
+    /** Resolved address.
+     *
+     * Filled with the resolved client or server address.
+     * For a client ichannel, this field can be pre-filled if the address
+     * resolution is done before; otherwise, the remote_addr field must be
+     * filled.
+     */
+    sockunion_t su;
+
+    /** Client ichannels: non-resolved remote address.
+     *
+     * If provided, this address will be resolved and used for each connection
+     * attempt; otherwise, the resolution must be done before and provided
+     * through the su field.
+     * This field is only used for TCP client ichannels.
+     */
+    lstr_t remote_addr;
+
     bool is_closing   :  1;
     bool is_spawned   :  1;   /**< auto delete if true; contrarily to what is
         displayed with ic_get_state(), it does not always indicate that the
@@ -585,7 +609,6 @@ struct ichannel_t {
     uint16_t     peer_version; /**< version of the remote peer */
     int          protocol;     /**< transport layer protocol (0 = default) */
     int          retry_delay;  /**< delay before a reconnection attempt (ms) */
-    sockunion_t  su;
     const qm_t(ic_cbs) * nullable impl;
     ic_hook_f   * nonnull on_event;
     ic_creds_f  * nullable on_creds;
@@ -609,7 +632,13 @@ struct ichannel_t {
     int          iov_total_len;
     sb_t         rbuf;
 
-    lstr_t       peer_address;
+    /** Server ichannels: client IP address.
+     *
+     * This field is the IP address of the client connected to the ichannel.
+     * This field should not be read directly, ic_get_client_addr should be
+     * used instead.
+     */
+    lstr_t client_addr;
 #ifdef IC_DEBUG_REPLIES
     qh_t(ic_replies) dbg_replies;
 #endif
@@ -631,7 +660,7 @@ static inline bool ic_is_local(const ichannel_t * nonnull ic) {
 
 static inline void ic_set_local(ichannel_t * nonnull ic) {
     ic->is_local = true;
-    ic->peer_address = LSTR("127.0.0.1");
+    ic->client_addr = LSTR("127.0.0.1");
 }
 
 static inline int ic_get_fd(ichannel_t * nonnull ic) {

@@ -196,6 +196,8 @@ static void ic_get_state(sb_t *buf)
     table_hdr_t hdr_data[] = { {
             .title = LSTR_IMMED("ICHANNEL"),
         }, {
+            .title = LSTR_IMMED("NAME"),
+        }, {
             .title = LSTR_IMMED("ELH"),
         }, {
             .title = LSTR_IMMED("CALLBACK"),
@@ -231,6 +233,7 @@ static void ic_get_state(sb_t *buf)
         t_qv_init(tab, hdr_size);
 
         qv_append(tab, t_lstr_fmt("%d / %p", ic->id, ic));
+        qv_append(tab, ic->name);
         qv_append(tab, t_lstr_fmt("%p", ic->elh));
         qv_append(tab, t_lstr_fmt("%p", ic->on_event));
 
@@ -251,6 +254,10 @@ static void ic_get_state(sb_t *buf)
             addr = t_lstr_fmt("peer: %*pM", LSTR_FMT_ARG(addr));
         } else {
             addr = t_addr_fmt_lstr(&ic->su);
+        }
+        if (ic->remote_addr.s) {
+            addr = t_lstr_fmt("%*pM (%*pM)", LSTR_FMT_ARG(addr),
+                              LSTR_FMT_ARG(ic->remote_addr));
         }
         qv_append(tab, addr);
 
@@ -1165,18 +1172,18 @@ ic_read_process_answer(ichannel_t *ic, int cmd, uint32_t slot,
 
 lstr_t ic_get_client_addr(ichannel_t *ic)
 {
-    if (!ic->peer_address.s) {
+    if (!ic->client_addr.s) {
         t_scope;
         socklen_t saddr_len = sizeof(ic->su.ss);
 
         if (getpeername(el_fd_get_fd(ic->elh), &ic->su.sa, &saddr_len) < 0) {
             logger_error(&_G.logger, "unable to get peer name: %m");
-            ic->peer_address = LSTR_EMPTY_V;
+            ic->client_addr = LSTR_EMPTY_V;
         } else {
-            ic->peer_address = lstr_dup(t_addr_fmt_lstr(&ic->su));
+            ic->client_addr = lstr_dup(t_addr_fmt_lstr(&ic->su));
         }
     }
-    return ic->peer_address.len ? lstr_dupc(ic->peer_address) : LSTR_NULL_V;
+    return ic->client_addr.len ? lstr_dupc(ic->client_addr) : LSTR_NULL_V;
 }
 
 static inline void ic_update_pending(ichannel_t *ic, uint32_t slot)
@@ -2039,7 +2046,9 @@ void ic_wipe(ichannel_t *ic)
     sb_wipe(&ic->rbuf);
     qv_wipe(&ic->fds);
     p_close(&ic->current_fd);
-    lstr_wipe(&ic->peer_address);
+    lstr_wipe(&ic->name);
+    lstr_wipe(&ic->remote_addr);
+    lstr_wipe(&ic->client_addr);
     ic->is_wiped   = true;
 }
 
@@ -2627,7 +2636,6 @@ ichannel_t *ic_init(ichannel_t *ic)
 #ifndef NDEBUG
     ic->pending_max = 128;
 #endif
-    ic->peer_address = LSTR_NULL_V;
     ic->retry_delay = 1000;
 
     return ic;
@@ -2953,6 +2961,22 @@ static int __ic_connect(ichannel_t *ic, int flags, int timeout)
         type = SOCK_STREAM;
         flags |= FD_FEAT_TCP_NODELAY;
         ic->is_seqpacket = false;
+
+        if (ic->remote_addr.s) {
+            if (addr_resolve(ic->name.s, ic->remote_addr, &ic->su) < 0) {
+                t_scope;
+
+                logger_warning(&_G.logger, "cannot resolve%s address `%pL`",
+                               ic->name.s ? t_fmt(" `%pL`", &ic->name) : "",
+                               &ic->remote_addr);
+                if (ic->auto_reconn) {
+                    ic_mark_disconnected(ic);
+                    return 0;
+                } else {
+                    return -1;
+                }
+            }
+        }
     }
 
     sock = connectx_as(-1, &ic->su, 1, NULL, type, ic->protocol, flags,
