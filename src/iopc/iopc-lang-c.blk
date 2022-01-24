@@ -643,12 +643,12 @@ static void write_help_string(sb_t *buf, const char *s)
     write_string(buf, s, "\\");
 }
 
-#define NAME_FIELD_FMT(_bname, _fname, _ext)  "%s%s%s__%s"
+#define NAME_FIELD_FMT  "%s%s%s__%s"
 #define NAME_FIELD_FMT_ARG(_bname, _fname, _ext)  \
     _bname, _fname[0] ? "__" : "", _fname, _ext
 
-#define NAME_HELP_FMT(_bname, _fname, _ext)  \
-    NAME_FIELD_FMT(_bname, _fname, _ext)"_help"
+#define NAME_HELP_FMT  \
+    NAME_FIELD_FMT"_help"
 #define NAME_HELP_FMT_ARG(_bname, _fname, _ext)  \
     NAME_FIELD_FMT_ARG(_bname, _fname, _ext)
 
@@ -666,7 +666,7 @@ static void
 iopc_dump_help(sb_t *buf, const char *bname, const char *fname,
                const char *ext, const qv_t(iopc_dox) *comments)
 {
-    sb_addf(buf, "static const iop_help_t "NAME_HELP_FMT(bname, fname, ext)
+    sb_addf(buf, "static const iop_help_t "NAME_HELP_FMT
                  " = {\n", NAME_HELP_FMT_ARG(bname, fname, ext));
 
     for (int i = 0; i <= IOPC_DOX_TYPE_SIMPLE; i++) {
@@ -696,7 +696,7 @@ iopc_dump_help_ref(sb_t *buf, int type, const char *attr_kind,
     sb_addf(buf, "    {\n"
                  "        .type = %d,\n"
                  "        .args = (iop_%s_attr_arg_t[]){ { .v.p = &"
-                                  NAME_HELP_FMT(bname, fname, ext)" } },\n"
+                                  NAME_HELP_FMT" } },\n"
                  "    },\n",
             type, attr_kind, NAME_HELP_FMT_ARG(bname, fname, ext));
 }
@@ -718,7 +718,7 @@ iopc_dump_attr_table_head(sb_t *buf, const char *attr_kind, const char *bname,
                           const char *fname, const char *ext)
 {
     sb_addf(buf, "static const iop_%s_attr_t "
-            NAME_FIELD_FMT(bname, fname, ext)"_attrs[] = {\n",
+            NAME_FIELD_FMT"_attrs[] = {\n",
             attr_kind, NAME_FIELD_FMT_ARG(bname, fname, ext));
 }
 
@@ -750,8 +750,7 @@ iopc_dump_attrs_ref(sb_t *buf, unsigned int flags, uint16_t attrs_len,
     if (attrs_len) {
         sb_addf(buf,
             "%s    .attrs_len = %u,\n"
-            "%s    .attrs     = "
-            NAME_FIELD_FMT(bname, fname, ext)"_attrs,\n",
+            "%s    .attrs     = "NAME_FIELD_FMT"_attrs,\n",
             tabs, attrs_len,
             tabs, NAME_FIELD_FMT_ARG(bname, fname, ext));
     }
