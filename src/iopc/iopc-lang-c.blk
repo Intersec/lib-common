@@ -1700,6 +1700,7 @@ typedef struct iopc_attr_kind_meta_t {
     const char *attr_type;
     const char *var_sfx;
     const char *ext;
+    bool write_attr_flags;
 } iopc_attr_kind_meta_t;
 
 static void iopc_attr_kind_get_meta(iopc_attr_kind_t kind,
@@ -1710,9 +1711,16 @@ static void iopc_attr_kind_get_meta(iopc_attr_kind_t kind,
     switch (kind) {
     case IOPC_ATTR_KIND_FIELD:
     case IOPC_ATTR_KIND_RPC:
-    case IOPC_ATTR_KIND_ENUM_VALUE:
         assert(false);
         return;
+
+    case IOPC_ATTR_KIND_ENUM_VALUE:
+        meta->kind_str = "enum_value";
+        meta->attr_type = "iop_enum_value_attrs_t";
+        meta->var_sfx = "e_desc_values_attrs";
+        meta->ext = "v";
+        meta->write_attr_flags = true;
+        break;
 
     case IOPC_ATTR_KIND_ENUM:
         meta->kind_str = "enum";
@@ -1794,18 +1802,46 @@ static void iopc_dump_gen_attr(sb_t *buf, const iopc_attr_t *attr,
     sb_wipe(&tmp);
 }
 
-/* Dump run-time needed attributes for structs/enums/ifaces */
-static void iopc_dump_attrs(iopc_attr_kind_t kind,
-                            const qv_t(iopc_dox) *comments,
-                            const qv_t(iopc_attr) *attrs,
-                            const char *tbase,
-                            sb_t *buf,
-                            bool *has_attrs)
+static void iopc_dump_attrs_ref_body(iopc_attr_kind_t kind, const char *tbase,
+                                     lstr_t body, bool is_array, sb_t *buf)
+{
+    iopc_attr_kind_meta_t meta;
+
+    iopc_attr_kind_get_meta(kind, &meta);
+    sb_addf(buf, "static const %s %s__%s",
+            meta.attr_type, tbase, meta.var_sfx);
+    if (is_array) {
+        sb_adds(buf, "[] = {\n");
+    } else {
+        sb_adds(buf, " = ");
+    }
+    sb_add_lstr(buf, body);
+    if (is_array) {
+        sb_adds(buf, "};\n");
+    }
+}
+
+/** Dump the attributes table associated to a given object.
+ *
+ * \param[in] comments  Comments associated to the object. They may be
+ *                      converted into help attributes.
+ *
+ * \param[out] attrs_flags  Flags to use in the 'attrs' structure associted to
+ *                          the object.
+ *
+ * \param[out] attrs_cnt  Number of attributes dumped.
+ */
+static void iopc_dump_attr_table(iopc_attr_kind_t kind,
+                                 const qv_t(iopc_dox) *comments,
+                                 const qv_t(iopc_attr) *attrs,
+                                 const char *tbase, const char *fname,
+                                 sb_t *buf,
+                                 unsigned *attrs_flags, int *attrs_cnt)
 {
     SB_1k(attrs_body);
     iopc_attr_kind_meta_t meta;
     unsigned nbr_attrs = 0;
-    unsigned help_flag = 0;
+    unsigned flags = 0;
 
     iopc_attr_kind_get_meta(kind, &meta);
 
@@ -1814,29 +1850,63 @@ static void iopc_dump_attrs(iopc_attr_kind_t kind,
 
         help_type = iopc_attr_kind_get_help_type(kind);
         iopc_dump_help_and_ref(buf, &attrs_body, help_type,
-                               meta.kind_str, tbase, "", meta.ext, comments);
-        help_flag = BITMASK_NTH(unsigned, help_type);
+                               meta.kind_str, tbase, fname, meta.ext,
+                               comments);
+        SET_BIT(&flags, help_type);
         nbr_attrs++;
     }
 
     tab_for_each_entry(attr, attrs) {
         if (attr->desc->id == IOPC_ATTR_GENERIC) {
-            int gen_type;
+            unsigned gen_type;
 
             gen_type = iopc_attr_kind_get_gen_type(kind,
                                                    attr->args.tab[0].type);
             iopc_dump_gen_attr(&attrs_body, attr, gen_type);
+            if (meta.write_attr_flags) {
+                SET_BIT(&flags, gen_type);
+            }
             nbr_attrs++;
         }
     }
 
     if (nbr_attrs > 0) {
-        iopc_dump_attr_table_head(buf, meta.kind_str, tbase, "", meta.ext);
+        iopc_dump_attr_table_head(buf, meta.kind_str, tbase, fname, meta.ext);
         sb_addsb(buf, &attrs_body);
         sb_addf(buf, "};\n");
-        sb_addf(buf, "static const %s %s__%s "
-                "= ", meta.attr_type, tbase, meta.var_sfx);
-        iopc_dump_attrs_ref(buf, help_flag, nbr_attrs, tbase, "", meta.ext);
+    }
+
+    *attrs_cnt = nbr_attrs;
+    *attrs_flags = flags;
+}
+
+/** Dump the attributes associated to a given object.
+ *
+ * Dump the attribute table and the 'attrs' structure associated to the
+ * object.
+ */
+static void iopc_dump_attrs(iopc_attr_kind_t kind,
+                            const qv_t(iopc_dox) *comments,
+                            const qv_t(iopc_attr) *attrs,
+                            const char *tbase, const char *fname,
+                            sb_t *buf, bool *has_attrs)
+{
+    int nbr_attrs;
+    unsigned flags;
+
+    iopc_dump_attr_table(kind, comments, attrs, tbase, fname, buf, &flags,
+                         &nbr_attrs);
+    if (nbr_attrs > 0) {
+        /* Write the 'attrs' structure containing the attributes. */
+        SB_1k(attrs_ref_body);
+        iopc_attr_kind_meta_t meta;
+
+        iopc_attr_kind_get_meta(kind, &meta);
+
+        iopc_dump_attrs_ref(&attrs_ref_body, flags, nbr_attrs, tbase, fname,
+                            meta.ext);
+        iopc_dump_attrs_ref_body(kind, tbase, LSTR_SB_V(&attrs_ref_body),
+                                 false, buf);
     }
 
     if (has_attrs) {
@@ -2707,7 +2777,6 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
 {
     t_scope;
     SB_1k(values_attrs_body);
-    SB_1k(v_attrs_body);
     const char *tname = pp_to_c(en->name);
     char *tbase = t_fmt("%s__%s", pkg_name, tname);
     int range;
@@ -2780,52 +2849,32 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
         sb_adds(buf, "};\n");
     }
 
-    tab_for_each_entry(f, &en->values) {
+    tab_for_each_entry(val, &en->values) {
         t_scope;
-        lstr_t fname = t_lstr_dups(f->name, -1);
-        unsigned v_flags = 0;
-        int nb_attrs = 0;
+        lstr_t fname = t_lstr_dups(val->name, -1);
+        int nb_enum_value_attrs;
+        unsigned enum_value_attrs_flags;
 
         lstr_ascii_tolower(&fname);
 
-        sb_reset(&v_attrs_body);
-        if (has_help(&f->comments)) {
-            iopc_dump_help_and_ref(buf, &v_attrs_body,
-                                   ATTR_HELP(ENUM_VALUE), "enum_value",
-                                   tbase, fname.s, "v", &f->comments);
-            SET_BIT(&v_flags, ATTR_HELP(ENUM_VALUE));
-            nb_attrs++;
-        }
-        tab_for_each_entry(attr, &f->attrs) {
-            if (attr->desc->id == IOPC_ATTR_GENERIC) {
-                int type;
-
-                type = TK_TYPE_TO_GEN_TYPE(ENUM_VALUE,
-                                           attr->args.tab[0].type);
-                iopc_dump_gen_attr(&v_attrs_body, attr, type);
-                nb_attrs++;
-                SET_BIT(&v_flags, type);
-            }
-        }
-        if (v_attrs_body.len) {
-            iopc_dump_attr_table_head(buf, "enum_value", tbase, fname.s, "v");
-            sb_addsb(buf, &v_attrs_body);
-            sb_addf(buf, "};\n");
+        iopc_dump_attr_table(IOPC_ATTR_KIND_ENUM_VALUE, &val->comments,
+                             &val->attrs, tbase, fname.s, buf,
+                             &enum_value_attrs_flags, &nb_enum_value_attrs);
+        if (nb_enum_value_attrs) {
             values_have_attributes = true;
         }
-        iopc_dump_attrs_ref(&values_attrs_body, v_flags, nb_attrs, tbase,
-                            fname.s, "v");
+        iopc_dump_attrs_ref(&values_attrs_body, enum_value_attrs_flags,
+                            nb_enum_value_attrs, tbase, fname.s, "v");
     }
+
     if (values_have_attributes) {
-        SET_BIT(&flags, IOP_ENUM_EXTENDED);
-        sb_addf(buf, "static const iop_enum_value_attrs_t "
-                "%s__e_desc_values_attrs[] = {\n%*pM};\n",
-                tbase, SB_FMT_ARG(&values_attrs_body));
+        iopc_dump_attrs_ref_body(IOPC_ATTR_KIND_ENUM_VALUE, tbase,
+                                 LSTR_SB_V(&values_attrs_body), true, buf);
     }
 
     iopc_dump_attrs(IOPC_ATTR_KIND_ENUM, &en->comments, &en->attrs,
-                    tbase, buf, &has_attrs);
-    if (has_attrs) {
+                    tbase, "", buf, &has_attrs);
+    if (has_attrs || values_have_attributes) {
         SET_BIT(&flags, IOP_ENUM_EXTENDED);
     }
 
@@ -3234,7 +3283,7 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
     range = iopc_put_range(buf, &t);
 
     iopc_dump_attrs(IOPC_ATTR_KIND_STRUCT, &st->comments, &st->attrs,
-                    tbase, buf, &has_attrs);
+                    tbase, "", buf, &has_attrs);
     if (has_attrs) {
         SET_BIT(&st->flags, IOP_STRUCT_EXTENDED);
     }
@@ -3534,7 +3583,7 @@ iopc_iface_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_iface_dump_rpc_attrs(buf, ibase, iface);
 
     iopc_dump_attrs(IOPC_ATTR_KIND_IFACE, &iface->comments, &iface->attrs,
-                    ibase, buf, &has_attrs);
+                    ibase, "", buf, &has_attrs);
     if (has_attrs) {
         SET_BIT(&iface->flags, IOP_IFACE_HAS_ATTRS);
     }
