@@ -2979,18 +2979,14 @@ static int __ic_connect(ichannel_t *ic, int flags, int timeout)
         struct timeval tv = { .tv_sec = 0 };
 
         ic->elh = el_fd_register(sock, true, POLLINOUT, &ic_event, ic);
-        if (ic->is_unix) {
-            ic_bypass_version_handshake(ic, sock);
-        } else {
-            if (ic_version_write(ic, sock) < 0) {
-                ic_mark_disconnected(ic);
-                return -1;
-            }
-            priv.ptr = ic;
-            if (ic_version_handshake(NULL, sock, POLLIN, priv) < 0) {
-                ic_mark_disconnected(ic);
-                return -1;
-            }
+        if (ic_version_write(ic, sock) < 0) {
+            ic_mark_disconnected(ic);
+            return -1;
+        }
+        priv.ptr = ic;
+        if (ic_version_handshake(NULL, sock, POLLIN, priv) < 0) {
+            ic_mark_disconnected(ic);
+            return -1;
         }
 
         /* Remove the timeout set by connectx. */
