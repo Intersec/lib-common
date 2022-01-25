@@ -443,6 +443,33 @@ void lstr_ascii_reverse(lstr_t *s)
     }
 }
 
+lstr_t t_lstr_ascii_tolower(lstr_t s)
+{
+    lstr_t cpy = t_lstr_dup(s);
+
+    lstr_ascii_tolower(&cpy);
+
+    return cpy;
+}
+
+lstr_t t_lstr_ascii_toupper(lstr_t s)
+{
+    lstr_t cpy = t_lstr_dup(s);
+
+    lstr_ascii_toupper(&cpy);
+
+    return cpy;
+}
+
+lstr_t t_lstr_ascii_reverse(lstr_t s)
+{
+    lstr_t cpy = t_lstr_dup(s);
+
+    lstr_ascii_reverse(&cpy);
+
+    return cpy;
+}
+
 int lstr_to_int(lstr_t lstr, int *out)
 {
     int         tmp = errno;

@@ -641,18 +641,27 @@ bool lstr_utf8_is_ilike(const lstr_t s, const lstr_t pattern);
  *
  * Works only with ascii strings.
  */
+lstr_t t_lstr_ascii_tolower(lstr_t s);
+
+/** In-place version of \p t_lstr_ascii_tolower. */
 void lstr_ascii_tolower(lstr_t * nonnull s);
 
 /** Upper case the given lstr.
  *
  * Works only with ascii strings.
  */
+lstr_t t_lstr_ascii_toupper(lstr_t s);
+
+/** In-place version of \p t_lstr_ascii_toupper. */
 void lstr_ascii_toupper(lstr_t * nonnull s);
 
 /** In-place reversing of the lstr.
  *
  * This function is not unicode aware.
  */
+lstr_t t_lstr_ascii_reverse(lstr_t s);
+
+/** In-place version of \p t_lstr_ascii_reverse. */
 void lstr_ascii_reverse(lstr_t * nonnull s);
 
 /** Convert a lstr into an int.

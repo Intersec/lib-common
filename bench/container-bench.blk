@@ -50,9 +50,8 @@ qhash_lstr_ascii_ihash_old(const qhash_t * nullable qh,
                            const lstr_t * nonnull ls)
 {
     t_scope;
-    lstr_t tmp = t_lstr_dup(*ls);
+    lstr_t tmp = t_lstr_ascii_tolower(*ls);
 
-    lstr_ascii_tolower(&tmp);
     return qhash_lstr_hash(qh, &tmp);
 }
 

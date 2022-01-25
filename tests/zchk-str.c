@@ -87,8 +87,7 @@ static int z_memtoxll_ext(bool str, bool sgn, const char *p, int len,
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(str)
-{
+Z_GROUP_EXPORT(str) {
     Z_TEST(lstr_equal, "lstr_equal") {
         Z_ASSERT_LSTREQUAL(LSTR_EMPTY_V, LSTR_EMPTY_V);
         Z_ASSERT_LSTREQUAL(LSTR_NULL_V, LSTR_NULL_V);
@@ -113,6 +112,18 @@ Z_GROUP_EXPORT(str)
 
         Z_ASSERT(dst.mem_pool == MEM_STATIC);
         Z_ASSERT(lstr_equal(dst, src));
+    } Z_TEST_END;
+
+    Z_TEST(lstr_ascii_converters, "") {
+        t_scope;
+        lstr_t src = LSTR("ThE FoX jUmPs oVeR tHe LazY dOg");
+        lstr_t lower = t_lstr_ascii_tolower(src);
+        lstr_t upper = t_lstr_ascii_toupper(src);
+        lstr_t reversed = t_lstr_ascii_reverse(src);
+
+        Z_ASSERT_LSTREQUAL(lower, LSTR("the fox jumps over the lazy dog"));
+        Z_ASSERT_LSTREQUAL(upper, LSTR("THE FOX JUMPS OVER THE LAZY DOG"));
+        Z_ASSERT_LSTREQUAL(reversed, LSTR("gOd YzaL eHt ReVo sPmUj XoF EhT"));
     } Z_TEST_END;
 
     Z_TEST(sb_detach, "sb_detach") {

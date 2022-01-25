@@ -2909,9 +2909,7 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
     for (int i = 0; i < en->values.len; i++) {
         t_scope;
         iopc_enum_field_t *f = en->values.tab[i];
-        lstr_t fname = t_lstr_dups(f->name, -1);
 
-        lstr_ascii_tolower(&fname);
         tab_for_each_entry(attr, &f->attrs) {
             if (attr->desc->id == IOPC_ATTR_ALIAS) {
                 SET_BIT(&flags, IOP_ENUM_ALIASES);
@@ -2937,11 +2935,9 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
 
     tab_for_each_entry(val, &en->values) {
         t_scope;
-        lstr_t fname = t_lstr_dups(val->name, -1);
+        lstr_t fname = t_lstr_ascii_tolower(LSTR(val->name));
         int nb_enum_value_attrs;
         unsigned enum_value_attrs_flags;
-
-        lstr_ascii_tolower(&fname);
 
         iopc_dump_attr_table(&iopc_attr_kind_enum_value_g, &val->comments,
                              &val->attrs, tbase, fname.s, buf,
