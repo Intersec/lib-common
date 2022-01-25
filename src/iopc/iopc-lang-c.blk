@@ -855,14 +855,11 @@ static void write_help_string(sb_t *buf, const char *s)
     write_string(buf, s, "\\");
 }
 
-#define NAME_FIELD_FMT  "%s%s%s__%s"
-#define NAME_FIELD_FMT_ARG(_bname, _fname, _ext)  \
-    _bname, _fname[0] ? "__" : "", _fname, _ext
+#define NAME_FIELD_FMT  "%s__%s"
+#define NAME_FIELD_FMT_ARG(_pfx, _ext) _pfx, _ext
 
-#define NAME_HELP_FMT  \
-    NAME_FIELD_FMT"_help"
-#define NAME_HELP_FMT_ARG(_bname, _fname, _ext)  \
-    NAME_FIELD_FMT_ARG(_bname, _fname, _ext)
+#define NAME_HELP_FMT NAME_FIELD_FMT"_help"
+#define NAME_HELP_FMT_ARG(_pfx, _ext) NAME_FIELD_FMT_ARG(_pfx, _ext)
 
 static bool has_help(const qv_t(iopc_dox) *comments)
 {
@@ -874,16 +871,14 @@ static bool has_help(const qv_t(iopc_dox) *comments)
     return false;
 }
 
-/* TODO Stop carrying 'tbase' and 'fname' everywhere.
- * Pass a single name instead. */
 static void
 iopc_dump_help(sb_t *buf, const iopc_attr_kind_t *attr_kind,
-               const char *tbase, const char *fname,
+               const char *help_var_pfx,
                const qv_t(iopc_dox) *comments)
 {
     sb_addf(buf, "static const iop_help_t "NAME_HELP_FMT
                  " = {\n",
-                 NAME_HELP_FMT_ARG(tbase, fname, attr_kind->ext));
+                 NAME_HELP_FMT_ARG(help_var_pfx, attr_kind->ext));
 
     for (int i = 0; i <= IOPC_DOX_TYPE_SIMPLE; i++) {
         const iopc_dox_t *dox = iopc_dox_find_type(comments, i);
@@ -894,10 +889,11 @@ iopc_dump_help(sb_t *buf, const iopc_attr_kind_t *attr_kind,
         }
 
         type = iopc_dox_type_to_lstr(i);
+        sb_addf(buf, "    .%*pM = ", LSTR_FMT_ARG(type));
         if (!dox->desc.len) {
-            sb_addf(buf, "    .%*pM = LSTR_NULL,\n", LSTR_FMT_ARG(type));
+            sb_adds(buf, "LSTR_NULL,\n");
         } else {
-            sb_addf(buf, "    .%*pM = LSTR_IMMED(\"", LSTR_FMT_ARG(type));
+            sb_adds(buf, "LSTR_IMMED(\"");
             write_help_string(buf, dox->desc.s);
             sb_adds(buf, "\"),\n");
         }
@@ -905,69 +901,58 @@ iopc_dump_help(sb_t *buf, const iopc_attr_kind_t *attr_kind,
     sb_addf(buf, "};\n");
 }
 
-/* TODO Stop carrying 'tbase' and 'fname' everywhere.
- * Pass a single name instead. */
 static void
 iopc_dump_help_ref(sb_t *buf, const iopc_attr_kind_t *attr_kind,
-                   const char *tbase, const char *fname)
+                   const char *help_var_pfx)
 {
     sb_addf(buf, "    {\n"
                  "        .type = %d,\n"
                  "        .args = (%s[]){ { .v.p = &"NAME_HELP_FMT" } },\n"
                  "    },\n",
             attr_kind->help_type, attr_kind->attr_arg_typename,
-            NAME_HELP_FMT_ARG(tbase, fname, attr_kind->ext));
+            NAME_HELP_FMT_ARG(help_var_pfx, attr_kind->ext));
 }
 
-/* TODO Stop carrying 'tbase' and 'fname' everywhere.
- * Pass a single name instead. */
 static void
 iopc_dump_help_and_ref(sb_t *buf_help, sb_t *buf_ref,
                        const iopc_attr_kind_t *attr_kind,
-                       const char *tbase, const char *fname,
+                       const char *help_var_pfx,
                        const qv_t(iopc_dox) *comments)
 {
     if (has_help(comments)) {
-        iopc_dump_help(buf_help, attr_kind, tbase, fname, comments);
-        iopc_dump_help_ref(buf_ref, attr_kind, tbase, fname);
+        iopc_dump_help(buf_help, attr_kind, help_var_pfx, comments);
+        iopc_dump_help_ref(buf_ref, attr_kind, help_var_pfx);
     }
 }
 
-/* TODO Stop carrying 'tbase' and 'fname' everywhere.
- * Pass a single name instead. */
 static void
 iopc_dump_attr_table_head(sb_t *buf, const iopc_attr_kind_t *attr_kind,
-                          const char *tbase, const char *fname)
+                          const char *attr_table_var_pfx)
 {
     sb_addf(buf, "static const %s "NAME_FIELD_FMT"_attrs[] = {\n",
             attr_kind->attr_typename,
-            NAME_FIELD_FMT_ARG(tbase, fname, attr_kind->ext));
+            NAME_FIELD_FMT_ARG(attr_table_var_pfx, attr_kind->ext));
 }
 
-/* TODO Stop carrying 'tbase' and 'fname' everywhere.
- * Pass a single name instead. */
 static void
 iopc_dump_attrs_only_help(sb_t *buf, const iopc_attr_kind_t *attr_kind,
-                          const char *tbase, const char *fname,
-                          const qv_t(iopc_dox) *comments)
+                          const char *var_pfx, const qv_t(iopc_dox) *comments)
 {
     if (has_help(comments)) {
-        iopc_dump_help(buf, attr_kind, tbase, fname, comments);
+        iopc_dump_help(buf, attr_kind, var_pfx, comments);
 
-        iopc_dump_attr_table_head(buf, attr_kind, tbase, fname);
-        iopc_dump_help_ref(buf, attr_kind, tbase, fname);
+        iopc_dump_attr_table_head(buf, attr_kind, var_pfx);
+        iopc_dump_help_ref(buf, attr_kind, var_pfx);
         sb_addf(buf, "};\n");
     }
 }
 
-/* TODO Stop carrying 'bname' and 'fname' everywhere. Pass a single name
- * instead + a boolean to tell if the element is a part of an array (so we can
- * know if we put a comma or a semicolon after). */
 static void
 iopc_dump_attrs_ref(sb_t *buf, unsigned int flags, uint16_t attrs_len,
-                    const char *bname, const char *fname, const char *ext)
+                    const char *attr_table_var_pfx, bool is_in_array,
+                    const char *ext)
 {
-    const char *tabs = fname[0] ? "    " : "";
+    const char *tabs = is_in_array ? "    " : "";
 
     sb_addf(buf,
             "%s{\n"
@@ -979,11 +964,11 @@ iopc_dump_attrs_ref(sb_t *buf, unsigned int flags, uint16_t attrs_len,
             "%s    .attrs_len = %u,\n"
             "%s    .attrs     = "NAME_FIELD_FMT"_attrs,\n",
             tabs, attrs_len,
-            tabs, NAME_FIELD_FMT_ARG(bname, fname, ext));
+            tabs, NAME_FIELD_FMT_ARG(attr_table_var_pfx, ext));
     }
     sb_addf(buf,
             "%s}%s\n",
-            tabs, fname[0] ? "," : ";");
+            tabs, is_in_array ? "," : ";");
 }
 
 /*}}} */
@@ -1704,16 +1689,16 @@ static void
 iopc_dump_static_field_src(sb_t *buf, const iopc_field_t *f, const char *name)
 {
     lstr_t type;
+    const iopc_attr_kind_t *attr_kind = &iopc_attr_kind_static_field_g;
 
+    /* TODO Use iopc_dump_attrs(). */
     if (has_help(&f->comments)) {
-        const iopc_attr_kind_t *attr_kind = &iopc_attr_kind_static_field_g;
-
-        iopc_dump_attrs_only_help(buf, attr_kind, name, "", &f->comments);
+        iopc_dump_attrs_only_help(buf, attr_kind, name, &f->comments);
 
         sb_addf(buf, "static const %s %s__%s = ",
                 attr_kind->attrs_typename, name, attr_kind->attrs_var_sfx);
         iopc_dump_attrs_ref(buf, BITMASK_NTH(unsigned, attr_kind->help_type),
-                            1, name, "", attr_kind->ext);
+                            1, name, false, attr_kind->ext);
     }
 
     sb_addf(buf,
@@ -1759,7 +1744,8 @@ iopc_dump_static_field_src(sb_t *buf, const iopc_field_t *f, const char *name)
     sb_addf(buf, "    .type  = %*pM,\n", LSTR_FMT_ARG(type));
 
     if (has_help(&f->comments)) {
-        sb_addf(buf, "    .attrs = &%s__sf_desc_attrs,\n", name);
+        sb_addf(buf, "    .attrs = &%s__%s,\n", name,
+                attr_kind->attrs_var_sfx);
     }
 
     sb_addf(buf, "};\n");
@@ -1929,7 +1915,7 @@ static void iopc_dump_attrs_ref_body(const iopc_attr_kind_t *attr_kind,
 static void iopc_dump_attr_table(const iopc_attr_kind_t *attr_kind,
                                  const qv_t(iopc_dox) *comments,
                                  const qv_t(iopc_attr) *attrs,
-                                 const char *tbase, const char *fname,
+                                 const char *var_name_pfx,
                                  sb_t *buf, unsigned *attrs_flags,
                                  int *attrs_cnt)
 {
@@ -1939,7 +1925,7 @@ static void iopc_dump_attr_table(const iopc_attr_kind_t *attr_kind,
 
     if (has_help(comments)) {
         iopc_dump_help_and_ref(buf, &attrs_body, attr_kind,
-                               tbase, fname, comments);
+                               var_name_pfx, comments);
         SET_BIT(&flags, attr_kind->help_type);
         nbr_attrs++;
     }
@@ -1959,7 +1945,7 @@ static void iopc_dump_attr_table(const iopc_attr_kind_t *attr_kind,
     }
 
     if (nbr_attrs > 0) {
-        iopc_dump_attr_table_head(buf, attr_kind, tbase, fname);
+        iopc_dump_attr_table_head(buf, attr_kind, var_name_pfx);
         sb_addsb(buf, &attrs_body);
         sb_addf(buf, "};\n");
     }
@@ -1976,21 +1962,21 @@ static void iopc_dump_attr_table(const iopc_attr_kind_t *attr_kind,
 static void iopc_dump_attrs(const iopc_attr_kind_t *attr_kind,
                             const qv_t(iopc_dox) *comments,
                             const qv_t(iopc_attr) *attrs,
-                            const char *tbase, const char *fname,
+                            const char *var_name_pfx,
                             sb_t *buf, bool *has_attrs)
 {
     int nbr_attrs;
     unsigned flags;
 
-    iopc_dump_attr_table(attr_kind, comments, attrs, tbase, fname, buf,
+    iopc_dump_attr_table(attr_kind, comments, attrs, var_name_pfx, buf,
                          &flags, &nbr_attrs);
     if (nbr_attrs > 0) {
         /* Write the 'attrs' structure containing the attributes. */
         SB_1k(attrs_ref_body);
 
-        iopc_dump_attrs_ref(&attrs_ref_body, flags, nbr_attrs, tbase, fname,
-                            attr_kind->ext);
-        iopc_dump_attrs_ref_body(attr_kind, tbase,
+        iopc_dump_attrs_ref(&attrs_ref_body, flags, nbr_attrs, var_name_pfx,
+                            false, attr_kind->ext);
+        iopc_dump_attrs_ref_body(attr_kind, var_name_pfx,
                                  LSTR_SB_V(&attrs_ref_body), false, buf);
     }
     if (has_attrs) {
@@ -2545,14 +2531,16 @@ static int
 iopc_dump_field_attrs(sb_t *buf, const iopc_struct_t *st, const char *tbase,
                       const iopc_field_t *f, iopc_attrs_t *attrs)
 {
+    t_scope;
     SB_1k(attrs_body);
     SB_1k(checkf_body);
     SB_1k(checkf_loopbody);
-    const char *cname = pp_to_c(f->name);
+    const char *cname = t_camelcase_to_c_str(f->name);
+    const char *var_pfx = t_fmt("%s__%s", tbase, cname);
     int type;
 
     iopc_dump_help_and_ref(buf, &attrs_body, &iopc_attr_kind_field_g,
-                           tbase, cname, &f->comments);
+                           var_pfx, &f->comments);
     if (has_help(&f->comments)) {
         attrs->attrs_len++;
         SET_BIT(&attrs->flags, ATTR_HELP(FIELD));
@@ -2725,12 +2713,16 @@ iopc_dump_fun_struct_attrs(sb_t *buf, const iopc_attr_kind_t *attr_kind,
                            const iopc_fun_struct_t *fun_st,
                            iopc_attrs_t *attrs, sb_t *attrs_body)
 {
+    t_scope;
+    const char *var_pfx;
+
     if (fun_st->is_anonymous || !fun_st->existing_struct) {
         return;
     }
 
-    iopc_dump_help_and_ref(buf, attrs_body, attr_kind, tbase,
-                           cname, &fun_st->existing_struct->comments);
+    var_pfx = t_fmt("%s__%s", tbase, cname);
+    iopc_dump_help_and_ref(buf, attrs_body, attr_kind, var_pfx,
+                           &fun_st->existing_struct->comments);
     if (has_help(&fun_st->existing_struct->comments)) {
         SET_BIT(&attrs->flags, attr_kind->help_type);
         attrs->attrs_len++;
@@ -2741,12 +2733,14 @@ static void
 iopc_dump_rpc_attrs(sb_t *buf, const char *tbase, const iopc_fun_t *f,
                     iopc_attrs_t *attrs, unsigned *n_func_and_alias)
 {
+    t_scope;
     SB_1k(attrs_body);
     SB_1k(attrs_body_alias);
-    const char *cname = pp_to_c(f->name);
+    const char *cname = t_camelcase_to_c_str(f->name);
+    const char *var_pfx = t_fmt("%s__%s", tbase, cname);
 
-    iopc_dump_help_and_ref(buf, &attrs_body, &iopc_attr_kind_rpc_g, tbase,
-                           cname, &f->comments);
+    iopc_dump_help_and_ref(buf, &attrs_body, &iopc_attr_kind_rpc_g, var_pfx,
+                           &f->comments);
     if (has_help(&f->comments)) {
         SET_BIT(&attrs->flags, ATTR_HELP(RPC));
         attrs->attrs_len++;
@@ -2863,8 +2857,7 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
 {
     t_scope;
     SB_1k(values_attrs_body);
-    const char *tname = pp_to_c(en->name);
-    char *tbase = t_fmt("%s__%s", pkg_name, tname);
+    char *tbase = t_fmt("%s__%s", pkg_name, t_camelcase_to_c_str(en->name));
     int range;
     unsigned flags = 0;
     bool has_attrs;
@@ -2935,18 +2928,22 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
 
     tab_for_each_entry(val, &en->values) {
         t_scope;
-        lstr_t fname = t_lstr_ascii_tolower(LSTR(val->name));
+        lstr_t fname;
+        const char *var_pfx;
         int nb_enum_value_attrs;
         unsigned enum_value_attrs_flags;
 
+        fname = t_lstr_ascii_tolower(LSTR(val->name));
+        var_pfx = t_fmt("%s__%*pM", tbase, LSTR_FMT_ARG(fname));
+
         iopc_dump_attr_table(&iopc_attr_kind_enum_value_g, &val->comments,
-                             &val->attrs, tbase, fname.s, buf,
+                             &val->attrs, var_pfx, buf,
                              &enum_value_attrs_flags, &nb_enum_value_attrs);
         if (nb_enum_value_attrs) {
             values_have_attributes = true;
         }
         iopc_dump_attrs_ref(&values_attrs_body, enum_value_attrs_flags,
-                            nb_enum_value_attrs, tbase, fname.s,
+                            nb_enum_value_attrs, var_pfx, true,
                             iopc_attr_kind_enum_value_g.ext);
     }
 
@@ -2956,7 +2953,7 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
     }
 
     iopc_dump_attrs(&iopc_attr_kind_enum_g, &en->comments, &en->attrs,
-                    tbase, "", buf, &has_attrs);
+                    tbase, buf, &has_attrs);
     if (has_attrs || values_have_attributes) {
         SET_BIT(&flags, IOP_ENUM_EXTENDED);
     }
@@ -3366,7 +3363,7 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
     range = iopc_put_range(buf, &t);
 
     iopc_dump_attrs(&iopc_attr_kind_struct_g, &st->comments, &st->attrs,
-                    tbase, "", buf, &has_attrs);
+                    tbase, buf, &has_attrs);
     if (has_attrs) {
         SET_BIT(&st->flags, IOP_STRUCT_EXTENDED);
     }
@@ -3668,7 +3665,7 @@ iopc_iface_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_iface_dump_rpc_attrs(buf, ibase, iface);
 
     iopc_dump_attrs(&iopc_attr_kind_iface_g, &iface->comments, &iface->attrs,
-                    ibase, "", buf, &has_attrs);
+                    ibase, buf, &has_attrs);
     if (has_attrs) {
         SET_BIT(&iface->flags, IOP_IFACE_HAS_ATTRS);
     }
@@ -3739,29 +3736,33 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
         SET_BIT(&flags, IOP_MOD_EXTENDED);
         assert(mod->fields_by_tag.len == mod->fields.len);
         tab_for_each_entry(f, &mod->fields_by_tag) {
+            t_scope;
             int len = has_help(&f->comments);
             const char *fname = pp_to_c(f->name);
+            const char *var_pfx;
 
-            iopc_dump_attrs_only_help(buf, attr_kind, mbase, fname,
-                                      &f->comments);
+            /* TODO Use iopc_dump_attr_table(). */
+            var_pfx = t_fmt("%s__%s", mbase, fname);
+            iopc_dump_attrs_only_help(buf, attr_kind, var_pfx, &f->comments);
 
             iopc_dump_attrs_ref(&help_body,
                 BITMASK_NTH(unsigned, attr_kind->help_type) * len, len,
-                mbase, fname, attr_kind->ext);
+                var_pfx, true, attr_kind->ext);
         }
         sb_addf(buf, "static const %s %s__%s[] = {\n%*pM};\n",
                 attr_kind->attrs_typename, mbase, attr_kind->attrs_var_sfx,
                 SB_FMT_ARG(&help_body));
     }
+    /* TODO Use iopc_dump_attrs(). */
     if (has_help(&mod->comments)) {
         const iopc_attr_kind_t *attr_kind = &iopc_attr_kind_mod_g;
 
         SET_BIT(&flags, IOP_MOD_EXTENDED);
-        iopc_dump_attrs_only_help(buf, attr_kind, mbase, "", &mod->comments);
+        iopc_dump_attrs_only_help(buf, attr_kind, mbase, &mod->comments);
         sb_addf(buf, "static const %s %s__%s = ",
                 attr_kind->attrs_typename, mbase, attr_kind->attrs_var_sfx);
         iopc_dump_attrs_ref(buf, BITMASK_NTH(unsigned, attr_kind->help_type),
-                            1, mbase, "", attr_kind->ext);
+                            1, mbase, false, "m");
     }
 
     sb_addf(buf,

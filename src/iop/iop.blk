@@ -565,6 +565,13 @@ lstr_t t_camelcase_to_c(lstr_t s)
     return lstr_init_(buf.data, buf.len, MEM_STACK);
 }
 
+const char *t_camelcase_to_c_str(const char *s)
+{
+    /* XXX We know that the string is null-terminated because the
+     * implementation is just a few lines above ;-). */
+    return t_camelcase_to_c(LSTR(s)).s;
+}
+
 lstr_t t_iop_type_to_c(lstr_t name)
 {
     t_SB(buf, 64);

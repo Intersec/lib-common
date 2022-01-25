@@ -53,6 +53,8 @@ qvector_t(iop_struct, const iop_struct_t * nonnull);
 /** Convert an IOP identifier from CamelCase naming to C underscored naming */
 lstr_t t_camelcase_to_c(lstr_t name);
 
+const char *nonnull t_camelcase_to_c_str(const char *nonnull name);
+
 /** Convert an IOP type name (pkg.CamelCase) to C underscored naming */
 lstr_t t_iop_type_to_c(lstr_t fullname);
 
