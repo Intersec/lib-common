@@ -545,7 +545,7 @@ static int iopc_put_range(sb_t *sb, const iop_array_i32_t *tab)
 {
     qm_t(rg) *h = &range_h_g;
     lstr_t    s   = LSTR_INIT((char *)tab->tab, 4 * tab->len);
-    int       pos = qm_reserve(rg, h, &s, 0);
+    uint32_t  pos = qm_reserve(rg, h, &s, 0);
     int       res;
 
     if (pos & QHASH_COLLISION)

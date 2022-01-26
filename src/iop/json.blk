@@ -2506,7 +2506,7 @@ static int write_field(const iop_field_t *fdesc, const void *value,
 {
     int res = 0;
     int ret;
-    int pos;
+    uint32_t pos;
     lstr_t subfile_path;
     char fullpath[PATH_MAX];
     lstr_t fullpath_lstr;
@@ -2957,7 +2957,7 @@ static int init_jpack_sub_files(const iop_struct_t *st, const void *value,
     tab_for_each_ptr(subfile, subfiles) {
         const iop_field_t *fdesc;
         const void *ptr;
-        int pos;
+        uint32_t pos;
         qm_t(iop_jpack_paths) *paths;
 
         fdesc = iop_get_field_const(value, st, subfile->iop_path, &ptr, NULL);

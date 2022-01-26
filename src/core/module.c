@@ -135,7 +135,7 @@ set_require_type(module_t *module, module_t *required_by)
 module_t *module_register(lstr_t name)
 {
     module_t *module;
-    int pos;
+    uint32_t pos;
 
     pos = qm_reserve(module, &_G.modules, &name, 0);
     if (!expect(!(pos & QHASH_COLLISION))) {
@@ -487,7 +487,7 @@ void module_destroy_all(void)
 void module_implement_method(module_t *module, const module_method_t *method,
                              void *cb)
 {
-    int pos;
+    uint32_t pos;
 
     pos = qm_reserve(methods_impl, &_G.methods, method, 0);
     if (!(pos & QHASH_COLLISION)) {

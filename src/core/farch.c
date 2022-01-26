@@ -132,7 +132,7 @@ lstr_t farch_unarchive_persist(const farch_entry_t * nonnull entry)
 {
     t_scope;
     lstr_t content;
-    int pos;
+    uint32_t pos;
 
     assert (MODULE_IS_LOADED(farch));
 

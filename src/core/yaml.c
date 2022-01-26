@@ -1350,7 +1350,7 @@ t_yaml_scalar_replace_variables(yaml_parse_t * nonnull env,
         }
         if (data->variable->in_string) {
             lstr_t string_value;
-            int pos;
+            uint32_t pos;
 
             if (pair->data.variable) {
                 yaml_env_set_err_at(
