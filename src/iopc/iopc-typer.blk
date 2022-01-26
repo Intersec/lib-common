@@ -1408,7 +1408,7 @@ static lstr_t iopc_struct_sig(iopc_struct_t *st)
 static void iopc_type_fold_one(qm_t(uid) *h, iopc_struct_t *st)
 {
     lstr_t s = iopc_struct_sig(st);
-    int pos = qm_put(uid, h, &s, st, 0);
+    uint32_t pos = qm_put(uid, h, &s, st, 0);
     iopc_struct_t *st2;
 
     if (pos & QHASH_COLLISION) {

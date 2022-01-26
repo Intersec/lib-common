@@ -4699,7 +4699,7 @@ check_subfile(yaml_pack_env_t * nonnull env, uint64_t checksum,
 {
     char fullpath[PATH_MAX];
     lstr_t path;
-    int pos;
+    uint32_t pos;
 
     /* compute new outdir */
     path_extend(fullpath, env->outdirpath.s, "%s", relative_path);

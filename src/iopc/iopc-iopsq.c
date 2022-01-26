@@ -185,7 +185,7 @@ void iopsq_type_table_fill_type(iopsq_type_table_t *table,
                                 iop__type__t *type)
 {
     if (iopsq_fill_type(ftype, type) < 0) {
-        int pos;
+        uint32_t pos;
 
         /* The type is unknown and has probably been built by the user.
          * Register it in the table. */

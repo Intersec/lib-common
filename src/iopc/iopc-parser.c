@@ -471,7 +471,7 @@ int iopc_check_field_attributes(iopc_field_t *f, bool tdef)
 static iopc_attr_desc_t *add_attr(iopc_attr_id_t id, const char *name)
 {
     iopc_attr_desc_t d;
-    int pos;
+    uint32_t pos;
 
     iopc_attr_desc_init(&d);
     d.id    = id;

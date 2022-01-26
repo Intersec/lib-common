@@ -381,15 +381,15 @@ int logger_set_level(lstr_t name, int level, unsigned flags)
     }
 
     if (!logger) {
-        int pos;
-
         if (level == LOG_UNDEFINED) {
-            pos = qm_del_key(level, &_G.pending_levels, &name);
+            int pos = qm_del_key(level, &_G.pending_levels, &name);
+
             if (pos >= 0) {
                 lstr_wipe(&_G.pending_levels.keys[pos]);
             }
         } else {
             struct level l = { .level = level, .flags = flags };
+            uint32_t pos;
 
             pos = qm_put(level, &_G.pending_levels, &name, l, QHASH_OVERWRITE);
             if (!(pos & QHASH_COLLISION)) {
