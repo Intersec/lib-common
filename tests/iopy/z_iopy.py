@@ -2628,54 +2628,75 @@ class IopyCompatibilityTests(z.TestCase):
 
     def test_deprecated_underscore_methods(self):
         """Test deprecated underscore methods of the different classes are
-        aliases to the new methods.
+        equal to the new methods.
         """
         def check_method(obj, methods):
-            for old_method_name, new_method_name in methods:
-                self.assertEqual(getattr(obj, old_method_name),
-                                 getattr(obj, new_method_name))
+            for method in methods:
+                old_method_name = method[0]
+                new_method_name = method[1]
+                try:
+                    args = method[2]
+                except IndexError:
+                    args = tuple()
+                try:
+                    kwargs = method[3]
+                except IndexError:
+                    kwargs = {}
+                old_res = getattr(obj, old_method_name)(*args, **kwargs)
+                new_res = getattr(obj, new_method_name)(*args, **kwargs)
+                self.assertEqual(old_res, new_res)
 
         # EnumBase
-        check_method(iopy.EnumBase, [
+        enum_a = self.p.test.EnumA('A')
+        check_method(enum_a, [
             ('__values__', 'values'),
             ('__ranges__', 'ranges'),
         ])
 
         # StructUnionBase
-        check_method(iopy.StructUnionBase, [
-            ('__from_file__', 'from_file'),
+        struct_a = self.p.test.StructA(e='A')
+        check_method(struct_a, [
             ('__json__', 'to_json'),
             ('__yaml__', 'to_yaml'),
             ('__bin__', 'to_bin'),
             ('__hex__', 'to_hex'),
             ('__xml__', 'to_xml'),
+        ])
+
+        path = os.path.join(TEST_PATH, 'test_class_b.json')
+        check_method(self.p.test.ClassB, [
+            ('__from_file__', 'from_file', (), {'_json': path}),
             ('__get_fields_name__', 'get_fields_name'),
             ('__desc__', 'get_desc'),
             ('__values__', 'get_values'),
         ])
 
         # UnionBase
-        check_method(iopy.UnionBase, [
+        union_a = self.p.test.UnionA(i=1)
+        check_method(union_a, [
             ('__object__', 'get_object'),
             ('__key__', 'get_key'),
         ])
 
         # StructBase
-        check_method(iopy.StructBase, [
+        check_method(self.p.test.StructA, [
             ('__iopslots__', 'get_iopslots'),
             ('__get_class_attrs__', 'get_class_attrs'),
         ])
 
         # Plugin
-        check_method(iopy.Plugin, [
-            ('__get_type_from_fullname__', 'get_type_from_fullname'),
-            ('__get_iface_type_from_fullname__',
-             'get_iface_type_from_fullname'),
-        ])
         check_method(self.p, [
-            ('__dsopath__', 'dsopath'),
-            ('__modules__', 'modules'),
+            (
+                '__get_type_from_fullname__', 'get_type_from_fullname',
+                ('test.ClassB',),
+            ),
+            (
+                '__get_iface_type_from_fullname__',
+                'get_iface_type_from_fullname', ('test.InterfaceA',)
+            ),
         ])
+        self.assertEqual(self.p.__dsopath__, self.p.dsopath)
+        self.assertEqual(self.p.__modules__, self.p.modules)
 
 
 if __name__ == "__main__":

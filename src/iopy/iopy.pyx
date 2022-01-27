@@ -716,8 +716,10 @@ cdef class EnumBase(Basic):
         """
         return enum_get_values(cls)
 
-    # Deprecated, use values() instead.
-    __values__ = values
+    @classmethod
+    def __values__(object cls):
+        """Deprecated, use values() instead."""
+        return enum_get_values(cls)
 
     @classmethod
     def ranges(object cls):
@@ -730,8 +732,10 @@ cdef class EnumBase(Basic):
         """
         return enum_get_ranges(cls)
 
-    # Deprecated, use ranges() instead.
-    __ranges__ = ranges
+    @classmethod
+    def __ranges__(object cls):
+        """Deprecated, use ranges() instead."""
+        return enum_get_ranges(cls)
 
     @classmethod
     def get_iop_description(object cls):
@@ -1475,8 +1479,10 @@ cdef class StructUnionBase(Basic):
         """
         return unpack_file_from_args_to_py_obj(cls, kwargs)
 
-    # Deprecated, use from_file() instead.
-    __from_file__ = from_file
+    @classmethod
+    def __from_file__(object cls, **kwargs):
+        """Deprecated, use from_file() instead."""
+        return unpack_file_from_args_to_py_obj(cls, kwargs)
 
     def __richcmp__(StructUnionBase self, object other, int op):
         """Compare struct or union with another value.
@@ -1565,8 +1571,9 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_json(self, kwargs)
 
-    # Deprecated, use to_json() instead.
-    __json__ = to_json
+    def __json__(StructUnionBase self, **kwargs):
+        """Deprecated, use to_json() instead."""
+        return format_py_obj_to_json(self, kwargs)
 
     def to_yaml(StructUnionBase self):
         """Format the struct or union object as YAML.
@@ -1578,8 +1585,9 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_yaml(self)
 
-    # Deprecated, use to_yaml() instead.
-    __yaml__ = to_yaml
+    def __yaml__(StructUnionBase self):
+        """Deprecated, use to_yaml() instead."""
+        return format_py_obj_to_yaml(self)
 
     def to_bin(StructUnionBase self):
         """Format the struct or union object as binary.
@@ -1591,8 +1599,9 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_bin(self)
 
-    # Deprecated, use to_bin() instead.
-    __bin__ = to_bin
+    def __bin__(StructUnionBase self):
+        """Deprecated, use to_bin() instead."""
+        return format_py_obj_to_bin(self)
 
     def to_hex(StructUnionBase self):
         """Format the struct or union object as hex.
@@ -1604,8 +1613,17 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_hex(self)
 
-    # Deprecated, use to_hex() instead.
-    __hex__ = to_hex
+    # XXX: Ugly hack to avoid that cython uses __hex__ as the function to
+    # convert a number to hexadecimal with the hex() function.
+    # See https://cython.readthedocs.io/en/latest/src/userguide/special_methods.html?highlight=__hex__#numeric-conversions
+    @property
+    def __hex__(StructUnionBase self):
+        """Deprecated, use to_hex() instead."""
+        cdef object wrap
+
+        def wrap():
+            return format_py_obj_to_hex(self)
+        return wrap
 
     def to_xml(StructUnionBase self, **kwargs):
         """Format the struct or union object as XML.
@@ -1628,8 +1646,9 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_xml(self, kwargs)
 
-    # Deprecated, use to_xml() instead.
-    __xml__ = to_xml
+    def __xml__(StructUnionBase self, **kwargs):
+        """Deprecated, use to_xml() instead."""
+        return format_py_obj_to_xml(self, kwargs)
 
     def __str__(StructUnionBase self):
         """Return the string representation as JSON of the struct or union
@@ -1667,8 +1686,10 @@ cdef class StructUnionBase(Basic):
         """
         return struct_union_get_fields_name(cls)
 
-    # Deprecated, use get_fields_name() instead.
-    __get_fields_name__ = get_fields_name
+    @classmethod
+    def __get_fields_name__(object cls):
+        """Deprecated, use get_fields_name() instead."""
+        return struct_union_get_fields_name(cls)
 
     @classmethod
     def get_desc(object cls):
@@ -1680,8 +1701,10 @@ cdef class StructUnionBase(Basic):
         """
         return get_struct_union_desc(cls)
 
-    # Deprecated, use get_desc() instead.
-    __desc__ = get_desc
+    @classmethod
+    def __desc__(object cls):
+        """Deprecated, use get_desc() instead."""
+        return get_struct_union_desc(cls)
 
     @classmethod
     def get_values(object cls):
@@ -1695,8 +1718,10 @@ cdef class StructUnionBase(Basic):
         """
         return struct_union_get_values_of_cls(cls, False)
 
-    # Deprecated, use get_values() instead.
-    __values__ = get_values
+    @classmethod
+    def __values__(object cls):
+        """Deprecated, use get_values() instead."""
+        return struct_union_get_values_of_cls(cls, False)
 
 
 cdef class IopStructUnionDescription:
@@ -5081,8 +5106,9 @@ cdef class UnionBase(StructUnionBase):
         """
         return union_get_object(self)
 
-    # Deprecated, use get_object() instead.
-    __object__ = get_object
+    def __object__(UnionBase self):
+        """Deprecated, use get_object() instead."""
+        return union_get_object(self)
 
     def get_key(UnionBase self):
         """Get the currently set field name.
@@ -5094,8 +5120,9 @@ cdef class UnionBase(StructUnionBase):
         """
         return union_get_key(self)
 
-    # Deprecated, use get_key() instead.
-    __key__ = get_key
+    def __key__(UnionBase self):
+        """Deprecated, use get_key() instead."""
+        return union_get_key(self)
 
     def __setattr__(UnionBase self, object name, object value):
         """Set attribute of union.
@@ -5567,8 +5594,10 @@ cdef class StructBase(StructUnionBase):
         """
         return struct_get_iopslots(cls)
 
-    # Deprecated, use get_iopslots() instead.
-    __iopslots__ = get_iopslots
+    @classmethod
+    def __iopslots__(object cls):
+        """Deprecated, use get_iopslots() instead."""
+        return struct_get_iopslots(cls)
 
     def __setattr__(StructBase self, object name, object value):
         """Set attribute of struct.
@@ -5648,8 +5677,10 @@ cdef class StructBase(StructUnionBase):
         """
         return struct_get_class_attrs(cls)
 
-    # Deprecated, use get_class_attrs() instead.
-    __get_class_attrs__ = get_class_attrs
+    @classmethod
+    def __get_class_attrs__(object cls):
+        """Deprecated, use get_class_attrs() instead."""
+        return struct_get_class_attrs(cls)
 
     def __repr__(StructBase self):
         """Return the represention of the structure."""
@@ -8720,18 +8751,12 @@ cdef class Plugin:
 
     @property
     def __dsopath__(Plugin self):
-        """Get the path of the IOP plugin.
-
-        Deprecated, use dsopath instead.
-        """
+        """Deprecated, use dsopath instead."""
         return lstr_to_py_str(self.dso.path)
 
     @property
     def __modules__(Plugin self):
-        """Get the modules of the IOP plugin.
-
-        Deprecated, use modules instead.
-        """
+        """Deprecated, use modules instead."""
         return self.modules
 
     def get_type_from_fullname(Plugin self, object fullname):
@@ -8748,8 +8773,9 @@ cdef class Plugin:
         """
         return plugin_get_type_from_fullname(self, fullname)
 
-    # Deprecated, use get_type_from_fullname() instead.
-    __get_type_from_fullname__ = get_type_from_fullname
+    def __get_type_from_fullname__(Plugin self, object fullname):
+        """Deprecated, use get_type_from_fullname() instead."""
+        return plugin_get_type_from_fullname(self, fullname)
 
     def get_iface_type_from_fullname(Plugin self, object fullname):
         """Get the public class for the given IOP interface fullname.
@@ -8765,8 +8791,9 @@ cdef class Plugin:
         """
         return plugin_get_iface_type_from_fullname(self, fullname)
 
-    # Deprecated, use get_iface_type_from_fullname() instead.
-    __get_iface_type_from_fullname__ = get_iface_type_from_fullname
+    def __get_iface_type_from_fullname__(Plugin self, object fullname):
+        """Deprecated, use get_iface_type_from_fullname() instead."""
+        return plugin_get_iface_type_from_fullname(self, fullname)
 
     def register(Plugin self):
         """Get legacy IOPy register.
