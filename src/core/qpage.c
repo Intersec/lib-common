@@ -396,7 +396,6 @@ free_n(page_run_t *run, page_desc_t *blk, size_t npages, uint32_t seg)
         bsz += blk_remove(blk);
     }
     blk_insert(blk, bsz);
-    spin_unlock(&_G.lock);
 
     if (bsz == run->npages) {
 #ifdef __linux__
@@ -472,6 +471,7 @@ free_n(page_run_t *run, page_desc_t *blk, size_t npages, uint32_t seg)
         }
     }
 
+    spin_unlock(&_G.lock);
     qpages_check(run);
 }
 
@@ -527,12 +527,13 @@ qpage_alloc_align_impl(size_t npages, size_t shift, bool zero, page_run_t **runp
         assert (size == npages);
         next->flags &= ~BLK_PREV_FREE;
     }
-    spin_unlock(&_G.lock);
 
     mem_tool_allow_memory(run->mem_pages + blk_no(blk), npages * QPAGE_SIZE,
                           zero);
-    if (zero)
+    if (zero) {
         blk_cleanse(run, blkno, npages);
+    }
+    spin_unlock(&_G.lock);
     *runp = run;
     qpages_check(run);
     return blk;
