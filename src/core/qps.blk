@@ -30,6 +30,8 @@
 
 static struct {
     dlist_t qps_head;
+    spinlock_t lock;
+
     bool    in_snapshot_fork;
 
     void  (*sighandler)(int, siginfo_t *, void *);
@@ -734,9 +736,12 @@ qps_map_recycle(qps_t *qps, qps_map_t *map, uint16_t no, bool quarantine)
 
     /* remove it from the allowed maps */
     qps->maps.tab[no] = NULL;
+    spin_lock(&_G.lock);
     pos = qps_smaps_find(&qps->smaps, map, true);
-    if (pos >= 0)
+    if (pos >= 0) {
         qv_remove(&qps->smaps, pos);
+    }
+    spin_unlock(&_G.lock);
     qv_append(&qps->omaps, map);
 
     /* quarantine the map id until the next snapshot */
@@ -890,7 +895,9 @@ static qps_map_t *qps_map_create_raw(qps_t *qps, uint32_t no, const char *sig)
 static void qps_map_bless(qps_t *qps, qps_map_t *map)
 {
     qps->maps.tab[map->hdr.mapno] = map;
+    spin_lock(&_G.lock);
     qv_insert(&qps->smaps, qps_smaps_find(&qps->smaps, map, false), map);
+    spin_unlock(&_G.lock);
 }
 
 /** QPS map creation helper.
@@ -1201,6 +1208,7 @@ static void qps_on_segfault(int signum, siginfo_t *si, void *uc)
         goto not_for_us;
 
     save_errno = errno;
+    spin_lock(&_G.lock);
     dlist_for_each(it, &_G.qps_head) {
         qps_t     *qps = dlist_entry(it, qps_t, qps_link);
         qps_map_t *map = qps_map_of(si->si_addr);
@@ -1224,10 +1232,12 @@ static void qps_on_segfault(int signum, siginfo_t *si, void *uc)
             qps_map_protect(NULL, map, PROT_READ | PROT_WRITE);
             map->hdr.generation = qps->generation;
             errno = save_errno;
+            spin_unlock(&_G.lock);
             return;
         }
     }
 
+    spin_unlock(&_G.lock);
     errno = save_errno;
   not_for_us:
     if (_G.sighandler) {
@@ -1605,7 +1615,10 @@ static qps_t *qps_new(int dfd, const char *name)
     thr_syn_init(&qps->snapshot_syn);
     qps->hdrs = p_new(qps_pghdr_t, 1);
 
+    spin_lock(&_G.lock);
     dlist_add(&_G.qps_head, &qps->qps_link);
+    spin_unlock(&_G.lock);
+
     return qps;
 }
 
@@ -3073,6 +3086,7 @@ static void __qps_close(qps_t **qpsp, bool do_cleanup)
         }
         p_close(&qps->dfd);
         qv_wipe(&qps->maps);
+        spin_lock(&_G.lock);
         qv_wipe(&qps->smaps);
         qv_wipe(&qps->omaps);
         qv_wipe(&qps->no_free);
@@ -3080,6 +3094,7 @@ static void __qps_close(qps_t **qpsp, bool do_cleanup)
         p_delete(&qps->handles);
         p_delete(&qps->hdrs);
         dlist_remove(&qps->qps_link);
+        spin_unlock(&_G.lock);
         logger_trace(&qps->logger, 1, "unlockdir(.lock)");
         unlockdir(&qps->lock);
         logger_trace(&qps->logger, 1, "qps_close");
