@@ -257,12 +257,12 @@ cdef int t_parse_uri_arg(object uri, object host, int port,
         if host is not None or port >= 0:
             raise Error("host or port argument shouldn't be provided with "
                         "uri argument")
-        res[0] = mp_py_obj_to_lstr(t_pool(), uri, False)
+        res[0] = t_py_obj_to_lstr(uri)
     else:
         if host is None or port < 0:
             raise Error("when uri is not provided, host and port arguments"
                         " should be provided")
-        host_lstr = mp_py_obj_to_lstr(t_pool(), host, False)
+        host_lstr = t_py_obj_to_lstr(host)
         res[0] = t_lstr_fmt("%*pM:%d", LSTR_FMT_ARG(host_lstr), port)
     return 0
 
@@ -1976,8 +1976,7 @@ cdef void add_error_field_type(const iop_field_t *field, sb_t *err):
 
     if py_field_type is not None:
         py_field_type_name = py_field_type.__name__
-        sb_add_lstr(err, mp_py_obj_to_lstr(t_pool(), py_field_type_name,
-                                           False))
+        sb_add_lstr(err, t_py_obj_to_lstr(py_field_type_name))
     else:
         sb_adds(err, 'NoneType')
 
@@ -2014,10 +2013,9 @@ cdef int add_error_convert_field(const iop_field_t *field, object py_obj,
 
     t_scope_ignore(t_scope_guard)
     py_obj_type_name = type(py_obj).__name__
-    py_obj_type_name_lstr = mp_py_obj_to_lstr(t_pool(), py_obj_type_name,
-                                              False)
+    py_obj_type_name_lstr = t_py_obj_to_lstr(py_obj_type_name)
     py_obj_repr = repr(py_obj)
-    py_obj_repr_lstr = mp_py_obj_to_lstr(t_pool(), py_obj_repr, False)
+    py_obj_repr_lstr = t_py_obj_to_lstr(py_obj_repr)
 
     sb_addf(err, "invalid type: got %*pM (%*pM), expected ",
             LSTR_FMT_ARG(py_obj_type_name_lstr),
@@ -2087,7 +2085,7 @@ cdef const iop_field_t *find_field_in_st_by_name(const iop_struct_t *st,
     cdef lstr_t name_lstr
 
     t_scope_ignore(t_scope_guard)
-    name_lstr = mp_py_obj_to_lstr(t_pool(), name, False)
+    name_lstr = t_py_obj_to_lstr(name)
     return find_field_in_st_by_name_lstr(st, name_lstr, field_index)
 
 
@@ -2546,6 +2544,7 @@ cdef int mp_iop_py_obj_field_to_c_val(mem_pool_t *mp, cbool force_str_dup,
     """
     cdef iop_type_t ftype = field.type
     cdef str py_str
+    cdef lstr_t lstr
     cdef bytes py_bytes
     cdef EnumBase py_enum
     cdef object py_enum_cls
@@ -2591,11 +2590,17 @@ cdef int mp_iop_py_obj_field_to_c_val(mem_pool_t *mp, cbool force_str_dup,
 
     elif ftype == IOP_T_XML or ftype == IOP_T_STRING:
         py_str = py_obj
-        (<lstr_t *>res)[0] = mp_py_obj_to_lstr(mp, py_str, force_str_dup)
+        lstr = py_str_to_lstr(py_str)
+        if force_str_dup:
+            lstr = mp_lstr_dup(mp, lstr)
+        (<lstr_t *>res)[0] = lstr
 
     elif ftype == IOP_T_DATA:
         py_bytes = py_obj
-        (<lstr_t *>res)[0] = mp_py_bytes_to_lstr(mp, py_bytes, force_str_dup)
+        lstr = py_bytes_to_lstr(py_bytes)
+        if force_str_dup:
+            lstr = mp_lstr_dup(mp, lstr)
+        (<lstr_t *>res)[0] = lstr
 
     elif ftype == IOP_T_ENUM:
         en = field.u1.en_desc
@@ -3238,7 +3243,7 @@ cdef StructUnionBase parse_special_val(object cls, const iop_struct_t *st,
     # Required to ignore cython error about unused entry t_scope_guard
     t_scope_ignore(t_scope_guard)
 
-    val_lstr = mp_py_obj_to_lstr(t_pool(), val, False)
+    val_lstr = t_py_obj_to_lstr(val)
     return parse_special_val_lstr(cls, st, plugin, val_type, val_lstr)
 
 
@@ -3342,7 +3347,7 @@ cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
 
     t_scope_ignore(t_scope_guard)
 
-    filename_lstr = mp_py_obj_to_lstr(t_pool(), filename, False)
+    filename_lstr = t_py_obj_to_lstr(filename)
     with nogil:
         data = NULL
         if file_type == IOPY_SPECIAL_KWARGS_JSON:
@@ -3400,7 +3405,7 @@ cdef object unpack_file_from_args_to_py_obj(object cls, dict kwargs):
         file_type == IOPY_SPECIAL_KWARGS_YAML):
         return unpack_file_to_py_obj(cls, st, plugin, filename, file_type)
 
-    filename_lstr = mp_py_obj_to_lstr(t_pool(), filename, False)
+    filename_lstr = t_py_obj_to_lstr(filename)
     if lstr_init_from_file(&file_content, filename_lstr.s, PROT_READ,
                            MAP_SHARED) < 0:
         err_desc = strerror(errno)
@@ -4150,11 +4155,11 @@ cdef str format_py_obj_to_xml(StructUnionBase py_obj, dict kwargs):
 
     py_name = kwargs.get('name')
     if py_name is not None:
-        name = mp_py_obj_to_lstr(t_pool(), py_name, False)
+        name = t_py_obj_to_lstr(py_name)
 
     py_ns = kwargs.get('ns')
     if py_ns is not None:
-        ns = mp_py_obj_to_lstr(t_pool(), py_ns, False)
+        ns = t_py_obj_to_lstr(py_ns)
 
     py_soap = kwargs.get('soap')
     if py_soap is not None:
@@ -7744,16 +7749,16 @@ cdef int t_set_ic_hdr_from_kwargs(Plugin plugin, dict kwargs,
     simple_hdr.source = LSTR('python')
 
     if py_login is not None:
-        simple_hdr.login = mp_py_obj_to_lstr(t_pool(), py_login, False)
+        simple_hdr.login = t_py_obj_to_lstr(py_login)
 
     if py_password is not None:
-        simple_hdr.password = mp_py_obj_to_lstr(t_pool(), py_password, False)
+        simple_hdr.password = t_py_obj_to_lstr(py_password)
 
     if py_kind is not None:
-        simple_hdr.kind = mp_py_obj_to_lstr(t_pool(), py_kind, False)
+        simple_hdr.kind = t_py_obj_to_lstr(py_kind)
 
     if py_group is not None:
-        simple_hdr.group = mp_py_obj_to_lstr(t_pool(), py_group, False)
+        simple_hdr.group = t_py_obj_to_lstr(py_group)
 
     if py_workspace_id is not None:
         simple_hdr.workspace_id.has_field = True

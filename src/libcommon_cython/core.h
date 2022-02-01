@@ -45,9 +45,4 @@ typedef _Bool cbool;
 #define t_sb_scope_init_1k()  t_sb_scope_init(1 << 10)
 #define t_sb_scope_init_8k()  t_sb_scope_init(8 << 10)
 
-/* Fix compile error for missing PyUnicode_AsUTF8AndSize for Python < 3.3. */
-#if PY_VERSION_HEX < 0x03030000
-#  define PyUnicode_AsUTF8AndSize(...)  ({ assert(false); NULL; })
-#endif
-
 #endif /* IS_CYTHON_LIBCOMMON_CORE_H */
