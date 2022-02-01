@@ -1081,7 +1081,8 @@ cdef str enum_get_as_name(EnumBase py_en):
     str :
         The string value of the enum.
     """
-    cdef sb_scope_t sb = sb_scope_init_1k()
+    cdef sb_buf_1k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef const iop_enum_t *en = enum_get_desc(py_en)
     cdef int val = py_en.val
     cdef lstr_t val_lstr
@@ -2421,7 +2422,8 @@ cdef int raise_invalid_field_type(const iop_field_t *field,
     py_obj
         The python object to process.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
 
     add_error_convert_field(field, py_obj, &err)
     raise Error(lstr_to_py_str(LSTR_SB_V(&err)))
@@ -2719,7 +2721,8 @@ cdef int mp_iop_repeat_py_field_to_cval(mem_pool_t *mp,
     -------
         -1 in case of python exception. 0 otherwise.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef list field_list
     cdef iop_array_u8_t *array
     cdef int list_len
@@ -2986,7 +2989,8 @@ cdef void *t_parse_lstr_json(const iop_struct_t *st, lstr_t val) except NULL:
     -------
         The unpacked iop struct value or NULL in case of exception.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef pstream_t ps
     cdef int ret_code
     cdef void *res = NULL
@@ -3016,7 +3020,8 @@ cdef void *t_parse_lstr_yaml(const iop_struct_t *st, lstr_t val) except NULL:
     -------
         The unpacked iop struct value or NULL in case of exception.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef pstream_t ps
     cdef int ret_code
     cdef void *res = NULL
@@ -3340,7 +3345,8 @@ cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
         The unpacked object.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef lstr_t filename_lstr
     cdef void *data
     cdef int ret_code
@@ -4034,7 +4040,8 @@ cdef str format_py_obj_to_json(StructUnionBase py_obj, dict kwargs):
         The formatted string.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t sb = sb_scope_init_8k()
+    cdef sb_buf_8k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef void *val = NULL
     cdef unsigned flags
 
@@ -4059,7 +4066,8 @@ cdef str format_py_obj_to_yaml(StructUnionBase py_obj):
         The formatted string.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t sb = sb_scope_init_8k()
+    cdef sb_buf_8k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef void *val = NULL
 
     t_scope_ignore(t_scope_guard)
@@ -4136,7 +4144,8 @@ cdef str format_py_obj_to_xml(StructUnionBase py_obj, dict kwargs):
         The formatted string.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t sb = sb_scope_init_8k()
+    cdef sb_buf_8k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef const iop_struct_t *st = struct_union_get_desc(py_obj)
     cdef void *val = NULL
     cdef lstr_t name = st.fullname
@@ -4480,7 +4489,8 @@ cdef str get_struct_union_desc(object cls):
     -------
         The string description of the struct or union.
     """
-    cdef sb_scope_t sb = sb_scope_init_1k()
+    cdef sb_buf_1k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef const iop_struct_t *st
     cdef cbool is_class
 
@@ -5142,7 +5152,8 @@ cdef class UnionBase(StructUnionBase):
         value : object
             The value of the field to set.
         """
-        cdef sb_scope_t err = sb_scope_init_1k()
+        cdef sb_buf_1k_t err_buf
+        cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef _InternalStructUnionType iop_type
         cdef const iop_struct_t *st
         cdef Plugin plugin
@@ -5382,7 +5393,8 @@ cdef int union_set(UnionBase py_obj, tuple args, dict kwargs) except -1:
     -------
         -1 in case of python exception. 0 otherwise.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef _InternalStructUnionType iop_type
     cdef const iop_struct_t *st
     cdef Plugin plugin
@@ -5566,7 +5578,8 @@ cdef class StructBase(StructUnionBase):
             The list of values for the fields of the structure.
         """
         cdef t_scope_t t_scope_guard = t_scope_init()
-        cdef sb_scope_t err = sb_scope_init_1k()
+        cdef sb_buf_1k_t err_buf
+        cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef object key
         cdef const iop_struct_t *st
         cdef void *empty_val = NULL
@@ -5614,7 +5627,8 @@ cdef class StructBase(StructUnionBase):
         value : object
             The value of the field to set.
         """
-        cdef sb_scope_t err = sb_scope_init_1k()
+        cdef sb_buf_1k_t err_buf
+        cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef const iop_struct_t *st = struct_union_get_desc(self)
         cdef const iop_field_t *field
         cdef cbool is_valid
@@ -5937,7 +5951,8 @@ cdef int t_struct_init_fields(StructBase py_st, const iop_struct_t *obj_st,
         -1 in case of invalid fields.
         0 otherwise.
     """
-    cdef sb_scope_t field_err = sb_scope_init_1k()
+    cdef sb_buf_1k_t field_err_buf
+    cdef sb_scope_t field_err = sb_scope_init_static(field_err_buf)
     cdef int res = 0
     cdef const iop_struct_t *parent_st
     cdef const iop_field_t *field
@@ -6441,7 +6456,8 @@ cdef str struct_get_iopslots(object cls):
     str
         The list of IOP slots.
     """
-    cdef sb_scope_t sb = sb_scope_init_1k()
+    cdef sb_buf_1k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef const iop_struct_t *st
 
     st = struct_union_get_iop_type_cls(cls).desc
@@ -7392,7 +7408,8 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
         The default timeout for the IC channel in seconds.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef ic__hdr__t *def_hdr = NULL
     cdef lstr_t uri_lstr
     cdef iopy_ic_client_t *ic_client
@@ -7475,7 +7492,8 @@ cdef int client_channel_connect(Channel channel, int timeout) except -1:
     timeout
         The connection timeout in seconds.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef iopy_ic_res_t res
 
     with nogil:
@@ -7494,7 +7512,8 @@ cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
         The result of the RPC or None in case of asynchronous RPC.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef _InternalIfaceHolder iface_holder = rpc.iface_holder
     cdef Plugin plugin = iface_holder.plugin
     cdef _InternalIface py_iface = rpc.py_iface
@@ -7997,7 +8016,8 @@ cdef class ChannelServer(ChannelBase):
             Port number of the socket.
         """
         cdef t_scope_t t_scope_guard = t_scope_init()
-        cdef sb_scope_t err = sb_scope_init_1k()
+        cdef sb_buf_1k_t err_buf
+        cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef lstr_t uri_lstr
         cdef int res
 
@@ -8030,7 +8050,8 @@ cdef class ChannelServer(ChannelBase):
             Port number of the socket.
         """
         cdef t_scope_t t_scope_guard = t_scope_init()
-        cdef sb_scope_t err = sb_scope_init_1k()
+        cdef sb_buf_1k_t err_buf
+        cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef lstr_t uri_lstr
         cdef iopy_ic_res_t res
 
@@ -9194,7 +9215,8 @@ cdef iop_dso_t *plugin_open_dso(Plugin plugin, object dso_path) except NULL:
     -------
         The loaded DSO.
     """
-    cdef sb_scope_t sb = sb_scope_init_1k()
+    cdef sb_buf_1k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef const char *dso_path_str = NULL
     cdef bytes dso_path_bytes
     cdef iop_dso_t *dso
@@ -10179,7 +10201,8 @@ cdef public object Iopy_make_plugin_from_handle(void *handle,
     -------
         The IOPy plugin.
     """
-    cdef sb_scope_t sb = sb_scope_init_1k()
+    cdef sb_buf_1k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef Plugin plugin
     cdef iop_dso_t *dso
 

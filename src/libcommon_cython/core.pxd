@@ -58,10 +58,12 @@ cdef extern from "<lib-common/libcommon_cython/core.h>" nogil:
     char *t_fmt(const char *, ...)
     lstr_t t_lstr_fmt(const char *, ...)
 
+    ctypedef char sb_static_buf_t[0]
+    ctypedef sb_static_buf_t sb_buf_1k_t
+    ctypedef sb_static_buf_t sb_buf_8k_t
+
     ctypedef sb_t sb_scope_t
-    sb_scope_t sb_scope_init(int)
-    sb_scope_t sb_scope_init_1k()
-    sb_scope_t sb_scope_init_8k()
+    sb_scope_t sb_scope_init_static(sb_static_buf_t)
     sb_scope_t t_sb_scope_init(int)
     sb_scope_t t_sb_scope_init_1k()
     sb_scope_t t_sb_scope_init_8k()

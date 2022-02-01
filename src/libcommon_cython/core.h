@@ -36,11 +36,13 @@ typedef _Bool cbool;
 #define t_new_u8(count)  t_new(uint8_t, count)
 #define t_new_char(count)  t_new(char, count)
 
-/* Macros to use sb in cython */
+/* Typedefs and macros to use sb in cython */
+typedef char sb_buf_1k_t[1 << 10];
+typedef char sb_buf_8k_t[8 << 10];
+
 #define sb_scope_t  __attribute__((cleanup(sb_wipe))) sb_t
-#define sb_scope_init(sz)  (sb_t)SB_INIT(alloca(sz), sz, &mem_pool_static)
-#define sb_scope_init_1k()  sb_scope_init(1 << 10)
-#define sb_scope_init_8k()  sb_scope_init(8 << 10)
+#define sb_scope_init_static(_buf)                                           \
+    (sb_t)SB_INIT((_buf), countof(_buf), &mem_pool_static)
 #define t_sb_scope_init(sz)  (sb_t)SB_INIT(t_new_raw(char, sz), sz, t_pool())
 #define t_sb_scope_init_1k()  t_sb_scope_init(1 << 10)
 #define t_sb_scope_init_8k()  t_sb_scope_init(8 << 10)
