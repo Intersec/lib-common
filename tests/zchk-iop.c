@@ -8613,6 +8613,15 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_P(cls, "cannot find class `%pL' from ID", &name);
         Z_ASSERT(cls == &tstiop__my_class3__s, "wrong IOP class (got `%pL')",
                  &cls->fullname);
+
+        /* tstiop_void_type package is registered with tstiop package since
+         * tstiop_void_type.VoidRequired is referenced by tstiop.VoidPkgRef.
+         */
+        name = tstiop_void_type__void_required__s.fullname;
+        Z_ASSERT_P((obj = iop_get_obj(name)), "cannot find obj `%pL'", &name);
+        Z_ASSERT(obj->type == IOP_OBJ_TYPE_ST);
+        Z_ASSERT(obj->desc.st == &tstiop_void_type__void_required__s,
+                 "wrong iop_struct_t (got `%pL')", &obj->desc.st->fullname);
     } Z_TEST_END;
     /* }}} */
     Z_TEST(struct_packing, "check struct packing behavior") { /* {{{ */

@@ -6236,6 +6236,44 @@ iop_register_pkg(const iop_pkg_t *pkg, unsigned flags, iop_env_t *env,
     return iop_register_obj(pkg->name, IOP_OBJ_PKG(pkg), flags, env, err);
 }
 
+static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
+                                    iop_env_t *env, unsigned flags, sb_t *err)
+{
+    int ret;
+
+    /* Register the package itself. */
+    ret = RETHROW(iop_register_pkg(pkg, flags, env, err));
+    if (ret == 0) {
+        return 0;
+    }
+    if (dso) {
+        qm_add(iop_dsos, &env->dsos_by_pkg, pkg, dso);
+    }
+
+    /* Register its structs/union/classes. */
+    for (const iop_struct_t *const *it = pkg->structs; *it; it++) {
+        const iop_struct_t *desc = *it;
+
+        RETHROW(iop_register_struct(desc, flags, env, err));
+    }
+
+    /* Register its enums. */
+    for (const iop_enum_t *const *it = pkg->enums; *it; it++) {
+        const iop_enum_t *desc = *it;
+
+        RETHROW(iop_register_enum(desc, flags, env, err));
+    }
+
+    /* Register its dependencies. */
+    for (const iop_pkg_t *const *it = pkg->deps; *it; it++) {
+        const iop_pkg_t *dep = *it;
+
+        RETHROW(iop_register_package_env(dep, dso, env, flags, err));
+    }
+
+    return 0;
+}
+
 int iop_register_packages_env(const iop_pkg_t **pkgs, int len, iop_dso_t *dso,
                               iop_env_t *env, unsigned flags, sb_t *err)
 {
@@ -6248,30 +6286,8 @@ int iop_register_packages_env(const iop_pkg_t **pkgs, int len, iop_dso_t *dso,
     /* Register the packages. */
     for (int i = 0; i < len; i++) {
         const iop_pkg_t *pkg = pkgs[i];
-        int ret;
 
-        /* Register the package itself. */
-        ret = RETHROW(iop_register_pkg(pkg, flags, env, err));
-        if (ret == 0) {
-            continue;
-        }
-        if (dso) {
-            qm_add(iop_dsos, &env->dsos_by_pkg, pkg, dso);
-        }
-
-        /* Register its structs/union/classes. */
-        for (const iop_struct_t *const *it = pkg->structs; *it; it++) {
-            const iop_struct_t *desc = *it;
-
-            RETHROW(iop_register_struct(desc, flags, env, err));
-        }
-
-        /* Register its enums. */
-        for (const iop_enum_t *const *it = pkg->enums; *it; it++) {
-            const iop_enum_t *desc = *it;
-
-            RETHROW(iop_register_enum(desc, flags, env, err));
-        }
+        RETHROW(iop_register_package_env(pkg, dso, env, flags, err));
     }
 
     return 0;
