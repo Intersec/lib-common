@@ -126,7 +126,7 @@ iopc_ifaces_find_n_check(iopc_pkg_t *pkg, iopc_field_t *iface)
         if (pkg_provides_iface(t_pkg, iface->type_name, false))
             return 0;
         throw_loc("unable to find interface `%s` in pkg `%s`",
-                  iface->loc, iface->type_name, pretty_path_dot(t_pkg->name));
+                  iface->loc, iface->type_name, iopc_path_dot(t_pkg->name));
     }
 
     if (pkg_provides_iface(pkg, iface->type_name, false)) {
@@ -155,7 +155,7 @@ iopc_modules_find_n_check(iopc_pkg_t *pkg, iopc_extends_t *xt)
             return 0;
         }
         throw_loc("unable to find module `%s` in pkg `%s`",
-                  xt->loc, xt->name, pretty_path_dot(t_pkg->name));
+                  xt->loc, xt->name, iopc_path_dot(t_pkg->name));
     }
 
     xt->st = pkg_find_module(pkg, xt->name);
@@ -260,7 +260,7 @@ static int iopc_find_type_in_pkg(iopc_pkg_t *pkg, iopc_field_t *f,
         t_scope;
 
         t_push_loc(f->loc, "in typedef for type `%s` in pkg `%s`",
-                   name, pretty_path_dot(pkg->name));
+                   name, iopc_path_dot(pkg->name));
         RETHROW(iopc_types_find_n_check(pkg, tdef, true));
         pop_loc();
 
@@ -289,7 +289,7 @@ iopc_types_find_n_check(iopc_pkg_t *pkg, iopc_field_t *f, bool f_is_tdef)
     if (f->resolving) {
         throw_loc("recursive typedef for type `%s` in pkg `%s`",
                   f->loc, f->type_name,
-                  pretty_path_dot(f->type_pkg ? f->type_pkg->name : pkg->name));
+                  iopc_path_dot(f->type_pkg ? f->type_pkg->name : pkg->name));
     }
 
     f->resolving = true;
@@ -298,7 +298,7 @@ iopc_types_find_n_check(iopc_pkg_t *pkg, iopc_field_t *f, bool f_is_tdef)
                                       f_is_tdef, &found));
         if (!found) {
             throw_loc("unable to find type `%s` in pkg `%s`",
-                      f->loc, f->type_name, pretty_path_dot(f->type_pkg->name));
+                      f->loc, f->type_name, iopc_path_dot(f->type_pkg->name));
         }
         goto check_defval;
     }
@@ -388,12 +388,12 @@ static int iopc_field_resolve(iopc_pkg_t *pkg, iopc_field_t *field,
     }
     if (st) {
         t_push_loc(field->loc, "in package %s, type %s, field %s needs package %s",
-                   pretty_path_dot(pkg->name), st->name, field->name,
-                   pretty_path_dot(field->type_path));
+                   iopc_path_dot(pkg->name), st->name, field->name,
+                   iopc_path_dot(field->type_path));
     } else {
         t_push_loc(field->loc, "in package %s, typedef %s needs package %s",
-                   pretty_path_dot(pkg->name), field->name,
-                   pretty_path_dot(field->type_path));
+                   iopc_path_dot(pkg->name), field->name,
+                   iopc_path_dot(field->type_path));
     }
     RETHROW(iopc_t_resolve(field->type_pkg));
     pop_loc();
@@ -416,8 +416,8 @@ resolve_pkg_parent_and_params(iopc_extends_t *xt, iopc_pkg_t *pkg,
     } else
     if (xt->pkg != pkg) {
         t_push_loc(xt->loc, "in package %s, %s  %s, needs package %s "
-                   "for %s", pretty_path_dot(pkg->name), type_obj, name,
-                   pretty_path_dot(xt->pkg->name), action);
+                   "for %s", iopc_path_dot(pkg->name), type_obj, name,
+                   iopc_path_dot(xt->pkg->name), action);
         RETHROW(iopc_t_resolve(xt->pkg));
         pop_loc();
     }
@@ -428,7 +428,7 @@ resolve_pkg_parent_and_params(iopc_extends_t *xt, iopc_pkg_t *pkg,
     RETHROW(pkg_provides_struct(xt->pkg, xt->name, true, false, &st));
     if (!st) {
         throw_loc("pkg `%s` does not provide %s `%s` when resolving %s of "
-                  "%s `%s`", xt->loc, pretty_path_dot(xt->pkg->name),
+                  "%s `%s`", xt->loc, iopc_path_dot(xt->pkg->name),
                   iopc_struct_type_to_str(type), xt->name, action,
                   type_obj, name);
     }
@@ -597,13 +597,13 @@ static int iopc_module_check_extends(iopc_struct_t *mod, iopc_extends_t *xt)
                 throw_loc("module %s cannot extend %s.%s, "
                           "both define an interface %s",
                           xt->loc, mod->name,
-                          pretty_path_dot(xt->pkg->name), xt->name, f->name);
+                          iopc_path_dot(xt->pkg->name), xt->name, f->name);
             }
             if (f->tag == f2->tag) {
                 throw_loc("module %s cannot extend %s.%s, "
                           "both define a tag %d",
                           xt->loc, mod->name,
-                          pretty_path_dot(xt->pkg->name), xt->name, f->tag);
+                          iopc_path_dot(xt->pkg->name), xt->name, f->tag);
             }
         }
         qv_append(&mod->fields, iopc_field_retain(f2));
@@ -895,8 +895,8 @@ static int iopc_i_resolve(iopc_pkg_t *pkg)
                 t_scope;
                 t_push_loc(iface->loc,
                            "in package %s, module %s, iface %s needs package %s",
-                           pretty_path_dot(pkg->name), mod->name, iface->name,
-                           pretty_path_dot(iface->type_path));
+                           iopc_path_dot(pkg->name), mod->name, iface->name,
+                           iopc_path_dot(iface->type_path));
                 RETHROW(iopc_resolve(iface->type_pkg));
                 pop_loc();
             }
@@ -907,8 +907,8 @@ static int iopc_i_resolve(iopc_pkg_t *pkg)
                 t_scope;
                 t_push_loc(xt->loc,
                            "in package %s, module %s, needs package %s",
-                           pretty_path_dot(pkg->name), xt->name,
-                           pretty_path_dot(xt->path));
+                           iopc_path_dot(pkg->name), xt->name,
+                           iopc_path_dot(xt->path));
                 if (xt->pkg->i_resolving || xt->pkg->t_resolving) {
                     throw_loc("circular dependency", xt->loc);
                 }
@@ -1349,7 +1349,7 @@ static void iopc_dump_fields_sig(sb_t *sb, qv_t(iopc_field) *fields)
         sb_adds(sb, f->name);
         sb_addc(sb, '\0');
         if (f->type_path) {
-            sb_adds(sb, pretty_path_dot(f->type_path));
+            sb_adds(sb, iopc_path_dot(f->type_path));
             sb_addc(sb, '.');
             sb_adds(sb, f->type_name);
             sb_addc(sb, '\0');
@@ -1542,8 +1542,9 @@ void iopc_depends_uniquify(qv_t(iopc_pkg) *deps)
     }, NULL);
 
     /* XXX sort packages by name to sort in the same way on each computer */
-    qv_sort(iopc_pkg)(deps, ^int (iopc_pkg_t * const *p1, iopc_pkg_t * const *p2) {
-        return strcmp(pretty_path_dot((*p1)->name), pretty_path_dot((*p2)->name));
+    qv_sort(iopc_pkg)(deps, ^int (iopc_pkg_t * const *p1,
+                                  iopc_pkg_t * const *p2) {
+        return strcmp(iopc_path_dot((*p1)->name), iopc_path_dot((*p2)->name));
     });
 }
 

@@ -30,14 +30,7 @@ struct iopc_do_c_globs iopc_do_c_g;
 
 static const char *t_iopc_path_to_c(const iopc_path_t *path)
 {
-    SB_1k(buf);
-
-    tab_for_each_entry(bit, &path->bits) {
-        sb_addf(&buf, "%s__", bit);
-    }
-    sb_shrink(&buf, 2);
-
-    return t_dupz(buf.data, buf.len);
+    return t_iopc_path_join(path, "__");
 }
 
 static const char *t_iopc_name_to_c(const char *str)
@@ -1439,7 +1432,7 @@ iopc_iface_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
 
     sb_addf(buf,
             "/*----- interface %s.%s -----*/\n",
-            pretty_path_dot(pkg->name), iface->name);
+            iopc_path_dot(pkg->name), iface->name);
 
     tab_for_each_entry(fun, &iface->funs) {
         char *fbase = t_fmt("%s__%s", ibase, t_iopc_name_to_c(fun->name));
@@ -1470,7 +1463,7 @@ iopc_module_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
     sb_addf(buf,
             "\n"
             "/*----- module %s.%s -----*/\n",
-            pretty_path_dot(pkg->name), mod->name);
+            iopc_path_dot(pkg->name), mod->name);
 
     iopc_struct_build_fields_by_tag(mod);
     assert(mod->fields_by_tag.len == mod->fields.len);
@@ -1501,7 +1494,7 @@ iopc_pkg_dump_hdr(sb_t *buf, iopc_pkg_t *pkg, const char *pkg_name)
             "EXPORT iop_pkg_t const %s__pkg;\n"
             "EXPORT iop_pkg_t const * const nonnull %s__pkgp;\n"
             "\n",
-            pretty_path_dot(pkg->name), pkg_name, pkg_name);
+            iopc_path_dot(pkg->name), pkg_name, pkg_name);
 }
 
 static char const * const repeats[] = {
@@ -2907,7 +2900,7 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
             "/* Enum %s.%s {""{{ */\n"
             "\n"
             "static int const %s__values[] = {\n",
-            pretty_path_dot(pkg->name), en->name, tbase);
+            iopc_path_dot(pkg->name), en->name, tbase);
     tab_for_each_entry(f, &en->values) {
         sb_addf(buf, " %d,", f->value);
     }
@@ -3000,7 +2993,7 @@ iopc_enum_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
             "    .ranges       = iop__ranges__%d,\n"
             "    .ranges_len   = countof(iop__ranges__%d) / 2,\n"
             "    .enum_len     = %d,\n",
-            tbase, en->name, pretty_path_dot(pkg->name), en->name,
+            tbase, en->name, iopc_path_dot(pkg->name), en->name,
             tbase, tbase, range, range, en->values.len);
     if (flags) {
         sb_addf(buf, "    .flags        = %u,\n", flags);
@@ -3229,7 +3222,7 @@ write_struct(sb_t *buf, const iopc_struct_t *st, const iopc_pkg_t *pkg,
             "    .ranges     = iop__ranges__%d,\n"
             "    .ranges_len = countof(iop__ranges__%d) / 2,\n"
             "    .fields_len = countof(%s__desc_fields),\n",
-            tbase, pretty_path_dot(pkg->name),
+            tbase, iopc_path_dot(pkg->name),
             sname, as_base, range, range, as_base);
 
     if (!iopc_is_snmp_obj(st->type)) {
@@ -3264,20 +3257,20 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
     bool has_attrs;
 
     sb_addf(buf, "/* %s %s.%s {""{{ */\n\n",
-            comment, pretty_path_dot(pkg->name), sname);
+            comment, iopc_path_dot(pkg->name), sname);
 
     if (st->same_as) {
         iopc_struct_t *as = st->same_as;
 
         if (as->iface) {
             sb_addf(buf, "/* same as %s.%s.%s */\n\n",
-                    pretty_path_dot(pkg->name), as->iface->name, as->name);
+                    iopc_path_dot(pkg->name), as->iface->name, as->name);
             as_base = t_fmt("%s__%s__%s", pkg_name,
                             t_iopc_name_to_c(as->iface->name),
                             t_iopc_name_to_c(as->name));
         } else {
             sb_addf(buf, "/* same as %s.%s */\n\n",
-                    pretty_path_dot(pkg->name), as->name);
+                    iopc_path_dot(pkg->name), as->name);
             as_base = t_fmt("%s__%s", pkg_name,
                             t_iopc_name_to_c(as->name));
         }
@@ -3660,7 +3653,7 @@ iopc_iface_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
 
     t_qv_init(&aliases, 16);
     sb_addf(buf, "/* Interface %s.%s {""{{ */\n",
-            pretty_path_dot(pkg->name), iface->name);
+            iopc_path_dot(pkg->name), iface->name);
 
     if (iface->type == IFACE_TYPE_SNMP_IFACE) {
         SET_BIT(&iface->flags, IOP_IFACE_IS_SNMP_IFACE);
@@ -3720,7 +3713,7 @@ iopc_iface_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
             "    .fullname   = LSTR_IMMED(\"%s.%s\"),\n"
             "    .funs       = %s__if_funs,\n"
             "    .funs_len   = countof(%s__if_funs),\n",
-            ibase, pretty_path_dot(pkg->name),
+            ibase, iopc_path_dot(pkg->name),
             iface->name, ibase, ibase);
     if (iface->flags) {
         sb_addf(buf, "    .flags      = %d,\n", iface->flags);
@@ -3756,7 +3749,7 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
             "/* Module %s.%s {""{{ */\n"
             "\n"
             "static iop_iface_alias_t const %s__aliases[] = {\n",
-            pretty_path_dot(pkg->name), mod->name, mbase);
+            iopc_path_dot(pkg->name), mod->name, mbase);
     assert(mod->fields_by_tag.len == mod->fields.len);
     for (int i = 0; i < mod->fields_by_tag.len; i++) {
         iopc_field_t *f = mod->fields_by_tag.tab[i];
@@ -3810,7 +3803,7 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
             "    .fullname   = LSTR_IMMED(\"%s.%s\"),\n"
             "    .ifaces     = %s__aliases,\n"
             "    .ifaces_len = countof(%s__aliases),\n",
-            mbase, pretty_path_dot(pkg->name), mod->name,
+            mbase, iopc_path_dot(pkg->name), mod->name,
             mbase, mbase);
     if (flags) {
         sb_addf(buf,
@@ -3851,7 +3844,7 @@ iopc_pkg_dump_src(sb_t *buf, iopc_pkg_t *pkg,
             "/* Package %s {""{{ */\n"
             "\n"
             "static const iop_pkg_t *const %s__deps[] = {\n",
-            pretty_path_dot(pkg->name), pkg_name);
+            iopc_path_dot(pkg->name), pkg_name);
     for (int i = 0; i < deps.len; i++) {
         sb_addf(buf, "    &%s__pkg,\n", t_iopc_path_to_c(deps.tab[i]->name));
     }
@@ -3911,7 +3904,7 @@ iopc_pkg_dump_src(sb_t *buf, iopc_pkg_t *pkg,
             "iop_pkg_t const * const %s__pkgp = &%s__pkg;\n"
             "\n"
             "/* }""}} */\n",
-            pkg_name, pretty_path_dot(pkg->name),
+            pkg_name, iopc_path_dot(pkg->name),
             pkg_name, pkg_name, pkg_name, pkg_name, pkg_name,
             pkg_name, pkg_name);
 }
@@ -3960,7 +3953,7 @@ static size_t common_prefix(const char *s, const char *t)
 static int put_include(sb_t *sb, const char *ext,
                        iopc_pkg_t *pkg, const iopc_pkg_t *us)
 {
-    const char *iop_path = pretty_path(pkg->name);
+    const char *iop_path = iopc_path_slash(pkg->name);
 
     sb_adds(sb, "#include \"");
     if (_G.resolve_includes) {
@@ -3995,7 +3988,7 @@ static int put_include(sb_t *sb, const char *ext,
 
   no_rel:
     throw_error("[%s] unable to make a relative #include path for %s",
-                pretty_path(pkg->name), iop_path);
+                iopc_path_slash(pkg->name), iop_path);
 }
 
 int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
@@ -4051,7 +4044,7 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
         if (iopc_is_snmp_st(st->type)) {
             sb_addf(&buf,
                     "/*----- snmp fields of struct %s.%s -----*/\n",
-                    pretty_path_dot(pkg->name), st->name);
+                    iopc_path_dot(pkg->name), st->name);
             tab_for_each_entry(f, &st->fields) {
                 iopc_snmp_field_dump_tdef_hdr(&buf, pkg_name, st, f);
             }
@@ -4068,7 +4061,7 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
             "#define IOP_HEADER_GUARD_%s_TYPES_H\n"
             "\n"
             "#include \"%s-tdef.iop.h\"\n"
-            "\n", pkg_name, pkg_name, pretty_path_base(pkg->name));
+            "\n", pkg_name, pkg_name, iopc_path_basename(pkg->name));
 
     tab_for_each_entry(dep, &t_weak_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, "-tdef.iop.h", dep, pkg));
@@ -4120,7 +4113,7 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
             "#define IOP_HEADER_GUARD_%s_H\n"
             "\n"
             "#include \"%s-t.iop.h\"\n",
-            pkg_name, pkg_name, pretty_path_base(pkg->name));
+            pkg_name, pkg_name, iopc_path_basename(pkg->name));
     tab_for_each_entry(dep, &t_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, ".iop.h", dep, pkg));
     }
@@ -4154,23 +4147,23 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     sb_addf(&buf,
             "#ifndef linux\n"
             "#  warning \"%s assumed linux alignments\"\n"
-            "#endif\n", pretty_path(pkg->name));
+            "#endif\n", iopc_path_slash(pkg->name));
 #ifdef __x86_64__
     sb_addf(&buf,
             "#ifndef __x86_64__\n"
             "#  warning \"%s assumed x86_64 alignments\"\n"
-            "#endif\n", pretty_path(pkg->name));
+            "#endif\n", iopc_path_slash(pkg->name));
 #endif
 #ifdef __i386__
     sb_addf(&buf,
             "#ifndef __i386__\n"
             "#  warning \"%s assumed i386 alignments\"\n"
-            "#endif\n", pretty_path(pkg->name));
+            "#endif\n", iopc_path_slash(pkg->name));
 #endif
     sb_addf(&buf,
             "\n"
             "#include \"%s.iop.h\"\n",
-            pretty_path_base(pkg->name));
+            iopc_path_basename(pkg->name));
     tab_for_each_entry(dep, &t_weak_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, ".iop.h", dep, pkg));
     }
@@ -4212,7 +4205,7 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
 static lstr_t mp_build_fullname(mem_pool_t *mp, const iopc_pkg_t *pkg,
                                 const char *name)
 {
-    return mp_lstr_fmt(mp, "%s.%s", pretty_path_dot(pkg->name), name);
+    return mp_lstr_fmt(mp, "%s.%s", iopc_path_dot(pkg->name), name);
 }
 
 /* }}} */
@@ -4434,7 +4427,7 @@ iop_pkg_t *mp_iopc_pkg_to_desc(mem_pool_t *mp, iopc_pkg_t *pkg, sb_t *err)
 
     {
         iop_pkg_t _pkg_desc = {
-            .name = mp_lstr_dups(mp, pretty_path_dot(pkg->name), -1),
+            .name = mp_lstr_dups(mp, iopc_path_dot(pkg->name), -1),
             .enums = enums,
             .structs = structs,
             /* TODO (later) ifaces, mods */

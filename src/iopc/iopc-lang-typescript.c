@@ -43,6 +43,7 @@ static const char *reserved_union_model_names_g[] = {
     "kind", "is", "isSet", "getPair", "unionGet"
 };
 
+/* TODO Remove this archaich stuff. */
 static qv_t(str) pp_g;
 
 #define RO_WARN \
@@ -53,10 +54,7 @@ static const char *pp_under(iopc_path_t *path)
     SB_1k(buf);
     char *res;
 
-    tab_for_each_entry(bit, &path->bits) {
-        sb_addf(&buf, "%s__", bit);
-    }
-    sb_shrink(&buf, 2);
+    iopc_path_join(path, "__", &buf);
     qv_append(&pp_g, res = sb_detach(&buf, NULL));
     return res;
 }
@@ -66,25 +64,14 @@ static const char *pp_path(iopc_path_t *path)
     SB_1k(buf);
     char *res;
 
-    tab_for_each_entry(bit, &path->bits) {
-        sb_addf(&buf, "%s/", bit);
-    }
-    sb_shrink(&buf, 1);
+    iopc_path_join(path, "/", &buf);
     qv_append(&pp_g, res = sb_detach(&buf, NULL));
     return res;
 }
 
 static const char *pp_dot(iopc_path_t *path)
 {
-    SB_1k(buf);
-    char *res;
-
-    tab_for_each_entry(bit, &path->bits) {
-        sb_addf(&buf, "%s.", bit);
-    }
-    sb_shrink(&buf, 1);
-    qv_append(&pp_g, res = sb_detach(&buf, NULL));
-    return res;
+    return iopc_path_dot(path);
 }
 
 static bool is_name_reserved_in_model(const char *field_name, bool is_union)

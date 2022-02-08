@@ -706,7 +706,7 @@ iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *nonnull mp,
     pkg = mp_iopc_pkg_to_desc(mp, iopc_pkg, err);
     if (!pkg) {
         sb_prependf(err, "failed to generate package `%s': ",
-                    pretty_path_dot(iopc_pkg->name));
+                    iopc_path_dot(iopc_pkg->name));
         goto end;
     }
 

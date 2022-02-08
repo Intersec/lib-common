@@ -116,7 +116,7 @@
     } while (0)
 
 #define XT_FMT           QUOTE("%s.%s")
-#define XT_FMT_ARG(_xt)  pretty_path_dot((_xt)->path), (_xt)->name
+#define XT_FMT_ARG(_xt)  iopc_path_dot((_xt)->path), (_xt)->name
 
 static inline void newline(const iopc_write_buf_t *wbuf)
 {
@@ -421,7 +421,7 @@ dump_field_type_obj(const iopc_write_buf_t *wbuf, const char *key,
                     const iopc_field_t *f)
 {
     LINE_KEY_VAL_FMT(wbuf, key, QUOTE("%s.%s"),
-                     pretty_path_dot(f->type_path), f->type_name);
+                     iopc_path_dot(f->type_path), f->type_name);
 }
 
 
@@ -916,7 +916,7 @@ int iopc_do_json(iopc_pkg_t *pkg, const char *outdir)
     SB(buf, 32 << 10);
     SB_1k(tab);
     iopc_write_buf_t wbuf;
-    const char *pkg_name = pretty_path_dot(pkg->name);
+    const char *pkg_name = iopc_path_dot(pkg->name);
 
     iopc_write_buf_init(&wbuf, &buf, &tab);
 

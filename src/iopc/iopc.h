@@ -292,8 +292,12 @@ typedef struct iopc_path_t {
     int refcnt;
     iopc_loc_t loc;
     qv_t(str) bits;
-    char *pretty_dot;
-    char *pretty_slash;
+
+    /* Full path separated by dots: "foo.bar". */
+    char *dot_path;
+
+    /* Full IOP file path from root level: "foo/bar.iop". */
+    char *slash_path;
 } iopc_path_t;
 static inline iopc_path_t *iopc_path_init(iopc_path_t *path) {
     p_clear(path, 1);
@@ -301,8 +305,8 @@ static inline iopc_path_t *iopc_path_init(iopc_path_t *path) {
     return path;
 }
 static inline void iopc_path_wipe(iopc_path_t *path) {
-    p_delete(&path->pretty_dot);
-    p_delete(&path->pretty_slash);
+    p_delete(&path->dot_path);
+    p_delete(&path->slash_path);
     qv_deep_wipe(&path->bits, p_delete);
 }
 DO_REFCNT(iopc_path_t, iopc_path);
@@ -992,11 +996,19 @@ qm_kptr_ckey_t(iopc_pkg, char, iopc_pkg_t *, qhash_str_hash, qhash_str_equal);
 /*----- pretty printing  -----*/
 
 const char *t_pretty_token(iopc_tok_type_t token);
-const char *pretty_path(iopc_path_t *path);
-const char *pretty_path_dot(iopc_path_t *path);
-static inline const char *pretty_path_base(iopc_path_t *path) {
-    return path->bits.tab[path->bits.len - 1];
+
+/*----- iopc_path_t -----*/
+
+const char *iopc_path_slash(iopc_path_t *path);
+const char *iopc_path_dot(iopc_path_t *path);
+
+static inline const char *iopc_path_basename(iopc_path_t *path)
+{
+    return *tab_last(&path->bits);
 }
+
+void iopc_path_join(const iopc_path_t *path, const char *sep, sb_t *buf);
+const char *t_iopc_path_join(const iopc_path_t *path, const char *sep);
 
 
 /*----- parser & typer -----*/

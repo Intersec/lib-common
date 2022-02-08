@@ -199,9 +199,9 @@ iopc_try_file(iopc_parser_t *pp, const char *dir, iopc_path_t *path,
 {
     struct stat st;
     char file[PATH_MAX];
-    const char *pkg_name = pretty_path_dot(path);
+    const char *pkg_name = iopc_path_dot(path);
 
-    snprintf(file, sizeof(file), "%s/%s", dir, pretty_path(path));
+    snprintf(file, sizeof(file), "%s/%s", dir, iopc_path_slash(path));
     path_simplify(file);
 
     if (pp->env) {
@@ -1077,7 +1077,7 @@ static void debug_dump_dox(qv_t(iopc_dox) comments, const char *name)
 }
   #define debug_dump_dox(_c, _n)  ((debug_dump_dox)((_c),           \
       __builtin_types_compatible_p(typeof(_n), iopc_path_t *)       \
-      ? pretty_path_dot((iopc_path_t *)(_n)) : (const char *)(_n)))
+      ? iopc_path_dot((iopc_path_t *)(_n)) : (const char *)(_n)))
 #endif
 
 static lstr_t iopc_fun_struct_type_to_lstr(iopc_fun_struct_type_t dir)
@@ -1812,7 +1812,7 @@ check_path_exists(iopc_parser_t *pp, iopc_path_t *path)
 {
     iopc_pkg_t *pkg = NULL;
 
-    pkg = qm_get_def(iopc_pkg, &_G.pkgs, pretty_path_dot(path), NULL);
+    pkg = qm_get_def(iopc_pkg, &_G.pkgs, iopc_path_dot(path), NULL);
     if (pkg) {
         return pkg;
     }
@@ -1832,7 +1832,7 @@ check_path_exists(iopc_parser_t *pp, iopc_path_t *path)
         }
     }
     throw_loc_p("unable to find file `%s` in the include path",
-                path->loc, pretty_path(path));
+                path->loc, iopc_path_slash(path));
 }
 
 static iopc_path_t *parse_path_aux(iopc_parser_t *pp, iopc_pkg_t **modp)
@@ -3578,7 +3578,7 @@ static int check_pkg_path(iopc_parser_t *pp, iopc_path_t *path,
     struct stat st1, st2;
     char buf[PATH_MAX];
 
-    snprintf(buf, sizeof(buf), "%s/%s", base, pretty_path(path));
+    snprintf(buf, sizeof(buf), "%s/%s", base, iopc_path_slash(path));
     path_simplify(buf);
     if (stat(get_full_path(buf), &st1)) {
         throw_loc("incorrect package name", path->loc);
@@ -3642,7 +3642,7 @@ static iopc_pkg_t *parse_package(iopc_parser_t *pp, char *file,
             }
         }
         pp->base = pkg->base = p_strdup(base);
-        qm_add(iopc_pkg, &_G.pkgs, pretty_path_dot(pkg->name), pkg);
+        qm_add(iopc_pkg, &_G.pkgs, iopc_path_dot(pkg->name), pkg);
         if (is_main_pkg && pp->includes) {
             qv_push(pp->includes, pkg->base);
         }
@@ -3861,7 +3861,7 @@ static iopc_pkg_t *parse_package(iopc_parser_t *pp, char *file,
     qm_wipe(iopc_struct, &mod_inter);
 
     if (pkg->name) {
-        qm_del_key(iopc_pkg, &_G.pkgs, pretty_path_dot(pkg->name));
+        qm_del_key(iopc_pkg, &_G.pkgs, iopc_path_dot(pkg->name));
     }
     iopc_pkg_delete(&pkg);
     return NULL;

@@ -42,31 +42,46 @@ const char *t_pretty_token(iopc_tok_type_t token)
     }
 }
 
-const char *pretty_path_dot(iopc_path_t *path)
+void iopc_path_join(const iopc_path_t *path, const char *sep, sb_t *buf)
 {
-    if (!path->pretty_dot) {
-        sb_t b;
-        sb_init(&b);
+    tab_enumerate(i, bit, &path->bits) {
+        sb_adds(buf, bit);
 
-        for (int i = 0; i < path->bits.len; i++)
-            sb_addf(&b, "%s.", path->bits.tab[i]);
-        sb_shrink(&b, 1);
-        path->pretty_dot = sb_detach(&b, NULL);
+        if (i < path->bits.len - 1) {
+            sb_adds(buf, sep);
+        }
     }
-    return path->pretty_dot;
 }
 
-const char *pretty_path(iopc_path_t *path)
+static char *iopc_path_join_cached(iopc_path_t *path, const char *sep,
+                                   const char *sfx, char **cache)
 {
-    if (!path->pretty_slash) {
-        sb_t b;
-        sb_init(&b);
+    if (!*cache) {
+        SB_1k(buf);
 
-        for (int i = 0; i < path->bits.len; i++)
-            sb_addf(&b, "%s/", path->bits.tab[i]);
-        b.data[b.len - 1] = '.';
-        sb_adds(&b, "iop");
-        path->pretty_slash = sb_detach(&b, NULL);
+        iopc_path_join(path, sep, &buf);
+        sb_adds(&buf, sfx);
+        *cache = p_dupz(buf.data, buf.len);
     }
-    return path->pretty_slash;
+
+    return *cache;
+}
+
+const char *iopc_path_dot(iopc_path_t *path)
+{
+    return iopc_path_join_cached(path, ".", "", &path->dot_path);
+}
+
+const char *iopc_path_slash(iopc_path_t *path)
+{
+    return iopc_path_join_cached(path, "/", ".iop", &path->slash_path);
+}
+
+const char *t_iopc_path_join(const iopc_path_t *path, const char *sep)
+{
+    SB_1k(buf);
+
+    iopc_path_join(path, sep, &buf);
+
+    return t_dupz(buf.data, buf.len);
 }
