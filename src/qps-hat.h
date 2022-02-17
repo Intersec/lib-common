@@ -508,9 +508,17 @@ typedef struct qhat_tree_enumerator_t {
     /* }}} */
 
     qhat_path_t path;
-    uint32_t    pos;
 
-    uint32_t                 count;
+    /* Position of the element in the local array in "memory". */
+    uint32_t pos;
+
+    /* Only when the local array in memory is a "compact".
+     * Number of elements in the compact.
+     * May be unsynchronized with "memory.compact->count" if elements where
+     * added or removed in the qhat. */
+    uint32_t count;
+
+    /* Current leaf of the enumerator, cached here for quicker access. */
     qhat_node_const_memory_t memory;
 } qhat_tree_enumerator_t;
 
