@@ -697,11 +697,14 @@ static int t_register_type(CXType type, qv_t(cstr) *type_stack)
 
           default: {
             CXString type_spelling = clang_getTypeSpelling(type);
+            CXString kind_spelling = clang_getTypeKindSpelling(type.kind);
             lstr_t path = t_concat_type_stack(type_stack, "::", "", "");
 
-            fprintf(stderr, "unsupported type of kind %s (%d) for %pL\n",
-                    clang_getCString(type_spelling), type.kind, &path);
+            fprintf(stderr, "unsupported type of kind %s (%s - %d) for %pL\n",
+                    clang_getCString(type_spelling),
+                    clang_getCString(kind_spelling), type.kind, &path);
             clang_disposeString(type_spelling);
+            clang_disposeString(kind_spelling);
             assert (false);
             return -1;
           }
