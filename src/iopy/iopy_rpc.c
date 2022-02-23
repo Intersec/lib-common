@@ -388,6 +388,7 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
 
 struct iopy_ic_server_t {
     int refcnt;
+    iopy_ic_server_cb_cfg_t cb_cfg;
     void *py_obj;
     el_t el_ic;
     lstr_t uri;
@@ -468,9 +469,12 @@ static void iopy_ic_server_el_process(void)
     }
 }
 
-iopy_ic_server_t *iopy_ic_server_create(void)
+iopy_ic_server_t *iopy_ic_server_create(const iopy_ic_server_cb_cfg_t *cb_cfg)
 {
-    return iopy_ic_server_new();
+    iopy_ic_server_t *server = iopy_ic_server_new();
+
+    server->cb_cfg = *cb_cfg;
+    return server;
 }
 
 void iopy_ic_server_destroy(iopy_ic_server_t **server_ptr)
@@ -510,29 +514,30 @@ static void iopy_ic_server_on_event(ichannel_t *ic, ic_event_t evt)
 
     switch (evt) {
       case IC_EVT_CONNECTED:
-        if (!is_el_thr_stopped()) {
+        if (server->cb_cfg.on_connect && !is_el_thr_stopped()) {
             t_scope;
             lstr_t server_uri = t_lstr_dup(server->uri);
             lstr_t client_addr = t_lstr_dup(ic_get_client_addr(ic));
             iopy_ic_server_t *server_dup = iopy_ic_server_retain(server);
 
             iopy_el_mutex_unlock();
-            iopy_ic_py_server_on_connect(server_dup, server_uri, client_addr);
+            (*server_dup->cb_cfg.on_connect)(server_dup, server_uri,
+                                             client_addr);
             iopy_el_mutex_lock(false);
             iopy_ic_server_delete(&server_dup);
         }
         break;
 
       case IC_EVT_DISCONNECTED:
-        if (!is_el_thr_stopped()) {
+        if (server->cb_cfg.on_disconnect && !is_el_thr_stopped()) {
             t_scope;
             lstr_t server_uri = t_lstr_dup(server->uri);
             lstr_t client_addr = t_lstr_dup(ic_get_client_addr(ic));
             iopy_ic_server_t *server_dup = iopy_ic_server_retain(server);
 
             iopy_el_mutex_unlock();
-            iopy_ic_py_server_on_disconnect(server_dup, server_uri,
-                                            client_addr);
+            (*server_dup->cb_cfg.on_disconnect)(server_dup, server_uri,
+                                                client_addr);
             iopy_el_mutex_lock(false);
             iopy_ic_server_delete(&server_dup);
         }
@@ -584,7 +589,7 @@ static void iopy_ic_server_rpc_cb(ichannel_t *ic, uint64_t slot, void *arg,
 
     iopy_ic_server_retain(server);
     iopy_el_mutex_unlock();
-    status = t_iopy_ic_py_server_on_rpc(server, ic, slot, arg, hdr, &res,
+    status = (*server->cb_cfg.t_on_rpc)(server, ic, slot, arg, hdr, &res,
                                         &res_st);
     iopy_el_mutex_lock(false);
     iopy_ic_server_delete(&server);
@@ -760,6 +765,7 @@ struct iopy_ic_client_t {
     bool in_connect    : 1;
     bool closing_is_ok : 1;
     bool connected     : 1;
+    iopy_ic_client_cb_cfg_t cb_cfg;
     void *py_obj;
     ichannel_t ic;
     dlist_t destroyed;
@@ -806,14 +812,21 @@ static void iopy_ic_client_on_event(ichannel_t *ic, ic_event_t evt)
 
     if (evt == IC_EVT_CONNECTED) {
         client->connected = true;
+        if (client->cb_cfg.on_connect) {
+            iopy_el_mutex_unlock();
+            (*client->cb_cfg.on_connect)(client);
+            iopy_el_mutex_lock(false);
+        }
     } else
     if (evt == IC_EVT_DISCONNECTED) {
         bool connected = client->connected;
 
         client->connected = false;
-        if (!client->closing_is_ok && !is_el_thr_stopped()) {
+        if (client->cb_cfg.on_disconnect && !client->closing_is_ok &&
+            !is_el_thr_stopped())
+        {
             iopy_el_mutex_unlock();
-            iopy_ic_py_client_on_disconnect(client, connected);
+            (*client->cb_cfg.on_disconnect)(client, connected);
             iopy_el_mutex_lock(false);
         }
     }
@@ -826,6 +839,7 @@ static void iopy_ic_client_on_event(ichannel_t *ic, ic_event_t evt)
 }
 
 iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, double no_act_timeout,
+                                        const iopy_ic_client_cb_cfg_t *cb_cfg,
                                         sb_t *err)
 {
     iopy_ic_client_t *client;
@@ -841,6 +855,7 @@ iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, double no_act_timeout,
     client->ic.tls_required = false;
     client->ic.on_event = &iopy_ic_client_on_event;
     client->ic.impl = &ic_no_impl;
+    client->cb_cfg = *cb_cfg;
 
     if (no_act_timeout > 0.0) {
         int wa = (int)(no_act_timeout * 1000.0);

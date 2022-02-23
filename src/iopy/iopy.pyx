@@ -7419,6 +7419,7 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
     cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef ic__hdr__t *def_hdr = NULL
     cdef lstr_t uri_lstr
+    cdef iopy_ic_client_cb_cfg_t cb_cfg
     cdef iopy_ic_client_t *ic_client
 
     t_scope_ignore(t_scope_guard)
@@ -7428,8 +7429,12 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
     t_set_ic_hdr_from_kwargs(plugin, kwargs, &def_hdr)
 
     t_parse_uri_arg(uri, host, port, &uri_lstr)
+
+    cb_cfg.on_connect = NULL
+    cb_cfg.on_disconnect = &iopy_ic_py_client_on_disconnect
     with nogil:
-        ic_client = iopy_ic_client_create(uri_lstr, no_act_timeout, &err)
+        ic_client = iopy_ic_client_create(uri_lstr, no_act_timeout, &cb_cfg,
+                                          &err)
 
     if not ic_client:
         raise Error(lstr_to_py_str(LSTR_SB_V(&err)))
@@ -7799,8 +7804,8 @@ cdef int t_set_ic_hdr_from_kwargs(Plugin plugin, dict kwargs,
     return 0
 
 
-cdef public void iopy_ic_py_client_on_disconnect(iopy_ic_client_t *client,
-                                                 cbool connected) nogil:
+cdef void iopy_ic_py_client_on_disconnect(iopy_ic_client_t *client,
+                                          cbool connected) nogil:
     """Called when the client is disconnecting.
 
     Parameters
@@ -7814,8 +7819,8 @@ cdef public void iopy_ic_py_client_on_disconnect(iopy_ic_client_t *client,
         iopy_ic_py_client_on_disconnect_gil(client, connected)
 
 
-cdef public void iopy_ic_py_client_on_disconnect_gil(iopy_ic_client_t *client,
-                                                     cbool connected):
+cdef void iopy_ic_py_client_on_disconnect_gil(iopy_ic_client_t *client,
+                                              cbool connected):
     """Called when the client is disconnecting with the GIL.
 
     Parameters
@@ -7977,8 +7982,16 @@ cdef class ChannelServer(ChannelBase):
         register
             The IOPy plugin.
         """
+        cdef iopy_ic_server_cb_cfg_t cb_cfg
+
         self.rpc_impls = {}
-        self.ic_server = iopy_ic_server_create()
+
+        cb_cfg.t_on_rpc = &t_iopy_ic_py_server_on_rpc
+        cb_cfg.on_connect = &iopy_ic_py_server_on_connect
+        cb_cfg.on_disconnect = &iopy_ic_py_server_on_disconnect
+        with nogil:
+            self.ic_server = iopy_ic_server_create(&cb_cfg)
+
         iopy_ic_server_set_py_obj(self.ic_server, <void *>self)
         create_modules_of_channel(register, self, &create_server_rpc)
 
@@ -8192,9 +8205,9 @@ cdef class RPCArgs:
     cdef readonly object hdr
 
 
-cdef public void iopy_ic_py_server_on_connect(iopy_ic_server_t *server,
-                                              lstr_t server_uri,
-                                              lstr_t remote_addr) nogil:
+cdef void iopy_ic_py_server_on_connect(iopy_ic_server_t *server,
+                                       lstr_t server_uri,
+                                       lstr_t remote_addr) nogil:
     """Called when a peer is connecting to the server.
 
     Parameters
@@ -8240,9 +8253,9 @@ cdef void iopy_ic_py_server_on_connect_gil(iopy_ic_server_t *server,
             send_exception_to_main_thread()
 
 
-cdef public void iopy_ic_py_server_on_disconnect(iopy_ic_server_t *server,
-                                                 lstr_t server_uri,
-                                                 lstr_t remote_addr) nogil:
+cdef void iopy_ic_py_server_on_disconnect(iopy_ic_server_t *server,
+                                          lstr_t server_uri,
+                                          lstr_t remote_addr) nogil:
     """Called when a peer is disconnecting from the server.
 
     Parameters
@@ -8288,7 +8301,7 @@ cdef void iopy_ic_py_server_on_disconnect_gil(iopy_ic_server_t *server,
             send_exception_to_main_thread()
 
 
-cdef public ic_status_t t_iopy_ic_py_server_on_rpc(
+cdef ic_status_t t_iopy_ic_py_server_on_rpc(
     iopy_ic_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
     const ic__hdr__t *hdr, void **res, const iop_struct_t **res_st) nogil:
     """Called when a request is made to an RPC.

@@ -40,11 +40,54 @@ typedef enum iopy_ic_res_t {
 /** IC server representation for IOPy. */
 typedef struct iopy_ic_server_t iopy_ic_server_t;
 
+/** Configuration of the callbacks of an IOPy IC server. */
+typedef struct iopy_ic_server_cb_cfg_t {
+    /** Callback called when a request is made to an RPC.
+     *
+     * This callback must be implemented.
+     *
+     * \param[in]  server The IOPy IC server.
+     * \param[in]  ic     The ichannel of the request.
+     * \param[in]  slot   The slot of the request.
+     * \param[in]  arg    The RPC argument of the request.
+     * \param[out] res    The RPC result of the reply.
+     * \param[out] res_st The IOP type description of the reply.
+     * \return  The status of the reply. If the status is not IC_MSG_OK or
+     *          IC_MSG_EXN, \p res and \p res_desc are ignored.
+     */
+    ic_status_t (*t_on_rpc)(iopy_ic_server_t *server, ichannel_t *ic,
+                            uint64_t slot, void *arg, const ic__hdr__t *hdr,
+                            void **res, const iop_struct_t **res_st);
+
+    /** Callback called when a peer is connecting to the server.
+     *
+     *  This callback is optional.
+     *
+     * \param[in] server      The IOPy IC server.
+     * \param[in] server_uri  The URI the IOPy IC server is listening to.
+     * \param[in] remote_addr The address of the peer.
+     */
+    void (*nullable on_connect)(iopy_ic_server_t *server, lstr_t server_uri,
+                                lstr_t remote_addr);
+
+    /** Callback called when a peer is disconnecting from the server.
+     *
+     *  This callback is optional.
+     *
+     * \param[in] server      The IOPy IC server.
+     * \param[in] server_uri  The URI the IOPy IC server is listening to.
+     * \param[in] remote_addr The address of the peer.
+     */
+    void (*nullable on_disconnect)(iopy_ic_server_t *server,
+                                   lstr_t server_uri, lstr_t remote_addr);
+} iopy_ic_server_cb_cfg_t;
+
 /** Create IOPy IC Server.
  *
- * XXX: You don't need to release the GIL when using this function.
+ * \param[in] cb_cfg The configuration of the callbacks of the IC server.
  */
-iopy_ic_server_t *iopy_ic_server_create(void);
+iopy_ic_server_t *
+iopy_ic_server_create(const iopy_ic_server_cb_cfg_t *cb_cfg);
 
 /** Destroy IOPy IC server.
  *
@@ -121,48 +164,6 @@ void iopy_ic_server_register_rpc(iopy_ic_server_t *server,
  */
 void iopy_ic_server_unregister_rpc(iopy_ic_server_t *server, uint32_t cmd);
 
-/** Called when a peer is connecting to the server.
- *
- * Implemented in iopy.pyx.
- *
- * \param[in] server      The IOPy IC server.
- * \param[in] server_uri  The URI the IOPy IC server is listening to.
- * \param[in] remote_addr The address of the peer.
- */
-void iopy_ic_py_server_on_connect(iopy_ic_server_t *server,
-                                  lstr_t server_uri,
-                                  lstr_t remote_addr);
-
-/** Called when a peer is disconnecting from the server.
- *
- * Implemented in iopy.pyx.
- *
- * \param[in] server      The IOPy IC server.
- * \param[in] server_uri  The URI the IOPy IC server is listening to.
- * \param[in] remote_addr The address of the peer.
- */
-void iopy_ic_py_server_on_disconnect(iopy_ic_server_t *server,
-                                     lstr_t server_uri,
-                                     lstr_t remote_addr);
-
-/** Called when a request is made to an RPC.
- *
- * Implemented in iopy.pyx.
- *
- * \param[in]  server The IOPy IC server.
- * \param[in]  ic     The ichannel of the request.
- * \param[in]  slot   The slot of the request.
- * \param[in]  arg    The RPC argument of the request.
- * \param[out] res    The RPC result of the reply.
- * \param[out] res_st The IOP type description of the reply.
- * \return  The status of the reply. If the status is not IC_MSG_OK or
- *          IC_MSG_EXN, \p res and \p res_desc are ignored.
- */
-ic_status_t
-t_iopy_ic_py_server_on_rpc(iopy_ic_server_t *server, ichannel_t *ic,
-                           uint64_t slot, void *arg, const ic__hdr__t *hdr,
-                           void **res, const iop_struct_t **res_st);
-
 /** Is the IOPy IC server listening.
  *
  * \param[in] server The IOPy IC server.
@@ -176,16 +177,40 @@ bool iopy_ic_server_is_listening(const iopy_ic_server_t *server);
 /** IC client representation for IOPy. */
 typedef struct iopy_ic_client_t iopy_ic_client_t;
 
+/** Configuration of the callbacks of an IOPy IC client. */
+typedef struct iopy_ic_client_cb_cfg_t {
+    /** Callback called when the client has been connected.
+     *
+     * This callback is optional.
+     *
+     * \param[in] client The IOPy IC client.
+     */
+    void (*nullable on_connect)(iopy_ic_client_t *client);
+
+    /** Callback called when the client has been disconnected.
+     *
+     * This callback is optional.
+     *
+     * \param[in] client    The IOPy IC client.
+     * \param[in] connected True if the client has been connected before,
+     *                      false otherwise.
+     */
+    void (*nullable on_disconnect)(iopy_ic_client_t *client, bool connected);
+} iopy_ic_client_cb_cfg_t;
+
 /** Create an IOPy IC client.
  *
  * \param[in]  uri            The uri the IC client should connect to.
  * \param[in]  no_act_timeout The inactivity timeout before closing the
  *                            connection in seconds.
+ * \param[in]  cb_cfg         The configuration of the callbacks of the IC
+ *                            client.
  *                            0 or a negative number means forever.
  * \param[out] err            The error description in case of error.
  * \return The new IOPy IC client.
  */
 iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, double no_act_timeout,
+                                        const iopy_ic_client_cb_cfg_t *cb_cfg,
                                         sb_t *err);
 
 /** Destroy IOPy IC client.
@@ -208,9 +233,9 @@ void iopy_ic_client_set_py_obj(iopy_ic_client_t *client,
  */
 void * nullable iopy_ic_client_get_py_obj(iopy_ic_client_t *client);
 
-/** Create an IOPy IC client.
+/** Connect the IOPy IC client.
  *
- * \param[in]  client      The IOPy IC client context.
+ * \param[in]  client     The IOPy IC client context.
  * \param[in]  uri        The uri the IC client should connect to.
  * \param[in]  timeout    The timeout it should wait for the connection in
  *                        seconds. -1 means forever.
@@ -230,17 +255,6 @@ iopy_ic_res_t iopy_ic_client_connect(iopy_ic_client_t *client, int timeout,
  * \param[in] client The IOPy RPC client.
  */
 void iopy_ic_client_disconnect(iopy_ic_client_t *client);
-
-/** Called when the client is disconnecting.
- *
- * Defined in iopy.pyx.
- *
- * \param[in] client    The IOPy IC client.
- * \param[in] connected True if the client has been connected before, false
- *                      otherwise.
- */
-void iopy_ic_py_client_on_disconnect(iopy_ic_client_t *client,
-                                     bool connected);
 
 /** Returns whether the IOPy IC client is connected or not.
  *
