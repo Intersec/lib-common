@@ -1223,7 +1223,8 @@ def process_ld(self, node):
 
 class Pxc2Pxd(FirstInputStrTask):
     run_str = ('${PXCC} ${CLANG_FLAGS} ${CLANG_CFLAGS} ${CLANG_EXTRA_CFLAGS} '
-               '${CPPPATH_ST:INCPATHS} ${SRC[0].abspath()} -o ${TGT}')
+               '-fno-blocks ${CPPPATH_ST:INCPATHS} ${SRC[0].abspath()} '
+               '-o ${TGT}')
     color   = 'BLUE'
     before  = 'cython'
     after   = 'Iop2c'
