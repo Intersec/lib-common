@@ -7233,6 +7233,8 @@ cdef class Channel(ChannelBase):
     cdef Plugin plugin
     cdef ic__hdr__t *def_hdr
     cdef iopy_ic_client_t *ic_client
+    cdef object on_connect_cb
+    cdef object on_disconnect_cb
     cdef readonly str uri
     cdef public int default_timeout
 
@@ -7387,6 +7389,66 @@ cdef class Channel(ChannelBase):
         return iop_c_val_to_py_obj(py_hdr_cls, &ic__hdr__s, self.def_hdr,
                                    self.plugin)
 
+    @property
+    def on_connect(Channel self):
+        """Get the callback called upon connection.
+
+        Returns
+        -------
+            The current callback called upon connection.
+        """
+        return self.on_connect_cb
+
+    @on_connect.setter
+    def on_connect(Channel self, object value):
+        """Set the callback called upon connection.
+
+        Parameters
+        ----------
+        value
+            Set to None (default value) to disallow connection call-back.
+            The call-back is called with only one argument:
+                client : Channel
+                    The client channel object.
+        """
+        self.on_connect_cb = value
+
+    @on_connect.deleter
+    def on_connect(Channel self):
+        """Remove the callback called upon connection"""
+        self.on_connect_cb = None
+
+    @property
+    def on_disconnect(Channel self):
+        """Get the callback called upon disconnection.
+
+        Returns
+        -------
+            The current callback called upon disconnection.
+        """
+        return self.on_disconnect_cb
+
+    @on_disconnect.setter
+    def on_disconnect(Channel self, object value):
+        """Set the callback called upon disconnection.
+
+        Parameters
+        ----------
+        value
+            Set to None (default value) to disallow connection call-back.
+            The call-back is called with only two arguments:
+                client : Channel
+                    The client channel object.
+                connected : bool
+                    True if the client was connected before, False otherwise.
+        """
+        self.on_disconnect_cb = value
+
+    @on_disconnect.deleter
+    def on_disconnect(Channel self):
+        """Remove the callback called upon disconnection"""
+        self.on_disconnect_cb = None
+
 
 cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
                              object host, int port, int default_timeout,
@@ -7430,7 +7492,7 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
 
     t_parse_uri_arg(uri, host, port, &uri_lstr)
 
-    cb_cfg.on_connect = NULL
+    cb_cfg.on_connect = &iopy_ic_py_client_on_connect
     cb_cfg.on_disconnect = &iopy_ic_py_client_on_disconnect
     with nogil:
         ic_client = iopy_ic_client_create(uri_lstr, no_act_timeout, &cb_cfg,
@@ -7804,6 +7866,40 @@ cdef int t_set_ic_hdr_from_kwargs(Plugin plugin, dict kwargs,
     return 0
 
 
+cdef void iopy_ic_py_client_on_connect(iopy_ic_client_t *client) nogil:
+    """Called when the client is connecting.
+
+    Parameters
+    ----------
+    client
+        The IOPy IC client.
+    """
+    with gil:
+        iopy_ic_py_client_on_connect_gil(client)
+
+
+cdef void iopy_ic_py_client_on_connect_gil(iopy_ic_client_t *client):
+    """Called when the client is connecting with the GIL.
+
+    Parameters
+    ----------
+    client
+        The IOPy IC client.
+    """
+    cdef void *ctx = iopy_ic_client_get_py_obj(client)
+    cdef Channel channel
+
+    if not ctx:
+        return
+
+    channel = <Channel>ctx
+    if channel.on_connect_cb is not None:
+        try:
+            channel.on_connect_cb(channel)
+        except:
+            send_exception_to_main_thread()
+
+
 cdef void iopy_ic_py_client_on_disconnect(iopy_ic_client_t *client,
                                           cbool connected) nogil:
     """Called when the client is disconnecting.
@@ -7843,6 +7939,12 @@ cdef void iopy_ic_py_client_on_disconnect_gil(iopy_ic_client_t *client,
     message = ('IChannel %s to %s (%s)' %
                (status, channel.uri, get_warning_time_str()))
     send_warning_to_main_thread(ClientWarning, message)
+
+    if channel.on_disconnect_cb is not None:
+        try:
+            channel.on_disconnect_cb(channel, connected)
+        except:
+            send_exception_to_main_thread()
 
 
 # }}}
