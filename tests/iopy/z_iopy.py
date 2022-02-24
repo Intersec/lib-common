@@ -22,7 +22,6 @@ import os
 import sys
 import time
 import copy
-import warnings
 import subprocess
 import threading
 import json
@@ -387,9 +386,6 @@ class IopyTest(z.TestCase):
         self.assertTrue(hasattr(u.a, 'field2'), "subtyping failed")
 
     def test_rpc_client_server(self):
-        # to hide connections / disconnections message
-        warnings.filterwarnings("ignore", category=iopy.ServerWarning)
-
         def rpc_impl_a(rpc_args):
             login = None
             password = None

@@ -335,52 +335,6 @@ cdef class RpcError(Error):
     pass
 
 
-@cython.warn.undeclared(False)
-class Warning(Warning):
-    """Iopy Warning."""
-    pass
-
-
-@cython.warn.undeclared(False)
-class ServerWarning(Warning):
-    """Base class for all server warnings.
-
-    Derived from iopy.Warning.
-    Deactivate warnings of this class to hide connect/disconnect messages.
-    """
-    pass
-
-
-@cython.warn.undeclared(False)
-class ServerConnectWarning(ServerWarning):
-    """Class for incoming server connections messages.
-
-    Derived from iopy.ServerWarning.
-    Deactivate warnings of this class to hide connect messages.
-    """
-    pass
-
-
-@cython.warn.undeclared(False)
-class ServerDisconnectWarning(ServerWarning):
-    """Class for server remote disconnections messages.
-
-    Derived from iopy.ServerWarning.
-    Deactivate warnings of this class to hide disconnect messages.
-    """
-    pass
-
-
-@cython.warn.undeclared(False)
-class ClientWarning(Warning):
-    """Class for channel client warning messages.
-
-    Derived from iopy.Warning.
-    Deactivate warnings of this class to hide client warning messages.
-    """
-    pass
-
-
 cdef int send_exception_to_main_thread_cb(void *arg) except -1:
     """Callback used by Py_AddPendingCall and send_exception_to_main_thread()
     to rethrow the exception in the main thread.
@@ -410,56 +364,6 @@ cdef void send_exception_to_main_thread():
     Py_INCREF(exc)
     Py_AddPendingCall(<int (*)(void *)>&send_exception_to_main_thread_cb,
                       <void *>exc)
-
-
-cdef struct SendWarningCtx:
-    # Struct to hold the warning cls and message
-    PyObject *cls
-    PyObject *message
-
-
-cdef int send_warning_to_main_thread_cb(void *arg):
-    """Callback used by Py_AddPendingCall and send_warning_to_main_thread()
-    to send warning to the main thread.
-
-    Parameters
-    ----------
-    arg
-        The SendWarningCtx containing the warning cls and message.
-    """
-    cdef SendWarningCtx *ctx = <SendWarningCtx *>arg
-    cdef object cls = <object>ctx.cls
-    cdef object message = <object>ctx.message
-
-    try:
-        if Py_IsInitialized():
-            warnings.warn_explicit(message, cls, 'sys', 1)
-    finally:
-        Py_DECREF(cls)
-        Py_DECREF(message)
-        PyMem_Free(ctx)
-
-
-cdef void send_warning_to_main_thread(object cls, object message):
-    """Print python warning with message.
-
-    Parameters
-    ----------
-    cls
-        The warning class to be used.
-    message
-        The message to print.
-    """
-    cdef SendWarningCtx *ctx
-
-    ctx = <SendWarningCtx *>PyMem_Malloc(sizeof(SendWarningCtx))
-
-    Py_INCREF(cls)
-    ctx.cls = <PyObject *>cls
-
-    Py_INCREF(message)
-    ctx.message = <PyObject *>message
-    Py_AddPendingCall(&send_warning_to_main_thread_cb, <void *>ctx)
 
 
 # }}}
@@ -7928,18 +7832,11 @@ cdef void iopy_ic_py_client_on_disconnect_gil(iopy_ic_client_t *client,
     """
     cdef void *ctx = iopy_ic_client_get_py_obj(client)
     cdef Channel channel
-    cdef object status
-    cdef object message
 
     if not ctx:
         return
 
     channel = <Channel>ctx
-    status = 'lost connection' if connected else 'cannot connect'
-    message = ('IChannel %s to %s (%s)' %
-               (status, channel.uri, get_warning_time_str()))
-    send_warning_to_main_thread(ClientWarning, message)
-
     if channel.on_disconnect_cb is not None:
         try:
             channel.on_disconnect_cb(channel, connected)
@@ -8337,17 +8234,11 @@ cdef void iopy_ic_py_server_on_connect_gil(iopy_ic_server_t *server,
     """
     cdef void *ctx = iopy_ic_server_get_py_obj(server)
     cdef ChannelServer channel
-    cdef object message
 
     if not ctx:
         return
 
     channel = <ChannelServer>ctx
-    message = ('Channel Server listening on %s, connected to: %s (%s)' %
-               (lstr_to_py_str(server_uri), lstr_to_py_str(remote_addr),
-                get_warning_time_str()))
-    send_warning_to_main_thread(ServerConnectWarning, message)
-
     if channel.on_connect_cb is not None:
         try:
             channel.on_connect_cb(channel, lstr_to_py_str(remote_addr))
@@ -8385,17 +8276,11 @@ cdef void iopy_ic_py_server_on_disconnect_gil(iopy_ic_server_t *server,
     """
     cdef void *ctx = iopy_ic_server_get_py_obj(server)
     cdef ChannelServer channel
-    cdef object message
 
     if not ctx:
         return
 
     channel = <ChannelServer>ctx
-    message = ('Channel Server listening on %s, disconnected from: %s (%s)' %
-               (lstr_to_py_str(server_uri), lstr_to_py_str(remote_addr),
-                get_warning_time_str()))
-    send_warning_to_main_thread(ServerDisconnectWarning, message)
-
     if channel.on_disconnect_cb is not None:
         try:
             channel.on_disconnect_cb(channel, lstr_to_py_str(remote_addr))
