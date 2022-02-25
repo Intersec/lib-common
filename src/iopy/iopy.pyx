@@ -300,9 +300,8 @@ cdef inline cbool iop_struct_is_same_or_child_of(const iop_struct_t *child,
         return child == parent
 
 
-cdef inline int check_iopy_ic_res(iopy_ic_res_t res,
-                                  const sb_t *err) except -1:
-    """Check if the result of an IOPy IC operation is valid and raise an
+cdef inline int check_ic_el_res(ic_el_res_t res, const sb_t *err) except -1:
+    """Check if the result of an IC EL operation is valid and raise an
     appropriate exception otherwise.
 
     Parameters
@@ -312,12 +311,12 @@ cdef inline int check_iopy_ic_res(iopy_ic_res_t res,
     err
         The error description in case of error.
     """
-    if res == IOPY_IC_ERR:
+    if res == IC_EL_ERR:
         raise Error(lstr_to_py_str(LSTR_SB_V(err)))
-    elif res == IOPY_IC_SIGINT:
+    elif res == IC_EL_SIGINT:
         raise KeyboardInterrupt()
     else:
-        cassert(res == IOPY_IC_OK)
+        cassert(res == IC_EL_OK)
     return 0
 
 
@@ -7136,7 +7135,7 @@ cdef class Channel(ChannelBase):
     cdef dict __dict__
     cdef Plugin plugin
     cdef ic__hdr__t *def_hdr
-    cdef iopy_ic_client_t *ic_client
+    cdef ic_el_client_t *ic_client
     cdef object on_connect_cb
     cdef object on_disconnect_cb
     cdef readonly str uri
@@ -7189,9 +7188,9 @@ cdef class Channel(ChannelBase):
         """Destructor of client IC channel"""
         p_delete(<void **>&self.def_hdr)
         if self.ic_client:
-            iopy_ic_client_set_py_obj(self.ic_client, NULL)
+            ic_el_client_set_ext_obj(self.ic_client, NULL)
             with nogil:
-                iopy_ic_client_destroy(&self.ic_client)
+                ic_el_client_destroy(&self.ic_client)
 
     def __repr__(Channel self):
         """Return the representation of the client IC channel.
@@ -7235,13 +7234,13 @@ cdef class Channel(ChannelBase):
         cdef cbool res
 
         with nogil:
-            res = iopy_ic_client_is_connected(self.ic_client)
+            res = ic_el_client_is_connected(self.ic_client)
         return res
 
     def disconnect(Channel self):
         """Disconnect from the associated IC"""
         with nogil:
-            iopy_ic_client_disconnect(self.ic_client)
+            ic_el_client_disconnect(self.ic_client)
 
     def change_default_hdr(Channel self, **kwargs):
         """Change the default header used when performing queries with this
@@ -7385,8 +7384,8 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
     cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef ic__hdr__t *def_hdr = NULL
     cdef lstr_t uri_lstr
-    cdef iopy_ic_client_cb_cfg_t cb_cfg
-    cdef iopy_ic_client_t *ic_client
+    cdef ic_el_client_cb_cfg_t cb_cfg
+    cdef ic_el_client_t *ic_client
 
     t_scope_ignore(t_scope_guard)
 
@@ -7396,11 +7395,11 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
 
     t_parse_uri_arg(uri, host, port, &uri_lstr)
 
-    cb_cfg.on_connect = &iopy_ic_py_client_on_connect
-    cb_cfg.on_disconnect = &iopy_ic_py_client_on_disconnect
+    cb_cfg.on_connect = &iopy_ic_client_on_connect
+    cb_cfg.on_disconnect = &iopy_ic_client_on_disconnect
     with nogil:
-        ic_client = iopy_ic_client_create(uri_lstr, no_act_timeout, &cb_cfg,
-                                          &err)
+        ic_client = ic_el_client_create(uri_lstr, no_act_timeout, &cb_cfg,
+                                        &err)
 
     if not ic_client:
         raise Error(lstr_to_py_str(LSTR_SB_V(&err)))
@@ -7411,7 +7410,7 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
     channel.default_timeout = default_timeout
     if def_hdr:
         channel.def_hdr = iop_dup_ic_hdr(def_hdr)
-    iopy_ic_client_set_py_obj(ic_client, <void*>channel)
+    ic_el_client_set_ext_obj(ic_client, <void*>channel)
 
     return 0
 
@@ -7472,11 +7471,11 @@ cdef int client_channel_connect(Channel channel, int timeout) except -1:
     """
     cdef sb_buf_1k_t err_buf
     cdef sb_scope_t err = sb_scope_init_static(err_buf)
-    cdef iopy_ic_res_t res
+    cdef ic_el_res_t res
 
     with nogil:
-        res = iopy_ic_client_connect(channel.ic_client, timeout, &err)
-    check_iopy_ic_res(res, &err)
+        res = ic_el_client_connect(channel.ic_client, timeout, &err)
+    check_ic_el_res(res, &err)
     return 0
 
 
@@ -7505,7 +7504,7 @@ cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
     cdef StructUnionBase py_input
     cdef void *ic_input = NULL
     cdef int32_t cmd
-    cdef iopy_ic_res_t call_res
+    cdef ic_el_res_t call_res
     cdef ic_status_t ic_status = IC_MSG_OK
     cdef void *ic_res = NULL
     cdef object py_res_cls
@@ -7548,11 +7547,11 @@ cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
     cmd = get_iface_rpc_cmd(py_iface.iface_alias, rpc.rpc)
 
     with nogil:
-        call_res = iopy_ic_client_call(channel.ic_client, rpc.rpc, cmd, hdr,
-                                       timeout, ic_input, &ic_status, &ic_res,
-                                       &err)
+        call_res = ic_el_client_call(channel.ic_client, rpc.rpc, cmd, hdr,
+                                     timeout, ic_input, &ic_status, &ic_res,
+                                     &err)
 
-    check_iopy_ic_res(call_res, &err)
+    check_ic_el_res(call_res, &err)
 
     if rpc.rpc.async:
         return None
@@ -7770,7 +7769,7 @@ cdef int t_set_ic_hdr_from_kwargs(Plugin plugin, dict kwargs,
     return 0
 
 
-cdef void iopy_ic_py_client_on_connect(iopy_ic_client_t *client) nogil:
+cdef void iopy_ic_client_on_connect(ic_el_client_t *client) nogil:
     """Called when the client is connecting.
 
     Parameters
@@ -7779,10 +7778,10 @@ cdef void iopy_ic_py_client_on_connect(iopy_ic_client_t *client) nogil:
         The IOPy IC client.
     """
     with gil:
-        iopy_ic_py_client_on_connect_gil(client)
+        iopy_ic_client_on_connect_gil(client)
 
 
-cdef void iopy_ic_py_client_on_connect_gil(iopy_ic_client_t *client):
+cdef void iopy_ic_client_on_connect_gil(ic_el_client_t *client):
     """Called when the client is connecting with the GIL.
 
     Parameters
@@ -7790,7 +7789,7 @@ cdef void iopy_ic_py_client_on_connect_gil(iopy_ic_client_t *client):
     client
         The IOPy IC client.
     """
-    cdef void *ctx = iopy_ic_client_get_py_obj(client)
+    cdef void *ctx = ic_el_client_get_ext_obj(client)
     cdef Channel channel
 
     if not ctx:
@@ -7804,8 +7803,8 @@ cdef void iopy_ic_py_client_on_connect_gil(iopy_ic_client_t *client):
             send_exception_to_main_thread()
 
 
-cdef void iopy_ic_py_client_on_disconnect(iopy_ic_client_t *client,
-                                          cbool connected) nogil:
+cdef void iopy_ic_client_on_disconnect(ic_el_client_t *client,
+                                       cbool connected) nogil:
     """Called when the client is disconnecting.
 
     Parameters
@@ -7816,11 +7815,11 @@ cdef void iopy_ic_py_client_on_disconnect(iopy_ic_client_t *client,
         True if the client has been connected before, False otherwise.
     """
     with gil:
-        iopy_ic_py_client_on_disconnect_gil(client, connected)
+        iopy_ic_client_on_disconnect_gil(client, connected)
 
 
-cdef void iopy_ic_py_client_on_disconnect_gil(iopy_ic_client_t *client,
-                                              cbool connected):
+cdef void iopy_ic_client_on_disconnect_gil(ic_el_client_t *client,
+                                           cbool connected):
     """Called when the client is disconnecting with the GIL.
 
     Parameters
@@ -7830,7 +7829,7 @@ cdef void iopy_ic_py_client_on_disconnect_gil(iopy_ic_client_t *client,
     connected
         True if the client has been connected before, False otherwise.
     """
-    cdef void *ctx = iopy_ic_client_get_py_obj(client)
+    cdef void *ctx = ic_el_client_get_ext_obj(client)
     cdef Channel channel
 
     if not ctx:
@@ -7905,7 +7904,7 @@ cdef class RPCServer(RPCChannel):
 
         channel.rpc_impls[cmd] = self
         with nogil:
-            iopy_ic_server_register_rpc(channel.ic_server, self.rpc, cmd)
+            ic_el_server_register_rpc(channel.ic_server, self.rpc, cmd)
         self.rpc_impl = value
 
     @impl.deleter
@@ -7917,7 +7916,7 @@ cdef class RPCServer(RPCChannel):
 
         del channel.rpc_impls[cmd]
         with nogil:
-            iopy_ic_server_unregister_rpc(channel.ic_server, cmd)
+            ic_el_server_unregister_rpc(channel.ic_server, cmd)
         self.rpc_impl = None
 
     def wait(RPCServer self, int timeout, object uri=None, object host=None,
@@ -7968,7 +7967,7 @@ cdef class ChannelServer(ChannelBase):
     """Class for server IC channel"""
     cdef dict __dict__
     cdef dict rpc_impls
-    cdef iopy_ic_server_t *ic_server
+    cdef ic_el_server_t *ic_server
     cdef Plugin plugin
     cdef object on_connect_cb
     cdef object on_disconnect_cb
@@ -7981,17 +7980,17 @@ cdef class ChannelServer(ChannelBase):
         register
             The IOPy plugin.
         """
-        cdef iopy_ic_server_cb_cfg_t cb_cfg
+        cdef ic_el_server_cb_cfg_t cb_cfg
 
         self.rpc_impls = {}
 
-        cb_cfg.t_on_rpc = &t_iopy_ic_py_server_on_rpc
-        cb_cfg.on_connect = &iopy_ic_py_server_on_connect
-        cb_cfg.on_disconnect = &iopy_ic_py_server_on_disconnect
+        cb_cfg.t_on_rpc = &t_iopy_ic_server_on_rpc
+        cb_cfg.on_connect = &iopy_ic_server_on_connect
+        cb_cfg.on_disconnect = &iopy_ic_server_on_disconnect
         with nogil:
-            self.ic_server = iopy_ic_server_create(&cb_cfg)
+            self.ic_server = ic_el_server_create(&cb_cfg)
 
-        iopy_ic_server_set_py_obj(self.ic_server, <void *>self)
+        ic_el_server_set_ext_obj(self.ic_server, <void *>self)
         create_modules_of_channel(register, self, &create_server_rpc)
 
         self.plugin = register
@@ -8001,9 +8000,9 @@ cdef class ChannelServer(ChannelBase):
     def __dealloc__(ChannelServer self):
         """Destructor of server IC channel"""
         if self.ic_server:
-            iopy_ic_server_set_py_obj(self.ic_server, NULL)
+            ic_el_server_set_ext_obj(self.ic_server, NULL)
             with nogil:
-                iopy_ic_server_destroy(&self.ic_server)
+                ic_el_server_destroy(&self.ic_server)
 
     def __repr__(ChannelServer self):
         """Return the representation of the server IC channel.
@@ -8044,7 +8043,7 @@ cdef class ChannelServer(ChannelBase):
         t_parse_uri_arg(uri, host, port, &uri_lstr)
 
         with nogil:
-            res = iopy_ic_server_listen(self.ic_server, uri_lstr, &err)
+            res = ic_el_server_listen(self.ic_server, uri_lstr, &err)
 
         if res < 0:
             raise Error(lstr_to_py_str(LSTR_SB_V(&err)))
@@ -8072,24 +8071,24 @@ cdef class ChannelServer(ChannelBase):
         cdef sb_buf_1k_t err_buf
         cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef lstr_t uri_lstr
-        cdef iopy_ic_res_t res
+        cdef ic_el_res_t res
 
         t_scope_ignore(t_scope_guard)
         t_parse_uri_arg(uri, host, port, &uri_lstr)
 
         with nogil:
-            res = iopy_ic_server_listen_block(self.ic_server, uri_lstr,
-                                              timeout, &err)
-        check_iopy_ic_res(res, &err)
+            res = ic_el_server_listen_block(self.ic_server, uri_lstr, timeout,
+                                            &err)
+        check_ic_el_res(res, &err)
 
     def stop(ChannelServer self):
         """Stop the IC server from listening"""
-        cdef iopy_ic_res_t res
+        cdef ic_el_res_t res
 
         with nogil:
-            res = iopy_ic_server_stop(self.ic_server)
+            res = ic_el_server_stop(self.ic_server)
 
-        check_iopy_ic_res(res, NULL)
+        check_ic_el_res(res, NULL)
 
     @property
     def on_connect(ChannelServer self):
@@ -8159,7 +8158,7 @@ cdef class ChannelServer(ChannelBase):
         cdef cbool res
 
         with nogil:
-            res = iopy_ic_server_is_listening(self.ic_server)
+            res = ic_el_server_is_listening(self.ic_server)
         return res
 
 
@@ -8204,9 +8203,9 @@ cdef class RPCArgs:
     cdef readonly object hdr
 
 
-cdef void iopy_ic_py_server_on_connect(iopy_ic_server_t *server,
-                                       lstr_t server_uri,
-                                       lstr_t remote_addr) nogil:
+cdef void iopy_ic_server_on_connect(ic_el_server_t *server,
+                                    lstr_t server_uri,
+                                    lstr_t remote_addr) nogil:
     """Called when a peer is connecting to the server.
 
     Parameters
@@ -8217,12 +8216,12 @@ cdef void iopy_ic_py_server_on_connect(iopy_ic_server_t *server,
         The address of the peer.
     """
     with gil:
-        iopy_ic_py_server_on_connect_gil(server, server_uri, remote_addr)
+        iopy_ic_server_on_connect_gil(server, server_uri, remote_addr)
 
 
-cdef void iopy_ic_py_server_on_connect_gil(iopy_ic_server_t *server,
-                                           lstr_t server_uri,
-                                           lstr_t remote_addr):
+cdef void iopy_ic_server_on_connect_gil(ic_el_server_t *server,
+                                        lstr_t server_uri,
+                                        lstr_t remote_addr):
     """Called when a peer is connecting to the server with the GIL.
 
     Parameters
@@ -8232,7 +8231,7 @@ cdef void iopy_ic_py_server_on_connect_gil(iopy_ic_server_t *server,
     remote_addr
         The address of the peer.
     """
-    cdef void *ctx = iopy_ic_server_get_py_obj(server)
+    cdef void *ctx = ic_el_server_get_ext_obj(server)
     cdef ChannelServer channel
 
     if not ctx:
@@ -8246,9 +8245,9 @@ cdef void iopy_ic_py_server_on_connect_gil(iopy_ic_server_t *server,
             send_exception_to_main_thread()
 
 
-cdef void iopy_ic_py_server_on_disconnect(iopy_ic_server_t *server,
-                                          lstr_t server_uri,
-                                          lstr_t remote_addr) nogil:
+cdef void iopy_ic_server_on_disconnect(ic_el_server_t *server,
+                                       lstr_t server_uri,
+                                       lstr_t remote_addr) nogil:
     """Called when a peer is disconnecting from the server.
 
     Parameters
@@ -8259,12 +8258,12 @@ cdef void iopy_ic_py_server_on_disconnect(iopy_ic_server_t *server,
         The address of the peer.
     """
     with gil:
-        iopy_ic_py_server_on_disconnect_gil(server, server_uri, remote_addr)
+        iopy_ic_server_on_disconnect_gil(server, server_uri, remote_addr)
 
 
-cdef void iopy_ic_py_server_on_disconnect_gil(iopy_ic_server_t *server,
-                                              lstr_t server_uri,
-                                              lstr_t remote_addr):
+cdef void iopy_ic_server_on_disconnect_gil(ic_el_server_t *server,
+                                           lstr_t server_uri,
+                                           lstr_t remote_addr):
     """Called when a peer is disconnecting from the server with the GIL.
 
     Parameters
@@ -8274,7 +8273,7 @@ cdef void iopy_ic_py_server_on_disconnect_gil(iopy_ic_server_t *server,
     remote_addr
         The address of the peer.
     """
-    cdef void *ctx = iopy_ic_server_get_py_obj(server)
+    cdef void *ctx = ic_el_server_get_ext_obj(server)
     cdef ChannelServer channel
 
     if not ctx:
@@ -8288,8 +8287,8 @@ cdef void iopy_ic_py_server_on_disconnect_gil(iopy_ic_server_t *server,
             send_exception_to_main_thread()
 
 
-cdef ic_status_t t_iopy_ic_py_server_on_rpc(
-    iopy_ic_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
+cdef ic_status_t t_iopy_ic_server_on_rpc(
+    ic_el_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
     const ic__hdr__t *hdr, void **res, const iop_struct_t **res_st) nogil:
     """Called when a request is made to an RPC.
 
@@ -8317,8 +8316,8 @@ cdef ic_status_t t_iopy_ic_py_server_on_rpc(
 
     with gil:
         try:
-            status = t_iopy_ic_py_server_on_rpc_gil(server, ic, slot, arg,
-                                                    hdr, res, res_st)
+            status = t_iopy_ic_server_on_rpc_gil(server, ic, slot, arg,
+                                                 hdr, res, res_st)
         except:
             send_exception_to_main_thread()
             status = IC_MSG_SERVER_ERROR
@@ -8326,8 +8325,8 @@ cdef ic_status_t t_iopy_ic_py_server_on_rpc(
     return <ic_status_t>status
 
 
-cdef int t_iopy_ic_py_server_on_rpc_gil(
-    iopy_ic_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
+cdef int t_iopy_ic_server_on_rpc_gil(
+    ic_el_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
     const ic__hdr__t *hdr, void **res, const iop_struct_t **res_st) except -1:
     """Called when a request is made to an RPC with the GIL.
 
@@ -8352,7 +8351,7 @@ cdef int t_iopy_ic_py_server_on_rpc_gil(
         res and res_desc are ignored.
         -1 in case of python exception.
     """
-    cdef void *ctx = iopy_ic_server_get_py_obj(server)
+    cdef void *ctx = ic_el_server_get_ext_obj(server)
     cdef ChannelServer channel
     cdef Plugin plugin
     cdef RPCServer rpc
@@ -10286,10 +10285,10 @@ cdef void init_thread_attach():
     threading._start_new_thread = iopy_start_new_thread
 
 
-cdef void iopy_atexit_rpc_stop_cb():
+cdef void iopy_atexit_ic_stop_cb():
     """Callback to stop the RPC module when the interpreter is still valid"""
     with nogil:
-        iopy_rpc_module_stop()
+        ic_el_module_stop()
 
 
 cdef int init_iopy_atexit() except -1:
@@ -10312,17 +10311,17 @@ cdef int init_iopy_atexit() except -1:
     # Use atexit Python module to call iopy_rpc_module_stop() while the Python
     # interpreter is still valid.
     import atexit
-    atexit.register(iopy_atexit_rpc_stop_cb)
+    atexit.register(iopy_atexit_ic_stop_cb)
 
     # Use Py_AtExit() to call iopy_rpc_module_cleanup() after the Python
     # interpreter has been cleaned up.
-    if Py_AtExit(&iopy_rpc_module_cleanup) < 0:
+    if Py_AtExit(&ic_el_module_cleanup) < 0:
         raise RuntimeError('unable to register iopy at_exit callback')
 
 
 init_iopy_atexit()
 py_eval_init_threads()
-iopy_rpc_module_init()
+ic_el_module_init()
 init_module_versions()
 init_thread_attach()
 

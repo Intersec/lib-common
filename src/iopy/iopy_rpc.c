@@ -16,8 +16,6 @@
 /*                                                                         */
 /***************************************************************************/
 
-/* XXX: This file should never include <Python.h> */
-
 #include <lib-common/thr.h>
 #include <lib-common/iop-rpc.h>
 #include <lib-common/datetime.h>
@@ -33,8 +31,8 @@ typedef enum el_thr_status_t {
     EL_THR_STOPPED = 3,
 } el_thr_status_t;
 
-qm_khptr_t(iopy_ic_server, struct ev_t, iopy_ic_server_t *);
-qh_khptr_t(iopy_ic_client, iopy_ic_client_t);
+qm_khptr_t(ic_el_server, struct ev_t, ic_el_server_t *);
+qh_khptr_t(ic_el_client, ic_el_client_t);
 
 /* }}} */
 
@@ -47,9 +45,9 @@ static struct {
     pthread_cond_t el_thr_start_cond;
 
     /* Don't use these variables directly unless you know what you are doing.
-     * Use iopy_el_mutex_lock(), iopy_el_mutex_unlock(),
-     * iopy_inc_el_mutex_wait_lock_cnt() and iopy_dec_el_mutex_wait_lock_cnt()
-     * instead.
+     * Use ic_el_mutex_lock(), ic_el_mutex_unlock(),
+     * ic_el_inc_el_mutex_wait_lock_cnt() and
+     * ic_el_dec_el_mutex_wait_lock_cnt() instead.
      */
     pthread_mutex_t el_mutex;
     el_t el_mutex_before_lock_el;
@@ -62,12 +60,12 @@ static struct {
     struct sigaction el_wait_thr_py_sigint;
     el_t el_wait_thr_sigint_el;
 
-    qm_t(iopy_ic_server) servers;
-    qh_t(iopy_ic_client) clients;
+    qm_t(ic_el_server) servers;
+    qh_t(ic_el_client) clients;
 
     dlist_t destroyed_clients;
-} iopy_rpc_g;
-#define _G  iopy_rpc_g
+} ic_el_g;
+#define _G ic_el_g
 
 /* {{{ Helpers */
 
@@ -122,8 +120,8 @@ static void el_loop_wait_after_lock_cond(void)
                            &ts);
 }
 
-static void iopy_ic_server_el_process(void);
-static void iopy_ic_client_el_process(void);
+static void ic_el_server_el_process(void);
+static void ic_el_client_el_process(void);
 
 /** El thread loop. */
 static void *el_loop_thread_fun(void *arg)
@@ -163,8 +161,8 @@ static void *el_loop_thread_fun(void *arg)
         assert (wait_lock_cnt >= 0);
         el_loop_timeout(wait_lock_cnt > 0 ? 0 : 100);
 
-        iopy_ic_server_el_process();
-        iopy_ic_client_el_process();
+        ic_el_server_el_process();
+        ic_el_client_el_process();
 
         if (_G.el_thr_signo) {
             break;
@@ -199,7 +197,7 @@ static void *el_loop_thread_fun(void *arg)
 }
 
 /** Increment wait lock counter. */
-static int iopy_inc_el_mutex_wait_lock_cnt(void)
+static int ic_el_inc_el_mutex_wait_lock_cnt(void)
 {
     int old_wait_lock_cnt;
 
@@ -212,7 +210,7 @@ static int iopy_inc_el_mutex_wait_lock_cnt(void)
  *
  * It will signal _G.el_mutex_after_lock_cond if needed.
  */
-static void iopy_dec_el_mutex_wait_lock_cnt(void)
+static void ic_el_dec_el_mutex_wait_lock_cnt(void)
 {
     int old_wait_lock_cnt;
 
@@ -228,11 +226,11 @@ static void iopy_dec_el_mutex_wait_lock_cnt(void)
  * It will start the el thread loop if needed.
  * el_mutex will be locked after calling this function.
  */
-static void iopy_el_mutex_lock(bool start_thr)
+static void ic_el_mutex_lock(bool start_thr)
 {
     int old_wait_lock_cnt;
 
-    old_wait_lock_cnt = iopy_inc_el_mutex_wait_lock_cnt();
+    old_wait_lock_cnt = ic_el_inc_el_mutex_wait_lock_cnt();
     if (old_wait_lock_cnt == 0) {
         el_wake_fire(_G.el_mutex_before_lock_el);
     }
@@ -243,7 +241,7 @@ static void iopy_el_mutex_lock(bool start_thr)
     ||  likely(_G.el_thr_status == EL_THR_STARTED)
     ||  unlikely(is_el_thr_stopped()))
     {
-        iopy_dec_el_mutex_wait_lock_cnt();
+        ic_el_dec_el_mutex_wait_lock_cnt();
         return;
     }
 
@@ -259,32 +257,32 @@ static void iopy_el_mutex_lock(bool start_thr)
         pthread_cond_wait(&_G.el_thr_start_cond, &_G.el_mutex);
     } while (_G.el_thr_status != EL_THR_STARTED);
 
-    iopy_dec_el_mutex_wait_lock_cnt();
+    ic_el_dec_el_mutex_wait_lock_cnt();
 }
 
 /** Release el mutex lock.
  *
  * el_mutex will be unlocked after calling this function.
  */
-static void iopy_el_mutex_unlock(void)
+static void ic_el_mutex_unlock(void)
 {
     pthread_mutex_unlock(&_G.el_mutex);
 }
 
-static void iopy_wait_thr_cond_sigint(el_t ev, int signo, el_data_t priv)
+static void ic_el_wait_thr_cond_sigint(el_t ev, int signo, el_data_t priv)
 {
     _G.el_wait_thr_sigint_received = true;
     pthread_cond_broadcast(&_G.el_wait_thr_cond);
-    iopy_inc_el_mutex_wait_lock_cnt();
+    ic_el_inc_el_mutex_wait_lock_cnt();
 }
 
-static void iopy_wait_thr_timeout_cb(el_t ev, el_data_t priv)
+static void ic_el_wait_thr_timeout_cb(el_t ev, el_data_t priv)
 {
     bool *timeout_expired_ptr = priv.ptr;
 
     *timeout_expired_ptr = true;
     pthread_cond_broadcast(&_G.el_wait_thr_cond);
-    iopy_inc_el_mutex_wait_lock_cnt();
+    ic_el_inc_el_mutex_wait_lock_cnt();
 }
 
 /** Result of wait_thread_cond(). */
@@ -297,9 +295,9 @@ typedef enum wait_thread_cond_res_t {
 /** Wait thread for specified condition.
  *
  * XXX: _G.el_mutex must be locked before calling this function.
- *      iopy_dec_el_mutex_wait_lock_cnt() will be called if the condition has
+ *      ic_el_dec_el_mutex_wait_lock_cnt() will be called if the condition has
  *      been fulfilled.
- *      So, you *MUST* call iopy_inc_el_mutex_wait_lock_cnt() when signaling
+ *      So, you *MUST* call ic_el_inc_el_mutex_wait_lock_cnt() when signaling
  *      the condition.
  *      You also *MUST* use pthread_cond_broadcast() on _G.el_wait_thr_cond
  *      since multiple threads can wait to _G.el_wait_thr_cond
@@ -307,7 +305,7 @@ typedef enum wait_thread_cond_res_t {
  *      Example:
  *          ctx->is_terminated = true;
  *          pthread_cond_broadcast(&_G.el_wait_thr_cond);
- *          iopy_inc_el_mutex_wait_lock_cnt();
+ *          ic_el_inc_el_mutex_wait_lock_cnt();
  *
  * \param[in] is_terminated  A callback called to check if the condition has
  *                           been fulfilled.
@@ -330,16 +328,16 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
         lp_gettv(&begin_time);
         timeout_msec = timeout * 1000;
         timeout_el = el_timer_register(timeout_msec, 0, EL_TIMER_LOWRES,
-                                       &iopy_wait_thr_timeout_cb,
+                                       &ic_el_wait_thr_timeout_cb,
                                        &timeout_expired);
     }
 
-    /* Save python sigint handler if we don't saved it already. */
+    /* Save old sigint handler if we don't saved it already. */
     assert (_G.el_wait_thr_sigint_cnt >= 0);
     if (_G.el_wait_thr_sigint_cnt++ == 0) {
         sigaction(SIGINT, NULL, &_G.el_wait_thr_py_sigint);
         _G.el_wait_thr_sigint_el =
-            el_signal_register(SIGINT, &iopy_wait_thr_cond_sigint, NULL);
+            el_signal_register(SIGINT, &ic_el_wait_thr_cond_sigint, NULL);
         _G.el_wait_thr_sigint_received = false;
     }
 
@@ -365,7 +363,7 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
     }
 
     if (terminated) {
-        iopy_dec_el_mutex_wait_lock_cnt();
+        ic_el_dec_el_mutex_wait_lock_cnt();
         res = WAIT_THR_COND_OK;
     }
 
@@ -373,7 +371,7 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
         res = WAIT_THR_COND_SIGINT;
     }
 
-    /* Restore python sigint handler if we are the last one to wait. */
+    /* Restore old sigint handler if we are the last one to wait. */
     assert (_G.el_wait_thr_sigint_cnt > 0);
     if (--_G.el_wait_thr_sigint_cnt == 0) {
         el_unregister(&_G.el_wait_thr_sigint_el);
@@ -386,10 +384,10 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
 /* }}} */
 /* {{{ Server */
 
-struct iopy_ic_server_t {
+struct ic_el_server_t {
     int refcnt;
-    iopy_ic_server_cb_cfg_t cb_cfg;
-    void *py_obj;
+    ic_el_server_cb_cfg_t cb_cfg;
+    void *ext_obj;
     el_t el_ic;
     lstr_t uri;
     qm_t(ic_cbs) impl;
@@ -398,12 +396,12 @@ struct iopy_ic_server_t {
     bool wait_for_stop : 1;
 };
 
-typedef struct iopy_ic_peer_t {
+typedef struct ic_el_peer_t {
     ichannel_t *ic;
     dlist_t node;
-} iopy_ic_peer_t;
+} ic_el_peer_t;
 
-static void iopy_ic_peer_wipe(iopy_ic_peer_t *peer)
+static void ic_el_peer_wipe(ic_el_peer_t *peer)
 {
     if (peer->ic) {
         peer->ic->priv = NULL;
@@ -413,10 +411,10 @@ static void iopy_ic_peer_wipe(iopy_ic_peer_t *peer)
     dlist_remove(&peer->node);
 }
 
-GENERIC_NEW_INIT(iopy_ic_peer_t, iopy_ic_peer);
-GENERIC_DELETE(iopy_ic_peer_t, iopy_ic_peer);
+GENERIC_NEW_INIT(ic_el_peer_t, ic_el_peer);
+GENERIC_DELETE(ic_el_peer_t, ic_el_peer);
 
-static iopy_ic_server_t *iopy_ic_server_init(iopy_ic_server_t *server)
+static ic_el_server_t *ic_el_server_init(ic_el_server_t *server)
 {
     p_clear(server, 1);
     qm_init(ic_cbs, &server->impl);
@@ -424,16 +422,16 @@ static iopy_ic_server_t *iopy_ic_server_init(iopy_ic_server_t *server)
     return server;
 }
 
-static void iopy_ic_server_wipe(iopy_ic_server_t *server)
+static void ic_el_server_wipe(ic_el_server_t *server)
 {
     lstr_wipe(&server->uri);
     qm_wipe(ic_cbs, &server->impl);
 }
 
-DO_REFCNT(iopy_ic_server_t, iopy_ic_server);
+DO_REFCNT(ic_el_server_t, ic_el_server);
 
-static void iopy_ic_server_clear(iopy_ic_server_t *server,
-                                 bool use_wait_for_stop)
+static void ic_el_server_clear(ic_el_server_t *server,
+                               bool use_wait_for_stop)
 {
     if (!server->el_ic) {
         return;
@@ -441,72 +439,72 @@ static void iopy_ic_server_clear(iopy_ic_server_t *server,
 
     el_unregister(&server->el_ic);
 
-    dlist_for_each_entry(iopy_ic_peer_t, peer, &server->peers, node) {
-        iopy_ic_peer_delete(&peer);
+    dlist_for_each_entry(ic_el_peer_t, peer, &server->peers, node) {
+        ic_el_peer_delete(&peer);
     }
 
     if (use_wait_for_stop && server->wait_for_stop) {
         pthread_cond_broadcast(&_G.el_wait_thr_cond);
-        iopy_inc_el_mutex_wait_lock_cnt();
+        ic_el_inc_el_mutex_wait_lock_cnt();
     }
 
     lstr_wipe(&server->uri);
 }
 
 /** Process stopped ic servers in the event loop. */
-static void iopy_ic_server_el_process(void)
+static void ic_el_server_el_process(void)
 {
-    qm_for_each_pos(iopy_ic_server, pos, &_G.servers) {
-        iopy_ic_server_t *server = _G.servers.values[pos];
+    qm_for_each_pos(ic_el_server, pos, &_G.servers) {
+        ic_el_server_t *server = _G.servers.values[pos];
 
         if (!server->is_stopping) {
             continue;
         }
-        iopy_ic_server_clear(server, true);
+        ic_el_server_clear(server, true);
         server->is_stopping = false;
-        iopy_ic_server_delete(&server);
-        qm_del_at(iopy_ic_server, &_G.servers, pos);
+        ic_el_server_delete(&server);
+        qm_del_at(ic_el_server, &_G.servers, pos);
     }
 }
 
-iopy_ic_server_t *iopy_ic_server_create(const iopy_ic_server_cb_cfg_t *cb_cfg)
+ic_el_server_t *ic_el_server_create(const ic_el_server_cb_cfg_t *cb_cfg)
 {
-    iopy_ic_server_t *server = iopy_ic_server_new();
+    ic_el_server_t *server = ic_el_server_new();
 
     server->cb_cfg = *cb_cfg;
     return server;
 }
 
-void iopy_ic_server_destroy(iopy_ic_server_t **server_ptr)
+void ic_el_server_destroy(ic_el_server_t **server_ptr)
 {
-    iopy_ic_server_t *server = *server_ptr;
+    ic_el_server_t *server = *server_ptr;
 
     if (!server) {
         return;
     }
 
-    iopy_el_mutex_lock(true);
+    ic_el_mutex_lock(true);
     if (server->el_ic) {
         server->is_stopping = true;
     }
-    iopy_ic_server_delete(server_ptr);
-    iopy_el_mutex_unlock();
+    ic_el_server_delete(server_ptr);
+    ic_el_mutex_unlock();
 }
 
-void iopy_ic_server_set_py_obj(iopy_ic_server_t *server,
-                               void * nullable py_obj)
+void ic_el_server_set_ext_obj(ic_el_server_t *server,
+                              void * nullable ext_obj)
 {
-    server->py_obj = py_obj;
+    server->ext_obj = ext_obj;
 }
 
-void * nullable iopy_ic_server_get_py_obj(iopy_ic_server_t *server)
+void * nullable ic_el_server_get_ext_obj(ic_el_server_t *server)
 {
-    return server->py_obj;
+    return server->ext_obj;
 }
 
-static void iopy_ic_server_on_event(ichannel_t *ic, ic_event_t evt)
+static void ic_el_server_on_event(ichannel_t *ic, ic_event_t evt)
 {
-    iopy_ic_server_t *server = ic->priv;
+    ic_el_server_t *server = ic->priv;
 
     if (unlikely(!server)) {
         return;
@@ -518,13 +516,13 @@ static void iopy_ic_server_on_event(ichannel_t *ic, ic_event_t evt)
             t_scope;
             lstr_t server_uri = t_lstr_dup(server->uri);
             lstr_t client_addr = t_lstr_dup(ic_get_client_addr(ic));
-            iopy_ic_server_t *server_dup = iopy_ic_server_retain(server);
+            ic_el_server_t *server_dup = ic_el_server_retain(server);
 
-            iopy_el_mutex_unlock();
+            ic_el_mutex_unlock();
             (*server_dup->cb_cfg.on_connect)(server_dup, server_uri,
                                              client_addr);
-            iopy_el_mutex_lock(false);
-            iopy_ic_server_delete(&server_dup);
+            ic_el_mutex_lock(false);
+            ic_el_server_delete(&server_dup);
         }
         break;
 
@@ -533,17 +531,17 @@ static void iopy_ic_server_on_event(ichannel_t *ic, ic_event_t evt)
             t_scope;
             lstr_t server_uri = t_lstr_dup(server->uri);
             lstr_t client_addr = t_lstr_dup(ic_get_client_addr(ic));
-            iopy_ic_server_t *server_dup = iopy_ic_server_retain(server);
+            ic_el_server_t *server_dup = ic_el_server_retain(server);
 
-            iopy_el_mutex_unlock();
+            ic_el_mutex_unlock();
             (*server_dup->cb_cfg.on_disconnect)(server_dup, server_uri,
                                                 client_addr);
-            iopy_el_mutex_lock(false);
-            iopy_ic_server_delete(&server_dup);
+            ic_el_mutex_lock(false);
+            ic_el_server_delete(&server_dup);
         }
         if (ic->peer) {
-            ((iopy_ic_peer_t *)ic->peer)->ic = NULL;
-            iopy_ic_peer_delete((iopy_ic_peer_t **)&ic->peer);
+            ((ic_el_peer_t *)ic->peer)->ic = NULL;
+            ic_el_peer_delete((ic_el_peer_t **)&ic->peer);
         }
         break;
 
@@ -552,17 +550,17 @@ static void iopy_ic_server_on_event(ichannel_t *ic, ic_event_t evt)
     }
 }
 
-static int iopy_ic_server_on_accept(el_t ev, int fd)
+static int ic_el_server_on_accept(el_t ev, int fd)
 {
-    iopy_ic_server_t *server;
-    iopy_ic_peer_t *peer;
+    ic_el_server_t *server;
+    ic_el_peer_t *peer;
 
-    server = RETHROW_PN(qm_get_def(iopy_ic_server, &_G.servers, ev, NULL));
-    peer = iopy_ic_peer_new();
+    server = RETHROW_PN(qm_get_def(ic_el_server, &_G.servers, ev, NULL));
+    peer = ic_el_peer_new();
     dlist_add_tail(&server->peers, &peer->node);
 
     peer->ic = ic_new();
-    peer->ic->on_event = &iopy_ic_server_on_event;
+    peer->ic->on_event = &ic_el_server_on_event;
     peer->ic->impl = &server->impl;
     peer->ic->priv = server;
     peer->ic->peer = peer;
@@ -571,11 +569,11 @@ static int iopy_ic_server_on_accept(el_t ev, int fd)
     return 0;
 }
 
-static void iopy_ic_server_rpc_cb(ichannel_t *ic, uint64_t slot, void *arg,
-                                  const ic__hdr__t *hdr)
+static void ic_el_server_rpc_cb(ichannel_t *ic, uint64_t slot, void *arg,
+                                const ic__hdr__t *hdr)
 {
     t_scope;
-    iopy_ic_server_t *server = ic->priv;
+    ic_el_server_t *server = ic->priv;
     ic_status_t status;
     void *res = NULL;
     const iop_struct_t *res_st = NULL;
@@ -587,12 +585,12 @@ static void iopy_ic_server_rpc_cb(ichannel_t *ic, uint64_t slot, void *arg,
         return;
     }
 
-    iopy_ic_server_retain(server);
-    iopy_el_mutex_unlock();
+    ic_el_server_retain(server);
+    ic_el_mutex_unlock();
     status = (*server->cb_cfg.t_on_rpc)(server, ic, slot, arg, hdr, &res,
                                         &res_st);
-    iopy_el_mutex_lock(false);
-    iopy_ic_server_delete(&server);
+    ic_el_mutex_lock(false);
+    ic_el_server_delete(&server);
 
     switch (status) {
       case IC_MSG_OK:
@@ -610,10 +608,10 @@ static void iopy_ic_server_rpc_cb(ichannel_t *ic, uint64_t slot, void *arg,
     }
 }
 
-/** Start listening IOPy IC server with the mutex locked. */
-static int iopy_ic_server_listen_internal(iopy_ic_server_t *server,
-                                          lstr_t uri, const sockunion_t *su,
-                                          sb_t *err)
+/** Make the IC EL server listening with the mutex locked. */
+static int ic_el_server_listen_internal(ic_el_server_t *server,
+                                        lstr_t uri, const sockunion_t *su,
+                                        sb_t *err)
 {
     if (server->el_ic) {
         sb_setf(err, "channel server is already listening on %*pM",
@@ -622,58 +620,58 @@ static int iopy_ic_server_listen_internal(iopy_ic_server_t *server,
     }
 
     server->el_ic = ic_listento(su, SOCK_STREAM, IPPROTO_TCP,
-                                iopy_ic_server_on_accept);
+                                ic_el_server_on_accept);
     if (!server->el_ic) {
         sb_setf(err, "cannot bind channel server on %*pM",
                 LSTR_FMT_ARG(server->uri));
         return -1;
     }
 
-    qm_add(iopy_ic_server, &_G.servers, server->el_ic,
-           iopy_ic_server_retain(server));
+    qm_add(ic_el_server, &_G.servers, server->el_ic,
+           ic_el_server_retain(server));
     lstr_copy(&server->uri, uri);
     return 0;
 }
 
-int iopy_ic_server_listen(iopy_ic_server_t *server, lstr_t uri, sb_t *err)
+int ic_el_server_listen(ic_el_server_t *server, lstr_t uri, sb_t *err)
 {
     int res;
     sockunion_t su;
 
     RETHROW(load_su_from_uri(uri, &su, err));
 
-    iopy_el_mutex_lock(true);
-    res = iopy_ic_server_listen_internal(server, uri, &su, err);
-    iopy_el_mutex_unlock();
+    ic_el_mutex_lock(true);
+    res = ic_el_server_listen_internal(server, uri, &su, err);
+    ic_el_mutex_unlock();
     return res;
 }
 
 /** Callback used by wait_thread_cond() to check if the server has been
  * stopped. */
-static bool iopy_ic_server_is_stopped(void *arg)
+static bool ic_el_server_is_stopped(void *arg)
 {
-    iopy_ic_server_t *server = arg;
+    ic_el_server_t *server = arg;
 
     return !server->el_ic;
 }
 
-/** Wait for the IOPy IC server to be fully stopped by the event loop. */
-static iopy_ic_res_t iopy_ic_server_wait_for_stop(iopy_ic_server_t *server,
-                                                  int timeout)
+/** Wait for the IC EL server to be fully stopped by the event loop. */
+static ic_el_res_t ic_el_server_wait_for_stop(ic_el_server_t *server,
+                                              int timeout)
 {
-    iopy_ic_res_t res = IOPY_IC_OK;
+    ic_el_res_t res = IC_EL_OK;
     wait_thread_cond_res_t wait_res;
 
     server->wait_for_stop = true;
 
-    wait_res = wait_thread_cond(&iopy_ic_server_is_stopped, server, timeout);
+    wait_res = wait_thread_cond(&ic_el_server_is_stopped, server, timeout);
     switch (wait_res) {
       case WAIT_THR_COND_OK:
       case WAIT_THR_COND_TIMEOUT:
         break;
 
       case WAIT_THR_COND_SIGINT:
-        res = IOPY_IC_SIGINT;
+        res = IC_EL_SIGINT;
         break;
     }
 
@@ -681,79 +679,79 @@ static iopy_ic_res_t iopy_ic_server_wait_for_stop(iopy_ic_server_t *server,
     return res;
 }
 
-iopy_ic_res_t iopy_ic_server_listen_block(iopy_ic_server_t *server,
-                                          lstr_t uri, int timeout, sb_t *err)
+ic_el_res_t ic_el_server_listen_block(ic_el_server_t *server,
+                                      lstr_t uri, int timeout, sb_t *err)
 {
-    iopy_ic_res_t res;
+    ic_el_res_t res;
     sockunion_t su;
 
     RETHROW(load_su_from_uri(uri, &su, err));
 
-    iopy_el_mutex_lock(true);
+    ic_el_mutex_lock(true);
 
-    if (iopy_ic_server_listen_internal(server, uri, &su, err) < 0) {
-        res = IOPY_IC_ERR;
+    if (ic_el_server_listen_internal(server, uri, &su, err) < 0) {
+        res = IC_EL_ERR;
         goto end;
     }
 
-    res = iopy_ic_server_wait_for_stop(server, timeout);
+    res = ic_el_server_wait_for_stop(server, timeout);
 
     if (server->el_ic) {
-        iopy_ic_server_clear(server, false);
+        ic_el_server_clear(server, false);
     }
 
   end:
-    iopy_el_mutex_unlock();
+    ic_el_mutex_unlock();
     return res;
 }
 
-iopy_ic_res_t iopy_ic_server_stop(iopy_ic_server_t *server)
+ic_el_res_t ic_el_server_stop(ic_el_server_t *server)
 {
-    iopy_ic_res_t res = IOPY_IC_OK;
+    ic_el_res_t res = IC_EL_OK;
 
-    iopy_el_mutex_lock(true);
+    ic_el_mutex_lock(true);
     if (server->el_ic) {
         server->is_stopping = true;
 
         if (!server->wait_for_stop) {
-            res = iopy_ic_server_wait_for_stop(server, -1);
+            res = ic_el_server_wait_for_stop(server, -1);
         }
     }
-    iopy_el_mutex_unlock();
+    ic_el_mutex_unlock();
 
     return res;
 }
 
-void iopy_ic_server_register_rpc(iopy_ic_server_t *server,
-                                 const iop_rpc_t *rpc, uint32_t cmd)
+void ic_el_server_register_rpc(ic_el_server_t *server,
+                               const iop_rpc_t *rpc, uint32_t cmd)
 {
-    iopy_el_mutex_lock(true);
+    ic_el_mutex_lock(true);
 
     qm_put(ic_cbs, &server->impl, cmd, ((ic_cb_entry_t){
                .cb_type = IC_CB_NORMAL,
                .rpc     = rpc,
-               .u       = { .cb = { .cb = &iopy_ic_server_rpc_cb, } },
+               .u       = { .cb = { .cb = &ic_el_server_rpc_cb, } },
            }), QHASH_OVERWRITE);
 
-    iopy_el_mutex_unlock();
+    ic_el_mutex_unlock();
 }
 
-void iopy_ic_server_unregister_rpc(iopy_ic_server_t *server, uint32_t cmd)
+void ic_el_server_unregister_rpc(ic_el_server_t *server, uint32_t cmd)
 {
-    iopy_el_mutex_lock(true);
+    ic_el_mutex_lock(true);
 
     qm_del_key(ic_cbs, &server->impl, cmd);
 
-    iopy_el_mutex_unlock();
+    ic_el_mutex_unlock();
 }
 
-bool iopy_ic_server_is_listening(const iopy_ic_server_t *server)
+bool ic_el_server_is_listening(const ic_el_server_t *server)
 {
     bool res;
 
-    iopy_el_mutex_lock(true);
+    ic_el_mutex_lock(true);
     res = !!server->el_ic;
-    iopy_el_mutex_unlock();
+    ic_el_mutex_unlock();
 
     return res;
 }
@@ -761,61 +759,61 @@ bool iopy_ic_server_is_listening(const iopy_ic_server_t *server)
 /* }}} */
 /* {{{ Client */
 
-struct iopy_ic_client_t {
+struct ic_el_client_t {
     bool in_connect    : 1;
     bool closing_is_ok : 1;
     bool connected     : 1;
-    iopy_ic_client_cb_cfg_t cb_cfg;
-    void *py_obj;
+    ic_el_client_cb_cfg_t cb_cfg;
+    void *ext_obj;
     ichannel_t ic;
     dlist_t destroyed;
 };
 
-static iopy_ic_client_t *iopy_ic_client_init(iopy_ic_client_t *client)
+static ic_el_client_t *ic_el_client_init(ic_el_client_t *client)
 {
     p_clear(client, 1);
     ic_init(&client->ic);
     return client;
 }
 
-static void iopy_ic_client_clear(iopy_ic_client_t *client)
+static void ic_el_client_clear(ic_el_client_t *client)
 {
     client->closing_is_ok = true;
     client->in_connect = false;
     ic_wipe(&client->ic);
 }
 
-static void iopy_ic_client_wipe(iopy_ic_client_t *client)
+static void ic_el_client_wipe(ic_el_client_t *client)
 {
-    iopy_ic_client_clear(client);
-    qh_del_key(iopy_ic_client, &_G.clients, client);
+    ic_el_client_clear(client);
+    qh_del_key(ic_el_client, &_G.clients, client);
 }
 
-GENERIC_NEW(iopy_ic_client_t, iopy_ic_client);
-GENERIC_DELETE(iopy_ic_client_t, iopy_ic_client);
+GENERIC_NEW(ic_el_client_t, ic_el_client);
+GENERIC_DELETE(ic_el_client_t, ic_el_client);
 
-/** Process destroyed iopy ic clients in the event loop. */
-static void iopy_ic_client_el_process(void)
+/** Process destroyed ic clients in the event loop. */
+static void ic_el_client_el_process(void)
 {
-    dlist_for_each_entry(iopy_ic_client_t, client, &_G.destroyed_clients,
+    dlist_for_each_entry(ic_el_client_t, client, &_G.destroyed_clients,
                          destroyed)
     {
-        iopy_ic_client_delete(&client);
+        ic_el_client_delete(&client);
     }
     dlist_init(&_G.destroyed_clients);
 }
 
 /** Called on event on the ic channel. */
-static void iopy_ic_client_on_event(ichannel_t *ic, ic_event_t evt)
+static void ic_el_client_on_event(ichannel_t *ic, ic_event_t evt)
 {
-    iopy_ic_client_t *client = container_of(ic, iopy_ic_client_t, ic);
+    ic_el_client_t *client = container_of(ic, ic_el_client_t, ic);
 
     if (evt == IC_EVT_CONNECTED) {
         client->connected = true;
         if (client->cb_cfg.on_connect) {
-            iopy_el_mutex_unlock();
+            ic_el_mutex_unlock();
             (*client->cb_cfg.on_connect)(client);
-            iopy_el_mutex_lock(false);
+            ic_el_mutex_lock(false);
         }
     } else
     if (evt == IC_EVT_DISCONNECTED) {
@@ -825,35 +823,35 @@ static void iopy_ic_client_on_event(ichannel_t *ic, ic_event_t evt)
         if (client->cb_cfg.on_disconnect && !client->closing_is_ok &&
             !is_el_thr_stopped())
         {
-            iopy_el_mutex_unlock();
+            ic_el_mutex_unlock();
             (*client->cb_cfg.on_disconnect)(client, connected);
-            iopy_el_mutex_lock(false);
+            ic_el_mutex_lock(false);
         }
     }
 
     if (client->in_connect) {
         client->in_connect = false;
         pthread_cond_broadcast(&_G.el_wait_thr_cond);
-        iopy_inc_el_mutex_wait_lock_cnt();
+        ic_el_inc_el_mutex_wait_lock_cnt();
     }
 }
 
-iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, double no_act_timeout,
-                                        const iopy_ic_client_cb_cfg_t *cb_cfg,
-                                        sb_t *err)
+ic_el_client_t *ic_el_client_create(lstr_t uri, double no_act_timeout,
+                                    const ic_el_client_cb_cfg_t *cb_cfg,
+                                    sb_t *err)
 {
-    iopy_ic_client_t *client;
+    ic_el_client_t *client;
     sockunion_t su;
 
     RETHROW_NP(load_su_from_uri(uri, &su, err));
 
-    iopy_el_mutex_lock(true);
+    ic_el_mutex_lock(true);
 
-    client = iopy_ic_client_new();
+    client = ic_el_client_new();
     client->ic.su = su;
     client->ic.auto_reconn = false;
     client->ic.tls_required = false;
-    client->ic.on_event = &iopy_ic_client_on_event;
+    client->ic.on_event = &ic_el_client_on_event;
     client->ic.impl = &ic_no_impl;
     client->cb_cfg = *cb_cfg;
 
@@ -863,43 +861,43 @@ iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, double no_act_timeout,
         ic_watch_activity(&client->ic, 0, wa);
     }
 
-    qh_add(iopy_ic_client, &_G.clients, client);
+    qh_add(ic_el_client, &_G.clients, client);
 
-    iopy_el_mutex_unlock();
+    ic_el_mutex_unlock();
 
     return client;
 }
 
-void iopy_ic_client_destroy(iopy_ic_client_t **client_ptr)
+void ic_el_client_destroy(ic_el_client_t **client_ptr)
 {
-    iopy_ic_client_t *client = *client_ptr;
+    ic_el_client_t *client = *client_ptr;
 
     if (!client) {
         return;
     }
 
-    iopy_el_mutex_lock(true);
+    ic_el_mutex_lock(true);
     dlist_add(&_G.destroyed_clients, &client->destroyed);
-    iopy_el_mutex_unlock();
+    ic_el_mutex_unlock();
     *client_ptr = NULL;
 }
 
-void iopy_ic_client_set_py_obj(iopy_ic_client_t *client,
-                               void * nullable py_obj)
+void ic_el_client_set_ext_obj(ic_el_client_t *client,
+                              void * nullable ext_obj)
 {
-    client->py_obj = py_obj;
+    client->ext_obj = ext_obj;
 }
 
-void * nullable iopy_ic_client_get_py_obj(iopy_ic_client_t *client)
+void * nullable ic_el_client_get_ext_obj(ic_el_client_t *client)
 {
-    return client->py_obj;
+    return client->ext_obj;
 }
 
 /** Callback used by wait_thread_cond() to check if the client has been
  *  connected. */
-static bool iopy_ic_client_connect_is_terminated(void *arg)
+static bool ic_el_client_connect_is_terminated(void *arg)
 {
-    iopy_ic_client_t *client = arg;
+    ic_el_client_t *client = arg;
 
     return !client->in_connect;
 }
@@ -910,7 +908,7 @@ static bool iopy_ic_client_connect_is_terminated(void *arg)
  * connected.
  */
 static wait_thread_cond_res_t
-iopy_ic_client_ic_connect_wait(iopy_ic_client_t *client, int timeout)
+ic_el_client_ic_connect_wait(ic_el_client_t *client, int timeout)
 {
     wait_thread_cond_res_t wait_res;
 
@@ -923,7 +921,7 @@ iopy_ic_client_ic_connect_wait(iopy_ic_client_t *client, int timeout)
         }
     }
 
-    wait_res = wait_thread_cond(&iopy_ic_client_connect_is_terminated,
+    wait_res = wait_thread_cond(&ic_el_client_connect_is_terminated,
                                 client, timeout);
     if (wait_res == WAIT_THR_COND_OK && !client->connected) {
         wait_res = WAIT_THR_COND_TIMEOUT;
@@ -933,90 +931,90 @@ iopy_ic_client_ic_connect_wait(iopy_ic_client_t *client, int timeout)
 }
 
 /** Connect the client with the el mutex locked. */
-static iopy_ic_res_t iopy_ic_client_connect_locked(iopy_ic_client_t *client,
-                                                   int timeout, sb_t *err)
+static ic_el_res_t ic_el_client_connect_locked(ic_el_client_t *client,
+                                               int timeout, sb_t *err)
 {
     wait_thread_cond_res_t wait_res;
 
-    wait_res = iopy_ic_client_ic_connect_wait(client, timeout);
+    wait_res = ic_el_client_ic_connect_wait(client, timeout);
     switch (wait_res) {
       case WAIT_THR_COND_OK:
-        return IOPY_IC_OK;
+        return IC_EL_OK;
 
       case WAIT_THR_COND_TIMEOUT: {
         t_scope;
         lstr_t uri = t_addr_fmt_lstr(&client->ic.su);
 
         sb_setf(err, "unable to connect to %*pM", LSTR_FMT_ARG(uri));
-        return IOPY_IC_ERR;
+        return IC_EL_ERR;
       }
 
       case WAIT_THR_COND_SIGINT:
-        return IOPY_IC_SIGINT;
+        return IC_EL_SIGINT;
     }
 
     assert (false);
     sb_setf(err, "unexpected connect status %d", wait_res);
-    return IOPY_IC_ERR;
+    return IC_EL_ERR;
 }
 
-iopy_ic_res_t iopy_ic_client_connect(iopy_ic_client_t *client, int timeout,
-                                     sb_t *err)
+ic_el_res_t ic_el_client_connect(ic_el_client_t *client, int timeout,
+                                 sb_t *err)
 {
-    iopy_ic_res_t res;
+    ic_el_res_t res;
 
-    iopy_el_mutex_lock(true);
-    res = iopy_ic_client_connect_locked(client, timeout, err);
-    iopy_el_mutex_unlock();
+    ic_el_mutex_lock(true);
+    res = ic_el_client_connect_locked(client, timeout, err);
+    ic_el_mutex_unlock();
     return res;
 }
 
 /** Disconnect IC client with mutex locked. */
-static void iopy_ic_client_disconnect_locked(iopy_ic_client_t *client)
+static void ic_el_client_disconnect_locked(ic_el_client_t *client)
 {
     client->in_connect = false;
     client->closing_is_ok = true;
     ic_disconnect(&client->ic);
 }
 
-void iopy_ic_client_disconnect(iopy_ic_client_t *client)
+void ic_el_client_disconnect(ic_el_client_t *client)
 {
-    iopy_el_mutex_lock(true);
-    iopy_ic_client_disconnect_locked(client);
-    iopy_el_mutex_unlock();
+    ic_el_mutex_lock(true);
+    ic_el_client_disconnect_locked(client);
+    ic_el_mutex_unlock();
 }
 
-bool iopy_ic_client_is_connected(iopy_ic_client_t *client)
+bool ic_el_client_is_connected(ic_el_client_t *client)
 {
     return client->connected;
 }
 
 /** Context used when doing ic client queries.
  *
- * It is refcounted because it will deleted by both iopy_ic_client_call() and
- * iopy_ic_client_query_cb().
+ * It is refcounted because it will deleted by both ic_el_client_call() and
+ * ic_el_client_query_cb().
  */
-typedef struct iopy_ic_client_query_ctx_t {
+typedef struct ic_el_client_query_ctx_t {
     int refcnt;
     bool aborted : 1;
     bool completed : 1;
     const iop_rpc_t *rpc;
     ic_status_t status;
     void *res;
-} iopy_ic_client_query_ctx_t;
+} ic_el_client_query_ctx_t;
 
-GENERIC_INIT(iopy_ic_client_query_ctx_t, iopy_ic_client_query_ctx);
-GENERIC_WIPE(iopy_ic_client_query_ctx_t, iopy_ic_client_query_ctx);
-DO_REFCNT(iopy_ic_client_query_ctx_t, iopy_ic_client_query_ctx);
+GENERIC_INIT(ic_el_client_query_ctx_t, ic_el_client_query_ctx);
+GENERIC_WIPE(ic_el_client_query_ctx_t, ic_el_client_query_ctx);
+DO_REFCNT(ic_el_client_query_ctx_t, ic_el_client_query_ctx);
 
 /** Callback for client queries. */
-static void iopy_ic_client_query_cb(ichannel_t *ic, ic_msg_t *msg,
-                                    ic_status_t status, void *res, void *exn)
+static void ic_el_client_query_cb(ichannel_t *ic, ic_msg_t *msg,
+                                  ic_status_t status, void *res, void *exn)
 {
-    iopy_ic_client_t *client = container_of(ic, iopy_ic_client_t, ic);
-    iopy_ic_client_query_ctx_t *query_ctx;
+    ic_el_client_t *client = container_of(ic, ic_el_client_t, ic);
+    ic_el_client_query_ctx_t *query_ctx;
 
-    query_ctx = *(iopy_ic_client_query_ctx_t **)msg->priv;
+    query_ctx = *(ic_el_client_query_ctx_t **)msg->priv;
 
     if (client->closing_is_ok) {
         goto end;
@@ -1045,52 +1043,52 @@ static void iopy_ic_client_query_cb(ichannel_t *ic, ic_msg_t *msg,
 
     query_ctx->completed = true;
     pthread_cond_broadcast(&_G.el_wait_thr_cond);
-    iopy_inc_el_mutex_wait_lock_cnt();
+    ic_el_inc_el_mutex_wait_lock_cnt();
 
   end:
-    iopy_ic_client_query_ctx_delete(&query_ctx);
+    ic_el_client_query_ctx_delete(&query_ctx);
 }
 
 /** Callback used by wait_thread_cond() to check if the query has been
  *  completed. */
-static bool iopy_ic_client_query_is_completed(void *arg)
+static bool ic_el_client_query_is_completed(void *arg)
 {
-    iopy_ic_client_query_ctx_t *query_ctx = arg;
+    ic_el_client_query_ctx_t *query_ctx = arg;
 
     return query_ctx->completed;
 }
 
-iopy_ic_res_t
-iopy_ic_client_call(iopy_ic_client_t *client, const iop_rpc_t *rpc,
-                    int32_t cmd, const ic__hdr__t *hdr, int timeout,
-                    void *arg, ic_status_t *status, void **res, sb_t *err)
+ic_el_res_t
+ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
+                  int32_t cmd, const ic__hdr__t *hdr, int timeout,
+                  void *arg, ic_status_t *status, void **res, sb_t *err)
 {
-    iopy_ic_res_t call_res = IOPY_IC_OK;
-    iopy_ic_client_query_ctx_t *query_ctx = NULL;
+    ic_el_res_t call_res = IC_EL_OK;
+    ic_el_client_query_ctx_t *query_ctx = NULL;
     ic_msg_t *msg;
     wait_thread_cond_res_t wait_res;
 
-    iopy_el_mutex_lock(true);
+    ic_el_mutex_lock(true);
 
     if (!client->connected) {
-        call_res = iopy_ic_client_connect_locked(client, timeout, err);
-        if (call_res != IOPY_IC_OK) {
+        call_res = ic_el_client_connect_locked(client, timeout, err);
+        if (call_res != IC_EL_OK) {
             goto end;
         }
     }
 
-    query_ctx = iopy_ic_client_query_ctx_new();
+    query_ctx = ic_el_client_query_ctx_new();
     query_ctx->rpc = rpc;
 
-    msg = ic_msg(iopy_ic_client_query_ctx_t *, query_ctx);
+    msg = ic_msg(ic_el_client_query_ctx_t *, query_ctx);
     msg->async = rpc->async;
     msg->cmd = cmd;
     msg->rpc = rpc;
     msg->hdr = hdr;
-    msg->cb = rpc->async ? &ic_drop_ans_cb : &iopy_ic_client_query_cb;
+    msg->cb = rpc->async ? &ic_drop_ans_cb : &ic_el_client_query_cb;
 
     if (!rpc->async) {
-        iopy_ic_client_query_ctx_retain(query_ctx);
+        ic_el_client_query_ctx_retain(query_ctx);
     }
 
     __ic_bpack(msg, rpc->args, arg);
@@ -1100,7 +1098,7 @@ iopy_ic_client_call(iopy_ic_client_t *client, const iop_rpc_t *rpc,
         goto end;
     }
 
-    wait_res = wait_thread_cond(&iopy_ic_client_query_is_completed,
+    wait_res = wait_thread_cond(&ic_el_client_query_is_completed,
                                 query_ctx, timeout);
     switch (wait_res) {
       case WAIT_THR_COND_OK:
@@ -1108,12 +1106,12 @@ iopy_ic_client_call(iopy_ic_client_t *client, const iop_rpc_t *rpc,
 
       case WAIT_THR_COND_TIMEOUT:
         sb_setf(err, "timeout on query `%*pM`", LSTR_FMT_ARG(rpc->name));
-        call_res = IOPY_IC_ERR;
+        call_res = IC_EL_ERR;
         query_ctx->aborted = true;
         goto end;
 
       case WAIT_THR_COND_SIGINT:
-        call_res = IOPY_IC_SIGINT;
+        call_res = IC_EL_SIGINT;
         query_ctx->aborted = true;
         goto end;
     }
@@ -1122,8 +1120,8 @@ iopy_ic_client_call(iopy_ic_client_t *client, const iop_rpc_t *rpc,
     *res = query_ctx->res;
 
   end:
-    iopy_ic_client_query_ctx_delete(&query_ctx);
-    iopy_el_mutex_unlock();
+    ic_el_client_query_ctx_delete(&query_ctx);
+    ic_el_mutex_unlock();
     return call_res;
 }
 
@@ -1131,7 +1129,7 @@ iopy_ic_client_call(iopy_ic_client_t *client, const iop_rpc_t *rpc,
 /* {{{ Module init */
 
 /** Initialize variables for el thread. */
-static void iopy_el_thr_vars_init(void)
+static void ic_el_thr_vars_init(void)
 {
     pthread_mutexattr_t attr;
 
@@ -1150,7 +1148,7 @@ static void iopy_el_thr_vars_init(void)
 }
 
 /** Wipe variables for el thread. */
-static void iopy_el_thr_vars_wipe(void)
+static void ic_el_thr_vars_wipe(void)
 {
     pthread_cond_destroy(&_G.el_thr_start_cond);
     pthread_mutex_destroy(&_G.el_mutex);
@@ -1158,8 +1156,8 @@ static void iopy_el_thr_vars_wipe(void)
     pthread_cond_destroy(&_G.el_wait_thr_cond);
 }
 
-/** Callback called by iopy before fork in the parent process. */
-static void iopy_rpc_atfork_prepare(void)
+/** Callback called by pthread before fork in the parent process. */
+static void ic_el_atfork_prepare(void)
 {
     if (_G.el_thr_status != EL_THR_NOT_STARTED
     &&  pthread_self() == _G.el_thread)
@@ -1167,94 +1165,94 @@ static void iopy_rpc_atfork_prepare(void)
         e_fatal("forking in event loop thread is not allowed");
     }
 
-    iopy_el_mutex_lock(false);
+    ic_el_mutex_lock(false);
 }
 
-/** Callback called by iopy after fork in the parent process. */
-static void iopy_rpc_atfork_parent(void)
+/** Callback called by pthread after fork in the parent process. */
+static void ic_el_atfork_parent(void)
 {
-    iopy_el_mutex_unlock();
+    ic_el_mutex_unlock();
 }
 
-/** Callback called by iopy after fork in the child process. */
-static void iopy_rpc_atfork_child(void)
+/** Callback called by pthread after fork in the child process. */
+static void ic_el_atfork_child(void)
 {
     /* Stop all servers. */
-    qm_for_each_pos(iopy_ic_server, pos, &_G.servers) {
-        iopy_ic_server_clear(_G.servers.values[pos], false);
-        iopy_ic_server_delete(&_G.servers.values[pos]);
+    qm_for_each_pos(ic_el_server, pos, &_G.servers) {
+        ic_el_server_clear(_G.servers.values[pos], false);
+        ic_el_server_delete(&_G.servers.values[pos]);
     }
-    qm_clear(iopy_ic_server, &_G.servers);
+    qm_clear(ic_el_server, &_G.servers);
 
     /* Disconnect all clients. They will reconnect on the next RPC call. */
-    qh_for_each_pos(iopy_ic_client, pos, &_G.clients) {
-        iopy_ic_client_disconnect_locked(_G.clients.keys[pos]);
+    qh_for_each_pos(ic_el_client, pos, &_G.clients) {
+        ic_el_client_disconnect_locked(_G.clients.keys[pos]);
     }
 
-    iopy_el_thr_vars_init();
+    ic_el_thr_vars_init();
 }
 
-static int iopy_rpc_initialize(void *arg)
+static int ic_el_initialize(void *arg)
 {
-    iopy_el_thr_vars_init();
+    ic_el_thr_vars_init();
 
     _G.el_mutex_before_lock_el = el_wake_register(request_el_mutex_lock_cb,
                                                   NULL);
 
-    qm_init(iopy_ic_server, &_G.servers);
-    qh_init(iopy_ic_client, &_G.clients);
+    qm_init(ic_el_server, &_G.servers);
+    qh_init(ic_el_client, &_G.clients);
     dlist_init(&_G.destroyed_clients);
 
-    pthread_atfork(&iopy_rpc_atfork_prepare, &iopy_rpc_atfork_parent,
-                   &iopy_rpc_atfork_child);
+    pthread_atfork(&ic_el_atfork_prepare, &ic_el_atfork_parent,
+                   &ic_el_atfork_child);
 
     return 0;
 }
 
-static int iopy_rpc_shutdown(void)
+static int ic_el_shutdown(void)
 {
     assert (_G.el_thr_status == EL_THR_NOT_STARTED
          || _G.el_thr_status == EL_THR_STOPPED);
 
-    iopy_el_thr_vars_wipe();
+    ic_el_thr_vars_wipe();
 
     el_unregister(&_G.el_mutex_before_lock_el);
     el_unregister(&_G.el_wait_thr_sigint_el);
 
-    qm_for_each_pos(iopy_ic_server, pos, &_G.servers) {
-        iopy_ic_server_t *server = _G.servers.values[pos];
+    qm_for_each_pos(ic_el_server, pos, &_G.servers) {
+        ic_el_server_t *server = _G.servers.values[pos];
 
-        iopy_ic_server_clear(server, false);
-        iopy_ic_server_delete(&server);
+        ic_el_server_clear(server, false);
+        ic_el_server_delete(&server);
     }
-    qh_for_each_pos(iopy_ic_client, pos, &_G.clients) {
-        iopy_ic_client_clear(_G.clients.keys[pos]);
+    qh_for_each_pos(ic_el_client, pos, &_G.clients) {
+        ic_el_client_clear(_G.clients.keys[pos]);
     }
 
-    qm_wipe(iopy_ic_server, &_G.servers);
-    qh_wipe(iopy_ic_client, &_G.clients);
+    qm_wipe(ic_el_server, &_G.servers);
+    qh_wipe(ic_el_client, &_G.clients);
     return 0;
 }
 
-static MODULE_BEGIN(iopy_rpc)
+static MODULE_BEGIN(ic_el)
     MODULE_DEPENDS_ON(el);
     MODULE_DEPENDS_ON(ic);
 MODULE_END()
 
-void iopy_rpc_module_init(void)
+void ic_el_module_init(void)
 {
     module_register_at_fork();
 
     pthread_force_use();
 
-    MODULE_REQUIRE(iopy_rpc);
+    MODULE_REQUIRE(ic_el);
 }
 
-void iopy_rpc_module_stop(void)
+void ic_el_module_stop(void)
 {
     el_thr_status_t old_thr_status;
 
-    iopy_el_mutex_lock(false);
+    ic_el_mutex_lock(false);
 
     old_thr_status = _G.el_thr_status;
     _G.el_thr_status = EL_THR_STOPPED;
@@ -1268,7 +1266,7 @@ void iopy_rpc_module_stop(void)
             pthread_cond_broadcast(&_G.el_wait_thr_cond);
         }
 
-        iopy_el_mutex_unlock();
+        ic_el_mutex_unlock();
         pthread_kill(_G.el_thread, SIGINT);
         pthread_join(_G.el_thread, NULL);
 
@@ -1277,14 +1275,14 @@ void iopy_rpc_module_stop(void)
 
       case EL_THR_NOT_STARTED:
       case EL_THR_STOPPED:
-        iopy_el_mutex_unlock();
+        ic_el_mutex_unlock();
         break;
     }
 }
 
-void iopy_rpc_module_cleanup(void)
+void ic_el_module_cleanup(void)
 {
-    MODULE_RELEASE(iopy_rpc);
+    MODULE_RELEASE(ic_el);
 }
 
 /* }}} */

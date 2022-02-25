@@ -16,37 +16,56 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef IS_IOPY_CYTHON_RPC_H
-#define IS_IOPY_CYTHON_RPC_H
+/* IOP Channels with internal event loop.
+ *
+ * When using languages or systems that uses an internal event loop, it is
+ * required, in order to use IOP Channels, to start an Intersec event loop in
+ * a thread.
+ *
+ * This can be tricky to do it right. This header and its source file provides
+ * high-level functions to do it.
+ *
+ * ic_el_module_init() must be called before using any other functions.
+ * ic_el_module_stop() and ic_el_module_cleanup() must be called at the end to
+ * stop the internal thread and resources.
+ *
+ * Internally, the functions are protected of by an internal lock.
+ *
+ * WARNING: Unless specified, all functions *MUST* be called with external
+ * locks released to avoid dead-lock.
+ * For example, in Python, the GIL must be released before calling the
+ * functions.
+ *
+ * The callbacks are called with the internal lock released.
+ * WARNING: The callbacks are called in the internal thread, and not in the
+ * thread of the caller.
+ */
 
-/* XXX: This file should never include <Python.h> */
+#ifndef IS_LIB_COMMON_IOP_RPC_EL_H
+#define IS_LIB_COMMON_IOP_RPC_EL_H
 
 #include <lib-common/core.h>
 #include <lib-common/iop-rpc.h>
 
-/* XXX: Unless specified, all functions *MUST* be called with the GIL
- * released.
- */
-
 /** Result of blocking functions. */
-typedef enum iopy_ic_res_t {
-    IOPY_IC_OK = 0,
-    IOPY_IC_ERR = -1,
-    IOPY_IC_SIGINT = -2,
-} iopy_ic_res_t;
+typedef enum ic_el_res_t {
+    IC_EL_OK = 0,
+    IC_EL_ERR = -1,
+    IC_EL_SIGINT = -2,
+} ic_el_res_t;
 
 /* {{{ Server */
 
-/** IC server representation for IOPy. */
-typedef struct iopy_ic_server_t iopy_ic_server_t;
+/** IC EL server representation. */
+typedef struct ic_el_server_t ic_el_server_t;
 
-/** Configuration of the callbacks of an IOPy IC server. */
-typedef struct iopy_ic_server_cb_cfg_t {
+/** Configuration of the callbacks of an IC EL server. */
+typedef struct ic_el_server_cb_cfg_t {
     /** Callback called when a request is made to an RPC.
      *
      * This callback must be implemented.
      *
-     * \param[in]  server The IOPy IC server.
+     * \param[in]  server The IC EL server.
      * \param[in]  ic     The ichannel of the request.
      * \param[in]  slot   The slot of the request.
      * \param[in]  arg    The RPC argument of the request.
@@ -55,7 +74,7 @@ typedef struct iopy_ic_server_cb_cfg_t {
      * \return  The status of the reply. If the status is not IC_MSG_OK or
      *          IC_MSG_EXN, \p res and \p res_desc are ignored.
      */
-    ic_status_t (*t_on_rpc)(iopy_ic_server_t *server, ichannel_t *ic,
+    ic_status_t (*t_on_rpc)(ic_el_server_t *server, ichannel_t *ic,
                             uint64_t slot, void *arg, const ic__hdr__t *hdr,
                             void **res, const iop_struct_t **res_st);
 
@@ -63,142 +82,145 @@ typedef struct iopy_ic_server_cb_cfg_t {
      *
      *  This callback is optional.
      *
-     * \param[in] server      The IOPy IC server.
-     * \param[in] server_uri  The URI the IOPy IC server is listening to.
+     * \param[in] server      The IC EL server.
+     * \param[in] server_uri  The URI the IC EL server is listening to.
      * \param[in] remote_addr The address of the peer.
      */
-    void (*nullable on_connect)(iopy_ic_server_t *server, lstr_t server_uri,
+    void (*nullable on_connect)(ic_el_server_t *server, lstr_t server_uri,
                                 lstr_t remote_addr);
 
     /** Callback called when a peer is disconnecting from the server.
      *
      *  This callback is optional.
      *
-     * \param[in] server      The IOPy IC server.
-     * \param[in] server_uri  The URI the IOPy IC server is listening to.
+     * \param[in] server      The IC EL server.
+     * \param[in] server_uri  The URI the IC EL server is listening to.
      * \param[in] remote_addr The address of the peer.
      */
-    void (*nullable on_disconnect)(iopy_ic_server_t *server,
+    void (*nullable on_disconnect)(ic_el_server_t *server,
                                    lstr_t server_uri, lstr_t remote_addr);
-} iopy_ic_server_cb_cfg_t;
+} ic_el_server_cb_cfg_t;
 
-/** Create IOPy IC Server.
+/** Create an IC EL Server.
  *
  * \param[in] cb_cfg The configuration of the callbacks of the IC server.
  */
-iopy_ic_server_t *
-iopy_ic_server_create(const iopy_ic_server_cb_cfg_t *cb_cfg);
+ic_el_server_t *ic_el_server_create(const ic_el_server_cb_cfg_t *cb_cfg);
 
-/** Destroy IOPy IC server.
+/** Destroy an IC EL server.
  *
- * Stop the IOPy IC server and delete it.
+ * Stop the IC EL server and delete it.
  *
  * \param[in,out] server_ptr The pointer to the server to destroy. Will be set
  *                           to NULL afterwards.
  */
-void iopy_ic_server_destroy(iopy_ic_server_t **server_ptr);
+void ic_el_server_destroy(ic_el_server_t **server_ptr);
 
-/** Set the IOPy IC server python object.
+/** Set the IC EL server external object.
  *
- * XXX: Since we are manipulating Python objects, the GIL *MUST* be acquired.
+ * \warning: The external object is not protected by the internal lock and is
+ * not thread-safe. You must protect the external object with an external
+ * lock.
  */
-void iopy_ic_server_set_py_obj(iopy_ic_server_t *server,
-                               void * nullable py_obj);
+void ic_el_server_set_ext_obj(ic_el_server_t *server,
+                              void * nullable ext_obj);
 
-/** Get the IOPy IC server python object.
+/** Get the IC EL server external object.
  *
- * XXX: Since we are manipulating Python objects, the GIL *MUST* be acquired.
+ * \warning: The external object is not protected by the internal lock and is
+ * not thread-safe. You must protect the external object with an external
+ * lock.
  */
-void * nullable iopy_ic_server_get_py_obj(iopy_ic_server_t *server);
+void * nullable ic_el_server_get_ext_obj(ic_el_server_t *server);
 
-/** Start listening IOPy IC server.
+/** Make the IC EL server start listening.
  *
- * \param[in]  server The IOPy IC server.
+ * \param[in]  server The IC EL server.
  * \param[in]  uri    The uri the IC server should listen to.
  * \param[out] err    The error description in case of error.
  * \return     -1 in case of error, 0 otherwise.
  */
-int iopy_ic_server_listen(iopy_ic_server_t *server, lstr_t uri, sb_t *err);
+int ic_el_server_listen(ic_el_server_t *server, lstr_t uri, sb_t *err);
 
-/** Start listening IOPy IC server until timeout elapsed or the server has
- * been stopped.
+/** Make the IC EL server start listening until timeout elapsed or the server
+ * has been stopped.
  *
- * \param[in]  server  The IOPy IC server.
+ * \param[in]  server  The IC EL server.
  * \param[in]  uri     The uri the IC server should listen to.
  * \param[in]  timeout Number of seconds to listen.
  * \param[out] err     The error description in case of error.
- * \return IOPY_IC_OK if the server has been stopped manually or the timeout
+ * \return IC_EL_OK if the server has been stopped manually or the timeout
  *         elapsed.
- *         IOPY_IC_ERR if an error occured, \p err contains the description of
+ *         IC_EL_ERR if an error occured, \p err contains the description of
  *         the error.
- *         IOPY_IC_SIGINT if a sigint occurred.
+ *         IC_EL_SIGINT if a sigint occurred.
  */
-iopy_ic_res_t iopy_ic_server_listen_block(iopy_ic_server_t *server,
-                                          lstr_t uri, int timeout, sb_t *err);
+ic_el_res_t ic_el_server_listen_block(ic_el_server_t *server,
+                                      lstr_t uri, int timeout, sb_t *err);
 
-/** Stop IOPy IC server.
+/** Stop the IC EL server.
  *
  * Do nothing if the server is not listening.
  *
- * \param[in] server The IOPy IC server to stop.
+ * \param[in] server The IC EL server to stop.
  *
- * \return IOPY_IC_OK if the server has been successfully stopped.
- *         IOPY_IC_SIGINT if a sigint occurred during the stop.
- *         This function cannot return IOPY_IC_ERR.
+ * \return IC_EL_OK if the server has been successfully stopped.
+ *         IC_EL_SIGINT if a sigint occurred during the stop.
+ *         This function cannot return IC_EL_ERR.
  */
-iopy_ic_res_t iopy_ic_server_stop(iopy_ic_server_t *server);
+ic_el_res_t ic_el_server_stop(ic_el_server_t *server);
 
-/** Register RPC to IOPy IC server.
+/** Register an RPC to the IC EL server.
  *
- * \param[in] server The IOPy IC server.
+ * \param[in] server The IC EL server.
  * \param[in] rpc    The RPC to register.
  * \param[in] cmd    The command index of the RPC.
  */
-void iopy_ic_server_register_rpc(iopy_ic_server_t *server,
-                                 const iop_rpc_t *rpc, uint32_t cmd);
+void ic_el_server_register_rpc(ic_el_server_t *server,
+                               const iop_rpc_t *rpc, uint32_t cmd);
 
-/** Unregister RPC from IOPy IC server.
+/** Unregister an RPC from the IC EL server.
  *
- * \param[in] server The IOPy IC server.
+ * \param[in] server The IC EL server.
  * \param[in] cmd    The command index of the RPC.
  */
-void iopy_ic_server_unregister_rpc(iopy_ic_server_t *server, uint32_t cmd);
+void ic_el_server_unregister_rpc(ic_el_server_t *server, uint32_t cmd);
 
-/** Is the IOPy IC server listening.
+/** Is the IC EL server listening.
  *
- * \param[in] server The IOPy IC server.
- * \return true if the IOPy IC server is listening, false otherwise.
+ * \param[in] server The IC EL server.
+ * \return true if the IC EL server is listening, false otherwise.
  */
-bool iopy_ic_server_is_listening(const iopy_ic_server_t *server);
+bool ic_el_server_is_listening(const ic_el_server_t *server);
 
 /* }}} */
 /* {{{ Client */
 
-/** IC client representation for IOPy. */
-typedef struct iopy_ic_client_t iopy_ic_client_t;
+/** IC EL client representation. */
+typedef struct ic_el_client_t ic_el_client_t;
 
-/** Configuration of the callbacks of an IOPy IC client. */
-typedef struct iopy_ic_client_cb_cfg_t {
+/** Configuration of the callbacks of an IC EL client. */
+typedef struct ic_el_client_cb_cfg_t {
     /** Callback called when the client has been connected.
      *
      * This callback is optional.
      *
-     * \param[in] client The IOPy IC client.
+     * \param[in] client The IC EL client.
      */
-    void (*nullable on_connect)(iopy_ic_client_t *client);
+    void (*nullable on_connect)(ic_el_client_t *client);
 
     /** Callback called when the client has been disconnected.
      *
      * This callback is optional.
      *
-     * \param[in] client    The IOPy IC client.
+     * \param[in] client    The IC EL client.
      * \param[in] connected True if the client has been connected before,
      *                      false otherwise.
      */
-    void (*nullable on_disconnect)(iopy_ic_client_t *client, bool connected);
-} iopy_ic_client_cb_cfg_t;
+    void (*nullable on_disconnect)(ic_el_client_t *client, bool connected);
+} ic_el_client_cb_cfg_t;
 
-/** Create an IOPy IC client.
+/** Create an IC EL client.
  *
  * \param[in]  uri            The uri the IC client should connect to.
  * \param[in]  no_act_timeout The inactivity timeout before closing the
@@ -207,65 +229,69 @@ typedef struct iopy_ic_client_cb_cfg_t {
  *                            client.
  *                            0 or a negative number means forever.
  * \param[out] err            The error description in case of error.
- * \return The new IOPy IC client.
+ * \return The new IC EL client.
  */
-iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, double no_act_timeout,
-                                        const iopy_ic_client_cb_cfg_t *cb_cfg,
-                                        sb_t *err);
+ic_el_client_t *ic_el_client_create(lstr_t uri, double no_act_timeout,
+                                    const ic_el_client_cb_cfg_t *cb_cfg,
+                                    sb_t *err);
 
-/** Destroy IOPy IC client.
+/** Destroy the IC EL client.
  *
  * \param[in,out] client_ptr The pointer to the client to destroy. Will be set
  *                           to NULL afterwards.
  */
-void iopy_ic_client_destroy(iopy_ic_client_t **client_ptr);
+void ic_el_client_destroy(ic_el_client_t **client_ptr);
 
-/** Set the IOPy IC client python object.
+/** Set the IC EL client external object.
  *
- * XXX: Since we are manipulating Python objects, the GIL *MUST* be acquired.
+ * \warning: The external object is not protected by the internal lock and is
+ * not thread-safe. You must protect the external object with an external
+ * lock.
  */
-void iopy_ic_client_set_py_obj(iopy_ic_client_t *client,
-                               void * nullable py_obj);
+void ic_el_client_set_ext_obj(ic_el_client_t *client,
+                              void * nullable ext_obj);
 
-/** Get the IOPy IC client python object.
+/** Get the IC EL client external object.
  *
- * XXX: Since we are manipulating Python objects, the GIL *MUST* be acquired.
+ * \warning: The external object is not protected by the internal lock and is
+ * not thread-safe. You must protect the external object with an external
+ * lock.
  */
-void * nullable iopy_ic_client_get_py_obj(iopy_ic_client_t *client);
+void * nullable ic_el_client_get_ext_obj(ic_el_client_t *client);
 
-/** Connect the IOPy IC client.
+/** Connect the IC EL client.
  *
- * \param[in]  client     The IOPy IC client context.
+ * \param[in]  client     The IC EL client.
  * \param[in]  uri        The uri the IC client should connect to.
  * \param[in]  timeout    The timeout it should wait for the connection in
  *                        seconds. -1 means forever.
  * \param[out] client_ptr The pointer where to put the new client.
  *                        Will not be set in case of error.
  * \param[out] err        The error description in case of error.
- * \return IOPY_IC_OK if the client has been successfully connected.
- *         IOPY_IC_ERR if an error occured, \p err contains the description of
+ * \return IC_EL_OK if the client has been successfully connected.
+ *         IC_EL_ERR if an error occured, \p err contains the description of
  *         the error.
- *         IOPY_IC_SIGINT if a sigint occurred during the connection.
+ *         IC_EL_SIGINT if a sigint occurred during the connection.
  */
-iopy_ic_res_t iopy_ic_client_connect(iopy_ic_client_t *client, int timeout,
-                                     sb_t *err);
+ic_el_res_t ic_el_client_connect(ic_el_client_t *client, int timeout,
+                                 sb_t *err);
 
-/** Disconnect the IOPy IC client.
+/** Disconnect the IC EL client.
  *
- * \param[in] client The IOPy RPC client.
+ * \param[in] client The IC EL client.
  */
-void iopy_ic_client_disconnect(iopy_ic_client_t *client);
+void ic_el_client_disconnect(ic_el_client_t *client);
 
-/** Returns whether the IOPy IC client is connected or not.
+/** Returns whether the IC EL client is connected or not.
  *
- * \param[in] client The IOPy RPC client.
+ * \param[in] client The IC EL client.
  * \return true if the associated IC channel is connected, false otherwise
  */
-bool iopy_ic_client_is_connected(iopy_ic_client_t *client);
+bool ic_el_client_is_connected(ic_el_client_t *client);
 
-/** Call RPC with IOPy IC client.
+/** Call an RPC with the IC EL client.
  *
- * \param[in]  client  The IOPy RPC client.
+ * \param[in]  client  The IC EL client.
  * \param[in]  rpc     The RPC to call.
  * \param[in]  cmd     The command index of the RPC.
  * \param[in]  hdr     The ic header.
@@ -277,32 +303,39 @@ bool iopy_ic_client_is_connected(iopy_ic_client_t *client);
  *                     to IC_MSG_OK or IC_MSG_EXN. This value is allocated on
  *                     the heap and *MUST* be freed with p_delete().
  * \param[out] err     The error description in case of error.
- * \return IOPY_IC_OK if the query has been run and returned. You must check
+ * \return IC_EL_OK if the query has been run and returned. You must check
  *         if the query has been successful with \p status.
- *         IOPY_IC_ERR if an error occured, \p err contains the description of
+ *         IC_EL_ERR if an error occured, \p err contains the description of
  *         the error.
- *         IOPY_IC_SIGINT if a sigint occurred during the query.
+ *         IC_EL_SIGINT if a sigint occurred during the query.
  */
-iopy_ic_res_t
-iopy_ic_client_call(iopy_ic_client_t *client, const iop_rpc_t *rpc,
-                    int32_t cmd, const ic__hdr__t *hdr, int timeout,
-                    void *arg, ic_status_t *status, void **res, sb_t *err);
+ic_el_res_t
+ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
+                  int32_t cmd, const ic__hdr__t *hdr, int timeout,
+                  void *arg, ic_status_t *status, void **res, sb_t *err);
 
 /* }}} */
 /* {{{ Module init */
 
-/** Initialize the IOPy RPC C module. */
-void iopy_rpc_module_init(void);
+/** Initialize the IC EL C module. */
+void ic_el_module_init(void);
 
-/** Stop the IOPy RPC C module. */
-void iopy_rpc_module_stop(void);
-
-/** Clean up the IOPy RPC C module.
+/** Stop the IC EL C module.
  *
- * iopy_rpc_module_stop() must have been called before calling this function.
+ * When this function is called, the different callbacks can still be called
+ * through the internal event loop.
  */
-void iopy_rpc_module_cleanup(void);
+void ic_el_module_stop(void);
+
+/** Clean up the IC EL C module.
+ *
+ * ic_el_module_stop() must have been called before calling this function.
+ *
+ * When this function is called, the internal event loop has already been
+ * stopped, and no callbacks will be called.
+ */
+void ic_el_module_cleanup(void);
 
 /* }}} */
 
-#endif /* IS_IOPY_CYTHON_RPC_H */
+#endif /* IS_LIB_COMMON_IOP_RPC_EL_H */

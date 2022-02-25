@@ -20,26 +20,26 @@
 
 PXCC_EXPORT_FILE("iopy_rpc.h");
 
-PXCC_EXPORT_SYMBOL(iopy_ic_server_create);
-PXCC_EXPORT_SYMBOL(iopy_ic_server_destroy);
-PXCC_EXPORT_SYMBOL(iopy_ic_server_set_py_obj);
-PXCC_EXPORT_SYMBOL(iopy_ic_server_get_py_obj);
-PXCC_EXPORT_SYMBOL(iopy_ic_server_listen);
-PXCC_EXPORT_SYMBOL(iopy_ic_server_listen_block);
-PXCC_EXPORT_SYMBOL(iopy_ic_server_stop);
-PXCC_EXPORT_SYMBOL(iopy_ic_server_register_rpc);
-PXCC_EXPORT_SYMBOL(iopy_ic_server_unregister_rpc);
-PXCC_EXPORT_SYMBOL(iopy_ic_server_is_listening);
+PXCC_EXPORT_SYMBOL(ic_el_server_create);
+PXCC_EXPORT_SYMBOL(ic_el_server_destroy);
+PXCC_EXPORT_SYMBOL(ic_el_server_set_ext_obj);
+PXCC_EXPORT_SYMBOL(ic_el_server_get_ext_obj);
+PXCC_EXPORT_SYMBOL(ic_el_server_listen);
+PXCC_EXPORT_SYMBOL(ic_el_server_listen_block);
+PXCC_EXPORT_SYMBOL(ic_el_server_stop);
+PXCC_EXPORT_SYMBOL(ic_el_server_register_rpc);
+PXCC_EXPORT_SYMBOL(ic_el_server_unregister_rpc);
+PXCC_EXPORT_SYMBOL(ic_el_server_is_listening);
 
-PXCC_EXPORT_SYMBOL(iopy_ic_client_create);
-PXCC_EXPORT_SYMBOL(iopy_ic_client_destroy);
-PXCC_EXPORT_SYMBOL(iopy_ic_client_set_py_obj);
-PXCC_EXPORT_SYMBOL(iopy_ic_client_get_py_obj);
-PXCC_EXPORT_SYMBOL(iopy_ic_client_connect);
-PXCC_EXPORT_SYMBOL(iopy_ic_client_disconnect);
-PXCC_EXPORT_SYMBOL(iopy_ic_client_is_connected);
-PXCC_EXPORT_SYMBOL(iopy_ic_client_call);
+PXCC_EXPORT_SYMBOL(ic_el_client_create);
+PXCC_EXPORT_SYMBOL(ic_el_client_destroy);
+PXCC_EXPORT_SYMBOL(ic_el_client_set_ext_obj);
+PXCC_EXPORT_SYMBOL(ic_el_client_get_ext_obj);
+PXCC_EXPORT_SYMBOL(ic_el_client_connect);
+PXCC_EXPORT_SYMBOL(ic_el_client_disconnect);
+PXCC_EXPORT_SYMBOL(ic_el_client_is_connected);
+PXCC_EXPORT_SYMBOL(ic_el_client_call);
 
-PXCC_EXPORT_SYMBOL(iopy_rpc_module_init);
-PXCC_EXPORT_SYMBOL(iopy_rpc_module_stop);
-PXCC_EXPORT_SYMBOL(iopy_rpc_module_cleanup);
+PXCC_EXPORT_SYMBOL(ic_el_module_init);
+PXCC_EXPORT_SYMBOL(ic_el_module_stop);
+PXCC_EXPORT_SYMBOL(ic_el_module_cleanup);
