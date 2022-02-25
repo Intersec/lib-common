@@ -20,7 +20,7 @@
 #include <lib-common/iop-rpc.h>
 #include <lib-common/datetime.h>
 
-#include "iopy_rpc.h"
+#include "rpc-el.h"
 
 /* {{{ Types */
 

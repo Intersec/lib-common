@@ -76,7 +76,7 @@ cdef extern from "version.h" nogil:
 cdef extern from "iopy_cython_export.h":
     pass
 
-from iopy_rpc_pxc cimport *
+from rpc_el_pxc cimport *
 
 # Must be added after all includes and imports.
 from libcommon_cython.cython_fixes cimport *

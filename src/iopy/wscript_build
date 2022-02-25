@@ -21,8 +21,7 @@ ctx(rule='${VERSION_SH} rcsid iopy > ${TGT}',
     target='iopy-version.c', always=True)
 
 ctx.shlib(target='iopy', features='c cshlib', source=[
-    'iopy_rpc.pxc',
-    'iopy_rpc.c',
+    'rpc_el.pxc',
     'iopy.pyx',
     'iopy-version.c',
 ], use=[

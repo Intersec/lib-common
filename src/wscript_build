@@ -208,6 +208,7 @@ ctx.stlib(target='libcommon', features='c cstlib', depends_on=[
     'iop/rpc-channel.blk',
     'iop/rpc-http-server.c',
     'iop/rpc-http-client.c',
+    'iop/rpc-el.c',
     'iop/xml-pack.c',
     'iop/xml-unpack.c',
     'iop/xml-wsdl.blk',

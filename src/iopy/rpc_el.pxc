@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iopy_rpc.h"
+#include <lib-common/iop/rpc-el.h>
 
-PXCC_EXPORT_FILE("iopy_rpc.h");
+PXCC_EXPORT_FILE("<lib-common/iop/rpc-el.h>");
 
 PXCC_EXPORT_SYMBOL(ic_el_server_create);
 PXCC_EXPORT_SYMBOL(ic_el_server_destroy);
