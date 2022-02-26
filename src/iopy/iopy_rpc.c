@@ -92,21 +92,6 @@ static int load_su_from_uri(lstr_t uri, sockunion_t *su, sb_t *err)
     return 0;
 }
 
-static int
-pthread_cond_wait_ext(pthread_cond_t *cond, pthread_mutex_t *mutex,
-                      const struct timeval *abs_time)
-{
-    if (abs_time) {
-        struct timespec ts = {
-            .tv_sec = abs_time->tv_sec,
-            .tv_nsec = 1000 * abs_time->tv_usec
-        };
-
-        return pthread_cond_timedwait(cond, mutex, &ts);
-    }
-    return pthread_cond_wait(cond, mutex);
-}
-
 /* }}} */
 /* {{{ El thread */
 
@@ -125,12 +110,16 @@ static void request_el_mutex_lock_cb(el_t el, el_data_t data)
 /** Wait for _G.el_mutex_after_lock_cond in the el thread loop. */
 static void el_loop_wait_after_lock_cond(void)
 {
-    struct timeval abs_time = {.tv_sec = 0};
+    struct timeval abs_time;
+    struct timespec ts;
 
     lp_gettv(&abs_time);
     abs_time = timeval_addmsec(abs_time, 10);
-    pthread_cond_wait_ext(&_G.el_mutex_after_lock_cond, &_G.el_mutex,
-                          &abs_time);
+
+    ts.tv_sec = abs_time.tv_sec;
+    ts.tv_nsec = 1000 * abs_time.tv_usec;
+    pthread_cond_timedwait(&_G.el_mutex_after_lock_cond, &_G.el_mutex,
+                           &ts);
 }
 
 static void iopy_ic_server_el_process(void);
@@ -284,8 +273,18 @@ static void iopy_el_mutex_unlock(void)
 
 static void iopy_wait_thr_cond_sigint(el_t ev, int signo, el_data_t priv)
 {
-    pthread_cond_broadcast(&_G.el_wait_thr_cond);
     _G.el_wait_thr_sigint_received = true;
+    pthread_cond_broadcast(&_G.el_wait_thr_cond);
+    iopy_inc_el_mutex_wait_lock_cnt();
+}
+
+static void iopy_wait_thr_timeout_cb(el_t ev, el_data_t priv)
+{
+    bool *timeout_expired_ptr = priv.ptr;
+
+    *timeout_expired_ptr = true;
+    pthread_cond_broadcast(&_G.el_wait_thr_cond);
+    iopy_inc_el_mutex_wait_lock_cnt();
 }
 
 /** Result of wait_thread_cond(). */
@@ -320,15 +319,19 @@ static wait_thread_cond_res_t
 wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
                  int timeout)
 {
-    struct timeval abs_time = {.tv_sec = 0};
-    struct timeval *ptime = NULL;
+    struct timeval begin_time;
+    int64_t timeout_msec = 0;
+    bool timeout_expired = false;
+    el_t timeout_el = NULL;
     bool terminated;
     wait_thread_cond_res_t res = WAIT_THR_COND_TIMEOUT;
 
     if (timeout >= 0) {
-        ptime = &abs_time;
-        lp_gettv(ptime);
-        *ptime = timeval_addmsec(*ptime, timeout * 1000 + 500);
+        lp_gettv(&begin_time);
+        timeout_msec = timeout * 1000;
+        timeout_el = el_timer_register(timeout_msec, 0, EL_TIMER_LOWRES,
+                                       &iopy_wait_thr_timeout_cb,
+                                       &timeout_expired);
     }
 
     /* Save python sigint handler if we don't saved it already. */
@@ -340,10 +343,24 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
         _G.el_wait_thr_sigint_received = false;
     }
 
-    while (!(terminated = is_terminated(terminated_arg))
-    &&     !_G.el_wait_thr_sigint_received
-    &&     !pthread_cond_wait_ext(&_G.el_wait_thr_cond, &_G.el_mutex, ptime))
+    while (!(terminated = is_terminated(terminated_arg)) &&
+           !timeout_expired && !_G.el_wait_thr_sigint_received &&
+           !pthread_cond_wait(&_G.el_wait_thr_cond, &_G.el_mutex))
     {
+    }
+
+    if (timeout_expired) {
+        struct timeval after_time;
+        int64_t diff_msec;
+
+        lp_gettv(&after_time);
+        diff_msec = timeval_diffmsec(&after_time, &begin_time);
+        if (unlikely((timeout_msec + 500) < diff_msec)) {
+            e_warning("thread starvation detected, expected timeout in "
+                      "%jdms, took %jdms", timeout_msec, diff_msec);
+        }
+    } else {
+        el_unregister(&timeout_el);
     }
 
     if (terminated) {

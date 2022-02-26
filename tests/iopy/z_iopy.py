@@ -26,6 +26,9 @@ import warnings
 import subprocess
 import threading
 import json
+import socket
+
+from contextlib import contextmanager
 
 SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
@@ -110,6 +113,21 @@ def z_iopy_test_threads_and_forks(iface, obj_a, exp_res, do_threads,
     assert all(x == 0 for x in res_codes) , (
         "child processes don't all exit successfully: {0}".format(res_codes)
     )
+
+
+@contextmanager
+def z_iopy_use_fake_tcp_server(uri):
+    addr, port = uri.split(':')
+    port = int(port)
+
+    fake_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    fake_server.bind((addr, port))
+    fake_server.listen(1)
+
+    try:
+        yield fake_server
+    finally:
+        fake_server.close()
 
 
 @z.ZGroup
@@ -2697,6 +2715,41 @@ class IopyCompatibilityTests(z.TestCase):
         ])
         self.assertEqual(self.p.__dsopath__, self.p.dsopath)
         self.assertEqual(self.p.__modules__, self.p.modules)
+
+
+@z.ZFlags("slow")
+@z.ZGroup
+class IopySlowTests(z.TestCase):
+    """Tests that takes some fixed time to complete"""
+
+    def setUp(self):
+        plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
+        self.p = iopy.Plugin(plugin_file)
+
+    def test_connection_timeout(self):
+        """Test the timeout argument is well respected on connection"""
+        uri = make_uri()
+
+        # Use a fake TCP server that never accepts connections to trigger
+        # connection timeout
+        with z_iopy_use_fake_tcp_server(uri):
+            # Do it 5 times (5s) to make sure a success is not random
+            for _ in range(5):
+                start_time = time.time()
+                try:
+                    # Make a connection that should timeout in 1s
+                    self.p.connect(uri, _timeout=1)
+                except iopy.Error:
+                    pass
+                else:
+                    self.fail('expected connection timeout error')
+                end_time = time.time()
+                diff_time = end_time - start_time
+                # We should have a timeout in less than 1.5s
+                self.assertLessEqual(diff_time, 1.5,
+                                     "connection timeout took {0:.2f}s, "
+                                     "expected less than 1.5s"
+                                     .format(diff_time))
 
 
 if __name__ == "__main__":
