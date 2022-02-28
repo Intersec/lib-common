@@ -315,7 +315,7 @@ typedef enum wait_thread_cond_res_t {
  */
 static wait_thread_cond_res_t
 wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
-                 int timeout)
+                 double timeout)
 {
     struct timeval begin_time;
     int64_t timeout_msec = 0;
@@ -326,7 +326,7 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
 
     if (timeout >= 0) {
         lp_gettv(&begin_time);
-        timeout_msec = timeout * 1000;
+        timeout_msec = (int64_t)(timeout * 1000.0);
         timeout_el = el_timer_register(timeout_msec, 0, EL_TIMER_LOWRES,
                                        &ic_el_wait_thr_timeout_cb,
                                        &timeout_expired);
@@ -657,7 +657,7 @@ static bool ic_el_server_is_stopped(void *arg)
 
 /** Wait for the IC EL server to be fully stopped by the event loop. */
 static ic_el_res_t ic_el_server_wait_for_stop(ic_el_server_t *server,
-                                              int timeout)
+                                              double timeout)
 {
     ic_el_res_t res = IC_EL_OK;
     wait_thread_cond_res_t wait_res;
@@ -680,7 +680,7 @@ static ic_el_res_t ic_el_server_wait_for_stop(ic_el_server_t *server,
 }
 
 ic_el_res_t ic_el_server_listen_block(ic_el_server_t *server,
-                                      lstr_t uri, int timeout, sb_t *err)
+                                      lstr_t uri, double timeout, sb_t *err)
 {
     ic_el_res_t res;
     sockunion_t su;
@@ -932,7 +932,7 @@ ic_el_client_ic_connect_wait(ic_el_client_t *client, int timeout)
 
 /** Connect the client with the el mutex locked. */
 static ic_el_res_t ic_el_client_connect_locked(ic_el_client_t *client,
-                                               int timeout, sb_t *err)
+                                               double timeout, sb_t *err)
 {
     wait_thread_cond_res_t wait_res;
 
@@ -958,7 +958,7 @@ static ic_el_res_t ic_el_client_connect_locked(ic_el_client_t *client,
     return IC_EL_ERR;
 }
 
-ic_el_res_t ic_el_client_connect(ic_el_client_t *client, int timeout,
+ic_el_res_t ic_el_client_connect(ic_el_client_t *client, double timeout,
                                  sb_t *err)
 {
     ic_el_res_t res;
@@ -1060,7 +1060,7 @@ static bool ic_el_client_query_is_completed(void *arg)
 
 ic_el_res_t
 ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
-                  int32_t cmd, const ic__hdr__t *hdr, int timeout,
+                  int32_t cmd, const ic__hdr__t *hdr, double timeout,
                   void *arg, ic_status_t *status, void **res, sb_t *err)
 {
     ic_el_res_t call_res = IC_EL_OK;

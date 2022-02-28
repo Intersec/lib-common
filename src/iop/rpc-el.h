@@ -156,7 +156,7 @@ int ic_el_server_listen(ic_el_server_t *server, lstr_t uri, sb_t *err);
  *         IC_EL_SIGINT if a sigint occurred.
  */
 ic_el_res_t ic_el_server_listen_block(ic_el_server_t *server,
-                                      lstr_t uri, int timeout, sb_t *err);
+                                      lstr_t uri, double timeout, sb_t *err);
 
 /** Stop the IC EL server.
  *
@@ -273,7 +273,7 @@ void * nullable ic_el_client_get_ext_obj(ic_el_client_t *client);
  *         the error.
  *         IC_EL_SIGINT if a sigint occurred during the connection.
  */
-ic_el_res_t ic_el_client_connect(ic_el_client_t *client, int timeout,
+ic_el_res_t ic_el_client_connect(ic_el_client_t *client, double timeout,
                                  sb_t *err);
 
 /** Disconnect the IC EL client.
@@ -311,7 +311,7 @@ bool ic_el_client_is_connected(ic_el_client_t *client);
  */
 ic_el_res_t
 ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
-                  int32_t cmd, const ic__hdr__t *hdr, int timeout,
+                  int32_t cmd, const ic__hdr__t *hdr, double timeout,
                   void *arg, ic_status_t *status, void **res, sb_t *err);
 
 /* }}} */

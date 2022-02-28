@@ -7070,7 +7070,7 @@ cdef class RPC(RPCChannel):
 
         Parameters
         ----------
-        _timeout : int
+        _timeout : float
             The timeout for the query. If set, it will superseed the default
             timeout. -1 means forever.
         _login : str
@@ -7139,10 +7139,10 @@ cdef class Channel(ChannelBase):
     cdef object on_connect_cb
     cdef object on_disconnect_cb
     cdef readonly str uri
-    cdef public int default_timeout
+    cdef public double default_timeout
 
     def __init__(Channel self, Plugin plugin, object uri=None, *,
-                 object host=None, int port=-1, int default_timeout=60,
+                 object host=None, int port=-1, double default_timeout=60.0,
                  double no_act_timeout=0.0, **kwargs):
         """Constructor of client IC channel.
 
@@ -7159,7 +7159,7 @@ cdef class Channel(ChannelBase):
         port : int
             The port to connect to. If set, host must also be set and uri must
             not be set.
-        default_timeout : int
+        default_timeout : float
             The default timeout for the IC channel in seconds.
             -1 means forever, default is 60.
         no_act_timeout : float
@@ -7210,15 +7210,15 @@ cdef class Channel(ChannelBase):
 
         Parameters
         ----------
-        timeout : int
+        timeout : float
             The timeout of the connection of the IC channel in seconds.
             -1 means forever. If not set, use the default timeout of the IC
             channel.
         """
-        cdef int timeout_connect
+        cdef double timeout_connect
 
         if timeout is not None:
-            timeout_connect = int(timeout)
+            timeout_connect = float(timeout)
         else:
             timeout_connect = self.default_timeout
         client_channel_connect(self, timeout_connect)
@@ -7354,7 +7354,7 @@ cdef class Channel(ChannelBase):
 
 
 cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
-                             object host, int port, int default_timeout,
+                             object host, int port, double default_timeout,
                              double no_act_timeout, dict kwargs) except -1:
     """Initialize client IC channel.
 
@@ -7459,7 +7459,7 @@ cdef int create_client_rpc(const iop_rpc_t *rpc,
         setattr(py_iface, rpc_name, wrapper)
 
 
-cdef int client_channel_connect(Channel channel, int timeout) except -1:
+cdef int client_channel_connect(Channel channel, double timeout) except -1:
     """Initialize client IC channel.
 
     Parameters
@@ -7495,7 +7495,7 @@ cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
     cdef Plugin plugin = iface_holder.plugin
     cdef _InternalIface py_iface = rpc.py_iface
     cdef Channel channel = py_iface.channel
-    cdef int timeout = channel.default_timeout
+    cdef double timeout = channel.default_timeout
     cdef tuple pre_hook_res
     cdef object py_timeout
     cdef ic__hdr__t *hdr = NULL
@@ -7919,8 +7919,8 @@ cdef class RPCServer(RPCChannel):
             ic_el_server_unregister_rpc(channel.ic_server, cmd)
         self.rpc_impl = None
 
-    def wait(RPCServer self, int timeout, object uri=None, object host=None,
-             int port=-1, int count=1):
+    def wait(RPCServer self, double timeout, object uri=None,
+             object host=None, int port=-1, int count=1):
         """Wait for an RPC to be called on a given socket address.
 
         Listen on the given socket and keep listening until time elapsed or
@@ -7931,7 +7931,7 @@ cdef class RPCServer(RPCChannel):
 
         Parameters
         ----------
-        timeout : int
+        timeout : float
             Number of seconds to listen.
         uri : str
             Socket address to listen to.
@@ -8048,7 +8048,7 @@ cdef class ChannelServer(ChannelBase):
         if res < 0:
             raise Error(lstr_to_py_str(LSTR_SB_V(&err)))
 
-    def listen_block(ChannelServer self, int timeout, object uri=None,
+    def listen_block(ChannelServer self, double timeout, object uri=None,
                      object host=None, int port=-1):
         """Start the IC server listening and keep listening until time elapsed
         or server stopped.
@@ -8058,7 +8058,7 @@ cdef class ChannelServer(ChannelBase):
 
         Parameters
         ----------
-        timeout : int
+        timeout : float
             Number of seconds to listen.
         uri : str
             Socket address to listen to.
@@ -8929,13 +8929,13 @@ cdef class Plugin:
         port : int
             The port to connect to. If set, host must also be set and uri must
             not be set.
-        timeout : int
+        timeout : float
             The default and connection timeout for the IC channel.
             -1 means forever, default is 60.
         no_act_timeout : float
             The inactivity timeout before closing the connection in seconds.
             0 or a negative number means no timeout, default is 0.
-        _timeout : int
+        _timeout : float
             Backward compatibility parameter for timeout parameter.
         _login : str
             The login to be put in the default IC header.
@@ -8959,14 +8959,14 @@ cdef class Plugin:
             The IOPy client channel.
         """
         cdef Channel channel
-        cdef int default_timeout
+        cdef double default_timeout
 
         if _timeout is not None and timeout is None:
             timeout = _timeout
         if timeout is not None:
-            default_timeout = int(timeout)
+            default_timeout = float(timeout)
         else:
-            default_timeout = 60
+            default_timeout = 60.0
 
         channel = Channel.__new__(Channel)
         client_channel_init(channel, self, uri, host, port, default_timeout,
