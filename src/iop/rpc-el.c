@@ -34,6 +34,12 @@ typedef enum el_thr_status_t {
 qm_khptr_t(ic_el_server, struct ev_t, ic_el_server_t *);
 qh_khptr_t(ic_el_client, ic_el_client_t);
 
+typedef enum ic_el_async_res_t {
+    IC_EL_ASYNC_OK,
+    IC_EL_ASYNC_ERR,
+    IC_EL_ASYNC_PENDING,
+} ic_el_async_res_t;
+
 /* }}} */
 
 static struct {
@@ -760,12 +766,39 @@ bool ic_el_server_is_listening(const ic_el_server_t *server)
 /* }}} */
 /* {{{ Client */
 
+/** Context to be used on client asynchronous connection. */
+typedef struct ic_el_client_async_connect_t {
+    ic_el_client_t *client;
+    ic_client_async_connect_f cb;
+    void *nullable cb_arg;
+    el_t timeout_el;
+    dlist_t link;
+} ic_el_client_async_connect_t;
+
+static ic_el_client_async_connect_t *
+ic_el_client_async_connect_init(ic_el_client_async_connect_t *ctx)
+{
+    p_clear(ctx, 1);
+    dlist_init(&ctx->link);
+    return ctx;
+}
+
+static void ic_el_client_async_connect_wipe(ic_el_client_async_connect_t *ctx)
+{
+    dlist_remove(&ctx->link);
+    el_unregister(&ctx->timeout_el);
+}
+
+GENERIC_NEW(ic_el_client_async_connect_t, ic_el_client_async_connect);
+GENERIC_DELETE(ic_el_client_async_connect_t, ic_el_client_async_connect);
+
 struct ic_el_client_t {
     ic_el_client_cb_cfg_t cb_cfg;
     ichannel_t ic;
     void *ext_obj;
     dlist_t destroyed;
     int wait_connect_sync;
+    dlist_t async_connect_ctxs;
     bool in_connect       : 1;
     bool force_disconnect : 1;
     bool connected        : 1;
@@ -775,6 +808,8 @@ static ic_el_client_t *ic_el_client_init(ic_el_client_t *client)
 {
     p_clear(client, 1);
     ic_init(&client->ic);
+    dlist_init(&client->destroyed);
+    dlist_init(&client->async_connect_ctxs);
     return client;
 }
 
@@ -782,6 +817,11 @@ static void ic_el_client_clear(ic_el_client_t *client)
 {
     client->force_disconnect = true;
     ic_wipe(&client->ic);
+    dlist_for_each_entry(ic_el_client_async_connect_t, async_ctx,
+                         &client->async_connect_ctxs, link)
+    {
+        ic_el_client_async_connect_delete(&async_ctx);
+    }
 }
 
 static void ic_el_client_wipe(ic_el_client_t *client)
@@ -814,13 +854,60 @@ static void ic_el_client_el_process(void)
     dlist_init(&_G.destroyed_clients);
 }
 
+/** Notify client connection or disconnection for async connections. */
+static void ic_el_client_notify_async_connections(ic_el_client_t *client)
+{
+    SB_1k(connect_err);
+    sb_t *err_ptr = NULL;
+    dlist_t async_ctxs;
+
+    /* If the client is not connected, the connection is in error */
+    if (!client->connected) {
+        ic_el_client_set_connection_error(client, &connect_err);
+        err_ptr = &connect_err;
+    }
+
+    /* Splice the client asynchronous contexts here to avoid race
+     * conditions when calling the callbacks with the mutex unlocked */
+    dlist_init(&async_ctxs);
+    dlist_splice(&async_ctxs, &client->async_connect_ctxs);
+
+    /* Clear the aynchronous contexts first to avoid race conditions when
+     * calling the callbacks with the mutex unlocked */
+    dlist_for_each_entry(ic_el_client_async_connect_t, async_ctx,
+                         &async_ctxs, link)
+    {
+        el_unregister(&async_ctx->timeout_el);
+        assert(async_ctx->client == client);
+        async_ctx->client = NULL;
+    }
+
+    /* Delete the contexts and call all the callbacks with the mutex unlocked
+     */
+    ic_el_mutex_unlock();
+    dlist_for_each_entry(ic_el_client_async_connect_t, async_ctx,
+                         &async_ctxs, link)
+    {
+        ic_client_async_connect_f cb = async_ctx->cb;
+        void *cb_arg = async_ctx->cb_arg;
+
+        ic_el_client_async_connect_delete(&async_ctx);
+        (*cb)(err_ptr, cb_arg);
+    }
+    ic_el_mutex_lock(false);
+}
+
 /** Notify client connection or disconnection when in_connect. */
 static void ic_el_client_notify_in_connect(ic_el_client_t *client)
 {
+    /* Notify synchronous waiting connections */
     if (client->wait_connect_sync > 0) {
         pthread_cond_broadcast(&_G.el_wait_thr_cond);
         ic_el_inc_el_mutex_wait_lock_cnt();
     }
+
+    /* Notify asynchronous connections */
+    ic_el_client_notify_async_connections(client);
 }
 
 /** Called on event on the ic channel. */
@@ -1015,6 +1102,86 @@ ic_el_client_sync_connect(ic_el_client_t *client, double timeout, sb_t *err)
     res = ic_el_client_sync_connect_locked(client, timeout, err);
     ic_el_mutex_unlock();
     return res;
+}
+
+/** Callback on asynchronous client connection timeout. */
+static void ic_el_client_async_connect_timeout_cb(el_t ev, el_data_t priv)
+{
+    SB_1k(err);
+    ic_el_client_async_connect_t *async_ctx = priv.ptr;
+    ic_client_async_connect_f cb = async_ctx->cb;
+    void *cb_arg = async_ctx->cb_arg;
+
+    ic_el_client_set_connection_error(async_ctx->client, &err);
+
+    /* Delete it here, before the mutex unlock, to avoid race conditions with
+     * the client when calling the callback. */
+    ic_el_client_async_connect_delete(&async_ctx);
+
+    ic_el_mutex_unlock();
+    (*cb)(&err, cb_arg);
+    ic_el_mutex_lock(false);
+}
+
+/** Asynchronously connect the client with the el mutex locked. */
+static ic_el_async_res_t
+ic_el_client_async_connect_locked(ic_el_client_t *client, double timeout,
+                                  ic_client_async_connect_f cb,
+                                  void *nullable cb_arg,
+                                  sb_t *err)
+{
+    ic_el_client_async_connect_t *async_ctx;
+
+    if (client->connected) {
+        return IC_EL_ASYNC_OK;
+    }
+
+    if (ic_el_client_start_connection(client) < 0) {
+        ic_el_client_set_connection_error(client, err);
+        return IC_EL_ASYNC_ERR;
+    }
+
+    async_ctx = ic_el_client_async_connect_new();
+    async_ctx->client = client;
+    async_ctx->cb = cb;
+    async_ctx->cb_arg = cb_arg;
+    dlist_add_tail(&client->async_connect_ctxs, &async_ctx->link);
+
+    if (timeout >= 0.0) {
+        int64_t timeout_msec = (int64_t)(timeout * 1000.0);
+
+        async_ctx->timeout_el = el_timer_register(
+            timeout_msec, 0, EL_TIMER_LOWRES,
+            &ic_el_client_async_connect_timeout_cb, async_ctx);
+    }
+
+    return IC_EL_ASYNC_PENDING;
+}
+
+void ic_el_client_async_connect(ic_el_client_t *client, double timeout,
+                                ic_client_async_connect_f cb,
+                                void *nullable cb_arg)
+{
+    SB_1k(err);
+    ic_el_async_res_t res;
+
+    ic_el_mutex_lock(true);
+    res = ic_el_client_async_connect_locked(client, timeout, cb, cb_arg,
+                                            &err);
+    ic_el_mutex_unlock();
+
+    switch (res) {
+    case IC_EL_ASYNC_OK:
+        (*cb)(NULL, cb_arg);
+        break;
+
+    case IC_EL_ASYNC_ERR:
+        (*cb)(&err, cb_arg);
+        break;
+
+    case IC_EL_ASYNC_PENDING:
+        break;
+    }
 }
 
 void ic_el_client_disconnect(ic_el_client_t *client)

@@ -275,6 +275,33 @@ void * nullable ic_el_client_get_ext_obj(ic_el_client_t *client);
 ic_el_sync_res_t
 ic_el_client_sync_connect(ic_el_client_t *client, double timeout, sb_t *err);
 
+/** The callback used when asynchronously connect the IC EL client.
+ *
+ * \warning: This callback can be called either in the thread of the caller or
+ * in the event loop thread.
+ *
+ * \param[in] err    The error description in case of error.
+ *                   If NULL, the client is successfully connected.
+ *                   If not NULL, the client cannot be connected.
+ * \param[in] cb_arg The custom user variable passed to
+ *                   \ref ic_el_client_async_connect.
+ */
+typedef void (*ic_client_async_connect_f)(const sb_t *nullable err,
+                                          void *nullable cb_arg);
+
+/** Aynchronously connect the IC EL client.
+ *
+ * \param[in]  client  The IC EL client.
+ * \param[in]  uri     The uri the IC client should connect to.
+ * \param[in]  timeout The timeout it should wait for the connection in
+ *                     seconds. -1 means forever.
+ * \param[in]  cb      The callback to be called on result.
+ * \param[in]  cb_arg  A custom user variable to be passed to the callback.
+ */
+void ic_el_client_async_connect(ic_el_client_t *client, double timeout,
+                                ic_client_async_connect_f cb,
+                                void *nullable cb_arg);
+
 /** Disconnect the IC EL client.
  *
  * \param[in] client The IC EL client.
