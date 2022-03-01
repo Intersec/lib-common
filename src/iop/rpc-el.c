@@ -940,6 +940,10 @@ static ic_el_res_t ic_el_client_connect_locked(ic_el_client_t *client,
 {
     wait_thread_cond_res_t wait_res;
 
+    if (client->connected) {
+        return IC_EL_OK;
+    }
+
     wait_res = ic_el_client_ic_connect_wait(client, timeout);
     switch (wait_res) {
       case WAIT_THR_COND_OK:
