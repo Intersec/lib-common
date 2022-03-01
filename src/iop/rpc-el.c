@@ -760,9 +760,9 @@ bool ic_el_server_is_listening(const ic_el_server_t *server)
 /* {{{ Client */
 
 struct ic_el_client_t {
-    bool in_connect    : 1;
-    bool closing_is_ok : 1;
-    bool connected     : 1;
+    bool in_connect       : 1;
+    bool force_disconnect : 1;
+    bool connected        : 1;
     ic_el_client_cb_cfg_t cb_cfg;
     void *ext_obj;
     ichannel_t ic;
@@ -778,8 +778,7 @@ static ic_el_client_t *ic_el_client_init(ic_el_client_t *client)
 
 static void ic_el_client_clear(ic_el_client_t *client)
 {
-    client->closing_is_ok = true;
-    client->in_connect = false;
+    client->force_disconnect = true;
     ic_wipe(&client->ic);
 }
 
@@ -820,7 +819,7 @@ static void ic_el_client_on_event(ichannel_t *ic, ic_event_t evt)
         bool connected = client->connected;
 
         client->connected = false;
-        if (client->cb_cfg.on_disconnect && !client->closing_is_ok &&
+        if (client->cb_cfg.on_disconnect && !client->force_disconnect &&
             !is_el_thr_stopped())
         {
             ic_el_mutex_unlock();
@@ -831,9 +830,14 @@ static void ic_el_client_on_event(ichannel_t *ic, ic_event_t evt)
 
     if (client->in_connect) {
         client->in_connect = false;
-        pthread_cond_broadcast(&_G.el_wait_thr_cond);
-        ic_el_inc_el_mutex_wait_lock_cnt();
+
+        if (!client->force_disconnect) {
+            pthread_cond_broadcast(&_G.el_wait_thr_cond);
+            ic_el_inc_el_mutex_wait_lock_cnt();
+        }
     }
+
+    client->force_disconnect = false;
 }
 
 ic_el_client_t *ic_el_client_create(lstr_t uri, double no_act_timeout,
@@ -914,7 +918,7 @@ ic_el_client_ic_connect_wait(ic_el_client_t *client, int timeout)
 
     if (!client->in_connect) {
         client->in_connect = true;
-        client->closing_is_ok = false;
+        assert(!client->force_disconnect);
 
         if (ic_connect(&client->ic) < 0) {
             return WAIT_THR_COND_TIMEOUT;
@@ -969,18 +973,10 @@ ic_el_res_t ic_el_client_connect(ic_el_client_t *client, double timeout,
     return res;
 }
 
-/** Disconnect IC client with mutex locked. */
-static void ic_el_client_disconnect_locked(ic_el_client_t *client)
-{
-    client->in_connect = false;
-    client->closing_is_ok = true;
-    ic_disconnect(&client->ic);
-}
-
 void ic_el_client_disconnect(ic_el_client_t *client)
 {
     ic_el_mutex_lock(true);
-    ic_el_client_disconnect_locked(client);
+    ic_disconnect(&client->ic);
     ic_el_mutex_unlock();
 }
 
@@ -1016,7 +1012,7 @@ static void ic_el_client_query_cb(ichannel_t *ic, ic_msg_t *msg,
 
     query_ctx = *(ic_el_client_query_ctx_t **)msg->priv;
 
-    if (client->closing_is_ok) {
+    if (client->force_disconnect) {
         goto end;
     }
 
@@ -1178,15 +1174,16 @@ static void ic_el_atfork_parent(void)
 static void ic_el_atfork_child(void)
 {
     /* Stop all servers. */
-    qm_for_each_pos(ic_el_server, pos, &_G.servers) {
-        ic_el_server_clear(_G.servers.values[pos], false);
-        ic_el_server_delete(&_G.servers.values[pos]);
+    qm_for_each_value_p(ic_el_server, server_ptr, &_G.servers) {
+        ic_el_server_clear(*server_ptr, false);
+        ic_el_server_delete(server_ptr);
     }
     qm_clear(ic_el_server, &_G.servers);
 
     /* Disconnect all clients. They will reconnect on the next RPC call. */
-    qh_for_each_pos(ic_el_client, pos, &_G.clients) {
-        ic_el_client_disconnect_locked(_G.clients.keys[pos]);
+    qh_for_each_key(ic_el_client, client, &_G.clients) {
+        client->force_disconnect = true;
+        ic_disconnect(&client->ic);
     }
 
     ic_el_thr_vars_init();
