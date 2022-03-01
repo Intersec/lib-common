@@ -47,12 +47,12 @@
 #include <lib-common/core.h>
 #include <lib-common/iop-rpc.h>
 
-/** Result of blocking functions. */
-typedef enum ic_el_res_t {
-    IC_EL_OK = 0,
-    IC_EL_ERR = -1,
-    IC_EL_SIGINT = -2,
-} ic_el_res_t;
+/** Result of synchronous functions. */
+typedef enum ic_el_sync_res_t {
+    IC_EL_SYNC_OK = 0,
+    IC_EL_SYNC_ERR = -1,
+    IC_EL_SYNC_SIGINT = -2,
+} ic_el_sync_res_t;
 
 /* {{{ Server */
 
@@ -149,14 +149,15 @@ int ic_el_server_listen(ic_el_server_t *server, lstr_t uri, sb_t *err);
  * \param[in]  uri     The uri the IC server should listen to.
  * \param[in]  timeout Number of seconds to listen.
  * \param[out] err     The error description in case of error.
- * \return IC_EL_OK if the server has been stopped manually or the timeout
- *         elapsed.
- *         IC_EL_ERR if an error occured, \p err contains the description of
- *         the error.
- *         IC_EL_SIGINT if a sigint occurred.
+ * \return IC_EL_SYNC_OK if the server has been stopped manually or the
+ *         timeout elapsed.
+ *         IC_EL_SYNC_ERR if an error occured, \p err contains the description
+ *         of the error.
+ *         IC_EL_SYNC_SIGINT if a sigint occurred.
  */
-ic_el_res_t ic_el_server_listen_block(ic_el_server_t *server,
-                                      lstr_t uri, double timeout, sb_t *err);
+ic_el_sync_res_t
+ic_el_server_listen_block(ic_el_server_t *server, lstr_t uri, double timeout,
+                          sb_t *err);
 
 /** Stop the IC EL server.
  *
@@ -164,11 +165,11 @@ ic_el_res_t ic_el_server_listen_block(ic_el_server_t *server,
  *
  * \param[in] server The IC EL server to stop.
  *
- * \return IC_EL_OK if the server has been successfully stopped.
- *         IC_EL_SIGINT if a sigint occurred during the stop.
- *         This function cannot return IC_EL_ERR.
+ * \return IC_EL_SYNC_OK if the server has been successfully stopped.
+ *         IC_EL_SYNC_SIGINT if a sigint occurred during the stop.
+ *         This function cannot return IC_EL_SYNC_ERR.
  */
-ic_el_res_t ic_el_server_stop(ic_el_server_t *server);
+ic_el_sync_res_t ic_el_server_stop(ic_el_server_t *server);
 
 /** Register an RPC to the IC EL server.
  *
@@ -259,22 +260,20 @@ void ic_el_client_set_ext_obj(ic_el_client_t *client,
  */
 void * nullable ic_el_client_get_ext_obj(ic_el_client_t *client);
 
-/** Connect the IC EL client.
+/** Synchronously connect the IC EL client.
  *
- * \param[in]  client     The IC EL client.
- * \param[in]  uri        The uri the IC client should connect to.
- * \param[in]  timeout    The timeout it should wait for the connection in
- *                        seconds. -1 means forever.
- * \param[out] client_ptr The pointer where to put the new client.
- *                        Will not be set in case of error.
- * \param[out] err        The error description in case of error.
- * \return IC_EL_OK if the client has been successfully connected.
- *         IC_EL_ERR if an error occured, \p err contains the description of
- *         the error.
- *         IC_EL_SIGINT if a sigint occurred during the connection.
+ * \param[in]  client  The IC EL client.
+ * \param[in]  uri     The uri the IC client should connect to.
+ * \param[in]  timeout The timeout it should wait for the connection in
+ *                     seconds. -1 means forever.
+ * \param[out] err     The error description in case of error.
+ * \return IC_EL_SYNC_OK if the client has been successfully connected.
+ *         IC_EL_SYNC_ERR if an error occured, \p err contains the description
+ *         of the error.
+ *         IC_EL_SYNC_SIGINT if a sigint occurred during the connection.
  */
-ic_el_res_t ic_el_client_connect(ic_el_client_t *client, double timeout,
-                                 sb_t *err);
+ic_el_sync_res_t
+ic_el_client_sync_connect(ic_el_client_t *client, double timeout, sb_t *err);
 
 /** Disconnect the IC EL client.
  *
@@ -303,13 +302,13 @@ bool ic_el_client_is_connected(ic_el_client_t *client);
  *                     to IC_MSG_OK or IC_MSG_EXN. This value is allocated on
  *                     the heap and *MUST* be freed with p_delete().
  * \param[out] err     The error description in case of error.
- * \return IC_EL_OK if the query has been run and returned. You must check
+ * \return IC_EL_SYNC_OK if the query has been run and returned. You must check
  *         if the query has been successful with \p status.
- *         IC_EL_ERR if an error occured, \p err contains the description of
- *         the error.
- *         IC_EL_SIGINT if a sigint occurred during the query.
+ *         IC_EL_SYNC_ERR if an error occured, \p err contains the description
+ *         of the error.
+ *         IC_EL_SYNC_SIGINT if a sigint occurred during the query.
  */
-ic_el_res_t
+ic_el_sync_res_t
 ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
                   int32_t cmd, const ic__hdr__t *hdr, double timeout,
                   void *arg, ic_status_t *status, void **res, sb_t *err);

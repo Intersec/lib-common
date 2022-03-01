@@ -656,10 +656,10 @@ static bool ic_el_server_is_stopped(void *arg)
 }
 
 /** Wait for the IC EL server to be fully stopped by the event loop. */
-static ic_el_res_t ic_el_server_wait_for_stop(ic_el_server_t *server,
-                                              double timeout)
+static ic_el_sync_res_t
+ic_el_server_wait_for_stop(ic_el_server_t *server, double timeout)
 {
-    ic_el_res_t res = IC_EL_OK;
+    ic_el_sync_res_t res = IC_EL_SYNC_OK;
     wait_thread_cond_res_t wait_res;
 
     server->wait_for_stop = true;
@@ -671,7 +671,7 @@ static ic_el_res_t ic_el_server_wait_for_stop(ic_el_server_t *server,
         break;
 
       case WAIT_THR_COND_SIGINT:
-        res = IC_EL_SIGINT;
+        res = IC_EL_SYNC_SIGINT;
         break;
     }
 
@@ -679,10 +679,11 @@ static ic_el_res_t ic_el_server_wait_for_stop(ic_el_server_t *server,
     return res;
 }
 
-ic_el_res_t ic_el_server_listen_block(ic_el_server_t *server,
-                                      lstr_t uri, double timeout, sb_t *err)
+ic_el_sync_res_t
+ic_el_server_listen_block(ic_el_server_t *server, lstr_t uri, double timeout,
+                          sb_t *err)
 {
-    ic_el_res_t res;
+    ic_el_sync_res_t res;
     sockunion_t su;
 
     RETHROW(load_su_from_uri(uri, &su, err));
@@ -690,7 +691,7 @@ ic_el_res_t ic_el_server_listen_block(ic_el_server_t *server,
     ic_el_mutex_lock(true);
 
     if (ic_el_server_listen_internal(server, uri, &su, err) < 0) {
-        res = IC_EL_ERR;
+        res = IC_EL_SYNC_ERR;
         goto end;
     }
 
@@ -705,9 +706,9 @@ ic_el_res_t ic_el_server_listen_block(ic_el_server_t *server,
     return res;
 }
 
-ic_el_res_t ic_el_server_stop(ic_el_server_t *server)
+ic_el_sync_res_t ic_el_server_stop(ic_el_server_t *server)
 {
-    ic_el_res_t res = IC_EL_OK;
+    ic_el_sync_res_t res = IC_EL_SYNC_OK;
 
     ic_el_mutex_lock(true);
     if (server->el_ic) {
@@ -760,13 +761,14 @@ bool ic_el_server_is_listening(const ic_el_server_t *server)
 /* {{{ Client */
 
 struct ic_el_client_t {
+    ic_el_client_cb_cfg_t cb_cfg;
+    ichannel_t ic;
+    void *ext_obj;
+    dlist_t destroyed;
+    int wait_connect_sync;
     bool in_connect       : 1;
     bool force_disconnect : 1;
     bool connected        : 1;
-    ic_el_client_cb_cfg_t cb_cfg;
-    void *ext_obj;
-    ichannel_t ic;
-    dlist_t destroyed;
 };
 
 static ic_el_client_t *ic_el_client_init(ic_el_client_t *client)
@@ -791,6 +793,16 @@ static void ic_el_client_wipe(ic_el_client_t *client)
 GENERIC_NEW(ic_el_client_t, ic_el_client);
 GENERIC_DELETE(ic_el_client_t, ic_el_client);
 
+/** Set the error description on client connection error. */
+static void ic_el_client_set_connection_error(const ic_el_client_t *client,
+                                              sb_t *err)
+{
+    t_scope;
+    lstr_t uri = t_addr_fmt_lstr(&client->ic.su);
+
+    sb_setf(err, "unable to connect to %*pM", LSTR_FMT_ARG(uri));
+}
+
 /** Process destroyed ic clients in the event loop. */
 static void ic_el_client_el_process(void)
 {
@@ -802,20 +814,31 @@ static void ic_el_client_el_process(void)
     dlist_init(&_G.destroyed_clients);
 }
 
+/** Notify client connection or disconnection when in_connect. */
+static void ic_el_client_notify_in_connect(ic_el_client_t *client)
+{
+    if (client->wait_connect_sync > 0) {
+        pthread_cond_broadcast(&_G.el_wait_thr_cond);
+        ic_el_inc_el_mutex_wait_lock_cnt();
+    }
+}
+
 /** Called on event on the ic channel. */
 static void ic_el_client_on_event(ichannel_t *ic, ic_event_t evt)
 {
     ic_el_client_t *client = container_of(ic, ic_el_client_t, ic);
 
-    if (evt == IC_EVT_CONNECTED) {
+    switch (evt) {
+    case IC_EVT_CONNECTED: {
         client->connected = true;
         if (client->cb_cfg.on_connect) {
             ic_el_mutex_unlock();
             (*client->cb_cfg.on_connect)(client);
             ic_el_mutex_lock(false);
         }
-    } else
-    if (evt == IC_EVT_DISCONNECTED) {
+    } break;
+
+    case IC_EVT_DISCONNECTED: {
         bool connected = client->connected;
 
         client->connected = false;
@@ -826,14 +849,19 @@ static void ic_el_client_on_event(ichannel_t *ic, ic_event_t evt)
             (*client->cb_cfg.on_disconnect)(client, connected);
             ic_el_mutex_lock(false);
         }
+    } break;
+
+    case IC_EVT_ACT:
+    case IC_EVT_NOACT:
+        /* Not supported */
+        assert(false);
+        return;
     }
 
     if (client->in_connect) {
         client->in_connect = false;
-
         if (!client->force_disconnect) {
-            pthread_cond_broadcast(&_G.el_wait_thr_cond);
-            ic_el_inc_el_mutex_wait_lock_cnt();
+            ic_el_client_notify_in_connect(client);
         }
     }
 
@@ -906,27 +934,42 @@ static bool ic_el_client_connect_is_terminated(void *arg)
     return !client->in_connect;
 }
 
-/** Connect the client and wait for connection.
+/** Start client connection if not already in connection attempt. */
+static int ic_el_client_start_connection(ic_el_client_t *client)
+{
+    if (client->in_connect) {
+        return 0;
+    }
+
+    client->in_connect = true;
+    assert(!client->force_disconnect);
+
+    return ic_connect(&client->ic);
+}
+
+/** Synchronously connect the client and wait for connection.
  *
  * This function will return WAIT_THR_COND_TIMEOUT if the client cannot be
  * connected.
  */
 static wait_thread_cond_res_t
-ic_el_client_ic_connect_wait(ic_el_client_t *client, int timeout)
+ic_el_client_ic_sync_connect_wait(ic_el_client_t *client, int timeout)
 {
     wait_thread_cond_res_t wait_res;
 
-    if (!client->in_connect) {
-        client->in_connect = true;
-        assert(!client->force_disconnect);
-
-        if (ic_connect(&client->ic) < 0) {
-            return WAIT_THR_COND_TIMEOUT;
-        }
+    if (ic_el_client_start_connection(client) < 0) {
+        return WAIT_THR_COND_TIMEOUT;
     }
+
+    assert(client->wait_connect_sync >= 0);
+    client->wait_connect_sync++;
 
     wait_res = wait_thread_cond(&ic_el_client_connect_is_terminated,
                                 client, timeout);
+
+    assert(client->wait_connect_sync > 0);
+    client->wait_connect_sync--;
+
     if (wait_res == WAIT_THR_COND_OK && !client->connected) {
         wait_res = WAIT_THR_COND_TIMEOUT;
     }
@@ -934,45 +977,42 @@ ic_el_client_ic_connect_wait(ic_el_client_t *client, int timeout)
     return wait_res;
 }
 
-/** Connect the client with the el mutex locked. */
-static ic_el_res_t ic_el_client_connect_locked(ic_el_client_t *client,
-                                               double timeout, sb_t *err)
+/** Synchronously connect the client with the el mutex locked. */
+static ic_el_sync_res_t
+ic_el_client_sync_connect_locked(ic_el_client_t *client, double timeout,
+                                 sb_t *err)
 {
     wait_thread_cond_res_t wait_res;
 
     if (client->connected) {
-        return IC_EL_OK;
+        return IC_EL_SYNC_OK;
     }
 
-    wait_res = ic_el_client_ic_connect_wait(client, timeout);
+    wait_res = ic_el_client_ic_sync_connect_wait(client, timeout);
     switch (wait_res) {
-      case WAIT_THR_COND_OK:
-        return IC_EL_OK;
+    case WAIT_THR_COND_OK:
+        return IC_EL_SYNC_OK;
 
-      case WAIT_THR_COND_TIMEOUT: {
-        t_scope;
-        lstr_t uri = t_addr_fmt_lstr(&client->ic.su);
+    case WAIT_THR_COND_TIMEOUT:
+        ic_el_client_set_connection_error(client, err);
+        return IC_EL_SYNC_ERR;
 
-        sb_setf(err, "unable to connect to %*pM", LSTR_FMT_ARG(uri));
-        return IC_EL_ERR;
-      }
-
-      case WAIT_THR_COND_SIGINT:
-        return IC_EL_SIGINT;
+    case WAIT_THR_COND_SIGINT:
+        return IC_EL_SYNC_SIGINT;
     }
 
     assert (false);
     sb_setf(err, "unexpected connect status %d", wait_res);
-    return IC_EL_ERR;
+    return IC_EL_SYNC_ERR;
 }
 
-ic_el_res_t ic_el_client_connect(ic_el_client_t *client, double timeout,
-                                 sb_t *err)
+ic_el_sync_res_t
+ic_el_client_sync_connect(ic_el_client_t *client, double timeout, sb_t *err)
 {
-    ic_el_res_t res;
+    ic_el_sync_res_t res;
 
     ic_el_mutex_lock(true);
-    res = ic_el_client_connect_locked(client, timeout, err);
+    res = ic_el_client_sync_connect_locked(client, timeout, err);
     ic_el_mutex_unlock();
     return res;
 }
@@ -1058,12 +1098,12 @@ static bool ic_el_client_query_is_completed(void *arg)
     return query_ctx->completed;
 }
 
-ic_el_res_t
+ic_el_sync_res_t
 ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
                   int32_t cmd, const ic__hdr__t *hdr, double timeout,
                   void *arg, ic_status_t *status, void **res, sb_t *err)
 {
-    ic_el_res_t call_res = IC_EL_OK;
+    ic_el_sync_res_t call_res = IC_EL_SYNC_OK;
     ic_el_client_query_ctx_t *query_ctx = NULL;
     ic_msg_t *msg;
     wait_thread_cond_res_t wait_res;
@@ -1071,8 +1111,8 @@ ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
     ic_el_mutex_lock(true);
 
     if (!client->connected) {
-        call_res = ic_el_client_connect_locked(client, timeout, err);
-        if (call_res != IC_EL_OK) {
+        call_res = ic_el_client_sync_connect_locked(client, timeout, err);
+        if (call_res != IC_EL_SYNC_OK) {
             goto end;
         }
     }
@@ -1106,12 +1146,12 @@ ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
 
       case WAIT_THR_COND_TIMEOUT:
         sb_setf(err, "timeout on query `%*pM`", LSTR_FMT_ARG(rpc->name));
-        call_res = IC_EL_ERR;
+        call_res = IC_EL_SYNC_ERR;
         query_ctx->aborted = true;
         goto end;
 
       case WAIT_THR_COND_SIGINT:
-        call_res = IC_EL_SIGINT;
+        call_res = IC_EL_SYNC_SIGINT;
         query_ctx->aborted = true;
         goto end;
     }

@@ -35,7 +35,7 @@ PXCC_EXPORT_SYMBOL(ic_el_client_create);
 PXCC_EXPORT_SYMBOL(ic_el_client_destroy);
 PXCC_EXPORT_SYMBOL(ic_el_client_set_ext_obj);
 PXCC_EXPORT_SYMBOL(ic_el_client_get_ext_obj);
-PXCC_EXPORT_SYMBOL(ic_el_client_connect);
+PXCC_EXPORT_SYMBOL(ic_el_client_sync_connect);
 PXCC_EXPORT_SYMBOL(ic_el_client_disconnect);
 PXCC_EXPORT_SYMBOL(ic_el_client_is_connected);
 PXCC_EXPORT_SYMBOL(ic_el_client_call);

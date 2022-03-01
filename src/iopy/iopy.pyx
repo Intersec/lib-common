@@ -300,7 +300,8 @@ cdef inline cbool iop_struct_is_same_or_child_of(const iop_struct_t *child,
         return child == parent
 
 
-cdef inline int check_ic_el_res(ic_el_res_t res, const sb_t *err) except -1:
+cdef inline int check_ic_el_res(ic_el_sync_res_t res,
+                                const sb_t *err) except -1:
     """Check if the result of an IC EL operation is valid and raise an
     appropriate exception otherwise.
 
@@ -311,12 +312,12 @@ cdef inline int check_ic_el_res(ic_el_res_t res, const sb_t *err) except -1:
     err
         The error description in case of error.
     """
-    if res == IC_EL_ERR:
+    if res == IC_EL_SYNC_ERR:
         raise Error(lstr_to_py_str(LSTR_SB_V(err)))
-    elif res == IC_EL_SIGINT:
+    elif res == IC_EL_SYNC_SIGINT:
         raise KeyboardInterrupt()
     else:
-        cassert(res == IC_EL_OK)
+        cassert(res == IC_EL_SYNC_OK)
     return 0
 
 
@@ -7471,10 +7472,10 @@ cdef int client_channel_connect(Channel channel, double timeout) except -1:
     """
     cdef sb_buf_1k_t err_buf
     cdef sb_scope_t err = sb_scope_init_static(err_buf)
-    cdef ic_el_res_t res
+    cdef ic_el_sync_res_t res
 
     with nogil:
-        res = ic_el_client_connect(channel.ic_client, timeout, &err)
+        res = ic_el_client_sync_connect(channel.ic_client, timeout, &err)
     check_ic_el_res(res, &err)
     return 0
 
@@ -7504,7 +7505,7 @@ cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
     cdef StructUnionBase py_input
     cdef void *ic_input = NULL
     cdef int32_t cmd
-    cdef ic_el_res_t call_res
+    cdef ic_el_sync_res_t call_res
     cdef ic_status_t ic_status = IC_MSG_OK
     cdef void *ic_res = NULL
     cdef object py_res_cls
@@ -8071,7 +8072,7 @@ cdef class ChannelServer(ChannelBase):
         cdef sb_buf_1k_t err_buf
         cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef lstr_t uri_lstr
-        cdef ic_el_res_t res
+        cdef ic_el_sync_res_t res
 
         t_scope_ignore(t_scope_guard)
         t_parse_uri_arg(uri, host, port, &uri_lstr)
@@ -8083,7 +8084,7 @@ cdef class ChannelServer(ChannelBase):
 
     def stop(ChannelServer self):
         """Stop the IC server from listening"""
-        cdef ic_el_res_t res
+        cdef ic_el_sync_res_t res
 
         with nogil:
             res = ic_el_server_stop(self.ic_server)
