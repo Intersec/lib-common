@@ -319,6 +319,19 @@ static char *convert_uint64(char *p, uint64_t value, int base)
 }
 #endif
 
+
+static char *convert_quoted_uint(char *p, uint64_t value, int base)
+{
+    for (int i = 0; value > 0; i++) {
+        if (i > 0 && (i % 3) == 0) {
+            *--p = ',';
+        }
+        *--p = '0' + (value % base);
+        value = value / base;
+    }
+    return p;
+}
+
 static ALWAYS_INLINE
 int fmt_output_chars(FILE *stream, char *str, size_t size,
                      size_t count, int c, ssize_t n)
@@ -774,6 +787,10 @@ static int fmt_output(FILE *stream, char *str, size_t size,
 
         case 'd':
         case 'i':
+            if (flags & FLAG_QUOTE) {
+                goto has_quoted_signed;
+            }
+
             switch (type_flags) {
                 int int_value;
 
@@ -847,6 +864,85 @@ static int fmt_output(FILE *stream, char *str, size_t size,
                     goto error;
                 }
             }
+
+        goto patch_signed_conversion;
+
+        has_quoted_signed:
+            switch (type_flags) {
+                int int_value;
+
+              case TYPE_char:
+                int_value = (char)va_arg(ap, int);
+                goto convert_quoted_int;
+
+              case TYPE_short:
+                int_value = (short)va_arg(ap, int);
+                goto convert_quoted_int;
+
+              case TYPE_int:
+                int_value = va_arg(ap, int);
+              convert_quoted_int:
+                {
+                    unsigned int bits = int_value >> (bitsizeof(int_value) - 1);
+                    unsigned int num = (int_value ^ bits) + (bits & 1);
+                    sign = '-' & bits;
+                    lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
+                    break;
+                }
+#ifdef WANT_long
+              case TYPE_long:
+                {
+                    long value = va_arg(ap, long);
+                    unsigned long bits = value >> (bitsizeof(value) - 1);
+                    unsigned long num = (value ^ bits) + (bits & 1);
+                    sign = '-' & bits;
+                    lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
+                    break;
+                }
+#endif
+#ifdef WANT_llong
+              case TYPE_llong:
+                {
+                    long long value = va_arg(ap, long long);
+                    unsigned long long bits = value >> (bitsizeof(value) - 1);
+                    unsigned long long num = (value ^ bits) + (bits & 1);
+                    sign = '-' & bits;
+                    lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
+                    break;
+                }
+#endif
+#ifdef WANT_int32
+              case TYPE_int32:
+                {
+                    int32_t value = va_arg(ap, int32_t);
+                    uint32_t bits = value >> (bitsizeof(value) - 1);
+                    uint32_t num = (value ^ bits) + (bits & 1);
+                    sign = '-' & bits;
+                    lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
+                    break;
+                }
+#endif
+#ifdef WANT_int64
+              case TYPE_int64:
+                {
+                    int64_t value = va_arg(ap, int64_t);
+                    uint64_t bits = value >> (bitsizeof(value) - 1);
+                    uint64_t num = (value ^ bits) + (bits & 1);
+                    sign = '-' & bits;
+                    lp = convert_quoted_uint(buf + sizeof(buf), num, 10);
+                    break;
+                }
+#endif
+              default:
+                {
+                    /* do not know what to fetch, must ignore remaining
+                     * formats specifiers.  This is really an error.
+                     */
+                    goto error;
+                }
+            }
+
+        patch_signed_conversion:
             /* We may have the following parts to output:
              * - left padding with spaces    (left_pad)
              * - the optional sign char      (buf, prefix_len)
@@ -927,8 +1023,12 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             base = 10;
 
         has_unsigned:
+            if (flags & FLAG_QUOTE) {
+                goto has_quoted_unsigned;
+            }
+
             switch (type_flags) {
-                int uint_value;
+                unsigned uint_value;
 
               case TYPE_char:
                 uint_value = (unsigned char)va_arg(ap, unsigned int);
@@ -952,7 +1052,7 @@ static int fmt_output(FILE *stream, char *str, size_t size,
 #ifdef WANT_llong
               case TYPE_llong:
                 lp = convert_ullong(buf + sizeof(buf),
-                                   va_arg(ap, unsigned long long), base);
+                                    va_arg(ap, unsigned long long), base);
                 break;
 #endif
 #ifdef WANT_int32
@@ -965,6 +1065,59 @@ static int fmt_output(FILE *stream, char *str, size_t size,
               case TYPE_int64:
                 lp = convert_uint64(buf + sizeof(buf),
                                     va_arg(ap, uint64_t), base);
+                break;
+#endif
+              default:
+                {
+                    /* do not know what to fetch, must ignore remaining
+                     * formats specifiers.  This is really an error.
+                     */
+                    goto error;
+                }
+            }
+
+        goto patch_unsigned_conversion;
+
+        has_quoted_unsigned:
+            switch (type_flags) {
+                unsigned uint_value;
+
+              case TYPE_char:
+                uint_value = (unsigned char)va_arg(ap, unsigned int);
+                goto convert_quoted_uint;
+
+              case TYPE_short:
+                uint_value = (unsigned short)va_arg(ap, unsigned int);
+                goto convert_quoted_uint;
+
+              case TYPE_int:
+                uint_value = va_arg(ap, unsigned int);
+              convert_quoted_uint:
+                lp = convert_quoted_uint(buf + sizeof(buf), uint_value, base);
+                break;
+#ifdef WANT_long
+              case TYPE_long:
+                lp = convert_quoted_uint(buf + sizeof(buf),
+                                         va_arg(ap, unsigned long), base);
+                break;
+#endif
+#ifdef WANT_llong
+              case TYPE_llong:
+                lp = convert_quoted_uint(buf + sizeof(buf),
+                                         va_arg(ap, unsigned long long),
+                                         base);
+                break;
+#endif
+#ifdef WANT_int32
+              case TYPE_int32:
+                lp = convert_quoted_uint(buf + sizeof(buf),
+                                         va_arg(ap, uint32_t), base);
+                break;
+#endif
+#ifdef WANT_int64
+              case TYPE_int64:
+                lp = convert_quoted_uint(buf + sizeof(buf),
+                                         va_arg(ap, uint64_t), base);
                 break;
 #endif
               default:
