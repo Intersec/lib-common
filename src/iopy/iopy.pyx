@@ -7548,9 +7548,9 @@ cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
     cmd = get_iface_rpc_cmd(py_iface.iface_alias, rpc.rpc)
 
     with nogil:
-        call_res = ic_el_client_call(channel.ic_client, rpc.rpc, cmd, hdr,
-                                     timeout, ic_input, &ic_status, &ic_res,
-                                     &err)
+        call_res = ic_el_client_sync_call(channel.ic_client, rpc.rpc, cmd,
+                                          hdr, timeout, ic_input, &ic_status,
+                                          &ic_res, &err)
 
     check_ic_el_res(call_res, &err)
 

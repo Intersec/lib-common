@@ -773,6 +773,7 @@ typedef struct ic_el_client_async_connect_t {
     void *nullable cb_arg;
     el_t timeout_el;
     dlist_t link;
+    bool is_locked_cb : 1;
 } ic_el_client_async_connect_t;
 
 static ic_el_client_async_connect_t *
@@ -882,8 +883,22 @@ static void ic_el_client_notify_async_connections(ic_el_client_t *client)
         async_ctx->client = NULL;
     }
 
-    /* Delete the contexts and call all the callbacks with the mutex unlocked
-     */
+    /* First, delete the contexts and call all the callbacks that require the
+     * lock */
+    dlist_for_each_entry(ic_el_client_async_connect_t, async_ctx,
+                         &async_ctxs, link)
+    {
+        if (async_ctx->is_locked_cb) {
+            ic_client_async_connect_f cb = async_ctx->cb;
+            void *cb_arg = async_ctx->cb_arg;
+
+            ic_el_client_async_connect_delete(&async_ctx);
+            (*cb)(err_ptr, cb_arg);
+        }
+    }
+
+    /* Then, delete the contexts and call all the callbacks with the mutex
+     * unlocked */
     ic_el_mutex_unlock();
     dlist_for_each_entry(ic_el_client_async_connect_t, async_ctx,
                          &async_ctxs, link)
@@ -891,6 +906,7 @@ static void ic_el_client_notify_async_connections(ic_el_client_t *client)
         ic_client_async_connect_f cb = async_ctx->cb;
         void *cb_arg = async_ctx->cb_arg;
 
+        assert(!async_ctx->is_locked_cb);
         ic_el_client_async_connect_delete(&async_ctx);
         (*cb)(err_ptr, cb_arg);
     }
@@ -1111,6 +1127,7 @@ static void ic_el_client_async_connect_timeout_cb(el_t ev, el_data_t priv)
     ic_el_client_async_connect_t *async_ctx = priv.ptr;
     ic_client_async_connect_f cb = async_ctx->cb;
     void *cb_arg = async_ctx->cb_arg;
+    bool is_locked_cb = async_ctx->is_locked_cb;
 
     ic_el_client_set_connection_error(async_ctx->client, &err);
 
@@ -1118,17 +1135,20 @@ static void ic_el_client_async_connect_timeout_cb(el_t ev, el_data_t priv)
      * the client when calling the callback. */
     ic_el_client_async_connect_delete(&async_ctx);
 
-    ic_el_mutex_unlock();
-    (*cb)(&err, cb_arg);
-    ic_el_mutex_lock(false);
+    if (is_locked_cb) {
+        (*cb)(&err, cb_arg);
+    } else {
+        ic_el_mutex_unlock();
+        (*cb)(&err, cb_arg);
+        ic_el_mutex_lock(false);
+    }
 }
 
 /** Asynchronously connect the client with the el mutex locked. */
-static ic_el_async_res_t
-ic_el_client_async_connect_locked(ic_el_client_t *client, double timeout,
-                                  ic_client_async_connect_f cb,
-                                  void *nullable cb_arg,
-                                  sb_t *err)
+static ic_el_async_res_t ic_el_client_async_connect_locked(
+    ic_el_client_t *client, double timeout, ic_client_async_connect_f cb,
+    void *nullable cb_arg, bool is_locked_cb,
+    ic_el_client_async_connect_t *nullable *nullable async_ctx_ptr, sb_t *err)
 {
     ic_el_client_async_connect_t *async_ctx;
 
@@ -1145,6 +1165,7 @@ ic_el_client_async_connect_locked(ic_el_client_t *client, double timeout,
     async_ctx->client = client;
     async_ctx->cb = cb;
     async_ctx->cb_arg = cb_arg;
+    async_ctx->is_locked_cb = is_locked_cb;
     dlist_add_tail(&client->async_connect_ctxs, &async_ctx->link);
 
     if (timeout >= 0.0) {
@@ -1153,6 +1174,10 @@ ic_el_client_async_connect_locked(ic_el_client_t *client, double timeout,
         async_ctx->timeout_el = el_timer_register(
             timeout_msec, 0, EL_TIMER_LOWRES,
             &ic_el_client_async_connect_timeout_cb, async_ctx);
+    }
+
+    if (async_ctx_ptr) {
+        *async_ctx_ptr = async_ctx;
     }
 
     return IC_EL_ASYNC_PENDING;
@@ -1167,7 +1192,7 @@ void ic_el_client_async_connect(ic_el_client_t *client, double timeout,
 
     ic_el_mutex_lock(true);
     res = ic_el_client_async_connect_locked(client, timeout, cb, cb_arg,
-                                            &err);
+                                            false, NULL, &err);
     ic_el_mutex_unlock();
 
     switch (res) {
@@ -1196,32 +1221,64 @@ bool ic_el_client_is_connected(ic_el_client_t *client)
     return client->connected;
 }
 
-/** Context used when doing ic client queries.
+/* {{{ Call RPC */
+
+/** Pack and do RPC query. */
+static void ic_client_query_pack_and_query(ic_el_client_t *client,
+                                           const iop_rpc_t *rpc,
+                                           const void *arg, ic_msg_t *msg)
+{
+    __ic_bpack(msg, rpc->args, arg);
+    __ic_query_sync(&client->ic, msg);
+}
+
+/** Make an RPC call to an async RPC. */
+static void
+ic_client_query_async_rpc(ic_el_client_t *client, const iop_rpc_t *rpc,
+                          int32_t cmd, const ic__hdr__t *hdr, const void *arg)
+{
+    ic_msg_t *msg;
+
+    assert(rpc->async);
+    msg = ic_msg_new(0);
+    msg->async = true;
+    msg->cmd = cmd;
+    msg->rpc = rpc;
+    msg->hdr = hdr;
+    msg->cb = &ic_drop_ans_cb;
+
+    ic_client_query_pack_and_query(client, rpc, arg, msg);
+}
+
+/* {{{ Sync */
+
+/** Context used when doing ic client sync queries.
  *
- * It is refcounted because it will deleted by both ic_el_client_call() and
- * ic_el_client_query_cb().
+ * It is refcounted because it will deleted by both ic_el_client_sync_call()
+ * and ic_el_client_sync_query_cb().
  */
-typedef struct ic_el_client_query_ctx_t {
+typedef struct ic_el_client_sync_query_ctx_t {
     int refcnt;
     bool aborted : 1;
     bool completed : 1;
     const iop_rpc_t *rpc;
     ic_status_t status;
     void *res;
-} ic_el_client_query_ctx_t;
+} ic_el_client_sync_query_ctx_t;
 
-GENERIC_INIT(ic_el_client_query_ctx_t, ic_el_client_query_ctx);
-GENERIC_WIPE(ic_el_client_query_ctx_t, ic_el_client_query_ctx);
-DO_REFCNT(ic_el_client_query_ctx_t, ic_el_client_query_ctx);
+GENERIC_INIT(ic_el_client_sync_query_ctx_t, ic_el_client_sync_query_ctx);
+GENERIC_WIPE(ic_el_client_sync_query_ctx_t, ic_el_client_sync_query_ctx);
+DO_REFCNT(ic_el_client_sync_query_ctx_t, ic_el_client_sync_query_ctx);
 
-/** Callback for client queries. */
-static void ic_el_client_query_cb(ichannel_t *ic, ic_msg_t *msg,
-                                  ic_status_t status, void *res, void *exn)
+/** Callback for syncronous client queries. */
+static void ic_el_client_sync_query_cb(ichannel_t *ic, ic_msg_t *msg,
+                                       ic_status_t status, void *res,
+                                       void *exn)
 {
     ic_el_client_t *client = container_of(ic, ic_el_client_t, ic);
-    ic_el_client_query_ctx_t *query_ctx;
+    ic_el_client_sync_query_ctx_t *query_ctx;
 
-    query_ctx = *(ic_el_client_query_ctx_t **)msg->priv;
+    query_ctx = *(ic_el_client_sync_query_ctx_t **)msg->priv;
 
     if (client->force_disconnect) {
         goto end;
@@ -1253,25 +1310,26 @@ static void ic_el_client_query_cb(ichannel_t *ic, ic_msg_t *msg,
     ic_el_inc_el_mutex_wait_lock_cnt();
 
   end:
-    ic_el_client_query_ctx_delete(&query_ctx);
+    ic_el_client_sync_query_ctx_delete(&query_ctx);
 }
 
 /** Callback used by wait_thread_cond() to check if the query has been
  *  completed. */
-static bool ic_el_client_query_is_completed(void *arg)
+static bool ic_el_client_sync_query_is_completed(void *arg)
 {
-    ic_el_client_query_ctx_t *query_ctx = arg;
+    ic_el_client_sync_query_ctx_t *query_ctx = arg;
 
     return query_ctx->completed;
 }
 
 ic_el_sync_res_t
-ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
-                  int32_t cmd, const ic__hdr__t *hdr, double timeout,
-                  void *arg, ic_status_t *status, void **res, sb_t *err)
+ic_el_client_sync_call(ic_el_client_t *client, const iop_rpc_t *rpc,
+                       int32_t cmd, const ic__hdr__t *hdr, double timeout,
+                       const void *arg, ic_status_t *status, void **res,
+                       sb_t *err)
 {
     ic_el_sync_res_t call_res = IC_EL_SYNC_OK;
-    ic_el_client_query_ctx_t *query_ctx = NULL;
+    ic_el_client_sync_query_ctx_t *query_ctx = NULL;
     ic_msg_t *msg;
     wait_thread_cond_res_t wait_res;
 
@@ -1284,28 +1342,25 @@ ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
         }
     }
 
-    query_ctx = ic_el_client_query_ctx_new();
-    query_ctx->rpc = rpc;
-
-    msg = ic_msg(ic_el_client_query_ctx_t *, query_ctx);
-    msg->async = rpc->async;
-    msg->cmd = cmd;
-    msg->rpc = rpc;
-    msg->hdr = hdr;
-    msg->cb = rpc->async ? &ic_drop_ans_cb : &ic_el_client_query_cb;
-
-    if (!rpc->async) {
-        ic_el_client_query_ctx_retain(query_ctx);
-    }
-
-    __ic_bpack(msg, rpc->args, arg);
-    __ic_query_sync(&client->ic, msg);
-
     if (rpc->async) {
+        ic_client_query_async_rpc(client, rpc, cmd, hdr, arg);
         goto end;
     }
 
-    wait_res = wait_thread_cond(&ic_el_client_query_is_completed,
+    query_ctx = ic_el_client_sync_query_ctx_new();
+    query_ctx->rpc = rpc;
+
+    msg = ic_msg(ic_el_client_sync_query_ctx_t *, query_ctx);
+    msg->async = false;
+    msg->cmd = cmd;
+    msg->rpc = rpc;
+    msg->hdr = hdr;
+    msg->cb = &ic_el_client_sync_query_cb;
+
+    ic_el_client_sync_query_ctx_retain(query_ctx);
+    ic_client_query_pack_and_query(client, rpc, arg, msg);
+
+    wait_res = wait_thread_cond(&ic_el_client_sync_query_is_completed,
                                 query_ctx, timeout);
     switch (wait_res) {
       case WAIT_THR_COND_OK:
@@ -1326,12 +1381,254 @@ ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
     *status = query_ctx->status;
     *res = query_ctx->res;
 
-  end:
-    ic_el_client_query_ctx_delete(&query_ctx);
+end:
+    ic_el_client_sync_query_ctx_delete(&query_ctx);
     ic_el_mutex_unlock();
     return call_res;
 }
 
+/* }}} */
+/* {{{ Async */
+
+/** Context to be used on asynchronous query on an RPC. */
+typedef struct ic_el_client_async_query_ctx_t {
+    int refcnt;
+    const iop_rpc_t *rpc;
+    ic_client_async_call_f cb;
+    void *nullable cb_arg;
+    el_t timeout_el;
+    bool aborted : 1;
+} ic_el_client_async_query_ctx_t;
+
+static void ic_el_client_async_query_ctx_wipe(
+    ic_el_client_async_query_ctx_t *query_ctx)
+{
+    el_unregister(&query_ctx->timeout_el);
+}
+
+GENERIC_INIT(ic_el_client_async_query_ctx_t, ic_el_client_async_query_ctx);
+DO_REFCNT(ic_el_client_async_query_ctx_t, ic_el_client_async_query_ctx);
+
+/** Callback on asynchronous client queries timeout. */
+static void ic_el_client_async_query_timeout_cb(el_t ev, el_data_t priv)
+{
+    SB_1k(err);
+    ic_el_client_async_query_ctx_t *query_ctx = priv.ptr;
+    ic_client_async_call_f cb = query_ctx->cb;
+    void *cb_arg = query_ctx->cb_arg;
+
+    query_ctx->aborted = true;
+    sb_setf(&err, "timeout on query `%*pM`",
+            LSTR_FMT_ARG(query_ctx->rpc->name));
+
+    /* Force unregister timeout_el here to avoid dandling reference on
+     * ic_el_client_async_query_cb().
+     * Do the cleanup before calling the callback to avoid races.
+     */
+    el_unregister(&query_ctx->timeout_el);
+    ic_el_client_async_query_ctx_delete(&query_ctx);
+
+    /* Call callback with timeout error. */
+    ic_el_mutex_unlock();
+    (*cb)(&err, IC_MSG_TIMEDOUT, NULL, cb_arg);
+    ic_el_mutex_lock(false);
+}
+
+/** Callback for asynchronous client queries. */
+static void ic_el_client_async_query_cb(ichannel_t *ic, ic_msg_t *msg,
+                                        ic_status_t status, void *res,
+                                        void *exn)
+{
+    ic_el_client_t *client = container_of(ic, ic_el_client_t, ic);
+    ic_el_client_async_query_ctx_t *query_ctx;
+    bool aborted;
+    ic_client_async_call_f cb;
+    void *cb_arg;
+
+    query_ctx = *(ic_el_client_async_query_ctx_t **)msg->priv;
+
+    aborted = query_ctx->aborted;
+    cb = query_ctx->cb;
+    cb_arg = query_ctx->cb_arg;
+
+    /* Do the cleanup before calling the callback to avoid races.
+     */
+    if (query_ctx->timeout_el) {
+        /* Force unregister timeout_el and release reference here to avoid
+         * calling ic_el_client_async_query_timeout_cb(). */
+        el_unregister(&query_ctx->timeout_el);
+        ic_el_client_async_query_ctx_release(&query_ctx);
+    }
+    ic_el_client_async_query_ctx_delete(&query_ctx);
+
+    if (client->force_disconnect || aborted) {
+        /* Do not send the result in those cases. */
+        return;
+    }
+
+    if (status == IC_MSG_EXN) {
+        res = exn;
+    }
+
+    /* Call callback with query result. */
+    ic_el_mutex_unlock();
+    (*cb)(NULL, status, res, cb_arg);
+    ic_el_mutex_lock(false);
+}
+
+/** Make the asynchronous RPC call with the connected IC EL client. */
+static void ic_el_client_async_call_connected(
+    ic_el_client_t *client, const iop_rpc_t *rpc, int32_t cmd,
+    const ic__hdr__t *hdr, double timeout, const void *arg,
+    ic_client_async_call_f cb, void *nullable cb_arg)
+{
+    ic_el_client_async_query_ctx_t *query_ctx;
+    ic_msg_t *msg;
+
+    assert(client->connected);
+
+    if (rpc->async) {
+        ic_client_query_async_rpc(client, rpc, cmd, hdr, arg);
+
+        /* Async RPC call is always OK. */
+        ic_el_mutex_unlock();
+        (*cb)(NULL, IC_MSG_OK, NULL, cb_arg);
+        ic_el_mutex_lock(false);
+        return;
+    }
+
+    query_ctx = ic_el_client_async_query_ctx_new();
+    query_ctx->rpc = rpc;
+    query_ctx->cb = cb;
+    query_ctx->cb_arg = cb_arg;
+
+    if (timeout >= 0.0) {
+        int64_t timeout_msec = (int64_t)(timeout * 1000.0);
+
+        /* Retain the query synce it is used by timeout_el and the query
+         * callback. */
+        ic_el_client_async_query_ctx_retain(query_ctx);
+        query_ctx->timeout_el = el_timer_register(
+            timeout_msec, 0, EL_TIMER_LOWRES,
+            &ic_el_client_async_query_timeout_cb, query_ctx);
+    }
+
+    msg = ic_msg(ic_el_client_async_query_ctx_t *, query_ctx);
+    msg->async = false;
+    msg->cmd = cmd;
+    msg->rpc = rpc;
+    msg->hdr = hdr;
+    msg->cb = &ic_el_client_async_query_cb;
+
+    ic_client_query_pack_and_query(client, rpc, arg, msg);
+}
+
+/** Arguments passed to a IC EL client async RPC call.
+ *
+ * It is used to store the arguments while the client is connecting before
+ * making an RPC call.
+ */
+typedef struct ic_el_client_async_call_args_t {
+    ic_el_client_t *client;
+    const iop_rpc_t *rpc;
+    int32_t cmd;
+    ic__hdr__t *hdr;
+    double timeout;
+    void *arg;
+    ic_client_async_call_f cb;
+    void *nullable cb_arg;
+} ic_el_client_async_call_args_t;
+
+static void ic_el_client_async_call_args_wipe(
+    ic_el_client_async_call_args_t *call_args)
+{
+    p_delete(&call_args->hdr);
+    p_delete(&call_args->arg);
+}
+
+GENERIC_NEW_INIT(ic_el_client_async_call_args_t,
+                 ic_el_client_async_call_args);
+GENERIC_DELETE(ic_el_client_async_call_args_t,
+               ic_el_client_async_call_args);
+
+static void ic_el_client_async_call_connect_cb(const sb_t *nullable err,
+                                               void *nullable cb_arg)
+{
+    ic_el_client_async_call_args_t *call_args = cb_arg;
+
+    if (err) {
+        /* The client cannot be connected, return the error. */
+        ic_el_mutex_unlock();
+        (*call_args->cb)(err, IC_MSG_TIMEDOUT, NULL, call_args->cb_arg);
+        ic_el_mutex_lock(false);
+    } else {
+        /* The client is connected, make the RPC query. */
+        ic_el_client_async_call_connected(call_args->client, call_args->rpc,
+                                          call_args->cmd, call_args->hdr,
+                                          call_args->timeout, call_args->arg,
+                                          call_args->cb, call_args->cb_arg);
+    }
+
+    ic_el_client_async_call_args_delete(&call_args);
+}
+
+void ic_el_client_async_call(ic_el_client_t *client, const iop_rpc_t *rpc,
+                             int32_t cmd, const ic__hdr__t *hdr,
+                             double timeout, const void *arg,
+                             ic_client_async_call_f cb,
+                             void *nullable cb_arg)
+{
+    SB_1k(err);
+    ic_el_client_async_connect_t *async_ctx = NULL;
+    ic_el_async_res_t res;
+
+    ic_el_mutex_lock(true);
+
+    /* cb_arg as NULL here to avoid creating the call_args when not necessary.
+     */
+    res = ic_el_client_async_connect_locked(
+        client, timeout, &ic_el_client_async_call_connect_cb, NULL, true,
+        &async_ctx, &err);
+
+    switch (res) {
+    case IC_EL_ASYNC_OK:
+        /* The client is connected, make the RPC query. */
+        ic_el_client_async_call_connected(client, rpc, cmd, hdr, timeout, arg,
+                                          cb, cb_arg);
+        break;
+
+    case IC_EL_ASYNC_ERR:
+        /* Call cb with the error after unlocking the mutex. */
+        break;
+
+    case IC_EL_ASYNC_PENDING: {
+        /* Wait for client connection to make the RPC. */
+        ic_el_client_async_call_args_t *call_args;
+
+        call_args = ic_el_client_async_call_args_new();
+        call_args->client = client;
+        call_args->rpc = rpc;
+        call_args->cmd = cmd;
+        call_args->hdr = iop_dup(ic__hdr, hdr);
+        call_args->timeout = timeout;
+        call_args->arg = mp_iop_dup_desc_sz(NULL, rpc->args, arg, NULL);
+        call_args->cb = cb;
+        call_args->cb_arg = cb_arg;
+
+        assert(async_ctx != NULL);
+        async_ctx->cb_arg = call_args;
+    } break;
+    }
+
+    ic_el_mutex_unlock();
+
+    if (res == IC_EL_ASYNC_ERR) {
+        (*cb)(&err, IC_MSG_TIMEDOUT, NULL, cb_arg);
+    }
+}
+
+/* }}} */
+/* }}} */
 /* }}} */
 /* {{{ Module init */
 

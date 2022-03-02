@@ -315,7 +315,7 @@ void ic_el_client_disconnect(ic_el_client_t *client);
  */
 bool ic_el_client_is_connected(ic_el_client_t *client);
 
-/** Call an RPC with the IC EL client.
+/** Synchronously call an RPC with the IC EL client.
  *
  * \param[in]  client  The IC EL client.
  * \param[in]  rpc     The RPC to call.
@@ -326,8 +326,10 @@ bool ic_el_client_is_connected(ic_el_client_t *client);
  * \param[in]  arg     The argument value of the RPC.
  * \param[out] status  The query result status.
  * \param[out] res     The query result value. Only set when \p status is set
- *                     to IC_MSG_OK or IC_MSG_EXN. This value is allocated on
- *                     the heap and *MUST* be freed with p_delete().
+ *                     to IC_MSG_OK or IC_MSG_EXN, and when the RPC is not
+ *                     asynchronous, i.e. with `out null`.
+ *                     This value is allocated on the heap and *MUST* be freed
+ *                     with p_delete().
  * \param[out] err     The error description in case of error.
  * \return IC_EL_SYNC_OK if the query has been run and returned. You must check
  *         if the query has been successful with \p status.
@@ -336,9 +338,51 @@ bool ic_el_client_is_connected(ic_el_client_t *client);
  *         IC_EL_SYNC_SIGINT if a sigint occurred during the query.
  */
 ic_el_sync_res_t
-ic_el_client_call(ic_el_client_t *client, const iop_rpc_t *rpc,
-                  int32_t cmd, const ic__hdr__t *hdr, double timeout,
-                  void *arg, ic_status_t *status, void **res, sb_t *err);
+ic_el_client_sync_call(ic_el_client_t *client, const iop_rpc_t *rpc,
+                       int32_t cmd, const ic__hdr__t *hdr, double timeout,
+                       const void *arg, ic_status_t *status, void **res,
+                       sb_t *err);
+
+/** The callback used when asynchronously call an RPC with the IC EL client.
+ *
+ * \warning: This callback can be called either in the thread of the caller or
+ * in the event loop thread.
+ *
+ * \param[in] err    The error description in case of connection error or
+ *                   timeout.
+ *                   If NULL, the query was successfully started, and
+ *                   \p status is set and representative.
+ *                   If not NULL, the query is not successful, and \p status
+ *                   is not set and not representative.
+ * \param[in] status The query result status.
+ * \param[in] res    The query result value. Only set when \p status is set
+ *                   to IC_MSG_OK or IC_MSG_EXN, and when the RPC is not
+ *                   asynchronous, i.e. with `out null`.
+ * \param[in] cb_arg The custom user variable passed to
+ *                   \ref ic_el_client_async_call.
+ */
+typedef void (*ic_client_async_call_f)(const sb_t *nullable err,
+                                       ic_status_t status,
+                                       const void *nullable res,
+                                       void *nullable cb_arg);
+
+/** Asynchronously call an RPC with the IC EL client.
+ *
+ * \param[in]  client  The IC EL client.
+ * \param[in]  rpc     The RPC to call.
+ * \param[in]  cmd     The command index of the RPC.
+ * \param[in]  hdr     The ic header.
+ * \param[in]  timeout The timeout of the request in seconds. -1 means
+ *                     forever.
+ * \param[in]  arg     The argument value of the RPC.
+ * \param[in]  cb      The callback to be called on result.
+ * \param[in]  cb_arg  A custom user variable to be passed to the callback.
+ */
+void ic_el_client_async_call(ic_el_client_t *client, const iop_rpc_t *rpc,
+                             int32_t cmd, const ic__hdr__t *hdr,
+                             double timeout, const void *arg,
+                             ic_client_async_call_f cb,
+                             void *nullable cb_arg);
 
 /* }}} */
 /* {{{ Module init */
