@@ -101,6 +101,9 @@ import inspect
 cdef object traceback
 import traceback
 
+cdef object asyncio
+import asyncio
+
 
 # {{{ Globals
 
@@ -6585,9 +6588,8 @@ cdef class ChannelBase:
     """Base class for IC channel"""
 
     def __init__(Module self):
-        """Channel initialization is not supported"""
-        raise TypeError('Channel initialization is not supported, use '
-                        'connect() instead')
+        """ChannelBase is an abstract class"""
+        raise NotImplementedError
 
 
 @cython.internal
@@ -7132,7 +7134,8 @@ cdef class RPCImplWrapper:
 
 
 cdef class Channel(ChannelBase):
-    """Class for client IC channel"""
+    """Class for synchronous client IC channel"""
+
     cdef dict __dict__
     cdef Plugin plugin
     cdef ic__hdr__t *def_hdr
@@ -7145,7 +7148,7 @@ cdef class Channel(ChannelBase):
     def __init__(Channel self, Plugin plugin, object uri=None, *,
                  object host=None, int port=-1, double default_timeout=60.0,
                  double no_act_timeout=0.0, **kwargs):
-        """Constructor of client IC channel.
+        """Constructor of synchronous client IC channel.
 
         Parameters
         ----------
@@ -7222,7 +7225,7 @@ cdef class Channel(ChannelBase):
             timeout_connect = float(timeout)
         else:
             timeout_connect = self.default_timeout
-        client_channel_connect(self, timeout_connect)
+        client_sync_channel_connect(self, timeout_connect)
 
     def is_connected(Channel self):
         """Returns whether the associated IC is connected or not.
@@ -7354,6 +7357,76 @@ cdef class Channel(ChannelBase):
         self.on_disconnect_cb = None
 
 
+cdef class AsyncChannel(Channel):
+    """Class for asynchronous client IC channel"""
+
+    def __init__(AsyncChannel self, Plugin plugin, object uri=None, *,
+                 object host=None, int port=-1, double default_timeout=60.0,
+                 double no_act_timeout=0.0, **kwargs):
+        """Constructor of asynchronous client IC channel.
+
+        Parameters
+        ----------
+        plugin :iopy.Plugin
+            The IOPy plugin.
+        uri : str
+            The URI to connect to. This is the only allowed positional
+            argument.
+        host : str
+            The host to connect to. If set, port must also be set and uri must
+            not be set.
+        port : int
+            The port to connect to. If set, host must also be set and uri must
+            not be set.
+        default_timeout : float
+            The default timeout for the IC channel in seconds.
+            -1 means forever, default is 60.
+        no_act_timeout : float
+            The inactivity timeout before closing the connection in seconds.
+            0 or a negative number means no timeout, default is 0.
+        _login : str
+            The login to be put in the default IC header.
+        _group : str
+            The group to be put in the default IC header.
+        _password : str
+            The password to be put in the default IC header.
+        _kind : str
+            The kind to be put in the default IC header.
+        _workspace_id : int
+            The id of workspace to be put in the default IC header.
+        _dealias : bool
+            The dealias flag to be put in the default IC header.
+        _hdr : ic.SimpleHdr
+            The default IC header to be used for this channel. If set, the
+            above arguments must not be set.
+        """
+        client_channel_init(self, plugin, uri, host, port, default_timeout,
+                            no_act_timeout, kwargs)
+
+    def connect(AsyncChannel self, object timeout=None):
+        """Connect the asynchronous client IC channel.
+
+        Parameters
+        ----------
+        timeout : float
+            The timeout of the connection of the IC channel in seconds.
+            -1 means forever. If not set, use the default timeout of the IC
+            channel.
+
+        Returns
+        -------
+        asyncio.Future[None]
+            The future resolved when the client has been connected or not.
+        """
+        cdef double timeout_connect
+
+        if timeout is not None:
+            timeout_connect = float(timeout)
+        else:
+            timeout_connect = self.default_timeout
+        return client_async_channel_connect(self, timeout_connect)
+
+
 cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
                              object host, int port, double default_timeout,
                              double no_act_timeout, dict kwargs) except -1:
@@ -7460,8 +7533,9 @@ cdef int create_client_rpc(const iop_rpc_t *rpc,
         setattr(py_iface, rpc_name, wrapper)
 
 
-cdef int client_channel_connect(Channel channel, double timeout) except -1:
-    """Initialize client IC channel.
+cdef int client_sync_channel_connect(Channel channel,
+                                     double timeout) except -1:
+    """Synchronously connect the IC channel.
 
     Parameters
     ----------
@@ -7478,6 +7552,123 @@ cdef int client_channel_connect(Channel channel, double timeout) except -1:
         res = ic_el_client_sync_connect(channel.ic_client, timeout, &err)
     check_ic_el_res(res, &err)
     return 0
+
+
+@cython.internal
+cdef class AsyncChannelConnectCtx:
+    """Context to be used on async client connection"""
+    cdef object loop
+    cdef object future
+    cdef lstr_t error
+
+    def __dealloc__(AsyncChannelConnectCtx self):
+        """Wipe the context on dealloc"""
+        client_channel_async_connect_ctx_wipe(self)
+
+
+cdef inline void client_channel_async_connect_ctx_wipe(
+    AsyncChannelConnectCtx ctx):
+    """Clear the asynchronous client connection context
+
+    Parameters
+    ----------
+    ctx
+        The asynchronous client connection context.
+    """
+    ctx.loop = None
+    ctx.future = None
+    lstr_wipe(&ctx.error)
+
+
+cdef object client_async_channel_connect(AsyncChannel channel,
+                                         double timeout):
+    """Aynchronously connect the IC channel.
+
+    Parameters
+    ----------
+    channel
+        The client IC channel to connect.
+    timeout
+        The connection timeout in seconds.
+
+    Returns
+    -------
+        asyncio.Future[None]
+            The future resolved when the client has been connected or not.
+    """
+    cdef object loop
+    cdef object future
+    cdef AsyncChannelConnectCtx ctx
+
+    loop = asyncio.get_event_loop()
+    future = loop.create_future()
+
+    ctx = AsyncChannelConnectCtx.__new__(AsyncChannelConnectCtx)
+    ctx.loop = loop
+    ctx.future = future
+    ctx.error = LSTR_NULL_V
+
+    Py_INCREF(ctx)
+    with nogil:
+        ic_el_client_async_connect(channel.ic_client, timeout,
+                                   &client_async_channel_connect_cb,
+                                   <void *>ctx)
+
+    return future
+
+
+cdef void client_async_channel_connect_cb(const sb_t *err,
+                                          void *cb_arg) nogil:
+    """Callback used on IC EL client async connect.
+
+    Parameters
+    ----------
+    err
+        The error set in case of connection error.
+    cb_arg
+        The argument of the callback containing the context.
+    """
+    with gil:
+        client_async_channel_connect_cb_gil(err, cb_arg)
+
+
+cdef void client_async_channel_connect_cb_gil(const sb_t *err,
+                                              void *cb_arg):
+    """Callback used on IC EL client async connect with the GIL.
+
+    Parameters
+    ----------
+    err
+        The error set in case of connection error.
+    cb_arg
+        The argument of the callback containing the context.
+    """
+    cdef AsyncChannelConnectCtx ctx
+
+    ctx = <AsyncChannelConnectCtx>cb_arg
+    if err:
+        ctx.error = lstr_dup(LSTR_SB_V(err))
+
+    ctx.loop.call_soon_threadsafe(client_async_channel_connect_set_res, ctx)
+
+
+cdef object client_async_channel_connect_set_res
+def client_async_channel_connect_set_res(AsyncChannelConnectCtx ctx):
+    """Callback used to set the result on client async connect.
+
+    Parameters
+    ----------
+    ctx
+        The asynchronous client connection context.
+    """
+    if not ctx.future.cancelled():
+        if ctx.error.s:
+            ctx.future.set_exception(Error(lstr_to_py_str(ctx.error)))
+        else:
+            ctx.future.set_result(None)
+
+    client_channel_async_connect_ctx_wipe(ctx)
+    Py_DECREF(ctx)
 
 
 cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
@@ -8993,7 +9184,7 @@ cdef class Plugin:
         channel = Channel.__new__(Channel)
         client_channel_init(channel, self, uri, host, port, c_default_timeout,
                             no_act_timeout, kwargs)
-        client_channel_connect(channel, c_connect_timeout)
+        client_sync_channel_connect(channel, c_connect_timeout)
         return channel
 
     def channel_server(Plugin self):
