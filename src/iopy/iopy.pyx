@@ -8915,8 +8915,9 @@ cdef class Plugin:
 
 
     def connect(Plugin self, object uri=None, *, object host=None,
-                int port=-1, object timeout=None, object _timeout=None,
-                double no_act_timeout=0.0, **kwargs):
+                int port=-1, object default_timeout=None,
+                object connect_timeout=None, double no_act_timeout=0.0,
+                object timeout=None, object _timeout=None, **kwargs):
         """Connect to an IC and return the created IOPy Channel.
 
         Parameters
@@ -8930,14 +8931,21 @@ cdef class Plugin:
         port : int
             The port to connect to. If set, host must also be set and uri must
             not be set.
-        timeout : float
-            The default and connection timeout for the IC channel.
-            -1 means forever, default is 60.
+        default_timeout : float
+            The default timeout in seconds of the queries for the IC channel.
+            -1 means forever, default is 60s.
+        connect_timeout : float
+            The first connection timeout in seconds for the IC channel.
+            -1 means forever, default is 60s.
         no_act_timeout : float
             The inactivity timeout before closing the connection in seconds.
             0 or a negative number means no timeout, default is 0.
+        timeout : float
+            Obsolete, use default_timeout and connect_timeout instead.
+            The default and connection timeout in seconds for the IC channel.
+            -1 means forever, default is 60s.
         _timeout : float
-            Backward compatibility parameter for timeout parameter.
+            Obsolete, backward compatibility parameter for timeout parameter.
         _login : str
             The login to be put in the default IC header.
         _group : str
@@ -8960,19 +8968,32 @@ cdef class Plugin:
             The IOPy client channel.
         """
         cdef Channel channel
-        cdef double default_timeout
+        cdef double c_legacy_timeout
+        cdef double c_default_timeout
+        cdef double c_connect_timeout
 
         if _timeout is not None and timeout is None:
             timeout = _timeout
+
         if timeout is not None:
-            default_timeout = float(timeout)
+            c_legacy_timeout = float(timeout)
         else:
-            default_timeout = 60.0
+            c_legacy_timeout = 60.0
+
+        if default_timeout is not None:
+            c_default_timeout = float(default_timeout)
+        else:
+            c_default_timeout = c_legacy_timeout
+
+        if connect_timeout is not None:
+            c_connect_timeout = float(connect_timeout)
+        else:
+            c_connect_timeout = c_legacy_timeout
 
         channel = Channel.__new__(Channel)
-        client_channel_init(channel, self, uri, host, port, default_timeout,
+        client_channel_init(channel, self, uri, host, port, c_default_timeout,
                             no_act_timeout, kwargs)
-        client_channel_connect(channel, default_timeout)
+        client_channel_connect(channel, c_connect_timeout)
         return channel
 
     def channel_server(Plugin self):
