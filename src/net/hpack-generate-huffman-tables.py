@@ -149,14 +149,14 @@ class Tree(dict):
     nodes, sealed = [], False
 
     def __missing__(self, key):
-        assert(not __class__.sealed)
+        assert(not self.sealed)
         if key not in ('*', 0, 1):
             raise KeyError
         value = self[key] = type(self)()
         value['sym'] = None
         value['prefix'] = '' if key == '*' else self['prefix'] + str(key)
         value['final'] = ('1' * 7).startswith(value['prefix'])
-        __class__.nodes.append(value)
+        self.nodes.append(value)
         return value
 
     @classmethod
@@ -326,7 +326,7 @@ def options(args):
     sp.add_argument('-o', '--out', help="output file", dest='out_fn',
                     default=None)
     sp.add_argument('-H', '--header', help="header lines", dest='hdr_lines',
-                   default=DEF_HDR_LINES)
+                    default=DEF_HDR_LINES)
     sp.add_argument('-t', '--elem-type', help="type of table element",
                     dest='elem_t', default=DEF_DECODE_ELEM_T)
     sp.add_argument('-n', '--name', help="name of table variable",
@@ -342,12 +342,13 @@ def main(args):
 
     opts = options(args)
     if opts.action == 'for-encoding':
-        gen_table_for_encoding(opts.rfc_fn, none_if_minus(
-            opts.out_fn), opts.hdr_lines, opts.elem_t, opts.name)
+        gen_table_for_encoding(
+            opts.rfc_fn, none_if_minus(opts.out_fn), opts.hdr_lines,
+            opts.elem_t, opts.name)
     elif opts.action == 'for-decoding':
-        gen_table_for_decoding(opts.rfc_fn, none_if_minus(
-            opts.out_fn), opts.hdr_lines, opts.elem_t, opts.name,
-            opts.chunkbits)
+        gen_table_for_decoding(
+            opts.rfc_fn, none_if_minus(opts.out_fn), opts.hdr_lines,
+            opts.elem_t, opts.name, opts.chunkbits)
 
 
 if __name__ == '__main__':
