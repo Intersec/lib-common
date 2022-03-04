@@ -2896,6 +2896,44 @@ class IopySlowTests(z.TestCase):
                                  "exit timeout took {0:.2f}s, expected less "
                                  "than 1.0s".format(diff_time))
 
+    def test_async_connection_timeout(self):
+        """Test the timeout argument is well respected on async connection"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        uri = make_uri()
+
+        client = iopy.AsyncChannel(self.p, uri)
+        with z_iopy_use_fake_tcp_server(uri):
+            start_time = time.time()
+
+            # Start the connection
+            future = client.connect(timeout=1)
+
+            # Wait 0.6 seconds, the connection should not be etablished and
+            # not yet timeout.
+            loop.run_until_complete(asyncio.sleep(0.6))
+            self.assertFalse(future.done())
+            self.assertFalse(client.is_connected())
+
+            # Wait for timeout
+            try:
+                loop.run_until_complete(future)
+            except iopy.Error:
+                pass
+            else:
+                self.fail('expected connection timeout error')
+
+            end_time = time.time()
+            diff_time = end_time - start_time
+
+            # We should have a timeout in less than 1.5s
+            self.assertLessEqual(diff_time, 1.5,
+                                 "connection timeout took {0:.2f}s, "
+                                 "expected less than 1.5s"
+                                 .format(diff_time))
+        loop.close()
+
 
 if __name__ == "__main__":
     z.main()
