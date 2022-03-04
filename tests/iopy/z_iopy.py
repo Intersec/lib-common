@@ -28,6 +28,7 @@ import json
 import socket
 import multiprocessing
 import signal
+import asyncio
 
 from contextlib import contextmanager
 
@@ -2714,6 +2715,39 @@ class IopyCompatibilityTests(z.TestCase):
         ])
         self.assertEqual(self.p.__dsopath__, self.p.dsopath)
         self.assertEqual(self.p.__modules__, self.p.modules)
+
+
+@z.ZGroup
+class IopyAsyncTests(z.TestCase):
+    """Tests with asynchronous connections and queries"""
+
+    def setUp(self):
+        plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
+        self.p = iopy.Plugin(plugin_file)
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+    def tearDown(self):
+        self.loop.close()
+
+    def test_async_connection(self):
+        """Test asynchronous connection"""
+        uri = make_uri()
+
+        # Make server
+        server = self.p.ChannelServer()
+        server.listen(uri=uri)
+
+        # Make the client
+        client = iopy.AsyncChannel(self.p, uri)
+
+        # Connect the client
+        self.loop.run_until_complete(client.connect())
+        self.assertTrue(client.is_connected())
+
+        # Make and connect the client through the plugin
+        client = self.loop.run_until_complete(self.p.async_connect(uri))
+        self.assertTrue(client.is_connected())
 
 
 @z.ZFlags("slow")
