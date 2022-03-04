@@ -36,8 +36,6 @@ from libc.string cimport strerror
 
 cdef extern from "Python.h":
     # Get raw builtin objects from Python.h
-    ctypedef extern class builtins.Exception[object PyBaseExceptionObject]:
-        pass
     ctypedef struct PyThreadState:
         pass
     int PyObject_GenericSetAttr(object o, object attr_name,
