@@ -2724,30 +2724,89 @@ class IopyAsyncTests(z.TestCase):
     def setUp(self):
         plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
         self.p = iopy.Plugin(plugin_file)
+
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
+
+        self.uri = make_uri()
+
+        shdr = self.p.ic.SimpleHdr(login='root', password='1234')
+        self.hdr = self.p.ic.Hdr(simple=shdr)
+
+        def check_hdr(rpc_args):
+            assert rpc_args.hdr and rpc_args.hdr.simple
+            assert rpc_args.hdr.simple.login == self.hdr.simple.login
+            assert rpc_args.hdr.simple.password == self.hdr.simple.password
+
+        def rpc_impl_b(rpc_args):
+            check_hdr(rpc_args)
+            return rpc_args.res(status='B', res=0)
+
+        self.async_done = False
+        def rpc_impl_async(rpc_args):
+            check_hdr(rpc_args)
+            self.async_done = True
+
+        self.server = self.p.channel_server()
+        self.server.test_ModuleA.interfaceA.funB.impl = rpc_impl_b
+        self.server.test_ModuleA.interfaceA.funAsync.impl = rpc_impl_async
+        self.server.listen(uri=self.uri)
 
     def tearDown(self):
         self.loop.close()
 
     def test_async_connection(self):
         """Test asynchronous connection"""
-        uri = make_uri()
-
-        # Make server
-        server = self.p.ChannelServer()
-        server.listen(uri=uri)
-
         # Make the client
-        client = iopy.AsyncChannel(self.p, uri)
+        client = iopy.AsyncChannel(self.p, self.uri)
 
         # Connect the client
         self.loop.run_until_complete(client.connect())
         self.assertTrue(client.is_connected())
 
         # Make and connect the client through the plugin
-        client = self.loop.run_until_complete(self.p.async_connect(uri))
+        client = self.loop.run_until_complete(self.p.async_connect(self.uri))
         self.assertTrue(client.is_connected())
+
+    def test_async_call_rpc(self):
+        """Test asynchronous RPC calls"""
+        obj_a = self.p.test.ClassA()
+
+        # Connect the client
+        client = self.loop.run_until_complete(self.p.async_connect(self.uri))
+        iface = client.test_ModuleA.interfaceA
+
+        # Make a RPC call with results
+        ret = self.loop.run_until_complete(iface.funB(a=obj_a, _hdr=self.hdr))
+        exp = type(ret)({
+            'status': 'B',
+            'res': 0,
+        })
+        self.assertEqual(ret, exp,
+                         'rpc failed; status: %s, expected: %s' % (ret, exp))
+
+        # Make a RPC call with async RPC
+        self.async_done = False
+        ret = self.loop.run_until_complete(iface.funAsync(a=obj_a,
+                                                          _hdr=self.hdr))
+        self.assertIsNone(ret)
+        for _ in range(10):
+            if self.async_done:
+                break
+            time.sleep(0.01)
+        else:
+            self.fail('expected async RPC implementation to be done')
+
+        # Make a RPC call without connect first
+        client = iopy.AsyncChannel(self.p, self.uri)
+        iface = client.test_ModuleA.interfaceA
+        ret = self.loop.run_until_complete(iface.funB(a=obj_a, _hdr=self.hdr))
+        exp = type(ret)({
+            'status': 'B',
+            'res': 0,
+        })
+        self.assertEqual(ret, exp,
+                         'rpc failed; status: %s, expected: %s' % (ret, exp))
 
 
 @z.ZFlags("slow")
