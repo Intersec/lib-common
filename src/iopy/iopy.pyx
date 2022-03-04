@@ -9104,12 +9104,11 @@ cdef class Plugin:
                 index_i = index
             return wrapper
 
-
     def connect(Plugin self, object uri=None, *, object host=None,
                 int port=-1, object default_timeout=None,
                 object connect_timeout=None, double no_act_timeout=0.0,
                 object timeout=None, object _timeout=None, **kwargs):
-        """Connect to an IC and return the created IOPy Channel.
+        """Synchronously connect to an IC and return the created IOPy Channel.
 
         Parameters
         ----------
@@ -9159,32 +9158,79 @@ cdef class Plugin:
             The IOPy client channel.
         """
         cdef Channel channel
-        cdef double c_legacy_timeout
-        cdef double c_default_timeout
-        cdef double c_connect_timeout
+        cdef double c_default_timeout = 0
+        cdef double c_connect_timeout = 0
 
-        if _timeout is not None and timeout is None:
-            timeout = _timeout
-
-        if timeout is not None:
-            c_legacy_timeout = float(timeout)
-        else:
-            c_legacy_timeout = 60.0
-
-        if default_timeout is not None:
-            c_default_timeout = float(default_timeout)
-        else:
-            c_default_timeout = c_legacy_timeout
-
-        if connect_timeout is not None:
-            c_connect_timeout = float(connect_timeout)
-        else:
-            c_connect_timeout = c_legacy_timeout
+        plugin_get_channel_timeouts(default_timeout, connect_timeout, timeout,
+                                    _timeout, &c_default_timeout,
+                                    &c_connect_timeout)
 
         channel = Channel.__new__(Channel)
         client_channel_init(channel, self, uri, host, port, c_default_timeout,
                             no_act_timeout, kwargs)
         client_sync_channel_connect(channel, c_connect_timeout)
+        return channel
+
+    async def async_connect(Plugin self, object uri=None, *, object host=None,
+                            int port=-1, object default_timeout=None,
+                            object connect_timeout=None,
+                            double no_act_timeout=0.0, **kwargs):
+        """Asynchronously connect to an IC and return the created IOPy Async
+        Channel.
+
+        Parameters
+        ----------
+        uri : str
+            The URI to connect to. This is the only allowed positional
+            argument.
+        host : str
+            The host to connect to. If set, port must also be set and uri must
+            not be set.
+        port : int
+            The port to connect to. If set, host must also be set and uri must
+            not be set.
+        default_timeout : float
+            The default timeout in seconds of the queries for the IC channel.
+            -1 means forever, default is 60s.
+        connect_timeout : float
+            The first connection timeout in seconds for the IC channel.
+            -1 means forever, default is 60s.
+        no_act_timeout : float
+            The inactivity timeout before closing the connection in seconds.
+            0 or a negative number means no timeout, default is 0.
+        _login : str
+            The login to be put in the default IC header.
+        _group : str
+            The group to be put in the default IC header.
+        _password : str
+            The password to be put in the default IC header.
+        _kind : str
+            The kind to be put in the default IC header.
+        _workspace_id : int
+            The id of workspace to be put in the default IC header.
+        _dealias : bool
+            The dealias flag to be put in the default IC header.
+        _hdr : ic.SimpleHdr
+            The default IC header to be used for this channel. If set, the
+            above arguments must not be set.
+
+        Async returns
+        -------------
+        iopy.AsyncChannel
+            The IOPy client channel.
+        """
+        cdef AsyncChannel channel
+        cdef double c_default_timeout = 0
+        cdef double c_connect_timeout = 0
+
+        plugin_get_channel_timeouts(default_timeout, connect_timeout, None,
+                                    None, &c_default_timeout,
+                                    &c_connect_timeout)
+
+        channel = AsyncChannel.__new__(AsyncChannel)
+        client_channel_init(channel, self, uri, host, port, c_default_timeout,
+                            no_act_timeout, kwargs)
+        await client_async_channel_connect(channel, c_connect_timeout)
         return channel
 
     def channel_server(Plugin self):
@@ -10213,6 +10259,35 @@ cdef void plugin_run_register_scripts(Plugin plugin, const iop_dso_t *dso):
         script_ptr += 1
 
     del globals_dict['_iopy_register']
+
+
+cdef inline int plugin_get_channel_timeouts(
+    object default_timeout, object connect_timeout, object timeout,
+    object _timeout, double *c_default_timeout,
+    double *c_connect_timeout) except -1:
+    """Get the timeouts when creating a channel with connect* method.
+
+    See parameters of Plugin.connect() and Plugin.async_connect().
+    """
+    cdef double c_legacy_timeout
+
+    if _timeout is not None and timeout is None:
+        timeout = _timeout
+
+    if timeout is not None:
+        c_legacy_timeout = float(timeout)
+    else:
+        c_legacy_timeout = 60.0
+
+    if default_timeout is not None:
+        c_default_timeout[0] = float(default_timeout)
+    else:
+        c_default_timeout[0] = c_legacy_timeout
+
+    if connect_timeout is not None:
+        c_connect_timeout[0] = float(connect_timeout)
+    else:
+        c_connect_timeout[0] = c_legacy_timeout
 
 
 # }}}
