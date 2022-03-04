@@ -6932,13 +6932,13 @@ cdef class RPCChannel(RPCBase):
         return self.py_iface.channel
 
 
-ctypedef int (*rpc_create_b)(const iop_rpc_t *rpc,
+ctypedef int (*rpc_create_f)(const iop_rpc_t *rpc,
                              _InternalIfaceHolder iface_holder,
                              _InternalIface py_iface) except -1
 
 
 cdef int create_modules_of_channel(Plugin plugin, ChannelBase channel,
-                                   rpc_create_b rpc_create_cb) except -1:
+                                   rpc_create_f rpc_create_cb) except -1:
     """Create the modules of a channel instance.
 
     Parameters
@@ -6947,8 +6947,8 @@ cdef int create_modules_of_channel(Plugin plugin, ChannelBase channel,
         The IOPy plugin.
     channel
         The IOPy channel instance.
-    rpc_type
-        The RPC class type for the connection.
+    rpc_create_cb
+        The callback used to create the RPC object for the connection.
 
     Returns
     -------
@@ -6984,7 +6984,7 @@ cdef int create_modules_of_channel(Plugin plugin, ChannelBase channel,
 
 
 cdef Module create_module(_InternalModuleHolder cls, ChannelBase channel,
-                          rpc_create_b rpc_create_cb):
+                          rpc_create_f rpc_create_cb):
     """Create instance of module from class type and channel.
 
     Parameters
@@ -7020,7 +7020,7 @@ cdef Module create_module(_InternalModuleHolder cls, ChannelBase channel,
 
 cdef _InternalIface create_interface(object cls, ChannelBase channel,
                                      const iop_iface_alias_t *iface_alias,
-                                     rpc_create_b rpc_create_cb):
+                                     rpc_create_f rpc_create_cb):
     """Create instance of module from class type and channel.
 
     Parameters
@@ -7059,7 +7059,7 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
 
 
 cdef class RPC(RPCChannel):
-    """RPC class for client IC channel"""
+    """RPC class for synchronous client IC channel"""
 
     def call(RPC self, *args, **kwargs):
         """Call the RPC for the associated channel.
@@ -7095,14 +7095,14 @@ cdef class RPC(RPCChannel):
         object
             The result of the RPC.
         """
-        return client_channel_call_rpc(self, args, kwargs)
+        return client_sync_channel_call_rpc(self, args, kwargs)
 
     def __call__(RPC self, *args, **kwargs):
         """Call the RPC for the associated channel.
 
         See call method.
         """
-        return client_channel_call_rpc(self, args, kwargs)
+        return client_sync_channel_call_rpc(self, args, kwargs)
 
 
 @cython.internal
@@ -7184,7 +7184,7 @@ cdef class Channel(ChannelBase):
             above arguments must not be set.
         """
         client_channel_init(self, plugin, uri, host, port, default_timeout,
-                            no_act_timeout, kwargs)
+                            no_act_timeout, kwargs, &create_sync_client_rpc)
 
     def __dealloc__(Channel self):
         """Destructor of client IC channel"""
@@ -7355,6 +7355,53 @@ cdef class Channel(ChannelBase):
         self.on_disconnect_cb = None
 
 
+cdef class AsyncRPC(RPCChannel):
+    """RPC class for asynchronous client IC channel"""
+
+    def call(RPC self, *args, **kwargs):
+        """Call the RPC for the associated channel.
+
+        All keyword arguments are considered as input structure argument,
+        except the one below.
+        It is also possible to directly give the RPC argument as a positional
+        argument of the correct type.
+
+        Parameters
+        ----------
+        _timeout : float
+            The timeout for the query. If set, it will superseed the default
+            timeout. -1 means forever.
+        _login : str
+            The login to be put in the query IC header.
+        _group : str
+            The group to be put in the query IC header.
+        _password : str
+            The password to be put in the query IC header.
+        _kind : str
+            The kind to be put in the query IC header.
+        _workspace_id : int
+            The id of workspace to be put in the query IC header.
+        _dealias : bool
+            The dealias flag to be put in the query IC header.
+        _hdr : ic.SimpleHdr
+            The IC header to be used for this query. If set, the
+            above arguments must not be set.
+
+        Returns
+        -------
+        Future[object]
+            The result of the RPC through an asyncio.Future.
+        """
+        return client_async_channel_call_rpc(self, args, kwargs)
+
+    def __call__(RPC self, *args, **kwargs):
+        """Call the RPC for the associated channel.
+
+        See call method.
+        """
+        return client_async_channel_call_rpc(self, args, kwargs)
+
+
 cdef class AsyncChannel(Channel):
     """Class for asynchronous client IC channel"""
 
@@ -7399,7 +7446,7 @@ cdef class AsyncChannel(Channel):
             above arguments must not be set.
         """
         client_channel_init(self, plugin, uri, host, port, default_timeout,
-                            no_act_timeout, kwargs)
+                            no_act_timeout, kwargs, &create_async_client_rpc)
 
     def connect(AsyncChannel self, object timeout=None):
         """Connect the asynchronous client IC channel.
@@ -7427,7 +7474,8 @@ cdef class AsyncChannel(Channel):
 
 cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
                              object host, int port, double default_timeout,
-                             double no_act_timeout, dict kwargs) except -1:
+                             double no_act_timeout, dict kwargs,
+                             rpc_create_f rpc_create_cb) except -1:
     """Initialize client IC channel.
 
     Parameters
@@ -7450,6 +7498,8 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
         The inactivity timeout before closing the connection in seconds.
     kwargs
         The arguments used to build the default header.
+    rpc_create_cb
+        The callback used to create the RPC object for the connection.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
     cdef sb_buf_1k_t err_buf
@@ -7461,7 +7511,7 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
 
     t_scope_ignore(t_scope_guard)
 
-    create_modules_of_channel(plugin, channel, &create_client_rpc)
+    create_modules_of_channel(plugin, channel, rpc_create_cb)
 
     t_set_ic_hdr_from_kwargs(plugin, kwargs, &def_hdr)
 
@@ -7487,10 +7537,10 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
     return 0
 
 
-cdef int create_client_rpc(const iop_rpc_t *rpc,
-                           _InternalIfaceHolder iface_holder,
-                           _InternalIface py_iface) except -1:
-    """Callback called to create the client RPC of interface.
+cdef int create_sync_client_rpc(const iop_rpc_t *rpc,
+                                _InternalIfaceHolder iface_holder,
+                                _InternalIface py_iface) except -1:
+    """Callback called to create the synchronous client RPC of the interface.
 
     Parameters
     ----------
@@ -7506,6 +7556,54 @@ cdef int create_client_rpc(const iop_rpc_t *rpc,
         -1 in case of exception, 0 otherwise.
     """
     cdef RPC py_rpc = RPC.__new__(RPC)
+
+    return create_base_client_rpc(rpc, iface_holder, py_iface, py_rpc)
+
+
+cdef int create_async_client_rpc(const iop_rpc_t *rpc,
+                                 _InternalIfaceHolder iface_holder,
+                                 _InternalIface py_iface) except -1:
+    """Callback called to create the asynchronous client RPC of the interface.
+
+    Parameters
+    ----------
+    rpc
+        The IOP RPC description.
+    iface_holder
+        The _InternalIfaceHolder for the interface.
+    py_iface
+        The interface object instance where to set the RPC.
+
+    Returns
+    -------
+        -1 in case of exception, 0 otherwise.
+    """
+    cdef AsyncRPC py_rpc = AsyncRPC.__new__(AsyncRPC)
+
+    return create_base_client_rpc(rpc, iface_holder, py_iface, py_rpc)
+
+
+cdef int create_base_client_rpc(const iop_rpc_t *rpc,
+                                _InternalIfaceHolder iface_holder,
+                                _InternalIface py_iface,
+                                RPCChannel py_rpc) except -1:
+    """Initialize the client RPC of the interface.
+
+    Parameters
+    ----------
+    rpc
+        The IOP RPC description.
+    iface_holder
+        The _InternalIfaceHolder for the interface.
+    py_iface
+        The interface object instance where to set the RPC.
+    py_rpc
+        The client RPC of the interface to initialize.
+
+    Returns
+    -------
+        -1 in case of exception, 0 otherwise.
+    """
     cdef str rpc_name
     cdef object py_cls_base
     cdef object py_cls_rpc
@@ -7669,8 +7767,8 @@ def client_async_channel_connect_set_res(AsyncChannelConnectCtx ctx):
     Py_DECREF(ctx)
 
 
-cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
-    """Call the RPC for the associated channel.
+cdef object client_sync_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
+    """Synchronously call the RPC for the associated channel.
 
     See RPC::call for parameters documentation.
 
@@ -7685,36 +7783,234 @@ cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
     cdef Plugin plugin = iface_holder.plugin
     cdef _InternalIface py_iface = rpc.py_iface
     cdef Channel channel = py_iface.channel
-    cdef double timeout = channel.default_timeout
-    cdef tuple pre_hook_res
-    cdef object py_timeout
+    cdef int32_t cmd = 0
     cdef ic__hdr__t *hdr = NULL
-    cdef object py_arg_cls
-    cdef object py_arg
-    cdef StructUnionBase py_input
+    cdef double timeout = 0
     cdef void *ic_input = NULL
-    cdef int32_t cmd
     cdef ic_el_sync_res_t call_res
     cdef ic_status_t ic_status = IC_MSG_OK
     cdef void *ic_res = NULL
-    cdef object py_res_cls
-    cdef object py_res
-    cdef object py_exn_cls
-    cdef object py_exn
 
     t_scope_ignore(t_scope_guard)
+
+    t_client_channel_prepare_rpc(rpc, args, kwargs, &cmd, &hdr, &timeout,
+                                 &ic_input)
+
+    with nogil:
+        call_res = ic_el_client_sync_call(channel.ic_client, rpc.rpc, cmd,
+                                          hdr, timeout, ic_input, &ic_status,
+                                          &ic_res, &err)
+
+    check_ic_el_res(call_res, &err)
+
+    if rpc.rpc.async:
+        return None
+
+    try:
+        return client_channel_call_rpc_process_res(plugin, rpc, ic_status,
+                                                   ic_res)
+    finally:
+        p_delete(&ic_res)
+
+
+@cython.internal
+cdef class AsyncChannelRpcCallCtx:
+    """Context to be used on async client RPC call """
+    cdef AsyncRPC rpc
+    cdef object loop
+    cdef object future
+    cdef lstr_t error
+    cdef ic_status_t status
+    cdef void *res
+
+    def __dealloc__(AsyncChannelConnectCtx self):
+        """Wipe the context on dealloc"""
+        client_channel_async_rpc_call_ctx_wipe(self)
+
+
+cdef inline void client_channel_async_rpc_call_ctx_wipe(
+    AsyncChannelRpcCallCtx ctx):
+    """Clear the asynchronous client connection context
+
+    Parameters
+    ----------
+    ctx
+        The asynchronous client connection context.
+    """
+    ctx.rpc = None
+    ctx.loop = None
+    ctx.future = None
+    lstr_wipe(&ctx.error)
+    p_delete(&ctx.res)
+
+
+cdef object client_async_channel_call_rpc(AsyncRPC rpc, tuple args,
+                                          dict kwargs):
+    """Asynchronously call the RPC for the associated channel.
+
+    See AsyncRPC::call for parameters documentation.
+
+    Returns
+    -------
+        The result of the RPC through an asyncio.Future.
+    """
+    cdef t_scope_t t_scope_guard = t_scope_init()
+    cdef _InternalIface py_iface = rpc.py_iface
+    cdef AsyncChannel channel = py_iface.channel
+    cdef int32_t cmd = 0
+    cdef ic__hdr__t *hdr = NULL
+    cdef double timeout = 0
+    cdef void *ic_input = NULL
+    cdef object loop
+    cdef object future
+    cdef AsyncChannelRpcCallCtx ctx
+
+    t_scope_ignore(t_scope_guard)
+
+    t_client_channel_prepare_rpc(rpc, args, kwargs, &cmd, &hdr, &timeout,
+                                 &ic_input)
+
+    loop = asyncio.get_event_loop()
+    future = loop.create_future()
+
+    ctx = AsyncChannelRpcCallCtx.__new__(AsyncChannelRpcCallCtx)
+    ctx.rpc = rpc
+    ctx.loop = loop
+    ctx.future = future
+    ctx.error = LSTR_NULL_V
+    ctx.status = IC_MSG_OK
+    ctx.res = NULL
+
+    Py_INCREF(ctx)
+    with nogil:
+        ic_el_client_async_call(channel.ic_client, rpc.rpc, cmd,
+                                hdr, timeout, ic_input,
+                                &client_async_channel_call_rpc_cb,
+                                <void *>ctx)
+
+    return future
+
+
+cdef void client_async_channel_call_rpc_cb(const sb_t *err,
+                                           ic_status_t status,
+                                           const void *res,
+                                           void *cb_arg) nogil:
+    """Callback used on IC EL client async RPC call.
+
+    Parameters
+    ----------
+    err
+        The error set in case of connection error.
+    status
+        The ichannel query status.
+    res
+        The result of the ichannel query.
+    cb_arg
+        The argument of the callback containing the context.
+    """
+    with gil:
+        client_async_channel_call_rpc_cb_gil(err, status, res, cb_arg)
+
+
+cdef void client_async_channel_call_rpc_cb_gil(const sb_t *err,
+                                               ic_status_t status,
+                                               const void *res,
+                                               void *cb_arg):
+    """Callback used on IC EL client async RPC call with the GIL.
+
+    Parameters
+    ----------
+    err
+        The error set in case of connection error.
+    status
+        The ichannel query status.
+    res
+        The result of the ichannel query.
+    cb_arg
+        The argument of the callback containing the context.
+    """
+    cdef AsyncChannelRpcCallCtx ctx
+
+    ctx = <AsyncChannelRpcCallCtx>cb_arg
+    if err:
+        ctx.error = lstr_dup(LSTR_SB_V(err))
+    else:
+        ctx.status = status
+        if status == IC_MSG_OK:
+            ctx.res = mp_iop_dup_desc_sz(NULL, ctx.rpc.rpc.result, res, NULL)
+        elif status == IC_MSG_EXN:
+            ctx.res = mp_iop_dup_desc_sz(NULL, ctx.rpc.rpc.exn, res, NULL)
+
+    ctx.loop.call_soon_threadsafe(client_async_channel_call_rpc_set_res, ctx)
+
+
+cdef object client_async_channel_call_rpc_set_res
+def client_async_channel_call_rpc_set_res(AsyncChannelRpcCallCtx ctx):
+    """Callback used to set the result on client async RPC call.
+
+    Parameters
+    ----------
+    ctx
+        The asynchronous client connection context.
+    """
+    cdef _InternalIfaceHolder iface_holder = ctx.rpc.iface_holder
+    cdef Plugin plugin = iface_holder.plugin
+    cdef object py_res
+    cdef object py_exn
+
+    if not ctx.future.cancelled():
+        if ctx.error.s:
+            ctx.future.set_exception(Error(lstr_to_py_str(ctx.error)))
+        elif ctx.rpc.rpc.async:
+            ctx.future.set_result(None)
+        else:
+            try:
+                py_res = client_channel_call_rpc_process_res(plugin, ctx.rpc,
+                                                             ctx.status,
+                                                             ctx.res)
+            except Exception as py_exn:
+                ctx.future.set_exception(py_exn)
+            else:
+                ctx.future.set_result(py_res)
+
+    client_channel_async_rpc_call_ctx_wipe(ctx)
+    Py_DECREF(ctx)
+
+
+cdef int t_client_channel_prepare_rpc(
+    RPCChannel rpc, tuple args, dict kwargs, int32_t *cmd, ic__hdr__t **hdr,
+    double *timeout, void **ic_input) except -1:
+    """Synchronously call the RPC for the associated channel.
+
+    See RPC::call for parameters documentation.
+
+    Returns
+    -------
+        The result of the RPC or None in case of asynchronous RPC.
+    """
+    cdef _InternalIfaceHolder iface_holder = rpc.iface_holder
+    cdef Plugin plugin = iface_holder.plugin
+    cdef _InternalIface py_iface = rpc.py_iface
+    cdef Channel channel = py_iface.channel
+    cdef tuple pre_hook_res
+    cdef object py_timeout
+    cdef object py_arg_cls
+    cdef object py_arg
+    cdef StructUnionBase py_input
 
     pre_hook_res = client_channel_do_pre_hook(rpc, args, kwargs)
     args = <tuple>(pre_hook_res[0])
     kwargs = <dict>(pre_hook_res[1])
 
+    timeout[0] = channel.default_timeout
     py_timeout = kwargs.pop('_timeout', None)
     if py_timeout is not None:
-        timeout = py_timeout
+        timeout[0] = py_timeout
 
-    t_set_ic_hdr_from_kwargs(plugin, kwargs, &hdr)
-    if not hdr:
-        hdr = channel.def_hdr
+    hdr[0] = NULL
+    t_set_ic_hdr_from_kwargs(plugin, kwargs, hdr)
+    if not hdr[0]:
+        hdr[0] = channel.def_hdr
 
     py_arg_cls = plugin_get_class_type_st(plugin, rpc.rpc.args)
 
@@ -7733,41 +8029,14 @@ cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
         py_arg = py_arg_cls(**kwargs)
 
     py_input = py_arg
-    mp_iop_py_obj_to_c_val(t_pool(), False, py_input, &ic_input)
-    cmd = get_iface_rpc_cmd(py_iface.iface_alias, rpc.rpc)
+    ic_input[0] = NULL
+    mp_iop_py_obj_to_c_val(t_pool(), False, py_input, ic_input)
 
-    with nogil:
-        call_res = ic_el_client_sync_call(channel.ic_client, rpc.rpc, cmd,
-                                          hdr, timeout, ic_input, &ic_status,
-                                          &ic_res, &err)
-
-    check_ic_el_res(call_res, &err)
-
-    if rpc.rpc.async:
-        return None
-
-    try:
-        if ic_status == IC_MSG_OK:
-            py_res_cls = plugin_get_class_type_st(plugin, rpc.rpc.result)
-            py_res = iop_c_val_to_py_obj(py_res_cls, rpc.rpc.result, ic_res,
-                                         plugin)
-            py_res = client_channel_do_post_hook(rpc, py_res)
-            return py_res
-        elif ic_status == IC_MSG_EXN:
-            py_exn_cls = plugin_get_class_type_st(plugin, rpc.rpc.exn)
-            py_exn = iop_c_val_to_py_obj(py_exn_cls, rpc.rpc.exn, ic_res,
-                                         plugin)
-            raise RpcError(py_exn)
-        else:
-            raise Error('Query `%s` on object %s failed with status: '
-                        '%d (%s)' % (lstr_to_py_str(rpc.rpc.name),
-                                     py_input, ic_status,
-                                     ic_status_to_string(ic_status)))
-    finally:
-        p_delete(&ic_res)
+    cmd[0] = get_iface_rpc_cmd(py_iface.iface_alias, rpc.rpc)
 
 
-cdef tuple client_channel_do_pre_hook(RPC rpc, tuple args, dict kwargs):
+cdef tuple client_channel_do_pre_hook(RPCChannel rpc, tuple args,
+                                      dict kwargs):
     """Execute the pre hook for the RPC interface if needed.
 
     Parameters
@@ -7837,7 +8106,52 @@ cdef cbool validate_pre_hook_res(object res):
     return True
 
 
-cdef object client_channel_do_post_hook(RPC rpc, object res):
+cdef object client_channel_call_rpc_process_res(Plugin plugin, RPCChannel rpc,
+                                                ic_status_t ic_status,
+                                                const void *ic_res):
+    """Process the result of a client RPC call.
+
+    Raise an error if the RPC was not successful.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    rpc
+        The RPC python object.
+    status
+        The status of the RPC.
+    res
+        The result of the RPC.
+
+    Returns
+    -------
+    object
+        The result of the RPC as a Python object.
+    """
+    cdef object py_res_cls
+    cdef object py_res
+    cdef object py_exn_cls
+    cdef object py_exn
+
+    if ic_status == IC_MSG_OK:
+        py_res_cls = plugin_get_class_type_st(plugin, rpc.rpc.result)
+        py_res = iop_c_val_to_py_obj(py_res_cls, rpc.rpc.result, ic_res,
+                                     plugin)
+        py_res = client_channel_do_post_hook(rpc, py_res)
+        return py_res
+    elif ic_status == IC_MSG_EXN:
+        py_exn_cls = plugin_get_class_type_st(plugin, rpc.rpc.exn)
+        py_exn = iop_c_val_to_py_obj(py_exn_cls, rpc.rpc.exn, ic_res,
+                                     plugin)
+        raise RpcError(py_exn)
+    else:
+        raise Error('Query `%s` failed with status: %d (%s)' %
+                    (lstr_to_py_str(rpc.rpc.name), ic_status,
+                     ic_status_to_string(ic_status)))
+
+
+cdef object client_channel_do_post_hook(RPCChannel rpc, object res):
     """Execute the post hook for the RPC interface if needed.
 
     Parameters
@@ -7845,7 +8159,7 @@ cdef object client_channel_do_post_hook(RPC rpc, object res):
     rpc
         The RPC python object.
     res
-       The result of the RPC.
+        The result of the RPC.
 
     Returns
     -------
@@ -9165,7 +9479,7 @@ cdef class Plugin:
 
         channel = Channel.__new__(Channel)
         client_channel_init(channel, self, uri, host, port, c_default_timeout,
-                            no_act_timeout, kwargs)
+                            no_act_timeout, kwargs, &create_sync_client_rpc)
         client_sync_channel_connect(channel, c_connect_timeout)
         return channel
 
@@ -9227,7 +9541,7 @@ cdef class Plugin:
 
         channel = AsyncChannel.__new__(AsyncChannel)
         client_channel_init(channel, self, uri, host, port, c_default_timeout,
-                            no_act_timeout, kwargs)
+                            no_act_timeout, kwargs, &create_async_client_rpc)
         await client_async_channel_connect(channel, c_connect_timeout)
         return channel
 

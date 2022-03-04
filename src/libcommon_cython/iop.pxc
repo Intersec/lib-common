@@ -53,6 +53,8 @@ PXCC_EXPORT_SYMBOL(iop_union_set_tag);
 
 PXCC_EXPORT_SYMBOL(iop_skip_absent_field_desc);
 
+PXCC_EXPORT_SYMBOL(mp_iop_dup_desc_sz);
+
 PXCC_EXPORT_SYMBOL(t_iop_xunpack_ptr);
 PXCC_EXPORT_SYMBOL(iop_xpack_flags);
 

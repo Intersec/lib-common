@@ -40,6 +40,7 @@ PXCC_EXPORT_SYMBOL(ic_el_client_async_connect);
 PXCC_EXPORT_SYMBOL(ic_el_client_disconnect);
 PXCC_EXPORT_SYMBOL(ic_el_client_is_connected);
 PXCC_EXPORT_SYMBOL(ic_el_client_sync_call);
+PXCC_EXPORT_SYMBOL(ic_el_client_async_call);
 
 PXCC_EXPORT_SYMBOL(ic_el_module_init);
 PXCC_EXPORT_SYMBOL(ic_el_module_stop);
