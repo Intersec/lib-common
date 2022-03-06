@@ -824,7 +824,8 @@ static void iopy_ic_client_on_event(ichannel_t *ic, ic_event_t evt)
     }
 }
 
-iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, sb_t *err)
+iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, double no_act_timeout,
+                                        sb_t *err)
 {
     iopy_ic_client_t *client;
     sockunion_t su;
@@ -839,6 +840,12 @@ iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, sb_t *err)
     client->ic.tls_required = false;
     client->ic.on_event = &iopy_ic_client_on_event;
     client->ic.impl = &ic_no_impl;
+
+    if (no_act_timeout > 0.0) {
+        int wa = (int)(no_act_timeout * 1000.0);
+
+        ic_watch_activity(&client->ic, 0, wa);
+    }
 
     qh_add(iopy_ic_client, &_G.clients, client);
 

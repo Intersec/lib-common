@@ -178,11 +178,15 @@ typedef struct iopy_ic_client_t iopy_ic_client_t;
 
 /** Create an IOPy IC client.
  *
- * \param[in]  uri The uri the IC client should connect to.
- * \param[out] err The error description in case of error.
+ * \param[in]  uri            The uri the IC client should connect to.
+ * \param[in]  no_act_timeout The inactivity timeout before closing the
+ *                            connection in seconds.
+ *                            0 or a negative number means forever.
+ * \param[out] err            The error description in case of error.
  * \return The new IOPy IC client.
  */
-iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, sb_t *err);
+iopy_ic_client_t *iopy_ic_client_create(lstr_t uri, double no_act_timeout,
+                                        sb_t *err);
 
 /** Destroy IOPy IC client.
  *
