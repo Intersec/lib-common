@@ -2128,6 +2128,98 @@ class IopyIfaceTests(z.TestCase):
         self.assertEqual(res.status, 'A')
         self.assertEqual(res.res, 1000)
 
+    def test_client_connect_callbacks(self):
+        """Test client connection and disconnection callbacks"""
+
+        # Create object and callbacks
+        class CbsCalled:
+            __slots__ = ('connect', 'disconnect', 'was_connected')
+
+            def __init__(self):
+                self.connect = False
+                self.disconnect = False
+                self.was_connected = False
+
+        cbs_called = CbsCalled()
+
+        def connect_cb(channel):
+            cbs_called.connect = True
+
+        def disconnect_cb(channel, connected):
+            cbs_called.disconnect = True
+            cbs_called.was_connected = connected
+
+        # Create the client with the callbacks
+        client = iopy.Channel(self.p, self.uri)
+        client.on_connect = connect_cb
+        client.on_disconnect = disconnect_cb
+
+        # Connect the client, the callback should be called
+        client.connect()
+        self.assertTrue(cbs_called.connect)
+        cbs_called.connect = False
+
+        # Disconnect the client, the callback should be called
+        client.disconnect()
+        self.assertTrue(cbs_called.disconnect)
+        self.assertTrue(cbs_called.was_connected)
+        cbs_called.disconnect = False
+        cbs_called.was_connected = False
+
+        # Reconnect the client, the callback should be called
+        client.connect()
+        self.assertTrue(cbs_called.connect)
+        cbs_called.connect = False
+
+        # Stop the server
+        self.s.stop()
+
+        # Wait for the client to be disconnected, the callback should be
+        # called
+        for _ in range(100):
+            if not client.is_connected():
+                break
+            time.sleep(0.01)
+        else:
+            self.fail('client is not disconnected')
+        self.assertTrue(cbs_called.disconnect)
+        self.assertTrue(cbs_called.was_connected)
+        cbs_called.disconnect = False
+        cbs_called.was_connected = False
+
+        # Restart the server
+        self.s.listen(uri=self.uri)
+
+        # Make an RPC call, the client should reconnect and the callback
+        # should be called
+        iface = client.test_ModuleA.interfaceA
+        obj_a = self.r.test.ClassA()
+        iface.funA(a=obj_a)
+        self.assertTrue(cbs_called.connect)
+        cbs_called.connect = False
+
+        # Create a client to an invalid server
+        invalid_uri = make_uri()
+        client = iopy.Channel(self.p, invalid_uri)
+        client.on_connect = connect_cb
+        client.on_disconnect = disconnect_cb
+
+        # Try connect to the invalid server, the connect should not be called,
+        # the disconnect callback should be called with `connected` set to
+        # False
+        try:
+            client.connect()
+        except iopy.Error:
+            pass
+        else:
+            self.fail('expected connection error')
+        self.assertFalse(cbs_called.connect)
+        self.assertTrue(cbs_called.disconnect)
+        self.assertFalse(cbs_called.was_connected)
+        cbs_called.connect = False
+        cbs_called.disconnect = False
+        cbs_called.was_connected = False
+
 
 @z.ZGroup
 class IopyScriptsTests(z.TestCase):
