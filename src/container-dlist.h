@@ -378,9 +378,10 @@ static inline void dlist_cut_at(dlist_t *src, dlist_t *e, dlist_t *dst)
 
 
 #define __dlist_for_each_entry(pos, type_t, n, head, member) \
-    FOR_INSTR1(_dlist_for_each_entry##entry_var, type_t *n) \
-    __dlist_for_each(pos, __real_##n, head, \
-                     n = dlist_entry_of(__real_##n, n, member))
+    FOR_INSTR1(dlist_for_each_entry##n, type_t *n) \
+    __dlist_for_each(pos, dlist_for_each_entry_real##n, head, \
+                     n = dlist_entry_of(dlist_for_each_entry_real##n, n, \
+                                        member))
 
 /** In a dlist \p head, iterate on each entry using a local variable \p n to
  * iterate.

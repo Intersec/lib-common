@@ -2053,3 +2053,41 @@ Z_GROUP_EXPORT(htlist)
 } Z_GROUP_END
 
 /* }}} */
+/* {{{ dlist */
+
+typedef struct list_entry_t {
+    int i;
+    dlist_t link;
+} list_entry_t;
+
+Z_GROUP_EXPORT(dlist) {
+    Z_TEST(nested_dlist_for_each_entry, "") { /* {{{ */
+        dlist_t list;
+        list_entry_t entries[] = {
+            { .i = 0 },
+            { .i = 1 },
+            { .i = 2 },
+        };
+        int i1;
+        int i2;
+
+        dlist_init(&list);
+        carray_for_each_ptr(e, entries) {
+            dlist_add_tail(&list, &e->link);
+        }
+        i1 = 0;
+        dlist_for_each_entry(list_entry_t, e1, &list, link) {
+            i2 = 0;
+            dlist_for_each_entry(list_entry_t, e2, &list, link) {
+                Z_ASSERT_EQ(e1->i, i1);
+                Z_ASSERT_EQ(e2->i, i2);
+                i2++;
+            }
+            i1++;
+        }
+    } Z_TEST_END;
+
+    /* }}} */
+} Z_GROUP_END
+
+/* }}} */
