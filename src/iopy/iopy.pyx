@@ -7311,8 +7311,8 @@ cdef class Channel(ChannelBase):
         Parameters
         ----------
         value
-            Set to None (default value) to disallow connection call-back.
-            The call-back is called with only one argument:
+            Set to None (default value) to remove the connection callback.
+            The callback is called with one argument:
                 client : Channel
                     The client channel object.
         """
@@ -7340,8 +7340,8 @@ cdef class Channel(ChannelBase):
         Parameters
         ----------
         value
-            Set to None (default value) to disallow connection call-back.
-            The call-back is called with only two arguments:
+            Set to None (default value) to remove the disconnection callback.
+            The callback is called with two arguments:
                 client : Channel
                     The client channel object.
                 connected : bool
@@ -8611,12 +8611,12 @@ cdef class ChannelServer(ChannelBase):
         Parameters
         ----------
         value
-            Set to None (default value) to disallow connection call-back.
-            Set to a function having 'server' and 'remote_addr' as sole
-            arguments to enable connection call-back.
-            In this function 'server' is the ChannelServer object for which
-            connection is received, and 'remote_addr' is a string made of the
-            uri of the remote client.
+            Set to None (default value) to remove the connection callback.
+            The callback is called with two arguments:
+                server : ChannelServer
+                    The server channel object.
+                remote_addr : str
+                    The uri of the remote client.
         """
         self.on_connect_cb = value
 
@@ -8642,12 +8642,12 @@ cdef class ChannelServer(ChannelBase):
         Parameters
         ----------
         value
-            Set to None (default value) to disallow disconnection call-back.
-            Set to a function having 'server' and 'remote_addr' as sole
-            arguments to enable disconnection call-back.
-            In this function 'server' is the ChannelServer object for which
-            disconnection is received, and 'remote_addr' is a string made of
-            the uri of the remote client.
+            Set to None (default value) to remove the disconnection callback.
+            The callback is called with two arguments:
+                server : ChannelServer
+                    The server channel object.
+                remote_addr : str
+                    The uri of the remote client.
         """
         self.on_disconnect_cb = value
 
