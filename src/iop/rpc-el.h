@@ -263,7 +263,6 @@ void * nullable ic_el_client_get_ext_obj(ic_el_client_t *client);
 /** Synchronously connect the IC EL client.
  *
  * \param[in]  client  The IC EL client.
- * \param[in]  uri     The uri the IC client should connect to.
  * \param[in]  timeout The timeout it should wait for the connection in
  *                     seconds. -1 means forever.
  * \param[out] err     The error description in case of error.
@@ -292,7 +291,6 @@ typedef void (*ic_client_async_connect_f)(const sb_t *nullable err,
 /** Aynchronously connect the IC EL client.
  *
  * \param[in]  client  The IC EL client.
- * \param[in]  uri     The uri the IC client should connect to.
  * \param[in]  timeout The timeout it should wait for the connection in
  *                     seconds. -1 means forever.
  * \param[in]  cb      The callback to be called on result.
