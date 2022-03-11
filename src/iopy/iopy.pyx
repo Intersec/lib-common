@@ -7073,7 +7073,7 @@ cdef class RPC(RPCChannel):
         ----------
         _timeout : float
             The timeout for the query. If set, it will superseed the default
-            timeout. -1 means forever.
+            timeout. 0 or a negative number means forever.
         _login : str
             The login to be put in the query IC header.
         _group : str
@@ -7163,7 +7163,7 @@ cdef class Channel(ChannelBase):
             not be set.
         default_timeout : float
             The default timeout for the IC channel in seconds.
-            -1 means forever, default is 60.
+            0 or a negative number means forever, default is 60.
         no_act_timeout : float
             The inactivity timeout before closing the connection in seconds.
             0 or a negative number means no timeout, default is 0.
@@ -7214,8 +7214,8 @@ cdef class Channel(ChannelBase):
         ----------
         timeout : float
             The timeout of the connection of the IC channel in seconds.
-            -1 means forever. If not set, use the default timeout of the IC
-            channel.
+            0 or a negative number means forever.
+            If not set, use the default timeout of the IC channel.
         """
         cdef double timeout_connect
 
@@ -7370,7 +7370,7 @@ cdef class AsyncRPC(RPCChannel):
         ----------
         _timeout : float
             The timeout for the query. If set, it will superseed the default
-            timeout. -1 means forever.
+            timeout. 0 or a negative number means forever.
         _login : str
             The login to be put in the query IC header.
         _group : str
@@ -7425,7 +7425,7 @@ cdef class AsyncChannel(Channel):
             not be set.
         default_timeout : float
             The default timeout for the IC channel in seconds.
-            -1 means forever, default is 60.
+            0 or a negative number means forever, default is 60.
         no_act_timeout : float
             The inactivity timeout before closing the connection in seconds.
             0 or a negative number means no timeout, default is 0.
@@ -7455,8 +7455,8 @@ cdef class AsyncChannel(Channel):
         ----------
         timeout : float
             The timeout of the connection of the IC channel in seconds.
-            -1 means forever. If not set, use the default timeout of the IC
-            channel.
+            0 or a negative number means forever.
+            If not set, use the default timeout of the IC channel.
 
         Returns
         -------
@@ -9435,17 +9435,17 @@ cdef class Plugin:
             not be set.
         default_timeout : float
             The default timeout in seconds of the queries for the IC channel.
-            -1 means forever, default is 60s.
+            0 or a negative number means forever, default is 60.
         connect_timeout : float
             The first connection timeout in seconds for the IC channel.
-            -1 means forever, default is 60s.
+            0 or a negative number means forever, default is 60.
         no_act_timeout : float
             The inactivity timeout before closing the connection in seconds.
             0 or a negative number means no timeout, default is 0.
         timeout : float
             Obsolete, use default_timeout and connect_timeout instead.
             The default and connection timeout in seconds for the IC channel.
-            -1 means forever, default is 60s.
+            0 or a negative number means forever, default is 60.
         _timeout : float
             Obsolete, backward compatibility parameter for timeout parameter.
         _login : str
@@ -9503,10 +9503,10 @@ cdef class Plugin:
             not be set.
         default_timeout : float
             The default timeout in seconds of the queries for the IC channel.
-            -1 means forever, default is 60s.
+            0 or a negative number means forever, default is 60.
         connect_timeout : float
             The first connection timeout in seconds for the IC channel.
-            -1 means forever, default is 60s.
+            0 or a negative number means forever, default is 60.
         no_act_timeout : float
             The inactivity timeout before closing the connection in seconds.
             0 or a negative number means no timeout, default is 0.

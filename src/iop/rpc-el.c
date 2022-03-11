@@ -316,7 +316,8 @@ typedef enum wait_thread_cond_res_t {
  * \param[in] is_terminated  A callback called to check if the condition has
  *                           been fulfilled.
  * \param[in] terminated_arg The argument passed to the callback.
- * \param[in] timeout        The timeout in seconds. -1 for unlimited timeout.
+ * \param[in] timeout        The timeout in seconds.
+ *                           <= 0 for unlimited timeout.
  * \return The result as wait_thread_cond_res_t.
  */
 static wait_thread_cond_res_t
@@ -330,7 +331,7 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
     bool terminated;
     wait_thread_cond_res_t res = WAIT_THR_COND_TIMEOUT;
 
-    if (timeout >= 0) {
+    if (timeout > 0.0) {
         lp_gettv(&begin_time);
         timeout_msec = (int64_t)(timeout * 1000.0);
         timeout_el = el_timer_register(timeout_msec, 0, EL_TIMER_LOWRES,
@@ -1168,7 +1169,7 @@ static ic_el_async_res_t ic_el_client_async_connect_locked(
     async_ctx->is_locked_cb = is_locked_cb;
     dlist_add_tail(&client->async_connect_ctxs, &async_ctx->link);
 
-    if (timeout >= 0.0) {
+    if (timeout > 0.0) {
         int64_t timeout_msec = (int64_t)(timeout * 1000.0);
 
         async_ctx->timeout_el = el_timer_register(
@@ -1502,7 +1503,7 @@ static void ic_el_client_async_call_connected(
     query_ctx->cb = cb;
     query_ctx->cb_arg = cb_arg;
 
-    if (timeout >= 0.0) {
+    if (timeout > 0.0) {
         int64_t timeout_msec = (int64_t)(timeout * 1000.0);
 
         /* Retain the query synce it is used by timeout_el and the query

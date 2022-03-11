@@ -226,9 +226,9 @@ typedef struct ic_el_client_cb_cfg_t {
  * \param[in]  uri            The uri the IC client should connect to.
  * \param[in]  no_act_timeout The inactivity timeout before closing the
  *                            connection in seconds.
+ *                            0 or a negative number means no timeout.
  * \param[in]  cb_cfg         The configuration of the callbacks of the IC
  *                            client.
- *                            0 or a negative number means forever.
  * \param[out] err            The error description in case of error.
  * \return The new IC EL client.
  */
@@ -264,7 +264,7 @@ void * nullable ic_el_client_get_ext_obj(ic_el_client_t *client);
  *
  * \param[in]  client  The IC EL client.
  * \param[in]  timeout The timeout it should wait for the connection in
- *                     seconds. -1 means forever.
+ *                     seconds. 0 or a negative number means forever.
  * \param[out] err     The error description in case of error.
  * \return IC_EL_SYNC_OK if the client has been successfully connected.
  *         IC_EL_SYNC_ERR if an error occured, \p err contains the description
@@ -292,7 +292,7 @@ typedef void (*ic_client_async_connect_f)(const sb_t *nullable err,
  *
  * \param[in]  client  The IC EL client.
  * \param[in]  timeout The timeout it should wait for the connection in
- *                     seconds. -1 means forever.
+ *                     seconds. 0 or a negative number means forever.
  * \param[in]  cb      The callback to be called on result.
  * \param[in]  cb_arg  A custom user variable to be passed to the callback.
  */
@@ -319,8 +319,8 @@ bool ic_el_client_is_connected(ic_el_client_t *client);
  * \param[in]  rpc     The RPC to call.
  * \param[in]  cmd     The command index of the RPC.
  * \param[in]  hdr     The ic header.
- * \param[in]  timeout The timeout of the request in seconds. -1 means
- *                     forever.
+ * \param[in]  timeout The timeout of the request in seconds. 0 or a negative
+ *                     number means forever.
  * \param[in]  arg     The argument value of the RPC.
  * \param[out] status  The query result status.
  * \param[out] res     The query result value. Only set when \p status is set
@@ -370,8 +370,8 @@ typedef void (*ic_client_async_call_f)(const sb_t *nullable err,
  * \param[in]  rpc     The RPC to call.
  * \param[in]  cmd     The command index of the RPC.
  * \param[in]  hdr     The ic header.
- * \param[in]  timeout The timeout of the request in seconds. -1 means
- *                     forever.
+ * \param[in]  timeout The timeout of the request in seconds. 0 or a negative
+ *                     means forever.
  * \param[in]  arg     The argument value of the RPC.
  * \param[in]  cb      The callback to be called on result.
  * \param[in]  cb_arg  A custom user variable to be passed to the callback.
