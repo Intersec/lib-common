@@ -27,6 +27,8 @@ import subprocess
 import threading
 import json
 import socket
+import multiprocessing
+import signal
 
 from contextlib import contextmanager
 
@@ -121,6 +123,7 @@ def z_iopy_use_fake_tcp_server(uri):
     port = int(port)
 
     fake_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    fake_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     fake_server.bind((addr, port))
     fake_server.listen(1)
 
@@ -2750,6 +2753,59 @@ class IopySlowTests(z.TestCase):
                                      "connection timeout took {0:.2f}s, "
                                      "expected less than 1.5s"
                                      .format(diff_time))
+
+    def test_non_deadlock_on_exit(self):
+        """Test IOPy does not deadlock on process exit while waiting for
+        connection in a thread"""
+        uri = make_uri()
+
+        # Use a queue to indicate startup
+        queue = multiprocessing.Queue()
+
+        def thread_cb(client):
+            queue.put(None)
+            try:
+                client.connect(timeout=2)
+            except (KeyboardInterrupt, iopy.Error):
+                pass
+
+        def process_cb():
+            client = iopy.Channel(self.p, uri)
+            thread1 = threading.Thread(target=thread_cb, args=(client,))
+            thread2 = threading.Thread(target=thread_cb, args=(client,))
+
+            thread1.start()
+            thread2.start()
+
+            thread1.join()
+            thread2.join()
+
+        # Use a fake TCP server that never accepts connections to wait for
+        # connection forever
+        with z_iopy_use_fake_tcp_server(uri):
+            # Fork to a new process
+            child_pid = os.fork()
+            assert child_pid >= 0
+            if child_pid == 0:
+                process_cb()
+                os._exit(0)
+
+            # Wait for the two threads to be started
+            queue.get()
+            queue.get()
+
+            start_time = time.time()
+
+            # Terminate process
+            os.kill(child_pid, signal.SIGTERM)
+            _, code = os.waitpid(child_pid, 0)
+
+            # We should have a timeout in less than 1.0s
+            end_time = time.time()
+            diff_time = end_time - start_time
+            self.assertLessEqual(diff_time, 1.0,
+                                 "exit timeout took {0:.2f}s, expected less "
+                                 "than 1.0s".format(diff_time))
 
 
 if __name__ == "__main__":

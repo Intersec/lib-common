@@ -345,6 +345,7 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
 
     while (!(terminated = is_terminated(terminated_arg)) &&
            !timeout_expired && !_G.el_wait_thr_sigint_received &&
+           !is_el_thr_stopped() &&
            !pthread_cond_wait(&_G.el_wait_thr_cond, &_G.el_mutex))
     {
     }
@@ -368,7 +369,7 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
         res = WAIT_THR_COND_OK;
     }
 
-    if (_G.el_wait_thr_sigint_received) {
+    if (_G.el_wait_thr_sigint_received || is_el_thr_stopped()) {
         res = WAIT_THR_COND_SIGINT;
     }
 
@@ -1247,6 +1248,10 @@ void iopy_rpc_module_stop(void)
       case EL_THR_STARTING:
       case EL_THR_STARTED: {
         el_t el = el_signal_register(SIGINT, &el_loop_thread_on_term, NULL);
+
+        if (_G.el_wait_thr_sigint_cnt > 0) {
+            pthread_cond_broadcast(&_G.el_wait_thr_cond);
+        }
 
         iopy_el_mutex_unlock();
         pthread_kill(_G.el_thread, SIGINT);
