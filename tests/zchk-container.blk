@@ -22,7 +22,7 @@
 #include <lib-common/thr.h>
 #include <lib-common/datetime.h>
 
-/*{{{1 Qhash */
+/* {{{ Qhash */
 
 /* Keep these here, it's to check the macros are used and built */
 qh_k32_t(test);
@@ -860,8 +860,8 @@ Z_GROUP_EXPORT(qhash)
     } Z_TEST_END
 } Z_GROUP_END
 
-/*1}}}*/
-/*{{{1 QHhash */
+/* }}} */
+/* {{{ QHhash */
 
 /* Keep these here, it's to check the macros are used and built */
 qhh_k32_t(test, 16);
@@ -1132,8 +1132,8 @@ Z_GROUP_EXPORT(qhugehash)
 
 } Z_GROUP_END
 
-/*1}}}*/
-/*{{{1 Qvectors */
+/* }}} */
+/* {{{ Qvectors */
 
 static int qv_sort_tst(int nb, struct timeval * nullable execution_time)
 {
@@ -1690,8 +1690,8 @@ Z_GROUP_EXPORT(qvector)
 
 } Z_GROUP_END;
 
-/*1}}}*/
-/*{{{1 Heap */
+/* }}} */
+/* {{{ Heap */
 
 typedef struct test_node_t {
     int pos;
@@ -1846,8 +1846,8 @@ Z_GROUP_EXPORT(qhp)
     } Z_TEST_END
 } Z_GROUP_END
 
-/*1}}}*/
-/*{{{1 Red-Black Tree */
+/* }}} */
+/* {{{ Red-Black Tree */
 
 typedef struct {
     int       v;
@@ -1933,8 +1933,8 @@ Z_GROUP_EXPORT(rbt)
     } Z_TEST_END;
 } Z_GROUP_END
 
-/*1}}}*/
-/*{{{1 HTList */
+/* }}} */
+/* {{{ HTList */
 
 typedef struct {
     int id;
@@ -2052,4 +2052,4 @@ Z_GROUP_EXPORT(htlist)
     } Z_TEST_END
 } Z_GROUP_END
 
-/*1}}}*/
+/* }}} */
