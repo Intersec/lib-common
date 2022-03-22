@@ -1774,8 +1774,9 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
                                     "line not aligned with current sequence");
         } else
         if (!ps_startswith_yaml_seq_prefix(&env->ps)) {
-            return yaml_env_set_err(env, YAML_ERR_WRONG_DATA,
-                                    "expected another element of sequence");
+            /* tricky case where the next field has the same indentation as
+             * the sequence */
+            break;
         }
     }
 
@@ -6289,8 +6290,8 @@ Z_GROUP_EXPORT(yaml)
             "- 2\n"
             "-3",
 
-            "<string>:2:1: wrong type of data, "
-            "expected another element of sequence\n"
+            "<string>:2:1: extra characters after data, "
+            "expected end of document\n"
             "-3\n"
             "^"
         ));
@@ -6313,6 +6314,16 @@ Z_GROUP_EXPORT(yaml)
             "line not aligned with current sequence\n"
             " - 3\n"
             " ^"
+        ));
+        Z_HELPER_RUN(z_yaml_test_parse_fail(0,
+            "a:\n"
+            "  - 2\n"
+            "  b: 3",
+
+            "<string>:3:3: wrong indentation, "
+            "line not aligned with current object\n"
+            "  b: 3\n"
+            "  ^"
         ));
 
         /* wrong object */
@@ -8494,25 +8505,32 @@ Z_GROUP_EXPORT(yaml)
         Z_HELPER_RUN(t_z_yaml_test_parse_success(&data, NULL, NULL, 0,
             "a:\n"
             "- 3\n"
-            "- ~",
+            "- ~\n"
+            "b:4",
 
             "a:\n"
             "  - 3\n"
-            "  - ~"
+            "  - ~\n"
+            "b: 4"
         ));
-        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 3, 4));
+        Z_HELPER_RUN(z_check_yaml_data(&data, YAML_DATA_OBJ, 1, 1, 4, 4));
         Z_ASSERT_NULL(data.tag.s);
-        Z_ASSERT(data.obj->fields.len == 1);
+        Z_ASSERT(data.obj->fields.len == 2);
         Z_ASSERT_LSTREQUAL(data.obj->fields.tab[0].key, LSTR("a"));
         field = data.obj->fields.tab[0].data;
 
-        Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_SEQ, 2, 1, 3, 4));
+        Z_HELPER_RUN(z_check_yaml_data(&field, YAML_DATA_SEQ, 2, 1, 4, 1));
         Z_ASSERT_EQ(field.seq->datas.len, 2);
-        Z_HELPER_RUN(z_check_yaml_scalar(&field.seq->datas.tab[0], YAML_SCALAR_UINT,
-                                         2, 3, 2, 4));
+        Z_HELPER_RUN(z_check_yaml_scalar(&field.seq->datas.tab[0],
+                                         YAML_SCALAR_UINT, 2, 3, 2, 4));
         Z_ASSERT_EQ(field.seq->datas.tab[0].scalar.u, 3UL);
-        Z_HELPER_RUN(z_check_yaml_scalar(&field.seq->datas.tab[1], YAML_SCALAR_NULL,
-                                         3, 3, 3, 4));
+        Z_HELPER_RUN(z_check_yaml_scalar(&field.seq->datas.tab[1],
+                                         YAML_SCALAR_NULL, 3, 3, 3, 4));
+
+        Z_ASSERT_LSTREQUAL(data.obj->fields.tab[1].key, LSTR("b"));
+        field = data.obj->fields.tab[1].data;
+        Z_HELPER_RUN(z_check_yaml_scalar(&field, YAML_SCALAR_UINT,
+                                         4, 3, 4, 4));
     } Z_TEST_END;
 
     /* }}} */
