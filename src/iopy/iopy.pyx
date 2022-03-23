@@ -7065,7 +7065,7 @@ cdef class RPC(RPCChannel):
         """Call the RPC for the associated channel.
 
         All keyword arguments are considered as input structure argument,
-        except the one below.
+        except the ones below.
         It is also possible to directly give the RPC argument as a positional
         argument of the correct type.
 
@@ -7086,9 +7086,9 @@ cdef class RPC(RPCChannel):
             The id of workspace to be put in the query IC header.
         _dealias : bool
             The dealias flag to be put in the query IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The IC header to be used for this query. If set, the
-            above arguments must not be set.
+            above arguments related to the query IC header must not be set.
 
         Returns
         -------
@@ -7179,9 +7179,9 @@ cdef class Channel(ChannelBase):
             The id of workspace to be put in the default IC header.
         _dealias : bool
             The dealias flag to be put in the default IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The default IC header to be used for this channel. If set, the
-            above arguments must not be set.
+            above arguments related to the default IC header must not be set.
         """
         client_channel_init(self, plugin, uri, host, port, default_timeout,
                             no_act_timeout, kwargs, &create_sync_client_rpc)
@@ -7262,7 +7262,7 @@ cdef class Channel(ChannelBase):
             The id of workspace to be put in the query IC header.
         _dealias : bool
             The dealias flag to be put in the query IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The IC header to be used for this query. If set, the
             above arguments must not be set.
         """
@@ -7362,7 +7362,7 @@ cdef class AsyncRPC(RPCChannel):
         """Call the RPC for the associated channel.
 
         All keyword arguments are considered as input structure argument,
-        except the one below.
+        except the ones below.
         It is also possible to directly give the RPC argument as a positional
         argument of the correct type.
 
@@ -7383,9 +7383,9 @@ cdef class AsyncRPC(RPCChannel):
             The id of workspace to be put in the query IC header.
         _dealias : bool
             The dealias flag to be put in the query IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The IC header to be used for this query. If set, the
-            above arguments must not be set.
+            above arguments related to the query IC header must not be set.
 
         Returns
         -------
@@ -7441,9 +7441,9 @@ cdef class AsyncChannel(Channel):
             The id of workspace to be put in the default IC header.
         _dealias : bool
             The dealias flag to be put in the default IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The default IC header to be used for this channel. If set, the
-            above arguments must not be set.
+            above arguments related to the default IC header must not be set.
         """
         client_channel_init(self, plugin, uri, host, port, default_timeout,
                             no_act_timeout, kwargs, &create_async_client_rpc)
@@ -9460,9 +9460,9 @@ cdef class Plugin:
             The id of workspace to be put in the default IC header.
         _dealias : bool
             The dealias flag to be put in the default IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The default IC header to be used for this channel. If set, the
-            above arguments must not be set.
+            above arguments related to the default IC header must not be set.
 
         Returns
         -------
@@ -9522,9 +9522,9 @@ cdef class Plugin:
             The id of workspace to be put in the default IC header.
         _dealias : bool
             The dealias flag to be put in the default IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The default IC header to be used for this channel. If set, the
-            above arguments must not be set.
+            above arguments related to the default IC header must not be set.
 
         Async returns
         -------------
