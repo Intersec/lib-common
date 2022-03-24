@@ -6993,8 +6993,8 @@ cdef Module create_module(_InternalModuleHolder cls, ChannelBase channel,
         The class type of the module.
     channel
         The IC connection channel.
-    rpc_type
-        The RPC class type for the connection.
+    rpc_create_cb
+        The callback used to create the RPC object for the connection.
 
     Returns
     -------
@@ -7029,10 +7029,10 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
         The class type of the interface.
     channel
         The IC connection channel.
-    rpc_type
-        The RPC class type for the connection.
     iface_alias
         The alias of the interface in the module.
+    rpc_create_cb
+        The callback used to create the RPC object for the connection.
 
     Returns
     -------
@@ -7978,15 +7978,35 @@ def client_async_channel_call_rpc_set_res(AsyncChannelRpcCallCtx ctx):
 
 
 cdef int t_client_channel_prepare_rpc(
-    RPCChannel rpc, tuple args, dict kwargs, int32_t *cmd, ic__hdr__t **hdr,
-    double *timeout, void **ic_input) except -1:
-    """Synchronously call the RPC for the associated channel.
+    RPCChannel rpc, tuple args, dict kwargs,
+    int32_t *cmd, ic__hdr__t **hdr, double *timeout,
+    void **ic_input) except -1:
+    """Prepare the arguments to call an RPC.
 
-    See RPC::call for parameters documentation.
+    Parameters
+    ----------
+    rpc
+        The RPC python object.
+    args
+        The tuple of positional arguments for the RPC.
+    kwargs
+        The dictionary of named arguments for the RPC.
+
+    Output
+    ------
+    cmd
+        The command index of the RPC.
+    hdr
+        The IC header to be used for the RPC.
+    timeout
+        The timeout of the request in seconds. 0 or a negative number means
+        forever.
+    ic_input
+        The C IOP object to be used as argument of the RPC.
 
     Returns
     -------
-        The result of the RPC or None in case of asynchronous RPC.
+        -1 in case of exception, 0 otherwise.
     """
     cdef _InternalIfaceHolder iface_holder = rpc.iface_holder
     cdef Plugin plugin = iface_holder.plugin
