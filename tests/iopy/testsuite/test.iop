@@ -31,6 +31,7 @@ class ClassA : 1 {
     @max(1000)
     int  field1 = 0;
     int? optField;
+    string? strField;
 };
 
 class ClassB : 2 : ClassA {
@@ -354,7 +355,7 @@ interface InterfaceA {
         throw Error;
     funB
         in (ClassA a)
-        out (EnumA status, int res)
+        out (EnumA status, int res, string? strField)
         throw Error;
     funAsync
         in (ClassA a)

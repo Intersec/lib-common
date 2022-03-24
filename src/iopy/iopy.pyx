@@ -7786,6 +7786,7 @@ cdef object client_sync_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
     cdef int32_t cmd = 0
     cdef ic__hdr__t *hdr = NULL
     cdef double timeout = 0
+    cdef StructUnionBase py_input
     cdef void *ic_input = NULL
     cdef ic_el_sync_res_t call_res
     cdef ic_status_t ic_status = IC_MSG_OK
@@ -7793,8 +7794,10 @@ cdef object client_sync_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
 
     t_scope_ignore(t_scope_guard)
 
-    t_client_channel_prepare_rpc(rpc, args, kwargs, &cmd, &hdr, &timeout,
-                                 &ic_input)
+    py_input = t_client_channel_prepare_rpc(rpc, args, kwargs, &cmd, &hdr,
+                                            &timeout)
+    mp_iop_py_obj_to_c_val(t_pool(), False, py_input, &ic_input)
+
 
     with nogil:
         call_res = ic_el_client_sync_call(channel.ic_client, rpc.rpc, cmd,
@@ -7860,6 +7863,7 @@ cdef object client_async_channel_call_rpc(AsyncRPC rpc, tuple args,
     cdef int32_t cmd = 0
     cdef ic__hdr__t *hdr = NULL
     cdef double timeout = 0
+    cdef StructUnionBase py_input
     cdef void *ic_input = NULL
     cdef object loop
     cdef object future
@@ -7867,8 +7871,9 @@ cdef object client_async_channel_call_rpc(AsyncRPC rpc, tuple args,
 
     t_scope_ignore(t_scope_guard)
 
-    t_client_channel_prepare_rpc(rpc, args, kwargs, &cmd, &hdr, &timeout,
-                                 &ic_input)
+    py_input = t_client_channel_prepare_rpc(rpc, args, kwargs, &cmd, &hdr,
+                                            &timeout)
+    mp_iop_py_obj_to_c_val(t_pool(), False, py_input, &ic_input)
 
     loop = asyncio.get_event_loop()
     future = loop.create_future()
@@ -7977,10 +7982,9 @@ def client_async_channel_call_rpc_set_res(AsyncChannelRpcCallCtx ctx):
     Py_DECREF(ctx)
 
 
-cdef int t_client_channel_prepare_rpc(
+cdef StructUnionBase t_client_channel_prepare_rpc(
     RPCChannel rpc, tuple args, dict kwargs,
-    int32_t *cmd, ic__hdr__t **hdr, double *timeout,
-    void **ic_input) except -1:
+    int32_t *cmd, ic__hdr__t **hdr, double *timeout):
     """Prepare the arguments to call an RPC.
 
     Parameters
@@ -8001,12 +8005,10 @@ cdef int t_client_channel_prepare_rpc(
     timeout
         The timeout of the request in seconds. 0 or a negative number means
         forever.
-    ic_input
-        The C IOP object to be used as argument of the RPC.
 
     Returns
     -------
-        -1 in case of exception, 0 otherwise.
+        The Python IOP object to be used as argument of the RPC.
     """
     cdef _InternalIfaceHolder iface_holder = rpc.iface_holder
     cdef Plugin plugin = iface_holder.plugin
@@ -8032,6 +8034,8 @@ cdef int t_client_channel_prepare_rpc(
     if not hdr[0]:
         hdr[0] = channel.def_hdr
 
+    cmd[0] = get_iface_rpc_cmd(py_iface.iface_alias, rpc.rpc)
+
     py_arg_cls = plugin_get_class_type_st(plugin, rpc.rpc.args)
 
     if args:
@@ -8049,10 +8053,7 @@ cdef int t_client_channel_prepare_rpc(
         py_arg = py_arg_cls(**kwargs)
 
     py_input = py_arg
-    ic_input[0] = NULL
-    mp_iop_py_obj_to_c_val(t_pool(), False, py_input, ic_input)
-
-    cmd[0] = get_iface_rpc_cmd(py_iface.iface_alias, rpc.rpc)
+    return py_input
 
 
 cdef tuple client_channel_do_pre_hook(RPCChannel rpc, tuple args,

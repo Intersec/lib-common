@@ -1727,7 +1727,8 @@ class IopyIfaceTests(z.TestCase):
             return rpc_args.res(status='A', res=1000)
 
         def rpc_impl_b(rpc_args):
-            return rpc_args.res(status='B', res=0)
+            str_field = getattr(rpc_args.arg.a, 'strField', None)
+            return rpc_args.res(status='B', res=0, strField=str_field)
 
         def rpc_impl_v(rpc_args):
             if hasattr(rpc_args.arg, 'ov'):
@@ -2216,9 +2217,22 @@ class IopyIfaceTests(z.TestCase):
         self.assertFalse(cbs_called.connect)
         self.assertTrue(cbs_called.disconnect)
         self.assertFalse(cbs_called.was_connected)
-        cbs_called.connect = False
-        cbs_called.disconnect = False
-        cbs_called.was_connected = False
+
+    def test_string_conversion_on_rpc(self):
+        """Test string conversion is well handled when calling an RPC"""
+        # Connect the client
+        client = self.p.connect(self.uri)
+        iface = client.test_ModuleA.interfaceA
+
+        # Do the query, strField should be converted to a string
+        ret = iface.funB({ 'a': { 'strField': b'plop' } })
+        exp = type(ret)({
+            'status': 'B',
+            'res': 0,
+            'strField': 'plop',
+        })
+        self.assertEqual(ret, exp,
+                         'rpc failed; status: %s, expected: %s' % (ret, exp))
 
 
 @z.ZGroup
