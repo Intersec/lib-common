@@ -42,12 +42,6 @@ ipdb = "~=0.12.0"
 # python linter
 pylint = "==2.4.4"
 
-# array computing, used in benchmarks.
-numpy = "~=1.18.0"
-
-# 2D graphics, used in benchmarks.
-matplotlib = "~=3.0.0"
-
 [tool.poetry.dependencies]
 # Require at least Python version 3.5
 python = "^3.5"
