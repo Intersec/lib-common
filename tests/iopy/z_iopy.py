@@ -2234,6 +2234,32 @@ class IopyIfaceTests(z.TestCase):
         self.assertEqual(ret, exp,
                          'rpc failed; status: %s, expected: %s' % (ret, exp))
 
+    def test_disconnect_on_connect_cb(self):
+        """Test disconnecting client on client connect callback"""
+        client = iopy.Channel(self.p, self.uri)
+
+        # Specify the connection callback to disconnect the client on
+        # connection
+        def connect_cb(channel):
+            client.disconnect()
+
+        client.on_connect = connect_cb
+
+        # Connect the client
+        try:
+            client.connect()
+        except iopy.Error:
+            # The client can be disconnected directly on connection
+            pass
+
+        # Wait for the client to be disconnected
+        for _ in range(100):
+            if not client.is_connected():
+                break
+            time.sleep(0.01)
+        else:
+            self.fail('client is not disconnected')
+
 
 @z.ZGroup
 class IopyScriptsTests(z.TestCase):

@@ -69,6 +69,7 @@ static struct {
     qm_t(ic_el_server) servers;
     qh_t(ic_el_client) clients;
 
+    dlist_t disconnecting_clients;
     dlist_t destroyed_clients;
 } ic_el_g;
 #define _G ic_el_g
@@ -798,6 +799,7 @@ struct ic_el_client_t {
     ic_el_client_cb_cfg_t cb_cfg;
     ichannel_t ic;
     void *ext_obj;
+    dlist_t disconnecting;
     dlist_t destroyed;
     int wait_connect_sync;
     dlist_t async_connect_ctxs;
@@ -810,6 +812,7 @@ static ic_el_client_t *ic_el_client_init(ic_el_client_t *client)
 {
     p_clear(client, 1);
     ic_init(&client->ic);
+    dlist_init(&client->disconnecting);
     dlist_init(&client->destroyed);
     dlist_init(&client->async_connect_ctxs);
     return client;
@@ -824,6 +827,9 @@ static void ic_el_client_clear(ic_el_client_t *client)
     {
         ic_el_client_async_connect_delete(&async_ctx);
     }
+
+    dlist_remove(&client->disconnecting);
+    dlist_remove(&client->destroyed);
 }
 
 static void ic_el_client_wipe(ic_el_client_t *client)
@@ -848,6 +854,20 @@ static void ic_el_client_set_connection_error(const ic_el_client_t *client,
 /** Process destroyed ic clients in the event loop. */
 static void ic_el_client_el_process(void)
 {
+    dlist_t disconnecting_clients;
+
+    /* Splice the disconnecting clients here to avoid race conditions when
+     * calling the callbacks with the mutex unlocked */
+    dlist_init(&disconnecting_clients);
+    dlist_splice(&disconnecting_clients, &_G.disconnecting_clients);
+
+    dlist_for_each_entry(ic_el_client_t, client, &disconnecting_clients,
+                         disconnecting)
+    {
+        dlist_remove(&client->disconnecting);
+        ic_disconnect(&client->ic);
+    }
+
     dlist_for_each_entry(ic_el_client_t, client, &_G.destroyed_clients,
                          destroyed)
     {
@@ -860,19 +880,24 @@ static void ic_el_client_el_process(void)
 static void ic_el_client_notify_async_connections(ic_el_client_t *client)
 {
     SB_1k(connect_err);
-    sb_t *err_ptr = NULL;
     dlist_t async_ctxs;
+    sb_t *err_ptr = NULL;
+
+    /* Splice the client asynchronous contexts here to avoid race
+     * conditions when calling the callbacks with the mutex unlocked */
+    dlist_init(&async_ctxs);
+    dlist_splice(&async_ctxs, &client->async_connect_ctxs);
+
+    /* If empty, do nothing */
+    if (dlist_is_empty(&async_ctxs)) {
+        return;
+    }
 
     /* If the client is not connected, the connection is in error */
     if (!client->connected) {
         ic_el_client_set_connection_error(client, &connect_err);
         err_ptr = &connect_err;
     }
-
-    /* Splice the client asynchronous contexts here to avoid race
-     * conditions when calling the callbacks with the mutex unlocked */
-    dlist_init(&async_ctxs);
-    dlist_splice(&async_ctxs, &client->async_connect_ctxs);
 
     /* Clear the aynchronous contexts first to avoid race conditions when
      * calling the callbacks with the mutex unlocked */
@@ -896,6 +921,11 @@ static void ic_el_client_notify_async_connections(ic_el_client_t *client)
             ic_el_client_async_connect_delete(&async_ctx);
             (*cb)(err_ptr, cb_arg);
         }
+    }
+
+    /* If there are no more contexts, no need to unlock/lock the mutex */
+    if (dlist_is_empty(&async_ctxs)) {
+        return;
     }
 
     /* Then, delete the contexts and call all the callbacks with the mutex
@@ -963,10 +993,10 @@ static void ic_el_client_on_event(ichannel_t *ic, ic_event_t evt)
     }
 
     if (client->in_connect) {
-        client->in_connect = false;
         if (!client->force_disconnect) {
             ic_el_client_notify_in_connect(client);
         }
+        client->in_connect = false;
     }
 
     client->force_disconnect = false;
@@ -1213,7 +1243,15 @@ void ic_el_client_async_connect(ic_el_client_t *client, double timeout,
 void ic_el_client_disconnect(ic_el_client_t *client)
 {
     ic_el_mutex_lock(true);
-    ic_disconnect(&client->ic);
+    if (unlikely(client->in_connect)) {
+        /* If the client is connecting, we cannot call ic_disconnect()
+         * directly. We need to delay it for the next event loop. */
+        if (dlist_is_empty(&client->disconnecting)) {
+            dlist_add_tail(&_G.disconnecting_clients, &client->disconnecting);
+        }
+    } else {
+        ic_disconnect(&client->ic);
+    }
     ic_el_mutex_unlock();
 }
 
@@ -1707,6 +1745,7 @@ static int ic_el_initialize(void *arg)
 
     qm_init(ic_el_server, &_G.servers);
     qh_init(ic_el_client, &_G.clients);
+    dlist_init(&_G.disconnecting_clients);
     dlist_init(&_G.destroyed_clients);
 
     pthread_atfork(&ic_el_atfork_prepare, &ic_el_atfork_parent,
