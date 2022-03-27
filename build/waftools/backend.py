@@ -472,8 +472,11 @@ def gen_file_keep(parent_node, name):
     return True
 
 
-def is_gen_file(parent_node, name):
-    for sfx in GEN_FILES_SUFFIXES:
+def is_gen_file(ctx, parent_node, name):
+    extra_suffixes = getattr(ctx, 'extra_gen_files_suffixes', [])
+    gen_files_suffixes = GEN_FILES_SUFFIXES + extra_suffixes
+
+    for sfx in gen_files_suffixes:
         if name.endswith(sfx):
             return gen_file_keep(parent_node, name)
     return False
@@ -526,7 +529,7 @@ def get_old_gen_files(ctx):
     for dirpath, dirnames, filenames in os.walk(ctx.srcnode.abspath()):
         parent_node = ctx.root.make_node(dirpath)
         for name in filenames:
-            if is_gen_file(parent_node, name):
+            if is_gen_file(ctx, parent_node, name):
                 path = os.path.join(dirpath, name)
                 if not os.path.islink(path):
                     gen_files.append(parent_node.make_node(name))
