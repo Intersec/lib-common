@@ -563,6 +563,10 @@ typedef struct iop_field_path_t iop_field_path_t;
  *     element).
  *     - Wildcard indexes: 'elts[*].v', 'a.array[*]', 'structs[*].fields[*]':
  *     can be used when wanting to iterate on all elements of an array.
+ *     - Class name: 'obj._class': use the class fullname of the object
+ *     specified by the field. Can only be used on class and at the end of the
+ *     field path.
+ *     - Array length: 'array.len': use the array length.
  * \param[out] err  The error description in case of error.
  * \return The IOP field path allocated on the memory pool. NULL in case of
  * error.
@@ -640,7 +644,7 @@ void iop_field_path_get_type(const iop_field_path_t *nonnull fp,
  * \param[in] st         Type of the IOP object.
  * \param[in] value      Pointer to the IOP object.
  * \param[in] path       Path to the IOP field. See
- *                       \ref t_iop_field_path_compile for the syntax.
+ *                       \ref mp_iop_field_path_compile for the syntax.
  * \param[out] type      Type of the IOP field for the given IOP object.
  * \param[out] is_array  True if the field is an array.
  * \param[out] err  The error description in case of error.
@@ -813,10 +817,8 @@ enum iop_sort_flags {
  *                         must be an array of pointers on the elements, and
  *                         not an array of elements.
  *  \param[in] len         Length of the array
- *  \param[in] field_path  Path of the field of reference for sorting,
- *                         containing the names of the fields and subfield,
- *                         separated by dots
- *                         Example: "field.subfield1.subfield2"
+ *  \param[in] field_path  Path of the field of reference for sorting. See
+ *                         \ref mp_iop_field_path_compile for the syntax.
  *  \param[in] flags       Binary combination of sorting flags (see enum
  *                         iop_sort_flags)
  *  \param[out] err        In case of error, the error description.
@@ -950,10 +952,9 @@ enum iop_filter_flags {
  *                            elements, and not an array of elements.
  *  \param[in/out] len        Length of the array. It is adjusted with the new
  *                            value once the filter is done.
- *  \param[in] field_path     Path of the field of reference for filtering,
- *                            containing the names of the fields and subfield,
- *                            separated by dots
- *                            Example: "field.subfield1.subfield2"
+ *  \param[in] field_path     Path of the field of reference for filtering.
+ *                            See \ref mp_iop_field_path_compile for the
+ *                            syntax.
  *  \param[in] values         Array of pointer on values to be matched inside
  *                            vec.
  *                            \warning the type of values must be the right
