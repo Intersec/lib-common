@@ -90,18 +90,52 @@ typedef struct iop_field_path_parse_t {
     pstream_t field_name;
     opt_i32_t array_index;
     bool wildcard;
+    const iop_struct_t *nullable cast_st;
 } iop_field_path_parse_t;
 
 /** Parses a field with syntax described for \ref mp_iop_field_path_compile.
  */
 static int parse_field_from_path(pstream_t *field_path_ps,
                                  bool support_wildcard,
+                                 const iop_struct_t *st,
                                  iop_field_path_parse_t *field_parse,
                                  sb_t *nullable err)
 {
     pstream_t field_ps;
 
     p_clear(field_parse, 1);
+
+    if (ps_skipc(field_path_ps, '<') >= 0) {
+        pstream_t cast_ps;
+
+        if (ps_get_ps_chr_and_skip(field_path_ps, '>', &cast_ps) < 0) {
+            if (err) {
+                sb_sets(err, "unable to find ending of explicit cast");
+            }
+            return -1;
+        }
+
+        if (!iop_struct_is_class(st)) {
+            if (err) {
+                sb_setf(err, "explicit cast `%*pM' can not be used on type "
+                        "`%*pM` which is not a class", PS_FMT_ARG(&cast_ps),
+                        LSTR_FMT_ARG(st->fullname));
+            }
+            return -1;
+        }
+
+        field_parse->cast_st = iop_get_class_by_fullname(
+            st, LSTR_PS_V(&cast_ps));
+        if (!field_parse->cast_st ||
+            !iop_class_is_a(field_parse->cast_st, st))
+        {
+            if (err) {
+                sb_setf(err, "cannot find sub-class `%*pM' of class `%*pM`",
+                        PS_FMT_ARG(&cast_ps), LSTR_FMT_ARG(st->fullname));
+            }
+            return -1;
+        }
+    }
 
     if (ps_get_ps_chr_and_skip(field_path_ps, '.', &field_ps) < 0) {
         /* We reached the end of the path: this field is the last field. */
@@ -151,11 +185,17 @@ iop_get_field_const(const void *ptr, const iop_struct_t *st, lstr_t path,
         iop_field_path_parse_t field_parse;
 
         RETHROW_P(ptr);
-        RETHROW_NP(parse_field_from_path(&ps, false, &field_parse, NULL));
+        RETHROW_NP(parse_field_from_path(&ps, false, st, &field_parse, NULL));
 
         if (iop_struct_is_class(st)) {
             st = *(const iop_struct_t **)ptr;
+
+            /* Throw an error if the type of the object is not a sub-class of
+             * the explicit cast class. */
+            THROW_NULL_IF(field_parse.cast_st &&
+                          !iop_class_is_a(st, field_parse.cast_st));
         }
+
         RETHROW_NP(iop_field_find_by_name(st,
                                           LSTR_PS_V(&field_parse.field_name),
                                           out_st, &iop_field));
@@ -2206,13 +2246,20 @@ iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
     while (!ps_done(&field_path_ps)) {
         iop_field_path_parse_t field_parse;
 
-        RETHROW(parse_field_from_path(&field_path_ps, true, &field_parse,
+        RETHROW(parse_field_from_path(&field_path_ps, true, it, &field_parse,
                                       err));
         if (field_parse.wildcard && !(flags & FIELD_PATH_ALLOW_WILDCARD)) {
             if (err) {
                 sb_sets(err, "unexpected wildcard");
             }
             return -1;
+        }
+
+        if (field_parse.cast_st) {
+            it = field_parse.cast_st;
+            step = field_step_init(qv_growlen(&fp->steps, 1));
+            step->type = FIELD_STEP_TYPE_OBJ_CAST;
+            step->u.subclass_st = it;
         }
 
         if (ps_strequal(&field_parse.field_name, "_class")) {
@@ -2251,6 +2298,10 @@ iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
                     return -1;
                 }
                 it = *(const iop_struct_t **)value;
+
+                assert(!field_parse.cast_st ||
+                       iop_class_is_a(it, field_parse.cast_st));
+
                 if (iop_field_find_by_name(it,
                                            LSTR_PS_V(&field_parse.field_name),
                                            &it, &fdesc) >= 0)

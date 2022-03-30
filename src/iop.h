@@ -567,6 +567,8 @@ typedef struct iop_field_path_t iop_field_path_t;
  *     specified by the field. Can only be used on class and at the end of the
  *     field path.
  *     - Array length: 'array.len': use the array length.
+ *     - Explicit class cast: 'item.<iop.Type>obj': cast the object to the
+ *     specified class before getting the field of the object.
  * \param[out] err  The error description in case of error.
  * \return The IOP field path allocated on the memory pool. NULL in case of
  * error.

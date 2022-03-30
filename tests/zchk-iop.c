@@ -4870,35 +4870,57 @@ Z_GROUP_EXPORT(iop)
 
         TEST_SCALAR(tstiop__my_struct_f, "f.int1", NULL, IOP_T_I32, false);
         TEST_ERROR(tstiop__my_struct_f, "f.int2", NULL,
-                   "cannot process field path `f.int2', field `int2' is unknown "
-                   "in structure `tstiop.MyClass1'");
+                   "cannot process field path `f.int2', field `int2' is "
+                   "unknown in structure `tstiop.MyClass1'");
         TEST_SCALAR(tstiop__my_struct_f, "f.int2", &msf, IOP_T_I32, false);
         TEST_ERROR(tstiop__my_struct_f, "f.int4", &msf,
-                   "cannot process field path `f.int4', field `int4' is unknown "
-                   "in structure `tstiop.MyClass3'");
+                   "cannot process field path `f.int4', field `int4' is "
+                   "unknown in structure `tstiop.MyClass3'");
+        TEST_SCALAR(tstiop__my_struct_f, "f.<tstiop.MyClass2>int2", NULL,
+                    IOP_T_I32, false);
+        TEST_SCALAR(tstiop__my_struct_f, "f.<tstiop.MyClass2>int3", &msf,
+                    IOP_T_I32, false);
+        TEST_ERROR(tstiop__my_struct_f, "f.<tstiop.My", &msf,
+                   "unable to find ending of explicit cast");
+        TEST_ERROR(tstiop__my_struct_f, "c[0].<tstiop.MyClass2>int3", &msf,
+                   "explicit cast `tstiop.MyClass2' can not be used on "
+                   "type `tstiop.MyStructB` which is not a class");
+        TEST_ERROR(tstiop__my_struct_f, "f.<tstiop.MyClass1After>int1", &msf,
+                   "cannot find sub-class `tstiop.MyClass1After' of class "
+                   "`tstiop.MyClass1`");
+        TEST_ERROR(tstiop__my_struct_a, "cls2.<tstiop.MyClass2Bis>int2", NULL,
+                   "cannot find sub-class `tstiop.MyClass2Bis' of class "
+                   "`tstiop.MyClass2`");
+        TEST_ERROR(tstiop__my_struct_f, "f.<tstiop.MyClass2Bis>int3", &msf,
+                   "the path up to the field `int3` is not valid for the "
+                   "provided value");
 
         msf.e = T_IOP_ARRAY_NEW(tstiop__my_class1, 1);
         msf.e.tab[0] = &mc.super.super;
         TEST_ERROR(tstiop__my_struct_f, "e[0].int2", NULL,
-                   "cannot process field path `e[0].int2', field `int2' is unknown "
-                   "in structure `tstiop.MyClass1'");
+                   "cannot process field path `e[0].int2', field `int2' is "
+                   "unknown in structure `tstiop.MyClass1'");
         TEST_SCALAR(tstiop__my_struct_f, "e[0].int2", &msf, IOP_T_I32, false);
         TEST_ERROR(tstiop__my_struct_f, "e[*].int2", &msf,
                    "unexpected wildcard");
         TEST_ERROR(tstiop__my_struct_f, "e[8].int2", &msf,
                    "the path up to the field `int2` is not valid for the "
                    "provided value");
+        TEST_SCALAR(tstiop__my_struct_f, "e[0].<tstiop.MyClass2>int2", NULL,
+                    IOP_T_I32, false);
 
         TEST_SCALAR(tstiop__my_class3, "int2", &mc, IOP_T_I32, false);
         TEST_SCALAR(tstiop__my_class1, "int2", &mc, IOP_T_I32, false);
         TEST_ERROR(tstiop__my_class1, "int2", NULL,
-                   "cannot process field path `int2', field `int2' is unknown "
-                   "in structure `tstiop.MyClass1'");
+                   "cannot process field path `int2', field `int2' is "
+                   "unknown in structure `tstiop.MyClass1'");
+        TEST_SCALAR(tstiop__my_class1, "<tstiop.MyClass3>int2", NULL,
+                    IOP_T_I32, false);
 
         iop_init(tstiop__my_class3, &mc2);
         mc.next_class = &mc2.super.super;
-        TEST_SCALAR(tstiop__my_struct_f, "e[0].nextClass.bool1", &msf, IOP_T_BOOL,
-                    false);
+        TEST_SCALAR(tstiop__my_struct_f, "e[0].nextClass.bool1", &msf,
+                    IOP_T_BOOL, false);
 
 #undef TEST_SCALAR
 #undef TEST_ST
