@@ -2124,18 +2124,13 @@ field_step_run(const field_step_t *step, const void **data)
 }
 
 /* Get the field(s) associated to a field path for a given IOP
- * struct/class/union either with a callback or by getting a value. */
+ * struct/class/union either with a callback. */
 static iop_value_from_field_res_t
 iop_field_path_run(const iop_field_path_t *nonnull field_path,
                    const void *nonnull data, int step_offset,
-                   const void **nullable value,
-                   iop_ptr_cb_b nullable on_value)
+                   iop_ptr_cb_b nonnull on_value)
 {
     const iop_field_t *fdesc = field_path->fdesc;
-
-    /* XXX Either we use the block callback or we return a value. We cannot do
-     * both. */
-    assert (!value || !on_value);
 
     for (int i = step_offset; i < field_path->steps.len; i++) {
         const field_step_t *step = &field_path->steps.tab[i];
@@ -2144,16 +2139,11 @@ iop_field_path_run(const iop_field_path_t *nonnull field_path,
           case FIELD_STEP_TYPE_SCAN_ARRAY: {
             const i8__array_t *array = data;
 
-            /* This mode is for block mode only. */
-            assert (!value);
-            assert (on_value);
-
             data = array->tab;
             tab_for_each_pos(j, array) {
                 iop_value_from_field_res_t res;
 
-                res = iop_field_path_run(field_path, data, i + 1, NULL,
-                                         on_value);
+                res = iop_field_path_run(field_path, data, i + 1, on_value);
                 THROW_ERR_IF(res == IOP_FIELD_ERROR);
                 data = (const byte *)data + step->array_element_sz;
             }
@@ -2184,10 +2174,7 @@ iop_field_path_run(const iop_field_path_t *nonnull field_path,
         THROW_IF(!data, IOP_FIELD_NOT_SET);
     }
 
-    if (value) {
-        *value = data;
-    }
-    if (on_value && on_value(data) < 0) {
+    if (on_value(data) < 0) {
         return IOP_FIELD_ERROR;
     }
     return 0;
@@ -2197,7 +2184,17 @@ static int iop_get_fieldp(const void *nonnull data,
                           const iop_field_path_t *nonnull field_path,
                           const void **nonnull value)
 {
-    return iop_field_path_run(field_path, data, 0, value, NULL);
+    _Bool found = false;
+    _Bool *found_ptr = &found;
+
+    iop_field_path_run(field_path, data, 0, ^int (const void *field_ptr) {
+        *found_ptr = true;
+        *value = field_ptr;
+        /* Stop the scan when the first value has been found. */
+        return -1;
+    });
+    THROW_ERR_UNLESS(found);
+    return 0;
 }
 
 /* }}} */
@@ -2466,7 +2463,7 @@ int iop_field_path_for_each_value(const iop_field_path_t *nonnull fp,
                                   const void *nonnull st_ptr,
                                   iop_ptr_cb_b nonnull on_value)
 {
-    THROW_ERR_IF(iop_field_path_run(fp, st_ptr, 0, NULL, on_value) ==
+    THROW_ERR_IF(iop_field_path_run(fp, st_ptr, 0, on_value) ==
                  IOP_FIELD_ERROR);
     return 0;
 }
