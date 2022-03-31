@@ -2070,7 +2070,8 @@ static void iop_field_path_wipe(iop_field_path_t *fp)
 /* {{{ Get */
 
 static iop_value_from_field_res_t
-field_step_run(const field_step_t *step, const void **data)
+field_step_run(const field_step_t *step, const void **data,
+               sb_t *nullable err)
 {
     switch (step->type) {
       case FIELD_STEP_TYPE_MOVE:
@@ -2081,7 +2082,10 @@ field_step_run(const field_step_t *step, const void **data)
         /* Pointed structure or union (optional), or classes */
         *data = *((void **)*data);
         if (!(*data)) {
-            /* TODO Error for mandatory fields maybe ? */
+            /* TODO Error for mandatory fields maybe? */
+            if (err) {
+                sb_sets(err, "missing data on indirection");
+            }
             return IOP_FIELD_NOT_SET;
         }
         break;
@@ -2090,8 +2094,14 @@ field_step_run(const field_step_t *step, const void **data)
         /* Check if the selected member of the union is the one we want
          * (the one specified in field_path), and if not this object is
          * considered as NULL in the sort/filter. */
-        THROW_IF(*(const uint16_t *)*data != step->u.union_tag,
-                 IOP_FIELD_NOT_SET);
+        if (*(const uint16_t *)*data != step->u.union_tag) {
+            if (err) {
+                sb_setf(err, "invalid union tag, expected %u, got %u",
+                        step->u.union_tag, *(const uint16_t *)*data);
+
+            }
+            return IOP_FIELD_NOT_SET;
+        }
         break;
 
       case FIELD_STEP_TYPE_GOTO_INDEX: {
@@ -2103,7 +2113,13 @@ field_step_run(const field_step_t *step, const void **data)
              */
             index = array->len + index;
         }
-        THROW_IF(index >= array->len || index < 0, IOP_FIELD_NOT_SET);
+        if (index >= array->len || index < 0) {
+            if (err) {
+                sb_setf(err, "index %zd out of range for array of length %d",
+                        index, array->len);
+            }
+            return IOP_FIELD_NOT_SET;
+        }
 
         *data = array->tab + index * step->array_element_sz;
       } break;
@@ -2111,8 +2127,15 @@ field_step_run(const field_step_t *step, const void **data)
       case FIELD_STEP_TYPE_OBJ_CAST: {
         const iop_struct_t *real_st = *(const iop_struct_t **)*data;
 
-        THROW_IF(!iop_class_is_a(real_st, step->u.subclass_st),
-                 IOP_FIELD_NOT_SET);
+        if (!iop_class_is_a(real_st, step->u.subclass_st)) {
+            if (err) {
+                sb_setf(err, "invalid type of object, expected a sub-class "
+                        "of `%*pM`, got `%*pM`",
+                        LSTR_FMT_ARG(step->u.subclass_st->fullname),
+                        LSTR_FMT_ARG(real_st->fullname));
+            }
+            return IOP_FIELD_NOT_SET;
+        }
       } break;
 
       case FIELD_STEP_TYPE_SCAN_ARRAY:
@@ -2152,7 +2175,7 @@ iop_field_path_run(const iop_field_path_t *nonnull field_path,
           } break;
 
           default:
-            RETHROW(field_step_run(step, &data));
+            RETHROW(field_step_run(step, &data, NULL));
             break;
         }
     }
@@ -2205,17 +2228,19 @@ static int iop_get_fieldp(const void *nonnull data,
  * 'iop_field_path_for_each_value()'. */
 #define FIELD_PATH_ALLOW_WILDCARD  (1 << 0)
 
-static void
+static int
 field_step_fast_forward(qv_t(field_step) *nonnull steps,
-                        int *nonnull step_offset, const void **nonnull value)
+                        int *nonnull step_offset, const void **nonnull value,
+                        sb_t *nullable err)
 {
     while (*step_offset < steps->len) {
-        if (field_step_run(&steps->tab[*step_offset], value) < 0) {
+        if (field_step_run(&steps->tab[*step_offset], value, err) < 0) {
             *value = NULL;
-            return;
+            return -1;
         }
         (*step_offset)++;
     }
+    return 0;
 }
 
 static int
@@ -2285,12 +2310,13 @@ iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
                  * properly resolved, get the real type instead of the parent
                  * type, and try to resolve the field name with that real
                  * type. */
-                field_step_fast_forward(&fp->steps, &step_offset, &value);
-                if (!value) {
+                if (field_step_fast_forward(&fp->steps, &step_offset, &value,
+                                            err) < 0)
+                {
                     if (err) {
-                        sb_addf(err, "the path up to the field `%*pM` is not "
-                                "valid for the provided value",
-                                PS_FMT_ARG(&field_parse.field_name));
+                        sb_prependf(err, "the path up to the field `%*pM` is "
+                                    "not valid for the provided value: ",
+                                    PS_FMT_ARG(&field_parse.field_name));
                     }
                     return -1;
                 }

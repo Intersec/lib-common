@@ -4893,7 +4893,9 @@ Z_GROUP_EXPORT(iop)
                    "`tstiop.MyClass2`");
         TEST_ERROR(tstiop__my_struct_f, "f.<tstiop.MyClass2Bis>int3", &msf,
                    "the path up to the field `int3` is not valid for the "
-                   "provided value");
+                   "provided value: invalid type of object, expected a "
+                   "sub-class of `tstiop.MyClass2Bis`, got "
+                   "`tstiop.MyClass3`");
 
         msf.e = T_IOP_ARRAY_NEW(tstiop__my_class1, 1);
         msf.e.tab[0] = &mc.super.super;
@@ -4905,7 +4907,8 @@ Z_GROUP_EXPORT(iop)
                    "unexpected wildcard");
         TEST_ERROR(tstiop__my_struct_f, "e[8].int2", &msf,
                    "the path up to the field `int2` is not valid for the "
-                   "provided value");
+                   "provided value: index 8 out of range for array of "
+                   "length 1");
         TEST_SCALAR(tstiop__my_struct_f, "e[0].<tstiop.MyClass2>int2", NULL,
                     IOP_T_I32, false);
 
