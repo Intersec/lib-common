@@ -3087,7 +3087,8 @@ void ic_spawn(ichannel_t *ic, int fd, ic_creds_f *creds_fn)
     ic->on_creds   = creds_fn;
 
     if (getsockname(fd, &su.sa, &len) < 0) {
-        logger_panic(&_G.logger, E_UNIXERR("getsockname"));
+        logger_panic(&_G.logger,
+                     "getsockname failed in ic_spawn on fd %d: %m", fd);
     }
     ic->is_unix = su.family == AF_UNIX;
 
