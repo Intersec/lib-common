@@ -398,6 +398,87 @@ static int z_test_iop_field_path_structs_last_fields(void)
     Z_HELPER_END;
 }
 
+static int z_test_iop_field_path_class_wildcards(void)
+{
+    t_scope;
+    SB_1k(err);
+    tstiop__my_struct_f__t msf;
+    tstiop__my_class1__t mc1;
+    tstiop__my_class2__t mc2;
+    tstiop__my_class3__t mc3;
+    tstiop__my_class2_bis__t mc2_bis;
+    qv_t(cvoid) *values_ptr;
+    const iop_field_path_t *fp;
+
+    /* Init objects */
+    iop_init(tstiop__my_struct_f, &msf);
+
+    iop_init(tstiop__my_class1, &mc1);
+    iop_init(tstiop__my_class2, &mc2);
+    iop_init(tstiop__my_class3, &mc3);
+    iop_init(tstiop__my_class2_bis, &mc2_bis);
+    msf.e = T_IOP_ARRAY_NEW(tstiop__my_class1, 4);
+    msf.e.tab[0] = &mc1;
+    msf.e.tab[1] = &mc2.super;
+    msf.e.tab[2] = &mc3.super.super;
+    msf.e.tab[3] = &mc2_bis.super;
+
+    /* Retrieve every objects values with e[*].int1 */
+    values_ptr = t_qv_new(cvoid, 4);
+    fp = t_iop_field_path_compile(&tstiop__my_struct_f__s,
+                                  LSTR("e[*].int1"), &err);
+    Z_ASSERT_P(fp, "%pL", &err);
+    iop_field_path_for_each_value(fp, &msf, ^int (const void *v) {
+        qv_append(values_ptr, v);
+        return 0;
+    });
+    Z_ASSERT_EQ(values_ptr->len, 4);
+    Z_ASSERT(values_ptr->tab[0] == &mc1.int1);
+    Z_ASSERT(values_ptr->tab[1] == &mc2.int1);
+    Z_ASSERT(values_ptr->tab[2] == &mc3.int1);
+    Z_ASSERT(values_ptr->tab[3] == &mc2_bis.int1);
+
+    /* Retrieve values of mc2 and mc3 with e[*].<tstiop.MyClass2>int2 */
+    qv_clear(values_ptr);
+    fp = t_iop_field_path_compile(&tstiop__my_struct_f__s,
+                                  LSTR("e[*].<tstiop.MyClass2>int2"), &err);
+    Z_ASSERT_P(fp, "%pL", &err);
+    iop_field_path_for_each_value(fp, &msf, ^int (const void *v) {
+        qv_append(values_ptr, v);
+        return 0;
+    });
+    Z_ASSERT_EQ(values_ptr->len, 2);
+    Z_ASSERT(values_ptr->tab[0] == &mc2.int2);
+    Z_ASSERT(values_ptr->tab[1] == &mc3.int2);
+
+    /* Retrieve value of mc3 with e[*].<tstiop.MyClass3>int3 */
+    qv_clear(values_ptr);
+    fp = t_iop_field_path_compile(&tstiop__my_struct_f__s,
+                                  LSTR("e[*].<tstiop.MyClass3>int3"), &err);
+    Z_ASSERT_P(fp, "%pL", &err);
+    iop_field_path_for_each_value(fp, &msf, ^int (const void *v) {
+        qv_append(values_ptr, v);
+        return 0;
+    });
+    Z_ASSERT_EQ(values_ptr->len, 1);
+    Z_ASSERT(values_ptr->tab[0] == &mc3.int3);
+
+    /* Retrieve value of mc2_bis with e[*].<tstiop.MyClass2Bis>int2 */
+    qv_clear(values_ptr);
+    fp = t_iop_field_path_compile(&tstiop__my_struct_f__s,
+                                  LSTR("e[*].<tstiop.MyClass2Bis>int2"),
+                                  &err);
+    Z_ASSERT_P(fp, "%pL", &err);
+    iop_field_path_for_each_value(fp, &msf, ^int (const void *v) {
+        qv_append(values_ptr, v);
+        return 0;
+    });
+    Z_ASSERT_EQ(values_ptr->len, 1);
+    Z_ASSERT(values_ptr->tab[0] == &mc2_bis.int2);
+
+    Z_HELPER_END;
+}
+
 /* }}} */
 
 /* }}} */
@@ -435,6 +516,7 @@ Z_GROUP_EXPORT(iop_blk) {
     Z_TEST(iop_field_path, "test iop_field_path") { /* {{{ */
         Z_HELPER_RUN(z_test_iop_field_path_htab());
         Z_HELPER_RUN(z_test_iop_field_path_structs_last_fields());
+        Z_HELPER_RUN(z_test_iop_field_path_class_wildcards());
     } Z_TEST_END
     /* }}} */
 } Z_GROUP_END;

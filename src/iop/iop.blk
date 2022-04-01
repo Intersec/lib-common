@@ -96,7 +96,6 @@ typedef struct iop_field_path_parse_t {
 /** Parses a field with syntax described for \ref mp_iop_field_path_compile.
  */
 static int parse_field_from_path(pstream_t *field_path_ps,
-                                 bool support_wildcard,
                                  const iop_struct_t *st,
                                  iop_field_path_parse_t *field_parse,
                                  sb_t *nullable err)
@@ -146,7 +145,7 @@ static int parse_field_from_path(pstream_t *field_path_ps,
     if (ps_get_ps_chr_and_skip(&field_ps, '[', &field_parse->field_name) >= 0)
     {
         errno = 0;
-        if (support_wildcard && ps_skipc(&field_ps, '*') >= 0) {
+        if (ps_skipc(&field_ps, '*') >= 0) {
             field_parse->wildcard = true;
         } else {
             field_parse->array_index = (opt_i32_t)OPT(ps_geti(&field_ps));
@@ -185,7 +184,7 @@ iop_get_field_const(const void *ptr, const iop_struct_t *st, lstr_t path,
         iop_field_path_parse_t field_parse;
 
         RETHROW_P(ptr);
-        RETHROW_NP(parse_field_from_path(&ps, false, st, &field_parse, NULL));
+        RETHROW_NP(parse_field_from_path(&ps, st, &field_parse, NULL));
 
         if (iop_struct_is_class(st)) {
             st = *(const iop_struct_t **)ptr;
@@ -2074,11 +2073,11 @@ field_step_run(const field_step_t *step, const void **data,
                sb_t *nullable err)
 {
     switch (step->type) {
-      case FIELD_STEP_TYPE_MOVE:
+    case FIELD_STEP_TYPE_MOVE:
         *data = ((const byte *)*data) + step->u.offset;
         break;
 
-      case FIELD_STEP_TYPE_INDIRECTION:
+    case FIELD_STEP_TYPE_INDIRECTION:
         /* Pointed structure or union (optional), or classes */
         *data = *((void **)*data);
         if (!(*data)) {
@@ -2090,7 +2089,7 @@ field_step_run(const field_step_t *step, const void **data,
         }
         break;
 
-      case FIELD_STEP_TYPE_UNION_FIELD:
+    case FIELD_STEP_TYPE_UNION_FIELD:
         /* Check if the selected member of the union is the one we want
          * (the one specified in field_path), and if not this object is
          * considered as NULL in the sort/filter. */
@@ -2104,7 +2103,7 @@ field_step_run(const field_step_t *step, const void **data,
         }
         break;
 
-      case FIELD_STEP_TYPE_GOTO_INDEX: {
+    case FIELD_STEP_TYPE_GOTO_INDEX: {
         const i8__array_t *array = *data;
         ssize_t index = step->u.index;
 
@@ -2124,7 +2123,7 @@ field_step_run(const field_step_t *step, const void **data,
         *data = array->tab + index * step->array_element_sz;
       } break;
 
-      case FIELD_STEP_TYPE_OBJ_CAST: {
+    case FIELD_STEP_TYPE_OBJ_CAST: {
         const iop_struct_t *real_st = *(const iop_struct_t **)*data;
 
         if (!iop_class_is_a(real_st, step->u.subclass_st)) {
@@ -2138,9 +2137,12 @@ field_step_run(const field_step_t *step, const void **data,
         }
       } break;
 
-      case FIELD_STEP_TYPE_SCAN_ARRAY:
-        assert (false);
-        break;
+    case FIELD_STEP_TYPE_SCAN_ARRAY:
+        if (err) {
+            sb_sets(err, "cannot use wildcard indexing with dynamic class "
+                    "cast, use explicit class cast instead");
+        }
+        return IOP_FIELD_ERROR;
     }
 
     return 0;
@@ -2223,11 +2225,6 @@ static int iop_get_fieldp(const void *nonnull data,
 /* }}} */
 /* {{{ Compile */
 
-/* Allow the field paths to contain wildcards array indexes '[*]'.
- * Field paths with wildcards can only be run with
- * 'iop_field_path_for_each_value()'. */
-#define FIELD_PATH_ALLOW_WILDCARD  (1 << 0)
-
 static int
 field_step_fast_forward(qv_t(field_step) *nonnull steps,
                         int *nonnull step_offset, const void **nonnull value,
@@ -2245,8 +2242,8 @@ field_step_fast_forward(qv_t(field_step) *nonnull steps,
 
 static int
 iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
-                       int flags, const void *nullable value,
-                       iop_field_path_t *fp, sb_t *err)
+                       const void *nullable value, iop_field_path_t *fp,
+                       sb_t *nullable err)
 {
     const iop_field_t *fdesc = NULL;
     pstream_t field_path_ps = ps_initlstr(&field_path_s);
@@ -2268,14 +2265,8 @@ iop_compile_field_path(const iop_struct_t *st, lstr_t field_path_s,
     while (!ps_done(&field_path_ps)) {
         iop_field_path_parse_t field_parse;
 
-        RETHROW(parse_field_from_path(&field_path_ps, true, it, &field_parse,
+        RETHROW(parse_field_from_path(&field_path_ps, it, &field_parse,
                                       err));
-        if (field_parse.wildcard && !(flags & FIELD_PATH_ALLOW_WILDCARD)) {
-            if (err) {
-                sb_sets(err, "unexpected wildcard");
-            }
-            return -1;
-        }
 
         if (field_parse.cast_st) {
             it = field_parse.cast_st;
@@ -2439,9 +2430,7 @@ mp_iop_field_path_compile(mem_pool_t *nullable mp,
     iop_field_path_t *fp;
 
     fp = mp_iop_field_path_init(mp, mp_new_raw(mp, iop_field_path_t, 1));
-    RETHROW_NP(iop_compile_field_path(st, path, FIELD_PATH_ALLOW_WILDCARD,
-                                      NULL, fp, err));
-
+    RETHROW_NP(iop_compile_field_path(st, path, NULL, fp, err));
     return fp;
 }
 
@@ -2503,7 +2492,7 @@ int iop_obj_get_field_type(const iop_struct_t *nonnull st,
     iop_field_path_t *fp;
 
     fp = t_iop_field_path_init(t_new_raw(iop_field_path_t, 1));
-    RETHROW(iop_compile_field_path(st, path, 0, value, fp, err));
+    RETHROW(iop_compile_field_path(st, path, value, fp, err));
 
     iop_field_path_get_type(fp, type, is_array);
     return 0;
@@ -2668,8 +2657,8 @@ int iop_msort_desc(const iop_struct_t *st, void *vec, int len,
         iop_sort_priv_t *priv = &sorts.tab[pos];
 
         t_iop_field_path_init(&priv->fp);
-        RETHROW(iop_compile_field_path(st, sort->field_path, 0, NULL,
-                                       &priv->fp, err));
+        RETHROW(iop_compile_field_path(st, sort->field_path, NULL, &priv->fp,
+                                       err));
 
         if (priv->fp.fdesc
         &&  priv->fp.fdesc->type == IOP_T_VOID
@@ -2968,8 +2957,7 @@ __t_iop_filter(const iop_struct_t *st, const void *vec, int len,
     size_t elem_size = is_pointer ? sizeof(void *) : st->size;
 
     t_iop_field_path_init(&fp);
-    /* TODO Support wildcards. */
-    RETHROW(iop_compile_field_path(st, field_path, 0, NULL, &fp, err));
+    RETHROW(iop_compile_field_path(st, field_path, NULL, &fp, err));
     assert (fp.is_typename || fp.fdesc);
 
     if (OPT_ISSET(is_set)) {

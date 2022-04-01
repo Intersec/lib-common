@@ -641,8 +641,6 @@ void iop_field_path_get_type(const iop_field_path_t *nonnull fp,
  * it will be able to resolve the type, if the given IOP object has the right
  * subclass in this path.
  *
- * \warning. Wildcard indexes cannot be used with this function.
- *
  * \param[in] st         Type of the IOP object.
  * \param[in] value      Pointer to the IOP object.
  * \param[in] path       Path to the IOP field. See
@@ -814,6 +812,9 @@ enum iop_sort_flags {
  * Prefer the macro versions iop_sort() and iop_obj_sort() instead of this
  * low-level API.
  *
+ * \warning Using wildcard indexes that can match multiple values is undefined
+ *          behavour.
+ *
  *  \param[in] st          The IOP structure definition (__s).
  *  \param[in] vec         Array of objects to sort. If st is a class, this
  *                         must be an array of pointers on the elements, and
@@ -947,6 +948,9 @@ enum iop_filter_flags {
  *  When the field is repeated, the function looks for the first occurrence of
  *  values in the field.
  *  Example: [ 1, 2, 3 ] and values = [ 3 ] => true.
+ *
+ * \warning Using wildcard indexes that can match multiple values is undefined
+ *          behavour.
  *
  *  \param[in] st             The IOP structure definition (__s).
  *  \param[in/out] vec        Array of objects to filter. If st is a class,
