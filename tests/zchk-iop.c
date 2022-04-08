@@ -2498,6 +2498,9 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *st_cls2, *st_sg, *st_uc;
 
         const char json_sg_p1[] = "{ \"c_of_g\": 42 }";
+        const char json_sg_p2[] = "{ \"c_of_g\": 42;\n"
+                                  "  \"unknown-a-b-c\": 42;\n"
+                                  "}";
         const char json_uc_p1[] = "{ d_of_c: 3.141592653589793238462643383 }";
 
         /* }}} */
@@ -2575,6 +2578,16 @@ Z_GROUP_EXPORT(iop)
         Z_HELPER_RUN(iop_json_test_unpack(st_uc, json_uc_p1,
                                           IOP_UNPACK_USE_C_CASE, true,
                                           "json_uc_p1"));
+
+        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p2, 0, false,
+                                          "json_sg_p2"));
+        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p2,
+                                          IOP_UNPACK_USE_C_CASE, false,
+                                          "json_sg_p2"));
+        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p2,
+                                          IOP_UNPACK_USE_C_CASE |
+                                          IOP_UNPACK_IGNORE_UNKNOWN, true,
+                                          "json_sg_p2"));
 
         /* Test iop_jpack_file failure */
         Z_ASSERT_NEG(iop_jpack_file("/proc/path/to/unknown/dir.json", st_sk,

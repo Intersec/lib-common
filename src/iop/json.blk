@@ -1458,10 +1458,9 @@ static int unpack_union(iop_json_lex_t *ll, const iop_struct_t *desc,
             lstr_t name = LSTR_SB_V(&ll->ctx->b);
 
             if (ll->flags & IOP_UNPACK_USE_C_CASE) {
-                if (c_to_camelcase(name, false, &camelcase_name) < 0) {
-                    return RJERROR_EXP("a valid union member name");
+                if (c_to_camelcase(name, false, &camelcase_name) >= 0) {
+                    name = LSTR_SB_V(&camelcase_name);
                 }
-                name = LSTR_SB_V(&camelcase_name);
             }
             if (iop_field_find_by_name(desc, name, NULL, &fdesc) < 0) {
                 return RJERROR_EXP("a valid union member name");
@@ -1703,11 +1702,9 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
                 if (ll->flags & IOP_UNPACK_USE_C_CASE) {
                     sb_reset(&camelcase_name);
 
-                    if (c_to_camelcase(name, false, &camelcase_name) < 0) {
-                        return RJERROR_EXP_FMT("field of struct %s",
-                                               real_desc->fullname.s);
+                    if (c_to_camelcase(name, false, &camelcase_name) >= 0) {
+                        name = LSTR_SB_V(&camelcase_name);
                     }
-                    name = LSTR_SB_V(&camelcase_name);
                 }
                 ifield = iop_field_find_by_name(real_desc, name, &desc,
                                                 &fdesc);
