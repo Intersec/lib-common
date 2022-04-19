@@ -206,14 +206,19 @@ int addr_resolve2(const char * nonnull what, const lstr_t s,
                   in_port_t * nullable out_port,
                   sb_t * nullable err);
 
+static inline int
+addr_resolve_with_err(const char * nonnull what, const lstr_t s,
+                      sockunion_t * nonnull out, sb_t * nullable err)
+{
+    return addr_resolve2(what, s, 1, -1, out, NULL, NULL, err);
+}
+
 static inline int addr_resolve(const char * nonnull what, const lstr_t s,
                                sockunion_t * nonnull out)
 {
     SB_1k(err);
-    pstream_t host;
-    in_port_t port;
 
-    if (addr_resolve2(what, s, 1, -1, out, &host, &port, &err) < 0) {
+    if (addr_resolve_with_err(what, s, out, &err) < 0) {
         e_error("%*pM", SB_FMT_ARG(&err));
         return -1;
     }

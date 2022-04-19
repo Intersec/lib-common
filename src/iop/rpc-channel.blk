@@ -3055,12 +3055,12 @@ static int __ic_connect(ichannel_t *ic, int flags, int timeout)
         ic->is_seqpacket = false;
 
         if (ic->remote_addr.s) {
-            if (addr_resolve(ic->name.s, ic->remote_addr, &ic->su) < 0) {
-                t_scope;
+            SB_1k(err);
 
-                logger_warning(&_G.logger, "cannot resolve%s address `%pL`",
-                               ic->name.s ? t_fmt(" `%pL`", &ic->name) : "",
-                               &ic->remote_addr);
+            if (addr_resolve_with_err(ic->name.s, ic->remote_addr, &ic->su,
+                                      &err) < 0)
+            {
+                logger_warning(&_G.logger, "%pL", &err);
                 if (ic->auto_reconn) {
                     ic_mark_disconnected(ic);
                     return 0;
