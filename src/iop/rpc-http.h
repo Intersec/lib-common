@@ -625,6 +625,8 @@ typedef void (*on_connection_error_f)(http_iop_channel_remote_t *remote,
 typedef void (*on_ready_f)(http_iop_channel_t *);
 
 struct http_iop_channel_t {
+    lstr_t name;
+
     qv_t(http_iop_channel_remote) remotes;
 
     lstr_t user;
@@ -651,6 +653,12 @@ struct http_iop_channel_t {
 };
 
 typedef struct http_iop_channel_cfg_t {
+    /** Name of the http iop channel.
+     *
+     * This name is used for exploitability purposes only.
+     */
+    lstr_t name;
+
     /** The URLs of the remote.
      *
      * There must be at leat one URL. Others are used in a failover mode, in

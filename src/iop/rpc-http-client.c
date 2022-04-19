@@ -77,6 +77,7 @@ http_iop_channel_t *http_iop_channel_init(http_iop_channel_t *channel)
 }
 void http_iop_channel_wipe(http_iop_channel_t *channel)
 {
+    lstr_wipe(&channel->name);
     lstr_wipe(&channel->user);
     lstr_wipe(&channel->password);
     qv_deep_wipe(&channel->remotes, http_iop_channel_remote_delete);
@@ -231,6 +232,7 @@ http_iop_channel_create(const http_iop_channel_cfg_t *cfg, sb_t *err)
                                               10 * 1000);
     res->response_max_size = OPT_DEFVAL(cfg->response_max_size, 1 << 20);
     res->encode_url = OPT_DEFVAL(cfg->encode_url, true);
+    res->name = lstr_dup(cfg->name);
     res->user = lstr_dup(cfg->user);
     res->password = lstr_dup(cfg->password);
     res->on_connection_error_cb = cfg->on_connection_error_cb;
@@ -246,17 +248,17 @@ http_iop_channel_create(const http_iop_channel_cfg_t *cfg, sb_t *err)
         http_iop_channel_remote_t *remote;
 
         remote = http_iop_channel_remote_new();
-        if (parse_http_url(url.s, true, &remote->url) < 0 ||
-            addr_info_str(&remote->pool.su, remote->url.host,
-                          remote->url.port, AF_UNSPEC) < 0)
-        {
+        if (parse_http_url(url.s, true, &remote->url) < 0) {
             sb_setf(err, "cannot parse URL `%*pM`", LSTR_FMT_ARG(url));
             http_iop_channel_remote_delete(&remote);
             goto error;
         }
 
+        remote->pool.name = lstr_dupc(res->name);
         remote->pool.host = lstr_fmt("%s:%d", remote->url.host,
                                      remote->url.port);
+        remote->pool.resolve_on_connect = true;
+
         remote->base_path = LSTR(remote->url.path_without_args);
         if (httpc_cfg_from_iop(remote->pool.cfg, cfg->iop_cfg) < 0) {
             sb_sets(err, "cannot create channel from IOP configuration");
