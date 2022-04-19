@@ -2478,6 +2478,7 @@ void httpc_pool_wipe(httpc_pool_t *pool, bool wipe_conns)
             httpc_pool_detach(w);
         }
     }
+    lstr_wipe(&pool->name);
     lstr_wipe(&pool->host);
     httpc_cfg_delete(&pool->cfg);
 }
@@ -2517,6 +2518,17 @@ void httpc_pool_attach(httpc_t *w, httpc_pool_t *pool)
 
 httpc_t *httpc_pool_launch(httpc_pool_t *pool)
 {
+    if (pool->resolve_on_connect) {
+        SB_1k(err);
+        const char *what = pool->name.s ?: "httpc pool";
+
+        assert(pool->host.s);
+        if (addr_resolve_with_err(what, pool->host, &pool->su, &err) < 0) {
+            logger_warning(&_G.logger, "%pL", &err);
+            return NULL;
+        }
+    }
+
     return httpc_connect_as(&pool->su, pool->su_src, pool->cfg, pool);
 }
 
@@ -2534,8 +2546,7 @@ httpc_t *httpc_pool_get(httpc_pool_t *pool)
         if (httpc_pool_reach_limit(pool)) {
             return NULL;
         }
-        httpc = RETHROW_P(httpc_connect_as(&pool->su, pool->su_src, pool->cfg,
-                                           pool));
+        httpc = RETHROW_P(httpc_pool_launch(pool));
         /* As we are establishing the connection, busy will be true until it
          * is connected. Thus, we will always return NULL here unless you
          * force this flag to false in the on_busy callback for some specific

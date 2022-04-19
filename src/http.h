@@ -822,9 +822,39 @@ void     httpc_close_gently(httpc_t * nonnull);
 
 struct httpc_pool_t {
     httpc_cfg_t * nonnull cfg;
-    lstr_t       host;
-    sockunion_t  su;
-    sockunion_t * nullable su_src; /* to connect using a specific network interface */
+
+    /** Name of the httpc pool.
+     *
+     * This name is used for exploitability purposes only.
+     * It is wiped on \ref httpc_pool_wipe().
+     */
+    lstr_t name;
+
+    /** The host to connect to.
+     *
+     * It is wiped on \ref httpc_pool_wipe().
+     * Used to resolve \ref su when \ref resolve_on_connect is set.
+     */
+    lstr_t host;
+
+    /** The resolved address to connect to.
+     *
+     * Unless \ref resolve_on_connect is set, this needs to be resolved
+     * manually before using \ref httpc_pool_launch() or \ref
+     * httpc_pool_get().
+     */
+    sockunion_t su;
+
+    /** Resolve \ref su from \ref host on connection.
+     *
+     * Instead of manually resolve \ref su, when this is set to true, \ref su
+     * is resolved from \ref host before making the connection in
+     * \ref httpc_pool_launch() or \ref httpc_pool_get().
+     */
+    bool resolve_on_connect;
+
+    /** To connect using a specific network interface. */
+    sockunion_t * nullable su_src;
 
     int          len;
     int          max_len;
