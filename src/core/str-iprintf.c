@@ -480,7 +480,7 @@ ssize_t fmt_output_chunk(FILE *stream, char *str, size_t size,
 static int fmt_output(FILE *stream, char *str, size_t size,
                       const char *format, va_list ap)
 {
-    char buf[(64 + 2) / 3 + 1 + 1];
+    char buf[64];
     int c, count, len, width, prec, base, flags, type_flags;
     int left_pad, prefix_len, zero_pad, right_pad;
     const char *lp;
