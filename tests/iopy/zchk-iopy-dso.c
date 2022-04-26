@@ -16,7 +16,11 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <Python.h>
+#define PY_SSIZE_T_CLEAN 1
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wredundant-decls"
+# include <Python.h>
+#pragma GCC diagnostic pop
 
 #include <dlfcn.h>
 
@@ -108,6 +112,7 @@ static void z_iopy_dso_initialize_(void)
     PyObject *iopy_module;
     PyObject *script;
     lstr_t plugin_file;
+    Py_ssize_t plugin_file_len;
     const char *iopy_dso_path;
 
     /* Get farch entry */
@@ -134,9 +139,10 @@ static void z_iopy_dso_initialize_(void)
     /* Get plugin */
     plugin_file = t_lstr_fmt("%*pMtestsuite/test-iop-plugin.so",
                              LSTR_FMT_ARG(z_cmddir_g));
+    plugin_file_len = plugin_file.len;
     _G.plugin = PyObject_CallMethod(iopy_module, (char *)"Plugin",
                                     (char *)"s#", plugin_file.s,
-                                    plugin_file.len);
+                                    plugin_file_len);
     if (!_G.plugin) {
         e_fatal("unable to create plugin from iopy module: %s",
                 t_z_fetch_py_err());
