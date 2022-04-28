@@ -123,7 +123,9 @@ def get_huffman_code_table_from(rfc_fn):
 def get_huffman_encoding_table_as_c_array(rfc_fn, tbl_elem_t, tbl_name):
     code_tab = get_huffman_code_table_from(rfc_fn)
     lines = list(
-        f"/* sym ({sym:3d}) */ {{{hex(code):10s}, {bitlen:2d}}}"
+        "/* sym ({sym:3d}) */ {{{code:10s}, {bitlen:2d}}}".format(
+            sym=sym, code=hex(code), bitlen=bitlen,
+        )
         for sym, code, bitlen, _ in code_tab)
     content = "{\n  " + ",\n  ".join(lines) + "\n}"
     array_dec = "{} {}[{} + 1] = {};".format(
@@ -245,7 +247,10 @@ def compact_prefix(prefix):
     else:
         nibbles = le // 4
         val = int(prefix[0:nibbles * 4], 2)
-        label = f"{val:0{nibbles}X}:{prefix[nibbles * 4:]:s}"
+        prefix_nibbles = prefix[nibbles * 4:]
+        label = "{val:0{nibbles}X}:{prefix_nibbles:s}".format(
+            val=val, nibbles=nibbles, prefix_nibbles=prefix_nibbles,
+        )
 
     return label
 
