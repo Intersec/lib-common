@@ -1,6 +1,6 @@
 ###########################################################################
 #                                                                         #
-# Copyright 2021 INTERSEC SA                                              #
+# Copyright 2022 INTERSEC SA                                              #
 #                                                                         #
 # Licensed under the Apache License, Version 2.0 (the "License");         #
 # you may not use this file except in compliance with the License.        #
@@ -41,12 +41,6 @@ ipdb = "~=0.12.0"
 
 # python linter
 pylint = "==2.4.4"
-
-# array computing, used in benchmarks.
-numpy = "~=1.18.0"
-
-# 2D graphics, used in benchmarks.
-matplotlib = "~=3.0.0"
 
 [tool.poetry.dependencies]
 # Require at least Python version 3.5

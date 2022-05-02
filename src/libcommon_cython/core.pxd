@@ -1,6 +1,6 @@
 ###########################################################################
 #                                                                         #
-# Copyright 2021 INTERSEC SA                                              #
+# Copyright 2022 INTERSEC SA                                              #
 #                                                                         #
 # Licensed under the Apache License, Version 2.0 (the "License");         #
 # you may not use this file except in compliance with the License.        #
@@ -58,10 +58,12 @@ cdef extern from "<lib-common/libcommon_cython/core.h>" nogil:
     char *t_fmt(const char *, ...)
     lstr_t t_lstr_fmt(const char *, ...)
 
+    ctypedef char sb_static_buf_t[0]
+    ctypedef sb_static_buf_t sb_buf_1k_t
+    ctypedef sb_static_buf_t sb_buf_8k_t
+
     ctypedef sb_t sb_scope_t
-    sb_scope_t sb_scope_init(int)
-    sb_scope_t sb_scope_init_1k()
-    sb_scope_t sb_scope_init_8k()
+    sb_scope_t sb_scope_init_static(sb_static_buf_t)
     sb_scope_t t_sb_scope_init(int)
     sb_scope_t t_sb_scope_init_1k()
     sb_scope_t t_sb_scope_init_8k()
@@ -204,59 +206,26 @@ cdef inline str lstr_to_py_str(lstr_t lstr):
     return c_str_len_to_py_str(lstr.s, lstr.len)
 
 
-cdef inline lstr_t mp_lstr_opt_force_alloc(mem_pool_t *mp, lstr_t val,
-                                           cbool force_alloc):
-    """Force allocation of lstr_t if needed.
-
-    Parameters
-    ----------
-    mp
-        The memory pool used in case of allocations.
-    val
-        The lstr_t value.
-    force_alloc
-        If True, the value will be allocated with the memory pool.
-
-    Returns
-    -------
-        The lstr string.
-    """
-    if force_alloc:
-        val = mp_lstr_dup(mp, val)
-    return val
-
-
-cdef inline lstr_t mp_py_bytes_to_lstr(mem_pool_t *mp, bytes obj,
-                                       cbool force_alloc):
+cdef inline lstr_t py_bytes_to_lstr(bytes obj):
     """Convert python bytes to lstr_t.
 
     Parameters
     ----------
-    mp
-        The memory pool used in case of allocations.
     obj
         The python bytes to convert.
-    force_alloc
-        Force the new lstr_t to be allocated on the memory pool. If false, we
-        use preferably the internal buffer of the object.
 
     Returns
     -------
         The lstr string.
     """
-    cdef lstr_t res = LSTR_INIT_V(obj, len(obj))
-
-    return mp_lstr_opt_force_alloc(mp, res, force_alloc)
+    return LSTR_INIT_V(obj, len(obj))
 
 
-cdef inline lstr_t mp_py_str_to_lstr(mem_pool_t *mp, str obj,
-                                     cbool force_alloc) except *:
+cdef inline lstr_t py_str_to_lstr(str obj) except *:
     """Convert python str to lstr_t.
 
     Parameters
     ----------
-    mp
-        The memory pool used in for allocations.
     obj
         The python str to convert.
 
@@ -266,19 +235,13 @@ cdef inline lstr_t mp_py_str_to_lstr(mem_pool_t *mp, str obj,
     """
     cdef const char *val
     cdef Py_ssize_t size
-    cdef lstr_t res
 
-    if PY_VERSION_HEX >= 0x03030000:
-        size = 0
-        val = PyUnicode_AsUTF8AndSize(obj, &size)
-        res = LSTR_INIT_V(val, size)
-        return mp_lstr_opt_force_alloc(mp, res, force_alloc)
-    else:
-        return mp_py_bytes_to_lstr(mp, py_str_to_py_bytes(obj), True)
+    size = 0
+    val = PyUnicode_AsUTF8AndSize(obj, &size)
+    return LSTR_INIT_V(val, size)
 
 
-cdef inline lstr_t mp_py_obj_to_lstr(mem_pool_t *mp, object obj,
-                                     cbool force_alloc) except *:
+cdef inline lstr_t mp_py_obj_to_lstr(mem_pool_t *mp, object obj) except *:
     """Convert python object to lstr_t.
 
     Parameters
@@ -287,20 +250,38 @@ cdef inline lstr_t mp_py_obj_to_lstr(mem_pool_t *mp, object obj,
         The memory pool used in case of allocations.
     obj
         The python object to convert.
-    force_alloc
-        Force the new lstr_t to be allocated on the memory pool. If false, we
-        use preferably the internal buffer of the object.
 
     Returns
     -------
         The lstr string.
     """
-    if isinstance(obj, bytes):
-        return mp_py_bytes_to_lstr(mp, <bytes>obj, force_alloc)
-    elif isinstance(obj, str):
-        return mp_py_str_to_lstr(mp, <str>obj, force_alloc)
+    cdef lstr_t res
+
+    if isinstance(obj, str):
+        return py_str_to_lstr(<str>obj)
+    elif isinstance(obj, bytes):
+        return py_bytes_to_lstr(<bytes>obj)
     else:
-        return mp_py_obj_to_lstr(mp, PyObject_Str(obj), True)
+        # PyObject_Str() is assured to return a string, so we should get back
+        # to the first case.
+        cassert(mp != NULL)
+        res = mp_py_obj_to_lstr(NULL, PyObject_Str(obj))
+        return mp_lstr_dup(mp, res)
+
+
+cdef inline lstr_t t_py_obj_to_lstr(object obj) except *:
+    """Convert python object to lstr_t using t_pool allocator.
+
+    Parameters
+    ----------
+    obj
+        The python object to convert.
+
+    Returns
+    -------
+        The lstr string.
+    """
+    return mp_py_obj_to_lstr(t_pool(), obj)
 
 
 # }}}

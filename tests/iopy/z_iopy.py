@@ -2,7 +2,7 @@
 #vim:set fileencoding=utf-8:
 ###########################################################################
 #                                                                         #
-# Copyright 2021 INTERSEC SA                                              #
+# Copyright 2022 INTERSEC SA                                              #
 #                                                                         #
 # Licensed under the Apache License, Version 2.0 (the "License");         #
 # you may not use this file except in compliance with the License.        #
@@ -22,9 +22,15 @@ import os
 import sys
 import time
 import copy
-import warnings
 import subprocess
 import threading
+import json
+import socket
+import multiprocessing
+import signal
+import asyncio
+
+from contextlib import contextmanager
 
 SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
@@ -111,6 +117,22 @@ def z_iopy_test_threads_and_forks(iface, obj_a, exp_res, do_threads,
     )
 
 
+@contextmanager
+def z_iopy_use_fake_tcp_server(uri):
+    addr, port = uri.split(':')
+    port = int(port)
+
+    fake_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    fake_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    fake_server.bind((addr, port))
+    fake_server.listen(1)
+
+    try:
+        yield fake_server
+    finally:
+        fake_server.close()
+
+
 @z.ZGroup
 class IopyTest(z.TestCase):
     def setUp(self):
@@ -138,7 +160,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 42)
         self.assertEqual(b.field2, 10)
         self.assertEqual(b.optField, 20)
-        b2 = self.r.test.ClassB.__from_file__(_json=path)
+        b2 = self.r.test.ClassB.from_file(_json=path)
         self.assertEqual(b, b2)
 
     def test_from_file_yaml(self):
@@ -147,7 +169,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 9)
         self.assertEqual(b.field2, 8)
         self.assertEqual(b.optField, 7)
-        b2 = self.r.test.ClassB.__from_file__(_yaml=path)
+        b2 = self.r.test.ClassB.from_file(_yaml=path)
         self.assertEqual(b, b2)
 
     def test_from_str_yaml(self):
@@ -163,7 +185,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 45)
         self.assertEqual(b.field2, 20)
         self.assertEqual(b.optField, 36)
-        b2 = self.r.test.ClassB.__from_file__(_xml=path)
+        b2 = self.r.test.ClassB.from_file(_xml=path)
         self.assertEqual(b, b2)
 
     def test_from_file_hex(self):
@@ -172,7 +194,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 1)
         self.assertEqual(b.field2, 2)
         self.assertEqual(b.optField, 3)
-        b2 = self.r.test.ClassB.__from_file__(_hex=path)
+        b2 = self.r.test.ClassB.from_file(_hex=path)
         self.assertEqual(b, b2)
 
     def test_from_file_bin(self):
@@ -181,34 +203,173 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 4)
         self.assertEqual(b.field2, 5)
         self.assertEqual(b.optField, 6)
-        b2 = self.r.test.ClassB.__from_file__(_bin=path)
+        b2 = self.r.test.ClassB.from_file(_bin=path)
         self.assertEqual(b, b2)
 
-    def test__json__(self):
+    def test_to_json(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = '{"a":"plop","b":"plip","tab":["plup"]}'
-        self.assertEqual(exp, b.__json__(minimal=True))
+        self.assertEqual(exp, b.to_json(minimal=True))
 
-    def test__yaml__(self):
+    def test_to_yaml(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = 'a: plop\nb: plip\ntab:\n  - plup'
-        self.assertEqual(exp, b.__yaml__())
+        self.assertEqual(exp, b.to_yaml())
 
-    def test__bin__(self):
+    def test_to_bin(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = b'\x01\x05plop\x00\x02\x05plip\x00\x03\x05plup\x00'
-        self.assertEqual(exp, b.__bin__())
+        self.assertEqual(exp, b.to_bin())
 
-    def test__hex__(self):
+    def test_to_hex(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = '0105706c6f70000205706c6970000305706c757000'
-        self.assertEqual(exp, b.__hex__())
+        self.assertEqual(exp, b.to_hex())
 
-    def test__xml__(self):
+    def test_to_xml(self):
         b = self.p.test.StructB(a='plop', b='plip', tab=['plup'])
         exp = ('<test.StructB><a>plop</a><b>plip</b>'
                '<tab>plup</tab></test.StructB>')
-        self.assertEqual(exp, b.__xml__())
+        self.assertEqual(exp, b.to_xml())
+
+    def test_to_dict(self):
+        options_list = [
+            'skip_private',
+            'skip_default',
+            'skip_empty_arrays',
+            'skip_empty_structs',
+            'skip_class_names',
+            'skip_optional_class_names',
+            'enums_as_int',
+            'minimal',
+        ]
+        def check_json_compat_options(obj):
+            self.assertEqual(json.loads(obj.to_json()), obj.to_dict())
+            for option in options_list:
+                kwargs = { option: True }
+                self.assertEqual(json.loads(obj.to_json(**kwargs)),
+                                 obj.to_dict(**kwargs))
+
+        # Create struct to check
+        dict_struct_to_dict = {
+            'structA': {
+                'e': 'B',
+                'a': {
+                    '_class': 'test.ClassB',
+                    'field1': 0,
+                    'field2': 87,
+                },
+                'u': {
+                    's': 'aaaa',
+                },
+                'tu': [{
+                    'i': 77,
+                }, {
+                    's': 'pouet',
+                }, {
+                    'a': {
+                        '_class': 'test.ClassA',
+                        'field1': 7,
+                        'optField': 642
+                    }
+                }]
+            },
+            'privateField': 12,
+            'emptyArray': [],
+            'voidUnion': {
+                'a': None,
+            },
+            'voidOptional': {
+                'a': None,
+            },
+            'voidRequired': {}
+        }
+
+        struct_to_dict = self.p.test.StructToDict(dict_struct_to_dict)
+
+        # Check plain struct with everything printed
+        self.assertEqual(dict_struct_to_dict, struct_to_dict.to_dict())
+
+        # Check minimal option
+        minimal_dict_struct_to_dict = {
+            'structA': {
+                'e': 'B',
+                'a': {
+                    '_class': 'test.ClassB',
+                    'field2': 87,
+                },
+                'u': {
+                    's': 'aaaa',
+                },
+                'tu': [{
+                    'i': 77,
+                }, {
+                    's': 'pouet',
+                }, {
+                    'a': {
+                        'field1': 7,
+                        'optField': 642
+                    }
+                }]
+            },
+            'privateField': 12,
+            'voidUnion': {
+                'a': None,
+            },
+            'voidOptional': {
+                'a': None,
+            },
+        }
+
+        self.assertEqual(minimal_dict_struct_to_dict,
+                         struct_to_dict.to_dict(minimal=True))
+
+        # Check JSON compatibility and all options
+        check_json_compat_options(struct_to_dict)
+
+
+        # Check with a class directly
+        dict_class_b = {
+            '_class': 'test.ClassB',
+            'field1': 1,
+            'field2': 0,
+        }
+
+        class_b = self.p.test.ClassA(dict_class_b)
+        self.assertEqual(dict_class_b, class_b.to_dict())
+
+        # Check minimal option
+        minimal_dict_class_b = {
+            'field1': 1,
+        }
+        self.assertEqual(minimal_dict_class_b, class_b.to_dict(minimal=True))
+
+        # Check JSON compatibility and all options
+        check_json_compat_options(class_b)
+
+
+        # Check with a union
+        dict_union_a = {
+            'a': {
+                '_class': 'test.ClassA',
+                'field1': 0,
+                'optField': 987,
+            }
+        }
+
+        union_a = self.p.test.UnionA(dict_union_a)
+        self.assertEqual(dict_union_a, union_a.to_dict())
+
+        # Check minimal option
+        minimal_dict_union_a = {
+            'a': {
+                'optField': 987,
+            }
+        }
+        self.assertEqual(minimal_dict_union_a, union_a.to_dict(minimal=True))
+
+        # Check JSON compatibility and all options
+        check_json_compat_options(union_a)
 
     def test_custom_methods(self):
         # pylint: disable=unused-variable, undefined-variable
@@ -226,9 +387,6 @@ class IopyTest(z.TestCase):
         self.assertTrue(hasattr(u.a, 'field2'), "subtyping failed")
 
     def test_rpc_client_server(self):
-        # to hide connections / disconnections message
-        warnings.filterwarnings("ignore", category=iopy.ServerWarning)
-
         def rpc_impl_a(rpc_args):
             login = None
             password = None
@@ -378,35 +536,35 @@ class IopyTest(z.TestCase):
     def test_packing(self):
         u = self.r.test.UnionA(self.r.test.ClassB(field1=1, field2=2))
         # check union packing after unamed field init
-        j = u.__json__()
+        j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j))
         # check union field init from a cast
         a = self.r.test.StructA(u=self.r.test.ClassB(field2=1))
-        j = a.__json__()
+        j = a.to_json()
         self.assertEqual(a, self.r.test.StructA(_json=j))
         # check struct field init from union and packing
         a = self.r.test.StructA(a=u)
-        j = a.__json__()
+        j = a.to_json()
         self.assertEqual(a, self.r.test.StructA(_json=j))
         # check enum field init from cast and packing
         a = self.r.test.StructA(e=0)
-        j = a.__json__()
+        j = a.to_json()
         self.assertEqual(a, self.r.test.StructA(_json=j))
         a = self.r.test.StructA(e='A')
-        j = a.__json__()
+        j = a.to_json()
         self.assertEqual(a, self.r.test.StructA(_json=j))
 
         # check compact option is working
-        j = a.__json__(compact=True)
+        j = a.to_json(compact=True)
         self.assertEqual(a, self.r.test.StructA(_json=j))
 
         # check that private fields are skipped
         c = self.r.test.StructC(u=1, priv = "toto")
         d = self.r.test.StructC(u=1)
-        j = c.__json__()
+        j = c.to_json()
         self.assertEqual(c, self.r.test.StructC(_json=j))
 
-        j = c.__json__(skip_private=True)
+        j = c.to_json(skip_private=True)
         self.assertNotEqual(c, self.r.test.StructC(_json=j))
         self.assertEqual(d, self.r.test.StructC(_json=j))
 
@@ -414,7 +572,7 @@ class IopyTest(z.TestCase):
         # unicode string and non unicode strings
         b = self.r.test.StructB(a=b'string a', b='string b',
                                 tab=[b'first string', 'second string'])
-        j = b.__json__()
+        j = b.to_json()
         self.assertEqual(b, self.r.test.StructB(_json=j),
                          "unicode strings in iopy fields failed")
         b2 = self.r.test.StructB(a='string a', b='string b',
@@ -422,18 +580,18 @@ class IopyTest(z.TestCase):
         self.assertTrue(b == b2, "string fields comparison failed")
         b3 = self.r.test.StructB(a='non asçii éé',
                                  b='', tab=[])
-        self.assertTrue(b3 == self.r.test.StructB(_json=b3.__json__()),
+        self.assertTrue(b3 == self.r.test.StructB(_json=b3.to_json()),
                         "real unicode fields failed")
         u = self.r.test.UnionA(s=b'bytes string')
-        j = u.__json__()
+        j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
                          "string in iopy union failed")
         u = self.r.test.UnionA(s='unicode string')
-        j = u.__json__()
+        j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
                          "unicode string in iopy union failed")
         u = self.r.test.UnionA(s=b'bytes string')
-        j = u.__json__()
+        j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
                          "bytes string in iopy union failed")
 
@@ -562,7 +720,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(getattr(a, 'field1', None), 11,
                          'custom init of iop field has failed')
 
-        a = self.r.test.ClassA(_bin=a.__bin__())
+        a = self.r.test.ClassA(_bin=a.to_bin())
         self.assertEqual(getattr(a, '_my_field', None), 'value',
                          '__custom_init__ method has not been called'
                          ' from iop creation')
@@ -826,7 +984,7 @@ class IopyTest(z.TestCase):
 
     def test_static_attrs(self):
         exp_static_attrs = {'intAttr': 999, 'strAttr': 'truc'}
-        class_attrs = self.r.test.StaticAttrsC.__get_class_attrs__()
+        class_attrs = self.r.test.StaticAttrsC.get_class_attrs()
         self.assertEqual(class_attrs['statics'], exp_static_attrs)
         self.assertEqual(self.r.test.StaticAttrsB.intAttr, 999)
         self.assertEqual(self.r.test.StaticAttrsB.strAttr, 'plop')
@@ -964,10 +1122,10 @@ class IopyTest(z.TestCase):
         self.assertEqual(a_alias_a, a_lower)
 
     def test_union_object_key(self):
-        """Test union __object__ and __key__ methods"""
+        """Test union get_object() and get_key() methods"""
         a = self.r.test.UnionA(i=58)
-        self.assertEqual(a.__object__(), 58)
-        self.assertEqual(a.__key__(), 'i')
+        self.assertEqual(a.get_object(), 58)
+        self.assertEqual(a.get_key(), 'i')
 
     def test_abstract_class(self):
         """Test we cannot instantiate an abstract class"""
@@ -1569,7 +1727,8 @@ class IopyIfaceTests(z.TestCase):
             return rpc_args.res(status='A', res=1000)
 
         def rpc_impl_b(rpc_args):
-            return rpc_args.res(status='B', res=0)
+            str_field = getattr(rpc_args.arg.a, 'strField', None)
+            return rpc_args.res(status='B', res=0, strField=str_field)
 
         def rpc_impl_v(rpc_args):
             if hasattr(rpc_args.arg, 'ov'):
@@ -1970,6 +2129,137 @@ class IopyIfaceTests(z.TestCase):
         self.assertEqual(res.status, 'A')
         self.assertEqual(res.res, 1000)
 
+    def test_client_connect_callbacks(self):
+        """Test client connection and disconnection callbacks"""
+
+        # Create object and callbacks
+        class CbsCalled:
+            __slots__ = ('connect', 'disconnect', 'was_connected')
+
+            def __init__(self):
+                self.connect = False
+                self.disconnect = False
+                self.was_connected = False
+
+        cbs_called = CbsCalled()
+
+        def connect_cb(channel):
+            cbs_called.connect = True
+
+        def disconnect_cb(channel, connected):
+            cbs_called.disconnect = True
+            cbs_called.was_connected = connected
+
+        # Create the client with the callbacks
+        client = iopy.Channel(self.p, self.uri)
+        client.on_connect = connect_cb
+        client.on_disconnect = disconnect_cb
+
+        # Connect the client, the callback should be called
+        client.connect()
+        self.assertTrue(cbs_called.connect)
+        cbs_called.connect = False
+
+        # Disconnect the client, the callback should be called
+        client.disconnect()
+        self.assertTrue(cbs_called.disconnect)
+        self.assertTrue(cbs_called.was_connected)
+        cbs_called.disconnect = False
+        cbs_called.was_connected = False
+
+        # Reconnect the client, the callback should be called
+        client.connect()
+        self.assertTrue(cbs_called.connect)
+        cbs_called.connect = False
+
+        # Stop the server
+        self.s.stop()
+
+        # Wait for the client to be disconnected, the callback should be
+        # called
+        for _ in range(100):
+            if not client.is_connected():
+                break
+            time.sleep(0.01)
+        else:
+            self.fail('client is not disconnected')
+        self.assertTrue(cbs_called.disconnect)
+        self.assertTrue(cbs_called.was_connected)
+        cbs_called.disconnect = False
+        cbs_called.was_connected = False
+
+        # Restart the server
+        self.s.listen(uri=self.uri)
+
+        # Make an RPC call, the client should reconnect and the callback
+        # should be called
+        iface = client.test_ModuleA.interfaceA
+        obj_a = self.r.test.ClassA()
+        iface.funA(a=obj_a)
+        self.assertTrue(cbs_called.connect)
+        cbs_called.connect = False
+
+        # Create a client to an invalid server
+        invalid_uri = make_uri()
+        client = iopy.Channel(self.p, invalid_uri)
+        client.on_connect = connect_cb
+        client.on_disconnect = disconnect_cb
+
+        # Try connect to the invalid server, the connect should not be called,
+        # the disconnect callback should be called with `connected` set to
+        # False
+        try:
+            client.connect()
+        except iopy.Error:
+            pass
+        else:
+            self.fail('expected connection error')
+        self.assertFalse(cbs_called.connect)
+        self.assertTrue(cbs_called.disconnect)
+        self.assertFalse(cbs_called.was_connected)
+
+    def test_string_conversion_on_rpc(self):
+        """Test string conversion is well handled when calling an RPC"""
+        # Connect the client
+        client = self.p.connect(self.uri)
+        iface = client.test_ModuleA.interfaceA
+
+        # Do the query, strField should be converted to a string
+        ret = iface.funB({ 'a': { 'strField': b'plop' } })
+        exp = type(ret)({
+            'status': 'B',
+            'res': 0,
+            'strField': 'plop',
+        })
+        self.assertEqual(ret, exp,
+                         'rpc failed; status: %s, expected: %s' % (ret, exp))
+
+    def test_disconnect_on_connect_cb(self):
+        """Test disconnecting client on client connect callback"""
+        client = iopy.Channel(self.p, self.uri)
+
+        # Specify the connection callback to disconnect the client on
+        # connection
+        def connect_cb(channel):
+            client.disconnect()
+
+        client.on_connect = connect_cb
+
+        # Connect the client
+        try:
+            client.connect()
+        except iopy.Error:
+            # The client can be disconnected directly on connection
+            pass
+
+        # Wait for the client to be disconnected
+        for _ in range(100):
+            if not client.is_connected():
+                break
+            time.sleep(0.01)
+        else:
+            self.fail('client is not disconnected')
+
 
 @z.ZGroup
 class IopyScriptsTests(z.TestCase):
@@ -2186,9 +2476,9 @@ class IopyV3Tests(z.TestCase):
 
         path = os.path.join(TEST_PATH, 'test_struct_a.json')
         with open(path, 'r') as f:
-            json = f.read()
+            json_struct = f.read()
 
-        a = self.r.test.StructA(_json=json)
+        a = self.r.test.StructA(_json=json_struct)
         self.assertEqual(a.my_val, 12)
         self.assertIsInstance(a.a, self.r.test.ClassB)
         self.assertEqual(a.a.field1, 30)
@@ -2485,6 +2775,297 @@ class IopyCompatibilityTests(z.TestCase):
 
         union_a_keys = set(('i', 'a', 'tab', 's'))
         self.assertEqual(set(vars(self.p.test.UnionA).keys()), union_a_keys)
+
+    def test_deprecated_underscore_methods(self):
+        """Test deprecated underscore methods of the different classes are
+        equal to the new methods.
+        """
+        def check_method(obj, methods):
+            for method in methods:
+                old_method_name = method[0]
+                new_method_name = method[1]
+                try:
+                    args = method[2]
+                except IndexError:
+                    args = tuple()
+                try:
+                    kwargs = method[3]
+                except IndexError:
+                    kwargs = {}
+                old_res = getattr(obj, old_method_name)(*args, **kwargs)
+                new_res = getattr(obj, new_method_name)(*args, **kwargs)
+                self.assertEqual(old_res, new_res)
+
+        # EnumBase
+        enum_a = self.p.test.EnumA('A')
+        check_method(enum_a, [
+            ('__values__', 'values'),
+            ('__ranges__', 'ranges'),
+        ])
+
+        # StructUnionBase
+        struct_a = self.p.test.StructA(e='A')
+        check_method(struct_a, [
+            ('__json__', 'to_json'),
+            ('__yaml__', 'to_yaml'),
+            ('__bin__', 'to_bin'),
+            ('__hex__', 'to_hex'),
+            ('__xml__', 'to_xml'),
+        ])
+
+        path = os.path.join(TEST_PATH, 'test_class_b.json')
+        check_method(self.p.test.ClassB, [
+            ('__from_file__', 'from_file', (), {'_json': path}),
+            ('__get_fields_name__', 'get_fields_name'),
+            ('__desc__', 'get_desc'),
+            ('__values__', 'get_values'),
+        ])
+
+        # UnionBase
+        union_a = self.p.test.UnionA(i=1)
+        check_method(union_a, [
+            ('__object__', 'get_object'),
+            ('__key__', 'get_key'),
+        ])
+
+        # StructBase
+        check_method(self.p.test.StructA, [
+            ('__iopslots__', 'get_iopslots'),
+            ('__get_class_attrs__', 'get_class_attrs'),
+        ])
+
+        # Plugin
+        check_method(self.p, [
+            (
+                '__get_type_from_fullname__', 'get_type_from_fullname',
+                ('test.ClassB',),
+            ),
+            (
+                '__get_iface_type_from_fullname__',
+                'get_iface_type_from_fullname', ('test.InterfaceA',)
+            ),
+        ])
+        self.assertEqual(self.p.__dsopath__, self.p.dsopath)
+        self.assertEqual(self.p.__modules__, self.p.modules)
+
+
+@z.ZGroup
+class IopyAsyncTests(z.TestCase):
+    """Tests with asynchronous connections and queries"""
+
+    def setUp(self):
+        plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
+        self.p = iopy.Plugin(plugin_file)
+
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+        self.uri = make_uri()
+
+        shdr = self.p.ic.SimpleHdr(login='root', password='1234')
+        self.hdr = self.p.ic.Hdr(simple=shdr)
+
+        def check_hdr(rpc_args):
+            assert rpc_args.hdr and rpc_args.hdr.simple
+            assert rpc_args.hdr.simple.login == self.hdr.simple.login
+            assert rpc_args.hdr.simple.password == self.hdr.simple.password
+
+        def rpc_impl_b(rpc_args):
+            check_hdr(rpc_args)
+            return rpc_args.res(status='B', res=0)
+
+        self.async_done = False
+        def rpc_impl_async(rpc_args):
+            check_hdr(rpc_args)
+            self.async_done = True
+
+        self.server = self.p.channel_server()
+        self.server.test_ModuleA.interfaceA.funB.impl = rpc_impl_b
+        self.server.test_ModuleA.interfaceA.funAsync.impl = rpc_impl_async
+        self.server.listen(uri=self.uri)
+
+    def tearDown(self):
+        self.loop.close()
+
+    def test_async_connection(self):
+        """Test asynchronous connection"""
+        # Make the client
+        client = iopy.AsyncChannel(self.p, self.uri)
+
+        # Connect the client
+        self.loop.run_until_complete(client.connect())
+        self.assertTrue(client.is_connected())
+
+        # Make and connect the client through the plugin
+        client = self.loop.run_until_complete(self.p.async_connect(self.uri))
+        self.assertTrue(client.is_connected())
+
+    def test_async_call_rpc(self):
+        """Test asynchronous RPC calls"""
+        obj_a = self.p.test.ClassA()
+
+        # Connect the client
+        client = self.loop.run_until_complete(self.p.async_connect(self.uri))
+        iface = client.test_ModuleA.interfaceA
+
+        # Make a RPC call with results
+        ret = self.loop.run_until_complete(iface.funB(a=obj_a, _hdr=self.hdr))
+        exp = type(ret)({
+            'status': 'B',
+            'res': 0,
+        })
+        self.assertEqual(ret, exp,
+                         'rpc failed; status: %s, expected: %s' % (ret, exp))
+
+        # Make a RPC call with async RPC
+        self.async_done = False
+        ret = self.loop.run_until_complete(iface.funAsync(a=obj_a,
+                                                          _hdr=self.hdr))
+        self.assertIsNone(ret)
+        for _ in range(10):
+            if self.async_done:
+                break
+            time.sleep(0.01)
+        else:
+            self.fail('expected async RPC implementation to be done')
+
+        # Make a RPC call without connect first
+        client = iopy.AsyncChannel(self.p, self.uri)
+        iface = client.test_ModuleA.interfaceA
+        ret = self.loop.run_until_complete(iface.funB(a=obj_a, _hdr=self.hdr))
+        exp = type(ret)({
+            'status': 'B',
+            'res': 0,
+        })
+        self.assertEqual(ret, exp,
+                         'rpc failed; status: %s, expected: %s' % (ret, exp))
+
+
+@z.ZFlags("slow")
+@z.ZGroup
+class IopySlowTests(z.TestCase):
+    """Tests that takes some fixed time to complete"""
+
+    def setUp(self):
+        plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
+        self.p = iopy.Plugin(plugin_file)
+
+    def test_connection_timeout(self):
+        """Test the timeout argument is well respected on connection"""
+        uri = make_uri()
+
+        # Use a fake TCP server that never accepts connections to trigger
+        # connection timeout
+        with z_iopy_use_fake_tcp_server(uri):
+            # Do it 5 times (5s) to make sure a success is not random
+            for _ in range(5):
+                start_time = time.time()
+                try:
+                    # Make a connection that should timeout in 1s
+                    self.p.connect(uri, _timeout=1)
+                except iopy.Error:
+                    pass
+                else:
+                    self.fail('expected connection timeout error')
+                end_time = time.time()
+                diff_time = end_time - start_time
+                # We should have a timeout in less than 1.5s
+                self.assertLessEqual(diff_time, 1.5,
+                                     "connection timeout took {0:.2f}s, "
+                                     "expected less than 1.5s"
+                                     .format(diff_time))
+
+    def test_non_deadlock_on_exit(self):
+        """Test IOPy does not deadlock on process exit while waiting for
+        connection in a thread"""
+        uri = make_uri()
+
+        # Use a queue to indicate startup
+        queue = multiprocessing.Queue()
+
+        def thread_cb(client):
+            queue.put(None)
+            try:
+                client.connect(timeout=2)
+            except (KeyboardInterrupt, iopy.Error):
+                pass
+
+        def process_cb():
+            client = iopy.Channel(self.p, uri)
+            thread1 = threading.Thread(target=thread_cb, args=(client,))
+            thread2 = threading.Thread(target=thread_cb, args=(client,))
+
+            thread1.start()
+            thread2.start()
+
+            thread1.join()
+            thread2.join()
+
+        # Use a fake TCP server that never accepts connections to wait for
+        # connection forever
+        with z_iopy_use_fake_tcp_server(uri):
+            # Fork to a new process
+            child_pid = os.fork()
+            assert child_pid >= 0
+            if child_pid == 0:
+                process_cb()
+                os._exit(0) # pylint: disable=protected-access
+
+            # Wait for the two threads to be started
+            queue.get()
+            queue.get()
+
+            start_time = time.time()
+
+            # Terminate process
+            os.kill(child_pid, signal.SIGTERM)
+            _, code = os.waitpid(child_pid, 0)
+            self.assertEqual(code, 0)
+
+            # We should have a timeout in less than 1.0s
+            end_time = time.time()
+            diff_time = end_time - start_time
+            self.assertLessEqual(diff_time, 1.0,
+                                 "exit timeout took {0:.2f}s, expected less "
+                                 "than 1.0s".format(diff_time))
+
+    def test_async_connection_timeout(self):
+        """Test the timeout argument is well respected on async connection"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        uri = make_uri()
+
+        client = iopy.AsyncChannel(self.p, uri)
+        with z_iopy_use_fake_tcp_server(uri):
+            start_time = time.time()
+
+            # Start the connection
+            future = client.connect(timeout=1)
+
+            # Wait 0.6 seconds, the connection should not be etablished and
+            # not yet timeout.
+            loop.run_until_complete(asyncio.sleep(0.6))
+            self.assertFalse(future.done())
+            self.assertFalse(client.is_connected())
+
+            # Wait for timeout
+            try:
+                loop.run_until_complete(future)
+            except iopy.Error:
+                pass
+            else:
+                self.fail('expected connection timeout error')
+
+            end_time = time.time()
+            diff_time = end_time - start_time
+
+            # We should have a timeout in less than 1.5s
+            self.assertLessEqual(diff_time, 1.5,
+                                 "connection timeout took {0:.2f}s, "
+                                 "expected less than 1.5s"
+                                 .format(diff_time))
+        loop.close()
 
 
 if __name__ == "__main__":

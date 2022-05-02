@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -111,12 +111,8 @@ static void obj_release_(object_t *obj, bool *nullable destroyed)
     if (obj->refcnt > 1) {
         --obj->refcnt;
     } else if (obj->refcnt == 1) {
-        if (obj_vmethod(obj, can_wipe) && !obj_vcall(obj, can_wipe)) {
-            /* FIXME This 'can_wipe' method smells bad. Remove it. */
-        } else {
-            obj_wipe_real(obj);
-            mp_delete(obj->mp, &obj);
-        }
+        obj_wipe_real(obj);
+        mp_delete(obj->mp, &obj);
     } else {
         switch (obj->refcnt) {
           case 0:

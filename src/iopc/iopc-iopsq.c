@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -185,7 +185,7 @@ void iopsq_type_table_fill_type(iopsq_type_table_t *table,
                                 iop__type__t *type)
 {
     if (iopsq_fill_type(ftype, type) < 0) {
-        int pos;
+        uint32_t pos;
 
         /* The type is unknown and has probably been built by the user.
          * Register it in the table. */

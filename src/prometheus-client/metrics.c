@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -224,7 +224,7 @@ static void prom_metric_check_labels(prom_metric_t *self, const char *func,
 static prom_metric_t *
 (prom_metric_labels)(prom_metric_t *self, const qv_t(cstr) *label_values)
 {
-    int pos;
+    uint32_t pos;
     prom_metric_t *child;
 
     /* Consistency checks */

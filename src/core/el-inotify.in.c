@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -156,7 +156,7 @@ static void inotify_initialize(void)
 el_t el_fs_watch_register_d(const char *path, uint32_t flags,
                             el_fs_watch_f *cb, data_t priv)
 {
-    int pos;
+    uint32_t pos;
     ev_t *ev;
     int  wd;
 

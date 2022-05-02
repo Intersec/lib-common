@@ -1182,12 +1182,11 @@ for (size_t i = limit - 1; i >= 0; i--) {
 == Stack allocations
 
 * Never allocate an unchecked amount of memory on the stack (dynamic arrays or
-  `alloca`), this can cause a stack overflow
+  `alloca`), this can cause a stack overflow.
 
-* Never uses `alloca()` in a loop, this includes helpers such as `SB_1k()` and
-  `SB_8k()`
+* Never uses `alloca()` in a loop.
 
-* Use the `t_stack` when you need to perform dynamic-allocations on the stack
+* Use the `t_stack` when you need to perform dynamic-allocations on the stack.
 
 * `t_scope` should always be the first instruction of its scope.
 

@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -132,7 +132,7 @@ lstr_t farch_unarchive_persist(const farch_entry_t * nonnull entry)
 {
     t_scope;
     lstr_t content;
-    int pos;
+    uint32_t pos;
 
     assert (MODULE_IS_LOADED(farch));
 

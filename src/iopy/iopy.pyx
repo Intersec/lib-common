@@ -1,6 +1,6 @@
 ###########################################################################
 #                                                                         #
-# Copyright 2021 INTERSEC SA                                              #
+# Copyright 2022 INTERSEC SA                                              #
 #                                                                         #
 # Licensed under the Apache License, Version 2.0 (the "License");         #
 # you may not use this file except in compliance with the License.        #
@@ -36,8 +36,6 @@ from libc.string cimport strerror
 
 cdef extern from "Python.h":
     # Get raw builtin objects from Python.h
-    ctypedef extern class builtins.Exception[object PyBaseExceptionObject]:
-        pass
     ctypedef struct PyThreadState:
         pass
     int PyObject_GenericSetAttr(object o, object attr_name,
@@ -76,7 +74,7 @@ cdef extern from "version.h" nogil:
 cdef extern from "iopy_cython_export.h":
     pass
 
-from iopy_rpc_pxc cimport *
+from rpc_el_pxc cimport *
 
 # Must be added after all includes and imports.
 from libcommon_cython.cython_fixes cimport *
@@ -101,13 +99,16 @@ import inspect
 cdef object traceback
 import traceback
 
+cdef object asyncio
+import asyncio
+
 
 # {{{ Globals
 
 
 # Global type for the module.
 cdef struct IopyGlobal:
-    int jpack_flags # Default json pack flags
+    unsigned jpack_flags # Default json pack flags
 
 
 # Global variable for the module.
@@ -257,12 +258,12 @@ cdef int t_parse_uri_arg(object uri, object host, int port,
         if host is not None or port >= 0:
             raise Error("host or port argument shouldn't be provided with "
                         "uri argument")
-        res[0] = mp_py_obj_to_lstr(t_pool(), uri, False)
+        res[0] = t_py_obj_to_lstr(uri)
     else:
         if host is None or port < 0:
             raise Error("when uri is not provided, host and port arguments"
                         " should be provided")
-        host_lstr = mp_py_obj_to_lstr(t_pool(), host, False)
+        host_lstr = t_py_obj_to_lstr(host)
         res[0] = t_lstr_fmt("%*pM:%d", LSTR_FMT_ARG(host_lstr), port)
     return 0
 
@@ -300,9 +301,9 @@ cdef inline cbool iop_struct_is_same_or_child_of(const iop_struct_t *child,
         return child == parent
 
 
-cdef inline int check_iopy_ic_res(iopy_ic_res_t res,
-                                  const sb_t *err) except -1:
-    """Check if the result of an IOPy IC operation is valid and raise an
+cdef inline int check_ic_el_res(ic_el_sync_res_t res,
+                                const sb_t *err) except -1:
+    """Check if the result of an IC EL operation is valid and raise an
     appropriate exception otherwise.
 
     Parameters
@@ -312,12 +313,12 @@ cdef inline int check_iopy_ic_res(iopy_ic_res_t res,
     err
         The error description in case of error.
     """
-    if res == IOPY_IC_ERR:
+    if res == IC_EL_SYNC_ERR:
         raise Error(lstr_to_py_str(LSTR_SB_V(err)))
-    elif res == IOPY_IC_SIGINT:
+    elif res == IC_EL_SYNC_SIGINT:
         raise KeyboardInterrupt()
     else:
-        cassert(res == IOPY_IC_OK)
+        cassert(res == IC_EL_SYNC_OK)
     return 0
 
 
@@ -332,52 +333,6 @@ cdef class Error(Exception):
 
 cdef class RpcError(Error):
     """Iopy RPC error."""
-    pass
-
-
-@cython.warn.undeclared(False)
-class Warning(Warning):
-    """Iopy Warning."""
-    pass
-
-
-@cython.warn.undeclared(False)
-class ServerWarning(Warning):
-    """Base class for all server warnings.
-
-    Derived from iopy.Warning.
-    Deactivate warnings of this class to hide connect/disconnect messages.
-    """
-    pass
-
-
-@cython.warn.undeclared(False)
-class ServerConnectWarning(ServerWarning):
-    """Class for incoming server connections messages.
-
-    Derived from iopy.ServerWarning.
-    Deactivate warnings of this class to hide connect messages.
-    """
-    pass
-
-
-@cython.warn.undeclared(False)
-class ServerDisconnectWarning(ServerWarning):
-    """Class for server remote disconnections messages.
-
-    Derived from iopy.ServerWarning.
-    Deactivate warnings of this class to hide disconnect messages.
-    """
-    pass
-
-
-@cython.warn.undeclared(False)
-class ClientWarning(Warning):
-    """Class for channel client warning messages.
-
-    Derived from iopy.Warning.
-    Deactivate warnings of this class to hide client warning messages.
-    """
     pass
 
 
@@ -410,56 +365,6 @@ cdef void send_exception_to_main_thread():
     Py_INCREF(exc)
     Py_AddPendingCall(<int (*)(void *)>&send_exception_to_main_thread_cb,
                       <void *>exc)
-
-
-cdef struct SendWarningCtx:
-    # Struct to hold the warning cls and message
-    PyObject *cls
-    PyObject *message
-
-
-cdef int send_warning_to_main_thread_cb(void *arg):
-    """Callback used by Py_AddPendingCall and send_warning_to_main_thread()
-    to send warning to the main thread.
-
-    Parameters
-    ----------
-    arg
-        The SendWarningCtx containing the warning cls and message.
-    """
-    cdef SendWarningCtx *ctx = <SendWarningCtx *>arg
-    cdef object cls = <object>ctx.cls
-    cdef object message = <object>ctx.message
-
-    try:
-        if Py_IsInitialized():
-            warnings.warn_explicit(message, cls, 'sys', 1)
-    finally:
-        Py_DECREF(cls)
-        Py_DECREF(message)
-        PyMem_Free(ctx)
-
-
-cdef void send_warning_to_main_thread(object cls, object message):
-    """Print python warning with message.
-
-    Parameters
-    ----------
-    cls
-        The warning class to be used.
-    message
-        The message to print.
-    """
-    cdef SendWarningCtx *ctx
-
-    ctx = <SendWarningCtx *>PyMem_Malloc(sizeof(SendWarningCtx))
-
-    Py_INCREF(cls)
-    ctx.cls = <PyObject *>cls
-
-    Py_INCREF(message)
-    ctx.message = <PyObject *>message
-    Py_AddPendingCall(&send_warning_to_main_thread_cb, <void *>ctx)
 
 
 # }}}
@@ -691,9 +596,7 @@ cdef class EnumBase(Basic):
         str
             The enum IOP fullname.
         """
-        cdef const iop_enum_t *en = enum_get_desc_cls(cls)
-
-        return lstr_to_py_str(en.fullname)
+        return enum_get_fullname(cls)
 
     @classmethod
     def __fullname__(object cls):
@@ -704,7 +607,7 @@ cdef class EnumBase(Basic):
         str
             The enum IOP fullname.
         """
-        return cls.fullname()
+        return enum_get_fullname(cls)
 
     @classmethod
     def values(object cls):
@@ -720,14 +623,7 @@ cdef class EnumBase(Basic):
 
     @classmethod
     def __values__(object cls):
-        """Return the dict of allowed values.
-
-        Returns
-        -------
-        dict(str, int)
-            The dict of values with the name as key and the integer value as
-            value.
-        """
+        """Deprecated, use values() instead."""
         return enum_get_values(cls)
 
     @classmethod
@@ -739,24 +635,12 @@ cdef class EnumBase(Basic):
         dict(int, int)
             The ranges of the IOP enum.
         """
-        cdef const iop_enum_t *en = enum_get_desc_cls(cls)
-        cdef dict res = {}
-        cdef int i
-
-        for i in range(en.ranges_len):
-            res[i] = en.ranges[i]
-        return res
+        return enum_get_ranges(cls)
 
     @classmethod
     def __ranges__(object cls):
-        """Return the ranges of the enum.
-
-        Returns
-        -------
-        dict(int, int)
-            The ranges of the IOP enum.
-        """
-        return cls.ranges()
+        """Deprecated, use ranges() instead."""
+        return enum_get_ranges(cls)
 
     @classmethod
     def get_iop_description(object cls):
@@ -1102,15 +986,17 @@ cdef str enum_get_as_name(EnumBase py_en):
     str :
         The string value of the enum.
     """
-    cdef sb_scope_t sb = sb_scope_init_1k()
+    cdef sb_buf_1k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef const iop_enum_t *en = enum_get_desc(py_en)
     cdef int val = py_en.val
+    cdef lstr_t val_lstr
     cdef int i
     cdef int en_val
 
-    for i in range(en.enum_len):
-        if val == en.values[i]:
-            return lstr_to_py_str(en.names[i])
+    val_lstr = iop_enum_to_str_desc(en, val)
+    if val_lstr.s:
+        return lstr_to_py_str(val_lstr)
 
     for i in range(en.enum_len):
         en_val = en.values[i]
@@ -1125,6 +1011,23 @@ cdef str enum_get_as_name(EnumBase py_en):
         return lstr_to_py_str(LSTR_SB_V(&sb))
     else:
         return 'undefined'
+
+
+cdef str enum_get_fullname(object cls):
+    """Return the fullname of the enum.
+
+    Parameters
+    ----------
+    cls
+        The enum python class type.
+
+    Returns
+    -------
+        The enum IOP fullname.
+    """
+    cdef const iop_enum_t *en = enum_get_desc_cls(cls)
+
+    return lstr_to_py_str(en.fullname)
 
 
 cdef dict enum_get_values(object cls):
@@ -1146,6 +1049,28 @@ cdef dict enum_get_values(object cls):
 
     for i in range(en.enum_len):
         res[lstr_to_py_str(en.names[i])] = en.values[i]
+    return res
+
+
+cdef dict enum_get_ranges(object cls):
+    """Return the ranges of the enum.
+
+    Parameters
+    ----------
+    cls
+        The enum class type.
+
+    Returns
+    -------
+    dict(int, int)
+        The ranges of the IOP enum.
+    """
+    cdef const iop_enum_t *en = enum_get_desc_cls(cls)
+    cdef dict res = {}
+    cdef int i
+
+    for i in range(en.ranges_len):
+        res[i] = en.ranges[i]
     return res
 
 
@@ -1462,10 +1387,7 @@ cdef class StructUnionBase(Basic):
 
     @classmethod
     def __from_file__(object cls, **kwargs):
-        """Unpack an IOPy struct or union from a file.
-
-        See StructUnionBase::from_file()
-        """
+        """Deprecated, use from_file() instead."""
         return unpack_file_from_args_to_py_obj(cls, kwargs)
 
     def __richcmp__(StructUnionBase self, object other, int op):
@@ -1507,22 +1429,46 @@ cdef class StructUnionBase(Basic):
         equal = iop_equals_desc(self_st, self_val, other_val)
         return equal == (op == Py_EQ)
 
-    def __json__(StructUnionBase self, **kwargs):
+    def to_json(StructUnionBase self, **kwargs):
         """Format the struct or union object as JSON.
 
         Parameters
         ----------
-        skip_private : bool, optional
-            Skip the private fields when dumping the JSON.
         no_whitespaces : bool, optional
             Generate JSON without identation, spaces, ...
+        no_trailing_eol : bool, optional
+            Do not append '\\n' when done.
+        skip_private : bool, optional
+            Skip the private fields when dumping the JSON (lossy).
         skip_default : bool, optional
             Skip fields having their default value.
+            This is good to make the JSON more compact, but is dangerous if a
+            default value changes.
         skip_empty_arrays : bool, optional
             Skip empty repeated fields.
+        skip_empty_structs : bool, optional
+            Skip empty sub-structures.
+        shorten_data : bool, optional
+            Shorten long data strings when not writing a file (lossy).
+            Data longer than 25 characters will be replaced by
+            "XXXXXXXXXXX …(skip x bytes)… YYYYYYYYYYY" where only the first
+            and last 11 characters are kept.
+        skip_class_names : bool, optional
+            Skip class names (lossy).
+        skip_optional_class_names : bool, optional
+            Skip class names when not needed.
+            If set, the class names won't be written if they are equal to the
+            actual type of the field (missing class names are supported by the
+            unpacker in that case).
         minimal : bool, optional
-            Produce the smallest possible JSON.
-            This is compact + skip_default + skip_empty_arrays.
+            Produce the smallest non-lossy possible JSON.
+            This is:
+                no_whitespaces +
+                no_trailing_eol +
+                skip_default +
+                skip_empty_arrays +
+                skip_empty_structs +
+                skip_optional_class_names
 
         Returns
         -------
@@ -1531,7 +1477,11 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_json(self, kwargs)
 
-    def __yaml__(StructUnionBase self):
+    def __json__(StructUnionBase self, **kwargs):
+        """Deprecated, use to_json() instead."""
+        return format_py_obj_to_json(self, kwargs)
+
+    def to_yaml(StructUnionBase self):
         """Format the struct or union object as YAML.
 
         Returns
@@ -1541,7 +1491,11 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_yaml(self)
 
-    def __bin__(StructUnionBase self):
+    def __yaml__(StructUnionBase self):
+        """Deprecated, use to_yaml() instead."""
+        return format_py_obj_to_yaml(self)
+
+    def to_bin(StructUnionBase self):
         """Format the struct or union object as binary.
 
         Returns
@@ -1551,11 +1505,11 @@ cdef class StructUnionBase(Basic):
         """
         return format_py_obj_to_bin(self)
 
-    # XXX: Ugly hack to avoid that cython uses __hex__ as the function to
-    # convert a number to hexadecimal with the hex() function.
-    # See https://cython.readthedocs.io/en/latest/src/userguide/special_methods.html?highlight=__hex__#numeric-conversions
-    @property
-    def __hex__(StructUnionBase self):
+    def __bin__(StructUnionBase self):
+        """Deprecated, use to_bin() instead."""
+        return format_py_obj_to_bin(self)
+
+    def to_hex(StructUnionBase self):
         """Format the struct or union object as hex.
 
         Returns
@@ -1563,13 +1517,21 @@ cdef class StructUnionBase(Basic):
         str
             The formatted string.
         """
+        return format_py_obj_to_hex(self)
+
+    # XXX: Ugly hack to avoid that cython uses __hex__ as the function to
+    # convert a number to hexadecimal with the hex() function.
+    # See https://cython.readthedocs.io/en/latest/src/userguide/special_methods.html?highlight=__hex__#numeric-conversions
+    @property
+    def __hex__(StructUnionBase self):
+        """Deprecated, use to_hex() instead."""
         cdef object wrap
 
         def wrap():
             return format_py_obj_to_hex(self)
         return wrap
 
-    def __xml__(StructUnionBase self, **kwargs):
+    def to_xml(StructUnionBase self, **kwargs):
         """Format the struct or union object as XML.
 
         Parameters
@@ -1588,6 +1550,10 @@ cdef class StructUnionBase(Basic):
         str
             The formatted string.
         """
+        return format_py_obj_to_xml(self, kwargs)
+
+    def __xml__(StructUnionBase self, **kwargs):
+        """Deprecated, use to_xml() instead."""
         return format_py_obj_to_xml(self, kwargs)
 
     def __str__(StructUnionBase self):
@@ -1616,7 +1582,7 @@ cdef class StructUnionBase(Basic):
         return lstr_to_py_str(st.fullname)
 
     @classmethod
-    def __get_fields_name__(object cls):
+    def get_fields_name(object cls):
         """Get the list of name of fields of struct or union.
 
         Returns
@@ -1624,35 +1590,31 @@ cdef class StructUnionBase(Basic):
         list
             The list of name of fields.
         """
-        cdef const iop_struct_t *st
-        cdef list l
-
-        st = struct_union_get_iop_type_cls(cls).desc
-        l = []
-        fill_fields_name_list(st, l)
-        return l
+        return struct_union_get_fields_name(cls)
 
     @classmethod
-    def __desc__(object cls):
+    def __get_fields_name__(object cls):
+        """Deprecated, use get_fields_name() instead."""
+        return struct_union_get_fields_name(cls)
+
+    @classmethod
+    def get_desc(object cls):
         """Return the description of the struct or union.
 
         Returns
         -------
             The string description of the struct or union.
         """
-        cdef const iop_struct_t *st
-
-        st = struct_union_get_iop_type_cls(cls).desc
-        return get_struct_union_desc(st)
+        return get_struct_union_desc(cls)
 
     @classmethod
-    def __values__(object cls):
-        """Return the values of the struct or union type as dict.
+    def __desc__(object cls):
+        """Deprecated, use get_desc() instead."""
+        return get_struct_union_desc(cls)
 
-        Parameters
-        ----------
-        cls : object
-            The struct or union class type.
+    @classmethod
+    def get_values(object cls):
+        """Return the values of the struct or union type as dict.
 
         Returns
         -------
@@ -1660,6 +1622,11 @@ cdef class StructUnionBase(Basic):
             A dictionary containing the different available values of the
             struct or union.
         """
+        return struct_union_get_values_of_cls(cls, False)
+
+    @classmethod
+    def __values__(object cls):
+        """Deprecated, use get_values() instead."""
         return struct_union_get_values_of_cls(cls, False)
 
 
@@ -1915,8 +1882,7 @@ cdef void add_error_field_type(const iop_field_t *field, sb_t *err):
 
     if py_field_type is not None:
         py_field_type_name = py_field_type.__name__
-        sb_add_lstr(err, mp_py_obj_to_lstr(t_pool(), py_field_type_name,
-                                           False))
+        sb_add_lstr(err, t_py_obj_to_lstr(py_field_type_name))
     else:
         sb_adds(err, 'NoneType')
 
@@ -1953,10 +1919,9 @@ cdef int add_error_convert_field(const iop_field_t *field, object py_obj,
 
     t_scope_ignore(t_scope_guard)
     py_obj_type_name = type(py_obj).__name__
-    py_obj_type_name_lstr = mp_py_obj_to_lstr(t_pool(), py_obj_type_name,
-                                              False)
+    py_obj_type_name_lstr = t_py_obj_to_lstr(py_obj_type_name)
     py_obj_repr = repr(py_obj)
-    py_obj_repr_lstr = mp_py_obj_to_lstr(t_pool(), py_obj_repr, False)
+    py_obj_repr_lstr = t_py_obj_to_lstr(py_obj_repr)
 
     sb_addf(err, "invalid type: got %*pM (%*pM), expected ",
             LSTR_FMT_ARG(py_obj_type_name_lstr),
@@ -2026,7 +1991,7 @@ cdef const iop_field_t *find_field_in_st_by_name(const iop_struct_t *st,
     cdef lstr_t name_lstr
 
     t_scope_ignore(t_scope_guard)
-    name_lstr = mp_py_obj_to_lstr(t_pool(), name, False)
+    name_lstr = t_py_obj_to_lstr(name)
     return find_field_in_st_by_name_lstr(st, name_lstr, field_index)
 
 
@@ -2362,7 +2327,8 @@ cdef int raise_invalid_field_type(const iop_field_t *field,
     py_obj
         The python object to process.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
 
     add_error_convert_field(field, py_obj, &err)
     raise Error(lstr_to_py_str(LSTR_SB_V(&err)))
@@ -2485,6 +2451,7 @@ cdef int mp_iop_py_obj_field_to_c_val(mem_pool_t *mp, cbool force_str_dup,
     """
     cdef iop_type_t ftype = field.type
     cdef str py_str
+    cdef lstr_t lstr
     cdef bytes py_bytes
     cdef EnumBase py_enum
     cdef object py_enum_cls
@@ -2530,11 +2497,17 @@ cdef int mp_iop_py_obj_field_to_c_val(mem_pool_t *mp, cbool force_str_dup,
 
     elif ftype == IOP_T_XML or ftype == IOP_T_STRING:
         py_str = py_obj
-        (<lstr_t *>res)[0] = mp_py_obj_to_lstr(mp, py_str, force_str_dup)
+        lstr = py_str_to_lstr(py_str)
+        if force_str_dup:
+            lstr = mp_lstr_dup(mp, lstr)
+        (<lstr_t *>res)[0] = lstr
 
     elif ftype == IOP_T_DATA:
         py_bytes = py_obj
-        (<lstr_t *>res)[0] = mp_py_bytes_to_lstr(mp, py_bytes, force_str_dup)
+        lstr = py_bytes_to_lstr(py_bytes)
+        if force_str_dup:
+            lstr = mp_lstr_dup(mp, lstr)
+        (<lstr_t *>res)[0] = lstr
 
     elif ftype == IOP_T_ENUM:
         en = field.u1.en_desc
@@ -2653,7 +2626,8 @@ cdef int mp_iop_repeat_py_field_to_cval(mem_pool_t *mp,
     -------
         -1 in case of python exception. 0 otherwise.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef list field_list
     cdef iop_array_u8_t *array
     cdef int list_len
@@ -2920,7 +2894,8 @@ cdef void *t_parse_lstr_json(const iop_struct_t *st, lstr_t val) except NULL:
     -------
         The unpacked iop struct value or NULL in case of exception.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef pstream_t ps
     cdef int ret_code
     cdef void *res = NULL
@@ -2950,7 +2925,8 @@ cdef void *t_parse_lstr_yaml(const iop_struct_t *st, lstr_t val) except NULL:
     -------
         The unpacked iop struct value or NULL in case of exception.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef pstream_t ps
     cdef int ret_code
     cdef void *res = NULL
@@ -3177,7 +3153,7 @@ cdef StructUnionBase parse_special_val(object cls, const iop_struct_t *st,
     # Required to ignore cython error about unused entry t_scope_guard
     t_scope_ignore(t_scope_guard)
 
-    val_lstr = mp_py_obj_to_lstr(t_pool(), val, False)
+    val_lstr = t_py_obj_to_lstr(val)
     return parse_special_val_lstr(cls, st, plugin, val_type, val_lstr)
 
 
@@ -3274,14 +3250,15 @@ cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
         The unpacked object.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef lstr_t filename_lstr
     cdef void *data
     cdef int ret_code
 
     t_scope_ignore(t_scope_guard)
 
-    filename_lstr = mp_py_obj_to_lstr(t_pool(), filename, False)
+    filename_lstr = t_py_obj_to_lstr(filename)
     with nogil:
         data = NULL
         if file_type == IOPY_SPECIAL_KWARGS_JSON:
@@ -3339,7 +3316,7 @@ cdef object unpack_file_from_args_to_py_obj(object cls, dict kwargs):
         file_type == IOPY_SPECIAL_KWARGS_YAML):
         return unpack_file_to_py_obj(cls, st, plugin, filename, file_type)
 
-    filename_lstr = mp_py_obj_to_lstr(t_pool(), filename, False)
+    filename_lstr = t_py_obj_to_lstr(filename)
     if lstr_init_from_file(&file_content, filename_lstr.s, PROT_READ,
                            MAP_SHARED) < 0:
         err_desc = strerror(errno)
@@ -3902,7 +3879,7 @@ cdef int check_field_constraints(const iop_struct_t *st,
 # }}}
 # {{{ Format python object to str
 
-cdef int iopy_kwargs_to_jpack_flags(dict kwargs, cbool reset):
+cdef unsigned iopy_kwargs_to_jpack_flags(dict kwargs, cbool reset):
     """Get the json pack flags according to the json pack arguments.
 
     Parameters
@@ -3919,7 +3896,7 @@ cdef int iopy_kwargs_to_jpack_flags(dict kwargs, cbool reset):
     """
     # XXX: use the UNSAFE_INTEGERS so that the products not having lib-common
     #      d64486277c70ed2 can unpack the big numbers serialized.
-    cdef int flags = IOP_JPACK_UNSAFE_INTEGERS
+    cdef unsigned flags = IOP_JPACK_UNSAFE_INTEGERS
 
     if not reset:
         flags |= iopy_g.jpack_flags
@@ -3927,12 +3904,22 @@ cdef int iopy_kwargs_to_jpack_flags(dict kwargs, cbool reset):
     if kwargs is not None:
         if kwargs.get('no_whitespaces'):
             flags |= IOP_JPACK_NO_WHITESPACES
+        if kwargs.get('no_trailing_eol'):
+            flags |= IOP_JPACK_NO_TRAILING_EOL
         if kwargs.get('skip_private'):
             flags |= IOP_JPACK_SKIP_PRIVATE
         if kwargs.get('skip_default'):
             flags |= IOP_JPACK_SKIP_DEFAULT
         if kwargs.get('skip_empty_arrays'):
             flags |= IOP_JPACK_SKIP_EMPTY_ARRAYS
+        if kwargs.get('skip_empty_structs'):
+            flags |= IOP_JPACK_SKIP_EMPTY_STRUCTS
+        if kwargs.get('shorten_data'):
+            flags |= IOP_JPACK_SHORTEN_DATA
+        if kwargs.get('skip_class_names'):
+            flags |= IOP_JPACK_SKIP_CLASS_NAMES
+        if kwargs.get('skip_optional_class_names'):
+            flags |= IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES
         if kwargs.get('minimal'):
             flags |= IOP_JPACK_MINIMAL
 
@@ -3958,9 +3945,10 @@ cdef str format_py_obj_to_json(StructUnionBase py_obj, dict kwargs):
         The formatted string.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t sb = sb_scope_init_8k()
+    cdef sb_buf_8k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef void *val = NULL
-    cdef int flags
+    cdef unsigned flags
 
     t_scope_ignore(t_scope_guard)
     mp_iop_py_obj_to_c_val(t_pool(), False, py_obj, &val)
@@ -3983,7 +3971,8 @@ cdef str format_py_obj_to_yaml(StructUnionBase py_obj):
         The formatted string.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t sb = sb_scope_init_8k()
+    cdef sb_buf_8k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef void *val = NULL
 
     t_scope_ignore(t_scope_guard)
@@ -4060,7 +4049,8 @@ cdef str format_py_obj_to_xml(StructUnionBase py_obj, dict kwargs):
         The formatted string.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t sb = sb_scope_init_8k()
+    cdef sb_buf_8k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef const iop_struct_t *st = struct_union_get_desc(py_obj)
     cdef void *val = NULL
     cdef lstr_t name = st.fullname
@@ -4079,11 +4069,11 @@ cdef str format_py_obj_to_xml(StructUnionBase py_obj, dict kwargs):
 
     py_name = kwargs.get('name')
     if py_name is not None:
-        name = mp_py_obj_to_lstr(t_pool(), py_name, False)
+        name = t_py_obj_to_lstr(py_name)
 
     py_ns = kwargs.get('ns')
     if py_ns is not None:
-        ns = mp_py_obj_to_lstr(t_pool(), py_ns, False)
+        ns = t_py_obj_to_lstr(py_ns)
 
     py_soap = kwargs.get('soap')
     if py_soap is not None:
@@ -4134,6 +4124,89 @@ cdef str format_py_obj_to_xml(StructUnionBase py_obj, dict kwargs):
     return lstr_to_py_str(LSTR_SB_V(&sb))
 
 
+cdef object struct_union_export_dict_field(Plugin plugin,
+                                           cbool is_union,
+                                           object py_field_obj,
+                                           const iop_field_t *field,
+                                           unsigned flags,
+                                           cbool *is_skipped):
+    """Export field of struct or union to a primitive python object.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    st
+        The struct or union description.
+    py_field_obj
+        The python field object to export.
+    field
+        The field description.
+    flags
+        The jpack flags used to dump the dict.
+    is_skipped
+        Set to True if the field should be skipped and not put in the dict.
+
+    Returns
+    -------
+        The primitive python object of the field.
+    """
+    cdef iop_type_t ftype = field.type
+    cdef const iop_enum_t *en
+    cdef EnumBase py_enum
+    cdef object py_enum_cls
+    cdef lstr_t enum_val_lstr
+    cdef object def_obj
+
+    if ftype == IOP_T_ENUM:
+        en = field.u1.en_desc
+
+        if likely(isinstance(py_field_obj, EnumBase)):
+            py_enum = <EnumBase>py_field_obj
+        else:
+            py_enum_cls = plugin_get_class_type_en(plugin, en)
+            py_enum = py_enum_cls(py_field_obj)
+
+        enum_val_lstr = iop_enum_to_str_desc(enum_get_desc(py_enum),
+                                             py_enum.val)
+        if enum_val_lstr.s:
+            py_field_obj = lstr_to_py_str(enum_val_lstr)
+        else:
+            py_field_obj = py_enum.val
+
+        if ((flags & IOP_JPACK_SKIP_DEFAULT) and
+                field.repeat == IOP_R_DEFVAL and
+                field.u0.defval_enum == py_enum.val):
+            is_skipped[0] = True
+            return None
+
+    elif ftype == IOP_T_UNION:
+        py_field_obj = union_export_to_dict(<UnionBase>py_field_obj, flags)
+
+    elif ftype == IOP_T_STRUCT:
+        py_field_obj = struct_export_to_dict(<StructBase>py_field_obj,
+                                             field.u1.st_desc, flags)
+
+        if ((flags & IOP_JPACK_SKIP_EMPTY_STRUCTS) and
+                field.repeat == IOP_R_REQUIRED and not is_union and
+                not py_field_obj):
+            is_skipped[0] = True
+            return None
+
+    elif (ftype == IOP_T_VOID and field.repeat == IOP_R_REQUIRED and
+            not is_union):
+        is_skipped[0] = True
+        return None
+
+    elif (flags & IOP_JPACK_SKIP_DEFAULT) and field.repeat == IOP_R_DEFVAL:
+        def_obj = struct_union_field_make_default_obj(field)
+        if py_field_obj == def_obj:
+            is_skipped[0] = True
+            return None
+
+    return py_field_obj
+
+
 # }}}
 # {{{ Get fields name
 
@@ -4167,6 +4240,28 @@ cdef int fill_fields_name_list(const iop_struct_t *st, list l) except -1:
 
 # }}}
 # {{{ Description
+
+
+cdef list struct_union_get_fields_name(object cls):
+    """Get the list of name of fields of struct or union.
+
+    Parameters
+    ----------
+    cls
+        The struct or union iop class type.
+
+    Returns
+    -------
+    list
+        The list of name of fields.
+    """
+    cdef const iop_struct_t *st
+    cdef list l
+
+    st = struct_union_get_iop_type_cls(cls).desc
+    l = []
+    fill_fields_name_list(st, l)
+    return l
 
 
 cdef void get_struct_union_desc_fields(const iop_struct_t *st, sb_t *sb):
@@ -4287,20 +4382,25 @@ cdef void get_struct_union_desc_class(const iop_struct_t *st, sb_t *sb):
     get_struct_union_desc_fields(st, sb)
 
 
-cdef str get_struct_union_desc(const iop_struct_t *st):
+cdef str get_struct_union_desc(object cls):
     """Return the description of the struct or union.
 
     Parameters
     ----------
-    st
-        The struct or union iop description.
+    cls
+        The struct or union iop class type.
 
     Returns
     -------
         The string description of the struct or union.
     """
-    cdef sb_scope_t sb = sb_scope_init_1k()
-    cdef cbool is_class = iop_struct_is_class(st)
+    cdef sb_buf_1k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
+    cdef const iop_struct_t *st
+    cdef cbool is_class
+
+    st = struct_union_get_iop_type_cls(cls).desc
+    is_class = iop_struct_is_class(st)
 
     if st.is_union:
         sb_adds(&sb, 'union ')
@@ -4327,7 +4427,7 @@ cdef dict struct_union_get_values_of_cls(object cls, cbool skip_optionals):
     Parameters
     ----------
     cls
-        The union class type.
+        The struct or union iop class type.
     skip_optionals
         When True, the optional fields of a struct are skipped to respect
         IOPyV1 compatibility.
@@ -4439,8 +4539,8 @@ cdef object struct_union_get_py_type_of_field(Plugin plugin,
 
 
 cdef str struct_union_get_iop_type_of_field(Plugin plugin,
-                                                   const iop_field_t *field,
-                                                   iop_type_t ftype):
+                                            const iop_field_t *field,
+                                            iop_type_t ftype):
     """Get the iop type of a field as a string.
 
     Parameters
@@ -4610,7 +4710,6 @@ cdef int struct_union_make_iop_field_description(
     -------
         -1 in case of exception, 0 otherwise.
     """
-    cdef lstr_t def_str
     cdef object default_value = None
     cdef bool optional = False
     cdef bool repeated = False
@@ -4640,31 +4739,7 @@ cdef int struct_union_make_iop_field_description(
 
     # Get default value.
     if frepeat == IOP_R_DEFVAL:
-        if (ftype == IOP_T_I8
-         or ftype == IOP_T_U8
-         or ftype == IOP_T_I16
-         or ftype == IOP_T_U16
-         or ftype == IOP_T_I32
-         or ftype == IOP_T_U32
-         or ftype == IOP_T_I64
-         or ftype == IOP_T_U64):
-            default_value = field.u1.defval_u64
-        elif ftype == IOP_T_BOOL:
-            default_value = field.u1.defval_u64 != 0
-        elif ftype == IOP_T_DOUBLE:
-            default_value = field.u1.defval_d
-        elif ftype == IOP_T_ENUM:
-            def_str = iop_enum_to_str_desc(field.u1.en_desc,
-                                           field.u0.defval_enum)
-            default_value = lstr_to_py_str(def_str)
-        elif (ftype == IOP_T_STRING
-           or ftype == IOP_T_XML
-           or ftype == IOP_T_DATA):
-            def_str = LSTR_INIT_V(<const char *>field.u1.defval_data,
-                                  field.u0.defval_len)
-            default_value = lstr_to_py_str(def_str)
-        else:
-            cassert(False)
+        default_value = struct_union_field_make_default_obj(field)
     elif frepeat == IOP_R_OPTIONAL:
         optional = True
     elif frepeat == IOP_R_REPEATED:
@@ -4755,6 +4830,53 @@ cdef int struct_union_make_iop_field_description(
     return 0
 
 
+cdef object struct_union_field_make_default_obj(const iop_field_t *field):
+    """Make a Python object corresponding to default value of the field.
+
+    Parameters
+    ----------
+    field
+        The C iop field.
+
+    Returns
+    -------
+        A Python object corresponding to the default value of the fields.
+    """
+    cdef iop_type_t ftype = field.type
+    cdef lstr_t def_str
+    cdef object default_value = None
+
+    cassert(field.repeat == IOP_R_DEFVAL)
+
+    if (ftype == IOP_T_I8
+     or ftype == IOP_T_U8
+     or ftype == IOP_T_I16
+     or ftype == IOP_T_U16
+     or ftype == IOP_T_I32
+     or ftype == IOP_T_U32
+     or ftype == IOP_T_I64
+     or ftype == IOP_T_U64):
+        default_value = field.u1.defval_u64
+    elif ftype == IOP_T_BOOL:
+        default_value = field.u1.defval_u64 != 0
+    elif ftype == IOP_T_DOUBLE:
+        default_value = field.u1.defval_d
+    elif ftype == IOP_T_ENUM:
+        def_str = iop_enum_to_str_desc(field.u1.en_desc,
+                                       field.u0.defval_enum)
+        default_value = lstr_to_py_str(def_str)
+    elif (ftype == IOP_T_STRING
+       or ftype == IOP_T_XML
+       or ftype == IOP_T_DATA):
+        def_str = LSTR_INIT_V(<const char *>field.u1.defval_data,
+                              field.u0.defval_len)
+        default_value = lstr_to_py_str(def_str)
+    else:
+        cassert(False)
+
+    return default_value
+
+
 cdef object iop_field_min_max_attr_value(iop_type_t ftype,
                                          const iop_field_attr_t *attr):
     """Get the value of a min/max constraint for an iop field.
@@ -4833,21 +4955,21 @@ cdef class UnionBase(StructUnionBase):
     """Iopy Union object
 
     Setting a valid members of this object erase the previous ones.
-    __values__() return a list of all allowed members.
+    get_values() return a list of all allowed members.
     Objects are callable to create new instances.
 
     Almost all methods from Iopy struct class are available for union class
     (like special constructors using _[json|yaml|xml|hex|bin]
-    or dumper methods __[json|yaml|xml|hex|bin]__() ])
+    or methods to_[json|yaml|xml|hex|bin]() ])
 
     Demo:
     #import iopy
     #q = iopy.Plugin("~/dev/mmsx/qrrd/iop/qrrd-iop-plugin.so")
     #q.qrrdquery.Key
     Union qrrdquery.Key
-    #q.qrrdquery.Key.__values__()
+    #q.qrrdquery.Key.get_values()
     {'s': <type 'str'>, 't': <type 'int'>}
-    #print(q.qrrdquery.Key.__desc__())
+    #print(q.qrrdquery.Key.get_desc())
     union qrrdquery.Key:
      - s [REQUIRED ] IOP_T_STRING
      - t [REQUIRED ] IOP_T_U32
@@ -4857,7 +4979,7 @@ cdef class UnionBase(StructUnionBase):
     #a.t = 12L
     #a
     Union qrrdquery.Key: t = 12L
-    #a.__key__()
+    #a.get_key()
     't'
     """
     cdef int field_index
@@ -4865,7 +4987,7 @@ cdef class UnionBase(StructUnionBase):
     def __init__(UnionBase self, *args, **kwargs):
         """Contructor of the Union.
 
-        See __values__() for allowed keys and argument.
+        See get_values() for allowed keys and argument.
         When field can be guess unambiguously from argument type, named
         keyword is not required, only the argument.
 
@@ -4894,7 +5016,7 @@ cdef class UnionBase(StructUnionBase):
         """
         union_set(self, args, kwargs)
 
-    def __object__(UnionBase self):
+    def get_object(UnionBase self):
         """Get the currently set object.
 
         Returns
@@ -4904,7 +5026,11 @@ cdef class UnionBase(StructUnionBase):
         """
         return union_get_object(self)
 
-    def __key__(UnionBase self):
+    def __object__(UnionBase self):
+        """Deprecated, use get_object() instead."""
+        return union_get_object(self)
+
+    def get_key(UnionBase self):
         """Get the currently set field name.
 
         Returns
@@ -4912,10 +5038,11 @@ cdef class UnionBase(StructUnionBase):
         str
             The field name of the currently set field.
         """
-        cdef const iop_struct_t *st = struct_union_get_desc(self)
-        cdef const iop_field_t *field = &st.fields[self.field_index]
+        return union_get_key(self)
 
-        return lstr_to_py_str(field.name)
+    def __key__(UnionBase self):
+        """Deprecated, use get_key() instead."""
+        return union_get_key(self)
 
     def __setattr__(UnionBase self, object name, object value):
         """Set attribute of union.
@@ -4930,7 +5057,8 @@ cdef class UnionBase(StructUnionBase):
         value : object
             The value of the field to set.
         """
-        cdef sb_scope_t err = sb_scope_init_1k()
+        cdef sb_buf_1k_t err_buf
+        cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef _InternalStructUnionType iop_type
         cdef const iop_struct_t *st
         cdef Plugin plugin
@@ -5019,6 +5147,46 @@ cdef class UnionBase(StructUnionBase):
         struct_union_init_iop_description(iop_type, res)
         return res
 
+    def to_dict(UnionBase self, **kwargs):
+        """Deeply convert the union object to a dict.
+
+        It is a faster version of doing `json.loads(obj.to_json())`.
+
+        Parameters
+        ----------
+        skip_private : bool, optional
+            Skip the private fields (lossy).
+        skip_default : bool, optional
+            Skip fields having their default value.
+        skip_empty_arrays : bool, optional
+            Skip empty repeated fields.
+        skip_empty_structs : bool, optional
+            Skip empty sub-structures.
+        skip_class_names : bool, optional
+            Skip class names (lossy).
+        skip_optional_class_names : bool, optional
+            Skip class names when not needed.
+            If set, the class names won't be written if they are equal to the
+            actual type of the field (missing class names are supported by the
+            unpacker in that case).
+        minimal : bool, optional
+            Produce the smallest non-lossy possible dict.
+            This is:
+                skip_default +
+                skip_empty_arrays +
+                skip_empty_structs +
+                skip_optional_class_names
+
+        Returns
+        -------
+        dict
+            The dict containing the values of the union object.
+        """
+        cdef unsigned flags
+
+        flags = iopy_kwargs_to_jpack_flags(kwargs, True)
+        return union_export_to_dict(self, flags)
+
 
 cdef class Union(UnionBase):
     """Union class for backward compatibility"""
@@ -5095,6 +5263,25 @@ cdef object union_get_object(UnionBase py_obj):
     return getattr(py_obj, lstr_to_py_str(field.name))
 
 
+cdef object union_get_key(UnionBase py_obj):
+    """Get the currently set field name.
+
+    Parameters
+    ----------
+    py_obj
+        The union python object.
+
+    Returns
+    -------
+    str
+        The field name of the currently set field.
+    """
+    cdef const iop_struct_t *st = struct_union_get_desc(py_obj)
+    cdef const iop_field_t *field = &st.fields[py_obj.field_index]
+
+    return lstr_to_py_str(field.name)
+
+
 cdef int union_set(UnionBase py_obj, tuple args, dict kwargs) except -1:
     """Set the union value from arguments.
 
@@ -5111,7 +5298,8 @@ cdef int union_set(UnionBase py_obj, tuple args, dict kwargs) except -1:
     -------
         -1 in case of python exception. 0 otherwise.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef _InternalStructUnionType iop_type
     cdef const iop_struct_t *st
     cdef Plugin plugin
@@ -5200,6 +5388,45 @@ cdef inline dict union_get_values(UnionBase py_obj):
     return struct_union_get_values_of_cls(type(py_obj), False)
 
 
+cdef dict union_export_to_dict(UnionBase py_obj, unsigned flags):
+    """Deeply convert the union object to a dict.
+
+    It is a faster version of doing `json.loads(obj.to_json())`.
+
+    Parameters
+    ----------
+    py_obj
+        The union python object to export.
+    flags
+        The jpack flags used to dump the dict.
+
+    Returns
+    -------
+        The dict containing the values of the union object.
+    """
+
+    cdef const iop_struct_t *st
+    cdef Plugin plugin
+    cdef const iop_field_t *field
+    cdef str py_field_name
+    cdef object py_field_obj
+
+    iop_type = struct_union_get_iop_type(py_obj)
+    st = iop_type.desc
+    plugin = iop_type.plugin
+
+    field = &st.fields[py_obj.field_index]
+    py_field_name = lstr_to_py_str(field.name)
+
+    py_field_obj = getattr(py_obj, py_field_name)
+    py_field_obj = struct_union_export_dict_field(
+        plugin, True, py_field_obj, field, flags, NULL)
+
+    return {
+        py_field_name: py_field_obj
+    }
+
+
 # }}}
 # {{{ Struct
 
@@ -5214,22 +5441,22 @@ cdef class StructBase(StructUnionBase):
     Objects are callable to create new instances. Fields of the new instance
     are passed as named arguments and must conform to the IOP structure.
     Arguments with value None are ignored.
-    __desc__() can be called to get a description of the internal IOP
+    get_desc() can be called to get a description of the internal IOP
     structure.
     You can also create new instances from json, yaml, bin, xml or
     hexadecimal iop packed strings by creating the object with a single
     argument named _json, _yaml, _xml, _bin or _hex.
 
     You can dump thoses struct into json, yaml, bin, xml or hexadecimal
-    iop-packed string using methods __json__, __yaml__, __bin__, __xml__
-    or __hex__.
+    iop-packed string using methods to_json(), to_yaml(), to_bin(), to_xml()
+    or to_hex().
 
     Demo:
     #import iopy
     #q = iopy.Plugin("~/dev/mmsx/qrrd/iop/qrrd-iop-plugin.so")
     #q.qrrdquery.KeyFull
     Struct qrrdquery.KeyFull:{'key': '', 'aggrs': 0L}
-    #print(q.qrrdquery.KeyFull.__desc__())
+    #print(q.qrrdquery.KeyFull.get_desc())
     structure qrrdquery.KeyFull:
      - key [REQUIRED ] IOP_T_STRING
      - aggrs [REQUIRED ] IOP_T_U32
@@ -5240,7 +5467,7 @@ cdef class StructBase(StructUnionBase):
             "aggrs": 23
     }
     #a.key = "lili"
-    #print(a.__xml__())
+    #print(a.to_xml())
     <qrrdquery.KeyFull><key>lili</key><aggrs>23</aggrs></qrrdquery.KeyFull>
     #b = q.qrrdquery.KeyFull(_json = "{"key": "juju","aggrs":46}")
     #b
@@ -5256,7 +5483,8 @@ cdef class StructBase(StructUnionBase):
             The list of values for the fields of the structure.
         """
         cdef t_scope_t t_scope_guard = t_scope_init()
-        cdef sb_scope_t err = sb_scope_init_1k()
+        cdef sb_buf_1k_t err_buf
+        cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef object key
         cdef const iop_struct_t *st
         cdef void *empty_val = NULL
@@ -5271,7 +5499,7 @@ cdef class StructBase(StructUnionBase):
         for key in kwargs:
             if not find_field_in_st_by_name(st, key, NULL):
                 raise Error('invalid key %s, allowed: %s' %
-                            (key, self.__iopslots__()))
+                            (key, self.get_iopslots()))
 
         if t_struct_init_fields(self, st, st, kwargs, &empty_val, &err) < 0:
             raise Error("error when parsing %s: %s" %
@@ -5279,7 +5507,7 @@ cdef class StructBase(StructUnionBase):
                          lstr_to_py_str(LSTR_SB_V(&err))))
 
     @classmethod
-    def __iopslots__(object cls):
+    def get_iopslots(object cls):
         """ Return a list of all available IOP slots.
 
         Returns
@@ -5287,12 +5515,12 @@ cdef class StructBase(StructUnionBase):
         str
             The list of IOP slots.
         """
-        cdef sb_scope_t sb = sb_scope_init_1k()
-        cdef const iop_struct_t *st
+        return struct_get_iopslots(cls)
 
-        st = struct_union_get_iop_type_cls(cls).desc
-        iopslots_from_st(st, &sb)
-        return lstr_to_py_str(LSTR_SB_V(&sb))
+    @classmethod
+    def __iopslots__(object cls):
+        """Deprecated, use get_iopslots() instead."""
+        return struct_get_iopslots(cls)
 
     def __setattr__(StructBase self, object name, object value):
         """Set attribute of struct.
@@ -5304,7 +5532,8 @@ cdef class StructBase(StructUnionBase):
         value : object
             The value of the field to set.
         """
-        cdef sb_scope_t err = sb_scope_init_1k()
+        cdef sb_buf_1k_t err_buf
+        cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef const iop_struct_t *st = struct_union_get_desc(self)
         cdef const iop_field_t *field
         cdef cbool is_valid
@@ -5350,7 +5579,7 @@ cdef class StructBase(StructUnionBase):
         py_object_generic_delattr(self, name)
 
     @classmethod
-    def __get_class_attrs__(object cls):
+    def get_class_attrs(object cls):
         """Return the class attributes.
 
         Returns
@@ -5370,36 +5599,12 @@ cdef class StructBase(StructUnionBase):
             is_abstract : bool
                 Notices if the class is abstract.
         """
-        cdef const iop_struct_t *st
-        cdef const iop_class_attrs_t *attrs
-        cdef dict cls_statics
-        cdef dict statics
-        cdef object base
+        return struct_get_class_attrs(cls)
 
-        st = struct_union_get_iop_type_cls(cls).desc
-        if not iop_struct_is_class(st):
-            return None
-
-        attrs = st.class_attrs
-
-        cls_statics = {}
-        populate_static_fields_cls(st, cls_statics)
-
-        statics = {}
-        populate_static_fields_parent(st, statics)
-        statics.update(cls_statics)
-
-        if attrs.parent:
-            base = lstr_to_py_str(attrs.parent.fullname)
-        else:
-            base = ''
-
-        return {
-            'base': base,
-            'statics': statics,
-            'cls_statics': cls_statics,
-            'is_abstract': attrs.is_abstract,
-        }
+    @classmethod
+    def __get_class_attrs__(object cls):
+        """Deprecated, use get_class_attrs() instead."""
+        return struct_get_class_attrs(cls)
 
     def __repr__(StructBase self):
         """Return the represention of the structure."""
@@ -5429,6 +5634,46 @@ cdef class StructBase(StructUnionBase):
             struct_res = IopStructDescription.__new__(IopStructDescription)
             struct_union_init_iop_description(iop_type, struct_res)
             return struct_res
+
+    def to_dict(StructBase self, **kwargs):
+        """Deeply convert the struct object to a dict.
+
+        It is a faster version of doing `json.loads(obj.to_json())`.
+
+        Parameters
+        ----------
+        skip_private : bool, optional
+            Skip the private fields (lossy).
+        skip_default : bool, optional
+            Skip fields having their default value.
+        skip_empty_arrays : bool, optional
+            Skip empty repeated fields.
+        skip_empty_structs : bool, optional
+            Skip empty sub-structures.
+        skip_class_names : bool, optional
+            Skip class names (lossy).
+        skip_optional_class_names : bool, optional
+            Skip class names when not needed.
+            If set, the class names won't be written if they are equal to the
+            actual type of the field (missing class names are supported by the
+            unpacker in that case).
+        minimal : bool, optional
+            Produce the smallest non-lossy possible dict.
+            This is:
+                skip_default +
+                skip_empty_arrays +
+                skip_empty_structs +
+                skip_optional_class_names
+
+        Returns
+        -------
+        dict
+            The dict containing the values of the struct object.
+        """
+        cdef unsigned flags
+
+        flags = iopy_kwargs_to_jpack_flags(kwargs, True)
+        return struct_export_to_dict(self, NULL, flags)
 
 
 cdef class Struct(StructBase):
@@ -5611,7 +5856,8 @@ cdef int t_struct_init_fields(StructBase py_st, const iop_struct_t *obj_st,
         -1 in case of invalid fields.
         0 otherwise.
     """
-    cdef sb_scope_t field_err = sb_scope_init_1k()
+    cdef sb_buf_1k_t field_err_buf
+    cdef sb_scope_t field_err = sb_scope_init_static(field_err_buf)
     cdef int res = 0
     cdef const iop_struct_t *parent_st
     cdef const iop_field_t *field
@@ -6102,6 +6348,234 @@ cdef int class_init_static_iop_descriptions_parent(Plugin plugin,
     return 0
 
 
+cdef str struct_get_iopslots(object cls):
+    """ Return a list of all available IOP slots.
+
+    Parameters
+    ----------
+    cls
+        The struct iop class type.
+
+    Returns
+    -------
+    str
+        The list of IOP slots.
+    """
+    cdef sb_buf_1k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
+    cdef const iop_struct_t *st
+
+    st = struct_union_get_iop_type_cls(cls).desc
+    iopslots_from_st(st, &sb)
+    return lstr_to_py_str(LSTR_SB_V(&sb))
+
+
+cdef dict struct_get_class_attrs(object cls):
+    """Return the class attributes.
+
+    Parameters
+    ----------
+    cls
+        The struct iop class type.
+
+    Returns
+    -------
+    dict
+        If the iop structure is not a class then return None.
+        Else, return a dictionary with the following entries:
+        base : str
+            The fullname of the base class. It is an empty string when
+            there is no base class.
+        statics : dict
+            Dictionary whose keys are the static fields names and values
+            are statics fields values. It is an empty dictionary when
+            there is no static fields.
+        cls_statics : dict
+            Dictionary which contains the class's own static fields.
+        is_abstract : bool
+            Notices if the class is abstract.
+    """
+    cdef const iop_struct_t *st
+    cdef const iop_class_attrs_t *attrs
+    cdef dict cls_statics
+    cdef dict statics
+    cdef object base
+
+    st = struct_union_get_iop_type_cls(cls).desc
+    if not iop_struct_is_class(st):
+        return None
+
+    attrs = st.class_attrs
+
+    cls_statics = {}
+    populate_static_fields_cls(st, cls_statics)
+
+    statics = {}
+    populate_static_fields_parent(st, statics)
+    statics.update(cls_statics)
+
+    if attrs.parent:
+        base = lstr_to_py_str(attrs.parent.fullname)
+    else:
+        base = ''
+
+    return {
+        'base': base,
+        'statics': statics,
+        'cls_statics': cls_statics,
+        'is_abstract': attrs.is_abstract,
+    }
+
+
+cdef dict struct_export_to_dict(StructBase py_obj,
+                                const iop_struct_t *base_st,
+                                unsigned flags):
+    """Deeply convert the struct object to a dict.
+
+    It is a faster version of doing `json.loads(obj.to_json())`.
+
+    Parameters
+    ----------
+    py_obj
+        The struct python object to export.
+    base_st
+        The base structure description from the structure field.
+        Can be NULL if py_obj is from a field.
+    flags
+        The jpack flags used to dump the dict.
+
+    Returns
+    -------
+        The dict containing the values of the struct object.
+    """
+    cdef _InternalStructUnionType iop_type
+    cdef const iop_struct_t *st
+    cdef Plugin plugin
+    cdef dict res
+
+    iop_type = struct_union_get_iop_type(py_obj)
+    st = iop_type.desc
+    plugin = iop_type.plugin
+
+    res = {}
+
+    if (iop_struct_is_class(st) and
+            not (flags & IOP_JPACK_SKIP_CLASS_NAMES) and
+            not ((flags & IOP_JPACK_SKIP_OPTIONAL_CLASS_NAMES) and
+                 (not base_st or base_st == st))):
+        res['_class'] = lstr_to_py_str(st.fullname)
+
+    while st:
+        struct_fill_fields_dict(plugin, py_obj, st, flags, res)
+        st = get_iop_struct_parent(st)
+    return res
+
+
+cdef int struct_fill_fields_dict(Plugin plugin, StructBase py_obj,
+                                 const iop_struct_t *st, unsigned flags,
+                                 dict res) except -1:
+    """Fill the dict of fields of the struct.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    py_obj
+        The struct python object to export.
+    st
+        The struct description.
+    flags
+        The jpack flags used to dump the dict.
+    res
+        The dictionary of fields to fill.
+
+    Returns
+    -------
+        -1 in case of exception, 0 otherwise.
+    """
+    cdef int i
+    cdef str py_field_name
+    cdef const iop_field_t *field
+    cdef cbool is_skipped
+    cdef object py_dict_field
+
+    for i in range(st.fields_len):
+        field = &st.fields[i]
+        py_field_name = lstr_to_py_str(field.name)
+
+        is_skipped = False
+        py_dict_field = struct_fill_fields_dict_field(plugin, py_obj, st,
+                                                      field, py_field_name,
+                                                      flags, &is_skipped)
+        if not is_skipped:
+            res[py_field_name] = py_dict_field
+
+
+cdef object struct_fill_fields_dict_field(Plugin plugin, StructBase py_obj,
+                                          const iop_struct_t *st,
+                                          const iop_field_t *field,
+                                          str py_field_name,
+                                          unsigned flags, cbool *is_skipped):
+    """Get field of the struct to be exported to a dict.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    py_obj
+        The struct python object to export.
+    st
+        The struct description.
+    field
+        The field to export.
+    py_field_name
+        The name of the field as a Python string.
+    flags
+        The jpack flags used to dump the dict.
+    is_skipped
+        Set to True if the field should be skipped and not put in the dict.
+
+    Returns
+    -------
+        The object of the field or None with is_skipped set to True if the
+        field should be skipped.
+    """
+    cdef const iop_field_attrs_t *attrs
+    cdef object py_field_obj
+    cdef list py_field_list
+    cdef object py_dict_field
+
+    if flags & IOP_JPACK_SKIP_PRIVATE:
+        attrs = iop_field_get_attrs(st, field)
+        if attrs and TST_BIT(&attrs.flags, IOP_FIELD_PRIVATE):
+            is_skipped[0] = True
+            return None
+
+    try:
+        py_field_obj = getattr(py_obj, py_field_name)
+    except AttributeError:
+        # Optional
+        is_skipped[0] = True
+        return None
+
+    if field.repeat == IOP_R_REPEATED:
+        py_field_list = py_field_obj
+
+        if (flags & IOP_JPACK_SKIP_EMPTY_ARRAYS) and not py_field_list:
+            is_skipped[0] = True
+            return None
+
+        py_dict_field = [
+            struct_union_export_dict_field(plugin, False, x, field, flags,
+                                           NULL)
+            for x in py_field_list
+        ]
+    else:
+        py_dict_field = struct_union_export_dict_field(
+            plugin, False, py_field_obj, field, flags, is_skipped)
+
+    return py_dict_field
+
 # }}}
 # }}}
 # {{{ RPCs
@@ -6112,9 +6586,8 @@ cdef class ChannelBase:
     """Base class for IC channel"""
 
     def __init__(Module self):
-        """Channel initialization is not supported"""
-        raise TypeError('Channel initialization is not supported, use '
-                        'connect() instead')
+        """ChannelBase is an abstract class"""
+        raise NotImplementedError
 
 
 @cython.internal
@@ -6422,7 +6895,7 @@ cdef class RPCBase:
             return rpc_name
         arg_type = plugin_get_class_type_st(self.iface_holder.plugin,
                                             self.rpc.args)
-        return '%s, argument: %s' % (rpc_name, arg_type.__desc__())
+        return '%s, argument: %s' % (rpc_name, arg_type.get_desc())
 
     def __repr__(RPCBase self):
         """Return the representation of the RPC.
@@ -6459,13 +6932,13 @@ cdef class RPCChannel(RPCBase):
         return self.py_iface.channel
 
 
-ctypedef int (*rpc_create_b)(const iop_rpc_t *rpc,
+ctypedef int (*rpc_create_f)(const iop_rpc_t *rpc,
                              _InternalIfaceHolder iface_holder,
                              _InternalIface py_iface) except -1
 
 
 cdef int create_modules_of_channel(Plugin plugin, ChannelBase channel,
-                                   rpc_create_b rpc_create_cb) except -1:
+                                   rpc_create_f rpc_create_cb) except -1:
     """Create the modules of a channel instance.
 
     Parameters
@@ -6474,8 +6947,8 @@ cdef int create_modules_of_channel(Plugin plugin, ChannelBase channel,
         The IOPy plugin.
     channel
         The IOPy channel instance.
-    rpc_type
-        The RPC class type for the connection.
+    rpc_create_cb
+        The callback used to create the RPC object for the connection.
 
     Returns
     -------
@@ -6511,7 +6984,7 @@ cdef int create_modules_of_channel(Plugin plugin, ChannelBase channel,
 
 
 cdef Module create_module(_InternalModuleHolder cls, ChannelBase channel,
-                          rpc_create_b rpc_create_cb):
+                          rpc_create_f rpc_create_cb):
     """Create instance of module from class type and channel.
 
     Parameters
@@ -6520,8 +6993,8 @@ cdef Module create_module(_InternalModuleHolder cls, ChannelBase channel,
         The class type of the module.
     channel
         The IC connection channel.
-    rpc_type
-        The RPC class type for the connection.
+    rpc_create_cb
+        The callback used to create the RPC object for the connection.
 
     Returns
     -------
@@ -6547,7 +7020,7 @@ cdef Module create_module(_InternalModuleHolder cls, ChannelBase channel,
 
 cdef _InternalIface create_interface(object cls, ChannelBase channel,
                                      const iop_iface_alias_t *iface_alias,
-                                     rpc_create_b rpc_create_cb):
+                                     rpc_create_f rpc_create_cb):
     """Create instance of module from class type and channel.
 
     Parameters
@@ -6556,10 +7029,10 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
         The class type of the interface.
     channel
         The IC connection channel.
-    rpc_type
-        The RPC class type for the connection.
     iface_alias
         The alias of the interface in the module.
+    rpc_create_cb
+        The callback used to create the RPC object for the connection.
 
     Returns
     -------
@@ -6586,21 +7059,21 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
 
 
 cdef class RPC(RPCChannel):
-    """RPC class for client IC channel"""
+    """RPC class for synchronous client IC channel"""
 
     def call(RPC self, *args, **kwargs):
         """Call the RPC for the associated channel.
 
         All keyword arguments are considered as input structure argument,
-        except the one below.
+        except the ones below.
         It is also possible to directly give the RPC argument as a positional
         argument of the correct type.
 
         Parameters
         ----------
-        _timeout : int
+        _timeout : float
             The timeout for the query. If set, it will superseed the default
-            timeout. -1 means forever.
+            timeout. 0 or a negative number means forever.
         _login : str
             The login to be put in the query IC header.
         _group : str
@@ -6613,23 +7086,23 @@ cdef class RPC(RPCChannel):
             The id of workspace to be put in the query IC header.
         _dealias : bool
             The dealias flag to be put in the query IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The IC header to be used for this query. If set, the
-            above arguments must not be set.
+            above arguments related to the query IC header must not be set.
 
         Returns
         -------
         object
             The result of the RPC.
         """
-        return client_channel_call_rpc(self, args, kwargs)
+        return client_sync_channel_call_rpc(self, args, kwargs)
 
     def __call__(RPC self, *args, **kwargs):
         """Call the RPC for the associated channel.
 
         See call method.
         """
-        return client_channel_call_rpc(self, args, kwargs)
+        return client_sync_channel_call_rpc(self, args, kwargs)
 
 
 @cython.internal
@@ -6659,18 +7132,21 @@ cdef class RPCImplWrapper:
 
 
 cdef class Channel(ChannelBase):
-    """Class for client IC channel"""
+    """Class for synchronous client IC channel"""
+
     cdef dict __dict__
     cdef Plugin plugin
     cdef ic__hdr__t *def_hdr
-    cdef iopy_ic_client_t *ic_client
+    cdef ic_el_client_t *ic_client
+    cdef object on_connect_cb
+    cdef object on_disconnect_cb
     cdef readonly str uri
-    cdef public int default_timeout
+    cdef public double default_timeout
 
     def __init__(Channel self, Plugin plugin, object uri=None, *,
-                 object host=None, int port=-1, int default_timeout=60,
-                 **kwargs):
-        """Constructor of client IC channel.
+                 object host=None, int port=-1, double default_timeout=60.0,
+                 double no_act_timeout=0.0, **kwargs):
+        """Constructor of synchronous client IC channel.
 
         Parameters
         ----------
@@ -6685,9 +7161,12 @@ cdef class Channel(ChannelBase):
         port : int
             The port to connect to. If set, host must also be set and uri must
             not be set.
-        default_timeout : int
+        default_timeout : float
             The default timeout for the IC channel in seconds.
-            -1 means forever, default is 60.
+            0 or a negative number means forever, default is 60.
+        no_act_timeout : float
+            The inactivity timeout before closing the connection in seconds.
+            0 or a negative number means no timeout, default is 0.
         _login : str
             The login to be put in the default IC header.
         _group : str
@@ -6700,20 +7179,20 @@ cdef class Channel(ChannelBase):
             The id of workspace to be put in the default IC header.
         _dealias : bool
             The dealias flag to be put in the default IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The default IC header to be used for this channel. If set, the
-            above arguments must not be set.
+            above arguments related to the default IC header must not be set.
         """
         client_channel_init(self, plugin, uri, host, port, default_timeout,
-                            kwargs)
+                            no_act_timeout, kwargs, &create_sync_client_rpc)
 
     def __dealloc__(Channel self):
         """Destructor of client IC channel"""
         p_delete(<void **>&self.def_hdr)
         if self.ic_client:
-            iopy_ic_client_set_py_obj(self.ic_client, NULL)
+            ic_el_client_set_ext_obj(self.ic_client, NULL)
             with nogil:
-                iopy_ic_client_destroy(&self.ic_client)
+                ic_el_client_destroy(&self.ic_client)
 
     def __repr__(Channel self):
         """Return the representation of the client IC channel.
@@ -6733,18 +7212,18 @@ cdef class Channel(ChannelBase):
 
         Parameters
         ----------
-        timeout : int
+        timeout : float
             The timeout of the connection of the IC channel in seconds.
-            -1 means forever. If not set, use the default timeout of the IC
-            channel.
+            0 or a negative number means forever.
+            If not set, use the default timeout of the IC channel.
         """
-        cdef int timeout_connect
+        cdef double timeout_connect
 
         if timeout is not None:
-            timeout_connect = int(timeout)
+            timeout_connect = float(timeout)
         else:
             timeout_connect = self.default_timeout
-        client_channel_connect(self, timeout_connect)
+        client_sync_channel_connect(self, timeout_connect)
 
     def is_connected(Channel self):
         """Returns whether the associated IC is connected or not.
@@ -6757,13 +7236,13 @@ cdef class Channel(ChannelBase):
         cdef cbool res
 
         with nogil:
-            res = iopy_ic_client_is_connected(self.ic_client)
+            res = ic_el_client_is_connected(self.ic_client)
         return res
 
     def disconnect(Channel self):
         """Disconnect from the associated IC"""
         with nogil:
-            iopy_ic_client_disconnect(self.ic_client)
+            ic_el_client_disconnect(self.ic_client)
 
     def change_default_hdr(Channel self, **kwargs):
         """Change the default header used when performing queries with this
@@ -6783,7 +7262,7 @@ cdef class Channel(ChannelBase):
             The id of workspace to be put in the query IC header.
         _dealias : bool
             The dealias flag to be put in the query IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The IC header to be used for this query. If set, the
             above arguments must not be set.
         """
@@ -6815,10 +7294,188 @@ cdef class Channel(ChannelBase):
         return iop_c_val_to_py_obj(py_hdr_cls, &ic__hdr__s, self.def_hdr,
                                    self.plugin)
 
+    @property
+    def on_connect(Channel self):
+        """Get the callback called upon connection.
+
+        Returns
+        -------
+            The current callback called upon connection.
+        """
+        return self.on_connect_cb
+
+    @on_connect.setter
+    def on_connect(Channel self, object value):
+        """Set the callback called upon connection.
+
+        Parameters
+        ----------
+        value
+            Set to None (default value) to remove the connection callback.
+            The callback is called with one argument:
+                client : Channel
+                    The client channel object.
+        """
+        self.on_connect_cb = value
+
+    @on_connect.deleter
+    def on_connect(Channel self):
+        """Remove the callback called upon connection"""
+        self.on_connect_cb = None
+
+    @property
+    def on_disconnect(Channel self):
+        """Get the callback called upon disconnection.
+
+        Returns
+        -------
+            The current callback called upon disconnection.
+        """
+        return self.on_disconnect_cb
+
+    @on_disconnect.setter
+    def on_disconnect(Channel self, object value):
+        """Set the callback called upon disconnection.
+
+        Parameters
+        ----------
+        value
+            Set to None (default value) to remove the disconnection callback.
+            The callback is called with two arguments:
+                client : Channel
+                    The client channel object.
+                connected : bool
+                    True if the client was connected before, False otherwise.
+        """
+        self.on_disconnect_cb = value
+
+    @on_disconnect.deleter
+    def on_disconnect(Channel self):
+        """Remove the callback called upon disconnection"""
+        self.on_disconnect_cb = None
+
+
+cdef class AsyncRPC(RPCChannel):
+    """RPC class for asynchronous client IC channel"""
+
+    def call(RPC self, *args, **kwargs):
+        """Call the RPC for the associated channel.
+
+        All keyword arguments are considered as input structure argument,
+        except the ones below.
+        It is also possible to directly give the RPC argument as a positional
+        argument of the correct type.
+
+        Parameters
+        ----------
+        _timeout : float
+            The timeout for the query. If set, it will superseed the default
+            timeout. 0 or a negative number means forever.
+        _login : str
+            The login to be put in the query IC header.
+        _group : str
+            The group to be put in the query IC header.
+        _password : str
+            The password to be put in the query IC header.
+        _kind : str
+            The kind to be put in the query IC header.
+        _workspace_id : int
+            The id of workspace to be put in the query IC header.
+        _dealias : bool
+            The dealias flag to be put in the query IC header.
+        _hdr : ic.Hdr
+            The IC header to be used for this query. If set, the
+            above arguments related to the query IC header must not be set.
+
+        Returns
+        -------
+        Future[object]
+            The result of the RPC through an asyncio.Future.
+        """
+        return client_async_channel_call_rpc(self, args, kwargs)
+
+    def __call__(RPC self, *args, **kwargs):
+        """Call the RPC for the associated channel.
+
+        See call method.
+        """
+        return client_async_channel_call_rpc(self, args, kwargs)
+
+
+cdef class AsyncChannel(Channel):
+    """Class for asynchronous client IC channel"""
+
+    def __init__(AsyncChannel self, Plugin plugin, object uri=None, *,
+                 object host=None, int port=-1, double default_timeout=60.0,
+                 double no_act_timeout=0.0, **kwargs):
+        """Constructor of asynchronous client IC channel.
+
+        Parameters
+        ----------
+        plugin :iopy.Plugin
+            The IOPy plugin.
+        uri : str
+            The URI to connect to. This is the only allowed positional
+            argument.
+        host : str
+            The host to connect to. If set, port must also be set and uri must
+            not be set.
+        port : int
+            The port to connect to. If set, host must also be set and uri must
+            not be set.
+        default_timeout : float
+            The default timeout for the IC channel in seconds.
+            0 or a negative number means forever, default is 60.
+        no_act_timeout : float
+            The inactivity timeout before closing the connection in seconds.
+            0 or a negative number means no timeout, default is 0.
+        _login : str
+            The login to be put in the default IC header.
+        _group : str
+            The group to be put in the default IC header.
+        _password : str
+            The password to be put in the default IC header.
+        _kind : str
+            The kind to be put in the default IC header.
+        _workspace_id : int
+            The id of workspace to be put in the default IC header.
+        _dealias : bool
+            The dealias flag to be put in the default IC header.
+        _hdr : ic.Hdr
+            The default IC header to be used for this channel. If set, the
+            above arguments related to the default IC header must not be set.
+        """
+        client_channel_init(self, plugin, uri, host, port, default_timeout,
+                            no_act_timeout, kwargs, &create_async_client_rpc)
+
+    def connect(AsyncChannel self, object timeout=None):
+        """Connect the asynchronous client IC channel.
+
+        Parameters
+        ----------
+        timeout : float
+            The timeout of the connection of the IC channel in seconds.
+            0 or a negative number means forever.
+            If not set, use the default timeout of the IC channel.
+
+        Returns
+        -------
+        asyncio.Future[None]
+            The future resolved when the client has been connected or not.
+        """
+        cdef double timeout_connect
+
+        if timeout is not None:
+            timeout_connect = float(timeout)
+        else:
+            timeout_connect = self.default_timeout
+        return client_async_channel_connect(self, timeout_connect)
+
 
 cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
-                             object host, int port, int default_timeout,
-                             dict kwargs) except -1:
+                             object host, int port, double default_timeout,
+                             double no_act_timeout, dict kwargs,
+                             rpc_create_f rpc_create_cb) except -1:
     """Initialize client IC channel.
 
     Parameters
@@ -6837,22 +7494,34 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
         not be set.
     default_timeout
         The default timeout for the IC channel in seconds.
+    no_act_timeout
+        The inactivity timeout before closing the connection in seconds.
+    kwargs
+        The arguments used to build the default header.
+    rpc_create_cb
+        The callback used to create the RPC object for the connection.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef ic__hdr__t *def_hdr = NULL
     cdef lstr_t uri_lstr
-    cdef iopy_ic_client_t *ic_client
+    cdef ic_el_client_cb_cfg_t cb_cfg
+    cdef ic_el_client_t *ic_client
 
     t_scope_ignore(t_scope_guard)
 
-    create_modules_of_channel(plugin, channel, &create_client_rpc)
+    create_modules_of_channel(plugin, channel, rpc_create_cb)
 
     t_set_ic_hdr_from_kwargs(plugin, kwargs, &def_hdr)
 
     t_parse_uri_arg(uri, host, port, &uri_lstr)
+
+    cb_cfg.on_connect = &iopy_ic_client_on_connect
+    cb_cfg.on_disconnect = &iopy_ic_client_on_disconnect
     with nogil:
-        ic_client = iopy_ic_client_create(uri_lstr, &err)
+        ic_client = ic_el_client_create(uri_lstr, no_act_timeout, &cb_cfg,
+                                        &err)
 
     if not ic_client:
         raise Error(lstr_to_py_str(LSTR_SB_V(&err)))
@@ -6863,15 +7532,15 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
     channel.default_timeout = default_timeout
     if def_hdr:
         channel.def_hdr = iop_dup_ic_hdr(def_hdr)
-    iopy_ic_client_set_py_obj(ic_client, <void*>channel)
+    ic_el_client_set_ext_obj(ic_client, <void*>channel)
 
     return 0
 
 
-cdef int create_client_rpc(const iop_rpc_t *rpc,
-                           _InternalIfaceHolder iface_holder,
-                           _InternalIface py_iface) except -1:
-    """Callback called to create the client RPC of interface.
+cdef int create_sync_client_rpc(const iop_rpc_t *rpc,
+                                _InternalIfaceHolder iface_holder,
+                                _InternalIface py_iface) except -1:
+    """Callback called to create the synchronous client RPC of the interface.
 
     Parameters
     ----------
@@ -6887,6 +7556,54 @@ cdef int create_client_rpc(const iop_rpc_t *rpc,
         -1 in case of exception, 0 otherwise.
     """
     cdef RPC py_rpc = RPC.__new__(RPC)
+
+    return create_base_client_rpc(rpc, iface_holder, py_iface, py_rpc)
+
+
+cdef int create_async_client_rpc(const iop_rpc_t *rpc,
+                                 _InternalIfaceHolder iface_holder,
+                                 _InternalIface py_iface) except -1:
+    """Callback called to create the asynchronous client RPC of the interface.
+
+    Parameters
+    ----------
+    rpc
+        The IOP RPC description.
+    iface_holder
+        The _InternalIfaceHolder for the interface.
+    py_iface
+        The interface object instance where to set the RPC.
+
+    Returns
+    -------
+        -1 in case of exception, 0 otherwise.
+    """
+    cdef AsyncRPC py_rpc = AsyncRPC.__new__(AsyncRPC)
+
+    return create_base_client_rpc(rpc, iface_holder, py_iface, py_rpc)
+
+
+cdef int create_base_client_rpc(const iop_rpc_t *rpc,
+                                _InternalIfaceHolder iface_holder,
+                                _InternalIface py_iface,
+                                RPCChannel py_rpc) except -1:
+    """Initialize the client RPC of the interface.
+
+    Parameters
+    ----------
+    rpc
+        The IOP RPC description.
+    iface_holder
+        The _InternalIfaceHolder for the interface.
+    py_iface
+        The interface object instance where to set the RPC.
+    py_rpc
+        The client RPC of the interface to initialize.
+
+    Returns
+    -------
+        -1 in case of exception, 0 otherwise.
+    """
     cdef str rpc_name
     cdef object py_cls_base
     cdef object py_cls_rpc
@@ -6912,8 +7629,9 @@ cdef int create_client_rpc(const iop_rpc_t *rpc,
         setattr(py_iface, rpc_name, wrapper)
 
 
-cdef int client_channel_connect(Channel channel, int timeout) except -1:
-    """Initialize client IC channel.
+cdef int client_sync_channel_connect(Channel channel,
+                                     double timeout) except -1:
+    """Synchronously connect the IC channel.
 
     Parameters
     ----------
@@ -6922,17 +7640,135 @@ cdef int client_channel_connect(Channel channel, int timeout) except -1:
     timeout
         The connection timeout in seconds.
     """
-    cdef sb_scope_t err = sb_scope_init_1k()
-    cdef iopy_ic_res_t res
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
+    cdef ic_el_sync_res_t res
 
     with nogil:
-        res = iopy_ic_client_connect(channel.ic_client, timeout, &err)
-    check_iopy_ic_res(res, &err)
+        res = ic_el_client_sync_connect(channel.ic_client, timeout, &err)
+    check_ic_el_res(res, &err)
     return 0
 
 
-cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
-    """Call the RPC for the associated channel.
+@cython.internal
+cdef class AsyncChannelConnectCtx:
+    """Context to be used on async client connection"""
+    cdef object loop
+    cdef object future
+    cdef lstr_t error
+
+    def __dealloc__(AsyncChannelConnectCtx self):
+        """Wipe the context on dealloc"""
+        client_channel_async_connect_ctx_wipe(self)
+
+
+cdef inline void client_channel_async_connect_ctx_wipe(
+    AsyncChannelConnectCtx ctx):
+    """Clear the asynchronous client connection context
+
+    Parameters
+    ----------
+    ctx
+        The asynchronous client connection context.
+    """
+    ctx.loop = None
+    ctx.future = None
+    lstr_wipe(&ctx.error)
+
+
+cdef object client_async_channel_connect(AsyncChannel channel,
+                                         double timeout):
+    """Aynchronously connect the IC channel.
+
+    Parameters
+    ----------
+    channel
+        The client IC channel to connect.
+    timeout
+        The connection timeout in seconds.
+
+    Returns
+    -------
+        asyncio.Future[None]
+            The future resolved when the client has been connected or not.
+    """
+    cdef object loop
+    cdef object future
+    cdef AsyncChannelConnectCtx ctx
+
+    loop = asyncio.get_event_loop()
+    future = loop.create_future()
+
+    ctx = AsyncChannelConnectCtx.__new__(AsyncChannelConnectCtx)
+    ctx.loop = loop
+    ctx.future = future
+    ctx.error = LSTR_NULL_V
+
+    Py_INCREF(ctx)
+    with nogil:
+        ic_el_client_async_connect(channel.ic_client, timeout,
+                                   &client_async_channel_connect_cb,
+                                   <void *>ctx)
+
+    return future
+
+
+cdef void client_async_channel_connect_cb(const sb_t *err,
+                                          void *cb_arg) nogil:
+    """Callback used on IC EL client async connect.
+
+    Parameters
+    ----------
+    err
+        The error set in case of connection error.
+    cb_arg
+        The argument of the callback containing the context.
+    """
+    with gil:
+        client_async_channel_connect_cb_gil(err, cb_arg)
+
+
+cdef void client_async_channel_connect_cb_gil(const sb_t *err,
+                                              void *cb_arg):
+    """Callback used on IC EL client async connect with the GIL.
+
+    Parameters
+    ----------
+    err
+        The error set in case of connection error.
+    cb_arg
+        The argument of the callback containing the context.
+    """
+    cdef AsyncChannelConnectCtx ctx
+
+    ctx = <AsyncChannelConnectCtx>cb_arg
+    if err:
+        ctx.error = lstr_dup(LSTR_SB_V(err))
+
+    ctx.loop.call_soon_threadsafe(client_async_channel_connect_set_res, ctx)
+
+
+cdef object client_async_channel_connect_set_res
+def client_async_channel_connect_set_res(AsyncChannelConnectCtx ctx):
+    """Callback used to set the result on client async connect.
+
+    Parameters
+    ----------
+    ctx
+        The asynchronous client connection context.
+    """
+    if not ctx.future.cancelled():
+        if ctx.error.s:
+            ctx.future.set_exception(Error(lstr_to_py_str(ctx.error)))
+        else:
+            ctx.future.set_result(None)
+
+    client_channel_async_connect_ctx_wipe(ctx)
+    Py_DECREF(ctx)
+
+
+cdef object client_sync_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
+    """Synchronously call the RPC for the associated channel.
 
     See RPC::call for parameters documentation.
 
@@ -6941,41 +7777,264 @@ cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
         The result of the RPC or None in case of asynchronous RPC.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef sb_scope_t err = sb_scope_init_1k()
+    cdef sb_buf_1k_t err_buf
+    cdef sb_scope_t err = sb_scope_init_static(err_buf)
     cdef _InternalIfaceHolder iface_holder = rpc.iface_holder
     cdef Plugin plugin = iface_holder.plugin
     cdef _InternalIface py_iface = rpc.py_iface
     cdef Channel channel = py_iface.channel
-    cdef int timeout = channel.default_timeout
+    cdef int32_t cmd = 0
+    cdef ic__hdr__t *hdr = NULL
+    cdef double timeout = 0
+    cdef StructUnionBase py_input
+    cdef void *ic_input = NULL
+    cdef ic_el_sync_res_t call_res
+    cdef ic_status_t ic_status = IC_MSG_OK
+    cdef void *ic_res = NULL
+
+    t_scope_ignore(t_scope_guard)
+
+    py_input = t_client_channel_prepare_rpc(rpc, args, kwargs, &cmd, &hdr,
+                                            &timeout)
+    mp_iop_py_obj_to_c_val(t_pool(), False, py_input, &ic_input)
+
+
+    with nogil:
+        call_res = ic_el_client_sync_call(channel.ic_client, rpc.rpc, cmd,
+                                          hdr, timeout, ic_input, &ic_status,
+                                          &ic_res, &err)
+
+    check_ic_el_res(call_res, &err)
+
+    if rpc.rpc.async:
+        return None
+
+    try:
+        return client_channel_call_rpc_process_res(plugin, rpc, ic_status,
+                                                   ic_res)
+    finally:
+        p_delete(&ic_res)
+
+
+@cython.internal
+cdef class AsyncChannelRpcCallCtx:
+    """Context to be used on async client RPC call """
+    cdef AsyncRPC rpc
+    cdef object loop
+    cdef object future
+    cdef lstr_t error
+    cdef ic_status_t status
+    cdef void *res
+
+    def __dealloc__(AsyncChannelConnectCtx self):
+        """Wipe the context on dealloc"""
+        client_channel_async_rpc_call_ctx_wipe(self)
+
+
+cdef inline void client_channel_async_rpc_call_ctx_wipe(
+    AsyncChannelRpcCallCtx ctx):
+    """Clear the asynchronous client connection context
+
+    Parameters
+    ----------
+    ctx
+        The asynchronous client connection context.
+    """
+    ctx.rpc = None
+    ctx.loop = None
+    ctx.future = None
+    lstr_wipe(&ctx.error)
+    p_delete(&ctx.res)
+
+
+cdef object client_async_channel_call_rpc(AsyncRPC rpc, tuple args,
+                                          dict kwargs):
+    """Asynchronously call the RPC for the associated channel.
+
+    See AsyncRPC::call for parameters documentation.
+
+    Returns
+    -------
+        The result of the RPC through an asyncio.Future.
+    """
+    cdef t_scope_t t_scope_guard = t_scope_init()
+    cdef _InternalIface py_iface = rpc.py_iface
+    cdef AsyncChannel channel = py_iface.channel
+    cdef int32_t cmd = 0
+    cdef ic__hdr__t *hdr = NULL
+    cdef double timeout = 0
+    cdef StructUnionBase py_input
+    cdef void *ic_input = NULL
+    cdef object loop
+    cdef object future
+    cdef AsyncChannelRpcCallCtx ctx
+
+    t_scope_ignore(t_scope_guard)
+
+    py_input = t_client_channel_prepare_rpc(rpc, args, kwargs, &cmd, &hdr,
+                                            &timeout)
+    mp_iop_py_obj_to_c_val(t_pool(), False, py_input, &ic_input)
+
+    loop = asyncio.get_event_loop()
+    future = loop.create_future()
+
+    ctx = AsyncChannelRpcCallCtx.__new__(AsyncChannelRpcCallCtx)
+    ctx.rpc = rpc
+    ctx.loop = loop
+    ctx.future = future
+    ctx.error = LSTR_NULL_V
+    ctx.status = IC_MSG_OK
+    ctx.res = NULL
+
+    Py_INCREF(ctx)
+    with nogil:
+        ic_el_client_async_call(channel.ic_client, rpc.rpc, cmd,
+                                hdr, timeout, ic_input,
+                                &client_async_channel_call_rpc_cb,
+                                <void *>ctx)
+
+    return future
+
+
+cdef void client_async_channel_call_rpc_cb(const sb_t *err,
+                                           ic_status_t status,
+                                           const void *res,
+                                           void *cb_arg) nogil:
+    """Callback used on IC EL client async RPC call.
+
+    Parameters
+    ----------
+    err
+        The error set in case of connection error.
+    status
+        The ichannel query status.
+    res
+        The result of the ichannel query.
+    cb_arg
+        The argument of the callback containing the context.
+    """
+    with gil:
+        client_async_channel_call_rpc_cb_gil(err, status, res, cb_arg)
+
+
+cdef void client_async_channel_call_rpc_cb_gil(const sb_t *err,
+                                               ic_status_t status,
+                                               const void *res,
+                                               void *cb_arg):
+    """Callback used on IC EL client async RPC call with the GIL.
+
+    Parameters
+    ----------
+    err
+        The error set in case of connection error.
+    status
+        The ichannel query status.
+    res
+        The result of the ichannel query.
+    cb_arg
+        The argument of the callback containing the context.
+    """
+    cdef AsyncChannelRpcCallCtx ctx
+
+    ctx = <AsyncChannelRpcCallCtx>cb_arg
+    if err:
+        ctx.error = lstr_dup(LSTR_SB_V(err))
+    else:
+        ctx.status = status
+        if status == IC_MSG_OK:
+            ctx.res = mp_iop_dup_desc_sz(NULL, ctx.rpc.rpc.result, res, NULL)
+        elif status == IC_MSG_EXN:
+            ctx.res = mp_iop_dup_desc_sz(NULL, ctx.rpc.rpc.exn, res, NULL)
+
+    ctx.loop.call_soon_threadsafe(client_async_channel_call_rpc_set_res, ctx)
+
+
+cdef object client_async_channel_call_rpc_set_res
+def client_async_channel_call_rpc_set_res(AsyncChannelRpcCallCtx ctx):
+    """Callback used to set the result on client async RPC call.
+
+    Parameters
+    ----------
+    ctx
+        The asynchronous client connection context.
+    """
+    cdef _InternalIfaceHolder iface_holder = ctx.rpc.iface_holder
+    cdef Plugin plugin = iface_holder.plugin
+    cdef object py_res
+    cdef object py_exn
+
+    if not ctx.future.cancelled():
+        if ctx.error.s:
+            ctx.future.set_exception(Error(lstr_to_py_str(ctx.error)))
+        elif ctx.rpc.rpc.async:
+            ctx.future.set_result(None)
+        else:
+            try:
+                py_res = client_channel_call_rpc_process_res(plugin, ctx.rpc,
+                                                             ctx.status,
+                                                             ctx.res)
+            except Exception as py_exn:
+                ctx.future.set_exception(py_exn)
+            else:
+                ctx.future.set_result(py_res)
+
+    client_channel_async_rpc_call_ctx_wipe(ctx)
+    Py_DECREF(ctx)
+
+
+cdef StructUnionBase t_client_channel_prepare_rpc(
+    RPCChannel rpc, tuple args, dict kwargs,
+    int32_t *cmd, ic__hdr__t **hdr, double *timeout):
+    """Prepare the arguments to call an RPC.
+
+    Parameters
+    ----------
+    rpc
+        The RPC python object.
+    args
+        The tuple of positional arguments for the RPC.
+    kwargs
+        The dictionary of named arguments for the RPC.
+
+    Output
+    ------
+    cmd
+        The command index of the RPC.
+    hdr
+        The IC header to be used for the RPC.
+    timeout
+        The timeout of the request in seconds. 0 or a negative number means
+        forever.
+
+    Returns
+    -------
+        The Python IOP object to be used as argument of the RPC.
+    """
+    cdef _InternalIfaceHolder iface_holder = rpc.iface_holder
+    cdef Plugin plugin = iface_holder.plugin
+    cdef _InternalIface py_iface = rpc.py_iface
+    cdef Channel channel = py_iface.channel
     cdef tuple pre_hook_res
     cdef object py_timeout
-    cdef ic__hdr__t *hdr = NULL
     cdef object py_arg_cls
     cdef object py_arg
     cdef StructUnionBase py_input
-    cdef void *ic_input = NULL
-    cdef int32_t cmd
-    cdef iopy_ic_res_t call_res
-    cdef ic_status_t ic_status = IC_MSG_OK
-    cdef void *ic_res = NULL
-    cdef object py_res_cls
-    cdef object py_res
-    cdef object py_exn_cls
-    cdef object py_exn
-
-    t_scope_ignore(t_scope_guard)
 
     pre_hook_res = client_channel_do_pre_hook(rpc, args, kwargs)
     args = <tuple>(pre_hook_res[0])
     kwargs = <dict>(pre_hook_res[1])
 
+    timeout[0] = channel.default_timeout
     py_timeout = kwargs.pop('_timeout', None)
     if py_timeout is not None:
-        timeout = py_timeout
+        timeout[0] = py_timeout
 
-    t_set_ic_hdr_from_kwargs(plugin, kwargs, &hdr)
-    if not hdr:
-        hdr = channel.def_hdr
+    hdr[0] = NULL
+    t_set_ic_hdr_from_kwargs(plugin, kwargs, hdr)
+    if not hdr[0]:
+        hdr[0] = channel.def_hdr
+
+    cmd[0] = get_iface_rpc_cmd(py_iface.iface_alias, rpc.rpc)
 
     py_arg_cls = plugin_get_class_type_st(plugin, rpc.rpc.args)
 
@@ -6994,41 +8053,11 @@ cdef object client_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
         py_arg = py_arg_cls(**kwargs)
 
     py_input = py_arg
-    mp_iop_py_obj_to_c_val(t_pool(), False, py_input, &ic_input)
-    cmd = get_iface_rpc_cmd(py_iface.iface_alias, rpc.rpc)
-
-    with nogil:
-        call_res = iopy_ic_client_call(channel.ic_client, rpc.rpc, cmd, hdr,
-                                       timeout, ic_input, &ic_status, &ic_res,
-                                       &err)
-
-    check_iopy_ic_res(call_res, &err)
-
-    if rpc.rpc.async:
-        return None
-
-    try:
-        if ic_status == IC_MSG_OK:
-            py_res_cls = plugin_get_class_type_st(plugin, rpc.rpc.result)
-            py_res = iop_c_val_to_py_obj(py_res_cls, rpc.rpc.result, ic_res,
-                                         plugin)
-            py_res = client_channel_do_post_hook(rpc, py_res)
-            return py_res
-        elif ic_status == IC_MSG_EXN:
-            py_exn_cls = plugin_get_class_type_st(plugin, rpc.rpc.exn)
-            py_exn = iop_c_val_to_py_obj(py_exn_cls, rpc.rpc.exn, ic_res,
-                                         plugin)
-            raise RpcError(py_exn)
-        else:
-            raise Error('Query `%s` on object %s failed with status: '
-                        '%d (%s)' % (lstr_to_py_str(rpc.rpc.name),
-                                     py_input, ic_status,
-                                     ic_status_to_string(ic_status)))
-    finally:
-        p_delete(&ic_res)
+    return py_input
 
 
-cdef tuple client_channel_do_pre_hook(RPC rpc, tuple args, dict kwargs):
+cdef tuple client_channel_do_pre_hook(RPCChannel rpc, tuple args,
+                                      dict kwargs):
     """Execute the pre hook for the RPC interface if needed.
 
     Parameters
@@ -7098,7 +8127,52 @@ cdef cbool validate_pre_hook_res(object res):
     return True
 
 
-cdef object client_channel_do_post_hook(RPC rpc, object res):
+cdef object client_channel_call_rpc_process_res(Plugin plugin, RPCChannel rpc,
+                                                ic_status_t ic_status,
+                                                const void *ic_res):
+    """Process the result of a client RPC call.
+
+    Raise an error if the RPC was not successful.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    rpc
+        The RPC python object.
+    status
+        The status of the RPC.
+    res
+        The result of the RPC.
+
+    Returns
+    -------
+    object
+        The result of the RPC as a Python object.
+    """
+    cdef object py_res_cls
+    cdef object py_res
+    cdef object py_exn_cls
+    cdef object py_exn
+
+    if ic_status == IC_MSG_OK:
+        py_res_cls = plugin_get_class_type_st(plugin, rpc.rpc.result)
+        py_res = iop_c_val_to_py_obj(py_res_cls, rpc.rpc.result, ic_res,
+                                     plugin)
+        py_res = client_channel_do_post_hook(rpc, py_res)
+        return py_res
+    elif ic_status == IC_MSG_EXN:
+        py_exn_cls = plugin_get_class_type_st(plugin, rpc.rpc.exn)
+        py_exn = iop_c_val_to_py_obj(py_exn_cls, rpc.rpc.exn, ic_res,
+                                     plugin)
+        raise RpcError(py_exn)
+    else:
+        raise Error('Query `%s` failed with status: %d (%s)' %
+                    (lstr_to_py_str(rpc.rpc.name), ic_status,
+                     ic_status_to_string(ic_status)))
+
+
+cdef object client_channel_do_post_hook(RPCChannel rpc, object res):
     """Execute the post hook for the RPC interface if needed.
 
     Parameters
@@ -7106,7 +8180,7 @@ cdef object client_channel_do_post_hook(RPC rpc, object res):
     rpc
         The RPC python object.
     res
-       The result of the RPC.
+        The result of the RPC.
 
     Returns
     -------
@@ -7196,16 +8270,16 @@ cdef int t_set_ic_hdr_from_kwargs(Plugin plugin, dict kwargs,
     simple_hdr.source = LSTR('python')
 
     if py_login is not None:
-        simple_hdr.login = mp_py_obj_to_lstr(t_pool(), py_login, False)
+        simple_hdr.login = t_py_obj_to_lstr(py_login)
 
     if py_password is not None:
-        simple_hdr.password = mp_py_obj_to_lstr(t_pool(), py_password, False)
+        simple_hdr.password = t_py_obj_to_lstr(py_password)
 
     if py_kind is not None:
-        simple_hdr.kind = mp_py_obj_to_lstr(t_pool(), py_kind, False)
+        simple_hdr.kind = t_py_obj_to_lstr(py_kind)
 
     if py_group is not None:
-        simple_hdr.group = mp_py_obj_to_lstr(t_pool(), py_group, False)
+        simple_hdr.group = t_py_obj_to_lstr(py_group)
 
     if py_workspace_id is not None:
         simple_hdr.workspace_id.has_field = True
@@ -7220,8 +8294,42 @@ cdef int t_set_ic_hdr_from_kwargs(Plugin plugin, dict kwargs,
     return 0
 
 
-cdef public void iopy_ic_py_client_on_disconnect(iopy_ic_client_t *client,
-                                                 cbool connected) nogil:
+cdef void iopy_ic_client_on_connect(ic_el_client_t *client) nogil:
+    """Called when the client is connecting.
+
+    Parameters
+    ----------
+    client
+        The IOPy IC client.
+    """
+    with gil:
+        iopy_ic_client_on_connect_gil(client)
+
+
+cdef void iopy_ic_client_on_connect_gil(ic_el_client_t *client):
+    """Called when the client is connecting with the GIL.
+
+    Parameters
+    ----------
+    client
+        The IOPy IC client.
+    """
+    cdef void *ctx = ic_el_client_get_ext_obj(client)
+    cdef Channel channel
+
+    if not ctx:
+        return
+
+    channel = <Channel>ctx
+    if channel.on_connect_cb is not None:
+        try:
+            channel.on_connect_cb(channel)
+        except:
+            send_exception_to_main_thread()
+
+
+cdef void iopy_ic_client_on_disconnect(ic_el_client_t *client,
+                                       cbool connected) nogil:
     """Called when the client is disconnecting.
 
     Parameters
@@ -7232,11 +8340,11 @@ cdef public void iopy_ic_py_client_on_disconnect(iopy_ic_client_t *client,
         True if the client has been connected before, False otherwise.
     """
     with gil:
-        iopy_ic_py_client_on_disconnect_gil(client, connected)
+        iopy_ic_client_on_disconnect_gil(client, connected)
 
 
-cdef public void iopy_ic_py_client_on_disconnect_gil(iopy_ic_client_t *client,
-                                                     cbool connected):
+cdef void iopy_ic_client_on_disconnect_gil(ic_el_client_t *client,
+                                           cbool connected):
     """Called when the client is disconnecting with the GIL.
 
     Parameters
@@ -7246,19 +8354,18 @@ cdef public void iopy_ic_py_client_on_disconnect_gil(iopy_ic_client_t *client,
     connected
         True if the client has been connected before, False otherwise.
     """
-    cdef void *ctx = iopy_ic_client_get_py_obj(client)
+    cdef void *ctx = ic_el_client_get_ext_obj(client)
     cdef Channel channel
-    cdef object status
-    cdef object message
 
     if not ctx:
         return
 
     channel = <Channel>ctx
-    status = 'lost connection' if connected else 'cannot connect'
-    message = ('IChannel %s to %s (%s)' %
-               (status, channel.uri, get_warning_time_str()))
-    send_warning_to_main_thread(ClientWarning, message)
+    if channel.on_disconnect_cb is not None:
+        try:
+            channel.on_disconnect_cb(channel, connected)
+        except:
+            send_exception_to_main_thread()
 
 
 # }}}
@@ -7322,7 +8429,7 @@ cdef class RPCServer(RPCChannel):
 
         channel.rpc_impls[cmd] = self
         with nogil:
-            iopy_ic_server_register_rpc(channel.ic_server, self.rpc, cmd)
+            ic_el_server_register_rpc(channel.ic_server, self.rpc, cmd)
         self.rpc_impl = value
 
     @impl.deleter
@@ -7334,11 +8441,11 @@ cdef class RPCServer(RPCChannel):
 
         del channel.rpc_impls[cmd]
         with nogil:
-            iopy_ic_server_unregister_rpc(channel.ic_server, cmd)
+            ic_el_server_unregister_rpc(channel.ic_server, cmd)
         self.rpc_impl = None
 
-    def wait(RPCServer self, int timeout, object uri=None, object host=None,
-             int port=-1, int count=1):
+    def wait(RPCServer self, double timeout, object uri=None,
+             object host=None, int port=-1, int count=1):
         """Wait for an RPC to be called on a given socket address.
 
         Listen on the given socket and keep listening until time elapsed or
@@ -7349,7 +8456,7 @@ cdef class RPCServer(RPCChannel):
 
         Parameters
         ----------
-        timeout : int
+        timeout : float
             Number of seconds to listen.
         uri : str
             Socket address to listen to.
@@ -7385,7 +8492,7 @@ cdef class ChannelServer(ChannelBase):
     """Class for server IC channel"""
     cdef dict __dict__
     cdef dict rpc_impls
-    cdef iopy_ic_server_t *ic_server
+    cdef ic_el_server_t *ic_server
     cdef Plugin plugin
     cdef object on_connect_cb
     cdef object on_disconnect_cb
@@ -7398,9 +8505,17 @@ cdef class ChannelServer(ChannelBase):
         register
             The IOPy plugin.
         """
+        cdef ic_el_server_cb_cfg_t cb_cfg
+
         self.rpc_impls = {}
-        self.ic_server = iopy_ic_server_create()
-        iopy_ic_server_set_py_obj(self.ic_server, <void *>self)
+
+        cb_cfg.t_on_rpc = &t_iopy_ic_server_on_rpc
+        cb_cfg.on_connect = &iopy_ic_server_on_connect
+        cb_cfg.on_disconnect = &iopy_ic_server_on_disconnect
+        with nogil:
+            self.ic_server = ic_el_server_create(&cb_cfg)
+
+        ic_el_server_set_ext_obj(self.ic_server, <void *>self)
         create_modules_of_channel(register, self, &create_server_rpc)
 
         self.plugin = register
@@ -7410,9 +8525,9 @@ cdef class ChannelServer(ChannelBase):
     def __dealloc__(ChannelServer self):
         """Destructor of server IC channel"""
         if self.ic_server:
-            iopy_ic_server_set_py_obj(self.ic_server, NULL)
+            ic_el_server_set_ext_obj(self.ic_server, NULL)
             with nogil:
-                iopy_ic_server_destroy(&self.ic_server)
+                ic_el_server_destroy(&self.ic_server)
 
     def __repr__(ChannelServer self):
         """Return the representation of the server IC channel.
@@ -7444,7 +8559,8 @@ cdef class ChannelServer(ChannelBase):
             Port number of the socket.
         """
         cdef t_scope_t t_scope_guard = t_scope_init()
-        cdef sb_scope_t err = sb_scope_init_1k()
+        cdef sb_buf_1k_t err_buf
+        cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef lstr_t uri_lstr
         cdef int res
 
@@ -7452,12 +8568,12 @@ cdef class ChannelServer(ChannelBase):
         t_parse_uri_arg(uri, host, port, &uri_lstr)
 
         with nogil:
-            res = iopy_ic_server_listen(self.ic_server, uri_lstr, &err)
+            res = ic_el_server_listen(self.ic_server, uri_lstr, &err)
 
         if res < 0:
             raise Error(lstr_to_py_str(LSTR_SB_V(&err)))
 
-    def listen_block(ChannelServer self, int timeout, object uri=None,
+    def listen_block(ChannelServer self, double timeout, object uri=None,
                      object host=None, int port=-1):
         """Start the IC server listening and keep listening until time elapsed
         or server stopped.
@@ -7467,7 +8583,7 @@ cdef class ChannelServer(ChannelBase):
 
         Parameters
         ----------
-        timeout : int
+        timeout : float
             Number of seconds to listen.
         uri : str
             Socket address to listen to.
@@ -7477,26 +8593,27 @@ cdef class ChannelServer(ChannelBase):
             Port number of the socket.
         """
         cdef t_scope_t t_scope_guard = t_scope_init()
-        cdef sb_scope_t err = sb_scope_init_1k()
+        cdef sb_buf_1k_t err_buf
+        cdef sb_scope_t err = sb_scope_init_static(err_buf)
         cdef lstr_t uri_lstr
-        cdef iopy_ic_res_t res
+        cdef ic_el_sync_res_t res
 
         t_scope_ignore(t_scope_guard)
         t_parse_uri_arg(uri, host, port, &uri_lstr)
 
         with nogil:
-            res = iopy_ic_server_listen_block(self.ic_server, uri_lstr,
-                                              timeout, &err)
-        check_iopy_ic_res(res, &err)
+            res = ic_el_server_listen_block(self.ic_server, uri_lstr, timeout,
+                                            &err)
+        check_ic_el_res(res, &err)
 
     def stop(ChannelServer self):
         """Stop the IC server from listening"""
-        cdef iopy_ic_res_t res
+        cdef ic_el_sync_res_t res
 
         with nogil:
-            res = iopy_ic_server_stop(self.ic_server)
+            res = ic_el_server_stop(self.ic_server)
 
-        check_iopy_ic_res(res, NULL)
+        check_ic_el_res(res, NULL)
 
     @property
     def on_connect(ChannelServer self):
@@ -7515,12 +8632,12 @@ cdef class ChannelServer(ChannelBase):
         Parameters
         ----------
         value
-            Set to None (default value) to disallow connection call-back.
-            Set to a function having 'server' and 'remote_addr' as sole
-            arguments to enable connection call-back.
-            In this function 'server' is the ChannelServer object for which
-            connection is received, and 'remote_addr' is a string made of the
-            uri of the remote client.
+            Set to None (default value) to remove the connection callback.
+            The callback is called with two arguments:
+                server : ChannelServer
+                    The server channel object.
+                remote_addr : str
+                    The uri of the remote client.
         """
         self.on_connect_cb = value
 
@@ -7546,12 +8663,12 @@ cdef class ChannelServer(ChannelBase):
         Parameters
         ----------
         value
-            Set to None (default value) to disallow disconnection call-back.
-            Set to a function having 'server' and 'remote_addr' as sole
-            arguments to enable disconnection call-back.
-            In this function 'server' is the ChannelServer object for which
-            disconnection is received, and 'remote_addr' is a string made of
-            the uri of the remote client.
+            Set to None (default value) to remove the disconnection callback.
+            The callback is called with two arguments:
+                server : ChannelServer
+                    The server channel object.
+                remote_addr : str
+                    The uri of the remote client.
         """
         self.on_disconnect_cb = value
 
@@ -7566,7 +8683,7 @@ cdef class ChannelServer(ChannelBase):
         cdef cbool res
 
         with nogil:
-            res = iopy_ic_server_is_listening(self.ic_server)
+            res = ic_el_server_is_listening(self.ic_server)
         return res
 
 
@@ -7611,9 +8728,9 @@ cdef class RPCArgs:
     cdef readonly object hdr
 
 
-cdef public void iopy_ic_py_server_on_connect(iopy_ic_server_t *server,
-                                              lstr_t server_uri,
-                                              lstr_t remote_addr) nogil:
+cdef void iopy_ic_server_on_connect(ic_el_server_t *server,
+                                    lstr_t server_uri,
+                                    lstr_t remote_addr) nogil:
     """Called when a peer is connecting to the server.
 
     Parameters
@@ -7624,12 +8741,12 @@ cdef public void iopy_ic_py_server_on_connect(iopy_ic_server_t *server,
         The address of the peer.
     """
     with gil:
-        iopy_ic_py_server_on_connect_gil(server, server_uri, remote_addr)
+        iopy_ic_server_on_connect_gil(server, server_uri, remote_addr)
 
 
-cdef void iopy_ic_py_server_on_connect_gil(iopy_ic_server_t *server,
-                                           lstr_t server_uri,
-                                           lstr_t remote_addr):
+cdef void iopy_ic_server_on_connect_gil(ic_el_server_t *server,
+                                        lstr_t server_uri,
+                                        lstr_t remote_addr):
     """Called when a peer is connecting to the server with the GIL.
 
     Parameters
@@ -7639,19 +8756,13 @@ cdef void iopy_ic_py_server_on_connect_gil(iopy_ic_server_t *server,
     remote_addr
         The address of the peer.
     """
-    cdef void *ctx = iopy_ic_server_get_py_obj(server)
+    cdef void *ctx = ic_el_server_get_ext_obj(server)
     cdef ChannelServer channel
-    cdef object message
 
     if not ctx:
         return
 
     channel = <ChannelServer>ctx
-    message = ('Channel Server listening on %s, connected to: %s (%s)' %
-               (lstr_to_py_str(server_uri), lstr_to_py_str(remote_addr),
-                get_warning_time_str()))
-    send_warning_to_main_thread(ServerConnectWarning, message)
-
     if channel.on_connect_cb is not None:
         try:
             channel.on_connect_cb(channel, lstr_to_py_str(remote_addr))
@@ -7659,9 +8770,9 @@ cdef void iopy_ic_py_server_on_connect_gil(iopy_ic_server_t *server,
             send_exception_to_main_thread()
 
 
-cdef public void iopy_ic_py_server_on_disconnect(iopy_ic_server_t *server,
-                                                 lstr_t server_uri,
-                                                 lstr_t remote_addr) nogil:
+cdef void iopy_ic_server_on_disconnect(ic_el_server_t *server,
+                                       lstr_t server_uri,
+                                       lstr_t remote_addr) nogil:
     """Called when a peer is disconnecting from the server.
 
     Parameters
@@ -7672,12 +8783,12 @@ cdef public void iopy_ic_py_server_on_disconnect(iopy_ic_server_t *server,
         The address of the peer.
     """
     with gil:
-        iopy_ic_py_server_on_disconnect_gil(server, server_uri, remote_addr)
+        iopy_ic_server_on_disconnect_gil(server, server_uri, remote_addr)
 
 
-cdef void iopy_ic_py_server_on_disconnect_gil(iopy_ic_server_t *server,
-                                              lstr_t server_uri,
-                                              lstr_t remote_addr):
+cdef void iopy_ic_server_on_disconnect_gil(ic_el_server_t *server,
+                                           lstr_t server_uri,
+                                           lstr_t remote_addr):
     """Called when a peer is disconnecting from the server with the GIL.
 
     Parameters
@@ -7687,19 +8798,13 @@ cdef void iopy_ic_py_server_on_disconnect_gil(iopy_ic_server_t *server,
     remote_addr
         The address of the peer.
     """
-    cdef void *ctx = iopy_ic_server_get_py_obj(server)
+    cdef void *ctx = ic_el_server_get_ext_obj(server)
     cdef ChannelServer channel
-    cdef object message
 
     if not ctx:
         return
 
     channel = <ChannelServer>ctx
-    message = ('Channel Server listening on %s, disconnected from: %s (%s)' %
-               (lstr_to_py_str(server_uri), lstr_to_py_str(remote_addr),
-                get_warning_time_str()))
-    send_warning_to_main_thread(ServerDisconnectWarning, message)
-
     if channel.on_disconnect_cb is not None:
         try:
             channel.on_disconnect_cb(channel, lstr_to_py_str(remote_addr))
@@ -7707,8 +8812,8 @@ cdef void iopy_ic_py_server_on_disconnect_gil(iopy_ic_server_t *server,
             send_exception_to_main_thread()
 
 
-cdef public ic_status_t t_iopy_ic_py_server_on_rpc(
-    iopy_ic_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
+cdef ic_status_t t_iopy_ic_server_on_rpc(
+    ic_el_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
     const ic__hdr__t *hdr, void **res, const iop_struct_t **res_st) nogil:
     """Called when a request is made to an RPC.
 
@@ -7736,8 +8841,8 @@ cdef public ic_status_t t_iopy_ic_py_server_on_rpc(
 
     with gil:
         try:
-            status = t_iopy_ic_py_server_on_rpc_gil(server, ic, slot, arg,
-                                                    hdr, res, res_st)
+            status = t_iopy_ic_server_on_rpc_gil(server, ic, slot, arg,
+                                                 hdr, res, res_st)
         except:
             send_exception_to_main_thread()
             status = IC_MSG_SERVER_ERROR
@@ -7745,8 +8850,8 @@ cdef public ic_status_t t_iopy_ic_py_server_on_rpc(
     return <ic_status_t>status
 
 
-cdef int t_iopy_ic_py_server_on_rpc_gil(
-    iopy_ic_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
+cdef int t_iopy_ic_server_on_rpc_gil(
+    ic_el_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
     const ic__hdr__t *hdr, void **res, const iop_struct_t **res_st) except -1:
     """Called when a request is made to an RPC with the GIL.
 
@@ -7771,7 +8876,7 @@ cdef int t_iopy_ic_py_server_on_rpc_gil(
         res and res_desc are ignored.
         -1 in case of python exception.
     """
-    cdef void *ctx = iopy_ic_server_get_py_obj(server)
+    cdef void *ctx = ic_el_server_get_ext_obj(server)
     cdef ChannelServer channel
     cdef Plugin plugin
     cdef RPCServer rpc
@@ -7922,7 +9027,7 @@ def metaclass_cls_new(_InternalBaseHolder mcs, object name, tuple bases,
     bases += (iopy_proxy,)
 
     try:
-        field_names = iopy_proxy.__get_fields_name__()
+        field_names = iopy_proxy.get_fields_name()
     except AttributeError:
         field_names = []
 
@@ -8140,8 +9245,8 @@ cdef class Plugin:
     cdef iop_dso_t *dso
     cdef dict types
     cdef dict interfaces
-    cdef dict modules
     cdef dict additional_dsos
+    cdef readonly dict modules
     cdef readonly object metaclass
     cdef readonly object metaclass_interfaces
 
@@ -8197,16 +9302,21 @@ cdef class Plugin:
         iop_dso_close(&self.dso)
 
     @property
-    def __dsopath__(Plugin self):
+    def dsopath(Plugin self):
         """Get the path of the IOP plugin"""
         return lstr_to_py_str(self.dso.path)
 
     @property
+    def __dsopath__(Plugin self):
+        """Deprecated, use dsopath instead."""
+        return lstr_to_py_str(self.dso.path)
+
+    @property
     def __modules__(Plugin self):
-        """Get the modules of the IOP plugin"""
+        """Deprecated, use modules instead."""
         return self.modules
 
-    def __get_type_from_fullname__(Plugin self, object fullname):
+    def get_type_from_fullname(Plugin self, object fullname):
         """Get the public class for the given IOP type fullname.
 
         Parameters
@@ -8218,14 +9328,13 @@ cdef class Plugin:
         -------
             The public class of the IOP type.
         """
-        cdef _InternalTypeClasses classes
+        return plugin_get_type_from_fullname(self, fullname)
 
-        classes = plugin_get_type_classes(self, fullname)
-        if classes is None:
-            raise KeyError('unknown IOPy type `%s`' % fullname)
-        return classes.public_cls
+    def __get_type_from_fullname__(Plugin self, object fullname):
+        """Deprecated, use get_type_from_fullname() instead."""
+        return plugin_get_type_from_fullname(self, fullname)
 
-    def __get_iface_type_from_fullname__(Plugin self, object fullname):
+    def get_iface_type_from_fullname(Plugin self, object fullname):
         """Get the public class for the given IOP interface fullname.
 
         Parameters
@@ -8237,12 +9346,11 @@ cdef class Plugin:
         -------
             The public class of the IOP interface.
         """
-        cdef _InternalTypeClasses classes
+        return plugin_get_iface_type_from_fullname(self, fullname)
 
-        classes = plugin_get_interface_classes(self, fullname)
-        if classes is None:
-            raise KeyError('unknown IOPy interface `%s`' % fullname)
-        return classes.public_cls
+    def __get_iface_type_from_fullname__(Plugin self, object fullname):
+        """Deprecated, use get_iface_type_from_fullname() instead."""
+        return plugin_get_iface_type_from_fullname(self, fullname)
 
     def register(Plugin self):
         """Get legacy IOPy register.
@@ -8329,11 +9437,11 @@ cdef class Plugin:
                 index_i = index
             return wrapper
 
-
     def connect(Plugin self, object uri=None, *, object host=None,
-                int port=-1, object timeout=None, object _timeout=None,
-                **kwargs):
-        """Connect to an IC and return the created IOPy Channel.
+                int port=-1, object default_timeout=None,
+                object connect_timeout=None, double no_act_timeout=0.0,
+                object timeout=None, object _timeout=None, **kwargs):
+        """Synchronously connect to an IC and return the created IOPy Channel.
 
         Parameters
         ----------
@@ -8346,11 +9454,21 @@ cdef class Plugin:
         port : int
             The port to connect to. If set, host must also be set and uri must
             not be set.
-        timeout : int
-            The default and connection timeout for the IC channel.
-            -1 means forever, default is 60.
-        _timeout : int
-            Backward compatibility parameter for timeout parameter.
+        default_timeout : float
+            The default timeout in seconds of the queries for the IC channel.
+            0 or a negative number means forever, default is 60.
+        connect_timeout : float
+            The first connection timeout in seconds for the IC channel.
+            0 or a negative number means forever, default is 60.
+        no_act_timeout : float
+            The inactivity timeout before closing the connection in seconds.
+            0 or a negative number means no timeout, default is 0.
+        timeout : float
+            Obsolete, use default_timeout and connect_timeout instead.
+            The default and connection timeout in seconds for the IC channel.
+            0 or a negative number means forever, default is 60.
+        _timeout : float
+            Obsolete, backward compatibility parameter for timeout parameter.
         _login : str
             The login to be put in the default IC header.
         _group : str
@@ -8363,9 +9481,9 @@ cdef class Plugin:
             The id of workspace to be put in the default IC header.
         _dealias : bool
             The dealias flag to be put in the default IC header.
-        _hdr : ic.SimpleHdr
+        _hdr : ic.Hdr
             The default IC header to be used for this channel. If set, the
-            above arguments must not be set.
+            above arguments related to the default IC header must not be set.
 
         Returns
         -------
@@ -8373,19 +9491,79 @@ cdef class Plugin:
             The IOPy client channel.
         """
         cdef Channel channel
-        cdef int default_timeout
+        cdef double c_default_timeout = 0
+        cdef double c_connect_timeout = 0
 
-        if _timeout is not None and timeout is None:
-            timeout = _timeout
-        if timeout is not None:
-            default_timeout = int(timeout)
-        else:
-            default_timeout = 60
+        plugin_get_channel_timeouts(default_timeout, connect_timeout, timeout,
+                                    _timeout, &c_default_timeout,
+                                    &c_connect_timeout)
 
         channel = Channel.__new__(Channel)
-        client_channel_init(channel, self, uri, host, port, default_timeout,
-                            kwargs)
-        client_channel_connect(channel, default_timeout)
+        client_channel_init(channel, self, uri, host, port, c_default_timeout,
+                            no_act_timeout, kwargs, &create_sync_client_rpc)
+        client_sync_channel_connect(channel, c_connect_timeout)
+        return channel
+
+    async def async_connect(Plugin self, object uri=None, *, object host=None,
+                            int port=-1, object default_timeout=None,
+                            object connect_timeout=None,
+                            double no_act_timeout=0.0, **kwargs):
+        """Asynchronously connect to an IC and return the created IOPy Async
+        Channel.
+
+        Parameters
+        ----------
+        uri : str
+            The URI to connect to. This is the only allowed positional
+            argument.
+        host : str
+            The host to connect to. If set, port must also be set and uri must
+            not be set.
+        port : int
+            The port to connect to. If set, host must also be set and uri must
+            not be set.
+        default_timeout : float
+            The default timeout in seconds of the queries for the IC channel.
+            0 or a negative number means forever, default is 60.
+        connect_timeout : float
+            The first connection timeout in seconds for the IC channel.
+            0 or a negative number means forever, default is 60.
+        no_act_timeout : float
+            The inactivity timeout before closing the connection in seconds.
+            0 or a negative number means no timeout, default is 0.
+        _login : str
+            The login to be put in the default IC header.
+        _group : str
+            The group to be put in the default IC header.
+        _password : str
+            The password to be put in the default IC header.
+        _kind : str
+            The kind to be put in the default IC header.
+        _workspace_id : int
+            The id of workspace to be put in the default IC header.
+        _dealias : bool
+            The dealias flag to be put in the default IC header.
+        _hdr : ic.Hdr
+            The default IC header to be used for this channel. If set, the
+            above arguments related to the default IC header must not be set.
+
+        Async returns
+        -------------
+        iopy.AsyncChannel
+            The IOPy client channel.
+        """
+        cdef AsyncChannel channel
+        cdef double c_default_timeout = 0
+        cdef double c_connect_timeout = 0
+
+        plugin_get_channel_timeouts(default_timeout, connect_timeout, None,
+                                    None, &c_default_timeout,
+                                    &c_connect_timeout)
+
+        channel = AsyncChannel.__new__(AsyncChannel)
+        client_channel_init(channel, self, uri, host, port, c_default_timeout,
+                            no_act_timeout, kwargs, &create_async_client_rpc)
+        await client_async_channel_connect(channel, c_connect_timeout)
         return channel
 
     def channel_server(Plugin self):
@@ -8401,7 +9579,7 @@ cdef class Plugin:
     def ChannelServer(Plugin self):
         """Create an IC channel server.
 
-        Deprecated, use chanel_server() instead.
+        Deprecated, use channel_server() instead.
 
         Returns
         -------
@@ -8481,6 +9659,51 @@ cdef class Plugin:
         plugin_unload_dso(self, additional_dso.dso)
         iop_dso_close(&additional_dso.dso)
         del self.additional_dsos[key]
+
+
+cdef object plugin_get_type_from_fullname(Plugin plugin, object fullname):
+    """Get the public class for the given IOP type fullname.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    fullname
+        The fullname of the IOP type.
+
+    Returns
+    -------
+        The public class of the IOP type.
+    """
+    cdef _InternalTypeClasses classes
+
+    classes = plugin_get_type_classes(plugin, fullname)
+    if classes is None:
+        raise KeyError('unknown IOPy type `%s`' % fullname)
+    return classes.public_cls
+
+
+cdef object plugin_get_iface_type_from_fullname(Plugin plugin,
+                                                object fullname):
+    """Get the public class for the given IOP interface fullname.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    fullname
+        The fullname of the IOP interface.
+
+    Returns
+    -------
+        The public class of the IOP interface.
+    """
+    cdef _InternalTypeClasses classes
+
+    classes = plugin_get_interface_classes(plugin, fullname)
+    if classes is None:
+        raise KeyError('unknown IOPy interface `%s`' % fullname)
+    return classes.public_cls
 
 
 cdef inline _InternalTypeClasses plugin_get_type_classes(Plugin plugin,
@@ -8593,7 +9816,8 @@ cdef iop_dso_t *plugin_open_dso(Plugin plugin, object dso_path) except NULL:
     -------
         The loaded DSO.
     """
-    cdef sb_scope_t sb = sb_scope_init_1k()
+    cdef sb_buf_1k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef const char *dso_path_str = NULL
     cdef bytes dso_path_bytes
     cdef iop_dso_t *dso
@@ -9370,6 +10594,35 @@ cdef void plugin_run_register_scripts(Plugin plugin, const iop_dso_t *dso):
     del globals_dict['_iopy_register']
 
 
+cdef inline int plugin_get_channel_timeouts(
+    object default_timeout, object connect_timeout, object timeout,
+    object _timeout, double *c_default_timeout,
+    double *c_connect_timeout) except -1:
+    """Get the timeouts when creating a channel with connect* method.
+
+    See parameters of Plugin.connect() and Plugin.async_connect().
+    """
+    cdef double c_legacy_timeout
+
+    if _timeout is not None and timeout is None:
+        timeout = _timeout
+
+    if timeout is not None:
+        c_legacy_timeout = float(timeout)
+    else:
+        c_legacy_timeout = 60.0
+
+    if default_timeout is not None:
+        c_default_timeout[0] = float(default_timeout)
+    else:
+        c_default_timeout[0] = c_legacy_timeout
+
+    if connect_timeout is not None:
+        c_connect_timeout[0] = float(connect_timeout)
+    else:
+        c_connect_timeout[0] = c_legacy_timeout
+
+
 # }}}
 # {{{ Module functions
 
@@ -9378,19 +10631,7 @@ def set_json_flags(**kwargs):
     """Set the default json pack flags to use when converting an Iopy object
     to a JSON representation.
 
-    Parameters
-    ----------
-    skip_private : bool, optional
-        Skip the private fields when dumping the JSON.
-    no_whitespaces : bool, optional
-        Generate JSON without identation, spaces, ...
-    skip_default : bool, optional
-        Skip fields having their default value.
-    skip_empty_arrays : bool, optional
-        Skip empty repeated fields.
-    minimal : bool, optional
-        Produce the smallest possible JSON.
-        This is compact + skip_default + skip_empty_arrays.
+    See StructUnionBase::to_json() for the accepted parameters.
     """
     iopy_g.jpack_flags = iopy_kwargs_to_jpack_flags(kwargs, True)
 
@@ -9428,7 +10669,7 @@ cdef public const iop_struct_t *Iopy_struct_union_type_get_desc(object cls):
 
 
 cdef public cbool Iopy_has_pytype_from_fullname(object obj):
-    """Check if object has __get_type_from_fullname__ attribute.
+    """Check if object has get_type_from_fullname attribute.
 
     Parameters
     ----------
@@ -9437,10 +10678,10 @@ cdef public cbool Iopy_has_pytype_from_fullname(object obj):
 
     Returns
     -------
-        True of the object has '__get_type_from_fullname__' attribute, False
+        True of the object has 'get_type_from_fullname' attribute, False
         otherwise.
     """
-    return hasattr(obj, '__get_type_from_fullname__')
+    return hasattr(obj, 'get_type_from_fullname')
 
 
 cdef public object Iopy_get_pytype_from_fullname_(object obj,
@@ -9458,7 +10699,7 @@ cdef public object Iopy_get_pytype_from_fullname_(object obj,
     -------
         The IOPy class type.
     """
-    return obj.__get_type_from_fullname__(lstr_to_py_str(fullname))
+    return obj.get_type_from_fullname(lstr_to_py_str(fullname))
 
 
 cdef public cbool Iopy_Struct_to_iop_ptr(mem_pool_t *mp, void **ptr,
@@ -9590,7 +10831,8 @@ cdef public object Iopy_make_plugin_from_handle(void *handle,
     -------
         The IOPy plugin.
     """
-    cdef sb_scope_t sb = sb_scope_init_1k()
+    cdef sb_buf_1k_t sb_buf
+    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
     cdef Plugin plugin
     cdef iop_dso_t *dso
 
@@ -9664,10 +10906,10 @@ cdef void init_thread_attach():
     threading._start_new_thread = iopy_start_new_thread
 
 
-cdef void iopy_atexit_rpc_stop_cb():
+cdef void iopy_atexit_ic_stop_cb():
     """Callback to stop the RPC module when the interpreter is still valid"""
     with nogil:
-        iopy_rpc_module_stop()
+        ic_el_module_stop()
 
 
 cdef int init_iopy_atexit() except -1:
@@ -9690,17 +10932,17 @@ cdef int init_iopy_atexit() except -1:
     # Use atexit Python module to call iopy_rpc_module_stop() while the Python
     # interpreter is still valid.
     import atexit
-    atexit.register(iopy_atexit_rpc_stop_cb)
+    atexit.register(iopy_atexit_ic_stop_cb)
 
     # Use Py_AtExit() to call iopy_rpc_module_cleanup() after the Python
     # interpreter has been cleaned up.
-    if Py_AtExit(&iopy_rpc_module_cleanup) < 0:
+    if Py_AtExit(&ic_el_module_cleanup) < 0:
         raise RuntimeError('unable to register iopy at_exit callback')
 
 
 init_iopy_atexit()
 py_eval_init_threads()
-iopy_rpc_module_init()
+ic_el_module_init()
 init_module_versions()
 init_thread_attach()
 

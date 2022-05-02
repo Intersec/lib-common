@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -112,6 +112,11 @@ void generic_ring_ensure(generic_ring *r, int newlen, int el_siz)
     __unused__                                                         \
     static inline type_t pfx##_ring_get(pfx##_ring *r, int n) {        \
         return r->tab[pfx##_ring_pos(r, n)];                           \
+    }                                                                  \
+                                                                       \
+    __unused__                                                         \
+    static inline type_t *pfx##_ring_get_ptr(pfx##_ring *r, int n) {   \
+        return r->tab + pfx##_ring_pos(r, n);                          \
     }                                                                  \
                                                                        \
     __unused__                                                         \

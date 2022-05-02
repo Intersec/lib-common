@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -441,6 +441,33 @@ void lstr_ascii_reverse(lstr_t *s)
     for (int i = 0; i < s->len / 2; i++) {
         SWAP(char, s->v[i], s->v[s->len - i - 1]);
     }
+}
+
+lstr_t t_lstr_ascii_tolower(lstr_t s)
+{
+    lstr_t cpy = t_lstr_dup(s);
+
+    lstr_ascii_tolower(&cpy);
+
+    return cpy;
+}
+
+lstr_t t_lstr_ascii_toupper(lstr_t s)
+{
+    lstr_t cpy = t_lstr_dup(s);
+
+    lstr_ascii_toupper(&cpy);
+
+    return cpy;
+}
+
+lstr_t t_lstr_ascii_reverse(lstr_t s)
+{
+    lstr_t cpy = t_lstr_dup(s);
+
+    lstr_ascii_reverse(&cpy);
+
+    return cpy;
 }
 
 int lstr_to_int(lstr_t lstr, int *out)

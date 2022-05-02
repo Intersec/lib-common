@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -2498,6 +2498,9 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *st_cls2, *st_sg, *st_uc;
 
         const char json_sg_p1[] = "{ \"c_of_g\": 42 }";
+        const char json_sg_p2[] = "{ \"c_of_g\": 42;\n"
+                                  "  \"unknown-a-b-c\": 42;\n"
+                                  "}";
         const char json_uc_p1[] = "{ d_of_c: 3.141592653589793238462643383 }";
 
         /* }}} */
@@ -2575,6 +2578,16 @@ Z_GROUP_EXPORT(iop)
         Z_HELPER_RUN(iop_json_test_unpack(st_uc, json_uc_p1,
                                           IOP_UNPACK_USE_C_CASE, true,
                                           "json_uc_p1"));
+
+        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p2, 0, false,
+                                          "json_sg_p2"));
+        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p2,
+                                          IOP_UNPACK_USE_C_CASE, false,
+                                          "json_sg_p2"));
+        Z_HELPER_RUN(iop_json_test_unpack(st_sg, json_sg_p2,
+                                          IOP_UNPACK_USE_C_CASE |
+                                          IOP_UNPACK_IGNORE_UNKNOWN, true,
+                                          "json_sg_p2"));
 
         /* Test iop_jpack_file failure */
         Z_ASSERT_NEG(iop_jpack_file("/proc/path/to/unknown/dir.json", st_sk,
@@ -4228,10 +4241,11 @@ Z_GROUP_EXPORT(iop)
         fst->e = T_IOP_ARRAY(tstiop__my_class1,
                              t_iop_new(tstiop__my_class1),
                              t_iop_new(tstiop__my_class1),
-                             t_iop_new(tstiop__my_class1));
+                             &t_iop_new(tstiop__my_class2)->super);
         fst->e.tab[0]->int1 = 5;
         fst->e.tab[1]->int1 = 10;
         fst->e.tab[2]->int1 = 42;
+        cast(tstiop__my_class2__t *, fst->e.tab[2])->int2 = 25;
 
 #define TST_SORT_VEC(p, f)  \
         iop_sort(tstiop__my_struct_f, fvec.tab, fvec.len, LSTR(p), (f), NULL)
@@ -4282,6 +4296,11 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ((*tab_last(&fvec.tab[0].e))->int1, 4);
         Z_ASSERT_EQ((*tab_last(&fvec.tab[1].e))->int1, 8);
         Z_ASSERT_EQ((*tab_last(&fvec.tab[2].e))->int1, 42);
+
+        Z_ASSERT_N(TST_SORT_VEC("e[*].<tstiop.MyClass2>int2", 0));
+        Z_ASSERT_EQ((*tab_last(&fvec.tab[0].e))->int1, 42);
+        Z_ASSERT_LT(fvec.tab[1].e.len, 3);
+        Z_ASSERT_LT(fvec.tab[2].e.len, 3);
 
 #undef TST_SORT_VEC
 
@@ -4460,6 +4479,10 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_class2__t *first;
         tstiop__my_class2__t *second;
         tstiop__my_class2__t *third;
+        tstiop__my_class3__t *fourth;
+        tstiop__my_struct_f__t msf1;
+        tstiop__my_struct_f__t msf2;
+        tstiop__my_struct_f__t msf3;
 
         first = t_iop_new(tstiop__my_class2);
         first->int1 = 1;
@@ -4472,6 +4495,22 @@ Z_GROUP_EXPORT(iop)
         third = &t_iop_new(tstiop__my_class3)->super;
         third->int1 = 1;
         third->int2 = 1;
+        cast(tstiop__my_class3__t *, third)->int3 = 1;
+
+        fourth = t_iop_new(tstiop__my_class3);
+        fourth->int1 = 1;
+        fourth->int2 = 1;
+        fourth->int3 = 2;
+
+        iop_init(tstiop__my_struct_f, &msf1);
+        msf1.e = T_IOP_ARRAY(tstiop__my_class1, &first->super);
+
+        iop_init(tstiop__my_struct_f, &msf2);
+        msf2.e = T_IOP_ARRAY(tstiop__my_class1, &second->super,
+                             &third->super);
+
+        iop_init(tstiop__my_struct_f, &msf3);
+        msf3.e = T_IOP_ARRAY(tstiop__my_class1, &fourth->super.super);
 
 #define CHECK_FILTER(_field, _value_type, _values_args, _exp_objs_args)      \
     Z_IOP_FILTER_CHECK_FILTER(_value_type, tstiop__my_class2__t *,           \
@@ -4487,6 +4526,20 @@ Z_GROUP_EXPORT(iop)
 
         /* Filter on class name */
         CHECK_FILTER("_class", lstr_t, (LSTR("tstiop.MyClass3")), (third));
+
+#undef CHECK_FILTER
+
+#define CHECK_FILTER(_field, _value_type, _values_args, _exp_objs_args)      \
+    Z_IOP_FILTER_CHECK_FILTER(_value_type, tstiop__my_struct_f__t,           \
+                              &tstiop__my_struct_f__s,                       \
+                              (msf1, msf2, msf3), 0, _field,                 \
+                              _values_args, _exp_objs_args)
+
+        /* Filter on wildcard with explicit cast on a single value */
+        CHECK_FILTER("e[*].<tstiop.MyClass3>int3", int, (1), (msf2));
+
+        /* Filter on wildcard with explicit cast on a several values */
+        CHECK_FILTER("e[*].<tstiop.MyClass3>int3", int, (1, 2), (msf2, msf3));
 
 #undef CHECK_FILTER
 
@@ -4798,6 +4851,7 @@ Z_GROUP_EXPORT(iop)
         tstiop__my_struct_f__t msf;
         tstiop__my_class3__t mc;
         tstiop__my_class3__t mc2;
+        tstiop__my_class2_bis__t mc2_bis;
 
 #define TEST(pfx, _path, _value, _exp_type, _exp_is_array, _exp_st, _exp_en, \
              _exp_error)                                                     \
@@ -4857,35 +4911,71 @@ Z_GROUP_EXPORT(iop)
 
         TEST_SCALAR(tstiop__my_struct_f, "f.int1", NULL, IOP_T_I32, false);
         TEST_ERROR(tstiop__my_struct_f, "f.int2", NULL,
-                   "cannot process field path `f.int2', field `int2' is unknown "
-                   "in structure `tstiop.MyClass1'");
+                   "cannot process field path `f.int2', field `int2' is "
+                   "unknown in structure `tstiop.MyClass1'");
         TEST_SCALAR(tstiop__my_struct_f, "f.int2", &msf, IOP_T_I32, false);
         TEST_ERROR(tstiop__my_struct_f, "f.int4", &msf,
-                   "cannot process field path `f.int4', field `int4' is unknown "
-                   "in structure `tstiop.MyClass3'");
+                   "cannot process field path `f.int4', field `int4' is "
+                   "unknown in structure `tstiop.MyClass3'");
+        TEST_SCALAR(tstiop__my_struct_f, "f.<tstiop.MyClass2>int2", NULL,
+                    IOP_T_I32, false);
+        TEST_SCALAR(tstiop__my_struct_f, "f.<tstiop.MyClass2>int3", &msf,
+                    IOP_T_I32, false);
+        TEST_ERROR(tstiop__my_struct_f, "f.<tstiop.My", &msf,
+                   "unable to find ending of explicit cast");
+        TEST_ERROR(tstiop__my_struct_f, "c[0].<tstiop.MyClass2>int3", &msf,
+                   "explicit cast `tstiop.MyClass2' can not be used on "
+                   "type `tstiop.MyStructB` which is not a class");
+        TEST_ERROR(tstiop__my_struct_f, "f.<tstiop.MyClass1After>int1", &msf,
+                   "cannot find sub-class `tstiop.MyClass1After' of class "
+                   "`tstiop.MyClass1`");
+        TEST_ERROR(tstiop__my_struct_a, "cls2.<tstiop.MyClass2Bis>int2", NULL,
+                   "cannot find sub-class `tstiop.MyClass2Bis' of class "
+                   "`tstiop.MyClass2`");
+        TEST_ERROR(tstiop__my_struct_f, "f.<tstiop.MyClass2Bis>int3", &msf,
+                   "the path up to the field `int3` is not valid for the "
+                   "provided value: invalid type of object, expected a "
+                   "sub-class of `tstiop.MyClass2Bis`, got "
+                   "`tstiop.MyClass3`");
 
-        msf.e = T_IOP_ARRAY_NEW(tstiop__my_class1, 1);
+        iop_init(tstiop__my_class2_bis, &mc2_bis);
+        msf.e = T_IOP_ARRAY_NEW(tstiop__my_class1, 2);
         msf.e.tab[0] = &mc.super.super;
+        msf.e.tab[1] = &mc2_bis.super;
+
         TEST_ERROR(tstiop__my_struct_f, "e[0].int2", NULL,
-                   "cannot process field path `e[0].int2', field `int2' is unknown "
-                   "in structure `tstiop.MyClass1'");
+                   "cannot process field path `e[0].int2', field `int2' is "
+                   "unknown in structure `tstiop.MyClass1'");
         TEST_SCALAR(tstiop__my_struct_f, "e[0].int2", &msf, IOP_T_I32, false);
         TEST_ERROR(tstiop__my_struct_f, "e[*].int2", &msf,
-                   "unexpected wildcard");
+                   "the path up to the field `int2` is not valid for the "
+                   "provided value: cannot use wildcard indexing with "
+                   "dynamic class cast, use explicit class cast instead");
         TEST_ERROR(tstiop__my_struct_f, "e[8].int2", &msf,
                    "the path up to the field `int2` is not valid for the "
-                   "provided value");
+                   "provided value: index 8 out of range for array of "
+                   "length 2");
+        TEST_SCALAR(tstiop__my_struct_f, "e[0].<tstiop.MyClass2>int2", NULL,
+                    IOP_T_I32, false);
+        TEST_SCALAR(tstiop__my_struct_f, "e[*].<tstiop.MyClass2Bis>int2",
+                    NULL, IOP_T_I32, false);
+        TEST_SCALAR(tstiop__my_struct_f, "e[*].<tstiop.MyClass2Bis>int2",
+                    &msf, IOP_T_I32, false);
+        TEST_SCALAR(tstiop__my_struct_f, "e[*].<tstiop.MyClass3>bool1",
+                    &msf, IOP_T_BOOL, false);
 
         TEST_SCALAR(tstiop__my_class3, "int2", &mc, IOP_T_I32, false);
         TEST_SCALAR(tstiop__my_class1, "int2", &mc, IOP_T_I32, false);
         TEST_ERROR(tstiop__my_class1, "int2", NULL,
-                   "cannot process field path `int2', field `int2' is unknown "
-                   "in structure `tstiop.MyClass1'");
+                   "cannot process field path `int2', field `int2' is "
+                   "unknown in structure `tstiop.MyClass1'");
+        TEST_SCALAR(tstiop__my_class1, "<tstiop.MyClass3>int2", NULL,
+                    IOP_T_I32, false);
 
         iop_init(tstiop__my_class3, &mc2);
         mc.next_class = &mc2.super.super;
-        TEST_SCALAR(tstiop__my_struct_f, "e[0].nextClass.bool1", &msf, IOP_T_BOOL,
-                    false);
+        TEST_SCALAR(tstiop__my_struct_f, "e[0].nextClass.bool1", &msf,
+                    IOP_T_BOOL, false);
 
 #undef TEST_SCALAR
 #undef TEST_ST
@@ -8613,6 +8703,15 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_P(cls, "cannot find class `%pL' from ID", &name);
         Z_ASSERT(cls == &tstiop__my_class3__s, "wrong IOP class (got `%pL')",
                  &cls->fullname);
+
+        /* tstiop_void_type package is registered with tstiop package since
+         * tstiop_void_type.VoidRequired is referenced by tstiop.VoidPkgRef.
+         */
+        name = tstiop_void_type__void_required__s.fullname;
+        Z_ASSERT_P((obj = iop_get_obj(name)), "cannot find obj `%pL'", &name);
+        Z_ASSERT(obj->type == IOP_OBJ_TYPE_ST);
+        Z_ASSERT(obj->desc.st == &tstiop_void_type__void_required__s,
+                 "wrong iop_struct_t (got `%pL')", &obj->desc.st->fullname);
     } Z_TEST_END;
     /* }}} */
     Z_TEST(struct_packing, "check struct packing behavior") { /* {{{ */

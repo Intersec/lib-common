@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -430,8 +430,29 @@ static ALWAYS_INLINE int lstr_cmp(const lstr_t s1, const lstr_t s2)
     return memcmp(s1.s, s2.s, len) ?: CMP(s1.len, s2.len);
 }
 
+/** Alternative version of \ref lstr_cmp that takes pointers as arguments.
+ *
+ * Can be used with qv_qsort.
+ */
+static ALWAYS_INLINE int lstr_cmp_p(const lstr_t * nonnull s1,
+                                    const lstr_t * nonnull s2)
+{
+    return lstr_cmp(*s1, *s2);
+}
+
 /** Returns "memcmp" ordering of lowercase \v s1 and lowercase \v s2.  */
 int lstr_ascii_icmp(const lstr_t s1, const lstr_t s2);
+
+/** Alternative version of \ref lstr_ascii_icmp that takes pointers as
+ * arguments.
+ *
+ * Can be used with qv_qsort.
+ */
+static inline int lstr_ascii_icmp_p(const lstr_t * nonnull s1,
+                                    const lstr_t * nonnull s2)
+{
+    return lstr_ascii_icmp(*s1, *s2);
+}
 
 /** Returns whether \v s1 and \v s2 contents are equal. */
 static ALWAYS_INLINE bool lstr_equal(const lstr_t s1, const lstr_t s2)
@@ -620,18 +641,27 @@ bool lstr_utf8_is_ilike(const lstr_t s, const lstr_t pattern);
  *
  * Works only with ascii strings.
  */
+lstr_t t_lstr_ascii_tolower(lstr_t s);
+
+/** In-place version of \p t_lstr_ascii_tolower. */
 void lstr_ascii_tolower(lstr_t * nonnull s);
 
 /** Upper case the given lstr.
  *
  * Works only with ascii strings.
  */
+lstr_t t_lstr_ascii_toupper(lstr_t s);
+
+/** In-place version of \p t_lstr_ascii_toupper. */
 void lstr_ascii_toupper(lstr_t * nonnull s);
 
 /** In-place reversing of the lstr.
  *
  * This function is not unicode aware.
  */
+lstr_t t_lstr_ascii_reverse(lstr_t s);
+
+/** In-place version of \p t_lstr_ascii_reverse. */
 void lstr_ascii_reverse(lstr_t * nonnull s);
 
 /** Convert a lstr into an int.

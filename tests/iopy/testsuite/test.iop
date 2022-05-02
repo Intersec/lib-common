@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -31,6 +31,7 @@ class ClassA : 1 {
     @max(1000)
     int  field1 = 0;
     int? optField;
+    string? strField;
 };
 
 class ClassB : 2 : ClassA {
@@ -135,6 +136,19 @@ class StaticAttrsB : 1 : StaticAttrsA {
 
 class StaticAttrsC : 2 : StaticAttrsB {
     static string strAttr = "truc";
+};
+
+struct StructToDict {
+    StructA structA;
+
+    @private
+    int? privateField;
+
+    int[] emptyArray;
+
+    testvoid.VoidUnion voidUnion;
+    testvoid.VoidOptional voidOptional;
+    testvoid.VoidRequired voidRequired;
 };
 
 /** Brief enum documentation.
@@ -341,7 +355,7 @@ interface InterfaceA {
         throw Error;
     funB
         in (ClassA a)
-        out (EnumA status, int res)
+        out (EnumA status, int res, string? strField)
         throw Error;
     funAsync
         in (ClassA a)

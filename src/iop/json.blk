@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -1458,10 +1458,9 @@ static int unpack_union(iop_json_lex_t *ll, const iop_struct_t *desc,
             lstr_t name = LSTR_SB_V(&ll->ctx->b);
 
             if (ll->flags & IOP_UNPACK_USE_C_CASE) {
-                if (c_to_camelcase(name, false, &camelcase_name) < 0) {
-                    return RJERROR_EXP("a valid union member name");
+                if (c_to_camelcase(name, false, &camelcase_name) >= 0) {
+                    name = LSTR_SB_V(&camelcase_name);
                 }
-                name = LSTR_SB_V(&camelcase_name);
             }
             if (iop_field_find_by_name(desc, name, NULL, &fdesc) < 0) {
                 return RJERROR_EXP("a valid union member name");
@@ -1703,11 +1702,9 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
                 if (ll->flags & IOP_UNPACK_USE_C_CASE) {
                     sb_reset(&camelcase_name);
 
-                    if (c_to_camelcase(name, false, &camelcase_name) < 0) {
-                        return RJERROR_EXP_FMT("field of struct %s",
-                                               real_desc->fullname.s);
+                    if (c_to_camelcase(name, false, &camelcase_name) >= 0) {
+                        name = LSTR_SB_V(&camelcase_name);
                     }
-                    name = LSTR_SB_V(&camelcase_name);
                 }
                 ifield = iop_field_find_by_name(real_desc, name, &desc,
                                                 &fdesc);
@@ -2506,7 +2503,7 @@ static int write_field(const iop_field_t *fdesc, const void *value,
 {
     int res = 0;
     int ret;
-    int pos;
+    uint32_t pos;
     lstr_t subfile_path;
     char fullpath[PATH_MAX];
     lstr_t fullpath_lstr;
@@ -2957,7 +2954,7 @@ static int init_jpack_sub_files(const iop_struct_t *st, const void *value,
     tab_for_each_ptr(subfile, subfiles) {
         const iop_field_t *fdesc;
         const void *ptr;
-        int pos;
+        uint32_t pos;
         qm_t(iop_jpack_paths) *paths;
 
         fdesc = iop_get_field_const(value, st, subfile->iop_path, &ptr, NULL);

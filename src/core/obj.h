@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -368,9 +368,7 @@
      *                                                                       \
      * \param[out] destroyed  Set to true if the object was destroyed.       \
      */                                                                      \
-    void (*nonnull release)(type_t *nonnull obj, bool *nullable destroyed);  \
-                                                                             \
-    bool (*nonnull can_wipe)(type_t *nonnull)
+    void (*nonnull release)(type_t *nonnull obj, bool *nullable destroyed)
 
 typedef struct object_t object_t;
 OBJ_CLASS_NO_TYPEDEF_(object, object, OBJECT_FIELDS, OBJECT_METHODS,

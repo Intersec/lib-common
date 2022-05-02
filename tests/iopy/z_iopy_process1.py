@@ -2,7 +2,7 @@
 #vim:set fileencoding=utf-8:
 ###########################################################################
 #                                                                         #
-# Copyright 2021 INTERSEC SA                                              #
+# Copyright 2022 INTERSEC SA                                              #
 #                                                                         #
 # Licensed under the Apache License, Version 2.0 (the "License");         #
 # you may not use this file except in compliance with the License.        #
@@ -50,10 +50,6 @@ def main():
 
     if not connected:
         sys.exit(100)
-
-    # XXX: the server will disconnect inside its RPC impl
-    warnings.filterwarnings("ignore", category=iopy.Warning,
-                            message='.*lost connection.*')
 
     res = c.test_ModuleA.interfaceA.funA(a=r.test.ClassB(field1=1),
                                          _login='root', _password='1234')

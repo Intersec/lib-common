@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -22,7 +22,7 @@
 #include <lib-common/thr.h>
 #include <lib-common/datetime.h>
 
-/*{{{1 Qhash */
+/* {{{ Qhash */
 
 /* Keep these here, it's to check the macros are used and built */
 qh_k32_t(test);
@@ -860,8 +860,8 @@ Z_GROUP_EXPORT(qhash)
     } Z_TEST_END
 } Z_GROUP_END
 
-/*1}}}*/
-/*{{{1 QHhash */
+/* }}} */
+/* {{{ QHhash */
 
 /* Keep these here, it's to check the macros are used and built */
 qhh_k32_t(test, 16);
@@ -1132,8 +1132,8 @@ Z_GROUP_EXPORT(qhugehash)
 
 } Z_GROUP_END
 
-/*1}}}*/
-/*{{{1 Qvectors */
+/* }}} */
+/* {{{ Qvectors */
 
 static int qv_sort_tst(int nb, struct timeval * nullable execution_time)
 {
@@ -1382,6 +1382,35 @@ Z_GROUP_EXPORT(qvector)
         if (timeval_diffmsec(&tv_nothread, &tv_thread) <= 0) {
             e_error("qv_sort monothread was faster than qv_sort multithread");
         }
+    } Z_TEST_END;
+
+    Z_TEST(qv_qsort, "qvector: qv_qsort") {
+        lstr_t table[] = {
+            LSTR("a"),
+            LSTR("b"),
+            LSTR("A"),
+            LSTR("B"),
+        };
+        qv_t(lstr) vec;
+
+        qv_init_static(&vec, table, countof(table));
+
+        /* Test sorting the vector in a case-sensitive way */
+        qv_qsort(&vec, &lstr_ascii_icmp_p);
+        Z_ASSERT_EQ(vec.len, 4);
+        Z_ASSERT_LSTREQUAL(vec.tab[0], LSTR("a"));
+        Z_ASSERT_LSTREQUAL(vec.tab[1], LSTR("A"));
+        Z_ASSERT_LSTREQUAL(vec.tab[2], LSTR("b"));
+        Z_ASSERT_LSTREQUAL(vec.tab[3], LSTR("B"));
+
+        /* Test sorting the vector in a case-insensitive way */
+        qv_qsort(&vec, &lstr_cmp_p);
+        Z_ASSERT_EQ(vec.len, 4);
+        Z_ASSERT_LSTREQUAL(vec.tab[0], LSTR("A"));
+        Z_ASSERT_LSTREQUAL(vec.tab[1], LSTR("B"));
+        Z_ASSERT_LSTREQUAL(vec.tab[2], LSTR("a"));
+        Z_ASSERT_LSTREQUAL(vec.tab[3], LSTR("b"));
+
     } Z_TEST_END;
 
     Z_TEST(qv_diff, "qvector: qv_diff") {
@@ -1661,8 +1690,8 @@ Z_GROUP_EXPORT(qvector)
 
 } Z_GROUP_END;
 
-/*1}}}*/
-/*{{{1 Heap */
+/* }}} */
+/* {{{ Heap */
 
 typedef struct test_node_t {
     int pos;
@@ -1817,8 +1846,8 @@ Z_GROUP_EXPORT(qhp)
     } Z_TEST_END
 } Z_GROUP_END
 
-/*1}}}*/
-/*{{{1 Red-Black Tree */
+/* }}} */
+/* {{{ Red-Black Tree */
 
 typedef struct {
     int       v;
@@ -1904,8 +1933,8 @@ Z_GROUP_EXPORT(rbt)
     } Z_TEST_END;
 } Z_GROUP_END
 
-/*1}}}*/
-/*{{{1 HTList */
+/* }}} */
+/* {{{ HTList */
 
 typedef struct {
     int id;
@@ -2023,4 +2052,42 @@ Z_GROUP_EXPORT(htlist)
     } Z_TEST_END
 } Z_GROUP_END
 
-/*1}}}*/
+/* }}} */
+/* {{{ dlist */
+
+typedef struct list_entry_t {
+    int i;
+    dlist_t link;
+} list_entry_t;
+
+Z_GROUP_EXPORT(dlist) {
+    Z_TEST(nested_dlist_for_each_entry, "") { /* {{{ */
+        dlist_t list;
+        list_entry_t entries[] = {
+            { .i = 0 },
+            { .i = 1 },
+            { .i = 2 },
+        };
+        int i1;
+        int i2;
+
+        dlist_init(&list);
+        carray_for_each_ptr(e, entries) {
+            dlist_add_tail(&list, &e->link);
+        }
+        i1 = 0;
+        dlist_for_each_entry(list_entry_t, e1, &list, link) {
+            i2 = 0;
+            dlist_for_each_entry(list_entry_t, e2, &list, link) {
+                Z_ASSERT_EQ(e1->i, i1);
+                Z_ASSERT_EQ(e2->i, i2);
+                i2++;
+            }
+            i1++;
+        }
+    } Z_TEST_END;
+
+    /* }}} */
+} Z_GROUP_END
+
+/* }}} */

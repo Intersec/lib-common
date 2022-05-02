@@ -1,6 +1,6 @@
 ###########################################################################
 #                                                                         #
-# Copyright 2021 INTERSEC SA                                              #
+# Copyright 2022 INTERSEC SA                                              #
 #                                                                         #
 # Licensed under the Apache License, Version 2.0 (the "License");         #
 # you may not use this file except in compliance with the License.        #
@@ -37,6 +37,7 @@ ctx.program(target='zchk', source=[
     'zchk-file-log.c',
     'zchk-hash.c',
     'zchk-hat.blk',
+    'zchk-hpack.c',
     'zchk-iop.blk',
     'zchk-iop.c',
     'zchk-iop-core-obj.blk',

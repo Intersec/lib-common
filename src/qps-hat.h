@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -508,9 +508,17 @@ typedef struct qhat_tree_enumerator_t {
     /* }}} */
 
     qhat_path_t path;
-    uint32_t    pos;
 
-    uint32_t                 count;
+    /* Position of the element in the local array in "memory". */
+    uint32_t pos;
+
+    /* Only when the local array in memory is a "compact".
+     * Number of elements in the compact.
+     * May be unsynchronized with "memory.compact->count" if elements where
+     * added or removed in the qhat. */
+    uint32_t count;
+
+    /* Current leaf of the enumerator, cached here for quicker access. */
     qhat_node_const_memory_t memory;
 } qhat_tree_enumerator_t;
 

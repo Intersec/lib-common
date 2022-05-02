@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -50,9 +50,8 @@ qhash_lstr_ascii_ihash_old(const qhash_t * nullable qh,
                            const lstr_t * nonnull ls)
 {
     t_scope;
-    lstr_t tmp = t_lstr_dup(*ls);
+    lstr_t tmp = t_lstr_ascii_tolower(*ls);
 
-    lstr_ascii_tolower(&tmp);
     return qhash_lstr_hash(qh, &tmp);
 }
 
@@ -141,7 +140,7 @@ static void ztst_run_qv_sort(void)
     proctimerstat_t st;
 
     /* Bench qv_sort with 4 and 8 bytes values. */
-#define BENCH_QV_SORT(_type, _comment)  \
+#define BENCH_QV_SORT(_type)  \
     do {                                                                     \
         p_clear(&st, 1);                                                     \
         for (int i = 0; i < NB_TESTS; i++) {                                 \
@@ -159,20 +158,13 @@ static void ztst_run_qv_sort(void)
             proctimer_stop(&pt);                                             \
             proctimerstat_addsample(&st, &pt);                               \
         }                                                                    \
-        logger_notice(&_G.logger, "qv_sort %s on " TOSTR(_type) " vectors "  \
+        logger_notice(&_G.logger, "qv_sort on " TOSTR(_type) " vectors "     \
                       "of %d elements: %s\n",                                \
-                      _comment, NB_ELEMS, proctimerstat_report(&st, NULL));  \
+                      NB_ELEMS, proctimerstat_report(&st, NULL));            \
     } while (0)
 
-    /* Mono-threaded */
-    BENCH_QV_SORT(i32, "mono-threaded");
-    BENCH_QV_SORT(i64, "mono-threaded");
-
-    /* Multi-threaded */
-    MODULE_REQUIRE(thr);
-    BENCH_QV_SORT(i32, "multi-threaded");
-    BENCH_QV_SORT(i64, "multi-threaded");
-    MODULE_RELEASE(thr);
+    BENCH_QV_SORT(i32);
+    BENCH_QV_SORT(i64);
 #undef BENCH_QV_SORT
 
     /* Bench qv_qsort with 4 and 8 bytes values. */

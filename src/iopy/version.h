@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -20,7 +20,7 @@
 #define IS_IOPY_VERSION_H
 
 #define IOPY_MAJOR  4
-#define IOPY_MINOR  6
+#define IOPY_MINOR  8
 #define IOPY_PATCH  0
 
 #endif

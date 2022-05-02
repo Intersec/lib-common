@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -39,6 +39,7 @@ PXCC_EXPORT_SYMBOL(iop_equals_desc);
 PXCC_EXPORT_SYMBOL(iop_class_static_fields_have_type);
 PXCC_EXPORT_SYMBOL(iop_class_static_field_type);
 PXCC_EXPORT_SYMBOL(iop_enum_to_str_desc);
+PXCC_EXPORT_SYMBOL(iop_field_get_attrs);
 
 PXCC_EXPORT_SYMBOL(iop_bunpack_ptr);
 PXCC_EXPORT_SYMBOL(iop_bunpack_multi);
@@ -51,6 +52,8 @@ PXCC_EXPORT_SYMBOL(iop_union_get_tag);
 PXCC_EXPORT_SYMBOL(iop_union_set_tag);
 
 PXCC_EXPORT_SYMBOL(iop_skip_absent_field_desc);
+
+PXCC_EXPORT_SYMBOL(mp_iop_dup_desc_sz);
 
 PXCC_EXPORT_SYMBOL(t_iop_xunpack_ptr);
 PXCC_EXPORT_SYMBOL(iop_xpack_flags);

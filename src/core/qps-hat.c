@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2021 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -1452,8 +1452,8 @@ void qhat_tree_enumeration_find_down_up(qhat_tree_enumerator_t *en,
 uint32_t qhat_tree_enumeration_next(qhat_tree_enumerator_t *en,
                                     bool value, bool safe)
 {
-    uint32_t    old_pos  = en->pos;
-    qhat_node_t old_node = QHAT_PATH_NODE(&en->path);
+    uint32_t    old_pos = en->pos;
+    qhat_node_t old_node;
 
     if (safe && en->pos < en->count) {
         uint32_t gen = en->path.generation;
@@ -1492,6 +1492,7 @@ uint32_t qhat_tree_enumeration_next(qhat_tree_enumerator_t *en,
         }
     }
 
+    old_node = QHAT_PATH_NODE(&en->path);
     old_pos = en->pos;
     en->pos++;
     qhat_tree_enumeration_find_entry(en);
