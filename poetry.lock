@@ -387,6 +387,17 @@ files = [
 ]
 
 [[package]]
+name = "types-psutil"
+version = "5.9.5.20240516"
+description = "Typing stubs for psutil"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types-psutil-5.9.5.20240516.tar.gz", hash = "sha256:bb296f59fc56458891d0feb1994717e548a1bcf89936a2877df8792b822b4696"},
+    {file = "types_psutil-5.9.5.20240516-py3-none-any.whl", hash = "sha256:83146ded949a10167d9895e567b3b71e53ebc5e23fd8363eab62b3c76cce7b89"},
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.12.2"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -488,4 +499,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "5d5b0dbb9de56648ca810b3a45cbad9e9f41a4991a3a2ee1e41242b74a1886b5"
+content-hash = "50d418c9b9ddf08e64aad3ae32b5c369960e122e690b40053e08766b8b7934e9"
