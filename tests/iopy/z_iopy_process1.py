@@ -16,6 +16,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# mypy: ignore-errors=True
 # XXX: python code for a subprocess called from z-iopy.py
 # this is to test the listen blocking server mode
 # this file contains the client part that connect to the server

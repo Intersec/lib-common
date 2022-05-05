@@ -16,6 +16,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# mypy: ignore-errors=True
 # ruff: noqa: UP008
 from __future__ import annotations
 
