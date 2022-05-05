@@ -24,6 +24,7 @@ import tempfile
 import threading
 import psutil
 from contextlib import contextmanager
+from typing import Iterator, Any
 
 # L4D {{{
 
@@ -31,11 +32,11 @@ EVT   = threading.Event()
 REARM = True
 THR   = None
 
-def log(msg):
+def log(msg: str) -> None:
     sys.stderr.write("{0}: {1}\n".format(__file__, msg))
     sys.stderr.flush()
 
-def wipe_children(reason, wait_thr=True):
+def wipe_children(reason: str, wait_thr: bool = True) -> None:
     global THR, REARM
 
     if wait_thr and THR is not None:
@@ -76,10 +77,12 @@ def wipe_children(reason, wait_thr=True):
     for process in alive:
         process.kill()
 
-def wipe_children_sig(sig, frame):
+
+def wipe_children_sig(sig: int, frame: Any) -> None:
     wipe_children("received signal %d" % sig)
 
-def wipe_background_thread():
+
+def wipe_background_thread() -> None:
     global REARM
 
     if os.getenv('Z_MODE', '').find('fast') >= 0:
@@ -97,14 +100,14 @@ def wipe_background_thread():
             reason = "inactive for %d seconds" % timeout
             wipe_children(reason, wait_thr=False)
 
-def wipe_children_rearm():
+def wipe_children_rearm() -> None:
     global REARM
 
     REARM = True
     EVT.set()
 
 @contextmanager
-def wipe_children_register():
+def wipe_children_register() -> Iterator[None]:
     global THR
 
     # Don't hang child processes on SIGTTOU when changing
@@ -121,15 +124,16 @@ def wipe_children_register():
     THR = threading.Thread(target=wipe_background_thread)
 
     try:
-        yield THR.start()
+        THR.start()
+        yield
     finally:
         wipe_children("atexit")
 
 # }}}
 # Sandbox {{{
 
-def mkdtemp(ns):
-    def do(path):
+def mkdtemp(ns: str) -> str:
+    def do(path: str) -> str:
         prefix = "zpy.%s.%d.XXXXXX" % (ns, os.getpid())
         return tempfile.mkdtemp(dir=path, prefix=prefix)
 

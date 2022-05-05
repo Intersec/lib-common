@@ -21,7 +21,7 @@
 """
 z
 
-z is a wrapper around unnitest (python 2.7+) or unittest2
+z is a wrapper around unittest
 
 To write a "group" of test, write a class deriving from unittest.TestCase
 and decorate it with z.ZGroup this way:
@@ -65,21 +65,23 @@ import time
 import doctest
 
 from functools import wraps
-import zpycore.util
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+import unittest
 
-_U = __import__(unittest.__name__, globals(), locals())
-globals().update(_U.__dict__)
-__all__ = list(_U.__all__)
+from typing import Any, Callable, ClassVar, NoReturn, TypeVar, Union, cast
+from types import TracebackType
+
+from .util import wipe_children_rearm, wipe_children_register
 
 
-def public(sym):
-    __all__.append(sym.__name__)
-    return sym
+ExecInfo = Union[
+    tuple[type[BaseException], BaseException, TracebackType],
+    tuple[None, None, None]
+]
+
+
+T = TypeVar('T')
+
 
 class _LoadTests:
     """
@@ -87,11 +89,13 @@ class _LoadTests:
 
     @see ZGroup or ZDocTest
     """
-    def __init__(self):
-        self.groups = []
-        self.docsuites = []
+    def __init__(self) -> None:
+        self.groups: list[type[unittest.TestCase]] = []
+        self.docsuites: list[type['DocTestModule']] = []
 
-    def __call__(self, loader, tests, prefix):
+    def __call__(self, loader: unittest.TestLoader,
+                 tests: list[unittest.TestCase],
+                 prefix: str) -> unittest.TestSuite:
         suite = unittest.TestSuite()
 
         for g in self.groups:
@@ -101,14 +105,14 @@ class _LoadTests:
 
         return suite
 
-    def add_group(self, group):
+    def add_group(self, group: type[unittest.TestCase]) -> None:
         self.groups.append(group)
 
-    def add_docsuite(self, suite):
+    def add_docsuite(self, suite: type['DocTestModule']) -> None:
         self.docsuites.append(suite)
 
-@public
-def ZGroup(cls): # pylint: disable=invalid-name
+
+def ZGroup(cls: type[T]) -> type[T]: # pylint: disable=invalid-name
     """
     ZGroup
 
@@ -117,8 +121,9 @@ def ZGroup(cls): # pylint: disable=invalid-name
     """
     __import__(cls.__module__)
     m = sys.modules[cls.__module__]
+
     if getattr(m, 'load_tests', None) is None:
-        m.load_tests = _LoadTests()
+        setattr(m, 'load_tests', _LoadTests())
 
     if issubclass(cls, DocTestModule):
         m.load_tests.add_docsuite(cls)
@@ -127,31 +132,27 @@ def ZGroup(cls): # pylint: disable=invalid-name
 
     return cls
 
+
 # {{{ ZTestSuite
 
 
 class ZTestSuite(unittest.TestSuite):
 
-    def _is_new_group(self):
+    def _is_new_group(self) -> bool:
         return (isinstance(self, DocTestModule) or
-                (self._tests and isinstance(self._tests, list)
+                (bool(self._tests) and isinstance(self._tests, list)
                  and isinstance(self._tests[0], unittest.TestCase)))
 
-    def _handle_group(self, result):
+    def _handle_group(self, result: '_ZTestResult') -> None:
         if self._is_new_group():
             result.reset()
             result.print_suite_summary(self)
 
-    def run(self, result):
+    def run(self, result: '_ZTestResult', # type: ignore[override]
+            debug: bool = False) -> '_ZTestResult':
         if os.getenv('Z_HARNESS'):
             self._handle_group(result)
-        return super().run(result)
-
-    # XXX: _wrapped_run for old version of unittest2
-    def _wrapped_run(self, result, debug=False):
-        if os.getenv('Z_HARNESS'):
-            self._handle_group(result)
-        return super()._wrapped_run(result, debug=debug)
+        return cast('_ZTestResult', super().run(result, debug))
 
 
 # }}}
@@ -162,7 +163,8 @@ class IopDocTestRunner(doctest.DocTestRunner):
 
     Used to wrap tests in a "print_iop" function
     """
-    def run(self, test, *args, **kwargs):
+    def run(self, test: doctest.DocTest, *args: Any,
+            **kwargs: Any) -> doctest.TestResults:
         for example in test.examples:
             source = example.source.strip()
             # Wrap the code with a print call, unless a for loop is detected
@@ -172,7 +174,6 @@ class IopDocTestRunner(doctest.DocTestRunner):
         return super().run(test, *args, **kwargs)
 
 
-@public
 class DocTestModule(ZTestSuite):
     """Class used to declare a module containing doc tests
 
@@ -180,16 +181,17 @@ class DocTestModule(ZTestSuite):
     ``extraglobs``: optional method, can be used to specify globs to
         pass to the tests environnement.
     """
+    module: ClassVar[Any]
     optionflags = doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
 
     @staticmethod
-    def extraglobs():
+    def extraglobs() -> dict[str, int]:
         return {}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         # upgrade doc test runner to our custom one
         if not isinstance(doctest.DocTestCase, IopDocTestRunner):
-            doctest.DocTestRunner = IopDocTestRunner
+            setattr(doctest, 'DocTestRunner', IopDocTestRunner)
 
         test_finder = doctest.DocTestFinder()
         tests = test_finder.find(self.module, extraglobs=self.extraglobs())
@@ -204,10 +206,11 @@ class DocTestModule(ZTestSuite):
             pass
 
         ModuledTestCase.__module__ = self.__module__
-        tests = [ModuledTestCase(t, optionflags=self.optionflags)
-                 for t in tests]
+        moduled_tests = [ModuledTestCase(t, optionflags=self.optionflags)
+                         for t in tests]
+        tests_casted = cast(list[TestCase], moduled_tests)
 
-        super().__init__(tests, *args, **kwargs)
+        super().__init__(tests_casted, *args, **kwargs)
 
 
 # }}}
@@ -215,26 +218,26 @@ class DocTestModule(ZTestSuite):
 _Z_MODES = set(os.getenv('Z_MODE', '').split())
 _FLAGS   = set(os.getenv('Z_TAG_SKIP', '').split())
 _TAG_OR = os.getenv('Z_TAG_OR', '')
-_ALL_FLAGS = {}
+_ALL_FLAGS: dict[Any, list[Any]] = {}
 
-@public
-def ZFlags(*flags): # pylint: disable=invalid-name
+def ZFlags(*flags: str) -> Callable[[T], T]: # pylint: disable=invalid-name
     """
     ZFlags
 
     This decorator is a wrapper around unittest.skip() to implement the
     Z_TAG_SKIP required interface.
     """
-    def wrap(func):
+    def wrap(func: T) -> T:
         func_flags = _ALL_FLAGS.setdefault(func, [])
         func_flags.extend(flags)
         fl = set(func_flags) & _FLAGS
         if any((f in _TAG_OR for f in func_flags)) and "wip" not in fl:
-            func.__unittest_skip__ = False
+            func.__unittest_skip__ = False # type: ignore[attr-defined]
             return func
         if fl:
-            return unittest.skip("skipping tests flagged with %s" %
-                                 (" ".join(fl)))(func)
+            skip_msg = "skipping tests flagged with %s" % (" ".join(fl))
+            skip_wrapper = unittest.skip(skip_msg)
+            return skip_wrapper(func) # type: ignore[type-var]
         return func
     return wrap
 
@@ -244,21 +247,20 @@ class _ZTodo(Exception):
 
     Hack to store the reason in the exception for ZTodo.
     """
-    def __init__(self, reason, exc_info):
+    def __init__(self, reason: str, exc_info: ExecInfo):
         self.reason = reason
         self.exc_info = exc_info
         super().__init__(reason, exc_info)
 
-@public
-def ZTodo(reason): # pylint: disable=invalid-name
+def ZTodo(reason: str) -> Any: # pylint: disable=invalid-name
     """
     ZTodo
 
     Decorator to use instead of unittest.expectedFailure
     """
-    def decorator(func):
+    def decorator(func: Any) -> Any:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> None:
             try:
                 func(*args, **kwargs)
             except Exception as exc:
@@ -274,30 +276,31 @@ class _ZTextTestResult(unittest.TextTestResult):
     Also, addExpectedFailure is overriden to fixup the _ZTodo hack
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         self.debug_on = os.getenv("Z_DEBUG_ON_ERROR") == "1"
         super().__init__(*args, **kwargs)
 
-    def debug(self, err):
+    def debug(self, err: ExecInfo) -> None:
         if self.debug_on:
             import pdb  # pylint: disable = import-outside-toplevel
             _, _, exc_traceback = err
             pdb.post_mortem(exc_traceback)
 
-    def addError(self, test, err):
+    def addError(self, test: unittest.TestCase, err: ExecInfo) -> None:
         """Called when an error has occurred. 'err' is a tuple of values as
         returned by sys.exc_info().
         """
         self.debug(err)
         super().addError(test, err)
 
-    def addFailure(self, test, err):
+    def addFailure(self, test: unittest.TestCase, err: ExecInfo) -> None:
         """Called when an error has occurred. 'err' is a tuple of values as
         returned by sys.exc_info()."""
         self.debug(err)
         super().addFailure(test, err)
 
-    def addExpectedFailure(self, test, err):
+    def addExpectedFailure(self, test: unittest.TestCase,
+                           err: ExecInfo) -> None:
         """Replacement of addExpectedFailure to fixup the _ZTodo hack"""
         assert err[0] == _ZTodo
         exn = err[1]
@@ -312,24 +315,25 @@ class _ZTestResult(unittest.TestResult):
     TestResult subclass implementing the Z protocol
     Only used when Z_HARNESS is set
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         self.start_time = time.time()
-        self.global_failures = []
-        self.global_errors = []
+        self.global_failures: list[tuple[unittest.TestCase, str]] = []
+        self.global_errors: list[tuple[unittest.TestCase, str]] = []
         super().__init__(*args, **kwargs)
 
-    def startTest(self, test):
-        zpycore.util.wipe_children_rearm()
+    def startTest(self, test: unittest.TestCase) -> None:
+        wipe_children_rearm()
         self.start_time = time.time()
         super().startTest(test)
 
-    def _put_st(self, what, test, rest = ""):
-        zpycore.util.wipe_children_rearm()
+    def _put_st(self, what: str, test: unittest.TestCase,
+                rest: str = "") -> None:
+        wipe_children_rearm()
         run_time = time.time() - self.start_time
         if isinstance(test, doctest.DocTestCase):
             tid = test.id()
         else:
-            tid = getattr(test, '_testMethodName', None)
+            tid = getattr(test, '_testMethodName', '')
         sys.stdout.write("%d %s %s # (%.3fs)" %
                          (self.testsRun, what, tid, run_time))
         if rest:
@@ -337,15 +341,15 @@ class _ZTestResult(unittest.TestResult):
         sys.stdout.write("\n")
 
     @classmethod
-    def _put_err_common(cls, test):
-        zpycore.util.wipe_children_rearm()
+    def _put_err_common(cls, test: unittest.TestCase) -> None:
+        wipe_children_rearm()
         tid = test.id()
         if tid.startswith("__main__."):
             tid = tid[len("__main__."):]
         sys.stdout.write(': $ %s %s\n:\n' % (sys.argv[0], tid))
 
     @classmethod
-    def _put_err(cls, test, err):
+    def _put_err(cls, test: unittest.TestCase, err: ExecInfo) -> None:
         cls._put_err_common(test)
 
         exctype, value, tb = err
@@ -355,37 +359,43 @@ class _ZTestResult(unittest.TestResult):
         sys.stdout.write("\n")
 
     @classmethod
-    def _put_err_str(cls, test, err):
+    def _put_err_str(cls, test: unittest.TestCase, err: str) -> None:
         cls._put_err_common(test)
 
         sys.stdout.write(": %s\n" % (err))
 
-    def addSuccess(self, test):
+    def addSuccess(self, test: unittest.TestCase) -> None:
         super().addSuccess(test)
         self._put_st("pass", test)
         sys.stdout.flush()
 
-    def addError(self, test, err):
+    def addError(self, test: unittest.TestCase, err: ExecInfo) -> None:
         super().addError(test, err)
-        self.global_errors.append((test, self._exc_info_to_string(err, test)))
+        self.global_errors.append((
+            test,
+            self._exc_info_to_string(err, test) # type: ignore[attr-defined]
+        ))
         self._put_st("fail", test)
         self._put_err(test, err)
         sys.stdout.flush()
 
-    def addFailure(self, test, err):
+    def addFailure(self, test: unittest.TestCase, err: ExecInfo) -> None:
         super().addFailure(test, err)
-        self.global_failures.append((test,
-                                     self._exc_info_to_string(err, test)))
+        self.global_failures.append((
+            test,
+            self._exc_info_to_string(err, test) # type: ignore[attr-defined]
+        ))
         self._put_st("fail", test)
         self._put_err(test, err)
         sys.stdout.flush()
 
-    def addSkip(self, test, reason):
+    def addSkip(self, test: unittest.TestCase, reason: str) -> None:
         super().addSkip(test, reason)
         self._put_st("skip", test, reason)
         sys.stdout.flush()
 
-    def addExpectedFailure(self, test, err):
+    def addExpectedFailure(self, test: unittest.TestCase,
+                           err: ExecInfo) -> None:
         assert err[0] == _ZTodo
         exn = err[1]
         assert isinstance(exn, _ZTodo)
@@ -394,14 +404,14 @@ class _ZTestResult(unittest.TestResult):
         self._put_err(test, exn.exc_info)
         sys.stdout.flush()
 
-    def addUnexpectedSuccess(self, test):
+    def addUnexpectedSuccess(self, test: unittest.TestCase) -> None:
         super().addUnexpectedSuccess(test)
         self._put_st("todo-pass", test)
         self._put_err_str(test, "ZTodo should not pass")
         sys.stdout.flush()
 
     @classmethod
-    def print_suite_summary(cls, test):
+    def print_suite_summary(cls, test: unittest.TestSuite) -> None:
         # pylint: disable=protected-access
         if isinstance(test, DocTestModule):
             group_name = test.__class__.__name__
@@ -410,7 +420,7 @@ class _ZTestResult(unittest.TestResult):
         sys.stdout.write("1..%d %s\n" % (test.countTestCases(), group_name))
         sys.stdout.flush()
 
-    def reset(self):
+    def reset(self) -> None:
         self.failures = []
         self.errors = []
         self.testsRun = 0
@@ -418,7 +428,7 @@ class _ZTestResult(unittest.TestResult):
         self.expectedFailures = []
         self.unexpectedSuccesses = []
 
-    def wasSuccessful(self):
+    def wasSuccessful(self) -> bool:
         return (len(self.global_failures) + len(self.global_errors) +
                 len(self.unexpectedSuccesses) == 0)
 
@@ -441,8 +451,12 @@ class ZTestRunner(unittest.TextTestRunner):
         groupe2
           test1
     """
+    failfast: bool
+    buffer: bool
 
-    def run(self, test):
+    def run( # type: ignore[override]
+            self, test: Union[unittest.TestSuite, unittest.TestCase]
+    ) -> unittest.TestResult:
         result = _ZTestResult()
         result.failfast = self.failfast
         result.buffer = self.buffer
@@ -452,35 +466,51 @@ class ZTestRunner(unittest.TextTestRunner):
         return result
 
 
-@public
 class TestCase(unittest.TestCase):
 
     # deprecated
-    def zHasMode(self, mode): # pylint: disable=invalid-name
+    def zHasMode(self, mode: str) -> bool: # pylint: disable=invalid-name
         return self.z_has_mode(mode)
 
     @classmethod
-    def z_has_mode(cls, mode):
+    def z_has_mode(cls, mode: str) -> bool:
         return mode in _Z_MODES
 
     @classmethod
-    def z_has_skipped_tag(cls, tag):
+    def z_has_skipped_tag(cls, tag: str) -> bool:
         return tag in _FLAGS
 
-@public
-def expectedFailure(*args, **kwargs): # pylint: disable=invalid-name
+
+# pylint: disable=invalid-name
+def expectedFailure(*args: Any, **kwargs: Any) -> NoReturn:
     """
     overrides the unittest definition so that people won't use it by mistake
     """
-    raise Exception("Do not use expectedFailure but ZTodo instead")  # pylint: disable=broad-exception-raised
+    raise RuntimeError("Do not use expectedFailure but ZTodo instead")  # pylint: disable=broad-exception-raised
 
 
-@public
-def main():
-    with zpycore.util.wipe_children_register():
-        if os.getenv('Z_HARNESS'):
-            unittest.TestLoader.suiteClass = ZTestSuite
-            unittest.main(testRunner=ZTestRunner)
-        else:
-            unittest.TextTestRunner.resultclass = _ZTextTestResult
-            unittest.main()
+class TestProgram(unittest.TestProgram):
+    def __init__(self, *args: Any, **kwargs: Any):
+        with wipe_children_register():
+            if os.getenv('Z_HARNESS'):
+                unittest.TestLoader.suiteClass = ZTestSuite
+                kwargs['testRunner'] = ZTestRunner
+            else:
+                unittest.TextTestRunner.resultclass = _ZTextTestResult
+
+            super().__init__(*args, **kwargs)
+
+
+main = TestProgram
+
+
+__all__ = [
+    'ZGroup',
+    'DocTestModule',
+    'ZFlags',
+    'ZTodo',
+    'TestCase',
+    'expectedFailure',
+    'TestProgram',
+    'main',
+]

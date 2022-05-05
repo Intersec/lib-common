@@ -16,6 +16,8 @@
 #                                                                         #
 ###########################################################################
 
+from unittest import *
+
 from . import util
 from . import zunittest
-from .zunittest import * #pylint: disable=wildcard-import
+from .zunittest import *
