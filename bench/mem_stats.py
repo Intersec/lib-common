@@ -23,8 +23,8 @@ Takes the log file as first argument.
 It plots the used memory/allocated memory graph.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
+import numpy as np # pylint: disable=import-error
+import matplotlib.pyplot as plt # pylint: disable=import-error
 import sys
 
 COLUMNS = [
