@@ -2,8 +2,18 @@ strategy:
   matrix:
     ubuntu-18.04:
       imageName: "ubuntu-18.04"
+      clang: "clang-9"
+      clangCpp: "clang++-9"
+      libclangDev: "libclang-9-dev"
+      llvmDev: "llvm-9-dev"
+
     ubuntu-20.04:
       imageName: "ubuntu-20.04"
+      clang: "clang"
+      clangCpp: "clang++"
+      libclangDev: "libclang-dev"
+      llvmDev: "llvm-dev"
+
   maxParallel: 3
 
 pool:
@@ -14,9 +24,6 @@ steps:
       sudo apt-get update && \
       sudo apt-get install \
         curl \
-        clang \
-        libclang-dev \
-        llvm-dev \
         python3-dev \
         python3-pip \
         flex \
@@ -28,16 +35,11 @@ steps:
         smitools \
         snmp-mibs-downloader \
         exuberant-ctags \
-        valgrind
+        valgrind \
+        $(clang) \
+        $(libclangDev) \
+        $(llvmDev)
     displayName: Install system dependencies
-
-  - bash: |
-      sudo apt-get install \
-        clang-9 \
-        libclang-9-dev \
-        llvm-9-dev
-    condition: eq(variables['imageName'], 'ubuntu-18.04')
-    displayName: Install llvm/clang 9 for ubuntu 18.04
 
   - bash: |
       sudo python3 -m pip install --upgrade pip && \
@@ -69,8 +71,8 @@ steps:
 
   - script: waf configure
     env:
-      CC: 'clang'
-      CXX: 'clang++'
+      CC: $(clang)
+      CXX: $(clangCpp)
       P: 'asan'
     displayName: Configure with Clang, ASan
 
