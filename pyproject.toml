@@ -43,5 +43,5 @@ ipdb = "~=0.13.0"
 pylint = "==2.4.4"
 
 [tool.poetry.dependencies]
-# Require at least Python version 3.5
-python = "^3.5"
+# Require at least Python version 3.6
+python = "^3.6"
