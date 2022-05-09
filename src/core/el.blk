@@ -1154,19 +1154,18 @@ static void el_timer_compute_tolerance(ev_t *ev)
         repeat = -repeat;
     }
 
-    /* XXX: we consider that timer rescheduled in more than half a second
-     *      don't care about high resolution.
-     */
-    if (!EV_FLAG_HAS(ev, TIMER_LOWRES) && repeat < 500) {
+    if (EV_FLAG_HAS(ev, TIMER_LOWRES) && repeat >= 500) {
+        /* Timer is explicitly flagged as "low resolution" and has a
+         * repetition of more than 500ms (and thus does not need high
+         * precision), so allow a shift of up to 10% of the timer duration.
+         * That shift is actually capped at EL_LOOP_TIMEOUT since this is the
+         * duration of an event loop in case of inactivity.
+         */
+        ev->timer.tolerance = MIN(repeat / 10, EL_LOOP_TIMEOUT);
+    } else {
+        /* Otherwise, make it high-precision */
         ev->timer.tolerance = 0;
-        return;
     }
-
-    /* Low-resolution timer allow a shift of up to 10% of the timer duration.
-     * That shift is actually capped at EL_LOOP_TIMEOUT since this is the
-     * duration of an event loop in case of inactivity.
-     */
-    ev->timer.tolerance = MIN(repeat / 10, EL_LOOP_TIMEOUT);
 }
 
 ev_t *el_timer_register_d(int64_t next, int64_t repeat,
