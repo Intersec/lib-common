@@ -372,13 +372,10 @@ def add_custom_install(self):
             tsk.set_run_after(other_tsk)
 
 # }}}
-# {{{ pylint
+# {{{ python checkers
 
 
-def run_pylint(ctx):
-    if ctx.cmd != 'pylint':
-        return
-
+def run_python_checker(ctx, checker_exec):
     # Reset the build
     ctx.groups = []
 
@@ -403,16 +400,43 @@ def run_pylint(ctx):
                                     quiet=Context.BOTH).strip()
         files_list = files_str.splitlines()
 
-    # Create tasks to check them using pylint
+    # Create tasks to check them using the checker
+    rule = checker_exec + ' ${SRC}'
     for f in files_list:
         node = path.make_node(f)
-        ctx(rule='pylint ${SRC}', source=node, path=path, cwd=ctx.srcnode,
-            always=True)
+        ctx(rule=rule, source=node, path=path, cwd=ctx.srcnode, always=True)
+
+
+# }}}
+# {{{ pylint
+
+
+def run_pylint(ctx):
+    if ctx.cmd != 'pylint':
+        return
+
+    run_python_checker(ctx, 'pylint')
 
 
 class PylintClass(BuildContext):
     '''run pylint checks on committed python files'''
     cmd = 'pylint'
+
+
+# }}}
+# {{{ mypy
+
+
+def run_mypy(ctx):
+    if ctx.cmd != 'mypy':
+        return
+
+    run_python_checker(ctx, 'mypy')
+
+
+class MypyClass(BuildContext):
+    '''run mypy checks on committed python files'''
+    cmd = 'mypy'
 
 
 # }}}
@@ -445,6 +469,7 @@ def build(ctx):
     # Register pre/post functions
     ctx.add_pre_fun(add_scan_in_signature)
     ctx.add_pre_fun(run_pylint)
+    ctx.add_pre_fun(run_mypy)
     ctx.add_post_fun(run_checks)
 
 
