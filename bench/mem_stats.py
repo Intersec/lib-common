@@ -16,6 +16,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# type: ignore
 
 """ Utility to read mem-bench logs.
 
