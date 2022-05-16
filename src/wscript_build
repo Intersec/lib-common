@@ -15,7 +15,11 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable, invalid-name
+# pylint: disable=invalid-name, used-before-assignment
+
+from waflib.Build import BuildContext # pylint: disable=import-error
+
+ctx: BuildContext
 
 ctx.set_group('farchc')
 

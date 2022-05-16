@@ -15,7 +15,12 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable
+# pylint: disable=used-before-assignment
+
+from waflib.Build import BuildContext # pylint: disable=import-error
+
+ctx: BuildContext
+
 
 ctx.IopcOptions(ctx)
 
@@ -53,7 +58,7 @@ ctx.stlib(target='tstiop2', features='c cstlib', source=[
     'tstiop2.iop',
 ])
 
-bld.shlib(target='zchk-tstiop-plugin', source=[
+ctx.shlib(target='zchk-tstiop-plugin', source=[
     'tstiop-plugin.c',
 ], use=['libcommon', 'tstiop'], remove_dynlibs=True)
 

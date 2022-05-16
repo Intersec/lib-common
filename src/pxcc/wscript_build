@@ -15,7 +15,11 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable
+# pylint: disable=used-before-assignment
+
+from waflib.Build import BuildContext # pylint: disable=import-error
+
+ctx: BuildContext
 
 
 with ctx.UseGroup(ctx, 'pxcc'):

@@ -16,7 +16,9 @@
 #                                                                         #
 ###########################################################################
 
-def configure(ctx):
+from waflib.Configure import ConfigurationContext # pylint: disable=import-error
+
+def configure(ctx: ConfigurationContext) -> None:
     path = ctx.path.abspath()
 
     ctx.find_program('flex')
