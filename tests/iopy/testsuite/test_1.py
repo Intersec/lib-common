@@ -15,6 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# type: ignore
 # pylint: disable = undefined-variable
 
 
