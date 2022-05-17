@@ -21,7 +21,7 @@ import os.path as osp
 import difflib
 
 import zpycore as z
-import zchk_mod
+import zchk_mod # type: ignore
 
 
 DIR = osp.dirname(osp.realpath(__file__))
