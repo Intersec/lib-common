@@ -258,7 +258,21 @@ def configure(ctx):
     # {{{ Python 3
 
     ctx.find_program('python3')
-    ctx.find_program('python3-config', var='PYTHON3_CONFIG')
+
+    # XXX: Python virtualenv does not link python3-config inside the bin
+    # directory of the virtualenv. This means that the version of
+    # python3-config can be different from the version of python3 when we are
+    # in a virtualenv.
+    # To solve this issue, look for python3.x-config in the real python3
+    # installation directory.
+    py_config_path = ctx.cmd_and_log(ctx.env.PYTHON3 + [
+        '-c', (
+            'import sys, os;'
+            'print(os.path.realpath(sys.executable) + "-config")'
+        )
+    ])
+    ctx.find_program('python3-config', var='PYTHON3_CONFIG',
+                     value=py_config_path)
 
     # We need to remove -I prefix to use Python include paths in INCLUDES
     # variables.
