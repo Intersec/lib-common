@@ -85,6 +85,27 @@ def run_waf_with_poetry(ctx):
     del os.environ['POETRY_ACTIVE']
 
 
+def poetry_fix_no_env_use(ctx):
+    py_short_version_lines = ctx.cmd_and_log(
+        ctx.env.POETRY + ["run", "python3", "-c",
+        (
+            "import sys;"
+            "print(f'{sys.version_info[0]}.{sys.version_info[1]}')"
+        )
+    ]).strip().split('\n')
+
+    if len(py_short_version_lines) == 1:
+        # Poetry environment is well defined or python default version is
+        # compatible with the poetry configuration, do nothing.
+        return
+
+    # Force using the python version in poetry environment already used for
+    # install.
+    # The last line of the output is the short python version we want to use.
+    py_short_version = py_short_version_lines[-1]
+    ctx.cmd_and_log(ctx.env.POETRY + ["env", "use", py_short_version])
+
+
 def poetry_no_srv_tools(ctx):
     # Get python site packages from poetry
     ctx.poetry_site_packages = ctx.cmd_and_log(
@@ -119,6 +140,9 @@ def poetry_install(ctx):
     if ctx.exec_command(ctx.env.POETRY + ['install'], stdout=None,
                         stderr=None):
         ctx.fatal('poetry install failed')
+
+    # Force poetry environment to the compatible version
+    poetry_fix_no_env_use(ctx)
 
     # Remove /srv/tools from python path in poetry
     poetry_no_srv_tools(ctx)
