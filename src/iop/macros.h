@@ -232,18 +232,26 @@
 #define IOP_UNION_VA(pfx, field, ...) \
     (pfx##__t){ IOP_UNION_TAG(pfx, field), { .field = { __VA_ARGS__ } } }
 
+/** Get the associated field name of an IOP union tag.
+ *
+ * \param[in] _iop_tag   The IOP union tag.
+ * \param[in] _type_desc The IOP union description.
+ */
+#define IOP_UNION_TAG_TO_LSTR(_iop_tag, _type_desc)                          \
+    ({                                                                       \
+        int _res = iop_ranges_search((_type_desc).ranges,                    \
+                                     (_type_desc).ranges_len,                \
+                                     (_iop_tag));                            \
+        _res >= 0 ? (_type_desc).fields[_res].name : LSTR_NULL_V;            \
+    })
+
 /** Get the selected field name of an IOP union.
  *
  * \param[in] _data      The IOP union.
  * \param[in] _type_desc The IOP union description.
  */
-#define IOP_UNION_TYPE_TO_LSTR(_data, _type_desc)                       \
-    ({                                                                  \
-        int _res = iop_ranges_search((_type_desc).ranges,               \
-                                     (_type_desc).ranges_len,           \
-                                     (_data)->iop_tag);                 \
-        _res >= 0 ? (_type_desc).fields[_res].name : LSTR_NULL_V;       \
-    })
+#define IOP_UNION_TYPE_TO_LSTR(_data, _type_desc)  \
+    IOP_UNION_TAG_TO_LSTR((_data)->iop_tag, (_type_desc))
 
 /** Get the selected field name of an IOP union.
  *
