@@ -266,15 +266,7 @@ int main(int argc, char **argv)
 
         RUN_TEST("seq enumeration", 100000000, ({
             uint32_t i = 0;
-            qps_bitmap_for_each(en, &map) {
-                assert (en.key.key == i++);
-            }
-            assert (i == 100000000);
-        }));
-
-        RUN_TEST("seq nn enumeration", 100000000, ({
-            uint32_t i = 0;
-            qps_bitmap_for_each_nn(en, &map) {
+            qps_bitmap_for_each_unsafe(en, &map) {
                 assert (en.key.key == i++);
             }
             assert (i == 100000000);

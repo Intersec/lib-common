@@ -88,13 +88,13 @@ typedef struct qps_bitmap_root_t {
     uint8_t  sig[16];
 
     /* Structure description */
-    bool is_nullable : 1;
+    bool is_nullable;
     qps_bitmap_node_t roots[QPS_BITMAP_ROOTS];
 } qps_bitmap_root_t;
 
 typedef struct qps_bitmap_t {
     qps_t *qps;
-    uint32_t struct_gen;
+    uint32_t bitmap_gen;
 
     union {
         qps_bitmap_root_t *root;
@@ -129,13 +129,12 @@ qps_bitmap_init(qps_bitmap_t *map, qps_t *qps, qps_handle_t handle)
 {
     p_clear(map, 1);
     map->qps = qps;
-    map->struct_gen = 1;
     qps_hptr_init(qps, handle, &map->root_cache);
     assert (strequal(QPS_BITMAP_SIG, (const char *)map->root->sig));
 }
 
 /* }}} */
-/* Bitmap enumerator {{{ */
+/* {{{ Bitmap enumerator */
 
 typedef struct qps_bitmap_enumerator_t {
     qps_bitmap_t *map;
@@ -148,48 +147,51 @@ typedef struct qps_bitmap_enumerator_t {
     const qps_bitmap_dispatch_t *dispatch;
 
     uint64_t current_word;
-    uint32_t struct_gen;
+    uint32_t bitmap_gen;
 } qps_bitmap_enumerator_t;
 
-/* Generic implementation {{{ */
+/* {{{ Private functions - nullable specialization. */
+
+/* '_nu' suffix is for "nullable". */
+static inline
+void qps_bitmap_enumerator_find_dispatch_nu(qps_bitmap_enumerator_t *en,
+                                            qps_bitmap_key_t key);
 
 static inline
-void qps_bitmap_enumerator_find_dispatch(qps_bitmap_enumerator_t *en,
-                                         qps_bitmap_key_t key);
+void qps_bitmap_enumerator_find_leaf_nu(qps_bitmap_enumerator_t *en,
+                                        qps_bitmap_key_t key);
+static inline
+void qps_bitmap_enumerator_find_bit_nu(qps_bitmap_enumerator_t *en,
+                                       qps_bitmap_key_t key);
+static inline
+void qps_bitmap_enumerator_find_word_nu(qps_bitmap_enumerator_t *en,
+                                        qps_bitmap_key_t key);
 
 static inline
-void qps_bitmap_enumerator_find_leaf(qps_bitmap_enumerator_t *en,
-                                     qps_bitmap_key_t key);
-static inline
-void qps_bitmap_enumerator_find_bit(qps_bitmap_enumerator_t *en,
-                                    qps_bitmap_key_t key);
-static inline
-void qps_bitmap_enumerator_find_word(qps_bitmap_enumerator_t *en,
-                                     qps_bitmap_key_t key);
-
-static inline
-void qps_bitmap_enumerator_dispatch_up(qps_bitmap_enumerator_t *en,
-                                       qps_bitmap_key_t key,
-                                       qps_bitmap_key_t new_key)
+void qps_bitmap_enumerator_dispatch_up_nu(qps_bitmap_enumerator_t *en,
+                                          qps_bitmap_key_t key,
+                                          qps_bitmap_key_t new_key)
 {
+    assert(en->is_nullable);
     if (key.root != new_key.root) {
         if (new_key.root == 0) {
             en->end = true;
         } else {
-            qps_bitmap_enumerator_find_dispatch(en, new_key);
+            qps_bitmap_enumerator_find_dispatch_nu(en, new_key);
         }
     } else
     if (key.dispatch != new_key.dispatch) {
-        qps_bitmap_enumerator_find_leaf(en, new_key);
+        qps_bitmap_enumerator_find_leaf_nu(en, new_key);
     } else {
-        qps_bitmap_enumerator_find_word(en, new_key);
+        qps_bitmap_enumerator_find_word_nu(en, new_key);
     }
 }
 
 static inline
-void qps_bitmap_enumerator_find_dispatch(qps_bitmap_enumerator_t *en,
-                                         qps_bitmap_key_t key)
+void qps_bitmap_enumerator_find_dispatch_nu(qps_bitmap_enumerator_t *en,
+                                            qps_bitmap_key_t key)
 {
+    assert(en->is_nullable);
     en->dispatch = NULL;
     for (unsigned i = key.root; i < QPS_BITMAP_ROOTS; i++) {
         if (en->map->root->roots[i] != 0) {
@@ -201,7 +203,7 @@ void qps_bitmap_enumerator_find_dispatch(qps_bitmap_enumerator_t *en,
             if (key.root != i) {
                 key = en->key;
             }
-            qps_bitmap_enumerator_find_leaf(en, key);
+            qps_bitmap_enumerator_find_leaf_nu(en, key);
             return;
         }
     }
@@ -209,9 +211,10 @@ void qps_bitmap_enumerator_find_dispatch(qps_bitmap_enumerator_t *en,
 }
 
 static inline
-void qps_bitmap_enumerator_find_leaf(qps_bitmap_enumerator_t *en,
-                                     qps_bitmap_key_t key)
+void qps_bitmap_enumerator_find_leaf_nu(qps_bitmap_enumerator_t *en,
+                                        qps_bitmap_key_t key)
 {
+    assert(en->is_nullable);
     en->leaf = NULL;
     assert (en->dispatch != NULL);
     for (unsigned i = key.dispatch; i < QPS_BITMAP_DISPATCH; i++) {
@@ -225,7 +228,7 @@ void qps_bitmap_enumerator_find_leaf(qps_bitmap_enumerator_t *en,
             if (key.dispatch != i) {
                 key = en->key;
             }
-            qps_bitmap_enumerator_find_word(en, key);
+            qps_bitmap_enumerator_find_word_nu(en, key);
             return;
         }
     }
@@ -235,43 +238,26 @@ void qps_bitmap_enumerator_find_leaf(qps_bitmap_enumerator_t *en,
     key.dispatch = 0;
     key.word     = 0;
     key.bit      = 0;
-    qps_bitmap_enumerator_dispatch_up(en, en->key, key);
+    qps_bitmap_enumerator_dispatch_up_nu(en, en->key, key);
 }
 
 static inline
-void qps_bitmap_enumerator_find_word(qps_bitmap_enumerator_t *en,
-                                     qps_bitmap_key_t key)
+void qps_bitmap_enumerator_find_word_nu(qps_bitmap_enumerator_t *en,
+                                        qps_bitmap_key_t key)
 {
-    if (en->is_nullable) {
-        assert (en->leaf != NULL);
-        for (unsigned i = key.word_null; i < QPS_BITMAP_NULL_WORD; i++) {
-            if (en->leaf[i] != 0) {
-                en->key.bit_null  = 0;
-                en->key.word_null = i;
-                en->current_word = en->leaf[i];
+    assert(en->is_nullable);
+    assert (en->leaf != NULL);
+    for (unsigned i = key.word_null; i < QPS_BITMAP_NULL_WORD; i++) {
+        if (en->leaf[i] != 0) {
+            en->key.bit_null  = 0;
+            en->key.word_null = i;
+            en->current_word = en->leaf[i];
 
-                if (key.word_null != i) {
-                    key = en->key;
-                }
-                qps_bitmap_enumerator_find_bit(en, key);
-                return;
+            if (key.word_null != i) {
+                key = en->key;
             }
-        }
-
-    } else {
-        assert (en->leaf != NULL);
-        for (unsigned i = key.word; i < QPS_BITMAP_WORD; i++) {
-            if (en->leaf[i] != 0) {
-                en->key.bit  = 0;
-                en->key.word = i;
-                en->current_word = en->leaf[i];
-
-                if (key.word != i) {
-                    key = en->key;
-                }
-                qps_bitmap_enumerator_find_bit(en, key);
-                return;
-            }
+            qps_bitmap_enumerator_find_bit_nu(en, key);
+            return;
         }
     }
 
@@ -279,155 +265,118 @@ void qps_bitmap_enumerator_find_word(qps_bitmap_enumerator_t *en,
     key.word = 0;
     key.bit  = 0;
     key.key += 1 << 15; /* bitsizeof(word) + bitsizeof(bit) */
-    qps_bitmap_enumerator_dispatch_up(en, en->key, key);
+    qps_bitmap_enumerator_dispatch_up_nu(en, en->key, key);
 }
 
 static inline
-void qps_bitmap_enumerator_find_bit(qps_bitmap_enumerator_t *en,
-                                    qps_bitmap_key_t key)
+void qps_bitmap_enumerator_find_bit_nu(qps_bitmap_enumerator_t *en,
+                                       qps_bitmap_key_t key)
 {
-    if (unlikely(en->struct_gen != en->map->struct_gen)) {
-        if (en->map->struct_gen == en->struct_gen + 2) {
-            en->struct_gen = en->map->struct_gen;
-            qps_bitmap_enumerator_find_leaf(en, key);
-        } else {
-            en->struct_gen = en->map->struct_gen;
-            qps_bitmap_enumerator_find_dispatch(en, key);
+    assert(en->is_nullable);
+
+    while (en->current_word != 0) {
+        unsigned bit = bsf64(en->current_word);
+
+        en->value          = !(bit & 1);
+        en->current_word >>= bit & ~1;
+        en->key.bit_null  += (bit >> 1);
+
+        if (en->key.bit_null >= key.bit_null) {
+            return;
         }
-        return;
+
+        /* Skip bit */
+        en->current_word  &= ~UINT64_C(3);
     }
-    if (en->is_nullable) {
-        while (en->current_word != 0) {
-            unsigned bit = bsf64(en->current_word);
-
-            en->value          = !(bit & 1);
-            en->current_word >>= bit & ~1;
-            en->key.bit_null  += (bit >> 1);
-
-            if (en->key.bit_null >= key.bit_null) {
-                return;
-            }
-
-            /* Skip bit */
-            en->current_word  &= ~UINT64_C(3);
-        }
-        key = en->key;
-        key.bit_null = 0;
-        key.key     += 1 << 5;
-        qps_bitmap_enumerator_dispatch_up(en, en->key, key);
-    } else {
-        while (en->current_word != 0) {
-            unsigned bit = bsf64(en->current_word);
-
-            en->current_word >>= bit;
-            en->key.bit       += bit;
-
-            if (en->key.bit >= key.bit) {
-                return;
-            }
-
-            /* Skip bit */
-            en->current_word  &= ~UINT64_C(1);
-        }
-
-        key = en->key;
-        key.bit  = 0;
-        key.key += 1 << 6;
-        qps_bitmap_enumerator_dispatch_up(en, en->key, key);
-    }
+    key = en->key;
+    key.bit_null = 0;
+    key.key     += 1 << 5;
+    qps_bitmap_enumerator_dispatch_up_nu(en, en->key, key);
 }
 
+/* }}} */
+/* {{{ Public functions - nullable specialization */
+
 static inline
-void qps_bitmap_enumerator_next(qps_bitmap_enumerator_t *en)
+void qps_bitmap_enumerator_next_nu(qps_bitmap_enumerator_t *en, bool safe)
 {
     qps_bitmap_key_t key = en->key;
 
-    if (en->is_nullable) {
-        en->current_word &= ~UINT64_C(3);
-        key.bit_null++;
-    } else {
-        en->current_word &= ~UINT64_C(1);
-        key.bit++;
+    assert(en->is_nullable);
+
+    /* Should have used the "safe" option. */
+    assert(safe || en->bitmap_gen == en->map->bitmap_gen);
+    if (safe && en->bitmap_gen != en->map->bitmap_gen) {
+        en->bitmap_gen = en->map->bitmap_gen;
+        qps_bitmap_enumerator_find_dispatch_nu(en, key);
+
+        if (en->end || en->key.key != key.key) {
+            /* The key was removed, the enumerator is already set on the next
+             * element. */
+            return;
+        }
     }
-    qps_bitmap_enumerator_find_bit(en, key);
+
+    en->current_word &= ~UINT64_C(3);
+    key.bit_null++;
+    qps_bitmap_enumerator_find_bit_nu(en, key);
 }
 
 static inline
-void qps_bitmap_enumerator_go_to(qps_bitmap_enumerator_t *en, uint32_t row)
+void qps_bitmap_enumerator_go_to_nu(qps_bitmap_enumerator_t *en, uint32_t row,
+                                    bool safe)
 {
     qps_bitmap_key_t key;
 
+    assert(en->is_nullable);
+
     key.key = row;
-    if (en->end || en->key.key == row) {
+
+    if (en->end) {
+        return;
+    }
+
+    /* Should have used the "safe" option. */
+    assert(safe || en->bitmap_gen == en->map->bitmap_gen);
+    if (safe && en->bitmap_gen != en->map->bitmap_gen) {
+        en->bitmap_gen = en->map->bitmap_gen;
+        qps_bitmap_enumerator_find_dispatch_nu(en, key);
+        return;
+    }
+
+    if (en->key.key == row) {
         return;
     }
 
     if (en->key.root < key.root) {
-        qps_bitmap_enumerator_find_dispatch(en, key);
+        qps_bitmap_enumerator_find_dispatch_nu(en, key);
     } else
     if (en->key.dispatch < key.dispatch) {
-        qps_bitmap_enumerator_find_leaf(en, key);
+        qps_bitmap_enumerator_find_leaf_nu(en, key);
     } else
-    if (en->is_nullable) {
-        if (en->key.word_null < key.word_null) {
-            qps_bitmap_enumerator_find_word(en, key);
-        } else {
-            qps_bitmap_enumerator_find_bit(en, key);
-        }
+    if (en->key.word_null < key.word_null) {
+        qps_bitmap_enumerator_find_word_nu(en, key);
     } else {
-        if (en->key.word < key.word) {
-            qps_bitmap_enumerator_find_word(en, key);
-        } else {
-            qps_bitmap_enumerator_find_bit(en, key);
-        }
+        qps_bitmap_enumerator_find_bit_nu(en, key);
     }
 }
-
-static inline
-qps_bitmap_enumerator_t qps_bitmap_get_enumerator_at(qps_bitmap_t *map,
-                                                     uint32_t row)
-{
-    qps_bitmap_enumerator_t en;
-    qps_bitmap_key_t key;
-
-    p_clear(&en, 1);
-    en.map = map;
-    en.struct_gen = map->struct_gen;
-    qps_hptr_deref(map->qps, &map->root_cache);
-
-    en.is_nullable = en.map->root->is_nullable;
-    if (!en.is_nullable) {
-        en.value = 1;
-    }
-
-    key.key = row;
-    qps_bitmap_enumerator_find_dispatch(&en, key);
-    return en;
-}
-
-static inline
-qps_bitmap_enumerator_t qps_bitmap_get_enumerator(qps_bitmap_t *map)
-{
-    return qps_bitmap_get_enumerator_at(map, 0);
-}
-
 
 /* }}} */
-/* Non-nullable specialization {{{ */
+/* {{{ Private functions - non-nullable specialization. */
 
-static inline
-void qps_bitmap_enumerator_find_dispatch_nn(qps_bitmap_enumerator_t *en,
-                                            qps_bitmap_key_t key);
-
-static inline
-void qps_bitmap_enumerator_find_leaf_nn(qps_bitmap_enumerator_t *en,
-                                        qps_bitmap_key_t key);
 static inline
 void qps_bitmap_enumerator_find_bit_nn(qps_bitmap_enumerator_t *en,
                                        qps_bitmap_key_t key);
 static inline
+void qps_bitmap_enumerator_find_leaf_nn(qps_bitmap_enumerator_t *en,
+                                        qps_bitmap_key_t key);
+static inline
 void qps_bitmap_enumerator_find_word_nn(qps_bitmap_enumerator_t *en,
                                         qps_bitmap_key_t key);
+
+static inline
+void qps_bitmap_enumerator_find_dispatch_nn(qps_bitmap_enumerator_t *en,
+                                            qps_bitmap_key_t key);
 
 static inline
 void qps_bitmap_enumerator_dispatch_up_nn(qps_bitmap_enumerator_t *en,
@@ -531,16 +480,6 @@ static inline
 void qps_bitmap_enumerator_find_bit_nn(qps_bitmap_enumerator_t *en,
                                        qps_bitmap_key_t key)
 {
-    if (unlikely(en->struct_gen != en->map->struct_gen)) {
-        if (en->map->struct_gen == en->struct_gen + 2) {
-            en->struct_gen = en->map->struct_gen;
-            qps_bitmap_enumerator_find_leaf_nn(en, key);
-        } else {
-            en->struct_gen = en->map->struct_gen;
-            qps_bitmap_enumerator_find_dispatch_nn(en, key);
-        }
-        return;
-    }
     while (en->current_word != 0) {
         unsigned bit = bsf64(en->current_word);
 
@@ -561,28 +500,54 @@ void qps_bitmap_enumerator_find_bit_nn(qps_bitmap_enumerator_t *en,
     qps_bitmap_enumerator_dispatch_up_nn(en, en->key, key);
 }
 
+/* }}} */
+/* {{{ Public functions - non-nullable specialization */
+
 static inline
-void qps_bitmap_enumerator_next_nn(qps_bitmap_enumerator_t *en)
+void qps_bitmap_enumerator_next_nn(qps_bitmap_enumerator_t *en, bool safe)
 {
     qps_bitmap_key_t key = en->key;
 
-    if (en->is_nullable) {
-        en->current_word &= ~UINT64_C(3);
-        key.bit_null++;
-    } else {
-        en->current_word &= ~UINT64_C(1);
-        key.bit++;
+    /* Should have used the "safe" option. */
+    assert(safe || en->bitmap_gen == en->map->bitmap_gen);
+    if (safe && en->bitmap_gen != en->map->bitmap_gen) {
+        en->bitmap_gen = en->map->bitmap_gen;
+        qps_bitmap_enumerator_find_dispatch_nn(en, key);
+
+        if (en->end || en->key.key != key.key) {
+            /* The key was removed, the enumerator is already set on the next
+             * element. */
+            return;
+        }
     }
+
+    assert(!en->is_nullable);
+    en->current_word &= ~UINT64_C(1);
+    key.bit++;
     qps_bitmap_enumerator_find_bit_nn(en, key);
 }
 
 static inline
-void qps_bitmap_enumerator_go_to_nn(qps_bitmap_enumerator_t *en, uint32_t row)
+void qps_bitmap_enumerator_go_to_nn(qps_bitmap_enumerator_t *en,
+                                    uint32_t row, bool safe)
 {
     qps_bitmap_key_t key;
 
+    if (en->end) {
+        return;
+    }
+
     key.key = row;
-    if (en->end || en->key.key == row) {
+
+    /* Should have used the "safe" option. */
+    assert(safe || en->bitmap_gen == en->map->bitmap_gen);
+    if (safe && en->bitmap_gen != en->map->bitmap_gen) {
+        en->bitmap_gen = en->map->bitmap_gen;
+        qps_bitmap_enumerator_find_dispatch_nn(en, key);
+        return;
+    }
+
+    if (en->key.key == row) {
         return;
     }
 
@@ -600,43 +565,71 @@ void qps_bitmap_enumerator_go_to_nn(qps_bitmap_enumerator_t *en, uint32_t row)
     }
 }
 
+/* }}} */
+/* {{{ Generic implementation */
+
 static inline
-qps_bitmap_enumerator_t qps_bitmap_get_enumerator_at_nn(qps_bitmap_t *map,
-                                                        uint32_t row)
+qps_bitmap_enumerator_t qps_bitmap_get_enumerator_at(qps_bitmap_t *map,
+                                                     uint32_t row)
 {
     qps_bitmap_enumerator_t en;
     qps_bitmap_key_t key;
 
     p_clear(&en, 1);
     en.map = map;
-    en.struct_gen = map->struct_gen;
+    en.bitmap_gen = map->bitmap_gen;
     qps_hptr_deref(map->qps, &map->root_cache);
 
-    assert (!en.map->root->is_nullable);
-    en.is_nullable = false;
+    en.is_nullable = en.map->root->is_nullable;
     if (!en.is_nullable) {
         en.value = 1;
     }
 
     key.key = row;
-    qps_bitmap_enumerator_find_dispatch_nn(&en, key);
+    if (en.is_nullable) {
+        qps_bitmap_enumerator_find_dispatch_nu(&en, key);
+    } else {
+        qps_bitmap_enumerator_find_dispatch_nn(&en, key);
+    }
     return en;
 }
 
 static inline
-qps_bitmap_enumerator_t qps_bitmap_get_enumerator_nn(qps_bitmap_t *map)
+qps_bitmap_enumerator_t qps_bitmap_get_enumerator(qps_bitmap_t *map)
 {
-    return qps_bitmap_get_enumerator_at_nn(map, 0);
+    return qps_bitmap_get_enumerator_at(map, 0);
 }
 
+static inline
+void qps_bitmap_enumerator_next(qps_bitmap_enumerator_t *en, bool safe)
+{
+    if (en->is_nullable) {
+        qps_bitmap_enumerator_next_nu(en, safe);
+    } else {
+        qps_bitmap_enumerator_next_nn(en, safe);
+    }
+}
 
-#define qps_bitmap_for_each(en, map)                                         \
+static inline
+void qps_bitmap_enumerator_go_to(qps_bitmap_enumerator_t *en, uint32_t row,
+                                 bool safe)
+{
+    if (en->is_nullable) {
+        qps_bitmap_enumerator_go_to_nu(en, row, safe);
+    } else {
+        qps_bitmap_enumerator_go_to_nn(en, row, safe);
+    }
+}
+/* }}} */
+/* {{{ For-each macros */
+
+#define qps_bitmap_for_each_unsafe(en, map)                                  \
     for (qps_bitmap_enumerator_t en = qps_bitmap_get_enumerator(map);        \
-         !en.end; qps_bitmap_enumerator_next(&en))
+         !en.end; qps_bitmap_enumerator_next(&en, false))
 
-#define qps_bitmap_for_each_nn(en, map)                                      \
-    for (qps_bitmap_enumerator_t en = qps_bitmap_get_enumerator_nn(map);     \
-         !en.end; qps_bitmap_enumerator_next_nn(&en))
+#define qps_bitmap_for_each_safe(en, map)                                    \
+    for (qps_bitmap_enumerator_t en = qps_bitmap_get_enumerator(map);        \
+         !en.end; qps_bitmap_enumerator_next(&en, true))
 
 /* }}} */
 /* Debugging tools {{{ */

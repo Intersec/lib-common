@@ -37,7 +37,6 @@ qps_bitmap_dispatch_t *w_deref_dispatch(qps_bitmap_t *map,
         }
         qps_hptr_w_deref(map->qps, &map->root_cache);
         dispatch_node = qps_pg_map(map->qps, 3);
-        map->struct_gen += 2;
         qps_pg_zero(map->qps, dispatch_node, 3);
         map->root->roots[key.root] = dispatch_node;
     }
@@ -63,7 +62,6 @@ uint64_t *w_deref_leaf(qps_bitmap_t *map, qps_bitmap_dispatch_t **dispatch,
         *dispatch = w_deref_dispatch(map, key, false);
         assert (*dispatch);
         leaf_node = qps_pg_map(map->qps, pages);
-        map->struct_gen += 2;
         qps_pg_zero(map->qps, leaf_node, pages);
         (*(*dispatch))[key.dispatch].node = leaf_node;
         (*(*dispatch))[key.dispatch].active_bits = 0;
@@ -86,7 +84,6 @@ void delete_leaf(qps_bitmap_t *map, qps_bitmap_key_t key)
     }
 
     qps_pg_unmap(map->qps, leaf_node);
-    map->struct_gen += 2;
     (*dispatch)[key.dispatch].node = 0;
     for (int i = 0; i < QPS_BITMAP_DISPATCH; i++) {
         if ((*dispatch)[i].node != 0) {
@@ -95,7 +92,6 @@ void delete_leaf(qps_bitmap_t *map, qps_bitmap_key_t key)
     }
     qps_hptr_w_deref(map->qps, &map->root_cache);
     qps_pg_unmap(map->qps, map->root->roots[key.root]);
-    map->struct_gen += 2;
     map->root->roots[key.root] = 0;
 }
 
@@ -188,12 +184,14 @@ void qps_bitmap_clear(qps_bitmap_t *map)
     qps_hptr_w_deref(map->qps, &map->root_cache);
     delete_nodes(map);
     p_clear(map->root->roots, 1);
+    map->bitmap_gen++;
 }
 
 void qps_bitmap_unload(qps_bitmap_t *map)
 {
     qps_hptr_deref(map->qps, &map->root_cache);
     unload_nodes(map);
+    map->bitmap_gen++;
 }
 
 qps_bitmap_state_t qps_bitmap_get(qps_bitmap_t *map, uint32_t row)
@@ -237,6 +235,7 @@ qps_bitmap_state_t qps_bitmap_set(qps_bitmap_t *map, uint32_t row)
     qps_bitmap_dispatch_t *dispatch;
     uint64_t *leaf;
 
+    map->bitmap_gen++;
     dispatch = w_deref_dispatch(map, key, true);
     leaf     = w_deref_leaf(map, &dispatch, key, true);
 
@@ -272,6 +271,7 @@ qps_bitmap_state_t qps_bitmap_reset(qps_bitmap_t *map, uint32_t row)
     qps_bitmap_dispatch_t *dispatch;
     uint64_t *leaf;
 
+    map->bitmap_gen++;
     qps_hptr_deref(map->qps, &map->root_cache);
     dispatch = w_deref_dispatch(map, key, map->root->is_nullable);
     leaf = w_deref_leaf(map, &dispatch, key, map->root->is_nullable);
@@ -319,6 +319,7 @@ qps_bitmap_state_t qps_bitmap_remove(qps_bitmap_t *map, uint32_t row)
     qps_bitmap_dispatch_t *dispatch;
     uint64_t *leaf;
 
+    map->bitmap_gen++;
     dispatch = w_deref_dispatch(map, key, false);
     leaf = w_deref_leaf(map, &dispatch, key, false);
     if (leaf == NULL) {
@@ -419,12 +420,12 @@ void qps_bitmap_debug_print(qps_bitmap_t *map)
 {
     fprintf(stderr, "QPS: debugging bitmap\n");
     fprintf(stderr, "map:\n"
-            " \\struct_gen: %u\n"
+            " \\bitmap_gen: %u\n"
             " \\nullable: %s\n",
-            map->struct_gen, map->root->is_nullable ? "True" : "False");
+            map->bitmap_gen, map->root->is_nullable ? "True" : "False");
 
     fprintf(stderr, " \\keys:\n");
-    qps_bitmap_for_each(en, map) {
+    qps_bitmap_for_each_safe(en, map) {
         fprintf(stderr, "  \\en.key: %u\n", en.key.key);
     }
     qps_hptr_deref(map->qps, &map->root_cache);
