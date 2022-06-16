@@ -10550,6 +10550,7 @@ cdef void plugin_add_void_type(Plugin plugin, const iop_struct_t *st,
     iop_path.py_name = 'Void'
     iop_type = plugin_create_st_iop_type(plugin, iop_path, st, Struct, None)
     plugin_add_type(plugin, iop_path, iop_type)
+    setattr(plugin, iop_path.py_name, iop_type)
 
 
 cdef void plugin_unload_dso(Plugin plugin, const iop_dso_t *dso):

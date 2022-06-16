@@ -757,10 +757,16 @@ class Package:
     def __name__(self) -> str: ...
 
 
+@typing.type_check_only
+class Void(Struct):
+    pass
+
+
 class Plugin:
     modules: typing.Dict[str, Module]
     metaclass: type
     metaclass_interfaces: type
+    Void: typing.Type[Void]
 
     def __init__(self, dso_path: typing.Union[str, bytes]) -> None: ...
 
