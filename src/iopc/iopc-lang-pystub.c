@@ -16,6 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
+#include <lib-common/unix.h>
 #include "iopc.h"
 #include "iopc-internal.h"
 
@@ -30,6 +31,20 @@ static qv_t(str) pp_g;
     "import iopy\n"                                                          \
     "\n"
 
+static void iopc_pystub_dump_pkg_name(sb_t *buf, const iopc_path_t *path)
+{
+    tab_for_each_entry(bit, &path->bits) {
+        sb_addf(buf, "%s_", bit);
+    }
+    sb_shrink(buf, 1);
+}
+
+static void iopc_pystub_dump_py_mod_name(sb_t *buf, const iopc_path_t *path)
+{
+    iopc_pystub_dump_pkg_name(buf, path);
+    sb_adds(buf, "__iop");
+}
+
 static const char *pp_under(iopc_path_t *path)
 {
     SB_1k(buf);
@@ -39,19 +54,6 @@ static const char *pp_under(iopc_path_t *path)
         sb_addf(&buf, "%s__", bit);
     }
     sb_shrink(&buf, 2);
-    qv_append(&pp_g, res = sb_detach(&buf, NULL));
-    return res;
-}
-
-static const char *pp_path(iopc_path_t *path)
-{
-    SB_1k(buf);
-    char *res;
-
-    tab_for_each_entry(bit, &path->bits) {
-        sb_addf(&buf, "%s/", bit);
-    }
-    sb_shrink(&buf, 1);
     qv_append(&pp_g, res = sb_detach(&buf, NULL));
     return res;
 }
@@ -69,47 +71,49 @@ static const char *pp_dot(iopc_path_t *path)
     return res;
 }
 
-static void iopc_pystub_dump_import(sb_t *buf, const iopc_pkg_t *dep,
-                                    qh_t(cstr) *imported)
+static void t_iopc_pystub_dump_import(sb_t *buf, const iopc_pkg_t *dep,
+                                      qh_t(lstr) *imported)
 {
-    const char *import_name = pp_under(dep->name);
+    SB_1k(py_mod);
+    lstr_t pkg_name;
+    uint32_t pos;
 
-    if (qh_put(cstr, imported, import_name, 0) & QHASH_COLLISION) {
+    iopc_pystub_dump_pkg_name(&py_mod, dep->name);
+    pkg_name = LSTR_SB_V(&py_mod);
+
+    pos = qh_put(lstr, imported, &pkg_name, 0);
+    if (pos & QHASH_COLLISION) {
         return;
     }
+    imported->keys[pos] = t_lstr_dup(pkg_name);
 
-    sb_addf(buf, "import * as %s from \"iop/%s.iop\";\n",
-            pp_under(dep->name), pp_path(dep->name));
+    sb_addf(buf, "import %*pM\n", LSTR_FMT_ARG(pkg_name));
 }
 
 static void iopc_pystub_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
 {
-    qh_t(cstr) imported;
+    t_scope;
+    qh_t(lstr) imported;
     qv_t(iopc_pkg) t_deps;
     qv_t(iopc_pkg) t_weak_deps;
     qv_t(iopc_pkg) i_deps;
 
-    qh_init(cstr, &imported);
-    qv_inita(&t_deps, 1024);
-    qv_inita(&t_weak_deps, 1024);
-    qv_inita(&i_deps, 1024);
+    t_qh_init(lstr, &imported, 0);
+    t_qv_init(&t_deps, 0);
+    t_qv_init(&t_weak_deps, 0);
+    t_qv_init(&i_deps, 0);
 
     iopc_pkg_get_deps(pkg, 0, &t_deps, &t_weak_deps, &i_deps);
 
     tab_for_each_entry(dep, &t_deps) {
-        iopc_pystub_dump_import(buf, dep, &imported);
+        t_iopc_pystub_dump_import(buf, dep, &imported);
     }
     tab_for_each_entry(dep, &t_weak_deps) {
-        iopc_pystub_dump_import(buf, dep, &imported);
+        t_iopc_pystub_dump_import(buf, dep, &imported);
     }
     tab_for_each_entry(dep, &i_deps) {
-        iopc_pystub_dump_import(buf, dep, &imported);
+        t_iopc_pystub_dump_import(buf, dep, &imported);
     }
-
-    qv_wipe(&t_deps);
-    qv_wipe(&t_weak_deps);
-    qv_wipe(&i_deps);
-    qh_wipe(cstr, &imported);
 }
 
 static void iopc_pystub_dump_package_member(sb_t *buf, const iopc_pkg_t *pkg,
@@ -521,10 +525,17 @@ static void iopc_pystub_dump_ifaces(sb_t *buf, iopc_pkg_t *pkg)
 
 int iopc_do_pystub(iopc_pkg_t *pkg, const char *outdir)
 {
+    SB_1k(py_mod);
     SB_8k(buf);
     char path[PATH_MAX];
 
-    iopc_set_path(outdir, pkg, "_iop.pyi", sizeof(path), path, true);
+    /* Unlike other languages output, put all the stubs in the same output
+     * directory without hierarchy. */
+    if (mkdir_p(outdir, 0777) < 0) {
+        throw_error("cannot create directory `%s`: %m", outdir);
+    }
+    iopc_pystub_dump_py_mod_name(&py_mod, pkg->name);
+    snprintf(path, sizeof(path), "%s/%*pM.pyi", outdir, SB_FMT_ARG(&py_mod));
 
     sb_adds(&buf, STUB_HEADER);
     iopc_pystub_dump_imports(&buf, pkg);
