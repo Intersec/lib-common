@@ -1090,7 +1090,8 @@ class IopcOptions:
                  class_range: Optional[str] = None,
                  includes: Optional[List[str]] = None,
                  json_path: Optional[str] = None,
-                 ts_path: Optional[str] = None):
+                 ts_path: Optional[str] = None,
+                 pystub_path: Optional[str] = None):
         self.ctx = ctx
         self.path = path or ctx.path
         self.class_range = class_range
@@ -1119,6 +1120,12 @@ class IopcOptions:
         else:
             self.ts_node = None
 
+        # pystub path
+        if pystub_path:
+            self.pystub_node = self.path.make_node(pystub_path)
+        else:
+            self.pystub_node = None
+
         # Add options in global cache
         assert self.path not in ctx.iopc_options
         ctx.iopc_options[self.path] = self
@@ -1131,6 +1138,8 @@ class IopcOptions:
             res += ',json'
         if self.ts_node:
             res += ',typescript'
+        if self.pystub_node:
+            res += ',pystub'
         return res
 
     @property
@@ -1152,6 +1161,13 @@ class IopcOptions:
         """Get the typescript-output-path option for iopc"""
         if self.ts_node:
             return f'--typescript-output-path={self.ts_node}'
+        return ''
+
+    @property
+    def pystub_output_option(self) -> str:
+        """Get the pystub-output-path option for iopc"""
+        if self.pystub_node:
+            return f'--pystub-output-path={self.pystub_node}'
         return ''
 
     def get_includes_recursive(self, includes: Set[Node],
@@ -1229,13 +1245,15 @@ class Iop2c(FirstInputStrTask):
 
     def run(self) -> int:
         cmd = ('{iopc} --Wextra --language {languages} --c-resolve-includes '
-               '{includes} {class_range} {json_output} {ts_output}  {source}')
+               '{includes} {class_range} {json_output} {ts_output} '
+               '{pystub_output} {source}')
         cmd = cmd.format(iopc=self.inputs[1].abspath(),
                          languages=self.env.IOP_LANGUAGES,
                          includes=self.env.IOP_INCLUDES,
                          class_range=self.env.IOP_CLASS_RANGE,
                          json_output=self.env.IOP_JSON_OUTPUT,
                          ts_output=self.env.IOP_TS_OUTPUT,
+                         pystub_output=self.env.IOP_PYSTUB_OUTPUT,
                          source=self.inputs[0].abspath())
         self.last_cmd = cmd
         res: int = self.exec_command(cmd, cwd=self.get_cwd())
@@ -1307,6 +1325,7 @@ def process_iop(self: TaskGen, node: Node) -> None:
         task.env.IOP_CLASS_RANGE = opts.class_range_option
         task.env.IOP_JSON_OUTPUT = opts.json_output_option
         task.env.IOP_TS_OUTPUT = opts.ts_output_option
+        task.env.IOP_PYSTUB_OUTPUT = opts.pystub_output_option
 
     self.source.append(c_node)
 

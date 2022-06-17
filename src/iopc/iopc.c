@@ -31,6 +31,7 @@ static struct {
     const char *json_outpath;
     const char *c_outpath;
     const char *typescript_outpath;
+    const char *pystub_outpath;
     const char *depends;
     const char *class_id_range;
 } opts;
@@ -68,6 +69,11 @@ static popt_t options[] = {
     OPT_GROUP("TypeScript backend options"),
     OPT_STR(0,    "typescript-output-path", &opts.typescript_outpath,
             "base of the compiled hierarchy for TypeScript files"),
+
+    OPT_GROUP("Python stub backend options"),
+    OPT_STR(0,    "pystub-output-path", &opts.pystub_outpath,
+            "base of the compiled hierarchy for Python stub files"),
+
     OPT_END(),
 };
 
@@ -171,6 +177,12 @@ static int build_doit_table(qv_t(doit) *doits)
             doit = (struct doit){
                 .cb = &iopc_do_typescript,
                 .outpath = opts.typescript_outpath
+            };
+        } else
+        if (lstr_ascii_iequal(lang, LSTR("pystub"))) {
+            doit = (struct doit){
+                .cb = &iopc_do_pystub,
+                .outpath = opts.pystub_outpath
             };
         } else {
             print_error("unsupported language `%*pM`", LSTR_FMT_ARG(lang));
