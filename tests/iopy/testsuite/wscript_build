@@ -21,6 +21,9 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
+ctx.IopcOptions(ctx, pystub_path='../pystubs')
+
+
 ctx.stlib(target='test-iop', features='c cstlib', source=[
     'test.iop',
     'test/emptystuffs.iop',
@@ -43,7 +46,7 @@ ctx.shlib(target='test-iop-plugin', source=[
     'test1-iop',
     'testvoid-iop',
     'libcommon-iop',
-])
+], pystub_path='../pystubs')
 
 ctx.shlib(target='test-iop-plugin2', source=[
     'test-iop-plugin2.c',
@@ -51,7 +54,7 @@ ctx.shlib(target='test-iop-plugin2', source=[
     'test-iop',
     'testvoid-iop',
     'libcommon-iop',
-])
+], pystub_path='../pystubs')
 
 ctx.shlib(target='test-iop-plugin-dso', source=[
     'test-iop-plugin-dso.c',

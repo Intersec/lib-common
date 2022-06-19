@@ -16,7 +16,6 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# mypy: ignore-errors=True
 # XXX: python code for a subprocess called from z-iopy.py
 # this is to test the listen blocking server mode
 # this file contains the client part that connect to the server
@@ -28,15 +27,19 @@
 import sys
 import time
 import warnings
+from typing import TYPE_CHECKING, cast
 
 import iopy
+
+if TYPE_CHECKING:
+    import test_iop_plugin__iop
 
 
 def main() -> None:
     plugin_file = sys.argv[1]
     uri = sys.argv[2]
 
-    p = iopy.Plugin(plugin_file)
+    p = cast('test_iop_plugin__iop.Plugin', iopy.Plugin(plugin_file))
     r = p.register()
 
     connected = False
