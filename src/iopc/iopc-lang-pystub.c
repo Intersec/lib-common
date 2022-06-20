@@ -114,6 +114,7 @@ static void iopc_pystub_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
     tab_for_each_entry(dep, &i_deps) {
         t_iopc_pystub_dump_import(buf, dep, &imported);
     }
+    sb_adds(buf, "\n\n");
 }
 
 static void iopc_pystub_dump_package_member(sb_t *buf, const iopc_pkg_t *pkg,
@@ -133,45 +134,16 @@ static void iopc_pystub_dump_enum(sb_t *buf, const char *indent,
                                   const iopc_pkg_t *pkg,
                                   const iopc_enum_t *en)
 {
-    bool is_strict = false;
-    bool first = false;
+    sb_addf(buf, "#%s{""{{ %s\n", indent, en->name);
 
-    tab_for_each_entry(attr, &en->attrs) {
-        if (attr->desc->id == IOPC_ATTR_STRICT) {
-            is_strict = true;
-            break;
-        }
-    }
+    sb_addf(buf, "\n\n%s@typing.type_check_only\n", indent);
+    sb_addf(buf, "%sclass %s(iopy.Enum):\n", indent, en->name);
+    sb_addf(buf, "%s    pass\n", indent);
 
-    sb_addf(buf, "\n%sexport type %s_Int = ", indent, en->name);
-    first = true;
-    tab_for_each_entry(field, &en->values) {
-        if (!first) {
-            sb_addf(buf, "\n%s    | ", indent);
-        }
-        sb_addf(buf, "%d", field->value);
-        first = false;
-    }
-    sb_adds(buf, ";\n");
+    sb_addf(buf, "\n\n%s%s_Param = typing.Union[%s, int, str]\n", indent,
+            en->name, en->name);
 
-    sb_addf(buf, "%sexport type %s_Str = ", indent, en->name);
-    first = true;
-    tab_for_each_entry(field, &en->values) {
-        if (!first) {
-            sb_addf(buf, "\n%s    | ", indent);
-        }
-        sb_addf(buf, "'%s'", field->name);
-        first = false;
-    }
-    sb_adds(buf, ";\n");
-
-    if (is_strict) {
-        sb_addf(buf, "%sexport type %s = %s_Str;\n",
-                indent, en->name, en->name);
-    } else {
-        sb_addf(buf, "%sexport type %s = %s_Str;\n",
-                indent, en->name, en->name);
-    }
+    sb_addf(buf, "\n\n#%s}""}}\n", indent);
 }
 
 static void iopc_pystub_dump_enums(sb_t *buf, const iopc_pkg_t *pkg)
