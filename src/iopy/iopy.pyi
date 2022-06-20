@@ -19,6 +19,10 @@
 
 
 import typing
+import typing_extensions
+
+
+_T = typing.TypeVar('_T')
 
 
 # {{{ Errors
@@ -427,6 +431,15 @@ class StructBase(StructUnionBase):
 
 class Struct(StructBase):
     pass
+
+
+@typing.type_check_only
+class IsIopFieldOptional:
+    pass
+
+
+# Indicate that the field can be unset in the struct or class.
+IopFieldOptional = typing_extensions.Annotated[_T, IsIopFieldOptional]
 
 
 # }}}
