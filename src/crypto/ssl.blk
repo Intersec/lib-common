@@ -442,8 +442,10 @@ static int ssl_pkey_size(ssl_ctx_t *ctx) {
     size = RSA_size(tmp);
     RSA_free(tmp);
     return size;
-#else
+#elif OPENSSL_VERSION_IS(<,3,0,0)
     return RSA_size(EVP_PKEY_get0_RSA(ctx->pkey));
+#else /* OPENSSL_VERSION_IS(>=,3,0,0) */
+    return EVP_PKEY_get_size(ctx->pkey);
 #endif
 }
 

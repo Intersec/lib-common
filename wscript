@@ -85,6 +85,27 @@ def run_waf_with_poetry(ctx):
     del os.environ['POETRY_ACTIVE']
 
 
+def poetry_fix_no_env_use(ctx):
+    py_short_version_lines = ctx.cmd_and_log(
+        ctx.env.POETRY + ["run", "python3", "-c",
+        (
+            "import sys;"
+            "print(f'{sys.version_info[0]}.{sys.version_info[1]}')"
+        )
+    ]).strip().split('\n')
+
+    if len(py_short_version_lines) == 1:
+        # Poetry environment is well defined or python default version is
+        # compatible with the poetry configuration, do nothing.
+        return
+
+    # Force using the python version in poetry environment already used for
+    # install.
+    # The last line of the output is the short python version we want to use.
+    py_short_version = py_short_version_lines[-1]
+    ctx.cmd_and_log(ctx.env.POETRY + ["env", "use", py_short_version])
+
+
 def poetry_no_srv_tools(ctx):
     # Get python site packages from poetry
     ctx.poetry_site_packages = ctx.cmd_and_log(
@@ -119,6 +140,9 @@ def poetry_install(ctx):
     if ctx.exec_command(ctx.env.POETRY + ['install'], stdout=None,
                         stderr=None):
         ctx.fatal('poetry install failed')
+
+    # Force poetry environment to the compatible version
+    poetry_fix_no_env_use(ctx)
 
     # Remove /srv/tools from python path in poetry
     poetry_no_srv_tools(ctx)
@@ -258,7 +282,21 @@ def configure(ctx):
     # {{{ Python 3
 
     ctx.find_program('python3')
-    ctx.find_program('python3-config', var='PYTHON3_CONFIG')
+
+    # XXX: Python virtualenv does not link python3-config inside the bin
+    # directory of the virtualenv. This means that the version of
+    # python3-config can be different from the version of python3 when we are
+    # in a virtualenv.
+    # To solve this issue, look for python3.x-config in the real python3
+    # installation directory.
+    py_config_path = ctx.cmd_and_log(ctx.env.PYTHON3 + [
+        '-c', (
+            'import sys, os;'
+            'print(os.path.realpath(sys.executable) + "-config")'
+        )
+    ])
+    ctx.find_program('python3-config', var='PYTHON3_CONFIG',
+                     value=py_config_path)
 
     # We need to remove -I prefix to use Python include paths in INCLUDES
     # variables.

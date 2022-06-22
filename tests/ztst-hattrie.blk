@@ -102,27 +102,9 @@ static void run_seq_test(qps_t *qps, bool is_nullable, uint32_t count)
     RUN_TEST("seq entry enumeration", count, ({
         uint32_t i = 0;
         qhat_for_each_unsafe(en, &trie) {
-            const uint32_t *slot = en.value;
-            assert (en.key == i);
-            assert (*slot == i + 1);
-            i++;
-        }
-        assert (i == count);
-    }));
+            const uint32_t *slot;
 
-    RUN_TEST("seq key enumeration", count, ({
-        uint32_t i = 0;
-        qhat_for_each_key_unsafe(en, &trie) {
-            assert (en.key == i);
-            i++;
-        }
-        assert (i == count);
-    }));
-
-    RUN_TEST("seq key+val enumeration", count, ({
-        uint32_t i = 0;
-        qhat_for_each_key_unsafe(en, &trie) {
-            const uint32_t *slot = qhat_get_enumeration_value(&en);
+            slot = qhat_enumerator_get_value(&en);
             assert (en.key == i);
             assert (*slot == i + 1);
             i++;
@@ -133,27 +115,8 @@ static void run_seq_test(qps_t *qps, bool is_nullable, uint32_t count)
     RUN_TEST("seq safe entry enumeration", count, ({
         uint32_t i = 0;
         qhat_for_each_safe(en, &trie) {
-            const uint32_t *slot = en.value;
-            assert (en.key == i);
-            assert (*slot == i + 1);
-            i++;
-        }
-        assert (i == count);
-    }));
+            const uint32_t *slot = qhat_enumerator_get_value_safe(&en);
 
-    RUN_TEST("seq safe key enumeration", count, ({
-        uint32_t i = 0;
-        qhat_for_each_key_safe(en, &trie) {
-            assert (en.key == i);
-            i++;
-        }
-        assert (i == count);
-    }));
-
-    RUN_TEST("seq safe key+val enumeration", count, ({
-        uint32_t i = 0;
-        qhat_for_each_key_safe(en, &trie) {
-            const uint32_t *slot = qhat_get_enumeration_value(&en);
             assert (en.key == i);
             assert (*slot == i + 1);
             i++;
@@ -232,7 +195,7 @@ static void run_rand_test(qps_t *qps, bool is_nullable, uint32_t count,
     RUN_TEST("seq enumeration", count, ({
         uint32_t i = 0;
         qhat_for_each_unsafe(en, &trie) {
-            const uint32_t *slot = en.value;
+            const uint32_t *slot = qhat_enumerator_get_value(&en);
             assert (*slot == en.key + 1);
             i++;
         }

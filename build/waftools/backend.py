@@ -1343,8 +1343,10 @@ def options(ctx):
 
 def llvm_clang_configure(ctx):
     # Supported versions
-    llvm_supported_versions = (9, 10, 11, 12, 13)
+    llvm_supported_versions = (9, 14)
 
+    llvm_supported_versions = tuple(range(llvm_supported_versions[0],
+                                          llvm_supported_versions[1] + 1))
     # Find llvm-config
     llvm_version_major = None
 

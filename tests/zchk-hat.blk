@@ -20,6 +20,10 @@
 #include <lib-common/container.h>
 #include <lib-common/qps-hat.h>
 
+/* LCOV_EXCL_START */
+
+/* {{{ Z-Helpers */
+
 #define _CHECK_TRIE      do { \
         Z_ASSERT(qhat_check_consistency(&trie));                             \
         Z_HELPER_RUN(check_leak(&trie));                                     \
@@ -57,8 +61,10 @@ static int test_zeros(qps_t *qps, uint8_t size)
     PRINT_TRIE;
 
     count = 0;
-    qhat_for_each_unsafe (en, &trie) {
-        const void *slot = en.value;
+    qhat_for_each_unsafe(en, &trie) {
+        const void *slot;
+
+        slot = qhat_enumerator_get_value(&en);
         Z_ASSERT_EQ(en.key, count);
         Z_ASSERT_ZERO(memcmp(slot, &zero, size));
         count++;
@@ -71,7 +77,9 @@ static int test_zeros(qps_t *qps, uint8_t size)
 
     count = 0;
     qhat_for_each_unsafe (en, &trie) {
-        const void *slot = en.value;
+        const void *slot;
+
+        slot = qhat_enumerator_get_value(&en);
         Z_ASSERT_EQ(en.key, count + 1);
         Z_ASSERT_ZERO(memcmp(slot, &zero, size));
         count++;
@@ -119,7 +127,9 @@ static int test_128(qps_t *qps, bool null)
     {
         uint32_t pos = 0;
         qhat_for_each_unsafe(en, &trie) {
-            const uint32_t *slot = en.value;
+            const uint32_t *slot;
+
+            slot = qhat_enumerator_get_value(&en);
             Z_ASSERT_EQ(en.key, pos + 0x40000000);
             Z_ASSERT_EQ(*slot, bswap32(0x800 - pos));
             pos++;
@@ -188,7 +198,9 @@ static int test_64(qps_t *qps, bool null)
     {
         uint32_t pos = 0;
         qhat_for_each_unsafe(en, &trie) {
-            const uint64_t *slot = en.value;
+            const uint64_t *slot;
+
+            slot = qhat_enumerator_get_value(&en);
             Z_ASSERT_EQ(en.key, pos + 0x40000000);
             Z_ASSERT_EQ(*slot, bswap64(0x800 - pos));
             pos++;
@@ -245,7 +257,9 @@ static int test_32(qps_t *qps, bool null)
     {
         uint32_t pos = 0;
         qhat_for_each_unsafe(en, &trie) {
-            const uint32_t *slot = en.value;
+            const uint32_t *slot;
+
+            slot = qhat_enumerator_get_value(&en);
             Z_ASSERT_EQ(en.key, pos + 0x40000000);
             Z_ASSERT_EQ(*slot, bswap32(0x800 - pos));
             pos++;
@@ -307,7 +321,9 @@ static int test_16(qps_t *qps, bool null)
     {
         uint32_t i = 0;
         qhat_for_each_unsafe(en, &trie) {
-            const uint16_t *slot = en.value;
+            const uint16_t *slot;
+
+            slot = qhat_enumerator_get_value(&en);
             if (en.key < 50) {
                 if (null) {
                     Z_ASSERT_NULL(slot);
@@ -362,7 +378,9 @@ static int test_8(qps_t *qps, bool null)
     {
         uint32_t i = 0;
         qhat_for_each_unsafe(en, &trie) {
-            const uint8_t *slot = en.value;
+            const uint8_t *slot;
+
+            slot = qhat_enumerator_get_value(&en);
             if (en.key < 50) {
                 if (null) {
                     Z_ASSERT_NULL(slot);
@@ -388,6 +406,36 @@ static int test_8(qps_t *qps, bool null)
     Z_HELPER_END;
 }
 
+/* Fill a trie with 32 bits values with entries. */
+static void z_fill_nonnull_trie32(qhat_t *trie, int nb_entries,
+                                  qv_t(u32) *keys)
+{
+    for (int i = 0; i < nb_entries; i++) {
+        uint32_t key;
+        uint32_t *v;
+
+        key = mem_hash32(&i, sizeof(i));
+        v = qhat_set(trie, key);
+
+        /* In order to ease the checks, value == key. */
+        *v = key;
+
+        /* Null values are forbidden. */
+        assert(*v != 0);
+
+        qv_append(keys, key);
+    }
+
+    /* List the keys added in the qhat in an ordered vector. */
+    dsort32(keys->tab, keys->len);
+    qv_clip(keys, uniq32(keys->tab, keys->len));
+
+    /* Check for unexpected collision. */
+    assert(keys->len == nb_entries);
+}
+
+/* }}} */
+
 Z_GROUP_EXPORT(qps_hat) {
     qps_t *qps;
 
@@ -400,66 +448,431 @@ Z_GROUP_EXPORT(qps_hat) {
     }
     assert (qps);
 
-    Z_TEST(128, "128bits no null") {
+    Z_TEST(128, "128bits no null") { /* {{{ */
         Z_HELPER_RUN(test_128(qps, false));
     } Z_TEST_END;
 
-    Z_TEST(128_null, "128bits null") {
+    /* }}} */
+    Z_TEST(128_null, "128bits null") { /* {{{ */
         Z_HELPER_RUN(test_128(qps, true));
     } Z_TEST_END;
 
-    Z_TEST(128_null_zero, "128bits null zeros") {
+    /* }}} */
+    Z_TEST(128_null_zero, "128bits null zeros") { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 16));
     } Z_TEST_END;
 
-    Z_TEST(64, "64bits no null") {
+    /* }}} */
+    Z_TEST(64, "64bits no null") { /* {{{ */
         Z_HELPER_RUN(test_64(qps, false));
     } Z_TEST_END;
 
-    Z_TEST(64_null, "64bits null") {
+    /* }}} */
+    Z_TEST(64_null, "64bits null") { /* {{{ */
         Z_HELPER_RUN(test_64(qps, true));
     } Z_TEST_END;
 
-    Z_TEST(64_null_zero, "64bits null zeros") {
+    /* }}} */
+    Z_TEST(64_null_zero, "64bits null zeros") { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 8));
     } Z_TEST_END;
 
-    Z_TEST(32, "32bits no null") {
+    /* }}} */
+    Z_TEST(32, "32bits no null") { /* {{{ */
         Z_HELPER_RUN(test_32(qps, false));
     } Z_TEST_END;
 
-    Z_TEST(32_null, "32bits null") {
+    /* }}} */
+    Z_TEST(32_null, "32bits null") { /* {{{ */
         Z_HELPER_RUN(test_32(qps, true));
     } Z_TEST_END;
 
-    Z_TEST(32_null_zero, "32bits null zeros") {
+    /* }}} */
+    Z_TEST(32_null_zero, "32bits null zeros") { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 4));
     } Z_TEST_END;
 
-    Z_TEST(16, "16bits no null") {
+    /* }}} */
+    Z_TEST(16, "16bits no null") { /* {{{ */
         Z_HELPER_RUN(test_16(qps, false));
     } Z_TEST_END;
 
-    Z_TEST(16_null, "16bits null") {
+    /* }}} */
+    Z_TEST(16_null, "16bits null") { /* {{{ */
         Z_HELPER_RUN(test_16(qps, true));
     } Z_TEST_END;
 
-    Z_TEST(16_null_zero, "16bits null zeros") {
+    /* }}} */
+    Z_TEST(16_null_zero, "16bits null zeros") { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 2));
     } Z_TEST_END;
 
-    Z_TEST(8, "8bits no null") {
+    /* }}} */
+    Z_TEST(8, "8bits no null") { /* {{{ */
         Z_HELPER_RUN(test_8(qps, false));
     } Z_TEST_END;
 
-    Z_TEST(8_null, "8bits null") {
+    /* }}} */
+    Z_TEST(8_null, "8bits null") { /* {{{ */
         Z_HELPER_RUN(test_8(qps, true));
     } Z_TEST_END;
 
-    Z_TEST(8_null_zero, "8bits null zeros") {
+    /* }}} */
+    Z_TEST(8_null_zero, "8bits null zeros") { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 1));
     } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(debug_print, "") { /* {{{ */
+        t_scope;
+        qps_handle_t htrie;
+        qhat_t trie;
+        const char *output_path;
+        FILE *file;
+        SB_1k(output);
+        const char *exp_output_path;
+        SB_1k(exp_output);
+
+        Z_TEST_FLAGS("redmine_83283");
+
+        htrie = qhat_create(qps, 4, false);
+        qhat_init(&trie, qps, htrie);
+        for (int i = 1; i < 43; i++) {
+            uint32_t *v;
+
+            v = qhat_set(&trie, i * 10);
+            *v = i * 100;
+        }
+        for (int i = 1000000; i < 1010000; i++) {
+            uint32_t *v;
+
+            v = qhat_set(&trie, i);
+            *v = i * 100;
+        }
+
+        output_path = t_fmt("%*pMqhat-debug-print.txt",
+                            LSTR_FMT_ARG(z_tmpdir_g));
+        file = fopen(output_path, "w");
+        Z_ASSERT_P(file);
+        qhat_debug_print_stream(&trie, QHAT_PRINT_KEYS, file);
+        p_fclose(&file);
+
+        Z_ASSERT_N(sb_read_file(&output, output_path));
+
+        exp_output_path = t_fmt("%*pMtest-data/qhat/qhat-debug-print.txt",
+                                LSTR_FMT_ARG(z_cmddir_g));
+        Z_ASSERT_N(sb_read_file(&exp_output, exp_output_path),
+                   "cannot read path `%s`", exp_output_path);
+
+        Z_ASSERT_STREQUAL(output.data, exp_output.data);
+
+        qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(compute_memory, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+
+        Z_TEST_FLAGS("redmine_83283");
+
+        htrie = qhat_create(qps, 4, true);
+        qhat_init(&trie, qps, htrie);
+        for (int i = 0; i < 10000; i++) {
+            uint64_t *v;
+
+            v = qhat_set(&trie, i * 10000);
+            *v = i + 1;
+        }
+        for (int i = 1000000; i < 1100000; i++) {
+            uint32_t *v;
+
+            v = qhat_set(&trie, i);
+            *v = i * 100;
+        }
+
+        /* XXX The values below doesn't mean so much but the tests ensure we
+         * don't change the QPS hat memory footprint or the behavior of the
+         * functions that compute it without knowing. */
+        Z_ASSERT_EQ(qhat_compute_memory(&trie), 622592ul);
+        Z_ASSERT_EQ(qhat_compute_memory_overhead(&trie), 170136ul);
+        qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(enumeration, "") { /* {{{ */
+        t_scope;
+        qps_handle_t htrie;
+        qhat_t trie;
+        qv_t(u32) keys;
+        const int nb_keys = 5000;
+        qhat_enumerator_t en;
+
+        Z_TEST_FLAGS("redmine_83283");
+
+        t_qv_init(&keys, nb_keys);
+        htrie = qhat_create(qps, 4, false);
+        qhat_init(&trie, qps, htrie);
+
+        z_fill_nonnull_trie32(&trie, nb_keys, &keys);
+
+        /* Check that we can iterate on all the entries using 'next'. */
+        en = qhat_get_enumerator(&trie);
+        tab_for_each_entry(key, &keys) {
+            const uint32_t *value;
+
+            Z_ASSERT(!en.end);
+            Z_ASSERT_EQ(en.key, key);
+            value = qhat_enumerator_get_value(&en);
+            Z_ASSERT_EQ(*value, key);
+            qhat_enumerator_next(&en, true);
+        }
+        Z_ASSERT(en.end);
+
+        /* Check that we can iterate on all the entries using 'go_to'. */
+        en = qhat_get_enumerator(&trie);
+        tab_for_each_entry(key, &keys) {
+            const uint32_t *value;
+
+            qhat_enumerator_go_to(&en, key, true);
+            Z_ASSERT(!en.end);
+            Z_ASSERT_EQ(en.key, key);
+            value = qhat_enumerator_get_value(&en);
+            Z_ASSERT_EQ(*value, key);
+        }
+
+        qhat_clear(&trie);
+        qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(nullable_trie_nr, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_enumerator_t en;
+
+        Z_TEST_FLAGS("redmine_83666");
+
+        htrie = qhat_create(qps, 4, true);
+        qhat_init(&trie, qps, htrie);
+
+        for (int i = 1; i < 50; i++) {
+            *(uint32_t *)qhat_set(&trie, i) = i;
+        }
+        en = qhat_get_enumerator_at(&trie, 40);
+        for (int i = 50; i < 100; i++) {
+            *(uint32_t *)qhat_set(&trie, i) = i;
+        }
+
+        for (uint32_t key = 40; key < 100; key++) {
+            /* FIXME The key goes directly from 49 to 64 but all the bits
+             * between those two keys were supposed to be set. It means that
+             * the QPS bitmap enumerator isn't "safe". As a consequence, the
+             * QPS hat enumerator for nullable entries isn't "safe" either,
+             * even when the "safe" parameter is used. */
+            if (key == 50) {
+                key = 64;
+            }
+            Z_ASSERT(!en.end);
+            Z_ASSERT_EQ(en.key, key);
+            qhat_enumerator_next(&en, true);
+        }
+
+        Z_ASSERT(en.end);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(enumeration_get_value_safe, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_enumerator_t en;
+        const uint32_t *v;
+
+        Z_TEST_FLAGS("redmine_83283");
+
+        htrie = qhat_create(qps, 4, false);
+        qhat_init(&trie, qps, htrie);
+
+        for (int i = 25; i < 100; i++) {
+            *(uint32_t *)qhat_set(&trie, i) = i;
+        }
+
+        /* Get the current value. */
+        en = qhat_get_enumerator_at(&trie, 25);
+        v = qhat_enumerator_get_value_safe(&en);
+        Z_ASSERT_EQ(*v, 25u);
+
+        /* Insert keys before the current one. */
+        en = qhat_get_enumerator_at(&trie, 25);
+        for (int i = 1; i < 25; i++) {
+            *(uint32_t *)qhat_set(&trie, i) = i;
+        }
+        v = qhat_enumerator_get_value_safe(&en);
+        Z_ASSERT_EQ(*v, 25u);
+
+        /* Remove the key after the current one. */
+        en = qhat_get_enumerator_at(&trie, 25);
+        qhat_remove(&trie, 26, NULL);
+        v = qhat_enumerator_get_value_safe(&en);
+        Z_ASSERT_EQ(*v, 25u);
+
+        /* Remove the key before the current one. */
+        en = qhat_get_enumerator_at(&trie, 50);
+        qhat_remove(&trie, 49, NULL);
+        v = qhat_enumerator_get_value_safe(&en);
+        Z_ASSERT_EQ(*v, 50u);
+
+        /* Remove the current key. */
+        en = qhat_get_enumerator_at(&trie, 75);
+        qhat_remove(&trie, 75, NULL);
+        v = qhat_enumerator_get_value_safe(&en);
+        Z_ASSERT_EQ(*v, 0u);
+        Z_ASSERT(v == (const uint32_t *)&qhat_default_zero_g);
+
+        /* Get the value after the trie structure has changed. */
+        en = qhat_get_enumerator_at(&trie, 80);
+        for (int i = 100;; i++) {
+            if (en.t.path.generation != trie.struct_gen) {
+                /* The trie structure has changed. Stop now. */
+                break;
+            }
+            *(uint32_t *)qhat_set(&trie, i) = i;
+        }
+        v = qhat_enumerator_get_value_safe(&en);
+        Z_ASSERT_EQ(*v, 80u);
+
+        qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(enumeration_safe_single_removal, "") { /* {{{ */
+        t_scope;
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_enumerator_t en;
+        int nb_keys = 5000;
+        qv_t(u32) keys;
+
+        Z_TEST_FLAGS("redmine_83283");
+
+        htrie = qhat_create(qps, 4, false);
+        qhat_init(&trie, qps, htrie);
+
+        t_qv_init(&keys, nb_keys);
+        z_fill_nonnull_trie32(&trie, nb_keys, &keys);
+
+        /* Check that we can enumerate properly the qhat while removing
+         * the current entry from time to time. */
+        en = qhat_get_enumerator(&trie);
+        tab_for_each_entry(key, &keys) {
+            const uint32_t *value;
+
+            Z_ASSERT(!en.end);
+            Z_ASSERT_EQ(en.key, key);
+            value = qhat_enumerator_get_value_safe(&en);
+            Z_ASSERT_EQ(*value, key);
+
+            if (key % 2) {
+                /* Remove the current entry every two iterations. */
+                qhat_remove(&trie, key, NULL);
+            }
+
+            qhat_enumerator_next(&en, true);
+            Z_ASSERT(en.t.path.generation == en.t.path.hat->struct_gen,
+                     "enumerator still out-of-sync after 'next'");
+        }
+
+        Z_ASSERT(en.end);
+        qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(enumeration_next, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_enumerator_t en;
+        uint32_t max_key = 0;
+
+        Z_TEST_FLAGS("redmine_83283");
+
+        htrie = qhat_create(qps, 4, false);
+        qhat_init(&trie, qps, htrie);
+
+        /* Insert 99 entries. */
+        for (int i = 1; i < 100; i++) {
+            *(uint32_t *)qhat_set(&trie, i) = i;
+        }
+
+        /* Position the enumerator in the middle of the entries. */
+        en = qhat_get_enumerator_at(&trie, 80);
+
+        /* Keep adding entries until the structure of the trie changes. */
+        for (int i = 100;; i++) {
+            if (en.t.path.generation != trie.struct_gen) {
+                /* The trie structure has changed. Stop now. */
+                break;
+            }
+            *(uint32_t *)qhat_set(&trie, i) = i;
+            max_key = i;
+        }
+        Z_ASSERT(!en.end);
+
+        /* Check that the enumerator properly iterates on the rest of the
+         * trie after the structure change. */
+        for (uint32_t key = 81; key <= max_key; key++) {
+            const uint32_t *value;
+
+            qhat_enumerator_next(&en, true);
+            Z_ASSERT(!en.end, "end reached too early, key(%u) < max_key(%u)",
+                     key, max_key);
+            value = qhat_enumerator_get_value(&en);
+            Z_ASSERT_EQ(*value, key);
+            Z_ASSERT_EQ(en.key, key);
+        }
+        qhat_enumerator_next(&en, true);
+        Z_ASSERT(en.end);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(enumeration_next_after_zero, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_enumerator_t en;
+        const uint32_t *value;
+
+        Z_TEST_FLAGS("redmine_83283");
+
+        htrie = qhat_create(qps, 4, true);
+        qhat_init(&trie, qps, htrie);
+
+        /* Fill a nullable qhat with non-null elements except for only the
+         * element [50]. */
+        for (int i = 1; i < 100; i++) {
+            if (i == 50) {
+                qhat_set0(&trie, i, NULL);
+            } else {
+                *(uint32_t *)qhat_set(&trie, i) = i;
+            }
+        }
+
+        /* Start the enumeration at element [50], check that the value is
+         * right. */
+        en = qhat_get_enumerator_at(&trie, 50);
+        value = qhat_enumerator_get_value(&en);
+        Z_ASSERT(value == (const void *)&qhat_default_zero_g);
+
+        /* Check that the enumerator goes to the next element without bug. */
+        qhat_enumerator_next(&en, false);
+        value = qhat_enumerator_get_value(&en);
+        Z_ASSERT_EQ(*value, 51u);
+
+        qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
 
     qps_close(&qps);
     MODULE_RELEASE(qps);
 } Z_GROUP_END
+
+/* LCOV_EXCL_STOP */

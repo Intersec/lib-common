@@ -38,6 +38,7 @@ ctx.program(target='zchk', source=[
     'zchk-hash.c',
     'zchk-hat.blk',
     'zchk-hpack.c',
+    'zchk-qps-bitmap.c',
     'zchk-iop.blk',
     'zchk-iop.c',
     'zchk-iop-core-obj.blk',

@@ -373,6 +373,20 @@ Z_GROUP_EXPORT(iop_rpc)
         el_loop_timeout(0);
     } Z_TEST_END;
 
+    Z_TEST(ic_hook_ctx, "iop-rpc: ic hook ctx leak") {
+        /* Test that allocated hook contexts are properly wiped when ichannel
+         * module shuts down, which can happens in real-life when a program
+         * stops and there are some pending RPC queries. This test would fail
+         * in ASAN mode if the contexts are not properly wiped. */
+        ic_hook_ctx_t *ctx;
+
+        ctx = ic_hook_ctx_new(0, 0);
+        ctx = ic_hook_ctx_new(1, 0);
+        ctx = ic_hook_ctx_new(2, 0);
+
+        Z_ASSERT_P(ctx);
+    } Z_TEST_END;
+
     MODULE_RELEASE(ic);
 } Z_GROUP_END;
 

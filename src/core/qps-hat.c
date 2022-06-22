@@ -1290,11 +1290,11 @@ void qhat_fix_stored0(qhat_t *hat)
 {
     uint32_t c = 0;
 
-    for (qhat_tree_enumerator_t en = qhat_tree_start_enumeration(hat);
-         !en.end; qhat_tree_enumeration_next(&en, true, true))
+    for (qhat_tree_enumerator_t en = qhat_get_tree_enumerator(hat);
+         !en.end; qhat_tree_enumerator_next(&en, true))
     {
         if (en.compact) {
-            const void *v = qhat_tree_enumeration_get_value_safe(&en);
+            const void *v = qhat_tree_enumerator_get_value(&en, true);
 #define CASE(Size, Compact, Flat)                                            \
             if (IS_ZERO(Size, *(const qhat_##Size##_t *)v)) {                \
                 qhat_path_t path = en.path;                                  \
@@ -1315,52 +1315,75 @@ void qhat_fix_stored0(qhat_t *hat)
 /* }}} */
 /* Enumerator {{{ */
 
-const void *qhat_tree_get_enumeration_value(qhat_tree_enumerator_t *en)
+const void *
+qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en)
 {
-    if (en->compact) {
-#define CASE(Size, Compact, Flat)  return &Compact->values[en->pos];
-        QHAT_VALUE_LEN_SWITCH(en->path.hat, en->memory, CASE)
-#undef CASE
-    } else {
-#define CASE(Size, Compact, Flat) return &Flat[en->pos];
-        QHAT_VALUE_LEN_SWITCH(en->path.hat, en->memory, CASE)
-#undef CASE
-    }
+    /* The caller should probably have used the safe version. */
+    assert(en->path.generation == en->path.hat->struct_gen);
+
+    /* If this assert fails, then it means that returned value isn't the value
+     * associated to the current key, probably because of changes in the trie.
+     * The caller should have used the 'safe' getter. */
+    assert(!en->compact || en->key == en->memory.compact->keys[en->pos]);
+
+    return ((const byte *)en->value_tab) + en->pos * en->value_len;
 }
 
-#define QHAT_UPDATE_VALUE                                                    \
-    if (en->pos != old_pos) {                                                \
-        uint32_t count = en->pos - old_pos;                                  \
-        en->value = ((const uint8_t *)en->value) + count * en->value_len;    \
+#define QHAT_TREE_EN_KEY_REMOVED 1
+
+/* Fixup 'pos' and 'count' if the compact is modified. */
+static int
+qhat_tree_enumerator_fixup_compact_pos(qhat_tree_enumerator_t *en)
+{
+    assert(en->compact);
+
+    en->count = en->memory.compact->count;
+
+    if (en->pos <= en->count &&
+        en->key == en->memory.compact->keys[en->pos])
+    {
+        /* Nothing to do.
+         * The compact *might* have been modified but 'pos' is still right. */
+        return 0;
     }
 
-const void *qhat_tree_enumeration_get_value_safe(qhat_tree_enumerator_t *en)
+    /* The compact has been modified. Update the position. */
+    en->pos = qhat_compact_lookup(en->memory.compact, 0, en->key);
+
+    if (en->pos >= en->count ||
+        en->key != en->memory.compact->keys[en->pos])
+    {
+        /* The key has been removed from the compact.
+         * We're already at the next key. */
+        return QHAT_TREE_EN_KEY_REMOVED;
+    }
+
+    return 0;
+}
+
+const void *
+qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe)
 {
+    if (!safe) {
+        return qhat_tree_enumerator_get_value_unsafe(en);
+    }
     if (unlikely(en->path.generation != en->path.hat->struct_gen)) {
-        qhat_tree_enumeration_refresh_path(en);
-        return qhat_tree_get_enumeration_value(en);
+        qhat_tree_enumerator_refresh_path(en);
+        /* FIXME For consistency, we should return qhat_default_zero_g if the
+         * key was removed. */
+    } else if (en->compact &&
+               qhat_tree_enumerator_fixup_compact_pos(en) ==
+               QHAT_TREE_EN_KEY_REMOVED)
+    {
+        return &qhat_default_zero_g;
     }
-    if (unlikely(en->value == NULL)) {
-        en->value = qhat_tree_get_enumeration_value(en);
-    }
-    if (en->compact) {
-        if (unlikely(en->key > en->memory.compact->keys[en->pos])) {
-            uint32_t old_pos = en->pos;
 
-            /* Values has been added between the previous key and the
-             * current one, shift pos accordingly.
-             */
-            while (en->key > en->memory.compact->keys[en->pos]) {
-                en->pos++;
-            }
-            en->count += en->pos - old_pos;
-            QHAT_UPDATE_VALUE;
-        }
-    }
-    return en->value;
+    return qhat_tree_enumerator_get_value_unsafe(en);
 }
 
-void qhat_tree_enumeration_find_entry(qhat_tree_enumerator_t *en)
+/* Find the key associated to the current position of the enumerator.
+ * Update the attribute 'key' or end the enumerator. */
+void qhat_tree_enumerator_find_entry(qhat_tree_enumerator_t *en)
 {
     qhat_t  *hat     = en->path.hat;
     uint32_t new_key = en->path.key;
@@ -1369,6 +1392,7 @@ void qhat_tree_enumeration_find_entry(qhat_tree_enumerator_t *en)
 
     if (en->compact) {
         if (en->pos < en->count) {
+            /* We're still in the current compact. We're done. */
             en->key = en->memory.compact->keys[en->pos];
             return;
         }
@@ -1376,21 +1400,26 @@ void qhat_tree_enumeration_find_entry(qhat_tree_enumerator_t *en)
         next -= qhat_get_key_bits(hat, new_key, en->path.depth);
     } else
     if (en->pos < en->count) {
+        /* We're still in the current flat. We're done. */
         en->key = en->path.key | en->pos;
         return;
     }
 
+    /* We're after the current compact/flat.
+     * We've got to go to the next leaf. */
+
     shift = qhat_depth_shift(hat, en->path.depth);
     if (shift == 32) {
+        /* There is no next leaf. The enumerator is done. */
         en->end = true;
         return;
     }
     new_key += next << shift;
-    qhat_tree_enumeration_dispatch_up(en, en->path.key, new_key);
+    qhat_tree_enumerator_dispatch_up(en, en->path.key, new_key);
 }
 
-void qhat_tree_enumeration_find_entry_from(qhat_tree_enumerator_t *en,
-                                           uint32_t key)
+void qhat_tree_enumerator_find_entry_from(qhat_tree_enumerator_t *en,
+                                          uint32_t key)
 {
     if (en->compact) {
         en->pos = qhat_compact_lookup(en->memory.compact, en->pos, key);
@@ -1398,11 +1427,11 @@ void qhat_tree_enumeration_find_entry_from(qhat_tree_enumerator_t *en,
         en->pos = key % en->count;
     }
 
-    qhat_tree_enumeration_find_entry(en);
+    qhat_tree_enumerator_find_entry(en);
 }
 
-void qhat_tree_enumeration_find_down_up(qhat_tree_enumerator_t *en,
-                                        uint32_t key)
+void qhat_tree_enumerator_find_down_up(qhat_tree_enumerator_t *en,
+                                       uint32_t key)
 {
     qhat_t  *hat        = en->path.hat;
     uint32_t last_key   = en->path.key;
@@ -1416,10 +1445,14 @@ void qhat_tree_enumeration_find_down_up(qhat_tree_enumerator_t *en,
 
     shift = qhat_depth_shift(hat, en->path.depth);
     if (shift == 32) {
+        /* The current leaf is a compact (ie. not a flat) because flats
+         * appears only at maximum depth and shift 32 means depth == 0. */
+        assert(en->compact);
+
         if (en->memory.compact->keys[en->memory.compact->count - 1] < key) {
             en->end = true;
         } else {
-            qhat_tree_enumeration_find_entry_from(en, key);
+            qhat_tree_enumerator_find_entry_from(en, key);
         }
         return;
     }
@@ -1432,223 +1465,195 @@ void qhat_tree_enumeration_find_down_up(qhat_tree_enumerator_t *en,
     }
 
     if (key < last_key) {
-        qhat_tree_enumeration_find_entry_from(en, key);
+        qhat_tree_enumerator_find_entry_from(en, key);
     } else
     if (qhat_get_key_bits(hat, diff, 0)) {
-        qhat_tree_enumeration_find_root(en, key);
+        qhat_tree_enumerator_find_root(en, key);
     } else
     if (en->path.depth >= 1 && qhat_get_key_bits(hat, diff, 1)) {
         en->path.depth = 0;
-        qhat_tree_enumeration_find_node(en, key);
+        qhat_tree_enumerator_find_node(en, key);
     } else
     if (en->path.depth >= 2 && qhat_get_key_bits(hat, diff, 2)) {
         en->path.depth = 1;
-        qhat_tree_enumeration_find_node(en, key);
+        qhat_tree_enumerator_find_node(en, key);
     } else {
-        qhat_tree_enumeration_find_entry_from(en, key);
+        qhat_tree_enumerator_find_entry_from(en, key);
     }
 }
 
-uint32_t qhat_tree_enumeration_next(qhat_tree_enumerator_t *en,
-                                    bool value, bool safe)
+/* Similar to 'qhat_enumerator_next()' but only apply to the trie. */
+uint32_t qhat_tree_enumerator_next(qhat_tree_enumerator_t *en, bool safe)
 {
-    uint32_t    old_pos = en->pos;
-    qhat_node_t old_node;
-
-    if (safe && en->pos < en->count) {
-        uint32_t gen = en->path.generation;
-        uint32_t key = en->key;
-
-        /* Call the value getter to ensure we are back on sync with the latest
-         * changes done on the structure.
-         */
-        IGNORE(qhat_tree_enumeration_get_value_safe(en));
-        if (en->key != key || en->end) {
+    if (safe) {
+        if (unlikely(en->path.generation != en->path.hat->struct_gen)) {
+            en->key++;
+            qhat_tree_enumerator_refresh_path(en);
             return en->key;
         }
-
-        if (unlikely(en->compact
-        &&  (en->key != en->memory.compact->keys[en->pos]
-            || en->count > en->memory.compact->count)))
-        {
-            /* Looks like en->key has been deleted, there's no need to
-             * move pos since we already are on the next value.
-             */
-            if (gen == en->path.generation) {
-                /* Decrease the count only if the path has *not* been
-                 * refreshed (this a refresh also refreshed the count by
-                 * itself).
-                 */
-                en->count--;
-            }
-            assert (en->count == en->memory.compact->count);
-            if (en->pos < en->count) {
-                QHAT_UPDATE_VALUE;
-                return en->key = en->memory.compact->keys[en->pos];
-            }
-        } else
-        if (en->compact) {
-            assert (en->count == en->memory.compact->count);
-        }
+    } else {
+        /* The caller should probably have used the safe version. */
+        assert(en->path.generation == en->path.hat->struct_gen);
     }
 
-    old_node = QHAT_PATH_NODE(&en->path);
-    old_pos = en->pos;
-    en->pos++;
-    qhat_tree_enumeration_find_entry(en);
-    if (value) {
-        if (old_node.value != QHAT_PATH_NODE(&en->path).value) {
-            old_pos = 0;
-        }
-        QHAT_UPDATE_VALUE;
+    if (safe && en->compact &&
+        qhat_tree_enumerator_fixup_compact_pos(en) ==
+        QHAT_TREE_EN_KEY_REMOVED)
+    {
+        /* The key was removed from the compact, we're already positioned on
+         * the next entry. Nothing to do. */
+    } else {
+        en->pos++;
     }
+
+    qhat_tree_enumerator_find_entry(en);
+
     return en->key;
 }
 
-void qhat_tree_enumeration_go_to(qhat_tree_enumerator_t *en, uint32_t key,
-                                 bool value, bool safe)
+/* Similar to 'qhat_enumerator_go_to()' but only apply to the trie. */
+void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
+                                bool safe)
 {
-    if (en->end || en->key >= key) {
+    /* The tree enumerator should only go forward. */
+    assert(key >= en->key);
+
+    /* FIXME This check doesn't handle the case (with safe==true) where the
+     * current key was removed so it has to go the the next key. */
+    if (en->end || key <= en->key) {
+        return;
+    }
+    if (key == en->key + 1) {
+        qhat_tree_enumerator_next(en, safe);
         return;
     }
     if (unlikely(safe && en->path.generation != en->path.hat->struct_gen)) {
-        qhat_tree_enumeration_find_up_down(en, key);
-
-        if (value) {
-            if (!en->end) {
-                en->value = qhat_tree_get_enumeration_value(en);
-            }
-        }
+        qhat_tree_enumerator_find_up_down(en, key);
     } else {
-        uint32_t    old_pos  = en->pos;
-        qhat_node_t old_node = QHAT_PATH_NODE(&en->path);
+        /* The caller should probably have used the safe version. */
+        assert(en->path.generation == en->path.hat->struct_gen);
 
-        if (unlikely(safe && en->compact)) {
-            en->count = en->memory.compact->count;
-            if (en->pos >= en->count) {
-                en->pos = en->count - 1;
-            }
-            while (en->memory.compact->keys[en->pos] > en->key) {
-                if (en->pos == 0) {
-                    break;
-                }
-                en->pos--;
-            }
-            en->key = en->memory.compact->keys[en->pos];
+        if (safe && en->compact) {
+            /* Refresh the attributes 'pos' and 'count' so that
+             * 'qhat_tree_enumerator_find_down_up()' can work properly. */
+            qhat_tree_enumerator_fixup_compact_pos(en);
         }
 
-        if (key == en->key + 1) {
-            qhat_tree_enumeration_next(en, false, false);
-        } else {
-            qhat_tree_enumeration_find_down_up(en, key);
-        }
-        if (value) {
-            if (old_node.value != QHAT_PATH_NODE(&en->path).value) {
-                old_pos = 0;
-            }
-            QHAT_UPDATE_VALUE;
-        }
+        qhat_tree_enumerator_find_down_up(en, key);
     }
 }
 
-#undef QHAT_UPDATE_VALUE
-
-static void qhat_enumeration_catchup(qhat_enumerator_t *en, bool value,
-                                     bool safe)
+/* Only for nullable QPS hats. */
+static void qhat_enumerator_catchup(qhat_enumerator_t *en, bool value,
+                                    bool safe)
 {
+    assert(en->is_nullable);
+
     if (en->bitmap.end) {
         en->end = true;
         return;
     }
     en->key = en->bitmap.key.key;
     if (value) {
+        /* We can have 'en->trie.key != en->key' because the tree enumerator
+         * is kept untouched as long as we don't need the associated value:
+         * the bitmap is sufficient if we only want to iterate on the keys. */
+
         if (!en->trie.end && en->trie.key < en->key) {
-            qhat_tree_enumeration_go_to(&en->trie, en->key, true, safe);
-        }
-        if (en->trie.end || en->trie.key != en->key) {
-            en->value = &qhat_default_zero_g;
-        } else {
-            en->value = en->trie.value;
+            /* Make the tree enumerator catchup with the bitmap enumerator so
+             * that we can get or update the associated value. */
+            qhat_tree_enumerator_go_to(&en->trie, en->key, safe);
         }
     }
 }
 
-void qhat_enumeration_next(qhat_enumerator_t *en, bool value, bool safe)
+void qhat_enumerator_next(qhat_enumerator_t *en, bool safe)
 {
     if (en->is_nullable) {
         assert (!en->bitmap.map->root->is_nullable);
-        qps_bitmap_enumeration_next_nn(&en->bitmap);
-        qhat_enumeration_catchup(en, value, safe);
+        qps_bitmap_enumerator_next_nn(&en->bitmap);
+        qhat_enumerator_catchup(en, false, safe);
     } else {
-        qhat_tree_enumeration_next(&en->t, value, safe);
+        qhat_tree_enumerator_next(&en->t, safe);
     }
 }
 
-qhat_enumerator_t qhat_start_enumeration_at(qhat_t *trie, uint32_t key)
+qhat_enumerator_t qhat_get_enumerator_at(qhat_t *trie, uint32_t key)
 {
     qhat_enumerator_t en;
 
     qps_hptr_deref(trie->qps, &trie->root_cache);
     if (trie->root->is_nullable) {
         p_clear(&en, 1);
-        en.trie        = qhat_tree_start_enumeration_at(trie, key);
-        en.bitmap      = qps_bitmap_start_enumeration_at_nn(&trie->bitmap, key);
+        en.trie        = qhat_get_tree_enumerator_at(trie, key);
+        en.bitmap      = qps_bitmap_get_enumerator_at_nn(&trie->bitmap, key);
         en.is_nullable = true;
-        qhat_enumeration_catchup(&en, true, true);
+        qhat_enumerator_catchup(&en, true, true);
     } else {
-        en.t = qhat_tree_start_enumeration_at(trie, key);
+        en.t = qhat_get_tree_enumerator_at(trie, key);
         en.is_nullable = false;
     }
     return en;
 }
 
-void qhat_enumeration_go_to(qhat_enumerator_t *en, uint32_t key, bool value,
-                            bool safe)
+void qhat_enumerator_go_to(qhat_enumerator_t *en, uint32_t key, bool safe)
 {
     if (en->is_nullable) {
         assert (!en->bitmap.map->root->is_nullable);
-        qps_bitmap_enumeration_go_to_nn(&en->bitmap, key);
-        qhat_enumeration_catchup(en, value, safe);
+        qps_bitmap_enumerator_go_to_nn(&en->bitmap, key);
+        qhat_enumerator_catchup(en, false, safe);
     } else {
-        qhat_tree_enumeration_go_to(&en->t, key, value, safe);
+        qhat_tree_enumerator_go_to(&en->t, key, safe);
     }
 }
 
-const void *qhat_enumeration_get_value_safe(qhat_enumerator_t *en)
+/** Get the value associated to the current key (safe).
+ *
+ * Same as #qhat_get_enumeration_value but it also supports when the QPS hat
+ * was modifed during the lifetime of the enumerator.
+ */
+static
+const void *qhat_enumerator_get_value_common(qhat_enumerator_t *en, bool safe)
 {
     if (en->is_nullable) {
         if (!en->end && en->trie.key != en->key) {
-            qhat_enumeration_catchup(en, true, true);
-        } else {
-            en->value = qhat_tree_enumeration_get_value_safe(&en->trie);
-            if (en->is_nullable && en->value == NULL) {
-                en->value = &qhat_default_zero_g;
+            qhat_enumerator_catchup(en, true, safe);
+            if (en->end || en->trie.key != en->key) {
+                /* The value is present in the bitmap but not in the trie, so
+                 * it has to be zero, which is not allowed in the trie. */
+                return &qhat_default_zero_g;
             }
+
+            /* XXX No need for the 'safe' get_value() if we already did the
+             * 'safe' catchup. */
+            return qhat_tree_enumerator_get_value(&en->trie, false);
+        } else {
+            const void *value;
+
+            value = qhat_tree_enumerator_get_value(&en->trie, safe);
+            if (value == NULL) {
+                return &qhat_default_zero_g;
+            }
+
+            return value;
         }
-        return en->value;
     } else {
-        return qhat_tree_enumeration_get_value_safe(&en->t);
+        return qhat_tree_enumerator_get_value(&en->t, safe);
     }
 }
 
-const void *qhat_get_enumeration_value(qhat_enumerator_t *en)
+const void *qhat_enumerator_get_value(qhat_enumerator_t *en)
 {
-    if (en->is_nullable) {
-        if (!en->end && en->trie.key != en->key) {
-            qhat_enumeration_catchup(en, true, false);
-        } else {
-            en->value = qhat_tree_get_enumeration_value(&en->trie);
-            if (en->is_nullable && en->value == NULL) {
-                en->value = &qhat_default_zero_g;
-            }
-        }
-        return en->value;
-    } else {
-        return qhat_tree_get_enumeration_value(&en->t);
-    }
+    return qhat_enumerator_get_value_common(en, false);
 }
 
-qhat_path_t qhat_enumeration_get_path(const qhat_enumerator_t *en)
+const void *qhat_enumerator_get_value_safe(qhat_enumerator_t *en)
+{
+    return qhat_enumerator_get_value_common(en, true);
+}
+
+/** Get the 'qhat_path_t' associated to the current key. */
+qhat_path_t qhat_enumerator_get_path(const qhat_enumerator_t *en)
 {
     qhat_path_t p;
 
@@ -1665,37 +1670,49 @@ qhat_path_t qhat_enumeration_get_path(const qhat_enumerator_t *en)
     return p;
 }
 
-static void qhat_tree_enumeration_enter_leaf(qhat_tree_enumerator_t *en,
-                                             uint32_t key)
+/* After call:
+ * - memory set to the current leaf
+ * - compact updated
+ * - pos set to the position of the key
+ * - key updated
+ * - value_pos updated
+ */
+static void qhat_tree_enumerator_enter_leaf(qhat_tree_enumerator_t *en,
+                                            uint32_t key)
 {
     en->memory = qhat_node_deref(&en->path);
 
     if (PATH_NODE(&en->path).compact) {
         en->compact = true;
         en->count   = en->memory.compact->count;
-#define CASE(Size, Compact, Flat)  en->value = &Compact->values[0]
+#define CASE(Size, Compact, Flat) en->value_tab = Compact->values;
         QHAT_VALUE_LEN_SWITCH(en->path.hat, en->memory, CASE);
 #undef CASE
     } else {
         en->compact = false;
         en->count   = en->path.hat->desc->leaves_per_flat;
-#define CASE(Size, Compact, Flat)  en->value = &Flat[0]
+#define CASE(Size, Compact, Flat) en->value_tab = Flat;
         QHAT_VALUE_LEN_SWITCH(en->path.hat, en->memory, CASE);
 #undef CASE
     }
-
     en->pos = 0;
-    qhat_tree_enumeration_find_entry_from(en, key);
+    qhat_tree_enumerator_find_entry_from(en, key);
 }
 
-void qhat_tree_enumeration_find_root(qhat_tree_enumerator_t *en, uint32_t key)
+/* Guaranteed to either enter a leaf or end the enumerator. */
+void qhat_tree_enumerator_find_root(qhat_tree_enumerator_t *en, uint32_t key)
 {
     qhat_t *hat = en->path.hat;
     uint32_t root = qhat_get_key_bits(hat, key, 0);
     ssize_t  i;
 
+    /* We're going to refresh the whole path so the structure generation can
+     * be updated. */
+    en->path.generation = hat->struct_gen;
+
     en->path.depth = 0;
     en->path.key   = 0;
+
     i = scan_non_zero32(&hat->root->nodes[0].value, root,
                         hat->desc->root_node_count);
     if (i >= 0) {
@@ -1707,18 +1724,18 @@ void qhat_tree_enumeration_find_root(qhat_tree_enumerator_t *en, uint32_t key)
         }
 
         if (PATH_NODE(&en->path).leaf) {
-            qhat_tree_enumeration_enter_leaf(en, key);
+            qhat_tree_enumerator_enter_leaf(en, key);
         } else {
-            qhat_tree_enumeration_find_node(en, key);
+            qhat_tree_enumerator_find_node(en, key);
         }
     } else {
         en->end   = true;
-        en->value = NULL;
     }
 }
 
-void qhat_tree_enumeration_dispatch_up(qhat_tree_enumerator_t *en, uint32_t key,
-                                       uint32_t new_key)
+/* Guaranteed to either enter a leaf or end the enumerator. */
+void qhat_tree_enumerator_dispatch_up(qhat_tree_enumerator_t *en, uint32_t key,
+                                      uint32_t new_key)
 {
     qhat_t  *hat = en->path.hat;
     uint32_t key_0 = qhat_get_key_bits(hat, key, 0);
@@ -1729,21 +1746,21 @@ void qhat_tree_enumeration_dispatch_up(qhat_tree_enumerator_t *en, uint32_t key,
 
     if (new_key <= key) {
         en->end   = true;
-        en->value = NULL;
     } else
     if (key_0 != new_key_0) {
-        qhat_tree_enumeration_find_root(en, new_key);
+        qhat_tree_enumerator_find_root(en, new_key);
     } else {
         if (key_1 != new_key_1) {
             en->path.depth = 0;
         } else {
             en->path.depth = 1;
         }
-        qhat_tree_enumeration_find_node(en, new_key);
+        qhat_tree_enumerator_find_node(en, new_key);
     }
 }
 
-void qhat_tree_enumeration_find_node(qhat_tree_enumerator_t *en, uint32_t key)
+/* Guaranteed to either enter a leaf or end the enumerator. */
+void qhat_tree_enumerator_find_node(qhat_tree_enumerator_t *en, uint32_t key)
 {
     qhat_t   *hat = en->path.hat;
     uint32_t  pos = qhat_get_key_bits(hat, key, en->path.depth + 1);
@@ -1763,9 +1780,9 @@ void qhat_tree_enumeration_find_node(qhat_tree_enumerator_t *en, uint32_t key)
         }
 
         if (PATH_NODE(&en->path).leaf) {
-            qhat_tree_enumeration_enter_leaf(en, key);
+            qhat_tree_enumerator_enter_leaf(en, key);
         } else {
-            qhat_tree_enumeration_find_node(en, key);
+            qhat_tree_enumerator_find_node(en, key);
         }
         return;
     }
@@ -1774,15 +1791,15 @@ void qhat_tree_enumeration_find_node(qhat_tree_enumerator_t *en, uint32_t key)
     shift   = qhat_depth_shift(hat, en->path.depth);
     new_key = key + (1UL << shift);
     if (shift == 32) {
-        en->end   = true;
-        en->value = NULL;
+        en->end = true;
     } else {
-        qhat_tree_enumeration_dispatch_up(en, key, new_key);
+        qhat_tree_enumerator_dispatch_up(en, key, new_key);
     }
 }
 
 __flatten
-qhat_tree_enumerator_t qhat_tree_start_enumeration_at(qhat_t *trie, uint32_t key)
+qhat_tree_enumerator_t qhat_get_tree_enumerator_at(qhat_t *trie,
+                                                   uint32_t key)
 {
     qhat_tree_enumerator_t en;
     qps_hptr_deref(trie->qps, &trie->root_cache);
@@ -1792,16 +1809,15 @@ qhat_tree_enumerator_t qhat_tree_start_enumeration_at(qhat_t *trie, uint32_t key
     en.value_len   = en.path.hat->desc->value_len;
     en.is_nullable = en.path.hat->root->is_nullable;
 
-    qhat_tree_enumeration_find_up_down(&en, key);
-    if (!en.end) {
-        en.value = qhat_tree_get_enumeration_value(&en);
-    }
+    qhat_tree_enumerator_find_up_down(&en, key);
+
     return en;
 }
 
-void qhat_tree_enumeration_refresh_path(qhat_tree_enumerator_t *en)
+/* Guaranteed to either enter a leaf or end the enumerator. */
+void qhat_tree_enumerator_refresh_path(qhat_tree_enumerator_t *en)
 {
-    qhat_tree_enumeration_find_up_down(en, en->key);
+    qhat_tree_enumerator_find_up_down(en, en->key);
 }
 
 
@@ -1979,28 +1995,29 @@ uint64_t qhat_compute_memory_overhead(qhat_t *hat)
     return memory;
 }
 
-static void qhat_debug_print_indent(int depth, bool final)
+static void qhat_debug_print_indent(int depth, bool final, FILE *stream)
 {
     static bool finals[QHAT_DEPTH_MAX + 1];
 
     finals[depth] = final;
     for (int i = 0; i < depth; i++) {
         if (finals[i]) {
-            fprintf(stderr, "    ");
+            fprintf(stream, "    ");
         } else {
-            fprintf(stderr, "|   ");
+            fprintf(stream, "|   ");
         }
     }
 }
 
 static void qhat_debug_print_node(const qhat_t *hat, uint32_t flags,
                                   int depth, uint32_t prefix,
-                                  qhat_node_t node, bool pure);
+                                  qhat_node_t node, bool pure,
+                                  FILE *stream);
 
 static void qhat_debug_print_dispatch_node(const qhat_t *hat, uint32_t flags,
                                            int depth, uint32_t prefix,
                                            const qhat_node_t *pointers,
-                                           int end)
+                                           int end, FILE *stream)
 {
     qhat_node_t value    = pointers[0];
     int         previous = 0;
@@ -2010,15 +2027,16 @@ static void qhat_debug_print_dispatch_node(const qhat_t *hat, uint32_t flags,
         if (value.value != pointers[i].value) {
             if (value.value != 0) {
                 has_next = (scan_non_zero32(&pointers[0].value, i, end) >= 0);
-                qhat_debug_print_indent(depth, !has_next);
+                qhat_debug_print_indent(depth, !has_next, stream);
                 if (i - previous > 1) {
-                    fprintf(stderr, "+ [%x -> %x]\n", previous, i - 1);
+                    fprintf(stream, "+ [%x -> %x]\n", previous, i - 1);
                 } else {
-                    fprintf(stderr, "+ [%x]\n", previous);
+                    fprintf(stream, "+ [%x]\n", previous);
                 }
                 qhat_debug_print_node(hat, flags, depth + 1,
-                                      prefix | (previous << qhat_depth_shift(hat, depth)),
-                                      value, (i - previous == 1));
+                                      prefix | (previous <<
+                                                qhat_depth_shift(hat, depth)),
+                                      value, (i - previous == 1), stream);
             }
             previous = i;
             value    = pointers[i];
@@ -2026,11 +2044,11 @@ static void qhat_debug_print_dispatch_node(const qhat_t *hat, uint32_t flags,
     }
     if (value.value != 0) {
         int shift;
-        qhat_debug_print_indent(depth, true);
-        if (end -previous > 1) {
-            fprintf(stderr, "+ [%x -> %x]\n", previous, end - 1);
+        qhat_debug_print_indent(depth, true, stream);
+        if (end - previous > 1) {
+            fprintf(stream, "+ [%x -> %x]\n", previous, end - 1);
         } else {
-            fprintf(stderr, "+ [%x]\n", previous);
+            fprintf(stream, "+ [%x]\n", previous);
         }
         shift = qhat_depth_shift(hat, depth);
         if (shift == 32) {
@@ -2039,23 +2057,24 @@ static void qhat_debug_print_dispatch_node(const qhat_t *hat, uint32_t flags,
             previous <<= shift;
         }
         qhat_debug_print_node(hat, flags, depth + 1, prefix | previous,
-                              value, (end - previous) == 1);
+                              value, (end - previous) == 1, stream);
     }
 }
 
 static void qhat_debug_print_compact_leaf(const qhat_t *hat, uint32_t flags,
                                           int depth, uint32_t prefix,
-                                          qhat_node_const_memory_t memory)
+                                          qhat_node_const_memory_t memory,
+                                          FILE *stream)
 {
     uint32_t count    = memory.compact->count;
     uint32_t previous = memory.compact->keys[0];
     uint32_t start    = previous;
     int printed       = 0;
 
-    qhat_debug_print_indent(depth, true);
-    fprintf(stderr, "+ ");
+    qhat_debug_print_indent(depth, true, stream);
+    fprintf(stream, "+ ");
     if (count == 0) {
-        fprintf(stderr, "(empty)\n");
+        fprintf(stream, "(empty)\n");
         return;
     }
     if ((flags & QHAT_PRINT_KEYS)) {
@@ -2063,16 +2082,16 @@ static void qhat_debug_print_compact_leaf(const qhat_t *hat, uint32_t flags,
             uint32_t key = memory.compact->keys[i];
             if (key != previous + 1) {
                 if (printed > 9) {
-                    fprintf(stderr, "\n");
-                    qhat_debug_print_indent(depth, true);
-                    fprintf(stderr, "+ ");
+                    fprintf(stream, "\n");
+                    qhat_debug_print_indent(depth, true, stream);
+                    fprintf(stream, "+ ");
                     printed = 0;
                 }
                 if (previous != start) {
-                    fprintf(stderr, "%x-%x, ", start, previous);
+                    fprintf(stream, "%x-%x, ", start, previous);
                     printed += 2;
                 } else {
-                    fprintf(stderr, "%x, ", previous);
+                    fprintf(stream, "%x, ", previous);
                     printed += 1;
                 }
                 start = key;
@@ -2080,20 +2099,20 @@ static void qhat_debug_print_compact_leaf(const qhat_t *hat, uint32_t flags,
             previous = key;
         }
         if (printed > 9) {
-            fprintf(stderr, "\n");
-            qhat_debug_print_indent(depth, true);
-            fprintf(stderr, "+ ");
+            fprintf(stream, "\n");
+            qhat_debug_print_indent(depth, true, stream);
+            fprintf(stream, "+ ");
         }
         if (previous != start) {
-            fprintf(stderr, "%x - %x\n", start, previous);
+            fprintf(stream, "%x - %x\n", start, previous);
         } else {
-            fprintf(stderr, "%x\n", previous);
+            fprintf(stream, "%x\n", previous);
         }
     } else
     if (count == 1) {
-        fprintf(stderr, "%x\n", memory.compact->keys[0]);
+        fprintf(stream, "%x\n", memory.compact->keys[0]);
     } else {
-        fprintf(stderr, "%x -> %x\n", memory.compact->keys[0],
+        fprintf(stream, "%x -> %x\n", memory.compact->keys[0],
                 memory.compact->keys[count - 1]);
     }
 }
@@ -2109,22 +2128,23 @@ bool qhat_debug_is_flat_default(const qhat_t *hat,
 
 static void qhat_debug_print_flat_leaf(const qhat_t *hat, uint32_t flags,
                                        int depth, uint32_t prefix,
-                                       qhat_node_const_memory_t memory)
+                                       qhat_node_const_memory_t memory,
+                                       FILE *stream)
 {
     uint32_t start = 0;
     bool     value = qhat_debug_is_flat_default(hat, memory, 0);
-    qhat_debug_print_indent(depth, true);
-    fprintf(stderr, "+ ");
+    qhat_debug_print_indent(depth, true, stream);
+    fprintf(stream, "+ ");
     if ((flags & QHAT_PRINT_KEYS)) {
         for (uint32_t i = 1; i < hat->desc->leaves_per_flat; i++) {
             bool new_value = qhat_debug_is_flat_default(hat, memory, i);
             if (new_value != value) {
                 if (value) {
                     if (i - start != 1) {
-                        fprintf(stderr, "%x - %x, ", prefix + start,
+                        fprintf(stream, "%x - %x, ", prefix + start,
                                 prefix + i - 1);
                     } else {
-                        fprintf(stderr, "%x, ", prefix + start);
+                        fprintf(stream, "%x, ", prefix + start);
                     }
                 }
                 start = i;
@@ -2133,59 +2153,67 @@ static void qhat_debug_print_flat_leaf(const qhat_t *hat, uint32_t flags,
         }
         if (value) {
             if (hat->desc->leaves_per_flat - start != 1) {
-                fprintf(stderr, "%x - %x\n", prefix + start,
+                fprintf(stream, "%x - %x\n", prefix + start,
                         (uint32_t)(prefix + hat->desc->leaves_per_flat - 1));
             } else {
-                fprintf(stderr, "%x\n", prefix + start);
+                fprintf(stream, "%x\n", prefix + start);
             }
         } else {
-            fprintf(stderr, "\n");
+            fprintf(stream, "\n");
         }
     } else {
-        fprintf(stderr, "%x -> %x\n", prefix,
+        fprintf(stream, "%x -> %x\n", prefix,
                (uint32_t)(prefix + hat->desc->leaves_per_flat - 1));
     }
 }
 
 static void qhat_debug_print_node(const qhat_t *hat, uint32_t flags,
                                   int depth, uint32_t prefix,
-                                  qhat_node_t node, bool pure)
+                                  qhat_node_t node, bool pure,
+                                  FILE *stream)
 {
     qhat_node_const_memory_t memory;
-    qhat_debug_print_indent(depth, false);
-    fprintf(stderr, "%s node %u: prefix=%x/%x",
+    qhat_debug_print_indent(depth, false, stream);
+    fprintf(stream, "%s node %u: prefix=%x/%x",
            (pure ? "Pure" : "Hybrid"), node.page, prefix,
            qhat_depth_prefix(hat, 0xffffffffu, depth - 1));
     if (node.leaf) {
-        fprintf(stderr, ", leaf");
+        fprintf(stream, ", leaf");
         if (node.compact) {
             memory.raw = qps_pg_deref(hat->qps, node.page);
-            fprintf(stderr, " (compact, %d entries, parent %x -> %x)\n",
+            fprintf(stream, " (compact, %d entries, parent %x -> %x)\n",
                     memory.compact->count, memory.compact->parent_left,
                     memory.compact->parent_right - 1);
-            qhat_debug_print_compact_leaf(hat, flags, depth, prefix, memory);
+            qhat_debug_print_compact_leaf(hat, flags, depth, prefix, memory,
+                                          stream);
         } else {
-            fprintf(stderr, " (flat)\n");
+            fprintf(stream, " (flat)\n");
             memory.raw = qps_pg_deref(hat->qps, node.page);
-            qhat_debug_print_flat_leaf(hat, flags, depth, prefix, memory);
+            qhat_debug_print_flat_leaf(hat, flags, depth, prefix, memory,
+                                       stream);
         }
     } else {
-        fprintf(stderr, "\n");
+        fprintf(stream, "\n");
         memory.raw = qps_pg_deref(hat->qps, node.page);
         qhat_debug_print_dispatch_node(hat, flags, depth, prefix,
-                                       memory.nodes, QHAT_COUNT);
+                                       memory.nodes, QHAT_COUNT, stream);
     }
 }
 
 #endif
 
-void qhat_debug_print(qhat_t *hat, uint32_t flags)
+void qhat_debug_print_stream(qhat_t *hat, uint32_t flags, FILE *stream)
 {
     qps_hptr_deref(hat->qps, &hat->root_cache);
-    fprintf(stderr, "Root: (%d)\n", hat->root_cache.handle);
+    fprintf(stream, "Root: (%d)\n", hat->root_cache.handle);
     qhat_debug_print_dispatch_node(hat, flags, 0, 0U, hat->root->nodes,
-                                   hat->desc->root_node_count);
-    fprintf(stderr, "\n");
+                                   hat->desc->root_node_count, stream);
+    fprintf(stream, "\n");
+}
+
+void qhat_debug_print(qhat_t *hat, uint32_t flags)
+{
+    qhat_debug_print_stream(hat, flags, stderr);
 }
 
 /* }}} */

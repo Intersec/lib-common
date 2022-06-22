@@ -105,6 +105,7 @@ class CythonC(c_tool.c):
             '-Wno-redundant-decls',
             '-Wno-uninitialized',
             '-Wno-declaration-after-statement',
+            '-Wno-missing-field-initializers',
         ])
 
         # Call original run method

@@ -394,9 +394,15 @@ static int ic_shutdown(void)
         }
     }
 
+    if (_G.ic_hook_ctx) {
+        ic_hook_ctx_t *ctx = _G.ic_hook_ctx;
+
+        ic_hook_ctx_delete(&ctx);
+    }
+
     qv_deep_wipe(&_G.traced_names, lstr_wipe);
     qh_wipe(u32, &_G.traced_cmds);
-    qm_wipe(ic_hook_ctx, &_G.hook_ctxs);
+    qm_deep_wipe(ic_hook_ctx, &_G.hook_ctxs, IGNORE, ic_hook_ctx_delete);
     qm_wipe(ic, &_G.ics);
     SSL_CTX_free(_G.ssl_ctx);
     X509_free(_G.certificate);

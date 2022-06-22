@@ -57,8 +57,13 @@ std::string GetExecutablePath(const char *Argv0, void *MainAddr) {
   return llvm::sys::fs::getMainExecutable(Argv0, MainAddr);
 }
 
-void LLVMErrorHandler(void *UserData, const std::string &Message,
-                      bool GenCrashDiag) {
+#if CLANG_VERSION_MAJOR >= 14
+static void LLVMErrorHandler(void *UserData, const char *Message,
+                             bool GenCrashDiag) {
+#else
+static void LLVMErrorHandler(void *UserData, const std::string &Message,
+                             bool GenCrashDiag) {
+#endif /* CLANG_VERSION_MAJOR >= 14 */
   DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
 
   Diags.Report(diag::err_fe_error_backend) << Message;
