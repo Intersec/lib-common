@@ -287,7 +287,7 @@ int main(int argc, char **argv)
 
     arg0 = NEXTARG(argc, argv);
     argc = parseopt(argc, argv, options, 0);
-    if (opts_g.help) {
+    if (argc < 0 || opts_g.help) {
         makeusage(!opts_g.help, arg0, "[<file>]", description, options);
     }
 
@@ -296,14 +296,14 @@ int main(int argc, char **argv)
     }
 
     if (opts_g.json_input && (!opts_g.dso_path || !opts_g.type_name)) {
-        fprintf(stderr, "both `-d` and `-t`` are required with JSON input");
+        fprintf(stderr, "both `-d` and `-t`` are required with JSON input\n");
         return EXIT_FAILURE;
     }
 
     if (opts_g.dso_path) {
         dso = iop_dso_open(opts_g.dso_path, LM_ID_BASE, &err);
         if (!dso) {
-            fprintf(stderr, "cannot open dso `%s`: %pL", opts_g.dso_path,
+            fprintf(stderr, "cannot open dso `%s`: %pL\n", opts_g.dso_path,
                     &err);
             return EXIT_FAILURE;
         }
