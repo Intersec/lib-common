@@ -27,6 +27,7 @@ static struct {
     const char *output_path;
     bool json_input;
     bool raw_mode;
+    bool delete_input_files;
     bool help;
 } opts_g;
 
@@ -52,6 +53,47 @@ get_iop_type(const iop_dso_t * nonnull dso, const lstr_t name,
     return st;
 }
 
+static void delete_input_file(const char *filename)
+{
+    if (unlink(filename) < 0) {
+        fprintf(stderr, "warning: cannot delete `%s`: %m\n", filename);
+    } else {
+        fprintf(stdout, "input file `%s` deleted\n", filename);
+    }
+}
+
+static qh_t(lstr) *
+t_get_repacked_yaml_pres_subfiles(const char *main_file,
+                                  const yaml__document_presentation__t *pres)
+{
+    qv_t(lstr) yaml_subfiles;
+    qh_t(lstr) *res = t_qh_new(lstr, 16);
+
+    t_qv_init(&yaml_subfiles, 16);
+    t_yaml_pres_get_flat_subfiles(pres, &yaml_subfiles);
+
+    res = t_qh_new(lstr, yaml_subfiles.len);
+
+    if (yaml_subfiles.len) {
+        char main_file_dir[PATH_MAX];
+
+        path_dirname(main_file_dir, sizeof(main_file_dir), main_file);
+
+        tab_for_each_entry(subfile, &yaml_subfiles) {
+            char subfile_path[PATH_MAX];
+            lstr_t subfile_lstr;
+
+            path_extend(subfile_path, main_file_dir, "%*pM",
+                        LSTR_FMT_ARG(subfile));
+            path_simplify(subfile_path);
+
+            subfile_lstr = t_lstr_dups(subfile_path, -1);
+            qh_add(lstr, res, &subfile_lstr);
+        }
+    }
+
+    return res;
+}
 
 static int
 t_parse_yaml(yaml_parse_t *env, const iop_dso_t * nullable dso,
@@ -173,6 +215,7 @@ repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
 
     t_qv_init(&subfiles, 0);
 
+    /* Unpack json */
     if (filename) {
         RETHROW(t_iop_junpack_ptr_file(filename, st, &value, 0, &subfiles,
                                        err));
@@ -191,11 +234,44 @@ repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
         }
     }
 
+    /* Pack yaml */
     subfiles_array = IOP_TYPED_ARRAY_TAB(iop_json_subfile, &subfiles);
     pres = t_build_yaml_pres_from_json_subfiles(&subfiles_array, st, value);
 
     t_iop_to_yaml_data(st, value, &data);
     res = pack_yaml(&data, pres, err);
+    if (res < 0) {
+        goto end;
+    }
+
+    /* Delete input files? */
+    if (filename && opts_g.output_path && opts_g.delete_input_files) {
+        char json_dir[PATH_MAX];
+        qh_t(lstr) *yaml_subfiles;
+
+        path_dirname(json_dir, sizeof(json_dir), filename);
+        yaml_subfiles = t_get_repacked_yaml_pres_subfiles(opts_g.output_path,
+                                                          pres);
+
+        /* Delete the main json file */
+        delete_input_file(filename);
+
+        /* Delete json subfiles, but only if they are not also yaml
+         * subfiles */
+        tab_for_each_ptr(subfile, &subfiles_array) {
+            char subfile_path[PATH_MAX];
+            lstr_t subfile_lstr;
+
+            snprintf(subfile_path, sizeof(subfile_path), "%s/%*pM",
+                     json_dir, LSTR_FMT_ARG(subfile->file_path));
+            path_simplify(subfile_path);
+
+            subfile_lstr = LSTR(subfile_path);
+            if (qh_find(lstr, yaml_subfiles, &subfile_lstr) < 0) {
+                delete_input_file(subfile_path);
+            }
+        }
+    }
 
   end:
     lstr_wipe(&file);
@@ -257,8 +333,9 @@ static const char *description[] = {
     "$ yamlfmt -d iop.so -t pkg.MyStruct -j input.json",
     "",
     "# Convert an IOP-JSON input into a YAML document, and output it and ",
-    "# all the included subfiles in a new directory",
-    "$ yamlfmt -d iop.so -t pkg.MyStruct -j input.json -o out/doc.yml",
+    "# all the included subfiles in a new directory, deleting the input ",
+    "# file (and included subfiles)",
+    "$ yamlfmt -d iop.so -t pkg.MyStruct -j input.json --delete -o out/doc.yml",
     "",
     "# Output the raw AST of a YAML document",
     "$ yamlfmt --raw doc.yml",
@@ -280,6 +357,8 @@ int main(int argc, char **argv)
                 "Path to the output file"),
         OPT_FLAG('r', "raw", &opts_g.raw_mode,
                  "Format without any presentation details."),
+        OPT_FLAG(0, "delete", &opts_g.delete_input_files,
+                 "Delete input files (if in JSON format only)."),
         OPT_END(),
     };
     SB_1k(err);
