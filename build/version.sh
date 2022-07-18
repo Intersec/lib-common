@@ -50,9 +50,9 @@ git_product_version() {
 
     version=$(basename `(git describe --match "$tagversion/*" 2>/dev/null || echo "$tagversion/0.0.0") \
               | grep -E -o "[0-9]+\.[0-9]+\.[0-9]+"`)
-    version_major=$(echo $version |cut -d '.' -f 1)
-    version_minor=$(echo $version |cut -d '.' -f 2)
-    version_patchlevel=$(echo $version |cut -d '.' -f 3)
+    version_major=$(echo $version |cut -d '.' -f 1 | sed 's/^0*//')
+    version_minor=$(echo $version |cut -d '.' -f 2 | sed 's/^0*//')
+    version_patchlevel=$(echo $version |cut -d '.' -f 3 | sed 's/^0*//')
 
     cat <<EOF
 const char ${product}_git_revision[] = "$revision";
