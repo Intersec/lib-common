@@ -1234,7 +1234,8 @@ t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
 }
 
 /* }}} */
-/* {{{ JSON interfacing */
+/* {{{ Various helpers */
+/* {{{ t_build_yaml_pres_from_json_subfiles */
 
 qvector_t(pres_mapping, yaml__presentation_node_mapping__t);
 
@@ -1438,6 +1439,52 @@ t_build_yaml_pres_from_json_subfiles(
     return pres;
 }
 
+/* }}} */
+/* {{{ t_yaml_pres_get_flat_subfiles */
+
+static void t_add_mapping_flat_subfiles(
+    const yaml__presentation_node_mapping__t *mapping,
+    lstr_t prefix,
+    qv_t(lstr) *subfiles
+)
+{
+    const yaml__presentation_include__t *included = mapping->node.included;
+    char subfile[PATH_MAX];
+
+    if (!included) {
+        return;
+    }
+
+    path_extend(subfile, prefix.s, "%s", included->path.s);
+    path_simplify(subfile);
+    qv_append(subfiles, t_lstr_dups(subfile, -1));
+
+    if (included->document_presentation.mappings.len) {
+        char subfile_dir[PATH_MAX];
+        lstr_t subfile_dir_lstr;
+
+        path_dirname(subfile_dir, sizeof(subfile_dir), subfile);
+        subfile_dir_lstr = LSTR(subfile_dir);
+
+        tab_for_each_ptr(sub_mapping,
+                         &included->document_presentation.mappings)
+        {
+            t_add_mapping_flat_subfiles(sub_mapping, subfile_dir_lstr,
+                                        subfiles);
+        }
+    }
+
+}
+
+void t_yaml_pres_get_flat_subfiles(const yaml__document_presentation__t *pres,
+                                   qv_t(lstr) *subfiles)
+{
+    tab_for_each_ptr(mapping, &pres->mappings) {
+        t_add_mapping_flat_subfiles(mapping, LSTR_EMPTY_V, subfiles);
+    }
+}
+
+/* }}} */
 /* }}} */
 /* {{{ Module */
 

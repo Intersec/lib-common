@@ -38,3 +38,6 @@ ctx.program(target='threaded-operations-bench', features='c cprogram',
 
 ctx.program(target='container-bench', features="c cprogram",
             source='container-bench.blk', use='libcommon')
+
+ctx.program(target='ztst-qps-bitmap-bench', features="c cprogram",
+            source='ztst-qps-bitmap-bench.c', use="libcommon")

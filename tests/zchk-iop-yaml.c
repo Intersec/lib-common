@@ -127,24 +127,41 @@ static int iop_yaml_test_pack(const iop_struct_t *st, const void *value,
 }
 
 static int
-z_test_json_subfiles_conversion(const iop_json_subfile__array_t *subfiles,
-                                const iop_struct_t *st, const void *value,
-                                const char *yaml_expected)
+z_test_json_subfiles_conversion(
+    const iop_json_subfile__array_t *json_subfiles,
+    const iop_struct_t *st, const void *value,
+    const char *yaml_expected,
+    const char *flat_subfiles_expected)
 {
     t_scope;
+    SB_1k(err);
     yaml__document_presentation__t *pres;
     yaml__document_presentation__t expected_pres;
-    pstream_t ps = ps_initstr(yaml_expected);
-    SB_1k(err);
+    pstream_t ps;
+    qv_t(lstr) expected_subfiles;
+    qv_t(lstr) subfiles;
 
-    pres = t_build_yaml_pres_from_json_subfiles(subfiles, st, value);
+    pres = t_build_yaml_pres_from_json_subfiles(json_subfiles, st, value);
 
     /* parse yaml to get expected pres */
+    ps = ps_initstr(yaml_expected);
     Z_ASSERT_N(t_iop_yunpack_ps(&ps, &yaml__document_presentation__s,
                                 &expected_pres, 0, NULL, &err),
                "cannot unpack: %pL", &err);
-
     Z_ASSERT_IOPEQUAL(yaml__document_presentation, pres, &expected_pres);
+
+    /* Get flat subfiles from pres and compare with expected */
+    ps = ps_initstr(flat_subfiles_expected);
+    t_qv_init(&expected_subfiles, 0);
+    ps_get_csv_line(t_pool(), &ps, ';', -1, &expected_subfiles, NULL);
+
+    t_qv_init(&subfiles, 0);
+    t_yaml_pres_get_flat_subfiles(pres, &subfiles);
+
+    Z_ASSERT_EQ(subfiles.len, expected_subfiles.len);
+    for (int i = 0; i < subfiles.len; i++) {
+        Z_ASSERT_LSTREQUAL(subfiles.tab[i], expected_subfiles.tab[i]);
+    }
 
     Z_HELPER_END;
 }
@@ -1095,7 +1112,8 @@ Z_GROUP_EXPORT(iop_yaml)
             "      included: { path: a.yml, raw: false }\n"
             "  - path: .b!\n"
             "    node:\n"
-            "      included: { path: b.yml, raw: false }"
+            "      included: { path: b.yml, raw: false }",
+            "a.yml;b.yml"
         ));
 
         subfiles = T_IOP_ARRAY(iop_json_subfile, {
@@ -1159,7 +1177,9 @@ Z_GROUP_EXPORT(iop_yaml)
             "          mappings:\n"
             "            - path: .f!\n"
             "              node:\n"
-            "                included: { path: f/7.yml, raw: false }"
+            "                included: { path: f/7.yml, raw: false }",
+            "a/1.yml;a/d/2.yml;a/d/a/3.yml;a/d/4.yml;a/5.json.yml;6.yml;"
+            "f/7.yml"
         ));
 
         /* Test detection of raw includes */
@@ -1220,7 +1240,8 @@ Z_GROUP_EXPORT(iop_yaml)
             "                included: { path: 4.py, raw: true }\n"
             "  - path: .xml!\n"
             "    node:\n"
-            "      included: { path: doc.xml, raw: true }\n"
+            "      included: { path: doc.xml, raw: true }\n",
+            "key.pem.enc;enum.yml;1.yml;2.py;5.toto;3.yml;4.py;doc.xml"
         ));
 
         /* Test path through a class using child fields */
@@ -1236,7 +1257,8 @@ Z_GROUP_EXPORT(iop_yaml)
             "mappings:\n"
             "  - path: .o.s!\n"
             "    node:\n"
-            "      included: { path: os.yml, raw: false }\n"
+            "      included: { path: os.yml, raw: false }\n",
+            "os.yml"
         ));
 
         /* Value provided: string is detected */
@@ -1249,7 +1271,8 @@ Z_GROUP_EXPORT(iop_yaml)
             "mappings:\n"
             "  - path: .o.s!\n"
             "    node:\n"
-            "      included: { path: os.txt, raw: true }\n"
+            "      included: { path: os.txt, raw: true }\n",
+            "os.txt"
         ));
     } Z_TEST_END
     /* }}} */

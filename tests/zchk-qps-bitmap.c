@@ -46,7 +46,7 @@ Z_GROUP_EXPORT(qps_bitmap) {
         }
 
         count = 0;
-        qps_bitmap_for_each(enumeration, &bitmap) {
+        qps_bitmap_for_each_unsafe(enumeration, &bitmap) {
             Z_ASSERT_EQ(enumeration.key.key, count);
             count++;
         }
@@ -56,11 +56,11 @@ Z_GROUP_EXPORT(qps_bitmap) {
         for (uint32_t i = 0; i < 0x8000; i++) {
             qps_bitmap_key_t key = { .key = 0 };
 
-            qps_bitmap_enumerator_find_word(&en, key);
+            qps_bitmap_enumerator_find_word_nu(&en, key);
             Z_ASSERT_EQ(en.key.key, 0U);
 
             key.key = i;
-            qps_bitmap_enumerator_find_word(&en, key);
+            qps_bitmap_enumerator_find_word_nu(&en, key);
             Z_ASSERT_EQ(en.key.key, i);
         }
 
@@ -88,7 +88,7 @@ Z_GROUP_EXPORT(qps_bitmap) {
             Z_ASSERT_EQ(qps_bitmap_set(&bitmap, i), (uint32_t)QPS_BITMAP_NULL);
         }
 
-        qps_bitmap_enumerator_next(&en);
+        qps_bitmap_enumerator_next(&en, true);
         Z_ASSERT_EQ(en.key.key, 270101u);
 
         qps_bitmap_destroy(&bitmap);
@@ -108,30 +108,50 @@ Z_GROUP_EXPORT(qps_bitmap) {
         for (int i = 1; i < 100; i++) {
             qps_bitmap_set(&bitmap, i);
         }
+        /* Start the enumeration. */
         en = qps_bitmap_get_enumerator_at(&bitmap, 80);
+
+        /* Modify the bitmap. */
         for (int i = 100; i < 1025; i++) {
             qps_bitmap_set(&bitmap, i);
         }
 
+        /* Complete the enumeration. */
         for (uint32_t key = 80; key < 1025; key++) {
-            /* FIXME QPS bitmap enumerator is "safe" for changes that modify
-             * the structure of the bitmap (eg. when the structure generation
-             * "struct_gen" is changed), but not for small changes that keep
-             * the structure untouched.
-             *
-             * We should have a "safe" version of
-             * 'qps_bitmap_enumerator_next[_nn]() that would cope with those
-             * small changes.
-             */
-            if (key == 100) {
-                key = 128;
-            }
-
             Z_ASSERT(!en.end);
             Z_ASSERT_EQ(en.key.key, key);
-            qps_bitmap_enumerator_next_nn(&en);
+            qps_bitmap_enumerator_next_nn(&en, true);
         }
         Z_ASSERT(en.end);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(remove_current_row, "") { /* {{{ */
+        bool is_nullable_v[] = { false, true };
+
+        Z_TEST_FLAGS("redmine_83666");
+
+        carray_for_each_entry(is_nullable, is_nullable_v) {
+            qps_handle_t hbitmap;
+            qps_bitmap_t bitmap;
+            qps_bitmap_enumerator_t en;
+
+            hbitmap = qps_bitmap_create(qps, is_nullable);
+            qps_bitmap_init(&bitmap, qps, hbitmap);
+
+            for (int i = 1; i < 100; i++) {
+                qps_bitmap_set(&bitmap, i);
+            }
+            en = qps_bitmap_get_enumerator_at(&bitmap, 50);
+            Z_ASSERT_EQ(en.key.key, 50u);
+            if (is_nullable) {
+                qps_bitmap_remove(&bitmap, 50);
+            } else {
+                qps_bitmap_reset(&bitmap, 50);
+            }
+            qps_bitmap_enumerator_next(&en, true);
+            Z_ASSERT_EQ(en.key.key, 51u);
+        }
     } Z_TEST_END;
 
     /* }}} */

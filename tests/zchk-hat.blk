@@ -656,23 +656,19 @@ Z_GROUP_EXPORT(qps_hat) {
         htrie = qhat_create(qps, 4, true);
         qhat_init(&trie, qps, htrie);
 
+        /* Start the enumeration. */
         for (int i = 1; i < 50; i++) {
             *(uint32_t *)qhat_set(&trie, i) = i;
         }
+
+        /* Modify the qhat. */
         en = qhat_get_enumerator_at(&trie, 40);
         for (int i = 50; i < 100; i++) {
             *(uint32_t *)qhat_set(&trie, i) = i;
         }
 
+        /* Complete the enumeration. */
         for (uint32_t key = 40; key < 100; key++) {
-            /* FIXME The key goes directly from 49 to 64 but all the bits
-             * between those two keys were supposed to be set. It means that
-             * the QPS bitmap enumerator isn't "safe". As a consequence, the
-             * QPS hat enumerator for nullable entries isn't "safe" either,
-             * even when the "safe" parameter is used. */
-            if (key == 50) {
-                key = 64;
-            }
             Z_ASSERT(!en.end);
             Z_ASSERT_EQ(en.key, key);
             qhat_enumerator_next(&en, true);

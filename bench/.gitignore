@@ -5,3 +5,4 @@
 /qpsstress
 /threaded-operations-bench
 /container-bench
+/ztst-qps-bitmap-bench

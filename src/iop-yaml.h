@@ -169,7 +169,7 @@ t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
                    const void * nonnull value, yaml_data_t * nonnull data);
 
 /* }}} */
-/* {{{ JSON interfacing */
+/* {{{ Various helpers */
 
 /** Convert JSON subfiles to a YAML document presentation.
  *
@@ -188,6 +188,17 @@ t_build_yaml_pres_from_json_subfiles(
     const iop_struct_t * nullable st,
     const void * nullable value
 );
+
+/** Extract the list of subfiles from a YAML presentation.
+ *
+ * This helper can be used to get the list of subfiles inclused in a YAML
+ * document presentation, relative to the main YAML file.
+ *
+ * \param[in]  pres      The YAML presentation.
+ * \param[out] subfiles  The list of subfiles.
+ */
+void t_yaml_pres_get_flat_subfiles(const yaml__document_presentation__t *pres,
+                                   qv_t(lstr) *subfiles);
 
 /* }}} */
 
