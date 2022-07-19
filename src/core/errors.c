@@ -115,12 +115,17 @@ static void ps_print_file(const char *path, const char *fmt, ...)
 
 void ps_write_backtrace(int signum, bool allow_fork)
 {
+    const char *debug_dir = getenv("IS_DEBUG_FILES_DIR");
     char  path[PATH_MAX];
     int   fd;
     int   saved_errno = errno;
 
-    snprintf(path, sizeof(path), "/tmp/%s.%d.%ld.debug",
-             program_invocation_short_name, (uint32_t)time(NULL),
+    if (!debug_dir || !*debug_dir) {
+        debug_dir = "/tmp";
+    }
+
+    snprintf(path, sizeof(path), "%s/%s.%d.%ld.debug",
+             debug_dir, program_invocation_short_name, (uint32_t)time(NULL),
              (long)getpid());
     fd = open(path, O_EXCL | O_CREAT | O_WRONLY | O_TRUNC, 0600);
 
