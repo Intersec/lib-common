@@ -45,12 +45,25 @@ static void iopc_pystub_dump_py_mod_name(sb_t *buf, const iopc_path_t *path)
 
 static void iopc_pystup_dump_fold_begin(sb_t *buf, const char *fold_name)
 {
-    sb_addf(buf, "# {""{{ %s\n\n\n", fold_name);
+    sb_addf(buf, "# {""{{ %s\n", fold_name);
+}
+
+static void iopc_pystup_dump_fold_begin_extra(sb_t *buf,
+                                              const char *fold_name)
+{
+    iopc_pystup_dump_fold_begin(buf, fold_name);
+    sb_adds(buf, "\n\n");
 }
 
 static void iopc_pystup_dump_fold_end(sb_t *buf)
 {
-    sb_adds(buf, "\n\n# }""}}\n");
+    sb_adds(buf, "# }""}}\n");
+}
+
+static void iopc_pystup_dump_fold_end_extra(sb_t *buf)
+{
+    sb_adds(buf, "\n\n");
+    iopc_pystup_dump_fold_end(buf);
 }
 
 static void t_iopc_pystub_dump_import(sb_t *buf, const iopc_pkg_t *dep,
@@ -101,7 +114,7 @@ static void iopc_pystub_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
 
 static void iopc_pystub_dump_package_member(sb_t *buf, const iopc_pkg_t *pkg,
                                             const iopc_pkg_t *member_pkg,
-                                            iopc_path_t *member_path,
+                                            const iopc_path_t *member_path,
                                             const char *member_name)
 {
     if (pkg != member_pkg) {
@@ -115,7 +128,7 @@ static void iopc_pystub_dump_package_member(sb_t *buf, const iopc_pkg_t *pkg,
 static void iopc_pystub_dump_enum(sb_t *buf, const iopc_pkg_t *pkg,
                                   const iopc_enum_t *en)
 {
-    iopc_pystup_dump_fold_begin(buf, en->name);
+    iopc_pystup_dump_fold_begin_extra(buf, en->name);
 
     sb_adds(buf, "@typing.type_check_only\n");
     sb_addf(buf, "class %s(iopy.Enum):\n", en->name);
@@ -124,7 +137,7 @@ static void iopc_pystub_dump_enum(sb_t *buf, const iopc_pkg_t *pkg,
     sb_addf(buf, "\n\n%s_Param = typing.Union[%s, int, str]\n",
             en->name, en->name);
 
-    iopc_pystup_dump_fold_end(buf);
+    iopc_pystup_dump_fold_end_extra(buf);
 }
 
 static void iopc_pystub_dump_enums(sb_t *buf, const iopc_pkg_t *pkg)
@@ -135,8 +148,8 @@ static void iopc_pystub_dump_enums(sb_t *buf, const iopc_pkg_t *pkg)
 }
 
 static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
-                                             const iopc_field_t *field,
-                                             const char * nullable suffix)
+                                            const iopc_field_t *field,
+                                            const char * nullable suffix)
 {
     switch (field->kind) {
     case IOP_T_I8:
@@ -216,14 +229,11 @@ static void iopc_pystub_dump_field(sb_t *buf, const iopc_pkg_t *pkg,
     }
 }
 
-static void iopc_pystub_dump_struct(sb_t *buf, const iopc_pkg_t *pkg,
-                                    iopc_struct_t *st, const char *st_name)
+static void
+iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
+                               const iopc_struct_t *st, const char *st_name)
 {
-    if (!st_name) {
-        st_name = st->name;
-    }
-
-    iopc_pystup_dump_fold_begin(buf, st_name);
+    assert(st_name);
 
     sb_adds(buf, "@typing.type_check_only\n");
     sb_addf(buf, "class %s(", st_name);
@@ -247,18 +257,24 @@ static void iopc_pystub_dump_struct(sb_t *buf, const iopc_pkg_t *pkg,
     } else {
         sb_adds(buf, "    pass\n");
     }
+}
 
-    iopc_pystup_dump_fold_end(buf);
+static void iopc_pystub_dump_struct(sb_t *buf, const iopc_pkg_t *pkg,
+                                    const iopc_struct_t *st)
+{
+    const char *st_name = st->name;
+
+    iopc_pystup_dump_fold_begin_extra(buf, st_name);
+    iopc_pystub_dump_struct_intern(buf, pkg, st, st_name);
+    iopc_pystup_dump_fold_end_extra(buf);
 }
 
 static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
-                                   iopc_struct_t *st, const char *st_name)
+                                   const iopc_struct_t *st)
 {
-    if (!st_name) {
-        st_name = st->name;
-    }
+    const char *st_name = st->name;
 
-    iopc_pystup_dump_fold_begin(buf, st_name);
+    iopc_pystup_dump_fold_begin_extra(buf, st_name);
 
     sb_adds(buf, "@typing.type_check_only\n");
     sb_addf(buf, "class %s(iopy.Union):\n", st_name);
@@ -273,23 +289,23 @@ static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
         sb_adds(buf, "    pass\n");
     }
 
-    iopc_pystup_dump_fold_end(buf);
+    iopc_pystup_dump_fold_end_extra(buf);
 }
 
-static void iopc_pystub_dump_structs(sb_t *buf, iopc_pkg_t *pkg)
+static void iopc_pystub_dump_structs(sb_t *buf, const iopc_pkg_t *pkg)
 {
     tab_for_each_entry(st, &pkg->structs) {
         switch (st->type) {
-          case STRUCT_TYPE_STRUCT:
-          case STRUCT_TYPE_CLASS:
-            iopc_pystub_dump_struct(buf, pkg, st, NULL);
+        case STRUCT_TYPE_STRUCT:
+        case STRUCT_TYPE_CLASS:
+            iopc_pystub_dump_struct(buf, pkg, st);
             break;
 
-          case STRUCT_TYPE_UNION:
-            iopc_pystub_dump_union(buf, pkg, st, NULL);
+        case STRUCT_TYPE_UNION:
+            iopc_pystub_dump_union(buf, pkg, st);
             break;
 
-          default:
+        default:
             break;
         }
     }
@@ -297,94 +313,88 @@ static void iopc_pystub_dump_structs(sb_t *buf, iopc_pkg_t *pkg)
 
 static void
 iopc_pystub_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
+                                const iopc_iface_t *iface,
                                 const iopc_fun_t *rpc, const char *type,
                                 const iopc_fun_struct_t *fun_st)
 {
+    t_scope;
+    const char *st_name = t_fmt("%s_%s_%s", iface->name, rpc->name, type);
+
     if (iopc_fun_struct_is_void(fun_st)) {
-        sb_addf(buf, "        export type %s%s = void;\n", rpc->name, type);
+        sb_addf(buf, "%s = iopy.Void\n", st_name);
+    } else if (fun_st->is_anonymous) {
+        iopc_pystub_dump_struct_intern(buf, pkg, fun_st->anonymous_struct,
+                                       st_name);
+        sb_adds(buf, "\n\n");
     } else {
-        if (fun_st->is_anonymous) {
-            iopc_pystub_dump_struct(buf, pkg, fun_st->anonymous_struct,
-                                    t_fmt("%s%s", rpc->name, type));
-        } else {
-            sb_addf(buf, "        export type %s%s = ", rpc->name, type);
-            iopc_pystub_dump_field_basetype(buf, pkg,
-                                            fun_st->existing_struct, NULL);
-            sb_adds(buf, ";\n");
-        }
+        sb_addf(buf, "%s = ", st_name);
+        iopc_pystub_dump_field_basetype(buf, pkg, fun_st->existing_struct,
+                                        NULL);
+        sb_adds(buf, "\n");
     }
 }
 
 static void iopc_pystub_dump_rpc(sb_t *buf, const iopc_pkg_t *pkg,
+                                 const iopc_iface_t *iface,
                                  const iopc_fun_t *rpc)
 {
     t_scope;
+    const char *rpc_name = t_fmt("%s_%s", iface->name, rpc->name);
 
-    iopc_pystub_dump_rpc_fun_struct(buf, pkg, rpc, "Args", &rpc->arg);
-    iopc_pystub_dump_rpc_fun_struct(buf, pkg, rpc, "Res", &rpc->res);
-    iopc_pystub_dump_rpc_fun_struct(buf, pkg, rpc, "Exn", &rpc->exn);
+    iopc_pystup_dump_fold_begin_extra(buf, rpc_name);
 
-    sb_addf(buf, "        export type %s = (", rpc->name);
-    if (!iopc_fun_struct_is_void(&rpc->arg)) {
-        if (rpc->arg.is_anonymous) {
-            bool first = true;
+    iopc_pystub_dump_rpc_fun_struct(buf, pkg, iface, rpc, "Arg", &rpc->arg);
+    iopc_pystub_dump_rpc_fun_struct(buf, pkg, iface, rpc, "Res", &rpc->res);
+    iopc_pystub_dump_rpc_fun_struct(buf, pkg, iface, rpc, "Exn", &rpc->exn);
 
-            tab_for_each_entry(field, &rpc->arg.anonymous_struct->fields) {
-                if (!first) {
-                    sb_adds(buf, ", ");
-                }
-                iopc_pystub_dump_field(buf, pkg, field);
-                first = false;
-            }
-        } else {
-            sb_adds(buf, "arg: ");
-            iopc_pystub_dump_field_basetype(buf, pkg,
-                                             rpc->arg.existing_struct,
-                                             NULL);
-        }
-    }
-    sb_adds(buf, ") => ");
 
-    if (rpc->fun_is_async) {
-        sb_adds(buf, "void");
-    } else
-    if (!iopc_fun_struct_is_void(&rpc->res)) {
-        sb_addf(buf, "Promise<%sRes>", rpc->name);
-    } else {
-        sb_adds(buf, "Promise<void>");
-    }
+    sb_adds(buf, "\n\n");
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_addf(buf, "class %s_RPC(iopy.RPC):\n", rpc_name);
+    sb_addf(buf, "    Arg = %s_Arg\n", rpc_name);
+    sb_addf(buf, "    Res = %s_Res\n", rpc_name);
+    sb_addf(buf, "    Exn = %s_Exn\n", rpc_name);
 
-    sb_adds(buf, ";\n\n");
+    iopc_pystup_dump_fold_end_extra(buf);
 }
 
 static void iopc_pystub_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
-                                   iopc_iface_t *iface)
+                                   const iopc_iface_t *iface)
 {
-    sb_addf(buf, "    export namespace %s {\n", iface->name);
+    iopc_pystup_dump_fold_begin(buf, iface->name);
 
     tab_for_each_entry(rpc, &iface->funs) {
-        iopc_pystub_dump_rpc(buf, pkg, rpc);
+        iopc_pystub_dump_rpc(buf, pkg, iface, rpc);
     }
 
-    sb_addf(buf, "    }\n");
+    sb_adds(buf, "\n\n");
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_addf(buf, "class %s_Iface(iopy.Iface):\n", iface->name);
+    if (iface->funs.len) {
+        tab_for_each_entry(rpc, &iface->funs) {
+            sb_addf(buf, "    %s = %s_%s_RPC\n", rpc->name, iface->name,
+                    rpc->name);
+        }
+    } else {
+        sb_adds(buf, "    pass\n");
+    }
+    sb_adds(buf, "\n\n");
+
+    iopc_pystup_dump_fold_end(buf);
 }
 
-static void iopc_pystub_dump_ifaces(sb_t *buf, iopc_pkg_t *pkg)
+static void iopc_pystub_dump_ifaces(sb_t *buf, const iopc_pkg_t *pkg)
 {
-    sb_adds(buf, "\nexport namespace interfaces {\n");
-
     tab_for_each_entry(iface, &pkg->ifaces) {
         switch (iface->type) {
-          case IFACE_TYPE_IFACE:
+        case IFACE_TYPE_IFACE:
             iopc_pystub_dump_iface(buf, pkg, iface);
             break;
 
-          default:
+        default:
             break;
         }
     }
-
-    sb_adds(buf, "}\n");
 }
 
 int iopc_do_pystub(iopc_pkg_t *pkg, const char *outdir)
