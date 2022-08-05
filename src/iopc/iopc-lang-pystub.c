@@ -321,7 +321,7 @@ iopc_pystub_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
     const char *st_name = t_fmt("%s_%s_%s", iface->name, rpc->name, type);
 
     if (iopc_fun_struct_is_void(fun_st)) {
-        sb_addf(buf, "%s = iopy.Void\n", st_name);
+        sb_addf(buf, "%s = None\n", st_name);
     } else if (fun_st->is_anonymous) {
         iopc_pystub_dump_struct_intern(buf, pkg, fun_st->anonymous_struct,
                                        st_name);
@@ -397,6 +397,39 @@ static void iopc_pystub_dump_ifaces(sb_t *buf, const iopc_pkg_t *pkg)
     }
 }
 
+static void iopc_pystub_dump_module(sb_t *buf, const iopc_pkg_t *pkg,
+                                    const iopc_struct_t *mod)
+{
+    const char *mod_name = mod->name;
+
+    iopc_pystup_dump_fold_begin_extra(buf, mod_name);
+
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_addf(buf, "class %s_Module(iopy.Module):\n", mod_name);
+
+    if (mod->fields.len) {
+        tab_for_each_entry(field, &mod->fields) {
+            sb_addf(buf, "    %s = ", field->name);
+            iopc_pystub_dump_package_member(buf, pkg, field->type_pkg,
+                                            field->type_path,
+                                            field->type_name);
+            sb_adds(buf, "_Iface\n");
+        }
+    } else {
+        sb_adds(buf, "    pass\n");
+    }
+
+
+    iopc_pystup_dump_fold_end_extra(buf);
+}
+
+static void iopc_pystub_dump_modules(sb_t *buf, const iopc_pkg_t *pkg)
+{
+    tab_for_each_entry(mod, &pkg->modules) {
+        iopc_pystub_dump_module(buf, pkg, mod);
+    }
+}
+
 int iopc_do_pystub(iopc_pkg_t *pkg, const char *outdir)
 {
     SB_1k(py_mod);
@@ -417,6 +450,7 @@ int iopc_do_pystub(iopc_pkg_t *pkg, const char *outdir)
     iopc_pystub_dump_enums(&buf, pkg);
     iopc_pystub_dump_structs(&buf, pkg);
     iopc_pystub_dump_ifaces(&buf, pkg);
+    iopc_pystub_dump_modules(&buf, pkg);
 
     return iopc_write_file(&buf, path);
 }
