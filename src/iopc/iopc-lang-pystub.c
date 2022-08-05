@@ -60,7 +60,7 @@ static void t_iopc_pystub_dump_import(sb_t *buf, const iopc_pkg_t *dep,
     lstr_t pkg_name;
     uint32_t pos;
 
-    iopc_pystub_dump_pkg_name(&py_mod, dep->name);
+    iopc_pystub_dump_py_mod_name(&py_mod, dep->name);
     pkg_name = LSTR_SB_V(&py_mod);
 
     pos = qh_put(lstr, imported, &pkg_name, 0);
@@ -106,7 +106,7 @@ static void iopc_pystub_dump_package_member(sb_t *buf, const iopc_pkg_t *pkg,
 {
     if (pkg != member_pkg) {
         assert(member_path->bits.len);
-        iopc_pystub_dump_pkg_name(buf, member_path);
+        iopc_pystub_dump_py_mod_name(buf, member_path);
         sb_addc(buf, '.');
     }
     sb_adds(buf, member_name);
