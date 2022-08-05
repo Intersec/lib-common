@@ -43,15 +43,14 @@ static void iopc_pystub_dump_py_mod_name(sb_t *buf, const iopc_path_t *path)
     sb_adds(buf, "__iop");
 }
 
-static void iopc_pystup_dump_fold_begin(sb_t *buf, const char *indent,
-                                        const char *fold_name)
+static void iopc_pystup_dump_fold_begin(sb_t *buf, const char *fold_name)
 {
-    sb_addf(buf, "#%s {""{{ %s\n\n\n", indent, fold_name);
+    sb_addf(buf, "# {""{{ %s\n\n\n", fold_name);
 }
 
-static void iopc_pystup_dump_fold_end(sb_t *buf, const char *indent)
+static void iopc_pystup_dump_fold_end(sb_t *buf)
 {
-    sb_addf(buf, "\n\n#%s }""}}\n", indent);
+    sb_adds(buf, "\n\n# }""}}\n");
 }
 
 static void t_iopc_pystub_dump_import(sb_t *buf, const iopc_pkg_t *dep,
@@ -113,26 +112,25 @@ static void iopc_pystub_dump_package_member(sb_t *buf, const iopc_pkg_t *pkg,
     sb_adds(buf, member_name);
 }
 
-static void iopc_pystub_dump_enum(sb_t *buf, const char *indent,
-                                  const iopc_pkg_t *pkg,
+static void iopc_pystub_dump_enum(sb_t *buf, const iopc_pkg_t *pkg,
                                   const iopc_enum_t *en)
 {
-    iopc_pystup_dump_fold_begin(buf, indent, en->name);
+    iopc_pystup_dump_fold_begin(buf, en->name);
 
-    sb_addf(buf, "%s@typing.type_check_only\n", indent);
-    sb_addf(buf, "%sclass %s(iopy.Enum):\n", indent, en->name);
-    sb_addf(buf, "%s    pass\n", indent);
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_addf(buf, "class %s(iopy.Enum):\n", en->name);
+    sb_adds(buf, "    pass\n");
 
-    sb_addf(buf, "\n\n%s%s_Param = typing.Union[%s, int, str]\n", indent,
+    sb_addf(buf, "\n\n%s_Param = typing.Union[%s, int, str]\n",
             en->name, en->name);
 
-    iopc_pystup_dump_fold_end(buf, indent);
+    iopc_pystup_dump_fold_end(buf);
 }
 
 static void iopc_pystub_dump_enums(sb_t *buf, const iopc_pkg_t *pkg)
 {
     tab_for_each_entry(en, &pkg->enums) {
-        iopc_pystub_dump_enum(buf, "", pkg, en);
+        iopc_pystub_dump_enum(buf, pkg, en);
     }
 }
 
@@ -218,18 +216,17 @@ static void iopc_pystub_dump_field(sb_t *buf, const iopc_pkg_t *pkg,
     }
 }
 
-static void iopc_pystub_dump_struct(sb_t *buf, const char *indent,
-                                    const iopc_pkg_t *pkg, iopc_struct_t *st,
-                                    const char *st_name)
+static void iopc_pystub_dump_struct(sb_t *buf, const iopc_pkg_t *pkg,
+                                    iopc_struct_t *st, const char *st_name)
 {
     if (!st_name) {
         st_name = st->name;
     }
 
-    iopc_pystup_dump_fold_begin(buf, indent, st->name);
+    iopc_pystup_dump_fold_begin(buf, st_name);
 
-    sb_addf(buf, "%s@typing.type_check_only\n", indent);
-    sb_addf(buf, "%sclass %s(", indent, st_name);
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_addf(buf, "class %s(", st_name);
     if (iopc_is_class(st->type) && st->extends.len) {
         const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
         const iopc_struct_t *parent = st->extends.tab[0]->st;
@@ -243,41 +240,40 @@ static void iopc_pystub_dump_struct(sb_t *buf, const char *indent,
 
     if (st->fields.len) {
         tab_for_each_entry(field, &st->fields) {
-            sb_addf(buf, "%s    ", indent);
+            sb_adds(buf, "    ");
             iopc_pystub_dump_field(buf, pkg, field);
             sb_adds(buf, "\n");
         }
     } else {
-        sb_addf(buf, "%s    pass\n", indent);
+        sb_adds(buf, "    pass\n");
     }
 
-    iopc_pystup_dump_fold_end(buf, indent);
+    iopc_pystup_dump_fold_end(buf);
 }
 
-static void iopc_pystub_dump_union(sb_t *buf, const char *indent,
-                                   const iopc_pkg_t *pkg, iopc_struct_t *st,
-                                   const char *st_name)
+static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
+                                   iopc_struct_t *st, const char *st_name)
 {
     if (!st_name) {
         st_name = st->name;
     }
 
-    iopc_pystup_dump_fold_begin(buf, indent, st->name);
+    iopc_pystup_dump_fold_begin(buf, st_name);
 
-    sb_addf(buf, "%s@typing.type_check_only\n", indent);
-    sb_addf(buf, "%sclass %s(iopy.Union):\n", indent, st_name);
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_addf(buf, "class %s(iopy.Union):\n", st_name);
 
     if (st->fields.len) {
         tab_for_each_entry(field, &st->fields) {
-            sb_addf(buf, "%s    ", indent);
+            sb_adds(buf, "    ");
             iopc_pystub_dump_field(buf, pkg, field);
             sb_adds(buf, "\n");
         }
     } else {
-        sb_addf(buf, "%s    pass\n", indent);
+        sb_adds(buf, "    pass\n");
     }
 
-    iopc_pystup_dump_fold_end(buf, indent);
+    iopc_pystup_dump_fold_end(buf);
 }
 
 static void iopc_pystub_dump_structs(sb_t *buf, iopc_pkg_t *pkg)
@@ -286,11 +282,11 @@ static void iopc_pystub_dump_structs(sb_t *buf, iopc_pkg_t *pkg)
         switch (st->type) {
           case STRUCT_TYPE_STRUCT:
           case STRUCT_TYPE_CLASS:
-            iopc_pystub_dump_struct(buf, "", pkg, st, NULL);
+            iopc_pystub_dump_struct(buf, pkg, st, NULL);
             break;
 
           case STRUCT_TYPE_UNION:
-            iopc_pystub_dump_union(buf, "", pkg, st, NULL);
+            iopc_pystub_dump_union(buf, pkg, st, NULL);
             break;
 
           default:
@@ -308,13 +304,12 @@ iopc_pystub_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
         sb_addf(buf, "        export type %s%s = void;\n", rpc->name, type);
     } else {
         if (fun_st->is_anonymous) {
-            iopc_pystub_dump_struct(buf, "        ", pkg,
-                                     fun_st->anonymous_struct,
-                                     t_fmt("%s%s", rpc->name, type));
+            iopc_pystub_dump_struct(buf, pkg, fun_st->anonymous_struct,
+                                    t_fmt("%s%s", rpc->name, type));
         } else {
             sb_addf(buf, "        export type %s%s = ", rpc->name, type);
             iopc_pystub_dump_field_basetype(buf, pkg,
-                                             fun_st->existing_struct, NULL);
+                                            fun_st->existing_struct, NULL);
             sb_adds(buf, ";\n");
         }
     }
