@@ -225,6 +225,28 @@ static inline int addr_resolve(const char * nonnull what, const lstr_t s,
     return 0;
 }
 
+/**
+ * \brief Resolve an address to be used as source.
+ *
+ * A source address is likely to set the port to 0 to let the system randomly
+ * select an available port.
+ *
+ * This function behaves like \fn addr_resolve() but sets the minport to 0 to
+ * not force a non null port.
+ */
+static inline int
+addr_source_resolve(const char * nonnull what, const lstr_t s,
+                    sockunion_t * nonnull out, sb_t * nullable err)
+{
+    pstream_t host;
+    in_port_t port;
+
+    if (addr_resolve2(what, s, 0, -1, out, &host, &port, err) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
 #define HTTP_URL_CREDS_SIZE  128
 #define HTTP_URL_HOST_SIZE   128
 #define HTTP_URL_PATH_SIZE   512

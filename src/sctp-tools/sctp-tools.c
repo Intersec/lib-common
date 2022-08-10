@@ -570,6 +570,7 @@ sctp_conn_t *sctp_connect(qv_t(lstr) source_addrs, qv_t(lstr) dest_addrs,
     int               fd;
     int               id = -1;
     qv_t(sctp_su)     sus;
+    SB_1k(errbuf);
 
     assert(on_connect_cb);
     assert(on_data_cb);
@@ -586,7 +587,8 @@ sctp_conn_t *sctp_connect(qv_t(lstr) source_addrs, qv_t(lstr) dest_addrs,
         tab_for_each_entry(addr, &source_addrs) {
             sockunion_t su;
 
-            if (addr_resolve("sourceAddrs", addr, &su) < 0) {
+            if (addr_source_resolve("sourceAddrs", addr, &su, &errbuf) < 0) {
+                logger_error(logger, "%*pM", SB_FMT_ARG(&errbuf));
                 close(fd);
                 return NULL;
             }
