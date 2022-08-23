@@ -872,8 +872,11 @@ qhm_k64_t(test_qh_64, 16, uint32_t);
 
 qhh_kptr_ckey_t(test_str, 16, char, qhhash_str_hash, qhhash_str_equal);
 
-qhm_kvec_t(test_lstr, 16, lstr_t, uint32_t, qhhash_lstr_hash, qhhash_lstr_equal);
-qhm_kptr_t(test_ptr,  16, void,   uint32_t, qhhash_hash_ptr,  qhhash_ptr_equal);
+qhh_kvec_t(test_lstr, 16, lstr_t, qhhash_lstr_hash, qhhash_lstr_equal);
+qhm_kvec_t(test_lstr, 16, lstr_t, uint32_t, qhhash_lstr_hash,
+           qhhash_lstr_equal);
+qhm_kptr_t(test_ptr,  16, void,   uint32_t, qhhash_hash_ptr,
+           qhhash_ptr_equal);
 
 Z_GROUP_EXPORT(qhugehash)
 {
@@ -1129,6 +1132,47 @@ Z_GROUP_EXPORT(qhugehash)
         qhh_wipe(test, &qhh);
         qh_delete(u32, &seen);
     } Z_TEST_END
+
+    Z_TEST(alloc_helpers, "qhhash: check mp_qh[hm]_new() helpers") {
+        t_scope;
+        qhh_t(test) *qhh;
+        qhm_t(test) *qhm;
+        qhh_t(test_lstr) *qhh_lstr;
+        qhm_t(test_lstr) *qhm_lstr;
+        lstr_t key;
+
+        r_newframe();
+
+        qhh = t_qhh_new(test, 42);
+        Z_ASSERT_P(qhh);
+        qhm = t_qhm_new(test, 42);
+        Z_ASSERT_P(qhm);
+
+        qhh = r_qhh_new(test, 42);
+        Z_ASSERT_P(qhh);
+        qhm = r_qhm_new(test, 42);
+        Z_ASSERT_P(qhm);
+
+        qhh = qhh_new(test, 42);
+        Z_ASSERT_P(qhh);
+        qhh_delete(test, &qhh);
+        qhm = qhm_new(test, 42);
+        Z_ASSERT_P(qhm);
+        qhm_delete(test, &qhm);
+
+        qhh_lstr = qhh_new(test_lstr, 42);
+        key = lstr_fmt("toto");
+        qhh_add(test_lstr, qhh_lstr, &key);
+        qhh_deep_delete(test_lstr, &qhh_lstr, lstr_wipe);
+
+        qhm_lstr = qhm_new(test_lstr, 42);
+        key = lstr_fmt("toto");
+        qhm_add(test_lstr, qhm_lstr, &key, 84);
+        qhm_deep_delete(test_lstr, &qhm_lstr, lstr_wipe, IGNORE);
+
+        r_release(r_getframe());
+
+    } Z_TEST_END;
 
 } Z_GROUP_END
 

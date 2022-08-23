@@ -115,12 +115,13 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
     } pfx##_t;                                                               \
                                                                              \
     __unused__                                                               \
-    static inline pfx##_t *pfx##_init(pfx##_t *qhh, bool chashes)            \
+    static inline pfx##_t *pfx##_init(pfx##_t *qhh, bool chashes,            \
+                                      mem_pool_t *nullable mp)               \
     {                                                                        \
         p_clear(&qhh->hdr, 1);                                               \
         for (int it = 0; it < countof(qhh->buckets); it++) {                 \
             qhh->buckets[it].pos = it;                                       \
-            hpfx##_init(&qhh->buckets[it].qm, chashes, NULL);                \
+            hpfx##_init(&qhh->buckets[it].qm, chashes, mp);                  \
         }                                                                    \
         return qhh;                                                          \
     }                                                                        \
@@ -496,7 +497,8 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
         qhh_##name##_hash_p(qhh, pos);                                       \
     })
 
-#define qhh_init(name, qhh, chashes)        qhh_##name##_init(qhh, chashes)
+#define qhh_init(name, qhh, chashes)                                         \
+    qhh_##name##_init(qhh, chashes, NULL)
 #define qhh_len(name, qhh)                  qhh_##name##_len(qhh)
 #define qhh_memory_footprint(name, qhh)     qhh_##name##_memory_footprint(qhh)
 #define qhh_hash(name, qhh, key)            qhh_##name##_hash(qhh, key)
@@ -515,6 +517,28 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
 #define qhh_add_h(name, qhh, h, key)        qhh_##name##_add_h(qhh, h, key)
 #define qhh_replace(name, qhh, key)         qhh_##name##_replace(qhh, key)
 #define qhh_replace_h(name, qhh, h, key)    qhh_##name##_replace_h(qhh, h, key)
+
+#define mp_qhh_init(name, mp, qhh, sz)                                       \
+    ({                                                                       \
+        qhh_t(name) *_qhh = (qhh);                                           \
+                                                                             \
+        qhh_##name##_init(_qhh, false, mp);                                  \
+        qhh_set_minsize(name, _qhh, (sz));                                   \
+        _qhh;                                                                \
+    })
+#define t_qhh_init(name, qhh, sz) mp_qhh_init(name, t_pool(), (qhh), (sz))
+#define r_qhh_init(name, qhh, sz) mp_qhh_init(name, r_pool(), (qhh), (sz))
+
+#define mp_qhh_new(name, mp, sz)                                             \
+    ({                                                                       \
+        mem_pool_t *__mp = (mp);                                             \
+                                                                             \
+        mp_qhh_init(name, __mp, mp_new_raw(__mp, qhh_t(name), 1), (sz));     \
+    })
+#define qhh_new(name, sz) mp_qhh_new(name, NULL, (sz))
+#define t_qhh_new(name, sz) mp_qhh_new(name, t_pool(), (sz))
+#define r_qhh_new(name, sz) mp_qhh_new(name, r_pool(), (sz))
+
 
 #define qhh_del_at(name, qhh, pos)                                           \
     ({                                                                       \
@@ -566,6 +590,26 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
         qhh_wipe(name, __h);                                                 \
     } while (0)
 
+#define qhh_delete(name, qhh)                                                \
+    do {                                                                     \
+        qhh_t(name) **__qhh = (qhh);                                         \
+                                                                             \
+        if (*__qhh) {                                                        \
+            qhh_wipe(name, *__qhh);                                          \
+            p_delete(__qhh);                                                 \
+        }                                                                    \
+    } while (0)
+
+#define qhh_deep_delete(name, qhh, kwipe)                                    \
+    do {                                                                     \
+        qhh_t(name) **__qhh = (qhh);                                         \
+                                                                             \
+        if (*__qhh) {                                                        \
+            qhh_deep_wipe(name, *__qhh, kwipe);                              \
+            p_delete(__qhh);                                                 \
+        }                                                                    \
+    } while (0)
+
 /* }}} */
 /* QHM API {{{ */
 
@@ -602,7 +646,8 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
         qhm_##name##_value_p(qhm, pos);                                      \
     })
 
-#define qhm_init(name, qhm, chashes)        qhm_##name##_init(qhm, chashes)
+#define qhm_init(name, qhm, chashes)                                         \
+    qhm_##name##_init(qhm, chashes, NULL)
 #define qhm_len(name, qhm)                  qhm_##name##_len(qhm)
 #define qhm_memory_footprint(name, qhm)     qhm_##name##_memory_footprint(qhm)
 #define qhm_hash(name, qhm, key)            qhm_##name##_hash(qhm, key)
@@ -621,6 +666,27 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
 #define qhm_add_h(name, qhm, h, key, v)     qhm_##name##_add_h(qhm, h, key, v)
 #define qhm_replace(name, qhm, key, v)      qhm_##name##_replace(qhm, key, v)
 #define qhm_replace_h(name, qhm, h, key, v) qhm_##name##_replace_h(qhm, h, key, v)
+
+#define mp_qhm_init(name, mp, qhm, sz)                                       \
+    ({                                                                       \
+        qhm_t(name) *_qhm = (qhm);                                           \
+                                                                             \
+        qhm_##name##_init(_qhm, false, mp);                                  \
+        qhm_set_minsize(name, _qhm, (sz));                                   \
+        _qhm;                                                                \
+    })
+#define t_qhm_init(name, qhm, sz) mp_qhm_init(name, t_pool(), (qhm), (sz))
+#define r_qhm_init(name, qhm, sz) mp_qhm_init(name, r_pool(), (qhm), (sz))
+
+#define mp_qhm_new(name, mp, sz)                                             \
+    ({                                                                       \
+        mem_pool_t *__mp = (mp);                                             \
+                                                                             \
+        mp_qhm_init(name, __mp, mp_new_raw(__mp, qhm_t(name), 1), (sz));     \
+    })
+#define qhm_new(name, sz) mp_qhm_new(name, NULL, (sz))
+#define t_qhm_new(name, sz) mp_qhm_new(name, t_pool(), (sz))
+#define r_qhm_new(name, sz) mp_qhm_new(name, r_pool(), (sz))
 
 #define qhm_del_at(name, qhm, pos)                                           \
     ({                                                                       \
@@ -672,6 +738,26 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
             vwipe(qhm_value_p(name, __h, __pos));                            \
         }                                                                    \
         qhm_wipe(name, __h);                                                 \
+    } while (0)
+
+#define qhm_delete(name, qhm)                                                \
+    do {                                                                     \
+        qhm_t(name) **__qhm = (qhm);                                         \
+                                                                             \
+        if (*__qhm) {                                                        \
+            qhm_wipe(name, *__qhm);                                          \
+            p_delete(__qhm);                                                 \
+        }                                                                    \
+    } while (0)
+
+#define qhm_deep_delete(name, qhm, kwipe, vwipe)                             \
+    do {                                                                     \
+        qhm_t(name) **__qhm = (qhm);                                         \
+                                                                             \
+        if (*__qhm) {                                                        \
+            qhm_deep_wipe(name, *__qhm, kwipe, vwipe);                       \
+            p_delete(__qhm);                                                 \
+        }                                                                    \
     } while (0)
 
 #define qhm_reserve(name, qhm, key, fl)         \
