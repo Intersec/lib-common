@@ -645,6 +645,7 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
         STATIC_ASSERT(sizeof(pos) == sizeof(uint64_t));                      \
         qhm_##name##_value_p(qhm, pos);                                      \
     })
+#define qhm_value(name, qhm, pos) (*qhm_value_p(name, qhm, pos))
 
 #define qhm_init(name, qhm, chashes)                                         \
     qhm_##name##_init(qhm, chashes, NULL)
@@ -687,6 +688,46 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
 #define qhm_new(name, sz) mp_qhm_new(name, NULL, (sz))
 #define t_qhm_new(name, sz) mp_qhm_new(name, t_pool(), (sz))
 #define r_qhm_new(name, sz) mp_qhm_new(name, r_pool(), (sz))
+
+#define _qhm_get_def(name, _qh, _def, _qhm_modifier,                         \
+                     _address_of_operator, _qhm_find, qhm_value_func,        \
+                     ...)                                                    \
+    ({  _qhm_modifier qhm_t(name) *__gqh = (_qh);                            \
+        typeof(_def) __def_type = (_def);                                    \
+        typeof(_address_of_operator __gqh->buckets[0].qm.values[0]) __def =  \
+            __def_type;                                                      \
+        int64_t __ghp_pos = _qhm_find(name, __gqh, ##__VA_ARGS__);           \
+        assert (__def_type == __def && "default value type is incompatible " \
+                "with qhm value type");                                      \
+        __ghp_pos >= 0 ? qhm_value_func(name, __gqh, __ghp_pos)              \
+                       : __def;                                              \
+    })
+
+/** Get the value of the corresponding key in the hash map or the default
+ *  value if the key is not found.
+ */
+#define qhm_get_def(name, _qhm, key, def)                                    \
+    _qhm_get_def(name, (_qhm), (def), , , qhm_find, qhm_value, (key))
+#define qhm_get_def_h(name, _qhm, h, key, def)                               \
+    _qhm_get_def(name, (_qhm), (def), , , qhm_find_h, qhm_value, (h), (key))
+#define qhm_get_def_safe(name, _qhm, key, def)                               \
+    _qhm_get_def(name, (_qhm), (def), const, , qhm_find_safe, qhm_value,     \
+                 (key))
+#define qhm_get_def_safe_h(name, _qhm, h, key, def)                          \
+    _qhm_get_def(name, (_qhm), (def), const, , qhm_find_safe_h, qhm_value,   \
+                 (h), (key))
+
+#define qhm_get_def_p(name, _qhm, key, def)                                  \
+    _qhm_get_def(name, (_qhm), (def), , &, qhm_find, qhm_value_p, (key))
+#define qhm_get_def_p_h(name, _qhm, h, key, def)                             \
+    _qhm_get_def(name, (_qhm), (def), , &, qhm_find_h, qhm_value_p, (h),     \
+                 (key))
+#define qhm_get_def_safe_p(name, _qhm, key, def)                             \
+    _qhm_get_def(name, (_qhm), (def), const, &, qhm_find_safe, qhm_value_p,  \
+                 (key))
+#define qhm_get_def_safe_p_h(name, _qhm, h, key, def)                        \
+    _qhm_get_def(name, (_qhm), (def), const, &, qhm_find_safe_h, qhm_value_p,\
+                 (h), (key))
 
 #define qhm_del_at(name, qhm, pos)                                           \
     ({                                                                       \

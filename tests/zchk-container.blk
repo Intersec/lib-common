@@ -868,6 +868,7 @@ qhh_k32_t(test, 16);
 qhh_k64_t(test_qh_64, 16);
 
 qhm_k32_t(test, 16, uint32_t);
+qhm_k32_t(test_p, 16, uint32_t *);
 qhm_k64_t(test_qh_64, 16, uint32_t);
 
 qhh_kptr_ckey_t(test_str, 16, char, qhhash_str_hash, qhhash_str_equal);
@@ -1172,6 +1173,52 @@ Z_GROUP_EXPORT(qhugehash)
 
         r_release(r_getframe());
 
+    } Z_TEST_END;
+
+    Z_TEST(qm_get_def, "qhh: check qh[hm]_get_def() helpers") {
+        t_scope;
+        qhm_t(test) qhm;
+        qhm_t(test_p) qhm_p;
+        uint32_t key = 42;
+        uint32_t val = 84;
+        uint32_t *pval = &val;
+        uint32_t key_h = qhm_hash(test, &qhm, key);
+
+        t_qhm_init(test, &qhm, 1);
+        qhm_add(test, &qhm, key, val);
+        Z_ASSERT_EQ(qhm_get_def(test, &qhm, 0, 9999U), 9999U);
+        Z_ASSERT_EQ(qhm_get_def(test, &qhm, key, 0U), val);
+        Z_ASSERT_EQ(qhm_get_def_h(test, &qhm, key_h, key, 0U), val);
+        Z_ASSERT_EQ(qhm_get_def_safe(test, &qhm, key, 0U), val);
+        Z_ASSERT_EQ(qhm_get_def_safe_h(test, &qhm, key_h, key, 0U), val);
+
+        Z_ASSERT_NULL(qhm_get_def_p(test, &qhm, 0, NULL));
+        Z_ASSERT_EQ(*qhm_get_def_p(test, &qhm, key, NULL), val);
+        Z_ASSERT_NULL(qhm_get_def_p_h(test, &qhm, 0, 0, NULL));
+        Z_ASSERT_EQ(*qhm_get_def_p_h(test, &qhm, key_h, key, NULL), val);
+        Z_ASSERT_NULL(qhm_get_def_safe_p(test, &qhm, 0, NULL));
+        Z_ASSERT_EQ(*qhm_get_def_safe_p(test, &qhm, key, NULL), val);
+        Z_ASSERT_NULL(qhm_get_def_safe_p_h(test, &qhm, 0, 0, NULL));
+        Z_ASSERT_EQ(*qhm_get_def_safe_p_h(test, &qhm, key_h, key, NULL), val);
+
+        t_qhm_init(test_p, &qhm_p, 1);
+        qhm_add(test_p, &qhm_p, key, &val);
+        Z_ASSERT_NULL(qhm_get_def(test_p, &qhm_p, 0, NULL));
+        Z_ASSERT_EQ(*qhm_get_def(test_p, &qhm_p, key, NULL), val);
+        Z_ASSERT_EQ(*qhm_get_def_h(test_p, &qhm_p, key_h, key, NULL), val);
+        Z_ASSERT_EQ(*qhm_get_def_safe(test_p, &qhm_p, key, NULL), val);
+        Z_ASSERT_EQ(*qhm_get_def_safe_h(test_p, &qhm_p, key_h, key, NULL),
+                    val);
+
+        Z_ASSERT_NULL(qhm_get_def_p(test_p, &qhm_p, 0, NULL));
+        Z_ASSERT(*qhm_get_def_p(test_p, &qhm_p, key, NULL) == pval);
+        Z_ASSERT_NULL(qhm_get_def_p_h(test_p, &qhm_p, 0, 0, NULL));
+        Z_ASSERT(*qhm_get_def_p_h(test_p, &qhm_p, key_h, key, NULL) == pval);
+        Z_ASSERT_NULL(qhm_get_def_safe_p(test_p, &qhm_p, 0, NULL));
+        Z_ASSERT(*qhm_get_def_safe_p(test_p, &qhm_p, key, NULL) == pval);
+        Z_ASSERT_NULL(qhm_get_def_safe_p_h(test_p, &qhm_p, 0, 0, NULL));
+        Z_ASSERT(*qhm_get_def_safe_p_h(test_p, &qhm_p, key_h, key,
+                                       NULL) == pval);
     } Z_TEST_END;
 
 } Z_GROUP_END
