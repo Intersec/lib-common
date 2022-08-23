@@ -65,9 +65,9 @@ def poetry_force_lang_env():
     So we should force it in that case.
     """
     if 'LC_ALL' not in os.environ:
-        os.environ['LC_ALL'] = 'en_US.UTF-8'
+        os.environ['LC_ALL'] = 'C.UTF-8'
     if 'LANG' not in os.environ:
-        os.environ['LANG'] = 'en_US.UTF-8'
+        os.environ['LANG'] = 'C.UTF-8'
 
 
 def run_waf_with_poetry(ctx):
