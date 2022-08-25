@@ -452,6 +452,10 @@ class ChannelBase:
 
 
 class RPCBase:
+    Arg: typing.Optional[typing.Type[StructUnionBase]]
+    Res: typing.Optional[typing.Type[StructUnionBase]]
+    Exn: typing.Optional[typing.Type[StructUnionBase]]
+
     def name(self) -> str: ...
 
     def _async(self) -> bool: ...

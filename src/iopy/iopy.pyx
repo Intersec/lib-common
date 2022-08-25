@@ -7063,6 +7063,51 @@ cdef class RPCBase:
         """RPC initialization is not supported"""
         raise TypeError('RPC initialization is not supported')
 
+    @property
+    def Arg(RPCBase self):
+        """Return the arguments IOPy type.
+
+        Returns
+        -------
+        type
+            The IOPy type for the RPC arguments. None if the RPC has no
+            arguments.
+        """
+        if not self.rpc.args:
+            return None
+        return plugin_get_class_type_st(self.iface_cls.plugin,
+                                        self.rpc.args)
+
+    @property
+    def Res(RPCBase self):
+        """Return the result IOPy type.
+
+        Returns
+        -------
+        type
+            The IOPy type for the RPC results. None if the RPC has no
+            results.
+        """
+        if not self.rpc.result:
+            return None
+        return plugin_get_class_type_st(self.iface_cls.plugin,
+                                        self.rpc.result)
+
+    @property
+    def Exn(RPCBase self):
+        """Return the exception IOPy type.
+
+        Returns
+        -------
+        type
+            The IOPy type for the RPC exception. None if the RPC has no
+            exception.
+        """
+        if not self.rpc.exn:
+            return None
+        return plugin_get_class_type_st(self.iface_cls.plugin,
+                                        self.rpc.exn)
+
     def name(RPCBase self):
         """Get the name of the RPC.
 
@@ -7084,46 +7129,16 @@ cdef class RPCBase:
         return self.rpc.async
 
     def arg(RPCBase self):
-        """Return the arguments IOPy type.
-
-        Returns
-        -------
-        type
-            The IOPy type for the RPC arguments. None if the RPC has no
-            arguments.
-        """
-        if not self.rpc.args:
-            return None
-        return plugin_get_class_type_st(self.iface_cls.plugin,
-                                        self.rpc.args)
+        """Deprecated, use Arg instead."""
+        return self.Arg
 
     def res(RPCBase self):
-        """Return the result IOPy type.
-
-        Returns
-        -------
-        type
-            The IOPy type for the RPC results. None if the RPC has no
-            results.
-        """
-        if not self.rpc.result:
-            return None
-        return plugin_get_class_type_st(self.iface_cls.plugin,
-                                        self.rpc.result)
+        """Deprecated, use Res instead."""
+        return self.Res
 
     def exn(RPCBase self):
-        """Return the exception IOPy type.
-
-        Returns
-        -------
-        type
-            The IOPy type for the RPC exception. None if the RPC has no
-            exception.
-        """
-        if not self.rpc.exn:
-            return None
-        return plugin_get_class_type_st(self.iface_cls.plugin,
-                                        self.rpc.exn)
+        """Deprecated, use Exn instead."""
+        return self.Exn
 
     def desc(RPCBase self):
         """Return a description of the RPC.
