@@ -229,6 +229,26 @@ static void iopc_pystub_dump_field(sb_t *buf, const iopc_pkg_t *pkg,
     }
 }
 
+static void iopc_pystub_dump_unpack_inits(sb_t *buf)
+{
+    sb_adds(buf,
+            "    @typing.overload\n"
+            "    def __init__(cls, *, _json: typing.Union[str, bytes]): ...\n"
+            "\n"
+            "    @typing.overload\n"
+            "    def __init__(cls, *, _yaml: typing.Union[str, bytes]): ...\n"
+            "\n"
+            "    @typing.overload\n"
+            "    def __init__(cls, *, _xml: typing.Union[str, bytes]): ...\n"
+            "\n"
+            "    @typing.overload\n"
+            "    def __init__(cls, *, _hex: typing.Union[str, bytes]): ...\n"
+            "\n"
+            "    @typing.overload\n"
+            "    def __init__(cls, *, _bin: typing.Union[str, bytes]): ...\n"
+    );
+}
+
 static void
 iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
                                const iopc_struct_t *st, const char *st_name)
@@ -254,9 +274,10 @@ iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
             iopc_pystub_dump_field(buf, pkg, field);
             sb_adds(buf, "\n");
         }
-    } else {
-        sb_adds(buf, "    pass\n");
+        sb_adds(buf, "\n");
     }
+
+    iopc_pystub_dump_unpack_inits(buf);
 }
 
 static void iopc_pystub_dump_struct(sb_t *buf, const iopc_pkg_t *pkg,
@@ -285,9 +306,10 @@ static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
             iopc_pystub_dump_field(buf, pkg, field);
             sb_adds(buf, "\n");
         }
-    } else {
-        sb_adds(buf, "    pass\n");
+        sb_adds(buf, "\n");
     }
+
+    iopc_pystub_dump_unpack_inits(buf);
 
     iopc_pystup_dump_fold_end_extra(buf);
 }
