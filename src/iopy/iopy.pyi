@@ -122,52 +122,52 @@ class Enum(EnumBase):
 class StructUnionBase(Basic):
     @typing.overload
     @classmethod
-    def from_file(cls, _json: str,
+    def from_file(cls, *, _json: str,
                   single: bool = True) -> 'StructUnionBase': ...
 
     @typing.overload
     @classmethod
-    def from_file(cls, _yaml: str,
+    def from_file(cls, *, _yaml: str,
                   single: bool = True) -> 'StructUnionBase': ...
 
     @typing.overload
     @classmethod
-    def from_file(cls, _xml: str,
+    def from_file(cls, *, _xml: str,
                   single: bool = True) -> 'StructUnionBase': ...
 
     @typing.overload
     @classmethod
-    def from_file(cls, _hex: str,
+    def from_file(cls, *, _hex: str,
                   single: bool = True) -> 'StructUnionBase': ...
 
     @typing.overload
     @classmethod
-    def from_file(cls, _bin: str,
+    def from_file(cls, *, _bin: str,
                   single: bool = True) -> 'StructUnionBase': ...
 
     @typing.overload
     @classmethod
-    def __from_file__(cls, _json: str,
+    def __from_file__(cls, *, _json: str,
                       single: bool = True) -> 'StructUnionBase': ...
 
     @typing.overload
     @classmethod
-    def __from_file__(cls, _yaml: str,
+    def __from_file__(cls, *, _yaml: str,
                       single: bool = True) -> 'StructUnionBase': ...
 
     @typing.overload
     @classmethod
-    def __from_file__(cls, _xml: str,
+    def __from_file__(cls, *, _xml: str,
                       single: bool = True) -> 'StructUnionBase': ...
 
     @typing.overload
     @classmethod
-    def __from_file__(cls, _hex: str,
+    def __from_file__(cls, *, _hex: str,
                       single: bool = True) -> 'StructUnionBase': ...
 
     @typing.overload
     @classmethod
-    def __from_file__(cls, _bin: str,
+    def __from_file__(cls, *, _bin: str,
                       single: bool = True) -> 'StructUnionBase': ...
 
     def __richcmp__(self, other: object, op: int) -> bool: ...
