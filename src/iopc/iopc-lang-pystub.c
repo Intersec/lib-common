@@ -134,7 +134,7 @@ static void iopc_pystub_dump_enum(sb_t *buf, const iopc_pkg_t *pkg,
     sb_addf(buf, "class %s(iopy.Enum):\n", en->name);
     sb_adds(buf, "    pass\n");
 
-    sb_addf(buf, "\n\n%s_Param = typing.Union[%s, int, str]\n",
+    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s, int, str]\n",
             en->name, en->name);
 
     iopc_pystup_dump_fold_end_extra(buf);
