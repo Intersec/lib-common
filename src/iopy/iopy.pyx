@@ -7108,6 +7108,17 @@ cdef class RPCBase:
         return plugin_get_class_type_st(self.iface_cls.plugin,
                                         self.rpc.exn)
 
+    @property
+    def is_async(self):
+        """Return the RPC asyncness.
+
+        Returns
+        -------
+        bool
+            True if the RPC is asynchronous, False otherwise.
+        """
+        return self.rpc.async
+
     def name(RPCBase self):
         """Get the name of the RPC.
 
@@ -7119,14 +7130,8 @@ cdef class RPCBase:
         return lstr_to_py_str(self.rpc.name)
 
     def async(RPCBase self):
-        """Return the RPC asyncness.
-
-        Returns
-        -------
-        bool
-            True if the RPC is asynchronous, False otherwise.
-        """
-        return self.rpc.async
+        """Deprecated, use is_async instead."""
+        return self.is_async
 
     def arg(RPCBase self):
         """Deprecated, use Arg instead."""
