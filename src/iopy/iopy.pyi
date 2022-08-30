@@ -509,7 +509,7 @@ class Channel(ChannelBase):
                  _workspace_id: typing.Optional[int] = None,
                  _dealias: typing.Optional[bool] = None,
                  _hdr: typing.Optional[StructUnionBase] = None,
-    ): ...
+                ): ...
 
     @typing.overload
     def __init__(self, plugin: 'Plugin', *,
@@ -522,7 +522,7 @@ class Channel(ChannelBase):
                  _workspace_id: typing.Optional[int] = None,
                  _dealias: typing.Optional[bool] = None,
                  _hdr: typing.Optional[StructUnionBase] = None,
-    ): ...
+                ): ...
 
     def connect(self, timeout: typing.Optional[float] = None) -> None: ...
 
@@ -538,7 +538,7 @@ class Channel(ChannelBase):
                            _workspace_id: typing.Optional[int] = None,
                            _dealias: typing.Optional[bool] = None,
                            _hdr: typing.Optional[StructUnionBase] = None,
-    ) -> None: ...
+                          ) -> None: ...
 
     def get_default_hdr(self) -> StructUnionBase: ...
 
@@ -557,7 +557,7 @@ class Channel(ChannelBase):
 
     @on_disconnect.setter
     def on_disconnect(self, value: typing.Optional[ChannelOnDisconnectCb]
-    ) -> None: ...
+                     ) -> None: ...
 
     @on_disconnect.deleter
     def on_disconnect(self) -> None: ...
@@ -577,7 +577,7 @@ class RPC(RPCBase):
              _workspace_id: typing.Optional[int] = None,
              _dealias: typing.Optional[bool] = None,
              _hdr: typing.Optional[StructUnionBase] = None,
-    ) -> typing.Optional[StructUnionBase]: ...
+            ) -> typing.Optional[StructUnionBase]: ...
 
     @typing.overload
     def call(self,
@@ -590,7 +590,7 @@ class RPC(RPCBase):
              _dealias: typing.Optional[bool] = None,
              _hdr: typing.Optional[StructUnionBase] = None,
              **kwargs: object
-    ) -> typing.Optional[StructUnionBase]: ...
+            ) -> typing.Optional[StructUnionBase]: ...
 
     @typing.overload
     def __call__(self, arg_val: object,
@@ -602,7 +602,7 @@ class RPC(RPCBase):
                  _workspace_id: typing.Optional[int] = None,
                  _dealias: typing.Optional[bool] = None,
                  _hdr: typing.Optional[StructUnionBase] = None,
-    ) -> typing.Optional[StructUnionBase]: ...
+                ) -> typing.Optional[StructUnionBase]: ...
 
     @typing.overload
     def __call__(self,
@@ -615,13 +615,13 @@ class RPC(RPCBase):
                  _dealias: typing.Optional[bool] = None,
                  _hdr: typing.Optional[StructUnionBase] = None,
                  **kwargs: object
-    ) -> typing.Optional[StructUnionBase]: ...
+                ) -> typing.Optional[StructUnionBase]: ...
 
 
 class AsyncChannel(Channel):
     def connect(self, # type: ignore[override]
                 timeout: typing.Optional[float] = None,
-    ) -> typing.Awaitable[None]: ...
+               ) -> typing.Awaitable[None]: ...
 
 
 class AsyncRPC(RPCBase):
@@ -638,7 +638,7 @@ class AsyncRPC(RPCBase):
              _workspace_id: typing.Optional[int] = None,
              _dealias: typing.Optional[bool] = None,
              _hdr: typing.Optional[StructUnionBase] = None,
-    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+            ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
     def call(self,
@@ -651,7 +651,7 @@ class AsyncRPC(RPCBase):
              _dealias: typing.Optional[bool] = None,
              _hdr: typing.Optional[StructUnionBase] = None,
              **kwargs: object
-    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+            ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
     def __call__(self, arg_val: object,
@@ -663,7 +663,7 @@ class AsyncRPC(RPCBase):
                  _workspace_id: typing.Optional[int] = None,
                  _dealias: typing.Optional[bool] = None,
                  _hdr: typing.Optional[StructUnionBase] = None,
-    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+                ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
     def __call__(self,
@@ -676,7 +676,7 @@ class AsyncRPC(RPCBase):
                  _dealias: typing.Optional[bool] = None,
                  _hdr: typing.Optional[StructUnionBase] = None,
                  **kwargs: object
-    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+                ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
 
 # }}}
 # {{{ Server RPC
@@ -707,19 +707,19 @@ class ChannelServer(ChannelBase):
 
     @on_connect.setter
     def on_connect(self, value: typing.Optional[ChannelServerOnConnectCb]
-    ) -> None: ...
+                  ) -> None: ...
 
     @on_connect.deleter
     def on_connect(self) -> None: ...
 
     @property
     def on_disconnect(self
-    ) -> typing.Optional[ChannelServerOnDisconnectCb]: ...
+                     ) -> typing.Optional[ChannelServerOnDisconnectCb]: ...
 
     @on_disconnect.setter
     def on_disconnect(self,
                       value: typing.Optional[ChannelServerOnDisconnectCb]
-    ) -> None: ...
+                     ) -> None: ...
 
     @on_disconnect.deleter
     def on_disconnect(self) -> None: ...
@@ -802,10 +802,10 @@ class Plugin:
                                    fullname: str) -> typing.Type[Basic]: ...
 
     def get_iface_type_from_fullname(self, fullname: str
-    ) -> typing.Type[IfaceBase]: ...
+                                    ) -> typing.Type[IfaceBase]: ...
 
     def __get_iface_type_from_fullname__(self, fullname: str
-    ) -> typing.Type[IfaceBase]: ...
+                                        ) -> typing.Type[IfaceBase]: ...
 
     # FIXME: Use Self when mypy supports it.
     def register(self) -> 'Plugin': ...
@@ -830,7 +830,7 @@ class Plugin:
                 _workspace_id: typing.Optional[int] = None,
                 _dealias: typing.Optional[bool] = None,
                 _hdr: typing.Optional[StructUnionBase] = None,
-    ) -> Channel: ...
+               ) -> Channel: ...
 
     @typing.overload
     def connect(self, *, host: str, port: int,
@@ -846,7 +846,7 @@ class Plugin:
                 _workspace_id: typing.Optional[int] = None,
                 _dealias: typing.Optional[bool] = None,
                 _hdr: typing.Optional[StructUnionBase] = None,
-    ) -> Channel: ...
+               ) -> Channel: ...
 
     @typing.overload
     def async_connect(self, plugin: 'Plugin', uri: str, *,
@@ -862,7 +862,7 @@ class Plugin:
                       _workspace_id: typing.Optional[int] = None,
                       _dealias: typing.Optional[bool] = None,
                       _hdr: typing.Optional[StructUnionBase] = None,
-    ) -> typing.Awaitable[AsyncChannel]: ...
+                     ) -> typing.Awaitable[AsyncChannel]: ...
 
     @typing.overload
     def async_connect(self, plugin: 'Plugin', *, host: str, port: int,
@@ -878,10 +878,11 @@ class Plugin:
                       _workspace_id: typing.Optional[int] = None,
                       _dealias: typing.Optional[bool] = None,
                       _hdr: typing.Optional[StructUnionBase] = None,
-    ) -> typing.Awaitable[AsyncChannel]: ...
+                     ) -> typing.Awaitable[AsyncChannel]: ...
 
     def channel_server(self) -> ChannelServer: ...
 
+    # pylint: disable=invalid-name
     def ChannelServer(self) -> ChannelServer: ...
 
     @property
@@ -889,7 +890,7 @@ class Plugin:
 
     @default_pre_hook.setter
     def default_pre_hook(self, value: typing.Optional[IfacePreHookCb]
-    ) -> None: ...
+                        ) -> None: ...
 
     @default_pre_hook.deleter
     def default_pre_hook(self) -> None: ...
@@ -899,7 +900,7 @@ class Plugin:
 
     @default_post_hook.setter
     def default_post_hook(self, value: typing.Optional[IfacePostHookCb]
-    ) -> None: ...
+                         ) -> None: ...
 
     @default_post_hook.deleter
     def default_post_hook(self) -> None: ...
