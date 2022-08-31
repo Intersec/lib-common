@@ -149,7 +149,7 @@ static void iopc_pystub_dump_enums(sb_t *buf, const iopc_pkg_t *pkg)
 
 static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
                                             const iopc_field_t *field,
-                                            const char * nullable suffix)
+                                            bool is_param_type)
 {
     switch (field->kind) {
     case IOP_T_I8:
@@ -177,11 +177,19 @@ static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
 
     case IOP_T_STRING:
     case IOP_T_XML:
-        sb_adds(buf, "str");
+        if (is_param_type) {
+            sb_adds(buf, "typing.Union[str, bytes]");
+        } else {
+            sb_adds(buf, "str");
+        }
         break;
 
     case IOP_T_DATA:
-        sb_adds(buf, "bytes");
+        if (is_param_type) {
+            sb_adds(buf, "typing.Union[bytes, str]");
+        } else {
+            sb_adds(buf, "bytes");
+        }
         break;
 
     case IOP_T_STRUCT:
@@ -189,20 +197,18 @@ static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
     case IOP_T_ENUM:
         iopc_pystub_dump_package_member(buf, pkg, field->type_pkg,
                                         field->type_path, field->type_name);
-        if (suffix) {
-            sb_adds(buf, suffix);
+        if (is_param_type) {
+            sb_adds(buf, "_ParamType");
         }
         break;
     }
 }
 
-static void iopc_pystub_dump_field(sb_t *buf, const iopc_pkg_t *pkg,
-                                   const iopc_field_t *field)
+static void iopc_pystub_dump_field_type(sb_t *buf, const iopc_pkg_t *pkg,
+                                        const iopc_field_t *field,
+                                        bool is_param_type)
 {
     bool ending_bracket = false;
-
-    sb_adds(buf, field->name);
-    sb_adds(buf, ": ");
 
     switch (field->repeat) {
     case IOP_R_OPTIONAL:
@@ -222,11 +228,19 @@ static void iopc_pystub_dump_field(sb_t *buf, const iopc_pkg_t *pkg,
     default:
         break;
     }
-    iopc_pystub_dump_field_basetype(buf, pkg, field, NULL);
+    iopc_pystub_dump_field_basetype(buf, pkg, field, is_param_type);
 
     if (ending_bracket) {
         sb_addc(buf, ']');
     }
+}
+
+static void iopc_pystub_dump_field(sb_t *buf, const iopc_pkg_t *pkg,
+                                   const iopc_field_t *field)
+{
+    sb_adds(buf, field->name);
+    sb_adds(buf, ": ");
+    iopc_pystub_dump_field_type(buf, pkg, field, false);
 }
 
 static void iopc_pystub_dump_unpack_inits(sb_t *buf)
@@ -250,10 +264,43 @@ static void iopc_pystub_dump_unpack_inits(sb_t *buf)
 }
 
 static void
+iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
+                                  const iopc_struct_t *st,
+                                  const char *st_name)
+{
+    sb_addf(buf, "%s_DictType = typing_extensions.TypedDict("
+            "'%s_DictType', {\n", st_name, st_name);
+
+    tab_for_each_entry(field, &st->fields) {
+        sb_addf(buf, "    '%s': ", field->name);
+        iopc_pystub_dump_field_type(buf, pkg, field, true);
+        sb_adds(buf, ",\n");
+    }
+
+    sb_adds(buf, "})\n\n\n");
+}
+
+static void
+iopc_pystub_dump_struct_fields(sb_t *buf, const iopc_pkg_t *pkg,
+                               const iopc_struct_t *st)
+{
+    if (st->fields.len) {
+        tab_for_each_entry(field, &st->fields) {
+            sb_adds(buf, "    ");
+            iopc_pystub_dump_field(buf, pkg, field);
+            sb_adds(buf, "\n");
+        }
+        sb_adds(buf, "\n");
+    }
+}
+
+static void
 iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
                                const iopc_struct_t *st, const char *st_name)
 {
     assert(st_name);
+
+    iopc_pystub_dump_struct_dict_type(buf, pkg, st, st_name);
 
     sb_adds(buf, "@typing.type_check_only\n");
     sb_addf(buf, "class %s(", st_name);
@@ -268,19 +315,11 @@ iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
     }
     sb_adds(buf, "):\n");
 
-    if (st->fields.len) {
-        tab_for_each_entry(field, &st->fields) {
-            sb_adds(buf, "    ");
-            iopc_pystub_dump_field(buf, pkg, field);
-            sb_adds(buf, "\n");
-        }
-        sb_adds(buf, "\n");
-    }
-
+    iopc_pystub_dump_struct_fields(buf, pkg, st);
     iopc_pystub_dump_unpack_inits(buf);
 
-    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s]\n",
-            st_name, st_name);
+    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s, %s_DictType]\n",
+            st_name, st_name, st_name);
 }
 
 static void iopc_pystub_dump_struct(sb_t *buf, const iopc_pkg_t *pkg,
@@ -357,7 +396,7 @@ iopc_pystub_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
     } else {
         sb_addf(buf, "%s = ", st_name);
         iopc_pystub_dump_field_basetype(buf, pkg, fun_st->existing_struct,
-                                        NULL);
+                                        false);
         sb_adds(buf, "\n");
     }
 }
