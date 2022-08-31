@@ -278,6 +278,9 @@ iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
     }
 
     iopc_pystub_dump_unpack_inits(buf);
+
+    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s]\n",
+            st_name, st_name);
 }
 
 static void iopc_pystub_dump_struct(sb_t *buf, const iopc_pkg_t *pkg,
@@ -310,6 +313,9 @@ static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
     }
 
     iopc_pystub_dump_unpack_inits(buf);
+
+    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s]\n",
+            st_name, st_name);
 
     iopc_pystup_dump_fold_end_extra(buf);
 }
