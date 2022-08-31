@@ -225,7 +225,7 @@ class StructUnionBase(Basic):
                shorten_data: typing.Optional[bool] = None,
                skip_class_names: typing.Optional[bool] = None,
                skip_optional_class_names: typing.Optional[bool] = None,
-               minimal: typing.Optional[bool] = None) -> str: ...
+               minimal: typing.Optional[bool] = None) -> bytes: ...
 
     def __bin__(self, no_whitespaces: typing.Optional[bool] = None,
                 no_trailing_eol: typing.Optional[bool] = None,
@@ -236,7 +236,7 @@ class StructUnionBase(Basic):
                 shorten_data: typing.Optional[bool] = None,
                 skip_class_names: typing.Optional[bool] = None,
                 skip_optional_class_names: typing.Optional[bool] = None,
-                minimal: typing.Optional[bool] = None) -> str: ...
+                minimal: typing.Optional[bool] = None) -> bytes: ...
 
     def to_hex(self, no_whitespaces: typing.Optional[bool] = None,
                no_trailing_eol: typing.Optional[bool] = None,
@@ -288,7 +288,9 @@ class StructUnionBase(Basic):
                 skip_empty_structs: typing.Optional[bool] = None,
                 skip_class_names: typing.Optional[bool] = None,
                 skip_optional_class_names: typing.Optional[bool] = None,
-                minimal: typing.Optional[bool] = None) -> str: ...
+                minimal: typing.Optional[bool] = None) -> (
+                    typing.Dict[str, object]
+                ): ...
 
     def __str__(self) -> str: ...
 
