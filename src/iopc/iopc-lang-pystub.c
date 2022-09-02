@@ -68,52 +68,6 @@ static void iopc_pystup_dump_fold_end_extra(sb_t *buf)
     iopc_pystup_dump_fold_end(buf);
 }
 
-static void t_iopc_pystub_dump_import(sb_t *buf, const iopc_pkg_t *dep,
-                                      qh_t(lstr) *imported)
-{
-    SB_1k(py_mod);
-    lstr_t pkg_name;
-    uint32_t pos;
-
-    iopc_pystub_dump_py_mod_name(&py_mod, dep->name);
-    pkg_name = LSTR_SB_V(&py_mod);
-
-    pos = qh_put(lstr, imported, &pkg_name, 0);
-    if (pos & QHASH_COLLISION) {
-        return;
-    }
-    imported->keys[pos] = t_lstr_dup(pkg_name);
-
-    sb_addf(buf, "import %*pM\n", LSTR_FMT_ARG(pkg_name));
-}
-
-static void iopc_pystub_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
-{
-    t_scope;
-    qh_t(lstr) imported;
-    qv_t(iopc_pkg) t_deps;
-    qv_t(iopc_pkg) t_weak_deps;
-    qv_t(iopc_pkg) i_deps;
-
-    t_qh_init(lstr, &imported, 0);
-    t_qv_init(&t_deps, 0);
-    t_qv_init(&t_weak_deps, 0);
-    t_qv_init(&i_deps, 0);
-
-    iopc_pkg_get_deps(pkg, 0, &t_deps, &t_weak_deps, &i_deps);
-
-    tab_for_each_entry(dep, &t_deps) {
-        t_iopc_pystub_dump_import(buf, dep, &imported);
-    }
-    tab_for_each_entry(dep, &t_weak_deps) {
-        t_iopc_pystub_dump_import(buf, dep, &imported);
-    }
-    tab_for_each_entry(dep, &i_deps) {
-        t_iopc_pystub_dump_import(buf, dep, &imported);
-    }
-    sb_adds(buf, "\n\n");
-}
-
 static void iopc_pystub_dump_package_member(sb_t *buf, const iopc_pkg_t *pkg,
                                             const iopc_pkg_t *member_pkg,
                                             const iopc_path_t *member_path,
@@ -550,6 +504,55 @@ static void iopc_pystub_dump_modules(sb_t *buf, const iopc_pkg_t *pkg)
     tab_for_each_entry(mod, &pkg->modules) {
         iopc_pystub_dump_module(buf, pkg, mod);
     }
+}
+
+/* }}} */
+/* {{{ Import */
+
+static void t_iopc_pystub_dump_import(sb_t *buf, const iopc_pkg_t *dep,
+                                      qh_t(lstr) *imported)
+{
+    SB_1k(py_mod);
+    lstr_t pkg_name;
+    uint32_t pos;
+
+    iopc_pystub_dump_py_mod_name(&py_mod, dep->name);
+    pkg_name = LSTR_SB_V(&py_mod);
+
+    pos = qh_put(lstr, imported, &pkg_name, 0);
+    if (pos & QHASH_COLLISION) {
+        return;
+    }
+    imported->keys[pos] = t_lstr_dup(pkg_name);
+
+    sb_addf(buf, "import %*pM\n", LSTR_FMT_ARG(pkg_name));
+}
+
+static void iopc_pystub_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
+{
+    t_scope;
+    qh_t(lstr) imported;
+    qv_t(iopc_pkg) t_deps;
+    qv_t(iopc_pkg) t_weak_deps;
+    qv_t(iopc_pkg) i_deps;
+
+    t_qh_init(lstr, &imported, 0);
+    t_qv_init(&t_deps, 0);
+    t_qv_init(&t_weak_deps, 0);
+    t_qv_init(&i_deps, 0);
+
+    iopc_pkg_get_deps(pkg, 0, &t_deps, &t_weak_deps, &i_deps);
+
+    tab_for_each_entry(dep, &t_deps) {
+        t_iopc_pystub_dump_import(buf, dep, &imported);
+    }
+    tab_for_each_entry(dep, &t_weak_deps) {
+        t_iopc_pystub_dump_import(buf, dep, &imported);
+    }
+    tab_for_each_entry(dep, &i_deps) {
+        t_iopc_pystub_dump_import(buf, dep, &imported);
+    }
+    sb_adds(buf, "\n\n");
 }
 
 /* }}} */
