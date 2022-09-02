@@ -199,6 +199,20 @@ static void iopc_pystub_dump_field(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_pystub_dump_field_type(buf, pkg, field, false);
 }
 
+static void
+iopc_pystub_dump_fields(sb_t *buf, const iopc_pkg_t *pkg,
+                        const iopc_struct_t *st)
+{
+    if (st->fields.len) {
+        tab_for_each_entry(field, &st->fields) {
+            sb_adds(buf, "    ");
+            iopc_pystub_dump_field(buf, pkg, field);
+            sb_adds(buf, "\n");
+        }
+        sb_adds(buf, "\n");
+    }
+}
+
 static void iopc_pystub_dump_unpack_inits(sb_t *buf)
 {
     sb_adds(buf,
@@ -240,20 +254,6 @@ iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
 }
 
 static void
-iopc_pystub_dump_struct_fields(sb_t *buf, const iopc_pkg_t *pkg,
-                               const iopc_struct_t *st)
-{
-    if (st->fields.len) {
-        tab_for_each_entry(field, &st->fields) {
-            sb_adds(buf, "    ");
-            iopc_pystub_dump_field(buf, pkg, field);
-            sb_adds(buf, "\n");
-        }
-        sb_adds(buf, "\n");
-    }
-}
-
-static void
 iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
                                const iopc_struct_t *st, const char *st_name)
 {
@@ -274,7 +274,8 @@ iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
     }
     sb_adds(buf, "):\n");
 
-    iopc_pystub_dump_struct_fields(buf, pkg, st);
+    iopc_pystub_dump_fields(buf, pkg, st);
+
     iopc_pystub_dump_unpack_inits(buf);
 
     sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s, %s_DictType]\n",
@@ -336,14 +337,7 @@ static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
     sb_adds(buf, "@typing.type_check_only\n");
     sb_addf(buf, "class %s(iopy.Union):\n", st_name);
 
-    if (st->fields.len) {
-        tab_for_each_entry(field, &st->fields) {
-            sb_adds(buf, "    ");
-            iopc_pystub_dump_field(buf, pkg, field);
-            sb_adds(buf, "\n");
-        }
-        sb_adds(buf, "\n");
-    }
+    iopc_pystub_dump_fields(buf, pkg, st);
 
     iopc_pystub_dump_unpack_inits(buf);
 
