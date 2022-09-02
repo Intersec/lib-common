@@ -332,12 +332,44 @@ static void iopc_pystub_dump_struct(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_pystup_dump_fold_end_extra(buf);
 }
 
+static void
+iopc_pystub_dump_union_dict_types(sb_t *buf, const iopc_pkg_t *pkg,
+                                  const iopc_struct_t *st)
+{
+    const char *st_name = st->name;
+
+    tab_for_each_entry(field, &st->fields) {
+        sb_addf(buf, "%s_%s_DictType = typing_extensions.TypedDict("
+                "'%s_%s_DictType', {\n    '%s': ",
+                st_name, field->name, st_name,
+                field->name, field->name);
+        iopc_pystub_dump_field_type(buf, pkg, field, true);
+        sb_adds(buf, "\n})\n\n\n");
+    }
+
+    sb_addf(buf, "%s_DictType = typing.Union[", st_name);
+
+    tab_for_each_pos(pos, &st->fields) {
+        const iopc_field_t *field = st->fields.tab[pos];
+
+        if (pos > 0) {
+            sb_adds(buf, ", ");
+        }
+
+        sb_addf(buf, "%s_%s_DictType", st_name, field->name);
+    }
+
+    sb_adds(buf, "]\n\n\n");
+}
+
 static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
                                    const iopc_struct_t *st)
 {
     const char *st_name = st->name;
 
     iopc_pystup_dump_fold_begin_extra(buf, st_name);
+
+    iopc_pystub_dump_union_dict_types(buf, pkg, st);
 
     sb_adds(buf, "@typing.type_check_only\n");
     sb_addf(buf, "class %s(iopy.Union):\n", st_name);
@@ -353,8 +385,8 @@ static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
 
     iopc_pystub_dump_unpack_inits(buf);
 
-    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s]\n",
-            st_name, st_name);
+    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s, %s_DictType]\n",
+            st_name, st_name, st_name);
 
     iopc_pystup_dump_fold_end_extra(buf);
 }
