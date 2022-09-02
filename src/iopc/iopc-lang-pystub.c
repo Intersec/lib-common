@@ -295,6 +295,139 @@ static void iopc_pystub_dump_struct(sb_t *buf, const iopc_pkg_t *pkg,
 /* }}} */
 /* {{{ Union */
 
+typedef struct iopc_pystub_union_ambiguous_type_t {
+    bool is_ambiguous;
+} iopc_pystub_union_ambiguous_type_t;
+
+qm_kvec_t(iopc_pystub_union_ambiguous_type, lstr_t,
+          iopc_pystub_union_ambiguous_type_t, qhash_lstr_hash,
+          qhash_lstr_equal);
+
+static void t_iopc_pystub_add_ambiguous_type(
+    lstr_t py_type, bool is_parent_cls,
+    qm_t(iopc_pystub_union_ambiguous_type) *types_map)
+{
+    uint32_t pos;
+    iopc_pystub_union_ambiguous_type_t ambiguous_type = {
+        .is_ambiguous = is_parent_cls,
+    };
+
+    pos = qm_put(iopc_pystub_union_ambiguous_type, types_map, &py_type,
+                 ambiguous_type, 0);
+    if (pos & QHASH_COLLISION) {
+        pos ^= QHASH_COLLISION;
+        types_map->values[pos].is_ambiguous = true;
+    }
+}
+
+static void
+t_iopc_pystub_add_ambiguous_type_parents(
+    const iopc_pkg_t *pkg, const iopc_struct_t *st,
+    qm_t(iopc_pystub_union_ambiguous_type) *types_map)
+{
+    SB_1k(sb);
+    const iopc_pkg_t *parent_pkg;
+    const iopc_struct_t *parent;
+
+    if (!iopc_is_class(st->type) || !st->extends.len) {
+        return;
+    }
+
+    parent_pkg = st->extends.tab[0]->pkg;
+    parent = st->extends.tab[0]->st;
+
+    iopc_pystub_dump_package_member(&sb, pkg, parent_pkg, parent_pkg->name,
+                                    parent->name);
+    sb_adds(&sb, "_ParamType");
+    t_iopc_pystub_add_ambiguous_type(
+        t_lstr_dup(LSTR_SB_V(&sb)), true, types_map);
+
+    t_iopc_pystub_add_ambiguous_type_parents(pkg, parent, types_map);
+}
+
+static void
+t_iopc_pystub_add_ambiguous_types_field(
+    const iopc_pkg_t *pkg, const iopc_field_t *field,
+    qm_t(iopc_pystub_union_ambiguous_type) *types_map)
+{
+    switch (field->kind) {
+    case IOP_T_I8:
+    case IOP_T_U8:
+    case IOP_T_I16:
+    case IOP_T_U16:
+    case IOP_T_I32:
+    case IOP_T_U32:
+    case IOP_T_I64:
+    case IOP_T_U64:
+        t_iopc_pystub_add_ambiguous_type(LSTR("int"), false, types_map);
+        break;
+
+    case IOP_T_BOOL:
+        t_iopc_pystub_add_ambiguous_type(LSTR("bool"), false, types_map);
+        break;
+
+    case IOP_T_DOUBLE:
+        t_iopc_pystub_add_ambiguous_type(LSTR("float"), false, types_map);
+        break;
+
+    case IOP_T_VOID:
+        t_iopc_pystub_add_ambiguous_type(LSTR("None"), false, types_map);
+        break;
+
+    case IOP_T_STRING:
+    case IOP_T_XML:
+    case IOP_T_DATA:
+        t_iopc_pystub_add_ambiguous_type(LSTR("str"), false, types_map);
+        t_iopc_pystub_add_ambiguous_type(LSTR("bytes"), false, types_map);
+        break;
+
+    case IOP_T_STRUCT:
+        /* Recursively add the parent classes as ambiguous type so we don't
+         * have the base and child type as unambiguous types in the end. */
+        t_iopc_pystub_add_ambiguous_type_parents(
+            pkg, field->struct_def, types_map);
+
+        /* FALLTHROUGH */
+
+    case IOP_T_UNION:
+    case IOP_T_ENUM: {
+        SB_1k(sb);
+
+        iopc_pystub_dump_package_member(&sb, pkg, field->type_pkg,
+                                        field->type_path, field->type_name);
+        sb_adds(&sb, "_ParamType");
+        t_iopc_pystub_add_ambiguous_type(
+            t_lstr_dup(LSTR_SB_V(&sb)), false, types_map);
+    } break;
+    }
+}
+
+static qv_t(lstr) t_iopc_pystub_build_unambiguous_types(
+    const iopc_pkg_t *pkg, const iopc_struct_t *st)
+{
+    qm_t(iopc_pystub_union_ambiguous_type) types_map;
+    qv_t(lstr) res;
+
+    /* List get all possible ambiguous types of the fields to the map. */
+    t_qm_init(iopc_pystub_union_ambiguous_type, &types_map,
+              st->fields.len * 2);
+    tab_for_each_entry(field, &st->fields) {
+        t_iopc_pystub_add_ambiguous_types_field(pkg, field, &types_map);
+    }
+
+    /* Get the python types of the unambiguous types. */
+    t_qv_init(&res, qm_len(iopc_pystub_union_ambiguous_type, &types_map));
+    qm_for_each_key_value_p(iopc_pystub_union_ambiguous_type, py_type,
+                            ambiguous_type, &types_map)
+    {
+        if (!ambiguous_type->is_ambiguous) {
+            qv_append(&res, py_type);
+        }
+    }
+
+    return res;
+}
+
 static void
 iopc_pystub_dump_union_dict_types(sb_t *buf, const iopc_pkg_t *pkg,
                                   const iopc_struct_t *st)
@@ -325,25 +458,70 @@ iopc_pystub_dump_union_dict_types(sb_t *buf, const iopc_pkg_t *pkg,
     sb_adds(buf, "]\n\n\n");
 }
 
-static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
-                                   const iopc_struct_t *st)
+static void
+iopc_pystub_dump_union_unambiguous_type(sb_t *buf, const iopc_pkg_t *pkg,
+                                        const iopc_struct_t *st,
+                                        const qv_t(lstr) *unambiguous_types)
 {
     const char *st_name = st->name;
 
+    assert(unambiguous_types->len);
+
+    sb_addf(buf, "%s_UnambiguousType = typing.Union[", st_name);
+
+    tab_for_each_pos(pos, unambiguous_types) {
+        lstr_t py_type = unambiguous_types->tab[pos];
+
+        if (pos > 0) {
+            sb_adds(buf, ", ");
+        }
+        sb_add_lstr(buf, py_type);
+    }
+
+    sb_adds(buf, "]\n\n\n");
+}
+
+static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
+                                   const iopc_struct_t *st)
+{
+    t_scope;
+    const char *st_name = st->name;
+    qv_t(lstr) unambiguous_types;
+
+    /* Get the unambiguous types */
+    unambiguous_types = t_iopc_pystub_build_unambiguous_types(pkg, st);
+
+    /* Begin fold */
     iopc_pystup_dump_fold_begin_extra(buf, st_name);
 
+    /* Dump dict types */
     iopc_pystub_dump_union_dict_types(buf, pkg, st);
 
+    /* Dump unambigous types if any */
+    if (unambiguous_types.len) {
+        iopc_pystub_dump_union_unambiguous_type(buf, pkg, st,
+                                                &unambiguous_types);
+    }
+
+    /* Begin class type */
     sb_adds(buf, "@typing.type_check_only\n");
     sb_addf(buf, "class %s(iopy.Union):\n", st_name);
 
+    /* Dump fields */
     iopc_pystub_dump_fields(buf, pkg, st);
 
+    /* Dump unpack inits */
     iopc_pystub_dump_unpack_inits(buf);
 
-    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s, %s_DictType]\n",
+    /* Dump param class type */
+    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s, %s_DictType",
             st_name, st_name, st_name);
+    if (unambiguous_types.len) {
+        sb_addf(buf, ", %s_UnambiguousType", st_name);
+    }
+    sb_adds(buf, "]\n");
 
+    /* End fold */
     iopc_pystup_dump_fold_end_extra(buf);
 }
 
