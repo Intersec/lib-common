@@ -31,18 +31,12 @@
     "import iopy\n"                                                          \
     "\n"
 
-static void iopc_pystub_dump_pkg_name(sb_t *buf, const iopc_path_t *path)
+static void iopc_pystub_dump_py_mod_name(sb_t *buf, const iopc_path_t *path)
 {
     tab_for_each_entry(bit, &path->bits) {
         sb_addf(buf, "%s_", bit);
     }
-    sb_shrink(buf, 1);
-}
-
-static void iopc_pystub_dump_py_mod_name(sb_t *buf, const iopc_path_t *path)
-{
-    iopc_pystub_dump_pkg_name(buf, path);
-    sb_adds(buf, "__iop");
+    sb_adds(buf, "_iop");
 }
 
 static void iopc_pystup_dump_fold_begin(sb_t *buf, const char *fold_name)
