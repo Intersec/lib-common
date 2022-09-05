@@ -99,7 +99,8 @@ set_www_env() {
 
     # configure an apache website and add intersec.so to the php configuration
     make -C "$z_www" all htdocs=$htdocs index=$index intersec_so=$intersec_so \
-                         host="${Z_WWW_PREFIX}.${Z_WWW_HOST}" product=$product
+                         host="${Z_WWW_PREFIX}.${Z_WWW_HOST}" product=$product \
+                         productdir=$productdir
     if [ $? -ne 0 ]; then
         echo -e "****** Error ******\n"                                       \
             "To run web test suite you need to have some privileges:\n"       \

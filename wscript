@@ -58,18 +58,6 @@ def load_tools(ctx):
 # {{{ poetry
 
 
-def poetry_force_lang_env():
-    """The python package `click` used by poetry expects $LC_ALL and $LANG to
-    be set.
-    In some environment, they are not set.
-    So we should force it in that case.
-    """
-    if 'LC_ALL' not in os.environ:
-        os.environ['LC_ALL'] = 'en_US.UTF-8'
-    if 'LANG' not in os.environ:
-        os.environ['LANG'] = 'en_US.UTF-8'
-
-
 def run_waf_with_poetry(ctx):
     Logs.info('Waf: Run waf in poetry environment')
 
@@ -192,7 +180,6 @@ def configure_with_poetry(ctx):
         Logs.warn('Waf: Disabling poetry support')
         return
 
-    poetry_force_lang_env()
     ctx.find_program('poetry')
 
     if not ctx.get_env_bool('_IN_POETRY_WAF_CONFIGURE'):
@@ -222,7 +209,6 @@ def build_with_poetry(ctx):
     if not ctx.env.HAVE_POETRY:
         return
 
-    poetry_force_lang_env()
     rerun_waf_build_with_poetry(ctx)
 
 
