@@ -10585,7 +10585,7 @@ cdef void plugin_run_register_scripts(Plugin plugin, const iop_dso_t *dso):
                 farch_get_filename(script, name)
                 message = ('error when running register script %s:\n%s' %
                            (name, traceback.format_exc()))
-                warnings.warn(Warning, message, stacklevel=1)
+                warnings.warn(message, Warning)
 
             script += 1
 
