@@ -497,6 +497,65 @@ class IopyTest(z.TestCase):
                str(proc.returncode))
         self.assertEqual(proc.returncode, 0, msg)
 
+    def test_rpc_server_exception(self):
+        # to hide connections / disconnections message
+        warnings.filterwarnings("ignore", category=iopy.ServerWarning)
+
+        # Create a server with an error raised by the RPC implementation, and
+        # a channel to the server
+        def rpc_impl_a(rpc_args):
+            raise RuntimeError('test exception')
+
+        s = self.r.ChannelServer()
+
+        s.test_ModuleA.interfaceA.funA.impl = rpc_impl_a
+
+        uri = make_uri()
+        s.listen(uri=uri)
+        c = self.r.connect(uri)
+
+        def call_rpc():
+            try:
+                c.test_ModuleA.interfaceA.funA(
+                    a=self.r.test.ClassB(field1=1))
+            except iopy.Error:
+                pass
+            else:
+                self.fail('expected iopy.Error SERVER_ERROR')
+
+        # Check without an exception callback, the error is raised as a
+        # warning
+        with warnings.catch_warnings(record=True) as w:
+            call_rpc()
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[0].category, iopy.UnexpectedExceptionWarning)
+            self.assertIn('RuntimeError', str(w[0].message))
+
+        # Check with an exception callback, the error should be retrieved by
+        # the callback
+        exc_type = []
+        def on_exception_cb_catch(exc):
+            exc_type.append(type(exc))
+        s.on_exception = on_exception_cb_catch
+
+        with warnings.catch_warnings(record=True) as w:
+            call_rpc()
+            self.assertEqual(len(w), 0)
+            self.assertEqual(len(exc_type), 1)
+            self.assertEqual(exc_type[0], RuntimeError)
+
+        # Check with an exception callback, but the exception callaback raises
+        # an exception, the error is raised as a warning
+        def on_exception_cb_err(exc):
+            raise ValueError()
+        s.on_exception = on_exception_cb_err
+
+        with warnings.catch_warnings(record=True) as w:
+            call_rpc()
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[0].category, iopy.UnexpectedExceptionWarning)
+            self.assertIn('ValueError', str(w[0].message))
+
     def test_objects_comparisons(self):
         # pylint: disable=comparison-with-itself
 
@@ -525,7 +584,7 @@ class IopyTest(z.TestCase):
         self.assertTrue(e3 >= e1)
         self.assertTrue(e3 >  e1)
 
-        tab = self.r.test_emptystuffs.Tab( \
+        tab = self.r.test_emptystuffs.Tab(
             a=[self.r.test_emptystuffs.A(), self.r.test_emptystuffs.B()],
             emptyStructs=[self.r.test_emptystuffs.EmptyStruct()])
         self.assertEqual(tab.a[1], self.r.test_emptystuffs.B(),
