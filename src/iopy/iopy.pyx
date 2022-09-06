@@ -2399,7 +2399,7 @@ cdef int64_t py_obj_to_int64_without_exc(object py_obj):
 
     try:
         res = py_obj
-    except:
+    except Exception:
         pass
     return res
 
@@ -2420,7 +2420,7 @@ cdef uint64_t py_obj_to_uint64_without_exc(object py_obj):
 
     try:
         res = py_obj
-    except:
+    except Exception:
         pass
     return res
 
@@ -3544,7 +3544,7 @@ cdef object implicit_convert_field(const iop_field_t *field, object py_obj,
         py_type = plugin_get_class_type_en(plugin, field_en)
         try:
             py_type(py_obj)
-        except:
+        except Exception:
             pass
         else:
             is_converted[0] = True
@@ -10581,7 +10581,7 @@ cdef void plugin_run_register_scripts(Plugin plugin, const iop_dso_t *dso):
 
             try:
                 exec(script_str, globals_dict, globals_dict)
-            except:
+            except Exception:
                 farch_get_filename(script, name)
                 message = ('error when running register script %s:\n%s' %
                            (name, traceback.format_exc()))
