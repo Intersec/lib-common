@@ -97,17 +97,23 @@ set_www_env() {
     Z_WWW_PREFIX="${_bkp_z_www_prefix:-zselenium-${product}}"
     Z_WWW_BROWSER="${_bkp_z_www_browser:-Remote}"
 
-    # configure an apache website and add intersec.so to the php configuration
-    make -C "$z_www" all htdocs=$htdocs index=$index intersec_so=$intersec_so \
-                         host="${Z_WWW_PREFIX}.${Z_WWW_HOST}" product=$product \
-                         productdir=$productdir
-    if [ $? -ne 0 ]; then
-        echo -e "****** Error ******\n"                                       \
-            "To run web test suite you need to have some privileges:\n"       \
-            " write access on: /etc/apache2/sites* | /etc/httpd/conf.d\n"     \
-            " write access on: /etc/php5/conf.d | /etc/php.d/ \n"             \
-            " sudoers without pwd on: /etc/init.d/apache2 | /etc/init.d/httpd"
-        return 1
+    if [[ "$SKIP_HTTPD_SETUP" != "1" ]] ; then
+        # configure an apache website and add intersec.so to the php
+        # configuration
+        make -C "$z_www" all htdocs=$htdocs index=$index                      \
+                             intersec_so=$intersec_so                         \
+                             host="${Z_WWW_PREFIX}.${Z_WWW_HOST}"             \
+                             product=$product productdir=$productdir
+
+        if [ $? -ne 0 ]; then
+            echo -e "****** Error ******\n"                                   \
+                "To run web test suite you need to have some privileges:\n"   \
+                " write access on: /etc/apache2/sites* | /etc/httpd/conf.d\n" \
+                " write access on: /etc/php5/conf.d | /etc/php.d/ \n"         \
+                " sudoers without pwd on: /etc/init.d/apache2 | "             \
+                " /etc/init.d/httpd"
+            return 1
+        fi
     fi
     export Z_WWW_HOST Z_WWW_PREFIX Z_WWW_BROWSER
 }
