@@ -7032,6 +7032,33 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
     return res
 
 
+cdef void iopy_ic_on_exception(object on_exception_cb, Exception exc):
+    """Called on unexpected exception by an IChannel.
+
+    Call the exception callback or log it as a warning.
+
+    Parameters
+    ----------
+    on_exception_cb
+        The exception callback to be called. Can be None.
+    exc
+        The exception object.
+    """
+    cdef list exc_list
+    cdef str exc_trace
+
+    if on_exception_cb is not None:
+        try:
+            on_exception_cb(exc)
+            return
+        except Exception as exc_next:
+            exc = exc_next
+
+    exc_list = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    exc_trace = ''.join(exc_list)
+    warnings.warn(exc_trace, UnexpectedExceptionWarning)
+
+
 # }}}
 # {{{ Client RPC
 
@@ -7118,6 +7145,7 @@ cdef class Channel(ChannelBase):
     cdef ic_el_client_t *ic_client
     cdef object on_connect_cb
     cdef object on_disconnect_cb
+    cdef object on_exception_cb
     cdef readonly str uri
     cdef public double default_timeout
 
@@ -7331,6 +7359,35 @@ cdef class Channel(ChannelBase):
     def on_disconnect(Channel self):
         """Remove the callback called upon disconnection"""
         self.on_disconnect_cb = None
+
+    @property
+    def on_exception(Channel self):
+        """Get the callback called upon unexpected exception.
+
+        Returns
+        -------
+            The current callback called upon unexpected exception.
+        """
+        return self.on_exception_cb
+
+    @on_exception.setter
+    def on_exception(Channel self, object value):
+        """Set the callback called upon unexpected exception.
+
+        Parameters
+        ----------
+        value
+            Set to None (default value) to remove the exception callback.
+            The callback is called with one argument:
+                exc : Exception
+                    The unexpected exception
+        """
+        self.on_exception_cb = value
+
+    @on_exception.deleter
+    def on_exception(Channel self):
+        """Remove the callback called upon unexpected exception"""
+        self.on_exception_cb = None
 
 
 cdef class AsyncRPC(RPCChannel):
@@ -8302,9 +8359,8 @@ cdef void iopy_ic_client_on_connect_gil(ic_el_client_t *client):
     if channel.on_connect_cb is not None:
         try:
             channel.on_connect_cb(channel)
-        except Exception:
-            # FIXME: use a callback for the exception
-            pass
+        except Exception as e:
+            iopy_ic_client_on_exception(client, e)
 
 
 cdef void iopy_ic_client_on_disconnect(ic_el_client_t *client,
@@ -8343,9 +8399,31 @@ cdef void iopy_ic_client_on_disconnect_gil(ic_el_client_t *client,
     if channel.on_disconnect_cb is not None:
         try:
             channel.on_disconnect_cb(channel, connected)
-        except Exception:
-            # FIXME: use a callback for the exception
-            pass
+        except Exception as e:
+            iopy_ic_client_on_exception(client, e)
+
+
+cdef void iopy_ic_client_on_exception(ic_el_client_t *client, Exception exc):
+    """Called on unexpected exception by the server.
+
+    Call the exception callback or log it as a warning.
+
+    Parameters
+    ----------
+    ctx
+        The IOPy IC server context.
+    exc
+        The exception object.
+    """
+    cdef void *ctx = ic_el_client_get_ext_obj(client)
+    cdef object on_exception_cb = None
+    cdef Channel channel
+
+    if ctx:
+        channel = <Channel>ctx
+        on_exception_cb = channel.on_exception_cb
+
+    iopy_ic_on_exception(on_exception_cb, exc)
 
 
 # }}}
@@ -8955,26 +9033,26 @@ cdef int t_iopy_ic_server_on_rpc_gil(
 
 
 cdef void iopy_ic_server_on_exception(ic_el_server_t *server, Exception exc):
+    """Called on unexpected exception by the server.
+
+    Call the exception callback or log it as a warning.
+
+    Parameters
+    ----------
+    ctx
+        The IOPy IC server context.
+    exc
+        The exception object.
+    """
     cdef void *ctx = ic_el_server_get_ext_obj(server)
     cdef object on_exception_cb = None
     cdef ChannelServer channel
-    cdef list exc_list
-    cdef str exc_trace
 
     if ctx:
         channel = <ChannelServer>ctx
         on_exception_cb = channel.on_exception_cb
 
-    if on_exception_cb is not None:
-        try:
-            on_exception_cb(exc)
-            return
-        except Exception as exc_next:
-            exc = exc_next
-
-    exc_list = traceback.format_exception(type(exc), exc, exc.__traceback__)
-    exc_trace = ''.join(exc_list)
-    warnings.warn(exc_trace, UnexpectedExceptionWarning)
+    iopy_ic_on_exception(on_exception_cb, exc)
 
 
 # }}}

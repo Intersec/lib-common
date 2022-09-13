@@ -2317,6 +2317,112 @@ class IopyIfaceTests(z.TestCase):
             self.assertEqual(w[0].category, iopy.UnexpectedExceptionWarning)
             self.assertIn('ValueError', str(w[0].message))
 
+    def test_rpc_client_exception(self):
+        # Create a simple RPC server
+        s = self.r.ChannelServer()
+        uri = make_uri()
+        s.listen(uri=uri)
+        c = iopy.Channel(self.p, uri)
+
+        # Make the client callback on_connect raise an exception
+        def on_connect_cb(channel):
+            raise RuntimeError()
+        c.on_connect = on_connect_cb
+
+        # Check without an exception callback, the error is raised as a
+        # warning
+        with warnings.catch_warnings(record=True) as w:
+            c.connect()
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[0].category, iopy.UnexpectedExceptionWarning)
+            self.assertIn('RuntimeError', str(w[0].message))
+
+        # Disconnect the client
+        def disconnect_and_wait():
+            c.disconnect()
+            for _ in range(100):
+                if not c.is_connected():
+                    break
+                time.sleep(0.01)
+            else:
+                self.fail('client is not disconnected')
+        disconnect_and_wait()
+
+        # Check with an exception callback, the error should be retrieved by
+        # the callback
+        exc_type = []
+        def on_exception_cb_connect_catch(exc):
+            exc_type.append(type(exc))
+        c.on_exception = on_exception_cb_connect_catch
+
+        with warnings.catch_warnings(record=True) as w:
+            c.connect()
+            self.assertEqual(len(w), 0)
+        self.assertEqual(len(exc_type), 1)
+        self.assertEqual(exc_type[0], RuntimeError)
+
+        # Disconnect the client
+        disconnect_and_wait()
+
+        # Check with an exception callback, but the exception callback raises
+        # an exception, the error is raised as a warning
+        def on_exception_cb_connect_err(exc):
+            raise ValueError()
+        c.on_exception = on_exception_cb_connect_err
+
+        with warnings.catch_warnings(record=True) as w:
+            c.connect()
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[0].category, iopy.UnexpectedExceptionWarning)
+            self.assertIn('ValueError', str(w[0].message))
+
+        # Disconnect the client, reset the callbacks and connect the client
+        disconnect_and_wait()
+        c.on_connect = None
+        c.on_exception = None
+        c.connect()
+
+        # Make the client on_disconnect raise an exception
+        def on_disconnect_cb(channel, connected):
+            raise KeyError()
+        c.on_disconnect = on_disconnect_cb
+
+        # Check without an exception callback, the error is raised as a
+        # warning
+        exc_type = []
+        with warnings.catch_warnings(record=True) as w:
+            disconnect_and_wait()
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[0].category, iopy.UnexpectedExceptionWarning)
+            self.assertIn('KeyError', str(w[0].message))
+
+        # Check with an exception callback, the error should be retrieved by
+        # the callback
+        exc_type = []
+        def on_exception_cb_disconnect_catch(exc):
+            exc_type.append(type(exc))
+        c.on_exception = on_exception_cb_disconnect_catch
+
+        c.connect()
+        with warnings.catch_warnings(record=True) as w:
+            disconnect_and_wait()
+            self.assertEqual(len(w), 0)
+        self.assertEqual(len(exc_type), 1)
+        self.assertEqual(exc_type[0], KeyError)
+
+        # Check with an exception callback, but the exception callback raises
+        # an exception, the error is raised as a warning
+        def on_exception_cb_disconnect_err(exc):
+            raise TypeError()
+        c.on_exception = on_exception_cb_disconnect_err
+
+        c.connect()
+        with warnings.catch_warnings(record=True) as w:
+            disconnect_and_wait()
+            self.assertEqual(len(w), 1)
+            self.assertEqual(w[0].category, iopy.UnexpectedExceptionWarning)
+            self.assertIn('TypeError', str(w[0].message))
+
 
 @z.ZGroup
 class IopyScriptsTests(z.TestCase):
