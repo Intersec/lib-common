@@ -6526,16 +6526,20 @@ Z_GROUP_EXPORT(yaml)
         Z_ASSERT_STREQUAL(err.data, "cannot read file unknown.yml: "
                           "No such file or directory");
 
-        /* create a file but make it unreadable */
-        filename = "unreadable.yml";
-        Z_HELPER_RUN(z_write_yaml_file(filename, "2"));
-        path = t_fmt("%pL/%s", &z_tmpdir_g, filename);
-        chmod(path, 220);
+        if (getuid() != 0) {
+            /* create a file but make it unreadable */
+            /* XXX: this does not work when running the tests with the root
+             * user */
+            filename = "unreadable.yml";
+            Z_HELPER_RUN(z_write_yaml_file(filename, "2"));
+            path = t_fmt("%pL/%s", &z_tmpdir_g, filename);
+            chmod(path, 220);
 
-        Z_ASSERT_NEG(t_yaml_parse_attach_file(env, filename, z_tmpdir_g.s,
-                                              &err));
-        Z_ASSERT_STREQUAL(err.data, "cannot read file unreadable.yml: "
-                          "Permission denied");
+            Z_ASSERT_NEG(t_yaml_parse_attach_file(env, filename, z_tmpdir_g.s,
+                                                  &err));
+            Z_ASSERT_STREQUAL(err.data, "cannot read file unreadable.yml: "
+                              "Permission denied");
+        }
     } Z_TEST_END;
 
     /* }}} */
