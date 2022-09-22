@@ -202,5 +202,30 @@ Z_GROUP_EXPORT(core_obj)
         obj_delete(&obj);
         Z_ASSERT_NULL(obj, "obj_delete() should always reset the object "
                       "pointer");
+
+        obj = obj_new(my_base_object);
+        obj_retain(obj);
+        Z_ASSERT_EQ(obj->refcnt, 2);
+        {
+            obj_retain_scope(&obj);
+
+            Z_ASSERT_EQ(obj->refcnt, 3);
+            obj_release(&obj);
+            Z_ASSERT_P(obj);
+            Z_ASSERT_EQ(obj->refcnt, 2);
+        }
+        Z_ASSERT_P(obj);
+        Z_ASSERT_EQ(obj->refcnt, 1);
+        {
+            obj_retain_scope(&obj);
+
+            Z_ASSERT_EQ(obj->refcnt, 2);
+            obj_release(&obj);
+            Z_ASSERT_P(obj);
+            Z_ASSERT_EQ(obj->refcnt, 1);
+        }
+        Z_ASSERT_NULL(obj,
+                      "obj_retain_scope() should have deleted the object");
+
     } Z_TEST_END;
 } Z_GROUP_END

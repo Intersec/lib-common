@@ -606,6 +606,27 @@ do {                                                                         \
     }                                                                        \
 } while (0)
 
+/* XXX Only defined for implementation of obj_retain_scope(). */
+static inline void
+_obj_release_scope(object_t * nonnull * nonnull * nonnull obj_pp)
+{
+    obj_release(*obj_pp);
+}
+
+/* XXX Mainly defined for implementation of obj_retain_scope(). */
+#define obj_retain_p(_o) \
+({                                                                           \
+    typeof(*_o) *PFX_LINE(retained_obj_p_) = (_o);                           \
+    obj_retain(*PFX_LINE(retained_obj_p_));                                  \
+    PFX_LINE(retained_obj_p_);                                               \
+})
+
+/** Keep an object retained until the end of the current scope. */
+#define obj_retain_scope(_obj_p) \
+    object_t **PFX_LINE(retain_scope_obj_p_)                                 \
+        __attribute__((unused, cleanup(_obj_release_scope))) =               \
+        (object_t **)obj_retain_p(_obj_p)
+
 /** Delete object instance.
  *
  * If the object instance is not NULL, it will be released and set to NULL.
