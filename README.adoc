@@ -1,6 +1,6 @@
 = Lib-common
 
-image:https://img.shields.io/azure-devops/build/vincentthiberville/fdb49f37-cd2c-4b49-a2b3-9aea66a1c84d/1[caption="Azure DevOps builds (stage)", link=https://dev.azure.com/vincentthiberville/Intersec/_build?definitionId=1]
+image:https://github.com/Intersec/lib-common/actions/workflows/.github/workflows/tests.yml/badge.svg[caption="Tests", link=https://github.com/Intersec/lib-common/actions]
 image:https://img.shields.io/github/license/intersec/lib-common[caption="GitHub", link=https://github.com/Intersec/lib-common/blob/master/LICENCE]
 
 The lib-common is an Intersec libc extension targeting Linux environments. It

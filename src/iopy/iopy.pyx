@@ -336,35 +336,13 @@ cdef class RpcError(Error):
     pass
 
 
-cdef int send_exception_to_main_thread_cb(void *arg) except -1:
-    """Callback used by Py_AddPendingCall and send_exception_to_main_thread()
-    to rethrow the exception in the main thread.
+@cython.warn.undeclared(False)
+class UnexpectedExceptionWarning(Warning):
+    """Class for unexpected exception messages.
 
-    Parameters
-    ----------
-    arg
-        The exception to rethrow.
-
-    Returns
-    -------
-        -1 to rethrow the exception.
+    Deactivate warnings of this class to hide unexpected exception messages.
     """
-    cdef tuple exc = <tuple>arg
-
-    try:
-        raise exc[0], exc[1], exc[2]
-    finally:
-        Py_DECREF(exc)
-
-
-cdef void send_exception_to_main_thread():
-    """Send the current exception to the main thread"""
-    cdef tuple exc
-
-    exc = sys.exc_info()
-    Py_INCREF(exc)
-    Py_AddPendingCall(<int (*)(void *)>&send_exception_to_main_thread_cb,
-                      <void *>exc)
+    pass
 
 
 # }}}
@@ -2399,7 +2377,7 @@ cdef int64_t py_obj_to_int64_without_exc(object py_obj):
 
     try:
         res = py_obj
-    except:
+    except Exception:
         pass
     return res
 
@@ -2420,7 +2398,7 @@ cdef uint64_t py_obj_to_uint64_without_exc(object py_obj):
 
     try:
         res = py_obj
-    except:
+    except Exception:
         pass
     return res
 
@@ -3544,7 +3522,7 @@ cdef object implicit_convert_field(const iop_field_t *field, object py_obj,
         py_type = plugin_get_class_type_en(plugin, field_en)
         try:
             py_type(py_obj)
-        except:
+        except Exception:
             pass
         else:
             is_converted[0] = True
@@ -7054,6 +7032,33 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
     return res
 
 
+cdef void iopy_ic_on_exception(object on_exception_cb, Exception exc):
+    """Called on unexpected exception by an IChannel.
+
+    Call the exception callback or log it as a warning.
+
+    Parameters
+    ----------
+    on_exception_cb
+        The exception callback to be called. Can be None.
+    exc
+        The exception object.
+    """
+    cdef list exc_list
+    cdef str exc_trace
+
+    if on_exception_cb is not None:
+        try:
+            on_exception_cb(exc)
+            return
+        except Exception as exc_next:
+            exc = exc_next
+
+    exc_list = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    exc_trace = ''.join(exc_list)
+    warnings.warn(exc_trace, UnexpectedExceptionWarning)
+
+
 # }}}
 # {{{ Client RPC
 
@@ -7140,6 +7145,7 @@ cdef class Channel(ChannelBase):
     cdef ic_el_client_t *ic_client
     cdef object on_connect_cb
     cdef object on_disconnect_cb
+    cdef object on_exception_cb
     cdef readonly str uri
     cdef public double default_timeout
 
@@ -7353,6 +7359,35 @@ cdef class Channel(ChannelBase):
     def on_disconnect(Channel self):
         """Remove the callback called upon disconnection"""
         self.on_disconnect_cb = None
+
+    @property
+    def on_exception(Channel self):
+        """Get the callback called upon unexpected exception.
+
+        Returns
+        -------
+            The current callback called upon unexpected exception.
+        """
+        return self.on_exception_cb
+
+    @on_exception.setter
+    def on_exception(Channel self, object value):
+        """Set the callback called upon unexpected exception.
+
+        Parameters
+        ----------
+        value
+            Set to None (default value) to remove the exception callback.
+            The callback is called with one argument:
+                exc : Exception
+                    The unexpected exception
+        """
+        self.on_exception_cb = value
+
+    @on_exception.deleter
+    def on_exception(Channel self):
+        """Remove the callback called upon unexpected exception"""
+        self.on_exception_cb = None
 
 
 cdef class AsyncRPC(RPCChannel):
@@ -8324,8 +8359,8 @@ cdef void iopy_ic_client_on_connect_gil(ic_el_client_t *client):
     if channel.on_connect_cb is not None:
         try:
             channel.on_connect_cb(channel)
-        except:
-            send_exception_to_main_thread()
+        except Exception as e:
+            iopy_ic_client_on_exception(client, e)
 
 
 cdef void iopy_ic_client_on_disconnect(ic_el_client_t *client,
@@ -8364,8 +8399,31 @@ cdef void iopy_ic_client_on_disconnect_gil(ic_el_client_t *client,
     if channel.on_disconnect_cb is not None:
         try:
             channel.on_disconnect_cb(channel, connected)
-        except:
-            send_exception_to_main_thread()
+        except Exception as e:
+            iopy_ic_client_on_exception(client, e)
+
+
+cdef void iopy_ic_client_on_exception(ic_el_client_t *client, Exception exc):
+    """Called on unexpected exception by the server.
+
+    Call the exception callback or log it as a warning.
+
+    Parameters
+    ----------
+    ctx
+        The IOPy IC server context.
+    exc
+        The exception object.
+    """
+    cdef void *ctx = ic_el_client_get_ext_obj(client)
+    cdef object on_exception_cb = None
+    cdef Channel channel
+
+    if ctx:
+        channel = <Channel>ctx
+        on_exception_cb = channel.on_exception_cb
+
+    iopy_ic_on_exception(on_exception_cb, exc)
 
 
 # }}}
@@ -8496,6 +8554,7 @@ cdef class ChannelServer(ChannelBase):
     cdef Plugin plugin
     cdef object on_connect_cb
     cdef object on_disconnect_cb
+    cdef object on_exception_cb
 
     def __init__(ChannelServer self, Plugin register):
         """Contructor of server IC channel.
@@ -8521,6 +8580,7 @@ cdef class ChannelServer(ChannelBase):
         self.plugin = register
         self.on_connect_cb = None
         self.on_disconnect_cb = None
+        self.on_exception_cb = None
 
     def __dealloc__(ChannelServer self):
         """Destructor of server IC channel"""
@@ -8678,6 +8738,35 @@ cdef class ChannelServer(ChannelBase):
         self.on_disconnect_cb = None
 
     @property
+    def on_exception(ChannelServer self):
+        """Get the callback called upon unexpected exception.
+
+        Returns
+        -------
+            The current callback called upon unexpected exception.
+        """
+        return self.on_exception_cb
+
+    @on_exception.setter
+    def on_exception(ChannelServer self, object value):
+        """Set the callback called upon unexpected exception.
+
+        Parameters
+        ----------
+        value
+            Set to None (default value) to remove the exception callback.
+            The callback is called with one argument:
+                exc : Exception
+                    The unexpected exception
+        """
+        self.on_exception_cb = value
+
+    @on_exception.deleter
+    def on_exception(ChannelServer self):
+        """Remove the callback called upon unexpected exception"""
+        self.on_exception_cb = None
+
+    @property
     def is_listening(ChannelServer self):
         """Is the IC server listening."""
         cdef cbool res
@@ -8766,8 +8855,8 @@ cdef void iopy_ic_server_on_connect_gil(ic_el_server_t *server,
     if channel.on_connect_cb is not None:
         try:
             channel.on_connect_cb(channel, lstr_to_py_str(remote_addr))
-        except:
-            send_exception_to_main_thread()
+        except Exception as e:
+            iopy_ic_server_on_exception(server, e)
 
 
 cdef void iopy_ic_server_on_disconnect(ic_el_server_t *server,
@@ -8808,8 +8897,8 @@ cdef void iopy_ic_server_on_disconnect_gil(ic_el_server_t *server,
     if channel.on_disconnect_cb is not None:
         try:
             channel.on_disconnect_cb(channel, lstr_to_py_str(remote_addr))
-        except:
-            send_exception_to_main_thread()
+        except Exception as e:
+            iopy_ic_server_on_exception(server, e)
 
 
 cdef ic_status_t t_iopy_ic_server_on_rpc(
@@ -8843,8 +8932,8 @@ cdef ic_status_t t_iopy_ic_server_on_rpc(
         try:
             status = t_iopy_ic_server_on_rpc_gil(server, ic, slot, arg,
                                                  hdr, res, res_st)
-        except:
-            send_exception_to_main_thread()
+        except Exception as e:
+            iopy_ic_server_on_exception(server, e)
             status = IC_MSG_SERVER_ERROR
 
     return <ic_status_t>status
@@ -8941,6 +9030,29 @@ cdef int t_iopy_ic_server_on_rpc_gil(
 
     raise Error('RPC impl %s of <%s> returned a %s which is not a related '
                 'res nor exn type' % (rpc.rpc_impl, rpc, type(py_res)))
+
+
+cdef void iopy_ic_server_on_exception(ic_el_server_t *server, Exception exc):
+    """Called on unexpected exception by the server.
+
+    Call the exception callback or log it as a warning.
+
+    Parameters
+    ----------
+    ctx
+        The IOPy IC server context.
+    exc
+        The exception object.
+    """
+    cdef void *ctx = ic_el_server_get_ext_obj(server)
+    cdef object on_exception_cb = None
+    cdef ChannelServer channel
+
+    if ctx:
+        channel = <ChannelServer>ctx
+        on_exception_cb = channel.on_exception_cb
+
+    iopy_ic_on_exception(on_exception_cb, exc)
 
 
 # }}}
@@ -10581,11 +10693,11 @@ cdef void plugin_run_register_scripts(Plugin plugin, const iop_dso_t *dso):
 
             try:
                 exec(script_str, globals_dict, globals_dict)
-            except:
+            except Exception:
                 farch_get_filename(script, name)
                 message = ('error when running register script %s:\n%s' %
                            (name, traceback.format_exc()))
-                warnings.warn(Warning, message, stacklevel=1)
+                warnings.warn(message, Warning)
 
             script += 1
 

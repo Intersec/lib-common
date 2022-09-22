@@ -172,10 +172,10 @@ iopc_build(const char *pfxdir, bool display_pfx, const qm_t(iopc_env) *env,
     }
 
     if (pkgname) {
-        *pkgname = lstr_dups(pretty_path_dot(pkg->name), -1);
+        *pkgname = lstr_dups(iopc_path_dot(pkg->name), -1);
     }
     if (pkgpath) {
-        *pkgpath = lstr_dups(pretty_path(pkg->name), -1);
+        *pkgpath = lstr_dups(iopc_path_slash(pkg->name), -1);
     }
 
     iopc_parser_typer_shutdown();

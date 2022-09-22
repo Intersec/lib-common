@@ -21,6 +21,6 @@
 
 #define IOPY_MAJOR  4
 #define IOPY_MINOR  8
-#define IOPY_PATCH  0
+#define IOPY_PATCH  1
 
 #endif
