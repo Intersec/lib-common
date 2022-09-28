@@ -17,6 +17,7 @@
 /***************************************************************************/
 
 #include <lib-common/core.h>
+#include <lib-common/log.h>
 
 /** \addtogroup lc_obj
  * \{
@@ -25,6 +26,22 @@
 /** \file lib-common/core-obj.c
  * \brief Objects and Virtual Tables in C (module)
  */
+
+static struct {
+    logger_t logger;
+} core_obj_g = {
+#define _G core_obj_g
+    .logger = LOGGER_INIT_INHERITS(NULL, "core-obj"),
+};
+
+void (object_panic)(const char *nonnull file, const char *nonnull func,
+                    int line, const char *nonnull fmt, ...)
+{
+    va_list va;
+
+    va_start(va, fmt);
+    __logger_vpanic(&_G.logger, file, func, line, fmt, va);
+}
 
 bool cls_inherits(const void *_cls, const void *vptr)
 {
@@ -92,15 +109,15 @@ static object_t *obj_retain_(object_t *obj)
     if (likely(obj->refcnt > 0)) {
         if (likely(++obj->refcnt > 0))
             return obj;
-        e_panic("too many refcounts");
+        logger_panic(&_G.logger, "too many refcounts");
     }
 
     switch (obj->refcnt) {
       case 0:
-        e_panic("probably acting on a deleted object");
+        logger_panic(&_G.logger, "probably acting on a deleted object");
       default:
         /* WTF?! probably a memory corruption */
-        e_panic("should not happen");
+        logger_panic(&_G.logger, "should not happen");
     }
 }
 
@@ -116,10 +133,10 @@ static void obj_release_(object_t *obj, bool *nullable destroyed)
     } else {
         switch (obj->refcnt) {
           case 0:
-            e_panic("object refcounting issue");
+            logger_panic(&_G.logger, "object refcounting issue");
           default:
             /* Probably a memory corruption we should have hit 0 first. */
-            e_panic("should not happen");
+            logger_panic(&_G.logger, "should not happen");
         }
     }
 

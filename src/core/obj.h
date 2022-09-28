@@ -168,6 +168,13 @@
         return superclass##_class();                                         \
     }
 
+__attr_printf__(4, 5) __attr_noreturn__
+void (object_panic)(const char *nonnull file, const char *nonnull func,
+                    int line, const char *nonnull fmt, ...);
+
+#define object_panic(fmt, ...)                                               \
+    (object_panic)(__FILE__, __func__, __LINE__, (fmt), ##__VA_ARGS__)
+
 /* }}} */
 
 /** Define an object class with typedef.
@@ -214,9 +221,10 @@
         pfx##_vtable_extension_f old_func = pfx##_vtable_extension_func_g;   \
                                                                              \
         if (unlikely(pfx##_vtable_extension_init_g)) {                       \
-            e_panic("class constructor of " #pfx " has already been called " \
-                    "while trying to set vtable extension function, check "  \
-                    "vtable extension init order");                          \
+            object_panic("class constructor of " #pfx                        \
+                         " has already been called while trying to set "     \
+                         "vtable extension function, "                       \
+                         "check vtable extension init order");               \
         }                                                                    \
         pfx##_vtable_extension_func_g = func;                                \
         return old_func;                                                     \
@@ -382,17 +390,16 @@ OBJ_CLASS_NO_TYPEDEF_(object, object, OBJECT_FIELDS, OBJECT_METHODS,
 #  define obj_cast_debug(pfx, o)                                             \
     ({ typeof(o) __##pfx##_o = (o);                                          \
        if (__##pfx##_o && unlikely(!obj_is_a(__##pfx##_o, pfx))) {           \
-           e_panic("%s:%d: cannot cast (%p : %s) into a %s",                 \
-                   __FILE__, __LINE__, __##pfx##_o,                          \
-                   obj_vfield(__##pfx##_o, type_name),                       \
-                   pfx##_class()->type_name);                                \
+           object_panic("cannot cast (%p : %s) into a %s",                   \
+                        __##pfx##_o, obj_vfield(__##pfx##_o, type_name),     \
+                        pfx##_class()->type_name);                           \
      }                                                                       \
      __##pfx##_o; })
 #  define cls_cast_debug(pfx, c)                                             \
     ({ typeof(c) __##pfx##_c = (c);                                          \
        if (unlikely(!cls_inherits(__##pfx##_c, pfx##_class()))) {            \
-           e_panic("%s:%d: bad class cast (%s into %s)", __FILE__, __LINE__, \
-                   __##pfx##_c->type_name, pfx##_class()->type_name);        \
+           object_panic("bad class cast (%s into %s)",                       \
+                        __##pfx##_c->type_name, pfx##_class()->type_name);   \
        }                                                                     \
        __##pfx##_c; })
 #else
