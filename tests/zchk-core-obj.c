@@ -255,6 +255,21 @@ Z_GROUP_EXPORT(core_obj)
         }
         Z_ASSERT_NULL(obj,
                       "obj_retain_scope() should have deleted the object");
+    } Z_TEST_END;
 
+    Z_TEST(tagged_references, "test tagged retain/release") {
+        my_base_object_t *obj;
+
+        obj = obj_new(my_base_object);
+        for (int i = 0; i < 2; i++) {
+            obj_tagged_retain(obj, testing);
+        }
+        obj_print_references(obj);
+        obj_release(&obj);
+        Z_ASSERT_P(obj);
+        obj_tagged_release(&obj, testing);
+        Z_ASSERT_P(obj);
+        obj_tagged_release(&obj, testing);
+        Z_ASSERT_NULL(obj);
     } Z_TEST_END;
 } Z_GROUP_END

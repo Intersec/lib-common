@@ -344,6 +344,23 @@ void (object_panic)(const char *nonnull file, const char *nonnull func,
 
 /* }}} */
 /* {{{ Base object class */
+/* {{{ Fields for tagged references. */
+
+#ifdef NDEBUG
+# define OBJECT_TAGGED_REF_FIELDS(pfx)
+#else /* NDEBUG */
+
+typedef struct obj_tagged_ref_list_t obj_tagged_ref_list_t;
+
+#define OBJECT_TAGGED_REF_FIELDS(pfx)                                        \
+    /* List of tagged references toward an object.                           \
+     * Use prefix 'obj' and suffix '_' to not interfer with user object      \
+     * fields. */                                                            \
+    obj_tagged_ref_list_t *nullable obj_tagged_refs_
+
+#endif /* NDEBUG */
+
+/* }}} */
 
 /** Data fields for the root object class.
  *
@@ -355,7 +372,8 @@ void (object_panic)(const char *nonnull file, const char *nonnull func,
         const pfx##_class_t  * nonnull ptr;                                  \
     } v;                                                                     \
     mem_pool_t * nullable mp;                                                \
-    ssize_t refcnt
+    ssize_t refcnt;                                                          \
+    OBJECT_TAGGED_REF_FIELDS(pfx)
 
 /** Methods for the root object class.
  *
@@ -643,6 +661,58 @@ static inline void (obj_delete)(object_t *nullable *nonnull obj)
 #define obj_release(_obj)                                                    \
     (obj_release)(obj_p_vcast(object, (_obj)))
 
+/* {{{ Tagged retain/release. */
+
+#ifdef NDEBUG
+# define obj_tagged_retain(_obj, _tag) obj_retain(_obj)
+# define obj_tagged_release(_obj, _tag) obj_release(_obj)
+# define obj_print_references(_obj) IGNORE(_obj)
+#else /* NDEBUG */
+
+object_t *nonnull
+(obj_tagged_retain)(object_t *nonnull obj, const char *nonnull tag,
+                    const char *nonnull func,
+                    const char *nonnull file, int line);
+
+void (obj_tagged_release)(object_t *nonnull *nonnull obj_p,
+                          const char *nonnull tag);
+
+/** Create a tagged reference on the object.
+ *
+ * A tagged reference has to be released using \p obj_tagged_release, with the
+ * same tag as the one it was originally retained with. Of course, a tagged
+ * reference will preferably be released in the same file as the one in which
+ * it is created.
+ *
+ * Tagged references allow to track actively how the refcounting is used for
+ * an object. It has an informative value: it makes the correspondance between
+ * retain and release obvious.
+ *
+ * Possible evolutions:
+ * - forbid using non-tagged reference for some objects with a dedicated
+ *   version of obj_new() or for a whole class with a class attribute.
+ * - trace mode: to trace all the retain/release done during an object's
+ *   lifetime.
+ */
+#define obj_tagged_retain(_obj, _tag)                                        \
+    (obj_tagged_retain)(obj_vcast(object, (_obj)), #_tag,                    \
+                        __func__, __FILE__, __LINE__)
+
+/** Release a tagged reference on the object. */
+#define obj_tagged_release(_obj_p, _tag)                                     \
+    (obj_tagged_release)(obj_p_vcast(object, (_obj_p)), #_tag)
+
+void (obj_print_references)(const object_t *nonnull obj);
+
+/** Print the reference counting status to core obj logger. */
+#define obj_print_references(_obj)                                           \
+    (obj_print_references)(obj_ccast(object, (_obj)))
+
+#endif /* NDEBUG */
+
+/* }}} */
+/* {{{ Retain scope. */
+
 /* XXX Only defined for implementation of obj_retain_scope(). */
 static inline void
 _obj_release_scope(object_t * nonnull * nonnull * nonnull obj_pp)
@@ -663,6 +733,8 @@ _obj_release_scope(object_t * nonnull * nonnull * nonnull obj_pp)
     object_t **PFX_LINE(retain_scope_obj_p_)                                 \
         __attribute__((unused, cleanup(_obj_release_scope))) =               \
         (object_t **)obj_retain_p(_obj_p)
+
+/* }}} */
 
 /** Delete object instance.
  *

@@ -18,6 +18,7 @@
 
 #include <lib-common/core.h>
 #include <lib-common/log.h>
+#include <lib-common/container.h>
 
 /** \addtogroup lc_obj
  * \{
@@ -42,6 +43,146 @@ void (object_panic)(const char *nonnull file, const char *nonnull func,
     va_start(va, fmt);
     __logger_vpanic(&_G.logger, file, func, line, fmt, va);
 }
+
+/* {{{ Tagged references. */
+
+#ifndef NDEBUG
+
+typedef struct obj_tagged_ref_t {
+    const char *tag;
+    const char *func;
+    const char *file;
+    int line;
+    int refcnt;
+} obj_tagged_ref_t;
+
+qvector_t(obj_tagged_ref, obj_tagged_ref_t);
+
+struct obj_tagged_ref_list_t {
+    qv_t(obj_tagged_ref) refs;
+};
+
+GENERIC_NEW_INIT(obj_tagged_ref_list_t, obj_tagged_ref_list);
+
+static void obj_tagged_ref_list_wipe(obj_tagged_ref_list_t *list)
+{
+    qv_wipe(&list->refs);
+}
+
+GENERIC_DELETE(obj_tagged_ref_list_t, obj_tagged_ref_list);
+
+void (obj_print_references)(const object_t *nonnull obj)
+{
+    int64_t tagged_refcnt = 0;
+
+    logger_notice(&_G.logger, "object @%p, refcnt=%zd", obj, obj->refcnt);
+    if (obj->obj_tagged_refs_) {
+        tab_for_each_ptr(ref, &obj->obj_tagged_refs_->refs) {
+            logger_notice(&_G.logger,
+                          "tag `%s` in %s (%s:%d): %d reference(s)",
+                          ref->tag, ref->func, ref->file, ref->line,
+                          ref->refcnt);
+            tagged_refcnt += ref->refcnt;
+        }
+    }
+    logger_notice(&_G.logger, "total %jd tagged reference(s)",
+                  tagged_refcnt);
+}
+
+static obj_tagged_ref_t *obj_find_tagged_ref(object_t *obj, const char *tag)
+{
+    THROW_NULL_IF(!obj->obj_tagged_refs_);
+
+    tab_for_each_ptr(ref, &obj->obj_tagged_refs_->refs) {
+        if (strequal(ref->tag, tag)) {
+            return ref;
+        }
+    }
+
+    return NULL;
+}
+
+object_t *nonnull
+(obj_tagged_retain)(object_t *nonnull obj, const char *nonnull tag,
+                    const char *nonnull func,
+                    const char *nonnull file, int line)
+{
+    obj_tagged_ref_t *ref;
+
+    if (!obj->obj_tagged_refs_) {
+        obj->obj_tagged_refs_ = obj_tagged_ref_list_new();
+    }
+
+    ref = obj_find_tagged_ref(obj, tag);
+    if (ref) {
+        if (!strequal(ref->file, file) || ref->line != line) {
+            obj_print_references(obj);
+            logger_panic(&_G.logger, "reference tagging collision : "
+                         "the tag `%s` is used for two different retains, "
+                         "in %s (%s:%d) and in %s (%s:%d)", tag,
+                         ref->func, ref->file, ref->line,
+                         func, file, line);
+        }
+    } else {
+        ref = qv_growlen0(&obj->obj_tagged_refs_->refs, 1);
+        ref->tag = tag;
+        ref->func = func;
+        ref->file = file;
+        ref->line = line;
+    }
+    ref->refcnt++;
+
+    return obj_vcall(obj, retain);
+}
+
+void (obj_tagged_release)(object_t *nonnull *nonnull obj_p,
+                          const char *nonnull tag)
+{
+    obj_tagged_ref_t *reference;
+    bool destroyed;
+    object_t *obj = *obj_p;
+
+    reference = obj_find_tagged_ref(obj, tag);
+    if (unlikely(!reference)) {
+        obj_print_references(obj);
+        logger_panic(&_G.logger,
+                     "broken tagged release: cannot find reference for tag "
+                     "`%s`", tag);
+    }
+    if (unlikely(!reference->refcnt)) {
+        obj_print_references(obj);
+        logger_panic(&_G.logger,
+                     "broken tagged release: the last reference for tag `%s` "
+                     "has already been released", tag);
+    }
+    reference->refcnt--;
+
+    obj_vcall(obj, release, &destroyed);
+    if (destroyed) {
+        *obj_p = NULL;
+    }
+}
+
+static void obj_check_tagged_refs_before_wipe(const object_t *obj)
+{
+    if (!obj->obj_tagged_refs_) {
+        return;
+    }
+    tab_for_each_ptr(ref, &obj->obj_tagged_refs_->refs) {
+        if (!ref->refcnt) {
+            continue;
+        }
+        obj_print_references(obj);
+        logger_panic(&_G.logger,
+                     "a reference created in %s (%s:%d) with tag "
+                     "`%s` wasn't released with obj_tagged_release()",
+                     ref->func, ref->file, ref->line, ref->tag);
+    }
+}
+
+#endif /* NDEBUG */
+
+/* }}} */
 
 bool cls_inherits(const void *_cls, const void *vptr)
 {
@@ -100,6 +241,13 @@ void obj_wipe_real(object_t *o)
         } while (wipe == cls->wipe);
     }
     o->refcnt = 0;
+
+#ifndef NDEBUG
+    if (o->obj_tagged_refs_) {
+        obj_check_tagged_refs_before_wipe(o);
+        obj_tagged_ref_list_delete(&o->obj_tagged_refs_);
+    }
+#endif /* NDEBUG */
 }
 
 static object_t *obj_retain_(object_t *obj)
