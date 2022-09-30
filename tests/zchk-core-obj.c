@@ -146,6 +146,28 @@ Z_GROUP_EXPORT(core_obj)
         obj_delete(&base_obj);
     } Z_TEST_END;
 
+    Z_TEST(casts, "test cast macros") {
+        my_base_object_t *base_obj = obj_new(my_base_object);
+        my_child_object_t *child_obj = obj_new(my_child_object);
+        my_base_object_t *vcast_obj;
+        const my_base_object_t *ccast_obj;
+
+        vcast_obj = obj_vcast(my_base_object, child_obj);
+        Z_ASSERT_P(vcast_obj);
+        ccast_obj = obj_ccast(my_base_object, child_obj);
+        Z_ASSERT_P(ccast_obj);
+        vcast_obj = obj_dynvcast(my_base_object, child_obj);
+        Z_ASSERT_P(vcast_obj);
+        ccast_obj = obj_dynccast(my_base_object, child_obj);
+        Z_ASSERT_P(ccast_obj);
+
+        Z_ASSERT_NULL(obj_dynvcast(my_child_object, base_obj));
+        Z_ASSERT_NULL(obj_dynccast(my_child_object, base_obj));
+
+        obj_delete(&child_obj);
+        obj_delete(&base_obj);
+    } Z_TEST_END;
+
     Z_TEST(extended, "test extended vtable") {
         my_child_object_t *child_obj = obj_new(my_child_object);
 
