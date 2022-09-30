@@ -608,6 +608,22 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  */
 #define obj_retain(o)   obj_vcall(o, retain)
 
+/* {{{ Private helper. */
+
+static inline void (obj_release)(object_t *nullable *nonnull obj)
+{
+    if (*obj) {
+        bool destroyed;
+
+        obj_vcall(*obj, release, &destroyed);
+        if (destroyed) {
+            *obj = NULL;
+        }
+    }
+}
+
+/* }}} */
+
 /** Release object instance.
  *
  * Wrapper for 'release' method.
@@ -616,16 +632,8 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  *                     reference left, then it is destroyed and \p *op is set
  *                     to NULL. Otherwise, \p *op is left unchanged.
  */
-#define obj_release(op) \
-do {                                                                         \
-    typeof(**op) **obj_release_obj = (op);                                   \
-    bool obj_release_obj_destroyed = false;                                  \
-                                                                             \
-    obj_vcall(*obj_release_obj, release, &obj_release_obj_destroyed);        \
-    if (obj_release_obj_destroyed) {                                         \
-        *obj_release_obj = NULL;                                             \
-    }                                                                        \
-} while (0)
+#define obj_release(_obj)                                                    \
+    (obj_release)(obj_p_vcast(object, _obj))
 
 /* XXX Only defined for implementation of obj_retain_scope(). */
 static inline void
