@@ -395,6 +395,12 @@ OBJ_CLASS_NO_TYPEDEF_(object, object, OBJECT_FIELDS, OBJECT_METHODS,
                         pfx##_class()->type_name);                           \
      }                                                                       \
      __##pfx##_o; })
+
+#  define obj_p_cast_debug(pfx, obj_p)                                       \
+    ({ typeof(obj_p) PFX_LINE(pfx##_p_cast_obj) = (obj_p);                   \
+       IGNORE(obj_cast_debug(pfx, *PFX_LINE(pfx##_p_cast_obj)));             \
+       PFX_LINE(pfx##_p_cast_obj); })
+
 #  define cls_cast_debug(pfx, c)                                             \
     ({ typeof(c) __##pfx##_c = (c);                                          \
        if (unlikely(!cls_inherits(__##pfx##_c, pfx##_class()))) {            \
@@ -405,6 +411,7 @@ OBJ_CLASS_NO_TYPEDEF_(object, object, OBJECT_FIELDS, OBJECT_METHODS,
 #else
 #  define obj_cast_debug(pfx, o)  (o)
 #  define cls_cast_debug(pfx, c)  (c)
+#  define obj_p_cast_debug(pfx, obj_p) (obj_p)
 #endif
 
 #define obj_dyn_cast(pfx, o)                                                 \
@@ -474,6 +481,13 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  * Same as obj_vcast, but returns a const pointer.
  */
 #define obj_ccast(pfx, o)  ((const pfx##_t *)obj_cast_debug(pfx, o))
+
+/** Similar to \p obj_vcast but casts a double pointer. */
+#define obj_p_vcast(pfx, obj_p) ((pfx##_t **)obj_p_cast_debug(pfx, obj_p))
+
+/** Similar to \p obj_ccast but casts a double pointer. */
+#define obj_p_ccast(pfx, obj_p)                                              \
+        ((const pfx##_t **)obj_p_cast_debug(pfx, obj_p))
 
 /** Dynamically cast an object to the wanted type.
  *

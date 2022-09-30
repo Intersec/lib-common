@@ -151,6 +151,8 @@ Z_GROUP_EXPORT(core_obj)
         my_child_object_t *child_obj = obj_new(my_child_object);
         my_base_object_t *vcast_obj;
         const my_base_object_t *ccast_obj;
+        my_base_object_t **p_vcast_obj;
+        const my_base_object_t **p_ccast_obj;
 
         vcast_obj = obj_vcast(my_base_object, child_obj);
         Z_ASSERT_P(vcast_obj);
@@ -163,6 +165,11 @@ Z_GROUP_EXPORT(core_obj)
 
         Z_ASSERT_NULL(obj_dynvcast(my_child_object, base_obj));
         Z_ASSERT_NULL(obj_dynccast(my_child_object, base_obj));
+
+        p_vcast_obj = obj_p_vcast(my_base_object, &child_obj);
+        Z_ASSERT((void **)p_vcast_obj == (void **)&child_obj);
+        p_ccast_obj = obj_p_ccast(my_base_object, &child_obj);
+        Z_ASSERT((const void **)p_ccast_obj == (const void **)&child_obj);
 
         obj_delete(&child_obj);
         obj_delete(&base_obj);
