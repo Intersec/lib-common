@@ -264,7 +264,10 @@ Z_GROUP_EXPORT(core_obj)
         for (int i = 0; i < 2; i++) {
             obj_tagged_retain(obj, testing);
         }
-        obj_print_references(obj);
+        {
+            obj_retain_scope(&obj);
+            obj_print_references(obj);
+        }
         obj_release(&obj);
         Z_ASSERT_P(obj);
         obj_tagged_release(&obj, testing);

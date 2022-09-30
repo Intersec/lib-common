@@ -49,10 +49,14 @@ void (object_panic)(const char *nonnull file, const char *nonnull func,
 #ifndef NDEBUG
 
 typedef struct obj_tagged_ref_t {
-    const char *tag;
-    const char *func;
-    const char *file;
+    /* Absent for retain scope refs. */
+    const char *nullable tag;
+
+    /* Line of the retain. */
+    const char *nonnull func;
+    const char *nonnull file;
     int line;
+
     int refcnt;
 } obj_tagged_ref_t;
 
@@ -78,9 +82,16 @@ void (obj_print_references)(const object_t *nonnull obj)
     logger_notice(&_G.logger, "object @%p, refcnt=%zd", obj, obj->refcnt);
     if (obj->obj_tagged_refs_) {
         tab_for_each_ptr(ref, &obj->obj_tagged_refs_->refs) {
+            SB_1k(pfx);
+
+            if (ref->tag) {
+                sb_addf(&pfx, "tag `%s`", ref->tag);
+            } else {
+                sb_adds(&pfx, "obj_retain_scope");
+            }
             logger_notice(&_G.logger,
-                          "tag `%s` in %s (%s:%d): %d reference(s)",
-                          ref->tag, ref->func, ref->file, ref->line,
+                          "%s in %s (%s:%d): %d reference(s)",
+                          pfx.data, ref->func, ref->file, ref->line,
                           ref->refcnt);
             tagged_refcnt += ref->refcnt;
         }
@@ -94,12 +105,46 @@ static obj_tagged_ref_t *obj_find_tagged_ref(object_t *obj, const char *tag)
     THROW_NULL_IF(!obj->obj_tagged_refs_);
 
     tab_for_each_ptr(ref, &obj->obj_tagged_refs_->refs) {
-        if (strequal(ref->tag, tag)) {
+        if (ref->tag && strequal(ref->tag, tag)) {
             return ref;
         }
     }
 
     return NULL;
+}
+
+static obj_tagged_ref_t *
+obj_find_scope_ref(object_t *obj, const char *file, int line)
+{
+    THROW_NULL_IF(!obj->obj_tagged_refs_);
+
+    tab_for_each_ptr(ref, &obj->obj_tagged_refs_->refs) {
+        if (strequal(ref->file, file) && ref->line == line && !ref->tag) {
+            return ref;
+        }
+    }
+
+    return NULL;
+}
+
+static obj_tagged_ref_t *
+obj_add_tagged_ref(object_t *obj, const char *nullable tag,
+                   const char *nonnull func,
+                   const char *nonnull file, int line)
+{
+    obj_tagged_ref_t *ref;
+
+    if (!obj->obj_tagged_refs_) {
+        obj->obj_tagged_refs_ = obj_tagged_ref_list_new();
+    }
+
+    ref = qv_growlen0(&obj->obj_tagged_refs_->refs, 1);
+    ref->tag = tag;
+    ref->func = func;
+    ref->file = file;
+    ref->line = line;
+
+    return ref;
 }
 
 object_t *nonnull
@@ -108,10 +153,6 @@ object_t *nonnull
                     const char *nonnull file, int line)
 {
     obj_tagged_ref_t *ref;
-
-    if (!obj->obj_tagged_refs_) {
-        obj->obj_tagged_refs_ = obj_tagged_ref_list_new();
-    }
 
     ref = obj_find_tagged_ref(obj, tag);
     if (ref) {
@@ -124,22 +165,28 @@ object_t *nonnull
                          func, file, line);
         }
     } else {
-        ref = qv_growlen0(&obj->obj_tagged_refs_->refs, 1);
-        ref->tag = tag;
-        ref->func = func;
-        ref->file = file;
-        ref->line = line;
+        ref = obj_add_tagged_ref(obj, tag, func, file, line);
     }
     ref->refcnt++;
 
     return obj_vcall(obj, retain);
 }
 
+static void
+obj_release_vcall(object_t *nonnull *nonnull obj_p)
+{
+    bool destroyed;
+
+    obj_vcall(*obj_p, release, &destroyed);
+    if (destroyed) {
+        *obj_p = NULL;
+    }
+}
+
 void (obj_tagged_release)(object_t *nonnull *nonnull obj_p,
                           const char *nonnull tag)
 {
     obj_tagged_ref_t *reference;
-    bool destroyed;
     object_t *obj = *obj_p;
 
     reference = obj_find_tagged_ref(obj, tag);
@@ -157,10 +204,35 @@ void (obj_tagged_release)(object_t *nonnull *nonnull obj_p,
     }
     reference->refcnt--;
 
-    obj_vcall(obj, release, &destroyed);
-    if (destroyed) {
-        *obj_p = NULL;
+    obj_release_vcall(obj_p);
+}
+
+object_t *nonnull
+(obj_retain_scope)(object_t *nonnull obj,
+                   const char *nonnull func,
+                   const char *nonnull file, int line)
+{
+    obj_tagged_ref_t *ref;
+
+    ref = obj_find_scope_ref(obj, func, line);
+    if (!ref) {
+        ref = obj_add_tagged_ref(obj, NULL, func, file, line);
     }
+    ref->refcnt++;
+
+    return obj_vcall(obj, retain);
+}
+
+void (obj_release_scope)(object_t *nonnull *nonnull obj_p,
+                         const char *nonnull file, int line)
+{
+    object_t *obj = *obj_p;
+    obj_tagged_ref_t *reference;
+
+    reference = obj_find_scope_ref(obj, file, line);
+    reference->refcnt--;
+
+    obj_release_vcall(obj_p);
 }
 
 static void obj_check_tagged_refs_before_wipe(const object_t *obj)

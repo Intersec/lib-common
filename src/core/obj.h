@@ -712,27 +712,69 @@ void (obj_print_references)(const object_t *nonnull obj);
 
 /* }}} */
 /* {{{ Retain scope. */
+/* {{{ Private helpers. */
 
-/* XXX Only defined for implementation of obj_retain_scope(). */
-static inline void
-_obj_release_scope(object_t * nonnull * nonnull * nonnull obj_pp)
+typedef struct object_reference_scope_t {
+    object_t *nonnull *nonnull obj_p;
+#ifndef NDEBUG
+    const char *nonnull func;
+    const char *nonnull file;
+    int line;
+#endif /* NDEBUG */
+} object_reference_scope_t;
+
+#ifndef NDEBUG
+
+object_t *nonnull
+(obj_retain_scope)(object_t *nonnull obj,
+                   const char *nonnull func,
+                   const char *nonnull file, int line);
+void (obj_release_scope)(object_t *nonnull *nonnull obj_p,
+                         const char *nonnull file, int line);
+
+#endif /* NDEBUG */
+
+static inline object_reference_scope_t
+object_reference_scope_build(object_t *nonnull *nonnull obj_p,
+                             const char *nonnull func,
+                             const char *nonnull file,
+                             int line)
 {
-    obj_release(*obj_pp);
+#ifdef NDEBUG
+    obj_retain(*obj_p);
+#else /* NDEBUG */
+    (obj_retain_scope)(*obj_p, func, file, line);
+#endif /* NDEBUG */
+
+    return (object_reference_scope_t){
+        .obj_p = obj_p,
+#ifndef NDEBUG
+        .func = func,
+        .file = file,
+        .line = line,
+#endif /* NDEBUG */
+    };
 }
 
-/* XXX Mainly defined for implementation of obj_retain_scope(). */
-#define obj_retain_p(_o) \
-({                                                                           \
-    typeof(*_o) *PFX_LINE(retained_obj_p_) = (_o);                           \
-    obj_retain(*PFX_LINE(retained_obj_p_));                                  \
-    PFX_LINE(retained_obj_p_);                                               \
-})
+static inline void
+object_reference_scope_wipe(object_reference_scope_t *nonnull scope)
+{
+#ifdef NDEBUG
+    obj_release(scope->obj_p);
+#else /* NDEBUG */
+    (obj_release_scope)(scope->obj_p, scope->file, scope->line);
+#endif /* NDEBUG */
+}
+
+/* }}} */
 
 /** Keep an object retained until the end of the current scope. */
-#define obj_retain_scope(_obj_p) \
-    object_t **PFX_LINE(retain_scope_obj_p_)                                 \
-        __attribute__((unused, cleanup(_obj_release_scope))) =               \
-        (object_t **)obj_retain_p(_obj_p)
+#define obj_retain_scope(_obj_p)                                             \
+    object_reference_scope_t PFX_LINE(obj_retain_scope)                      \
+        __attribute__((unused, cleanup(object_reference_scope_wipe))) =      \
+        object_reference_scope_build(                                        \
+            obj_p_vcast(object, (_obj_p)),                                   \
+            __func__, __FILE__, __LINE__)
 
 /* }}} */
 
