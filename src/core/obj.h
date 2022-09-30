@@ -608,7 +608,7 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  */
 #define obj_retain(o)   obj_vcall(o, retain)
 
-/* {{{ Private helper. */
+/* {{{ Private helpers. */
 
 static inline void (obj_release)(object_t *nullable *nonnull obj)
 {
@@ -619,6 +619,14 @@ static inline void (obj_release)(object_t *nullable *nonnull obj)
         if (destroyed) {
             *obj = NULL;
         }
+    }
+}
+
+static inline void (obj_delete)(object_t *nullable *nonnull obj)
+{
+    if (*obj) {
+        obj_vcall(*obj, release, NULL);
+        *obj = NULL;
     }
 }
 
@@ -633,7 +641,7 @@ static inline void (obj_release)(object_t *nullable *nonnull obj)
  *                     to NULL. Otherwise, \p *op is left unchanged.
  */
 #define obj_release(_obj)                                                    \
-    (obj_release)(obj_p_vcast(object, _obj))
+    (obj_release)(obj_p_vcast(object, (_obj)))
 
 /* XXX Only defined for implementation of obj_retain_scope(). */
 static inline void
@@ -660,15 +668,8 @@ _obj_release_scope(object_t * nonnull * nonnull * nonnull obj_pp)
  *
  * If the object instance is not NULL, it will be released and set to NULL.
  */
-#define obj_delete(op) \
-do {                                                                         \
-    typeof(**op) **obj_delete_obj = (op);                                    \
-                                                                             \
-    if (*obj_delete_obj) {                                                   \
-        obj_vcall(*obj_delete_obj, release, NULL);                           \
-        *obj_delete_obj = NULL;                                              \
-    }                                                                        \
-} while (0)
+#define obj_delete(_obj)                                                     \
+    (obj_delete)(obj_p_vcast(object, (_obj)))
 
 /** Init object instance with static memory pool.
  *
