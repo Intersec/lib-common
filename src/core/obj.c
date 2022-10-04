@@ -19,6 +19,7 @@
 #include <lib-common/core.h>
 #include <lib-common/log.h>
 #include <lib-common/container.h>
+#include <lib-common/str-buf-pp.h>
 
 /** \addtogroup lc_obj
  * \{
@@ -78,26 +79,57 @@ GENERIC_DELETE(obj_tagged_ref_list_t, obj_tagged_ref_list);
 void (obj_print_references)(const object_t *nonnull obj)
 {
     int64_t tagged_refcnt = 0;
+    logger_notice_scope(&_G.logger);
 
-    logger_notice(&_G.logger, "object @%p, refcnt=%zd", obj, obj->refcnt);
     if (obj->obj_tagged_refs_) {
         tab_for_each_ptr(ref, &obj->obj_tagged_refs_->refs) {
-            SB_1k(pfx);
-
-            if (ref->tag) {
-                sb_addf(&pfx, "tag `%s`", ref->tag);
-            } else {
-                sb_adds(&pfx, "obj_retain_scope");
-            }
-            logger_notice(&_G.logger,
-                          "%s in %s (%s:%d): %d reference(s)",
-                          pfx.data, ref->func, ref->file, ref->line,
-                          ref->refcnt);
             tagged_refcnt += ref->refcnt;
         }
     }
-    logger_notice(&_G.logger, "total %jd tagged reference(s)",
-                  tagged_refcnt);
+    logger_cont("object @%p, refcnt=%'zd, %'jd tagged reference(s)",
+                obj, obj->refcnt, tagged_refcnt);
+    if (obj->obj_tagged_refs_) {
+        t_scope;
+        SB_1k(table_buf);
+        qv_t(table_hdr) hdr;
+        qv_t(table_data) data;
+        table_hdr_t hdr_data[] = { {
+            /* For indentation. */
+            .title = LSTR_IMMED("  "),
+        }, {
+            .title = LSTR_IMMED("TAG"),
+        }, {
+            .title = LSTR_IMMED("FUNCTION"),
+        }, {
+            .title = LSTR_IMMED("FILE:LINE"),
+        }, {
+            .title = LSTR_IMMED("REFCNT"),
+        } };
+
+        logger_cont(":\n");
+
+        qv_init_static(&hdr, hdr_data, countof(hdr_data));
+        t_qv_init(&data, obj->obj_tagged_refs_->refs.len);
+
+        tab_for_each_ptr(ref, &obj->obj_tagged_refs_->refs) {
+            qv_t(lstr) *row;
+
+            row = t_qv_init(qv_growlen(&data, 1), 4);
+            qv_append(row, LSTR_EMPTY_V);
+            if (ref->tag) {
+                qv_append(row, LSTR(ref->tag));
+            } else {
+                qv_append(row, LSTR("<obj_retain_scope>"));
+            }
+            qv_append(row, LSTR(ref->func));
+            qv_append(row, t_lstr_fmt("%s:%d", ref->file, ref->line));
+            qv_append(row, t_lstr_fmt("%'d", ref->refcnt));
+        }
+        sb_add_table(&table_buf, &hdr, &data);
+        /* Remove the trailing '\n'. */
+        sb_shrink(&table_buf, 1);
+        logger_cont("%*pM", SB_FMT_ARG(&table_buf));
+    }
 }
 
 static obj_tagged_ref_t *obj_find_tagged_ref(object_t *obj, const char *tag)
