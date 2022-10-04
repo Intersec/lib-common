@@ -5443,7 +5443,7 @@ void iop_prune(const iop_struct_t *st, void *obj, lstr_t gen_attr)
 }
 
 /* }}} */
-/* {{{ Introspection - iop_for_each_field() */
+/* {{{ Introspection - iop_for_each_(field|st|obj) */
 
 /* {{{ Stack management */
 
@@ -5574,7 +5574,7 @@ int iop_for_each_field(const iop_struct_t *nullable st_desc,
 
     iop_field_stack_init(&fstack);
 
-    return _iop_for_each_field(st_desc, st_ptr, &fstack, cb);
+    return _iop_for_each_field(st_desc, st_ptr, false, &fstack, cb);
 }
 
 /* }}} */
@@ -5614,7 +5614,7 @@ int iop_for_each_field_const(
 
     iop_field_stack_init(&fstack);
 
-    return _iop_for_each_field_const(st_desc, st_ptr, &fstack, cb);
+    return _iop_for_each_field_const(st_desc, st_ptr, false, &fstack, cb);
 }
 
 /* }}} */
@@ -5629,12 +5629,20 @@ static int call_field_fast_cb(const iop_struct_t *st_desc, void *st_ptr,
     return cb(st_desc, fdesc, st_ptr);
 }
 
-#define F_NAME    iop_for_each_field_fast
+#define F_STATIC
+#define F_NAME    _iop_for_each_field_fast
 #define F_PROTO   iop_for_each_field_fast_cb_b cb
 #define F_ARGS    cb
 #define F(x)      x##_blk_fast
 #define ON_FIELD  call_field_fast_cb
 #include "for-each.in.c"
+
+int iop_for_each_field_fast(const iop_struct_t * nullable st_desc,
+                            void * nonnull st_ptr,
+                            iop_for_each_field_fast_cb_b nonnull cb)
+{
+    return _iop_for_each_field_fast(st_desc, st_ptr, false, cb);
+}
 
 /* }}} */
 /* {{{ iop_for_each_field_const_fast() */
@@ -5647,13 +5655,22 @@ static int call_field_const_fast_cb(const iop_struct_t *st_desc,
     return cb(st_desc, fdesc, st_ptr);
 }
 
-#define F_NAME    iop_for_each_field_const_fast
+#define F_STATIC
+#define F_NAME    _iop_for_each_field_const_fast
 #define F_PROTO   iop_for_each_field_const_fast_cb_b cb
 #define F_ARGS    cb
 #define F(x)      x##_blk_const_fast
 #define MODIFIER  const
 #define ON_FIELD  call_field_const_fast_cb
 #include "for-each.in.c"
+
+int iop_for_each_field_const_fast(
+    const iop_struct_t * nullable st_desc,
+    const void * nonnull st_ptr,
+    iop_for_each_field_const_fast_cb_b nonnull cb)
+{
+    return _iop_for_each_field_const_fast(st_desc, st_ptr, false, cb);
+}
 
 /* }}} */
 /* {{{ iop_for_each_st() */
@@ -5698,7 +5715,7 @@ int iop_for_each_st(const iop_struct_t *nullable st_desc,
 
     iop_field_stack_init(&fstack);
 
-    return _iop_for_each_st(st_desc, st_ptr, &fstack, cb);
+    return _iop_for_each_st(st_desc, st_ptr, false, &fstack, cb);
 }
 
 /* }}} */
@@ -5748,7 +5765,7 @@ int iop_for_each_st_const(const iop_struct_t *nullable st_desc,
 
     iop_field_stack_init(&fstack);
 
-    return _iop_for_each_st_const(st_desc, st_ptr, &fstack, cb);
+    return _iop_for_each_st_const(st_desc, st_ptr, false, &fstack, cb);
 }
 
 /* }}} */
@@ -5760,12 +5777,20 @@ static int call_st_cb_fast(const iop_struct_t *st_desc, void *st_ptr,
     return cb(st_desc, st_ptr);
 }
 
-#define F_NAME     iop_for_each_st_fast
+#define F_STATIC
+#define F_NAME     _iop_for_each_st_fast
 #define F_PROTO    iop_for_each_st_fast_cb_b cb
 #define F_ARGS     cb
 #define F(x)       x##_st_blk_fast
 #define ON_STRUCT  call_st_cb_fast
 #include "for-each.in.c"
+
+int iop_for_each_st_fast(const iop_struct_t *nullable st_desc,
+                         void *nonnull st_ptr,
+                         iop_for_each_st_fast_cb_b nonnull cb)
+{
+    return _iop_for_each_st_fast(st_desc, st_ptr, false, cb);
+}
 
 /* }}} */
 /* {{{ iop_for_each_st_const_fast() */
@@ -5776,13 +5801,91 @@ static int call_st_const_fast_cb(const iop_struct_t *st_desc, void *st_ptr,
     return cb(st_desc, st_ptr);
 }
 
-#define F_NAME     iop_for_each_st_const_fast
+#define F_STATIC
+#define F_NAME     _iop_for_each_st_const_fast
 #define F_PROTO    iop_for_each_st_const_fast_cb_b cb
 #define F_ARGS     cb
 #define F(x)       x##_st_const_fast_blk
 #define MODIFIER   const
 #define ON_STRUCT  call_st_const_fast_cb
 #include "for-each.in.c"
+
+int iop_for_each_st_const_fast(const iop_struct_t *nullable st_desc,
+                               const void *nonnull st_ptr,
+                               iop_for_each_st_const_fast_cb_b nonnull cb)
+{
+    return _iop_for_each_st_const_fast(st_desc, st_ptr, false, cb);
+}
+
+/* }}} */
+/* {{{ iop_for_each_obj() */
+
+static int on_field_obj_cb(const iop_struct_t *st_desc, void *obj_ptr,
+                           const iop_field_t *fdesc,
+                           iop_field_stack_t *fstack,
+                           iop_for_each_obj_cb_b nonnull cb)
+{
+    iop_field_stack_fill_head(fstack, st_desc, obj_ptr, fdesc);
+
+    return 0;
+}
+
+static int call_obj_cb(const iop_struct_t *st_desc, void **obj_ptr,
+                       iop_field_stack_t *fstack, iop_for_each_obj_cb_b cb)
+{
+    return cb(st_desc, obj_ptr, fstack);
+}
+
+#define F_STATIC
+#define F_NAME     _iop_for_each_obj
+#define F_PROTO                                                              \
+    iop_field_stack_t *fstack,                                               \
+    iop_for_each_obj_cb_b cb
+#define F_ARGS     fstack, cb
+#define F(x)       x##_obj_blk
+#define ON_OBJ  call_obj_cb
+#define F_LOCAL    F_LOCAL_WSTACK
+
+#define ON_FIELD          on_field_obj_cb
+#define ON_FIELD_DONE()   ON_FIELD_DONE_WSTACK()
+#define SET_INDEX(index)  SET_INDEX_WSTACK(index)
+
+#include "for-each.in.c"
+
+int iop_for_each_obj(const iop_struct_t *nullable st_desc,
+                     void * nonnull * nonnull st_ptr,
+                     iop_for_each_obj_cb_b nonnull cb)
+{
+    iop_field_stack_t fstack;
+
+    iop_field_stack_init(&fstack);
+
+    return _iop_for_each_obj(st_desc, st_ptr, true, &fstack, cb);
+}
+
+/* }}} */
+/* {{{ iop_for_each_obj_fast() */
+
+static int call_obj_fast_cb(const iop_struct_t *st_desc, void **obj_ptr,
+                            iop_for_each_obj_fast_cb_b cb)
+{
+    return cb(st_desc, obj_ptr);
+}
+
+#define F_STATIC
+#define F_NAME     _iop_for_each_obj_fast
+#define F_PROTO    iop_for_each_obj_fast_cb_b cb
+#define F_ARGS     cb
+#define F(x)       x##_obj_fast_blk
+#define ON_OBJ     call_obj_fast_cb
+#include "for-each.in.c"
+
+int iop_for_each_obj_fast(const iop_struct_t *nullable st_desc,
+                          void * nonnull * nonnull st_ptr,
+                          iop_for_each_obj_fast_cb_b nonnull cb)
+{
+    return _iop_for_each_obj_fast(st_desc, st_ptr, true, cb);
+}
 
 /* }}} */
 
