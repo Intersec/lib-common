@@ -23,6 +23,7 @@ Contains the code needed for backend compilation.
 import datetime
 import os
 import re
+import copy
 import shlex
 import os.path as osp
 from itertools import chain
@@ -134,25 +135,29 @@ runtime. For this reason, disabling the double compilation is not allowed in
 release profile.
 """
 
-def declare_fpic_lib(ctx, pic_name, orig_lib):
-    orig_source     = orig_lib.to_list(getattr(orig_lib, 'source',     []))
-    orig_use        = orig_lib.to_list(getattr(orig_lib, 'use',        []))
-    orig_use_whole  = orig_lib.to_list(getattr(orig_lib, 'use_whole',  []))
-    orig_depends_on = orig_lib.to_list(getattr(orig_lib, 'depends_on', []))
-    orig_cflags     = orig_lib.to_list(getattr(orig_lib, 'cflags',     []))
-    orig_includes   = orig_lib.to_list(getattr(orig_lib, 'includes',   []))
+# The list of keys to skip when copying a TaskGen stlib on declare_fpic_lib()
+SKIPPED_STLIB_TGEN_COPY_KEYS = {
+    '_name', 'bld', 'env', 'features', 'idx', 'path', 'target',
+    'tg_idx_count',
+}
 
+def declare_fpic_lib(ctx, pic_name, orig_lib):
     ctx_path_bak = ctx.path
     ctx.path = orig_lib.path
-    lib = ctx.stlib(target=pic_name,
-                    features=orig_lib.features,
-                    source=orig_source[:],
-                    cflags=orig_cflags[:],
-                    use=orig_use[:],
-                    use_whole=orig_use_whole[:],
-                    depends_on=orig_depends_on[:],
-                    includes=orig_includes[:])
+
+    # Create a new TaskGen stlib by copying the attributes of the original
+    # lib TaskGen.
+    # XXX: TaskGen.clone() does not work in our case because it does not
+    # create a stlib TaskGen, but a generic TaskGen. Moreover, it copies some
+    # attributes that should not be copied.
+    lib = ctx.stlib(target=pic_name, features=orig_lib.features,
+                    env=orig_lib.env.derive())
     ctx.path = ctx_path_bak
+
+    for key, val in orig_lib.__dict__.items():
+        if key in SKIPPED_STLIB_TGEN_COPY_KEYS:
+            continue
+        setattr(lib, key, copy.copy(val))
 
     lib.env.append_value('CFLAGS', ['-fPIC'])
     return lib
