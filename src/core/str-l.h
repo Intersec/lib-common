@@ -750,6 +750,17 @@ lstr_t t_lstr_hexdecode(lstr_t lstr);
  */
 lstr_t t_lstr_hexencode(lstr_t lstr);
 
+/** Decode a human readable hexadecimal string
+ *
+ * All non-hexadecimal characters are ignored, the string can contain space
+ * characters to increase readability.
+ *
+ * \param[in] str  the ASCII string to decode
+ *
+ * \return the decoded data
+ */
+lstr_t t_lstr_human_hexdecode(lstr_t str);
+
 /** Xor a lstr with another.
  *
  * \param[in]  in  the string to xor
