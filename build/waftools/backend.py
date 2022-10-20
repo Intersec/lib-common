@@ -136,10 +136,10 @@ release profile.
 """
 
 # The list of keys to skip when copying a TaskGen stlib on declare_fpic_lib()
-SKIPPED_STLIB_TGEN_COPY_KEYS = {
+SKIPPED_STLIB_TGEN_COPY_KEYS = set((
     '_name', 'bld', 'env', 'features', 'idx', 'path', 'target',
     'tg_idx_count',
-}
+))
 
 def declare_fpic_lib(ctx, pic_name, orig_lib):
     ctx_path_bak = ctx.path
@@ -150,10 +150,10 @@ def declare_fpic_lib(ctx, pic_name, orig_lib):
     # XXX: TaskGen.clone() does not work in our case because it does not
     # create a stlib TaskGen, but a generic TaskGen. Moreover, it copies some
     # attributes that should not be copied.
-    orig_lib_attrs = {
-        key: copy.copy(value) for key, value in orig_lib.__dict__.items()
+    orig_lib_attrs = dict(
+        (key, copy.copy(value)) for key, value in orig_lib.__dict__.items()
         if key not in SKIPPED_STLIB_TGEN_COPY_KEYS
-    }
+    )
     lib = ctx.stlib(target=pic_name, features=orig_lib.features,
                     env=orig_lib.env.derive(), **orig_lib_attrs)
     ctx.path = ctx_path_bak
