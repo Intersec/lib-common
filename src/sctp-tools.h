@@ -113,6 +113,16 @@ typedef struct sctp_conn_t {
      * \brief Logger associated to the connection.
      */
     logger_t * nonnull logger;
+
+    /**
+     * \brief Host name associated to the connections.
+     */
+    lstr_t host;
+
+    /**
+     * \brief Port associated to the connections.
+     */
+    int port;
 } sctp_conn_t;
 
 /**

@@ -111,6 +111,7 @@ static void sctp_conn_priv_wipe(sctp_conn_priv_t * nonnull conn)
     sb_wipe(&conn->rbuf);
     sctp_msg_list_wipe(&conn->msgs);
     lstr_wipe(&(conn->user_ctx.entity_id));
+    lstr_wipe(&(conn->user_ctx.host));
     if (!conn->is_listening) {
         /* XXX: The context created by sctp_listen() doesn't use a specific
          * logger but use the global logger instead, do not remove it! */
@@ -529,6 +530,8 @@ static int sctp_srv_on_event(el_t evh, int fd, short ev, el_data_t priv)
         conn->user_ctx.entity_id   = lstr_dup(user_ctx->entity_id);
         conn->user_ctx.priv        = user_ctx->priv;
         conn->user_ctx.logger      = logger;
+        conn->user_ctx.host        = lstr_dup(LSTR(host));
+        conn->user_ctx.port        = port;
 
         listen_ctx->on_accept_cb(&conn->user_ctx);
     }
