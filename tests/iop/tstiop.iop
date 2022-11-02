@@ -783,6 +783,9 @@ class Fox : 1 : Mammal {
 class Hound : 2 : Mammal {
 };
 
+class UnregisteredMammal : 3 : Mammal {
+};
+
 /* }}} */
 /* {{{ zchk iop_blk.iop_field_path */
 
