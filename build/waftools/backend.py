@@ -308,7 +308,10 @@ def deploy_shlib(self):
     assert (len(self.link_task.outputs) == 1)
     node = self.link_task.outputs[0]
     assert (node.name.startswith('lib'))
-    tgt = node.parent.get_src().make_node(node.name[len('lib'):])
+    tgt_name = node.name
+    if not getattr(self, 'keep_lib_prefix', False):
+        tgt_name = tgt_name[len('lib'):]
+    tgt = node.parent.get_src().make_node(tgt_name)
     self.link_task.outputs = [tgt]
 
 
