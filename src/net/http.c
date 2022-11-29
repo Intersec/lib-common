@@ -3908,7 +3908,6 @@ static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
 /* }}} */
 /* {{{ Streaming API */
 
-__unused__
 static void
 http2_stream_on_headers(http2_conn_t *w, http2_stream_t stream,
                         http2_stream_ctx_t ctx, http2_header_info_t *info,
@@ -3921,7 +3920,6 @@ http2_stream_on_headers(http2_conn_t *w, http2_stream_t stream,
     }
 }
 
-__unused__
 static void
 http2_stream_on_data(http2_conn_t *w, http2_stream_t stream,
                      http2_stream_ctx_t ctx, pstream_t data, bool eos)
@@ -3933,7 +3931,6 @@ http2_stream_on_data(http2_conn_t *w, http2_stream_t stream,
     }
 }
 
-__unused__
 static void http2_stream_on_reset(http2_conn_t *w, http2_stream_t stream,
                                   http2_stream_ctx_t ctx, bool remote)
 {
@@ -3964,7 +3961,6 @@ static void http2_conn_on_close(http2_conn_t *w)
     }
 }
 
-__unused__
 static bool
 http2_is_valid_request_hdr_to_send(lstr_t key_, lstr_t val, int *clen)
 {
@@ -4048,6 +4044,303 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
         http2_stream_error(w, stream, CANCEL, fmt, ##__VA_ARGS__);           \
         http2_stream_do_update_info(w, stream);                              \
     } while (0)
+
+/* }}} */
+/* {{{ Stream-Level Frame Handlers */
+
+#define http2_stream_conn_error(w, stream, error_code, fmt, ...)             \
+    ({                                                                       \
+        http2_stream_trace(w, stream, 0, "connection error :" fmt,           \
+                           ##__VA_ARGS__);                                   \
+        http2_stream_conn_error_(w, stream, HTTP2_CODE_##error_code, fmt,    \
+                                 ##__VA_ARGS__);                             \
+    })
+
+__attribute__((format(printf, 4, 5)))
+static int http2_stream_conn_error_(http2_conn_t *w,
+                                    const http2_stream_t *stream,
+                                    uint32_t error_code,
+                                    const char *fmt, ...)
+{
+    t_scope;
+    lstr_t debug;
+    va_list ap;
+
+    va_start(ap, fmt);
+    debug = t_lstr_vfmt(fmt, ap);
+    va_end(ap);
+    return http2_conn_send_error(w, error_code, debug);
+}
+
+#define http2_stream_error(w, stream, error_code, fmt, ...)                  \
+    do {                                                                     \
+        http2_stream_trace(w, stream, 0, "stream error: " fmt,               \
+                           ##__VA_ARGS__);                                   \
+        http2_conn_send_rst_stream(w, (stream)->id,                          \
+                                   HTTP2_CODE_##error_code);                 \
+        http2_stream_do_on_events(w, stream, STREAM_FLAG_RST_SENT);          \
+    } while (0)
+
+static void
+http2_stream_maintain_recv_window(http2_conn_t *w, http2_stream_t *stream)
+{
+    int incr;
+
+    incr = http2_get_settings(w).initial_window_size - stream->info.recv_wnd;
+    if (incr <= 0) {
+        return;
+    }
+    http2_conn_send_window_update(w, stream->id, incr);
+    stream->info.recv_wnd += incr;
+}
+
+static int
+http2_stream_consume_recv_window(http2_conn_t *w, http2_stream_t *stream,
+                                 unsigned delta)
+{
+    assert(delta <= http2_get_settings(w).max_frame_size);
+
+    /* maintain the recv window at the initial_window_size settings each time
+     * the peer sends DATA frame */
+    stream->info.recv_wnd -= delta;
+    http2_stream_maintain_recv_window(w, stream);
+    return 0;
+}
+
+__unused__
+static int
+http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
+                          int padlen, bool eos)
+{
+    http2_stream_t stream = http2_stream_get(w, stream_id);
+    unsigned flags = stream.info.flags;
+    int payload = padlen + ps_len(&data);
+    http2_stream_ctx_t ctx = stream.info.ctx;
+
+    if (flags & STREAM_FLAG_CLOSED) {
+        return http2_stream_conn_error(w, &stream, PROTOCOL_ERROR,
+                                       "DATA on closed stream");
+    }
+    if (flags & STREAM_FLAG_EOS_RECV) {
+        return http2_stream_conn_error(
+            w, &stream, PROTOCOL_ERROR,
+            "DATA on half-closed (remote) stream");
+    }
+    if (!flags) {
+        return http2_stream_conn_error(w, &stream, PROTOCOL_ERROR,
+                                       "DATA on idle stream");
+    }
+    if (eos) {
+        http2_stream_do_on_events(w, &stream, STREAM_FLAG_EOS_RECV);
+    }
+    RETHROW(http2_stream_consume_recv_window(w, &stream, payload));
+    http2_stream_do_update_info(w, &stream);
+    if (!(flags & STREAM_FLAG_RST_SENT)) {
+        http2_stream_on_data(w, stream, ctx, data, eos);
+    }
+    return 0;
+}
+
+__unused__
+static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
+                                        http2_header_info_t *info,
+                                        pstream_t headerlines, bool eos)
+{
+    http2_stream_t stream = http2_stream_get(w, stream_id);
+    http2_stream_ctx_t ctx = stream.info.ctx;
+    unsigned flags = stream.info.flags;
+    unsigned events = 0;
+
+    if (http2_stream_id_is_server(stream_id)) {
+        if (!(flags & STREAM_FLAG_PSH_RECV)) {
+            return http2_stream_conn_error(
+                w, &stream, PROTOCOL_ERROR,
+                "HEADERS on server stream (invalid state)");
+        }
+        assert(w->is_client);
+        /* Discard (responses) headers on server streams. This may happen for
+         * a short period in the begining of communicaition since we don't
+         * support them and the server must not send them once it acknowledges
+         * our initial settings. However, it may start push such streams
+         * before acknowledging our settings that disables them. */
+        return 0;
+    }
+    if (flags & STREAM_FLAG_CLOSED) {
+        return http2_stream_conn_error(w, &stream, PROTOCOL_ERROR,
+                                       "HEADERS on closed stream");
+    }
+    if (flags & STREAM_FLAG_EOS_RECV) {
+        return http2_stream_conn_error(
+            w, &stream, PROTOCOL_ERROR,
+            "HEADERS on half-closed (remote) stream");
+    }
+    if (w->is_client && !flags) {
+        return http2_stream_conn_error(
+            w, &stream, PROTOCOL_ERROR,
+            "HEADERS from server on idle client stream");
+    }
+    if (info->invalid) {
+        http2_stream_error(w, &stream, PROTOCOL_ERROR,
+                           "HEADERS with invalid HTTP headers");
+        http2_stream_do_update_info(w, &stream);
+        http2_stream_on_reset(w, stream, ctx, false);
+        return 0;
+    }
+    if (!flags) {
+        events |= STREAM_FLAG_INIT_HDRS;
+    }
+    if (eos) {
+        events |= STREAM_FLAG_EOS_RECV;
+    }
+    if (events) {
+        http2_stream_do_on_events(w, &stream, events);
+        http2_stream_do_update_info(w, &stream);
+    } else {
+        assert(flags);
+    }
+    if (!(flags & STREAM_FLAG_RST_SENT)) {
+        http2_stream_on_headers(w, stream, ctx, info, headerlines, eos);
+    }
+    return 0;
+}
+
+__unused__
+static int http2_stream_do_recv_priority(http2_conn_t *w, uint32_t stream_id,
+                                         uint32_t stream_dependency)
+{
+    http2_stream_t stream = http2_stream_get(w, stream_id);
+
+    /* Priority frames can be received in any stream state */
+    /* XXX: we don't support stream prioritization. However, a minimal
+     * processing is to check against self-dependency error. */
+    if (stream_dependency == stream_id) {
+        return http2_stream_conn_error(
+            w, &stream, PROTOCOL_ERROR,
+            "frame error: PRIORITY with self-dependency [%d]",
+            stream_dependency);
+    }
+    http2_stream_trace(w, &stream, 0, "PRIORITY [dependency on %d]",
+                       stream_dependency);
+    return 0;
+}
+
+__unused__
+static int
+http2_stream_do_recv_rst_stream(http2_conn_t *w, uint32_t stream_id,
+                                uint32_t error_code)
+{
+    http2_stream_t stream = http2_stream_get(w, stream_id);
+    http2_stream_ctx_t ctx = stream.info.ctx;
+    unsigned flags = stream.info.flags;
+
+    if (flags & STREAM_FLAG_CLOSED) {
+        return http2_stream_conn_error(
+            w, &stream, PROTOCOL_ERROR,
+            "RST_STREAM on closed stream [code %u]", error_code);
+    }
+    if (!flags) {
+        return http2_stream_conn_error(w, &stream, PROTOCOL_ERROR,
+                                       "RST_STREAM on idle stream [code %u]",
+                                       error_code);
+    }
+    if (flags & STREAM_FLAG_RST_SENT) {
+        http2_stream_trace(w, &stream, 0,
+                           "RST_STREAM ingored (rst sent already) [code %u]",
+                           error_code);
+        http2_stream_do_on_events(w, &stream, STREAM_FLAG_RST_RECV);
+        http2_stream_do_update_info(w, &stream);
+        return 0;
+    }
+    http2_stream_on_reset(w, stream, ctx, true);
+    return 0;
+}
+
+__unused__
+static int
+http2_stream_do_recv_push_promise(http2_conn_t *w, uint32_t stream_id,
+                                  http2_header_info_t *info,
+                                  pstream_t headerlines, uint32_t promised_id)
+{
+    http2_stream_t stream = http2_stream_get(w, stream_id);
+    http2_stream_t promised = http2_stream_get(w, promised_id);
+    unsigned flags = stream.info.flags;
+
+    assert(w->is_client);
+    assert(!promised.info.flags);
+    if (http2_stream_id_is_server(stream_id)) {
+        return http2_stream_conn_error(
+            w, &stream, PROTOCOL_ERROR,
+            "cannot accept promised stream %d on a server stream",
+            promised_id);
+    }
+    if (flags & STREAM_FLAG_CLOSED) {
+        return http2_stream_conn_error(w, &stream, PROTOCOL_ERROR,
+                                       "PUSH_STREAM on closed stream");
+    }
+    if (!flags) {
+        return http2_stream_conn_error(w, &stream, PROTOCOL_ERROR,
+                                       "PUSH_STREAM on idle stream");
+    }
+    /* RFC 9113 §6.6. PUSH_PROMISE:
+     * `PUSH_PROMISE frames MUST only be sent on a peer-initiated stream that
+     * is in either the "open" or "half-closed (remote)" state. is in either
+     * the "open" or "half-closed (remote)" state.`*/
+    /* So, w.r.t the client, this means that push promise can be received only
+     * on a stream that is either open or half-closed (local) [or closing by
+     * RST_SENT]. */
+    if (flags & STREAM_FLAG_EOS_RECV) {
+        return http2_stream_conn_error(
+            w, &stream, PROTOCOL_ERROR,
+            "PUSH_STREAM on half-closed (remote) stream");
+    }
+    /* Refuse the pushed stream: not supported (yet). */
+    promised.info.flags |= STREAM_FLAG_PSH_RECV;
+    http2_stream_error(w, &promised, REFUSED_STREAM,
+                       "refuse push promise (not supported)");
+    http2_stream_do_update_info(w, &promised);
+    return 0;
+}
+
+__unused__
+static int
+http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
+                                   int32_t incr)
+{
+    http2_stream_t stream = http2_stream_get(w, stream_id);
+    unsigned flags = stream.info.flags;
+    int64_t new_size = (int64_t)stream.info.send_wnd + incr;
+
+    assert(incr >= 0);
+    if (flags & STREAM_FLAG_CLOSED) {
+        return http2_stream_conn_error(w, &stream, PROTOCOL_ERROR,
+                                       "WINDOW_UPDATE on closed stream");
+    }
+    if (!flags) {
+        return http2_stream_conn_error(w, &stream, PROTOCOL_ERROR,
+                                       "WINDOW_UPDATE on idle stream");
+    }
+    if (!incr) {
+        http2_stream_error(w, &stream, PROTOCOL_ERROR,
+                           "frame error: WINDOW_UPDATE with 0 increment");
+        http2_stream_do_update_info(w, &stream);
+        return 0;
+    }
+    if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
+        http2_stream_error(
+            w, &stream, FLOW_CONTROL_ERROR,
+            "flow control: WINDOW_UPDATE cannot increment send-window beyond "
+            "limit [cur %d, incr %d, new %jd]",
+            stream.info.send_wnd, incr, new_size);
+        http2_stream_do_update_info(w, &stream);
+        return 0;
+    }
+    http2_stream_trace(w, &stream, 0,
+                       "send-window incremented [new size %lld, incr %d]",
+                       (long long)new_size, incr);
+    stream.info.send_wnd += incr;
+    http2_stream_do_update_info(w, &stream);
+    return 0;
+}
 
 /* }}} */
 /* }}} */
