@@ -20,6 +20,7 @@
 #include <lib-common/datetime.h>
 
 #include <lib-common/http.h>
+#include <lib-common/net/hpack.h>
 
 #include <lib-common/iop.h>
 #include <lib-common/core/core.iop.h>
@@ -3048,6 +3049,231 @@ void httpc_query_hdrs_add_auth(httpc_query_t *q, lstr_t login, lstr_t passwd)
     outbuf_sb_end(ob, oldlen);
 }
 
+/* }}} */
+/* {{{ HTTP2 Framing & Multiplexing Layer */
+/* {{{ HTTP2 Constants */
+
+#define PS_NODATA               ps_init(NULL, 0)
+#define LSTR_NODATA             LSTR_EMPTY_V
+#define HTTP2_STREAM_ID_MASK    0x7fffffff
+
+__unused__
+static const lstr_t http2_client_preface_g =
+    LSTR_IMMED("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
+
+/* standard setting identifier values */
+typedef enum setting_id_t {
+    HTTP2_ID_HEADER_TABLE_SIZE      = 0x01,
+    HTTP2_ID_ENABLE_PUSH            = 0x02,
+    HTTP2_ID_MAX_CONCURRENT_STREAMS = 0x03,
+    HTTP2_ID_INITIAL_WINDOW_SIZE    = 0x04,
+    HTTP2_ID_MAX_FRAME_SIZE         = 0x05,
+    HTTP2_ID_MAX_HEADER_LIST_SIZE   = 0x06,
+} setting_id_t;
+
+/* special values for stream id field */
+enum {
+    HTTP2_ID_NO_STREAM              = 0,
+    HTTP2_ID_MAX_STREAM             = HTTP2_STREAM_ID_MASK,
+};
+
+/* length & size constants */
+enum {
+    HTTP2_LEN_FRAME_HDR             = 9,
+    HTTP2_LEN_NO_PAYLOAD            = 0,
+    HTTP2_LEN_PRIORITY_PAYLOAD      = 5,
+    HTTP2_LEN_RST_STREAM_PAYLOAD    = 4,
+    HTTP2_LEN_SETTINGS_ITEM         = 6,
+    HTTP2_LEN_PING_PAYLOAD          = 8,
+    HTTP2_LEN_GOAWAY_PAYLOAD_MIN    = 8,
+    HTTP2_LEN_WINDOW_UPDATE_PAYLOAD = 4,
+    HTTP2_LEN_CONN_WINDOW_SIZE_INIT = (1 << 16) - 1,
+    HTTP2_LEN_WINDOW_SIZE_INIT      = (1 << 16) - 1,
+    HTTP2_LEN_HDR_TABLE_SIZE_INIT   = 4096,
+    HTTP2_LEN_MAX_FRAME_SIZE_INIT   = 1 << 14,
+    HTTP2_LEN_MAX_FRAME_SIZE        = (1 << 24) - 1,
+    HTTP2_LEN_MAX_SETTINGS_ITEMS    = HTTP2_ID_MAX_HEADER_LIST_SIZE,
+    HTTP2_LEN_WINDOW_SIZE_LIMIT     = 0x7fffffff,
+};
+
+/* standard frame type values */
+typedef enum {
+    HTTP2_TYPE_DATA                 = 0x00,
+    HTTP2_TYPE_HEADERS              = 0x01,
+    HTTP2_TYPE_PRIORITY             = 0x02,
+    HTTP2_TYPE_RST_STREAM           = 0x03,
+    HTTP2_TYPE_SETTINGS             = 0x04,
+    HTTP2_TYPE_PUSH_PROMISE         = 0x05,
+    HTTP2_TYPE_PING                 = 0x06,
+    HTTP2_TYPE_GOAWAY               = 0x07,
+    HTTP2_TYPE_WINDOW_UPDATE        = 0x08,
+    HTTP2_TYPE_CONTINUATION         = 0x09,
+} frame_type_t;
+
+/* standard frame flag values */
+enum {
+    HTTP2_FLAG_NONE                 = 0x00,
+    HTTP2_FLAG_ACK                  = 0x01,
+    HTTP2_FLAG_END_STREAM           = 0x01,
+    HTTP2_FLAG_END_HEADERS          = 0x04,
+    HTTP2_FLAG_PADDED               = 0x08,
+    HTTP2_FLAG_PRIORITY             = 0x20,
+};
+
+/* standard error codes */
+typedef enum {
+    HTTP2_CODE_NO_ERROR             = 0x0,
+    HTTP2_CODE_PROTOCOL_ERROR       = 0x1,
+    HTTP2_CODE_INTERNAL_ERROR       = 0x2,
+    HTTP2_CODE_FLOW_CONTROL_ERROR   = 0x3,
+    HTTP2_CODE_SETTINGS_TIMEOUT     = 0x4,
+    HTTP2_CODE_STREAM_CLOSED        = 0x5,
+    HTTP2_CODE_FRAME_SIZE_ERROR     = 0x6,
+    HTTP2_CODE_REFUSED_STREAM       = 0x7,
+    HTTP2_CODE_CANCEL               = 0x8,
+    HTTP2_CODE_COMPRESSION_ERROR    = 0x9,
+    HTTP2_CODE_CONNECT_ERROR        = 0xa,
+    HTTP2_CODE_ENHANCE_YOUR_CALM    = 0xb,
+    HTTP2_CODE_INADEQUATE_SECURITY  = 0xc,
+    HTTP2_CODE_HTTP_1_1_REQUIRED    = 0xd,
+} err_code_t;
+
+/* }}} */
+/* {{{ Primary Types */
+
+/** Settings of HTTP2 framing layer as per RFC7540/RFC9113 */
+typedef struct http2_settings_t {
+    uint32_t                    header_table_size;
+    uint32_t                    enable_push;
+    opt_u32_t                   max_concurrent_streams;
+    uint32_t                    initial_window_size;
+    uint32_t                    max_frame_size;
+    opt_u32_t                   max_header_list_size;
+} http2_settings_t;
+
+/* default setting values acc. to RFC7540/RFC9113 */
+static http2_settings_t http2_default_settings_g = {
+    .header_table_size = HTTP2_LEN_HDR_TABLE_SIZE_INIT,
+    .enable_push = 1,
+    .max_concurrent_streams = OPT_NONE,
+    .initial_window_size = HTTP2_LEN_WINDOW_SIZE_INIT,
+    .max_frame_size = HTTP2_LEN_MAX_FRAME_SIZE_INIT,
+    .max_header_list_size = OPT_NONE,
+};
+
+/* stream state/info flags */
+enum {
+    STREAM_FLAG_INIT_HDRS = 1 << 0,
+    STREAM_FLAG_EOS_RECV  = 1 << 1,
+    STREAM_FLAG_EOS_SENT  = 1 << 2,
+    STREAM_FLAG_RST_RECV  = 1 << 3,
+    STREAM_FLAG_RST_SENT  = 1 << 4,
+    STREAM_FLAG_PSH_RECV  = 1 << 5,
+    STREAM_FLAG_CLOSED    = 1 << 6,
+};
+
+/** XXX: \p http2_stream_t is meant to be passed around by-value. For streams
+ * in tracked state, the corresponding values are constructed from \p
+ * qm_t(qstream_info) . */
+
+typedef union http2_stream_ctx_t {
+    httpc_t *httpc;
+    httpd_t *httpd;
+} http2_stream_ctx_t;
+
+typedef struct http2_stream_info_t {
+    http2_stream_ctx_t  ctx;
+    int32_t             recv_wnd;
+    int32_t             send_wnd;
+    uint8_t             flags;
+} http2_stream_info_t;
+
+qm_k32_t(qstream_info, http2_stream_info_t);
+
+typedef struct http2_stream_t {
+    uint32_t remove: 1;
+    uint32_t id : 31;
+    http2_stream_info_t info;
+} http2_stream_t;
+
+typedef struct http2_closed_stream_info_t {
+    uint32_t    stream_id : 31;
+    dlist_t     list_link;
+} http2_closed_stream_info_t;
+
+/** info parsed from the frame hdr */
+typedef struct http2_frame_info_t {
+    uint32_t    len;
+    uint32_t    stream_id;
+    uint8_t     type;
+    uint8_t     flags;
+} http2_frame_info_t;
+
+typedef struct http2_client_t http2_client_t;
+typedef struct http2_server_ctx_t http2_server_ctx_t;
+
+/** HTTP2 connection object that can be configure as server or client. */
+typedef struct http2_conn_t {
+    el_t                nonnull ev;
+    http2_settings_t    settings;
+    http2_settings_t    peer_settings;
+    unsigned            refcnt;
+    unsigned            id;
+    outbuf_t            ob;
+    sb_t                ibuf;
+    SSL                 * nullable ssl;
+    /* hpack compression contexts */
+    hpack_enc_dtbl_t    enc;
+    hpack_dec_dtbl_t    dec;
+    /* tracked streams */
+    qm_t(qstream_info)  stream_info;
+    dlist_t             closed_stream_info;
+    uint32_t            client_streams;
+    uint32_t            server_streams;
+    uint32_t            closed_streams_info_cnt;
+    /* backstream contexts */
+    union {
+        http2_client_t *nullable client_ctx;
+        http2_server_ctx_t *nullable server_ctx;
+    };
+    /* flow control */
+    int32_t             recv_wnd;
+    int32_t             send_wnd;
+    /* frame parser */
+    http2_frame_info_t  frame;
+    unsigned            cont_chunk;
+    uint8_t             state;
+    /* connection flags */
+    bool                is_client : 1;
+    bool                is_settings_acked : 1;
+    bool                is_conn_err_recv: 1;
+    bool                is_conn_err_sent: 1;
+    bool                is_shtdwn_recv: 1;
+    bool                is_shtdwn_sent: 1;
+    bool                is_shtdwn_soon_recv: 1;
+    bool                is_shtdwn_soon_sent: 1;
+    bool                is_shtdwn_commanded : 1;
+} http2_conn_t;
+
+/** Get effective HTTP2 settings */
+__unused__
+static http2_settings_t http2_get_settings(http2_conn_t *w)
+{
+    return likely(w->is_settings_acked) ? w->settings
+                                        : http2_default_settings_g;
+}
+
+typedef struct http2_header_info_t {
+    bool invalid;
+    lstr_t scheme;
+    lstr_t method;
+    lstr_t path;
+    lstr_t authority;
+    lstr_t status;
+    lstr_t content_length;
+} http2_header_info_t;
+
+/* }}}*/
 /* }}} */
 /* {{{ HTTP Module */
 
