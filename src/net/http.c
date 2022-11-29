@@ -3906,6 +3906,150 @@ static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
 }
 
 /* }}} */
+/* {{{ Streaming API */
+
+__unused__
+static void
+http2_stream_on_headers(http2_conn_t *w, http2_stream_t stream,
+                        http2_stream_ctx_t ctx, http2_header_info_t *info,
+                        pstream_t headerlines, bool eos)
+{
+    if (w->is_client) {
+        /* TODO */
+    } else {
+        /* TODO */
+    }
+}
+
+__unused__
+static void
+http2_stream_on_data(http2_conn_t *w, http2_stream_t stream,
+                     http2_stream_ctx_t ctx, pstream_t data, bool eos)
+{
+    if (w->is_client) {
+        /* TODO */
+    } else {
+        /* TODO */
+    }
+}
+
+__unused__
+static void http2_stream_on_reset(http2_conn_t *w, http2_stream_t stream,
+                                  http2_stream_ctx_t ctx, bool remote)
+{
+    if (w->is_client) {
+        /* TODO */
+    } else {
+        /* TODO */
+    }
+}
+
+__unused__
+static void http2_conn_on_streams_can_write(http2_conn_t *w)
+{
+    if (w->is_client) {
+        /* TODO */
+    } else {
+        /* TODO */
+    }
+}
+
+__unused__
+static void http2_conn_on_close(http2_conn_t *w)
+{
+    if (w->is_client) {
+        /* TODO */
+    } else {
+        /* TODO */
+    }
+}
+
+__unused__
+static bool
+http2_is_valid_request_hdr_to_send(lstr_t key_, lstr_t val, int *clen)
+{
+    pstream_t key = ps_initlstr(&key_);
+    int rc;
+
+    switch (http_wkhdr_from_ps(key)) {
+    case HTTP_WKHDR_CONNECTION:
+    case HTTP_WKHDR_TRANSFER_ENCODING:
+
+        return false;
+    case HTTP_WKHDR_CONTENT_LENGTH:
+        rc = lstr_to_int(val, clen);
+        assert(!rc);
+        break;
+    default:
+        break;
+    }
+    return true;
+}
+
+__unused__
+static void
+http2_stream_send_request_headers(http2_conn_t *w, http2_stream_t *stream,
+                                  lstr_t method, lstr_t scheme, lstr_t path,
+                                  lstr_t authority, pstream_t headerlines,
+                                  int *clen)
+{
+    SB_1k(out);
+    unsigned events;
+    bool eos;
+
+    *clen = -1;
+    http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":method"), method, &out);
+    http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":scheme"), scheme, &out);
+    http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":path"), path, &out);
+    if (authority.s) {
+        http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":authority"), authority,
+                                   &out);
+    }
+    while (!ps_done(&headerlines)) {
+        lstr_t key;
+        lstr_t val;
+
+        http2_headerlines_get_next_hdr(&headerlines, &key, &val);
+        if (!http2_is_valid_request_hdr_to_send(key, val, clen)) {
+            continue;
+        }
+        http2_conn_pack_single_hdr(w, key, val, &out);
+    }
+    eos = (*clen == 0);
+    http2_conn_send_headers_block(w, stream->id, ps_initsb(&out), eos);
+    events = STREAM_FLAG_INIT_HDRS | (eos ? STREAM_FLAG_EOS_SENT : 0);
+    http2_stream_do_on_events(w, stream, events);
+    http2_stream_do_update_info(w, stream);
+}
+
+__unused__
+static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
+                                   pstream_t data, bool eos)
+{
+    int len = ps_len(&data);
+
+    assert(stream->info.send_wnd >= len);
+    stream->info.send_wnd -= len;
+    http2_conn_send_data_block(w, stream->id, data, eos);
+    if (eos) {
+        http2_stream_do_on_events(w, stream, STREAM_FLAG_EOS_SENT);
+    }
+    http2_stream_do_update_info(w, stream);
+}
+
+#define http2_stream_send_reset(w, stream, fmt, ...)                         \
+    do {                                                                     \
+        http2_stream_error(w, stream, PROTOCOL_ERROR, fmt, ##__VA_ARGS__);   \
+        http2_stream_do_update_info(w, stream);                              \
+    } while (0)
+
+#define http2_stream_send_reset_cancel(w, stream, fmt, ...)                  \
+    do {                                                                     \
+        http2_stream_error(w, stream, CANCEL, fmt, ##__VA_ARGS__);           \
+        http2_stream_do_update_info(w, stream);                              \
+    } while (0)
+
+/* }}} */
 /* }}} */
 /* {{{ HTTP Module */
 
