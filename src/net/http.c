@@ -3375,6 +3375,226 @@ static uint32_t http2_conn_max_peer_stream_id(http2_conn_t *w)
 }
 
 /* }}}*/
+/* {{{ Send Buffer Framing */
+
+typedef struct http2_frame_hdr_t {
+    be32_t len : 24;
+    uint8_t type;
+    uint8_t flags;
+    be32_t stream_id;
+} __attribute__((packed)) http2_frame_hdr_t;
+
+static void
+http2_conn_send_common_hdr(http2_conn_t *w, unsigned len, uint8_t type,
+                           uint8_t flags, uint32_t stream_id)
+{
+    http2_frame_hdr_t hdr;
+
+    STATIC_ASSERT(sizeof(hdr) == HTTP2_LEN_FRAME_HDR);
+    STATIC_ASSERT(HTTP2_LEN_MAX_FRAME_SIZE < (1 << 24));
+    assert(len <= HTTP2_LEN_MAX_FRAME_SIZE);
+    hdr.len = cpu_to_be32(len);
+    hdr.type = type;
+    hdr.flags = flags;
+    hdr.stream_id = cpu_to_be32(stream_id);
+    ob_add(&w->ob, &hdr, sizeof(hdr));
+}
+
+__unused__
+static void http2_conn_send_preface(http2_conn_t *w)
+{
+    if (w->is_client) {
+        OB_WRAP(sb_add_lstr, &w->ob, http2_client_preface_g);
+    }
+}
+
+typedef struct {
+    uint16_t id;
+    uint32_t val;
+} setting_item_t;
+
+qvector_t(qsettings, setting_item_t);
+
+__unused__
+static void http2_conn_send_init_settings(http2_conn_t *w)
+{
+    t_scope;
+    http2_settings_t defaults;
+    http2_settings_t init_settings;
+    qv_t(qsettings) items;
+
+#define STNG_ITEM(id_, val_)                                                 \
+    (setting_item_t)                                                         \
+    {                                                                        \
+        .id = HTTP2_ID_##id_, .val = init_settings.val_                      \
+    }
+
+#define STNG_ITEM_OPT(id_, val_)                                             \
+    (setting_item_t){.id = HTTP2_ID_##id_, .val = OPT_VAL(init_settings.val_)}
+
+    t_qv_init(&items, HTTP2_LEN_MAX_SETTINGS_ITEMS);
+    defaults = http2_default_settings_g;
+    init_settings = w->settings;
+    if (init_settings.header_table_size != defaults.header_table_size) {
+        qv_append(&items, STNG_ITEM(HEADER_TABLE_SIZE, header_table_size));
+    }
+    if (w->is_client && init_settings.enable_push != defaults.enable_push) {
+        qv_append(&items, STNG_ITEM(ENABLE_PUSH, enable_push));
+    }
+    if (OPT_ISSET(init_settings.max_concurrent_streams) &&
+        !OPT_EQUAL(init_settings.max_concurrent_streams,
+                   defaults.max_concurrent_streams))
+    {
+        qv_append(&items, STNG_ITEM_OPT(MAX_CONCURRENT_STREAMS,
+                                        max_concurrent_streams));
+    }
+    if (init_settings.initial_window_size != defaults.initial_window_size) {
+        qv_append(&items,
+                  STNG_ITEM(INITIAL_WINDOW_SIZE, initial_window_size));
+    }
+    if (init_settings.max_frame_size != defaults.max_frame_size) {
+        qv_append(&items, STNG_ITEM(MAX_FRAME_SIZE, max_frame_size));
+    }
+    if (OPT_ISSET(init_settings.max_header_list_size) &&
+        !OPT_EQUAL(init_settings.max_header_list_size,
+                   defaults.max_header_list_size))
+    {
+        qv_append(&items, STNG_ITEM_OPT(MAX_HEADER_LIST_SIZE,
+                                        max_header_list_size));
+    }
+    assert(items.len <= HTTP2_LEN_MAX_SETTINGS_ITEMS);
+    http2_conn_send_common_hdr(w, HTTP2_LEN_SETTINGS_ITEM * items.len,
+                               HTTP2_TYPE_SETTINGS, HTTP2_FLAG_NONE,
+                               HTTP2_ID_NO_STREAM);
+    tab_for_each_ptr(item, &items) {
+        OB_WRAP(sb_add_be16, &w->ob, item->id);
+        OB_WRAP(sb_add_be32, &w->ob, item->val);
+    }
+
+#undef STNG_ITEM_OPT
+#undef STNG_ITEM
+}
+
+typedef struct http2_min_goaway_payload_t {
+    be32_t last_stream_id;
+    be32_t error_code;
+} http2_min_goaway_payload_t;
+
+static void http2_conn_send_goaway(http2_conn_t *w, uint32_t last_stream_id,
+                                   uint32_t error_code, lstr_t debug)
+{
+    http2_min_goaway_payload_t payload;
+    int len = sizeof(payload) + debug.len;
+
+    STATIC_ASSERT(sizeof(payload) == HTTP2_LEN_GOAWAY_PAYLOAD_MIN);
+    assert(last_stream_id <= HTTP2_ID_MAX_STREAM);
+    payload.last_stream_id = cpu_to_be32(last_stream_id);
+    payload.error_code = cpu_to_be32(error_code);
+    http2_conn_send_common_hdr(w, len, HTTP2_TYPE_GOAWAY, HTTP2_FLAG_NONE,
+                               HTTP2_ID_NO_STREAM);
+    ob_add(&w->ob, &payload, sizeof(payload));
+    ob_add(&w->ob, debug.data, debug.len);
+}
+
+/** Send data block as 0 or more data frames. */
+__unused__
+static void http2_conn_send_data_block(http2_conn_t *w, uint32_t stream_id,
+                                       pstream_t blk, bool end_stream)
+{
+    pstream_t chunk;
+    uint8_t flags;
+    unsigned len;
+
+    if (ps_done(&blk) && !end_stream) {
+        return;
+    }
+    /* HTTP2_LEN_MAX_FRAME_SIZE_INIT is also the minimum possible value so
+     * peer must always accept frames of this size. */
+    assert (w->send_wnd >= (int) ps_len(&blk));
+    w->send_wnd -= ps_len(&blk);
+    do {
+        len = MIN(ps_len(&blk), HTTP2_LEN_MAX_FRAME_SIZE_INIT);
+        chunk = __ps_get_ps(&blk, len);
+        flags = ps_done(&blk) && end_stream ? HTTP2_FLAG_END_STREAM : 0;
+        http2_conn_send_common_hdr(w, len, HTTP2_TYPE_DATA, flags, stream_id);
+        OB_WRAP(sb_add_ps, &w->ob, chunk);
+    } while (!ps_done(&blk));
+}
+
+/** Send header block as 1 header frame plus 0 or more continuation frames. */
+__unused__
+static void http2_conn_send_headers_block(http2_conn_t *w, uint32_t stream_id,
+                                          pstream_t blk, bool end_stream)
+{
+    pstream_t chunk;
+    uint8_t type;
+    uint8_t flags;
+    unsigned len;
+
+    assert(!ps_done(&blk));
+    /* HTTP2_LEN_MAX_FRAME_SIZE_INIT is also the minimum possible value so
+     * peer must always accept frames of this size. */
+    type = HTTP2_TYPE_HEADERS;
+    flags = end_stream ? HTTP2_FLAG_END_STREAM : HTTP2_FLAG_NONE;
+    do {
+        len = MIN(ps_len(&blk), HTTP2_LEN_MAX_FRAME_SIZE_INIT);
+        chunk = __ps_get_ps(&blk, len);
+        flags |= ps_done(&blk) ? HTTP2_FLAG_END_HEADERS : 0;
+        http2_conn_send_common_hdr(w, len, type, flags, stream_id);
+        OB_WRAP(sb_add_ps, &w->ob, chunk);
+        type = HTTP2_TYPE_CONTINUATION;
+        flags = HTTP2_FLAG_NONE;
+    } while (!ps_done(&blk));
+}
+
+__unused__
+static void http2_conn_send_rst_stream(http2_conn_t *w, uint32_t stream_id,
+                                       uint32_t error_code)
+{
+    assert(stream_id);
+    http2_conn_send_common_hdr(w, HTTP2_LEN_RST_STREAM_PAYLOAD,
+                               HTTP2_TYPE_RST_STREAM, HTTP2_FLAG_NONE,
+                               stream_id);
+    OB_WRAP(sb_add_be32, &w->ob, error_code);
+}
+
+__unused__
+static void http2_conn_send_window_update(http2_conn_t *w, uint32_t stream_id,
+                                          uint32_t incr)
+{
+    assert(incr > 0 && incr <= 0x7fffffff);
+    http2_conn_send_common_hdr(w, HTTP2_LEN_WINDOW_UPDATE_PAYLOAD,
+                               HTTP2_TYPE_WINDOW_UPDATE, HTTP2_FLAG_NONE,
+                               stream_id);
+    OB_WRAP(sb_add_be32, &w->ob, incr);
+}
+
+__unused__
+static void
+http2_conn_send_shutdown(http2_conn_t *w, lstr_t debug)
+{
+    uint32_t stream_id = http2_conn_max_peer_stream_id(w);
+
+    assert(!w->is_shtdwn_sent);
+    w->is_shtdwn_sent = true;
+    http2_conn_send_goaway(w, stream_id, HTTP2_CODE_NO_ERROR, debug);
+}
+
+__unused__
+static int
+http2_conn_send_error(http2_conn_t *w, uint32_t error_code, lstr_t debug)
+{
+    uint32_t stream_id = http2_conn_max_peer_stream_id(w);
+
+    assert(error_code != HTTP2_CODE_NO_ERROR);
+    assert(!w->is_conn_err_sent);
+    w->is_conn_err_sent = true;
+    http2_conn_send_goaway(w, stream_id, error_code, debug);
+
+    return -1;
+}
+
+/* }}} */
 /* }}} */
 /* {{{ HTTP Module */
 
