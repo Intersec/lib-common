@@ -3058,7 +3058,6 @@ void httpc_query_hdrs_add_auth(httpc_query_t *q, lstr_t login, lstr_t passwd)
 #define LSTR_NODATA             LSTR_EMPTY_V
 #define HTTP2_STREAM_ID_MASK    0x7fffffff
 
-__unused__
 static const lstr_t http2_client_preface_g =
     LSTR_IMMED("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
@@ -3367,7 +3366,6 @@ static uint32_t http2_conn_max_client_stream_id(http2_conn_t *w)
 }
 
 /** Return the maximum id of the (non-idle) peer stream or 0 if none. */
-__unused__
 static uint32_t http2_conn_max_peer_stream_id(http2_conn_t *w)
 {
     return w->is_client ? http2_conn_max_server_stream_id(w)
@@ -3595,6 +3593,161 @@ http2_conn_send_error(http2_conn_t *w, uint32_t error_code, lstr_t debug)
 }
 
 /* }}} */
+/* {{{ Stream Management */
+
+static bool http2_stream_id_is_server(uint32_t stream_id)
+{
+    assert(stream_id);
+    assert(stream_id <= (uint32_t)HTTP2_ID_MAX_STREAM);
+    return stream_id % 2 == 0;
+}
+
+static bool http2_stream_id_is_client(uint32_t stream_id)
+{
+    return !http2_stream_id_is_server(stream_id);
+}
+
+/** Return the number of streams (of the same class) upto to \p stream_id. */
+static uint32_t http2_get_nb_streams_upto(uint32_t stream_id)
+{
+    assert(stream_id);
+    assert(stream_id <= (uint32_t)HTTP2_ID_MAX_STREAM);
+
+    return DIV_ROUND_UP(stream_id, 2);
+}
+
+/** Return the stream (info) with id = \p stream_id */
+__unused__
+static http2_stream_t http2_stream_get(http2_conn_t *w, uint32_t stream_id)
+{
+    http2_stream_t stream = {.id = stream_id};
+    http2_stream_info_t *info;
+    uint32_t nb_streams;
+
+    nb_streams = http2_stream_id_is_client(stream_id) ? w->client_streams
+                                                      : w->server_streams;
+    if (http2_get_nb_streams_upto(stream_id) > nb_streams) {
+        /* stream is idle. */
+        return stream;
+    }
+    info = qm_get_def_p(qstream_info, &w->stream_info, stream_id, NULL);
+    if (info) {
+        /* stream is non_idle. */
+        stream.info = *info;
+    } else {
+        /* stream is closed<untracked state>. */
+        stream.info.flags = STREAM_FLAG_CLOSED;
+    }
+    return stream;
+}
+
+/** Get the next idle (available) stream id. */
+__unused__
+static uint32_t http2_stream_get_idle(http2_conn_t *w)
+{
+    uint32_t stream_id;
+
+    /* XXX: only relevant on the client side since we don't support creating
+     * server (pushed) streams (yet!). */
+    assert(w->is_client);
+    stream_id = 2 * (uint32_t)w->client_streams + 1;
+    assert(stream_id <= (uint32_t)HTTP2_ID_MAX_STREAM);
+    return stream_id;
+}
+
+static void
+http2_closed_stream_info_create(http2_conn_t *w, const http2_stream_t *stream)
+{
+    http2_closed_stream_info_t *info = p_new(http2_closed_stream_info_t, 1);
+
+    info->stream_id = stream->id;
+    dlist_add_tail(&w->closed_stream_info, &info->list_link);
+    w->closed_streams_info_cnt++;
+}
+
+__unused__
+static void
+http2_stream_do_update_info(http2_conn_t *w, http2_stream_t *stream)
+{
+    unsigned flags = stream->info.flags;
+
+    if (stream->remove) {
+        qm_del_key(qstream_info, &w->stream_info, stream->id);
+    } else {
+        assert(flags && !(flags & STREAM_FLAG_CLOSED));
+        qm_replace(qstream_info, &w->stream_info, stream->id, stream->info);
+    }
+}
+
+__unused__
+static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
+                                      unsigned events)
+{
+    unsigned flags = stream->info.flags;
+
+    assert(events);
+    assert(!(flags & STREAM_FLAG_CLOSED));
+    assert(!(flags & events));
+    if (!flags) {
+        /* Idle stream */
+        uint32_t nb_streams;
+        uint32_t new_nb_streams;
+
+        nb_streams = http2_stream_id_is_client(stream->id)
+                         ? w->client_streams
+                         : w->server_streams;
+        new_nb_streams = http2_get_nb_streams_upto(stream->id);
+        assert(new_nb_streams > nb_streams);
+        if (events == STREAM_FLAG_INIT_HDRS) {
+            http2_stream_trace(w, stream, 0, "opened");
+        } else if (events == (STREAM_FLAG_INIT_HDRS | STREAM_FLAG_EOS_RECV)) {
+            http2_stream_trace(w, stream, 0, "half closed (remote)");
+        } else if (events == (STREAM_FLAG_INIT_HDRS | STREAM_FLAG_EOS_SENT)) {
+            http2_stream_trace(w, stream, 0, "half closed (local)");
+        } else if (events == (STREAM_FLAG_PSH_RECV | STREAM_FLAG_RST_SENT)) {
+            assert(w->is_client && !stream->id);
+            http2_stream_trace(w, stream, 0, "closed [pushed, reset sent]");
+        } else {
+            assert(0 && "invalid events on idle stream");
+        }
+        /* RFC7541(RFC9113) § 5.1.1. Stream Identifiers */
+        if (http2_stream_id_is_client(stream->id)) {
+            w->client_streams = new_nb_streams;
+        } else {
+            w->server_streams = new_nb_streams;
+        }
+        stream->info.flags = events;
+        stream->info.recv_wnd = http2_get_settings(w).initial_window_size;
+        stream->info.send_wnd = w->peer_settings.initial_window_size;
+        return;
+    }
+    if (events == STREAM_FLAG_EOS_RECV) {
+        if (flags & STREAM_FLAG_EOS_SENT) {
+            http2_stream_trace(w, stream, 0, "stream closed [eos recv]");
+            stream->remove = true;
+        } else {
+            http2_stream_trace(w, stream, 0, "stream half closed (remote)");
+        }
+    } else if (events == STREAM_FLAG_EOS_SENT) {
+        if (flags & STREAM_FLAG_EOS_RECV) {
+            http2_stream_trace(w, stream, 0, "stream closed [eos sent]");
+            http2_closed_stream_info_create(w, stream);
+        } else {
+            http2_stream_trace(w, stream, 0, "stream half closed (local)");
+        }
+    } else if (events == STREAM_FLAG_RST_RECV) {
+        http2_stream_trace(w, stream, 0, "stream closed [reset recv]");
+        stream->remove = true;
+    } else if (events == STREAM_FLAG_RST_SENT) {
+        http2_stream_trace(w, stream, 0, "stream closed [reset sent]");
+        http2_closed_stream_info_create(w, stream);
+    } else {
+        assert(0 && "unexpected stream state transition");
+    }
+    stream->info.flags = flags | events;
+}
+
+/* }}}*/
 /* }}} */
 /* {{{ HTTP Module */
 
