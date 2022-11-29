@@ -3094,6 +3094,7 @@ enum {
     HTTP2_LEN_MAX_FRAME_SIZE        = (1 << 24) - 1,
     HTTP2_LEN_MAX_SETTINGS_ITEMS    = HTTP2_ID_MAX_HEADER_LIST_SIZE,
     HTTP2_LEN_WINDOW_SIZE_LIMIT     = 0x7fffffff,
+    HTTP2_LEN_MAX_WINDOW_UPDATE_INCR= 0x7fffffff,
 };
 
 /* standard frame type values */
@@ -4595,6 +4596,236 @@ static int http2_conn_parse_rst_stream(http2_conn_t *w, pstream_t *ps)
     error_code = get_unaligned_be32(ps->p);
     RETHROW(http2_stream_do_recv_rst_stream(w, stream_id, error_code));
     __ps_skip(ps, len);
+    return PARSE_OK;
+}
+
+/* }}} */
+/* {{{ Connection-Level Frame Handlers */
+
+static int
+http2_conn_on_peer_initial_window_size_changed(http2_conn_t *w, int32_t delta)
+{
+    int64_t new_size;
+
+    if (!delta) {
+        return PARSE_OK;
+    }
+    qm_for_each_pos(qstream_info, pos, &w->stream_info) {
+        http2_stream_t stream = {
+            .id = w->stream_info.keys[pos],
+            .info = w->stream_info.values[pos],
+        };
+        unsigned flags = stream.info.flags;
+
+        assert(flags && !(flags & STREAM_FLAG_CLOSED));
+        new_size = (int64_t)stream.info.send_wnd + delta;
+        if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
+            return http2_conn_error(w, FLOW_CONTROL_ERROR,
+                                    "settings error: INITIAL_WINDOW_SIZE "
+                                    "causes stream %d send-window "
+                                    "to overflow (%jd out of range)",
+                                    stream.id, new_size);
+        }
+        stream.info.send_wnd += delta;
+        http2_stream_trace(
+            w, &stream, 0,
+            "send-window updated by SETTINGS [new size %d, delta %d]",
+            stream.info.send_wnd, delta);
+        w->stream_info.values[pos].send_wnd = stream.info.send_wnd;
+    }
+    return PARSE_OK;
+}
+
+static int
+http2_conn_process_peer_settings(http2_conn_t *w, uint16_t id, uint32_t val)
+{
+    int32_t delta;
+
+    switch (id) {
+    case HTTP2_ID_HEADER_TABLE_SIZE:
+        if (val != w->peer_settings.header_table_size) {
+            w->enc.tbl_size_max = val;
+        }
+        w->peer_settings.header_table_size = val;
+        break;
+
+    case HTTP2_ID_ENABLE_PUSH:
+        if (val > 1) {
+            return http2_conn_error(
+                w, PROTOCOL_ERROR,
+                "settings error: invalid ENABLE_PUSH (%u)", val);
+        }
+        w->peer_settings.enable_push = val;
+        break;
+
+    case HTTP2_ID_MAX_CONCURRENT_STREAMS:
+        OPT_SET(w->peer_settings.max_concurrent_streams, val);
+        break;
+
+    case HTTP2_ID_MAX_FRAME_SIZE:
+        if (val < HTTP2_LEN_MAX_FRAME_SIZE_INIT ||
+            val > HTTP2_LEN_MAX_FRAME_SIZE)
+        {
+            return http2_conn_error(
+                w, PROTOCOL_ERROR,
+                "settings error: invalid FRAME_SIZE (%u out of range)", val);
+        }
+        w->peer_settings.max_frame_size = val;
+        break;
+
+    case HTTP2_ID_MAX_HEADER_LIST_SIZE:
+        OPT_SET(w->peer_settings.max_header_list_size, val);
+        break;
+
+    case HTTP2_ID_INITIAL_WINDOW_SIZE:
+        if (val > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
+            return http2_conn_error(w, PROTOCOL_ERROR,
+                                    "settings error: invalid "
+                                    "INITIAL_WINDOW_SIZE (%u out of range)",
+                                    val);
+        }
+        delta = (int32_t)val - w->peer_settings.initial_window_size;
+        w->peer_settings.initial_window_size = val;
+        RETHROW(http2_conn_on_peer_initial_window_size_changed(w, delta));
+        break;
+
+    default:
+        http2_conn_trace(w, 0,
+                         "ignored unknown setting from peer [id %d, val %u]",
+                         id, val);
+    }
+    return PARSE_OK;
+}
+
+__unused__
+static int http2_conn_parse_settings(http2_conn_t *w, pstream_t *ps)
+{
+    size_t len = w->frame.len;
+    uint8_t flags = w->frame.flags;
+    int nb_items;
+
+    assert(ps_has(ps, len));
+    if ((flags & HTTP2_FLAG_ACK) && len) {
+        return http2_conn_error(
+            w, PROTOCOL_ERROR,
+            "frame error: invalid SETTINGS (ACK_FLAG with non-zero payload)");
+    }
+    if (flags & HTTP2_FLAG_ACK) {
+        if (w->is_settings_acked) {
+            return http2_conn_error(w, PROTOCOL_ERROR,
+                                    "frame error: invalid SETTINGS (ACK with "
+                                    "no previously sent SETTINGS)");
+        }
+        w->is_settings_acked = true;
+        __ps_skip(ps, len);
+        return PARSE_OK;
+    }
+    if (len % HTTP2_LEN_SETTINGS_ITEM != 0) {
+        return http2_conn_error(w, PROTOCOL_ERROR,
+                                "frame error: invalid SETTINGS (payload size "
+                                "not a multiple of 6)");
+    }
+    /* new peer settings */
+    nb_items = len / HTTP2_LEN_SETTINGS_ITEM;
+    for (int i = 0; i != nb_items; i++) {
+        uint16_t id = __ps_get_be16(ps);
+        uint32_t val = __ps_get_be32(ps);
+
+        RETHROW(http2_conn_process_peer_settings(w, id, val));
+    }
+    http2_conn_send_common_hdr(w, HTTP2_LEN_NO_PAYLOAD, HTTP2_TYPE_SETTINGS,
+                               HTTP2_FLAG_ACK, HTTP2_ID_NO_STREAM);
+    return PARSE_OK;
+}
+
+__unused__
+static int http2_conn_parse_ping(http2_conn_t *w, pstream_t *ps)
+{
+    size_t len = w->frame.len;
+
+    assert(ps_has(ps, len));
+    if (len != HTTP2_LEN_PING_PAYLOAD) {
+        return http2_conn_error(w, FRAME_SIZE_ERROR,
+                                "frame error: invalid PING size");
+    }
+    if (w->frame.flags & HTTP2_FLAG_ACK) {
+        /* TODO: correlate the acked frame with a sent one and estimate the
+         * ping rtt. */
+    } else {
+        http2_conn_send_common_hdr(w, HTTP2_LEN_PING_PAYLOAD, HTTP2_TYPE_PING,
+                                   HTTP2_FLAG_ACK, HTTP2_ID_NO_STREAM);
+        ob_add(&w->ob, ps->p, HTTP2_LEN_PING_PAYLOAD);
+    }
+    __ps_skip(ps, len);
+    return PARSE_OK;
+}
+
+__unused__
+static int http2_conn_parse_goaway(http2_conn_t *w, pstream_t *ps)
+{
+    size_t len = w->frame.len;
+    uint32_t last_stream_id;
+    uint32_t error_code;
+    pstream_t debug;
+
+    assert(ps_has(ps, len));
+    if (len < HTTP2_LEN_GOAWAY_PAYLOAD_MIN) {
+        return http2_conn_error(w, FRAME_SIZE_ERROR,
+                                "frame error: invalid GOAWAY size");
+    }
+    last_stream_id = HTTP2_STREAM_ID_MASK & __ps_get_be32(ps);
+    error_code = __ps_get_be32(ps);
+    debug = __ps_get_ps(ps, len - HTTP2_LEN_GOAWAY_PAYLOAD_MIN);
+    http2_conn_trace(
+        w, 0, "received GOAWAY [last stream %d, error code %d, debug <%*pM>]",
+        last_stream_id, error_code, (int)ps_len(&debug), debug.p);
+    if (error_code != HTTP2_CODE_NO_ERROR) {
+        w->is_conn_err_recv = true;
+    } else {
+        if (last_stream_id != HTTP2_ID_MAX_STREAM) {
+            w->is_shtdwn_soon_recv = true;
+        } else if (w->is_shtdwn_recv) {
+            return http2_conn_error(w, PROTOCOL_ERROR,
+                                    "frame error: second shutdown GOAWAY");
+        }
+        w->is_shtdwn_recv = true;
+    }
+    return PARSE_OK;
+}
+
+__unused__
+static int http2_conn_parse_window_update(http2_conn_t *w, pstream_t *ps)
+{
+    size_t len = w->frame.len;
+    uint32_t stream_id = w->frame.stream_id;
+    int32_t incr;
+    int64_t new_size;
+
+    assert(ps_has(ps, len));
+    if (len != HTTP2_LEN_WINDOW_UPDATE_PAYLOAD) {
+        return http2_conn_error(w, FRAME_SIZE_ERROR,
+                                "frame error: invalid WINDOW_UPDATE size");
+    }
+    incr = HTTP2_LEN_MAX_WINDOW_UPDATE_INCR & __ps_get_be32(ps);
+    if (stream_id) {
+        /* incr conn send-window */
+        return http2_stream_do_recv_window_update(w, stream_id, incr);
+    }
+    if (!incr) {
+        return http2_conn_error(w, PROTOCOL_ERROR,
+                                "frame error: 0 increment in WINDOW_UPDATE");
+    }
+    new_size = (int64_t)w->send_wnd + incr;
+    if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
+        return http2_conn_error(
+            w, FLOW_CONTROL_ERROR,
+            "flow control: tried to increment send-window beyond "
+            "limit [cur %d, incr %d, new %lld]",
+            w->send_wnd, incr, (long long)new_size);
+    }
+    http2_conn_trace(w, 0, "send-window increment [new size %lld, incr %d]",
+                     (long long)new_size, incr);
+    w->send_wnd = new_size;
     return PARSE_OK;
 }
 
