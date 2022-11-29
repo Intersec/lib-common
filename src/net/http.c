@@ -4411,7 +4411,6 @@ http2_conn_parse_padding(http2_conn_t *w, pstream_t *chunk)
                             stream_id);
 }
 
-__unused__
 static int http2_conn_parse_data(http2_conn_t *w, pstream_t *ps)
 {
     uint32_t stream_id = w->frame.stream_id;
@@ -4494,7 +4493,6 @@ static bool http2_conn_is_server_push_enabled(http2_conn_t *w)
     return http2_get_settings(w).enable_push && w->peer_settings.enable_push;
 }
 
-__unused__
 static int http2_conn_parse_headers(http2_conn_t *w, pstream_t *ps)
 {
     size_t len = w->frame.len;
@@ -4559,7 +4557,6 @@ typedef struct http2_priority_payload_t {
     byte weight;
 } __attribute__((packed)) http2_priority_payload_t;
 
-__unused__
 static int http2_conn_parse_priority(http2_conn_t *w, pstream_t *ps)
 {
     int len = w->frame.len;
@@ -4579,7 +4576,6 @@ static int http2_conn_parse_priority(http2_conn_t *w, pstream_t *ps)
     return PARSE_OK;
 }
 
-__unused__
 static int http2_conn_parse_rst_stream(http2_conn_t *w, pstream_t *ps)
 {
     int len = w->frame.len;
@@ -4697,7 +4693,6 @@ http2_conn_process_peer_settings(http2_conn_t *w, uint16_t id, uint32_t val)
     return PARSE_OK;
 }
 
-__unused__
 static int http2_conn_parse_settings(http2_conn_t *w, pstream_t *ps)
 {
     size_t len = w->frame.len;
@@ -4738,7 +4733,6 @@ static int http2_conn_parse_settings(http2_conn_t *w, pstream_t *ps)
     return PARSE_OK;
 }
 
-__unused__
 static int http2_conn_parse_ping(http2_conn_t *w, pstream_t *ps)
 {
     size_t len = w->frame.len;
@@ -4760,7 +4754,6 @@ static int http2_conn_parse_ping(http2_conn_t *w, pstream_t *ps)
     return PARSE_OK;
 }
 
-__unused__
 static int http2_conn_parse_goaway(http2_conn_t *w, pstream_t *ps)
 {
     size_t len = w->frame.len;
@@ -4793,7 +4786,6 @@ static int http2_conn_parse_goaway(http2_conn_t *w, pstream_t *ps)
     return PARSE_OK;
 }
 
-__unused__
 static int http2_conn_parse_window_update(http2_conn_t *w, pstream_t *ps)
 {
     size_t len = w->frame.len;
@@ -4827,6 +4819,514 @@ static int http2_conn_parse_window_update(http2_conn_t *w, pstream_t *ps)
                      (long long)new_size, incr);
     w->send_wnd = new_size;
     return PARSE_OK;
+}
+
+/* }}} */
+/* {{{ Connection-Level Parsers */
+
+static bool http2_is_known_frame_type(uint8_t type)
+{
+    return type <= HTTP2_TYPE_CONTINUATION;
+}
+
+static int http2_conn_check_frame_type_role(http2_conn_t *w)
+{
+    if (!w->is_client && w->frame.type == HTTP2_TYPE_PUSH_PROMISE) {
+        return http2_conn_error(w, PROTOCOL_ERROR,
+                                "PUSH_PROMISE received from client");
+    }
+    return PARSE_OK;
+}
+
+/** Check if current frame type is compatible with the level `stream_id`.
+ * Note: 0 => Connection-level frame, > 0 => Stream-level frame */
+static int http2_conn_check_frame_type_level(http2_conn_t *w)
+{
+    uint8_t type = w->frame.type;
+    uint32_t stream_id = w->frame.stream_id;
+
+    switch (type) {
+    case HTTP2_TYPE_DATA:
+    case HTTP2_TYPE_HEADERS:
+    case HTTP2_TYPE_PRIORITY:
+    case HTTP2_TYPE_RST_STREAM:
+    case HTTP2_TYPE_PUSH_PROMISE:
+    case HTTP2_TYPE_CONTINUATION:
+        if (likely(stream_id)) {
+            return PARSE_OK;
+        }
+        break;
+    case HTTP2_TYPE_SETTINGS:
+    case HTTP2_TYPE_PING:
+    case HTTP2_TYPE_GOAWAY:
+        if (likely(!stream_id)) {
+            return PARSE_OK;
+        }
+        break;
+    case HTTP2_TYPE_WINDOW_UPDATE:
+        return PARSE_OK;
+    default:
+        assert(0 && "unexpected frame type");
+    }
+    return http2_conn_error(
+        w, PROTOCOL_ERROR,
+        "frame error: type %x incompatible with stream id %u", type,
+        stream_id);
+}
+
+static int http2_conn_check_frame_size(http2_conn_t *w, uint32_t len)
+{
+    uint32_t lim = http2_get_settings(w).max_frame_size;
+
+    if (len > lim) {
+        return http2_conn_error(w, FRAME_SIZE_ERROR,
+                                "frame error: size %u > setting limit %u",
+                                len, lim);
+    }
+    return PARSE_OK;
+}
+
+
+static int http2_conn_parse_preface(http2_conn_t *w, pstream_t *ps)
+{
+    /* XXX: the client preamble consists of the magic preface + the initial
+     * settings frame. For the server, the preamble consists of the initial
+     * settings frame, IoW, the server preface is empty. So, both client and
+     * server send the connection PREAMBLE in reaction to parsing the other's
+     * PREFACE!
+     */
+    if (!w->is_client) {
+        size_t len = http2_client_preface_g.len;
+        lstr_t preface_recv;
+
+        if (ps_len(ps) < len) {
+            return PARSE_MISSING_DATA;
+        }
+        preface_recv = LSTR_DATA_V(ps->p, len);
+        if (!lstr_equal(preface_recv, http2_client_preface_g)) {
+            return http2_conn_error(w, PROTOCOL_ERROR,
+                                    "parse error: invalid preface");
+        }
+        __ps_skip(ps, len);
+    }
+    http2_conn_send_preface(w);
+    http2_conn_send_init_settings(w);
+    return PARSE_OK;
+}
+
+static int http2_conn_parse_init_settings_hdr(http2_conn_t *w, pstream_t *ps)
+{
+    size_t len = HTTP2_LEN_FRAME_HDR;
+
+    if (ps_len(ps) < len) {
+        return PARSE_MISSING_DATA;
+    }
+    http2_parse_frame_hdr(ps->b, &w->frame);
+    if (w->frame.len > http2_get_settings(w).max_frame_size ||
+        w->frame.type != HTTP2_TYPE_SETTINGS ||
+        w->frame.flags & HTTP2_FLAG_ACK ||
+        w->frame.len % HTTP2_LEN_SETTINGS_ITEM != 0)
+    {
+        return http2_conn_error(w, PROTOCOL_ERROR,
+                                "invalid preamble (not a setting frame)");
+    }
+    __ps_skip(ps, len);
+    return PARSE_OK;
+}
+
+static int http2_conn_parse_common_hdr(http2_conn_t *w, pstream_t *ps)
+{
+    size_t len = HTTP2_LEN_FRAME_HDR;
+
+    if (ps_len(ps) < len) {
+        return PARSE_MISSING_DATA;
+    }
+    w->cont_chunk = 0;
+    http2_parse_frame_hdr(ps->b, &w->frame);
+    RETHROW(http2_conn_check_frame_size(w, w->frame.len));
+    if (http2_is_known_frame_type(w->frame.type)) {
+        RETHROW(http2_conn_check_frame_type_level(w));
+        RETHROW(http2_conn_check_frame_type_role(w));
+    }
+    __ps_skip(ps, len);
+    return PARSE_OK;
+}
+
+static int http2_conn_parse_payload(http2_conn_t *w, pstream_t *ps)
+{
+    size_t len = w->frame.len;
+
+    if (!ps_has(ps, len)) {
+        return PARSE_MISSING_DATA;
+    }
+    switch (w->frame.type) {
+    case HTTP2_TYPE_DATA:
+        return http2_conn_parse_data(w, ps);
+    case HTTP2_TYPE_HEADERS:
+        return http2_conn_parse_headers(w, ps);
+    case HTTP2_TYPE_PRIORITY:
+        return http2_conn_parse_priority(w, ps);
+    case HTTP2_TYPE_RST_STREAM:
+        return http2_conn_parse_rst_stream(w, ps);
+    case HTTP2_TYPE_SETTINGS:
+        return http2_conn_parse_settings(w, ps);
+    case HTTP2_TYPE_PUSH_PROMISE:
+        return http2_conn_parse_headers(w, ps);
+    case HTTP2_TYPE_PING:
+        return http2_conn_parse_ping(w, ps);
+    case HTTP2_TYPE_GOAWAY:
+        return http2_conn_parse_goaway(w, ps);
+    case HTTP2_TYPE_WINDOW_UPDATE:
+        return http2_conn_parse_window_update(w, ps);
+    case HTTP2_TYPE_CONTINUATION:
+        return http2_conn_error(w, PROTOCOL_ERROR,
+                                "frame error: CONTINUATION with no previous "
+                                "HEADERS or PUSH_PROMISE");
+    default:
+        break;
+    }
+    __ps_skip(ps, len);
+    http2_conn_trace(w, 0, "discarded received frame with unknown type %d",
+                     w->frame.type);
+    return PARSE_OK;
+}
+
+static int http2_conn_parse_cont_hdr(http2_conn_t *w, pstream_t *ps)
+{
+    size_t len = w->frame.len + w->cont_chunk + HTTP2_LEN_FRAME_HDR;
+    http2_frame_info_t frame;
+
+    if (ps_len(ps) < len) {
+        return PARSE_MISSING_DATA;
+    }
+    http2_parse_frame_hdr(ps->b + w->frame.len + w->cont_chunk, &frame);
+    RETHROW(http2_conn_check_frame_size(w, frame.len));
+    assert(w->frame.stream_id);
+    if (frame.type != HTTP2_TYPE_CONTINUATION ||
+        frame.stream_id != w->frame.stream_id)
+    {
+        return http2_conn_error(w, PROTOCOL_ERROR,
+                                "frame error: missing CONTINUATION");
+    }
+    w->frame.flags |= (frame.flags & HTTP2_FLAG_END_HEADERS);
+    w->cont_chunk += HTTP2_LEN_FRAME_HDR + frame.len;
+    return PARSE_OK;
+}
+
+static int http2_conn_parse_cont_fragment(http2_conn_t *w, pstream_t *ps)
+{
+    size_t len = w->frame.len + w->cont_chunk;
+
+    assert(w->cont_chunk);
+    if (ps_len(ps) < len) {
+        return PARSE_MISSING_DATA;
+    }
+    if (w->frame.flags & HTTP2_FLAG_END_HEADERS) {
+        return http2_conn_parse_end_headers(w, ps);
+    }
+    return PARSE_OK;
+}
+
+static int http2_conn_parse_shutdown(http2_conn_t *w, pstream_t *ps)
+{
+    if (!ps_done(ps)) {
+        http2_conn_trace(w, 0,
+                         "(possibly garbage) data after two-way shutdown");
+    }
+    __ps_skip(ps, ps_len(ps));
+    return PARSE_MISSING_DATA;
+}
+
+static int http2_conn_parse_error_recv(http2_conn_t *w, pstream_t *ps)
+{
+    if (!ps_done(ps)) {
+        http2_conn_trace(
+            w, 0, "(possibly garbage) data after receiving connection error");
+    }
+    __ps_skip(ps, ps_len(ps));
+    return PARSE_MISSING_DATA;
+}
+
+static int http2_conn_parse_error_sent(http2_conn_t *w, pstream_t *ps)
+{
+    __ps_skip(ps, ps_len(ps));
+    return PARSE_MISSING_DATA;
+}
+
+/* }}} */
+/* {{{ Connection IO Event Handlers */
+
+/* parser state(s) */
+typedef enum {
+    HTTP2_PARSE_PREAMBLE             = 0,
+    HTTP2_PARSE_INIT_SETTINGS_HDR    = 1,
+    HTTP2_PARSE_COMMON_HDR           = 2,
+    HTTP2_PARSE_PAYLOAD              = 3,
+    HTTP2_PARSE_CONT_HDR             = 4,
+    HTTP2_PARSE_CONT_FRAGMENT        = 5,
+    HTTP2_PARSE_SHUTDOWN             = 6,
+    HTTP2_PARSE_ERROR_RECV           = 7,
+    HTTP2_PARSE_ERROR_SENT           = 8,
+} parse_state_t;
+
+static void http2_conn_do_parse(http2_conn_t *w)
+{
+    int rc;
+    pstream_t ps;
+
+    ps = ps_initsb(&w->ibuf);
+    do {
+        parse_state_t state = w->state;
+
+        switch (state) {
+        case HTTP2_PARSE_PREAMBLE:
+            rc = http2_conn_parse_preface(w, &ps);
+            if (rc == PARSE_OK) {
+                state = HTTP2_PARSE_INIT_SETTINGS_HDR;
+            }
+            break;
+        case HTTP2_PARSE_INIT_SETTINGS_HDR:
+            rc = http2_conn_parse_init_settings_hdr(w, &ps);
+            if (rc == PARSE_OK) {
+                state = HTTP2_PARSE_PAYLOAD;
+            }
+            break;
+        case HTTP2_PARSE_COMMON_HDR:
+            rc = http2_conn_parse_common_hdr(w, &ps);
+            if (rc == PARSE_OK) {
+                state = HTTP2_PARSE_PAYLOAD;
+            }
+            break;
+        case HTTP2_PARSE_PAYLOAD:
+            rc = http2_conn_parse_payload(w, &ps);
+            if (rc == PARSE_OK) {
+                uint8_t t = w->frame.type;
+
+                state = HTTP2_PARSE_COMMON_HDR;
+                if (t == HTTP2_TYPE_HEADERS || t == HTTP2_TYPE_PUSH_PROMISE) {
+                    if (!(w->frame.flags & HTTP2_FLAG_END_HEADERS)) {
+                        state = HTTP2_PARSE_CONT_HDR;
+                    }
+                }
+                if (w->is_conn_err_recv) {
+                    state = HTTP2_PARSE_ERROR_RECV;
+                } else if (w->is_shtdwn_recv && w->is_shtdwn_sent) {
+                    state = HTTP2_PARSE_SHUTDOWN;
+                }
+            }
+            break;
+        case HTTP2_PARSE_CONT_HDR:
+            rc = http2_conn_parse_cont_hdr(w, &ps);
+            break;
+        case HTTP2_PARSE_CONT_FRAGMENT:
+            rc = http2_conn_parse_cont_fragment(w, &ps);
+            if (rc == PARSE_OK) {
+                assert(w->frame.type == HTTP2_TYPE_HEADERS
+                       || w->frame.type == HTTP2_TYPE_PUSH_PROMISE);
+                state = w->frame.flags & HTTP2_FLAG_END_HEADERS
+                            ? HTTP2_PARSE_CONT_HDR
+                            : HTTP2_PARSE_COMMON_HDR;
+            }
+            break;
+        case HTTP2_PARSE_SHUTDOWN:
+            rc = http2_conn_parse_shutdown(w, &ps);
+            break;
+        case HTTP2_PARSE_ERROR_RECV:
+            rc = http2_conn_parse_error_recv(w, &ps);
+            break;
+        case HTTP2_PARSE_ERROR_SENT:
+            rc = http2_conn_parse_error_sent(w, &ps);
+            break;
+        }
+        if (rc == PARSE_ERROR) {
+            state = HTTP2_PARSE_ERROR_SENT;
+            rc = PARSE_OK;
+        }
+        w->state = state;
+    } while (rc == PARSE_OK);
+    sb_skip_upto(&w->ibuf, ps.s);
+}
+
+static void http2_conn_do_close(http2_conn_t *w)
+{
+    qm_for_each_key(qstream_info, stream_id, &w->stream_info) {
+        http2_stream_t stream = http2_stream_get(w, stream_id);
+
+        http2_stream_on_reset(w, stream, stream.info.ctx, false);
+        stream.remove = true;
+        http2_stream_do_update_info(w, &stream);
+    }
+    http2_conn_on_close(w);
+    http2_conn_release(&w);
+}
+
+static int http2_conn_do_error_write(http2_conn_t *w)
+{
+    http2_conn_trace(w, 0, "write error");
+    http2_conn_do_close(w);
+    return 0;
+}
+
+static int http2_conn_do_write(http2_conn_t *w, int fd)
+{
+    int ret;
+
+    ret = w->ssl ? ob_write_with(&w->ob, fd, ssl_writev, w->ssl)
+                 : ob_write(&w->ob, fd);
+    if (ret < 0 && !ERR_RW_RETRIABLE(errno)) {
+        return -1;
+    }
+    return 0;
+}
+
+static void http2_conn_do_set_mask_and_watch(http2_conn_t *w)
+{
+    int mask = POLLIN;
+
+    if (ob_is_empty(&w->ob) || w->send_wnd <= 0) {
+        el_fd_watch_activity(w->ev, POLLINOUT, 10000);
+    } else {
+        el_fd_watch_activity(w->ev, POLLINOUT, 0);
+    }
+    if (!ob_is_empty(&w->ob)) {
+        mask |= POLLOUT;
+    }
+    el_fd_set_mask(w->ev, mask);
+}
+
+static int http2_conn_do_inact_timeout(http2_conn_t *w)
+{
+    http2_conn_trace(w, 0, "inactivity timeout");
+    http2_conn_do_close(w);
+    return 0;
+}
+
+static int http2_conn_do_error_read(http2_conn_t *w)
+{
+    http2_conn_trace(w, 0, "reading error");
+    http2_conn_do_close(w);
+    return 0;
+}
+
+static int http2_conn_do_error_read_eof(http2_conn_t *w)
+{
+    if (!(w->is_shtdwn_sent && ob_is_empty(&w->ob))) {
+        http2_conn_trace(w, 0, "unexpected eof while read");
+    }
+    http2_conn_do_close(w);
+    return 0;
+}
+
+static int http2_conn_do_error_sent(http2_conn_t *w)
+{
+    http2_conn_trace(w, 0, "connection error sent");
+    http2_conn_do_close(w);
+    return 0;
+}
+
+static int http2_conn_do_shutdown(http2_conn_t *w)
+{
+    http2_conn_trace(w, 0, "shutdown (both sides)");
+    http2_conn_do_close(w);
+    return 0;
+}
+
+static int http2_conn_do_error_recv(http2_conn_t *w)
+{
+    http2_conn_trace(w, 0, "connection error received");
+    http2_conn_do_close(w);
+    return 0;
+}
+
+static int http2_conn_do_on_streams_can_write(http2_conn_t *w)
+{
+    if (w->state > HTTP2_PARSE_INIT_SETTINGS_HDR) {
+        http2_conn_on_streams_can_write(w);
+    }
+    return 0;
+}
+
+static void http2_conn_do_send_shutdown(http2_conn_t *w)
+{
+    http2_conn_send_shutdown(w, LSTR_NODATA);
+}
+
+static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
+{
+    http2_conn_t *w = priv.ptr;
+    int read = 0;
+
+    if (events == EL_EVENTS_NOACT) {
+        return http2_conn_do_inact_timeout(w);
+    }
+    if (events & POLLIN) {
+        read = w->ssl ? ssl_sb_read(&w->ibuf, w->ssl, 0)
+                      : sb_read(&w->ibuf, fd, 0);
+        if ((read < 0) && !ERR_RW_RETRIABLE(errno)) {
+            return http2_conn_do_error_read(w);
+        }
+        if (!read) {
+            return http2_conn_do_error_read_eof(w);
+        }
+        http2_conn_do_parse(w);
+    }
+    if (w->is_conn_err_recv) {
+        return http2_conn_do_error_recv(w);
+    }
+    if (w->is_conn_err_sent) {
+        if (ob_is_empty(&w->ob)) {
+            return http2_conn_do_error_sent(w);
+        }
+    }
+    if (w->is_shtdwn_recv && w->is_shtdwn_sent) {
+        if (ob_is_empty(&w->ob)) {
+            return http2_conn_do_shutdown(w);
+        }
+    }
+    http2_conn_do_on_streams_can_write(w);
+    if (w->is_shtdwn_commanded && !w->is_shtdwn_sent) {
+        http2_conn_do_send_shutdown(w);
+    }
+    if (http2_conn_do_write(w, fd) < 0) {
+        return http2_conn_do_error_write(w);
+    }
+    http2_conn_do_set_mask_and_watch(w);
+    return 0;
+}
+
+static int http2_conn_do_connect_timeout(http2_conn_t *w)
+{
+    http2_conn_trace(w, 0, "socket connect: timeout");
+    http2_conn_do_close(w);
+    return 0;
+}
+
+static int http2_conn_do_connect_error(http2_conn_t *w)
+{
+    http2_conn_trace(w, 0, "socket connect: error");
+    http2_conn_do_close(w);
+    return 0;
+}
+
+__unused__
+static int http2_on_connect(el_t evh, int fd, short events, data_t priv)
+{
+    http2_conn_t *w = priv.ptr;
+    int res;
+
+    if (events == EL_EVENTS_NOACT) {
+        http2_conn_do_connect_timeout(w);
+        return -1;
+    }
+    res = socket_connect_status(fd);
+    if (res > 0) {
+        el_fd_set_hook(evh, http2_conn_on_event);
+        el_fd_set_mask(w->ev, POLLINOUT);
+        el_fd_watch_activity(w->ev, POLLINOUT, 0);
+    } else if (res < 0) {
+        http2_conn_do_connect_error(w);
+    }
+    return res;
 }
 
 /* }}} */
