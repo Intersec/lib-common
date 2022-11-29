@@ -3545,7 +3545,6 @@ static void http2_conn_send_headers_block(http2_conn_t *w, uint32_t stream_id,
     } while (!ps_done(&blk));
 }
 
-__unused__
 static void http2_conn_send_rst_stream(http2_conn_t *w, uint32_t stream_id,
                                        uint32_t error_code)
 {
@@ -3556,7 +3555,6 @@ static void http2_conn_send_rst_stream(http2_conn_t *w, uint32_t stream_id,
     OB_WRAP(sb_add_be32, &w->ob, error_code);
 }
 
-__unused__
 static void http2_conn_send_window_update(http2_conn_t *w, uint32_t stream_id,
                                           uint32_t incr)
 {
@@ -3578,7 +3576,6 @@ http2_conn_send_shutdown(http2_conn_t *w, lstr_t debug)
     http2_conn_send_goaway(w, stream_id, HTTP2_CODE_NO_ERROR, debug);
 }
 
-__unused__
 static int
 http2_conn_send_error(http2_conn_t *w, uint32_t error_code, lstr_t debug)
 {
@@ -3758,7 +3755,6 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
  * XXX: Basic header validation against RFC 9113 "§8.3. HTTP Control Data" is
  * done and conveyed in \p res->invalid.
  */
-__unused__
 static int
 t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
                                  http2_header_info_t *res, sb_t *buf)
@@ -4107,7 +4103,6 @@ http2_stream_consume_recv_window(http2_conn_t *w, http2_stream_t *stream,
     return 0;
 }
 
-__unused__
 static int
 http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
                           int padlen, bool eos)
@@ -4141,7 +4136,6 @@ http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
     return 0;
 }
 
-__unused__
 static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
                                         http2_header_info_t *info,
                                         pstream_t headerlines, bool eos)
@@ -4204,7 +4198,6 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
     return 0;
 }
 
-__unused__
 static int http2_stream_do_recv_priority(http2_conn_t *w, uint32_t stream_id,
                                          uint32_t stream_dependency)
 {
@@ -4224,7 +4217,6 @@ static int http2_stream_do_recv_priority(http2_conn_t *w, uint32_t stream_id,
     return 0;
 }
 
-__unused__
 static int
 http2_stream_do_recv_rst_stream(http2_conn_t *w, uint32_t stream_id,
                                 uint32_t error_code)
@@ -4255,7 +4247,6 @@ http2_stream_do_recv_rst_stream(http2_conn_t *w, uint32_t stream_id,
     return 0;
 }
 
-__unused__
 static int
 http2_stream_do_recv_push_promise(http2_conn_t *w, uint32_t stream_id,
                                   http2_header_info_t *info,
@@ -4340,6 +4331,271 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
     stream.info.send_wnd += incr;
     http2_stream_do_update_info(w, &stream);
     return 0;
+}
+
+/* }}} */
+/* {{{ Frame Parsing */
+
+#define http2_conn_error(w, error_code, fmt, ...)                            \
+    ({                                                                       \
+        http2_conn_trace(w, 0, "connection error :" fmt, ##__VA_ARGS__);     \
+        http2_conn_error_(w, HTTP2_CODE_##error_code, fmt, ##__VA_ARGS__);   \
+    })
+
+__attribute__((format(printf, 3, 4)))
+static int http2_conn_error_(http2_conn_t *w, uint32_t error_code,
+                             const char *fmt, ...)
+{
+    t_scope;
+    lstr_t debug;
+    va_list ap;
+
+    va_start(ap, fmt);
+    debug = t_lstr_vfmt(fmt, ap);
+    va_end(ap);
+    return http2_conn_send_error(w, error_code, debug);
+}
+
+__unused__
+static void http2_parse_frame_hdr(const byte hdr_[HTTP2_LEN_FRAME_HDR],
+                                  http2_frame_info_t *frame)
+{
+    const http2_frame_hdr_t *hdr = (const http2_frame_hdr_t *)hdr_;
+
+    STATIC_ASSERT(sizeof(*hdr) == HTTP2_LEN_FRAME_HDR);
+    /* XXX: hdr->len is a bitfield. */
+    frame->len = get_unaligned_be24(hdr);
+    frame->type = hdr->type;
+    frame->flags = hdr->flags;
+    frame->stream_id = HTTP2_STREAM_ID_MASK & cpu_to_be32(hdr->stream_id);
+}
+
+static void http2_conn_maintain_recv_window(http2_conn_t *w)
+{
+    int incr = HTTP2_LEN_WINDOW_SIZE_LIMIT - w->recv_wnd;
+
+    if (incr <= 0) {
+        return;
+    }
+    http2_conn_send_window_update(w, 0, incr);
+    w->recv_wnd += incr;
+}
+
+static int
+http2_conn_consume_recv_window(http2_conn_t *w)
+{
+    int len = w->frame.len;
+
+    /* Maintain the recv window at a specific level each time the peer
+     * sends DATA frame. This effectively disables the flow control. */
+    w->recv_wnd -= len;
+    http2_conn_maintain_recv_window(w);
+    return 0;
+}
+
+static int
+http2_conn_parse_padding(http2_conn_t *w, pstream_t *chunk)
+{
+    uint32_t stream_id = w->frame.stream_id;
+    int padlen = 0;
+
+    if (!(w->frame.flags & HTTP2_FLAG_PADDED)) {
+        return 0;
+    }
+    if ((padlen = ps_getc(chunk)) >= 0 && ps_shrink(chunk, padlen) >= 0) {
+        return padlen + 1;
+    }
+    return http2_conn_error(w, PROTOCOL_ERROR,
+                            "frame error: invalid padding on stream %d",
+                            stream_id);
+}
+
+__unused__
+static int http2_conn_parse_data(http2_conn_t *w, pstream_t *ps)
+{
+    uint32_t stream_id = w->frame.stream_id;
+    bool end_stream = w->frame.flags & HTTP2_FLAG_END_STREAM;
+    pstream_t chunk = __ps_get_ps(ps, w->frame.len);
+    int padlen;
+
+    RETHROW(http2_conn_consume_recv_window(w));
+    padlen = RETHROW(http2_conn_parse_padding(w, &chunk));
+    return http2_stream_do_recv_data(w, stream_id, chunk, padlen, end_stream);
+}
+
+static void
+http2_conn_construct_hdr_blk(http2_conn_t *w, pstream_t *ps, sb_t *blk,
+                             uint32_t *promised_id, bool *eos)
+{
+    size_t len;
+    pstream_t multiframe;
+    pstream_t chunk;
+    int chunk_len;
+
+    *promised_id = 0;
+    *eos = false;
+    len = w->frame.len + w->cont_chunk;
+    multiframe = __ps_get_ps(ps, len);
+    chunk_len = w->frame.len;
+    chunk = __ps_get_ps(&multiframe, chunk_len);
+    if (w->frame.flags & HTTP2_FLAG_PADDED) {
+        uint8_t padding = __ps_getc(&chunk);
+        __ps_shrink(&chunk, padding);
+    }
+    if (w->frame.type == HTTP2_TYPE_HEADERS) {
+        *eos = w->frame.flags & HTTP2_FLAG_END_STREAM;
+        if (w->frame.flags & HTTP2_FLAG_PRIORITY) {
+            __ps_skip(&chunk, 4 + 1); /* stream dependency (4) + weight (1) */
+        }
+    } else {
+        assert(w->frame.type == HTTP2_TYPE_PUSH_PROMISE);
+        *promised_id = HTTP2_STREAM_ID_MASK & __ps_get_be32(&chunk);
+    }
+    sb_add_ps(blk, chunk);
+    while (!ps_done(&multiframe)) {
+        chunk_len = get_unaligned_be24(multiframe.p);
+        __ps_skip(&multiframe, HTTP2_LEN_FRAME_HDR);
+        chunk = __ps_get_ps(&multiframe, chunk_len);
+        sb_add_ps(blk, chunk);
+    }
+}
+
+static int http2_conn_parse_end_headers(http2_conn_t *w, pstream_t *ps)
+{
+    t_scope;
+    uint32_t stream_id = w->frame.stream_id;
+    http2_header_info_t info;
+    SB_8k(blk);
+    SB_8k(headerlines);
+    int rc;
+    uint32_t promised_id;
+    bool eos;
+
+    http2_conn_construct_hdr_blk(w, ps, &blk, &promised_id, &eos);
+    rc = t_http2_conn_decode_header_block(w, ps_initsb(&blk), &info,
+                                          &headerlines);
+    if (rc < 0) {
+        return http2_conn_error(
+            w, PROTOCOL_ERROR,
+            "compression error: invalid header block on stream %d",
+            stream_id);
+    }
+    if (promised_id) {
+        return http2_stream_do_recv_push_promise(
+            w, stream_id, &info, ps_initsb(&headerlines), promised_id);
+    }
+    return http2_stream_do_recv_headers(w, stream_id, &info,
+                                        ps_initsb(&headerlines), eos);
+}
+
+static bool http2_conn_is_server_push_enabled(http2_conn_t *w)
+{
+    return http2_get_settings(w).enable_push && w->peer_settings.enable_push;
+}
+
+__unused__
+static int http2_conn_parse_headers(http2_conn_t *w, pstream_t *ps)
+{
+    size_t len = w->frame.len;
+    pstream_t chunk = ps_init(ps->p, len);
+    uint32_t stream_id = w->frame.stream_id;
+    uint32_t promised_id;
+
+    assert(!w->cont_chunk);
+    RETHROW(http2_conn_parse_padding(w, &chunk));
+    if (w->frame.type == HTTP2_TYPE_HEADERS) {
+        promised_id = 0;
+        if (w->frame.flags & HTTP2_FLAG_PRIORITY) {
+            uint32_t depend;
+
+            if (!ps_has(&chunk, 4)) {
+                return http2_conn_error(w, FRAME_SIZE_ERROR,
+                                        "frame error: HEADERS (priority) "
+                                        "with invalid size on %jd",
+                                        len);
+            }
+            /* XXX: we ignore stream (re)-prioritization scheme. However, a
+             * minimal processing is to check against self-dependency error */
+            depend = HTTP2_STREAM_ID_MASK & __ps_get_be32(&chunk);
+            if (depend == w->frame.stream_id) {
+                return http2_conn_error(
+                    w, PROTOCOL_ERROR,
+                    "frame error: self-dependency in HEADERS on stream %d",
+                    stream_id);
+            }
+        }
+    } else {
+        assert(w->is_client);
+        assert(w->frame.type == HTTP2_TYPE_PUSH_PROMISE);
+        if (!ps_has(&chunk, 4)) {
+            return http2_conn_error(
+                w, FRAME_SIZE_ERROR,
+                "frame error: PUSH_PROMISE with invalid size on %jd", len);
+        }
+        promised_id = HTTP2_STREAM_ID_MASK & __ps_get_be32(&chunk);
+        if (promised_id % 2 == 0 && promised_id > 2 * w->server_streams) {
+            return http2_conn_error(w, PROTOCOL_ERROR,
+                                    "frame error: invalid promised stream %d "
+                                    "in PUSH_PROMISE on stream %d",
+                                    promised_id, stream_id);
+        }
+        if (!http2_conn_is_server_push_enabled(w)) {
+            return http2_conn_error(
+                w, PROTOCOL_ERROR,
+                "settings error: unexpected promised stream %d in "
+                "PUSH_PROMISE on stream %d (server push disabled)",
+                promised_id, stream_id);
+        }
+    }
+    if (w->frame.flags & HTTP2_FLAG_END_HEADERS) {
+        return http2_conn_parse_end_headers(w, ps);
+    }
+    return PARSE_OK;
+}
+
+typedef struct http2_priority_payload_t {
+    be32_t stream_dependency;
+    byte weight;
+} __attribute__((packed)) http2_priority_payload_t;
+
+__unused__
+static int http2_conn_parse_priority(http2_conn_t *w, pstream_t *ps)
+{
+    int len = w->frame.len;
+    uint32_t sid = w->frame.stream_id;
+    http2_priority_payload_t payload;
+
+    STATIC_ASSERT(sizeof(payload) == HTTP2_LEN_PRIORITY_PAYLOAD);
+    assert(ps_has(ps, len));
+    if (len != sizeof(payload)) {
+        return http2_conn_error(w, FRAME_SIZE_ERROR,
+                                "frame error: PRIORITY with invalid size %d",
+                                len);
+    }
+    payload.stream_dependency = HTTP2_STREAM_ID_MASK & __ps_get_be32(ps);
+    payload.weight = __ps_getc(ps);
+    RETHROW(http2_stream_do_recv_priority(w, sid, payload.stream_dependency));
+    return PARSE_OK;
+}
+
+__unused__
+static int http2_conn_parse_rst_stream(http2_conn_t *w, pstream_t *ps)
+{
+    int len = w->frame.len;
+    uint32_t stream_id = w->frame.stream_id;
+    uint32_t error_code;
+
+    STATIC_ASSERT(sizeof(error_code) == HTTP2_LEN_RST_STREAM_PAYLOAD);
+    assert(ps_has(ps, len));
+    if (len != HTTP2_LEN_RST_STREAM_PAYLOAD) {
+        return http2_conn_error(
+            w, FRAME_SIZE_ERROR,
+            "frame error: RST_STREAM with invalid size %d", len);
+    }
+    error_code = get_unaligned_be32(ps->p);
+    RETHROW(http2_stream_do_recv_rst_stream(w, stream_id, error_code));
+    __ps_skip(ps, len);
+    return PARSE_OK;
 }
 
 /* }}} */
