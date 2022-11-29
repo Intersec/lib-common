@@ -3748,6 +3748,164 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
 }
 
 /* }}}*/
+/* {{{ Headers Packing/Unpacking (HPACK) */
+
+/** Decode a header block.
+ *
+ * \param res: decoded headers info.
+ * \return 0 if decoding succeed, -1 otherwise.
+ *
+ * XXX: Basic header validation against RFC 9113 "§8.3. HTTP Control Data" is
+ * done and conveyed in \p res->invalid.
+ */
+__unused__
+static int
+t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
+                                 http2_header_info_t *res, sb_t *buf)
+{
+    hpack_dec_dtbl_t *dec = &w->dec;
+    http2_header_info_t info = {0};
+    int nb_pseudo_hdrs = 0;
+    bool regular_hdrs_seen = false;
+
+    while (RETHROW(hpack_decoder_read_dts_update(dec, &in))) {
+        /* read dynamic table size updates. */
+    }
+    while (!ps_done(&in)) {
+        hpack_xhdr_t xhdr;
+        int len;
+        int keylen;
+        byte *out;
+        lstr_t key;
+        lstr_t val;
+
+        len = RETHROW(hpack_decoder_extract_hdr(dec, &in, &xhdr));
+        out = (byte *)sb_grow(buf, len);
+        /* XXX: Decoded header is unpacked into the following format:
+         * <DECODED_KEY> + ": " + <DECODED_VALUE> + "\r\n".
+         */
+        len = RETHROW(hpack_decoder_write_hdr(dec, &xhdr, out, &keylen));
+        key = LSTR_DATA_V(out, keylen);
+        val = LSTR_DATA_V(out + keylen + 2, len - keylen - 4);
+        http2_conn_trace(w, 0, "%*pM: %*pM", LSTR_FMT_ARG(key),
+                         LSTR_FMT_ARG(val));
+        THROW_ERR_IF(keylen < 1);
+        if (info.invalid) {
+            /* XXX: must continue the decoding to keep the HPACK context (the
+             * dynamic table) synchroized between the two parties. */
+            continue;
+        }
+        /* TODO: optimize this search */
+        if (unlikely(key.s[0] == ':')) {
+            lstr_t *matched_phdr = NULL;
+
+            if (regular_hdrs_seen) {
+                /* Regular headers must follow the pseudo headers. */
+                info.invalid = true;
+            }
+            nb_pseudo_hdrs++;
+            if (lstr_equal(key, LSTR_IMMED_V(":scheme"))) {
+                matched_phdr = &info.scheme;
+            } else if (lstr_equal(key, LSTR_IMMED_V(":method"))) {
+                matched_phdr = &info.method;
+            } else if (lstr_equal(key, LSTR_IMMED_V(":authority"))) {
+                matched_phdr = &info.authority;
+            } else if (lstr_equal(key, LSTR_IMMED_V(":path"))) {
+                matched_phdr = &info.path;
+            } else if (lstr_equal(key, LSTR_IMMED_V(":status"))) {
+                matched_phdr = &info.status;
+            }
+            if (matched_phdr) {
+                if (!matched_phdr->s) {
+                    *matched_phdr = t_lstr_dup(val);
+                } else {
+                    /* duplicated pseudo header */
+                    info.invalid = true;
+                }
+            } else {
+                /* unkown pseudo header */
+                info.invalid = true;
+            }
+        } else {
+            regular_hdrs_seen = true;
+            if (lstr_ascii_iequal(key, LSTR_IMMED_V("content-length"))) {
+                info.content_length = val;
+            }
+            buf->len += len;
+        }
+    }
+    sb_set_trailing0(buf);
+    /* Basic validation according to RFC9113 §8.3. */
+    switch (nb_pseudo_hdrs) {
+    case 0:
+        /* 0 pseudo-hdr is okay for trailer headers. */
+        break;
+    case 1:
+        if (!info.status.s) {
+            /* 1 pseudo-hdr: it has to be status for response hdr. */
+            info.invalid = true;
+        }
+        break;
+    case 4:
+        if (!info.authority.s) {
+            /* 4 pseudo-hdrs has to be:
+             * authority, method, scheme, path. */
+            info.invalid = true;
+        }
+        /* FALLTHROUGH */
+    case 3:
+        if (!info.method.s || !info.scheme.s || !info.path.s) {
+            /* 3 pseudo-hdrs has to be: method, scheme, path. */
+            info.invalid = true;
+        }
+        break;
+    default:
+        info.invalid = true;
+        break;
+    }
+    *res = info;
+    return 0;
+}
+
+__unused__
+static void http2_headerlines_get_next_hdr(pstream_t *headerlines,
+                                           lstr_t *key, lstr_t *val)
+{
+    pstream_t line = PS_NODATA;
+    pstream_t ps = PS_NODATA;
+    int rc;
+
+    assert(!ps_done(headerlines));
+    rc = ps_get_ps_upto_str_and_skip(headerlines, "\r\n", &line);
+    assert(rc >= 0 && !ps_done(&line));
+    rc = ps_get_ps_chr_and_skip(&line, ':', &ps);
+    assert(rc >= 0);
+    ps_trim(&ps);
+    assert(!ps_done(&ps));
+    *key = LSTR_PS_V(&ps);
+    ps_trim(&line);
+    assert(!ps_done(&line));
+    *val = LSTR_PS_V(&line);
+}
+
+__unused__
+static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
+                                       lstr_t val, sb_t *out_)
+{
+    hpack_enc_dtbl_t *enc = &w->enc;
+    int len;
+    int buflen;
+    byte *out;
+
+    buflen = hpack_buflen_to_write_hdr(key, val, 0);
+    out = (byte *)sb_grow(out_, buflen);
+    len = hpack_encoder_write_hdr(enc, key, val, 0, 0, 0, out);
+    assert(len > 0);
+    assert(len <= buflen);
+    __sb_fixlen(out_, out_->len + len);
+}
+
+/* }}} */
 /* }}} */
 /* {{{ HTTP Module */
 
