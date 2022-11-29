@@ -31,6 +31,7 @@
 
 static struct {
     logger_t logger;
+    unsigned http2_conn_count;
 } http_g = {
 #define _G  http_g
     .logger = LOGGER_INIT_INHERITS(NULL, "http"),
@@ -3256,7 +3257,6 @@ typedef struct http2_conn_t {
 } http2_conn_t;
 
 /** Get effective HTTP2 settings */
-__unused__
 static http2_settings_t http2_get_settings(http2_conn_t *w)
 {
     return likely(w->is_settings_acked) ? w->settings
@@ -3272,6 +3272,107 @@ typedef struct http2_header_info_t {
     lstr_t status;
     lstr_t content_length;
 } http2_header_info_t;
+
+/* }}}*/
+/* {{{ Connection-Level & Stream-Level Logging */
+
+/* TODO: add additional conn-related info to the log message */
+#define http2_conn_log(/* const http_conn_t* */ w, /* int */ level,          \
+                       /* const char* */ fmt, ...)                           \
+    logger_log(&_G.logger, level, fmt, ##__VA_ARGS__)
+
+#define http2_conn_trace(w, level, fmt, ...)                                 \
+    http2_conn_log(w, LOG_TRACE + (level), "[h2c %u] " fmt, (w)->id,         \
+                   ##__VA_ARGS__)
+
+/* TODO: add additional stream-related info to the log message */
+#define http2_stream_log(/* const http_conn_t* */ w,                         \
+                         /* const stream_t* */ stream, /* int */ level,      \
+                         /* const char* */ fmt, ...)                         \
+    logger_log(&_G.logger, level, "[h2c %u, sid %d] " fmt, (w)->id,          \
+               (stream)->id, ##__VA_ARGS__)
+
+#define http2_stream_trace(w, stream, level, fmt, ...)                       \
+    http2_stream_log(w, stream, LOG_TRACE + (level), fmt, ##__VA_ARGS__)
+
+/* }}} */
+/* {{{ Connection Management */
+
+static http2_conn_t *http2_conn_init(http2_conn_t *w)
+{
+    p_clear(w, 1);
+    w->id = ++_G.http2_conn_count;
+    sb_init(&w->ibuf);
+    ob_init(&w->ob);
+    dlist_init(&w->closed_stream_info);
+    qm_init(qstream_info, &w->stream_info);
+    w->peer_settings = http2_default_settings_g;
+    w->recv_wnd = HTTP2_LEN_CONN_WINDOW_SIZE_INIT;
+    w->send_wnd = HTTP2_LEN_CONN_WINDOW_SIZE_INIT;
+    hpack_enc_dtbl_init(&w->enc);
+    hpack_dec_dtbl_init(&w->dec);
+    hpack_enc_dtbl_init_settings(&w->enc, w->peer_settings.header_table_size);
+    hpack_dec_dtbl_init_settings(&w->dec,
+                                 http2_get_settings(w).header_table_size);
+    return w;
+}
+
+static void http2_conn_wipe(http2_conn_t *w)
+{
+    hpack_dec_dtbl_wipe(&w->dec);
+    hpack_enc_dtbl_wipe(&w->enc);
+    ob_wipe(&w->ob);
+    sb_wipe(&w->ibuf);
+    qm_wipe(qstream_info, &w->stream_info);
+    assert(dlist_is_empty(&w->closed_stream_info));
+    el_unregister(&w->ev);
+}
+
+DO_REFCNT(http2_conn_t, http2_conn)
+
+/** Return the maximum id of the (non-idle) server stream or 0 if none. */
+static uint32_t http2_conn_max_server_stream_id(http2_conn_t *w)
+{
+    /* Server streams have even ids: 2, 4, 6, and so on. Server streams with
+     * ids superior than this http2_conn_max_server_stream_id are idle,
+     * otherwise, they are non idle (either active or closed). So, the next
+     * available idle server stream is (http2_conn_max_server_stream_id + 2).
+     * Note, that initiating a stream above this value, i.e., skipping some
+     * ids is possible and implies closing the streams with the skipped ids.
+     * So, this threshold is tracked using the number of streams (non-idle)
+     * sor far. So, 0 server stream => 0 max server stream id (the next idle
+     * stream is 2), 1 server stream => 2 max server stream id (the next idle
+     * stream is 4), and so on.
+     */
+    return 2 * w->server_streams;
+}
+
+/** Return the maximum id of the (non-idle) client stream or 0 if none. */
+static uint32_t http2_conn_max_client_stream_id(http2_conn_t *w)
+{
+    /* Client streams have odd ids: 1, 3, 5, and so on. Client streams with
+     * ids superior than this http2_conn_max_client_stream_id are idle,
+     * otherwise, they are non idle (either active or closed). So, the next
+     * available idle client stream is (http2_conn_max_client_stream_id + 2)
+     * except for client_streams = 0 where the next idle stream is 1. Note,
+     * that initiating a stream above this value, i.e., skipping some ids is
+     * possible and implies closing the streams with the skipped ids. So, this
+     * threshold is tracked using the number of streams (non-idle) sor far.
+     * So, 0 client stream => max client stream id = 0 (the next idle stream
+     * is 1), 1 client stream => max client stream id = 1 (the next idle
+     * stream is 3), 2 client streams => max client stream id = 3 (the next
+     * idle stream is 5) and so on.
+     */
+    return 2 * w->client_streams - !!w->client_streams;
+}
+
+/** Return the maximum id of the (non-idle) peer stream or 0 if none. */
+__unused__
+static uint32_t http2_conn_max_peer_stream_id(http2_conn_t *w)
+{
+    return w->is_client ? http2_conn_max_server_stream_id(w)
+                        : http2_conn_max_client_stream_id(w);
+}
 
 /* }}}*/
 /* }}} */
