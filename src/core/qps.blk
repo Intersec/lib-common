@@ -2632,7 +2632,7 @@ static void qps_snapshot_bg_done(el_t el, pid_t pid, int status, data_t data)
         thr_syn_wait(&qps->snapshot_syn);
 
         thr_queue_b(thr_queue_main_g, ^{
-            struct timeval end;
+            t_scope;
 
             el_unregister(&qps->snap_timer_el);
             logger_trace(&qps->tracing_logger, 1, "snapshot commited and "
@@ -2671,9 +2671,8 @@ static void qps_snapshot_bg_done(el_t el, pid_t pid, int status, data_t data)
             }
 
             qps->snapshotting = false;
-            lp_gettv(&end);
-            logger_debug(&qps->tracing_logger, "snapshot done in %jdms",
-                         timeval_diffmsec(&end, &qps->snap_start));
+            logger_debug(&qps->logger, "snapshot done in %s",
+                         t_time_spent_to_str(qps->snap_start));
             qps->snap_notify(qps->snap_gen);
             Block_release_p(&qps->snap_notify);
         });
@@ -2810,7 +2809,7 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
     qps->generation  += 2;
     qps->snap_notify = Block_copy(notify);
 
-    logger_trace(&qps->logger, 1, "qps_snapshot(%p)", qps);
+    logger_debug(&qps->logger, "starting snapshot...");
     t_qv_init(&t, 1024);
     p_clear(&qps->m, 1);
 
