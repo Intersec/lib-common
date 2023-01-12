@@ -2881,10 +2881,11 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
     /* If the disk write speed is lower than 16 MB/s, there is an issue.
      * Thus we need less than 16s per 256 MB map, so the max time is
      * 16 * qps->maps.len secondes.
-     * In order to avoid any regression the max of this value and 1 hour is
-     * used.
+     * In order to avoid any regression the max of this value and
+     * snap_max_duration is used.
      */
-    wait_for = MAX(3600, qps->maps.len * 16);
+    wait_for = qps->snap_max_duration ?: 3600;
+    wait_for = MAX(wait_for, (uint32_t)qps->maps.len * 16);
     qps->snap_timer_el = el_timer_register_blk(wait_for * 1000, 0, 0,
                                                ^(el_t ev){
         logger_fatal(&qps->logger, "qps: snapshot (generation %x) stuck for "
