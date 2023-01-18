@@ -311,12 +311,13 @@ IOP_UNION_SWITCH(val) {
 == Functions
 
 * Opening bracket is on the same line than control flow statements, on the next
-  line for function implementations (except for `static inline` where it’s
-  allowed to keep them on the same line when the function short - 1 or 2 lines
-  of code).
+  line for function implementations.
 
 [source,c]
 ----
+int main(void) /* good */
+{
+}
 int main(void) { /* bad */
 }
 ----

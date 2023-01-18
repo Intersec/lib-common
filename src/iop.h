@@ -287,7 +287,7 @@ int iop_skip_absent_field_desc(mem_pool_t * nonnull mp, void * nonnull value,
 int iop_ranges_search(int const * nonnull ranges, int ranges_len, int tag);
 
 /* }}} */
-/* {{{ IOP Introspection: iop_for_each_field() */
+/* {{{ IOP Introspection: iop_for_each_(field|st|obj) */
 
 #ifdef __has_blocks
 
@@ -305,6 +305,8 @@ void sb_add_iop_field_stack(sb_t *nonnull buf,
 lstr_t t_iop_field_stack_to_lstr(const iop_field_stack_t *nonnull fstack);
 
 #define IOP_FIELD_SKIP  1
+
+/* {{{ iop_for_each_field & variants */
 
 /** Callback for function 'iop_for_each_field'.
  *
@@ -396,6 +398,9 @@ int iop_for_each_field_const_fast(
     const void * nonnull st_ptr,
     iop_for_each_field_const_fast_cb_b nonnull cb);
 
+/* }}} */
+/* {{{ iop_for_each_st & variants */
+
 /** Callback for function 'iop_for_each_st'.
  *
  * \param[in]     st_desc  Description of the current struct/union/class.
@@ -462,7 +467,54 @@ int iop_for_each_st_const_fast(const iop_struct_t *nullable st_desc,
                                const void *nonnull st_ptr,
                                iop_for_each_st_const_fast_cb_b nonnull cb);
 
-#endif
+/* }}} */
+/* {{{ iop_for_each_obj & variants */
+
+/** Callback for function 'iop_for_each_obj'.
+ *
+ * \param[in]     st_desc  Description of the current class.
+ * \param[in,out] obj_ptr  Double pointer on the class.
+ * \param[in]     stack    Context for the field containing the current
+ *                         class.
+ *
+ * \return A negative value to stop the exploration,
+ *         IOP_FIELD_SKIP to avoid exploring the fields of current
+ *         class.
+ */
+typedef int
+(BLOCK_CARET iop_for_each_obj_cb_b)(const iop_struct_t *nonnull st_desc,
+                                    void * nonnull * nonnull obj_ptr,
+                                    const iop_field_stack_t *nonnull stack);
+
+/** Explore an IOP struct/union/class recursively and call a block for each
+ *  class.
+ *
+ *  Same as iop_for_each_st() but the callback will be called for each
+ *  class contained in the input IOP including itself, and takes a double
+ *  pointer on the inspected class, allowing to modify its type if needed.
+ */
+int iop_for_each_obj(const iop_struct_t * nullable st_desc,
+                     void * nonnull * nonnull obj_ptr,
+                     iop_for_each_obj_cb_b nonnull cb);
+
+/** Callback for function 'iop_for_each_obj_fast'.
+ *
+ * Same as 'iop_for_each_obj_cb_b' without the parameter 'stack'.
+ */
+typedef int
+(BLOCK_CARET iop_for_each_obj_fast_cb_b)(const iop_struct_t *nonnull st_desc,
+                                         void * nonnull * nonnull obj_ptr);
+
+/** Fast version of 'iop_for_each_obj'.
+ *
+ * See 'iop_for_each_obj'.
+ */
+int iop_for_each_obj_fast(const iop_struct_t *nullable st_desc,
+                          void * nonnull * nonnull obj_ptr,
+                          iop_for_each_obj_fast_cb_b nonnull cb);
+/* }}} */
+
+#endif /* __has_blocks */
 
 /* }}} */
 /* {{{ IOP iop_full_type_t */

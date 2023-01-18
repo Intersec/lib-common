@@ -36,6 +36,23 @@ __attribute__((constructor)) static void fix_backtrace_init(void)
     backtrace(arr, countof(arr));
 }
 
+static bool should_dump_maps(void)
+{
+    /* By default, memory maps are not dumped in .debug files, because it
+     * makes the files big and this is rarely used.
+     * It can be enabled with the IS_DEBUG_FILES_DUMP_MAPS environment
+     * variable. */
+    static int dump_maps = -1;
+
+    if (unlikely(dump_maps < 0)) {
+        const char *env = getenv("IS_DEBUG_FILES_DUMP_MAPS");
+
+        dump_maps = env && *env && atoi(env) > 0;
+    }
+
+    return dump_maps;
+}
+
 void ps_dump_backtrace(int signum, const char *prog, int fd, bool full)
 {
     char  buf[256];
@@ -58,7 +75,7 @@ void ps_dump_backtrace(int signum, const char *prog, int fd, bool full)
     backtrace_symbols_fd(arr, bt, fd);
     fsync(fd);
 
-    if (full) {
+    if (full && should_dump_maps()) {
         int maps_fd = open("/proc/self/smaps", O_RDONLY);
 
         if (maps_fd != -1) {

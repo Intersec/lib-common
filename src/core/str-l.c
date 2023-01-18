@@ -600,6 +600,15 @@ lstr_t t_lstr_hexencode(lstr_t lstr)
     return LSTR_INIT_V(s, len);
 }
 
+lstr_t t_lstr_human_hexdecode(lstr_t s)
+{
+    SB_1k(sanitized_str);
+
+    sb_add_filtered(&sanitized_str, s, &ctype_ishexdigit);
+
+    return t_lstr_hexdecode(LSTR_SB_V(&sanitized_str));
+}
+
 lstr_t lstr_trim_pkcs7_padding(lstr_t padded)
 {
     int nb_padding_bytes;

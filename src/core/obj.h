@@ -168,6 +168,13 @@
         return superclass##_class();                                         \
     }
 
+__attr_printf__(4, 5) __attr_noreturn__
+void (object_panic)(const char *nonnull file, const char *nonnull func,
+                    int line, const char *nonnull fmt, ...);
+
+#define object_panic(fmt, ...)                                               \
+    (object_panic)(__FILE__, __func__, __LINE__, (fmt), ##__VA_ARGS__)
+
 /* }}} */
 
 /** Define an object class with typedef.
@@ -214,9 +221,10 @@
         pfx##_vtable_extension_f old_func = pfx##_vtable_extension_func_g;   \
                                                                              \
         if (unlikely(pfx##_vtable_extension_init_g)) {                       \
-            e_panic("class constructor of " #pfx " has already been called " \
-                    "while trying to set vtable extension function, check "  \
-                    "vtable extension init order");                          \
+            object_panic("class constructor of " #pfx                        \
+                         " has already been called while trying to set "     \
+                         "vtable extension function, "                       \
+                         "check vtable extension init order");               \
         }                                                                    \
         pfx##_vtable_extension_func_g = func;                                \
         return old_func;                                                     \
@@ -336,6 +344,23 @@
 
 /* }}} */
 /* {{{ Base object class */
+/* {{{ Fields for tagged references. */
+
+#ifdef NDEBUG
+# define OBJECT_TAGGED_REF_FIELDS(pfx)
+#else /* NDEBUG */
+
+typedef struct obj_tagged_ref_list_t obj_tagged_ref_list_t;
+
+#define OBJECT_TAGGED_REF_FIELDS(pfx)                                        \
+    /* List of tagged references toward an object.                           \
+     * Use prefix 'obj' and suffix '_' to not interfer with user object      \
+     * fields. */                                                            \
+    obj_tagged_ref_list_t *nullable obj_tagged_refs_
+
+#endif /* NDEBUG */
+
+/* }}} */
 
 /** Data fields for the root object class.
  *
@@ -347,7 +372,8 @@
         const pfx##_class_t  * nonnull ptr;                                  \
     } v;                                                                     \
     mem_pool_t * nullable mp;                                                \
-    ssize_t refcnt
+    ssize_t refcnt;                                                          \
+    OBJECT_TAGGED_REF_FIELDS(pfx)
 
 /** Methods for the root object class.
  *
@@ -382,22 +408,28 @@ OBJ_CLASS_NO_TYPEDEF_(object, object, OBJECT_FIELDS, OBJECT_METHODS,
 #  define obj_cast_debug(pfx, o)                                             \
     ({ typeof(o) __##pfx##_o = (o);                                          \
        if (__##pfx##_o && unlikely(!obj_is_a(__##pfx##_o, pfx))) {           \
-           e_panic("%s:%d: cannot cast (%p : %s) into a %s",                 \
-                   __FILE__, __LINE__, __##pfx##_o,                          \
-                   obj_vfield(__##pfx##_o, type_name),                       \
-                   pfx##_class()->type_name);                                \
+           object_panic("cannot cast (%p : %s) into a %s",                   \
+                        __##pfx##_o, obj_vfield(__##pfx##_o, type_name),     \
+                        pfx##_class()->type_name);                           \
      }                                                                       \
      __##pfx##_o; })
+
+#  define obj_p_cast_debug(pfx, obj_p)                                       \
+    ({ typeof(obj_p) PFX_LINE(pfx##_p_cast_obj) = (obj_p);                   \
+       IGNORE(obj_cast_debug(pfx, *PFX_LINE(pfx##_p_cast_obj)));             \
+       PFX_LINE(pfx##_p_cast_obj); })
+
 #  define cls_cast_debug(pfx, c)                                             \
     ({ typeof(c) __##pfx##_c = (c);                                          \
        if (unlikely(!cls_inherits(__##pfx##_c, pfx##_class()))) {            \
-           e_panic("%s:%d: bad class cast (%s into %s)", __FILE__, __LINE__, \
-                   __##pfx##_c->type_name, pfx##_class()->type_name);        \
+           object_panic("bad class cast (%s into %s)",                       \
+                        __##pfx##_c->type_name, pfx##_class()->type_name);   \
        }                                                                     \
        __##pfx##_c; })
 #else
 #  define obj_cast_debug(pfx, o)  (o)
 #  define cls_cast_debug(pfx, c)  (c)
+#  define obj_p_cast_debug(pfx, obj_p) (obj_p)
 #endif
 
 #define obj_dyn_cast(pfx, o)                                                 \
@@ -467,6 +499,13 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  * Same as obj_vcast, but returns a const pointer.
  */
 #define obj_ccast(pfx, o)  ((const pfx##_t *)obj_cast_debug(pfx, o))
+
+/** Similar to \p obj_vcast but casts a double pointer. */
+#define obj_p_vcast(pfx, obj_p) ((pfx##_t **)obj_p_cast_debug(pfx, obj_p))
+
+/** Similar to \p obj_ccast but casts a double pointer. */
+#define obj_p_ccast(pfx, obj_p)                                              \
+        ((const pfx##_t **)obj_p_cast_debug(pfx, obj_p))
 
 /** Dynamically cast an object to the wanted type.
  *
@@ -587,6 +626,30 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  */
 #define obj_retain(o)   obj_vcall(o, retain)
 
+/* {{{ Private helpers. */
+
+static inline void (obj_release)(object_t *nullable *nonnull obj)
+{
+    if (*obj) {
+        bool destroyed;
+
+        obj_vcall(*obj, release, &destroyed);
+        if (destroyed) {
+            *obj = NULL;
+        }
+    }
+}
+
+static inline void (obj_delete)(object_t *nullable *nonnull obj)
+{
+    if (*obj) {
+        obj_vcall(*obj, release, NULL);
+        *obj = NULL;
+    }
+}
+
+/* }}} */
+
 /** Release object instance.
  *
  * Wrapper for 'release' method.
@@ -595,30 +658,132 @@ bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
  *                     reference left, then it is destroyed and \p *op is set
  *                     to NULL. Otherwise, \p *op is left unchanged.
  */
-#define obj_release(op) \
-do {                                                                         \
-    typeof(**op) **obj_release_obj = (op);                                   \
-    bool obj_release_obj_destroyed = false;                                  \
-                                                                             \
-    obj_vcall(*obj_release_obj, release, &obj_release_obj_destroyed);        \
-    if (obj_release_obj_destroyed) {                                         \
-        *obj_release_obj = NULL;                                             \
-    }                                                                        \
-} while (0)
+#define obj_release(_obj)                                                    \
+    (obj_release)(obj_p_vcast(object, (_obj)))
+
+/* {{{ Tagged retain/release. */
+
+#ifdef NDEBUG
+# define obj_tagged_retain(_obj, _tag) obj_retain(_obj)
+# define obj_tagged_release(_obj, _tag) obj_release(_obj)
+# define obj_print_references(_obj) IGNORE(_obj)
+#else /* NDEBUG */
+
+object_t *nonnull
+(obj_tagged_retain)(object_t *nonnull obj, const char *nonnull tag,
+                    const char *nonnull func,
+                    const char *nonnull file, int line);
+
+void (obj_tagged_release)(object_t *nonnull *nonnull obj_p,
+                          const char *nonnull tag);
+
+/** Create a tagged reference on the object.
+ *
+ * A tagged reference has to be released using \p obj_tagged_release, with the
+ * same tag as the one it was originally retained with. Of course, a tagged
+ * reference will preferably be released in the same file as the one in which
+ * it is created.
+ *
+ * Tagged references allow to track actively how the refcounting is used for
+ * an object. It has an informative value: it makes the correspondance between
+ * retain and release obvious.
+ *
+ * Possible evolutions:
+ * - forbid using non-tagged reference for some objects with a dedicated
+ *   version of obj_new() or for a whole class with a class attribute.
+ * - trace mode: to trace all the retain/release done during an object's
+ *   lifetime.
+ */
+#define obj_tagged_retain(_obj, _tag)                                        \
+    (obj_tagged_retain)(obj_vcast(object, (_obj)), #_tag,                    \
+                        __func__, __FILE__, __LINE__)
+
+/** Release a tagged reference on the object. */
+#define obj_tagged_release(_obj_p, _tag)                                     \
+    (obj_tagged_release)(obj_p_vcast(object, (_obj_p)), #_tag)
+
+void (obj_print_references)(const object_t *nonnull obj);
+
+/** Print the reference counting status to core obj logger. */
+#define obj_print_references(_obj)                                           \
+    (obj_print_references)(obj_ccast(object, (_obj)))
+
+#endif /* NDEBUG */
+
+/* }}} */
+/* {{{ Retain scope. */
+/* {{{ Private helpers. */
+
+typedef struct object_reference_scope_t {
+    object_t *nonnull *nonnull obj_p;
+#ifndef NDEBUG
+    const char *nonnull func;
+    const char *nonnull file;
+    int line;
+#endif /* NDEBUG */
+} object_reference_scope_t;
+
+#ifndef NDEBUG
+
+object_t *nonnull
+(obj_retain_scope)(object_t *nonnull obj,
+                   const char *nonnull func,
+                   const char *nonnull file, int line);
+void (obj_release_scope)(object_t *nonnull *nonnull obj_p,
+                         const char *nonnull file, int line);
+
+#endif /* NDEBUG */
+
+static inline object_reference_scope_t
+object_reference_scope_build(object_t *nonnull *nonnull obj_p,
+                             const char *nonnull func,
+                             const char *nonnull file,
+                             int line)
+{
+#ifdef NDEBUG
+    obj_retain(*obj_p);
+#else /* NDEBUG */
+    (obj_retain_scope)(*obj_p, func, file, line);
+#endif /* NDEBUG */
+
+    return (object_reference_scope_t){
+        .obj_p = obj_p,
+#ifndef NDEBUG
+        .func = func,
+        .file = file,
+        .line = line,
+#endif /* NDEBUG */
+    };
+}
+
+static inline void
+object_reference_scope_wipe(object_reference_scope_t *nonnull scope)
+{
+#ifdef NDEBUG
+    obj_release(scope->obj_p);
+#else /* NDEBUG */
+    (obj_release_scope)(scope->obj_p, scope->file, scope->line);
+#endif /* NDEBUG */
+}
+
+/* }}} */
+
+/** Keep an object retained until the end of the current scope. */
+#define obj_retain_scope(_obj_p)                                             \
+    object_reference_scope_t PFX_LINE(obj_retain_scope)                      \
+        __attribute__((unused, cleanup(object_reference_scope_wipe))) =      \
+        object_reference_scope_build(                                        \
+            obj_p_vcast(object, (_obj_p)),                                   \
+            __func__, __FILE__, __LINE__)
+
+/* }}} */
 
 /** Delete object instance.
  *
  * If the object instance is not NULL, it will be released and set to NULL.
  */
-#define obj_delete(op) \
-do {                                                                         \
-    typeof(**op) **obj_delete_obj = (op);                                    \
-                                                                             \
-    if (*obj_delete_obj) {                                                   \
-        obj_vcall(*obj_delete_obj, release, NULL);                           \
-        *obj_delete_obj = NULL;                                              \
-    }                                                                        \
-} while (0)
+#define obj_delete(_obj)                                                     \
+    (obj_delete)(obj_p_vcast(object, (_obj)))
 
 /** Init object instance with static memory pool.
  *

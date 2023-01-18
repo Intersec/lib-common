@@ -146,6 +146,35 @@ Z_GROUP_EXPORT(core_obj)
         obj_delete(&base_obj);
     } Z_TEST_END;
 
+    Z_TEST(casts, "test cast macros") {
+        my_base_object_t *base_obj = obj_new(my_base_object);
+        my_child_object_t *child_obj = obj_new(my_child_object);
+        my_base_object_t *vcast_obj;
+        const my_base_object_t *ccast_obj;
+        my_base_object_t **p_vcast_obj;
+        const my_base_object_t **p_ccast_obj;
+
+        vcast_obj = obj_vcast(my_base_object, child_obj);
+        Z_ASSERT_P(vcast_obj);
+        ccast_obj = obj_ccast(my_base_object, child_obj);
+        Z_ASSERT_P(ccast_obj);
+        vcast_obj = obj_dynvcast(my_base_object, child_obj);
+        Z_ASSERT_P(vcast_obj);
+        ccast_obj = obj_dynccast(my_base_object, child_obj);
+        Z_ASSERT_P(ccast_obj);
+
+        Z_ASSERT_NULL(obj_dynvcast(my_child_object, base_obj));
+        Z_ASSERT_NULL(obj_dynccast(my_child_object, base_obj));
+
+        p_vcast_obj = obj_p_vcast(my_base_object, &child_obj);
+        Z_ASSERT((void **)p_vcast_obj == (void **)&child_obj);
+        p_ccast_obj = obj_p_ccast(my_base_object, &child_obj);
+        Z_ASSERT((const void **)p_ccast_obj == (const void **)&child_obj);
+
+        obj_delete(&child_obj);
+        obj_delete(&base_obj);
+    } Z_TEST_END;
+
     Z_TEST(extended, "test extended vtable") {
         my_child_object_t *child_obj = obj_new(my_child_object);
 
@@ -202,5 +231,48 @@ Z_GROUP_EXPORT(core_obj)
         obj_delete(&obj);
         Z_ASSERT_NULL(obj, "obj_delete() should always reset the object "
                       "pointer");
+
+        obj = obj_new(my_base_object);
+        obj_retain(obj);
+        Z_ASSERT_EQ(obj->refcnt, 2);
+        {
+            obj_retain_scope(&obj);
+
+            Z_ASSERT_EQ(obj->refcnt, 3);
+            obj_release(&obj);
+            Z_ASSERT_P(obj);
+            Z_ASSERT_EQ(obj->refcnt, 2);
+        }
+        Z_ASSERT_P(obj);
+        Z_ASSERT_EQ(obj->refcnt, 1);
+        {
+            obj_retain_scope(&obj);
+
+            Z_ASSERT_EQ(obj->refcnt, 2);
+            obj_release(&obj);
+            Z_ASSERT_P(obj);
+            Z_ASSERT_EQ(obj->refcnt, 1);
+        }
+        Z_ASSERT_NULL(obj,
+                      "obj_retain_scope() should have deleted the object");
+    } Z_TEST_END;
+
+    Z_TEST(tagged_references, "test tagged retain/release") {
+        my_base_object_t *obj;
+
+        obj = obj_new(my_base_object);
+        for (int i = 0; i < 2; i++) {
+            obj_tagged_retain(obj, testing);
+        }
+        {
+            obj_retain_scope(&obj);
+            obj_print_references(obj);
+        }
+        obj_release(&obj);
+        Z_ASSERT_P(obj);
+        obj_tagged_release(&obj, testing);
+        Z_ASSERT_P(obj);
+        obj_tagged_release(&obj, testing);
+        Z_ASSERT_NULL(obj);
     } Z_TEST_END;
 } Z_GROUP_END

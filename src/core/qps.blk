@@ -1612,7 +1612,6 @@ static qps_t *qps_new(int dfd, const char *name)
     qps->lock = DIR_LOCK_INIT_V;
     qps->generation = 1;
     qps->handles_gc_gen = 1;
-    thr_syn_init(&qps->snapshot_syn);
     qps->hdrs = p_new(qps_pghdr_t, 1);
 
     spin_lock(&_G.lock);
@@ -1864,9 +1863,9 @@ void qps_handle_allow_memory(qps_t *qps, qps_handle_t id, qps_ptr_t *ptr)
 #endif
 }
 
-thr_syn_t *qps_get_snapshot_syn(qps_t *qps)
+void qps_set_snapshot_syn(qps_t *qps, thr_syn_t *syn)
 {
-    return &qps->snapshot_syn;
+    qps->snapshot_syn = syn;
 }
 
 /* }}} */
@@ -2629,10 +2628,12 @@ static void qps_snapshot_bg_done(el_t el, pid_t pid, int status, data_t data)
     qps->snap_el = NULL;
 
     thr_schedule_b(^{
-        thr_syn_wait(&qps->snapshot_syn);
+        if (qps->snapshot_syn) {
+            thr_syn_wait(qps->snapshot_syn);
+        }
 
         thr_queue_b(thr_queue_main_g, ^{
-            struct timeval end;
+            t_scope;
 
             el_unregister(&qps->snap_timer_el);
             logger_trace(&qps->tracing_logger, 1, "snapshot commited and "
@@ -2671,9 +2672,8 @@ static void qps_snapshot_bg_done(el_t el, pid_t pid, int status, data_t data)
             }
 
             qps->snapshotting = false;
-            lp_gettv(&end);
-            logger_debug(&qps->tracing_logger, "snapshot done in %jdms",
-                         timeval_diffmsec(&end, &qps->snap_start));
+            logger_debug(&qps->logger, "snapshot done in %s",
+                         t_time_spent_to_str(qps->snap_start));
             qps->snap_notify(qps->snap_gen);
             Block_release_p(&qps->snap_notify);
         });
@@ -2810,7 +2810,7 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
     qps->generation  += 2;
     qps->snap_notify = Block_copy(notify);
 
-    logger_trace(&qps->logger, 1, "qps_snapshot(%p)", qps);
+    logger_debug(&qps->logger, "starting snapshot...");
     t_qv_init(&t, 1024);
     p_clear(&qps->m, 1);
 
@@ -2907,7 +2907,9 @@ uint32_t qps_snapshot(qps_t *qps, const void *data, size_t dlen,
 void qps_snapshot_wait(qps_t *qps)
 {
     if (qps->snapshotting) {
-        thr_syn_wait(&qps->snapshot_syn);
+        if (qps->snapshot_syn) {
+            thr_syn_wait(qps->snapshot_syn);
+        }
 
         if (qps->snap_el) {
             thr_schedule_b(^{
@@ -3066,8 +3068,10 @@ static void __qps_close(qps_t **qpsp, bool do_cleanup)
     if (qps) {
         logger_trace(&qps->logger, 2, "qps_closing(%p)", qps);
         qps_snapshot_wait(qps);
-        thr_syn_wait(&qps->snapshot_syn);
-        thr_syn_wipe(&qps->snapshot_syn);
+
+        if (qps->snapshot_syn) {
+            thr_syn_wait(qps->snapshot_syn);
+        }
 
         tab_enumerate(i, map, &qps->maps) {
             char buf[32];

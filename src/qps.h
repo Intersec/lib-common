@@ -250,7 +250,7 @@ typedef struct qps_t {
     /* Allocator state, private */
     qps_pghdr_t *hdrs;
     qps_map_t   *gc_map;     /* do not use, filled for the SIGBUS handler */
-    thr_syn_t    snapshot_syn;
+    thr_syn_t   *snapshot_syn; /* not owned by the qps_t */
     el_t         snap_el;
     el_t         snap_timer_el;
     qps_notify_b snap_notify;
@@ -313,18 +313,21 @@ uint32_t  qps_snapshot(qps_t *qps, const void *data, size_t dlen,
                        void (BLOCK_CARET notify)(uint32_t gen));
 #endif
 
-/** Get a thr syn to use for thr jobs that should synchronize with the
+/** Set a thr syn to use for thr jobs that should synchronize with the
  * snapshots.
+ *
+ * When set, this syn is awaited before ending a snapshot.
  *
  * Can be used for example if you want to spare CPU time in the main thread
  * because of a big operation, but the operation has to be completed before
- * potential snapshots:
+ * the end of a potential snapshot:
  *
- * > thr_syn_queue_b(qps_get_snapshot_syn(my_qps, _G.my_queue, ^{
+ * > qps_set_snapshot_syn(my_qps, my_syn);
+ * > thr_syn_queue_b(my_syn, _G.my_queue, ^{
  * >     // big operation
  * > });
  */
-thr_syn_t *qps_get_snapshot_syn(qps_t *qps);
+void qps_set_snapshot_syn(qps_t *qps, thr_syn_t *syn);
 
 /** Backup a qps.
  * This function shall not be called during a snapshot.

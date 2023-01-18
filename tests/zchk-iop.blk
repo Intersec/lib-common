@@ -150,8 +150,8 @@ z_test_iop_for_each_st(const tstiop__z_iop_for_each__t *z_struct)
         SB_1k(sb);
         const char *structs[] = {
             "ZIopForEach", "Void", "MiniStruct", "TabStruct", "MiniStruct",
-           "MiniStruct", "MiniStruct", "AOrB", "Void", "Daddy", "GrandPa",
-           "GrandPa", "GrandPa"
+            "MiniStruct", "MiniStruct", "AOrB", "Void", "Daddy", "GrandPa",
+            "GrandPa", "GrandPa"
         };
 
         int _pos = pos++;
@@ -167,11 +167,91 @@ z_test_iop_for_each_st(const tstiop__z_iop_for_each__t *z_struct)
                    "failed to write field in JSON");
 
         Z_ASSERT_LSTREQUAL(st_desc->fullname, expected_st_name,
-                           "expected a `%*pM', got a `%*pM', value=%*pM",
-                           LSTR_FMT_ARG(expected_st_name),
+                           "expected a `%*pM' at pos %d, got a `%*pM', "
+                           "value=%*pM",
+                           LSTR_FMT_ARG(expected_st_name), _pos,
                            LSTR_FMT_ARG(st_desc->fullname), SB_FMT_ARG(&sb));
         Z_HELPER_END;
     });
+}
+
+static int
+z_test_iop_for_each_obj(const tstiop__z_iop_for_each__t *z_struct)
+{
+    t_scope;
+    tstiop__z_iop_for_each__t *z_struct_dup;
+    tstiop__child__t *child;
+    tstiop__daddy__t *tutor;
+    int *pos = t_new(int, 1);
+    int ret;
+
+    z_struct_dup = t_iop_dup(tstiop__z_iop_for_each, z_struct);
+
+    /* Prepare a child, that will replace the second GrandPa of the
+     * structure ("tata"). */
+    tutor = t_iop_new(tstiop__daddy);
+    tutor->name = LSTR("tutu_tutor");
+
+    child = t_iop_new(tstiop__child);
+    child->name = LSTR("tutu");
+    child->tutor = &tutor->super.super;
+
+    /* Call iop_for_each_obj, that will modify the second GrandPa. */
+    ret = iop_for_each_obj_fast(&tstiop__z_iop_for_each__s,
+                                (void **)&z_struct_dup,
+                                ^int (const iop_struct_t *st_desc,
+                                      void **obj_ptr) {
+        SB_1k(sb);
+        /* XXX: without modification, the sequence of classes would be:
+         *      Daddy, GrandPa, GrandPa, GrandPa
+         *
+         *      But the second GrandPa is replaced by a Child having a Daddy
+         *      as tutor, which is why there is a Daddy after it.
+         *      Note that there is no "Child" in the list because it is seen
+         *      as a GrandPa (before being replaced).
+         */
+        const char *classes[] = {
+            "Daddy", "GrandPa", "GrandPa", "Daddy", "GrandPa"
+        };
+
+        int _pos = (*pos)++;
+        lstr_t expected_st_name;
+        const tstiop__ancestor__t *ancestor;
+
+        Z_ASSERT_LT(_pos, countof(classes), "unexpected class, type name = "
+                    "`%*pM`", LSTR_FMT_ARG(st_desc->fullname));
+
+        /* Check that we probably have a correct pointer here. */
+        Z_ASSERT_N(iop_sb_jpack(&sb, st_desc, *obj_ptr, IOP_JPACK_MINIMAL),
+                   "failed to write field in JSON");
+
+        /* Check expected class name */
+        expected_st_name = t_lstr_fmt("tstiop.%s", classes[_pos++]);
+        Z_ASSERT_LSTREQUAL(st_desc->fullname, expected_st_name,
+                           "expected a `%*pM' at pos %d, got a `%*pM', "
+                           "value=%*pM",
+                           LSTR_FMT_ARG(expected_st_name), _pos,
+                           LSTR_FMT_ARG(st_desc->fullname), SB_FMT_ARG(&sb));
+
+        /* There are only Ancestors in the sample file. */
+        Z_ASSERT(iop_class_is_a(st_desc, &tstiop__ancestor__s));
+        ancestor = *obj_ptr;
+
+        /* Modify the second GrandPa and turn it into the Child */
+        if (lstr_equal(ancestor->name, LSTR("tata"))) {
+            *obj_ptr = child;
+        }
+
+        Z_HELPER_END;
+    });
+    Z_ASSERT_N(ret);
+    Z_ASSERT_EQ(*pos, 5);
+
+    /* Check the modified object. */
+    Z_ASSERT_IOPEQUAL(tstiop__ancestor, z_struct_dup->obj_tab.tab[1],
+                      &child->super.super.super);
+
+    Z_HELPER_END;
 }
 
 static int z_assert_qv_lstr_equal(const qv_t(lstr) *v1, const qv_t(lstr) *v2)
@@ -296,6 +376,25 @@ static int t_z_print_st_paths(const iop_struct_t *st_desc,
                  "'iop_for_each_st'");
 
     Z_HELPER_END;
+}
+
+static void t_z_print_obj_paths(const iop_struct_t *st_desc,
+                                const void *st_ptr, qv_t(lstr) *paths)
+{
+    SB_1k(_buf);
+    sb_t *buf = &_buf;
+
+    qv_clear(paths);
+
+    iop_for_each_obj(&tstiop__z_iop_for_each__s, (void **)&st_ptr,
+                     ^int (const iop_struct_t *_st_desc, void **obj_ptr,
+                           const iop_field_stack_t *stack) {
+        sb_reset(buf);
+        sb_add_iop_field_stack(buf, stack);
+        qv_append(paths, t_lstr_dup(LSTR_SB_V(buf)));
+
+        return 0;
+    });
 }
 
 /* }}} */
@@ -486,7 +585,7 @@ static int z_test_iop_field_path_class_wildcards(void)
 Z_GROUP_EXPORT(iop_blk) {
     IOP_REGISTER_PACKAGES(&tstiop__pkg);
 
-    Z_TEST(iop_for_each_field, "test iop_for_each_field") { /* {{{ */
+    Z_TEST(iop_for_each_field_st_obj, "test iop_for_each_field & co") { /* {{{ */
         t_scope;
         tstiop__z_iop_for_each__t *z_struct = NULL;
         qv_t(lstr) paths;
@@ -497,6 +596,8 @@ Z_GROUP_EXPORT(iop_blk) {
                      "iop_for_each_field");
         Z_HELPER_RUN(z_test_iop_for_each_st(z_struct),
                      "iop_for_each_st");
+        Z_HELPER_RUN(z_test_iop_for_each_obj(z_struct),
+                     "iop_for_each_obj");
 
         t_qv_init(&paths, 128);
 
@@ -510,6 +611,11 @@ Z_GROUP_EXPORT(iop_blk) {
                                 LSTR_FMT_ARG(z_cmddir_g));
         Z_HELPER_RUN(t_z_print_st_paths(&tstiop__z_iop_for_each__s,
                                         z_struct, &paths));
+        Z_HELPER_RUN(z_assert_qv_lstr_same_as_file(&paths, paths_file_path));
+
+        paths_file_path = t_fmt("%*pMsamples/z-iop-for-each-obj-paths.txt",
+                                LSTR_FMT_ARG(z_cmddir_g));
+        t_z_print_obj_paths(&tstiop__z_iop_for_each__s, z_struct, &paths);
         Z_HELPER_RUN(z_assert_qv_lstr_same_as_file(&paths, paths_file_path));
     } Z_TEST_END
     /* }}} */

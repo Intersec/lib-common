@@ -52,29 +52,12 @@ static int z_hpack_decode_huffman(lstr_t str, lstr_t expected)
     Z_HELPER_END;
 }
 
-static lstr_t t_z_hex_decode(lstr_t s)
-{
-    pstream_t ps = ps_initlstr(&s);
-    t_SB(sb, 32 + s.len / 2);
-    int ch;
-
-    while (!ps_done(&ps)) {
-        ps_ltrim(&ps);
-        ch = ps_hexdecode(&ps);
-        if (ch < 0) {
-            return LSTR_NULL_V;
-        }
-        sb_addc(&sb, ch);
-    }
-    return LSTR_SB_V(&sb);
-}
-
 static int z_huffman_test(lstr_t str, lstr_t coded_str_hex)
 {
     t_scope;
     lstr_t coded_str;
 
-    coded_str = t_z_hex_decode(coded_str_hex);
+    coded_str = t_lstr_human_hexdecode(coded_str_hex);
     assert(coded_str.data);
     Z_HELPER_RUN(z_hpack_encode_huffman(str, coded_str));
     Z_HELPER_RUN(z_hpack_decode_huffman(coded_str, str));
@@ -151,7 +134,7 @@ z_hpack_int_test(uint32_t val, uint8_t prefix_bits, lstr_t coded_int_hex)
     t_scope;
     lstr_t coded_int;
 
-    coded_int = t_z_hex_decode(coded_int_hex);
+    coded_int = t_lstr_human_hexdecode(coded_int_hex);
     assert(coded_int.data);
     Z_HELPER_RUN(z_hpack_encode_int(val, prefix_bits, coded_int));
     Z_HELPER_RUN(z_hpack_decode_int(coded_int, prefix_bits, val));
@@ -568,7 +551,7 @@ z_hpack_enc_hdr_test(hpack_enc_dtbl_t *dtbl, lstr_t key, lstr_t val,
                      lstr_t coded_hdr_hex, sb_t *out_)
 {
     t_scope;
-    lstr_t coded_hdr = t_z_hex_decode(coded_hdr_hex);
+    lstr_t coded_hdr = t_lstr_human_hexdecode(coded_hdr_hex);
     int len = hpack_buflen_to_write_hdr(key, val, flags);
     byte *out = (byte *)sb_grow(out_, len);
 
@@ -692,7 +675,7 @@ z_hpack_enc_hdrs_test(hpack_enc_dtbl_t *dtbl, hpack_enc_hdr_t *hdrs, int cnt,
                       lstr_t exp_coded_hdrs_hex, sb_t *out_)
 {
     t_scope;
-    lstr_t exp_coded_hdrs = t_z_hex_decode(exp_coded_hdrs_hex);
+    lstr_t exp_coded_hdrs = t_lstr_human_hexdecode(exp_coded_hdrs_hex);
 
     for (int i = 0; i != cnt; i++) {
         hpack_enc_hdr_t e = hdrs[i];

@@ -25,6 +25,7 @@
 #  define ON_FIELD  default_on_field
 #  define ON_FIELD_DONE()
 #  define ON_STRUCT  default_on_struct
+#  define ON_OBJ  default_on_struct
 #  define SET_INDEX(index)
 
 static int default_on_field(const iop_struct_t *st, void *st_ptr,
@@ -38,15 +39,15 @@ static int default_on_struct(const iop_struct_t *st, void *st_ptr)
     return 0;
 }
 
-#endif
+#endif /* F_NAME */
 
 #ifdef F_PROTO
 #  define  __F_PROTO  , F_PROTO
 #  define  __F_ARGS   , F_ARGS
-#else
+#else /* F_PROTO */
 #  define  __F_PROTO
 #  define  __F_ARGS
-#endif
+#endif /* F_PROTO */
 
 #ifndef MODIFIER
 #  define MODIFIER
@@ -61,14 +62,27 @@ static int default_on_struct(const iop_struct_t *st, void *st_ptr)
             return 0;                                                        \
         }                                                                    \
     } while (0)
-#else
+#else /* ON_STRUCT */
 #  define __ON_STRUCT(...)
-#endif
+#endif /* ON_STRUCT */
+
+#ifdef ON_OBJ
+#  define __ON_OBJ(st_desc, st_ptr)                                          \
+    do {                                                                     \
+        int res = RETHROW(ON_OBJ(st_desc, st_ptr __F_ARGS));                 \
+                                                                             \
+        if (res == IOP_FIELD_SKIP) {                                         \
+            return 0;                                                        \
+        }                                                                    \
+    } while (0)
+#else /* ON_OBJ */
+#  define __ON_OBJ(...)
+#endif /* ON_OBJ */
 
 static int F(on_field)(const iop_struct_t *st_desc, const iop_field_t *fdesc,
                        void *st_ptr __F_PROTO);
-static int F(for_each_field)(const iop_struct_t *st_desc, void *st_ptr
-                             __F_PROTO);
+static int F(for_each_field)(const iop_struct_t *st_desc, void *st_ptr,
+                             bool is_ptr __F_PROTO);
 
 static int F(for_each_st_field)(const iop_struct_t *st_desc, void *st_ptr
                                 __F_PROTO)
@@ -101,8 +115,8 @@ F(for_each_repeated_field)(const iop_field_t *fdesc, void *fptr __F_PROTO)
         SET_INDEX(index);
 #endif
 
-        fptr = field_is_pointed ? *(void **)array.tab : array.tab;
-        RETHROW(F(for_each_field)(fdesc->u1.st_desc, fptr __F_ARGS));
+        RETHROW(F(for_each_field)(fdesc->u1.st_desc, array.tab,
+                                  field_is_pointed __F_ARGS));
 
         array.tab += fsize;
     }
@@ -115,6 +129,7 @@ static int F(on_field)(const iop_struct_t *st_desc, const iop_field_t *fdesc,
 {
     void *fptr;
     int res = 0;
+    bool is_ptr = false;
 
 #ifdef F_LOCAL
     F_LOCAL;
@@ -125,7 +140,7 @@ static int F(on_field)(const iop_struct_t *st_desc, const iop_field_t *fdesc,
     if (res < 0 || res == IOP_FIELD_SKIP) {
         goto end;
     }
-#endif
+#endif /* ON_FIELD */
 
     if (iop_type_is_scalar(fdesc->type)) {
         goto end;
@@ -142,14 +157,16 @@ static int F(on_field)(const iop_struct_t *st_desc, const iop_field_t *fdesc,
     ||  iop_field_is_reference(fdesc)
     ||  iop_field_is_class(fdesc))
     {
-        fptr = *(void **)fptr;
-        if (!fptr) {
-            assert (fdesc->repeat == IOP_R_OPTIONAL);
+        const void *_fptr = *(void **)fptr;
+
+        if (!_fptr) {
+            assert(fdesc->repeat == IOP_R_OPTIONAL);
             goto end;
         }
+        is_ptr = true;
     }
 
-    res = F(for_each_field)(fdesc->u1.st_desc, fptr __F_ARGS);
+    res = F(for_each_field)(fdesc->u1.st_desc, fptr, is_ptr __F_ARGS);
 
   end:
 #ifdef ON_FIELD_DONE
@@ -170,11 +187,23 @@ static int F(for_each_class_field)(const iop_struct_t *st_desc, void *v
     return F(for_each_st_field)(st_desc, v __F_ARGS);
 }
 
-static int F(for_each_field)(const iop_struct_t *st_desc, void *st_ptr
-                             __F_PROTO)
+static int F(for_each_field)(const iop_struct_t *st_desc, void *st_ptr,
+                             bool is_ptr __F_PROTO)
 {
+    void *obj_ptr = st_ptr;
+
+    if (is_ptr) {
+        st_ptr = *(void **)obj_ptr;
+    }
+
     if (iop_struct_is_class(st_desc)) {
         st_desc = *(const iop_struct_t **)st_ptr;
+
+        if (is_ptr) {
+            __ON_OBJ(st_desc, obj_ptr);
+            st_ptr = *(void **)obj_ptr;
+            st_desc = *(const iop_struct_t **)st_ptr;
+        }
 
         __ON_STRUCT(st_desc, st_ptr);
 
@@ -196,18 +225,24 @@ static int F(for_each_field)(const iop_struct_t *st_desc, void *st_ptr
 static
 #endif
 int F_NAME(const iop_struct_t * nullable st_desc,
-           MODIFIER void *nonnull st_ptr __F_PROTO)
+           MODIFIER void *nonnull st_ptr, bool is_ptr __F_PROTO)
 {
     if (!st_desc) {
-        st_desc = *(const iop_struct_t **)st_ptr;
+        if (is_ptr) {
+            st_desc = **(const iop_struct_t ***)st_ptr;
+        } else {
+            st_desc = *(const iop_struct_t **)st_ptr;
+        }
         assert (iop_struct_is_class(st_desc));
     }
 
-    return F(for_each_field)(st_desc, (void *)st_ptr __F_ARGS);
+    return F(for_each_field)(st_desc, (void *)st_ptr, is_ptr __F_ARGS);
 }
 
 #undef __ON_STRUCT
 #undef ON_STRUCT
+#undef __ON_OBJ
+#undef ON_OBJ
 #undef ON_FIELD
 #undef ON_FIELD_DONE
 #undef SET_INDEX

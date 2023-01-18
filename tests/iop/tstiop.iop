@@ -577,6 +577,10 @@ class Daddy : 2 : GrandPa {
     bool? b;
 };
 
+class Child : 3 : Daddy {
+    Ancestor tutor;
+};
+
 struct ObjContainer {
     Ancestor obj;
 };

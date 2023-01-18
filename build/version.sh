@@ -42,6 +42,18 @@ char const $1_git_sha1[] = "$sha1";
 EOF
 }
 
+git_cut_version_column() {
+    local version="$1"
+    local column="$2"
+
+    # We need to handle the case where the version can have a leading 0. In
+    # this case, we would output 0X. In some case, it can be interpreted by
+    # the compiler as an octal number instead of a decimal one (ex: 08).
+    # So we remove any leading 0 in the verion number but still keep one if
+    # the version would be empty otherwise.
+    echo "$version" | cut -d '.' -f "$column" | sed -e 's/^0*//' -e 's/^$/0/'
+}
+
 git_product_version() {
     product="$1"
     tagversion="${2:-$product}"
@@ -50,9 +62,9 @@ git_product_version() {
 
     version=$(basename `(git describe --match "$tagversion/*" 2>/dev/null || echo "$tagversion/0.0.0") \
               | grep -E -o "[0-9]+\.[0-9]+\.[0-9]+"`)
-    version_major=$(echo $version |cut -d '.' -f 1 | sed 's/^0*//')
-    version_minor=$(echo $version |cut -d '.' -f 2 | sed 's/^0*//')
-    version_patchlevel=$(echo $version |cut -d '.' -f 3 | sed 's/^0*//')
+    version_major=$(git_cut_version_column "$version" 1)
+    version_minor=$(git_cut_version_column "$version" 2)
+    version_patchlevel=$(git_cut_version_column "$version" 3)
 
     cat <<EOF
 const char ${product}_git_revision[] = "$revision";
