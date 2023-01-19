@@ -12,35 +12,32 @@ Usage:
     Load this tool in `options` to be able to generate database
     by request in command-line and before build:
 
-    $ waf clangdb
+    $ waf compiledb
 
     def options(opt):
-        opt.load('clang_compilation_database')
+        opt.load('compilation_database')
 
     Otherwise, load only in `configure` to generate it always before build.
 
     def configure(conf):
         conf.load('compiler_cxx')
         ...
-        conf.load('clang_compilation_database')
+        conf.load('compilation_database')
 """
 
 # pylint: disable = import-error
 from waflib import Logs, Task, Build, Scripting
 
-
 Task.Task.keep_last_cmd = True
 
 
-class ClangDbContext(Build.BuildContext):
+class CompileDbContext(Build.BuildContext):
     '''generates compile_commands.json by request'''
-    cmd = 'clangdb'
 
-    def write_compilation_database(self):
-        """
-        Write the clang compilation database as JSON
-        """
-        database_file = self.srcnode.make_node('compile_commands.json')
+    cmd='compiledb'
+
+    def write_one_compilation_db(self, db_file, tasks):
+        database_file=self.srcnode.make_node(db_file)
         Logs.info('Build commands will be stored in %s',
                   database_file.path_from(self.path))
 
@@ -53,7 +50,7 @@ class ClangDbContext(Build.BuildContext):
         # Those arguments are not recognized by clangd. They will be removed.
         clang_args_to_filter = ['-cc1', '-internal-isystem',
                                 '-internal-externc-isystem']
-        for task in self.clang_compilation_database_tasks:
+        for task in tasks:
             try:
                 if isinstance(task.last_cmd, list):
                     cmd = []
@@ -72,7 +69,7 @@ class ClangDbContext(Build.BuildContext):
                 continue
 
             f_node = task.inputs[0]
-            filename = f_node.path_from(task.get_cwd())
+            filename = f_node.path_from(self.srcnode)
             entry = {
                 "directory": task.get_cwd().abspath(),
                 "arguments": cmd,
@@ -83,6 +80,12 @@ class ClangDbContext(Build.BuildContext):
         root = list(clang_db.values())
         database_file.write_json(root)
 
+    def write_compilation_database(self):
+        self.write_one_compilation_db('compile_commands.json',
+                                      self.clang_compilation_database_tasks)
+        self.write_one_compilation_db('iop_compile_commands.json',
+                                      self.iop_compilation_database_tasks)
+
     def execute(self):
         """
         Build dry run
@@ -90,6 +93,7 @@ class ClangDbContext(Build.BuildContext):
         self.restore()
         self.cur_tasks = []
         self.clang_compilation_database_tasks = []
+        self.iop_compilation_database_tasks = []
 
         if not self.all_envs:
             self.load_envs()
@@ -118,12 +122,18 @@ class ClangDbContext(Build.BuildContext):
 
                 classes = [Task.classes.get(x) for x in ('c', 'cxx', 'Blk2c',
                                                          'Blkk2cc')]
+                iop2c = Task.classes.get('Iop2c')
+                classes.append(iop2c)
                 tup = tuple(y for y in classes if y)
                 for tsk in lst:
                     if (not isinstance(tsk, tup) or
                             tsk.inputs[0] in self.env.GEN_FILES):
                         continue
-                    self.clang_compilation_database_tasks.append(tsk)
+
+                    if isinstance(tsk, iop2c):
+                        self.iop_compilation_database_tasks.append(tsk)
+                    else:
+                        self.clang_compilation_database_tasks.append(tsk)
                     tsk.nocache = True
                     old_exec = tsk.exec_command
                     tsk.exec_command = exec_command
@@ -144,10 +154,10 @@ def patch_execute():
 
     def new_execute_build(self):
         """
-        Invoke clangdb command before build
+        Invoke compiledb command before build
         """
         if self.cmd.startswith('build'):
-            Scripting.run_command(self.cmd.replace('build', 'clangdb'))
+            Scripting.run_command(self.cmd.replace('build', 'compiledb'))
 
         old_execute_build(self)
 

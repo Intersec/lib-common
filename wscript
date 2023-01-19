@@ -50,7 +50,7 @@ def load_tools(ctx):
        # This extension uses the python json library to unpack the existing
        # compilation database. But it uses an argument that is not compatible
        # with older python versions.
-       ctx.load('clang_compilation_database', tooldir=waftoolsdir)
+       ctx.load('compilation_database', tooldir=waftoolsdir)
     for tool in getattr(ctx, 'extra_waftools', []):
         ctx.load(tool, tooldir=waftoolsdir)
 

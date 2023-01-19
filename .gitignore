@@ -27,3 +27,4 @@ mem.fifo.data.*
 *.pyx.h
 
 /compile_commands.json
+/iop_compile_commands.json

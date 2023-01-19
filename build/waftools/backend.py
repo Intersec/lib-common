@@ -1146,6 +1146,7 @@ class Iop2c(FirstInputStrTask):
                          json_output=self.env.IOP_JSON_OUTPUT,
                          ts_output=self.env.IOP_TS_OUTPUT,
                          source=self.inputs[0].abspath())
+        self.last_cmd = cmd
         res = self.exec_command(cmd, cwd=self.get_cwd())
         if res and not getattr(self, 'scan_failed', False):
             self.bld.fatal("scan should have failed for %s" % self.inputs[0])
