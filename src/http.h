@@ -229,6 +229,8 @@ enum httpd_query_status {
     HTTPD_QUERY_STATUS_ANSWERED,
 };
 
+typedef struct httpd_http2_ctx_t httpd_http2_ctx_t;
+
 /** Type of HTTP server.
  *
  * The httpd structure contains callbacks that let you be notified when a
@@ -249,6 +251,7 @@ enum httpd_query_status {
 #define HTTPD_FIELDS(pfx) \
     OBJECT_FIELDS(pfx);                                                      \
     dlist_t            httpd_link;                                           \
+    httpd_http2_ctx_t * nullable http2_ctx;                                  \
     httpd_cfg_t       * nonnull cfg;                                         \
     el_t               nonnull ev;                                           \
     sb_t               ibuf;                                                 \
@@ -365,6 +368,7 @@ struct httpd_cfg_t {
     int      refcnt;
     unsigned nb_conns;
 
+    http_mode_t mode;
     unsigned outbuf_max_size;
     unsigned on_data_threshold;
     unsigned max_queries;
@@ -378,6 +382,7 @@ struct httpd_cfg_t {
 
     SSL_CTX * nullable ssl_ctx;
     dlist_t httpd_list;
+    dlist_t http2_list;
     const object_class_t * nullable httpd_cls;
     httpd_trigger_node_t  roots[HTTP_METHOD_DELETE + 1];
 };
