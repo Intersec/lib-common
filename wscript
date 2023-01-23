@@ -46,6 +46,11 @@ def remove_prefix(text, prefix):
 def load_tools(ctx):
     ctx.load('common', tooldir=waftoolsdir)
     ctx.load('backend', tooldir=waftoolsdir)
+    if sys.version_info >= (2, 7):
+       # This extension uses the python json library to unpack the existing
+       # compilation database. But it uses an argument that is not compatible
+       # with older python versions.
+       ctx.load('clang_compilation_database', tooldir=waftoolsdir)
     for tool in getattr(ctx, 'extra_waftools', []):
         ctx.load(tool, tooldir=waftoolsdir)
 
