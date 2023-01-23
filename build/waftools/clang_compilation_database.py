@@ -40,7 +40,7 @@ class ClangDbContext(Build.BuildContext):
         """
         Write the clang compilation database as JSON
         """
-        database_file = self.bldnode.make_node('compile_commands.json')
+        database_file = self.srcnode.make_node('compile_commands.json')
         Logs.info('Build commands will be stored in %s',
                   database_file.path_from(self.path))
 
@@ -50,9 +50,24 @@ class ClangDbContext(Build.BuildContext):
             root = []
         clang_db = dict((x['file'], x) for x in root)
 
+        # Those arguments are not recognized by clangd. They will be removed.
+        clang_args_to_filter = ['-cc1', '-internal-isystem',
+                                '-internal-externc-isystem']
         for task in self.clang_compilation_database_tasks:
             try:
-                cmd = task.last_cmd
+                if isinstance(task.last_cmd, list):
+                    cmd = []
+                    for arg in task.last_cmd:
+                        # Blocks handling seems to require a different option
+                        # for clangd.
+                        if arg == '-rewrite-blocks':
+                            cmd.append('-fblocks')
+                        elif arg in clang_args_to_filter:
+                            continue
+                        else:
+                            cmd.append(arg)
+                else:
+                    cmd = task.last_cmd
             except AttributeError:
                 continue
 
@@ -101,16 +116,19 @@ class ClangDbContext(Build.BuildContext):
                 else:
                     lst = tg.tasks
 
-                classes = [Task.classes.get(x) for x in ('c', 'cxx')]
+                classes = [Task.classes.get(x) for x in ('c', 'cxx', 'Blk2c',
+                                                         'Blkk2cc')]
+                tup = tuple(y for y in classes if y)
                 for tsk in lst:
-                    tup = tuple(y for y in classes if y)
-                    if isinstance(tsk, tup):
-                        self.clang_compilation_database_tasks.append(tsk)
-                        tsk.nocache = True
-                        old_exec = tsk.exec_command
-                        tsk.exec_command = exec_command
-                        tsk.run()
-                        tsk.exec_command = old_exec
+                    if (not isinstance(tsk, tup) or
+                            tsk.inputs[0] in self.env.GEN_FILES):
+                        continue
+                    self.clang_compilation_database_tasks.append(tsk)
+                    tsk.nocache = True
+                    old_exec = tsk.exec_command
+                    tsk.exec_command = exec_command
+                    tsk.run()
+                    tsk.exec_command = old_exec
 
         self.write_compilation_database()
 

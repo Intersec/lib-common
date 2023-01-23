@@ -25,3 +25,5 @@ mem.fifo.data.*
 *_pxc.pxd
 *.pyx.c
 *.pyx.h
+
+/compile_commands.json
