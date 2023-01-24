@@ -3215,8 +3215,8 @@ typedef union http2_stream_ctx_t {
 
 typedef struct http2_stream_info_t {
     http2_stream_ctx_t  ctx;
-    int32_t             recv_wnd;
-    int32_t             send_wnd;
+    int32_t             recv_window;
+    int32_t             send_window;
     uint8_t             flags;
 } http2_stream_info_t;
 
@@ -3269,8 +3269,8 @@ typedef struct http2_conn_t {
         http2_server_t *nullable server_ctx;
     };
     /* flow control */
-    int32_t             recv_wnd;
-    int32_t             send_wnd;
+    int32_t             recv_window;
+    int32_t             send_window;
     /* frame parser */
     http2_frame_info_t  frame;
     unsigned            cont_chunk;
@@ -3280,11 +3280,11 @@ typedef struct http2_conn_t {
     bool                is_settings_acked : 1;
     bool                is_conn_err_recv: 1;
     bool                is_conn_err_sent: 1;
-    bool                is_shtdwn_recv: 1;
-    bool                is_shtdwn_sent: 1;
-    bool                is_shtdwn_soon_recv: 1;
-    bool                is_shtdwn_soon_sent: 1;
-    bool                is_shtdwn_commanded : 1;
+    bool                is_shutdown_recv: 1;
+    bool                is_shutdown_sent: 1;
+    bool                is_shutdown_soon_recv: 1;
+    bool                is_shutdown_soon_sent: 1;
+    bool                is_shutdown_commanded : 1;
 } http2_conn_t;
 
 /** Get effective HTTP2 settings */
@@ -3338,8 +3338,8 @@ static http2_conn_t *http2_conn_init(http2_conn_t *w)
     dlist_init(&w->closed_stream_info);
     qm_init(qstream_info, &w->stream_info);
     w->peer_settings = http2_default_settings_g;
-    w->recv_wnd = HTTP2_LEN_CONN_WINDOW_SIZE_INIT;
-    w->send_wnd = HTTP2_LEN_CONN_WINDOW_SIZE_INIT;
+    w->recv_window = HTTP2_LEN_CONN_WINDOW_SIZE_INIT;
+    w->send_window = HTTP2_LEN_CONN_WINDOW_SIZE_INIT;
     hpack_enc_dtbl_init(&w->enc);
     hpack_dec_dtbl_init(&w->dec);
     hpack_enc_dtbl_init_settings(&w->enc, w->peer_settings.header_table_size);
@@ -3538,8 +3538,8 @@ static void http2_conn_send_data_block(http2_conn_t *w, uint32_t stream_id,
     }
     /* HTTP2_LEN_MAX_FRAME_SIZE_INIT is also the minimum possible value so
      * peer must always accept frames of this size. */
-    assert (w->send_wnd >= (int) ps_len(&blk));
-    w->send_wnd -= ps_len(&blk);
+    assert(w->send_window >= (int) ps_len(&blk));
+    w->send_window -= ps_len(&blk);
     do {
         len = MIN(ps_len(&blk), HTTP2_LEN_MAX_FRAME_SIZE_INIT);
         chunk = __ps_get_ps(&blk, len);
@@ -3600,8 +3600,8 @@ http2_conn_send_shutdown(http2_conn_t *w, lstr_t debug)
 {
     uint32_t stream_id = http2_conn_max_peer_stream_id(w);
 
-    assert(!w->is_shtdwn_sent);
-    w->is_shtdwn_sent = true;
+    assert(!w->is_shutdown_sent);
+    w->is_shutdown_sent = true;
     http2_conn_send_goaway(w, stream_id, HTTP2_CODE_NO_ERROR, debug);
 }
 
@@ -3741,8 +3741,8 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
             w->server_streams = new_nb_streams;
         }
         stream->info.flags = events;
-        stream->info.recv_wnd = http2_get_settings(w).initial_window_size;
-        stream->info.send_wnd = w->peer_settings.initial_window_size;
+        stream->info.recv_window = http2_get_settings(w).initial_window_size;
+        stream->info.send_window = w->peer_settings.initial_window_size;
         return;
     }
     if (events == STREAM_FLAG_EOS_RECV) {
@@ -4132,8 +4132,8 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
 {
     int len = ps_len(&data);
 
-    assert(stream->info.send_wnd >= len);
-    stream->info.send_wnd -= len;
+    assert(stream->info.send_window >= len);
+    stream->info.send_window -= len;
     http2_conn_send_data_block(w, stream->id, data, eos);
     if (eos) {
         http2_stream_do_on_events(w, stream, STREAM_FLAG_EOS_SENT);
@@ -4194,12 +4194,12 @@ http2_stream_maintain_recv_window(http2_conn_t *w, http2_stream_t *stream)
 {
     int incr;
 
-    incr = http2_get_settings(w).initial_window_size - stream->info.recv_wnd;
+    incr = http2_get_settings(w).initial_window_size - stream->info.recv_window;
     if (incr <= 0) {
         return;
     }
     http2_conn_send_window_update(w, stream->id, incr);
-    stream->info.recv_wnd += incr;
+    stream->info.recv_window += incr;
 }
 
 static int
@@ -4210,7 +4210,7 @@ http2_stream_consume_recv_window(http2_conn_t *w, http2_stream_t *stream,
 
     /* maintain the recv window at the initial_window_size settings each time
      * the peer sends DATA frame */
-    stream->info.recv_wnd -= delta;
+    stream->info.recv_window -= delta;
     http2_stream_maintain_recv_window(w, stream);
     return 0;
 }
@@ -4410,7 +4410,7 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
 {
     http2_stream_t stream = http2_stream_get(w, stream_id);
     unsigned flags = stream.info.flags;
-    int64_t new_size = (int64_t)stream.info.send_wnd + incr;
+    int64_t new_size = (int64_t)stream.info.send_window + incr;
 
     assert(incr >= 0);
     if (flags & STREAM_FLAG_CLOSED) {
@@ -4432,14 +4432,14 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
             w, &stream, FLOW_CONTROL_ERROR,
             "flow control: WINDOW_UPDATE cannot increment send-window beyond "
             "limit [cur %d, incr %d, new %jd]",
-            stream.info.send_wnd, incr, new_size);
+            stream.info.send_window, incr, new_size);
         http2_stream_do_update_info(w, &stream);
         return 0;
     }
     http2_stream_trace(w, &stream, 0,
                        "send-window incremented [new size %lld, incr %d]",
                        (long long)new_size, incr);
-    stream.info.send_wnd += incr;
+    stream.info.send_window += incr;
     http2_stream_do_update_info(w, &stream);
     return 0;
 }
@@ -4482,13 +4482,13 @@ static void http2_parse_frame_hdr(const byte hdr_[HTTP2_LEN_FRAME_HDR],
 
 static void http2_conn_maintain_recv_window(http2_conn_t *w)
 {
-    int incr = HTTP2_LEN_WINDOW_SIZE_LIMIT - w->recv_wnd;
+    int incr = HTTP2_LEN_WINDOW_SIZE_LIMIT - w->recv_window;
 
     if (incr <= 0) {
         return;
     }
     http2_conn_send_window_update(w, 0, incr);
-    w->recv_wnd += incr;
+    w->recv_window += incr;
 }
 
 static int
@@ -4498,7 +4498,7 @@ http2_conn_consume_recv_window(http2_conn_t *w)
 
     /* Maintain the recv window at a specific level each time the peer
      * sends DATA frame. This effectively disables the flow control. */
-    w->recv_wnd -= len;
+    w->recv_window -= len;
     http2_conn_maintain_recv_window(w);
     return 0;
 }
@@ -4549,6 +4549,7 @@ http2_conn_construct_hdr_blk(http2_conn_t *w, pstream_t *ps, sb_t *blk,
     chunk = __ps_get_ps(&multiframe, chunk_len);
     if (w->frame.flags & HTTP2_FLAG_PADDED) {
         uint8_t padding = __ps_getc(&chunk);
+
         __ps_shrink(&chunk, padding);
     }
     if (w->frame.type == HTTP2_TYPE_HEADERS) {
@@ -4723,7 +4724,7 @@ http2_conn_on_peer_initial_window_size_changed(http2_conn_t *w, int32_t delta)
         unsigned flags = stream.info.flags;
 
         assert(flags && !(flags & STREAM_FLAG_CLOSED));
-        new_size = (int64_t)stream.info.send_wnd + delta;
+        new_size = (int64_t)stream.info.send_window + delta;
         if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
             return http2_conn_error(w, FLOW_CONTROL_ERROR,
                                     "settings error: INITIAL_WINDOW_SIZE "
@@ -4731,12 +4732,12 @@ http2_conn_on_peer_initial_window_size_changed(http2_conn_t *w, int32_t delta)
                                     "to overflow (%jd out of range)",
                                     stream.id, new_size);
         }
-        stream.info.send_wnd += delta;
+        stream.info.send_window += delta;
         http2_stream_trace(
             w, &stream, 0,
             "send-window updated by SETTINGS [new size %d, delta %d]",
-            stream.info.send_wnd, delta);
-        w->stream_info.values[pos].send_wnd = stream.info.send_wnd;
+            stream.info.send_window, delta);
+        w->stream_info.values[pos].send_window = stream.info.send_window;
     }
     return PARSE_OK;
 }
@@ -4885,12 +4886,12 @@ static int http2_conn_parse_goaway(http2_conn_t *w, pstream_t *ps)
         w->is_conn_err_recv = true;
     } else {
         if (last_stream_id != HTTP2_ID_MAX_STREAM) {
-            w->is_shtdwn_soon_recv = true;
-        } else if (w->is_shtdwn_recv) {
+            w->is_shutdown_soon_recv = true;
+        } else if (w->is_shutdown_recv) {
             return http2_conn_error(w, PROTOCOL_ERROR,
                                     "frame error: second shutdown GOAWAY");
         }
-        w->is_shtdwn_recv = true;
+        w->is_shutdown_recv = true;
     }
     return PARSE_OK;
 }
@@ -4916,17 +4917,17 @@ static int http2_conn_parse_window_update(http2_conn_t *w, pstream_t *ps)
         return http2_conn_error(w, PROTOCOL_ERROR,
                                 "frame error: 0 increment in WINDOW_UPDATE");
     }
-    new_size = (int64_t)w->send_wnd + incr;
+    new_size = (int64_t)w->send_window + incr;
     if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
         return http2_conn_error(
             w, FLOW_CONTROL_ERROR,
             "flow control: tried to increment send-window beyond "
             "limit [cur %d, incr %d, new %lld]",
-            w->send_wnd, incr, (long long)new_size);
+            w->send_window, incr, (long long)new_size);
     }
     http2_conn_trace(w, 0, "send-window increment [new size %lld, incr %d]",
                      (long long)new_size, incr);
-    w->send_wnd = new_size;
+    w->send_window = new_size;
     return PARSE_OK;
 }
 
@@ -5219,7 +5220,7 @@ static void http2_conn_do_parse(http2_conn_t *w)
                 }
                 if (w->is_conn_err_recv) {
                     state = HTTP2_PARSE_ERROR_RECV;
-                } else if (w->is_shtdwn_recv && w->is_shtdwn_sent) {
+                } else if (w->is_shutdown_recv && w->is_shutdown_sent) {
                     state = HTTP2_PARSE_SHUTDOWN;
                 }
             }
@@ -5301,7 +5302,7 @@ static void http2_conn_do_set_mask_and_watch(http2_conn_t *w)
 {
     int mask = POLLIN;
 
-    if (ob_is_empty(&w->ob) || w->send_wnd <= 0) {
+    if (ob_is_empty(&w->ob) || w->send_window <= 0) {
         el_fd_watch_activity(w->ev, POLLINOUT, 10000);
     } else {
         el_fd_watch_activity(w->ev, POLLINOUT, 0);
@@ -5328,7 +5329,7 @@ static int http2_conn_do_error_read(http2_conn_t *w)
 
 static int http2_conn_do_error_read_eof(http2_conn_t *w)
 {
-    if (!w->is_conn_err_recv && !w->is_shtdwn_recv) {
+    if (!w->is_conn_err_recv && !w->is_shutdown_recv) {
         http2_conn_trace(w, 0, "unexpected eof while read");
     }
     http2_conn_do_close(w);
@@ -5396,13 +5397,13 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
             return http2_conn_do_error_sent(w);
         }
     }
-    if (w->is_shtdwn_recv && w->is_shtdwn_sent) {
+    if (w->is_shutdown_recv && w->is_shutdown_sent) {
         if (ob_is_empty(&w->ob)) {
             return http2_conn_do_shutdown(w);
         }
     }
     http2_conn_do_on_streams_can_write(w);
-    if (w->is_shtdwn_commanded && !w->is_shtdwn_sent) {
+    if (w->is_shutdown_commanded && !w->is_shutdown_sent) {
         http2_conn_do_send_shutdown(w);
     }
     if (http2_conn_do_write(w, fd) < 0) {
@@ -5786,10 +5787,10 @@ http2_conn_stream_active_httpd(http2_conn_t *w, httpd_t *httpd, int max_sz)
     bool eos;
 
     assert(stream_id);
-    assert(max_sz <= w->send_wnd);
+    assert(max_sz <= w->send_window);
     assert(http2_ctx->http2_sync_mark == httpd->ob.length);
     stream = http2_stream_get(w, stream_id);
-    len = MIN3(http2_ctx->http2_sync_mark, stream.info.send_wnd, max_sz);
+    len = MIN3(http2_ctx->http2_sync_mark, stream.info.send_window, max_sz);
     if (len <= 0) {
         return;
     }
@@ -5837,11 +5838,11 @@ static void http2_conn_on_streams_can_write_server(http2_conn_t *w)
             int ob_len = w->ob.length;
             int len;
 
-            if (ob_len >= OB_HIGH_MARK || w->send_wnd <= 0) {
+            if (ob_len >= OB_HIGH_MARK || w->send_window <= 0) {
                 can_progress = false;
                 break;
             }
-            len = MIN(w->send_wnd, OB_SEND_ALLOC);
+            len = MIN(w->send_window, OB_SEND_ALLOC);
             http2_conn_stream_active_httpd(w, httpd->httpd, len);
             if (w->ob.length - ob_len >= len) {
                 can_progress = true;
@@ -6160,8 +6161,8 @@ http2_conn_stream_active_httpc(http2_conn_t *w, httpc_t *httpc, int max_sz)
          * payload to remove from the httpc output buffer. */
         assert(0 && "TODO");
     }
-    assert(max_sz <= w->send_wnd);
-    len = MIN3(http2_ctx->http2_sync_mark, stream.info.send_wnd, max_sz);
+    assert(max_sz <= w->send_window);
+    len = MIN3(http2_ctx->http2_sync_mark, stream.info.send_window, max_sz);
     if (len <= 0) {
         return;
     }
@@ -6409,11 +6410,11 @@ static void http2_conn_on_streams_can_write_client(http2_conn_t *w)
             int ob_len = w->ob.length;
             int len;
 
-            if (ob_len >= OB_HIGH_MARK || w->send_wnd <= 0) {
+            if (ob_len >= OB_HIGH_MARK || w->send_window <= 0) {
                 can_progress = false;
                 break;
             }
-            len = MIN(w->send_wnd, OB_SEND_ALLOC);
+            len = MIN(w->send_window, OB_SEND_ALLOC);
             http2_conn_stream_active_httpc(w, httpc->httpc, len);
             if (w->ob.length - ob_len >= len) {
                 can_progress = true;
@@ -6472,7 +6473,7 @@ void httpc_close_http2_pool(httpc_cfg_t *cfg)
     }
     qm_for_each_value(qhttp2_clients, client, &cfg->http2_pool->qclients) {
         client->pool = NULL;
-        client->conn->is_shtdwn_commanded = true;
+        client->conn->is_shutdown_commanded = true;
         http2_conn_do_set_mask_and_watch(client->conn);
     }
     http2_pool_delete(&cfg->http2_pool);
