@@ -3723,6 +3723,7 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
         if (flags & STREAM_FLAG_EOS_SENT) {
             http2_stream_trace(w, stream, 0, "stream closed [eos recv]");
             stream->remove = true;
+            p_clear(&stream->info.ctx, 1);
         } else {
             http2_stream_trace(w, stream, 0, "stream half closed (remote)");
         }
@@ -3730,15 +3731,18 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
         if (flags & STREAM_FLAG_EOS_RECV) {
             http2_stream_trace(w, stream, 0, "stream closed [eos sent]");
             http2_closed_stream_info_create(w, stream);
+            p_clear(&stream->info.ctx, 1);
         } else {
             http2_stream_trace(w, stream, 0, "stream half closed (local)");
         }
     } else if (events == STREAM_FLAG_RST_RECV) {
         http2_stream_trace(w, stream, 0, "stream closed [reset recv]");
         stream->remove = true;
+        p_clear(&stream->info.ctx, 1);
     } else if (events == STREAM_FLAG_RST_SENT) {
         http2_stream_trace(w, stream, 0, "stream closed [reset sent]");
         http2_closed_stream_info_create(w, stream);
+        p_clear(&stream->info.ctx, 1);
     } else {
         assert(0 && "unexpected stream state transition");
     }
