@@ -3723,14 +3723,14 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
         new_nb_streams = http2_get_nb_streams_upto(stream->id);
         assert(new_nb_streams > nb_streams);
         if (events == STREAM_FLAG_INIT_HDRS) {
-            http2_stream_trace(w, stream, 0, "opened");
+            http2_stream_trace(w, stream, 2, "opened");
         } else if (events == (STREAM_FLAG_INIT_HDRS | STREAM_FLAG_EOS_RECV)) {
-            http2_stream_trace(w, stream, 0, "half closed (remote)");
+            http2_stream_trace(w, stream, 2, "half closed (remote)");
         } else if (events == (STREAM_FLAG_INIT_HDRS | STREAM_FLAG_EOS_SENT)) {
-            http2_stream_trace(w, stream, 0, "half closed (local)");
+            http2_stream_trace(w, stream, 2, "half closed (local)");
         } else if (events == (STREAM_FLAG_PSH_RECV | STREAM_FLAG_RST_SENT)) {
             assert(w->is_client && !stream->id);
-            http2_stream_trace(w, stream, 0, "closed [pushed, reset sent]");
+            http2_stream_trace(w, stream, 2, "closed [pushed, reset sent]");
         } else {
             assert(0 && "invalid events on idle stream");
         }
@@ -3747,26 +3747,26 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
     }
     if (events == STREAM_FLAG_EOS_RECV) {
         if (flags & STREAM_FLAG_EOS_SENT) {
-            http2_stream_trace(w, stream, 0, "stream closed [eos recv]");
+            http2_stream_trace(w, stream, 2, "stream closed [eos recv]");
             stream->remove = true;
             p_clear(&stream->info.ctx, 1);
         } else {
-            http2_stream_trace(w, stream, 0, "stream half closed (remote)");
+            http2_stream_trace(w, stream, 2, "stream half closed (remote)");
         }
     } else if (events == STREAM_FLAG_EOS_SENT) {
         if (flags & STREAM_FLAG_EOS_RECV) {
-            http2_stream_trace(w, stream, 0, "stream closed [eos sent]");
+            http2_stream_trace(w, stream, 2, "stream closed [eos sent]");
             http2_closed_stream_info_create(w, stream);
             p_clear(&stream->info.ctx, 1);
         } else {
-            http2_stream_trace(w, stream, 0, "stream half closed (local)");
+            http2_stream_trace(w, stream, 2, "stream half closed (local)");
         }
     } else if (events == STREAM_FLAG_RST_RECV) {
-        http2_stream_trace(w, stream, 0, "stream closed [reset recv]");
+        http2_stream_trace(w, stream, 2, "stream closed [reset recv]");
         stream->remove = true;
         p_clear(&stream->info.ctx, 1);
     } else if (events == STREAM_FLAG_RST_SENT) {
-        http2_stream_trace(w, stream, 0, "stream closed [reset sent]");
+        http2_stream_trace(w, stream, 2, "stream closed [reset sent]");
         http2_closed_stream_info_create(w, stream);
         p_clear(&stream->info.ctx, 1);
     } else {
@@ -3814,7 +3814,7 @@ t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
         len = RETHROW(hpack_decoder_write_hdr(dec, &xhdr, out, &keylen));
         key = LSTR_DATA_V(out, keylen);
         val = LSTR_DATA_V(out + keylen + 2, len - keylen - 4);
-        http2_conn_trace(w, 0, "%*pM: %*pM", LSTR_FMT_ARG(key),
+        http2_conn_trace(w, 2, "%*pM: %*pM", LSTR_FMT_ARG(key),
                          LSTR_FMT_ARG(val));
         THROW_ERR_IF(keylen < 1);
         if (info.invalid) {
@@ -4158,7 +4158,7 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
 
 #define http2_stream_conn_error(w, stream, error_code, fmt, ...)             \
     ({                                                                       \
-        http2_stream_trace(w, stream, 0, "connection error :" fmt,           \
+        http2_stream_trace(w, stream, 2, "connection error :" fmt,           \
                            ##__VA_ARGS__);                                   \
         http2_stream_conn_error_(w, stream, HTTP2_CODE_##error_code, fmt,    \
                                  ##__VA_ARGS__);                             \
@@ -4182,7 +4182,7 @@ static int http2_stream_conn_error_(http2_conn_t *w,
 
 #define http2_stream_error(w, stream, error_code, fmt, ...)                  \
     do {                                                                     \
-        http2_stream_trace(w, stream, 0, "stream error: " fmt,               \
+        http2_stream_trace(w, stream, 2, "stream error: " fmt,               \
                            ##__VA_ARGS__);                                   \
         http2_conn_send_rst_stream(w, (stream)->id,                          \
                                    HTTP2_CODE_##error_code);                 \
@@ -4194,7 +4194,8 @@ http2_stream_maintain_recv_window(http2_conn_t *w, http2_stream_t *stream)
 {
     int incr;
 
-    incr = http2_get_settings(w).initial_window_size - stream->info.recv_window;
+    incr =
+        http2_get_settings(w).initial_window_size - stream->info.recv_window;
     if (incr <= 0) {
         return;
     }
@@ -4324,7 +4325,7 @@ static int http2_stream_do_recv_priority(http2_conn_t *w, uint32_t stream_id,
             "frame error: PRIORITY with self-dependency [%d]",
             stream_dependency);
     }
-    http2_stream_trace(w, &stream, 0, "PRIORITY [dependency on %d]",
+    http2_stream_trace(w, &stream, 2, "PRIORITY [dependency on %d]",
                        stream_dependency);
     return 0;
 }
@@ -4348,7 +4349,7 @@ http2_stream_do_recv_rst_stream(http2_conn_t *w, uint32_t stream_id,
                                        error_code);
     }
     if (flags & STREAM_FLAG_RST_SENT) {
-        http2_stream_trace(w, &stream, 0,
+        http2_stream_trace(w, &stream, 2,
                            "RST_STREAM ingored (rst sent already) [code %u]",
                            error_code);
         http2_stream_do_on_events(w, &stream, STREAM_FLAG_RST_RECV);
@@ -4436,7 +4437,7 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
         http2_stream_do_update_info(w, &stream);
         return 0;
     }
-    http2_stream_trace(w, &stream, 0,
+    http2_stream_trace(w, &stream, 2,
                        "send-window incremented [new size %lld, incr %d]",
                        (long long)new_size, incr);
     stream.info.send_window += incr;
@@ -4449,7 +4450,7 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
 
 #define http2_conn_error(w, error_code, fmt, ...)                            \
     ({                                                                       \
-        http2_conn_trace(w, 0, "connection error :" fmt, ##__VA_ARGS__);     \
+        http2_conn_trace(w, 2, "connection error :" fmt, ##__VA_ARGS__);     \
         http2_conn_error_(w, HTTP2_CODE_##error_code, fmt, ##__VA_ARGS__);   \
     })
 
@@ -4734,7 +4735,7 @@ http2_conn_on_peer_initial_window_size_changed(http2_conn_t *w, int32_t delta)
         }
         stream.info.send_window += delta;
         http2_stream_trace(
-            w, &stream, 0,
+            w, &stream, 2,
             "send-window updated by SETTINGS [new size %d, delta %d]",
             stream.info.send_window, delta);
         w->stream_info.values[pos].send_window = stream.info.send_window;
@@ -4796,7 +4797,7 @@ http2_conn_process_peer_settings(http2_conn_t *w, uint16_t id, uint32_t val)
         break;
 
     default:
-        http2_conn_trace(w, 0,
+        http2_conn_trace(w, 2,
                          "ignored unknown setting from peer [id %d, val %u]",
                          id, val);
     }
@@ -4880,7 +4881,7 @@ static int http2_conn_parse_goaway(http2_conn_t *w, pstream_t *ps)
     error_code = __ps_get_be32(ps);
     debug = __ps_get_ps(ps, len - HTTP2_LEN_GOAWAY_PAYLOAD_MIN);
     http2_conn_trace(
-        w, 0, "received GOAWAY [last stream %d, error code %d, debug <%*pM>]",
+        w, 2, "received GOAWAY [last stream %d, error code %d, debug <%*pM>]",
         last_stream_id, error_code, (int)ps_len(&debug), debug.p);
     if (error_code != HTTP2_CODE_NO_ERROR) {
         w->is_conn_err_recv = true;
@@ -4925,7 +4926,7 @@ static int http2_conn_parse_window_update(http2_conn_t *w, pstream_t *ps)
             "limit [cur %d, incr %d, new %lld]",
             w->send_window, incr, (long long)new_size);
     }
-    http2_conn_trace(w, 0, "send-window increment [new size %lld, incr %d]",
+    http2_conn_trace(w, 2, "send-window increment [new size %lld, incr %d]",
                      (long long)new_size, incr);
     w->send_window = new_size;
     return PARSE_OK;
@@ -5096,7 +5097,7 @@ static int http2_conn_parse_payload(http2_conn_t *w, pstream_t *ps)
         break;
     }
     __ps_skip(ps, len);
-    http2_conn_trace(w, 0, "discarded received frame with unknown type %d",
+    http2_conn_trace(w, 2, "discarded received frame with unknown type %d",
                      w->frame.type);
     return PARSE_OK;
 }
@@ -5140,7 +5141,7 @@ static int http2_conn_parse_cont_fragment(http2_conn_t *w, pstream_t *ps)
 static int http2_conn_parse_shutdown(http2_conn_t *w, pstream_t *ps)
 {
     if (!ps_done(ps)) {
-        http2_conn_trace(w, 0,
+        http2_conn_trace(w, 2,
                          "(possibly garbage) data after two-way shutdown");
     }
     __ps_skip(ps, ps_len(ps));
@@ -5151,7 +5152,7 @@ static int http2_conn_parse_error_recv(http2_conn_t *w, pstream_t *ps)
 {
     if (!ps_done(ps)) {
         http2_conn_trace(
-            w, 0, "(possibly garbage) data after receiving connection error");
+            w, 2, "(possibly garbage) data after receiving connection error");
     }
     __ps_skip(ps, ps_len(ps));
     return PARSE_MISSING_DATA;
@@ -5281,7 +5282,7 @@ static void http2_conn_do_close(http2_conn_t *w)
 
 static int http2_conn_do_error_write(http2_conn_t *w)
 {
-    http2_conn_trace(w, 0, "write error");
+    http2_conn_trace(w, 2, "write error");
     http2_conn_do_close(w);
     return 0;
 }
@@ -5315,14 +5316,14 @@ static void http2_conn_do_set_mask_and_watch(http2_conn_t *w)
 
 static int http2_conn_do_inact_timeout(http2_conn_t *w)
 {
-    http2_conn_trace(w, 0, "inactivity timeout");
+    http2_conn_trace(w, 2, "inactivity timeout");
     http2_conn_do_close(w);
     return 0;
 }
 
 static int http2_conn_do_error_read(http2_conn_t *w)
 {
-    http2_conn_trace(w, 0, "reading error");
+    http2_conn_trace(w, 2, "reading error");
     http2_conn_do_close(w);
     return 0;
 }
@@ -5330,7 +5331,7 @@ static int http2_conn_do_error_read(http2_conn_t *w)
 static int http2_conn_do_error_read_eof(http2_conn_t *w)
 {
     if (!w->is_conn_err_recv && !w->is_shutdown_recv) {
-        http2_conn_trace(w, 0, "unexpected eof while read");
+        http2_conn_trace(w, 2, "unexpected eof while read");
     }
     http2_conn_do_close(w);
     return 0;
@@ -5338,21 +5339,21 @@ static int http2_conn_do_error_read_eof(http2_conn_t *w)
 
 static int http2_conn_do_error_sent(http2_conn_t *w)
 {
-    http2_conn_trace(w, 0, "connection error sent");
+    http2_conn_trace(w, 2, "connection error sent");
     http2_conn_do_close(w);
     return 0;
 }
 
 static int http2_conn_do_shutdown(http2_conn_t *w)
 {
-    http2_conn_trace(w, 0, "shutdown (both sides)");
+    http2_conn_trace(w, 2, "shutdown (both sides)");
     http2_conn_do_close(w);
     return 0;
 }
 
 static int http2_conn_do_error_recv(http2_conn_t *w)
 {
-    http2_conn_trace(w, 0, "connection error received");
+    http2_conn_trace(w, 2, "connection error received");
     http2_conn_do_close(w);
     return 0;
 }
@@ -5415,14 +5416,14 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
 
 static int http2_conn_do_connect_timeout(http2_conn_t *w)
 {
-    http2_conn_trace(w, 0, "socket connect: timeout");
+    http2_conn_trace(w, 2, "socket connect: timeout");
     http2_conn_do_close(w);
     return 0;
 }
 
 static int http2_conn_do_connect_error(http2_conn_t *w)
 {
-    http2_conn_trace(w, 0, "socket connect: error");
+    http2_conn_trace(w, 2, "socket connect: error");
     http2_conn_do_close(w);
     return 0;
 }
@@ -6242,7 +6243,7 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t stream,
                 http2_stream_send_reset(
                     w, &stream, "malformed response [invalid headers]");
             } else {
-                http2_stream_trace(w, &stream, 0,
+                http2_stream_trace(w, &stream, 2,
                                    "malformed response [invalid headers]");
             }
             http2_stream_reset_httpc(w, httpc, true);
@@ -6257,13 +6258,13 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t stream,
 
             if (httpc->state == HTTP_PARSER_IDLE) {
                 http2_stream_trace(
-                    w, &stream, 0,
+                    w, &stream, 2,
                     "malformed response [1xx headers with eos]");
             } else {
                 assert(httpc->state == HTTP_PARSER_BODY);
                 query_done = httpc_parse_body(httpc, &ps) == PARSE_OK;
                 if (!query_done) {
-                    http2_stream_trace(w, &stream, 0,
+                    http2_stream_trace(w, &stream, 2,
                                        "malformed response [no-content]");
                 }
             }
@@ -6341,7 +6342,7 @@ http2_stream_on_data_client(http2_conn_t *w, http2_stream_t stream,
         sb_skip_upto(&httpc->ibuf, ps.p);
         if (eos) {
             /* mismatch: content-length > DATA frames.*/
-            http2_stream_trace(w, &stream, 0,
+            http2_stream_trace(w, &stream, 2,
                                "malformed response [unexpected eos]");
             http2_stream_reset_httpc(w, httpc, false);
             return;
