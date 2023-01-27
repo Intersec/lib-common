@@ -3392,7 +3392,7 @@ http2_conn_send_common_hdr(http2_conn_t *w, unsigned len, uint8_t type,
     STATIC_ASSERT(sizeof(hdr) == HTTP2_LEN_FRAME_HDR);
     STATIC_ASSERT(HTTP2_LEN_MAX_FRAME_SIZE < (1 << 24));
     assert(len <= HTTP2_LEN_MAX_FRAME_SIZE);
-    hdr.len = cpu_to_be32(len);
+    put_unaligned_be24(&hdr, len); /* XXX: hdr.len is a bit field */
     hdr.type = type;
     hdr.flags = flags;
     hdr.stream_id = cpu_to_be32(stream_id);
