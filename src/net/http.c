@@ -3294,8 +3294,20 @@ static http2_settings_t http2_get_settings(http2_conn_t *w)
                                         : http2_default_settings_g;
 }
 
+typedef enum http2_header_info_flags_t {
+    HTTP2_HDR_FLAG_HAS_SCHEME               =  1 << 0,
+    HTTP2_HDR_FLAG_HAS_METHOD               =  1 << 1,
+    HTTP2_HDR_FLAG_HAS_PATH                 =  1 << 2,
+    HTTP2_HDR_FLAG_HAS_AUTHORITY            =  1 << 3,
+    HTTP2_HDR_FLAG_HAS_STATUS               =  1 << 4,
+    /* EXTRA: either unknown or duplicated or after a regular hdr */
+    HTTP2_HDR_FLAG_HAS_EXTRA_PSEUDO_HDR     =  1 << 5,
+    HTTP2_HDR_FLAG_HAS_REGULAR_HEADERS      =  1 << 6,
+    HTTP2_HDR_FLAG_HAS_CONTENT_LENGTH       =  1 << 7,
+} http2_header_info_flags_t;
+
 typedef struct http2_header_info_t {
-    bool invalid;
+    http2_header_info_flags_t flags;
     lstr_t scheme;
     lstr_t method;
     lstr_t path;
@@ -3778,13 +3790,33 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
 /* }}}*/
 /* {{{ Headers Packing/Unpacking (HPACK) */
 
+static struct {
+    lstr_t key;
+    unsigned flag_seen;
+    int offset;
+} http2_pseudo_hdr_descs_g[] = {
+
+#define PSEUDO_HDR(key_tok, key_)                                            \
+    {                                                                        \
+        .key = LSTR_IMMED(":" #key_),                                        \
+        .flag_seen = HTTP2_HDR_FLAG_HAS_##key_tok,                           \
+        .offset = offsetof(http2_header_info_t, key_),                       \
+    }
+
+    PSEUDO_HDR(METHOD, method),
+    PSEUDO_HDR(SCHEME, scheme),
+    PSEUDO_HDR(PATH, path),
+    PSEUDO_HDR(AUTHORITY, authority),
+    PSEUDO_HDR(STATUS, status),
+
+#undef PSEUDO_HDR
+};
+
 /** Decode a header block.
  *
  * \param res: decoded headers info.
  * \return 0 if decoding succeed, -1 otherwise.
  *
- * XXX: Basic header validation against RFC 9113 "§8.3. HTTP Control Data" is
- * done and conveyed in \p res->invalid.
  */
 static int
 t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
@@ -3792,8 +3824,6 @@ t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
 {
     hpack_dec_dtbl_t *dec = &w->dec;
     http2_header_info_t info = {0};
-    int nb_pseudo_hdrs = 0;
-    bool regular_hdrs_seen = false;
 
     while (RETHROW(hpack_decoder_read_dts_update(dec, &in))) {
         /* read dynamic table size updates. */
@@ -3817,45 +3847,33 @@ t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
         http2_conn_trace(w, 2, "%*pM: %*pM", LSTR_FMT_ARG(key),
                          LSTR_FMT_ARG(val));
         THROW_ERR_IF(keylen < 1);
-        if (info.invalid) {
-            /* XXX: must continue the decoding to keep the HPACK context (the
-             * dynamic table) synchroized between the two parties. */
-            continue;
-        }
-        /* TODO: optimize this search */
         if (unlikely(key.s[0] == ':')) {
             lstr_t *matched_phdr = NULL;
 
-            if (regular_hdrs_seen) {
-                /* Regular headers must follow the pseudo headers. */
-                info.invalid = true;
+            if (info.flags & HTTP2_HDR_FLAG_HAS_REGULAR_HEADERS) {
+                info.flags |= HTTP2_HDR_FLAG_HAS_EXTRA_PSEUDO_HDR;
             }
-            nb_pseudo_hdrs++;
-            if (lstr_equal(key, LSTR_IMMED_V(":scheme"))) {
-                matched_phdr = &info.scheme;
-            } else if (lstr_equal(key, LSTR_IMMED_V(":method"))) {
-                matched_phdr = &info.method;
-            } else if (lstr_equal(key, LSTR_IMMED_V(":authority"))) {
-                matched_phdr = &info.authority;
-            } else if (lstr_equal(key, LSTR_IMMED_V(":path"))) {
-                matched_phdr = &info.path;
-            } else if (lstr_equal(key, LSTR_IMMED_V(":status"))) {
-                matched_phdr = &info.status;
-            }
-            if (matched_phdr) {
-                if (!matched_phdr->s) {
-                    *matched_phdr = t_lstr_dup(val);
-                } else {
-                    /* duplicated pseudo header */
-                    info.invalid = true;
+            carray_for_each_entry(phdr, http2_pseudo_hdr_descs_g) {
+                if (lstr_equal(key, phdr.key)) {
+                    if (!(phdr.flag_seen & info.flags)) {
+                        matched_phdr = (lstr_t *)((byte *)(&info) + phdr.offset);
+
+                        info.flags |= phdr.flag_seen;
+                        *matched_phdr = t_lstr_dup(val);
+                        break;
+                    } else {
+                        info.flags |= HTTP2_HDR_FLAG_HAS_EXTRA_PSEUDO_HDR;
+                    }
                 }
-            } else {
-                /* unkown pseudo header */
-                info.invalid = true;
+            }
+            if (!matched_phdr) {
+                /* unknown pseudo-hdr */
+                info.flags |= HTTP2_HDR_FLAG_HAS_EXTRA_PSEUDO_HDR;
             }
         } else {
-            regular_hdrs_seen = true;
+            info.flags |= HTTP2_HDR_FLAG_HAS_REGULAR_HEADERS;
             if (lstr_ascii_iequal(key, LSTR_IMMED_V("content-length"))) {
+                info.flags |= HTTP2_HDR_FLAG_HAS_CONTENT_LENGTH;
                 info.content_length = val;
             }
             buf->len += len;
@@ -3863,34 +3881,7 @@ t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
     }
     sb_set_trailing0(buf);
     /* Basic validation according to RFC9113 §8.3. */
-    switch (nb_pseudo_hdrs) {
-    case 0:
-        /* 0 pseudo-hdr is okay for trailer headers. */
-        break;
-    case 1:
-        if (!info.status.s) {
-            /* 1 pseudo-hdr: it has to be status for response hdr. */
-            info.invalid = true;
-        }
-        break;
-    case 4:
-        if (!info.authority.s) {
-            /* 4 pseudo-hdrs has to be:
-             * authority, method, scheme, path. */
-            info.invalid = true;
-        }
-        /* FALLTHROUGH */
-    case 3:
-        if (!info.method.s || !info.scheme.s || !info.path.s) {
-            /* 3 pseudo-hdrs has to be: method, scheme, path. */
-            info.invalid = true;
-        }
-        break;
-    default:
-        info.invalid = true;
-        break;
-    }
-    *res = info;
+   *res = info;
     return 0;
 }
 
@@ -4249,6 +4240,33 @@ http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
     return 0;
 }
 
+static unsigned http2_valid_pseudo_hdr_combination_g[] = {
+    0,
+    HTTP2_HDR_FLAG_HAS_STATUS,
+    HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH
+        | HTTP2_HDR_FLAG_HAS_METHOD,
+    HTTP2_HDR_FLAG_HAS_SCHEME | HTTP2_HDR_FLAG_HAS_PATH
+        | HTTP2_HDR_FLAG_HAS_METHOD | HTTP2_HDR_FLAG_HAS_AUTHORITY,
+};
+
+static bool http2_stream_validate_recv_headrs(http2_header_info_t *info)
+{
+    unsigned flags = info->flags;
+
+    if (flags & HTTP2_HDR_FLAG_HAS_EXTRA_PSEUDO_HDR) {
+        return false;
+    }
+    flags &= ~(HTTP2_HDR_FLAG_HAS_CONTENT_LENGTH
+               | HTTP2_HDR_FLAG_HAS_REGULAR_HEADERS);
+
+    carray_for_each_entry(e, http2_valid_pseudo_hdr_combination_g) {
+        if (e == flags) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
                                         http2_header_info_t *info,
                                         pstream_t headerlines, bool eos)
@@ -4286,7 +4304,7 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
             w, &stream, PROTOCOL_ERROR,
             "HEADERS from server on idle client stream");
     }
-    if (info->invalid) {
+    if (!http2_stream_validate_recv_headrs(info)) {
         http2_stream_error(w, &stream, PROTOCOL_ERROR,
                            "HEADERS with invalid HTTP headers");
         http2_stream_do_update_info(w, &stream);
@@ -5561,7 +5579,6 @@ http2_stream_on_headers_server(http2_conn_t *w, http2_stream_t stream,
     pstream_t ps;
     int res;
 
-    assert(!info->invalid);
     if (!httpd) {
         httpd = httpd_spawn_as_http2_stream(server, stream.id);
         stream.info.ctx.httpd = httpd;
