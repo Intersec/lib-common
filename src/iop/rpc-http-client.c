@@ -75,8 +75,13 @@ http_iop_channel_t *http_iop_channel_init(http_iop_channel_t *channel)
 
     return channel;
 }
+
 void http_iop_channel_wipe(http_iop_channel_t *channel)
 {
+#ifndef NDEBUG
+    channel->wipe_guard = true;
+#endif /* NDEBUG */
+
     lstr_wipe(&channel->name);
     lstr_wipe(&channel->user);
     lstr_wipe(&channel->password);
@@ -499,6 +504,13 @@ void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
 {
     http_iop_channel_remote_t *remote;
     httpc_t *httpc;
+
+#ifndef NDEBUG
+    /* If that crashes, one of the IC_MSG_ABORT callback on wipe reenqueues
+     * directly in that channel which is forbidden, fix the code.
+     */
+    assert(!channel->wipe_guard);
+#endif /* NDEBUG */
 
     if (timeval_is_eq0(msg->query_time)) {
         lp_gettv(&msg->query_time);

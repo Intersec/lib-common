@@ -650,6 +650,11 @@ struct http_iop_channel_t {
      * They will be retried as soon as a connection is ready.
      */
     htlist_t queries_waiting_conn;
+
+#ifndef NDEBUG
+    /* Guard for usage of HTTP IOP channel when the channel is being wiped. */
+    bool wipe_guard;
+#endif /* NDEBUG */
 };
 
 typedef struct http_iop_channel_cfg_t {
