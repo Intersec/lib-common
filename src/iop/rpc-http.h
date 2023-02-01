@@ -739,17 +739,16 @@ typedef struct http_iop_channel_cfg_t {
 http_iop_channel_t *http_iop_channel_create(const http_iop_channel_cfg_t *cfg,
                                             sb_t *err);
 
-http_iop_channel_remote_t *
-http_iop_channel_remote_init(http_iop_channel_remote_t *remote);
-void http_iop_channel_remote_wipe(http_iop_channel_remote_t *remote);
-GENERIC_NEW(http_iop_channel_remote_t, http_iop_channel_remote);
-GENERIC_DELETE(http_iop_channel_remote_t, http_iop_channel_remote);
+/** Delete an HTTP channel.
+ *
+ * \param[in] channel_ptr The pointer to the channel to delete.
+ */
+void http_iop_channel_delete(http_iop_channel_t **channel_ptr);
 
-http_iop_channel_t *http_iop_channel_init(http_iop_channel_t *channel);
-void http_iop_channel_wipe(http_iop_channel_t *channel);
-GENERIC_NEW(http_iop_channel_t, http_iop_channel);
-GENERIC_DELETE(http_iop_channel_t, http_iop_channel);
-
+/** Close all the clients of an HTTP channel.
+ *
+ * \param[in] channel The channel.
+ */
 void http_iop_channel_close_clients(http_iop_channel_t *channel);
 
 /* }}} */
