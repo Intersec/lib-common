@@ -4097,7 +4097,7 @@ http2_stream_send_request_headers(http2_conn_t *w, http2_stream_t *stream,
     http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":method"), method, &out);
     http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":scheme"), scheme, &out);
     http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":path"), path, &out);
-    if (authority.s) {
+    if (authority.len) {
         http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":authority"), authority,
                                    &out);
     }
@@ -6121,8 +6121,8 @@ http_get_http2_request_hdrs(pstream_t *chunk, lstr_t *method, lstr_t *scheme,
     __ps_skip(&line, 1);
     *method = LSTR_PS_V(&ps);
     if (line.b[0] == '/' || line.b[0] == '*') {
-        *scheme = LSTR_EMPTY_V;
-        *authority = LSTR_EMPTY_V;
+        *scheme = LSTR_NULL_V;
+        *authority = LSTR_NULL_V;
     } else {
         assert(line.b[0]  == 'h');
         if (line.b[4] == ':') {
@@ -6139,6 +6139,14 @@ http_get_http2_request_hdrs(pstream_t *chunk, lstr_t *method, lstr_t *scheme,
         *authority = LSTR_PS_V(&ps);
     }
     *path = LSTR_PS_V(&line);
+    if (!authority->len) {
+        /* Get the host line "Host: the-host-value\r\n" */
+        p = memmem(control.p, ps_len(&control), "\r\n", 2);
+        line = __ps_get_ps_upto(&control, p + 2);
+        __ps_skip(&line, strlen("Host: "));
+        __ps_shrink(&line, 2);
+        *authority = LSTR_PS_V(&line);
+    }
     *headerlines = control;
 }
 
