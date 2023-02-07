@@ -3318,7 +3318,7 @@ typedef struct http2_header_info_t {
 } http2_header_info_t;
 
 /* }}}*/
-/* {{{ Connection-Level & Stream-Level Logging */
+/* {{{ Logging */
 
 /* TODO: add additional conn-related info to the log message */
 #define http2_conn_log(/* const http_conn_t* */ w, /* int */ level,          \
@@ -4146,7 +4146,7 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
     } while (0)
 
 /* }}} */
-/* {{{ Stream-Level Frame Handlers */
+/* {{{ Stream-Related Frame Handling */
 
 #define http2_stream_conn_error(w, stream, error_code, fmt, ...)             \
     ({                                                                       \
@@ -4465,7 +4465,7 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
 }
 
 /* }}} */
-/* {{{ Frame Parsing */
+/* {{{ Stream-Related Frame Parsing */
 
 #define http2_conn_error(w, error_code, fmt, ...)                            \
     ({                                                                       \
@@ -4733,7 +4733,7 @@ static int http2_conn_parse_rst_stream(http2_conn_t *w, uint32_t stream_id,
 }
 
 /* }}} */
-/* {{{ Connection-Level Frame Handlers */
+/* {{{ Connection-Related Frame Handling */
 
 static int
 http2_conn_on_peer_initial_window_size_changed(http2_conn_t *w, int32_t delta)
@@ -4959,7 +4959,7 @@ static int http2_conn_parse_window_update(http2_conn_t *w, uint32_t stream_id,
 }
 
 /* }}} */
-/* {{{ Connection-Level Parsers */
+/* {{{ Receive Buffer Framing */
 
 static bool http2_is_known_frame_type(uint8_t type)
 {
