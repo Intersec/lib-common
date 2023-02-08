@@ -4324,6 +4324,13 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
     } else {
         assert(flags);
     }
+    if (!flags && w->is_shutdown_recv) {
+        http2_stream_error(
+            w, &stream, REFUSED_STREAM,
+            "server is finalizing, no more stream is accepted");
+        http2_stream_do_update_info(w, &stream);
+        http2_stream_on_reset(w, stream, ctx, false);
+    }
     if (!(flags & STREAM_FLAG_RST_SENT)) {
         http2_stream_on_headers(w, stream, ctx, info, headerlines, eos);
     }
