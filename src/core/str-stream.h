@@ -418,6 +418,23 @@ static inline int ps_get_ps(pstream_t * nonnull ps, size_t len,
     return 0;
 }
 
+static inline const void *nonnull
+__ps_get_data(pstream_t * nonnull ps, size_t len)
+{
+    const void *data = ps->p;
+
+    __ps_skip(ps, len);
+    return data;
+}
+
+/* Consumes <len> bytes from the pstream and return then as a pointer. */
+static inline const void * nullable
+ps_get_data(pstream_t * nonnull ps, size_t len)
+{
+    THROW_NULL_IF(!ps_has(ps, len));
+    return __ps_get_data(ps, len);
+}
+
 static inline int ps_get_ps_chr(pstream_t * nonnull ps, int c,
                                 pstream_t * nonnull out)
 {

@@ -2056,6 +2056,17 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(!ps_endswithstr(&ps4, "toto"));
     } Z_TEST_END;
 
+    Z_TEST(ps_get_data, "") {
+        pstream_t ps = ps_initstr("1234567");
+
+        Z_ASSERT_STREQUAL(ps_get_data(&ps, 3), "1234567");
+        Z_ASSERT_STREQUAL(ps_get_data(&ps, 2), "4567");
+        Z_ASSERT_NULL(ps_get_data(&ps, 3));
+        Z_ASSERT_STREQUAL(ps_get_data(&ps, 2), "67");
+        Z_ASSERT_NULL(ps_get_data(&ps, 1));
+        Z_ASSERT(ps_done(&ps));
+    } Z_TEST_END;
+
     Z_TEST(lstr_ascii_icmp, "str: lstr_ascii_icmp") {
 #define T(_str1, _str2, _expected)                                           \
         Z_ASSERT(lstr_ascii_icmp(LSTR_IMMED_V(_str1),  LSTR_IMMED_V(_str2))  \
