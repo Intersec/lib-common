@@ -987,8 +987,6 @@ static void ic_el_client_on_event(ichannel_t *ic, ic_event_t evt)
 
     case IC_EVT_ACT:
     case IC_EVT_NOACT:
-        /* Not supported */
-        assert(false);
         return;
     }
 
@@ -1008,6 +1006,7 @@ ic_el_client_t *ic_el_client_create(lstr_t uri, double no_act_timeout,
 {
     ic_el_client_t *client;
     sockunion_t su;
+    const int wa_soft = 10 * 1000;
 
     RETHROW_NP(load_su_from_uri(uri, &su, err));
 
@@ -1024,7 +1023,9 @@ ic_el_client_t *ic_el_client_create(lstr_t uri, double no_act_timeout,
     if (no_act_timeout > 0.0) {
         int wa = (int)(no_act_timeout * 1000.0);
 
-        ic_watch_activity(&client->ic, 0, wa);
+        ic_watch_activity(&client->ic, wa_soft, wa);
+    } else {
+        ic_watch_activity(&client->ic, wa_soft, 0);
     }
 
     qh_add(ic_el_client, &_G.clients, client);
