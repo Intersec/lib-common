@@ -4694,7 +4694,7 @@ static int http2_conn_parse_push_promise(http2_conn_t *w, uint32_t stream_id,
             "frame error: PUSH_PROMISE with invalid size %d", len);
     }
     promised_id = HTTP2_STREAM_ID_MASK & __ps_get_be32(&payload);
-    if (promised_id % 2 == 0 && promised_id > 2 * w->server_streams) {
+    if (promised_id % 2 != 0 || promised_id > 2 * w->server_streams) {
         return http2_conn_error(w, PROTOCOL_ERROR,
                                 "frame error: invalid promised stream %d "
                                 "in PUSH_PROMISE on stream %d",
