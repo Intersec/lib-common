@@ -5193,27 +5193,7 @@ static int http2_conn_parse_cont_fragment(http2_conn_t *w, pstream_t *ps)
     return PARSE_OK;
 }
 
-static int http2_conn_parse_shutdown(http2_conn_t *w, pstream_t *ps)
-{
-    if (!ps_done(ps)) {
-        http2_conn_trace(w, 2,
-                         "(possibly garbage) data after two-way shutdown");
-    }
-    __ps_skip(ps, ps_len(ps));
-    return PARSE_MISSING_DATA;
-}
-
-static int http2_conn_parse_error_recv(http2_conn_t *w, pstream_t *ps)
-{
-    if (!ps_done(ps)) {
-        http2_conn_trace(
-            w, 2, "(possibly garbage) data after receiving connection error");
-    }
-    __ps_skip(ps, ps_len(ps));
-    return PARSE_MISSING_DATA;
-}
-
-static int http2_conn_parse_error_sent(http2_conn_t *w, pstream_t *ps)
+static int http2_conn_parse_shutdown_sent(http2_conn_t *w, pstream_t *ps)
 {
     __ps_skip(ps, ps_len(ps));
     return PARSE_MISSING_DATA;
@@ -5230,17 +5210,29 @@ typedef enum {
     HTTP2_PARSE_PAYLOAD              = 3,
     HTTP2_PARSE_CONT_HDR             = 4,
     HTTP2_PARSE_CONT_FRAGMENT        = 5,
-    HTTP2_PARSE_SHUTDOWN             = 6,
-    HTTP2_PARSE_ERROR_RECV           = 7,
-    HTTP2_PARSE_ERROR_SENT           = 8,
+    HTTP2_PARSE_SHUTDOWN_SENT        = 6,
 } parse_state_t;
 
-static void http2_conn_do_parse(http2_conn_t *w)
+static void http2_conn_do_on_eof_read(http2_conn_t *w, pstream_t *ps)
+{
+    if (w->is_conn_err_recv || w->is_conn_err_sent || w->is_shutdown_sent) {
+        return;
+    }
+    if (!ps_done(ps)) {
+        http2_conn_error(w, INTERNAL_ERROR, "unexpected eof");
+    } else {
+        http2_conn_send_shutdown(w, LSTR_NODATA);
+    }
+    w->state = HTTP2_PARSE_SHUTDOWN_SENT;
+}
+
+static void http2_conn_do_parse(http2_conn_t *w, bool eof)
 {
     int rc;
     pstream_t ps;
     pstream_t ps_tmp;
 
+    assert(!w->is_conn_err_recv);
     ps = ps_initsb(&w->ibuf);
     do {
         parse_state_t state = w->state;
@@ -5286,11 +5278,6 @@ static void http2_conn_do_parse(http2_conn_t *w)
                 } else {
                     state = HTTP2_PARSE_COMMON_HDR;
                 }
-                if (w->is_conn_err_recv) {
-                    state = HTTP2_PARSE_ERROR_RECV;
-                } else if (w->is_shutdown_recv && w->is_shutdown_sent) {
-                    state = HTTP2_PARSE_SHUTDOWN;
-                }
             }
             break;
         case HTTP2_PARSE_CONT_HDR:
@@ -5312,22 +5299,20 @@ static void http2_conn_do_parse(http2_conn_t *w)
                 }
             }
             break;
-        case HTTP2_PARSE_SHUTDOWN:
-            rc = http2_conn_parse_shutdown(w, &ps);
-            break;
-        case HTTP2_PARSE_ERROR_RECV:
-            rc = http2_conn_parse_error_recv(w, &ps);
-            break;
-        case HTTP2_PARSE_ERROR_SENT:
-            rc = http2_conn_parse_error_sent(w, &ps);
+        case HTTP2_PARSE_SHUTDOWN_SENT:
+            rc = http2_conn_parse_shutdown_sent(w, &ps);
             break;
         }
         if (rc == PARSE_ERROR) {
-            state = HTTP2_PARSE_ERROR_SENT;
+            assert(w->is_conn_err_sent);
+            state = HTTP2_PARSE_SHUTDOWN_SENT;
             rc = PARSE_OK;
         }
         w->state = state;
     } while (rc == PARSE_OK);
+    if (eof) {
+        http2_conn_do_on_eof_read(w, &ps);
+    }
     sb_skip_upto(&w->ibuf, ps.s);
 }
 
@@ -5401,29 +5386,6 @@ static int http2_conn_do_error_read(http2_conn_t *w)
     return 0;
 }
 
-static int http2_conn_do_error_read_eof(http2_conn_t *w)
-{
-    if (!w->is_conn_err_recv && !w->is_shutdown_recv) {
-        http2_conn_trace(w, 2, "unexpected eof while read");
-    }
-    http2_conn_do_close(w);
-    return 0;
-}
-
-static int http2_conn_do_error_sent(http2_conn_t *w)
-{
-    http2_conn_trace(w, 2, "connection error sent");
-    http2_conn_do_close(w);
-    return 0;
-}
-
-static int http2_conn_do_shutdown(http2_conn_t *w)
-{
-    http2_conn_trace(w, 2, "shutdown (both sides)");
-    http2_conn_do_close(w);
-    return 0;
-}
-
 static int http2_conn_do_error_recv(http2_conn_t *w)
 {
     http2_conn_trace(w, 2, "connection error received");
@@ -5439,15 +5401,10 @@ static int http2_conn_do_on_streams_can_write(http2_conn_t *w)
     return 0;
 }
 
-static void http2_conn_do_send_shutdown(http2_conn_t *w)
-{
-    http2_conn_send_shutdown(w, LSTR_NODATA);
-}
-
 static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
 {
     http2_conn_t *w = priv.ptr;
-    int read = 0;
+    int read = -1;
 
     if (events == EL_EVENTS_NOACT) {
         return http2_conn_do_inact_timeout(w);
@@ -5458,27 +5415,26 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
         if ((read < 0) && !ERR_RW_RETRIABLE(errno)) {
             return http2_conn_do_error_read(w);
         }
-        if (!read) {
-            return http2_conn_do_error_read_eof(w);
-        }
-        http2_conn_do_parse(w);
+        http2_conn_do_parse(w, !read);
     }
     if (w->is_conn_err_recv) {
         return http2_conn_do_error_recv(w);
     }
-    if (w->is_conn_err_sent) {
-        if (ob_is_empty(&w->ob)) {
-            return http2_conn_do_error_sent(w);
-        }
+    if (w->is_shutdown_commanded) {
+        http2_conn_send_shutdown(w, LSTR_NODATA);
     }
-    if (w->is_shutdown_recv && w->is_shutdown_sent) {
+    if (w->state == HTTP2_PARSE_SHUTDOWN_SENT) {
         if (ob_is_empty(&w->ob)) {
-            return http2_conn_do_shutdown(w);
+            shutdown(fd, SHUT_WR);
+            http2_conn_do_close(w);
+            return 0;
         }
-    }
-    http2_conn_do_on_streams_can_write(w);
-    if (w->is_shutdown_commanded && !w->is_shutdown_sent) {
-        http2_conn_do_send_shutdown(w);
+        if (!read) {
+            http2_conn_do_close(w);
+            return 0;
+        }
+    } else {
+        http2_conn_do_on_streams_can_write(w);
     }
     if (http2_conn_do_write(w, fd) < 0) {
         return http2_conn_do_error_write(w);
@@ -5877,7 +5833,6 @@ http2_conn_stream_active_httpd(http2_conn_t *w, httpd_t *httpd, int max_sz)
     OB_WRAP(sb_skip, &httpd->ob, len);
     if (eos && (stream.info.flags & STREAM_FLAG_EOS_RECV)) {
         assert(ob_is_empty(&httpd->ob));
-        assert(stream.info.flags & STREAM_FLAG_EOS_SENT);
         http2_stream_close_httpd(w, httpd);
         return;
     }
