@@ -4385,7 +4385,9 @@ http2_stream_do_recv_rst_stream(http2_conn_t *w, uint32_t stream_id,
         http2_stream_do_update_info(w, &stream);
         return 0;
     }
+    http2_stream_do_on_events(w, &stream, STREAM_FLAG_RST_RECV);
     http2_stream_on_reset(w, stream, ctx, true);
+    http2_stream_do_update_info(w, &stream);
     return 0;
 }
 
