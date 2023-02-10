@@ -4929,13 +4929,12 @@ http2_conn_parse_goaway(http2_conn_t *w, pstream_t payload, uint8_t flags)
         last_stream_id, error_code, (int)ps_len(&debug), debug.p);
     if (error_code != HTTP2_CODE_NO_ERROR) {
         w->is_conn_err_recv = true;
+    } else if (last_stream_id != HTTP2_ID_MAX_STREAM) {
+        w->is_shutdown_soon_recv = true;
+    } else if (w->is_shutdown_recv) {
+        return http2_conn_error(w, PROTOCOL_ERROR,
+                                "frame error: second shutdown GOAWAY");
     } else {
-        if (last_stream_id != HTTP2_ID_MAX_STREAM) {
-            w->is_shutdown_soon_recv = true;
-        } else if (w->is_shutdown_recv) {
-            return http2_conn_error(w, PROTOCOL_ERROR,
-                                    "frame error: second shutdown GOAWAY");
-        }
         w->is_shutdown_recv = true;
     }
     return PARSE_OK;
