@@ -4455,6 +4455,12 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
         return 0;
     }
     if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
+        if (flags & STREAM_FLAG_RST_SENT) {
+            http2_stream_trace(
+                w, &stream, 2,
+                "flow control: ignored WINDOW_UPDATE (already RST_SENT)");
+            return 0;
+        }
         http2_stream_error(
             w, &stream, FLOW_CONTROL_ERROR,
             "flow control: WINDOW_UPDATE cannot increment send-window beyond "
