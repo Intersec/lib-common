@@ -4306,6 +4306,9 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
             "HEADERS from server on idle client stream");
     }
     if (!http2_stream_validate_recv_headrs(info)) {
+        if (!flags) {
+            http2_stream_do_on_events(w, &stream, STREAM_FLAG_INIT_HDRS);
+        }
         http2_stream_error(w, &stream, PROTOCOL_ERROR,
                            "HEADERS with invalid HTTP headers");
         http2_stream_do_update_info(w, &stream);
