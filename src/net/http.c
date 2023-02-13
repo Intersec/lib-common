@@ -3375,7 +3375,7 @@ static void http2_conn_wipe(http2_conn_t *w)
 DO_REFCNT(http2_conn_t, http2_conn)
 
 /** Return the maximum id of the (non-idle) server stream or 0 if none. */
-static uint32_t http2_conn_max_server_stream_id(http2_conn_t *w)
+static uint32_t http2_conn_max_server_stream_id(const http2_conn_t *w)
 {
     /* Server streams have even ids: 2, 4, 6, and so on. Server streams with
      * ids superior than this http2_conn_max_server_stream_id are idle,
@@ -3392,7 +3392,7 @@ static uint32_t http2_conn_max_server_stream_id(http2_conn_t *w)
 }
 
 /** Return the maximum id of the (non-idle) client stream or 0 if none. */
-static uint32_t http2_conn_max_client_stream_id(http2_conn_t *w)
+static uint32_t http2_conn_max_client_stream_id(const http2_conn_t *w)
 {
     /* Client streams have odd ids: 1, 3, 5, and so on. Client streams with
      * ids superior than this http2_conn_max_client_stream_id are idle,
@@ -3411,7 +3411,7 @@ static uint32_t http2_conn_max_client_stream_id(http2_conn_t *w)
 }
 
 /** Return the maximum id of the (non-idle) peer stream or 0 if none. */
-static uint32_t http2_conn_max_peer_stream_id(http2_conn_t *w)
+static uint32_t http2_conn_max_peer_stream_id(const http2_conn_t *w)
 {
     return w->is_client ? http2_conn_max_server_stream_id(w)
                         : http2_conn_max_client_stream_id(w);
@@ -3538,7 +3538,6 @@ static void http2_conn_send_goaway(http2_conn_t *w, uint32_t last_stream_id,
 }
 
 /** Send data block as 0 or more data frames. */
-__unused__
 static void http2_conn_send_data_block(http2_conn_t *w, uint32_t stream_id,
                                        pstream_t blk, bool end_stream)
 {
@@ -3563,7 +3562,6 @@ static void http2_conn_send_data_block(http2_conn_t *w, uint32_t stream_id,
 }
 
 /** Send header block as 1 header frame plus 0 or more continuation frames. */
-__unused__
 static void http2_conn_send_headers_block(http2_conn_t *w, uint32_t stream_id,
                                           pstream_t blk, bool end_stream)
 {
