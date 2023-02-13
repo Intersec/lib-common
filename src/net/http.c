@@ -3644,6 +3644,36 @@ static bool http2_stream_id_is_client(uint32_t stream_id)
     return !http2_stream_id_is_server(stream_id);
 }
 
+static int
+http2_conn_is_peer_stream_id(const http2_conn_t *w, uint32_t stream_id)
+{
+    if (w->is_client) {
+        return http2_stream_id_is_server(stream_id);
+    } else {
+        return http2_stream_id_is_client(stream_id);
+    }
+    return 0;
+}
+
+
+/** Check if \p stream_id is a stream that can be initiated by the peer. */
+__unused__
+static int
+http2_conn_check_peer_stream_id(const http2_conn_t *w, uint32_t stream_id)
+{
+    THROW_ERR_UNLESS(http2_conn_is_peer_stream_id(w, stream_id));
+    return 0;
+}
+
+/** Return true if the \p stream_id is a peer stream that is still in its idle
+ * state. */
+__unused__
+static bool
+http2_conn_peer_stream_id_is_idle(const http2_conn_t *w, uint32_t stream_id)
+{
+    return stream_id > http2_conn_max_peer_stream_id(w);
+}
+
 /** Return the number of streams (of the same class) upto to \p stream_id. */
 static uint32_t http2_get_nb_streams_upto(uint32_t stream_id)
 {
@@ -3654,7 +3684,6 @@ static uint32_t http2_get_nb_streams_upto(uint32_t stream_id)
 }
 
 /** Return the stream (info) with id = \p stream_id */
-__unused__
 static http2_stream_t http2_stream_get(http2_conn_t *w, uint32_t stream_id)
 {
     http2_stream_t stream = {.id = stream_id};
@@ -3679,7 +3708,6 @@ static http2_stream_t http2_stream_get(http2_conn_t *w, uint32_t stream_id)
 }
 
 /** Get the next idle (available) stream id. */
-__unused__
 static uint32_t http2_stream_get_idle(http2_conn_t *w)
 {
     uint32_t stream_id;
