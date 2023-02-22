@@ -1,0 +1,6 @@
+# ASDF configuration file for lib-common repository.
+#
+# https://asdf-vm.com/manage/configuration.html
+
+python 2.7.18 3.9.16 system
+make 4.3 system
