@@ -1574,14 +1574,17 @@ __mp_iop_copy_desc_flags_sz(mem_pool_t *mp, const iop_struct_t *st,
                      "pools without IOP_COPY_SHALLOW is forbidden");
             sz = iop_dup_size(st, v);
         }
-
-        memcpy(res + offset, (const uint8_t *)v + offset, st->size - offset);
-        dst = sz ? mp_imalloc(mp, sz, 8, MEM_RAW) : NULL;
-
         if (!expect(!psz)) {
             /* Size can be set only in realloc mode. */
             *psz = 0;
         }
+        if ((flags & IOP_COPY_ALLOC_SAFE) && sz > MEM_ALLOC_MAX) {
+            *outp = NULL;
+            return NULL;
+        }
+
+        memcpy(res + offset, (const uint8_t *)v + offset, st->size - offset);
+        dst = sz ? mp_imalloc(mp, sz, 8, MEM_RAW) : NULL;
     } else {
         if (flags & (IOP_COPY_MULTIPLE_ALLOC | IOP_COPY_SHALLOW)) {
             sz = st->size;
@@ -1591,6 +1594,12 @@ __mp_iop_copy_desc_flags_sz(mem_pool_t *mp, const iop_struct_t *st,
 
         if (psz) {
             *psz = sz;
+        }
+        if ((flags & IOP_COPY_ALLOC_SAFE) && sz > MEM_ALLOC_MAX) {
+            if (outp) {
+                mp_delete(mp, outp);
+            }
+            return NULL;
         }
 
         if (outp) {

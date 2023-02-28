@@ -143,8 +143,9 @@ typedef enum z_test_dup_and_copy_flags_t {
     Z_TEST_DUP_AND_COPY_MULTIPLE_ALLOC = 1 << 3,
     Z_TEST_DUP_AND_COPY_SHALLOW = 1 << 4,
     Z_TEST_DUP_AND_COPY_NO_REALLOC = 1 << 5,
+    Z_TEST_DUP_AND_COPY_ALLOC_SAFE = 1 << 6,
 
-    Z_TEST_DUP_AND_COPY_END = 1 << 6,
+    Z_TEST_DUP_AND_COPY_END = 1 << 7,
 } z_test_dup_and_copy_flags_t;
 
 #define _F(_fl)  ((z_flags) & Z_TEST_DUP_AND_COPY_##_fl)
@@ -169,6 +170,9 @@ static int z_test_dup_or_copy(const iop_struct_t *st, const void *v,
 
     if (_F(SHALLOW)) {
         flags |= IOP_COPY_SHALLOW;
+    }
+    if (_F(ALLOC_SAFE)) {
+        flags |= IOP_COPY_ALLOC_SAFE;
     }
 
     if (_F(NO_REALLOC)) {
@@ -7350,6 +7354,51 @@ Z_GROUP_EXPORT(iop)
                                          fs.required.o),
                      "test failed for class");
         Z_HELPER_RUN(z_test_macros_dup_copy(&fs));
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(copy_protect, "test duplication/copy protection") { /* {{{ */
+        t_scope;
+        tstiop__two_strings__t st;
+        size_t sz;
+        tstiop__two_strings__t *res = NULL;
+
+        iop_init(tstiop__two_strings, &st);
+        /* Guaranteed to reach the allocation limit. */
+        st.a.len = MEM_ALLOC_MAX;
+        st.b.len = MEM_ALLOC_MAX;
+
+        /* Copy test. */
+        sz = 0;
+        mp_iop_copy_desc_flags_sz(NULL, &tstiop__two_strings__s,
+                                  (void **)&res, &st, IOP_COPY_ALLOC_SAFE,
+                                  &sz);
+        Z_ASSERT_NULL(res);
+        Z_ASSERT_EQ(sz, (size_t)0x80000030);
+
+        /* Same with already allocated destination: the struct is deleted. */
+        sz = 0;
+        res = iop_new(tstiop__two_strings);
+        mp_iop_copy_desc_flags_sz(NULL, &tstiop__two_strings__s,
+                                  (void **)&res, &st, IOP_COPY_ALLOC_SAFE,
+                                  &sz);
+        Z_ASSERT_NULL(res);
+        Z_ASSERT_EQ(sz, (size_t)0x80000030);
+
+        /* Duplication test. */
+        sz = 0;
+        Z_ASSERT_NULL(mp_iop_dup_desc_flags_sz(NULL, &tstiop__two_strings__s,
+                                               &st, IOP_COPY_ALLOC_SAFE,
+                                               &sz));
+        Z_ASSERT_EQ(sz, (size_t)0x80000030);
+
+        /* We need to test with the flag NO_REALLOC as well so we can get a
+         * full test coverage. */
+        res = t_iop_new(tstiop__two_strings);
+        mp_iop_copy_desc_flags_sz(t_pool(), &tstiop__two_strings__s,
+                                  (void **)&res, &st,
+                                  IOP_COPY_ALLOC_SAFE | IOP_COPY_NO_REALLOC,
+                                  NULL);
+        Z_ASSERT_NULL(res);
     } Z_TEST_END;
     /* }}} */
     Z_TEST(nr_58558, "avoid leak when copying an IOP with no value") { /* {{{ */

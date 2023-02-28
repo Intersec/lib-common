@@ -875,6 +875,14 @@ struct VoidPkgRef {
 };
 
 /* }}} */
+/* {{{ zchk iop.copy_protect */
+
+struct TwoStrings {
+    string a;
+    string b;
+};
+
+/* }}} */
 /* {{{ iopc zchk */
 /* {{{ zchk iopsq.sub_struct */
 
