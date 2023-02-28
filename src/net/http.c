@@ -4236,11 +4236,10 @@ http2_stream_consume_recv_window(http2_conn_t *w, http2_stream_t *stream,
 
 static int
 http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
-                          int padlen, bool eos)
+                          int initial_payload_len, bool eos)
 {
     http2_stream_t stream = http2_stream_get(w, stream_id);
     unsigned flags = stream.info.flags;
-    int payload = padlen + ps_len(&data);
     http2_stream_ctx_t ctx = stream.info.ctx;
 
     if (flags & STREAM_FLAG_CLOSED) {
@@ -4259,7 +4258,8 @@ http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
     if (eos) {
         http2_stream_do_on_events(w, &stream, STREAM_FLAG_EOS_RECV);
     }
-    RETHROW(http2_stream_consume_recv_window(w, &stream, payload));
+    RETHROW(http2_stream_consume_recv_window(w, &stream,
+                                             initial_payload_len));
     http2_stream_do_update_info(w, &stream);
     if (!(flags & STREAM_FLAG_RST_SENT)) {
         http2_stream_on_data(w, stream, ctx, data, eos);
@@ -4555,40 +4555,47 @@ static void http2_conn_maintain_recv_window(http2_conn_t *w)
     w->recv_window += incr;
 }
 
-static int
+static void
 http2_conn_consume_recv_window(http2_conn_t *w, int len)
 {
     /* Maintain the recv window at a specific level each time the peer
     * sends DATA frame. This effectively disables the flow control. */
     w->recv_window -= len;
     http2_conn_maintain_recv_window(w);
-    return 0;
 }
 
-static int http2_check_padding(pstream_t ps, pstream_t *out)
+static int
+http2_payload_get_trimmed_chunk(pstream_t payload, int frame_flags,
+                                pstream_t *chunk)
 {
-    *out = ps;
-    return ps_shrink(out, RETHROW(ps_getc(out)));
+    if (frame_flags & HTTP2_FLAG_PADDED) {
+        int padding_sz;
+
+        padding_sz = RETHROW(ps_getc(&payload));
+        RETHROW(ps_shrink(&payload, padding_sz));
+    }
+    *chunk = payload;
+    return 0;
 }
 
 static int http2_conn_parse_data(http2_conn_t *w, uint32_t stream_id,
                                  pstream_t payload, uint8_t flags)
 {
-    pstream_t chunk = payload;
     bool end_stream;
-    int pad;
+    int initial_payload_len;
+    pstream_t chunk;
 
-    RETHROW(http2_conn_consume_recv_window(w, ps_len(&payload)));
-    if (flags & HTTP2_FLAG_PADDED) {
-        if (http2_check_padding(payload, &chunk) < 0) {
-            return http2_conn_error(
-                w, PROTOCOL_ERROR,
-                "frame error: invalid padding on stream %d", stream_id);
-        }
+    initial_payload_len = ps_len(&payload);
+    if (http2_payload_get_trimmed_chunk(payload, flags, &chunk) < 0) {
+        return http2_conn_error(w, PROTOCOL_ERROR,
+                                "frame error: invalid padding on stream %d",
+                                stream_id);
     }
-    pad = ps_len(&payload) - ps_len(&chunk);
+
+    http2_conn_consume_recv_window(w, initial_payload_len);
     end_stream = flags & HTTP2_FLAG_END_STREAM;
-    return http2_stream_do_recv_data(w, stream_id, chunk, pad, end_stream);
+    return http2_stream_do_recv_data(w, stream_id, chunk, initial_payload_len,
+                                     end_stream);
 }
 
 static void
@@ -4667,12 +4674,9 @@ static int http2_conn_parse_headers(http2_conn_t *w, uint32_t stream_id,
     pstream_t chunk = payload;
     int len = ps_len(&payload);
 
-    if (flags & HTTP2_FLAG_PADDED) {
-        if (http2_check_padding(payload, &chunk) < 0) {
-            return http2_conn_error(
-                w, PROTOCOL_ERROR,
-                "frame error: HEADERS with invalid padding");
-        }
+    if (http2_payload_get_trimmed_chunk(payload, flags, &chunk) < 0) {
+        return http2_conn_error(w, PROTOCOL_ERROR,
+                                "frame error: HEADERS with invalid padding");
     }
     if (flags & HTTP2_FLAG_PRIORITY) {
             uint32_t depend;
@@ -4707,12 +4711,10 @@ static int http2_conn_parse_push_promise(http2_conn_t *w, uint32_t stream_id,
     uint32_t promised_id;
 
     assert(w->is_client);
-    if (flags & HTTP2_FLAG_PADDED) {
-        if (http2_check_padding(payload, &chunk) < 0) {
-            return http2_conn_error(
-                w, PROTOCOL_ERROR,
-                "frame error: PUSH_PROMISE with invalid padding");
-        }
+    if (http2_payload_get_trimmed_chunk(payload, flags, &chunk) < 0) {
+        return http2_conn_error(
+            w, PROTOCOL_ERROR,
+            "frame error: PUSH_PROMISE with invalid padding");
     }
     if (!ps_has(&payload, 4)) {
         return http2_conn_error(
