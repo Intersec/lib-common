@@ -5795,6 +5795,7 @@ http2_stream_on_data_server(http2_conn_t *w, http2_stream_t stream,
         default:
             assert(0 && "unexpected result from httpd_parse_body");
         }
+        break;
     case HTTP_PARSER_CHUNK_HDR:
         res = PARSE_OK;
         if (!ps_done(&data)) {
