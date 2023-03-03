@@ -242,6 +242,12 @@ bool _z_assert_iopjsonequal(const char *file, int lno,
                             const char *rhs, lstr_t json,
                             const char *fmt, ...);
 
+__attr_printf__(8, 9)
+bool _z_assert_dblequal(const char *file, int lno,
+                        const char *lhs, double lh,
+                        const char *rhs, double rh,
+                        uint8_t precision, const char *fmt, ...);
+
 __attr_printf__(5, 6)
 bool _z_assert(const char *file, int lno, const char *expr, bool res,
                const char *fmt, ...);
@@ -514,6 +520,14 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
             goto _z_step_end;                                             \
         }                                                                 \
         assert (_z_res);                                                  \
+    })
+
+#define Z_ASSERT_DBL_EQ(lhs, rhs, precision, ...)                         \
+    ({  if (_z_assert_dblequal(__FILE__, __LINE__, #lhs, lhs, #rhs, rhs,  \
+                               precision, ""__VA_ARGS__))                 \
+        {                                                                 \
+            goto _z_step_end;                                             \
+        }                                                                 \
     })
 
 /****************************************************************************/

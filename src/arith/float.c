@@ -71,8 +71,11 @@ double double_round_significant(double d, uint8_t precision)
 Z_GROUP_EXPORT(arithfloat)
 {
     Z_TEST(double_round, "double_round") {
-#define T(val, precision, res)  \
-    Z_ASSERT_LT(fabs(double_round(val, precision) - res), DBL_EPSILON)
+#define T(val, precision, res)                                               \
+    do {                                                                     \
+        Z_ASSERT_LT(fabs(double_round(val, precision) - res), DBL_EPSILON);  \
+        Z_ASSERT_DBL_EQ(val, res, precision);                                \
+    } while(0)
 
         T(12.1234567, 0, 12.);
         T(12.1234567, 1, 12.1);
