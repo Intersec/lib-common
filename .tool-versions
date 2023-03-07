@@ -2,5 +2,4 @@
 #
 # https://asdf-vm.com/manage/configuration.html
 
-make 4.3 system
-python 2.7.18 3.6.15 system
+python 3.6.15 system

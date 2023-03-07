@@ -1701,10 +1701,20 @@ def configure(ctx):
     if ctx.find_program('ctags', mandatory=False):
         ctx.find_program('ctags.sh', path_list=[build_dir], var='CTAGS_SH')
 
+    # For ASDF users, we first ensure that all ASDF plugins and tool versions
+    # are installed before continuing the configuration.
+    ctx.env.USE_ASDF = 'ASDF_DIR' in os.environ
+    if ctx.env.USE_ASDF:
+        ctx.msg('Using ASDF', 'yes')
+        cmd = ['{0}/asdf_install.sh'.format(build_dir), str(ctx.srcnode)]
+        if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
+            ctx.fatal('ASDF installation failed')
+    else:
+        ctx.msg('Using ASDF', 'no')
+
     # Python/cython
     ctx.load('python')
     ctx.load('cython_intersec')
-
 
 class IsConfigurationContext(ConfigurationContext):
 
