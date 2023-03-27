@@ -271,24 +271,7 @@ def register_global_includes(self, includes):
 
 
 # }}}
-# {{{ Deploy targets / patch tasks to build targets in the source directory
-
-class DeployTarget(Task):
-    color = 'CYAN'
-
-    @classmethod
-    def keyword(cls):
-        return 'Deploying'
-
-    def __str__(self):
-        node = self.outputs[0]
-        return node.path_from(node.ctx.launch_node())
-
-    def run(self):
-        # Create a hardlink from source to target
-        out_node = self.outputs[0]
-        out_node.delete(evict=False)
-        os.link(self.inputs[0].abspath(), out_node.abspath())
+# {{{ Patch tasks to build targets in the source directory
 
 
 @TaskGen.feature('cprogram', 'cxxprogram')
