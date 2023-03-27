@@ -26,6 +26,7 @@ import re
 import copy
 import shlex
 import os.path as osp
+import time
 from itertools import chain
 
 # pylint: disable = import-error
@@ -282,6 +283,10 @@ def deploy_program(self):
     node = self.link_task.outputs[0]
     self.link_task.outputs = [node.get_src()]
 
+    # Ensure the binaries are re-linked after running configure (in case the
+    # profile was changed)
+    self.link_task.hcode += str(self.env.CONFIGURE_TIME).encode('utf-8')
+
 
 @TaskGen.feature('cshlib')
 @TaskGen.after_method('apply_link')
@@ -296,6 +301,10 @@ def deploy_shlib(self):
         tgt_name = tgt_name[len('lib'):]
     tgt = node.parent.get_src().make_node(tgt_name)
     self.link_task.outputs = [tgt]
+
+    # Ensure the shared libraries are re-linked after running configure (in
+    # case the profile was changed)
+    self.link_task.hcode += str(self.env.CONFIGURE_TIME).encode('utf-8')
 
 
 # }}}
@@ -1663,6 +1672,8 @@ PROFILES = {
 # }}}
 
 def configure(ctx):
+    ctx.env.CONFIGURE_TIME = time.time()
+
     # register_global_includes
     ConfigurationContext.register_global_includes = register_global_includes
 
