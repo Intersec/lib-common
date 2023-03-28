@@ -99,7 +99,6 @@ class CompileDbContext(Build.BuildContext):
             self.load_envs()
 
         self.recurse([self.run_dir])
-        self.pre_build()
 
         # we need only to generate last_cmd, so override
         # exec_command temporarily
