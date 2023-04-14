@@ -6996,6 +6996,12 @@ Z_GROUP_EXPORT(iop)
             &tstiop__my_struct_a__s, LSTR("a"), LSTR("test:gen1"), IOP_T_I32,
             NULL, &value));
 
+        /* parent class field */
+        Z_ASSERT_N(iop_field_by_name_get_gen_attr(
+            &tstiop__my_class3__s, LSTR("int1"), LSTR("test:gen1"), IOP_T_I16,
+            NULL, &value));
+        Z_ASSERT_EQ(value.i, 1);
+
         /* iface */
         Z_ASSERT_N(iop_iface_get_gen_attr(&tstiop__my_iface_a__if,
                                           LSTR("test:gen5"), IOP_T_U8, NULL,

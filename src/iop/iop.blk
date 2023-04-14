@@ -1195,10 +1195,12 @@ int iop_field_by_name_get_gen_attr(const iop_struct_t *st, lstr_t f_name,
                                    lstr_t key, iop_type_t exp_type,
                                    iop_type_t *val_type, iop_value_t *value)
 {
-    int pos = RETHROW(__iop_field_find_by_name2(st, f_name));
-    const iop_field_t *field = st->fields + pos;
+    const iop_field_t *field = NULL;
+    const iop_struct_t *field_owner = NULL;
 
-    return iop_field_get_gen_attr(st, field, key, exp_type, val_type, value);
+    RETHROW(iop_field_find_by_name(st, f_name, &field_owner, &field));
+    return iop_field_get_gen_attr(field_owner, field, key, exp_type,
+                                  val_type, value);
 }
 
 /* }}} */

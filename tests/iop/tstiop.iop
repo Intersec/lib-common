@@ -75,6 +75,7 @@ union MyUnionC {
 };
 
 class MyClass1 : 1 {
+    @(test:gen1, 1)
     int int1;
 };
 
