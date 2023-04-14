@@ -291,7 +291,9 @@ def configure(ctx):
     # are installed before continuing the configuration.
     if 'ASDF_DIR' in os.environ:
         ctx.env.USE_ASDF = True
-        ctx.env.ASDF_SHIMS = os.environ['ASDF_DIR'] + '/shims'
+        # https://asdf-vm.com/manage/configuration.html#asdf-data-dir
+        asdf_data_dir = os.environ.get('ASDF_DATA_DIR', '~/.asdf')
+        ctx.env.ASDF_SHIMS = asdf_data_dir + '/shims'
     if not ctx.get_env_bool('_IN_POETRY_WAF_CONFIGURE'):
         configure_asdf(ctx)
 
