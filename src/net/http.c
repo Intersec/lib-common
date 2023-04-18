@@ -3086,7 +3086,6 @@ void httpc_query_hdrs_add_auth(httpc_query_t *q, lstr_t login, lstr_t passwd)
 /* {{{ HTTP2 Constants */
 
 #define PS_NODATA               ps_init(NULL, 0)
-#define LSTR_NODATA             LSTR_EMPTY_V
 #define HTTP2_STREAM_ID_MASK    0x7fffffff
 
 static const lstr_t http2_client_preface_g =
@@ -5305,7 +5304,7 @@ static void http2_conn_do_on_eof_read(http2_conn_t *w, pstream_t *ps)
     if (!ps_done(ps)) {
         http2_conn_error(w, INTERNAL_ERROR, "unexpected eof");
     } else {
-        http2_conn_send_shutdown(w, LSTR_NODATA);
+        http2_conn_send_shutdown(w, LSTR_EMPTY_V);
     }
     w->state = HTTP2_PARSE_SHUTDOWN_SENT;
 }
@@ -5505,7 +5504,7 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
         return http2_conn_do_error_recv(w);
     }
     if (w->is_shutdown_commanded) {
-        http2_conn_send_shutdown(w, LSTR_NODATA);
+        http2_conn_send_shutdown(w, LSTR_EMPTY_V);
     }
     if (w->state == HTTP2_PARSE_SHUTDOWN_SENT) {
         if (ob_is_empty(&w->ob)) {
