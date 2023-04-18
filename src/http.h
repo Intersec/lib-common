@@ -382,7 +382,7 @@ struct httpd_cfg_t {
 
     SSL_CTX * nullable ssl_ctx;
     dlist_t httpd_list;
-    dlist_t http2_list;
+    dlist_t http2_httpd_list; /* httpds backed http2 streams */
     const object_class_t * nullable httpd_cls;
     httpd_trigger_node_t  roots[HTTP_METHOD_DELETE + 1];
 };

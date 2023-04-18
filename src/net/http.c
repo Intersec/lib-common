@@ -1457,7 +1457,7 @@ httpd_cfg_t *httpd_cfg_init(httpd_cfg_t *cfg)
     p_clear(cfg, 1);
 
     dlist_init(&cfg->httpd_list);
-    dlist_init(&cfg->http2_list);
+    dlist_init(&cfg->http2_httpd_list);
     cfg->httpd_cls = obj_class(httpd);
 
     iop_init(core__httpd_cfg, &iop_cfg);
@@ -5633,7 +5633,7 @@ httpd_spawn_as_http2(int fd, sockunion_t *peer_su, httpd_cfg_t *cfg)
     w = http2_server_new();
     w->conn = conn;
     w->httpd_cfg = httpd_cfg_retain(cfg);
-    dlist_add_tail(&cfg->http2_list, &w->http2_link);
+    dlist_add_tail(&cfg->http2_httpd_list, &w->http2_link);
     conn->server_ctx = w;
     return 0;
 }
