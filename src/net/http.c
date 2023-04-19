@@ -3545,6 +3545,7 @@ static void http2_conn_send_data_block(http2_conn_t *w, uint32_t stream_id,
     unsigned len;
 
     if (ps_done(&blk) && !end_stream) {
+        /* Empty DATA frames have no effect except those which end streams */
         return;
     }
     /* HTTP2_LEN_MAX_FRAME_SIZE_INIT is also the minimum possible value so
@@ -5592,12 +5593,16 @@ GENERIC_NEW(http2_server_t, http2_server);
 GENERIC_DELETE(http2_server_t, http2_server);
 
 typedef struct httpd_http2_ctx_t {
-    httpd_t         * httpd;
-    http2_server_t  * server;
-    dlist_t         http2_link;
-    int             http2_sync_mark;
-    uint32_t        http2_chunked: 1;
-    uint32_t        http2_stream_id: 31;
+    httpd_t *httpd;
+    http2_server_t *server;
+    dlist_t http2_link;
+
+    /* offset into httpd's ob */
+    int http2_sync_mark;
+    /* request converted to chunked encoding: payload with no Content-Length
+     * header */
+    uint32_t http2_chunked : 1;
+    uint32_t http2_stream_id : 31;
 } httpd_http2_ctx_t;
 
 static httpd_http2_ctx_t *httpd_http2_ctx_init(httpd_http2_ctx_t *ctx)
@@ -5835,6 +5840,14 @@ http2_stream_on_reset_server(http2_conn_t *w, http2_stream_t stream,
     http2_stream_close_httpd(w, httpd);
 }
 
+/** Extract code/headerline from an upstream server (httpd) response in \p
+ * chunk.
+ *
+ * Note: non-defensive parsing due to hypotheses about the way our HTTP/1.x
+ * code works (see above). These hypotheses are guarded by assertions for now.
+ *
+ * FIXME: add unit tests to verify our hypotheses OR use defensive parsing.
+ */
 static void http_get_http2_response_hdrs(pstream_t *chunk, lstr_t *code,
                                          pstream_t *headerlines)
 {
