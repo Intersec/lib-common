@@ -5869,6 +5869,25 @@ static void http_get_http2_response_hdrs(pstream_t *chunk, lstr_t *code,
     *headerlines = control;
 }
 
+static void
+http2_conn_check_idle_httpd_invariants(http2_conn_t *w, httpd_t *httpd)
+{
+    assert(httpd->http2_ctx->http2_stream_id);
+    /* don't support chunked httpd ob (yet) */
+    assert(htlist_is_empty(&httpd->ob.chunks_list));
+    /* one unique (non-answered) query or none if already answered. */
+    assert(dlist_is_empty_or_singular(&httpd->query_list));
+    if (ob_is_empty(&httpd->ob)) {
+        /* no response was written yet */
+        httpd_query_t *q __unused__;
+
+        assert(dlist_is_singular(&httpd->query_list));
+        q = dlist_first_entry(&httpd->query_list, httpd_query_t, query_link);
+        assert(q->parsed && !q->answered && !q->hdrs_done);
+    }
+}
+
+/* Stream the response of idle httpd (headers are not sent yet) */
 static void http2_conn_stream_idle_httpd(http2_conn_t *w, httpd_t *httpd)
 {
     http2_server_t *ctx = w->server_ctx;
@@ -5879,28 +5898,30 @@ static void http2_conn_stream_idle_httpd(http2_conn_t *w, httpd_t *httpd)
     int clen;
     httpd_http2_ctx_t *http2_ctx = httpd->http2_ctx;
 
-    if (ob_is_empty(&httpd->ob)) {
-        httpd_query_t *q;
+    http2_conn_check_idle_httpd_invariants(w, httpd);
 
-        assert(dlist_is_singular(&httpd->query_list));
-        q = dlist_first_entry(&httpd->query_list, httpd_query_t, query_link);
-        assert(!q->answered && !q->hdrs_done);
+    if (ob_is_empty(&httpd->ob)) {
+        /* httpd ob is empty: the current query is not answered yet. */
         return;
     }
+
     stream = http2_stream_get(w, http2_ctx->http2_stream_id);
     chunk = ps_initsb(&httpd->ob.sb);
     http_get_http2_response_hdrs(&chunk, &code, &headerlines);
     http2_stream_send_response_headers(w, &stream, code, headerlines,
                                        http2_ctx, &clen);
+    /* TODO: support 1xx informational responses (100-continue) */
     assert(clen >= 0 && "TODO: support chunked respones");
     http2_ctx->http2_sync_mark = clen;
     OB_WRAP(sb_skip_upto, &httpd->ob, chunk.p);
-    if (clen == 0) {
+    if (!clen) {
+        /* headers-only response (no-payload). */
         assert(ob_is_empty(&httpd->ob));
         assert(stream.info.flags & STREAM_FLAG_EOS_SENT);
         http2_stream_close_httpd(w, httpd);
         return;
     }
+    /* httpd becomes active: payload streaming phase (DATA). */
     dlist_move_tail(&ctx->active_httpds, &http2_ctx->http2_link);
 }
 
