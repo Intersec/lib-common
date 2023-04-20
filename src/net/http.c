@@ -6025,9 +6025,7 @@ static void http2_conn_on_streams_can_write_server(http2_conn_t *w)
 
 static void http2_conn_on_close_server(http2_conn_t *w)
 {
-    if (w->server_ctx) {
-        http2_server_delete(&w->server_ctx);
-    }
+    http2_server_delete(&w->server_ctx);
 }
 
 /* }}} */
