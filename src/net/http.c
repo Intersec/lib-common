@@ -5989,14 +5989,19 @@ static void http2_conn_on_streams_can_write_server(http2_conn_t *w)
     do {
 #define OB_SEND_ALLOC   (8 << 10)
 #define OB_HIGH_MARK    (1 << 20)
-        /* a simple DATA send "scheduling" algorithm for active streams as we
-         * don't have a sophisticated frame-aware scheduler. To be fair, we
-         * allow each stream to send (i.e., output) up to OB_SEND_ALLOC per
-         * each opportunity and iterate over them and continue this as long as
-         * one of them can progress. However, we stop this once we have
-         * exceeded the OB_HIGH_MARK in the conn buffer so as not to delay too
-         * much the writing of generated responses to subsequent received
-         * frames (e.g., acks to PING or SETTINGS). */
+        /* A simple DATA send "scheduling" algorithm for active streams as we
+         * don't have a sophisticated frame-aware scheduler:
+         *  - To be fair, we allow each stream to send (i.e., output) up to
+         *    OB_SEND_ALLOC per each opportunity.
+         *  - We iterate over streams and continue this as long as one of
+         *    them can progress.
+         *  - However, we stop this once we have exceeded the OB_HIGH_MARK in
+         *    the conn buffer.
+         *  - This done because we don't want to delay too much the writing of
+         *    generated responses to the underlying socket (e.g., acks to
+         *    PING or SETTINGS in subsequent event callbacks to
+         *    http2_conn_on_event().
+         */
         can_progress = false;
 
         dlist_for_each_entry(httpd_http2_ctx_t, httpd, httpds, http2_link) {
@@ -6569,14 +6574,7 @@ static void http2_conn_on_streams_can_write_client(http2_conn_t *w)
     do {
 #define OB_SEND_ALLOC   (8 << 10)
 #define OB_HIGH_MARK    (1 << 20)
-        /* a simple DATA send "scheduling" algorithm for active streams as we
-         * don't have a sophisticated frame-aware scheduler. To be fair, we
-         * allow each stream to send (i.e., output) up to OB_SEND_ALLOC per
-         * each opportunity and iterate over them and continue this as long as
-         * one of them can progress. However, we stop this once we have
-         * exceeded the OB_HIGH_MARK in the conn buffer so as not to delay too
-         * much the writing of generated responses to subsequent received
-         * frames (e.g., acks to PING or SETTINGS). */
+        /* XXX: see http2_conn_on_streams_can_write_server() */
         can_progress = false;
 
         dlist_for_each_entry(httpc_http2_ctx_t, httpc, httpcs, http2_link) {
