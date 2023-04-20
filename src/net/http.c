@@ -5926,6 +5926,19 @@ static void http2_conn_stream_idle_httpd(http2_conn_t *w, httpd_t *httpd)
 }
 
 static void
+http2_conn_check_active_httpd_invariants(http2_conn_t *w, httpd_t *httpd)
+{
+    assert(httpd->http2_ctx->http2_stream_id);
+    /* We don't support chunked httpd ob (yet) */
+    assert(htlist_is_empty(&httpd->ob.chunks_list));
+    /* We don't support chunked upstream responses yet */
+    assert(httpd->http2_ctx->http2_sync_mark == httpd->ob.length);
+}
+
+/** Stream the response of active httpd (payload sending).
+ * \param max_sz: max size of data to send in this sending opportunity.
+ */
+static void
 http2_conn_stream_active_httpd(http2_conn_t *w, httpd_t *httpd, int max_sz)
 {
     httpd_http2_ctx_t *http2_ctx = httpd->http2_ctx;
@@ -5935,26 +5948,30 @@ http2_conn_stream_active_httpd(http2_conn_t *w, httpd_t *httpd, int max_sz)
     int len;
     bool eos;
 
-    assert(stream_id);
+    /* Calling code: max_sz must not exceed connection send window. */ 
     assert(max_sz <= w->send_window);
-    assert(http2_ctx->http2_sync_mark == httpd->ob.length);
+    http2_conn_check_active_httpd_invariants(w, httpd);
+
     stream = http2_stream_get(w, stream_id);
     len = MIN3(http2_ctx->http2_sync_mark, stream.info.send_window, max_sz);
     if (len <= 0) {
         return;
     }
-    assert(htlist_is_empty(&httpd->ob.chunks_list)
-           && "TODO: support chunked requests");
     chunk = ps_initsb(&httpd->ob.sb);
     __ps_clip(&chunk, len);
     http2_ctx->http2_sync_mark -= len;
     eos = http2_ctx->http2_sync_mark == 0;
     http2_stream_send_data(w, &stream, chunk, eos);
     OB_WRAP(sb_skip, &httpd->ob, len);
-    if (eos && (stream.info.flags & STREAM_FLAG_EOS_RECV)) {
+    if (eos) {
+        /* No more data to send and stream was ended from our side. */
         assert(ob_is_empty(&httpd->ob));
-        http2_stream_close_httpd(w, httpd);
-        return;
+        assert(stream.info.flags & STREAM_FLAG_EOS_SENT);
+        if (stream.info.flags & STREAM_FLAG_EOS_RECV) {
+            http2_stream_close_httpd(w, httpd);
+        } else {
+            /* Early response case: (usually an error response) */
+        }
     }
 }
 
