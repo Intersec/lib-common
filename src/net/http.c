@@ -6081,21 +6081,23 @@ typedef struct http2_pool_t {
     qm_t(qhttp2_clients) qclients;
 } http2_pool_t;
 
+typedef struct http2_client_t {
+    int refcnt;
+    http2_conn_t *conn;
+    http2_pool_t *pool;
+    sockunion_t peer_su;
+    dlist_t active_httpcs;
+    dlist_t idle_httpcs;
+} http2_client_t;
+
+/* {{{ http2_pool_t new/init/wipe/delete */
+
 static http2_pool_t *http2_pool_init(http2_pool_t *pool)
 {
     p_clear(pool, 1);
     qm_init(qhttp2_clients, &pool->qclients);
     return pool;
 }
-
-typedef struct http2_client_t {
-    int             refcnt;
-    http2_conn_t    * conn;
-    http2_pool_t    * pool;
-    sockunion_t     peer_su;
-    dlist_t         active_httpcs;
-    dlist_t         idle_httpcs;
-} http2_client_t;
 
 static void http2_pool_remove_client(http2_client_t *client)
 {
@@ -6104,6 +6106,22 @@ static void http2_pool_remove_client(http2_client_t *client)
     qm_del_key(qhttp2_clients, &pool->qclients, &client->peer_su);
     client->pool = NULL;
 }
+
+static void http2_pool_wipe(http2_pool_t *pool)
+{
+    qm_for_each_value(qhttp2_clients, client, &pool->qclients) {
+        if (client->pool) {
+            http2_pool_remove_client(client);
+        }
+    }
+    qm_wipe(qhttp2_clients, &pool->qclients);
+}
+
+GENERIC_NEW(http2_pool_t, http2_pool);
+GENERIC_DELETE(http2_pool_t, http2_pool);
+
+/* }}} */
+/* {{{ http2_client_t new/init/wipe/delete */
 
 static http2_client_t *http2_client_init(http2_client_t *ctx)
 {
@@ -6125,18 +6143,7 @@ static void http2_client_wipe(http2_client_t *ctx)
 
 DO_REFCNT(http2_client_t, http2_client);
 
-static void http2_pool_wipe(http2_pool_t *pool)
-{
-    qm_for_each_value(qhttp2_clients, client, &pool->qclients) {
-        if (client->pool) {
-            http2_pool_remove_client(client);
-        }
-    }
-    qm_wipe(qhttp2_clients, &pool->qclients);
-}
-
-GENERIC_NEW(http2_pool_t, http2_pool);
-GENERIC_DELETE(http2_pool_t, http2_pool);
+/* }}} */
 
 static http2_pool_t *http2_pool_get(httpc_cfg_t *cfg)
 {
@@ -6168,18 +6175,30 @@ http2_pool_get_client(httpc_cfg_t *cfg, const sockunion_t *peer_su)
 {
     http2_client_t *client;
     http2_pool_t *pool = http2_pool_get(cfg);
+    http2_conn_t *w;
+    unsigned pos;
 
-    client = qm_get_def(qhttp2_clients, &pool->qclients, peer_su, NULL);
-    if (!client) {
-        http2_conn_t *w = RETHROW_P(http2_conn_connect_client_as(peer_su));
-
-        client = http2_client_new();
-        client->pool = pool;
-        client->peer_su = *peer_su;
-        client->conn = w;
-        w->client_ctx = client;
-        qm_add(qhttp2_clients, &pool->qclients, peer_su, client);
+    pos = qm_reserve(qhttp2_clients, &pool->qclients, peer_su, 0);
+    if (pos & QHASH_COLLISION) {
+        /* We already have a client for this address. */
+        pos &= ~QHASH_COLLISION;
+        return pool->qclients.values[pos];
     }
+
+    w = http2_conn_connect_client_as(peer_su);
+    if (unlikely(!w)) {
+        qm_del_at(qhttp2_clients, &pool->qclients, pos);
+        return NULL;
+    }
+
+    client = http2_client_new();
+    client->pool = pool;
+    client->peer_su = *peer_su;
+    client->conn = w;
+    w->client_ctx = client;
+
+    pool->qclients.values[pos] = client;
+
     return client;
 }
 
@@ -6191,6 +6210,7 @@ static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
     http2_client_t *client;
 
     client = RETHROW_P(http2_pool_get_client(cfg, su));
+
     w = obj_new_of_class(httpc, cfg->httpc_cls);
     w->http2_ctx = httpc_http2_ctx_new();
     w->http2_ctx->httpc = w;
