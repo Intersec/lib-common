@@ -6283,6 +6283,24 @@ http_get_http2_request_hdrs(pstream_t *chunk, lstr_t *method, lstr_t *scheme,
     *headerlines = control;
 }
 
+static void
+http2_conn_check_attachable_httpc_invariants(http2_conn_t *w, httpc_t *httpc)
+{
+    httpc_query_t *q __unused__;
+
+    /* At least one query is attached, */
+    assert(!dlist_is_empty(&httpc->query_list));
+    /* for which, at least, the request headers are written to the buffer, */
+    q = dlist_first_entry(&httpc->query_list, httpc_query_t, query_link);
+    assert(q->hdrs_done);
+    /* so, the output buffer is not empty, */
+    assert(!ob_is_empty(&httpc->ob));
+    /* however, not yet streamed to HTTP/2, so, no response is received
+     * (parsed) yet. */
+    assert(httpc->state == HTTP_PARSER_IDLE);
+}
+
+/* Attach an idle httpc (headers are not sent yet) to a HTTP/2 stream */
 static void http2_stream_attach_httpc(http2_conn_t *w, httpc_t *httpc)
 {
     http2_client_t *ctx = w->client_ctx;
@@ -6296,14 +6314,11 @@ static void http2_stream_attach_httpc(http2_conn_t *w, httpc_t *httpc)
     pstream_t headerlines;
     int clen;
 
-    assert(!dlist_is_empty(&httpc->query_list));
-    assert(!ob_is_empty(&httpc->ob));
-    assert(httpc->state == HTTP_PARSER_IDLE);
+    http2_conn_check_attachable_httpc_invariants(w, httpc);
+
     http2_ctx->http2_stream_id = http2_stream_get_idle(w);
     stream = http2_stream_get(w, http2_ctx->http2_stream_id);
     chunk = ps_initsb(&httpc->ob.sb);
-    /* TODO: add assert to check that the request headers segment contains no
-     * outbuf_chunk_t. */
     http_get_http2_request_hdrs(&chunk, &method, &scheme, &path, &authority,
                                 &headerlines);
     if (!scheme.len) {
@@ -6315,6 +6330,7 @@ static void http2_stream_attach_httpc(http2_conn_t *w, httpc_t *httpc)
     assert(clen >= 0 && "TODO: support chunked requests");
     http2_ctx->http2_sync_mark = clen;
     OB_WRAP(sb_skip_upto, &httpc->ob, chunk.p);
+    /* httpc becomes active: payload streaming phase (DATA). */
     dlist_move_tail(&ctx->active_httpcs, &http2_ctx->http2_link);
 }
 
