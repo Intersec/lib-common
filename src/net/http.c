@@ -6229,6 +6229,14 @@ static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
 
 /** Streaming Layer Handlers */
 
+/** Extract headerlines and special values from a downstream client (httpc)
+ * request in \p chunk.
+ *
+ * Note: non-defensive parsing due to hypotheses about the way our HTTP/1.x
+ * code works (see above). These hypotheses are guarded by assertions for now.
+ *
+ * FIXME: add unit tests to verify our hypotheses OR use defensive parsing.
+ */
 static void
 http_get_http2_request_hdrs(pstream_t *chunk, lstr_t *method, lstr_t *scheme,
                             lstr_t *path, lstr_t *authority,
