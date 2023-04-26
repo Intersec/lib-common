@@ -6398,14 +6398,16 @@ http2_stream_reset_httpc_ob(http2_conn_t *w, httpc_t *httpc)
     OB_WRAP(sb_skip, &httpc->ob, http2_ctx->http2_sync_mark);
 }
 
+/** Reset a steam-attached (active) httpc to the idle state to serve the next
+ * query if any. */
 static void
-http2_stream_reset_httpc(http2_conn_t *w, httpc_t *httpc, bool reset_query)
+http2_stream_reset_httpc(http2_conn_t *w, httpc_t *httpc, bool query_error)
 {
     http2_client_t *ctx = w->client_ctx;
     httpc_http2_ctx_t *http2_ctx = httpc->http2_ctx;
 
     assert(http2_ctx->http2_stream_id);
-    if (reset_query) {
+    if (query_error) {
         httpc_query_t *q;
 
         http2_stream_reset_httpc_ob(w, httpc);
@@ -6440,50 +6442,8 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t stream,
     pstream_t ps;
 
     httpc_ctx->substate = HTTP2_CTX_STATE_PARSING;
-    switch (state) {
-    case HTTP_PARSER_IDLE:
-        sb_addf(&httpc->ibuf, "HTTP/1.1 %pL Nothing But Code\r\n",
-                &info->status);
-        sb_add_ps(&httpc->ibuf, headerlines);
-        sb_add(&httpc->ibuf, "\r\n", 2);
-        ps = ps_initsb(&httpc->ibuf);
-        if (httpc_parse_idle(httpc, &ps) != PARSE_OK ||
-            httpc->state == HTTP_PARSER_CHUNK_HDR)
-        {
-            if (!eos) {
-                http2_stream_send_reset(
-                    w, &stream, "malformed response [invalid headers]");
-            } else {
-                http2_stream_trace(w, &stream, 2,
-                                   "malformed response [invalid headers]");
-            }
-            http2_stream_reset_httpc(w, httpc, true);
-            return;
-        }
-        sb_skip_upto(&httpc->ibuf, ps.p);
-        assert(ps_done(&ps));
-        assert(httpc->state == HTTP_PARSER_IDLE ||
-               httpc->state == HTTP_PARSER_BODY);
-        if (eos) {
-            bool query_done = false;
 
-            if (httpc->state == HTTP_PARSER_IDLE) {
-                http2_stream_trace(
-                    w, &stream, 2,
-                    "malformed response [1xx headers with eos]");
-            } else {
-                assert(httpc->state == HTTP_PARSER_BODY);
-                query_done = httpc_parse_body(httpc, &ps) == PARSE_OK;
-                if (!query_done) {
-                    http2_stream_trace(w, &stream, 2,
-                                       "malformed response [no-content]");
-                }
-            }
-            http2_stream_reset_httpc(w, httpc, !query_done);
-            return;
-        }
-        break;
-    case HTTP_PARSER_BODY:
+    if (state == HTTP_PARSER_BODY) {
         /* XXX: we don't expect trailer headers since we don't ask for them so
          * we don't validate if they are really trailer headers or if they end
          * the stream, IoW, receiving headers here is an error anyway. */
@@ -6492,9 +6452,55 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t stream,
                                 "expecting body]");
         http2_stream_reset_httpc(w, httpc, true);
         return;
-    default:
-        assert(0 && "unexpected http2-forwarded httpc state");
     }
+
+    /* TODO: dependency on the above HTTP/1.x code: add a test or convert it
+     * to an expect. */
+    assert(state == HTTP_PARSER_IDLE &&
+           "unexpected http2-forwarded httpc state");
+
+    sb_addf(&httpc->ibuf, "HTTP/1.1 %pL Nothing But Code\r\n",
+            &info->status);
+    sb_add_ps(&httpc->ibuf, headerlines);
+    sb_add(&httpc->ibuf, "\r\n", 2);
+    ps = ps_initsb(&httpc->ibuf);
+    if (httpc_parse_idle(httpc, &ps) != PARSE_OK ||
+        httpc->state == HTTP_PARSER_CHUNK_HDR)
+    {
+        if (eos) {
+            http2_stream_trace(w, &stream, 2,
+                               "malformed response [invalid headers]");
+        } else {
+            http2_stream_send_reset(
+                w, &stream, "malformed response [invalid headers]");
+        }
+        http2_stream_reset_httpc(w, httpc, true);
+        return;
+    }
+    sb_skip_upto(&httpc->ibuf, ps.p);
+    assert(ps_done(&ps));
+    assert(httpc->state == HTTP_PARSER_IDLE ||
+           httpc->state == HTTP_PARSER_BODY);
+    if (eos) {
+        bool query_error = false;
+
+        if (httpc->state == HTTP_PARSER_IDLE) {
+            http2_stream_trace(
+                w, &stream, 2,
+                "malformed response [1xx headers with eos]");
+            query_error = true;
+        } else {
+            assert(httpc->state == HTTP_PARSER_BODY);
+            if (httpc_parse_body(httpc, &ps) != PARSE_OK) {
+                query_error = true;
+                http2_stream_trace(w, &stream, 2,
+                                   "malformed response [no-content]");
+            }
+        }
+        http2_stream_reset_httpc(w, httpc, query_error);
+        return;
+    }
+
     if (httpc->http2_ctx->disconnect_cmd) {
         http2_stream_send_reset_cancel(w, &stream, "client disconnect");
         http2_stream_reset_httpc(w, httpc, true);
