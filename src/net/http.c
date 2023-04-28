@@ -6988,6 +6988,7 @@ static void z_query_on_done(httpc_query_t *q, httpc_status_t status)
 
 enum z_query_flags {
     Z_QUERY_USE_PROXY = (1 << 0),
+    Z_QUERY_USE_HTTP2 = (1 << 1),
 };
 
 static int z_query_setup(int (* query_cb)(el_t, int, short, el_data_t),
@@ -7014,6 +7015,9 @@ static int z_query_setup(int (* query_cb)(el_t, int, short, el_data_t),
     httpc_cfg_init(&zcfg_g);
     zcfg_g.refcnt++;
     zcfg_g.use_proxy = (flags & Z_QUERY_USE_PROXY);
+    if (flags & Z_QUERY_USE_HTTP2) {
+        zcfg_g.http_mode = HTTP_MODE_USE_HTTP2_ONLY;
+    }
     zhttpc_g = httpc_connect(&su, &zcfg_g, NULL);
     Z_ASSERT_P(zhttpc_g);
 
@@ -7039,6 +7043,7 @@ static void z_query_cleanup(void) {
     httpc_query_wipe(&zquery_g);
     el_unregister(&zel_server_g);
     el_unregister(&zel_client_g);
+    httpc_cfg_wipe(&zcfg_g);
     el_loop_timeout(10);
     sb_wipe(&body_g);
     sb_wipe(&zquery_sb_g);
@@ -7142,5 +7147,180 @@ Z_GROUP_EXPORT(httpc) {
         z_query_cleanup();
     } Z_TEST_END;
 } Z_GROUP_END;
+
+static int
+z_http2_write_reply(http2_conn_t *w, uint32_t stream_id, int code,
+                    lstr_t headerlines_, lstr_t payload, int payload_repeat)
+{
+    t_scope;
+    pstream_t headerlines = ps_initlstr(&headerlines_);
+    lstr_t status = t_lstr_fmt("%d", code);
+    bool eos;
+    SB_1k(hdrs);
+
+    http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":status"), status, &hdrs);
+    while (!ps_done(&headerlines)) {
+        lstr_t key;
+        lstr_t val;
+
+        http2_headerlines_get_next_hdr(&headerlines, &key, &val);
+        http2_conn_pack_single_hdr(w, key, val, &hdrs);
+    }
+    eos = (payload.len == 0);
+    http2_conn_send_headers_block(w, stream_id, ps_initsb(&hdrs), eos);
+    if (!eos) {
+        for (int i = payload_repeat + 1; i-- > 0;) {
+            http2_conn_send_data_block(w, stream_id, ps_initlstr(&payload),
+                                       i == 0);
+        }
+    }
+    return 0;
+}
+
+static struct {
+    int code;
+    lstr_t headerlines;
+    lstr_t payload;
+    int    payload_repeat;
+} z_http2_reply_params_g;
+
+static int z_http2_reply_null(el_t el, int fd, short mask, data_t data)
+{
+    SB_1k(buf);
+    sb_read(&buf, fd, 32 << 10);
+    return 0;
+}
+
+static int z_http2_reply(el_t el, int fd, short mask, data_t data)
+{
+    SB_1k(buf);
+
+    if (sb_read(&buf, fd, 32 << 10) > 0) {
+        http2_conn_t w;
+        bool query_reply_written = false;
+
+        http2_conn_init(&w);
+        /* XXX: so flow control does not get in our way. */
+        w.send_window = HTTP2_LEN_MAX_WINDOW_UPDATE_INCR;
+        /* Write Server's initial settings */
+        http2_conn_send_common_hdr(&w, HTTP2_LEN_NO_PAYLOAD,
+                                   HTTP2_TYPE_SETTINGS, HTTP2_FLAG_NONE,
+                                   HTTP2_ID_NO_STREAM);
+        fd_set_features(fd, O_NONBLOCK);
+        while (!ob_is_empty(&w.ob) || !query_reply_written) {
+            httpc_http2_ctx_t *ctx = zhttpc_g->http2_ctx;
+            int res;
+
+            if (!query_reply_written && ctx && ctx->http2_stream_id) {
+                uint32_t stream_id = ctx->http2_stream_id;
+                int code = z_http2_reply_params_g.code;
+                lstr_t headerlines = z_http2_reply_params_g.headerlines;
+                lstr_t payload = z_http2_reply_params_g.payload;
+                int payload_repeat = z_http2_reply_params_g.payload_repeat;
+
+                z_http2_write_reply(&w, stream_id, code, headerlines, payload,
+                                    payload_repeat);
+                http2_conn_send_goaway(&w, stream_id, HTTP2_CODE_NO_ERROR,
+                                       LSTR_EMPTY_V);
+                query_reply_written = true;
+            }
+            if (!ob_is_empty(&w.ob) && ((res = ob_write(&w.ob, fd)) <= 0)) {
+                if (res < 0 && !ERR_RW_RETRIABLE(errno)) {
+                    logger_panic(&_G.logger, "write error: %m");
+                }
+            }
+            if (ctx && ctx->conn) {
+                el_fd_loop(ctx->conn->ev, 10, EV_FDLOOP_HANDLE_TIMERS);
+            }
+            sb_reset(&buf);
+            res = sb_read(&buf, fd, 32 << 10);
+            if (res < 0 && !ERR_RW_RETRIABLE(errno)) {
+                logger_panic(&_G.logger, "read error: %m");
+            }
+            if (res == 0) {
+                break;
+            }
+        }
+        http2_conn_wipe(&w);
+        lstr_wipe(&z_http2_reply_params_g.headerlines);
+        lstr_wipe(&z_http2_reply_params_g.payload);
+        shutdown(fd, SHUT_WR);
+        el_fd_set_hook(el, &z_http2_reply_null);
+    }
+    return 0;
+}
+
+static int z_http2_reply_no_content(el_t el, int fd, short mask, data_t data)
+{
+    z_http2_reply_params_g.code = HTTP_CODE_NO_CONTENT;
+    z_http2_reply_params_g.headerlines = LSTR_EMPTY_V;
+    z_http2_reply_params_g.payload = LSTR_EMPTY_V;
+    z_http2_reply_params_g.payload_repeat = 0;
+
+    return z_http2_reply(el, fd, mask, data);
+}
+
+static int z_http2_reply_ok(el_t el, int fd, short mask, data_t data)
+{
+    z_http2_reply_params_g.code = HTTP_CODE_OK;
+    z_http2_reply_params_g.headerlines =
+        LSTR("x-custom-header-1: value-1\r\n"
+             "x-custom-header-2: value-2\r\n");
+    z_http2_reply_params_g.payload = LSTR("Coucou");
+    z_http2_reply_params_g.payload_repeat = 0;
+
+    return z_http2_reply(el, fd, mask, data);
+}
+
+static int z_http2_reply_ok_big(el_t el, int fd, short mask, data_t data)
+{
+    sb_t payload;
+
+    z_http2_reply_params_g.code = HTTP_CODE_OK;
+    z_http2_reply_params_g.headerlines =
+        LSTR("x-custom-header-1: value-1\r\n"
+             "x-custom-header-2: value-2\r\n");
+    sb_init(&payload);
+    while (payload.len < 8192) {
+        const char *s = "abcdefghijklmnopqrstuvwxyz";
+
+        sb_add(&payload, s, MIN(8192 - payload.len, (int)strlen(s)));
+    }
+    lstr_transfer_sb(&z_http2_reply_params_g.payload, &payload, true);
+    z_http2_reply_params_g.payload_repeat = 4096 - 1;
+
+    return z_http2_reply(el, fd, mask, data);
+}
+
+Z_GROUP_EXPORT(httpc_http2) {
+    Z_TEST(no_content, "test a reply with NO_CONTENT code") {
+        Z_HELPER_RUN(z_query_setup(&z_http2_reply_no_content,
+                                   Z_QUERY_USE_HTTP2,
+                                   LSTR("localhost"), LSTR("/")));
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_NO_CONTENT, code_g);
+        z_query_cleanup();
+    } Z_TEST_END;
+
+    Z_TEST(ok, "test a reply with 200 OK code and a small payload") {
+        Z_HELPER_RUN(z_query_setup(&z_http2_reply_ok,
+                                   Z_QUERY_USE_HTTP2,
+                                   LSTR("localhost"), LSTR("/")));
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&body_g), LSTR("Coucou"));
+        z_query_cleanup();
+    } Z_TEST_END;
+
+    Z_TEST(ok_big, "test a reply with 200 OK code and a big payload") {
+        Z_HELPER_RUN(z_query_setup(&z_http2_reply_ok_big, Z_QUERY_USE_HTTP2,
+                                   LSTR("localhost"), LSTR("/")));
+        Z_ASSERT_EQ((http_code_t)HTTP_CODE_OK, code_g);
+        Z_ASSERT_EQ(body_g.len, 8192 * 4096);
+        for (int i = 0; i < body_g.len; i++) {
+            Z_ASSERT_EQ(body_g.data[i], 'a' + (i % 8192) % 26);
+        }
+        z_query_cleanup();
+    } Z_TEST_END;
+} Z_GROUP_END;
+
 
 /* }}} */
