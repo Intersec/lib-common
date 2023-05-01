@@ -42,16 +42,28 @@ def remove_prefix(text, prefix):
     return text
 
 
-
 def load_tools(ctx):
     ctx.load('common', tooldir=waftoolsdir)
     ctx.load('backend', tooldir=waftoolsdir)
+    if sys.version_info >= (2, 7):
+       # This extension uses the python json library to unpack the existing
+       # compilation database. But it uses an argument that is not compatible
+       # with older python versions.
+       ctx.load('compilation_database', tooldir=waftoolsdir)
     for tool in getattr(ctx, 'extra_waftools', []):
         ctx.load(tool, tooldir=waftoolsdir)
 
     # Configure waf to re-evaluate hashes only when file timestamp/size
     # change. This is way faster on no-op builds.
     ctx.load('md5_tstamp')
+
+
+def pip_install_pkg(ctx, msg, pkg):
+    ctx.start_msg(msg)
+    cmd = ctx.env.PIP_BIN + ['install', pkg]
+    if ctx.exec_command(cmd, cwd=ctx.srcnode):
+        ctx.fatal('failed to install ' + pkg)
+    ctx.end_msg('done')
 
 
 # }}}
@@ -61,16 +73,19 @@ def load_tools(ctx):
 def run_waf_with_poetry(ctx):
     Logs.info('Waf: Run waf in poetry environment')
 
+    was_active = ctx.get_env_bool('POETRY_ACTIVE')
     # Force POETRY_ACTIVE as older versions of poetry don't set it on
     # `poetry run`, but set it on `poetry shell`.
-    os.environ['POETRY_ACTIVE'] = '1'
+    if not was_active:
+        os.environ['POETRY_ACTIVE'] = '1'
 
     exit_code = ctx.exec_command(ctx.env.POETRY + ['run'] + sys.argv,
                                  stdout=None, stderr=None)
     if exit_code != 0:
         sys.exit(exit_code)
 
-    del os.environ['POETRY_ACTIVE']
+    if not was_active:
+        del os.environ['POETRY_ACTIVE']
 
 
 def poetry_fix_no_env_use(ctx):
@@ -120,6 +135,20 @@ def poetry_no_srv_tools(ctx):
 
 
 def poetry_install(ctx):
+    if ctx.env.USE_ASDF:
+        # Since with ASDF the python version changes between branches we have
+        # to ensure that the poetry venv uses the right python version.
+        #
+        # A proper way to do it would be to use
+        # https://python-poetry.org/docs/configuration/#virtualenvsprefer-active-python-experimental
+        # when it will be possible to upgrade poetry.
+        # Also see https://github.com/python-poetry/poetry/issues/1888 and
+        # https://github.com/asdf-community/asdf-poetry/issues/10
+        asdf_python = ctx.env.ASDF_SHIMS + '/python'
+        if ctx.exec_command(ctx.env.POETRY + ['env', 'use', asdf_python],
+                            stdout=None, stderr=None):
+            ctx.fatal('poetry setup for ASDF failed')
+
     before_poetry_install = getattr(ctx, 'before_poetry_install', None)
     if before_poetry_install is not None:
         before_poetry_install(ctx)
@@ -141,8 +170,14 @@ def poetry_install(ctx):
 
 
 def rerun_waf_configure_with_poetry(ctx):
-    if ctx.get_env_bool('POETRY_ACTIVE'):
-        # Poetry is already activated, do nothing.
+    if ctx.get_env_bool('_IN_POETRY_WAF_CONFIGURE'):
+        # We are already in a recursion with poetry, do nothing.
+        return
+    if ctx.get_env_bool('POETRY_ACTIVE') and not ctx.env.USE_ASDF:
+        # If poetry is already activated and ASDF is not in use we do nothing.
+        # However if ASDF is in use, the python version that will be loaded by
+        # ASDF may differ from the current active venv, and thus we need to
+        # recurse anyway to use the right python version.
         return
 
     # Set _IN_WAF_POETRY to avoid doing the poetry configuration twice.
@@ -180,7 +215,10 @@ def configure_with_poetry(ctx):
         Logs.warn('Waf: Disabling poetry support')
         return
 
-    ctx.find_program('poetry')
+    if ctx.env.USE_ASDF:
+        ctx.find_program('poetry', path_list=[ctx.env.ASDF_SHIMS])
+    else:
+        ctx.find_program('poetry')
 
     if not ctx.get_env_bool('_IN_POETRY_WAF_CONFIGURE'):
         # We are not in waf run by Poetry, install Poetry
@@ -191,9 +229,15 @@ def configure_with_poetry(ctx):
 
 
 def rerun_waf_build_with_poetry(ctx):
-    if ctx.get_env_bool('POETRY_ACTIVE'):
-        # Poetry is already activated, do nothing.
+    if ctx.get_env_bool('_IN_POETRY_WAF_BUILD'):
+        # We are already in a recursion with poetry, do nothing.
         return
+    if ctx.get_env_bool('POETRY_ACTIVE') and not ctx.env.USE_ASDF:
+        # Poetry is already activated and ASDF is not in use, do nothing.
+        return
+
+    # Set _IN_WAF_POETRY to avoid doing the recursion twice.
+    os.environ['_IN_POETRY_WAF_BUILD'] = '1'
 
     # Reset current directory to launch directory.
     os.chdir(ctx.launch_dir)
@@ -224,7 +268,35 @@ def options(ctx):
 # {{{ configure
 
 
+def configure_asdf(ctx):
+    if ctx.env.USE_ASDF:
+        ctx.msg('Using ASDF', 'yes')
+        build_dir = os.path.join(ctx.path.abspath(), 'build')
+        cmd = ['{0}/asdf_install.sh'.format(build_dir), str(ctx.srcnode)]
+        if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
+            ctx.fatal('ASDF installation failed')
+
+        # ASDF users will have a local pip that we can use to install
+        # some dependencies
+        ctx.find_program('pip', var='PIP_BIN', path_list=[ctx.env.ASDF_SHIMS])
+        pip_install_pkg(ctx, 'Updating pip (if needed)', 'pip>=21')
+        pip_install_pkg(ctx, 'Installing poetry with pip', 'poetry==1.1.15')
+    else:
+        ctx.msg('Using ASDF', 'no')
+
+
 def configure(ctx):
+    # For ASDF users, we first ensure that all ASDF plugins and tool versions
+    # are installed before continuing the configuration.
+    if 'ASDF_DIR' in os.environ:
+        ctx.env.USE_ASDF = True
+        # https://asdf-vm.com/manage/configuration.html#asdf-data-dir
+        asdf_data_dir = os.environ.get('ASDF_DATA_DIR',
+                                       os.environ['HOME'] + '/.asdf')
+        ctx.env.ASDF_SHIMS = asdf_data_dir + '/shims'
+    if not ctx.get_env_bool('_IN_POETRY_WAF_CONFIGURE'):
+        configure_asdf(ctx)
+
     configure_with_poetry(ctx)
     load_tools(ctx)
 

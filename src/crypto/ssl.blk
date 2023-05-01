@@ -930,7 +930,6 @@ SSL_CTX *ssl_ctx_new_tls(const SSL_METHOD *method, lstr_t key, lstr_t cert,
 
     if (verify_mode != SSL_VERIFY_NONE) {
         SSL_CTX_set_verify(ctx, verify_mode, verify_callback);
-        SSL_CTX_set_verify_depth(ctx, 1);
     }
 
     mode = SSL_MODE_ENABLE_PARTIAL_WRITE

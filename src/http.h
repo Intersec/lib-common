@@ -34,6 +34,12 @@
 #endif
 #endif
 
+typedef enum http_mode_t {
+    HTTP_MODE_USE_HTTP1X_ONLY,
+    HTTP_MODE_USE_HTTP2_ONLY,
+    /* HTTP_MODE_NEGOTIATE */
+} http_mode_t;
+
 typedef enum http_method_t {
     HTTP_METHOD_ERROR = -1,
     /* rfc 2616: §5.1.1: Method */
@@ -223,6 +229,8 @@ enum httpd_query_status {
     HTTPD_QUERY_STATUS_ANSWERED,
 };
 
+typedef struct httpd_http2_ctx_t httpd_http2_ctx_t;
+
 /** Type of HTTP server.
  *
  * The httpd structure contains callbacks that let you be notified when a
@@ -243,6 +251,7 @@ enum httpd_query_status {
 #define HTTPD_FIELDS(pfx) \
     OBJECT_FIELDS(pfx);                                                      \
     dlist_t            httpd_link;                                           \
+    httpd_http2_ctx_t * nullable http2_ctx;                                  \
     httpd_cfg_t       * nonnull cfg;                                         \
     el_t               nonnull ev;                                           \
     sb_t               ibuf;                                                 \
@@ -359,6 +368,7 @@ struct httpd_cfg_t {
     int      refcnt;
     unsigned nb_conns;
 
+    http_mode_t mode;
     unsigned outbuf_max_size;
     unsigned on_data_threshold;
     unsigned max_queries;
@@ -372,6 +382,7 @@ struct httpd_cfg_t {
 
     SSL_CTX * nullable ssl_ctx;
     dlist_t httpd_list;
+    dlist_t http2_list;
     const object_class_t * nullable httpd_cls;
     httpd_trigger_node_t  roots[HTTP_METHOD_DELETE + 1];
 };
@@ -720,9 +731,11 @@ httpd_trigger__static_dir_new(const char * nonnull path);
 
 typedef struct httpc_pool_t httpc_pool_t;
 typedef struct httpc_query_t httpc_query_t;
+typedef struct http2_pool_t http2_pool_t;
 
 typedef struct httpc_cfg_t {
     int          refcnt;
+    http_mode_t  http_mode;
 
     bool         use_proxy : 1;
     uint16_t     pipeline_depth;
@@ -732,7 +745,8 @@ typedef struct httpc_cfg_t {
     unsigned     header_line_max;
     unsigned     header_size_max;
 
-    SSL_CTX * nullable ssl_ctx;
+    SSL_CTX      * nullable ssl_ctx;
+    http2_pool_t * nullable http2_pool;
 
     const object_class_t * nonnull httpc_cls;
 } httpc_cfg_t;
@@ -752,6 +766,8 @@ void httpc_cfg_tls_wipe(httpc_cfg_t * nonnull cfg);
 int
 httpc_cfg_tls_add_verify_file(httpc_cfg_t * nonnull cfg, lstr_t cert_path);
 
+void httpc_close_http2_pool(httpc_cfg_t *nonnull cfg);
+
 struct httpc_t;
 /** On connect error callback.
  *
@@ -765,18 +781,22 @@ struct httpc_t;
 typedef void (on_connect_error_f)(const struct httpc_t * nonnull httpc,
                                   int errnum);
 
+typedef struct httpc_http2_ctx_t httpc_http2_ctx_t;
+
 #define HTTPC_FIELDS(pfx) \
     OBJECT_FIELDS(pfx);                                                      \
     httpc_pool_t * nullable pool;                                            \
     httpc_cfg_t  * nonnull cfg;                                              \
     dlist_t       pool_link;                                                 \
-    el_t          nonnull ev;                                                \
+    httpc_http2_ctx_t *nullable http2_ctx;                                   \
+    el_t          nullable ev;                                               \
     sb_t          ibuf;                                                      \
     z_stream      zs;                                                        \
                                                                              \
     bool          connection_close : 1;                                      \
     bool          busy             : 1;                                      \
     bool          compressed       : 1;                                      \
+    bool          connected_as_http2 : 1;                                    \
     uint8_t       state;                                                     \
     uint16_t      queries;                                                   \
     int           chunk_length;                                              \

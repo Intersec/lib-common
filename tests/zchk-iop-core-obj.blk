@@ -77,6 +77,7 @@ int test_iop_core_obj(void)
     qv_t(object_cls) *classes;
     __block int cnt = 0;
     int cnt_cpy;
+    tstiop__unregistered_mammal__t unregistered;
 
     mammal_mappings_g = iop_core_obj_map_new();
     iop_core_obj_register(mammal, tstiop__fox, fox);
@@ -135,6 +136,9 @@ int test_iop_core_obj(void)
 
     obj_delete(&rox);
     obj_delete(&rouky);
+
+    iop_init(tstiop__unregistered_mammal, &unregistered);
+    Z_ASSERT_NULL(iop_core_obj_get_cls(mammal, &unregistered.super));
 
     iop_core_obj_map_delete(&mammal_mappings_g);
     Z_HELPER_END;

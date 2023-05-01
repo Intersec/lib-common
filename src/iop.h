@@ -1136,6 +1136,21 @@ typedef enum iop_copy_flags_t {
      * This flag is not available for iop_dup functions.
      */
     IOP_COPY_NO_REALLOC = 1 << 2,
+
+    /** Cancel the allocation if the dup size is bigger than MEM_ALLOC_MAX.
+     *
+     * In that case, the returned pointer will be set to NULL. This option
+     * allows to apply dedicated protections so we can handle the error
+     * instead of crashing when IOPs get too big.
+     *
+     * If the protection is triggered, the output parameter 'sz' will be set
+     * with the allocation size that would have been needed to copy the
+     * structure.
+     *
+     * \warning This flag won't apply on sub-allocations that can happen when
+     * using flag IOP_COPY_MULTIPLE_ALLOC.
+     */
+    IOP_COPY_ALLOC_SAFE = 1 << 3,
 } iop_copy_flags_t;
 
 /** Duplicate an IOP structure.

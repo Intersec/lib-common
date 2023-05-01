@@ -19,6 +19,8 @@
 #include <sysexits.h>
 #include <sys/wait.h>
 #include <fnmatch.h>
+#include <float.h>
+#include <math.h>
 
 #include <lib-common/unix.h>
 #include <lib-common/z.h>
@@ -702,6 +704,37 @@ bool _z_assert_iopjsonequal(const char *file, int lno,
                                   SB_FMT_ARG(&sb));
     }
     _G.grp.t_asserts++;
+    return false;
+}
+
+bool _z_assert_dblequal(const char *file, int lno,
+                        const char *lhs, double lh,
+                        const char *rhs, double rh,
+                        uint8_t precision, const char *fmt, ...)
+{
+    double diff = double_round(fabs(lh - rh), precision);
+
+    IN_TEST;
+    _G.grp.t_asserts++;
+
+    if (diff > DBL_EPSILON) {
+        SB_1k(sb);
+
+        sb_addf(&sb, "%s:%d: assertion failed: %s == %s (precision %u)\n",
+                file, lno, lhs, rhs, precision);
+
+        sb_addf(&sb, " %f (%s)\n", lh, lhs);
+        sb_addf(&sb, " %f (%s)\n", rh, rhs);
+
+        _z_add_extra(sb, fmt);
+
+        lstr_transfer_sb(&_G.grp.t_fail_reason, &sb, false);
+        if (_G.abort_on_fail) {
+            do_fail_comment();
+        }
+        return true;
+    }
+
     return false;
 }
 

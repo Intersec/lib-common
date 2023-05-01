@@ -315,7 +315,7 @@ def remove_default_install_tasks(self):
 class CustomInstall(Task):
     """ Task to start custom shell commands on install. """
     color = 'PINK'
-    after = ['DeployTarget', 'cprogram', 'cshlib', 'vnum']
+    after = ['cprogram', 'cshlib', 'vnum']
 
     def __str__(self):
         launch_node = self.generator.bld.launch_node()

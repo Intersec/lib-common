@@ -257,6 +257,7 @@ typedef struct qps_t {
     pid_t        snap_pid;
     struct timeval snap_start;
     uint32_t     snap_gen;
+    uint32_t     snap_max_duration; /* in seconds, 3600 by default */
 
     struct {
 #define QPS_PGL2_SHIFT       5U
