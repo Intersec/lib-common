@@ -3711,20 +3711,33 @@ cdef object explicit_convert_field(const iop_field_t *field, object py_obj,
         if is_valid[0]:
             return py_res_obj
 
-    # Check cast from enum to int
-    if (isinstance(py_obj, EnumBase)
-     and (iop_type == IOP_T_I8
-       or iop_type == IOP_T_U8
-       or iop_type == IOP_T_I16
-       or iop_type == IOP_T_U16
-       or iop_type == IOP_T_I32
-       or iop_type == IOP_T_U32
-       or iop_type == IOP_T_I64
-       or iop_type == IOP_T_U64)):
-        enum_obj = <EnumBase>py_obj
-        py_res_obj = <int>enum_obj.val
-        is_valid[0] = True
-        return py_res_obj
+    if (iop_type == IOP_T_I8
+     or iop_type == IOP_T_U8
+     or iop_type == IOP_T_I16
+     or iop_type == IOP_T_U16
+     or iop_type == IOP_T_I32
+     or iop_type == IOP_T_U32
+     or iop_type == IOP_T_I64
+     or iop_type == IOP_T_U64):
+        # Check cast from enum to int
+        if isinstance(py_obj, EnumBase):
+            enum_obj = <EnumBase>py_obj
+            py_res_obj = <int>enum_obj.val
+            is_valid[0] = True
+            return py_res_obj
+
+        # Check cast from float to int
+        if isinstance(py_obj, float):
+            py_res_obj = int(py_obj)
+            is_valid[0] = True
+            return py_res_obj
+
+    if iop_type == IOP_T_DOUBLE:
+        # Check cast from int to float
+        if isinstance(py_obj, int):
+            py_res_obj = float(py_obj)
+            is_valid[0] = True
+            return py_obj
 
     add_error_convert_field(field, py_obj, err)
     return None

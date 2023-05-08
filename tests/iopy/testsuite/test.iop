@@ -53,6 +53,7 @@ union UnionA {
     ClassA a;
     test.emptystuffs.Tab tab;
     string s;
+    double d;
 };
 
 union UnionB {
