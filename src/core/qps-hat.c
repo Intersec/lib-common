@@ -1518,12 +1518,16 @@ void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
     /* The tree enumerator should only go forward. */
     assert(key >= en->key);
 
-    /* FIXME This check doesn't handle the case (with safe==true) where the
-     * current key was removed so it has to go the the next key. */
-    if (en->end || key <= en->key) {
+    if (en->end) {
         return;
     }
-    if (key == en->key + 1) {
+    if (key == en->key) {
+        if (!safe) {
+            /* The key is already the current one and the qhat is not supposed
+             * to have changed. Nothing to do. */
+            return;
+        }
+    } else if (key == en->key + 1) {
         qhat_tree_enumerator_next(en, safe);
         return;
     }
