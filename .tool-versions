@@ -2,4 +2,4 @@
 #
 # https://asdf-vm.com/manage/configuration.html
 
-python 3.6.15 system
+python 3.9.16 system

@@ -20,6 +20,7 @@
 # update poetry.lock.
 # Otherwise, `waf configure` will fail.
 
+
 [tool.poetry]
 name = "lib-common"
 version = "0.0.0"
@@ -28,20 +29,20 @@ authors = ["R&D <rd@intersec.com>"]
 
 [tool.poetry.dev-dependencies]
 # C extension writer for Python, used by IOPy
-cython = "==0.29.24"
+cython = "==0.29.35"
 
 # process handling, used in tests
-psutil = "~=5.9.0"
+psutil = "~=5.9.5"
 
 # behaviour-driven developement, used in tests
 behave = "==1.2.6"
 
 # interactive debugger, for debugging
-ipdb = "~=0.13.0"
+ipdb = "~=0.13.13"
 
 # python linter
-pylint = "==2.4.4"
+pylint = "==2.17.4"
 
 [tool.poetry.dependencies]
-# Require at least Python version 3.6
-python = "^3.6"
+# Require at least Python version 3.9
+python = "^3.9"
