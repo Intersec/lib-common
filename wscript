@@ -280,7 +280,8 @@ def configure_asdf(ctx):
         # some dependencies
         ctx.find_program('pip', var='PIP_BIN', path_list=[ctx.env.ASDF_SHIMS])
         pip_install_pkg(ctx, 'Updating pip (if needed)', 'pip>=21')
-        pip_install_pkg(ctx, 'Installing poetry with pip', 'poetry==1.1.15')
+        pip_install_pkg(ctx, 'Installing poetry 1.5.1 with pip',
+                        'poetry==1.5.1')
     else:
         ctx.msg('Using ASDF', 'no')
 
