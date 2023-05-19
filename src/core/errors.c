@@ -257,6 +257,17 @@ static bool debug_stack_has_frames(void)
     return debug_stack_g.len > 0;
 }
 
+void debug_stack_dprint(int fd)
+{
+    tab_for_each_pos_rev(i, &debug_stack_g) {
+        const debug_info_t *info = &debug_stack_g.tab[i];
+
+        dprintf(fd, "\n[%d] in %s() from %s:%d\n",
+                i, info->func, info->file, info->line);
+        (info->cb)(fd, info->data);
+    }
+}
+
 int _debug_stack_print(const char *nonnull path)
 {
     int fd;
@@ -269,14 +280,7 @@ int _debug_stack_print(const char *nonnull path)
     fd = RETHROW(open(path, O_WRONLY | O_APPEND, 0600));
 
     dprintf(fd, "\nAdditional user context:\n");
-
-    tab_for_each_pos_rev(i, &debug_stack_g) {
-        const debug_info_t *info = &debug_stack_g.tab[i];
-
-        dprintf(fd, "\n[%d] in %s() from %s:%d\n",
-                i, info->func, info->file, info->line);
-        (info->cb)(fd, info->data);
-    }
+    debug_stack_dprint(fd);
 
     return p_close(&fd);
 }

@@ -241,6 +241,9 @@ void debug_stack_pop(data_t *nonnull priv);
 /** Append user debug info into .debug file. */
 int _debug_stack_print(const char *nonnull path);
 
+/** Write the content of the debug stack to a given file descriptor. */
+void debug_stack_dprint(int fd);
+
 /* }}} */
 
 #endif /* IS_LIB_COMMON_CORE_ERRORS_H */

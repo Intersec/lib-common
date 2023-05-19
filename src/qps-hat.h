@@ -392,8 +392,29 @@ uint64_t qhat_compute_memory(qhat_t *hat);
  */
 uint64_t qhat_compute_memory_overhead(qhat_t *hat);
 
-/** Perform a check on the structure of the HAT-Trie. */
-void qhat_check_consistency(qhat_t *hat, bool *nullable is_suboptimal) __leaf;
+typedef enum qhat_check_flags_t {
+    /* Do not 'panic' in case of error.
+     * Instead, log an error, print a backtrace with information about the
+     * corruption and let 'qhat_check_consistency()' return -1. */
+    QHAT_CHECK_FULL_SCAN = (1 << 0),
+
+    /* If set, then the content of the leafs (compacts and flats) will be
+     * checked as well. */
+    QHAT_CHECK_CONTENT = (1 << 1),
+} qhat_check_flags_t;
+
+/** Perform a check on the structure of the HAT-Trie.
+ *
+ * \param[in] flags  Combination of values from \p qhat_check_flags_t.
+ *
+ * \return A negative value if a critical error is detected.
+ */
+int qhat_check_consistency_flags(qhat_t *hat, int flags,
+                                 bool *nullable is_suboptimal) __leaf;
+
+/** Same as running \p qhat_check_consistency_flags with flag
+ * \p QHAT_CHECK_CONTENT. */
+int qhat_check_consistency(qhat_t *hat, bool *nullable is_suboptimal) __leaf;
 
 /** Remove stored zeros from the trie.
  */
