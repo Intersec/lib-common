@@ -286,6 +286,20 @@ qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
                             qhat_node_const_memory_t memory, int c,
                             bool check_content, bool *nullable is_suboptimal);
 
+typedef struct qhat_node_check_ctx_t {
+    uint32_t key_from;
+    uint32_t key_to;
+    uint32_t depth;
+} qhat_node_check_ctx_t;
+
+static void qhat_node_check_ctx_print(int fd, data_t data)
+{
+    const qhat_node_check_ctx_t *ctx = data.ptr;
+
+    dprintf(fd, "node [%x -> %x] at depth %u", ctx->key_from, ctx->key_to,
+            ctx->depth);
+}
+
 static void
 qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
                       uint32_t to, uint32_t depth, qhat_node_t node,
@@ -294,6 +308,13 @@ qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
     qhat_node_const_memory_t memory;
     uint32_t key_from;
     uint32_t key_to;
+    qhat_node_check_ctx_t debug_ctx = {
+        .key_from = 0,
+        .key_to = 0,
+        .depth = depth,
+    };
+
+    debug_stack_scope(DATA_PTR(&debug_ctx), &qhat_node_check_ctx_print);
 
     if (!node.value) {
         return;
@@ -302,6 +323,9 @@ qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
     key_from = key | qhat_lshift(hat, from, depth);
     key_to   = key | qhat_lshift(hat, to - 1, depth);
     key_to  += qhat_lshift(hat, 1, depth) - 1;
+
+    debug_ctx.key_from = key_from;
+    debug_ctx.key_to = key_to;
 
     CRITICAL(qps_pg_is_in_range(hat->qps, node.page));
     memory.raw = qps_pg_deref(hat->qps, node.page);
