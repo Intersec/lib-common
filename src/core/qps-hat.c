@@ -286,9 +286,10 @@ bool qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
                                  qhat_node_const_memory_t memory, int c,
                                  bool check_content);
 
-static bool qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
-                                  uint32_t to, uint32_t depth, qhat_node_t node,
-                                  bool check_content)
+static __must_check__ bool
+qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
+                      uint32_t to, uint32_t depth, qhat_node_t node,
+                      bool check_content)
 {
     bool subopt = false;
     qhat_node_const_memory_t memory;
@@ -352,7 +353,8 @@ bool qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
         if (current.value == node.value) {
             continue;
         }
-        qhat_node_check_child(hat, key, from, i, depth, node, check_content);
+        SUBOPTIMAL(qhat_node_check_child(hat, key, from, i, depth, node,
+                                         check_content));
         node = current;
         from = i;
     }
