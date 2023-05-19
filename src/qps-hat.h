@@ -392,9 +392,8 @@ uint64_t qhat_compute_memory(qhat_t *hat);
  */
 uint64_t qhat_compute_memory_overhead(qhat_t *hat);
 
-/** Perform a check on the structure of the HAT-Trie.
- */
-bool qhat_check_consistency(qhat_t *hat) __leaf;
+/** Perform a check on the structure of the HAT-Trie. */
+void qhat_check_consistency(qhat_t *hat, bool *nullable is_suboptimal) __leaf;
 
 /** Remove stored zeros from the trie.
  */

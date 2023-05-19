@@ -24,8 +24,12 @@
 
 /* {{{ Z-Helpers */
 
-#define _CHECK_TRIE      do { \
-        Z_ASSERT(qhat_check_consistency(&trie));                             \
+#define _CHECK_TRIE                                                          \
+    do {                                                                     \
+        bool is_suboptimal;                                                  \
+                                                                             \
+        qhat_check_consistency(&trie, &is_suboptimal);                       \
+        Z_ASSERT(!is_suboptimal);                                            \
         Z_HELPER_RUN(check_leak(&trie));                                     \
     } while (0)
 #define CHECK_TRIE       if (!Z_HAS_MODE(FAST)) _CHECK_TRIE

@@ -213,26 +213,28 @@ static uint32_t qhat_get_key_bits(const qhat_t *hat, uint32_t key,
         }                                                                    \
     } while (0)
 
-#define SUBOPTIMAL(Cond)  if (!subopt) {                                     \
+#define SUBOPTIMAL(Cond)                                                     \
+    do {                                                                     \
         bool __cond = (Cond);                                                \
                                                                              \
         if (unlikely(!__cond)) {                                             \
             e_warning("tree is suboptimal: %s", #Cond);                      \
-            subopt = true;                                                   \
+            if (is_suboptimal) {                                             \
+                *is_suboptimal = true;                                       \
+            }                                                                \
         }                                                                    \
-    }
+    } while (0)
 
 
-static __must_check__
-bool qhat_flat_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
-                                 qhat_node_const_memory_t memory,
-                                 bool check_content)
+static void
+qhat_flat_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
+                            qhat_node_const_memory_t memory,
+                            bool check_content, bool *is_suboptimal)
 {
-    bool subopt = false;
     bool non_null = false;
 
     if (!check_content) {
-        return !subopt;
+        return;
     }
     for (uint32_t i = 0; i < hat->desc->leaves_per_flat; i++) {
 #define CASE(Size, Compact, Flat)                                            \
@@ -244,21 +246,20 @@ bool qhat_flat_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
 #undef CASE
     }
     SUBOPTIMAL(non_null);
-    return !subopt;
 }
 
-static __must_check__
-bool qhat_compact_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
-                                    qhat_node_const_memory_t memory,
-                                    bool check_content)
+static void
+qhat_compact_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
+                               qhat_node_const_memory_t memory,
+                               bool check_content,
+                               bool *nullable is_suboptimal)
 {
-    bool subopt = false;
     int64_t prev_key = -1;
 
     if (check_content) {
         SUBOPTIMAL(memory.compact->count > 0);
     } else if (memory.compact->count == 0) {
-        return !subopt;
+        return;
     }
 
     CRITICAL(memory.compact->count <= hat->desc->leaves_per_compact);
@@ -278,26 +279,24 @@ bool qhat_compact_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
 
         prev_key = k;
     }
-    return !subopt;
 }
 
-static __must_check__
-bool qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
-                                 qhat_node_const_memory_t memory, int c,
-                                 bool check_content);
+static void
+qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
+                            qhat_node_const_memory_t memory, int c,
+                            bool check_content, bool *nullable is_suboptimal);
 
-static __must_check__ bool
+static void
 qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
                       uint32_t to, uint32_t depth, qhat_node_t node,
-                      bool check_content)
+                      bool check_content, bool *nullable is_suboptimal)
 {
-    bool subopt = false;
     qhat_node_const_memory_t memory;
     uint32_t key_from;
     uint32_t key_to;
 
     if (!node.value) {
-        return !subopt;
+        return;
     }
 
     memory.raw = qps_pg_deref(hat->qps, node.page);
@@ -314,32 +313,29 @@ qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
         CRITICAL(memory.compact->parent_left == from);
         CRITICAL(memory.compact->parent_right == to);
 
-        SUBOPTIMAL(qhat_compact_check_consistency(hat, key_from, key_to,
-                                                  memory, check_content));
-    } else
-    if (node.leaf) {
+        qhat_compact_check_consistency(hat, key_from, key_to,
+                                       memory, check_content, is_suboptimal);
+    } else if (node.leaf) {
         CRITICAL(qps_pg_sizeof(hat->qps, node.page)
                  == hat->desc->value_len * hat->desc->leaves_per_flat / QHAT_SIZE);
         CRITICAL(to == from + 1);
-        SUBOPTIMAL(qhat_flat_check_consistency(hat, key_from, key_to,
-                                               memory, check_content));
+        qhat_flat_check_consistency(hat, key_from, key_to,
+                                    memory, check_content, is_suboptimal);
     } else {
         CRITICAL(qps_pg_sizeof(hat->qps, node.page) == 1);
         CRITICAL(to == from + 1);
-        SUBOPTIMAL(qhat_node_check_consistency(hat, key_from, depth + 1,
-                                               memory, QHAT_COUNT,
-                                               check_content));
+        qhat_node_check_consistency(hat, key_from, depth + 1,
+                                    memory, QHAT_COUNT, check_content,
+                                    is_suboptimal);
     }
-    return !subopt;
 }
 
 
-static __must_check__
-bool qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
-                                 qhat_node_const_memory_t memory, int c,
-                                 bool check_content)
+static void
+qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
+                            qhat_node_const_memory_t memory, int c,
+                            bool check_content, bool *nullable is_suboptimal)
 {
-    bool subopt = false;
     bool non_null = false;
     qhat_node_t node = QHAT_NULL_NODE;
     int from = 0;
@@ -353,37 +349,41 @@ bool qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
         if (current.value == node.value) {
             continue;
         }
-        SUBOPTIMAL(qhat_node_check_child(hat, key, from, i, depth, node,
-                                         check_content));
+        qhat_node_check_child(hat, key, from, i, depth, node,
+                              check_content, is_suboptimal);
         node = current;
         from = i;
     }
 
-    SUBOPTIMAL(qhat_node_check_child(hat, key, from, c, depth, node,
-                                     check_content));
+    qhat_node_check_child(hat, key, from, c, depth, node, check_content,
+                          is_suboptimal);
     if (check_content && c == QHAT_COUNT) {
         SUBOPTIMAL(non_null);
     }
-    return !subopt;
 }
 
 #undef CRITICAL
 #undef SUBOPTIMAL
 
-static
-bool qhat_check_consistency_(qhat_t *hat, bool check_content)
+static void
+qhat_check_consistency_(qhat_t *hat, bool check_content,
+                        bool *nullable is_suboptimal)
 {
     qhat_node_const_memory_t memory = { .nodes = hat->root->nodes };
 
-    return qhat_node_check_consistency(hat, 0, 0, memory,
-                                       hat->desc->root_node_count,
-                                       check_content);
+    if (is_suboptimal) {
+        *is_suboptimal = false;
+    }
+
+    qhat_node_check_consistency(hat, 0, 0, memory,
+                                hat->desc->root_node_count,
+                                check_content, is_suboptimal);
 }
 
-bool qhat_check_consistency(qhat_t *hat)
+void qhat_check_consistency(qhat_t *hat, bool *nullable is_suboptimal)
 {
     qps_hptr_deref(hat->qps, &hat->root_cache);
-    return qhat_check_consistency_(hat, true);
+    return qhat_check_consistency_(hat, true, is_suboptimal);
 }
 
 /* }}} */
