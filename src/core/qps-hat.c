@@ -374,7 +374,6 @@ bool qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
     return !subopt;
 }
 
-#undef CHECK
 #undef CRITICAL
 #undef SUBOPTIMAL
 
