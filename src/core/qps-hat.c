@@ -412,33 +412,33 @@ qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
                             int flags, bool *nullable is_suboptimal)
 {
     bool non_null = false;
-    qhat_node_t node = QHAT_NULL_NODE;
+    qhat_node_t previous = QHAT_NULL_NODE;
     int from = 0;
     int res = 0;
 
-    for (int i = 0; i < c; i++) {
-        qhat_node_t current = memory.nodes[i];
+    for (int i = 0; i <= c; i++) {
+        qhat_node_t current;
 
-        if (current.value) {
-            non_null = true;
+        if (i < c) {
+            current = memory.nodes[i];
+            if (current.value) {
+                non_null = true;
+            }
+            if (current.value == previous.value) {
+                continue;
+            }
+        } else {
+            current = QHAT_NULL_NODE;
         }
-        if (current.value == node.value) {
-            continue;
-        }
-        if (qhat_node_check_child(hat, key, from, i, depth, node, flags,
-                                  is_suboptimal) < 0)
+        if (qhat_node_check_child(hat, key, from, i, depth, previous,
+                                  flags, is_suboptimal) < 0)
         {
             res = -1;
         }
-        node = current;
+        previous = current;
         from = i;
     }
 
-    if (qhat_node_check_child(hat, key, from, c, depth, node, flags,
-                              is_suboptimal) < 0)
-    {
-        res = -1;
-    }
     if ((flags & QHAT_CHECK_CONTENT) && c == QHAT_COUNT) {
         SUBOPTIMAL(non_null);
     }
