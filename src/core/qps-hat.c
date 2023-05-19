@@ -299,10 +299,12 @@ qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
         return;
     }
 
-    memory.raw = qps_pg_deref(hat->qps, node.page);
     key_from = key | qhat_lshift(hat, from, depth);
     key_to   = key | qhat_lshift(hat, to - 1, depth);
     key_to  += qhat_lshift(hat, 1, depth) - 1;
+
+    CRITICAL(qps_pg_is_in_range(hat->qps, node.page));
+    memory.raw = qps_pg_deref(hat->qps, node.page);
 
     if (node.leaf && node.compact) {
 #define CASE(Size, Compact, Flat)  \
@@ -324,6 +326,7 @@ qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
     } else {
         CRITICAL(qps_pg_sizeof(hat->qps, node.page) == 1);
         CRITICAL(to == from + 1);
+        CRITICAL(depth < QHAT_DEPTH_MAX);
         qhat_node_check_consistency(hat, key_from, depth + 1,
                                     memory, QHAT_COUNT, check_content,
                                     is_suboptimal);
