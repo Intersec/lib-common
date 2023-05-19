@@ -253,39 +253,30 @@ bool qhat_compact_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
                                     bool check_content)
 {
     bool subopt = false;
-    uint32_t key;
+    int64_t prev_key = -1;
 
     if (check_content) {
         SUBOPTIMAL(memory.compact->count > 0);
-    } else
-    if (memory.compact->count == 0) {
+    } else if (memory.compact->count == 0) {
         return !subopt;
     }
 
     CRITICAL(memory.compact->count <= hat->desc->leaves_per_compact);
-    key = memory.compact->keys[0];
-    CRITICAL(key >= from);
-    CRITICAL(key <= to);
 
-    if (check_content) {
-#define CASE(Size, Compact, Flat)  SUBOPTIMAL(!IS_ZERO(Size, Compact->values[0]));
-        QHAT_VALUE_LEN_SWITCH(hat, memory, CASE);
-#undef CASE
-    }
-
-    for (uint32_t i = 1; i < memory.compact->count; i++) {
+    for (uint32_t i = 0; i < memory.compact->count; i++) {
         uint32_t k = memory.compact->keys[i];
 
-        CRITICAL(k > key);
+        CRITICAL(k > prev_key);
         CRITICAL(k >= from);
         CRITICAL(k <= to);
-        key = k;
 
         if (check_content) {
 #define CASE(Size, Compact, Flat)  SUBOPTIMAL(!IS_ZERO(Size, Compact->values[i]));
             QHAT_VALUE_LEN_SWITCH(hat, memory, CASE);
 #undef CASE
         }
+
+        prev_key = k;
     }
     return !subopt;
 }
