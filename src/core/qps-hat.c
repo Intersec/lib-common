@@ -208,7 +208,6 @@ static uint32_t qhat_get_key_bits(const qhat_t *hat, uint32_t key,
         bool __cond = (Cond);                                                \
                                                                              \
         if (unlikely(!__cond)) {                                             \
-            qhat_debug_print(hat, 0);                                        \
             e_panic("corrupted tree: %s", #Cond);                            \
         }                                                                    \
     } while (0)
