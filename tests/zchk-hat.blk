@@ -43,7 +43,7 @@ static int check_leak(qhat_t *hat)
 
     qps_roots_init(&roots);
     qhat_get_qps_roots(hat, &roots);
-    Z_ASSERT_ZERO(qps_check_leaks(hat->qps, &roots));
+    Z_ASSERT_N(qps_check_leaks(hat->qps, &roots));
     qps_roots_wipe(&roots);
     Z_HELPER_END;
 }
