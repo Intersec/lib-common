@@ -249,7 +249,7 @@ static void txt_debug_ctx_print(int fd, data_t data)
 
 static __must_check__ int
 qhat_flat_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
-                            qhat_node_const_memory_t memory,
+                            qhat_node_memory_t memory,
                             bool *is_suboptimal)
 {
     bool non_null = false;
@@ -270,7 +270,7 @@ qhat_flat_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
 
 static __must_check__ int
 qhat_compact_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
-                               qhat_node_const_memory_t memory,
+                               qhat_node_memory_t memory,
                                int flags,
                                bool *nullable is_suboptimal)
 {
@@ -308,7 +308,7 @@ qhat_compact_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
 
 static __must_check__ int
 qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
-                            qhat_node_const_memory_t memory, int c,
+                            qhat_node_memory_t memory, int c,
                             int flags, bool *nullable is_suboptimal);
 
 typedef struct qhat_node_check_ctx_t {
@@ -333,7 +333,7 @@ qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
                       uint32_t to, uint32_t depth, qhat_node_t node,
                       int flags, bool *nullable is_suboptimal)
 {
-    qhat_node_const_memory_t memory;
+    qhat_node_memory_t memory;
     uint32_t key_from;
     uint32_t key_to;
     qhat_node_check_ctx_t debug_ctx = {
@@ -408,7 +408,7 @@ qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
 
 static __must_check__ int
 qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
-                            qhat_node_const_memory_t memory, int c,
+                            qhat_node_memory_t memory, int c,
                             int flags, bool *nullable is_suboptimal)
 {
     bool non_null = false;
@@ -430,11 +430,30 @@ qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
         } else {
             current = QHAT_NULL_NODE;
         }
-        if (qhat_node_check_child(hat, key, from, i, depth, previous,
-                                  flags, is_suboptimal) < 0)
+        if (qhat_node_check_child(hat, key, from, i, depth, previous, flags,
+                                  is_suboptimal) < 0)
         {
-            res = -1;
+            if ((flags & QHAT_CHECK_REPAIR_NODES)) {
+                logger_notice(&hat->qps->logger,
+                              "removing broken node [%x -> %x] depth=%u",
+                              from, i, depth);
+                for (int pos = from; pos < i; pos++) {
+                    /* Not sure we can have several nodes to patch. I would
+                     * expect range of identical nodes to be all null. Should
+                     * be checked.
+                     */
+                    memory.nodes[pos] = QHAT_NULL_NODE;
+                }
+                hat->struct_gen++;
+                /* FIXME We should probably optimize the QHAT again because it
+                 * may be suboptimal now. */
+                /* FIXME If the QHAT has stats then they are probably outdated
+                 * now. */
+            } else {
+                res = -1;
+            }
         }
+
         previous = current;
         from = i;
     }
@@ -452,7 +471,7 @@ qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
 static int
 qhat_check_consistency_(qhat_t *hat, int flags, bool *nullable is_suboptimal)
 {
-    qhat_node_const_memory_t memory = { .nodes = hat->root->nodes };
+    qhat_node_memory_t memory = { .nodes = hat->root->nodes };
 
     if (is_suboptimal) {
         *is_suboptimal = false;
@@ -466,7 +485,11 @@ qhat_check_consistency_(qhat_t *hat, int flags, bool *nullable is_suboptimal)
 int qhat_check_consistency_flags(qhat_t *hat, int flags,
                                  bool *nullable is_suboptimal)
 {
-    qps_hptr_deref(hat->qps, &hat->root_cache);
+    if (flags & QHAT_CHECK_REPAIR_NODES) {
+        qps_hptr_w_deref(hat->qps, &hat->root_cache);
+    } else {
+        qps_hptr_deref(hat->qps, &hat->root_cache);
+    }
     return qhat_check_consistency_(hat, flags, is_suboptimal);
 }
 

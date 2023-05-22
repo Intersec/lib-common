@@ -922,6 +922,43 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(repair, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_node_memory_t memory;
+
+        Z_TEST_FLAGS("redmine_83283");
+
+        htrie = qhat_create(qps, 4, true);
+        qhat_init(&trie, qps, htrie);
+        for (int i = 0; i < 10000; i++) {
+            uint64_t *v;
+
+            v = qhat_set(&trie, i * 10000);
+            *v = i + 1;
+        }
+
+        memory = (qhat_node_memory_t){ .nodes = trie.root->nodes };
+        /* Break the QHAT. */
+        memory.nodes[1].page = 0xbbbbbbb;
+
+        /* Check that we detect that the QHAT is broken. */
+        Z_ASSERT_NEG(qhat_check_consistency_flags(&trie, QHAT_CHECK_FULL_SCAN,
+                                                  NULL));
+
+        /* Repair it. */
+        Z_ASSERT_N(qhat_check_consistency_flags(&trie,
+                                                QHAT_CHECK_FULL_SCAN |
+                                                QHAT_CHECK_REPAIR_NODES,
+                                                NULL));
+
+        /* The QHAT should be fixed now. */
+        Z_ASSERT_N(qhat_check_consistency_flags(&trie, QHAT_CHECK_FULL_SCAN,
+                                                NULL));
+        qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
 
     qps_close(&qps);
     MODULE_RELEASE(qps);
