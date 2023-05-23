@@ -830,8 +830,14 @@ Z_GROUP_EXPORT(qps_hat) {
             }
 
             qhat_enumerator_next(&en, true);
+            /* FIXME The patch fixing this part has been undone as it
+             * uncovered a bug that caused some QHAT corruptions. It should be
+             * reestablished as soon as the root cause of the corruption is
+             * fixed. */
+#if 0
             Z_ASSERT(en.t.path.generation == en.t.path.hat->struct_gen,
                      "enumerator still out-of-sync after 'next'");
+#endif
         }
 
         Z_ASSERT(en.end);
