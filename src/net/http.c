@@ -6510,7 +6510,7 @@ http2_conn_stream_active_httpc(http2_conn_t *w, httpc_t *httpc, int max_sz)
     if (http2_ctx->http2_sync_mark == 0) {
         return;
     }
-    assert(http2_ctx->http2_sync_mark <= w->ob.length);
+    assert(http2_ctx->http2_sync_mark <= httpc->ob.length);
     stream = http2_stream_get(w, stream_id);
     if (stream.info.flags & (STREAM_FLAG_CLOSED | STREAM_FLAG_RST_SENT)) {
         /* XXX: stream was already reset or closed and we still have some
