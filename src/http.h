@@ -940,6 +940,12 @@ typedef enum httpc_status_t {
     HTTPC_STATUS_EXP100CONT = -5,
 } httpc_status_t;
 
+/** Call this to get string associated to status.
+ *
+ * \param[in]  status      the status from which we want the string
+ */
+lstr_t httpc_status_to_str(httpc_status_t status);
+
 typedef struct httpc_qinfo_t {
     http_code_t  code;
     uint16_t     http_version;

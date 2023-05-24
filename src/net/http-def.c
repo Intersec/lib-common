@@ -89,3 +89,22 @@ lstr_t http_code_to_str(http_code_t code)
     }
     return LSTR("<unknown>");
 }
+
+lstr_t httpc_status_to_str(httpc_status_t status)
+{
+    switch (status) {
+    case HTTPC_STATUS_OK:
+        return LSTR("Ok");
+    case HTTPC_STATUS_INVALID:
+        return LSTR("Invalid");
+    case HTTPC_STATUS_ABORT:
+        return LSTR("Abort");
+    case HTTPC_STATUS_TOOLARGE:
+        return LSTR("Too large");
+    case HTTPC_STATUS_TIMEOUT:
+        return LSTR("Time out");
+    case HTTPC_STATUS_EXP100CONT:
+        return LSTR("Exp 100 cont");
+    }
+    return LSTR("<unknown>");
+}
