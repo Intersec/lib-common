@@ -5504,7 +5504,7 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
     if (w->is_conn_err_recv) {
         return http2_conn_do_error_recv(w);
     }
-    if (w->is_shutdown_commanded) {
+    if (w->is_shutdown_commanded && w->state != HTTP2_PARSE_SHUTDOWN_SENT) {
         http2_conn_send_shutdown(w, LSTR_EMPTY_V);
     }
     if (w->state == HTTP2_PARSE_SHUTDOWN_SENT) {
