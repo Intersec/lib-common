@@ -745,9 +745,9 @@ for (int i = 0; i < 99; i++) { /* good */
 }
 ----
 
-* Keep a single declaration per line. When no initilization is performed and no
-  pointer type is used, the declaration of several variables at once is allowed
-  but not adviced:
+* Keep a single declaration per line. When no initialization is performed and
+  no pointer type is used, the declaration of several variables at once is
+  allowed but not advised:
 
 [source,c]
 ----
@@ -768,7 +768,8 @@ int a, b = 0; /* bad */
 my_type_t a, b; /* bad */
 ----
 
-* Keep a single line per declaration
+* Keep a single line per declaration, unless the variable is const (because in
+  that case the assignation cannot be done after the declaration):
 
 [source,c]
 ----
@@ -791,12 +792,18 @@ my_type_t a, b; /* bad */
                                                  parameter3);                    /* bad */
 
 }
+
 {
     int variable;
 
     variable = long_fonction_with_parameters(parameter1, parameter2,
                                              parameter3);                       /* good */
 
+}
+
+{
+    const int const_variable =
+        long_function_which_does_not_fit_into_one_line();                        /* allowed */
 }
 ----
 
