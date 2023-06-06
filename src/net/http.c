@@ -1470,6 +1470,61 @@ httpd_cfg_t *httpd_cfg_init(httpd_cfg_t *cfg)
     return cfg;
 }
 
+static int
+httpd_ssl_alpn_select_protocol_cb(SSL *ssl, const unsigned char **out,
+                                  unsigned char *outlen,
+                                  const unsigned char *in, unsigned int inlen,
+                                  void *arg)
+{
+    http_mode_t mode = (intptr_t) arg;
+    const byte *http2_found = NULL;
+    const byte *http1_1_found = NULL;
+    const byte *http1_0_found = NULL;
+    bool look_for_h2 = mode == HTTP_MODE_USE_HTTP2_ONLY;
+    pstream_t ps;
+    const byte *chosen;
+
+    /* XXX: This cb is invoked for clients that propose multiple protocols
+     * (e.g., h2, http/1.1). Currently, we don't support HTTP version
+     * negotiation so, in HTTP/2 (TLS) mode, we look for h2 only. */
+
+    /* XXX: alpn protocol-list is a string of 8-bit length-prefixed byte
+     * substrings. */
+    ps = ps_init(in, inlen);
+    while (!ps_done(&ps)) {
+        int len = __ps_getc(&ps);
+
+        if (!ps_has(&ps, len)) {
+            break;
+        }
+        if (look_for_h2) {
+            if (len == 2 && ps_startswithstr(&ps, "h2")) {
+                http2_found = ps.b - 1;
+                break;
+            }
+        } else {
+            /* look for http/1.x */
+            if (len == 8 && ps_startswithstr(&ps, "http/1.1")) {
+                http1_1_found = ps.b - 1;
+                break;
+            }
+            if (len == 8 && ps_startswithstr(&ps, "http/1.0")) {
+                http1_0_found = ps.b - 1;
+                break;
+            }
+        }
+        __ps_skip(&ps, len);
+    }
+    chosen = http2_found ?: http1_1_found ?: http1_0_found;
+    if (chosen) {
+        *out = chosen + 1;
+        *outlen = *chosen;
+        return SSL_TLSEXT_ERR_OK;
+    }
+    return SSL_TLSEXT_ERR_NOACK;
+}
+
+
 int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
 {
     THROW_ERR_UNLESS(expect(!cfg->ssl_ctx));
@@ -1483,6 +1538,7 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
     cfg->header_size_max    = iop_cfg->header_size_max;
 
     if (iop_cfg->tls) {
+        SSL_CTX *ctx;
         core__tls_cert_and_key__t *data;
         SB_1k(errbuf);
 
@@ -1493,9 +1549,9 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
             logger_panic(&_G.logger, "TLS data are not provided");
         }
 
-        cfg->ssl_ctx = ssl_ctx_new_tls(TLS_server_method(),
-                                       data->key, data->cert, SSL_VERIFY_NONE,
-                                       NULL, &errbuf);
+        ctx = ssl_ctx_new_tls(TLS_server_method(), data->key, data->cert,
+                              SSL_VERIFY_NONE, NULL, &errbuf);
+        httpd_cfg_set_ssl_ctx(cfg, ctx);
         if (!cfg->ssl_ctx) {
             logger_fatal(&_G.logger, "couldn't initialize SSL_CTX: %*pM",
                          SB_FMT_ARG(&errbuf));
@@ -1515,6 +1571,19 @@ void httpd_cfg_wipe(httpd_cfg_t *cfg)
         cfg->ssl_ctx = NULL;
     }
     assert (dlist_is_empty(&cfg->httpd_list));
+}
+
+void httpd_cfg_set_ssl_ctx(httpd_cfg_t *nonnull cfg, SSL_CTX *nullable ctx)
+{
+    if (cfg->ssl_ctx) {
+        SSL_CTX_free(cfg->ssl_ctx);
+    }
+    cfg->ssl_ctx = ctx;
+    if (ctx) {
+        SSL_CTX_set_alpn_select_cb(cfg->ssl_ctx,
+                                   &httpd_ssl_alpn_select_protocol_cb,
+                                   (void *)cfg->mode);
+    }
 }
 
 static httpd_t *httpd_init(httpd_t *w)
@@ -2370,11 +2439,13 @@ static int (*httpc_parsers[])(httpc_t *w, pstream_t *ps) = {
 
 int httpc_cfg_tls_init(httpc_cfg_t *cfg, sb_t *err)
 {
+    SSL_CTX *ctx;
+
     assert (cfg->ssl_ctx == NULL);
 
-    cfg->ssl_ctx = ssl_ctx_new_tls(TLS_client_method(),
-                                   LSTR_NULL_V, LSTR_NULL_V,
-                                   SSL_VERIFY_PEER, NULL, err);
+    ctx = ssl_ctx_new_tls(TLS_client_method(), LSTR_NULL_V, LSTR_NULL_V,
+                          SSL_VERIFY_PEER, NULL, err);
+    httpc_cfg_set_ssl_ctx(cfg, ctx);
     return cfg->ssl_ctx ? 0 : -1;
 }
 
@@ -2462,6 +2533,21 @@ void httpc_cfg_wipe(httpc_cfg_t *cfg)
 {
     httpc_close_http2_pool(cfg);
     httpc_cfg_tls_wipe(cfg);
+}
+
+void httpc_cfg_set_ssl_ctx(httpc_cfg_t *nonnull cfg, SSL_CTX *nullable ctx)
+{
+    httpc_cfg_tls_wipe(cfg);
+    cfg->ssl_ctx = ctx;
+    /* XXX: Currently, we only propose h2 protocol in HTTP/2 (TLS) mode */
+    if (ctx && cfg->http_mode == HTTP_MODE_USE_HTTP2_ONLY) {
+        const byte alpn[] = "\x02h2";
+        unsigned int alpnlen = strlen((char *) alpn);
+
+        if (SSL_CTX_set_alpn_protos(cfg->ssl_ctx, alpn, alpnlen) != 0) {
+            logger_error(&_G.logger, "unable to set SSL ALPN protocols");
+        }
+    }
 }
 
 httpc_pool_t *httpc_pool_init(httpc_pool_t *pool)
@@ -3368,6 +3454,8 @@ static void http2_conn_wipe(http2_conn_t *w)
     sb_wipe(&w->ibuf);
     qm_wipe(qstream_info, &w->stream_info);
     assert(dlist_is_empty(&w->closed_stream_info));
+    SSL_free(w->ssl);
+    w->ssl = NULL;
     el_unregister(&w->ev);
 }
 
@@ -5541,17 +5629,57 @@ static int http2_conn_do_connect_error(http2_conn_t *w)
     return 0;
 }
 
+static int http2_tls_handshake(el_t evh, int fd, short events, data_t priv)
+{
+    http2_conn_t *w = priv.ptr;
+    int res = 0;
+
+    switch (ssl_do_handshake(w->ssl, evh, fd, NULL)) {
+    case SSL_HANDSHAKE_SUCCESS:
+        if (w->is_client) {
+            X509 *cert = SSL_get_peer_certificate(w->ssl);
+            if (unlikely(cert == NULL)) {
+                res = -1;
+                break;
+            }
+            X509_free(cert);
+        }
+        /* XXX: write the connection preamble to w->ob */
+        http2_conn_do_parse(w, false);
+        el_fd_set_mask(evh, POLLINOUT);
+        el_fd_set_hook(evh, http2_conn_on_event);
+        break;
+    case SSL_HANDSHAKE_PENDING:
+        break;
+    case SSL_HANDSHAKE_CLOSED:
+    case SSL_HANDSHAKE_ERROR:
+        res = -1;
+    }
+    if (res < 0) {
+        http2_conn_do_connect_error(w);
+    }
+    return res;
+}
+
 static int http2_on_connect(el_t evh, int fd, short events, data_t priv)
 {
     http2_conn_t *w = priv.ptr;
     int res;
 
+    assert(w->is_client);
     if (events == EL_EVENTS_NOACT) {
         http2_conn_do_connect_timeout(w);
         return -1;
     }
     res = socket_connect_status(fd);
     if (res > 0) {
+        if (w->ssl) {
+            SSL_set_fd(w->ssl, fd);
+            SSL_set_connect_state(w->ssl);
+            el_fd_set_hook(evh, &http2_tls_handshake);
+            el_fd_set_mask(evh, POLLINOUT);
+            return res;
+        }
         /* XXX: write the connection preamble to w->ob */
         http2_conn_do_parse(w, false);
         el_fd_set_hook(evh, http2_conn_on_event);
@@ -5625,14 +5753,19 @@ httpd_spawn_as_http2(int fd, sockunion_t *peer_su, httpd_cfg_t *cfg)
 {
     http2_server_t *w;
     http2_conn_t *conn;
+    el_fd_f *el_cb;
 
-    /* TODO: support SSL/TLS */
-    assert(!cfg->ssl_ctx);
+    el_cb = cfg->ssl_ctx ? &http2_tls_handshake : &http2_conn_on_event;
     conn = http2_conn_new();
+    if (cfg->ssl_ctx) {
+        conn->ssl = SSL_new(cfg->ssl_ctx);
+        SSL_set_fd(conn->ssl, fd);
+        SSL_set_accept_state(conn->ssl);
+   }
     conn->settings = http2_default_settings_g;
     cfg->nb_conns++;
     fd_set_features(fd, FD_FEAT_TCP_NODELAY);
-    conn->ev = el_fd_register(fd, true, POLLIN, &http2_conn_on_event, conn);
+    conn->ev = el_fd_register(fd, true, POLLIN, el_cb, conn);
     el_fd_watch_activity(conn->ev, POLLIN, cfg->noact_delay);
     w = http2_server_new();
     w->conn = conn;
@@ -6154,7 +6287,7 @@ static http2_pool_t *http2_pool_get(httpc_cfg_t *cfg)
 }
 
 static http2_conn_t *
-http2_conn_connect_client_as(const sockunion_t *su)
+http2_conn_connect_client_as(const sockunion_t *su, SSL_CTX *nullable ssl_ctx)
 {
     http2_conn_t *w;
     int flags = O_NONBLOCK | FD_FEAT_TCP_NODELAY;
@@ -6163,6 +6296,9 @@ http2_conn_connect_client_as(const sockunion_t *su)
     fd = RETHROW_NP(
         connectx_as(-1, su, 1, NULL, SOCK_STREAM, IPPROTO_TCP, flags, 0));
     w = http2_conn_new();
+    if (ssl_ctx) {
+        w->ssl = SSL_new(ssl_ctx);
+    }
     w->is_client = true;
     w->settings = http2_default_settings_g;
     w->ev = el_fd_register(fd, true, POLLOUT, &http2_on_connect, w);
@@ -6185,7 +6321,7 @@ http2_pool_get_client(httpc_cfg_t *cfg, const sockunion_t *peer_su)
         return pool->qclients.values[pos];
     }
 
-    w = http2_conn_connect_client_as(peer_su);
+    w = http2_conn_connect_client_as(peer_su, cfg->ssl_ctx);
     if (unlikely(!w)) {
         qm_del_at(qhttp2_clients, &pool->qclients, pos);
         return NULL;

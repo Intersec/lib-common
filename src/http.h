@@ -395,6 +395,8 @@ int httpd_cfg_from_iop(httpd_cfg_t * nonnull cfg,
 void httpd_cfg_wipe(httpd_cfg_t * nonnull cfg);
 DO_REFCNT(httpd_cfg_t, httpd_cfg);
 
+void httpd_cfg_set_ssl_ctx(httpd_cfg_t *nonnull cfg, SSL_CTX *nullable ctx);
+
 el_t nullable httpd_listen(sockunion_t * nonnull su, httpd_cfg_t * nonnull);
 void httpd_unlisten(el_t nullable * nonnull ev);
 httpd_t * nonnull httpd_spawn(int fd, httpd_cfg_t * nonnull);
@@ -759,6 +761,8 @@ int httpc_cfg_from_iop(httpc_cfg_t * nonnull cfg,
                        const struct core__httpc_cfg__t * nonnull iop_cfg);
 void httpc_cfg_wipe(httpc_cfg_t * nonnull cfg);
 DO_REFCNT(httpc_cfg_t, httpc_cfg);
+
+void httpc_cfg_set_ssl_ctx(httpc_cfg_t *nonnull cfg, SSL_CTX *nullable ctx);
 
 __must_check__
 int httpc_cfg_tls_init(httpc_cfg_t * nonnull cfg, sb_t * nonnull err);
