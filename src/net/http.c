@@ -6003,8 +6003,9 @@ static void http_get_http2_response_hdrs(pstream_t *chunk, lstr_t *code,
 }
 
 static void
-http2_conn_check_idle_httpd_invariants(http2_conn_t *w, httpd_t *httpd)
+http2_conn_assert_idle_httpd_invariants(httpd_t *nonnull httpd)
 {
+#ifndef NDEBUG
     assert(httpd->http2_ctx->http2_stream_id);
     /* don't support chunked httpd ob (yet) */
     assert(htlist_is_empty(&httpd->ob.chunks_list));
@@ -6012,12 +6013,13 @@ http2_conn_check_idle_httpd_invariants(http2_conn_t *w, httpd_t *httpd)
     assert(dlist_is_empty_or_singular(&httpd->query_list));
     if (ob_is_empty(&httpd->ob)) {
         /* no response was written yet */
-        httpd_query_t *q __unused__;
+        httpd_query_t *q;
 
         assert(dlist_is_singular(&httpd->query_list));
         q = dlist_first_entry(&httpd->query_list, httpd_query_t, query_link);
         assert(!q->parsed && !q->answered && !q->hdrs_done);
     }
+#endif
 }
 
 /* Stream the response of idle httpd (headers are not sent yet) */
@@ -6031,7 +6033,7 @@ static void http2_conn_stream_idle_httpd(http2_conn_t *w, httpd_t *httpd)
     int clen;
     httpd_http2_ctx_t *http2_ctx = httpd->http2_ctx;
 
-    http2_conn_check_idle_httpd_invariants(w, httpd);
+    http2_conn_assert_idle_httpd_invariants(httpd);
 
     if (ob_is_empty(&httpd->ob)) {
         /* httpd ob is empty: the current query is not answered yet. */
@@ -6059,13 +6061,15 @@ static void http2_conn_stream_idle_httpd(http2_conn_t *w, httpd_t *httpd)
 }
 
 static void
-http2_conn_check_active_httpd_invariants(http2_conn_t *w, httpd_t *httpd)
+http2_conn_assert_active_httpd_invariants(httpd_t *nonnull httpd)
 {
+#ifndef NDEBUG
     assert(httpd->http2_ctx->http2_stream_id);
     /* We don't support chunked httpd ob (yet) */
     assert(htlist_is_empty(&httpd->ob.chunks_list));
     /* We don't support chunked upstream responses yet */
     assert(httpd->http2_ctx->http2_sync_mark == httpd->ob.length);
+#endif
 }
 
 /** Stream the response of active httpd (payload sending).
@@ -6083,7 +6087,7 @@ http2_conn_stream_active_httpd(http2_conn_t *w, httpd_t *httpd, int max_sz)
 
     /* Calling code: max_sz must not exceed connection send window. */ 
     assert(max_sz <= w->send_window);
-    http2_conn_check_active_httpd_invariants(w, httpd);
+    http2_conn_assert_active_httpd_invariants(httpd);
 
     stream = http2_stream_get(w, stream_id);
     len = MIN3(http2_ctx->http2_sync_mark, stream.info.send_window, max_sz);
@@ -6428,9 +6432,10 @@ http_get_http2_request_hdrs(pstream_t *chunk, lstr_t *method, lstr_t *scheme,
 }
 
 static void
-http2_conn_check_attachable_httpc_invariants(http2_conn_t *w, httpc_t *httpc)
+http2_conn_assert_attachable_httpc_invariants(httpc_t *nonnull httpc)
 {
-    httpc_query_t *q __unused__;
+#ifndef NDEBUG
+    httpc_query_t *q;
 
     /* At least one query is attached, */
     assert(!dlist_is_empty(&httpc->query_list));
@@ -6442,6 +6447,7 @@ http2_conn_check_attachable_httpc_invariants(http2_conn_t *w, httpc_t *httpc)
     /* however, not yet streamed to HTTP/2, so, no response is received
      * (parsed) yet. */
     assert(httpc->state == HTTP_PARSER_IDLE);
+#endif
 }
 
 /* Attach an idle httpc (headers are not sent yet) to a HTTP/2 stream */
@@ -6458,7 +6464,7 @@ static void http2_stream_attach_httpc(http2_conn_t *w, httpc_t *httpc)
     pstream_t headerlines;
     int clen;
 
-    http2_conn_check_attachable_httpc_invariants(w, httpc);
+    http2_conn_assert_attachable_httpc_invariants(httpc);
 
     http2_ctx->http2_stream_id = http2_stream_get_idle(w);
     stream = http2_stream_get(w, http2_ctx->http2_stream_id);
