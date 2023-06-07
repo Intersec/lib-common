@@ -5071,9 +5071,9 @@ http2_conn_parse_goaway(http2_conn_t *w, pstream_t payload, uint8_t flags)
 
     STATIC_ASSERT(HTTP2_LEN_GOAWAY_PAYLOAD_MIN
                   == sizeof last_stream_id + sizeof error_code);
-    if (len < HTTP2_LEN_GOAWAY_PAYLOAD_MIN) {
-    }
-    if (ps_get_be32(&payload, &last_stream_id) < 0) {
+    if (len < HTTP2_LEN_GOAWAY_PAYLOAD_MIN
+        || ps_get_be32(&payload, &last_stream_id) < 0)
+    {
         goto size_error;
     }
     last_stream_id &= HTTP2_STREAM_ID_MASK;
