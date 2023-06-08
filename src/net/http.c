@@ -3745,7 +3745,6 @@ http2_conn_is_peer_stream_id(const http2_conn_t *w, uint32_t stream_id)
 
 
 /** Check if \p stream_id is a stream that can be initiated by the peer. */
-__unused__
 static int
 http2_conn_check_peer_stream_id(const http2_conn_t *w, uint32_t stream_id)
 {
@@ -3755,7 +3754,6 @@ http2_conn_check_peer_stream_id(const http2_conn_t *w, uint32_t stream_id)
 
 /** Return true if the \p stream_id is a peer stream that is still in its idle
  * state. */
-__unused__
 static bool
 http2_conn_peer_stream_id_is_idle(const http2_conn_t *w, uint32_t stream_id)
 {
