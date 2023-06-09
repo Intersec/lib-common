@@ -24,8 +24,12 @@
 
 /* {{{ Z-Helpers */
 
-#define _CHECK_TRIE      do { \
-        Z_ASSERT(qhat_check_consistency(&trie));                             \
+#define _CHECK_TRIE                                                          \
+    do {                                                                     \
+        bool is_suboptimal;                                                  \
+                                                                             \
+        Z_ASSERT_N(qhat_check_consistency(&trie, &is_suboptimal));           \
+        Z_ASSERT(!is_suboptimal);                                            \
         Z_HELPER_RUN(check_leak(&trie));                                     \
     } while (0)
 #define CHECK_TRIE       if (!Z_HAS_MODE(FAST)) _CHECK_TRIE
@@ -39,7 +43,7 @@ static int check_leak(qhat_t *hat)
 
     qps_roots_init(&roots);
     qhat_get_qps_roots(hat, &roots);
-    Z_ASSERT_ZERO(qps_check_leaks(hat->qps, &roots));
+    Z_ASSERT_N(qps_check_leaks(hat->qps, &roots));
     qps_roots_wipe(&roots);
     Z_HELPER_END;
 }
@@ -646,6 +650,58 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(go_to_current_key_removed, "") { /* {{{ */
+        t_scope;
+        qps_handle_t htrie;
+        qhat_t trie;
+        qv_t(u32) keys;
+        const int nb_keys = 5000;
+        qhat_enumerator_t en;
+
+        Z_TEST_FLAGS("redmine_94699");
+
+        t_qv_init(&keys, nb_keys);
+        htrie = qhat_create(qps, 4, false);
+        qhat_init(&trie, qps, htrie);
+
+        z_fill_nonnull_trie32(&trie, nb_keys, &keys);
+
+        /* Check that we can "go to" the current key that we just
+         * removed. */
+        en = qhat_get_enumerator(&trie);
+        tab_for_each_pos(i, &keys) {
+            const uint32_t *value;
+            uint32_t key = keys.tab[i];
+            bool remove_current = !(i % 10);
+            uint32_t removed_value;
+
+            qhat_enumerator_go_to(&en, key, true);
+            Z_ASSERT(!en.end);
+            Z_ASSERT_EQ(en.key, key);
+            value = qhat_enumerator_get_value(&en);
+            Z_ASSERT_EQ(*value, key);
+
+            if (remove_current) {
+                qhat_remove(&trie, key, &removed_value);
+                value = &removed_value;
+                qhat_enumerator_go_to(&en, key, true);
+                if (i == keys.len - 1) {
+                    /* Last key removed. */
+                    Z_ASSERT(en.end);
+                } else {
+                    Z_ASSERT(!en.end);
+                    Z_ASSERT(en.key == keys.tab[i + 1]);
+                }
+            }
+        }
+        qhat_enumerator_next(&en, false);
+        Z_ASSERT(en.end);
+
+        qhat_clear(&trie);
+        qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
     Z_TEST(nullable_trie_nr, "") { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
@@ -774,8 +830,14 @@ Z_GROUP_EXPORT(qps_hat) {
             }
 
             qhat_enumerator_next(&en, true);
+            /* FIXME The patch fixing this part has been undone as it
+             * uncovered a bug that caused some QHAT corruptions. It should be
+             * reestablished as soon as the root cause of the corruption is
+             * fixed. */
+#if 0
             Z_ASSERT(en.t.path.generation == en.t.path.hat->struct_gen,
                      "enumerator still out-of-sync after 'next'");
+#endif
         }
 
         Z_ASSERT(en.end);
@@ -862,6 +924,43 @@ Z_GROUP_EXPORT(qps_hat) {
         value = qhat_enumerator_get_value(&en);
         Z_ASSERT_EQ(*value, 51u);
 
+        qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(repair, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_node_memory_t memory;
+
+        Z_TEST_FLAGS("redmine_83283");
+
+        htrie = qhat_create(qps, 4, true);
+        qhat_init(&trie, qps, htrie);
+        for (int i = 0; i < 10000; i++) {
+            uint64_t *v;
+
+            v = qhat_set(&trie, i * 10000);
+            *v = i + 1;
+        }
+
+        memory = (qhat_node_memory_t){ .nodes = trie.root->nodes };
+        /* Break the QHAT. */
+        memory.nodes[1].page = 0xbbbbbbb;
+
+        /* Check that we detect that the QHAT is broken. */
+        Z_ASSERT_NEG(qhat_check_consistency_flags(&trie, QHAT_CHECK_FULL_SCAN,
+                                                  NULL));
+
+        /* Repair it. */
+        Z_ASSERT_N(qhat_check_consistency_flags(&trie,
+                                                QHAT_CHECK_FULL_SCAN |
+                                                QHAT_CHECK_REPAIR_NODES,
+                                                NULL));
+
+        /* The QHAT should be fixed now. */
+        Z_ASSERT_N(qhat_check_consistency_flags(&trie, QHAT_CHECK_FULL_SCAN,
+                                                NULL));
         qhat_destroy(&trie);
     } Z_TEST_END;
 

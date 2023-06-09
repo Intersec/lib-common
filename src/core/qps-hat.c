@@ -45,9 +45,9 @@
 //#define QHAT_CHECK_CONSISTENCY  1
 
 #ifdef QHAT_CHECK_CONSISTENCY
-#   define CHECK_CONSISTENCY(Hat, Data)  qhat_check_consistency_(Hat, Data)
+#   define CHECK_CONSISTENCY(Hat)  qhat_check_consistency_(Hat, 0, NULL, NULL)
 #else
-#   define CHECK_CONSISTENCY(Hat, Data)
+#   define CHECK_CONSISTENCY(Hat)
 #endif
 
 #define PATH_IN_PARENT_IDX(Path)  \
@@ -76,7 +76,7 @@
             qhat_debug_print(__hat, __flags);                                \
         }                                                                    \
         PATH_GENERATION_CHANGED(__path);                                     \
-        CHECK_CONSISTENCY(__path->hat, false);                               \
+        CHECK_CONSISTENCY(__path->hat);                                      \
     } while (0)
 
 #define MOVED_TO_NEW_FLAT(Path, Count)                                       \
@@ -204,36 +204,56 @@ static uint32_t qhat_get_key_bits(const qhat_t *hat, uint32_t key,
  */
 /* Check consistency {{{ */
 
-#define CRITICAL(Cond)  do {                                                 \
-        bool __cond = (Cond);                                                \
+static void txt_debug_ctx_print(int fd, data_t data)
+{
+    const sb_t *err_buf = data.ptr;
+
+    dprintf(fd, "%s", err_buf->data);
+}
+
+/* To call for critical conditions
+ * (eg. the QHAT is broken if they are unmet). */
+#define CRITICAL(cond, fmt, ...)                                             \
+    do {                                                                     \
+        bool __cond = (cond);                                                \
                                                                              \
         if (unlikely(!__cond)) {                                             \
-            qhat_debug_print(hat, 0);                                        \
-            e_panic("corrupted tree: %s", #Cond);                            \
+            SB_1k(critical_err);                                             \
+            debug_stack_scope(DATA_PTR(&critical_err),                       \
+                              &txt_debug_ctx_print);                         \
+                                                                             \
+            sb_setf(&critical_err, "critical error: condition " #cond        \
+                    " unmet, " fmt, ##__VA_ARGS__);                          \
+            debug_stack_dprint(fileno(stderr));                              \
+            fprintf(stderr, "\n");                                           \
+            if (flags & QHAT_CHECK_FULL_SCAN) {                              \
+                return -1;                                                   \
+            }                                                                \
+            logger_panic(&hat->qps->logger,                                  \
+                         "critical anomaly found, aborting");                \
         }                                                                    \
     } while (0)
 
-#define SUBOPTIMAL(Cond)  if (!subopt) {                                     \
+#define SUBOPTIMAL(Cond)                                                     \
+    do {                                                                     \
         bool __cond = (Cond);                                                \
                                                                              \
         if (unlikely(!__cond)) {                                             \
             e_warning("tree is suboptimal: %s", #Cond);                      \
-            subopt = true;                                                   \
+            if (is_suboptimal) {                                             \
+                *is_suboptimal = true;                                       \
+            }                                                                \
         }                                                                    \
-    }
+    } while (0)
 
 
-static __must_check__
-bool qhat_flat_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
-                                 qhat_node_const_memory_t memory,
-                                 bool check_content)
+static __must_check__ int
+qhat_flat_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
+                            qhat_node_memory_t memory,
+                            bool *is_suboptimal)
 {
-    bool subopt = false;
     bool non_null = false;
 
-    if (!check_content) {
-        return !subopt;
-    }
     for (uint32_t i = 0; i < hat->desc->leaves_per_flat; i++) {
 #define CASE(Size, Compact, Flat)                                            \
         if (!IS_ZERO(Size, Flat[i])) {                                       \
@@ -244,154 +264,239 @@ bool qhat_flat_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
 #undef CASE
     }
     SUBOPTIMAL(non_null);
-    return !subopt;
+
+    return 0;
 }
 
-static __must_check__
-bool qhat_compact_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
-                                    qhat_node_const_memory_t memory,
-                                    bool check_content)
+static __must_check__ int
+qhat_compact_check_consistency(qhat_t *hat, uint32_t from, uint32_t to,
+                               qhat_node_memory_t memory,
+                               int flags,
+                               bool *nullable is_suboptimal)
 {
-    bool subopt = false;
-    uint32_t key;
+    int64_t prev_key = -1;
 
-    if (check_content) {
+    if (flags & QHAT_CHECK_CONTENT) {
         SUBOPTIMAL(memory.compact->count > 0);
-    } else
-    if (memory.compact->count == 0) {
-        return !subopt;
+    } else if (memory.compact->count == 0) {
+        return 0;
     }
 
-    CRITICAL(memory.compact->count <= hat->desc->leaves_per_compact);
-    key = memory.compact->keys[0];
-    CRITICAL(key >= from);
-    CRITICAL(key <= to);
+    CRITICAL(memory.compact->count <= hat->desc->leaves_per_compact,
+             "compact overflow: %u > %u",
+             memory.compact->count, hat->desc->leaves_per_compact);
 
-    if (check_content) {
-#define CASE(Size, Compact, Flat)  SUBOPTIMAL(!IS_ZERO(Size, Compact->values[0]));
-        QHAT_VALUE_LEN_SWITCH(hat, memory, CASE);
-#undef CASE
-    }
-
-    for (uint32_t i = 1; i < memory.compact->count; i++) {
+    for (uint32_t i = 0; i < memory.compact->count; i++) {
         uint32_t k = memory.compact->keys[i];
 
-        CRITICAL(k > key);
-        CRITICAL(k >= from);
-        CRITICAL(k <= to);
-        key = k;
+        CRITICAL(k > prev_key, "bad key order: [%d]%jx >= [%d]%x",
+                 i - 1, prev_key, i, k);
+        CRITICAL(from <= k && k <= to, "key [%d]%u out of range [%x, %x]",
+                 i, k, from, to);
 
-        if (check_content) {
+        if (flags & QHAT_CHECK_CONTENT) {
 #define CASE(Size, Compact, Flat)  SUBOPTIMAL(!IS_ZERO(Size, Compact->values[i]));
             QHAT_VALUE_LEN_SWITCH(hat, memory, CASE);
 #undef CASE
         }
+
+        prev_key = k;
     }
-    return !subopt;
+
+    return 0;
 }
 
-static __must_check__
-bool qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
-                                 qhat_node_const_memory_t memory, int c,
-                                 bool check_content);
+static __must_check__ int
+qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
+                            qhat_node_memory_t memory, int c,
+                            int flags, bool *nullable is_suboptimal);
 
-static bool qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
-                                  uint32_t to, uint32_t depth, qhat_node_t node,
-                                  bool check_content)
-{
-    bool subopt = false;
-    qhat_node_const_memory_t memory;
+typedef struct qhat_node_check_ctx_t {
     uint32_t key_from;
     uint32_t key_to;
+    uint32_t depth;
+    bool is_leaf;
+    bool is_compact;
+} qhat_node_check_ctx_t;
+
+static void qhat_node_check_ctx_print(int fd, data_t data)
+{
+    const qhat_node_check_ctx_t *ctx = data.ptr;
+
+    dprintf(fd, "node [%x -> %x] at depth %u, is_leaf=%d, is_compact=%d",
+            ctx->key_from, ctx->key_to, ctx->depth, ctx->is_leaf,
+            ctx->is_compact);
+}
+
+static __must_check__ int
+qhat_node_check_child(qhat_t *hat, uint32_t key, uint32_t from,
+                      uint32_t to, uint32_t depth, qhat_node_t node,
+                      int flags, bool *nullable is_suboptimal)
+{
+    qhat_node_memory_t memory;
+    uint32_t key_from;
+    uint32_t key_to;
+    qhat_node_check_ctx_t debug_ctx = {
+        .key_from = 0,
+        .key_to = 0,
+        .depth = depth,
+        .is_leaf = node.leaf,
+        .is_compact = node.compact,
+    };
+    size_t page_sz;
+
+    debug_stack_scope(DATA_PTR(&debug_ctx), &qhat_node_check_ctx_print);
 
     if (!node.value) {
-        return !subopt;
+        return 0;
     }
 
-    memory.raw = qps_pg_deref(hat->qps, node.page);
     key_from = key | qhat_lshift(hat, from, depth);
     key_to   = key | qhat_lshift(hat, to - 1, depth);
     key_to  += qhat_lshift(hat, 1, depth) - 1;
 
+    debug_ctx.key_from = key_from;
+    debug_ctx.key_to = key_to;
+
+    CRITICAL(qps_pg_is_in_range(hat->qps, node.page),
+             "bad page number %x", node.page);
+    memory.raw = qps_pg_deref(hat->qps, node.page);
+
+    page_sz = qps_pg_sizeof(hat->qps, node.page);
     if (node.leaf && node.compact) {
-#define CASE(Size, Compact, Flat)  \
-        CRITICAL(qps_pg_sizeof(hat->qps, node.page) \
-                 == sizeof(*(Compact)) / QHAT_SIZE);
+        size_t exp_size;
+
+#define CASE(Size, Compact, Flat)                                            \
+        exp_size = sizeof(*(Compact)) / QHAT_SIZE;
+
         QHAT_VALUE_LEN_SWITCH(hat, memory, CASE);
 #undef CASE
-        CRITICAL(memory.compact->parent_left == from);
-        CRITICAL(memory.compact->parent_right == to);
 
-        SUBOPTIMAL(qhat_compact_check_consistency(hat, key_from, key_to,
-                                                  memory, check_content));
-    } else
-    if (node.leaf) {
-        CRITICAL(qps_pg_sizeof(hat->qps, node.page)
-                 == hat->desc->value_len * hat->desc->leaves_per_flat / QHAT_SIZE);
-        CRITICAL(to == from + 1);
-        SUBOPTIMAL(qhat_flat_check_consistency(hat, key_from, key_to,
-                                               memory, check_content));
+        CRITICAL(page_sz == exp_size, "bad page size for compact %zu != %zu",
+                 page_sz, exp_size);
+        CRITICAL(memory.compact->parent_left == from,
+                 "%u != %u", memory.compact->parent_left, from);
+        CRITICAL(memory.compact->parent_right == to,
+                 "%u != %u", memory.compact->parent_right, to);
+
+        RETHROW(qhat_compact_check_consistency(hat, key_from, key_to,
+                                               memory, flags, is_suboptimal));
+    } else if (node.leaf) {
+        size_t exp_size;
+
+        exp_size = hat->desc->value_len *
+            hat->desc->leaves_per_flat / QHAT_SIZE;
+        CRITICAL(page_sz == exp_size, "bad page size for flat %zu != %zu",
+                 page_sz, exp_size);
+        CRITICAL(to == from + 1, "to=%x, from=%x", to, from);
+        if (flags & QHAT_CHECK_CONTENT && is_suboptimal) {
+            RETHROW(qhat_flat_check_consistency(hat, key_from, key_to, memory,
+                                                is_suboptimal));
+        }
     } else {
-        CRITICAL(qps_pg_sizeof(hat->qps, node.page) == 1);
-        CRITICAL(to == from + 1);
-        SUBOPTIMAL(qhat_node_check_consistency(hat, key_from, depth + 1,
-                                               memory, QHAT_COUNT,
-                                               check_content));
+        CRITICAL(page_sz == 1, "bad page size for node, %zu != 1", page_sz);
+        CRITICAL(to == from + 1, "to=%x, from=%x", to, from);
+        CRITICAL(depth < QHAT_DEPTH_MAX, "depth=%u", depth);
+        RETHROW(qhat_node_check_consistency(hat, key_from, depth + 1,
+                                            memory, QHAT_COUNT, flags,
+                                            is_suboptimal));
     }
-    return !subopt;
+
+    return 0;
 }
 
 
-static __must_check__
-bool qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
-                                 qhat_node_const_memory_t memory, int c,
-                                 bool check_content)
+static __must_check__ int
+qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
+                            qhat_node_memory_t memory, int c,
+                            int flags, bool *nullable is_suboptimal)
 {
-    bool subopt = false;
     bool non_null = false;
-    qhat_node_t node = QHAT_NULL_NODE;
+    qhat_node_t previous = QHAT_NULL_NODE;
     int from = 0;
+    int res = 0;
 
-    for (int i = 0; i < c; i++) {
-        qhat_node_t current = memory.nodes[i];
+    for (int i = 0; i <= c; i++) {
+        qhat_node_t current;
 
-        if (current.value) {
-            non_null = true;
+        if (i < c) {
+            current = memory.nodes[i];
+            if (current.value) {
+                non_null = true;
+            }
+            if (current.value == previous.value) {
+                continue;
+            }
+        } else {
+            current = QHAT_NULL_NODE;
         }
-        if (current.value == node.value) {
-            continue;
+        if (qhat_node_check_child(hat, key, from, i, depth, previous, flags,
+                                  is_suboptimal) < 0)
+        {
+            if ((flags & QHAT_CHECK_REPAIR_NODES)) {
+                logger_notice(&hat->qps->logger,
+                              "removing broken node [%x -> %x] depth=%u",
+                              from, i, depth);
+                for (int pos = from; pos < i; pos++) {
+                    /* Not sure we can have several nodes to patch. I would
+                     * expect range of identical nodes to be all null. Should
+                     * be checked.
+                     */
+                    memory.nodes[pos] = QHAT_NULL_NODE;
+                }
+                hat->struct_gen++;
+                /* FIXME We should probably optimize the QHAT again because it
+                 * may be suboptimal now. */
+                /* FIXME If the QHAT has stats then they are probably outdated
+                 * now. */
+            } else {
+                res = -1;
+            }
         }
-        qhat_node_check_child(hat, key, from, i, depth, node, check_content);
-        node = current;
+
+        previous = current;
         from = i;
     }
 
-    SUBOPTIMAL(qhat_node_check_child(hat, key, from, c, depth, node,
-                                     check_content));
-    if (check_content && c == QHAT_COUNT) {
+    if ((flags & QHAT_CHECK_CONTENT) && c == QHAT_COUNT) {
         SUBOPTIMAL(non_null);
     }
-    return !subopt;
+
+    return res;
 }
 
-#undef CHECK
 #undef CRITICAL
 #undef SUBOPTIMAL
 
-static
-bool qhat_check_consistency_(qhat_t *hat, bool check_content)
+static int
+qhat_check_consistency_(qhat_t *hat, int flags, bool *nullable is_suboptimal)
 {
-    qhat_node_const_memory_t memory = { .nodes = hat->root->nodes };
+    qhat_node_memory_t memory = { .nodes = hat->root->nodes };
+
+    if (is_suboptimal) {
+        *is_suboptimal = false;
+    }
 
     return qhat_node_check_consistency(hat, 0, 0, memory,
                                        hat->desc->root_node_count,
-                                       check_content);
+                                       flags, is_suboptimal);
 }
 
-bool qhat_check_consistency(qhat_t *hat)
+int qhat_check_consistency_flags(qhat_t *hat, int flags,
+                                 bool *nullable is_suboptimal)
 {
-    qps_hptr_deref(hat->qps, &hat->root_cache);
-    return qhat_check_consistency_(hat, true);
+    if (flags & QHAT_CHECK_REPAIR_NODES) {
+        qps_hptr_w_deref(hat->qps, &hat->root_cache);
+    } else {
+        qps_hptr_deref(hat->qps, &hat->root_cache);
+    }
+    return qhat_check_consistency_(hat, flags, is_suboptimal);
+}
+
+int qhat_check_consistency(qhat_t *hat, bool *nullable is_suboptimal)
+{
+    return qhat_check_consistency_flags(hat, QHAT_CHECK_CONTENT,
+                                        is_suboptimal);
 }
 
 /* }}} */
@@ -1318,8 +1423,14 @@ void qhat_fix_stored0(qhat_t *hat)
 const void *
 qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en)
 {
+    /* FIXME The patch fixing this part has been undone as it
+     * uncovered a bug that caused some QHAT corruptions. It should be
+     * reestablished as soon as the root cause of the corruption is
+     * fixed. */
+#if 0
     /* The caller should probably have used the safe version. */
     assert(en->path.generation == en->path.hat->struct_gen);
+#endif
 
     /* If this assert fails, then it means that returned value isn't the value
      * associated to the current key, probably because of changes in the trie.
@@ -1383,7 +1494,7 @@ qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe)
 
 /* Find the key associated to the current position of the enumerator.
  * Update the attribute 'key' or end the enumerator. */
-void qhat_tree_enumerator_find_entry(qhat_tree_enumerator_t *en)
+static void qhat_tree_enumerator_find_entry(qhat_tree_enumerator_t *en)
 {
     qhat_t  *hat     = en->path.hat;
     uint32_t new_key = en->path.key;
@@ -1418,8 +1529,8 @@ void qhat_tree_enumerator_find_entry(qhat_tree_enumerator_t *en)
     qhat_tree_enumerator_dispatch_up(en, en->path.key, new_key);
 }
 
-void qhat_tree_enumerator_find_entry_from(qhat_tree_enumerator_t *en,
-                                          uint32_t key)
+static void qhat_tree_enumerator_find_entry_from(qhat_tree_enumerator_t *en,
+                                                 uint32_t key)
 {
     if (en->compact) {
         en->pos = qhat_compact_lookup(en->memory.compact, en->pos, key);
@@ -1430,8 +1541,15 @@ void qhat_tree_enumerator_find_entry_from(qhat_tree_enumerator_t *en,
     qhat_tree_enumerator_find_entry(en);
 }
 
-void qhat_tree_enumerator_find_down_up(qhat_tree_enumerator_t *en,
-                                       uint32_t key)
+/* Guaranteed to either enter a leaf or end the enumerator. */
+static void qhat_tree_enumerator_find_up_down(qhat_tree_enumerator_t *en,
+                                              uint32_t key)
+{
+    qhat_tree_enumerator_find_root(en, key);
+}
+
+static void qhat_tree_enumerator_find_down_up(qhat_tree_enumerator_t *en,
+                                              uint32_t key)
 {
     qhat_t  *hat        = en->path.hat;
     uint32_t last_key   = en->path.key;
@@ -1518,12 +1636,16 @@ void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
     /* The tree enumerator should only go forward. */
     assert(key >= en->key);
 
-    /* FIXME This check doesn't handle the case (with safe==true) where the
-     * current key was removed so it has to go the the next key. */
-    if (en->end || key <= en->key) {
+    if (en->end) {
         return;
     }
-    if (key == en->key + 1) {
+    if (key == en->key) {
+        if (!safe) {
+            /* The key is already the current one and the qhat is not supposed
+             * to have changed. Nothing to do. */
+            return;
+        }
+    } else if (key == en->key + 1) {
         qhat_tree_enumerator_next(en, safe);
         return;
     }
@@ -1594,6 +1716,11 @@ qhat_enumerator_t qhat_get_enumerator_at(qhat_t *trie, uint32_t key)
         en.is_nullable = false;
     }
     return en;
+}
+
+qhat_enumerator_t qhat_get_enumerator(qhat_t *trie)
+{
+    return qhat_get_enumerator_at(trie, 0);
 }
 
 void qhat_enumerator_go_to(qhat_enumerator_t *en, uint32_t key, bool safe)
@@ -1706,9 +1833,13 @@ void qhat_tree_enumerator_find_root(qhat_tree_enumerator_t *en, uint32_t key)
     uint32_t root = qhat_get_key_bits(hat, key, 0);
     ssize_t  i;
 
+    /* FIXME Redmine #94699: this generation update unveil a bug that still
+     * needs to be investigated. */
+#if 0
     /* We're going to refresh the whole path so the structure generation can
      * be updated. */
     en->path.generation = hat->struct_gen;
+#endif
 
     en->path.depth = 0;
     en->path.key   = 0;

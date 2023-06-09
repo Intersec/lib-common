@@ -3208,7 +3208,7 @@ static int qps_report_pgerr(qps_t *qps, qps_pg_t pg, bool leak)
     return 1;
 }
 
-bool qps_check_leaks(qps_t *qps, qps_roots_t *roots)
+int qps_check_leaks(qps_t *qps, qps_roots_t *roots)
 {
     qps_roots_t actual_roots;
     int pos, leakh = 0, leakp = 0;
@@ -3260,7 +3260,10 @@ bool qps_check_leaks(qps_t *qps, qps_roots_t *roots)
         logger_error(&qps->logger, "leak: %d pages among %d", leakp,
                      actual_roots.pages.len);
     }
-    return leakh + leakp;
+
+    THROW_ERR_IF(leakh);
+    THROW_ERR_IF(leakp);
+    return 0;
 }
 
 void qps_get_usage(const qps_t *qps, struct qps_stats *st)

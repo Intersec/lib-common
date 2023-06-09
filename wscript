@@ -364,6 +364,11 @@ def configure(ctx):
     ctx.env.append_unique('INCLUDES_python3', py_includes)
     ctx.env.append_unique('INCLUDES_python3_embed', py_includes)
 
+    py_prefix = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--prefix'])
+    py_prefix_lib = py_prefix.strip() + '/lib'
+    ctx.env.append_unique('RPATH_python3', py_prefix_lib)
+    ctx.env.append_unique('RPATH_python3_embed', py_prefix_lib)
+
     py_ldflags = ctx.cmd_and_log(ctx.env.PYTHON3_CONFIG + ['--ldflags'])
     py_ldflags = shlex.split(py_ldflags)
     ctx.env.append_unique('LDFLAGS_python3', py_ldflags)
@@ -465,6 +470,5 @@ def build(ctx):
         'examples',
         'tests',
     ])
-
 
 # }}}

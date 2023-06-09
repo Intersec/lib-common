@@ -422,6 +422,14 @@ qps_pg_t qps_pg_of(const void *ptr_)
     return (map->hdr.mapno << 16) | (ptr & QPS_MAP_MASK) >> QPS_PAGE_SHIFT;
 }
 
+/* Check for broken page number. */
+static ALWAYS_INLINE
+bool qps_pg_is_in_range(const qps_t *qps, qps_pg_t pg)
+{
+    int idx = pg >> 16;
+    return idx < qps->maps.len;
+}
+
 static ALWAYS_INLINE
 void *qps_pg_deref(const qps_t *qps, qps_pg_t pg)
 {
@@ -554,7 +562,14 @@ void qps_roots_wipe(qps_roots_t *roots)
 }
 GENERIC_DELETE(qps_roots_t, qps_roots);
 
-bool qps_check_leaks(qps_t *qps, qps_roots_t *roots);
+/** Check QPS for pages and handles non referenced in roots.
+ *
+ * How to use it ? The user layer should list all the QPS pages and handled it
+ * uses, then call \p qps_check_leaks().
+ *
+ * \return A negative value in case of leak detection.
+ */
+int qps_check_leaks(qps_t *qps, qps_roots_t *roots);
 
 /* }}} */
 /** \} */

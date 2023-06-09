@@ -33,7 +33,6 @@
 
 #include "zchk-iop.h"
 #include "iop/tstiop.iop.h"
-#include "iop/tstiop2.iop.h"
 #include "iop/tstiop_dox.iop.h"
 #include "iop/tstiop_dox_invalid_example_struct.iop.h"
 #include "iop/tstiop_dox_invalid_example_rpc.iop.h"

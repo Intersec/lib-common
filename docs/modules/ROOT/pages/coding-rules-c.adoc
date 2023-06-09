@@ -745,30 +745,36 @@ for (int i = 0; i < 99; i++) { /* good */
 }
 ----
 
-* Keep a single declaration per line. When no initilization is performed and no
-  pointer type is used, the declaration of several variables at once is allowed
-  but not adviced:
+* Keep a single declaration per line. When no initialization is performed and
+  pointers aren't mixed with non-pointers variables, the declaration of
+  several variables on the same line is allowed when meaningful (i.e. when all
+  variables are used similarly in the code and you want to emphasize it), but
+  should generally be avoided:
 
 [source,c]
 ----
 int a = 0, b = 0; /* bad */
 
-int *a, b; /* bad */
+int *a,  b; /* bad */
+int  a,  b; /* allowed */
+int *a, *b; /* allowed */
 
 int *a, /* bad */
     *b;
 
-int *a; /* good */
-int *b;
-
-int a, b; /* allowed */
+int a; /* good */
+int b;
 
 int a, b = 0; /* bad */
 
-my_type_t a, b; /* bad */
+my_type_t a, b; /* allowed */
+
+my_type_t a; /* preferred */
+my_type_t b;
 ----
 
-* Keep a single line per declaration
+* Keep a single line per declaration, unless the variable is const (because in
+  that case the assignation cannot be done after the declaration):
 
 [source,c]
 ----
@@ -791,12 +797,18 @@ my_type_t a, b; /* bad */
                                                  parameter3);                    /* bad */
 
 }
+
 {
     int variable;
 
     variable = long_fonction_with_parameters(parameter1, parameter2,
                                              parameter3);                       /* good */
 
+}
+
+{
+    const int const_variable =
+        long_function_which_does_not_fit_into_one_line();                        /* allowed */
 }
 ----
 
@@ -810,8 +822,7 @@ const char *var_name; /* good */
 int fun(char * foo);  /* bad */
 char* baz;            /* bad */
 
-char *p, *q;          /* good, or not so good because you should declare them
-                         on separate lines… */
+char *p, *q;          /* good */
 ----
 
 * When the deepest type is const, we put `const` front, especially for `const

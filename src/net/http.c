@@ -5552,6 +5552,8 @@ static int http2_on_connect(el_t evh, int fd, short events, data_t priv)
     }
     res = socket_connect_status(fd);
     if (res > 0) {
+        /* XXX: write the connection preamble to w->ob */
+        http2_conn_do_parse(w, false);
         el_fd_set_hook(evh, http2_conn_on_event);
         el_fd_set_mask(w->ev, POLLINOUT);
         el_fd_watch_activity(w->ev, POLLINOUT, 0);

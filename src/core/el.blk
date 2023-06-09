@@ -1404,7 +1404,7 @@ int el_fd_watch_activity(el_t ev, short mask, int timeout)
     return res;
 }
 
-int el_fds_loop(ev_t **evs, int count, int timeout, unsigned flags)
+int el_fds_loop(ev_t **evs, int count, int timeout, ev_fd_loop_flags_t flags)
 {
     struct pollfd pfd[count];
     int res;
@@ -1456,7 +1456,7 @@ int el_fds_loop(ev_t **evs, int count, int timeout, unsigned flags)
     return has_fired ? 1 : 0;
 }
 
-int el_fd_loop(ev_t *ev, int timeout, unsigned flags)
+int el_fd_loop(ev_t *ev, int timeout, ev_fd_loop_flags_t flags)
 {
     return el_fds_loop(&ev, 1, timeout, flags);
 }

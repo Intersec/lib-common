@@ -228,7 +228,7 @@ typedef void (debug_stack_cb_f)(int fd, data_t data);
  *                 crash. See \p debug_stack_cb_f.
  */
 #define debug_stack_scope(_data, _cb)                                        \
-    data_t __func__##_debug_##__LINE__                                       \
+    data_t PFX_LINE(debug_stack_)                                            \
     __attribute__((unused, cleanup(debug_stack_pop))) =                      \
     debug_stack_push(__func__, __FILE__, __LINE__, (_data), (_cb))
 
@@ -240,6 +240,9 @@ void debug_stack_pop(data_t *nonnull priv);
 
 /** Append user debug info into .debug file. */
 int _debug_stack_print(const char *nonnull path);
+
+/** Write the content of the debug stack to a given file descriptor. */
+void debug_stack_dprint(int fd);
 
 /* }}} */
 
