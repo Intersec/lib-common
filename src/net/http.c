@@ -3843,11 +3843,6 @@ http2_closed_stream_info_create(http2_conn_t *w, const http2_stream_t *stream)
     w->closed_streams_info_cnt++;
 }
 
-static void
-http2_stream_do_update_info(http2_conn_t *w, http2_stream_t *stream)
-{
-}
-
 static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
                                       unsigned events)
 {
@@ -4191,7 +4186,6 @@ http2_stream_send_response_headers(http2_conn_t *w, http2_stream_t *stream,
     if (eos) {
         http2_stream_do_on_events(w, stream, STREAM_FLAG_EOS_SENT);
     }
-    http2_stream_do_update_info(w, stream);
 }
 
 static bool
@@ -4248,7 +4242,6 @@ http2_stream_send_request_headers(http2_conn_t *w, http2_stream_t *stream,
     events = STREAM_FLAG_INIT_HDRS | (eos ? STREAM_FLAG_EOS_SENT : 0);
     http2_stream_do_on_events(w, stream, events);
     stream->info.ctx.httpc_ctx = httpc_ctx;
-    http2_stream_do_update_info(w, stream);
 }
 
 static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
@@ -4262,19 +4255,16 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
     if (eos) {
         http2_stream_do_on_events(w, stream, STREAM_FLAG_EOS_SENT);
     }
-    http2_stream_do_update_info(w, stream);
 }
 
 #define http2_stream_send_reset(w, stream, fmt, ...)                         \
     do {                                                                     \
         http2_stream_error(w, stream, PROTOCOL_ERROR, fmt, ##__VA_ARGS__);   \
-        http2_stream_do_update_info(w, stream);                              \
     } while (0)
 
 #define http2_stream_send_reset_cancel(w, stream, fmt, ...)                  \
     do {                                                                     \
         http2_stream_error(w, stream, CANCEL, fmt, ##__VA_ARGS__);           \
-        http2_stream_do_update_info(w, stream);                              \
     } while (0)
 
 /* }}} */
@@ -4366,7 +4356,6 @@ http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
     }
     RETHROW(http2_stream_consume_recv_window(w, stream,
                                              initial_payload_len));
-    http2_stream_do_update_info(w, stream);
     if (!(flags & STREAM_FLAG_RST_SENT)) {
         http2_stream_on_data(w, stream, ctx, data, eos);
     }
@@ -4443,7 +4432,6 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
         }
         http2_stream_error(w, stream, PROTOCOL_ERROR,
                            "HEADERS with invalid HTTP headers");
-        http2_stream_do_update_info(w, stream);
         http2_stream_on_reset(w, stream, ctx, false);
         return 0;
     }
@@ -4455,7 +4443,6 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
     }
     if (events) {
         http2_stream_do_on_events(w, stream, events);
-        http2_stream_do_update_info(w, stream);
     } else {
         assert(flags);
     }
@@ -4463,7 +4450,6 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
         http2_stream_error(
             w, stream, REFUSED_STREAM,
             "server is finalizing, no more stream is accepted");
-        http2_stream_do_update_info(w, stream);
         http2_stream_on_reset(w, stream, ctx, false);
     }
     if (!(flags & STREAM_FLAG_RST_SENT)) {
@@ -4514,12 +4500,10 @@ http2_stream_do_recv_rst_stream(http2_conn_t *w, uint32_t stream_id,
                            "RST_STREAM ingored (rst sent already) [code %u]",
                            error_code);
         http2_stream_do_on_events(w, stream, STREAM_FLAG_RST_RECV);
-        http2_stream_do_update_info(w, stream);
         return 0;
     }
     http2_stream_do_on_events(w, stream, STREAM_FLAG_RST_RECV);
     http2_stream_on_reset(w, stream, ctx, true);
-    http2_stream_do_update_info(w, stream);
     return 0;
 }
 
@@ -4564,7 +4548,6 @@ http2_stream_do_recv_push_promise(http2_conn_t *w, uint32_t stream_id,
     promised->info.flags |= STREAM_FLAG_PSH_RECV;
     http2_stream_error(w, promised, REFUSED_STREAM,
                        "refuse push promise (not supported)");
-    http2_stream_do_update_info(w, promised);
     return 0;
 }
 
@@ -4588,7 +4571,6 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
     if (!incr) {
         http2_stream_error(w, stream, PROTOCOL_ERROR,
                            "frame error: WINDOW_UPDATE with 0 increment");
-        http2_stream_do_update_info(w, stream);
         return 0;
     }
     if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
@@ -4603,14 +4585,12 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
             "flow control: WINDOW_UPDATE cannot increment send-window beyond "
             "limit [cur %d, incr %d, new %jd]",
             stream->info.send_window, incr, new_size);
-        http2_stream_do_update_info(w, stream);
         return 0;
     }
     http2_stream_trace(w, stream, 2,
                        "send-window incremented [new size %lld, incr %d]",
                        (long long)new_size, incr);
     stream->info.send_window += incr;
-    http2_stream_do_update_info(w, stream);
     return 0;
 }
 
@@ -5871,7 +5851,6 @@ http2_stream_on_headers_server(http2_conn_t *conn, http2_stream_t *stream,
         assert(!stream->info.ctx.httpd);
         httpd = httpd_spawn_as_http2_stream(server, stream->id);
         stream->info.ctx.httpd = httpd;
-        http2_stream_do_update_info(conn, stream);
     }
     if (httpd_unpack_http2_headers(httpd, info, headerlines, eos) < 0) {
         goto malformed_err;
