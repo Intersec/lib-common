@@ -3294,21 +3294,17 @@ typedef union http2_stream_ctx_t {
     httpd_t *httpd;
 } http2_stream_ctx_t;
 
-typedef struct http2_stream_info_t {
-    http2_stream_ctx_t  ctx;
-    int32_t             recv_window;
-    int32_t             send_window;
-    uint8_t             flags;
-} http2_stream_info_t;
-
 typedef struct http2_conn_t http2_conn_t;
 
 typedef struct http2_stream_t {
     http2_conn_t *conn;
     uint32_t remove : 1;
     uint32_t id : 31;
-    http2_stream_info_t info;
     dlist_t link;
+    http2_stream_ctx_t ctx;
+    int32_t recv_window;
+    int32_t send_window;
+    uint8_t flags;
 } http2_stream_t;
 
 static http2_stream_t *http2_stream_init(http2_stream_t *stream);
@@ -3815,7 +3811,7 @@ static http2_stream_t *http2_stream_get(http2_conn_t *w, uint32_t stream_id)
         /* stream is idle<UNTRACKED> */
     } else {
         /* stream is closed<UNTRACKED> */
-        stream->info.flags = STREAM_FLAG_CLOSED;
+        stream->flags = STREAM_FLAG_CLOSED;
     }
     return stream;
 }
@@ -3846,7 +3842,7 @@ http2_closed_stream_info_create(http2_conn_t *w, const http2_stream_t *stream)
 static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
                                       unsigned events)
 {
-    unsigned flags = stream->info.flags;
+    unsigned flags = stream->flags;
 
     assert(events);
     assert(!(flags & STREAM_FLAG_CLOSED));
@@ -3879,9 +3875,9 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
         } else {
             w->server_streams = new_nb_streams;
         }
-        stream->info.flags = events;
-        stream->info.recv_window = http2_get_settings(w).initial_window_size;
-        stream->info.send_window = w->peer_settings.initial_window_size;
+        stream->flags = events;
+        stream->recv_window = http2_get_settings(w).initial_window_size;
+        stream->send_window = w->peer_settings.initial_window_size;
         qm_replace(qstream, &w->streams, stream->id, stream);
         return;
     }
@@ -3889,7 +3885,7 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
         if (flags & STREAM_FLAG_EOS_SENT) {
             http2_stream_trace(w, stream, 2, "stream closed [eos recv]");
             stream->remove = true;
-            p_clear(&stream->info.ctx, 1);
+            p_clear(&stream->ctx, 1);
         } else {
             http2_stream_trace(w, stream, 2, "stream half closed (remote)");
         }
@@ -3897,22 +3893,22 @@ static void http2_stream_do_on_events(http2_conn_t *w, http2_stream_t *stream,
         if (flags & STREAM_FLAG_EOS_RECV) {
             http2_stream_trace(w, stream, 2, "stream closed [eos sent]");
             http2_closed_stream_info_create(w, stream);
-            p_clear(&stream->info.ctx, 1);
+            p_clear(&stream->ctx, 1);
         } else {
             http2_stream_trace(w, stream, 2, "stream half closed (local)");
         }
     } else if (events == STREAM_FLAG_RST_RECV) {
         http2_stream_trace(w, stream, 2, "stream closed [reset recv]");
         stream->remove = true;
-        p_clear(&stream->info.ctx, 1);
+        p_clear(&stream->ctx, 1);
     } else if (events == STREAM_FLAG_RST_SENT) {
         http2_stream_trace(w, stream, 2, "stream closed [reset sent]");
         http2_closed_stream_info_create(w, stream);
-        p_clear(&stream->info.ctx, 1);
+        p_clear(&stream->ctx, 1);
     } else {
         assert(0 && "unexpected stream state transition");
     }
-    stream->info.flags = flags | events;
+    stream->flags = flags | events;
 }
 
 /* }}}*/
@@ -4241,7 +4237,7 @@ http2_stream_send_request_headers(http2_conn_t *w, http2_stream_t *stream,
     http2_conn_send_headers_block(w, stream->id, ps_initsb(&out), eos);
     events = STREAM_FLAG_INIT_HDRS | (eos ? STREAM_FLAG_EOS_SENT : 0);
     http2_stream_do_on_events(w, stream, events);
-    stream->info.ctx.httpc_ctx = httpc_ctx;
+    stream->ctx.httpc_ctx = httpc_ctx;
 }
 
 static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
@@ -4249,8 +4245,8 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
 {
     int len = ps_len(&data);
 
-    assert(stream->info.send_window >= len);
-    stream->info.send_window -= len;
+    assert(stream->send_window >= len);
+    stream->send_window -= len;
     http2_conn_send_data_block(w, stream->id, data, eos);
     if (eos) {
         http2_stream_do_on_events(w, stream, STREAM_FLAG_EOS_SENT);
@@ -4309,12 +4305,12 @@ http2_stream_maintain_recv_window(http2_conn_t *w, http2_stream_t *stream)
     int incr;
 
     incr =
-        http2_get_settings(w).initial_window_size - stream->info.recv_window;
+        http2_get_settings(w).initial_window_size - stream->recv_window;
     if (incr <= 0) {
         return;
     }
     http2_conn_send_window_update(w, stream->id, incr);
-    stream->info.recv_window += incr;
+    stream->recv_window += incr;
 }
 
 static int
@@ -4325,7 +4321,7 @@ http2_stream_consume_recv_window(http2_conn_t *w, http2_stream_t *stream,
 
     /* maintain the recv window at the initial_window_size settings each time
      * the peer sends DATA frame */
-    stream->info.recv_window -= delta;
+    stream->recv_window -= delta;
     http2_stream_maintain_recv_window(w, stream);
     return 0;
 }
@@ -4335,8 +4331,8 @@ http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
                           int initial_payload_len, bool eos)
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
-    unsigned flags = stream->info.flags;
-    http2_stream_ctx_t ctx = stream->info.ctx;
+    unsigned flags = stream->flags;
+    http2_stream_ctx_t ctx = stream->ctx;
 
     if (flags & STREAM_FLAG_CLOSED) {
         return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
@@ -4394,8 +4390,8 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
                                         pstream_t headerlines, bool eos)
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
-    http2_stream_ctx_t ctx = stream->info.ctx;
-    unsigned flags = stream->info.flags;
+    http2_stream_ctx_t ctx = stream->ctx;
+    unsigned flags = stream->flags;
     unsigned events = 0;
 
     if (http2_stream_id_is_server(stream_id)) {
@@ -4482,8 +4478,8 @@ http2_stream_do_recv_rst_stream(http2_conn_t *w, uint32_t stream_id,
                                 uint32_t error_code)
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
-    http2_stream_ctx_t ctx = stream->info.ctx;
-    unsigned flags = stream->info.flags;
+    http2_stream_ctx_t ctx = stream->ctx;
+    unsigned flags = stream->flags;
 
     if (flags & STREAM_FLAG_CLOSED) {
         return http2_stream_conn_error(
@@ -4514,10 +4510,10 @@ http2_stream_do_recv_push_promise(http2_conn_t *w, uint32_t stream_id,
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
     http2_stream_t *promised = http2_stream_get(w, promised_id);
-    unsigned flags = stream->info.flags;
+    unsigned flags = stream->flags;
 
     assert(w->is_client);
-    assert(!promised->info.flags);
+    assert(!promised->flags);
     if (http2_stream_id_is_server(stream_id)) {
         return http2_stream_conn_error(
             w, stream, PROTOCOL_ERROR,
@@ -4545,7 +4541,7 @@ http2_stream_do_recv_push_promise(http2_conn_t *w, uint32_t stream_id,
             "PUSH_STREAM on half-closed (remote) stream");
     }
     /* Refuse the pushed stream: not supported (yet). */
-    promised->info.flags |= STREAM_FLAG_PSH_RECV;
+    promised->flags |= STREAM_FLAG_PSH_RECV;
     http2_stream_error(w, promised, REFUSED_STREAM,
                        "refuse push promise (not supported)");
     return 0;
@@ -4556,8 +4552,8 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
                                    int32_t incr)
 {
     http2_stream_t *stream = http2_stream_get(w, stream_id);
-    unsigned flags = stream->info.flags;
-    int64_t new_size = (int64_t)stream->info.send_window + incr;
+    unsigned flags = stream->flags;
+    int64_t new_size = (int64_t)stream->send_window + incr;
 
     assert(incr >= 0);
     if (flags & STREAM_FLAG_CLOSED) {
@@ -4584,13 +4580,13 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
             w, stream, FLOW_CONTROL_ERROR,
             "flow control: WINDOW_UPDATE cannot increment send-window beyond "
             "limit [cur %d, incr %d, new %jd]",
-            stream->info.send_window, incr, new_size);
+            stream->send_window, incr, new_size);
         return 0;
     }
     http2_stream_trace(w, stream, 2,
                        "send-window incremented [new size %lld, incr %d]",
                        (long long)new_size, incr);
-    stream->info.send_window += incr;
+    stream->send_window += incr;
     return 0;
 }
 
@@ -4911,12 +4907,12 @@ http2_conn_on_peer_initial_window_size_changed(http2_conn_t *w, int32_t delta)
         return PARSE_OK;
     }
     qm_for_each_value(qstream, stream, &w->streams) {
-        unsigned flags = stream->info.flags;
+        unsigned flags = stream->flags;
 
         if (!flags || flags & STREAM_FLAG_CLOSED) {
             continue;
         }
-        new_size = (int64_t)stream->info.send_window + delta;
+        new_size = (int64_t)stream->send_window + delta;
         if (new_size > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
             HTTP2_THROW_ERR(
                 w, FLOW_CONTROL_ERROR,
@@ -4924,11 +4920,11 @@ http2_conn_on_peer_initial_window_size_changed(http2_conn_t *w, int32_t delta)
                 "send-window to overflow (%jd out of range)",
                 stream->id, new_size);
         }
-        stream->info.send_window += delta;
+        stream->send_window += delta;
         http2_stream_trace(
             w, stream, 2,
             "send-window updated by SETTINGS [new size %d, delta %d]",
-            stream->info.send_window, delta);
+            stream->send_window, delta);
     }
     return PARSE_OK;
 }
@@ -5486,8 +5482,8 @@ static void http2_conn_do_parse(http2_conn_t *w, bool eof)
 static void http2_conn_do_close(http2_conn_t *w)
 {
     dlist_for_each_entry(http2_stream_t, stream, &w->stream_list, link) {
-        if (stream->info.ctx.httpd) {
-            http2_stream_on_reset(w, stream, stream->info.ctx, false);
+        if (stream->ctx.httpd) {
+            http2_stream_on_reset(w, stream, stream->ctx, false);
         }
         http2_stream_delete(&stream);
     }
@@ -5848,9 +5844,9 @@ http2_stream_on_headers_server(http2_conn_t *conn, http2_stream_t *stream,
     int res;
 
     if (!httpd) {
-        assert(!stream->info.ctx.httpd);
+        assert(!stream->ctx.httpd);
         httpd = httpd_spawn_as_http2_stream(server, stream->id);
-        stream->info.ctx.httpd = httpd;
+        stream->ctx.httpd = httpd;
     }
     if (httpd_unpack_http2_headers(httpd, info, headerlines, eos) < 0) {
         goto malformed_err;
@@ -6054,7 +6050,7 @@ static void http2_conn_stream_idle_httpd(http2_conn_t *w, httpd_t *httpd)
     if (!clen) {
         /* headers-only response (no-payload). */
         assert(ob_is_empty(&httpd->ob));
-        assert(stream->info.flags & STREAM_FLAG_EOS_SENT);
+        assert(stream->flags & STREAM_FLAG_EOS_SENT);
         http2_stream_close_httpd(w, httpd);
         return;
     }
@@ -6092,7 +6088,7 @@ http2_conn_stream_active_httpd(http2_conn_t *w, httpd_t *httpd, int max_sz)
     http2_conn_assert_active_httpd_invariants(httpd);
 
     stream = http2_stream_get(w, stream_id);
-    len = MIN3(http2_ctx->http2_sync_mark, stream->info.send_window, max_sz);
+    len = MIN3(http2_ctx->http2_sync_mark, stream->send_window, max_sz);
     if (len <= 0) {
         return;
     }
@@ -6105,8 +6101,8 @@ http2_conn_stream_active_httpd(http2_conn_t *w, httpd_t *httpd, int max_sz)
     if (eos) {
         /* No more data to send and stream was ended from our side. */
         assert(ob_is_empty(&httpd->ob));
-        assert(stream->info.flags & STREAM_FLAG_EOS_SENT);
-        if (stream->info.flags & STREAM_FLAG_EOS_RECV) {
+        assert(stream->flags & STREAM_FLAG_EOS_SENT);
+        if (stream->flags & STREAM_FLAG_EOS_RECV) {
             http2_stream_close_httpd(w, httpd);
         } else {
             /* Early response case: (usually an error response) */
@@ -6520,13 +6516,13 @@ http2_conn_stream_active_httpc(http2_conn_t *w, httpc_t *httpc, int max_sz)
     }
     assert(http2_ctx->http2_sync_mark <= httpc->ob.length);
     stream = http2_stream_get(w, stream_id);
-    if (stream->info.flags & (STREAM_FLAG_CLOSED | STREAM_FLAG_RST_SENT)) {
+    if (stream->flags & (STREAM_FLAG_CLOSED | STREAM_FLAG_RST_SENT)) {
         /* XXX: stream was already reset or closed and we still have some
          * payload to remove from the httpc output buffer. */
         assert(0 && "TODO");
     }
     assert(max_sz <= w->send_window);
-    len = MIN3(http2_ctx->http2_sync_mark, stream->info.send_window, max_sz);
+    len = MIN3(http2_ctx->http2_sync_mark, stream->send_window, max_sz);
     if (len <= 0) {
         return;
     }
