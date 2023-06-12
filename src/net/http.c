@@ -3295,6 +3295,10 @@ enum {
         HTTP2_STREAM_EV_1ST_HDRS | HTTP2_STREAM_EV_EOS_RECV,
     HTTP2_STREAM_EV_1ST_HDRS_EOS_SENT =
         HTTP2_STREAM_EV_1ST_HDRS | HTTP2_STREAM_EV_EOS_SENT,
+    /* Masks */
+    HTTP2_STREAM_EV_MASK_PEER_CANT_WRITE = HTTP2_STREAM_EV_EOS_RECV
+                                          | HTTP2_STREAM_EV_RST_RECV
+                                          | HTTP2_STREAM_EV_CLOSED,
 };
 
 typedef union http2_stream_ctx_t {
@@ -4347,6 +4351,30 @@ http2_stream_consume_recv_window(http2_conn_t *w, http2_stream_t *stream,
 }
 
 static int
+http2_stream_check_can_recv(http2_conn_t *w, http2_stream_t *stream,
+                            bool is_headers)
+{
+    unsigned flags = stream->events;
+    const char *type = is_headers ? "DATA" : "HEADERS";
+
+    if (flags & HTTP2_STREAM_EV_MASK_PEER_CANT_WRITE) {
+        return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
+                                       "%s on (half-)closed stream", type);
+    }
+    if (!flags) {
+        if (!is_headers) {
+            return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
+                                           "DATA on idle stream");
+        } else if (w->is_client) {
+            return http2_stream_conn_error(
+                w, stream, PROTOCOL_ERROR,
+                "HEADERS on idle stream (at client)");
+        }
+    }
+    return 0;
+}
+
+static int
 http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
                           int initial_payload_len, bool eos)
 {
@@ -4354,19 +4382,7 @@ http2_stream_do_recv_data(http2_conn_t *w, uint32_t stream_id, pstream_t data,
     unsigned flags = stream->events;
     http2_stream_ctx_t ctx = stream->ctx;
 
-    if (flags & (HTTP2_STREAM_EV_CLOSED | HTTP2_STREAM_EV_RST_RECV)) {
-        return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                       "DATA on closed stream");
-    }
-    if (flags & HTTP2_STREAM_EV_EOS_RECV) {
-        return http2_stream_conn_error(
-            w, stream, PROTOCOL_ERROR,
-            "DATA on half-closed (remote) stream");
-    }
-    if (!flags) {
-        return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                       "DATA on idle stream");
-    }
+    RETHROW(http2_stream_check_can_recv(w, stream, false));
     if (eos) {
         http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_EOS_RECV);
     }
@@ -4428,20 +4444,7 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
          * before acknowledging our settings that disables them. */
         return 0;
     }
-    if (flags & (HTTP2_STREAM_EV_CLOSED | HTTP2_STREAM_EV_RST_RECV)) {
-        return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                       "HEADERS on closed stream");
-    }
-    if (flags & HTTP2_STREAM_EV_EOS_RECV) {
-        return http2_stream_conn_error(
-            w, stream, PROTOCOL_ERROR,
-            "HEADERS on half-closed (remote) stream");
-    }
-    if (w->is_client && !flags) {
-        return http2_stream_conn_error(
-            w, stream, PROTOCOL_ERROR,
-            "HEADERS from server on idle client stream");
-    }
+    RETHROW(http2_stream_check_can_recv(w, stream, true));
     if (!http2_stream_validate_recv_headrs(info)) {
         if (!flags) {
             http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_1ST_HDRS);
