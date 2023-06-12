@@ -148,7 +148,7 @@ class LogFileConfiguration {
     bool compress = true;
 };
 
-/** Full address.
+/** Full network address.
  *
  * Addresses can be of the following forms:
  *
@@ -161,12 +161,16 @@ class LogFileConfiguration {
 @nonEmpty @(cfg:fullAddr, true)
 typedef string FullAddr;
 
-/** Address.
+/** Network address.
  *
  * Same as \ref FullAddr except that the port can be omitted.
  */
 @nonEmpty @(cfg:addr, true)
 typedef string Addr;
+
+/** Network port. */
+@(cfg:port, true)
+typedef int Port;
 
 /** A certificate and its private key for TLS.
  *
