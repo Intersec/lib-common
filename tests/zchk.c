@@ -1080,6 +1080,15 @@ Z_GROUP_EXPORT(core_errors) {
         Z_ASSERT_N(_debug_stack_print(path));
         Z_HELPER_RUN(z_check_debug_file(path, __func__, __FILE__, line, i));
     } Z_TEST_END;
+
+    Z_TEST(expect_macros, "") {
+        if (expect(true)) {
+            Z_ASSERT(true);
+        }
+        if (unexpected(false)) {
+            Z_ASSERT(false);
+        }
+    } Z_TEST_END;
 } Z_GROUP_END;
 
 /* }}} */

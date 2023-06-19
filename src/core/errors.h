@@ -181,24 +181,26 @@ void ps_dump_backtrace(int signum, const char * nonnull prog, int fd,
 void ps_write_backtrace(int signum, bool allow_fork);
 
 static ALWAYS_INLINE __must_check__
-bool e_expect(bool cond, const char * nonnull expr, const char * nonnull file,
-              int line, const char * nonnull func)
+bool e_expect(bool cond, bool expected, const char * nonnull expr,
+              const char * nonnull file, int line, const char * nonnull func)
 {
-    if (unlikely(!cond)) {
+    if (unlikely(cond != expected)) {
 #ifdef NDEBUG
         ps_write_backtrace(-1, false);
         e_error("assertion (%s) failure: %s:%d:%s", expr, file, line, func);
-        return false;
 #else
         __assert_fail(expr, file, line, func);
 #endif
     }
-    return true;
+    return cond;
 }
 
 #undef  expect
-#define expect(Cond)  \
-    e_expect((Cond), TOSTR(Cond), __FILE__, __LINE__, __func__)
+#define expect(cond)  \
+    e_expect((cond), true, TOSTR(cond), __FILE__, __LINE__, __func__)
+
+#define unexpected(cond) \
+    e_expect((cond), false, TOSTR(!(cond)), __FILE__, __LINE__, __func__)
 
 /* {{{ debug_stack_* */
 
