@@ -4070,6 +4070,8 @@ static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
 /* }}} */
 /* {{{ Streaming API */
 
+static void http2_stream_on_accept(http2_conn_t *w, http2_stream_t *stream);
+
 static void
 http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
                                httpc_http2_ctx_t *httpc_ctx,
@@ -4472,6 +4474,11 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
         http2_stream_on_reset(w, stream, ctx, false);
     }
     if (!(flags & HTTP2_STREAM_EV_RST_SENT)) {
+        if (!flags) {
+            /* new stream */
+            http2_stream_on_accept(w, stream);
+            ctx = stream->ctx;
+        }
         http2_stream_on_headers(w, stream, ctx, info, headerlines, eos);
     }
     return 0;
@@ -5857,20 +5864,23 @@ static int httpd_unpack_http2_headers(httpd_t *w, http2_header_info_t *info,
 }
 
 static void
+http2_stream_on_accept(http2_conn_t *conn, http2_stream_t *stream)
+{
+    http2_server_t *server = conn->server_ctx;
+
+    assert(!stream->ctx.httpd);
+    stream->ctx.httpd = httpd_spawn_as_http2_stream(server, stream->id);
+}
+
+static void
 http2_stream_on_headers_server(http2_conn_t *conn, http2_stream_t *stream,
                                httpd_t *httpd, http2_header_info_t *info,
                                pstream_t headerlines, bool eos)
 {
-    http2_server_t *server = conn->server_ctx;
     sb_t *ibuf;
     pstream_t ps;
     int res;
 
-    if (!httpd) {
-        assert(!stream->ctx.httpd);
-        httpd = httpd_spawn_as_http2_stream(server, stream->id);
-        stream->ctx.httpd = httpd;
-    }
     if (httpd_unpack_http2_headers(httpd, info, headerlines, eos) < 0) {
         goto malformed_err;
     }
