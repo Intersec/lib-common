@@ -119,6 +119,7 @@ void flatten_leaf(qhat_path_t *path)
     qhat_unmap_node(path->hat, old_node);
     e_named_trace(3, "trie/node/flatten", "flattend node %u in %u",
                   old_node.page, new_node.page);
+    PATH_STRUCTURE_CHANGED("trie/node/flatten", path);
 }
 
 #define next_1(Word)  ({                                                     \

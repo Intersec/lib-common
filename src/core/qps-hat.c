@@ -861,7 +861,6 @@ void qhat_split_leaf(qhat_path_t *path)
             if (path->depth == PATH_MAX - 1
             && count > path->hat->desc->split_compact_threshold
             && compact->parent_left == compact->parent_right + 1) {
-                PATH_STRUCTURE_CHANGED("trie/insert/split", path);
                 (*path->hat->desc->flattenf)(path);
             }
         } else {
