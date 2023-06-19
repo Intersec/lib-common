@@ -3657,8 +3657,6 @@ static void http2_conn_send_data_block(http2_conn_t *w, uint32_t stream_id,
     }
     /* HTTP2_LEN_MAX_FRAME_SIZE_INIT is also the minimum possible value so
      * peer must always accept frames of this size. */
-    assert(w->send_window >= (int) ps_len(&blk));
-    w->send_window -= ps_len(&blk);
     do {
         len = MIN(ps_len(&blk), HTTP2_LEN_MAX_FRAME_SIZE_INIT);
         chunk = __ps_get_ps(&blk, len);
@@ -4271,6 +4269,8 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
 
     assert(stream->send_window >= len);
     stream->send_window -= len;
+    assert(w->send_window >= (int)len);
+    w->send_window -= len;
     http2_conn_send_data_block(w, stream->id, data, eos);
     if (eos) {
         http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_EOS_SENT);
