@@ -331,27 +331,22 @@ static type_t *set_null(qhat_path_t *path)
 
 static bool remove(qhat_path_t *path, type_t *ptr)
 {
-    bool has_value = true;
     qhat_node_memory_t memory;
     update_path(path, true);
 
     if (!PATH_NODE(path).leaf) {
-        if (ptr != NULL) {
-            p_clear(ptr, 1);
-        }
-        return false;
+        goto no_value;
     }
 
     memory = qhat_node_w_deref(path);
 
     if (PATH_NODE(path).compact) {
         uint32_t slot = qhat_compact_lookup(memory.compact, 0, path->key);
-        if (slot >= memory.compact->count
-        || memory.compact->keys[slot] != path->key) {
-            if (ptr != NULL) {
-                p_clear(ptr, 1);
-            }
-            return false;
+
+        if (slot >= memory.compact->count ||
+            memory.compact->keys[slot] != path->key)
+        {
+            goto no_value;
         }
         memory.compact->count--;
         if (path->hat->do_stats) {
@@ -373,15 +368,17 @@ static bool remove(qhat_path_t *path, type_t *ptr)
         uint32_t pos = path->key & LEAF_INDEX_MASK;
         type_t  *val = &memory.Flat[pos];
 
-        if (path->hat->do_stats) {
 #if SIZE == 128
-            if (val->h != 0 || val->l != 0) {
+        if (val->h == 0 && val->l == 0) {
 #else
-            if (*val != 0) {
+        if (*val == 0) {
 #endif
-                path->hat->root->entry_count--;
-                path->hat->root->zero_stored_count++;
-            }
+            goto no_value;
+        }
+
+        if (path->hat->do_stats) {
+            path->hat->root->entry_count--;
+            path->hat->root->zero_stored_count++;
         }
 
         if (ptr != NULL) {
@@ -391,7 +388,13 @@ static bool remove(qhat_path_t *path, type_t *ptr)
     }
 
     qhat_optimize(path);
-    return has_value;
+    return true;
+
+no_value:
+    if (ptr != NULL) {
+        p_clear(ptr, 1);
+    }
+    return false;
 }
 
 static bool remove_null(qhat_path_t *path, type_t *ptr)

@@ -1006,8 +1006,7 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_ASSERT_EQ(trie.root->zero_stored_count, 49u);
 
         /* Check that the removal should remove nothing this time. */
-        /* FIXME qhat_remove() should return false. */
-        Z_ASSERT(qhat_remove(&trie, 700, &val));
+        Z_ASSERT(!qhat_remove(&trie, 700, &val));
         Z_ASSERT_EQ(val, 0);
 
         qhat_destroy(&trie);
