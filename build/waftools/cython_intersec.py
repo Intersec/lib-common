@@ -79,7 +79,7 @@ class CythonC(c_tool.c):
         ])
 
         # Call original preprocessor
-        res = super(CythonC, self).scan()
+        res = super().scan()
 
         # Restore previous environment (in order to not launch the build with
         # the unwanted defines)
@@ -109,7 +109,7 @@ class CythonC(c_tool.c):
         ])
 
         # Call original run method
-        res = super(CythonC, self).run()
+        res = super().run()
 
         # Restore previous environment
         self.env.revert()
@@ -172,14 +172,14 @@ class cython(Task.Task): # pylint: disable=invalid-name
         to the output nodes. The scanner is executed only when the Cython task
         must be executed (optimization).
         """
-        ret = super(cython, self).runnable_status()
+        ret = super().runnable_status()
         if ret == Task.ASK_LATER:
             return ret
         for x in self.generator.bld.raw_deps[self.uid()]:
             if x.startswith('header:'):
                 self.outputs.append(self.inputs[0].parent.find_or_declare(
                     x.replace('header:', '')))
-        return super(cython, self).runnable_status()
+        return super().runnable_status()
 
     def post_run(self):
         for x in self.outputs:

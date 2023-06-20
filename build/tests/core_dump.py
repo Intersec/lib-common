@@ -76,7 +76,7 @@ GDB_CMD_FRAME = [
     'print "info args"',
     'info args'
 ]
-BINARY_EXT='-binary'
+BINARY_EXT = '-binary'
 
 
 def find_exe(name, root):
@@ -112,7 +112,7 @@ class Cores:
         self.core_filter = None
         self.core_path = None
 
-        with open(CORE_PATTERN, "r") as fpr:
+        with open(CORE_PATTERN, "r", encoding="utf-8") as fpr:
             pattern = fpr.read().strip('\n')
 
         # needed for buildbot because coredump are stored in shared directory
@@ -151,7 +151,7 @@ class Cores:
             self.cores = []
             return
         if cores.startswith('@'):
-            with open(cores[1:], 'r') as f_:
+            with open(cores[1:], 'r', encoding="utf-8") as f_:
                 cores = f_.read().strip()
         self.cores = [c for c in cores.split(',') if c]
 
@@ -167,9 +167,8 @@ class Cores:
     @staticmethod
     def _gdb_cmd(cmd, fullpath, core):
         # prepare CMD
-        gdb_cmd = NamedTemporaryFile(delete=False)
-        gdb_cmd.write('\n'.join(cmd).encode('utf-8'))
-        gdb_cmd.close()
+        with NamedTemporaryFile(delete=False) as gdb_cmd:
+            gdb_cmd.write('\n'.join(cmd).encode('utf-8'))
 
         # launch gdb
         cmd = ['gdb',
@@ -180,7 +179,7 @@ class Cores:
             cmd += ['-cd=' + osp.dirname(fullpath), fullpath]
 
         debug('running ', ' '.join(cmd))
-        with open("/dev/null", "w") as f_:
+        with open("/dev/null", "w", encoding="utf-8") as f_:
             stdout = check_output(cmd, stderr=f_)
         os.unlink(gdb_cmd.name)
         return stdout.decode('utf-8')

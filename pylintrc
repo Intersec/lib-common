@@ -1,8 +1,5 @@
 [MASTER]
 
-# Profiled execution.
-profile=no
-
 # Add files or directories to the blacklist. They should be base names, not
 # paths.
 ignore=
@@ -12,7 +9,7 @@ persistent=no
 
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.
-load-plugins=
+load-plugins=pylint.extensions.no_self_use
 
 # Whitelist C extensions.
 extension-pkg-whitelist=iopy, zchk_mod
@@ -25,7 +22,6 @@ disable=missing-class-docstring,
         missing-module-docstring,
         too-many-lines,
         superfluous-parens,
-        bad-whitespace,
         duplicate-code,
         too-many-ancestors,
         too-many-instance-attributes,
@@ -42,15 +38,12 @@ disable=missing-class-docstring,
         attribute-defined-outside-init,
         arguments-differ,
         signature-differs,
-        no-init,
         global-statement,
         unused-argument,
         no-member,
         wrong-import-position,
         wrong-import-order,
         ungrouped-imports,
-        redefined-variable-type,
-        locally-enabled,
         pointless-string-statement,
         inconsistent-return-statements,
         no-else-return,
@@ -63,7 +56,9 @@ disable=missing-class-docstring,
         consider-using-get,
         chained-comparison,
         cell-var-from-loop,
-        keyword-arg-before-vararg
+        keyword-arg-before-vararg,
+        consider-using-f-string,
+        cyclic-import,
 
 
 [REPORTS]
@@ -71,11 +66,6 @@ disable=missing-class-docstring,
 # Set the output format. Available formats are text, parseable, colorized, msvs
 # (visual studio) and html
 output-format=text
-
-# Put messages in a separate file for each module / package specified on the
-# command line instead of printing them on stdout. Reports (if any) will be
-# written in a file name "pylint_global.[txt|html]".
-files-output=no
 
 # Tells whether to display a full report or only the messages
 reports=no
@@ -104,10 +94,6 @@ ignore-mixin-members=yes
 # List of classes names for which member attributes should not be checked
 # (useful for classes with attributes dynamically set).
 ignored-classes=
-
-# When zope mode is activated, add a predefined set of Zope acquired attributes
-# to generated-members.
-zope=no
 
 # List of members which are set dynamically and missed by pylint inference
 # system, and so shouldn't trigger E0201 when accessed. Python regular
@@ -172,9 +158,6 @@ ignore-docstrings=yes
 
 
 [BASIC]
-
-# List of builtins function names that should not be used, separated by a comma
-bad-functions=map,filter,apply,input
 
 # Regular expression which should only match correct module names
 module-rgx=(([a-z_][a-z0-9_-]*)|([A-Z][a-zA-Z0-9]+))$
@@ -262,4 +245,4 @@ valid-classmethod-first-arg=cls
 
 # Exceptions that will emit a warning when being caught. Defaults to
 # "Exception"
-overgeneral-exceptions=Exception
+overgeneral-exceptions=builtins.Exception

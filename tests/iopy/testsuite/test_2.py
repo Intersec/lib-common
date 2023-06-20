@@ -20,4 +20,4 @@
 
 class test_ClassB(metaclass=_iopy_register.metaclass):
     def user_method(self):
-        return self.field2 == 2 and super(test_ClassB, self).user_method()
+        return self.field2 == 2 and super().user_method()

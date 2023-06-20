@@ -176,7 +176,7 @@ class IopyTest(z.TestCase):
     def test_from_str_yaml(self):
         path = os.path.join(TEST_PATH, 'test_class_b.yaml')
         b = self.r.test.ClassB.from_file(_yaml=path)
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             b2 = self.r.test.ClassB(_yaml=f.read())
             self.assertEqual(b, b2)
 
@@ -490,13 +490,13 @@ class IopyTest(z.TestCase):
 
         p_args = ['python3', os.path.join(SELF_PATH, 'z_iopy_process1.py'),
                   self.plugin_file, uri]
-        proc = subprocess.Popen(p_args)
-        self.assertIsNotNone(proc)
-        s.test_ModuleA.interfaceA.funA.wait(uri=uri, timeout=20)
-        proc.wait()
-        msg = ("server blocking failed; subprocess status: %s" %
-               str(proc.returncode))
-        self.assertEqual(proc.returncode, 0, msg)
+        with subprocess.Popen(p_args) as proc:
+            self.assertIsNotNone(proc)
+            s.test_ModuleA.interfaceA.funA.wait(uri=uri, timeout=20)
+            proc.wait()
+            msg = ("server blocking failed; subprocess status: %s" %
+                   str(proc.returncode))
+            self.assertEqual(proc.returncode, 0, msg)
 
     def test_objects_comparisons(self):
         # pylint: disable=comparison-with-itself
@@ -815,7 +815,7 @@ class IopyTest(z.TestCase):
 
         class CommonClass3:
             def __init__(self, *args, **kwargs):
-                super(CommonClass3, self).__init__(*args, **kwargs)
+                super().__init__(*args, **kwargs)
                 self.common_val1 = 10
 
         # pylint: disable=function-redefined
@@ -1690,7 +1690,7 @@ class IopyTest(z.TestCase):
         }
         '''
         union = self.r.test.UnionA(_json=utf8_json)
-        self.assertEqual(u'México', union.s)
+        self.assertEqual('México', union.s)
 
         latin1_json = b'''
         {
@@ -1698,7 +1698,7 @@ class IopyTest(z.TestCase):
         }
         '''
         union = self.r.test.UnionA(_json=latin1_json)
-        self.assertEqual(u'M\\xe9xico', union.s)
+        self.assertEqual('M\\xe9xico', union.s)
 
     def test_init_class_twice_with_dict(self):
         class_b_dict = {
@@ -1841,7 +1841,7 @@ class IopyIfaceTests(z.TestCase):
         c = self.r.connect(self.uri)
         iface = c.test_ModuleA.interfaceA
 
-        kwargs = dict(a=self.r.test.ClassA())
+        kwargs = {'a': self.r.test.ClassA()}
         iface.funA(**kwargs)
 
         attr = getattr(iface, 'pre_hook_rpc', None)
@@ -1870,7 +1870,7 @@ class IopyIfaceTests(z.TestCase):
             r = self.r  # pylint: disable=invalid-name
 
             def __pre_hook__(self, rpc, *args, **kwargs):
-                return ((), dict(a=type(self).r.test.ClassA()))
+                return ((), {'a': type(self).r.test.ClassA()})
 
             @classmethod
             def __post_hook__(cls, rpc, res):
@@ -2567,9 +2567,9 @@ class IopyV3Tests(z.TestCase):
 
     def test_type_simple(self):
         @self.r.upgrade(force_replace=True)
-        class ClassA(self.r.test.ClassA):
+        class ClassA(self.r.test.ClassA):  # pylint: disable=unused-variable
             def __init__(self, field1=20, my_val=10, *args, **kwargs):
-                super(ClassA, self).__init__(field1=field1, *args, **kwargs)
+                super().__init__(field1=field1, *args, **kwargs)
                 self.my_val = my_val
 
             def foo(self):
@@ -2588,13 +2588,13 @@ class IopyV3Tests(z.TestCase):
     def test_multiple_inheritance(self):
         class BaseClassA:
             def __init__(self, base_val, *args, **kwargs):
-                super(BaseClassA, self).__init__(*args, **kwargs)
+                super().__init__(*args, **kwargs)
                 self.base_val = base_val
 
         @self.r.upgrade(index=1, force_replace=True)
-        class ClassA(BaseClassA, self.r.test.ClassA):
+        class ClassA(BaseClassA, self.r.test.ClassA):  # pylint: disable=unused-variable
             def __init__(self, my_val, *args, **kwargs):
-                super(ClassA, self).__init__(*args, **kwargs)
+                super().__init__(*args, **kwargs)
                 self.my_val = my_val
 
         a = self.r.test.ClassA(base_val=20, my_val=15, field1=10)
@@ -2607,9 +2607,9 @@ class IopyV3Tests(z.TestCase):
 
     def test_json_copy(self):
         @self.r.upgrade(force_replace=True)
-        class ClassA(self.r.test.ClassA):
+        class ClassA(self.r.test.ClassA):  # pylint: disable=unused-variable
             def __init__(self, my_val=13, *args, **kwargs):
-                super(ClassA, self).__init__(*args, **kwargs)
+                super().__init__(*args, **kwargs)
                 self.my_val = my_val
 
         a = self.r.test.ClassA(field1=42, optField=20)
@@ -2624,30 +2624,30 @@ class IopyV3Tests(z.TestCase):
 
     def test_json_init(self):
         @self.r.upgrade(force_replace=True)
-        class StructA(self.r.test.StructA):
+        class StructA(self.r.test.StructA):  # pylint: disable=unused-variable
             def __init__(self, my_val=12, *args, **kwargs):
-                super(StructA, self).__init__(*args, **kwargs)
+                super().__init__(*args, **kwargs)
                 self.my_val = my_val
 
         @self.r.upgrade(force_replace=True)
-        class ClassA(self.r.test.ClassA):
+        class ClassA(self.r.test.ClassA):  # pylint: disable=unused-variable
             def __init__(self, field1=20, *args, **kwargs):
                 field1 *= 3
-                super(ClassA, self).__init__(field1=field1, *args, **kwargs)
+                super().__init__(field1=field1, *args, **kwargs)
 
         @self.r.upgrade(force_replace=True)
-        class EnumA(self.r.test.EnumA):
+        class EnumA(self.r.test.EnumA):  # pylint: disable=unused-variable
             def __init__(self, *args, **kwargs):
-                super(EnumA, self).__init__(*args, **kwargs)
+                super().__init__(*args, **kwargs)
                 self.plop = "plop"
 
         @self.r.upgrade(force_replace=True)
-        class UnionA(self.r.test.UnionA):
+        class UnionA(self.r.test.UnionA):  # pylint: disable=unused-variable
             def __init__(self, *args, **kwargs):
-                super(UnionA, self).__init__(s="toto")
+                super().__init__(s="toto")
 
         path = os.path.join(TEST_PATH, 'test_struct_a.json')
-        with open(path, 'r') as f:
+        with open(path, 'r', encoding='utf-8') as f:
             json_struct = f.read()
 
         a = self.r.test.StructA(_json=json_struct)

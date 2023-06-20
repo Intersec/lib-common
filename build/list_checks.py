@@ -32,13 +32,20 @@ import sys
 import os
 import re
 
-IS_FILE = os.path.isfile
-IS_EXEC = lambda f: IS_FILE(f) and os.access(f, os.X_OK)
+
+def is_file(f):
+    return os.path.isfile(f)
+
+
+def is_exec(f):
+    return is_file(f) and os.access(f, os.X_OK)
+
+
 GROUPS = [
     ("behave", re.compile(r".*/behave"),     None),
-    ("web",    re.compile(r".*testem.json"), IS_FILE),
+    ("web",    re.compile(r".*testem.json"), is_file),
     ("web",    re.compile(r".*/check_php"),  None),
-    ("C",      re.compile(r".+"),            IS_EXEC)  # default case
+    ("C",      re.compile(r".+"),            is_exec)  # default case
 ]
 RE_TAGS = re.compile(r"@([A-Za-z0-9_]+)")
 Z_TAG_SKIP = set(os.getenv("Z_TAG_SKIP", "").split())
@@ -47,26 +54,28 @@ Z_TAG_SKIP = set(os.getenv("Z_TAG_SKIP", "").split())
 def dump_zfile(zfile, skipped_groups):
     folder = os.path.dirname(zfile)
 
-    for num, line in enumerate(open(zfile, 'r')):
-        line = line.strip()
-        test = line.split()[0]
-        test_path = os.path.join(folder, test)
+    with open(zfile, 'r', encoding='utf-8') as zfile_fd:
+        for num, line in enumerate(zfile_fd):
+            line = line.strip()
+            test = line.split()[0]
+            test_path = os.path.join(folder, test)
 
-        if line.startswith('#'):
-            continue
+            if line.startswith('#'):
+                continue
 
-        if set(RE_TAGS.findall(line)) & Z_TAG_SKIP:
-            continue
+            if set(RE_TAGS.findall(line)) & Z_TAG_SKIP:
+                continue
 
-        for group, regex, check in GROUPS:
-            if group not in skipped_groups and regex.match(test_path):
-                err = None
+            for group, regex, check in GROUPS:
+                if group not in skipped_groups and regex.match(test_path):
+                    err = None
 
-                if check and not check(test_path):
-                    err = "%s:%d: no match for %s" % (zfile, num + 1, line)
+                    if check and not check(test_path):
+                        err = "%s:%d: no match for %s" % (zfile, num + 1,
+                                                          line)
 
-                yield (folder, test, err)
-                break
+                    yield (folder, test, err)
+                    break
 
 
 def fetch_zfiles(root):

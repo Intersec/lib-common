@@ -31,8 +31,6 @@ from collections import deque
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(NullHandler())
 
-FIXED_LIST = lambda: deque(maxlen=1000)
-
 STATUS = ("pass", "fail", "skip",  "todo-pass", "todo-fail")
 EXTENDED_STATUS = STATUS + ("missing", "bad-number")
 
@@ -73,6 +71,10 @@ POS_GT_LEN = "position greater than group len: "
 POS_LT_LEN = "too many missing tests: "
 
 # }}}
+
+
+def fixed_list():
+    return deque(maxlen=1000)
 
 
 class Result:
@@ -117,8 +119,8 @@ class Result:
         results = dict((k, []) for k in self.z_status_nb)
         for item in items:
             item.compute()
-            for k in results.keys():
-                results[k].append(getattr(item, k))
+            for k, v in results.items():
+                v.append(getattr(item, k))
         for k, v in results.items():
             setattr(self, k, sum(v))
 
@@ -247,9 +249,9 @@ class Global(Result):
     def __init__(self):
         self.name = "global suite"
         self.products = OrderedDict()
-        self.errors = FIXED_LIST()
+        self.errors = fixed_list()
         self.timeout = True
-        self.additionals = FIXED_LIST()
+        self.additionals = fixed_list()
 
     def compute(self):
         self._compute(self.products.values())
@@ -362,9 +364,9 @@ class Error:
         self.groupName = group  # pylint: disable=invalid-name
         self.testName = test  # pylint: disable=invalid-name
         self.context_l = context
-        self.traces = FIXED_LIST()
+        self.traces = fixed_list()
         self.screen_url = ""
-        self.browser_log_l = FIXED_LIST()
+        self.browser_log_l = fixed_list()
         self.status = status
 
     @property
@@ -407,7 +409,7 @@ class StreamParser:
         self.error = None
         self.do_break = False
         self.core_logs = False
-        self.context = FIXED_LIST()
+        self.context = fixed_list()
         self.res = stats or Global()
         self.last_stream = '2' # this is the code for 'environment' stream.
 
@@ -479,7 +481,7 @@ class StreamParser:
                         test = Test(i, test_name, "missing")
                         self.group.append_test(test)
                     self.group_len = 0
-                self.context = FIXED_LIST()
+                self.context = fixed_list()
                 _, self.suite_fullname, name, _ = r.groups()
                 self.product = self.res.products.setdefault(
                     name, Product(name))
@@ -534,8 +536,8 @@ class StreamParser:
 
                     do_err = True
                     for grp in self.suite.groups:
-                        if any([t.status == 'fail'
-                                for t in grp.tests.values()]):
+                        if any((t.status == 'fail'
+                                for t in grp.tests.values())):
                             do_err = False
                             break
                     if do_err:
@@ -598,7 +600,7 @@ class StreamParser:
                         self.product.name, self.suite_fullname,
                         self.group.name, test.name, self.context, test.status)
                     self.res.errors.append(self.error)
-                    self.context = FIXED_LIST()
+                    self.context = fixed_list()
                     self.context.append((self.last_stream, line))
                 continue
 
@@ -659,14 +661,14 @@ def main():
 
     stream_parser = StreamParser()
 
-    with open(sys.argv[1], 'r') as f:
+    with open(sys.argv[1], 'r', encoding='utf-8') as f:
         for line in f:
             stream_parser.parse_line(line)
 
     rept = stream_parser.gen_report()
     print(rept.z_report())
     if rept.errors:
-        if not all([e.status.startswith('todo') for e in rept.errors]):
+        if not all((e.status.startswith('todo') for e in rept.errors)):
             return -1
     return 0
 

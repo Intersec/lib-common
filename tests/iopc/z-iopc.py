@@ -57,20 +57,20 @@ class IopcTest(z.TestCase):
         if additional_args:
             iopc_args.extend(additional_args)
 
-        iopc_p = subprocess.Popen(iopc_args, stderr=subprocess.PIPE)
-        self.assertIsNotNone(iopc_p)
-        output = iopc_p.communicate()[1]
+        with subprocess.Popen(iopc_args, stderr=subprocess.PIPE) as iopc_p:
+            self.assertIsNotNone(iopc_p)
+            output = iopc_p.communicate()[1]
 
-        context = "when executing %s" % ' '.join(iopc_args)
+            context = "when executing %s" % ' '.join(iopc_args)
 
-        if (expect_pass):
-            self.assertEqual(iopc_p.returncode, 0,
-                             "unexpected failure (%d) on %s %s: %s"
-                             % (iopc_p.returncode, iop, context, output))
-        else:
-            self.assertEqual(iopc_p.returncode, 255,
-                             "unexpected return code %d on %s %s: %s"
-                             % (iopc_p.returncode, iop, context, output))
+            if (expect_pass):
+                self.assertEqual(iopc_p.returncode, 0,
+                                 "unexpected failure (%d) on %s %s: %s"
+                                 % (iopc_p.returncode, iop, context, output))
+            else:
+                self.assertEqual(iopc_p.returncode, 255,
+                                 "unexpected return code %d on %s %s: %s"
+                                 % (iopc_p.returncode, iop, context, output))
 
         if (errors):
             if isinstance(errors, str):
@@ -93,7 +93,8 @@ class IopcTest(z.TestCase):
 
     @staticmethod
     def get_iop_json(iop):
-        with open(os.path.join(TEST_PATH, iop+'.json')) as f:
+        with open(os.path.join(TEST_PATH, iop+'.json'),
+                  encoding='utf-8') as f:
             return json.load(f)
 
     def run_gcc(self, iop, expect_pass=True):
@@ -115,20 +116,22 @@ class IopcTest(z.TestCase):
                     '-I' + os.path.join(SELF_PATH, '../../'),
                     os.path.join(TEST_PATH, iop_c) ]
 
-        gcc_p = subprocess.Popen(gcc_args, stderr=subprocess.PIPE)
-        self.assertIsNotNone(gcc_p)
-        _, err = gcc_p.communicate()
+        with subprocess.Popen(gcc_args, stderr=subprocess.PIPE) as gcc_p:
+            self.assertIsNotNone(gcc_p)
+            _, err = gcc_p.communicate()
 
-        if expect_pass:
-            self.assertEqual(gcc_p.returncode, 0,
-                             "unexpected failure (%d) on %s when executing:\n"
-                             "%s:\n%s" % (gcc_p.returncode, iop_c,
-                                          ' '.join(gcc_args), err))
-        else:
-            self.assertNotEqual(gcc_p.returncode, 0)
+            if expect_pass:
+                self.assertEqual(
+                    gcc_p.returncode, 0,
+                    "unexpected failure (%d) on %s when executing:\n"
+                    "%s:\n%s" % (gcc_p.returncode, iop_c,
+                                 ' '.join(gcc_args), err)
+                )
+            else:
+                self.assertNotEqual(gcc_p.returncode, 0)
 
     def check_file(self, file_name, string_list, wanted = True):
-        with open(os.path.join(TEST_PATH, file_name)) as f:
+        with open(os.path.join(TEST_PATH, file_name), encoding='utf-8') as f:
             content = f.read()
 
         for s in string_list:
@@ -596,8 +599,8 @@ class IopcTest(z.TestCase):
                                  'attrs_multi_valid.iop.c')
         path_ref = os.path.join(TEST_PATH,
                                 'reference_attrs_multi_valid.c')
-        with open(path_base, "r") as ref_base:
-            with open(path_ref, "r") as ref:
+        with open(path_base, "r", encoding='utf-8') as ref_base:
+            with open(path_ref, "r", encoding='utf-8') as ref:
                 self.assertEqual(ref.read(), ref_base.read())
 
     def test_attrs_multi_constraints(self):
@@ -607,8 +610,8 @@ class IopcTest(z.TestCase):
         path_base = os.path.join(TEST_PATH, 'attrs_multi_constraints.iop.c')
         path_ref = os.path.join(TEST_PATH,
                                 'reference_attrs_multi_constraints.c')
-        with open(path_base, "r") as ref_base:
-            with open(path_ref, "r") as ref:
+        with open(path_base, "r", encoding='utf-8') as ref_base:
+            with open(path_ref, "r", encoding='utf-8') as ref:
                 self.assertEqual(ref.read(), ref_base.read())
 
     def test_attrs_invalid_1(self):

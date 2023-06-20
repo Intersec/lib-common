@@ -62,15 +62,6 @@ import sys
 import os
 import traceback
 import time
-
-# For some reason, using doctest in Python 2.6 with some values for TERM will
-# escape characters, which will make the output parser of the test (when run
-# as make check) fail, and report a incorrect failure on this file.
-# Fix this by hotfixing the TERM env in this specific case.
-if not sys.stdout.isatty() and sys.version_info < (2, 7):
-    os.environ['TERM'] = 'linux'
-
-# pylint: disable=wrong-import-position
 import doctest
 
 from functools import wraps
@@ -154,30 +145,23 @@ class ZTestSuite(unittest.TestSuite):
     def run(self, result):
         if os.getenv('Z_HARNESS'):
             self._handle_group(result)
-        return super(ZTestSuite, self).run(result)
+        return super().run(result)
 
     # XXX: _wrapped_run for old version of unittest2
     def _wrapped_run(self, result, debug=False):
         if os.getenv('Z_HARNESS'):
             self._handle_group(result)
-        return super(ZTestSuite, self)._wrapped_run(result, debug=debug)
+        return super()._wrapped_run(result, debug=debug)
 
 
 # }}}
 # {{{ DocTests */
 
-OLD_RUNNER = doctest.DocTestRunner
-class IopDocTestRunner(OLD_RUNNER):
+class IopDocTestRunner(doctest.DocTestRunner):
     """ Custom Doc test runner
 
     Used to wrap tests in a "print_iop" function
     """
-    def __init__(self, *args, **kwargs):
-        # XXX: parent is old style class, so super cannot be used: save the
-        # parent in in field instead
-        # pylint: disable=non-parent-init-called
-        OLD_RUNNER.__init__(self, *args, **kwargs)
-
     def run(self, test, *args, **kwargs):
         for example in test.examples:
             source = example.source.strip()
@@ -185,7 +169,7 @@ class IopDocTestRunner(OLD_RUNNER):
             if not (source.startswith('for ') or source.startswith('with')):
                 example.source = 'print({0})\n'.format(source)
 
-        return OLD_RUNNER.run(self, test, *args, **kwargs)
+        return super().run(self, test, *args, **kwargs)
 
 
 @public
@@ -223,7 +207,7 @@ class DocTestModule(ZTestSuite):
         tests = [ModuledTestCase(t, optionflags=self.optionflags)
                  for t in tests]
 
-        super(DocTestModule, self).__init__(tests, *args, **kwargs)
+        super().__init__(tests, *args, **kwargs)
 
 
 # }}}
@@ -245,7 +229,7 @@ def ZFlags(*flags): # pylint: disable=invalid-name
         func_flags = _ALL_FLAGS.setdefault(id(func), [])
         func_flags.extend(flags)
         fl = set(func_flags) & _FLAGS
-        if any([f in _TAG_OR for f in func_flags]) and "wip" not in fl:
+        if any((f in _TAG_OR for f in func_flags)) and "wip" not in fl:
             func.__unittest_skip__ = False
             return func
         if fl:
@@ -263,7 +247,7 @@ class _ZTodo(Exception):
     def __init__(self, reason, exc_info):
         self.reason = reason
         self.exc_info = exc_info
-        super(_ZTodo, self).__init__(reason, exc_info)
+        super().__init__(reason, exc_info)
 
 @public
 def ZTodo(reason): # pylint: disable=invalid-name
@@ -277,8 +261,8 @@ def ZTodo(reason): # pylint: disable=invalid-name
         def wrapper(*args, **kwargs):
             try:
                 func(*args, **kwargs)
-            except Exception:
-                raise _ZTodo(reason, sys.exc_info())
+            except Exception as exc:
+                raise _ZTodo(reason, sys.exc_info()) from exc
         return unittest.case.expectedFailure(wrapper)
     return decorator
 
@@ -292,7 +276,7 @@ class _ZTextTestResult(unittest.TextTestResult):
 
     def __init__(self, *args, **kwargs):
         self.debug_on = os.getenv("Z_DEBUG_ON_ERROR") == "1"
-        super(_ZTextTestResult, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def debug(self, err):
         if self.debug_on:
@@ -305,20 +289,20 @@ class _ZTextTestResult(unittest.TextTestResult):
         returned by sys.exc_info().
         """
         self.debug(err)
-        super(_ZTextTestResult, self).addError(test, err)
+        super().addError(test, err)
 
     def addFailure(self, test, err):
         """Called when an error has occurred. 'err' is a tuple of values as
         returned by sys.exc_info()."""
         self.debug(err)
-        super(_ZTextTestResult, self).addFailure(test, err)
+        super().addFailure(test, err)
 
     def addExpectedFailure(self, test, err):
         """Replacement of addExpectedFailure to fixup the _ZTodo hack"""
         assert err[0] == _ZTodo
         exn = err[1]
         assert isinstance(exn, _ZTodo)
-        super(_ZTextTestResult, self).addExpectedFailure(test, exn.exc_info)
+        super().addExpectedFailure(test, exn.exc_info)
 
 
 class _ZTestResult(unittest.TestResult):
@@ -332,12 +316,12 @@ class _ZTestResult(unittest.TestResult):
         self.start_time = time.time()
         self.global_failures = []
         self.global_errors = []
-        super(_ZTestResult, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def startTest(self, test):
         zpycore.util.wipe_children_rearm()
         self.start_time = time.time()
-        super(_ZTestResult, self).startTest(test)
+        super().startTest(test)
 
     def _put_st(self, what, test, rest = ""):
         zpycore.util.wipe_children_rearm()
@@ -367,19 +351,19 @@ class _ZTestResult(unittest.TestResult):
         sys.stdout.write("\n")
 
     def addSuccess(self, test):
-        super(_ZTestResult, self).addSuccess(test)
+        super().addSuccess(test)
         self._put_st("pass", test)
         sys.stdout.flush()
 
     def addError(self, test, err):
-        super(_ZTestResult, self).addError(test, err)
+        super().addError(test, err)
         self.global_errors.append((test, self._exc_info_to_string(err, test)))
         self._put_st("fail", test)
         self._put_err(test, err)
         sys.stdout.flush()
 
     def addFailure(self, test, err):
-        super(_ZTestResult, self).addFailure(test, err)
+        super().addFailure(test, err)
         self.global_failures.append((test,
                                      self._exc_info_to_string(err, test)))
         self._put_st("fail", test)
@@ -387,7 +371,7 @@ class _ZTestResult(unittest.TestResult):
         sys.stdout.flush()
 
     def addSkip(self, test, reason):
-        super(_ZTestResult, self).addSkip(test, reason)
+        super().addSkip(test, reason)
         self._put_st("skip", test, reason)
         sys.stdout.flush()
 
@@ -395,13 +379,13 @@ class _ZTestResult(unittest.TestResult):
         assert err[0] == _ZTodo
         exn = err[1]
         assert isinstance(exn, _ZTodo)
-        super(_ZTestResult, self).addExpectedFailure(test, exn.exc_info)
+        super().addExpectedFailure(test, exn.exc_info)
         self._put_st("todo-fail", test, exn.reason)
         self._put_err(test, exn.exc_info)
         sys.stdout.flush()
 
     def addUnexpectedSuccess(self, test):
-        super(_ZTestResult, self).addUnexpectedSuccess(test)
+        super().addUnexpectedSuccess(test)
         self._put_st("todo-pass", test)
         sys.stdout.flush()
 
@@ -476,7 +460,7 @@ def expectedFailure(*args, **kwargs): # pylint: disable=invalid-name
     """
     overrides the unittest definition so that people won't use it by mistake
     """
-    raise Exception("Do not use expectedFailure but ZTodo instead")
+    raise Exception("Do not use expectedFailure but ZTodo instead")  # pylint: disable=broad-exception-raised
 
 
 @public

@@ -15,7 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = undefined-variable, bad-continuation
+# pylint: disable = undefined-variable
 
 ctx.program(target='gcd-bench', source='gcd-bench.c', use='libcommon')
 

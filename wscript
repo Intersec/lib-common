@@ -15,7 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = invalid-name, bad-continuation
+# pylint: disable = invalid-name
 
 import os
 import os.path as osp
@@ -124,7 +124,7 @@ def poetry_no_srv_tools(ctx):
     # See https://docs.python.org/3/library/site.html
     no_srv_tools_file = osp.join(ctx.poetry_site_packages,
                                  '_intersec_no_srv_tools.pth')
-    with open(no_srv_tools_file, 'w') as f:
+    with open(no_srv_tools_file, 'w', encoding='utf-8') as f:
         # Remove /srv/tools from sys.path. We don't want to depend on the
         # outdated packages in /srv/tools.
         f.write(
