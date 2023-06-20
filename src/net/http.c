@@ -3308,6 +3308,8 @@ typedef struct http2_stream_t {
     uint32_t remove : 1;
     uint32_t id : 31;
     dlist_t link;
+    /* class link: inactive/closed<tracked>/booked streams */
+    dlist_t class_link;
     int32_t recv_window;
     int32_t send_window;
     sb_t *ibuf;
@@ -3324,11 +3326,6 @@ static void http2_stream_wipe(http2_stream_t *stream);
 GENERIC_DELETE(http2_stream_t, http2_stream);
 
 qm_k32_t(qstream, http2_stream_t *);
-
-typedef struct http2_closed_stream_info_t {
-    uint32_t    stream_id : 31;
-    dlist_t     list_link;
-} http2_closed_stream_info_t;
 
 /** info parsed from the frame hdr */
 typedef struct http2_frame_info_t {
@@ -3357,10 +3354,13 @@ typedef struct http2_conn_t {
     /* tracked streams */
     qm_t(qstream)       streams;
     dlist_t             stream_list;
-    dlist_t             closed_stream_info;
+    /* inactive streams: either in idle or closed<untracked> state */
+    dlist_t             inactive_stream_list;
+    /* closed<tracked> streams */
+    dlist_t             closed_stream_list;
+    dlist_t             booked_stream_list;
     uint32_t            client_streams;
     uint32_t            server_streams;
-    uint32_t            closed_streams_info_cnt;
     /* backstream contexts */
     union {
         http2_client_t *nullable client_ctx;
@@ -3446,9 +3446,11 @@ static http2_conn_t *http2_conn_init(http2_conn_t *w)
     w->id = ++_G.http2_conn_count;
     sb_init(&w->ibuf);
     ob_init(&w->ob);
-    dlist_init(&w->closed_stream_info);
     qm_init(qstream, &w->streams);
     dlist_init(&w->stream_list);
+    dlist_init(&w->inactive_stream_list);
+    dlist_init(&w->closed_stream_list);
+    dlist_init(&w->booked_stream_list);
     w->peer_settings = http2_default_settings_g;
     w->recv_window = HTTP2_LEN_CONN_WINDOW_SIZE_INIT;
     w->send_window = HTTP2_LEN_CONN_WINDOW_SIZE_INIT;
@@ -3468,7 +3470,9 @@ static void http2_conn_wipe(http2_conn_t *w)
     sb_wipe(&w->ibuf);
     assert(dlist_is_empty(&w->stream_list));
     qm_wipe(qstream, &w->streams);
-    assert(dlist_is_empty(&w->closed_stream_info));
+    assert(dlist_is_empty(&w->inactive_stream_list));
+    assert(dlist_is_empty(&w->closed_stream_list));
+    assert(dlist_is_empty(&w->booked_stream_list));
     SSL_free(w->ssl);
     w->ssl = NULL;
     el_unregister(&w->ev);
@@ -3737,6 +3741,7 @@ static http2_stream_t *http2_stream_init(http2_stream_t *stream)
 {
     p_clear(stream, 1);
     dlist_init(&stream->link);
+    dlist_init(&stream->class_link);
     return stream;
 }
 
@@ -3746,6 +3751,7 @@ static void http2_stream_wipe(http2_stream_t *stream)
         qm_del_key(qstream, &stream->conn->streams, stream->id);
     }
     dlist_remove(&stream->link);
+    dlist_remove(&stream->class_link);
 }
 
 static bool http2_stream_id_is_server(uint32_t stream_id)
@@ -3811,10 +3817,12 @@ static http2_stream_t *http2_stream_get(http2_conn_t *w, uint32_t stream_id)
     stream->conn = w;
     stream->id = stream_id;
     dlist_add_tail(&w->stream_list, &stream->link);
+    dlist_add_tail(&w->inactive_stream_list, &stream->class_link);
+    qm_add(qstream, &w->streams, stream->id, stream);
     nb_streams = http2_stream_id_is_client(stream_id) ? w->client_streams
                                                       : w->server_streams;
     if (http2_get_nb_streams_upto(stream_id) > nb_streams) {
-        /* stream is idle<UNTRACKED> */
+        /* stream is idle */
     } else {
         /* stream is closed<UNTRACKED> */
         stream->events = HTTP2_STREAM_EV_CLOSED;
@@ -3833,16 +3841,6 @@ static uint32_t http2_stream_get_idle(http2_conn_t *w)
     stream_id = 2 * (uint32_t)w->client_streams + 1;
     assert(stream_id <= (uint32_t)HTTP2_ID_MAX_STREAM);
     return stream_id;
-}
-
-static void
-http2_closed_stream_info_create(http2_conn_t *w, const http2_stream_t *stream)
-{
-    http2_closed_stream_info_t *info = p_new(http2_closed_stream_info_t, 1);
-
-    info->stream_id = stream->id;
-    dlist_add_tail(&w->closed_stream_info, &info->list_link);
-    w->closed_streams_info_cnt++;
 }
 
 /** Handle Stream States according RFC9113 §5.1.
@@ -3887,10 +3885,10 @@ http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
         } else {
             w->server_streams = new_nb_streams;
         }
+        dlist_remove(&stream->class_link) /* from w->inactive_stream_list */;
         stream->events = events;
         stream->recv_window = http2_get_settings(w).initial_window_size;
         stream->send_window = w->peer_settings.initial_window_size;
-        qm_replace(qstream, &w->streams, stream->id, stream);
         return;
     }
     if (events == HTTP2_STREAM_EV_1ST_HDRS) {
@@ -3909,7 +3907,7 @@ http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
     } else if (events == HTTP2_STREAM_EV_EOS_SENT) {
         if (flags & HTTP2_STREAM_EV_EOS_RECV) {
             http2_stream_trace(w, stream, 2, "stream closed [eos sent]");
-            http2_closed_stream_info_create(w, stream);
+            dlist_move_tail(&w->closed_stream_list, &stream->class_link);
         } else {
             http2_stream_trace(w, stream, 2, "stream half closed (local)");
         }
@@ -3918,7 +3916,7 @@ http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
         stream->remove = true;
     } else if (events == HTTP2_STREAM_EV_RST_SENT) {
         http2_stream_trace(w, stream, 2, "stream closed [reset sent]");
-        http2_closed_stream_info_create(w, stream);
+        dlist_move_tail(&w->closed_stream_list, &stream->class_link);
     } else {
         assert(0 && "unexpected stream state transition");
     }
@@ -5483,6 +5481,12 @@ static void http2_conn_do_parse(http2_conn_t *w, bool eof)
         http2_conn_do_on_eof_read(w, &ps);
     }
     sb_skip_upto(&w->ibuf, ps.s);
+    /* prune useless stream objects created during parsing */
+    dlist_for_each_entry(http2_stream_t, stream, &w->inactive_stream_list,
+                         class_link)
+    {
+        http2_stream_delete(&stream);
+    }
 }
 
 static void http2_conn_do_close(http2_conn_t *w)
@@ -5490,15 +5494,6 @@ static void http2_conn_do_close(http2_conn_t *w)
     dlist_for_each_entry(http2_stream_t, stream, &w->stream_list, link) {
         http2_stream_on_reset(w, stream, false);
         http2_stream_delete(&stream);
-    }
-    while (!dlist_is_empty(&w->closed_stream_info)) {
-        http2_closed_stream_info_t *info;
-
-        info = dlist_first_entry(&w->closed_stream_info,
-                                 http2_closed_stream_info_t, list_link);
-        dlist_remove(&info->list_link);
-        w->closed_streams_info_cnt--;
-        p_delete(&info);
     }
     http2_conn_on_close(w);
     http2_conn_release(&w);
