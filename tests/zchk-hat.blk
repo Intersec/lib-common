@@ -501,15 +501,9 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
     /* }}} */
     /* {{{ Second attempt. */
 
-    if (!want_struct_change) {
-        Z_ASSERT(en.t.path.gen.s.struct_gen == trie.gen.s.struct_gen,
-                 "hat structure unexpectedly updated after "
-                 "'qhat_enumerator_get_value_safe()'");
-    } else {
-        /* FIXME The struct generation should always be updated after calling
-         * 'qhat_enumerator_get_value_safe()'. */
-        Z_ASSERT(en.t.path.gen.s.struct_gen != trie.gen.s.struct_gen);
-    }
+    Z_ASSERT(en.t.path.gen.s.struct_gen == trie.gen.s.struct_gen,
+             "hat structure unexpectedly updated after "
+             "'qhat_enumerator_get_value_safe()'");
 
     v = qhat_enumerator_get_value_safe(&en);
 
@@ -994,14 +988,8 @@ Z_GROUP_EXPORT(qps_hat) {
             }
 
             qhat_enumerator_next(&en, true);
-            /* FIXME The patch fixing this part has been undone as it
-             * uncovered a bug that caused some QHAT corruptions. It should be
-             * reestablished as soon as the root cause of the corruption is
-             * fixed. */
-#if 0
             Z_ASSERT(qhat_path_is_sync(&en.t.path),
                      "enumerator still out-of-sync after 'next'");
-#endif
         }
 
         Z_ASSERT(en.end);
