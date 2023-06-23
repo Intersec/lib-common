@@ -1002,10 +1002,8 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_ASSERT_EQ(val, 53804);
 
         /* Check stats after removal. */
-        /* FIXME Should be 1999. */
-        Z_ASSERT_EQ(trie.root->entry_count, 2000u);
-        /* FIXME Should be 49. */
-        Z_ASSERT_EQ(trie.root->zero_stored_count, 48u);
+        Z_ASSERT_EQ(trie.root->entry_count, 1999u);
+        Z_ASSERT_EQ(trie.root->zero_stored_count, 49u);
 
         /* Check that the removal should remove nothing this time. */
         /* FIXME qhat_remove() should return false. */

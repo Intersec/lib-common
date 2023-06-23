@@ -375,9 +375,9 @@ static bool remove(qhat_path_t *path, type_t *ptr)
 
         if (path->hat->do_stats) {
 #if SIZE == 128
-            if (val->h == 0 || val->l == 0) {
+            if (val->h != 0 || val->l != 0) {
 #else
-            if (*val == 0) {
+            if (*val != 0) {
 #endif
                 path->hat->root->entry_count--;
                 path->hat->root->zero_stored_count++;
