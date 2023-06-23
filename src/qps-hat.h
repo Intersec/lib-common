@@ -149,10 +149,30 @@ typedef struct qhat_root_t {
     qps_handle_t bitmap;
 } qhat_root_t;
 
+typedef union qhat_gen_t {
+    struct {
+        /* Structure generation. Updated when the tree structure is modified
+         * (tree node inserted/removed for instance). */
+        uint32_t struct_gen;
+
+#ifndef NDEBUG
+
+        /* Write-access generation. Updated when attempting write-accesses
+         * like insertion, removal or updates in the tree.  It is incremented
+         * even when the write attempt have no effect on the QHAT because the
+         * purpose is to detect any dangerous unsafe access.
+         */
+        uint32_t write_access_gen;
+
+#endif /* NDEBUG */
+    } s;
+    uint64_t hat_gen;
+} qhat_gen_t;
+
 typedef struct qhat_t {
     qps_t       *qps;
     qps_bitmap_t bitmap;
-    uint32_t     struct_gen;
+    qhat_gen_t   gen;
 
     union {
         qhat_root_t *root;
@@ -168,7 +188,7 @@ typedef struct qhat_path_t {
     uint32_t    key;
 
     int         depth;
-    uint64_t    generation;
+    qhat_gen_t  gen;
 
     qhat_node_t path[QHAT_DEPTH_MAX];
 } qhat_path_t;
@@ -250,7 +270,22 @@ void qhat_path_init(qhat_path_t *path, qhat_t *hat, uint32_t row)
  */
 static inline bool qhat_path_is_sync(const qhat_path_t *path)
 {
-    return path->generation == path->hat->struct_gen;
+    return path->gen.s.struct_gen == path->hat->gen.s.struct_gen;
+}
+
+/** Increment the write access counter.
+ *
+ * Should be called after any write access in the QHAT, even if it had no
+ * effect. This allows us to detect when an unsafe access should have been
+ * safe: the problem is detected even when the QHAT struct was unchanged or
+ * when the access had no effect in the QHAT.
+ */
+static ALWAYS_INLINE void qhat_path_touch(qhat_path_t *path)
+{
+#ifndef NDEBUG
+    path->hat->gen.s.write_access_gen++;
+    path->gen = path->hat->gen;
+#endif /* NDEBUG */
 }
 
 /** Remove the value described by a path.
@@ -263,7 +298,11 @@ static inline bool qhat_path_is_sync(const qhat_path_t *path)
 static ALWAYS_INLINE
 bool qhat_remove_path(qhat_path_t *path, void *ptr)
 {
-    return (*path->hat->desc->removef)(path, ptr);
+    bool removed;
+
+    removed = (*path->hat->desc->removef)(path, ptr);
+    qhat_path_touch(path);
+    return removed;
 }
 
 /** Remove the slot associated to the given key.
@@ -299,7 +338,11 @@ bool qhat_remove(qhat_t *hat, uint32_t row, void *ptr)
 static ALWAYS_INLINE
 void *qhat_set_path(qhat_path_t *path)
 {
-    return (*path->hat->desc->setf)(path);
+    void *value_ptr;
+
+    value_ptr = (*path->hat->desc->setf)(path);
+    qhat_path_touch(path);
+    return value_ptr;
 }
 
 /** Get a read-only pointer to the value associated with a key.
@@ -327,6 +370,7 @@ static ALWAYS_INLINE
 void qhat_set0_path(qhat_path_t *path, void *ptr)
 {
     (*path->hat->desc->set0f)(path, ptr);
+    qhat_path_touch(path);
 }
 
 

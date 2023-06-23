@@ -488,7 +488,7 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
         for (int i = first_limit; i < second_limit; i += step) {
             *(uint32_t *)qhat_set(&trie, i) = i;
         }
-        Z_ASSERT(en.t.path.generation != trie.struct_gen,
+        Z_ASSERT(en.t.path.gen.s.struct_gen != trie.gen.s.struct_gen,
                  "hat structure unchanged");
     }
 
@@ -515,13 +515,13 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
     /* {{{ Second attempt. */
 
     if (!want_struct_change) {
-        Z_ASSERT(en.t.path.generation == trie.struct_gen,
+        Z_ASSERT(en.t.path.gen.s.struct_gen == trie.gen.s.struct_gen,
                  "hat structure unexpectedly updated after "
                  "'qhat_enumerator_get_value_safe()'");
     } else {
         /* FIXME The struct generation should always be updated after calling
          * 'qhat_enumerator_get_value_safe()'. */
-        Z_ASSERT(en.t.path.generation != trie.struct_gen);
+        Z_ASSERT(en.t.path.gen.s.struct_gen != trie.gen.s.struct_gen);
     }
 
     v = qhat_enumerator_get_value_safe(&en);
@@ -556,6 +556,81 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
     /* }}} */
 
     qhat_destroy(&trie);
+    Z_HELPER_END;
+}
+
+typedef int (z_qhat_test_f)(qhat_t *hat);
+
+/* Run a test with all QHAT sizes, nullable or not. */
+static int z_run_qhat_test(qps_t *qps, z_qhat_test_f *test_f)
+{
+    for (uint32_t value_len = 1; value_len <= 16; value_len *= 2) {
+        for (int is_nullable = 0; is_nullable <= 1; is_nullable++) {
+            qps_handle_t htrie;
+            qhat_t trie;
+
+            htrie = qhat_create(qps, value_len, !!is_nullable);
+            qhat_init(&trie, qps, htrie);
+
+            Z_HELPER_RUN((*test_f)(&trie),
+                         "test failed with value_len=%u, is_nullable=%s",
+                         value_len, is_nullable ? "true" : "false");
+
+            qhat_destroy(&trie);
+        }
+    }
+
+    Z_HELPER_END;
+}
+
+static int z_test_qhat_gen(qhat_t *hat)
+{
+    /* The field 'write_access_gen' does not exist out of debug mode. */
+#ifndef NDEBUG
+    qhat_gen_t gen;
+    void *ptr;
+    const char value[16] = "0123456789abcdef";
+
+    gen = hat->gen;
+    ptr = qhat_set(hat, 10);
+    memcpy(ptr, value, hat->root->value_len);
+    Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
+                "generation unchanged after qhat_set() (new row)");
+
+    gen = hat->gen;
+    ptr = qhat_set(hat, 10);
+    memcpy(ptr, value, hat->root->value_len);
+    Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
+                "generation unchanged after qhat_set() (existing row)");
+
+    if (hat->root->is_nullable) {
+        gen = hat->gen;
+        qhat_set0(hat, 50, NULL);
+        Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
+                    "generation unchanged after qhat_set0()");
+    }
+
+    gen = hat->gen;
+    Z_ASSERT(qhat_remove(hat, 10, NULL));
+    Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
+                "generation unchanged after qhat_remove()");
+
+    gen = hat->gen;
+    Z_ASSERT(!qhat_remove(hat, 100, NULL));
+    Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
+                "generation unchanged after qhat_remove() of a row that "
+                "did not exist");
+
+    if (hat->root->is_nullable) {
+        gen = hat->gen;
+        qhat_remove(hat, 50, NULL);
+        Z_ASSERT_NE(hat->gen.s.write_access_gen, gen.s.write_access_gen,
+                    "generation unchanged after qhat_remove() (zero value)");
+    }
+#else
+    Z_ASSERT(true);
+#endif /* NDEBUG */
+
     Z_HELPER_END;
 }
 
@@ -1140,6 +1215,11 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, true, false));
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, false, true));
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, false, false));
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(generation, "") { /* {{{ */
+        Z_HELPER_RUN(z_run_qhat_test(qps, &z_test_qhat_gen));
     } Z_TEST_END;
 
     /* }}} */

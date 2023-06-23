@@ -120,7 +120,7 @@ void flatten_leaf(qhat_path_t *path)
 
     MOVED_TO_NEW_FLAT(path, memory.compact->count);
     qhat_unmap_node(path->hat, old_node);
-    e_named_trace(3, "trie/node/flatten", "flattend node %u in %u",
+    e_named_trace(3, "trie/node/flatten", "flattened node %u in %u",
                   old_node.page, new_node.page);
     PATH_STRUCTURE_CHANGED("trie/node/flatten", path);
 }
@@ -193,7 +193,7 @@ static void lookup(qhat_path_t *path)
     uint32_t     key   = path->key;
     uint32_t     shift = 2 * QHAT_SHIFT + LEAF_INDEX_BITS;
 
-    path->generation = hat->struct_gen;
+    path->gen = hat->gen;
     (*nodes)[0] = hat->root->nodes[shift == 32 ? 0 : key >> shift];
     if ((*nodes)[0].value == 0 || (*nodes)[0].leaf) {
         path->depth = 0;
@@ -298,7 +298,9 @@ static type_t *set(qhat_path_t *path)
         uint32_t slot = qhat_compact_lookup(memory.compact, 0, path->key);
         assert (likely(slot <= memory.Compact->count));
 
-        if (slot == memory.Compact->count || memory.Compact->keys[slot] != path->key) {
+        if (slot == memory.Compact->count ||
+            memory.Compact->keys[slot] != path->key)
+        {
             if (slot != memory.Compact->count) {
                 p_move(&memory.Compact->values[slot + 1],
                        &memory.Compact->values[slot],
