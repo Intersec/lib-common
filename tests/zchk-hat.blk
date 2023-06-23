@@ -784,7 +784,7 @@ Z_GROUP_EXPORT(qps_hat) {
         /* Get the value after the trie structure has changed. */
         en = qhat_get_enumerator_at(&trie, 80);
         for (int i = 100;; i++) {
-            if (en.t.path.generation != trie.struct_gen) {
+            if (!qhat_path_is_sync(&en.t.path)) {
                 /* The trie structure has changed. Stop now. */
                 break;
             }
@@ -835,7 +835,7 @@ Z_GROUP_EXPORT(qps_hat) {
              * reestablished as soon as the root cause of the corruption is
              * fixed. */
 #if 0
-            Z_ASSERT(en.t.path.generation == en.t.path.hat->struct_gen,
+            Z_ASSERT(qhat_path_is_sync(&en.t.path),
                      "enumerator still out-of-sync after 'next'");
 #endif
         }
@@ -866,7 +866,7 @@ Z_GROUP_EXPORT(qps_hat) {
 
         /* Keep adding entries until the structure of the trie changes. */
         for (int i = 100;; i++) {
-            if (en.t.path.generation != trie.struct_gen) {
+            if (!qhat_path_is_sync(&en.t.path)) {
                 /* The trie structure has changed. Stop now. */
                 break;
             }

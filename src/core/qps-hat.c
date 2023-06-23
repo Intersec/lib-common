@@ -1435,7 +1435,7 @@ qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en)
      * fixed. */
 #if 0
     /* The caller should probably have used the safe version. */
-    assert(en->path.generation == en->path.hat->struct_gen);
+    assert(qhat_path_is_sync(&en->path));
 #endif
 
     /* If this assert fails, then it means that returned value isn't the value
@@ -1484,7 +1484,7 @@ qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe)
     if (!safe) {
         return qhat_tree_enumerator_get_value_unsafe(en);
     }
-    if (unlikely(en->path.generation != en->path.hat->struct_gen)) {
+    if (unlikely(!qhat_path_is_sync(&en->path))) {
         qhat_tree_enumerator_refresh_path(en);
         /* FIXME For consistency, we should return qhat_default_zero_g if the
          * key was removed. */
@@ -1610,14 +1610,14 @@ static void qhat_tree_enumerator_find_down_up(qhat_tree_enumerator_t *en,
 uint32_t qhat_tree_enumerator_next(qhat_tree_enumerator_t *en, bool safe)
 {
     if (safe) {
-        if (unlikely(en->path.generation != en->path.hat->struct_gen)) {
+        if (unlikely(!qhat_path_is_sync(&en->path))) {
             en->key++;
             qhat_tree_enumerator_refresh_path(en);
             return en->key;
         }
     } else {
         /* The caller should probably have used the safe version. */
-        assert(en->path.generation == en->path.hat->struct_gen);
+        assert(qhat_path_is_sync(&en->path));
     }
 
     if (safe && en->compact &&
@@ -1655,11 +1655,11 @@ void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
         qhat_tree_enumerator_next(en, safe);
         return;
     }
-    if (unlikely(safe && en->path.generation != en->path.hat->struct_gen)) {
+    if (unlikely(safe && !qhat_path_is_sync(&en->path))) {
         qhat_tree_enumerator_find_up_down(en, key);
     } else {
         /* The caller should probably have used the safe version. */
-        assert(en->path.generation == en->path.hat->struct_gen);
+        assert(qhat_path_is_sync(&en->path));
 
         if (safe && en->compact) {
             /* Refresh the attributes 'pos' and 'count' so that

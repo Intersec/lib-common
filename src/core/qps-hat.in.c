@@ -214,7 +214,7 @@ static void update_path(qhat_path_t *path, bool can_stat)
     } else {
         qps_hptr_deref(hat->qps, &hat->root_cache);
     }
-    if (path->generation != hat->struct_gen) {
+    if (!qhat_path_is_sync(path)) {
         lookup(path);
     }
 }

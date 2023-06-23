@@ -243,6 +243,16 @@ void qhat_path_init(qhat_path_t *path, qhat_t *hat, uint32_t row)
 #endif
 }
 
+/** Return 'false' if modifications in the QHAT made the path out of sync.
+ *
+ * In that case, the QHAT library will refresh it before use.
+ * This function is exposed for debugging and testing purpose.
+ */
+static inline bool qhat_path_is_sync(const qhat_path_t *path)
+{
+    return path->generation == path->hat->struct_gen;
+}
+
 /** Remove the value described by a path.
  *
  * \param[in,out] path Already resolved path to the key in the trie.
