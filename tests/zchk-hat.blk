@@ -965,6 +965,57 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(nr_stat_update_after_rm_from_flat, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_path_t path;
+        qhat_node_t leaf;
+        uint16_t val;
+
+        Z_TEST_FLAGS("redmine_94699");
+
+        htrie = qhat_create(qps, 2, false);
+        qhat_init(&trie, qps, htrie);
+        qhat_compute_counts(&trie, true);
+        for (int i = 0; i < 2000; i++) {
+            uint16_t *v;
+
+            v = qhat_set(&trie, i);
+            *v = mem_hash32(&i, sizeof(i));
+        }
+
+        qhat_path_init(&path, &trie, 700);
+        qhat_get_path(&path);
+        leaf = path.path[path.depth];
+
+        /* We expect the entry 700 to be in a flatten leaf otherwise we are
+         * not testing what we should be testing. */
+        assert(leaf.leaf);
+        assert(!leaf.compact);
+
+        /* Check stats before removal. */
+        Z_ASSERT_EQ(trie.root->entry_count, 2000u);
+        Z_ASSERT_EQ(trie.root->zero_stored_count, 48u);
+
+        /* Remove the entry with key 700 and check the removed value. */
+        Z_ASSERT(qhat_remove(&trie, 700, &val));
+        Z_ASSERT_EQ(val, 53804);
+
+        /* Check stats after removal. */
+        /* FIXME Should be 1999. */
+        Z_ASSERT_EQ(trie.root->entry_count, 2000u);
+        /* FIXME Should be 49. */
+        Z_ASSERT_EQ(trie.root->zero_stored_count, 48u);
+
+        /* Check that the removal should remove nothing this time. */
+        /* FIXME qhat_remove() should return false. */
+        Z_ASSERT(qhat_remove(&trie, 700, &val));
+        Z_ASSERT_EQ(val, 0);
+
+        qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
 
     qps_close(&qps);
     MODULE_RELEASE(qps);
