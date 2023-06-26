@@ -34,12 +34,6 @@ cython = "==0.29.35"
 # process handling, used in tests
 psutil = "~=5.9.5"
 
-# behaviour-driven developement, used in tests
-behave = "==1.2.6"
-
-# interactive debugger, for debugging
-ipdb = "~=0.13.13"
-
 # python linter
 pylint = "==2.17.4"
 

@@ -21,11 +21,13 @@
 
 import sys
 import os
-import behave.model
+import behave.model  # pylint: disable=import-error
 import zpycore.util
 
-from behave.formatter.base import Formatter
-from behave.__main__ import main as behave_main
+from behave.formatter.base import Formatter  # pylint: disable=import-error
+
+from behave.__main__ import main as behave_main  # pylint: disable=import-error
+
 
 try:
     from behave.formatter._registry import register as behave_register

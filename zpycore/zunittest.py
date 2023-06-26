@@ -286,7 +286,7 @@ class _ZTextTestResult(unittest.TextTestResult):
     """
     _ZTextTestResult
 
-    Replacement of TextTestResult to add ability to debug our tests with ipdb.
+    Replacement of TextTestResult to add ability to debug our tests with pdb.
     Also, addExpectedFailure is overriden to fixup the _ZTodo hack
     """
 
@@ -296,9 +296,9 @@ class _ZTextTestResult(unittest.TextTestResult):
 
     def debug(self, err):
         if self.debug_on:
-            import ipdb # pylint: disable = import-outside-toplevel
+            import pdb  # pylint: disable = import-outside-toplevel
             _, _, exc_traceback = err
-            ipdb.post_mortem(exc_traceback)
+            pdb.post_mortem(exc_traceback)
 
     def addError(self, test, err):
         """Called when an error has occurred. 'err' is a tuple of values as
