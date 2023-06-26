@@ -588,6 +588,16 @@ typedef struct qhat_tree_enumerator_t {
 
     qhat_path_t path;
 
+    /* Pointer on the value of the current leaf. It can be either a "compact"
+     * or a "flat". If the enumerator is up-to-date, then the value associated
+     * to the current key should be in 'en->value_tab', at index 'en->pos'.
+     *
+     * This attribute is refreshed each time the enumerator enters a different
+     * leaf of the trie, so it should always be up-to-date as long as the trie
+     * isn't modified.
+     */
+    const void *value_tab;
+
     /* Position of the element in the current leaf of the trie (attribute
      * "memory").
      *
@@ -599,16 +609,6 @@ typedef struct qhat_tree_enumerator_t {
      * there is no key array.
      */
     uint32_t pos;
-
-    /* Pointer on the value of the current leaf. It can be either a "compact"
-     * or a "flat". If the enumerator is up-to-date, then the value associated
-     * to the current key should be in 'en->value_tab', at index 'en->pos'.
-     *
-     * This attribute is refreshed each time the enumerator enters a different
-     * leaf of the trie, so it should always be up-to-date as long as the trie
-     * isn't modified.
-     */
-    const void *value_tab;
 
     /* Only when the local array in memory is a "compact".
      * Number of elements in the compact.
