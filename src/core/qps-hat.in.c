@@ -37,6 +37,9 @@
 #define _remove(Size)       FUNCNAME(qhat_remove_path, Size)
 #define remove              _remove(SIZE)
 
+#define _val_is_zero(Size)  FUNCNAME(qhat_val_is_zero, Size)
+#define val_is_zero         _val_is_zero(SIZE)
+
 #define _get_null(Size)     FUNCNAME(qhat_get_path_null, Size)
 #define get_null            _get_null(SIZE)
 
@@ -133,6 +136,14 @@ void flatten_leaf(qhat_path_t *path)
     for (uint64_t __word = (word), pos = __word ? next_1(__word) : 0; __word;\
          pos += ({ RST_BIT(&__word, 0); next_1(__word); }))
 
+static ALWAYS_INLINE bool val_is_zero(const type_t *val)
+{
+#if SIZE == 128
+    return IS_ZERO128(*val);
+#else
+    return *val == 0;
+#endif
+}
 
 static NEVER_INLINE
 void unflatten_leaf(qhat_path_t *path)
@@ -155,11 +166,7 @@ void unflatten_leaf(qhat_path_t *path)
     new_memory = qhat_node_w_deref(path);
 
     for (uint32_t i = 0; i < LEAVES_PER_FLAT; i++) {
-#if SIZE == 128
-        if (memory.Flat[i].h != 0 || memory.Flat[i].l != 0) {
-#else
-        if (memory.Flat[i] != 0) {
-#endif
+        if (!val_is_zero(&memory.Flat[i])) {
             assert (pos < LEAVES_PER_COMPACT);
             new_memory.Compact->keys[pos]   = prefix + i;
             new_memory.Compact->values[pos] = memory.Flat[i];
@@ -254,6 +261,8 @@ static const type_t *get_null(qhat_path_t *path)
 static type_t *set(qhat_path_t *path)
 {
     qhat_node_memory_t memory;
+    type_t *val;
+
     update_path(path, true);
 
     for (;;) {
@@ -306,21 +315,20 @@ static type_t *set(qhat_path_t *path)
                 path->hat->root->key_stored_count++;
             }
         }
-        return &memory.Compact->values[slot];
+        val = &memory.Compact->values[slot];
     } else {
         uint32_t pos = path->key & LEAF_INDEX_MASK;
-        void  *val   = &memory.Flat[pos];
 
-        if (path->hat->do_stats) {
-            qhat_128_t zero = { 0, 0 };
+        val = &memory.Flat[pos];
 
-            if (memcmp(val, &zero, VALUE_LEN) == 0) {
-                path->hat->root->entry_count++;
-                path->hat->root->zero_stored_count--;
-            }
+        if (path->hat->do_stats && val_is_zero(val)) {
+            /* XXX We expect the caller to set a non-null value. */
+            path->hat->root->entry_count++;
+            path->hat->root->zero_stored_count--;
         }
-        return val;
     }
+
+    return val;
 }
 
 static type_t *set_null(qhat_path_t *path)
@@ -368,11 +376,7 @@ static bool remove(qhat_path_t *path, type_t *ptr)
         uint32_t pos = path->key & LEAF_INDEX_MASK;
         type_t  *val = &memory.Flat[pos];
 
-#if SIZE == 128
-        if (val->h == 0 && val->l == 0) {
-#else
-        if (*val == 0) {
-#endif
+        if (val_is_zero(val)) {
             goto no_value;
         }
 

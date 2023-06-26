@@ -33,14 +33,7 @@
 #define IS_ZERO64(Val)   ((Val) == 0)
 #define IS_ZERO128(Val)  ((Val).l == 0 && (Val).h == 0)
 
-#define SET_ZERO8(Val)    ((Val) = 0)
-#define SET_ZERO16(Val)   ((Val) = 0)
-#define SET_ZERO32(Val)   ((Val) = 0)
-#define SET_ZERO64(Val)   ((Val) = 0)
-#define SET_ZERO128(Val)  p_clear(&(Val), 1)
-
 #define IS_ZERO(Size, Val)   (IS_ZERO##Size(Val))
-#define SET_ZERO(Size, Val)  (SET_ZERO##Size(Val))
 
 //#define QHAT_CHECK_CONSISTENCY  1
 
