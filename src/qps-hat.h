@@ -608,13 +608,13 @@ typedef struct qhat_tree_enumerator_t {
      * If the current leaf is a "flat", it's only the index of the value as
      * there is no key array.
      */
-    uint32_t pos;
+    uint16_t pos;
 
     /* Only when the local array in memory is a "compact".
      * Number of elements in the compact.
      * May be unsynchronized with "memory.compact->count" if elements where
      * added or removed in the qhat. */
-    uint32_t count;
+    uint16_t count;
 
     /* Current leaf of the enumerator, cached here for quicker access. */
     qhat_node_const_memory_t memory;

@@ -431,6 +431,10 @@ static void set0_null(qhat_path_t *path, void *ptr)
 
 static void init(qhat_desc_t *desc, qhat_desc_t *desc_null)
 {
+    /* Make sure that a node length or leave index fits in 16 bits. */
+    STATIC_ASSERT(LEAVES_PER_FLAT < UINT16_MAX);
+    STATIC_ASSERT(LEAVES_PER_COMPACT < UINT16_MAX);
+
     desc->value_len               = VALUE_LEN;
     desc->value_len_log           = VALUE_LEN_LOG;
     desc->leaves_per_compact      = LEAVES_PER_COMPACT;
