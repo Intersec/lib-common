@@ -226,7 +226,7 @@ static void txt_debug_ctx_print(int fd, data_t data)
                     " unmet, " fmt, ##__VA_ARGS__);                          \
             debug_stack_dprint(fileno(stderr));                              \
             fprintf(stderr, "\n");                                           \
-            if (flags & QHAT_CHECK_FULL_SCAN) {                              \
+            if (flags & QHAT_CHECK_DONT_PANIC) {                             \
                 return -1;                                                   \
             }                                                                \
             logger_panic(&hat->qps->logger,                                  \
@@ -451,6 +451,9 @@ qhat_node_check_consistency(qhat_t *hat, uint32_t key, uint32_t depth,
                  * now. */
             } else {
                 res = -1;
+                if (!(flags & QHAT_CHECK_FULL_SCAN)) {
+                    return res;
+                }
             }
         }
 
@@ -486,9 +489,13 @@ int qhat_check_consistency_flags(qhat_t *hat, int flags,
                                  bool *nullable is_suboptimal)
 {
     if (flags & QHAT_CHECK_REPAIR_NODES) {
+        flags |= QHAT_CHECK_FULL_SCAN;
         qps_hptr_w_deref(hat->qps, &hat->root_cache);
     } else {
         qps_hptr_deref(hat->qps, &hat->root_cache);
+    }
+    if (flags & QHAT_CHECK_FULL_SCAN) {
+        flags |= QHAT_CHECK_DONT_PANIC;
     }
     return qhat_check_consistency_(hat, flags, is_suboptimal);
 }

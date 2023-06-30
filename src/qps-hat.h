@@ -396,7 +396,7 @@ typedef enum qhat_check_flags_t {
     /* Do not 'panic' in case of error.
      * Instead, log an error, print a backtrace with information about the
      * corruption and let 'qhat_check_consistency()' return -1. */
-    QHAT_CHECK_FULL_SCAN = (1 << 0),
+    QHAT_CHECK_DONT_PANIC = (1 << 0),
 
     /* If set, then the content of the leafs (compacts and flats) will be
      * checked as well. */
@@ -405,10 +405,14 @@ typedef enum qhat_check_flags_t {
     /* If set, then the function will try to repair the QHAT by removing its
      * broken nodes.
      *
-     * Note: it cannot repair a leaf for now: if there is an issue in a leaf,
-     * then the whole leaf is removed.
+     * Note: it cannot repair individual entries in a leaf for now: if there
+     * is an issue in a leaf, then the whole leaf is removed.
      */
     QHAT_CHECK_REPAIR_NODES = (1 << 2),
+
+    /* Skip the broken nodes but continue scanning in order to detect as many
+     * issues as we can. */
+    QHAT_CHECK_FULL_SCAN = (1 << 3),
 } qhat_check_flags_t;
 
 /** Perform a check on the structure of the HAT-Trie.
