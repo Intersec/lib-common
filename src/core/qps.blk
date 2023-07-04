@@ -3299,7 +3299,7 @@ void qps_get_usage(const qps_t *qps, struct qps_stats *st)
 
 /* }}} */
 
-static int qps_initialize(void *sighandler)
+static int qps_initialize(void *arg)
 {
     struct sigaction act = {
         .sa_sigaction = qps_on_segfault,

@@ -527,22 +527,9 @@ void qps_hptr_free(qps_t *qps, qps_hptr_t *cache)
  * qps_initialize calls sigaction() to hook the SIGSEGV and SIGBUGS signal for
  * internal processing and will forward signals caught that way that aren't
  * expected to the handler (if any). If you hook the SIGSEGV or SIGBUS signal
- * before calling qps_initialize this will be overwritten, if you do it after
- * QKV won't be functionnal.
- *
- * the sighandler callback is meant to be chained with similar processings
- * (to catch pagefaults and recover from them) from other libraries, though
- * it's expected that this callbacks either:
- * - fixes the issue and returns ;
- * - chainloads to a similar callback (with the same expectations);
- * - unhooks the SIGSEGV or SIGBUS signal and raises the condition again
- *   using code like:
- *   \code
- *   signal(SIGSEGV, SIG_DFL);
- *   raise(SIGSEGV);
- *   \endcode
- *
- * \param[in]  sighandler  a segfault/sigbus handler.
+ * after calling qps_initialize, the QPS handlers will be overwritten and QPS
+ * won't be functional, if you do it before, then QPS will chain them after
+ * its own sighandlers.
  */
 MODULE_DECLARE(qps);
 
