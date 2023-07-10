@@ -19,6 +19,9 @@
 #ifndef IS_LIB_COMMON_IOP_INTERNALS_H
 #define IS_LIB_COMMON_IOP_INTERNALS_H
 
+/* ABI compatibility version for the DSO */
+#define IOP_DSO_CURRENT_VERSION 20231114
+
 typedef enum iop_repeat_t {
     IOP_R_REQUIRED,
     IOP_R_DEFVAL,
@@ -625,8 +628,13 @@ typedef struct iop_dso_vt_t {
         .iop_set_verr = NULL,                                           \
     };
 
+#define IOP_EXPORT_DSO_VERSION \
+    EXPORT uint32_t iop_dso_version;                                    \
+    uint32_t iop_dso_version = IOP_DSO_CURRENT_VERSION;
+
 #define IOP_EXPORT_PACKAGES_COMMON \
     IOP_EXPORT_PACKAGES_VTABLE                                          \
+    IOP_EXPORT_DSO_VERSION                                              \
     iop_struct_t const iop__void__s = {                                 \
         .fullname   = LSTR_IMMED("Void"),                               \
         .fields_len = 0,                                                \

@@ -37,6 +37,7 @@ typedef struct iop_dso_t {
     void            * nonnull handle;
     lstr_t           path;
     Lmid_t           lmid;
+    uint32_t         version;
 
     qm_t(iop_pkg)    pkg_h;
     qm_t(iop_enum)   enum_h;
