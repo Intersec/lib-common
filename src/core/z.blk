@@ -27,6 +27,7 @@
 #include <lib-common/thr.h>
 #include <lib-common/container-qhash.h>
 #include <lib-common/iop-json.h>
+#include <lib-common/iop-yaml.h>
 #include <lib-common/datetime.h>
 #include <lib-common/parseopt.h>
 #include <lib-common/log.h>
@@ -636,8 +637,60 @@ bool _z_assert_lstrequal(const char *file, int lno, bool use_hex,
     return false;
 }
 
+static int z_diff(lstr_t left, lstr_t right, sb_t *diff)
+{
+    t_scope;
+    const char *lfile;
+    const char *rfile;
+    const char *diff_file;
+    char *dtemp;
+    SB_1k(cmd);
+    int ret;
+
+    /* The diff command takes files as input so we have to write files.
+     * Put all of them in a single temporary directory.
+     * We do not mind letting the temporary directory exist after this call as
+     * the files it contains may be useful for debugging. */
+    dtemp = t_fmt("%*pMdiff-XXXXXX", LSTR_FMT_ARG(z_tmpdir_g));
+    RETHROW_PN(mkdtemp(dtemp));
+
+    /* Write the two files. */
+    lfile = t_fmt("%s/left", dtemp);
+    rfile = t_fmt("%s/right", dtemp);
+    RETHROW(xwrite_file(lfile, left.s, left.len));
+    RETHROW(xwrite_file(rfile, right.s, right.len));
+
+    /* Run diff with a system command and write it in a diff file. */
+    diff_file = t_fmt("%s/diff", dtemp);
+    sb_setf(&cmd, "/bin/bash -c "
+            "\"set -o pipefail; diff -urNw %s %s >%s\"",
+            lfile, rfile, diff_file);
+    ret = system(cmd.data);
+    THROW_ERR_IF(WEXITSTATUS(ret) != 0 && WEXITSTATUS(ret) != 1);
+
+    /* Load the diff from the diff file. */
+    RETHROW(sb_read_file(diff, diff_file));
+
+    return 0;
+}
+
+static int z_iop_diff(const iop_struct_t *st, const void *l, const void *r,
+                      sb_t *diff)
+{
+    t_scope;
+    SB_1k(lbuf);
+    SB_1k(rbuf);
+
+    t_iop_sb_ypack(&lbuf, st, l, NULL);
+    sb_adds(&lbuf, "\n");
+    t_iop_sb_ypack(&rbuf, st, r, NULL);
+    sb_adds(&rbuf, "\n");
+
+    return z_diff(LSTR_SB_V(&lbuf), LSTR_SB_V(&rbuf), diff);
+}
+
 bool _z_assert_iopequal(const char *file, int lno,
-                        const struct iop_struct_t *st,
+                        const iop_struct_t *st,
                         const char *lhs, const void *lh,
                         const char *rhs, const void *rh,
                         const char *fmt, ...)
@@ -653,11 +706,8 @@ bool _z_assert_iopequal(const char *file, int lno,
                 file, lno, lhs, rhs);
         iop_first_diff_desc(st, lh, rh, &diff_desc);
         sb_addf(&sb, " %*pM\n", SB_FMT_ARG(&diff_desc));
-        sb_addf(&sb, " %s:\n  ", lhs);
-        iop_sb_jpack(&sb, st, lh, IOP_JPACK_MINIMAL);
-        sb_addf(&sb, "\n %s:\n  ", rhs);
-        iop_sb_jpack(&sb, st, rh, IOP_JPACK_MINIMAL);
         sb_adds(&sb, "\n");
+        z_iop_diff(st, lh, rh, &sb);
         _z_add_extra(sb, fmt);
         lstr_transfer_sb(&_G.grp.t_fail_reason, &sb, false);
         if (_G.abort_on_fail) {
