@@ -3407,6 +3407,7 @@ typedef enum http2_header_info_flags_t {
     HTTP2_HDR_FLAG_HAS_EXTRA_PSEUDO_HDR     =  1 << 5,
     HTTP2_HDR_FLAG_HAS_REGULAR_HEADERS      =  1 << 6,
     HTTP2_HDR_FLAG_HAS_CONTENT_LENGTH       =  1 << 7,
+    HTTP2_HDR_FLAG_HAS_HOST                 =  1 << 8,
 } http2_header_info_flags_t;
 
 typedef struct http2_header_info_t {
@@ -3417,6 +3418,7 @@ typedef struct http2_header_info_t {
     lstr_t authority;
     lstr_t status;
     lstr_t content_length;
+    lstr_t host;
 } http2_header_info_t;
 
 /* }}}*/
@@ -4015,6 +4017,9 @@ t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
             if (lstr_ascii_iequal(key, LSTR_IMMED_V("content-length"))) {
                 info.flags |= HTTP2_HDR_FLAG_HAS_CONTENT_LENGTH;
                 info.content_length = val;
+            } else if (lstr_ascii_iequal(key, LSTR_IMMED_V("host"))) {
+                info.flags |= HTTP2_HDR_FLAG_HAS_HOST;
+                info.host = val;
             }
             buf->len += len;
         }
@@ -5818,6 +5823,13 @@ static int httpd_unpack_http2_headers(httpd_t *w, http2_header_info_t *info,
         }
         sb_addf(ibuf, "%*pM %*pM HTTP/1.1\r\n", LSTR_FMT_ARG(info->method),
                 LSTR_FMT_ARG(info->path));
+        if (!(info->flags & HTTP2_HDR_FLAG_HAS_HOST)) {
+            /* Host: is missing, copy it from :authority. */
+            sb_addf(ibuf, "Host: %pL\r\n", &info->authority);
+        } else {
+            /* Host: is in headers: RFC9113 must equal to :authority. */
+            /* TODO: check for equality with normalization */
+        }
         sb_add_ps(ibuf, headerlines);
         switch (http_get_token_ps(ps_initlstr(&info->method))) {
         case HTTP_TK_POST:
