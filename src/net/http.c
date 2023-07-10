@@ -2754,11 +2754,14 @@ void httpc_close_gently(httpc_t *w)
     el_fd_set_mask(w->ev, POLLOUT);
 }
 
+static void httpc_http2_set_mask(httpc_t *w);
+
 static void httpc_set_mask(httpc_t *w)
 {
     int mask = POLLIN;
 
     if (w->connected_as_http2) {
+        httpc_http2_set_mask(w);
         return;
     }
     if (!ob_is_empty(&w->ob)) {
@@ -3384,6 +3387,7 @@ typedef struct http2_conn_t {
     bool                is_shutdown_soon_recv: 1;
     bool                is_shutdown_soon_sent: 1;
     bool                is_shutdown_commanded : 1;
+    bool                want_write : 1;
 } http2_conn_t;
 
 /** Get effective HTTP2 settings */
@@ -5527,8 +5531,9 @@ static void http2_conn_do_set_mask_and_watch(http2_conn_t *w)
     } else {
         el_fd_watch_activity(w->ev, POLLINOUT, 0);
     }
-    if (!ob_is_empty(&w->ob)) {
+    if (!ob_is_empty(&w->ob) || w->want_write) {
         mask |= POLLOUT;
+        w->want_write = false;
     }
     el_fd_set_mask(w->ev, mask);
 }
@@ -6865,6 +6870,17 @@ void httpc_close_http2_pool(httpc_cfg_t *cfg)
         http2_conn_do_set_mask_and_watch(client->conn);
     }
     http2_pool_delete(&cfg->http2_pool);
+}
+
+static void httpc_http2_set_mask(httpc_t *w)
+{
+    if (!w->http2_ctx || !w->http2_ctx->conn) {
+        return;
+    }
+    if (!ob_is_empty(&w->ob)) {
+        w->http2_ctx->conn->want_write = true;
+    }
+    http2_conn_do_set_mask_and_watch(w->http2_ctx->conn);
 }
 
 /* }}} */
