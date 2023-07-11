@@ -6216,6 +6216,7 @@ typedef struct httpc_http2_ctx_t {
     int           http2_sync_mark;
     uint8_t       substate;
     bool          disconnect_cmd;
+    bool          first_set_ready_called;
 } httpc_http2_ctx_t;
 
 static httpc_http2_ctx_t *httpc_http2_ctx_init(httpc_http2_ctx_t *ctx)
@@ -6396,7 +6397,6 @@ static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
     if (pool) {
         httpc_pool_attach(w, pool);
     }
-    obj_vcall(w, set_ready, true);
     return w;
 }
 
@@ -6521,6 +6521,11 @@ static void http2_stream_attach_httpc(http2_conn_t *w, httpc_t *httpc)
 static void http2_conn_stream_idle_httpc(http2_conn_t *w, httpc_t *httpc)
 {
     httpc_query_t *q;
+
+    if (!httpc->http2_ctx->first_set_ready_called) {
+        obj_vcall(httpc, set_ready, true);
+        httpc->http2_ctx->first_set_ready_called = true;
+    }
 
     if (dlist_is_empty(&httpc->query_list)) {
         if (httpc->connection_close)  {
