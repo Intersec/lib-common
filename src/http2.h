@@ -168,5 +168,25 @@ typedef enum {
 } err_code_t;
 
 /* }}} */
+/* {{{ Decoding functions */
+
+/** Parse a HTTP/2 frame info from the ps.
+ *
+ * \param[in]  ps     pstream_t that points to the HTTP/2 packet
+ * \param[out] frame  frame info structure to fill
+ */
+__must_check__ int
+http2_parse_frame_hdr(pstream_t *ps, http2_frame_info_t *frame);
+
+/** Get the trimmed chunk of a HTTP/2 payload by removing the padding.
+ *
+ * \param[in]  payload      payload to trim
+ * \param[in]  frame_flags  contains the PADDED flag
+ * \param[out] chunk        trimmed chunk
+ */
+int http2_payload_get_trimmed_chunk(pstream_t payload, int frame_flags,
+                                    pstream_t *chunk);
+
+/* }}} */
 
 #endif

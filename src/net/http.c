@@ -4492,8 +4492,7 @@ static int http2_conn_error_(http2_conn_t *w, uint32_t error_code,
     return http2_conn_send_error(w, error_code, debug);
 }
 
-__must_check__ static int
-http2_parse_frame_hdr(pstream_t *ps, http2_frame_info_t *frame)
+int http2_parse_frame_hdr(pstream_t *ps, http2_frame_info_t *frame)
 {
     const http2_frame_hdr_t *hdr;
 
@@ -4528,9 +4527,8 @@ http2_conn_consume_recv_window(http2_conn_t *w, int len)
     http2_conn_maintain_recv_window(w);
 }
 
-static int
-http2_payload_get_trimmed_chunk(pstream_t payload, int frame_flags,
-                                pstream_t *chunk)
+int http2_payload_get_trimmed_chunk(pstream_t payload, int frame_flags,
+                                    pstream_t *chunk)
 {
     if (frame_flags & HTTP2_FLAG_PADDED) {
         int padding_sz;
