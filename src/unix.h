@@ -354,6 +354,87 @@ static inline int p_close(int * nonnull hdp) {
 }
 
 /* }}} */
+/* {{{ Terminal colors related */
+
+/* ANSI colors that may be used in fancy terminals.
+ *
+ * Main information source used for the creation of these constants and
+ * macros: 'man dir_colors'.
+ *
+ * XXX Before using colors, you should check that they are supported by the
+ * output with is_fancy_fd().
+ */
+
+/* The following colors can be combined with ';' separator. */
+#define TERM_COLOR_SEP ";"
+
+#define TERM_COLOR_COMBINE(c1, c2) c1 TERM_COLOR_SEP c2
+
+/* Modifiers. */
+#define TERM_COLOR_BRIGHTER(color)      TERM_COLOR_COMBINE("1", color)
+#define TERM_COLOR_DIM(color)           TERM_COLOR_COMBINE("2", color)
+#define TERM_COLOR_ITALIC(color)        TERM_COLOR_COMBINE("3", color)
+#define TERM_COLOR_UNDERLINED(color)    TERM_COLOR_COMBINE("4", color)
+#define TERM_COLOR_FLASHING(color)      TERM_COLOR_COMBINE("5", color)
+#define TERM_COLOR_REVERSE(color)       TERM_COLOR_COMBINE("7", color)
+#define TERM_COLOR_HIDDEN(color)        TERM_COLOR_COMBINE("8", color)
+#define TERM_COLOR_STRIKETHROUGH(color) TERM_COLOR_COMBINE("9", color)
+
+/* Foreground (letters) colors. */
+#define TERM_COLOR_BLACK   "30"
+#define TERM_COLOR_RED     "31"
+#define TERM_COLOR_GREEN   "32"
+#define TERM_COLOR_YELLOW  "33"
+#define TERM_COLOR_BLUE    "34"
+#define TERM_COLOR_PURPLE  "35"
+#define TERM_COLOR_CYAN    "36"
+#define TERM_COLOR_WHITE   "37"
+#define TERM_COLOR_DEFAULT "39"
+
+/* Background colors. */
+#define TERM_COLOR_BLACK_BG   "40"
+#define TERM_COLOR_RED_BG     "41"
+#define TERM_COLOR_GREEN_BG   "42"
+#define TERM_COLOR_YELLOW_BG  "43"
+#define TERM_COLOR_BLUE_BG    "44"
+#define TERM_COLOR_PURPLE_BG  "45"
+#define TERM_COLOR_CYAN_BG    "46"
+#define TERM_COLOR_WHITE_BG   "47"
+#define TERM_COLOR_DEFAULT_BG "49"
+
+#define TERM_COLOR_SET(color) "\e[" color "m"
+#define TERM_COLOR_RESET TERM_COLOR_SET("0")
+
+/** Build a colored string with the pre-processor.
+ *
+ * \example Print a title in bright (or bold) white.
+ *
+ * printf(TERM_COLOR_S("Title:", TERM_COLOR_BRIGHTER(TERM_COLOR_WHITE)));
+ *
+ * \example Print an error description in red.
+ *
+ * printf(TERM_COLOR_S("Error: %s", TERM_COLOR_RED), error_description);
+ */
+#define TERM_COLOR_S(s, color) TERM_COLOR_SET(color) s TERM_COLOR_RESET
+
+/** Help building format strings with colored parts.
+ *
+ * \example Print an integer with a given color, only the number is colored.
+ *
+ * void print_colored_int(int i, const char *color)
+ * {
+ *     printf("i=" TERM_COLOR_FMT("%d"), TERM_COLOR_FMT_ARG(color, i));
+ * }
+ */
+#define TERM_COLOR_FMT(fmt) TERM_COLOR_SET("%s") fmt TERM_COLOR_RESET
+
+/** Argument associated to \ref TERM_COLOR_FMT.
+ *
+ * \see \ref TERM_COLOR_FMT.
+ */
+#define TERM_COLOR_FMT_ARG(color, ...) color, ##__VA_ARGS__
+
+/* }}} */
 /* {{{ Misc */
 
 static inline void getopt_init(void) {
