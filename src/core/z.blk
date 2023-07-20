@@ -642,6 +642,7 @@ static int z_diff(lstr_t left, lstr_t right, sb_t *diff)
     t_scope;
     const char *lfile;
     const char *rfile;
+    const char *sed_color = "";
     const char *diff_file;
     char *dtemp;
     SB_1k(cmd);
@@ -660,11 +661,28 @@ static int z_diff(lstr_t left, lstr_t right, sb_t *diff)
     RETHROW(xwrite_file(lfile, left.s, left.len));
     RETHROW(xwrite_file(rfile, right.s, right.len));
 
+    if (is_fancy_fd(STDERR_FILENO)) {
+        sed_color = " | sed '"
+            /* Removals: lines that start with '-'. */
+            "s/^-/\\x1b[" TERM_COLOR_PURPLE "m-/;"
+
+            /* Additions: lines that start with '+'. */
+            "s/^+/\\x1b[" TERM_COLOR_BRIGHTER(TERM_COLOR_CYAN) "m+/;"
+
+            /* Line/column number information. */
+            "s/^@/\\x1b[" TERM_COLOR_YELLOW "m@/;"
+
+            /* Reset color at EOL. */
+            "s/$/\\x1b[0m/"
+
+            "'";
+    }
+
     /* Run diff with a system command and write it in a diff file. */
     diff_file = t_fmt("%s/diff", dtemp);
     sb_setf(&cmd, "/bin/bash -c "
-            "\"set -o pipefail; diff -urNw %s %s >%s\"",
-            lfile, rfile, diff_file);
+            "\"set -o pipefail; diff -urNw %s %s%s >%s\"",
+            lfile, rfile, sed_color, diff_file);
     ret = system(cmd.data);
     THROW_ERR_IF(WEXITSTATUS(ret) != 0 && WEXITSTATUS(ret) != 1);
 
