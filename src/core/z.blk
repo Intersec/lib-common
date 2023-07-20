@@ -487,6 +487,21 @@ static void z_sb_reset_color(sb_t *sb)
     z_sb_set_color(sb, "");
 }
 
+static lstr_t t_z_colored_lstr(lstr_t s, const char *color_fmt)
+{
+    if (!is_fancy_fd(STDERR_FILENO)) {
+        return s;
+    }
+
+    return t_lstr_fmt(TERM_COLOR_FMT("%*pM"),
+                      TERM_COLOR_FMT_ARG(color_fmt, LSTR_FMT_ARG(s)));
+}
+
+static const char *t_z_colored_str(const char *s, const char *color_fmt)
+{
+    return t_z_colored_lstr(LSTR(s), color_fmt).s;
+}
+
 static void z_sb_add_char(sb_t *sb, int c, bool full_hex, bool printable,
                           const char *nullable color)
 {
@@ -882,17 +897,25 @@ static void do_fail_comment(void)
     }
 }
 
-static void print_test_summary(const char *outcome)
+static void print_test_summary(const char *outcome, const char *color)
 {
+    t_scope;
+    lstr_t name;
+
+    if (color) {
+        outcome = t_z_colored_str(outcome, color);
+    }
+    name = t_z_colored_lstr(_G.grp.t_name,
+                            TERM_COLOR_BRIGHTER(TERM_COLOR_WHITE));
     printf("%*d %s %*pM # (%ld.%06lds)", _G.grp.n_total_digits,
-           _G.grp.t_idx, outcome, LSTR_FMT_ARG(_G.grp.t_name),
+           _G.grp.t_idx, outcome, LSTR_FMT_ARG(name),
            _G.grp.tv_diff.tv_sec, (long)_G.grp.tv_diff.tv_usec);
 }
 
 static void do_skip(void)
 {
     _G.grp.t_skipped++;
-    print_test_summary("skip");
+    print_test_summary("skip", TERM_COLOR_BRIGHTER(TERM_COLOR_YELLOW));
     printf(" %*pM\n", LSTR_FMT_ARG(_G.grp.t_skip_reason));
     fflush(stdout);
 }
@@ -900,7 +923,7 @@ static void do_skip(void)
 static void do_passed(void)
 {
     _G.grp.t_passed++;
-    print_test_summary("pass");
+    print_test_summary("pass", TERM_COLOR_BRIGHTER(TERM_COLOR_GREEN));
     printf(" %d assertions\n", _G.grp.t_asserts);
     fflush(stdout);
 }
@@ -908,7 +931,7 @@ static void do_passed(void)
 static void do_failed(void)
 {
     _G.grp.t_failed++;
-    print_test_summary("fail");
+    print_test_summary("fail", TERM_COLOR_BRIGHTER(TERM_COLOR_RED));
     printf("\n");
     do_fail_comment();
 }
@@ -916,14 +939,14 @@ static void do_failed(void)
 static void do_todo_passed(void)
 {
     _G.grp.t_todo_passed++;
-    print_test_summary("todo-pass");
+    print_test_summary("todo-pass", TERM_COLOR_GREEN);
     printf(" %*pM\n", LSTR_FMT_ARG(_G.grp.t_todo_reason));
 }
 
 static void do_todo_failed(void)
 {
     _G.grp.t_todo_failed++;
-    print_test_summary("todo-fail");
+    print_test_summary("todo-fail", TERM_COLOR_RED);
     printf(" %*pM\n", LSTR_FMT_ARG(_G.grp.t_todo_reason));
     do_fail_comment();
 }
