@@ -771,8 +771,8 @@ void __logger_end_fatal(void)
 /* }}} */
 /* Handlers {{{ */
 
-static int log_make_fancy_prefix(const char *progname, int pid,
-                                 char fancy[static 64])
+int log_make_fancy_prefix(const char * nonnull progname, int pid,
+                          char fancy[static 64])
 {
     static int colors[] = { 1, 2, 4, 5, 6, 9, 12, 14 };
     uint32_t color;
@@ -835,9 +835,10 @@ static void log_stderr_fancy_handler(const log_ctx_t *ctx, const char *fmt,
             sb_add(sb, _G.fancy_prefix, _G.fancy_len);
         } else {
             char fancy[64];
+            int len;
 
-            sb_add(sb, fancy, log_make_fancy_prefix(ctx->prog_name, ctx->pid,
-                                                    fancy));
+            len = log_make_fancy_prefix(ctx->prog_name, ctx->pid, fancy);
+            sb_add(sb, fancy, len);
         }
     }
     if (ctx->logger_name.len) {

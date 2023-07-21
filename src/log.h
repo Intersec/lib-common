@@ -273,6 +273,14 @@ qv_t(spec) * nonnull log_get_specs(void);
 
 void log_module_register(void);
 
+/* The "[static 64]" will not work in C++ code. */
+#ifndef __cplusplus
+
+int log_make_fancy_prefix(const char * nonnull progname, int pid,
+                          char fancy[static 64]);
+
+#endif /* __cplusplus */
+
 /* }}} */
 /* Simple logging {{{ */
 
