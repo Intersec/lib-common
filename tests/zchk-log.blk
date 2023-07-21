@@ -921,12 +921,12 @@ Z_GROUP_EXPORT(log) {
             Z_ASSERT_LSTREQUAL(LSTR_INIT_V(fancy, len), LSTR(fancy_prefix)); \
         } while (0)
 
-        TEST("pig",      3241,  "\e[0;31m       pig[3241]\e[0m: ");
-        TEST("dog",      45000, "\e[0;32m       dog[45000]\e[0m: ");
-        TEST("sheep",    55095, "\e[0;34m     sheep[55095]\e[0m: ");
-        TEST("shark",    1975,  "\e[0;35m     shark[1975]\e[0m: ");
-        TEST("elephant", 1941,  "\e[0;36m  elephant[1941]\e[0m: ");
-        TEST("lion",     1994,  "\e[0;39m      lion[1994]\e[0m: ");
+        TEST("pig",      3241,  "\e[31m       pig[3241]\e[0m: ");
+        TEST("dog",      45000, "\e[32m       dog[45000]\e[0m: ");
+        TEST("sheep",    55095, "\e[34m     sheep[55095]\e[0m: ");
+        TEST("shark",    1975,  "\e[35m     shark[1975]\e[0m: ");
+        TEST("elephant", 1941,  "\e[36m  elephant[1941]\e[0m: ");
+        TEST("lion",     1994,  "\e[39m      lion[1994]\e[0m: ");
         TEST("kangaroo", 2017,  "\e[1;32m  kangaroo[2017]\e[0m: ");
         TEST("ant",      1998,  "\e[1;34m       ant[1998]\e[0m: ");
 

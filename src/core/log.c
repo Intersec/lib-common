@@ -774,15 +774,26 @@ void __logger_end_fatal(void)
 int log_make_fancy_prefix(const char * nonnull progname, int pid,
                           char fancy[static 64])
 {
-    static int colors[] = { 1, 2, 4, 5, 6, 9, 12, 14 };
-    uint32_t color;
+    static const char *colors[] = {
+        TERM_COLOR_RED,
+        TERM_COLOR_GREEN,
+        TERM_COLOR_BLUE,
+        TERM_COLOR_PURPLE,
+        TERM_COLOR_CYAN,
+        TERM_COLOR_DEFAULT,
+        TERM_COLOR_BRIGHTER(TERM_COLOR_GREEN),
+        TERM_COLOR_BRIGHTER(TERM_COLOR_BLUE),
+    };
+    uint32_t hash;
+    const char *color;
     int len;
 
-    color = mem_hash32(progname, strlen(progname));
+    hash = mem_hash32(progname, strlen(progname));
+    color = colors[hash % countof(colors)];
 
-    color = colors[color % countof(colors)];
-    len = snprintf(fancy, 64, "\e[%d;%dm%10s[%d]\e[0m: ", color >= 10 ? 1 : 0,
-                   (color >= 10 ? 20 : 30) + color, progname, pid);
+    len = snprintf(fancy, 64,
+                   TERM_COLOR_FMT("%10s[%d]") ": ",
+                   TERM_COLOR_FMT_ARG(color, progname, pid));
     return MIN(len, 63);
 }
 
@@ -795,6 +806,18 @@ static void log_add_timestamp(sb_t *sb)
         sb_addf(sb, "%ld.%02ld ", tv.tv_sec, (long)tv.tv_usec / 10000);
     }
 }
+
+#define LOG_COLOR_FUNCTION TERM_COLOR_YELLOW
+
+#define LOG_COLOR_LOGGER_NAME TERM_COLOR_BRIGHTER(TERM_COLOR_BLACK)
+
+#define LOG_COLOR_DEBUG   TERM_COLOR_ITALIC(TERM_COLOR_DEFAULT)
+#define LOG_COLOR_WARNING TERM_COLOR_BRIGHTER(TERM_COLOR_YELLOW)
+#define LOG_COLOR_ERROR   TERM_COLOR_BRIGHTER(TERM_COLOR_RED)
+
+#define LOG_COLOR_CRIT                                                       \
+    TERM_COLOR_BRIGHTER(TERM_COLOR_COMBINE(TERM_COLOR_RED_BG,                \
+                                           TERM_COLOR_WHITE))
 
 __attr_printf__(2, 0)
 static void log_stderr_fancy_handler(const log_ctx_t *ctx, const char *fmt,
@@ -823,7 +846,7 @@ static void log_stderr_fancy_handler(const log_ctx_t *ctx, const char *fmt,
 
         log_add_timestamp(sb);
 
-        sb_adds(sb, "\e[33m");
+        sb_adds(sb, TERM_COLOR_SET(LOG_COLOR_FUNCTION));
         if (strlen(ctx->func) < 17) {
             sb_addf(sb, "%*s: ", 17, ctx->func);
         } else {
@@ -842,30 +865,31 @@ static void log_stderr_fancy_handler(const log_ctx_t *ctx, const char *fmt,
         }
     }
     if (ctx->logger_name.len) {
-        sb_addf(sb, "\e[1;30m{%*pM} ", LSTR_FMT_ARG(ctx->logger_name));
+        sb_addf(sb, TERM_COLOR_SET(LOG_COLOR_LOGGER_NAME) "{%*pM} ",
+                LSTR_FMT_ARG(ctx->logger_name));
     }
     switch (ctx->level) {
       case LOG_DEBUG:
       case LOG_INFO:
-        sb_adds(sb, "\e[39;3m");
+        sb_adds(sb, TERM_COLOR_SET(LOG_COLOR_DEBUG));
         break;
       case LOG_WARNING:
-        sb_adds(sb, "\e[33;1m");
+        sb_adds(sb, TERM_COLOR_SET(LOG_COLOR_WARNING));
         break;
       case LOG_ERR:
-        sb_adds(sb, "\e[31;1m");
+        sb_adds(sb, TERM_COLOR_SET(LOG_COLOR_ERROR));
         break;
       case LOG_CRIT:
       case LOG_ALERT:
       case LOG_EMERG:
-        sb_adds(sb, "\e[41;37;1m");
+        sb_adds(sb, TERM_COLOR_SET(LOG_COLOR_CRIT));
         break;
       default:
-        sb_adds(sb, "\e[0m");
+        sb_adds(sb, TERM_COLOR_RESET);
         break;
     }
     sb_addvf(sb, fmt, va);
-    sb_adds(sb, "\e[0m\n");
+    sb_adds(sb, TERM_COLOR_RESET "\n");
 
     fputs(sb->data, stderr);
     if (log_stderr_handler_teefd_g >= 0) {
