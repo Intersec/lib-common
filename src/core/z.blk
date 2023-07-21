@@ -472,12 +472,12 @@ static void sb_adduc_escaped(sb_t *sb, int c)
  *
  * The color will apply until the color is reset.
  *
- * \param[in] color_fmt  Color codes separated by ';'.
+ * \param[in] color  Color sequence (see TERM_COLOR_*).
  */
-static void z_sb_set_color(sb_t *sb, const char *color_fmt)
+static void z_sb_set_color(sb_t *sb, const char *color)
 {
     if (is_fancy_fd(STDERR_FILENO)) {
-        sb_addf(sb, "\e[%sm", color_fmt);
+        sb_addf(sb, TERM_COLOR_SET("%s"), color);
     }
 }
 
@@ -541,11 +541,11 @@ static void z_sb_add_lstr(sb_t *sb, lstr_t s, int first_diff_pos,
         c = z_ps_get_char(&ps, full_hex, &printable);
 
         if (!highlighting_done && ps.s - s.s > first_diff_pos) {
-            /* Use a bold character with a red background. */
+            /* Use a bold/bright character with a red background. */
             /* TODO Implement Myers diff algorithm and print a colored diff
              * instead of highlighting only the first different
              * character/byte. */
-            color = "1;41";
+            color = TERM_COLOR_BRIGHTER(TERM_COLOR_RED_BG);
             highlighting_done = true;
         }
 
