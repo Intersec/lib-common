@@ -259,6 +259,15 @@ const iop_struct_t json_generic_attributes__test__s = {
 iop_struct_t const * const json_generic_attributes__test__sp = &json_generic_attributes__test__s;
 
 /* }}} */
+/* Typedef json_generic_attributes.Price {{{ */
+
+iop_typedef_t const json_generic_attributes__price__td = {
+    .fullname = LSTR_IMMED("json_generic_attributes.Price"),
+    .type = IOP_T_DOUBLE,
+};
+iop_typedef_t const * const json_generic_attributes__price__tdp = &json_generic_attributes__price__td;
+
+/* }}} */
 /* Package json_generic_attributes {{{ */
 
 static const iop_pkg_t *const json_generic_attributes__deps[] = {
@@ -284,13 +293,19 @@ static const iop_mod_t *const json_generic_attributes__mods[] = {
     NULL,
 };
 
+static const iop_typedef_t *const json_generic_attributes__td[] = {
+    &json_generic_attributes__price__td,
+    NULL,
+};
+
 iop_pkg_t const json_generic_attributes__pkg = {
-    .name    = LSTR_IMMED("json_generic_attributes"),
-    .deps    = json_generic_attributes__deps,
-    .enums   = json_generic_attributes__enums,
-    .structs = json_generic_attributes__structs,
-    .ifaces  = json_generic_attributes__ifaces,
-    .mods    = json_generic_attributes__mods,
+    .name     = LSTR_IMMED("json_generic_attributes"),
+    .deps     = json_generic_attributes__deps,
+    .enums    = json_generic_attributes__enums,
+    .structs  = json_generic_attributes__structs,
+    .ifaces   = json_generic_attributes__ifaces,
+    .mods     = json_generic_attributes__mods,
+    .typedefs = json_generic_attributes__td,
 };
 iop_pkg_t const * const json_generic_attributes__pkgp = &json_generic_attributes__pkg;
 

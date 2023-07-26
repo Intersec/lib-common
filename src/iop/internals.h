@@ -539,16 +539,30 @@ typedef struct iop_mod_t {
 } iop_mod_t;
 
 /*}}}*/
+/*{{{ iop_typedef_t */
+
+typedef struct iop_typedef_t {
+    const lstr_t fullname;
+    uint16_t flags; /** reserved for future bitfield of iop_typedef_flag_t */
+    const iop_type_t type;
+    union {
+        const iop_enum_t * nullable ref_enum;
+        const iop_struct_t * nullable ref_struct;
+    };
+} iop_typedef_t;
+
+/*}}}*/
 /*{{{ iop_pkg_t */
 
 typedef struct iop_pkg_t iop_pkg_t;
 struct iop_pkg_t {
     const lstr_t               name;
-    iop_enum_t   const *const nullable *nonnull enums;
-    iop_struct_t const *const nullable *nonnull structs;
-    iop_iface_t  const *const nullable *nonnull ifaces;
-    iop_mod_t    const *const nullable *nonnull mods;
-    iop_pkg_t    const *const nullable *nonnull deps;
+    iop_enum_t    const *const nullable *nonnull enums;
+    iop_struct_t  const *const nullable *nonnull structs;
+    iop_iface_t   const *const nullable *nonnull ifaces;
+    iop_mod_t     const *const nullable *nonnull mods;
+    iop_pkg_t     const *const nullable *nonnull deps;
+    iop_typedef_t const *const nullable *nonnull typedefs;
 };
 
 /*}}}*/
