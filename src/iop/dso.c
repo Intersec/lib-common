@@ -180,6 +180,8 @@ static int iopdso_fix_pkg(iop_dso_t *dso, const iop_pkg_t *pkg, sb_t *err)
     return 0;
 }
 
+static const iop_typedef_t *empty_typedefs_g[] = {NULL};
+
 static iop_pkg_t *iop_pkg_dup_old_version(const iop_pkg_t *old_version_pkg)
 {
     iop_pkg_t *new_version_pkg = p_new(iop_pkg_t, 1);
@@ -191,8 +193,7 @@ static iop_pkg_t *iop_pkg_dup_old_version(const iop_pkg_t *old_version_pkg)
     new_version_pkg->ifaces = old_version_pkg->ifaces;
     new_version_pkg->mods = old_version_pkg->mods;
     new_version_pkg->deps = old_version_pkg->deps;
-
-    /* typedefs is not valid for old _version_pkg. */
+    new_version_pkg->typedefs = empty_typedefs_g;
 
     return new_version_pkg;
 }

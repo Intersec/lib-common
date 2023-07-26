@@ -60,13 +60,18 @@ static const iop_mod_t *const attrs_valid_v5__mods[] = {
     NULL,
 };
 
+static const iop_typedef_t *const attrs_valid_v5__td[] = {
+    NULL,
+};
+
 iop_pkg_t const attrs_valid_v5__pkg = {
-    .name    = LSTR_IMMED("attrs_valid_v5"),
-    .deps    = attrs_valid_v5__deps,
-    .enums   = attrs_valid_v5__enums,
-    .structs = attrs_valid_v5__structs,
-    .ifaces  = attrs_valid_v5__ifaces,
-    .mods    = attrs_valid_v5__mods,
+    .name     = LSTR_IMMED("attrs_valid_v5"),
+    .deps     = attrs_valid_v5__deps,
+    .enums    = attrs_valid_v5__enums,
+    .structs  = attrs_valid_v5__structs,
+    .ifaces   = attrs_valid_v5__ifaces,
+    .mods     = attrs_valid_v5__mods,
+    .typedefs = attrs_valid_v5__td,
 };
 iop_pkg_t const * const attrs_valid_v5__pkgp = &attrs_valid_v5__pkg;
 

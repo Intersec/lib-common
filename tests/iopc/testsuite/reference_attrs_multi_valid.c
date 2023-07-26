@@ -248,6 +248,26 @@ const iop_struct_t attrs_multi_valid__toto__s = {
 iop_struct_t const * const attrs_multi_valid__toto__sp = &attrs_multi_valid__toto__s;
 
 /* }}} */
+/* Typedef attrs_multi_valid.Un {{{ */
+
+iop_typedef_t const attrs_multi_valid__un__td = {
+    .fullname = LSTR_IMMED("attrs_multi_valid.Un"),
+    .type = IOP_T_UNION,
+    .ref_struct = &attrs_multi_valid__my_union__s,
+};
+iop_typedef_t const * const attrs_multi_valid__un__tdp = &attrs_multi_valid__un__td;
+
+/* }}} */
+/* Typedef attrs_multi_valid.En {{{ */
+
+iop_typedef_t const attrs_multi_valid__en__td = {
+    .fullname = LSTR_IMMED("attrs_multi_valid.En"),
+    .type = IOP_T_ENUM,
+    .ref_enum = &attrs_multi_valid__my_enum__e,
+};
+iop_typedef_t const * const attrs_multi_valid__en__tdp = &attrs_multi_valid__en__td;
+
+/* }}} */
 /* Package attrs_multi_valid {{{ */
 
 static const iop_pkg_t *const attrs_multi_valid__deps[] = {
@@ -273,13 +293,20 @@ static const iop_mod_t *const attrs_multi_valid__mods[] = {
     NULL,
 };
 
+static const iop_typedef_t *const attrs_multi_valid__td[] = {
+    &attrs_multi_valid__un__td,
+    &attrs_multi_valid__en__td,
+    NULL,
+};
+
 iop_pkg_t const attrs_multi_valid__pkg = {
-    .name    = LSTR_IMMED("attrs_multi_valid"),
-    .deps    = attrs_multi_valid__deps,
-    .enums   = attrs_multi_valid__enums,
-    .structs = attrs_multi_valid__structs,
-    .ifaces  = attrs_multi_valid__ifaces,
-    .mods    = attrs_multi_valid__mods,
+    .name     = LSTR_IMMED("attrs_multi_valid"),
+    .deps     = attrs_multi_valid__deps,
+    .enums    = attrs_multi_valid__enums,
+    .structs  = attrs_multi_valid__structs,
+    .ifaces   = attrs_multi_valid__ifaces,
+    .mods     = attrs_multi_valid__mods,
+    .typedefs = attrs_multi_valid__td,
 };
 iop_pkg_t const * const attrs_multi_valid__pkgp = &attrs_multi_valid__pkg;
 

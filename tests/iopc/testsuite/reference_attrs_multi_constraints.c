@@ -447,6 +447,69 @@ const iop_struct_t attrs_multi_constraints__tab_test__s = {
 iop_struct_t const * const attrs_multi_constraints__tab_test__sp = &attrs_multi_constraints__tab_test__s;
 
 /* }}} */
+/* Typedef attrs_multi_constraints.Min3 {{{ */
+
+iop_typedef_t const attrs_multi_constraints__min3__td = {
+    .fullname = LSTR_IMMED("attrs_multi_constraints.Min3"),
+    .type = IOP_T_U64,
+};
+iop_typedef_t const * const attrs_multi_constraints__min3__tdp = &attrs_multi_constraints__min3__td;
+
+/* }}} */
+/* Typedef attrs_multi_constraints.Min5 {{{ */
+
+iop_typedef_t const attrs_multi_constraints__min5__td = {
+    .fullname = LSTR_IMMED("attrs_multi_constraints.Min5"),
+    .type = IOP_T_U64,
+};
+iop_typedef_t const * const attrs_multi_constraints__min5__tdp = &attrs_multi_constraints__min5__td;
+
+/* }}} */
+/* Typedef attrs_multi_constraints.Digit {{{ */
+
+iop_typedef_t const attrs_multi_constraints__digit__td = {
+    .fullname = LSTR_IMMED("attrs_multi_constraints.Digit"),
+    .type = IOP_T_U32,
+};
+iop_typedef_t const * const attrs_multi_constraints__digit__tdp = &attrs_multi_constraints__digit__td;
+
+/* }}} */
+/* Typedef attrs_multi_constraints.Neg {{{ */
+
+iop_typedef_t const attrs_multi_constraints__neg__td = {
+    .fullname = LSTR_IMMED("attrs_multi_constraints.Neg"),
+    .type = IOP_T_DOUBLE,
+};
+iop_typedef_t const * const attrs_multi_constraints__neg__tdp = &attrs_multi_constraints__neg__td;
+
+/* }}} */
+/* Typedef attrs_multi_constraints.Zero {{{ */
+
+iop_typedef_t const attrs_multi_constraints__zero__td = {
+    .fullname = LSTR_IMMED("attrs_multi_constraints.Zero"),
+    .type = IOP_T_DOUBLE,
+};
+iop_typedef_t const * const attrs_multi_constraints__zero__tdp = &attrs_multi_constraints__zero__td;
+
+/* }}} */
+/* Typedef attrs_multi_constraints.ExStr {{{ */
+
+iop_typedef_t const attrs_multi_constraints__ex_str__td = {
+    .fullname = LSTR_IMMED("attrs_multi_constraints.ExStr"),
+    .type = IOP_T_STRING,
+};
+iop_typedef_t const * const attrs_multi_constraints__ex_str__tdp = &attrs_multi_constraints__ex_str__td;
+
+/* }}} */
+/* Typedef attrs_multi_constraints.ExTab {{{ */
+
+iop_typedef_t const attrs_multi_constraints__ex_tab__td = {
+    .fullname = LSTR_IMMED("attrs_multi_constraints.ExTab"),
+    .type = IOP_T_I32,
+};
+iop_typedef_t const * const attrs_multi_constraints__ex_tab__tdp = &attrs_multi_constraints__ex_tab__td;
+
+/* }}} */
 /* Package attrs_multi_constraints {{{ */
 
 static const iop_pkg_t *const attrs_multi_constraints__deps[] = {
@@ -473,13 +536,25 @@ static const iop_mod_t *const attrs_multi_constraints__mods[] = {
     NULL,
 };
 
+static const iop_typedef_t *const attrs_multi_constraints__td[] = {
+    &attrs_multi_constraints__min3__td,
+    &attrs_multi_constraints__min5__td,
+    &attrs_multi_constraints__digit__td,
+    &attrs_multi_constraints__neg__td,
+    &attrs_multi_constraints__zero__td,
+    &attrs_multi_constraints__ex_str__td,
+    &attrs_multi_constraints__ex_tab__td,
+    NULL,
+};
+
 iop_pkg_t const attrs_multi_constraints__pkg = {
-    .name    = LSTR_IMMED("attrs_multi_constraints"),
-    .deps    = attrs_multi_constraints__deps,
-    .enums   = attrs_multi_constraints__enums,
-    .structs = attrs_multi_constraints__structs,
-    .ifaces  = attrs_multi_constraints__ifaces,
-    .mods    = attrs_multi_constraints__mods,
+    .name     = LSTR_IMMED("attrs_multi_constraints"),
+    .deps     = attrs_multi_constraints__deps,
+    .enums    = attrs_multi_constraints__enums,
+    .structs  = attrs_multi_constraints__structs,
+    .ifaces   = attrs_multi_constraints__ifaces,
+    .mods     = attrs_multi_constraints__mods,
+    .typedefs = attrs_multi_constraints__td,
 };
 iop_pkg_t const * const attrs_multi_constraints__pkgp = &attrs_multi_constraints__pkg;
 

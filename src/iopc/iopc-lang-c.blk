@@ -1486,6 +1486,23 @@ iopc_module_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
 }
 
 static void
+iopc_typedef_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
+                      const char *pkg_name, iopc_field_t *td)
+{
+    t_scope;
+    const char *tname = t_iopc_name_to_c(td->name);
+    char *tdbase = t_fmt("%s__%s", pkg_name, tname);
+
+    sb_addf(buf,
+            "\n"
+            "/*----- typedef %s.%s -----*/\n"
+            "EXPORT iop_typedef_t const %s__td;\n"
+            "EXPORT iop_typedef_t const * const nonnull %s__tdp;\n"
+            "\n",
+            iopc_path_dot(pkg->name), td->name, tdbase, tdbase);
+}
+
+static void
 iopc_pkg_dump_hdr(sb_t *buf, iopc_pkg_t *pkg, const char *pkg_name)
 {
     sb_addf(buf,
@@ -3825,6 +3842,58 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
             "/* }""}} */\n", mbase, mbase);
 }
 
+static void iopc_typedef_dump_enum(sb_t *buf, const iopc_field_t *td)
+{
+    t_scope;
+
+    sb_addf(buf, "    .ref_enum = &%s__%s__e,\n",
+            t_iopc_path_to_c(td->type_path),
+            t_iopc_name_to_c(td->type_name));
+}
+
+static void iopc_typedef_dump_struct(sb_t *buf, const iopc_field_t *td)
+{
+    t_scope;
+
+    sb_addf(buf, "    .ref_struct = &%s__%s__s,\n",
+            t_iopc_path_to_c(td->type_path),
+            t_iopc_name_to_c(td->type_name));
+}
+
+static void
+iopc_typedef_dump_src(sb_t *buf, iopc_pkg_t *pkg,
+                      const char *pkg_name, const iopc_field_t *td)
+{
+    t_scope;
+    const char *tdbase = t_fmt("%s__%s", pkg_name,
+                               t_iopc_name_to_c(td->name));
+    const char *pppath = iopc_path_dot(pkg->name);
+
+    sb_addf(buf,
+            "/* Typedef %s.%s {""{{ */\n"
+            "\n"
+            "iop_typedef_t const %s__td = {\n"
+            "    .fullname = LSTR_IMMED(\"%s.%s\"),\n"
+            "    .type = %s,\n",
+            pppath, td->name, tdbase, pppath, td->name, types[td->kind]);
+    switch (td->kind) {
+    case IOP_T_ENUM:
+        iopc_typedef_dump_enum(buf, td);
+        break;
+    case IOP_T_STRUCT:
+    case IOP_T_UNION:
+        iopc_typedef_dump_struct(buf, td);
+        break;
+      default:
+        break;
+    }
+    sb_addf(buf,
+            "};\n"
+            "iop_typedef_t const * const %s__tdp = &%s__td;\n\n"
+            "/* }""}} */\n",
+            tdbase, tdbase);
+}
+
 /* }}} */
 /* {{{ Package source writing. */
 
@@ -3894,20 +3963,33 @@ iopc_pkg_dump_src(sb_t *buf, iopc_pkg_t *pkg,
     sb_addf(buf,
             "    NULL,\n"
             "};\n"
-            "\n"
+            "\n");
+    sb_addf(buf,
+            "static const iop_typedef_t *const %s__td[] = {\n",
+            pkg_name);
+    tab_for_each_entry(td, &pkg->typedefs) {
+        sb_addf(buf, "    &%s__%s__td,\n", pkg_name,
+                t_iopc_name_to_c(td->name));
+    }
+    sb_adds(buf,
+            "    NULL,\n"
+            "};\n"
+            "\n");
+    sb_addf(buf,
             "iop_pkg_t const %s__pkg = {\n"
-            "    .name    = LSTR_IMMED(\"%s\"),\n"
-            "    .deps    = %s__deps,\n"
-            "    .enums   = %s__enums,\n"
-            "    .structs = %s__structs,\n"
-            "    .ifaces  = %s__ifaces,\n"
-            "    .mods    = %s__mods,\n"
+            "    .name     = LSTR_IMMED(\"%s\"),\n"
+            "    .deps     = %s__deps,\n"
+            "    .enums    = %s__enums,\n"
+            "    .structs  = %s__structs,\n"
+            "    .ifaces   = %s__ifaces,\n"
+            "    .mods     = %s__mods,\n"
+            "    .typedefs = %s__td,\n"
             "};\n"
             "iop_pkg_t const * const %s__pkgp = &%s__pkg;\n"
             "\n"
             "/* }""}} */\n",
             pkg_name, iopc_path_dot(pkg->name),
-            pkg_name, pkg_name, pkg_name, pkg_name, pkg_name,
+            pkg_name, pkg_name, pkg_name, pkg_name, pkg_name, pkg_name,
             pkg_name, pkg_name);
 }
 
@@ -4138,6 +4220,9 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     tab_for_each_entry(mod, &pkg->modules) {
         iopc_module_dump_hdr(&buf, pkg, pkg_name, mod);
     }
+    tab_for_each_entry(td, &pkg->typedefs) {
+        iopc_typedef_dump_hdr(&buf, pkg, pkg_name, td);
+    }
     iopc_pkg_dump_hdr(&buf, pkg, pkg_name);
     sb_adds(&buf, "#endif\n");
 
@@ -4182,6 +4267,9 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     }
     tab_for_each_entry(mod, &pkg->modules) {
         iopc_module_dump_src(&buf, pkg, pkg_name, mod);
+    }
+    tab_for_each_entry(td, &pkg->typedefs) {
+        iopc_typedef_dump_src(&buf, pkg, pkg_name, td);
     }
     iopc_pkg_dump_src(&buf, pkg, pkg_name, &t_deps, &i_deps);
     sb_addc(&buf, '\n');
