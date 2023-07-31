@@ -438,6 +438,127 @@ static void z_fill_nonnull_trie32(qhat_t *trie, int nb_entries,
     assert(keys->len == nb_entries);
 }
 
+static int
+z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
+{
+    qps_handle_t htrie;
+    qhat_t trie;
+    qhat_enumerator_t en;
+    uint32_t rm_val;
+    const uint32_t *v;
+    int step;
+    int first_limit;
+    int second_limit;
+    uint32_t rm_key;
+
+    if (want_compact) {
+        /* Use a step to get sparse entries: sparse entries are more likely to
+         * be stored in a compact leaf. */
+        step = 20;
+        first_limit = 10000;
+        second_limit = 25000;
+        rm_key = 4000;
+    } else {
+        /* Keep close to each other so they can be stored in a flat leaf. */
+        step = 1;
+        first_limit = 5000;
+        second_limit = 8000;
+        rm_key = 500;
+    }
+
+    /* Init the tree. */
+    htrie = qhat_create(qps, 4, false);
+    qhat_init(&trie, qps, htrie);
+
+    /* Fill the tree. */
+    for (int i = 0; i < first_limit; i += step) {
+        *(uint32_t *)qhat_set(&trie, i) = i;
+    }
+
+    en = qhat_get_enumerator_at(&trie, rm_key);
+    Z_ASSERT_EQ(en.t.compact, want_compact,
+                "unexpected leaf type for the key to remove");
+
+    /* Remove the element pointed by the enumerator. */
+    Z_ASSERT(qhat_remove(&trie, rm_key, &rm_val));
+    Z_ASSERT_EQ(rm_val, rm_key);
+
+    if (want_struct_change) {
+        /* Add keys until the hat structure changes. */
+        for (int i = first_limit; i < second_limit; i += step) {
+            *(uint32_t *)qhat_set(&trie, i) = i;
+        }
+        Z_ASSERT(en.t.path.generation != trie.struct_gen,
+                 "hat structure unchanged");
+    }
+
+    /* {{{ First attempt. */
+
+    v = qhat_enumerator_get_value_safe(&en);
+    if (want_compact && want_struct_change) {
+        /* FIXME Should be 0 because the value was removed. */
+        Z_ASSERT_EQ(*v, rm_key + step);
+    } else {
+        /* The value we get is empty. */
+        Z_ASSERT_EQ(*v, 0u);
+    }
+
+    if (want_compact && want_struct_change) {
+        /* FIXME Should still be <rm_key>: getting the value should not change
+         * the key. */
+        Z_ASSERT_EQ(en.key, rm_key + step);
+    } else {
+        Z_ASSERT_EQ(en.key, rm_key);
+    }
+
+    /* }}} */
+    /* {{{ Second attempt. */
+
+    if (!want_struct_change) {
+        Z_ASSERT(en.t.path.generation == trie.struct_gen,
+                 "hat structure unexpectedly updated after "
+                 "'qhat_enumerator_get_value_safe()'");
+    } else {
+        /* FIXME The struct generation should always be updated after calling
+         * 'qhat_enumerator_get_value_safe()'. */
+        Z_ASSERT(en.t.path.generation != trie.struct_gen);
+    }
+
+    v = qhat_enumerator_get_value_safe(&en);
+
+    if (want_compact && want_struct_change) {
+        /* FIXME Should be 0 because the value was removed. */
+        Z_ASSERT_EQ(*v, rm_key + step);
+    } else {
+        /* The value we get is empty. */
+        Z_ASSERT_EQ(*v, 0u);
+    }
+
+    if (want_compact && want_struct_change) {
+        /* FIXME Should still be <rm_key>: getting the value should not change
+         * the key. */
+        Z_ASSERT_EQ(en.key, rm_key + step);
+    } else {
+        Z_ASSERT_EQ(en.key, rm_key);
+        qhat_enumerator_go_to(&en, rm_key, true);
+
+        if (want_compact) {
+            Z_ASSERT_EQ(en.key, rm_key + step,
+                        "the enumerator did not reach the next key after "
+                        "go_to(rm_key)");
+        } else {
+            /* FIXME The enumerator should move to the next key as specified in
+             * documentation. */
+            Z_ASSERT_EQ(en.key, rm_key, "");
+        }
+    }
+
+    /* }}} */
+
+    qhat_destroy(&trie);
+    Z_HELPER_END;
+}
+
 /* }}} */
 
 Z_GROUP_EXPORT(qps_hat) {
@@ -1010,6 +1131,15 @@ Z_GROUP_EXPORT(qps_hat) {
         Z_ASSERT_EQ(val, 0);
 
         qhat_destroy(&trie);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(nr_bad_en_value_after_rm, "") { /* {{{ */
+        Z_TEST_FLAGS("redmine_94699");
+        Z_HELPER_RUN(z_nr_en_val_after_rm(qps, true, true));
+        Z_HELPER_RUN(z_nr_en_val_after_rm(qps, true, false));
+        Z_HELPER_RUN(z_nr_en_val_after_rm(qps, false, true));
+        Z_HELPER_RUN(z_nr_en_val_after_rm(qps, false, false));
     } Z_TEST_END;
 
     /* }}} */
