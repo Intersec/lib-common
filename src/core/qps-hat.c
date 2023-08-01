@@ -852,16 +852,28 @@ void qhat_split_leaf(qhat_path_t *path)
                           " changing parent pointers: [%u->%u] -> [%u->%u]",
                           split, prev_parent_start, prev_parent_end -1,
                           compact->parent_left, compact->parent_right - 1);
-            assert (compact->parent_left != prev_parent_start
-                || compact->parent_right != prev_parent_end);
+            assert (compact->parent_left != prev_parent_start ||
+                    compact->parent_right != prev_parent_end);
             assert (compact->parent_left < compact->parent_right);
             assert (compact->parent_left >= prev_parent_start);
             assert (compact->parent_right <= prev_parent_end);
 
-            if (path->depth == PATH_MAX - 1
-            && count > path->hat->desc->split_compact_threshold
-            && compact->parent_left == compact->parent_right + 1) {
+            if (path->depth == QHAT_DEPTH_MAX - 1 &&
+                count > path->hat->desc->split_compact_threshold &&
+                compact->parent_left == compact->parent_right + 1)
+            {
+                /* FIXME This code was not reachable before fixing a
+                 * PATH_MAX/QHAT_DEPTH_MAX typo. As a consequence, enabling
+                 * the following line should be done with caution and maybe it
+                 * should just be removed.
+                 *
+                 * Anyway, missing the flattening there is very unlikely to
+                 * cause troubles, because the 'split_compact_threshold' is
+                 * set to 75% of the compact capacity, so we can wait for a
+                 * subsequent insertion to flatten that leaf. */
+#if 0
                 (*path->hat->desc->flattenf)(path);
+#endif
             }
         } else {
             uint32_t max = 0;
