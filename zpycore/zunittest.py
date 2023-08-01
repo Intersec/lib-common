@@ -169,7 +169,7 @@ class IopDocTestRunner(doctest.DocTestRunner):
             if not (source.startswith('for ') or source.startswith('with')):
                 example.source = 'print({0})\n'.format(source)
 
-        return super().run(self, test, *args, **kwargs)
+        return super().run(test, *args, **kwargs)
 
 
 @public
