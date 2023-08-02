@@ -5783,6 +5783,7 @@ httpd_spawn_as_http2_stream(http2_server_t *server, uint32_t stream_id)
 
     w = obj_new_of_class(httpd, cfg->httpd_cls);
     w->cfg = httpd_cfg_retain(cfg);
+    cfg->nb_conns++;
     w->max_queries = 1;
     dlist_init(&w->httpd_link);
     w->http2_ctx = http2_ctx = httpd_http2_ctx_new();
