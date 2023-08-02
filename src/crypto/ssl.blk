@@ -912,6 +912,13 @@ SSL_CTX *ssl_ctx_new_tls(const SSL_METHOD *method, lstr_t key, lstr_t cert,
     /* Configure TLS context. */
     SSL_CTX_set_ecdh_auto(ctx, 1);
 
+    /* Ignore unexpected EOF for OpenSSL >= 3.
+     * See https://www.openssl.org/docs/man3.0/man3/SSL_CTX_set_options.html#SSL_OP_IGNORE_UNEXPECTED_EOF
+     */
+#if OPENSSL_VERSION_IS(>=,3,0,0)
+    SSL_CTX_set_options(ctx, SSL_OP_IGNORE_UNEXPECTED_EOF);
+#endif /* OpenSSL >= 3 */
+
     if (cert.s && key.s) {
         if (ssl_ctx_use_certificate_lstr(ctx, cert) < 0) {
             sb_adds(err, "failed to load certificate");
