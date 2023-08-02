@@ -316,6 +316,7 @@ static type_t *set(qhat_path_t *path)
                 path->hat->root->entry_count++;
                 path->hat->root->key_stored_count++;
             }
+            PATH_STRUCTURE_CHANGED("trie/compact/insert", path);
         }
         val = &memory.Compact->values[slot];
     } else {
@@ -374,6 +375,7 @@ static bool remove(qhat_path_t *path, type_t *ptr)
                    &memory.Compact->keys[slot + 1],
                    memory.Compact->count - slot);
         }
+        PATH_STRUCTURE_CHANGED("trie/compact/remove", path);
     } else {
         uint32_t pos = path->key & LEAF_INDEX_MASK;
         type_t  *val = &memory.Flat[pos];
