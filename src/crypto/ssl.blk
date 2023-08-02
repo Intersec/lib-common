@@ -953,7 +953,8 @@ SSL_CTX *ssl_ctx_new_tls(const SSL_METHOD *method, lstr_t key, lstr_t cert,
     return NULL;
 }
 
-static inline int ssl_error_conv(int ssl_error) {
+static inline int ssl_error_conv(int ssl_error)
+{
     switch (ssl_error) {
       case SSL_ERROR_ZERO_RETURN:
         /* Graceful exit. */
@@ -963,15 +964,18 @@ static inline int ssl_error_conv(int ssl_error) {
         errno = EAGAIN;
         return -1;
       case SSL_ERROR_SSL:
-        errno = EIO;
-        return -1;
+        break;
       case SSL_ERROR_SYSCALL:
         return -1;
       default:
-        assert (false);
-        errno = EIO;
-        return -1;
+        assert(false);
+        break;
     }
+
+    e_error("unexpected ssl error: %s",
+            ERR_error_string(ERR_peek_error(), NULL));
+    errno = EIO;
+    return -1;
 }
 
 /** Helper to convert openssl errors to classical system errors.
