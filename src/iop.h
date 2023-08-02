@@ -2051,6 +2051,9 @@ typedef enum iop_obj_type_t {
     /* Enum. */
     IOP_OBJ_TYPE_ENUM,
 
+    /* Typedef */
+    IOP_OBJ_TYPE_TYPEDEF,
+
     /* IOP package. */
     IOP_OBJ_TYPE_PKG,
 } iop_obj_type_t;
@@ -2061,6 +2064,7 @@ typedef struct iop_obj_t {
     union {
         const iop_struct_t *nonnull st;
         const iop_enum_t *nonnull en;
+        const iop_typedef_t *nonnull td;
         const iop_pkg_t *nonnull pkg;
     } desc;
 
