@@ -495,21 +495,8 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
     /* {{{ First attempt. */
 
     v = qhat_enumerator_get_value_safe(&en);
-    if (want_compact && want_struct_change) {
-        /* FIXME Should be 0 because the value was removed. */
-        Z_ASSERT_EQ(*v, rm_key + step);
-    } else {
-        /* The value we get is empty. */
-        Z_ASSERT_EQ(*v, 0u);
-    }
-
-    if (want_compact && want_struct_change) {
-        /* FIXME Should still be <rm_key>: getting the value should not change
-         * the key. */
-        Z_ASSERT_EQ(en.key, rm_key + step);
-    } else {
-        Z_ASSERT_EQ(en.key, rm_key);
-    }
+    Z_ASSERT_EQ(*v, 0u);
+    Z_ASSERT_EQ(en.key, rm_key);
 
     /* }}} */
     /* {{{ Second attempt. */
@@ -526,31 +513,18 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
 
     v = qhat_enumerator_get_value_safe(&en);
 
-    if (want_compact && want_struct_change) {
-        /* FIXME Should be 0 because the value was removed. */
-        Z_ASSERT_EQ(*v, rm_key + step);
-    } else {
-        /* The value we get is empty. */
-        Z_ASSERT_EQ(*v, 0u);
-    }
+    Z_ASSERT_EQ(*v, 0u);
+    Z_ASSERT_EQ(en.key, rm_key);
 
-    if (want_compact && want_struct_change) {
-        /* FIXME Should still be <rm_key>: getting the value should not change
-         * the key. */
-        Z_ASSERT_EQ(en.key, rm_key + step);
+    qhat_enumerator_go_to(&en, rm_key, true);
+    if (want_compact) {
+        Z_ASSERT_EQ(en.key, rm_key + step,
+                    "the enumerator did not reach the next key after "
+                    "go_to(rm_key)");
     } else {
-        Z_ASSERT_EQ(en.key, rm_key);
-        qhat_enumerator_go_to(&en, rm_key, true);
-
-        if (want_compact) {
-            Z_ASSERT_EQ(en.key, rm_key + step,
-                        "the enumerator did not reach the next key after "
-                        "go_to(rm_key)");
-        } else {
-            /* FIXME The enumerator should move to the next key as specified in
-             * documentation. */
-            Z_ASSERT_EQ(en.key, rm_key, "");
-        }
+        /* FIXME The enumerator should move to the next key as specified in
+         * documentation. */
+        Z_ASSERT_EQ(en.key, rm_key, "");
     }
 
     /* }}} */

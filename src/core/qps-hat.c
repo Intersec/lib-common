@@ -1456,6 +1456,13 @@ static ALWAYS_INLINE bool qhat_path_is_fully_sync(const qhat_path_t *path)
 const void *
 qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en)
 {
+    if (en->key_was_removed || en->end) {
+        /* Unexpected to happen when the enumerator is synchronized with the
+         * path. */
+        assert(en->end || en->key != en->path.key);
+        return &qhat_default_zero_g;
+    }
+
     /* FIXME The patch fixing this part has been undone as it
      * uncovered a bug that caused some QHAT corruptions. It should be
      * reestablished as soon as the root cause of the corruption is
@@ -1512,9 +1519,23 @@ qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe)
         return qhat_tree_enumerator_get_value_unsafe(en);
     }
     if (unlikely(!qhat_path_is_sync(&en->path))) {
+        uint32_t key = en->key;
+
+        en->key_was_removed = false;
         qhat_tree_enumerator_refresh_path(en);
-        /* FIXME For consistency, we should return qhat_default_zero_g if the
-         * key was removed. */
+
+        if (unlikely(en->key != key)) {
+            /* Can only happen with compacts because entry removals do not
+             * leave a hole, so the enumerator can only point to the next
+             * entry. */
+            assert(en->compact);
+
+            /* The key was removed and 'refresh_path' went to the next one,
+             * but the tree enumerator should not go forward when getting a
+             * value. Reestablish the key. */
+            en->key = key;
+            en->key_was_removed = true;
+        }
     } else {
         qhat_path_sync_write_access(&en->path);
 
@@ -1640,6 +1661,7 @@ static void qhat_tree_enumerator_find_down_up(qhat_tree_enumerator_t *en,
 /* Similar to 'qhat_enumerator_next()' but only apply to the trie. */
 uint32_t qhat_tree_enumerator_next(qhat_tree_enumerator_t *en, bool safe)
 {
+    en->key_was_removed = false;
     if (safe) {
         if (unlikely(!qhat_path_is_sync(&en->path))) {
             en->key++;
@@ -1671,6 +1693,8 @@ uint32_t qhat_tree_enumerator_next(qhat_tree_enumerator_t *en, bool safe)
 void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
                                 bool safe)
 {
+    en->key_was_removed = false;
+
     /* The tree enumerator should only go forward. */
     assert(key >= en->key);
 
