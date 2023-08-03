@@ -4315,6 +4315,15 @@ Z_GROUP_EXPORT(iop)
         qv_t(my_struct_a) original;
         qv_t(my_struct_a) sorted;
         qv_t(iop_sort) params;
+        uint64_t htab0[] = {
+            0, 1, 2,
+        };
+        uint64_t htab1[] = {
+            2, 3,
+        };
+        uint64_t htab2[] = {
+            42, 64,
+        };
 
         t_qv_init(&original, 3);
         t_qv_init(&sorted, 3);
@@ -4337,9 +4346,15 @@ Z_GROUP_EXPORT(iop)
         original.tab[1].d = 2;
         original.tab[2].d = 1;
 
+        original.tab[0].htab = (iop_array_u64_t)IOP_ARRAY(
+            htab0, countof(htab0));
+        original.tab[1].htab = (iop_array_u64_t)IOP_ARRAY(
+            htab1, countof(htab1));
+        original.tab[2].htab = (iop_array_u64_t)IOP_ARRAY(
+            htab2, countof(htab2));
 
 #define ADD_PARAM(_field, _flags)  do {                                      \
-        qv_append(&params, ((iop_sort_t){                          \
+        qv_append(&params, ((iop_sort_t){                                    \
             .field_path = LSTR(_field),                                      \
             .flags = _flags,                                                 \
         }));                                                                 \
@@ -4382,6 +4397,79 @@ Z_GROUP_EXPORT(iop)
         ADD_PARAM("b", 0);
         ADD_PARAM("d", IOP_SORT_REVERSE);
         SORT_AND_CHECK(0, 1, 2);
+
+        /* Sort on array */
+        qv_clear(&params);
+        ADD_PARAM("htab", IOP_SORT_REVERSE);
+        SORT_AND_CHECK(2, 1, 0);
+
+#undef ADD_PARAM
+#undef SORT_AND_CHECK
+
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(iop_msort_class_array, "test IOP multi sorting on a class array") { /* {{{ */
+        t_scope;
+        qv_t(my_struct_f) original;
+        qv_t(my_struct_f) sorted;
+        qv_t(iop_sort) params;
+        tstiop__my_class1__t *class1_0;
+        tstiop__my_class2__t *class2_1;
+        tstiop__my_class1__t *class1_1;
+        tstiop__my_class3__t *class3_2;
+        tstiop__my_class1__t *class1_2;
+
+        t_qv_init(&original, 3);
+        t_qv_init(&sorted, 3);
+        t_qv_init(&params, 2);
+
+        qv_growlen(&original, 3);
+        iop_init(tstiop__my_struct_f, &original.tab[0]);
+        iop_init(tstiop__my_struct_f, &original.tab[1]);
+        iop_init(tstiop__my_struct_f, &original.tab[2]);
+
+        class1_0 = t_iop_new(tstiop__my_class1);
+        class1_0->int1 = 10;
+
+        class2_1 = t_iop_new(tstiop__my_class2);
+        class2_1->int1 = 20;
+        class2_1->int2 = 30;
+        class1_1 = &class2_1->super;
+
+        class3_2 = t_iop_new(tstiop__my_class3);
+        class3_2->int1 = 40;
+        class3_2->int2 = 50;
+        class3_2->int3 = 60;
+        class3_2->bool1 = true;
+        class1_2 = &class3_2->super.super;
+
+        original.tab[0].e = IOP_TYPED_ARRAY(tstiop__my_class1, &class1_0, 1);
+        original.tab[1].e = IOP_TYPED_ARRAY(tstiop__my_class1, &class1_1, 1);
+        original.tab[2].e = IOP_TYPED_ARRAY(tstiop__my_class1, &class1_2, 1);
+
+#define ADD_PARAM(_field, _flags)  do {                                      \
+        qv_append(&params, ((iop_sort_t){                                    \
+            .field_path = LSTR(_field),                                      \
+            .flags = _flags,                                                 \
+        }));                                                                 \
+    } while (0)
+
+#define SORT_AND_CHECK(p1, p2, p3)  do {                                     \
+        Z_ASSERT_ZERO(iop_msort(tstiop__my_struct_f, sorted.tab, sorted.len, \
+                                &params, NULL));                             \
+        Z_ASSERT_EQ(sorted.tab[0].e.tab[0]->int1,                            \
+                    original.tab[p1].e.tab[0]->int1);                        \
+        Z_ASSERT_EQ(sorted.tab[1].e.tab[0]->int1,                            \
+                    original.tab[p2].e.tab[0]->int1);                        \
+        Z_ASSERT_EQ(sorted.tab[2].e.tab[0]->int1,                            \
+                    original.tab[p3].e.tab[0]->int1);                        \
+    } while (0)
+
+        /* Simple sort */
+        qv_copy(&sorted, &original);
+        qv_clear(&params);
+        ADD_PARAM("e", IOP_SORT_REVERSE);
+        SORT_AND_CHECK(2, 1, 0);
 
 #undef ADD_PARAM
 #undef SORT_AND_CHECK
