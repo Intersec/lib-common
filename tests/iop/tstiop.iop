@@ -740,6 +740,31 @@ struct StructWithOptionalObject {
 
 
 /* }}} */
+/* {{{ zchk iop.json_yaml_struct_unpacking_child_class */
+
+class MyParent {
+    int i;
+};
+
+typedef MyParent MyParentTypedef;
+
+class MyChild : 1 : MyParent {
+    double d;
+};
+
+class MyChildB : 2 : MyParentTypedef {
+    double d;
+};
+
+struct StructWithChildClass {
+    MyChild myClass;
+};
+
+struct StructWithChildInheritTypedef {
+    MyChildB myClass;
+};
+
+/* }}} */
 /* {{{ zchk iop.iop_filter */
 
 struct FilteredStruct {
