@@ -1,0 +1,7 @@
+{
+    "myClass": {
+        "_class": "tstiop.MyChild",
+        "i": 1,
+        "d": 3.14
+    }
+}
