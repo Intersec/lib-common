@@ -261,14 +261,12 @@ Z_GROUP_EXPORT(http2) {
     } Z_TEST_END;
 
     Z_TEST(simple_query_async, "simple query (async delayed 10 ms)") {
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_http2_do_simple_query(true, 10,  1));
         /* repeat the query 10 times in a single run */
         Z_HELPER_RUN(z_http2_do_simple_query(true, 10, 10));
     } Z_TEST_END;
 
     Z_TEST(simple_query_async_no_delay, "simple_query (async no delay)") {
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_http2_do_simple_query(true, 0, 1));
         /* repeat the query 10 times in a single run */
         Z_HELPER_RUN(z_http2_do_simple_query(true, 0, 10));

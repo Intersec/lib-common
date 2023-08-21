@@ -982,12 +982,15 @@ static void httpd_notify_status(httpd_t *w, httpd_query_t *q, int handler,
     }
 }
 
+static void httpd_http2_set_mask(httpd_t *w);
+
 static void httpd_set_mask(httpd_t *w)
 {
     int mask;
 
     /* XXX: upstream httpd objects (for http2 server) have no fd (ev). */
     if (!w->ev) {
+        httpd_http2_set_mask(w);
         return;
     }
 
@@ -6762,6 +6765,21 @@ static void httpc_http2_set_mask(httpc_t *w)
         w->http2_ctx->conn->want_write = true;
     }
     http2_conn_do_set_mask_and_watch(w->http2_ctx->conn);
+}
+
+static void httpd_http2_set_mask(httpd_t *w)
+{
+    http2_conn_t *conn;
+
+    if (!w->http2_ctx || !w->http2_ctx->server) {
+        return;
+    }
+    conn = w->http2_ctx->server->conn;
+
+    if (!ob_is_empty(&w->ob)) {
+        conn->want_write = true;
+    }
+    http2_conn_do_set_mask_and_watch(conn);
 }
 
 /* }}} */
