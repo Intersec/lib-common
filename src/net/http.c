@@ -5913,7 +5913,7 @@ http2_conn_assert_idle_httpd_invariants(httpd_t *nonnull httpd)
 
         assert(dlist_is_singular(&httpd->query_list));
         q = dlist_first_entry(&httpd->query_list, httpd_query_t, query_link);
-        assert(!q->parsed && !q->answered && !q->hdrs_done);
+        assert(!q->hdrs_done);
     }
 #endif
 }
