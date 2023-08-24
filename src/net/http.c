@@ -3255,6 +3255,8 @@ typedef struct http2_conn_t {
     /* flow control */
     int32_t             recv_window;
     int32_t             send_window;
+    /* socket idle timeout */
+    unsigned            idle_timeout;
     /* frame parser */
     http2_frame_info_t  frame;
     unsigned            cont_chunk;
@@ -5391,7 +5393,7 @@ static void http2_conn_do_set_mask_and_watch(http2_conn_t *w)
     int mask = POLLIN;
 
     if (ob_is_empty(&w->ob) || w->send_window <= 0) {
-        el_fd_watch_activity(w->ev, POLLINOUT, 10000);
+        el_fd_watch_activity(w->ev, POLLINOUT, w->idle_timeout);
     } else {
         el_fd_watch_activity(w->ev, POLLINOUT, 0);
     }
@@ -5624,7 +5626,8 @@ httpd_spawn_as_http2(int fd, sockunion_t *peer_su, httpd_cfg_t *cfg)
     cfg->nb_conns++;
     fd_set_features(fd, FD_FEAT_TCP_NODELAY);
     conn->ev = el_fd_register(fd, true, POLLIN, el_cb, conn);
-    el_fd_watch_activity(conn->ev, POLLIN, cfg->noact_delay);
+    conn->idle_timeout = cfg->noact_delay;
+    el_fd_watch_activity(conn->ev, POLLIN, conn->idle_timeout);
     w = http2_server_new();
     w->conn = conn;
     w->httpd_cfg = httpd_cfg_retain(cfg);
@@ -6185,7 +6188,7 @@ static http2_pool_t *http2_pool_get(httpc_cfg_t *cfg)
 }
 
 static http2_conn_t *
-http2_conn_connect_client_as(const sockunion_t *su, SSL_CTX *nullable ssl_ctx)
+http2_conn_connect_client_as(const sockunion_t *su, httpc_cfg_t *cfg)
 {
     http2_conn_t *w;
     int flags = O_NONBLOCK | FD_FEAT_TCP_NODELAY;
@@ -6194,13 +6197,14 @@ http2_conn_connect_client_as(const sockunion_t *su, SSL_CTX *nullable ssl_ctx)
     fd = RETHROW_NP(
         connectx_as(-1, su, 1, NULL, SOCK_STREAM, IPPROTO_TCP, flags, 0));
     w = http2_conn_new();
-    if (ssl_ctx) {
-        w->ssl = SSL_new(ssl_ctx);
+    if (cfg->ssl_ctx) {
+        w->ssl = SSL_new(cfg->ssl_ctx);
     }
     w->is_client = true;
     w->settings = http2_default_settings_g;
+    w->idle_timeout = cfg->noact_delay;
     w->ev = el_fd_register(fd, true, POLLOUT, &http2_on_connect, w);
-    el_fd_watch_activity(w->ev, POLLINOUT, 10000);
+    el_fd_watch_activity(w->ev, POLLINOUT, w->idle_timeout);
     return w;
 }
 
@@ -6219,7 +6223,7 @@ http2_pool_get_client(httpc_cfg_t *cfg, const sockunion_t *peer_su)
         return pool->qclients.values[pos];
     }
 
-    w = http2_conn_connect_client_as(peer_su, cfg->ssl_ctx);
+    w = http2_conn_connect_client_as(peer_su, cfg);
     if (unlikely(!w)) {
         qm_del_at(qhttp2_clients, &pool->qclients, pos);
         return NULL;
