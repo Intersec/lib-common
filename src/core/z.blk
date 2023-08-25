@@ -273,7 +273,7 @@ void z_todo_start(const char *reason, ...)
 void z_todo_end(void)
 {
     NOT_IN_TEST;
-    lstr_copyc(&_G.grp.skip_reason, LSTR_NULL_V);
+    lstr_copyc(&_G.grp.todo_reason, LSTR_NULL_V);
 }
 
 /* }}} */
