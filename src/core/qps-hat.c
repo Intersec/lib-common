@@ -1472,10 +1472,13 @@ qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en)
     assert(qhat_path_is_fully_sync(&en->path));
 #endif
 
-    /* If this assert fails, then it means that returned value isn't the value
-     * associated to the current key, probably because of changes in the trie.
-     * The caller should have used the 'safe' getter. */
-    assert(!en->compact || en->key == en->memory.compact->keys[en->pos]);
+    if (en->compact) {
+        /* If this assert fails, then it means that returned value isn't the
+         * value associated to the current key, probably because of changes in
+         * the trie. The caller should have used the 'safe' getter. */
+        assert(en->pos < en->count &&
+               en->key == en->memory.compact->keys[en->pos]);
+    }
 
     return ((const byte *)en->value_tab) + en->pos * en->value_len;
 }
