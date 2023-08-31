@@ -1525,11 +1525,6 @@ qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe)
         qhat_tree_enumerator_refresh_path(en);
 
         if (unlikely(en->key != key)) {
-            /* Can only happen with compacts because entry removals do not
-             * leave a hole, so the enumerator can only point to the next
-             * entry. */
-            assert(en->compact);
-
             /* The key was removed and 'refresh_path' went to the next one,
              * but the tree enumerator should not go forward when getting a
              * value. Reestablish the key. */
@@ -1567,11 +1562,22 @@ static void qhat_tree_enumerator_find_entry(qhat_tree_enumerator_t *en)
         }
         next  = en->memory.compact->parent_right;
         next -= qhat_get_key_bits(hat, new_key, en->path.depth);
-    } else
-    if (en->pos < en->count) {
-        /* We're still in the current flat. We're done. */
-        en->key = en->path.key | en->pos;
-        return;
+    } else {
+        if (!en->is_nullable) {
+            /* Go to the first non-null flat element. */
+#define CASE(Size, Compact, Flat)                                            \
+            while (en->pos < en->count && IS_ZERO(Size, Flat[en->pos])) {    \
+                en->pos++;                                                   \
+            }
+            QHAT_VALUE_LEN_SWITCH(hat, en->memory, CASE);
+#undef CASE
+        }
+
+        if (en->pos < en->count) {
+            /* We're still in the current flat. We're done. */
+            en->key = en->path.key | en->pos;
+            return;
+        }
     }
 
     /* We're after the current compact/flat.
@@ -1693,8 +1699,6 @@ uint32_t qhat_tree_enumerator_next(qhat_tree_enumerator_t *en, bool safe)
 void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
                                 bool safe)
 {
-    en->key_was_removed = false;
-
     /* The tree enumerator should only go forward. */
     assert(key >= en->key);
 
@@ -1711,6 +1715,7 @@ void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
         qhat_tree_enumerator_next(en, safe);
         return;
     }
+    en->key_was_removed = false;
     if (safe) {
         if (unlikely(!qhat_path_is_sync(&en->path))) {
             qhat_tree_enumerator_find_up_down(en, key);

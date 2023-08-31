@@ -610,8 +610,7 @@ typedef struct qhat_tree_enumerator_t {
      */
     uint16_t pos;
 
-    /* Only when the local array in memory is a "compact".
-     * Number of elements in the compact.
+    /* Number of elements in the compact leaf or capacity of the flat leaf.
      * May be unsynchronized with "memory.compact->count" if elements where
      * added or removed in the qhat. */
     uint16_t count;
