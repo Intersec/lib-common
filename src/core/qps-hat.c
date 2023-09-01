@@ -1802,13 +1802,7 @@ void qhat_enumerator_go_to(qhat_enumerator_t *en, uint32_t key, bool safe)
     }
 }
 
-/** Get the value associated to the current key (safe).
- *
- * Same as #qhat_get_enumeration_value but it also supports when the QPS hat
- * was modifed during the lifetime of the enumerator.
- */
-static
-const void *qhat_enumerator_get_value_common(qhat_enumerator_t *en, bool safe)
+static const void *qhat_enumerator_get_value(qhat_enumerator_t *en, bool safe)
 {
     if (en->is_nullable) {
         if (!en->end && en->trie.key != en->key) {
@@ -1837,14 +1831,14 @@ const void *qhat_enumerator_get_value_common(qhat_enumerator_t *en, bool safe)
     }
 }
 
-const void *qhat_enumerator_get_value(qhat_enumerator_t *en)
+const void *qhat_enumerator_get_value_unsafe(qhat_enumerator_t *en)
 {
-    return qhat_enumerator_get_value_common(en, false);
+    return qhat_enumerator_get_value(en, false);
 }
 
 const void *qhat_enumerator_get_value_safe(qhat_enumerator_t *en)
 {
-    return qhat_enumerator_get_value_common(en, true);
+    return qhat_enumerator_get_value(en, true);
 }
 
 /** Get the 'qhat_path_t' associated to the current key. */

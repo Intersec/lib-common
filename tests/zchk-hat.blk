@@ -68,7 +68,7 @@ static int test_zeros(qps_t *qps, uint8_t size)
     qhat_for_each_unsafe(en, &trie) {
         const void *slot;
 
-        slot = qhat_enumerator_get_value(&en);
+        slot = qhat_enumerator_get_value_unsafe(&en);
         Z_ASSERT_EQ(en.key, count);
         Z_ASSERT_ZERO(memcmp(slot, &zero, size));
         count++;
@@ -83,7 +83,7 @@ static int test_zeros(qps_t *qps, uint8_t size)
     qhat_for_each_unsafe (en, &trie) {
         const void *slot;
 
-        slot = qhat_enumerator_get_value(&en);
+        slot = qhat_enumerator_get_value_unsafe(&en);
         Z_ASSERT_EQ(en.key, count + 1);
         Z_ASSERT_ZERO(memcmp(slot, &zero, size));
         count++;
@@ -133,7 +133,7 @@ static int test_128(qps_t *qps, bool null)
         qhat_for_each_unsafe(en, &trie) {
             const uint32_t *slot;
 
-            slot = qhat_enumerator_get_value(&en);
+            slot = qhat_enumerator_get_value_unsafe(&en);
             Z_ASSERT_EQ(en.key, pos + 0x40000000);
             Z_ASSERT_EQ(*slot, bswap32(0x800 - pos));
             pos++;
@@ -204,7 +204,7 @@ static int test_64(qps_t *qps, bool null)
         qhat_for_each_unsafe(en, &trie) {
             const uint64_t *slot;
 
-            slot = qhat_enumerator_get_value(&en);
+            slot = qhat_enumerator_get_value_unsafe(&en);
             Z_ASSERT_EQ(en.key, pos + 0x40000000);
             Z_ASSERT_EQ(*slot, bswap64(0x800 - pos));
             pos++;
@@ -263,7 +263,7 @@ static int test_32(qps_t *qps, bool null)
         qhat_for_each_unsafe(en, &trie) {
             const uint32_t *slot;
 
-            slot = qhat_enumerator_get_value(&en);
+            slot = qhat_enumerator_get_value_unsafe(&en);
             Z_ASSERT_EQ(en.key, pos + 0x40000000);
             Z_ASSERT_EQ(*slot, bswap32(0x800 - pos));
             pos++;
@@ -327,7 +327,7 @@ static int test_16(qps_t *qps, bool null)
         qhat_for_each_unsafe(en, &trie) {
             const uint16_t *slot;
 
-            slot = qhat_enumerator_get_value(&en);
+            slot = qhat_enumerator_get_value_unsafe(&en);
             if (en.key < 50) {
                 if (null) {
                     Z_ASSERT_NULL(slot);
@@ -384,7 +384,7 @@ static int test_8(qps_t *qps, bool null)
         qhat_for_each_unsafe(en, &trie) {
             const uint8_t *slot;
 
-            slot = qhat_enumerator_get_value(&en);
+            slot = qhat_enumerator_get_value_unsafe(&en);
             if (en.key < 50) {
                 if (null) {
                     Z_ASSERT_NULL(slot);
@@ -785,7 +785,7 @@ Z_GROUP_EXPORT(qps_hat) {
 
             Z_ASSERT(!en.end);
             Z_ASSERT_EQ(en.key, key);
-            value = qhat_enumerator_get_value(&en);
+            value = qhat_enumerator_get_value_unsafe(&en);
             Z_ASSERT_EQ(*value, key);
             qhat_enumerator_next(&en, true);
         }
@@ -799,7 +799,7 @@ Z_GROUP_EXPORT(qps_hat) {
             qhat_enumerator_go_to(&en, key, true);
             Z_ASSERT(!en.end);
             Z_ASSERT_EQ(en.key, key);
-            value = qhat_enumerator_get_value(&en);
+            value = qhat_enumerator_get_value_unsafe(&en);
             Z_ASSERT_EQ(*value, key);
         }
 
@@ -836,7 +836,7 @@ Z_GROUP_EXPORT(qps_hat) {
             qhat_enumerator_go_to(&en, key, true);
             Z_ASSERT(!en.end);
             Z_ASSERT_EQ(en.key, key);
-            value = qhat_enumerator_get_value(&en);
+            value = qhat_enumerator_get_value_unsafe(&en);
             Z_ASSERT_EQ(*value, key);
 
             if (remove_current) {
@@ -1035,7 +1035,7 @@ Z_GROUP_EXPORT(qps_hat) {
             qhat_enumerator_next(&en, true);
             Z_ASSERT(!en.end, "end reached too early, key(%u) < max_key(%u)",
                      key, max_key);
-            value = qhat_enumerator_get_value(&en);
+            value = qhat_enumerator_get_value_unsafe(&en);
             Z_ASSERT_EQ(*value, key);
             Z_ASSERT_EQ(en.key, key);
         }
@@ -1068,12 +1068,12 @@ Z_GROUP_EXPORT(qps_hat) {
         /* Start the enumeration at element [50], check that the value is
          * right. */
         en = qhat_get_enumerator_at(&trie, 50);
-        value = qhat_enumerator_get_value(&en);
+        value = qhat_enumerator_get_value_unsafe(&en);
         Z_ASSERT(value == (const void *)&qhat_default_zero_g);
 
         /* Check that the enumerator goes to the next element without bug. */
         qhat_enumerator_next(&en, false);
-        value = qhat_enumerator_get_value(&en);
+        value = qhat_enumerator_get_value_unsafe(&en);
         Z_ASSERT_EQ(*value, 51u);
 
         qhat_destroy(&trie);

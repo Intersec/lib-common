@@ -722,7 +722,19 @@ qhat_enumerator_t qhat_get_enumerator(qhat_t *trie);
  */
 void qhat_enumerator_go_to(qhat_enumerator_t *en, uint32_t key, bool safe);
 
-const void *qhat_enumerator_get_value(qhat_enumerator_t *en);
+/** Get the value associated to the current key.
+ *
+ * This function can only be used when the QHAT was left untouched since the
+ * last time the enumerator was used. Otherwise
+ * #qhat_enumerator_get_value_safe should be used instead.
+ */
+const void *qhat_enumerator_get_value_unsafe(qhat_enumerator_t *en);
+
+/** Get the value associated to the current key (safe).
+ *
+ * Detect when the enumerator has become out-of-sync and refresh the inner
+ * path before getting the value if needed.
+ */
 const void *qhat_enumerator_get_value_safe(qhat_enumerator_t *en);
 
 /** Get the 'qhat_path_t' associated to the current key. */
