@@ -1857,17 +1857,25 @@ const void *qhat_enumerator_get_value_safe(qhat_enumerator_t *en)
 qhat_path_t qhat_enumerator_get_path(const qhat_enumerator_t *en)
 {
     qhat_path_t p;
+    const qhat_tree_enumerator_t *tree_en;
 
-    if (en->is_nullable) {
-        if (!en->trie.end && en->key == en->trie.key) {
-            p = en->trie.path;
-        } else {
-            qhat_path_init(&p, en->trie.path.hat, en->key);
-        }
+    tree_en = en->is_nullable ? &en->trie : &en->t;
+    if (tree_en->end || en->key != tree_en->key) {
+        /* Conditions explanation:
+         *
+         * 1. The path in the tree enumerator is not guaranteed to be
+         *    valid when it is ended so it should not be given to the user.
+         *
+         * 2. Only for nullable QHATs: the path in the tree enumerator may not
+         *    match the enumerator key because the entries with null values
+         *    exist in the presence bitmap but not in the tree.
+         */
+        qhat_path_init(&p, tree_en->path.hat, en->key);
     } else {
-        p = en->t.path;
+        p = tree_en->path;
+        p.key = en->key;
     }
-    p.key = en->key;
+
     return p;
 }
 
@@ -1934,7 +1942,7 @@ void qhat_tree_enumerator_find_root(qhat_tree_enumerator_t *en, uint32_t key)
             qhat_tree_enumerator_find_node(en, key);
         }
     } else {
-        en->end   = true;
+        en->end = true;
     }
 }
 
@@ -1950,7 +1958,7 @@ void qhat_tree_enumerator_dispatch_up(qhat_tree_enumerator_t *en, uint32_t key,
     uint32_t new_key_1 = qhat_get_key_bits(hat, new_key, 1);
 
     if (new_key <= key) {
-        en->end   = true;
+        en->end = true;
     } else
     if (key_0 != new_key_0) {
         qhat_tree_enumerator_find_root(en, new_key);

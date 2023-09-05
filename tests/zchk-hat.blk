@@ -1191,6 +1191,67 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(nr_94699, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_enumerator_t en;
+        qhat_path_t path;
+        int16_t *v;
+        const int16_t *cv;
+        int16_t removed_val;
+
+        /* Reproduce the crash case obtained with a DB stress test tool. */
+        Z_TEST_FLAGS("redmine_94699");
+        htrie = qhat_create(qps, 2, false);
+        qhat_init(&trie, qps, htrie);
+        for (uint32_t k = 1; k <= 6205; k += 3) {
+            *(int16_t *)qhat_set(&trie, k) = k;
+        }
+
+        /* Enumerate the QHAT until the end. That should let us with an
+         * enumerator pointing to the last element in the QHAT. */
+        en = qhat_get_enumerator(&trie);
+        while (!en.end) {
+            qhat_enumerator_next(&en, false);
+        }
+        Z_ASSERT_EQ(en.key, 6205u);
+
+        /* The crash happened because the path attribute in the enumerator is
+         * not guaranteed to be usable when the enumerator was ended: the node
+         * list did not end with a leaf. */
+        path = qhat_enumerator_get_path(&en);
+
+        /* Setting an element with the broken path would compromise the QHAT
+         * (in release mode) or trigger an assertion (in debug mode). */
+        v = qhat_set_path(&path);
+        *v = 6205;
+
+        /* Check the whole qhat content now. */
+        for (int k = 0; k < 6300; k++) {
+            cv = qhat_get(&trie, k);
+            if (k > 6205 || k % 3 != 1) {
+                Z_ASSERT_NULL(cv,
+                              "unexpected entry [%d] -> %d", k, cv ? *cv : 0);
+            } else {
+                Z_ASSERT(cv, "missing entry for key [%d]", k);
+                Z_ASSERT_EQ(*cv, k,
+                            "unexpected entry value [%d] -> %d", k, *cv);
+            }
+        }
+
+        /* Now try it on an element we just removed. */
+        en = qhat_get_enumerator_at(&trie, 4);
+        Z_ASSERT(qhat_remove(&trie, 4, &removed_val), "missing entry [4]");
+        cv = qhat_enumerator_get_value_safe(&en);
+        Z_ASSERT_ZERO(*cv, "unexpected value for removed entry");
+        path = qhat_enumerator_get_path(&en);
+        v = qhat_set_path(&path);
+        *v = 100;
+        cv = qhat_get(&trie, 4);
+        Z_ASSERT_EQ(*cv, 100, "unexpected value for entry [4]");
+    } Z_TEST_END;
+
+    /* }}} */
 
     qps_close(&qps);
     MODULE_RELEASE(qps);
