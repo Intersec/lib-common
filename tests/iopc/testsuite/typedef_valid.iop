@@ -132,3 +132,7 @@ union TypedefUnionUseAll {
     Adef a;
     Bdef b;
 };
+
+class C : 11 : Bdef {
+    string b;
+};
