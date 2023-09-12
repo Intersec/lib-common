@@ -226,7 +226,7 @@ def ZFlags(*flags): # pylint: disable=invalid-name
     Z_TAG_SKIP required interface.
     """
     def wrap(func):
-        func_flags = _ALL_FLAGS.setdefault(id(func), [])
+        func_flags = _ALL_FLAGS.setdefault(func, [])
         func_flags.extend(flags)
         fl = set(func_flags) & _FLAGS
         if any((f in _TAG_OR for f in func_flags)) and "wip" not in fl:
