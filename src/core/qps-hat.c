@@ -1453,6 +1453,17 @@ static ALWAYS_INLINE bool qhat_path_is_fully_sync(const qhat_path_t *path)
     return path->gen.hat_gen == path->hat->gen.hat_gen;
 }
 
+/* Check if the current compact position matches the position of the current
+ * key. If it is not the case, then it means that the key was moved or removed
+ * from the compact. */
+static ALWAYS_INLINE bool
+qhat_tree_enumerator_compact_pos_is_valid(const qhat_tree_enumerator_t *en)
+{
+    assert(en->compact);
+    return en->pos < en->count &&
+        en->key == en->memory.compact->keys[en->pos];
+}
+
 const void *
 qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en)
 {
@@ -1470,8 +1481,7 @@ qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en)
         /* If this assert fails, then it means that returned value isn't the
          * value associated to the current key, probably because of changes in
          * the trie. The caller should have used the 'safe' getter. */
-        assert(en->pos < en->count &&
-               en->key == en->memory.compact->keys[en->pos]);
+        assert(qhat_tree_enumerator_compact_pos_is_valid(en));
     }
 
     return ((const byte *)en->value_tab) + en->pos * en->value_len;
@@ -1487,9 +1497,7 @@ qhat_tree_enumerator_fixup_compact_pos(qhat_tree_enumerator_t *en)
 
     en->count = en->memory.compact->count;
 
-    if (en->pos < en->count &&
-        en->key == en->memory.compact->keys[en->pos])
-    {
+    if (qhat_tree_enumerator_compact_pos_is_valid(en)) {
         /* Nothing to do.
          * The compact *might* have been modified but 'pos' is still right. */
         return 0;
@@ -1498,9 +1506,7 @@ qhat_tree_enumerator_fixup_compact_pos(qhat_tree_enumerator_t *en)
     /* The compact has been modified. Update the position. */
     en->pos = qhat_compact_lookup(en->memory.compact, 0, en->key);
 
-    if (en->pos >= en->count ||
-        en->key != en->memory.compact->keys[en->pos])
-    {
+    if (!qhat_tree_enumerator_compact_pos_is_valid(en)) {
         /* The key has been removed from the compact.
          * We're already at the next key. */
         return QHAT_TREE_EN_KEY_REMOVED;
