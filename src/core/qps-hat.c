@@ -1487,7 +1487,7 @@ qhat_tree_enumerator_fixup_compact_pos(qhat_tree_enumerator_t *en)
 
     en->count = en->memory.compact->count;
 
-    if (en->pos <= en->count &&
+    if (en->pos < en->count &&
         en->key == en->memory.compact->keys[en->pos])
     {
         /* Nothing to do.

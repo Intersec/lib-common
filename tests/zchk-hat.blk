@@ -1240,6 +1240,28 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(nr_97147, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_enumerator_t en;
+        const uint32_t *v;
+
+        Z_TEST_FLAGS("redmine_97147");
+        htrie = qhat_create(qps, 4, false);
+        qhat_init(&trie, qps, htrie);
+        *(int16_t *)qhat_set(&trie, 1) = 1;
+        *(int16_t *)qhat_set(&trie, 2) = 2;
+        en = qhat_get_enumerator_at(&trie, 2);
+        /* XXX The bug happens only with compacts. */
+        Z_ASSERT(en.t.compact);
+        /* Remove the last value. */
+        qhat_remove(&trie, 2, NULL);
+        v = qhat_enumerator_get_value_safe(&en);
+        Z_ASSERT(en.t.compact);
+        Z_ASSERT_EQ(*v, 0u);
+    } Z_TEST_END;
+
+    /* }}} */
 
     qps_close(&qps);
     MODULE_RELEASE(qps);
