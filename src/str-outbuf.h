@@ -139,6 +139,7 @@ static inline void outbuf_sb_end(outbuf_t * nonnull ob, int oldlen)
 #define ob_addf(ob, fmt, ...)       OB_WRAP(sb_addf,  ob, fmt, ##__VA_ARGS__)
 #define ob_addvf(ob, fmt, ap)       OB_WRAP(sb_addvf, ob, fmt, ap)
 #define ob_addsb(ob, sb)            OB_WRAP(sb_addsb, ob, sb)
+#define ob_addlstr(ob, str)         OB_WRAP(sb_add_lstr, ob, str)
 #define ob_add_urlencode(ob, s, l)  OB_WRAP(sb_add_urlencode, ob, s, l)
 #define ob_adds_urlencode(ob, s)    OB_WRAP(sb_adds_urlencode, ob, s)
 
