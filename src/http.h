@@ -908,6 +908,20 @@ static inline void httpc_pool_delete(httpc_pool_t * nullable * nonnull hpcp,
 void httpc_pool_detach(httpc_t * nonnull w);
 void httpc_pool_attach(httpc_t * nonnull w, httpc_pool_t * nonnull pool);
 httpc_t * nullable httpc_pool_launch(httpc_pool_t * nonnull pool);
+
+/** Get a ready to use connection.
+ *
+ * Return the first ready to use httpc_t connection.
+ *
+ * In case no connection is available and limits are not reached, create a new
+ * connection. Since the connection is establishing, it will remain busy
+ * until it is connected, so this function will return NULL.
+ * \see on_ready callback to be notified when a connection gets ready.
+ *
+ * \param[in] pool a httpc_pool_t
+ *
+ * \return httpc_t connection ready to use or NULL if no httpc_t available.
+ */
 httpc_t * nullable httpc_pool_get(httpc_pool_t * nonnull pool);
 
 /** Check if the pool has a connection ready.
