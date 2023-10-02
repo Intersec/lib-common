@@ -702,6 +702,23 @@ __attribute__((format(printf, 4, 0)))
 static void httpd_notify_status(httpd_t *w, httpd_query_t *q, int handler,
                               const char *fmt, va_list va);
 
+static void httpd_trace_query_result(httpd_query_t *q)
+{
+    if (q->qinfo && logger_is_traced(&_G.logger, 1)) {
+        lstr_t answer_code = http_code_to_str(q->answer_code);
+
+        logger_trace(&_G.logger, 1, "query `%*pM` finished (%d - %*pM)",
+                     PS_FMT_ARG(&q->qinfo->query), q->answer_code,
+                     LSTR_FMT_ARG(answer_code));
+
+        logger_trace(&_G.logger, 2, "query header was:\n%*pM",
+                     PS_FMT_ARG(&q->qinfo->hdrs_ps));
+
+        logger_trace(&_G.logger, 3, "query payload was:\n%*pM",
+                     SB_FMT_ARG(&q->payload));
+    }
+}
+
 void httpd_reply_done(httpd_query_t *q)
 {
     va_list va;
@@ -717,6 +734,7 @@ void httpd_reply_done(httpd_query_t *q)
         q->clength_hack = false;
     }
     httpd_notify_status(q->owner, q, HTTPD_QUERY_STATUS_ANSWERED, "", va);
+    httpd_trace_query_result(q);
     httpd_mark_query_answered(q);
 }
 
@@ -2102,6 +2120,22 @@ static httpc_qinfo_t *httpc_qinfo_dup(const httpc_qinfo_t *info)
     return res;
 }
 
+static void httpc_trace_query_on_done(httpc_query_t *q)
+{
+    if (!q->qinfo || !logger_is_traced(&_G.logger, 1)) {
+        return;
+    }
+
+    logger_trace(&_G.logger, 1, "reason of answer on client's side: `%*pM`",
+                 PS_FMT_ARG(&q->qinfo->reason));
+
+    logger_trace(&_G.logger, 2, "header of answer on client's side:\n%*pM",
+                 PS_FMT_ARG(&q->qinfo->hdrs_ps));
+
+    logger_trace(&_G.logger, 3, "payload on client's side:\n%*pM",
+                 SB_FMT_ARG(&q->payload));
+}
+
 static void httpc_query_on_done(httpc_query_t *q, int status)
 {
     httpc_t *w = q->owner;
@@ -2113,6 +2147,7 @@ static void httpc_query_on_done(httpc_query_t *q, int status)
         q->owner = NULL;
     }
     dlist_remove(&q->query_link);
+    httpc_trace_query_on_done(q);
     /* XXX: call the httpc_t's notifier first to ensure qinfo is still set */
     if (w && w->on_query_done) {
         (*w->on_query_done)(w, q, status);
