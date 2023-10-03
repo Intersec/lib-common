@@ -1342,11 +1342,9 @@ def options(ctx):
 # {{{ llvm/clang
 
 def llvm_clang_configure(ctx):
-    # Supported versions
-    llvm_supported_versions = (9, 15)
+    # Minimum supported version
+    llvm_min_version = 9
 
-    llvm_supported_versions = tuple(range(llvm_supported_versions[0],
-                                          llvm_supported_versions[1] + 1))
     # Find llvm-config
     llvm_version_major = None
 
@@ -1357,26 +1355,27 @@ def llvm_clang_configure(ctx):
         llvm_version = tuple(map(int, llvm_version.strip().split('.')))
         llvm_version_major = llvm_version[0]
 
-        if llvm_version_major not in llvm_supported_versions:
+        if llvm_version_major < llvm_min_version:
             Logs.warn('llvm-config found with version {0}, '
                       'but is not supported by lib-common, '
-                      'lib-common only supports llvm versions {1}'
-                      .format(llvm_version_major, llvm_supported_versions))
+                      'lib-common only supports llvm versions >= {1}'
+                      .format(llvm_version_major, llvm_min_version))
             llvm_version_major = None
             del ctx.env.LLVM_CONFIG
 
-    # If supported version not found, try explicit versions
+    # If the default version is not found or supported, try explicit versions
     if llvm_version_major is None:
-        for version in reversed(llvm_supported_versions):
+        # Try up to version 99
+        for version in range(llvm_min_version, 100):
             if ctx.find_program('llvm-config-{0}'.format(version),
                                 var='LLVM_CONFIG', mandatory=False):
                 llvm_version_major = version
                 break
         else:
             ctx.fatal('supported version of llvm-config not found, '
-                      'lib-common only supports llvm versions {0}, '
+                      'lib-common only supports llvm versions >= {0}, '
                       'please install supported version of llvm-dev or '
-                      'llvm-devel'.format(llvm_supported_versions))
+                      'llvm-devel'.format(llvm_min_version))
 
     # Get llvm flags
     llvm_flags_env_args = {
