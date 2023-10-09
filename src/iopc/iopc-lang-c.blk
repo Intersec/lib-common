@@ -49,6 +49,26 @@ static lstr_t t_enum_get_prefix(const iopc_enum_t *en)
     return ns;
 }
 
+static char *
+t_iopc_resolve_field_type(const iopc_pkg_t *pkg, const iopc_field_t *f)
+{
+    if ((f->type_pkg != pkg) && (f->type == STRUCT_TYPE_TYPEDEF)) {
+        tab_for_each_entry(tdef, &pkg->typedefs) {
+            if (tdef->struct_def == f->struct_def) {
+                /* Typedef referenced by this field in current package */
+                return t_fmt("%s__%s", t_iopc_path_to_c(pkg->name),
+                             t_iopc_name_to_c(tdef->name));
+            }
+        }
+    }
+
+    /* Not declared in typedef referencing a distant package, take it as it is
+     * from the iop file */
+    return t_fmt("%s__%s", t_iopc_path_to_c(f->type_path),
+                 t_iopc_name_to_c(f->kind == IOP_T_ENUM ? f->enum_def->name :
+                                  f->struct_def->name));
+}
+
 /** Give the extra length for the encoding of an IOP tag. */
 static inline int iopc_tag_len(int32_t tag)
 {
@@ -368,7 +388,8 @@ static void iopc_field_compute_size(iopc_field_t *f)
 /* }}} */
 /* {{{ Field source writing */
 
-static void pp_field_with_type(sb_t *sb, const iopc_field_t *f, int indent)
+static void pp_field_with_type(sb_t *sb, const iopc_pkg_t *pkg,
+                               const iopc_field_t *f, int indent)
 {
     t_scope;
     const char *type = NULL;
@@ -498,15 +519,14 @@ static void pp_field_with_type(sb_t *sb, const iopc_field_t *f, int indent)
           case IOP_T_XML:    type = "lstr_t   ";   break;
           case IOP_T_ENUM:
             sb_addnc(sb, indent, ' ');
-            sb_addf(sb, "%s__%s__t %s;\n", t_iopc_path_to_c(f->type_path),
-                    t_iopc_name_to_c(f->enum_def->name),
+            sb_addf(sb, "%s__t %s;\n", t_iopc_resolve_field_type(pkg, f),
                     t_iopc_name_to_c(f->name));
             return;
           default:
             sb_addnc(sb, indent, ' ');
-            sb_addf(sb, "struct %s__%s__t%s%s;\n",
-                    t_iopc_path_to_c(f->type_path),
-                    t_iopc_name_to_c(f->struct_def->name),
+            sb_addf(sb, "%s%s__t%s%s;\n",
+                    (f->type == STRUCT_TYPE_TYPEDEF) ? "" : "struct ",
+                    t_iopc_resolve_field_type(pkg, f),
                     type_is_class || f->is_ref ? " *nonnull " : " ",
                     t_iopc_name_to_c(f->name));
             return;
@@ -1034,9 +1054,8 @@ iopc_enum_dump_hdr(sb_t *buf, const char *pkg_name, const iopc_enum_t *en)
 }
 
 
-static void
-iopc_struct_dump_tdef_hdr(sb_t *buf, const char *pkg_name,
-                          const iopc_struct_t *st, const char *ns)
+static void iopc_struct_dump_tdef_hdr(sb_t *buf, const char *pkg_name,
+                                      const iopc_struct_t *st, const char *ns)
 {
     t_scope;
     const char *tname = t_iopc_name_to_c(st->name);
@@ -1048,6 +1067,40 @@ iopc_struct_dump_tdef_hdr(sb_t *buf, const char *pkg_name,
             tbase, tbase, tbase, iopc_is_class(st->type) ? " *" : "",
             iopc_is_class(st->type) ? "nonnull " : "",
             tbase);
+}
+
+static void iopc_create_tdef_aliases(sb_t *buf, const char *pkg_name,
+                                     const iopc_field_t *tdef)
+{
+    t_scope;
+    char *tbase = t_fmt("%s__%s", pkg_name, t_iopc_name_to_c(tdef->name));
+
+    switch (tdef->kind) {
+    case IOP_T_ENUM: {
+        char *tref = t_fmt("%s__%s", tdef->type_pkg->name->dot_path,
+                           t_iopc_name_to_c(tdef->enum_def->name));
+
+        sb_addf(buf, "/*----- enum for typedef %s (from %s.%s) -----*/\n"
+                "typedef %s__t %s__t;\n#define %s__e %s__e\n\n",
+                tdef->name, tdef->type_pkg->name->dot_path,
+                tdef->enum_def->name, tref, tbase, tbase, tref);
+    } break;
+
+    case IOP_T_STRUCT:
+    case IOP_T_UNION: {
+        char *tref = t_fmt("%s__%s", tdef->type_pkg->name->dot_path,
+                           t_iopc_name_to_c(tdef->struct_def->name));
+
+        sb_addf(buf, "/*----- structure/union for typedef %s (from %s.%s)"
+                "-----*/\ntypedef %s__t %s__t;\n#define %s__s %s__s\n"
+                "#define %s__sp %s__sp\n\n", tdef->name,
+                tdef->type_pkg->name->dot_path, tdef->struct_def->name,
+                tref, tbase, tbase, tref, tbase, tref);
+    } break;
+
+    default:
+        break;
+    }
 }
 
 static const char *iopc_field_type(const iopc_field_t *f)
@@ -1096,25 +1149,26 @@ iopc_snmp_field_dump_tdef_hdr(sb_t *buf, const char *pkg_name,
             iopc_field_type(field), tbase);
 }
 
-
 static void
-iopc_struct_dump_fields(sb_t *buf, int ident, const qv_t(iopc_field) *fields)
+iopc_struct_dump_fields(sb_t *buf, int ident, const iopc_pkg_t *pkg,
+                        const qv_t(iopc_field) *fields)
 {
     tab_for_each_entry(f, fields) {
-        pp_field_with_type(buf, f, ident);
+        pp_field_with_type(buf, pkg, f, ident);
     }
 }
 
 static void
-iopc_struct_dump_snmp_fields(sb_t *buf, int ident,
+iopc_struct_dump_snmp_fields(sb_t *buf, int ident, const iopc_pkg_t *pkg,
                              const qv_t(iopc_field) *fields)
 {
     tab_for_each_entry(f, fields) {
-        pp_field_with_type(buf, f->field_origin, ident);
+        pp_field_with_type(buf, pkg, f->field_origin, ident);
     }
 }
 
-static void iopc_struct_dump_hdr_class(sb_t *buf, iopc_struct_t *st)
+static void iopc_struct_dump_hdr_class(sb_t *buf, const iopc_pkg_t *pkg,
+                                       iopc_struct_t *st)
 {
     t_scope;
     qv_t(iopc_struct) parents;
@@ -1158,7 +1212,8 @@ static void iopc_struct_dump_hdr_class(sb_t *buf, iopc_struct_t *st)
                 t_iopc_path_to_c(parents_pkgs.tab[pos]->name),
                 t_iopc_name_to_c(st->name));
         iopc_struct_optimize(st);
-        iopc_struct_dump_fields(buf, ident, &st->fields_in_c_struct_order);
+        iopc_struct_dump_fields(buf, ident, pkg,
+                                &st->fields_in_c_struct_order);
         ident -= 4;
         sb_addnc(buf, ident, ' ');
         sb_adds(buf, "};\n");
@@ -1199,14 +1254,15 @@ static void iopc_struct_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
         sb_addf(buf, "struct %s__t {\n", tbase);
 
         if (iopc_is_class(st->type)) {
-            iopc_struct_dump_hdr_class(buf, st);
+            iopc_struct_dump_hdr_class(buf, pkg, st);
         }
 
         if (st->contains_snmp_info) {
-            iopc_struct_dump_snmp_fields(buf, 4,
+            iopc_struct_dump_snmp_fields(buf, 4, pkg,
                                          &st->fields_in_c_struct_order);
         } else {
-            iopc_struct_dump_fields(buf, 4, &st->fields_in_c_struct_order);
+            iopc_struct_dump_fields(buf, 4, pkg,
+                                    &st->fields_in_c_struct_order);
         }
 
         sb_adds(buf, "};\n");
@@ -1315,8 +1371,8 @@ static void iopc_union_dump_fdesc_cst(sb_t *buf, const char *tbase,
     }
 }
 
-static void iopc_union_dump_hdr(sb_t *buf, const char *pkg_name,
-                                iopc_struct_t *st)
+static void iopc_union_dump_hdr(sb_t *buf, const iopc_pkg_t *pkg,
+                                const char *pkg_name, iopc_struct_t *st)
 {
     t_scope;
     const char *tname = t_iopc_name_to_c(st->name);
@@ -1337,7 +1393,7 @@ static void iopc_union_dump_hdr(sb_t *buf, const char *pkg_name,
     sb_addf(buf, "    %s__tag_t iop_tag;\n", tbase);
     sb_addf(buf, "    union {\n");
     tab_for_each_entry(f, &st->fields_in_c_struct_order) {
-        pp_field_with_type(buf, f, 8);
+        pp_field_with_type(buf, pkg, f, 8);
     }
     sb_addf(buf, "    };\n"
             "};\n"
@@ -1573,8 +1629,9 @@ static unsigned iopc_field_build_flags(const iopc_field_t *nonnull f,
 }
 
 static void
-iopc_dump_field_src(sb_t *buf, const iopc_struct_t *st, const char *tbase,
-                    const iopc_field_t *f, const iopc_attrs_t *attrs)
+iopc_dump_field_src(sb_t *buf, const iopc_struct_t *st, const iopc_pkg_t *pkg,
+                    const char *tbase, const iopc_field_t *f,
+                    const iopc_attrs_t *attrs)
 {
     t_scope;
     unsigned flags = 0;
@@ -1670,20 +1727,19 @@ iopc_dump_field_src(sb_t *buf, const iopc_struct_t *st, const char *tbase,
 
     if (f->kind == IOP_T_STRUCT || f->kind == IOP_T_UNION) {
         t_scope;
+        char *field_type = t_iopc_resolve_field_type(pkg, f);
 
         /* XXX: Fields of type class are ALWAYS pointed, and the size of
          *      a class type is uninformative (we have to know the real
          *      instanciated class to know the size), so write the size of
          *      the pointer in that case, this will simplify some code during
          *      packing/unpacking. */
+
         sb_addf(buf,
-                "        .size      = sizeof(%s__%s__t%s),\n"
-                "        .u1        = { .st_desc = &%s__%s__s },\n",
-                t_iopc_path_to_c(f->type_path),
-                t_iopc_name_to_c(f->struct_def->name),
+                "        .size      = sizeof(%s__t%s),\n"
+                "        .u1        = { .st_desc = &%s__s },\n", field_type,
                 f->struct_def->type == STRUCT_TYPE_CLASS ? " *" : "",
-                t_iopc_path_to_c(f->type_path),
-                t_iopc_name_to_c(f->struct_def->name));
+                field_type);
     } else if (f->repeat == IOP_R_REPEATED) {
         /* void arrays only have a length, no data */
         if (f->kind != IOP_T_VOID) {
@@ -1703,10 +1759,8 @@ iopc_dump_field_src(sb_t *buf, const iopc_struct_t *st, const char *tbase,
     if (f->kind == IOP_T_ENUM) {
         t_scope;
 
-        sb_addf(buf,
-                "        .u1        = { .en_desc = &%s__%s__e },\n",
-                t_iopc_path_to_c(f->type_path),
-                t_iopc_name_to_c(f->enum_def->name));
+        sb_addf(buf, "        .u1        = { .en_desc = &%s__e },\n",
+                t_iopc_resolve_field_type(pkg, f));
     }
     sb_addf(buf, "    },\n");
 }
@@ -3371,7 +3425,7 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
                 tbase);
         assert(st->fields_by_tag.len == st->fields.len);
         tab_enumerate(i, f, &st->fields_by_tag) {
-            iopc_dump_field_src(buf, st, tbase, f, &fields_attrs.tab[i]);
+            iopc_dump_field_src(buf, st, pkg, tbase, f, &fields_attrs.tab[i]);
         }
         sb_adds(buf,
                 "};\n");
@@ -3842,22 +3896,22 @@ iopc_module_dump_src(sb_t *buf, iopc_pkg_t *pkg,
             "/* }""}} */\n", mbase, mbase);
 }
 
-static void iopc_typedef_dump_enum(sb_t *buf, const iopc_field_t *td)
+static void iopc_typedef_dump_enum(sb_t *buf, const char *pkg_name,
+                                   const iopc_field_t *td)
 {
     t_scope;
 
-    sb_addf(buf, "    .ref_enum = &%s__%s__e,\n",
-            t_iopc_path_to_c(td->type_path),
-            t_iopc_name_to_c(td->type_name));
+    sb_addf(buf, "    .ref_enum = &%s__%s__e,\n", pkg_name,
+            t_iopc_name_to_c(td->name));
 }
 
-static void iopc_typedef_dump_struct(sb_t *buf, const iopc_field_t *td)
+static void iopc_typedef_dump_struct(sb_t *buf, const char *pkg_name,
+                                     const iopc_field_t *td)
 {
     t_scope;
 
-    sb_addf(buf, "    .ref_struct = &%s__%s__s,\n",
-            t_iopc_path_to_c(td->type_path),
-            t_iopc_name_to_c(td->type_name));
+    sb_addf(buf, "    .ref_struct = &%s__%s__s,\n", pkg_name,
+            t_iopc_name_to_c(td->name));
 }
 
 static void
@@ -3878,11 +3932,11 @@ iopc_typedef_dump_src(sb_t *buf, iopc_pkg_t *pkg,
             pppath, td->name, tdbase, pppath, td->name, types[td->kind]);
     switch (td->kind) {
     case IOP_T_ENUM:
-        iopc_typedef_dump_enum(buf, td);
+        iopc_typedef_dump_enum(buf, pkg_name, td);
         break;
     case IOP_T_STRUCT:
     case IOP_T_UNION:
-        iopc_typedef_dump_struct(buf, td);
+        iopc_typedef_dump_struct(buf, pkg_name, td);
         break;
       default:
         break;
@@ -4134,6 +4188,9 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
             }
         }
     }
+    tab_for_each_entry(tdef, &pkg->typedefs) {
+        iopc_create_tdef_aliases(&buf, pkg_name, tdef);
+    }
     sb_adds(&buf, "#endif\n");
 
     IOPC_DO_C_RETHROW(iopc_write_file(&buf, path));
@@ -4143,19 +4200,18 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     sb_addf(&buf,
             "#ifndef IOP_HEADER_GUARD_%s_TYPES_H\n"
             "#define IOP_HEADER_GUARD_%s_TYPES_H\n"
-            "\n"
-            "#include \"%s-tdef.iop.h\"\n"
-            "\n", pkg_name, pkg_name, iopc_path_basename(pkg->name));
+            "\n", pkg_name, pkg_name);
 
+    /* XXX typedef allows references from other packages, so headers must be
+     * referenced first! */
     tab_for_each_entry(dep, &t_weak_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, "-tdef.iop.h", dep, pkg));
     }
     tab_for_each_entry(dep, &t_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, "-t.iop.h", dep, pkg));
     }
-    if (t_deps.len || t_weak_deps.len) {
-        sb_adds(&buf, "\n");
-    }
+    sb_addf(&buf, "#include \"%s-tdef.iop.h\"\n\n",
+            iopc_path_basename(pkg->name));
 
     sb_adds(&buf,
             "#if __has_feature(nullability)\n"
@@ -4168,7 +4224,7 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     }
     tab_for_each_entry(st, &pkg->structs) {
         if (st->type == STRUCT_TYPE_UNION) {
-            iopc_union_dump_hdr(&buf, pkg_name, st);
+            iopc_union_dump_hdr(&buf, pkg, pkg_name, st);
         } else {
             iopc_struct_dump_hdr(&buf, pkg, pkg_name, st, NULL);
         }
@@ -4195,16 +4251,15 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     sb_addf(&buf,
             "#ifndef IOP_HEADER_GUARD_%s_H\n"
             "#define IOP_HEADER_GUARD_%s_H\n"
-            "\n"
-            "#include \"%s-t.iop.h\"\n",
-            pkg_name, pkg_name, iopc_path_basename(pkg->name));
+            "\n", pkg_name, pkg_name);
     tab_for_each_entry(dep, &t_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, ".iop.h", dep, pkg));
     }
     tab_for_each_entry(dep, &i_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, ".iop.h", dep, pkg));
     }
-    sb_adds(&buf, "\n");
+    sb_addf(&buf, "#include \"%s-t.iop.h\"\n\n",
+            iopc_path_basename(pkg->name));
     tab_for_each_entry(iface, &pkg->ifaces) {
         qv_sort(iopc_fun)(&iface->funs,
                           ^int (iopc_fun_t * const *f1,
