@@ -33,6 +33,7 @@
 
 #include "zchk-iop.h"
 #include "iop/tstiop.iop.h"
+#include "iop/tstiop2.iop.h"
 #include "iop/tstiop_dox.iop.h"
 #include "iop/tstiop_dox_invalid_example_struct.iop.h"
 #include "iop/tstiop_dox_invalid_example_rpc.iop.h"
@@ -54,6 +55,7 @@
 #include "iop/tstiop_backward_compat_mod.iop.h"
 #include "iop/tstiop_backward_compat_mod_deleted.iop.h"
 #include "iop/tstiop_backward_compat_mod_deleted_if.iop.h"
+#include "iop/tstiop_typedef.iop.h"
 #include "iop/tstiop_bpack_unregistered_class.iop.h"
 #include "iop/tstiop_void_type.iop.h"
 #include "iop/tstiop_wsdl.iop.h"
@@ -1464,7 +1466,8 @@ Z_GROUP_EXPORT(iop)
     IOP_REGISTER_PACKAGES(&tstiop__pkg,
                           &tstiop_dox__pkg,
                           &tstiop_inheritance__pkg,
-                          &tstiop_backward_compat__pkg);
+                          &tstiop_backward_compat__pkg,
+                          &tstiop_typedef__pkg);
 
     Z_TEST(dso_open, "test whether iop_dso_open works and loads stuff") { /* {{{ */
         t_scope;
@@ -3154,6 +3157,8 @@ Z_GROUP_EXPORT(iop)
         tstiop__struct_with_optional_object__t optional_object;
         tstiop__struct_with_child_class__t child_class;
         tstiop__struct_with_child_inherit_typedef__t inherit_typedef;
+        tstiop2__struct_with_typedefs_from_ext__t typedef_from_ext;
+        tstiop2__struct_with_ext_typedef__t ext_typedef;
 
 #define T_OK(_type, _res, _file)                                             \
         do {                                                                 \
@@ -3177,7 +3182,7 @@ Z_GROUP_EXPORT(iop)
         T_OK(tstiop__struct_with_mandatory_object, &mandatory_object,
              "tstiop_mandatory_object");
         T_OK(tstiop__struct_with_mandatory_object, &mandatory_object,
-             "tstiop_typedef");
+             "tstiop_local_typedef");
 
         /* Struct with typedef */
         iop_init(tstiop__struct_with_typedef, &with_typedef);
@@ -3186,7 +3191,7 @@ Z_GROUP_EXPORT(iop)
         with_typedef.c->i = 42;
         with_typedef.i2 = 24;
         T_OK(tstiop__struct_with_typedef, &with_typedef,
-             "tstiop_typedef");
+             "tstiop_local_typedef");
         T_OK(tstiop__struct_with_typedef, &with_typedef,
              "tstiop_mandatory_object");
 
@@ -3201,7 +3206,7 @@ Z_GROUP_EXPORT(iop)
         T_OK(tstiop__struct_with_optional_object, &optional_object,
              "tstiop_mandatory_object");
         T_OK(tstiop__struct_with_optional_object, &optional_object,
-             "tstiop_typedef");
+             "tstiop_local_typedef");
 
         /* Struct with a child class */
         iop_init(tstiop__struct_with_child_class, &child_class);
@@ -3218,6 +3223,28 @@ Z_GROUP_EXPORT(iop)
         inherit_typedef.my_class->d = 3.14;
         T_OK(tstiop__struct_with_child_inherit_typedef, &inherit_typedef,
              "tstiop_child_inherit_typedef");
+
+        /* Struct referencing typedefs located on a distant package */
+        iop_init(tstiop2__struct_with_typedefs_from_ext, &typedef_from_ext);
+        typedef_from_ext.tdef_s.i = 54;
+        typedef_from_ext.i1 = 13;
+        typedef_from_ext.tdef_c = t_iop_new(tstiop2__remote_class);
+        typedef_from_ext.tdef_c->i = 44;
+        typedef_from_ext.i2 = 14;
+        typedef_from_ext.tdef_e = EXTERNAL_ENUM_B;
+        typedef_from_ext.i3 = 15;
+        T_OK(tstiop2__struct_with_typedefs_from_ext, &typedef_from_ext,
+             "tstiop2_local_typedef_referencing_ext");
+
+        /* Struct containing a typedef enum referenced in another package */
+        iop_init(tstiop2__struct_with_ext_typedef, &ext_typedef);
+        ext_typedef.i1 = 23;
+        ext_typedef.c = t_iop_new(tstiop2__remote_typedef_class);
+        ext_typedef.c->i = 48;
+        ext_typedef.i2 = 24;
+        T_OK(tstiop2__struct_with_ext_typedef, &ext_typedef,
+             "tstiop2_ext_typedef");
+
 #undef T_OK
     } Z_TEST_END
     /* }}} */
@@ -8343,6 +8370,28 @@ Z_GROUP_EXPORT(iop)
 #undef T_KO
 #undef T_KO_ALL
 
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(iop_get_enum__typedef, "test iop_get_enum with typedef") { /* {{{ */
+        const iop_enum_t *en = NULL;
+
+        Z_ASSERT_P(en = iop_get_enum(tstiop_typedef__enum1__td.fullname),
+                   "`typedef %pL' not resolved",
+                   &tstiop_typedef__enum1__td.fullname);
+        Z_ASSERT_LSTREQUAL(en->fullname,
+                           tstiop_backward_compat__enum1__e.fullname);
+        Z_ASSERT_LSTREQUAL(en->name, tstiop_backward_compat__enum1__e.name);
+
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(iop_get_class__typedef, "test iop_get_class with typedef") { /* {{{ */
+        const iop_struct_t *st = NULL;
+
+        Z_ASSERT_P(st = iop_get_class_by_fullname(
+            &tstiop_typedef__basic_class_child__s,
+            tstiop_typedef__basic_class_child__td.fullname));
+        Z_ASSERT_LSTREQUAL(st->fullname,
+            tstiop_backward_compat__basic_class_child__s.fullname);
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_struct_is_optional, "test iop_struct_is_optional") { /* {{{ */
