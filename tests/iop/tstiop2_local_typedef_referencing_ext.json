@@ -1,0 +1,13 @@
+{
+    "tdefS": {
+        "i": 54,
+    },
+    "i1": 13,
+    "tdefC": {
+        "_class": "tstiop.MyParent",
+        "i": 44,
+    },
+    "i2": 14,
+    "tdefE": "B",
+    "i3": 15
+}

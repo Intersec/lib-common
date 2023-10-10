@@ -46,6 +46,7 @@ ctx.stlib(target='tstiop', features='c cstlib', source=[
     'tstiop_dox.iop',
     'tstiop_dox_invalid_example_struct.iop',
     'tstiop_dox_invalid_example_rpc.iop',
+    'tstiop_typedef.iop',
 ])
 
 ctx.stlib(target='tstiop2', features='c cstlib', source=[
