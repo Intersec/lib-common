@@ -1,0 +1,1149 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2023 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+#include <sys/wait.h>
+
+#include <lib-common/http.h>
+#include <lib-common/unix.h>
+#include <lib-common/z.h>
+
+
+/* XXX: fixed port used for debugging; when we pass Z_HTTP2_FIX_PORT
+ * environment variable. */
+#define DEFAULT_SERVER_PORT 1080
+
+static char h2spec_cmd_g[PATH_MAX];
+
+static el_t z_h2spec_setup_server(void)
+{
+    httpd_cfg_t *cfg = httpd_cfg_new();
+    sockunion_t su;
+    el_t server;
+
+    cfg->mode = HTTP_MODE_USE_HTTP2_ONLY;
+    cfg->max_conns = INT32_MAX;
+    cfg->pipeline_depth = 100;
+    cfg->max_queries = UINT_MAX;
+
+    addr_resolve("test", LSTR("127.0.0.1:1"), &su);
+
+    if (getenv("Z_HTTP2_FIX_PORT")) {
+        /* Occasionally, this may help in debug or network traces */
+        sockunion_setport(&su, DEFAULT_SERVER_PORT);
+    } else {
+        sockunion_setport(&su, 0);
+    }
+
+    server = httpd_listen(&su, cfg);
+    httpd_cfg_delete(&cfg);
+    return server;
+}
+
+static int z_h2spec_run_h2spec(const char *test_spec)
+{
+    const char *h2spec = h2spec_cmd_g;
+    SB(port, 16);
+    qv_cstr_t args;
+    __block el_t server = NULL;
+    __block int st_ = 0;
+    __block _Bool done = false;
+    int st;
+
+    qv_inita(&args, 16);
+
+    if (!(server = z_h2spec_setup_server())) {
+        Z_ASSERT(false, "unable to setup server for h2spec");
+    }
+
+    sb_addf(&port, "%d", getsockport(el_fd_get_fd(server), AF_INET));
+
+    qv_append(&args, "--verbose");
+    qv_append(&args, "--timeout");
+    qv_append(&args, "1");
+    qv_append(&args, "--strict");
+    qv_append(&args, "--port");
+    qv_append(&args, port.data);
+    qv_append(&args, test_spec);
+    qv_append(&args, NULL);
+
+    el_spawn_child(
+        h2spec, args.tab, NULL,
+        ^void (void) {
+            httpd_unlisten(&server);
+            devnull_dup(STDIN_FILENO);
+            devnull_dup(STDOUT_FILENO);
+        },
+        ^void(el_t ev, pid_t _pid, int _st) {
+            st_ = _st;
+            done = true;
+        },
+        NULL);
+
+    while (!done) {
+        el_loop_timeout(10);
+    }
+
+    httpd_unlisten(&server);
+
+    /* XXX: block rewriter does not forward block variable references in macro
+     * expressions below. */
+    st = st_;
+
+    if (WIFEXITED(st)) {
+        /* Normal termination for the child (system("h2spec")) */
+        int exit_code = WEXITSTATUS(st);
+
+        Z_ASSERT_ZERO(exit_code,
+                      "h2spec command terminated with non-zero code");
+    } else {
+        int sig = WTERMSIG(st);
+
+        assert(WIFSIGNALED(st));
+        Z_ASSERT(false, "h2spec command terminated by a signal %d", sig);
+    }
+
+    Z_HELPER_END;
+}
+
+static bool z_h2spec_search_cmd(void)
+{
+    static int h2spec_found = -1;
+
+    if (h2spec_found < 0) {
+        h2spec_found = which("h2spec", h2spec_cmd_g) == 0;
+    }
+
+    return !!h2spec_found;
+}
+
+#define Z_H2SPEC_SKIP_IF_NO_CMD()                                            \
+    do {                                                                     \
+        if (!z_h2spec_search_cmd()) {                                        \
+            Z_SKIP("h2spec cmd not found");                                  \
+        }                                                                    \
+    } while (0)
+
+/* Note: for reference: The tests are generated from a local dry run of h2spec
+ * and process output to get the test specifiers list using the following
+ * python snippet. Then, the long lines are selectively formatted by clang.
+ *
+ * python code:
+ * ===========================================================================
+import subprocess
+
+H2SPEC = "h2spec"
+GROUPS = ["generic", "hpack", "http2"]
+
+for grp in GROUPS:
+    cmd = f"""{H2SPEC} --strict --dryrun {grp} |
+            gawk -F'\\n'
+                'match($0, /^\s+(([[:digit:]]\.?)+)\./, m)
+                    {{pref=m[1]}}
+                 match($0, /^\s+([[:digit:]]+):\s(.*)/, m)
+                    {{print pref "/" m[1] "!" m[2]}}'
+            """.replace('\n', ' ')
+    tests = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE
+                           ).stdout.decode('utf-8')
+    print(f"Z_GROUP_EXPORT(h2spec_{grp}) {{")
+    for line in tests.splitlines():
+        item, desc = line.split('!')
+        desc = desc.replace('"', "'")
+        item = grp + '/' + item
+        item_id = item.replace('/', '__').replace('.', '_')
+        print(f"""
+    Z_TEST({item_id}, "{desc}") {{
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("{item}"));
+    }} Z_TEST_END
+""", end='')
+
+    print("} Z_GROUP_END\n")
+ * ===========================================================================
+ */
+
+/* {{{ h2spec/generic */
+
+Z_GROUP_EXPORT(h2spec_generic) {
+
+    Z_TEST(generic__1__1, "Sends a client connection preface") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/1/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__2__1, "Sends a PRIORITY frame on idle stream") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/2/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__2__2,
+           "Sends a WINDOW_UPDATE frame on half-closed (remote) stream")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/2/2"));
+    } Z_TEST_END
+
+    Z_TEST(generic__2__3,
+           "Sends a PRIORITY frame on half-closed (remote) stream")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/2/3"));
+    } Z_TEST_END
+
+    Z_TEST(generic__2__4,
+           "Sends a RST_STREAM frame on half-closed (remote) stream")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/2/4"));
+    } Z_TEST_END
+
+    Z_TEST(generic__2__5, "Sends a PRIORITY frame on closed stream") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/2/5"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_1__1, "Sends a DATA frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_1__2, "Sends multiple DATA frames") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.1/2"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_1__3, "Sends a DATA frame with padding") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.1/3"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_2__1, "Sends a HEADERS frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.2/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_2__2, "Sends a HEADERS frame with padding") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.2/2"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_2__3, "Sends a HEADERS frame with priority") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.2/3"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_3__1, "Sends a PRIORITY frame with priority 1") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.3/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_3__2, "Sends a PRIORITY frame with priority 256") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.3/2"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_3__3, "Sends a PRIORITY frame with stream dependency")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.3/3"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_3__4, "Sends a PRIORITY frame with exclusive") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.3/4"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_3__5, "Sends a PRIORITY frame for an idle stream, then "
+                            "send a HEADER frame for a lower stream ID")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.3/5"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_4__1, "Sends a RST_STREAM frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.4/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_5__1, "Sends a SETTINGS frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.5/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_7__1, "Sends a PING frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.7/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_8__1, "Sends a GOAWAY frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.8/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_9__1, "Sends a WINDOW_UPDATE frame with stream ID 0") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.9/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_9__2, "Sends a WINDOW_UPDATE frame with stream ID 1") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.9/2"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_10__1, "Sends a CONTINUATION frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.10/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__3_10__2, "Sends multiple CONTINUATION frames") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/3.10/2"));
+    } Z_TEST_END
+
+    Z_TEST(generic__4__1, "Sends a GET request") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/4/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__4__2, "Sends a HEAD request") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/4/2"));
+    } Z_TEST_END
+
+    Z_TEST(generic__4__3, "Sends a POST request") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/4/3"));
+    } Z_TEST_END
+
+    Z_TEST(generic__4__4, "Sends a POST request with trailers") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        /* FIXME: Investigate */
+        Z_TODO("this case may fail (to be investigated)");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/4/4"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__1, "Sends a indexed header field representation") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/1"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__2, "Sends a literal header field with incremental "
+                          "indexing - indexed name")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/2"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__3, "Sends a literal header field with incremental "
+                          "indexing - indexed name (with Huffman coding)")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/3"));
+    } Z_TEST_END
+
+    Z_TEST(
+        generic__5__4,
+        "Sends a literal header field with incremental indexing - new name")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/4"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__5, "Sends a literal header field with incremental "
+                          "indexing - new name (with Huffman coding)")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/5"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__6,
+           "Sends a literal header field without indexing - indexed name")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/6"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__7, "Sends a literal header field without indexing - "
+                          "indexed name (with Huffman coding)")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/7"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__8,
+           "Sends a literal header field without indexing - new name")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/8"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__9, "Sends a literal header field without indexing - "
+                          "new name (huffman encoded)")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/9"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__10,
+           "Sends a literal header field never indexed - indexed name")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/10"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__11, "Sends a literal header field never indexed - "
+                           "indexed name (huffman encoded)")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/11"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__12,
+           "Sends a literal header field never indexed - new name")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/12"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__13, "Sends a literal header field never indexed - new "
+                           "name (huffman encoded)")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/13"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__14, "Sends a dynamic table size update") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/14"));
+    } Z_TEST_END
+
+    Z_TEST(generic__5__15, "Sends multiple dynamic table size update") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("generic/5/15"));
+    } Z_TEST_END
+} Z_GROUP_END
+
+/* }}} */
+/* {{{ h2spec/hpack */
+
+Z_GROUP_EXPORT(h2spec_hpack){
+
+    Z_TEST(hpack__2_3_3__1,
+           "Sends a indexed header field representation with invalid index"){
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/2.3.3/1"));
+    } Z_TEST_END
+
+    Z_TEST(hpack__2_3_3__2,
+           "Sends a literal header field representation with invalid index")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/2.3.3/2"));
+    } Z_TEST_END
+
+    Z_TEST(hpack__4_2__1,
+           "Sends a dynamic table size update at the end of header block")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/4.2/1"));
+    } Z_TEST_END
+
+    Z_TEST(hpack__5_2__1, "Sends a Huffman-encoded string literal "
+                          "representation with padding longer than 7 bits")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/5.2/1"));
+    } Z_TEST_END
+
+    Z_TEST(hpack__5_2__2, "Sends a Huffman-encoded string literal "
+                          "representation padded by zero")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/5.2/2"));
+    } Z_TEST_END
+
+    Z_TEST(hpack__5_2__3, "Sends a Huffman-encoded string literal "
+                          "representation containing the EOS symbol")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/5.2/3"));
+    } Z_TEST_END
+
+    Z_TEST(hpack__6_1__1,
+           "Sends a indexed header field representation with index 0")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/6.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(hpack__6_3__1, "Sends a dynamic table size update larger than the "
+                          "value of SETTINGS_HEADER_TABLE_SIZE")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/6.3/1"));
+    } Z_TEST_END
+} Z_GROUP_END
+
+/* }}} */
+/* {{{ h2spec/http2 */
+
+Z_GROUP_EXPORT(h2spec_http2) {
+
+    Z_TEST(http2__3_5__1, "Sends client connection preface") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/3.5/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__3_5__2, "Sends invalid connection preface") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/3.5/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__4_1__1, "Sends a frame with unknown type") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/4.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__4_1__2, "Sends a frame with undefined flag") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/4.1/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__4_1__3, "Sends a frame with reserved field bit") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/4.1/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__4_2__1, "Sends a DATA frame with 2^14 octets in length") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/4.2/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__4_2__2, "Sends a large size DATA frame that exceeds the "
+                          "SETTINGS_MAX_FRAME_SIZE")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/4.2/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__4_2__3, "Sends a large size HEADERS frame that exceeds the "
+                          "SETTINGS_MAX_FRAME_SIZE")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/4.2/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__4_3__1, "Sends invalid header block fragment") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/4.3/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__4_3__2,
+           "Sends a PRIORITY frame while sending the header blocks")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/4.3/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__4_3__3, "Sends a HEADERS frame to another stream while "
+                          "sending the header blocks")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/4.3/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__1, "idle: Sends a DATA frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__2, "idle: Sends a RST_STREAM frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__3, "idle: Sends a WINDOW_UPDATE frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__4, "idle: Sends a CONTINUATION frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/4"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__5, "half closed (remote): Sends a DATA frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/5"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__6, "half closed (remote): Sends a HEADERS frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/6"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__7, "half closed (remote): Sends a CONTINUATION frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/7"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__8,
+           "closed: Sends a DATA frame after sending RST_STREAM frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/8"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__9,
+           "closed: Sends a HEADERS frame after sending RST_STREAM frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/9"));
+    } Z_TEST_END
+
+    Z_TEST(
+        http2__5_1__10,
+        "closed: Sends a CONTINUATION frame after sending RST_STREAM frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/10"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__11, "closed: Sends a DATA frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/11"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__12, "closed: Sends a HEADERS frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/12"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1__13, "closed: Sends a CONTINUATION frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1/13"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1_1__1, "Sends even-numbered stream identifier") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(
+        http2__5_1_1__2,
+        "Sends stream identifier that is numerically smaller than previous")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1.1/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_1_2__1,
+           "Sends HEADERS frames that causes their advertised concurrent "
+           "stream limit to be exceeded")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.1.2/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_3_1__1, "Sends HEADERS frame that depends on itself") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.3.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_3_1__2, "Sends PRIORITY frame that depend on itself") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.3.1/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_4_1__1,
+           "Sends an invalid PING frame for connection close")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        /* FIXME: Investigate; for some reason our implementation fails
+         * sometimes to close the connection (socket) after sending the GOAWAY
+         * frame. */
+        Z_TODO("this case may fail (to be investigated)");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.4.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_4_1__2,
+           "Sends an invalid PING frame to receive GOAWAY frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.4.1/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_5__1, "Sends an unknown extension frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.5/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__5_5__2,
+           "Sends an unknown extension frame in the middle of a header block")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/5.5/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_1__1, "Sends a DATA frame with 0x0 stream identifier") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_1__2, "Sends a DATA frame on the stream that is not in "
+                          "'open' or 'half-closed (local)' state")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.1/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_1__3, "Sends a DATA frame with invalid pad length") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.1/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_2__1, "Sends a HEADERS frame without the END_HEADERS "
+                          "flag, and a PRIORITY frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.2/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_2__2, "Sends a HEADERS frame to another stream while "
+                          "sending a HEADERS frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.2/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_2__3, "Sends a HEADERS frame with 0x0 stream identifier")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.2/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_2__4, "Sends a HEADERS frame with invalid pad length") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.2/4"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_3__1, "Sends a PRIORITY frame with 0x0 stream identifier")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.3/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_3__2,
+           "Sends a PRIORITY frame with a length other than 5 octets")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.3/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_4__1,
+           "Sends a RST_STREAM frame with 0x0 stream identifier")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.4/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_4__2, "Sends a RST_STREAM frame on a idle stream") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.4/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_4__3,
+           "Sends a RST_STREAM frame with a length other than 4 octets")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.4/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_5__1, "Sends a SETTINGS frame with ACK flag and payload")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_5__2,
+           "Sends a SETTINGS frame with a stream identifier other than 0x0")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_5__3, "Sends a SETTINGS frame with a length other than a "
+                          "multiple of 6 octets")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_5_2__1,
+           "SETTINGS_ENABLE_PUSH (0x2): Sends the value other than 0 or 1")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5.2/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_5_2__2,
+           "SETTINGS_INITIAL_WINDOW_SIZE (0x4): Sends the value above the "
+           "maximum flow control window size")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5.2/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_5_2__3, "SETTINGS_MAX_FRAME_SIZE (0x5): Sends the value "
+                            "below the initial value")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5.2/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_5_2__4, "SETTINGS_MAX_FRAME_SIZE (0x5): Sends the value "
+                            "above the maximum allowed frame size")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5.2/4"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_5_2__5, "Sends a SETTINGS frame with unknown identifier")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5.2/5"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_5_3__1,
+           "Sends multiple values of SETTINGS_INITIAL_WINDOW_SIZE")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5.3/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_5_3__2, "Sends a SETTINGS frame without ACK flag") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5.3/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_7__1, "Sends a PING frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.7/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_7__2, "Sends a PING frame with ACK") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.7/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_7__3, "Sends a PING frame with a stream identifier field "
+                          "value other than 0x0")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.7/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_7__4,
+           "Sends a PING frame with a length field value other than 8")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.7/4"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_8__1,
+           "Sends a GOAWAY frame with a stream identifier other than 0x0")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.8/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_9__1, "Sends a WINDOW_UPDATE frame with a flow control "
+                          "window increment of 0")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.9/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_9__2, "Sends a WINDOW_UPDATE frame with a flow control "
+                          "window increment of 0 on a stream")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.9/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_9__3,
+           "Sends a WINDOW_UPDATE frame with a length other than 4 octets")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.9/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_9_1__1, "Sends SETTINGS frame to set the initial window "
+                            "size to 1 and sends HEADERS frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.9.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_9_1__2, "Sends multiple WINDOW_UPDATE frames increasing "
+                            "the flow control window to above 2^31-1")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.9.1/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_9_1__3,
+           "Sends multiple WINDOW_UPDATE frames increasing the flow control "
+           "window to above 2^31-1 on a stream")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.9.1/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_9_2__1,
+           "Changes SETTINGS_INITIAL_WINDOW_SIZE after sending HEADERS frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.9.2/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_9_2__2,
+           "Sends a SETTINGS frame for window size to be negative")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.9.2/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_9_2__3, "Sends a SETTINGS_INITIAL_WINDOW_SIZE settings "
+                            "with an exceeded maximum window size value")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.9.2/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_10__1,
+           "Sends multiple CONTINUATION frames preceded by a HEADERS frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.10/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_10__2, "Sends a CONTINUATION frame followed by any frame "
+                           "other than CONTINUATION")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.10/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_10__3,
+           "Sends a CONTINUATION frame with 0x0 stream identifier")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.10/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_10__4, "Sends a CONTINUATION frame preceded by a HEADERS "
+                           "frame with END_HEADERS flag")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.10/4"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_10__5, "Sends a CONTINUATION frame preceded by a "
+                           "CONTINUATION frame with END_HEADERS flag")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.10/5"));
+    } Z_TEST_END
+
+    Z_TEST(http2__6_10__6,
+           "Sends a CONTINUATION frame preceded by a DATA frame")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.10/6"));
+    } Z_TEST_END
+
+    Z_TEST(http2__7__1, "Sends a GOAWAY frame with unknown error code") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/7/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__7__2, "Sends a RST_STREAM frame with unknown error code") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/7/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1__1,
+           "Sends a second HEADERS frame without the END_STREAM flag")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2__1, "Sends a HEADERS frame that contains the header "
+                            "field name in uppercase letters")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2/1"));
+    } Z_TEST_END
+
+    Z_TEST(
+        http2__8_1_2_1__1,
+        "Sends a HEADERS frame that contains a unknown pseudo-header field")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.1/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2_1__2, "Sends a HEADERS frame that contains the "
+                              "pseudo-header field defined for response")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.1/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2_1__3, "Sends a HEADERS frame that contains a "
+                              "pseudo-header field as trailers")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.1/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2_1__4,
+           "Sends a HEADERS frame that contains a pseudo-header field that "
+           "appears in a header block after a regular header field")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.1/4"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2_2__1, "Sends a HEADERS frame that contains the "
+                              "connection-specific header field")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.2/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2_2__2,
+           "Sends a HEADERS frame that contains the TE header field with any "
+           "value other than 'trailers'")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.2/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2_3__1,
+           "Sends a HEADERS frame with empty ':path' pseudo-header field")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.3/1"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2_3__2,
+           "Sends a HEADERS frame that omits ':method' pseudo-header field")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.3/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2_3__3,
+           "Sends a HEADERS frame that omits ':scheme' pseudo-header field")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.3/3"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2_3__4,
+           "Sends a HEADERS frame that omits ':path' pseudo-header field")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.3/4"));
+    } Z_TEST_END
+
+    Z_TEST(
+        http2__8_1_2_3__5,
+        "Sends a HEADERS frame with duplicated ':method' pseudo-header field")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.3/5"));
+    } Z_TEST_END
+
+    Z_TEST(
+        http2__8_1_2_3__6,
+        "Sends a HEADERS frame with duplicated ':scheme' pseudo-header field")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.3/6"));
+    } Z_TEST_END
+
+    Z_TEST(
+        http2__8_1_2_3__7,
+        "Sends a HEADERS frame with duplicated ':path' pseudo-header field")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.3/7"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_1_2_6__1,
+           "Sends a HEADERS frame with the 'content-length' header field "
+           "which does not equal the DATA frame payload length")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_TODO("failing test awaiting for a fix");
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.6/1"));
+    } Z_TEST_END
+
+    Z_TEST(
+        http2__8_1_2_6__2,
+        "Sends a HEADERS frame with the 'content-length' header field which "
+        "does not equal the sum of the multiple DATA frames payload length")
+    {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.1.2.6/2"));
+    } Z_TEST_END
+
+    Z_TEST(http2__8_2__1, "Sends a PUSH_PROMISE frame") {
+        Z_H2SPEC_SKIP_IF_NO_CMD();
+        Z_HELPER_RUN(z_h2spec_run_h2spec("http2/8.2/1"));
+    } Z_TEST_END
+} Z_GROUP_END
+
+/* }}} */
