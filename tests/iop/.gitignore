@@ -1,6 +1,8 @@
 /ex-iop
 /zchk-tstiop-plugin.so
 /zchk-tstiop2-plugin.so
+/backward-compat/old/zchk-tstiop-backward-compat-typedef-old.so
+/backward-compat/new/zchk-tstiop-backward-compat-typedef-new.so
 
 /*.iop.c
 /*.iop.h

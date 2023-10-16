@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2023 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -16,24 +16,40 @@
 /*                                                                         */
 /***************************************************************************/
 
-/* This package contains the IOP definitions used to test
- * iop_struct_check_backward_compat. */
-package tstiop_typedef;
+package tstiop_backward_compat_remote_typedef;
 
-/* {{{ Basic union/struct/class/enum */
+@(test:gen1, 1)
+enum MyEnumA {
+    @(test:gen2, 2.2)
+    @alias(A_ALIAS)
+    A = 0x0,
+    B = 0x1,
+    @alias(C_ALIAS_1)
+    @alias(C_ALIAS_2)
+    C = 0x2,
+    @alias(D_ALIAS)
+    D = 0x10,
+};
 
-typedef tstiop_backward_compat.BasicUnion BasicUnion;
-typedef tstiop_backward_compat.BasicStruct BasicStruct;
-typedef tstiop_backward_compat.BasicClass BasicClass;
-typedef tstiop_backward_compat.BasicClassChild BasicClassChild;
-typedef tstiop_backward_compat.StructContainer1 StructContainer1;
+struct MovedHashV2 {
+    bool?  b;
+    long[] i;
+    string s;
+};
 
-typedef tstiop_backward_compat.Enum1 Enum1;
+union MovedMyUnionA {
+    int    ua;
+    byte   ub;
+    string us;
+};
 
-typedef string FullAddr;
-typedef FullAddr FullTcpAddr;
+class MovedMyClass1 : 1 {
+    @(test:gen1, 1)
+    int int1;
+};
+typedef MovedMyClass1 MyClassRemote;
 
-typedef int Port;
-typedef Port TcpPort;
-
-/* }}} */
+class MovedMyClass2 : 2 : MyClassRemote {
+    int int2;
+};
+typedef MovedMyClass2 MyClassRemote2;
