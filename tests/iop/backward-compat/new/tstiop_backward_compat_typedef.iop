@@ -1,0 +1,80 @@
+/***************************************************************************/
+/*                                                                         */
+/* Copyright 2022 INTERSEC SA                                              */
+/*                                                                         */
+/* Licensed under the Apache License, Version 2.0 (the "License");         */
+/* you may not use this file except in compliance with the License.        */
+/* You may obtain a copy of the License at                                 */
+/*                                                                         */
+/*     http://www.apache.org/licenses/LICENSE-2.0                          */
+/*                                                                         */
+/* Unless required by applicable law or agreed to in writing, software     */
+/* distributed under the License is distributed on an "AS IS" BASIS,       */
+/* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/* See the License for the specific language governing permissions and     */
+/* limitations under the License.                                          */
+/*                                                                         */
+/***************************************************************************/
+
+package tstiop_backward_compat_typedef;
+
+struct StructNotChanged {
+    int a;
+};
+
+typedef tstiop_backward_compat_remote_typedef.MovedHashV2 HashV2;
+typedef tstiop_backward_compat_remote_typedef.MovedMyUnionA MyUnionA;
+
+struct MovedVoidStruct {
+};
+typedef MovedVoidStruct VoidStruct;
+
+/* Referencing typedef from another package */
+typedef tstiop_backward_compat_remote_typedef.MyClassRemote MyClass1;
+
+typedef tstiop_backward_compat_remote_typedef.MyEnumA MyEnumA;
+
+@strict
+enum MovedMyEnumB {
+    A,
+    B,
+    C,
+};
+typedef MovedMyEnumB MyEnumB;
+
+typedef tstiop_backward_compat_remote_typedef.MyClassRemote2 MyClass2;
+typedef MyClass2 MyClass2Gateway;
+
+class MovedMyClass3 : 3 : MyClass2Gateway {
+    int int3;
+    bool bool1;
+    string? string1;
+    MyClass1? nextClass;
+    tstiop_backward_compat_remote_typedef.MyClassRemote? nextClass2;
+};
+typedef MovedMyClass3 MyClass3;
+
+class MyClass2Bis : 4 : tstiop_backward_compat_remote_typedef.MyClassRemote {
+    int int2;
+};
+
+@private
+class MyClass2Priv : 5 : MyClass2Gateway {
+};
+
+abstract class MyClass2AbstractMoved : 6 : MyClass2Gateway {
+};
+typedef MyClass2AbstractMoved MyClass2Abstract;
+
+class MyClassEmptyMoved : 5 : MyClass1AfterTd {
+};
+typedef MyClassEmptyMoved MyClassEmpty;
+
+class MyClass1After : 1 {
+    int int1;
+};
+typedef MyClass1After MyClass1AfterTd;
+
+class MyClass2After : 2 : MyClassEmpty {
+    int int2;
+};

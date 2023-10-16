@@ -1,7 +1,7 @@
 {
     "i1": 23,
     "c": {
-        "_class": "tstiop.SmallClass",
+        "_class": "tstiop2.RemoteTypedefClass",
         "i": 48,
     },
     "i2": 24

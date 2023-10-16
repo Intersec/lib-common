@@ -25,6 +25,8 @@ ctx.program(target='zchk', depends_on=[
     'zchk-iop-plugin',
     'zchk-tstiop-plugin',
     'zchk-tstiop2-plugin',
+    'zchk-tstiop-backward-compat-typedef-old',
+    'zchk-tstiop-backward-compat-typedef-new',
 ], source=[
     'zchk.c',
 

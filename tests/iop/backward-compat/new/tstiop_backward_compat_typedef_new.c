@@ -1,6 +1,6 @@
 /***************************************************************************/
 /*                                                                         */
-/* Copyright 2023 INTERSEC SA                                              */
+/* Copyright 2022 INTERSEC SA                                              */
 /*                                                                         */
 /* Licensed under the Apache License, Version 2.0 (the "License");         */
 /* you may not use this file except in compliance with the License.        */
@@ -16,24 +16,11 @@
 /*                                                                         */
 /***************************************************************************/
 
-/* This package contains the IOP definitions used to test
- * iop_struct_check_backward_compat. */
-package tstiop_typedef;
+#include <lib-common/iop.h>
+#include "tstiop_backward_compat_typedef.iop.h"
+#include "tstiop_backward_compat_remote_typedef.iop.h"
 
-/* {{{ Basic union/struct/class/enum */
-
-typedef tstiop_backward_compat.BasicUnion BasicUnion;
-typedef tstiop_backward_compat.BasicStruct BasicStruct;
-typedef tstiop_backward_compat.BasicClass BasicClass;
-typedef tstiop_backward_compat.BasicClassChild BasicClassChild;
-typedef tstiop_backward_compat.StructContainer1 StructContainer1;
-
-typedef tstiop_backward_compat.Enum1 Enum1;
-
-typedef string FullAddr;
-typedef FullAddr FullTcpAddr;
-
-typedef int Port;
-typedef Port TcpPort;
-
-/* }}} */
+IOP_EXPORT_PACKAGES_COMMON;
+IOP_USE_EXTERNAL_PACKAGES;
+IOP_EXPORT_PACKAGES(&tstiop_backward_compat_typedef__pkg,
+                    &tstiop_backward_compat_remote_typedef__pkg);
