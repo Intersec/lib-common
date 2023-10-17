@@ -955,7 +955,7 @@ const char *t_time_spent_to_str(struct timeval from_tv)
     lp_gettv(&tv);
     tv = timeval_sub(tv, from_tv);
 
-    return t_fmt("%ld.%06ld sec", tv.tv_sec, tv.tv_usec);
+    return t_fmt("%'ld.%06ld sec", tv.tv_sec, tv.tv_usec);
 }
 
 /* }}} */
