@@ -38,6 +38,11 @@
 #  pragma GCC diagnostic ignored "-Wcomma"
 #endif /* Clang >= 3.9 */
 
+/* Disable Wunused-but-set-parameter for clang >= 15 */
+#if defined(__clang__) && __clang_major__ >= 15
+#  pragma GCC diagnostic ignored "-Wunused-but-set-parameter"
+#endif /* Clang => 15 */
+
 /* Redefine PyMODINIT_FUNC to properly export init function on Python < 3.9 */
 #if PY_VERSION_HEX < 0x03090000
 
