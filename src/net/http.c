@@ -4933,7 +4933,7 @@ http2_conn_parse_settings(http2_conn_t *w, pstream_t payload, uint8_t flags)
 
     if ((flags & HTTP2_FLAG_ACK) && len) {
         HTTP2_THROW_ERR(
-            w, PROTOCOL_ERROR,
+            w, FRAME_SIZE_ERROR,
             "frame error: invalid SETTINGS (ACK_FLAG with non-zero payload)");
     }
     if (flags & HTTP2_FLAG_ACK) {

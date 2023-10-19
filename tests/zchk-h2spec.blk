@@ -784,7 +784,6 @@ Z_GROUP_EXPORT(h2spec_http2) {
     Z_TEST(http2__6_5__1, "Sends a SETTINGS frame with ACK flag and payload")
     {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5/1"));
     } Z_TEST_END
 
