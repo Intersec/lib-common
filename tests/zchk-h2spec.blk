@@ -445,7 +445,6 @@ Z_GROUP_EXPORT(h2spec_hpack){
     Z_TEST(hpack__2_3_3__1,
            "Sends a indexed header field representation with invalid index"){
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/2.3.3/1"));
     } Z_TEST_END
 
@@ -453,7 +452,6 @@ Z_GROUP_EXPORT(h2spec_hpack){
            "Sends a literal header field representation with invalid index")
     {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/2.3.3/2"));
     } Z_TEST_END
 
@@ -461,7 +459,6 @@ Z_GROUP_EXPORT(h2spec_hpack){
            "Sends a dynamic table size update at the end of header block")
     {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/4.2/1"));
     } Z_TEST_END
 
@@ -469,7 +466,6 @@ Z_GROUP_EXPORT(h2spec_hpack){
                           "representation with padding longer than 7 bits")
     {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/5.2/1"));
     } Z_TEST_END
 
@@ -477,7 +473,6 @@ Z_GROUP_EXPORT(h2spec_hpack){
                           "representation padded by zero")
     {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/5.2/2"));
     } Z_TEST_END
 
@@ -485,7 +480,6 @@ Z_GROUP_EXPORT(h2spec_hpack){
                           "representation containing the EOS symbol")
     {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/5.2/3"));
     } Z_TEST_END
 
@@ -493,7 +487,6 @@ Z_GROUP_EXPORT(h2spec_hpack){
            "Sends a indexed header field representation with index 0")
     {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/6.1/1"));
     } Z_TEST_END
 
@@ -501,7 +494,6 @@ Z_GROUP_EXPORT(h2spec_hpack){
                           "value of SETTINGS_HEADER_TABLE_SIZE")
     {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("hpack/6.3/1"));
     } Z_TEST_END
 } Z_GROUP_END
@@ -557,7 +549,6 @@ Z_GROUP_EXPORT(h2spec_http2) {
 
     Z_TEST(http2__4_3__1, "Sends invalid header block fragment") {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("http2/4.3/1"));
     } Z_TEST_END
 

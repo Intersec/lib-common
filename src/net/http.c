@@ -4680,7 +4680,7 @@ static int http2_conn_do_on_end_headers(http2_conn_t *w, uint32_t stream_id,
     rc = t_http2_conn_decode_header_block(w, ps_initsb(&blk), &info,
                                           &headerlines);
     if (rc < 0) {
-        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
+        HTTP2_THROW_ERR(w, COMPRESSION_ERROR,
                         "compression error: "
                         "invalid header block on stream %d",
                         stream_id);
