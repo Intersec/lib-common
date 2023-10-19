@@ -4903,7 +4903,7 @@ http2_conn_process_peer_settings(http2_conn_t *w, uint16_t id, uint32_t val)
 
     case HTTP2_ID_INITIAL_WINDOW_SIZE:
         if (val > HTTP2_LEN_WINDOW_SIZE_LIMIT) {
-            HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
+            HTTP2_THROW_ERR(w, FLOW_CONTROL_ERROR,
                             "settings error: invalid "
                             "INITIAL_WINDOW_SIZE (%u out of range)",
                             val);

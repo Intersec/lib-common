@@ -814,7 +814,6 @@ Z_GROUP_EXPORT(h2spec_http2) {
            "maximum flow control window size")
     {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.5.2/2"));
     } Z_TEST_END
 
@@ -942,7 +941,6 @@ Z_GROUP_EXPORT(h2spec_http2) {
                             "with an exceeded maximum window size value")
     {
         Z_H2SPEC_SKIP_IF_NO_CMD();
-        Z_TODO("failing test awaiting for a fix");
         Z_HELPER_RUN(z_h2spec_run_h2spec("http2/6.9.2/3"));
     } Z_TEST_END
 
