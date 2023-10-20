@@ -4266,11 +4266,15 @@ http2_stream_check_can_recv(http2_conn_t *w, http2_stream_t *stream,
                             bool is_headers)
 {
     unsigned flags = stream->events;
-    const char *type = is_headers ? "DATA" : "HEADERS";
+    const char *type = is_headers ? "HEADERS" : "DATA";
 
-    if (flags & HTTP2_STREAM_EV_MASK_PEER_CANT_WRITE) {
+    if (flags & HTTP2_STREAM_EV_CLOSED) {
         return http2_stream_conn_error(w, stream, PROTOCOL_ERROR,
-                                       "%s on (half-)closed stream", type);
+                                       "%s on closed stream", type);
+    }
+    if (flags & HTTP2_STREAM_EV_MASK_PEER_CANT_WRITE) {
+        return http2_stream_conn_error(w, stream, STREAM_CLOSED,
+                                       "%s on closed stream", type);
     }
     if (!flags) {
         if (!is_headers) {
