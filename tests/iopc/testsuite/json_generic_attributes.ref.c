@@ -62,6 +62,16 @@ static iop_field_t const json_generic_attributes__voice_event__desc_fields[] = {
         .size      = fieldsizeof(json_generic_attributes__voice_event__t, price),
     },
 };
+
+static const iop_static_field_t json_generic_attributes__voice_event__static_field_0 = {
+    .name  = LSTR_IMMED("category"),
+    .value = { .s = LSTR_IMMED("voice") },
+    .type  = IOP_T_STRING,
+};
+static const iop_static_field_t *json_generic_attributes__voice_event__static_fields[] = {
+    &json_generic_attributes__voice_event__static_field_0,
+};
+
 static int const iop__ranges__1[] = {
     0, 1,
     2,
@@ -82,6 +92,8 @@ static const iop_struct_attrs_t json_generic_attributes__voice_event__s_desc_att
     .attrs     = json_generic_attributes__voice_event__s_attrs,
 };
 static const iop_class_attrs_t json_generic_attributes__voice_event__class_s = {
+    .static_fields     = json_generic_attributes__voice_event__static_fields,
+    .static_fields_len = 1,
     .class_id          = 0,
 };
 const iop_struct_t json_generic_attributes__voice_event__s = {
@@ -160,6 +172,16 @@ static iop_field_t const json_generic_attributes__data_event__desc_fields[] = {
         .size      = fieldsizeof(json_generic_attributes__data_event__t, price),
     },
 };
+
+static const iop_static_field_t json_generic_attributes__data_event__static_field_0 = {
+    .name  = LSTR_IMMED("category"),
+    .value = { .s = LSTR_IMMED("data") },
+    .type  = IOP_T_STRING,
+};
+static const iop_static_field_t *json_generic_attributes__data_event__static_fields[] = {
+    &json_generic_attributes__data_event__static_field_0,
+};
+
 static const iop_struct_attr_t json_generic_attributes__data_event__s_attrs[] = {
     {
         .type = 4,
@@ -172,6 +194,8 @@ static const iop_struct_attrs_t json_generic_attributes__data_event__s_desc_attr
     .attrs     = json_generic_attributes__data_event__s_attrs,
 };
 static const iop_class_attrs_t json_generic_attributes__data_event__class_s = {
+    .static_fields     = json_generic_attributes__data_event__static_fields,
+    .static_fields_len = 1,
     .class_id          = 0,
 };
 const iop_struct_t json_generic_attributes__data_event__s = {

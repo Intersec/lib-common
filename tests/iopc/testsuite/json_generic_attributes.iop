@@ -8,6 +8,8 @@ typedef double Price;
                   fr = "Appel téléphonique")
 @(empty:attr)
 class VoiceEvent {
+    static string category = "voice";
+
     @(scenario:label, en = "Duration", fr = "Durée")
     @(scenario:type, integer = { size = "INT32",
                                  format = "TIME" })
@@ -18,6 +20,8 @@ class VoiceEvent {
 @(scenario:label, en = "Data session",
                   fr = "Session de donnée")
 class DataEvent {
+    static string category = "data";
+
     @(scenario:label, en = "Bandwidth size",
                       fr = "Bande passante")
     @(scenario:type, integer = { size = "INT32",
