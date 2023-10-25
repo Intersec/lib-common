@@ -25,6 +25,7 @@
 #include <lib-common/net.h>
 #include <lib-common/container-qhash.h>
 #include <lib-common/ssl.h>
+#include <lib-common/core/core.iop.h>
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic push
@@ -57,54 +58,9 @@ typedef enum http_method_t {
 } http_method_t;
 extern lstr_t const http_method_str[HTTP_METHOD__MAX];
 
-typedef enum http_code_t {
-    HTTP_CODE_CONTINUE                 = 100,
-    HTTP_CODE_SWITCHING_PROTOCOL       = 101,
+/* Definition moved in core.iop */
+typedef http_code__t http_code_t;
 
-    HTTP_CODE_OK                       = 200,
-    HTTP_CODE_CREATED                  = 201,
-    HTTP_CODE_ACCEPTED                 = 202,
-    HTTP_CODE_NON_AUTHORITATIVE        = 203,
-    HTTP_CODE_NO_CONTENT               = 204,
-    HTTP_CODE_RESET_CONTENT            = 205,
-    HTTP_CODE_PARTIAL_CONTENT          = 206,
-
-    HTTP_CODE_MULTIPLE_CHOICES         = 300,
-    HTTP_CODE_MOVED_PERMANENTLY        = 301,
-    HTTP_CODE_FOUND                    = 302,
-    HTTP_CODE_SEE_OTHER                = 303,
-    HTTP_CODE_NOT_MODIFIED             = 304,
-    HTTP_CODE_USE_PROXY                = 305,
-    HTTP_CODE_TEMPORARY_REDIRECT       = 307,
-
-    HTTP_CODE_BAD_REQUEST              = 400,
-    HTTP_CODE_UNAUTHORIZED             = 401,
-    HTTP_CODE_PAYMENT_REQUIRED         = 402,
-    HTTP_CODE_FORBIDDEN                = 403,
-    HTTP_CODE_NOT_FOUND                = 404,
-    HTTP_CODE_METHOD_NOT_ALLOWED       = 405,
-    HTTP_CODE_NOT_ACCEPTABLE           = 406,
-    HTTP_CODE_PROXY_AUTH_REQUIRED      = 407,
-    HTTP_CODE_REQUEST_TIMEOUT          = 408,
-    HTTP_CODE_CONFLICT                 = 409,
-    HTTP_CODE_GONE                     = 410,
-    HTTP_CODE_LENGTH_REQUIRED          = 411,
-    HTTP_CODE_PRECONDITION_FAILED      = 412,
-    HTTP_CODE_REQUEST_ENTITY_TOO_LARGE = 413,
-    HTTP_CODE_REQUEST_URI_TOO_LARGE    = 414,
-    HTTP_CODE_UNSUPPORTED_MEDIA_TYPE   = 415,
-    HTTP_CODE_REQUEST_RANGE_UNSAT      = 416,
-    HTTP_CODE_EXPECTATION_FAILED       = 417,
-    /* the status 429 was introduced in rfc 6585 $4 */
-    HTTP_CODE_TOO_MANY_REQUESTS        = 429,
-
-    HTTP_CODE_INTERNAL_SERVER_ERROR    = 500,
-    HTTP_CODE_NOT_IMPLEMENTED          = 501,
-    HTTP_CODE_BAD_GATEWAY              = 502,
-    HTTP_CODE_SERVICE_UNAVAILABLE      = 503,
-    HTTP_CODE_GATEWAY_TIMEOUT          = 504,
-    HTTP_CODE_VERSION_NOT_SUPPORTED    = 505,
-} http_code_t;
 __attribute__((pure))
 lstr_t http_code_to_str(http_code_t code);
 
