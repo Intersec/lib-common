@@ -249,6 +249,16 @@ struct HttpcCfg {
      * (mandatory with tlsOn = true).
      */
     string? tlsCert;
+
+    /** Certificate and private key of client.
+     *
+     * This is required to support mTLS. In mTLS, the server will request
+     * client certificate and validate it.
+     * If the client does not provide a valid certificate, the connection
+     * will be refused.
+     * The client certificate must be signed by a CA trusted by the server.
+     */
+    TlsCfg? tlsClient;
 };
 
 enum IopHttpMethod {

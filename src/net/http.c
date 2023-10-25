@@ -2447,8 +2447,8 @@ int httpc_cfg_tls_init(httpc_cfg_t *cfg, sb_t *err)
 
     assert (cfg->ssl_ctx == NULL);
 
-    ctx = ssl_ctx_new_tls(TLS_client_method(), LSTR_NULL_V, LSTR_NULL_V,
-                          SSL_VERIFY_PEER, NULL, err);
+    ctx = ssl_ctx_new_tls(TLS_client_method(), cfg->client_tls_key,
+                          cfg->client_tls_cert, SSL_VERIFY_PEER, NULL, err);
     httpc_cfg_set_ssl_ctx(cfg, ctx);
     return cfg->ssl_ctx ? 0 : -1;
 }
@@ -2495,10 +2495,22 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
         char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
         int fd;
         int ret;
+        core__tls_cert_and_key__t *data;
 
         if (!iop_cfg->tls_cert.s) {
             logger_error(&_G.logger, "tls: no certificate provided");
             return -1;
+        }
+
+        if (iop_cfg->tls_client) {
+            data = IOP_UNION_GET(core__tls_cfg, iop_cfg->tls_client, data);
+            if (!data) {
+                /* If a keyname has been provided in the configuration, it
+                 * should have been replaced by the actual TLS data. */
+                logger_panic(&_G.logger, "mTLS client data are not provided");
+            }
+            cfg->client_tls_cert = lstr_dup(data->cert);
+            cfg->client_tls_key = lstr_dup(data->key);
         }
 
         if (httpc_cfg_tls_init(cfg, &err) < 0) {
@@ -2535,6 +2547,9 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
 
 void httpc_cfg_wipe(httpc_cfg_t *cfg)
 {
+    lstr_wipe(&cfg->client_tls_cert);
+    lstr_wipe(&cfg->client_tls_key);
+
     httpc_close_http2_pool(cfg);
     httpc_cfg_tls_wipe(cfg);
 }
