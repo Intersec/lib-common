@@ -100,7 +100,7 @@ pkg_provides_struct(iopc_pkg_t *pkg, const char *type, bool visible,
         }
     }
 
-#undef CHECK_AND_RETURN_ST
+#undef CHECK_FIELD_SNMP
 
     *out_st = NULL;
     if (out_td) {
@@ -142,13 +142,16 @@ pkg_provides_fields_for_param(iopc_pkg_t *pkg, iopc_field_t *field,
     return false;
 }
 
-static int
-pkg_provides_enum(iopc_pkg_t *pkg, const char *type, bool visible,
-                  bool in_td_resolve, iopc_enum_t **out)
+static int pkg_provides_enum(iopc_pkg_t *pkg, const char *type, bool visible,
+                             bool in_td_resolve, iopc_enum_t **out,
+                             iopc_field_t **nullable out_td)
 {
     tab_for_each_entry(en, &pkg->enums) {
         if (IS_IOPC_SYMBOL_VISIBLE_AND_TYPE(en, type, visible)) {
             *out = en;
+            if (out_td) {
+                *out_td = NULL;
+            }
             return 0;
         }
     }
@@ -161,7 +164,10 @@ pkg_provides_enum(iopc_pkg_t *pkg, const char *type, bool visible,
                 iopc_enum_t *en = td->enum_def;
 
                 if (IS_IOPC_SYMBOL_VISIBLE_AND_TYPE(en, type, visible)) {
-                    *out =en;
+                    *out = en;
+                    if (out_td) {
+                        *out_td = td;
+                    }
                     return 0;
                 }
             }
@@ -248,19 +254,25 @@ static bool iopc_field_is_resolved(const iopc_field_t *f)
 }
 
 static int
+iopc_check_and_set_td_repeat_field(const iopc_field_t *tdef, iopc_field_t *f)
+{
+    if ((f->repeat != IOP_R_REQUIRED && f->repeat != IOP_R_DEFVAL) &&
+        tdef->repeat != IOP_R_REQUIRED && f->repeat != tdef->repeat)
+    {
+        throw_loc("cannot declare repeated optional fields", f->loc);
+    } else if (tdef->repeat != IOP_R_REQUIRED) {
+        f->repeat = tdef->repeat;
+    }
+    return 0;
+}
+
+static int
 iopc_apply_typedef(const iopc_field_t *tdef, iopc_field_t *f, bool f_is_tdef)
 {
     assert (iopc_field_is_resolved(tdef));
 
-    f->kind       = tdef->kind;
-    if ((f->repeat != IOP_R_REQUIRED && f->repeat != IOP_R_DEFVAL)
-    &&  tdef->repeat != IOP_R_REQUIRED &&  f->repeat != tdef->repeat)
-    {
-        throw_loc("cannot declare repeated optional fields", f->loc);
-    } else
-    if (tdef->repeat != IOP_R_REQUIRED) {
-        f->repeat = tdef->repeat;
-    }
+    f->kind = tdef->kind;
+    RETHROW(iopc_check_and_set_td_repeat_field(tdef, f));
     p_delete(&f->type_name);
     iopc_path_delete(&f->type_path);
     f->type_pkg = NULL;
@@ -289,6 +301,18 @@ iopc_apply_typedef(const iopc_field_t *tdef, iopc_field_t *f, bool f_is_tdef)
     return 0;
 }
 
+static int iopc_apply_field_data_from_search(iopc_pkg_t *pkg, iopc_field_t *f,
+                                             iopc_field_t *tdef)
+{
+    if (!f->type_pkg) {
+        f->type_pkg = pkg;
+    }
+    if (!f->found_pkg) {
+        f->found_pkg = pkg;
+    }
+    return tdef ? iopc_check_and_set_td_repeat_field(tdef, f) : 0;
+}
+
 static int iopc_types_find_n_check(iopc_pkg_t *pkg, iopc_field_t *f,
                                    bool f_is_tdef);
 
@@ -298,37 +322,25 @@ static int iopc_find_type_in_pkg(iopc_pkg_t *pkg, iopc_field_t *f,
 {
     iopc_struct_t *st;
     iopc_enum_t   *en;
-    iopc_field_t  *tdef;
+    iopc_field_t  *tdef = NULL;
 
     *found = true;
 
     RETHROW(pkg_provides_struct(pkg, name, visible, true, f_is_tdef, &st,
-                                NULL));
+                                &tdef));
     if (st) {
-        if (!f->type_pkg) {
-            f->type_pkg = pkg;
-        }
-        if (!f->found_pkg) {
-            f->found_pkg = pkg;
-        }
         assert (!f->has_external_type);
         f->struct_def = st;
         f->kind = (st->type == STRUCT_TYPE_UNION) ? IOP_T_UNION :
                   IOP_T_STRUCT;
-        return 0;
+        return iopc_apply_field_data_from_search(pkg, f, tdef);
     }
 
-    RETHROW(pkg_provides_enum(pkg, name, visible, f_is_tdef, &en));
+    RETHROW(pkg_provides_enum(pkg, name, visible, f_is_tdef, &en, &tdef));
     if (en) {
-        if (!f->type_pkg) {
-            f->type_pkg = pkg;
-        }
-        if (!f->found_pkg) {
-            f->found_pkg = pkg;
-        }
         f->enum_def = en;
         f->kind = IOP_T_ENUM;
-        return 0;
+        return iopc_apply_field_data_from_search(pkg, f, tdef);
     }
 
     if ((tdef = pkg_provides_typedef(pkg, name, visible))) {

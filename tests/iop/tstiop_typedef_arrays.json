@@ -1,0 +1,6 @@
+{
+    "list1": [{"a": true, "b": "1st item"}, {"a": false, "b": "2nd item"}],
+    "list2": ["VAL1", "VAL2", "VAL2"],
+    "list3": ["VAL2", "VAL1", "VAL1"],
+    "list4": [{"u32": 4}, {"u32": 3}, {"u32": 2}, {"u32": 1}]
+}
