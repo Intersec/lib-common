@@ -2,8 +2,9 @@
 #ifndef IOP_HEADER_GUARD_tstgen_TYPES_H
 #define IOP_HEADER_GUARD_tstgen_TYPES_H
 
-#include "pkg_a-tdef.iop.h"
 #include "tstgen-tdef.iop.h"
+
+#include "pkg_a-tdef.iop.h"
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic push

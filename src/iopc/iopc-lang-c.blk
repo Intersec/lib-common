@@ -1069,6 +1069,11 @@ static void iopc_struct_dump_tdef_hdr(sb_t *buf, const char *pkg_name,
             tbase);
 }
 
+static int iopc_is_local_tdef(const iopc_pkg_t *pkg, const iopc_field_t *tdef)
+{
+    return !tdef->type_pkg || (pkg == tdef->type_pkg);
+}
+
 static void iopc_create_tdef_aliases(sb_t *buf, const char *pkg_name,
                                      const iopc_field_t *tdef)
 {
@@ -4189,7 +4194,10 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
         }
     }
     tab_for_each_entry(tdef, &pkg->typedefs) {
-        iopc_create_tdef_aliases(&buf, pkg_name, tdef);
+        /* Only local aliases */
+        if (iopc_is_local_tdef(pkg, tdef)) {
+            iopc_create_tdef_aliases(&buf, pkg_name, tdef);
+        }
     }
     sb_adds(&buf, "#endif\n");
 
@@ -4200,25 +4208,31 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     sb_addf(&buf,
             "#ifndef IOP_HEADER_GUARD_%s_TYPES_H\n"
             "#define IOP_HEADER_GUARD_%s_TYPES_H\n"
-            "\n", pkg_name, pkg_name);
+            "\n"
+            "#include \"%s-tdef.iop.h\"\n"
+            "\n", pkg_name, pkg_name, iopc_path_basename(pkg->name));
 
-    /* XXX typedef allows references from other packages, so headers must be
-     * referenced first! */
     tab_for_each_entry(dep, &t_weak_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, "-tdef.iop.h", dep, pkg));
     }
     tab_for_each_entry(dep, &t_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, "-t.iop.h", dep, pkg));
     }
-    sb_addf(&buf, "#include \"%s-tdef.iop.h\"\n\n",
-            iopc_path_basename(pkg->name));
+    if (t_deps.len || t_weak_deps.len) {
+        sb_adds(&buf, "\n");
+    }
 
     sb_adds(&buf,
             "#if __has_feature(nullability)\n"
             "#pragma GCC diagnostic push\n"
             "#pragma GCC diagnostic error \"-Wnullability-completeness\"\n"
             "#endif\n\n");
-
+    tab_for_each_entry(tdef, &pkg->typedefs) {
+        /* Only remote aliases */
+        if (!iopc_is_local_tdef(pkg, tdef)) {
+            iopc_create_tdef_aliases(&buf, pkg_name, tdef);
+        }
+    }
     tab_for_each_entry(en, &pkg->enums) {
         iopc_enum_dump_hdr(&buf, pkg_name, en);
     }
@@ -4251,15 +4265,16 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     sb_addf(&buf,
             "#ifndef IOP_HEADER_GUARD_%s_H\n"
             "#define IOP_HEADER_GUARD_%s_H\n"
-            "\n", pkg_name, pkg_name);
+            "\n"
+            "#include \"%s-t.iop.h\"\n",
+            pkg_name, pkg_name, iopc_path_basename(pkg->name));
     tab_for_each_entry(dep, &t_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, ".iop.h", dep, pkg));
     }
     tab_for_each_entry(dep, &i_deps) {
         IOPC_DO_C_RETHROW(put_include(&buf, ".iop.h", dep, pkg));
     }
-    sb_addf(&buf, "#include \"%s-t.iop.h\"\n\n",
-            iopc_path_basename(pkg->name));
+    sb_adds(&buf, "\n");
     tab_for_each_entry(iface, &pkg->ifaces) {
         qv_sort(iopc_fun)(&iface->funs,
                           ^int (iopc_fun_t * const *f1,
