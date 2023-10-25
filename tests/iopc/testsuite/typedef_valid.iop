@@ -136,3 +136,30 @@ union TypedefUnionUseAll {
 class C : 11 : Bdef {
     string b;
 };
+
+/* Typedef with forward declaration */
+typedef typedef1.MyTypeS TypedefSimpleHdr;
+
+struct RoutingHdr {
+    TypedefRoute route;
+    TypedefHdr?  originalHdr;
+};
+typedef RoutingHdr TypedefRoutingHdr;
+
+abstract class Route {
+};
+typedef Route TypedefRoute;
+
+union Hdr {
+    TypedefSimpleHdr  simple;
+    TypedefRoutingHdr routing;
+};
+typedef Hdr TypedefHdr;
+
+/* Typedef defining a table of items */
+typedef TypedefStructUseAll[] TypedefStructUseAllList;
+
+struct TypedefStructUseAllWithList {
+    MyString listName;
+    TypedefStructUseAllList list;
+};

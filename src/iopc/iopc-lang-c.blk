@@ -458,9 +458,8 @@ static void pp_field_with_type(sb_t *sb, const iopc_pkg_t *pkg,
             break;
           default:
             sb_addnc(sb, indent, ' ');
-            sb_addf(sb, "%s__%s__array_t %s;\n",
-                    t_iopc_path_to_c(f->type_path),
-                    t_iopc_name_to_c(f->type_name),
+            sb_addf(sb, "%s__array_t %s;\n",
+                    t_iopc_resolve_field_type(pkg, f),
                     t_iopc_name_to_c(f->name));
             return;
         }
@@ -484,16 +483,13 @@ static void pp_field_with_type(sb_t *sb, const iopc_pkg_t *pkg,
           case IOP_T_DATA:   type = "lstr_t           ";    break;
           case IOP_T_ENUM:
             sb_addnc(sb, indent, ' ');
-            sb_addf(sb, "%s__%s__opt_t  %s;\n",
-                    t_iopc_path_to_c(f->type_path),
-                    t_iopc_name_to_c(f->type_name),
+            sb_addf(sb, "%s__opt_t %s;\n", t_iopc_resolve_field_type(pkg, f),
                     t_iopc_name_to_c(f->name));
             return;
           default:
             sb_addnc(sb, indent, ' ');
-            sb_addf(sb, "struct %s__%s__t *nullable %s;\n",
-                    t_iopc_path_to_c(f->type_path),
-                    t_iopc_name_to_c(f->type_name),
+            sb_addf(sb, "%s__t *nullable %s;\n",
+                    t_iopc_resolve_field_type(pkg, f),
                     t_iopc_name_to_c(f->name));
             return;
         }
@@ -524,8 +520,7 @@ static void pp_field_with_type(sb_t *sb, const iopc_pkg_t *pkg,
             return;
           default:
             sb_addnc(sb, indent, ' ');
-            sb_addf(sb, "%s%s__t%s%s;\n",
-                    (f->type == STRUCT_TYPE_TYPEDEF) ? "" : "struct ",
+            sb_addf(sb, "%s__t%s%s;\n",
                     t_iopc_resolve_field_type(pkg, f),
                     type_is_class || f->is_ref ? " *nonnull " : " ",
                     t_iopc_name_to_c(f->name));
@@ -1082,25 +1077,28 @@ static void iopc_create_tdef_aliases(sb_t *buf, const char *pkg_name,
 
     switch (tdef->kind) {
     case IOP_T_ENUM: {
-        char *tref = t_fmt("%s__%s", tdef->type_pkg->name->dot_path,
+        char *tref = t_fmt("%s__%s", t_iopc_path_to_c(tdef->type_pkg->name),
                            t_iopc_name_to_c(tdef->enum_def->name));
 
         sb_addf(buf, "/*----- enum for typedef %s (from %s.%s) -----*/\n"
-                "typedef %s__t %s__t;\n#define %s__e %s__e\n\n",
+                "typedef %s__t %s__t;\ntypedef %s__array_t %s__array_t;\n"
+                "typedef %s__opt_t %s__opt_t;\n#define %s__e %s__e\n\n",
                 tdef->name, tdef->type_pkg->name->dot_path,
-                tdef->enum_def->name, tref, tbase, tbase, tref);
+                tdef->enum_def->name, tref, tbase, tref, tbase, tref, tbase,
+                tbase, tref);
     } break;
 
     case IOP_T_STRUCT:
     case IOP_T_UNION: {
-        char *tref = t_fmt("%s__%s", tdef->type_pkg->name->dot_path,
+        char *tref = t_fmt("%s__%s", t_iopc_path_to_c(tdef->type_pkg->name),
                            t_iopc_name_to_c(tdef->struct_def->name));
 
         sb_addf(buf, "/*----- structure/union for typedef %s (from %s.%s)"
-                "-----*/\ntypedef %s__t %s__t;\n#define %s__s %s__s\n"
-                "#define %s__sp %s__sp\n\n", tdef->name,
-                tdef->type_pkg->name->dot_path, tdef->struct_def->name,
-                tref, tbase, tbase, tref, tbase, tref);
+                "-----*/\ntypedef %s__t %s__t;\ntypedef %s__array_t "
+                "%s__array_t;\n#define %s__s %s__s\n#define %s__sp %s__sp"
+                "\n\n", tdef->name, tdef->type_pkg->name->dot_path,
+                tdef->struct_def->name, tref, tbase, tref, tbase, tbase, tref,
+                tbase, tref);
     } break;
 
     default:
@@ -1198,7 +1196,7 @@ static void iopc_struct_dump_hdr_class(sb_t *buf, const iopc_pkg_t *pkg,
     sb_addnc(buf, 4, ' ');
     sb_adds(buf, "union {\n");
     sb_addnc(buf, 8, ' ');
-    sb_addf(buf, "struct %s__%s__t super;\n",
+    sb_addf(buf, "%s__%s__t super;\n",
             t_iopc_path_to_c(parents_pkgs.tab[0]->name),
             t_iopc_name_to_c(parents.tab[0]->name));
 

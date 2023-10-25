@@ -3209,6 +3209,21 @@ Z_GROUP_EXPORT(iop)
         tstiop2__struct_with_typedefs_from_ext__t typedef_from_ext;
         tstiop2__struct_with_ext_typedef__t ext_typedef;
 
+        tstiop_typedef__basic_struct__t first_item = { .a = true,
+            .b = LSTR("1st item") };
+        tstiop_typedef__basic_struct__t second_item = { .a = false,
+            .b = LSTR("2nd item") };
+        tstiop_typedef__basic_struct__t list1[] = { first_item, second_item };
+        tstiop_typedef__enum1__t list2[] = { ENUM1_VAL1, ENUM1_VAL2,
+            ENUM1_VAL2 };
+        tstiop_typedef__local_enum2__t list3[] = { LOCAL_ENUM2_VAL2,
+            LOCAL_ENUM2_VAL1, LOCAL_ENUM2_VAL1 };
+        tstiop_typedef__local_number_struct__t list4[] = { { .u32 = 4 },
+            { .u32 = 3 }, { .u32 = 2 }, { .u32 = 1 } };
+        tstiop_typedef__array_test__t arrays_typedef;
+
+        /* {{{ Unpacker tests */
+
 #define T_OK(_type, _res, _file)                                             \
         do {                                                                 \
             _type##__t _exp;                                                 \
@@ -3294,6 +3309,18 @@ Z_GROUP_EXPORT(iop)
         T_OK(tstiop2__struct_with_ext_typedef, &ext_typedef,
              "tstiop2_ext_typedef");
 
+        /* Struct containing typedef arrays of local or remote struct/enum */
+        iop_init(tstiop_typedef__array_test, &arrays_typedef);
+        arrays_typedef.list1.tab = list1;
+        arrays_typedef.list1.len = countof(list1);
+        arrays_typedef.list2.tab = list2;
+        arrays_typedef.list2.len = countof(list2);
+        arrays_typedef.list3.tab = list3;
+        arrays_typedef.list3.len = countof(list3);
+        arrays_typedef.list4.tab = list4;
+        arrays_typedef.list4.len = countof(list4);
+        T_OK(tstiop_typedef__array_test, &arrays_typedef,
+             "tstiop_typedef_arrays");
 #undef T_OK
     } Z_TEST_END
     /* }}} */
