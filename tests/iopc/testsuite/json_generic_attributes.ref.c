@@ -173,10 +173,22 @@ static iop_field_t const json_generic_attributes__data_event__desc_fields[] = {
     },
 };
 
+static const iop_field_attr_t json_generic_attributes__data_event__static_field_0__sf_attrs[] = {
+    {
+        .type = 12,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("test:gen") }, {.v.s = LSTR_IMMED("test") } },
+    },
+};
+static const iop_field_attrs_t json_generic_attributes__data_event__static_field_0__sf_desc_attrs = {
+    .flags     = 0,
+    .attrs_len = 1,
+    .attrs     = json_generic_attributes__data_event__static_field_0__sf_attrs,
+};
 static const iop_static_field_t json_generic_attributes__data_event__static_field_0 = {
     .name  = LSTR_IMMED("category"),
     .value = { .s = LSTR_IMMED("data") },
     .type  = IOP_T_STRING,
+    .attrs = &json_generic_attributes__data_event__static_field_0__sf_desc_attrs,
 };
 static const iop_static_field_t *json_generic_attributes__data_event__static_fields[] = {
     &json_generic_attributes__data_event__static_field_0,

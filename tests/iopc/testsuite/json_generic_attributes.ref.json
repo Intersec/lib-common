@@ -60,7 +60,13 @@
 			"statics": {
 				"category": {
 					"type": "string",
-					"default": "data"
+					"default": "data",
+					"genAttrs": {
+						"test:gen": {
+							"type": "string",
+							"value": "test"
+						}
+					}
 				}
 			},
 			"genAttrs": {

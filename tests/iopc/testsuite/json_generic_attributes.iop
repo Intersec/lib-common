@@ -20,6 +20,7 @@ class VoiceEvent {
 @(scenario:label, en = "Data session",
                   fr = "Session de donnée")
 class DataEvent {
+    @(test:gen, "test")
     static string category = "data";
 
     @(scenario:label, en = "Bandwidth size",

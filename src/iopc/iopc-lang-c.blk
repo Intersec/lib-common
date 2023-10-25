@@ -1701,8 +1701,10 @@ iopc_dump_static_field_src(sb_t *buf, const iopc_field_t *f, const char *name)
 {
     lstr_t type;
     const iopc_attr_kind_t *attr_kind = &iopc_attr_kind_static_field_g;
+    bool has_attrs;
 
-    iopc_dump_attrs(attr_kind, &f->comments, NULL, name, buf, NULL);
+    iopc_dump_attrs(attr_kind, &f->comments, &f->attrs, name, buf,
+                    &has_attrs);
 
     sb_addf(buf,
             "static const iop_static_field_t %s = {\n"
@@ -1746,7 +1748,7 @@ iopc_dump_static_field_src(sb_t *buf, const iopc_field_t *f, const char *name)
     }
     sb_addf(buf, "    .type  = %*pM,\n", LSTR_FMT_ARG(type));
 
-    if (has_help(&f->comments)) {
+    if (has_help(&f->comments) || has_attrs) {
         sb_addf(buf, "    .attrs = &%s__%s,\n", name,
                 attr_kind->attrs_var_sfx);
     }
