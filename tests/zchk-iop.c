@@ -9072,7 +9072,26 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_STREQUAL(err.data, exp_err);
     } Z_TEST_END;
     /* }}} */
+    Z_TEST(iop_static_field_get_gen_attr, "test class static field generic attribute getter") { /* {{{ */
+        tstiop__class_with_static__t st;
+        const iop_static_field_t * static_field;
+        iop_value_t iop_label;
 
+        iop_init(tstiop__class_with_static, &st);
+
+        static_field = iop_get_cvar_field_desc(st.__vptr, LSTR("type1"));
+        Z_ASSERT_P(static_field,
+                   "call to 'iop_get_cvar_field_desc()' failed");
+        Z_ASSERT_LSTREQUAL(static_field->name, LSTR("type1"));
+        Z_ASSERT_EQ(static_field->value.i, (int64_t) 42);
+
+        Z_ASSERT_N(iop_static_field_get_gen_attr(st.__vptr, static_field,
+                                                 LSTR("test:gen1"),
+                                                 IOP_T_STRING, NULL,
+                                                 &iop_label));
+        Z_ASSERT_LSTREQUAL(iop_label.s, LSTR("{\"test\":\"Dump attr\"}"));
+    } Z_TEST_END;
+    /* }}} */
 } Z_GROUP_END
 
 /* LCOV_EXCL_STOP */

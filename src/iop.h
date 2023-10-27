@@ -1335,6 +1335,30 @@ int iop_field_get_gen_attr(const iop_struct_t * nonnull st,
                            iop_type_t * nullable val_type,
                            iop_value_t * nonnull value);
 
+/** Find a generic attribute value for an IOP class static field.
+ *
+ * Same as \ref iop_field_get_gen_attr but for class static field.
+ *
+ * If exp_type is >= 0, the type of the generic attribute value will be
+ * checked, and the function will return -1 if the type is not compatible.
+ * If val_type is not NULL, the type of the generic attribute value will be
+ * set (IOP_T_I64, IOP_T_DOUBLE or IOP_T_STRING).
+ *
+ * \param[in]  st    The IOP class definition (__s).
+ * \param[in]  field The IOP static field definition.
+ * \param[in]  key   The generic attribute key.
+ * \param[in]  exp_type  The expected value type.
+ * \param[out] val_type  The actual value type.
+ * \param[out] value The value to put the result in.
+ *
+ * \return 0 if the generic attribute is found, -1 otherwise.
+ */
+int iop_static_field_get_gen_attr(const iop_struct_t * nonnull st,
+                                  const iop_static_field_t * nonnull field,
+                                  lstr_t key, iop_type_t exp_type,
+                                  iop_type_t * nullable val_type,
+                                  iop_value_t * nonnull value);
+
 /** Get boolean generic attribute value for an IOP field.
  *
  * \param[in]  st    The IOP structure definition.
@@ -1705,6 +1729,17 @@ iop_get_class_cvar_desc(const iop_struct_t * nonnull desc, lstr_t name);
 #define iop_get_class_cvar_desc_cst(desc, name)  \
     iop_get_class_cvar_desc(desc, LSTR(name))
 
+/** Gets a IOP static field definition from a class descriptor.
+ *
+ * Same as iop_get_cvar, but directly takes a class descriptor and returns
+ * the IOP static field definition.
+ */
+const iop_static_field_t * nullable
+iop_get_cvar_field_desc(const iop_struct_t * nonnull desc, lstr_t name);
+
+/* Variant of iop_get_class_cvar_field_desc that do not recurse on parents. */
+const iop_static_field_t * nullable
+iop_get_class_cvar_field_desc(const iop_struct_t * nonnull desc, lstr_t name);
 
 /** Check if the static fields types are available for a given class.
  *

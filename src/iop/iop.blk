@@ -1177,6 +1177,17 @@ int iop_field_get_gen_attr(const iop_struct_t *st, const iop_field_t *field,
                                 field, exp_type, val_type, value);
 }
 
+int iop_static_field_get_gen_attr(const iop_struct_t *st,
+                                  const iop_static_field_t *field,
+                                  lstr_t key, iop_type_t exp_type,
+                                  iop_type_t *val_type, iop_value_t *value)
+{
+    const iop_field_attrs_t *attrs = field->attrs;
+
+    return __get_gen_attr_value(attrs->attrs, attrs->attrs_len, key, FIELD,
+                                field, exp_type, val_type, value);
+}
+
 bool iop_field_get_bool_gen_attr(const iop_struct_t *st,
                                  const iop_field_t *field, lstr_t key,
                                  bool def)
@@ -6013,8 +6024,8 @@ void iop_env_wipe(iop_env_t *env)
 /* }}} */
 /* {{{ Class manipulation */
 
-iop_value_t const *
-iop_get_class_cvar_desc(const iop_struct_t *desc, lstr_t name)
+iop_static_field_t const *
+iop_get_class_cvar_field_desc(const iop_struct_t * nonnull desc, lstr_t name)
 {
     iop_static_field_t _search = { .name = name };
     iop_static_field_t *search = &_search;
@@ -6038,9 +6049,36 @@ iop_get_class_cvar_desc(const iop_struct_t *desc, lstr_t name)
         const iop_static_field_t *f;
 
         f = desc->class_attrs->static_fields[pos];
-        return &f->value;
+        return f;
     }
     return NULL;
+}
+
+const iop_static_field_t * nullable
+iop_get_cvar_field_desc(const iop_struct_t *desc, lstr_t name)
+{
+    assert(iop_struct_is_class(desc));
+
+    do {
+        const iop_class_attrs_t *cls = desc->class_attrs;
+        const iop_static_field_t *v;
+
+        if ((v = iop_get_class_cvar_field_desc(desc, name))) {
+            return v;
+        }
+        desc = cls->parent;
+    } while (desc);
+
+    return NULL;
+}
+
+iop_value_t const *
+iop_get_class_cvar_desc(const iop_struct_t *desc, lstr_t name)
+{
+    const iop_static_field_t *f;
+
+    f = iop_get_class_cvar_field_desc(desc, name);
+    return f ? &f->value : NULL;
 }
 
 const iop_value_t *iop_get_class_cvar(const void *obj, lstr_t name)

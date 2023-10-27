@@ -884,6 +884,14 @@ struct TwoStrings {
 };
 
 /* }}} */
+/* {{{ zchk iop.iop_static_field_get_gen_attr */
+
+class ClassWithStatic {
+    @(test:gen1, test = "Dump attr")
+    static int type1 = 42;
+};
+
+/* }}} */
 /* {{{ iopc zchk */
 /* {{{ zchk iopsq.sub_struct */
 
