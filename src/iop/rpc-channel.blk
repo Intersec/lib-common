@@ -1715,10 +1715,11 @@ static int ic_check_msg_hdr(ichannel_t *ic)
             if (ic->peer_version <= 0) {
                 goto reject;
             }
-            if (ic->peer_version <= IC_VERSION && dlen != 4) {
+            if (ic->peer_version <= IC_VERSION && dlen != IC_MSG_VERSION_DLEN)
+            {
                 goto reject;
             }
-            if (dlen < 4) {
+            if (dlen < IC_MSG_VERSION_DLEN) {
                 goto reject;
             }
             break;
@@ -2700,7 +2701,7 @@ static int ic_version_write(ichannel_t *ic, int fd)
 
     put_unaligned_le32(buffer, IC_SC_VERSION);
     put_unaligned_le32(buffer + IC_MSG_CMD_OFFSET, IC_MSG_STREAM_CONTROL);
-    put_unaligned_le32(buffer + IC_MSG_DLEN_OFFSET, 4);
+    put_unaligned_le32(buffer + IC_MSG_DLEN_OFFSET, IC_MSG_VERSION_DLEN);
     put_unaligned_le16(buffer + IC_MSG_HDR_LEN, IC_VERSION);
     put_unaligned_le16(buffer + IC_MSG_HDR_LEN + 2, flags);
     return (write(fd, buffer, sizeof(buffer)) != sizeof(buffer)) ? -1 : 0;
@@ -2868,10 +2869,10 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
         uint16_t version;
         uint16_t vflags;
 
-        if (dlen < 4) {
+        if (dlen < IC_MSG_VERSION_DLEN) {
             goto error;
         }
-        if (buf->len < IC_MSG_HDR_LEN + 4) {
+        if (buf->len < IC_MSG_HDR_LEN + IC_MSG_VERSION_DLEN) {
             if (ev == NULL) {
                 goto again_blocking;
             }

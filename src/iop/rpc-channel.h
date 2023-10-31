@@ -183,7 +183,7 @@
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |                           0x80000000                          | = Command
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                        Data length = 2                        |
+ * |                        Data length = 4                        |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |          Version = 1          |T|          Reserved           | } 2x16LE
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -311,6 +311,7 @@ typedef enum ic_event_t {
 #define IC_MSG_HDR_LEN             12
 #define IC_MSG_CMD_OFFSET           4
 #define IC_MSG_DLEN_OFFSET          8
+#define IC_MSG_VERSION_DLEN         4
 #define IC_PKT_MAX              65536
 
 #define IC_ID_MAX               BITMASK_LE(uint32_t, 30)
