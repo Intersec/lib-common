@@ -5510,7 +5510,9 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
     if (w->is_conn_err_recv) {
         return http2_conn_do_error_recv(w);
     }
-    if (w->is_shutdown_commanded && w->state != HTTP2_PARSE_SHUTDOWN_SENT) {
+    if (w->is_shutdown_commanded && w->state != HTTP2_PARSE_SHUTDOWN_SENT
+        && !w->is_shutdown_sent)
+    {
         http2_conn_send_shutdown(w, LSTR_EMPTY_V);
     }
     if (w->state == HTTP2_PARSE_SHUTDOWN_SENT) {
@@ -6806,6 +6808,7 @@ void httpc_close_http2_pool(httpc_cfg_t *cfg)
     qm_for_each_value(qhttp2_clients, client, &cfg->http2_pool->qclients) {
         client->pool = NULL;
         client->conn->is_shutdown_commanded = true;
+        client->conn->want_write = true;
         http2_conn_do_set_mask_and_watch(client->conn);
     }
     http2_pool_delete(&cfg->http2_pool);
