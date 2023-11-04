@@ -3432,6 +3432,53 @@ static void http2_conn_wipe(http2_conn_t *w)
 
 DO_REFCNT(http2_conn_t, http2_conn)
 
+/* {{{ Low I/O Wrappers */
+
+static void http2_conn_read(http2_conn_t *w, int fd)
+{
+    int rc;
+
+    rc = w->ssl ? ssl_sb_read(&w->ibuf, w->ssl, 0) : sb_read(&w->ibuf, fd, 0);
+
+    if (unlikely(rc <= 0)) {
+        if (unlikely(rc < 0)) {
+            if (!ERR_RW_RETRIABLE(errno)) {
+                http2_conn_trace(w, 4, "read error");
+                w->sock_err = true;
+            } else {
+                /* This may help us see how properly we use el_fd_set_mask. */
+                http2_conn_trace(w, 4, "read 0 try again");
+            }
+        } else {
+            http2_conn_trace(w, 4, "read eof");
+            w->eof_read = true;
+        }
+        return;
+    }
+
+    http2_conn_trace(w, 4, "read %d bytes", rc);
+}
+
+static void http2_conn_write(http2_conn_t *w, int fd)
+{
+    int rc;
+
+    rc = w->ssl ? ob_write_with(&w->ob, fd, ssl_writev, w->ssl)
+                : ob_write(&w->ob, fd);
+
+    if (unlikely(rc < 0)) {
+        if (!ERR_RW_RETRIABLE(errno)) {
+            http2_conn_trace(w, 4, "write error");
+            w->sock_err = true;
+        } else {
+            http2_conn_trace(w, 4, "wrote 0 try again");
+        }
+        return;
+    }
+    http2_conn_trace(w, 4, "wrote %d bytes", rc);
+}
+
+/* }}} */
 /* {{{ Close Conditions */
 
 static void
@@ -5413,9 +5460,10 @@ static void http2_conn_do_on_eof_read(http2_conn_t *w, pstream_t *ps)
     w->state = HTTP2_PARSE_GOAWAY_SENT;
 }
 
-static void http2_conn_do_parse(http2_conn_t *w, bool eof)
+static void http2_conn_do_parse(http2_conn_t *w)
 {
     int rc;
+    bool eof = w->eof_read;
     pstream_t ps;
     pstream_t ps_tmp;
 
@@ -5509,18 +5557,6 @@ static void http2_conn_do_parse(http2_conn_t *w, bool eof)
     }
 }
 
-static int http2_conn_do_write(http2_conn_t *w, int fd)
-{
-    int ret;
-
-    ret = w->ssl ? ob_write_with(&w->ob, fd, ssl_writev, w->ssl)
-                 : ob_write(&w->ob, fd);
-    if (ret < 0 && !ERR_RW_RETRIABLE(errno)) {
-        return -1;
-    }
-    return 0;
-}
-
 static void http2_conn_do_set_mask_and_watch(http2_conn_t *w)
 {
     int mask = POLLIN;
@@ -5549,18 +5585,16 @@ static int http2_conn_do_on_streams_can_write(http2_conn_t *w)
 static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
 {
     http2_conn_t *w = priv.ptr;
-    int read = -1;
 
     if (events == EL_EVENTS_NOACT) {
         return http2_conn_close_inact_timeout(&w);
     }
     if (events & POLLIN) {
-        read = w->ssl ? ssl_sb_read(&w->ibuf, w->ssl, 0)
-                      : sb_read(&w->ibuf, fd, 0);
-        if ((read < 0) && !ERR_RW_RETRIABLE(errno)) {
+        http2_conn_read(w, fd);
+        if (w->sock_err) {
             return http2_conn_close_error_read(&w);
         }
-        http2_conn_do_parse(w, !read);
+        http2_conn_do_parse(w);
     }
     if (w->abort_recv) {
         return http2_conn_close_error_recv(&w);
@@ -5576,14 +5610,15 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
             http2_conn_close(&w);
             return 0;
         }
-        if (!read) {
+        if (w->eof_read) {
             http2_conn_close(&w);
             return 0;
         }
     } else {
         http2_conn_do_on_streams_can_write(w);
     }
-    if (http2_conn_do_write(w, fd) < 0) {
+    http2_conn_write(w, fd);
+    if (w->sock_err) {
         return http2_conn_close_error_write(&w);
     }
     http2_conn_do_set_mask_and_watch(w);
@@ -5606,7 +5641,7 @@ static int http2_tls_handshake(el_t evh, int fd, short events, data_t priv)
             X509_free(cert);
         }
         /* XXX: write the connection preamble to w->ob */
-        http2_conn_do_parse(w, false);
+        http2_conn_do_parse(w);
         el_fd_set_mask(evh, POLLINOUT);
         el_fd_set_hook(evh, http2_conn_on_event);
         break;
@@ -5642,7 +5677,7 @@ static int http2_on_connect(el_t evh, int fd, short events, data_t priv)
             return res;
         }
         /* XXX: write the connection preamble to w->ob */
-        http2_conn_do_parse(w, false);
+        http2_conn_do_parse(w);
         el_fd_set_hook(evh, http2_conn_on_event);
         el_fd_set_mask(w->ev, POLLINOUT);
         el_fd_watch_activity(w->ev, POLLINOUT, 0);
