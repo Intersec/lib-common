@@ -86,7 +86,7 @@ typedef struct http2_frame_info_t {
 
 #define HTTP2_STREAM_ID_MASK    0x7fffffff
 
-static const lstr_t http2_client_preface_g =
+static const lstr_t http2_client_preamble_g =
     LSTR_IMMED("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
 /* standard setting identifier values */

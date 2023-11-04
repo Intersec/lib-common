@@ -3509,6 +3509,48 @@ static int http2_conn_close_connect_error(http2_conn_t **w)
     return 0;
 }
 
+static int http2_conn_close_tls_handshake_error(http2_conn_t **w)
+{
+    http2_conn_trace(*w, 2, "tls handshake: error");
+    http2_conn_close(w);
+    return 0;
+}
+
+static int http2_conn_close_tls_no_peer_certificate_error(http2_conn_t **w)
+{
+    http2_conn_trace(*w, 2, "tls: no peer certificiate error");
+    http2_conn_close(w);
+    return 0;
+}
+
+static int http2_conn_close_error_pack_preface(http2_conn_t **w)
+{
+    http2_conn_trace(*w, 2, "packing connection preface: error");
+    http2_conn_close(w);
+    return 0;
+}
+
+static int http2_conn_close_preface_wait_timeout(http2_conn_t **w)
+{
+    http2_conn_trace(*w, 2, "wait for connection preface: timeout");
+    http2_conn_close(w);
+    return 0;
+}
+
+static int http2_conn_close_preface_wait_socket_error(http2_conn_t **w)
+{
+    http2_conn_trace(*w, 2, "wait for connection preface: socket error");
+    http2_conn_close(w);
+    return 0;
+}
+
+static int http2_conn_close_invalid_preface(http2_conn_t **w)
+{
+    http2_conn_trace(*w, 2, "wait for connection preface: invalid preface");
+    http2_conn_close(w);
+    return 0;
+}
+
 static int http2_conn_close_error_write(http2_conn_t **w)
 {
     http2_conn_trace(*w, 2, "write error");
@@ -3535,6 +3577,74 @@ static int http2_conn_close_error_recv(http2_conn_t **w)
     http2_conn_trace(*w, 2, "connection error received");
     http2_conn_close(w);
     return 0;
+}
+
+/* }}} */
+/* {{{ Connection States */
+
+/*
+ * ┌──────────────────────────┬──────────────────────────────────────────┐
+ * │ HTTP/2 CONNECTION STATES |                                          │
+ * ├──────────────────────────┘                                          │
+ * │                                                                     │
+ * │                  │                                                  │
+ * │        ┌─────────▼──────────┐   E0: PREFACE_RECV                    │
+ * │        │    PREFACE_WAIT    │                                       │
+ * │        └─────────┬──────────┘                                       │
+ * │                  │ E0                                               │
+ * │                  │              E1: GOAWAY_RECV                     │
+ * │        ┌─────────▼──────────┐       EOF_READ(clean)                 │
+ * │        │       ACTIVE       │       GOAWAY_IN_FLIGHT                │
+ * │        └─────────┬──────────┘       ABORT_IN_FLIGHT                 │
+ * │                  │ E1                                               │
+ * │                  │                                                  │
+ * │     ┌─────────┬──┼─────────────┐                                    │
+ * │     │ CLOSING │  │             │                                    │
+ * │     ├─────────┘  ▼             │ E2: NO_PENDING_ACTIVITY &          │
+ * │     │            O             │         GOAWAY_IN_FLIGHT           │
+ * │     │            │             │     ABORT_IN_FLIGHT                │
+ * │     │            │ E2          │                                    │
+ * │     │            │             │                                    │
+ * │     │     ┌──────▼────────┐    │                                    │
+ * │     │     │ FIN_TIME_WAIT │    │ E3: TIMEOUT                        │
+ * │     │     └──────┬────────┘    │     EOF_READ(clean)                │
+ * │     │            │ E3          │                                    │
+ * │     │            │             │                                    │
+ * │     │  E*    ┌───▼────┐        │                                    │
+ * │  ───┼───────►│  DONE  │        │ E*: ABORT_RECV                     │
+ * │     │        └────────┘        │     EOF_READ(unclean)              │
+ * │     └──────────────────────────┘     SOCK_ERR                       │
+ * │                                                                     │
+ * └─────────────────────────────────────────────────────────────────────┘
+ *
+ */
+
+static void http2_conn_process_state_change_socket_connected(http2_conn_t *w)
+{
+    assert(!w->connected);
+    w->connected = true;
+    el_fd_watch_activity(w->ev, POLLINOUT, w->idle_timeout);
+
+    http2_conn_trace(w, 3, "socket connected");
+}
+
+static void http2_conn_process_state_change_preface_received(http2_conn_t *w)
+{
+    assert(!w->preface_recv);
+    w->preface_recv = true;
+
+    http2_conn_trace(w, 3, "peer connection preface received");
+}
+
+static void http2_conn_process_state_change_preface_sent(http2_conn_t *w)
+{
+    http2_conn_trace(w, 3, "connection preface sent");
+}
+
+static void http2_conn_process_state_change_settings_sent(http2_conn_t *w)
+{
+    http2_conn_trace(w, 3, "connection setting sent");
+    /* FIXME: add timer to receive the the acknowledgement. */
 }
 
 /* }}} */
@@ -3611,8 +3721,9 @@ http2_conn_send_common_hdr(http2_conn_t *w, unsigned len, uint8_t type,
 static void http2_conn_send_preface(http2_conn_t *w)
 {
     if (w->is_client) {
-        OB_WRAP(sb_add_lstr, &w->ob, http2_client_preface_g);
+        OB_WRAP(sb_add_lstr, &w->ob, http2_client_preamble_g);
     }
+    http2_conn_process_state_change_preface_sent(w);
 }
 
 typedef struct {
@@ -3676,6 +3787,8 @@ static void http2_conn_send_init_settings(http2_conn_t *w)
         OB_WRAP(sb_add_be16, &w->ob, item->id);
         OB_WRAP(sb_add_be32, &w->ob, item->val);
     }
+
+    http2_conn_process_state_change_settings_sent(w);
 
 #undef STNG_ITEM_OPT
 #undef STNG_ITEM
@@ -5276,13 +5389,13 @@ static int http2_conn_parse_preface(http2_conn_t *w, pstream_t *ps)
      * PREFACE!
      */
     if (!w->is_client) {
-        size_t len = http2_client_preface_g.len;
+        size_t len = http2_client_preamble_g.len;
         pstream_t preface_recv;
 
         if (ps_get_ps(ps, len, &preface_recv) < 0) {
             return PARSE_MISSING_DATA;
         }
-        if (!lstr_equal(LSTR_PS_V(&preface_recv), http2_client_preface_g)) {
+        if (!lstr_equal(LSTR_PS_V(&preface_recv), http2_client_preamble_g)) {
             HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
                             "parse error: invalid preface");
         }
@@ -5624,68 +5737,170 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
     return 0;
 }
 
-static int http2_tls_handshake(el_t evh, int fd, short events, data_t priv)
+/* {{{ Initial Phase I/O Handlers */
+
+/** Check the received connection preface.
+ *
+ * \return: -1 if preface is not valid, 0 if preface is not fully read, or 1
+ * to indicate that validation is done. */
+static int http2_conn_check_preface(http2_conn_t *w)
+{
+    pstream_t ps = ps_initsb(&w->ibuf);
+    const unsigned hdrlen = 9;
+
+    /* Early check of a partially received client preamble. Strictly speaking,
+     * this is not needed save for conformance testing. */
+    if (!w->is_client && ps_len(&ps) < http2_client_preamble_g.len + hdrlen) {
+        int n = MIN((unsigned)http2_client_preamble_g.len, ps_len(&ps));
+        pstream_t tmp = ps_init(ps.p, n);
+
+        THROW_ERR_IF(!ps_memequal(&tmp, http2_client_preamble_g.data, n));
+    }
+
+    if (!ps_has(&ps, w->is_client ? hdrlen : http2_client_preamble_g.len +
+                hdrlen))
+    {
+        return w->eof_read || w->sock_err ? -1 : 0;
+    }
+
+    /* TODO: rework the main parser to exclude the initial phase parsing. */
+    if (w->state == HTTP2_PARSE_PREAMBLE) {
+        THROW_ERR_IF(http2_conn_parse_preface(w, &ps) != 0);
+        w->state = HTTP2_PARSE_INIT_SETTINGS_HDR;
+    }
+    THROW_ERR_IF(http2_conn_parse_init_settings_hdr(w, &ps) != 0);
+    w->state = HTTP2_PARSE_PAYLOAD;
+    sb_skip_upto(&w->ibuf, ps.p);
+    return 1;
+}
+
+static int
+http2_conn_on_preface_wait(el_t evh, int fd, short events, data_t priv)
 {
     http2_conn_t *w = priv.ptr;
-    int res = 0;
+    int rc;
 
+    if (events == EL_EVENTS_NOACT) {
+        return http2_conn_close_preface_wait_timeout(&w);
+    }
+
+    if (events & POLLIN) {
+        http2_conn_read(w, fd);
+    }
+
+    /* Write our preface to the socket (if still in buffer). */
+    /* XXX: Not all servers send their preface right after they accept the
+     * connection. Some wait to receive from the client to send their preface.
+     */
+    http2_conn_write(w, fd);
+
+    if (w->sock_err) {
+        return http2_conn_close_preface_wait_socket_error(&w);
+    }
+
+    rc = http2_conn_check_preface(w);
+
+    if (rc < 0) {
+        return http2_conn_close_invalid_preface(&w);
+    }
+
+    if (rc == 0) { /* In progress (wait for the connection preface). */
+        int mask = POLLIN;
+
+        if (!ob_is_empty(&w->ob) || (w->ssl && SSL_want_write(w->ssl))) {
+            mask |= POLLOUT;
+        }
+        el_fd_set_mask(evh, mask);
+        return 0;
+    }
+
+    http2_conn_process_state_change_preface_received(w);
+    http2_conn_do_parse(w);
+
+    el_fd_set_hook(evh, &http2_conn_on_event);
+    return http2_conn_on_event(evh, fd, events & ~POLLIN, priv);
+}
+
+static int http2_conn_tls_handshake(http2_conn_t *w, el_t evh, int fd)
+{
     switch (ssl_do_handshake(w->ssl, evh, fd, NULL)) {
     case SSL_HANDSHAKE_SUCCESS:
+        return 1;
+    case SSL_HANDSHAKE_PENDING:
+        return 0;
+    case SSL_HANDSHAKE_CLOSED:
+    case SSL_HANDSHAKE_ERROR:
+        break;
+    }
+    return -1;
+}
+
+/* RFC9113 §3.4. HTTP/2 Connection Preface */
+static int http2_conn_pack_preface(http2_conn_t *w)
+{
+    /* TODO: To rework. */
+    /* As client: this writes the connection preface to w->ob. */
+    http2_conn_do_parse(w);
+    RETHROW(w->state != HTTP2_PARSE_PREAMBLE);
+    return 0;
+}
+
+static int http2_conn_on_connect(el_t evh, int fd, short events, data_t priv)
+{
+    http2_conn_t *w = priv.ptr;
+
+    if (events == EL_EVENTS_NOACT) {
+        return http2_conn_close_connect_timeout(&w);
+    }
+
+    if (w->is_client && !w->connected) {
+        int rc = socket_connect_status(fd);
+
+        if (rc < 0) {
+            return http2_conn_close_connect_error(&w);
+        }
+        if (rc == 0) { /* In progress (wait for the socket to be connected) */
+            return 0;
+        }
+    }
+
+    if (!w->connected) {
+        http2_conn_process_state_change_socket_connected(w);
+    }
+
+    if (w->ssl) {
+        int rc = http2_conn_tls_handshake(w, evh, fd);
+
+        if (rc < 0) {
+            return http2_conn_close_tls_handshake_error(&w);
+        }
+        if (rc == 0) { /* In progress (wait for the tls handshake) */
+            return 0;
+        }
+
         if (w->is_client) {
+            /* ???: Couldn't this verification be replaced by adding the ssl
+             * flag SSL_VERIFY_FAIL_IF_NO_PEER_CERT in httpc_cfg_tls_init to
+             * the verify_mode option.
+             */
             X509 *cert = SSL_get_peer_certificate(w->ssl);
-            if (unlikely(cert == NULL)) {
-                res = -1;
-                break;
+
+            if (unlikely(cert)) {
+                return http2_conn_close_tls_no_peer_certificate_error(&w);
             }
             X509_free(cert);
         }
-        /* XXX: write the connection preamble to w->ob */
-        http2_conn_do_parse(w);
-        el_fd_set_mask(evh, POLLINOUT);
-        el_fd_set_hook(evh, http2_conn_on_event);
-        break;
-    case SSL_HANDSHAKE_PENDING:
-        break;
-    case SSL_HANDSHAKE_CLOSED:
-    case SSL_HANDSHAKE_ERROR:
-        res = -1;
     }
-    if (res < 0) {
-        http2_conn_close_connect_error(&w);
+
+    if (http2_conn_pack_preface(w) < 0) {
+        return http2_conn_close_error_pack_preface(&w);
     }
-    return res;
+
+    el_fd_set_hook(evh, &http2_conn_on_preface_wait);
+    return http2_conn_on_preface_wait(evh, fd, events, priv);
 }
 
-static int http2_on_connect(el_t evh, int fd, short events, data_t priv)
-{
-    http2_conn_t *w = priv.ptr;
-    int res;
-
-    assert(w->is_client);
-    if (events == EL_EVENTS_NOACT) {
-        http2_conn_close_connect_timeout(&w);
-        return -1;
-    }
-    res = socket_connect_status(fd);
-    if (res > 0) {
-        if (w->ssl) {
-            SSL_set_fd(w->ssl, fd);
-            SSL_set_connect_state(w->ssl);
-            el_fd_set_hook(evh, &http2_tls_handshake);
-            el_fd_set_mask(evh, POLLINOUT);
-            return res;
-        }
-        /* XXX: write the connection preamble to w->ob */
-        http2_conn_do_parse(w);
-        el_fd_set_hook(evh, http2_conn_on_event);
-        el_fd_set_mask(w->ev, POLLINOUT);
-        el_fd_watch_activity(w->ev, POLLINOUT, 0);
-    } else if (res < 0) {
-        http2_conn_close_connect_error(&w);
-    }
-    return res;
-}
-
+/* }}} */
 /* }}} */
 /* {{{ HTTP2 Server Adaptation */
 
@@ -5748,9 +5963,7 @@ httpd_spawn_as_http2(int fd, sockunion_t *peer_su, httpd_cfg_t *cfg)
 {
     http2_server_t *w;
     http2_conn_t *conn;
-    el_fd_f *el_cb;
 
-    el_cb = cfg->ssl_ctx ? &http2_tls_handshake : &http2_conn_on_event;
     conn = http2_conn_new();
     if (cfg->ssl_ctx) {
         conn->ssl = SSL_new(cfg->ssl_ctx);
@@ -5760,7 +5973,7 @@ httpd_spawn_as_http2(int fd, sockunion_t *peer_su, httpd_cfg_t *cfg)
     conn->settings = http2_default_settings_g;
     cfg->nb_conns++;
     fd_set_features(fd, FD_FEAT_TCP_NODELAY);
-    conn->ev = el_fd_register(fd, true, POLLIN, el_cb, conn);
+    conn->ev = el_fd_register(fd, true, POLLIN, http2_conn_on_connect, conn);
     conn->idle_timeout = cfg->noact_delay;
     el_fd_watch_activity(conn->ev, POLLIN, conn->idle_timeout);
     w = http2_server_new();
@@ -6338,7 +6551,7 @@ http2_conn_connect_client_as(const sockunion_t *su, httpc_cfg_t *cfg)
     w->is_client = true;
     w->settings = http2_default_settings_g;
     w->idle_timeout = cfg->noact_delay;
-    w->ev = el_fd_register(fd, true, POLLOUT, &http2_on_connect, w);
+    w->ev = el_fd_register(fd, true, POLLOUT, &http2_conn_on_connect, w);
     el_fd_watch_activity(w->ev, POLLINOUT, w->idle_timeout);
     return w;
 }
