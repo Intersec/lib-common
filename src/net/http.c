@@ -5014,7 +5014,7 @@ http2_conn_parse_goaway(http2_conn_t *w, pstream_t payload, uint8_t flags)
                      last_stream_id, error_code, PS_FMT_ARG(&debug));
 
     if (error_code == HTTP2_CODE_NO_ERROR) {
-        if (last_stream_id == HTTP2_ID_MAX_STREAM) {
+        if (last_stream_id != HTTP2_ID_MAX_STREAM) {
             if (w->is_shutdown_recv) {
                 HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
                                 "frame error: second shutdown GOAWAY");
