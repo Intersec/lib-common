@@ -3412,55 +3412,55 @@ http2_stream_on_reset(http2_conn_t *w, http2_stream_t *stream, bool remote);
 
 static void http2_conn_on_close(http2_conn_t *w);
 
-static void http2_conn_do_close(http2_conn_t *w)
+static void http2_conn_close(http2_conn_t **w)
 {
-    dlist_for_each_entry(http2_stream_t, stream, &w->stream_list, link) {
-        http2_stream_on_reset(w, stream, false);
+    dlist_for_each_entry(http2_stream_t, stream, &(*w)->stream_list, link) {
+        http2_stream_on_reset(*w, stream, false);
         http2_stream_delete(&stream);
     }
-    http2_conn_on_close(w);
-    http2_conn_release(&w);
+    http2_conn_on_close(*w);
+    http2_conn_release(w);
 }
 
-static int http2_conn_do_connect_timeout(http2_conn_t *w)
+static int http2_conn_close_connect_timeout(http2_conn_t **w)
 {
-    http2_conn_trace(w, 2, "socket connect: timeout");
-    http2_conn_do_close(w);
+    http2_conn_trace(*w, 2, "socket connect: timeout");
+    http2_conn_close(w);
     return 0;
 }
 
-static int http2_conn_do_connect_error(http2_conn_t *w)
+static int http2_conn_close_connect_error(http2_conn_t **w)
 {
-    http2_conn_trace(w, 2, "socket connect: error");
-    http2_conn_do_close(w);
+    http2_conn_trace(*w, 2, "socket connect: error");
+    http2_conn_close(w);
     return 0;
 }
 
-static int http2_conn_do_error_write(http2_conn_t *w)
+static int http2_conn_close_error_write(http2_conn_t **w)
 {
-    http2_conn_trace(w, 2, "write error");
-    http2_conn_do_close(w);
+    http2_conn_trace(*w, 2, "write error");
+    http2_conn_close(w);
     return 0;
 }
 
-static int http2_conn_do_inact_timeout(http2_conn_t *w)
+static int http2_conn_close_inact_timeout(http2_conn_t **w)
 {
-    http2_conn_trace(w, 2, "inactivity timeout");
-    http2_conn_do_close(w);
+    http2_conn_trace(*w, 2, "inactivity timeout");
+    http2_conn_close(w);
     return 0;
 }
 
-static int http2_conn_do_error_read(http2_conn_t *w)
+static int http2_conn_close_error_read(http2_conn_t **w)
 {
-    http2_conn_trace(w, 2, "reading error");
-    http2_conn_do_close(w);
+    http2_conn_trace(*w, 2, "reading error");
+    http2_conn_close(w);
     return 0;
 }
 
-static int http2_conn_do_error_recv(http2_conn_t *w)
+static int http2_conn_close_error_recv(http2_conn_t **w)
 {
-    http2_conn_trace(w, 2, "connection error received");
-    http2_conn_do_close(w);
+    http2_conn_trace(*w, 2, "connection error received");
+    http2_conn_close(w);
     return 0;
 }
 
@@ -5525,18 +5525,18 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
     int read = -1;
 
     if (events == EL_EVENTS_NOACT) {
-        return http2_conn_do_inact_timeout(w);
+        return http2_conn_close_inact_timeout(&w);
     }
     if (events & POLLIN) {
         read = w->ssl ? ssl_sb_read(&w->ibuf, w->ssl, 0)
                       : sb_read(&w->ibuf, fd, 0);
         if ((read < 0) && !ERR_RW_RETRIABLE(errno)) {
-            return http2_conn_do_error_read(w);
+            return http2_conn_close_error_read(&w);
         }
         http2_conn_do_parse(w, !read);
     }
     if (w->is_conn_err_recv) {
-        return http2_conn_do_error_recv(w);
+        return http2_conn_close_error_recv(&w);
     }
     if (w->is_shutdown_commanded && w->state != HTTP2_PARSE_SHUTDOWN_SENT
         && !w->is_shutdown_sent)
@@ -5546,18 +5546,18 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
     if (w->state == HTTP2_PARSE_SHUTDOWN_SENT) {
         if (ob_is_empty(&w->ob)) {
             shutdown(fd, SHUT_WR);
-            http2_conn_do_close(w);
+            http2_conn_close(&w);
             return 0;
         }
         if (!read) {
-            http2_conn_do_close(w);
+            http2_conn_close(&w);
             return 0;
         }
     } else {
         http2_conn_do_on_streams_can_write(w);
     }
     if (http2_conn_do_write(w, fd) < 0) {
-        return http2_conn_do_error_write(w);
+        return http2_conn_close_error_write(&w);
     }
     http2_conn_do_set_mask_and_watch(w);
     return 0;
@@ -5590,7 +5590,7 @@ static int http2_tls_handshake(el_t evh, int fd, short events, data_t priv)
         res = -1;
     }
     if (res < 0) {
-        http2_conn_do_connect_error(w);
+        http2_conn_close_connect_error(&w);
     }
     return res;
 }
@@ -5602,7 +5602,7 @@ static int http2_on_connect(el_t evh, int fd, short events, data_t priv)
 
     assert(w->is_client);
     if (events == EL_EVENTS_NOACT) {
-        http2_conn_do_connect_timeout(w);
+        http2_conn_close_connect_timeout(&w);
         return -1;
     }
     res = socket_connect_status(fd);
@@ -5620,7 +5620,7 @@ static int http2_on_connect(el_t evh, int fd, short events, data_t priv)
         el_fd_set_mask(w->ev, POLLINOUT);
         el_fd_watch_activity(w->ev, POLLINOUT, 0);
     } else if (res < 0) {
-        http2_conn_do_connect_error(w);
+        http2_conn_close_connect_error(&w);
     }
     return res;
 }
