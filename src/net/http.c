@@ -3320,24 +3320,51 @@ typedef struct http2_conn_t {
     unsigned            cont_chunk;
     unsigned            promised_id;
     uint8_t             state;
-    /* connection flags */
+
+    /** Connection Flags */
+
+    /* True iff is configured as client. */
     bool                is_client : 1;
-    bool                is_settings_acked : 1;
-    bool                is_conn_err_recv: 1;
-    bool                is_conn_err_sent: 1;
-    bool                is_shutdown_recv: 1;
-    bool                is_shutdown_sent: 1;
-    bool                is_shutdown_soon_recv: 1;
-    bool                is_shutdown_soon_sent: 1;
-    bool                is_shutdown_commanded : 1;
-    bool                want_write : 1;
+    /* True once the socket is connected. */
+    bool                connected : 1;
+    /* True once the peer's preface is received. */
+    bool                preface_recv : 1;
+    /* True iff the initial SETTINGS been acknowledged. */
+    bool                preface_acked : 1;
+    /* Closing State Flags */
+    /* True iff an abortive GOAWAY was received. */
+    bool                abort_recv: 1;
+    /* True iff the final graceful GOAWAY was received. */
+    bool                goaway_recv: 1;
+    /* True iff a 'will-close-soon' GOAWAY was received. */
+    bool                will_close_recv: 1;
+    /* True iff the peer closed its end of the connection. */
+    bool                eof_read : 1;
+    /* True iff our abortive GOAWAY was sent to the peer. */
+    bool                abort_in_flight: 1;
+    /* True iff our final graceful GOAWAY was sent to the peer. */
+    bool                goaway_in_flight: 1;
+    /* True iff an I/O error was encountered. */
+    bool                sock_err : 1;
+    /* True iff the connection is in the closing fin_time_wait state. */
+    bool                fin_time_wait: 1;
+    /* True once the closing is done and the socket should be closed. */
+    bool                done : 1;
+    /* True once we enter the closing state. */
+    bool                closing : 1;
+
+    /** Async Inputs & Flags */
+
+    /* True once asked to close the connection gracefully. */
+    bool                send_goaway : 1;
+    /* True iff there is a current async write from the the http1.1 layer. */
+    bool                async_write : 1;
 } http2_conn_t;
 
 /** Get effective HTTP2 settings */
 static http2_settings_t http2_get_settings(http2_conn_t *w)
 {
-    return likely(w->is_settings_acked) ? w->settings
-                                        : http2_default_settings_g;
+    return likely(w->preface_acked) ? w->settings : http2_default_settings_g;
 }
 
 /* }}}*/
@@ -3702,8 +3729,8 @@ http2_conn_send_shutdown(http2_conn_t *w, lstr_t debug)
 {
     uint32_t stream_id = http2_conn_max_peer_stream_id(w);
 
-    assert(!w->is_shutdown_sent);
-    w->is_shutdown_sent = true;
+    assert(!w->goaway_in_flight);
+    w->goaway_in_flight = true;
     http2_conn_send_goaway(w, stream_id, HTTP2_CODE_NO_ERROR, debug);
 }
 
@@ -3713,8 +3740,8 @@ http2_conn_send_error(http2_conn_t *w, uint32_t error_code, lstr_t debug)
     uint32_t stream_id = http2_conn_max_peer_stream_id(w);
 
     assert(error_code != HTTP2_CODE_NO_ERROR);
-    assert(!w->is_conn_err_sent);
-    w->is_conn_err_sent = true;
+    assert(!w->abort_in_flight);
+    w->abort_in_flight = true;
     http2_conn_send_goaway(w, stream_id, error_code, debug);
 
     return -1;
@@ -4439,7 +4466,7 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
     } else {
         assert(flags);
     }
-    if (!flags && w->is_shutdown_recv) {
+    if (!flags && w->goaway_recv) {
         http2_stream_error(
             w, stream, REFUSED_STREAM,
             "server is finalizing, no more stream is accepted");
@@ -5002,12 +5029,12 @@ http2_conn_parse_settings(http2_conn_t *w, pstream_t payload, uint8_t flags)
             "frame error: invalid SETTINGS (ACK_FLAG with non-zero payload)");
     }
     if (flags & HTTP2_FLAG_ACK) {
-        if (w->is_settings_acked) {
+        if (w->preface_acked) {
             HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
                             "frame error: invalid SETTINGS (ACK with "
                             "no previously sent SETTINGS)");
         }
-        w->is_settings_acked = true;
+        w->preface_acked = true;
         return PARSE_OK;
     }
     if (len % HTTP2_LEN_SETTINGS_ITEM != 0) {
@@ -5076,16 +5103,16 @@ http2_conn_parse_goaway(http2_conn_t *w, pstream_t payload, uint8_t flags)
 
     if (error_code == HTTP2_CODE_NO_ERROR) {
         if (last_stream_id != HTTP2_ID_MAX_STREAM) {
-            if (w->is_shutdown_recv) {
+            if (w->goaway_recv) {
                 HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
                                 "frame error: second shutdown GOAWAY");
             }
-            w->is_shutdown_recv = true;
+            w->goaway_recv = true;
         } else {
-            w->is_shutdown_soon_recv = true;
+            w->will_close_recv = true;
         }
     } else {
-        w->is_conn_err_recv = true;
+        w->abort_recv = true;
     }
     return PARSE_OK;
 
@@ -5370,12 +5397,12 @@ typedef enum {
     HTTP2_PARSE_PAYLOAD              = 3,
     HTTP2_PARSE_CONT_HDR             = 4,
     HTTP2_PARSE_CONT_FRAGMENT        = 5,
-    HTTP2_PARSE_SHUTDOWN_SENT        = 6,
+    HTTP2_PARSE_GOAWAY_SENT          = 6,
 } parse_state_t;
 
 static void http2_conn_do_on_eof_read(http2_conn_t *w, pstream_t *ps)
 {
-    if (w->is_conn_err_recv || w->is_conn_err_sent || w->is_shutdown_sent) {
+    if (w->abort_recv || w->abort_in_flight || w->goaway_in_flight) {
         return;
     }
     if (!ps_done(ps)) {
@@ -5383,7 +5410,7 @@ static void http2_conn_do_on_eof_read(http2_conn_t *w, pstream_t *ps)
     } else {
         http2_conn_send_shutdown(w, LSTR_EMPTY_V);
     }
-    w->state = HTTP2_PARSE_SHUTDOWN_SENT;
+    w->state = HTTP2_PARSE_GOAWAY_SENT;
 }
 
 static void http2_conn_do_parse(http2_conn_t *w, bool eof)
@@ -5392,7 +5419,7 @@ static void http2_conn_do_parse(http2_conn_t *w, bool eof)
     pstream_t ps;
     pstream_t ps_tmp;
 
-    assert(!w->is_conn_err_recv);
+    assert(!w->abort_recv);
     ps = ps_initsb(&w->ibuf);
     do {
         parse_state_t state = w->state;
@@ -5459,13 +5486,13 @@ static void http2_conn_do_parse(http2_conn_t *w, bool eof)
                 }
             }
             break;
-        case HTTP2_PARSE_SHUTDOWN_SENT:
+        case HTTP2_PARSE_GOAWAY_SENT:
             rc = http2_conn_parse_shutdown_sent(w, &ps);
             break;
         }
         if (rc == PARSE_ERROR) {
-            assert(w->is_conn_err_sent);
-            state = HTTP2_PARSE_SHUTDOWN_SENT;
+            assert(w->abort_in_flight);
+            state = HTTP2_PARSE_GOAWAY_SENT;
             rc = PARSE_OK;
         }
         w->state = state;
@@ -5503,9 +5530,9 @@ static void http2_conn_do_set_mask_and_watch(http2_conn_t *w)
     } else {
         el_fd_watch_activity(w->ev, POLLINOUT, 0);
     }
-    if (!ob_is_empty(&w->ob) || w->want_write) {
+    if (!ob_is_empty(&w->ob) || w->async_write) {
         mask |= POLLOUT;
-        w->want_write = false;
+        w->async_write = false;
     }
     el_fd_set_mask(w->ev, mask);
 }
@@ -5535,15 +5562,15 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
         }
         http2_conn_do_parse(w, !read);
     }
-    if (w->is_conn_err_recv) {
+    if (w->abort_recv) {
         return http2_conn_close_error_recv(&w);
     }
-    if (w->is_shutdown_commanded && w->state != HTTP2_PARSE_SHUTDOWN_SENT
-        && !w->is_shutdown_sent)
+    if (w->send_goaway && w->state != HTTP2_PARSE_GOAWAY_SENT
+        && !w->goaway_in_flight)
     {
         http2_conn_send_shutdown(w, LSTR_EMPTY_V);
     }
-    if (w->state == HTTP2_PARSE_SHUTDOWN_SENT) {
+    if (w->state == HTTP2_PARSE_GOAWAY_SENT) {
         if (ob_is_empty(&w->ob)) {
             shutdown(fd, SHUT_WR);
             http2_conn_close(&w);
@@ -6821,8 +6848,8 @@ void httpc_close_http2_pool(httpc_cfg_t *cfg)
     }
     qm_for_each_value(qhttp2_clients, client, &cfg->http2_pool->qclients) {
         client->pool = NULL;
-        client->conn->is_shutdown_commanded = true;
-        client->conn->want_write = true;
+        client->conn->send_goaway = true;
+        client->conn->async_write = true;
         http2_conn_do_set_mask_and_watch(client->conn);
     }
     http2_pool_delete(&cfg->http2_pool);
@@ -6834,7 +6861,7 @@ static void httpc_http2_set_mask(httpc_t *w)
         return;
     }
     if (!ob_is_empty(&w->ob)) {
-        w->http2_ctx->conn->want_write = true;
+        w->http2_ctx->conn->async_write = true;
     }
     http2_conn_do_set_mask_and_watch(w->http2_ctx->conn);
 }
@@ -6849,7 +6876,7 @@ static void httpd_http2_set_mask(httpd_t *w)
     conn = w->http2_ctx->server->conn;
 
     if (!ob_is_empty(&w->ob)) {
-        conn->want_write = true;
+        conn->async_write = true;
     }
     http2_conn_do_set_mask_and_watch(conn);
 }
