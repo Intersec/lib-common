@@ -1881,9 +1881,9 @@ static void httpd_do_trace(httpd_t *w, httpd_query_t *q, httpd_qinfo_t *req)
     httpd_reject(q, METHOD_NOT_ALLOWED, "TRACE method is not allowed");
 }
 
-static void httpd_do_close(httpd_t **w_)
+static void httpd_do_close(httpd_t **wp)
 {
-    httpd_t *w = *w_;
+    httpd_t *w = *wp;
     if (!dlist_is_empty(&w->query_list)) {
         httpd_query_t *q;
         q = dlist_last_entry(&w->query_list, httpd_query_t, query_link);
@@ -1894,7 +1894,7 @@ static void httpd_do_close(httpd_t **w_)
             }
         }
     }
-    obj_delete(w_);
+    obj_delete(wp);
 }
 
 static int httpd_on_event(el_t evh, int fd, short events, data_t priv)
@@ -3431,6 +3431,23 @@ static void http2_conn_wipe(http2_conn_t *w)
 
 DO_REFCNT(http2_conn_t, http2_conn)
 
+static bool http2_conn_has_pending_streams(http2_conn_t *w)
+{
+    int streams = 0;
+    /* TODO: Improve by using counters to count the streams that can locally
+     * advance by sending or receiving. */
+    dlist_for_each_entry(http2_stream_t, s, &w->stream_list, link) {
+        if ((s->events & HTTP2_STREAM_EV_RST_RECV) ||
+            (s->events & HTTP2_STREAM_EV_RST_SENT) ||
+            (s->events & HTTP2_STREAM_EV_CLOSED))
+        {
+            continue;
+        }
+        streams++;
+    }
+    return streams > 0;
+}
+
 /* {{{ Low I/O Wrappers */
 
 static void http2_conn_read(http2_conn_t *w, int fd)
@@ -3443,7 +3460,11 @@ static void http2_conn_read(http2_conn_t *w, int fd)
         if (unlikely(rc < 0)) {
             if (!ERR_RW_RETRIABLE(errno)) {
                 http2_conn_trace(w, 4, "read error");
-                w->sock_err = true;
+                if (!w->sock_err) {
+                    w->sock_err = true;
+                    w->closing = true;
+                    w->done = true;
+                }
             } else {
                 /* This may help us see how properly we use el_fd_set_mask. */
                 http2_conn_trace(w, 4, "read 0 try again");
@@ -3468,7 +3489,11 @@ static void http2_conn_write(http2_conn_t *w, int fd)
     if (unlikely(rc < 0)) {
         if (!ERR_RW_RETRIABLE(errno)) {
             http2_conn_trace(w, 4, "write error");
-            w->sock_err = true;
+            if (!w->sock_err) {
+                w->sock_err = true;
+                w->closing = true;
+                w->done = true;
+            }
         } else {
             http2_conn_trace(w, 4, "wrote 0 try again");
         }
@@ -3551,31 +3576,32 @@ static int http2_conn_close_invalid_preface(http2_conn_t **w)
     return 0;
 }
 
-static int http2_conn_close_error_write(http2_conn_t **w)
-{
-    http2_conn_trace(*w, 2, "write error");
-    http2_conn_close(w);
-    return 0;
-}
-
-static int http2_conn_close_inact_timeout(http2_conn_t **w)
-{
-    http2_conn_trace(*w, 2, "inactivity timeout");
-    http2_conn_close(w);
-    return 0;
-}
-
-static int http2_conn_close_error_read(http2_conn_t **w)
-{
-    http2_conn_trace(*w, 2, "reading error");
-    http2_conn_close(w);
-    return 0;
-}
-
 static int http2_conn_close_error_recv(http2_conn_t **w)
 {
     http2_conn_trace(*w, 2, "connection error received");
     http2_conn_close(w);
+    return 0;
+}
+
+static int http2_conn_close_sock_error(http2_conn_t **w)
+{
+    http2_conn_trace(*w, 2, "socket error");
+    http2_conn_close(w);
+    return 0;
+}
+
+static int http2_conn_close_done(http2_conn_t **wp)
+{
+    http2_conn_t *w = *wp;
+
+    if (w->sock_err) {
+        return http2_conn_close_sock_error(wp);
+    }
+    if (w->abort_recv) {
+        return http2_conn_close_error_recv(wp);
+    }
+
+    http2_conn_close(wp);
     return 0;
 }
 
@@ -3645,6 +3671,15 @@ static void http2_conn_process_state_change_settings_sent(http2_conn_t *w)
 {
     http2_conn_trace(w, 3, "connection setting sent");
     /* FIXME: add timer to receive the the acknowledgement. */
+}
+
+static void http2_conn_process_state_change_idle_timeout(http2_conn_t *w)
+{
+    /* FIXME: reconsider the behavior of this timeout, e.g., sending a ping or
+     * a goaway. */
+    http2_conn_trace(w, 2, "idle timeout");
+    w->done = true;
+    w->closing = true;
 }
 
 /* }}} */
@@ -5267,11 +5302,14 @@ http2_conn_parse_goaway(http2_conn_t *w, pstream_t payload, uint8_t flags)
                                 "frame error: second shutdown GOAWAY");
             }
             w->goaway_recv = true;
+            w->closing = true;
         } else {
             w->will_close_recv = true;
         }
     } else {
         w->abort_recv = true;
+        w->closing = true;
+        w->done = true;
     }
     return PARSE_OK;
 
@@ -5572,7 +5610,7 @@ static void http2_conn_do_on_eof_read(http2_conn_t *w, pstream_t *ps)
     w->state = HTTP2_PARSE_GOAWAY_SENT;
 }
 
-static void http2_conn_do_parse(http2_conn_t *w)
+static void http2_conn_process_input_buffer(http2_conn_t *w)
 {
     int rc;
     bool eof = w->eof_read;
@@ -5669,28 +5707,69 @@ static void http2_conn_do_parse(http2_conn_t *w)
     }
 }
 
-static void http2_conn_do_set_mask_and_watch(http2_conn_t *w)
+static void http2_conn_set_mask(http2_conn_t *w)
 {
     int mask = POLLIN;
 
-    if (ob_is_empty(&w->ob) || w->send_window <= 0) {
-        el_fd_watch_activity(w->ev, POLLINOUT, w->idle_timeout);
-    } else {
-        el_fd_watch_activity(w->ev, POLLINOUT, 0);
+    if (w->abort_in_flight || w->eof_read) {
+        mask = 0;
     }
+
     if (!ob_is_empty(&w->ob) || w->async_write) {
         mask |= POLLOUT;
         w->async_write = false;
     }
+
+    if (w->ssl) {
+        if (SSL_want_read(w->ssl)) {
+            mask |= POLLIN;
+        }
+        if (SSL_want_write(w->ssl)) {
+            mask |= POLLOUT;
+        }
+    }
+
     el_fd_set_mask(w->ev, mask);
 }
 
 
-static int http2_conn_do_on_streams_can_write(http2_conn_t *w)
+static int http2_conn_process_streams_output(http2_conn_t *w)
 {
     if (w->state > HTTP2_PARSE_INIT_SETTINGS_HDR) {
         http2_conn_on_streams_can_write(w);
     }
+    return 0;
+}
+
+static void http2_conn_process_idle_socket(http2_conn_t *w)
+{
+    http2_conn_process_state_change_idle_timeout(w);
+}
+
+static int http2_conn_process_before_return_ev_loop(http2_conn_t **wp, int fd)
+{
+    http2_conn_t *w = *wp;
+
+    if (unlikely(w->done)) {
+        return http2_conn_close_done(wp);
+    }
+
+    if (ob_is_empty(&w->ob)) {
+        bool pending = http2_conn_has_pending_streams(w);
+
+        if (w->state == HTTP2_PARSE_GOAWAY_SENT &&
+            (!pending || w->eof_read))
+        {
+            shutdown(fd, SHUT_WR);
+            http2_conn_close(&w);
+            return 0;
+        }
+        el_fd_watch_activity(w->ev, POLLINOUT, w->idle_timeout);
+    } else {
+        el_fd_watch_activity(w->ev, POLLINOUT, 0);
+    }
+
+    http2_conn_set_mask(w);
     return 0;
 }
 
@@ -5699,41 +5778,15 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
     http2_conn_t *w = priv.ptr;
 
     if (events == EL_EVENTS_NOACT) {
-        return http2_conn_close_inact_timeout(&w);
-    }
-    if (events & POLLIN) {
+        http2_conn_process_idle_socket(w);
+    } else if (events & POLLIN) {
         http2_conn_read(w, fd);
-        if (w->sock_err) {
-            return http2_conn_close_error_read(&w);
-        }
-        http2_conn_do_parse(w);
+        http2_conn_process_input_buffer(w);
     }
-    if (w->abort_recv) {
-        return http2_conn_close_error_recv(&w);
-    }
-    if (w->send_goaway && w->state != HTTP2_PARSE_GOAWAY_SENT
-        && !w->goaway_in_flight)
-    {
-        http2_conn_send_shutdown(w, LSTR_EMPTY_V);
-    }
-    if (w->state == HTTP2_PARSE_GOAWAY_SENT) {
-        if (ob_is_empty(&w->ob)) {
-            shutdown(fd, SHUT_WR);
-            http2_conn_close(&w);
-            return 0;
-        }
-        if (w->eof_read) {
-            http2_conn_close(&w);
-            return 0;
-        }
-    } else {
-        http2_conn_do_on_streams_can_write(w);
-    }
+
+    http2_conn_process_streams_output(w);
     http2_conn_write(w, fd);
-    if (w->sock_err) {
-        return http2_conn_close_error_write(&w);
-    }
-    http2_conn_do_set_mask_and_watch(w);
+    http2_conn_process_before_return_ev_loop(&w, fd);
     return 0;
 }
 
@@ -5815,7 +5868,7 @@ http2_conn_on_preface_wait(el_t evh, int fd, short events, data_t priv)
     }
 
     http2_conn_process_state_change_preface_received(w);
-    http2_conn_do_parse(w);
+    http2_conn_process_input_buffer(w);
 
     el_fd_set_hook(evh, &http2_conn_on_event);
     return http2_conn_on_event(evh, fd, events & ~POLLIN, priv);
@@ -5840,7 +5893,7 @@ static int http2_conn_pack_preface(http2_conn_t *w)
 {
     /* TODO: To rework. */
     /* As client: this writes the connection preface to w->ob. */
-    http2_conn_do_parse(w);
+    http2_conn_process_input_buffer(w);
     RETHROW(w->state != HTTP2_PARSE_PREAMBLE);
     return 0;
 }
@@ -7097,7 +7150,7 @@ void httpc_close_http2_pool(httpc_cfg_t *cfg)
         client->pool = NULL;
         client->conn->send_goaway = true;
         client->conn->async_write = true;
-        http2_conn_do_set_mask_and_watch(client->conn);
+        http2_conn_set_mask(client->conn);
     }
     http2_pool_delete(&cfg->http2_pool);
 }
@@ -7110,7 +7163,7 @@ static void httpc_http2_set_mask(httpc_t *w)
     if (!ob_is_empty(&w->ob)) {
         w->http2_ctx->conn->async_write = true;
     }
-    http2_conn_do_set_mask_and_watch(w->http2_ctx->conn);
+    http2_conn_set_mask(w->http2_ctx->conn);
 }
 
 static void httpd_http2_set_mask(httpd_t *w)
@@ -7125,7 +7178,7 @@ static void httpd_http2_set_mask(httpd_t *w)
     if (!ob_is_empty(&w->ob)) {
         conn->async_write = true;
     }
-    http2_conn_do_set_mask_and_watch(conn);
+    http2_conn_set_mask(conn);
 }
 
 /* }}} */
