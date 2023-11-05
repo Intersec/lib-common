@@ -3373,18 +3373,17 @@ static http2_settings_t http2_get_settings(http2_conn_t *w)
 /* TODO: add additional conn-related info to the log message */
 #define http2_conn_log(/* const http_conn_t* */ w, /* int */ level,          \
                        /* const char* */ fmt, ...)                           \
-    logger_log(&_G.logger, level, fmt, ##__VA_ARGS__)
+    logger_log(&_G.logger, level, "[h2 %s %u] " fmt,                         \
+               (w)->is_client ? "client" : "server", (w)->id, ##__VA_ARGS__)
 
 #define http2_conn_trace(w, level, fmt, ...)                                 \
-    http2_conn_log(w, LOG_TRACE + (level), "[h2c %u] " fmt, (w)->id,         \
-                   ##__VA_ARGS__)
+    http2_conn_log(w, LOG_TRACE + (level), fmt, ##__VA_ARGS__)
 
 /* TODO: add additional stream-related info to the log message */
 #define http2_stream_log(/* const http_conn_t* */ w,                         \
                          /* const stream_t* */ stream, /* int */ level,      \
                          /* const char* */ fmt, ...)                         \
-    logger_log(&_G.logger, level, "[h2c %u, sid %d] " fmt, (w)->id,          \
-               (stream)->id, ##__VA_ARGS__)
+    http2_conn_log(w, level, "[sid %d] " fmt, (stream)->id, ##__VA_ARGS__)
 
 #define http2_stream_trace(w, stream, level, fmt, ...)                       \
     http2_stream_log(w, stream, LOG_TRACE + (level), fmt, ##__VA_ARGS__)
