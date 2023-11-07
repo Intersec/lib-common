@@ -259,6 +259,17 @@ struct HttpcCfg {
      * The client certificate must be signed by a CA trusted by the server.
      */
     TlsCfg? tlsClient;
+
+   /** Use the http2 transport to send requests.
+    *
+    * If \p tlsOn, h2 protocol is negotiated through the ALPN extension. */
+   bool    useHttp2            = false;
+
+   /* TODO:
+   /** Fallback to http1.1 protocol if \p use_http2 is true.
+    *  Relevant only if \p tlsOn is true.
+    bool    fallbackToHttp1    = false;
+    */
 };
 
 enum IopHttpMethod {

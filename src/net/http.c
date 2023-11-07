@@ -2525,6 +2525,11 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
     cfg->header_line_max   = iop_cfg->header_line_max;
     cfg->header_size_max   = iop_cfg->header_size_max;
 
+    /* TODO: remove the http_mode enum and use flag(s) instead. */
+    if (iop_cfg->use_http2) {
+        cfg->http_mode = HTTP_MODE_USE_HTTP2_ONLY;
+    }
+
     if (iop_cfg->tls_on) {
         SB_1k(err);
         char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
