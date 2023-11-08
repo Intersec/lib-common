@@ -1593,6 +1593,7 @@ void httpd_cfg_wipe(httpd_cfg_t *cfg)
         cfg->ssl_ctx = NULL;
     }
     assert (dlist_is_empty(&cfg->httpd_list));
+    assert (dlist_is_empty(&cfg->http2_httpd_list));
 }
 
 void httpd_cfg_set_ssl_ctx(httpd_cfg_t *nonnull cfg, SSL_CTX *nullable ctx)
@@ -5974,8 +5975,8 @@ static http2_server_t *http2_server_init(http2_server_t *w)
 
 static void http2_server_wipe(http2_server_t *w)
 {
-    httpd_cfg_delete(&w->httpd_cfg);
     dlist_remove(&w->http2_link);
+    httpd_cfg_delete(&w->httpd_cfg);
 }
 
 GENERIC_NEW(http2_server_t, http2_server);
