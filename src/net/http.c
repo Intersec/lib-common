@@ -3306,6 +3306,8 @@ typedef struct http2_conn_t {
     dlist_t             booked_stream_list;
     uint32_t            client_streams;
     uint32_t            server_streams;
+    int                 queries_can_send;
+    int                 queries_can_recv;
     /* backstream contexts */
     union {
         http2_client_t *nullable client_ctx;
@@ -3341,6 +3343,8 @@ typedef struct http2_conn_t {
     bool                will_close_recv: 1;
     /* True iff the peer closed its end of the connection. */
     bool                eof_read : 1;
+    /* True iff eof condition was processed. */
+    bool                eof_processed : 1;
     /* True iff our abortive GOAWAY was sent to the peer. */
     bool                abort_in_flight: 1;
     /* True iff our final graceful GOAWAY was sent to the peer. */
@@ -3434,19 +3438,7 @@ DO_REFCNT(http2_conn_t, http2_conn)
 
 static bool http2_conn_has_pending_streams(http2_conn_t *w)
 {
-    int streams = 0;
-    /* TODO: Improve by using counters to count the streams that can locally
-     * advance by sending or receiving. */
-    dlist_for_each_entry(http2_stream_t, s, &w->stream_list, link) {
-        if ((s->events & HTTP2_STREAM_EV_RST_RECV) ||
-            (s->events & HTTP2_STREAM_EV_RST_SENT) ||
-            (s->events & HTTP2_STREAM_EV_CLOSED))
-        {
-            continue;
-        }
-        streams++;
-    }
-    return streams > 0;
+    return w->queries_can_send > 0 || w->queries_can_recv > 0;
 }
 
 /* {{{ Low I/O Wrappers */
@@ -3460,7 +3452,7 @@ static void http2_conn_read(http2_conn_t *w, int fd)
     if (unlikely(rc <= 0)) {
         if (unlikely(rc < 0)) {
             if (!ERR_RW_RETRIABLE(errno)) {
-                http2_conn_trace(w, 4, "read error");
+                http2_conn_trace(w, 4, "read error: %s", strerror(errno));
                 if (!w->sock_err) {
                     w->sock_err = true;
                     w->closing = true;
@@ -3468,7 +3460,7 @@ static void http2_conn_read(http2_conn_t *w, int fd)
                 }
             } else {
                 /* This may help us see how properly we use el_fd_set_mask. */
-                http2_conn_trace(w, 4, "read 0 try again");
+                http2_conn_trace(w, 4, "read temporary error: try again");
             }
         } else {
             http2_conn_trace(w, 4, "read eof");
@@ -3483,13 +3475,14 @@ static void http2_conn_read(http2_conn_t *w, int fd)
 static void http2_conn_write(http2_conn_t *w, int fd)
 {
     int rc;
+    int oldlen = w->ob.length;
 
     rc = w->ssl ? ob_write_with(&w->ob, fd, ssl_writev, w->ssl)
                 : ob_write(&w->ob, fd);
 
     if (unlikely(rc < 0)) {
         if (!ERR_RW_RETRIABLE(errno)) {
-            http2_conn_trace(w, 4, "write error");
+            http2_conn_trace(w, 4, "write error: %s", strerror(errno));
             if (!w->sock_err) {
                 w->sock_err = true;
                 w->closing = true;
@@ -3500,7 +3493,7 @@ static void http2_conn_write(http2_conn_t *w, int fd)
         }
         return;
     }
-    http2_conn_trace(w, 4, "wrote %d bytes", rc);
+    http2_conn_trace(w, 4, "wrote %d bytes", oldlen - w->ob.length);
 }
 
 /* }}} */
@@ -3509,14 +3502,35 @@ static void http2_conn_write(http2_conn_t *w, int fd)
 static void
 http2_stream_on_reset(http2_conn_t *w, http2_stream_t *stream, bool remote);
 
+/** Internally closes streams with ids greater than the respective limits.
+ *
+ * Note: Affects only query ids greater than \p query_max and push ids greater
+ * \p push_max. Passing -1 means no effect so keep all the streams of the
+ * class (query or push) while passing 0 means close the whole class. */
+static void http2_conn_close_streams_internal(http2_conn_t *w, int query_max,
+                                              int push_max)
+{
+    dlist_for_each_entry(http2_stream_t, stream, &w->stream_list, link)
+    {
+        bool is_query = stream->id % 2; /* query or push */
+
+        if (is_query && (query_max < 0 || stream->id <= query_max)) {
+            continue;
+        }
+        if (!is_query && (push_max < 0 || stream->id <= push_max)) {
+            continue;
+        }
+
+        http2_stream_on_reset(w, stream, false);
+        http2_stream_delete(&stream);
+    }
+}
+
 static void http2_conn_on_close(http2_conn_t *w);
 
 static void http2_conn_close(http2_conn_t **w)
 {
-    dlist_for_each_entry(http2_stream_t, stream, &(*w)->stream_list, link) {
-        http2_stream_on_reset(*w, stream, false);
-        http2_stream_delete(&stream);
-    }
+    http2_conn_close_streams_internal(*w, 0, 0);
     http2_conn_on_close(*w);
     http2_conn_release(w);
 }
@@ -3577,16 +3591,34 @@ static int http2_conn_close_invalid_preface(http2_conn_t **w)
     return 0;
 }
 
-static int http2_conn_close_error_recv(http2_conn_t **w)
+static int http2_conn_close_abort_recv(http2_conn_t **w)
 {
-    http2_conn_trace(*w, 2, "connection error received");
+    http2_conn_trace(*w, 2, "connection error: abortive GOAWAY received");
+    http2_conn_close(w);
+    return 0;
+}
+
+static int http2_conn_close_abort_sent(http2_conn_t **w)
+{
+    http2_conn_trace(*w, 2, "connection error: abortive GOAWAY sent");
+    http2_conn_close(w);
+    return 0;
+}
+
+static int http2_conn_close_terminated(http2_conn_t **w)
+{
+    const char *sent = (**w).goaway_in_flight ? "sent" : "not sent";
+    const char *recv = (**w).goaway_recv ? "received" : "not received";
+
+    http2_conn_trace(*w, 2, "connection terminated: GOAWAY %s GOAWAY %s",
+                     sent, recv);
     http2_conn_close(w);
     return 0;
 }
 
 static int http2_conn_close_sock_error(http2_conn_t **w)
 {
-    http2_conn_trace(*w, 2, "socket error");
+    http2_conn_trace(*w, 2, "connection error: socket error: ");
     http2_conn_close(w);
     return 0;
 }
@@ -3599,11 +3631,13 @@ static int http2_conn_close_done(http2_conn_t **wp)
         return http2_conn_close_sock_error(wp);
     }
     if (w->abort_recv) {
-        return http2_conn_close_error_recv(wp);
+        return http2_conn_close_abort_recv(wp);
+    }
+    if (w->abort_in_flight) {
+        return http2_conn_close_abort_sent(wp);
     }
 
-    http2_conn_close(wp);
-    return 0;
+    return http2_conn_close_terminated(wp);
 }
 
 /* }}} */
@@ -3620,21 +3654,21 @@ static int http2_conn_close_done(http2_conn_t **wp)
  * │        └─────────┬──────────┘                                       │
  * │                  │ E0                                               │
  * │                  │              E1: GOAWAY_RECV                     │
- * │        ┌─────────▼──────────┐       EOF_READ(clean)                 │
- * │        │       ACTIVE       │       GOAWAY_IN_FLIGHT                │
- * │        └─────────┬──────────┘       ABORT_IN_FLIGHT                 │
+ * │        ┌─────────▼──────────┐       GOAWAY_IN_FLIGHT                │
+ * │        │       ACTIVE       │       ABORT_IN_FLIGHT                 │
+ * │        └─────────┬──────────┘                                       │
  * │                  │ E1                                               │
  * │                  │                                                  │
  * │     ┌─────────┬──┼─────────────┐                                    │
  * │     │ CLOSING │  │             │                                    │
- * │     ├─────────┘  ▼             │ E2: NO_PENDING_ACTIVITY &          │
- * │     │            O             │         GOAWAY_IN_FLIGHT           │
- * │     │            │             │     ABORT_IN_FLIGHT                │
+ * │     ├─────────┘  ▼             │ E2: NO_PENDING_STREAMS             │
+ * │     │            O             │                                    │
+ * │     │            │             │                                    │
  * │     │            │ E2          │                                    │
  * │     │            │             │                                    │
  * │     │     ┌──────▼────────┐    │                                    │
  * │     │     │ FIN_TIME_WAIT │    │ E3: TIMEOUT                        │
- * │     │     └──────┬────────┘    │     EOF_READ(clean)                │
+ * │     │     └──────┬────────┘    │     EOF_READ                       │
  * │     │            │ E3          │                                    │
  * │     │            │             │                                    │
  * │     │  E*    ┌───▼────┐        │                                    │
@@ -3684,13 +3718,99 @@ static void http2_conn_process_state_change_settings_sent(http2_conn_t *w)
     /* FIXME: add timer to receive the the acknowledgement. */
 }
 
-static void http2_conn_process_state_change_idle_timeout(http2_conn_t *w)
+static void
+http2_conn_process_state_change_goaway_recv(http2_conn_t *w,
+                                            uint32_t last_stream_id)
 {
-    /* FIXME: reconsider the behavior of this timeout, e.g., sending a ping or
-     * a goaway. */
-    http2_conn_trace(w, 2, "idle timeout");
-    w->done = true;
+    assert(!w->goaway_recv);
+    w->goaway_recv = true;
     w->closing = true;
+
+    if (w->is_client) {
+        http2_conn_close_streams_internal(w, last_stream_id, -1);
+    } else {
+        http2_conn_close_streams_internal(w, -1, last_stream_id);
+    }
+    http2_conn_trace(w, 3, "closing: goaway recv");
+}
+
+static void
+http2_conn_process_state_change_will_close_recv(http2_conn_t *w)
+{
+    w->will_close_recv = true;
+    http2_conn_trace(w, 3, "'will-close' goaway recv");
+}
+
+static void
+http2_conn_process_state_change_abort_recv(http2_conn_t *w)
+{
+    assert(!w->abort_recv);
+    w->abort_recv = true;
+    w->closing = true;
+    w->done = true;
+    http2_conn_close_streams_internal(w, 0, 0);
+    http2_conn_trace(w, 3, "closing: abort recv");
+}
+
+static void http2_conn_process_state_change_goaway_in_flight(http2_conn_t *w)
+{
+    assert(!w->goaway_in_flight);
+    w->goaway_in_flight = true;
+    w->closing = true;
+    http2_conn_trace(w, 3, "closing: goaway sent");
+}
+
+static void http2_conn_process_state_change_abort_in_flight(http2_conn_t *w)
+{
+    assert(!w->abort_in_flight);
+    w->abort_in_flight = true;
+    w->closing = true;
+    http2_conn_trace(w, 3, "closing: abort sent");
+    /* XXX: we delay the closing of streams until the end of the parse loop
+     * since we may be in the process of handling a stream input that led to
+     * this abort. */
+}
+
+static void
+http2_conn_process_state_change_fin_time_wait(http2_conn_t *w)
+{
+    assert(w->closing);
+    assert(!w->fin_time_wait);
+    w->fin_time_wait = true;
+    http2_conn_trace(w, 3, "fin_time_wait: enter");
+}
+
+static void
+http2_conn_process_state_change_fin_time_wait_idle_timeout(http2_conn_t *w)
+{
+    assert(w->fin_time_wait && w->closing);
+    assert(!w->done);
+    w->done = true;
+    http2_conn_trace(w, 3, "fin_time_wait: timeout (done)");
+}
+
+static void
+http2_conn_process_state_change_fin_time_wait_eof_read(http2_conn_t *w)
+{
+    assert(w->fin_time_wait && w->closing);
+    assert(!w->done);
+    w->done = true;
+    http2_conn_trace(w, 3, "fin_time_wait: eof read (done)");
+}
+
+static void http2_conn_process_state_change_unexpected_eof(http2_conn_t *w)
+{
+    assert(!w->done);
+    w->closing = true;
+    w->done = true;
+    http2_conn_close_streams_internal(w, 0, 0);
+
+    http2_conn_trace(w, 3, "fin_time_wait: eof read (done)");
+
+    if (unlikely(w->ibuf.len || w->cont_chunk)) {
+        /* parsing leftover or expecting CONTINUATION(s). */
+        http2_conn_trace(w, 4, "read eof: input-buffer/parsing leftover");
+    }
 }
 
 /* }}} */
@@ -3934,9 +4054,8 @@ http2_conn_send_shutdown(http2_conn_t *w, lstr_t debug)
 {
     uint32_t stream_id = http2_conn_max_peer_stream_id(w);
 
-    assert(!w->goaway_in_flight);
-    w->goaway_in_flight = true;
     http2_conn_send_goaway(w, stream_id, HTTP2_CODE_NO_ERROR, debug);
+    http2_conn_process_state_change_goaway_in_flight(w);
 }
 
 static int
@@ -3945,9 +4064,8 @@ http2_conn_send_error(http2_conn_t *w, uint32_t error_code, lstr_t debug)
     uint32_t stream_id = http2_conn_max_peer_stream_id(w);
 
     assert(error_code != HTTP2_CODE_NO_ERROR);
-    assert(!w->abort_in_flight);
-    w->abort_in_flight = true;
     http2_conn_send_goaway(w, stream_id, error_code, debug);
+    http2_conn_process_state_change_abort_in_flight(w);
 
     return -1;
 }
@@ -4080,6 +4198,9 @@ http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
         uint32_t nb_streams;
         uint32_t new_nb_streams;
 
+        w->queries_can_send++;
+        w->queries_can_recv++;
+
         nb_streams = http2_stream_id_is_client(stream->id)
                          ? w->client_streams
                          : w->server_streams;
@@ -4088,8 +4209,10 @@ http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
         if (events == HTTP2_STREAM_EV_1ST_HDRS) {
             http2_stream_trace(w, stream, 2, "opened");
         } else if (events == (HTTP2_STREAM_EV_1ST_HDRS_EOS_RECV)) {
+            w->queries_can_recv--;
             http2_stream_trace(w, stream, 2, "half closed (remote)");
         } else if (events == (HTTP2_STREAM_EV_1ST_HDRS_EOS_SENT)) {
+            w->queries_can_send--;
             http2_stream_trace(w, stream, 2, "half closed (local)");
         } else if (events == HTTP2_STREAM_EV_PSH_RECV) {
             assert(w->is_client && !stream->id);
@@ -4116,6 +4239,7 @@ http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
         return;
     }
     if (events == HTTP2_STREAM_EV_EOS_RECV) {
+        w->queries_can_recv--;
         if (flags & HTTP2_STREAM_EV_EOS_SENT) {
             http2_stream_trace(w, stream, 2, "stream closed [eos recv]");
             stream->remove = true;
@@ -4123,6 +4247,7 @@ http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
             http2_stream_trace(w, stream, 2, "stream half closed (remote)");
         }
     } else if (events == HTTP2_STREAM_EV_EOS_SENT) {
+        w->queries_can_send--;
         if (flags & HTTP2_STREAM_EV_EOS_RECV) {
             http2_stream_trace(w, stream, 2, "stream closed [eos sent]");
             dlist_move_tail(&w->closed_stream_list, &stream->class_link);
@@ -4130,9 +4255,13 @@ http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
             http2_stream_trace(w, stream, 2, "stream half closed (local)");
         }
     } else if (events == HTTP2_STREAM_EV_RST_RECV) {
+        w->queries_can_recv -= !(flags & HTTP2_STREAM_EV_EOS_RECV);
+        w->queries_can_send -= !(flags & HTTP2_STREAM_EV_EOS_SENT);
         http2_stream_trace(w, stream, 2, "stream closed [reset recv]");
         stream->remove = true;
     } else if (events == HTTP2_STREAM_EV_RST_SENT) {
+        w->queries_can_recv -= !(flags & HTTP2_STREAM_EV_EOS_RECV);
+        w->queries_can_send -= !(flags & HTTP2_STREAM_EV_EOS_SENT);
         http2_stream_trace(w, stream, 2, "stream closed [reset sent]");
         dlist_move_tail(&w->closed_stream_list, &stream->class_link);
     } else {
@@ -4496,7 +4625,7 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
 
 #define http2_stream_conn_error(w, stream, error_code, fmt, ...)             \
     ({                                                                       \
-        http2_stream_trace(w, stream, 2, "connection error :" fmt,           \
+        http2_stream_trace(w, stream, 2, "connection error: " fmt,           \
                            ##__VA_ARGS__);                                   \
         http2_stream_conn_error_(w, stream, HTTP2_CODE_##error_code, fmt,    \
                                  ##__VA_ARGS__);                             \
@@ -4829,7 +4958,7 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
 
 #define http2_conn_error(w, error_code, fmt, ...)                            \
     ({                                                                       \
-        http2_conn_trace(w, 2, "connection error :" fmt, ##__VA_ARGS__);     \
+        http2_conn_trace(w, 2, "connection error: " fmt, ##__VA_ARGS__);     \
         http2_conn_error_(w, HTTP2_CODE_##error_code, fmt, ##__VA_ARGS__);   \
     })
 
@@ -5310,15 +5439,13 @@ http2_conn_parse_goaway(http2_conn_t *w, pstream_t payload, uint8_t flags)
                 HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
                                 "frame error: second shutdown GOAWAY");
             }
-            w->goaway_recv = true;
-            w->closing = true;
+
+            http2_conn_process_state_change_goaway_recv(w, last_stream_id);
         } else {
-            w->will_close_recv = true;
+            http2_conn_process_state_change_will_close_recv(w);
         }
     } else {
-        w->abort_recv = true;
-        w->closing = true;
-        w->done = true;
+        http2_conn_process_state_change_abort_recv(w);
     }
     return PARSE_OK;
 
@@ -5606,23 +5733,23 @@ typedef enum {
     HTTP2_PARSE_GOAWAY_SENT          = 6,
 } parse_state_t;
 
-static void http2_conn_do_on_eof_read(http2_conn_t *w, pstream_t *ps)
+static void http2_conn_process_eof_read(http2_conn_t *w, pstream_t *ps)
 {
-    if (w->abort_recv || w->abort_in_flight || w->goaway_in_flight) {
+    bool pending = http2_conn_has_pending_streams(w);
+
+    assert(w->eof_read && !w->eof_processed);
+    w->eof_processed = true;
+
+    if (w->closing && !pending) {
+        /* we are already in, or about to transition to fin_time_wait. */
         return;
     }
-    if (!ps_done(ps)) {
-        http2_conn_error(w, INTERNAL_ERROR, "unexpected eof");
-    } else {
-        http2_conn_send_shutdown(w, LSTR_EMPTY_V);
-    }
-    w->state = HTTP2_PARSE_GOAWAY_SENT;
+    http2_conn_process_state_change_unexpected_eof(w);
 }
 
 static void http2_conn_process_input_buffer(http2_conn_t *w)
 {
     int rc;
-    bool eof = w->eof_read;
     pstream_t ps;
     pstream_t ps_tmp;
 
@@ -5704,15 +5831,21 @@ static void http2_conn_process_input_buffer(http2_conn_t *w)
         }
         w->state = state;
     } while (rc == PARSE_OK);
-    if (eof) {
-        http2_conn_do_on_eof_read(w, &ps);
-    }
     sb_skip_upto(&w->ibuf, ps.s);
+
     /* prune useless stream objects created during parsing */
     dlist_for_each_entry(http2_stream_t, stream, &w->inactive_stream_list,
                          class_link)
     {
         http2_stream_delete(&stream);
+    }
+
+    if (w->abort_in_flight) {
+        http2_conn_close_streams_internal(w, 0, 0);
+    }
+
+    if (w->eof_read && !w->eof_processed) {
+        http2_conn_process_eof_read(w, &ps);
     }
 }
 
@@ -5720,7 +5853,7 @@ static void http2_conn_set_mask(http2_conn_t *w)
 {
     int mask = POLLIN;
 
-    if (w->abort_in_flight || w->eof_read) {
+    if (w->eof_read) {
         mask = 0;
     }
 
@@ -5738,9 +5871,26 @@ static void http2_conn_set_mask(http2_conn_t *w)
         }
     }
 
+    http2_conn_trace(w, 4, "set mask %d", mask);
     el_fd_set_mask(w->ev, mask);
 }
 
+static void http2_conn_process_idle_socket(http2_conn_t *w)
+{
+    if (w->fin_time_wait) {
+        http2_conn_process_state_change_fin_time_wait_idle_timeout(w);
+        return;
+    }
+
+    /* FIXME: handle the "unlikely" case of being blocked because of the
+     * peer's flow-control algorithm and react accordingly. */
+    http2_conn_trace(w, 4, "idle socket timeout");
+    if (w->goaway_in_flight) {
+        w->done = true;
+    } else {
+        http2_conn_send_shutdown(w, LSTR("IDLE_TIMEOUT"));
+    }
+}
 
 static int http2_conn_process_streams_output(http2_conn_t *w)
 {
@@ -5750,32 +5900,58 @@ static int http2_conn_process_streams_output(http2_conn_t *w)
     return 0;
 }
 
-static void http2_conn_process_idle_socket(http2_conn_t *w)
+static void http2_conn_process_no_pending_streams(http2_conn_t *w)
 {
-    http2_conn_process_state_change_idle_timeout(w);
+    bool pending = http2_conn_has_pending_streams(w);
+
+    if (unlikely(w->done)) {
+        return;
+    }
+    if (unlikely(w->closing && !pending && !w->fin_time_wait)) {
+        http2_conn_process_state_change_fin_time_wait(w);
+    }
+}
+
+static void http2_conn_process_send_last_goaway_if_needed(http2_conn_t *w)
+{
+    if (likely(!w->fin_time_wait || w->done)) {
+        return;
+    }
+
+    if (likely(w->goaway_in_flight || w->abort_in_flight)) {
+        /* final goaway is no longer possible or needed. */
+        return;
+    }
+
+    http2_conn_send_shutdown(w, LSTR_EMPTY_V);
 }
 
 static int http2_conn_process_before_return_ev_loop(http2_conn_t **wp, int fd)
 {
     http2_conn_t *w = *wp;
 
-    if (unlikely(w->done)) {
-        return http2_conn_close_done(wp);
+    if (ob_is_empty(&w->ob)) {
+        if (!w->done) {
+            int timeout = w->idle_timeout;
+
+            if (unlikely(w->fin_time_wait)) {
+                timeout = 1000; /* TODO: configurable goaway timeout */
+                shutdown(fd, SHUT_WR);
+            }
+            http2_conn_trace(w, 4, "watch activity timeout %d", timeout);
+            el_fd_watch_activity(w->ev, POLLINOUT, timeout);
+        }
+    } else {
+        http2_conn_trace(w, 4, "unregister watch activity timer");
+        el_fd_watch_activity(w->ev, POLLINOUT, 0);
     }
 
-    if (ob_is_empty(&w->ob)) {
-        bool pending = http2_conn_has_pending_streams(w);
+    if (unlikely(w->fin_time_wait && w->eof_read && !w->done)) {
+        http2_conn_process_state_change_fin_time_wait_eof_read(w);
+    }
 
-        if (w->state == HTTP2_PARSE_GOAWAY_SENT &&
-            (!pending || w->eof_read))
-        {
-            shutdown(fd, SHUT_WR);
-            http2_conn_close(&w);
-            return 0;
-        }
-        el_fd_watch_activity(w->ev, POLLINOUT, w->idle_timeout);
-    } else {
-        el_fd_watch_activity(w->ev, POLLINOUT, 0);
+    if (unlikely(w->done)) {
+        return http2_conn_close_done(wp);
     }
 
     http2_conn_set_mask(w);
@@ -5786,14 +5962,22 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
 {
     http2_conn_t *w = priv.ptr;
 
-    if (events == EL_EVENTS_NOACT) {
+    http2_conn_trace(w, 4, "events 0x%x", events);
+
+    if (unlikely(events == EL_EVENTS_NOACT)) {
         http2_conn_process_idle_socket(w);
+    } else if (unlikely(events & POLLERR)) {
+        w->sock_err = true;
+        w->closing = true;
+        w->done = true;
     } else if (events & POLLIN) {
         http2_conn_read(w, fd);
         http2_conn_process_input_buffer(w);
     }
 
     http2_conn_process_streams_output(w);
+    http2_conn_process_no_pending_streams(w);
+    http2_conn_process_send_last_goaway_if_needed(w);
     http2_conn_write(w, fd);
     http2_conn_process_before_return_ev_loop(&w, fd);
     return 0;
@@ -7157,7 +7341,8 @@ void httpc_close_http2_pool(httpc_cfg_t *cfg)
         client->pool = NULL;
         client->conn->send_goaway = true;
         client->conn->async_write = true;
-        http2_conn_set_mask(client->conn);
+        http2_conn_trace(client->conn, 4, "send goaway");
+        el_fd_set_mask(client->conn->ev, POLLINOUT);
     }
     http2_pool_delete(&cfg->http2_pool);
 }
@@ -7170,7 +7355,7 @@ static void httpc_http2_set_mask(httpc_t *w)
     if (!ob_is_empty(&w->ob)) {
         w->http2_ctx->conn->async_write = true;
     }
-    http2_conn_set_mask(w->http2_ctx->conn);
+    el_fd_set_mask(w->http2_ctx->conn->ev, POLLINOUT);
 }
 
 static void httpd_http2_set_mask(httpd_t *w)
@@ -7185,7 +7370,7 @@ static void httpd_http2_set_mask(httpd_t *w)
     if (!ob_is_empty(&w->ob)) {
         conn->async_write = true;
     }
-    http2_conn_set_mask(conn);
+    el_fd_set_mask(conn->ev, POLLINOUT);
 }
 
 /* }}} */
