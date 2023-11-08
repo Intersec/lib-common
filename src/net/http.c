@@ -3646,12 +3646,22 @@ static int http2_conn_close_done(http2_conn_t **wp)
  *
  */
 
-static void http2_conn_process_state_change_socket_connected(http2_conn_t *w)
+static void
+http2_conn_process_state_change_socket_connected(http2_conn_t *w, int fd)
 {
     assert(!w->connected);
     w->connected = true;
-    el_fd_watch_activity(w->ev, POLLINOUT, w->idle_timeout);
 
+    if (w->ssl) {
+        SSL_set_fd(w->ssl, fd);
+        if (w->is_client) {
+            SSL_set_connect_state(w->ssl);
+        } else {
+            SSL_set_accept_state(w->ssl);
+        }
+    }
+
+    el_fd_watch_activity(w->ev, POLLINOUT, w->idle_timeout);
     http2_conn_trace(w, 3, "socket connected");
 }
 
@@ -5917,7 +5927,7 @@ static int http2_conn_on_connect(el_t evh, int fd, short events, data_t priv)
     }
 
     if (!w->connected) {
-        http2_conn_process_state_change_socket_connected(w);
+        http2_conn_process_state_change_socket_connected(w, fd);
     }
 
     if (w->ssl) {
@@ -5937,7 +5947,7 @@ static int http2_conn_on_connect(el_t evh, int fd, short events, data_t priv)
              */
             X509 *cert = SSL_get_peer_certificate(w->ssl);
 
-            if (unlikely(cert)) {
+            if (unlikely(!cert)) {
                 return http2_conn_close_tls_no_peer_certificate_error(&w);
             }
             X509_free(cert);
@@ -6019,8 +6029,6 @@ httpd_spawn_as_http2(int fd, sockunion_t *peer_su, httpd_cfg_t *cfg)
     conn = http2_conn_new();
     if (cfg->ssl_ctx) {
         conn->ssl = SSL_new(cfg->ssl_ctx);
-        SSL_set_fd(conn->ssl, fd);
-        SSL_set_accept_state(conn->ssl);
    }
     conn->settings = http2_default_settings_g;
     cfg->nb_conns++;
