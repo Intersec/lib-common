@@ -2029,7 +2029,7 @@ static void qps_pg_unmap_int(qps_t *qps, qps_pg_t blk)
     qps_pg_check_hdrs(qps);
 }
 
-static qps_pg_t qps_pg_map_int(qps_t *qps, uint32_t id, size_t n)
+static qps_pg_t qps_pg_map_int(qps_t *qps, qps_handle_t id, size_t n)
 {
     uint32_t l1, l2;
     qps_pg_t blk;
@@ -2235,7 +2235,7 @@ static void qps_free_int(qps_t *qps, void *ptr)
     }
 }
 
-static void *qps_alloc_int(qps_t *qps, uint32_t id, size_t asked)
+static void *qps_alloc_int(qps_t *qps, qps_handle_t id, size_t asked)
 {
     uint32_t l1, l2;
     qps_mhdr_t *blk, *next, *split;
@@ -2304,7 +2304,8 @@ static void *qps_alloc_int(qps_t *qps, uint32_t id, size_t asked)
     return blk->data;
 }
 
-static void *qps_realloc_int(qps_t *qps, uint32_t id, void *ptr, size_t asked)
+static void *qps_realloc_int(qps_t *qps, qps_handle_t id, void *ptr,
+                             size_t asked)
 {
     qps_map_t *map = qps_map_of(ptr);
     size_t nsz = asked;
@@ -2430,9 +2431,9 @@ alloc_copy_and_free: {
 }
 }
 
-static uint32_t qps_handle_new(qps_t *qps)
+static qps_handle_t qps_handle_new(qps_t *qps)
 {
-    uint32_t id = qps->handles_freelist;
+    qps_handle_t id = qps->handles_freelist;
 
     if (id) {
         qps->handles_freelist = qps_handle_slot(qps, id)->addr;
@@ -2454,7 +2455,7 @@ static uint32_t qps_handle_new(qps_t *qps)
     return id;
 }
 
-static void qps_handle_free(qps_t *qps, uint32_t id)
+static void qps_handle_free(qps_t *qps, qps_handle_t id)
 {
     qps_ptr_t *ptr = qps_handle_slot(qps, id);
 
@@ -2462,7 +2463,7 @@ static void qps_handle_free(qps_t *qps, uint32_t id)
     qps->handles_freelist = id;
 }
 
-void *qps_alloc(qps_t *qps, uint32_t *id, size_t size)
+void *qps_alloc(qps_t *qps, qps_handle_t *id, size_t size)
 {
     qps_handle_t h = QPS_HANDLE_NULL;
     void *res = NULL;
@@ -2488,7 +2489,7 @@ void *qps_alloc(qps_t *qps, uint32_t *id, size_t size)
     return res;
 }
 
-void *qps_realloc(qps_t *qps, uint32_t id, size_t nsz)
+void *qps_realloc(qps_t *qps, qps_handle_t id, size_t nsz)
 {
     void *res;
 
@@ -2509,7 +2510,7 @@ void *qps_realloc(qps_t *qps, uint32_t id, size_t nsz)
     return res;
 }
 
-void qps_free(qps_t *qps, uint32_t id)
+void qps_free(qps_t *qps, qps_handle_t id)
 {
     TRACE_ALLOC("frag", "dealloc(%p, %d)", qps, id);
 
@@ -2521,7 +2522,7 @@ void qps_free(qps_t *qps, uint32_t id)
     qps_m_check_maps(qps);
 }
 
-void *qps_w_deref_(qps_t *qps, uint32_t h, void *pptr)
+void *qps_w_deref_(qps_t *qps, qps_handle_t h, void *pptr)
 {
     void *rptr = NULL;
     qps_mhdr_t *blk = container_of(pptr, qps_mhdr_t, data);
