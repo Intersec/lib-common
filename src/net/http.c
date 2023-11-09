@@ -2039,6 +2039,8 @@ el_t httpd_listen(sockunion_t *su, httpd_cfg_t *cfg)
                           httpd_cfg_retain(cfg));
 }
 
+static void http2_close_servers(httpd_cfg_t *cfg);
+
 void httpd_unlisten(el_t *ev)
 {
     if (*ev) {
@@ -2047,6 +2049,7 @@ void httpd_unlisten(el_t *ev)
         dlist_for_each(it, &cfg->httpd_list) {
             httpd_close_gently(dlist_entry(it, httpd_t, httpd_link));
         }
+        http2_close_servers(cfg);
         httpd_cfg_delete(&cfg);
     }
 }
@@ -6663,6 +6666,21 @@ static void http2_conn_on_streams_can_write_server(http2_conn_t *w)
 static void http2_conn_on_close_server(http2_conn_t *w)
 {
     http2_server_delete(&w->server_ctx);
+}
+
+static void http2_close_servers(httpd_cfg_t *cfg)
+{
+    dlist_t *servers = &cfg->http2_httpd_list;
+
+    dlist_for_each_entry(http2_server_t, server, servers, http2_link) {
+        http2_conn_t *w = server->conn;
+
+        if (!w || !w->ev) {
+            continue;
+        }
+        w->send_goaway = true;
+        el_fd_set_mask(w->ev, POLLINOUT);
+    }
 }
 
 /* }}} */
