@@ -5900,6 +5900,17 @@ static int http2_conn_process_streams_output(http2_conn_t *w)
     return 0;
 }
 
+static void http2_conn_process_async_inputs(http2_conn_t *w)
+{
+    if (unlikely(w->send_goaway && !w->closing)) {
+        /* TODO: Possible Enhancements: (1) In client, stop sending requests
+         * and delay the GOAWAY until no pending streams. (2) In server, send
+         * a "will-close" GOAWAY first and then send the final GOAWAY after a
+         * timeout as recommended by the standard. */
+        http2_conn_send_shutdown(w, LSTR("UPPER_LAYER_REQUEST"));
+    }
+}
+
 static void http2_conn_process_no_pending_streams(http2_conn_t *w)
 {
     bool pending = http2_conn_has_pending_streams(w);
@@ -5976,6 +5987,7 @@ static int http2_conn_on_event(el_t evh, int fd, short events, data_t priv)
     }
 
     http2_conn_process_streams_output(w);
+    http2_conn_process_async_inputs(w);
     http2_conn_process_no_pending_streams(w);
     http2_conn_process_send_last_goaway_if_needed(w);
     http2_conn_write(w, fd);
