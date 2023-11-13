@@ -537,129 +537,297 @@ qm_k32_t(ic_cbs, ic_cb_entry_t);
 extern qm_t(ic_cbs) const ic_no_impl;
 
 struct ichannel_t {
+    /** IChannel unique ID.
+     *
+     * The IChannel unique ID is put inside the messages slots so the IChannel
+     * can be retrieved for async replies.
+     */
     uint32_t id;
 
-    /** Name of the ichannel.
+    /** Transport layer protocol.
      *
-     * This name is used for exploitability purposes only.
+     * Default is 0.
+     */
+    int protocol;
+
+    /** Optional name of the IChannel.
+     *
+     * This name is used for exploitation purposes only.
      */
     lstr_t name;
 
     /** Resolved address.
      *
      * Filled with the resolved client or server address.
-     * For a client ichannel, this field can be pre-filled if the address
+     * For a client IChannel, this field can be pre-filled if the address
      * resolution is done before; otherwise, the remote_addr field must be
      * filled.
      */
     sockunion_t su;
 
-    /** Client ichannels: non-resolved remote address.
+    /** Client IChannels: non-resolved remote address.
      *
      * If provided, this address will be resolved and used for each connection
      * attempt; otherwise, the resolution must be done before and provided
      * through the su field.
-     * This field is only used for TCP client ichannels.
+     * This field is only used for TCP client IChannels.
      */
     lstr_t remote_addr;
 
+    /** Set to true when the IC is disconnecting.
+     */
     bool is_closing   :  1;
-    bool is_spawned   :  1;   /**< auto delete if true; contrarily to what is
-        displayed with ic_get_state(), it does not always indicate that the
-        ichannel is actually server-side but really that it should be
-        autodeleted (if no_autodel is false) */
-    bool no_autodel   :  1;   /**< disable autodelete feature             */
-    bool is_seqpacket :  1;   /**< true if socket is SOCK_SEQPACKET       */
-    bool is_unix      :  1;   /**< true if socket is a Unix socket        */
-    bool auto_reconn  :  1;
-    bool do_el_unref  :  1;
-    bool is_wiped     :  1;
-    bool cancel_guard :  1;
-    bool queuable     :  1;   /**< indicate that the IC is ready to send
-                                   messages, but some process does enqueue
-                                   messages before the IC being queuable */
-    bool is_local     :  1;
-    bool is_local_async : 1; /**< Indicate that the query and replies on this
-                              * local ichannel should not be handled
-                              * synchronously. Instead they should be queued
-                              * and handled only after returning to the event
-                              * loop.
-                              * The purpose is to avoid side effects when a
-                              * module mixes both local and remote ichannels.
-                              */
-    bool is_trusted   :  1;   /**< set to true for internal ichannels     */
-    bool is_public    :  1;   /**< setting this flag to true causses private
-                                   fields to be omitted on outgoing messages
-                                   and forbidden on incoming messages */
-    bool fd_overflow  :  1;
-    bool hdr_checked  :  1;   /**< read checks are successful */
-    bool tls_required :  1;   /**< ignored on non TCP sockets */
-    bool is_connected :  1;   /**< true if handshakes are completed */
 
-    unsigned nextslot;          /**< next slot id to try                    */
-
-    el_t              nullable elh;
-    el_t              nullable timer;
-    ichannel_t      * nullable * nullable owner;
-                                /**< content set to NULL on deletion        */
-    void             * nullable priv;
-                                /**< user private data                      */
-    void             * nullable peer;
-                                /**< user field to identify the peer        */
-    const iop_rpc_t  * nullable desc;
-                                /**< desc of the current unpacked RPC       */
-    int               cmd;      /**< cmd of the current unpacked structure  */
-    ev_priority_t     priority; /**< priority of the channel                */
-
-    el_t nullable wa_soft_timer;
-    int  wa_soft;             /**< to be notified when no activity          */
-    int  wa_hard;             /**< to close the connection when no activity */
-
-    uint16_t     peer_version; /**< version of the remote peer */
-    int          protocol;     /**< transport layer protocol (0 = default) */
-    int          retry_delay;  /**< delay before a reconnection attempt (ms) */
-    const qm_t(ic_cbs) * nullable impl;
-    ic_hook_f   * nonnull on_event;
-    ic_creds_f  * nullable on_creds;
-    void        (* nullable on_wipe)(ichannel_t * nonnull ic);
-
-    /* private */
-    qm_t(ic_msg) queries;      /**< hash of queries waiting for an answer  */
-    htlist_t     iov_list;     /**< list of messages to send, in iov       */
-    htlist_t     msg_list;     /**< list of messages to send               */
-    htnode_t    * nullable last_normal_prio_msg;
-                               /**< last message of msg_list having
-                                             the priority NORMAL */
-    /* queues of queries and replies of local async channel (see
-     * is_local_async). */
-    htlist_t local_async_queries;
-    htlist_t local_async_replies;
-    el_t nullable local_async_el; /**< timer used to handle local async
-                                   * queries and replies
-                                   */
-
-    int current_fd; /**< used to store the current fd                       */
-    int pending;    /**< number of pending queries (for peak warning)       */
-    int queue_len;  /**< length of the query queue, without canceled        */
-    SSL * nullable ssl; /**< TLS context, if any. */
-
-    /* Buffers */
-    qv_t(i32)    fds;
-    qv_t(iovec)  iov;
-    int          iov_total_len;
-    sb_t         rbuf;
-
-    /** Server ichannels: client IP address.
+    /** Whether the IC was created with ic_spawn() (on accept).
      *
-     * This field is the IP address of the client connected to the ichannel.
+     * A spawned IC will be automatically deleted upon disconnection unless
+     * no_autodel is set to true.
+     *
+     * This flag cannot be used to identify server-side IChannels since it is
+     * reverted to false at the first manual call to ic_connect/ic_reconnect.
+     */
+    bool is_spawned   :  1;
+
+    /** Disable the auto-deletion feature (see is_spawned).
+     */
+    bool no_autodel   :  1;
+
+    /** Whether the socket is a SOCK_SEQPACKET.
+     */
+    bool is_seqpacket :  1;
+
+    /** Whether the socket is a Unix socket.
+     */
+    bool is_unix      :  1;
+
+    /** Whether the IChannel should reconnect automatically after a
+     * disconnection.
+     *
+     * Default is true.
+     */
+    bool auto_reconn  :  1;
+
+    /** When set to true, the IC will not block the event loop even if it is
+     * still connected. Shouldn't be used in production code, any IC should
+     * be nicely closed before exiting the event loop.
+     */
+    bool do_el_unref  :  1;
+
+    /** Set to true after the IC destruction in ic_wipe(), useful for
+     * debugging.
+     */
+    bool is_wiped     :  1;
+
+    /** Set to true in non-release builds when the messages in queue get
+     * canceled to detect re-enqueue infinite loops. Indeed one should never
+     * call ic_query* upon the reception of an IC_MSG_ABORT status.
+     */
+    bool cancel_guard :  1;
+
+    /** Indicate that the IC is ready to send messages, but some process does
+     * enqueue messages before the IC being queuable.
+     */
+    bool queuable     :  1;
+
+    /** Set to true after a call to ic_set_local() in order to make a loopback
+     * IChannel.
+     */
+    bool is_local     :  1;
+
+    /** Indicate that the queries and replies on this local IChannel should
+     * not be handled synchronously. Instead they should be queued and handled
+     * only after returning to the event loop. The purpose is to avoid side
+     * effects when a module mixes both local and remote IChannels.
+     */
+    bool is_local_async : 1;
+
+    /** Allow to mark the IC as trusted. In this case, the IC will not be
+     * closed upon the reception of an unknown RPC having a payload larger
+     * than 10M.
+     */
+    bool is_trusted   :  1;
+
+    /** Setting this flag to true causes private fields to be omitted on
+     * outgoing messages and forbidden on incoming messages.
+     */
+    bool is_public    :  1;
+
+    /** Used internally when the transfer of a file descriptor over an Unix
+     * socket failed because of an ancillary data truncation.
+     */
+    bool fd_overflow  :  1;
+
+    /** Upon the parsing of a new message, indicate whether the message header
+     * has been successfully checked.
+     */
+    bool hdr_checked  :  1;
+
+    /** Whether TLS is required. Ignored on non TCP sockets.
+     *
+     * Default is true.
+     */
+    bool tls_required :  1;
+
+    /** True if connection handshakes are completed.
+     */
+    bool is_connected :  1;
+
+    /** Next slot ID to try for messages slots allocation.
+     */
+    unsigned nextslot;
+
+    /** Event loop handle of the connection.
+     */
+    el_t nullable elh;
+
+    /** Timer of the activity watcher.
+     */
+    el_t nullable timer;
+
+    /** Content set to NULL on deletion
+     */
+    ichannel_t *nullable *nullable owner;
+
+    /** User private data.
+     */
+    void *nullable priv;
+
+    /** User field to identify the peer.
+     */
+    void *nullable peer;
+
+    /** Description of the current unpacked RPC.
+     */
+    const iop_rpc_t *nullable desc;
+
+    /** Command value of the current unpacked structure.
+     */
+    int cmd;
+
+    /** Event loop priority of the IChannel.
+     */
+    ev_priority_t priority;
+
+    /** Soft timer of the activity watcher.
+     */
+    el_t nullable wa_soft_timer;
+
+    /** Timeout to be notified when there is no activity.
+     */
+    int wa_soft;
+
+    /** Timeout to close the connection when there is no activity.
+     */
+    int wa_hard;
+
+    /** Protocol version of the remote peer.
+     */
+    uint16_t peer_version;
+
+    /** Delay before a reconnection attempt (ms).
+     *
+     * Default is 1000ms.
+     */
+    int retry_delay;
+
+    /** Map of the RPC implemented for this IC.
+     */
+    const qm_t(ic_cbs) *nullable impl;
+
+    /** Mandatory callback to get notified about the connection state
+     * (connected, disconnected, no activity, …).
+     */
+    ic_hook_f *nonnull on_event;
+
+    /** Callback optionally set by ic_swawn() to retrieve the ic_creds_t of
+     * the incoming Unix connection.
+     */
+    ic_creds_f *nullable on_creds;
+
+    /** Optional callback called before wiping the IC.
+     */
+    void (*nullable on_wipe)(ichannel_t *nonnull ic);
+
+    /** Map of queries awaiting for an answer.
+     */
+    qm_t(ic_msg) queries;
+
+    /** List of messages awaiting to be sent, using an IOV.
+     */
+    htlist_t iov_list;
+
+    /** List of messages awaiting to be sent.
+     */
+    htlist_t msg_list;
+
+    /** Last message of msg_list having the priority NORMAL.
+     */
+    htnode_t *nullable last_normal_prio_msg;
+
+    /* Queue of queries of local async IChannel (see is_local_async).
+     */
+    htlist_t local_async_queries;
+
+    /* Queues of replies to local async IChannel (see is_local_async).
+     */
+    htlist_t local_async_replies;
+
+    /** Handle used to schedule local async queries and replies.
+     */
+    el_t nullable local_async_el;
+
+    /** Used to store the current file description exchanged on a Unix socket.
+     * See ic_get_fd.
+     */
+    int current_fd;
+
+    /** Number of pending queries (for peak warning).
+     */
+    int pending;
+
+    /** Length of the queue of queries, without accounting canceled queries.
+     */
+    int queue_len;
+
+    /** Length of the IOV buffer filled for the next write.
+     */
+    int iov_total_len;
+
+    /** Internal stack of file descriptors wrapped in the current message.
+     */
+    qv_t(i32) fds;
+
+    /** Vector of IOV stacking for the next write.
+     */
+    qv_t(iovec) iov;
+
+    /** Internal reading buffer.
+     */
+    sb_t rbuf;
+
+    /** TLS context, if any.
+     */
+    SSL *nullable ssl;
+
+    /** Server IChannels: client IP address.
+     *
+     * This field is the IP address of the client connected to the IChannel.
      * This field should not be read directly, ic_get_client_addr should be
      * used instead.
      */
     lstr_t client_addr;
+
 #ifdef IC_DEBUG_REPLIES
+    /** When enabling IC_DEBUG_REPLIES, tracks the every answer to an IC query
+     * to detect invalid double replies.
+     */
     qh_t(ic_replies) dbg_replies;
 #endif
+
 #ifndef NDEBUG
+    /** Used in non-release builds to warning about sudden traffic increase
+     * that could require investigation.
+     */
     int pending_max;
 #endif
 };
