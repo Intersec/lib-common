@@ -195,6 +195,7 @@ int main(int argc, const char **argv) {
     new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
   DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagClient);
+  bool HasTimeTrace;
 
   ArrayRef<const char*> Args(argv + 1, argv + argc);
 
@@ -206,7 +207,13 @@ int main(int argc, const char **argv) {
       Clang->getInvocation(), Args.begin(), Args.end(), Diags);
 #endif /* CLANG_VERSION_MAJOR >= 10 */
 
-  if (Clang->getFrontendOpts().TimeTrace) {
+#if CLANG_VERSION_MAJOR >= 17
+  HasTimeTrace = !Clang->getFrontendOpts().TimeTracePath.empty();
+#else
+  HasTimeTrace = Clang->getFrontendOpts().TimeTrace;
+#endif /* CLANG_VERSION_MAJOR >= 17 */
+
+  if (HasTimeTrace) {
 #if CLANG_VERSION_MAJOR >= 10
     llvm::timeTraceProfilerInitialize(
         Clang->getFrontendOpts().TimeTraceGranularity, Argv0);
@@ -246,7 +253,11 @@ int main(int argc, const char **argv) {
   llvm::TimerGroup::printAll(llvm::errs());
 
   if (llvm::timeTraceProfilerEnabled()) {
+#if CLANG_VERSION_MAJOR >= 17
+    SmallString<128> Path(Clang->getFrontendOpts().TimeTracePath);
+#else
     SmallString<128> Path(Clang->getFrontendOpts().OutputFile);
+#endif /* CLANG_VERSION_MAJOR >= 17 */
     llvm::sys::path::replace_extension(Path, "json");
 #if CLANG_VERSION_MAJOR >= 12
     auto profilerOutput = Clang->createOutputFile(
