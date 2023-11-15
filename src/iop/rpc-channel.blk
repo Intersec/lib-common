@@ -2696,7 +2696,7 @@ static int ic_version_write(ichannel_t *ic, int fd)
     uint16_t flags = 0;
 
     if (ic_is_tls_enabled(ic)) {
-        flags |= 0x8000;
+        flags |= IC_SC_VERSION_TLS;
     }
 
     put_unaligned_le32(buffer, IC_SC_VERSION);
@@ -2881,7 +2881,7 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
         version = get_unaligned_le16(data);
         vflags = get_unaligned_le16(data + 2);
         ic->peer_version = version;
-        if (vflags & 0x8000) {
+        if (vflags & IC_SC_VERSION_TLS) {
             if (_G.tls_disabled) {
                 logger_warning(&_G.logger, "peer asked for TLS activation, "
                                "but it is disabled globally");
