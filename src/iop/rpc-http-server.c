@@ -520,6 +520,7 @@ __ichttp_reply(uint64_t slot, int cmd, const iop_struct_t *st, const void *v)
 
     ic_query_do_post_hook(NULL, cmd, slot, st, v);
     gzenc = httpd_qinfo_accept_enc_get(q->qinfo);
+    tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
 
     switch (cmd) {
       case IC_MSG_OK:
@@ -537,6 +538,9 @@ __ichttp_reply(uint64_t slot, int cmd, const iop_struct_t *st, const void *v)
          *    (other error cases must not return INTERNAL_SERVER_ERROR).
          */
         code = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        if (tcb->cb.on_query_exn) {
+            tcb->cb.on_query_exn(q, st, v, &code);
+        }
         break;
     }
 
@@ -563,7 +567,6 @@ __ichttp_reply(uint64_t slot, int cmd, const iop_struct_t *st, const void *v)
     oblen = ob->length;
 
     out = outbuf_sb_start(ob, &oldlen);
-    tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
 
     if (gzenc) {
         t_scope;

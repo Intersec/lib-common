@@ -304,14 +304,27 @@ typedef void (httpd_trigger_auth_f)(httpd_trigger_t * nonnull cb,
 struct httpd_trigger_t {
     unsigned              refcnt;
     lstr_t                auth_realm;
+
+    /* Called before main callback with authentication information. */
     httpd_trigger_auth_f * nullable auth;
     const object_class_t * nullable query_cls;
 
+    /* Main callback, called each time the path fragment is queried. */
     void (* nonnull cb)(httpd_trigger_t * nonnull,
                         struct httpd_query_t * nonnull,
                         const httpd_qinfo_t * nonnull);
+
+    /* Called when trigger is destroyed for cleaning purpose. */
     void (* nullable destroy)(httpd_trigger_t * nonnull);
+
+    /* Called after each query on the path fragment for cleaning purpose. */
     void (* nullable on_query_wipe)(struct httpd_query_t * nonnull q);
+
+    /* Callback on http query exception, it can modify the HTTP error code. */
+    void (* nullable on_query_exn)(struct httpd_query_t * nonnull q,
+                                   const iop_struct_t * nullable st,
+                                   const void * nullable exn,
+                                   http_code_t * nonnull code);
 };
 
 struct httpd_trigger_node_t {
