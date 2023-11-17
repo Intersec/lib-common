@@ -2972,6 +2972,7 @@ static int httpc_on_connect(el_t evh, int fd, short events, data_t priv)
         if (w->cfg->ssl_ctx) {
             w->ssl = SSL_new(w->cfg->ssl_ctx);
             assert (w->ssl);
+            SSL_set_tlsext_host_name(w->ssl, w->pool->host.s);
             SSL_set_fd(w->ssl, fd);
             SSL_set_connect_state(w->ssl);
             el_fd_set_hook(evh, &httpc_tls_handshake);
