@@ -244,9 +244,34 @@ struct HttpcCfg {
     /** TLS */
     bool    tlsOn            = false;
 
-    /** Trusted certificate.
+    /** Contents of a trusted certificate file.
      *
-     * (mandatory with tlsOn = true).
+     * In order to validate a certificate, a CA authority is required.
+     * For example, if a certificate is generated from another one, the
+     * parent certificate will be your certification.
+     *
+     * There are default paths where SSL stores the certificates
+     * (see 'OPENSSLDIR' on 'openssl version -a' command).
+     *
+     * If tlsCert is not set, all certificates present on these default paths
+     * will be used to validate the server certificate.
+     * If this field has a value, only this certificate will be used to
+     * validate the server certificate.
+     *
+     * If a chain of certificates is used by the server, it is necessary to
+     * have all certificates (in this field if set or in your defaults paths;
+     * see previous paragraph) from the parent certificate of the one used in
+     * your server to the root of the chain.
+     *
+     * For example, lets say we have this chain A -> B -> C, with B
+     * certificate signed by A and C signed by B.
+     * If only C is given on server side (and A and B unknown even on SSL
+     * default server paths), then A and B will be necessary on client side
+     * (either in tlsCert field or in default paths) (only C will be
+     * given to the client during handshake).
+     * But, if B is also given on server side (or B is stored on SSL default
+     * server paths), then, just A will be necessary (because B and C will be
+     * given to the client during handshake).
      */
     string? tlsCert;
 
