@@ -717,6 +717,7 @@ typedef struct httpc_cfg_t {
     unsigned     header_size_max;
     lstr_t       client_tls_cert;
     lstr_t       client_tls_key;
+    bool         check_server_cert;
 
     SSL_CTX      * nullable ssl_ctx;
     http2_pool_t * nullable http2_pool;

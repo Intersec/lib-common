@@ -287,6 +287,8 @@ struct HttpcCfg {
 
     /** Contents of a trusted certificate file.
      *
+     * Used only if checkServerCert is set to true.
+     *
      * In order to validate a certificate, a CA authority is required.
      * For example, if a certificate is generated from another one, the
      * parent certificate will be your certification.
@@ -336,6 +338,24 @@ struct HttpcCfg {
     *  Relevant only if \p tlsOn is true.
     bool    fallbackToHttp1    = false;
     */
+
+   /** Activate server certificate check.
+
+    * If set to true, client will retrieve server certificate and check its
+    * validity. If this check fails, handshake will be refused.
+    * If set to false, client will not check server certificate but it will
+    * accept the handshake (that can still be refused by server).
+    */
+    bool checkServerCert = true;
+
+    /** Set max intermediate CA.
+
+     * Defines the maximum number of intermediate CA in order to validate the
+     * server certificate. If the number of intermediate CA is bigger than
+     * the maximum defined in checkCertDepth, the handshake will fail.
+     * If not set, SSL default value is used: 100.
+     */
+    int? checkCertDepth;
 };
 
 enum IopHttpMethod {

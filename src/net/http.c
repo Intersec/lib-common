@@ -2485,11 +2485,14 @@ static int (*httpc_parsers[])(httpc_t *w, pstream_t *ps) = {
 int httpc_cfg_tls_init(httpc_cfg_t *cfg, sb_t *err)
 {
     SSL_CTX *ctx;
+    int flags;
 
     assert (cfg->ssl_ctx == NULL);
 
+    flags = cfg->check_server_cert ? SSL_VERIFY_PEER: SSL_VERIFY_NONE;
     ctx = ssl_ctx_new_tls(TLS_client_method(), cfg->client_tls_key,
-                          cfg->client_tls_cert, SSL_VERIFY_PEER, NULL, err);
+                          cfg->client_tls_cert, flags, NULL, err);
+
     httpc_cfg_set_ssl_ctx(cfg, ctx);
     return cfg->ssl_ctx ? 0 : -1;
 }
@@ -2530,6 +2533,7 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
     cfg->on_data_threshold = iop_cfg->on_data_threshold;
     cfg->header_line_max   = iop_cfg->header_line_max;
     cfg->header_size_max   = iop_cfg->header_size_max;
+    cfg->check_server_cert = iop_cfg->check_server_cert;
 
     /* TODO: remove the http_mode enum and use flag(s) instead. */
     if (iop_cfg->use_http2) {
@@ -2556,31 +2560,38 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
             return -1;
         }
 
-        if (iop_cfg->tls_cert.s) {
-            char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
-            int ret;
+        if (cfg->check_server_cert) {
+            if (iop_cfg->tls_cert.s) {
+                char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
+                int ret;
 
-            ret = write_in_tmp_file(path, iop_cfg->tls_cert.s,
-                                    iop_cfg->tls_cert.len, &err);
+                ret = write_in_tmp_file(path, iop_cfg->tls_cert.s,
+                                             iop_cfg->tls_cert.len, &err);
+                if (ret < 0) {
+                    httpc_cfg_tls_wipe(cfg);
+                    logger_error(&_G.logger, "tls: failed to dump certificate: "
+                                 "%*pM", SB_FMT_ARG(&err));
+                    return -1;
+                }
 
-            if (ret < 0) {
-                httpc_cfg_tls_wipe(cfg);
-                logger_error(&_G.logger, "tls: failed to dump certificate: "
-                             "%*pM", SB_FMT_ARG(&err));
-                return -1;
+                ret = httpc_cfg_tls_add_verify_file(cfg, LSTR(path));
+                unlink(path);
+
+                if (ret < 0) {
+                    httpc_cfg_tls_wipe(cfg);
+                    logger_error(&_G.logger, "tls: failed to load certificate");
+                    return -1;
+                }
+            } else {
+                SSL_CTX_set_default_verify_paths(cfg->ssl_ctx);
             }
-
-            ret = httpc_cfg_tls_add_verify_file(cfg, LSTR(path));
-            unlink(path);
-
-            if (ret < 0) {
-                httpc_cfg_tls_wipe(cfg);
-                logger_error(&_G.logger, "tls: failed to load certificate");
-                return -1;
-            }
-        } else {
-            SSL_CTX_set_default_verify_paths(cfg->ssl_ctx);
         }
+
+        if (OPT_ISSET(iop_cfg->check_cert_depth)) {
+            SSL_CTX_set_verify_depth(cfg->ssl_ctx,
+                                     OPT_VAL(iop_cfg->check_cert_depth));
+        }
+
     }
 
     return 0;
