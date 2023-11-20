@@ -1565,6 +1565,7 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
         SSL_CTX *ctx;
         core__tls_cert_and_key__t *data;
         SB_1k(errbuf);
+        int flags;
 
         data = IOP_UNION_GET(core__tls_cfg, iop_cfg->tls, data);
         if (!data) {
@@ -1573,13 +1574,23 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
             logger_panic(&_G.logger, "TLS data are not provided");
         }
 
+        flags = iop_cfg->check_client_cert ? SSL_VERIFY_PEER |
+           SSL_VERIFY_FAIL_IF_NO_PEER_CERT: SSL_VERIFY_NONE;
+
         ctx = ssl_ctx_new_tls(TLS_server_method(), data->key, data->cert,
-                              SSL_VERIFY_NONE, NULL, &errbuf);
+                              flags, NULL, &errbuf);
         httpd_cfg_set_ssl_ctx(cfg, ctx);
         if (!cfg->ssl_ctx) {
             logger_fatal(&_G.logger, "couldn't initialize SSL_CTX: %*pM",
                          SB_FMT_ARG(&errbuf));
         }
+        SSL_CTX_set_default_verify_paths(cfg->ssl_ctx);
+
+        if (OPT_ISSET(iop_cfg->check_cert_depth)) {
+            SSL_CTX_set_verify_depth(cfg->ssl_ctx,
+                                     OPT_VAL(iop_cfg->check_cert_depth));
+        }
+
     }
 
     return 0;
@@ -2533,7 +2544,6 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
     cfg->on_data_threshold = iop_cfg->on_data_threshold;
     cfg->header_line_max   = iop_cfg->header_line_max;
     cfg->header_size_max   = iop_cfg->header_size_max;
-    cfg->check_server_cert = iop_cfg->check_server_cert;
 
     /* TODO: remove the http_mode enum and use flag(s) instead. */
     if (iop_cfg->use_http2) {
@@ -2554,6 +2564,8 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
             cfg->client_tls_cert = lstr_dup(data->cert);
             cfg->client_tls_key = lstr_dup(data->key);
         }
+
+        cfg->check_server_cert = iop_cfg->check_server_cert;
 
         if (httpc_cfg_tls_init(cfg, &err) < 0) {
             logger_error(&_G.logger, "tls: init: %*pM", SB_FMT_ARG(&err));

@@ -266,6 +266,27 @@ struct HttpdCfg {
      * (just C will be sent to the client).
      */
     TlsCfg? tls;
+
+   /** Activate client certificate check.
+    *
+    * Activating this will activate mutual TLS authentication (mTLS) feature:
+    * server and client will check each other's certificate.
+    *
+    * If set to true, server will retrieve the client certificate and check
+    * its validity. If this check failed, handshake will be refused.
+    * If set to false, server will not check the client certificate but it
+    * will accept the handshake (that can still be refused by client).
+    */
+    bool checkClientCert = false;
+
+    /** Set max intermediate CA.
+
+     * Defines the maximum number of intermediate CA in order to validate the
+     * client certificate. If the number of intermediate CA is bigger than
+     * the maximum defined in checkCertDepth, the handshake will fail.
+     * If not set, SSL default value is used: 100.
+     */
+    int? checkCertDepth;
 };
 
 struct HttpcCfg {
