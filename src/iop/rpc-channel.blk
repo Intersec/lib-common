@@ -57,6 +57,10 @@ static struct {
     logger_t tracing_logger;
 
     bool tls_disabled;
+
+    /* User versioning */
+    uint32_t user_version;
+    ic_user_version_check_f *user_version_check_cb;
 } ic_g = {
 #define _G  ic_g
     .logger = LOGGER_INIT_INHERITS(NULL, "ic"),
@@ -347,6 +351,16 @@ SSL_CTX *ic_get_ssl_ctx(void)
 X509 *ic_get_certificate(void)
 {
     return _G.certificate;
+}
+
+void ic_set_user_version(uint32_t user_version,
+                         ic_user_version_check_f check_cb)
+{
+    assert(!_G.user_version || _G.user_version == user_version);
+    assert(qm_len(ic, &_G.ics) == 0);
+
+    _G.user_version = user_version;
+    _G.user_version_check_cb = check_cb;
 }
 
 static int ic_initialize(void *arg)
@@ -1715,11 +1729,25 @@ static int ic_check_msg_hdr(ichannel_t *ic)
             if (ic->peer_version <= 0) {
                 goto reject;
             }
-            if (ic->peer_version <= IC_VERSION && dlen != IC_MSG_VERSION_DLEN)
+            /* In case the remote peer shares a protocol version lower or
+             * equal to ours, we check that the message payload is in the
+             * min/max range. Invalid in-between lengths will be actually
+             * caught during the parsing depending on the flags found in the
+             * message.
+             */
+            if (ic->peer_version <= IC_VERSION &&
+                (dlen < IC_MSG_VERSION_DLEN_MIN ||
+                 dlen > IC_MSG_VERSION_DLEN_MAX))
             {
                 goto reject;
             }
-            if (dlen < IC_MSG_VERSION_DLEN) {
+            /* In case the remote peer has a greater version than ours, we can
+             * only check that we have enough bytes (dlen-min) to parse the
+             * message flags to handle forward compatibility. Indeed this peer
+             * could use new flags and thus use a greater payload than we
+             * thought possible.
+             */
+            if (dlen < IC_MSG_VERSION_DLEN_MIN) {
                 goto reject;
             }
             break;
@@ -2692,19 +2720,28 @@ bool ic_set_tls_disabled(bool val)
  * connection if you need. */
 static int ic_version_write(ichannel_t *ic, int fd)
 {
-    char buffer[16];
+    byte buffer[IC_MSG_HDR_LEN + IC_MSG_VERSION_DLEN_MAX];
     uint16_t flags = 0;
+    int dlen = IC_MSG_HDR_LEN + IC_MSG_VERSION_DLEN_MIN;
+    byte *p = buffer;
 
     if (ic_is_tls_enabled(ic)) {
         flags |= IC_SC_VERSION_TLS;
     }
+    if (_G.user_version) {
+        flags |= IC_SC_VERSION_UV;
+        dlen += 4;
+    }
 
-    put_unaligned_le32(buffer, IC_SC_VERSION);
-    put_unaligned_le32(buffer + IC_MSG_CMD_OFFSET, IC_MSG_STREAM_CONTROL);
-    put_unaligned_le32(buffer + IC_MSG_DLEN_OFFSET, IC_MSG_VERSION_DLEN);
-    put_unaligned_le16(buffer + IC_MSG_HDR_LEN, IC_VERSION);
-    put_unaligned_le16(buffer + IC_MSG_HDR_LEN + 2, flags);
-    return (write(fd, buffer, sizeof(buffer)) != sizeof(buffer)) ? -1 : 0;
+    p = put_unaligned_le32(p, IC_SC_VERSION);
+    p = put_unaligned_le32(p, IC_MSG_STREAM_CONTROL);
+    p = put_unaligned_le32(p, dlen - IC_MSG_HDR_LEN);
+    p = put_unaligned_le16(p, IC_VERSION);
+    p = put_unaligned_le16(p, flags);
+    if (_G.user_version) {
+        p = put_unaligned_le32(p, _G.user_version);
+    }
+    return (write(fd, buffer, dlen) != dlen) ? -1 : 0;
 }
 
 /*----- ichannel life cycle API -----*/
@@ -2827,10 +2864,11 @@ static int ic_tls_handshake(el_t ev, int fd, short events, data_t priv)
  */
 static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
 {
-    ichannel_t *ic = priv.ptr;
-    sb_t *buf = &ic->rbuf;
     ssize_t res;
     int slot, dlen, cmd;
+    ichannel_t *ic = priv.ptr;
+    sb_t *buf = &ic->rbuf;
+    uint32_t user_version = 0;
 
     if (events == EL_EVENTS_NOACT) {
         goto error;
@@ -2865,22 +2903,33 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
         goto error;
     }
     if (cmd == IC_MSG_STREAM_CONTROL && slot == IC_SC_VERSION) {
-        char *data = buf->data + IC_MSG_HDR_LEN;
+        pstream_t ps;
         uint16_t version;
         uint16_t vflags;
 
-        if (dlen < IC_MSG_VERSION_DLEN) {
+        if (dlen < IC_MSG_VERSION_DLEN_MIN) {
             goto error;
         }
-        if (buf->len < IC_MSG_HDR_LEN + IC_MSG_VERSION_DLEN) {
+        if (buf->len < IC_MSG_HDR_LEN + dlen) {
             if (ev == NULL) {
                 goto again_blocking;
             }
             return 0;
         }
-        version = get_unaligned_le16(data);
-        vflags = get_unaligned_le16(data + 2);
-        ic->peer_version = version;
+
+        ps = ps_init(buf->data + IC_MSG_HDR_LEN, dlen);
+
+        version = __ps_get_le16(&ps);
+        if (version <= IC_VERSION && dlen > IC_MSG_VERSION_DLEN_MAX) {
+            /* If the remote peer as a version lower or equal to ours then any
+             * payload exceeding dlen-max must be invalid. Otherwise we need
+             * to handle forward-compatibility and expect the remote peer to
+             * know new flags and fields we don't know about.
+             */
+            goto error;
+        }
+
+        vflags = __ps_get_le16(&ps);
         if (vflags & IC_SC_VERSION_TLS) {
             if (_G.tls_disabled) {
                 logger_warning(&_G.logger, "peer asked for TLS activation, "
@@ -2888,12 +2937,30 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
             }
             ic->tls_required = true;
         }
+        if (vflags & IC_SC_VERSION_UV) {
+            if (ps_get_le32(&ps, &user_version) < 0) {
+                logger_error(&_G.logger, "user version flag set but missing"
+                             " in payload");
+                goto error;
+            }
+        }
+        ic->peer_version = version;
         sb_skip(buf, IC_MSG_HDR_LEN + dlen);
     } else {
         ic->peer_version = 0;
     }
 
-    /* Compatibility checks. */
+    /* Check for custom user version compatibility. */
+    if (_G.user_version_check_cb &&
+        !(*_G.user_version_check_cb)(user_version))
+    {
+        logger_warning(&_G.logger, "remote user version %u is incompatible"
+                       " with us (%u), connection rejected",
+                       user_version, _G.user_version);
+        goto error;
+    }
+
+    /* TLS compatibility checks. */
     if (ic_is_tls_enabled(ic)) {
         assert (!ic->is_unix);
         if (ic->peer_version < 1) {

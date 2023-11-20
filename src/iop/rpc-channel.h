@@ -183,26 +183,34 @@
  * ├───────────────┴───────────────────────────────────────────────┤
  * │                           0x80000000                          │ = Command
  * ├───────────────────────────────────────────────────────────────┤
- * │                        Data length = 4                        │
- * ├───────────────────────────────┬─┬─────────────────────────────┤
- * │          Version = 1          │T│          Reserved           │ } 2x16LE
- * └───────────────────────────────┴─┴─────────────────────────────┘
+ * │                        Data length = 4 or 8                   │
+ * ├───────────────────────────────┬─┬─┬───────────────────────────┤
+ * │          Version = 1          │T│U│        Reserved           │ } 2x16LE
+ * ├───────────────────────────────┴─┴─┴───────────────────────────┤
+ * │          User version (if flag U is set)                      │ } 32LE
+ * └───────────────────────────────────────────────────────────────┘
  *
  * This MUST be the very first message sent by both the server and the
  * client. If not, then the remote version is 0 and each flag is considered
  * unset.
  *
- *     Type    Set to IC_SC_VERSION.
+ *     Type          Set to IC_SC_VERSION.
  *
- *     Reserved  See 1.2.
+ *     Reserved      See 1.2.
  *
- *     Version  The version of the IC channel (IC_VERSION).
+ *     Version       The version of the IC channel (IC_VERSION).
  *
- *     T       Indicate that TLS is required on this connection. If one peer
- *             require TLS, then both peers proceed to the TLS handshake (or
- *             close the connection).
+ *     T             Indicate that TLS is required on this connection. If one
+ *                   peer require TLS, then both peers proceed to the TLS
+ *                   handshake (or close the connection).
  *
- *     Reserved  MUST be set to 0, reserved for future use.
+ *     U             Indicates that a User version field is present.
+ *
+ *     Reserved      MUST be set to 0, reserved for future use.
+ *
+ *     User version  Optional version provided by the user for higher level
+ *                   compatibility check. This field is present when the flag
+ *                   U is set and Data length equals 8.
  *
  * 2  IChannel connection establishment
  * ====================================
@@ -311,7 +319,8 @@ typedef enum ic_event_t {
 #define IC_MSG_HDR_LEN             12
 #define IC_MSG_CMD_OFFSET           4
 #define IC_MSG_DLEN_OFFSET          8
-#define IC_MSG_VERSION_DLEN         4
+#define IC_MSG_VERSION_DLEN_MIN     4
+#define IC_MSG_VERSION_DLEN_MAX     8
 #define IC_PKT_MAX              65536
 
 #define IC_ID_MAX               BITMASK_LE(uint32_t, 30)
@@ -324,6 +333,7 @@ typedef enum ic_event_t {
                                             2) << IC_MSG_PRIORITY_SHIFT)
 
 #define IC_SC_VERSION_TLS  (1U << 15)
+#define IC_SC_VERSION_UV   (1U << 14)
 
 #define IC_PROXY_MAGIC_CB       ((ic_msg_cb_f *)-1)
 
@@ -2053,5 +2063,26 @@ X509 * nonnull ic_get_certificate(void);
  * \return  if encryption was disabled before the call or not
  */
 bool ic_set_tls_disabled(bool val);
+
+/** Callback to check the compatibility of a user_version.
+ *
+ * \return True if the version is accepted, false otherwise.
+ */
+typedef bool (ic_user_version_check_f)(uint32_t user_version);
+
+/** Set the current user version for all the current and future IChannel.
+ *
+ * \param[in]  user_version
+*      The user-version will be set for all the current and future IChannel
+*      and exchange through the IChannel protocol, allowing the remote peers
+*      to check for compatibility.
+ * \param[in]  check_cb
+ *     The callback that will be used to check user-version compatibility
+ *     during the IChannel handshake procedure with remote peers. If no
+ *     version is provided by a remote peer, then the callback will be called
+ *     with the user_version set to 0.
+ */
+void ic_set_user_version(uint32_t user_version,
+                         ic_user_version_check_f *nonnull check_cb);
 
 #endif

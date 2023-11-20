@@ -21,6 +21,7 @@
 #include <lib-common/z.h>
 #include <lib-common/iop-rpc.h>
 #include <lib-common/core/core.iop.h>
+#include <lib-common/datetime.h>
 
 #include "iop/tstiop_rpc.iop.h"
 
@@ -30,6 +31,7 @@ typedef struct ctx_t {
 
 static struct {
     ichannel_t         *ic_aux;
+    ichannel_t         *ic_spawned;
     int                 mode;
     ic_status_t         status;
     core__log_level__t  level;
@@ -40,6 +42,7 @@ static struct {
     bool sub_query_called;
     bool sub_query_called_synchronously;
     bool reply_status_is_abort;
+    uint32_t last_user_version;
 } z_iop_rpc_g;
 #define _G  z_iop_rpc_g
 
@@ -194,6 +197,58 @@ static void IOP_RPC_IMPL(tstiop_rpc__rpc, test, echo)
 static void dummy_on_event(ichannel_t *ic, ic_event_t evt)
 {
     return;
+}
+
+static bool check_user_version_true(uint32_t user_version)
+{
+    _G.last_user_version = user_version;
+
+    return true;
+}
+
+static bool check_user_version_false(uint32_t user_version)
+{
+    _G.last_user_version = user_version;
+
+    return false;
+}
+
+static int z_ic_on_accept(el_t ev, int fd)
+{
+    _G.ic_spawned = ic_new();
+    _G.ic_spawned->on_event = &dummy_on_event;
+    _G.ic_spawned->impl = &ic_no_impl;
+    _G.ic_spawned->do_el_unref = true;
+    _G.ic_spawned->no_autodel = true;
+    _G.ic_spawned->auto_reconn = false;
+
+    ic_spawn(_G.ic_spawned, fd, NULL);
+    return 0;
+}
+
+static int
+z_connect_ics_and_wait(ichannel_t *ic_client, const sockunion_t *su)
+{
+    time_t start_ts = lp_getsec();
+
+    ic_init(ic_client);
+    ic_client->su          = *su;
+    ic_client->on_event    = &dummy_on_event;
+    ic_client->impl        = &ic_no_impl;
+    ic_client->auto_reconn = false;
+    Z_ASSERT_N(ic_connect(ic_client));
+
+    ic_delete(&_G.ic_spawned);
+    while (!(_G.ic_spawned && ic_is_ready(_G.ic_spawned) &&
+             ic_is_ready(ic_client)) &&
+           (lp_getsec() - start_ts) <= 2)
+    {
+        el_loop_timeout(100);
+    }
+
+    Z_ASSERT_P(_G.ic_spawned);
+
+    Z_HELPER_END;
 }
 
 /* }}} */
@@ -385,6 +440,57 @@ Z_GROUP_EXPORT(iop_rpc)
         ctx = ic_hook_ctx_new(2, 0);
 
         Z_ASSERT_P(ctx);
+    } Z_TEST_END;
+
+    Z_TEST(ic_user_version, "ipo-rpc: user version tests") {
+        el_t server_ev;
+        ichannel_t ic_client;
+        int port;
+        sockunion_t su = {
+            .sin = {
+                .sin_family = AF_INET,
+                .sin_addr = { .s_addr = htonl(INADDR_LOOPBACK) },
+            }
+        };
+
+        server_ev = ic_listento(&su, SOCK_STREAM, IPPROTO_TCP,
+                                &z_ic_on_accept);
+        Z_ASSERT_P(server_ev);
+
+        port = getsockport(el_fd_get_fd(server_ev), AF_INET);
+        sockunion_setport(&su, port);
+
+        /* Test to establish a connection between 2 ICs with compatible
+         * versions. */
+        _G.last_user_version = 0;
+        ic_set_user_version(0xdeadbeef, &check_user_version_true);
+
+        Z_HELPER_RUN(z_connect_ics_and_wait(&ic_client, &su));
+
+        /* Both ICs should be connected, the version set should be the one to
+         * be tested. */
+        Z_ASSERT(_G.ic_spawned->is_connected);
+        Z_ASSERT(ic_client.is_connected);
+        Z_ASSERT_EQ(_G.last_user_version, 0xdeadbeef);
+
+        ic_wipe(&ic_client);
+        ic_delete(&_G.ic_spawned);
+
+        /* Now test to establish a connection between 2 ICs with incompatible
+         * versions. */
+        _G.last_user_version = 0;
+        ic_set_user_version(0xdeadbeef, &check_user_version_false);
+
+        Z_HELPER_RUN(z_connect_ics_and_wait(&ic_client, &su));
+
+        /* Both ICs should stayed disconnected since the user version was
+         * rejected. */
+        Z_ASSERT(!_G.ic_spawned->is_connected);
+        Z_ASSERT(!ic_client.is_connected);
+
+        ic_wipe(&ic_client);
+        ic_delete(&_G.ic_spawned);
+        el_unregister(&server_ev);
     } Z_TEST_END;
 
     MODULE_RELEASE(ic);
