@@ -16,6 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
+#include <sys/file.h>
 #include <lib-common/unix.h>
 #include <lib-common/datetime.h>
 
@@ -35,9 +36,13 @@
 static struct {
     logger_t logger;
     unsigned http2_conn_count;
+    int      ssl_keylog_fd;
+    char    *ssl_keylog_file_path;
 } http_g = {
 #define _G  http_g
     .logger = LOGGER_INIT_INHERITS(NULL, "http"),
+    .ssl_keylog_fd = -1,
+    .ssl_keylog_file_path = NULL,
 };
 
 /*
@@ -457,12 +462,88 @@ http_clength_patch(outbuf_t *ob, char s[static CLENGTH_RESERVE], unsigned len)
 }
 
 /* }}} */
-
 /* HTTPS helpers {{{ */
 
 ALWAYS_INLINE static int ssl_add_verify_file(SSL_CTX *ctx, lstr_t path)
 {
     return SSL_CTX_load_verify_locations(ctx, path.s, NULL) == 1 ? 0 : -1;
+}
+
+#if OPENSSL_VERSION_IS(>,1,1,0)
+
+static int ssl_open_keylog_file(void)
+{
+    if (_G.ssl_keylog_fd >= 0) {
+        return 0;
+    }
+
+    /* Give read and write permission for user only. */
+    _G.ssl_keylog_fd = open(_G.ssl_keylog_file_path,
+                            O_CREAT | O_WRONLY | O_APPEND,
+                            S_IRUSR | S_IWUSR);
+
+    if (_G.ssl_keylog_fd < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
+static void ssl_keylog_cb(const SSL *ssl, const char *line)
+{
+    /* This callback is called when TLS key is generated or received, so it is
+     * for example called systematically at handshake. It will store the key
+     * for debugging purposes allowing us to decode exchanges. */
+
+    /* If _G.ssl_keylog_file_path is NULL, ssl_keylog_cb is not called. */
+    assert(_G.ssl_keylog_file_path);
+
+    if (ssl_open_keylog_file() < 0) {
+        logger_trace(&_G.logger, 1, "error when trying to open file from "
+                     "env var 'SSLKEYLOGFILE' value '%s': %m",
+                     _G.ssl_keylog_file_path);
+        return;
+    }
+
+    if (flock(_G.ssl_keylog_fd, LOCK_EX) < 0) {
+        logger_trace(&_G.logger, 1, "error when locking SSL key log file: "
+                     " `%m`");
+        return;
+    }
+
+    if ((write(_G.ssl_keylog_fd, line, strlen(line)) < 0) ||
+        (write(_G.ssl_keylog_fd, "\n", 1) < 0))
+    {
+        logger_trace(&_G.logger, 1, "error when writing SSL key: `%m`");
+    }
+
+    flock(_G.ssl_keylog_fd, LOCK_UN);
+}
+
+static void set_ssl_keylog_cb(SSL_CTX *ssl_ctx)
+{
+    if (!_G.ssl_keylog_file_path) {
+        return;
+    }
+
+    if (ssl_open_keylog_file() < 0) {
+        logger_error(&_G.logger, "error when trying to open file from "
+                     "env var 'SSLKEYLOGFILE' value '%s': %m",
+                     _G.ssl_keylog_file_path);
+        return;
+    }
+
+    SSL_CTX_set_keylog_callback(ssl_ctx, ssl_keylog_cb);
+}
+
+#endif
+
+static void close_ssl_keylog_file(void)
+{
+    if (p_close(&_G.ssl_keylog_fd) < 0) {
+        logger_error(&_G.logger, "error when closing file `%s`: `%m`",
+                     _G.ssl_keylog_file_path);
+    }
 }
 
 /* }}} */
@@ -1506,6 +1587,7 @@ httpd_cfg_t *httpd_cfg_init(httpd_cfg_t *cfg)
 static void httpd_cfg_tls_wipe(httpd_cfg_t *cfg)
 {
     if (cfg->ssl_ctx) {
+        close_ssl_keylog_file();
         SSL_CTX_free(cfg->ssl_ctx);
         cfg->ssl_ctx = NULL;
     }
@@ -1630,6 +1712,10 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
                 SSL_CTX_set_default_verify_paths(cfg->ssl_ctx);
             }
         }
+
+#if OPENSSL_VERSION_IS(>,1,1,0)
+        set_ssl_keylog_cb(cfg->ssl_ctx);
+#endif
 
         if (OPT_ISSET(iop_cfg->check_cert_depth)) {
             SSL_CTX_set_verify_depth(cfg->ssl_ctx,
@@ -2551,6 +2637,7 @@ int httpc_cfg_tls_init(httpc_cfg_t *cfg, sb_t *err)
 void httpc_cfg_tls_wipe(httpc_cfg_t *cfg)
 {
     if (cfg->ssl_ctx) {
+        close_ssl_keylog_file();
         SSL_CTX_free(cfg->ssl_ctx);
         cfg->ssl_ctx = NULL;
     }
@@ -2638,11 +2725,14 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
             }
         }
 
+#if OPENSSL_VERSION_IS(>,1,1,0)
+        set_ssl_keylog_cb(cfg->ssl_ctx);
+#endif
+
         if (OPT_ISSET(iop_cfg->check_cert_depth)) {
             SSL_CTX_set_verify_depth(cfg->ssl_ctx,
                                      OPT_VAL(iop_cfg->check_cert_depth));
         }
-
     }
 
     return 0;
@@ -7470,11 +7560,19 @@ static void httpd_http2_set_mask(httpd_t *w)
 
 static int http_initialize(void *arg)
 {
+    const char *ssl_keylog_file_path = getenv("SSLKEYLOGFILE");
+
+    if (ssl_keylog_file_path && strlen(ssl_keylog_file_path)) {
+        _G.ssl_keylog_file_path = strdup(ssl_keylog_file_path);
+    }
+
     return 0;
 }
 
 static int http_shutdown(void)
 {
+    p_delete(&_G.ssl_keylog_file_path);
+
     return 0;
 }
 
