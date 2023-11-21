@@ -187,6 +187,11 @@ struct qps_mhdr_t {
     uint64_t rz_after_block;
     uint64_t rz_alloc_size;
 #endif
+    /* Flags field is set as follow:
+     *  - bits 31 to 2 for block size (in words of 8 bytes), see
+     *    qps_m_blk_size()
+     *  - bit 1: tells if the current block is used or freed
+     *  - bit 0: like bit 1 but for the previous block */
     uint32_t flags;
     uint32_t handle;
 #if QPS_USE_REDZONES
@@ -2254,6 +2259,11 @@ static void *qps_alloc_int(qps_t *qps, qps_handle_t id, size_t asked)
     } else {
         size = ROUND_UP(size, 1 << QPS_ML2_OFFSET);
     }
+
+    /* XXX: If allocation occurs due to data located initially in a read only
+     * tlsf map, allocation of this object can actually be bigger than the
+     * original one. As a consequence, tools checking memory in QPS cannot
+     * rely on size in header block! */
     size = qps_m_alloc_search(size, &l1, &l2);
     blk = qps_m_find_blk(qps, size, &l1, &l2);
     if (unlikely(!blk)) {
@@ -2440,6 +2450,11 @@ static qps_handle_t qps_handle_new(qps_t *qps)
         return id;
     }
     if (unlikely(qps->handles_max % QPS_HANDLES_COUNT == 0)) {
+        /* A new handle has to be created, but there is no remaining space in
+         * the last handle container located inside a qps page
+         * (qps->handles_max never decreases, and no free slot available).
+         * As a consequence, new QPS pages in a QPS page map dedicated for
+         * handle management has to be created. */
         size_t len = qps->handles_max / QPS_HANDLES_COUNT;
         qps_pg_t pg;
 
@@ -2459,6 +2474,9 @@ static void qps_handle_free(qps_t *qps, qps_handle_t id)
 {
     qps_ptr_t *ptr = qps_handle_slot(qps, id);
 
+    /* Insert this handle at the top of the queue of freed handles and use the
+     * the field 'qps_ptr_t::addr' to reference the next free handle (or 0 if
+     * there is none). */
     *ptr = (qps_ptr_t){.addr = qps->handles_freelist};
     qps->handles_freelist = id;
 }

@@ -164,9 +164,15 @@ typedef uint32_t qps_handle_t;
 
 /** Type of a qps generic relocatable pointer. */
 typedef struct qps_ptr_t {
-    /** Offset in the page, should be in [0 .. #QPS_PAGE_SIZE[. */
+    /** Offset in the page, should be in [0 .. #QPS_PAGE_SIZE[.
+     *
+     * This field can also be used for the chained list of freed handles, the
+     * top of this chained list being handles_freelist field of qps
+     * structure.
+     */
     uint32_t addr;
     /** Page the pointer points into.
+     *
      * When this field is NULL, the pointer is invalid.
      */
     qps_pg_t pgno;
@@ -263,7 +269,10 @@ typedef struct qps_t {
 #define QPS_HANDLES_COUNT (1U << 16)
     qps_ptr_t **handles;
     uint32_t handles_max;
-    uint32_t handles_freelist;
+    qps_handle_t handles_freelist; /* Chained list starting with the last
+                                      freed handle where its content in QPS
+                                      page is now the content of the next free
+                                      available one. */
     uint32_t handles_gc_gen;
 
     /* Allocator state, private */
