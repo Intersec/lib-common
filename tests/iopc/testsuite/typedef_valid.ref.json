@@ -1,0 +1,513 @@
+{
+	"name": "typedef_valid",
+
+	"objects": [
+		{
+			"name": "MyStruct",
+			"fullName": "typedef_valid.MyStruct",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "string"
+				},
+				"b": {
+					"type": "int"
+				},
+				"type1": {
+					"type": "string"
+				},
+				"type2": {
+					"type": "string"
+				},
+				"s1": {
+					"type": "typedef1.FooS"
+				},
+				"s2": {
+					"type": "typedef2.FooS"
+				},
+				"u1": {
+					"type": "typedef1.FooU"
+				},
+				"u2": {
+					"type": "typedef2.FooU"
+				},
+				"e1": {
+					"type": "typedef1.FooE"
+				},
+				"e2": {
+					"type": "typedef2.FooE"
+				}
+			}
+		},
+		{
+			"name": "MyUnion",
+			"fullName": "typedef_valid.MyUnion",
+			"type": "union",
+			"fields": {
+				"a": {
+					"type": "string"
+				},
+				"b": {
+					"type": "int"
+				},
+				"c": {
+					"type": "boolean"
+				}
+			}
+		},
+		{
+			"name": "A",
+			"fullName": "typedef_valid.A",
+			"type": "class",
+			"isAbstract": false,
+			"fields": {
+				"a": {
+					"type": "string"
+				}
+			}
+		},
+		{
+			"name": "B",
+			"fullName": "typedef_valid.B",
+			"type": "class",
+			"parent": "typedef_valid.A",
+			"isAbstract": false,
+			"fields": {
+			}
+		},
+		{
+			"name": "TypedefStructUseAll",
+			"fullName": "typedef_valid.TypedefStructUseAll",
+			"type": "struct",
+			"fields": {
+				"ms": {
+					"type": "string"
+				},
+				"opt": {
+					"type": "string",
+					"optional": true
+				},
+				"def": {
+					"type": "string",
+					"default": "test"
+				},
+				"mst": {
+					"type": "string",
+					"constraints": {
+						"maxLength": 12
+					}
+				},
+				"mul": {
+					"type": "ulong"
+				},
+				"muldef": {
+					"type": "ulong",
+					"default": 2
+				},
+				"md": {
+					"type": "number"
+				},
+				"mddef": {
+					"type": "number",
+					"default": 2.00000000000000000e+00
+				},
+				"mddef2": {
+					"type": "number",
+					"default": 2.00000000000000000e+00
+				},
+				"mns": {
+					"type": "string",
+					"constraints": {
+						"pattern": "[0-9]*"
+					}
+				},
+				"m3": {
+					"type": "ulong",
+					"constraints": {
+						"min": 3
+					}
+				},
+				"m37": {
+					"type": "ulong",
+					"default": 7,
+					"constraints": {
+						"min": 3
+					}
+				},
+				"b310": {
+					"type": "ulong",
+					"constraints": {
+						"max": 10,
+						"min": 3
+					}
+				},
+				"msa": {
+					"type": "string",
+					"repeated": true
+				},
+				"msa3": {
+					"type": "string",
+					"repeated": true,
+					"constraints": {
+						"minOccurs": 3
+					}
+				},
+				"msa6": {
+					"type": "string",
+					"repeated": true,
+					"constraints": {
+						"minOccurs": 6
+					}
+				},
+				"msa610": {
+					"type": "string",
+					"repeated": true,
+					"constraints": {
+						"maxOccurs": 10,
+						"minOccurs": 6
+					}
+				},
+				"mnso": {
+					"type": "string",
+					"optional": true,
+					"constraints": {
+						"pattern": "[0-9]*"
+					}
+				},
+				"mea": {
+					"type": "enum1.MyEnum"
+				},
+				"msal": {
+					"type": "typedef_valid.MyStruct"
+				},
+				"mya": {
+					"type": "typedef_valid.MyUnion"
+				},
+				"muab": {
+					"type": "typedef_valid.MyUnion",
+					"constraints": {
+						"allow": ["a","b"
+						]
+					}
+				},
+				"muabc": {
+					"type": "typedef_valid.MyUnion",
+					"constraints": {
+						"allow": ["c","a","b"
+						]
+					}
+				},
+				"muwc": {
+					"type": "typedef_valid.MyUnion",
+					"constraints": {
+						"disallow": ["c"
+						]
+					}
+				},
+				"muwcopt": {
+					"type": "typedef_valid.MyUnion",
+					"optional": true,
+					"constraints": {
+						"disallow": ["c"
+						]
+					}
+				},
+				"a": {
+					"type": "typedef_valid.A"
+				},
+				"b": {
+					"type": "typedef_valid.B"
+				}
+			}
+		},
+		{
+			"name": "TypedefUnionUseAll",
+			"fullName": "typedef_valid.TypedefUnionUseAll",
+			"type": "union",
+			"fields": {
+				"ms": {
+					"type": "string"
+				},
+				"mul": {
+					"type": "ulong"
+				},
+				"mns": {
+					"type": "string",
+					"constraints": {
+						"pattern": "[0-9]*"
+					}
+				},
+				"m3": {
+					"type": "ulong",
+					"constraints": {
+						"min": 3
+					}
+				},
+				"b310": {
+					"type": "ulong",
+					"constraints": {
+						"max": 10,
+						"min": 3
+					}
+				},
+				"mea": {
+					"type": "enum1.MyEnum"
+				},
+				"msal": {
+					"type": "typedef_valid.MyStruct"
+				},
+				"mya": {
+					"type": "typedef_valid.MyUnion"
+				},
+				"muab": {
+					"type": "typedef_valid.MyUnion",
+					"constraints": {
+						"allow": ["a","b"
+						]
+					}
+				},
+				"muabc": {
+					"type": "typedef_valid.MyUnion",
+					"constraints": {
+						"allow": ["c","a","b"
+						]
+					}
+				},
+				"muwc": {
+					"type": "typedef_valid.MyUnion",
+					"constraints": {
+						"disallow": ["c"
+						]
+					}
+				},
+				"a": {
+					"type": "typedef_valid.A"
+				},
+				"b": {
+					"type": "typedef_valid.B"
+				}
+			}
+		},
+		{
+			"name": "C",
+			"fullName": "typedef_valid.C",
+			"type": "class",
+			"parent": "typedef_valid.Bdef",
+			"isAbstract": false,
+			"fields": {
+				"b": {
+					"type": "string"
+				}
+			}
+		},
+		{
+			"name": "RoutingHdr",
+			"fullName": "typedef_valid.RoutingHdr",
+			"type": "struct",
+			"fields": {
+				"route": {
+					"type": "typedef_valid.Route"
+				},
+				"originalHdr": {
+					"type": "typedef_valid.Hdr",
+					"optional": true
+				}
+			}
+		},
+		{
+			"name": "Route",
+			"fullName": "typedef_valid.Route",
+			"type": "class",
+			"isAbstract": true,
+			"fields": {
+			}
+		},
+		{
+			"name": "Hdr",
+			"fullName": "typedef_valid.Hdr",
+			"type": "union",
+			"fields": {
+				"simple": {
+					"type": "typedef1.FooS"
+				},
+				"routing": {
+					"type": "typedef_valid.RoutingHdr"
+				}
+			}
+		},
+		{
+			"name": "TypedefStructUseAllWithList",
+			"fullName": "typedef_valid.TypedefStructUseAllWithList",
+			"type": "struct",
+			"fields": {
+				"listName": {
+					"type": "string"
+				},
+				"list": {
+					"type": "typedef_valid.TypedefStructUseAll",
+					"repeated": true
+				}
+			}
+		},
+		{
+			"name": "MyString",
+			"fullName": "typedef_valid.MyString",
+			"type": "typedef",
+			"typedef": "string"
+		},
+		{
+			"name": "MyULong",
+			"fullName": "typedef_valid.MyULong",
+			"type": "typedef",
+			"typedef": "ulong"
+		},
+		{
+			"name": "MyDouble",
+			"fullName": "typedef_valid.MyDouble",
+			"type": "typedef",
+			"typedef": "number"
+		},
+		{
+			"name": "MyNumericalString",
+			"fullName": "typedef_valid.MyNumericalString",
+			"type": "typedef",
+			"typedef": "string",
+			"constraints": {
+				"pattern": "[0-9]*"
+			}
+		},
+		{
+			"name": "Min3",
+			"fullName": "typedef_valid.Min3",
+			"type": "typedef",
+			"typedef": "ulong",
+			"constraints": {
+				"min": 3
+			}
+		},
+		{
+			"name": "Between3And10",
+			"fullName": "typedef_valid.Between3And10",
+			"type": "typedef",
+			"typedef": "ulong",
+			"constraints": {
+				"max": 10,
+				"min": 3
+			}
+		},
+		{
+			"name": "MyStringArray",
+			"fullName": "typedef_valid.MyStringArray",
+			"type": "typedef",
+			"typedef": "string"
+		},
+		{
+			"name": "MyStringArray6",
+			"fullName": "typedef_valid.MyStringArray6",
+			"type": "typedef",
+			"typedef": "string",
+			"constraints": {
+				"minOccurs": 6
+			}
+		},
+		{
+			"name": "MyNumericalStringOpt",
+			"fullName": "typedef_valid.MyNumericalStringOpt",
+			"type": "typedef",
+			"typedef": "string",
+			"constraints": {
+				"pattern": "[0-9]*"
+			}
+		},
+		{
+			"name": "MyEnumAlias",
+			"fullName": "typedef_valid.MyEnumAlias",
+			"type": "typedef",
+			"typedef": "enum1.MyEnum"
+		},
+		{
+			"name": "MyStructAlias",
+			"fullName": "typedef_valid.MyStructAlias",
+			"type": "typedef",
+			"typedef": "typedef_valid.MyStruct"
+		},
+		{
+			"name": "MyUnionAlias",
+			"fullName": "typedef_valid.MyUnionAlias",
+			"type": "typedef",
+			"typedef": "typedef_valid.MyUnion"
+		},
+		{
+			"name": "MyUnionAB",
+			"fullName": "typedef_valid.MyUnionAB",
+			"type": "typedef",
+			"typedef": "typedef_valid.MyUnion",
+			"constraints": {
+				"allow": ["a","b"
+				]
+			}
+		},
+		{
+			"name": "MyUnionABC",
+			"fullName": "typedef_valid.MyUnionABC",
+			"type": "typedef",
+			"typedef": "typedef_valid.MyUnion",
+			"constraints": {
+				"allow": ["c","a","b"
+				]
+			}
+		},
+		{
+			"name": "MyUnionWithoutC",
+			"fullName": "typedef_valid.MyUnionWithoutC",
+			"type": "typedef",
+			"typedef": "typedef_valid.MyUnion",
+			"constraints": {
+				"disallow": ["c"
+				]
+			}
+		},
+		{
+			"name": "Adef",
+			"fullName": "typedef_valid.Adef",
+			"type": "typedef",
+			"typedef": "typedef_valid.A"
+		},
+		{
+			"name": "Bdef",
+			"fullName": "typedef_valid.Bdef",
+			"type": "typedef",
+			"typedef": "typedef_valid.B"
+		},
+		{
+			"name": "TypedefSimpleHdr",
+			"fullName": "typedef_valid.TypedefSimpleHdr",
+			"type": "typedef",
+			"typedef": "typedef1.FooS"
+		},
+		{
+			"name": "TypedefRoutingHdr",
+			"fullName": "typedef_valid.TypedefRoutingHdr",
+			"type": "typedef",
+			"typedef": "typedef_valid.RoutingHdr"
+		},
+		{
+			"name": "TypedefRoute",
+			"fullName": "typedef_valid.TypedefRoute",
+			"type": "typedef",
+			"typedef": "typedef_valid.Route"
+		},
+		{
+			"name": "TypedefHdr",
+			"fullName": "typedef_valid.TypedefHdr",
+			"type": "typedef",
+			"typedef": "typedef_valid.Hdr"
+		},
+		{
+			"name": "TypedefStructUseAllList",
+			"fullName": "typedef_valid.TypedefStructUseAllList",
+			"type": "typedef",
+			"typedef": "typedef_valid.TypedefStructUseAll"
+		}
+	]
+}

@@ -927,6 +927,9 @@ class IopcTest(z.TestCase):
     def test_gen(self):
         self.check_code_gen_all_langs('tstgen')
 
+    def test_typedef(self):
+        self.check_code_gen_all_langs('typedef_valid')
+
     @z.ZFlags('redmine_50352')
     def test_unions_use_enums(self):
         f1 = ('typedef1.iop', 'unions_use_enums')
