@@ -147,6 +147,67 @@ class IopcTest(z.TestCase):
                                           pkg + '.iop.' + lang,
                                           pkg + '.ref' + "." + lang ]), 0)
 
+    def check_code_gen_lang(self, pkg_name, pkg_path, lang):
+        # First delete the generated files
+        if 'C' in lang:
+            subprocess.call(['rm', '-f', pkg_path + '.iop.c'])
+            subprocess.call(['rm', '-f', pkg_path + '.iop.h'])
+            subprocess.call(['rm', '-f', pkg_path + '-t.iop.h'])
+            subprocess.call(['rm', '-f', pkg_path + '-tdef.iop.h'])
+        if 'json' in lang:
+            subprocess.call(['rm', '-f', pkg_path + '.iop.json'])
+        if 'typescript' in lang:
+            subprocess.call(['rm', '-f', pkg_path + '.iop.ts'])
+
+        # Run iopc
+        self.run_iopc_pass(pkg_name + '.iop', lang)
+
+        # Check generated files against reference files
+        if 'C' in lang:
+            self.check_ref(pkg_path, 'c')
+            self.check_ref(pkg_path, 'h')
+            self.check_ref(pkg_path + '-t', 'h')
+            self.check_ref(pkg_path + '-tdef', 'h')
+        if 'json' in lang:
+            self.check_ref(pkg_path, 'json')
+        if 'typescript' in lang:
+            self.check_ref(pkg_path, 'ts')
+
+    def check_code_gen_all_langs(self, pkg_name):
+        pkg_path = os.path.join(TEST_PATH, pkg_name)
+
+        # Generated with:
+        # langs = ('C', 'json', 'typescript')
+        # lang_combs = list(
+        #     ','.join(langs_comb_perm_n)
+        #     for n in range(len(langs))
+        #     for langs_comb_n in itertools.combinations(langs, n+1)
+        #     for langs_comb_perm_n in itertools.permutations(langs_comb_n)
+        # )
+        lang_combs = [
+            'C',
+            'json',
+            'typescript',
+            'C,json',
+            'json,C',
+            'C,typescript',
+            'typescript,C',
+            'typescript,json',
+            'C,typescript,json',
+            'typescript,C,json',
+            'typescript,json,C'
+
+            # XXX: json before typescript does not generate stable .ts files
+            # 'json,typescript',
+            # 'C,json,typescript',
+            # 'json,C,typescript',
+            # 'json,typescript,C',
+        ]
+
+        # Check the code generation of all lang combinations
+        for lang in lang_combs:
+            self.check_code_gen_lang(pkg_name, pkg_path, lang)
+
     # }}}
 
     # {{{ "Circular" tests
@@ -858,31 +919,13 @@ class IopcTest(z.TestCase):
     # {{{ Code generation
 
     def test_json(self):
-        f = 'tstjson'
-        g = os.path.join(TEST_PATH, f)
-        for lang in ['json', 'C,json', 'json,C']:
-            subprocess.call(['rm', '-f', g + '.iop.json'])
-            self.run_iopc_pass(f + '.iop', lang)
-            self.check_ref(g, 'json')
+        self.check_code_gen_all_langs('tstjson')
 
-    def test_dox_c(self):
-        f = 'tstdox'
-        g = os.path.join(TEST_PATH, f)
-        subprocess.call(['rm', '-f', g + '.iop.c'])
-        self.run_iopc_pass(f + '.iop')
-        self.run_gcc(f + '.iop')
-        for lang in ['json', 'c']:
-            self.check_ref(g, lang)
+    def test_dox(self):
+        self.check_code_gen_all_langs('tstdox')
 
-    def test_gen_c(self):
-        f = 'tstgen'
-        g = os.path.join(TEST_PATH, f)
-        subprocess.call(['rm', '-f', g + '.iop.c'])
-        self.run_iopc_pass(f + '.iop')
-        self.run_iopc_pass('pkg_a.iop')
-        self.run_gcc(f + '.iop')
-        self.check_ref(g, 'c')
-        self.check_ref(g + '-t', 'h')
+    def test_gen(self):
+        self.check_code_gen_all_langs('tstgen')
 
     @z.ZFlags('redmine_50352')
     def test_unions_use_enums(self):

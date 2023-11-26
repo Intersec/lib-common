@@ -1,0 +1,193 @@
+{
+	"name": "tstgen",
+
+	"objects": [
+		{
+			"name": "MyEnumA",
+			"fullName": "tstgen.MyEnumA",
+			"type": "enum",
+			"genAttrs": {
+				"test:gen1": {
+					"type": "boolean",
+					"value": true
+				}
+			},
+			"values": {
+				"VAL_A": {
+					"value": 0,
+					"genAttrs": {
+						"test:gen10": {
+							"type": "double",
+							"value": 2.000500e+01
+						}
+					}
+				},
+				"VAL_B": {
+					"value": 1,
+					"genAttrs": {
+						"test:gen11": {
+							"type": "boolean",
+							"value": true
+						}
+					}
+				},
+				"VAL_C": {
+					"value": 2,
+					"genAttrs": {
+						"test:gen12": {
+							"type": "string",
+							"value": "gen7\n"
+						}
+					},
+					"aliases": ["ALIAS_C"
+					]
+				}
+			},
+			"valuesHelp": {
+				"VAL_A": {
+					"brief": "Test doc + generic attributes on enum value"
+				}
+			}
+		},
+		{
+			"name": "MyStructA",
+			"fullName": "tstgen.MyStructA",
+			"type": "struct",
+			"genAttrs": {
+				"test:gen2": {
+					"type": "int",
+					"value": 10
+				},
+				"test:gen3": {
+					"type": "string",
+					"value": "test"
+				},
+				"test:gen4": {
+					"type": "boolean",
+					"value": false
+				}
+			},
+			"fields": {
+				"i": {
+					"type": "int"
+				},
+				"j": {
+					"type": "int",
+					"genAttrs": {
+						"test:gen3": {
+							"type": "double",
+							"value": 1.000000e+01
+						}
+					}
+				},
+				"d1": {
+					"type": "number",
+					"default": 1.00000000000000000e+02,
+					"genAttrs": {
+						"test:d1": {
+							"type": "double",
+							"value": 1.000000e-02
+						},
+						"test:d2": {
+							"type": "double",
+							"value": 1.000000e+02
+						}
+					}
+				},
+				"weakRef1": {
+					"type": "pkg_a.A",
+					"optional": true
+				},
+				"weakRef2": {
+					"type": "pkg_a.A",
+					"optional": true
+				}
+			}
+		},
+		{
+			"name": "MyUnionA",
+			"fullName": "tstgen.MyUnionA",
+			"type": "union",
+			"fields": {
+				"f4": {
+					"type": "long"
+				},
+				"f1": {
+					"type": "boolean"
+				}
+			}
+		},
+		{
+			"name": "Optimized",
+			"fullName": "tstgen.Optimized",
+			"type": "struct",
+			"fields": {
+				"f3": {
+					"type": "boolean"
+				},
+				"f4": {
+					"type": "long"
+				},
+				"f1": {
+					"type": "boolean"
+				},
+				"f2": {
+					"type": "long"
+				}
+			}
+		},
+		{
+			"name": "MyClassA",
+			"fullName": "tstgen.MyClassA",
+			"type": "class",
+			"isAbstract": false,
+			"fields": {
+			}
+		},
+		{
+			"name": "funAArgs",
+			"fullName": "tstgen.MyIfaceA.funAArgs",
+			"type": "struct",
+			"fields": {
+				"a": {
+					"type": "int"
+				}
+			}
+		}
+	],
+
+	"interfaces": [
+		{
+			"name": "MyIfaceA",
+			"fullName": "tstgen.MyIfaceA",
+			"genAttrs": {
+				"test:gen4": {
+					"type": "string",
+					"value": "test"
+				}
+			},
+			"rpcs": {
+				"funA": {
+					"genAttrs": {
+						"test:gen5": {
+							"type": "double",
+							"value": 2.000500e+01
+						},
+						"test:gen6": {
+							"type": "boolean",
+							"value": true
+						},
+						"test:gen7": {
+							"type": "string",
+							"value": "gen7"
+						}
+					},
+					"in": "tstgen.MyIfaceA.funAArgs"
+				},
+				"funB": {
+					"async": true
+				}
+			}
+		}
+	]
+}
