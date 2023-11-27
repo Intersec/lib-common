@@ -82,7 +82,7 @@ pkg_provides_struct(iopc_pkg_t *pkg, const char *type, bool visible,
         tab_for_each_entry(td, &pkg->typedefs) {
             RETHROW(iopc_field_resolve(pkg, td, NULL));
 
-            if ((td->kind == IOP_T_STRUCT) && (td->type_pkg == pkg)) {
+            if (td->kind == IOP_T_STRUCT) {
                 iopc_struct_t *st = td->struct_def;
 
                 if (IS_IOPC_SYMBOL_VISIBLE_AND_TYPE(td, type, visible)) {
@@ -148,7 +148,7 @@ pkg_provides_enum(iopc_pkg_t *pkg, const char *type, bool visible,
         tab_for_each_entry(td, &pkg->typedefs) {
             RETHROW(iopc_field_resolve(pkg, td, NULL));
 
-            if ((td->kind == IOP_T_ENUM) && (td->type_pkg == pkg)) {
+            if (td->kind == IOP_T_ENUM) {
                 iopc_enum_t *en = td->enum_def;
 
                 if (IS_IOPC_SYMBOL_VISIBLE_AND_TYPE(en, type, visible)) {
@@ -303,8 +303,7 @@ static int iopc_find_type_in_pkg(iopc_pkg_t *pkg, iopc_field_t *f,
         }
         assert (!f->has_external_type);
         f->struct_def = st;
-        f->kind = (st->type == STRUCT_TYPE_UNION) ? IOP_T_UNION :
-                  IOP_T_STRUCT;
+        f->kind = (st->type == STRUCT_TYPE_UNION) ? IOP_T_UNION : IOP_T_STRUCT;
         return 0;
     }
 
@@ -1630,10 +1629,6 @@ void iopc_pkg_get_deps(iopc_pkg_t *pkg, unsigned flags,
                        qv_t(iopc_pkg) *t_deps, qv_t(iopc_pkg) *t_weak_deps,
                        qv_t(iopc_pkg) *i_deps)
 {
-    tab_for_each_entry(td, &pkg->typedefs) {
-        iopc_add_depends(pkg, td->type_pkg, t_deps);
-    }
-
     tab_for_each_entry(st, &pkg->structs) {
         if (!(flags & IOPC_PKG_GET_DEPS_INCLUDE_SNMP)
         &&  iopc_is_snmp_st(st->type))

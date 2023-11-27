@@ -457,7 +457,7 @@ class IopcTest(z.TestCase):
 
         # Check that ClassContainer fields (which are classes) are pointed
         self.check_file('inheritance_pkg_a-t.iop.h', string_list = [
-            'inheritance_pkg_a__a1__t *nonnull class_container_a1;',
+            'struct inheritance_pkg_a__a1__t *nonnull class_container_a1;',
             'struct inheritance_pkg_a__b1__t *nullable class_container_b1;',
             'inheritance_pkg_a__a2__array_t class_container_a2;'])
 

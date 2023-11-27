@@ -253,7 +253,7 @@ iop_struct_t const * const attrs_multi_valid__toto__sp = &attrs_multi_valid__tot
 iop_typedef_t const attrs_multi_valid__un__td = {
     .fullname = LSTR_IMMED("attrs_multi_valid.Un"),
     .type = IOP_T_UNION,
-    .ref_struct = &attrs_multi_valid__un__s,
+    .ref_struct = &attrs_multi_valid__my_union__s,
 };
 iop_typedef_t const * const attrs_multi_valid__un__tdp = &attrs_multi_valid__un__td;
 
@@ -263,7 +263,7 @@ iop_typedef_t const * const attrs_multi_valid__un__tdp = &attrs_multi_valid__un_
 iop_typedef_t const attrs_multi_valid__en__td = {
     .fullname = LSTR_IMMED("attrs_multi_valid.En"),
     .type = IOP_T_ENUM,
-    .ref_enum = &attrs_multi_valid__en__e,
+    .ref_enum = &attrs_multi_valid__my_enum__e,
 };
 iop_typedef_t const * const attrs_multi_valid__en__tdp = &attrs_multi_valid__en__td;
 
