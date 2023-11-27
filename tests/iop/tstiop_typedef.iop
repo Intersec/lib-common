@@ -37,28 +37,3 @@ typedef int Port;
 typedef Port TcpPort;
 
 /* }}} */
-/* {{{ Structure containing enum or structure arrays */
-
-typedef Enum1[] Enum1List;
-
-enum LocalEnum2 {
-    VAL1 = 1,
-    VAL2 = 2,
-};
-typedef LocalEnum2[] Enum2List;
-
-typedef BasicStruct[] BasicStructList;
-
-struct LocalNumberStruct {
-    uint   u32;
-};
-typedef LocalNumberStruct[] NumberStructList;
-
-struct ArrayTest {
-    BasicStructList list1;
-    Enum1List list2;
-    Enum2List list3;
-    NumberStructList list4;
-};
-
-/* }}} */

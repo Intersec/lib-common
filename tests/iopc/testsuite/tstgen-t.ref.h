@@ -23,8 +23,8 @@ struct tstgen__my_struct_a__t {
     int32_t  i;
     int32_t  j;
     double   d1;
-    pkg_a__a__t *nullable weak_ref1;
-    pkg_a__a__t *nullable weak_ref2;
+    struct pkg_a__a__t *nullable weak_ref1;
+    struct pkg_a__a__t *nullable weak_ref2;
 };
 EXPORT iop_struct_t const tstgen__my_struct_a__s;
 EXPORT iop_struct_t const * const nonnull tstgen__my_struct_a__sp;

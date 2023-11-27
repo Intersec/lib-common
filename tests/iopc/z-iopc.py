@@ -458,7 +458,7 @@ class IopcTest(z.TestCase):
         # Check that ClassContainer fields (which are classes) are pointed
         self.check_file('inheritance_pkg_a-t.iop.h', string_list = [
             'inheritance_pkg_a__a1__t *nonnull class_container_a1;',
-            'inheritance_pkg_a__b1__t *nullable class_container_b1;',
+            'struct inheritance_pkg_a__b1__t *nullable class_container_b1;',
             'inheritance_pkg_a__a2__array_t class_container_a2;'])
 
         # Check the "same as" feature with inheritance
@@ -496,7 +496,7 @@ class IopcTest(z.TestCase):
     # }}}
     # {{{ Typedef
 
-    @z.ZFlags('redmine_50352', 'redmine_76975')
+    @z.ZFlags('redmine_50352')
     def test_typedef_valid(self):
         f  = 'typedef_valid_no_class.iop'
         f1 = 'typedef_valid.iop'
@@ -513,7 +513,7 @@ class IopcTest(z.TestCase):
         self.run_gcc(f2)
         self.run_gcc(f3)
 
-    @z.ZFlags('redmine_50352', 'redmine_76975')
+    @z.ZFlags('redmine_50352')
     def test_typedef_invalid(self):
         self.run_iopc('typedef_invalid_1.iop', False,
                       'unable to find any pkg providing type `MyStruct`')
@@ -540,10 +540,6 @@ class IopcTest(z.TestCase):
         self.run_iopc('typedef_invalid_13.iop', False,
                       'attribute minOccurs does not apply to required '      \
                       'typedefs')
-        self.run_iopc('typedef_invalid_14.iop', False,
-                      'cannot declare repeated optional fields')
-        self.run_iopc('typedef_invalid_15.iop', False,
-                      'cannot declare repeated optional fields')
         self.run_iopc('invalid_union_empty.iop', False,
                       'a union must contain at least one field')
 

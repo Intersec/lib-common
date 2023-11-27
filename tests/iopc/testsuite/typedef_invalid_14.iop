@@ -1,7 +1,0 @@
-package typedef_invalid_14;
-
-typedef string[] ListString;
-
-struct InvalidTypedefUsage {
-    ListString? invalidField;
-};
