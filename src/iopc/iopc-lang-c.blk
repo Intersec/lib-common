@@ -52,7 +52,7 @@ static lstr_t t_enum_get_prefix(const iopc_enum_t *en)
 static char *
 t_iopc_resolve_field_type(const iopc_pkg_t *pkg, const iopc_field_t *f)
 {
-    if ((f->found_pkg != pkg) && (f->type == STRUCT_TYPE_TYPEDEF)) {
+    if ((f->type_pkg != pkg) && (f->type == STRUCT_TYPE_TYPEDEF)) {
         tab_for_each_entry(tdef, &pkg->typedefs) {
             if (tdef->struct_def == f->struct_def) {
                 /* Typedef referenced by this field in current package */

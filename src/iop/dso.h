@@ -27,26 +27,23 @@
 
 qm_kvec_t(iop_struct, lstr_t, const iop_struct_t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
-qm_kvec_t(iop_typedef, lstr_t, const iop_typedef_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
 qm_kvec_t(iop_iface, lstr_t, const iop_iface_t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
 qm_kvec_t(iop_mod, lstr_t, const iop_mod_t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
 
 typedef struct iop_dso_t {
-    int               refcnt;
-    void             * nonnull handle;
-    lstr_t            path;
-    Lmid_t            lmid;
-    uint32_t          version;
+    int              refcnt;
+    void            * nonnull handle;
+    lstr_t           path;
+    Lmid_t           lmid;
+    uint32_t         version;
 
-    qm_t(iop_pkg)     pkg_h;
-    qm_t(iop_enum)    enum_h;
-    qm_t(iop_struct)  struct_h;
-    qm_t(iop_typedef) typedef_h;
-    qm_t(iop_iface)   iface_h;
-    qm_t(iop_mod)     mod_h;
+    qm_t(iop_pkg)    pkg_h;
+    qm_t(iop_enum)   enum_h;
+    qm_t(iop_struct) struct_h;
+    qm_t(iop_iface)  iface_h;
+    qm_t(iop_mod)    mod_h;
 
     /* Hash table of other iop_dso_t used by this one (in case of fixups). */
     qh_t(ptr) depends_on;

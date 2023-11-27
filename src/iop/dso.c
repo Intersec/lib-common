@@ -37,18 +37,6 @@ void iopdso_register_struct(iop_dso_t *dso, iop_struct_t const *st)
     qm_add(iop_struct, &dso->struct_h, &st->fullname, st);
 }
 
-static ALWAYS_INLINE
-void iopdso_register_typedef(iop_dso_t *dso, iop_typedef_t const *td)
-{
-    qm_add(iop_typedef, &dso->typedef_h, &td->fullname, td);
-}
-
-static ALWAYS_INLINE
-int iop_typedef_is_struct(iop_typedef_t const *td)
-{
-    return (td->type == IOP_T_UNION) || (td->type == IOP_T_STRUCT);
-}
-
 static lstr_t iop_pkgname_from_fullname(lstr_t fullname)
 {
     const void *p;
@@ -236,9 +224,6 @@ static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
     for (const iop_struct_t *const *it = pkg->structs; *it; it++) {
         iopdso_register_struct(dso, *it);
     }
-    for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
-        iopdso_register_typedef(dso, *it);
-    }
     for (const iop_iface_t *const *it = pkg->ifaces; *it; it++) {
         qm_add(iop_iface, &dso->iface_h, &(*it)->fullname, *it);
         for (int i = 0; i < (*it)->funs_len; i++) {
@@ -266,14 +251,13 @@ static int iop_dso_reopen(iop_dso_t *dso, sb_t *err);
 static iop_dso_t *iop_dso_init(iop_dso_t *dso)
 {
     p_clear(dso, 1);
-    qm_init_cached(iop_pkg,     &dso->pkg_h);
-    qm_init_cached(iop_enum,    &dso->enum_h);
-    qm_init_cached(iop_struct,  &dso->struct_h);
-    qm_init_cached(iop_typedef, &dso->typedef_h);
-    qm_init_cached(iop_iface,   &dso->iface_h);
-    qm_init_cached(iop_mod,     &dso->mod_h);
-    qh_init(ptr,                &dso->depends_on);
-    qh_init(ptr,                &dso->needed_by);
+    qm_init_cached(iop_pkg,    &dso->pkg_h);
+    qm_init_cached(iop_enum,   &dso->enum_h);
+    qm_init_cached(iop_struct, &dso->struct_h);
+    qm_init_cached(iop_iface,  &dso->iface_h);
+    qm_init_cached(iop_mod,    &dso->mod_h);
+    qh_init(ptr,               &dso->depends_on);
+    qh_init(ptr,               &dso->needed_by);
 
     return dso;
 }
@@ -343,13 +327,12 @@ static void iop_dso_wipe(iop_dso_t *dso)
     iop_dso_unload(dso);
 
     iop_pkg_wipe(dso);
-    qm_wipe(iop_enum,    &dso->enum_h);
-    qm_wipe(iop_struct,  &dso->struct_h);
-    qm_wipe(iop_typedef, &dso->typedef_h);
-    qm_wipe(iop_iface,   &dso->iface_h);
-    qm_wipe(iop_mod,     &dso->mod_h);
-    qh_wipe(ptr,         &dso->depends_on);
-    qh_wipe(ptr,         &dso->needed_by);
+    qm_wipe(iop_enum,   &dso->enum_h);
+    qm_wipe(iop_struct, &dso->struct_h);
+    qm_wipe(iop_iface,  &dso->iface_h);
+    qm_wipe(iop_mod,    &dso->mod_h);
+    qh_wipe(ptr,        &dso->depends_on);
+    qh_wipe(ptr,        &dso->needed_by);
     lstr_wipe(&dso->path);
     if (dso->handle) {
         qm_del_key(iop_dso_by_handle, &_G.dsos_by_handle, dso->handle);
@@ -455,13 +438,12 @@ static int iop_dso_reopen(iop_dso_t *dso, sb_t *err)
     iop_dso_unload(dso);
 
     iop_pkg_clear(dso);
-    qm_clear(iop_enum,    &dso->enum_h);
-    qm_clear(iop_struct,  &dso->struct_h);
-    qm_clear(iop_typedef, &dso->typedef_h);
-    qm_clear(iop_iface,   &dso->iface_h);
-    qm_clear(iop_mod,     &dso->mod_h);
-    qh_clear(ptr,         &dso->depends_on);
-    qh_clear(ptr,         &dso->needed_by);
+    qm_clear(iop_enum,   &dso->enum_h);
+    qm_clear(iop_struct, &dso->struct_h);
+    qm_clear(iop_iface,  &dso->iface_h);
+    qm_clear(iop_mod,    &dso->mod_h);
+    qh_clear(ptr,        &dso->depends_on);
+    qh_clear(ptr,        &dso->needed_by);
 
     dso->is_registered = false;
     return iop_dso_register_(dso, err);
@@ -558,10 +540,6 @@ iop_struct_t const *iop_dso_find_type(iop_dso_t const *dso, lstr_t name)
     if (pos >= 0) {
         return dso->struct_h.values[pos];
     }
-    pos = qm_find_safe(iop_typedef, &dso->typedef_h, &name);
-    if (pos >= 0 && iop_typedef_is_struct(dso->typedef_h.values[pos])) {
-        return dso->typedef_h.values[pos]->ref_struct;
-    }
 
     if (lstr_endswith(name, LSTR("Args"))) {
         name.len -= strlen("Args");
@@ -605,14 +583,7 @@ iop_struct_t const *iop_dso_find_type(iop_dso_t const *dso, lstr_t name)
 
 iop_enum_t const *iop_dso_find_enum(iop_dso_t const *dso, lstr_t name)
 {
-    int pos = qm_find_safe(iop_enum, &dso->enum_h, &name);
-    if (pos >= 0) {
-        return dso->enum_h.values[pos];
-    }
-
-    pos = qm_find_safe(iop_typedef, &dso->typedef_h, &name);
-    return ((pos >= 0) && (dso->typedef_h.values[pos]->type == IOP_T_ENUM)) ?
-           dso->typedef_h.values[pos]->ref_enum : NULL;
+    return qm_get_def_safe(iop_enum, &dso->enum_h, &name, NULL);
 }
 
 const void *const *iop_dso_get_ressources(const iop_dso_t *dso, lstr_t category)
