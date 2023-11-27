@@ -469,18 +469,13 @@ static const iop_mod_t *const tstgen__mods[] = {
     NULL,
 };
 
-static const iop_typedef_t *const tstgen__td[] = {
-    NULL,
-};
-
 iop_pkg_t const tstgen__pkg = {
-    .name     = LSTR_IMMED("tstgen"),
-    .deps     = tstgen__deps,
-    .enums    = tstgen__enums,
-    .structs  = tstgen__structs,
-    .ifaces   = tstgen__ifaces,
-    .mods     = tstgen__mods,
-    .typedefs = tstgen__td,
+    .name    = LSTR_IMMED("tstgen"),
+    .deps    = tstgen__deps,
+    .enums   = tstgen__enums,
+    .structs = tstgen__structs,
+    .ifaces  = tstgen__ifaces,
+    .mods    = tstgen__mods,
 };
 iop_pkg_t const * const tstgen__pkgp = &tstgen__pkg;
 

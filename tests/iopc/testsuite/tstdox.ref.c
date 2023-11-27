@@ -2063,18 +2063,13 @@ static const iop_mod_t *const tstdox__mods[] = {
     NULL,
 };
 
-static const iop_typedef_t *const tstdox__td[] = {
-    NULL,
-};
-
 iop_pkg_t const tstdox__pkg = {
-    .name     = LSTR_IMMED("tstdox"),
-    .deps     = tstdox__deps,
-    .enums    = tstdox__enums,
-    .structs  = tstdox__structs,
-    .ifaces   = tstdox__ifaces,
-    .mods     = tstdox__mods,
-    .typedefs = tstdox__td,
+    .name    = LSTR_IMMED("tstdox"),
+    .deps    = tstdox__deps,
+    .enums   = tstdox__enums,
+    .structs = tstdox__structs,
+    .ifaces  = tstdox__ifaces,
+    .mods    = tstdox__mods,
 };
 iop_pkg_t const * const tstdox__pkgp = &tstdox__pkg;
 
