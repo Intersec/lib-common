@@ -499,19 +499,16 @@ class IopcTest(z.TestCase):
     @z.ZFlags('redmine_50352')
     def test_typedef_valid(self):
         f  = 'typedef_valid_no_class.iop'
-        f1 = 'typedef_valid.iop'
-        f2 = 'typedef1.iop'
-        f3 = 'typedef2.iop'
+        f1 = 'typedef1.iop'
+        f2 = 'typedef2.iop'
 
         self.run_iopc(f, True, None)
         self.run_iopc(f1, True, None)
         self.run_iopc(f2, True, None)
-        self.run_iopc(f3, True, None)
 
         self.run_gcc(f)
         self.run_gcc(f1)
         self.run_gcc(f2)
-        self.run_gcc(f3)
 
     @z.ZFlags('redmine_50352')
     def test_typedef_invalid(self):
@@ -534,9 +531,9 @@ class IopcTest(z.TestCase):
                       'cannot declare repeated optional fields')
         self.run_iopc('typedef_invalid_11.iop', False,
                       'repeated members are forbidden in union types')
-        # typedef_invalid_12.iop has been removed as we now allow inheritance
-        # from a typedef, test made through 'typedef_valid.iop' parsing and
-        # compilation
+        self.run_iopc('typedef_invalid_12.iop', False,
+                      'pkg `typedef_invalid_12` does not provide class '     \
+                      '`B` when resolving inheritance of class `C`')
         self.run_iopc('typedef_invalid_13.iop', False,
                       'attribute minOccurs does not apply to required '      \
                       'typedefs')

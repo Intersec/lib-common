@@ -499,14 +499,14 @@ static void pp_field_with_type(sb_t *sb, const iopc_field_t *f, int indent)
           case IOP_T_ENUM:
             sb_addnc(sb, indent, ' ');
             sb_addf(sb, "%s__%s__t %s;\n", t_iopc_path_to_c(f->type_path),
-                    t_iopc_name_to_c(f->enum_def->name),
+                    t_iopc_name_to_c(f->type_name),
                     t_iopc_name_to_c(f->name));
             return;
           default:
             sb_addnc(sb, indent, ' ');
             sb_addf(sb, "struct %s__%s__t%s%s;\n",
                     t_iopc_path_to_c(f->type_path),
-                    t_iopc_name_to_c(f->struct_def->name),
+                    t_iopc_name_to_c(f->type_name),
                     type_is_class || f->is_ref ? " *nonnull " : " ",
                     t_iopc_name_to_c(f->name));
             return;
@@ -1680,10 +1680,10 @@ iopc_dump_field_src(sb_t *buf, const iopc_struct_t *st, const char *tbase,
                 "        .size      = sizeof(%s__%s__t%s),\n"
                 "        .u1        = { .st_desc = &%s__%s__s },\n",
                 t_iopc_path_to_c(f->type_path),
-                t_iopc_name_to_c(f->struct_def->name),
+                t_iopc_name_to_c(f->type_name),
                 f->struct_def->type == STRUCT_TYPE_CLASS ? " *" : "",
                 t_iopc_path_to_c(f->type_path),
-                t_iopc_name_to_c(f->struct_def->name));
+                t_iopc_name_to_c(f->type_name));
     } else if (f->repeat == IOP_R_REPEATED) {
         /* void arrays only have a length, no data */
         if (f->kind != IOP_T_VOID) {
@@ -1706,7 +1706,7 @@ iopc_dump_field_src(sb_t *buf, const iopc_struct_t *st, const char *tbase,
         sb_addf(buf,
                 "        .u1        = { .en_desc = &%s__%s__e },\n",
                 t_iopc_path_to_c(f->type_path),
-                t_iopc_name_to_c(f->enum_def->name));
+                t_iopc_name_to_c(f->type_name));
     }
     sb_addf(buf, "    },\n");
 }
