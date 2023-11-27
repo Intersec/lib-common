@@ -4,7 +4,7 @@
     },
     "i1": 13,
     "tdefC": {
-        "_class": "tstiop2.RemoteClass",
+        "_class": "tstiop.MyParent",
         "i": 44,
     },
     "i2": 14,

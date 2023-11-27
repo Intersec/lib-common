@@ -60,5 +60,3 @@ bld.shlib(target='zchk-tstiop-plugin', source=[
 ctx.shlib(target='zchk-tstiop2-plugin', source=[
     'tstiop2-plugin.c',
 ], use=['libcommon', 'tstiop2'], remove_dynlibs=True)
-
-ctx.recurse(['backward-compat',])

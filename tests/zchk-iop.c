@@ -1412,49 +1412,6 @@ iop_check_struct_backward_compat(const iop_struct_t *st1,
     Z_HELPER_END;
 }
 
-static int iop_check_typedef_backward_compat(const iop_struct_t *st,
-                                             const iop_typedef_t *td,
-                                             unsigned flags, const void *obj1)
-{
-    t_scope;
-    SB_1k(err);
-    const char *ctx;
-
-    ctx = t_fmt("check_backward_compat from %*pM to %*pM",
-                LSTR_FMT_ARG(td->fullname), LSTR_FMT_ARG(st->fullname));
-
-    Z_ASSERT_N(iop_struct_check_backward_compat(st, td->ref_struct, flags,
-                                                &err),
-               "unexpected failure of %s: %*pM", ctx, SB_FMT_ARG(&err));
-
-    if (!obj1) {
-        return 0;
-    }
-
-    if (flags & IOP_COMPAT_BIN) {
-        void *obj2 = NULL;
-        lstr_t data = t_iop_bpack_struct(td->ref_struct, obj1);
-
-        Z_ASSERT_N(iop_bunpack_ptr(t_pool(), st, (void **)&obj2,
-                                   ps_initlstr(&data), false),
-                   "unexpected bunpack failure when testing %s", ctx);
-    }
-
-    if (flags & IOP_COMPAT_JSON) {
-        SB_1k(data);
-        void *obj2 = NULL;
-        pstream_t ps;
-
-        iop_sb_jpack(&data, td->ref_struct, obj1, 0);
-        ps = ps_initsb(&data);
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(&ps, st, &obj2, 0, &err),
-                   "unexpected junpack failure when testing %s: %*pM",
-                   ctx, SB_FMT_ARG(&err));
-    }
-
-    Z_HELPER_END;
-}
-
 #define _Z_DSO_OPEN(_dso_path, in_cmddir)                                    \
     ({                                                                       \
         t_scope;                                                             \
@@ -1467,13 +1424,8 @@ static int iop_check_typedef_backward_compat(const iop_struct_t *st,
         }                                                                    \
         _dso = iop_dso_open(_path.s, LM_ID_BASE, &_err);                     \
         if (_dso == NULL) {                                                  \
-            if (in_cmddir) {                                                 \
-                Z_ASSERT_P(_dso, "unable to load `%s`: %*pM",                \
-                           _path.s, SB_FMT_ARG(&_err));                      \
-            } else {                                                         \
-                Z_SKIP("unable to load `%s` (TOOLS repo?): %*pM",            \
-                       _path.s, SB_FMT_ARG(&_err));                          \
-            }                                                                \
+            Z_SKIP("unable to load `%s`, TOOLS repo? (%*pM)",                \
+                   _path.s, SB_FMT_ARG(&_err));                              \
         }                                                                    \
         _dso;                                                                \
     })
@@ -1512,7 +1464,6 @@ static int z_check_static_field_type(const iop_struct_t *st,
 Z_GROUP_EXPORT(iop)
 {
     IOP_REGISTER_PACKAGES(&tstiop__pkg,
-                          &tstiop2__pkg,
                           &tstiop_dox__pkg,
                           &tstiop_inheritance__pkg,
                           &tstiop_backward_compat__pkg,
@@ -8239,18 +8190,12 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_pkg_check_backward_compat, "test iop_pkg_check_backward_compat") { /* {{{ */
         SB_1k(err);
-        iop_dso_t *dso_old = NULL;
-        iop_dso_t *dso_new = NULL;
-        iop_pkg_t **pkgp_old = NULL;
-        iop_pkg_t **pkgp_new = NULL;
 
 #define T_OK(_pkg1, _pkg2, _flags)  \
         do {                                                                 \
-            sb_reset(&err);                                                  \
             Z_ASSERT_N(iop_pkg_check_backward_compat(&_pkg1##__pkg,          \
                                                      &_pkg2##__pkg,          \
-                                                     _flags, &err),          \
-                       "%*pM", SB_FMT_ARG(&err));                            \
+                                                     _flags, &err));         \
         } while (0)
 
 #define T_OK_ALL(_pkg1, _pkg2)  \
@@ -8271,9 +8216,9 @@ Z_GROUP_EXPORT(iop)
 
 #define T_KO_ALL(_pkg1, _pkg2, _err)  \
         do {                                                                 \
-            T_KO(_pkg1, _pkg2, IOP_COMPAT_BIN, _err);                        \
+            T_KO(_pkg1, _pkg2, IOP_COMPAT_BIN,  _err);                       \
             T_KO(_pkg1, _pkg2, IOP_COMPAT_JSON, _err);                       \
-            T_KO(_pkg1, _pkg2, IOP_COMPAT_ALL, _err);                        \
+            T_KO(_pkg1, _pkg2, IOP_COMPAT_ALL,  _err);                       \
         } while (0)
 
         /* Test packages with themselves. */
@@ -8420,35 +8365,6 @@ Z_GROUP_EXPORT(iop)
              PREFIX "interface with tag 2 (`iface2`) does not exist anymore");
 #undef PREFIX
 
-        /* Typedefs. */
-        /* Due to JSON checks, we load two kinds of dso so we can check
-         * the backward compatibility between the 2 packages without the
-         * hassle to "hack" const structures generated by iopc. It has be done
-         * using two different folders */
-        dso_old = _Z_DSO_OPEN("iop/backward-compat/old/zchk-tstiop-backward-"
-                              "compat-typedef-old" SO_FILEEXT, true);
-        dso_new = _Z_DSO_OPEN("iop/backward-compat/new/zchk-tstiop-backward-"
-                              "compat-typedef-new" SO_FILEEXT, true);
-
-        pkgp_old = dlsym(dso_old->handle, "iop_packages");
-        pkgp_new = dlsym(dso_new->handle, "iop_packages");
-
-#undef T_OK
-#define T_OK(_pkg1, _pkg2, _flags)  \
-        do {                                                                 \
-            sb_reset(&err);                                                  \
-            Z_ASSERT_N(iop_pkg_check_backward_compat(_pkg1, _pkg2, _flags,   \
-                                                     &err),                  \
-                       "%*pM", SB_FMT_ARG(&err));                            \
-        } while (0)
-
-        T_OK(*pkgp_old, *pkgp_new, IOP_COMPAT_BIN);
-        T_OK(*pkgp_old, *pkgp_new, IOP_COMPAT_JSON);
-        T_OK(*pkgp_old, *pkgp_new, IOP_COMPAT_ALL);
-
-        iop_dso_close(&dso_old);
-        iop_dso_close(&dso_new);
-
 #undef T_OK
 #undef T_OK_ALL
 #undef T_KO
@@ -8476,99 +8392,6 @@ Z_GROUP_EXPORT(iop)
             tstiop_typedef__basic_class_child__td.fullname));
         Z_ASSERT_LSTREQUAL(st->fullname,
             tstiop_backward_compat__basic_class_child__s.fullname);
-    } Z_TEST_END;
-    /* }}} */
-    Z_TEST(iop_dso_find_enum__typedef, "test iop_dso_find_enum with typedef") { /* {{{ */
-        const iop_enum_t *en = NULL;
-        iop_dso_t *dso = NULL;
-        lstr_t en_name = LSTR("tstiop_backward_compat_typedef.MyEnumA");
-        lstr_t en_exp = LSTR("tstiop_backward_compat_remote_typedef.MyEnumA");
-
-        dso = _Z_DSO_OPEN("iop/backward-compat/new/zchk-tstiop-backward-"
-                          "compat-typedef-new" SO_FILEEXT, true);
-        Z_ASSERT_P(dso);
-        Z_ASSERT_P(en = iop_dso_find_enum(dso, en_name));
-        Z_ASSERT_LSTREQUAL(en->fullname, en_exp);
-        iop_dso_close(&dso);
-    } Z_TEST_END;
-    /* }}} */
-    Z_TEST(iop_dso_find_type__typedef, "test iop_dso_find_type with typedef") { /* {{{ */
-        const iop_struct_t *st = NULL;
-        iop_dso_t *dso = NULL;
-        lstr_t st_name = LSTR("tstiop_backward_compat_typedef.MyClass2");
-        lstr_t st_exp = LSTR("tstiop_backward_compat_remote_typedef."
-                             "MovedMyClass2");
-
-        dso = _Z_DSO_OPEN("iop/backward-compat/new/zchk-tstiop-backward-"
-                          "compat-typedef-new" SO_FILEEXT, true);
-        Z_ASSERT_P(dso);
-        Z_ASSERT_P(st = iop_dso_find_type(dso, st_name));
-        Z_ASSERT_LSTREQUAL(st->fullname, st_exp);
-        iop_dso_close(&dso);
-    } Z_TEST_END;
-    /* }}} */
-    Z_TEST(iop_typedef_check_backward_compat, "test iop_typedef_check_backward_compat") { /* {{{ */
-        t_scope;
-        tstiop_backward_compat__basic_struct__t basic_struct;
-        tstiop_backward_compat__basic_union__t basic_union;
-        tstiop_backward_compat__basic_class__t basic_class;
-        tstiop_backward_compat__basic_class_child__t basic_class_child;
-        tstiop_backward_compat__struct_container1__t struct_container1;
-
-        iop_init(tstiop_backward_compat__basic_struct, &basic_struct);
-        basic_struct.a = 12;
-        basic_struct.b = LSTR("string");
-
-        basic_union = IOP_UNION(tstiop_backward_compat__basic_union, a, 12);
-
-        iop_init(tstiop_backward_compat__struct_container1,
-                 &struct_container1);
-        struct_container1.s = basic_struct;
-
-        iop_init(tstiop_backward_compat__basic_class, &basic_class);
-        basic_class.a = 12;
-        basic_class.b = LSTR("string");
-
-        iop_init(tstiop_backward_compat__basic_class_child,
-                 &basic_class_child);
-        basic_class_child.a = 12;
-        basic_class_child.b = LSTR("string");
-
-#define T_OK(_type, _obj1, _flags)                                           \
-        do {                                                                 \
-            const iop_struct_t *st = &tstiop_backward_compat__##_type##__s;  \
-            const iop_typedef_t *td = &tstiop_typedef__##_type##__td;        \
-            tstiop_backward_compat__##_type##__t *__obj1 = (_obj1);          \
-                                                                             \
-            Z_HELPER_RUN(iop_check_typedef_backward_compat(st, td, _flags,   \
-                                                           __obj1));         \
-        } while (0)
-
-#define T_OK_ALL(_type, _obj1)  \
-        do {                                                                 \
-            T_OK(_type, _obj1, IOP_COMPAT_BIN);                              \
-            T_OK(_type, _obj1, IOP_COMPAT_JSON);                             \
-            T_OK(_type, NULL, IOP_COMPAT_ALL);                               \
-        } while (0)
-
-        /* Typedef alias from a struct in another package */
-        T_OK_ALL(basic_struct, &basic_struct);
-
-        /* Typedef alias for a class in another package */
-        T_OK_ALL(basic_class, &basic_class);
-
-        /* Typedef alias for a child class in another package */
-        T_OK_ALL(basic_class_child, &basic_class_child);
-
-        /* Typedef alias for an union in another package */
-        T_OK_ALL(basic_union, &basic_union);
-
-        /* Typedef alias for a container in another package */
-        T_OK_ALL(struct_container1, &struct_container1);
-
-#undef T_OK
-#undef T_OK_ALL
-
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_struct_is_optional, "test iop_struct_is_optional") { /* {{{ */

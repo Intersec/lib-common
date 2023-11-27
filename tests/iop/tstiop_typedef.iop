@@ -24,7 +24,6 @@ package tstiop_typedef;
 
 typedef tstiop_backward_compat.BasicUnion BasicUnion;
 typedef tstiop_backward_compat.BasicStruct BasicStruct;
-typedef tstiop_backward_compat.BasicClass BasicClass;
 typedef tstiop_backward_compat.BasicClassChild BasicClassChild;
 typedef tstiop_backward_compat.StructContainer1 StructContainer1;
 
