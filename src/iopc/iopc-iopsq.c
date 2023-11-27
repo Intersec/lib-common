@@ -155,7 +155,6 @@ static int iopsq_fill_type(const iop_full_type_t *ftype, iop__type__t *type)
     if ((obj = iop_get_obj(typename))) {
         switch (obj->type) {
           case IOP_OBJ_TYPE_PKG:
-          case IOP_OBJ_TYPE_TYPEDEF:
             break;
 
           case IOP_OBJ_TYPE_ENUM:
@@ -285,10 +284,6 @@ iopc_field_set_typename(iopc_field_t *nonnull f, lstr_t typename,
                     /* Not expected to happen if we properly check the name.
                      */
                     sb_sets(err, "is a package name");
-                    return -1;
-
-                  case IOP_OBJ_TYPE_TYPEDEF:
-                    sb_sets(err, "is a typedef name");
                     return -1;
 
                   case IOP_OBJ_TYPE_ST:
