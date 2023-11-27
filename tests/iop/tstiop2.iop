@@ -24,24 +24,3 @@ package tstiop2;
 struct MyStruct {
     tstiop.MyStructA a;
 };
-
-typedef tstiop.BasicStruct RemoteStruct;
-typedef tstiop.MyParent RemoteClass;
-typedef tstiop.ExternalEnum RemoteEnum;
-typedef tstiop.SmallClassTypedef RemoteTypedefClass;
-
-struct StructWithTypedefsFromExt {
-    RemoteStruct tdefS;
-    int i1;
-    RemoteClass tdefC;
-    int i2;
-    RemoteEnum tdefE;
-    int i3;
-};
-
-struct StructWithExtTypedef {
-    int i1;
-    RemoteTypedefClass c;
-    int i2;
-};
-

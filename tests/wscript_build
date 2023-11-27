@@ -69,7 +69,6 @@ ctx.program(target='zchk', depends_on=[
 ], use=[
     'iop-snmp',
     'tstiop',
-    'tstiop2',
     'tst-snmp-iop',
     'zchk-iop-ressources',
 ], use_whole='libcommon')

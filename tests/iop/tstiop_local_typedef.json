@@ -1,8 +1,0 @@
-{
-    "i1": 12,
-    "c": {
-        "_class": "tstiop.SmallClassTypedef",
-        "i": 42,
-    },
-    "i2": 24
-}
