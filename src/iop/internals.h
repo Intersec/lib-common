@@ -547,13 +547,29 @@ typedef struct iop_mod_t {
 /*{{{ iop_typedef_t */
 
 typedef struct iop_typedef_t {
+    /** The fullname of the typedef. */
     const lstr_t fullname;
-    uint16_t flags; /** reserved for future bitfield of iop_typedef_flag_t */
+
+    /** The flags of the typedef.
+     *
+     * Reserved for future bitfield of iop_typedef_flag_t.
+     */
+    uint16_t flags;
+
+    /** The type of IOP object referenced by the typedef. */
     const iop_type_t type;
+
+    /** The referenced IOP object in case of enum or struct. */
     union {
         const iop_enum_t * nullable ref_enum;
         const iop_struct_t * nullable ref_struct;
     };
+
+    /** The attributes of the typedef.
+     *
+     * NULL if there are no attributes.
+     */
+    const iop_field_attrs_t * nullable attrs;
 } iop_typedef_t;
 
 /*}}}*/

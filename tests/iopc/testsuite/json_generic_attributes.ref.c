@@ -261,9 +261,26 @@ iop_struct_t const * const json_generic_attributes__test__sp = &json_generic_att
 /* }}} */
 /* Typedef json_generic_attributes.Price {{{ */
 
+static iop_field_attr_t const json_generic_attributes__price__price__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("scenario:label") }, {.v.s = LSTR_IMMED("{\"en\":\"Price\",\"fr\":\"\\\"Gougou\\\" d'ooo'\\n\"}") } },
+    },
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("scenario:type") }, {.v.s = LSTR_IMMED("{\"dbl\":{\"format\":\"CURRENCY\"}}") } },
+    },
+};
+static iop_field_attrs_t const json_generic_attributes__price__desc_field_attrs = {
+        .flags             = 32768,
+        .attrs_len         = 2,
+        .attrs             = json_generic_attributes__price__price__attrs,
+};
+
 iop_typedef_t const json_generic_attributes__price__td = {
     .fullname = LSTR_IMMED("json_generic_attributes.Price"),
     .type = IOP_T_DOUBLE,
+    .attrs = &json_generic_attributes__price__desc_field_attrs,
 };
 iop_typedef_t const * const json_generic_attributes__price__tdp = &json_generic_attributes__price__td;
 

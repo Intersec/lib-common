@@ -3012,10 +3012,35 @@ iop_mod_t const * const tstjson__my_module_c__modp = &tstjson__my_module_c__mod;
 /* }}} */
 /* Typedef tstjson.MyUnionInt {{{ */
 
+static int tstjson__my_union_int__my_union_int__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        tstjson__my_union_a__t *val = &IOP_FIELD(tstjson__my_union_a__t, ptr, j);
+
+        switch (val->iop_tag) {
+          case tstjson__my_union_a__i__ft:
+            break;
+          case tstjson__my_union_a__b__ft:
+            iop_set_err("violation of constraint allow (b) on field MyUnionInt");
+            return -1;
+          case tstjson__my_union_a__s__ft:
+            iop_set_err("violation of constraint allow (s) on field MyUnionInt");
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attrs_t const tstjson__my_union_int__desc_field_attrs = {
+        .flags             = 0,
+        .attrs_len         = 0,
+        .check_constraints = &tstjson__my_union_int__my_union_int__check,
+};
+
 iop_typedef_t const tstjson__my_union_int__td = {
     .fullname = LSTR_IMMED("tstjson.MyUnionInt"),
     .type = IOP_T_UNION,
     .ref_struct = &tstjson__my_union_int__s,
+    .attrs = &tstjson__my_union_int__desc_field_attrs,
 };
 iop_typedef_t const * const tstjson__my_union_int__tdp = &tstjson__my_union_int__td;
 

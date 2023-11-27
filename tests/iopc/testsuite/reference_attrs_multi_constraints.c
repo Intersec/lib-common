@@ -449,63 +449,305 @@ iop_struct_t const * const attrs_multi_constraints__tab_test__sp = &attrs_multi_
 /* }}} */
 /* Typedef attrs_multi_constraints.Min3 {{{ */
 
+static int attrs_multi_constraints__min3__min3__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        uint64_t  val = IOP_FIELD(uint64_t , ptr, j);
+
+        if (val < 3ULL) {
+            if (n > 1) {
+                iop_set_err("violation of constraint %s (%ju) on field %s[%d]: val=%ju",
+                            "min", (uint64_t)3ULL, "Min3", j, (uint64_t)val);
+            } else {
+                iop_set_err("violation of constraint %s (%ju) on field %s: val=%ju",
+                            "min", (uint64_t)3ULL, "Min3", (uint64_t)val);
+            }
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attr_t const attrs_multi_constraints__min3__min3__attrs[] = {
+    {
+        .type = 3,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 3ULL } },
+    },
+};
+static iop_field_attrs_t const attrs_multi_constraints__min3__desc_field_attrs = {
+        .flags             = 8,
+        .attrs_len         = 1,
+        .check_constraints = &attrs_multi_constraints__min3__min3__check,
+        .attrs             = attrs_multi_constraints__min3__min3__attrs,
+};
+
 iop_typedef_t const attrs_multi_constraints__min3__td = {
     .fullname = LSTR_IMMED("attrs_multi_constraints.Min3"),
     .type = IOP_T_U64,
+    .attrs = &attrs_multi_constraints__min3__desc_field_attrs,
 };
 iop_typedef_t const * const attrs_multi_constraints__min3__tdp = &attrs_multi_constraints__min3__td;
 
 /* }}} */
 /* Typedef attrs_multi_constraints.Min5 {{{ */
 
+static int attrs_multi_constraints__min5__min5__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        uint64_t  val = IOP_FIELD(uint64_t , ptr, j);
+
+        if (val < 5ULL) {
+            if (n > 1) {
+                iop_set_err("violation of constraint %s (%ju) on field %s[%d]: val=%ju",
+                            "min", (uint64_t)5ULL, "Min5", j, (uint64_t)val);
+            } else {
+                iop_set_err("violation of constraint %s (%ju) on field %s: val=%ju",
+                            "min", (uint64_t)5ULL, "Min5", (uint64_t)val);
+            }
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attr_t const attrs_multi_constraints__min5__min5__attrs[] = {
+    {
+        .type = 3,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 5ULL } },
+    },
+};
+static iop_field_attrs_t const attrs_multi_constraints__min5__desc_field_attrs = {
+        .flags             = 8,
+        .attrs_len         = 1,
+        .check_constraints = &attrs_multi_constraints__min5__min5__check,
+        .attrs             = attrs_multi_constraints__min5__min5__attrs,
+};
+
 iop_typedef_t const attrs_multi_constraints__min5__td = {
     .fullname = LSTR_IMMED("attrs_multi_constraints.Min5"),
     .type = IOP_T_U64,
+    .attrs = &attrs_multi_constraints__min5__desc_field_attrs,
 };
 iop_typedef_t const * const attrs_multi_constraints__min5__tdp = &attrs_multi_constraints__min5__td;
 
 /* }}} */
 /* Typedef attrs_multi_constraints.Digit {{{ */
 
+static int attrs_multi_constraints__digit__digit__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        uint32_t  val = IOP_FIELD(uint32_t , ptr, j);
+
+        if (val > 42ULL) {
+            if (n > 1) {
+                iop_set_err("violation of constraint %s (%ju) on field %s[%d]: val=%ju",
+                            "max", (uint64_t)42ULL, "Digit", j, (uint64_t)val);
+            } else {
+                iop_set_err("violation of constraint %s (%ju) on field %s: val=%ju",
+                            "max", (uint64_t)42ULL, "Digit", (uint64_t)val);
+            }
+            return -1;
+        }
+        if (val < 5ULL) {
+            if (n > 1) {
+                iop_set_err("violation of constraint %s (%ju) on field %s[%d]: val=%ju",
+                            "min", (uint64_t)5ULL, "Digit", j, (uint64_t)val);
+            } else {
+                iop_set_err("violation of constraint %s (%ju) on field %s: val=%ju",
+                            "min", (uint64_t)5ULL, "Digit", (uint64_t)val);
+            }
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attr_t const attrs_multi_constraints__digit__digit__attrs[] = {
+    {
+        .type = 4,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 42ULL } },
+    },
+    {
+        .type = 3,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 5ULL } },
+    },
+};
+static iop_field_attrs_t const attrs_multi_constraints__digit__desc_field_attrs = {
+        .flags             = 24,
+        .attrs_len         = 2,
+        .check_constraints = &attrs_multi_constraints__digit__digit__check,
+        .attrs             = attrs_multi_constraints__digit__digit__attrs,
+};
+
 iop_typedef_t const attrs_multi_constraints__digit__td = {
     .fullname = LSTR_IMMED("attrs_multi_constraints.Digit"),
     .type = IOP_T_U32,
+    .attrs = &attrs_multi_constraints__digit__desc_field_attrs,
 };
 iop_typedef_t const * const attrs_multi_constraints__digit__tdp = &attrs_multi_constraints__digit__td;
 
 /* }}} */
 /* Typedef attrs_multi_constraints.Neg {{{ */
 
+static int attrs_multi_constraints__neg__neg__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        double    val = IOP_FIELD(double   , ptr, j);
+
+        if (val < -1.00000000000000000e+00) {
+            if (n > 1) {
+                iop_set_err("violation of constraint %s (%.17e) on field %s[%d]: val=%.17e",
+                            "min", (double)-1.00000000000000000e+00, "Neg", j, (double)val);
+            } else {
+                iop_set_err("violation of constraint %s (%.17e) on field %s: val=%.17e",
+                            "min", (double)-1.00000000000000000e+00, "Neg", (double)val);
+            }
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attr_t const attrs_multi_constraints__neg__neg__attrs[] = {
+    {
+        .type = 3,
+        .args = (iop_field_attr_arg_t[]){ { .v.d = -1.00000000000000000e+00 } },
+    },
+};
+static iop_field_attrs_t const attrs_multi_constraints__neg__desc_field_attrs = {
+        .flags             = 8,
+        .attrs_len         = 1,
+        .check_constraints = &attrs_multi_constraints__neg__neg__check,
+        .attrs             = attrs_multi_constraints__neg__neg__attrs,
+};
+
 iop_typedef_t const attrs_multi_constraints__neg__td = {
     .fullname = LSTR_IMMED("attrs_multi_constraints.Neg"),
     .type = IOP_T_DOUBLE,
+    .attrs = &attrs_multi_constraints__neg__desc_field_attrs,
 };
 iop_typedef_t const * const attrs_multi_constraints__neg__tdp = &attrs_multi_constraints__neg__td;
 
 /* }}} */
 /* Typedef attrs_multi_constraints.Zero {{{ */
 
+static int attrs_multi_constraints__zero__zero__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        double    val = IOP_FIELD(double   , ptr, j);
+
+        if (val < 0.00000000000000000e+00) {
+            if (n > 1) {
+                iop_set_err("violation of constraint %s (%.17e) on field %s[%d]: val=%.17e",
+                            "min", (double)0.00000000000000000e+00, "Zero", j, (double)val);
+            } else {
+                iop_set_err("violation of constraint %s (%.17e) on field %s: val=%.17e",
+                            "min", (double)0.00000000000000000e+00, "Zero", (double)val);
+            }
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attr_t const attrs_multi_constraints__zero__zero__attrs[] = {
+    {
+        .type = 3,
+        .args = (iop_field_attr_arg_t[]){ { .v.d = 0.00000000000000000e+00 } },
+    },
+};
+static iop_field_attrs_t const attrs_multi_constraints__zero__desc_field_attrs = {
+        .flags             = 8,
+        .attrs_len         = 1,
+        .check_constraints = &attrs_multi_constraints__zero__zero__check,
+        .attrs             = attrs_multi_constraints__zero__zero__attrs,
+};
+
 iop_typedef_t const attrs_multi_constraints__zero__td = {
     .fullname = LSTR_IMMED("attrs_multi_constraints.Zero"),
     .type = IOP_T_DOUBLE,
+    .attrs = &attrs_multi_constraints__zero__desc_field_attrs,
 };
 iop_typedef_t const * const attrs_multi_constraints__zero__tdp = &attrs_multi_constraints__zero__td;
 
 /* }}} */
 /* Typedef attrs_multi_constraints.ExStr {{{ */
 
+static int attrs_multi_constraints__ex_str__ex_str__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        lstr_t    val = IOP_FIELD(lstr_t   , ptr, j);
+
+        if (val.len < 5) {
+            iop_set_err("violation of constraint %s (%d) on field %s: length=%d",
+                        "minLength", 5, "ExStr", val.len);
+            return -1;
+        }
+        if (val.len > 128) {
+            iop_set_err("violation of constraint %s (%d) on field %s: length=%d",
+                        "maxLength", 128, "ExStr", val.len);
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attr_t const attrs_multi_constraints__ex_str__ex_str__attrs[] = {
+    {
+        .type = 7,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 5LL } },
+    },
+    {
+        .type = 8,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 128LL } },
+    },
+};
+static iop_field_attrs_t const attrs_multi_constraints__ex_str__desc_field_attrs = {
+        .flags             = 384,
+        .attrs_len         = 2,
+        .check_constraints = &attrs_multi_constraints__ex_str__ex_str__check,
+        .attrs             = attrs_multi_constraints__ex_str__ex_str__attrs,
+};
+
 iop_typedef_t const attrs_multi_constraints__ex_str__td = {
     .fullname = LSTR_IMMED("attrs_multi_constraints.ExStr"),
     .type = IOP_T_STRING,
+    .attrs = &attrs_multi_constraints__ex_str__desc_field_attrs,
 };
 iop_typedef_t const * const attrs_multi_constraints__ex_str__tdp = &attrs_multi_constraints__ex_str__td;
 
 /* }}} */
 /* Typedef attrs_multi_constraints.ExTab {{{ */
 
+static int attrs_multi_constraints__ex_tab__ex_tab__check(const void *ptr, int n)
+{
+    if (n > 42) {
+        iop_set_err("violation of constraint %s (%d) on field %s: length=%d",
+                    "maxOccurs", 42, "ExTab", n);
+        return -1;
+    }
+    if (n < 5) {
+        iop_set_err("violation of constraint %s (%d) on field %s: length=%d",
+                    "minOccurs", 5, "ExTab", n);
+        return -1;
+    }
+    return 0;
+}
+static iop_field_attr_t const attrs_multi_constraints__ex_tab__ex_tab__attrs[] = {
+    {
+        .type = 1,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 42LL } },
+    },
+    {
+        .type = 0,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 5LL } },
+    },
+};
+static iop_field_attrs_t const attrs_multi_constraints__ex_tab__desc_field_attrs = {
+        .flags             = 3,
+        .attrs_len         = 2,
+        .check_constraints = &attrs_multi_constraints__ex_tab__ex_tab__check,
+        .attrs             = attrs_multi_constraints__ex_tab__ex_tab__attrs,
+};
+
 iop_typedef_t const attrs_multi_constraints__ex_tab__td = {
     .fullname = LSTR_IMMED("attrs_multi_constraints.ExTab"),
     .type = IOP_T_I32,
+    .attrs = &attrs_multi_constraints__ex_tab__desc_field_attrs,
 };
 iop_typedef_t const * const attrs_multi_constraints__ex_tab__tdp = &attrs_multi_constraints__ex_tab__td;
 

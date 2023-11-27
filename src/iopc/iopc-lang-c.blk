@@ -2630,8 +2630,9 @@ iopc_dump_snmp_field_attr(sb_t *sb, iopc_attrs_t *attrs,
 }
 
 static int
-iopc_dump_field_attrs(sb_t *buf, const iopc_struct_t *st, const char *tbase,
-                      const iopc_field_t *f, iopc_attrs_t *attrs)
+iopc_dump_field_attrs(sb_t *buf, const iopc_struct_t * nullable st,
+                      const char *tbase, const iopc_field_t *f,
+                      iopc_attrs_t *attrs)
 {
     t_scope;
     SB_1k(attrs_body);
@@ -2737,7 +2738,7 @@ iopc_dump_field_attrs(sb_t *buf, const iopc_struct_t *st, const char *tbase,
         }
     }
 
-    if (st->contains_snmp_info || iopc_is_snmp_st(st->type)) {
+    if (st && (st->contains_snmp_info || iopc_is_snmp_st(st->type))) {
         iopc_dump_snmp_field_attr(&attrs_body, attrs, tbase, cname);
         SET_BIT(&attrs->flags, IOP_FIELD_SNMP_INFO);
     }
@@ -2886,12 +2887,9 @@ iopc_dump_rpc_attrs(sb_t *buf, const char *tbase, const iopc_fun_t *f,
 }
 
 static void
-iopc_dump_field_attrs_src(sb_t *buf, const iopc_struct_t *st,
-                          const char *tbase, const iopc_field_t *f,
-                          const iopc_attrs_t *attrs)
+iopc_dump_field_attrs_content_src(sb_t *buf, const iopc_attrs_t *attrs)
 {
     sb_addf(buf,
-            "    {\n"
             "        .flags             = %u,\n"
             "        .attrs_len         = %u,\n",
             attrs->flags, attrs->attrs_len);
@@ -2904,9 +2902,14 @@ iopc_dump_field_attrs_src(sb_t *buf, const iopc_struct_t *st,
         sb_addf(buf, "        .attrs             = %*pM,\n",
                 LSTR_FMT_ARG(attrs->attrs_name));
     }
+}
 
-    sb_adds(buf,
-            "    },\n");
+static void
+iopc_dump_field_attrs_src(sb_t *buf, const iopc_attrs_t *attrs)
+{
+    sb_adds(buf, "    {\n");
+    iopc_dump_field_attrs_content_src(buf, attrs);
+    sb_adds(buf, "    },\n");
 }
 
 static void
@@ -3417,8 +3420,7 @@ iopc_struct_dump_src(sb_t *buf, const iopc_pkg_t *pkg,
                     tbase);
             assert(st->fields_by_tag.len == st->fields.len);
             tab_enumerate(i, f, &st->fields_by_tag) {
-                iopc_dump_field_attrs_src(buf, st, tbase, f,
-                                          &fields_attrs.tab[i]);
+                iopc_dump_field_attrs_src(buf, &fields_attrs.tab[i]);
             }
             sb_adds(buf, "};\n");
         }
@@ -3925,14 +3927,39 @@ iopc_typedef_dump_src(sb_t *buf, iopc_pkg_t *pkg,
     const char *tdbase = t_fmt("%s__%s", pkg_name,
                                t_iopc_name_to_c(td->name));
     const char *pppath = iopc_path_dot(pkg->name);
+    iopc_attrs_t attrs;
+    bool has_attrs;
 
+    /* Dump fold */
     sb_addf(buf,
             "/* Typedef %s.%s {""{{ */\n"
+            "\n", pppath, td->name);
+
+    /* Dump attributes */
+    iopc_attrs_init(&attrs);
+
+    if (iopc_dump_field_attrs(buf, NULL, tdbase, td, &attrs) < 0) {
+        e_panic("unable to dump typedef attributes");
+    }
+
+    has_attrs = attrs.checkf_name.len || attrs.flags;
+    if (has_attrs) {
+        sb_addf(buf,
+                "static iop_field_attrs_t const %s__desc_field_attrs = {\n",
+                tdbase);
+        iopc_dump_field_attrs_content_src(buf, &attrs);
+        sb_adds(buf, "};\n");
+    }
+
+    iopc_attrs_wipe(&attrs);
+
+    /* Dump typedef IOP */
+    sb_addf(buf,
             "\n"
             "iop_typedef_t const %s__td = {\n"
             "    .fullname = LSTR_IMMED(\"%s.%s\"),\n"
             "    .type = %s,\n",
-            pppath, td->name, tdbase, pppath, td->name, types[td->kind]);
+            tdbase, pppath, td->name, types[td->kind]);
     switch (td->kind) {
     case IOP_T_ENUM:
         iopc_typedef_dump_enum(buf, pkg_name, td);
@@ -3944,6 +3971,14 @@ iopc_typedef_dump_src(sb_t *buf, iopc_pkg_t *pkg,
       default:
         break;
     }
+
+    if (has_attrs) {
+        sb_addf(buf, "    .attrs = &%s__desc_field_attrs,\n", tdbase);
+    } else {
+        sb_adds(buf, "    .attrs = NULL,\n");
+    }
+
+    /* End dump and fold */
     sb_addf(buf,
             "};\n"
             "iop_typedef_t const * const %s__tdp = &%s__td;\n\n"

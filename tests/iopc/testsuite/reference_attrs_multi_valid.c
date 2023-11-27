@@ -250,20 +250,73 @@ iop_struct_t const * const attrs_multi_valid__toto__sp = &attrs_multi_valid__tot
 /* }}} */
 /* Typedef attrs_multi_valid.Un {{{ */
 
+static int attrs_multi_valid__un__un__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        attrs_multi_valid__my_union__t *val = &IOP_FIELD(attrs_multi_valid__my_union__t, ptr, j);
+
+        switch (val->iop_tag) {
+          case attrs_multi_valid__my_union__a__ft:
+            break;
+          case attrs_multi_valid__my_union__b__ft:
+            iop_set_err("violation of constraint allow (b) on field Un");
+            return -1;
+          case attrs_multi_valid__my_union__c__ft:
+            iop_set_err("violation of constraint allow (c) on field Un");
+            return -1;
+          case attrs_multi_valid__my_union__d__ft:
+            iop_set_err("violation of constraint allow (d) on field Un");
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attrs_t const attrs_multi_valid__un__desc_field_attrs = {
+        .flags             = 0,
+        .attrs_len         = 0,
+        .check_constraints = &attrs_multi_valid__un__un__check,
+};
+
 iop_typedef_t const attrs_multi_valid__un__td = {
     .fullname = LSTR_IMMED("attrs_multi_valid.Un"),
     .type = IOP_T_UNION,
     .ref_struct = &attrs_multi_valid__un__s,
+    .attrs = &attrs_multi_valid__un__desc_field_attrs,
 };
 iop_typedef_t const * const attrs_multi_valid__un__tdp = &attrs_multi_valid__un__td;
 
 /* }}} */
 /* Typedef attrs_multi_valid.En {{{ */
 
+static int attrs_multi_valid__en__en__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        attrs_multi_valid__my_enum__t val = IOP_FIELD(int32_t, ptr, j);
+
+        switch (val) {
+          case MY_ENUM_E:
+            break;
+          case MY_ENUM_F:
+            iop_set_err("violation of constraint allow (F) on field En");
+            return -1;
+          case MY_ENUM_G:
+            iop_set_err("violation of constraint allow (G) on field En");
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attrs_t const attrs_multi_valid__en__desc_field_attrs = {
+        .flags             = 0,
+        .attrs_len         = 0,
+        .check_constraints = &attrs_multi_valid__en__en__check,
+};
+
 iop_typedef_t const attrs_multi_valid__en__td = {
     .fullname = LSTR_IMMED("attrs_multi_valid.En"),
     .type = IOP_T_ENUM,
     .ref_enum = &attrs_multi_valid__en__e,
+    .attrs = &attrs_multi_valid__en__desc_field_attrs,
 };
 iop_typedef_t const * const attrs_multi_valid__en__tdp = &attrs_multi_valid__en__td;
 

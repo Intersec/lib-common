@@ -1530,211 +1530,530 @@ iop_struct_t const * const typedef_valid__typedef_struct_use_all_with_list__sp =
 /* }}} */
 /* Typedef typedef_valid.MyString {{{ */
 
+
 iop_typedef_t const typedef_valid__my_string__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyString"),
     .type = IOP_T_STRING,
+    .attrs = NULL,
 };
 iop_typedef_t const * const typedef_valid__my_string__tdp = &typedef_valid__my_string__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyULong {{{ */
 
+
 iop_typedef_t const typedef_valid__my_u_long__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyULong"),
     .type = IOP_T_U64,
+    .attrs = NULL,
 };
 iop_typedef_t const * const typedef_valid__my_u_long__tdp = &typedef_valid__my_u_long__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyDouble {{{ */
 
+
 iop_typedef_t const typedef_valid__my_double__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyDouble"),
     .type = IOP_T_DOUBLE,
+    .attrs = NULL,
 };
 iop_typedef_t const * const typedef_valid__my_double__tdp = &typedef_valid__my_double__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyNumericalString {{{ */
 
+static int typedef_valid__my_numerical_string__my_numerical_string__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        lstr_t    val = IOP_FIELD(lstr_t   , ptr, j);
+
+        for (int c = 0; c < val.len; c++) {
+            switch (val.s[c]) {
+                case '0' ... '9':
+                    break;
+                default:
+                    iop_set_err("violation of constraint %s (%s) on field %s: %*pM",
+                                "pattern", "[0-9]*", "MyNumericalString", LSTR_FMT_ARG(val));
+                    return -1;
+            }
+        }
+    }
+    return 0;
+}
+static iop_field_attr_t const typedef_valid__my_numerical_string__my_numerical_string__attrs[] = {
+    {
+        .type = 9,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("[0-9]*") } },
+    },
+};
+static iop_field_attrs_t const typedef_valid__my_numerical_string__desc_field_attrs = {
+        .flags             = 512,
+        .attrs_len         = 1,
+        .check_constraints = &typedef_valid__my_numerical_string__my_numerical_string__check,
+        .attrs             = typedef_valid__my_numerical_string__my_numerical_string__attrs,
+};
+
 iop_typedef_t const typedef_valid__my_numerical_string__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyNumericalString"),
     .type = IOP_T_STRING,
+    .attrs = &typedef_valid__my_numerical_string__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__my_numerical_string__tdp = &typedef_valid__my_numerical_string__td;
 
 /* }}} */
 /* Typedef typedef_valid.Min3 {{{ */
 
+static int typedef_valid__min3__min3__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        uint64_t  val = IOP_FIELD(uint64_t , ptr, j);
+
+        if (val < 3ULL) {
+            if (n > 1) {
+                iop_set_err("violation of constraint %s (%ju) on field %s[%d]: val=%ju",
+                            "min", (uint64_t)3ULL, "Min3", j, (uint64_t)val);
+            } else {
+                iop_set_err("violation of constraint %s (%ju) on field %s: val=%ju",
+                            "min", (uint64_t)3ULL, "Min3", (uint64_t)val);
+            }
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attr_t const typedef_valid__min3__min3__attrs[] = {
+    {
+        .type = 3,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 3ULL } },
+    },
+};
+static iop_field_attrs_t const typedef_valid__min3__desc_field_attrs = {
+        .flags             = 8,
+        .attrs_len         = 1,
+        .check_constraints = &typedef_valid__min3__min3__check,
+        .attrs             = typedef_valid__min3__min3__attrs,
+};
+
 iop_typedef_t const typedef_valid__min3__td = {
     .fullname = LSTR_IMMED("typedef_valid.Min3"),
     .type = IOP_T_U64,
+    .attrs = &typedef_valid__min3__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__min3__tdp = &typedef_valid__min3__td;
 
 /* }}} */
 /* Typedef typedef_valid.Between3And10 {{{ */
 
+static int typedef_valid__between3_and10__between3_and10__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        uint64_t  val = IOP_FIELD(uint64_t , ptr, j);
+
+        if (val > 10ULL) {
+            if (n > 1) {
+                iop_set_err("violation of constraint %s (%ju) on field %s[%d]: val=%ju",
+                            "max", (uint64_t)10ULL, "Between3And10", j, (uint64_t)val);
+            } else {
+                iop_set_err("violation of constraint %s (%ju) on field %s: val=%ju",
+                            "max", (uint64_t)10ULL, "Between3And10", (uint64_t)val);
+            }
+            return -1;
+        }
+        if (val < 3ULL) {
+            if (n > 1) {
+                iop_set_err("violation of constraint %s (%ju) on field %s[%d]: val=%ju",
+                            "min", (uint64_t)3ULL, "Between3And10", j, (uint64_t)val);
+            } else {
+                iop_set_err("violation of constraint %s (%ju) on field %s: val=%ju",
+                            "min", (uint64_t)3ULL, "Between3And10", (uint64_t)val);
+            }
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attr_t const typedef_valid__between3_and10__between3_and10__attrs[] = {
+    {
+        .type = 4,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 10ULL } },
+    },
+    {
+        .type = 3,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 3ULL } },
+    },
+};
+static iop_field_attrs_t const typedef_valid__between3_and10__desc_field_attrs = {
+        .flags             = 24,
+        .attrs_len         = 2,
+        .check_constraints = &typedef_valid__between3_and10__between3_and10__check,
+        .attrs             = typedef_valid__between3_and10__between3_and10__attrs,
+};
+
 iop_typedef_t const typedef_valid__between3_and10__td = {
     .fullname = LSTR_IMMED("typedef_valid.Between3And10"),
     .type = IOP_T_U64,
+    .attrs = &typedef_valid__between3_and10__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__between3_and10__tdp = &typedef_valid__between3_and10__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyStringArray {{{ */
 
+
 iop_typedef_t const typedef_valid__my_string_array__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyStringArray"),
     .type = IOP_T_STRING,
+    .attrs = NULL,
 };
 iop_typedef_t const * const typedef_valid__my_string_array__tdp = &typedef_valid__my_string_array__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyStringArray6 {{{ */
 
+static int typedef_valid__my_string_array6__my_string_array6__check(const void *ptr, int n)
+{
+    if (n < 6) {
+        iop_set_err("violation of constraint %s (%d) on field %s: length=%d",
+                    "minOccurs", 6, "MyStringArray6", n);
+        return -1;
+    }
+    return 0;
+}
+static iop_field_attr_t const typedef_valid__my_string_array6__my_string_array6__attrs[] = {
+    {
+        .type = 0,
+        .args = (iop_field_attr_arg_t[]){ { .v.i64 = 6LL } },
+    },
+};
+static iop_field_attrs_t const typedef_valid__my_string_array6__desc_field_attrs = {
+        .flags             = 1,
+        .attrs_len         = 1,
+        .check_constraints = &typedef_valid__my_string_array6__my_string_array6__check,
+        .attrs             = typedef_valid__my_string_array6__my_string_array6__attrs,
+};
+
 iop_typedef_t const typedef_valid__my_string_array6__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyStringArray6"),
     .type = IOP_T_STRING,
+    .attrs = &typedef_valid__my_string_array6__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__my_string_array6__tdp = &typedef_valid__my_string_array6__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyNumericalStringOpt {{{ */
 
+static int typedef_valid__my_numerical_string_opt__my_numerical_string_opt__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        lstr_t    val = IOP_FIELD(lstr_t   , ptr, j);
+
+        for (int c = 0; c < val.len; c++) {
+            switch (val.s[c]) {
+                case '0' ... '9':
+                    break;
+                default:
+                    iop_set_err("violation of constraint %s (%s) on field %s: %*pM",
+                                "pattern", "[0-9]*", "MyNumericalStringOpt", LSTR_FMT_ARG(val));
+                    return -1;
+            }
+        }
+    }
+    return 0;
+}
+static iop_field_attr_t const typedef_valid__my_numerical_string_opt__my_numerical_string_opt__attrs[] = {
+    {
+        .type = 9,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("[0-9]*") } },
+    },
+};
+static iop_field_attrs_t const typedef_valid__my_numerical_string_opt__desc_field_attrs = {
+        .flags             = 512,
+        .attrs_len         = 1,
+        .check_constraints = &typedef_valid__my_numerical_string_opt__my_numerical_string_opt__check,
+        .attrs             = typedef_valid__my_numerical_string_opt__my_numerical_string_opt__attrs,
+};
+
 iop_typedef_t const typedef_valid__my_numerical_string_opt__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyNumericalStringOpt"),
     .type = IOP_T_STRING,
+    .attrs = &typedef_valid__my_numerical_string_opt__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__my_numerical_string_opt__tdp = &typedef_valid__my_numerical_string_opt__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyEnumAlias {{{ */
 
+static iop_field_attr_t const typedef_valid__my_enum_alias__my_enum_alias__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:myenumalias") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attrs_t const typedef_valid__my_enum_alias__desc_field_attrs = {
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__my_enum_alias__my_enum_alias__attrs,
+};
+
 iop_typedef_t const typedef_valid__my_enum_alias__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyEnumAlias"),
     .type = IOP_T_ENUM,
     .ref_enum = &typedef_valid__my_enum_alias__e,
+    .attrs = &typedef_valid__my_enum_alias__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__my_enum_alias__tdp = &typedef_valid__my_enum_alias__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyStructAlias {{{ */
 
+static iop_field_attr_t const typedef_valid__my_struct_alias__my_struct_alias__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:mystructalias") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attrs_t const typedef_valid__my_struct_alias__desc_field_attrs = {
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__my_struct_alias__my_struct_alias__attrs,
+};
+
 iop_typedef_t const typedef_valid__my_struct_alias__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyStructAlias"),
     .type = IOP_T_STRUCT,
     .ref_struct = &typedef_valid__my_struct_alias__s,
+    .attrs = &typedef_valid__my_struct_alias__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__my_struct_alias__tdp = &typedef_valid__my_struct_alias__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyUnionAlias {{{ */
 
+static iop_field_attr_t const typedef_valid__my_union_alias__my_union_alias__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:myunionalias") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attrs_t const typedef_valid__my_union_alias__desc_field_attrs = {
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__my_union_alias__my_union_alias__attrs,
+};
+
 iop_typedef_t const typedef_valid__my_union_alias__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyUnionAlias"),
     .type = IOP_T_UNION,
     .ref_struct = &typedef_valid__my_union_alias__s,
+    .attrs = &typedef_valid__my_union_alias__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__my_union_alias__tdp = &typedef_valid__my_union_alias__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyUnionAB {{{ */
 
+static int typedef_valid__my_union_a_b__my_union_a_b__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        typedef_valid__my_union__t *val = &IOP_FIELD(typedef_valid__my_union__t, ptr, j);
+
+        switch (val->iop_tag) {
+          case typedef_valid__my_union__a__ft:
+            break;
+          case typedef_valid__my_union__b__ft:
+            break;
+          case typedef_valid__my_union__c__ft:
+            iop_set_err("violation of constraint allow (c) on field MyUnionAB");
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attrs_t const typedef_valid__my_union_a_b__desc_field_attrs = {
+        .flags             = 0,
+        .attrs_len         = 0,
+        .check_constraints = &typedef_valid__my_union_a_b__my_union_a_b__check,
+};
+
 iop_typedef_t const typedef_valid__my_union_a_b__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyUnionAB"),
     .type = IOP_T_UNION,
     .ref_struct = &typedef_valid__my_union_a_b__s,
+    .attrs = &typedef_valid__my_union_a_b__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__my_union_a_b__tdp = &typedef_valid__my_union_a_b__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyUnionABC {{{ */
 
+static int typedef_valid__my_union_a_b_c__my_union_a_b_c__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        typedef_valid__my_union__t *val = &IOP_FIELD(typedef_valid__my_union__t, ptr, j);
+
+        switch (val->iop_tag) {
+          case typedef_valid__my_union__a__ft:
+            break;
+          case typedef_valid__my_union__b__ft:
+            break;
+          case typedef_valid__my_union__c__ft:
+            break;
+        }
+    }
+    return 0;
+}
+static iop_field_attrs_t const typedef_valid__my_union_a_b_c__desc_field_attrs = {
+        .flags             = 0,
+        .attrs_len         = 0,
+        .check_constraints = &typedef_valid__my_union_a_b_c__my_union_a_b_c__check,
+};
+
 iop_typedef_t const typedef_valid__my_union_a_b_c__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyUnionABC"),
     .type = IOP_T_UNION,
     .ref_struct = &typedef_valid__my_union_a_b_c__s,
+    .attrs = &typedef_valid__my_union_a_b_c__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__my_union_a_b_c__tdp = &typedef_valid__my_union_a_b_c__td;
 
 /* }}} */
 /* Typedef typedef_valid.MyUnionWithoutC {{{ */
 
+static int typedef_valid__my_union_without_c__my_union_without_c__check(const void *ptr, int n)
+{
+    for (int j = 0; j < n; j++) {
+        typedef_valid__my_union__t *val = &IOP_FIELD(typedef_valid__my_union__t, ptr, j);
+
+        switch (val->iop_tag) {
+          case typedef_valid__my_union__a__ft:
+            break;
+          case typedef_valid__my_union__b__ft:
+            break;
+          case typedef_valid__my_union__c__ft:
+            iop_set_err("violation of constraint disallow (c) on field MyUnionWithoutC");
+            return -1;
+        }
+    }
+    return 0;
+}
+static iop_field_attrs_t const typedef_valid__my_union_without_c__desc_field_attrs = {
+        .flags             = 0,
+        .attrs_len         = 0,
+        .check_constraints = &typedef_valid__my_union_without_c__my_union_without_c__check,
+};
+
 iop_typedef_t const typedef_valid__my_union_without_c__td = {
     .fullname = LSTR_IMMED("typedef_valid.MyUnionWithoutC"),
     .type = IOP_T_UNION,
     .ref_struct = &typedef_valid__my_union_without_c__s,
+    .attrs = &typedef_valid__my_union_without_c__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__my_union_without_c__tdp = &typedef_valid__my_union_without_c__td;
 
 /* }}} */
 /* Typedef typedef_valid.Adef {{{ */
 
+static iop_field_attr_t const typedef_valid__adef__adef__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:adef") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attrs_t const typedef_valid__adef__desc_field_attrs = {
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__adef__adef__attrs,
+};
+
 iop_typedef_t const typedef_valid__adef__td = {
     .fullname = LSTR_IMMED("typedef_valid.Adef"),
     .type = IOP_T_STRUCT,
     .ref_struct = &typedef_valid__adef__s,
+    .attrs = &typedef_valid__adef__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__adef__tdp = &typedef_valid__adef__td;
 
 /* }}} */
 /* Typedef typedef_valid.Bdef {{{ */
 
+static iop_field_attr_t const typedef_valid__bdef__bdef__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:bdef") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attrs_t const typedef_valid__bdef__desc_field_attrs = {
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__bdef__bdef__attrs,
+};
+
 iop_typedef_t const typedef_valid__bdef__td = {
     .fullname = LSTR_IMMED("typedef_valid.Bdef"),
     .type = IOP_T_STRUCT,
     .ref_struct = &typedef_valid__bdef__s,
+    .attrs = &typedef_valid__bdef__desc_field_attrs,
 };
 iop_typedef_t const * const typedef_valid__bdef__tdp = &typedef_valid__bdef__td;
 
 /* }}} */
 /* Typedef typedef_valid.TypedefSimpleHdr {{{ */
 
+
 iop_typedef_t const typedef_valid__typedef_simple_hdr__td = {
     .fullname = LSTR_IMMED("typedef_valid.TypedefSimpleHdr"),
     .type = IOP_T_STRUCT,
     .ref_struct = &typedef_valid__typedef_simple_hdr__s,
+    .attrs = NULL,
 };
 iop_typedef_t const * const typedef_valid__typedef_simple_hdr__tdp = &typedef_valid__typedef_simple_hdr__td;
 
 /* }}} */
 /* Typedef typedef_valid.TypedefRoutingHdr {{{ */
 
+
 iop_typedef_t const typedef_valid__typedef_routing_hdr__td = {
     .fullname = LSTR_IMMED("typedef_valid.TypedefRoutingHdr"),
     .type = IOP_T_STRUCT,
     .ref_struct = &typedef_valid__typedef_routing_hdr__s,
+    .attrs = NULL,
 };
 iop_typedef_t const * const typedef_valid__typedef_routing_hdr__tdp = &typedef_valid__typedef_routing_hdr__td;
 
 /* }}} */
 /* Typedef typedef_valid.TypedefRoute {{{ */
 
+
 iop_typedef_t const typedef_valid__typedef_route__td = {
     .fullname = LSTR_IMMED("typedef_valid.TypedefRoute"),
     .type = IOP_T_STRUCT,
     .ref_struct = &typedef_valid__typedef_route__s,
+    .attrs = NULL,
 };
 iop_typedef_t const * const typedef_valid__typedef_route__tdp = &typedef_valid__typedef_route__td;
 
 /* }}} */
 /* Typedef typedef_valid.TypedefHdr {{{ */
 
+
 iop_typedef_t const typedef_valid__typedef_hdr__td = {
     .fullname = LSTR_IMMED("typedef_valid.TypedefHdr"),
     .type = IOP_T_UNION,
     .ref_struct = &typedef_valid__typedef_hdr__s,
+    .attrs = NULL,
 };
 iop_typedef_t const * const typedef_valid__typedef_hdr__tdp = &typedef_valid__typedef_hdr__td;
 
 /* }}} */
 /* Typedef typedef_valid.TypedefStructUseAllList {{{ */
 
+
 iop_typedef_t const typedef_valid__typedef_struct_use_all_list__td = {
     .fullname = LSTR_IMMED("typedef_valid.TypedefStructUseAllList"),
     .type = IOP_T_STRUCT,
     .ref_struct = &typedef_valid__typedef_struct_use_all_list__s,
+    .attrs = NULL,
 };
 iop_typedef_t const * const typedef_valid__typedef_struct_use_all_list__tdp = &typedef_valid__typedef_struct_use_all_list__td;
 
