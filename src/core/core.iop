@@ -199,7 +199,13 @@ union TlsCfg {
      */
     string keyname;
 
-    /** The certificate and key of the server.
+    /** Contents of SSL key and certificate.
+     *
+     * Certificate can be a standalone certificate (even if it is a link of a
+     * chain) or a section of certificate chain.
+     * If a chain certificate is used, private key has to correspond to the
+     * lowest level certificate (cf HttpdCfg or HttpcCfg doc for more
+     * explanation).
      */
     TlsCertAndKey data;
 };
@@ -223,7 +229,42 @@ struct HttpdCfg {
     uint    headerLineMax    = 1024;
     /** Maximum total size for headers */
     uint    headerSizeMax    = 64 << 10;
-    /** TLS data: certificate and private key. */
+    /** TLS data: certificate and private key.
+     *
+     * Certificate can be a standalone certificate (even if it is a link of a
+     * chain) or a section of certificate chain.
+     * The validation of the certificate will depend on the contents of this
+     * certificate, the contents of the system SSL default paths and what's in
+     * the client system.
+     * If a chain certificate is used, private key has to correspond to the
+     * lowest level certificate.
+     *
+     * Indeed, in order to validate a certificate, a CA authority is required.
+     * For example, if a certificate is generated from another one, the
+     * parent certificate will be your certification.
+     * There are default paths where SSL stores certificates (see 'OPENSSLDIR'
+     * on 'openssl version -a' command).
+     *
+     * All the contents of the certificate will be used for the validation. If
+     * all the chain is in it, only the root certification will be necessary
+     * on the client side. But, if just a part of the chain is in your
+     * certificate with all other parts that are in the server SSL default
+     * paths, then all the chain will be sent to the client again.
+     * If one link of your chain missed, only the certificate will be sent and
+     * the client system needs to have other links to validate the
+     * certificate.
+     *
+     * For example, lets say you have this chain certificate A -> B -> C,
+     * with B signed by A and C signed y B.
+     * If the certificate contains A, B and C, then only A is necessary on
+     * the client side (all the chain will be sent to the client).
+     * If the certificate contains only C, but A and B are stored in the
+     * system SSL default paths, then only A is necessary on client side again
+     * (all the chain will be sent to the client).
+     * If the certificate contains only C, and only A is stored in the system
+     * SSL default paths, then A and B are necessary on the client side
+     * (just C will be sent to the client).
+     */
     TlsCfg? tls;
 };
 

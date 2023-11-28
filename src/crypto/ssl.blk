@@ -22,6 +22,7 @@
 #include <lib-common/zchk-helpers.h>
 #include <lib-common/ssl.h>
 #include <lib-common/hash.h>
+#include <lib-common/file.h>
 
 /* {{{ Module */
 
@@ -863,15 +864,10 @@ X509 *ssl_ctx_convert_certificate_lstr(lstr_t cert)
     return x;
 }
 
-static int ssl_ctx_use_certificate_lstr(SSL_CTX *ctx, lstr_t cert)
+static int
+ssl_ctx_use_certificate_chain_file(SSL_CTX *ctx, const char *path)
 {
-    X509 *x = ssl_ctx_convert_certificate_lstr(cert);
-    int ret;
-
-    ret = SSL_CTX_use_certificate(ctx, x);
-
-    X509_free(x);
-    return ret == 1 ? 0 : -1;
+    return SSL_CTX_use_certificate_chain_file(ctx, path) == 1 ? 0 : -1;
 }
 
 static int ssl_ctx_use_privatekey_lstr(SSL_CTX *ctx, lstr_t key)
@@ -920,10 +916,27 @@ SSL_CTX *ssl_ctx_new_tls(const SSL_METHOD *method, lstr_t key, lstr_t cert,
 #endif /* OpenSSL >= 3 */
 
     if (cert.s && key.s) {
-        if (ssl_ctx_use_certificate_lstr(ctx, cert) < 0) {
+        char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
+        int ret;
+
+        /* write certificate in a file in order to use
+         * SSL_CTX_use_certificate_chain_file as we can have chained cert */
+        ret = write_in_tmp_file(path, cert.s, cert.len, err);
+
+        if (ret < 0) {
+            sb_setf(err, "tls: failed to dump certificate: %*pM",
+                    SB_FMT_ARG(err));
+            goto error;
+        }
+
+        ret = ssl_ctx_use_certificate_chain_file(ctx, path);
+        unlink(path);
+
+        if (ret < 0) {
             sb_adds(err, "failed to load certificate");
             goto error;
         }
+
         if (ssl_ctx_use_privatekey_lstr(ctx, key) < 0) {
             sb_adds(err, "failed to load private key");
             goto error;
