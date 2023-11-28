@@ -57,55 +57,20 @@ static int iopc_field_resolve(iopc_pkg_t *pkg, iopc_field_t *field,
 
 static int
 pkg_provides_struct(iopc_pkg_t *pkg, const char *type, bool visible,
-                    bool checking_field, bool in_td_resolve,
-                    iopc_struct_t **out_st, iopc_field_t **nullable out_td)
+                    bool checking_field, iopc_struct_t **out)
 {
-#define CHECK_FIELD_SNMP(_st)                                                \
-    do {                                                                     \
-        iopc_struct_t *__st = (_st);                                         \
-                                                                             \
-        if (checking_field && iopc_is_snmp_st(__st->type)) {                 \
-            throw_loc("snmp objects cannot be used to define a field type",  \
-                      __st->loc);                                            \
-        }                                                                    \
-    } while (0)
-
     tab_for_each_entry(st, &pkg->structs) {
         if (IS_IOPC_SYMBOL_VISIBLE_AND_TYPE(st, type, visible)) {
-            CHECK_FIELD_SNMP(st);
-            *out_st = st;
-            if (out_td) {
-                *out_td = NULL;
+            if (checking_field && iopc_is_snmp_st(st->type)) {
+                throw_loc("snmp objects cannot be used to define a field "
+                          "type",  st->loc);
             }
+            *out = st;
             return 0;
         }
     }
 
-    if (!in_td_resolve) {
-        tab_for_each_entry(td, &pkg->typedefs) {
-            RETHROW(iopc_field_resolve(pkg, td, NULL));
-
-            if ((td->kind == IOP_T_STRUCT) && (td->found_pkg == pkg)) {
-                iopc_struct_t *st = td->struct_def;
-
-                if (IS_IOPC_SYMBOL_VISIBLE_AND_TYPE(td, type, visible)) {
-                    CHECK_FIELD_SNMP(st);
-                    *out_st = st;
-                    if (out_td) {
-                        *out_td = td;
-                    }
-                    return 0;
-                }
-            }
-        }
-    }
-
-#undef CHECK_AND_RETURN_ST
-
-    *out_st = NULL;
-    if (out_td) {
-        *out_td = NULL;
-    }
+    *out = NULL;
     return 0;
 }
 
@@ -142,34 +107,15 @@ pkg_provides_fields_for_param(iopc_pkg_t *pkg, iopc_field_t *field,
     return false;
 }
 
-static int
-pkg_provides_enum(iopc_pkg_t *pkg, const char *type, bool visible,
-                  bool in_td_resolve, iopc_enum_t **out)
+static iopc_enum_t *
+pkg_provides_enum(iopc_pkg_t *pkg, const char *type, bool visible)
 {
     tab_for_each_entry(en, &pkg->enums) {
         if (IS_IOPC_SYMBOL_VISIBLE_AND_TYPE(en, type, visible)) {
-            *out = en;
-            return 0;
+            return en;
         }
     }
-
-    if (!in_td_resolve) {
-        tab_for_each_entry(td, &pkg->typedefs) {
-            RETHROW(iopc_field_resolve(pkg, td, NULL));
-
-            if ((td->kind == IOP_T_ENUM) && (td->found_pkg == pkg)) {
-                iopc_enum_t *en = td->enum_def;
-
-                if (IS_IOPC_SYMBOL_VISIBLE_AND_TYPE(en, type, visible)) {
-                    *out =en;
-                    return 0;
-                }
-            }
-        }
-    }
-
-    *out = NULL;
-    return 0;
+    return NULL;
 }
 
 static iopc_field_t *
@@ -302,8 +248,7 @@ static int iopc_find_type_in_pkg(iopc_pkg_t *pkg, iopc_field_t *f,
 
     *found = true;
 
-    RETHROW(pkg_provides_struct(pkg, name, visible, true, f_is_tdef, &st,
-                                NULL));
+    RETHROW(pkg_provides_struct(pkg, name, visible, true, &st));
     if (st) {
         if (!f->type_pkg) {
             f->type_pkg = pkg;
@@ -318,8 +263,7 @@ static int iopc_find_type_in_pkg(iopc_pkg_t *pkg, iopc_field_t *f,
         return 0;
     }
 
-    RETHROW(pkg_provides_enum(pkg, name, visible, f_is_tdef, &en));
-    if (en) {
+    if ((en = pkg_provides_enum(pkg, name, visible))) {
         if (!f->type_pkg) {
             f->type_pkg = pkg;
         }
@@ -483,7 +427,6 @@ resolve_pkg_parent_and_params(iopc_extends_t *xt, iopc_pkg_t *pkg,
 {
     t_scope;
     iopc_struct_t *st = NULL;
-    iopc_field_t *td = NULL;
 
     if (!xt->pkg) {
         xt->pkg = pkg;
@@ -501,18 +444,30 @@ resolve_pkg_parent_and_params(iopc_extends_t *xt, iopc_pkg_t *pkg,
         return 0;
     }
 
-    RETHROW(pkg_provides_struct(xt->pkg, xt->name, true, false, false, &st,
-                                &td));
+    RETHROW(pkg_provides_struct(xt->pkg, xt->name, true, false, &st));
+
+    if (!st) {
+        /* Might be a typedef. */
+        iopc_field_t *tdef;
+
+        tdef = pkg_provides_typedef(xt->pkg, xt->name, true);
+        if (tdef) {
+            RETHROW(iopc_types_find_n_check(xt->pkg, tdef, false));
+
+            if (tdef->kind == IOP_T_STRUCT) {
+                /* The parent is a typedef, use the package of the resolved
+                 * struct instead of the local one. */
+                st = tdef->struct_def;
+                xt->pkg = tdef->type_pkg;
+            }
+        }
+    }
+
     if (!st) {
         throw_loc("pkg `%s` does not provide %s `%s` when resolving %s of "
                   "%s `%s`", xt->loc, iopc_path_dot(xt->pkg->name),
                   iopc_struct_type_to_str(type), xt->name, action,
                   type_obj, name);
-    }
-    if (td) {
-        /* The parent is a typedef, use the package of the resolved struct
-         * instead of the local one. */
-        xt->pkg = td->type_pkg;
     }
 
     if (!iopc_is_snmp_tbl(type) && st->type != type) {
