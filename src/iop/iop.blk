@@ -6510,10 +6510,12 @@ static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
     }
 
     /* Register its typedefs. */
-    for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
-        const iop_typedef_t *desc = *it;
+    if (!dso || dso->version >= IOP_DSO_VERSION_TYPEDEF) {
+        for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
+            const iop_typedef_t *desc = *it;
 
-        RETHROW(iop_register_typedef(desc, flags, env, err));
+            RETHROW(iop_register_typedef(desc, flags, env, err));
+        }
     }
 
     /* Register its dependencies. */
@@ -6659,12 +6661,17 @@ void iop_unregister_packages(const iop_pkg_t **pkgs, int len)
 
     for (int i = 0; i < len; i++) {
         const iop_pkg_t *pkg = pkgs[i];
+        int pos;
+        const iop_dso_t *dso = NULL;
 
         /* Unregister the package itself. */
         if (iop_unregister_obj(pkg->name, IOP_OBJ_PKG(pkg)) < 0) {
             continue;
         }
-        qm_del_key(iop_dsos, &_G.env.dsos_by_pkg, pkg);
+        pos = qm_del_key(iop_dsos, &_G.env.dsos_by_pkg, pkg);
+        if (pos >= 0) {
+            dso = _G.env.dsos_by_pkg.values[pos];
+        }
 
         /* Unregister its classes. */
         for (const iop_struct_t *const *it = pkg->structs; *it; it++) {
@@ -6685,10 +6692,12 @@ void iop_unregister_packages(const iop_pkg_t **pkgs, int len)
         }
 
         /* Unregister its typedef. */
-        for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
-            const iop_typedef_t *desc = *it;
+        if (!dso || dso->version >= IOP_DSO_VERSION_TYPEDEF) {
+            for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
+                const iop_typedef_t *desc = *it;
 
-            iop_unregister_typedef(desc);
+                iop_unregister_typedef(desc);
+            }
         }
     }
 
@@ -7799,8 +7808,14 @@ static BUILD_GET_BY_NAME(iop_pkg_get_mod_by_name,    iop_mod_t,    mods)
 #undef BUILD_GET_BY_NAME
 
 static const iop_struct_t *
-iop_pkg_get_struct_by_typedef_name(const iop_pkg_t *pkg, lstr_t name)
+iop_pkg_get_struct_by_typedef_name(const iop_pkg_t *pkg,
+                                   const iop_dso_t * nullable dso,
+                                   lstr_t name)
 {
+    if (dso && dso->version < IOP_DSO_VERSION_TYPEDEF) {
+        return NULL;
+    }
+
     for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
         const iop_typedef_t *obj = *it;
 
@@ -7821,6 +7836,7 @@ iop_pkg_get_struct_by_typedef_name(const iop_pkg_t *pkg, lstr_t name)
 
 int iop_pkg_check_backward_compat_ctx(const iop_pkg_t *pkg1,
                                       const iop_pkg_t *pkg2,
+                                      const iop_dso_t * nullable dso2,
                                       iop_compat_ctx_t *ctx,
                                       unsigned flags, sb_t *err)
 {
@@ -7851,7 +7867,7 @@ int iop_pkg_check_backward_compat_ctx(const iop_pkg_t *pkg1,
         }
 
         st2 = iop_pkg_get_struct_by_name(pkg2, name);
-        st2 = st2 ?: iop_pkg_get_struct_by_typedef_name(pkg2, name);
+        st2 = st2 ?: iop_pkg_get_struct_by_typedef_name(pkg2, dso2, name);
         if (!st2) {
             iop_compat_add_err(ctx, "%s `%*pM` does not exist anymore",
                                what, LSTR_FMT_ARG(st1->fullname));
@@ -7922,6 +7938,7 @@ int iop_pkg_check_backward_compat_ctx(const iop_pkg_t *pkg1,
 
 int iop_pkg_check_backward_compat(const iop_pkg_t *pkg1,
                                   const iop_pkg_t *pkg2,
+                                  const iop_dso_t *dso2,
                                   unsigned flags, sb_t *err)
 {
     int res;
@@ -7929,7 +7946,8 @@ int iop_pkg_check_backward_compat(const iop_pkg_t *pkg1,
 
     iop_compat_ctx_init(&ctx);
 
-    res = iop_pkg_check_backward_compat_ctx(pkg1, pkg2, &ctx, flags, err);
+    res = iop_pkg_check_backward_compat_ctx(pkg1, pkg2, dso2, &ctx, flags,
+                                            err);
 
     iop_compat_ctx_wipe(&ctx);
 

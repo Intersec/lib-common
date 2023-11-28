@@ -19,8 +19,13 @@
 #ifndef IS_LIB_COMMON_IOP_INTERNALS_H
 #define IS_LIB_COMMON_IOP_INTERNALS_H
 
+/* The following define ensures the DSO compatibility with the implementation
+ * of typedef for enums, unions and structures (including classes) in IOP
+ * files */
+#define IOP_DSO_VERSION_TYPEDEF 20231114
+
 /* ABI compatibility version for the DSO */
-#define IOP_DSO_CURRENT_VERSION 20231114
+#define IOP_DSO_CURRENT_VERSION IOP_DSO_VERSION_TYPEDEF
 
 typedef enum iop_repeat_t {
     IOP_R_REQUIRED,
@@ -562,6 +567,9 @@ struct iop_pkg_t {
     iop_iface_t   const *const nullable *nonnull ifaces;
     iop_mod_t     const *const nullable *nonnull mods;
     iop_pkg_t     const *const nullable *nonnull deps;
+
+    /* WARNING: Check that dso->version >= IOP_DSO_VERSION_TYPEDEF before
+     * accessing this field. */
     iop_typedef_t const *const nullable *nonnull typedefs;
 };
 

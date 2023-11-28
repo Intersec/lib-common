@@ -2690,6 +2690,9 @@ int iop_struct_check_backward_compat(const iop_struct_t * nonnull st1,
                                      const iop_struct_t * nonnull st2,
                                      unsigned flags, sb_t * nonnull err);
 
+/** Forward declaration to avoid cyclic header inclusion. */
+struct iop_dso_t;
+
 /** Checks the backward compatibility of two IOP packages.
  *
  * This function checks if \p pkg2 is backward-compatible with \p pkg1
@@ -2704,6 +2707,7 @@ int iop_struct_check_backward_compat(const iop_struct_t * nonnull st1,
  */
 int iop_pkg_check_backward_compat(const iop_pkg_t * nonnull pkg1,
                                   const iop_pkg_t * nonnull pkg2,
+                                  const struct iop_dso_t * nullable dso2,
                                   unsigned flags, sb_t * nonnull err);
 
 /** Checks the backward compatibility of two IOP packages with provided
@@ -2716,6 +2720,7 @@ int iop_pkg_check_backward_compat(const iop_pkg_t * nonnull pkg1,
  */
 int iop_pkg_check_backward_compat_ctx(const iop_pkg_t * nonnull pkg1,
                                       const iop_pkg_t * nonnull pkg2,
+                                      const struct iop_dso_t * nullable dso2,
                                       iop_compat_ctx_t * nonnull ctx,
                                       unsigned flags, sb_t * nonnull err);
 

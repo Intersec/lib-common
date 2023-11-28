@@ -8276,7 +8276,7 @@ Z_GROUP_EXPORT(iop)
             sb_reset(&err);                                                  \
             Z_ASSERT_N(iop_pkg_check_backward_compat(&_pkg1##__pkg,          \
                                                      &_pkg2##__pkg,          \
-                                                     _flags, &err),          \
+                                                     NULL, _flags, &err),    \
                        "%*pM", SB_FMT_ARG(&err));                            \
         } while (0)
 
@@ -8292,7 +8292,7 @@ Z_GROUP_EXPORT(iop)
             sb_reset(&err);                                                  \
             Z_ASSERT_NEG(iop_pkg_check_backward_compat(&_pkg1##__pkg,        \
                                                        &_pkg2##__pkg,        \
-                                                       _flags, &err));       \
+                                                       NULL, _flags, &err)); \
             Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), LSTR(_err));                 \
         } while (0)
 
@@ -8461,17 +8461,18 @@ Z_GROUP_EXPORT(iop)
         pkgp_new = dlsym(dso_new->handle, "iop_packages");
 
 #undef T_OK
-#define T_OK(_pkg1, _pkg2, _flags)  \
+#define T_OK(_pkg1, _pkg2, _dso2, _flags)  \
         do {                                                                 \
             sb_reset(&err);                                                  \
-            Z_ASSERT_N(iop_pkg_check_backward_compat(_pkg1, _pkg2, _flags,   \
+            Z_ASSERT_N(iop_pkg_check_backward_compat((_pkg1), (_pkg2),       \
+                                                     (_dso2), (_flags),      \
                                                      &err),                  \
                        "%*pM", SB_FMT_ARG(&err));                            \
         } while (0)
 
-        T_OK(*pkgp_old, *pkgp_new, IOP_COMPAT_BIN);
-        T_OK(*pkgp_old, *pkgp_new, IOP_COMPAT_JSON);
-        T_OK(*pkgp_old, *pkgp_new, IOP_COMPAT_ALL);
+        T_OK(*pkgp_old, *pkgp_new, dso_new, IOP_COMPAT_BIN);
+        T_OK(*pkgp_old, *pkgp_new, dso_new, IOP_COMPAT_JSON);
+        T_OK(*pkgp_old, *pkgp_new, dso_new, IOP_COMPAT_ALL);
 
         iop_dso_close(&dso_old);
         iop_dso_close(&dso_new);

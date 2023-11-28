@@ -19,11 +19,6 @@
 #include <lib-common/iop.h>
 #include "priv.h"
 
-/* The following define ensures the DSO compatibility with the implementation
- * of typedef for enums, unions and structures (including classes) in IOP
- * files */
-#define IOP_DSO_VERSION_TYPEDEF 20231114
-
 qm_khptr_ckey_t(iop_dso_by_handle, void, iop_dso_t *);
 
 static struct {
@@ -192,38 +187,12 @@ static int iopdso_fix_pkg(iop_dso_t *dso, const iop_pkg_t *pkg, sb_t *err)
     return 0;
 }
 
-static const iop_typedef_t *empty_typedefs_g[] = {NULL};
-
-static iop_pkg_t *iop_pkg_dup_old_version(const iop_pkg_t *old_version_pkg)
-{
-    iop_pkg_t *new_version_pkg = p_new(iop_pkg_t, 1);
-    lstr_t *new_name = unconst_cast(lstr_t, &new_version_pkg->name);
-
-    *new_name = old_version_pkg->name;
-    new_version_pkg->enums = old_version_pkg->enums;
-    new_version_pkg->structs = old_version_pkg->structs;
-    new_version_pkg->ifaces = old_version_pkg->ifaces;
-    new_version_pkg->mods = old_version_pkg->mods;
-    new_version_pkg->deps = old_version_pkg->deps;
-    new_version_pkg->typedefs = empty_typedefs_g;
-
-    return new_version_pkg;
-}
-
 static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
                                iop_env_t *env, sb_t *err)
 {
-    uint32_t pos;
-
-    pos = qm_put(iop_pkg, &dso->pkg_h, &pkg->name, pkg, 0);
-    if (pos & QHASH_COLLISION) {
+    if (qm_add(iop_pkg, &dso->pkg_h, &pkg->name, pkg) < 0) {
         return 0;
     }
-    if (dso->version < IOP_DSO_VERSION_TYPEDEF) {
-        pkg = iop_pkg_dup_old_version(pkg);
-    }
-    dso->pkg_h.keys[pos] = pkg->name;
-    dso->pkg_h.values[pos] = pkg;
     if (dso->use_external_packages) {
         e_trace(1, "fixup package `%*pM` (%p)", LSTR_FMT_ARG(pkg->name), pkg);
         RETHROW(iopdso_fix_pkg(dso, pkg, err));
@@ -236,8 +205,10 @@ static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
     for (const iop_struct_t *const *it = pkg->structs; *it; it++) {
         iopdso_register_struct(dso, *it);
     }
-    for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
-        iopdso_register_typedef(dso, *it);
+    if (dso->version >= IOP_DSO_VERSION_TYPEDEF) {
+        for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
+            iopdso_register_typedef(dso, *it);
+        }
     }
     for (const iop_iface_t *const *it = pkg->ifaces; *it; it++) {
         qm_add(iop_iface, &dso->iface_h, &(*it)->fullname, *it);
@@ -315,34 +286,11 @@ static void iop_dso_unload(iop_dso_t *dso)
     }
 }
 
-static void iop_pkg_deep_delete_prev_version(iop_dso_t *dso)
-{
-    if (dso->version < IOP_DSO_VERSION_TYPEDEF) {
-        qm_for_each_value(iop_pkg, value, &dso->pkg_h) {
-            iop_pkg_t *pkg = unconst_cast(iop_pkg_t, value);
-
-            p_delete(&pkg);
-        }
-    }
-}
-
-static void iop_pkg_wipe(iop_dso_t *dso)
-{
-    iop_pkg_deep_delete_prev_version(dso);
-    qm_wipe(iop_pkg, &dso->pkg_h);
-}
-
-static void iop_pkg_clear(iop_dso_t *dso)
-{
-    iop_pkg_deep_delete_prev_version(dso);
-    qm_clear(iop_pkg, &dso->pkg_h);
-}
-
 static void iop_dso_wipe(iop_dso_t *dso)
 {
     iop_dso_unload(dso);
 
-    iop_pkg_wipe(dso);
+    qm_wipe(iop_pkg,     &dso->pkg_h);
     qm_wipe(iop_enum,    &dso->enum_h);
     qm_wipe(iop_struct,  &dso->struct_h);
     qm_wipe(iop_typedef, &dso->typedef_h);
@@ -454,7 +402,7 @@ static int iop_dso_reopen(iop_dso_t *dso, sb_t *err)
 
     iop_dso_unload(dso);
 
-    iop_pkg_clear(dso);
+    qm_clear(iop_pkg,     &dso->pkg_h);
     qm_clear(iop_enum,    &dso->enum_h);
     qm_clear(iop_struct,  &dso->struct_h);
     qm_clear(iop_typedef, &dso->typedef_h);
@@ -482,7 +430,7 @@ static int iop_dso_register_(iop_dso_t *dso, sb_t *err)
             /* This should not happen because this was checked before. */
             e_panic("IOP DSO: iop_packages not found when registering DSO");
         }
-        iop_pkg_clear(dso);
+        qm_clear(iop_pkg, &dso->pkg_h);
         iop_env_get(&env);
         while (*pkgp) {
             if (iopdso_register_pkg(dso, *pkgp++, &env, err) < 0) {
