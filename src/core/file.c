@@ -301,6 +301,33 @@ ssize_t file_write(file_t *f, const void *data, size_t len)
     return __file_writev(f, iov, 1);
 }
 
+int write_in_tmp_file(char *file_path, const char *data, int len, sb_t *err)
+{
+    int fd;
+    int ret;
+
+    if ((fd = mkstemp(file_path)) < 0) {
+        sb_setf(err, "failed to create a temporary path: %m");
+        return -1;
+    }
+
+    ret = xwrite(fd, data, len);
+    if (ret < 0) {
+        PROTECT_ERRNO(p_close(&fd));
+    } else {
+        ret = p_close(&fd);
+    }
+
+    if (ret < 0) {
+        sb_setf(err, "failed to write data in temporary file `%s`: %m",
+                file_path);
+        unlink(file_path);
+        return -1;
+    }
+
+    return 0;
+}
+
 int file_truncate(file_t *f, off_t len)
 {
     if (len < f->wpos) {

@@ -26,6 +26,8 @@
 #include <lib-common/iop.h>
 #include <lib-common/core/core.iop.h>
 
+#include <lib-common/file.h>
+
 #include <openssl/ssl.h>
 
 #include "httptokens.h"
@@ -2537,7 +2539,6 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
     if (iop_cfg->tls_on) {
         SB_1k(err);
         char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
-        int fd;
         int ret;
         core__tls_cert_and_key__t *data;
 
@@ -2562,23 +2563,19 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
             return -1;
         }
 
-        if ((fd = mkstemp(path)) < 0) {
-            logger_error(&_G.logger, "tls: failed to create a temporary path "
-                         "to dump certificate: %m");
-            return -1;
-        }
+        ret = write_in_tmp_file(path, iop_cfg->tls_cert.s,
+                                iop_cfg->tls_cert.len, &err);
 
-        ret = xwrite(fd, iop_cfg->tls_cert.s, iop_cfg->tls_cert.len);
-        p_close(&fd);
         if (ret < 0) {
-            logger_error(&_G.logger, "tls: failed to dump certificate in "
-                         "temporary file `%s`: %m", path);
-            unlink(path);
+            httpc_cfg_tls_wipe(cfg);
+            logger_error(&_G.logger, "tls: failed to dump certificate: "
+                         "%*pM", SB_FMT_ARG(&err));
             return -1;
         }
 
         ret = httpc_cfg_tls_add_verify_file(cfg, LSTR(path));
         unlink(path);
+
         if (ret < 0) {
             httpc_cfg_tls_wipe(cfg);
             logger_error(&_G.logger, "tls: failed to load certificate");

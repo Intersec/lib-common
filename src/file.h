@@ -82,6 +82,24 @@ static inline ssize_t file_writef(file_t *f, const char *fmt, ...) {
     va_end(ap);
     return res;
 }
+
+/** Create a temporary file and write data in it.
+ *
+ * Standard 'unlink' method should be called on the path given in argument in
+ * case of success (once you no longer need the file).
+ *
+ * \param[in] file_path
+ *    path of the file. It will create with the method mkstemp. As mentioned,
+ *    in the doc of this method, the last six characters of template must be
+ *    "XXXXXX" and these are replaced with a string that makes the filename
+ *    unique.
+ * \param[in] data     the data to write.
+ * \param[in] len      length of data.
+ * \param[out] err     error on creating file or writing data.
+ *
+ * \return             0 on success, -1 the data has not be written.
+ */
+int write_in_tmp_file(char *file_path, const char *data, int len, sb_t *err);
 int file_truncate(file_t *f, off_t len);
 
 #endif /* IS_LIB_COMMON_FILE_H */
