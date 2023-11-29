@@ -446,6 +446,24 @@ static iop_field_attr_t const typedef_valid__typedef_struct_use_all__mnso__attrs
         .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("[0-9]*") } },
     },
 };
+static iop_field_attr_t const typedef_valid__typedef_struct_use_all__mea__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:myenumalias") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attr_t const typedef_valid__typedef_struct_use_all__msal__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:mystructalias") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attr_t const typedef_valid__typedef_struct_use_all__mya__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:myunionalias") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
 static int typedef_valid__typedef_struct_use_all__muab__check(const void *ptr, int n)
 {
     for (int j = 0; j < n; j++) {
@@ -513,6 +531,18 @@ static int typedef_valid__typedef_struct_use_all__muwcopt__check(const void *ptr
     }
     return 0;
 }
+static iop_field_attr_t const typedef_valid__typedef_struct_use_all__a__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:adef") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attr_t const typedef_valid__typedef_struct_use_all__b__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:bdef") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
 static iop_field_attrs_t const typedef_valid__typedef_struct_use_all__desc_fields_attrs[] = {
     {
         .flags             = 0,
@@ -605,16 +635,19 @@ static iop_field_attrs_t const typedef_valid__typedef_struct_use_all__desc_field
         .attrs             = typedef_valid__typedef_struct_use_all__mnso__attrs,
     },
     {
-        .flags             = 0,
-        .attrs_len         = 0,
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__typedef_struct_use_all__mea__attrs,
     },
     {
-        .flags             = 0,
-        .attrs_len         = 0,
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__typedef_struct_use_all__msal__attrs,
     },
     {
-        .flags             = 0,
-        .attrs_len         = 0,
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__typedef_struct_use_all__mya__attrs,
     },
     {
         .flags             = 0,
@@ -637,12 +670,14 @@ static iop_field_attrs_t const typedef_valid__typedef_struct_use_all__desc_field
         .check_constraints = &typedef_valid__typedef_struct_use_all__muwcopt__check,
     },
     {
-        .flags             = 0,
-        .attrs_len         = 0,
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__typedef_struct_use_all__a__attrs,
     },
     {
-        .flags             = 0,
-        .attrs_len         = 0,
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__typedef_struct_use_all__b__attrs,
     },
 };
 static iop_field_t const typedef_valid__typedef_struct_use_all__desc_fields[] = {
@@ -1023,6 +1058,24 @@ static iop_field_attr_t const typedef_valid__typedef_union_use_all__b310__attrs[
         .args = (iop_field_attr_arg_t[]){ { .v.i64 = 3ULL } },
     },
 };
+static iop_field_attr_t const typedef_valid__typedef_union_use_all__mea__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:myenumalias") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attr_t const typedef_valid__typedef_union_use_all__msal__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:mystructalias") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attr_t const typedef_valid__typedef_union_use_all__mya__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:myunionalias") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
 static int typedef_valid__typedef_union_use_all__muab__check(const void *ptr, int n)
 {
     for (int j = 0; j < n; j++) {
@@ -1073,6 +1126,18 @@ static int typedef_valid__typedef_union_use_all__muwc__check(const void *ptr, in
     }
     return 0;
 }
+static iop_field_attr_t const typedef_valid__typedef_union_use_all__a__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:adef") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
+static iop_field_attr_t const typedef_valid__typedef_union_use_all__b__attrs[] = {
+    {
+        .type = 15,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("td:bdef") }, {.v.s = LSTR_IMMED("{}") } },
+    },
+};
 static iop_field_attrs_t const typedef_valid__typedef_union_use_all__desc_fields_attrs[] = {
     {
         .flags             = 0,
@@ -1101,16 +1166,19 @@ static iop_field_attrs_t const typedef_valid__typedef_union_use_all__desc_fields
         .attrs             = typedef_valid__typedef_union_use_all__b310__attrs,
     },
     {
-        .flags             = 0,
-        .attrs_len         = 0,
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__typedef_union_use_all__mea__attrs,
     },
     {
-        .flags             = 0,
-        .attrs_len         = 0,
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__typedef_union_use_all__msal__attrs,
     },
     {
-        .flags             = 0,
-        .attrs_len         = 0,
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__typedef_union_use_all__mya__attrs,
     },
     {
         .flags             = 0,
@@ -1128,12 +1196,14 @@ static iop_field_attrs_t const typedef_valid__typedef_union_use_all__desc_fields
         .check_constraints = &typedef_valid__typedef_union_use_all__muwc__check,
     },
     {
-        .flags             = 0,
-        .attrs_len         = 0,
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__typedef_union_use_all__a__attrs,
     },
     {
-        .flags             = 0,
-        .attrs_len         = 0,
+        .flags             = 32768,
+        .attrs_len         = 1,
+        .attrs             = typedef_valid__typedef_union_use_all__b__attrs,
     },
 };
 static iop_field_t const typedef_valid__typedef_union_use_all__desc_fields[] = {

@@ -50,10 +50,13 @@ class A {
 class B : 10 : A {
 };
 
+@(td:myenumalias)
 typedef enum1.MyEnum MyEnumAlias;
 
+@(td:mystructalias)
 typedef MyStruct MyStructAlias;
 
+@(td:myunionalias)
 typedef MyUnion MyUnionAlias;
 
 @allow(a, b)
@@ -65,7 +68,10 @@ typedef MyUnionAB MyUnionABC;
 @disallow(c)
 typedef MyUnion MyUnionWithoutC;
 
+@(td:adef)
 typedef A Adef;
+
+@(td:bdef)
 typedef B Bdef;
 
 /* Use them all! */

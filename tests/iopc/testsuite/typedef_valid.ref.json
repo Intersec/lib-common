@@ -175,13 +175,31 @@
 					}
 				},
 				"mea": {
-					"type": "enum1.MyEnum"
+					"type": "enum1.MyEnum",
+					"genAttrs": {
+						"td:myenumalias": {
+							"type": "object",
+							"value": {}
+						}
+					}
 				},
 				"msal": {
-					"type": "typedef_valid.MyStruct"
+					"type": "typedef_valid.MyStruct",
+					"genAttrs": {
+						"td:mystructalias": {
+							"type": "object",
+							"value": {}
+						}
+					}
 				},
 				"mya": {
-					"type": "typedef_valid.MyUnion"
+					"type": "typedef_valid.MyUnion",
+					"genAttrs": {
+						"td:myunionalias": {
+							"type": "object",
+							"value": {}
+						}
+					}
 				},
 				"muab": {
 					"type": "typedef_valid.MyUnion",
@@ -213,10 +231,22 @@
 					}
 				},
 				"a": {
-					"type": "typedef_valid.A"
+					"type": "typedef_valid.A",
+					"genAttrs": {
+						"td:adef": {
+							"type": "object",
+							"value": {}
+						}
+					}
 				},
 				"b": {
-					"type": "typedef_valid.B"
+					"type": "typedef_valid.B",
+					"genAttrs": {
+						"td:bdef": {
+							"type": "object",
+							"value": {}
+						}
+					}
 				}
 			}
 		},
@@ -251,13 +281,31 @@
 					}
 				},
 				"mea": {
-					"type": "enum1.MyEnum"
+					"type": "enum1.MyEnum",
+					"genAttrs": {
+						"td:myenumalias": {
+							"type": "object",
+							"value": {}
+						}
+					}
 				},
 				"msal": {
-					"type": "typedef_valid.MyStruct"
+					"type": "typedef_valid.MyStruct",
+					"genAttrs": {
+						"td:mystructalias": {
+							"type": "object",
+							"value": {}
+						}
+					}
 				},
 				"mya": {
-					"type": "typedef_valid.MyUnion"
+					"type": "typedef_valid.MyUnion",
+					"genAttrs": {
+						"td:myunionalias": {
+							"type": "object",
+							"value": {}
+						}
+					}
 				},
 				"muab": {
 					"type": "typedef_valid.MyUnion",
@@ -281,10 +329,22 @@
 					}
 				},
 				"a": {
-					"type": "typedef_valid.A"
+					"type": "typedef_valid.A",
+					"genAttrs": {
+						"td:adef": {
+							"type": "object",
+							"value": {}
+						}
+					}
 				},
 				"b": {
-					"type": "typedef_valid.B"
+					"type": "typedef_valid.B",
+					"genAttrs": {
+						"td:bdef": {
+							"type": "object",
+							"value": {}
+						}
+					}
 				}
 			}
 		},
@@ -423,19 +483,37 @@
 			"name": "MyEnumAlias",
 			"fullName": "typedef_valid.MyEnumAlias",
 			"type": "typedef",
-			"typedef": "enum1.MyEnum"
+			"typedef": "enum1.MyEnum",
+			"genAttrs": {
+				"td:myenumalias": {
+					"type": "object",
+					"value": {}
+				}
+			}
 		},
 		{
 			"name": "MyStructAlias",
 			"fullName": "typedef_valid.MyStructAlias",
 			"type": "typedef",
-			"typedef": "typedef_valid.MyStruct"
+			"typedef": "typedef_valid.MyStruct",
+			"genAttrs": {
+				"td:mystructalias": {
+					"type": "object",
+					"value": {}
+				}
+			}
 		},
 		{
 			"name": "MyUnionAlias",
 			"fullName": "typedef_valid.MyUnionAlias",
 			"type": "typedef",
-			"typedef": "typedef_valid.MyUnion"
+			"typedef": "typedef_valid.MyUnion",
+			"genAttrs": {
+				"td:myunionalias": {
+					"type": "object",
+					"value": {}
+				}
+			}
 		},
 		{
 			"name": "MyUnionAB",
@@ -471,13 +549,25 @@
 			"name": "Adef",
 			"fullName": "typedef_valid.Adef",
 			"type": "typedef",
-			"typedef": "typedef_valid.A"
+			"typedef": "typedef_valid.A",
+			"genAttrs": {
+				"td:adef": {
+					"type": "object",
+					"value": {}
+				}
+			}
 		},
 		{
 			"name": "Bdef",
 			"fullName": "typedef_valid.Bdef",
 			"type": "typedef",
-			"typedef": "typedef_valid.B"
+			"typedef": "typedef_valid.B",
+			"genAttrs": {
+				"td:bdef": {
+					"type": "object",
+					"value": {}
+				}
+			}
 		},
 		{
 			"name": "TypedefSimpleHdr",
