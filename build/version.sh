@@ -21,13 +21,11 @@ dirty=$(git diff-files --quiet && git diff-index --cached --quiet HEAD -- || ech
 
 git_describe() {
     match="$1"
-    # the first-parent option is only available since git 1.8
-    parent=$(git describe -h 2>&1 | grep 'first-parent' | awk '{ print $1; }')
 
     if test -n "$match"; then
-        echo "$(git describe $parent --match "$match"'*' 2>/dev/null || git rev-parse --short HEAD)${dirty}"
+        echo "$(git describe --first-parent --match "$match"'*' 2>/dev/null || git rev-parse --short HEAD)${dirty}"
     else
-        echo "$(git describe $parent 2>/dev/null || git rev-parse HEAD)${dirty}"
+        echo "$(git describe --first-parent 2>/dev/null || git rev-parse HEAD)${dirty}"
     fi
 }
 
