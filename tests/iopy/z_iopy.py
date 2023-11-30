@@ -148,6 +148,16 @@ class IopyTest(z.TestCase):
         self.p = iopy.Plugin(self.plugin_file)
         self.r = self.p.register()
 
+    if not hasattr(z.TestCase, 'assertIsSubclass'):
+        # pylint: disable=invalid-name
+        def assertIsSubclass(self, cls, class_or_tuple, msg=None):
+            if not issubclass(cls, class_or_tuple):
+                message = '%r is not a subclass of %r' % (cls, class_or_tuple)
+                if msg is not None:
+                    message += ' : %s' % msg
+                raise self.failureException(message)
+
+
     def test_type_name_parsing(self):
         a = self.r.tst1.A(_json='{ "a": "A1", "b": "B2" }')
         self.assertEqual(a, self.r.tst1.A(a='A1', b='B2'))
@@ -1729,6 +1739,60 @@ class IopyTest(z.TestCase):
     def test_init_float_from_int(self):
         union_a = self.r.test.UnionA(d=21)
         self.assertEqual(union_a.d, 21.0)
+
+    def test_typedef(self):
+        def _check(td_name, ref_type, ref_can_be_subclassed, **init_kwargs):
+            # Get from the package
+            td_type = getattr(self.r.test, td_name)
+
+            # Get from the plugin fullname
+            td_type_fullname = self.r.get_type_from_fullname(
+                f'test.{td_name}')
+
+            # Check that the two typedef types are the same type
+            self.assertIs(td_type, td_type_fullname)
+
+            # Check that the typedef is a proxy class to the referenced type
+            self.assertEqual(td_type, ref_type)
+            self.assertIsSubclass(ref_type, td_type)
+            if ref_can_be_subclassed:
+                self.assertIsSubclass(td_type, ref_type)
+
+            # Check that the "standard fullname is the same for the typedef
+            # and referenced type
+            if hasattr(ref_type, 'fullname'):
+                self.assertEqual(td_type.fullname(), ref_type.fullname())
+
+            # Create instance of the typedef type
+            td_obj = td_type(**init_kwargs)
+
+            # Check that the instance is of the type of the typedef and
+            # strictly of type of the reference type
+            self.assertIsInstance(td_obj, td_type)
+            self.assertIsInstance(td_obj, ref_type)
+            self.assertIs(type(td_obj), ref_type)
+
+        _check('ByteTypedef', int, True)
+        _check('UbyteTypedef', int, True)
+        _check('ShortTypedef', int, True)
+        _check('UshortTypedef', int, True)
+        _check('IntTypedef', int, True)
+        _check('UintTypedef', int, True)
+        _check('LongTypedef', int, True)
+        _check('UlongTypedef', int, True)
+        _check('DoubleTypedef', float, True)
+        _check('XmlTypedef', str, True)
+        _check('StringTypedef', str, True)
+        _check('BytesTypedef', bytes, True)
+
+        _check('BoolTypedef', bool, False)
+        _check('VoidTypedef', type(None), False)
+
+        _check('EnumATypedef', self.r.test.EnumA, True)
+        _check('UnionATypedef',  self.r.test.UnionA, True, i=10)
+        _check('StructATypedef',  self.r.test.StructA, True)
+        _check('ClassATypedef',  self.r.test.ClassA, True)
+        _check('VoidRequired',  self.r.testvoid.VoidRequired, True)
 
 
 # }}}

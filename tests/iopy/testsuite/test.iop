@@ -349,6 +349,28 @@ class ChildClassDescription : 1 : BaseClassDescription {
     ClassB? b;
 };
 
+/* Typedefs */
+typedef byte    ByteTypedef;
+typedef ubyte   UbyteTypedef;
+typedef short   ShortTypedef;
+typedef ushort  UshortTypedef;
+typedef int     IntTypedef;
+typedef uint    UintTypedef;
+typedef long    LongTypedef;
+typedef ulong   UlongTypedef;
+typedef bool    BoolTypedef;
+typedef double  DoubleTypedef;
+typedef xml     XmlTypedef;
+typedef string  StringTypedef;
+typedef bytes   BytesTypedef;
+typedef void    VoidTypedef;
+typedef EnumA   EnumATypedef;
+typedef UnionA  UnionATypedef;
+typedef StructA StructATypedef;
+typedef ClassA  ClassATypedef;
+typedef testvoid.VoidRequired VoidRequired;
+
+
 interface InterfaceA {
     funA
         in (ClassA a)
