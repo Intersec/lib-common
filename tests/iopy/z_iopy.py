@@ -40,6 +40,9 @@ import zpycore as z
 import iopy
 
 
+# {{{ Helpers
+
+
 PORT_COUNT = 9900
 def make_uri():
     global PORT_COUNT
@@ -132,6 +135,10 @@ def z_iopy_use_fake_tcp_server(uri):
         yield fake_server
     finally:
         fake_server.close()
+
+
+# }}}
+# {{{ IopyTest
 
 
 @z.ZGroup
@@ -1724,6 +1731,10 @@ class IopyTest(z.TestCase):
         self.assertEqual(union_a.d, 21.0)
 
 
+# }}}
+# {{{ IopyIfaceTests
+
+
 @z.ZGroup
 class IopyIfaceTests(z.TestCase):
     def setUp(self):
@@ -2433,6 +2444,10 @@ class IopyIfaceTests(z.TestCase):
             self.assertIn('TypeError', str(w[0].message))
 
 
+# }}}
+# {{{ IopyScriptsTests
+
+
 @z.ZGroup
 class IopyScriptsTests(z.TestCase):
     def setUp(self):
@@ -2458,8 +2473,13 @@ class IopyScriptsTests(z.TestCase):
         self.assertTrue(self.r.test_emptystuffs.EmptyStruct().fun(),
                         "user method of EmptyStruct failed")
 
+
+# }}}
+# {{{ IopyVoidTest
+
+
 @z.ZGroup
-class IopyVoidTest(z.TestCase): # {{{
+class IopyVoidTest(z.TestCase):
     def setUp(self):
         self.plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
         self.p = iopy.Plugin(self.plugin_file)
@@ -2556,7 +2576,11 @@ class IopyVoidTest(z.TestCase): # {{{
         s.a = 'toto'
         self.assertEqual(str(s), "{\n    \"a\": null\n}\n")
         self.assertIsNone(s.a)
+
+
 # }}}
+# {{{ IopyV3Tests
+
 
 @z.ZGroup
 class IopyV3Tests(z.TestCase):
@@ -2790,6 +2814,10 @@ class IopyV3Tests(z.TestCase):
                          'multiple upgrades of class have failed')
 
 
+# }}}
+# {{{ IopyDsoTests
+
+
 @z.ZGroup
 class IopyDsoTests(z.TestCase):
     def setUp(self):
@@ -2881,6 +2909,10 @@ class IopyDsoTests(z.TestCase):
         c = self.r.connect(uri)
         self.assertFalse(hasattr(c, 'tst1_ModuleTest'),
                          'module "tst1_ModuleTest" should not be loaded')
+
+
+# }}}
+# {{{ IopyCompatibilityTests
 
 
 @z.ZGroup
@@ -3021,6 +3053,10 @@ class IopyCompatibilityTests(z.TestCase):
         self.assertEqual(self.p.__modules__, self.p.modules)
 
 
+# }}}
+# {{{ IopyAsyncTests
+
+
 @z.ZGroup
 class IopyAsyncTests(z.TestCase):
     """Tests with asynchronous connections and queries"""
@@ -3111,6 +3147,10 @@ class IopyAsyncTests(z.TestCase):
         })
         self.assertEqual(ret, exp,
                          'rpc failed; status: %s, expected: %s' % (ret, exp))
+
+
+# }}}
+# {{{ IopySlowTests
 
 
 @z.ZFlags("slow")
@@ -3238,6 +3278,9 @@ class IopySlowTests(z.TestCase):
                                  "expected less than 1.5s"
                                  .format(diff_time))
         loop.close()
+
+
+# }}}
 
 
 if __name__ == "__main__":
