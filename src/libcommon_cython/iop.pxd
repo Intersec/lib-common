@@ -35,3 +35,4 @@ cdef extern from "<lib-common/libcommon_cython/iop.h>" nogil:
     Lmid_t LM_ID_BASE
     int IOP_XPACK_LITERAL_ENUMS
     int IOP_XPACK_SKIP_PRIVATE
+    int IOP_DSO_VERSION_TYPEDEF
