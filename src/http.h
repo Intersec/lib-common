@@ -741,7 +741,6 @@ int httpc_cfg_tls_init(httpc_cfg_t * nonnull cfg, sb_t * nonnull err);
 void httpc_cfg_tls_wipe(httpc_cfg_t * nonnull cfg);
 int
 httpc_cfg_tls_add_verify_file(httpc_cfg_t * nonnull cfg, lstr_t cert_path);
-
 void httpc_close_http2_pool(httpc_cfg_t *nonnull cfg);
 
 struct httpc_t;

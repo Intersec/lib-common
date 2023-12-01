@@ -457,6 +457,15 @@ http_clength_patch(outbuf_t *ob, char s[static CLENGTH_RESERVE], unsigned len)
 }
 
 /* }}} */
+
+/* HTTPS helpers {{{ */
+
+ALWAYS_INLINE static int ssl_add_verify_file(SSL_CTX *ctx, lstr_t path)
+{
+    return SSL_CTX_load_verify_locations(ctx, path.s, NULL) == 1 ? 0 : -1;
+}
+
+/* }}} */
 /* HTTPD Queries {{{ */
 
 /*
@@ -1494,6 +1503,14 @@ httpd_cfg_t *httpd_cfg_init(httpd_cfg_t *cfg)
     return cfg;
 }
 
+static void httpd_cfg_tls_wipe(httpd_cfg_t *cfg)
+{
+    if (cfg->ssl_ctx) {
+        SSL_CTX_free(cfg->ssl_ctx);
+        cfg->ssl_ctx = NULL;
+    }
+}
+
 static int
 httpd_ssl_alpn_select_protocol_cb(SSL *ssl, const unsigned char **out,
                                   unsigned char *outlen,
@@ -1584,13 +1601,40 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
             logger_fatal(&_G.logger, "couldn't initialize SSL_CTX: %*pM",
                          SB_FMT_ARG(&errbuf));
         }
-        SSL_CTX_set_default_verify_paths(cfg->ssl_ctx);
+
+        if (iop_cfg->check_client_cert) {
+            if (iop_cfg->ca_file.s) {
+                char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
+                int ret;
+
+                ret = write_in_tmp_file(path, iop_cfg->ca_file.s,
+                                        iop_cfg->ca_file.len, &errbuf);
+                if (ret < 0) {
+                    httpd_cfg_tls_wipe(cfg);
+                    logger_error(&_G.logger,
+                                 "tls: failed to dump certificate: %*pM",
+                                 SB_FMT_ARG(&errbuf));
+                    return -1;
+                }
+
+                ret = ssl_add_verify_file(cfg->ssl_ctx, LSTR(path));
+                unlink(path);
+
+                if (ret < 0) {
+                    httpd_cfg_tls_wipe(cfg);
+                    logger_error(&_G.logger,
+                                 "tls: failed to load certificate");
+                    return -1;
+                }
+            } else {
+                SSL_CTX_set_default_verify_paths(cfg->ssl_ctx);
+            }
+        }
 
         if (OPT_ISSET(iop_cfg->check_cert_depth)) {
             SSL_CTX_set_verify_depth(cfg->ssl_ctx,
                                      OPT_VAL(iop_cfg->check_cert_depth));
         }
-
     }
 
     return 0;
@@ -1601,19 +1645,15 @@ void httpd_cfg_wipe(httpd_cfg_t *cfg)
     for (int i = 0; i < countof(cfg->roots); i++) {
         httpd_trigger_node_wipe(&cfg->roots[i]);
     }
-    if (cfg->ssl_ctx) {
-        SSL_CTX_free(cfg->ssl_ctx);
-        cfg->ssl_ctx = NULL;
-    }
+    httpd_cfg_tls_wipe(cfg);
     assert (dlist_is_empty(&cfg->httpd_list));
     assert (dlist_is_empty(&cfg->http2_httpd_list));
 }
 
 void httpd_cfg_set_ssl_ctx(httpd_cfg_t *nonnull cfg, SSL_CTX *nullable ctx)
 {
-    if (cfg->ssl_ctx) {
-        SSL_CTX_free(cfg->ssl_ctx);
-    }
+    httpd_cfg_tls_wipe(cfg);
+
     cfg->ssl_ctx = ctx;
     if (ctx) {
         SSL_CTX_set_alpn_select_cb(cfg->ssl_ctx,
@@ -2518,8 +2558,7 @@ void httpc_cfg_tls_wipe(httpc_cfg_t *cfg)
 
 int httpc_cfg_tls_add_verify_file(httpc_cfg_t *cfg, lstr_t path)
 {
-    return SSL_CTX_load_verify_locations(cfg->ssl_ctx, path.s, NULL) == 1
-         ? 0 : -1;
+    return ssl_add_verify_file(cfg->ssl_ctx, path);
 }
 
 httpc_cfg_t *httpc_cfg_init(httpc_cfg_t *cfg)
@@ -2586,7 +2625,7 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
                     return -1;
                 }
 
-                ret = httpc_cfg_tls_add_verify_file(cfg, LSTR(path));
+                ret = ssl_add_verify_file(cfg->ssl_ctx, LSTR(path));
                 unlink(path);
 
                 if (ret < 0) {

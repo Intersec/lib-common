@@ -267,6 +267,39 @@ struct HttpdCfg {
      */
     TlsCfg? tls;
 
+    /** Contents of a trusted certificate file.
+     *
+     * Used only if checkClientCert is set to true.
+     *
+     * In order to validate a certificate, a CA authority is required.
+     * For example, if a certificate is generated from another one, the
+     * parent certificate will be your certification.
+     *
+     * There are default paths where SSL stores the certificates
+     * (see 'OPENSSLDIR' on 'openssl version -a' command).
+     *
+     * If caFile is not set, all certificates present on these default paths
+     * will be used to validate the client certificate.
+     * If this field has a value, only this certificate will be used to
+     * validate the client certificate.
+     *
+     * If a chain of certificates is used by the client, it is necessary to
+     * have all certificates (in this field if set or in your defaults paths;
+     * see previous paragraph) from the parent certificate of the one used in
+     * your client to the root of the chain.
+     *
+     * For example, lets say we have this chain A -> B -> C, with B
+     * certificate signed by A and C signed by B.
+     * If only C is given on client side (and A and B unknown even on SSL
+     * default server paths), then A and B will be necessary on server side
+     * (either in caFile field or in default paths) (only C will be
+     * given to the server during handshake).
+     * But, if B is also given on client side (or B is stored on SSL default
+     * client paths), then, just A will be necessary (because B and C will be
+     * given to the server during handshake).
+     */
+    string? caFile;
+
    /** Activate client certificate check.
     *
     * Activating this will activate mutual TLS authentication (mTLS) feature:
