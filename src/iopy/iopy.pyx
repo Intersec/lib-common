@@ -9884,17 +9884,9 @@ cdef inline object plugin_get_class_type_st(Plugin plugin,
     -------
         The public class of the IOP type.
     """
-    cdef object fullname = lstr_to_py_str(st.fullname)
     cdef _InternalTypeClasses classes
-    cdef IopPath iop_path
-    cdef Package py_pkg
 
-    classes = plugin_get_type_classes(plugin, fullname)
-    if unlikely(classes is None):
-        iop_path = make_iop_path(fullname)
-        py_pkg = plugin_create_or_get_py_pkg(plugin, iop_path.pkg_name)
-        classes = plugin_add_struct_union(plugin, py_pkg, st)
-
+    classes = plugin_get_or_add_struct_union(plugin, None, st)
     return classes.public_cls
 
 
@@ -9913,17 +9905,9 @@ cdef inline object plugin_get_class_type_en(Plugin plugin,
     -------
         The public class of the IOP type.
     """
-    cdef object fullname = lstr_to_py_str(en.fullname)
     cdef _InternalTypeClasses classes
-    cdef IopPath iop_path
-    cdef Package py_pkg
 
-    classes = plugin_get_type_classes(plugin, fullname)
-    if unlikely(classes is None):
-        iop_path = make_iop_path(fullname)
-        py_pkg = plugin_create_or_get_py_pkg(plugin, iop_path.pkg_name)
-        classes = plugin_add_enum(plugin, py_pkg, en)
-
+    classes = plugin_get_or_add_enum(plugin, None, en)
     return classes.public_cls
 
 
@@ -10013,12 +9997,12 @@ cdef void plugin_add_package(Plugin plugin, const iop_pkg_t *pkg):
 
     enums = pkg.enums
     while enums[0]:
-        plugin_add_enum(plugin, py_pkg, enums[0])
+        plugin_get_or_add_enum(plugin, py_pkg, enums[0])
         enums += 1
 
     structs = pkg.structs
     while structs[0]:
-        plugin_add_struct_union(plugin, py_pkg, structs[0])
+        plugin_get_or_add_struct_union(plugin, py_pkg, structs[0])
         structs += 1
 
 
@@ -10055,7 +10039,38 @@ cdef inline dict plugin_make_class_attrs_dict(str qualname):
     return class_attrs_dict_g
 
 
+cdef _InternalTypeClasses plugin_get_or_add_enum(
+        Plugin plugin, Package py_pkg, const iop_enum_t *en):
+    """Get enum type or create and add it to the python package.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    py_pkg
+        The iop python package. If None, it will be retrieved from the iop
+        struct or union fullname.
+    en
+        The iop enum descrition.
+    """
+    cdef str iop_fullname = lstr_to_py_str(en.fullname)
+    cdef _InternalTypeClasses classes
+    cdef IopPath iop_path
+
+    classes = plugin_get_type_classes(plugin, iop_fullname)
+    if classes is not None:
+        return classes
+
+    iop_path = make_iop_path(iop_fullname)
+
+    if py_pkg is None:
+        py_pkg = plugin_create_or_get_py_pkg(plugin, iop_path.pkg_name)
+
+    return plugin_add_enum(plugin, py_pkg, iop_path, en)
+
+
 cdef _InternalTypeClasses plugin_add_enum(Plugin plugin, Package py_pkg,
+                                          IopPath iop_path,
                                           const iop_enum_t *en):
     """Create enum type and add it to the python package.
 
@@ -10065,11 +10080,11 @@ cdef _InternalTypeClasses plugin_add_enum(Plugin plugin, Package py_pkg,
         The IOPy plugin.
     py_pkg
         The iop python package.
+    iop_path
+        The iop path of the enum.
     en
         The iop enum descrition.
     """
-    cdef str iop_fullname = lstr_to_py_str(en.fullname)
-    cdef IopPath iop_path = make_iop_path(iop_fullname)
     cdef _InternalEnumType enum_type
     cdef _InternalTypeClasses classes
 
@@ -10115,8 +10130,39 @@ cdef _InternalStructUnionType plugin_create_st_iop_type(
     return iop_type
 
 
+cdef _InternalTypeClasses plugin_get_or_add_struct_union(
+        Plugin plugin, Package py_pkg, const iop_struct_t *st):
+    """Get struct or union type or create and add it to the python package.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    py_pkg
+        The iop python package. If None, it will be retrieved from the iop
+        struct or union fullname.
+    st
+        The iop struct or union description.
+    """
+    cdef str iop_fullname = lstr_to_py_str(st.fullname)
+    cdef _InternalTypeClasses classes
+    cdef IopPath iop_path
+
+    classes = plugin_get_type_classes(plugin, iop_fullname)
+    if classes is not None:
+        return classes
+
+    iop_path = make_iop_path(iop_fullname)
+
+    if py_pkg is None:
+        py_pkg = plugin_create_or_get_py_pkg(plugin, iop_path.pkg_name)
+
+    return plugin_add_struct_union(plugin, py_pkg, iop_path, st)
+
+
 cdef _InternalTypeClasses plugin_add_struct_union(Plugin plugin,
                                                   Package py_pkg,
+                                                  IopPath iop_path,
                                                   const iop_struct_t *st):
     """Create struct or union type and add it to the python package.
 
@@ -10126,21 +10172,15 @@ cdef _InternalTypeClasses plugin_add_struct_union(Plugin plugin,
         The IOPy plugin.
     py_pkg
         The iop python package.
+    iop_path
+        The iop path of the iop struct or union.
     st
         The iop struct or union description.
     """
-    cdef str iop_fullname = lstr_to_py_str(st.fullname)
     cdef cbool is_class
-    cdef IopPath iop_path
     cdef _InternalTypeClasses classes
 
     is_class = not st.is_union and iop_struct_is_class(st)
-    if is_class:
-        classes = plugin.types.get(iop_fullname)
-        if classes is not None:
-            return classes
-
-    iop_path = make_iop_path(iop_fullname)
 
     if st.is_union:
         classes = plugin_add_union(plugin, iop_path, st)
