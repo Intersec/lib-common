@@ -145,7 +145,7 @@ class Step:
     def __str__(self):
         return "{0:<2} {1:<5} {2:>6.3f} {3} {4}:{5}".format(
             self.number, self.status, self.time, self.name,
-            self.filename, self.line).encode('utf-8')
+            self.filename, self.line)
 
 
 class Test:
@@ -161,7 +161,7 @@ class Test:
     def __str__(self):
         return "{0:<5} {1:<5} {2:>10.6f} {3} {4}".format(
             self.number, self.status, self.time, self.name,
-            self.comment.strip()).encode('utf-8')
+            self.comment.strip())
 
 
 class Group(Result):
@@ -192,7 +192,7 @@ class Group(Result):
 
     def __str__(self):
         return "{0} ({1}% passed)   {2}s".format(
-            self.name, self.passed, self.time).encode('utf-8')
+            self.name, self.passed, self.time)
 
 
 class Suite(Result):
@@ -220,7 +220,7 @@ class Suite(Result):
 
     def __str__(self):
         return "suite {0} passed {1}% skipped {2}% failed {3}%".format(
-            self.name, self.passed, self.skipped, self.failed).encode('utf-8')
+            self.name, self.passed, self.skipped, self.failed)
 
     def __repr__(self):
         return self.__str__()
@@ -241,7 +241,7 @@ class Product(Result):
 
     def __str__(self):
         return "product {0} passed {1}% skipped {2}% failed {3}%".format(
-            self.name, self.passed, self.skipped, self.failed).encode('utf-8')
+            self.name, self.passed, self.skipped, self.failed)
 
 
 class Global(Result):
