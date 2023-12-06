@@ -1066,7 +1066,9 @@ int hpack_decoder_write_hdr(hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr,
         if (xhdr->flags & XHDR_NEW_KEY) {
             key = lstr_dup(key);
         } else if (ent) {
-            lstr_transfer(&key, &ent->key);
+            /* new entry in the dyn. table with the same key, old entry loses
+             * ownership of the string buffer. */
+            ent->key = lstr_dupc(key);
         }
         val = lstr_dup(val);
         hpack_dec_dtbl_add_hdr(dtbl, key, val);

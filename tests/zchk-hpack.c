@@ -1227,8 +1227,81 @@ Z_GROUP_EXPORT(hpack_examples) {
         hpack_dec_dtbl_wipe(&dec);
         hpack_enc_dtbl_wipe(&enc);
     } Z_TEST_END;
+
+#undef HPACK_ENC
+#undef HPACK_DEC
+#undef HPACK_ENC_DTS
+#undef HPACK_DEC_DTS
+
 } Z_GROUP_END;
 
 #undef HPACK_DTBL_SZCHCK
+
+/* }}} */
+/* {{{ Bugs */
+
+#define HPACK_DTBL_SZCHCK(dtbl, cnt, sz, sz_lim)                             \
+    Z_HELPER_RUN(z_hpack_##dtbl##_dtbl_size_test(&(dtbl), cnt, sz, sz_lim))
+
+Z_GROUP_EXPORT(hpack_bugs) {
+
+#define HPACK_ENC(dtbl, out, hdrs, exp)                                      \
+    Z_HELPER_RUN(z_hpack_enc_hdrs_test(&(dtbl), (hdrs), countof(hdrs),       \
+                                       LSTR_IMMED_V(exp), &(out)))
+#define HPACK_DEC(dtbl, in, exp)                                             \
+    Z_HELPER_RUN(z_hpack_dec_hdrs_test(&(dtbl), &(in), LSTR_IMMED_V(exp)))
+
+    Z_TEST(hpack_bug_98816, "adding 2 dyn. table entries with the same key") {
+        hpack_enc_dtbl_t enc;
+        hpack_dec_dtbl_t dec;
+        SB_1k(out);
+        pstream_t in;
+
+
+        /* initial agreed-upon max size: 256 */
+        hpack_enc_dtbl_init(&enc);
+        hpack_enc_dtbl_init_settings(&enc, 256);
+        hpack_dec_dtbl_init(&dec);
+        hpack_dec_dtbl_init_settings(&dec, 256);
+
+        HPACK_DTBL_SZCHCK(enc, 0, 0, 256);
+
+        /* first request */
+        {
+            unsigned flags = HPACK_FLG_NOZIP_STR | HPACK_FLG_SKIP_STBL;
+            hpack_enc_hdr_t inps[] = {
+                HPACK_ENC_HDR(":status", "302", 1, 1, flags),
+            };
+
+            HPACK_ENC(enc, out, inps,
+                      "40 07 3A 73 74 61 74 75 73 03 33 30 32");
+        }
+        HPACK_DTBL_SZCHCK(enc, 1, 42, 256);
+
+        in = ps_initsb(&out);
+        HPACK_DEC(dec, in, ":status: 302\r\n");
+        HPACK_DTBL_SZCHCK(dec, 1, 42, 256);
+
+        /* second request */
+        sb_reset(&out);
+        {
+            unsigned flags = HPACK_FLG_NOZIP_STR | HPACK_FLG_SKIP_STBL
+                             | HPACK_FLG_ADD_DTBL;
+            hpack_enc_hdr_t inps[] = {
+                HPACK_ENC_HDR(":status", "307", 1, 101, flags),
+            };
+
+            HPACK_ENC(enc, out, inps, "7E 03 33 30 37");
+        }
+        HPACK_DTBL_SZCHCK(enc, 2, 84, 256);
+
+        in = ps_initsb(&out);
+        HPACK_DEC(dec, in, ":status: 307\r\n");
+        HPACK_DTBL_SZCHCK(dec, 2, 84, 256);
+
+        hpack_dec_dtbl_wipe(&dec);
+        hpack_enc_dtbl_wipe(&enc);
+    } Z_TEST_END;
+} Z_GROUP_END;
 
 /* }}} */
