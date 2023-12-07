@@ -38,6 +38,7 @@ cdef extern from "Python.h":
     # Get raw builtin objects from Python.h
     ctypedef struct PyThreadState:
         pass
+    object PyObject_GenericGetAttr(object o, object attr_name)
     int PyObject_GenericSetAttr(object o, object attr_name,
                                 object v) except -1
     int Py_AddPendingCall(int (*func)(void *), void *arg)
@@ -466,6 +467,9 @@ cdef class _InternalBaseHolder(type):
 # 1. This is not True for 'bool' and 'NoneType' (void) because it is not
 # possible to subclass these types in Python.
 # 2. This is only available for struct/class/enum types.
+#
+# Typedef IOP description can be retrieved with the
+# `get_typedef_description()` class method.
 
 # {{{ Base
 
@@ -6646,8 +6650,94 @@ cdef class _TypedefMetaclass(type):
 
     def __getattribute__(_TypedefMetaclass cls, object name):
         """Force get the attributes from the referenced type directly."""
+        if name == 'get_typedef_description':
+            return PyObject_GenericGetAttr(cls, name)
         return getattr(cls.referenced_type, name)
 
+    def get_typedef_description(_TypedefMetaclass cls):
+        """Get the typedef IOP description for this typedef.
+
+        Returns
+        -------
+        TypedefDescription
+            The typedef IOP description.
+        """
+        return typedef_make_iop_description(cls)
+
+
+@cython.final
+cdef class TypedefDescription:
+    """Description of a typedef IOP symbol.
+
+    Attributes
+    ----------
+    fullname : str
+        The fullname of the IOP typedef itself.
+    attrs : IopStructUnionFieldDescription
+        The IOP description of the typedef as field attributes description.
+    """
+    cdef readonly str fullname
+    cdef readonly IopStructUnionFieldDescription attrs
+
+
+cdef TypedefDescription typedef_make_iop_description(
+        _TypedefMetaclass td_cls):
+    """
+    Parameters
+    ----------
+    td_cls
+        The typedef class.
+
+    Returns
+    -------
+    TypedefDescription
+        The description of the IOP typedef.
+    """
+    cdef TypedefDescription desc
+
+    desc = TypedefDescription.__new__(TypedefDescription)
+    typedef_init_iop_description(td_cls.plugin, td_cls.td, desc)
+    return desc
+
+
+cdef int typedef_init_iop_description(
+        Plugin plugin, const iop_typedef_t *td,
+        TypedefDescription desc) except -1:
+    """Init IOP typedef description from a C typedef iop type.
+
+    Parameters
+    ----------
+    plugin
+        The IOPy plugin.
+    td
+        The C typedef description.
+    desc
+        The IOP typedef description to init.
+
+    Returns
+    -------
+        -1 in case of exception, 0 otherwise.
+    """
+    # Cython bug with const requires cast
+    cdef iop_type_t tdtype = <iop_type_t>td.type
+    cdef iop_field_t fake_field
+
+    # Store typedef fullname
+    desc.fullname = lstr_to_py_str(td.fullname)
+
+    # Create a fake field to store the struct/union or enum type for
+    # struct_union_make_iop_field_description()
+    p_clear(&fake_field, 1)
+    if tdtype == IOP_T_ENUM:
+        fake_field.u1.en_desc = td.ref_enum
+    elif tdtype == IOP_T_STRUCT or tdtype == IOP_T_UNION:
+        fake_field.u1.st_desc = td.ref_struct
+
+    desc.attrs = IopStructUnionFieldDescription.__new__(
+        IopStructUnionFieldDescription)
+    struct_union_make_iop_field_description(plugin, &fake_field,
+                                            IOP_R_REQUIRED, tdtype,
+                                            td.attrs, desc.attrs)
 
 # }}}
 # }}}
