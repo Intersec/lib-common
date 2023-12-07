@@ -6883,6 +6883,7 @@ static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
     if (pool) {
         httpc_pool_attach(w, pool);
     }
+    el_fd_set_mask(client->conn->ev, POLLINOUT);
     return w;
 }
 
