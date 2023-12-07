@@ -1772,6 +1772,17 @@ class IopyTest(z.TestCase):
             self.assertIsInstance(td_obj, ref_type)
             self.assertIs(type(td_obj), ref_type)
 
+            # Get the typedef description
+            td_desc = td_type.get_typedef_description()
+
+            # Check the typedef description fullname
+            self.assertEqual(td_desc.fullname, f'test.{td_name}')
+
+            # Check the typedef generic attributes
+            self.assertEqual(td_desc.attrs.generic_attributes,
+                             {'is:td': 1})
+
+
         _check('ByteTypedef', int, True)
         _check('UbyteTypedef', int, True)
         _check('ShortTypedef', int, True)

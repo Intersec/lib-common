@@ -350,25 +350,25 @@ class ChildClassDescription : 1 : BaseClassDescription {
 };
 
 /* Typedefs */
-typedef byte    ByteTypedef;
-typedef ubyte   UbyteTypedef;
-typedef short   ShortTypedef;
-typedef ushort  UshortTypedef;
-typedef int     IntTypedef;
-typedef uint    UintTypedef;
-typedef long    LongTypedef;
-typedef ulong   UlongTypedef;
-typedef bool    BoolTypedef;
-typedef double  DoubleTypedef;
-typedef xml     XmlTypedef;
-typedef string  StringTypedef;
-typedef bytes   BytesTypedef;
-typedef void    VoidTypedef;
-typedef EnumA   EnumATypedef;
-typedef UnionA  UnionATypedef;
-typedef StructA StructATypedef;
-typedef ClassA  ClassATypedef;
-typedef testvoid.VoidRequired VoidRequired;
+@(is:td, true) typedef byte    ByteTypedef;
+@(is:td, true) typedef ubyte   UbyteTypedef;
+@(is:td, true) typedef short   ShortTypedef;
+@(is:td, true) typedef ushort  UshortTypedef;
+@(is:td, true) typedef int     IntTypedef;
+@(is:td, true) typedef uint    UintTypedef;
+@(is:td, true) typedef long    LongTypedef;
+@(is:td, true) typedef ulong   UlongTypedef;
+@(is:td, true) typedef bool    BoolTypedef;
+@(is:td, true) typedef double  DoubleTypedef;
+@(is:td, true) typedef xml     XmlTypedef;
+@(is:td, true) typedef string  StringTypedef;
+@(is:td, true) typedef bytes   BytesTypedef;
+@(is:td, true) typedef void    VoidTypedef;
+@(is:td, true) typedef EnumA   EnumATypedef;
+@(is:td, true) typedef UnionA  UnionATypedef;
+@(is:td, true) typedef StructA StructATypedef;
+@(is:td, true) typedef ClassA  ClassATypedef;
+@(is:td, true) typedef testvoid.VoidRequired VoidRequired;
 
 
 interface InterfaceA {
