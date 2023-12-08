@@ -129,7 +129,8 @@ class Result:
         return id(self)
 
     def time_as_str(self):
-        return "{:0>8}".format(datetime.timedelta(seconds=int(self.time)))
+        t = int(self.time)
+        return "{:0>8}".format(str(datetime.timedelta(seconds=t)))
 
 
 class Step:
