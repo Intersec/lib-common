@@ -939,6 +939,7 @@ static void do_failed(void)
 static void do_todo_passed(void)
 {
     _G.grp.t_todo_passed++;
+    _G.grp.t_fail_reason = LSTR("Z_TODO should not pass");
     print_test_summary("todo-pass", TERM_COLOR_GREEN);
     printf(" %*pM\n", LSTR_FMT_ARG(_G.grp.t_todo_reason));
 }
@@ -1039,10 +1040,12 @@ static bool _z_group_run(void)
 
 static bool _z_group_exit(void)
 {
+    bool failed = _G.grp.t_failed || _G.grp.t_todo_passed;
+
     if (_G.do_fork) {
-        exit(_G.grp.t_failed ? -1 : 0);
+        exit(failed ? -1 : 0);
     } else {
-        if (_G.grp.t_failed) {
+        if (failed) {
             _G.res = -1;
         }
         return false;

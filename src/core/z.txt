@@ -75,14 +75,15 @@ the protocol commands
 `todo-pass`, `todo-fail`::
     The 'TODO' variants of `pass` and `fail` are meant to signal test failures
     that are expected. There should be a `report-comment` with a bug number or
-    a reason why this test fails.
+    a reason why this test fails. It is useful to do test-drive development,
+    where one can mark not yet implemented features.
 +
-    When the test actually passes, it means that the test has been "fixed", in
-    other words that the feature has been implemented.
+    A 'TODO' test is expected to always `todo-fail` until it gets resolved,
+    thus `todo-fail` is not fatal.
 +
-    Neither `todo-pass` nor `todo-fail` are fatal. It is useful to do
-    test-driven developpement, where one can mark not yet implemented
-    features.
+    When the test actually passes, it means that the test has been “fixed”, in
+    other words that the feature has been implemented and thus the “todo” flag
+    should have been removed. This is why `todo-pass` is fatal.
 
 
 Intersec test programs
