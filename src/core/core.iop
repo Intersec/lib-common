@@ -336,7 +336,8 @@ struct HttpcCfg {
     /** Maximum total size for headers */
     uint    headerSizeMax    = 64 << 10;
 
-    /** TLS */
+    /** If true, https is used instead of http.
+     */
     bool    tlsOn            = false;
 
     /** Contents of a trusted certificate file.
