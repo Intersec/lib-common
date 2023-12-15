@@ -337,18 +337,28 @@ class _ZTestResult(unittest.TestResult):
         sys.stdout.write("\n")
 
     @classmethod
-    def _put_err(cls, test, err):
+    def _put_err_common(cls, test):
         zpycore.util.wipe_children_rearm()
         tid = test.id()
         if tid.startswith("__main__."):
             tid = tid[len("__main__."):]
         sys.stdout.write(': $ %s %s\n:\n' % (sys.argv[0], tid))
 
+    @classmethod
+    def _put_err(cls, test, err):
+        cls._put_err_common(test)
+
         exctype, value, tb = err
         lines = traceback.format_exception(exctype, value, tb)
         sys.stdout.write(': ')
         sys.stdout.write('\n: '.join(''.join(lines).split("\n")))
         sys.stdout.write("\n")
+
+    @classmethod
+    def _put_err_str(cls, test, err):
+        cls._put_err_common(test)
+
+        sys.stdout.write(": %s\n" % (err))
 
     def addSuccess(self, test):
         super().addSuccess(test)
@@ -387,6 +397,7 @@ class _ZTestResult(unittest.TestResult):
     def addUnexpectedSuccess(self, test):
         super().addUnexpectedSuccess(test)
         self._put_st("todo-pass", test)
+        self._put_err_str(test, "ZTodo should not pass")
         sys.stdout.flush()
 
     @classmethod
@@ -408,7 +419,8 @@ class _ZTestResult(unittest.TestResult):
         self.unexpectedSuccesses = []
 
     def wasSuccessful(self):
-        return (len(self.global_failures) + len(self.global_errors) == 0)
+        return (len(self.global_failures) + len(self.global_errors) +
+                len(self.unexpectedSuccesses) == 0)
 
 
 class ZTestRunner(unittest.TextTestRunner):
