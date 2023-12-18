@@ -72,6 +72,7 @@ struct z_export *z_exports_g;
 
 static struct {
     bool          stopping;
+    bool          do_fancy_output;
     int           res;
     char         *wd;
     struct z_grp  grp;
@@ -476,7 +477,7 @@ static void sb_adduc_escaped(sb_t *sb, int c)
  */
 static void z_sb_set_color(sb_t *sb, const char *color)
 {
-    if (is_fancy_fd(STDERR_FILENO)) {
+    if (_G.do_fancy_output) {
         sb_addf(sb, TERM_COLOR_SET("%s"), color);
     }
 }
@@ -489,7 +490,7 @@ static void z_sb_reset_color(sb_t *sb)
 
 static lstr_t t_z_colored_lstr(lstr_t s, const char *color_fmt)
 {
-    if (!is_fancy_fd(STDERR_FILENO)) {
+    if (!_G.do_fancy_output) {
         return s;
     }
 
@@ -676,7 +677,7 @@ static int z_diff(lstr_t left, lstr_t right, sb_t *diff)
     RETHROW(xwrite_file(lfile, left.s, left.len));
     RETHROW(xwrite_file(rfile, right.s, right.len));
 
-    if (is_fancy_fd(STDERR_FILENO)) {
+    if (_G.do_fancy_output) {
         sed_color = " | sed '"
             /* Removals: lines that start with '-'. */
             "s/^-/\\x1b[" TERM_COLOR_PURPLE "m-/;"
@@ -942,6 +943,7 @@ static void do_todo_passed(void)
     _G.grp.t_fail_reason = LSTR("Z_TODO should not pass");
     print_test_summary("todo-pass", TERM_COLOR_GREEN);
     printf(" %*pM\n", LSTR_FMT_ARG(_G.grp.t_todo_reason));
+    do_fail_comment();
 }
 
 static void do_todo_failed(void)
@@ -1365,6 +1367,9 @@ int z_setup(int argc, char **argv)
             e_warning("cannot create %s: %m", _G.tmp_dir);
         }
     }
+
+    /* Fancy output */
+    _G.do_fancy_output = (is_fancy_fd(STDERR_FILENO) && !getenv("Z_HARNESS"));
 
     /* Specific tests to run. */
     for (int i = 0; i < argc; i++) {
