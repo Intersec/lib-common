@@ -3690,9 +3690,12 @@ static void http2_conn_close(http2_conn_t **w)
     http2_conn_release(w);
 }
 
+static void http2_conn_on_connect_error(http2_conn_t *w, int errnum);
+
 static int http2_conn_close_connect_timeout(http2_conn_t **w)
 {
     http2_conn_trace(*w, 2, "socket connect: timeout");
+    http2_conn_on_connect_error(*w, ETIMEDOUT);
     http2_conn_close(w);
     return 0;
 }
@@ -3700,6 +3703,7 @@ static int http2_conn_close_connect_timeout(http2_conn_t **w)
 static int http2_conn_close_connect_error(http2_conn_t **w)
 {
     http2_conn_trace(*w, 2, "socket connect: error");
+    http2_conn_on_connect_error(*w, errno);
     http2_conn_close(w);
     return 0;
 }
@@ -3707,6 +3711,7 @@ static int http2_conn_close_connect_error(http2_conn_t **w)
 static int http2_conn_close_tls_handshake_error(http2_conn_t **w)
 {
     http2_conn_trace(*w, 2, "tls handshake: error");
+    http2_conn_on_connect_error(*w, errno);
     http2_conn_close(w);
     return 0;
 }
@@ -3714,6 +3719,7 @@ static int http2_conn_close_tls_handshake_error(http2_conn_t **w)
 static int http2_conn_close_tls_no_peer_certificate_error(http2_conn_t **w)
 {
     http2_conn_trace(*w, 2, "tls: no peer certificiate error");
+    http2_conn_on_connect_error(*w, ECONNREFUSED);
     http2_conn_close(w);
     return 0;
 }
@@ -6961,6 +6967,31 @@ static http2_pool_t *http2_pool_get(httpc_cfg_t *cfg)
         cfg->http2_pool = http2_pool_new();
     }
     return cfg->http2_pool;
+}
+
+static void httpc_http2_ctx_on_connect_error(dlist_t *httpcs, int errnum)
+{
+    dlist_for_each_entry(httpc_http2_ctx_t, httpc_http2, httpcs, http2_link) {
+        httpc_t *httpc = httpc_http2->httpc;
+
+        if (httpc->pool && httpc->pool->on_connect_error) {
+            (*httpc->pool->on_connect_error)(httpc, errnum);
+        } else if (httpc->on_connect_error) {
+            (*httpc->on_connect_error)(httpc, errnum);
+        }
+    }
+}
+
+static void http2_conn_on_connect_error(http2_conn_t *w, int errnum)
+{
+    if (w->is_client) {
+        http2_client_t *ctx = w->client_ctx;
+
+        if (ctx) {
+            httpc_http2_ctx_on_connect_error(&ctx->idle_httpcs, errnum);
+            httpc_http2_ctx_on_connect_error(&ctx->active_httpcs, errnum);
+        }
+    }
 }
 
 static http2_conn_t *
