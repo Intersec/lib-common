@@ -18,18 +18,9 @@
 
 #include <math.h>
 #include <lib-common/qps.h>
+#include <lib-common/parseopt.h>
 
-struct {
-    const char *path;
-    bool   has_snapshotted;
-    qps_t *qps;
-    qv_t(i32) handles;
-    qv_t(i32) free_list;
-    qv_t(i32) snap_handles;
-    qv_t(i32) snap_free_list;
-} _G;
-
-enum {
+typedef enum qpsstress_step_t {
     QPS_ALLOC,
     QPS_REALLOC,
     QPS_DEALLOC,
@@ -37,17 +28,201 @@ enum {
     QPS_SNAPSHOT,
     QPS_SNAPSHOT_WAIT,
     QPS_REOPEN,
+    QPS_MAX_CASES
+} qpsstress_step_t;
+
+static const char *qpsstress_usage_g = "QPS_PATH\n\n"
+"Stress QPS in (QPS_PATH) folder and abort on the first issue. This tool is\n"
+"not supposed to be used outside Intersec R&D.\n\n"
+"Options:\n"
+"--------";
+
+struct {
+    const char *path;
+    bool opt_help;
+    bool opt_new_alloc_strategy;
+
+    qps_t *qps;
+    bool has_snapshotted;
+
+    qv_t(i32) handles;
+    qv_t(i32) free_list;
+    qv_t(i32) snap_handles;
+    qv_t(i32) snap_free_list;
+} _G;
+
+static popt_t qpsstress_popt_g[] = {
+    OPT_FLAG('h', "help", &_G.opt_help, "show this help"),
+    OPT_FLAG('n', "new-alloc", &_G.opt_new_alloc_strategy, "change "
+             "allocation strategy for handles so QPS page and tlsf maps are "
+             "stimulated"),
+    OPT_END(),
 };
+
+#define CHECK_PATTERN_AND_HANDLE
+#ifdef CHECK_PATTERN_AND_HANDLE
+
+/** Define structure stored in QPS at the beginning of handle memory. */
+typedef struct blk_data {
+    uint32_t app_sz32;  /* Size of app_data field (i.e. after CRC field) */
+    uint32_t crc;       /* CRC based on handle id value and app_sz32 field. */
+    uint32_t app_data[];
+} blk_data;
+
+#define PATTERN_VAL_8(h) (h & 0xff)
+#define PATTERN_VAL_32(h)                                                    \
+    (PATTERN_VAL_8(h) << 24 | PATTERN_VAL_8(h) << 16 |                       \
+     PATTERN_VAL_8(h) << 8 | PATTERN_VAL_8(h))
+
+#define BLK_APP_DATA_SIZE_FROM_QPS_BLK_T32(blk_sz)                           \
+    (((blk_sz) - offsetof(blk_data, app_data)) / sizeof(uint32_t))
+
+#define BLK_APP_DATA_SIZE_T32(data)                                          \
+    ((data)->app_sz32)
+#define BLK_APP_DATA_SIZE_T8(data)                                           \
+    (BLK_APP_DATA_SIZE_T32(data) * sizeof(uint32_t))
+#define BLK_SIZE_T8(data)                                                    \
+    (BLK_APP_DATA_SIZE_T8(data) + offsetof(blk_data, app_data))
+
+/** FIXME: Should we really duplicate this function from qps.blk? */
+/** Retrieve the associated QPS pointer from a "basic" pointer. */
+static qps_ptr_t qps_encode(const void *ptr)
+{
+    return (qps_ptr_t){
+        .pgno = qps_pg_of(ptr),
+        .addr = cast(uintptr_t, ptr) & QPS_PAGE_MASK,
+    };
+}
+
+static void print_h_info(qps_handle_t h)
+{
+    qps_ptr_t hptr = *qps_handle_slot(_G.qps, h);
+    uint8_t *data = qps_handle_deref(_G.qps, h);
+    size_t sz = qps_sizeof(_G.qps, data);
+    qps_ptr_t hptr_hdr = qps_encode((void*)cast(uintptr_t, data - 8));
+    qps_ptr_t hptr_end = qps_encode((void*)cast(uintptr_t, data + sz - 1));
+
+    e_error("error processing handle %u (size: %zu)", h, sz);
+    e_error("\thdr starting at " QPS_PTR_FMT " (%p)", QPS_PTR_ARG(hptr_hdr),
+            data - 8);
+    e_error("\tdata starts at  " QPS_PTR_FMT " (%p)", QPS_PTR_ARG(hptr),
+            data);
+    e_error("\tdata ends at    " QPS_PTR_FMT  " (%p)",
+            QPS_PTR_ARG(hptr_end), data + sz - 1);
+}
+
+static void
+set_blk_data_hdr(blk_data *data_hdr, qps_handle_t h, size_t new_sz)
+{
+    data_hdr->app_sz32 = (new_sz - offsetof(blk_data, app_data)) /
+                         sizeof(uint32_t) ;
+    data_hdr->crc = icrc32(h, &data_hdr->app_sz32, offsetof(blk_data, crc));
+}
+
+static void check_handle_data(blk_data *data, qps_handle_t h, size_t new_sz)
+{
+    const uint32_t pattern = PATTERN_VAL_32(h);
+    uint32_t check_sz32;
+
+    /* Detect any corruption of this CRC in handle memory now. */
+    assert(icrc32(h, &data->app_sz32, offsetof(blk_data, crc)) ==
+           data->crc);
+
+    /* The following line catches the case where realloc has been performed in
+     * tlsf map (with bigger size) but pattern is not yet fully copied. */
+    check_sz32 = MIN(BLK_APP_DATA_SIZE_T32(data),
+                     BLK_APP_DATA_SIZE_FROM_QPS_BLK_T32(new_sz));
+
+    /* Check pattern for current handle in QPS */
+    for (uint32_t i = 0; i < check_sz32 / sizeof(uint32_t); i++) {
+        if (data->app_data[i] != pattern) {
+            print_h_info(h);
+            e_error("expected pattern byte is 0x%08x, found 0x%08x after "
+                    "%zu byte(s) --> %p", pattern, data->app_data[i],
+                    offsetof(blk_data, app_data) + sizeof(uint32_t) * i,
+                    &data->app_data[i]);
+            e_error("qps generation is %u, map generation is %u",
+                    _G.qps->generation, qps_map_of(data)->hdr.generation);
+            assert(false);
+        }
+    }
+}
+
+static void set_handle_data(void *ptr, qps_handle_t h, size_t new_sz)
+{
+    blk_data *data = ptr;
+
+    assert(new_sz >= QPS_ALLOC_MIN && (new_sz % sizeof(uint32_t) == 0));
+    set_blk_data_hdr(data, h, new_sz);
+    memset(data->app_data, PATTERN_VAL_8(h), BLK_APP_DATA_SIZE_T8(data));
+}
+
+static void check_blk_header(blk_data *data, size_t sz)
+{
+    assert(((sz & 0x3) == 0) && ((cast(uintptr_t, data) & 0x3) == 0));
+}
+
+static void check_blk_header_and_data(qps_handle_t h)
+{
+    blk_data *data = qps_handle_deref(_G.qps, h);
+    size_t sz = qps_sizeof(_G.qps, data);
+
+    check_blk_header(data, sz);
+    check_handle_data(data, h, sz);
+}
+
+static void check_blk_then_set_handle_data(qps_handle_t h)
+{
+    blk_data *data = qps_handle_deref(_G.qps, h);
+    size_t sz = qps_sizeof(_G.qps, data);
+
+    check_blk_header(data, sz);
+    check_handle_data(data, h, sz);
+    if (BLK_SIZE_T8(data) != sz) {
+        /* Size allocated has been changed for handle, redo header and
+         * pattern. */
+        set_handle_data(data, h, sz);
+    }
+}
+
+#else /* ! CHECK_PATTERN_AND_HANDLE */
+
+#define set_handle_data(...)                ((void)0)
+#define check_blk_header_and_data(...)      ((void)0)
+#define check_blk_then_set_handle_data(...) ((void)0)
+
+#endif
+
+static size_t request_memory_size(qpsstress_step_t step, size_t old_size)
+{
+    size_t sz = 0;
+
+    if (_G.opt_new_alloc_strategy) {
+        /** This define allows a wider range of size for a handle which can be
+         * either stored in tlsf or QPS page maps.  */
+        sz = (rand() & ((QPS_M_ALLOC_MAX << 1) - 1));
+    } else if (step == QPS_ALLOC) {
+        sz = 24U + ((int)sqrt(1 + rand())) % 4096;
+    } else if (step == QPS_REALLOC) {
+        sz = old_size + ((int)sqrt(1 + rand())) % 4096;
+    } else {
+        assert(0);
+    }
+
+    return sz;
+}
 
 static void qalloc(void)
 {
-    qps_handle_t h;
+    qps_handle_t h = QPS_HANDLE_NULL;
     void *ptr;
     size_t s, g;
 
-    s = 24 + ((int)sqrt(1 + rand())) % 4096;
+    s = request_memory_size(QPS_ALLOC, 0);
     ptr = qps_alloc(_G.qps, &h, s);
+    assert((h != QPS_HANDLE_NULL) && ptr);
     g = qps_sizeof(_G.qps, ptr);
+    set_handle_data(ptr, h, g);
     e_info("alloc h=%d, size=%zu, got=%zu", h, s, g);
     if (_G.free_list.len == 0) {
         qv_append(&_G.handles, h);
@@ -87,12 +262,15 @@ static void qrealloc(void)
     p = qps_handle_deref(_G.qps, h);
     o = qps_sizeof(_G.qps, p);
 
-    if (o >= 4096) {
+    if (!_G.opt_new_alloc_strategy && o >= 4096) {
         return;
     }
-    s = o + ((int)sqrt(1 + rand())) % 4096;
+
+    s = request_memory_size(QPS_REALLOC, o);
     p = qps_realloc(_G.qps, h, s);
+    assert(p);
     g = qps_sizeof(_G.qps, p);
+    check_blk_then_set_handle_data(h);
     e_info("realloc h=%d, size=%zu, old=%zu, got=%zu", h, s, o, g);
 }
 
@@ -102,6 +280,11 @@ static void qwderef(void)
 
     find_handle(&h, NULL);
     qps_handle_w_deref(_G.qps, h);
+
+    /* Moving handle from RO tlsf map into RW tlsf map can actually change the
+     * size of the object for a bigger one. We need to check the data move
+     * prior to set additional pattern for this extra allocation block. */
+    check_blk_then_set_handle_data(h);
     e_info("w_deref h=%d", h);
 }
 
@@ -111,6 +294,7 @@ static void qdealloc(void)
     int pos;
 
     find_handle(&h, &pos);
+    check_blk_header_and_data(h);
     qps_free(_G.qps, h);
     _G.handles.tab[pos] = -1;
     qv_append(&_G.free_list, pos);
@@ -163,11 +347,13 @@ static void check_qps(void)
     __qps_check_maps(_G.qps, true);
     if (_G.has_snapshotted) {
         assert (__qps_check_consistency(_G.path, "stress-consistency") >= 0);
+        _G.has_snapshotted = false;
     }
 }
 
 int main(int argc, char **argv)
 {
+    const char *arg0 = NEXTARG(argc, argv);
     uint32_t proba[] = {
         [QPS_ALLOC] = 0,
         [QPS_REALLOC] = 0,
@@ -178,19 +364,21 @@ int main(int argc, char **argv)
         [QPS_REOPEN] = 1,
     };
 
-    if (argc < 2) {
-        return -1;
-    }
-
     MODULE_REQUIRE(qps);
 
-    _G.path = argv[1];
-    qps_unlink(argv[1]);
-    _G.qps = qps_create(argv[1], "stress", 0755, NULL, 0);
+    argc = parseopt(argc, argv, qpsstress_popt_g, 0);
+    if (argc < 1 || _G.opt_help) {
+        makeusage(_G.opt_help ? EX_OK: EX_USAGE, arg0, qpsstress_usage_g,
+                  NULL, qpsstress_popt_g);
+    }
+
+    _G.path = NEXTARG(argc, argv);
+
+    qps_unlink(_G.path);
+    _G.qps = qps_create(_G.path, "stress", 0755, NULL, 0);
     if (!_G.qps) {
         e_fatal("unable to open qps");
     }
-
 
     for (;;) {
         uint32_t s = 0;
@@ -222,7 +410,7 @@ int main(int argc, char **argv)
             }
             s -= proba[i];
         }
-        assert (s < countof(proba));
+        assert(s < countof(proba));
 
         switch (s) {
           case QPS_ALLOC:
@@ -240,12 +428,14 @@ int main(int argc, char **argv)
           case QPS_SNAPSHOT:
             qsnapshot();
             proba[QPS_SNAPSHOT] = 0;
+            proba[QPS_REOPEN] = 0;
             proba[QPS_SNAPSHOT_WAIT] = 256;
             break;
           case QPS_SNAPSHOT_WAIT:
             qsnapshot_wait();
             _G.has_snapshotted = true;
             proba[QPS_SNAPSHOT] = 16;
+            proba[QPS_REOPEN] = 1;
             proba[QPS_SNAPSHOT_WAIT] = 0;
             break;
           case QPS_REOPEN:
