@@ -4814,9 +4814,11 @@ static int http2_stream_conn_error_(http2_conn_t *w,
 static void
 http2_stream_maintain_recv_window(http2_conn_t *w, http2_stream_t *stream)
 {
-    int incr = HTTP2_LEN_WINDOW_SIZE_LIMIT - stream->recv_window;
+    int incr;
 
-    if (incr <= HTTP2_LEN_WINDOW_SIZE_LIMIT / 2) {
+    incr =
+        http2_get_settings(w).initial_window_size - stream->recv_window;
+    if (incr <= 0) {
         return;
     }
     http2_conn_send_window_update(w, stream->id, incr);
@@ -5150,7 +5152,7 @@ static void http2_conn_maintain_recv_window(http2_conn_t *w)
 {
     int incr = HTTP2_LEN_WINDOW_SIZE_LIMIT - w->recv_window;
 
-    if (incr <= HTTP2_LEN_WINDOW_SIZE_LIMIT / 2) {
+    if (incr <= 0) {
         return;
     }
     http2_conn_send_window_update(w, 0, incr);
