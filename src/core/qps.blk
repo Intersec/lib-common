@@ -600,17 +600,29 @@ static void qps_m_malloclike_map(qps_t *qps, qps_map_t *map)
 
 static int qps_m_check_map(qps_t *qps, qps_map_t *map, bool fatal)
 {
-    void       *map_end = &map[QPS_MAP_PAGES];
-    qps_mhdr_t *blk     = (qps_mhdr_t *)&map[1];
-    qps_mhdr_t *blk_end = container_of(map_end, qps_mhdr_t, data);
+    const bool ro_tlsf_map = qps_is_ro(qps, map);
+    void *map_end;
+    qps_mhdr_t *blk;
+    qps_mhdr_t *blk_end;
     size_t allocated = 0;
+
+    /* Ensure full memory for RO tlsf map is still reachable and not freed by
+     * qps_free_ro() and madvise() when there is no remaining handle stored
+     * in it */
+    if (ro_tlsf_map && !map->hdr.remaining) {
+        return 0;
+    }
+
+    map_end = &map[QPS_MAP_PAGES];
+    blk = (qps_mhdr_t *)&map[1];
+    blk_end = container_of(map_end, qps_mhdr_t, data);
 
     CHECK(qps,
           blk->flags == (QPS_MBLK_HDRSZ | QPS_BLK_PREV_USED | QPS_BLK_USED));
     CHECK(qps, (blk_end->flags | QPS_BLK_PREV_FREE) == QPS_BLK_PREV_FREE);
 
     blk = qps_m_blk_next(blk, QPS_MBLK_HDRSZ);
-    if (qps_is_ro(qps, map)) {
+    if (ro_tlsf_map) {
         while (blk < blk_end) {
             size_t      bsz = qps_m_blk_size(blk);
             qps_mhdr_t *nxt = qps_m_blk_next(blk, bsz);
