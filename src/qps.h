@@ -596,9 +596,9 @@ int qps_check_leaks(qps_t *qps, qps_roots_t *roots);
 /* }}} */
 /* {{{ QPS dissect: definitions and functions */
 
-typedef struct qps_dissect_stats_t {
-    size_t nbr_free_handles;
-} qps_dissect_stats_t;
+typedef enum qps_dissect_flags_t {
+    QPS_DISSECT_SKIP_USAGE_AND_STATS = 1 << 0,
+} qps_dissect_flags_t;
 
 typedef enum qps_anomaly_t {
     QPS_ANOMALY_MAP_INTEGRITY_FAILED,
@@ -614,7 +614,16 @@ typedef enum qps_anomaly_t {
     QPS_ANOMALY_QHAT_NODE_SUBOPTIMAL,
     QPS_ANOMALY_QHAT_DESC_CORRUPTED,
     QPS_ANOMALY_QHAT_ISSUE,
+    QPS_ANOMALY_OBJECT_NOT_FOUND,
+    QPS_ANOMALY_MULTIPLE_OWNERS_QPS_PAGE,
+    QPS_ANOMALY_NO_OWNER_QPS_PAGE,
+    QPS_ANOMALY_H_REF_UNKNOWN,
 } qps_anomaly_t;
+
+typedef struct qps_dissect_stats_t {
+    uint64_t nbr_free_handles;
+    uint64_t nbr_seen_handles;
+} qps_dissect_stats_t;
 
 typedef struct qps_dissect_owner_mgmt_t {
     sb_t owner_path;
@@ -626,6 +635,7 @@ typedef struct qps_dissect_ctx_priv_t qps_dissect_ctx_priv_t;
 
 typedef struct qps_dissect_ctx_t {
     struct qps_t *qps;
+    int flags;
     qps_dissect_owner_mgmt_t owner;
     sb_t *err;
     qps_dissect_stats_t stats;
@@ -641,6 +651,17 @@ typedef struct qps_dissect_ctx_t {
     qps_dissect_ctx_priv_t *priv;
 } qps_dissect_ctx_t;
 
+typedef struct qps_object_meta_t {
+    union {
+        qv_lstr_t *owners;
+        lstr_t *owner_ref;
+    };
+    size_t size;
+    uint32_t obj_in_map : 1;
+    uint32_t manage_owners : 1;
+    uint32_t dangling_ref : 1;
+} qps_object_meta_t;
+
 typedef struct qps_notify_anomaly_t {
     qps_anomaly_t type;
     lstr_t details;
@@ -650,6 +671,7 @@ typedef struct qps_notify_anomaly_t {
         qps_handle_t *handle;
         qps_pg_t *page;
         qv_t(qps_ptr) *qps_entries;
+        qps_object_meta_t *meta;
     };
 } qps_notify_anomaly_t;
 
@@ -658,10 +680,10 @@ typedef struct qps_notify_anomaly_t {
 typedef void(BLOCK_CARET on_notify_anomaly_b)(qps_notify_anomaly_t *anomaly);
 
 qps_dissect_ctx_t *qps_dissect_ctx_init(qps_dissect_ctx_t *ctx, qps_t *qps,
-                                        sb_t *err);
+                                        sb_t *err, int flags);
 
-__attribute__((malloc)) qps_dissect_ctx_t *qps_dissect_ctx_new(qps_t *qps,
-                                                               sb_t *err);
+__attribute__((malloc)) qps_dissect_ctx_t *
+qps_dissect_ctx_new(qps_t *qps, sb_t *err, int flags);
 
 /** Register (or replace) the notify callback block on a dissect context.
  * The block is copied and released on wipe. */
@@ -672,6 +694,25 @@ void qps_dissect_ctx_wipe(qps_dissect_ctx_t *ctx);
 GENERIC_DELETE(qps_dissect_ctx_t, qps_dissect_ctx);
 
 #endif /* __has_blocks */
+
+GENERIC_INIT(qps_object_meta_t, qps_object_meta);
+
+static ALWAYS_INLINE int qps_object_meta_owner_len(qps_object_meta_t *meta)
+{
+    if (meta->manage_owners) {
+        return meta->owners->len;
+    }
+    return meta->owner_ref ? 1 : 0;
+}
+
+static ALWAYS_INLINE void qps_object_meta_wipe(qps_object_meta_t *meta)
+{
+    if (meta->manage_owners) {
+        qv_deep_wipe(meta->owners, lstr_wipe);
+        qv_delete(&meta->owners);
+        meta->manage_owners = 0;
+    }
+}
 
 /* {{{ QPS dissect functions for handle and map analysis */
 
@@ -686,7 +727,8 @@ GENERIC_DELETE(qps_dissect_ctx_t, qps_dissect_ctx);
 void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx);
 
 /** This function dissects QPS used handles referenced externally (for example
- *  in a QKV shard). The following checks are performed:
+ *  in a QKV shard) and records usage for ownership analysis/additional
+ *  checks. The following checks are performed:
  *   - handle range validity
  *   - handle in handle free list
  *   - qps pointer for this handle has a valid address and QPS TLSF or page
@@ -754,6 +796,12 @@ void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item);
                                LSTR_SB_V(&_ctx->owner.owner_path), ptr,     \
                                NULL);                                        \
     } while (0)
+
+/** Format and notify anomalies dedicated to ownership analysis of qps
+ *  objects.
+ */
+#define qps_dissect_notify_meta_err(_ctx, _type, _owner, _meta_ptr)          \
+    qps_dissect_notify_err(_ctx, _type, _owner, meta, _meta_ptr)
 
 /** Format and notify anomalies dedicated to handles (except handle unicity
  *  check).
@@ -840,6 +888,46 @@ void qps_dissect_remove_last_owner(qps_dissect_ctx_t *ctx);
         qps_dissect_remove_last_owner(_ctx);                                 \
         qps_dissect_add_sub_owner(_ctx, ##__VA_ARGS__);                      \
     } while (0)
+
+/* }}} */
+/* {{{ qps dissect functions for ownership analysis of qps objects */
+
+/** Function which correlates qps objects from qps maps and external
+ *  references (from a QKV DB for example). It notifies any anomaly related to
+ *  ownership (0 or more than one owner) or qps pages which are not out of
+ *  range, but have no existence from a QPS page map point of view.
+ */
+void qps_dissect_process_object_usage(qps_dissect_ctx_t *ctx);
+
+/** Function which registers a QPS handle from an external reference (like a
+ *  QKV DB). Current owner associated to this handle is taken from the dissect
+ *  context (memory of lstr owner is copied).
+ */
+void qps_dissect_register_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h);
+
+/** Function which registers a QPS handle from an external reference (like a
+ *  QKV DB). If there is no owner yet for this object, a pointer of this lstr
+ *  owner is used instead of creating a full lstr copy (avoid unecessary
+ *  copies of the same owner, leading to OOM).
+ *
+ *  Must be called after registering owner with
+ *  qps_dissect_register_owner_ref().
+ */
+void qps_dissect_register_used_handle_from_ref(qps_dissect_ctx_t *ctx,
+                                               lstr_t *owner, qps_handle_t h);
+
+/** Function which registers an entry point for QPS pages (one or several)
+ *  from an external reference (like a QKV DB). Current owner associated to
+ *  this entry point is taken from the dissect context (memory of lstr owner
+ *  is copied).
+ */
+void qps_dissect_register_used_page(qps_dissect_ctx_t *ctx, qps_pg_t page);
+
+/** Function which provides the current owner from the dissect context and
+ *  store it internally. This function MUST be called before any call to
+ *  qps_dissect_register_used_handle_from_ref().
+ */
+lstr_t *qps_dissect_register_owner_ref(qps_dissect_ctx_t *ctx);
 
 /* }}} */
 /* }}} */

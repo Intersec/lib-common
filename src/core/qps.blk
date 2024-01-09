@@ -25,6 +25,7 @@
 #include <lib-common/qlzo.h>
 #include <lib-common/thr.h>
 #include <lib-common/container-qhash.h>
+#include <lib-common/container-qhugehash.h>
 #include <lib-common/qps.h>
 #include <lib-common/sort.h>
 #include <lib-common/hash.h>
@@ -3549,18 +3550,67 @@ void qps_get_usage(const qps_t *qps, struct qps_stats *st)
 /* {{{ QPS dissect: internal definitions and functions */
 /* {{{ QPS dissect: internal definitions */
 
+typedef struct qps_object_t {
+    bool is_handle;
+    union {
+        qps_handle_t handle;
+        qps_pg_t page;
+        uint32_t obj_key;
+    };
+} qps_object_t;
+
+qvector_t(lstrp, lstr_t *);
+
+qhm_k32_t(qps_object_usage, 32, qps_object_meta_t);
+
+#define QPS_OBJECT_HANDLE(_handle)                                           \
+    ((qps_object_t){.is_handle = true, {.handle = (_handle)}})
+#define QPS_OBJECT_PAGE(_page)                                               \
+    ((qps_object_t){.is_handle = false, {.page = (_page)}})
+
 struct qps_dissect_ctx_priv_t {
     /* Store block callback internally, so it can be called from original C
      * code through this file.
      */
     on_notify_anomaly_b on_notify_blk;
+
+    /* 2 maps reference the 2 kind of objects a QPS can manage: handles or
+     * pages. It is used to register objects from QPS maps and/or register
+     * object usage from a QKV DB or similar.
+     */
+    qhm_t(qps_object_usage) handle_map;
+    qhm_t(qps_object_usage) page_map;
+
+    /* Store owner references which can be easily duplicated between handles
+     * or/and pages, so we can save some memory allocation.
+     */
+    qv_t(lstrp) owner_ref;
 };
 
-GENERIC_NEW_INIT(qps_dissect_ctx_priv_t, qps_dissect_ctx_priv);
+static ALWAYS_INLINE qps_dissect_ctx_priv_t *
+qps_dissect_ctx_priv_init(qps_dissect_ctx_priv_t *priv_ctx)
+{
+    p_clear(priv_ctx, 1);
+    qhm_init(qps_object_usage, &priv_ctx->handle_map, false);
+    qhm_init(qps_object_usage, &priv_ctx->page_map, false);
+    qv_init(&priv_ctx->owner_ref);
+    return priv_ctx;
+}
+GENERIC_NEW(qps_dissect_ctx_priv_t, qps_dissect_ctx_priv);
 
 static ALWAYS_INLINE void
 qps_dissect_ctx_priv_wipe(qps_dissect_ctx_priv_t *priv_ctx)
 {
+    qhm_deep_wipe(qps_object_usage, &priv_ctx->handle_map, IGNORE,
+                  qps_object_meta_wipe);
+    qhm_deep_wipe(qps_object_usage, &priv_ctx->page_map, IGNORE,
+                  qps_object_meta_wipe);
+    tab_for_each_pos(pos, &priv_ctx->owner_ref) {
+        lstr_wipe(priv_ctx->owner_ref.tab[pos]);
+        p_delete(&priv_ctx->owner_ref.tab[pos]);
+    }
+    qv_wipe(&priv_ctx->owner_ref);
+
     if (priv_ctx->on_notify_blk) {
         Block_release(priv_ctx->on_notify_blk);
         priv_ctx->on_notify_blk = NULL;
@@ -3579,7 +3629,7 @@ void qps_dissect_register_on_notify_blk(qps_dissect_ctx_t *ctx,
 }
 
 qps_dissect_ctx_t *qps_dissect_ctx_init(qps_dissect_ctx_t *ctx, qps_t *qps,
-                                        sb_t *err)
+                                        sb_t *err, int flags)
 {
     p_clear(ctx, 1);
 
@@ -3590,6 +3640,7 @@ qps_dissect_ctx_t *qps_dissect_ctx_init(qps_dissect_ctx_t *ctx, qps_t *qps,
     ctx->priv = qps_dissect_ctx_priv_new();
     ctx->qps = qps;
     ctx->err = err;
+    ctx->flags = flags;
 
     /* Handles not processed are set to 1 by default, except handle
      * QPS_HANDLE_NULL which cannot be used. */
@@ -3601,9 +3652,10 @@ qps_dissect_ctx_t *qps_dissect_ctx_init(qps_dissect_ctx_t *ctx, qps_t *qps,
     return ctx;
 }
 
-qps_dissect_ctx_t *qps_dissect_ctx_new(qps_t *qps, sb_t *err)
+qps_dissect_ctx_t *qps_dissect_ctx_new(qps_t *qps, sb_t *err, int flags)
 {
-    return qps_dissect_ctx_init(p_new_raw(qps_dissect_ctx_t, 1), qps, err);
+    return qps_dissect_ctx_init(p_new_raw(qps_dissect_ctx_t, 1), qps, err,
+                                flags);
 }
 
 void qps_dissect_ctx_wipe(qps_dissect_ctx_t *ctx)
@@ -3627,7 +3679,7 @@ void qps_dissect_notify_(qps_dissect_ctx_t *ctx, qps_notify_anomaly_t *item)
 }
 
 /* }}} */
-/* {{{ QPS dissect: functions for owner management of qps objects */
+/* {{{ QPS dissect: functions for owner management/usage of qps objects */
 
 void qps_dissect_set_owner(qps_dissect_ctx_t *ctx, const char *fmt, ...)
 {
@@ -3668,6 +3720,144 @@ void qps_dissect_remove_last_owner(qps_dissect_ctx_t *ctx)
     }
 }
 
+static ALWAYS_INLINE void
+qps_dissect_object_record_owner(qps_object_meta_t *meta, bool owner_is_ref,
+                                lstr_t *owner)
+{
+    if (!owner) {
+        return;
+    }
+
+    if (!meta->manage_owners && !meta->owner_ref && owner_is_ref) {
+        /* Empty meta object allowing lstr reference. */
+        meta->owner_ref = owner;
+    } else if (!meta->manage_owners) {
+        /* Non empty meta object with a previous lstr reference or current
+         * owner is not a reference, must copy previous ref if available, then
+         * copy the current owner (in last block). */
+        lstr_t *backup_ref = meta->owner_ref;
+
+        meta->manage_owners = true;
+        meta->owners = qv_new(lstr);
+        if (backup_ref) {
+            qv_append(meta->owners, lstr_dup(*backup_ref));
+        }
+    }
+    if (meta->manage_owners) {
+        qv_append(meta->owners, lstr_dup(*owner));
+    }
+}
+
+static ALWAYS_INLINE bool qps_dissect_usage_enabled(qps_dissect_ctx_t *ctx)
+{
+    return !(ctx->flags & QPS_DISSECT_SKIP_USAGE_AND_STATS);
+}
+
+static ALWAYS_INLINE void
+qps_dissect_get_object_usage(qps_dissect_ctx_t *ctx, qps_object_t *obj,
+                             uint64_t *pos, qps_object_meta_t **meta)
+{
+    qhm_t(qps_object_usage) *map;
+
+    map = obj->is_handle ? &ctx->priv->handle_map : &ctx->priv->page_map;
+
+    *pos = qhm_reserve(qps_object_usage, map, obj->obj_key, 0);
+    *meta = qhm_value_p(qps_object_usage, map, *pos);
+    if (!(*pos & QHASH_COLLISION)) {
+        qps_object_meta_init(*meta);
+    }
+}
+
+static ALWAYS_INLINE void
+qps_dissect_object_check_properties(qps_dissect_ctx_t *ctx, qps_object_t *obj,
+                                    qps_object_meta_t *meta, lstr_t *owner)
+{
+    /* We know for sure that this reference is invalid, so notify any access
+     * to this reference (bit set for handles only). */
+    if (meta->dangling_ref && owner) {
+        sb_setf(ctx->err,
+                "owner %*pM referencing a dangling pointer from "
+                "handle %u",
+                LSTR_FMT_ARG(*owner), obj->handle);
+        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_DANGLING_H_REF,
+                                      &obj->handle);
+    }
+}
+
+static void qps_dissect_object_usage(qps_dissect_ctx_t *ctx, qps_object_t obj,
+                                     bool owner_is_ref, lstr_t *owner,
+                                     bool obj_in_map, size_t size)
+{
+    uint64_t pos;
+    qps_object_meta_t *meta;
+
+    qps_dissect_get_object_usage(ctx, &obj, &pos, &meta);
+    qps_dissect_object_record_owner(meta, owner_is_ref, owner);
+    qps_dissect_object_check_properties(ctx, &obj, meta, owner);
+
+    if (!obj_in_map || meta->obj_in_map) {
+        return;
+    }
+
+    meta->obj_in_map = obj_in_map;
+    meta->size = size;
+}
+
+static void qps_dissect_register_dangling_ref(qps_dissect_ctx_t *ctx,
+                                              qps_object_t obj)
+{
+    uint64_t pos;
+    qps_object_meta_t *meta;
+
+    qps_dissect_get_object_usage(ctx, &obj, &pos, &meta);
+    meta->dangling_ref = true;
+}
+
+static int qps_dissect_get_container_idx_of_handles(qps_dissect_ctx_t *ctx,
+                                                    qps_pg_t pg)
+{
+    int handle_pages = DIV_ROUND_UP(ctx->qps->handles_max, QPS_HANDLES_COUNT);
+
+    for (int i = 0; i < handle_pages; i++) {
+        if (pg == qps_pg_of(ctx->qps->handles[i])) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void qps_dissect_register_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h)
+{
+    lstr_t owner = LSTR_SB(&ctx->owner.owner_path);
+
+    qps_dissect_object_usage(ctx, QPS_OBJECT_HANDLE(h), false, &owner, false,
+                             0);
+}
+
+void qps_dissect_register_used_handle_from_ref(qps_dissect_ctx_t *ctx,
+                                               lstr_t *owner, qps_handle_t h)
+{
+    qps_dissect_object_usage(ctx, QPS_OBJECT_HANDLE(h), true, owner, false,
+                             0);
+}
+
+void qps_dissect_register_used_page(qps_dissect_ctx_t *ctx, qps_pg_t page)
+{
+    lstr_t owner = LSTR_SB(&ctx->owner.owner_path);
+
+    qps_dissect_object_usage(ctx, QPS_OBJECT_PAGE(page), false, &owner, false,
+                             0);
+}
+
+lstr_t *qps_dissect_register_owner_ref(qps_dissect_ctx_t *ctx)
+{
+    lstr_t *owner_alloc = p_new(lstr_t, 1);
+
+    *owner_alloc = lstr_dup(LSTR_SB_V(&ctx->owner.owner_path));
+    qv_append(&ctx->priv->owner_ref, owner_alloc);
+    return owner_alloc;
+}
+
 /* }}} */
 /* {{{ QPS dissect: functions for handle and map analysis */
 
@@ -3683,6 +3873,14 @@ static ALWAYS_INLINE void qps_dissect_set_handle_freed(qps_dissect_ctx_t *ctx,
     assert(TST_BIT(ctx->h_processing.data, h));
     CLR_BIT(ctx->h_processing.data, h);
     ctx->stats.nbr_free_handles++;
+}
+
+static ALWAYS_INLINE void qps_dissect_set_handle_seen(qps_dissect_ctx_t *ctx,
+                                                      qps_handle_t h)
+{
+    assert(TST_BIT(ctx->h_processing.data, h));
+    CLR_BIT(ctx->h_processing.data, h);
+    ctx->stats.nbr_seen_handles++;
 }
 
 static int qps_dissect_handle(qps_dissect_ctx_t *ctx, qps_handle_t h,
@@ -3719,6 +3917,9 @@ int qps_dissect_used_handle(qps_dissect_ctx_t *ctx, qps_handle_t h)
         type_err = QPS_ANOMALY_DANGLING_H_REF;
         sb_setf(ctx->err, "referencing a freed handle with id %u", h);
         goto notify_err;
+    }
+    if (qps_dissect_usage_enabled(ctx)) {
+        qps_dissect_register_used_handle(ctx, h);
     }
 
     /* hptr value checked in handle container, so just exits if issue occurs
@@ -3906,6 +4107,67 @@ static void qps_dissect_add_handle_info(qps_handle_t h, qps_ptr_t handle_ptr,
     h_info_vec->tab[h_info_vec->len] = handle_ptr;
     h_info_vec->len += 1;
 }
+static ALWAYS_INLINE void qps_dissect_list_handle_page(qps_dissect_ctx_t *ctx,
+                                                       const qps_pghdr_t *hdr,
+                                                       qps_pg_t pg)
+{
+    t_scope;
+    lstr_t owner = t_lstr_fmt("content of handle %u", hdr->handle);
+    qps_object_t blk = QPS_OBJECT_PAGE(pg);
+
+    qps_dissect_object_usage(ctx, blk, false, &owner, true,
+                             hdr->size * QPS_PAGE_SIZE);
+}
+
+static ALWAYS_INLINE void
+qps_dissect_list_handle_container(qps_dissect_ctx_t *ctx, int idx_container,
+                                  const qps_pghdr_t *hdr, qps_pg_t pg)
+{
+    /* Current block is a container for qps_handle_slot(), storing all
+     * qps_ptr_t inside. */
+    t_scope;
+    qps_object_t blk = QPS_OBJECT_PAGE(pg);
+    lstr_t owner = t_lstr_fmt("handle container [%u:%u[",
+                              idx_container * QPS_HANDLES_COUNT,
+                              (idx_container + 1) * QPS_HANDLES_COUNT);
+
+    qps_dissect_object_usage(ctx, blk, false, &owner, true,
+                             hdr->size * QPS_PAGE_SIZE);
+}
+
+static ALWAYS_INLINE void
+qps_dissect_list_handles_from_container(qps_dissect_ctx_t *ctx, qps_pg_t pg,
+                                        int idx_container)
+{
+    const qps_handle_t h_max = ctx->qps->handles_max;
+    const qps_handle_t h_offset = idx_container * QPS_HANDLES_COUNT;
+    const qps_handle_t h_end = h_offset + QPS_HANDLES_COUNT;
+    const qps_handle_t h_idx_end =
+        h_max < h_end ? h_max % QPS_HANDLES_COUNT : QPS_HANDLES_COUNT;
+
+    qps_handle_t h_idx = h_offset ? 0 : 1;
+    qps_ptr_t *hptr = (qps_ptr_t *)qps_pg_deref(ctx->qps, pg);
+
+    for (; h_idx < h_idx_end; h_idx++) {
+        const qps_handle_t h = h_offset + h_idx;
+        qps_object_t handle_obj = QPS_OBJECT_HANDLE(h);
+        size_t sz;
+        void *ptr;
+
+        if (!qps_dissect_is_handle_used(ctx, h)) {
+            continue;
+        }
+
+        if (qps_dissect_handle(ctx, h, &hptr[h_idx], true) < 0) {
+            continue;
+        }
+
+        ptr = (uint8_t *)qps_pg_deref(ctx->qps, hptr[h_idx].pgno) +
+              hptr[h_idx].addr;
+        sz = qps_sizeof(ctx->qps, ptr);
+        qps_dissect_object_usage(ctx, handle_obj, false, NULL, true, sz);
+    }
+}
 
 static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
                                        qm_t(handle_id) *h_map,
@@ -3926,10 +4188,13 @@ static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
      * in RAM only.
      */
     for (qps_pg_t pg = first_pg; QPS_PG_MAP_IDX(pg) == mapno; pg += nbr_pg) {
-        const qps_pghdr_t pg_hdr = ctx->qps->hdrs[pg];
-        qps_handle_t h = pg_hdr.handle;
+        const qps_pghdr_t *pg_hdr = &ctx->qps->hdrs[pg];
+        qps_handle_t h = pg_hdr->handle;
+        uint32_t sz;
 
-        nbr_pg = pg_hdr.size;
+        nbr_pg = pg_hdr->size;
+        sz = nbr_pg * QPS_PAGE_SIZE;
+
         if (unlikely(!nbr_pg)) {
             /* A null block size never advances the loop (pg += nbr_pg), so a
              * corrupted page map would spin forever here. Report it and stop
@@ -3940,39 +4205,60 @@ static void qps_dissect_pg_map_handles(qps_dissect_ctx_t *ctx, qps_map_t *map,
             break;
         }
 
-        if (pg_hdr.flags & QPS_BLK_FREE) {
+        if (pg_hdr->flags & QPS_BLK_FREE) {
             continue;
         }
 
         /* This page in QPS page map is currently the entry point of one or
          * several used pages. Check if this memory is allocated for a handle.
          */
-        if (!h) {
+        if (h) {
+            if (qps_handle_check_range(ctx->qps, h, ctx->err) < 0) {
+                sb_setf(ctx->err,
+                        "referencing an invalid handle id (%u) in "
+                        "used pg " QPS_PG_FMT,
+                        h, QPS_PG_ARG(pg));
+                qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF,
+                                              &h);
+                continue;
+            }
+            if (qps_dissect_is_handle_used(ctx, h)) {
+                /* Flag this handle as used and record associated data */
+                qps_dissect_add_handle_info(
+                    h, qps_encode(map[QPS_PG_IDX(pg)].data), h_map, h_vec);
+            } else {
+                /* Handle was supposed to be freed (because it is already in
+                 * free list of handles). */
+                sb_setf(ctx->err,
+                        "not expecting a used block for free handle"
+                        " id %u (found in pg " QPS_PG_FMT ")",
+                        h, QPS_PG_ARG(pg));
+                qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_DANGLING_H_REF,
+                                              &h);
+                continue;
+            }
+        }
+
+        /* List object from map if requested for qps object analysis. */
+        if (!qps_dissect_usage_enabled(ctx)) {
             continue;
         }
 
-        if (qps_handle_check_range(ctx->qps, h, ctx->err) < 0) {
-            sb_setf(ctx->err,
-                    "referencing an invalid handle id (%u) in "
-                    "used pg " QPS_PG_FMT,
-                    h, QPS_PG_ARG(pg));
-            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_INVALID_H_REF, &h);
-            continue;
-        }
-
-        if (qps_dissect_is_handle_used(ctx, h)) {
-            /* Flag this handle as used and record associated data. */
-            qps_dissect_add_handle_info(
-                h, qps_encode(map[QPS_PG_IDX(pg)].data), h_map, h_vec);
+        if (h) {
+            qps_dissect_list_handle_page(ctx, pg_hdr, pg);
         } else {
-            /* Handle was supposed to be freed (because it is already in free
-             * list of handles). */
-            sb_setf(ctx->err,
-                    "not expecting a used block for free handle"
-                    " id %u (found in pg " QPS_PG_FMT ")",
-                    h, QPS_PG_ARG(pg));
-            qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_DANGLING_H_REF,
-                                          &h);
+            int idx_container =
+                qps_dissect_get_container_idx_of_handles(ctx, pg);
+
+            if (idx_container >= 0) {
+                qps_dissect_list_handle_container(ctx, idx_container, pg_hdr,
+                                                  pg);
+                qps_dissect_list_handles_from_container(ctx, pg,
+                                                        idx_container);
+            } else {
+                qps_dissect_object_usage(ctx, QPS_OBJECT_PAGE(pg), false,
+                                         NULL, true, sz);
+            }
         }
     }
 }
@@ -4134,6 +4420,11 @@ static void qps_dissect_check_handle_unicity(qps_dissect_ctx_t *ctx,
                 "dangling handle found with id %u, entry not found "
                 "is " QPS_PTR_FMT,
                 h, QPS_PTR_ARG((*h_ref)));
+
+        /* Flag dangling handle pointer if no correct entry found, useful to
+         * get impact on owners when qbitmap, qhat or other QPS objects
+         * are dissected. */
+        qps_dissect_register_dangling_ref(ctx, QPS_OBJECT_HANDLE(h));
     } else {
         type = QPS_ANOMALY_MANY_BLKS_FOR_H_REF;
         sb_setf(ctx->err,
@@ -4209,7 +4500,7 @@ void qps_dissect_maps_and_handles(qps_dissect_ctx_t *ctx)
 }
 
 /* }}} */
-/* {{{ QPS dissect functions for page analysis */
+/* {{{ QPS dissect: function for page analysis */
 
 int qps_dissect_page(qps_dissect_ctx_t *ctx, qps_pg_t pg,
                      void *adr_inside_qps)
@@ -4219,9 +4510,124 @@ int qps_dissect_page(qps_dissect_ctx_t *ctx, qps_pg_t pg,
                                     &pg);
         return -1;
     }
+    if (qps_dissect_usage_enabled(ctx)) {
+        qps_dissect_register_used_page(ctx, pg);
+    }
     return 0;
 }
 
+/* }}} */
+/* {{{ qps dissect: functions for correlation of qps objects and usage */
+
+static lstr_t t_qps_dissect_get_meta_owners(qps_object_meta_t *meta)
+{
+    t_SB_1k(all_owners);
+
+    if (!qps_object_meta_owner_len(meta)) {
+        return LSTR_EMPTY_V;
+    }
+
+    if (meta->manage_owners) {
+        tab_for_each_ptr(owner, meta->owners) {
+            sb_addf(&all_owners, "%*pM, ", LSTR_FMT_ARG(*owner));
+        }
+        sb_clip(&all_owners, all_owners.len - 2);
+    } else {
+        sb_set_lstr(&all_owners, *meta->owner_ref);
+    }
+    return LSTR_SB_V(&all_owners);
+}
+
+static void qps_dissect_check_object_usage(qps_dissect_ctx_t *ctx,
+                                           qhm_t(qps_object_usage) *map,
+                                           int64_t pos, qps_object_t *obj)
+{
+    qps_object_meta_t *meta = qhm_value_p(qps_object_usage, map, pos);
+    qps_anomaly_t type_item;
+    int nbr_owners = qps_object_meta_owner_len(meta);
+    int res = -1;
+
+    if (!meta->obj_in_map) {
+        type_item = QPS_ANOMALY_OBJECT_NOT_FOUND;
+
+        if (obj->is_handle) {
+            sb_setf(ctx->err, "handle %u not found as entry point ",
+                    obj->handle);
+        } else {
+            sb_setf(ctx->err,
+                    "page " QPS_PG_FMT " not found as entry "
+                    "point ",
+                    QPS_PG_ARG(obj->page));
+        }
+    } else if (nbr_owners > 1) {
+        type_item = QPS_ANOMALY_MULTIPLE_OWNERS_QPS_PAGE;
+        if (obj->is_handle) {
+            sb_setf(ctx->err,
+                    "handle %d has multiple owners (counted "
+                    "%d):",
+                    obj->handle, meta->owners->len);
+        } else {
+            sb_setf(ctx->err,
+                    "page " QPS_PG_FMT " has multiple owners "
+                    "(counted %d):",
+                    QPS_PG_ARG(obj->page), meta->owners->len);
+        }
+        qv_sort(lstr)(meta->owners, core_lstr_cmp);
+        tab_for_each_pos(pos_owners, meta->owners) {
+            sb_addf(ctx->err, "\n\t\t %*pM",
+                    LSTR_FMT_ARG(meta->owners->tab[pos_owners]));
+        }
+    } else if (!nbr_owners && !obj->is_handle) {
+        type_item = QPS_ANOMALY_NO_OWNER_QPS_PAGE;
+        sb_setf(ctx->err, "page " QPS_PG_FMT " has 0 owner",
+                QPS_PG_ARG(obj->page));
+    } else {
+        res = 0;
+    }
+
+    if (res) {
+        t_scope;
+        qps_dissect_notify_meta_err(
+            ctx, type_item, t_qps_dissect_get_meta_owners(meta), meta);
+    }
+
+    /* If handle has been proceed and has at least one owner, it means
+     * that dissect tool was able to retrieve the full allocation chain.
+     */
+    if (nbr_owners && obj->is_handle) {
+        qps_dissect_set_handle_seen(ctx, obj->handle);
+    }
+}
+
+void qps_dissect_process_object_usage(qps_dissect_ctx_t *ctx)
+{
+    qhm_t(qps_object_usage) *map;
+
+    if (!qps_dissect_usage_enabled(ctx)) {
+        return;
+    }
+
+    sb_reset(ctx->err);
+    map = &ctx->priv->page_map;
+    qhm_for_each_pos(qps_object_usage, pos, map)
+    {
+        const qps_pg_t pg = *qhm_key_p(qps_object_usage, map, pos);
+        qps_object_t obj = QPS_OBJECT_PAGE(pg);
+
+        qps_dissect_check_object_usage(ctx, map, pos, &obj);
+    }
+
+    map = &ctx->priv->handle_map;
+    qhm_for_each_pos(qps_object_usage, pos, map)
+    {
+        const qps_handle_t h = *qhm_key_p(qps_object_usage, map, pos);
+        qps_object_t obj = QPS_OBJECT_HANDLE(h);
+
+        qps_dissect_check_object_usage(ctx, map, pos, &obj);
+    }
+}
+
+/* }}} */
 /* }}} */
 
 static int qps_initialize(void *arg)
