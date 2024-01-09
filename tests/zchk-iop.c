@@ -6815,14 +6815,17 @@ Z_GROUP_EXPORT(iop)
 
         st = &tstiop__my_struct_g__s;
 
-#define TEST_FIELD(_n, _type, _u, _res)                                    \
-        field = &st->fields[_n];                                           \
-        Z_ASSERT_N(iop_value_from_field((void *) &sg, field, &value));     \
+#define TEST_FIELD(_n, _type, _value_field, _u, _res)                        \
+        field = &st->fields[_n];                                             \
+        Z_ASSERT_N(iop_value_from_field((void *) &sg, field, &value));       \
+        Z_ASSERT_EQ((int)iop_value_field_from_type(field->type),             \
+                    _value_field);                                           \
         Z_ASSERT_EQ(value._u, (_type) _res)
 
-        TEST_FIELD(0, int64_t, i, -1);
-        TEST_FIELD(1, uint64_t, u, 2);
-        TEST_FIELD(11, double, d, 10.5);
+        TEST_FIELD(0, int64_t, IOP_VALUE_I, i, -1);
+        TEST_FIELD(1, uint64_t, IOP_VALUE_U, u, 2);
+        TEST_FIELD(11, double, IOP_VALUE_D, d, 10.5);
+        TEST_FIELD(12, bool, IOP_VALUE_U, b, true);
 
 #undef TEST_FIELD
 
@@ -6841,7 +6844,7 @@ Z_GROUP_EXPORT(iop)
             st = &tstiop__my_struct_k__s;
             field = &st->fields[0];
             Z_ASSERT_N(iop_value_from_field((void *) &sk, field, &value));
-            sj = value.s.data;
+            sj = value.v;
             Z_ASSERT_EQ(sj->cval, 2314);
         }
 
@@ -6860,7 +6863,7 @@ Z_GROUP_EXPORT(iop)
             st = &tstiop__my_ref_struct__s;
             field = &st->fields[0];
             Z_ASSERT_N(iop_value_from_field((void *) &ref_st, field, &value));
-            p = value.s.data;
+            p = value.v;
             Z_ASSERT_EQ(p->a, 23);
         }
 
@@ -6878,6 +6881,8 @@ Z_GROUP_EXPORT(iop)
 
             field = &st->fields[0];
             Z_ASSERT_N(iop_value_from_field((void *)&s, field, &value));
+            Z_ASSERT_EQ((int)iop_value_field_from_type(field->type),
+                        IOP_VALUE_I);
             Z_ASSERT_EQ(value.i, 42);
 
             iop_init(tstiop__my_struct_a_opt, &s);
@@ -6889,6 +6894,8 @@ Z_GROUP_EXPORT(iop)
             s.j = LSTR("abc");
             field = &st->fields[9];
             Z_ASSERT_N(iop_value_from_field((void *)&s, field, &value));
+            Z_ASSERT_EQ((int)iop_value_field_from_type(field->type),
+                        IOP_VALUE_S);
             Z_ASSERT_LSTREQUAL(value.s, LSTR("abc"));
 
             iop_init(tstiop__my_struct_a_opt, &s);
@@ -6902,6 +6909,8 @@ Z_GROUP_EXPORT(iop)
 
             field = &st->fields[15];
             Z_ASSERT_N(iop_value_from_field((void *)&s, field, &value));
+            Z_ASSERT_EQ((int)iop_value_field_from_type(field->type),
+                        IOP_VALUE_PTR);
             Z_ASSERT_P(value.v);
             Z_ASSERT_EQ(OPT_VAL(((tstiop__my_struct_b__t *)value.v)->a), 42);
 
@@ -6916,6 +6925,8 @@ Z_GROUP_EXPORT(iop)
 
             field = &st->fields[16];
             Z_ASSERT_N(iop_value_from_field((void *)&s, field, &value));
+            Z_ASSERT_EQ((int)iop_value_field_from_type(field->type),
+                        IOP_VALUE_PTR);
             Z_ASSERT_P(value.v);
             Z_ASSERT_EQ(((tstiop__my_class2__t *)value.v)->int2, 42);
 
@@ -6983,6 +6994,9 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_EQ(((tstiop__my_class2__t *)value.p)->int1,
                         struct_a.cls2->int1);
         }
+
+        Z_ASSERT_EQ((int)iop_value_field_from_type(IOP_T_VOID),
+                    IOP_VALUE_NONE);
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_value_to_field, "test iop_value_to_field") { /* {{{ */

@@ -1532,6 +1532,11 @@ iop_value_from_field(const void * nonnull ptr,
                      const iop_field_t * nonnull field,
                      iop_value_t * nonnull value);
 
+/** Get the \ref iop_value_t field expected to be set when calling \ref
+ * iop_value_from_field.
+ */
+iop_value_field_t iop_value_field_from_type(iop_type_t type);
+
 /** Set a field of an IOP object from an IOP value and an IOP field.
  *
  * \param[in] ptr   The IOP object.

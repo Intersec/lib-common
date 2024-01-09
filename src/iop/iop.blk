@@ -240,6 +240,43 @@ iop_get_field_const(const void *ptr, const iop_struct_t *st, lstr_t path,
     return iop_field;
 }
 
+iop_value_field_t iop_value_field_from_type(iop_type_t type)
+{
+    switch (type) {
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
+    case IOP_T_I64:
+    case IOP_T_ENUM:
+        return IOP_VALUE_I;
+
+    case IOP_T_U8:
+    case IOP_T_U16:
+    case IOP_T_U32:
+    case IOP_T_U64:
+    case IOP_T_BOOL:
+        return IOP_VALUE_U;
+
+    case IOP_T_DOUBLE:
+        return IOP_VALUE_D;
+
+    case IOP_T_STRING:
+    case IOP_T_XML:
+    case IOP_T_DATA:
+        return IOP_VALUE_S;
+
+    case IOP_T_STRUCT:
+    case IOP_T_UNION:
+        return IOP_VALUE_PTR;
+
+    case IOP_T_VOID:
+        return IOP_VALUE_NONE;
+    }
+
+    assert(false && "unexpected");
+    return IOP_VALUE_NONE;
+}
+
 iop_value_from_field_res_t
 iop_value_from_field(const void *ptr, const iop_field_t *field,
                      iop_value_t *value)
@@ -296,7 +333,7 @@ iop_value_from_field(const void *ptr, const iop_field_t *field,
         return 0;
 
       case IOP_T_BOOL:
-        GET_SCALAR(bool, opt_bool_t, b);
+        GET_SCALAR(bool, opt_bool_t, u);
         return 0;
 
       case IOP_T_DOUBLE:
@@ -330,6 +367,8 @@ iop_value_from_field(const void *ptr, const iop_field_t *field,
         return 0;
       }
       case IOP_T_VOID:
+        /* FIXME Should be considered as not set only if optional *and* not
+         * set. */
         return IOP_FIELD_NOT_SET;
     }
     return IOP_FIELD_ERROR;

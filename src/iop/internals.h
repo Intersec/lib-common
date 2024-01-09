@@ -134,6 +134,31 @@ typedef union iop_value_t {
     void       * nullable v;
 } iop_value_t;
 
+/** Represent the fields that are going to be set in \ref iop_value_t by
+ * \ref iop_value_from_field depending on the field type.
+ */
+typedef enum iop_value_field_t {
+    /** No field is going to be set in the value ('void' field). */
+    IOP_VALUE_NONE,
+
+    /** The 'i' field is going to be set.
+     * Fields 'i32' and 'i64' can be read as well. */
+    IOP_VALUE_I,
+
+    /** The 'u' field is going to be set.
+     * Fields 'u32', 'u64' and 'b' can be read as well. */
+    IOP_VALUE_U,
+
+    /** The 'd' (double) field is going to be set. */
+    IOP_VALUE_D,
+
+    /** The 's' (string) field is going to be set. */
+    IOP_VALUE_S,
+
+    /** Fields 'p' / 'v' are going to be set. */
+    IOP_VALUE_PTR,
+} iop_value_field_t;
+
 /* For each iop object, an enum *_attr_type_t is declared which contains the
  * supported types for a generic attribute:
  * _GEN_ATTR_S for strings (v.s)
