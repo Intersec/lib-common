@@ -3883,6 +3883,22 @@ static ALWAYS_INLINE void qps_dissect_set_handle_seen(qps_dissect_ctx_t *ctx,
     ctx->stats.nbr_seen_handles++;
 }
 
+static uint64_t qps_dissect_get_nbr_remaining_h(qps_dissect_ctx_t *ctx)
+{
+    if (!ctx->h_processing.len) {
+        /* Spool without any handle allocated yet. */
+        return 0;
+    }
+    assert(SIZE_MAX - ctx->stats.nbr_seen_handles >=
+           ctx->stats.nbr_free_handles);
+    assert(ctx->h_processing.len >
+           ctx->stats.nbr_seen_handles + ctx->stats.nbr_free_handles);
+
+    /* Handle 0 cannot be counted as used or freed, so remove it from len. */
+    return ctx->h_processing.len -
+           (1 + ctx->stats.nbr_seen_handles + ctx->stats.nbr_free_handles);
+}
+
 static int qps_dissect_handle(qps_dissect_ctx_t *ctx, qps_handle_t h,
                               qps_ptr_t *hptr, bool notify)
 {
@@ -4599,6 +4615,56 @@ static void qps_dissect_check_object_usage(qps_dissect_ctx_t *ctx,
     }
 }
 
+static void qps_dissect_track_lost_handles(qps_dissect_ctx_t *ctx)
+{
+    t_scope;
+    qm_t(handle_id) h_map;
+    qv_t(handle_info) h_vec;
+
+    const uint64_t remaining = qps_dissect_get_nbr_remaining_h(ctx);
+
+    if (unlikely(!remaining)) {
+        logger_notice(&_G.logger, "all handles tracked for %*pM",
+                      SB_FMT_ARG(&ctx->owner.owner_path));
+        return;
+    }
+
+    logger_notice(&_G.logger, "still %zu handle(s) to track for %*pM",
+                  remaining, SB_FMT_ARG(&ctx->owner.owner_path));
+
+    qm_init(handle_id, &h_map);
+    qv_init(&h_vec);
+    for (size_t i = 1; i < ctx->h_processing.len; i++) {
+        qps_ptr_t *hptr;
+
+        if (!qps_dissect_is_handle_used(ctx, i)) {
+            continue;
+        }
+        hptr = qps_handle_slot(ctx->qps, i);
+        qps_dissect_add_handle_info(i, *hptr, &h_map, &h_vec);
+    }
+
+    /* Check results. */
+    qm_for_each_pos(handle_id, pos, &h_map) {
+        qps_handle_t h = h_map.keys[pos];
+        qps_ptr_t *val = &h_vec.tab[h_map.values[pos]]->tab[0];
+        void *ptr = (uint8_t *)qps_pg_deref(ctx->qps, val->pgno) + val->addr;
+        size_t sz_obj = qps_sizeof(ctx->qps, ptr);
+
+        sb_setf(ctx->err,
+                "unknown handle %d, pointing at " QPS_PTR_FMT ", "
+                "size=%lu",
+                h, QPS_PTR_ARG(*val), sz_obj);
+        qps_dissect_notify_handle_err(ctx, QPS_ANOMALY_H_REF_UNKNOWN, &h);
+    }
+
+    qm_wipe(handle_id, &h_map);
+    qv_deep_wipe(&h_vec, handle_info_delete);
+
+    logger_notice(&_G.logger, "done tracking %zu handle(s) for %*pM",
+                  remaining, SB_FMT_ARG(&ctx->owner.owner_path));
+}
+
 void qps_dissect_process_object_usage(qps_dissect_ctx_t *ctx)
 {
     qhm_t(qps_object_usage) *map;
@@ -4625,6 +4691,8 @@ void qps_dissect_process_object_usage(qps_dissect_ctx_t *ctx)
 
         qps_dissect_check_object_usage(ctx, map, pos, &obj);
     }
+
+    qps_dissect_track_lost_handles(ctx);
 }
 
 /* }}} */
