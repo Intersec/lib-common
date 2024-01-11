@@ -124,27 +124,56 @@ struct LogConfiguration {
  *
  * This class defines how a log file is opened, rotates, expires and is
  * compressed.
+ *
+ * Example of a valid log file configuration:
+ * [source,yaml]
+ * ----
+ * name: ep/events
+ * maxSize: 1G # raise rotation size to 1Go
+ * maxFiles: 30 # never have more than 30 files
+ * # use the default values for the rest
+ * ----
  */
 class LogFileConfiguration {
-    /** Log file max size before rotation (in bytes). */
+    /** Log file max size before rotation (in bytes).
+     *
+     * Meaning that as soon as writing a line makes the file larger than this
+     * size, the log file is rotated. Note that the trigger is launched when
+     * the limit is crossed, in other words this is not a strict maximum size
+     * for the file: a few log lines may be written before the file is really
+     * rotated.
+     *
+     * 0 or a negative value disables this rotation trigger. Note that this is
+     * unwise to disable this setting as many tools still don’t cope with very
+     * large files (larger than 2G) properly.
+     */
     int maxSize = 512M;
 
-    /** Log file max age before rotation (in seconds). */
+    /** Log file max age before rotation (in seconds).
+     *
+     * This condition is lazily evaluated before any line is written. That
+     * means that if a log file is scarcely used, it is only rotated if
+     * needed. In other words, if you write every 3 hours in a file for which
+     * you set maxTime to 2 hours, it will actually be rotated every 3 hours.
+     * 0 or a negative value disables this rotation trigger.
+     */
     ulong maxTime = 1d;
 
     /** Maximum number of log files.
      *
-     * <= 0 means no limit.
+     * When a rotation occurs, if there are more than this amount of files,
+     * the older ones are deleted. 0 or a negative value disables this limit.
      */
     int maxFiles = 0;
 
     /** Maximum total size of the log files (in bytes).
      *
-     * <= 0 means no limit.
+     * When the total amount of disk used exceeds this limit, older log files
+     * are removed. 0 or a negative value disables this limit.
      */
     long totalMaxSize = 1G;
 
-    /** Activate log file compression. */
+    /** Activate log file compression using gzip-9 */
     bool compress = true;
 };
 
