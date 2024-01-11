@@ -31,16 +31,34 @@ typedef enum qpsstress_step_t {
     QPS_MAX_CASES
 } qpsstress_step_t;
 
-static const char *qpsstress_usage_g = "QPS_PATH\n\n"
-"Stress QPS in (QPS_PATH) folder and abort on the first issue. This tool is\n"
-"not supposed to be used outside Intersec R&D.\n\n"
+typedef struct {
+    qps_handle_t h;
+    size_t expected_sz;
+} qpsstress_instr_t;
+
+typedef struct {
+    qpsstress_step_t step;
+    qpsstress_instr_t instr;
+} qpsstress_replay_t;
+
+/* Description of steps which can be played in qpstress. */
+typedef void (*qpsstress_step_f)(qpsstress_instr_t *instr);
+typedef struct qpsstress_step_desc_t {
+    const char * const name;
+    const qpsstress_step_f run_step;
+} qpsstress_step_desc_t;
+
+static const char *qpsstress_usage_g = "QPS_PATH [REPLAY_FILE]\n\n"
+"Stress QPS in (QPS_PATH) folder and abort on the first issue. If a replay "
+"file\nis provided, play it before performing QPS operations randomly. This "
+"tool is\nnot supposed to be used outside Intersec R&D.\n\n"
 "Options:\n"
 "--------";
 
 struct {
     const char *path;
     bool opt_help;
-    bool opt_new_alloc_strategy;
+    bool opt_old_alloc_strategy;
 
     qps_t *qps;
     bool has_snapshotted;
@@ -49,13 +67,20 @@ struct {
     qv_t(i32) free_list;
     qv_t(i32) snap_handles;
     qv_t(i32) snap_free_list;
+
+    struct {
+        lstr_t file_content;
+        ctype_desc_t sep;
+        pstream_t ps;
+        qpsstress_replay_t last_step;
+    } replay;
 } _G;
 
 static popt_t qpsstress_popt_g[] = {
     OPT_FLAG('h', "help", &_G.opt_help, "show this help"),
-    OPT_FLAG('n', "new-alloc", &_G.opt_new_alloc_strategy, "change "
-             "allocation strategy for handles so QPS page and tlsf maps are "
-             "stimulated"),
+    OPT_FLAG('o', "old-alloc", &_G.opt_old_alloc_strategy, "go back "
+             "to the legacy allocation strategy for handles (less "
+             "stimulation on QPS allocator)"),
     OPT_END(),
 };
 
@@ -97,18 +122,18 @@ static qps_ptr_t qps_encode(const void *ptr)
 static void print_h_info(qps_handle_t h)
 {
     qps_ptr_t hptr = *qps_handle_slot(_G.qps, h);
-    uint8_t *data = qps_handle_deref(_G.qps, h);
-    size_t sz = qps_sizeof(_G.qps, data);
-    qps_ptr_t hptr_hdr = qps_encode((void*)cast(uintptr_t, data - 8));
-    qps_ptr_t hptr_end = qps_encode((void*)cast(uintptr_t, data + sz - 1));
+    uint8_t *instr = qps_handle_deref(_G.qps, h);
+    size_t sz = qps_sizeof(_G.qps, instr);
+    qps_ptr_t hptr_hdr = qps_encode((void*)cast(uintptr_t, instr - 8));
+    qps_ptr_t hptr_end = qps_encode((void*)cast(uintptr_t, instr + sz - 1));
 
     e_error("error processing handle %u (size: %zu)", h, sz);
     e_error("\thdr starting at " QPS_PTR_FMT " (%p)", QPS_PTR_ARG(hptr_hdr),
-            data - 8);
+            instr - 8);
     e_error("\tdata starts at  " QPS_PTR_FMT " (%p)", QPS_PTR_ARG(hptr),
-            data);
+            instr);
     e_error("\tdata ends at    " QPS_PTR_FMT  " (%p)",
-            QPS_PTR_ARG(hptr_end), data + sz - 1);
+            QPS_PTR_ARG(hptr_end), instr + sz - 1);
 }
 
 static void
@@ -119,30 +144,30 @@ set_blk_data_hdr(blk_data *data_hdr, qps_handle_t h, size_t new_sz)
     data_hdr->crc = icrc32(h, &data_hdr->app_sz32, offsetof(blk_data, crc));
 }
 
-static void check_handle_data(blk_data *data, qps_handle_t h, size_t new_sz)
+static void check_handle_data(blk_data *instr, qps_handle_t h, size_t new_sz)
 {
     const uint32_t pattern = PATTERN_VAL_32(h);
     uint32_t check_sz32;
 
     /* Detect any corruption of this CRC in handle memory now. */
-    assert(icrc32(h, &data->app_sz32, offsetof(blk_data, crc)) ==
-           data->crc);
+    assert(icrc32(h, &instr->app_sz32, offsetof(blk_data, crc)) ==
+           instr->crc);
 
     /* The following line catches the case where realloc has been performed in
      * tlsf map (with bigger size) but pattern is not yet fully copied. */
-    check_sz32 = MIN(BLK_APP_DATA_SIZE_T32(data),
+    check_sz32 = MIN(BLK_APP_DATA_SIZE_T32(instr),
                      BLK_APP_DATA_SIZE_FROM_QPS_BLK_T32(new_sz));
 
     /* Check pattern for current handle in QPS */
     for (uint32_t i = 0; i < check_sz32 / sizeof(uint32_t); i++) {
-        if (data->app_data[i] != pattern) {
+        if (instr->app_data[i] != pattern) {
             print_h_info(h);
             e_error("expected pattern byte is 0x%08x, found 0x%08x after "
-                    "%zu byte(s) --> %p", pattern, data->app_data[i],
+                    "%zu byte(s) --> %p", pattern, instr->app_data[i],
                     offsetof(blk_data, app_data) + sizeof(uint32_t) * i,
-                    &data->app_data[i]);
+                    &instr->app_data[i]);
             e_error("qps generation is %u, map generation is %u",
-                    _G.qps->generation, qps_map_of(data)->hdr.generation);
+                    _G.qps->generation, qps_map_of(instr)->hdr.generation);
             assert(false);
         }
     }
@@ -150,38 +175,38 @@ static void check_handle_data(blk_data *data, qps_handle_t h, size_t new_sz)
 
 static void set_handle_data(void *ptr, qps_handle_t h, size_t new_sz)
 {
-    blk_data *data = ptr;
+    blk_data *instr = ptr;
 
     assert(new_sz >= QPS_ALLOC_MIN && (new_sz % sizeof(uint32_t) == 0));
-    set_blk_data_hdr(data, h, new_sz);
-    memset(data->app_data, PATTERN_VAL_8(h), BLK_APP_DATA_SIZE_T8(data));
+    set_blk_data_hdr(instr, h, new_sz);
+    memset(instr->app_data, PATTERN_VAL_8(h), BLK_APP_DATA_SIZE_T8(instr));
 }
 
-static void check_blk_header(blk_data *data, size_t sz)
+static void check_blk_header(blk_data *instr, size_t sz)
 {
-    assert(((sz & 0x3) == 0) && ((cast(uintptr_t, data) & 0x3) == 0));
+    assert(((sz & 0x3) == 0) && ((cast(uintptr_t, instr) & 0x3) == 0));
 }
 
 static void check_blk_header_and_data(qps_handle_t h)
 {
-    blk_data *data = qps_handle_deref(_G.qps, h);
-    size_t sz = qps_sizeof(_G.qps, data);
+    blk_data *instr = qps_handle_deref(_G.qps, h);
+    size_t sz = qps_sizeof(_G.qps, instr);
 
-    check_blk_header(data, sz);
-    check_handle_data(data, h, sz);
+    check_blk_header(instr, sz);
+    check_handle_data(instr, h, sz);
 }
 
 static void check_blk_then_set_handle_data(qps_handle_t h)
 {
-    blk_data *data = qps_handle_deref(_G.qps, h);
-    size_t sz = qps_sizeof(_G.qps, data);
+    blk_data *instr = qps_handle_deref(_G.qps, h);
+    size_t sz = qps_sizeof(_G.qps, instr);
 
-    check_blk_header(data, sz);
-    check_handle_data(data, h, sz);
-    if (BLK_SIZE_T8(data) != sz) {
+    check_blk_header(instr, sz);
+    check_handle_data(instr, h, sz);
+    if (BLK_SIZE_T8(instr) != sz) {
         /* Size allocated has been changed for handle, redo header and
          * pattern. */
-        set_handle_data(data, h, sz);
+        set_handle_data(instr, h, sz);
     }
 }
 
@@ -197,7 +222,7 @@ static size_t request_memory_size(qpsstress_step_t step, size_t old_size)
 {
     size_t sz = 0;
 
-    if (_G.opt_new_alloc_strategy) {
+    if (!_G.opt_old_alloc_strategy) {
         /** This define allows a wider range of size for a handle which can be
          * either stored in tlsf or QPS page maps.  */
         sz = (rand() & ((QPS_M_ALLOC_MAX << 1) - 1));
@@ -212,18 +237,18 @@ static size_t request_memory_size(qpsstress_step_t step, size_t old_size)
     return sz;
 }
 
-static void qalloc(void)
+static void qalloc(qpsstress_instr_t *instr)
 {
     qps_handle_t h = QPS_HANDLE_NULL;
     void *ptr;
-    size_t s, g;
+    size_t g;
 
-    s = request_memory_size(QPS_ALLOC, 0);
-    ptr = qps_alloc(_G.qps, &h, s);
+    ptr = qps_alloc(_G.qps, &h, instr->expected_sz);
     assert((h != QPS_HANDLE_NULL) && ptr);
     g = qps_sizeof(_G.qps, ptr);
     set_handle_data(ptr, h, g);
-    e_info("alloc h=%d, size=%zu, got=%zu", h, s, g);
+    e_info("step=%d (alloc): h=%d, size=%zu, got=%zu", QPS_ALLOC, h,
+           instr->expected_sz, g);
     if (_G.free_list.len == 0) {
         qv_append(&_G.handles, h);
     } else {
@@ -233,7 +258,7 @@ static void qalloc(void)
     }
 }
 
-static void find_handle(qps_handle_t *h, int *pos)
+static qps_handle_t find_handle(int *pos)
 {
     int p = rand() % _G.handles.len;
 
@@ -242,66 +267,58 @@ static void find_handle(qps_handle_t *h, int *pos)
             p = 0;
         }
     }
-    if (h) {
-        *h   = _G.handles.tab[p];
-    }
     if (pos) {
         *pos = p;
     }
+    return _G.handles.tab[p];
 }
 
-static void qrealloc(void)
+static void qrealloc(qpsstress_instr_t *instr)
 {
-    qps_handle_t h;
-    void *p;
-    size_t o;
-    size_t s;
-    size_t g;
+    void *p = qps_handle_deref(_G.qps, instr->h);
+    size_t g, o = qps_sizeof(_G.qps, p);
 
-    find_handle(&h, NULL);
-    p = qps_handle_deref(_G.qps, h);
-    o = qps_sizeof(_G.qps, p);
-
-    if (!_G.opt_new_alloc_strategy && o >= 4096) {
+    if (_G.opt_old_alloc_strategy && o >= 4096) {
         return;
     }
-
-    s = request_memory_size(QPS_REALLOC, o);
-    p = qps_realloc(_G.qps, h, s);
+    p = qps_realloc(_G.qps, instr->h, instr->expected_sz);
     assert(p);
     g = qps_sizeof(_G.qps, p);
-    check_blk_then_set_handle_data(h);
-    e_info("realloc h=%d, size=%zu, old=%zu, got=%zu", h, s, o, g);
+    check_blk_then_set_handle_data(instr->h);
+    e_info("step=%d (realloc): h=%d, size=%zu, old=%zu, got=%zu", QPS_REALLOC,
+           instr->h, instr->expected_sz, o, g);
 }
 
-static void qwderef(void)
+static void qwderef(qpsstress_instr_t *instr)
 {
-    qps_handle_t h;
-
-    find_handle(&h, NULL);
-    qps_handle_w_deref(_G.qps, h);
+    qps_handle_w_deref(_G.qps, instr->h);
 
     /* Moving handle from RO tlsf map into RW tlsf map can actually change the
      * size of the object for a bigger one. We need to check the data move
      * prior to set additional pattern for this extra allocation block. */
-    check_blk_then_set_handle_data(h);
-    e_info("w_deref h=%d", h);
+    check_blk_then_set_handle_data(instr->h);
+    e_info("step=%d (w_deref): h=%d", QPS_WDEREF, instr->h);
 }
 
-static void qdealloc(void)
+static void qdealloc(qpsstress_instr_t *instr)
 {
-    qps_handle_t h;
     int pos;
 
-    find_handle(&h, &pos);
-    check_blk_header_and_data(h);
-    qps_free(_G.qps, h);
+    pos = qv_find(i32)(&_G.handles, instr->h, false, ^int (int32_t const *i1,
+                                                           int32_t const *i2)
+    {
+        return CMP((*i1), (*i2));
+    });
+    assert(pos != -1);
+
+    check_blk_header_and_data(instr->h);
+    qps_free(_G.qps, instr->h);
     _G.handles.tab[pos] = -1;
     qv_append(&_G.free_list, pos);
-    e_info("dealloc h=%d", h);
+    e_info("step=%d (dealloc): h=%d", QPS_DEALLOC, instr->h);
 }
 
-static void qsnapshot(void)
+static void qsnapshot(qpsstress_instr_t *instr)
 {
     qv_splice(&_G.snap_handles, 0, _G.snap_handles.len,
               _G.handles.tab, _G.handles.len);
@@ -310,16 +327,16 @@ static void qsnapshot(void)
     qps_snapshot(_G.qps, NULL, 0, ^(uint32_t gen) {
         qps_gc_run(_G.qps);
     });
-    e_info(">>>>>>>>>>>>>>>  snapshot");
+    e_info("step=%d (snapshot): >>>>>>>>>>>>>>>", QPS_SNAPSHOT);
 }
 
-static void qsnapshot_wait(void)
+static void qsnapshot_wait(qpsstress_instr_t *instr)
 {
     qps_snapshot_wait(_G.qps);
-    e_info("<<<<<<<<<<<<<<<  snapshot_wait");
+    e_info("step=%d (snapshot_wait): <<<<<<<<<<<<<<<", QPS_SNAPSHOT_WAIT);
 }
 
-static void qreopen(void)
+static void qreopen(qpsstress_instr_t *instr)
 {
     qv_splice(&_G.handles, 0, _G.handles.len,
               _G.snap_handles.tab, _G.snap_handles.len);
@@ -328,7 +345,8 @@ static void qreopen(void)
     qps_close(&_G.qps);
     _G.qps = qps_open(_G.path, "stress", NULL);
     qps_gc_run(_G.qps);
-    e_info(">>>>>>>>>>>>>>>  reopen  <<<<<<<<<<<<<<<<");
+    e_info("step=%d (reopen): =========================================",
+           QPS_REOPEN);
 }
 
 static void check_qps(void)
@@ -351,10 +369,214 @@ static void check_qps(void)
     }
 }
 
+static void init_replay(const char *replay_file)
+{
+    ctype_desc_build(&_G.replay.sep, ": ,=");
+    if (lstr_init_from_file(&_G.replay.file_content, replay_file, PROT_READ,
+                            MAP_SHARED) < 0)
+    {
+        e_fatal("unable to open replay file \"%s\"", replay_file);
+    }
+    _G.replay.ps = ps_initlstr(&_G.replay.file_content);
+}
+
+static void end_replay(void)
+{
+    lstr_wipe(&_G.replay.file_content);
+}
+
+static qpsstress_replay_t *read_and_set_replay_step(pstream_t *line)
+{
+    t_scope;
+    qv_t(lstr) values;
+    uint32_t step = UINT32_MAX;
+    uint32_t u32_val;
+
+    t_qv_init(&values, 1);
+    ps_split(*line, &_G.replay.sep, PS_SPLIT_SKIP_EMPTY, &values);
+
+    /* Check for info lines from a qpsstress run, discard all others */
+    THROW_NULL_IF(values.len < 4 || !lstr_equal(values.tab[1], LSTR("info")));
+
+    /* Retrieve step kind */
+    lstr_to_uint(values.tab[3], &step);
+    THROW_NULL_IF(step >= QPS_MAX_CASES);
+    _G.replay.last_step.step = step;
+
+    /* Collect data base on step kind */
+    switch (step) {
+    case QPS_ALLOC:
+        THROW_NULL_IF(lstr_to_uint(values.tab[8], &u32_val) < 0);
+        _G.replay.last_step.instr.expected_sz = u32_val;
+        break;
+    case QPS_REALLOC:
+        THROW_NULL_IF(lstr_to_uint(values.tab[6],
+                                   &_G.replay.last_step.instr.h) < 0);
+        THROW_NULL_IF(lstr_to_uint(values.tab[8], &u32_val) < 0);
+        _G.replay.last_step.instr.expected_sz = u32_val;
+        break;
+    case QPS_WDEREF:
+    case QPS_DEALLOC:
+        THROW_NULL_IF(lstr_to_uint(values.tab[6],
+                                   &_G.replay.last_step.instr.h) < 0);
+        break;
+    case QPS_SNAPSHOT:
+    case QPS_SNAPSHOT_WAIT:
+    case QPS_REOPEN:
+    case QPS_MAX_CASES:
+        break;
+    }
+
+    return &_G.replay.last_step;
+}
+
+static qpsstress_replay_t *get_replay_step(void)
+{
+    qpsstress_replay_t *res = NULL;
+
+    if (_G.replay.file_content.len) {
+        static const char cdesc_tok[] = { '\r', '\n', '\0' };
+        ctype_desc_t cdesc;
+        pstream_t line;
+
+        ctype_desc_build(&cdesc, cdesc_tok);
+        while (!res) {
+            if (ps_done(&_G.replay.ps)) {
+                e_error(">>>>>>>>>>>>>>>  end of replay  <<<<<<<<<<<<<<<<");
+                e_error(">>>>>>>>>>>>>>>  end of replay  <<<<<<<<<<<<<<<<");
+                e_error(">>>>>>>>>>>>>>>  end of replay  <<<<<<<<<<<<<<<<");
+                e_error(">>>>>>>>>>>>>>>  end of replay  <<<<<<<<<<<<<<<<");
+                end_replay();
+                break;
+            }
+            line = ps_get_cspan(&_G.replay.ps, &cdesc);
+            res = read_and_set_replay_step(&line);
+            ps_skip_span(&_G.replay.ps, &cdesc);
+        }
+    }
+    return res;
+}
+
+static uint32_t get_random_step(uint32_t *proba)
+{
+    uint32_t s = 0;
+
+    proba[QPS_WDEREF] = 65536;
+    if (_G.free_list.len == _G.handles.len) {
+        proba[QPS_ALLOC] = 16384;
+        proba[QPS_REALLOC] = proba[QPS_DEALLOC] = 0;
+        proba[QPS_WDEREF] = 0;
+    } else if (_G.handles.len - _G.free_list.len < 1000000) {
+        proba[QPS_ALLOC] = 16384;
+        proba[QPS_DEALLOC] = 8192;
+        proba[QPS_REALLOC] = 1024;
+    } else {
+        proba[QPS_ALLOC] = 8192;
+        proba[QPS_DEALLOC] = 4096;
+        proba[QPS_REALLOC] = 1024;
+    }
+
+    for (int i = 0; i < QPS_MAX_CASES; i++) {
+        s += proba[i];
+    }
+
+    s = rand() % s;
+    for (int i = 0; i < QPS_MAX_CASES; i++) {
+        if (proba[i] > s) {
+            s = i;
+            break;
+        }
+        s -= proba[i];
+    }
+    assert(s < QPS_MAX_CASES);
+
+    return s;
+}
+
+static int
+create_random_instr(qpsstress_step_t step, qpsstress_instr_t *instr)
+{
+    switch (step)
+    {
+    case QPS_ALLOC:
+        instr->expected_sz = request_memory_size(QPS_ALLOC, 0);
+        break;
+    case QPS_REALLOC: {
+        void *p;
+        size_t o;
+
+        instr->h = find_handle(NULL);
+        p = qps_handle_deref(_G.qps, instr->h);
+        o = qps_sizeof(_G.qps, p);
+        instr->expected_sz = request_memory_size(QPS_REALLOC, o);
+    } break;
+    case QPS_DEALLOC:
+    case QPS_WDEREF:
+        instr->h = find_handle(NULL);
+        break;
+    case QPS_SNAPSHOT:
+    case QPS_SNAPSHOT_WAIT:
+    case QPS_REOPEN:
+        /* Nothing to do. */
+        break;
+    default:
+        break;
+    }
+    return 0;
+}
+
+static void
+update_proba_for_next_random_step(uint32_t *proba, uint32_t step)
+{
+    switch (step) {
+    case QPS_SNAPSHOT:
+        proba[QPS_SNAPSHOT] = 0;
+        proba[QPS_REOPEN] = 0;
+        proba[QPS_SNAPSHOT_WAIT] = 256;
+        break;
+    case QPS_SNAPSHOT_WAIT:
+        _G.has_snapshotted = true;
+        proba[QPS_SNAPSHOT] = 16;
+        proba[QPS_REOPEN] = 1;
+        proba[QPS_SNAPSHOT_WAIT] = 0;
+        break;
+    case QPS_REOPEN:
+        _G.has_snapshotted = true;
+        proba[QPS_SNAPSHOT] = 16;
+        proba[QPS_SNAPSHOT_WAIT] = 0;
+        break;
+    default:
+        break;
+    }
+}
+
+#define STEP_DESC_ENTRY(_fct) { #_fct, &_fct }
+
+const qpsstress_step_desc_t g_list_steps[QPS_MAX_CASES] = {
+    [QPS_ALLOC] = STEP_DESC_ENTRY(qalloc),
+    [QPS_REALLOC] = STEP_DESC_ENTRY(qrealloc),
+    [QPS_WDEREF] = STEP_DESC_ENTRY(qwderef),
+    [QPS_DEALLOC] = STEP_DESC_ENTRY(qdealloc),
+    [QPS_SNAPSHOT] = STEP_DESC_ENTRY(qsnapshot),
+    [QPS_SNAPSHOT_WAIT] = STEP_DESC_ENTRY(qsnapshot_wait),
+    [QPS_REOPEN] = STEP_DESC_ENTRY(qreopen),
+};
+
+#undef STEP_DESC_ENTRY
+
+static void run_step(uint32_t step, qpsstress_instr_t *instr)
+{
+    if (step >= QPS_MAX_CASES) {
+        return;
+    }
+
+    g_list_steps[step].run_step(instr);
+}
+
 int main(int argc, char **argv)
 {
     const char *arg0 = NEXTARG(argc, argv);
-    uint32_t proba[] = {
+    uint32_t proba[QPS_MAX_CASES] = {
         [QPS_ALLOC] = 0,
         [QPS_REALLOC] = 0,
         [QPS_WDEREF] = 0,
@@ -380,74 +602,33 @@ int main(int argc, char **argv)
         e_fatal("unable to open qps");
     }
 
+    if (argc) {
+        init_replay(NEXTARG(argc, argv));
+    }
+
     for (;;) {
-        uint32_t s = 0;
+        qpsstress_replay_t *replay = get_replay_step();
+        uint32_t s;
 
-        proba[QPS_WDEREF] = 65536;
-        if (_G.free_list.len == _G.handles.len) {
-            proba[QPS_ALLOC] = 16384;
-            proba[QPS_REALLOC] = proba[QPS_DEALLOC] = proba[QPS_WDEREF] = 0;
-        } else
-        if (_G.handles.len - _G.free_list.len < 1000000) {
-            proba[QPS_ALLOC] = 16384;
-            proba[QPS_DEALLOC] = 8192;
-            proba[QPS_REALLOC] = 1024;
+        if (replay) {
+            s = replay->step;
+            run_step(replay->step, &replay->instr);
         } else {
-            proba[QPS_ALLOC] = 8192;
-            proba[QPS_DEALLOC] = 4096;
-            proba[QPS_REALLOC] = 1024;
-        }
+            qpsstress_instr_t instr;
 
-        for (int i = 0; i < countof(proba); i++) {
-            s += proba[i];
-        }
-
-        s = rand() % s;
-        for (int i = 0; i < countof(proba); i++) {
-            if (proba[i] > s) {
-                s = i;
-                break;
+            s = get_random_step(proba);
+            if (create_random_instr(s, &instr) < 0) {
+                continue;
             }
-            s -= proba[i];
+            run_step(s, &instr);
         }
-        assert(s < countof(proba));
-
-        switch (s) {
-          case QPS_ALLOC:
-            qalloc();
-            break;
-          case QPS_DEALLOC:
-            qdealloc();
-            break;
-          case QPS_REALLOC:
-            qrealloc();
-            break;
-          case QPS_WDEREF:
-            qwderef();
-            break;
-          case QPS_SNAPSHOT:
-            qsnapshot();
-            proba[QPS_SNAPSHOT] = 0;
-            proba[QPS_REOPEN] = 0;
-            proba[QPS_SNAPSHOT_WAIT] = 256;
-            break;
-          case QPS_SNAPSHOT_WAIT:
-            qsnapshot_wait();
-            _G.has_snapshotted = true;
-            proba[QPS_SNAPSHOT] = 16;
-            proba[QPS_REOPEN] = 1;
-            proba[QPS_SNAPSHOT_WAIT] = 0;
-            break;
-          case QPS_REOPEN:
-            qreopen();
-            _G.has_snapshotted = true;
-            proba[QPS_SNAPSHOT] = 16;
-            proba[QPS_SNAPSHOT_WAIT] = 0;
-            break;
-        }
+        /* Update probabilities even in replay mode, so we are not
+         * unsynchronized when we leave it! */
+        update_proba_for_next_random_step(proba, s);
         check_qps();
     }
 
     MODULE_RELEASE(qps);
+    end_replay();
     return 0;
 }
