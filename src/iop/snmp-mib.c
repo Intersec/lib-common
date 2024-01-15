@@ -655,16 +655,29 @@ static void mib_put_rpcs(sb_t *buf, const iop_pkg_t *pkg)
 
 static void mib_put_compliance(sb_t *buf)
 {
+    SB_1k(objects);
+
+    if (_G.conformance_objects.len) {
+        sb_addf(&objects, "%*pMConformanceObject", LSTR_FMT_ARG(_G.head));
+    }
+    if (_G.conformance_notifs.len) {
+        if (objects.len) {
+            sb_adds(&objects, ", ");
+        }
+        sb_addf(&objects, "%*pMConformanceNotification",
+                LSTR_FMT_ARG(_G.head));
+    }
+
     sb_addf(buf,
             "\n%*pMCompliance MODULE-COMPLIANCE\n"
             LVL1 "STATUS current\n"
             LVL1 "DESCRIPTION \"The compliance statement for %*pM entities\"\n"
             LVL1 "MODULE\n"
-            LVL2 "MANDATORY-GROUPS { %*pMConformanceObject, "
-            "%*pMConformanceNotification }\n"
+            LVL2 "MANDATORY-GROUPS { %*pM }\n"
             LVL1 "::= { %*pMIdentity 1}\n",
-            LSTR_FMT_ARG(_G.head), LSTR_FMT_ARG(_G.head),
-            LSTR_FMT_ARG(_G.head), LSTR_FMT_ARG(_G.head),
+            LSTR_FMT_ARG(_G.head),
+            LSTR_FMT_ARG(_G.head),
+            SB_FMT_ARG(&objects),
             LSTR_FMT_ARG(_G.head));
 }
 
@@ -718,8 +731,15 @@ static void mib_put_compliance_fold(sb_t *buf)
 
     sb_addf(buf, "-- {{{ Compliance\n");
     mib_put_compliance(buf);
-    mib_put_notifs_conformance(buf);
-    mib_put_objects_conformance(buf);
+
+    if (_G.conformance_notifs.len) {
+        mib_put_notifs_conformance(buf);
+    }
+
+    if (_G.conformance_objects.len) {
+        mib_put_objects_conformance(buf);
+    }
+
     sb_addf(buf, "\n-- }}}\n");
 }
 
