@@ -8084,5 +8084,282 @@ Z_GROUP_EXPORT(httpc_http2) {
     } Z_TEST_END;
 } Z_GROUP_END;
 
+enum zhttpd_flags {
+    ZHTTPD_QUERY_DONT_QUIT = (1 << 0),
+    ZHTTPD_NO_ANSWER       = (1 << 1),
+};
+
+static struct {
+    el_t httpd_el;
+    el_t client_el;
+    el_t timeout_timer;
+    sb_t read_buf;
+    httpd_query_t *pending_query;
+    httpd_cfg_t *cfg;
+    int flags;
+    bool got_io_error;
+    bool cleanup_needed;
+} zhttpd_g;
+
+static void zhttpd_query_quit(void)
+{
+    el_unregister(&zhttpd_g.client_el);
+}
+
+static void zhttpd_pending_query_abort(void)
+{
+    if (zhttpd_g.pending_query) {
+        httpd_reject(zhttpd_g.pending_query, INTERNAL_SERVER_ERROR, "abort");
+        obj_release(zhttpd_g.pending_query);
+        zhttpd_g.pending_query = NULL;
+    }
+}
+
+static void zhttpd_query_timeout(el_t timer, data_t priv)
+{
+    e_trace(0, "zhttpd timeout, aborting test");
+    el_unregister(&zhttpd_g.timeout_timer);
+    zhttpd_query_quit();
+    zhttpd_pending_query_abort();
+    httpd_unlisten(&zhttpd_g.httpd_el);
+}
+
+static void zhttpd_query_on_done(httpd_query_t *q)
+{
+    outbuf_t *ob;
+
+    if (zhttpd_g.flags & ZHTTPD_NO_ANSWER) {
+        zhttpd_g.pending_query = obj_retain(q);
+        return;
+    }
+
+    ob = httpd_reply_hdrs_start(q, HTTP_CODE_OK, false);
+    ob_adds(ob, "Content-Type: text/plain\r\n");
+    httpd_reply_hdrs_done(q, -1, false);
+    ob_adds(ob, "ZHTTPD OK");
+
+    httpd_reply_done(q);
+}
+
+static void
+zhttpd_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
+                   const httpd_qinfo_t *qi)
+{
+    /* XXX we must el_ref() the httpd-side connection to ensure that the
+     * connection is closed naturally which is also the only way to ensure
+     * everything got freed.
+     */
+    el_ref(q->owner->ev);
+    q->on_done = &zhttpd_query_on_done;
+    q->qinfo = httpd_qinfo_dup(qi);
+    httpd_bufferize(q, 1 << 20);
+}
+
+static int zhttpd_query_handle(el_t el, int fd, short mask, data_t data)
+{
+    const lstr_t *query = data.ptr;
+
+    if (mask & POLLOUT) {
+        if (xwrite(fd, query->s, query->len) < 0) {
+            e_error("cannot write query: %m");
+            zhttpd_g.got_io_error = true;
+            zhttpd_query_quit();
+            return -1;
+        }
+        el_fd_set_mask(el, POLLIN);
+    }
+    if (mask & POLLIN) {
+        int res = sb_read(&zhttpd_g.read_buf, fd, -1);
+
+        if (res < 0 && !ERR_RW_RETRIABLE(errno)) {
+            e_error("cannot read query answer: %m");
+            zhttpd_g.got_io_error = true;
+            zhttpd_query_quit();
+            return -1;
+        } else if (res == 0) {
+            zhttpd_query_quit();
+            return 0;
+        }
+
+        if (lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf), LSTR("ZHTTPD OK")) &&
+            (!(zhttpd_g.flags & ZHTTPD_QUERY_DONT_QUIT)))
+        {
+            /* Answer received, nothing more to do. */
+            zhttpd_query_quit();
+        }
+    }
+
+    return 0;
+}
+
+static void zhttpd_cleanup(void)
+{
+    if (!zhttpd_g.cleanup_needed) {
+        return;
+    }
+    zhttpd_g.cleanup_needed = false;
+    zhttpd_pending_query_abort();
+    httpd_unlisten(&zhttpd_g.httpd_el);
+    if (zhttpd_g.cfg) {
+        httpd_trigger_unregister(zhttpd_g.cfg, GET, "zchk");
+        httpd_cfg_delete(&zhttpd_g.cfg);
+    }
+    sb_wipe(&zhttpd_g.read_buf);
+}
+
+#define ZHTTPD_NOACT_DELAY  3000
+#define ZHTTPD_TIMEOUT  ZHTTPD_NOACT_DELAY * 2
+
+static int zhttpd_setup(const lstr_t *query, int flags)
+{
+    sockunion_t su;
+    int client_fd;
+    httpd_trigger_t *trigger;
+    bool got_timeout = false;
+
+    zhttpd_cleanup();
+    zhttpd_g.cleanup_needed = true;
+    zhttpd_g.flags = flags;
+
+    Z_ASSERT_N(addr_resolve("test", LSTR("127.0.0.1:1"), &su));
+    sockunion_setport(&su, 0);
+
+    zhttpd_g.cfg = httpd_cfg_new();
+    zhttpd_g.cfg->max_conns = 1;
+    zhttpd_g.cfg->pipeline_depth = 1;
+    zhttpd_g.cfg->noact_delay = ZHTTPD_NOACT_DELAY;
+
+    trigger = httpd_trigger_new();
+    trigger->cb = &zhttpd_query_hook;
+    httpd_trigger_register(zhttpd_g.cfg, GET, "zchk", trigger);
+
+    zhttpd_g.httpd_el = httpd_listen(&su, zhttpd_g.cfg);
+    Z_ASSERT_P(zhttpd_g.httpd_el);
+    sockunion_setport(&su, getsockport(el_fd_get_fd(zhttpd_g.httpd_el),
+                                       AF_INET));
+
+    client_fd = connectx(-1, &su, 1, SOCK_STREAM, IPPROTO_TCP, O_NONBLOCK);
+    Z_ASSERT_N(client_fd);
+
+    zhttpd_g.client_el = el_fd_register(client_fd, true, POLLOUT,
+                                        &zhttpd_query_handle, (void *)query);
+
+    sb_init(&zhttpd_g.read_buf);
+    zhttpd_g.got_io_error = false;
+    zhttpd_g.timeout_timer = el_timer_register(ZHTTPD_TIMEOUT, 0, 0,
+                                               &zhttpd_query_timeout, NULL);
+    el_unref(zhttpd_g.timeout_timer);
+    el_loop();
+
+    got_timeout = !zhttpd_g.timeout_timer;
+    el_unregister(&zhttpd_g.client_el);
+    el_unregister(&zhttpd_g.timeout_timer);
+
+    /* Check that the fail-safe timeout wasn't triggered */
+    if (!(zhttpd_g.flags & ZHTTPD_NO_ANSWER)) {
+        Z_ASSERT(!got_timeout);
+    }
+
+    /* Check that no I/O error happened */
+    Z_ASSERT(!zhttpd_g.got_io_error);
+
+    Z_HELPER_END;
+}
+
+Z_GROUP_EXPORT(httpd) {
+    Z_TEST(simple_query, "test a simple query")
+    {
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n");
+
+        Z_HELPER_RUN(zhttpd_setup(&query, 0));
+
+        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                               LSTR("HTTP/1.1 200 OK")));
+        Z_ASSERT(lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                               LSTR("ZHTTPD OK")));
+
+        zhttpd_cleanup();
+    } Z_TEST_END;
+
+    Z_TEST(noact_delay, "test the behavior of the noactDelay timeout")
+    {
+        uint64_t tstart, tend;
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n");
+
+        tstart = lp_getmsec();
+        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_QUERY_DONT_QUIT));
+        tend = lp_getmsec();
+
+        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                               LSTR("HTTP/1.1 200 OK")));
+        Z_ASSERT(lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                               LSTR("ZHTTPD OK")));
+        /* Check that the connection was actually closed by the noactDelay */
+        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_NOACT_DELAY);
+        Z_ASSERT_LE((int)(tend - tstart), (int)(ZHTTPD_NOACT_DELAY * 1.5));
+
+        zhttpd_cleanup();
+    } Z_TEST_END;
+
+    Z_TEST(noact_delay_pending_answer,
+           "noactDelay shouldn't close with a pending answer")
+    {
+        uint64_t tstart, tend;
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n");
+
+        tstart = lp_getmsec();
+        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_QUERY_DONT_QUIT |
+                                  ZHTTPD_NO_ANSWER));
+        tend = lp_getmsec();
+
+        /* Check that the connection was actually closed by the tests timeout
+         * and not the noactDelay. */
+        Z_ASSERT_ZERO(zhttpd_g.read_buf.len);
+        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_TIMEOUT);
+
+        zhttpd_cleanup();
+    } Z_TEST_END;
+
+    Z_TEST(noact_delay_pending_answer_conn_close,
+           "noactDelay shouldn't close with a pending answer even with a"
+           " Connection: close")
+    {
+        uint64_t tstart, tend;
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Connection: close\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n");
+
+        Z_TEST_FLAGS("redmine_99255");
+        Z_TODO("awaiting fix for issue #99255");
+        tstart = lp_getmsec();
+        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_QUERY_DONT_QUIT |
+                                  ZHTTPD_NO_ANSWER));
+        tend = lp_getmsec();
+
+        /* Check that the connection was actually closed by the tests timeout
+         * and not the noactDelay. */
+        Z_ASSERT_ZERO(zhttpd_g.read_buf.len);
+        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_TIMEOUT);
+
+        zhttpd_cleanup();
+    } Z_TEST_END;
+
+    zhttpd_cleanup();
+} Z_GROUP_END;
 
 /* }}} */
