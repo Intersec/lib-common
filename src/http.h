@@ -393,7 +393,7 @@ bool httpd_trigger_register_flags(httpd_trigger_node_t * nonnull,
                                   bool overwrite);
 bool httpd_trigger_unregister_(httpd_trigger_node_t * nonnull,
                                const char * nonnull path,
-                               httpd_trigger_t * nonnull cb);
+                               httpd_trigger_t * nullable cb);
 
 static inline void
 httpd_trigger_set_auth(httpd_trigger_t * nonnull cb,
