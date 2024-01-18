@@ -708,7 +708,8 @@ OBJ_VTABLE_END()
 
 /*---- low level httpd_query reply functions ----*/
 
-outbuf_t *httpd_reply_hdrs_start(httpd_query_t *q, int code, bool force_uncacheable)
+outbuf_t *httpd_reply_hdrs_start(httpd_query_t *q, int code,
+                                 bool force_uncacheable)
 {
     outbuf_t *ob = httpd_get_ob(q);
 

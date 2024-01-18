@@ -584,8 +584,16 @@ static inline outbuf_t * nonnull httpd_get_ob(httpd_query_t * nonnull q)
     return q->ob;
 }
 
+/** Setup the leading headers of the HTTP reply.
+ *
+ * \param[in]  q     The query to reply for.
+ * \param[in]  code  The HTTP answer code.
+ * \param[in]  force_uncacheable
+ *   When set to true, add cache control headers to ensure the answer won't
+ *   be cached by the client.
+ */
 outbuf_t * nonnull httpd_reply_hdrs_start(httpd_query_t * nonnull q,
-                                          int code, bool cacheable);
+                                          int code, bool force_uncacheable);
 void httpd_put_date_hdr(outbuf_t * nonnull ob, const char * nonnull hdr,
                         time_t now);
 
