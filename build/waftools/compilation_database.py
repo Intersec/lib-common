@@ -68,46 +68,100 @@ class CompileDbContext(Build.BuildContext): # type: ignore[misc]
 
     cmd = 'compiledb'
 
-    @staticmethod
-    def get_task_cmd(task: Task, is_dep: bool) -> Union[str, List[str]]:
-        '''Get the command used for the task'''
-        cmd = task.last_cmd
-
+    def filter_task_node_cmd_input(self, cmd: Union[str, List[str]],
+                                   task: Task,
+                                   task_node: Node) -> Union[str, List[str]]:
         if not isinstance(cmd, list):
-            # Add it to list command arguments
+            # This is not a list of arguments, do nothing
+            assert isinstance(cmd, str)
+            return cmd
+
+        node_abs_path = task_node.abspath()
+        node_rel_path = task_node.path_from(self.srcnode)
+        node_paths = {node_abs_path, node_rel_path}
+
+        # Filter out the input argument corresponding to the file path
+        return [arg for arg in cmd if arg not in node_paths]
+
+    @staticmethod
+    def replace_task_node_cmd_output(
+            cmd: Union[str, List[str]]
+    ) -> Union[str, List[str]]:
+        if not isinstance(cmd, list):
+            # This is not a list of arguments, do nothing
+            assert isinstance(cmd, str)
+            return cmd
+
+        new_cmd = []
+
+        next_arg_skip = False
+        for arg in cmd:
+            arg_to_be_replaced = False
+
+            if next_arg_skip:
+                # The previous argument was '-o', so we should skip this
+                # argument
+                next_arg_skip = False
+                continue
+
+            if arg == '-o':
+                # We replace skip this argument and skip the next one
+                next_arg_skip = True
+                arg_to_be_replaced = True
+            elif arg.startswith('-o'):
+                # We should replace the '-o*' argument
+                arg_to_be_replaced = True
+
+            # Replace it with '-o/dev/null'
+            if arg_to_be_replaced:
+                arg = '-o/dev/null'
+
+            # Else, add the argument to the new ones
+            new_cmd.append(arg)
+
+        return new_cmd
+
+    @staticmethod
+    def get_task_node_cmd(task: Task, cmd: Union[str, List[str]],
+                          f_node: Node,
+                          is_dep: bool) -> Union[str, List[str]]:
+        '''Get the command used for the task'''
+        if not isinstance(cmd, list):
+            # This is not a list of arguments, do nothing
             assert isinstance(cmd, str)
             return cmd
 
         assert TASK_CLASSES is not None
 
         # Get the file compilation type from the task class
-        additional_args = None
+        additional_args = []
         if isinstance(task, (TASK_CLASSES['c'], TASK_CLASSES['Blk2c'])):
             if is_dep:
                 # XXX: Due to a bug with clang with '-fsyntax-only'
                 # on headers, clang still complains about unused symbols even
                 # when specifying the header type.
-                additional_args = ['-xc-header', '-Wno-unused']
+                additional_args.append('-xc-header')
+                additional_args.append('-Wno-unused')
             else:
-                additional_args = ['-xc']
+                additional_args.append('-xc')
         elif isinstance(task, (TASK_CLASSES['cxx'], TASK_CLASSES['Blkk2cc'])):
             if is_dep:
                 # XXX: Due to a bug with clang with '-fsyntax-only'
                 # on headers, clang still complains about unused symbols even
                 # when specifying the header type.
-                additional_args = ['-xcxx-header', '-Wno-unused']
+                additional_args.append('-xcxx-header')
+                additional_args.append('-Wno-unused')
             else:
-                additional_args = ['-xcxx']
+                additional_args.append('-xcxx')
 
-        if additional_args is not None:
-            # Insert additional arguments.
-            cmd = cmd + additional_args
+        # Add absolute path of the node to compile
+        additional_args.append(f_node.abspath())
 
-        return cmd
+        return cmd + additional_args
 
     def add_task_nodes_db(self, clang_db: ClangDb, task: Task,
                           cmd: Union[str, List[str]],
-                          f_nodes: List[Node]) -> None:
+                          f_nodes: List[Node], is_dep: bool) -> None:
         '''Add the nodes to the db'''
         for f_node in f_nodes:
             filename = f_node.path_from(self.srcnode)
@@ -115,6 +169,7 @@ class CompileDbContext(Build.BuildContext): # type: ignore[misc]
                 # Only record the first compilation
                 continue
 
+            node_cmd = self.get_task_node_cmd(task, cmd, f_node, is_dep)
             entry: ClangDbEntry = {
                 "directory": task.get_cwd().abspath(),
                 "file": filename,
@@ -124,11 +179,11 @@ class CompileDbContext(Build.BuildContext): # type: ignore[misc]
             # otherwise, use 'command', as specified in compilation database
             # specification:
             # https://clang.llvm.org/docs/JSONCompilationDatabase.html
-            if isinstance(cmd, list):
-                entry['arguments'] = cmd
+            if isinstance(node_cmd, list):
+                entry['arguments'] = node_cmd
             else:
-                assert isinstance(cmd, str)
-                entry['command'] = cmd
+                assert isinstance(node_cmd, str)
+                entry['command'] = node_cmd
 
             clang_db[filename] = entry
 
@@ -141,15 +196,23 @@ class CompileDbContext(Build.BuildContext): # type: ignore[misc]
         clang_db: ClangDb = {}
 
         for task in tasks:
-            # Add the task node to the db
             task_node = task.inputs[0]
-            cmd = self.get_task_cmd(task, False)
-            self.add_task_nodes_db(clang_db, task, cmd, [task_node])
+
+            # First filter out the task node path from the arguments list as
+            # doxygen requires absolute paths.
+            # The paths will be added later on.
+            cmd = self.filter_task_node_cmd_input(task.last_cmd, task,
+                                                  task_node)
+
+            # Add the task node to the db
+            self.add_task_nodes_db(clang_db, task, cmd, [task_node], False)
+
+            # Replace the output commands with '-o/dev/null' for dependencies
+            cmd = self.replace_task_node_cmd_output(cmd)
 
             # Add the dependencies of the task
             dep_nodes = self.node_deps.get(task.uid(), empty_list)
-            cmd = self.get_task_cmd(task, True)
-            self.add_task_nodes_db(clang_db, task, cmd, dep_nodes)
+            self.add_task_nodes_db(clang_db, task, cmd, dep_nodes, True)
 
         root = list(clang_db.values())
         database_file.write_json(root)
