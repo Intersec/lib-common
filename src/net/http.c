@@ -2090,31 +2090,35 @@ static int httpd_on_event(el_t evh, int fd, short events, data_t priv)
         }
     }
 
-    if (unlikely(w->state == HTTP_PARSER_CLOSE)) {
-        if (w->queries == 0 && ob_is_empty(&w->ob)) {
-            /* XXX We call shutdown(…, SHUT_RW) to force TCP to flush our
-             * writing buffer and protect our responses against a TCP RST
-             * which could be emitted by close() if there is some pending data
-             * in the read buffer (think about pipelining). */
-            shutdown(fd, SHUT_WR);
-            goto close;
-        }
-    } else {
-        /* w->state == HTTP_PARSER_IDLE:
-         *   queries > 0 means pending answer, client isn't lagging, we are.
-         *
-         * w->state != HTTP_PARSER_IDLE:
-         *   queries is always > 0: the query being parsed has been created.
-         *   So for this case, pending requests without answers exist iff
-         *   queries > 1.
-         */
-        if (w->queries > (w->state != HTTP_PARSER_IDLE)) {
-            el_fd_watch_activity(w->ev, POLLINOUT, 0);
-        } else
-        if (ob_is_empty(&w->ob)) {
-            el_fd_watch_activity(w->ev, POLLINOUT, w->cfg->noact_delay);
-        }
+    if (unlikely(w->state == HTTP_PARSER_CLOSE) &&
+        w->queries == 0 && ob_is_empty(&w->ob))
+    {
+        /* XXX We call shutdown(…, SHUT_RW) to force TCP to flush our writing
+         * buffer and protect our responses against a TCP RST which could be
+         * emitted by close() if there is some pending data in the read buffer
+         * (think about pipelining). */
+        shutdown(fd, SHUT_WR);
+        goto close;
     }
+
+    /* w->state == (HTTP_PARSER_IDLE | HTTP_PARSER_CLOSE):
+     *   queries > 0 means pending answer, client isn't lagging, we are.
+     *
+     * w->state != (HTTP_PARSER_IDLE | HTTP_PARSER_CLOSE):
+     *   queries is always > 0: the query being parsed has been created.
+     *   So for this case, pending requests without answers exist iff
+     *   queries > 1.
+     */
+    if (((w->state == HTTP_PARSER_IDLE || w->state == HTTP_PARSER_CLOSE) &&
+         w->queries > 0) ||
+        ((w->state != HTTP_PARSER_IDLE && w->state != HTTP_PARSER_CLOSE) &&
+         w->queries > 1))
+    {
+        el_fd_watch_activity(w->ev, POLLINOUT, 0);
+    } else if (ob_is_empty(&w->ob)) {
+        el_fd_watch_activity(w->ev, POLLINOUT, w->cfg->noact_delay);
+    }
+
     httpd_set_mask(w);
     return 0;
 
@@ -8110,8 +8114,7 @@ static void zhttpd_pending_query_abort(void)
 {
     if (zhttpd_g.pending_query) {
         httpd_reject(zhttpd_g.pending_query, INTERNAL_SERVER_ERROR, "abort");
-        obj_release(zhttpd_g.pending_query);
-        zhttpd_g.pending_query = NULL;
+        obj_release(&zhttpd_g.pending_query);
     }
 }
 
@@ -8145,11 +8148,6 @@ static void
 zhttpd_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
                    const httpd_qinfo_t *qi)
 {
-    /* XXX we must el_ref() the httpd-side connection to ensure that the
-     * connection is closed naturally which is also the only way to ensure
-     * everything got freed.
-     */
-    el_ref(q->owner->ev);
     q->on_done = &zhttpd_query_on_done;
     q->qinfo = httpd_qinfo_dup(qi);
     httpd_bufferize(q, 1 << 20);
@@ -8235,6 +8233,7 @@ static int zhttpd_setup(const lstr_t *query, int flags)
 
     zhttpd_g.httpd_el = httpd_listen(&su, zhttpd_g.cfg);
     Z_ASSERT_P(zhttpd_g.httpd_el);
+    el_unref(zhttpd_g.httpd_el);
     sockunion_setport(&su, getsockport(el_fd_get_fd(zhttpd_g.httpd_el),
                                        AF_INET));
 
@@ -8345,7 +8344,6 @@ Z_GROUP_EXPORT(httpd) {
             "\r\n");
 
         Z_TEST_FLAGS("redmine_99255");
-        Z_TODO("awaiting fix for issue #99255");
         tstart = lp_getmsec();
         Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_QUERY_DONT_QUIT |
                                   ZHTTPD_NO_ANSWER));
