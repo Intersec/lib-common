@@ -72,7 +72,7 @@ static struct {
 #if !defined(NDEBUG) && !defined(__has_asan)
 # define VG_DO(what, map, pg, n) \
     ({  qps_pg_t _pg = (pg); size_t _n = (n);                                \
-        uint8_t *_start = map[_pg & 0xffff].data;                            \
+        uint8_t *_start = map[QPS_PG_IDX(_pg)].data;                         \
         uint8_t *_end   = _start + _n * QPS_PAGE_SIZE;                       \
         assert (map);                                                        \
         assert (_start);                                                     \
@@ -84,7 +84,7 @@ static struct {
     })
 #define VG_DO_PG(what, qps, pg, n) \
     ({  qps_pg_t __pg = (pg);                                                \
-        VG_DO(what, qps->maps.tab[__pg >> 16], __pg, n);                     \
+        VG_DO(what, qps->maps.tab[QPS_PG_MAP_IDX(__pg)], __pg, n);           \
     })
 #else
 # define VG_DO(...)     ((void)0)
@@ -1883,11 +1883,11 @@ void qps_set_snapshot_syn(qps_t *qps, thr_syn_t *syn)
 /* }}} */
 /* public: paged allocation {{{ */
 
-static ALWAYS_INLINE qps_map_t *qps_pg_maphdr(const qps_t *qps, qps_pg_t pg)
+static qps_map_hdr_t *qps_pg_maphdr(const qps_t *qps, qps_pg_t pg)
 {
-    return qps->maps.tab[pg >> 16];
+    assert(qps_pg_is_in_range(qps, pg));
+    return &qps->maps.tab[QPS_PG_MAP_IDX(pg)]->hdr;
 }
-#define qps_pg_maphdr(qps, pg)  (&qps_pg_maphdr(qps, pg)->hdr)
 
 static void qps_pg_unmap_int(qps_t *qps, qps_pg_t blk)
 {
@@ -1895,8 +1895,8 @@ static void qps_pg_unmap_int(qps_t *qps, qps_pg_t blk)
     size_t       bsz = hdr->size;
     qps_pghdr_t *tmp = hdr + bsz;
 
-    assert (blk < qps->maps.len * QPS_MAP_PAGES);
-    assert (blk == 0 || (blk & 0xffff));
+    assert(blk < qps->maps.len * QPS_MAP_PAGES);
+    assert(blk == 0 || QPS_PG_IDX(blk));
 
     qps_pg_check_hdrs(qps);
     qps_pg_maphdr(qps, blk)->allocated -= bsz * QPS_PAGE_SIZE;
@@ -1972,8 +1972,9 @@ static qps_pg_t qps_pg_map_int(qps_t *qps, uint32_t id, size_t n)
     hdr->flags  = QPS_BLK_USED | QPS_BLK_PREV_USED;
     hdr->handle = id;
     qps_pg_maphdr(qps, blk)->allocated += n * QPS_PAGE_SIZE;
-    if (unlikely(id))
+    if (unlikely(id)) {
         *qps_handle_slot(qps, id) = (qps_ptr_t){ .pgno = blk };
+    }
     qps_pg_check_hdrs(qps);
     PG_UNDEF(qps, blk, n);
     return blk;
@@ -1984,8 +1985,8 @@ static qps_pg_t qps_pg_remap_int(qps_t *qps, qps_pg_t blk, size_t nsz)
     qps_pghdr_t *hdr, *nxt;
     size_t bsz;
 
-    assert (blk < qps->maps.len * QPS_MAP_PAGES);
-    assert (blk == 0 || (blk & 0xffff));
+    assert((int)QPS_PG_MAP_IDX(blk) < qps->maps.len);
+    assert(blk == 0 || QPS_PG_IDX(blk));
 
     if (unlikely(nsz * QPS_PAGE_SIZE > QPS_ALLOC_MAX))
         return QPS_PG_NULL;
@@ -3156,7 +3157,7 @@ static void qps_get_roots(qps_t *qps, qps_roots_t *roots)
         }
 
         for (uint32_t pg = 1; pg < QPS_MAP_PAGES;) {
-            uint32_t     blk = (p << 16) | pg;
+            qps_pg_t     blk = QPS_PG(p, pg);
             qps_pghdr_t *hdr = &qps->hdrs[blk];
             uint32_t     sz  = hdr->size;
 

@@ -113,6 +113,15 @@
  * \note Do remember that on NFS directory creation isn't atomic.
  */
 
+#define QPS_PAGE_SHIFT   12UL
+#define QPS_PAGE_SIZE    (1UL << QPS_PAGE_SHIFT)
+#define QPS_PAGE_MASK    (QPS_PAGE_SIZE - 1)
+
+#define QPS_MAP_PAGES    (1UL << 16)
+#define QPS_MAP_SHIFT    (16UL + QPS_PAGE_SHIFT)
+#define QPS_MAP_SIZE     (1UL << QPS_MAP_SHIFT)
+#define QPS_MAP_MASK     (QPS_MAP_SIZE - 1)
+
 /** Type of a qps page handle.
  *
  * a #qps_pg_t is actually made of two parts:
@@ -120,34 +129,47 @@
  * - the 16 least significant bits are a page index into the map,
  *   0 is reserved and doesn't point to a valid page.
  */
-typedef uint32_t           qps_pg_t;
-/** the NULL page handle */
-#define QPS_PG_NULL        cast(qps_pg_t, 0)
-/** format to use in printf() when pretty printing a #qps_pg_t */
-#define QPS_PG_FMT      "%d:%04x"
-/** format argument to use in printf(), counterpart to #QPS_PG_FMT */
-#define QPS_PG_ARG(pg)  ((pg) >> 16), ((pg) & 0xffff)
+typedef uint32_t qps_pg_t;
+
+/** The NULL page handle. */
+#define QPS_PG_NULL cast(qps_pg_t, 0)
+
+/** Get map index from QPS page. */
+#define QPS_PG_MAP_IDX(pg) ((pg) >> 16)
+
+/** Get page index in map from QPS page. */
+#define QPS_PG_IDX(pg) ((pg) & 0xffff)
+
+/** Format to use in printf() when pretty printing a #qps_pg_t. */
+#define QPS_PG_FMT "%d:%04x"
+
+/** Format argument to use in printf(), counterpart to #QPS_PG_FMT. */
+#define QPS_PG_ARG(pg) QPS_PG_MAP_IDX(pg), QPS_PG_IDX(pg)
+
+/** Get a specific QPS page based on map and page indexes. */
+#define QPS_PG(map_idx, pg_idx) (QPS_MAP_PAGES * (map_idx) | (pg_idx))
 
 /** Type of a qps memory handle.
  *
  * a #qps_handle_t is actually a boxed relocatable pointer (#qps_ptr_t).
  */
 typedef uint32_t qps_handle_t;
-/** The NULL qps handle */
+
+/** The NULL qps handle. */
 #define QPS_HANDLE_NULL   0U
 
-/** Type of a qps generic relocatable pointer */
+/** Type of a qps generic relocatable pointer. */
 typedef struct qps_ptr_t {
-    /** offset in the page, should be in [0 .. #QPS_PAGE_SIZE[ */
+    /** Offset in the page, should be in [0 .. #QPS_PAGE_SIZE[. */
     uint32_t addr;
-    /** page the pointer points into.
+    /** Page the pointer points into.
      * When this field is NULL, the pointer is invalid.
      */
     qps_pg_t pgno;
 } qps_ptr_t;
-/** format to use in printf() when pretty printing a #qps_ptr_t */
+/** Format to use in printf() when pretty printing a #qps_ptr_t. */
 #define QPS_PTR_FMT     "%d:%04x:%08x"
-/** format argument to use in printf(), counterpart to #QPS_PTR_FMT */
+/** Format argument to use in printf(), counterpart to #QPS_PTR_FMT. */
 #define QPS_PTR_ARG(p)  QPS_PG_ARG((p).pgno), (p).addr
 
 /** Type for caching the result of the dereferencement of a handle.
@@ -182,17 +204,7 @@ static inline int qps_gen_cmp(uint32_t gen1, uint32_t gen2)
  */
 #define QPS_GEN_CMP(gen1, op, gen2)  (qps_gen_cmp(gen1, gen2) op 0)
 
-union qps_map_t {
-#define QPS_PAGE_SHIFT   12UL
-#define QPS_PAGE_SIZE    (1UL << QPS_PAGE_SHIFT)
-#define QPS_PAGE_MASK    (QPS_PAGE_SIZE - 1)
-
-#define QPS_MAP_PAGES    (1UL << 16)
-#define QPS_MAP_SHIFT    (16UL + QPS_PAGE_SHIFT)
-#define QPS_MAP_SIZE     (1UL << QPS_MAP_SHIFT)
-#define QPS_MAP_MASK     (QPS_MAP_SIZE - 1)
-
-    struct {
+typedef struct qps_map_hdr_t {
 #define QPS_META_SIG     "QPS_meta/v01.00"
 #define QPS_MAP_PG_SIG   "QPS_page/v01.00"
 #define QPS_MAP_MEM_SIG  "QPS_tlsf/v01.00"
@@ -206,7 +218,10 @@ union qps_map_t {
         struct qps_t   *qps;
         uint32_t        remaining;      /* only for memory */
         uint32_t        disk_usage;     /* only for memory */
-    } hdr;
+} qps_map_hdr_t;
+
+union qps_map_t {
+    qps_map_hdr_t hdr;
     uint8_t data[QPS_PAGE_SIZE];
 };
 
@@ -419,21 +434,22 @@ qps_pg_t qps_pg_of(const void *ptr_)
 {
     uintptr_t  ptr = cast(uintptr_t, ptr_);
     qps_map_t *map = qps_map_of(ptr_);
-    return (map->hdr.mapno << 16) | (ptr & QPS_MAP_MASK) >> QPS_PAGE_SHIFT;
+    return (map->hdr.mapno * QPS_MAP_PAGES) |
+           (ptr & QPS_MAP_MASK) >> QPS_PAGE_SHIFT;
 }
 
 /* Check for broken page number. */
 static ALWAYS_INLINE
 bool qps_pg_is_in_range(const qps_t *qps, qps_pg_t pg)
 {
-    int idx = pg >> 16;
+    int idx = QPS_PG_MAP_IDX(pg);
     return idx < qps->maps.len;
 }
 
 static ALWAYS_INLINE
 void *qps_pg_deref(const qps_t *qps, qps_pg_t pg)
 {
-    return pg ? qps->maps.tab[pg >> 16][pg & 0xffff].data : NULL;
+    return pg ? qps->maps.tab[QPS_PG_MAP_IDX(pg)][QPS_PG_IDX(pg)].data : NULL;
 }
 
 #if !defined(__doxygen_mode__)
