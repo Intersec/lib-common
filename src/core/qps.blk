@@ -1889,6 +1889,25 @@ static qps_map_hdr_t *qps_pg_maphdr(const qps_t *qps, qps_pg_t pg)
     return &qps->maps.tab[QPS_PG_MAP_IDX(pg)]->hdr;
 }
 
+static void
+qps_pg_update_generation_on_meta_changes(const qps_t *qps, qps_pg_t pg)
+{
+    qps_map_hdr_t *map_hdr = qps_pg_maphdr(qps, pg);
+
+    if (unlikely(map_hdr->generation != qps->generation)) {
+        /* Metadata of a map can be actually updated without changing the map
+         * generation. A direct consequence is an invalid snapshot of a map
+         * with an old generation which is not considered, leading to memory
+         * leak in qps or worse, potential free blocks which can later be
+         * allocated for someone else.
+         *
+         * Just update the generation value of the map, as its access is not
+         * protected at all.
+         */
+        map_hdr->generation = qps->generation;
+    }
+}
+
 static void qps_pg_unmap_int(qps_t *qps, qps_pg_t blk)
 {
     qps_pghdr_t *hdr = qps->hdrs + blk;
@@ -1910,6 +1929,7 @@ static void qps_pg_unmap_int(qps_t *qps, qps_pg_t blk)
     }
     qps_pg_blk_insert(qps, blk, bsz);
     PG_HIDE(qps, blk, bsz);
+    qps_pg_update_generation_on_meta_changes(qps, blk);
     qps_pg_check_hdrs(qps);
 }
 
@@ -1975,6 +1995,7 @@ static qps_pg_t qps_pg_map_int(qps_t *qps, uint32_t id, size_t n)
     if (unlikely(id)) {
         *qps_handle_slot(qps, id) = (qps_ptr_t){ .pgno = blk };
     }
+    qps_pg_update_generation_on_meta_changes(qps, blk);
     qps_pg_check_hdrs(qps);
     PG_UNDEF(qps, blk, n);
     return blk;
@@ -2028,6 +2049,7 @@ static qps_pg_t qps_pg_remap_int(qps_t *qps, qps_pg_t blk, size_t nsz)
 
     hdr->size = nsz;
     qps_pg_maphdr(qps, blk)->allocated += (nsz - bsz) * QPS_PAGE_SIZE;
+    qps_pg_update_generation_on_meta_changes(qps, blk);
     qps_pg_check_hdrs(qps);
     return blk;
 }
