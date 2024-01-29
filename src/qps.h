@@ -183,7 +183,6 @@ typedef struct qps_hptr_t {
 /* qps types, public for inlining reasons {{{ */
 
 typedef struct qps_pghdr_t  qps_pghdr_t;
-typedef struct qps_cowhdr_t qps_cowhdr_t;
 typedef struct qps_mhdr_t   qps_mhdr_t;
 typedef union  qps_map_t    qps_map_t;
 typedef struct qps_gcmap_t  qps_gcmap_t;
