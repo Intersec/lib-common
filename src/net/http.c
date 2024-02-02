@@ -361,6 +361,7 @@ static int t_http_parse_request_line(pstream_t *ps, unsigned max_len,
         CASE(POST);
         CASE(PUT);
         CASE(TRACE);
+        CASE(PATCH);
       default:
         req->method = HTTP_METHOD_ERROR;
         return PARSE_ERROR;
@@ -1368,6 +1369,7 @@ static int httpd_parse_idle(httpd_t *w, pstream_t *ps)
         break;
       case HTTP_METHOD_POST:
       case HTTP_METHOD_PUT:
+      case HTTP_METHOD_PATCH:
         if (clen < 0) {
             httpd_reject(q, LENGTH_REQUIRED, "");
             goto unrecoverable_error;
@@ -6469,6 +6471,7 @@ static int httpd_unpack_http2_headers(httpd_t *w, http2_header_info_t *info,
         switch (http_get_token_ps(ps_initlstr(&info->method))) {
         case HTTP_TK_POST:
         case HTTP_TK_PUT:
+        case HTTP_TK_PATCH:
             if (!info->content_length.s) {
                 lstr_t zero_clen_hdr = LSTR("Content-Length: 0\r\n");
                 lstr_t chunked_te_hdr = LSTR("Transfer-Encoding: chunked\r\n");

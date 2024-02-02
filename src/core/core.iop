@@ -425,6 +425,7 @@ enum IopHttpMethod {
     DELETE  = 5,
     TRACE   = 6,
     CONNECT = 7,
+    PATCH   = 8,
 };
 
 @ctype(http_code__t)

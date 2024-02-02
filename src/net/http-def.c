@@ -19,7 +19,7 @@
 #include <lib-common/http.h>
 #include <lib-common/core/core.iop.h>
 
-lstr_t const http_method_str[HTTP_METHOD__MAX] = {
+lstr_t const http_method_str[] = {
 #define V(v) [HTTP_METHOD_##v] = LSTR_IMMED(#v)
     V(OPTIONS),
     V(GET),
@@ -29,12 +29,14 @@ lstr_t const http_method_str[HTTP_METHOD__MAX] = {
     V(DELETE),
     V(TRACE),
     V(CONNECT),
+    V(PATCH),
 #undef V
 };
 
 /* rfc 2616: §6.1.1: Status Code and Reason Phrase */
 lstr_t http_code_to_str(http_code_t code)
 {
+    STATIC_ASSERT(countof(http_method_str) == IOP_HTTP_METHOD_count);
     STATIC_ASSERT(IOP_HTTP_METHOD_max == HTTP_METHOD__MAX - 1);
 
     switch (code) {

@@ -54,9 +54,10 @@ typedef enum http_method_t {
     HTTP_METHOD_DELETE,
     HTTP_METHOD_TRACE,
     HTTP_METHOD_CONNECT,
+    HTTP_METHOD_PATCH,
     HTTP_METHOD__MAX,
 } http_method_t;
-extern lstr_t const http_method_str[HTTP_METHOD__MAX];
+extern lstr_t const http_method_str[];
 
 /* Definition moved in core.iop */
 typedef http_code__t http_code_t;

@@ -10,6 +10,7 @@ identity
 options
 post
 put
+patch
 trace
 x-compress
 x-gzip
