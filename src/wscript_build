@@ -199,7 +199,7 @@ ctx.stlib(target='libcommon', features='c cstlib', depends_on=[
     'net/http-hdr.perf',
     'net/http-srv-static.c',
     'net/http-def.c',
-    'net/httptokens.c',
+    'net/http.tokens',
     'net/sctp.c',
     'net/socket.c',
     'net/rate.blk',
