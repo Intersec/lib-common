@@ -217,6 +217,9 @@ typedef struct httpd_http2_ctx_t httpd_http2_ctx_t;
     bool               connection_close   : 1;                               \
     bool               compressed         : 1;                               \
     bool               want_write         : 1;                               \
+    /* True iff transported by http2. */                                     \
+    bool               use_http2          : 1;                               \
+                                                                             \
     uint8_t            state;                                                \
     uint16_t           queries;                                              \
     uint16_t           queries_done;                                         \

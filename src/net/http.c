@@ -1781,7 +1781,10 @@ static void httpd_wipe(httpd_t *w)
     dlist_for_each(it, &w->query_list) {
         httpd_query_detach(dlist_entry(it, httpd_query_t, query_link));
     }
-    w->cfg->nb_conns--;
+    if (!w->use_http2) {
+        assert(w->cfg->nb_conns > 0);
+        w->cfg->nb_conns--;
+    }
     dlist_remove(&w->httpd_link);
     httpd_cfg_delete(&w->cfg);
     lstr_wipe(&w->peer_address);
@@ -6418,8 +6421,8 @@ httpd_spawn_as_http2_stream(http2_server_t *server, uint32_t stream_id)
     httpd_http2_ctx_t *http2_ctx;
 
     w = obj_new_of_class(httpd, cfg->httpd_cls);
+    w->use_http2 = true;
     w->cfg = httpd_cfg_retain(cfg);
-    cfg->nb_conns++;
     w->max_queries = 1;
     dlist_init(&w->httpd_link);
     w->http2_ctx = http2_ctx = httpd_http2_ctx_new();
