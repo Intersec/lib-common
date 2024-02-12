@@ -1204,7 +1204,9 @@ qps_handle_t qhat_create(qps_t *qps, uint32_t value_len, bool is_nullable)
     qps_hptr_t cache;
     qhat_root_t *hat = qps_hptr_alloc(qps, sizeof(qhat_root_t), &cache);
 
-    if (value_len > 16) {
+    /* Don't expect a value_len which is not a power of 2 or greater than 16
+     * bytes. */
+    if (unlikely(value_len > 16 || bitcount32(value_len) != 1)) {
         e_panic("unsupported qhat value length: %u", value_len);
     }
 
