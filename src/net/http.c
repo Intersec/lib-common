@@ -2167,6 +2167,9 @@ static int httpd_on_accept(el_t evh, int fd, short events, data_t priv)
 
     while ((sock = acceptx_get_addr(fd, O_NONBLOCK, &su)) >= 0) {
         if (cfg->nb_conns >= cfg->max_conns) {
+            logger_warning(&_G.logger, "refused incoming connection: "
+                                       "tcp connection limit %u reached",
+                                       cfg->max_conns);
             close(sock);
         } else if (cfg->mode == HTTP_MODE_USE_HTTP2_ONLY) {
             return httpd_spawn_as_http2(sock, &su, cfg);
