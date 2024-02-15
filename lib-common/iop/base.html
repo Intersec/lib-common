@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>IOP :: Intersec lib-common Documentation</title>
-    <meta name="generator" content="Antora 2.1.2">
+    <meta name="generator" content="Antora 3.1.2">
     <link rel="stylesheet" href="../../_/css/site.css">
+    <script>var uiRootPath = '../../_'</script>
     <link rel="icon" href="../../_/img/favicon.png" type="image/png">
   </head>
   <body class="article">
@@ -14,23 +15,30 @@
     <div class="navbar-brand">
       <img class="navbar-logo" src="../../_/img/logo_intersec.png" alt="Intersec" />
       <a class="navbar-item" href="../..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" data-target="topbar-nav">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
       <div class="navbar-end">
             </div>
     </div>
   </nav>
 </header>
-<div class="main-wrapper">
-<div class="navigation-container" data-component="lib-common" data-version="master">
-  <aside class="navigation">
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
     <div class="panels">
-<div class="navigation-menu is-active" data-panel="menu">
+<div class="nav-panel-menu is-active" data-panel="menu">
   <nav class="nav-menu">
     <h3 class="title"><a href="../index.html">Lib-common Documentation</a></h3>
 <ul class="nav-list">
   <li class="nav-item" data-depth="0">
 <ul class="nav-list">
   <li class="nav-item" data-depth="1">
-    <button class="nav-toggle"></button>
+    <button class="nav-item-toggle"></button>
     <span class="nav-text">Principles</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
@@ -39,7 +47,7 @@
 </ul>
   </li>
   <li class="nav-item" data-depth="1">
-    <button class="nav-toggle"></button>
+    <button class="nav-item-toggle"></button>
     <span class="nav-text">Coding rules</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
@@ -51,7 +59,7 @@
 </ul>
   </li>
   <li class="nav-item" data-depth="1">
-    <button class="nav-toggle"></button>
+    <button class="nav-item-toggle"></button>
     <span class="nav-text">Use the lib-common</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
@@ -64,7 +72,7 @@
   <li class="nav-item" data-depth="0">
 <ul class="nav-list">
   <li class="nav-item" data-depth="1">
-    <button class="nav-toggle"></button>
+    <button class="nav-item-toggle"></button>
     <span class="nav-text">Base library</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
@@ -98,7 +106,7 @@
   <li class="nav-item" data-depth="0">
 <ul class="nav-list">
   <li class="nav-item" data-depth="1">
-    <button class="nav-toggle"></button>
+    <button class="nav-item-toggle"></button>
     <span class="nav-text">IOP</span>
 <ul class="nav-list">
   <li class="nav-item is-current-page" data-depth="2">
@@ -123,14 +131,14 @@
 </ul>
   </nav>
 </div>
-<div class="navigation-explore" data-panel="explore">
+<div class="nav-panel-explore" data-panel="explore">
   <div class="context">
     <span class="title">Lib-common Documentation</span>
     <span class="version">master</span>
   </div>
   <ul class="components">
     <li class="component is-current">
-      <span class="title">Lib-common Documentation</span>
+      <a class="title" href="../index.html">Lib-common Documentation</a>
       <ul class="versions">
         <li class="version is-current is-latest">
           <a href="../index.html">master</a>
@@ -142,21 +150,25 @@
     </div>
   </aside>
 </div>
-  <main class="main">
+<main class="article">
 <div class="toolbar" role="navigation">
-  <button class="navigation-toggle"></button>
-<nav class="crumbs" aria-label="breadcrumbs">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
   <ul>
-    <li class="crumb"><a href="../index.html">Lib-common Documentation</a></li>
-    <li class="crumb">IOP</li>
-    <li class="crumb"><a href="base.html">IOP Basics</a></li>
+    <li><a href="../index.html">Lib-common Documentation</a></li>
+    <li>IOP</li>
+    <li><a href="base.html">IOP Basics</a></li>
   </ul>
 </nav>
 </div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
 <article
 class="doc"
 >
-<h1>IOP</h1>
+<h1 class="page">IOP</h1>
 <div id="toc" class="toc">
 <div id="toctitle">Table of Contents</div>
 <ul class="sectlevel1">
@@ -220,7 +232,7 @@ use in communications protocols, data storage… IOP is language independent. IO
 objects are encoded using TLV
 ("Tag-Length-Value":http://en.wikipedia.org/wiki/Type-length-value)
 packers/un-packers. To get details about the low-level IOP representation read
-the <a href="wire-format.html" class="page">Wire format</a> documentation.</p>
+the <a href="wire-format.html" class="xref page">Wire format</a> documentation.</p>
 </div>
 <div class="paragraph">
 <p>The IOP concept is inspired from the "Google Protocol Buffers":
@@ -347,7 +359,7 @@ struct User {
 than in object-oriented languages, except that methods cannot be declared.</p>
 </div>
 <div class="paragraph">
-<p>See the <a href="inheritance.html" class="page">Inheritance</a> page for more details.</p>
+<p>See the <a href="inheritance.html" class="xref page">Inheritance</a> page for more details.</p>
 </div>
 </div>
 <div class="sect3">
@@ -1146,7 +1158,7 @@ repeated) field is compatible too.</p>
 <p>Since IOP 2.0, we support a concept of attributes. Attributes allow to add
 constraints over structure members, modify the unpacker/packers behavior for
 some structures/members, … They are documented in a
-<a href="iop-attributes.html" class="page">dedicated page</a>.</p>
+<a href="iop-attributes.html" class="xref page">dedicated page</a>.</p>
 </div>
 </div>
 </div>
@@ -1190,12 +1202,13 @@ entries are generated for them in destination languages.</p>
 </div>
 </div>
 </article>
-  </main>
+  </div>
+</main>
 </div>
 <footer class="footer">
   <p>Intersec © - Confidential</p>
 </footer>
-<script src="../../_/js/site.js"></script>
+<script id="site-script" src="../../_/js/site.js" data-ui-root-path="../../_"></script>
 <script async src="../../_/js/vendor/highlight.js"></script>
   </body>
 </html>

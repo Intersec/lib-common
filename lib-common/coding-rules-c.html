@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Coding Rules :: Intersec lib-common Documentation</title>
-    <meta name="generator" content="Antora 2.1.2">
+    <meta name="generator" content="Antora 3.1.2">
     <link rel="stylesheet" href="../_/css/site.css">
+    <script>var uiRootPath = '../_'</script>
     <link rel="icon" href="../_/img/favicon.png" type="image/png">
   </head>
   <body class="article">
@@ -14,23 +15,30 @@
     <div class="navbar-brand">
       <img class="navbar-logo" src="../_/img/logo_intersec.png" alt="Intersec" />
       <a class="navbar-item" href="..">Intersec lib-common Documentation</a>
+      <button class="navbar-burger" data-target="topbar-nav">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
       <div class="navbar-end">
             </div>
     </div>
   </nav>
 </header>
-<div class="main-wrapper">
-<div class="navigation-container" data-component="lib-common" data-version="master">
-  <aside class="navigation">
+<div class="body">
+<div class="nav-container" data-component="lib-common" data-version="master">
+  <aside class="nav">
     <div class="panels">
-<div class="navigation-menu is-active" data-panel="menu">
+<div class="nav-panel-menu is-active" data-panel="menu">
   <nav class="nav-menu">
     <h3 class="title"><a href="index.html">Lib-common Documentation</a></h3>
 <ul class="nav-list">
   <li class="nav-item" data-depth="0">
 <ul class="nav-list">
   <li class="nav-item" data-depth="1">
-    <button class="nav-toggle"></button>
+    <button class="nav-item-toggle"></button>
     <span class="nav-text">Principles</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
@@ -39,7 +47,7 @@
 </ul>
   </li>
   <li class="nav-item" data-depth="1">
-    <button class="nav-toggle"></button>
+    <button class="nav-item-toggle"></button>
     <span class="nav-text">Coding rules</span>
 <ul class="nav-list">
   <li class="nav-item is-current-page" data-depth="2">
@@ -51,7 +59,7 @@
 </ul>
   </li>
   <li class="nav-item" data-depth="1">
-    <button class="nav-toggle"></button>
+    <button class="nav-item-toggle"></button>
     <span class="nav-text">Use the lib-common</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
@@ -64,7 +72,7 @@
   <li class="nav-item" data-depth="0">
 <ul class="nav-list">
   <li class="nav-item" data-depth="1">
-    <button class="nav-toggle"></button>
+    <button class="nav-item-toggle"></button>
     <span class="nav-text">Base library</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
@@ -98,7 +106,7 @@
   <li class="nav-item" data-depth="0">
 <ul class="nav-list">
   <li class="nav-item" data-depth="1">
-    <button class="nav-toggle"></button>
+    <button class="nav-item-toggle"></button>
     <span class="nav-text">IOP</span>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
@@ -123,14 +131,14 @@
 </ul>
   </nav>
 </div>
-<div class="navigation-explore" data-panel="explore">
+<div class="nav-panel-explore" data-panel="explore">
   <div class="context">
     <span class="title">Lib-common Documentation</span>
     <span class="version">master</span>
   </div>
   <ul class="components">
     <li class="component is-current">
-      <span class="title">Lib-common Documentation</span>
+      <a class="title" href="index.html">Lib-common Documentation</a>
       <ul class="versions">
         <li class="version is-current is-latest">
           <a href="index.html">master</a>
@@ -142,21 +150,25 @@
     </div>
   </aside>
 </div>
-  <main class="main">
+<main class="article">
 <div class="toolbar" role="navigation">
-  <button class="navigation-toggle"></button>
-<nav class="crumbs" aria-label="breadcrumbs">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
   <ul>
-    <li class="crumb"><a href="index.html">Lib-common Documentation</a></li>
-    <li class="crumb">Coding rules</li>
-    <li class="crumb"><a href="coding-rules-c.html">Coding Rules for C-based languages</a></li>
+    <li><a href="index.html">Lib-common Documentation</a></li>
+    <li>Coding rules</li>
+    <li><a href="coding-rules-c.html">Coding Rules for C-based languages</a></li>
   </ul>
 </nav>
 </div>
+  <div class="content">
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
 <article
 class="doc"
 >
-<h1>Coding Rules</h1>
+<h1 class="page">Coding Rules</h1>
 <div id="toc" class="toc">
 <div id="toctitle">Table of Contents</div>
 <ul class="sectlevel1">
@@ -202,7 +214,7 @@ class="doc"
 <div class="sectionbody">
 <div class="paragraph">
 <p>These are the rules you must follow when writing code. Those rules reflect the
-<a href="philosophy.html" class="page">Lib-common philosophy</a> in various ways.</p>
+<a href="philosophy.html" class="xref page">Lib-common philosophy</a> in various ways.</p>
 </div>
 </div>
 </div>
@@ -632,15 +644,16 @@ case and the code inside the case are indented:</p>
 <ul>
 <li>
 <p>Opening bracket is on the same line than control flow statements, on the next
-line for function implementations (except for <code>static inline</code> where it’s
-allowed to keep them on the same line when the function short - 1 or 2 lines
-of code).</p>
+line for function implementations.</p>
 </li>
 </ul>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int main(void) { /* bad */
+<pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int main(void) /* good */
+{
+}
+int main(void) { /* bad */
 }</code></pre>
 </div>
 </div>
@@ -1262,9 +1275,11 @@ line, one statement). <code>t_scope</code> is considered as a declaration.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Keep a single declaration per line. When no initilization is performed and no
-pointer type is used, the declaration of several variables at once is allowed
-but not adviced:</p>
+<p>Keep a single declaration per line. When no initialization is performed and
+pointers aren&#8217;t mixed with non-pointers variables, the declaration of
+several variables on the same line is allowed when meaningful (i.e. when all
+variables are used similarly in the code and you want to emphasize it), but
+should generally be avoided:</p>
 </li>
 </ul>
 </div>
@@ -1272,25 +1287,29 @@ but not adviced:</p>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-c hljs" data-lang="c">int a = 0, b = 0; /* bad */
 
-int *a, b; /* bad */
+int *a,  b; /* bad */
+int  a,  b; /* allowed */
+int *a, *b; /* allowed */
 
 int *a, /* bad */
     *b;
 
-int *a; /* good */
-int *b;
-
-int a, b; /* allowed */
+int a; /* good */
+int b;
 
 int a, b = 0; /* bad */
 
-my_type_t a, b; /* bad */</code></pre>
+my_type_t a, b; /* allowed */
+
+my_type_t a; /* preferred */
+my_type_t b;</code></pre>
 </div>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Keep a single line per declaration</p>
+<p>Keep a single line per declaration, unless the variable is const (because in
+that case the assignation cannot be done after the declaration):</p>
 </li>
 </ul>
 </div>
@@ -1315,12 +1334,18 @@ my_type_t a, b; /* bad */</code></pre>
                                                  parameter3);                    /* bad */
 
 }
+
 {
     int variable;
 
     variable = long_fonction_with_parameters(parameter1, parameter2,
                                              parameter3);                       /* good */
 
+}
+
+{
+    const int const_variable =
+        long_function_which_does_not_fit_into_one_line();                        /* allowed */
 }</code></pre>
 </div>
 </div>
@@ -1338,8 +1363,7 @@ my_type_t a, b; /* bad */</code></pre>
 int fun(char * foo);  /* bad */
 char* baz;            /* bad */
 
-char *p, *q;          /* good, or not so good because you should declare them
-                         on separate lines… */</code></pre>
+char *p, *q;          /* good */</code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -1936,14 +1960,13 @@ use <code>pstrcpy(buf, sizeof(buf), string);</code></p>
 <ul>
 <li>
 <p>Never allocate an unchecked amount of memory on the stack (dynamic arrays or
-<code>alloca</code>), this can cause a stack overflow</p>
+<code>alloca</code>), this can cause a stack overflow.</p>
 </li>
 <li>
-<p>Never uses <code>alloca()</code> in a loop, this includes helpers such as <code>SB_1k()</code> and
-<code>SB_8k()</code></p>
+<p>Never uses <code>alloca()</code> in a loop.</p>
 </li>
 <li>
-<p>Use the <code>t_stack</code> when you need to perform dynamic-allocations on the stack</p>
+<p>Use the <code>t_stack</code> when you need to perform dynamic-allocations on the stack.</p>
 </li>
 <li>
 <p><code>t_scope</code> should always be the first instruction of its scope.</p>
@@ -2171,12 +2194,13 @@ of the build among other informations.</p>
 </div>
 </div>
 </article>
-  </main>
+  </div>
+</main>
 </div>
 <footer class="footer">
   <p>Intersec © - Confidential</p>
 </footer>
-<script src="../_/js/site.js"></script>
+<script id="site-script" src="../_/js/site.js" data-ui-root-path="../_"></script>
 <script async src="../_/js/vendor/highlight.js"></script>
   </body>
 </html>
