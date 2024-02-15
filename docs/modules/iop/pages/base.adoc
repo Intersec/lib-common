@@ -751,12 +751,11 @@ xref:iop-attributes.adoc[dedicated page].
 == IOP typedefs
 
 The `typedef` keyword can be used to create alias for types. A typedef takes a
-types, its modifiers (optional or repeated) and some instantiation attributes
-(the same attributes as used on structure and union fields) and create a new
+type, its modifiers (optional or repeated) and some instantiation attributes
+(the same attributes as used on structure and union fields), and create a new
 typename for it to be used later in a structure or union or as a base type for
 another typedef. The source type of a typedef can be any type, basic or
-complex. A type created by a typedef cannot be used as a parent class in a
-class type definition.
+complex.
 
 The name of a typedefed type must start with an uppercase.
 
@@ -770,6 +769,15 @@ typedef int MyIntMin3;
 
 typedef string[] MyStringArray;
 
+enum MyEnum {
+    A,
+    B,
+    C,
+};
+
+@allow(A, B)
+typedef MyEnum MyEnumAB;
+
 union MyUnion {
     MyIntMin3 iMin3;
     int i;
@@ -778,8 +786,78 @@ union MyUnion {
 @allow(i)
 typedef MyUnion MyUnionI;
 
+struct MyStruct {
+    int i;
+};
+
+typedef MyStruct MyStructTd;
+
+class MyClassA {
+    int i;
+};
+
+class MyClassB : 1 : MyClassA {
+};
+
+typedef MyClassB MyClassBTd;
+
+class MyClassC : 2 : MyClassBTd {
+};
+
+typedef otherPkg.OtherStruct ExternalStruct;
+
 ----
 
-Typedefs are only aliases that are known only by the `iopc`, and no specific
-entries are generated for them in destination languages.
+Typedefs can also be used to move types from one package to another without
+breaking the backward compatibility.
 
+For example, with the following packages:
+
+[source,c]
+----
+package pkgA;
+
+struct MyStruct {
+    int i;
+};
+
+class MyClassA {
+    MyStruct myStruct;
+};
+
+---
+package pkgB;
+
+class MyClassB : 1 : pkgA.MyClassA {
+};
+
+----
+
+`pkgA.MyStruct` and `pkgA.MyClassA` can be moved to `pkgB` without breaking
+the backward compatibility with a typedef:
+
+[source,c]
+----
+package pkgA;
+
+typedef pkgB.MyStruct MyStruct;
+typedef pkgB.MyClassA MyClassA;
+
+---
+package pkgB;
+
+struct MyStruct {
+    int i;
+};
+
+class MyClassA {
+    MyStruct myStruct;
+};
+
+class MyClassB : 1 : MyClassA {
+};
+
+----
+
+In that case, `pkgA.MyStruct` and `pkgA.MyClassA` can still be used to unpack
+JSON and YAML files without errors.
