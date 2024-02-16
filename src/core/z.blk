@@ -653,11 +653,11 @@ bool _z_assert_lstrequal(const char *file, int lno, bool use_hex,
     return false;
 }
 
-static int z_diff(lstr_t left, lstr_t right, sb_t *diff)
+static int z_diff(lstr_t exp, lstr_t got, sb_t *diff)
 {
     t_scope;
-    const char *lfile;
-    const char *rfile;
+    const char *exp_file;
+    const char *got_file;
     const char *sed_color = "";
     const char *diff_file;
     char *dtemp;
@@ -672,10 +672,10 @@ static int z_diff(lstr_t left, lstr_t right, sb_t *diff)
     RETHROW_PN(mkdtemp(dtemp));
 
     /* Write the two files. */
-    lfile = t_fmt("%s/left", dtemp);
-    rfile = t_fmt("%s/right", dtemp);
-    RETHROW(xwrite_file(lfile, left.s, left.len));
-    RETHROW(xwrite_file(rfile, right.s, right.len));
+    exp_file = t_fmt("%s/exp", dtemp);
+    got_file = t_fmt("%s/got", dtemp);
+    RETHROW(xwrite_file(exp_file, exp.s, exp.len));
+    RETHROW(xwrite_file(got_file, got.s, got.len));
 
     if (_G.do_fancy_output) {
         sed_color = " | sed '"
@@ -698,7 +698,7 @@ static int z_diff(lstr_t left, lstr_t right, sb_t *diff)
     diff_file = t_fmt("%s/diff", dtemp);
     sb_setf(&cmd, "/bin/bash -c "
             "\"set -o pipefail; diff -urNw %s %s%s >%s\"",
-            lfile, rfile, sed_color, diff_file);
+            exp_file, got_file, sed_color, diff_file);
     ret = system(cmd.data);
     THROW_ERR_IF(WEXITSTATUS(ret) != 0 && WEXITSTATUS(ret) != 1);
 
