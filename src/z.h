@@ -539,6 +539,18 @@ void z_skip_end(void);
 void z_todo_start(const char *reason, ...) __attr_printf__(1, 2);
 void z_todo_end(void);
 
+/** Show the diff between two multi-lines contents.
+ *
+ * \param[in] exp  Content initially expected during the test.
+ *
+ * \param[in] got  Content obtained during the test.
+ *
+ * \param[in] diff_opts  Options to pass to the diff command.
+ *                       If not set, the default options "-urNw" will be used.
+ */
+int z_show_diff(lstr_t exp, lstr_t got, const char *nullable diff_opts,
+                sb_t *diff);
+
 int  z_setup(int argc, char **argv);
 void z_register_exports(const char *prefix);
 void z_register_group(z_cb_f cb);

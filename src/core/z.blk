@@ -653,7 +653,8 @@ bool _z_assert_lstrequal(const char *file, int lno, bool use_hex,
     return false;
 }
 
-static int z_diff(lstr_t exp, lstr_t got, sb_t *diff)
+int z_show_diff(lstr_t exp, lstr_t got, const char *nullable diff_opts,
+                sb_t *diff)
 {
     t_scope;
     const char *exp_file;
@@ -696,9 +697,12 @@ static int z_diff(lstr_t exp, lstr_t got, sb_t *diff)
 
     /* Run diff with a system command and write it in a diff file. */
     diff_file = t_fmt("%s/diff", dtemp);
+    if (!diff_opts) {
+        diff_opts = "-urNw";
+    }
     sb_setf(&cmd, "/bin/bash -c "
-            "\"set -o pipefail; diff -urNw %s %s%s >%s\"",
-            exp_file, got_file, sed_color, diff_file);
+            "\"set -o pipefail; diff %s %s %s%s >%s\"",
+            diff_opts, exp_file, got_file, sed_color, diff_file);
     ret = system(cmd.data);
     THROW_ERR_IF(WEXITSTATUS(ret) != 0 && WEXITSTATUS(ret) != 1);
 
@@ -720,7 +724,7 @@ static int z_iop_diff(const iop_struct_t *st, const void *l, const void *r,
     t_iop_sb_ypack(&rbuf, st, r, NULL);
     sb_adds(&rbuf, "\n");
 
-    return z_diff(LSTR_SB_V(&lbuf), LSTR_SB_V(&rbuf), diff);
+    return z_show_diff(LSTR_SB_V(&lbuf), LSTR_SB_V(&rbuf), NULL, diff);
 }
 
 bool _z_assert_iopequal(const char *file, int lno,
