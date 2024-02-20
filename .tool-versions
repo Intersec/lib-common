@@ -1,5 +1,0 @@
-# ASDF configuration file for lib-common repository.
-#
-# https://asdf-vm.com/manage/configuration.html
-
-python 3.9.16 system
