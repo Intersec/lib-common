@@ -13,14 +13,16 @@
 ##########################################################################
 
 asdf_log() {
-    echo -e 2>&1 "... $@"
+    echo -e "... $*" >&2
 }
 
 asdf_setup() {
-    asdf_tools="$1/.tool-versions"
+    local asdf_tools="$1/.tool-versions"
+    local asdf_plugin
 
     asdf_log "installing ASDF plugins from '$asdf_tools'…"
-    for asdf_plugin in $(awk '/^[^#]/ {print $1}' "$asdf_tools"); do
+    awk '/^[^#]/ {print $1}' "$asdf_tools" | \
+    while IFS='' read -r asdf_plugin; do
         # Note: `asdf plugin add` returns 1 in case of error, 2 if the plugin
         # is already up to date and 0 in case of successful install/update.
         asdf plugin-add "$asdf_plugin" || [ $? != 1 ]
