@@ -661,7 +661,7 @@ def main():
 
     stream_parser = StreamParser()
 
-    with open(sys.argv[1], 'r', encoding='utf-8') as f:
+    with open(sys.argv[1], 'r') as f:
         for line in f:
             stream_parser.parse_line(line)
 

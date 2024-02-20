@@ -193,7 +193,7 @@ class IopyTest(z.TestCase):
     def test_from_str_yaml(self):
         path = os.path.join(TEST_PATH, 'test_class_b.yaml')
         b = self.r.test.ClassB.from_file(_yaml=path)
-        with open(path, encoding='utf-8') as f:
+        with open(path, 'r') as f:
             b2 = self.r.test.ClassB(_yaml=f.read())
             self.assertEqual(b, b2)
 
@@ -2746,7 +2746,7 @@ class IopyV3Tests(z.TestCase):
                 super().__init__(s="toto")
 
         path = os.path.join(TEST_PATH, 'test_struct_a.json')
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, 'r') as f:
             json_struct = f.read()
 
         a = self.r.test.StructA(_json=json_struct)

@@ -92,7 +92,7 @@ def get_license_as_c_comment():
 
 def get_huffman_code_table_from(rfc_fn):
     def extract_huffman_code_table_text(rfc_fn):
-        with open(rfc_fn, mode="r", encoding='utf-8') as f:
+        with open(rfc_fn, mode="r") as f:
             lines = ''.join(f.readlines())
 
         regex = r"\n(Appendix B\.  Huffman Code.+)\nAppendix"
@@ -141,7 +141,7 @@ def gen_table_for_encoding(rfc_fn, out_fn, hdr_lines, tbl_elem_t, tbl_name):
     content = '\n'.join(
         [head, license_comment, '', hdr_lines, '', c_array_dec, ''])
     if out_fn:
-        with open(out_fn, 'w', encoding='utf-8') as f:
+        with open(out_fn, 'w') as f:
             f.write(content)
     else:
         print(content, end='')
@@ -303,7 +303,7 @@ def gen_table_for_decoding(rfc_fn, out_fn, hdr_lines, tbl_elem_t,
     content = '\n'.join(
         [head, license_comment, '', hdr_lines, '', c_array_dec, ''])
     if out_fn:
-        with open(out_fn, 'w', encoding='utf-8') as f:
+        with open(out_fn, 'w') as f:
             f.write(content)
     else:
         print(content, end='')

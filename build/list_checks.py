@@ -54,7 +54,7 @@ Z_TAG_SKIP = set(os.getenv("Z_TAG_SKIP", "").split())
 def dump_zfile(zfile, skipped_groups):
     folder = os.path.dirname(zfile)
 
-    with open(zfile, 'r', encoding='utf-8') as zfile_fd:
+    with open(zfile, 'r') as zfile_fd:
         for num, line in enumerate(zfile_fd):
             line = line.strip()
             test = line.split()[0]

@@ -93,8 +93,7 @@ class IopcTest(z.TestCase):
 
     @staticmethod
     def get_iop_json(iop):
-        with open(os.path.join(TEST_PATH, iop+'.json'),
-                  encoding='utf-8') as f:
+        with open(os.path.join(TEST_PATH, iop+'.json'), 'r') as f:
             return json.load(f)
 
     def run_gcc(self, iop, expect_pass=True):
@@ -131,7 +130,7 @@ class IopcTest(z.TestCase):
                 self.assertNotEqual(gcc_p.returncode, 0)
 
     def check_file(self, file_name, string_list, wanted = True):
-        with open(os.path.join(TEST_PATH, file_name), encoding='utf-8') as f:
+        with open(os.path.join(TEST_PATH, file_name), 'r') as f:
             content = f.read()
 
         for s in string_list:
@@ -667,8 +666,8 @@ class IopcTest(z.TestCase):
                                  'attrs_multi_valid.iop.c')
         path_ref = os.path.join(TEST_PATH,
                                 'reference_attrs_multi_valid.c')
-        with open(path_base, "r", encoding='utf-8') as ref_base:
-            with open(path_ref, "r", encoding='utf-8') as ref:
+        with open(path_base, "r") as ref_base:
+            with open(path_ref, "r") as ref:
                 self.assertEqual(ref.read(), ref_base.read())
 
     def test_attrs_multi_constraints(self):
@@ -678,8 +677,8 @@ class IopcTest(z.TestCase):
         path_base = os.path.join(TEST_PATH, 'attrs_multi_constraints.iop.c')
         path_ref = os.path.join(TEST_PATH,
                                 'reference_attrs_multi_constraints.c')
-        with open(path_base, "r", encoding='utf-8') as ref_base:
-            with open(path_ref, "r", encoding='utf-8') as ref:
+        with open(path_base, "r") as ref_base:
+            with open(path_ref, "r") as ref:
                 self.assertEqual(ref.read(), ref_base.read())
 
     def test_attrs_invalid_1(self):

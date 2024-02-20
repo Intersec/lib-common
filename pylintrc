@@ -59,6 +59,7 @@ disable=missing-class-docstring,
         keyword-arg-before-vararg,
         consider-using-f-string,
         cyclic-import,
+        unspecified-encoding,
 
 
 [REPORTS]
