@@ -29,7 +29,7 @@ authors = ["R&D <rd@intersec.com>"]
 
 [tool.poetry.dev-dependencies]
 # C extension writer for Python, used by IOPy
-cython = "==0.29.35"
+cython = "~=3.0.0"
 
 # process handling, used in tests
 psutil = "~=5.9.5"

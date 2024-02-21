@@ -106,6 +106,7 @@ class CythonC(c_tool.c):
             '-Wno-uninitialized',
             '-Wno-declaration-after-statement',
             '-Wno-missing-field-initializers',
+            '-Wno-undef', # See https://github.com/cython/cython/issues/6014
         ])
 
         # Call original run method

@@ -15,10 +15,12 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-#cython: language_level=3
+# cython: language_level=3
 # XXX: Cython is complaining about its own code with warn.undeclared.
 #      Activate manually to see the warning.
 #-cython: warn.undeclared=True
+# cython: warn.maybe_uninitialized=True
+# cython: warn.unused=True
 
 cimport cython
 
@@ -180,7 +182,7 @@ cdef IopPath make_iop_path(str iop_fullname):
 
 
 cdef inline const iop_struct_t *get_iop_struct_parent(
-    const iop_struct_t *st) nogil:
+    const iop_struct_t *st) noexcept nogil:
     """Helper to get the parent of an iop struct desc.
 
     Parameters
@@ -217,7 +219,7 @@ cdef int py_object_generic_delattr(object o, object name) except -1:
 
 
 cdef int32_t get_iface_rpc_cmd(const iop_iface_alias_t *iface_alias,
-                               const iop_rpc_t *rpc):
+                               const iop_rpc_t *rpc) noexcept nogil:
     """Return the command index for the interface alias and the RPC.
 
     Parameters
@@ -280,8 +282,8 @@ cdef object get_warning_time_str():
     return '%d: %s' % (int(time.time()), time.ctime())
 
 
-cdef inline cbool iop_struct_is_same_or_child_of(const iop_struct_t *child,
-                                                 const iop_struct_t *parent):
+cdef inline cbool iop_struct_is_same_or_child_of(
+        const iop_struct_t *child, const iop_struct_t *parent) noexcept nogil:
     """Check if iop struct desc `child` is the same of a child of `parent`.
 
     Parameters
@@ -1824,7 +1826,8 @@ cdef inline Plugin struct_union_get_plugin(StructUnionBase py_st):
     return struct_union_get_iop_type(py_st).plugin
 
 
-cdef void *get_iop_field_ptr(const iop_field_t *f, void *iop_val):
+cdef void *get_iop_field_ptr(const iop_field_t *f,
+                             void *iop_val) noexcept nogil:
     """Get ptr to the field to iop value.
 
     Parameters
@@ -1842,7 +1845,7 @@ cdef void *get_iop_field_ptr(const iop_field_t *f, void *iop_val):
 
 
 cdef const void *get_iop_field_const_ptr(const iop_field_t *f,
-                                         const void *iop_val):
+                                         const void *iop_val) noexcept nogil:
     """Get ptr to the field to const iop value.
 
     Parameters
@@ -1955,9 +1958,8 @@ cdef int add_error_convert_field(const iop_field_t *field, object py_obj,
 
     return 0
 
-cdef const iop_field_t *find_field_in_st_by_name_lstr(const iop_struct_t *st,
-                                                      lstr_t name,
-                                                      int *field_index) nogil:
+cdef const iop_field_t *find_field_in_st_by_name_lstr(
+        const iop_struct_t *st, lstr_t name, int *field_index) noexcept nogil:
     """Find the field identified by its name as lstr in struct or union
     description.
 
@@ -2269,6 +2271,7 @@ cdef StructBase iop_c_struct_to_py_obj(object cls, const iop_struct_t *st,
     res = cls.__new__(cls, **kwargs)
     struct_safe_init(res, kwargs)
     return res
+
 
 cdef StructBase iop_c_class_to_py_obj(object cls, const iop_struct_t *st,
                                       const void *iop_val, Plugin plugin):
@@ -3917,6 +3920,7 @@ cdef int check_field_constraints(const iop_struct_t *st,
 # }}}
 # {{{ Format python object to str
 
+
 cdef unsigned iopy_kwargs_to_jpack_flags(dict kwargs, cbool reset):
     """Get the json pack flags according to the json pack arguments.
 
@@ -4302,7 +4306,8 @@ cdef list struct_union_get_fields_name(object cls):
     return l
 
 
-cdef void get_struct_union_desc_fields(const iop_struct_t *st, sb_t *sb):
+cdef void get_struct_union_desc_fields(
+        const iop_struct_t *st, sb_t *sb) noexcept nogil:
     """Get the description of the fields of the struct or union.
 
     Parameters
@@ -4405,7 +4410,8 @@ cdef void get_struct_union_desc_fields(const iop_struct_t *st, sb_t *sb):
             cassert(False)
 
 
-cdef void get_struct_union_desc_class(const iop_struct_t *st, sb_t *sb):
+cdef void get_struct_union_desc_class(
+        const iop_struct_t *st, sb_t *sb) noexcept nogil:
     """Get the description of the fields of the class.
 
     Parameters
@@ -6167,7 +6173,7 @@ cdef object struct_convert_provided_field(StructBase py_st,
     return py_res
 
 
-cdef void iopslots_from_st(const iop_struct_t *st, sb_t *sb) nogil:
+cdef void iopslots_from_st(const iop_struct_t *st, sb_t *sb) noexcept nogil:
     """Create iopslots of a struct description.
 
     Parameters
@@ -7934,7 +7940,7 @@ cdef object client_async_channel_connect(AsyncChannel channel,
 
 
 cdef void client_async_channel_connect_cb(const sb_t *err,
-                                          void *cb_arg) nogil:
+                                          void *cb_arg) noexcept nogil:
     """Callback used on IC EL client async connect.
 
     Parameters
@@ -8119,7 +8125,7 @@ cdef object client_async_channel_call_rpc(AsyncRPC rpc, tuple args,
 cdef void client_async_channel_call_rpc_cb(const sb_t *err,
                                            ic_status_t status,
                                            const void *res,
-                                           void *cb_arg) nogil:
+                                           void *cb_arg) noexcept nogil:
     """Callback used on IC EL client async RPC call.
 
     Parameters
@@ -8514,7 +8520,7 @@ cdef int t_set_ic_hdr_from_kwargs(Plugin plugin, dict kwargs,
     return 0
 
 
-cdef void iopy_ic_client_on_connect(ic_el_client_t *client) nogil:
+cdef void iopy_ic_client_on_connect(ic_el_client_t *client) noexcept nogil:
     """Called when the client is connecting.
 
     Parameters
@@ -8549,7 +8555,7 @@ cdef void iopy_ic_client_on_connect_gil(ic_el_client_t *client):
 
 
 cdef void iopy_ic_client_on_disconnect(ic_el_client_t *client,
-                                       cbool connected) nogil:
+                                       cbool connected) noexcept nogil:
     """Called when the client is disconnecting.
 
     Parameters
@@ -9004,7 +9010,7 @@ cdef class RPCArgs:
 
 cdef void iopy_ic_server_on_connect(ic_el_server_t *server,
                                     lstr_t server_uri,
-                                    lstr_t remote_addr) nogil:
+                                    lstr_t remote_addr) noexcept nogil:
     """Called when a peer is connecting to the server.
 
     Parameters
@@ -9046,7 +9052,7 @@ cdef void iopy_ic_server_on_connect_gil(ic_el_server_t *server,
 
 cdef void iopy_ic_server_on_disconnect(ic_el_server_t *server,
                                        lstr_t server_uri,
-                                       lstr_t remote_addr) nogil:
+                                       lstr_t remote_addr) noexcept nogil:
     """Called when a peer is disconnecting from the server.
 
     Parameters
@@ -9088,7 +9094,8 @@ cdef void iopy_ic_server_on_disconnect_gil(ic_el_server_t *server,
 
 cdef ic_status_t t_iopy_ic_server_on_rpc(
     ic_el_server_t *server, ichannel_t *ic, uint64_t slot, void *arg,
-    const ic__hdr__t *hdr, void **res, const iop_struct_t **res_st) nogil:
+    const ic__hdr__t *hdr, void **res,
+    const iop_struct_t **res_st) noexcept nogil:
     """Called when a request is made to an RPC.
 
     Parameters
