@@ -424,7 +424,10 @@ static void http_iop_start_msg(http_iop_channel_t *channel,
     httpc_query_start_flags(&msg->query, HTTP_METHOD_POST,
                             remote->pool.host, LSTR_SB_V(&sb), false);
 
-    if (channel->user.len && channel->password.len) {
+    if (msg->user.len && msg->password.len) {
+        httpc_query_hdrs_add_auth(&msg->query, msg->user,
+                                  msg->password);
+    } else if (channel->user.len && channel->password.len) {
         httpc_query_hdrs_add_auth(&msg->query, channel->user,
                                   channel->password);
     }

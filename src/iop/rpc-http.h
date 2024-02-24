@@ -596,6 +596,14 @@ struct http_iop_msg_t {
     /** Timestamp at which the message was added to the channel. */
     struct timeval query_time;
 
+    /** Query authentication.
+     *
+     * If not set, then it will use the user/pwd in http_iop_channel_t,
+     * if they exist.
+     */
+    lstr_t user;
+    lstr_t password;
+
     /** User defined data associated with the query. */
     byte priv[];
 };
@@ -629,6 +637,10 @@ struct http_iop_channel_t {
 
     qv_t(http_iop_channel_remote) remotes;
 
+    /** Query authentication.
+     *
+     * Used when the user/pwd is not set in http_iop_msg_t.
+     */
     lstr_t user;
     lstr_t password;
 
