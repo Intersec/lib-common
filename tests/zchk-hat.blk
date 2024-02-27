@@ -596,6 +596,20 @@ static int z_test_qhat_gen(qhat_t *hat)
     Z_HELPER_END;
 }
 
+static int z_qhat_create_mul_keys(qhat_t *hat, uint32_t start,
+                                  uint32_t gap, uint32_t nbr_iter)
+{
+    const uint32_t k_end = start + gap * nbr_iter;
+
+    for (uint32_t k = start; k < k_end; k += gap) {
+        uint8_t *p;
+
+        Z_ASSERT_P((p = qhat_set(hat, k)));
+        *p = (k & 0xFF) | 1;
+    }
+    Z_HELPER_END;
+}
+
 /* }}} */
 
 Z_GROUP_EXPORT(qps_hat) {
@@ -1259,6 +1273,30 @@ Z_GROUP_EXPORT(qps_hat) {
         v = qhat_enumerator_get_value_safe(&en);
         Z_ASSERT(en.t.compact);
         Z_ASSERT_EQ(*v, 0u);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(nr_100254, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+
+        Z_TEST_FLAGS("redmine_100254");
+
+        /* before_count is wrongly used to reference a leaf. */
+        htrie = qhat_create(qps, 8, false);
+        qhat_init(&trie, qps, htrie);
+
+        Z_HELPER_RUN(z_qhat_create_mul_keys(&trie, 2741244040, 100, 1004));
+        Z_HELPER_RUN(z_qhat_create_mul_keys(&trie, 4267573262, 248, 2560));
+
+        /* Create a single key at the beginning, then delete it. An assert was
+         * generated due to an invalid leaf reference in
+         * qhat_optimize_parent().
+         */
+        Z_ASSERT_P(qhat_set(&trie, 16843009));
+        Z_ASSERT(qhat_remove(&trie, 16843009, NULL));
+
+        qhat_destroy(&trie);
     } Z_TEST_END;
 
     /* }}} */

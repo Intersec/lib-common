@@ -971,9 +971,10 @@ static void qhat_optimize_parent(qhat_path_t *path)
      */
     if (PATH_NODE(path).value == 0) {
         uint32_t before_count = 0;
-        uint32_t before_idx   = idx;
+        uint32_t before_idx   = 0; /* Valid only if before_count > 0. */
         uint32_t after_count  = 0;
         uint32_t after_idx    = idx;
+
         for (uint32_t i = idx; i > 0; i--) {
             if (memory.nodes[i - 1].leaf) {
                 PATH_NODE(path) = memory.nodes[i - 1];
@@ -982,7 +983,7 @@ static void qhat_optimize_parent(qhat_path_t *path)
                 break;
             } else if (memory.nodes[i].value) {
                 break;
-           }
+            }
         }
         for (uint32_t i = idx + 1; i < end; i++) {
             if (memory.nodes[i].leaf) {
@@ -994,10 +995,18 @@ static void qhat_optimize_parent(qhat_path_t *path)
                 break;
             }
         }
+
+        /* Leave if no eligible leaf found (it might be just nodes).
+         * Otherwise, select the leaf to optimize based on the following
+         * criteria:
+         *  - the leaf exists (i.e. contains values),
+         *  - leaf with the less count is choosen.
+         */
         if (before_count == 0 && after_count == 0) {
             return;
-        } else
-        if (after_count == 0 || before_count <= after_count) {
+        } else if (after_count == 0 ||
+                   (before_count > 0 && before_count <= after_count))
+        {
             idx   = before_idx;
             count = before_count;
         } else {
@@ -1005,8 +1014,7 @@ static void qhat_optimize_parent(qhat_path_t *path)
             count = after_count;
         }
         PATH_NODE(path) = memory.nodes[idx];
-    } else
-    if (!PATH_NODE(path).leaf) {
+    } else if (!PATH_NODE(path).leaf) {
         return;
     } else {
         count = qhat_node_count(path);
