@@ -731,6 +731,7 @@ typedef struct httpc_cfg_t {
     lstr_t       client_tls_key;
     bool         check_server_cert;
 
+    lstr_t       tls_server_name;
     SSL_CTX      * nullable ssl_ctx;
     http2_pool_t * nullable http2_pool;
 

@@ -440,6 +440,14 @@ struct HttpcCfg {
      * If not set, SSL default value is used: 100.
      */
     int? checkCertDepth;
+
+    /** Set TLS server name (SNI).
+
+     * Defines the default SNI that will be sent to the server.
+     * Note: the SNI may be overridden by the product on a per-connection
+     * basis depending on the client implementation.
+     */
+    string? tlsServerName
 };
 
 enum IopHttpMethod {

@@ -923,6 +923,27 @@ void httpd_reject_unauthorized(httpd_query_t *q, lstr_t auth_realm)
     httpd_reply_done(q);
 }
 
+static void httpc_set_sni(SSL *ssl, const lstr_t tls_server_name)
+{
+    t_scope;
+
+    const char *tls_server_name_s;
+
+    if (tls_server_name.len == 0) {
+        return;
+    }
+
+    /* guarantee string given to SSL_set_tlsext_host_name is
+     * NULL terminated */
+    tls_server_name_s = t_dupz(tls_server_name.s, tls_server_name.len);
+    if (SSL_set_tlsext_host_name(ssl, tls_server_name_s) == 1) {
+        logger_trace(&http_g.logger, 1, "set SNI to %s", tls_server_name_s);
+    } else {
+        logger_error(&http_g.logger, "failed to set SNI to %s",
+                     tls_server_name_s);
+    }
+}
+
 /* }}} */
 /* HTTPD Triggers {{{ */
 
@@ -2684,6 +2705,7 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
     cfg->on_data_threshold = iop_cfg->on_data_threshold;
     cfg->header_line_max   = iop_cfg->header_line_max;
     cfg->header_size_max   = iop_cfg->header_size_max;
+    cfg->tls_server_name   = lstr_dup(iop_cfg->tls_server_name);
 
     /* TODO: remove the http_mode enum and use flag(s) instead. */
     if (iop_cfg->use_http2) {
@@ -2756,6 +2778,7 @@ void httpc_cfg_wipe(httpc_cfg_t *cfg)
 {
     lstr_wipe(&cfg->client_tls_cert);
     lstr_wipe(&cfg->client_tls_key);
+    lstr_wipe(&cfg->tls_server_name);
 
     httpc_close_http2_pool(cfg);
     httpc_cfg_tls_wipe(cfg);
@@ -3138,7 +3161,7 @@ static int httpc_on_connect(el_t evh, int fd, short events, data_t priv)
         if (w->cfg->ssl_ctx) {
             w->ssl = SSL_new(w->cfg->ssl_ctx);
             assert (w->ssl);
-            SSL_set_tlsext_host_name(w->ssl, w->pool->host.s);
+            httpc_set_sni(w->ssl, w->cfg->tls_server_name);
             SSL_set_fd(w->ssl, fd);
             SSL_set_connect_state(w->ssl);
             el_fd_set_hook(evh, &httpc_tls_handshake);
@@ -7023,6 +7046,7 @@ http2_conn_connect_client_as(const sockunion_t *su, httpc_cfg_t *cfg)
     w = http2_conn_new();
     if (cfg->ssl_ctx) {
         w->ssl = SSL_new(cfg->ssl_ctx);
+        httpc_set_sni(w->ssl, cfg->tls_server_name);
     }
     w->is_client = true;
     w->settings = http2_default_settings_g;
