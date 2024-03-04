@@ -534,24 +534,29 @@ qhat_node_const_memory_t qhat_node_deref(const qhat_path_t *path)
     return qhat_node_deref_(path->hat->qps, PATH_NODE(path));
 }
 
-static
-qhat_node_memory_t qhat_parent_w_deref(qhat_path_t *path, uint32_t *u32s)
+static qhat_node_memory_t qhat_parent_w_deref(qhat_path_t *path,
+                                              uint32_t *nullable node_count)
 {
     if (path->depth == 0) {
         void *ptr = path->hat->root_cache.data;
 
         qps_hptr_w_deref(path->hat->qps, &path->hat->root_cache);
-        *u32s = path->hat->desc->root_node_count;
         if (ptr != path->hat->root_cache.data) {
             PATH_GENERATION_CHANGED(path);
+        }
+        if (node_count) {
+            *node_count = path->hat->desc->root_node_count;
         }
         return (qhat_node_memory_t){ .nodes = path->hat->root->nodes };
     } else {
         qhat_node_memory_t memory;
+
         path->depth--;
-        *u32s = QHAT_COUNT;
         memory = qhat_node_w_deref(path);
         path->depth++;
+        if (node_count) {
+            *node_count = QHAT_COUNT;
+        }
         return memory;
     }
 }
@@ -571,8 +576,8 @@ bool qhat_node_is_pure(const qhat_path_t *path)
 static void qhat_update_parent_pure(qhat_path_t *path, qhat_node_t to)
 {
     uint32_t idx = PATH_IN_PARENT_IDX(path);
-    uint32_t max;
-    qhat_node_memory_t memory = qhat_parent_w_deref(path, &max);
+    qhat_node_memory_t memory = qhat_parent_w_deref(path, NULL);
+
     memory.nodes[idx] = to;
 }
 
@@ -580,8 +585,7 @@ static void qhat_update_parent_compact(qhat_path_t *path, qhat_node_t to)
 {
     qhat_node_const_memory_t memory = qhat_node_deref(path);
     const qhat_compacthdr_t *compact = memory.compact;
-    uint32_t max;
-    qhat_node_memory_t parent = qhat_parent_w_deref(path, &max);
+    qhat_node_memory_t parent = qhat_parent_w_deref(path, NULL);
 
     for (uint32_t i = compact->parent_left; i < compact->parent_right; i++) {
         parent.nodes[i] = to;
@@ -711,19 +715,19 @@ static void qhat_create_leaf(qhat_path_t *path)
     qhat_node_memory_t parent;
     qhat_node_t node;
     uint32_t idx;
-    uint32_t max;
+    uint32_t end;
     assert (likely(PATH_NODE(path).value == 0));
     node = qhat_alloc_leaf(path->hat, true);
     PATH_NODE(path) = node;
     assert (likely(PATH_NODE(path).value != 0));
 
     memory = qhat_node_w_deref(path);
-    parent = qhat_parent_w_deref(path, &max);
+    parent = qhat_parent_w_deref(path, &end);
 
     idx = PATH_IN_PARENT_IDX(path);
     memory.compact->count = 0;
     memory.compact->parent_left  = 0;
-    memory.compact->parent_right = max;
+    memory.compact->parent_right = end;
     for (uint32_t i = idx; i > 0; i--) {
         if (parent.nodes[i - 1].value == 0) {
             parent.nodes[i - 1] = node;
@@ -732,7 +736,7 @@ static void qhat_create_leaf(qhat_path_t *path)
             break;
         }
     }
-    for (uint32_t i = idx; i < max; i++) {
+    for (uint32_t i = idx; i < end; i++) {
         if (parent.nodes[i].value == 0) {
             parent.nodes[i] = node;
         } else {
@@ -819,11 +823,11 @@ void qhat_split_leaf(qhat_path_t *path)
         sep = qhat_compact_lookup(memory.compact, 0, prefix);
 
         if (sep == 0 || sep == count) {
-            uint32_t max = 0;
-            qhat_node_memory_t parent_memory = qhat_parent_w_deref(path, &max);
+            qhat_node_memory_t parent_memory;
             uint32_t prev_parent_start = compact->parent_left;
             uint32_t prev_parent_end   = compact->parent_right;
 
+            parent_memory = qhat_parent_w_deref(path, NULL);
             split = memory.compact->keys[count - 1];
             split = qhat_get_key_bits(path->hat, split, path->depth);
             if (split + 1 != compact->parent_right) {
@@ -869,11 +873,11 @@ void qhat_split_leaf(qhat_path_t *path)
 #endif
             }
         } else {
-            uint32_t max = 0;
             qhat_node_t new_node;
             qhat_node_memory_t new_memory;
-            qhat_node_memory_t parent_memory = qhat_parent_w_deref(path, &max);
+            qhat_node_memory_t parent_memory;
 
+            parent_memory = qhat_parent_w_deref(path, NULL);
             e_named_trace(3, "trie/insert/split", "split [%u-%u] at %u "
                           "(%d elements, depth %d)",
                           compact->parent_left, compact->parent_right - 1,
@@ -955,8 +959,8 @@ void qhat_split_leaf(qhat_path_t *path)
 
 static void qhat_optimize_parent(qhat_path_t *path)
 {
-    uint32_t max;
-    qhat_node_memory_t memory = qhat_parent_w_deref(path, &max);
+    uint32_t end;
+    qhat_node_memory_t memory = qhat_parent_w_deref(path, &end);
     uint32_t idx = PATH_IN_PARENT_IDX(path);
     uint32_t count = 0;
     bool changed = false;
@@ -980,7 +984,7 @@ static void qhat_optimize_parent(qhat_path_t *path)
                 break;
            }
         }
-        for (uint32_t i = idx + 1; i < max; i++) {
+        for (uint32_t i = idx + 1; i < end; i++) {
             if (memory.nodes[i].leaf) {
                 PATH_NODE(path) = memory.nodes[i];
                 after_count     = qhat_node_count(path);
@@ -1027,7 +1031,7 @@ static void qhat_optimize_parent(qhat_path_t *path)
             break;
         }
     }
-    for (uint32_t i = idx + 1; i < max; i++) {
+    for (uint32_t i = idx + 1; i < end; i++) {
         if (memory.nodes[i].value == 0) {
             memory.nodes[i] = PATH_NODE(path);
             child.compact->parent_right = i + 1;
@@ -1041,7 +1045,7 @@ static void qhat_optimize_parent(qhat_path_t *path)
     }
 
     if (changed && memory.nodes[0].value == PATH_NODE(path).value
-    && memory.nodes[max - 1].value == PATH_NODE(path).value
+    && memory.nodes[end - 1].value == PATH_NODE(path).value
     && path->depth > 0) {
         qhat_node_t leaf = PATH_NODE(path);
         path->depth--;
@@ -1117,9 +1121,9 @@ void qhat_optimize(qhat_path_t *path)
 
     {
         const uint32_t limit = path->hat->desc->split_compact_threshold;
-        uint32_t max;
+        uint32_t end;
         qhat_node_const_memory_t node_memory = qhat_node_deref(path);
-        qhat_node_memory_t memory = qhat_parent_w_deref(path, &max);
+        qhat_node_memory_t memory = qhat_parent_w_deref(path, &end);
         uint32_t from_idx, to_idx;
         uint32_t count = node_memory.compact->count;
         qhat_node_t node, previous_node;
@@ -1150,7 +1154,7 @@ void qhat_optimize(qhat_path_t *path)
         }
 
         node = PATH_NODE(path);
-        while (to_idx < max) {
+        while (to_idx < end) {
             uint32_t  current_count;
             qhat_node_t current_node = memory.nodes[to_idx];
 
@@ -1175,7 +1179,7 @@ void qhat_optimize(qhat_path_t *path)
         }
         e_named_trace(3, "trie/optimize/merge", "merging siblings of %u "
                       "from parent id %u to parent id %u (depth %u, max %u)",
-                      PATH_NODE(path).page, from_idx, to_idx, path->depth, max);
+                      PATH_NODE(path).page, from_idx, to_idx, path->depth, end);
 
         PATH_NODE(path) = previous_node = memory.nodes[from_idx];
         for (uint32_t i = from_idx + 1; i < to_idx; i++) {
