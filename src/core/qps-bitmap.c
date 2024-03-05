@@ -183,7 +183,7 @@ void qps_bitmap_clear(qps_bitmap_t *map)
 {
     qps_hptr_w_deref(map->qps, &map->root_cache);
     delete_nodes(map);
-    p_clear(map->root->roots, 1);
+    p_clear(&map->root->roots, 1);
     map->bitmap_gen++;
 }
 

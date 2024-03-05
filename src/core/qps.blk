@@ -1917,6 +1917,12 @@ static void qps_pg_unmap_int(qps_t *qps, qps_pg_t blk)
     assert(blk < qps->maps.len * QPS_MAP_PAGES);
     assert(blk == 0 || QPS_PG_IDX(blk));
 
+    if (unlikely(hdr->flags & QPS_BLK_FREE)) {
+        logger_panic(&qps->logger, "trying to free a block which is already "
+                     "freed in QPS. Stop now to prevent QPS corruption in"
+                     "allocator");
+    }
+
     qps_pg_check_hdrs(qps);
     qps_pg_maphdr(qps, blk)->allocated -= bsz * QPS_PAGE_SIZE;
 

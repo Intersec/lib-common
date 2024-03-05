@@ -154,6 +154,47 @@ Z_GROUP_EXPORT(qps_bitmap) {
         }
     } Z_TEST_END;
 
+    Z_TEST(nr_100747, "") { /* {{{ */
+        qps_handle_t hbitmap;
+        qps_bitmap_t bitmap;
+        uint32_t start_key, gap_key, k_end;
+
+        Z_TEST_FLAGS("redmine_100747");
+
+        hbitmap = qps_bitmap_create(qps, true);
+        Z_ASSERT_NE(hbitmap, QPS_HANDLE_NULL, "creation of bitmap failed");
+        qps_bitmap_init(&bitmap, qps, hbitmap);
+
+        start_key = 261889;
+        gap_key = 42;
+        k_end = start_key + gap_key * 5122;
+        for (uint32_t k = start_key; k < k_end; k += gap_key) {
+            qps_bitmap_set(&bitmap, k);
+        }
+
+        start_key = 4294901759;
+        gap_key = 1;
+        /* This is close to an overflow but not yet. */
+        k_end = start_key + gap_key * 65535;
+        for (uint32_t k = start_key; k < k_end; k += gap_key) {
+            qps_bitmap_set(&bitmap, k);
+        }
+
+        qps_bitmap_clear(&bitmap);
+
+        /* Check all nodes have been cleared (so we don't reproduce issue
+         * for invalid node accesses in this QPS bitmap, if we use it again).
+         */
+        for (uint32_t i = 0; i < countof(bitmap.root->roots); i++) {
+            Z_ASSERT_EQ(bitmap.root->roots[i], QPS_PG_NULL, "page not null");
+        }
+
+        /* Commenting out the previous loop should now trigger a panic while
+         * freeing memory if issue is still there on QPS bitmap (double free
+         * performed on QPS allocator). */
+        qps_bitmap_destroy(&bitmap);
+    } Z_TEST_END;
+
     /* }}} */
 
     qps_close(&qps);
