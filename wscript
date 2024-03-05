@@ -174,8 +174,8 @@ def poetry_no_srv_tools(ctx):
     ctx.poetry_site_packages = ctx.cmd_and_log(
         ctx.env.POETRY + ["run", "python3", "-c",
         (
-            "import distutils.sysconfig; "
-            "print(distutils.sysconfig.get_python_lib())"
+            "import sysconfig; "
+            "print(sysconfig.get_paths()['purelib'])"
         )
     ]).strip()
 
