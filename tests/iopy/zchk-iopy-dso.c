@@ -17,8 +17,15 @@
 /***************************************************************************/
 
 #define PY_SSIZE_T_CLEAN 1
+
+/* 1. Defining PY_SSIZE_T_CLEAN triggers some 'redundant-decls' errors in
+ *    Python.h with GCC.
+ * 2. Python 3.12+ uses C99 declarations after statements.
+ * So we need to ignore these warnings manually.
+ */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wredundant-decls"
+#pragma GCC diagnostic ignored "-Wdeclaration-after-statement"
 # include <Python.h>
 #pragma GCC diagnostic pop
 
