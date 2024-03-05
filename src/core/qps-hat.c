@@ -1342,47 +1342,6 @@ void qhat_destroy(qhat_t *hat)
     }
 }
 
-
-static void qhat_unload_node(qhat_t *hat, qhat_node_t node);
-
-static void qhat_unload_dispatch_node(qhat_t *hat,
-                                      qhat_node_const_memory_t memory,
-                                      size_t max)
-{
-    qhat_node_t current = QHAT_NULL_NODE;
-    for (size_t i = 0; i < max; i++) {
-        if (memory.nodes[i].value != current.value) {
-            current = memory.nodes[i];
-            qhat_unload_node(hat, current);
-        }
-    }
-}
-
-static void qhat_unload_node(qhat_t *hat, qhat_node_t node)
-{
-    if (!node.value) {
-        return;
-    }
-    if (!node.leaf) {
-        qhat_node_const_memory_t memory = {
-            .raw = qps_pg_deref(hat->qps, node.page),
-        };
-        qhat_unload_dispatch_node(hat, memory, QHAT_COUNT);
-    }
-    qps_pg_unload(hat->qps, node.page);
-}
-
-void qhat_unload(qhat_t *hat)
-{
-    if (hat) {
-        qhat_node_const_memory_t root;
-
-        qps_hptr_deref(hat->qps, &hat->root_cache);
-        root.nodes = hat->root->nodes;
-        qhat_unload_dispatch_node(hat, root, hat->desc->root_node_count);
-    }
-}
-
 #define SIZE                    8
 #define PAGES_PER_FLAT          1
 #include "qps-hat.in.c"

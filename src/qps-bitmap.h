@@ -114,7 +114,6 @@ typedef enum qps_bitmap_state_t {
 qps_handle_t qps_bitmap_create(qps_t *qps, bool is_nullable) __leaf;
 void qps_bitmap_destroy(qps_bitmap_t *map) __leaf;
 void qps_bitmap_clear(qps_bitmap_t *map) __leaf;
-void qps_bitmap_unload(qps_bitmap_t *map) __leaf;
 
 qps_bitmap_state_t qps_bitmap_get(qps_bitmap_t *map, uint32_t row) __leaf;
 qps_bitmap_state_t qps_bitmap_set(qps_bitmap_t *map, uint32_t row) __leaf;

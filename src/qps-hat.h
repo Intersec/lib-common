@@ -245,7 +245,6 @@ qps_handle_t qhat_create(qps_t *qps, uint32_t value_len, bool is_nullable)
 void qhat_init(qhat_t *hat, qps_t *qps, qps_handle_t handle);
 void qhat_destroy(qhat_t *hat) __leaf;
 void qhat_clear(qhat_t *hat) __leaf;
-void qhat_unload(qhat_t *hat) __leaf;
 
 /** \name Accessors
  * \{

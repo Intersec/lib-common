@@ -388,7 +388,6 @@ void qps_snapshot_wait(qps_t *qps);
 qps_pg_t  qps_pg_map(qps_t *qps, size_t n);
 qps_pg_t  qps_pg_remap(qps_t *qps, qps_pg_t blk, size_t size);
 void      qps_pg_unmap(qps_t *qps, qps_pg_t blk);
-void      qps_pg_unload(qps_t *qps, qps_pg_t blk);
 size_t    qps_pg_sizeof(qps_t *qps, qps_pg_t blk);
 void      qps_pg_zero(qps_t *qps, qps_pg_t blk, size_t n);
 

@@ -1939,15 +1939,6 @@ static void qps_pg_unmap_int(qps_t *qps, qps_pg_t blk)
     qps_pg_check_hdrs(qps);
 }
 
-static void qps_pg_unload_int(qps_t *qps, qps_pg_t blk)
-{
-    qps_pghdr_t *hdr  = qps->hdrs + blk;
-    size_t       bsz  = hdr->size;
-    void        *data = qps_pg_deref(qps, blk);
-
-    madvise(data, bsz * QPS_PAGE_SIZE, MADV_DONTNEED);
-}
-
 static qps_pg_t qps_pg_map_int(qps_t *qps, uint32_t id, size_t n)
 {
     uint32_t l1, l2;
@@ -2096,12 +2087,6 @@ void qps_pg_unmap(qps_t *qps, qps_pg_t blk)
     TRACE_ALLOC("page", "pg_unmap(%p, "QPS_PG_FMT")", qps, QPS_PG_ARG(blk));
     if (likely(blk))
         qps_pg_unmap_int(qps, blk);
-}
-
-void qps_pg_unload(qps_t *qps, qps_pg_t blk)
-{
-    if (likely(blk))
-        qps_pg_unload_int(qps, blk);
 }
 
 /* }}} */

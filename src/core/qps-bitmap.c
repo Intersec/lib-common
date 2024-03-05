@@ -138,25 +138,6 @@ void delete_nodes(qps_bitmap_t *map)
     }
 }
 
-static
-void unload_nodes(qps_bitmap_t *map)
-{
-    for (int i = 0; i < QPS_BITMAP_ROOTS; i++) {
-        const qps_bitmap_dispatch_t *dispatch;
-        if (map->root->roots[i] == 0) {
-            continue;
-        }
-        dispatch = qps_pg_deref(map->qps, map->root->roots[i]);
-        for (int j = 0; j < QPS_BITMAP_DISPATCH; j++) {
-            if ((*dispatch)[j].node == 0) {
-                continue;
-            }
-            qps_pg_unload(map->qps, (*dispatch)[j].node);
-        }
-        qps_pg_unload(map->qps, map->root->roots[i]);
-    }
-}
-
 /* }}} */
 /* Public API {{{ */
 
@@ -184,13 +165,6 @@ void qps_bitmap_clear(qps_bitmap_t *map)
     qps_hptr_w_deref(map->qps, &map->root_cache);
     delete_nodes(map);
     p_clear(&map->root->roots, 1);
-    map->bitmap_gen++;
-}
-
-void qps_bitmap_unload(qps_bitmap_t *map)
-{
-    qps_hptr_deref(map->qps, &map->root_cache);
-    unload_nodes(map);
     map->bitmap_gen++;
 }
 
