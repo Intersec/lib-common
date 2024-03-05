@@ -27,5 +27,5 @@ cat <<EOF
 # https://asdf-vm.com/manage/configuration.html
 
 python $TOOL_VERSIONS_PYTHON
-poetry 1.7.1
+poetry 1.8.2
 EOF
