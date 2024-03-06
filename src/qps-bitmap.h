@@ -307,6 +307,12 @@ void qps_bitmap_enumerator_find_bit_nu(qps_bitmap_enumerator_t *en,
 /* }}} */
 /* {{{ Public functions - nullable specialization */
 
+static inline bool
+qps_bitmap_enumerator_is_sync(const qps_bitmap_enumerator_t *en)
+{
+    return en->bitmap_gen == en->map->bitmap_gen;
+}
+
 static inline
 void qps_bitmap_enumerator_next_nu(qps_bitmap_enumerator_t *en, bool safe)
 {
@@ -315,8 +321,8 @@ void qps_bitmap_enumerator_next_nu(qps_bitmap_enumerator_t *en, bool safe)
     assert(en->is_nullable);
 
     /* Should have used the "safe" option. */
-    assert(safe || en->bitmap_gen == en->map->bitmap_gen);
-    if (safe && en->bitmap_gen != en->map->bitmap_gen) {
+    assert(safe || qps_bitmap_enumerator_is_sync(en));
+    if (safe && !qps_bitmap_enumerator_is_sync(en)) {
         en->bitmap_gen = en->map->bitmap_gen;
         qps_bitmap_enumerator_find_dispatch_nu(en, key);
 
@@ -347,8 +353,8 @@ void qps_bitmap_enumerator_go_to_nu(qps_bitmap_enumerator_t *en, uint32_t row,
     }
 
     /* Should have used the "safe" option. */
-    assert(safe || en->bitmap_gen == en->map->bitmap_gen);
-    if (safe && en->bitmap_gen != en->map->bitmap_gen) {
+    assert(safe || qps_bitmap_enumerator_is_sync(en));
+    if (safe && !qps_bitmap_enumerator_is_sync(en)) {
         en->bitmap_gen = en->map->bitmap_gen;
         qps_bitmap_enumerator_find_dispatch_nu(en, key);
         return;
@@ -519,8 +525,8 @@ void qps_bitmap_enumerator_next_nn(qps_bitmap_enumerator_t *en, bool safe)
     qps_bitmap_key_t key = en->key;
 
     /* Should have used the "safe" option. */
-    assert(safe || en->bitmap_gen == en->map->bitmap_gen);
-    if (safe && en->bitmap_gen != en->map->bitmap_gen) {
+    assert(safe || qps_bitmap_enumerator_is_sync(en));
+    if (safe && !qps_bitmap_enumerator_is_sync(en)) {
         en->bitmap_gen = en->map->bitmap_gen;
         qps_bitmap_enumerator_find_dispatch_nn(en, key);
 
@@ -550,8 +556,8 @@ void qps_bitmap_enumerator_go_to_nn(qps_bitmap_enumerator_t *en,
     key.key = row;
 
     /* Should have used the "safe" option. */
-    assert(safe || en->bitmap_gen == en->map->bitmap_gen);
-    if (safe && en->bitmap_gen != en->map->bitmap_gen) {
+    assert(safe || qps_bitmap_enumerator_is_sync(en));
+    if (safe && !qps_bitmap_enumerator_is_sync(en)) {
         en->bitmap_gen = en->map->bitmap_gen;
         qps_bitmap_enumerator_find_dispatch_nn(en, key);
         return;

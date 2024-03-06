@@ -652,6 +652,12 @@ qhat_tree_enumerator_t qhat_get_tree_enumerator(qhat_t *hat)
     return qhat_get_tree_enumerator_at(hat, 0);
 }
 
+static ALWAYS_INLINE
+bool qhat_tree_enumerator_is_sync(const qhat_tree_enumerator_t *en)
+{
+    return qhat_path_is_sync(&en->path);
+}
+
 /* }}} */
 /* {{{ Hat enumeration (tree + bitmap) */
 
@@ -694,6 +700,23 @@ typedef union qhat_enumerator_t {
     /* Non-nullable qhat. */
     qhat_tree_enumerator_t t;
 } qhat_enumerator_t;
+
+/** Tell if the enumerator is synchronized with the QHAT.
+ *
+ * Check the inner tree enumerator and bitmap enumerator (if nullable) to tell
+ * if the QHAT has changed from the last time the QHAT enumerator was used.
+ *
+ * \warning For non-nullable QHATs, in NDEBUG mode, only changes in the
+ * structure of the qhat tree will cause the enumerator to be out-of-sync.
+ */
+static ALWAYS_INLINE bool qhat_enumerator_is_sync(const qhat_enumerator_t *en)
+{
+    if (en->is_nullable) {
+        return qps_bitmap_enumerator_is_sync(&en->bitmap) &&
+            qhat_tree_enumerator_is_sync(&en->trie);
+    }
+    return qhat_tree_enumerator_is_sync(&en->t);
+}
 
 /** Move the enumerator to the next key of the qhat.
  *
