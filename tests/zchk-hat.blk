@@ -610,6 +610,17 @@ static int z_qhat_create_mul_keys(qhat_t *hat, uint32_t start,
     Z_HELPER_END;
 }
 
+static int z_qhat_rm_mul_keys(qhat_t *hat, uint32_t start,
+                              uint32_t gap, uint32_t nbr_iter)
+{
+    const uint32_t k_end = start + gap * nbr_iter;
+
+    for (uint32_t k = start; k < k_end; k += gap) {
+        Z_ASSERT(qhat_remove(hat, k, NULL));
+    }
+    Z_HELPER_END;
+}
+
 /* }}} */
 
 Z_GROUP_EXPORT(qps_hat) {
@@ -1276,7 +1287,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_100254, "") { /* {{{ */
+    Z_TEST(nr_100254_1, "") { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
 
@@ -1299,6 +1310,28 @@ Z_GROUP_EXPORT(qps_hat) {
         qhat_destroy(&trie);
     } Z_TEST_END;
 
+    /* }}} */
+    Z_TEST(nr_100254_2, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+
+        Z_TEST_FLAGS("redmine_100254");
+
+        /* after_count is wrongly used to reference a leaf. */
+        htrie = qhat_create(qps, 8, false);
+        qhat_init(&trie, qps, htrie);
+
+        Z_HELPER_RUN(z_qhat_create_mul_keys(&trie, 4294901760, 1, 511));
+        Z_HELPER_RUN(z_qhat_create_mul_keys(&trie, 1, 1, 6143));
+
+        Z_HELPER_RUN(z_qhat_rm_mul_keys(&trie, 260, 1, (6143 - 260 + 1)));
+
+        /* Removing keys here triggers an assert for key=259 with invalid leaf
+         * reference in qhat_optimize_parent(). */
+        Z_HELPER_RUN(z_qhat_rm_mul_keys(&trie, 1, 1, 259));
+
+        qhat_destroy(&trie);
+    } Z_TEST_END;
     /* }}} */
 
     qps_close(&qps);

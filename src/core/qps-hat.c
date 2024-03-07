@@ -973,7 +973,7 @@ static void qhat_optimize_parent(qhat_path_t *path)
         uint32_t before_count = 0;
         uint32_t before_idx   = 0; /* Valid only if before_count > 0. */
         uint32_t after_count  = 0;
-        uint32_t after_idx    = idx;
+        uint32_t after_idx    = 0; /* Valid only if after_count > 0. */
 
         for (uint32_t i = idx; i > 0; i--) {
             if (memory.nodes[i - 1].leaf) {
@@ -989,7 +989,7 @@ static void qhat_optimize_parent(qhat_path_t *path)
             if (memory.nodes[i].leaf) {
                 PATH_NODE(path) = memory.nodes[i];
                 after_count     = qhat_node_count(path);
-                after_idx       = i - 1;
+                after_idx       = i;
                 break;
             } else if (memory.nodes[i].value) {
                 break;
