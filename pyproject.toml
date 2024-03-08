@@ -15,10 +15,8 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-#
-# XXX: When adding packages here, you must call `poetry update` in order to
-# update poetry.lock.
-# Otherwise, `waf configure` will fail.
+
+# XXX: Read README-python3.adoc before adding new packages here.
 
 
 [tool.poetry]
