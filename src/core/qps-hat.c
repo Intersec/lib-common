@@ -1532,6 +1532,9 @@ qhat_tree_enumerator_fixup_compact_pos(qhat_tree_enumerator_t *en)
 const void *
 qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe)
 {
+    if (unlikely(en->end)) {
+        return &qhat_default_zero_g;
+    }
     if (!safe) {
         return qhat_tree_enumerator_get_value_unsafe(en);
     }

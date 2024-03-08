@@ -596,6 +596,13 @@ static int z_test_qhat_gen(qhat_t *hat)
     Z_HELPER_END;
 }
 
+static inline int z_qhat_check_slot(qhat_t *hat, uint32_t key, const void *p)
+{
+    Z_ASSERT(*((uint8_t*)p) == ((key & 0xFF) | 1),
+             "invalid content for key %u in qhat", key);
+    Z_HELPER_END;
+}
+
 static int z_qhat_create_mul_keys(qhat_t *hat, uint32_t start,
                                   uint32_t gap, uint32_t nbr_iter)
 {
@@ -1013,7 +1020,9 @@ Z_GROUP_EXPORT(qps_hat) {
             }
 
             qhat_enumerator_next(&en, true);
-            Z_ASSERT(qhat_path_is_sync(&en.t.path),
+            /* Check path is still sync after next operation (until we have
+             * reached the end of the trie). */
+            Z_ASSERT(qhat_path_is_sync(&en.t.path) || en.end == true,
                      "enumerator still out-of-sync after 'next'");
         }
 
@@ -1332,6 +1341,118 @@ Z_GROUP_EXPORT(qps_hat) {
 
         qhat_destroy(&trie);
     } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(nr_100765_1, "") { /* {{{ */
+        qps_handle_t htrie1, htrie2;
+        qhat_t trie1, trie2;
+        qhat_enumerator_t en;
+
+        Z_TEST_FLAGS("redmine_100765");
+
+        /* Ensure that a key removed at current en position doesn't break the
+         * safe access later. */
+        htrie1 = qhat_create(qps, 16, true);
+        qhat_init(&trie1, qps, htrie1);
+
+        Z_HELPER_RUN(z_qhat_create_mul_keys(&trie1, 4177066232, 248, 63736));
+        htrie2 = qhat_create(qps, 8, false);
+        qhat_init(&trie2, qps, htrie2);
+
+        en = qhat_get_enumerator(&trie1);
+
+        Z_HELPER_RUN(z_qhat_create_mul_keys(&trie1, 4278126857, 1, 1273));
+        Z_HELPER_RUN(z_qhat_create_mul_keys(&trie2, 4278124543, 22, 5654));
+
+        Z_HELPER_RUN(z_qhat_rm_mul_keys(&trie1, 4177066232, 248, 63736));
+        Z_HELPER_RUN(z_qhat_rm_mul_keys(&trie1, 4278126857, 1, 1273));
+
+        Z_HELPER_RUN(z_qhat_create_mul_keys(&trie2, 0, 48, 46));
+        Z_HELPER_RUN(z_qhat_create_mul_keys(&trie2, 68089, 1, 7680));
+        Z_HELPER_RUN(z_qhat_create_mul_keys(&trie2, 655362, 22, 5654));
+
+        qhat_enumerator_get_value_safe(&en);
+
+        /* Second access here triggers a segfault, based on memory set in QPS.
+         */
+        qhat_enumerator_get_value_safe(&en);
+
+        qhat_destroy(&trie1);
+        qhat_destroy(&trie2);
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(nr_100765_2, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_enumerator_t en;
+        const bool qhat_tests[2] = {false, true};
+
+        Z_TEST_FLAGS("redmine_100765");
+
+        /* Ensure that a trie reaching an end in a nullable or non nullable
+         * qhat can be resync again and continue the enumeration. */
+        for (uint32_t i = 0; i < countof(qhat_tests); i++) {
+            const void *null_slot = &qhat_default_zero_g;
+            const uint32_t gap = 248;
+            const uint32_t key_en = 4192872760;
+            const uint32_t key_next_en = 4192872760 + gap;
+            const void *slot;
+
+            htrie = qhat_create(qps, 16, true);
+            qhat_init(&trie, qps, htrie);
+
+            Z_HELPER_RUN(z_qhat_create_mul_keys(&trie, 4177066232, gap,
+                                                63736));
+
+            en = qhat_get_enumerator_at(&trie, key_en);
+            Z_HELPER_RUN(z_qhat_rm_mul_keys(&trie, 4177066232, gap, 63736));
+
+            /* First attempt to access the enumerator should give an empty
+             * value. End is currently seen by enumerator. */
+            Z_ASSERT(null_slot == qhat_enumerator_get_value_safe(&en));
+            Z_ASSERT(en.end == true);
+
+            /* Second attempt doesn't change anything, even after
+             * synchronization. */
+            Z_ASSERT(null_slot == qhat_enumerator_get_value_safe(&en));
+            Z_ASSERT(en.end == true);
+
+            /* Creating again values should resync enunerator with end =
+             * false if inserted values are after the end of trie key. */
+            Z_HELPER_RUN(z_qhat_create_mul_keys(&trie, 4177066232, gap,
+                                                63736));
+
+            slot = qhat_enumerator_get_value_safe(&en);
+
+            /* FIXME: This cannot be done in the current patch and has to be
+             * fixed in another patch due to its complexity and risk of
+             * regression. */
+            Z_ASSERT(en.end == true, "Fix to resync trie done?");
+            if (en.end == true) {
+                goto end_iteration;
+            }
+
+            Z_ASSERT(en.end == false, "enumerator stuck at the end of trie");
+            Z_ASSERT(null_slot != slot, "enumerator for slot not found");
+            z_qhat_check_slot(&trie, en.key, slot);
+
+            /* Deleting just the current value should be possible, so we move
+             * on the next available key. */
+            Z_ASSERT(qhat_remove(&trie, key_en, NULL));
+            Z_ASSERT(null_slot == qhat_enumerator_get_value_safe(&en));
+            Z_ASSERT(en.end == false);
+
+            qhat_enumerator_next(&en, true);
+            slot = qhat_enumerator_get_value_safe(&en);
+            Z_ASSERT(en.end == false);
+            Z_ASSERT(en.key == key_next_en);
+
+        end_iteration:
+            qhat_destroy(&trie);
+        }
+    } Z_TEST_END;
+
     /* }}} */
 
     qps_close(&qps);
