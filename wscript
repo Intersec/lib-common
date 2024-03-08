@@ -222,6 +222,13 @@ def poetry_install(ctx):
     if before_poetry_install is not None:
         before_poetry_install(ctx)
 
+    # Check poetry lock freshness before install
+    is_fresh_script = ctx.path.make_node('build/poetry_lock_is_fresh.py')
+    cmd = [is_fresh_script.abspath(), ctx.srcnode.abspath()]
+    if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
+        ctx.fatal('poetry.lock is not up-to-date. '
+                  'Run `poetry lock --no-update` or `poetry update`.')
+
     # Install poetry packages
     if ctx.exec_command(ctx.env.POETRY + ['install', '--no-root'],
                         stdout=None, stderr=None):
