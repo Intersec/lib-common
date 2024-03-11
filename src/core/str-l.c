@@ -200,32 +200,38 @@ bool lstr_utf8_endswith(const lstr_t s1, const lstr_t s2)
     return lstr_endswith(LSTR_SB_V(&sb1), LSTR_SB_V(&sb2));
 }
 
+static int lstr_init_from_fd_read_fallback(lstr_t *dst, int fd)
+{
+    SB_8k(sb);
+
+    if (sb_read_fd(&sb, fd) < 0) {
+        return -3;
+    }
+
+    *dst = LSTR_EMPTY_V;
+    if (sb.len == 0) {
+        return 0;
+    }
+
+    lstr_transfer_sb(dst, &sb, false);
+    return 0;
+}
+
 int lstr_init_from_fd(lstr_t *dst, int fd, int prot, int flags)
 {
     struct stat st;
+    void *res;
 
     if (unlikely(fstat(fd, &st)) < 0) {
         return -2;
     }
 
     if (st.st_size <= 0) {
-        SB_8k(sb);
-
-        if (sb_read_fd(&sb, fd) < 0) {
-            return -3;
-        }
-
-        *dst = LSTR_EMPTY_V;
-        if (sb.len == 0) {
-            return 0;
-        }
-        lstr_transfer_sb(dst, &sb, false);
-        return 0;
-    }
-
-    if (st.st_size == 0) {
-        *dst = LSTR_EMPTY_V;
-        return 0;
+        /* We may be dealing with a pipe-like file or a virtual FS, we must
+         * fallback on read.
+         */
+        errno = EINVAL;
+        goto read_fallback;
     }
 
     if (st.st_size > INT_MAX) {
@@ -233,14 +239,24 @@ int lstr_init_from_fd(lstr_t *dst, int fd, int prot, int flags)
         return -3;
     }
 
-    *dst = lstr_init_(mmap(NULL, st.st_size, prot, flags, fd, 0),
-                      st.st_size, MEM_MMAP);
-
-    if (dst->v == MAP_FAILED) {
-        *dst = LSTR_NULL_V;
+    res = mmap(NULL, st.st_size, prot, flags, fd, 0);
+    if (res != MAP_FAILED) {
+        *dst = lstr_init_(res, st.st_size, MEM_MMAP);
+        return 0;
+    }
+    if (errno != ENODEV) {
         return -3;
     }
-    return 0;
+
+read_fallback:
+    if ((prot & PROT_WRITE) && !(flags & MAP_PRIVATE)) {
+        /* We cannot return a local copy of the file if the mmap() is asked
+         * for shared writing.
+         */
+        return -4;
+    }
+    /* mmap is not supported by the FS, we must fallback on read */
+    return lstr_init_from_fd_read_fallback(dst, fd);
 }
 
 int lstr_init_from_file(lstr_t *dst, const char *path, int prot, int flags)

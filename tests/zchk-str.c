@@ -22,6 +22,7 @@
 
 #include <lib-common/http.h>
 #include <lib-common/str-buf-pp.h>
+#include <lib-common/unix.h>
 #include <lib-common/z.h>
 
 /* {{{ str */
@@ -2405,6 +2406,117 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_NEG(sb_adds_unb64url(&data_decoded, "wQA&03e="));
     } Z_TEST_END
 
+    Z_TEST(init_from_file, "Init lstr from a file") {
+        t_scope;
+        const char *path;
+        lstr_t map;
+        lstr_t content = LSTR("lstr_init_from_file test 1\n");
+
+        path = t_fmt("%*pM/file-test",  LSTR_FMT_ARG(z_tmpdir_g));
+
+        Z_ASSERT_N(xwrite_file(path, content.s, content.len));
+
+        /* Simply reading the content of the file in a RO shared map. */
+        Z_ASSERT_N(lstr_init_from_file(&map, path, PROT_READ, MAP_SHARED));
+        Z_ASSERT_LSTREQUAL(map, content);
+
+        /* Underlying change should be applied to the shared map. */
+        content = LSTR("lstr_init_from_file test 2\n");
+        Z_ASSERT_N(xwrite_file(path, content.s, content.len));
+        Z_ASSERT_LSTREQUAL(map, content);
+
+        /* Reopening the map in RW.*/
+        lstr_wipe(&map);
+        Z_ASSERT_N(lstr_init_from_file(&map, path, PROT_READ | PROT_WRITE,
+                                       MAP_SHARED));
+        Z_ASSERT_LSTREQUAL(map, content);
+
+        /* Changing the content of the lstr_t should be reported to the
+         * underlying file.
+         */
+        content = LSTR("lstr_init_from_file test 3\n");
+        strcpy(map.v, content.s);
+        lstr_wipe(&map);
+        Z_ASSERT_N(lstr_init_from_file(&map, path, PROT_READ, MAP_SHARED));
+        Z_ASSERT_LSTREQUAL(map, content);
+
+        lstr_wipe(&map);
+    } Z_TEST_END;
+
+    Z_TEST(init_from_file_fallback, "Init lstr from a virtual file") {
+        t_scope;
+        int fd;
+        const char *path;
+        lstr_t content, map;
+        struct stat st;
+        SB_8k(sb);
+
+        /* /proc/partitions is a virtual file that always seem to be reported
+         * with a size of 0.
+         */
+        path = "/proc/partitions";
+
+        Z_ASSERT_N(stat(path, &st));
+        Z_ASSERT_ZERO(st.st_size);
+
+        Z_ASSERT_N(sb_read_file(&sb, path));
+        Z_ASSERT_GT(sb.len, 0);
+        content = LSTR_SB_V(&sb);
+
+        /* Since the file is reported with a size of 0 we should fallback on
+         * read() instead of mmap() and still be able to read the content.
+         */
+        Z_ASSERT_N(lstr_init_from_file(&map, path, PROT_READ, MAP_PRIVATE));
+        Z_ASSERT_LSTREQUAL(map, content);
+
+        lstr_wipe(&map);
+        sb_reset(&sb);
+
+        /* /sys/kernel/boot_params/version is a virtual file that always seem
+         * to be reported with a size of 4K. As a virtual file it still won't
+         * support mmap() which will return ENODEV and thus we must fallback
+         * to read().
+         */
+        path = "/sys/kernel/boot_params/version";
+
+        Z_ASSERT_N(stat(path, &st));
+        Z_ASSERT_GT(st.st_size, 0);
+
+        Z_ASSERT_N(sb_read_file(&sb, path));
+        Z_ASSERT_GT(sb.len, 0);
+        content = LSTR_SB_V(&sb);
+
+        /* Since the file is reported with a size of 0 we should fallback on
+         * read() instead of mmap() and still be able to read the content.
+         */
+        Z_ASSERT_N(lstr_init_from_file(&map, path, PROT_READ, MAP_PRIVATE));
+        Z_ASSERT_LSTREQUAL(map, content);
+
+        lstr_wipe(&map);
+
+        /* We make an empty file so we have access to a writable file with a
+         * fallback to read().
+         */
+        path = t_fmt("%*pM/file-test", LSTR_FMT_ARG(z_tmpdir_g));
+        fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, 0640);
+        Z_ASSERT_N(fd);
+        p_close(&fd);
+
+        Z_ASSERT_N(lstr_init_from_file(&map, path, PROT_READ, MAP_SHARED));
+        Z_ASSERT_LSTREQUAL(map, LSTR_EMPTY_V);
+        lstr_wipe(&map);
+
+        /* read() fallback must not be allowed when asking for a writable
+         * mmap() as the returned memory isn't linked to the file anymore.
+         */
+        Z_ASSERT_NEG(lstr_init_from_file(&map, path, PROT_READ | PROT_WRITE,
+                                         MAP_SHARED));
+
+        Z_ASSERT_N(lstr_init_from_file(&map, path, PROT_READ | PROT_WRITE,
+                                       MAP_PRIVATE));
+        Z_ASSERT_LSTREQUAL(map, LSTR_EMPTY_V);
+        lstr_wipe(&map);
+    } Z_TEST_END;
 } Z_GROUP_END;
 
 /* }}} */

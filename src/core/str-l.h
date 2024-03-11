@@ -92,12 +92,22 @@ lstr_t mp_lstr_init(mem_pool_t * nullable mp, const void * nullable s, int len)
 
 /** Initialize a lstr_t from the content of a file.
  *
- * The function takes the prot and the flags to be passed to the mmap call.
+ * This functions opens the file under \p path then calls \ref
+ * lstr_init_from_fd. See \ref lstr_init_from_fd for details and limitations.
  */
 int lstr_init_from_file(lstr_t * nonnull dst, const char * nonnull path,
                         int prot, int flags);
 
 /** Initialize a lstr_t from the content of a file pointed by a fd.
+ *
+ * The function takes the \c mmap \p prot and the \p flags as it will try to
+ * use \c mmap primarily. However, it may fallback on \c malloc and basic
+ * \c read calls if the underlying FS doesn't support \c mmap (pipes, /proc,
+ * …). Underlying changes to the file may or may not update the resulting
+ * \ref lstr_t, both possibilities must be expected.
+ *
+ * To check whether \c mmap is being used, users can check if the \c mem_pool
+ * member of \p dst is set to \ref MEM_MMAP.
  */
 int lstr_init_from_fd(lstr_t * nonnull dst, int fd, int prot, int flags);
 

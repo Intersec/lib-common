@@ -682,7 +682,19 @@ struct sockaddr;
 int sb_getline(sb_t * nonnull sb, FILE * nonnull f) __leaf;
 int sb_fread(sb_t * nonnull sb, int size, int nmemb,
              FILE * nonnull f) __leaf;
+
+/* Read a whole file using a file descriptor.
+ *
+ * This function insists on reading a complete file. If the file cannot be
+ * read completely, no data is kept in the sb and an error is returned. It
+ * also supports reading from pipes, fifos, and virtual file systems like
+ * /proc or /sys.
+ *
+ * Return the number of bytes appended to the sb, negative value indicates an
+ * error.
+ */
 int sb_read_fd(sb_t * nonnull sb, int fd) __leaf;
+
 int sb_read_file(sb_t * nonnull sb, const char * nonnull filename) __leaf;
 int sb_write_file(const sb_t * nonnull sb,
                   const char * nonnull filename) __leaf;

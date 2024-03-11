@@ -509,44 +509,40 @@ int sb_fread(sb_t *sb, int size, int nmemb, FILE *f)
     return res;
 }
 
-/* Return the number of bytes appended to the sb, negative value
- * indicates an error.
- * OG: this function insists on reading a complete file.  If the file
- * cannot be read completely, no data is kept in the sb and an error
- * is returned.
- */
 int sb_read_fd(sb_t *sb, int fd)
 {
     sb_t orig = *sb;
     struct stat st;
-    char *buf;
-    int res;
+    int sz_hint = 0;
 
-    if (fstat(fd, &st) < 0 || st.st_size <= 0) {
-        for (;;) {
-            res = sb_read(sb, fd, 0);
-
-            if (res < 0) {
-                return __sb_rewind_adds(sb, &orig);
-            }
-            if (res == 0) {
-                return sb->len - orig.len;
-            }
+    if (fstat(fd, &st) >= 0 && st.st_size > 0) {
+        if (st.st_size > (ssize_t)MEM_ALLOC_MAX) {
+            errno = ENOMEM;
+            return -1;
         }
+        /* We can only use st.st_size to pre-allocate the estimated size of
+         * the content, and thus improve the read() efficiency. Pipes and
+         * fifos should return a st.st_size of 0 and virtual file systems like
+         * /proc and /sys can either return 0 or a non-zero size that would
+         * not match the actual size of the file.
+         */
+        sz_hint = st.st_size;
     }
 
-    if (st.st_size > INT_MAX) {
-        errno = ENOMEM;
-        return -1;
-    }
+    for (;;) {
+        int res = sb_read(sb, fd, sz_hint);
 
-    res = st.st_size;
-    buf = sb_growlen(sb, res);
-    if (xread(fd, buf, res) < 0) {
-        return __sb_rewind_adds(sb, &orig);
+        if (res < 0) {
+            if (ERR_RW_RETRIABLE(errno)) {
+                continue;
+            }
+            return __sb_rewind_adds(sb, &orig);
+        }
+        if (res == 0) {
+            return sb->len - orig.len;
+        }
+        sz_hint = MAX(0, sz_hint - res);
     }
-
-    return res;
 }
 
 int sb_read_file(sb_t *sb, const char *filename)
