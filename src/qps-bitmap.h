@@ -137,11 +137,21 @@ qps_bitmap_init(qps_bitmap_t *map, qps_t *qps, qps_handle_t handle)
 /* {{{ Bitmap enumerator */
 
 typedef struct qps_bitmap_enumerator_t {
-    qps_bitmap_t *map;
+    /* The layout here starts the same way as qhat_tree_enumerator_t, so
+     * we can easily access some properties of the enumerator like the key or
+     * end variable without the hassle to synchronize things. */
     qps_bitmap_key_t key;
     bool end;
+
+    /* This value is there to provide compatibility with
+     * 'qhat_enumerator_t', as the QPS bitmap is also used as a
+     * presence data structure for nullable QPS hat entries. */
+    bool reserved;
+
     bool value;
     bool is_nullable;
+
+    qps_bitmap_t *map;
 
     const uint64_t *leaf;
     const qps_bitmap_dispatch_t *dispatch;

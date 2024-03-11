@@ -669,27 +669,29 @@ qhat_tree_enumerator_t qhat_get_tree_enumerator(qhat_t *hat)
  * - #qhat_enumerator_go_to
  * - #qhat_enumerator_get_path
  * - #qhat_enumerator_get_value_safe
- * - #qhat_get_enumeration_value
+ * - #qhat_enumerator_get_value_unsafe
  *
  * Its public attributes are the following:
  * - #end true when the enumerator is done.
  * - #key current key for the enumerator (if not done).
- * - #value pointer to the value associated to the current key (if the value
- *   update was asked while using #qhat_enumerator_go_to or
- *   #qhat_enumerator_next).
  *
  * The other attributes are private and should not be used.
  */
 typedef union qhat_enumerator_t {
+    /* XXX The layout of this structure must be the same way as
+     * qhat_tree_enumerator_t and qps_bitmap_enumerator_t. */
     struct {
-        uint32_t    key;
-        bool        end;
-        bool        is_nullable;
-        /* 2 bytes padding */
-
-        qhat_tree_enumerator_t  trie;
-        qps_bitmap_enumerator_t bitmap;
+        uint32_t key;
+        bool end;
+        bool is_nullable;
     };
+    /* Nullable qhat. */
+    struct {
+        qps_bitmap_enumerator_t bitmap;
+        qhat_tree_enumerator_t trie;
+    };
+
+    /* Non-nullable qhat. */
     qhat_tree_enumerator_t t;
 } qhat_enumerator_t;
 
