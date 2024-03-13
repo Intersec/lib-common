@@ -179,6 +179,7 @@ struct {
     qv_t(qps_index_vec_type) snap_free_list;/* Like above, after snapshots. */
 
     struct {
+        bool opt_end_app;
         lstr_t file_content;
         ctype_desc_t sep;
         pstream_t ps;
@@ -193,6 +194,9 @@ static popt_t qpsstress_popt_g[] = {
     OPT_FLAG('o', "old-alloc", &_G.opt_old_alloc_strategy, "go back "
              "to the legacy allocation strategy for handles (less "
              "stimulation on QPS allocator)"),
+    OPT_FLAG('e', "end-app-after-replay", &_G.replay.opt_end_app, "stop the "
+             "application at the end of a replay (no random events "
+             "afterwards)"),
     OPT_END(),
 };
 
@@ -1718,6 +1722,8 @@ int main(int argc, char **argv)
         if (replay) {
             s = replay->step;
             run_step(replay->step, &replay->instr);
+        } else if (_G.replay.opt_end_app) {
+            break;
         } else {
             qpsstress_instr_t instr;
 
@@ -1733,8 +1739,10 @@ int main(int argc, char **argv)
         check_qps();
     }
 
-    MODULE_RELEASE(qps);
+    qps_close(&_G.qps);
     end_replay();
     destroy_qpsstress_vectors();
+
+    MODULE_RELEASE(qps);
     return 0;
 }
