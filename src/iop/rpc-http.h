@@ -600,6 +600,9 @@ struct http_iop_msg_t {
      *
      * If not set, then it will use the user/pwd in http_iop_channel_t,
      * if they exist.
+     *
+     * XXX http_iop_msg owns user and password, thus handle the deallocation.
+     *     You should allocate the memory when setting them.
      */
     lstr_t user;
     lstr_t password;
@@ -640,6 +643,9 @@ struct http_iop_channel_t {
     /** Query authentication.
      *
      * Used when the user/pwd is not set in http_iop_msg_t.
+     *
+     * XXX http_iop_channel owns user and password, thus handle the
+     *     deallocation. You should allocate the memory when setting them.
      */
     lstr_t user;
     lstr_t password;

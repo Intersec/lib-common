@@ -42,6 +42,8 @@ static http_iop_msg_t *http_iop_msg_init(http_iop_msg_t *query)
 static void http_iop_msg_wipe(http_iop_msg_t *query)
 {
     httpc_query_wipe(&query->query);
+    lstr_wipe(&query->user);
+    lstr_wipe(&query->password);
     p_delete(&query->args);
 }
 
