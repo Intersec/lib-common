@@ -348,9 +348,9 @@ static size_t qps_pg_blk_remove(qps_t *qps, qps_pg_t blk)
     return hdr->size;
 }
 
-static int qps_pg_check_hdrs_aux(qps_t *qps, qps_pg_t blk, bool fatal)
+static int qps_pg_check_map_hdrs(qps_t *qps, uint32_t mapno, bool fatal)
 {
-    qps_pghdr_t *hdrs = qps->hdrs + (blk & 0xffff0000);
+    qps_pghdr_t *hdrs = qps->hdrs + mapno * QPS_MAP_PAGES;
 
     CHECK(qps, !(hdrs[0].flags & QPS_BLK_FREE));
     CHECK(qps, hdrs[0].size == 1);
@@ -380,7 +380,7 @@ static void qps_pg_check_hdrs(qps_t *qps)
         qps_map_t *map = qps->maps.tab[i];
 
         if (map && qps_map_is_pg(map)) {
-            qps_pg_check_hdrs_aux(qps, i << 16, true);
+            qps_pg_check_map_hdrs(qps, i, true);
         }
     }
 #endif
@@ -732,7 +732,7 @@ int __qps_check_maps(qps_t *qps, bool fatal)
             continue;
         }
         if (qps_map_is_pg(map)) {
-            RETHROW(qps_pg_check_hdrs_aux(qps, i << 16, fatal));
+            RETHROW(qps_pg_check_map_hdrs(qps, i, fatal));
         } else {
             RETHROW(qps_m_check_map(qps, map, fatal));
         }
@@ -1670,7 +1670,7 @@ ok_unmap:
             if (!m) {
                 continue;
             } else if (qps_map_is_pg(m)) {
-                ret = qps_pg_check_hdrs_aux(qps, m->hdr.mapno << 16, false);
+                ret = qps_pg_check_map_hdrs(qps, m->hdr.mapno, false);
             } else {
                 ret = qps_m_check_map(qps, m, false);
                 qps_m_malloclike_map(qps, map);
