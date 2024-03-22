@@ -101,7 +101,7 @@ static void iopc_dump_import(sb_t *buf, const iopc_pkg_t *dep,
         return;
     }
 
-    sb_addf(buf, "import * as %s from \"iop/%s.iop\";\n",
+    sb_addf(buf, "import * as %s from 'iop/%s.iop';\n",
             pp_under(dep->name), pp_path(dep->name));
 }
 
@@ -178,14 +178,14 @@ static void iopc_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
         }
         if (import_struct || import_base_class || import_union) {
             sb_adds(buf, "import { ");
-            if (import_struct) {
-                sb_adds(buf, "StructModel");
-            }
             if (import_base_class) {
-                if (import_struct) {
+                sb_adds(buf, "ClassModel");
+            }
+            if (import_struct) {
+                if (import_base_class) {
                     sb_adds(buf, ", ");
                 }
-                sb_adds(buf, "ClassModel");
+                sb_adds(buf, "StructModel");
             }
             if (import_union) {
                 if (import_struct || import_base_class) {
