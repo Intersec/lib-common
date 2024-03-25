@@ -1,0 +1,5 @@
+# This file contains the base name of the branch targeted on gerrit.
+# The branch name will be used to match either the “main” branch (for example
+# 2014.3) or any “feature” branch matching the pattern: `f/<branch>/<suffix>`
+# (for example f/2014.3/my-feature).
+master
