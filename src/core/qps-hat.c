@@ -1657,7 +1657,7 @@ void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
 }
 
 /* Only for nullable QPS hats. */
-static void qhat_enumerator_catchup(qhat_enumerator_t *en, bool safe)
+static void qhat_enumerator_nu_catchup(qhat_enumerator_t *en, bool safe)
 {
     assert(en->is_nullable);
 
@@ -1665,14 +1665,14 @@ static void qhat_enumerator_catchup(qhat_enumerator_t *en, bool safe)
         return;
     }
 
-    /* We can have 'en->trie.key != en->key' because the tree enumerator
+    /* We can have 'en->nu_trie.key != en->key' because the tree enumerator
      * is kept untouched as long as we don't need the associated value:
      * the bitmap is sufficient if we only want to iterate on the keys. */
 
-    if (!en->trie.end && en->trie.key < en->key) {
+    if (!en->nu_trie.end && en->nu_trie.key < en->key) {
         /* Make the tree enumerator catchup with the bitmap enumerator so
          * that we can get or update the associated value. */
-        qhat_tree_enumerator_go_to(&en->trie, en->key, safe);
+        qhat_tree_enumerator_go_to(&en->nu_trie, en->key, safe);
     }
 }
 
@@ -1682,7 +1682,7 @@ void qhat_enumerator_next(qhat_enumerator_t *en, bool safe)
         assert (!en->bitmap.map->root->is_nullable);
         qps_bitmap_enumerator_next_nn(&en->bitmap, safe);
     } else {
-        qhat_tree_enumerator_next(&en->t, safe);
+        qhat_tree_enumerator_next(&en->nn_trie, safe);
     }
 }
 
@@ -1695,10 +1695,10 @@ qhat_enumerator_t qhat_get_enumerator_at(qhat_t *trie, uint32_t key)
     p_clear(&en, 1);
     if (trie->root->is_nullable) {
         en.bitmap = qps_bitmap_get_enumerator_at(&trie->bitmap, key);
-        en.trie = qhat_get_tree_enumerator_at(trie, key);
+        en.nu_trie = qhat_get_tree_enumerator_at(trie, key);
         en.is_nullable = true;
     } else {
-        en.t = qhat_get_tree_enumerator_at(trie, key);
+        en.nn_trie = qhat_get_tree_enumerator_at(trie, key);
     }
     return en;
 }
@@ -1709,19 +1709,19 @@ qhat_enumerator_t qhat_get_enumerator(qhat_t *trie)
 
     /* 'key' field. */
     STATIC_ASSERT(offsetof(qhat_enumerator_t, key) ==
-                  offsetof(qhat_enumerator_t, t.key));
+                  offsetof(qhat_enumerator_t, nn_trie.key));
     STATIC_ASSERT(offsetof(qhat_enumerator_t, key) ==
                   offsetof(qhat_enumerator_t, bitmap.key));
 
     /* 'end' field. */
     STATIC_ASSERT(offsetof(qhat_enumerator_t, end) ==
-                  offsetof(qhat_enumerator_t, t.end));
+                  offsetof(qhat_enumerator_t, nn_trie.end));
     STATIC_ASSERT(offsetof(qhat_enumerator_t, end) ==
                   offsetof(qhat_enumerator_t, bitmap.end));
 
     /* 'is_nullable' field. */
     STATIC_ASSERT(offsetof(qhat_enumerator_t, is_nullable) ==
-                  offsetof(qhat_enumerator_t, t.is_nullable));
+                  offsetof(qhat_enumerator_t, nn_trie.is_nullable));
     STATIC_ASSERT(offsetof(qhat_enumerator_t, is_nullable) ==
                   offsetof(qhat_enumerator_t, bitmap.reserved));
 
@@ -1742,16 +1742,16 @@ void qhat_enumerator_go_to(qhat_enumerator_t *en, uint32_t key, bool safe)
         assert (!en->bitmap.map->root->is_nullable);
         qps_bitmap_enumerator_go_to_nn(&en->bitmap, key, safe);
     } else {
-        qhat_tree_enumerator_go_to(&en->t, key, safe);
+        qhat_tree_enumerator_go_to(&en->nn_trie, key, safe);
     }
 }
 
 static const void *qhat_enumerator_get_value(qhat_enumerator_t *en, bool safe)
 {
     if (en->is_nullable) {
-        if (!en->end && en->trie.key != en->key) {
-            qhat_enumerator_catchup(en, safe);
-            if (en->end || en->trie.key != en->key) {
+        if (!en->end && en->nu_trie.key != en->key) {
+            qhat_enumerator_nu_catchup(en, safe);
+            if (en->end || en->nu_trie.key != en->key) {
                 /* The value is present in the bitmap but not in the trie, so
                  * it has to be zero, which is not allowed in the trie. */
                 return &qhat_default_zero_g;
@@ -1759,11 +1759,11 @@ static const void *qhat_enumerator_get_value(qhat_enumerator_t *en, bool safe)
 
             /* XXX No need for the 'safe' get_value() if we already did the
              * 'safe' catchup. */
-            return qhat_tree_enumerator_get_value(&en->trie, false);
+            return qhat_tree_enumerator_get_value(&en->nu_trie, false);
         } else {
             const void *value;
 
-            value = qhat_tree_enumerator_get_value(&en->trie, safe);
+            value = qhat_tree_enumerator_get_value(&en->nu_trie, safe);
             if (value == NULL) {
                 return &qhat_default_zero_g;
             }
@@ -1771,7 +1771,7 @@ static const void *qhat_enumerator_get_value(qhat_enumerator_t *en, bool safe)
             return value;
         }
     } else {
-        return qhat_tree_enumerator_get_value(&en->t, safe);
+        return qhat_tree_enumerator_get_value(&en->nn_trie, safe);
     }
 }
 
@@ -1791,7 +1791,7 @@ qhat_path_t qhat_enumerator_get_path(const qhat_enumerator_t *en)
     qhat_path_t p;
     const qhat_tree_enumerator_t *tree_en;
 
-    tree_en = en->is_nullable ? &en->trie : &en->t;
+    tree_en = en->is_nullable ? &en->nu_trie : &en->nn_trie;
     if (tree_en->end || en->key != tree_en->key) {
         /* Conditions explanation:
          *

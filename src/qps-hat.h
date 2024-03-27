@@ -693,11 +693,11 @@ typedef union qhat_enumerator_t {
     /* Nullable qhat. */
     struct {
         qps_bitmap_enumerator_t bitmap;
-        qhat_tree_enumerator_t trie;
+        qhat_tree_enumerator_t nu_trie;
     };
 
     /* Non-nullable qhat. */
-    qhat_tree_enumerator_t t;
+    qhat_tree_enumerator_t nn_trie;
 } qhat_enumerator_t;
 
 /** Tell if the enumerator is synchronized with the QHAT.
@@ -712,9 +712,9 @@ static ALWAYS_INLINE bool qhat_enumerator_is_sync(const qhat_enumerator_t *en)
 {
     if (en->is_nullable) {
         return qps_bitmap_enumerator_is_sync(&en->bitmap) &&
-            qhat_tree_enumerator_is_sync(&en->trie);
+            qhat_tree_enumerator_is_sync(&en->nu_trie);
     }
-    return qhat_tree_enumerator_is_sync(&en->t);
+    return qhat_tree_enumerator_is_sync(&en->nn_trie);
 }
 
 /** Move the enumerator to the next key of the qhat.
@@ -768,9 +768,9 @@ static ALWAYS_INLINE
 qhat_t *qhat_enumerator_get_hat(qhat_enumerator_t *en)
 {
     if (en->is_nullable) {
-        return en->trie.path.hat;
+        return en->nu_trie.path.hat;
     } else {
-        return en->t.path.hat;
+        return en->nn_trie.path.hat;
     }
 }
 

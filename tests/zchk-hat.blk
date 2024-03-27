@@ -476,7 +476,7 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
     }
 
     en = qhat_get_enumerator_at(&trie, rm_key);
-    Z_ASSERT_EQ(en.t.compact, want_compact,
+    Z_ASSERT_EQ(en.nn_trie.compact, want_compact,
                 "unexpected leaf type for the key to remove");
 
     /* Remove the element pointed by the enumerator. */
@@ -488,7 +488,7 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
         for (int i = first_limit; i < second_limit; i += step) {
             *(uint32_t *)qhat_set(&trie, i) = i;
         }
-        Z_ASSERT(en.t.path.gen.s.struct_gen != trie.gen.s.struct_gen,
+        Z_ASSERT(en.nn_trie.path.gen.s.struct_gen != trie.gen.s.struct_gen,
                  "hat structure unchanged");
     }
 
@@ -501,7 +501,7 @@ z_nr_en_val_after_rm(qps_t *qps, bool want_compact, bool want_struct_change)
     /* }}} */
     /* {{{ Second attempt. */
 
-    Z_ASSERT(en.t.path.gen.s.struct_gen == trie.gen.s.struct_gen,
+    Z_ASSERT(en.nn_trie.path.gen.s.struct_gen == trie.gen.s.struct_gen,
              "hat structure unexpectedly updated after "
              "'qhat_enumerator_get_value_safe()'");
 
@@ -974,7 +974,7 @@ Z_GROUP_EXPORT(qps_hat) {
         /* Get the value after the trie structure has changed. */
         en = qhat_get_enumerator_at(&trie, 80);
         for (int i = 100;; i++) {
-            if (!qhat_path_is_sync(&en.t.path)) {
+            if (!qhat_path_is_sync(&en.nn_trie.path)) {
                 /* The trie structure has changed. Stop now. */
                 break;
             }
@@ -1022,7 +1022,7 @@ Z_GROUP_EXPORT(qps_hat) {
             qhat_enumerator_next(&en, true);
             /* Check path is still sync after next operation (until we have
              * reached the end of the trie). */
-            Z_ASSERT(qhat_path_is_sync(&en.t.path) || en.end == true,
+            Z_ASSERT(qhat_path_is_sync(&en.nn_trie.path) || en.end == true,
                      "enumerator still out-of-sync after 'next'");
         }
 
@@ -1052,7 +1052,7 @@ Z_GROUP_EXPORT(qps_hat) {
 
         /* Keep adding entries until the structure of the trie changes. */
         for (int i = 100;; i++) {
-            if (!qhat_path_is_sync(&en.t.path)) {
+            if (!qhat_path_is_sync(&en.nn_trie.path)) {
                 /* The trie structure has changed. Stop now. */
                 break;
             }
@@ -1287,11 +1287,11 @@ Z_GROUP_EXPORT(qps_hat) {
         *(int16_t *)qhat_set(&trie, 2) = 2;
         en = qhat_get_enumerator_at(&trie, 2);
         /* XXX The bug happens only with compacts. */
-        Z_ASSERT(en.t.compact);
+        Z_ASSERT(en.nn_trie.compact);
         /* Remove the last value. */
         qhat_remove(&trie, 2, NULL);
         v = qhat_enumerator_get_value_safe(&en);
-        Z_ASSERT(en.t.compact);
+        Z_ASSERT(en.nn_trie.compact);
         Z_ASSERT_EQ(*v, 0u);
     } Z_TEST_END;
 
