@@ -19,6 +19,6 @@
 #include <lib-common/iop.h>
 #include "tstiop2.iop.h"
 
-IOP_EXPORT_PACKAGES_COMMON;
+IOP_EXPORT_PACKAGES_COMMON(0, NULL);
 IOP_USE_EXTERNAL_PACKAGES;
 IOP_EXPORT_PACKAGES(&tstiop2__pkg);

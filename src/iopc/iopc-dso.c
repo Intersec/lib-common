@@ -240,7 +240,7 @@ int iopc_dso_build(const char *pfxdir, bool display_pfx,
     qv_append(&sources, p_strdup(path));
 
     sb_addf(&sb, "#include \"%*pM.h\"\n", LSTR_FMT_ARG(pkgpath));
-    sb_adds(&sb, "IOP_EXPORT_PACKAGES_COMMON;\n");
+    sb_adds(&sb, "IOP_EXPORT_PACKAGES_COMMON(0, NULL);\n");
     sb_adds(&sb, "IOP_USE_EXTERNAL_PACKAGES;\n");
     sb_addf(&sb, "IOP_EXPORT_PACKAGES(&%*pM__pkg);\n", LSTR_FMT_ARG(pkgname));
 

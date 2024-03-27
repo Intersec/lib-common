@@ -20,7 +20,12 @@
 #include <lib-common/iop/ic.iop.h>
 #include "zchk-iop-ressources.h"
 
-IOP_EXPORT_PACKAGES_COMMON;
+static bool zchk_iop_plugin_user_version_check(uint32_t user_version)
+{
+    return user_version == 42;
+}
+
+IOP_EXPORT_PACKAGES_COMMON(42, &zchk_iop_plugin_user_version_check);
 
 IOP_EXPORT_PACKAGES(&ic__pkg);
 

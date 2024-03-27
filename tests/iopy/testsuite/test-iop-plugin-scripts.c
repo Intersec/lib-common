@@ -25,7 +25,7 @@
 #include "test_1_2.fc.c"
 #include "test_3.fc.c"
 
-IOP_EXPORT_PACKAGES_COMMON;
+IOP_EXPORT_PACKAGES_COMMON(0, NULL);
 
 IOP_EXPORT_PACKAGES(&test__pkg, &ic__pkg, &core__pkg);
 

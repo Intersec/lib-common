@@ -40,6 +40,8 @@ typedef struct iop_dso_t {
     lstr_t            path;
     Lmid_t            lmid;
     uint32_t          version;
+    uint32_t          user_version;
+    iop_dso_user_version_cb_f *nullable user_version_cb;
 
     qm_t(iop_pkg)     pkg_h;
     qm_t(iop_enum)    enum_h;

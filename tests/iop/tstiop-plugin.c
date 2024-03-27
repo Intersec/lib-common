@@ -20,6 +20,6 @@
 #include "tstiop.iop.h"
 #include "tstiop_inheritance.iop.h"
 
-IOP_EXPORT_PACKAGES_COMMON;
+IOP_EXPORT_PACKAGES_COMMON(0, NULL);
 
 IOP_EXPORT_PACKAGES(&tstiop__pkg, &tstiop_inheritance__pkg);

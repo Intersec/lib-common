@@ -695,9 +695,28 @@ typedef struct iop_dso_vt_t {
     EXPORT uint32_t iop_dso_version;                                    \
     uint32_t iop_dso_version = IOP_DSO_CURRENT_VERSION;
 
-#define IOP_EXPORT_PACKAGES_COMMON \
+typedef bool (iop_dso_user_version_cb_f)(uint32_t user_version);
+#define IOP_EXPORT_USER_VERSION(user_version, user_version_cb) \
+    EXPORT uint32_t iop_dso_user_version;                                    \
+    uint32_t iop_dso_user_version = (user_version);                          \
+    EXPORT iop_dso_user_version_cb_f *iop_dso_user_version_cb;               \
+    iop_dso_user_version_cb_f *iop_dso_user_version_cb = (user_version_cb)
+
+/** Common exports required to make an IOP DSO.
+ *
+ * \param[in]  user_version
+ *     User defined version that will be stored in the DSO for runtime
+ *     retrieval. It is mainly intended for the IChannel library, \see
+ *     ic_set_user_version. Should be set to 0 if user versioning isn't used.
+ * \param[in]  user_version_cb
+ *    User defined callback used for version compatibility checking. It is
+ *    also intended for the IChannel library, \see ic_set_user_version. Should
+ *    be set to NULL if user versioning isn't used.
+ */
+#define IOP_EXPORT_PACKAGES_COMMON(user_version, user_version_cb) \
     IOP_EXPORT_PACKAGES_VTABLE                                          \
     IOP_EXPORT_DSO_VERSION                                              \
+    IOP_EXPORT_USER_VERSION(user_version, user_version_cb);             \
     iop_struct_t const iop__void__s = {                                 \
         .fullname   = LSTR_IMMED("Void"),                               \
         .fields_len = 0,                                                \

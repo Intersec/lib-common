@@ -346,6 +346,8 @@ iop_dso_t *iop_dso_load_handle(void *handle, const char *path,
     iop_dso_vt_t *dso_vt;
     iop_pkg_t **pkgp;
     uint32_t *versionp = dlsym(handle, "iop_dso_version");
+    uint32_t *user_version_p;
+    iop_dso_user_version_cb_f **user_version_cb_p;
 
     dso = qm_get_def(iop_dso_by_handle, &_G.dsos_by_handle, handle, NULL);
     if (dso) {
@@ -375,6 +377,9 @@ iop_dso_t *iop_dso_load_handle(void *handle, const char *path,
         return NULL;
     }
 
+    user_version_p = dlsym(handle, "iop_dso_user_version");
+    user_version_cb_p = dlsym(handle, "iop_dso_user_version_cb");
+
     dso = iop_dso_new();
     dso->path = lstr_dups(path, -1);
     dso->handle = handle;
@@ -382,6 +387,8 @@ iop_dso_t *iop_dso_load_handle(void *handle, const char *path,
     dso->version = versionp ? *versionp : 0;
     dso->use_external_packages = !!dlsym(handle, "iop_use_external_packages");
     dso->dont_replace_fix_pkg = !!dlsym(handle, "iop_dont_replace_fix_pkg");
+    dso->user_version = user_version_p ? *user_version_p : 0;
+    dso->user_version_cb = user_version_cb_p ? *user_version_cb_p : NULL;
 
     e_trace(1, "open new dso %p (%*pM)", dso, LSTR_FMT_ARG(dso->path));
 
