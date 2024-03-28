@@ -2951,7 +2951,7 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
     }
 
     /* Check for custom user version compatibility. */
-    if (_G.user_version_check_cb &&
+    if (!ic->is_unix && _G.user_version_check_cb &&
         !(*_G.user_version_check_cb)(user_version))
     {
         logger_warning(&_G.logger, "remote user version %u is incompatible"
