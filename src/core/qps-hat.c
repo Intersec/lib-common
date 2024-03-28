@@ -1539,14 +1539,12 @@ static void qhat_tree_enumerator_find_entry_from(qhat_tree_enumerator_t *en,
     qhat_tree_enumerator_find_entry(en);
 }
 
-/* Guaranteed to either enter a leaf or end the enumerator. */
-static void qhat_tree_enumerator_find_up_down(qhat_tree_enumerator_t *en,
-                                              uint32_t key)
-{
-    qhat_tree_enumerator_find_root(en, key);
-}
-
-static void qhat_tree_enumerator_find_down_up(qhat_tree_enumerator_t *en,
+/** Look for an entry, starting from the current position.
+ *
+ * This function is faster than 'qhat_tree_enumerator_find()' because it tries
+ * to scan the minimum part of the tree to reach the target key.
+ */
+static void qhat_tree_enumerator_find_forward(qhat_tree_enumerator_t *en,
                                               uint32_t key)
 {
     qhat_t  *hat        = en->path.hat;
@@ -1584,7 +1582,7 @@ static void qhat_tree_enumerator_find_down_up(qhat_tree_enumerator_t *en,
         qhat_tree_enumerator_find_entry_from(en, key);
     } else
     if (qhat_get_key_bits(hat, diff, 0)) {
-        qhat_tree_enumerator_find_root(en, key);
+        qhat_tree_enumerator_find(en, key);
     } else
     if (en->path.depth >= 1 && qhat_get_key_bits(hat, diff, 1)) {
         en->path.depth = 0;
@@ -1643,7 +1641,7 @@ void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
     en->key_was_removed = false;
     if (safe) {
         if (unlikely(!qhat_path_is_sync(&en->path))) {
-            qhat_tree_enumerator_find_up_down(en, key);
+            qhat_tree_enumerator_find(en, key);
             return;
         }
 
@@ -1653,7 +1651,7 @@ void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
         assert(qhat_path_is_fully_sync(&en->path));
     }
 
-    qhat_tree_enumerator_find_down_up(en, key);
+    qhat_tree_enumerator_find_forward(en, key);
 }
 
 /* Only for nullable QPS hats.
@@ -1673,7 +1671,7 @@ static void qhat_enumerator_nu_catchup(qhat_enumerator_t *en, bool safe)
             /* XXX Some new entries might have been added to the trie after
              * the current key so it might not be ended anymore. */
             en->nu_trie.end = false;
-            qhat_tree_enumerator_find_up_down(&en->nu_trie, en->key);
+            qhat_tree_enumerator_find(&en->nu_trie, en->key);
             return;
         }
     } else {
@@ -1845,7 +1843,7 @@ static void qhat_tree_enumerator_enter_leaf(qhat_tree_enumerator_t *en,
 }
 
 /* Guaranteed to either enter a leaf or end the enumerator. */
-void qhat_tree_enumerator_find_root(qhat_tree_enumerator_t *en, uint32_t key)
+void qhat_tree_enumerator_find(qhat_tree_enumerator_t *en, uint32_t key)
 {
     qhat_t *hat = en->path.hat;
     uint32_t root = qhat_get_key_bits(hat, key, 0);
@@ -1879,8 +1877,8 @@ void qhat_tree_enumerator_find_root(qhat_tree_enumerator_t *en, uint32_t key)
 }
 
 /* Guaranteed to either enter a leaf or end the enumerator. */
-void qhat_tree_enumerator_dispatch_up(qhat_tree_enumerator_t *en, uint32_t key,
-                                      uint32_t new_key)
+void qhat_tree_enumerator_dispatch_up(qhat_tree_enumerator_t *en,
+                                      uint32_t key, uint32_t new_key)
 {
     qhat_t  *hat = en->path.hat;
     uint32_t key_0 = qhat_get_key_bits(hat, key, 0);
@@ -1893,7 +1891,7 @@ void qhat_tree_enumerator_dispatch_up(qhat_tree_enumerator_t *en, uint32_t key,
         en->end = true;
     } else
     if (key_0 != new_key_0) {
-        qhat_tree_enumerator_find_root(en, new_key);
+        qhat_tree_enumerator_find(en, new_key);
     } else {
         if (key_1 != new_key_1) {
             en->path.depth = 0;
@@ -1943,8 +1941,7 @@ void qhat_tree_enumerator_find_node(qhat_tree_enumerator_t *en, uint32_t key)
 }
 
 __flatten
-qhat_tree_enumerator_t qhat_get_tree_enumerator_at(qhat_t *trie,
-                                                   uint32_t key)
+qhat_tree_enumerator_t qhat_get_tree_enumerator_at(qhat_t *trie, uint32_t key)
 {
     qhat_tree_enumerator_t en;
     qps_hptr_deref(trie->qps, &trie->root_cache);
@@ -1954,7 +1951,7 @@ qhat_tree_enumerator_t qhat_get_tree_enumerator_at(qhat_t *trie,
     en.value_len = en.path.hat->desc->value_len;
     en.is_nullable = en.path.hat->root->is_nullable;
 
-    qhat_tree_enumerator_find_up_down(&en, key);
+    qhat_tree_enumerator_find(&en, key);
 
     return en;
 }
@@ -1962,7 +1959,7 @@ qhat_tree_enumerator_t qhat_get_tree_enumerator_at(qhat_t *trie,
 /* Guaranteed to either enter a leaf or end the enumerator. */
 void qhat_tree_enumerator_refresh_path(qhat_tree_enumerator_t *en)
 {
-    qhat_tree_enumerator_find_up_down(en, en->key);
+    qhat_tree_enumerator_find(en, en->key);
 }
 
 

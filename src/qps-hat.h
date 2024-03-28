@@ -626,10 +626,10 @@ typedef struct qhat_tree_enumerator_t {
 qhat_tree_enumerator_t qhat_get_tree_enumerator_at(qhat_t *hat,
                                                    uint32_t key) __leaf;
 void qhat_tree_enumerator_refresh_path(qhat_tree_enumerator_t *en) __leaf;
-void qhat_tree_enumerator_dispatch_up(qhat_tree_enumerator_t *en, uint32_t key,
-                                      uint32_t new_key) __leaf;
-void qhat_tree_enumerator_find_root(qhat_tree_enumerator_t *en,
-                                    uint32_t key) __leaf;
+void qhat_tree_enumerator_dispatch_up(qhat_tree_enumerator_t *en,
+                                      uint32_t key, uint32_t new_key) __leaf;
+void qhat_tree_enumerator_find(qhat_tree_enumerator_t *en,
+                               uint32_t key) __leaf;
 void qhat_tree_enumerator_find_node(qhat_tree_enumerator_t *en,
                                     uint32_t key) __leaf;
 
