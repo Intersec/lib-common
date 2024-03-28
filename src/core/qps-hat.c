@@ -1429,10 +1429,7 @@ static ALWAYS_INLINE bool qhat_path_is_fully_sync(const qhat_path_t *path)
 const void *
 qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en)
 {
-    if (en->key_was_removed || en->end) {
-        /* Unexpected to happen when the enumerator is synchronized with the
-         * path. */
-        assert(en->end || en->key != en->path.key);
+    if (en->end) {
         return &qhat_default_zero_g;
     }
 
@@ -1474,6 +1471,9 @@ qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe)
         }
     } else {
         qhat_path_sync_write_access(&en->path);
+    }
+    if (en->key_was_removed) {
+        return &qhat_default_zero_g;
     }
 
     return qhat_tree_enumerator_get_value_unsafe(en);
