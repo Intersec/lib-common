@@ -1656,7 +1656,10 @@ void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
     qhat_tree_enumerator_find_down_up(en, key);
 }
 
-/* Only for nullable QPS hats. */
+/* Only for nullable QPS hats.
+ * Synchronize the trie enumerator with the qbitmap enumerator.
+ * We only do it if we want the value associated to the current key.
+ * Otherwise, the trie enumerator does not need to be updated. */
 static void qhat_enumerator_nu_catchup(qhat_enumerator_t *en, bool safe)
 {
     assert(en->is_nullable);
@@ -1665,15 +1668,27 @@ static void qhat_enumerator_nu_catchup(qhat_enumerator_t *en, bool safe)
         return;
     }
 
-    /* We can have 'en->nu_trie.key != en->key' because the tree enumerator
-     * is kept untouched as long as we don't need the associated value:
-     * the bitmap is sufficient if we only want to iterate on the keys. */
-
-    if (!en->nu_trie.end && en->nu_trie.key < en->key) {
-        /* Make the tree enumerator catchup with the bitmap enumerator so
-         * that we can get or update the associated value. */
-        qhat_tree_enumerator_go_to(&en->nu_trie, en->key, safe);
+    if (safe) {
+        if (!qhat_tree_enumerator_is_sync(&en->nu_trie)) {
+            /* XXX Some new entries might have been added to the trie after
+             * the current key so it might not be ended anymore. */
+            en->nu_trie.end = false;
+            qhat_tree_enumerator_find_up_down(&en->nu_trie, en->key);
+            return;
+        }
+    } else {
+        /* The caller should probably have used the safe version. */
+        assert(qhat_path_is_fully_sync(&en->nu_trie.path));
     }
+
+    if (en->nu_trie.key > en->key) {
+        /* The key is not in the trie. */
+        return;
+    }
+
+    /* Make the tree enumerator catchup with the bitmap enumerator so
+     * that we can get the associated value. */
+    qhat_tree_enumerator_go_to(&en->nu_trie, en->key, safe);
 }
 
 void qhat_enumerator_next(qhat_enumerator_t *en, bool safe)
@@ -1749,27 +1764,16 @@ void qhat_enumerator_go_to(qhat_enumerator_t *en, uint32_t key, bool safe)
 static const void *qhat_enumerator_get_value(qhat_enumerator_t *en, bool safe)
 {
     if (en->is_nullable) {
-        if (!en->end && en->nu_trie.key != en->key) {
-            qhat_enumerator_nu_catchup(en, safe);
-            if (en->end || en->nu_trie.key != en->key) {
-                /* The value is present in the bitmap but not in the trie, so
-                 * it has to be zero, which is not allowed in the trie. */
-                return &qhat_default_zero_g;
-            }
+        qhat_enumerator_nu_catchup(en, safe);
 
-            /* XXX No need for the 'safe' get_value() if we already did the
-             * 'safe' catchup. */
-            return qhat_tree_enumerator_get_value(&en->nu_trie, false);
-        } else {
-            const void *value;
-
-            value = qhat_tree_enumerator_get_value(&en->nu_trie, safe);
-            if (value == NULL) {
-                return &qhat_default_zero_g;
-            }
-
-            return value;
+        if (en->nu_trie.key != en->key) {
+            /* The value is present in the bitmap but not in the trie. */
+            return &qhat_default_zero_g;
         }
+
+        /* XXX No need for the 'safe' get_value() if we already did the
+         * 'safe' catchup. */
+        return qhat_tree_enumerator_get_value(&en->nu_trie, false);
     } else {
         return qhat_tree_enumerator_get_value(&en->nn_trie, safe);
     }

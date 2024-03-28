@@ -1454,6 +1454,36 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(nu_trie_end_reset, "") { /* {{{ */
+        qps_handle_t htrie;
+        qhat_t trie;
+        qhat_enumerator_t en;
+
+        Z_TEST_FLAGS("redmine_101097");
+
+        /* Fill a nullable qhat with the content: { 1: null }. */
+        htrie = qhat_create(qps, 4, true);
+        qhat_init(&trie, qps, htrie);
+        qhat_set0(&trie, 1, NULL);
+
+        /* Get a enumerator. It should be positioned on key 1 and the inner
+         * trie enumerator should be already done. */
+        en = qhat_get_enumerator(&trie);
+        Z_ASSERT_EQ(en.key, 1U);
+        Z_ASSERT(en.nu_trie.end);
+
+        /* Add the element { 2: 2 } and try to scan forward towards that new
+         * entry. */
+        *(uint32_t *)qhat_set(&trie, 2) = 2;
+        qhat_enumerator_next(&en, true);
+
+        /* We should reach the key 2 and the value should be 2 as well. */
+        Z_ASSERT_EQ(en.key, 2U);
+        Z_ASSERT_EQ(*(const uint32_t *)qhat_enumerator_get_value_safe(&en),
+                    2U);
+    } Z_TEST_END;
+
+    /* }}} */
 
     qps_close(&qps);
     MODULE_RELEASE(qps);
