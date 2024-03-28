@@ -1793,8 +1793,9 @@ qhat_enumerator_t qhat_get_enumerator_at(qhat_t *trie, uint32_t key)
     qhat_enumerator_t en;
 
     qps_hptr_deref(trie->qps, &trie->root_cache);
+
+    p_clear(&en, 1);
     if (trie->root->is_nullable) {
-        p_clear(&en, 1);
         en.trie = qhat_get_tree_enumerator_at(trie, key);
         en.bitmap = qps_bitmap_get_enumerator_at(&trie->bitmap, key);
         en.is_nullable = true;
