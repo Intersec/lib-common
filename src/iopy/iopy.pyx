@@ -10149,6 +10149,9 @@ cdef void plugin_load_dso(Plugin plugin, iop_dso_t *dso):
     while qhash_iter_next(&it):
         plugin_add_module(plugin, dso.mod_h.values[it.pos])
 
+    if dso.user_version or dso.user_version_cb:
+        ic_set_user_version(dso.user_version, dso.user_version_cb)
+
 
 cdef void plugin_add_package(Plugin plugin, const iop_pkg_t *pkg,
                              const iop_dso_t *dso):
