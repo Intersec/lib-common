@@ -272,6 +272,16 @@ static inline bool qhat_path_is_sync(const qhat_path_t *path)
     return path->gen.s.struct_gen == path->hat->gen.s.struct_gen;
 }
 
+/** Return 'false' if the QHAT has changed or could have changed independently
+ * from the 'qhat_path_t' object.
+ *
+ * This function is exposed for debugging purpose only.
+ */
+static ALWAYS_INLINE bool qhat_path_is_fully_sync(const qhat_path_t *path)
+{
+    return path->gen.hat_gen == path->hat->gen.hat_gen;
+}
+
 /** Increment the write access counter.
  *
  * Should be called after any write access in the QHAT, even if it had no

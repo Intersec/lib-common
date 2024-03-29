@@ -1419,12 +1419,6 @@ static ALWAYS_INLINE void qhat_path_sync_write_access(qhat_path_t *path)
 #endif
 }
 
-/** Return 'true' if the QHAT has changed or could have changed independently
- * from the 'qhat_path_t' object. */
-static ALWAYS_INLINE bool qhat_path_is_fully_sync(const qhat_path_t *path)
-{
-    return path->gen.hat_gen == path->hat->gen.hat_gen;
-}
 
 const void *
 qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en)

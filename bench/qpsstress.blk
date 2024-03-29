@@ -117,7 +117,10 @@ typedef struct {
 } qpsstress_replay_t;
 
 typedef union {
-    qhat_enumerator_t *hat_en;
+    struct {
+        qhat_enumerator_t *hat_en;
+        bool safe_en_needed;
+    };
     void *extra_info;
 } qps_obj_ctx_t;
 
@@ -163,6 +166,7 @@ static const char *qpsstress_usage_g = "QPS_PATH [REPLAY_FILE]\n\n"
 struct {
     const char *path;
     bool opt_help;
+    bool opt_protect_en_access;
     bool opt_old_alloc_strategy;
 
     qps_t *qps;
@@ -197,6 +201,10 @@ static popt_t qpsstress_popt_g[] = {
     OPT_FLAG('e', "end-app-after-replay", &_G.replay.opt_end_app, "stop the "
              "application at the end of a replay (no random events "
              "afterwards)"),
+    OPT_FLAG('s', "safe-en-after-insert-remove", &_G.opt_protect_en_access,
+             "perform only safe accesses on enumerators until next or "
+             "goto operation is triggered when keys are inserted/removed "
+             "(avoid partial sync leading to segfaults or asserts)"),
     OPT_END(),
 };
 
@@ -890,6 +898,48 @@ static void qobj_create(qpsstress_instr_t *instr)
                    create_qobj->is_nullable);
 }
 
+static inline void qhat_set_next_safe_en_access(qps_obj_t *hat_obj, bool safe)
+{
+    hat_obj->ctx.safe_en_needed = safe;
+}
+
+static inline void qhat_update_next_safe_en_access(qps_obj_t *hat_obj)
+{
+    qhat_enumerator_t *en;
+    bool next_safe;
+
+    if (!_G.opt_protect_en_access || !hat_obj->ctx.hat_en ||
+        hat_obj->ctx.safe_en_needed)
+    {
+        return;
+    }
+    en = hat_obj->ctx.hat_en;
+
+    /* We need to check the fully sync here from the Qhat path, as it is
+     * requested by Qhat even for a simple modification (without changing Qhat
+     * structure). */
+    if (en->is_nullable) {
+        next_safe = !(qps_bitmap_enumerator_is_sync(&en->bitmap) &&
+                    qhat_path_is_fully_sync(&en->nu_trie.path));
+    } else {
+        next_safe = !qhat_path_is_fully_sync(&en->nn_trie.path);
+    }
+    qhat_set_next_safe_en_access(hat_obj, next_safe);
+}
+
+static inline bool
+qhat_compute_en_safe_access(qps_obj_t *hat_obj, bool from_instr)
+{
+    if (_G.opt_protect_en_access) {
+        return hat_obj->ctx.safe_en_needed || from_instr;
+    }
+    /* If the option above is not requested, the random/replay can resync
+     * partially the enumerator and believe the access is ok, even if a
+     * failure may occur (path is synchronized but the enumerator is not until
+     * a full move with safe = true). */
+    return !qhat_enumerator_is_sync(hat_obj->ctx.hat_en) || from_instr;
+}
+
 static inline void qobj_add_key(qps_obj_type_t type, qps_handle_t h,
                                 uint32_t key, qps_obj_t *obj)
 {
@@ -992,6 +1042,10 @@ static void qobj_apply_mul_op(qpsstress_step_t step, qpsstress_instr_t *instr)
             break;
         }
     }
+
+    if (instr->obj_instr.type == QPS_QHAT) {
+        qhat_update_next_safe_en_access(obj);
+    }
 }
 
 #define DECLARE_QOBJ_MUL_OP_FUNC(_func, _step)                               \
@@ -1052,18 +1106,14 @@ static void qobj_delete(qpsstress_instr_t *instr)
     PERFORM_BASIC_QOBJ_OP(instr, QPS_OBJ_DELETE, destroy, true);
 }
 
-static qhat_t *get_qhat_obj_from_pos(int pos)
+static void qhat_reset_en_(qps_obj_t *hat_obj)
 {
-    return _G.vec_loaded_obj.tab[QPS_QHAT].tab[pos].hat;
+    *hat_obj->ctx.hat_en = qhat_get_enumerator(hat_obj->hat);
+    qhat_set_next_safe_en_access(hat_obj, false);
 }
 
-static void qhat_reset_en_(qpsstress_instr_t *instr, qhat_enumerator_t *en)
-{
-    *en = qhat_get_enumerator(get_qhat_obj_from_pos(instr->obj_instr.pos));
-}
-
-static qhat_enumerator_t *
-retrieve_qhat_en_from_handle(qpsstress_instr_t *instr)
+static qps_obj_t *
+retrieve_qhat_obj_with_en_from_handle(qpsstress_instr_t *instr)
 {
     qps_obj_t *hat_obj;
 
@@ -1073,41 +1123,40 @@ retrieve_qhat_en_from_handle(qpsstress_instr_t *instr)
 
     /* Check if enumerator structure has been allocated already or not. */
     if (hat_obj->ctx.hat_en == NULL) {
-        /* Allocate enumerator memory for this qhat and initialize it. */
+        /* Allocate memory enumerator for this qhat then initialize it. */
         hat_obj->ctx.hat_en = p_new_raw(qhat_enumerator_t, 1);
         p_clear(hat_obj->ctx.hat_en, 1);
 
-        qhat_reset_en_(instr, hat_obj->ctx.hat_en);
+        qhat_reset_en_(hat_obj);
     }
-    return hat_obj->ctx.hat_en;
+    return hat_obj;
 }
 
 static void qhat_reset_en(qpsstress_instr_t *instr)
 {
-    qhat_enumerator_t *en = retrieve_qhat_en_from_handle(instr);
+    qps_obj_t *hat_obj = retrieve_qhat_obj_with_en_from_handle(instr);
 
-    if (en) {
+    if (hat_obj) {
         log_before_step("step=%d (%s): h=%u", QPS_HAT_RESET_ENUMERATOR,
                         __FUNCTION__, instr->h);
-
-        qhat_reset_en_(instr, en);
+        qhat_reset_en_(hat_obj);
     }
 }
 
 static void qhat_mv_en(qpsstress_instr_t *instr)
 {
-    qhat_enumerator_t *en = retrieve_qhat_en_from_handle(instr);
+    qps_obj_t *hat_obj = retrieve_qhat_obj_with_en_from_handle(instr);
+    qhat_enumerator_t *en;
     qpsstress_obj_mv_en_t *move = &instr->obj_instr.move;
 
-    if (!en || en->end) {
+    if (!hat_obj || hat_obj->ctx.hat_en->end) {
         return;
     }
+    en = hat_obj->ctx.hat_en;
 
-    if (!move->safe && !qhat_enumerator_is_sync(en))
-    {
-        /* Override the access for a safe one, so we don't trigger asserts */
-        move->safe = true;
-    }
+    /* Override the access if necessary for a safe one, so we don't trigger
+     * asserts. */
+    move->safe = qhat_compute_en_safe_access(hat_obj, move->safe);
 
     log_before_step("step=%d (%s): h=%u, mv_count=%u, safe=%u",
                     QPS_HAT_MV_ENUMERATOR, __FUNCTION__, instr->h,
@@ -1117,7 +1166,7 @@ static void qhat_mv_en(qpsstress_instr_t *instr)
         qhat_enumerator_next(en, move->safe);
     }
 
-    if (en->key) {
+    if (!en->end) {
         qhat_path_t path = qhat_enumerator_get_path(en);
 
         check_qhat_slot_from_key(path.hat, instr->h, en->key);
@@ -1126,49 +1175,49 @@ static void qhat_mv_en(qpsstress_instr_t *instr)
 
 static void qhat_mv_en_to(qpsstress_instr_t *instr)
 {
-    qhat_enumerator_t *en = retrieve_qhat_en_from_handle(instr);
+    qps_obj_t *hat_obj = retrieve_qhat_obj_with_en_from_handle(instr);
+    qhat_enumerator_t *en;
+    bool safe;
 
-    if (!en || en->end) {
+    if (!hat_obj || hat_obj->ctx.hat_en->end) {
         return;
     }
+    en = hat_obj->ctx.hat_en;
+    safe = qhat_compute_en_safe_access(hat_obj, false);
 
     /* Restriction on key which should be bigger or with the same value. */
     restrict_change_key_value(en->key, &instr->obj_instr.key);
 
-    log_before_step("step=%d (%s): h=%u, key=%u", QPS_HAT_MV_ENUMERATOR_TO,
-                    __FUNCTION__, instr->h, instr->obj_instr.key);
+    log_before_step("step=%d (%s): h=%u, key=%u (safe=%d)",
+                    QPS_HAT_MV_ENUMERATOR_TO, __FUNCTION__, instr->h,
+                    instr->obj_instr.key, safe);
 
-    /* TODO: Safe version only for now (3nd parameter), should we do the
-     * unsafe version? */
-    qhat_enumerator_go_to(en, instr->obj_instr.key, true);
-
-    if (en->key && !en->end) {
+    qhat_enumerator_go_to(en, instr->obj_instr.key, safe);
+    if (!en->end) {
         qhat_path_t path = qhat_enumerator_get_path(en);
 
+        assert(en->key >= instr->obj_instr.key);
         check_qhat_slot_from_key(path.hat, instr->h, en->key);
     }
 }
 
 static void qhat_check_en(qpsstress_instr_t *instr)
 {
-    qhat_enumerator_t *en = retrieve_qhat_en_from_handle(instr);
+    qps_obj_t *hat_obj = retrieve_qhat_obj_with_en_from_handle(instr);
     qpsstress_obj_check_en_t *check = &instr->obj_instr.check;
+    qhat_enumerator_t *en;
 
-    if (!en || en->end) {
+    if (!hat_obj || hat_obj->ctx.hat_en->end) {
         return;
     }
-
-    if (!check->safe && !qhat_enumerator_is_sync(en))
-    {
-        /* Override the access for a safe one, so we don't trigger asserts */
-        check->safe = true;
-    }
+    en = hat_obj->ctx.hat_en;
+    check->safe = qhat_compute_en_safe_access(hat_obj, check->safe);
 
     log_before_step("step=%d (%s): h=%u, en_path=%d, safe=%d",
                     QPS_HAT_CHECK_ENUMERATOR, __FUNCTION__, instr->h,
                     check->en_path, check->safe);
 
-    if (instr->obj_instr.check.en_path) {
+    if (instr->obj_instr.check.en_path && !hat_obj->ctx.safe_en_needed) {
         qhat_path_t path = qhat_enumerator_get_path(en);
 
         check_qhat_slot_from_path(&path, instr->h);
@@ -1181,17 +1230,21 @@ static void qhat_check_en(qpsstress_instr_t *instr)
 
 static void qhat_set_current_en(qpsstress_instr_t *instr)
 {
-    qhat_enumerator_t *en = retrieve_qhat_en_from_handle(instr);
+    qps_obj_t *hat_obj = retrieve_qhat_obj_with_en_from_handle(instr);
+    qhat_enumerator_t *en;
     qhat_tree_enumerator_t *trie;
 
-    if (!en || en->end) {
+    if (!hat_obj || hat_obj->ctx.hat_en->end) {
         return;
     }
+    en = hat_obj->ctx.hat_en;
     trie = en->is_nullable ? &en->nu_trie : &en->nn_trie;
 
-    log_before_step("step=%d (%s): h=%u", QPS_HAT_SET_ENUMERATOR,
-                    __FUNCTION__, instr->h);
+    log_before_step("step=%d (%s): h=%u (safe=%d)", QPS_HAT_SET_ENUMERATOR,
+                    __FUNCTION__, instr->h,
+                    qhat_compute_en_safe_access(hat_obj, false));
     set_qhat_slot_from_key(trie->path.hat, instr->h, en->key);
+    qhat_update_next_safe_en_access(hat_obj);
 }
 
 static void qhat_req_compute_counts(qpsstress_instr_t *instr)
