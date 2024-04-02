@@ -1459,21 +1459,24 @@ qhat_tree_enumerator_get_value(qhat_tree_enumerator_t *en, bool safe)
     if (unlikely(!qhat_path_is_sync(&en->path))) {
         uint32_t key = en->key;
 
-        en->key_was_removed = false;
         qhat_tree_enumerator_refresh_path(en);
 
         if (unlikely(en->key != key)) {
-            /* The key was removed and 'refresh_path' went to the next one,
-             * but the tree enumerator should not go forward when getting a
-             * value. Reestablish the key. */
+            /* XXX The key was removed and 'refresh_path' went to the next
+             * one, but the tree enumerator should not go forward when getting
+             * a value. Reestablish the key and break the enumerator
+             * synchronization. This way, the enumerator will do a full lookup
+             * on next access. This is suboptimal but we do not care: a wise
+             * user should not be getting the value associated to a key he
+             * just removed anyway.
+             */
+            en->path.gen.s.struct_gen--;
             en->key = key;
-            en->key_was_removed = true;
+
+            return &qhat_default_zero_g;
         }
     } else {
         qhat_path_sync_write_access(&en->path);
-    }
-    if (en->key_was_removed) {
-        return &qhat_default_zero_g;
     }
 
     return qhat_tree_enumerator_get_value_unsafe(en);
@@ -1599,7 +1602,6 @@ static void qhat_tree_enumerator_find_forward(qhat_tree_enumerator_t *en,
 /* Similar to 'qhat_enumerator_next()' but only apply to the trie. */
 uint32_t qhat_tree_enumerator_next(qhat_tree_enumerator_t *en, bool safe)
 {
-    en->key_was_removed = false;
     if (safe) {
         if (unlikely(!qhat_path_is_sync(&en->path))) {
             en->key++;
@@ -1638,7 +1640,6 @@ void qhat_tree_enumerator_go_to(qhat_tree_enumerator_t *en, uint32_t key,
         qhat_tree_enumerator_next(en, safe);
         return;
     }
-    en->key_was_removed = false;
     if (safe) {
         if (unlikely(!qhat_path_is_sync(&en->path))) {
             qhat_tree_enumerator_find(en, key);

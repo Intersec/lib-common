@@ -614,11 +614,6 @@ typedef struct qhat_tree_enumerator_t {
      * added or removed in the qhat. */
     uint16_t count;
 
-    /* Set when we detect that the current key was removed from the compact
-     * that contained it. There is no other way to detect that it was removed.
-     */
-    bool key_was_removed;
-
     /* Current leaf of the enumerator, cached here for quicker access. */
     qhat_node_const_memory_t memory;
 } qhat_tree_enumerator_t;
