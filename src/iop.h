@@ -109,9 +109,6 @@ typedef struct iop_obj_t {
     const iop_struct_t *nullable ancestor;
 } iop_obj_t;
 
-/** Get an union/struct/class/enum from its fullname. */
-const iop_obj_t *nullable iop_get_obj(lstr_t fullname);
-
 qvector_t(iop_obj, iop_obj_t);
 qm_kvec_t(iop_objs, lstr_t, qv_t(iop_obj), qhash_lstr_hash, qhash_lstr_equal);
 qm_khptr_ckey_t(iop_dsos, iop_pkg_t, iop_dso_t * nonnull);
@@ -128,17 +125,24 @@ typedef struct iop_env_t {
     qm_t(iop_objs) iop_obj_by_fullname;
 } iop_env_t;
 
-/** Initialize an IOP environment. */
-iop_env_t * nonnull iop_env_init(iop_env_t * nonnull env);
+/** Create an IOP environment. */
+iop_env_t * nonnull iop_env_new(void);
 
-/** Wipe an IOP environment. */
-void iop_env_wipe(iop_env_t * nonnull env);
+/** Delete an IOP environment. */
+void iop_env_delete(iop_env_t * nullable  * nonnull iop_envp);
 
-/** Set the current global IOP environment from another one. */
-void iop_env_set(iop_env_t * nonnull env);
+/** Copy an IOP environment to another one. */
+void iop_env_copy(iop_env_t * nonnull dst, iop_env_t * nonnull src);
 
-/** Copy the current global IOP environment to another one. */
-void iop_env_get(iop_env_t * nonnull env);
+/** Transfer an IOP environment to another one.
+ *
+ * The source IOP environment is no longer valid after calling this function.
+ */
+void iop_env_transfer(iop_env_t * nonnull dst, iop_env_t * nonnull src);
+
+/** Get an IOP object from its fullname. */
+const iop_obj_t *nullable iop_get_obj(const iop_env_t *nonnull iop_env,
+                                      lstr_t fullname);
 
 /* }}} */
 /* {{{ IOP various useful typedefs and functions */
@@ -707,10 +711,11 @@ typedef struct iop_field_path_t iop_field_path_t;
 
 /** Build an IOP field path on a specified memory pool.
  *
- * \param[in] mp    The memory pool on which the allocation will be done.
- *                  Can be NULL to use malloc.
- * \param[in] st    The structure type of the values containing the fields.
- * \param[in] path  Full path to the field. Can contain:
+ * \param[in] mp      The memory pool on which the allocation will be done.
+ *                    Can be NULL to use malloc.
+ * \param[in] iop_env The current IOP environment.
+ * \param[in] st      The structure type of the values containing the fields.
+ * \param[in] path    Full path to the field. Can contain:
  *     - Subfields: 'foo.bar'.
  *     - Array indexes: 'elts[0].v', 'a.array[-1]' (negative indexes means
  *     that the array is indexed backward: the index '-1' is for the last
@@ -729,6 +734,7 @@ typedef struct iop_field_path_t iop_field_path_t;
  */
 const iop_field_path_t *nullable
 mp_iop_field_path_compile(mem_pool_t *nullable mp,
+                          const iop_env_t * nonnull iop_env,
                           const iop_struct_t *nonnull st,
                           lstr_t path, sb_t *nullable err);
 
@@ -737,10 +743,11 @@ mp_iop_field_path_compile(mem_pool_t *nullable mp,
  * \see mp_iop_field_path_compile.
  */
 static inline const iop_field_path_t *nullable
-t_iop_field_path_compile(const iop_struct_t *nonnull st,
+t_iop_field_path_compile(const iop_env_t * nonnull iop_env,
+                         const iop_struct_t *nonnull st,
                          lstr_t path, sb_t *nullable err)
 {
-    return mp_iop_field_path_compile(t_pool(), st, path, err);
+    return mp_iop_field_path_compile(t_pool(), iop_env, st, path, err);
 }
 
 /** Build an IOP field path on the standard libc allocator.
@@ -748,10 +755,11 @@ t_iop_field_path_compile(const iop_struct_t *nonnull st,
  * \see mp_iop_field_path_compile.
  */
 static inline const iop_field_path_t *nullable
-iop_field_path_compile(const iop_struct_t *nonnull st,
+iop_field_path_compile(const iop_env_t * nonnull iop_env,
+                       const iop_struct_t *nonnull st,
                        lstr_t path, sb_t *nullable err)
 {
-    return mp_iop_field_path_compile(NULL, st, path, err);
+    return mp_iop_field_path_compile(NULL, iop_env, st, path, err);
 }
 
 /** Delete an IOP field path allocated on the specfied memory pool.
@@ -795,6 +803,7 @@ void iop_field_path_get_type(const iop_field_path_t *nonnull fp,
  * it will be able to resolve the type, if the given IOP object has the right
  * subclass in this path.
  *
+ * \param[in] iop_env    The current IOP environment.
  * \param[in] st         Type of the IOP object.
  * \param[in] value      Pointer to the IOP object.
  * \param[in] path       Path to the IOP field. See
@@ -805,7 +814,8 @@ void iop_field_path_get_type(const iop_field_path_t *nonnull fp,
  *
  * \return -1 In case of error, 0 otherwise.
  */
-int iop_obj_get_field_type(const iop_struct_t *nonnull st,
+int iop_obj_get_field_type(const iop_env_t *nonnull iop_env,
+                           const iop_struct_t *nonnull st,
                            const void *nonnull value, lstr_t path,
                            iop_full_type_t *nonnull type,
                            bool *nonnull is_array, sb_t *nullable err);
@@ -977,6 +987,7 @@ enum iop_sort_flags {
  * \warning Using wildcard indexes that can match multiple values is undefined
  *          behavour.
  *
+ *  \param[in] iop_env     The current IOP environment.
  *  \param[in] st          The IOP structure definition (__s).
  *  \param[in] vec         Array of objects to sort. If st is a class, this
  *                         must be an array of pointers on the elements, and
@@ -988,21 +999,22 @@ enum iop_sort_flags {
  *                         iop_sort_flags)
  *  \param[out] err        In case of error, the error description.
  */
-int iop_sort_desc(const iop_struct_t * nonnull st, void * nonnull vec,
+int iop_sort_desc(const iop_env_t * nonnull iop_env,
+                  const iop_struct_t * nonnull st, void * nonnull vec,
                   int len, lstr_t field_path, int flags, sb_t * nullable err);
 
-#define iop_sort(pfx, vec, len, field_path, flags, err)  ({                  \
+#define iop_sort(iop_env, pfx, vec, len, field_path, flags, err)  ({         \
         pfx##__t *__vec = (vec);                                             \
                                                                              \
-        iop_sort_desc(&pfx##__s, (void *)__vec, (len), (field_path),         \
-                      (flags), (err));                                       \
+        iop_sort_desc((iop_env), &pfx##__s, (void *)__vec, (len),            \
+                      (field_path),  (flags), (err));                        \
     })
 
-#define iop_obj_sort(pfx, vec, len, field_path, flags, err)  ({              \
+#define iop_obj_sort(iop_env, pfx, vec, len, field_path, flags, err)  ({     \
         pfx##__t **__vec = (vec);                                            \
                                                                              \
-        iop_sort_desc(&pfx##__s, (void *)__vec, (len), (field_path),         \
-                      (flags), (err));                                       \
+        iop_sort_desc((iop_env), &pfx##__s, (void *)__vec, (len),            \
+                      (field_path),  (flags), (err));                        \
     })
 
 typedef struct iop_sort_t {
@@ -1016,6 +1028,7 @@ qvector_t(iop_sort, iop_sort_t);
 /** Sort a vector of IOP as iop_sort, but on multiple fields.
  *
  *
+ *  \param[in] iop_env     The current IOP environment.
  *  \param[in] st          The IOP structure definition (__s).
  *  \param[in] vec         The array to sort \see iop_sort.
  *  \param[in] len         Length of the array
@@ -1025,20 +1038,23 @@ qvector_t(iop_sort, iop_sort_t);
  *                         \see iop_sort for field path syntax and flags desc.
  *  \param[out] err        In case of error, the error description.
  */
-int iop_msort_desc(const iop_struct_t * nonnull st, void * nonnull vec,
+int iop_msort_desc(const iop_env_t * nonnull iop_env,
+                   const iop_struct_t * nonnull st, void * nonnull vec,
                    int len, const qv_t(iop_sort) * nonnull params,
                    sb_t * nullable err);
 
-#define iop_msort(pfx, vec, len, params, err)  ({                            \
+#define iop_msort(iop_env, pfx, vec, len, params, err)  ({                   \
         pfx##__t *__vec = (vec);                                             \
                                                                              \
-        iop_msort_desc(&pfx##__s, (void *)__vec, (len), (params), (err));    \
+        iop_msort_desc((iop_env), &pfx##__s, (void *)__vec, (len), (params), \
+                       (err));                                               \
     })
 
-#define iop_obj_msort(pfx, vec, len, params, err)  ({                        \
+#define iop_obj_msort(iop_env, pfx, vec, len, params, err)  ({               \
         pfx##__t **__vec = (vec);                                            \
                                                                              \
-        iop_msort_desc(&pfx##__s, (void *)__vec, (len), (params), (err));    \
+        iop_msort_desc((iop_env), &pfx##__s, (void *)__vec, (len), (params), \
+                       (err));                                               \
     })
 
 /** Compare two IOPs in an arbitrary way. */
@@ -1114,6 +1130,7 @@ enum iop_filter_flags {
  * \warning Using wildcard indexes that can match multiple values is undefined
  *          behavour.
  *
+ *  \param[in] iop_env        The current IOP environment.
  *  \param[in] st             The IOP structure definition (__s).
  *  \param[in/out] vec        Array of objects to filter. If st is a class,
  *                            this must be an array of pointers on the
@@ -1132,8 +1149,9 @@ enum iop_filter_flags {
  *  \param[in] flags          A combination of enum iop_filter_flags.
  *  \param[out] err           In case of error, the error description.
  */
-int iop_filter(const iop_struct_t * nonnull st, void * nonnull vec,
-               int * nonnull len, lstr_t field_path,
+int iop_filter(const iop_env_t * nonnull iop_env,
+               const iop_struct_t * nonnull st,
+               void * nonnull vec, int * nonnull len, lstr_t field_path,
                void * const nonnull * nonnull values, int values_len,
                unsigned flags, sb_t * nullable err);
 
@@ -1145,7 +1163,8 @@ int iop_filter(const iop_struct_t * nonnull st, void * nonnull vec,
  * must be set (for optional fields) or non-empty (for repeated fields) to be
  * kept.
  */
-int iop_filter_opt(const iop_struct_t * nonnull st, void * nonnull vec,
+int iop_filter_opt(const iop_env_t * nonnull iop_env,
+                   const iop_struct_t * nonnull st, void * nonnull vec,
                    int * nonnull len, lstr_t field_path, bool is_set,
                    sb_t * nullable err);
 
@@ -1174,7 +1193,8 @@ typedef enum iop_filter_bitmap_op_t {
  * If the bitmap is NULL, it is automatically created. Callers must NOT create
  * it themselves.
  */
-int t_iop_filter_bitmap(const iop_struct_t * nonnull st,
+int t_iop_filter_bitmap(const iop_env_t * nonnull iop_env,
+                        const iop_struct_t * nonnull st,
                         const void * nonnull vec, int len, lstr_t field_path,
                         void * const nonnull * nonnull values,
                         int values_len, unsigned flags,
@@ -1187,7 +1207,8 @@ int t_iop_filter_bitmap(const iop_struct_t * nonnull st,
  *
  * Same as \ref iop_filter_bitmap, but based on \ref iop_filter_opt.
  */
-int t_iop_filter_opt_bitmap(const iop_struct_t * nonnull st,
+int t_iop_filter_opt_bitmap(const iop_env_t * nonnull iop_env,
+                            const iop_struct_t * nonnull st,
                             const void * nonnull vec, int len,
                             lstr_t field_path, bool is_set,
                             iop_filter_bitmap_op_t bitmap_op,
@@ -1529,13 +1550,15 @@ void *nullable iop_opt_field_getv(iop_type_t type, void * nonnull data);
 /** Constant version of \ref iop_get_field (below).
  */
 const iop_field_t * nullable
-iop_get_field_const(const void * nullable ptr,
+iop_get_field_const(const iop_env_t * nonnull iop_env,
+                    const void * nullable ptr,
                     const iop_struct_t * nonnull st,
                     lstr_t path, const void * nullable * nullable out_ptr,
                     const iop_struct_t * nullable * nullable out_st);
 
 /** Find an IOP field description from a iop object.
  *
+ * \param[in]  iop_env  The current IOP environment.
  * \param[in]  ptr      The IOP object.
  * \param[in]  st       The iop_struct_t describing the object.
  * \param[in]  path     The path to the field (separate members with a '.').
@@ -1546,11 +1569,12 @@ iop_get_field_const(const void * nullable ptr,
  * \return The iop field description if found, NULL otherwise.
  */
 static inline const iop_field_t * nullable
-iop_get_field(void * nullable ptr, const iop_struct_t * nonnull st,
-              lstr_t path, void * nullable * nullable out_ptr,
+iop_get_field(const iop_env_t * nonnull iop_env, void * nullable ptr,
+              const iop_struct_t * nonnull st, lstr_t path,
+              void * nullable * nullable out_ptr,
               const iop_struct_t * nullable * nullable out_st)
 {
-    return iop_get_field_const((const void *)ptr, st, path,
+    return iop_get_field_const(iop_env, (const void *)ptr, st, path,
                                (const void **)out_ptr, out_st);
 }
 
@@ -1930,7 +1954,8 @@ iop_obj_is_a_desc(const void * nonnull obj,
  * descriptor.
  */
 __attr_nonnull__((1)) const iop_struct_t * nullable
-iop_get_class_by_fullname(const iop_struct_t * nonnull st, lstr_t fullname);
+iop_get_class_by_fullname(const iop_env_t * nonnull iop_env,
+                          const iop_struct_t * nonnull st, lstr_t fullname);
 
 /** Get the descriptor of a class from its id.
  *
@@ -1938,15 +1963,19 @@ iop_get_class_by_fullname(const iop_struct_t * nonnull st, lstr_t fullname);
  * so before using this function, be SURE that you really need it.
  */
 const iop_struct_t * nullable
-iop_get_class_by_id(const iop_struct_t * nonnull st, uint16_t class_id);
+iop_get_class_by_id(const iop_env_t * nonnull iop_env,
+                    const iop_struct_t * nonnull st, uint16_t class_id);
 
 #ifdef __has_blocks
+
 typedef void (BLOCK_CARET iop_for_each_class_b)(const iop_struct_t * nonnull);
 
 /** Loop on all the classes registered by `iop_register_packages`.
  */
-void iop_for_each_registered_classes(iop_for_each_class_b nonnull cb);
-#endif
+void iop_for_each_registered_classes(const iop_env_t * nonnull iop_env,
+                                     iop_for_each_class_b nonnull cb);
+
+#endif /* __has_blocks */
 
 /** Get the struct/class field after the given one.
  *
@@ -2157,7 +2186,8 @@ qm_kvec_t(iop_enum, lstr_t, const iop_enum_t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
 
 /** Get an enumeration from its fullname. */
-const iop_enum_t * nullable iop_get_enum(lstr_t fullname);
+const iop_enum_t * nullable iop_get_enum(const iop_env_t * nonnull iop_env,
+                                         lstr_t fullname);
 
 /** Convert IOP enum integer value to lstr_t representation.
  *
@@ -2512,35 +2542,39 @@ enum iop_unpack_flags {
  * \warning If needed, iop_bunpack will allocate memory for each field. So if
  * the mem pool is not frame based, you may end up with a memory leak.
  *
- * \param[in] mp    The memory pool to use when memory allocation is needed.
- * \param[in] st    The IOP structure definition (__s).
- * \param[in] value Pointer on the destination structure.
- * \param[in] ps    The pstream_t containing the packed IOP structure.
- * \param[in] flags A combination of \ref iop_unpack_flags to alter the
- *                  behavior of the unpacker.
+ * \param[in] mp      The memory pool to use when memory allocation is needed.
+ * \param[in] iop_env The current IOP environment.
+ * \param[in] st      The IOP structure definition (__s).
+ * \param[in] value   Pointer on the destination structure.
+ * \param[in] ps      The pstream_t containing the packed IOP structure.
+ * \param[in] flags   A combination of \ref iop_unpack_flags to alter the
+ *                    behavior of the unpacker.
  */
 __must_check__
 int iop_bunpack_flags(mem_pool_t * nonnull mp,
+                      const iop_env_t * nonnull iop_env,
                       const iop_struct_t * nonnull st,
                       void * nonnull value,
                       pstream_t ps, unsigned flags);
 
 __must_check__
 static inline int iop_bunpack(mem_pool_t * nonnull mp,
+                              const iop_env_t * nonnull iop_env,
                               const iop_struct_t * nonnull st,
                               void * nonnull value, pstream_t ps, bool copy)
 {
-    return iop_bunpack_flags(mp, st, value, ps,
+    return iop_bunpack_flags(mp, iop_env, st, value, ps,
                              copy ? IOP_UNPACK_COPY_STRINGS : 0);
 }
 
 /** Unpack a packed IOP structure using the t_pool().
  */
 __must_check__ static inline int
-t_iop_bunpack_ps(const iop_struct_t * nonnull st, void * nonnull value,
+t_iop_bunpack_ps(const iop_env_t * nonnull iop_env,
+                 const iop_struct_t * nonnull st, void * nonnull value,
                  pstream_t ps, bool copy)
 {
-    return iop_bunpack(t_pool(), st, value, ps, copy);
+    return iop_bunpack(t_pool(), iop_env, st, value, ps, copy);
 }
 
 /** Unpack a packed IOP object and (re)allocates the destination structure.
@@ -2555,29 +2589,32 @@ t_iop_bunpack_ps(const iop_struct_t * nonnull st, void * nonnull value,
  * \warning If needed, iop_bunpack will allocate memory for each field. So if
  * the mem pool is not frame based, you may end up with a memory leak.
  *
- * \param[in] mp    The memory pool to use when memory allocation is needed;
- *                  will be used at least to allocate the destination
- *                  structure.
- * \param[in] st    The IOP structure/class definition (__s).
- * \param[in] value Double pointer on the destination structure.
- *                  If *value is not NULL, it is reallocated.
- * \param[in] ps    The pstream_t containing the packed IOP object.
- * \param[in] flags A combination of \ref iop_unpack_flags to alter the
- *                  behavior of the unpacker.
+ * \param[in] mp      The memory pool to use when memory allocation is needed;
+ *                    will be used at least to allocate the destination
+ *                    structure.
+ * \param[in] iop_env The current IOP environment.
+ * \param[in] st      The IOP structure/class definition (__s).
+ * \param[in] value   Double pointer on the destination structure.
+ *                    If *value is not NULL, it is reallocated.
+ * \param[in] ps      The pstream_t containing the packed IOP object.
+ * \param[in] flags   A combination of \ref iop_unpack_flags to alter the
+ *                    behavior of the unpacker.
  */
 __must_check__
 int iop_bunpack_ptr_flags(mem_pool_t * nonnull mp,
+                          const iop_env_t * nonnull iop_env,
                           const iop_struct_t * nonnull st,
                           void * nullable * nonnull value, pstream_t ps,
                           unsigned flags);
 
 __must_check__
 static inline int iop_bunpack_ptr(mem_pool_t * nonnull mp,
+                                  const iop_env_t * nonnull iop_env,
                                   const iop_struct_t * nonnull st,
                                   void * nullable * nonnull value,
                                   pstream_t ps, bool copy)
 {
-    return iop_bunpack_ptr_flags(mp, st, value, ps,
+    return iop_bunpack_ptr_flags(mp, iop_env, st, value, ps,
                                  copy ? IOP_UNPACK_COPY_STRINGS : 0);
 }
 
@@ -2587,37 +2624,41 @@ static inline int iop_bunpack_ptr(mem_pool_t * nonnull mp,
  * check that the pstream has been fully consumed. This allows to unpack
  * a suite of unions.
  *
- * \param[in] mp    The memory pool to use when memory allocation is needed.
- * \param[in] st    The IOP structure definition (__s).
- * \param[in] value Pointer on the destination unpacked IOP union.
- * \param[in] ps    The pstream_t containing the packed IOP union. In case of
- *                  unpacking failure, it is left untouched.
- * \param[in] flags A combination of \ref iop_unpack_flags to alter the
- *                  behavior of the unpacker.
+ * \param[in] mp      The memory pool to use when memory allocation is needed.
+ * \param[in] iop_env The current IOP environment.
+ * \param[in] st      The IOP structure definition (__s).
+ * \param[in] value   Pointer on the destination unpacked IOP union.
+ * \param[in] ps      The pstream_t containing the packed IOP union. In case
+ *                    of unpacking failure, it is left untouched.
+ * \param[in] flags   A combination of \ref iop_unpack_flags to alter the
+ *                    behavior of the unpacker.
  */
 __must_check__
 int iop_bunpack_multi_flags(mem_pool_t * nonnull mp,
+                            const iop_env_t * nonnull iop_env,
                             const iop_struct_t * nonnull st,
                             void * nonnull value, pstream_t * nonnull ps,
                             unsigned flags);
 
 __must_check__
 static inline int iop_bunpack_multi(mem_pool_t * nonnull mp,
+                                    const iop_env_t * nonnull iop_env,
                                     const iop_struct_t * nonnull st,
                                     void * nonnull value,
                                     pstream_t * nonnull ps, bool copy)
 {
-    return iop_bunpack_multi_flags(mp, st, value, ps,
+    return iop_bunpack_multi_flags(mp, iop_env, st, value, ps,
                                    copy ? IOP_UNPACK_COPY_STRINGS : 0);
 }
 
 /** Unpack a packed IOP union using the t_pool().
  */
 __must_check__ static inline int
-t_iop_bunpack_multi(const iop_struct_t * nonnull st, void * nonnull value,
+t_iop_bunpack_multi(const iop_env_t * nonnull iop_env,
+                    const iop_struct_t * nonnull st, void * nonnull value,
                     pstream_t * nonnull ps, bool copy)
 {
-    return iop_bunpack_multi(t_pool(), st, value, ps, copy);
+    return iop_bunpack_multi(t_pool(), iop_env, st, value, ps, copy);
 }
 
 /** Skip a packed IOP union without unpacking it.
@@ -2679,7 +2720,8 @@ int iop_union_get_tag(const iop_struct_t *nonnull desc,
 qm_kvec_t(iop_pkg, lstr_t, const iop_pkg_t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
 
-const iop_pkg_t * nullable iop_get_pkg(lstr_t pkgname);
+const iop_pkg_t * nullable iop_get_pkg(const iop_env_t * nonnull iop_env,
+                                       lstr_t pkgname);
 
 enum iop_register_packages_flags {
     IOP_REGPKG_FROM_DSO = (1U << 0),
@@ -2694,7 +2736,8 @@ enum iop_register_packages_flags {
  *
  * You can use IOP_REGISTER_PACKAGES to avoid the array construction.
  */
-void iop_register_packages(const iop_pkg_t * nonnull * nonnull pkgs, int len,
+void iop_register_packages(iop_env_t * nonnull iop_env,
+                           const iop_pkg_t * nonnull * nonnull pkgs, int len,
                            unsigned flags);
 
 /** Helper to register a list of packages.
@@ -2702,10 +2745,11 @@ void iop_register_packages(const iop_pkg_t * nonnull * nonnull pkgs, int len,
  * Just an helper to call iop_register_packages without having to build an
  * array.
  */
-#define IOP_REGISTER_PACKAGES(...)  \
+#define IOP_REGISTER_PACKAGES(_iop_env, ...)  \
     do {                                                                     \
         const iop_pkg_t *__pkgs[] = { __VA_ARGS__ };                         \
-        iop_register_packages(__pkgs, countof(__pkgs), 0);                   \
+                                                                             \
+        iop_register_packages((_iop_env), __pkgs, countof(__pkgs), 0);       \
     } while (0)
 
 /** Unregister a list of packages.
@@ -2716,7 +2760,8 @@ void iop_register_packages(const iop_pkg_t * nonnull * nonnull pkgs, int len,
  *
  * You can use IOP_UNREGISTER_PACKAGES to avoid the array construction.
  */
-void iop_unregister_packages(const iop_pkg_t * nonnull * nonnull pkgs,
+void iop_unregister_packages(iop_env_t * nonnull iop_env,
+                             const iop_pkg_t * nonnull * nonnull pkgs,
                              int len);
 
 /** Helper to unregister a list of packages.
@@ -2724,19 +2769,23 @@ void iop_unregister_packages(const iop_pkg_t * nonnull * nonnull pkgs,
  * Just an helper to call iop_unregister_packages without having to build an
  * array.
  */
-#define IOP_UNREGISTER_PACKAGES(...)  \
+#define IOP_UNREGISTER_PACKAGES(_env, ...)  \
     do {                                                                     \
         const iop_pkg_t *__pkgs[] = { __VA_ARGS__ };                         \
-        iop_unregister_packages(__pkgs, countof(__pkgs));                    \
+                                                                             \
+        iop_unregister_packages((_env), __pkgs, countof(__pkgs));            \
     } while (0)
 
 #ifdef __has_blocks
+
 typedef void (BLOCK_CARET iop_for_each_pkg_b)(const iop_pkg_t * nonnull);
 
 /** Loop on all the pkg registered by `iop_register_packages`.
  */
-void iop_for_each_registered_pkgs(iop_for_each_pkg_b nonnull cb);
-#endif
+void iop_for_each_registered_pkgs(const iop_env_t * nonnull iop_env,
+                                  iop_for_each_pkg_b nonnull cb);
+
+#endif /* __has_blocks */
 
 /* }}} */
 /* {{{ IOP backward compatibility checks */
@@ -2755,7 +2804,8 @@ enum iop_compat_check_flags {
  */
 typedef struct iop_compat_ctx_t iop_compat_ctx_t;
 
-iop_compat_ctx_t * nonnull iop_compat_ctx_new(void);
+iop_compat_ctx_t * nonnull
+iop_compat_ctx_new(const iop_env_t * nonnull iop_env);
 void iop_compat_ctx_delete(iop_compat_ctx_t * nullable * nonnull ctx);
 
 /** Checks the backward compatibility of two IOP structures/classes/unions.
@@ -2769,7 +2819,8 @@ void iop_compat_ctx_delete(iop_compat_ctx_t * nullable * nonnull ctx);
  * \warning in case \p st1 and \p st2 are classes, it is not checking the
  *          backward compatibility of their children.
  */
-int iop_struct_check_backward_compat(const iop_struct_t * nonnull st1,
+int iop_struct_check_backward_compat(const iop_env_t * nonnull iop_env,
+                                     const iop_struct_t * nonnull st1,
                                      const iop_struct_t * nonnull st2,
                                      unsigned flags, sb_t * nonnull err);
 
@@ -2788,7 +2839,8 @@ struct iop_dso_t;
  *
  * \warning this function does not check the interfaces/RPCs for now.
  */
-int iop_pkg_check_backward_compat(const iop_pkg_t * nonnull pkg1,
+int iop_pkg_check_backward_compat(const iop_env_t * nonnull iop_env,
+                                  const iop_pkg_t * nonnull pkg1,
                                   const iop_pkg_t * nonnull pkg2,
                                   const struct iop_dso_t * nullable dso2,
                                   unsigned flags, sb_t * nonnull err);
@@ -2816,7 +2868,8 @@ int iop_pkg_check_backward_compat_ctx(const iop_pkg_t * nonnull pkg1,
  * If \ref check_parents is false, parent classes are not checked if \ref st
  * is a class.
  */
-bool iop_struct_is_optional(const iop_struct_t *nonnull st,
+bool iop_struct_is_optional(const iop_env_t *nonnull iop_env,
+                            const iop_struct_t *nonnull st,
                             bool check_parents);
 
 /* }}} */

@@ -305,18 +305,19 @@
  *
  * This function calls `iop_bunpack` with the copy parameter set to false.
  *
- * \param[in]  _str  The lstr_t “compatible” variable containing the packed
- *                   object.
- * \param[in]  _pfx  Prefix of the IOP structure.
- * \param[out] _valp Pointer on the structure to use for unpacking.
+ * \param[in]  _str     The lstr_t “compatible” variable containing the
+ *                      packed object.
+ * \param[in]  _iop_env The IOP environment.
+ * \param[in]  _pfx     Prefix of the IOP structure.
+ * \param[out] _valp    Pointer on the structure to use for unpacking.
  */
-#define t_iop_bunpack(_str, _pfx, _valp)                                 \
+#define t_iop_bunpack(_str, _iop_env, _pfx, _valp)                       \
     ({                                                                   \
         _pfx##__t *_tval = (_valp);                                      \
         typeof(_str) _str2 = (_str);                                     \
         pstream_t _ps = ps_init(_str2->s, _str2->len);                   \
-        \
-        t_iop_bunpack_ps(&_pfx##__s, _tval, _ps, false);                 \
+                                                                         \
+        t_iop_bunpack_ps((_iop_env), &_pfx##__s, _tval, _ps, false);     \
     })
 
 /** Unpack an IOP structure from IOP binary format using the t_pool().
@@ -326,18 +327,19 @@
  *
  * This function calls `iop_bunpack` with the copy parameter set to true.
  *
- * \param[in]  _str  The lstr_t “compatible” variable containing the packed
- *                   object.
- * \param[in]  _pfx  Prefix of the IOP structure.
- * \param[out] _valp Pointer on the structure to use for unpacking.
+ * \param[in]  _str     The lstr_t “compatible” variable containing the packed
+ *                      object.
+ * \param[in]  _iop_env The IOP environment.
+ * \param[in]  _pfx     Prefix of the IOP structure.
+ * \param[out] _valp    Pointer on the structure to use for unpacking.
  */
-#define t_iop_bunpack_dup(_str, _pfx, _valp)                            \
+#define t_iop_bunpack_dup(_str, _iop_env, _pfx, _valp)                  \
     ({                                                                  \
         _pfx##__t *_tval = (_valp);                                     \
         typeof(_str) _str2 = (_str);                                    \
         pstream_t _ps = ps_init(_str2->s, _str2->len);                  \
-        \
-        t_iop_bunpack_ps(&_pfx##__s, _tval, _ps, true);                 \
+                                                                        \
+        t_iop_bunpack_ps((_iop_env), &_pfx##__s, _tval, _ps, true);     \
     })
 
 /* }}} */

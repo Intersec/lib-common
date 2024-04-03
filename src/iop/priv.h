@@ -23,19 +23,20 @@
 
 /* {{{ IOP environment registration */
 
-const iop_pkg_t *iop_get_pkg_env(lstr_t pkgname, const iop_env_t *env);
-int iop_check_registered_classes(const iop_env_t *env, sb_t *err);
+int iop_check_registered_classes(const iop_env_t *iop_env, sb_t *err);
 
-iop_dso_t *iop_dso_get_from_pkg(const iop_pkg_t *pkg);
+iop_dso_t *iop_dso_get_from_pkg(const iop_env_t *iop_env,
+                                const iop_pkg_t *pkg);
 
-int iop_register_packages_env(const iop_pkg_t **pkgs, int len,
-                              iop_dso_t * nullable dso,
-                              iop_env_t *env, unsigned flags, sb_t *err);
+int iop_register_packages_dso(iop_env_t *iop_env, const iop_pkg_t **pkgs,
+                              int len, iop_dso_t * nullable dso,
+                              unsigned flags, sb_t *err);
 
 /* }}} */
 /* {{{ Getters */
 
-const iop_struct_t *iop_pkg_get_struct_by_name(const iop_pkg_t *pkg, lstr_t name);
+const iop_struct_t *
+iop_pkg_get_struct_by_name(const iop_pkg_t *pkg, lstr_t name);
 
 /* }}} */
 /* {{{ Helpers */
