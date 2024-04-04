@@ -94,7 +94,7 @@ set_www_env() {
     intersec_so=$(find $(dirname "$productdir") -name intersec.so -print -quit)
 
     Z_WWW_HOST="${_bkp_z_www_host:-$(hostname -f)}"
-    Z_WWW_PREFIX="${_bkp_z_www_prefix:-zselenium-${product}}"
+    Z_WWW_PREFIX="${_bkp_z_www_prefix:-${product}}"
     Z_WWW_BROWSER="${_bkp_z_www_browser:-Remote}"
 
     if [[ "$SKIP_HTTPD_SETUP" != "1" ]] ; then
