@@ -309,69 +309,53 @@ def create_corpus(with_snapshot_reopen=False, generate_files=True,
         corpus += [[
             # Allocate memory in TLSF map.
             FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
             # Allocate memory in QPS page map.
             FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
+            FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024),
+            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
             FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT),
+            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+            FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT_WAIT),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
         ]]
 
         corpus += [[
             FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
-            FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT_WAIT),
-        ]]
-
-        # QPS reopen playing with multiple QPS maps, improves coverage.
-        corpus += [[
-            FuzzingGenericStep(QpsstressStep.QPS_REOPEN),
-        ]]
-
-        # Sequence playing with multiple QPS maps, improves coverage.
-        corpus += [[
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=10),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=15),
-
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
+            FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024),
+            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
             FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT),
-            FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT_WAIT),
+            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
             FuzzingGenericStep(QpsstressStep.QPS_REOPEN),
+            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+        ]]
 
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC),
-            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=14),
-            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=15),
-        ]]
-    else:
-        corpus += [[
-            # Sequence playing with multiple QPS maps, improves coverage
-            # (without snapshots/reopen).
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=10),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
-        ]]
+    # Sequence playing with multiple QPS maps, improves coverage.
+    corpus += [[
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=10),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=max_mem_alloc),
+    ]]
 
     corpus += [[
         # Sequence playing with Qhat objects.

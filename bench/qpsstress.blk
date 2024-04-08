@@ -1517,6 +1517,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
     t_SB_1k(qps_path);
     t_SB_1k(log_name);
     int valid_corpus = -1;
+    int nbr_operations = 0;
 
     if (unlikely(!init)) {
         MODULE_REQUIRE(qps);
@@ -1593,18 +1594,32 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
             break;
 
         case QPS_SNAPSHOT:
-            if (_G.qps->snapshotting) {
-                /* Cannot launch snapshot more than once (and avoid the
-                 * assert). */
-                continue;
+            if (_G.qps->snapshotting || !_G.qps->handles_max) {
+                /* Invalidate sequence: cannot launch snapshot if nothing
+                 * available or more than once (and avoid the assert). */
+                valid_corpus = -1;
+                goto stop_fuzzing;
             }
             /* FALLTHROUGH */
 
-            /* Don't fuzz yet the snapshot and silimar kinds, they kill the
-             * whole purpose of fuzzing QPS for now. */
-        case QPS_SNAPSHOT_WAIT:
         case QPS_REOPEN:
-            continue;
+            /* Don't fuzz too much snapshot operations and silimar kinds,
+             * they kill the whole purpose of fuzzing QPS. */
+            if (nbr_operations < 10) {
+                /* Invalidate sequence: request more operations before
+                 * performing this one. */
+                valid_corpus = -1;
+                goto stop_fuzzing;
+            }
+            break;
+
+        case QPS_SNAPSHOT_WAIT:
+            if (!_G.qps->snapshotting) {
+                /* Invalidate sequence: cannot wait a snapshot which
+                 * is not started. */
+                valid_corpus = -1;
+                goto stop_fuzzing;
+            }
             break;
 
         case QPS_OBJ_CREATE:
@@ -1710,8 +1725,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
             case QPS_SNAPSHOT_WAIT:
             case QPS_REOPEN:
                 _G.has_snapshotted = true;
+                nbr_operations = 0;
                 break;
+
             default:
+                nbr_operations++;
                 break;
             }
 
@@ -1723,6 +1741,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
         }
     }
 
+stop_fuzzing:
     qps_close(&_G.qps);
     rmdir_r(qps_path.data, false);
     destroy_qpsstress_vectors();
