@@ -73,9 +73,17 @@ void _iop_core_obj_map_register_cls(iop_core_obj_map_t *nonnull map,
 
 #ifdef __has_blocks
 
-/** \return A negative value to stop the scan now. */
+/** Callback for \ref iop_core_obj_map_for_each_cls.
+ *
+ * \param[in] class_id ID of the IOP class. The related description can be
+ *                     obtained using \ref iop_get_class_by_id().
+ *
+ * \param[in] cls The core object class associated to the IOP class.
+ *
+ * \return A negative value to stop the scan immediately.
+ */
 typedef int (BLOCK_CARET on_core_obj_cls_b)
-(const object_class_t *nonnull cls);
+(uint16_t class_id, const object_class_t *nonnull cls);
 
 /** Iterate on all object classes of a given \p iop_core_obj_map_t. */
 void iop_core_obj_map_for_each_cls(const iop_core_obj_map_t *nonnull map,

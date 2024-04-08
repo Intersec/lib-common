@@ -85,7 +85,8 @@ int test_iop_core_obj(void)
 
     classes = t_qv_new(object_cls, 2);
     iop_core_obj_map_for_each_cls(mammal_mappings_g,
-                                  ^int (const object_class_t *nonnull cls) {
+                                  ^int (uint16_t class_id,
+                                        const object_class_t *nonnull cls) {
         qv_t(object_cls) *_classes = classes;
 
         qv_append(_classes, cls);
@@ -100,7 +101,8 @@ int test_iop_core_obj(void)
              classes->tab[1] == obj_class(hound));
 
     iop_core_obj_map_for_each_cls(mammal_mappings_g,
-                                  ^int (const object_class_t *nonnull cls) {
+                                  ^int (uint16_t class_id,
+                                        const object_class_t *nonnull cls) {
         cnt++;
         return -1;
     });
