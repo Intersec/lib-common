@@ -142,9 +142,14 @@ class IopcTest(z.TestCase):
                                 "found '%s' in '%s'" % (s, file_name))
 
     def check_ref(self, pkg, lang):
-        self.assertEqual(subprocess.call(['diff', '-u',
-                                          pkg + '.iop.' + lang,
-                                          pkg + '.ref' + "." + lang ]), 0)
+        gen_file = pkg + '.iop.' + lang
+        ref_file = pkg + '.ref.' + lang
+        # Uncomment these lines to update the ref files after changing iopc
+        # output
+        #import shutil # pylint: disable = import-outside-toplevel
+        #shutil.copyfile(gen_file, ref_file)
+        self.assertEqual(subprocess.call(['diff', '-u', gen_file, ref_file]),
+                         0)
 
     def check_code_gen_lang(self, pkg_name, pkg_path, lang):
         # First delete the generated files
