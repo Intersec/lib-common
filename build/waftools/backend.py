@@ -245,6 +245,38 @@ def compile_fpic(ctx):
                                     cflags=pic_flags, cxxflags=pic_flags)
 
 
+# }}}
+# {{{ Fuzzing executable compilation
+
+
+def compile_fuzzing_programs(ctx):
+    fuzzing_libs = set()
+    fuzzing_suffix = '.fuzzing'
+    fuzzing_cflags = ctx.env.FUZZING_CFLAGS
+    fuzzing_cxxflags = ctx.env.FUZZING_CXXFLAGS
+    fuzzing_ldflags = ctx.env.FUZZING_LDFLAGS
+
+    for tgen in ctx.get_all_task_gen():
+        features = tgen.to_list(getattr(tgen, 'features', []))
+
+        if not 'fuzzing' in features:
+            continue
+
+        deep_add_tgen_compile_flags(ctx, tgen, fuzzing_suffix, fuzzing_libs,
+                                    cflags=fuzzing_cflags,
+                                    cxxflags=fuzzing_cxxflags,
+                                    ldflags=fuzzing_ldflags)
+
+@TaskGen.feature('fuzzing')
+@TaskGen.after_method('process_use')
+def fuzzing_feature(ctx):
+    # Avoid warning about fuzzing feature
+    pass
+
+
+# }}}
+# {{{ Patch C tasks for compression
+
 def compile_sanitizer(ctx):
     """Add sanitizers flags to C and CXX task generators.
 
@@ -1629,6 +1661,40 @@ def profile_debug(ctx, allow_no_double_fpic=True, use_sanitizer=False):
     ctx.env.CXXFLAGS += cflags
 
 
+def profile_fuzzing(ctx, debug=False, asan=False, display_log=False):
+    Options.options.check_c_compiler = 'clang'
+    Options.options.check_cxx_compiler = 'clang++'
+
+    if debug:
+        profile_debug(ctx)
+    else:
+        profile_default(ctx, fortify_source=None)
+
+    ctx.env.USE_FUZZING = True
+
+    asan_opt = ',address' if asan else ''
+    fuzzing_flags = ['-D__fuzzing_log__'] if display_log else []
+    fuzzing_flags += ['-D__fuzzing__', '-fsanitize=fuzzer-no-link' + asan_opt]
+
+    ctx.env.FUZZING_CFLAGS = fuzzing_flags
+    ctx.env.FUZZING_CXXFLAGS = fuzzing_flags
+    ctx.env.FUZZING_LDFLAGS = ['-lstdc++', '-fsanitize=fuzzer' + asan_opt]
+
+
+def profile_fuzzingcov(ctx):
+    profile_fuzzing(ctx, debug=True)
+
+    fuzzing_coverage_flag = ['--coverage']
+
+    ctx.env.CFLAGS += fuzzing_coverage_flag
+    ctx.env.CXXFLAGS += fuzzing_coverage_flag
+    ctx.env.LDFLAGS += fuzzing_coverage_flag
+
+
+def profile_fuzzingdebug(ctx):
+    profile_fuzzing(ctx, debug=True, display_log=True)
+
+
 def profile_release(ctx):
     profile_default(ctx, no_assert=True,
                     allow_no_double_fpic=False,
@@ -1686,13 +1752,16 @@ def profile_coverage(ctx):
 
 
 PROFILES = {
-    'default':   profile_default,
-    'debug':     profile_debug,
-    'release':   profile_release,
-    'asan':      profile_asan,
-    'tsan':      profile_tsan,
-    'mem-bench': profile_mem_bench,
-    'coverage':  profile_coverage,
+    'default':      profile_default,
+    'debug':        profile_debug,
+    'release':      profile_release,
+    'asan':         profile_asan,
+    'tsan':         profile_tsan,
+    'mem-bench':    profile_mem_bench,
+    'coverage':     profile_coverage,
+    'fuzzing':      profile_fuzzing,
+    'fuzzingcov':   profile_fuzzingcov,
+    'fuzzingdebug': profile_fuzzingdebug,
 }
 
 # }}}
@@ -1759,6 +1828,8 @@ def build(ctx):
         ctx.add_pre_fun(filter_out_zchk)
     if ctx.env.DO_DOUBLE_FPIC:
         ctx.add_pre_fun(compile_fpic)
+    if ctx.env.USE_FUZZING:
+        ctx.add_pre_fun(compile_fuzzing_programs)
     if ctx.env.USE_SANITIZER:
         ctx.add_pre_fun(compile_sanitizer)
     ctx.add_pre_fun(gen_tags)
