@@ -115,6 +115,99 @@ def filter_out_zchk(ctx):
 
 
 # }}}
+# {{{ Deep add TaskGen compile flags
+
+
+# The list of keys to skip when copying a TaskGen stlib on
+# duplicate_lib_tgen()
+SKIPPED_STLIB_TGEN_COPY_KEYS = set((
+    '_name', 'bld', 'env', 'features', 'idx', 'path', 'target',
+    'tg_idx_count',
+))
+
+
+def duplicate_lib_tgen(ctx, new_name, orig_lib):
+    """Duplicate a TaskGen with a new name"""
+    ctx_path_bak = ctx.path
+    ctx.path = orig_lib.path
+
+    # Create a new TaskGen stlib by copying the attributes of the original
+    # lib TaskGen.
+    # XXX: TaskGen.clone() does not work in our case because it does not
+    # create a stlib TaskGen, but a generic TaskGen. Moreover, it copies some
+    # attributes that should not be copied.
+    orig_lib_attrs = dict(
+        (key, copy.copy(value)) for key, value in orig_lib.__dict__.items()
+        if key not in SKIPPED_STLIB_TGEN_COPY_KEYS
+    )
+    lib = ctx.stlib(target=new_name, features=orig_lib.features,
+                    env=orig_lib.env.derive(), **orig_lib_attrs)
+    ctx.path = ctx_path_bak
+
+    return lib
+
+
+def deep_add_tgen_compile_flags(ctx, tgen, dep_suffix, dep_libs,
+                                cflags=None, cxxflags=None, ldflags=None):
+    """Add the compile flags to a TaskGen and duplicate all its dependencies
+    to add the compile flags"""
+
+    def add_tgen_compile_flags(tgen):
+        if cflags:
+            tgen.env.append_value('CFLAGS', cflags)
+        if cxxflags:
+            tgen.env.append_value('CXXFLAGS', cxxflags)
+        if ldflags:
+            tgen.env.append_value('LDFLAGS', ldflags)
+
+    # Parent TaskGen must be compiled with the compilation flags...
+    add_tgen_compile_flags(tgen)
+
+    # ...such as all the libraries they use
+    def deep_use_flags(tgen, use_attr):
+        # for all the libraries used by tgen...
+        use = tgen.to_list(getattr(tgen, use_attr, []))
+        for i, use_name in enumerate(use):
+            if use_name.endswith(dep_suffix):
+                # already a correct dependency
+                continue
+
+            try:
+                use_tgen = ctx.get_tgen_by_name(use_name)
+            except Errors.WafError:
+                # the 'use' element does not have an associated task
+                # generator; probably an external library
+                continue
+
+            features = use_tgen.to_list(getattr(use_tgen, 'features', []))
+            if not 'cstlib' in features:
+                # the 'use' element is not a static library
+                continue
+
+            # Replace the static library by the dependency version in tgen
+            # sources
+            dep_name = use_name + dep_suffix
+            use[i] = dep_name
+
+            # Declare the dependency static library, if not done yet
+            if not use_name in dep_libs:
+                dep_lib = duplicate_lib_tgen(ctx, dep_name, use_tgen)
+                add_tgen_compile_flags(dep_lib)
+                dep_libs.add(use_name)
+                # Recurse, to deal with the static libraries that use some
+                # other static libraries.
+                deep_use_flags(dep_lib, 'use')
+                deep_use_flags(dep_lib, 'use_whole')
+
+        # In case 'use' is a string, we need to set the variable back
+        setattr(tgen, use_attr, use)
+
+    # Process the use and use_whole lists
+    deep_use_flags(tgen, 'use')
+    deep_use_flags(tgen, 'use_whole')
+
+
+# }}}
 # {{{ fPIC compilation for shared libraries
 
 """
@@ -136,35 +229,11 @@ runtime. For this reason, disabling the double compilation is not allowed in
 release profile.
 """
 
-# The list of keys to skip when copying a TaskGen stlib on declare_fpic_lib()
-SKIPPED_STLIB_TGEN_COPY_KEYS = set((
-    '_name', 'bld', 'env', 'features', 'idx', 'path', 'target',
-    'tg_idx_count',
-))
-
-def declare_fpic_lib(ctx, pic_name, orig_lib):
-    ctx_path_bak = ctx.path
-    ctx.path = orig_lib.path
-
-    # Create a new TaskGen stlib by copying the attributes of the original
-    # lib TaskGen.
-    # XXX: TaskGen.clone() does not work in our case because it does not
-    # create a stlib TaskGen, but a generic TaskGen. Moreover, it copies some
-    # attributes that should not be copied.
-    orig_lib_attrs = dict(
-        (key, copy.copy(value)) for key, value in orig_lib.__dict__.items()
-        if key not in SKIPPED_STLIB_TGEN_COPY_KEYS
-    )
-    lib = ctx.stlib(target=pic_name, features=orig_lib.features,
-                    env=orig_lib.env.derive(), **orig_lib_attrs)
-    ctx.path = ctx_path_bak
-
-    lib.env.append_value('CFLAGS', ['-fPIC'])
-    return lib
-
 
 def compile_fpic(ctx):
     pic_libs = set()
+    pic_flags = ['-fPIC']
+    pic_suffix = '.pic'
 
     for tgen in ctx.get_all_task_gen():
         features = tgen.to_list(getattr(tgen, 'features', []))
@@ -172,49 +241,8 @@ def compile_fpic(ctx):
         if not 'cshlib' in features:
             continue
 
-        # Shared libraries must be compiled with the -fPIC compilation flag...
-        tgen.env.append_value('CFLAGS', ['-fPIC'])
-
-        # ...such as all the libraries they use
-        def process_use_pic(tgen, use_attr):
-            # for all the libraries used by tgen...
-            use = tgen.to_list(getattr(tgen, use_attr, []))
-            for i in range(len(use)):
-                use_name = use[i]
-
-                if use_name.endswith('.pic'):
-                    # already a pic library
-                    continue
-
-                try:
-                    use_tgen = ctx.get_tgen_by_name(use_name)
-                except Errors.WafError:
-                    # the 'use' element does not have an associated task
-                    # generator; probably an external library
-                    continue
-
-                features = use_tgen.to_list(getattr(use_tgen, 'features', []))
-                if not 'cstlib' in features:
-                    # the 'use' element is not a static library
-                    continue
-
-                # Replace the static library by the pic version in tgen
-                # sources
-                pic_name = use_name + '.pic'
-                use[i] = pic_name
-
-                # Declare the pic static library, if not done yet
-                if not use_name in pic_libs:
-                    pic_lib = declare_fpic_lib(ctx, pic_name, use_tgen)
-                    pic_libs.add(use_name)
-                    # Recurse, to deal with the static libraries that use some
-                    # other static libraries.
-                    process_use_pic(pic_lib, 'use')
-                    process_use_pic(pic_lib, 'use_whole')
-
-        # Process the use and use_whole lists
-        process_use_pic(tgen, 'use')
-        process_use_pic(tgen, 'use_whole')
+        deep_add_tgen_compile_flags(ctx, tgen, pic_suffix, pic_libs,
+                                    cflags=pic_flags, cxxflags=pic_flags)
 
 
 def compile_sanitizer(ctx):
