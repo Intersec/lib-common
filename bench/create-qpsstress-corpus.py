@@ -76,6 +76,15 @@ class QpsstressObj(IntEnum):
     QPS_QBITMAP = 2
 
 
+class QpsstressFuzzerCat(IntEnum):
+    """
+    Class used to split fuzzing operations into different categories.
+    """
+    QPS_CAT_ALL = 0
+    QPS_CAT_HANDLES_SNAP_REOPEN = 1
+    QPS_CAT_QPS_OBJ_OPERATIONS = 2
+
+
 class FuzzingStep:
     """
     Convert a basic fuzzing step into a binary blob used for fuzzing
@@ -227,7 +236,15 @@ class FuzzingQpsObjStepCreate(FuzzingQpsObjStep):
                                                  self.value_len)
 
 
-def create_corpus_files_and_dict(corpus, generate_files=False,
+def discard_fuzzing_operation(step, category):
+    if category == QpsstressFuzzerCat.QPS_CAT_HANDLES_SNAP_REOPEN:
+        return step > QpsstressStep.QPS_REOPEN
+    elif category == QpsstressFuzzerCat.QPS_CAT_QPS_OBJ_OPERATIONS:
+        return step <= QpsstressStep.QPS_REOPEN
+    return False
+
+
+def create_corpus_files_and_dict(corpus, category, generate_files=False,
                                  fuzz_dict_name=None):
     """
     Based on the list of sequences representing themselves a list of steps,
@@ -241,14 +258,18 @@ def create_corpus_files_and_dict(corpus, generate_files=False,
     assert generate_files or fuzz_dict_name is not None
     try:
         for i, corpus_case in enumerate(corpus):
+            if not isinstance(corpus_case, list):
+                corpus_case = [corpus_case]
+
+            if any([discard_fuzzing_operation(item.step, category)
+                    for item in corpus_case]):
+                continue
+
             # If we want to generate files containing a fuzzing sequence,
             # create it now.
             if generate_files:
                 f = open(os.path.join(CORPUS_DIR, f"{CORPUS_NAME}-{i}.bin"),
                          mode='wb')
-
-            if not isinstance(corpus_case, list):
-                corpus_case = [corpus_case]
 
             # Write for one sequence each step.
             for item in corpus_case:
@@ -273,7 +294,8 @@ def create_corpus_files_and_dict(corpus, generate_files=False,
             # Add time of generation, so we have less doubt about the fact
             # that we need to generate it again or not.
             now = datetime.datetime.now()
-            f.write("# Generated at " + now.strftime("%Y-%m-%d %H:%M:%S\n\n"))
+            f.write("# Generated at " + now.strftime("%Y-%m-%d %H:%M:%S") +
+                    " for category " + str(category) + "\n\n")
             for i, k in enumerate(sorted(corpus_dict.keys())):
                 blob_str = str(binascii.hexlify(k))[2:-1]
                 fuzz_key = '\\x'
@@ -283,7 +305,8 @@ def create_corpus_files_and_dict(corpus, generate_files=False,
             f.write('\n')
 
 
-def create_corpus(with_snapshot_reopen=False, generate_files=True,
+def create_corpus(generate_files=True,
+                  category=QpsstressFuzzerCat.QPS_CAT_ALL,
                   fuzz_dict_name=None):
     max_mem_alloc = 33554431
     corpus = []
@@ -302,41 +325,37 @@ def create_corpus(with_snapshot_reopen=False, generate_files=True,
         FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
     ]]
 
-    # Use the possibility to enable or disable QPS snapshots and reopen, as it
-    # kills the number of fuzzing executions per second (and we are
-    # supposed to have 1000 exec per second for efficient fuzzing).
-    if with_snapshot_reopen:
-        corpus += [[
-            # Allocate memory in TLSF map.
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
-            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
-            # Allocate memory in QPS page map.
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
-            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
-            FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024),
-            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
-            FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT),
-            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
-            FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT_WAIT),
-            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
-        ]]
+    corpus += [[
+        # Allocate memory in TLSF map.
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
+        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+        # Allocate memory in QPS page map.
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
+        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
+        FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024),
+        FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
+        FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT),
+        FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+        FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT_WAIT),
+        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+    ]]
 
-        corpus += [[
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
-            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
-            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
-            FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024),
-            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
-            FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT),
-            FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
-            FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
-            FuzzingGenericStep(QpsstressStep.QPS_REOPEN),
-            FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
-        ]]
+    corpus += [[
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
+        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=65 * 1024),
+        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=2),
+        FuzzingGenericStep(QpsstressStep.QPS_REALLOC, size=65 * 1024),
+        FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=1),
+        FuzzingGenericStep(QpsstressStep.QPS_SNAPSHOT),
+        FuzzingGenericStep(QpsstressStep.QPS_DEALLOC, handle=2),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+        FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=0),
+        FuzzingGenericStep(QpsstressStep.QPS_REOPEN),
+        FuzzingGenericStep(QpsstressStep.QPS_WDEREF, handle=1),
+    ]]
 
     # Sequence playing with multiple QPS maps, improves coverage.
     corpus += [[
@@ -419,7 +438,8 @@ def create_corpus(with_snapshot_reopen=False, generate_files=True,
     ]]
 
     # Generate files from all sequences provided before.
-    create_corpus_files_and_dict(corpus, generate_files=generate_files,
+    create_corpus_files_and_dict(corpus, category=category,
+                                 generate_files=generate_files,
                                  fuzz_dict_name=fuzz_dict_name)
 
 
@@ -433,9 +453,9 @@ if __name__ == '__main__':
                         default=False,
                         help="Define if all corpus steps should be written "
                              "for libFuzzer")
-    ALL_OPTS.add_option("-s", "--slow-runs",
-                        action="store_true", dest="slow_runs",
-                        default=False,
+    ALL_OPTS.add_option("-c", "--category",
+                        type="int", dest="category",
+                        default=QpsstressFuzzerCat.QPS_CAT_ALL,
                         help="Define if all steps like snapshot, reopen "
                              "must be triggered for libFuzzer")
 
@@ -448,6 +468,13 @@ if __name__ == '__main__':
         raise RuntimeError(f'Create first folder "{CORPUS_DIR}" before -g '
                            f'option')
 
-    create_corpus(with_snapshot_reopen=CREATE_OPTS.slow_runs,
+    if CREATE_OPTS.category not in [item.value for item in
+                                    QpsstressFuzzerCat]:
+        raise RuntimeError(
+            f'Category unknown, integer should be in [0; '
+            f'{QpsstressFuzzerCat.QPS_CAT_QPS_OBJ_OPERATIONS}] for '
+            f'{QpsstressFuzzerCat}')
+
+    create_corpus(category=QpsstressFuzzerCat(CREATE_OPTS.category),
                   generate_files=CREATE_OPTS.generate_files,
                   fuzz_dict_name=CREATE_OPTS.fuzz_dict_name)

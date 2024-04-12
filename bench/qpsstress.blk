@@ -1509,7 +1509,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
 {
     t_scope;
     static bool init = false;
-
+    static int filter_idx = 0;
+    static bool filter = false;
+    static const qpsstress_step_t fuzzing_filters[2][2] = {
+        /* Only QPS generic operations at index 1. */
+        { QPS_ALLOC, QPS_REOPEN },
+        /* Only QPS object operations at index 2.  */
+        { QPS_OBJ_CREATE, QPS_MAX_CASES - 1 },
+    };
     struct stat st = {0};
     const size_t blob_sz = sizeof(qpsstress_fuzzing_t);
     pid_t pid = getpid();
@@ -1520,6 +1527,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
     int nbr_operations = 0;
 
     if (unlikely(!init)) {
+        char *env_value;
+
         MODULE_REQUIRE(qps);
 #ifdef __fuzzing_log__
         logger_set_level(LSTR(""), LOG_TRACE, LOG_RECURSIVE);
@@ -1535,6 +1544,19 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
          * As this is not done in real life, we want to focus on specific
          * legitimate problems which are based on safe/unsafe accesses... */
         _G.opt_protect_en_access = true;
+
+        /* Split fuzzing operations to focus on dedicated QPS points but the
+         * union of all filtered group must always be valid (so performing
+         * coverage based on the union of all filtered categories is still
+         * valid). */
+        if ((env_value = getenv("FUZZING_CAT"))) {
+            int env_filter = atoi(env_value);
+
+            if (env_filter > 0 && env_filter - 1 < countof(fuzzing_filters)) {
+                filter_idx = env_filter - 1;
+                filter = true;
+            }
+        }
         init = true;
     }
 
@@ -1574,6 +1596,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
 
         fuzz_blob = (qpsstress_fuzzing_t *) &data[processed];
         instr.obj_instr.pos = -1;
+
+        if (fuzz_blob->step >= QPS_MAX_CASES ||
+            (filter && ((fuzz_blob->step < fuzzing_filters[filter_idx][0]) ||
+                        (fuzz_blob->step > fuzzing_filters[filter_idx][1]))))
+        {
+            /* Skip step for current fuzzing. */
+            continue;
+        }
 
         switch (fuzz_blob->step) {
         case QPS_ALLOC:
@@ -1714,7 +1744,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t sz)
             break;
 
         default:
-            /* Invalid operation in corpus, just continue. */
+            /* Invalid step in corpus, but not filtered? Implementation
+             * issue to fix (probably a new step). */
+            assert(0);
             continue;
             break;
         }
