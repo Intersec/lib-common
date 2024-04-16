@@ -18,9 +18,6 @@
 
 #include "iopc.h"
 
-struct iopc_do_typescript_globs iopc_do_typescript_g;
-#define _G  iopc_do_typescript_g
-
 static const char *reserved_model_names_g[] = {
     /* event methods */
     "on", "off", "trigger", "once", "listenTo", "stopListening",
@@ -121,6 +118,11 @@ static void iopc_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
     qv_t(iopc_pkg) t_deps;
     qv_t(iopc_pkg) t_weak_deps;
     qv_t(iopc_pkg) i_deps;
+    bool import_struct = false;
+    bool import_base_class = false;
+    bool import_class = false;
+    bool import_union = false;
+    bool import_coll = false;
 
     qh_init(cstr, &imported);
     qv_inita(&t_deps, 1024);
@@ -129,93 +131,85 @@ static void iopc_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
 
     iopc_pkg_get_deps(pkg, 0, &t_deps, &t_weak_deps, &i_deps);
 
-    if (_G.enable_iop_backbone) {
-        bool import_struct = false;
-        bool import_base_class = false;
-        bool import_class = false;
-        bool import_union = false;
-        bool import_coll = false;
-
-        tab_for_each_entry(st, &pkg->structs) {
-            switch (st->type) {
-              case STRUCT_TYPE_STRUCT:
-                import_struct = true;
+    tab_for_each_entry(st, &pkg->structs) {
+        switch (st->type) {
+          case STRUCT_TYPE_STRUCT:
+            import_struct = true;
+            if (iopc_should_dump_coll(st)) {
+                import_coll = true;
+            }
+            break;
+          case STRUCT_TYPE_CLASS:
+            import_class = true;
+            if (!st->extends.len) {
+                import_base_class = true;
                 if (iopc_should_dump_coll(st)) {
                     import_coll = true;
                 }
-                break;
-              case STRUCT_TYPE_CLASS:
-                import_class = true;
-                if (!st->extends.len) {
-                    import_base_class = true;
-                    if (iopc_should_dump_coll(st)) {
-                        import_coll = true;
-                    }
-                }
-                break;
-              case STRUCT_TYPE_UNION:
-                import_union = true;
-                if (iopc_should_dump_coll(st)) {
-                    import_coll = true;
-                }
-                break;
-              default:
-                break;
             }
-        }
-        tab_for_each_entry(iface, &pkg->ifaces) {
-            if (iface->type == IFACE_TYPE_IFACE) {
-                tab_for_each_entry(rpc, &iface->funs) {
-                    if ((rpc->arg.is_anonymous && rpc->arg.anonymous_struct)
-                    ||  (rpc->res.is_anonymous && rpc->res.anonymous_struct)
-                    ||  (rpc->exn.is_anonymous && rpc->exn.anonymous_struct))
-                    {
-                        import_struct = true;
-                        import_coll = true;
-                    }
-                }
+            break;
+          case STRUCT_TYPE_UNION:
+            import_union = true;
+            if (iopc_should_dump_coll(st)) {
+                import_coll = true;
             }
+            break;
+          default:
+            break;
         }
-        if (import_struct || import_base_class || import_union) {
-            sb_adds(buf, "import { ");
-            if (import_base_class) {
-                sb_adds(buf, "ClassModel");
-            }
-            if (import_struct) {
-                if (import_base_class) {
-                    sb_adds(buf, ", ");
-                }
-                sb_adds(buf, "StructModel");
-            }
-            if (import_union) {
-                if (import_struct || import_base_class) {
-                    sb_adds(buf, ", ");
-                }
-                sb_adds(buf, "UnionModel");
-            }
-            sb_adds(buf, " } from 'iop/backbone/model';\n");
-        }
-        if (import_coll) {
-            sb_adds(buf, "import { IopCollection } from 'iop/backbone/collection';\n");
-        }
-
-        sb_adds(buf, "import * as iop from 'iop/backbone';\n");
-        if (pkg->enums.len) {
-            sb_adds(buf, "import { Enumeration } from 'iop/enumeration';\n");
-            sb_adds(buf, "const enumeration = iop.enumeration;\n");
-        }
-
-
-        if (import_struct || import_union || import_class) {
-            sb_adds(buf, "const registerModel = iop.backbone.registerModel;\n");
-            sb_adds(buf, "const registerCollection = iop.backbone.registerCollection;\n");
-        }
-        sb_addf(buf, "import { Package as _IopCorePackage } from 'iop/core';\n");
-        sb_addf(buf, "import JSON from 'json/%s.iop.json';\n",
-                pp_path(pkg->name));
-
-        sb_addf(buf, "iop.load(JSON as _IopCorePackage);\n\n");
     }
+    tab_for_each_entry(iface, &pkg->ifaces) {
+        if (iface->type == IFACE_TYPE_IFACE) {
+            tab_for_each_entry(rpc, &iface->funs) {
+                if ((rpc->arg.is_anonymous && rpc->arg.anonymous_struct)
+                ||  (rpc->res.is_anonymous && rpc->res.anonymous_struct)
+                ||  (rpc->exn.is_anonymous && rpc->exn.anonymous_struct))
+                {
+                    import_struct = true;
+                    import_coll = true;
+                }
+            }
+        }
+    }
+    if (import_struct || import_base_class || import_union) {
+        sb_adds(buf, "import { ");
+        if (import_base_class) {
+            sb_adds(buf, "ClassModel");
+        }
+        if (import_struct) {
+            if (import_base_class) {
+                sb_adds(buf, ", ");
+            }
+            sb_adds(buf, "StructModel");
+        }
+        if (import_union) {
+            if (import_struct || import_base_class) {
+                sb_adds(buf, ", ");
+            }
+            sb_adds(buf, "UnionModel");
+        }
+        sb_adds(buf, " } from 'iop/backbone/model';\n");
+    }
+    if (import_coll) {
+        sb_adds(buf, "import { IopCollection } from 'iop/backbone/collection';\n");
+    }
+
+    sb_adds(buf, "import * as iop from 'iop/backbone';\n");
+    if (pkg->enums.len) {
+        sb_adds(buf, "import { Enumeration } from 'iop/enumeration';\n");
+        sb_adds(buf, "const enumeration = iop.enumeration;\n");
+    }
+
+
+    if (import_struct || import_union || import_class) {
+        sb_adds(buf, "const registerModel = iop.backbone.registerModel;\n");
+        sb_adds(buf, "const registerCollection = iop.backbone.registerCollection;\n");
+    }
+    sb_addf(buf, "import { Package as _IopCorePackage } from 'iop/core';\n");
+    sb_addf(buf, "import JSON from 'json/%s.iop.json';\n",
+            pp_path(pkg->name));
+
+    sb_addf(buf, "iop.load(JSON as _IopCorePackage);\n\n");
 
     tab_for_each_entry(dep, &t_deps) {
         iopc_dump_import(buf, dep, &imported);
@@ -289,21 +283,19 @@ static void iopc_dump_enum(sb_t *buf, const char *indent,
                 indent, en->name, en->name);
     }
 
-    if (_G.enable_iop_backbone) {
-        sb_addf(buf, "%sexport interface %s_ModelIf extends "
-                "Enumeration<%s_Str, %s_Int> {\n", indent, en->name, en->name,
-                en->name);
-        tab_for_each_entry(field, &en->values) {
-            sb_addf(buf, "%s    %s: '%s';\n", indent, field->name,
-                    field->name);
-        }
-        sb_addf(buf, "%s}\n", indent);
-
-        sb_addf(buf, "%sexport const %s_Model: %s_ModelIf "
-                "= enumeration<%s_Str, %s_Int>('%s.%s') as any;\n",
-                indent, en->name, en->name, en->name,  en->name,
-                pp_dot(pkg->name), en->name);
+    sb_addf(buf, "%sexport interface %s_ModelIf extends "
+            "Enumeration<%s_Str, %s_Int> {\n", indent, en->name, en->name,
+            en->name);
+    tab_for_each_entry(field, &en->values) {
+        sb_addf(buf, "%s    %s: '%s';\n", indent, field->name,
+                field->name);
     }
+    sb_addf(buf, "%s}\n", indent);
+
+    sb_addf(buf, "%sexport const %s_Model: %s_ModelIf "
+            "= enumeration<%s_Str, %s_Int>('%s.%s') as any;\n",
+            indent, en->name, en->name, en->name,  en->name,
+            pp_dot(pkg->name), en->name);
 }
 
 static void iopc_dump_enums(sb_t *buf, const iopc_pkg_t *pkg)
@@ -494,92 +486,90 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
 
     sb_addf(buf, "%s}\n", indent);
 
-    if (_G.enable_iop_backbone) {
-        if (iopc_is_class(st->type)) {
-            sb_addf(buf, "%sexport interface %s_ModelParam", indent, st_name);
+    if (iopc_is_class(st->type)) {
+        sb_addf(buf, "%sexport interface %s_ModelParam", indent, st_name);
 
-            if (st->extends.len) {
-                const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
-                const iopc_struct_t *parent = st->extends.tab[0]->st;
+        if (st->extends.len) {
+            const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
+            const iopc_struct_t *parent = st->extends.tab[0]->st;
 
-                sb_adds(buf, " extends ");
-                iopc_dump_package_member(buf, pkg, parent_pkg, parent_pkg->name,
-                                         parent->name);
-                sb_adds(buf, "_ModelParam");
-            }
-        } else {
-            sb_addf(buf, "%sexport interface %s_ModelParam", indent, st_name);
+            sb_adds(buf, " extends ");
+            iopc_dump_package_member(buf, pkg, parent_pkg, parent_pkg->name,
+                                     parent->name);
+            sb_adds(buf, "_ModelParam");
         }
-        sb_adds(buf, " {\n");
-        tab_for_each_entry(field, &st->fields) {
-            sb_addf(buf, "%s    ", indent);
-            iopc_dump_field(buf, pkg, field,
-                            OBJECT_FIELD | DEFVAL_AS_OPT | USE_PARAM);
-            if (field->kind == IOP_T_UNION || field->kind == IOP_T_STRUCT) {
-                sb_adds(buf, " | ");
-                iopc_dump_field_type(buf, pkg, field, OBJECT_FIELD | USE_MODEL);
-            }
+    } else {
+        sb_addf(buf, "%sexport interface %s_ModelParam", indent, st_name);
+    }
+    sb_adds(buf, " {\n");
+    tab_for_each_entry(field, &st->fields) {
+        sb_addf(buf, "%s    ", indent);
+        iopc_dump_field(buf, pkg, field,
+                        OBJECT_FIELD | DEFVAL_AS_OPT | USE_PARAM);
+        if (field->kind == IOP_T_UNION || field->kind == IOP_T_STRUCT) {
+            sb_adds(buf, " | ");
+            iopc_dump_field_type(buf, pkg, field, OBJECT_FIELD | USE_MODEL);
+        }
+        sb_adds(buf, ";\n");
+    }
+    sb_addf(buf, "%s}\n", indent);
+
+    sb_addf(buf, "%sexport class %s_Model", indent, st_name);
+    if (iopc_is_class(st->type)) {
+        sb_addf(buf, "<Param extends %s_ModelParam = %s_ModelParam>",
+                st_name, st_name);
+    }
+    sb_adds(buf, " extends ");
+
+    if (iopc_is_class(st->type)) {
+        if (st->extends.len) {
+            const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
+            const iopc_struct_t *parent = st->extends.tab[0]->st;
+
+            iopc_dump_package_member(buf, pkg, parent_pkg, parent_pkg->name,
+                                     parent->name);
+            sb_adds(buf, "_Model<Param>");
+        } else {
+            sb_adds(buf, "ClassModel<Param>");
+        }
+    } else {
+        sb_addf(buf, "StructModel<%s_ModelParam>", st_name);
+    }
+    sb_adds(buf, " {\n");
+
+    tab_for_each_entry(field, &st->fields) {
+        if (!is_name_reserved_in_model(field->name, false)) {
+            sb_addf(buf, "%s    public ", indent);
+            iopc_dump_field(buf, pkg, field, OBJECT_FIELD | USE_MODEL);
             sb_adds(buf, ";\n");
         }
-        sb_addf(buf, "%s}\n", indent);
+    }
 
-        sb_addf(buf, "%sexport class %s_Model", indent, st_name);
+    sb_addf(buf, "%s};\n", indent);
+    sb_addf(buf, "%sregisterModel(%s_Model, %s_fullname);\n",
+            indent, st_name, st_name);
+    if (iopc_should_dump_coll(st)) {
         if (iopc_is_class(st->type)) {
-            sb_addf(buf, "<Param extends %s_ModelParam = %s_ModelParam>",
+            sb_addf(buf, "%sexport class %s_Collection<Model extends "
+                    "%s_Model = %s_Model> extends ", indent, st_name,
                     st_name, st_name);
-        }
-        sb_adds(buf, " extends ");
 
-        if (iopc_is_class(st->type)) {
             if (st->extends.len) {
                 const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
                 const iopc_struct_t *parent = st->extends.tab[0]->st;
 
                 iopc_dump_package_member(buf, pkg, parent_pkg, parent_pkg->name,
                                          parent->name);
-                sb_adds(buf, "_Model<Param>");
+                sb_adds(buf, "_Collection<Model> { };\n");
             } else {
-                sb_adds(buf, "ClassModel<Param>");
+                sb_adds(buf, "IopCollection<Model> { };\n");
             }
         } else {
-            sb_addf(buf, "StructModel<%s_ModelParam>", st_name);
+            sb_addf(buf, "%sexport class %s_Collection extends IopCollection<%s_Model> { };\n",
+                    indent, st_name, st_name);
         }
-        sb_adds(buf, " {\n");
-
-        tab_for_each_entry(field, &st->fields) {
-            if (!is_name_reserved_in_model(field->name, false)) {
-                sb_addf(buf, "%s    public ", indent);
-                iopc_dump_field(buf, pkg, field, OBJECT_FIELD | USE_MODEL);
-                sb_adds(buf, ";\n");
-            }
-        }
-
-        sb_addf(buf, "%s};\n", indent);
-        sb_addf(buf, "%sregisterModel(%s_Model, %s_fullname);\n",
-                indent, st_name, st_name);
-        if (iopc_should_dump_coll(st)) {
-            if (iopc_is_class(st->type)) {
-                sb_addf(buf, "%sexport class %s_Collection<Model extends "
-                        "%s_Model = %s_Model> extends ", indent, st_name,
-                        st_name, st_name);
-
-                if (st->extends.len) {
-                    const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
-                    const iopc_struct_t *parent = st->extends.tab[0]->st;
-
-                    iopc_dump_package_member(buf, pkg, parent_pkg, parent_pkg->name,
-                                             parent->name);
-                    sb_adds(buf, "_Collection<Model> { };\n");
-                } else {
-                    sb_adds(buf, "IopCollection<Model> { };\n");
-                }
-            } else {
-                sb_addf(buf, "%sexport class %s_Collection extends IopCollection<%s_Model> { };\n",
-                        indent, st_name, st_name);
-            }
-            sb_addf(buf, "%sregisterCollection<%s_Model>(%s_Collection, %s_fullname);\n",
-                    indent, st_name, st_name, st_name);
-        }
+        sb_addf(buf, "%sregisterCollection<%s_Model>(%s_Collection, %s_fullname);\n",
+                indent, st_name, st_name, st_name);
     }
 }
 
@@ -629,65 +619,63 @@ static void iopc_dump_union(sb_t *buf, const char *indent,
     sb_adds(buf, ";\n");
 
 
-    if (_G.enable_iop_backbone) {
-        sb_addf(buf, "%sconst %s_fullname = '%s.%s';\n",
-                indent, st_name, pp_dot(pkg->name), st_name);
+    sb_addf(buf, "%sconst %s_fullname = '%s.%s';\n",
+            indent, st_name, pp_dot(pkg->name), st_name);
 
-        first = true;
-        sb_addf(buf, "%sexport type %s_ModelPairs = ", indent, st_name);
-        tab_for_each_entry(field, &st->fields) {
-            if (!first) {
-                sb_addf(buf, "\n%s    | ", indent);
-            }
-            sb_addf(buf, "{ kind: '%s', value: ", field->name);
-            iopc_dump_field_type(buf, pkg, field, OBJECT_FIELD | USE_MODEL);
-            sb_adds(buf, " }");
-            first = false;
+    first = true;
+    sb_addf(buf, "%sexport type %s_ModelPairs = ", indent, st_name);
+    tab_for_each_entry(field, &st->fields) {
+        if (!first) {
+            sb_addf(buf, "\n%s    | ", indent);
         }
-        sb_adds(buf, ";\n");
-
-        first = true;
-        sb_addf(buf, "%sexport type %s_ModelParam = ", indent, st_name);
-        tab_for_each_entry(field, &st->fields) {
-            if (!first) {
-                sb_addf(buf, "\n%s    | ", indent);
-            }
-            sb_adds(buf, "{ ");
-            iopc_dump_field(buf, pkg, field,
-                            OBJECT_FIELD | USE_PARAM | IN_UNION);
-            sb_adds(buf, " }");
-
-            if (field->kind == IOP_T_UNION || field->kind == IOP_T_STRUCT) {
-                sb_addf(buf, "\n%s    | { ", indent);
-                iopc_dump_field(buf, pkg, field,
-                                OBJECT_FIELD | USE_MODEL | IN_UNION);
-                sb_adds(buf, " }");
-            }
-
-            first = false;
-        }
-        sb_adds(buf, ";\n");
-
-        sb_addf(buf, "%sexport class %s_Model extends UnionModel<%s_Keys, %s_ModelPairs, %s_ModelParam> {\n",
-                indent, st_name, st_name, st_name, st_name);
-
-        tab_for_each_entry(field, &st->fields) {
-            if (!is_name_reserved_in_model(field->name, true)) {
-                sb_addf(buf, "%s    public ", indent);
-                iopc_dump_field(buf, pkg, field,
-                                OBJECT_FIELD | USE_MODEL | IN_UNION);
-                sb_adds(buf, " | undefined;\n");
-            }
-        }
-
-        sb_addf(buf, "%s};\n", indent);
-        sb_addf(buf, "%sregisterModel(%s_Model, %s_fullname);\n",
-                indent, st_name, st_name);
-        sb_addf(buf, "%sexport class %s_Collection extends IopCollection<%s_Model> { };\n",
-                indent, st_name, st_name);
-        sb_addf(buf, "%sregisterCollection(%s_Collection, %s_fullname);\n",
-                indent, st_name, st_name);
+        sb_addf(buf, "{ kind: '%s', value: ", field->name);
+        iopc_dump_field_type(buf, pkg, field, OBJECT_FIELD | USE_MODEL);
+        sb_adds(buf, " }");
+        first = false;
     }
+    sb_adds(buf, ";\n");
+
+    first = true;
+    sb_addf(buf, "%sexport type %s_ModelParam = ", indent, st_name);
+    tab_for_each_entry(field, &st->fields) {
+        if (!first) {
+            sb_addf(buf, "\n%s    | ", indent);
+        }
+        sb_adds(buf, "{ ");
+        iopc_dump_field(buf, pkg, field,
+                        OBJECT_FIELD | USE_PARAM | IN_UNION);
+        sb_adds(buf, " }");
+
+        if (field->kind == IOP_T_UNION || field->kind == IOP_T_STRUCT) {
+            sb_addf(buf, "\n%s    | { ", indent);
+            iopc_dump_field(buf, pkg, field,
+                            OBJECT_FIELD | USE_MODEL | IN_UNION);
+            sb_adds(buf, " }");
+        }
+
+        first = false;
+    }
+    sb_adds(buf, ";\n");
+
+    sb_addf(buf, "%sexport class %s_Model extends UnionModel<%s_Keys, %s_ModelPairs, %s_ModelParam> {\n",
+            indent, st_name, st_name, st_name, st_name);
+
+    tab_for_each_entry(field, &st->fields) {
+        if (!is_name_reserved_in_model(field->name, true)) {
+            sb_addf(buf, "%s    public ", indent);
+            iopc_dump_field(buf, pkg, field,
+                            OBJECT_FIELD | USE_MODEL | IN_UNION);
+            sb_adds(buf, " | undefined;\n");
+        }
+    }
+
+    sb_addf(buf, "%s};\n", indent);
+    sb_addf(buf, "%sregisterModel(%s_Model, %s_fullname);\n",
+            indent, st_name, st_name);
+    sb_addf(buf, "%sexport class %s_Collection extends IopCollection<%s_Model> { };\n",
+            indent, st_name, st_name);
+    sb_addf(buf, "%sregisterCollection(%s_Collection, %s_fullname);\n",
+            indent, st_name, st_name);
 }
 
 static void iopc_dump_structs(sb_t *buf, iopc_pkg_t *pkg)

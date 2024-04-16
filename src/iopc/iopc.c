@@ -68,9 +68,6 @@ static popt_t options[] = {
     OPT_GROUP("TypeScript backend options"),
     OPT_STR(0,    "typescript-output-path", &opts.typescript_outpath,
             "base of the compiled hierarchy for TypeScript files"),
-    OPT_FLAG(0,   "typescript-enable-backbone",
-             &iopc_do_typescript_g.enable_iop_backbone,
-             "enable the generation of IOP/Backbone models"),
     OPT_END(),
 };
 
