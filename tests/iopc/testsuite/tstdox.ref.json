@@ -285,6 +285,12 @@
 					"default": 100
 				}
 			},
+			"genAttrs": {
+				"backbone:iface": {
+					"type": "string",
+					"value": "tstgen.MyIfaceA"
+				}
+			},
 			"fields": {
 			}
 		},

@@ -65,6 +65,10 @@
 				"test:gen4": {
 					"type": "boolean",
 					"value": false
+				},
+				"backbone:iface": {
+					"type": "string",
+					"value": "tstgen.MyIfaceA"
 				}
 			},
 			"fields": {

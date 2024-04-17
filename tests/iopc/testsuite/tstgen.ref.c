@@ -207,10 +207,14 @@ static const iop_struct_attr_t tstgen__my_struct_a__s_attrs[] = {
         .type = 2,
         .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("test:gen4") }, { .v.i64 = 0UL } },
     },
+    {
+        .type = 1,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("backbone:iface") }, {.v.s = LSTR_IMMED("tstgen.MyIfaceA") } },
+    },
 };
 static const iop_struct_attrs_t tstgen__my_struct_a__s_desc_attrs = {
     .flags     = 0,
-    .attrs_len = 3,
+    .attrs_len = 4,
     .attrs     = tstgen__my_struct_a__s_attrs,
 };
 const iop_struct_t tstgen__my_struct_a__s = {

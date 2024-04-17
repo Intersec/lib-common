@@ -102,6 +102,7 @@ abstract class MyClassBase {
     static int    val  = 10; //!< comment for val of MyClassBase
 };
 
+@(backbone:iface, "tstgen.MyIfaceA")
 class MyClassA : 1 : MyClassBase {
     static string name = "MyClassA";
     static int    val  = 100;

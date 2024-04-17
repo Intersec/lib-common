@@ -58,6 +58,30 @@ static const char *pp_dot(iopc_path_t *path)
     return iopc_path_dot(path);
 }
 
+static void parse_iface_path(const char *iface_fullname,
+                             const char **iface_name,
+                             iopc_path_t * nullable * nonnull iface_path)
+{
+    pstream_t ps = ps_initstr(iface_fullname);
+    pstream_t ps_path;
+
+    *iface_path = NULL;
+
+    if (ps_get_ps_lastchr_and_skip(&ps, '.', &ps_path) >= 0) {
+        SB_1k(err);
+
+        *iface_name = ps.s;
+
+        *iface_path = iopc_path_parse(LSTR_PS_V(&ps_path), &err);
+        if (!*iface_path) {
+            e_panic("cannot parse path of interface %s: %*pM",
+                    iface_fullname, SB_FMT_ARG(&err));
+        }
+    } else {
+        *iface_name = iface_fullname;
+    }
+}
+
 static bool is_name_reserved_in_model(const char *field_name, bool is_union)
 {
     carray_for_each_entry(name, reserved_model_names_g) {
@@ -76,17 +100,17 @@ static bool is_name_reserved_in_model(const char *field_name, bool is_union)
     return false;
 }
 
-static void t_iopc_dump_import(sb_t *buf, const iopc_pkg_t *dep,
+static void t_iopc_dump_import(sb_t *buf, iopc_path_t *dep_name,
                                qh_t(cstr) *imported)
 {
-    const char *import_name = t_pp_under(dep->name);
+    const char *import_name = t_pp_under(dep_name);
 
     if (qh_put(cstr, imported, import_name, 0) & QHASH_COLLISION) {
         return;
     }
 
     sb_addf(buf, "import * as %s from 'iop/%s.iop';\n",
-            import_name, t_pp_path(dep->name));
+            import_name, t_pp_path(dep_name));
 }
 
 static bool iopc_should_dump_coll(const iopc_struct_t *st)
@@ -106,6 +130,7 @@ static void iopc_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
     qv_t(iopc_pkg) t_deps;
     qv_t(iopc_pkg) t_weak_deps;
     qv_t(iopc_pkg) i_deps;
+    bool import_backbone = false;
     bool import_struct = false;
     bool import_base_class = false;
     bool import_class = false;
@@ -149,6 +174,8 @@ static void iopc_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
     tab_for_each_entry(iface, &pkg->ifaces) {
         if (iface->type == IFACE_TYPE_IFACE) {
             tab_for_each_entry(rpc, &iface->funs) {
+                import_backbone = true;
+
                 if ((rpc->arg.is_anonymous && rpc->arg.anonymous_struct)
                 ||  (rpc->res.is_anonymous && rpc->res.anonymous_struct)
                 ||  (rpc->exn.is_anonymous && rpc->exn.anonymous_struct))
@@ -159,6 +186,11 @@ static void iopc_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
             }
         }
     }
+
+    if (import_backbone) {
+        sb_adds(buf, "import Backbone from 'backbone';\n");
+    }
+
     if (import_struct || import_base_class || import_union) {
         sb_adds(buf, "import { ");
         if (import_base_class) {
@@ -200,13 +232,32 @@ static void iopc_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
     sb_addf(buf, "iop.load(JSON as _IopCorePackage);\n\n");
 
     tab_for_each_entry(dep, &t_deps) {
-        t_iopc_dump_import(buf, dep, &imported);
+        t_iopc_dump_import(buf, dep->name, &imported);
     }
     tab_for_each_entry(dep, &t_weak_deps) {
-        t_iopc_dump_import(buf, dep, &imported);
+        t_iopc_dump_import(buf, dep->name, &imported);
     }
     tab_for_each_entry(dep, &i_deps) {
-        t_iopc_dump_import(buf, dep, &imported);
+        t_iopc_dump_import(buf, dep->name, &imported);
+    }
+    tab_for_each_entry(st, &pkg->structs) {
+        tab_for_each_entry(attr, &st->attrs) {
+            if (!lstr_equal(attr->real_name, LSTR("backbone:iface"))) {
+                continue;
+            }
+            tab_for_each_entry(arg, &attr->args) {
+                const char *iface_name;
+                iopc_path_t *iface_path;
+
+                parse_iface_path(arg.v.s.s, &iface_name, &iface_path);
+                if (iface_path && !strequal(pkg->name->slash_path,
+                                            iopc_path_slash(iface_path)))
+                {
+                    t_iopc_dump_import(buf, iface_path, &imported);
+                }
+                iopc_path_delete(&iface_path);
+            }
+        }
     }
 
     qv_wipe(&t_deps);
@@ -431,6 +482,8 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
                              const iopc_pkg_t *pkg, iopc_struct_t *st,
                              const char *st_name)
 {
+    bool no_ic_queries = true;
+
     if (!st_name) {
         st_name = st->name;
     }
@@ -460,23 +513,17 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
         iopc_dump_field(buf, pkg, field, OBJECT_FIELD);
         sb_adds(buf, ";\n");
     }
-
     sb_addf(buf, "%s}\n", indent);
 
-    if (iopc_is_class(st->type)) {
-        sb_addf(buf, "%sexport interface %s_ModelParam", indent, st_name);
+    sb_addf(buf, "%sexport interface %s_ModelParam", indent, st_name);
+    if (iopc_is_class(st->type) && st->extends.len) {
+        const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
+        const iopc_struct_t *parent = st->extends.tab[0]->st;
 
-        if (st->extends.len) {
-            const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
-            const iopc_struct_t *parent = st->extends.tab[0]->st;
-
-            sb_adds(buf, " extends ");
-            iopc_dump_package_member(buf, pkg, parent_pkg, parent_pkg->name,
-                                     parent->name);
-            sb_adds(buf, "_ModelParam");
-        }
-    } else {
-        sb_addf(buf, "%sexport interface %s_ModelParam", indent, st_name);
+        sb_adds(buf, " extends ");
+        iopc_dump_package_member(buf, pkg, parent_pkg, parent_pkg->name,
+                                    parent->name);
+        sb_adds(buf, "_ModelParam");
     }
     sb_adds(buf, " {\n");
     tab_for_each_entry(field, &st->fields) {
@@ -522,6 +569,54 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
         }
     }
 
+    if (iopc_is_class(st->type) && st->extends.len) {
+        const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
+        const iopc_struct_t *parent = st->extends.tab[0]->st;
+
+        no_ic_queries = false;
+        sb_addf(buf, "%s    public icQuery: ", indent);
+        iopc_dump_package_member(buf, pkg, parent_pkg, parent_pkg->name,
+                                    parent->name);
+        sb_adds(buf, "_Model<Param>['icQuery']");
+    }
+
+    tab_for_each_entry(attr, &st->attrs) {
+        if (!lstr_equal(attr->real_name, LSTR("backbone:iface"))) {
+            continue;
+        }
+        tab_for_each_entry(arg, &attr->args) {
+            const char *iface_name;
+            iopc_path_t *iface_path;
+
+            parse_iface_path(arg.v.s.s, &iface_name, &iface_path);
+
+            if (no_ic_queries) {
+                no_ic_queries = false;
+                sb_addf(buf, "%s    public icQuery: ", indent);
+            } else {
+                sb_addf(buf, "\n%s        & ", indent);
+            }
+
+            if (iface_path && !strequal(pkg->name->slash_path,
+                                        iopc_path_slash(iface_path)))
+            {
+                t_scope;
+
+                sb_addf(buf, "%s.", t_pp_under(iface_path));
+            }
+
+            sb_addf(buf, "interfaces.%s.IcQuery", iface_name);
+
+            iopc_path_delete(&iface_path);
+        }
+    }
+
+    if (no_ic_queries) {
+        sb_addf(buf, "%s    public icQuery: (rpc: never) => never", indent);
+    }
+
+    sb_adds(buf, ";\n");
+
     sb_addf(buf, "%s};\n", indent);
     sb_addf(buf, "%sregisterModel(%s_Model, %s_fullname);\n",
             indent, st_name, st_name);
@@ -537,16 +632,20 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
 
                 iopc_dump_package_member(buf, pkg, parent_pkg, parent_pkg->name,
                                          parent->name);
-                sb_adds(buf, "_Collection<Model> { };\n");
+                sb_adds(buf, "_Collection<Model> {\n");
             } else {
-                sb_adds(buf, "IopCollection<Model> { };\n");
+                sb_adds(buf, "IopCollection<Model> {\n");
             }
+            sb_addf(buf, "%s    public icQuery: Model['icQuery'];\n", indent);
         } else {
-            sb_addf(buf, "%sexport class %s_Collection extends IopCollection<%s_Model> { };\n",
-                    indent, st_name, st_name);
+            sb_addf(buf, "%sexport class %s_Collection extends "
+                    "IopCollection<%s_Model> {\n", indent, st_name, st_name);
+            sb_addf(buf, "%s    public icQuery: %s_Model['icQuery'];\n",
+                    indent, st_name);
         }
-        sb_addf(buf, "%sregisterCollection<%s_Model>(%s_Collection, %s_fullname);\n",
-                indent, st_name, st_name, st_name);
+        sb_addf(buf, "%s};\n", indent);
+        sb_addf(buf, "%sregisterCollection<%s_Model>(%s_Collection, "
+                "%s_fullname);\n", indent, st_name, st_name, st_name);
     }
 }
 
@@ -691,6 +790,10 @@ iopc_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
             sb_addf(buf, "        export type %s%s = ", rpc->name, type);
             iopc_dump_field_basetype(buf, pkg, fun_st->existing_struct, NULL);
             sb_adds(buf, ";\n");
+            sb_addf(buf, "        export type %s%s_ModelParam = ",
+                    rpc->name, type);
+            iopc_dump_field_basetype(buf, pkg, fun_st->existing_struct, NULL);
+            sb_adds(buf, "_ModelParam;\n");
         }
     }
 }
@@ -704,36 +807,21 @@ static void iopc_dump_rpc(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_dump_rpc_fun_struct(buf, pkg, rpc, "Res", &rpc->res);
     iopc_dump_rpc_fun_struct(buf, pkg, rpc, "Exn", &rpc->exn);
 
-    sb_addf(buf, "        export type %s = (", rpc->name);
-    if (!iopc_fun_struct_is_void(&rpc->arg)) {
-        if (rpc->arg.is_anonymous) {
-            bool first = true;
+    sb_addf(buf, "        export type %sIcQuery = (\n", rpc->name);
+    sb_addf(buf, "            rpc: '%s',\n", rpc->name);
 
-            tab_for_each_entry(field, &rpc->arg.anonymous_struct->fields) {
-                if (!first) {
-                    sb_adds(buf, ", ");
-                }
-                iopc_dump_field(buf, pkg, field, DEFVAL_AS_OPT);
-                first = false;
-            }
-        } else {
-            sb_adds(buf, "arg: ");
-            iopc_dump_field_basetype(buf, pkg, rpc->arg.existing_struct,
-                                     NULL);
-        }
-    }
-    sb_adds(buf, ") => ");
-
-    if (rpc->fun_is_async) {
-        sb_adds(buf, "void");
-    } else
-    if (!iopc_fun_struct_is_void(&rpc->res)) {
-        sb_addf(buf, "Promise<%sRes>", rpc->name);
+    if (iopc_fun_struct_is_void(&rpc->arg)) {
+        sb_addf(buf, "            args: %sArgs,\n", rpc->name);
     } else {
-        sb_adds(buf, "Promise<void>");
+        sb_addf(buf, "            args: %sArgs | %sArgs_ModelParam,\n",
+                rpc->name, rpc->name);
     }
-
-    sb_adds(buf, ";\n\n");
+    sb_addf(buf, "            options?: Backbone.ICQueryOptions\n");
+    /** XXX: the correct output is actually JQueryDeferred<%sRes | %sExn>
+     * but it would break mmsx too much as most RPC calls don't have a good
+     * exception handling
+    */
+    sb_addf(buf, "        ) => JQueryDeferred<%sRes>;\n\n", rpc->name);
 }
 
 static void iopc_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
@@ -744,6 +832,16 @@ static void iopc_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
     tab_for_each_entry(rpc, &iface->funs) {
         iopc_dump_rpc(buf, pkg, rpc);
     }
+
+    tab_enumerate(pos, rpc, &iface->funs) {
+        if (pos == 0) {
+            sb_addf(buf, "        export type IcQuery = %sIcQuery",
+                    rpc->name);
+        } else {
+            sb_addf(buf, "\n            & %sIcQuery", rpc->name);
+        }
+    }
+    sb_adds(buf, ";\n");
 
     sb_addf(buf, "    }\n");
 }

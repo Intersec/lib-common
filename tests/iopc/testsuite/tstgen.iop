@@ -17,6 +17,7 @@ enum MyEnumA {
 @(test:gen3, "test")
 @(test:gen4, false)
 @ctype(my_struct_a__t)
+@(backbone:iface, "tstgen.MyIfaceA")
 struct MyStructA {
     int i;
     @(test:gen3, 10.0)

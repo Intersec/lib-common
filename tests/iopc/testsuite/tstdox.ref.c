@@ -788,6 +788,17 @@ static const iop_static_field_t *tstdox__my_class_a__static_fields[] = {
     &tstdox__my_class_a__static_field_1,
 };
 
+static const iop_struct_attr_t tstdox__my_class_a__s_attrs[] = {
+    {
+        .type = 1,
+        .args = (iop_field_attr_arg_t[]){ { .v.s = LSTR_IMMED("backbone:iface") }, {.v.s = LSTR_IMMED("tstgen.MyIfaceA") } },
+    },
+};
+static const iop_struct_attrs_t tstdox__my_class_a__s_desc_attrs = {
+    .flags     = 0,
+    .attrs_len = 1,
+    .attrs     = tstdox__my_class_a__s_attrs,
+};
 static const iop_class_attrs_t tstdox__my_class_a__class_s = {
     .parent            = &tstdox__my_class_base__s,
     .static_fields     = tstdox__my_class_a__static_fields,
@@ -803,7 +814,7 @@ const iop_struct_t tstdox__my_class_a__s = {
     .size       = sizeof(tstdox__my_class_a__t),
     .flags      = 13,
     .is_union   = false,
-    .st_attrs   = NULL,
+    .st_attrs   = &tstdox__my_class_a__s_desc_attrs,
     .fields_attrs = NULL,
     {
         .class_attrs  = &tstdox__my_class_a__class_s,
