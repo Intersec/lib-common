@@ -999,6 +999,7 @@ const char *t_pretty_token(iopc_tok_type_t token);
 
 /*----- iopc_path_t -----*/
 
+iopc_path_t *iopc_path_parse(lstr_t name, sb_t *err);
 const char *iopc_path_slash(iopc_path_t *path);
 const char *iopc_path_dot(iopc_path_t *path);
 

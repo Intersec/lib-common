@@ -24,37 +24,6 @@
 /* {{{ IOP-described package to iopc_pkg_t */
 /* {{{ Helpers */
 
-static iopc_path_t *parse_path(lstr_t name, bool is_type, sb_t *err)
-{
-    pstream_t ps = ps_initlstr(&name);
-    iopc_path_t *path = iopc_path_new();
-
-    while (!ps_done(&ps)) {
-        pstream_t bit;
-
-        if (ps_get_ps_chr_and_skip(&ps, '.', &bit) < 0) {
-            bit = ps;
-            __ps_skip_upto(&ps, ps.s_end);
-        } else
-        if (ps_done(&ps)) {
-            sb_sets(err, "trailing dot in package name");
-            goto error;
-        }
-
-        if (ps_done(&bit)) {
-            sb_setf(err, "empty package or sub-package name");
-            goto error;
-        }
-        qv_append(&path->bits, p_dupz(bit.s, ps_len(&bit)));
-    }
-
-    return path;
-
-  error:
-    iopc_path_delete(&path);
-    return NULL;
-}
-
 int iop_type_to_iop(iop_type_t type, iop__type__t *out)
 {
     switch (type) {
@@ -608,7 +577,7 @@ iopc_pkg_load_from_iop(const iop__package__t *nonnull pkg_desc,
     qh_t(lstr) things;
 
     pkg->file = p_strdup("<none>");
-    pkg->name = parse_path(pkg_desc->name, false, err);
+    pkg->name = iopc_path_parse(pkg_desc->name, err);
     if (!pkg->name) {
         sb_prepends(err, "invalid name: ");
         goto error;

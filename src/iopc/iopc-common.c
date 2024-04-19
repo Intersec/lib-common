@@ -42,6 +42,37 @@ const char *t_pretty_token(iopc_tok_type_t token)
     }
 }
 
+iopc_path_t *iopc_path_parse(lstr_t name, sb_t *err)
+{
+    pstream_t ps = ps_initlstr(&name);
+    iopc_path_t *path = iopc_path_new();
+
+    while (!ps_done(&ps)) {
+        pstream_t bit;
+
+        if (ps_get_ps_chr_and_skip(&ps, '.', &bit) < 0) {
+            bit = ps;
+            __ps_skip_upto(&ps, ps.s_end);
+        } else
+        if (ps_done(&ps)) {
+            sb_sets(err, "trailing dot in package name");
+            goto error;
+        }
+
+        if (ps_done(&bit)) {
+            sb_setf(err, "empty package or sub-package name");
+            goto error;
+        }
+        qv_append(&path->bits, p_dupz(bit.s, ps_len(&bit)));
+    }
+
+    return path;
+
+  error:
+    iopc_path_delete(&path);
+    return NULL;
+}
+
 void iopc_path_join(const iopc_path_t *path, const char *sep, sb_t *buf)
 {
     tab_enumerate(i, bit, &path->bits) {
