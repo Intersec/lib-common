@@ -233,15 +233,7 @@ static void iopc_dump_package_member(sb_t *buf, const iopc_pkg_t *pkg,
 static void iopc_dump_enum(sb_t *buf, const char *indent,
                            const iopc_pkg_t *pkg, const iopc_enum_t *en)
 {
-    bool is_strict = false;
     bool first = false;
-
-    tab_for_each_entry(attr, &en->attrs) {
-        if (attr->desc->id == IOPC_ATTR_STRICT) {
-            is_strict = true;
-            break;
-        }
-    }
 
     sb_addf(buf, "\n%sexport type %s_Int = ", indent, en->name);
     first = true;
@@ -265,13 +257,8 @@ static void iopc_dump_enum(sb_t *buf, const char *indent,
     }
     sb_adds(buf, ";\n");
 
-    if (is_strict) {
-        sb_addf(buf, "%sexport type %s = %s_Str;\n",
-                indent, en->name, en->name);
-    } else {
-        sb_addf(buf, "%sexport type %s = %s_Str;\n",
-                indent, en->name, en->name);
-    }
+    sb_addf(buf, "%sexport type %s = %s_Str;\n",
+            indent, en->name, en->name);
 
     sb_addf(buf, "%sexport interface %s_ModelIf extends "
             "Enumeration<%s_Str, %s_Int> {\n", indent, en->name, en->name,
