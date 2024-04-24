@@ -1066,6 +1066,8 @@ static int el_timer_next_expiration(int timeout, uint64_t clk)
     return timeout;
 }
 
+static void el_timer_compute_tolerance(ev_t *ev, int64_t next);
+
 static void el_timer_process(uint64_t until)
 {
     struct timeval tv;
@@ -1096,6 +1098,11 @@ static void el_timer_process(uint64_t until)
 
         if (ev->timer.repeat > 0) {
             ev->timer.expiry += ev->timer.repeat;
+            /* Compute the tolerance for the other fires based on `repeat`.
+             * If we want to run the timer for the first time in 600ms and
+             * repeat each 30 min, then the tolerance for the rest of fires
+             * are computed based on 30 min. */
+            el_timer_compute_tolerance(ev, ev->timer.repeat);
             if (!EV_FLAG_HAS(ev, TIMER_NOMISS) && ev->timer.expiry < until) {
                 uint64_t delta  = until - ev->timer.expiry;
 
@@ -1146,22 +1153,18 @@ static bool el_timer_has_pending_events(void)
     return ev->timer.expiry <= now;
 }
 
-static void el_timer_compute_tolerance(ev_t *ev)
+static void el_timer_compute_tolerance(ev_t *ev, int64_t next)
 {
-    int64_t repeat = ev->timer.repeat;
+    assert(next >= 0);
 
-    if (repeat < 0) {
-        repeat = -repeat;
-    }
-
-    if (EV_FLAG_HAS(ev, TIMER_LOWRES) && repeat >= 500) {
+    if (EV_FLAG_HAS(ev, TIMER_LOWRES) && next >= 500) {
         /* Timer is explicitly flagged as "low resolution" and has a
-         * repetition of more than 500ms (and thus does not need high
+         * next fire of more than 500ms (and thus does not need high
          * precision), so allow a shift of up to 10% of the timer duration.
          * That shift is actually capped at EL_LOOP_TIMEOUT since this is the
          * duration of an event loop in case of inactivity.
          */
-        ev->timer.tolerance = MIN(repeat / 10, EL_LOOP_TIMEOUT);
+        ev->timer.tolerance = MIN(next / 10, EL_LOOP_TIMEOUT);
     } else {
         /* Otherwise, make it high-precision */
         ev->timer.tolerance = 0;
@@ -1184,7 +1187,12 @@ ev_t *el_timer_register_d(int64_t next, int64_t repeat,
     } else {
         ev->timer.repeat = -next;
     }
-    el_timer_compute_tolerance(ev);
+
+    /* Compute the tolerance for the first fire based on `next`.
+     * If we want to run the timer for the first time in 600ms and repeat
+     * each 30 min, then the tolerance for the first fire is computed based
+     * on 600ms. */
+    el_timer_compute_tolerance(ev, next);
     ev->timer.expiry = (uint64_t)next + get_clock();
     qhp_insert(timer, &_G.timers, ev);
 
@@ -1244,7 +1252,9 @@ void el_timer_restart(ev_t *ev, int64_t restart)
         restart = -ev->timer.repeat;
     } else {
         ev->timer.repeat = -restart;
-        el_timer_compute_tolerance(ev);
+        /* For the one-shot restart, use `restart` to compute the tolerance.
+         */
+        el_timer_compute_tolerance(ev, restart);
     }
     el_timer_restart_fast(ev, restart);
 }

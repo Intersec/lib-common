@@ -22,6 +22,7 @@
 #include <lib-common/net.h>
 #include <lib-common/unix.h>
 #include <lib-common/z.h>
+#include <lib-common/datetime.h>
 
 struct z_el_data {
     int  calls;
@@ -155,6 +156,41 @@ static int z_spawn_child_capture_timeout(void)
     }
     Z_ASSERT(false, "should have timedout");
 
+    Z_HELPER_END;
+}
+
+static int z_timer_tolerance(void)
+{
+    /* Set timeout to 2000ms to run a timer that is programmed to run
+     * 600ms after the start of an event loop. */
+    int64_t timeout = 2000;
+    int64_t before;
+    int64_t running = 0;
+    int64_t *p_running = &running;
+    el_t timer;
+
+    /* Set a timer that will run 600ms after the event loop starts,
+     * and repeat every minute. */
+    timer = el_timer_register_blk(600, 60 * 1000, EL_TIMER_LOWRES,
+        ^(el_t ev) {
+            /* When the timer is fired, save the the timestamp. */
+            *p_running = lp_getmsec();
+        }, NULL);
+
+    /* Save the timestamp just before the event loop starts */
+    before = lp_getmsec();
+
+    /* Start a event loop with timeout that ignores the repeat. */
+    el_loop_timeout(timeout);
+
+    /* Clean up the timer. */
+    el_unregister(&timer);
+
+    /* Check first if the timer is fired. If `running` is 0, then the
+     * timer is never fired. And check if the first fire is run during
+     * the timeout.*/
+    Z_ASSERT(running);
+    Z_ASSERT_LT(running - before, timeout);
     Z_HELPER_END;
 }
 
@@ -329,6 +365,11 @@ Z_GROUP_EXPORT(el)
         Z_HELPER_RUN(z_spawn_child_capture());
         Z_HELPER_RUN(z_spawn_child_capture_timeout());
     } Z_TEST_END;
+
+    Z_TEST(el_repeat_timer_tolerance, "el repeat timer tolerance") {
+        Z_HELPER_RUN(z_timer_tolerance());
+    } Z_TEST_END;
+
 } Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */
