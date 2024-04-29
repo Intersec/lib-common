@@ -56,6 +56,32 @@ static ALWAYS_INLINE bool net_rctl_fire(net_rctl_t * nonnull rctl)
     return false;
 }
 
+/** Divide a 1 second rate into multiple slots.
+ *
+ * Get for each slot the number of requests that can be sent.
+ *
+ * If the total rate per seconds is not a multiple of the number of slots,
+ * this algorithm makes sure that:
+ *
+ *   - the sum of all slots equals the expected rate per second.
+ *   - the last slot does not counterbalance the accumulated difference
+ *
+ * Example for a target rate of 97 requests, the expected result:
+ *
+ *    [9, 10, 10, 9, 10, 10, 9, 10, 10, 10]
+ *
+ * Exemple of what naïve implementations could give:
+ *
+ *    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9]          -> only 90 requests
+ *    [9, 9, 9, 9, 9, 9, 9, 9, 9, 16]         -> unbalanced distribution
+ *    [10, 10, 10, 10, 10, 10, 10, 10, 10, 7] -> unbalanced distribution
+ *
+ * \param[in] rate  the number of requests that can be sent per second
+ * \param[in] slots_nr  the size of \p slots
+ * \param[out] slots  array to fill with the rate per slot
+ */
+void net_rctl_init_slots(int rate, int slots_nr,
+                         unsigned slots[static slots_nr]);
 void net_rctl_init(net_rctl_t * nonnull rctl, int rate,
                    void (*nonnull cb)(net_rctl_t * nonnull));
 #ifdef __has_blocks

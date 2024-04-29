@@ -38,38 +38,24 @@ static void net_rctl_cron_cb(el_t ev, data_t priv)
     }
 }
 
-static void net_rctl_init_(net_rctl_t *rctl, int rate)
+void net_rctl_init_slots(int rate, int slots_nr,
+                         unsigned slots[static slots_nr])
 {
     unsigned sum = 0;
 
+    for (int i = 0; i < slots_nr; i++) {
+        slots[i] = (i + 1) * rate / slots_nr - sum;
+        sum += slots[i];
+    }
+}
+
+static void net_rctl_init_(net_rctl_t *rctl, int rate)
+{
     p_clear(rctl, 1);
     rctl->rate      = rate;
     rctl->slice_max = DIV_ROUND_UP(rctl->rate * 3, countof(rctl->rates));
 
-    /*
-     * Get for each slot the number of requests that can be sent.
-     *
-     * If the total rate per seconds is not a multiple of the number of slots,
-     * this algorithm makes sure that:
-     *
-     *   - the sum of all slots equals the expected rate per second.
-     *   - the last slot does not counterbalance the accumulated difference
-     *
-     * Example for a target rate of 97 requests, the expected result:
-     *
-     *    [9, 10, 10, 9, 10, 10, 9, 10, 10, 10]
-     *
-     * Exemple of what naïve implementations could give:
-     *
-     *    [9, 9, 9, 9, 9, 9, 9, 9, 9, 9]          -> only 90 requests
-     *    [9, 9, 9, 9, 9, 9, 9, 9, 9, 16]         -> unbalanced distribution
-     *    [10, 10, 10, 10, 10, 10, 10, 10, 10, 7] -> unbalanced distribution
-     *
-     */
-    for (int i = 0; i < countof(rctl->rates); i++) {
-        rctl->rates[i] = (i + 1) * rctl->rate / countof(rctl->rates) - sum;
-        sum += rctl->rates[i];
-    }
+    net_rctl_init_slots(rate, countof(rctl->rates), rctl->rates);
 }
 
 void net_rctl_init(net_rctl_t *rctl, int rate, void (*cb)(net_rctl_t *))
