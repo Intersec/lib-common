@@ -169,6 +169,19 @@ http_qhdr_find(const http_qhdr_t * nonnull tab, size_t len, http_wkhdr_t wkhdr)
     return NULL;
 }
 
+static inline const http_qhdr_t * nullable
+http_qhdr_find_from_key(const http_qhdr_t * nonnull tab, size_t len,
+                        lstr_t key)
+{
+    /* scan from the end because the last header prevails */
+    for (size_t i = len; i-- > 0; ) {
+        if (lstr_ascii_iequal(key, LSTR_PS_V(&tab[i].key))) {
+            return tab + i;
+        }
+    }
+    return NULL;
+}
+
 /* {{{ HTTP Server */
 
 struct httpd_query_t;
