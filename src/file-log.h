@@ -76,7 +76,8 @@ typedef struct log_file_t {
     int      max_files;
     int      max_total_size; /* in Mo */
     time_t   open_date;
-    time_t   rotate_delay;
+    int      rotate_delay;
+    int      max_file_age;
     char     prefix[PATH_MAX];
     char     ext[8];
 
@@ -117,9 +118,10 @@ log_file_create_from_iop(const char *nametpl,
                          log_file_cb_f *on_event, void *priv);
 
 void log_file_set_maxsize(log_file_t *file, int max);
-void log_file_set_rotate_delay(log_file_t *file, time_t delay);
+void log_file_set_rotate_delay(log_file_t *file, int delay);
 void log_file_set_maxfiles(log_file_t *file, int maxfiles);
 void log_file_set_maxtotalsize(log_file_t *file, int maxtotalsize);
+void log_file_set_max_file_age(log_file_t *file, int max_file_age);
 void
 log_file_set_file_cb(log_file_t *file, log_file_cb_f *on_event,
                      void *priv);

@@ -18,6 +18,7 @@
 
 #include <glob.h>
 
+#include <lib-common/datetime.h>
 #include <lib-common/el.h>
 #include <lib-common/file-log.h>
 #include <lib-common/z.h>
@@ -69,6 +70,8 @@ Z_GROUP_EXPORT(file_log)
         bool        waiting = true;
 
         Z_TEST_FLAGS("redmine_43539");
+
+        _G.events[LOG_FILE_DELETE] = 0;
 
         /* read random stuff to avoid perfect compression */
         {
@@ -133,11 +136,100 @@ Z_GROUP_EXPORT(file_log)
         Z_ASSERT_EQ(log_file_close(&cfg), 0);
 
         /* last file may be reused */
-        Z_ASSERT_GE(_G.events[LOG_FILE_DELETE], NB_FILES - 1);
+        Z_ASSERT_EQ(_G.events[LOG_FILE_DELETE], NB_FILES - 1);
 
         /* Properly wait for gzip children termination. */
         el_loop();
     } Z_TEST_END;
+
+#define NB_RECENT_FILES 3
+
+    Z_TEST(file_log_max_file_age, "check max_file_age") {
+        t_scope;
+        lstr_t path = t_lstr_fmt("%*pMtmp_log", LSTR_FMT_ARG(z_tmpdir_g));
+        char *data = t_new_raw(char, RANDOM_DATA_SIZE);
+        log_file_t *cfg;
+        time_t now = time(NULL);
+        char date_buf[20];
+
+        Z_TEST_FLAGS("redmine_97334");
+
+        _G.events[LOG_FILE_DELETE] = 0;
+
+        /* Read random stuff to avoid perfect compression. */
+        {
+            int fd = open("/dev/urandom", O_RDONLY);
+            Z_ASSERT_EQ(read(fd, data, RANDOM_DATA_SIZE), RANDOM_DATA_SIZE);
+            close(fd);
+        }
+
+        /* Retrieve the date from 1.5 years ago. */
+        Z_ASSERT_GT(format_timestamp("%Y%m%d", now - 47304000, NULL, date_buf,
+                                     countof(date_buf)), 0);
+
+        /* Create NB_FILES dummy log files that were created 1.5 years ago. */
+        for(int i = 0; i < NB_FILES; i++) {
+            lstr_t name = t_lstr_fmt("%s_%s_%06d.log", path.s, date_buf, i);
+            file_t *file = file_open(name.s, FILE_WRONLY | FILE_CREATE, 0666);
+
+            file_write(file, data, RANDOM_DATA_SIZE);
+            IGNORE(file_close(&file));
+        }
+
+        /* Retrieve the current date. */
+        Z_ASSERT_GT(format_timestamp("%Y%m%d", now, NULL, date_buf,
+                                     countof(date_buf)), 0);
+
+        /* Create NB_RECENT_FILES recent dummy log files. */
+        for(int i = 0; i < NB_RECENT_FILES; i++) {
+            lstr_t name = t_lstr_fmt("%s_%s_%06d.log", path.s, date_buf, i);
+            file_t *file = file_open(name.s, FILE_WRONLY | FILE_CREATE, 0666);
+
+            file_write(file, data, RANDOM_DATA_SIZE);
+            IGNORE(file_close(&file));
+        }
+
+        /* By calling log_file_open, we are sure that log_check_invariants is
+         * called. */
+        cfg = log_file_new(path.s, 0);
+        log_file_set_max_file_age(cfg, 63072000); /* 730 days */
+        log_file_set_file_cb(cfg, on_cb, NULL);
+
+        Z_ASSERT_EQ(log_file_open(cfg, false), 0);
+        Z_ASSERT_EQ(log_file_close(&cfg), 0);
+
+        /* No log files should be deleted. */
+        Z_ASSERT_EQ(_G.events[LOG_FILE_DELETE], 0);
+
+        /* By calling log_file_open, we are sure that log_check_invariants is
+         * called. */
+        cfg = log_file_new(path.s, 0);
+        log_file_set_max_file_age(cfg, 31536000); /* 365 days */
+        log_file_set_rotate_delay(cfg, 31536000); /* 365 days */
+        log_file_set_file_cb(cfg, on_cb, NULL);
+
+        Z_ASSERT_EQ(log_file_open(cfg, false), 0);
+        Z_ASSERT_EQ(log_file_close(&cfg), 0);
+
+        /* No log files should be deleted because of the margin. */
+        Z_ASSERT_EQ(_G.events[LOG_FILE_DELETE], 0);
+
+        /* By calling log_file_open, we are sure that log_check_invariants is
+         * called. */
+        cfg = log_file_new(path.s, 0);
+        log_file_set_max_file_age(cfg, 31536000); /* 365 days */
+        log_file_set_file_cb(cfg, on_cb, NULL);
+
+        Z_ASSERT_EQ(log_file_open(cfg, false), 0);
+        Z_ASSERT_EQ(log_file_close(&cfg), 0);
+
+        /* All 1.5 years old log files should have been deleted. */
+        Z_ASSERT_EQ(_G.events[LOG_FILE_DELETE], NB_FILES);
+
+        /* Properly wait for gzip children termination. */
+        el_loop();
+    } Z_TEST_END;
+#undef NB_RECENT_FILES
 #undef RANDOM_DATA_SIZE
 #undef NB_FILES
 

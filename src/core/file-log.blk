@@ -19,6 +19,7 @@
 #include <glob.h>
 #include <sys/resource.h>
 
+#include <lib-common/datetime.h>
 #include <lib-common/file-log.h>
 #include <lib-common/el.h>
 #include <lib-common/iop-json.h>
@@ -237,6 +238,35 @@ static void log_check_invariants(log_file_t *log_file)
         }
     }
 
+    /* We apply the strictest limits first:
+     * max file age, max files, and then max total size.
+     */
+    if (log_file->max_file_age) {
+        /* The age limit is calculated from maxFileAge, and with a margin
+         * corresponding to maxTime. */
+        time_t age_limit = lp_getsec() - log_file->max_file_age -
+                           log_file->rotate_delay;
+
+        /* Keep at least one file. */
+        for (; fc > 1; fc--, fv++, sts++) {
+            time_t creation_date;
+
+            /* Retrieve the creation date of the file. */
+            if (log_file_get_file_stamp(log_file, fv[0], &creation_date) < 0)
+            {
+                break;
+            }
+
+            /* If the file was created before the age limit, we can delete
+             * it. */
+            if (creation_date < age_limit) {
+                log_delete_file(log_file, fv[0], sts[0].st_size);
+            } else {
+                break;
+            }
+        }
+    }
+
     if (log_file->max_files) {
         for (; fc > log_file->max_files; fc--, fv++, sts++) {
             if (log_file->flags & LOG_FILE_COMPRESS) {
@@ -367,10 +397,11 @@ log_file_create_from_iop(const char *nametpl,
 
     log_file = log_file_new(nametpl, flags);
 
-    log_file_set_maxtotalsize(log_file, conf->total_max_size / (1024 * 1024));
-    log_file_set_maxfiles(log_file, conf->max_files);
     log_file_set_maxsize(log_file, conf->max_size);
     log_file_set_rotate_delay(log_file, conf->max_time);
+    log_file_set_maxfiles(log_file, conf->max_files);
+    log_file_set_maxtotalsize(log_file, conf->total_max_size / (1024 * 1024));
+    log_file_set_max_file_age(log_file, conf->max_file_age);
 
     if (on_event) {
         log_file_set_file_cb(log_file, on_event, priv);
@@ -426,18 +457,17 @@ int log_file_close(log_file_t **lfp)
 
 void log_file_set_maxsize(log_file_t *file, int max)
 {
-    if (max < 0) {
-        max = 0;
-    }
-    file->max_size = max;
+    file->max_size = MAX(0, max);
+}
+
+void log_file_set_rotate_delay(log_file_t *file, int delay)
+{
+    file->rotate_delay = MAX(0, delay);
 }
 
 void log_file_set_maxfiles(log_file_t *file, int maxfiles)
 {
-    if (maxfiles < 0) {
-        maxfiles = 0;
-    }
-    file->max_files = maxfiles;
+    file->max_files = MAX(0, maxfiles);
 }
 
 void log_file_set_maxtotalsize(log_file_t *file, int maxtotalsize)
@@ -445,9 +475,9 @@ void log_file_set_maxtotalsize(log_file_t *file, int maxtotalsize)
     file->max_total_size = MAX(0, maxtotalsize);
 }
 
-void log_file_set_rotate_delay(log_file_t *file, time_t delay)
+void log_file_set_max_file_age(log_file_t *file, int max_file_age)
 {
-    file->rotate_delay = delay;
+    file->max_file_age = MAX(0, max_file_age);
 }
 
 void log_file_set_file_cb(log_file_t *file, log_file_cb_f *on_event,

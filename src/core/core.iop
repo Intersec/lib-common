@@ -155,7 +155,7 @@ class LogFileConfiguration {
      * means that if a log file is scarcely used, it is only rotated if
      * needed. In other words, if you write every 3 hours in a file for which
      * you set maxTime to 2 hours, it will actually be rotated every 3 hours.
-     * 0 or a negative value disables this rotation trigger.
+     * Set to 0 to disable this rotation trigger.
      */
     ulong maxTime = 1d;
 
@@ -175,6 +175,16 @@ class LogFileConfiguration {
 
     /** Activate log file compression using gzip-9 */
     bool compress = true;
+
+    /** Maximum age of log files (in seconds).
+     *
+     * When a rotation occurs, we check the age of files from their creation
+     * date, and files older than this limit are deleted.
+     * As we are using the file creation date, we automatically add a margin
+     * corresponding to the value of \ref maxTime.
+     * 0 or a negative value disables this limit.
+     */
+    long maxFileAge = 0;
 };
 
 /** Full network address.
