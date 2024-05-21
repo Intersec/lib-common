@@ -33,7 +33,7 @@ typedef struct net_rctl_t {
         void (*nonnull on_ready)(struct net_rctl_t * nonnull);
 #ifdef __has_blocks
         block_t __unsafe_unretained nonnull blk;
-#endif
+#endif /* __has_blocks */
     };
 } net_rctl_t;
 
@@ -55,6 +55,9 @@ static ALWAYS_INLINE bool net_rctl_fire(net_rctl_t * nonnull rctl)
     }
     return false;
 }
+
+/* The "[static slots_nr]" does not work in C++ code. */
+#ifndef __cplusplus
 
 /** Divide a 1 second rate into multiple slots.
  *
@@ -82,15 +85,19 @@ static ALWAYS_INLINE bool net_rctl_fire(net_rctl_t * nonnull rctl)
  */
 void net_rctl_init_slots(int rate, int slots_nr,
                          unsigned slots[static slots_nr]);
+#else
+void net_rctl_init_slots(int rate, int slots_nr, unsigned slots[]);
+#endif /* __cplusplus */
+
 void net_rctl_init(net_rctl_t * nonnull rctl, int rate,
                    void (*nonnull cb)(net_rctl_t * nonnull));
 #ifdef __has_blocks
 void net_rctl_init_blk(net_rctl_t * nonnull rctl, int rate,
                        block_t nonnull blk);
-#endif
+#endif /* __has_blocks */
 
 void net_rctl_start(net_rctl_t * nonnull rctl);
 void net_rctl_stop(net_rctl_t * nonnull rctl);
 void net_rctl_wipe(net_rctl_t * nonnull rctl);
 
-#endif
+#endif /* !defined(IS_LIB_COMMON_NET_H) || defined(IS_LIB_COMMON_NET_RATE_H)*/
