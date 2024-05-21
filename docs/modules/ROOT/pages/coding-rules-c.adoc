@@ -331,12 +331,12 @@ fn (1, 2, 3);       /* bad  */
 ----
 
 * When the argument list of a function call spans on multiple lines, indent at
-  the opening paren column, unless it’s after the 40th column:
+  the column of the first argument, unless it’s after the 40th column:
 
 [source,c]
 ----
  some_call(struct->bar, 19 * long_variable_name, i++,
-          i_love_long_variables_too_much_for_my_sake);
+           i_love_long_variables_too_much_for_my_sake);
 ----
 
 * When declaring a function prototype, if the declaration isn’t multiline, we
@@ -567,7 +567,7 @@ if (res) {
 ----
 
 * In multi-line macros
-** the `\` should be aligned right on the 78th colum
+** the `\` should be aligned right on the 78th column
 ** the first `\` can be simply put two spaces after the name of the macro, or
 one space after the beginning of the body of the macro, in order to keep 2
 lines macros simple
@@ -714,9 +714,8 @@ for (int i = 0; i < 99; i++) { /* good */
 }
 ----
 
-* Add a blank line between variable declarations and code. It is allowed to
-  omit the blank line in case a very short block (two lines: one declaration
-  line, one statement). `t_scope` is considered as a declaration.
+* Add a blank line between variable declarations and code.
+  `t_scope` is considered as a declaration.
 
 [source,c]
 ----
@@ -733,7 +732,7 @@ for (int i = 0; i < 99; i++) { /* good */
     do_something2();
 }
 
-{ /* allowed */
+{ /* bad */
     int foo;
     do_something();
 }
@@ -812,7 +811,6 @@ my_type_t b;
 }
 ----
 
-
 * Stick pointer types stars to the variable names:
 
 [source,c]
@@ -825,18 +823,23 @@ char* baz;            /* bad */
 char *p, *q;          /* good */
 ----
 
-* When the deepest type is const, we put `const` front, especially for `const
-  char *`. Though, when `static` or any other storage class (`extern` e.g.) is
-  used, `const` is pushed after the type:
+* First specify the storage class when it exists (`static`, `extern`, etc.)
+  then `const` then the type:
 
 [source,c]
 ----
 int foo(const char *arg); /* good */
-int foo(char const *arg); /* bad  */
+int foo(char const *arg); /* bad */
 
-static const int a = 2;   /* bad  */
-static char const * const str_array[] = { /* good */
-}
+const char * const arg; /* good */
+char const * const arg; /* bad */
+
+static const int n = 2;   /* good */
+const static int n = 2;   /* bad */
+
+static const char * const str_array[]; /* good */
+static char const * const str_array[]; /* bad */
+const static char * const str_array[]; /* bad */
 ----
 
 == Types
@@ -861,7 +864,7 @@ enum foo {
 
 [source,c]
 ----
- enum foo {
+enum foo {
     FOO_0,
     FOO_1,
 };
@@ -982,7 +985,7 @@ storage.
 
 == Code structuration
 
-* Programation "topics" can be folded by using the `{{{` and `}}}` delimiters
+* Programmation "topics" can be folded by using the `{{{` and `}}}` delimiters
   (even if it is not mandatory). The name of a fold must be placed after the
   opening mark `{{{` (and should not be repeated when closing the fold). An
   empty line must be placed after the opening mark and before the closing mark.
@@ -1032,7 +1035,7 @@ code
 code
 
 /* }}} */
-/*  {{{ Bad nested fold 1.2 (bad ident) */
+/*  {{{ Bad nested fold 1.2 (bad indent) */
 
 code
 
