@@ -51,6 +51,10 @@
 #include <llvm/Support/raw_ostream.h>
 #include <memory>
 
+#if CLANG_VERSION_MAJOR >= 18
+# define TTK_Struct TagTypeKind::Struct
+#endif /* CLANG_VERSION_MAJOR >= 18 */
+
 using namespace clang;
 using llvm::utostr;
 
