@@ -72,14 +72,18 @@ static struct {
 #if !defined(NDEBUG) && !defined(__has_asan)
 # define VG_DO(what, map, pg, n) \
     ({  qps_pg_t _pg = (pg); size_t _n = (n);                                \
-        uint8_t *_start = map[QPS_PG_IDX(_pg)].data;                         \
-        uint8_t *_end   = _start + _n * QPS_PAGE_SIZE;                       \
-        assert (map);                                                        \
-        assert (_start);                                                     \
-        if (what < 0) {                                                      \
-            mem_tool_disallow_memory(_start, _end - _start);                 \
-        } else {                                                             \
-            mem_tool_allow_memory(_start, _end - _start, what);              \
+                                                                             \
+        if (_n) {                                                            \
+            uint8_t *_start = map[QPS_PG_IDX(_pg)].data;                     \
+            uint8_t *_end   = _start + _n * QPS_PAGE_SIZE;                   \
+                                                                             \
+            assert(map);                                                     \
+            assert(_start);                                                  \
+            if (what < 0) {                                                  \
+                mem_tool_disallow_memory(_start, _end - _start);             \
+            } else {                                                         \
+                mem_tool_allow_memory(_start, _end - _start, what);          \
+            }                                                                \
         }                                                                    \
     })
 #define VG_DO_PG(what, qps, pg, n) \
