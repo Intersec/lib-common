@@ -8704,14 +8704,23 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
                                        &diff_desc));
         Z_ASSERT_STREQUAL(diff_desc.data,
-                          "field `i`: value differs (`42` vs `41`)");
+                          "field `i`: value differs (42 vs 41)");
 
         d2 = d1;
         d2.b = true;
         Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
                                        &diff_desc));
         Z_ASSERT_STREQUAL(diff_desc.data,
-                          "field `b`: value differs (`false` vs `true`)");
+                          "field `b`: value differs (false vs true)");
+
+        d2 = d1;
+        d1.s = LSTR("\n\"");
+        Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
+                                       &diff_desc));
+        Z_ASSERT_STREQUAL(diff_desc.data,
+                          "field `s`: "
+                          "value differs (\"\\n\\\"\" vs \"toto\")");
+
 
         d2 = d1;
         OPT_SET(d1.opt_i, 666);
@@ -8737,7 +8746,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
                                        &diff_desc));
         Z_ASSERT_STREQUAL(diff_desc.data,
-                          "field `tab[1]`: value differs (`2` vs `3`)");
+                          "field `tab[1]`: value differs (2 vs 3)");
 
         iop_init(z_first_diff_c1, &c1);
         iop_init(z_first_diff_c2, &c2);
@@ -8761,7 +8770,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_N(iop_first_diff_desc(&z_first_diff_st__s, &d1, &d2,
                                        &diff_desc));
         Z_ASSERT_STREQUAL(diff_desc.data, "field `e`: "
-                          "value differs (`A(0)` vs `C(2)`)");
+                          "value differs (A(0) vs C(2))");
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_nonreg_ioptag_union_unpack, "test iop_tag all bytes set (i32 vs u16)") { /* {{{ */

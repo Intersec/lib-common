@@ -1731,7 +1731,7 @@ static inline void iop_value_print(iop_type_t type, const iop_enum_t *en_desc,
       CASE_NUMBER(IOP_T_I32, "%d", int32_t);
       CASE_NUMBER(IOP_T_U64, "%ju", uint64_t);
       CASE_NUMBER(IOP_T_I64, "%jd", int64_t);
-      CASE_NUMBER(IOP_T_DOUBLE, "%f", double);
+      CASE_NUMBER(IOP_T_DOUBLE, "%g", double);
 
 #undef CASE_NUMBER
 
@@ -1742,13 +1742,18 @@ static inline void iop_value_print(iop_type_t type, const iop_enum_t *en_desc,
         break;
 
       case IOP_T_STRING:
-      case IOP_T_XML:
-        sb_add_lstr(buf, *(const lstr_t *)v);
-        break;
+      case IOP_T_XML: {
+        lstr_t s = *(const lstr_t *)v;
+
+        sb_addc(buf, '"');
+        sb_add_slashes(buf, s.s, s.len, "\a\b\t\n\v\f\r\"", "abtnvfr\"");
+        sb_addc(buf, '"');
+      } break;
 
       case IOP_T_DATA: {
         lstr_t data = *(const lstr_t *)v;
 
+        /* TODO Switch to a nicest printer some day. */
         sb_add_lstr_hex(buf, data);
       } break;
 
@@ -1843,11 +1848,11 @@ static int __iop_first_diff(const iop_struct_t *st,
                         en_desc = fdesc->u1.en_desc;
                     }
 
-                    sb_sets(diff_desc, "value differs (`");
+                    sb_sets(diff_desc, "value differs (");
                     iop_value_print(fdesc->type, en_desc, t1, diff_desc);
-                    sb_adds(diff_desc, "` vs `");
+                    sb_adds(diff_desc, " vs ");
                     iop_value_print(fdesc->type, en_desc, t2, diff_desc);
-                    sb_adds(diff_desc, "`)");
+                    sb_adds(diff_desc, ")");
 
                     goto print_field;
                 }
