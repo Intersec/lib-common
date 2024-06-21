@@ -660,6 +660,27 @@ static int z_iop_filter_check_opt(const char *field, bool must_be_set,
     } while (0)
 
 /* }}} */
+/* {{{ zchk iop.iop_field_print_defval */
+
+static int z_test_iop_field_print_defval(const iop_struct_t *st,
+                                         const char *name, const char *exp)
+{
+    SB_1k(buf);
+    const iop_field_t *fdesc = NULL;
+
+    for (int i = 0; i < st->fields_len; i++) {
+        if (lstr_equal(st->fields[i].name, LSTR(name))) {
+            fdesc = &st->fields[i];
+            break;
+        }
+    }
+    Z_ASSERT(fdesc, "field `%s` not found", name);
+    iop_field_print_defval(fdesc, &buf);
+    Z_ASSERT_STREQUAL(buf.data, exp);
+    Z_HELPER_END;
+}
+
+/* }}} */
 /* {{{ Other helpers (waiting proper folds). */
 
 #define IOP_XML_HEADER \
@@ -3327,6 +3348,8 @@ Z_GROUP_EXPORT(iop)
         T_OK(tstiop_typedef__array_test, &arrays_typedef,
              "tstiop_typedef_arrays");
 #undef T_OK
+
+        /* }}} */
     } Z_TEST_END
     /* }}} */
     Z_TEST(std, "test IOP std (un)packer") { /* {{{ */
@@ -7740,6 +7763,30 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_EQ(test->is_pointed, iop_field_is_pointed(field));
         }
     } Z_TEST_END;
+    /* }}} */
+    Z_TEST(iop_field_print_defval, "") { /* {{{ */
+        const iop_struct_t *st = &tstiop__my_struct_g__s;
+
+#define TEST(_st, _field, _exp) \
+        Z_HELPER_RUN(z_test_iop_field_print_defval((_st), #_field, _exp))
+
+        TEST(st, a, "-1");
+        TEST(st, b, "2");
+        TEST(st, cOfG, "3");
+        TEST(st, d, "4");
+        TEST(st, e, "5");
+        TEST(st, f, "6");
+        TEST(st, g, "7");
+        TEST(st, h, "8");
+        TEST(st, i, "64656661756C7420646174612076616C7565");
+        TEST(st, j, "\"fo\\\"o?cbaré©\"");
+        TEST(st, k, "C(2)");
+        TEST(st, l, "10.5");
+        TEST(st, m, "true");
+
+#undef TEST
+    } Z_TEST_END;
+
     /* }}} */
     Z_TEST(iop_struct_check_backward_compat, "test iop_struct_check_backward_compat") { /* {{{ */
         t_scope;

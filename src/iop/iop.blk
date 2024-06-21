@@ -1701,14 +1701,7 @@ void mp_iop_copy_desc_flags_sz(mem_pool_t *mp, const iop_struct_t *st,
 }
 
 /* }}} */
-/* {{{ Comparing values */
-
-__cold static void
-sb_prepend_field(sb_t *sb, const iop_field_t *fdesc, int j);
-
-static int iop_first_diff(const iop_struct_t *st,
-                          const void *v1, const void *v2,
-                          sb_t *field_path, sb_t *diff_desc);
+/* {{{ iop_value_print() (internal helper) */
 
 static inline void iop_value_print(iop_type_t type, const iop_enum_t *en_desc,
                                    const void *v, sb_t *buf)
@@ -1766,6 +1759,16 @@ static inline void iop_value_print(iop_type_t type, const iop_enum_t *en_desc,
         e_panic("not supported");
     }
 }
+
+/* }}} */
+/* {{{ Comparing values */
+
+__cold static void
+sb_prepend_field(sb_t *sb, const iop_field_t *fdesc, int j);
+
+static int iop_first_diff(const iop_struct_t *st,
+                          const void *v1, const void *v2,
+                          sb_t *field_path, sb_t *diff_desc);
 
 /* Returns -1 if no diff found, 0 otherwise. */
 static int __iop_first_diff(const iop_struct_t *st,
@@ -2038,6 +2041,33 @@ bool iop_equals_desc(const iop_struct_t *st, const void *v1, const void *v2)
     } else {
         return v1 == v2 || (st->size == 0);
     }
+}
+
+/* }}} */
+/* {{{ Default value printer */
+
+void iop_field_print_defval(const iop_field_t *nonnull field,
+                            sb_t *nonnull buf)
+{
+    iop_value_t v;
+    const iop_enum_t *en = NULL;
+
+    if (unexpected(field->repeat != IOP_R_DEFVAL)) {
+        return;
+    }
+
+    assert(iop_type_is_scalar(field->type));
+
+    if (iop_type_is_string(field->type)) {
+        v.s = LSTR_INIT_V(field->u1.defval_data, field->u0.defval_len);
+    } else if (field->type == IOP_T_ENUM) {
+        v.i32 = field->u0.defval_enum;
+        en = field->u1.en_desc;
+    } else {
+        v.u64 = field->u1.defval_u64;
+    }
+
+    iop_value_print(field->type, en, &v, buf);
 }
 
 /* }}} */

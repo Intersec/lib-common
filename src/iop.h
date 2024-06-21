@@ -847,6 +847,14 @@ int iop_first_diff_desc(const iop_struct_t * nonnull st,
                         const void * nonnull v1, const void * nonnull v2,
                         sb_t * nonnull diff_desc);
 
+/** Print the default value associated to the field.
+ *
+ * \note Uses escaping for special characters in string values. Uses double
+ *       quotes for string values. Uses hexadecimal for data.
+ */
+void iop_field_print_defval(const iop_field_t *nonnull field,
+                            sb_t *nonnull buf);
+
 /** Flags for IOP sorter. */
 enum iop_sort_flags {
     /* Perform a reversed sort */
