@@ -633,16 +633,23 @@ bool _z_assert_lstrequal(const char *file, int lno, bool use_hex,
 
     if (!lstr_equal(lh, rh)) {
         SB_1k(sb);
-        int first_diff_pos;
 
         sb_addf(&sb, "%s:%d: assertion failed: %s == %s\n",
                 file, lno, lhs, rhs);
-        first_diff_pos = lstr_first_diff_pos(lh, rh);
-        sb_addf(&sb, " %s (len:%d):\n  ", lhs, lh.len);
-        z_sb_put_string(&sb, lh, first_diff_pos, use_hex, true);
-        sb_addf(&sb, "\n %s (len:%d):\n  ", rhs, rh.len);
-        z_sb_put_string(&sb, rh, first_diff_pos, use_hex, true);
-        sb_adds(&sb, "\n");
+        if (lstr_contains(lh, LSTR("\n")) || lstr_contains(rh, LSTR("\n"))) {
+            /* At least one of the member is multi-line.
+             * Use a multi-line diff. */
+            z_show_diff(lh, rh, NULL, &sb);
+        } else {
+            int first_diff_pos;
+
+            first_diff_pos = lstr_first_diff_pos(lh, rh);
+            sb_addf(&sb, " %s (len:%d):\n  ", lhs, lh.len);
+            z_sb_put_string(&sb, lh, first_diff_pos, use_hex, true);
+            sb_addf(&sb, "\n %s (len:%d):\n  ", rhs, rh.len);
+            z_sb_put_string(&sb, rh, first_diff_pos, use_hex, true);
+            sb_adds(&sb, "\n");
+        }
         _z_add_extra(sb, fmt);
         lstr_transfer_sb(&_G.grp.t_fail_reason, &sb, false);
         if (_G.abort_on_fail) {
