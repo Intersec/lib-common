@@ -5381,6 +5381,11 @@ static int http2_conn_parse_push_promise(http2_conn_t *w, uint32_t stream_id,
     }
     promised_id &= HTTP2_STREAM_ID_MASK;
 
+    if (!promised_id) {
+        HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
+                        "frame error: PUSH_PROMISE with zero promised id");
+    }
+
     if (http2_conn_check_peer_stream_id(w, promised_id)) {
         HTTP2_THROW_ERR(w, PROTOCOL_ERROR,
                                 "frame error: promised_id is PUSH_PROMISE is "
