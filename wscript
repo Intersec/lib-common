@@ -214,6 +214,11 @@ def poetry_install(ctx):
         # https://github.com/asdf-community/asdf-poetry/issues/10
         poerty_asdf_cleanup_prev_venv(ctx)
         asdf_python = ctx.env.ASDF_SHIMS + '/python3'
+        if not osp.exists(asdf_python):
+            # If asdf_install.sh chose to use the python “system”, then we may
+            # have installed the python plugin without any custom version in
+            # which case there would be no shim for python in ASDF.
+            asdf_python = 'python3'
         if ctx.exec_command(ctx.env.POETRY + ['env', 'use', asdf_python],
                             stdout=None, stderr=None):
             ctx.fatal('poetry setup for ASDF failed')
