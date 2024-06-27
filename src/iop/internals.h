@@ -34,6 +34,8 @@ typedef enum iop_repeat_t {
     IOP_R_REPEATED,
 } iop_repeat_t;
 
+/* {{{ iop_type_t */
+
 typedef enum iop_type_t {
     IOP_T_I8,
     IOP_T_U8,
@@ -55,6 +57,34 @@ typedef enum iop_type_t {
 } iop_type_t;
 #define IOP_T_max  IOP_T_VOID
 
+static inline bool iop_type_is_string(iop_type_t type)
+{
+    switch (type) {
+      case IOP_T_STRING:
+      case IOP_T_DATA:
+      case IOP_T_XML:
+        return true;
+
+      case IOP_T_I8:
+      case IOP_T_I16:
+      case IOP_T_I32:
+      case IOP_T_I64:
+      case IOP_T_BOOL:
+      case IOP_T_ENUM:
+      case IOP_T_DOUBLE:
+      case IOP_T_U8:
+      case IOP_T_U16:
+      case IOP_T_U32:
+      case IOP_T_U64:
+      case IOP_T_STRUCT:
+      case IOP_T_UNION:
+      case IOP_T_VOID:
+        return false;
+    }
+    return false;
+}
+
+/* }}} */
 /*{{{ iop_field_t */
 
 typedef struct iop_struct_t iop_struct_t;
