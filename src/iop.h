@@ -582,14 +582,21 @@ GENERIC_INIT(iop_full_type_t, iop_full_type);
         { .en = (_en) }                                                      \
     };                                                                       \
 
+/** Compare two \ref iop_full_type_t. */
+__attribute__((pure))
+bool iop_full_type_equal(const iop_full_type_t *nonnull t1,
+                         const iop_full_type_t *nonnull t2);
+
 /* Functions to use iop_full_type_t as a QH/QM key.
  *
  * XXX In these functions, the enum and struct types are considered equal iff
  * there is a pointer equality between the iop_enum_t/iop_struct_t
  * descriptions.
  */
+__attribute__((pure))
 uint32_t qhash_iop_full_type_hash(const qhash_t *nonnull qhash,
                                   const iop_full_type_t *nonnull type);
+__attribute__((pure))
 bool qhash_iop_full_type_equal(const qhash_t *nonnull qhash,
                                const iop_full_type_t *nonnull t1,
                                const iop_full_type_t *nonnull t2);

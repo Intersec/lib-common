@@ -6013,9 +6013,8 @@ uint32_t qhash_iop_full_type_hash(const qhash_t *qhash,
     return type->type;
 }
 
-bool qhash_iop_full_type_equal(const qhash_t *qhash,
-                               const iop_full_type_t *t1,
-                               const iop_full_type_t *t2)
+bool iop_full_type_equal(const iop_full_type_t *nonnull t1,
+                         const iop_full_type_t *nonnull t2)
 {
     THROW_FALSE_IF(t1->type != t2->type);
     if (t1->type == IOP_T_ENUM) {
@@ -6025,6 +6024,13 @@ bool qhash_iop_full_type_equal(const qhash_t *qhash,
         return t1->st == t2->st;
     }
     return true;
+}
+
+bool qhash_iop_full_type_equal(const qhash_t *qhash,
+                               const iop_full_type_t *t1,
+                               const iop_full_type_t *t2)
+{
+    return iop_full_type_equal(t1, t2);
 }
 
 void iop_field_get_type(const iop_field_t *nonnull field,
