@@ -1406,6 +1406,7 @@ def llvm_clang_configure(ctx):
 
     # Find llvm-config
     llvm_version_major = None
+    llvm_version_minor = None
 
     # Try default version first
     if ctx.find_program('llvm-config', var='LLVM_CONFIG', mandatory=False):
@@ -1413,6 +1414,7 @@ def llvm_clang_configure(ctx):
         llvm_version = ctx.cmd_and_log(ctx.env.LLVM_CONFIG + ['--version'])
         llvm_version = tuple(map(int, llvm_version.strip().split('.')))
         llvm_version_major = llvm_version[0]
+        llvm_version_minor = llvm_version[1]
 
         if llvm_version_major < llvm_min_version:
             Logs.warn('llvm-config found with version {0}, '
@@ -1465,11 +1467,28 @@ def llvm_clang_configure(ctx):
     # libclang-cpp.so.x -> libclang-cpp-x.so
     # libclang-cpp-x.so -> libclang-cpp.so are not done.
     # Use filename instead.
-    clang_cpp_lib = ':libclang-cpp.so.{0}'.format(llvm_version_major)
+    clang_cpp_lib_major = ':libclang-cpp.so.{0}'.format(llvm_version_major)
+    clang_cpp_lib_major_minor = \
+        ':libclang-cpp.so.{0}.{1}'.format(llvm_version_major,
+                                          llvm_version_minor)
+    clang_cpp_lib = ''
+    ctx.env.RPATH_clang_cpp = ctx.env.RPATH_clang
+    for path in ctx.env.RPATH_clang_cpp:
+        major_path = os.path.join(path, clang_cpp_lib_major[1:])
+        if os.path.isfile(major_path):
+            clang_cpp_lib = clang_cpp_lib_major
+            break
+        maj_minor_path = os.path.join(path, clang_cpp_lib_major_minor[1:])
+        if os.path.isfile(maj_minor_path):
+            clang_cpp_lib = clang_cpp_lib_major_minor
+            break
+    if not len(clang_cpp_lib):
+        ctx.fatal('cannot find libclang-cpp.so.{0} or libclang-cpp.so.{0}.{1}'
+                  'in any clang path'.format(llvm_version_major,
+                                             llvm_version_minor))
     ctx.env.append_value('LIB_clang_cpp', [clang_cpp_lib])
     ctx.env.CXXFLAGS_clang_cpp =  ctx.env.CXXFLAGS_llvm
     ctx.env.LDFLAGS_clang_cpp =  ctx.env.LDFLAGS_clang
-    ctx.env.RPATH_clang_cpp = ctx.env.RPATH_clang
     ctx.env.INCLUDES_clang_cpp = ctx.env.INCLUDES_clang
 
     # Check installation of libclang
