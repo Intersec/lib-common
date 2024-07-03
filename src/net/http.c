@@ -4610,6 +4610,23 @@ static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
 /* }}} */
 /* {{{ Streaming API */
 
+#define http2_stream_error(w, stream, error_code, fmt, ...)                  \
+    do {                                                                     \
+        http2_conn_t *__w = (w);                                             \
+        http2_stream_t *__s = (stream);                                      \
+                                                                             \
+        http2_stream_trace(__w, __s, 2, "stream error: " fmt,                \
+                           ##__VA_ARGS__);                                   \
+        http2_conn_send_rst_stream(__w, __s->id, HTTP2_CODE_##error_code);   \
+        http2_stream_handle_events(__w, __s, HTTP2_STREAM_EV_RST_SENT);      \
+    } while (0)
+
+#define http2_stream_send_reset(w, stream, fmt, ...)                         \
+    http2_stream_error((w), (stream), PROTOCOL_ERROR, fmt, ##__VA_ARGS__)
+
+#define http2_stream_send_reset_cancel(w, stream, fmt, ...)                  \
+    http2_stream_error((w), (stream), CANCEL, fmt, ##__VA_ARGS__)
+
 static void http2_stream_on_accept(http2_conn_t *w, http2_stream_t *stream);
 
 static void
@@ -4625,6 +4642,10 @@ static void http2_stream_on_headers(http2_conn_t *w, http2_stream_t *stream,
                                     http2_header_info_t *info,
                                     pstream_t headerlines, bool eos)
 {
+    if (!stream->ibuf) {
+        http2_stream_send_reset_cancel(w, stream, "stream cancelled");
+        return;
+    }
     if (w->is_client) {
         http2_stream_on_headers_client(w, stream, info, headerlines, eos);
     } else {
@@ -4642,6 +4663,10 @@ http2_stream_on_data_server(http2_conn_t *w, http2_stream_t *stream,
 static void http2_stream_on_data(http2_conn_t *w, http2_stream_t *stream,
                                  pstream_t data, bool eos)
 {
+    if (!stream->ibuf) {
+        http2_stream_send_reset_cancel(w, stream, "stream cancelled");
+        return;
+    }
     if (w->is_client) {
         http2_stream_on_data_client(w, stream, data, eos);
     } else {
@@ -4658,6 +4683,9 @@ static void http2_stream_on_reset_server(http2_conn_t *w,
 static void
 http2_stream_on_reset(http2_conn_t *w, http2_stream_t *stream, bool remote)
 {
+    if (!stream->ibuf) {
+        return;
+    }
     if (w->is_client) {
         http2_stream_on_reset_client(w, stream, remote);
     } else {
@@ -4808,16 +4836,6 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
     }
 }
 
-#define http2_stream_send_reset(w, stream, fmt, ...)                         \
-    do {                                                                     \
-        http2_stream_error(w, stream, PROTOCOL_ERROR, fmt, ##__VA_ARGS__);   \
-    } while (0)
-
-#define http2_stream_send_reset_cancel(w, stream, fmt, ...)                  \
-    do {                                                                     \
-        http2_stream_error(w, stream, CANCEL, fmt, ##__VA_ARGS__);           \
-    } while (0)
-
 /* }}} */
 /* {{{ Stream-Related Frame Handling */
 
@@ -4844,15 +4862,6 @@ static int http2_stream_conn_error_(http2_conn_t *w,
     va_end(ap);
     return http2_conn_send_error(w, error_code, debug);
 }
-
-#define http2_stream_error(w, stream, error_code, fmt, ...)                  \
-    do {                                                                     \
-        http2_stream_trace(w, stream, 2, "stream error: " fmt,               \
-                           ##__VA_ARGS__);                                   \
-        http2_conn_send_rst_stream(w, (stream)->id,                          \
-                                   HTTP2_CODE_##error_code);                 \
-        http2_stream_handle_events(w, stream, HTTP2_STREAM_EV_RST_SENT);     \
-    } while (0)
 
 static void
 http2_stream_maintain_recv_window(http2_conn_t *w, http2_stream_t *stream)
@@ -6918,7 +6927,14 @@ static httpc_http2_ctx_t *httpc_http2_ctx_init(httpc_http2_ctx_t *ctx)
 
 static void httpc_http2_ctx_wipe(httpc_http2_ctx_t *ctx)
 {
+    httpc_t *httpc = ctx->httpc;
+
     dlist_remove(&ctx->http2_link);
+    if (httpc) {
+        httpc->http2_ctx = NULL;
+        obj_vcall(httpc, disconnect);
+        obj_delete(&httpc);
+    }
 }
 
 GENERIC_NEW(httpc_http2_ctx_t, httpc_http2_ctx);
@@ -7242,6 +7258,11 @@ static void http2_conn_stream_idle_httpc(http2_conn_t *w, httpc_t *httpc)
 {
     httpc_query_t *q;
 
+    if (httpc->http2_ctx->disconnect_cmd) {
+        obj_delete(&httpc);
+        return;
+    }
+
     if (!httpc->http2_ctx->first_set_ready_called) {
         obj_vcall(httpc, set_ready, true);
         httpc->http2_ctx->first_set_ready_called = true;
@@ -7387,8 +7408,8 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
     rc = httpc_parse_idle(httpc, &ps);
     httpc_ctx->substate = HTTP2_CTX_STATE_WAITING;
     if (httpc->http2_ctx->disconnect_cmd) {
+        httpc_ctx->httpc = NULL;
         http2_stream_send_reset_cancel(w, stream, "client disconnect");
-        http2_stream_reset_httpc(w, stream, true);
         return;
     }
     if (rc != PARSE_OK || httpc->state == HTTP_PARSER_CHUNK_HDR) {
@@ -7473,8 +7494,8 @@ http2_stream_on_data_client(http2_conn_t *w, http2_stream_t *stream,
     res = httpc_parse_body(httpc, &ps);
     httpc_ctx->substate = HTTP2_CTX_STATE_WAITING;
     if (httpc->http2_ctx->disconnect_cmd) {
+        httpc_ctx->httpc = NULL;
         http2_stream_send_reset_cancel(w, stream, "client disconnect");
-        http2_stream_reset_httpc(w, stream, true);
         return;
     }
     switch (res) {
@@ -7519,31 +7540,40 @@ static void http2_stream_on_reset_client(http2_conn_t *w,
 
 static void http2_conn_on_streams_can_write_client(http2_conn_t *w)
 {
-    http2_client_t *ctx = w->client_ctx;
+    http2_client_t *client = w->client_ctx;
     dlist_t *httpcs;
     bool can_progress;
 
-    httpcs = &ctx->idle_httpcs;
-    dlist_for_each_entry(httpc_http2_ctx_t, httpc, httpcs, http2_link) {
-        http2_conn_stream_idle_httpc(w, httpc->httpc);
+    httpcs = &client->idle_httpcs;
+    dlist_for_each_entry(httpc_http2_ctx_t, ctx, httpcs, http2_link) {
+        if (!ctx->httpc) {
+            httpc_http2_ctx_delete(&ctx);
+            continue;
+        }
+        http2_conn_stream_idle_httpc(w, ctx->httpc);
     }
-    httpcs = &ctx->active_httpcs;
+    httpcs = &client->active_httpcs;
     do {
 #define OB_SEND_ALLOC   (8 << 10)
 #define OB_HIGH_MARK    (1 << 20)
         /* XXX: see http2_conn_on_streams_can_write_server() */
         can_progress = false;
 
-        dlist_for_each_entry(httpc_http2_ctx_t, httpc, httpcs, http2_link) {
+        dlist_for_each_entry(httpc_http2_ctx_t, ctx, httpcs, http2_link) {
             int ob_len = w->ob.length;
             int len;
+
+            if (!ctx->httpc) {
+                httpc_http2_ctx_delete(&ctx);
+                continue;
+            }
 
             if (ob_len >= OB_HIGH_MARK || w->send_window <= 0) {
                 can_progress = false;
                 break;
             }
             len = MIN(w->send_window, OB_SEND_ALLOC);
-            http2_conn_stream_active_httpc(w, httpc->httpc, len);
+            http2_conn_stream_active_httpc(w, ctx->httpc, len);
             if (w->ob.length - ob_len >= len) {
                 can_progress = true;
             }
@@ -7556,33 +7586,35 @@ static void http2_conn_on_streams_can_write_client(http2_conn_t *w)
 static void httpc_disconnect_as_http2(httpc_t *httpc)
 {
     httpc_http2_ctx_t *http2_ctx = httpc->http2_ctx;
-    http2_conn_t *w = http2_ctx->conn;
+    http2_conn_t *conn;
 
-    if (http2_ctx->http2_stream_id) {
-        http2_stream_t *stream =
-            http2_stream_get(w, http2_ctx->http2_stream_id);
-
-        http2_ctx->disconnect_cmd = true;
-        if (http2_ctx->substate == HTTP2_CTX_STATE_WAITING) {
-            http2_stream_send_reset_cancel(w, stream, "client disconnect");
-            http2_stream_reset_httpc(w, stream, true);
-        }
+    if (!http2_ctx) {
         return;
     }
-    httpc_http2_ctx_delete(&httpc->http2_ctx);
+
+    conn = http2_ctx->conn;
+    if (http2_ctx->http2_stream_id) {
+        http2_stream_t *stream =
+            http2_stream_get(conn, http2_ctx->http2_stream_id);
+
+        stream->ibuf = NULL; /* detach the active stream */
+        http2_ctx->disconnect_cmd = true;
+        if (http2_ctx->substate == HTTP2_CTX_STATE_WAITING) {
+            http2_stream_send_reset_cancel(conn, stream, "client disconnect");
+        }
+    }
+    http2_ctx->httpc = NULL;
+    httpc->http2_ctx = NULL;
 }
 
-static void http2_conn_close_httpcs(http2_client_t *ctx)
+static void http2_conn_close_httpcs(http2_client_t *client)
 {
     dlist_t *httpcs;
 
-    assert(dlist_is_empty(&ctx->active_httpcs));
-    httpcs = &ctx->idle_httpcs;
-    dlist_for_each_entry(httpc_http2_ctx_t, httpc, httpcs, http2_link) {
-        httpc_t *w1 = httpc->httpc;
-
-        obj_vcall(w1, disconnect);
-        obj_delete(&w1);
+    assert(dlist_is_empty(&client->active_httpcs));
+    httpcs = &client->idle_httpcs;
+    dlist_for_each_entry(httpc_http2_ctx_t, ctx, httpcs, http2_link) {
+        httpc_http2_ctx_delete(&ctx);
     }
 }
 
