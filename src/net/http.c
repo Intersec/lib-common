@@ -7327,7 +7327,7 @@ static void http2_stream_reset_httpc(http2_conn_t *w, http2_stream_t *stream,
     assert(http2_ctx->http2_stream_id);
     stream->ibuf = NULL;
     stream->ob = NULL;
-    if (query_error) {
+    if (query_error && !dlist_is_empty(&httpc->query_list)) {
         httpc_query_t *q;
 
         http2_stream_reset_httpc_ob(w, httpc);
