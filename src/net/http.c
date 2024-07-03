@@ -7359,6 +7359,7 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
     httpc_http2_ctx_t *httpc_ctx = httpc->http2_ctx;
     enum http_parser_state state = httpc->state;
     pstream_t ps;
+    int rc;
 
     httpc_ctx->substate = HTTP2_CTX_STATE_PARSING;
 
@@ -7383,9 +7384,14 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
     sb_add_ps(&httpc->ibuf, headerlines);
     sb_add(&httpc->ibuf, "\r\n", 2);
     ps = ps_initsb(&httpc->ibuf);
-    if (httpc_parse_idle(httpc, &ps) != PARSE_OK ||
-        httpc->state == HTTP_PARSER_CHUNK_HDR)
-    {
+    rc = httpc_parse_idle(httpc, &ps);
+    httpc_ctx->substate = HTTP2_CTX_STATE_WAITING;
+    if (httpc->http2_ctx->disconnect_cmd) {
+        http2_stream_send_reset_cancel(w, stream, "client disconnect");
+        http2_stream_reset_httpc(w, stream, true);
+        return;
+    }
+    if (rc != PARSE_OK || httpc->state == HTTP_PARSER_CHUNK_HDR) {
         if (eos) {
             http2_stream_trace(w, stream, 2,
                                "malformed response [invalid headers]");
@@ -7419,13 +7425,6 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
         http2_stream_reset_httpc(w, stream, query_error);
         return;
     }
-
-    if (httpc->http2_ctx->disconnect_cmd) {
-        http2_stream_send_reset_cancel(w, stream, "client disconnect");
-        http2_stream_reset_httpc(w, stream, true);
-        return;
-    }
-    httpc_ctx->substate = HTTP2_CTX_STATE_WAITING;
 }
 
 static void
@@ -7472,6 +7471,12 @@ http2_stream_on_data_client(http2_conn_t *w, http2_stream_t *stream,
     }
     httpc_ctx->substate = HTTP2_CTX_STATE_PARSING;
     res = httpc_parse_body(httpc, &ps);
+    httpc_ctx->substate = HTTP2_CTX_STATE_WAITING;
+    if (httpc->http2_ctx->disconnect_cmd) {
+        http2_stream_send_reset_cancel(w, stream, "client disconnect");
+        http2_stream_reset_httpc(w, stream, true);
+        return;
+    }
     switch (res) {
     case PARSE_MISSING_DATA:
         assert(httpc->state == HTTP_PARSER_BODY);
@@ -7503,12 +7508,7 @@ http2_stream_on_data_client(http2_conn_t *w, http2_stream_t *stream,
     default:
         assert(0 && "unexpected result from httpc_parse_body");
     }
-    if (httpc->http2_ctx->disconnect_cmd) {
-        http2_stream_send_reset_cancel(w, stream, "client disconnect");
-        http2_stream_reset_httpc(w, stream, true);
-        return;
-    }
-    httpc_ctx->substate = HTTP2_CTX_STATE_WAITING;
+
 }
 
 static void http2_stream_on_reset_client(http2_conn_t *w,
