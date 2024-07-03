@@ -6964,8 +6964,10 @@ static void http2_pool_remove_client(http2_client_t *client)
 {
     http2_pool_t *pool = client->pool;
 
-    qm_del_key(qhttp2_clients, &pool->qclients, &client->peer_su);
-    client->pool = NULL;
+    if (pool) {
+        qm_del_key(qhttp2_clients, &pool->qclients, &client->peer_su);
+        client->pool = NULL;
+    }
 }
 
 static void http2_pool_wipe(http2_pool_t *pool)
@@ -7587,6 +7589,7 @@ static void http2_conn_close_httpcs(http2_client_t *ctx)
 static void http2_conn_on_close_client(http2_conn_t *w)
 {
     if (w->client_ctx) {
+        http2_pool_remove_client(w->client_ctx);
         http2_conn_close_httpcs(w->client_ctx);
         http2_client_delete(&w->client_ctx);
     }
