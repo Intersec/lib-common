@@ -344,9 +344,9 @@ typedef struct ic_creds_t {
 } ic_creds_t;
 
 typedef void (ic_hook_f)(ichannel_t * nonnull, ic_event_t evt);
-typedef void (ic_pre_hook_f)(ichannel_t * nullable, uint64_t,
-                             ic__hdr__t * nullable, data_t,
-                             bool * nonnull hdr_modified);
+typedef void (t_ic_pre_hook_f)(ichannel_t * nullable, uint64_t,
+                               ic__hdr__t * nullable, data_t,
+                               bool * nonnull hdr_modified);
 typedef void (ic_post_hook_f)(ichannel_t * nullable, ic_status_t,
                               ic_hook_ctx_t * nonnull, data_t,
                               const iop_struct_t * nullable,
@@ -496,8 +496,8 @@ typedef struct ic_cb_entry_t {
     ic_cb_entry_type_t cb_type;
     const iop_rpc_t * nonnull rpc;
 
-    ic_pre_hook_f  * nullable pre_hook;
-    ic_post_hook_f * nullable post_hook;
+    t_ic_pre_hook_f * nullable t_pre_hook;
+    ic_post_hook_f  * nullable post_hook;
     data_t          pre_hook_args;
     data_t          post_hook_args;
     union {
@@ -1176,7 +1176,7 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
         ic_cb_entry_t e = {                                                  \
             .cb_type = IC_CB_NORMAL,                                         \
             .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .pre_hook = _pre_cb,                                             \
+            .t_pre_hook = _pre_cb,                                           \
             .post_hook = _post_cb,                                           \
             .pre_hook_args = _pre_arg,                                       \
             .post_hook_args = _post_arg,                                     \
@@ -1267,7 +1267,7 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
         ic_cb_entry_t e = {                                                  \
             .cb_type = IC_CB_PROXY_P,                                        \
             .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .pre_hook = _pre_cb,                                             \
+            .t_pre_hook = _pre_cb,                                           \
             .post_hook = _post_cb,                                           \
             .pre_hook_args = _pre_arg,                                       \
             .post_hook_args = _post_arg,                                     \
@@ -1364,7 +1364,7 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
         ic_cb_entry_t e = {                                                  \
             .cb_type = IC_CB_PROXY_PP,                                       \
             .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .pre_hook = _pre_cb,                                             \
+            .t_pre_hook = _pre_cb,                                           \
             .post_hook = _post_cb,                                           \
             .pre_hook_args = _pre_arg,                                       \
             .post_hook_args = _post_arg,                                     \
@@ -1450,7 +1450,7 @@ void ic_mark_disconnected(ichannel_t * nonnull ic);
         ic_cb_entry_t e = {                                                  \
             .cb_type = IC_CB_DYNAMIC_PROXY,                                  \
             .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .pre_hook = _pre_cb,                                             \
+            .t_pre_hook = _pre_cb,                                           \
             .post_hook = _post_cb,                                           \
             .pre_hook_args = _pre_arg,                                       \
             .post_hook_args = _post_arg,                                     \
@@ -1541,14 +1541,16 @@ void ic_reply_err(ichannel_t * nullable ic, uint64_t slot, int err);
  * \param[in]     e    the #ic_cb_entry_t of the rpc called.
  * \param[in,out] hdr  the #ic__hdr__t of the query.
  * \param[out]    hdr_modified  If the hdr is modified by the pre_hook, this
- *                              boolean is set to true. Optional.
+ *                              boolean is set to true. Optional. Headers
+ *                              modifications can be made on the t_stack.
  *
  * return -1 if the pre_hook has replied to the query, 0 otherwise.
  */
 int
-ic_query_do_pre_hook(ichannel_t * nullable ic, uint64_t slot,
-                     const ic_cb_entry_t * nonnull e,
-                     ic__hdr__t * nullable hdr, bool * nullable hdr_modified);
+t_ic_query_do_pre_hook(ichannel_t * nullable ic, uint64_t slot,
+                       const ic_cb_entry_t * nonnull e,
+                       ic__hdr__t * nullable hdr,
+                       bool * nullable hdr_modified);
 
 /** \brief helper to get and execute the post hook of the query.
  *

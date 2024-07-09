@@ -223,7 +223,7 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
         ic_cb_entry_t __cb_e = {                                             \
             .cb_type = IC_CB_NORMAL,                                         \
             .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .pre_hook = _pre_cb,                                             \
+            .t_pre_hook = _pre_cb,                                           \
             .post_hook = _post_cb,                                           \
             .pre_hook_args = _pre_arg,                                       \
             .post_hook_args = _post_arg,                                     \
@@ -299,7 +299,7 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
         ic_cb_entry_t __cb_e = {                                             \
             .cb_type = IC_CB_PROXY_P,                                        \
             .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .pre_hook = _pre_cb,                                             \
+            .t_pre_hook = _pre_cb,                                           \
             .post_hook = _post_cb,                                           \
             .pre_hook_args = _pre_arg,                                       \
             .post_hook_args = _post_arg,                                     \
@@ -415,7 +415,7 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
         ic_cb_entry_t __cb_e = {                                             \
             .cb_type = IC_CB_PROXY_PP,                                       \
             .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .pre_hook = _pre_cb,                                             \
+            .t_pre_hook = _pre_cb,                                           \
             .post_hook = _post_cb,                                           \
             .pre_hook_args = _pre_arg,                                       \
             .post_hook_args = _post_arg,                                     \
@@ -497,7 +497,7 @@ __ichttp_register(httpd_trigger__ic_t * nonnull tcb,
         ic_cb_entry_t __cb_e = {                                             \
             .cb_type = IC_CB_DYNAMIC_PROXY,                                  \
             .rpc = IOP_RPC(_mod, _if, _rpc),                                 \
-            .pre_hook = _pre_cb,                                             \
+            .t_pre_hook = _pre_cb,                                           \
             .post_hook = _post_cb,                                           \
             .pre_hook_args = _pre_arg,                                       \
             .post_hook_args = _post_arg,                                     \

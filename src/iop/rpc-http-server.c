@@ -209,6 +209,12 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
     ic_msg_t *msg;
 
     if (ic_q && ic_q->ic_hdr) {
+        /* FIXME in case the pre_hook modifies the header on the t_stack, and
+         * that ic_q->ic_hdr (that is not handled by this library) has a
+         * longer lifetime, it will be left with dandling pointers. It has no
+         * bad consequences for our usages, but a rework of the way the header
+         * is handled by this library would be needed to make things properly.
+         */
         hdr = ic_q->ic_hdr;
     } else {
         hdr = &default_hdr;
@@ -221,7 +227,7 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
     }
 
     e = &cbe->e;
-    if (ic_query_do_pre_hook(NULL, slot, e, hdr, &hdr_modified) < 0) {
+    if (t_ic_query_do_pre_hook(NULL, slot, e, hdr, &hdr_modified) < 0) {
         return;
     }
 

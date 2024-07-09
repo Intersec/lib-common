@@ -587,10 +587,10 @@ void ic_hook_ctx_delete(ic_hook_ctx_t **pctx)
 }
 
 int
-ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot, const ic_cb_entry_t *e,
-                     ic__hdr__t *hdr, bool *hdr_modified)
+t_ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot, const ic_cb_entry_t *e,
+                       ic__hdr__t *hdr, bool *hdr_modified)
 {
-    if (e->pre_hook) {
+    if (e->t_pre_hook) {
         _G.post_hook = e->post_hook;
         _G.rpc = e->rpc;
         _G.post_args = e->post_hook_args;
@@ -601,7 +601,7 @@ ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot, const ic_cb_entry_t *e,
              */
             ic_hook_ctx_save_current();
         }
-        (*e->pre_hook)(ic, slot, hdr, e->pre_hook_args, hdr_modified);
+        (*e->t_pre_hook)(ic, slot, hdr, e->pre_hook_args, hdr_modified);
         /* XXX: if we reply to the query during pre_hook then
          * _G.ic_hook_ctx will be NULL, and we mustn't call the implementation
          * of the RPC
@@ -1447,7 +1447,7 @@ t_get_details_of_query(ichannel_t *ic, int cmd, uint32_t slot,
       case IC_CB_PROXY_P:
       case IC_CB_PROXY_PP:
         /* need the hdr for the pre hook */
-        if (e->pre_hook) {
+        if (e->t_pre_hook) {
             return t_get_hdr_value_of_query(ic, cmd, slot, flags, data, dlen,
                                             unpacked_msg, st, hlen, hdr,
                                             NULL);
@@ -1515,15 +1515,15 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
          goto invalid_iop;
     }
 
-    if (e->pre_hook) {
-        t_seal();
+    if (e->t_pre_hook) {
         ic->cmd = cmd;
-        if (ic_query_do_pre_hook(ic, query_slot, e, hdr, &hdr_modified) < 0) {
+        if (t_ic_query_do_pre_hook(ic, query_slot, e, hdr,
+                                   &hdr_modified) < 0)
+        {
             ic->cmd = 0;
             return 0;
         }
         ic->cmd = 0;
-        t_unseal();
     }
 
     switch (e->cb_type) {
@@ -1587,7 +1587,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     }
 
     /* do post hook for proxied async RPCs */
-    if (e->pre_hook && !slot) {
+    if (e->t_pre_hook && !slot) {
         t_seal();
         ic->cmd = cmd;
         ic_query_do_post_hook(ic, cmd, query_slot, NULL, NULL);
