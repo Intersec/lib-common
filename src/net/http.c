@@ -6937,14 +6937,14 @@ typedef enum http2_ctx_active_substate_t {
 } http2_ctx_active_substate_t;
 
 typedef struct httpc_http2_ctx_t {
-    httpc_t       *httpc;
-    http2_conn_t  *conn;
-    dlist_t       http2_link;
-    uint32_t      http2_stream_id: 31;
-    int           http2_sync_mark;
-    uint8_t       substate;
-    bool          disconnect_cmd;
-    bool          first_set_ready_called;
+    http2_client_t *owner;
+    httpc_t        *httpc;
+    dlist_t         http2_link;
+    uint32_t        http2_stream_id: 31;
+    int             http2_sync_mark;
+    uint8_t         substate;
+    bool            disconnect_cmd;
+    bool            first_set_ready_called;
 } httpc_http2_ctx_t;
 
 static httpc_http2_ctx_t *httpc_http2_ctx_init(httpc_http2_ctx_t *ctx)
@@ -7152,7 +7152,7 @@ static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
     w = obj_new_of_class(httpc, cfg->httpc_cls);
     w->http2_ctx = httpc_http2_ctx_new();
     w->http2_ctx->httpc = w;
-    w->http2_ctx->conn = client->conn;
+    w->http2_ctx->owner = client;
     dlist_add_tail(&client->idle_httpcs, &w->http2_ctx->http2_link);
     w->connected_as_http2 = true;
     w->cfg = httpc_cfg_retain(cfg);
@@ -7618,7 +7618,7 @@ static void httpc_disconnect_as_http2(httpc_t *httpc)
         return;
     }
 
-    conn = http2_ctx->conn;
+    conn = http2_ctx->owner->conn;
     if (http2_ctx->http2_stream_id) {
         http2_stream_t *stream =
             http2_stream_get(conn, http2_ctx->http2_stream_id);
@@ -7670,13 +7670,17 @@ void httpc_close_http2_pool(httpc_cfg_t *cfg)
 
 static void httpc_http2_set_mask(httpc_t *w)
 {
-    if (!w->http2_ctx || !w->http2_ctx->conn) {
+    http2_conn_t *conn;
+
+    if (!w->http2_ctx || !w->http2_ctx->owner) {
         return;
     }
+
+    conn = w->http2_ctx->owner->conn;
     if (!ob_is_empty(&w->ob)) {
-        w->http2_ctx->conn->async_write = true;
+        conn->async_write = true;
     }
-    el_fd_set_mask(w->http2_ctx->conn->ev, POLLINOUT);
+    el_fd_set_mask(conn->ev, POLLINOUT);
 }
 
 static void httpd_http2_set_mask(httpd_t *w)
@@ -8097,8 +8101,8 @@ static int z_http2_reply(el_t el, int fd, short mask, data_t data)
                     logger_panic(&_G.logger, "write error: %m");
                 }
             }
-            if (ctx && ctx->conn) {
-                el_fd_loop(ctx->conn->ev, 10, EV_FDLOOP_HANDLE_TIMERS);
+            if (ctx && ctx->owner) {
+                el_fd_loop(ctx->owner->conn->ev, 10, EV_FDLOOP_HANDLE_TIMERS);
             }
             sb_reset(&buf);
             res = sb_read(&buf, fd, 32 << 10);
