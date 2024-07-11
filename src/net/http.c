@@ -3463,15 +3463,13 @@ typedef struct http2_conn_t http2_conn_t;
 
 typedef struct http2_stream_t {
     http2_conn_t *conn;
-    uint32_t remove : 1;
-    uint32_t id : 31;
+    uint32_t id;
     dlist_t link;
-    /* class link: inactive/closed<tracked>/booked streams */
+    /* class link: inactive/closed<tracked> streams */
     dlist_t class_link;
     int32_t recv_window;
     int32_t send_window;
     sb_t *ibuf;
-    outbuf_t *ob;
     short events;
 } http2_stream_t;
 
@@ -3508,7 +3506,7 @@ typedef struct http2_conn_t {
     dlist_t             inactive_stream_list;
     /* closed<tracked> streams */
     dlist_t             closed_stream_list;
-    dlist_t             booked_stream_list;
+
     uint32_t            client_streams;
     uint32_t            server_streams;
     int                 queries_can_send;
@@ -3587,16 +3585,17 @@ static http2_settings_t http2_get_settings(http2_conn_t *w)
                (w)->is_client ? "client" : "server", (w)->id, ##__VA_ARGS__)
 
 #define http2_conn_trace(w, level, fmt, ...)                                 \
-    http2_conn_log(w, LOG_TRACE + (level), fmt, ##__VA_ARGS__)
+    http2_conn_log((w), LOG_TRACE + (level), "" fmt, ##__VA_ARGS__)
 
 /* TODO: add additional stream-related info to the log message */
 #define http2_stream_log(/* const http_conn_t* */ w,                         \
                          /* const stream_t* */ stream, /* int */ level,      \
                          /* const char* */ fmt, ...)                         \
-    http2_conn_log(w, level, "[sid %d] " fmt, (stream)->id, ##__VA_ARGS__)
+    http2_conn_log((w), (level), "[sid %d] " fmt, (stream)->id, ##__VA_ARGS__)
 
 #define http2_stream_trace(w, stream, level, fmt, ...)                       \
-    http2_stream_log(w, stream, LOG_TRACE + (level), fmt, ##__VA_ARGS__)
+    http2_stream_log((w), (stream), LOG_TRACE + (level), "" fmt,             \
+                     ##__VA_ARGS__)
 
 /* }}} */
 /* {{{ Connection Management */
@@ -3611,7 +3610,6 @@ static http2_conn_t *http2_conn_init(http2_conn_t *w)
     dlist_init(&w->stream_list);
     dlist_init(&w->inactive_stream_list);
     dlist_init(&w->closed_stream_list);
-    dlist_init(&w->booked_stream_list);
     w->peer_settings = http2_default_settings_g;
     w->recv_window = HTTP2_LEN_CONN_WINDOW_SIZE_INIT;
     w->send_window = HTTP2_LEN_CONN_WINDOW_SIZE_INIT;
@@ -3633,7 +3631,6 @@ static void http2_conn_wipe(http2_conn_t *w)
     qm_wipe(qstream, &w->streams);
     assert(dlist_is_empty(&w->inactive_stream_list));
     assert(dlist_is_empty(&w->closed_stream_list));
-    assert(dlist_is_empty(&w->booked_stream_list));
     SSL_free(w->ssl);
     w->ssl = NULL;
     el_unregister(&w->ev);
@@ -3719,10 +3716,10 @@ static void http2_conn_close_streams_internal(http2_conn_t *w, int query_max,
     {
         bool is_query = stream->id % 2; /* query or push */
 
-        if (is_query && (query_max < 0 || stream->id <= query_max)) {
+        if (is_query && (query_max < 0 || (int)stream->id <= query_max)) {
             continue;
         }
-        if (!is_query && (push_max < 0 || stream->id <= push_max)) {
+        if (!is_query && (push_max < 0 || (int)stream->id <= push_max)) {
             continue;
         }
 
@@ -4453,7 +4450,6 @@ http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
         w->queries_can_recv--;
         if (flags & HTTP2_STREAM_EV_EOS_SENT) {
             http2_stream_trace(w, stream, 2, "stream closed [eos recv]");
-            stream->remove = true;
         } else {
             http2_stream_trace(w, stream, 2, "stream half closed (remote)");
         }
@@ -4469,7 +4465,6 @@ http2_stream_handle_events(http2_conn_t *w, http2_stream_t *stream,
         w->queries_can_recv -= !(flags & HTTP2_STREAM_EV_EOS_RECV);
         w->queries_can_send -= !(flags & HTTP2_STREAM_EV_EOS_SENT);
         http2_stream_trace(w, stream, 2, "stream closed [reset recv]");
-        stream->remove = true;
     } else if (events == HTTP2_STREAM_EV_RST_SENT) {
         w->queries_can_recv -= !(flags & HTTP2_STREAM_EV_EOS_RECV);
         w->queries_can_send -= !(flags & HTTP2_STREAM_EV_EOS_SENT);
@@ -4636,10 +4631,10 @@ static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
     } while (0)
 
 #define http2_stream_send_reset(w, stream, fmt, ...)                         \
-    http2_stream_error((w), (stream), PROTOCOL_ERROR, fmt, ##__VA_ARGS__)
+    http2_stream_error((w), (stream), PROTOCOL_ERROR, "" fmt, ##__VA_ARGS__)
 
 #define http2_stream_send_reset_cancel(w, stream, fmt, ...)                  \
-    http2_stream_error((w), (stream), CANCEL, fmt, ##__VA_ARGS__)
+    http2_stream_error((w), (stream), CANCEL, "" fmt, ##__VA_ARGS__)
 
 static void http2_stream_on_accept(http2_conn_t *w, http2_stream_t *stream);
 
@@ -4713,7 +4708,7 @@ static void http2_conn_on_streams_can_write_server(http2_conn_t *w);
 static void http2_conn_on_streams_can_write(http2_conn_t *w)
 {
     if (w->is_client) {
-            http2_conn_on_streams_can_write_client(w);
+        http2_conn_on_streams_can_write_client(w);
     } else {
         http2_conn_on_streams_can_write_server(w);
     }
@@ -4866,9 +4861,12 @@ static void http2_stream_send_data(http2_conn_t *w, http2_stream_t *stream,
 
 #define http2_stream_conn_error(w, stream, error_code, fmt, ...)             \
     ({                                                                       \
-        http2_stream_trace(w, stream, 2, "connection error: " fmt,           \
+        http2_conn_t *__w = (w);                                             \
+        http2_stream_t *__s = (stream);                                      \
+                                                                             \
+        http2_stream_trace(__w, __s, 2, "connection error: " fmt,            \
                            ##__VA_ARGS__);                                   \
-        http2_stream_conn_error_(w, stream, HTTP2_CODE_##error_code, fmt,    \
+        http2_stream_conn_error_(__w, __s, HTTP2_CODE_##error_code, fmt,     \
                                  ##__VA_ARGS__);                             \
     })
 
@@ -5187,13 +5185,14 @@ http2_stream_do_recv_window_update(http2_conn_t *w, uint32_t stream_id,
 
 #define HTTP2_THROW_ERR(w, error_code, fmt, ...)                             \
     do {                                                                     \
-        return http2_conn_error(w, error_code, fmt, ##__VA_ARGS__);          \
+        return http2_conn_error((w), error_code, "" fmt, ##__VA_ARGS__);     \
     } while (0)
 
 #define http2_conn_error(w, error_code, fmt, ...)                            \
     ({                                                                       \
         http2_conn_trace(w, 2, "connection error: " fmt, ##__VA_ARGS__);     \
-        http2_conn_error_(w, HTTP2_CODE_##error_code, fmt, ##__VA_ARGS__);   \
+        http2_conn_error_(w, HTTP2_CODE_##error_code, "" fmt,                \
+                          ##__VA_ARGS__);                                    \
     })
 
 __attribute__((format(printf, 3, 4)))
@@ -6436,9 +6435,6 @@ typedef struct httpd_http2_ctx_t {
 
     /* offset into httpd's ob */
     int http2_sync_mark;
-    /* request converted to chunked encoding: payload with no Content-Length
-     * header */
-    uint32_t http2_chunked : 1;
     uint32_t http2_stream_id : 31;
 } httpd_http2_ctx_t;
 
@@ -6466,7 +6462,7 @@ httpd_spawn_as_http2(int fd, sockunion_t *peer_su, httpd_cfg_t *cfg)
     conn = http2_conn_new();
     if (cfg->ssl_ctx) {
         conn->ssl = SSL_new(cfg->ssl_ctx);
-   }
+    }
     conn->settings = http2_default_settings_g;
     cfg->nb_conns++;
     fd_set_features(fd, FD_FEAT_TCP_NODELAY);
@@ -6512,7 +6508,6 @@ static void http2_stream_close_httpd(http2_conn_t *w, http2_stream_t *stream)
     }
     httpd = container_of(stream->ibuf, httpd_t, ibuf);
     stream->ibuf = NULL;
-    stream->ob = NULL;
     httpd_http2_ctx_delete(&httpd->http2_ctx);
     obj_release(&httpd);
     httpd_do_close(&httpd);
@@ -6574,10 +6569,9 @@ http2_stream_on_accept(http2_conn_t *conn, http2_stream_t *stream)
 
     http2_server_t *server = conn->server_ctx;
 
-    assert(!stream->ibuf && !stream->ob);
+    assert(!stream->ibuf);
     httpd = httpd_spawn_as_http2_stream(server, stream->id);
     stream->ibuf = &httpd->ibuf;
-    stream->ob = &httpd->ob;
 
     obj_retain(httpd);
 }
@@ -6928,14 +6922,12 @@ static void http2_close_servers(httpd_cfg_t *cfg)
 typedef enum http2_ctx_active_substate_t {
     HTTP2_CTX_STATE_WAITING,
     HTTP2_CTX_STATE_PARSING,
-    HTTP2_CTX_STATE_RESETTING,
 } http2_ctx_active_substate_t;
 
 typedef struct httpc_http2_ctx_t {
     httpc_t       *httpc;
     http2_conn_t  *conn;
     dlist_t       http2_link;
-    uint32_t      http2_chunked: 1;
     uint32_t      http2_stream_id: 31;
     int           http2_sync_mark;
     uint8_t       substate;
@@ -7271,7 +7263,6 @@ static void http2_stream_attach_httpc(http2_conn_t *w, httpc_t *httpc)
     http2_stream_send_request_headers(w, stream, method, scheme, path,
                                       authority, headerlines, &clen);
     stream->ibuf = &httpc->ibuf;
-    stream->ob = &httpc->ob;
     assert(clen >= 0 && "TODO: support chunked requests");
     http2_ctx->http2_sync_mark = clen;
     OB_WRAP(sb_skip_upto, &httpc->ob, chunk.p);
@@ -7348,7 +7339,6 @@ http2_stream_reset_httpc_ob(http2_conn_t *w, httpc_t *httpc)
 {
     httpc_http2_ctx_t *http2_ctx = httpc->http2_ctx;
 
-    assert(!http2_ctx->http2_chunked && "TODO: support chunked requests");
     assert(htlist_is_empty(&httpc->ob.chunks_list));
     OB_WRAP(sb_skip, &httpc->ob, http2_ctx->http2_sync_mark);
 }
@@ -7372,7 +7362,6 @@ static void http2_stream_reset_httpc(http2_conn_t *w, http2_stream_t *stream,
 
     assert(http2_ctx->http2_stream_id);
     stream->ibuf = NULL;
-    stream->ob = NULL;
     if (query_error && !dlist_is_empty(&httpc->query_list)) {
         httpc_query_t *q;
 
