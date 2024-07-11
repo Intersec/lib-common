@@ -3469,9 +3469,20 @@ typedef struct http2_stream_t {
     dlist_t class_link;
     int32_t recv_window;
     int32_t send_window;
-    sb_t *ibuf;
+
+    /* attached http1 upstream context (non-owning ptrs!) */
+    union {
+        httpd_http2_ctx_t *http2d_ctx; /* accessible in server */
+        httpc_http2_ctx_t *http2c_ctx; /* accessible in client */
+        void *http2_ctx;               /* common alias for both ptrs */
+    };
     short events;
 } http2_stream_t;
+
+static bool http2_stream_has_http1_ctx(http2_stream_t *stream)
+{
+    return stream->http2_ctx != NULL;
+}
 
 static http2_stream_t *http2_stream_init(http2_stream_t *stream);
 
@@ -4651,7 +4662,7 @@ static void http2_stream_on_headers(http2_conn_t *w, http2_stream_t *stream,
                                     http2_header_info_t *info,
                                     pstream_t headerlines, bool eos)
 {
-    if (!stream->ibuf) {
+    if (!http2_stream_has_http1_ctx(stream)) {
         http2_stream_send_reset_cancel(w, stream, "stream cancelled");
         return;
     }
@@ -4672,7 +4683,7 @@ http2_stream_on_data_server(http2_conn_t *w, http2_stream_t *stream,
 static void http2_stream_on_data(http2_conn_t *w, http2_stream_t *stream,
                                  pstream_t data, bool eos)
 {
-    if (!stream->ibuf) {
+    if (!http2_stream_has_http1_ctx(stream)) {
         http2_stream_send_reset_cancel(w, stream, "stream cancelled");
         return;
     }
@@ -4692,7 +4703,7 @@ static void http2_stream_on_reset_server(http2_conn_t *w,
 static void
 http2_stream_on_reset(http2_conn_t *w, http2_stream_t *stream, bool remote)
 {
-    if (!stream->ibuf) {
+    if (!http2_stream_has_http1_ctx(stream)) {
         return;
     }
     if (w->is_client) {
@@ -6503,11 +6514,12 @@ static void http2_stream_close_httpd(http2_conn_t *w, http2_stream_t *stream)
 {
     httpd_t *httpd;
 
-    if (!stream->ibuf) {
+    if (!stream->http2d_ctx) {
         return;
     }
-    httpd = container_of(stream->ibuf, httpd_t, ibuf);
-    stream->ibuf = NULL;
+
+    httpd = stream->http2d_ctx->httpd;
+    stream->http2d_ctx = NULL;
     httpd_http2_ctx_delete(&httpd->http2_ctx);
     obj_release(&httpd);
     httpd_do_close(&httpd);
@@ -6569,9 +6581,9 @@ http2_stream_on_accept(http2_conn_t *conn, http2_stream_t *stream)
 
     http2_server_t *server = conn->server_ctx;
 
-    assert(!stream->ibuf);
+    assert(!stream->http2d_ctx);
     httpd = httpd_spawn_as_http2_stream(server, stream->id);
-    stream->ibuf = &httpd->ibuf;
+    stream->http2d_ctx = httpd->http2_ctx;
 
     obj_retain(httpd);
 }
@@ -6581,7 +6593,7 @@ http2_stream_on_headers_server(http2_conn_t *conn, http2_stream_t *stream,
                                http2_header_info_t *info,
                                pstream_t headerlines, bool eos)
 {
-    httpd_t *httpd = container_of(stream->ibuf, httpd_t, ibuf);
+    httpd_t *httpd = stream->http2d_ctx->httpd;
     sb_t *ibuf;
     pstream_t ps;
     int res;
@@ -6608,7 +6620,7 @@ static void
 http2_stream_on_data_server(http2_conn_t *w, http2_stream_t *stream,
                             pstream_t data, bool eos)
 {
-    httpd_t *httpd = container_of(stream->ibuf, httpd_t, ibuf);
+    httpd_t *httpd = stream->http2d_ctx->httpd;
     pstream_t ps;
     int len;
     int res;
@@ -7262,7 +7274,7 @@ static void http2_stream_attach_httpc(http2_conn_t *w, httpc_t *httpc)
     }
     http2_stream_send_request_headers(w, stream, method, scheme, path,
                                       authority, headerlines, &clen);
-    stream->ibuf = &httpc->ibuf;
+    stream->http2c_ctx = httpc->http2_ctx;
     assert(clen >= 0 && "TODO: support chunked requests");
     http2_ctx->http2_sync_mark = clen;
     OB_WRAP(sb_skip_upto, &httpc->ob, chunk.p);
@@ -7352,16 +7364,16 @@ static void http2_stream_reset_httpc(http2_conn_t *w, http2_stream_t *stream,
     httpc_t *httpc;
     httpc_http2_ctx_t *http2_ctx;
 
-    if (!stream->ibuf) {
+    if (!stream->http2c_ctx) {
         return;
     }
 
     ctx = w->client_ctx;
-    httpc = container_of(stream->ibuf, httpc_t, ibuf);
-    http2_ctx = httpc->http2_ctx;
+    http2_ctx = stream->http2c_ctx;
+    httpc = http2_ctx->httpc;
 
     assert(http2_ctx->http2_stream_id);
-    stream->ibuf = NULL;
+    stream->http2c_ctx = NULL;
     if (query_error && !dlist_is_empty(&httpc->query_list)) {
         httpc_query_t *q;
 
@@ -7390,7 +7402,7 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
                                http2_header_info_t *info,
                                pstream_t headerlines, bool eos)
 {
-    httpc_t *httpc = container_of(stream->ibuf, httpc_t, ibuf);
+    httpc_t *httpc = stream->http2c_ctx->httpc;
     httpc_http2_ctx_t *httpc_ctx = httpc->http2_ctx;
     enum http_parser_state state = httpc->state;
     pstream_t ps;
@@ -7466,7 +7478,7 @@ static void
 http2_stream_on_data_client(http2_conn_t *w, http2_stream_t *stream,
                             pstream_t data, bool eos)
 {
-    httpc_t *httpc = container_of(stream->ibuf, httpc_t, ibuf);
+    httpc_t *httpc = stream->http2c_ctx->httpc;
     httpc_http2_ctx_t *httpc_ctx = httpc->http2_ctx;
     pstream_t ps;
     int len;
@@ -7611,7 +7623,7 @@ static void httpc_disconnect_as_http2(httpc_t *httpc)
         http2_stream_t *stream =
             http2_stream_get(conn, http2_ctx->http2_stream_id);
 
-        stream->ibuf = NULL; /* detach the active stream */
+        stream->http2c_ctx = NULL; /* detach the active stream */
         http2_ctx->disconnect_cmd = true;
         if (http2_ctx->substate == HTTP2_CTX_STATE_WAITING) {
             http2_stream_send_reset_cancel(conn, stream, "client disconnect");
