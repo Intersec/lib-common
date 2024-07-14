@@ -36,6 +36,7 @@
 static struct {
     logger_t logger;
     unsigned http2_conn_count;
+    unsigned httpc_query_count;
     int      ssl_keylog_fd;
     char    *ssl_keylog_file_path;
 } http_g = {
@@ -3277,6 +3278,7 @@ void httpc_query_attach(httpc_query_t *q, httpc_t *w)
 {
     assert((w->ev || w->connected_as_http2) && w->max_queries > 0);
     assert (!q->hdrs_started && !q->hdrs_done);
+    q->id = ++_G.httpc_query_count;
     q->owner = w;
     dlist_add_tail(&w->query_list, &q->query_link);
     if (--w->max_queries == 0) {

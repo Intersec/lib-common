@@ -982,6 +982,7 @@ struct httpc_query_t {
     dlist_t        query_link;
     httpc_qinfo_t * nullable qinfo;
     sb_t           payload;
+    unsigned       id;
     unsigned       payload_max_size;
     unsigned       received_hdr_length;
     unsigned       received_body_length;
