@@ -792,14 +792,14 @@ struct httpc_t;
 typedef void (on_connect_error_f)(const struct httpc_t * nonnull httpc,
                                   int errnum);
 
-typedef struct httpc_http2_ctx_t httpc_http2_ctx_t;
+typedef struct http2c_ctx_t http2c_ctx_t;
 
 #define HTTPC_FIELDS(pfx) \
     OBJECT_FIELDS(pfx);                                                      \
     httpc_pool_t * nullable pool;                                            \
     httpc_cfg_t  * nonnull cfg;                                              \
     dlist_t       pool_link;                                                 \
-    httpc_http2_ctx_t *nullable http2_ctx;                                   \
+    http2c_ctx_t *nullable http2_ctx;                                        \
     el_t          nullable ev;                                               \
     sb_t          ibuf;                                                      \
     z_stream      zs;                                                        \

@@ -2945,15 +2945,13 @@ static httpc_t *httpc_init(httpc_t *w)
     return w;
 }
 
-static void httpc_disconnect_as_http2(httpc_t *w);
-static void httpc_http2_ctx_delete(httpc_http2_ctx_t **ctx);
+static void http2c_ctx_unregister(http2c_ctx_t *nullable *nonnull ctxp);
 
 static void httpc_wipe(httpc_t *w)
 {
     if (w->ev || w->http2_ctx) {
         obj_vcall(w, disconnect);
     }
-    httpc_http2_ctx_delete(&w->http2_ctx);
     sb_wipe(&w->ibuf);
     http_zlib_wipe(w);
     ob_wipe(&w->ob);
@@ -2963,10 +2961,8 @@ static void httpc_wipe(httpc_t *w)
 
 static void httpc_disconnect(httpc_t *w)
 {
-    if (w->connected_as_http2) {
-        httpc_disconnect_as_http2(w);
-    }
     httpc_pool_detach(w);
+    http2c_ctx_unregister(&w->http2_ctx);
     el_unregister(&w->ev);
     dlist_for_each(it, &w->query_list) {
         httpc_query_abort(dlist_entry(it, httpc_query_t, query_link));
@@ -3475,7 +3471,7 @@ typedef struct http2_stream_t {
     /* attached http1 upstream context (non-owning ptrs!) */
     union {
         httpd_http2_ctx_t *http2d_ctx; /* accessible in server */
-        httpc_http2_ctx_t *http2c_ctx; /* accessible in client */
+        http2c_ctx_t *http2c_ctx;      /* accessible in client */
         void *http2_ctx;               /* common alias for both ptrs */
     };
     short events;
@@ -4366,6 +4362,7 @@ static http2_stream_t *http2_stream_get(http2_conn_t *w, uint32_t stream_id)
     http2_stream_t *stream;
     uint32_t nb_streams;
 
+    assert(stream_id);
     stream = qm_get_def(qstream, &w->streams, stream_id, NULL);
     if (stream) {
         return stream;
@@ -6933,44 +6930,6 @@ static void http2_close_servers(httpd_cfg_t *cfg)
 /* }}} */
 /* {{{ HTTP2 Client Adapation */
 
-typedef enum http2_ctx_active_substate_t {
-    HTTP2_CTX_STATE_WAITING,
-    HTTP2_CTX_STATE_PARSING,
-} http2_ctx_active_substate_t;
-
-typedef struct httpc_http2_ctx_t {
-    http2_client_t *owner;
-    httpc_t        *httpc;
-    dlist_t         http2_link;
-    uint32_t        http2_stream_id: 31;
-    int             http2_sync_mark;
-    uint8_t         substate;
-    bool            disconnect_cmd;
-    bool            first_set_ready_called;
-} httpc_http2_ctx_t;
-
-static httpc_http2_ctx_t *httpc_http2_ctx_init(httpc_http2_ctx_t *ctx)
-{
-    p_clear(ctx, 1);
-    dlist_init(&ctx->http2_link);
-    return ctx;
-}
-
-static void httpc_http2_ctx_wipe(httpc_http2_ctx_t *ctx)
-{
-    httpc_t *httpc = ctx->httpc;
-
-    dlist_remove(&ctx->http2_link);
-    if (httpc) {
-        httpc->http2_ctx = NULL;
-        obj_vcall(httpc, disconnect);
-        obj_delete(&httpc);
-    }
-}
-
-GENERIC_NEW(httpc_http2_ctx_t, httpc_http2_ctx);
-GENERIC_DELETE(httpc_http2_ctx_t, httpc_http2_ctx);
-
 static uint32_t peer_hash(const qhash_t *qh, const sockunion_t *su)
 {
     return sockunion_hash(su);
@@ -6990,12 +6949,12 @@ typedef struct http2_pool_t {
 } http2_pool_t;
 
 typedef struct http2_client_t {
-    int refcnt;
-    http2_conn_t *conn;
-    http2_pool_t *pool;
-    sockunion_t peer_su;
-    dlist_t active_httpcs;
-    dlist_t idle_httpcs;
+    int             refcnt;
+    http2_conn_t   *conn;
+    http2_pool_t   *pool;
+    sockunion_t     peer_su;
+    dlist_t         active_http2c_ctxs;
+    dlist_t         idle_http2c_ctxs;
 } http2_client_t;
 
 /* {{{ http2_pool_t new/init/wipe/delete */
@@ -7036,15 +6995,15 @@ GENERIC_DELETE(http2_pool_t, http2_pool);
 static http2_client_t *http2_client_init(http2_client_t *ctx)
 {
     p_clear(ctx, 1);
-    dlist_init(&ctx->active_httpcs);
-    dlist_init(&ctx->idle_httpcs);
+    dlist_init(&ctx->active_http2c_ctxs);
+    dlist_init(&ctx->idle_http2c_ctxs);
     return ctx;
 }
 
 static void http2_client_wipe(http2_client_t *ctx)
 {
-    assert(dlist_is_empty(&ctx->active_httpcs));
-    assert(dlist_is_empty(&ctx->idle_httpcs));
+    assert(dlist_is_empty(&ctx->active_http2c_ctxs));
+    assert(dlist_is_empty(&ctx->idle_http2c_ctxs));
 
     if (ctx->pool) {
         http2_pool_remove_client(ctx);
@@ -7061,31 +7020,6 @@ static http2_pool_t *http2_pool_get(httpc_cfg_t *cfg)
         cfg->http2_pool = http2_pool_new();
     }
     return cfg->http2_pool;
-}
-
-static void httpc_http2_ctx_on_connect_error(dlist_t *httpcs, int errnum)
-{
-    dlist_for_each_entry(httpc_http2_ctx_t, httpc_http2, httpcs, http2_link) {
-        httpc_t *httpc = httpc_http2->httpc;
-
-        if (httpc->pool && httpc->pool->on_connect_error) {
-            (*httpc->pool->on_connect_error)(httpc, errnum);
-        } else if (httpc->on_connect_error) {
-            (*httpc->on_connect_error)(httpc, errnum);
-        }
-    }
-}
-
-static void http2_conn_on_connect_error(http2_conn_t *w, int errnum)
-{
-    if (w->is_client) {
-        http2_client_t *ctx = w->client_ctx;
-
-        if (ctx) {
-            httpc_http2_ctx_on_connect_error(&ctx->idle_httpcs, errnum);
-            httpc_http2_ctx_on_connect_error(&ctx->active_httpcs, errnum);
-        }
-    }
 }
 
 static http2_conn_t *
@@ -7142,20 +7076,18 @@ http2_pool_get_client(httpc_cfg_t *cfg, const sockunion_t *peer_su)
     return client;
 }
 
+static http2c_ctx_t *
+http2c_ctx_register(http2_client_t *client, httpc_t *httpc);
+
 static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
                                        const sockunion_t *nullable su_src,
                                        httpc_cfg_t *cfg, httpc_pool_t *pool)
 {
+    http2_client_t *client = RETHROW_P(http2_pool_get_client(cfg, su));
     httpc_t *w;
-    http2_client_t *client;
-
-    client = RETHROW_P(http2_pool_get_client(cfg, su));
 
     w = obj_new_of_class(httpc, cfg->httpc_cls);
-    w->http2_ctx = httpc_http2_ctx_new();
-    w->http2_ctx->httpc = w;
-    w->http2_ctx->owner = client;
-    dlist_add_tail(&client->idle_httpcs, &w->http2_ctx->http2_link);
+    w->http2_ctx = http2c_ctx_register(client, w);
     w->connected_as_http2 = true;
     w->cfg = httpc_cfg_retain(cfg);
     w->max_queries = cfg->max_queries;
@@ -7163,7 +7095,6 @@ static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
     if (pool) {
         httpc_pool_attach(w, pool);
     }
-    el_fd_set_mask(client->conn->ev, POLLINOUT);
     return w;
 }
 
@@ -7231,30 +7162,341 @@ http_get_http2_request_hdrs(pstream_t *chunk, lstr_t *method, lstr_t *scheme,
     *headerlines = control;
 }
 
-static void
-http2_conn_assert_attachable_httpc_invariants(httpc_t *nonnull httpc)
-{
-#ifndef NDEBUG
-    httpc_query_t *q;
+/* {{{ HTTP2C CTX */
 
-    /* At least one query is attached, */
-    assert(!dlist_is_empty(&httpc->query_list));
-    /* for which, at least, the request headers are written to the buffer, */
-    q = dlist_first_entry(&httpc->query_list, httpc_query_t, query_link);
-    assert(q->hdrs_done);
-    /* so, the output buffer is not empty, */
-    assert(!ob_is_empty(&httpc->ob));
-    /* however, not yet streamed to HTTP/2, so, no response is received
-     * (parsed) yet. */
-    assert(httpc->state == HTTP_PARSER_IDLE);
-#endif
+/*
+ *
+ * ┌────────┐ non-owning  ┌─────────────────┐         ┌────────────────┐
+ * │      p1├─────────────►            owner├─────────►  http2_client  │
+ * │ httpc  │             │                 │         │  (http2_conn)  │
+ * │        ◄─────────────┤p2               │         └───────┬────────┘
+ * └────────┘    owning   │                 │   owning-if-in  │list
+ *              (unless   │    http2c_ctx   ◄─────────────────┘
+ *           unregistered)│                 │
+ *                        │                 │    by_id   ┌─────────────┐
+ *                        │                 ├────────────►   stream    │
+ *                        │                 │            └──────┬──────┘
+ *                        │                 │       non-owning  │
+ *                        │                 ◄───────────────────┘
+ *                        └─────────────────┘
+ */
+
+/** Represent an httpc being transported by the http2 layer. Typically,
+ * \p http2c_ctx_t dispatches queries (from httpc) one at a time. Each time,
+ * it enters the active state from the idle state by sending headers on an
+ * idle stream. When it finishes the current query/stream, it re-enters the
+ * idle state. See the state diagram below. */
+typedef struct http2c_ctx_t {
+    http2_client_t *owner;
+    httpc_t        *httpc;
+    dlist_t         link;
+    /* The current attached stream if active, 0 otherwise */
+    uint32_t        stream_id;
+    /* The current query_id being dispatch (implies active) */
+    unsigned        query_id;
+    /* Remaining bytes to finish the request payload (offset into httpc.ob) */
+    int             to_write;
+    /* Status of the current query */
+    int             httpc_status;
+    /* True iff calling http1 code that may fire callbacks (implies active) */
+    bool            http1_firing;
+    /* True iff unregistered by httpc_disconnect (disowns httpc) */
+    bool            unregistered;
+    /* True iff the 1st httpc.set_ready after connecting is called */
+    bool            first_set_ready_called;
+} http2c_ctx_t;
+
+static http2c_ctx_t *http2c_ctx_init(http2c_ctx_t *ctx)
+{
+    p_clear(ctx, 1);
+    dlist_init(&ctx->link);
+    return ctx;
 }
 
-/* Attach an idle httpc (headers are not sent yet) to a HTTP/2 stream */
-static void http2_stream_attach_httpc(http2_conn_t *w, httpc_t *httpc)
+static void http2c_ctx_wipe(http2c_ctx_t *ctx)
 {
-    http2_client_t *ctx = w->client_ctx;
-    httpc_http2_ctx_t *http2_ctx = httpc->http2_ctx;
+    dlist_remove(&ctx->link);
+
+    if (ctx->stream_id) {
+        http2_conn_t *w = ctx->owner->conn;
+        http2_stream_t *stream = http2_stream_get(w, ctx->stream_id);
+
+        stream->http2c_ctx = NULL;
+        http2_stream_send_reset_cancel(w, stream, "client disconnect");
+    }
+
+    if (ctx->unregistered) {
+        assert(!ctx->httpc->http2_ctx);
+        /* We came here from http2c_ctx_unregister(), so, httpc_disconnect()
+         * is being called. As in the case with http1, this means that the
+         * httpc is no longer destructible by the lower layer. */
+        ctx->httpc->http2_ctx = NULL;
+        return;
+    }
+
+    assert(ctx == ctx->httpc->http2_ctx);
+    /* XXX: We avoid double free corruption by preventing httpc_disconnect()
+     * which calls http2c_ctx_unregister() from calling http2c_ctx_delete().
+     */
+    ctx->httpc->http2_ctx = NULL;
+    httpc_pool_detach(ctx->httpc);
+    obj_vcall(ctx->httpc, disconnect);
+    obj_delete(&ctx->httpc);
+}
+
+GENERIC_NEW(http2c_ctx_t, http2c_ctx);
+GENERIC_DELETE(http2c_ctx_t, http2c_ctx);
+
+static http2c_ctx_t *
+http2c_ctx_register(http2_client_t *client, httpc_t *httpc)
+{
+    http2c_ctx_t *ctx = http2c_ctx_new();
+
+    ctx->httpc = httpc;
+    ctx->owner = client;
+    dlist_add_tail(&client->idle_http2c_ctxs, &ctx->link);
+    el_fd_set_mask(client->conn->ev, POLLINOUT);
+
+    return ctx;
+}
+
+static void http2c_ctx_unregister(http2c_ctx_t *nullable *nonnull ctxp)
+{
+    http2c_ctx_t *ctx = *ctxp;
+
+    if (!ctx) {
+        return;
+    }
+
+    *ctxp = NULL;
+    ctx->unregistered = true;
+
+    if (ctx->http1_firing) {
+        assert(ctx->stream_id);
+        assert(ctx->httpc);
+        /* We came here from an http1 callback (e.g., httpc_query_on_done()
+         * that results in calling httpc_disconnect() via httpc_pool_wipe()).
+         * Even, in the http1 mode, this is either an api misuse or
+         * unsupported.
+         */
+        assert(false && "bad use of http api");
+        /* TODO: handle unregister upon exiting the http1_firing state */
+        return;
+    }
+
+    http2c_ctx_delete(&ctx);
+}
+
+/* {{{ HTTP2C_CTX STATES */
+
+/*
+ * ┌─────────────────────────────────────────────────────────────────────┐
+ * │                                                                     │
+ * │    │E0                                                              │
+ * │    │                                                                │
+ * │    │  IDLE                 ACTIVE (OPEN REQUEST)                    │
+ * │ ┌──┼───────────┐E1       ┌───────────────────────┐                  │
+ * │ │  │           ├─────────►                       │        │X4       │
+ * │ │  ▼           │         │      E2               ├──────┐ │E4       │
+ * │ │  o           │         │      ─────────┐       │X3    │ │E5       │
+ * │ │              │         │               │       │      │ │         │
+ * │ │              │         │          ┌────▼────┐  │  ┌───▼─▼─────┐   │
+ * │ │              │         │          │ READING │  │  │  CLOSING  │   │
+ * │ │         o◄───┼─────────┤          │ STREAM  │  │  └─────┬─────┘   │
+ * │ │              │       E3│          └────┬────┘  │        │         │
+ * │ │              │       X1│               │       │        │         │
+ * │ │              │       X2│     o◄────────┘       │        ▼         │
+ * │ │              │         │                       │       DIE        │
+ * │ └──────────────┘         └───────────────────────┘                  │
+ * │                                                                     │
+ * │ EVENTS:                                                             │
+ * │                                                                     │
+ * │ E0: CONNECT_AS_HTTP2                E3: RESPONSE_CLOSED (EOS)       │
+ * │ E1: STREAM_AVAIL (OPEN_REQUEST)     E4: HTTP1_CONN_CLOSE            │
+ * │ E2: ON_STREAM_INPUT                 E5: HTTP2_CONN_CLOSE            │
+ * │                                                                     │
+ * │ X1: READING_ERROR                   X3: WRITING ERROR (BAD HTTP1)   │
+ * │ X2: STREAM_RST (BY HTTP2 SUBLAYER)  X4: HTTP1_DISCONNECT            │
+ * └─────────────────────────────────────────────────────────────────────┘
+ */
+
+/* {{{ Active State */
+/* In the active state: the http2c_ctx waits for write opportunities to send
+ * request payload while reading response from the attached stream. */
+
+/** Check if current query has gone and return the first one in the list. */
+static bool
+http2c_ctx_query_has_gone(http2c_ctx_t *ctx, httpc_query_t **first)
+{
+    httpc_t *w = ctx->httpc;
+    httpc_query_t *q = NULL;
+
+    if (!dlist_is_empty(&w->query_list)) {
+        q = dlist_first_entry(&w->query_list, httpc_query_t, query_link);
+    }
+
+    if (first) {
+        *first = q;
+    }
+
+    return !q || q->id != ctx->query_id;
+}
+
+/* {{{ Active State Transitions */
+
+static bool httpc_ctx_err_bad_parser_state(http2c_ctx_t *ctx, int state,
+                                           bool query_gone, sb_t *err)
+{
+    ctx->httpc_status = query_gone ? HTTPC_STATUS_OK : HTTPC_STATUS_INVALID;
+
+    sb_addf(err, "bad response: bad parser state %d%s", state,
+            query_gone ? " while query gone" : "");
+    return true;
+}
+
+static bool httpc_ctx_err_bad_data_type(http2c_ctx_t *ctx, int state,
+                                       bool headers, sb_t *err)
+{
+    const char *types[2] = {"HEADERS", "DATA"};
+
+    ctx->httpc_status = HTTPC_STATUS_INVALID;
+    sb_addf(err, "bad response: %s in state %d", types[headers], state);
+    return true;
+}
+
+static bool
+httpc_ctx_err_parse_error(http2c_ctx_t *ctx, int parse_err, sb_t *err)
+{
+    ctx->httpc_status = parse_err;
+    sb_adds(err, "bad response: parse error");
+    return true;
+}
+
+static bool httpc_ctx_err_clen_data_mismatch(http2c_ctx_t *ctx,
+                                             bool query_done, sb_t *err)
+{
+    ctx->httpc_status = query_done ? HTTPC_STATUS_OK : HTTPC_STATUS_INVALID;
+    sb_adds(err, "bad response: mismatch content-length vs DATA frames");
+    return true;
+}
+
+static bool httpc_ctx_response_done(http2c_ctx_t *ctx, sb_t *err)
+{
+    ctx->httpc_status = HTTPC_STATUS_OK;
+    if (ctx->to_write > 0) {
+        /* XXX: early response (normally negative one) received while we
+         * have not finished the payload yet. We will reset the stream since
+         * there is no point in keep it to send the payload. */
+        sb_adds(err, "early response");
+    }
+    return true;
+}
+
+/* }}} */
+
+/** Return true iff done with the stream so the caller must call
+ * http2c_ctx_enter_idle() afterwards. */
+static bool
+http2c_ctx_read(http2c_ctx_t *ctx, bool headers, bool eos, sb_t *err)
+{
+    httpc_t *w = ctx->httpc;
+    pstream_t ps = ps_initsb(&w->ibuf);
+    int rc;
+
+    if (http2c_ctx_query_has_gone(ctx, NULL)) {
+        return httpc_ctx_err_bad_parser_state(ctx, w->state, true, err);
+    }
+
+    if (w->state != HTTP_PARSER_IDLE && w->state != HTTP_PARSER_BODY) {
+        return httpc_ctx_err_bad_parser_state(ctx, w->state, false, err);
+    }
+
+    if (headers != (w->state == HTTP_PARSER_IDLE)) {
+        return httpc_ctx_err_bad_data_type(ctx, w->state, headers, err);
+    }
+
+    if (w->state == HTTP_PARSER_BODY) {
+        ssize_t plen = ps_len(&ps);
+
+        if (w->chunk_length >= 0) { /* response with definite payload len */
+            if (plen > w->chunk_length || (plen < w->chunk_length && eos)) {
+                return httpc_ctx_err_clen_data_mismatch(ctx, false, err);
+            }
+            if (plen == w->chunk_length && !eos && ps_shrink(&ps, 1) < 0) {
+                /* XXX: don't parse the last byte of payload (if any) until
+                 * eos arrives since empty DATA frames (with or without eos)
+                 * are possible. This ensures that parsing query finishes
+                 * with the reception of the end of stream. */
+                return false;
+            }
+        } else if (eos) { /* response with indefinite payload len */
+            w->chunk_length = plen;
+        }
+    }
+
+    ctx->http1_firing = true;
+    do {
+        rc = (*httpc_parsers[w->state])(w, &ps);
+    } while (rc == PARSE_OK && eos);
+    ctx->http1_firing = false;
+
+    sb_skip_upto(&w->ibuf, ps.s);
+
+    if (rc < 0) {
+        return httpc_ctx_err_parse_error(ctx, rc, err);
+    }
+
+    if (http2c_ctx_query_has_gone(ctx, NULL)) {
+        if (!rc || !eos || w->state != HTTP_PARSER_IDLE || w->ibuf.len) {
+            return httpc_ctx_err_bad_parser_state(ctx, w->state, true, err);
+        }
+
+        return httpc_ctx_response_done(ctx, err);
+    } else if (eos) {
+        return httpc_ctx_err_bad_parser_state(ctx, w->state, false, err);
+    }
+
+    return false;
+}
+
+static void http2c_ctx_write_data(http2c_ctx_t *ctx, int max_sz)
+{
+    http2_conn_t *w = ctx->owner->conn;
+    httpc_t *httpc = ctx->httpc;
+    http2_stream_t *stream = http2_stream_get(w, ctx->stream_id);
+    pstream_t chunk;
+    int len;
+    bool eos;
+
+    assert(max_sz <= w->send_window);
+    assert(ctx->to_write <= httpc->ob.length);
+    assert(htlist_is_empty(&httpc->ob.chunks_list) && "TODO: chunked outbuf");
+
+    if ((len = MIN3(ctx->to_write, stream->send_window, max_sz)) <= 0) {
+        return;
+    }
+
+    chunk = ps_initsb(&httpc->ob.sb);
+    __ps_clip(&chunk, len);
+    ctx->to_write -= len;
+    assert(ctx->to_write >= 0);
+    eos = ctx->to_write <= 0;
+    http2_stream_send_data(w, stream, chunk, eos);
+    OB_WRAP(sb_skip, &httpc->ob, len);
+}
+
+/* }}} */
+/* {{{ Idle state */
+
+/* In the idle state: the http2c_ctx wait for an available idle stream to open
+ * a request by sending the request headers */
+
+/* Activate ctx by opening a stream to send request headers */
+static void http2c_ctx_open_stream(http2c_ctx_t *ctx, httpc_query_t *q)
+{
+    http2_client_t *client = ctx->owner;
+    http2_conn_t *w = client->conn;
+    httpc_t *httpc = ctx->httpc;
     http2_stream_t *stream;
     pstream_t chunk;
     lstr_t method;
@@ -7264,140 +7506,118 @@ static void http2_stream_attach_httpc(http2_conn_t *w, httpc_t *httpc)
     pstream_t headerlines;
     int clen;
 
-    http2_conn_assert_attachable_httpc_invariants(httpc);
+    ctx->query_id = q->id;
+    ctx->stream_id = http2_stream_get_idle(w);
 
-    http2_ctx->http2_stream_id = http2_stream_get_idle(w);
-    stream = http2_stream_get(w, http2_ctx->http2_stream_id);
+    /** reset parsing/reading state: cf. \p httpc_query_ok() */
+    ctx->httpc_status = HTTPC_STATUS_INVALID;
+    httpc->state = HTTP_PARSER_IDLE;
+    httpc->chunk_length = 0;
+    sb_reset(&httpc->ibuf);
+
     chunk = ps_initsb(&httpc->ob.sb);
     http_get_http2_request_hdrs(&chunk, &method, &scheme, &path, &authority,
                                 &headerlines);
     if (!scheme.len) {
         scheme = w->ssl ? LSTR_IMMED_V("https") : LSTR_IMMED_V("http");
     }
+
+    stream = http2_stream_get(w, ctx->stream_id);
     http2_stream_send_request_headers(w, stream, method, scheme, path,
                                       authority, headerlines, &clen);
-    stream->http2c_ctx = httpc->http2_ctx;
+    stream->http2c_ctx = ctx;
     assert(clen >= 0 && "TODO: support chunked requests");
-    http2_ctx->http2_sync_mark = clen;
+    ctx->to_write = clen;
     OB_WRAP(sb_skip_upto, &httpc->ob, chunk.p);
-    /* httpc becomes active: payload streaming phase (DATA). */
-    dlist_move_tail(&ctx->active_httpcs, &http2_ctx->http2_link);
+
+    /* ctx becomes active: open-request state (sending payload) */
+    dlist_move_tail(&client->active_http2c_ctxs, &ctx->link);
 }
 
-static void http2_conn_stream_idle_httpc(http2_conn_t *w, httpc_t *httpc)
+static void http2c_ctx_try_open_stream(http2c_ctx_t *ctx)
 {
+    httpc_t *httpc = ctx->httpc;
     httpc_query_t *q;
 
-    if (httpc->http2_ctx->disconnect_cmd) {
-        obj_delete(&httpc);
-        return;
-    }
+    assert(!ctx->stream_id);
 
-    if (!httpc->http2_ctx->first_set_ready_called) {
+    if (unlikely(!ctx->first_set_ready_called)) {
         obj_vcall(httpc, set_ready, true);
-        httpc->http2_ctx->first_set_ready_called = true;
+        ctx->first_set_ready_called = true;
     }
 
     if (dlist_is_empty(&httpc->query_list)) {
-        if (httpc->connection_close)  {
-            obj_delete(&httpc);
+        if (!ob_is_empty(&httpc->ob)) {
+            logger_warning(&_G.logger, "garbage data in obuf in idle state");
+            ob_wipe(&httpc->ob);
+            ob_init(&httpc->ob);
         }
         return;
     }
+
     q = dlist_first_entry(&httpc->query_list, httpc_query_t, query_link);
-    if (!q->hdrs_done) {
-        return;
+    if (likely(q->hdrs_done)) {
+        http2c_ctx_open_stream(ctx, q);
     }
-    http2_stream_attach_httpc(w, httpc);
 }
 
-static void
-http2_conn_stream_active_httpc(http2_conn_t *w, httpc_t *httpc, int max_sz)
+static void http2c_ctx_try_reset_query(http2c_ctx_t *ctx)
 {
-    httpc_http2_ctx_t *http2_ctx = httpc->http2_ctx;
-    uint32_t stream_id = http2_ctx->http2_stream_id;
-    http2_stream_t *stream;
-    pstream_t chunk;
-    int len;
-    bool eos;
+    int status = ctx->httpc_status;
+    httpc_query_t *q = NULL;
 
-    assert(stream_id);
-    if (http2_ctx->http2_sync_mark == 0) {
-        return;
+    if (http2c_ctx_query_has_gone(ctx, &q)) {
+        if (status < 0) {
+            logger_warning(&_G.logger, "bad http2c state: %s query to reset",
+                           q ? "bad" : "no");
+        }
+        return; /* normal case: query was done successfully. */
     }
-    assert(http2_ctx->http2_sync_mark <= httpc->ob.length);
-    stream = http2_stream_get(w, stream_id);
-    if (stream->events
-        & (HTTP2_STREAM_EV_CLOSED | HTTP2_STREAM_EV_RST_SENT)) {
-        /* XXX: stream was already reset or closed and we still have some
-         * payload to remove from the httpc output buffer. */
-        assert(0 && "TODO");
+
+    assert(q->id == ctx->query_id); /* query is not gone (still the 1st) */
+
+    if (status >= 0) {
+        logger_warning(&_G.logger, "bad http2c state: bad httpc status");
+        status = HTTPC_STATUS_INVALID;
     }
-    assert(max_sz <= w->send_window);
-    len = MIN3(http2_ctx->http2_sync_mark, stream->send_window, max_sz);
-    if (len <= 0) {
-        return;
-    }
-    assert(htlist_is_empty(&httpc->ob.chunks_list)
-           && "TODO: support chunked requests");
-    chunk = ps_initsb(&httpc->ob.sb);
-    __ps_clip(&chunk, len);
-    http2_ctx->http2_sync_mark -= len;
-    eos = http2_ctx->http2_sync_mark == 0;
-    http2_stream_send_data(w, stream, chunk, eos);
-    OB_WRAP(sb_skip, &httpc->ob, len);
+
+    ctx->http1_firing = true;
+    httpc_query_on_done(q, status);
+    ctx->http1_firing = false;
 }
 
-static void
-http2_stream_reset_httpc_ob(http2_conn_t *w, httpc_t *httpc)
+/** Release the attached stream and cause \p *ctxp to go idle.
+ * XXX. Always nullfies the caller pointer. */
+static void http2c_ctx_enter_idle(http2c_ctx_t *nonnull *nonnull ctxp)
 {
-    httpc_http2_ctx_t *http2_ctx = httpc->http2_ctx;
+    http2c_ctx_t *ctx = *ctxp;
 
-    assert(htlist_is_empty(&httpc->ob.chunks_list));
-    OB_WRAP(sb_skip, &httpc->ob, http2_ctx->http2_sync_mark);
+    /* XXX. caller should no longer have access to the object */
+    *ctxp = NULL;
+    assert(ctx->stream_id);
+
+    http2c_ctx_try_reset_query(ctx);
+
+    /* XXX. we may have unfinished request if stream was reset */
+    if (ctx->to_write > 0) { /* unfinished payload? */
+        int len = MIN(ctx->to_write, ctx->httpc->ob.length);
+
+        OB_WRAP(sb_skip, &ctx->httpc->ob, len); /* skip the leftover */
+    }
+
+    dlist_move_tail(&ctx->owner->idle_http2c_ctxs, &ctx->link);
+    ctx->stream_id = 0;
+
+    if (unlikely(ctx->httpc->connection_close)) {
+        if (dlist_is_empty(&ctx->httpc->query_list)) {
+            http2c_ctx_delete(&ctx);
+        }
+    }
 }
 
-/** Reset a steam-attached (active) httpc to the idle state to serve the next
- * query if any. */
-static void http2_stream_reset_httpc(http2_conn_t *w, http2_stream_t *stream,
-                                     bool query_error)
-{
-    http2_client_t *ctx;
-    httpc_t *httpc;
-    httpc_http2_ctx_t *http2_ctx;
-
-    if (!stream->http2c_ctx) {
-        return;
-    }
-
-    ctx = w->client_ctx;
-    http2_ctx = stream->http2c_ctx;
-    httpc = http2_ctx->httpc;
-
-    assert(http2_ctx->http2_stream_id);
-    stream->http2c_ctx = NULL;
-    if (query_error && !dlist_is_empty(&httpc->query_list)) {
-        httpc_query_t *q;
-
-        http2_stream_reset_httpc_ob(w, httpc);
-        q = dlist_first_entry(&httpc->query_list, httpc_query_t, query_link);
-        httpc_query_on_done(q, HTTPC_STATUS_INVALID);
-        httpc->chunk_length = 0;
-        httpc->state = HTTP_PARSER_IDLE;
-    } else {
-        assert(httpc->state == HTTP_PARSER_IDLE);
-        assert(!http2_ctx->http2_sync_mark);
-    }
-    http2_ctx->http2_stream_id = 0;
-    sb_reset(&httpc->ibuf);
-    dlist_move_tail(&ctx->idle_httpcs, &http2_ctx->http2_link);
-    if (httpc->connection_close)  {
-        obj_delete(&httpc);
-    } else if (httpc->http2_ctx->disconnect_cmd) {
-        httpc_http2_ctx_delete(&httpc->http2_ctx);
-    }
-    return;
-}
+/* }}} */
+/* }}} */
+/* }}} */
 
 static void
 http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
@@ -7405,74 +7625,21 @@ http2_stream_on_headers_client(http2_conn_t *w, http2_stream_t *stream,
                                pstream_t headerlines, bool eos)
 {
     httpc_t *httpc = stream->http2c_ctx->httpc;
-    httpc_http2_ctx_t *httpc_ctx = httpc->http2_ctx;
-    enum http_parser_state state = httpc->state;
-    pstream_t ps;
-    int rc;
+    SB_1k(err);
 
-    httpc_ctx->substate = HTTP2_CTX_STATE_PARSING;
-
-    if (state == HTTP_PARSER_BODY) {
-        /* XXX: we don't expect trailer headers since we don't ask for them so
-         * we don't validate if they are really trailer headers or if they end
-         * the stream, IoW, receiving headers here is an error anyway. */
-        http2_stream_send_reset(w, stream,
-                                "malformed response [headers while "
-                                "expecting body]");
-        http2_stream_reset_httpc(w, stream, true);
-        return;
+    if (httpc->state == HTTP_PARSER_IDLE) {
+        sb_addf(&httpc->ibuf, "HTTP/1.1 %pL Nothing But Code\r\n",
+                &info->status);
+        sb_add_ps(&httpc->ibuf, headerlines);
+        sb_add(&httpc->ibuf, "\r\n", 2);
     }
 
-    /* TODO: dependency on the above HTTP/1.x code: add a test or convert it
-     * to an expect. */
-    assert(state == HTTP_PARSER_IDLE &&
-           "unexpected http2-forwarded httpc state");
-
-    sb_addf(&httpc->ibuf, "HTTP/1.1 %pL Nothing But Code\r\n",
-            &info->status);
-    sb_add_ps(&httpc->ibuf, headerlines);
-    sb_add(&httpc->ibuf, "\r\n", 2);
-    ps = ps_initsb(&httpc->ibuf);
-    rc = httpc_parse_idle(httpc, &ps);
-    httpc_ctx->substate = HTTP2_CTX_STATE_WAITING;
-    if (httpc->http2_ctx->disconnect_cmd) {
-        httpc_ctx->httpc = NULL;
-        http2_stream_send_reset_cancel(w, stream, "client disconnect");
-        return;
-    }
-    if (rc != PARSE_OK || httpc->state == HTTP_PARSER_CHUNK_HDR) {
-        if (eos) {
-            http2_stream_trace(w, stream, 2,
-                               "malformed response [invalid headers]");
-        } else {
-            http2_stream_send_reset(
-                w, stream, "malformed response [invalid headers]");
+    if (http2c_ctx_read(stream->http2c_ctx, true, eos, &err)) {
+        /* we are done with stream. */
+        http2c_ctx_enter_idle(&stream->http2c_ctx);
+        if (!eos || !(stream->events & HTTP2_STREAM_EV_EOS_SENT)) {
+            http2_stream_send_reset_cancel(w, stream, "%pL", &err);
         }
-        http2_stream_reset_httpc(w, stream, true);
-        return;
-    }
-    sb_skip_upto(&httpc->ibuf, ps.p);
-    assert(ps_done(&ps));
-    assert(httpc->state == HTTP_PARSER_IDLE ||
-           httpc->state == HTTP_PARSER_BODY);
-    if (eos) {
-        bool query_error = false;
-
-        if (httpc->state == HTTP_PARSER_IDLE) {
-            http2_stream_trace(
-                w, stream, 2,
-                "malformed response [1xx headers with eos]");
-            query_error = true;
-        } else {
-            assert(httpc->state == HTTP_PARSER_BODY);
-            if (httpc_parse_body(httpc, &ps) != PARSE_OK) {
-                query_error = true;
-                http2_stream_trace(w, stream, 2,
-                                   "malformed response [no-content]");
-            }
-        }
-        http2_stream_reset_httpc(w, stream, query_error);
-        return;
     }
 }
 
@@ -7481,89 +7648,24 @@ http2_stream_on_data_client(http2_conn_t *w, http2_stream_t *stream,
                             pstream_t data, bool eos)
 {
     httpc_t *httpc = stream->http2c_ctx->httpc;
-    httpc_http2_ctx_t *httpc_ctx = httpc->http2_ctx;
-    pstream_t ps;
-    int len;
-    int res;
+    SB_1k(err);
 
-    assert(httpc->state == HTTP_PARSER_BODY);
-    if (ps_done(&data) && !eos) {
-        return;
-    }
     sb_add_ps(&httpc->ibuf, data);
-    ps = ps_initsb(&httpc->ibuf);
-    len = ps_len(&ps);
-    if (httpc->chunk_length < 0) {
-        /* no Content-Length: responses */
-        if (eos) {
-            httpc->chunk_length = len;
-        }
-    } else {
-        if (httpc->chunk_length == len) {
-            /* XXX: ensure that the last call to httpc_parse_body happens only
-             * when eos arrives, possibly later in a 0-payload DATA frame. */
-            if (!eos) {
-                if (len <= 1) {
-                    return;
-                }
-                __ps_clip(&ps, --len);
-            }
-        } else if (httpc->chunk_length < len) {
-            /* mismatch: DATA frames > content-length */
-            if (!eos) {
-                http2_stream_send_reset(
-                    w, stream, "malformed response [DATA > Content-Length]");
-            }
-            http2_stream_reset_httpc(w, stream, true);
-            return;
-        }
-    }
-    httpc_ctx->substate = HTTP2_CTX_STATE_PARSING;
-    res = httpc_parse_body(httpc, &ps);
-    httpc_ctx->substate = HTTP2_CTX_STATE_WAITING;
-    if (httpc->http2_ctx->disconnect_cmd) {
-        httpc_ctx->httpc = NULL;
-        http2_stream_send_reset_cancel(w, stream, "client disconnect");
-        return;
-    }
-    switch (res) {
-    case PARSE_MISSING_DATA:
-        assert(httpc->state == HTTP_PARSER_BODY);
-        sb_skip_upto(&httpc->ibuf, ps.p);
-        if (eos) {
-            /* mismatch: content-length > DATA frames.*/
-            http2_stream_trace(w, stream, 2,
-                               "malformed response [unexpected eos]");
-            http2_stream_reset_httpc(w, stream, false);
-            return;
-        }
-        break;
-    case PARSE_OK:
-        assert(httpc->state == HTTP_PARSER_IDLE);
-        assert(ps_done(&ps));
-        assert(eos);
-        sb_skip_upto(&httpc->ibuf, ps.p);
-        http2_stream_reset_httpc(w, stream, false);
-        return;
-    case PARSE_ERROR:
-    case HTTPC_STATUS_TOOLARGE:
-        if (!eos) {
-            http2_stream_send_reset(
-                w, stream,
-                "malformed response [invalid payload format or compression]");
-        }
-        http2_stream_reset_httpc(w, stream, true);
-        return;
-    default:
-        assert(0 && "unexpected result from httpc_parse_body");
-    }
 
+    if (http2c_ctx_read(stream->http2c_ctx, false, eos, &err)) {
+        /* we are done with stream. */
+        http2c_ctx_enter_idle(&stream->http2c_ctx);
+        if (!eos || !(stream->events & HTTP2_STREAM_EV_EOS_SENT)) {
+            http2_stream_send_reset_cancel(w, stream, "%pL", &err);
+        }
+    }
 }
 
 static void http2_stream_on_reset_client(http2_conn_t *w,
                                          http2_stream_t *stream, bool remote)
 {
-    http2_stream_reset_httpc(w, stream, true);
+    stream->http2c_ctx->httpc_status = HTTPC_STATUS_INVALID;
+    http2c_ctx_enter_idle(&stream->http2c_ctx);
 }
 
 static void http2_conn_on_streams_can_write_client(http2_conn_t *w)
@@ -7572,36 +7674,27 @@ static void http2_conn_on_streams_can_write_client(http2_conn_t *w)
     dlist_t *httpcs;
     bool can_progress;
 
-    httpcs = &client->idle_httpcs;
-    dlist_for_each_entry(httpc_http2_ctx_t, ctx, httpcs, http2_link) {
-        if (!ctx->httpc) {
-            httpc_http2_ctx_delete(&ctx);
-            continue;
-        }
-        http2_conn_stream_idle_httpc(w, ctx->httpc);
+    httpcs = &client->idle_http2c_ctxs;
+    dlist_for_each_entry(http2c_ctx_t, ctx, httpcs, link) {
+        http2c_ctx_try_open_stream(ctx);
     }
-    httpcs = &client->active_httpcs;
+    httpcs = &client->active_http2c_ctxs;
     do {
 #define OB_SEND_ALLOC   (8 << 10)
 #define OB_HIGH_MARK    (1 << 20)
         /* XXX: see http2_conn_on_streams_can_write_server() */
         can_progress = false;
 
-        dlist_for_each_entry(httpc_http2_ctx_t, ctx, httpcs, http2_link) {
+        dlist_for_each_entry(http2c_ctx_t, ctx, httpcs, link) {
             int ob_len = w->ob.length;
             int len;
-
-            if (!ctx->httpc) {
-                httpc_http2_ctx_delete(&ctx);
-                continue;
-            }
 
             if (ob_len >= OB_HIGH_MARK || w->send_window <= 0) {
                 can_progress = false;
                 break;
             }
             len = MIN(w->send_window, OB_SEND_ALLOC);
-            http2_conn_stream_active_httpc(w, ctx->httpc, len);
+            http2c_ctx_write_data(ctx, len);
             if (w->ob.length - ob_len >= len) {
                 can_progress = true;
             }
@@ -7611,38 +7704,14 @@ static void http2_conn_on_streams_can_write_client(http2_conn_t *w)
     } while (can_progress);
 }
 
-static void httpc_disconnect_as_http2(httpc_t *httpc)
+static void http2_conn_close_http2c_ctxs(http2_client_t *client)
 {
-    httpc_http2_ctx_t *http2_ctx = httpc->http2_ctx;
-    http2_conn_t *conn;
+    dlist_t *ctxs;
 
-    if (!http2_ctx) {
-        return;
-    }
-
-    conn = http2_ctx->owner->conn;
-    if (http2_ctx->http2_stream_id) {
-        http2_stream_t *stream =
-            http2_stream_get(conn, http2_ctx->http2_stream_id);
-
-        stream->http2c_ctx = NULL; /* detach the active stream */
-        http2_ctx->disconnect_cmd = true;
-        if (http2_ctx->substate == HTTP2_CTX_STATE_WAITING) {
-            http2_stream_send_reset_cancel(conn, stream, "client disconnect");
-        }
-    }
-    http2_ctx->httpc = NULL;
-    httpc->http2_ctx = NULL;
-}
-
-static void http2_conn_close_httpcs(http2_client_t *client)
-{
-    dlist_t *httpcs;
-
-    assert(dlist_is_empty(&client->active_httpcs));
-    httpcs = &client->idle_httpcs;
-    dlist_for_each_entry(httpc_http2_ctx_t, ctx, httpcs, http2_link) {
-        httpc_http2_ctx_delete(&ctx);
+    assert(dlist_is_empty(&client->active_http2c_ctxs));
+    ctxs = &client->idle_http2c_ctxs;
+    dlist_for_each_entry(http2c_ctx_t, ctx, ctxs, link) {
+        http2c_ctx_delete(&ctx);
     }
 }
 
@@ -7650,8 +7719,24 @@ static void http2_conn_on_close_client(http2_conn_t *w)
 {
     if (w->client_ctx) {
         http2_pool_remove_client(w->client_ctx);
-        http2_conn_close_httpcs(w->client_ctx);
+        http2_conn_close_http2c_ctxs(w->client_ctx);
         http2_client_delete(&w->client_ctx);
+    }
+}
+
+static void http2_conn_on_connect_error(http2_conn_t *w, int errnum)
+{
+    if (w->is_client) {
+        http2_client_t *client = w->client_ctx;
+
+        if (client) {
+            dlist_t *ctxs = &client->idle_http2c_ctxs;
+
+            assert(dlist_is_empty(&client->active_http2c_ctxs));
+            dlist_for_each_entry (http2c_ctx_t, ctx, ctxs, link) {
+                httpc_on_connect_error(ctx->httpc, errnum);
+            }
+        }
     }
 }
 
@@ -8082,11 +8167,11 @@ static int z_http2_reply(el_t el, int fd, short mask, data_t data)
                                    HTTP2_ID_NO_STREAM);
         fd_set_features(fd, O_NONBLOCK);
         while (!ob_is_empty(&w.ob) || !query_reply_written) {
-            httpc_http2_ctx_t *ctx = zhttpc_g->http2_ctx;
+            http2c_ctx_t *ctx = zhttpc_g->http2_ctx;
             int res;
 
-            if (!query_reply_written && ctx && ctx->http2_stream_id) {
-                uint32_t stream_id = ctx->http2_stream_id;
+            if (!query_reply_written && ctx && ctx->stream_id) {
+                uint32_t stream_id = ctx->stream_id;
                 int code = z_http2_reply_params_g.code;
                 lstr_t headerlines = z_http2_reply_params_g.headerlines;
                 lstr_t payload = z_http2_reply_params_g.payload;
