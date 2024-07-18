@@ -218,7 +218,7 @@ static inline bool mem_pool_is_enabled(void)
 }
 #endif
 
-typedef unsigned __bitwise__ mem_flags_t;
+typedef unsigned mem_flags_t;
 
 /*
  * 1 << 30 is 1 Gig, we check that the user hasn't made any mistake with
@@ -262,13 +262,13 @@ enum mem_pools_t {
     MEM_STACK  = 3,
     MEM_MMAP   = 4,
 };
-#define MEM_POOL_MASK          force_cast(mem_flags_t, 0x00ff)
-#define MEM_FLAGS_MASK         force_cast(mem_flags_t, 0xff00)
-#define MEM_RAW                force_cast(mem_flags_t, 1 << 8)
-#define MEM_ERRORS_OK          force_cast(mem_flags_t, 1 << 9)
-#define MEM_UNALIGN_OK         force_cast(mem_flags_t, 1 << 10)
-#define MEM_BY_FRAME           force_cast(mem_flags_t, 1 << 11)
-#define MEM_EFFICIENT_REALLOC  force_cast(mem_flags_t, 1 << 12)
+#define MEM_POOL_MASK          0x00ff
+#define MEM_FLAGS_MASK         0xff00
+#define MEM_RAW                (1 << 8)
+#define MEM_ERRORS_OK          (1 << 9)
+#define MEM_UNALIGN_OK         (1 << 10)
+#define MEM_BY_FRAME           (1 << 11)
+#define MEM_EFFICIENT_REALLOC  (1 << 12)
 
 #define CACHE_LINE_SIZE   64
 

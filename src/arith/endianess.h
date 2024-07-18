@@ -48,44 +48,31 @@ static inline uint16_t bswap16(uint16_t x) { return (x >> 8) | (x << 8); }
      (bswap32_const((uint64_t)(x) >> 32)))
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-#  define ntohl_const(x)    force_cast(uint32_t, (x))
-#  define ntohs_const(x)    force_cast(uint16_t, (x))
-#  define htonl_const(x)    force_cast(be32_t, (x))
-#  define htons_const(x)    force_cast(be16_t, (x))
+#  define ntohl_const(x)  (x)
+#  define ntohs_const(x)  (x)
+#  define htonl_const(x)  (x)
+#  define htons_const(x)  (x)
 #else
-#  define ntohl_const(x)    force_cast(uint32_t, bswap32_const(x))
-#  define ntohs_const(x)    force_cast(uint16_t, bswap16_const(x))
-#  define htonl_const(x)    force_cast(be32_t, bswap32_const(x))
-#  define htons_const(x)    force_cast(be16_t, bswap16_const(x))
+#  define ntohl_const(x)  bswap32_const(x)
+#  define ntohs_const(x)  bswap16_const(x)
+#  define htonl_const(x)  bswap32_const(x)
+#  define htons_const(x)  bswap16_const(x)
 #endif
-
-#ifdef __SPARSE__
-#include <arpa/inet.h>
-#undef  htonl
-#undef  htons
-#undef  ntohl
-#undef  ntohs
-#define htonl htonl_const
-#undef  htons htons_const
-#undef  ntohl ntohl_const
-#define ntohs ntohs_const
-#endif
-
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-#  define CPU_TO_LE(w, x)        force_cast(le##w##_t, bswap##w(x))
-#  define CPU_TO_BE(w, x)        force_cast(be##w##_t, x)
-#  define LE_TO_CPU(w, x)        force_cast(uint##w##_t, bswap##w(x))
-#  define BE_TO_CPU(w, x)        force_cast(uint##w##_t, x)
-#  define CPU_TO_LE_CONST(w, x)  force_cast(le##w##_t, bswap##w##_const(x))
-#  define CPU_TO_BE_CONST(w, x)  force_cast(be##w##_t, x)
+#  define CPU_TO_LE(w, x)        bswap##w(x)
+#  define CPU_TO_BE(w, x)        (x)
+#  define LE_TO_CPU(w, x)        bswap##w(x)
+#  define BE_TO_CPU(w, x)        (x)
+#  define CPU_TO_LE_CONST(w, x)  bswap##w##_const(x)
+#  define CPU_TO_BE_CONST(w, x)  (x)
 #else
-#  define CPU_TO_LE(w, x)        force_cast(le##w##_t, x)
-#  define CPU_TO_BE(w, x)        force_cast(be##w##_t, bswap##w(x))
-#  define LE_TO_CPU(w, x)        force_cast(uint##w##_t, x)
-#  define BE_TO_CPU(w, x)        force_cast(uint##w##_t, bswap##w(x))
-#  define CPU_TO_LE_CONST(w, x)  force_cast(le##w##_t, x)
-#  define CPU_TO_BE_CONST(w, x)  force_cast(be##w##_t, bswap##w##_const(x))
+#  define CPU_TO_LE(w, x)        (x)
+#  define CPU_TO_BE(w, x)        bswap##w(x)
+#  define LE_TO_CPU(w, x)        (x)
+#  define BE_TO_CPU(w, x)        bswap##w(x)
+#  define CPU_TO_LE_CONST(w, x)  (x)
+#  define CPU_TO_BE_CONST(w, x)  bswap##w##_const(x)
 #endif
 
 #define BE16_T(x)  CPU_TO_BE_CONST(16, x)

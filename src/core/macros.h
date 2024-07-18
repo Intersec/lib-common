@@ -224,10 +224,6 @@
  */
 #define TRUEFN(...)              true
 
-#undef __acquires
-#undef __releases
-#undef __needlock
-
 #define cast(type, v)    ((type)(v))
 #define acast(type, v)   ({                                                  \
         union {                                                              \
@@ -236,24 +232,6 @@
         } __u = { .__v = (v) };                                              \
         __u.__c;                                                             \
     })
-
-#ifdef __SPARSE__
-# ifndef __bitwise__
-#  define __bitwise__   __attribute__((bitwise))
-# endif
-# define force_cast(type, expr)    (__attribute__((force)) type)(expr)
-# define __acquires(x)  __attribute__((context(x, 0, 1)))
-# define __releases(x)  __attribute__((context(x, 1, 0)))
-# define __needlock(x)  __attribute__((context(x, 1, 1)))
-#else
-# ifndef __bitwise__
-#  define __bitwise__
-# endif
-# define force_cast(type, expr)    (expr)
-# define __acquires(x)
-# define __releases(x)
-# define __needlock(x)
-#endif
 
 #define __attr_section(sg, sc)  __attribute__((section("."sg"."sc)))
 
@@ -471,19 +449,24 @@ typedef _Atomic(int64_t)  atomic_int64_t;
 typedef _Atomic(uint64_t) atomic_uint64_t;
 typedef _Atomic(ssize_t)  atomic_ssize_t;
 
+/** Endianess aware types.
+ *
+ * There is no magic behind those types, they are just used as an information
+ * for the reader.
+ */
 typedef uint64_t cpu64_t;
-typedef uint64_t __bitwise__ be64_t;
-typedef uint64_t __bitwise__ le64_t;
-typedef uint64_t __bitwise__ le48_t;
-typedef uint64_t __bitwise__ be48_t;
+typedef uint64_t be64_t;
+typedef uint64_t le64_t;
+typedef uint64_t le48_t;
+typedef uint64_t be48_t;
 typedef uint32_t cpu32_t;
-typedef uint32_t __bitwise__ le32_t;
-typedef uint32_t __bitwise__ be32_t;
-typedef uint32_t __bitwise__ le24_t;
-typedef uint32_t __bitwise__ be24_t;
+typedef uint32_t le32_t;
+typedef uint32_t be32_t;
+typedef uint32_t le24_t;
+typedef uint32_t be24_t;
 typedef uint16_t cpu16_t;
-typedef uint16_t __bitwise__ le16_t;
-typedef uint16_t __bitwise__ be16_t;
+typedef uint16_t le16_t;
+typedef uint16_t be16_t;
 
 #define MAKE64(hi, lo)  (((uint64_t)(uint32_t)(hi) << 32) | (uint32_t)(lo))
 

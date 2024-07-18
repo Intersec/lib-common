@@ -60,46 +60,46 @@ static inline bool double_is_identical(double x, double y) {
 
 static inline uint32_t float_bits_cpu(float x) {
 #if __FLOAT_WORD_ORDER == __BYTE_ORDER
-    return force_cast(uint32_t, float_bits_(x));
+    return float_bits_(x);
 #else
-    return force_cast(uint32_t, bswap32(float_bits_(x)));
+    return bswap32(float_bits_(x));
 #endif
 }
 static inline uint64_t double_bits_cpu(double x) {
 #if __FLOAT_WORD_ORDER == __BYTE_ORDER
-    return force_cast(uint64_t, double_bits_(x));
+    return double_bits_(x);
 #else
-    return force_cast(uint64_t, bswap64(double_bits_(x)));
+    return bswap64(double_bits_(x));
 #endif
 }
 
 static inline le32_t float_bits_le(float x) {
 #if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
-    return force_cast(le32_t, float_bits_(x));
+    return float_bits_(x);
 #else
-    return force_cast(le32_t, bswap32(float_bits_(x)));
+    return bswap32(float_bits_(x));
 #endif
 }
 static inline le64_t double_bits_le(double x) {
 #if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
-    return force_cast(le64_t, double_bits_(x));
+    return double_bits_(x);
 #else
-    return force_cast(le64_t, bswap64(double_bits_(x)));
+    return bswap64(double_bits_(x));
 #endif
 }
 
 static inline be32_t float_bits_be(float x) {
 #if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
-    return force_cast(be32_t, bswap32(float_bits_(x)));
+    return bswap32(float_bits_(x));
 #else
-    return force_cast(be32_t, float_bits_(x));
+    return float_bits_(x);
 #endif
 }
 static inline be64_t double_bits_be(double x) {
 #if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
-    return force_cast(be64_t, bswap64(double_bits_(x)));
+    return bswap64(double_bits_(x));
 #else
-    return force_cast(be64_t, double_bits_(x));
+    return double_bits_(x);
 #endif
 }
 
@@ -133,31 +133,31 @@ static inline double bits_to_double_cpu(uint64_t x) {
 
 static inline float bits_to_float_le(le32_t x) {
 #if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
-    return bits_to_float_(force_cast(uint32_t, x));
+    return bits_to_float_(x);
 #else
-    return bits_to_float_(bswap32(force_cast(uint32_t, x)));
+    return bits_to_float_(bswap32(x));
 #endif
 }
 static inline double bits_to_double_le(le64_t x) {
 #if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
-    return bits_to_double_(force_cast(uint64_t, x));
+    return bits_to_double_(x);
 #else
-    return bits_to_double_(bswap64(force_cast(uint64_t, x)));
+    return bits_to_double_(bswap64(x));
 #endif
 }
 
 static inline float bits_to_float_be(le32_t x) {
 #if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
-    return bits_to_float_(bswap32(force_cast(uint32_t, x)));
+    return bits_to_float_(bswap32(x));
 #else
-    return bits_to_float_(force_cast(uint32_t, x));
+    return bits_to_float_(x);
 #endif
 }
 static inline double bits_to_double_be(le64_t x) {
 #if __FLOAT_WORD_ORDER == __LITTLE_ENDIAN
-    return bits_to_double_(bswap64(force_cast(uint64_t, x)));
+    return bits_to_double_(bswap64(x));
 #else
-    return bits_to_double_(force_cast(uint64_t, x));
+    return bits_to_double_(x);
 #endif
 }
 
