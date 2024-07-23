@@ -290,6 +290,14 @@ size_t qhash_memory_footprint(const qhash_t *qh)
 #define iseqK(qh, k1, k2)  ((k1) == (k2))
 #include "qhash.in.c"
 
+#define F(x)               x##128
+#define key_t              uint128_t
+#define getK(qh, pos)      (((key_t *)(qh)->keys)[pos])
+#define putK(qh, pos, k)   (getK(qh, pos) = (k))
+#define hashK(qh, pos, k)  qhash_hash_u128(qh, k)
+#define iseqK(qh, k1, k2)  ((k1) == (k2))
+#include "qhash.in.c"
+
 #define MAY_CACHE_HASHES   1
 #define F(x)               x##_ptr
 #define F_PROTO            qhash_khash_f *hf, qhash_kequ_f *equ

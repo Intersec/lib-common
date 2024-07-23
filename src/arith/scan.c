@@ -317,8 +317,6 @@ size_t count_non_zero128(const void *_data, size_t n)
 #include <lib-common/z.h>
 #include <lib-common/datetime.h>
 
-typedef struct { uint64_t h; uint64_t l; } uint128_t;
-
 #define IS_ZERO(Size, Val)  IS_ZERO##Size(Val)
 #define IS_ZERO128(Val)     is_128bits_zero(&Val)
 #define IS_ZERO8(Val)       (Val == 0)
@@ -425,7 +423,6 @@ Z_GROUP_EXPORT(arith_sse)
     }
 
 #define GET(V)     V
-#define GET128(V)  (V).l
 
     Z_TEST(8, "") {
         DO_TEST(8, 4096, GET);
@@ -444,7 +441,7 @@ Z_GROUP_EXPORT(arith_sse)
     } Z_TEST_END;
 
     Z_TEST(128, "") {
-        DO_TEST(128, 1024, GET128);
+        DO_TEST(128, 1024, GET);
     } Z_TEST_END;
 
     Z_TEST(scan_non_zero16, "scan_non_zero16") {
@@ -455,7 +452,6 @@ Z_GROUP_EXPORT(arith_sse)
         Z_HELPER_RUN(test_scan_non_zero32());
     } Z_TEST_END;
 #undef GET
-#undef GET128
 #undef DO_TEST
 } Z_GROUP_END
 

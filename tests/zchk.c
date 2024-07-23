@@ -28,6 +28,7 @@ Z_GROUP_EXPORT(endianess)
         uint16_t us;
         uint32_t u;
         uint64_t ul;
+        uint128_t u128;
 
 #define DO_TEST(w, e, x)                                                    \
         ({                                                                  \
@@ -59,6 +60,11 @@ Z_GROUP_EXPORT(endianess)
         DO_TEST(64, cpu, ul);
         DO_TEST(64,  be, ul);
         DO_TEST(64,  le, ul);
+
+        u128 = MAKE128(0xdeadbeef, UINT64_MAX);
+        DO_TEST(128, cpu, u128);
+        DO_TEST(128,  be, u128);
+        DO_TEST(128,  le, u128);
 
 #undef DO_TEST
     } Z_TEST_END;

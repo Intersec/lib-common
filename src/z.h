@@ -145,6 +145,8 @@ enum z_val_type_t {
     Z_VAL_TYPE_D,
     Z_VAL_TYPE_B,
     Z_VAL_TYPE_C,
+    Z_VAL_TYPE_I128,
+    Z_VAL_TYPE_U128,
 };
 
 typedef struct z_val_t {
@@ -155,6 +157,8 @@ typedef struct z_val_t {
         double d;
         bool b;
         int c;
+        int128_t i128;
+        uint128_t u128;
     };
 } z_val_t;
 
@@ -194,6 +198,14 @@ typedef struct z_val_t {
         if (_Z_VAL_TEST(char)) {                                             \
             _z_val_build_res.type = Z_VAL_TYPE_C;                            \
             _z_val_build_res.c = _z_val_build_v;                             \
+        } else                                                               \
+        if (_Z_VAL_TEST(int128_t)) {                                         \
+            _z_val_build_res.type = Z_VAL_TYPE_I128;                         \
+            _z_val_build_res.i128 = _z_val_build_v;                          \
+        } else                                                               \
+        if (_Z_VAL_TEST(uint128_t)) {                                        \
+            _z_val_build_res.type = Z_VAL_TYPE_U128;                         \
+            _z_val_build_res.u128 = _z_val_build_v;                          \
         } else {                                                             \
             __error__(#_v " has an unsupported type (for now)");             \
         }                                                                    \

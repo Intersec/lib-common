@@ -46,6 +46,10 @@ static inline uint32_t qhhash_hash_u64(const qhhash_t *qh, uint64_t u64)
 {
     return qhash_hash_u64(NULL, u64);
 }
+static inline uint32_t qhhash_hash_u128(const qhhash_t *qh, uint128_t u128)
+{
+    return qhash_hash_u128(NULL, u128);
+}
 static inline uint32_t qhhash_hash_ptr(const qhhash_t *qh, const void *ptr)
 {
     return qhash_hash_ptr(NULL, ptr);
@@ -473,6 +477,8 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
     __QHH_IKEY(32, qhh_##name, name, uint32_t, bucket_count)
 #define qhh_k64_t(name, bucket_count)  \
     __QHH_IKEY(64, qhh_##name, name, uint64_t, bucket_count)
+#define qhh_k128_t(name, bucket_count)  \
+    __QHH_IKEY(128, qhh_##name, name, uint128_t, bucket_count)
 #define qhh_kvec_t(name, bucket_count, key_t, hf, ef)  \
     __QHH_VKEY(qhh_##name, name, key_t const, key_t, hf, ef, bucket_count)
 #define qhh_kptr_t(name, bucket_count, key_t, hf, ef)  \
@@ -617,6 +623,8 @@ qhhash_ptr_equal(const qhhash_t *qhh, const qhash_t *qh,
     __QHM_IKEY(32, qhm_##name, name, uint32_t, val_t, bucket_count)
 #define qhm_k64_t(name, bucket_count, val_t)  \
     __QHM_IKEY(64, qhm_##name, name, uint64_t, val_t, bucket_count)
+#define qhm_k128_t(name, bucket_count, val_t)  \
+    __QHM_IKEY(128, qhm_##name, name, uint128_t, val_t, bucket_count)
 #define qhm_kvec_t(name, bucket_count, key_t, val_t, hf, ef)  \
     __QHM_VKEY(qhm_##name, name, key_t const, key_t, val_t, hf, ef, bucket_count)
 #define qhm_kptr_t(name, bucket_count, key_t, val_t, hf, ef)  \

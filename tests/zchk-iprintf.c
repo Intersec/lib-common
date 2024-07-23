@@ -171,6 +171,73 @@ Z_GROUP_EXPORT(iprintf) {
 
 #undef T
     } Z_TEST_END;
+
+    Z_TEST(i128, "printing 128 bits integers") {
+        int len;
+        char buffer[128];
+
+#define T(_fmt, _val, _res) \
+        do {                                                                 \
+            p_clear(&buffer, 1);                                             \
+            len = isnprintf(buffer, sizeof(buffer), _fmt, _val);             \
+            Z_ASSERT_STREQUAL(buffer, _res, "format: `%s'", _fmt);           \
+            Z_ASSERT_EQ(len, (int)strlen(_res), "format: `%s'", _fmt);       \
+        } while (0)
+
+        /* uint128_t */
+        T(PRIu128, PRIu128_FMT_ARG(0), "0");
+        T(PRIu128, PRIu128_FMT_ARG(1), "1");
+        T(PRIu128, PRIu128_FMT_ARG(UINT32_MAX - 1), "4294967294");
+        T(PRIu128, PRIu128_FMT_ARG(UINT32_MAX), "4294967295");
+        T(PRIu128, PRIu128_FMT_ARG(UINT32_MAX + 1ULL), "4294967296");
+        T(PRIu128, PRIu128_FMT_ARG(UINT64_MAX - 1), "18446744073709551614");
+        T(PRIu128, PRIu128_FMT_ARG(UINT64_MAX), "18446744073709551615");
+        T(PRIu128, PRIu128_FMT_ARG((uint128_t)UINT64_MAX + 1),
+          "18446744073709551616");
+        T(PRIu128, PRIu128_FMT_ARG(UINT128_MAX - 1),
+          "340282366920938463463374607431768211454");
+        T(PRIu128, PRIu128_FMT_ARG(UINT128_MAX),
+          "340282366920938463463374607431768211455");
+        T(PRIu128, PRIu128_FMT_ARG(MAKE128(0xdeadbeef, UINT64_MAX)),
+          "68915718023982259027008552959");
+
+        /* int128_t */
+        T(PRId128, PRId128_FMT_ARG(INT128_MIN),
+          "-170141183460469231731687303715884105728");
+        T(PRId128, PRId128_FMT_ARG(INT128_MIN + 1),
+          "-170141183460469231731687303715884105727");
+        T(PRId128, PRId128_FMT_ARG(INT64_MIN), "-9223372036854775808");
+        T(PRId128, PRId128_FMT_ARG(INT32_MIN), "-2147483648");
+        T(PRId128, PRId128_FMT_ARG(-1), "-1");
+        T(PRId128, PRId128_FMT_ARG(0), "0");
+        T(PRId128, PRId128_FMT_ARG(1), "1");
+        T(PRId128, PRId128_FMT_ARG(UINT32_MAX - 1), "4294967294");
+        T(PRId128, PRId128_FMT_ARG(UINT32_MAX), "4294967295");
+        T(PRId128, PRId128_FMT_ARG(UINT32_MAX + 1ULL), "4294967296");
+        T(PRId128, PRId128_FMT_ARG(UINT64_MAX - 1), "18446744073709551614");
+        T(PRId128, PRId128_FMT_ARG(UINT64_MAX), "18446744073709551615");
+        T(PRId128, PRId128_FMT_ARG((uint128_t)UINT64_MAX + 1),
+          "18446744073709551616");
+        T(PRId128, PRId128_FMT_ARG(INT128_MAX - 1),
+          "170141183460469231731687303715884105726");
+        T(PRId128, PRId128_FMT_ARG(INT128_MAX),
+          "170141183460469231731687303715884105727");
+        T(PRId128, PRId128_FMT_ARG(MAKE128(0xdeadbeef, UINT64_MAX)),
+          "68915718023982259027008552959");
+
+        /* uint128_t / hex */
+        T(PRIx128, PRIx128_FMT_ARG(0), "0");
+        T(PRIx128, PRIx128_FMT_ARG(1), "1");
+        T(PRIx128, PRIx128_FMT_ARG(0x1234567890abcdef), "1234567890abcdef");
+        T(PRIX128, PRIX128_FMT_ARG(0x1234567890abcdef), "1234567890ABCDEF");
+        T(PRIx128, PRIx128_FMT_ARG(UINT64_MAX), "ffffffffffffffff");
+        T(PRIx128, PRIx128_FMT_ARG(UINT128_MAX),
+          "ffffffffffffffffffffffffffffffff");
+        T(PRIx128, PRIx128_FMT_ARG(MAKE128(0xdeadbeef, UINT64_MAX)),
+          "deadbeefffffffffffffffff");
+
+#undef T
+    } Z_TEST_END;
 } Z_GROUP_END
 
 /* LCOV_EXCL_STOP */

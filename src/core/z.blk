@@ -350,6 +350,16 @@ static void sb_add_z_val(sb_t *buf, z_val_t v, int ndigits, int nxdigits)
       case Z_VAL_TYPE_C:
         sb_addf(buf, "'%c' (%x)", v.c, v.c);
         break;
+
+      case Z_VAL_TYPE_I128:
+        sb_addf(buf, PRId128" / "PRIx128, PRId128_FMT_ARG(v.i128),
+                PRIx128_FMT_ARG(v.i128));
+        break;
+
+      case Z_VAL_TYPE_U128:
+        sb_addf(buf, PRIu128" / "PRIx128, PRIu128_FMT_ARG(v.u128),
+                PRIx128_FMT_ARG(v.u128));
+        break;
     }
 }
 
@@ -382,6 +392,8 @@ static void z_val_cmp_get_ndigits(z_val_t lv, z_val_t rv,
           case Z_VAL_TYPE_D:
           case Z_VAL_TYPE_B:
           case Z_VAL_TYPE_C:
+          case Z_VAL_TYPE_I128:
+          case Z_VAL_TYPE_U128:
             break;
         }
     }

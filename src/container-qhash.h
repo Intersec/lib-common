@@ -176,6 +176,11 @@ static inline uint32_t qhash_hash_u64(const qhash_t * nullable qh, uint64_t u64)
 {
     return u64_hash32(u64);
 }
+static inline uint32_t
+qhash_hash_u128(const qhash_t * nullable qh, uint128_t u128)
+{
+    return mem_hash32(&u128, sizeof(u128));
+}
 
 static inline uint32_t qhash_hash_ptr(const qhash_t * nullable qh,
                                       const void * nullable ptr)
@@ -264,6 +269,13 @@ uint32_t __qhash_put64(qhash_t * nonnull qh, uint32_t h, uint64_t k,
                        uint32_t flags)
     __leaf;
 void qhash_seal64(qhash_t * nonnull qh);
+
+int32_t qhash_safe_get128(const qhash_t * nonnull qh, uint32_t h, uint128_t k)
+    __leaf;
+int32_t qhash_get128(qhash_t * nonnull qh, uint32_t h, uint128_t k) __leaf;
+uint32_t __qhash_put128(qhash_t * nonnull qh, uint32_t h, uint128_t k,
+                        uint32_t flags) __leaf;
+void qhash_seal128(qhash_t * nonnull qh);
 
 int32_t  qhash_safe_get_ptr(const qhash_t * nonnull qh, uint32_t h,
                             const void * nullable k,
@@ -481,6 +493,8 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
     __QH_IKEY(32, qh_##name, name, uint32_t, void, 0)
 #define qh_k64_t(name)                                                       \
     __QH_IKEY(64, qh_##name, name, uint64_t, void, 0)
+#define qh_k128_t(name)                                                      \
+    __QH_IKEY(128, qh_##name, name, uint128_t, void, 0)
 #define qh_kvec_t(name, key_t, hf, ef)                                       \
     __QH_VKEY(qh_##name, name, key_t const, key_t, void, 0, hf, ef)
 #define qh_kptr_t(name, key_t, hf, ef)                                       \
@@ -496,6 +510,8 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
     __QH_IKEY(32, qm_##name, name, uint32_t, val_t, sizeof(val_t))
 #define qm_k64_t(name, val_t)                                                \
     __QH_IKEY(64, qm_##name, name, uint64_t, val_t, sizeof(val_t))
+#define qm_k128_t(name, val_t)                                                \
+    __QH_IKEY(128, qm_##name, name, uint128_t, val_t, sizeof(val_t))
 #define qm_kvec_t(name, key_t, val_t, hf, ef)                                \
     __QH_VKEY(qm_##name, name, key_t const, key_t, val_t, sizeof(val_t), hf, ef)
 #define qm_kptr_t(name, key_t, val_t, hf, ef)                                \
@@ -1253,6 +1269,7 @@ qhash_ptr_equal(const qhash_t * nullable qh, const void * nonnull ptr1,
 
 qh_k32_t(u32);
 qh_k64_t(u64);
+qh_k128_t(u128);
 qh_kptr_t(str,   char,    qhash_str_hash,  qhash_str_equal);
 qh_kvec_t(lstr,  lstr_t,  qhash_lstr_hash, qhash_lstr_equal);
 qh_kvec_t(ilstr, lstr_t,  qhash_lstr_ascii_ihash, qhash_lstr_ascii_iequal);

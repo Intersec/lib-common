@@ -438,6 +438,10 @@ enum sign {
 /* }}} */
 /* {{{ Types */
 
+/* 128 bits integers */
+typedef __int128 int128_t;
+typedef unsigned __int128 uint128_t;
+
 /* Useful atomics not defined in standard */
 typedef _Atomic(int8_t)   atomic_int8_t;
 typedef _Atomic(uint8_t)  atomic_uint8_t;
@@ -454,6 +458,9 @@ typedef _Atomic(ssize_t)  atomic_ssize_t;
  * There is no magic behind those types, they are just used as an information
  * for the reader.
  */
+typedef uint128_t cpu128_t;
+typedef uint128_t be128_t;
+typedef uint128_t le128_t;
 typedef uint64_t cpu64_t;
 typedef uint64_t be64_t;
 typedef uint64_t le64_t;
@@ -469,6 +476,11 @@ typedef uint16_t le16_t;
 typedef uint16_t be16_t;
 
 #define MAKE64(hi, lo)  (((uint64_t)(uint32_t)(hi) << 32) | (uint32_t)(lo))
+#define MAKE128(hi, lo) (((uint128_t)(uint64_t)(hi) << 64) | (uint64_t)(lo))
+
+#define UINT128_MAX  MAKE128(UINT64_MAX, UINT64_MAX)
+#define INT128_MAX  (int128_t)MAKE128(INT64_MAX, UINT64_MAX)
+#define INT128_MIN  (-INT128_MAX - 1)
 
 typedef unsigned char byte;
 

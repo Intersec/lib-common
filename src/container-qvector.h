@@ -679,6 +679,8 @@ qvector_t(i32,    int32_t);
 qvector_t(u32,    uint32_t);
 qvector_t(i64,    int64_t);
 qvector_t(u64,    uint64_t);
+qvector_t(i128,   int128_t);
+qvector_t(u128,   uint128_t);
 qvector_t(void,   void * nullable);
 qvector_t(double, double);
 qvector_t(str,    char * nullable);

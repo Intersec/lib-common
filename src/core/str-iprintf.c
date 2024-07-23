@@ -152,6 +152,17 @@ char *dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve);
 
 /*---------------- helpers ----------------*/
 
+static ALWAYS_INLINE void do_alpha_shift(char *lp, const char *end, int flags)
+{
+    int alpha_shift = (flags & FLAG_UPPER) ? 'A' - '9' - 1 : 'a' - '9' - 1;
+
+    for (char *p = lp; p < end; p++) {
+        if (*p > '9') {
+            *p += alpha_shift;
+        }
+    }
+}
+
 static ALWAYS_INLINE char *convert_int10(char *p, int value)
 {
     /* compute absolute value without tests */
@@ -256,6 +267,33 @@ static char *convert_ullong(char *p, unsigned long long value, int base)
     return p;
 }
 #endif
+
+static char *convert_uint128(char *p, uint128_t value, int base)
+{
+#define MAX_P10_U64 10000000000000000000ULL
+    if (base == 10) {
+        while (value > UINT64_MAX) {
+            uint128_t quot = value / MAX_P10_U64;
+            uint64_t rem = value - quot * MAX_P10_U64;
+            value = quot;
+            p = convert_ulong(p, rem, 10);
+        }
+        return convert_ulong(p, value, 10);
+    } else
+    if (base == 16) {
+        while (value > 0) {
+            *--p = '0' + (value % 16);
+            value = value / 16;
+        }
+    } else {
+        while (value > 0) {
+            *--p = '0' + (value % 8);
+            value = value / 8;
+        }
+    }
+    return p;
+#undef MAX_P10_U64
+}
 
 static char *convert_quoted_uint(char *p, uint64_t value, int base)
 {
@@ -364,6 +402,100 @@ static ssize_t fmt_output_hex(int modifier, const void *val, size_t val_len,
     return val_len * 2;
 }
 
+
+static ssize_t
+fmt_output_final_int(int modifier, char *lp, int len, int sign, FILE *stream,
+                     char *buf, size_t buf_len, int base, int flags)
+{
+    if (base == 16) {
+        do_alpha_shift(lp, lp + len, flags);
+    }
+    if (len < 1) {
+        /* special case for number 0 */
+        *--lp = '0';
+        len++;
+    }
+    if (sign) {
+        *--lp = sign;
+        len++;
+    }
+    return fmt_output_raw(modifier, lp, len, stream, buf, buf_len);
+}
+
+static ssize_t
+fmt_output_int(int modifier, const void *val, size_t val_len, FILE *stream,
+               char *buf, size_t buf_len)
+{
+    int len, sign;
+    char *lp;
+    char ibuf[64];
+
+    switch (val_len) {
+    case 16: {
+        int128_t value = *(int128_t *)val;
+        uint128_t bits = value >> 127;
+        uint128_t num = (value ^ bits) + (bits & 1);
+
+        sign = '-' & bits;
+        lp = convert_uint128(ibuf + sizeof(ibuf), num, 10);
+    } break;
+
+    default:
+        e_panic("unsupported integer size: %zu", val_len);
+    }
+
+    len = ibuf + sizeof(ibuf) - lp;
+    return fmt_output_final_int(modifier, lp, len, sign, stream, buf,
+                                buf_len, 10, 0);
+}
+
+static ssize_t
+fmt_output_uint_base(int modifier, const void *val, size_t val_len,
+                     FILE *stream, char *buf, size_t buf_len, int base,
+                     int flags)
+{
+    int len;
+    char *lp;
+    char ibuf[64];
+
+    switch (val_len) {
+    case 16: {
+        lp = convert_uint128(ibuf + sizeof(ibuf), *(uint128_t *)val, base);
+    } break;
+
+    default:
+        e_panic("unsupported integer size: %zu", val_len);
+    }
+
+    len = ibuf + sizeof(ibuf) - lp;
+    return fmt_output_final_int(modifier, lp, len, 0, stream, buf, buf_len,
+                                base, flags);
+}
+
+static ssize_t
+fmt_output_uint(int modifier, const void *val, size_t val_len, FILE *stream,
+                char *buf, size_t buf_len)
+{
+    return fmt_output_uint_base(modifier, val, val_len, stream, buf, buf_len,
+                                10, 0);
+}
+
+static ssize_t
+fmt_output_uint_hex(int modifier, const void *val, size_t val_len,
+                    FILE *stream, char *buf, size_t buf_len)
+{
+    return fmt_output_uint_base(modifier, val, val_len, stream, buf, buf_len,
+                                16, 0);
+}
+
+static ssize_t
+fmt_output_uint_hex_up(int modifier, const void *val, size_t val_len,
+                       FILE *stream, char *buf, size_t buf_len)
+{
+    return fmt_output_uint_base(modifier, val, val_len, stream, buf, buf_len,
+                                16, FLAG_UPPER);
+}
+
 struct formatter_t {
     union {
         formatter_f *raw_formatter;
@@ -376,7 +508,11 @@ static struct formatter_t put_memory_fmt_g[256] = {
     ['M'] = { { .raw_formatter = &fmt_output_raw }, .is_raw = true },
     ['X'] = { { .raw_formatter = &fmt_output_hex }, .is_raw = true },
     ['x'] = { { .raw_formatter = &fmt_output_hex }, .is_raw = true },
-    ['L'] = { { .ptr_formatter = &fmt_output_lstr }, .is_raw = false }
+    ['L'] = { { .ptr_formatter = &fmt_output_lstr }, .is_raw = false },
+    ['d'] = { { .raw_formatter = &fmt_output_int }, .is_raw = true },
+    ['u'] = { { .raw_formatter = &fmt_output_uint }, .is_raw = true },
+    ['h'] = { { .raw_formatter = &fmt_output_uint_hex }, .is_raw = true },
+    ['H'] = { { .raw_formatter = &fmt_output_uint_hex_up }, .is_raw = true },
 };
 
 static ALWAYS_INLINE
@@ -992,22 +1128,13 @@ static int fmt_output(FILE *stream, char *str, size_t size,
             len = buf + sizeof(buf) - lp;
 
             if (base == 16) {
-                char *p;
-                int alpha_shift;
-
                 if ((flags & FLAG_ALT) && len > 0) {
                     buf[0] = '0';
                     buf[1] = (flags & FLAG_UPPER) ? 'X' : 'x';
                     prefix_len = 2;
                 }
-                alpha_shift = (flags & FLAG_UPPER) ?
-                              'A' - '9' - 1: 'a' - '9' - 1;
 
-                for (p = (char*)lp; p < buf + sizeof(buf); p++) {
-                    if (*p > '9') {
-                        *p += alpha_shift;
-                    }
-                }
+                do_alpha_shift((char *)lp, buf + sizeof(buf), flags);
             }
 
             if (len < prec) {

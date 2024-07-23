@@ -27,11 +27,13 @@
 /* Keep these here, it's to check the macros are used and built */
 qh_k32_t(test);
 qh_k64_t(test_qh_64);
+qh_k128_t(test_qh_128);
 
 qm_k32_t(test, uint32_t);
 qm_k32_t(test_vlstr, lstr_t);
 qm_k32_t(test_p_val, uint32_t *);
-qm_k64_t(test_qh_64, uint32_t);
+qm_k64_t(test_qm_64, uint32_t);
+qm_k128_t(test_qm_128, int128_t);
 
 qh_kptr_ckey_t(test_str, char, qhash_str_hash, qhash_str_equal);
 
@@ -858,6 +860,55 @@ Z_GROUP_EXPORT(qhash)
         qh_delete(u32, &qh);
         qm_delete(test, &qm);
     } Z_TEST_END
+
+    Z_TEST(qh_128, "qh: 128 bits keys") {
+        t_scope;
+        qh_t(test_qh_128) qh;
+
+        t_qh_init(test_qh_128, &qh, 128);
+        qh_add(test_qh_128, &qh, UINT64_MAX);
+        qh_add(test_qh_128, &qh, INT128_MAX);
+        qh_add(test_qh_128, &qh, UINT128_MAX);
+        Z_ASSERT_EQ(qh_len(test_qh_128, &qh), 3);
+
+#define T(_tkey) \
+    do {                                                                     \
+        int pos = qh_find(test_qh_128, &qh, (_tkey));                        \
+        Z_ASSERT_N(pos);                                                     \
+        Z_ASSERT_EQ(qh.keys[pos], (uint128_t)(_tkey));                       \
+    } while (0)
+
+        T(UINT64_MAX);
+        T(INT128_MAX);
+        T(UINT128_MAX);
+
+#undef T
+    } Z_TEST_END
+
+    Z_TEST(qm_128, "qm: 128 bits keys") {
+        t_scope;
+        qm_t(test_qm_128) qm;
+
+        t_qm_init(test_qm_128, &qm, 128);
+        qm_add(test_qm_128, &qm, UINT64_MAX, INT128_MIN);
+        qm_add(test_qm_128, &qm, INT128_MAX, INT128_MAX);
+        qm_add(test_qm_128, &qm, UINT128_MAX, UINT64_MAX);
+        Z_ASSERT_EQ(qm_len(test_qm_128, &qm), 3);
+
+#define T(_tkey, _tval) \
+    do {                                                                     \
+        int pos = qm_find(test_qm_128, &qm, (_tkey));                        \
+        Z_ASSERT_N(pos);                                                     \
+        Z_ASSERT_EQ(qm.keys[pos], (uint128_t)(_tkey));                       \
+        Z_ASSERT_EQ(qm.values[pos], (_tval));                                \
+    } while (0)
+
+        T(UINT64_MAX, INT128_MIN);
+        T(INT128_MAX, INT128_MAX);
+        T(UINT128_MAX, UINT64_MAX);
+
+#undef T
+    } Z_TEST_END
 } Z_GROUP_END
 
 /* }}} */
@@ -865,11 +916,13 @@ Z_GROUP_EXPORT(qhash)
 
 /* Keep these here, it's to check the macros are used and built */
 qhh_k32_t(test, 16);
-qhh_k64_t(test_qh_64, 16);
+qhh_k64_t(test_qhh_64, 16);
+qhh_k128_t(test_qhh_128, 16);
 
 qhm_k32_t(test, 16, uint32_t);
 qhm_k32_t(test_p, 16, uint32_t *);
-qhm_k64_t(test_qh_64, 16, uint32_t);
+qhm_k64_t(test_qhm_64, 16, uint32_t);
+qhm_k128_t(test_qhm_128, 16, int128_t);
 
 qhh_kptr_ckey_t(test_str, 16, char, qhhash_str_hash, qhhash_str_equal);
 
@@ -1221,6 +1274,54 @@ Z_GROUP_EXPORT(qhugehash)
                                        NULL) == pval);
     } Z_TEST_END;
 
+    Z_TEST(qhh_128, "qh: 128 bits keys") {
+        t_scope;
+        qhh_t(test_qhh_128) qh;
+
+        t_qhh_init(test_qhh_128, &qh, 128);
+        qhh_add(test_qhh_128, &qh, UINT64_MAX);
+        qhh_add(test_qhh_128, &qh, INT128_MAX);
+        qhh_add(test_qhh_128, &qh, UINT128_MAX);
+        Z_ASSERT_EQ(qhh_len(test_qhh_128, &qh), 3U);
+
+#define T(_tkey) \
+    do {                                                                     \
+        int64_t pos = qhh_find(test_qhh_128, &qh, (_tkey));                  \
+        Z_ASSERT_N(pos);                                                     \
+        Z_ASSERT_EQ(*qhh_key_p(test_qhh_128, &qh, pos), (uint128_t)(_tkey)); \
+    } while (0)
+
+        T(UINT64_MAX);
+        T(INT128_MAX);
+        T(UINT128_MAX);
+
+#undef T
+    } Z_TEST_END
+
+    Z_TEST(qhm_128, "qm: 128 bits keys") {
+        t_scope;
+        qhm_t(test_qhm_128) qm;
+
+        t_qhm_init(test_qhm_128, &qm, 128);
+        qhm_add(test_qhm_128, &qm, UINT64_MAX, INT128_MIN);
+        qhm_add(test_qhm_128, &qm, INT128_MAX, INT128_MAX);
+        qhm_add(test_qhm_128, &qm, UINT128_MAX, UINT64_MAX);
+        Z_ASSERT_EQ(qhm_len(test_qhm_128, &qm), 3U);
+
+#define T(_tkey, _tval) \
+    do {                                                                     \
+        int64_t pos = qhm_find(test_qhm_128, &qm, (_tkey));                  \
+        Z_ASSERT_N(pos);                                                     \
+        Z_ASSERT_EQ(*qhm_key_p(test_qhm_128, &qm, pos), (uint128_t)(_tkey)); \
+        Z_ASSERT_EQ(qhm_value(test_qhm_128, &qm, pos), (_tval));             \
+    } while (0)
+
+        T(UINT64_MAX, INT128_MIN);
+        T(INT128_MAX, INT128_MAX);
+        T(UINT128_MAX, UINT64_MAX);
+
+#undef T
+    } Z_TEST_END
 } Z_GROUP_END
 
 /* }}} */
@@ -1779,6 +1880,26 @@ Z_GROUP_EXPORT(qvector)
         Z_ASSERT(!vec_is_sorted(&vec));
     } Z_TEST_END
 
+    Z_TEST(qv_128, "qvector: 128 bits integers") {
+        t_scope;
+        qv_t(i128) i128_vec;
+        qv_t(u128) u128_vec;
+
+        t_qv_init(&i128_vec, 10);
+        t_qv_init(&u128_vec, 10);
+
+        qv_append(&i128_vec, INT128_MIN);
+        qv_append(&i128_vec, INT128_MAX);
+        Z_ASSERT_EQ(i128_vec.len, 2);
+        Z_ASSERT_EQ(i128_vec.tab[0], INT128_MIN);
+        Z_ASSERT_EQ(i128_vec.tab[1], INT128_MAX);
+
+        qv_append(&u128_vec, 0);
+        qv_append(&u128_vec, UINT128_MAX);
+        Z_ASSERT_EQ(u128_vec.len, 2);
+        Z_ASSERT_EQ(u128_vec.tab[0], 0U);
+        Z_ASSERT_EQ(u128_vec.tab[1], UINT128_MAX);
+    } Z_TEST_END
 } Z_GROUP_END;
 
 /* }}} */

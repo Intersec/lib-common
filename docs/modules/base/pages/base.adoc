@@ -34,6 +34,14 @@ The following extensions are supported:
   in JSON.
 * `%*pV` used with VALUE_FMT_ARG to print a `platform.Value`.
 * `%*pI` used with ID_FMT_ARG to print a `platform.Id`.
+* `%*pd` used to print an integer of size `len` (bytes) in decimal. Supported
+  integer sizes: 16 (PRId128_FMT_ARG).
+* `%*pu` used to print an unsigned integer of size `len` (bytes) in decimal.
+  Supported integer sizes: 16 (PRIu128_FMT_ARG).
+* `%*ph` used to print an unsigned integer of size `len` (bytes) in
+  hexadecimal. Supported integer sizes: 16 (PRIx128_FMT_ARG).
+* `%*pH` used to print an unsigned integer of size `len` (bytes) in
+  uppercase hexadecimal. Supported integer sizes: 16 (PRIX128_FMT_ARG).
 
 [source,c]
 ----

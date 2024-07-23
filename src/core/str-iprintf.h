@@ -21,6 +21,18 @@
 #else
 #define IS_LIB_COMMON_STR_IPRINTF_H
 
+#define PRId128  "%*pd"
+#define PRIi128  PRId128
+#define PRIu128  "%*pu"
+#define PRIx128  "%*ph"
+#define PRIX128  "%*pH"
+
+#define PRId128_FMT_ARG(_val)  16, ((int128_t[]){ (_val) })
+#define PRIi128_FMT_ARG  PRId128_FMT_ARG
+#define PRIu128_FMT_ARG(_val)  16, ((uint128_t[]){ (_val) })
+#define PRIx128_FMT_ARG  PRIu128_FMT_ARG
+#define PRIX128_FMT_ARG  PRIu128_FMT_ARG
+
 int iprintf(const char * nonnull format, ...)
         __leaf __attr_printf__(1, 2);
 int ifprintf(FILE * nonnull stream, const char * nonnull format, ...)
