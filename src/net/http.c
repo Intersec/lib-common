@@ -749,6 +749,19 @@ void httpd_reply_hdrs_done(httpd_query_t *q, int clen, bool chunked)
     assert (!q->hdrs_done);
     q->hdrs_done = true;
 
+    if (q->answer_code == HTTP_CODE_NO_CONTENT || (q->answer_code >= 100 &&
+                                                   q->answer_code < 199))
+    {
+        /* rfc 7230: §3.3.2
+         * A server MUST NOT send a Content-Length header field in any
+         * response with a status code of 1xx (Informational) or 204 (No
+         * Content).
+         */
+        assert (clen <= 0);
+        ob_adds(ob, "\r\n");
+        return;
+    }
+
     if (clen >= 0) {
         ob_addf(ob, "Content-Length: %d\r\n\r\n", clen);
         return;
@@ -4746,6 +4759,7 @@ http2_stream_send_response_headers(http2_conn_t *w, http2_stream_t *stream,
     t_scope;
     t_SB_1k(out);
     bool eos;
+    int code = 0;
 
     *clen = -1;
     http2_conn_pack_single_hdr(w, LSTR_IMMED_V(":status"), status, &out);
@@ -4758,6 +4772,16 @@ http2_stream_send_response_headers(http2_conn_t *w, http2_stream_t *stream,
             continue;
         }
         http2_conn_pack_single_hdr(w, key, val, &out);
+    }
+    lstr_to_int(status, &code);
+    if (code == HTTP_CODE_NO_CONTENT || (code >= 100 && code < 199))
+    {
+        /* rfc 7230: §3.3.2
+         * A server MUST NOT send a Content-Length header field in any
+         * response with a status code of 1xx (Informational) or 204 (No
+         * Content).
+         */
+        *clen = 0;
     }
     eos = (*clen == 0);
     http2_conn_send_headers_block(w, stream->id, ps_initsb(&out), eos);

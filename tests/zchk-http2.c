@@ -28,6 +28,7 @@ static struct {
     httpc_t *client;
 
     httpd_trigger_t *hello;
+    httpd_trigger_t *post;
     int response_time;
     lstr_t hello_response;
 
@@ -35,6 +36,8 @@ static struct {
     bool query_sent;
     bool query_answered;
     httpc_status_t query_status;
+    int query_code;
+    bool query_has_clen;
 
     /* for el_wait_until */
     bool el_wait_timed_out;
@@ -123,6 +126,24 @@ z_http2_hello_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
     httpd_bufferize(q, 1 << 20);
 }
 
+static void z_http2_post_query_on_done(httpd_query_t *q)
+{
+    /* Send response headers */
+    httpd_reply_hdrs_start(q, HTTP_CODE_NO_CONTENT, true);
+    httpd_reply_hdrs_done(q, -1, false);
+
+    httpd_reply_done(q);
+}
+
+static void
+z_http2_post_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
+                         const httpd_qinfo_t *qi)
+{
+    q->on_done = z_http2_post_query_on_done;
+    q->qinfo = httpd_qinfo_dup(qi);
+    httpd_bufferize(q, 1 << 20);
+}
+
 static void z_http2_default_httpd_cfg(void)
 {
     httpd_cfg_t *cfg = httpd_cfg_new();
@@ -136,6 +157,10 @@ static void z_http2_default_httpd_cfg(void)
     _G.hello = httpd_trigger_new();
     _G.hello->cb = z_http2_hello_query_hook;
     httpd_trigger_register(cfg, GET, "hello", _G.hello);
+
+    _G.post = httpd_trigger_new();
+    _G.post->cb = z_http2_post_query_hook;
+    httpd_trigger_register(cfg, POST, "post", _G.post);
 
     httpd_cfg_delete(&_G.server_cfg);
     _G.server_cfg = cfg;
@@ -159,6 +184,10 @@ z_http2_hello_query_on_done_client(httpc_query_t *q, httpc_status_t st)
     _G.query_answered = true;
     _G.query_sent = false;
     _G.query_status = st;
+    _G.query_code = q->qinfo->code;
+
+    _G.query_has_clen = !!http_qhdr_find(q->qinfo->hdrs, q->qinfo->hdrs_len,
+                                         HTTP_WKHDR_CONTENT_LENGTH);
 
     httpc_query_wipe(q);
 }
@@ -173,6 +202,23 @@ static void z_http2_hello_query_send(void)
 
     httpc_query_attach(q, _G.client);
     httpc_query_start(q, HTTP_METHOD_GET, LSTR("localhost"), LSTR("/hello"));
+    httpc_query_hdrs_done(q, -1, false);
+    httpc_query_done(q);
+
+    _G.query_sent = true;
+    _G.query_answered = false;
+}
+
+static void z_http2_post_query_send(void)
+{
+    httpc_query_t *q = &_G.query;
+
+    httpc_query_init(q);
+    httpc_bufferize(q, 1 << 20);
+    q->on_done = &z_http2_hello_query_on_done_client;
+
+    httpc_query_attach(q, _G.client);
+    httpc_query_start(q, HTTP_METHOD_POST, LSTR("localhost"), LSTR("/post"));
     httpc_query_hdrs_done(q, -1, false);
     httpc_query_done(q);
 
@@ -207,6 +253,30 @@ static int z_http2_connect_client(void)
 
     el_wait_until(!_G.client->busy, 100);
     Z_ASSERT(!_G.client->busy);
+
+    Z_HELPER_END;
+}
+
+static int
+z_http2_do_simple_post(void)
+{
+    Z_HELPER_RUN(z_http2_connect_client());
+
+    z_http2_post_query_send();
+
+    el_wait_until(_G.query_answered, 100);
+    Z_ASSERT(_G.query_answered);
+
+    Z_ASSERT_EQ(_G.query_status, HTTPC_STATUS_OK);
+    Z_ASSERT_EQ(_G.query_code, HTTP_CODE_NO_CONTENT);
+    Z_ASSERT(!_G.query_has_clen);
+
+    httpc_cfg_delete(&_G.client_cfg);
+    httpd_unlisten(&_G.server);
+
+    /* Wait to allow the transporting http2 to finalize. */
+    el_wait_until(false, 100);
+    Z_ASSERT(!el_has_pending_events());
 
     Z_HELPER_END;
 }
@@ -270,6 +340,10 @@ Z_GROUP_EXPORT(http2) {
         Z_HELPER_RUN(z_http2_do_simple_query(true, 0, 1));
         /* repeat the query 10 times in a single run */
         Z_HELPER_RUN(z_http2_do_simple_query(true, 0, 10));
+    } Z_TEST_END;
+
+    Z_TEST(simple_post, "simple post") {
+        Z_HELPER_RUN(z_http2_do_simple_post());
     } Z_TEST_END;
 
 
