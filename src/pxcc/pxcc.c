@@ -463,6 +463,7 @@ t_visit_register_type_fields(CXCursor cursor, CXCursor parent,
 
       case CXCursor_EnumDecl:
       case CXCursor_EnumConstantDecl:
+      case CXCursor_UnexposedAttr:
         break;
 
       default: {
@@ -1186,6 +1187,7 @@ visit_print_type_fields(CXCursor cursor, CXCursor parent, CXClientData data)
 
       case CXCursor_EnumDecl:
       case CXCursor_EnumConstantDecl:
+      case CXCursor_UnexposedAttr:
         break;
 
       default: {
