@@ -162,6 +162,12 @@ EOF
             echo -Wfloat-overflow-conversion
             echo -Wfloat-zero-conversion
         fi
+        if clang_prereq 12.0; then
+            if test "$2" != "rewrite"; then
+                # Enable x86-64-v2 architecture profile
+                echo -march=x86-64-v2
+            fi
+        fi
     fi
 
     echo -Wchar-subscripts
@@ -222,6 +228,8 @@ EOF
         # false-positive, see
         # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=97048
         echo -Wno-stringop-overread
+        # Enable x86-64-v2 architecture profile
+        echo -march=x86-64-v2
     fi
 
     if is_cpp; then
