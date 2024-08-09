@@ -55,6 +55,10 @@ static inline uint64_t __ps_get_be64(pstream_t * nonnull ps)
 {
     __PS_GET(ps, 64, be);
 }
+static inline uint128_t __ps_get_be128(pstream_t * nonnull ps)
+{
+    __PS_GET(ps, 128, be);
+}
 
 static inline uint16_t __ps_get_le16(pstream_t * nonnull ps)
 {
@@ -76,6 +80,10 @@ static inline uint64_t __ps_get_le64(pstream_t * nonnull ps)
 {
     __PS_GET(ps, 64, le);
 }
+static inline uint128_t __ps_get_le128(pstream_t * nonnull ps)
+{
+    __PS_GET(ps, 128, le);
+}
 
 static inline uint16_t __ps_get_cpu16(pstream_t * nonnull ps)
 {
@@ -93,6 +101,12 @@ static inline uint64_t __ps_get_cpu64(pstream_t * nonnull ps)
 {
     uint64_t res = get_unaligned_cpu64(ps->p);
     __ps_skip(ps, 64 / 8);
+    return res;
+}
+static inline uint128_t __ps_get_cpu128(pstream_t * nonnull ps)
+{
+    uint128_t res = get_unaligned_cpu128(ps->p);
+    __ps_skip(ps, 128 / 8);
     return res;
 }
 
@@ -166,6 +180,11 @@ static inline int ps_get_be64(pstream_t * nonnull ps, uint64_t * nonnull res)
 {
     PS_GET(ps, res, 64, be);
 }
+static inline int ps_get_be128(pstream_t * nonnull ps,
+                               uint128_t * nonnull res)
+{
+    PS_GET(ps, res, 128, be);
+}
 
 static inline int ps_get_le16(pstream_t * nonnull ps, uint16_t * nonnull res)
 {
@@ -187,6 +206,11 @@ static inline int ps_get_le64(pstream_t * nonnull ps, uint64_t * nonnull res)
 {
     PS_GET(ps, res, 64, le);
 }
+static inline int ps_get_le128(pstream_t * nonnull ps,
+                               uint128_t * nonnull res)
+{
+    PS_GET(ps, res, 128, le);
+}
 
 static inline int ps_get_cpu16(pstream_t * nonnull ps, uint16_t * nonnull res)
 {
@@ -199,6 +223,11 @@ static inline int ps_get_cpu32(pstream_t * nonnull ps, uint32_t * nonnull res)
 static inline int ps_get_cpu64(pstream_t * nonnull ps, uint64_t * nonnull res)
 {
     PS_GET(ps, res, 64, cpu);
+}
+static inline int ps_get_cpu128(pstream_t * nonnull ps,
+                                uint128_t * nonnull res)
+{
+    PS_GET(ps, res, 128, cpu);
 }
 
 #undef __PS_GET
@@ -227,6 +256,10 @@ static inline void sb_add_be64(sb_t * nonnull sb, uint64_t u)
 {
     SB_ADD(sb, u, 64, be);
 }
+static inline void sb_add_be128(sb_t * nonnull sb, uint128_t u)
+{
+    SB_ADD(sb, u, 128, be);
+}
 
 static inline void sb_add_le16(sb_t * nonnull sb, uint16_t u)
 {
@@ -248,6 +281,10 @@ static inline void sb_add_le64(sb_t * nonnull sb, uint64_t u)
 {
     SB_ADD(sb, u, 64, le);
 }
+static inline void sb_add_le128(sb_t * nonnull sb, uint128_t u)
+{
+    SB_ADD(sb, u, 128, le);
+}
 
 static inline void sb_add_cpu16(sb_t * nonnull sb, uint16_t u)
 {
@@ -260,6 +297,10 @@ static inline void sb_add_cpu32(sb_t * nonnull sb, uint32_t u)
 static inline void sb_add_cpu64(sb_t * nonnull sb, uint64_t u)
 {
     SB_ADD(sb, u, 64, cpu);
+}
+static inline void sb_add_cpu128(sb_t * nonnull sb, uint128_t u)
+{
+    SB_ADD(sb, u, 128, cpu);
 }
 
 #undef SB_ADD

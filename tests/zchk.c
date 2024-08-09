@@ -68,6 +68,59 @@ Z_GROUP_EXPORT(endianess)
 
 #undef DO_TEST
     } Z_TEST_END;
+
+    Z_TEST(sb_add_ps_get, "sb_add/ps_get") {
+        SB_1k(sb);
+        uint16_t us;
+        uint32_t u;
+        uint64_t ul;
+        uint128_t u128;
+
+#define DO_TEST(w, e, x)                                                     \
+        ({                                                                   \
+            pstream_t __ps;                                                  \
+            typeof(x) __x2;                                                  \
+                                                                             \
+            sb_reset(&sb);                                                   \
+            sb_add_##e##w(&sb, x);                                           \
+            Z_ASSERT_EQ(sb.len, w / 8, "check 1 " #w #e);                    \
+                                                                             \
+            __ps = ps_initsb(&sb);                                           \
+            Z_ASSERT_EQ(ps_get_##e##w(&__ps, &__x2), 0, "check 2 " #w #e);   \
+                                                                             \
+            Z_ASSERT_EQ(x, __x2, "check 3 " #w #e);                          \
+        })
+
+        us = 0x0201;
+        DO_TEST(16, cpu, us);
+        DO_TEST(16,  be, us);
+        DO_TEST(16,  le, us);
+
+        u  = 0x030201;
+        DO_TEST(24,  be, u);
+        DO_TEST(24,  le, u);
+
+        u  = 0x04030201;
+        DO_TEST(32, cpu, u);
+        DO_TEST(32,  be, u);
+        DO_TEST(32,  le, u);
+
+        ul = 0x060504030201;
+        DO_TEST(48,  be, ul);
+        DO_TEST(48,  le, ul);
+
+        ul = 0x0807060504030201;
+        DO_TEST(64, cpu, ul);
+        DO_TEST(64,  be, ul);
+        DO_TEST(64,  le, ul);
+
+        u128 = MAKE128(0xdeadbeef, UINT64_MAX);
+        DO_TEST(128, cpu, u128);
+        DO_TEST(128,  be, u128);
+        DO_TEST(128,  le, u128);
+
+#undef DO_TEST
+    } Z_TEST_END
 } Z_GROUP_END;
 
 static int bs_check_length(const bit_stream_t bs, size_t len)
