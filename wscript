@@ -235,7 +235,7 @@ def poetry_install(ctx):
                   'Run `poetry lock --no-update` or `poetry update`.')
 
     # Install poetry packages
-    if ctx.exec_command(ctx.env.POETRY + ['install', '--no-root'],
+    if ctx.exec_command(ctx.env.POETRY + ['install', '--no-root', '--sync'],
                         stdout=None, stderr=None):
         ctx.fatal('poetry install failed')
 
