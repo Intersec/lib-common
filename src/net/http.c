@@ -4614,7 +4614,8 @@ static void http2_conn_pack_single_hdr(http2_conn_t *w, lstr_t key,
 
     buflen = hpack_buflen_to_write_hdr(key, val, 0);
     out = (byte *)sb_grow(out_, buflen);
-    len = hpack_encoder_write_hdr(enc, key, val, 0, 0, 0, out);
+    len = hpack_encoder_write_hdr(enc, key, val, 0, 0, HPACK_FLG_LWR_KEY,
+                                  out);
     assert(len > 0);
     assert(len <= buflen);
     __sb_fixlen(out_, out_->len + len);
