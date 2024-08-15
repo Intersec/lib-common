@@ -171,9 +171,25 @@ module_t *module_implement(module_t *module,
     return module;
 }
 
+static bool
+module_has_dep(const module_t *module, const module_t *other)
+{
+    tab_for_each_entry(dep, &module->depends_on) {
+        if (other == dep) {
+            return true;
+        }
+        if (module_has_dep(dep, other)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void module_add_dep(module_t *module, module_t *dep)
 {
-    assert (module->state == REGISTERED);
+    assert(module->state == REGISTERED);
+    assert(!module_has_dep(dep, module) && "circular dependency detected");
     qv_append(&module->depends_on, dep);
 }
 
