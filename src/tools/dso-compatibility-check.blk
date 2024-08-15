@@ -30,12 +30,12 @@ static struct compat_g {
     .help = 0,
 };
 
-static iop_dso_t *open_dso(const char *dso_path)
+static iop_dso_t *open_dso(iop_env_t *iop_env, const char *dso_path)
 {
     SB_1k(err);
     iop_dso_t *dso;
 
-    dso = iop_dso_open(dso_path, LM_ID_BASE, &err);
+    dso = iop_dso_open(iop_env, dso_path, &err);
     if (dso == NULL) {
         e_fatal("unable to load `%s` (%*pM)\n", dso_path,
                 SB_FMT_ARG(&err));
@@ -65,6 +65,7 @@ static struct popt_t popt[] = {
 int main(int argc, char *argv[])
 {
     t_scope;
+    iop_env_t *iop_env;
     iop_dso_t *dso;
     iop_dso_t *dso_old;
     iop_compat_ctx_t *ctx;
@@ -105,9 +106,10 @@ int main(int argc, char *argv[])
         flags = IOP_COMPAT_ALL;
     }
 
-    dso = open_dso(_G.new_dso);
-    dso_old = open_dso(_G.old_dso);
-    ctx = iop_compat_ctx_new();
+    iop_env = iop_env_new();
+    dso = open_dso(iop_env, _G.new_dso);
+    dso_old = open_dso(iop_env, _G.old_dso);
+    ctx = iop_compat_ctx_new(iop_env);
 
     t_qv_init(&sorted_pkg_names, qm_len(iop_pkg, &dso_old->pkg_h));
     qm_for_each_pos(iop_pkg, pos, &dso_old->pkg_h) {
@@ -139,6 +141,7 @@ int main(int argc, char *argv[])
     iop_compat_ctx_delete(&ctx);
     iop_dso_close(&dso);
     iop_dso_close(&dso_old);
+    iop_env_delete(&iop_env);
 
     return 0;
 }
