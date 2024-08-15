@@ -67,7 +67,7 @@ struct module_t {
     module_state_t state;
     int manu_req_count;
 
-    qv_t(module) dependent_of;
+    qv_t(module) depends_on;
     qv_t(module) required_by;
     qm_t(methods) methods;
 
@@ -86,7 +86,7 @@ GENERIC_NEW(module_t, module);
 static void module_wipe(module_t *module)
 {
     lstr_wipe(&(module->name));
-    qv_wipe(&module->dependent_of);
+    qv_wipe(&module->depends_on);
     qv_wipe(&module->required_by);
     qm_wipe(methods, &module->methods);
 }
@@ -165,7 +165,7 @@ module_t *module_implement(module_t *module,
     module->destructor = destructor;
 
     if (dependency) {
-        qv_push(&module->dependent_of, dependency);
+        qv_push(&module->depends_on, dependency);
     }
 
     return module;
@@ -174,7 +174,7 @@ module_t *module_implement(module_t *module,
 void module_add_dep(module_t *module, module_t *dep)
 {
     assert (module->state == REGISTERED);
-    qv_append(&module->dependent_of, dep);
+    qv_append(&module->depends_on, dep);
 }
 
 static int modules_topo_visit(qh_t(module) *temporary_mark,
@@ -189,7 +189,7 @@ static int modules_topo_visit(qh_t(module) *temporary_mark,
         sb_addf(err, "-> %*pM", LSTR_FMT_ARG(m->name));
         return -1;
     }
-    tab_for_each_entry(dep, &m->dependent_of) {
+    tab_for_each_entry(dep, &m->depends_on) {
         if (modules_topo_visit(temporary_mark, permanent_mark,
                                ordered_modules, dep, err) < 0)
         {
@@ -272,7 +272,7 @@ void module_require(module_t *module, module_t *required_by)
 
     _G.methods_dirty = true;
 
-    tab_for_each_entry(dep, &module->dependent_of) {
+    tab_for_each_entry(dep, &module->depends_on) {
         module_require(dep, module);
     }
 
@@ -363,7 +363,7 @@ static int module_shutdown(module_t *module)
 
     _G.methods_dirty = true;
 
-    tab_for_each_entry(dep, &module->dependent_of) {
+    tab_for_each_entry(dep, &module->depends_on) {
         int shut;
 
         shut = notify_shutdown(dep, module);
@@ -664,7 +664,7 @@ void module_register_at_fork(void)
  */
 static void add_dependencies_to_qh(module_t *m, qh_t(module) *qh)
 {
-    tab_for_each_entry(dep, &m->dependent_of) {
+    tab_for_each_entry(dep, &m->depends_on) {
         if (qh_add(module, qh, dep) >= 0) {
             add_dependencies_to_qh(dep, qh);
         }
@@ -703,7 +703,7 @@ void module_debug_dump_hierarchy(sb_t *modules, sb_t *dependencies)
 
         sb_addf(modules, "%*pM;%d\n", LSTR_FMT_ARG(module->name),
                 module_is_loaded(module) ? 1 : 0);
-        tab_for_each_entry(dep, &module->dependent_of) {
+        tab_for_each_entry(dep, &module->depends_on) {
             sb_addf(dependencies, "%*pM;%*pM\n", LSTR_FMT_ARG(module->name),
                     LSTR_FMT_ARG(dep->name));
         }
