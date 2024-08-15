@@ -221,6 +221,7 @@ qh_k32_t(xwsdl_impl);
 /** Generate the WSDL corresponding to an IOP module.
  *
  * \param[out] sb          Output buffer.
+ * \param[in]  iop_env     The current IOP environment.
  * \param[in]  mod         IOP module description.
  * \param[in]  impl        Optional RPC set if you do not want to export the
  *                         whole module.
@@ -229,7 +230,8 @@ qh_k32_t(xwsdl_impl);
  * \param[in]  with_auth   Add SOAP authentication headers.
  * \param[in]  with_enums  Dump enums literal representations in WSDL.
  */
-void iop_xwsdl(sb_t * nonnull sb, const iop_mod_t * nonnull mod,
+void iop_xwsdl(sb_t * nonnull sb, const iop_env_t * nonnull iop_env,
+               const iop_mod_t * nonnull mod,
                qh_t(xwsdl_impl) * nullable impl, const char * nonnull ns,
                const char * nullable addr, bool with_auth, bool with_enums);
 

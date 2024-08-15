@@ -504,7 +504,8 @@ typedef struct iop_xwsdl_put_types_t {
 } iop_xwsdl_put_types_t;
 
 static void
-iop_xwsdl_put_types(wsdlpp_t *wpp, const iop_mod_t *mod, const char *ns)
+iop_xwsdl_put_types(wsdlpp_t *wpp, const iop_env_t *iop_env,
+                    const iop_mod_t *mod, const char *ns)
 {
     qh_t(iop_type) h;
     qv_t(iop_type) a;
@@ -540,7 +541,7 @@ iop_xwsdl_put_types(wsdlpp_t *wpp, const iop_mod_t *mod, const char *ns)
     };
     iop_xwsdl_rpc_loop(wpp, mod, scan_types);
 
-    iop_for_each_registered_classes(^(const iop_struct_t *st) {
+    iop_for_each_registered_classes(iop_env, ^(const iop_struct_t *st) {
         /* A class should appear in the WSDL if one of its parents appears in
          * the WSDL. */
         const iop_struct_t *parent = st;
@@ -852,9 +853,9 @@ iop_xwsdl_put_service(wsdlpp_t *wpp, const iop_mod_t *mod, const char *addr)
     xmlpp_closentag(&wpp->pp, 2);
 }
 
-void iop_xwsdl(sb_t *sb, const iop_mod_t *mod, qh_t(xwsdl_impl) *impl,
-               const char *ns, const char *addr, bool with_auth,
-               bool with_enums)
+void iop_xwsdl(sb_t *sb, const iop_env_t *iop_env, const iop_mod_t *mod,
+               qh_t(xwsdl_impl) *impl, const char *ns, const char *addr,
+               bool with_auth, bool with_enums)
 {
     wsdlpp_t wpp;
 
@@ -872,7 +873,7 @@ void iop_xwsdl(sb_t *sb, const iop_mod_t *mod, qh_t(xwsdl_impl) *impl,
     xmlpp_putattr(&wpp.pp, "xmlns:tns",  ns);
     xmlpp_nl(&wpp.pp);
     xmlpp_putattr(&wpp.pp, "targetNamespace", ns);
-    iop_xwsdl_put_types(&wpp, mod, ns);
+    iop_xwsdl_put_types(&wpp, iop_env, mod, ns);
     iop_xwsdl_put_msgs(&wpp, mod);
     iop_xwsdl_put_ports(&wpp, mod);
     iop_xwsdl_put_bindings(&wpp, mod);
