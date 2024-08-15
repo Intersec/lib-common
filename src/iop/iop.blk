@@ -6257,7 +6257,7 @@ iop_get_class_by_fullname(const iop_struct_t *st, lstr_t fullname)
 const iop_struct_t *
 iop_get_class_by_id(const iop_struct_t *st, uint16_t class_id)
 {
-    class_id_key_t key = {
+    iop_class_id_key_t key = {
         .master   = st,
         .child_id = class_id,
     };
@@ -6361,7 +6361,7 @@ const iop_field_attrs_t *iop_get_field_attr_match_oid(const iop_struct_t *st,
 static int iop_register_class(const iop_struct_t *desc, iop_env_t *env,
                               sb_t *err)
 {
-    class_id_key_t key = {
+    iop_class_id_key_t key = {
         .master   = desc,
         .child_id = desc->class_attrs->class_id,
     };
@@ -6402,7 +6402,7 @@ iop_class_check_parents_are_registered(const iop_struct_t *st,
     }
 
     while ((st = st->class_attrs->parent)) {
-        class_id_key_t key = {
+        iop_class_id_key_t key = {
             .master   = master,
             .child_id = st->class_attrs->class_id,
         };
@@ -6684,7 +6684,7 @@ iop_dso_t *iop_dso_get_from_pkg(const iop_pkg_t *pkg)
 
 static void iop_unregister_class(const iop_struct_t *desc)
 {
-    class_id_key_t key = {
+    iop_class_id_key_t key = {
         .master   = desc,
         .child_id = desc->class_attrs->class_id,
     };

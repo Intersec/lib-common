@@ -46,6 +46,101 @@ typedef enum iop_wire_type_t {
     IOP_WIRE_REPEAT,
 } iop_wire_type_t;
 
+/* {{{ IOP environment */
+/* {{{ iop_class_id/iop_class_name qm declarations */
+
+typedef struct iop_class_id_key_t {
+    const iop_struct_t * nonnull master;
+    uint16_t            child_id;
+} iop_class_id_key_t;
+
+static inline uint32_t
+iop_class_id_key_hash(const qhash_t * nonnull h,
+                      const iop_class_id_key_t * nonnull key)
+{
+    return mem_hash32(key, offsetof(iop_class_id_key_t, child_id) + 2);
+}
+
+static inline bool
+iop_class_id_key_equal(const qhash_t * nonnull h,
+                       const iop_class_id_key_t * nonnull k1,
+                       const iop_class_id_key_t * nonnull k2)
+{
+    return (k1->master == k2->master) && (k1->child_id == k2->child_id);
+}
+
+qm_kvec_t(iop_class_by_id, iop_class_id_key_t, const iop_struct_t * nonnull,
+          iop_class_id_key_hash, iop_class_id_key_equal);
+
+/* }}} */
+
+typedef struct iop_dso_t iop_dso_t;
+
+/** Type of an IOP object */
+typedef enum iop_obj_type_t {
+    /** Struct/union/class. */
+    IOP_OBJ_TYPE_ST,
+
+    /** Enum. */
+    IOP_OBJ_TYPE_ENUM,
+
+    /** Typedef */
+    IOP_OBJ_TYPE_TYPEDEF,
+
+    /* IOP package. */
+    IOP_OBJ_TYPE_PKG,
+} iop_obj_type_t;
+
+/** An IOP object stored in the IOP environment.*/
+typedef struct iop_obj_t {
+    /** The type of IOP object. */
+    iop_obj_type_t type;
+
+    /** The description of the IOP object. */
+    union {
+        const iop_struct_t *nonnull st;
+        const iop_enum_t *nonnull en;
+        const iop_typedef_t *nonnull td;
+        const iop_pkg_t *nonnull pkg;
+    } desc;
+
+    /* Cached ancestor for classes (purpose: optimize calls to
+     * iop_get_class_by_fullname()). */
+    const iop_struct_t *nullable ancestor;
+} iop_obj_t;
+
+/** Get an union/struct/class/enum from its fullname. */
+const iop_obj_t *nullable iop_get_obj(lstr_t fullname);
+
+qvector_t(iop_obj, iop_obj_t);
+qm_kvec_t(iop_objs, lstr_t, qv_t(iop_obj), qhash_lstr_hash, qhash_lstr_equal);
+qm_khptr_ckey_t(iop_dsos, iop_pkg_t, iop_dso_t * nonnull);
+
+/** The IOP environment where IOP objects are registered. */
+typedef struct iop_env_t {
+    /** The map of classes by class base and class id. */
+    qm_t(iop_class_by_id)  classes_by_id;
+
+    /** The DSOs used for each packages. */
+    qm_t(iop_dsos) dsos_by_pkg;
+
+    /** The map of IOP objects by the fullname of the IOP object. */
+    qm_t(iop_objs) iop_obj_by_fullname;
+} iop_env_t;
+
+/** Initialize an IOP environment. */
+iop_env_t * nonnull iop_env_init(iop_env_t * nonnull env);
+
+/** Wipe an IOP environment. */
+void iop_env_wipe(iop_env_t * nonnull env);
+
+/** Set the current global IOP environment from another one. */
+void iop_env_set(iop_env_t * nonnull env);
+
+/** Copy the current global IOP environment to another one. */
+void iop_env_get(iop_env_t * nonnull env);
+
+/* }}} */
 /* {{{ IOP various useful typedefs and functions */
 
 qvector_t(iop_struct, const iop_struct_t * nonnull);
@@ -2063,38 +2158,6 @@ qm_kvec_t(iop_enum, lstr_t, const iop_enum_t * nonnull,
 
 /** Get an enumeration from its fullname. */
 const iop_enum_t * nullable iop_get_enum(lstr_t fullname);
-
-typedef enum iop_obj_type_t {
-    /* Struct/union/class. */
-    IOP_OBJ_TYPE_ST,
-
-    /* Enum. */
-    IOP_OBJ_TYPE_ENUM,
-
-    /* Typedef */
-    IOP_OBJ_TYPE_TYPEDEF,
-
-    /* IOP package. */
-    IOP_OBJ_TYPE_PKG,
-} iop_obj_type_t;
-
-typedef struct iop_obj_t {
-    iop_obj_type_t type;
-
-    union {
-        const iop_struct_t *nonnull st;
-        const iop_enum_t *nonnull en;
-        const iop_typedef_t *nonnull td;
-        const iop_pkg_t *nonnull pkg;
-    } desc;
-
-    /* Cached ancestor for classes (purpose: optimize calls to
-     * iop_get_class_by_fullname()). */
-    const iop_struct_t *nullable ancestor;
-} iop_obj_t;
-
-/** Get an union/struct/class/enum from its fullname. */
-const iop_obj_t *nullable iop_get_obj(lstr_t fullname);
 
 /** Convert IOP enum integer value to lstr_t representation.
  *
