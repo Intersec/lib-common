@@ -59,7 +59,7 @@ typedef enum ic_el_sync_res_t {
 /** IC EL server representation. */
 typedef struct ic_el_server_t ic_el_server_t;
 
-/** Configuration of the callbacks of an IC EL server. */
+/** Configuration of the initialization of an IC EL server. */
 typedef struct ic_el_server_cb_cfg_t {
     /** Callback called when a request is made to an RPC.
      *
@@ -74,9 +74,10 @@ typedef struct ic_el_server_cb_cfg_t {
      * \return  The status of the reply. If the status is not IC_MSG_OK or
      *          IC_MSG_EXN, \p res and \p res_desc are ignored.
      */
-    ic_status_t (*t_on_rpc)(ic_el_server_t *server, ichannel_t *ic,
-                            uint64_t slot, void *arg, const ic__hdr__t *hdr,
-                            void **res, const iop_struct_t **res_st);
+    ic_status_t (*nonnull t_on_rpc)(ic_el_server_t *server, ichannel_t *ic,
+                                    uint64_t slot, void *arg,
+                                    const ic__hdr__t *hdr, void **res,
+                                    const iop_struct_t **res_st);
 
     /** Callback called when a peer is connecting to the server.
      *
@@ -103,9 +104,13 @@ typedef struct ic_el_server_cb_cfg_t {
 
 /** Create an IC EL Server.
  *
- * \param[in] cb_cfg The configuration of the callbacks of the IC server.
+ * \param[in] iop_env The IOP environment of the IC EL server.
+ * \param[in] cb_cfg  The configuration of the callbacks of the IC server.
+ * \return The new IC EL server.
  */
-ic_el_server_t *ic_el_server_create(const ic_el_server_cb_cfg_t *cb_cfg);
+ic_el_server_t * nonnull
+ic_el_server_create(const iop_env_t * nonnull iop_env,
+                    const ic_el_server_cb_cfg_t * nonnull cb_cfg);
 
 /** Destroy an IC EL server.
  *
@@ -223,6 +228,7 @@ typedef struct ic_el_client_cb_cfg_t {
 
 /** Create an IC EL client.
  *
+ * \param[in]  iop_env        The IOP environment of the IC EL client.
  * \param[in]  uri            The uri the IC client should connect to.
  * \param[in]  no_act_timeout The inactivity timeout before closing the
  *                            connection in seconds.
@@ -232,9 +238,11 @@ typedef struct ic_el_client_cb_cfg_t {
  * \param[out] err            The error description in case of error.
  * \return The new IC EL client.
  */
-ic_el_client_t *ic_el_client_create(lstr_t uri, double no_act_timeout,
-                                    const ic_el_client_cb_cfg_t *cb_cfg,
-                                    sb_t *err);
+ic_el_client_t * nullable
+ic_el_client_create(const iop_env_t * nonnull iop_env,
+                    lstr_t uri, double no_act_timeout,
+                    const ic_el_client_cb_cfg_t * nonnull cb_cfg,
+                    sb_t *err);
 
 /** Destroy the IC EL client.
  *

@@ -394,6 +394,7 @@ wait_thread_cond(bool (*is_terminated)(void *), void *terminated_arg,
 
 struct ic_el_server_t {
     int refcnt;
+    const iop_env_t *iop_env;
     ic_el_server_cb_cfg_t cb_cfg;
     void *ext_obj;
     el_t el_ic;
@@ -475,10 +476,13 @@ static void ic_el_server_el_process(void)
     }
 }
 
-ic_el_server_t *ic_el_server_create(const ic_el_server_cb_cfg_t *cb_cfg)
+ic_el_server_t * nonnull
+ic_el_server_create(const iop_env_t * nonnull iop_env,
+                    const ic_el_server_cb_cfg_t * nonnull cb_cfg)
 {
     ic_el_server_t *server = ic_el_server_new();
 
+    server->iop_env = iop_env;
     server->cb_cfg = *cb_cfg;
     return server;
 }
@@ -568,6 +572,7 @@ static int ic_el_server_on_accept(el_t ev, int fd)
     dlist_add_tail(&server->peers, &peer->node);
 
     peer->ic = ic_new();
+    peer->ic->iop_env = server->iop_env;
     peer->ic->on_event = &ic_el_server_on_event;
     peer->ic->impl = &server->impl;
     peer->ic->priv = server;
@@ -1000,9 +1005,11 @@ static void ic_el_client_on_event(ichannel_t *ic, ic_event_t evt)
     client->force_disconnect = false;
 }
 
-ic_el_client_t *ic_el_client_create(lstr_t uri, double no_act_timeout,
-                                    const ic_el_client_cb_cfg_t *cb_cfg,
-                                    sb_t *err)
+ic_el_client_t * nullable
+ic_el_client_create(const iop_env_t * nonnull iop_env,
+                    lstr_t uri, double no_act_timeout,
+                    const ic_el_client_cb_cfg_t * nonnull cb_cfg,
+                    sb_t *err)
 {
     ic_el_client_t *client;
     sockunion_t su;
@@ -1016,6 +1023,7 @@ ic_el_client_t *ic_el_client_create(lstr_t uri, double no_act_timeout,
     client->ic.su = su;
     client->ic.auto_reconn = false;
     client->ic.tls_required = false;
+    client->ic.iop_env = iop_env;
     client->ic.on_event = &ic_el_client_on_event;
     client->ic.impl = &ic_no_impl;
     client->cb_cfg = *cb_cfg;
