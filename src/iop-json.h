@@ -92,6 +92,7 @@ typedef struct iop_json_lex_t {
     char *         nullable err_str;
 
     mem_pool_t * nonnull mp;
+    const iop_env_t * nonnull iop_env;
     pstream_t  * nullable ps;
 
     iop_json_lex_ctx_t  cur_ctx;
@@ -106,10 +107,12 @@ qvector_t(iop_json_subfile, iop_json_subfile__t);
 
 /** Initialize a JSon parser.
  *
- * \param[in] mp  Memory pool to use for memory allocations.
- * \param[in] ll  JSon parser to initialize.
+ * \param[in] mp      Memory pool to use for memory allocations.
+ * \param[in] iop_env The IOP environment.
+ * \param[in] ll      JSon parser to initialize.
  */
 iop_json_lex_t * nonnull iop_jlex_init(mem_pool_t * nonnull mp,
+                                       const iop_env_t * nonnull iop_env,
                                        iop_json_lex_t * nonnull ll);
 
 /** New JSon parser.
@@ -117,9 +120,10 @@ iop_json_lex_t * nonnull iop_jlex_init(mem_pool_t * nonnull mp,
  * \param[in] mp  Memory pool to use for memory allocations (including the
  *                JSon parser).
  */
-static inline iop_json_lex_t * nonnull iop_jlex_new(mem_pool_t * nonnull mp)
+static inline iop_json_lex_t * nonnull
+iop_jlex_new(mem_pool_t * nonnull mp, const iop_env_t * nonnull iop_env)
 {
-    return iop_jlex_init(mp, mp_new(mp, iop_json_lex_t, 1));
+    return iop_jlex_init(mp, iop_env, mp_new(mp, iop_json_lex_t, 1));
 }
 
 /** Wipe a JSon parser */
@@ -243,17 +247,20 @@ int iop_junpack_ptr(iop_json_lex_t * nonnull ll,
  * Only the t_pool() version is provided since the provided memory pool of
  * iop_junpack() must be a frame-based pool.
  *
- * \param[in]  ps    The pstream_t to parse.
- * \param[in]  st    The IOP structure description.
- * \param[out] out   Pointer on the IOP structure to write.
- * \param[in]  flags Unpacker flags to use (see iop_jlex_set_flags).
- * \param[out] errb  NULL or the buffer to use to write textual error.
+ * \param[in]  ps      The pstream_t to parse.
+ * \param[in]  iop_env The IOP environment.
+ * \param[in]  st      The IOP structure description.
+ * \param[out] out     Pointer on the IOP structure to write.
+ * \param[in]  flags   Unpacker flags to use (see iop_jlex_set_flags).
+ * \param[out] errb    NULL or the buffer to use to write textual error.
  *
  * \return
  *   The iop_junpack() result.
  */
 __must_check__
-int t_iop_junpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
+int t_iop_junpack_ps(pstream_t * nonnull ps,
+                     const iop_env_t * nonnull iop_env,
+                     const iop_struct_t * nonnull st,
                      void * nonnull out, int flags, sb_t * nullable errb);
 
 /** Convert IOP-JSon to an IOP C structure using the t_pool().
@@ -270,6 +277,7 @@ int t_iop_junpack_ps(pstream_t * nonnull ps, const iop_struct_t * nonnull st,
  */
 __must_check__
 int t_iop_junpack_ptr_ps(pstream_t * nonnull ps,
+                         const iop_env_t * nonnull iop_env,
                          const iop_struct_t * nonnull st,
                          void * nullable * nonnull out,
                          int flags, sb_t * nullable errb);
@@ -286,6 +294,7 @@ int t_iop_junpack_ptr_ps(pstream_t * nonnull ps,
  * iop_junpack() must be a frame-based pool.
  *
  * \param[in]  filename The file name to read and parse.
+ * \param[in]  iop_env  The IOP environment.
  * \param[in]  st       The IOP structure description.
  * \param[out] out      Pointer on the IOP structure to write.
  * \param[in]  flags    Unpacker flags to use (see iop_jlex_set_flags).
@@ -298,6 +307,7 @@ int t_iop_junpack_ptr_ps(pstream_t * nonnull ps,
  */
 __must_check__
 int t_iop_junpack_file(const char * nonnull filename,
+                       const iop_env_t * nonnull iop_env,
                        const iop_struct_t * nonnull st,
                        void * nonnull out, int flags,
                        qv_t(iop_json_subfile) * nullable subfiles,
@@ -317,6 +327,7 @@ int t_iop_junpack_file(const char * nonnull filename,
  */
 __must_check__
 int t_iop_junpack_ptr_file(const char * nonnull filename,
+                           const iop_env_t * nonnull iop_env,
                            const iop_struct_t * nonnull st,
                            void * nullable * nonnull out, int flags,
                            qv_t(iop_json_subfile) * nullable subfiles,
@@ -442,6 +453,7 @@ int iop_jpack(const iop_struct_t * nonnull st, const void * nonnull value,
  * \param[in]  file_flags The flags to use when opening the file
  *                        (\ref enum file_flags).
  * \param[in]  file_mode  The mode to use when opening the file.
+ * \param[in]  iop_env    The IOP environment.
  * \param[in]  st         IOP structure description.
  * \param[in]  value      Pointer on the IOP structure to pack.
  * \param[in]  flags      Packer flags bitfield (see iop_jpack_flags).
@@ -451,17 +463,21 @@ int iop_jpack(const iop_struct_t * nonnull st, const void * nonnull value,
  * \param[out] err        NULL or the buffer to use to write textual error.
  */
 int __iop_jpack_file(const char * nonnull filename, unsigned file_flags,
-                     mode_t file_mode, const iop_struct_t * nonnull st,
+                     mode_t file_mode, const iop_env_t * nonnull iop_env,
+                     const iop_struct_t * nonnull st,
                      const void * nonnull value, unsigned flags,
                      const qv_t(iop_json_subfile) * nullable subfiles,
                      sb_t * nullable err);
 
 static inline int
-iop_jpack_file(const char * nonnull filename, const iop_struct_t * nonnull st,
-               const void * nonnull value, unsigned flags, sb_t * nullable err)
+iop_jpack_file(const char * nonnull filename,
+               const iop_env_t * nonnull iop_env,
+               const iop_struct_t * nonnull st,
+               const void * nonnull value, unsigned flags,
+               sb_t * nullable err)
 {
     return __iop_jpack_file(filename, FILE_WRONLY | FILE_CREATE | FILE_TRUNC,
-                            0644, st, value, flags, NULL, err);
+                            0644, iop_env, st, value, flags, NULL, err);
 }
 
 /** Callback to use for writing JSon into a sb_t. */
@@ -639,12 +655,14 @@ iop_json_get_n_and_ptr(const iop_struct_t * nonnull desc, unsigned flags,
  * The purpose of this function is to check the consistency of the examples
  * contained in a package, at runtime.
  *
- * \param[in]   pkg  the package to check.
- * \param[out]  err  buffer to fill in case of error.
+ * \param[in]   iop_env the IOP environment.
+ * \param[in]   pkg     the package to check.
+ * \param[out]  err     buffer to fill in case of error.
  *
  * \return  0 in case of success, -1 in case of error.
  */
-int iop_check_package_examples(const iop_pkg_t *nonnull pkg,
+int iop_check_package_examples(const iop_env_t *nonnull iop_env,
+                               const iop_pkg_t *nonnull pkg,
                                sb_t *nonnull err);
 
 /* }}} */

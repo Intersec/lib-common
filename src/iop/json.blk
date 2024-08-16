@@ -822,10 +822,12 @@ static int iop_json_lex_peek(iop_json_lex_t *ll, const iop_field_t *fdesc)
 }
 
 
-iop_json_lex_t *iop_jlex_init(mem_pool_t *mp, iop_json_lex_t *ll)
+iop_json_lex_t *iop_jlex_init(mem_pool_t *mp, const iop_env_t *iop_env,
+                              iop_json_lex_t *ll)
 {
     p_clear(ll, 1);
     ll->mp = mp;
+    ll->iop_env = iop_env;
     sb_init(&ll->cur_ctx.b);
     sb_init(&ll->peeked_ctx.b);
     ll->cfolder = iop_cfolder_new();
@@ -1120,11 +1122,11 @@ static int unpack_val_file_inclusion(iop_json_lex_t *ll,
 
         if (iop_field_is_class(fdesc)) {
             *(void **)value = NULL;
-            res = t_iop_junpack_ptr_file(path, fdesc->u1.st_desc, value,
-                                         ll->flags, NULL, &err);
+            res = t_iop_junpack_ptr_file(path, ll->iop_env, fdesc->u1.st_desc,
+                                         value, ll->flags, NULL, &err);
         } else {
-            res = t_iop_junpack_file(path, fdesc->u1.st_desc, value,
-                                     ll->flags, NULL, &err);
+            res = t_iop_junpack_file(path, ll->iop_env, fdesc->u1.st_desc,
+                                     value, ll->flags, NULL, &err);
         }
 
         if (subfiles_g) {
@@ -1554,7 +1556,8 @@ unpack_struct_prepare_class(iop_json_lex_t *ll, const iop_struct_t *desc,
     }
 
     /* Get the iop_struct_t of the instanciated class from its fullname */
-    *real_desc = iop_get_class_by_fullname(desc_it, LSTR_SB_V(&ll->ctx->b));
+    *real_desc = iop_get_class_by_fullname(ll->iop_env, desc_it,
+                                           LSTR_SB_V(&ll->ctx->b));
     if (!*real_desc) {
         e_trace(0, "cannot find child class `%*pM' in the children of "
                 "`%*pM'; missing IOP_REGISTER_PACKAGES in the binary "
@@ -1955,15 +1958,15 @@ int iop_junpack_ptr(iop_json_lex_t *ll, const iop_struct_t *st, void **out,
 }
 
 #define CREATE_JUNPACK_PS(_fun, _data_type, _fun_to_call)                    \
-static int _fun(pstream_t *ps, const iop_struct_t *desc,                     \
-                const char *filename, _data_type v, int flags,               \
-                qv_t(iop_json_subfile) *subfiles, sb_t *errb)                \
+static int _fun(pstream_t *ps, const iop_env_t *iop_env,                     \
+                const iop_struct_t *desc, const char *filename, _data_type v,\
+                int flags, qv_t(iop_json_subfile) *subfiles, sb_t *errb)     \
 {                                                                            \
     char path[PATH_MAX];                                                     \
     iop_json_lex_t  jll;                                                     \
     int res;                                                                 \
                                                                              \
-    iop_jlex_init(t_pool(), &jll);                                           \
+    iop_jlex_init(t_pool(), iop_env, &jll);                                  \
     iop_jlex_attach(&jll, ps);                                               \
     jll.flags = flags;                                                       \
                                                                              \
@@ -1998,21 +2001,24 @@ CREATE_JUNPACK_PS(__t_iop_junpack_ps,     void *,  iop_junpack)
 CREATE_JUNPACK_PS(__t_iop_junpack_ptr_ps, void **, iop_junpack_ptr)
 #undef CREATE_JUNPACK_PS
 
-int t_iop_junpack_ps(pstream_t *ps, const iop_struct_t *st, void *out,
-                     int flags, sb_t *errb)
+int t_iop_junpack_ps(pstream_t *ps, const iop_env_t *iop_env,
+                     const iop_struct_t *st, void *out, int flags, sb_t *errb)
 {
-    return __t_iop_junpack_ps(ps, st, NULL, out, flags, NULL, errb);
+    return __t_iop_junpack_ps(ps, iop_env, st, NULL, out, flags, NULL, errb);
 }
 
-int t_iop_junpack_ptr_ps(pstream_t *ps, const iop_struct_t *st, void **out,
-                         int flags, sb_t *errb)
+int t_iop_junpack_ptr_ps(pstream_t *ps, const iop_env_t *iop_env,
+                         const iop_struct_t *st, void **out, int flags,
+                         sb_t *errb)
 {
-    return __t_iop_junpack_ptr_ps(ps, st, NULL, out, flags, NULL, errb);
+    return __t_iop_junpack_ptr_ps(ps, iop_env, st, NULL, out, flags, NULL,
+                                  errb);
 }
 
 #define CREATE_JUNPACK_FILE(_fun, _data_type, _fun_to_call)                  \
-int _fun(const char *filename, const iop_struct_t *st, _data_type out,       \
-         int flags, qv_t(iop_json_subfile) *subfiles, sb_t *errb)            \
+int _fun(const char *filename, const iop_env_t *iop_env,                     \
+         const iop_struct_t *st, _data_type out, int flags,                  \
+         qv_t(iop_json_subfile) *subfiles, sb_t *errb)                       \
 {                                                                            \
     int res;                                                                 \
     pstream_t ps;                                                            \
@@ -2027,7 +2033,8 @@ int _fun(const char *filename, const iop_struct_t *st, _data_type out,       \
     }                                                                        \
                                                                              \
     ps = ps_initlstr(&file);                                                 \
-    res = _fun_to_call(&ps, st, filename, out, flags, subfiles, errb);       \
+    res = _fun_to_call(&ps, iop_env, st, filename, out, flags, subfiles,     \
+                       errb);                                                \
                                                                              \
  end:                                                                        \
     lstr_wipe(&file);                                                        \
@@ -2944,7 +2951,8 @@ static int iop_jpack_file_recursive(const char *filename,
     return res;
 }
 
-static int init_jpack_sub_files(const iop_struct_t *st, const void *value,
+static int init_jpack_sub_files(const iop_env_t *iop_env,
+                                const iop_struct_t *st, const void *value,
                                 const qv_t(iop_json_subfile) *subfiles,
                                 jpack_file_ctx_t *ctx, sb_t *err)
 {
@@ -2957,7 +2965,8 @@ static int init_jpack_sub_files(const iop_struct_t *st, const void *value,
         uint32_t pos;
         qm_t(iop_jpack_paths) *paths;
 
-        fdesc = iop_get_field_const(value, st, subfile->iop_path, &ptr, NULL);
+        fdesc = iop_get_field_const(iop_env, value, st, subfile->iop_path,
+                                    &ptr, NULL);
         if (!fdesc) {
             if (err) {
                 sb_addf(err, "cannot get iop field with path `%*pM`",
@@ -3003,9 +3012,10 @@ static int init_jpack_sub_files(const iop_struct_t *st, const void *value,
 }
 
 int __iop_jpack_file(const char *filename, unsigned file_flags,
-                     mode_t file_mode, const iop_struct_t *st,
-                     const void *value, unsigned flags,
-                     const qv_t(iop_json_subfile) *subfiles, sb_t *err)
+                     mode_t file_mode, const iop_env_t *iop_env,
+                     const iop_struct_t *st, const void *value,
+                     unsigned flags, const qv_t(iop_json_subfile) *subfiles,
+                     sb_t *err)
 {
     int res;
     jpack_file_ctx_t ctx = {
@@ -3018,7 +3028,8 @@ int __iop_jpack_file(const char *filename, unsigned file_flags,
         char path[PATH_MAX];
 
         ctx.has_sub_files = true;
-        RETHROW(init_jpack_sub_files(st, value, subfiles, &ctx, err));
+        RETHROW(init_jpack_sub_files(iop_env, st, value, subfiles, &ctx,
+                                     err));
         path_expand(path, sizeof(path), filename);
         path_dirname(ctx.file_dir, sizeof(ctx.file_dir), path);
     }
@@ -3160,7 +3171,8 @@ static void iop_struct_formatter_register(void)
 /* }}} */
 /* {{{ Check IOP json examples */
 
-static int iop_check_struct_example(const iop_struct_t *st, sb_t *err)
+static int iop_check_struct_example(const iop_env_t *iop_env,
+                                    const iop_struct_t *st, sb_t *err)
 {
     unsigned flags = st->flags;
 
@@ -3186,7 +3198,9 @@ static int iop_check_struct_example(const iop_struct_t *st, sb_t *err)
         }
 
         example = ps_initlstr(&help->example);
-        if (t_iop_junpack_ptr_ps(&example, st, &obj, 0, &json_err) < 0) {
+        if (t_iop_junpack_ptr_ps(&example, iop_env, st, &obj, 0,
+                                 &json_err) < 0)
+        {
             sb_addf(err, "invalid example for `%*pM`: %*pM",
                     LSTR_FMT_ARG(st->fullname), SB_FMT_ARG(&json_err));
             return -1;
@@ -3196,7 +3210,8 @@ static int iop_check_struct_example(const iop_struct_t *st, sb_t *err)
     return 0;
 }
 
-static int iop_check_rpc_example(const iop_iface_t *iface,
+static int iop_check_rpc_example(const iop_env_t *iop_env,
+                                 const iop_iface_t *iface,
                                  const iop_rpc_t *rpc,
                                  lstr_t example,
                                  const char *what,
@@ -3216,7 +3231,9 @@ static int iop_check_rpc_example(const iop_iface_t *iface,
         return -1;
     }
 
-    if (t_iop_junpack_ptr_ps(&example_ps, st, &obj, 0, &json_err) < 0) {
+    if (t_iop_junpack_ptr_ps(&example_ps, iop_env, st, &obj, 0,
+                             &json_err) < 0)
+    {
         sb_addf(err, "invalid example for %s of RPC `%*pM.%*pM`: %*pM",
                 what, LSTR_FMT_ARG(iface->fullname), LSTR_FMT_ARG(rpc->name),
                 SB_FMT_ARG(&json_err));
@@ -3226,20 +3243,21 @@ static int iop_check_rpc_example(const iop_iface_t *iface,
     return 0;
 }
 
-static int iop_check_rpc_examples(const iop_iface_t *iface,
+static int iop_check_rpc_examples(const iop_env_t *iop_env,
+                                  const iop_iface_t *iface,
                                   const iop_rpc_t *rpc,
                                   sb_t *err)
 {
     const iop_rpc_attrs_t *attrs;
 
     if (rpc->args) {
-        RETHROW(iop_check_struct_example(rpc->args, err));
+        RETHROW(iop_check_struct_example(iop_env, rpc->args, err));
     }
     if (rpc->result) {
-        RETHROW(iop_check_struct_example(rpc->result, err));
+        RETHROW(iop_check_struct_example(iop_env, rpc->result, err));
     }
     if (rpc->exn) {
-        RETHROW(iop_check_struct_example(rpc->exn, err));
+        RETHROW(iop_check_struct_example(iop_env, rpc->exn, err));
     }
 
     attrs = iop_rpc_get_attrs(iface, rpc);
@@ -3275,7 +3293,7 @@ static int iop_check_rpc_examples(const iop_iface_t *iface,
 
         help = attr->args[0].v.p;
         if (what && help->example.len) {
-            RETHROW(iop_check_rpc_example(iface, rpc, help->example,
+            RETHROW(iop_check_rpc_example(iop_env, iface, rpc, help->example,
                                           what, st, err));
         }
     }
@@ -3283,13 +3301,14 @@ static int iop_check_rpc_examples(const iop_iface_t *iface,
     return 0;
 }
 
-int iop_check_package_examples(const iop_pkg_t *pkg, sb_t *err)
+int iop_check_package_examples(const iop_env_t *iop_env,
+                               const iop_pkg_t *pkg, sb_t *err)
 {
     /* Check struct/classes examples. */
     for (const iop_struct_t *const *it = pkg->structs; *it; it++) {
         const iop_struct_t *desc = *it;
 
-        RETHROW(iop_check_struct_example(desc, err));
+        RETHROW(iop_check_struct_example(iop_env, desc, err));
     }
 
     /* Check RPC examples. */
@@ -3299,7 +3318,7 @@ int iop_check_package_examples(const iop_pkg_t *pkg, sb_t *err)
         for (int i = 0; i < iface->funs_len; i++) {
             const iop_rpc_t *rpc = &iface->funs[i];
 
-            RETHROW(iop_check_rpc_examples(iface, rpc, err));
+            RETHROW(iop_check_rpc_examples(iop_env, iface, rpc, err));
         }
     }
 
