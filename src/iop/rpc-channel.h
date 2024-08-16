@@ -744,6 +744,10 @@ struct ichannel_t {
      */
     const qm_t(ic_cbs) *nullable impl;
 
+    /** Mandatory IOP environment for the IC.
+     */
+    const iop_env_t *nonnull iop_env;
+
     /** Mandatory callback to get notified about the connection state
      * (connected, disconnected, no activity, …).
      */

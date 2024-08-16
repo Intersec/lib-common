@@ -143,7 +143,7 @@ bool __ic_rpc_is_traced(const iop_iface_t *iface, const iop_rpc_t *rpc)
 
 /* This function can return false positives, because several RPCs can have the
  * same cmd... */
-static _Bool ic_cmd_is_traced(int cmd)
+static _Bool ic_cmd_is_traced(const iop_env_t *iop_env, int cmd)
 {
     static bool first_call = true;
 
@@ -151,7 +151,7 @@ static _Bool ic_cmd_is_traced(int cmd)
         /* XXX: The filling of _G.traced_cmds is done lazily because when
          * ic_initialize is called, the IOP packages were likely not
          * registered yet. */
-        iop_for_each_registered_pkgs(^void (const iop_pkg_t *pkg) {
+        iop_for_each_registered_pkgs(iop_env, ^void (const iop_pkg_t *pkg) {
             for (const iop_mod_t *const *m = pkg->mods; *m; m++) {
                 const iop_mod_t *mod = *m;
 
@@ -1090,8 +1090,9 @@ static void ic_parse_cmsg(ichannel_t *ic, struct msghdr *msgh)
 }
 
 static int
-t_get_value_of_st(const iop_struct_t *, const ic_msg_t *unpacked_msg,
-                  pstream_t, unsigned flags, void **value);
+t_get_value_of_st(const iop_env_t *iop_env, const iop_struct_t *st,
+                  const ic_msg_t *unpacked_msg, pstream_t ps, unsigned flags,
+                  void **value);
 
 static ALWAYS_INLINE int
 ic_read_process_answer(ichannel_t *ic, int cmd, uint32_t slot,
@@ -1162,7 +1163,7 @@ ic_read_process_answer(ichannel_t *ic, int cmd, uint32_t slot,
         pstream_t ps = tmp->raw_res;
         unsigned unpack_flags = ic->is_public ? IOP_UNPACK_FORBID_PRIVATE : 0;
 
-        if (unlikely(t_get_value_of_st(st, unpacked_msg, ps,
+        if (unlikely(t_get_value_of_st(ic->iop_env, st, unpacked_msg, ps,
                                        unpack_flags, &value) < 0))
         {
             if (tmp->trace) {
@@ -1247,8 +1248,8 @@ static inline void ic_update_pending(ichannel_t *ic, uint32_t slot)
 }
 
 static int
-t_get_hdr_of_query(const ic_msg_t *unpacked_msg, pstream_t *ps,
-                   unsigned flags, ic__hdr__t **hdr)
+t_get_hdr_of_query(const iop_env_t *iop_env, const ic_msg_t *unpacked_msg,
+                   pstream_t *ps, unsigned flags, ic__hdr__t **hdr)
 {
     if (unpacked_msg) {
         RETHROW(iop_check_constraints(ic__hdr, unpacked_msg->hdr));
@@ -1259,15 +1260,16 @@ t_get_hdr_of_query(const ic_msg_t *unpacked_msg, pstream_t *ps,
         }
     } else {
         *hdr = t_new_raw(ic__hdr__t, 1);
-        RETHROW(iop_bunpack_multi_flags(t_pool(), &ic__hdr__s, *hdr, ps,
-                                        flags));
+        RETHROW(iop_bunpack_multi_flags(t_pool(), iop_env, &ic__hdr__s, *hdr,
+                                        ps, flags));
     }
     return 0;
 }
 
 static int
-t_get_value_of_st(const iop_struct_t *st, const ic_msg_t *unpacked_msg,
-                  pstream_t ps, unsigned flags, void **value)
+t_get_value_of_st(const iop_env_t *iop_env, const iop_struct_t *st,
+                  const ic_msg_t *unpacked_msg, pstream_t ps, unsigned flags,
+                  void **value)
 {
     if (unpacked_msg) {
         RETHROW(iop_check_constraints_desc(st, unpacked_msg->data));
@@ -1278,7 +1280,8 @@ t_get_value_of_st(const iop_struct_t *st, const ic_msg_t *unpacked_msg,
             *value = unpacked_msg->data;
         }
     } else {
-        RETHROW(iop_bunpack_ptr_flags(t_pool(), st, value, ps, flags));
+        RETHROW(iop_bunpack_ptr_flags(t_pool(), iop_env, st, value, ps,
+                                      flags));
     }
     return 0;
 }
@@ -1304,7 +1307,7 @@ t_get_hdr_value_of_query(ichannel_t *ic, int cmd,
     }
 
     if (unlikely(flags & IC_MSG_HAS_HDR)) {
-        if (unlikely(t_get_hdr_of_query(unpacked_msg, &ps,
+        if (unlikely(t_get_hdr_of_query(ic->iop_env, unpacked_msg, &ps,
                                         unpack_flags, hdr) < 0))
         {
             logger_warning(&_G.logger, QUERY_FMT "invalid header encoding",
@@ -1350,7 +1353,7 @@ t_get_hdr_value_of_query(ichannel_t *ic, int cmd,
     }
 
     if (value) {
-        if (unlikely(t_get_value_of_st(st, unpacked_msg, ps,
+        if (unlikely(t_get_value_of_st(ic->iop_env, st, unpacked_msg, ps,
                                        unpack_flags, value) < 0))
         {
             const char *err = iop_get_err();
@@ -1383,14 +1386,14 @@ t_get_hdr_value_of_query(ichannel_t *ic, int cmd,
 #undef QUERY_FMT_ARG
 }
 
-static void ic_report_unimplemented_rpc(int cmd)
+static void ic_report_unimplemented_rpc(const iop_env_t *iop_env, int cmd)
 {
     uint32_t icmd = cmd >> 16 & 0x7fff;
     uint32_t rcmd = cmd & 0x7fff;
     SB_1k(sb);
     __block sb_t *psb = &sb;
 
-    iop_for_each_registered_pkgs(^(const iop_pkg_t *pkg) {
+    iop_for_each_registered_pkgs(iop_env, ^(const iop_pkg_t *pkg) {
         for (const iop_mod_t *const *m = pkg->mods; *m; m++) {
             const iop_mod_t *mod = *m;
 
@@ -1487,7 +1490,7 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
     pos = likely(ic->impl) ? qm_find_safe(ic_cbs, ic->impl, cmd) : -1;
     if (unlikely(pos < 0)) {
         if (logger_is_traced(&_G.logger, 0)) {
-            ic_report_unimplemented_rpc(cmd);
+            ic_report_unimplemented_rpc(ic->iop_env, cmd);
         }
         if (slot) {
             ic_reply_err(ic, MAKE64(ic->id, slot), IC_MSG_UNIMPLEMENTED);
@@ -1500,7 +1503,9 @@ ic_read_process_query(ichannel_t *ic, int cmd, uint32_t slot,
 #ifndef NDEBUG
     /* Flag as traced incoming queries that are not traced but should be in
      * our process. */
-    if (!ic_slot_is_traced(slot, flags) && unlikely(ic_cmd_is_traced(cmd))) {
+    if (!ic_slot_is_traced(slot, flags) &&
+        unlikely(ic_cmd_is_traced(ic->iop_env, cmd)))
+    {
         flags |= IC_MSG_IS_TRACED;
     }
 #endif
@@ -3231,6 +3236,9 @@ void ic_spawn(ichannel_t *ic, int fd, ic_creds_f *creds_fn)
     int type = 0;
     sockunion_t su;
     socklen_t len = sizeof(su);
+
+    assert(ic->iop_env);
+    assert(ic->on_event);
 
     if (!expect(!ic_is_local(ic))) {
         return;
