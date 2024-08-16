@@ -2908,11 +2908,14 @@ cdef object get_special_kwargs(dict kwargs, IopySpecialKwargsType *val_type,
     return res
 
 
-cdef void *t_parse_lstr_json(const iop_struct_t *st, lstr_t val) except NULL:
+cdef void *t_parse_lstr_json(const iop_env_t *iop_env, const iop_struct_t *st,
+                             lstr_t val) except NULL:
     """Unpack the string value as json for the given structure.
 
     Parameters
     ----------
+    iop_env
+        The IOP environment of the plugin.
     st
         The C iop struct description.
     val
@@ -2930,7 +2933,7 @@ cdef void *t_parse_lstr_json(const iop_struct_t *st, lstr_t val) except NULL:
 
     with nogil:
         ps = ps_initlstr(&val)
-        ret_code = t_iop_junpack_ptr_ps(&ps, st, &res, 0, &err)
+        ret_code = t_iop_junpack_ptr_ps(&ps, iop_env, st, &res, 0, &err)
 
     if ret_code < 0:
         raise Error('cannot parse string: %s (when trying to unpack an %s)' %
@@ -2939,11 +2942,14 @@ cdef void *t_parse_lstr_json(const iop_struct_t *st, lstr_t val) except NULL:
     return res
 
 
-cdef void *t_parse_lstr_yaml(const iop_struct_t *st, lstr_t val) except NULL:
+cdef void *t_parse_lstr_yaml(const iop_env_t *iop_env, const iop_struct_t *st,
+                             lstr_t val) except NULL:
     """Unpack the string value as json for the given structure.
 
     Parameters
     ----------
+    iop_env
+        The IOP environment of the plugin.
     st
         The C iop struct description.
     val
@@ -2961,18 +2967,21 @@ cdef void *t_parse_lstr_yaml(const iop_struct_t *st, lstr_t val) except NULL:
 
     with nogil:
         ps = ps_initlstr(&val)
-        ret_code = t_iop_yunpack_ptr_ps(&ps, st, &res, 0, NULL, &err)
+        ret_code = t_iop_yunpack_ptr_ps(&ps, iop_env, st, &res, 0, NULL, &err)
 
     if ret_code < 0:
         raise Error('%s' % (lstr_to_py_str(LSTR_SB_V(&err))))
     return res
 
 
-cdef void *t_parse_lstr_bin(const iop_struct_t *st, lstr_t val) except NULL:
+cdef void *t_parse_lstr_bin(const iop_env_t *iop_env, const iop_struct_t *st,
+                            lstr_t val) except NULL:
     """Unpack the string value as binary for the given structure.
 
     Parameters
     ----------
+    iop_env
+        The IOP environment of the plugin.
     st
         The C iop struct description.
     val
@@ -2988,7 +2997,7 @@ cdef void *t_parse_lstr_bin(const iop_struct_t *st, lstr_t val) except NULL:
 
     with nogil:
         ps = ps_initlstr(&val)
-        ret_code = iop_bunpack_ptr(t_pool(), st, &res, ps, False)
+        ret_code = iop_bunpack_ptr(t_pool(), iop_env, st, &res, ps, False)
 
     if ret_code < 0:
         raise Error('cannot decode string as an %s bin packed stream' %
@@ -3021,11 +3030,14 @@ cdef inline int xmlr_check(const iop_struct_t *st, int val) except -1:
     return val
 
 
-cdef void *t_parse_lstr_xml(const iop_struct_t *st, lstr_t val) except NULL:
+cdef void *t_parse_lstr_xml(const iop_env_t *iop_env, const iop_struct_t *st,
+                            lstr_t val) except NULL:
     """Unpack the string value as xml for the given structure.
 
     Parameters
     ----------
+    iop_env
+        The IOP environment of the plugin.
     st
         The C iop struct description.
     val
@@ -3058,7 +3070,7 @@ cdef void *t_parse_lstr_xml(const iop_struct_t *st, lstr_t val) except NULL:
 
         soap = True
 
-    xmlr_check(st, t_iop_xunpack_ptr(xmlr_g, st, &res))
+    xmlr_check(st, t_iop_xunpack_ptr(xmlr_g, iop_env, st, &res))
 
     if soap:
         if exn:
@@ -3072,11 +3084,14 @@ cdef void *t_parse_lstr_xml(const iop_struct_t *st, lstr_t val) except NULL:
     return res
 
 
-cdef void *t_parse_lstr_hex(const iop_struct_t *st, lstr_t val) except NULL:
+cdef void *t_parse_lstr_hex(const iop_env_t *iop_env, const iop_struct_t *st,
+                            lstr_t val) except NULL:
     """Unpack the string value as hex for the given structure.
 
     Parameters
     ----------
+    iop_env
+        The IOP environment of the plugin.
     st
         The C iop struct description.
     val
@@ -3098,7 +3113,7 @@ cdef void *t_parse_lstr_hex(const iop_struct_t *st, lstr_t val) except NULL:
         l = strconv_hexdecode(raw, l, val.s, val.len)
         if l >= 0:
             ps = ps_init(raw, l)
-            ret_code = iop_bunpack_ptr(t_pool(), st, &res, ps, False)
+            ret_code = iop_bunpack_ptr(t_pool(), iop_env, st, &res, ps, False)
 
     if ret_code < 0:
         raise Error('cannot decode string as an %s hex packed stream' %
@@ -3131,20 +3146,21 @@ cdef StructUnionBase parse_special_val_lstr(object cls,
         The unpacked python object.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
+    cdef const iop_env_t *iop_env = plugin.iop_env
     cdef void *iop_val = NULL
 
     t_scope_ignore(t_scope_guard)
 
     if val_type == IOPY_SPECIAL_KWARGS_JSON:
-        iop_val = t_parse_lstr_json(st, val_lstr)
+        iop_val = t_parse_lstr_json(iop_env, st, val_lstr)
     elif val_type == IOPY_SPECIAL_KWARGS_YAML:
-        iop_val = t_parse_lstr_yaml(st, val_lstr)
+        iop_val = t_parse_lstr_yaml(iop_env, st, val_lstr)
     elif val_type == IOPY_SPECIAL_KWARGS_BIN:
-        iop_val = t_parse_lstr_bin(st, val_lstr)
+        iop_val = t_parse_lstr_bin(iop_env, st, val_lstr)
     elif val_type == IOPY_SPECIAL_KWARGS_XML:
-        iop_val = t_parse_lstr_xml(st, val_lstr)
+        iop_val = t_parse_lstr_xml(iop_env, st, val_lstr)
     elif val_type == IOPY_SPECIAL_KWARGS_HEX:
-        iop_val = t_parse_lstr_hex(st, val_lstr)
+        iop_val = t_parse_lstr_hex(iop_env, st, val_lstr)
     else:
         cassert(False)
         raise Error('invalid value type %d' % val_type)
@@ -3233,6 +3249,7 @@ cdef list parse_lstr_list_bin_to_py_obj(object cls, const iop_struct_t *st,
         The unpacked iop struct value or NULL in case of exception.
     """
     cdef t_scope_t t_scope_guard = t_scope_init()
+    cdef const iop_env_t *iop_env = plugin.iop_env
     cdef pstream_t ps
     cdef void *data
     cdef int ret_code
@@ -3246,7 +3263,8 @@ cdef list parse_lstr_list_bin_to_py_obj(object cls, const iop_struct_t *st,
     ps = ps_initlstr(&val_lstr)
     while not ps_done(&ps):
         with nogil:
-            ret_code = iop_bunpack_multi(t_pool(), st, data, &ps, False)
+            ret_code = iop_bunpack_multi(t_pool(), iop_env, st, data, &ps,
+                                         False)
 
         if ret_code < 0:
             raise Error('cannot decode string as an %s bin packed stream' %
@@ -3280,6 +3298,7 @@ cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
     cdef t_scope_t t_scope_guard = t_scope_init()
     cdef sb_buf_1k_t err_buf
     cdef sb_scope_t err = sb_scope_init_static(err_buf)
+    cdef const iop_env_t *iop_env = plugin.iop_env
     cdef lstr_t filename_lstr
     cdef void *data
     cdef int ret_code
@@ -3290,12 +3309,12 @@ cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
     with nogil:
         data = NULL
         if file_type == IOPY_SPECIAL_KWARGS_JSON:
-            ret_code = t_iop_junpack_ptr_file(filename_lstr.s, st, &data, 0,
-                                              NULL, &err)
+            ret_code = t_iop_junpack_ptr_file(filename_lstr.s, iop_env, st,
+                                              &data, 0, NULL, &err)
         else:
             cassert(file_type == IOPY_SPECIAL_KWARGS_YAML)
-            ret_code = t_iop_yunpack_ptr_file(filename_lstr.s, st, &data,
-                                              0, NULL, &err)
+            ret_code = t_iop_yunpack_ptr_file(filename_lstr.s, iop_env, st,
+                                              &data, 0, NULL, &err)
     if ret_code < 0:
         raise Error('cannot unpack input file %s: %s' %
                     (filename, lstr_to_py_str(LSTR_SB_V(&err))))
@@ -7730,6 +7749,7 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
     cdef t_scope_t t_scope_guard = t_scope_init()
     cdef sb_buf_1k_t err_buf
     cdef sb_scope_t err = sb_scope_init_static(err_buf)
+    cdef const iop_env_t *iop_env = plugin.iop_env;
     cdef ic__hdr__t *def_hdr = NULL
     cdef lstr_t uri_lstr
     cdef ic_el_client_cb_cfg_t cb_cfg
@@ -7746,8 +7766,8 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
     cb_cfg.on_connect = &iopy_ic_client_on_connect
     cb_cfg.on_disconnect = &iopy_ic_client_on_disconnect
     with nogil:
-        ic_client = ic_el_client_create(uri_lstr, no_act_timeout, &cb_cfg,
-                                        &err)
+        ic_client = ic_el_client_create(iop_env, uri_lstr, no_act_timeout,
+                                        &cb_cfg, &err)
 
     if not ic_client:
         raise Error(lstr_to_py_str(LSTR_SB_V(&err)))
@@ -8755,6 +8775,7 @@ cdef class ChannelServer(ChannelBase):
         register
             The IOPy plugin.
         """
+        cdef const iop_env_t *iop_env = register.iop_env;
         cdef ic_el_server_cb_cfg_t cb_cfg
 
         self.rpc_impls = {}
@@ -8763,7 +8784,7 @@ cdef class ChannelServer(ChannelBase):
         cb_cfg.on_connect = &iopy_ic_server_on_connect
         cb_cfg.on_disconnect = &iopy_ic_server_on_disconnect
         with nogil:
-            self.ic_server = ic_el_server_create(&cb_cfg)
+            self.ic_server = ic_el_server_create(iop_env, &cb_cfg)
 
         ic_el_server_set_ext_obj(self.ic_server, <void *>self)
         create_modules_of_channel(register, self, &create_server_rpc)
@@ -9546,6 +9567,7 @@ cdef class Plugin:
     connect() can be used to create an associated IOPy Channel Object.
     """
     cdef dict __dict__
+    cdef iop_env_t *iop_env
     cdef iop_dso_t *dso
     cdef dict types
     cdef dict interfaces
@@ -9561,6 +9583,12 @@ cdef class Plugin:
         """
         cdef _InternalBaseHolder metaclass
         cdef _InternalBaseHolder metaclass_iface
+
+        self.iop_env = iop_env_new()
+        # TODO: Use LM_ID_NEWLM here to load the plugin and additional DSOs in
+        # a separate namespace.
+        # This requires reworking the IOPY C exported functions.
+        # self.iop_env.dso_lmid = LM_ID_NEWLM
 
         self.types = {}
         self.interfaces = {}
@@ -9604,6 +9632,7 @@ cdef class Plugin:
     def __dealloc__(Plugin self):
         """Close the IOP plugin"""
         iop_dso_close(&self.dso)
+        iop_env_delete(&self.iop_env)
 
     @property
     def dsopath(Plugin self):
@@ -10119,7 +10148,7 @@ cdef iop_dso_t *plugin_open_dso(Plugin plugin, object dso_path) except NULL:
             raise TypeError('dso path argument is not a valid str')
         dso_path_str = dso_path_bytes
 
-    dso = iop_dso_open(dso_path_str, LM_ID_BASE, &sb)
+    dso = iop_dso_open(plugin.iop_env, dso_path_str, &sb)
     if not dso:
         raise Error('IOP module import fail: %s' %
                     lstr_to_py_str(LSTR_SB_V(&sb)))
@@ -11389,7 +11418,7 @@ cdef public object Iopy_make_plugin_from_handle(void *handle,
     cdef iop_dso_t *dso
 
     plugin = Plugin.__new__(Plugin)
-    dso = iop_dso_load_handle(handle, path, LM_ID_BASE, &sb)
+    dso = iop_dso_load_handle(plugin.iop_env, handle, path, &sb)
     if not dso:
         raise Error('IOP module import fail: %s' %
                     lstr_to_py_str(LSTR_SB_V(&sb)))

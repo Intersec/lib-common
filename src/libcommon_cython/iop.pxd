@@ -33,6 +33,7 @@ cdef extern from "<lib-common/libcommon_cython/iop.h>" nogil:
     int32_t ichannel_get_cmd(const ichannel_t *ic)
 
     Lmid_t LM_ID_BASE
+    Lmid_t LM_ID_NEWLM
     int IOP_XPACK_LITERAL_ENUMS
     int IOP_XPACK_SKIP_PRIVATE
     int IOP_DSO_VERSION_TYPEDEF
