@@ -39,14 +39,16 @@
  * This function cannot be used to unpack a class; use `iop_xunpack_ptr_flags`
  * instead.
  *
- * \param[in] xp     The xml_reader_t setup on the XML data (see xmlr.h).
- * \param[in] mp     Memory pool to use for memory allocations.
- * \param[in] st     The IOP structure description.
- * \param[in] out    Pointer on the IOP structure to write.
- * \param[in] flags  Bitfield of flags to use (see iop_unpack_flags in iop.h).
+ * \param[in] xp      The xml_reader_t setup on the XML data (see xmlr.h).
+ * \param[in] mp      Memory pool to use for memory allocations.
+ * \param[in] iop_env The IOP environment.
+ * \param[in] st      The IOP structure description.
+ * \param[in] out     Pointer on the IOP structure to write.
+ * \param[in] flags   Bitfield of flags to use (see iop_unpack_flags in iop.h).
  */
 __must_check__
 int iop_xunpack_flags(void * nonnull xp, mem_pool_t * nonnull mp,
+                      const iop_env_t * nonnull iop_env,
                       const iop_struct_t * nonnull st, void * nonnull out,
                       int flags);
 
@@ -62,6 +64,7 @@ int iop_xunpack_flags(void * nonnull xp, mem_pool_t * nonnull mp,
  */
 __must_check__
 int iop_xunpack_ptr_flags(void * nonnull xp, mem_pool_t * nonnull mp,
+                          const iop_env_t * nonnull iop_env,
                           const iop_struct_t * nonnull st,
                           void * nullable * nonnull out, int flags);
 
@@ -71,9 +74,10 @@ int iop_xunpack_ptr_flags(void * nonnull xp, mem_pool_t * nonnull mp,
  */
 __must_check__ static inline int
 iop_xunpack(void * nonnull xp, mem_pool_t * nonnull mp,
+            const iop_env_t * nonnull iop_env,
             const iop_struct_t * nonnull st, void * nonnull out)
 {
-    return iop_xunpack_flags(xp, mp, st, out, 0);
+    return iop_xunpack_flags(xp, mp, iop_env, st, out, 0);
 }
 
 /** Convert IOP-XML to an IOP C structure.
@@ -82,10 +86,11 @@ iop_xunpack(void * nonnull xp, mem_pool_t * nonnull mp,
  */
 __must_check__ static inline int
 iop_xunpack_ptr(void * nonnull xp, mem_pool_t * nonnull mp,
+                const iop_env_t * nonnull iop_env,
                 const iop_struct_t * nonnull st,
                 void * nullable * nonnull out)
 {
-    return iop_xunpack_ptr_flags(xp, mp, st, out, 0);
+    return iop_xunpack_ptr_flags(xp, mp, iop_env, st, out, 0);
 }
 
 /* qm of Content-ID -> decoded message parts */
@@ -100,15 +105,17 @@ qm_kptr_t(part, lstr_t, lstr_t, qhash_lstr_hash, qhash_lstr_equal);
  * This function cannot be used to unpack a class; use `iop_xunpack_ptr_parts`
  * instead.
  *
- * \param[in] xp     The xml_reader_t setup on the XML data (see xmlr.h).
- * \param[in] mp     Memory pool to use for memory allocations.
- * \param[in] st     The IOP structure description.
- * \param[in] out    Pointer on the IOP structure to write.
- * \param[in] flags  Bitfield of flags to use (see iop_unpack_flags in iop.h).
- * \param[in] parts  Hashtable to retrieve XML parts.
+ * \param[in] xp      The xml_reader_t setup on the XML data (see xmlr.h).
+ * \param[in] mp      Memory pool to use for memory allocations.
+ * \param[in] iop_env The IOP environment.
+ * \param[in] st      The IOP structure description.
+ * \param[in] out     Pointer on the IOP structure to write.
+ * \param[in] flags   Bitfield of flags to use (see iop_unpack_flags in iop.h).
+ * \param[in] parts   Hashtable to retrieve XML parts.
  */
 __must_check__
 int iop_xunpack_parts(void * nonnull xp, mem_pool_t * nonnull mp,
+                      const iop_env_t * nonnull iop_env,
                       const iop_struct_t * nonnull st,
                       void * nonnull out, int flags,
                       qm_t(part) * nonnull parts);
@@ -124,6 +131,7 @@ int iop_xunpack_parts(void * nonnull xp, mem_pool_t * nonnull mp,
  */
 __must_check__
 int iop_xunpack_ptr_parts(void * nonnull xp, mem_pool_t * nonnull mp,
+                          const iop_env_t * nonnull iop_env,
                           const iop_struct_t * nonnull st,
                           void * nullable * nonnull out, int flags,
                           qm_t(part) * nonnull parts);
@@ -131,51 +139,57 @@ int iop_xunpack_ptr_parts(void * nonnull xp, mem_pool_t * nonnull mp,
 
 /** iop_xunpack_flags() using the t_pool() */
 __must_check__ static inline int
-t_iop_xunpack_flags(void * nonnull xp, const iop_struct_t * nonnull st,
-                    void * nonnull out, int flags)
+t_iop_xunpack_flags(void * nonnull xp, const iop_env_t * nonnull iop_env,
+                    const iop_struct_t * nonnull st, void * nonnull out,
+                    int flags)
 {
-    return iop_xunpack_flags(xp, t_pool(), st, out, flags);
+    return iop_xunpack_flags(xp, t_pool(), iop_env, st, out, flags);
 }
 
 /** iop_xunpack() using the t_pool() */
 __must_check__ static inline int
-t_iop_xunpack(void * nonnull xp, const iop_struct_t * nonnull st,
-              void * nonnull out)
+t_iop_xunpack(void * nonnull xp, const iop_env_t * nonnull iop_env,
+              const iop_struct_t * nonnull st, void * nonnull out)
 {
-    return iop_xunpack(xp, t_pool(), st, out);
+    return iop_xunpack(xp, t_pool(), iop_env, st, out);
 }
 
 /** iop_xunpack_parts() using the t_pool() */
 __must_check__ static inline int
-t_iop_xunpack_parts(void * nonnull xp, const iop_struct_t * nonnull st,
-                    void * nonnull out, int flags, qm_t(part) * nonnull parts)
+t_iop_xunpack_parts(void * nonnull xp, const iop_env_t * nonnull iop_env,
+                    const iop_struct_t * nonnull st, void * nonnull out,
+                    int flags, qm_t(part) * nonnull parts)
 {
-    return iop_xunpack_parts(xp, t_pool(), st, out, flags, parts);
+    return iop_xunpack_parts(xp, t_pool(), iop_env, st, out, flags, parts);
 }
 
 /** iop_xunpack_ptr_flags() using the t_pool() */
 __must_check__ static inline int
-t_iop_xunpack_ptr_flags(void * nonnull xp, const iop_struct_t * nonnull st,
+t_iop_xunpack_ptr_flags(void * nonnull xp, const iop_env_t * nonnull iop_env,
+                        const iop_struct_t * nonnull st,
                         void * nullable * nonnull out, int flags)
 {
-    return iop_xunpack_ptr_flags(xp, t_pool(), st, out, flags);
+    return iop_xunpack_ptr_flags(xp, t_pool(), iop_env, st, out, flags);
 }
 
 /** iop_xunpack_ptr() using the t_pool() */
 __must_check__ static inline int
-t_iop_xunpack_ptr(void * nonnull xp, const iop_struct_t * nonnull st,
+t_iop_xunpack_ptr(void * nonnull xp, const iop_env_t * nonnull iop_env,
+                  const iop_struct_t * nonnull st,
                   void * nullable * nonnull out)
 {
-    return iop_xunpack_ptr(xp, t_pool(), st, out);
+    return iop_xunpack_ptr(xp, t_pool(), iop_env, st, out);
 }
 
 /** iop_xunpack_ptr_parts() using the t_pool() */
 __must_check__ static inline int
-t_iop_xunpack_ptr_parts(void * nonnull xp, const iop_struct_t * nonnull st,
+t_iop_xunpack_ptr_parts(void * nonnull xp,  const iop_env_t * nonnull iop_env,
+                        const iop_struct_t * nonnull st,
                         void * nullable * nonnull out, int flags,
                         qm_t(part) * nonnull parts)
 {
-    return iop_xunpack_ptr_parts(xp, t_pool(), st, out, flags, parts);
+    return iop_xunpack_ptr_parts(xp, t_pool(), iop_env, st, out, flags,
+                                 parts);
 }
 
 /* }}} */
