@@ -369,7 +369,14 @@ void module_implement_method_ptr(module_t * nonnull mod,
 #define MODULE_PROVIDE(name, argument)                                       \
     module_provide(MODULE(name), argument)
 
-/** Macro for requiring a module.
+/** Require the loading of a module.
+ *
+ * If the module is not loaded yet, it will load the modules this module
+ * depends on, this module, then the modules that are registered to be loaded
+ * after.
+ *
+ * If the module is already loaded, the request will be registered similarly
+ * to a reference count incrementation.
  *
  *   Use:
  *     MODULE_REQUIRE(module1);
@@ -387,9 +394,9 @@ void module_implement_method_ptr(module_t * nonnull mod,
  *       + If module3 fail to initialize
  *             - module_require will throw a logger_fatal
  */
-#define MODULE_REQUIRE(name)  module_require(MODULE(name), NULL)
+#define MODULE_REQUIRE(name)  module_require(MODULE(name))
 
-/** Macro for releasing a module.
+/** Ask the release of a module.
  *
  *  Use:
  *    MODULE_RELEASE(module);
@@ -397,7 +404,8 @@ void module_implement_method_ptr(module_t * nonnull mod,
  *  Behavior:
  *     + If you try to RELEASE a module that has not been manually initialized
  *       the program will assert
- *       In other words only RELEASE modules that has been require with REQUIRE
+ *       In other words, only RELEASE modules that have been required with
+ *       REQUIRE
  *     + For returns value see module_release and module_shutdown
  */
 #define MODULE_RELEASE(name)  module_release(MODULE(name))
@@ -422,11 +430,9 @@ const char * nonnull module_get_name(const module_t * nonnull mod);
  *  will throw a logger_fatal.
  *
  *  \param[in] mod          pointer to the module to initialize
- *  \param[in] required_by  module that requires \p mod to be initialized
- *                          it can be NULL if \p mod has no parent module
  */
 __attr_nonnull__((1))
-void module_require(module_t * nonnull mod, module_t * nullable required_by);
+void module_require(module_t * nonnull mod);
 
 __attr_nonnull__((1))
 void module_release(module_t * nonnull mod);

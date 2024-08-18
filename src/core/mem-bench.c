@@ -209,5 +209,5 @@ void mem_bench_require(void)
     mb_module = module_implement(module_register(LSTR("mem-bench")),
                                  &mem_bench_initialize, &mem_bench_shutdown,
                                  MODULE(log));
-    module_require(mb_module, NULL);
+    module_require(mb_module);
 }

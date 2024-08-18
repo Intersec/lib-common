@@ -250,7 +250,13 @@ modules_topo_sort_rev(qm_t(module) *modules, qv_t(module) *sorted, sb_t *err)
     return ret;
 }
 
-void module_require(module_t *module, module_t *required_by)
+/** Require the loading of a module (already loaded or not).
+ *
+ * \param[in] required_by Module that requires \p mod to be initialized.
+ *                        It can be NULL if \p mod has no parent module: when
+ *                        the module is user-required.
+ */
+static void module_require_internal(module_t *module, module_t *required_by)
 {
     if (module->state == INITIALIZING) {
         logger_fatal(&_G.logger,
@@ -289,7 +295,7 @@ void module_require(module_t *module, module_t *required_by)
     _G.methods_dirty = true;
 
     tab_for_each_entry(dep, &module->depends_on) {
-        module_require(dep, module);
+        module_require_internal(dep, module);
     }
 
     logger_trace(&_G.logger, 1, "calling `%*pM` constructor",
@@ -303,6 +309,11 @@ void module_require(module_t *module, module_t *required_by)
     set_require_type(module, required_by);
     _G.methods_dirty = true;
     _G.in_initialization--;
+}
+
+void module_require(module_t *module)
+{
+    module_require_internal(module, NULL);
 }
 
 void module_provide(module_t *module, void *argument)

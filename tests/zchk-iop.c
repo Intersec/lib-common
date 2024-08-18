@@ -1010,7 +1010,7 @@ static void iop_std_test_speed(const iop_struct_t *st, void *v, int iter,
     elapsed = proctimer_stop(&pt);
     e_named_trace(1, "iop_speed", "pack monothread: %i", elapsed);
 
-    module_require(MODULE(thr), NULL);
+    MODULE_REQUIRE(thr);
     iop_bpack_set_threaded_threshold(2);
     proctimer_start(&pt);
     for (int i = 0; i < iter; i++) {
@@ -1022,7 +1022,7 @@ static void iop_std_test_speed(const iop_struct_t *st, void *v, int iter,
         iop_bpack(dst, st, v, szs.tab);
     }
     elapsed2 = proctimer_stop(&pt);
-    module_release(MODULE(thr));
+    MODULE_RELEASE(thr);
     e_named_trace(1, "iop_speed", "pack multithread: %i", elapsed2);
     e_named_trace(1, "iop_speed", "multithread improvement: x%f",
                   (float)elapsed / elapsed2);
@@ -1056,7 +1056,7 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
                        LSTR_INIT_V((const char *)dst, len));
 
     /* packing in threaded mode should work */
-    module_require(MODULE(thr), NULL);
+    MODULE_REQUIRE(thr);
     iop_bpack_set_threaded_threshold(2);
     t_qv_init(&szs2, 2);
     len2 = iop_bpack_size_flags(st, v, flags, &szs2);
@@ -1076,7 +1076,7 @@ static int iop_std_test_struct_flags(const iop_struct_t *st, void *v,
     iop_bpack(dst2, st, v, szs2.tab);
     Z_ASSERT_DATAEQUAL(LSTR_INIT_V((const char *)dst, len),
                        LSTR_INIT_V((const char *)dst2, len2));
-    module_release(MODULE(thr));
+    MODULE_RELEASE(thr);
 
     /* unpacking */
     ret = iop_bunpack_ptr(t_pool(), st, &res, ps_init(dst, len), false);
