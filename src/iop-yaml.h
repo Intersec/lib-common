@@ -23,6 +23,8 @@
 #include <lib-common/file.h>
 #include "core/core.iop.h"
 
+typedef struct iop_env_t iop_env_t;
+
 /* {{{ Parsing */
 
 /** Convert IOP-YAML to an IOP C structure using the t_pool().
@@ -33,24 +35,25 @@
  * This function cannot be used to unpack a class; use `t_iop_yunpack_ptr_ps`
  * instead.
  *
- * \param[in]  ps     The pstream_t to parse.
- * \param[in]  st     The IOP structure description.
- * \param[out] out    Pointer on the IOP structure to write.
- * \param[in]  flags  Bitfield of iop_unpack_flags_t elements. See
- *                    documentation of iop_unpack_flags_t to find out which
- *                    flags are handled.
- * \param[out] pres   If non NULL, it will be set to YAML presentation data
- *                    of the parsed YAML. See yaml.h for details.
- * \param[out] err    If the unpacking fails, this pointer is set to a
- *                    description of the error, allocated on the t_scope.
+ * \param[in]  ps      The pstream_t to parse.
+ * \param[in]  iop_env The IOP environment.
+ * \param[in]  st      The IOP structure description.
+ * \param[out] out     Pointer on the IOP structure to write.
+ * \param[in]  flags   Bitfield of iop_unpack_flags_t elements. See
+ *                     documentation of iop_unpack_flags_t to find out which
+ *                     flags are handled.
+ * \param[out] pres    If non NULL, it will be set to YAML presentation data
+ *                     of the parsed YAML. See yaml.h for details.
+ * \param[out] err     If the unpacking fails, this pointer is set to a
+ *                     description of the error, allocated on the t_scope.
  */
 __must_check__
 int t_iop_yunpack_ps(
-    pstream_t * nonnull ps, const iop_struct_t * nonnull st,
+    pstream_t * nonnull ps, const iop_env_t * nonnull iop_env,
+    const iop_struct_t * nonnull st,
     void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
-    sb_t * nonnull out_err
-);
+    sb_t * nonnull out_err);
 
 /** Convert IOP-YAML to an IOP C structure using the t_pool().
  *
@@ -63,7 +66,8 @@ int t_iop_yunpack_ps(
  */
 __must_check__
 int t_iop_yunpack_ptr_ps(
-    pstream_t * nonnull ps, const iop_struct_t * nonnull st,
+    pstream_t * nonnull ps, const iop_env_t * nonnull iop_env,
+    const iop_struct_t * nonnull st,
     void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
@@ -75,7 +79,8 @@ int t_iop_yunpack_ptr_ps(
  */
 __must_check__
 int t_iop_yunpack_file(
-    const char * nonnull filename, const iop_struct_t * nonnull st,
+    const char * nonnull filename, const iop_env_t * nonnull iop_env,
+    const iop_struct_t * nonnull st,
     void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
@@ -88,7 +93,8 @@ int t_iop_yunpack_file(
 __must_check__
 int
 t_iop_yunpack_ptr_file(
-    const char * nonnull filename, const iop_struct_t * nonnull st,
+    const char * nonnull filename, const iop_env_t * nonnull iop_env,
+    const iop_struct_t * nonnull st,
     void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
     sb_t * nonnull out_err
@@ -103,6 +109,7 @@ t_iop_yunpack_ptr_file(
 __must_check__
 int
 t_iop_yunpack_yaml_data(const yaml_data_t * nonnull data,
+                        const iop_env_t * nonnull iop_env,
                         const iop_struct_t * nonnull st,
                         void * nonnull out, unsigned flags,
                         sb_t * nonnull out_err);
@@ -114,6 +121,7 @@ t_iop_yunpack_yaml_data(const yaml_data_t * nonnull data,
 __must_check__
 int
 t_iop_yunpack_ptr_yaml_data(const yaml_data_t * nonnull data,
+                            const iop_env_t * nonnull iop_env,
                             const iop_struct_t * nonnull st,
                             void * nullable * nonnull out, unsigned flags,
                             sb_t * nonnull out_err);
@@ -184,6 +192,7 @@ t_iop_to_yaml_data(const iop_struct_t * nonnull desc,
  */
 yaml__document_presentation__t *
 t_build_yaml_pres_from_json_subfiles(
+    const iop_env_t * nonnull iop_env,
     const iop_json_subfile__array_t * nonnull subfiles,
     const iop_struct_t * nullable st,
     const void * nullable value
