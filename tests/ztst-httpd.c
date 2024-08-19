@@ -58,6 +58,7 @@ static void f_cb(IOP_RPC_IMPL_ARGS(tstiop__t, iface, f))
 int main(int argc, char **argv)
 {
     const char *arg0 = NEXTARG(argc, argv);
+    iop_env_t *iop_env;
     httpd_cfg_t *cfg;
     sockunion_t su = {
         .sin = {
@@ -69,21 +70,28 @@ int main(int argc, char **argv)
     e_trace(0, "sizeof(httpd_query_t) = %zd", sizeof(httpd_query_t));
 
     argc = parseopt(argc, argv, popts, 0);
-    if (argc != 0 || _G.help)
+    if (argc != 0 || _G.help) {
         makeusage(_G.help ? EX_OK : EX_USAGE, arg0, "", NULL, popts);
+    }
 
+    iop_env = iop_env_new();
     if (_G.wsdl) {
         SB_8k(sb);
+        int ret;
 
-        iop_xwsdl(&sb, &tstiop__t__mod, NULL, SCHEMA, "http://localhost:1080/iop/", false, true);
-        return xwrite(STDOUT_FILENO, sb.data, sb.len);
+        iop_xwsdl(&sb, iop_env, &tstiop__t__mod, NULL, SCHEMA,
+                  "http://localhost:1080/iop/", false, true);
+        ret = xwrite(STDOUT_FILENO, sb.data, sb.len);
+        iop_env_delete(&iop_env);
+        return ret;
     }
 
     cfg = httpd_cfg_new();
     httpd_trigger_register(cfg, GET,  "t", httpd_trigger__static_dir_new("/boot"));
     httpd_trigger_register(cfg, HEAD, "t", httpd_trigger__static_dir_new("/boot"));
 
-    _G.itcb = httpd_trigger__ic_new(&tstiop__t__mod, SCHEMA, 2 << 20);
+    _G.itcb = httpd_trigger__ic_new(iop_env, &tstiop__t__mod, SCHEMA,
+                                    2 << 20);
     _G.itcb->query_max_size = 2 << 20;
     httpd_trigger_register(cfg, POST, "iop", &_G.itcb->cb);
     ichttp_register_(_G.itcb, tstiop__t, iface, f, f_cb);
@@ -98,5 +106,6 @@ int main(int argc, char **argv)
     el_signal_register(SIGQUIT, on_term, NULL);
     el_loop();
     httpd_unlisten(&_G.httpd);
+    iop_env_delete(&iop_env);
     return 0;
 }
