@@ -96,9 +96,9 @@ t_get_repacked_yaml_pres_subfiles(const char *main_file,
 }
 
 static int
-t_parse_yaml(yaml_parse_t *env, const iop_dso_t * nullable dso,
-             const iop_struct_t * nullable st, yaml_data_t * nonnull data,
-             sb_t * nonnull err)
+t_parse_yaml(yaml_parse_t *env, const iop_env_t * nonnull iop_env,
+             const iop_dso_t * nullable dso, const iop_struct_t * nullable st,
+             yaml_data_t * nonnull data, sb_t * nonnull err)
 {
     RETHROW(t_yaml_parse(env, data, err));
 
@@ -114,7 +114,7 @@ t_parse_yaml(yaml_parse_t *env, const iop_dso_t * nullable dso,
     if (st) {
         void *out = NULL;
 
-        RETHROW(t_iop_yunpack_ptr_yaml_data(data, st, &out, 0, err));
+        RETHROW(t_iop_yunpack_ptr_yaml_data(data, iop_env, st, &out, 0, err));
     }
 
     return 0;
@@ -157,8 +157,9 @@ pack_yaml(yaml_data_t * nonnull data,
 }
 
 static int
-repack_yaml(const char * nullable filename, const iop_dso_t * nullable dso,
-            const iop_struct_t * nullable st, sb_t * nonnull err)
+repack_yaml(const char * nullable filename, const iop_env_t * nonnull iop_env,
+            const iop_dso_t * nullable dso, const iop_struct_t * nullable st,
+            sb_t * nonnull err)
 {
     t_scope;
     yaml_parse_t *env;
@@ -187,7 +188,7 @@ repack_yaml(const char * nullable filename, const iop_dso_t * nullable dso,
         yaml_parse_attach_ps(env, ps_initlstr(&file));
     }
 
-    if (t_parse_yaml(env, dso, st, &data, err) < 0) {
+    if (t_parse_yaml(env, iop_env, dso, st, &data, err) < 0) {
         res = -1;
         goto end;
     }
@@ -201,8 +202,8 @@ repack_yaml(const char * nullable filename, const iop_dso_t * nullable dso,
 }
 
 static int
-repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
-            sb_t * nonnull err)
+repack_json(const char * nullable filename, const iop_env_t * nonnull iop_env,
+            const iop_struct_t * nonnull st, sb_t * nonnull err)
 {
     t_scope;
     lstr_t file = LSTR_NULL_V;
@@ -217,8 +218,8 @@ repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
 
     /* Unpack json */
     if (filename) {
-        RETHROW(t_iop_junpack_ptr_file(filename, st, &value, 0, &subfiles,
-                                       err));
+        RETHROW(t_iop_junpack_ptr_file(filename, iop_env, st, &value, 0,
+                                       &subfiles, err));
     } else {
         pstream_t ps;
 
@@ -228,7 +229,7 @@ repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
             goto end;
         }
         ps = ps_initlstr(&file);
-        if (t_iop_junpack_ptr_ps(&ps, st, &value, 0, err) < 0) {
+        if (t_iop_junpack_ptr_ps(&ps, iop_env, st, &value, 0, err) < 0) {
             res = -1;
             goto end;
         }
@@ -236,7 +237,8 @@ repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
 
     /* Pack yaml */
     subfiles_array = IOP_TYPED_ARRAY_TAB(iop_json_subfile, &subfiles);
-    pres = t_build_yaml_pres_from_json_subfiles(&subfiles_array, st, value);
+    pres = t_build_yaml_pres_from_json_subfiles(iop_env, &subfiles_array, st,
+                                                value);
 
     t_iop_to_yaml_data(st, value, &data);
     res = pack_yaml(&data, pres, err);
@@ -280,6 +282,7 @@ repack_json(const char * nullable filename, const iop_struct_t * nonnull st,
 
 static int
 parse_and_repack(const char * nullable filename,
+                 const iop_env_t * nonnull iop_env,
                  const iop_dso_t * nullable dso, sb_t * nonnull err)
 {
     const iop_struct_t *st = NULL;
@@ -289,9 +292,9 @@ parse_and_repack(const char * nullable filename,
     }
 
     if (opts_g.json_input) {
-        return repack_json(filename, st, err);
+        return repack_json(filename, iop_env, st, err);
     } else {
-        return repack_yaml(filename, dso, st, err);
+        return repack_yaml(filename, iop_env, dso, st, err);
     }
 }
 
@@ -345,6 +348,7 @@ static const char *description[] = {
 
 int main(int argc, char **argv)
 {
+    iop_env_t *iop_env;
     iop_dso_t *dso = NULL;
     const char *filename = NULL;
     const char *arg0;
@@ -379,20 +383,26 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    iop_env = iop_env_new();
+
     if (opts_g.dso_path) {
-        dso = iop_dso_open(opts_g.dso_path, LM_ID_BASE, &err);
+        dso = iop_dso_open(iop_env, opts_g.dso_path, &err);
         if (!dso) {
             fprintf(stderr, "cannot open dso `%s`: %pL\n", opts_g.dso_path,
                     &err);
-            return EXIT_FAILURE;
+            ret = EXIT_FAILURE;
+            goto end;
         }
     }
 
-    if (parse_and_repack(filename, dso, &err) < 0) {
+    if (parse_and_repack(filename, iop_env, dso, &err) < 0) {
         fprintf(stderr, "%.*s\n", err.len, err.data);
         ret = EXIT_FAILURE;
+        goto end;
     }
 
+end:
     iop_dso_close(&dso);
+    iop_env_delete(&iop_env);
     return ret;
 }
