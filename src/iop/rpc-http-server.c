@@ -41,15 +41,17 @@ OBJ_VTABLE_END()
 
 static int t_parse_json(ichttp_query_t *iq, ichttp_cb_t *cbe, void **vout)
 {
-    httpd_trigger__ic_t *tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
     const iop_struct_t  *st = cbe->fun->args;
+    httpd_trigger__ic_t *tcb;
     pstream_t      ps;
     iop_json_lex_t jll;
     int res = 0;
     SB_8k(buf);
 
+    tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
+
     *vout = NULL;
-    iop_jlex_init(t_pool(), &jll);
+    iop_jlex_init(t_pool(), tcb->iop_env, &jll);
     ps = ps_initsb(&iq->payload);
     iop_jlex_attach(&jll, &ps);
 
@@ -81,10 +83,12 @@ static int t_parse_soap(ichttp_query_t *iq,
     const char *buf = iq->payload.data;
     int         len = iq->payload.len;
 
-    httpd_trigger__ic_t *tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
+    httpd_trigger__ic_t *tcb;
     ichttp_cb_t *cbe;
     lstr_t s;
     int pos;
+
+    tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
 
     /* Initialize the xmlReader object */
     XCHECK(xmlr_setup(&xr, buf, len));
@@ -101,8 +105,8 @@ static int t_parse_soap(ichttp_query_t *iq,
     }
     iq->cbe = *cbout = cbe = ichttp_cb_retain(tcb->impl.values[pos]);
 
-    XCHECK(iop_xunpack_ptr_flags(xr, t_pool(), cbe->fun->args, vout,
-                                 tcb->unpack_flags));
+    XCHECK(iop_xunpack_ptr_flags(xr, t_pool(), tcb->iop_env, cbe->fun->args,
+                                 vout, tcb->unpack_flags));
     /* Close opened elements */
 
     XCHECK(xmlr_node_close(xr)); /* </Body>     */
@@ -356,11 +360,12 @@ static void httpd_trigger__ic_cb(httpd_trigger_t *tcb, httpd_query_t *q,
 
 
 httpd_trigger__ic_t *
-httpd_trigger__ic_new(const iop_mod_t *mod, const char *schema,
-                      unsigned szmax)
+httpd_trigger__ic_new(const iop_env_t *iop_env, const iop_mod_t *mod,
+                      const char *schema, unsigned szmax)
 {
     httpd_trigger__ic_t *cb = p_new(httpd_trigger__ic_t, 1);
 
+    cb->iop_env        = iop_env;
     cb->cb.cb          = &httpd_trigger__ic_cb;
     cb->cb.query_cls   = obj_class(ichttp_query);
     cb->cb.destroy     = &httpd_trigger__ic_destroy;
@@ -732,10 +737,14 @@ void __ichttp_proxify(uint64_t slot, int cmd, const void *data, int dlen)
 
     {
         t_scope;
+        httpd_trigger__ic_t *tcb;
 
+        tcb = container_of(iq->trig_cb, httpd_trigger__ic_t, cb);
         v  = t_new_raw(char, st->size);
         ps = ps_init(data, dlen);
-        if (unlikely(iop_bunpack(t_pool(), st, v, ps, false) < 0)) {
+        if (unlikely(iop_bunpack(t_pool(), tcb->iop_env, st, v, ps,
+                                 false) < 0))
+        {
             lstr_t err_str = iop_get_err_lstr();
 #ifndef NDEBUG
             if (!err_str.s)

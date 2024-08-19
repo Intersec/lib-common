@@ -97,6 +97,7 @@ qm_kvec_t(ichttp_cbs, lstr_t, ichttp_cb_t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
 
 typedef struct httpd_trigger__ic_t {
+    const iop_env_t         * nonnull iop_env;
     httpd_trigger_t          cb;
     unsigned                 query_max_size;
     const char              * nonnull schema;
@@ -122,7 +123,8 @@ typedef struct httpd_trigger__ic_t {
 /**************************************************************************/
 
 httpd_trigger__ic_t * nonnull
-httpd_trigger__ic_new(const iop_mod_t * nonnull mod,
+httpd_trigger__ic_new(const iop_env_t * nonnull iop_env,
+                      const iop_mod_t * nonnull mod,
                       const char * nonnull schema,
                       unsigned szmax);
 
