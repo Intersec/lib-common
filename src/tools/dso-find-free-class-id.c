@@ -45,12 +45,12 @@ static struct popt_t popt_g[] = {
     OPT_END(),
 };
 
-static iop_dso_t *open_dso(const char *dso_path)
+static iop_dso_t *open_dso(iop_env_t *iop_env, const char *dso_path)
 {
     SB_1k(err);
     iop_dso_t *dso;
 
-    if (!(dso = iop_dso_open(dso_path, LM_ID_BASE, &err))) {
+    if (!(dso = iop_dso_open(iop_env, dso_path, &err))) {
         printf("cannot to load `%s`: %*pM\n", dso_path, SB_FMT_ARG(&err));
     }
 
@@ -80,6 +80,7 @@ parse_class_id_range(const char *class_id_range, int *min, int *max)
 
 int main(int argc, char *argv[])
 {
+    iop_env_t *iop_env;
     iop_dso_t *dso;
     const char *arg0 = NEXTARG(argc, argv);
     int class_id_min;
@@ -96,7 +97,8 @@ int main(int argc, char *argv[])
                   usage_g, popt_g);
     }
 
-    dso = open_dso(NEXTARG(argc, argv));
+    iop_env = iop_env_new();
+    dso = open_dso(iop_env, NEXTARG(argc, argv));
     if (!dso) {
         goto end;
     }
@@ -109,7 +111,7 @@ int main(int argc, char *argv[])
     }
 
     fullname = NEXTARG(argc, argv);
-    if (!(obj = iop_get_obj(LSTR(fullname)))) {
+    if (!(obj = iop_get_obj(iop_env, LSTR(fullname)))) {
         printf("cannot find IOP object `%s`\n", fullname);
         goto end;
     }
@@ -119,8 +121,9 @@ int main(int argc, char *argv[])
     }
 
     for (int i = class_id_min; i <= class_id_max; i++) {
-        const iop_struct_t *st = iop_get_class_by_id(obj->desc.st, i);
+        const iop_struct_t *st;
 
+        st = iop_get_class_by_id(iop_env, obj->desc.st, i);
         if (st) {
             if (!used_ids_hdr_printed) {
                 printf("Used class ids in the family of `%s`:\n", fullname);
@@ -147,5 +150,6 @@ int main(int argc, char *argv[])
 
   end:
     iop_dso_close(&dso);
+    iop_env_delete(&iop_env);
     return first_available_id >= 0 ? 0 : EX_DATAERR;
 }
