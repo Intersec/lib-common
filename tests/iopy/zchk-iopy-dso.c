@@ -242,6 +242,7 @@ Z_GROUP_EXPORT(iopy_dso) {
         SB_1k(err);
         add_iop_package_f add_iop_package_cb;
         const char *dso_path;
+        iop_env_t *iop_env;
         iop_dso_t *dso;
 
         z_iopy_dso_initialize();
@@ -250,9 +251,11 @@ Z_GROUP_EXPORT(iopy_dso) {
         Z_ASSERT_P(add_iop_package_cb, "unable to get symbol "
                    "Iopy_add_iop_package: %s", dlerror());
 
+        iop_env = iop_env_new();
+
         dso_path = t_fmt("%*pMtestsuite/test-iop-plugin-dso.so",
                          LSTR_FMT_ARG(z_cmddir_g));
-        dso = iop_dso_open(dso_path, LM_ID_BASE, &err);
+        dso = iop_dso_open(iop_env, dso_path, &err);
         Z_ASSERT_P(dso, "%*pM", SB_FMT_ARG(&err));
 
         qm_for_each_pos(iop_pkg, pos, &dso->pkg_h) {
@@ -262,6 +265,7 @@ Z_GROUP_EXPORT(iopy_dso) {
         res = z_run_py_test("test_add_iop_package", &err);
 
         iop_dso_close(&dso);
+        iop_env_delete(&iop_env);
         Z_ASSERT_N(res, "%*pM", SB_FMT_ARG(&err));
     } Z_TEST_END;
 
