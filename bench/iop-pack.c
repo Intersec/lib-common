@@ -21,34 +21,34 @@
 #include <lib-common/iop-yaml.h>
 #include <lib-common/zbenchmark.h>
 
-#define _Z_DSO_OPEN(_dso_path)                                               \
-    ({                                                                       \
-        t_scope;                                                             \
-        SB_1k(_err);                                                         \
-        char _file_path[PATH_MAX];                                           \
-        char _bench_dir[PATH_MAX];                                           \
-        char _root_dir[PATH_MAX];                                            \
-        char _path[PATH_MAX];                                                \
-        iop_dso_t *_dso;                                                     \
-                                                                             \
-        path_canonify(_file_path, sizeof(_file_path), __FILE__);             \
-        path_dirname(_bench_dir, sizeof(_bench_dir), _file_path);            \
-        path_dirname(_root_dir, sizeof(_root_dir), _bench_dir);              \
-        path_extend(_path, _root_dir, "%s", _dso_path);                      \
-        _dso = iop_dso_open(_path, LM_ID_BASE, &_err);                       \
-        if (_dso == NULL) {                                                  \
-            e_fatal("unable to load `%s`, TOOLS repo? (%*pM)",               \
-                    _path, SB_FMT_ARG(&_err));                               \
-        }                                                                    \
-        _dso;                                                                \
-    })
 
-#define Z_DSO_OPEN()  \
-    _Z_DSO_OPEN("tests/iop/zchk-tstiop-plugin" SO_FILEEXT)
+static iop_dso_t *z_dso_open(iop_env_t *iop_env, const char *dso_path)
+{
+    t_scope;
+    SB_1k(err);
+    char file_path[PATH_MAX];
+    char bench_dir[PATH_MAX];
+    char root_dir[PATH_MAX];
+    char path[PATH_MAX];
+    iop_dso_t *dso;
+
+    path_canonify(file_path, sizeof(file_path), __FILE__);
+    path_dirname(bench_dir, sizeof(bench_dir), file_path);
+    path_dirname(root_dir, sizeof(root_dir), bench_dir);
+    path_extend(path, root_dir, "%s", dso_path);
+    dso = iop_dso_open(iop_env, path, &err);
+    if (dso == NULL) {
+        e_fatal("unable to load `%s`, TOOLS repo? (%*pM)",
+                path, SB_FMT_ARG(&err));
+    }
+
+    return dso;
+}
 
 #include "../tests/iop/tstiop.iop.h"
 
 ZBENCH_GROUP_EXPORT(iop_pack) {
+    iop_env_t *iop_env;
     iop_dso_t *dso;
     const iop_struct_t *st_sa;
     /* {{{ */
@@ -91,7 +91,8 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
         .t = '\t',
     };
 
-    dso = Z_DSO_OPEN();
+    iop_env = iop_env_new();
+    dso = z_dso_open(iop_env, "tests/iop/zchk-tstiop-plugin" SO_FILEEXT);
 
     st_cls2 = iop_dso_find_type(dso, LSTR("tstiop.MyClass2"));
     iop_init_desc(st_cls2, &cls2);
@@ -131,8 +132,8 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
                 tstiop__my_struct_a__t *sa2 = NULL;
 
                 ZBENCH_MEASURE() {
-                    res = t_iop_junpack_ptr_ps(&ps, st_sa, (void **)&sa2, 0,
-                                               NULL);
+                    res = t_iop_junpack_ptr_ps(&ps, iop_env, st_sa,
+                                               (void **)&sa2, 0, NULL);
                 } ZBENCH_MEASURE_END
 
                 if (res < 0 || !iop_equals_desc(st_sa, &sa, sa2)) {
@@ -165,8 +166,8 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
                 void *sa2 = NULL;
 
                 ZBENCH_MEASURE() {
-                    res = iop_bunpack_ptr_flags(t_pool(), st_sa, &sa2,
-                                                ps_initlstr(&out), 0);
+                    res = iop_bunpack_ptr_flags(t_pool(), iop_env, st_sa,
+                                                &sa2, ps_initlstr(&out), 0);
                 } ZBENCH_MEASURE_END
 
                 if (res < 0 || !iop_equals_desc(st_sa, &sa, sa2)) {
@@ -236,8 +237,8 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
                 pstream_t ps = ps_initsb(&out);
 
                 ZBENCH_MEASURE() {
-                    res = t_iop_yunpack_ptr_ps(&ps, st_sa, &sa2, 0, NULL,
-                                               &err);
+                    res = t_iop_yunpack_ptr_ps(&ps, iop_env, st_sa, &sa2, 0,
+                                               NULL, &err);
                 } ZBENCH_MEASURE_END
 
                 /* FIXME pack/unpack of `.m = 3.14159265,` changes the value
@@ -248,4 +249,7 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
             } ZBENCH_LOOP_END
         } ZBENCH_END
     }
+
+    iop_dso_close(&dso);
+    iop_env_delete(&iop_env);
 } ZBENCH_GROUP_END
