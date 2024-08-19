@@ -110,6 +110,7 @@ static void run_loops(const iop_struct_t *st, int nb_loops, bool new_way)
 
 int main(int argc, char **argv)
 {
+    iop_env_t *iop_env;
     int nb_loops;
     const iop_struct_t *st;
     const iop_obj_t *obj;
@@ -120,8 +121,9 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    IOP_REGISTER_PACKAGES(&tstiop__pkg);
-    obj = iop_get_obj(LSTR(argv[1]));
+    iop_env = iop_env_new();
+    IOP_REGISTER_PACKAGES(iop_env, &tstiop__pkg);
+    obj = iop_get_obj(iop_env, LSTR(argv[1]));
     if (!obj) {
         fprintf(stderr, "unknown IOP object: `%s'\n", argv[1]);
         exit(EXIT_FAILURE);
@@ -137,5 +139,6 @@ int main(int argc, char **argv)
     st = obj->desc.st;
     run_loops(st, nb_loops, new_way);
 
+    iop_env_delete(&iop_env);
     return 0;
 }
