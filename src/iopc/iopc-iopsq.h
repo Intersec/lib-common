@@ -103,14 +103,17 @@ void __iopsq_type_table_delete(iopsq_type_table_t **table);
  * present in the IOP environment, the table will register it and pair it with
  * an ID, otherwise, it will set the IOP² type accordingly to the input type.
  *
- * \param[in, out] table  The type table.
+ * \param[in, out] table   The type table.
  *
- * \param[in]      ftype  The complete field type (with \p en or \p st filled
- *                        appropriately).
+ * \param[in]      iop_env The current IOP environment.
  *
- * \param[out]     type   The IOP² type.
+ * \param[in]      ftype   The complete field type (with \p en or \p st filled
+ *                         appropriately).
+ *
+ * \param[out]     type    The IOP² type.
  */
 void iopsq_type_table_fill_type(iopsq_type_table_t *table,
+                                const iop_env_t *iop_env,
                                 const iop_full_type_t *ftype,
                                 iop__type__t *type);
 
@@ -126,6 +129,8 @@ void iopsq_type_table_fill_type(iopsq_type_table_t *table,
  * \param[in,out] mp          Memory pool to use for any needed allocation
  *                            (should be a frame-based pool).
  *
+ * \param[in]     iop_env     The current IOP environment.
+ *
  * \param[in]     pkg_desc    IOP description of the package.
  *
  * \param[in]     type_table  Table for custom IOP types.
@@ -133,6 +138,7 @@ void iopsq_type_table_fill_type(iopsq_type_table_t *table,
  * \param[out]    err         Error buffer.
  */
 iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *nonnull mp,
+                              const iop_env_t *nonnull iop_env,
                               const iop__package__t *nonnull pkg_desc,
                               const iopsq_type_table_t *nullable type_table,
                               sb_t *nonnull err);
@@ -144,6 +150,8 @@ iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *nonnull mp,
  * \param[in,out] mp          Memory pool to use for any needed allocation
  *                            (should be a frame-based pool).
  *
+ * \param[in]     iop_env     The current IOP environment.
+ *
  * \param[in]     st_desc     IOP description of the struct/union.
  *
  * \param[in]     type_table  Table for custom IOP types.
@@ -152,6 +160,7 @@ iop_pkg_t *mp_iopsq_build_pkg(mem_pool_t *nonnull mp,
  */
 const iop_struct_t *
 mp_iopsq_build_struct(mem_pool_t *nonnull mp,
+                      const iop_env_t *nonnull iop_env,
                       const iopsq__structure__t *nonnull st_desc,
                       const iopsq_type_table_t *nullable type_table,
                       sb_t *nonnull err);
@@ -162,6 +171,7 @@ mp_iopsq_build_struct(mem_pool_t *nonnull mp,
  */
 iop_pkg_t *
 mp_iopsq_build_mono_element_pkg(mem_pool_t *nonnull mp,
+                                const iop_env_t *nonnull iop_env,
                                 const iop__package_elem__t *nonnull elem,
                                 const iopsq_type_table_t *nullable type_table,
                                 sb_t *nonnull err);
@@ -187,6 +197,7 @@ GENERIC_INIT(iopsq_iop_struct_t, iopsq_iop_struct);
  *
  * \param[out] st          The iopsq_iop_struct_t object to build. Must be
  *                         first initialized with iopsq_iop_struct_init.
+ * \param[in]  iop_env     The current IOP environment.
  * \param[in]  st_desc     IOP description of the struct/union.
  * \param[in]  type_table  Table for custom IOP types.
  * \param[out] err         Error buffer.
@@ -194,6 +205,7 @@ GENERIC_INIT(iopsq_iop_struct_t, iopsq_iop_struct);
  * \return -1 in case of error, 0 otherwise.
  */
 int iopsq_iop_struct_build(iopsq_iop_struct_t *nonnull st,
+                           const iop_env_t *nonnull iop_env,
                            const iopsq__structure__t *nonnull st_desc,
                            const iopsq_type_table_t *nullable type_table,
                            sb_t *nonnull err);
