@@ -318,6 +318,7 @@ http_iop_on_query_done(httpc_query_t *http_query, httpc_status_t httpc_status)
 {
     t_scope;
     http_iop_msg_t *msg;
+    http_iop_channel_remote_t *remote;
     opt_http_code_t http_code = OPT_NONE;
     void *exn = NULL;
     void *res = NULL;
@@ -325,6 +326,8 @@ http_iop_on_query_done(httpc_query_t *http_query, httpc_status_t httpc_status)
     SB_1k(err);
 
     msg = container_of(http_query, http_iop_msg_t, query);
+    remote = container_of(http_query->owner->pool,
+                          http_iop_channel_remote_t, pool);
 
     logger_trace(&_G.logger, 1, "query `%*pM` finished (%d)",
                  LSTR_FMT_ARG(msg->rpc->name), httpc_status);
@@ -364,7 +367,9 @@ http_iop_on_query_done(httpc_query_t *http_query, httpc_status_t httpc_status)
         }
 
         if (content_type_json) {
-            if (t_iop_junpack_ptr_ps(&ps, st, dest, 0, &err) < 0) {
+            if (t_iop_junpack_ptr_ps(&ps, remote->channel->iop_env, st, dest,
+                                     0, &err) < 0)
+            {
                 logger_error(&_G.logger, "cannot unpack result of query "
                              "`%*pM`: %*pM", LSTR_FMT_ARG(msg->rpc->name),
                              SB_FMT_ARG(&err));
@@ -454,6 +459,10 @@ http_iop_channel_create(const http_iop_channel_cfg_t *cfg, sb_t *err)
 {
     http_iop_channel_t *res = http_iop_channel_new();
 
+    assert(cfg->iop_env);
+    assert(cfg->iop_cfg);
+
+    res->iop_env = cfg->iop_env;
     res->connection_timeout_msec = OPT_DEFVAL(cfg->connection_timeout_msec,
                                               10 * 1000);
     res->response_max_size = OPT_DEFVAL(cfg->response_max_size, 1 << 20);

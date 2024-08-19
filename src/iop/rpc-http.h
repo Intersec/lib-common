@@ -639,6 +639,7 @@ struct http_iop_channel_t {
     lstr_t name;
 
     qv_t(http_iop_channel_remote) remotes;
+    const iop_env_t * nonnull iop_env;
 
     /** Query authentication.
      *
@@ -688,6 +689,9 @@ typedef struct http_iop_channel_cfg_t {
      * their order of declaration.
      */
     iop_array_lstr_t urls;
+
+    /** The IOP environment. */
+    const iop_env_t * nonnull iop_env;
 
     /** IOP HTTP client configuration. */
     const core__httpc_cfg__t * nonnull iop_cfg;
