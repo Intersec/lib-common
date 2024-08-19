@@ -32,7 +32,7 @@ static struct {
 } opts_g;
 
 static iop_dso_t *
-handle_args(int argc, char **argv)
+handle_args(int argc, char **argv, iop_env_t *iop_env)
 {
     const char *arg0 = NEXTARG(argc, argv);
     iop_dso_t *dso;
@@ -68,7 +68,7 @@ handle_args(int argc, char **argv)
         return NULL;
     }
 
-    dso = iop_dso_open(opts_g.dso_path, LM_ID_BASE, &err);
+    dso = iop_dso_open(iop_env, opts_g.dso_path, &err);
     if (!dso) {
         e_error("cannot open dso `%s`: %pL", opts_g.dso_path, &err);
         return NULL;
@@ -140,7 +140,7 @@ static int yaml_pack_write_stdout(void * nullable priv,
 }
 
 static int
-generate_openapi(const iop_mod_t * nonnull module)
+generate_openapi(const iop_env_t *iop_env, const iop_mod_t * nonnull module)
 {
     t_scope;
     iop_openapi_t *oa;
@@ -148,7 +148,7 @@ generate_openapi(const iop_mod_t * nonnull module)
     yaml_pack_env_t *env;
     SB_1k(err);
 
-    oa = t_new_iop_openapi(LSTR(opts_g.title), LSTR(opts_g.version),
+    oa = t_new_iop_openapi(iop_env, LSTR(opts_g.title), LSTR(opts_g.version),
                            module, LSTR(opts_g.route));
     if (opts_g.description) {
         t_iop_openapi_set_description(oa, LSTR(opts_g.description));
@@ -170,20 +170,27 @@ generate_openapi(const iop_mod_t * nonnull module)
 
 int main(int argc, char **argv)
 {
+    iop_env_t *iop_env;
+    iop_dso_t *dso = NULL;
     const iop_mod_t *module;
-    iop_dso_t *dso;
     int ret = 0;
 
-    dso = handle_args(argc, argv);
+    iop_env = iop_env_new();
+
+    dso = handle_args(argc, argv, iop_env);
     if (!dso) {
-        return -1;
+        ret = -1;
+        goto end;
     }
 
     module = get_iop_module(dso);
-    if (!module || generate_openapi(module) < 0) {
+    if (!module || generate_openapi(iop_env, module) < 0) {
         ret = -1;
+        goto end;
     }
 
+end:
     iop_dso_close(&dso);
+    iop_env_delete(&iop_env);
     return ret;
 }
