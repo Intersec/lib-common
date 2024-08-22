@@ -87,11 +87,11 @@ static int iopdso_fix_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
     const iop_pkg_t *pkg;
     iop_dso_t *dep;
 
-    pkg = iop_get_pkg(pkgname);
+    pkg = iop_get_pkg(dso->iop_env, pkgname);
     if (!pkg) {
         lstr_t pkgname2 = iop_pkgname_from_fullname(pkgname);
 
-        pkg = iop_get_pkg(pkgname2);
+        pkg = iop_get_pkg(dso->iop_env, pkgname2);
         if (!pkg) {
             e_trace(4, "cannot find package `%*pM` in current environment",
                     LSTR_FMT_ARG(pkgname));
@@ -110,7 +110,7 @@ static int iopdso_fix_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
         return 0;
     }
 
-    dep = iop_dso_get_from_pkg(pkg);
+    dep = iop_dso_get_from_pkg(dso->iop_env, pkg);
     if (dep && dep != dso) {
         qh_add(ptr, &dso->depends_on, dep);
         qh_add(ptr, &dep->needed_by,  dso);
@@ -165,7 +165,7 @@ static int iopdso_fix_pkg(iop_dso_t *dso, const iop_pkg_t *pkg, sb_t *err)
 }
 
 static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
-                               iop_env_t *env, sb_t *err)
+                               iop_env_t *iop_env, sb_t *err)
 {
     if (qm_add(iop_pkg, &dso->pkg_h, &pkg->name, pkg) < 0) {
         return 0;
@@ -174,8 +174,8 @@ static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
         e_trace(1, "fixup package `%*pM` (%p)", LSTR_FMT_ARG(pkg->name), pkg);
         RETHROW(iopdso_fix_pkg(dso, pkg, err));
     }
-    RETHROW(iop_register_packages_env(&pkg, 1, dso, env, IOP_REGPKG_FROM_DSO,
-                                      err));
+    RETHROW(iop_register_packages_dso(iop_env, &pkg, 1, dso,
+                                      IOP_REGPKG_FROM_DSO, err));
     for (const iop_enum_t *const *it = pkg->enums; *it; it++) {
         qm_add(iop_enum, &dso->enum_h, &(*it)->fullname, *it);
     }
@@ -201,10 +201,10 @@ static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
         qm_add(iop_mod, &dso->mod_h, &(*it)->fullname, *it);
     }
     for (const iop_pkg_t *const *it = pkg->deps; *it; it++) {
-        if (dso->use_external_packages && iop_get_pkg_env((*it)->name, env)) {
+        if (dso->use_external_packages && iop_get_pkg(iop_env, (*it)->name)) {
             continue;
         }
-        RETHROW(iopdso_register_pkg(dso, *it, env, err));
+        RETHROW(iopdso_register_pkg(dso, *it, iop_env, err));
     }
     return 0;
 }
@@ -290,23 +290,35 @@ static int iop_dso_register_(iop_dso_t *dso, sb_t *err);
 # define RTLD_DEEPBIND  0
 #endif
 
-iop_dso_t *iop_dso_open(const char *path, Lmid_t lmid, sb_t *err)
+iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
 {
     int flags = RTLD_LAZY | RTLD_DEEPBIND;
     void *handle;
     iop_dso_t *dso;
 
-    if (lmid == LM_ID_BASE) {
+    if (iop_env->dso_lmid == LM_ID_BASE) {
         flags |= RTLD_GLOBAL;
     }
 
-    handle = dlmopen(lmid, path, flags);
+    if (iop_env->dso_lmid == LM_ID_NEWLM) {
+        iop_env->dso_lmid = iop_dso_get_available_lmid();
+    }
+
+    handle = dlmopen(iop_env->dso_lmid, path, flags);
     if (handle == NULL) {
         sb_setf(err, "unable to dlopen `%s`: %s", path, dlerror());
         return NULL;
     }
 
-    dso = iop_dso_load_handle(handle, path, lmid, err);
+    if (iop_env->dso_lmid == LM_ID_NEWLM) {
+        if (dlinfo(handle, RTLD_DI_LMID, &iop_env->dso_lmid) < 0) {
+            sb_setf(err, "unable to get lmid of plugin `%s`: %s", path,
+                    dlerror());
+            return NULL;
+        }
+    }
+
+    dso = iop_dso_load_handle(iop_env, handle, path, err);
     if (!dso) {
         dlclose(handle);
         return NULL;
@@ -315,8 +327,8 @@ iop_dso_t *iop_dso_open(const char *path, Lmid_t lmid, sb_t *err)
     return dso;
 }
 
-iop_dso_t *iop_dso_load_handle(void *handle, const char *path,
-                               Lmid_t lmid, sb_t *err)
+iop_dso_t *iop_dso_load_handle(iop_env_t *iop_env, void *handle,
+                               const char *path, sb_t *err)
 {
     iop_dso_t *dso;
     iop_dso_vt_t *dso_vt;
@@ -324,12 +336,6 @@ iop_dso_t *iop_dso_load_handle(void *handle, const char *path,
     uint32_t *versionp = dlsym(handle, "iop_dso_version");
     uint32_t *user_version_p;
     iop_dso_user_version_cb_f **user_version_cb_p;
-
-    if (lmid == LM_ID_NEWLM && dlinfo(handle, RTLD_DI_LMID, &lmid) < 0) {
-        sb_setf(err, "unable to get lmid of plugin `%s`: %s", path,
-                dlerror());
-        return NULL;
-    }
 
     dso_vt = dlsym(handle, "iop_vtable");
     if (dso_vt == NULL || dso_vt->vt_size == 0) {
@@ -351,8 +357,8 @@ iop_dso_t *iop_dso_load_handle(void *handle, const char *path,
 
     dso = iop_dso_new();
     dso->path = lstr_dups(path, -1);
+    dso->iop_env = iop_env;
     dso->handle = handle;
-    dso->lmid = lmid;
     dso->version = versionp ? *versionp : 0;
     dso->use_external_packages = !!dlsym(handle, "iop_use_external_packages");
     dso->dont_replace_fix_pkg = !!dlsym(handle, "iop_dont_replace_fix_pkg");
@@ -397,7 +403,7 @@ void iop_dso_close(iop_dso_t **dsop)
 static int iop_dso_register_(iop_dso_t *dso, sb_t *err)
 {
     if (!dso->is_registered) {
-        iop_env_t env;
+        iop_env_t *iop_env;
         iop_pkg_t **pkgp = dlsym(dso->handle, "iop_packages");
 
         if (!pkgp) {
@@ -405,15 +411,17 @@ static int iop_dso_register_(iop_dso_t *dso, sb_t *err)
             e_panic("IOP DSO: iop_packages not found when registering DSO");
         }
         qm_clear(iop_pkg, &dso->pkg_h);
-        iop_env_get(&env);
+        iop_env = iop_env_new();
+        iop_env_copy(iop_env, dso->iop_env);
         while (*pkgp) {
-            if (iopdso_register_pkg(dso, *pkgp++, &env, err) < 0) {
-                iop_env_wipe(&env);
+            if (iopdso_register_pkg(dso, *pkgp++, iop_env, err) < 0) {
+                iop_env_delete(&iop_env);
                 return -1;
             }
         }
-        RETHROW(iop_check_registered_classes(&env, err));
-        iop_env_set(&env);
+        RETHROW(iop_check_registered_classes(iop_env, err));
+        iop_env_transfer(dso->iop_env, iop_env);
+        iop_env_delete(&iop_env);
         dso->is_registered = true;
     }
     return 0;
@@ -438,7 +446,8 @@ void iop_dso_unregister(iop_dso_t *dso)
         qm_for_each_pos(iop_pkg, pos, &dso->pkg_h) {
             qv_append(&vec, dso->pkg_h.values[pos]);
         }
-        iop_unregister_packages((const iop_pkg_t **)vec.tab, vec.len);
+        iop_unregister_packages(dso->iop_env, (const iop_pkg_t **)vec.tab,
+                                vec.len);
         dso->is_registered = false;
     }
 }

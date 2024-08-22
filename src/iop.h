@@ -19,6 +19,8 @@
 #ifndef IS_LIB_COMMON_IOP_H
 #define IS_LIB_COMMON_IOP_H
 
+#include <dlfcn.h>
+
 #include <lib-common/container-qhash.h>
 #include <lib-common/container-qvector.h>
 
@@ -111,18 +113,26 @@ typedef struct iop_obj_t {
 
 qvector_t(iop_obj, iop_obj_t);
 qm_kvec_t(iop_objs, lstr_t, qv_t(iop_obj), qhash_lstr_hash, qhash_lstr_equal);
-qm_khptr_ckey_t(iop_dsos, iop_pkg_t, iop_dso_t * nonnull);
+qm_khptr_ckey_t(iop_dso_by_pkg, iop_pkg_t, iop_dso_t * nonnull);
 
 /** The IOP environment where IOP objects are registered. */
 typedef struct iop_env_t {
     /** The map of classes by class base and class id. */
-    qm_t(iop_class_by_id)  classes_by_id;
+    qm_t(iop_class_by_id) classes_by_id;
 
-    /** The DSOs used for each packages. */
-    qm_t(iop_dsos) dsos_by_pkg;
+    /** The DSO used for each package. */
+    qm_t(iop_dso_by_pkg) dso_by_pkg;
 
     /** The map of IOP objects by the fullname of the IOP object. */
     qm_t(iop_objs) iop_obj_by_fullname;
+
+    /** The Lmid_t for the DSOs loaded in the IOP environment.
+     *
+     * By default, this is set to LM_ID_BASE (the application's namespace).
+     * Set it to LM_ID_NEWLM before opening the first DSO of this IOP
+     * environment to use a separate namespace.
+     */
+    Lmid_t dso_lmid;
 } iop_env_t;
 
 /** Create an IOP environment. */

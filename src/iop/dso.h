@@ -38,10 +38,12 @@ typedef struct iop_dso_t {
     int               refcnt;
     void             * nonnull handle;
     lstr_t            path;
-    Lmid_t            lmid;
     uint32_t          version;
     uint32_t          user_version;
     iop_dso_user_version_cb_f *nullable user_version_cb;
+
+    /* The IOP environment loaded by this DSO. */
+    iop_env_t         *nonnull iop_env;
 
     qm_t(iop_pkg)     pkg_h;
     qm_t(iop_enum)    enum_h;
@@ -64,36 +66,39 @@ typedef struct iop_dso_t {
 /** Load a DSO from a file, and register its packages.
  *
  * The DSO is opened with dlmopen(3) with the following flags:
- *  - RTLD_LAZY | RTLD_GLOBAL | RTLD_DEEPBIND when lmid is LM_ID_BASE. This is
- *    equivalent of calling dlopen(3) with the same flags.
- *  - RTLD_LAZY | RTLD_DEEPBIND when lmid is LM_ID_NEWLM or an already
- *    existing namespace.
+ *  - RTLD_LAZY | RTLD_GLOBAL | RTLD_DEEPBIND when the lmid of the IOP
+ *    environment is LM_ID_BASE. This is equivalent of calling dlopen(3) with
+ *    the same flags.
+ *  - RTLD_LAZY | RTLD_DEEPBIND when the lmid of the IOP environment is
+ *    LM_ID_NEWLM or an already existing namespace.
  *
  * Due to a bug in glibc < 2.24, we are not able to call dlmopen(3) with
  * RTLD_GLOBAL. This means that the DSO creating a new namespace must contain
  * all the symbols needed by the other DSOs that will use that namespace.
  * See http://man7.org/linux/man-pages/man3/dlopen.3.html#BUGS
  *
- * \param[in]  path  path to the DSO.
- * \param[in]  lmid  lmid argument passed to dlmopen(3).
- * \param[out] err   error description in case of error.
+ * \param[in]  iop_env the current IOP environment.
+ * \param[in]  path    path to the DSO.
+ * \param[out] err     error description in case of error.
  */
-iop_dso_t * nullable iop_dso_open(const char * nonnull path,
-                                  Lmid_t lmid, sb_t * nonnull err);
+iop_dso_t * nullable iop_dso_open(iop_env_t * nonnull iop_env,
+                                  const char * nonnull path,
+                                  sb_t * nonnull err);
 
 /** Load a DSO from an already opened DSO handle, and register its packages.
  *
  * On success, the DSO will own the handle afterwards.
  * On error, the handle is not closed.
  *
- * \param[in]  handle handle to the opened DSO.
- * \param[in]  path   path to the DSO.
- * \param[in]  lmid   lmid argument used to dlmopen(3) the DSO.
- * \param[out] err    error description in case of error.
+ * \param[in]  iop_env  the current IOP environment.
+ * \param[in]  handle   handle to the opened DSO.
+ * \param[in]  path     path to the DSO.
+ * \param[out] err      error description in case of error.
  */
-iop_dso_t * nullable iop_dso_load_handle(void * nonnull handle,
+iop_dso_t * nullable iop_dso_load_handle(iop_env_t * nonnull iop_env,
+                                         void * nonnull handle,
                                          const char * nonnull path,
-                                         Lmid_t lmid, sb_t * nonnull err);
+                                         sb_t * nonnull err);
 
 static ALWAYS_INLINE iop_dso_t * nonnull iop_dso_dup(iop_dso_t * nonnull dso)
 {

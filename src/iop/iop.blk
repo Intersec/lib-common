@@ -28,8 +28,25 @@
 #include "helpers.in.c"
 
 
+qvector_t(Lmid, Lmid_t);
+
 static struct {
     size_t threaded_pack_threshold;
+
+    /** Pool of empty and available LMID namespaces for DSOs.
+     *
+     * Because the glibc implementation supports a maximum of 16 namespaces
+     * per process, we need to be able to re-use namespaces when they are
+     * available to mitigate the issue.
+     *
+     * Unfortunately, this does not completely solve the issue if we open more
+     * than 15 DSOs simultaneously. After that limit, and error is thrown when
+     * trying to call dlmopen():
+     *   libc.so.6: cannot allocate memory in static TLS block
+     *
+     * See https://www.man7.org/linux/man-pages/man3/dlmopen.3.html#NOTES
+     */
+    qv_t(Lmid) lmid_pool;
 } iop_g = {
 #define _G  iop_g
     .threaded_pack_threshold = 300,
@@ -6072,17 +6089,31 @@ void iop_field_get_type(const iop_field_t *nonnull field,
 static iop_env_t *iop_env_init(iop_env_t *iop_env)
 {
     qm_init(iop_class_by_id, &iop_env->classes_by_id);
-    qm_init(iop_dsos,   &iop_env->dsos_by_pkg);
-    qm_init(iop_objs,   &iop_env->iop_obj_by_fullname);
+    qm_init(iop_dso_by_pkg, &iop_env->dso_by_pkg);
+    qm_init(iop_objs, &iop_env->iop_obj_by_fullname);
+    iop_env->dso_lmid = LM_ID_BASE;
     return iop_env;
 }
 
 static void iop_env_wipe(iop_env_t *iop_env)
 {
     qm_wipe(iop_class_by_id, &iop_env->classes_by_id);
-    qm_wipe(iop_dsos,      &iop_env->dsos_by_pkg);
+    qm_wipe(iop_dso_by_pkg, &iop_env->dso_by_pkg);
     qm_deep_wipe(iop_objs, &iop_env->iop_obj_by_fullname, lstr_wipe, qv_wipe);
+
+    switch (iop_env->dso_lmid) {
+    case LM_ID_BASE:
+    case LM_ID_NEWLM:
+        /* Do nothing if no namespace has been created. */
+        break;
+
+    default:
+        /* Else, add it to available pools. */
+        qv_append(&_G.lmid_pool, iop_env->dso_lmid);
+        break;
+    }
 }
+
 
 DO_NEW(iop_env_t, iop_env);
 DO_DELETE(iop_env_t, iop_env);
@@ -6093,9 +6124,9 @@ void iop_env_copy(iop_env_t *dst, iop_env_t *src)
         qm_add(iop_class_by_id, &dst->classes_by_id,
                &src->classes_by_id.keys[pos], src->classes_by_id.values[pos]);
     }
-    qm_for_each_pos(iop_dsos, pos, &src->dsos_by_pkg) {
-        qm_add(iop_dsos, &dst->dsos_by_pkg, src->dsos_by_pkg.keys[pos],
-               src->dsos_by_pkg.values[pos]);
+    qm_for_each_pos(iop_dso_by_pkg, pos, &src->dso_by_pkg) {
+        qm_add(iop_dso_by_pkg, &dst->dso_by_pkg, src->dso_by_pkg.keys[pos],
+               src->dso_by_pkg.values[pos]);
     }
 
     qm_set_minsize(iop_objs, &dst->iop_obj_by_fullname,
@@ -6115,6 +6146,17 @@ void iop_env_transfer(iop_env_t *dst, iop_env_t *src)
 {
     SWAP(iop_env_t, *dst, *src);
     iop_env_wipe(src);
+}
+
+Lmid_t iop_dso_get_available_lmid(void)
+{
+    if (_G.lmid_pool.len > 0) {
+        Lmid_t lmid = _G.lmid_pool.tab[_G.lmid_pool.len - 1];
+
+        qv_remove_last(&_G.lmid_pool);
+        return lmid;
+    }
+    return LM_ID_NEWLM;
 }
 
 /* }}} */
@@ -6592,7 +6634,7 @@ static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
         return 0;
     }
     if (dso) {
-        qm_add(iop_dsos, &iop_env->dsos_by_pkg, pkg, dso);
+        qm_add(iop_dso_by_pkg, &iop_env->dso_by_pkg, pkg, dso);
     }
 
     /* Register its structs/union/classes. */
@@ -6692,7 +6734,7 @@ const iop_pkg_t *iop_get_pkg(const iop_env_t *iop_env, lstr_t pkgname)
 iop_dso_t *iop_dso_get_from_pkg(const iop_env_t *iop_env,
                                 const iop_pkg_t *pkg)
 {
-    return qm_get_def_safe(iop_dsos, &iop_env->dsos_by_pkg, pkg, NULL);
+    return qm_get_def_safe(iop_dso_by_pkg, &iop_env->dso_by_pkg, pkg, NULL);
 }
 
 static void iop_unregister_class(iop_env_t *iop_env, const iop_struct_t *desc)
@@ -6764,9 +6806,9 @@ void iop_unregister_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
         if (iop_unregister_obj(iop_env, pkg->name, IOP_OBJ_PKG(pkg)) < 0) {
             continue;
         }
-        pos = qm_del_key(iop_dsos, &iop_env->dsos_by_pkg, pkg);
+        pos = qm_del_key(iop_dso_by_pkg, &iop_env->dso_by_pkg, pkg);
         if (pos >= 0) {
-            dso = iop_env->dsos_by_pkg.values[pos];
+            dso = iop_env->dso_by_pkg.values[pos];
         }
 
         /* Unregister its classes. */
@@ -8071,11 +8113,13 @@ static int iop_initialize(void *arg)
 {
     iprintf_register_formatter('E', &iop_enum_formatter);
     iprintf_register_formatter('U', &iop_union_type_formatter);
+    qv_init(&_G.lmid_pool);
     return 0;
 }
 
 static int iop_shutdown(void)
 {
+    qv_wipe(&_G.lmid_pool);
     return 0;
 }
 
