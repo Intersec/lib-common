@@ -140,8 +140,4 @@ iop_dso_get_ressources(const iop_dso_t * nonnull, lstr_t category);
 
 IOP_DSO_DECLARE_RESSOURCE_CATEGORY(iopy_on_register, struct farch_entry_t);
 
-/* Called by iop module. */
-void iop_dso_initialize(void);
-void iop_dso_shutdown(void);
-
 #endif

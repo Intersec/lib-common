@@ -19,13 +19,6 @@
 #include <lib-common/iop.h>
 #include "priv.h"
 
-qm_khptr_ckey_t(iop_dso_by_handle, void, iop_dso_t *);
-
-static struct {
-    qm_t(iop_dso_by_handle) dsos_by_handle;
-} iop_dso_g;
-#define _G  iop_dso_g
-
 static ALWAYS_INLINE
 void iopdso_register_struct(iop_dso_t *dso, iop_struct_t const *st)
 {
@@ -284,7 +277,6 @@ static void iop_dso_wipe(iop_dso_t *dso)
     qh_wipe(ptr,         &dso->needed_by);
     lstr_wipe(&dso->path);
     if (dso->handle) {
-        qm_del_key(iop_dso_by_handle, &_G.dsos_by_handle, dso->handle);
         dlclose(dso->handle);
     }
 }
@@ -333,13 +325,6 @@ iop_dso_t *iop_dso_load_handle(void *handle, const char *path,
     uint32_t *user_version_p;
     iop_dso_user_version_cb_f **user_version_cb_p;
 
-    dso = qm_get_def(iop_dso_by_handle, &_G.dsos_by_handle, handle, NULL);
-    if (dso) {
-        e_trace(1, "reuse dso %p (%*pM)", dso, LSTR_FMT_ARG(dso->path));
-        dlclose(handle);
-        return iop_dso_dup(dso);
-    }
-
     if (lmid == LM_ID_NEWLM && dlinfo(handle, RTLD_DI_LMID, &lmid) < 0) {
         sb_setf(err, "unable to get lmid of plugin `%s`: %s", path,
                 dlerror());
@@ -381,8 +366,6 @@ iop_dso_t *iop_dso_load_handle(void *handle, const char *path,
         iop_dso_delete(&dso);
         return NULL;
     }
-
-    qm_add(iop_dso_by_handle, &_G.dsos_by_handle, handle, dso);
 
     return dso;
 }
@@ -560,14 +543,4 @@ const void *const *iop_dso_get_ressources(const iop_dso_t *dso, lstr_t category)
     lstr_t name = t_lstr_cat(LSTR("iop_dso_ressources_"), category);
 
     return dlsym(dso->handle, name.s);
-}
-
-void iop_dso_initialize(void)
-{
-    qm_init(iop_dso_by_handle, &_G.dsos_by_handle);
-}
-
-void iop_dso_shutdown(void)
-{
-    qm_wipe(iop_dso_by_handle, &_G.dsos_by_handle);
 }

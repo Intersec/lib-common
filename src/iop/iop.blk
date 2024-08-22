@@ -8041,13 +8041,11 @@ static int iop_initialize(void *arg)
     iop_env_init(&_G.env);
     iprintf_register_formatter('E', &iop_enum_formatter);
     iprintf_register_formatter('U', &iop_union_type_formatter);
-    iop_dso_initialize();
     return 0;
 }
 
 static int iop_shutdown(void)
 {
-    iop_dso_shutdown();
     iop_env_wipe(&_G.env);
     return 0;
 }
