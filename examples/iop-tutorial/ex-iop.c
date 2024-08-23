@@ -29,6 +29,7 @@ static struct {
     el_t        ic_srv;    /*< ichannel listener */
     ichannel_t  remote_ic; /*< remote ichannel */
 
+    iop_env_t *iop_env;     /*< IOP environment */
     qm_t(ic_cbs) ic_impl;  /*< implementations table */
 
     bool opt_help;
@@ -116,6 +117,7 @@ static void exiop_client_on_event(ichannel_t *ic, ic_event_t evt)
 static void exiop_client_initialize(const char *addr)
 {
     ic_init(&_G.remote_ic);
+    _G.remote_ic.iop_env  = _G.iop_env;
     _G.remote_ic.on_event = &exiop_client_on_event;
     _G.remote_ic.impl     = &_G.ic_impl;
 
@@ -180,6 +182,7 @@ static int exiop_on_accept(el_t ev, int fd)
 
     e_trace(0, "incoming connection");
     ic              = ic_new();
+    ic->iop_env     = _G.iop_env;
     ic->on_event    = &exiop_server_on_event;
     ic->impl        = &_G.ic_impl;
     ic->do_el_unref = true;
@@ -239,6 +242,9 @@ int main(int argc, char **argv)
         return EXIT_SUCCESS;
     }
 
+    /* initialize the IOP environment */
+    _G.iop_env = iop_env_new();
+
     /* initialize the ichannel library */
     MODULE_REQUIRE(ic);
 
@@ -266,6 +272,8 @@ int main(int argc, char **argv)
     qv_wipe(&_G.clients);
 
     MODULE_RELEASE(ic);
+    iop_env_delete(&_G.iop_env);
+
     return 0;
 }
 
