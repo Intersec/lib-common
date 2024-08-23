@@ -46,9 +46,9 @@ static void t_z_yaml_pack_struct(const iop_struct_t *st, const void *v,
 }
 
 static int
-iop_yaml_test_unpack_error(const iop_struct_t *st, unsigned flags,
-                           const char *yaml, const char *expected_err,
-                           bool exact_match)
+iop_yaml_test_unpack_error(const iop_env_t *iop_env, const iop_struct_t *st,
+                           unsigned flags, const char *yaml,
+                           const char *expected_err, bool exact_match)
 {
     t_scope;
     pstream_t ps;
@@ -57,7 +57,7 @@ iop_yaml_test_unpack_error(const iop_struct_t *st, unsigned flags,
     SB_1k(err);
 
     ps = ps_initstr(yaml);
-    ret = t_iop_yunpack_ptr_ps(&ps, st, &res, flags, NULL, &err);
+    ret = t_iop_yunpack_ptr_ps(&ps, iop_env, st, &res, flags, NULL, &err);
     Z_ASSERT_NEG(ret, "YAML unpacking unexpected success");
     if (exact_match) {
         Z_ASSERT_STREQUAL(err.data, expected_err);
@@ -71,7 +71,8 @@ iop_yaml_test_unpack_error(const iop_struct_t *st, unsigned flags,
 }
 
 static int
-iop_yaml_test_unpack(const iop_struct_t * nonnull st, unsigned flags,
+iop_yaml_test_unpack(const iop_env_t * nonnull iop_env,
+                     const iop_struct_t * nonnull st, unsigned flags,
                      const char * nonnull yaml,
                      const char * nullable new_yaml)
 {
@@ -86,7 +87,7 @@ iop_yaml_test_unpack(const iop_struct_t * nonnull st, unsigned flags,
     SB_1k(packed);
 
     ps = ps_initstr(yaml);
-    ret = t_iop_yunpack_ptr_ps(&ps, st, &res, flags, &pres, &err);
+    ret = t_iop_yunpack_ptr_ps(&ps, iop_env, st, &res, flags, &pres, &err);
     Z_ASSERT_N(ret, "YAML unpacking error: %pL", &err);
 
     t_z_yaml_pack_struct(st, res, 0, &packed);
@@ -95,14 +96,16 @@ iop_yaml_test_unpack(const iop_struct_t * nonnull st, unsigned flags,
     /* Test iop_ypack_file / t_iop_yunpack_file */
     path = t_fmt("%*pM/tstyaml.yml", LSTR_FMT_ARG(z_tmpdir_g));
     Z_ASSERT_N(iop_ypack_file(path, st, res, pres, &err), "%pL", &err);
-    Z_ASSERT_N(t_iop_yunpack_ptr_file(path, st, &file_res, 0, NULL, &err),
+    Z_ASSERT_N(t_iop_yunpack_ptr_file(path, iop_env, st, &file_res, 0, NULL,
+                                      &err),
                "%pL", &err);
     Z_ASSERT_IOPEQUAL_DESC(st, res, file_res);
 
     Z_HELPER_END;
 }
 
-static int iop_yaml_test_pack(const iop_struct_t *st, const void *value,
+static int iop_yaml_test_pack(const iop_env_t *iop_env,
+                              const iop_struct_t *st, const void *value,
                               unsigned flags, bool test_unpack,
                               bool must_be_equal, const char *expected)
 {
@@ -117,7 +120,8 @@ static int iop_yaml_test_pack(const iop_struct_t *st, const void *value,
     if (test_unpack) {
         pstream_t ps = ps_initsb(&sb);
 
-        Z_ASSERT_N(t_iop_yunpack_ptr_ps(&ps, st, &unpacked, 0, NULL, &err),
+        Z_ASSERT_N(t_iop_yunpack_ptr_ps(&ps, iop_env, st, &unpacked, 0, NULL,
+                                        &err),
                    "YAML unpacking error (%s): %pL", st->fullname.s, &err);
         if (must_be_equal) {
             Z_ASSERT(iop_equals_desc(st, value, unpacked));
@@ -129,6 +133,7 @@ static int iop_yaml_test_pack(const iop_struct_t *st, const void *value,
 
 static int
 z_test_json_subfiles_conversion(
+    const iop_env_t *iop_env,
     const iop_json_subfile__array_t *json_subfiles,
     const iop_struct_t *st, const void *value,
     const char *yaml_expected,
@@ -142,11 +147,12 @@ z_test_json_subfiles_conversion(
     qv_t(lstr) expected_subfiles;
     qv_t(lstr) subfiles;
 
-    pres = t_build_yaml_pres_from_json_subfiles(json_subfiles, st, value);
+    pres = t_build_yaml_pres_from_json_subfiles(iop_env, json_subfiles, st,
+                                                value);
 
     /* parse yaml to get expected pres */
     ps = ps_initstr(yaml_expected);
-    Z_ASSERT_N(t_iop_yunpack_ps(&ps, &yaml__document_presentation__s,
+    Z_ASSERT_N(t_iop_yunpack_ps(&ps, iop_env, &yaml__document_presentation__s,
                                 &expected_pres, 0, NULL, &err),
                "cannot unpack: %pL", &err);
     Z_ASSERT_IOPEQUAL(yaml__document_presentation, pres, &expected_pres);
@@ -174,7 +180,10 @@ z_test_json_subfiles_conversion(
 
 Z_GROUP_EXPORT(iop_yaml)
 {
-    IOP_REGISTER_PACKAGES(&tstiop__pkg);
+    iop_env_t *iop_env;
+
+    iop_env = iop_env_new();
+    IOP_REGISTER_PACKAGES(iop_env, &tstiop__pkg);
     MODULE_REQUIRE(iop_yaml);
 
     Z_TEST(pack_flags, "test IOP YAML (un)packer flags") { /* {{{ */
@@ -189,7 +198,8 @@ Z_GROUP_EXPORT(iop_yaml)
         iop_init(tstiop__my_class2, &my_class_2);
 
 #define TST_FLAGS(_flags, _test_unpack, _must_be_equal, _exp)                \
-        Z_HELPER_RUN(iop_yaml_test_pack(&tstiop__struct_jpack_flags__s,      \
+        Z_HELPER_RUN(iop_yaml_test_pack(iop_env,                            \
+                                        &tstiop__struct_jpack_flags__s,      \
                                         &st_jpack, _flags, _test_unpack,     \
                                         _must_be_equal, _exp))
 
@@ -268,7 +278,8 @@ Z_GROUP_EXPORT(iop_yaml)
 #define TST(str, _exp, _must_be_equal)                                       \
         do {                                                                 \
             obj.us = LSTR(str);                                              \
-            Z_HELPER_RUN(iop_yaml_test_pack(&tstiop__my_union_a__s, &obj, 0, \
+            Z_HELPER_RUN(iop_yaml_test_pack(iop_env,                        \
+                                            &tstiop__my_union_a__s, &obj, 0, \
                                             true, (_must_be_equal), (_exp)));\
         } while(0)
 
@@ -345,7 +356,8 @@ Z_GROUP_EXPORT(iop_yaml)
 
 #define TST(_exp, _test_unpack, _must_be_equal)                              \
         do {                                                                 \
-            Z_HELPER_RUN(iop_yaml_test_pack(&tstiop__my_struct_a_opt__s,     \
+            Z_HELPER_RUN(iop_yaml_test_pack(iop_env,                        \
+                                            &tstiop__my_struct_a_opt__s,     \
                                             &obj, 0, (_test_unpack),         \
                                             (_must_be_equal), (_exp)));      \
         } while(0)
@@ -382,7 +394,8 @@ Z_GROUP_EXPORT(iop_yaml)
         empty_jpack.sub.cls = &clsb;
 
 #define TST(_flags, _must_be_equal, _exp)                                    \
-        Z_HELPER_RUN(iop_yaml_test_pack(&tstiop__jpack_empty_struct__s,      \
+        Z_HELPER_RUN(iop_yaml_test_pack(iop_env,                            \
+                                        &tstiop__jpack_empty_struct__s,      \
                                         &empty_jpack, _flags, false,         \
                                         _must_be_equal, _exp))
 
@@ -456,10 +469,10 @@ Z_GROUP_EXPORT(iop_yaml)
         SB_1k(err);
 
 #define TST_ERROR(_flags, _yaml, _error)                                     \
-        Z_HELPER_RUN(iop_yaml_test_unpack_error(st, (_flags), (_yaml),       \
-                                                (_error), true))
+        Z_HELPER_RUN(iop_yaml_test_unpack_error(iop_env, st, (_flags),      \
+                                                (_yaml), (_error), true))
 #define TST(_flags, _yaml, _new_yaml)                                        \
-        Z_HELPER_RUN(iop_yaml_test_unpack(st, (_flags), (_yaml),             \
+        Z_HELPER_RUN(iop_yaml_test_unpack(iop_env, st, (_flags), (_yaml),   \
                                           (_new_yaml)))
 
         st = &tstiop__full_opt__s;
@@ -795,15 +808,16 @@ Z_GROUP_EXPORT(iop_yaml)
         /* test an error when unpacking a file: should display the filename */
         path = t_fmt("%*pM/test-data/yaml/invalid_union.yml",
                      LSTR_FMT_ARG(z_cmddir_g));
-        Z_ASSERT_NEG(t_iop_yunpack_ptr_file(path, st, &res, 0, NULL, &err));
+        Z_ASSERT_NEG(t_iop_yunpack_ptr_file(path, iop_env, st, &res, 0, NULL,
+                                            &err));
         expected_err = t_fmt("%s:1:1: "ERR_COMMON": unknown field `o`\n"
                              "o: ra\n"
                              "^", path);
         Z_ASSERT_STREQUAL(err.data, expected_err);
 
         /* on unknown file */
-        Z_ASSERT_NEG(t_iop_yunpack_ptr_file("foo.yml", st, &res, 0, NULL,
-                                            &err));
+        Z_ASSERT_NEG(t_iop_yunpack_ptr_file("foo.yml", iop_env, st, &res, 0,
+                                            NULL, &err));
         Z_ASSERT_STREQUAL(err.data, "cannot read file foo.yml: "
                           "No such file or directory");
 
@@ -878,7 +892,8 @@ Z_GROUP_EXPORT(iop_yaml)
     /* }}} */
     Z_TEST(unpack, "test IOP YAML unpacking") { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
-        Z_HELPER_RUN(iop_yaml_test_unpack((_st), 0, (_yaml), (_new_yaml)))
+        Z_HELPER_RUN(iop_yaml_test_unpack(iop_env, (_st), 0, (_yaml),       \
+                                          (_new_yaml)))
 
         /* test a lot of different types */
         TST(&tstiop__my_struct_a__s,
@@ -1069,10 +1084,11 @@ Z_GROUP_EXPORT(iop_yaml)
     /* }}} */
     Z_TEST(unpack_compat, "test YAML unpacking backward compat") { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
-        Z_HELPER_RUN(iop_yaml_test_unpack((_st), 0, (_yaml), (_new_yaml)))
+        Z_HELPER_RUN(iop_yaml_test_unpack(iop_env, (_st), 0, (_yaml),       \
+                                          (_new_yaml)))
 #define TST_ERROR(_st, _yaml, _error)                                        \
-        Z_HELPER_RUN(iop_yaml_test_unpack_error((_st), 0, (_yaml), (_error), \
-                                                false))
+        Z_HELPER_RUN(iop_yaml_test_unpack_error(iop_env, (_st), 0, (_yaml), \
+                                                (_error), false))
 
         /* a scalar can be unpacked into an array */
         TST(&tstiop__my_struct_a_opt__s,
@@ -1102,10 +1118,11 @@ Z_GROUP_EXPORT(iop_yaml)
 #define TST_ERROR(st, v, yaml, err)                                          \
     do {                                                                     \
         Z_ASSERT_NEG(iop_check_constraints_desc((st), (v)));                 \
-        Z_HELPER_RUN(iop_yaml_test_pack((st), (v), IOP_JPACK_MINIMAL,        \
-                                        false, false, (yaml)));              \
-        Z_HELPER_RUN(iop_yaml_test_unpack_error((st), 0, (yaml), (err),      \
-                                                true));                      \
+        Z_HELPER_RUN(iop_yaml_test_pack(iop_env, (st), (v),                 \
+                                        IOP_JPACK_MINIMAL, false, false,     \
+                                        (yaml)));                            \
+        Z_HELPER_RUN(iop_yaml_test_unpack_error(iop_env, (st), 0, (yaml),   \
+                                                (err), true));               \
     } while(0)
 
         /* check constraints are properly checked on unions */
@@ -1158,7 +1175,8 @@ Z_GROUP_EXPORT(iop_yaml)
             .file_path = LSTR("b.cf"),
         });
 
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles, NULL, NULL,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(iop_env, &subfiles, NULL,
+                                                     NULL,
             "mappings:\n"
             "  - path: .a!\n"
             "    node:\n"
@@ -1192,7 +1210,8 @@ Z_GROUP_EXPORT(iop_yaml)
             .file_path = LSTR("a/d/a/3.cf"),
         });
 
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles, NULL, NULL,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(iop_env, &subfiles,
+                                                     NULL, NULL,
             "mappings:\n"
             "  - path: .a[1]!\n"
             "    node:\n"
@@ -1262,7 +1281,7 @@ Z_GROUP_EXPORT(iop_yaml)
             .file_path = LSTR("doc.xml"),
         });
 
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(iop_env, &subfiles,
                                                      &tstiop__full_opt__s,
                                                      NULL,
             "mappings:\n"
@@ -1304,7 +1323,7 @@ Z_GROUP_EXPORT(iop_yaml)
         });
 
         /* No value provided: not raw by default */
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(iop_env, &subfiles,
                                                      &tstiop__full_opt__s,
                                                      NULL,
             "mappings:\n"
@@ -1318,7 +1337,7 @@ Z_GROUP_EXPORT(iop_yaml)
         iop_init(tstiop__full_opt, &full_opt_val);
         iop_init(tstiop__test_class_child, &tcc_val);
         full_opt_val.o = &tcc_val.super;
-        Z_HELPER_RUN(z_test_json_subfiles_conversion(&subfiles,
+        Z_HELPER_RUN(z_test_json_subfiles_conversion(iop_env, &subfiles,
                                                      &tstiop__full_opt__s,
                                                      &full_opt_val,
             "mappings:\n"
@@ -1331,6 +1350,7 @@ Z_GROUP_EXPORT(iop_yaml)
     /* }}} */
 
     MODULE_RELEASE(iop_yaml);
+    iop_env_delete(&iop_env);
 } Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */

@@ -30,6 +30,7 @@ typedef struct ctx_t {
 } ctx_t;
 
 static struct {
+    iop_env_t          *iop_env;
     ichannel_t         *ic_aux;
     ichannel_t         *ic_spawned;
     int                 mode;
@@ -216,6 +217,7 @@ static bool check_user_version_false(uint32_t user_version)
 static int z_ic_on_accept(el_t ev, int fd)
 {
     _G.ic_spawned = ic_new();
+    _G.ic_spawned->iop_env = _G.iop_env;
     _G.ic_spawned->on_event = &dummy_on_event;
     _G.ic_spawned->impl = &ic_no_impl;
     _G.ic_spawned->do_el_unref = true;
@@ -233,6 +235,7 @@ z_connect_ics_and_wait(ichannel_t *ic_client, const sockunion_t *su)
 
     ic_init(ic_client);
     ic_client->su          = *su;
+    ic_client->iop_env     = _G.iop_env;
     ic_client->on_event    = &dummy_on_event;
     ic_client->impl        = &ic_no_impl;
     ic_client->auto_reconn = false;
@@ -256,6 +259,7 @@ z_connect_ics_and_wait(ichannel_t *ic_client, const sockunion_t *su)
 
 Z_GROUP_EXPORT(iop_rpc)
 {
+    _G.iop_env = iop_env_new();
     MODULE_REQUIRE(ic);
 
     Z_TEST(ic_local, "iop-rpc: ic local") {
@@ -264,6 +268,7 @@ Z_GROUP_EXPORT(iop_rpc)
         qm_t(ic_cbs) impl_aux = QM_INIT(ic_cbs, impl_aux);
 
         ic_init(&ic);
+        ic.iop_env = _G.iop_env;
         ic_set_local(&ic, false);
 
         _G.ic_aux = ic_new();
@@ -335,6 +340,7 @@ Z_GROUP_EXPORT(iop_rpc)
         Z_ASSERT_P(ic1);
         Z_ASSERT_P(ic2);
         ic1->no_autodel = ic2->no_autodel = true;
+        ic1->iop_env = ic2->iop_env = _G.iop_env;
         ic1->on_event = ic2->on_event = dummy_on_event;
 
         Z_ASSERT_N(socketpairx(AF_UNIX, SOCK_SEQPACKET, 0, O_NONBLOCK, sv));
@@ -395,6 +401,7 @@ Z_GROUP_EXPORT(iop_rpc)
         ic_register(&impl, core__core, log, reset_logger_level);
 
         ic_init(&ic);
+        ic.iop_env = _G.iop_env;
         ic_set_local(&ic, true);
         ic.impl = &impl;
 
@@ -494,6 +501,7 @@ Z_GROUP_EXPORT(iop_rpc)
     } Z_TEST_END;
 
     MODULE_RELEASE(ic);
+    iop_env_delete(&_G.iop_env);
 } Z_GROUP_END;
 
 /* }}} */

@@ -83,13 +83,15 @@ z_iop_for_each_step(const qv_t(z_iop_for_each_step) *steps,
     });
 }
 
-static int t_z_load_iop_for_each_json(tstiop__z_iop_for_each__t **z_struct)
+static int t_z_load_iop_for_each_json(const iop_env_t *iop_env,
+                                      tstiop__z_iop_for_each__t **z_struct)
 {
     SB_1k(errb);
     tstiop__z_iop_for_each__t *res = NULL;
     const char *path = t_fmt("%ssamples/z-iop-for-each.json", z_cmddir_g.s);
 
-    Z_ASSERT_N(t_iop_junpack_ptr_file(path, &tstiop__z_iop_for_each__s,
+    Z_ASSERT_N(t_iop_junpack_ptr_file(path, iop_env,
+                                      &tstiop__z_iop_for_each__s,
                                       (void **)&res, 0, NULL, &errb),
                "failed to read JSON file: %*pM", SB_FMT_ARG(&errb));
 
@@ -402,7 +404,7 @@ static void t_z_print_obj_paths(const iop_struct_t *st_desc,
 
 qvector_t(tstiop_struct, tstiop__struct__t);
 
-static int z_test_iop_field_path_htab(void)
+static int z_test_iop_field_path_htab(const iop_env_t *iop_env)
 {
     t_scope;
     SB_1k(err);
@@ -413,7 +415,7 @@ static int z_test_iop_field_path_htab(void)
     iop_init(tstiop__my_struct_a, &sta);
     sta.htab = T_IOP_ARRAY(u64, 2, 42, 51);
 
-    fp = t_iop_field_path_compile(&tstiop__my_struct_a__s,
+    fp = t_iop_field_path_compile(iop_env, &tstiop__my_struct_a__s,
                                   LSTR("htab[*]"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
 
@@ -431,7 +433,7 @@ static int z_test_iop_field_path_htab(void)
     Z_HELPER_END;
 }
 
-static int z_test_iop_field_path_structs_last_fields(void)
+static int z_test_iop_field_path_structs_last_fields(const iop_env_t *iop_env)
 {
     t_scope;
     SB_1k(err);
@@ -465,7 +467,7 @@ static int z_test_iop_field_path_structs_last_fields(void)
     pkg.structs = IOP_TYPED_ARRAY_TAB(tstiop__struct, &structs);
 
     /* List structs last fields names. */
-    fp = t_iop_field_path_compile(&tstiop__package__s,
+    fp = t_iop_field_path_compile(iop_env, &tstiop__package__s,
                                   LSTR("structs[*].fields[-1].name"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
 
@@ -481,7 +483,7 @@ static int z_test_iop_field_path_structs_last_fields(void)
 
     /* List structs fields counts. */
     lengths = t_qv_new(i32, 0);
-    fp = t_iop_field_path_compile(&tstiop__package__s,
+    fp = t_iop_field_path_compile(iop_env, &tstiop__package__s,
                                   LSTR("structs[*].fields.len"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
     iop_field_path_for_each_value(fp, &pkg, ^int (const void *v) {
@@ -497,7 +499,7 @@ static int z_test_iop_field_path_structs_last_fields(void)
     Z_HELPER_END;
 }
 
-static int z_test_iop_field_path_class_wildcards(void)
+static int z_test_iop_field_path_class_wildcards(const iop_env_t *iop_env)
 {
     t_scope;
     SB_1k(err);
@@ -524,7 +526,7 @@ static int z_test_iop_field_path_class_wildcards(void)
 
     /* Retrieve every objects values with e[*].int1 */
     values_ptr = t_qv_new(cvoid, 4);
-    fp = t_iop_field_path_compile(&tstiop__my_struct_f__s,
+    fp = t_iop_field_path_compile(iop_env, &tstiop__my_struct_f__s,
                                   LSTR("e[*].int1"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
     iop_field_path_for_each_value(fp, &msf, ^int (const void *v) {
@@ -539,7 +541,7 @@ static int z_test_iop_field_path_class_wildcards(void)
 
     /* Retrieve values of mc2 and mc3 with e[*].<tstiop.MyClass2>int2 */
     qv_clear(values_ptr);
-    fp = t_iop_field_path_compile(&tstiop__my_struct_f__s,
+    fp = t_iop_field_path_compile(iop_env, &tstiop__my_struct_f__s,
                                   LSTR("e[*].<tstiop.MyClass2>int2"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
     iop_field_path_for_each_value(fp, &msf, ^int (const void *v) {
@@ -552,7 +554,7 @@ static int z_test_iop_field_path_class_wildcards(void)
 
     /* Retrieve value of mc3 with e[*].<tstiop.MyClass3>int3 */
     qv_clear(values_ptr);
-    fp = t_iop_field_path_compile(&tstiop__my_struct_f__s,
+    fp = t_iop_field_path_compile(iop_env, &tstiop__my_struct_f__s,
                                   LSTR("e[*].<tstiop.MyClass3>int3"), &err);
     Z_ASSERT_P(fp, "%pL", &err);
     iop_field_path_for_each_value(fp, &msf, ^int (const void *v) {
@@ -564,7 +566,7 @@ static int z_test_iop_field_path_class_wildcards(void)
 
     /* Retrieve value of mc2_bis with e[*].<tstiop.MyClass2Bis>int2 */
     qv_clear(values_ptr);
-    fp = t_iop_field_path_compile(&tstiop__my_struct_f__s,
+    fp = t_iop_field_path_compile(iop_env, &tstiop__my_struct_f__s,
                                   LSTR("e[*].<tstiop.MyClass2Bis>int2"),
                                   &err);
     Z_ASSERT_P(fp, "%pL", &err);
@@ -583,7 +585,10 @@ static int z_test_iop_field_path_class_wildcards(void)
 /* }}} */
 
 Z_GROUP_EXPORT(iop_blk) {
-    IOP_REGISTER_PACKAGES(&tstiop__pkg);
+    iop_env_t *iop_env;
+
+    iop_env = iop_env_new();
+    IOP_REGISTER_PACKAGES(iop_env, &tstiop__pkg);
 
     Z_TEST(iop_for_each_field_st_obj, "test iop_for_each_field & co") { /* {{{ */
         t_scope;
@@ -591,7 +596,7 @@ Z_GROUP_EXPORT(iop_blk) {
         qv_t(lstr) paths;
         const char *paths_file_path;
 
-        Z_HELPER_RUN(t_z_load_iop_for_each_json(&z_struct));
+        Z_HELPER_RUN(t_z_load_iop_for_each_json(iop_env, &z_struct));
         Z_HELPER_RUN(z_test_iop_for_each_field(z_struct),
                      "iop_for_each_field");
         Z_HELPER_RUN(z_test_iop_for_each_st(z_struct),
@@ -620,11 +625,13 @@ Z_GROUP_EXPORT(iop_blk) {
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_field_path, "test iop_field_path") { /* {{{ */
-        Z_HELPER_RUN(z_test_iop_field_path_htab());
-        Z_HELPER_RUN(z_test_iop_field_path_structs_last_fields());
-        Z_HELPER_RUN(z_test_iop_field_path_class_wildcards());
+        Z_HELPER_RUN(z_test_iop_field_path_htab(iop_env));
+        Z_HELPER_RUN(z_test_iop_field_path_structs_last_fields(iop_env));
+        Z_HELPER_RUN(z_test_iop_field_path_class_wildcards(iop_env));
     } Z_TEST_END
     /* }}} */
+
+    iop_env_delete(&iop_env);
 } Z_GROUP_END;
 
 /* LCOV_EXCL_STOP */
