@@ -35,7 +35,7 @@ typedef int spinlock_t;
 /* {{{1 Refcount */
 
 #define REFCNT_NEW(type, pfx)                                                \
-    __unused__ static inline __attribute__((malloc))                         \
+    __attr_unused__ static inline __attribute__((malloc))                    \
     type *nonnull pfx##_new(void)                                            \
     {                                                                        \
         type *res = pfx##_init(p_new_raw(type, 1));                          \
@@ -44,7 +44,7 @@ typedef int spinlock_t;
     }
 
 #define REFCNT_RETAIN(type, pfx)                                             \
-    __unused__ static inline __attr_nonnull__((1))                           \
+    __attr_unused__ static inline __attr_nonnull__((1))                      \
     type *nonnull pfx##_retain(type *nonnull t)                              \
     {                                                                        \
         if (unlikely(t->refcnt < 1)) {                                       \
@@ -55,7 +55,7 @@ typedef int spinlock_t;
     }
 
 #define REFCNT_RELEASE(type, pfx)                                            \
-    __unused__ static inline void __attr_nonnull__((1))                      \
+    __attr_unused__ static inline void __attr_nonnull__((1))                 \
     pfx##_release(type *nullable *nonnull tp)                                \
     {                                                                        \
         type * const t = *tp;                                                \
@@ -73,7 +73,7 @@ typedef int spinlock_t;
     }
 
 #define REFCNT_DELETE(type, pfx)                                             \
-    __unused__ static inline void __attr_nonnull__((1))                      \
+    __attr_unused__ static inline void __attr_nonnull__((1))                 \
     pfx##_delete(type *nullable *nonnull tp)                                 \
     {                                                                        \
         if (*tp) {                                                           \

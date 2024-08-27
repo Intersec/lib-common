@@ -582,7 +582,7 @@ struct iop_struct_value {
         .st = NULL,                                                          \
         .val = ({                                                            \
             typeof(*_obj) *_fmt_obj = (_obj);                                \
-            __unused__ const iop_struct_t *__ofa_st = _fmt_obj->__vptr;      \
+            __attr_unused__ const iop_struct_t *__ofa_st = _fmt_obj->__vptr; \
             _fmt_obj;                                                        \
         })                                                                   \
     }

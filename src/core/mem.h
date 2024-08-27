@@ -914,17 +914,17 @@ void r_pool_destroy(void) __leaf;
 
 
 #define GENERIC_INIT(type, prefix)                          \
-    static __unused__ inline DO_INIT(type, prefix)
+    static __attr_unused__ inline DO_INIT(type, prefix)
 #define GENERIC_NEW(type, prefix)                           \
-    static __unused__ inline DO_NEW(type, prefix)
+    static __attr_unused__ inline DO_NEW(type, prefix)
 #define GENERIC_NEW_INIT(type, prefix)                      \
     GENERIC_INIT(type, prefix)                              \
-    static __unused__ inline DO_NEW0(type, prefix)
+    static __attr_unused__ inline DO_NEW0(type, prefix)
 
 #define GENERIC_WIPE(type, prefix)                          \
-    static __unused__ inline DO_WIPE(type, prefix)
+    static __attr_unused__ inline DO_WIPE(type, prefix)
 #define GENERIC_DELETE(type, prefix)                        \
-    static __unused__ inline DO_DELETE(type, prefix)
+    static __attr_unused__ inline DO_DELETE(type, prefix)
 #define GENERIC_WIPE_DELETE(type, prefix)                   \
     GENERIC_WIPE(type, prefix)                              \
     GENERIC_DELETE(type, prefix)
@@ -952,13 +952,13 @@ void r_pool_destroy(void) __leaf;
     }
 
 #define GENERIC_MP_NEW(mp, type, prefix)      \
-    static __unused__ inline DO_MP_NEW(mp, type, prefix)
+    static __attr_unused__ inline DO_MP_NEW(mp, type, prefix)
 #define GENERIC_MP_NEW_INIT(mp, type, prefix) \
     GENERIC_INIT(type, prefix)                \
-    static __unused__ inline DO_MP_NEW0(mp, type, prefix)
+    static __attr_unused__ inline DO_MP_NEW0(mp, type, prefix)
 
 #define GENERIC_MP_DELETE(mp, type, prefix)   \
-    static __unused__ inline DO_MP_DELETE(mp, type, prefix)
+    static __attr_unused__ inline DO_MP_DELETE(mp, type, prefix)
 #define GENERIC_MP_WIPE_DELETE(mp, type, prefix) \
     GENERIC_WIPE(type, prefix)                   \
     GENERIC_MP_DELETE(mp, type, prefix)

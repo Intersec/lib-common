@@ -117,7 +117,7 @@ void iop_core_obj_map_for_each_cls(const iop_core_obj_map_t *nonnull map,
         return _iop_core_obj_map_new_obj((map), desc);                       \
     }                                                                        \
                                                                              \
-    __VA_ARGS__ __unused__ const cls_pfx##_class_t *nullable                 \
+    __VA_ARGS__ __attr_unused__ const cls_pfx##_class_t *nullable            \
     cls_pfx##_get_cls(const iop_cls_pfx##__t *desc)                          \
     {                                                                        \
         return cls_cast(cls_pfx,                                             \

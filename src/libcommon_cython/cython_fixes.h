@@ -28,9 +28,9 @@
 #ifdef unlikely
 #  undef unlikely
 #endif /* unlikely */
-#ifdef __unused__
-#  undef __unused__
-#endif /* __unused__ */
+#ifdef __attr_unused__
+#  undef __attr_unused__
+#endif /* __attr_unused__ */
 
 /* Disable clang comma warnings for Clang >= 3.9 */
 #if defined(__clang__)                                                       \

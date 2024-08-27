@@ -320,21 +320,21 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
         STRUCT_QHASH_T(key_t, val_t);                                        \
     } pfx##_t;                                                               \
                                                                              \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline void pfx##_init(pfx##_t * nonnull qh, bool chahes,         \
                                   mem_pool_t * nullable mp)                  \
     {                                                                        \
         STATIC_ASSERT(sizeof(key_t) < 256);                                  \
         qhash_init(&qh->qh, sizeof(key_t), _v_size, chahes, mp);             \
     }                                                                        \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline uint32_t pfx##_hash(const pfx##_t * nonnull qh, ckey_t key)\
     {                                                                        \
         return hashK(&qh->qh, castK(key));                                   \
     }
 
 #define __QH_FIND(sfx, pfx, name, ckey_t, key_t, hashK, castK)               \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline int32_t                                                    \
     pfx##_find_int(pfx##_t * nonnull qh, const uint32_t * nullable ph,       \
                    ckey_t key)                                               \
@@ -342,7 +342,7 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
         uint32_t h = ph ? *ph : pfx##_hash(qh, key);                         \
         return qhash_get##sfx(&qh->qh, h, castK(key));                       \
     }                                                                        \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline int32_t                                                    \
     pfx##_find_safe_int(const pfx##_t * nonnull qh,                          \
                         const uint32_t * nullable ph, ckey_t key)            \
@@ -350,14 +350,14 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
         uint32_t h = ph ? *ph : pfx##_hash(qh, key);                         \
         return qhash_safe_get##sfx(&qh->qh, h, castK(key));                  \
     }                                                                        \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline void pfx##_seal(pfx##_t * nonnull qh)                      \
     {                                                                        \
         return qhash_seal##sfx(&qh->qh);                                     \
     }
 
 #define __QH_FIND2(sfx, pfx, name, ckey_t, key_t, hashK, castK, iseqK)       \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline int32_t                                                    \
     pfx##_find_int(pfx##_t * nonnull qh, const uint32_t * nullable ph,       \
                    ckey_t key)                                               \
@@ -368,7 +368,7 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
         return qhash_get##sfx(&qh->qh, h, castK(key),                        \
                               (qhash_khash_f *)hf, (qhash_kequ_f *)ef);      \
     }                                                                        \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline int32_t                                                    \
     pfx##_find_safe_int(const pfx##_t * nonnull qh,                          \
                         const uint32_t * nullable ph, ckey_t key)            \
@@ -379,7 +379,7 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
         return qhash_safe_get##sfx(&qh->qh, h, castK(key),                   \
                                    (qhash_khash_f *)hf, (qhash_kequ_f *)ef); \
     }                                                                        \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline void pfx##_seal(pfx##_t * nonnull qh)                      \
     {                                                                        \
         uint32_t (*hf)(const qhash_t *, ckey_t) = &hashK;                    \
@@ -394,7 +394,7 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
     __QH_FIND(sfx, pfx, name, key_t const, key_t, qhash_hash_u##sfx,         \
               CASTK_ID);                                                     \
                                                                              \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline uint32_t                                                   \
     pfx##_reserve_int(pfx##_t * nonnull qh, const uint32_t * nullable ph,    \
                       key_t key, uint32_t fl)                                \
@@ -414,7 +414,7 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
     __QH_FIND(64, pfx, name, ckey_t * nullable, key_t * nullable,            \
               qhash_hash_u64, CASTK_UPTR);                                   \
                                                                              \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline uint32_t                                                   \
     pfx##_reserve_int(pfx##_t * nonnull qh, const uint32_t * nullable ph,    \
                       key_t * nullable key, uint32_t fl)                     \
@@ -434,7 +434,7 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
     __QH_FIND2(_ptr, pfx, name, ckey_t * nullable, key_t * nullable, hashK,  \
                CASTK_ID, iseqK);                                             \
                                                                              \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline uint32_t                                                   \
     pfx##_reserve_int(pfx##_t * nonnull qh, const uint32_t * nullable ph,    \
                       key_t * nullable key, uint32_t fl)                     \
@@ -458,7 +458,7 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
     __QH_FIND2(_vec, pfx, name, ckey_t * nonnull, key_t * nonnull, hashK,    \
                CASTK_ID,  iseqK);                                            \
                                                                              \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline uint32_t                                                   \
     pfx##_reserve_int(pfx##_t * nonnull qh, const uint32_t * nullable ph,    \
                       ckey_t * nonnull key, uint32_t fl)                     \

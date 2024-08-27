@@ -2523,8 +2523,8 @@ Z_GROUP_EXPORT(str) {
 /* {{{ csv */
 
 #define CSV_TEST_START(_str, _separator, _qchar)                             \
-        __unused__ int quoting_character = (_qchar);                         \
-        __unused__ int separator = (_separator);                             \
+        __attr_unused__ int quoting_character = (_qchar);                    \
+        __attr_unused__ int separator = (_separator);                        \
         qv_t(lstr) fields;                                                   \
         pstream_t str = ps_initstr(_str);                                    \
                                                                              \

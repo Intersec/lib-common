@@ -82,7 +82,7 @@ mem_bench_t *mem_bench_init(mem_bench_t *sp, lstr_t type, uint32_t period);
  */
 void mem_bench_wipe(mem_bench_t *sp);
 
-__unused__
+__attr_unused__
 static inline mem_bench_t *mem_bench_new(lstr_t type, uint32_t period)
 {
     return mem_bench_init(p_new_raw(mem_bench_t, 1), type, period);

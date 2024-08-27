@@ -159,7 +159,7 @@
     pfx##_vtable_extension_f nullable                                        \
     pfx##_set_vtable_extension(pfx##_vtable_extension_f nonnull func);       \
                                                                              \
-    __unused__                                                               \
+    __attr_unused__                                                          \
     static inline const superclass##_class_t * nonnull pfx##_super(void) {   \
         /* XXX This assert checks for field order: the fields of the super   \
          *     class should always be placed first.                          \

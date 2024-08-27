@@ -21,7 +21,7 @@
 #  include <lib-common/iop.h>
 #  include "helpers.in.c"
 #  define F(x)  x
-#  define F_NAME  __unused__ static default_func
+#  define F_NAME  __attr_unused__ static default_func
 #  define ON_FIELD  default_on_field
 #  define ON_FIELD_DONE()
 #  define ON_STRUCT  default_on_struct

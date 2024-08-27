@@ -229,14 +229,14 @@ static ALWAYS_INLINE size_t qps_pg_l12_size_(uint32_t l1, uint32_t l2)
     return (QPS_PGL2_LEVELS + l2) << (l1 - 1);
 }
 
-static __unused__ ALWAYS_INLINE
+static __attr_unused__ ALWAYS_INLINE
 size_t qps_pg_l12_minsize(uint32_t l1, uint32_t l2)
 {
     assert (l2 < QPS_PGL2_LEVELS);
     return qps_pg_l12_size_(l1, l2);
 }
 
-static __unused__ ALWAYS_INLINE
+static __attr_unused__ ALWAYS_INLINE
 size_t qps_pg_l12_maxsize(uint32_t l1, uint32_t l2)
 {
     assert (l2 < QPS_PGL2_LEVELS);
@@ -399,14 +399,14 @@ static ALWAYS_INLINE size_t qps_m_l12_size_(uint32_t l1, uint32_t l2)
     return (QPS_ML2_LEVELS + l2) << (l1 - 1 + QPS_ML2_OFFSET);
 }
 
-static __unused__ ALWAYS_INLINE
+static __attr_unused__ ALWAYS_INLINE
 size_t qps_m_l12_minsize(uint32_t l1, uint32_t l2)
 {
     assert (l2 < QPS_ML2_LEVELS);
     return qps_m_l12_size_(l1, l2);
 }
 
-static __unused__ ALWAYS_INLINE
+static __attr_unused__ ALWAYS_INLINE
 size_t qps_m_l12_maxsize(uint32_t l1, uint32_t l2)
 {
     assert (l2 < QPS_ML2_LEVELS);

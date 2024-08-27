@@ -206,7 +206,7 @@ void module_run_method(const module_method_t * nonnull method, data_t arg);
                                                                              \
     static __attribute__((constructor))                                      \
     void __##name##_module_register(void) {                                  \
-        __unused__                                                           \
+        __attr_unused__                                                      \
         module_t *__mod = module_implement(MODULE(name),                     \
                                            &name##_initialize,               \
                                            &name##_shutdown,                 \

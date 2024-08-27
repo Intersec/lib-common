@@ -137,7 +137,7 @@ ASN1_DEF_ARRAY(void, void);
 
 #define ASN1_EXT(pfx, ptr) \
     ({                                                                           \
-        __unused__                                                               \
+        __attr_unused__                                                          \
         const pfx##_t *_tmp = ptr;                                               \
         (asn1_ext_t){                                                            \
             .data = ptr,                                                         \

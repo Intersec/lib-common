@@ -209,14 +209,14 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
     typedef void (BLOCK_CARET pfx##_cpy_b)(val_t * nonnull a,               \
                                            cval_t * nonnull b);             \
                                                                             \
-    __unused__                                                              \
+    __attr_unused__                                                         \
     static inline void pfx##_sort(pfx##_t * nonnull vec,                    \
                                   pfx##_cmp_b nonnull cmp)                  \
     {                                                                       \
         __qv_sort(vec->qv.tab, sizeof(val_t), vec->qv.len,                  \
                   (qvector_cmp_b)cmp);                                      \
     }                                                                       \
-    __unused__                                                              \
+    __attr_unused__                                                         \
     static inline void                                                      \
     pfx##_diff(const pfx##_t * nonnull vec1, const pfx##_t * nonnull vec2,  \
                pfx##_t * nullable add, pfx##_t * nullable del,              \
@@ -226,7 +226,7 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
                        del ? &del->qv : NULL, inter ? &inter->qv : NULL,    \
                        sizeof(val_t), alignof(val_t), (qvector_cmp_b)cmp);  \
     }                                                                       \
-    __unused__                                                              \
+    __attr_unused__                                                         \
     static inline                                                           \
     void pfx##_uniq(pfx##_t * nonnull vec, pfx##_cmp_b nonnull cmp,         \
                     pfx##_del_b nullable del)                               \
@@ -234,7 +234,7 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
         __qvector_uniq(&vec->qv, sizeof(val_t), (qvector_cmp_b)cmp,         \
                        (qvector_del_b)del);                                 \
     }                                                                       \
-    __unused__                                                              \
+    __attr_unused__                                                         \
     static inline                                                           \
     int pfx##_bisect(const pfx##_t * nonnull vec, cval_t v,                 \
                      bool * nullable found, pfx##_cmp_b nonnull cmp)        \
@@ -242,7 +242,7 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
         return __qvector_bisect(&vec->qv, sizeof(val_t), &v, found,         \
                                 (qvector_cmp_b)cmp);                        \
     }                                                                       \
-    __unused__                                                              \
+    __attr_unused__                                                         \
     static inline                                                           \
     int pfx##_find(const pfx##_t * nonnull vec, cval_t v, bool sorted,      \
                    pfx##_cmp_b nonnull cmp)                                 \
@@ -250,7 +250,7 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
         return __qvector_find(&vec->qv, sizeof(val_t), &v, sorted,          \
                               (qvector_cmp_b)cmp);                          \
     }                                                                       \
-    __unused__                                                              \
+    __attr_unused__                                                         \
     static inline                                                           \
     bool pfx##_contains(const pfx##_t * nonnull vec, cval_t v, bool sorted, \
                         pfx##_cmp_b nonnull cmp)                            \
@@ -258,7 +258,7 @@ qvector_splice(qvector_t * nonnull vec, size_t v_size, size_t v_align,
         return __qvector_contains(&vec->qv, sizeof(val_t), &v, sorted,      \
                                   (qvector_cmp_b)cmp);                      \
     }                                                                       \
-    __unused__                                                              \
+    __attr_unused__                                                         \
     static inline                                                           \
     void pfx##_deep_extend(pfx##_t * nonnull vec_dst,                       \
                            pfx##_t * nonnull vec_src,                       \

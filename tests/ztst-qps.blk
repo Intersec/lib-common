@@ -38,8 +38,8 @@ int main(int argc, char **argv)
 
     {
         qps_handle_t handle1, handle2;
-        __unused__ void *ptr1 = qps_alloc(qps, &handle1, 36);
-        __unused__ void *ptr2 = qps_alloc(qps, &handle2, 36);
+        __attr_unused__ void *ptr1 = qps_alloc(qps, &handle1, 36);
+        __attr_unused__ void *ptr2 = qps_alloc(qps, &handle2, 36);
 
         qps_free(qps, handle1);
     }

@@ -18,7 +18,7 @@
 
 #include <lib-common/log-iop.h>
 
-__unused__
+__attr_unused__
 static void log_iop_static_checks(void)
 {
     /* This code statically checks that some assumptions done in log.c (which

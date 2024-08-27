@@ -99,7 +99,7 @@
  * __attr_printf__(pos_fmt, pos_first_arg) => printf format
  * __attr_scanf__(pos_fmt, pos_first_arg) => scanf format
  */
-# define __unused__             __attribute__((unused))
+# define __attr_unused__        __attribute__((unused))
 # define __must_check__         __attribute__((warn_unused_result))
 # define __attr_noreturn__      __attribute__((noreturn))
 # define __attr_nonnull__(l)    __attribute__((__nonnull__ l))
@@ -604,7 +604,7 @@ typedef unsigned char byte;
 #define _tab_for_each_ptr(ptr_var, ptr_cpy_var, vec_var, _vec)               \
     FOR_INSTR1(_tab_for_each_ptr##ptr_var,                                   \
                typeof(*_vec) *vec_var = (_vec))                              \
-    for (__unused__ typeof(*vec_var->tab) *ptr_var = vec_var->tab,           \
+    for (__attr_unused__ typeof(*vec_var->tab) *ptr_var = vec_var->tab,      \
          *ptr_cpy_var = vec_var->tab;                                        \
          ptr_cpy_var < vec_var->tab + vec_var->len;                          \
          ptr_var = ++ptr_cpy_var)
@@ -616,7 +616,7 @@ typedef unsigned char byte;
 #define _tab_enumerate_ptr(pos_var, ptr_var, vec_var, _vec)                  \
     FOR_INSTR2(_tab_enumerate_ptr##ptr_var,                                  \
                typeof(*_vec) *vec_var = (_vec),                              \
-               __unused__ typeof(*vec_var->tab) *ptr_var)                    \
+               __attr_unused__ typeof(*vec_var->tab) *ptr_var)               \
     for (int pos_var = 0;                                                    \
          (ptr_var = &vec_var->tab[pos_var], pos_var < vec_var->len);         \
          pos_var++)
@@ -629,7 +629,7 @@ typedef unsigned char byte;
 #define _tab_enumerate(pos_var, entry_var, vec_var, _vec)                    \
     FOR_INSTR2(_tab_enumerate##entry_var,                                    \
                typeof(*_vec) *vec_var = (_vec),                              \
-               __unused__ typeof(*vec_var->tab) entry_var)                   \
+               __attr_unused__ typeof(*vec_var->tab) entry_var)              \
     for (int pos_var = 0;                                                    \
          pos_var < vec_var->len                                              \
       && (entry_var = vec_var->tab[pos_var], true);                          \
@@ -670,7 +670,7 @@ typedef unsigned char byte;
     for (int pos = 0; pos < countof(array); pos++)
 
 #define carray_for_each_ptr(ptr, array)                                      \
-    for (__unused__ typeof(*array) *ptr = (array),                           \
+    for (__attr_unused__ typeof(*array) *ptr = (array),                      \
          *__i_##ptr = (array);                                               \
          __i_##ptr < (array) + countof(array);                               \
          ptr = ++__i_##ptr)

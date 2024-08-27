@@ -607,7 +607,7 @@ ZBENCH_GROUP_EXPORT(thrjobs) {
         ZBENCH_LOOP() {
             t_scope;
             int count = 27;
-            __unused__
+            __attr_unused__
             int posted = 0;
             struct post_notify_node *nodes;
 
