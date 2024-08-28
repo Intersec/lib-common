@@ -370,7 +370,7 @@ struct httpd_cfg_t {
     dlist_t httpd_list;
     dlist_t http2_httpd_list; /* httpds backed http2 streams */
     const object_class_t * nullable httpd_cls;
-    httpd_trigger_node_t  roots[HTTP_METHOD_DELETE + 1];
+    httpd_trigger_node_t  roots[HTTP_METHOD__MAX];
 };
 
 struct core__httpd_cfg__t;
@@ -423,13 +423,23 @@ httpd_trigger_set_auth(httpd_trigger_t * nonnull cb,
     cb->auth = auth;
 }
 
-#define httpd_trigger_register(cfg, m, p, cb) \
-    httpd_trigger_register_flags(&(cfg)->roots[HTTP_METHOD_##m], p, cb, true)
-#define httpd_trigger_register2(cfg, m, p, cb, fl) \
-    httpd_trigger_register_flags(&(cfg)->roots[HTTP_METHOD_##m], p, cb, fl)
+#define httpd_trigger_register2(cfg, m, p, cb, fl)                           \
+    do {                                                                     \
+        STATIC_ASSERT(HTTP_METHOD_##m <= HTTP_METHOD_DELETE ||               \
+                      HTTP_METHOD_##m == HTTP_METHOD_PATCH);                 \
+        httpd_trigger_register_flags(&(cfg)->roots[HTTP_METHOD_##m],         \
+                                     p, cb, fl);                             \
+    } while(0)
+#define httpd_trigger_register(cfg, m, p, cb)                                \
+    httpd_trigger_register2(cfg, m, p, cb, true)
+
 #define httpd_trigger_unregister2(cfg, m, p, cb) \
-    httpd_trigger_unregister_(&(cfg)->roots[HTTP_METHOD_##m], p, cb)
-#define httpd_trigger_unregister(cfg, m, p) \
+    do {                                                                     \
+        STATIC_ASSERT(HTTP_METHOD_##m <= HTTP_METHOD_DELETE ||               \
+                      HTTP_METHOD_##m == HTTP_METHOD_PATCH);                 \
+        httpd_trigger_unregister_(&(cfg)->roots[HTTP_METHOD_##m], p, cb);    \
+    } while(0)
+#define httpd_trigger_unregister(cfg, m, p)                                  \
     httpd_trigger_unregister2(cfg, m, p, NULL)
 
 
