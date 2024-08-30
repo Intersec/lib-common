@@ -52,9 +52,7 @@ RE_STEP = re.compile(r"^# +\d+-(?P<number>\d+) +(?P<status>{0}) +"
                      r"\((?P<time>\d+\.\d+)s\)$".format("|".join(STATUS)))
 RE_END = re.compile("^# TOTAL$")
 RE_HEADER = re.compile(r"(.*),\d+:(0|1)")
-RE_SCREEN = re.compile(r"[ |:]*INFO:corp.intersec.ipy.pywww.helpers:"
-                       r"screenshot available -> "
-                       r"(?P<url>https://img.corp/.*)")
+RE_SCREEN = re.compile(r".*screenshot available -> (?P<url>https://img.corp/.*)")
 RE_BROWSER_LOG = re.compile(r"[ |:]*ERROR:corp.intersec.ipy.console.logs:"
                             r"(?P<log>.*)")
 
@@ -339,6 +337,7 @@ class Global(Result):
             trace = error.z_trace()
             if trace:
                 res.append(trace)
+
         res.append("{0}: {1}".format(previous_suite, "error"))
         return "\n".join(res)
 
@@ -365,6 +364,7 @@ class Error:
         self.testName = test  # pylint: disable=invalid-name
         self.context_l = context
         self.traces = fixed_list()
+        self.step_fail = ""
         self.screen_url = ""
         self.browser_log_l = fixed_list()
         self.status = status
@@ -396,6 +396,16 @@ class Error:
     def z_error(self):
         return ": - {0:s}: {1}".format(str(self), self.status)
 
+    def z_screenshot(self):
+        return ["Failed screenshot:",
+                 "screenshot available -> {0}".format(self.screen_url),
+                ""]
+
+    def z_step_fail(self):
+        return ["Step failed:",
+                "<{0}".format(self.step_fail),
+                ""]
+
     def __str__(self):
         return "{0}.{1}".format(self.groupName, self.testName.strip())
 
@@ -407,6 +417,8 @@ class StreamParser:
         self.product = None
         self.steps = []
         self.error = None
+        self.first_step_fail = None
+        self.screenshot = None
         self.do_break = False
         self.core_logs = False
         self.context = fixed_list()
@@ -437,7 +449,7 @@ class StreamParser:
         # splits the line in two.
         r = RE_HEADER.match(stream_line)
         if r is not None:
-            _, cur_stream  = r.groups()
+            _, cur_stream = r.groups()
             sub_token = r'\g<1>'
             if cur_stream != self.last_stream:
                 sub_token += r'\n'
@@ -501,7 +513,7 @@ class StreamParser:
                     self.res.errors.append(self.error)
                     for i in range(self.group_pos, self.group_len):
                         test_name = self.missing_test_name(
-                            self.group_name, i + 1,self.group_len)
+                            self.group_name, i + 1, self.group_len)
                         test = Test(i, test_name, "missing")
                         self.group.append_test(test)
                 self.group_len, self.group_name = r.groups()
@@ -599,22 +611,40 @@ class StreamParser:
                     self.error = Error(
                         self.product.name, self.suite_fullname,
                         self.group.name, test.name, self.context, test.status)
+                    self.error.screen_url = self.screenshot
+                    self.screenshot = None
+                    self.error.step_fail = self.first_step_fail
+                    self.first_step_fail = None
                     self.res.errors.append(self.error)
                     self.context = fixed_list()
                     self.context.append((self.last_stream, line))
+
+                    # Define error.trace start content
+                    if self.error.step_fail:
+                        self.error.traces.extend(
+                            self.error.z_step_fail())
+                    if self.error.screen_url:
+                        self.error.traces.extend(
+                            self.error.z_screenshot())
+                    self.error.traces.append("Traceback:")
                 continue
+
+            r = RE_SCREEN.match(line)
+            if r is not None:
+                self.screenshot = r.group('url')
 
             r = RE_STEP.match(line)
             if r is not None:
                 step_args = dict(r.groupdict())
-                self.steps.append(Step(**step_args))
+                step = Step(**step_args)
+                self.steps.append(step)
+                if step.status == "fail":
+                    # save the first KO step
+                    self.first_step_fail = step.name
 
             if line.startswith(':'):
                 if self.error:
                     self.error.traces.append(line[1:])
-                    r = RE_SCREEN.match(line)
-                    if r is not None:
-                        self.error.screen_url = r.group('url')
 
                     l = RE_BROWSER_LOG.match(line)
                     if l is not None:
