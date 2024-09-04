@@ -79,7 +79,7 @@ Z_GROUP_EXPORT(endianess)
 #define DO_TEST(w, e, x)                                                     \
         ({                                                                   \
             pstream_t __ps;                                                  \
-            typeof(x) __x2;                                                  \
+            typeof(x) __x2 = 0;                                              \
                                                                              \
             sb_reset(&sb);                                                   \
             sb_add_##e##w(&sb, x);                                           \
