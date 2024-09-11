@@ -468,10 +468,19 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
 
 /** Compare two null-terminated printable strings. */
 #define Z_ASSERT_STREQUAL(lhs, rhs, ...) \
-    ({ if (_z_assert_lstrequal(__FILE__, __LINE__, false,                    \
-                               #lhs, LSTR(lhs), #rhs, LSTR(rhs),             \
+    ({                                                                       \
+        /* XXX Prevent issues if lhs/rhs use themselves macros. */           \
+        const char *PFX_LINE(lhs_str) = (lhs);                               \
+        const char *PFX_LINE(rhs_str) = (rhs);                               \
+                                                                             \
+        if (_z_assert_lstrequal(__FILE__, __LINE__, false,                   \
+                                #lhs, LSTR(PFX_LINE(lhs_str)),               \
+                                #rhs, LSTR(PFX_LINE(rhs_str)),               \
                                ""__VA_ARGS__))                               \
-        goto _z_step_end; })
+        {                                                                    \
+            goto _z_step_end;                                                \
+        }                                                                    \
+    })
 
 /** Compare two non-printable strings. */
 #define Z_ASSERT_DATAEQUAL(lhs, rhs, ...) \
