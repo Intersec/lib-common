@@ -45,8 +45,12 @@ typedef struct lstr_t {
 #define LSTR_INIT_V(s, len)     (lstr_t)LSTR_INIT(s, len)
 #define LSTR_IMMED(str)         LSTR_INIT(""str, sizeof(str) - 1)
 #define LSTR_IMMED_V(str)       LSTR_INIT_V(""str, sizeof(str) - 1)
-#define LSTR(str)               ({ const char *__s = (str); \
-                                   LSTR_INIT_V(__s, (int)strlen(__s)); })
+#define LSTR(str)                                                            \
+    ({                                                                       \
+        const char *PFX_LINE(lstr_macro_s) = (str);                          \
+        LSTR_INIT_V(PFX_LINE(lstr_macro_s),                                  \
+                    (int)strlen(PFX_LINE(lstr_macro_s)));                    \
+    })
 #define LSTR_NULL               LSTR_INIT(NULL, 0)
 #define LSTR_NULL_V             LSTR_INIT_V(NULL, 0)
 #define LSTR_EMPTY              LSTR_INIT("", 0)
@@ -66,9 +70,11 @@ typedef struct lstr_t {
 
 #define LSTR_FMT_ARG(s_)      (s_).len, (s_).s
 
-#define LSTR_OPT(str)         ({ const char *__s = (str);              \
-                                 __s ? LSTR_INIT_V(__s, strlen(__s))   \
-                                     : LSTR_NULL_V; })
+#define LSTR_OPT(str)                                                        \
+    ({                                                                       \
+        const char *PFX_LINE(lstr_opt_s) = (str);                            \
+        PFX_LINE(lstr_opt_s) ? LSTR(PFX_LINE(lstr_opt_s)) : LSTR_NULL_V;     \
+    })
 
 /* obsolete stuff, please try not to use anymore */
 #define LSTR_STR_V      LSTR
