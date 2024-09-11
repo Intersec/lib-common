@@ -168,6 +168,13 @@ lstr_t mp_lstr_cat(mem_pool_t * nullable mp, const lstr_t s1, const lstr_t s2);
 lstr_t mp_lstr_cat3(mem_pool_t * nullable mp, const lstr_t s1, const lstr_t s2,
                     const lstr_t s3);
 
+/** Copy the lstr and return it as a null-terminated string. */
+static inline char *nonnull mp_lstr_dupz(mem_pool_t *nullable mp,
+                                         const lstr_t s)
+{
+    return mp_dupz(mp, s.s, s.len);
+}
+
 /** Wipe a lstr_t (frees memory if needed).
  *
  * This flavour assumes that the passed memory pool is the one to deallocate
@@ -239,6 +246,14 @@ static inline lstr_t lstr_dups(const char * nullable s, int len)
 static inline lstr_t lstr_dup(const lstr_t s)
 {
     return mp_lstr_dup(NULL, s);
+}
+
+/** \brief return a new libc allocated null-terminated string copied from the
+ * input lstr.
+ */
+static inline char *nonnull lstr_dupz(const lstr_t s)
+{
+    return mp_lstr_dupz(NULL, s);
 }
 
 /** \brief sets \v dst to a new libc allocated lstr from its arguments.
@@ -319,6 +334,13 @@ static inline lstr_t t_lstr_dup(const lstr_t s)
 static inline lstr_t t_lstr_dups(const char * nullable s, int len)
 {
     return mp_lstr_dups(t_pool(), s, len);
+}
+
+/** \brief returns a null-terminated copy of the lstr allocated on the mem
+ * stack. */
+static inline const char *nonnull t_lstr_dupz(const lstr_t s)
+{
+    return mp_lstr_dupz(t_pool(), s);
 }
 
 /** \brief sets \v dst to a mem stack allocated copy of its arguments.

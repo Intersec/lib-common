@@ -2517,6 +2517,25 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_LSTREQUAL(map, LSTR_EMPTY_V);
         lstr_wipe(&map);
     } Z_TEST_END;
+
+    Z_TEST(lstr_dupz, "") {
+        t_scope;
+        char *s;
+
+        /* Duplicated string already null-terminated. */
+        Z_ASSERT_STREQUAL(t_lstr_dupz(LSTR("foo")), "foo");
+
+        /* Duplicated string not null-terminated. */
+        Z_ASSERT_STREQUAL(t_lstr_dupz(LSTR_INIT_V("abcdef", 4)), "abcd");
+
+        /* Check 'lstr_dupz()' as well. */
+        s = lstr_dupz(LSTR("test"));
+        Z_ASSERT_STREQUAL(s, "test");
+        p_delete(&s);
+
+        /* No need to check 'mp_lstr_dupz()' as it is used for implementation
+         * of both 'lstr_dupz()', 't_lstr_dupz()'. */
+    } Z_TEST_END;
 } Z_GROUP_END;
 
 /* }}} */
