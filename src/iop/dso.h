@@ -121,11 +121,6 @@ void iop_dso_register(iop_dso_t * nonnull dso);
 /** Unregister the packages contained in a DSO. */
 void iop_dso_unregister(iop_dso_t * nonnull dso);
 
-iop_struct_t const * nullable
-iop_dso_find_type(iop_dso_t const * nonnull dso, lstr_t name);
-iop_enum_t const * nullable
-iop_dso_find_enum(iop_dso_t const * nonnull dso, lstr_t name);
-
 const void * const nullable * nullable
 iop_dso_get_ressources(const iop_dso_t * nonnull, lstr_t category);
 

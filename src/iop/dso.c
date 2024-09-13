@@ -31,12 +31,6 @@ void iopdso_register_typedef(iop_dso_t *dso, iop_typedef_t const *td)
     qm_add(iop_typedef, &dso->typedef_h, &td->fullname, td);
 }
 
-static ALWAYS_INLINE
-int iop_typedef_is_struct(iop_typedef_t const *td)
-{
-    return (td->type == IOP_T_UNION) || (td->type == IOP_T_STRUCT);
-}
-
 static lstr_t iop_pkgname_from_fullname(lstr_t fullname)
 {
     const void *p;
@@ -450,100 +444,6 @@ void iop_dso_unregister(iop_dso_t *dso)
                                 vec.len);
         dso->is_registered = false;
     }
-}
-
-static iop_rpc_t const *
-find_rpc_in_iface(iop_iface_t const *iface, lstr_t fname)
-{
-    for (int i = 0; i < iface->funs_len; i++) {
-        iop_rpc_t const *rpc = &iface->funs[i];
-
-        if (lstr_equal(rpc->name, fname)) {
-            return rpc;
-        }
-    }
-    return NULL;
-}
-
-static iop_rpc_t const *
-find_rpc_in_mod(iop_mod_t const *mod, lstr_t iface, lstr_t fname)
-{
-    for (int i = 0; i < mod->ifaces_len; i++) {
-        const iop_iface_alias_t *alias = &mod->ifaces[i];
-
-        if (lstr_equal(alias->name, iface)) {
-            return find_rpc_in_iface(alias->iface, fname);
-        }
-    }
-    return NULL;
-}
-
-iop_struct_t const *iop_dso_find_type(iop_dso_t const *dso, lstr_t name)
-{
-    const char *s;
-    int what, pos;
-    lstr_t fname;
-    iop_rpc_t const *rpc;
-
-    pos = qm_find_safe(iop_struct, &dso->struct_h, &name);
-    if (pos >= 0) {
-        return dso->struct_h.values[pos];
-    }
-    pos = qm_find_safe(iop_typedef, &dso->typedef_h, &name);
-    if (pos >= 0 && iop_typedef_is_struct(dso->typedef_h.values[pos])) {
-        return dso->typedef_h.values[pos]->ref_struct;
-    }
-
-    if (lstr_endswith(name, LSTR("Args"))) {
-        name.len -= strlen("Args");
-        what = 0;
-    } else
-    if (lstr_endswith(name, LSTR("Res"))) {
-        name.len -= strlen("Res");
-        what = 1;
-    } else
-    if (lstr_endswith(name, LSTR("Exn"))) {
-        name.len -= strlen("Exn");
-        what = 2;
-    } else {
-        return NULL;
-    }
-
-    /* name is some.path.to.pkg.{Module.iface.rpc|Iface.rpc} */
-    s        = RETHROW_P(memrchr(name.s, '.', name.len));
-    fname    = LSTR_INIT_V(s + 1, name.s + name.len - s - 1);
-    name.len = s - name.s;
-
-    s = RETHROW_P(memrchr(name.s, '.', name.len));
-    if ('A' <= s[1] && s[1] <= 'Z') {
-        /* name is an Iface */
-        pos = RETHROW_NP(qm_find_safe(iop_iface, &dso->iface_h, &name));
-        rpc = RETHROW_P(find_rpc_in_iface(dso->iface_h.values[pos], fname));
-    } else {
-        /* name is a Module.iface */
-        lstr_t mod = LSTR_INIT(name.s, s - name.s);
-        lstr_t ifn = LSTR_INIT(s + 1, name.s + name.len - (s + 1));
-
-        pos = RETHROW_NP(qm_find_safe(iop_mod, &dso->mod_h, &mod));
-        rpc = RETHROW_P(find_rpc_in_mod(dso->mod_h.values[pos], ifn, fname));
-    }
-    switch (what) {
-      case 0:  return rpc->args;
-      case 1:  return rpc->result;
-      default: return rpc->exn;
-    }
-}
-
-iop_enum_t const *iop_dso_find_enum(iop_dso_t const *dso, lstr_t name)
-{
-    int pos = qm_find_safe(iop_enum, &dso->enum_h, &name);
-    if (pos >= 0) {
-        return dso->enum_h.values[pos];
-    }
-
-    pos = qm_find_safe(iop_typedef, &dso->typedef_h, &name);
-    return ((pos >= 0) && (dso->typedef_h.values[pos]->type == IOP_T_ENUM)) ?
-           dso->typedef_h.values[pos]->ref_enum : NULL;
 }
 
 const void *const *iop_dso_get_ressources(const iop_dso_t *dso, lstr_t category)
