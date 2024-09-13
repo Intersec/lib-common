@@ -154,6 +154,14 @@ void iop_env_transfer(iop_env_t * nonnull dst, iop_env_t * nonnull src);
 const iop_obj_t *nullable iop_get_obj(const iop_env_t *nonnull iop_env,
                                       lstr_t fullname);
 
+/** Get a IOP structure from its fullname. */
+const iop_struct_t * nullable
+iop_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname);
+
+/** Get an enumeration from its fullname. */
+const iop_enum_t * nullable
+iop_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname);
+
 /* }}} */
 /* {{{ IOP various useful typedefs and functions */
 
@@ -2194,10 +2202,6 @@ int iop_check_constraints_desc(const iop_struct_t * nonnull desc,
 
 qm_kvec_t(iop_enum, lstr_t, const iop_enum_t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
-
-/** Get an enumeration from its fullname. */
-const iop_enum_t * nullable iop_get_enum(const iop_env_t * nonnull iop_env,
-                                         lstr_t fullname);
 
 /** Convert IOP enum integer value to lstr_t representation.
  *

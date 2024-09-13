@@ -39,12 +39,12 @@ static int yaml_pack_write_stdout(void * nullable priv,
 }
 
 static const iop_struct_t * nullable
-get_iop_type(const iop_dso_t * nonnull dso, const lstr_t name,
+get_iop_type(const iop_env_t * nonnull iop_env, const lstr_t name,
              sb_t * nonnull err)
 {
     const iop_struct_t *st;
 
-    st = iop_dso_find_type(dso, name);
+    st = iop_get_struct(iop_env, name);
     if (!st) {
         sb_setf(err, "unknown IOP type `%pL`", &name);
         return NULL;
@@ -97,18 +97,18 @@ t_get_repacked_yaml_pres_subfiles(const char *main_file,
 
 static int
 t_parse_yaml(yaml_parse_t *env, const iop_env_t * nonnull iop_env,
-             const iop_dso_t * nullable dso, const iop_struct_t * nullable st,
+             const iop_struct_t * nullable st,
              yaml_data_t * nonnull data, sb_t * nonnull err)
 {
     RETHROW(t_yaml_parse(env, data, err));
 
-    if (dso && !st) {
+    if (!st) {
         if (!data->tag.s) {
             sb_setf(err, "document should start with a tag equals to the "
                     "fullname of the IOP type serialized");
             return -1;
         }
-        st = RETHROW_PN(get_iop_type(dso, data->tag, err));
+        st = RETHROW_PN(get_iop_type(iop_env, data->tag, err));
     }
 
     if (st) {
@@ -188,7 +188,7 @@ repack_yaml(const char * nullable filename, const iop_env_t * nonnull iop_env,
         yaml_parse_attach_ps(env, ps_initlstr(&file));
     }
 
-    if (t_parse_yaml(env, iop_env, dso, st, &data, err) < 0) {
+    if (t_parse_yaml(env, iop_env, st, &data, err) < 0) {
         res = -1;
         goto end;
     }
@@ -287,8 +287,8 @@ parse_and_repack(const char * nullable filename,
 {
     const iop_struct_t *st = NULL;
 
-    if (dso && opts_g.type_name) {
-        st = RETHROW_PN(get_iop_type(dso, LSTR(opts_g.type_name), err));
+    if (opts_g.type_name) {
+        st = RETHROW_PN(get_iop_type(iop_env, LSTR(opts_g.type_name), err));
     }
 
     if (opts_g.json_input) {

@@ -6701,7 +6701,28 @@ void iop_register_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
     }
 }
 
-const iop_enum_t *iop_get_enum(const iop_env_t *iop_env, lstr_t fullname)
+const iop_struct_t * nullable
+iop_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
+{
+
+    const iop_obj_t *obj = RETHROW_P(iop_get_obj(iop_env, fullname));
+
+    switch (obj->type) {
+    case IOP_OBJ_TYPE_ST:
+        return obj->desc.st;
+    case IOP_OBJ_TYPE_TYPEDEF: {
+        const iop_type_t td_type = obj->desc.td->type;
+
+        THROW_NULL_IF(td_type != IOP_T_STRUCT && td_type != IOP_T_UNION);
+        return obj->desc.td->ref_struct;
+    }
+    default:
+        return NULL;
+    }
+}
+
+const iop_enum_t * nullable
+iop_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
     const iop_obj_t *obj = RETHROW_P(iop_get_obj(iop_env, fullname));
 

@@ -53,7 +53,7 @@ static lstr_t iop_pkgname_from_fullname(lstr_t fullname)
 }
 
 static const iop_struct_t *
-iop_get_struct(const iop_pkg_t *pkg, lstr_t fullname)
+iop_pkg_get_struct(const iop_pkg_t *pkg, lstr_t fullname)
 {
     for (const iop_struct_t * const *st = pkg->structs; *st; st++) {
         if (lstr_equal(fullname, (*st)->fullname)) {
@@ -103,7 +103,7 @@ static int iopdso_fix_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
         return 0;
     }
 
-    pkg_st = iop_get_struct(pkg, st->fullname);
+    pkg_st = iop_pkg_get_struct(pkg, st->fullname);
     if (!pkg_st) {
         e_error("IOP DSO: did not find struct `%*pM` in memory",
                 LSTR_FMT_ARG(st->fullname));
