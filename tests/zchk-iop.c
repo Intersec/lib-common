@@ -1399,12 +1399,14 @@ iop_check_struct_backward_compat(const iop_struct_t *st1,
                 LSTR_FMT_ARG(st1->fullname), LSTR_FMT_ARG(st2->fullname));
 
     if (exp_err) {
-        Z_ASSERT_NEG(iop_struct_check_backward_compat(_G.iop_env, st1, st2,
+        Z_ASSERT_NEG(iop_struct_check_backward_compat(_G.iop_env, st1,
+                                                      _G.iop_env, st2,
                                                       flags, &err),
                      "%s should fail", ctx);
         Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), LSTR(exp_err));
     } else {
-        Z_ASSERT_N(iop_struct_check_backward_compat(_G.iop_env, st1, st2,
+        Z_ASSERT_N(iop_struct_check_backward_compat(_G.iop_env, st1,
+                                                    _G.iop_env, st2,
                                                     flags, &err),
                    "unexpected failure of %s: %*pM", ctx, SB_FMT_ARG(&err));
     }
@@ -1463,7 +1465,8 @@ static int iop_check_typedef_backward_compat(const iop_struct_t *st,
                 LSTR_FMT_ARG(td->fullname), LSTR_FMT_ARG(st->fullname));
 
     Z_ASSERT_N(iop_struct_check_backward_compat(_G.iop_env, st,
-                                                td->ref_struct, flags, &err),
+                                                _G.iop_env, td->ref_struct,
+                                                flags, &err),
                "unexpected failure of %s: %*pM", ctx, SB_FMT_ARG(&err));
 
     if (!obj1) {
@@ -1494,30 +1497,73 @@ static int iop_check_typedef_backward_compat(const iop_struct_t *st,
     Z_HELPER_END;
 }
 
-#define _Z_DSO_OPEN(_dso_path, in_cmddir)                                    \
-    ({                                                                       \
-        t_scope;                                                             \
-        SB_1k(_err);                                                         \
-        lstr_t _path = LSTR(_dso_path);                                      \
-        iop_dso_t *_dso;                                                     \
-                                                                             \
-        if (in_cmddir) {                                                     \
-            _path = t_lstr_cat(z_cmddir_g, _path);                           \
-        }                                                                    \
-        _dso = iop_dso_open(_G.iop_env, _path.s, &_err);                    \
-        if (_dso == NULL) {                                                  \
-            if (in_cmddir) {                                                 \
-                Z_ASSERT_P(_dso, "unable to load `%s`: %*pM",                \
-                           _path.s, SB_FMT_ARG(&_err));                      \
-            } else {                                                         \
-                Z_SKIP("unable to load `%s` (TOOLS repo?): %*pM",            \
-                       _path.s, SB_FMT_ARG(&_err));                          \
-            }                                                                \
-        }                                                                    \
-        _dso;                                                                \
-    })
+static int iop_check_pkg_backward_compat(const iop_pkg_t *pkg1,
+                                         const iop_pkg_t *pkg2,
+                                         unsigned flags,
+                                         const char * nullable exp_err)
+{
+    SB_1k(err);
+    iop_env_t *iop_env1;
+    iop_env_t *iop_env2;
+    int res;
 
-#define Z_DSO_OPEN()  _Z_DSO_OPEN("iop/zchk-tstiop-plugin" SO_FILEEXT, true)
+    /* Create the IOP envs */
+    iop_env1 = iop_env_new();
+    IOP_REGISTER_PACKAGES(iop_env1, pkg1);
+
+    iop_env2 = iop_env_new();
+    IOP_REGISTER_PACKAGES(iop_env2, pkg2);
+
+    /* Check the package backward compat */
+    res = iop_pkg_check_backward_compat(iop_env1, pkg1, iop_env2, pkg2,
+                                        flags, &err);
+
+    /* Clean up the envs */
+    iop_env_delete(&iop_env2);
+    iop_env_delete(&iop_env1);
+
+    /* Check the results */
+    if (!exp_err) {
+        Z_ASSERT_N(res, "%*pM", SB_FMT_ARG(&err));
+    } else {
+        Z_ASSERT_NEG(res);
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), LSTR(exp_err));
+    }
+
+    Z_HELPER_END;
+}
+
+static int _z_dso_open(const char *dso_path, bool in_cmddir,
+                       iop_env_t *iop_env, iop_dso_t **dsop)
+{
+    t_scope;
+    SB_1k(err);
+    lstr_t path = LSTR(dso_path);
+    iop_dso_t *dso;
+
+    if (in_cmddir) {
+        path = t_lstr_cat(z_cmddir_g, path);
+    }
+    dso = iop_dso_open(iop_env, path.s, &err);
+    if (dso == NULL) {
+        if (in_cmddir) {
+            Z_ASSERT_P(dso, "unable to load `%s`: %*pM",
+                       path.s, SB_FMT_ARG(&err));
+        } else {
+            Z_SKIP("unable to load `%s` (TOOLS repo?): %*pM",
+                   path.s, SB_FMT_ARG(&err));
+        }
+    }
+
+    *dsop = dso;
+    Z_HELPER_END;
+}
+
+static int z_dso_open(iop_dso_t **dsop)
+{
+    return _z_dso_open("iop/zchk-tstiop-plugin" SO_FILEEXT, true,
+                       _G.iop_env, dsop);
+}
 
 static int z_check_static_field_type(const iop_struct_t *st,
                                      lstr_t name, iop_type_t type,
@@ -1648,7 +1694,7 @@ Z_GROUP_EXPORT(iop)
         iop_dso_t *dso;
         uint8_t buf1[20], buf2[20];
 
-        dso = Z_DSO_OPEN();
+        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(stv1 = iop_get_struct(_G.iop_env, LSTR("tstiop.HashV1")));
         Z_ASSERT_P(stv2 = iop_get_struct(_G.iop_env, LSTR("tstiop.HashV2")));
@@ -1958,7 +2004,7 @@ Z_GROUP_EXPORT(iop)
 
         iop_dso_t *dso;
 
-        dso = Z_DSO_OPEN();
+        Z_HELPER_RUN(z_dso_open(&dso));
 
         {
             tstiop__my_union_a__t ua = IOP_UNION(tstiop__my_union_a, ua, 42);
@@ -2107,7 +2153,7 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *st_se, *st_sa, *st_sf, *st_cs, *st_sa_opt;
         const iop_struct_t *st_cls2;
 
-        dso = Z_DSO_OPEN();
+        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_se = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructE")));
         Z_ASSERT_P(st_sa = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructA")));
@@ -2612,7 +2658,7 @@ Z_GROUP_EXPORT(iop)
 
         /* }}} */
 
-        dso = Z_DSO_OPEN();
+        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sa = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructA")));
         Z_ASSERT_P(st_sf = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructF")));
@@ -3438,7 +3484,7 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *st_sa, *st_sa_opt, *st_se, *st_cls2;
 
 
-        dso = Z_DSO_OPEN();
+        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sa = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructA")));
         Z_ASSERT_P(st_sa_opt = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructAOpt")));
@@ -3514,7 +3560,7 @@ Z_GROUP_EXPORT(iop)
         lstr_t s;
         const unsigned flags = IOP_BPACK_SKIP_DEFVAL;
 
-        dso = Z_DSO_OPEN();
+        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sg = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructG")));
 
@@ -3607,7 +3653,7 @@ Z_GROUP_EXPORT(iop)
         iop_dso_t *dso;
         const iop_struct_t *st_sg, *st_sa_opt, *st_ua, *st_sr;
 
-        dso = Z_DSO_OPEN();
+        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sg = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructG")));
         Z_ASSERT_P(st_sr = iop_get_struct(_G.iop_env, LSTR("tstiop.Repeated")));
@@ -3830,7 +3876,7 @@ Z_GROUP_EXPORT(iop)
         iop_dso_t *dso;
         const iop_struct_t *st_sl;
 
-        dso = Z_DSO_OPEN();
+        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sl = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructL")));
 
@@ -3887,7 +3933,7 @@ Z_GROUP_EXPORT(iop)
         iop_dso_t *dso;
         const iop_struct_t *st_s, *st_u, *st_c;
 
-        dso = Z_DSO_OPEN();
+        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_s = iop_get_struct(_G.iop_env, LSTR("tstiop.ConstraintS")));
         Z_ASSERT_P(st_u = iop_get_struct(_G.iop_env, LSTR("tstiop.ConstraintU")));
@@ -6298,7 +6344,7 @@ Z_GROUP_EXPORT(iop)
         byte *dst;
         pstream_t ps;
 
-        dso = Z_DSO_OPEN();
+        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sa = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructA")));
         Z_ASSERT_P(st_cls2 = iop_get_struct(_G.iop_env, LSTR("tstiop.MyClass2")));
@@ -8423,20 +8469,17 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_pkg_check_backward_compat, "test iop_pkg_check_backward_compat") { /* {{{ */
         SB_1k(err);
+        iop_env_t *iop_env_old_ = NULL;
+        iop_env_t *iop_env_new_ = NULL;
         iop_dso_t *dso_old = NULL;
         iop_dso_t *dso_new = NULL;
         iop_pkg_t **pkgp_old = NULL;
         iop_pkg_t **pkgp_new = NULL;
 
 #define T_OK(_pkg1, _pkg2, _flags)  \
-        do {                                                                 \
-            sb_reset(&err);                                                  \
-            Z_ASSERT_N(iop_pkg_check_backward_compat(_G.iop_env,            \
-                                                     &_pkg1##__pkg,          \
-                                                     &_pkg2##__pkg,          \
-                                                     NULL, _flags, &err),    \
-                       "%*pM", SB_FMT_ARG(&err));                            \
-        } while (0)
+        Z_HELPER_RUN(iop_check_pkg_backward_compat(&_pkg1##__pkg,            \
+                                                   &_pkg2##__pkg,            \
+                                                   _flags, NULL))
 
 #define T_OK_ALL(_pkg1, _pkg2)  \
         do {                                                                 \
@@ -8446,14 +8489,9 @@ Z_GROUP_EXPORT(iop)
         } while (0)
 
 #define T_KO(_pkg1, _pkg2, _flags, _err)  \
-        do {                                                                 \
-            sb_reset(&err);                                                  \
-            Z_ASSERT_NEG(iop_pkg_check_backward_compat(_G.iop_env,          \
-                                                       &_pkg1##__pkg,        \
-                                                       &_pkg2##__pkg,        \
-                                                       NULL, _flags, &err)); \
-            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), LSTR(_err));                 \
-        } while (0)
+        Z_HELPER_RUN(iop_check_pkg_backward_compat(&_pkg1##__pkg,            \
+                                                   &_pkg2##__pkg,            \
+                                                   _flags, (_err)))
 
 #define T_KO_ALL(_pkg1, _pkg2, _err)  \
         do {                                                                 \
@@ -8611,30 +8649,36 @@ Z_GROUP_EXPORT(iop)
          * the backward compatibility between the 2 packages without the
          * hassle to "hack" const structures generated by iopc. It has be done
          * using two different folders */
-        dso_old = _Z_DSO_OPEN("iop/backward-compat/old/zchk-tstiop-backward-"
-                              "compat-typedef-old" SO_FILEEXT, true);
-        dso_new = _Z_DSO_OPEN("iop/backward-compat/new/zchk-tstiop-backward-"
-                              "compat-typedef-new" SO_FILEEXT, true);
+        iop_env_old_ = iop_env_new();
+        iop_env_new_ = iop_env_new();
+        Z_HELPER_RUN(_z_dso_open(
+            "iop/backward-compat/old/zchk-tstiop-backward-"
+            "compat-typedef-old" SO_FILEEXT, true, iop_env_old_, &dso_old));
+        Z_HELPER_RUN(_z_dso_open(
+            "iop/backward-compat/new/zchk-tstiop-backward-"
+            "compat-typedef-new" SO_FILEEXT, true, iop_env_new_, &dso_new));
 
         pkgp_old = dlsym(dso_old->handle, "iop_packages");
         pkgp_new = dlsym(dso_new->handle, "iop_packages");
 
 #undef T_OK
-#define T_OK(_pkg1, _pkg2, _dso2, _flags)  \
+#define T_OK(_iop_env1, _pkg1, _iop_env2, _pkg2, _flags)  \
         do {                                                                 \
             sb_reset(&err);                                                  \
-            Z_ASSERT_N(iop_pkg_check_backward_compat(_G.iop_env, (_pkg1),   \
-                                                     (_pkg2), (_dso2),       \
+            Z_ASSERT_N(iop_pkg_check_backward_compat((_iop_env1), (_pkg1),   \
+                                                     (_iop_env2), (_pkg2),   \
                                                      (_flags), &err),        \
                        "%*pM", SB_FMT_ARG(&err));                            \
         } while (0)
 
-        T_OK(*pkgp_old, *pkgp_new, dso_new, IOP_COMPAT_BIN);
-        T_OK(*pkgp_old, *pkgp_new, dso_new, IOP_COMPAT_JSON);
-        T_OK(*pkgp_old, *pkgp_new, dso_new, IOP_COMPAT_ALL);
+        T_OK(iop_env_old_, *pkgp_old, iop_env_new_, *pkgp_new, IOP_COMPAT_BIN);
+        T_OK(iop_env_old_, *pkgp_old, iop_env_new_, *pkgp_new, IOP_COMPAT_JSON);
+        T_OK(iop_env_old_, *pkgp_old, iop_env_new_, *pkgp_new, IOP_COMPAT_ALL);
 
         iop_dso_close(&dso_old);
         iop_dso_close(&dso_new);
+        iop_env_delete(&iop_env_old_);
+        iop_env_delete(&iop_env_new_);
 
 #undef T_OK
 #undef T_OK_ALL
@@ -8673,8 +8717,9 @@ Z_GROUP_EXPORT(iop)
         lstr_t en_name = LSTR("tstiop_backward_compat_typedef.MyEnumA");
         lstr_t en_exp = LSTR("tstiop_backward_compat_remote_typedef.MyEnumA");
 
-        dso = _Z_DSO_OPEN("iop/backward-compat/new/zchk-tstiop-backward-"
-                          "compat-typedef-new" SO_FILEEXT, true);
+        Z_HELPER_RUN(_z_dso_open(
+            "iop/backward-compat/new/zchk-tstiop-backward-"
+            "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
         Z_ASSERT_P(dso);
         Z_ASSERT_P(en = iop_get_enum(_G.iop_env, en_name));
         Z_ASSERT_LSTREQUAL(en->fullname, en_exp);
@@ -8688,8 +8733,9 @@ Z_GROUP_EXPORT(iop)
         lstr_t st_exp = LSTR("tstiop_backward_compat_remote_typedef."
                              "MovedMyClass2");
 
-        dso = _Z_DSO_OPEN("iop/backward-compat/new/zchk-tstiop-backward-"
-                          "compat-typedef-new" SO_FILEEXT, true);
+        Z_HELPER_RUN(_z_dso_open(
+            "iop/backward-compat/new/zchk-tstiop-backward-"
+            "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
         Z_ASSERT_P(dso);
         Z_ASSERT_P(st = iop_get_struct(_G.iop_env, st_name));
         Z_ASSERT_LSTREQUAL(st->fullname, st_exp);
@@ -8785,7 +8831,8 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *my_struct;
         const iop_field_t *field;
 
-        dso = _Z_DSO_OPEN("iop/zchk-tstiop2-plugin" SO_FILEEXT, true);
+        Z_HELPER_RUN(_z_dso_open("iop/zchk-tstiop2-plugin" SO_FILEEXT, true,
+                                 _G.iop_env, &dso));
 
         my_struct = iop_get_struct(_G.iop_env, LSTR("tstiop2.MyStruct"));
         Z_ASSERT_N(iop_field_find_by_name(my_struct, LSTR("a"), NULL,
@@ -8812,13 +8859,13 @@ Z_GROUP_EXPORT(iop)
         /* build one dso, remove file */
         newpath = t_fmt("%*pM/1_%s", LSTR_FMT_ARG(z_tmpdir_g), sofile);
         Z_ASSERT_N(filecopy(sopath, newpath), "%s -> %s: %m", sopath, newpath);
-        dso1 = _Z_DSO_OPEN(newpath, false);
+        Z_HELPER_RUN(_z_dso_open(newpath, false, _G.iop_env, &dso1));
         Z_ASSERT_N(unlink(newpath));
 
         /* build the second one, remove file */
         newpath = t_fmt("%*pM/2_%s", LSTR_FMT_ARG(z_tmpdir_g), sofile);
         Z_ASSERT_N(filecopy(sopath, newpath));
-        dso2 = _Z_DSO_OPEN(newpath, false);
+        Z_HELPER_RUN(_z_dso_open(newpath, false, _G.iop_env, &dso2));
         Z_ASSERT_N(unlink(newpath));
 
         /* the two files must be independent. If they are not, closing the

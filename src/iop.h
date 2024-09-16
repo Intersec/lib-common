@@ -2818,8 +2818,7 @@ enum iop_compat_check_flags {
  */
 typedef struct iop_compat_ctx_t iop_compat_ctx_t;
 
-iop_compat_ctx_t * nonnull
-iop_compat_ctx_new(const iop_env_t * nonnull iop_env);
+iop_compat_ctx_t * nonnull iop_compat_ctx_new(void);
 void iop_compat_ctx_delete(iop_compat_ctx_t * nullable * nonnull ctx);
 
 /** Checks the backward compatibility of two IOP structures/classes/unions.
@@ -2833,8 +2832,9 @@ void iop_compat_ctx_delete(iop_compat_ctx_t * nullable * nonnull ctx);
  * \warning in case \p st1 and \p st2 are classes, it is not checking the
  *          backward compatibility of their children.
  */
-int iop_struct_check_backward_compat(const iop_env_t * nonnull iop_env,
+int iop_struct_check_backward_compat(const iop_env_t * nonnull iop_env1,
                                      const iop_struct_t * nonnull st1,
+                                     const iop_env_t * nonnull iop_env2,
                                      const iop_struct_t * nonnull st2,
                                      unsigned flags, sb_t * nonnull err);
 
@@ -2853,10 +2853,10 @@ struct iop_dso_t;
  *
  * \warning this function does not check the interfaces/RPCs for now.
  */
-int iop_pkg_check_backward_compat(const iop_env_t * nonnull iop_env,
+int iop_pkg_check_backward_compat(const iop_env_t * nonnull iop_env1,
                                   const iop_pkg_t * nonnull pkg1,
+                                  const iop_env_t * nonnull iop_env2,
                                   const iop_pkg_t * nonnull pkg2,
-                                  const struct iop_dso_t * nullable dso2,
                                   unsigned flags, sb_t * nonnull err);
 
 /** Checks the backward compatibility of two IOP packages with provided
@@ -2867,9 +2867,10 @@ int iop_pkg_check_backward_compat(const iop_env_t * nonnull iop_env,
  * This function introduce a way to provide an external compatibility context
  * \p ctx allowing backward compatibility checks between multiple packages.
  */
-int iop_pkg_check_backward_compat_ctx(const iop_pkg_t * nonnull pkg1,
+int iop_pkg_check_backward_compat_ctx(const iop_env_t * nonnull iop_env1,
+                                      const iop_pkg_t * nonnull pkg1,
+                                      const iop_env_t * nonnull iop_env2,
                                       const iop_pkg_t * nonnull pkg2,
-                                      const struct iop_dso_t * nullable dso2,
                                       iop_compat_ctx_t * nonnull ctx,
                                       unsigned flags, sb_t * nonnull err);
 

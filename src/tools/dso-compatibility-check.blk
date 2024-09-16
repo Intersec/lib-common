@@ -67,6 +67,7 @@ int main(int argc, char *argv[])
     t_scope;
     iop_env_t *iop_env;
     iop_dso_t *dso;
+    iop_env_t *iop_env_old;
     iop_dso_t *dso_old;
     iop_compat_ctx_t *ctx;
     unsigned flags;
@@ -108,8 +109,11 @@ int main(int argc, char *argv[])
 
     iop_env = iop_env_new();
     dso = open_dso(iop_env, _G.new_dso);
-    dso_old = open_dso(iop_env, _G.old_dso);
-    ctx = iop_compat_ctx_new(iop_env);
+
+    iop_env_old = iop_env_new();
+    dso_old = open_dso(iop_env_old, _G.old_dso);
+
+    ctx = iop_compat_ctx_new();
 
     t_qv_init(&sorted_pkg_names, qm_len(iop_pkg, &dso_old->pkg_h));
     qm_for_each_pos(iop_pkg, pos, &dso_old->pkg_h) {
@@ -130,8 +134,9 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        if (iop_pkg_check_backward_compat_ctx(pkg_old, pkg, dso, ctx,
-                                              flags, &err) < 0)
+        if (iop_pkg_check_backward_compat_ctx(iop_env_old, pkg_old,
+                                              iop_env, pkg, ctx, flags,
+                                              &err) < 0)
         {
             fprintf(stderr, "%*pM\n", SB_FMT_ARG(&err));
             sb_reset(&err);
@@ -141,6 +146,7 @@ int main(int argc, char *argv[])
     iop_compat_ctx_delete(&ctx);
     iop_dso_close(&dso);
     iop_dso_close(&dso_old);
+    iop_env_delete(&iop_env_old);
     iop_env_delete(&iop_env);
 
     return 0;
