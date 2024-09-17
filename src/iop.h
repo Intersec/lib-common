@@ -156,11 +156,11 @@ const iop_obj_t *nullable iop_get_obj(const iop_env_t *nonnull iop_env,
 
 /** Get a IOP structure from its fullname. */
 const iop_struct_t * nullable
-iop_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname);
+iop_env_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname);
 
 /** Get an enumeration from its fullname. */
 const iop_enum_t * nullable
-iop_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname);
+iop_env_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname);
 
 /* }}} */
 /* {{{ IOP various useful typedefs and functions */

@@ -6702,7 +6702,7 @@ void iop_register_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
 }
 
 const iop_struct_t * nullable
-iop_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
+iop_env_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
 
     const iop_obj_t *obj = RETHROW_P(iop_get_obj(iop_env, fullname));
@@ -6722,7 +6722,7 @@ iop_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
 }
 
 const iop_enum_t * nullable
-iop_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname)
+iop_env_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
     const iop_obj_t *obj = RETHROW_P(iop_get_obj(iop_env, fullname));
 
@@ -7302,7 +7302,7 @@ get_parents_until_name(const iop_env_t * nonnull iop_env,
             } else {
                 const iop_struct_t *st_in_env;
 
-                st_in_env = iop_get_struct(iop_env, *name);
+                st_in_env = iop_env_get_struct(iop_env, *name);
                 if (st_in_env == st) {
                     return st;
                 }
@@ -8033,7 +8033,7 @@ int iop_pkg_check_backward_compat_ctx(const iop_env_t * nonnull iop_env1,
                 LSTR_FMT_ARG(iop_get_name_from_fullname(st1->fullname)));
         }
 
-        st2 = iop_get_struct(iop_env2, name);
+        st2 = iop_env_get_struct(iop_env2, name);
         if (!st2) {
             iop_compat_add_err(ctx, "%s `%*pM` does not exist anymore",
                                what, LSTR_FMT_ARG(st1->fullname));

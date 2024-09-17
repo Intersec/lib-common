@@ -44,7 +44,7 @@ get_iop_type(const iop_env_t * nonnull iop_env, const lstr_t name,
 {
     const iop_struct_t *st;
 
-    st = iop_get_struct(iop_env, name);
+    st = iop_env_get_struct(iop_env, name);
     if (!st) {
         sb_setf(err, "unknown IOP type `%pL`", &name);
         return NULL;

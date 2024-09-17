@@ -1199,7 +1199,7 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
     Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
                SB_FMT_ARG(&err));
 
-    Z_ASSERT_P(st = iop_get_struct(_G.iop_env, LSTR("tstiop.Repeated")));
+    Z_ASSERT_P(st = iop_env_get_struct(_G.iop_env, LSTR("tstiop.Repeated")));
 
     /* initialize my arrays */
     {
@@ -1295,7 +1295,8 @@ static int iop_check_retro_compat_copy_inv_tab(lstr_t path)
     Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
                SB_FMT_ARG(&err));
 
-    Z_ASSERT_P(st_sb = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructB")));
+    Z_ASSERT_P(st_sb = iop_env_get_struct(_G.iop_env,
+                                          LSTR("tstiop.MyStructB")));
 
     iop_init_desc(st_sb, &sb);
     sb.b.tab = (void *)0x42;
@@ -1618,9 +1619,10 @@ Z_GROUP_EXPORT(iop)
 
         Z_ASSERT(dso = iop_dso_open(_G.iop_env, path.s, &err),
                  "%*pM", SB_FMT_ARG(&err));
-        Z_ASSERT_N(qm_find(iop_struct, &dso->struct_h, &LSTR_IMMED_V("ic.Hdr")));
+        Z_ASSERT_N(qm_find(iop_struct, &dso->struct_h,
+                           &LSTR_IMMED_V("ic.Hdr")));
 
-        Z_ASSERT_P(st = iop_get_struct(_G.iop_env, LSTR("ic.SimpleHdr")));
+        Z_ASSERT_P(st = iop_env_get_struct(_G.iop_env, LSTR("ic.SimpleHdr")));
         Z_ASSERT(st != &ic__simple_hdr__s);
 
         t_qv_init(&ressources_str, 0);
@@ -1696,8 +1698,10 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(z_dso_open(&dso));
 
-        Z_ASSERT_P(stv1 = iop_get_struct(_G.iop_env, LSTR("tstiop.HashV1")));
-        Z_ASSERT_P(stv2 = iop_get_struct(_G.iop_env, LSTR("tstiop.HashV2")));
+        Z_ASSERT_P(stv1 = iop_env_get_struct(_G.iop_env,
+                                             LSTR("tstiop.HashV1")));
+        Z_ASSERT_P(stv2 = iop_env_get_struct(_G.iop_env,
+                                             LSTR("tstiop.HashV2")));
 
         iop_hash_sha1(stv1, &v1, buf1, 0);
         iop_hash_sha1(stv2, &v2, buf2, 0);
@@ -2155,12 +2159,18 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(z_dso_open(&dso));
 
-        Z_ASSERT_P(st_se = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructE")));
-        Z_ASSERT_P(st_sa = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_sf = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructF")));
-        Z_ASSERT_P(st_cs = iop_get_struct(_G.iop_env, LSTR("tstiop.ConstraintS")));
-        Z_ASSERT_P(st_sa_opt = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_cls2 = iop_get_struct(_G.iop_env, LSTR("tstiop.MyClass2")));
+        Z_ASSERT_P(st_se = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructE")));
+        Z_ASSERT_P(st_sa = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructA")));
+        Z_ASSERT_P(st_sf = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructF")));
+        Z_ASSERT_P(st_cs = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.ConstraintS")));
+        Z_ASSERT_P(st_sa_opt = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructAOpt")));
+        Z_ASSERT_P(st_cls2 = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyClass2")));
 
         iop_init_desc(st_cls2, &cls2);
 
@@ -2660,15 +2670,24 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(z_dso_open(&dso));
 
-        Z_ASSERT_P(st_sa = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_sf = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructF")));
-        Z_ASSERT_P(st_si = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructI")));
-        Z_ASSERT_P(st_sk = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructK")));
-        Z_ASSERT_P(st_sn = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructN")));
-        Z_ASSERT_P(st_sa_opt = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_cls2 = iop_get_struct(_G.iop_env, LSTR("tstiop.MyClass2")));
-        Z_ASSERT_P(st_sg = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructG")));
-        Z_ASSERT_P(st_uc = iop_get_struct(_G.iop_env, LSTR("tstiop.MyUnionC")));
+        Z_ASSERT_P(st_sa = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructA")));
+        Z_ASSERT_P(st_sf = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructF")));
+        Z_ASSERT_P(st_si = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructI")));
+        Z_ASSERT_P(st_sk = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructK")));
+        Z_ASSERT_P(st_sn = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructN")));
+        Z_ASSERT_P(st_sa_opt = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructAOpt")));
+        Z_ASSERT_P(st_cls2 = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyClass2")));
+        Z_ASSERT_P(st_sg = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructG")));
+        Z_ASSERT_P(st_uc = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyUnionC")));
 
         iop_init_desc(st_cls2, &cls2);
         cls2.int1 = 1;
@@ -3486,10 +3505,14 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(z_dso_open(&dso));
 
-        Z_ASSERT_P(st_sa = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_sa_opt = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_se = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructE")));
-        Z_ASSERT_P(st_cls2 = iop_get_struct(_G.iop_env, LSTR("tstiop.MyClass2")));
+        Z_ASSERT_P(st_sa = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructA")));
+        Z_ASSERT_P(st_sa_opt = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructAOpt")));
+        Z_ASSERT_P(st_se = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructE")));
+        Z_ASSERT_P(st_cls2 = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyClass2")));
 
         iop_init_desc(st_cls2, &cls2);
 
@@ -3562,7 +3585,8 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(z_dso_open(&dso));
 
-        Z_ASSERT_P(st_sg = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructG")));
+        Z_ASSERT_P(st_sg = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructG")));
 
         t_qv_init(&szs, 1024);
 
@@ -3655,10 +3679,14 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(z_dso_open(&dso));
 
-        Z_ASSERT_P(st_sg = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructG")));
-        Z_ASSERT_P(st_sr = iop_get_struct(_G.iop_env, LSTR("tstiop.Repeated")));
-        Z_ASSERT_P(st_sa_opt = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructAOpt")));
-        Z_ASSERT_P(st_ua = iop_get_struct(_G.iop_env, LSTR("tstiop.MyUnionA")));
+        Z_ASSERT_P(st_sg = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructG")));
+        Z_ASSERT_P(st_sr = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.Repeated")));
+        Z_ASSERT_P(st_sa_opt = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructAOpt")));
+        Z_ASSERT_P(st_ua = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyUnionA")));
 
         /* Test with all the default values */
         iop_init_desc(st_sg, &sg_a);
@@ -3878,7 +3906,8 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(z_dso_open(&dso));
 
-        Z_ASSERT_P(st_sl = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructL")));
+        Z_ASSERT_P(st_sl = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructL")));
 
         Z_ASSERT_N(iop_check_constraints_desc(st_sl, &sl1));
         Z_ASSERT_N(iop_check_constraints(tstiop__my_struct_l, &sl2));
@@ -3935,10 +3964,12 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(z_dso_open(&dso));
 
-        Z_ASSERT_P(st_s = iop_get_struct(_G.iop_env, LSTR("tstiop.ConstraintS")));
-        Z_ASSERT_P(st_u = iop_get_struct(_G.iop_env, LSTR("tstiop.ConstraintU")));
-        Z_ASSERT_P(st_c = iop_get_struct(_G.iop_env,
-                                            LSTR("tstiop_inheritance.C1")));
+        Z_ASSERT_P(st_s = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.ConstraintS")));
+        Z_ASSERT_P(st_u = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.ConstraintU")));
+        Z_ASSERT_P(st_c = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop_inheritance.C1")));
 
 #define CHECK_VALID(st, v, info) \
         Z_ASSERT_N(iop_check_constraints_desc((st), (v)));              \
@@ -6346,8 +6377,10 @@ Z_GROUP_EXPORT(iop)
 
         Z_HELPER_RUN(z_dso_open(&dso));
 
-        Z_ASSERT_P(st_sa = iop_get_struct(_G.iop_env, LSTR("tstiop.MyStructA")));
-        Z_ASSERT_P(st_cls2 = iop_get_struct(_G.iop_env, LSTR("tstiop.MyClass2")));
+        Z_ASSERT_P(st_sa = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyStructA")));
+        Z_ASSERT_P(st_cls2 = iop_env_get_struct(
+                _G.iop_env, LSTR("tstiop.MyClass2")));
 
         t_qv_init(&szs, 1024);
         iop_init_desc(st_cls2, &cls2);
@@ -7352,7 +7385,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(iop_enum_from_lstr(tstiop__my_enum_a, LSTR("c"), &found),
                     MY_ENUM_A_C);
 
-        Z_ASSERT_P(en = iop_get_enum(_G.iop_env, LSTR("tstiop.MyEnumA")));
+        Z_ASSERT_P(en = iop_env_get_enum(_G.iop_env, LSTR("tstiop.MyEnumA")));
         Z_ASSERT_LSTREQUAL(en->fullname, LSTR("tstiop.MyEnumA"));
         Z_ASSERT_LSTREQUAL(en->name, LSTR("MyEnumA"));
     } Z_TEST_END
@@ -8687,11 +8720,11 @@ Z_GROUP_EXPORT(iop)
 
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_get_enum__typedef, "test iop_get_enum with typedef") { /* {{{ */
+    Z_TEST(iop_env_get_enum__typedef, "test iop_env_get_enum with typedef") { /* {{{ */
         const iop_enum_t *en = NULL;
 
-        Z_ASSERT_P(en = iop_get_enum(_G.iop_env,
-                                     tstiop_typedef__enum1__td.fullname),
+        Z_ASSERT_P(en = iop_env_get_enum(_G.iop_env,
+                                         tstiop_typedef__enum1__td.fullname),
                    "`typedef %pL' not resolved",
                    &tstiop_typedef__enum1__td.fullname);
         Z_ASSERT_LSTREQUAL(en->fullname,
@@ -8721,7 +8754,7 @@ Z_GROUP_EXPORT(iop)
             "iop/backward-compat/new/zchk-tstiop-backward-"
             "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
         Z_ASSERT_P(dso);
-        Z_ASSERT_P(en = iop_get_enum(_G.iop_env, en_name));
+        Z_ASSERT_P(en = iop_env_get_enum(_G.iop_env, en_name));
         Z_ASSERT_LSTREQUAL(en->fullname, en_exp);
         iop_dso_close(&dso);
     } Z_TEST_END;
@@ -8737,7 +8770,7 @@ Z_GROUP_EXPORT(iop)
             "iop/backward-compat/new/zchk-tstiop-backward-"
             "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
         Z_ASSERT_P(dso);
-        Z_ASSERT_P(st = iop_get_struct(_G.iop_env, st_name));
+        Z_ASSERT_P(st = iop_env_get_struct(_G.iop_env, st_name));
         Z_ASSERT_LSTREQUAL(st->fullname, st_exp);
         iop_dso_close(&dso);
     } Z_TEST_END;
@@ -8834,7 +8867,7 @@ Z_GROUP_EXPORT(iop)
         Z_HELPER_RUN(_z_dso_open("iop/zchk-tstiop2-plugin" SO_FILEEXT, true,
                                  _G.iop_env, &dso));
 
-        my_struct = iop_get_struct(_G.iop_env, LSTR("tstiop2.MyStruct"));
+        my_struct = iop_env_get_struct(_G.iop_env, LSTR("tstiop2.MyStruct"));
         Z_ASSERT_N(iop_field_find_by_name(my_struct, LSTR("a"), NULL,
                                           &field));
 
@@ -9377,7 +9410,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(obj->desc.st == &tstiop__my_struct_a__s,
                  "wrong iop_struct_t (got `%pL')", &obj->desc.st->fullname);
 
-        Z_ASSERT_NULL(iop_get_enum(_G.iop_env, name),
+        Z_ASSERT_NULL(iop_env_get_enum(_G.iop_env, name),
                       "`%pL' is not an enum", &name);
         Z_ASSERT_NULL(iop_get_class_by_fullname(_G.iop_env,
                                                 &tstiop__my_class1__s, name),
@@ -9390,7 +9423,7 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(obj->desc.en == &tstiop__my_enum_c__e,
                  "wrong iop_enum_t (got `%pL')", &obj->desc.en->fullname);
 
-        en = iop_get_enum(_G.iop_env, name);
+        en = iop_env_get_enum(_G.iop_env, name);
         Z_ASSERT_P(en, "cannot find enum `%pL'", &name);
         Z_ASSERT(en == &tstiop__my_enum_c__e, "wrong enum (got `%pL')",
                  &en->fullname);

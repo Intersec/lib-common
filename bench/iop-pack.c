@@ -94,12 +94,12 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
     iop_env = iop_env_new();
     dso = z_dso_open(iop_env, "tests/iop/zchk-tstiop-plugin" SO_FILEEXT);
 
-    st_cls2 = iop_get_struct(iop_env, LSTR("tstiop.MyClass2"));
+    st_cls2 = iop_env_get_struct(iop_env, LSTR("tstiop.MyClass2"));
     iop_init_desc(st_cls2, &cls2);
     cls2.int1 = 1;
     cls2.int2 = 2;
 
-    st_sa = iop_get_struct(iop_env, LSTR("tstiop.MyStructA"));
+    st_sa = iop_env_get_struct(iop_env, LSTR("tstiop.MyStructA"));
 
     /* }}} */
 
