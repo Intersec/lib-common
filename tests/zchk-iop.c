@@ -1192,14 +1192,16 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
         LSTR_IMMED("foobar"),
     };
 
+    iop_env_t *iop_env;
     iop_dso_t *dso;
     unsigned seed = (unsigned)time(NULL);
 
-    dso = iop_dso_open(_G.iop_env, path.s, &err);
+    iop_env = iop_env_new();
+    dso = iop_dso_open(iop_env, path.s, &err);
     Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
                SB_FMT_ARG(&err));
 
-    Z_ASSERT_P(st = iop_env_get_struct(_G.iop_env, LSTR("tstiop.Repeated")));
+    Z_ASSERT_P(st = iop_env_get_struct(iop_env, LSTR("tstiop.Repeated")));
 
     /* initialize my arrays */
     {
@@ -1269,7 +1271,7 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
             Z_ASSERT(ps_has(&ps, dlen));
 
             iop_init_desc(st, &sr);
-            Z_ASSERT_N(iop_bunpack(t_pool(), _G.iop_env, st, &sr_res,
+            Z_ASSERT_N(iop_bunpack(t_pool(), iop_env, st, &sr_res,
                                    __ps_get_ps(&ps, dlen), false),
                        "IOP unpacking error (%s) at offset %zu",
                        st->fullname.s, ps.b - (byte *)file_map.data);
@@ -1279,6 +1281,7 @@ static int iop_check_retro_compat_roptimized(lstr_t path)
     }
 
     iop_dso_close(&dso);
+    iop_env_delete(&iop_env);
 #undef SET
 #undef SET_RAND
     Z_HELPER_END;
@@ -1288,15 +1291,16 @@ static int iop_check_retro_compat_copy_inv_tab(lstr_t path)
 {
     SB_1k(err);
     tstiop__my_struct_b__t sb, *sb_dup;
+    iop_env_t *iop_env;
     iop_dso_t *dso;
     const iop_struct_t *st_sb;
 
-    dso = iop_dso_open(_G.iop_env, path.s, &err);
+    iop_env = iop_env_new();
+    dso = iop_dso_open(iop_env, path.s, &err);
     Z_ASSERT_P(dso, "unable to load zchk-tstiop-plugin: %*pM",
                SB_FMT_ARG(&err));
 
-    Z_ASSERT_P(st_sb = iop_env_get_struct(_G.iop_env,
-                                          LSTR("tstiop.MyStructB")));
+    Z_ASSERT_P(st_sb = iop_env_get_struct(iop_env, LSTR("tstiop.MyStructB")));
 
     iop_init_desc(st_sb, &sb);
     sb.b.tab = (void *)0x42;
@@ -1309,6 +1313,7 @@ static int iop_check_retro_compat_copy_inv_tab(lstr_t path)
     p_delete(&sb_dup);
 
     iop_dso_close(&dso);
+    iop_env_delete(&iop_env);
     Z_HELPER_END;
 }
 
