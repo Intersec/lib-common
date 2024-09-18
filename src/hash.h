@@ -91,6 +91,48 @@ void murmur_hash3_x86_32_update(murmur_hash3_x86_32_ctx * nonnull ctx,
 void murmur_hash3_x86_32_finish(murmur_hash3_x86_32_ctx * nonnull ctx,
                                 byte output[4]) __leaf;
 
+#ifdef __cplusplus
+#define murmur_128bits_buf byte out[]
+#else
+#define murmur_128bits_buf byte out[static 16]
+#endif
+
+typedef union murmur_128_blk_t {
+    struct {
+        uint64_t lo;
+        uint64_t hi;
+    };
+    uint128_t blk;
+} murmur_128_blk_t;
+
+typedef struct murmur_hash3_x64_128_ctx_t {
+    uint64_t h1;
+    uint64_t h2;
+    murmur_128_blk_t tail;
+    size_t   len;
+    int      tail_len;
+} murmur_hash3_x64_128_ctx_t;
+
+__attr_nonnull__((1)) static ALWAYS_INLINE void
+murmur_hash3_x64_128_starts(murmur_hash3_x64_128_ctx_t *nonnull ctx,
+                            const uint32_t seed)
+{
+    *ctx = (murmur_hash3_x64_128_ctx_t){
+        .h1 = seed,
+        .h2 = seed,
+        .tail = { .blk = 0 },
+        .len = 0,
+        .tail_len = 0,
+    };
+}
+
+__attr_nonnull__((1)) void
+murmur_hash3_x64_128_update(murmur_hash3_x64_128_ctx_t *nonnull ctx,
+                            const void *nullable key, size_t len) __leaf;
+__attr_nonnull__((1)) void
+murmur_hash3_x64_128_finish(murmur_hash3_x64_128_ctx_t *nonnull ctx,
+                            murmur_128bits_buf) __leaf;
+
 #define MEM_HASH32_MURMUR_SEED  0xdeadc0de
 
 #define HASH32_IMPL(method, ...)                                             \
@@ -134,12 +176,6 @@ uint32_t jenkins_hash(const void * nonnull s, ssize_t len) __leaf;
  * every character of the input string when computing the hash.
  */
 uint32_t jenkins_hash_ascii_lower(const void *nonnull s, ssize_t len) __leaf;
-
-#ifdef __cplusplus
-#define murmur_128bits_buf char out[]
-#else
-#define murmur_128bits_buf char out[static 16]
-#endif
 
 uint32_t murmur_hash3_x86_32(const void * nonnull key, size_t len,
                              uint32_t seed) __leaf;

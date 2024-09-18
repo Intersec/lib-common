@@ -23,6 +23,35 @@
 
 /* {{{ hash */
 
+static int z_test_murmur_hash3_x64_128(const lstr_t str)
+{
+    murmur_hash3_x64_128_ctx_t ctx;
+    byte hash1[16];
+    byte hash2[16];
+    lstr_t hash1_str = LSTR_DATA(hash1, sizeof(hash1));
+    lstr_t hash2_str = LSTR_DATA(hash2, sizeof(hash2));
+    const uint32_t seed = rand32();
+
+    murmur_hash3_x64_128(str.s, str.len, seed, hash1);
+
+    /* Try all combination of splits so we have a maximum code
+     * coverage when handling the “tail” block.
+     */
+    for (int i = 0; i < str.len; i++) {
+        p_clear(&hash2, 1);
+        murmur_hash3_x64_128_starts(&ctx, seed);
+
+        murmur_hash3_x64_128_update(&ctx, str.s, i);
+        murmur_hash3_x64_128_update(&ctx, str.s + i, str.len - i);
+
+        murmur_hash3_x64_128_finish(&ctx, hash2);
+
+        Z_ASSERT_DATAEQUAL(hash1_str, hash2_str);
+    }
+
+    Z_HELPER_END;
+}
+
 Z_GROUP_EXPORT(hash) {
     Z_TEST(jenkins, "jenkins") {
         lstr_t s = LSTR("hakunamatata");
@@ -74,7 +103,7 @@ Z_GROUP_EXPORT(hash) {
          * we hash the tail. */
 #define TEST(str, skip, res) \
         do {                                                                 \
-            char hash[16];                                                   \
+            byte hash[16];                                                   \
             pstream_t ps = ps_initstr(str);                                  \
                                                                              \
             p_clear(&hash, 1);                                               \
@@ -100,6 +129,25 @@ Z_GROUP_EXPORT(hash) {
         TEST(str, 13, "0d d9 18 bb 37 07 1d 41 37 f2 d4 7d 86 77 39 08");
         TEST(str, 14, "75 05 9d 6b 5e 08 18 59 e4 b5 bb b5 a4 78 c6 63");
         TEST(str, 15, "b7 89 a9 f2 95 b0 d7 44 f4 d1 04 16 dc 02 d3 93");
+
+#undef TEST
+    } Z_TEST_END;
+
+    Z_TEST(murmur_hash3_x64_128_update, "murmur_hash3_x64_128_update") {
+#define TEST(str) Z_HELPER_RUN(z_test_murmur_hash3_x64_128(LSTR(str)))
+
+        /* Test a string smaller than a 64 bits. */
+        TEST("short");
+
+        /* Test a string larger than a 64 bits, but less than 2x64; */
+        TEST("medium string");
+
+        /* Test a string exceeding 128 bits. */
+        TEST("A bigger string that fills more than one block");
+
+        /* Test a string filling a few blocks. */
+        TEST("Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+             "Cras placerat lorem nec nulla aenean.");
 
 #undef TEST
     } Z_TEST_END;
