@@ -1534,8 +1534,8 @@ static int iop_check_pkg_backward_compat(const iop_pkg_t *pkg1,
     Z_HELPER_END;
 }
 
-static int _z_dso_open(const char *dso_path, bool in_cmddir,
-                       iop_env_t *iop_env, iop_dso_t **dsop)
+static int z_dso_open(const char *dso_path, bool in_cmddir,
+                      iop_env_t *iop_env, iop_dso_t **dsop)
 {
     t_scope;
     SB_1k(err);
@@ -1558,12 +1558,6 @@ static int _z_dso_open(const char *dso_path, bool in_cmddir,
 
     *dsop = dso;
     Z_HELPER_END;
-}
-
-static int z_dso_open(iop_dso_t **dsop)
-{
-    return _z_dso_open("iop/zchk-tstiop-plugin" SO_FILEEXT, true,
-                       _G.iop_env, dsop);
 }
 
 static int z_check_static_field_type(const iop_struct_t *st,
@@ -1693,10 +1687,7 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *stv1;
         const iop_struct_t *stv2;
 
-        iop_dso_t *dso;
         uint8_t buf1[20], buf2[20];
-
-        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(stv1 = iop_env_get_struct(_G.iop_env,
                                              LSTR("tstiop.HashV1")));
@@ -1709,7 +1700,6 @@ Z_GROUP_EXPORT(iop)
 
         iop_hash_sha1(stv1, &v1_not_same, buf2, 0);
         Z_ASSERT(memcmp(buf1, buf2, sizeof(buf1)) != 0);
-        iop_dso_close(&dso);
     } Z_TEST_END;
     /* }}} */
     Z_TEST(hash_sha1_class, "test whether iop_hash_sha1 takes the IOP_HASH_DONT_INCLUDE_CLASS_ID param into account") { /* {{{ */
@@ -2006,10 +1996,6 @@ Z_GROUP_EXPORT(iop)
     Z_TEST(unions, "test IOP union helpers") { /* {{{ */
         t_scope;
 
-        iop_dso_t *dso;
-
-        Z_HELPER_RUN(z_dso_open(&dso));
-
         {
             tstiop__my_union_a__t ua = IOP_UNION(tstiop__my_union_a, ua, 42);
             int *uavp, uav = 0;
@@ -2090,14 +2076,10 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_NULL(tstiop__my_union_a__get(&us, ua));
             Z_ASSERT_NULL(tstiop__my_union_a__get(&us, ub));
         }
-
-        iop_dso_close(&dso);
     } Z_TEST_END
     /* }}} */
     Z_TEST(soap, "test IOP SOAP (un)packer") { /* {{{ */
         t_scope;
-
-        iop_dso_t *dso;
 
         int32_t val[] = {15, 30, 45};
 
@@ -2156,8 +2138,6 @@ Z_GROUP_EXPORT(iop)
 
         const iop_struct_t *st_se, *st_sa, *st_sf, *st_cs, *st_sa_opt;
         const iop_struct_t *st_cls2;
-
-        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_se = iop_env_get_struct(
                 _G.iop_env, LSTR("tstiop.MyStructE")));
@@ -2364,8 +2344,6 @@ Z_GROUP_EXPORT(iop)
                                            IOP_UNPACK_FORBID_PRIVATE));
             xmlr_close(&xmlr_g);
         }
-
-        iop_dso_close(&dso);
     } Z_TEST_END
     /* }}} */
     Z_TEST(json, "test IOP JSon (un)packer") { /* {{{ */
@@ -2655,8 +2633,6 @@ Z_GROUP_EXPORT(iop)
 
         tstiop__void__t iop_void = {};
 
-        iop_dso_t *dso;
-
         const iop_struct_t *st_sa, *st_sf, *st_si, *st_sk, *st_sn, *st_sa_opt;
         const iop_struct_t *st_cls2, *st_sg, *st_uc;
 
@@ -2667,8 +2643,6 @@ Z_GROUP_EXPORT(iop)
         const char json_uc_p1[] = "{ d_of_c: 3.141592653589793238462643383 }";
 
         /* }}} */
-
-        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sa = iop_env_get_struct(
                 _G.iop_env, LSTR("tstiop.MyStructA")));
@@ -2913,8 +2887,6 @@ Z_GROUP_EXPORT(iop)
                                    IOP_JPACK_MINIMAL, true, true, jns_str)
             );
         }
-
-        iop_dso_close(&dso);
     } Z_TEST_END
     /* }}} */
     Z_TEST(json_big_integer, "test JSON packing with big integers") { /* {{{ */
@@ -3497,13 +3469,7 @@ Z_GROUP_EXPORT(iop)
             .c = { .b = IOP_ARRAY(val, countof(val)), },
         };
 
-        iop_dso_t *dso;
-
-
         const iop_struct_t *st_sa, *st_sa_opt, *st_se, *st_cls2;
-
-
-        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sa = iop_env_get_struct(
                 _G.iop_env, LSTR("tstiop.MyStructA")));
@@ -3527,8 +3493,6 @@ Z_GROUP_EXPORT(iop)
         OPT_SET(sa_opt.a, 32);
         sa_opt.j = LSTR("foo");
         Z_HELPER_RUN(iop_std_test_struct(st_sa_opt, &sa_opt, "sa_opt"));
-
-        iop_dso_close(&dso);
     } Z_TEST_END
     /* }}} */
     Z_TEST(big_array_parallel, "test big array packing") { /* {{{ */
@@ -3575,15 +3539,12 @@ Z_GROUP_EXPORT(iop)
     Z_TEST(defval, "test IOP std: do not pack default values") { /* {{{ */
         t_scope;
 
-        iop_dso_t *dso;
         tstiop__my_struct_g__t sg;
         const iop_struct_t *st_sg;
         qv_t(i32) szs;
         int len;
         lstr_t s;
         const unsigned flags = IOP_BPACK_SKIP_DEFVAL;
-
-        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sg = iop_env_get_struct(
                 _G.iop_env, LSTR("tstiop.MyStructG")));
@@ -3628,8 +3589,6 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ((len = iop_bpack_size_flags(st_sg, &sg, flags, &szs)), 20,
                     "sg-diff");
         Z_HELPER_RUN(iop_std_test_struct_flags(st_sg, &sg, flags, "sg-diff"));
-
-        iop_dso_close(&dso);
     } Z_TEST_END
     /* }}} */
     Z_TEST(private, "test private attribute with binary packing") { /* {{{ */
@@ -3674,10 +3633,7 @@ Z_GROUP_EXPORT(iop)
         tstiop__repeated__t sr_a, sr_b;
         tstiop__void__t v_a, v_b;
 
-        iop_dso_t *dso;
         const iop_struct_t *st_sg, *st_sa_opt, *st_ua, *st_sr;
-
-        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sg = iop_env_get_struct(
                 _G.iop_env, LSTR("tstiop.MyStructG")));
@@ -3806,8 +3762,6 @@ Z_GROUP_EXPORT(iop)
         CHECK_IOP_EQ(&tstiop__void__s, &v_a, NULL);
         CHECK_IOP_EQ(&tstiop__void__s, &v_a, &v_b);
 
-        iop_dso_close(&dso);
-
 #undef CHECK_IOP_EQ
 #undef CHECK_IOP_GT
 #undef CHECK_IOP_LT
@@ -3901,10 +3855,7 @@ Z_GROUP_EXPORT(iop)
             "     c     = 1 << \"C\";               \n"
             "};\n";
 
-        iop_dso_t *dso;
         const iop_struct_t *st_sl;
-
-        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sl = iop_env_get_struct(
                 _G.iop_env, LSTR("tstiop.MyStructL")));
@@ -3929,8 +3880,6 @@ Z_GROUP_EXPORT(iop)
         Z_HELPER_RUN(iop_json_test_unpack(st_sl, json_sl_n1,
                                           IOP_UNPACK_IGNORE_UNKNOWN,
                                           false, "json_sl_n1"));
-
-        iop_dso_close(&dso);
     } Z_TEST_END
     /* }}} */
     Z_TEST(constraints, "test IOP constraints") { /* {{{ */
@@ -3959,10 +3908,7 @@ Z_GROUP_EXPORT(iop)
         int32_t i32tab[] = { INT32_MIN, INT32_MAX, 3, 4, 5, 6 };
         int64_t i64tab[] = { INT64_MIN, INT64_MAX, 3, 4, 5, 6 };
 
-        iop_dso_t *dso;
         const iop_struct_t *st_s, *st_u, *st_c;
-
-        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_s = iop_env_get_struct(
                 _G.iop_env, LSTR("tstiop.ConstraintS")));
@@ -4108,8 +4054,6 @@ Z_GROUP_EXPORT(iop)
 #undef CHECK_UNION
 #undef CHECK_VALID
 #undef CHECK_INVALID
-
-        iop_dso_close(&dso);
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_sort, "test IOP structures/unions sorting") { /* {{{ */
@@ -6368,14 +6312,11 @@ Z_GROUP_EXPORT(iop)
             .n = true,
         };
 
-        iop_dso_t *dso;
         const iop_struct_t *st_sa, *st_cls2;
         qv_t(i32) szs;
         int len;
         byte *dst;
         pstream_t ps;
-
-        Z_HELPER_RUN(z_dso_open(&dso));
 
         Z_ASSERT_P(st_sa = iop_env_get_struct(
                 _G.iop_env, LSTR("tstiop.MyStructA")));
@@ -6396,8 +6337,6 @@ Z_GROUP_EXPORT(iop)
             Z_ASSERT_GT(len = iop_get_field_len(ps), 0);
             Z_ASSERT_N(ps_skip(&ps, len));
         }
-
-        iop_dso_close(&dso);
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_struct_for_each_field, "test iop_struct_for_each_field") { /* {{{ */
@@ -8684,10 +8623,10 @@ Z_GROUP_EXPORT(iop)
          * using two different folders */
         iop_env_old_ = iop_env_new();
         iop_env_new_ = iop_env_new();
-        Z_HELPER_RUN(_z_dso_open(
+        Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/old/zchk-tstiop-backward-"
             "compat-typedef-old" SO_FILEEXT, true, iop_env_old_, &dso_old));
-        Z_HELPER_RUN(_z_dso_open(
+        Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/new/zchk-tstiop-backward-"
             "compat-typedef-new" SO_FILEEXT, true, iop_env_new_, &dso_new));
 
@@ -8750,7 +8689,7 @@ Z_GROUP_EXPORT(iop)
         lstr_t en_name = LSTR("tstiop_backward_compat_typedef.MyEnumA");
         lstr_t en_exp = LSTR("tstiop_backward_compat_remote_typedef.MyEnumA");
 
-        Z_HELPER_RUN(_z_dso_open(
+        Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/new/zchk-tstiop-backward-"
             "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
         Z_ASSERT_P(dso);
@@ -8766,7 +8705,7 @@ Z_GROUP_EXPORT(iop)
         lstr_t st_exp = LSTR("tstiop_backward_compat_remote_typedef."
                              "MovedMyClass2");
 
-        Z_HELPER_RUN(_z_dso_open(
+        Z_HELPER_RUN(z_dso_open(
             "iop/backward-compat/new/zchk-tstiop-backward-"
             "compat-typedef-new" SO_FILEEXT, true, _G.iop_env, &dso));
         Z_ASSERT_P(dso);
@@ -8864,8 +8803,8 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *my_struct;
         const iop_field_t *field;
 
-        Z_HELPER_RUN(_z_dso_open("iop/zchk-tstiop2-plugin" SO_FILEEXT, true,
-                                 _G.iop_env, &dso));
+        Z_HELPER_RUN(z_dso_open("iop/zchk-tstiop2-plugin" SO_FILEEXT, true,
+                                _G.iop_env, &dso));
 
         my_struct = iop_env_get_struct(_G.iop_env, LSTR("tstiop2.MyStruct"));
         Z_ASSERT_N(iop_field_find_by_name(my_struct, LSTR("a"), NULL,
@@ -8892,13 +8831,13 @@ Z_GROUP_EXPORT(iop)
         /* build one dso, remove file */
         newpath = t_fmt("%*pM/1_%s", LSTR_FMT_ARG(z_tmpdir_g), sofile);
         Z_ASSERT_N(filecopy(sopath, newpath), "%s -> %s: %m", sopath, newpath);
-        Z_HELPER_RUN(_z_dso_open(newpath, false, _G.iop_env, &dso1));
+        Z_HELPER_RUN(z_dso_open(newpath, false, _G.iop_env, &dso1));
         Z_ASSERT_N(unlink(newpath));
 
         /* build the second one, remove file */
         newpath = t_fmt("%*pM/2_%s", LSTR_FMT_ARG(z_tmpdir_g), sofile);
         Z_ASSERT_N(filecopy(sopath, newpath));
-        Z_HELPER_RUN(_z_dso_open(newpath, false, _G.iop_env, &dso2));
+        Z_HELPER_RUN(z_dso_open(newpath, false, _G.iop_env, &dso2));
         Z_ASSERT_N(unlink(newpath));
 
         /* the two files must be independent. If they are not, closing the
