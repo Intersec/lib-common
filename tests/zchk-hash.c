@@ -21,9 +21,9 @@
 #include <lib-common/hash.h>
 #include <lib-common/z.h>
 
-/* {{{ hash32 */
+/* {{{ hash */
 
-Z_GROUP_EXPORT(hash32) {
+Z_GROUP_EXPORT(hash) {
     Z_TEST(jenkins, "jenkins") {
         lstr_t s = LSTR("hakunamatata");
         lstr_t s_upper = LSTR("HAKUNAMATATA");
@@ -62,6 +62,46 @@ Z_GROUP_EXPORT(hash32) {
         murmur_hash3_x86_32_finish(&ctx, hash);
 
         Z_ASSERT_EQ(get_unaligned_cpu32(hash), 0x7455ebb5u);
+    } Z_TEST_END;
+
+    Z_TEST(murmur_hash3_x64_128, "murmur_hash3_x64_128") {
+        t_scope;
+        const char *str = "Lorem ipsum dolor sit amet, "
+            "consectetur adipiscing elit. "
+            "Cras placerat lorem nec nulla aenean.";
+
+        /* Skip [0, 15] characters to cover all the cases in the part where
+         * we hash the tail. */
+#define TEST(str, skip, res) \
+        do {                                                                 \
+            char hash[16];                                                   \
+            pstream_t ps = ps_initstr(str);                                  \
+                                                                             \
+            p_clear(&hash, 1);                                               \
+            __ps_skip(&ps, skip);                                            \
+            murmur_hash3_x64_128(ps.s, ps_len(&ps), 0xdeadc0de, hash);       \
+            Z_ASSERT_DATAEQUAL(LSTR_DATA_V(hash, sizeof(hash)),              \
+                               t_lstr_human_hexdecode(LSTR(res)));           \
+        } while (0)
+
+        TEST(str,  0, "ab 69 11 9b 82 a7 2e 91 7a 87 af 83 e2 18 45 02");
+        TEST(str,  1, "e4 06 11 c5 c8 a3 18 8f 74 a0 09 a7 5f ca 02 ce");
+        TEST(str,  2, "57 76 c8 20 ef 86 ce a4 87 fe d5 ba c7 e2 3b 61");
+        TEST(str,  3, "13 e8 a6 a4 f0 e8 87 86 c8 81 af 7d 6e c8 1c 25");
+        TEST(str,  4, "10 9b 64 72 b2 4f 82 6b 32 45 b2 9e ee 94 06 a5");
+        TEST(str,  5, "c6 b3 83 d6 b5 d4 f6 83 17 3d 9d 92 5a 9e 73 a4");
+        TEST(str,  6, "62 f3 80 89 35 8a 95 f5 b8 bb c1 2c a2 57 44 d7");
+        TEST(str,  7, "f7 3b 24 66 fc 9b c7 ec ad 20 7e 35 23 d9 69 49");
+        TEST(str,  8, "09 05 6a 71 e0 8a b1 c0 2a ff fc e2 73 c1 f3 c2");
+        TEST(str,  9, "bc eb e5 ef 71 04 a2 c3 e7 9a c1 33 ff 33 ab 37");
+        TEST(str, 10, "d7 79 cf 75 7a b9 d2 e5 99 db b7 af 3b d7 9d 5d");
+        TEST(str, 11, "41 45 19 5c f1 4c 44 94 20 c8 66 bc e3 b9 f7 d8");
+        TEST(str, 12, "c0 69 07 1f 44 c2 b5 47 8d 4b 5a ed 4b e3 0b dc");
+        TEST(str, 13, "0d d9 18 bb 37 07 1d 41 37 f2 d4 7d 86 77 39 08");
+        TEST(str, 14, "75 05 9d 6b 5e 08 18 59 e4 b5 bb b5 a4 78 c6 63");
+        TEST(str, 15, "b7 89 a9 f2 95 b0 d7 44 f4 d1 04 16 dc 02 d3 93");
+
+#undef TEST
     } Z_TEST_END;
 } Z_GROUP_END;
 
