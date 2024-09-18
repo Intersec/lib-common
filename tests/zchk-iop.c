@@ -9643,6 +9643,92 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_LSTREQUAL(iop_label.s, LSTR("{\"test\":\"Dump attr\"}"));
     } Z_TEST_END;
     /* }}} */
+    Z_TEST(iop_env_isolation, "test IOP environment isolation") { /* {{{ */
+        iop_env_t *iop_env_tstiop;
+        iop_env_t *iop_env_backward_old;
+        iop_env_t *iop_env_backward_new;
+        iop_dso_t *dso_tstiop;
+        iop_dso_t *dso_backward_old;
+        iop_dso_t *dso_backward_new;
+        const iop_struct_t *st1;
+        const iop_struct_t *st2;
+
+        /* Create the test envionments */
+        iop_env_tstiop = iop_env_new();
+        iop_env_backward_old = iop_env_new();
+        iop_env_backward_new = iop_env_new();
+
+        /* Open the DSOs in their respective envionments */
+        Z_HELPER_RUN(z_dso_open(
+            "iop/zchk-tstiop-plugin" SO_FILEEXT, true, iop_env_tstiop,
+            &dso_tstiop));
+        Z_HELPER_RUN(z_dso_open(
+            "iop/backward-compat/old/zchk-tstiop-backward-"
+            "compat-typedef-old" SO_FILEEXT, true, iop_env_backward_old,
+            &dso_backward_old));
+        Z_HELPER_RUN(z_dso_open(
+            "iop/backward-compat/new/zchk-tstiop-backward-"
+            "compat-typedef-new" SO_FILEEXT, true, iop_env_backward_new,
+            &dso_backward_new));
+
+        /* Check IOP obj between global zchk IOP env and tstiop DSO IOP env */
+        st1 = iop_env_get_struct(_G.iop_env, LSTR("tstiop.MyClass1"));
+        st2 = iop_env_get_struct(iop_env_tstiop, LSTR("tstiop.MyClass1"));
+        Z_ASSERT_P(st1, "`tstiop.MyClass1` should exist in zchk IOP env");
+        Z_ASSERT(st1 == &tstiop__my_class1__s,
+                 "`tstiop.MyClass1` should be taken from the compiled zchk "
+                 "IOP env");
+        Z_ASSERT_P(st2, "`tstiop.MyClass1` should exist in tstiop DSO IOP "
+                   "env");
+        Z_ASSERT(st1 != st2, "`tstiop.MyClass1` should be different between "
+                 "the zchk IOP env and the tstiop DSO IOP env");
+
+        /* Check IOP obj between backward compat IOP DSO */
+        st1 = iop_env_get_struct(
+            iop_env_backward_old,
+            LSTR("tstiop_backward_compat_typedef.MyClass1"));
+        st2 = iop_env_get_struct(
+            iop_env_backward_new,
+            LSTR("tstiop_backward_compat_typedef.MyClass1"));
+        Z_ASSERT_P(st1, "`tstiop_backward_compat_typedef.MyClass1` should "
+                   "exist in backward old DSO IOP env");
+        Z_ASSERT_P(st2, "`tstiop_backward_compat_typedef.MyClass1` should "
+                   "exist in backward new DSO IOP env");
+        Z_ASSERT(st1 != st2, "`tstiop_backward_compat_typedef.MyClass1` "
+                 "should be different between backward old and new DSO IOP "
+                 "env");
+
+        /* Check no contaminations of other IOP envs */
+        st1 = iop_env_get_struct(
+            _G.iop_env, LSTR("tstiop_backward_compat_typedef.MyClass1"));
+        Z_ASSERT_NULL(st1, "`tstiop_backward_compat_typedef.MyClass1` should "
+                   "not exist in zchk IOP env");
+
+        st1 = iop_env_get_struct(
+            iop_env_tstiop,
+            LSTR("tstiop_backward_compat_typedef.MyClass1"));
+        Z_ASSERT_NULL(st1, "`tstiop_backward_compat_typedef.MyClass1` should "
+                   "not exist in tstiop DSO IOP env");
+
+        st1 = iop_env_get_struct(
+            iop_env_backward_old, LSTR("tstiop.MyClass1"));
+        Z_ASSERT_NULL(st1, "`tstiop.MyClass1` should not exist in backward "
+                      "old DSO IOP env");
+
+        st1 = iop_env_get_struct(
+            iop_env_backward_new, LSTR("tstiop.MyClass1"));
+        Z_ASSERT_NULL(st1, "`tstiop.MyClass1` should not exist in backward "
+                      "new DSO IOP env");
+
+        /* Cleanup */
+        iop_dso_close(&dso_backward_new);
+        iop_dso_close(&dso_backward_old);
+        iop_dso_close(&dso_tstiop);
+        iop_env_delete(&iop_env_backward_old);
+        iop_env_delete(&iop_env_backward_new);
+        iop_env_delete(&iop_env_tstiop);
+    } Z_TEST_END;
+    /* }}} */
 
     iop_env_delete(&_G.iop_env);
 } Z_GROUP_END
