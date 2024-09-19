@@ -33,7 +33,6 @@
 
 #include "zchk-iop.h"
 #include "iop/tstiop.iop.h"
-#include "iop/tstiop2.iop.h"
 #include "iop/tstiop_dox.iop.h"
 #include "iop/tstiop_dox_invalid_example_struct.iop.h"
 #include "iop/tstiop_dox_invalid_example_rpc.iop.h"
@@ -1599,7 +1598,6 @@ Z_GROUP_EXPORT(iop)
     _G.iop_env = iop_env_new();
     IOP_REGISTER_PACKAGES(_G.iop_env,
                           &tstiop__pkg,
-                          &tstiop2__pkg,
                           &tstiop_dox__pkg,
                           &tstiop_inheritance__pkg,
                           &tstiop_backward_compat__pkg,
@@ -3301,8 +3299,8 @@ Z_GROUP_EXPORT(iop)
         tstiop__struct_with_optional_object__t optional_object;
         tstiop__struct_with_child_class__t child_class;
         tstiop__struct_with_child_inherit_typedef__t inherit_typedef;
-        tstiop2__struct_with_typedefs_from_ext__t typedef_from_ext;
-        tstiop2__struct_with_ext_typedef__t ext_typedef;
+        tstiop_typedef__struct_with_typedefs_from_ext__t typedef_from_ext;
+        tstiop_typedef__struct_with_ext_typedef__t ext_typedef;
 
         tstiop_typedef__basic_struct__t first_item = { .a = true,
             .b = LSTR("1st item") };
@@ -3384,25 +3382,26 @@ Z_GROUP_EXPORT(iop)
              "tstiop_child_inherit_typedef");
 
         /* Struct referencing typedefs located on a distant package */
-        iop_init(tstiop2__struct_with_typedefs_from_ext, &typedef_from_ext);
+        iop_init(tstiop_typedef__struct_with_typedefs_from_ext,
+                 &typedef_from_ext);
         typedef_from_ext.tdef_s.i = 54;
         typedef_from_ext.i1 = 13;
-        typedef_from_ext.tdef_c = t_iop_new(tstiop2__remote_class);
+        typedef_from_ext.tdef_c = t_iop_new(tstiop_typedef__remote_class);
         typedef_from_ext.tdef_c->i = 44;
         typedef_from_ext.i2 = 14;
         typedef_from_ext.tdef_e = EXTERNAL_ENUM_B;
         typedef_from_ext.i3 = 15;
-        T_OK(tstiop2__struct_with_typedefs_from_ext, &typedef_from_ext,
-             "tstiop2_local_typedef_referencing_ext");
+        T_OK(tstiop_typedef__struct_with_typedefs_from_ext, &typedef_from_ext,
+             "tstiop_typedef_local_typedef_referencing_ext");
 
         /* Struct containing a typedef enum referenced in another package */
-        iop_init(tstiop2__struct_with_ext_typedef, &ext_typedef);
+        iop_init(tstiop_typedef__struct_with_ext_typedef, &ext_typedef);
         ext_typedef.i1 = 23;
-        ext_typedef.c = t_iop_new(tstiop2__remote_typedef_class);
+        ext_typedef.c = t_iop_new(tstiop_typedef__remote_typedef_class);
         ext_typedef.c->i = 48;
         ext_typedef.i2 = 24;
-        T_OK(tstiop2__struct_with_ext_typedef, &ext_typedef,
-             "tstiop2_ext_typedef");
+        T_OK(tstiop_typedef__struct_with_ext_typedef, &ext_typedef,
+             "tstiop_typedef_ext_typedef");
 
         /* Struct containing typedef arrays of local or remote struct/enum */
         iop_init(tstiop_typedef__array_test, &arrays_typedef);
@@ -8805,14 +8804,29 @@ Z_GROUP_EXPORT(iop)
     /* }}} */
     Z_TEST(iop_dso_fixup, "test fixup for external DSOs") { /* {{{ */
         iop_dso_t *dso;
-        const iop_struct_t *my_struct;
+        lstr_t my_struct_name = LSTR("tstiop2.MyStruct");
+        const iop_struct_t *my_struct_env;
+        const iop_struct_t *my_struct_dso;
         const iop_field_t *field;
 
         Z_HELPER_RUN(z_dso_open("iop/zchk-tstiop2-plugin" SO_FILEEXT, true,
                                 _G.iop_env, &dso));
 
-        my_struct = iop_env_get_struct(_G.iop_env, LSTR("tstiop2.MyStruct"));
-        Z_ASSERT_N(iop_field_find_by_name(my_struct, LSTR("a"), NULL,
+        /* Get the struct from the IOP environment */
+        my_struct_env = iop_env_get_struct(_G.iop_env, my_struct_name);
+        Z_ASSERT_P(my_struct_env);
+
+        /* Get the struct from the DSO */
+        my_struct_dso = qm_get_def_safe(iop_struct, &dso->struct_h,
+                                        &my_struct_name, NULL);
+        Z_ASSERT_P(my_struct_dso);
+
+        /* Check that we are using the correct from the DSO in the IOP
+         * environment. */
+        Z_ASSERT(my_struct_env == my_struct_dso);
+
+        /* Get the field 'a' from the struct. */
+        Z_ASSERT_N(iop_field_find_by_name(my_struct_env, LSTR("a"), NULL,
                                           &field));
 
         /* the two pointers to "tstiop.MyStructA" must be the same */

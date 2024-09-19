@@ -25,7 +25,7 @@
 #include <lib-common/iop-yaml.h>
 #include <lib-common/iop-json.h>
 #include "iop/tstiop.iop.h"
-#include "iop/tstiop2.iop.h"
+#include "iop/tstiop_typedef.iop.h"
 
 /* {{{ IOP testing helpers */
 
@@ -1062,7 +1062,7 @@ Z_GROUP_EXPORT(iop_yaml)
             NULL);
 
         /* unpacking a remote typedef class should work */
-        TST(&tstiop2__struct_with_typedefs_from_ext__s,
+        TST(&tstiop_typedef__struct_with_typedefs_from_ext__s,
             "tdefS:\n"
             "  i: 11\n"
             "i1: 12\n"
@@ -1072,7 +1072,7 @@ Z_GROUP_EXPORT(iop_yaml)
             "tdefE: A\n"
             "i3: 48",
             NULL);
-        TST(&tstiop2__struct_with_ext_typedef__s,
+        TST(&tstiop_typedef__struct_with_ext_typedef__s,
             "i1: 12\n"
             "c:\n"
             "  i: 43\n"
