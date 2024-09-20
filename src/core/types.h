@@ -34,17 +34,19 @@ typedef int spinlock_t;
 /* }}} */
 /* {{{1 Refcount */
 
-#define REFCNT_NEW(type, pfx)                                                \
-    __attr_unused__ static inline __attribute__((malloc))                    \
+#define REFCNT_EXTERN_NEW(type, pfx)                                         \
+     __attribute__((malloc))                                                 \
     type *nonnull pfx##_new(void)                                            \
     {                                                                        \
         type *res = pfx##_init(p_new_raw(type, 1));                          \
         res->refcnt = 1;                                                     \
         return res;                                                          \
     }
+#define REFCNT_NEW(type, pfx)                                                \
+    __attr_unused__ static inline REFCNT_EXTERN_NEW(type, pfx)
 
-#define REFCNT_RETAIN(type, pfx)                                             \
-    __attr_unused__ static inline __attr_nonnull__((1))                      \
+#define REFCNT_EXTERN_RETAIN(type, pfx)                                      \
+    __attr_nonnull__((1))                                                    \
     type *nonnull pfx##_retain(type *nonnull t)                              \
     {                                                                        \
         if (unlikely(t->refcnt < 1)) {                                       \
@@ -53,9 +55,11 @@ typedef int spinlock_t;
         t->refcnt++;                                                         \
         return t;                                                            \
     }
+#define REFCNT_RETAIN(type, pfx)                                             \
+    __attr_unused__ static inline REFCNT_EXTERN_RETAIN(type, pfx)
 
-#define REFCNT_RELEASE(type, pfx)                                            \
-    __attr_unused__ static inline void __attr_nonnull__((1))                 \
+#define REFCNT_EXTERN_RELEASE(type, pfx)                                     \
+    void __attr_nonnull__((1))                                               \
     pfx##_release(type *nullable *nonnull tp)                                \
     {                                                                        \
         type * const t = *tp;                                                \
@@ -71,9 +75,11 @@ typedef int spinlock_t;
             }                                                                \
         }                                                                    \
     }
+#define REFCNT_RELEASE(type, pfx)                                            \
+    __attr_unused__ static inline REFCNT_EXTERN_RELEASE(type, pfx)
 
-#define REFCNT_DELETE(type, pfx)                                             \
-    __attr_unused__ static inline void __attr_nonnull__((1))                 \
+#define REFCNT_EXTERN_DELETE(type, pfx)                                      \
+    void __attr_nonnull__((1))                                               \
     pfx##_delete(type *nullable *nonnull tp)                                 \
     {                                                                        \
         if (*tp) {                                                           \
@@ -81,12 +87,20 @@ typedef int spinlock_t;
             *tp = NULL;                                                      \
         }                                                                    \
     }
+#define REFCNT_DELETE(type, pfx)                                             \
+    __attr_unused__ static inline REFCNT_EXTERN_DELETE(type, pfx)
 
 #define DO_REFCNT(type, pfx)                                                 \
     REFCNT_NEW(type, pfx)                                                    \
     REFCNT_RETAIN(type, pfx)                                                 \
     REFCNT_RELEASE(type, pfx)                                                \
     REFCNT_DELETE(type, pfx)
+
+#define DO_REFCNT_EXTERN(type, pfx)                                          \
+    REFCNT_EXTERN_NEW(type, pfx)                                             \
+    REFCNT_EXTERN_RETAIN(type, pfx)                                          \
+    REFCNT_EXTERN_RELEASE(type, pfx)                                         \
+    REFCNT_EXTERN_DELETE(type, pfx)
 
 /* 1}}} */
 /* {{{ Optional scalar types */
