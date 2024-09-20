@@ -125,6 +125,9 @@ qm_khptr_ckey_t(iop_dso_by_pkg, iop_pkg_t, iop_dso_t * nonnull);
 
 /** The IOP environment where IOP objects are registered. */
 typedef struct iop_env_t {
+    /** Reference counter. */
+    int refcnt;
+
     /** The map of classes by class base and class id. */
     qm_t(iop_class_by_id) classes_by_id;
 
@@ -141,6 +144,9 @@ typedef struct iop_env_t {
      * environment to use a separate namespace.
      */
     Lmid_t dso_lmid;
+
+    /* XXX: When adding new fields here, make sure to also handle them in
+     * iop_env_transfer(). */
 } iop_env_t;
 
 /** Create an IOP environment. */
@@ -148,6 +154,9 @@ iop_env_t * nonnull iop_env_new(void);
 
 /** Delete an IOP environment. */
 void iop_env_delete(iop_env_t * nullable  * nonnull iop_envp);
+
+/** Retain a reference to the IOP environment. */
+iop_env_t * nonnull iop_env_retain(iop_env_t * nonnull iop_env);
 
 /** Copy an IOP environment to another one. */
 void iop_env_copy(iop_env_t * nonnull dst, iop_env_t * nonnull src);

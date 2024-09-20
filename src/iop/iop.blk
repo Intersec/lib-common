@@ -6114,9 +6114,10 @@ static void iop_env_wipe(iop_env_t *iop_env)
     }
 }
 
-
-DO_NEW(iop_env_t, iop_env);
-DO_DELETE(iop_env_t, iop_env);
+REFCNT_RELEASE(iop_env_t, iop_env);
+REFCNT_EXTERN_RETAIN(iop_env_t, iop_env);
+REFCNT_EXTERN_NEW(iop_env_t, iop_env);
+REFCNT_EXTERN_DELETE(iop_env_t, iop_env);
 
 void iop_env_copy(iop_env_t *dst, iop_env_t *src)
 {
@@ -6144,7 +6145,12 @@ void iop_env_copy(iop_env_t *dst, iop_env_t *src)
 
 void iop_env_transfer(iop_env_t *dst, iop_env_t *src)
 {
-    SWAP(iop_env_t, *dst, *src);
+    /* XXX: Do not swap the whole structure as we don't want to swap `refcnt`.
+     */
+    SWAP(qm_t(iop_class_by_id), dst->classes_by_id, src->classes_by_id);
+    SWAP(qm_t(iop_dso_by_pkg), dst->dso_by_pkg, src->dso_by_pkg);
+    SWAP(qm_t(iop_objs), dst->iop_obj_by_fullname, src->iop_obj_by_fullname);
+    SWAP(Lmid_t, dst->dso_lmid, src->dso_lmid);
     iop_env_wipe(src);
 }
 
