@@ -124,8 +124,10 @@ static int iopsq_fill_type(const iop_env_t *iop_env,
 
     if ((obj = iop_get_obj(iop_env, typename))) {
         switch (obj->type) {
-          case IOP_OBJ_TYPE_PKG:
           case IOP_OBJ_TYPE_TYPEDEF:
+          case IOP_OBJ_TYPE_IFACE:
+          case IOP_OBJ_TYPE_MOD:
+          case IOP_OBJ_TYPE_PKG:
             break;
 
           case IOP_OBJ_TYPE_ENUM:
@@ -256,6 +258,14 @@ iopc_field_set_typename(iopc_field_t *nonnull f, const iop_env_t *iop_env,
                     /* Not expected to happen if we properly check the name.
                      */
                     sb_sets(err, "is a package name");
+                    return -1;
+
+                  case IOP_OBJ_TYPE_IFACE:
+                    sb_sets(err, "is an interface name");
+                    return -1;
+
+                  case IOP_OBJ_TYPE_MOD:
+                    sb_sets(err, "is a module name");
                     return -1;
 
                   case IOP_OBJ_TYPE_TYPEDEF:

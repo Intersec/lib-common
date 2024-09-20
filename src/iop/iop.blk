@@ -6526,6 +6526,12 @@ static const char *iop_obj_type_to_str(const iop_obj_t *obj)
       case IOP_OBJ_TYPE_TYPEDEF:
         return "typedef";
 
+      case IOP_OBJ_TYPE_IFACE:
+        return "interface";
+
+      case IOP_OBJ_TYPE_MOD:
+        return "module";
+
       case IOP_OBJ_TYPE_PKG:
         return "package";
     }
@@ -6576,6 +6582,10 @@ iop_register_obj(lstr_t fullname, iop_obj_t obj, unsigned flags,
     (iop_obj_t){ .desc = { .en = _en }, .type = IOP_OBJ_TYPE_ENUM }
 #define IOP_OBJ_TD(_td)  \
     (iop_obj_t){ .desc = { .td = _td }, .type = IOP_OBJ_TYPE_TYPEDEF }
+#define IOP_OBJ_IFACE(_iface)  \
+    (iop_obj_t){ .desc = { .iface = _iface }, .type = IOP_OBJ_TYPE_IFACE }
+#define IOP_OBJ_MOD(_mod)  \
+    (iop_obj_t){ .desc = { .mod = _mod }, .type = IOP_OBJ_TYPE_MOD }
 #define IOP_OBJ_PKG(_pkg)  \
     (iop_obj_t){ .desc = { .pkg = _pkg }, .type = IOP_OBJ_TYPE_PKG }
 
@@ -6613,6 +6623,22 @@ iop_register_typedef(const iop_typedef_t *td, unsigned flags,
 {
     return iop_register_obj(td->fullname, IOP_OBJ_TD(td), flags, iop_env,
                             err);
+}
+
+static int
+iop_register_iface(const iop_iface_t *iface, unsigned flags,
+                   iop_env_t *iop_env, sb_t *err)
+{
+    return iop_register_obj(iface->fullname, IOP_OBJ_IFACE(iface), flags,
+                            iop_env, err);
+}
+
+static int
+iop_register_mod(const iop_mod_t *mod, unsigned flags,
+                 iop_env_t *iop_env, sb_t *err)
+{
+    return iop_register_obj(mod->fullname, IOP_OBJ_MOD(mod), flags,
+                            iop_env, err);
 }
 
 static int
@@ -6658,6 +6684,28 @@ static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
 
             RETHROW(iop_register_typedef(desc, flags, iop_env, err));
         }
+    }
+
+    /* Register its interfaces and related structs. */
+    for (const iop_iface_t *const *it = pkg->ifaces; *it; it++) {
+        const iop_iface_t *desc = *it;
+
+        RETHROW(iop_register_iface(desc, flags, iop_env, err));
+
+        for (int i = 0; i < desc->funs_len; i++) {
+            const iop_rpc_t *rpc = &desc->funs[i];
+
+            RETHROW(iop_register_struct(rpc->args, flags, iop_env, err));
+            RETHROW(iop_register_struct(rpc->result, flags, iop_env, err));
+            RETHROW(iop_register_struct(rpc->exn, flags, iop_env, err));
+        }
+    }
+
+    /* Register its modules. */
+    for (const iop_mod_t *const *it = pkg->mods; *it; it++) {
+        const iop_mod_t *desc = *it;
+
+        RETHROW(iop_register_mod(desc, flags, iop_env, err));
     }
 
     /* Register its dependencies. */

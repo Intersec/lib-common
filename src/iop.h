@@ -89,6 +89,12 @@ typedef enum iop_obj_type_t {
     /** Typedef */
     IOP_OBJ_TYPE_TYPEDEF,
 
+    /** Interface */
+    IOP_OBJ_TYPE_IFACE,
+
+    /** Module */
+    IOP_OBJ_TYPE_MOD,
+
     /* IOP package. */
     IOP_OBJ_TYPE_PKG,
 } iop_obj_type_t;
@@ -103,6 +109,8 @@ typedef struct iop_obj_t {
         const iop_struct_t *nonnull st;
         const iop_enum_t *nonnull en;
         const iop_typedef_t *nonnull td;
+        const iop_iface_t *nonnull iface;
+        const iop_mod_t *nonnull mod;
         const iop_pkg_t *nonnull pkg;
     } desc;
 
