@@ -54,7 +54,7 @@ cdef struct QHashIterator:
     uint32_t next_pos
 
 
-cdef inline QHashIterator qhash_iter_make(const qhash_t *qh):
+cdef inline QHashIterator qhash_iter_make(const qhash_t *qh) noexcept nogil:
     """Make a new qhash iterator
 
     Parameters
@@ -74,7 +74,7 @@ cdef inline QHashIterator qhash_iter_make(const qhash_t *qh):
     return it
 
 
-cdef inline cbool qhash_iter_next(QHashIterator *it):
+cdef inline cbool qhash_iter_next(QHashIterator *it) noexcept nogil:
     """Advance the iterator to next item.
 
     Parameters
