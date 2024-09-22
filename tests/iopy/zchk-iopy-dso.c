@@ -34,6 +34,12 @@
 #include <lib-common/iop.h>
 #include <lib-common/z.h>
 
+#include <lib-common/core/core.iop.h>
+#include <lib-common/iop/ic.iop.h>
+#include "testsuite/test.iop.h"
+#include "testsuite/tst1.iop.h"
+#include "testsuite/testvoid.iop.h"
+
 #include "zchk-iopy-dso.fc.c"
 
 /* LCOV_EXCL_START */
@@ -49,12 +55,14 @@
     })
 
 static struct {
+    iop_env_t *iop_env;
     void *iopy_dso;
-    PyObject *plugin;
-    PyObject *plugin_register;
-    PyObject *script_globals;
 #define _G  zchk_add_package_g
 } zchk_add_package_g;
+
+
+typedef void (*add_iop_package_f)(const iop_pkg_t *p, void *plugin);
+typedef PyObject *(*make_plugin_from_iop_env_f)(iop_env_t *iop_env);
 
 static const char *t_z_fetch_traceback_err(PyObject *type, PyObject *value,
                                            PyObject *tb)
@@ -114,19 +122,15 @@ static const char *t_z_fetch_py_err(void)
 static void z_iopy_dso_initialize_(void)
 {
     t_scope;
-    lstr_t entry;
     PyObject *obj;
     PyObject *iopy_module;
-    PyObject *script;
-    lstr_t plugin_file;
-    Py_ssize_t plugin_file_len;
     const char *iopy_dso_path;
 
-    /* Get farch entry */
-    entry = t_farch_get_data(zchk_iopy_dso, "zchk-iopy-dso.py");
-    if (!entry.s) {
-        e_fatal("unable to get entry zchk-iopy-dso.py");
-    }
+    /* Build the IOP environment */
+    _G.iop_env = iop_env_new();
+
+    IOP_REGISTER_PACKAGES(_G.iop_env, &test__pkg, &tst1__pkg, &ic__pkg,
+                          &core__pkg, &testvoid__pkg);
 
     Py_Initialize();
 
@@ -143,26 +147,6 @@ static void z_iopy_dso_initialize_(void)
         e_fatal("unable to import iopy module");
     }
 
-    /* Get plugin */
-    plugin_file = t_lstr_fmt("%*pMtestsuite/test-iop-plugin.so",
-                             LSTR_FMT_ARG(z_cmddir_g));
-    plugin_file_len = plugin_file.len;
-    _G.plugin = PyObject_CallMethod(iopy_module, (char *)"Plugin",
-                                    (char *)"s#", plugin_file.s,
-                                    plugin_file_len);
-    if (!_G.plugin) {
-        e_fatal("unable to create plugin from iopy module: %s",
-                t_z_fetch_py_err());
-    }
-
-    /* Get plugin register */
-    _G.plugin_register = PyObject_CallMethod(_G.plugin, (char *)"register",
-                                             NULL);
-    if (!_G.plugin_register) {
-        e_fatal("unable to create plugin register from plugin: %s",
-                t_z_fetch_py_err());
-    }
-
     /* Get iopy_dso */
     iopy_dso_path = t_fmt("%*pM" IOPY_DSO_NAME, LSTR_FMT_ARG(z_cmddir_g));
     _G.iopy_dso = dlopen(iopy_dso_path,
@@ -172,22 +156,6 @@ static void z_iopy_dso_initialize_(void)
                 "loaded by the python script", iopy_dso_path);
     }
 
-    /* Set builtins to globals */
-    _G.script_globals = PyDict_New();
-    if (PyDict_SetItemString(_G.script_globals, "__builtins__",
-                             PyEval_GetBuiltins()) < 0)
-    {
-        e_fatal("unable to get python __builtins__");
-    }
-
-    /* Run script */
-    script = PyRun_String(entry.s, Py_file_input, _G.script_globals,
-                          _G.script_globals);
-    if (!script) {
-        e_fatal("unable to start zchk-iopy-dso.py: %s", t_z_fetch_py_err());
-    }
-
-    Py_DECREF(script);
     Py_DECREF(iopy_module);
 }
 
@@ -205,68 +173,124 @@ static void z_iopy_dso_shutdown(void)
     }
 
     dlclose(_G.iopy_dso);
-    Py_DECREF(_G.script_globals);
-    Py_DECREF(_G.plugin_register);
-    Py_DECREF(_G.plugin);
     Py_Finalize();
+    iop_env_delete(&_G.iop_env);
 }
 
-static int z_run_py_test(const char *name, sb_t *err)
+static int z_load_plugin(PyObject **plugin_ptr)
 {
     t_scope;
-    PyObject *func = PyDict_GetItemString(_G.script_globals, name);
-    PyObject *res;
+    make_plugin_from_iop_env_f make_plugin_cb;
+    PyObject *plugin;
 
-    if (!func) {
-        sb_setf(err, "unable to get test function with name `%s`", name);
-        return -1;
-    }
+    /* Get the Iopy_make_plugin_iop_env function */
+    make_plugin_cb = dlsym(_G.iopy_dso, "Iopy_make_plugin_iop_env");
+    Z_ASSERT_P(make_plugin_cb,
+               "unable to get symbol Iopy_make_plugin_iop_env: %s",
+               dlerror());
 
-    res = PyObject_CallFunctionObjArgs(func, _G.plugin, _G.plugin_register,
-                                       NULL);
-    if (!res) {
-        sb_setf(err, "%s", t_z_fetch_py_err());
-        return -1;
-    }
-    Py_DECREF(res);
+    /* Build the plugin */
+    plugin = (*make_plugin_cb)(_G.iop_env);
+    Z_ASSERT_P(plugin, "unable to build the plugin: %s", t_z_fetch_py_err());
 
-    return 0;
+    /* Return the plugin */
+    *plugin_ptr = plugin;
+
+    Z_HELPER_END;
 }
 
-typedef void (*add_iop_package_f)(const iop_pkg_t *p, void *plugin);
+static int z_load_dso(PyObject *plugin, iop_dso_t **dso_ptr)
+{
+    SB_1k(err);
+    add_iop_package_f add_iop_package_cb;
+    const char *dso_path;
+    iop_dso_t *dso;
+
+    /* Get the Iopy_add_iop_package from IOPy */
+    add_iop_package_cb = dlsym(_G.iopy_dso, "Iopy_add_iop_package");
+    Z_ASSERT_P(add_iop_package_cb, "unable to get symbol "
+               "Iopy_add_iop_package: %s", dlerror());
+
+    /* Open the test DSO */
+    dso_path = t_fmt("%*pMtestsuite/test-iop-plugin-dso.so",
+                     LSTR_FMT_ARG(z_cmddir_g));
+    dso = iop_dso_open(_G.iop_env, dso_path, &err);
+    Z_ASSERT_P(dso, "%*pM", SB_FMT_ARG(&err));
+
+    /* Load the packages in the plugin */
+    qm_for_each_pos(iop_pkg, pos, &dso->pkg_h) {
+        add_iop_package_cb(dso->pkg_h.values[pos], plugin);
+    }
+
+    /* Return the DSO */
+    *dso_ptr = dso;
+
+    Z_HELPER_END;
+}
+
+static int z_run_script(PyObject *plugin)
+{
+    t_scope;
+    lstr_t entry;
+    PyObject *script;
+    PyObject *script_globals;
+    PyObject *func;
+    PyObject *res;
+
+    /* Get farch entry */
+    entry = t_farch_get_data(zchk_iopy_dso, "zchk-iopy-dso.py");
+    Z_ASSERT_P(entry.s, "unable to get entry zchk-iopy-dso.py");
+
+    /* Set builtins to globals */
+    script_globals = PyDict_New();
+    Z_ASSERT_N(PyDict_SetItemString(script_globals, "__builtins__",
+                                    PyEval_GetBuiltins()),
+               "unable to get python __builtins__");
+
+    /* Run script */
+    script = PyRun_String(entry.s, Py_file_input, script_globals,
+                          script_globals);
+    Z_ASSERT_P(script, "unable to start zchk-iopy-dso.py: %s",
+               t_z_fetch_py_err());
+    Py_DECREF(script);
+
+    /* Get the function created by the script */
+    func = PyDict_GetItemString(script_globals, "test_add_iop_package");
+    Z_ASSERT_P(func, "unable to get test function with name "
+               "`test_add_iop_package`");
+
+    /* Call the function with the plugin */
+    res = PyObject_CallFunctionObjArgs(func, plugin, NULL);
+    Z_ASSERT_P(res, "%s", t_z_fetch_py_err());
+    Py_DECREF(res);
+
+    Py_DECREF(script_globals);
+    Z_HELPER_END;
+}
 
 Z_GROUP_EXPORT(iopy_dso) {
-    Z_TEST(add_iop_package, "") {
+    Z_TEST(iopy_c_func_load,
+           "Load plugin and DSO through IOPy C external functions")
+    {
         t_scope;
-        int res = -1;
-        SB_1k(err);
-        add_iop_package_f add_iop_package_cb;
-        const char *dso_path;
-        iop_env_t *iop_env;
-        iop_dso_t *dso;
+        PyObject *plugin = NULL;
+        iop_dso_t *dso = NULL;
 
+        /* Load IOPy module */
         z_iopy_dso_initialize();
 
-        add_iop_package_cb = dlsym(_G.iopy_dso, "Iopy_add_iop_package");
-        Z_ASSERT_P(add_iop_package_cb, "unable to get symbol "
-                   "Iopy_add_iop_package: %s", dlerror());
+        /* Load the plugin */
+        Z_HELPER_RUN(z_load_plugin(&plugin));
 
-        iop_env = iop_env_new();
+        /* Load the DSO */
+        Z_HELPER_RUN(z_load_dso(plugin, &dso));
 
-        dso_path = t_fmt("%*pMtestsuite/test-iop-plugin-dso.so",
-                         LSTR_FMT_ARG(z_cmddir_g));
-        dso = iop_dso_open(iop_env, dso_path, &err);
-        Z_ASSERT_P(dso, "%*pM", SB_FMT_ARG(&err));
+        /* Run the script */
+        Z_HELPER_RUN(z_run_script(plugin));
 
-        qm_for_each_pos(iop_pkg, pos, &dso->pkg_h) {
-            add_iop_package_cb(dso->pkg_h.values[pos], _G.plugin);
-        }
-
-        res = z_run_py_test("test_add_iop_package", &err);
-
+        /* Cleanup */
+        Py_DECREF(plugin);
         iop_dso_close(&dso);
-        iop_env_delete(&iop_env);
-        Z_ASSERT_N(res, "%*pM", SB_FMT_ARG(&err));
     } Z_TEST_END;
 
     z_iopy_dso_shutdown();

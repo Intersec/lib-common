@@ -17,6 +17,6 @@
 #                                                                         #
 ###########################################################################
 
-def test_add_iop_package(plugin, plugin_r):
-    if not issubclass(plugin_r.test_dso.ClassDso, plugin_r.test.ClassA):
+def test_add_iop_package(plugin):
+    if not issubclass(plugin.test_dso.ClassDso, plugin.test.ClassA):
         raise AssertionError("ClassDso is not a child class of ClassA")
