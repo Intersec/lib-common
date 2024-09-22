@@ -21,12 +21,13 @@
 #include <lib-common/core/core.iop.h>
 
 #include "test.iop.h"
+#include "testvoid.iop.h"
 
 #include "test_1_2.fc.c"
 #include "test_3.fc.c"
 
 IOP_EXPORT_PACKAGES_COMMON(0, NULL);
 
-IOP_EXPORT_PACKAGES(&test__pkg, &ic__pkg, &core__pkg);
+IOP_EXPORT_PACKAGES(&test__pkg, &testvoid__pkg, &ic__pkg, &core__pkg);
 
 IOP_DSO_EXPORT_RESSOURCES(iopy_on_register, test_1_2_scripts, test_3_script);

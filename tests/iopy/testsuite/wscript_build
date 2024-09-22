@@ -48,6 +48,7 @@ ctx.shlib(target='test-iop-plugin-scripts', source=[
     'test_3.fc',
 ], use_whole=[
     'test-iop',
+    'testvoid-iop',
     'libcommon-iop',
 ])
 
