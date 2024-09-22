@@ -64,6 +64,7 @@ PXCC_EXPORT_SYMBOL(iop_dso_close);
 
 PXCC_EXPORT_SYMBOL(iop_env_new);
 PXCC_EXPORT_SYMBOL(iop_env_delete);
+PXCC_EXPORT_SYMBOL(iop_env_retain);
 
 /* }}} */
 /* {{{ Iop-Json */

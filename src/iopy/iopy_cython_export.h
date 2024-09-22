@@ -37,6 +37,6 @@ EXPORT int Iopy_remove_iop_package(const iop_pkg_t *, PyObject *);
 EXPORT PyObject *Iopy_from_iop_struct_or_union(PyObject *,
                                                const iop_struct_t *,
                                                const void *);
-EXPORT PyObject *Iopy_make_plugin_from_handle(void *handle, const char *path);
+EXPORT PyObject *Iopy_make_plugin_iop_env(iop_env_t *iop_env);
 
 #endif /* IS_IOPY_CYTHON_EXPORT_FIX_H */

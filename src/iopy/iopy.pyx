@@ -9584,12 +9584,6 @@ cdef class Plugin:
         cdef _InternalBaseHolder metaclass
         cdef _InternalBaseHolder metaclass_iface
 
-        self.iop_env = iop_env_new()
-        # TODO: Use LM_ID_NEWLM here to load the plugin and additional DSOs in
-        # a separate namespace.
-        # This requires reworking the IOPY C exported functions.
-        # self.iop_env.dso_lmid = LM_ID_NEWLM
-
         self.types = {}
         self.interfaces = {}
         self.modules = {}
@@ -9626,6 +9620,12 @@ cdef class Plugin:
         dso_path : str, optional
             The optional IOP plugin dso path.
         """
+        self.iop_env = iop_env_new()
+        # TODO: Use LM_ID_NEWLM here to load the plugin and additional DSOs in
+        # a separate namespace.
+        # This requires reworking the IOPY C exported functions.
+        # self.iop_env.dso_lmid = LM_ID_NEWLM
+
         self.dso = plugin_open_dso(self, dso_path)
         plugin_run_register_scripts(self, self.dso)
 
@@ -9637,12 +9637,12 @@ cdef class Plugin:
     @property
     def dsopath(Plugin self):
         """Get the path of the IOP plugin"""
-        return lstr_to_py_str(self.dso.path)
+        return lstr_to_py_str(self.dso.path) if self.dso else None
 
     @property
     def __dsopath__(Plugin self):
         """Deprecated, use dsopath instead."""
-        return lstr_to_py_str(self.dso.path)
+        return self.dsopath
 
     @property
     def __modules__(Plugin self):
@@ -10174,10 +10174,6 @@ cdef void plugin_load_dso(Plugin plugin, iop_dso_t *dso):
     while qhash_iter_next(&it):
         plugin_add_package(plugin, dso.pkg_h.values[it.pos], dso)
 
-    it = qhash_iter_make(&dso.mod_h.qh)
-    while qhash_iter_next(&it):
-        plugin_add_module(plugin, dso.mod_h.values[it.pos])
-
     if dso.user_version or dso.user_version_cb:
         ic_set_user_version(dso.user_version, dso.user_version_cb)
 
@@ -10201,6 +10197,7 @@ cdef void plugin_add_package(Plugin plugin, const iop_pkg_t *pkg,
     cdef const iop_enum_t *const *enums
     cdef const iop_struct_t *const *structs
     cdef const iop_typedef_t *const *typedefs
+    cdef const iop_mod_t *const *modules
 
     pkg_name = make_py_pkg_name(lstr_to_py_str(pkg.name))
     py_pkg = plugin_create_or_get_py_pkg(plugin, pkg_name)
@@ -10225,6 +10222,11 @@ cdef void plugin_add_package(Plugin plugin, const iop_pkg_t *pkg,
         while typedefs[0]:
             plugin_get_or_add_typedef(plugin, py_pkg, typedefs[0])
             typedefs += 1
+
+    modules = pkg.mods
+    while modules[0]:
+        plugin_add_module(plugin, modules[0])
+        modules += 1
 
 
 cdef Package plugin_create_or_get_py_pkg(Plugin plugin, str pkg_name):
@@ -10962,10 +10964,6 @@ cdef void plugin_unload_dso(Plugin plugin, iop_dso_t *dso):
     while qhash_iter_next(&it):
         plugin_remove_package(plugin, dso.pkg_h.values[it.pos], dso)
 
-    it = qhash_iter_make(&dso.mod_h.qh)
-    while qhash_iter_next(&it):
-        plugin_remove_module(plugin, dso.mod_h.values[it.pos])
-
 
 cdef void plugin_remove_package(Plugin plugin, const iop_pkg_t *pkg,
                                 const iop_dso_t *dso):
@@ -10985,6 +10983,7 @@ cdef void plugin_remove_package(Plugin plugin, const iop_pkg_t *pkg,
     cdef const iop_enum_t *const *enums
     cdef const iop_struct_t *const *structs
     cdef const iop_typedef_t *const *typedefs
+    cdef const iop_mod_t *const *modules
 
     pkg_name = make_py_pkg_name(lstr_to_py_str(pkg.name))
     py_pkg = <Package>getattr(plugin, pkg_name, None)
@@ -11012,6 +11011,11 @@ cdef void plugin_remove_package(Plugin plugin, const iop_pkg_t *pkg,
         while typedefs[0]:
             plugin_remove_typedef(plugin, typedefs[0])
             typedefs += 1
+
+    modules = pkg.mods
+    while modules[0]:
+        plugin_remove_module(plugin, modules[0])
+        modules += 1
 
     delattr(plugin, pkg_name)
 
@@ -11394,37 +11398,39 @@ cdef public int Iopy_remove_iop_package(const iop_pkg_t *p,
     plugin_remove_package(plugin, p, NULL)
 
 
-cdef public object Iopy_make_plugin_from_handle(void *handle,
-                                                const char *path):
-    """Make a IOPy plugin by loading the DSO from the handle.
-
-    On success, the plugin will own the handle afterwards.
-    On error, the handle is not closed.
+cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
+    """Make a IOPy plugin by loading the IOP environment.
 
     Parameters
     ----------
-    handle
-        The C IOP DSO handle.
-    path
-        The C IOP modules.
+    iop_env
+        The C IOP environment.
 
     Returns
     -------
         The IOPy plugin.
     """
-    cdef sb_buf_1k_t sb_buf
-    cdef sb_scope_t sb = sb_scope_init_static(sb_buf)
+    cdef int i
     cdef Plugin plugin
-    cdef iop_dso_t *dso
+    cdef qv_iop_obj_t *iop_objs
+    cdef iop_obj_t *iop_obj
+    cdef QHashIterator it
 
     plugin = Plugin.__new__(Plugin)
-    dso = iop_dso_load_handle(plugin.iop_env, handle, path, &sb)
-    if not dso:
-        raise Error('IOP module import fail: %s' %
-                    lstr_to_py_str(LSTR_SB_V(&sb)))
 
-    plugin_load_dso(plugin, dso)
-    plugin.dso = dso
+    # Retain the IOP env so it is automatically deleted when the plugin is
+    # deleted
+    plugin.iop_env = iop_env_retain(iop_env)
+
+    # Load the packages from the IOP environment
+    it = qhash_iter_make(&iop_env.iop_obj_by_fullname.qh)
+    while qhash_iter_next(&it):
+        iop_objs = &iop_env.iop_obj_by_fullname.values[it.pos]
+        for i in range(iop_objs.len):
+            iop_obj = &iop_objs.tab[i]
+            if iop_obj.type == IOP_OBJ_TYPE_PKG:
+                plugin_add_package(plugin, iop_obj.desc.pkg, NULL)
+
     return plugin
 
 
