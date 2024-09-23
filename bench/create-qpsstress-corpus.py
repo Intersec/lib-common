@@ -19,12 +19,12 @@ import os
 import struct
 
 from enum import IntEnum
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 CORPUS_DIR = "corpus"
 CORPUS_NAME = "corpus-init"
 CORPUS_NBR = 0
-CORPUS_DICT = dict()
+CORPUS_DICT = {}
 
 
 class QpsstressStep(IntEnum):
@@ -95,7 +95,7 @@ class FuzzingStep:
         self.handle = handle
         # This size is the maximum size expected for a fuzzing binary blob.
         self.blob_size_expected = 13
-        self.fuzz_dict = dict()
+        self.fuzz_dict = {}
 
     def pack_blob(self):
         """
@@ -213,7 +213,7 @@ class FuzzingQhatCompute(FuzzingQpsObjStep):
         elif do_mem_overhead is not None:
             self.flag = do_mem_overhead
         else:
-            raise Exception("do_stats or do_mem_overhead expected")
+            raise RuntimeError("do_stats or do_mem_overhead expected")
 
     def pack_blob(self):
         return super().pack_blob() + struct.pack('<B', self.flag)
@@ -252,7 +252,7 @@ def create_corpus_files_and_dict(corpus, category, generate_files=False,
     entry point) and/or the dictionary used to represent steps for fuzzing
     operations.
     """
-    corpus_dict = dict()
+    corpus_dict = {}
     f = None
 
     assert generate_files or fuzz_dict_name is not None
@@ -261,13 +261,14 @@ def create_corpus_files_and_dict(corpus, category, generate_files=False,
             if not isinstance(corpus_case, list):
                 corpus_case = [corpus_case]
 
-            if any([discard_fuzzing_operation(item.step, category)
-                    for item in corpus_case]):
+            if any(discard_fuzzing_operation(item.step, category)
+                   for item in corpus_case):
                 continue
 
             # If we want to generate files containing a fuzzing sequence,
             # create it now.
             if generate_files:
+                # pylint: disable=consider-using-with
                 f = open(os.path.join(CORPUS_DIR, f"{CORPUS_NAME}-{i}.bin"),
                          mode='wb')
 
@@ -444,22 +445,22 @@ def create_corpus(generate_files=True,
 
 
 if __name__ == '__main__':
-    ALL_OPTS = OptionParser()
-    ALL_OPTS.add_option("-d", "--dict-file", dest="fuzz_dict_name",
-                        action=None, help="export fuzzing dict to FILE",
-                        metavar="FILE")
-    ALL_OPTS.add_option("-g", "--generate-corpus",
-                        action="store_true", dest="generate_files",
-                        default=False,
-                        help="Define if all corpus steps should be written "
-                             "for libFuzzer")
-    ALL_OPTS.add_option("-c", "--category",
-                        type="int", dest="category",
-                        default=QpsstressFuzzerCat.QPS_CAT_ALL,
-                        help="Define if all steps like snapshot, reopen "
-                             "must be triggered for libFuzzer")
+    ALL_OPTS = ArgumentParser()
+    ALL_OPTS.add_argument("-d", "--dict-file", dest="fuzz_dict_name",
+                          action=None, help="export fuzzing dict to FILE",
+                          metavar="FILE")
+    ALL_OPTS.add_argument("-g", "--generate-corpus",
+                          action="store_true", dest="generate_files",
+                          default=False,
+                          help="Define if all corpus steps should be written "
+                          "for libFuzzer")
+    ALL_OPTS.add_argument("-c", "--category",
+                          type=int, dest="category",
+                          default=QpsstressFuzzerCat.QPS_CAT_ALL,
+                          help="Define if all steps like snapshot, reopen "
+                          "must be triggered for libFuzzer")
 
-    (CREATE_OPTS, CREATE_ARGS) = ALL_OPTS.parse_args()
+    CREATE_OPTS = ALL_OPTS.parse_args()
 
     if CREATE_OPTS.fuzz_dict_name is None and not CREATE_OPTS.generate_files:
         raise RuntimeError('Need at least -g or -d, see the help (-h)')
