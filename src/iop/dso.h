@@ -34,6 +34,13 @@ qm_kvec_t(iop_iface, lstr_t, const iop_iface_t * nonnull,
 qm_kvec_t(iop_mod, lstr_t, const iop_mod_t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
 
+/** Stat of a DSO file used for LMID cache. */
+typedef struct iop_dso_file_stat_t {
+    dev_t dev;
+    ino_t ino;
+    struct timespec mtim;
+} iop_dso_file_stat_t;
+
 typedef struct iop_dso_t {
     int               refcnt;
     void             * nonnull handle;
@@ -43,7 +50,9 @@ typedef struct iop_dso_t {
     iop_dso_user_version_cb_f *nullable user_version_cb;
 
     /* The IOP environment loaded by this DSO. */
-    iop_env_t         *nonnull iop_env;
+    iop_env_t * nonnull iop_env;
+    /* The stat of the DSO file if the DSO is used to create a new LMID */
+    iop_dso_file_stat_t file_stat;
 
     qm_t(iop_pkg)     pkg_h;
     qm_t(iop_enum)    enum_h;
@@ -72,10 +81,10 @@ typedef struct iop_dso_t {
  *  - RTLD_LAZY | RTLD_DEEPBIND when the lmid of the IOP environment is
  *    LM_ID_NEWLM or an already existing namespace.
  *
- * Due to a bug in glibc < 2.24, we are not able to call dlmopen(3) with
- * RTLD_GLOBAL. This means that the DSO creating a new namespace must contain
- * all the symbols needed by the other DSOs that will use that namespace.
- * See http://man7.org/linux/man-pages/man3/dlopen.3.html#BUGS
+ * Because we need to cache the different namespaces for the different DSOs
+ * when creating new namespaces, with LM_ID_NEWLM, it is possible that the
+ * namespace is reused instead of creating a new one depending on the DSO.
+ * See notes in dso.c for more explanation why it is required.
  *
  * \param[in]  iop_env the current IOP environment.
  * \param[in]  path    path to the DSO.
@@ -139,5 +148,9 @@ iop_dso_get_ressources(const iop_dso_t * nonnull, lstr_t category);
                                       IOP_DSO_GET_RESSOURCES(dso, category))
 
 IOP_DSO_DECLARE_RESSOURCE_CATEGORY(iopy_on_register, struct farch_entry_t);
+
+/* Called by iop module. */
+void iop_dso_initialize(void);
+void iop_dso_shutdown(void);
 
 #endif

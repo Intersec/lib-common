@@ -27,26 +27,8 @@
 #include "priv.h"
 #include "helpers.in.c"
 
-
-qvector_t(Lmid, Lmid_t);
-
 static struct {
     size_t threaded_pack_threshold;
-
-    /** Pool of empty and available LMID namespaces for DSOs.
-     *
-     * Because the glibc implementation supports a maximum of 16 namespaces
-     * per process, we need to be able to re-use namespaces when they are
-     * available to mitigate the issue.
-     *
-     * Unfortunately, this does not completely solve the issue if we open more
-     * than 15 DSOs simultaneously. After that limit, and error is thrown when
-     * trying to call dlmopen():
-     *   libc.so.6: cannot allocate memory in static TLS block
-     *
-     * See https://www.man7.org/linux/man-pages/man3/dlmopen.3.html#NOTES
-     */
-    qv_t(Lmid) lmid_pool;
 } iop_g = {
 #define _G  iop_g
     .threaded_pack_threshold = 300,
@@ -6100,18 +6082,7 @@ static void iop_env_wipe(iop_env_t *iop_env)
     qm_wipe(iop_class_by_id, &iop_env->classes_by_id);
     qm_wipe(iop_dso_by_pkg, &iop_env->dso_by_pkg);
     qm_deep_wipe(iop_objs, &iop_env->iop_obj_by_fullname, lstr_wipe, qv_wipe);
-
-    switch (iop_env->dso_lmid) {
-    case LM_ID_BASE:
-    case LM_ID_NEWLM:
-        /* Do nothing if no namespace has been created. */
-        break;
-
-    default:
-        /* Else, add it to available pools. */
-        qv_append(&_G.lmid_pool, iop_env->dso_lmid);
-        break;
-    }
+    iop_env->dso_lmid = LM_ID_BASE;
 }
 
 REFCNT_RELEASE(iop_env_t, iop_env);
@@ -6141,6 +6112,11 @@ void iop_env_copy(iop_env_t *dst, iop_env_t *src)
         qv_copy(&vec, &src->iop_obj_by_fullname.values[pos]);
         qm_add(iop_objs, &dst->iop_obj_by_fullname, &obj_fullname, vec);
     }
+
+    /* Use the source LMID as we want to load the DSO in the same namespace or
+     * create a new namespace if necessary. */
+    assert(dst->dso_lmid == LM_ID_BASE);
+    dst->dso_lmid = src->dso_lmid;
 }
 
 void iop_env_transfer(iop_env_t *dst, iop_env_t *src)
@@ -6150,19 +6126,16 @@ void iop_env_transfer(iop_env_t *dst, iop_env_t *src)
     SWAP(qm_t(iop_class_by_id), dst->classes_by_id, src->classes_by_id);
     SWAP(qm_t(iop_dso_by_pkg), dst->dso_by_pkg, src->dso_by_pkg);
     SWAP(qm_t(iop_objs), dst->iop_obj_by_fullname, src->iop_obj_by_fullname);
-    SWAP(Lmid_t, dst->dso_lmid, src->dso_lmid);
-    iop_env_wipe(src);
-}
 
-Lmid_t iop_dso_get_available_lmid(void)
-{
-    if (_G.lmid_pool.len > 0) {
-        Lmid_t lmid = _G.lmid_pool.tab[_G.lmid_pool.len - 1];
-
-        qv_remove_last(&_G.lmid_pool);
-        return lmid;
+    /* If a new namespace has been created, we need to store the new LMID as
+     * the destination LMID. */
+    if (dst->dso_lmid != src->dso_lmid) {
+        assert(src->dso_lmid != LM_ID_NEWLM);
+        assert(src->dso_lmid != LM_ID_BASE);
+        dst->dso_lmid = src->dso_lmid;
     }
-    return LM_ID_NEWLM;
+
+    iop_env_wipe(src);
 }
 
 /* }}} */
@@ -8183,13 +8156,13 @@ static int iop_initialize(void *arg)
 {
     iprintf_register_formatter('E', &iop_enum_formatter);
     iprintf_register_formatter('U', &iop_union_type_formatter);
-    qv_init(&_G.lmid_pool);
+    iop_dso_initialize();
     return 0;
 }
 
 static int iop_shutdown(void)
 {
-    qv_wipe(&_G.lmid_pool);
+    iop_dso_shutdown();
     return 0;
 }
 

@@ -19,6 +19,80 @@
 #include <lib-common/iop.h>
 #include "priv.h"
 
+/* XXX: Notes on DSO, LMID and cache system:
+ *
+ * Because the glibc implementation supports a maximum of 16 namespaces
+ * per process, we need to be able to re-use the namespaces as much as
+ * possible.
+ *
+ * To mitigate this issue, we have a cache of stored LMID per DSO.
+ * When we try to open a DSO with LM_ID_NEWLM to create a new namespace,
+ * check if this DSO has already been opened in a namespace, if it does,
+ * return this namespace and increment its ref counter.
+ * Else, open the DSO by creating a new namespace and store it in the cache.
+ *
+ * Unfortunately, this does not completely solve the issue as there are
+ * still some issues:
+ * - We cannot create more than 15 different simultaneous namespaces.
+ * - If we load too many DSOs into too many different namespaces, even if
+ *   we fully close the DSOs and namespaces, an error is thrown when
+ *   trying to call dlmopen() after some time:
+ *     libc.so.6: cannot allocate memory in static TLS block
+ * - If we try to create two different namespaces by loading the same DSO
+ *   simultaneously, we would actually end up using the same namespace.
+ *   This can have undesired consequences if we try load additional DSOs
+ *   without unloading the previous ones in the same namespace.
+ *
+ * Ideally, to solve this issue, what we should do instead is:
+ * - Open the DSO in dlmopen()
+ * - Load the IOP symbols in the IOP environment
+ * - Unload the DSO with dlclose()
+ * But this is not currently possible for two reasons:
+ * - The IOP symbols from the DSO are not copied, but directly inserted in the
+ *   IOP environment. Doing a copy would require resolving dynamically the
+ *   different pointers on copy.
+ * - We rely on the linker to resolve the IOP symbols on dlmopen() for
+ *   additional DSOs in the same namespace.
+ *
+ * The best solution would be to abandon loading DSO as shared objects (.so),
+ * and use IOP² instead.
+ *
+ * See https://www.man7.org/linux/man-pages/man3/dlmopen.3.html#NOTES
+ */
+
+/** Reference of LMID when a DSO tries to create a new LMID. */
+typedef struct iop_dso_lmid_ref_t {
+    int refcnt;
+    Lmid_t lmid;
+} iop_dso_lmid_ref_t;
+
+static inline uint32_t
+iop_dso_file_stat_hash(const qhash_t * nonnull h,
+                       const iop_dso_file_stat_t * nonnull stat)
+{
+    return mem_hash32(stat, sizeof(iop_dso_file_stat_t));
+}
+
+static inline bool
+iop_dso_file_stat_equal(const qhash_t * nonnull h,
+                        const iop_dso_file_stat_t * nonnull stat1,
+                        const iop_dso_file_stat_t * nonnull stat2)
+{
+    return memcmp(stat1, stat2, sizeof(iop_dso_file_stat_t)) == 0;
+}
+
+qm_kvec_t(iop_dso_lmid_by_stat, iop_dso_file_stat_t, iop_dso_lmid_ref_t,
+          iop_dso_file_stat_hash, iop_dso_file_stat_equal);
+
+static struct {
+    /** Cache of stored LMID by DSO stat.
+     *
+     * See notes above why it is required.
+     */
+    qm_t(iop_dso_lmid_by_stat) lmid_by_stat;
+} iop_dso_g;
+#define _G  iop_dso_g
+
 static ALWAYS_INLINE
 void iopdso_register_struct(iop_dso_t *dso, iop_struct_t const *st)
 {
@@ -257,6 +331,29 @@ static void iop_dso_unload(iop_dso_t *dso)
     }
 }
 
+static void iop_dso_unregister_ref(const iop_dso_file_stat_t *dso_stat)
+{
+    int pos;
+    iop_dso_lmid_ref_t *lmid_ref;
+
+    /* Look for the DSO in the cache. */
+    pos = qm_find(iop_dso_lmid_by_stat, &_G.lmid_by_stat, dso_stat);
+    if (pos < 0) {
+        /* If not found, this is not a DSO using a separate namespace. */
+        return;
+    }
+
+    /* Decrement the ref counter. */
+    lmid_ref = &_G.lmid_by_stat.values[pos];
+    lmid_ref->refcnt--;
+    assert(lmid_ref->refcnt >= 0);
+
+    /* If it reaches 0, delete the ref from the cache. */
+    if (lmid_ref->refcnt <= 0) {
+        qm_del_at(iop_dso_lmid_by_stat, &_G.lmid_by_stat, pos);
+    }
+}
+
 static void iop_dso_wipe(iop_dso_t *dso)
 {
     iop_dso_unload(dso);
@@ -270,6 +367,7 @@ static void iop_dso_wipe(iop_dso_t *dso)
     qh_wipe(ptr,         &dso->depends_on);
     qh_wipe(ptr,         &dso->needed_by);
     lstr_wipe(&dso->path);
+    iop_dso_unregister_ref(&dso->file_stat);
     if (dso->handle) {
         dlclose(dso->handle);
     }
@@ -277,6 +375,26 @@ static void iop_dso_wipe(iop_dso_t *dso)
 REFCNT_NEW(iop_dso_t, iop_dso);
 REFCNT_RELEASE(iop_dso_t, iop_dso);
 REFCNT_DELETE(iop_dso_t, iop_dso);
+
+static iop_dso_file_stat_t iop_dso_file_get_stat(const char *path)
+{
+    iop_dso_file_stat_t dso_stat;
+    struct stat file_stat;
+
+    p_clear(&dso_stat, 1);
+    p_clear(&file_stat, 1);
+
+    if (stat(path, &file_stat) < 0) {
+        e_trace(1, "unable to get stat of DSO at path `%s`: %m", path);
+        return dso_stat;
+    }
+
+    dso_stat.dev = file_stat.st_dev;
+    dso_stat.ino = file_stat.st_ino;
+    dso_stat.mtim = file_stat.st_mtim;
+
+    return dso_stat;
+}
 
 static int iop_dso_register_(iop_dso_t *dso, sb_t *err);
 
@@ -287,17 +405,39 @@ static int iop_dso_register_(iop_dso_t *dso, sb_t *err);
 iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
 {
     int flags = RTLD_LAZY | RTLD_DEEPBIND;
+    iop_dso_file_stat_t dso_stat;
     void *handle;
     iop_dso_t *dso;
+    iop_dso_lmid_ref_t *lmid_ref = NULL;
 
+    p_clear(&dso_stat, 1);
+
+    /* For LM_ID_BASE, use RTLD_LAZY | RTLD_DEEPBIND | RTLD_GLOBAL */
     if (iop_env->dso_lmid == LM_ID_BASE) {
         flags |= RTLD_GLOBAL;
     }
 
     if (iop_env->dso_lmid == LM_ID_NEWLM) {
-        iop_env->dso_lmid = iop_dso_get_available_lmid();
+        uint32_t pos;
+
+        /* Try to look for the namespace in the cache for the given DSO. */
+        dso_stat = iop_dso_file_get_stat(path);
+        pos = qm_reserve(iop_dso_lmid_by_stat, &_G.lmid_by_stat, &dso_stat, 0);
+
+        if (pos & QHASH_COLLISION) {
+            /* If we already have a namespace if this DSO, reuse it and
+             * increment the ref counter. */
+            lmid_ref = &_G.lmid_by_stat.values[pos ^ QHASH_COLLISION];
+            iop_env->dso_lmid = lmid_ref->lmid;
+        } else {
+            /* Else, create a new ref. */
+            lmid_ref = &_G.lmid_by_stat.values[pos];
+            p_clear(lmid_ref, 1);
+        }
+        lmid_ref->refcnt++;
     }
 
+    /* Opening the DSO with the correct flags and LMID */
     handle = dlmopen(iop_env->dso_lmid, path, flags);
     if (handle == NULL) {
         sb_setf(err, "unable to dlopen `%s`: %s", path, dlerror());
@@ -305,18 +445,28 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
     }
 
     if (iop_env->dso_lmid == LM_ID_NEWLM) {
+        /* If we have created a new namespace, get its LMID and store it in
+         * the IOP environment and in the cache reference. */
         if (dlinfo(handle, RTLD_DI_LMID, &iop_env->dso_lmid) < 0) {
             sb_setf(err, "unable to get lmid of plugin `%s`: %s", path,
                     dlerror());
             return NULL;
         }
+        lmid_ref->lmid = iop_env->dso_lmid;
     }
 
+    /* Load the DSO handle */
     dso = iop_dso_load_handle(iop_env, handle, path, err);
     if (!dso) {
         dlclose(handle);
+        iop_dso_unregister_ref(&dso_stat);
         return NULL;
     }
+
+    /* Store the DSO file stat to unregister the lmid ref on DSO unload.
+     * If the DSO did not create a new namespace, the is not an issue as the
+     * ref will simple not been found in the cache on DSO unload. */
+    dso->file_stat = dso_stat;
 
     return dso;
 }
@@ -452,4 +602,14 @@ const void *const *iop_dso_get_ressources(const iop_dso_t *dso, lstr_t category)
     lstr_t name = t_lstr_cat(LSTR("iop_dso_ressources_"), category);
 
     return dlsym(dso->handle, name.s);
+}
+
+void iop_dso_initialize(void)
+{
+    qm_init(iop_dso_lmid_by_stat, &_G.lmid_by_stat);
+}
+
+void iop_dso_shutdown(void)
+{
+    qm_deep_wipe(iop_dso_lmid_by_stat, &_G.lmid_by_stat, IGNORE, IGNORE);
 }

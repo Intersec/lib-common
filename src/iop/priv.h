@@ -32,13 +32,6 @@ int iop_register_packages_dso(iop_env_t *iop_env, const iop_pkg_t **pkgs,
                               int len, iop_dso_t * nullable dso,
                               unsigned flags, sb_t *err);
 
-/** Get an available Lmid_t from the pool if one is available.
- *
- * If not lmid is available in the pool, return LM_ID_NEWLM to create a new
- * namespace.
- */
-Lmid_t iop_dso_get_available_lmid(void);
-
 /* }}} */
 /* {{{ Getters */
 
