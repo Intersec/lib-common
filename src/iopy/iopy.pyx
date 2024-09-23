@@ -9621,10 +9621,10 @@ cdef class Plugin:
             The optional IOP plugin dso path.
         """
         self.iop_env = iop_env_new()
-        # TODO: Use LM_ID_NEWLM here to load the plugin and additional DSOs in
-        # a separate namespace.
-        # This requires reworking the IOPY C exported functions.
-        # self.iop_env.dso_lmid = LM_ID_NEWLM
+        # Use LM_ID_NEWLM here to load the plugin and additional DSOs in
+        # a separate namespace. This way, the symbols and objects of the
+        # plugin are completely separated from the other plugins.
+        self.iop_env.dso_lmid = LM_ID_NEWLM
 
         self.dso = plugin_open_dso(self, dso_path)
         plugin_run_register_scripts(self, self.dso)
