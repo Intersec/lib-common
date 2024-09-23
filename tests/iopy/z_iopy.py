@@ -3225,6 +3225,89 @@ class IopyAsyncTests(z.TestCase):
 
 
 # }}}
+# {{{ IopyAsyncTests
+
+
+@z.ZGroup
+class IopyIopEnvironmentTests(z.TestCase):
+    """Tests with IOP envinroment"""
+
+    def test_iop_env_isolation(self) -> None:
+        """Test IOP environment isolation"""
+
+        # Create plugin from test-iop-plugin.so
+        test_iop_plugin = iopy.Plugin(
+            os.path.join(TEST_PATH, 'test-iop-plugin.so')
+        )
+
+        # Create plugin from test-iop-plugin2.so
+        test_iop_plugin2 = iopy.Plugin(
+            os.path.join(TEST_PATH, 'test-iop-plugin2.so')
+        )
+
+        # The two plugins should be different
+        self.assertNotEqual(test_iop_plugin, test_iop_plugin2)
+
+        # The objects created from these plugins should be different
+        obj1 = test_iop_plugin.test.StructA()
+        obj2 = test_iop_plugin2.test.StructA()
+        self.assertNotEqual(obj1, obj2)
+
+        # Even from JSON, the objects created from these plugins should be
+        # different
+        json_str = '{"_class": "test.ClassB"}'
+        obj1 = test_iop_plugin.test.ClassA(_json=json_str)
+        obj2 = test_iop_plugin2.test.ClassA(_json=json_str)
+        self.assertNotEqual(obj1, obj2)
+
+        # It should not be possible to open 'test-iop-plugin-dso.so' as a
+        # plugin because it can only be opened as an additional DSO
+        msg = 'undefined symbol'
+        with self.assertRaisesRegex(iopy.Error, msg):
+            iopy.Plugin(
+                os.path.join(TEST_PATH, 'test-iop-plugin-dso.so')
+            )
+
+    def test_additional_dso(self) -> None:
+        # Create plugin from test-iop-plugin.so
+        plugin = iopy.Plugin(
+            os.path.join(TEST_PATH, 'test-iop-plugin.so')
+        )
+
+        # Cannot create ClassDso as the additional DSO is not already loaded
+        msg = "object has no attribute 'test_dso'"
+        with self.assertRaisesRegex(AttributeError, msg):
+            plugin.test_dso.ClassDso()
+
+        # Load the additional DSO
+        plugin.load_dso(
+            'plugin-dso',
+            os.path.join(TEST_PATH, 'test-iop-plugin-dso.so')
+        )
+
+        # We can now create ClassDso objects
+        _ = plugin.test_dso.ClassDso()
+
+        # Also in JSON
+        json_str = '{"_class": "test.dso.ClassDso"}'
+        _ = plugin.test.ClassA(_json=json_str)
+
+        # Unload the additional DSO
+        plugin.unload_dso('plugin-dso')
+
+        # Cannot create ClassDso anymore
+        msg = "object has no attribute 'test_dso'"
+        with self.assertRaisesRegex(AttributeError, msg):
+            plugin.test_dso.ClassDso()
+
+        # Also in JSON
+        msg = "expected a child of `test.ClassA', got `\"test.dso.ClassDso\"'"
+        with self.assertRaisesRegex(iopy.Error, msg):
+            json_str = '{"_class": "test_dso.ClassDso"}'
+            plugin.test.ClassA(_json=json_str)
+
+
+# }}}
 # {{{ IopySlowTests
 
 

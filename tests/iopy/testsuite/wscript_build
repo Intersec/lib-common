@@ -56,6 +56,5 @@ ctx.shlib(target='test-iop-plugin-dso', source=[
     'test-iop-plugin-dso.c',
     'test/dso.iop',
 ], use_whole=[
-    'test-iop',
     'libcommon-iop',
 ])
