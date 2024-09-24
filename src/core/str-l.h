@@ -172,7 +172,7 @@ lstr_t mp_lstr_cat3(mem_pool_t * nullable mp, const lstr_t s1, const lstr_t s2,
 static inline char *nonnull mp_lstr_dupz(mem_pool_t *nullable mp,
                                          const lstr_t s)
 {
-    return mp_dupz(mp, s.s, s.len);
+    return (char *)mp_dupz(mp, s.s, s.len);
 }
 
 /** Wipe a lstr_t (frees memory if needed).
