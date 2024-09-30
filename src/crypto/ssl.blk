@@ -916,16 +916,17 @@ SSL_CTX *ssl_ctx_new_tls(const SSL_METHOD *method, lstr_t key, lstr_t cert,
 #endif /* OpenSSL >= 3 */
 
     if (cert.s && key.s) {
+        SB_1k(local_err);
         char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
         int ret;
 
         /* write certificate in a file in order to use
          * SSL_CTX_use_certificate_chain_file as we can have chained cert */
-        ret = write_in_tmp_file(path, cert.s, cert.len, err);
+        ret = write_in_tmp_file(path, cert.s, cert.len, &local_err);
 
         if (ret < 0) {
             sb_setf(err, "tls: failed to dump certificate: %*pM",
-                    SB_FMT_ARG(err));
+                    SB_FMT_ARG(&local_err));
             goto error;
         }
 
