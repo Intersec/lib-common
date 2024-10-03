@@ -195,7 +195,13 @@ typedef struct zbenchmark_t {
 #define _ZBENCH_MEASURE_END                                                  \
         }                                                                    \
         proctimer_stop(&_zbenchmark_timer);                                  \
-        proctimerstat_addsample(&_zbenchmark_stats, &_zbenchmark_timer);     \
+        if (_zbenchmark_is_verbose()) {                                      \
+            _zbenchmark_print_measure(_zbenchmark_current_group,             \
+                                      &_zbenchmark_current,                  \
+                                      &_zbenchmark_timer);                   \
+        } else {                                                             \
+            proctimerstat_addsample(&_zbenchmark_stats, &_zbenchmark_timer); \
+        } \
     }
 
 /** Register a group of benchmarks to be run by zbenchmark_main().
@@ -221,6 +227,22 @@ bool _zbenchmark_should_run(const zbenchmark_group_t *group,
  */
 int _zbenchmark_get_nb_runs(const zbenchmark_group_t *group,
                             const zbenchmark_t *bench);
+
+/** Should the run return all measures?
+ *
+ * \return True to print all measures, false to print min, max, mean.
+ */
+bool _zbenchmark_is_verbose(void);
+
+/** Print a measure of the zbenchmark.
+ *
+ * \param[in] group  The group of benchmarks.
+ * \param[in] bench  The benchmark.
+ * \param[in] stats  The benchmark stats.
+ */
+void _zbenchmark_print_measure(const zbenchmark_group_t *group,
+                               const zbenchmark_t *bench,
+                               const proctimer_t *pt);
 
 /** Print the stats of the zbenchmark.
  *

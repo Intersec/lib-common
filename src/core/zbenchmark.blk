@@ -45,6 +45,7 @@ static struct {
     bool help;
     int nb_runs;
     char *test;
+    bool verbose;
 } settings = {
     .nb_runs = DEFAULT_NB_RUNS,
 };
@@ -55,6 +56,7 @@ static popt_t popts[] = {
             "number of executions for each benchmark (default 100)"),
     OPT_STR('t', "test", &settings.test,
             "tests or groups to run (is unset, all tests are ran)"),
+    OPT_FLAG('v', "verbose", &settings.verbose, "print all measures"),
     OPT_END(),
 };
 
@@ -96,10 +98,27 @@ int _zbenchmark_get_nb_runs(const zbenchmark_group_t *group,
     return settings.nb_runs;
 }
 
+bool _zbenchmark_is_verbose(void)
+{
+    return settings.verbose;
+}
+
+void _zbenchmark_print_measure(const zbenchmark_group_t *group,
+                               const zbenchmark_t *bench,
+                               const proctimer_t *pt)
+{
+    printf("%s.%s;%u;%u;%u;%u;%ld\n", group->name, bench->name,
+           pt->elapsed_real, pt->elapsed_proc, pt->elapsed_user,
+           pt->elapsed_sys, pt->elapsed_hard);
+}
+
 void _zbenchmark_print_stats(const zbenchmark_group_t *group,
                              const zbenchmark_t *bench,
                              proctimerstat_t *stats)
 {
+    if (settings.verbose) {
+        return;
+    }
     printf("%s.%s;%s\n", group->name, bench->name,
            proctimerstat_report(stats, "%n;%r;%p;%u;%s;%h"));
 }
@@ -116,7 +135,11 @@ int zbenchmark_main(int argc, char **argv)
         makeusage(0, arg0, "", NULL, popts);
     }
 
-    printf("test;samples;real;proc;user;sys;proc_cycl\n");
+    if (settings.verbose) {
+        printf("test;real;proc;user;sys;proc_cycl\n");
+    } else {
+        printf("test;samples;real;proc;user;sys;proc_cycl\n");
+    }
 
     qm_for_each_value(zbenchmark_group, group, &_G.groups) {
         (*group->func)();
