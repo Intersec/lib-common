@@ -373,6 +373,14 @@ static inline void time_fmt_iso8601(char buf[static 21], time_t t)
     }
 }
 
+static inline lstr_t t_fmt_date_time_iso8601(time_t ts)
+{
+    char dbuf[21];
+
+    time_fmt_iso8601(dbuf, ts);
+    return t_lstr_dups(dbuf, 20);
+}
+
 /* Format a timestamp into a local ISO 8601 time. This function calls the
  * time_get_localtime function, so you should not call it concurrently to
  * another call of it or to a call to the time_get_localtime or to the
