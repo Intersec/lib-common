@@ -1622,15 +1622,20 @@ bool __ic_rpc_is_traced(const iop_iface_t * nonnull iface,
  * \param[in]  _rpc   name of the rpc
  */
 #define __ic_prepare_msg(_msg, _cb, _mod, _if, _rpc) \
-    ({                                                                      \
-        ic_msg_t *__msgp = (_msg);                                          \
-        void (*__cb)(IOP_RPC_CB_ARGS(_mod, _if, _rpc)) = _cb;               \
-        __msgp->cb = __cb != NULL ? (ic_msg_cb_f *)__cb : &ic_drop_ans_cb;  \
-        __msgp->rpc = IOP_RPC(_mod, _if, _rpc);                             \
-        __msgp->async = __msgp->rpc->async;                                 \
-        __msgp->cmd = IOP_RPC_CMD(_mod, _if, _rpc);                         \
-        __msgp->trace = __msgp->trace || ic_rpc_is_traced(_mod, _if, _rpc); \
-        __msgp;                                                             \
+    ({                                                                       \
+        ic_msg_t *__msgp = (_msg);                                           \
+        void (*__cb)(IOP_RPC_CB_ARGS(_mod, _if, _rpc)) = _cb;                \
+                                                                             \
+        if (__cb) {                                                          \
+            __msgp->cb = (ic_msg_cb_f *)__cb;                                \
+        } else if (!__msgp->cb) {                                            \
+            __msgp->cb = &ic_drop_ans_cb;                                    \
+        }                                                                    \
+        __msgp->rpc = IOP_RPC(_mod, _if, _rpc);                              \
+        __msgp->async = __msgp->rpc->async;                                  \
+        __msgp->cmd = IOP_RPC_CMD(_mod, _if, _rpc);                          \
+        __msgp->trace = __msgp->trace || ic_rpc_is_traced(_mod, _if, _rpc);  \
+        __msgp;                                                              \
     })
 
 /** \brief helper to build a typed query message.
