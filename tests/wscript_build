@@ -33,6 +33,7 @@ ctx.program(target='zchk', depends_on=[
     'zchk-asn1-per.c',
     'zchk-asn1-writer.c',
     'zchk-bithacks.c',
+    'zchk-bit-wah.c',
     'zchk-container.blk',
     'zchk-core-bithacks.c',
     'zchk-core-obj.c',
