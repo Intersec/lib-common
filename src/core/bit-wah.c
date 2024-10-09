@@ -1677,6 +1677,34 @@ uint64_t wah_get_storage_len(const wah_t *wah)
     return res;
 }
 
+lstr_t mp_wah_get_storage_lstr(mem_pool_t *mp, const wah_t *wah)
+{
+    const qv_t(wah_word_vec) *buckets;
+    qv_t(wah_word) all_buckets;
+    size_t storage_len;
+
+    storage_len = wah_get_storage_len(wah);
+    if (storage_len > MEM_ALLOC_MAX) {
+        /* Cannot allocate so much memory. */
+        return LSTR_NULL_V;
+    }
+
+    mp_qv_init(mp, &all_buckets, storage_len);
+    buckets = wah_get_storage(wah);
+
+    tab_for_each_ptr(bucket, buckets) {
+        qv_extend_tab(&all_buckets, bucket);
+    }
+
+    return LSTR_DATA_V(all_buckets.tab,
+                       all_buckets.len * sizeof(all_buckets.tab[0]));
+}
+
+lstr_t t_wah_get_storage_lstr(const wah_t *wah)
+{
+    return mp_wah_get_storage_lstr(t_pool(), wah);
+}
+
 /* }}} */
 /* Pool {{{ */
 

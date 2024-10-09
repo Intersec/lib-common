@@ -150,7 +150,22 @@ static inline wah_t *wah_new_from_data(pstream_t data)
  *          work; use \ref wah_pad32 to ensure that.
  */
 const qv_t(wah_word_vec) *wah_get_storage(const wah_t *wah);
-uint64_t wah_get_storage_len(const wah_t *wah);
+size_t wah_get_storage_len(const wah_t *wah);
+
+/** Get the raw data in a wah_t as a lstr_t.
+ *
+ * \see wah_get_storage for additional instructions.
+ *
+ * \warning This will only work for WAH pools that can fit in MEM_ALLOC_MAX,
+ *          so it should only be used in contexts where the WAH size is
+ *          limited by design.
+ *
+ * \return LSTR_NULL_V if the WAH is too big for a single allocation.
+ */
+lstr_t mp_wah_get_storage_lstr(mem_pool_t *mp, const wah_t *wah);
+
+/** Same as \ref mp_wah_get_storage_lstr but uses the t_pool(). */
+lstr_t t_wah_get_storage_lstr(const wah_t *wah);
 
 void wah_add0s(wah_t *map, uint64_t count) __leaf;
 void wah_add1s(wah_t *map, uint64_t count) __leaf;

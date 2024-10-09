@@ -590,6 +590,38 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(t_wah_get_storage_lstr, "") { /* {{{ */
+        t_scope;
+        wah_t wah;
+        uint64_t bits_pos[] = {
+            1, 4, 5, 6, 7, 100000, 100001, 100010,
+        };
+        lstr_t storage;
+        wah_t *wah_from_data;
+        int pos;
+
+        wah_init(&wah);
+        carray_for_each_entry(bit, bits_pos) {
+            wah_add1_at(&wah, bit);
+        }
+        wah_pad32(&wah);
+        storage = t_wah_get_storage_lstr(&wah);
+        wah_wipe(&wah);
+
+        wah_from_data = wah_new_from_data(ps_initlstr(&storage));
+        pos = 0;
+        wah_for_each_1(en, wah_from_data) {
+            Z_ASSERT_EQ(en.key, bits_pos[pos],
+                        "bad bit position for bit [%d]", pos);
+            pos++;
+        }
+        Z_ASSERT_EQ(pos, countof(bits_pos),
+                    "missing bits in the WAH gotten from data");
+
+        wah_delete(&wah_from_data);
+    } Z_TEST_END;
+
+    /* }}} */
 
     wah_reset_bits_in_bucket();
 } Z_GROUP_END;
