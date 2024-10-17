@@ -239,6 +239,7 @@ int addr_filter_matches(const addr_filter_t * nonnull filter,
  * \param[in]  s        address to resolve
  * \param[in]  minport  minimum port authorized (if 0, port can be missing)
  * \param[in]  defport  default port, if not present in the address
+ *                      (if negative, port is mandatory).
  *
  * \param[out] out_su    sockunion_t to fill with the resolution of the
  *                       address
@@ -336,7 +337,7 @@ addr_source_resolve(const char * nonnull what, const lstr_t s,
     pstream_t host;
     in_port_t port;
 
-    if (addr_resolve2(what, s, 0, -1, out, &host, &port, err) < 0) {
+    if (addr_resolve2(what, s, 0, 0, out, &host, &port, err) < 0) {
         return -1;
     }
     return 0;
