@@ -28,6 +28,7 @@
 #  define VALGRIND_MAKE_MEM_UNDEFINED(...)       ((void)0)
 #  define VALGRIND_MALLOCLIKE_BLOCK(...)         ((void)0)
 #  define VALGRIND_FREELIKE_BLOCK(...)           ((void)0)
+#  define VALGRIND_RESIZEINPLACE_BLOCK(...)      ((void)0)
 #endif
 
 #include <malloc.h>
@@ -454,6 +455,10 @@ bool mem_tool_is_running(unsigned tools)
 # define IGNORE_RET(expr)  expr
 #endif
 
+#ifndef VALGRIND_RESIZEINPLACE_BLOCK
+#  define VALGRIND_RESIZEINPLACE_BLOCK(...) ((void)0)
+#endif
+
 #ifdef __has_asan
 
 // Marks memory region [addr, addr+size) as unaddressable.
@@ -493,17 +498,13 @@ void mem_tool_allow_memory(const void *mem, size_t len, bool defined)
     __asan_unpoison_memory_region(mem, len);
 }
 
-void mem_tool_allow_memory_if_addressable(const void *mem, size_t len,
-                                          bool defined)
+void mem_tool_define_memory_if_addressable(const void *mem, size_t len)
 {
     if (!mem || !len) {
         return;
     }
 
-    if (defined) {
-        (void)VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(mem, len);
-    }
-    __asan_unpoison_memory_region(mem, len);
+    (void)VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(mem, len);
 }
 
 void mem_tool_disallow_memory(const void *mem, size_t len)
@@ -516,13 +517,13 @@ void mem_tool_disallow_memory(const void *mem, size_t len)
     VALGRIND_MAKE_MEM_NOACCESS(mem, len);
 }
 
-void mem_tool_malloclike(const void *mem, size_t len, size_t rz, bool zeroed)
+void mem_tool_malloclike(const void *mem, size_t len, size_t rz, bool defined)
 {
     if (!mem) {
         return;
     }
 
-    VALGRIND_MALLOCLIKE_BLOCK(mem, len, rz, zeroed);
+    VALGRIND_MALLOCLIKE_BLOCK(mem, len, rz, defined);
     if (!len) {
         return;
     }
@@ -543,6 +544,31 @@ void mem_tool_freelike(const void *mem, size_t len, size_t rz)
         __asan_poison_memory_region(mem, len);
     }
     VALGRIND_FREELIKE_BLOCK(mem, rz);
+}
+
+void mem_tool_resize_block(const void *mem, size_t old_len, size_t new_len,
+                           size_t rz)
+{
+    if (!mem) {
+        assert(false && "instrumentation error");
+        return;
+    }
+
+    VALGRIND_RESIZEINPLACE_BLOCK(mem, old_len, new_len, rz);
+    if (old_len == new_len) {
+        return;
+    }
+
+    if (new_len > old_len) {
+        __asan_unpoison_memory_region((const byte *)mem + old_len,
+                                      new_len - old_len);
+        if (rz) {
+            __asan_poison_memory_region((const byte *)mem + new_len, rz);
+        }
+    } else {
+        __asan_poison_memory_region((const byte *)mem + new_len,
+                                    old_len - new_len);
+    }
 }
 
 #if __GNUC_PREREQ(4, 6) && !__VALGRIND_PREREQ(3, 7)

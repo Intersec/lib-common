@@ -993,34 +993,131 @@ enum mem_tool {
 
 #ifndef NDEBUG
 
+/** Check if some memory tools are running.
+ *
+ * \param[in] tools  The bit-field of tools to check (see \ref enum mem_tool).
+ *
+ * \return True if any of the listed memory tool is running.
+ */
 __leaf __attribute__((const))
 bool mem_tool_is_running(unsigned tools);
 
+/** Mark a memory block as addressable, defined or undefined.
+ *
+ * \param[in] mem      Memory block address.
+ * \param[in] len      Size of the memory block.
+ * \param[in] defined  Whether the memory should be considered defined or
+ *                     undefined.
+ *                     This parameter makes sense only with Valgrind.
+ */
 __leaf
-void mem_tool_allow_memory(const void * nonnull mem, size_t len, bool defined);
+void mem_tool_allow_memory(const void *nonnull mem, size_t len, bool defined);
 
+/** Mark memory block as defined only for the already addressable parts.
+ *
+ * The bytes of the memory block that were previously marked as addressable
+ * with mem_tool_allow_memory() will be marked as defined.
+ *
+ * This API only makes sense for Valgrind and does nothing with Asan.
+ *
+ * \param[in] mem  Memory block address.
+ * \param[in] len  Size of the memory block.
+ */
 __leaf
-void mem_tool_allow_memory_if_addressable(const void * nonnull mem,
-                                          size_t len, bool defined);
+void mem_tool_define_memory_if_addressable(const void *nonnull mem,
+                                           size_t len);
 
+/** Mark a memory block as now unaddressable.
+ *
+ * Access to the memory block after this call will be considered as invalid
+ * by both Valgrind and Asan.
+ *
+ * \param[in] mem  Memory block address.
+ * \param[in] len  Size of the memory block.
+ */
 __leaf
-void mem_tool_disallow_memory(const void * nonnull mem, size_t len);
+void mem_tool_disallow_memory(const void *nonnull mem, size_t len);
 
-__leaf
-void mem_tool_malloclike(const void * nonnull mem, size_t len, size_t rz,
-                         bool zeroed);
 
+/** Mark a memory block as having been allocated by a malloc()-like function.
+ *
+ * This API is similar to mem_tool_allow_memory() but with a more advanced
+ * tracking under Valgrind for custom memory pools.
+ *
+ * \param[in] mem      Memory block address.
+ * \param[in] len      Size of the memory block.
+ * \param[in] rz       The size of the red zones added around the memory block
+ *                     (see <valgrind.h> for more details).
+ * \param[in] defined  Whether the memory should be considered defined or
+ *                     undefined.
+ *                     This parameter makes sense only with Valgrind.
+ */
 __leaf
-void mem_tool_freelike(const void * nullable mem, size_t len, size_t rz);
+void mem_tool_malloclike(const void *nonnull mem, size_t len, size_t rz,
+                         bool defined);
+
+/** Mark a memory block as having been freed by a free()-like function.
+ *
+ * This API is similar to mem_tool_disallow_memory() but with a more advanced
+ * tracking under Valgrind for custom memory pools.
+ *
+ * \param[in] mem      Memory block address.
+ * \param[in] len      Size of the memory block.
+ * \param[in] rz       The size of the red zones added around the memory block
+ *                     (see <valgrind.h> for more details).
+ */
+__leaf
+void mem_tool_freelike(const void *nullable mem, size_t len, size_t rz);
+
+/** Indicate the resizing of a memory block previously allocated by a
+ * malloc()-like function.
+ *
+ * This API allows to handle a basic realloc() behavior. It must be called
+ * after the allocation of extra memory (if any) and before the deallocation
+ * of old memory (if any).
+ *
+ * For Valgrind it has the good property of preserving the V-bits (tracking
+ * defined and undefined bytes) of the memory overlap between the old and the
+ * new block.
+ *
+ * Sadly, there is currently no API that allows to realloc() a block of memory
+ * with a change of memory address. In such case you need to freelike() the
+ * old address and malloclike() the new address, but you will loose the V-bits
+ * of the old memory in the operation.
+ *
+ * In case you really need such API, it's implementable by using
+ * VALGRIND_GET_VBITS() on the old memory block and VALGRIND_SET_VBITS() on
+ * the new memory block. It's not easy to map in the mem-tool model which is
+ * supposed to handle both Asan and Valgrind. Indeed this is completely
+ * specific to Valgrind and would require a set of dedicated API and
+ * structures since it cannot be done in a single function. You generally
+ * don't have access to the old memory after a realloc()-like and you don't
+ * have access to the new memory before the realloc()-like never. So one must
+ * first store the V-bits of the old memory, then perform the realloc() and
+ * then restore the V-bits.
+ *
+ * \param[in] mem      Memory block address.
+ * \param[in] old_len  Previous size of the memory block.
+ * \param[in] new_len  New size of the memory block.
+ * \param[in] rz       The size of the red zones added around the memory block
+ *                     (see <valgrind.h> for more details).
+ * \param[in] defined  Whether the memory should be considered defined or
+ *                     undefined.
+ *                     This parameter makes sense only with Valgrind.
+ */
+__leaf
+void mem_tool_resize_block(const void *nullable mem, size_t old_len,
+                           size_t new_len, size_t rz);
 
 #else
 
 #define mem_tool_is_running(...)                   (false)
 #define mem_tool_allow_memory(...)                 e_trace_ignore(0, ##__VA_ARGS__)
-#define mem_tool_allow_memory_if_addressable(...)  e_trace_ignore(0, ##__VA_ARGS__)
+#define mem_tool_define_memory_if_addressable(...) e_trace_ignore(0, ##__VA_ARGS__)
 #define mem_tool_disallow_memory(...)              e_trace_ignore(0, ##__VA_ARGS__)
 #define mem_tool_malloclike(...)                   e_trace_ignore(0, ##__VA_ARGS__)
 #define mem_tool_freelike(...)                     e_trace_ignore(0, ##__VA_ARGS__)
+#define mem_tool_resize_block(...)                 e_trace_ignore(0, ##__VA_ARGS__)
 
 #endif
 
