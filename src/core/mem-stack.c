@@ -22,6 +22,8 @@
 #include <lib-common/str-buf-pp.h>
 #include <lib-common/thr.h>
 
+#include "mem-priv.h"
+
 #ifdef MEM_BENCH
 #include "mem-bench.h"
 
@@ -525,7 +527,7 @@ mem_stack_pool_t *mem_stack_pool_init(mem_stack_pool_t *sp, const char *name,
     sp->pthread_id = pthread_self();
 
     spin_lock(&_G.all_pools_lock);
-    dlist_add_tail(&_G.all_pools, &sp->pool_list);
+    dlist_add_tail(&_G.all_pools, &sp->pool_link);
     spin_unlock(&_G.all_pools_lock);
 
     return sp;
@@ -609,7 +611,7 @@ void mem_stack_pool_wipe(mem_stack_pool_t *sp)
     }
 
     spin_lock(&_G.all_pools_lock);
-    dlist_remove(&sp->pool_list);
+    dlist_remove(&sp->pool_link);
     spin_unlock(&_G.all_pools_lock);
 
     p_delete(&sp->name);
@@ -796,9 +798,9 @@ static void mem_stack_fix_all_pools_at_fork(void)
      * t_pool_g or log_thr_g.mp_stack), but the stack pools of other threads
      * are no longer valid. This is only a problem when the forked process
      * does not call exec. */
-    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, pool_list) {
+    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, pool_link) {
         if (!pthread_equal(sp->pthread_id, pthread_self())) {
-            dlist_remove(&sp->pool_list);
+            dlist_remove(&sp->pool_link);
         }
     }
 }
@@ -854,7 +856,7 @@ static void core_mem_stack_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, pool_list) {
+    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, pool_link) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);
@@ -906,8 +908,25 @@ static int core_mem_stack_initialize(void *arg)
     return 0;
 }
 
+static const char *get_sp_name(const dlist_t *link)
+{
+    return dlist_entry(link, mem_stack_pool_t, pool_link)->name;
+}
+
 static int core_mem_stack_shutdown(void)
 {
+    const char *supprs[] = {
+        /* Do not report t_pools/log pools as leaked: we know they will be
+         * destroyed by t_pool_wipe/log_shutdown_thread, that are
+         * called after this code. */
+        "t_pool",
+        "log",
+    };
+
+    mem_pool_list_clean(&_G.all_pools, "mem stack", &get_sp_name,
+                        &_G.all_pools_lock, &_G.logger,
+                        supprs, countof(supprs));
+
     return 0;
 }
 

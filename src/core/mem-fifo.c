@@ -21,6 +21,8 @@
 #include <lib-common/log.h>
 #include <lib-common/str-buf-pp.h>
 
+#include "mem-priv.h"
+
 #ifdef MEM_BENCH
 
 #include "mem-bench.h"
@@ -70,7 +72,7 @@ typedef struct mem_fifo_pool_t {
     uint32_t    nb_pages;
 
     char       *name;
-    dlist_t     pool_list;
+    dlist_t     pool_link;
 
 #ifdef MEM_BENCH
     /* Instrumentation */
@@ -436,7 +438,7 @@ mem_pool_t *mem_fifo_pool_new(const char *name, int page_size_hint)
 #endif
 
     spin_lock(&_G.all_pools_lock);
-    dlist_add_tail(&_G.all_pools, &mfp->pool_list);
+    dlist_add_tail(&_G.all_pools, &mfp->pool_link);
     spin_unlock(&_G.all_pools_lock);
 
     return &mfp->funcs;
@@ -459,7 +461,7 @@ void mem_fifo_pool_delete(mem_pool_t **poolp)
     mfp = container_of(*poolp, mem_fifo_pool_t, funcs);
 
     spin_lock(&_G.all_pools_lock);
-    dlist_remove(&mfp->pool_list);
+    dlist_remove(&mfp->pool_link);
     spin_unlock(&_G.all_pools_lock);
 
 #ifdef MEM_BENCH
@@ -523,7 +525,7 @@ void mem_fifo_pools_print_stats(void)
 
     spin_lock(&_G.all_pools_lock);
     dlist_for_each(n, &_G.all_pools) {
-        mem_fifo_pool_t *mfp = container_of(n, mem_fifo_pool_t, pool_list);
+        mem_fifo_pool_t *mfp = container_of(n, mem_fifo_pool_t, pool_link);
         mem_bench_print_human(&mfp->mem_bench, MEM_BENCH_PRINT_CURRENT);
     }
     spin_unlock(&_G.all_pools_lock);
@@ -570,7 +572,7 @@ static void core_mem_fifo_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(mem_fifo_pool_t, fp, &_G.all_pools, pool_list) {
+    dlist_for_each_entry(mem_fifo_pool_t, fp, &_G.all_pools, pool_link) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);
@@ -616,8 +618,15 @@ static int core_mem_fifo_initialize(void *arg)
     return 0;
 }
 
+static const char *get_mfp_name(const dlist_t *link)
+{
+    return dlist_entry(link, mem_fifo_pool_t, pool_link)->name;
+}
+
 static int core_mem_fifo_shutdown(void)
 {
+    mem_pool_list_clean(&_G.all_pools, "mem fifo", &get_mfp_name,
+                        &_G.all_pools_lock, &_G.logger, NULL, 0);
     return 0;
 }
 

@@ -23,6 +23,8 @@
 #include <lib-common/thr.h>
 #include <lib-common/log.h>
 
+#include "mem-priv.h"
+
 /*
  * Ring memory allocator
  * ~~~~~~~~~~~~~~~~~~~~~
@@ -92,7 +94,7 @@ struct ring_pool_t {
     mem_pool_t   funcs;
 
     char        *name;
-    dlist_t      pool_list;
+    dlist_t      pool_link;
 };
 
 struct mem_ring_checkpoint {
@@ -413,7 +415,7 @@ mem_pool_t *mem_ring_new(const char *name, int initialsize)
     ring_setup_frame(rp, blk, acast(frame_t, &blk->area));
 
     spin_lock(&_G.all_pools_lock);
-    dlist_add_tail(&_G.all_pools, &rp->pool_list);
+    dlist_add_tail(&_G.all_pools, &rp->pool_link);
     spin_unlock(&_G.all_pools_lock);
 
     return &rp->funcs;
@@ -448,7 +450,7 @@ void mem_ring_delete(mem_pool_t **rpp)
         }
 
         spin_lock(&_G.all_pools_lock);
-        dlist_remove(&rp->pool_list);
+        dlist_remove(&rp->pool_link);
         spin_unlock(&_G.all_pools_lock);
 
         dlist_for_each(e, &rp->cblk->blist) {
@@ -821,7 +823,7 @@ static void core_mem_ring_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(ring_pool_t, rp, &_G.all_pools, pool_list) {
+    dlist_for_each_entry(ring_pool_t, rp, &_G.all_pools, pool_link) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);
@@ -873,8 +875,23 @@ static int core_mem_ring_initialize(void *arg)
     return 0;
 }
 
+static const char *get_rp_name(const dlist_t *link)
+{
+    return dlist_entry(link, ring_pool_t, pool_link)->name;
+}
+
 static int core_mem_ring_shutdown(void)
 {
+    const char *supprs[] = {
+        /* Do not report r_pools as leaked: we know they will be destroyed
+         * by r_pool_destroy, that is called after this code. */
+        "r_pool",
+    };
+
+    mem_pool_list_clean(&_G.all_pools, "mem ring", &get_rp_name,
+                        &_G.all_pools_lock, &_G.logger,
+                        supprs, countof(supprs));
+
     return 0;
 }
 

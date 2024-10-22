@@ -39,6 +39,8 @@
 #include <lib-common/log.h>
 #include <lib-common/thr.h>
 
+#include "mem-priv.h"
+
 /* Libc allocator {{{ */
 
 static struct {
@@ -655,6 +657,55 @@ bool mem_pool_is_enabled(void)
     return mp_is_enabled;
 }
 #endif
+
+/* }}} */
+/* {{{ sb_add_still_alive_mem_pools() */
+
+void mem_pool_list_clean(dlist_t *list, const char *pool_type,
+                         const char *(*get_mp_name)(const dlist_t *link),
+                         spinlock_t *lock, logger_t *logger,
+                         const char **supprs, int supprs_len)
+{
+    SB_1k(buf);
+    static int print_limit = 5;
+    int nb_still_alive = 0;
+
+    spin_lock(lock);
+    dlist_for_each(link, list) {
+        const char *pool_name = (*get_mp_name)(link);
+
+        /* Remove the mem pool from the global list so that it is reported as
+         * leaked by asan/valgrind. */
+        dlist_remove(link);
+
+        for (int i = 0; i < supprs_len; i++) {
+            if (strequal(pool_name, supprs[i])) {
+                /* This memory pool is not considered as leaked. Skip it. */
+                goto skip_pool;
+            }
+        }
+
+        if (nb_still_alive < print_limit) {
+            if (buf.len) {
+                sb_adds(&buf, ", ");
+            }
+            sb_adds(&buf, pool_name);
+        }
+        nb_still_alive++;
+
+    skip_pool:;
+    }
+    spin_unlock(lock);
+
+    if (nb_still_alive) {
+        if (nb_still_alive > print_limit) {
+            sb_adds(&buf, ", ...");
+        }
+        sb_prependf(&buf, "%'d %s pool(s) still alive at shutdown: ",
+                    nb_still_alive, pool_type);
+        logger_warning(logger, "%*pM", SB_FMT_ARG(&buf));
+    }
+}
 
 /* }}} */
 /* {{{ Module */
