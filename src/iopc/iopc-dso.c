@@ -22,7 +22,7 @@
 #include <lib-common/unix.h>
 #include <lib-common/core.h>
 
-#include "iopc.h"
+#include "iopc-internal.h"
 #include "iopc.fc.c"
 
 typeof(iopc_g) iopc_g = {

@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iopc.h"
+#include "iopc-internal.h"
 
 static const char *reserved_model_names_g[] = {
     /* event methods */

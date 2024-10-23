@@ -17,7 +17,7 @@
 /***************************************************************************/
 
 #include <lib-common/unix.h>
-#include "iopc.h"
+#include "iopc-internal.h"
 
 int
 iopc_set_path(const char *outdir, const iopc_pkg_t *pkg,

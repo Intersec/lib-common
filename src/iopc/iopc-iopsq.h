@@ -19,7 +19,7 @@
 #ifndef IS_IOP_IOPC_IOP_H
 #define IS_IOP_IOPC_IOP_H
 
-#include "iopc.h"
+#include "iopc-internal.h"
 #include "iopsq.iop.h"
 
 #include <lib-common/iop/priv.h>

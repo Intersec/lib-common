@@ -18,7 +18,7 @@
 /***************************************************************************/
 
 #include <lib-common/unix.h>
-#include "iopc.h"
+#include "iopc-internal.h"
 
 struct lexdata {
     int   context;     /* state we just left, used by <STRING> state */

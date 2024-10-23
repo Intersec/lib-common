@@ -19,7 +19,7 @@
 #ifndef IS_IOP_IOPC_PRIV_H
 #define IS_IOP_IOPC_PRIV_H
 
-#include "iopc.h"
+#include "iopc-internal.h"
 
 /* {{{ IOP Parser */
 

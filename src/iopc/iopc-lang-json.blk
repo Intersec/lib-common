@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iopc.h"
+#include "iopc-internal.h"
 
 #define QUOTE(_str)                  "\""_str"\""
 #define KEY(_str)                    QUOTE(_str)": "

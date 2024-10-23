@@ -19,7 +19,7 @@
 #include <lib-common/parseopt.h>
 #include <lib-common/unix.h>
 
-#include "iopc.h"
+#include "iopc-internal.h"
 
 extern const char libcommon_git_revision[];
 

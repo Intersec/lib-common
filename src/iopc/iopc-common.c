@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include "iopc.h"
+#include "iopc-internal.h"
 
 const char *t_pretty_token(iopc_tok_type_t token)
 {
