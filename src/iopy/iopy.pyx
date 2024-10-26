@@ -2933,7 +2933,7 @@ cdef void *t_parse_lstr_json(const iop_env_t *iop_env, const iop_struct_t *st,
 
     with nogil:
         ps = ps_initlstr(&val)
-        ret_code = t_iop_junpack_ptr_ps(&ps, iop_env, st, &res, 0, &err)
+        ret_code = t_iop_junpack_ptr_ps(iop_env, &ps, st, &res, 0, &err)
 
     if ret_code < 0:
         raise Error('cannot parse string: %s (when trying to unpack an %s)' %
@@ -2967,7 +2967,7 @@ cdef void *t_parse_lstr_yaml(const iop_env_t *iop_env, const iop_struct_t *st,
 
     with nogil:
         ps = ps_initlstr(&val)
-        ret_code = t_iop_yunpack_ptr_ps(&ps, iop_env, st, &res, 0, NULL, &err)
+        ret_code = t_iop_yunpack_ptr_ps(iop_env, &ps, st, &res, 0, NULL, &err)
 
     if ret_code < 0:
         raise Error('%s' % (lstr_to_py_str(LSTR_SB_V(&err))))
@@ -3309,11 +3309,11 @@ cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
     with nogil:
         data = NULL
         if file_type == IOPY_SPECIAL_KWARGS_JSON:
-            ret_code = t_iop_junpack_ptr_file(filename_lstr.s, iop_env, st,
+            ret_code = t_iop_junpack_ptr_file(iop_env, filename_lstr.s, st,
                                               &data, 0, NULL, &err)
         else:
             cassert(file_type == IOPY_SPECIAL_KWARGS_YAML)
-            ret_code = t_iop_yunpack_ptr_file(filename_lstr.s, iop_env, st,
+            ret_code = t_iop_yunpack_ptr_file(iop_env, filename_lstr.s, st,
                                               &data, 0, NULL, &err)
     if ret_code < 0:
         raise Error('cannot unpack input file %s: %s' %

@@ -183,7 +183,7 @@ t_iop_xunpack_ptr(void * nonnull xp, const iop_env_t * nonnull iop_env,
 
 /** iop_xunpack_ptr_parts() using the t_pool() */
 __must_check__ static inline int
-t_iop_xunpack_ptr_parts(void * nonnull xp,  const iop_env_t * nonnull iop_env,
+t_iop_xunpack_ptr_parts(void * nonnull xp, const iop_env_t * nonnull iop_env,
                         const iop_struct_t * nonnull st,
                         void * nullable * nonnull out, int flags,
                         qm_t(part) * nonnull parts)

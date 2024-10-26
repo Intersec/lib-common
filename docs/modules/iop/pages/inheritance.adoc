@@ -351,7 +351,7 @@ t_scope;
 test__a1__t *foo = NULL;
 pstream_t input = <get packed data from somewhere>;
 
-if (iop_bunpack_ptr(t_pool(), &test__a1__s, (void **)&foo, input,
+if (iop_bunpack_ptr(t_pool(), iop_env, &test__a1__s, (void **)&foo, input,
     false) < 0)
 {
     /* error handling */

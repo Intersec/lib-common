@@ -1122,10 +1122,10 @@ static int unpack_val_file_inclusion(iop_json_lex_t *ll,
 
         if (iop_field_is_class(fdesc)) {
             *(void **)value = NULL;
-            res = t_iop_junpack_ptr_file(path, ll->iop_env, fdesc->u1.st_desc,
+            res = t_iop_junpack_ptr_file(ll->iop_env, path, fdesc->u1.st_desc,
                                          value, ll->flags, NULL, &err);
         } else {
-            res = t_iop_junpack_file(path, ll->iop_env, fdesc->u1.st_desc,
+            res = t_iop_junpack_file(ll->iop_env, path, fdesc->u1.st_desc,
                                      value, ll->flags, NULL, &err);
         }
 
@@ -1958,7 +1958,7 @@ int iop_junpack_ptr(iop_json_lex_t *ll, const iop_struct_t *st, void **out,
 }
 
 #define CREATE_JUNPACK_PS(_fun, _data_type, _fun_to_call)                    \
-static int _fun(pstream_t *ps, const iop_env_t *iop_env,                     \
+static int _fun(const iop_env_t *iop_env, pstream_t *ps,                     \
                 const iop_struct_t *desc, const char *filename, _data_type v,\
                 int flags, qv_t(iop_json_subfile) *subfiles, sb_t *errb)     \
 {                                                                            \
@@ -2001,22 +2001,22 @@ CREATE_JUNPACK_PS(__t_iop_junpack_ps,     void *,  iop_junpack)
 CREATE_JUNPACK_PS(__t_iop_junpack_ptr_ps, void **, iop_junpack_ptr)
 #undef CREATE_JUNPACK_PS
 
-int t_iop_junpack_ps(pstream_t *ps, const iop_env_t *iop_env,
+int t_iop_junpack_ps(const iop_env_t *iop_env, pstream_t *ps,
                      const iop_struct_t *st, void *out, int flags, sb_t *errb)
 {
-    return __t_iop_junpack_ps(ps, iop_env, st, NULL, out, flags, NULL, errb);
+    return __t_iop_junpack_ps(iop_env, ps, st, NULL, out, flags, NULL, errb);
 }
 
-int t_iop_junpack_ptr_ps(pstream_t *ps, const iop_env_t *iop_env,
+int t_iop_junpack_ptr_ps(const iop_env_t *iop_env, pstream_t *ps,
                          const iop_struct_t *st, void **out, int flags,
                          sb_t *errb)
 {
-    return __t_iop_junpack_ptr_ps(ps, iop_env, st, NULL, out, flags, NULL,
+    return __t_iop_junpack_ptr_ps(iop_env, ps, st, NULL, out, flags, NULL,
                                   errb);
 }
 
 #define CREATE_JUNPACK_FILE(_fun, _data_type, _fun_to_call)                  \
-int _fun(const char *filename, const iop_env_t *iop_env,                     \
+int _fun(const iop_env_t *iop_env, const char *filename,                     \
          const iop_struct_t *st, _data_type out, int flags,                  \
          qv_t(iop_json_subfile) *subfiles, sb_t *errb)                       \
 {                                                                            \
@@ -2033,7 +2033,7 @@ int _fun(const char *filename, const iop_env_t *iop_env,                     \
     }                                                                        \
                                                                              \
     ps = ps_initlstr(&file);                                                 \
-    res = _fun_to_call(&ps, iop_env, st, filename, out, flags, subfiles,     \
+    res = _fun_to_call(iop_env, &ps, st, filename, out, flags, subfiles,     \
                        errb);                                                \
                                                                              \
  end:                                                                        \
@@ -3011,8 +3011,8 @@ static int init_jpack_sub_files(const iop_env_t *iop_env,
     return 0;
 }
 
-int __iop_jpack_file(const char *filename, unsigned file_flags,
-                     mode_t file_mode, const iop_env_t *iop_env,
+int __iop_jpack_file(const iop_env_t *iop_env, const char *filename,
+                     unsigned file_flags, mode_t file_mode,
                      const iop_struct_t *st, const void *value,
                      unsigned flags, const qv_t(iop_json_subfile) *subfiles,
                      sb_t *err)
@@ -3198,7 +3198,7 @@ static int iop_check_struct_example(const iop_env_t *iop_env,
         }
 
         example = ps_initlstr(&help->example);
-        if (t_iop_junpack_ptr_ps(&example, iop_env, st, &obj, 0,
+        if (t_iop_junpack_ptr_ps(iop_env, &example, st, &obj, 0,
                                  &json_err) < 0)
         {
             sb_addf(err, "invalid example for `%*pM`: %*pM",
@@ -3231,7 +3231,7 @@ static int iop_check_rpc_example(const iop_env_t *iop_env,
         return -1;
     }
 
-    if (t_iop_junpack_ptr_ps(&example_ps, iop_env, st, &obj, 0,
+    if (t_iop_junpack_ptr_ps(iop_env, &example_ps, st, &obj, 0,
                              &json_err) < 0)
     {
         sb_addf(err, "invalid example for %s of RPC `%*pM.%*pM`: %*pM",

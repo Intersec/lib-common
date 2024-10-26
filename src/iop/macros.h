@@ -305,13 +305,13 @@
  *
  * This function calls `iop_bunpack` with the copy parameter set to false.
  *
+ * \param[in]  _iop_env The IOP environment.
  * \param[in]  _str     The lstr_t “compatible” variable containing the
  *                      packed object.
- * \param[in]  _iop_env The IOP environment.
  * \param[in]  _pfx     Prefix of the IOP structure.
  * \param[out] _valp    Pointer on the structure to use for unpacking.
  */
-#define t_iop_bunpack(_str, _iop_env, _pfx, _valp)                       \
+#define t_iop_bunpack(_iop_env, _str,  _pfx, _valp)                      \
     ({                                                                   \
         _pfx##__t *_tval = (_valp);                                      \
         typeof(_str) _str2 = (_str);                                     \
@@ -327,13 +327,13 @@
  *
  * This function calls `iop_bunpack` with the copy parameter set to true.
  *
+ * \param[in]  _iop_env The IOP environment.
  * \param[in]  _str     The lstr_t “compatible” variable containing the packed
  *                      object.
- * \param[in]  _iop_env The IOP environment.
  * \param[in]  _pfx     Prefix of the IOP structure.
  * \param[out] _valp    Pointer on the structure to use for unpacking.
  */
-#define t_iop_bunpack_dup(_str, _iop_env, _pfx, _valp)                  \
+#define t_iop_bunpack_dup(_iop_env, _str, _pfx, _valp)                  \
     ({                                                                  \
         _pfx##__t *_tval = (_valp);                                     \
         typeof(_str) _str2 = (_str);                                    \

@@ -390,7 +390,7 @@ t_scope;
 test__my_struct__t foo;
 lstr_t input = <get packed data from somewhere>;
 
-if (t_iop_bunpack(&input, test, my_struct, &foo) < 0) {
+if (t_iop_bunpack(&input, iop_env, test, my_struct, &foo) < 0) {
     /* error handling */
     printf("unpacking error\n");
 } else {

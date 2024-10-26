@@ -788,7 +788,7 @@ bool _z_assert_iopjsonequal(const char *file, int lno,
     void *data = NULL;
     IN_TEST;
 
-    if (t_iop_junpack_ptr_ps(&ps, iop_env, st, &data, 0, &err)) {
+    if (t_iop_junpack_ptr_ps(iop_env, &ps, st, &data, 0, &err) < 0) {
         SB_1k(sb);
 
         _G.grp.t_asserts++;

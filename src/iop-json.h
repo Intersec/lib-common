@@ -247,8 +247,8 @@ int iop_junpack_ptr(iop_json_lex_t * nonnull ll,
  * Only the t_pool() version is provided since the provided memory pool of
  * iop_junpack() must be a frame-based pool.
  *
- * \param[in]  ps      The pstream_t to parse.
  * \param[in]  iop_env The IOP environment.
+ * \param[in]  ps      The pstream_t to parse.
  * \param[in]  st      The IOP structure description.
  * \param[out] out     Pointer on the IOP structure to write.
  * \param[in]  flags   Unpacker flags to use (see iop_jlex_set_flags).
@@ -258,8 +258,8 @@ int iop_junpack_ptr(iop_json_lex_t * nonnull ll,
  *   The iop_junpack() result.
  */
 __must_check__
-int t_iop_junpack_ps(pstream_t * nonnull ps,
-                     const iop_env_t * nonnull iop_env,
+int t_iop_junpack_ps(const iop_env_t * nonnull iop_env,
+                     pstream_t * nonnull ps,
                      const iop_struct_t * nonnull st,
                      void * nonnull out, int flags, sb_t * nullable errb);
 
@@ -276,8 +276,8 @@ int t_iop_junpack_ps(pstream_t * nonnull ps,
  * iop_junpack_ptr() must be a frame-based pool.
  */
 __must_check__
-int t_iop_junpack_ptr_ps(pstream_t * nonnull ps,
-                         const iop_env_t * nonnull iop_env,
+int t_iop_junpack_ptr_ps(const iop_env_t * nonnull iop_env,
+                         pstream_t * nonnull ps,
                          const iop_struct_t * nonnull st,
                          void * nullable * nonnull out,
                          int flags, sb_t * nullable errb);
@@ -306,8 +306,8 @@ int t_iop_junpack_ptr_ps(pstream_t * nonnull ps,
  *   or IOP_JERR_INVALID_FILE in case of invalid file.
  */
 __must_check__
-int t_iop_junpack_file(const char * nonnull filename,
-                       const iop_env_t * nonnull iop_env,
+int t_iop_junpack_file(const iop_env_t * nonnull iop_env,
+                       const char * nonnull filename,
                        const iop_struct_t * nonnull st,
                        void * nonnull out, int flags,
                        qv_t(iop_json_subfile) * nullable subfiles,
@@ -326,8 +326,8 @@ int t_iop_junpack_file(const char * nonnull filename,
  * iop_junpack_ptr() must be a frame-based pool.
  */
 __must_check__
-int t_iop_junpack_ptr_file(const char * nonnull filename,
-                           const iop_env_t * nonnull iop_env,
+int t_iop_junpack_ptr_file(const iop_env_t * nonnull iop_env,
+                           const char * nonnull filename,
                            const iop_struct_t * nonnull st,
                            void * nullable * nonnull out, int flags,
                            qv_t(iop_json_subfile) * nullable subfiles,
@@ -449,11 +449,11 @@ int iop_jpack(const iop_struct_t * nonnull st, const void * nonnull value,
  * Some IOP sub-objects can be written in separate files using the include
  * feature. Only one level of inclusion is supported.
  *
+ * \param[in]  iop_env    The IOP environment.
  * \param[in]  filename   The file in which the value is packed.
  * \param[in]  file_flags The flags to use when opening the file
  *                        (\ref enum file_flags).
  * \param[in]  file_mode  The mode to use when opening the file.
- * \param[in]  iop_env    The IOP environment.
  * \param[in]  st         IOP structure description.
  * \param[in]  value      Pointer on the IOP structure to pack.
  * \param[in]  flags      Packer flags bitfield (see iop_jpack_flags).
@@ -462,22 +462,23 @@ int iop_jpack(const iop_struct_t * nonnull st, const void * nonnull value,
  * \param[out] err        Buffer filled in case of error.
  * \param[out] err        NULL or the buffer to use to write textual error.
  */
-int __iop_jpack_file(const char * nonnull filename, unsigned file_flags,
-                     mode_t file_mode, const iop_env_t * nonnull iop_env,
-                     const iop_struct_t * nonnull st,
+int __iop_jpack_file(const iop_env_t * nonnull iop_env,
+                     const char * nonnull filename, unsigned file_flags,
+                     mode_t file_mode, const iop_struct_t * nonnull st,
                      const void * nonnull value, unsigned flags,
                      const qv_t(iop_json_subfile) * nullable subfiles,
                      sb_t * nullable err);
 
 static inline int
-iop_jpack_file(const char * nonnull filename,
-               const iop_env_t * nonnull iop_env,
+iop_jpack_file(const iop_env_t * nonnull iop_env,
+               const char * nonnull filename,
                const iop_struct_t * nonnull st,
                const void * nonnull value, unsigned flags,
                sb_t * nullable err)
 {
-    return __iop_jpack_file(filename, FILE_WRONLY | FILE_CREATE | FILE_TRUNC,
-                            0644, iop_env, st, value, flags, NULL, err);
+    return __iop_jpack_file(iop_env, filename,
+                            FILE_WRONLY | FILE_CREATE | FILE_TRUNC,
+                            0644, st, value, flags, NULL, err);
 }
 
 /** Callback to use for writing JSon into a sb_t. */

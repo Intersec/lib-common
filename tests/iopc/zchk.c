@@ -42,7 +42,7 @@ static iop__package__t *t_load_package_from_file(const char *filename,
     iop__package__t *pkg_desc = NULL;
 
     path = t_get_path(filename);
-    RETHROW_NP(t_iop_junpack_ptr_file(path, iop_env, &iop__package__s,
+    RETHROW_NP(t_iop_junpack_ptr_file(iop_env, path, &iop__package__s,
                                       (void **)&pkg_desc, 0, NULL, err));
 
     return pkg_desc;
@@ -191,7 +191,7 @@ static int _test_struct(const iop_env_t *iop_env,
         lstr_t bin_ref;
 
         ps = ps_initlstr(&st_json);
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(&ps, iop_env, st_desc, &st_ptr, 0,
+        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env, &ps, st_desc, &st_ptr, 0,
                                         &err),
                    "cannot junpack `%pL': %pL", &err, &st_json);
 
@@ -225,7 +225,7 @@ static int _test_struct(const iop_env_t *iop_env,
                           "with reference description");
 
         ps = ps_initlstr(&st_json);
-        Z_ASSERT_N(t_iop_junpack_ptr_ps(&ps, iop_env, ref_st_desc,
+        Z_ASSERT_N(t_iop_junpack_ptr_ps(iop_env, &ps, ref_st_desc,
                                         &st_ptr_ref, 0, &err),
                    "unexpected junpacking failure: %pL", &err);
 
@@ -365,7 +365,7 @@ Z_GROUP_EXPORT(iopsq) {
             int res;
 
             sb_reset(&err);
-            res = t_iop_junpack_ps(&ps, iop_env, iopsq__package__sp,
+            res = t_iop_junpack_ps(iop_env, &ps, iopsq__package__sp,
                                    &pkg_desc, 0, &err);
             if (t->jpack_err) {
                 Z_ASSERT_STREQUAL(err.data, t->jpack_err);
@@ -663,8 +663,9 @@ Z_GROUP_EXPORT(iopsq) {
         st.name = LSTR("TTComplexStruct");
         st.fields = IOP_TYPED_ARRAY_TAB(iop__field, &fields);
 
-        Z_ASSERT_N(t_iop_junpack_ptr_file(t_get_path("type-table.json"),
-                                          iop_env, &iop__struct__s,
+        Z_ASSERT_N(t_iop_junpack_ptr_file(iop_env,
+                                          t_get_path("type-table.json"),
+                                          &iop__struct__s,
                                           (void **)&expected_st, 0, NULL,
                                           &err),
                    "invalid JSON content: %pL", &err);

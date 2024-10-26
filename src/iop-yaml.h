@@ -35,8 +35,8 @@ typedef struct iop_env_t iop_env_t;
  * This function cannot be used to unpack a class; use `t_iop_yunpack_ptr_ps`
  * instead.
  *
- * \param[in]  ps      The pstream_t to parse.
  * \param[in]  iop_env The IOP environment.
+ * \param[in]  ps      The pstream_t to parse.
  * \param[in]  st      The IOP structure description.
  * \param[out] out     Pointer on the IOP structure to write.
  * \param[in]  flags   Bitfield of iop_unpack_flags_t elements. See
@@ -49,7 +49,7 @@ typedef struct iop_env_t iop_env_t;
  */
 __must_check__
 int t_iop_yunpack_ps(
-    pstream_t * nonnull ps, const iop_env_t * nonnull iop_env,
+    const iop_env_t * nonnull iop_env, pstream_t * nonnull ps,
     const iop_struct_t * nonnull st,
     void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
@@ -66,7 +66,7 @@ int t_iop_yunpack_ps(
  */
 __must_check__
 int t_iop_yunpack_ptr_ps(
-    pstream_t * nonnull ps, const iop_env_t * nonnull iop_env,
+    const iop_env_t * nonnull iop_env, pstream_t * nonnull ps,
     const iop_struct_t * nonnull st,
     void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
@@ -79,7 +79,7 @@ int t_iop_yunpack_ptr_ps(
  */
 __must_check__
 int t_iop_yunpack_file(
-    const char * nonnull filename, const iop_env_t * nonnull iop_env,
+    const iop_env_t * nonnull iop_env, const char * nonnull filename,
     const iop_struct_t * nonnull st,
     void * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
@@ -93,7 +93,7 @@ int t_iop_yunpack_file(
 __must_check__
 int
 t_iop_yunpack_ptr_file(
-    const char * nonnull filename, const iop_env_t * nonnull iop_env,
+    const iop_env_t * nonnull iop_env, const char * nonnull filename,
     const iop_struct_t * nonnull st,
     void * nullable * nonnull out, unsigned flags,
     yaml__document_presentation__t * nonnull * nullable pres,
@@ -108,8 +108,8 @@ t_iop_yunpack_ptr_file(
  */
 __must_check__
 int
-t_iop_yunpack_yaml_data(const yaml_data_t * nonnull data,
-                        const iop_env_t * nonnull iop_env,
+t_iop_yunpack_yaml_data(const iop_env_t * nonnull iop_env,
+                        const yaml_data_t * nonnull data,
                         const iop_struct_t * nonnull st,
                         void * nonnull out, unsigned flags,
                         sb_t * nonnull out_err);
@@ -120,8 +120,8 @@ t_iop_yunpack_yaml_data(const yaml_data_t * nonnull data,
  */
 __must_check__
 int
-t_iop_yunpack_ptr_yaml_data(const yaml_data_t * nonnull data,
-                            const iop_env_t * nonnull iop_env,
+t_iop_yunpack_ptr_yaml_data(const iop_env_t * nonnull iop_env,
+                            const yaml_data_t * nonnull data,
                             const iop_struct_t * nonnull st,
                             void * nullable * nonnull out, unsigned flags,
                             sb_t * nonnull out_err);

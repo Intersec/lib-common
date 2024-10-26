@@ -132,7 +132,7 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
                 tstiop__my_struct_a__t *sa2 = NULL;
 
                 ZBENCH_MEASURE() {
-                    res = t_iop_junpack_ptr_ps(&ps, iop_env, st_sa,
+                    res = t_iop_junpack_ptr_ps(iop_env, &ps, st_sa,
                                                (void **)&sa2, 0, NULL);
                 } ZBENCH_MEASURE_END
 
@@ -237,7 +237,7 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
                 pstream_t ps = ps_initsb(&out);
 
                 ZBENCH_MEASURE() {
-                    res = t_iop_yunpack_ptr_ps(&ps, iop_env, st_sa, &sa2, 0,
+                    res = t_iop_yunpack_ptr_ps(iop_env, &ps, st_sa, &sa2, 0,
                                                NULL, &err);
                 } ZBENCH_MEASURE_END
 

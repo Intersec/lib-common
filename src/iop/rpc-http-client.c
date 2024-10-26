@@ -367,7 +367,7 @@ http_iop_on_query_done(httpc_query_t *http_query, httpc_status_t httpc_status)
         }
 
         if (content_type_json) {
-            if (t_iop_junpack_ptr_ps(&ps, remote->channel->iop_env, st, dest,
+            if (t_iop_junpack_ptr_ps(remote->channel->iop_env, &ps, st, dest,
                                      0, &err) < 0)
             {
                 logger_error(&_G.logger, "cannot unpack result of query "

@@ -90,7 +90,7 @@ static int t_z_load_iop_for_each_json(const iop_env_t *iop_env,
     tstiop__z_iop_for_each__t *res = NULL;
     const char *path = t_fmt("%ssamples/z-iop-for-each.json", z_cmddir_g.s);
 
-    Z_ASSERT_N(t_iop_junpack_ptr_file(path, iop_env,
+    Z_ASSERT_N(t_iop_junpack_ptr_file(iop_env, path,
                                       &tstiop__z_iop_for_each__s,
                                       (void **)&res, 0, NULL, &errb),
                "failed to read JSON file: %*pM", SB_FMT_ARG(&errb));
