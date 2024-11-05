@@ -43,8 +43,9 @@ static void el_fd_initialize(void)
         signal(SIGPIPE, SIG_IGN);
 #endif
         el_epoll_g.fd = epoll_create(1024);
-        if (el_epoll_g.fd < 0)
-            e_panic(E_UNIXERR("epoll_create"));
+        if (el_epoll_g.fd < 0) {
+            e_panic(E_UNIXERR("epoll_create(1024)"));
+        }
         fd_set_features(el_epoll_g.fd, O_CLOEXEC);
     }
 }
@@ -64,8 +65,12 @@ el_t el_fd_register_d(int fd, bool own_fd, short events, el_fd_f *cb,
     ev->fd.generation = el_epoll_g.generation;
     ev->events_wanted = events;
     ev->priority = EV_PRIORITY_NORMAL;
-    if (unlikely(epoll_ctl(el_epoll_g.fd, EPOLL_CTL_ADD, fd, &event)))
-        e_panic(E_UNIXERR("epoll_ctl"));
+
+    if (epoll_ctl(el_epoll_g.fd, EPOLL_CTL_ADD, fd, &event)) {
+        e_panic("epoll_ctl(el_epoll_g.fd=%d, EPOLL_CTL_ADD, fd=%d, &event): "
+                "%m", el_epoll_g.fd, fd);
+    }
+
     return ev;
 }
 
@@ -83,9 +88,9 @@ short el_fd_set_mask(ev_t *ev, short events)
             .data.ptr = ev,
             .events   = ev->events_wanted = events,
         };
-        if (unlikely(epoll_ctl(el_epoll_g.fd, EPOLL_CTL_MOD, ev->fd.fd,
-                               &event))) {
-            e_panic(E_UNIXERR("epoll_ctl"));
+        if (epoll_ctl(el_epoll_g.fd, EPOLL_CTL_MOD, ev->fd.fd, &event)) {
+            e_panic("epoll_ctl(el_epoll_g.fd=%d, EPOLL_CTL_MOD, "
+                    "ev->fd.fd=%d, &event): %m", el_epoll_g.fd, ev->fd.fd);
         }
     }
     return old;

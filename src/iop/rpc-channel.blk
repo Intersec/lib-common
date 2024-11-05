@@ -3240,13 +3240,13 @@ void ic_spawn(ichannel_t *ic, int fd, ic_creds_f *creds_fn)
     ic->on_creds   = creds_fn;
 
     if (getsockname(fd, &su.sa, &len) < 0) {
-        logger_panic(&_G.logger,
-                     "getsockname failed in ic_spawn on fd %d: %m", fd);
+        logger_panic(&_G.logger, "getsockname(fd=%d, ...): %m", fd);
     }
     ic->is_unix = su.family == AF_UNIX;
 
     if (getsockopt(fd, SOL_SOCKET, SO_TYPE, (void *)&type, &len)) {
-        logger_panic(&_G.logger, E_UNIXERR("getsockopt"));
+        logger_panic(&_G.logger,
+                     "getsockopt(fd=%d, SOL_SOCKET, SO_TYPE, ...): %m", fd);
     }
     assert (type == SOCK_STREAM || type == SOCK_SEQPACKET);
     ic->is_seqpacket = type == SOCK_SEQPACKET;
