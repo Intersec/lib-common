@@ -490,6 +490,24 @@ const qv_t(log_buffer) *log_stop_buffering(void)
     return &buffer_instance->vec_buffer;
 }
 
+/* syslog_critical_log_g contains the last emitted log, when it is a
+ * fatal/panic, so that it can be printed in the generated .debug file if any.
+ * It is "leaked" on purpose. */
+const char *syslog_critical_log_g;
+
+static __attr_printf__(1, 0)
+void log_set_critical_log(const char *fmt, va_list va)
+{
+    SB_1k(buf);
+    va_list vc;
+
+    va_copy(vc, va);
+    sb_addvf(&buf, fmt, vc);
+    va_end(vc);
+
+    syslog_critical_log_g = p_strdup(buf.data);
+}
+
 static __attr_printf__(2, 0)
 void logger_vsyslog(int level, const char *fmt, va_list va)
 {
@@ -621,6 +639,8 @@ int __logger_log(logger_t *logger, int level, const char *prog, int pid,
     va_end(va);
 
     if (unlikely(level <= LOG_CRIT)) {
+        va_start(va, fmt);
+        log_set_critical_log(fmt, va);
         logger_do_fatal();
     }
 
@@ -631,8 +651,8 @@ void __logger_vpanic(logger_t *logger, const char *file, const char *func,
                      int line, const char *fmt, va_list va)
 {
     __logger_refresh(logger);
-
     logger_vlog(logger, LOG_CRIT, NULL, -1, file, func, line, fmt, va);
+    log_set_critical_log(fmt, va);
     abort();
 }
 
@@ -649,9 +669,8 @@ void __logger_vfatal(logger_t *logger, const char *file, const char *func,
                     int line, const char *fmt, va_list va)
 {
     __logger_refresh(logger);
-
     logger_vlog(logger, LOG_CRIT, NULL, -1, file, func, line, fmt, va);
-
+    log_set_critical_log(fmt, va);
     logger_do_fatal();
 }
 
@@ -975,6 +994,7 @@ int e_panic(const char *fmt, ...)
 
     va_start(va, fmt);
     logger_vlog(&_G.root_logger, LOG_CRIT, NULL, -1, NULL, NULL, -1, fmt, va);
+    log_set_critical_log(fmt, va);
     abort();
 }
 
@@ -988,6 +1008,7 @@ int e_fatal(const char *fmt, ...)
     logger_vlog(&_G.root_logger, LOG_CRIT, NULL, -1, NULL, NULL, -1, fmt, va);
 
     if (psinfo_get_tracer_pid(0) > 0) {
+        log_set_critical_log(fmt, va);
         abort();
     }
     _exit(127);

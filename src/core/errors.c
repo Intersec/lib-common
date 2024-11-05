@@ -137,6 +137,8 @@ static void ps_print_file(const char *path, const char *fmt, ...)
     IGNORE(system(cmd));
 }
 
+extern const char *syslog_critical_log_g;
+
 void ps_write_backtrace(int signum, bool allow_fork)
 {
     const char *debug_dir = getenv("IS_DEBUG_FILES_DIR");
@@ -177,9 +179,15 @@ void ps_write_backtrace(int signum, bool allow_fork)
         }
         XWRITE("\n");
 
-        snprintf(buf, sizeof(buf), "\n--- errno: %s (%d)\n",
+        snprintf(buf, sizeof(buf), "--- errno: %s (%d)\n",
                  strerror(saved_errno), saved_errno);
         XWRITE(buf);
+
+        if (syslog_critical_log_g) {
+            snprintf(buf, sizeof(buf), "--- critical log: %s\n",
+                     syslog_critical_log_g);
+            XWRITE(buf);
+        }
 
         errno = saved_errno;
         ps_dump_backtrace(signum, program_invocation_short_name, fd, true);
