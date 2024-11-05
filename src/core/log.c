@@ -602,8 +602,10 @@ int logger_vlog(logger_t *logger, int level, const char *prog, int pid,
 
     assert (atomic_load_explicit(&logger->conf_gen, memory_order_acquire)
             == log_conf_gen_g);
-    logger_putv(&ctx, logger_has_level(logger, level) || level >= LOG_TRACE,
-                fmt, va);
+    PROTECT_ERRNO(logger_putv(&ctx,
+                              logger_has_level(logger, level) ||
+                              level >= LOG_TRACE,
+                              fmt, va));
     return level <= LOG_WARNING ? -1 : 0;
 }
 
