@@ -485,7 +485,7 @@ static void module_hard_shutdown(void)
     }
 }
 
-extern bool syslog_is_critical;
+extern bool syslog_is_critical_g;
 
 __attribute__((destructor))
 static void _module_shutdown(void)
@@ -494,7 +494,7 @@ static void _module_shutdown(void)
         return;
     }
 
-    if (!syslog_is_critical) {
+    if (!syslog_is_critical_g) {
         module_hard_shutdown();
     }
     qm_deep_wipe(methods_impl, &_G.methods, IGNORE, module_method_delete);

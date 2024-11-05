@@ -421,13 +421,13 @@ int logger_reset_level(lstr_t name)
 /* }}} */
 /* Logging {{{ */
 
-/* syslog_is_critical allows you to know if a LOG_CRIT, LOG_ALERT or LOG_EMERG
- * logger has been called.
+/* syslog_is_critical_g allows you to know if a LOG_CRIT, LOG_ALERT or
+ * LOG_EMERG logger has been called.
  *
- * It is mainly usefull for destructor function in order to skip some code
+ * It is mainly useful for destructor function in order to skip some code
  * that shouldn't be run when the system is critical
  */
-bool syslog_is_critical;
+bool syslog_is_critical_g;
 
 GENERIC_INIT(buffer_instance_t, buffer_instance);
 
@@ -508,7 +508,7 @@ void logger_putv(const log_ctx_t *ctx, bool do_log,
     if (ctx->level <= LOG_CRIT) {
         va_list cpy;
 
-        syslog_is_critical = true;
+        syslog_is_critical_g = true;
         va_copy(cpy, va);
         logger_vsyslog(ctx->level, fmt, cpy);
         va_end(cpy);
