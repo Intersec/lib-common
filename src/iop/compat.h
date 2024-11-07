@@ -33,7 +33,9 @@
 
 /* core-macros.h */
 
-#define __has_feature(x)  0
+#ifndef __has_feature
+# define __has_feature(x)  0
+#endif
 
 #define __must_be_array(a) \
          (sizeof(char[1 - 2 * __builtin_types_compatible_p(typeof(a), typeof(&(a)[0]))]) - 1)
