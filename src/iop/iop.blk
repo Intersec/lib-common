@@ -6534,17 +6534,30 @@ iop_register_obj(lstr_t fullname, iop_obj_t obj, unsigned flags,
 
     pos = qm_reserve(iop_objs, &iop_env->iop_obj_by_fullname, &fullname, 0);
     if (pos & QHASH_COLLISION) {
+        iop_obj_type_t obj_type = obj.type;
+        const iop_obj_t *same_type_obj = NULL;
+
         vec = &iop_env->iop_obj_by_fullname.values[pos & ~QHASH_COLLISION];
-        tab_for_each_entry(_obj, vec) {
-            if (iop_obj_equals(_obj, obj)) {
-                return 0;
+
+        /* Look for object with same object type. */
+        tab_for_each_ptr(_obj, vec) {
+            if (_obj->type == obj_type) {
+                same_type_obj = _obj;
             }
         }
 
-        if (!(flags & IOP_REGPKG_FROM_DSO)) {
-            sb_setf(err, "%s '%*pM' was already registered",
-                    iop_obj_type_to_str(&obj), LSTR_FMT_ARG(fullname));
-            return -1;
+        /* Found a object with the same type. */
+        if (same_type_obj) {
+            if (iop_obj_equals(*same_type_obj, obj)) {
+                /* The object is already registered. */
+                return 0;
+            }
+
+            if (!(flags & IOP_REGPKG_FROM_DSO)) {
+                sb_setf(err, "%s '%*pM' was already registered",
+                        iop_obj_type_to_str(&obj), LSTR_FMT_ARG(fullname));
+                return -1;
+            }
         }
     } else {
         vec = qv_init(&iop_env->iop_obj_by_fullname.values[pos]);
