@@ -522,14 +522,13 @@ void logger_putv(const log_ctx_t *ctx, bool do_log,
                  const char *fmt, va_list va)
 {
     buffer_instance_t *buff;
+    va_list vc;
 
     if (ctx->level <= LOG_CRIT) {
-        va_list cpy;
-
         syslog_is_critical_g = true;
-        va_copy(cpy, va);
-        logger_vsyslog(ctx->level, fmt, cpy);
-        va_end(cpy);
+        va_copy(vc, va);
+        logger_vsyslog(ctx->level, fmt, vc);
+        va_end(vc);
     }
 
     if (!do_log) {
@@ -537,7 +536,9 @@ void logger_putv(const log_ctx_t *ctx, bool do_log,
     }
 
     if (!log_thr_g.nb_buffer_started) {
-        (*_G.handler)(ctx, fmt, va);
+        va_copy(vc, va);
+        (*_G.handler)(ctx, fmt, vc);
+        va_end(vc);
         return;
     }
 
@@ -546,23 +547,24 @@ void logger_putv(const log_ctx_t *ctx, bool do_log,
     if (ctx->level <= buff->buffer_log_level) {
         int size_fmt;
         log_buffer_t *log_save;
-        va_list cpy;
         char *buffer;
         qv_t(log_buffer) *vec_buffer = &buff->vec_buffer;
 
         if (buff->use_handler) {
-            va_copy(cpy, va);
-            (*_G.handler)(ctx, fmt, cpy);
-            va_end(cpy);
+            va_copy(vc, va);
+            (*_G.handler)(ctx, fmt, vc);
+            va_end(vc);
         }
 
-        va_copy(cpy, va);
-        size_fmt = vsnprintf(NULL, 0, fmt, cpy) + 1;
-        va_end(cpy);
+        va_copy(vc, va);
+        size_fmt = vsnprintf(NULL, 0, fmt, vc) + 1;
+        va_end(vc);
 
         free_last_buffer();
         buffer = mp_new_raw(&log_thr_g.mp_stack.funcs, char, size_fmt);
-        vsnprintf(buffer, size_fmt, fmt, va);
+        va_copy(vc, va);
+        vsnprintf(buffer, size_fmt, fmt, vc);
+        va_end(vc);
 
         log_save = qv_growlen(vec_buffer, 1);
         log_save->ctx = *ctx;
