@@ -900,6 +900,16 @@ struct VoidPkgRef {
     tstiop_void_type.VoidRequired voidRequired;
 };
 
+struct ObjSameName {
+    int a;
+};
+
+interface ObjSameName {
+    fun
+        in ObjSameName
+        out null;
+};
+
 /* }}} */
 /* {{{ zchk iop.copy_protect */
 

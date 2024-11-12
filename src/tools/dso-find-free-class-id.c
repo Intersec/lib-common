@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     int class_id_max;
     int first_available_id = -1;
     const char *fullname;
-    const iop_obj_t *obj;
+    const iop_struct_t *obj_st;
     bool used_ids_hdr_printed = false;
 
     argc = parseopt(argc, argv, popt_g, 0);
@@ -111,11 +111,11 @@ int main(int argc, char *argv[])
     }
 
     fullname = NEXTARG(argc, argv);
-    if (!(obj = iop_get_obj(iop_env, LSTR(fullname)))) {
-        printf("cannot find IOP object `%s`\n", fullname);
+    if (!(obj_st = iop_env_get_struct(iop_env, LSTR(fullname)))) {
+        printf("cannot find IOP struct object `%s`\n", fullname);
         goto end;
     }
-    if (obj->type != IOP_OBJ_TYPE_ST || !iop_struct_is_class(obj->desc.st)) {
+    if (!iop_struct_is_class(obj_st)) {
         printf("IOP object `%s` is not a class\n", fullname);
         goto end;
     }
@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
     for (int i = class_id_min; i <= class_id_max; i++) {
         const iop_struct_t *st;
 
-        st = iop_get_class_by_id(iop_env, obj->desc.st, i);
+        st = iop_get_class_by_id(iop_env, obj_st, i);
         if (st) {
             if (!used_ids_hdr_printed) {
                 printf("Used class ids in the family of `%s`:\n", fullname);

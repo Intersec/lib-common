@@ -6744,52 +6744,121 @@ void iop_register_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
 const iop_struct_t * nullable
 iop_env_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
+    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
 
-    const iop_obj_t *obj = RETHROW_P(iop_get_obj(iop_env, fullname));
+    tab_for_each_ptr(obj, objs) {
+        switch (obj->type) {
+        case IOP_OBJ_TYPE_ST:
+            return obj->desc.st;
+        case IOP_OBJ_TYPE_TYPEDEF: {
+            const iop_type_t td_type = obj->desc.td->type;
 
-    switch (obj->type) {
-    case IOP_OBJ_TYPE_ST:
-        return obj->desc.st;
-    case IOP_OBJ_TYPE_TYPEDEF: {
-        const iop_type_t td_type = obj->desc.td->type;
+            if (unlikely(td_type != IOP_T_STRUCT && td_type != IOP_T_UNION)) {
+                break;
+            }
 
-        THROW_NULL_IF(td_type != IOP_T_STRUCT && td_type != IOP_T_UNION);
-        return obj->desc.td->ref_struct;
+            return obj->desc.td->ref_struct;
+        }
+        default:
+            break;
+        }
     }
-    default:
-        return NULL;
-    }
+
+    return NULL;
 }
 
 const iop_enum_t * nullable
 iop_env_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const iop_obj_t *obj = RETHROW_P(iop_get_obj(iop_env, fullname));
+    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
 
-    switch (obj->type) {
-    case IOP_OBJ_TYPE_ENUM:
-        return obj->desc.en;
-    case IOP_OBJ_TYPE_TYPEDEF:
-        THROW_NULL_IF(obj->desc.td->type != IOP_T_ENUM);
-        return obj->desc.td->ref_enum;
-    default:
-        return NULL;
+    tab_for_each_ptr(obj, objs) {
+        switch (obj->type) {
+        case IOP_OBJ_TYPE_ENUM:
+            return obj->desc.en;
+        case IOP_OBJ_TYPE_TYPEDEF: {
+            const iop_type_t td_type = obj->desc.td->type;
+
+            if (unlikely(td_type != IOP_T_ENUM)) {
+                break;
+            }
+
+            return obj->desc.td->ref_enum;
+        }
+        default:
+            break;
+        }
     }
+
+    return NULL;
 }
 
-const iop_obj_t *iop_get_obj(const iop_env_t *iop_env, lstr_t fullname)
+const iop_typedef_t * nullable
+iop_env_get_typedef(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    return &RETHROW_P(iop_get_objs(iop_env, fullname))->tab[0];
+    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
+
+    tab_for_each_ptr(obj, objs) {
+        switch (obj->type) {
+        case IOP_OBJ_TYPE_TYPEDEF:
+            return obj->desc.td;
+        default:
+            break;
+        }
+    }
+
+    return NULL;
 }
 
-const iop_pkg_t *iop_get_pkg(const iop_env_t *iop_env, lstr_t pkgname)
+const iop_iface_t * nullable
+iop_env_get_iface(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const iop_obj_t *obj;
+    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
 
-    obj = RETHROW_P(iop_get_obj(iop_env, pkgname));
-    THROW_NULL_IF(obj->type != IOP_OBJ_TYPE_PKG);
+    tab_for_each_ptr(obj, objs) {
+        switch (obj->type) {
+        case IOP_OBJ_TYPE_IFACE:
+            return obj->desc.iface;
+        default:
+            break;
+        }
+    }
 
-    return obj->desc.pkg;
+    return NULL;
+}
+
+const iop_mod_t * nullable
+iop_env_get_mod(const iop_env_t * nonnull iop_env, lstr_t fullname)
+{
+    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
+
+    tab_for_each_ptr(obj, objs) {
+        switch (obj->type) {
+        case IOP_OBJ_TYPE_MOD:
+            return obj->desc.mod;
+        default:
+            break;
+        }
+    }
+
+    return NULL;
+}
+
+const iop_pkg_t * nullable
+iop_env_get_pkg(const iop_env_t * nonnull iop_env, lstr_t fullname)
+{
+    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
+
+    tab_for_each_ptr(obj, objs) {
+        switch (obj->type) {
+        case IOP_OBJ_TYPE_PKG:
+            return obj->desc.pkg;
+        default:
+            break;
+        }
+    }
+
+    return NULL;
 }
 
 iop_dso_t *iop_dso_get_from_pkg(const iop_env_t *iop_env,

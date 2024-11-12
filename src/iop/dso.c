@@ -155,11 +155,11 @@ static int iopdso_fix_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
     const iop_pkg_t *pkg;
     iop_dso_t *dep;
 
-    pkg = iop_get_pkg(dso->iop_env, pkgname);
+    pkg = iop_env_get_pkg(dso->iop_env, pkgname);
     if (!pkg) {
         lstr_t pkgname2 = iop_pkgname_from_fullname(pkgname);
 
-        pkg = iop_get_pkg(dso->iop_env, pkgname2);
+        pkg = iop_env_get_pkg(dso->iop_env, pkgname2);
         if (!pkg) {
             e_trace(4, "cannot find package `%*pM` in current environment",
                     LSTR_FMT_ARG(pkgname));
@@ -269,7 +269,9 @@ static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
         qm_add(iop_mod, &dso->mod_h, &(*it)->fullname, *it);
     }
     for (const iop_pkg_t *const *it = pkg->deps; *it; it++) {
-        if (dso->use_external_packages && iop_get_pkg(iop_env, (*it)->name)) {
+        if (dso->use_external_packages &&
+            iop_env_get_pkg(iop_env, (*it)->name))
+        {
             continue;
         }
         RETHROW(iopdso_register_pkg(dso, *it, iop_env, err));

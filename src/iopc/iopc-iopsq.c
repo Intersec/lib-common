@@ -109,7 +109,6 @@ static int iopsq_fill_type(const iop_env_t *iop_env,
                            const iop_full_type_t *ftype, iop__type__t *type)
 {
     lstr_t typename;
-    const iop_obj_t *obj;
 
     if (iop_type_to_iop(ftype->type, type) >= 0) {
         return 0;
@@ -117,36 +116,22 @@ static int iopsq_fill_type(const iop_env_t *iop_env,
 
     if (ftype->type == IOP_T_ENUM) {
         typename = ftype->en->fullname;
+
+        if (iop_env_get_enum(iop_env, typename) == ftype->en) {
+            /* The enumeration is registered in the environment so it can
+             * be referred to with a type name. */
+            *type = IOP_UNION(iop__type, type_name, typename);
+            return 0;
+        }
     } else {
         assert (!iop_type_is_scalar(ftype->type));
         typename = ftype->st->fullname;
-    }
 
-    if ((obj = iop_get_obj(iop_env, typename))) {
-        switch (obj->type) {
-          case IOP_OBJ_TYPE_TYPEDEF:
-          case IOP_OBJ_TYPE_IFACE:
-          case IOP_OBJ_TYPE_MOD:
-          case IOP_OBJ_TYPE_PKG:
-            break;
-
-          case IOP_OBJ_TYPE_ENUM:
-            if (ftype->type == IOP_T_ENUM && obj->desc.en == ftype->en) {
-                /* The enumeration is registered in the environment so it can
-                 * be refered to with a type name. */
-                *type = IOP_UNION(iop__type, type_name, typename);
-                return 0;
-            }
-            break;
-
-          case IOP_OBJ_TYPE_ST:
-            if (ftype->type != IOP_T_ENUM && obj->desc.st == ftype->st) {
-                /* The struct/union/class is registered in the environment so
-                 * it can be refered to with a type name. */
-                *type = IOP_UNION(iop__type, type_name, typename);
-                return 0;
-            }
-            break;
+        if (iop_env_get_struct(iop_env, typename) == ftype->st) {
+            /* The struct/union/class is registered in the environment so
+             * it can be referred to with a type name. */
+            *type = IOP_UNION(iop__type, type_name, typename);
+            return 0;
         }
     }
 
@@ -249,41 +234,16 @@ iopc_field_set_typename(iopc_field_t *nonnull f, const iop_env_t *iop_env,
         if (lstr_contains(typename, LSTR("."))) {
             /* TODO Could parse and check that the type name looks like a
              * proper type name. */
-            const iop_obj_t *obj;
+            const iop_struct_t *st;
+            const iop_enum_t *en;
 
-            obj = iop_get_obj(iop_env, typename);
-            if (obj) {
-                switch (obj->type) {
-                  case IOP_OBJ_TYPE_PKG:
-                    /* Not expected to happen if we properly check the name.
-                     */
-                    sb_sets(err, "is a package name");
-                    return -1;
-
-                  case IOP_OBJ_TYPE_IFACE:
-                    sb_sets(err, "is an interface name");
-                    return -1;
-
-                  case IOP_OBJ_TYPE_MOD:
-                    sb_sets(err, "is a module name");
-                    return -1;
-
-                  case IOP_OBJ_TYPE_TYPEDEF:
-                    sb_sets(err, "is a typedef name");
-                    return -1;
-
-                  case IOP_OBJ_TYPE_ST:
-                    f->external_st = obj->desc.st;
-                    f->kind = obj->desc.st->is_union ? IOP_T_UNION
-                                                     : IOP_T_STRUCT;
-                    break;
-
-                  case IOP_OBJ_TYPE_ENUM:
-                    f->external_en = obj->desc.en;
-                    f->kind = IOP_T_ENUM;
-                    break;
-                }
-
+            if ((st = iop_env_get_struct(iop_env, typename))) {
+                f->external_st = st;
+                f->kind = st->is_union ? IOP_T_UNION : IOP_T_STRUCT;
+                f->has_external_type = true;
+            } else if ((en = iop_env_get_enum(iop_env, typename))) {
+                f->external_en = en;
+                f->kind = IOP_T_ENUM;
                 f->has_external_type = true;
             }
         } else {

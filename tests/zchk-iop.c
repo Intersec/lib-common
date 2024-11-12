@@ -9359,18 +9359,22 @@ Z_GROUP_EXPORT(iop)
 #undef T
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_env, "environment object getters") { /* {{{ */
+    Z_TEST(iop_env_getter, "environment object getters") { /* {{{ */
         lstr_t name;
-        const iop_obj_t *obj;
+        const iop_struct_t *st;
         const iop_struct_t *cls;
         const iop_enum_t *en;
+        const iop_typedef_t *td;
+        const iop_iface_t *iface;
+        const iop_mod_t *mod;
+        const iop_pkg_t *pkg;
 
+        /* Struct */
         name = tstiop__my_struct_a__s.fullname;
-        Z_ASSERT_P((obj = iop_get_obj(_G.iop_env, name)),
-                   "cannot find obj `%pL'", &name);
-        Z_ASSERT(obj->type == IOP_OBJ_TYPE_ST);
-        Z_ASSERT(obj->desc.st == &tstiop__my_struct_a__s,
-                 "wrong iop_struct_t (got `%pL')", &obj->desc.st->fullname);
+        Z_ASSERT_P((st = iop_env_get_struct(_G.iop_env, name)),
+                   "cannot find struct obj `%pL'", &name);
+        Z_ASSERT(st == &tstiop__my_struct_a__s,
+                 "wrong iop_struct_t (got `%pL')", &st->fullname);
 
         Z_ASSERT_NULL(iop_env_get_enum(_G.iop_env, name),
                       "`%pL' is not an enum", &name);
@@ -9378,30 +9382,25 @@ Z_GROUP_EXPORT(iop)
                                                 &tstiop__my_class1__s, name),
                       "`%pL' is not a class", &name);
 
+        /* Enum */
         name = tstiop__my_enum_c__e.fullname;
-        Z_ASSERT_P((obj = iop_get_obj(_G.iop_env, name)),
-                   "cannot find obj `%pL'", &name);
-        Z_ASSERT(obj->type == IOP_OBJ_TYPE_ENUM);
-        Z_ASSERT(obj->desc.en == &tstiop__my_enum_c__e,
-                 "wrong iop_enum_t (got `%pL')", &obj->desc.en->fullname);
+        Z_ASSERT_P((en = iop_env_get_enum(_G.iop_env, name)),
+                   "cannot find enum obj `%pL'", &name);
+        Z_ASSERT(en == &tstiop__my_enum_c__e,
+                 "wrong iop_enum_t (got `%pL')", &en->fullname);
 
-        en = iop_env_get_enum(_G.iop_env, name);
-        Z_ASSERT_P(en, "cannot find enum `%pL'", &name);
-        Z_ASSERT(en == &tstiop__my_enum_c__e, "wrong enum (got `%pL')",
-                 &en->fullname);
-
+        /* Class */
         name = tstiop__my_class3__s.fullname;
-        Z_ASSERT_P((obj = iop_get_obj(_G.iop_env, name)),
-                   "cannot find obj `%pL'", &name);
-        Z_ASSERT(obj->type == IOP_OBJ_TYPE_ST);
-        Z_ASSERT(obj->desc.st == &tstiop__my_class3__s,
-                 "wrong iop_struct_t (got `%pL')", &obj->desc.st->fullname);
+        Z_ASSERT_P((cls = iop_env_get_struct(_G.iop_env, name)),
+                   "cannot find class obj `%pL'", &name);
+        Z_ASSERT(cls == &tstiop__my_class3__s,
+                 "wrong iop_struct_t (got `%pL')", &cls->fullname);
 
         cls = iop_get_class_by_fullname(_G.iop_env, &tstiop__my_class1__s,
                                         name);
         Z_ASSERT_P(cls, "cannot find class `%pL'", &name);
         Z_ASSERT(cls == &tstiop__my_class3__s,
-                 "wrong IOP class (got `%pL')", &obj->desc.st->fullname);
+                 "wrong IOP class (got `%pL')", &cls->fullname);
 
         cls = iop_get_class_by_id(_G.iop_env, &tstiop__my_class1__s,
                                   tstiop__my_class3__s.class_attrs->class_id);
@@ -9409,15 +9408,54 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT(cls == &tstiop__my_class3__s, "wrong IOP class (got `%pL')",
                  &cls->fullname);
 
+        /* Typedef */
         /* tstiop_void_type package is registered with tstiop package since
          * tstiop_void_type.VoidRequired is referenced by tstiop.VoidPkgRef.
          */
         name = tstiop_void_type__void_required__s.fullname;
-        Z_ASSERT_P((obj = iop_get_obj(_G.iop_env, name)),
-                   "cannot find obj `%pL'", &name);
-        Z_ASSERT(obj->type == IOP_OBJ_TYPE_ST);
-        Z_ASSERT(obj->desc.st == &tstiop_void_type__void_required__s,
-                 "wrong iop_struct_t (got `%pL')", &obj->desc.st->fullname);
+        Z_ASSERT_P((st = iop_env_get_struct(_G.iop_env, name)),
+                   "cannot find struct obj `%pL'", &name);
+        Z_ASSERT(st == &tstiop_void_type__void_required__s,
+                 "wrong iop_struct_t (got `%pL')", &st->fullname);
+
+        name = tstiop__small_class_typedef__td.fullname;
+        Z_ASSERT_P((td = iop_env_get_typedef(_G.iop_env, name)),
+                   "cannot find typedef obj `%pL'", &name);
+        Z_ASSERT(td == &tstiop__small_class_typedef__td,
+                 "wrong iop_typedef_t (got `%pL')", &td->fullname);
+
+        /* Interface */
+        name = tstiop__my_iface_a__if.fullname;
+        Z_ASSERT_P((iface = iop_env_get_iface(_G.iop_env, name)),
+                   "cannot find iface obj `%pL'", &name);
+        Z_ASSERT(iface == &tstiop__my_iface_a__if,
+                 "wrong iop_iface_t (got `%pL')", &iface->fullname);
+
+        /* Module */
+        name = tstiop__my_mod_a__mod.fullname;
+        Z_ASSERT_P((mod = iop_env_get_mod(_G.iop_env, name)),
+                   "cannot find mod obj `%pL'", &name);
+        Z_ASSERT(mod == &tstiop__my_mod_a__mod,
+                 "wrong iop_mod_t (got `%pL')", &mod->fullname);
+
+        /* Package */
+        name = tstiop__pkg.name;
+        Z_ASSERT_P((pkg = iop_env_get_pkg(_G.iop_env, name)),
+                   "cannot find pkg obj `%pL'", &name);
+        Z_ASSERT(pkg == &tstiop__pkg,
+                 "wrong iop_pkg_t (got `%pL')", &pkg->name);
+
+        /* Test same name between IOP struct and interface. */
+        name = tstiop__obj_same_name__s.fullname;
+        Z_ASSERT_P((st = iop_env_get_struct(_G.iop_env, name)),
+                   "cannot find struct obj `%pL'", &name);
+        Z_ASSERT(st == &tstiop__obj_same_name__s,
+                 "wrong iop_struct_t (got `%pL')", &st->fullname);
+
+        Z_ASSERT_P((iface = iop_env_get_iface(_G.iop_env, name)),
+                   "cannot find iface obj `%pL'", &name);
+        Z_ASSERT(iface == &tstiop__obj_same_name__if,
+                 "wrong iop_iface_t (got `%pL')", &iface->fullname);
     } Z_TEST_END;
     /* }}} */
     Z_TEST(struct_packing, "check struct packing behavior") { /* {{{ */
