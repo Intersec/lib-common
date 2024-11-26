@@ -52,7 +52,8 @@ RE_STEP = re.compile(r"^# +\d+-(?P<number>\d+) +(?P<status>{0}) +"
                      r"\((?P<time>\d+\.\d+)s\)$".format("|".join(STATUS)))
 RE_END = re.compile("^# TOTAL$")
 RE_HEADER = re.compile(r"(.*),\d+:(0|1)")
-RE_SCREEN = re.compile(r".*screenshot available -> (?P<url>https://img.corp/.*)")
+RE_SCREEN = re.compile(r".*screenshot available -> "
+                       r"(?P<url>https://img.corp/.*)")
 RE_BROWSER_LOG = re.compile(r"[ |:]*ERROR:corp.intersec.ipy.console.logs:"
                             r"(?P<log>.*)")
 
@@ -398,7 +399,7 @@ class Error:
 
     def z_screenshot(self):
         return ["Failed screenshot:",
-                 "screenshot available -> {0}".format(self.screen_url),
+                "screenshot available -> {0}".format(self.screen_url),
                 ""]
 
     def z_step_fail(self):
