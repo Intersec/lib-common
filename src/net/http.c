@@ -1722,6 +1722,20 @@ int httpd_cfg_from_iop(httpd_cfg_t *cfg, const core__httpd_cfg__t *iop_cfg)
                          SB_FMT_ARG(&errbuf));
         }
 
+        {
+            /* see man SSL_CTX_set_session_id_context
+             * If the session id context is not set on an SSL/TLS server and
+             * client certificates are used, stored sessions will not be
+             * reused but a fatal error will be flagged and the handshake will
+             * fail.
+             */
+            byte session[SHA1_DIGEST_SIZE];
+
+            iop_hash_sha1(&core__httpd_cfg__s, iop_cfg, session, 0);
+            SSL_CTX_set_session_id_context(cfg->ssl_ctx, session,
+                                           SHA1_DIGEST_SIZE);
+        }
+
         if (iop_cfg->check_client_cert) {
             if (iop_cfg->ca_file.s) {
                 char path[PATH_MAX] = "/tmp/tls-cert-XXXXXX";
