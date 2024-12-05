@@ -2391,7 +2391,8 @@ void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
     /* if that crashes, one of the IC_MSG_ABORT callback reenqueues directly in
      * that ichannel_t which is forbidden, fix the code
      */
-    assert (ic->cancel_guard == false);
+    assert(ic->cancel_guard == false);
+    assert(ic->iop_env);
 
     msg->ic = ic;
 

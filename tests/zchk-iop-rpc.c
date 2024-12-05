@@ -272,6 +272,7 @@ Z_GROUP_EXPORT(iop_rpc)
         ic_set_local(&ic, false);
 
         _G.ic_aux = ic_new();
+        _G.ic_aux->iop_env = _G.iop_env;
         ic_set_local(_G.ic_aux, false);
 
         for (int force_pack = 0; force_pack <= 1; force_pack++) {
