@@ -547,18 +547,7 @@ qm_k32_t(ic_cbs, ic_cb_entry_t);
 extern qm_t(ic_cbs) const ic_no_impl;
 
 struct ichannel_t {
-    /** IChannel unique ID.
-     *
-     * The IChannel unique ID is put inside the messages slots so the IChannel
-     * can be retrieved for async replies.
-     */
-    uint32_t id;
-
-    /** Transport layer protocol.
-     *
-     * Default is 0.
-     */
-    int protocol;
+    /* {{{ User defined attributes */
 
     /** Optional name of the IChannel.
      *
@@ -584,6 +573,85 @@ struct ichannel_t {
      */
     lstr_t remote_addr;
 
+    /** Map of the RPC implemented for this IC.
+     */
+    const qm_t(ic_cbs) *nullable impl;
+
+    /** Mandatory IOP environment for the IC.
+     */
+    const iop_env_t *nonnull iop_env;
+
+    /** Mandatory callback to get notified about the connection state
+     * (connected, disconnected, no activity, …).
+     */
+    ic_hook_f *nonnull on_event;
+
+    /** Optional callback called before wiping the IC.
+     */
+    void (*nullable on_wipe)(ichannel_t *nonnull ic);
+
+    /** Content set to NULL on deletion
+     */
+    ichannel_t *nullable *nullable owner;
+
+    /** User private data.
+     */
+    void *nullable priv;
+
+    /** User field to identify the peer.
+     */
+    void *nullable peer;
+
+    /** When set to true, the IC will not block the event loop even if it is
+     * still connected. Shouldn't be used in production code, any IC should
+     * be nicely closed before exiting the event loop.
+     */
+    bool do_el_unref  :  1;
+
+    /** Whether the IChannel should reconnect automatically after a
+     * disconnection.
+     *
+     * Default is true.
+     */
+    bool auto_reconn  :  1;
+
+    /** Disable the auto-deletion feature (see is_spawned).
+     */
+    bool no_autodel   :  1;
+
+    /** Allow to mark the IC as trusted. In this case, the IC will not be
+     * closed upon the reception of an unknown RPC having a payload larger
+     * than 10M.
+     */
+    bool is_trusted   :  1;
+
+    /** Setting this flag to true causes private fields to be omitted on
+     * outgoing messages and forbidden on incoming messages.
+     */
+    bool is_public    :  1;
+
+    /** Whether TLS is required. Ignored on non TCP sockets.
+     *
+     * Default is true.
+     */
+    bool tls_required :  1;
+
+    /* }}} */
+    /* {{{ Life-cycle attributes */
+
+    /** IChannel unique ID.
+     *
+     * The IChannel unique ID is put inside the messages slots so the IChannel
+     * can be retrieved for async replies.
+     */
+    uint32_t id;
+
+    /** Transport layer protocol.
+     *
+     * Default is 0.
+     */
+    int protocol;
+
     /** Set to true when the IC is disconnecting.
      */
     bool is_closing   :  1;
@@ -598,10 +666,6 @@ struct ichannel_t {
      */
     bool is_spawned   :  1;
 
-    /** Disable the auto-deletion feature (see is_spawned).
-     */
-    bool no_autodel   :  1;
-
     /** Whether the socket is a SOCK_SEQPACKET.
      */
     bool is_seqpacket :  1;
@@ -609,19 +673,6 @@ struct ichannel_t {
     /** Whether the socket is a Unix socket.
      */
     bool is_unix      :  1;
-
-    /** Whether the IChannel should reconnect automatically after a
-     * disconnection.
-     *
-     * Default is true.
-     */
-    bool auto_reconn  :  1;
-
-    /** When set to true, the IC will not block the event loop even if it is
-     * still connected. Shouldn't be used in production code, any IC should
-     * be nicely closed before exiting the event loop.
-     */
-    bool do_el_unref  :  1;
 
     /** Set to true after the IC destruction in ic_wipe(), useful for
      * debugging.
@@ -651,17 +702,6 @@ struct ichannel_t {
      */
     bool is_local_async : 1;
 
-    /** Allow to mark the IC as trusted. In this case, the IC will not be
-     * closed upon the reception of an unknown RPC having a payload larger
-     * than 10M.
-     */
-    bool is_trusted   :  1;
-
-    /** Setting this flag to true causes private fields to be omitted on
-     * outgoing messages and forbidden on incoming messages.
-     */
-    bool is_public    :  1;
-
     /** Used internally when the transfer of a file descriptor over an Unix
      * socket failed because of an ancillary data truncation.
      */
@@ -671,12 +711,6 @@ struct ichannel_t {
      * has been successfully checked.
      */
     bool hdr_checked  :  1;
-
-    /** Whether TLS is required. Ignored on non TCP sockets.
-     *
-     * Default is true.
-     */
-    bool tls_required :  1;
 
     /** True if connection handshakes are completed.
      */
@@ -693,18 +727,6 @@ struct ichannel_t {
     /** Timer of the activity watcher.
      */
     el_t nullable timer;
-
-    /** Content set to NULL on deletion
-     */
-    ichannel_t *nullable *nullable owner;
-
-    /** User private data.
-     */
-    void *nullable priv;
-
-    /** User field to identify the peer.
-     */
-    void *nullable peer;
 
     /** Description of the current unpacked RPC.
      */
@@ -740,27 +762,10 @@ struct ichannel_t {
      */
     int retry_delay;
 
-    /** Map of the RPC implemented for this IC.
-     */
-    const qm_t(ic_cbs) *nullable impl;
-
-    /** Mandatory IOP environment for the IC.
-     */
-    const iop_env_t *nonnull iop_env;
-
-    /** Mandatory callback to get notified about the connection state
-     * (connected, disconnected, no activity, …).
-     */
-    ic_hook_f *nonnull on_event;
-
     /** Callback optionally set by ic_swawn() to retrieve the ic_creds_t of
      * the incoming Unix connection.
      */
     ic_creds_f *nullable on_creds;
-
-    /** Optional callback called before wiping the IC.
-     */
-    void (*nullable on_wipe)(ichannel_t *nonnull ic);
 
     /** Map of queries awaiting for an answer.
      */
@@ -844,6 +849,8 @@ struct ichannel_t {
      */
     int pending_max;
 #endif
+
+    /* }}} */
 };
 
 void ic_drop_ans_cb(ichannel_t * nonnull, ic_msg_t * nonnull,
