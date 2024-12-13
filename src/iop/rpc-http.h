@@ -580,6 +580,9 @@ struct http_iop_msg_t {
     /** HTTP query used by the RPC call. */
     httpc_query_t query;
 
+    /** The IOP environment. */
+    const iop_env_t *iop_env;
+
     /** IOP interface alias. */
     const iop_iface_alias_t *iface_alias;
 
