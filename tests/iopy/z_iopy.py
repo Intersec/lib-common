@@ -162,6 +162,12 @@ class IopyTest(z.TestCase):
         a = self.r.tst1.A(_json='{ "a": "A1", "b": "B2" }')
         self.assertEqual(a, self.r.tst1.A(a='A1', b='B2'))
 
+    def test_pkg_mod_deps(self):
+        """Test that IOPs objects of packages that are referenced through
+        modules are well loaded"""
+        void_opt = self.r.testvoid.VoidOptional(a=None)
+        self.assertIsNone(void_opt.a)
+
     def test_inheritance(self):
         self.assertTrue(issubclass(self.r.test.ClassB, self.r.test.ClassA),
                         "class inheritance failed")

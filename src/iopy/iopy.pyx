@@ -10158,7 +10158,7 @@ cdef iop_dso_t *plugin_open_dso(Plugin plugin, object dso_path) except NULL:
     return dso
 
 
-cdef void plugin_load_dso(Plugin plugin, iop_dso_t *dso):
+cdef void plugin_load_dso(Plugin plugin, const iop_dso_t *dso):
     """Load packages and modules of the dso to the plugin.
 
     Parameters
@@ -10170,9 +10170,27 @@ cdef void plugin_load_dso(Plugin plugin, iop_dso_t *dso):
     """
     cdef QHashIterator it
 
+    # We need to load the IOP symbols in two steps: first the IOP
+    # structs/unions/enums/typedefs, and then the IOP modules.
+    #
+    # When loading the modules, the python classes for the structs
+    # corresponding to the arguments are created, but they are not inserted in
+    # the python packages (this is the expected behaviour).
+    #
+    # However, the interfaces can directly reference some structs that need to
+    # be inserted in their python packages.
+    #
+    # If we don't load the packages in the correct order, these structs will
+    # not be correctly inserted in their python packages since they will be
+    # considered as already created.
+
     it = qhash_iter_make(&dso.pkg_h.qh)
     while qhash_iter_next(&it):
         plugin_add_package(plugin, dso.pkg_h.values[it.pos], dso)
+
+    it = qhash_iter_make(&dso.mod_h.qh)
+    while qhash_iter_next(&it):
+        plugin_add_module(plugin, dso.mod_h.values[it.pos])
 
     if dso.user_version or dso.user_version_cb:
         ic_set_user_version(dso.user_version, dso.user_version_cb)
@@ -10197,36 +10215,36 @@ cdef void plugin_add_package(Plugin plugin, const iop_pkg_t *pkg,
     cdef const iop_enum_t *const *enums
     cdef const iop_struct_t *const *structs
     cdef const iop_typedef_t *const *typedefs
-    cdef const iop_mod_t *const *modules
 
+    # Get the already created package, or create a new new one
     pkg_name = make_py_pkg_name(lstr_to_py_str(pkg.name))
     py_pkg = plugin_create_or_get_py_pkg(plugin, pkg_name)
     py_pkg.refcnt += 1
     if py_pkg.refcnt > 1:
+        # The package as already been created, do nothing.
         return
 
     py_pkg.pkg = pkg
 
+    # Load the enums
     enums = pkg.enums
     while enums[0]:
         plugin_get_or_add_enum(plugin, py_pkg, enums[0])
         enums += 1
 
+    # Load the structs/unions/classes
     structs = pkg.structs
     while structs[0]:
         plugin_get_or_add_struct_union(plugin, py_pkg, structs[0])
         structs += 1
 
+    # If we don't load a dso, or if the dso supports the typedefs, load the
+    # typedefs
     if not dso or dso.version >= IOP_DSO_VERSION_TYPEDEF:
         typedefs = pkg.typedefs
         while typedefs[0]:
             plugin_get_or_add_typedef(plugin, py_pkg, typedefs[0])
             typedefs += 1
-
-    modules = pkg.mods
-    while modules[0]:
-        plugin_add_module(plugin, modules[0])
-        modules += 1
 
 
 cdef Package plugin_create_or_get_py_pkg(Plugin plugin, str pkg_name):
@@ -10948,7 +10966,7 @@ cdef void plugin_add_void_type(Plugin plugin, const iop_struct_t *st,
     plugin.types[iop_path.py_name] = classes
 
 
-cdef void plugin_unload_dso(Plugin plugin, iop_dso_t *dso):
+cdef void plugin_unload_dso(Plugin plugin, const iop_dso_t *dso):
     """Unload the corresponding dso.
 
     Parameters
@@ -10963,6 +10981,10 @@ cdef void plugin_unload_dso(Plugin plugin, iop_dso_t *dso):
     it = qhash_iter_make(&dso.pkg_h.qh)
     while qhash_iter_next(&it):
         plugin_remove_package(plugin, dso.pkg_h.values[it.pos], dso)
+
+    it = qhash_iter_make(&dso.mod_h.qh)
+    while qhash_iter_next(&it):
+        plugin_remove_module(plugin, dso.mod_h.values[it.pos])
 
 
 cdef void plugin_remove_package(Plugin plugin, const iop_pkg_t *pkg,
@@ -10983,7 +11005,6 @@ cdef void plugin_remove_package(Plugin plugin, const iop_pkg_t *pkg,
     cdef const iop_enum_t *const *enums
     cdef const iop_struct_t *const *structs
     cdef const iop_typedef_t *const *typedefs
-    cdef const iop_mod_t *const *modules
 
     pkg_name = make_py_pkg_name(lstr_to_py_str(pkg.name))
     py_pkg = <Package>getattr(plugin, pkg_name, None)
@@ -10993,29 +11014,28 @@ cdef void plugin_remove_package(Plugin plugin, const iop_pkg_t *pkg,
 
     py_pkg.refcnt -= 1
     if py_pkg.refcnt > 0:
-        # Still used by another dso.
+        # Still used by another dso or package.
         return
 
+    # Remove the enums
     enums = pkg.enums
     while enums[0]:
         plugin_remove_enum(plugin, enums[0])
         enums += 1
 
+    # Remove the structs
     structs = pkg.structs
     while structs[0]:
         plugin_remove_struct_union(plugin, structs[0])
         structs += 1
 
+    # If we don't load a dso, or if the dso supports the typedefs, remove the
+    # typedefs
     if not dso or dso.version >= IOP_DSO_VERSION_TYPEDEF:
         typedefs = pkg.typedefs
         while typedefs[0]:
             plugin_remove_typedef(plugin, typedefs[0])
             typedefs += 1
-
-    modules = pkg.mods
-    while modules[0]:
-        plugin_remove_module(plugin, modules[0])
-        modules += 1
 
     delattr(plugin, pkg_name)
 
@@ -11366,36 +11386,39 @@ cdef public object Iopy_from_iop_struct_or_union(object cls,
     return iop_c_val_to_py_obj(cls, desc, val, plugin)
 
 
-cdef public void Iopy_add_iop_package(const iop_pkg_t *p, object plugin_obj):
-    """Add the C iop package to the plugin and create all appropriate
+cdef public int Iopy_add_iop_dso(const iop_dso_t *dso,
+                                 object plugin_obj) except -1:
+    """Add the C iop DSO to the plugin and create all appropriate
     classes.
 
     Parameters
     ----------
-    p
-        The C iop package.
+    dso
+        The C iop DSO.
     plugin_obj
         The IOPy plugin.
     """
     cdef Plugin plugin = plugin_obj
 
-    plugin_add_package(plugin, p, NULL)
+    plugin_load_dso(plugin, dso)
+    return 0
 
 
-cdef public int Iopy_remove_iop_package(const iop_pkg_t *p,
-                                        object plugin_obj) except -1:
-    """Remove the C iop package from the plugin and all associated classes.
+cdef public int Iopy_remove_iop_dso(const iop_dso_t *dso,
+                                    object plugin_obj) except -1:
+    """Remove the C iop DSO from the plugin and all associated classes.
 
     Parameters
     ----------
-    p
-        The C iop package.
+    dso
+        The C iop DSO.
     plugin_obj
         The IOPy plugin.
     """
     cdef Plugin plugin = plugin_obj
 
-    plugin_remove_package(plugin, p, NULL)
+    plugin_unload_dso(plugin, dso)
+    return 0
 
 
 cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
@@ -11422,6 +11445,9 @@ cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
     # deleted
     plugin.iop_env = iop_env_retain(iop_env)
 
+    # See comment in plugin_load_dso() with we need to load the packages first
+    # and then the modules
+
     # Load the packages from the IOP environment
     it = qhash_iter_make(&iop_env.iop_obj_by_fullname.qh)
     while qhash_iter_next(&it):
@@ -11430,6 +11456,15 @@ cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
             iop_obj = &iop_objs.tab[i]
             if iop_obj.type == IOP_OBJ_TYPE_PKG:
                 plugin_add_package(plugin, iop_obj.desc.pkg, NULL)
+
+    # Load the modules
+    it = qhash_iter_make(&iop_env.iop_obj_by_fullname.qh)
+    while qhash_iter_next(&it):
+        iop_objs = &iop_env.iop_obj_by_fullname.values[it.pos]
+        for i in range(iop_objs.len):
+            iop_obj = &iop_objs.tab[i]
+            if iop_obj.type == IOP_OBJ_TYPE_MOD:
+                plugin_add_module(plugin, iop_obj.desc.mod)
 
     return plugin
 

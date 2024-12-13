@@ -61,8 +61,8 @@ static struct {
 } zchk_add_package_g;
 
 
-typedef void (*add_iop_package_f)(const iop_pkg_t *p, void *plugin);
 typedef PyObject *(*make_plugin_from_iop_env_f)(iop_env_t *iop_env);
+typedef int (*add_iop_dso_f)(const iop_dso_t *dso, void *plugin);
 
 static const char *t_z_fetch_traceback_err(PyObject *type, PyObject *value,
                                            PyObject *tb)
@@ -100,6 +100,11 @@ static const char *t_z_fetch_py_err(void)
     PyObject *tb = NULL;
 
     PyErr_Fetch(&type, &value, &tb);
+
+    if (type == NULL) {
+        /* No exceptions. */
+        return "";
+    }
 
     res = t_z_fetch_traceback_err(type, value, tb);
     if (!res) {
@@ -202,14 +207,15 @@ static int z_load_plugin(PyObject **plugin_ptr)
 static int z_load_dso(PyObject *plugin, iop_dso_t **dso_ptr)
 {
     SB_1k(err);
-    add_iop_package_f add_iop_package_cb;
+    add_iop_dso_f add_iop_dso_cb;
     const char *dso_path;
     iop_dso_t *dso;
+    int res;
 
     /* Get the Iopy_add_iop_package from IOPy */
-    add_iop_package_cb = dlsym(_G.iopy_dso, "Iopy_add_iop_package");
-    Z_ASSERT_P(add_iop_package_cb, "unable to get symbol "
-               "Iopy_add_iop_package: %s", dlerror());
+    add_iop_dso_cb = dlsym(_G.iopy_dso, "Iopy_add_iop_dso");
+    Z_ASSERT_P(add_iop_dso_cb, "unable to get symbol "
+               "Iopy_add_iop_dso: %s", dlerror());
 
     /* Open the test DSO */
     dso_path = t_fmt("%*pMtestsuite/test-iop-plugin-dso.so",
@@ -218,9 +224,8 @@ static int z_load_dso(PyObject *plugin, iop_dso_t **dso_ptr)
     Z_ASSERT_P(dso, "%*pM", SB_FMT_ARG(&err));
 
     /* Load the packages in the plugin */
-    qm_for_each_pos(iop_pkg, pos, &dso->pkg_h) {
-        add_iop_package_cb(dso->pkg_h.values[pos], plugin);
-    }
+    res = (*add_iop_dso_cb)(dso, plugin);
+    Z_ASSERT_N(res, "unable to load the DSO: %s", t_z_fetch_py_err());
 
     /* Return the DSO */
     *dso_ptr = dso;

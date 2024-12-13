@@ -386,6 +386,9 @@ interface InterfaceA {
     funToggleVoid
         in (void? ov)
         out (void? ov);
+    funDep
+        in testvoid.VoidOptional
+        out null;
 };
 
 module ModuleA : test.emptystuffs.EmptyModule {

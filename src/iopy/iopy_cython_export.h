@@ -32,8 +32,8 @@ EXPORT bool Iopy_Struct_to_iop_ptr(mem_pool_t *, void **,
                                    PyObject *);
 EXPORT bool Iopy_Union_to_iop_ptr(mem_pool_t *, void **, const iop_struct_t *,
                                   PyObject *);
-EXPORT void Iopy_add_iop_package(const iop_pkg_t *, PyObject *);
-EXPORT int Iopy_remove_iop_package(const iop_pkg_t *, PyObject *);
+EXPORT int Iopy_add_iop_dso(const iop_dso_t *, PyObject *);
+EXPORT int Iopy_remove_iop_dso(const iop_dso_t *, PyObject *);
 EXPORT PyObject *Iopy_from_iop_struct_or_union(PyObject *,
                                                const iop_struct_t *,
                                                const void *);
