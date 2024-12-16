@@ -21,3 +21,12 @@ package test.dso;
 class ClassDso : 999 : test.ClassA {
     int field3 = 42;
 };
+
+interface InterfaceTest {
+    fun
+        out (int val);
+};
+
+module ModuleTest {
+    InterfaceTest interfaceTest;
+};

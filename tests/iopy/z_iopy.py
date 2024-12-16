@@ -2921,57 +2921,57 @@ class IopyDsoTests(z.TestCase):
                          'package "tst1" should not be loaded')
 
         # load additional plugin
-        plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin.so')
+        plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin-dso.so')
         self.p.load_dso('plugin', plugin_file)
 
         # the two packages should be loaded
-        self.assertTrue(hasattr(self.p, 'tst1'),
-                        'package "tst1" should be loaded')
-        self.assertTrue(hasattr(self.r, 'tst1'),
-                        'package "tst1" should be loaded')
+        self.assertTrue(hasattr(self.p, 'test_dso'),
+                        'package "test_dso" should be loaded')
+        self.assertTrue(hasattr(self.r, 'test_dso'),
+                        'package "test_dso" should be loaded')
         self.assertTrue(hasattr(self.p, 'test'),
                         'package "test" should be loaded')
         self.assertTrue(hasattr(self.r, 'test'),
                         'package "test" should be loaded')
 
-        # we should be able to query tst1_ModuleTest.interfaceTest.fun
+        # we should be able to query test_dso_ModuleTest.interfaceTest.fun
         uri = make_uri()
         s = self.r.ChannelServer()
         s.listen(uri=uri)
         # pylint: disable=protected-access
-        s.tst1_ModuleTest.interfaceTest._rpcs.fun.impl = rpc_impl_fun
+        s.test_dso_ModuleTest.interfaceTest._rpcs.fun.impl = rpc_impl_fun
         c = self.r.connect(uri)
-        self.assertEqual(21, c.tst1_ModuleTest.interfaceTest.fun().val)
+        self.assertEqual(21, c.test_dso_ModuleTest.interfaceTest.fun().val)
 
         # load the same plugin twice, it should be ok
         self.p.load_dso('plugin_the_return', plugin_file)
 
         # the two packages and module should still be loaded
-        self.assertTrue(hasattr(self.p, 'tst1'),
-                        'package "tst1" should be loaded')
-        self.assertTrue(hasattr(self.r, 'tst1'),
-                        'package "tst1" should be loaded')
+        self.assertTrue(hasattr(self.p, 'test_dso'),
+                        'package "test_dso" should be loaded')
+        self.assertTrue(hasattr(self.r, 'test_dso'),
+                        'package "test_dso" should be loaded')
         self.assertTrue(hasattr(self.p, 'test'),
                         'package "test" should be loaded')
         self.assertTrue(hasattr(self.r, 'test'),
                         'package "test" should be loaded')
         c = self.r.connect(uri)
-        self.assertEqual(21, c.tst1_ModuleTest.interfaceTest.fun().val)
+        self.assertEqual(21, c.test_dso_ModuleTest.interfaceTest.fun().val)
 
         # unload additional plugin
         self.p.unload_dso('plugin')
 
         # the two packages and module should still be loaded
-        self.assertTrue(hasattr(self.p, 'tst1'),
-                        'package "tst1" should be loaded')
-        self.assertTrue(hasattr(self.r, 'tst1'),
-                        'package "tst1" should be loaded')
+        self.assertTrue(hasattr(self.p, 'test_dso'),
+                        'package "test_dso" should be loaded')
+        self.assertTrue(hasattr(self.r, 'test_dso'),
+                        'package "test_dso" should be loaded')
         self.assertTrue(hasattr(self.p, 'test'),
                         'package "test" should be loaded')
         self.assertTrue(hasattr(self.r, 'test'),
                         'package "test" should be loaded')
         c = self.r.connect(uri)
-        self.assertEqual(21, c.tst1_ModuleTest.interfaceTest.fun().val)
+        self.assertEqual(21, c.test_dso_ModuleTest.interfaceTest.fun().val)
 
         # unload additional plugin
         self.p.unload_dso('plugin_the_return')
@@ -2981,15 +2981,15 @@ class IopyDsoTests(z.TestCase):
                         'package "test" should be loaded')
         self.assertTrue(hasattr(self.r, 'test'),
                         'package "test" should be loaded')
-        self.assertFalse(hasattr(self.p, 'tst1'),
-                         'package "tst1" should not be loaded')
-        self.assertFalse(hasattr(self.r, 'tst1'),
-                         'package "tst1" should not be loaded')
+        self.assertFalse(hasattr(self.p, 'test_dso'),
+                         'package "test_dso" should not be loaded')
+        self.assertFalse(hasattr(self.r, 'test_dso'),
+                         'package "test_dso" should not be loaded')
 
-        # module tst1_ModuleTest should be deleted
+        # module test_dso_ModuleTest should be deleted
         c = self.r.connect(uri)
-        self.assertFalse(hasattr(c, 'tst1_ModuleTest'),
-                         'module "tst1_ModuleTest" should not be loaded')
+        self.assertFalse(hasattr(c, 'test_dso_ModuleTest'),
+                         'module "test_dso_ModuleTest" should not be loaded')
 
 
 # }}}

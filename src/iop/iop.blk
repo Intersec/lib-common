@@ -6553,11 +6553,15 @@ iop_register_obj(lstr_t fullname, iop_obj_t obj, unsigned flags,
                 return 0;
             }
 
-            if (!(flags & IOP_REGPKG_FROM_DSO)) {
-                sb_setf(err, "%s '%*pM' was already registered",
-                        iop_obj_type_to_str(&obj), LSTR_FMT_ARG(fullname));
-                return -1;
+            if (lstr_equal(fullname, LSTR("Void"))) {
+                /* Skip "Void" duplicate registration because it is always
+                 * registered :(. */
+                return 0;
             }
+
+            sb_setf(err, "%s '%*pM' was already registered",
+                    iop_obj_type_to_str(&obj), LSTR_FMT_ARG(fullname));
+            return -1;
         }
     } else {
         vec = qv_init(&iop_env->iop_obj_by_fullname.values[pos]);

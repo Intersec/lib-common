@@ -1552,13 +1552,8 @@ static int z_dso_open(const char *dso_path, bool in_cmddir,
     }
     dso = iop_dso_open(iop_env, path.s, &err);
     if (dso == NULL) {
-        if (in_cmddir) {
-            Z_ASSERT_P(dso, "unable to load `%s`: %*pM",
-                       path.s, SB_FMT_ARG(&err));
-        } else {
-            Z_SKIP("unable to load `%s` (TOOLS repo?): %*pM",
+        Z_ASSERT_P(dso, "unable to load `%s`: %*pM",
                    path.s, SB_FMT_ARG(&err));
-        }
     }
 
     *dsop = dso;
@@ -8841,12 +8836,12 @@ Z_GROUP_EXPORT(iop)
         iop_dso_close(&dso);
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_dso_external_ref_bad_dep, "test bug in external ref") { /* {{{ */
-        /* test that loading the same dso twice will not induce dependencies
-         * between the two dsos */
+    Z_TEST(iop_dso_test_invalid_same_open, "test we cannot open two DSOs with the same packages") { /* {{{ */
+        /* test that loading two DSOs with the same packages results in an
+         * error. */
         t_scope;
-        iop_dso_t *dso1;
-        iop_dso_t *dso2;
+        SB_1k(err);
+        iop_dso_t *dso;
         const char *newpath;
         const char *sofile = "zchk-tstiop2-plugin" SO_FILEEXT;
         const char *sopath = t_fmt("%s/iop/%s", z_cmddir_g.s, sofile);
@@ -8854,20 +8849,21 @@ Z_GROUP_EXPORT(iop)
         /* build one dso, remove file */
         newpath = t_fmt("%*pM/1_%s", LSTR_FMT_ARG(z_tmpdir_g), sofile);
         Z_ASSERT_N(filecopy(sopath, newpath), "%s -> %s: %m", sopath, newpath);
-        Z_HELPER_RUN(z_dso_open(newpath, false, _G.iop_env, &dso1));
+        Z_HELPER_RUN(z_dso_open(newpath, false, _G.iop_env, &dso));
         Z_ASSERT_N(unlink(newpath));
 
-        /* build the second one, remove file */
+        /* build the second one, we should have an error when loading the
+         * second DSO, remove file */
         newpath = t_fmt("%*pM/2_%s", LSTR_FMT_ARG(z_tmpdir_g), sofile);
         Z_ASSERT_N(filecopy(sopath, newpath));
-        Z_HELPER_RUN(z_dso_open(newpath, false, _G.iop_env, &dso2));
+        Z_ASSERT_NULL(iop_dso_open(_G.iop_env, newpath, &err));
+        Z_ASSERT_LSTREQUAL(LSTR_SB_V(&err), LSTR(
+            "package 'tstiop2' was already registered"
+        ));
         Z_ASSERT_N(unlink(newpath));
 
-        /* the two files must be independent. If they are not, closing the
-         * first one will cause the second one to be reloaded, which will fail
-         * as the file no longer exists */
-        iop_dso_close(&dso1);
-        iop_dso_close(&dso2);
+        /* clean-up the dso */
+        iop_dso_close(&dso);
     } Z_TEST_END;
     /* }}} */
     Z_TEST(iop_first_diff_desc, "test iop_first_diff_desc()") { /* {{{ */
