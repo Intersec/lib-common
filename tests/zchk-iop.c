@@ -8806,7 +8806,7 @@ Z_GROUP_EXPORT(iop)
 
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_dso_fixup, "test fixup for external DSOs") { /* {{{ */
+    Z_TEST(iop_dso_external_refs, "test refs for external DSOs") { /* {{{ */
         iop_dso_t *dso;
         lstr_t my_struct_name = LSTR("tstiop2.MyStruct");
         const iop_struct_t *my_struct_env;
@@ -8841,7 +8841,7 @@ Z_GROUP_EXPORT(iop)
         iop_dso_close(&dso);
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(iop_dso_fixup_bad_dep, "test bug in fixup") { /* {{{ */
+    Z_TEST(iop_dso_external_ref_bad_dep, "test bug in external ref") { /* {{{ */
         /* test that loading the same dso twice will not induce dependencies
          * between the two dsos */
         t_scope;

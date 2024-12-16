@@ -147,8 +147,8 @@ iop_pkg_get_struct(const iop_pkg_t *pkg, lstr_t fullname)
     return NULL;
 }
 
-static int iopdso_fix_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
-                                 const iop_pkg_t *own_pkg, sb_t *err)
+static int iopdso_register_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
+                                      const iop_pkg_t *own_pkg, sb_t *err)
 {
     const iop_struct_t *pkg_st;
     lstr_t pkgname = iop_pkgname_from_fullname(st->fullname);
@@ -187,8 +187,9 @@ static int iopdso_fix_struct_ref(iop_dso_t *dso, const iop_struct_t *st,
     return 0;
 }
 
-static int iopdso_fix_class_parent(iop_dso_t *dso, const iop_struct_t *desc,
-                                   const iop_pkg_t *own_pkg, sb_t *err)
+static int iopdso_register_class_parent_ref(
+    iop_dso_t *dso, const iop_struct_t *desc,
+    const iop_pkg_t *own_pkg, sb_t *err)
 {
     iop_class_attrs_t *class_attrs;
 
@@ -198,25 +199,27 @@ static int iopdso_fix_class_parent(iop_dso_t *dso, const iop_struct_t *desc,
 
     class_attrs = (iop_class_attrs_t *)desc->class_attrs;
     if (class_attrs->parent) {
-        RETHROW(iopdso_fix_struct_ref(dso, class_attrs->parent, own_pkg,
-                                      err));
+        RETHROW(iopdso_register_struct_ref(dso, class_attrs->parent, own_pkg,
+                                           err));
     }
     return 0;
 }
 
-static int iopdso_fix_pkg(iop_dso_t *dso, const iop_pkg_t *pkg, sb_t *err)
+static int iopdso_register_pkg_ref(iop_dso_t *dso, const iop_pkg_t *pkg,
+                                   sb_t *err)
 {
     for (const iop_struct_t *const *it = pkg->structs; *it; it++) {
         const iop_struct_t *desc = *it;
 
-        RETHROW(iopdso_fix_struct_ref(dso, desc, pkg, err));
-        RETHROW(iopdso_fix_class_parent(dso, desc, pkg, err));
+        RETHROW(iopdso_register_struct_ref(dso, desc, pkg, err));
+        RETHROW(iopdso_register_class_parent_ref(dso, desc, pkg, err));
 
         for (int i = 0; i < desc->fields_len; i++) {
             iop_field_t *f = (iop_field_t *)&desc->fields[i];
 
             if (f->type == IOP_T_STRUCT || f->type == IOP_T_UNION) {
-                RETHROW(iopdso_fix_struct_ref(dso, f->u1.st_desc, pkg, err));
+                RETHROW(iopdso_register_struct_ref(dso, f->u1.st_desc, pkg,
+                                                   err));
             }
         }
     }
@@ -224,9 +227,9 @@ static int iopdso_fix_pkg(iop_dso_t *dso, const iop_pkg_t *pkg, sb_t *err)
         for (int i = 0; i < (*it)->funs_len; i++) {
             iop_rpc_t *rpc = (iop_rpc_t *)&(*it)->funs[i];
 
-            RETHROW(iopdso_fix_struct_ref(dso, rpc->args, pkg, err));
-            RETHROW(iopdso_fix_struct_ref(dso, rpc->result, pkg, err));
-            RETHROW(iopdso_fix_struct_ref(dso, rpc->exn, pkg, err));
+            RETHROW(iopdso_register_struct_ref(dso, rpc->args, pkg, err));
+            RETHROW(iopdso_register_struct_ref(dso, rpc->result, pkg, err));
+            RETHROW(iopdso_register_struct_ref(dso, rpc->exn, pkg, err));
         }
     }
     return 0;
@@ -239,8 +242,9 @@ static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
         return 0;
     }
     if (dso->use_external_packages) {
-        e_trace(1, "fixup package `%*pM` (%p)", LSTR_FMT_ARG(pkg->name), pkg);
-        RETHROW(iopdso_fix_pkg(dso, pkg, err));
+        e_trace(1, "register package refs `%*pM` (%p)",
+                LSTR_FMT_ARG(pkg->name), pkg);
+        RETHROW(iopdso_register_pkg_ref(dso, pkg, err));
     }
     RETHROW(iop_register_packages_dso(iop_env, &pkg, 1, dso,
                                       IOP_REGPKG_FROM_DSO, err));
