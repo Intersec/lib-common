@@ -78,49 +78,32 @@ qm_kvec_t(iop_class_by_id, iop_class_id_key_t, const iop_struct_t * nonnull,
 
 typedef struct iop_dso_t iop_dso_t;
 
-/** Type of an IOP object */
-typedef enum iop_obj_type_t {
-    /** Struct/union/class. */
-    IOP_OBJ_TYPE_ST,
+/** IOP struct in an IOP environment. */
+typedef struct iop_env_struct_t {
+    /** The description of the IOP struct. */
+    const iop_struct_t *nonnull st;
 
-    /** Enum. */
-    IOP_OBJ_TYPE_ENUM,
-
-    /** Typedef */
-    IOP_OBJ_TYPE_TYPEDEF,
-
-    /** Interface */
-    IOP_OBJ_TYPE_IFACE,
-
-    /** Module */
-    IOP_OBJ_TYPE_MOD,
-
-    /* IOP package. */
-    IOP_OBJ_TYPE_PKG,
-} iop_obj_type_t;
-
-/** An IOP object stored in the IOP environment.*/
-typedef struct iop_obj_t {
-    /** The type of IOP object. */
-    iop_obj_type_t type;
-
-    /** The description of the IOP object. */
-    union {
-        const iop_struct_t *nonnull st;
-        const iop_enum_t *nonnull en;
-        const iop_typedef_t *nonnull td;
-        const iop_iface_t *nonnull iface;
-        const iop_mod_t *nonnull mod;
-        const iop_pkg_t *nonnull pkg;
-    } desc;
-
-    /* Cached ancestor for classes (purpose: optimize calls to
-     * iop_get_class_by_fullname()). */
+    /** Cached ancestor for classes.
+     *
+     * To be able to optimize calls to iop_get_class_by_fullname()).
+     */
     const iop_struct_t *nullable ancestor;
-} iop_obj_t;
+} iop_env_struct_t;
 
-qvector_t(iop_obj, iop_obj_t);
-qm_kvec_t(iop_objs, lstr_t, qv_t(iop_obj), qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(iop_env_struct, lstr_t, iop_env_struct_t, qhash_lstr_hash,
+          qhash_lstr_equal);
+
+qm_kvec_t(iop_enum, lstr_t, const iop_enum_t * nonnull,
+          qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(iop_typedef, lstr_t, const iop_typedef_t * nonnull,
+          qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(iop_iface, lstr_t, const iop_iface_t * nonnull,
+          qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(iop_mod, lstr_t, const iop_mod_t * nonnull,
+          qhash_lstr_hash, qhash_lstr_equal);
+qm_kvec_t(iop_pkg, lstr_t, const iop_pkg_t * nonnull,
+          qhash_lstr_hash, qhash_lstr_equal);
+
 qm_khptr_ckey_t(iop_dso_by_pkg, iop_pkg_t, iop_dso_t * nonnull);
 
 /** The IOP environment where IOP objects are registered. */
@@ -134,8 +117,23 @@ typedef struct iop_env_t {
     /** The DSO used for each package. */
     qm_t(iop_dso_by_pkg) dso_by_pkg;
 
-    /** The map of IOP objects by the fullname of the IOP object. */
-    qm_t(iop_objs) iop_obj_by_fullname;
+    /** The map of IOP structs by their fullname. */
+    qm_t(iop_env_struct) struct_by_fullname;
+
+    /** The map of IOP enums by their fullname. */
+    qm_t(iop_enum) enum_by_fullname;
+
+    /** The map of IOP typedefs by their fullname. */
+    qm_t(iop_typedef) typedef_by_fullname;
+
+    /** The map of IOP interfaces by their fullname. */
+    qm_t(iop_iface) iface_by_fullname;
+
+    /** The map of IOP modules by their fullname. */
+    qm_t(iop_mod) mod_by_fullname;
+
+    /** The map of IOP packages by their fullname. */
+    qm_t(iop_pkg) pkg_by_fullname;
 
     /** The Lmid_t for the DSOs loaded in the IOP environment.
      *
@@ -2229,9 +2227,6 @@ int iop_check_constraints_desc(const iop_struct_t * nonnull desc,
 /* }}} */
 /* {{{ IOP enum manipulation */
 
-qm_kvec_t(iop_enum, lstr_t, const iop_enum_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
-
 /** Convert IOP enum integer value to lstr_t representation.
  *
  * This function will return NULL if the integer value doesn't exist in the
@@ -2760,13 +2755,6 @@ int iop_union_get_tag(const iop_struct_t *nonnull desc,
 /* }}} */
 /* {{{ IOP packages registration / manipulation */
 
-qm_kvec_t(iop_pkg, lstr_t, const iop_pkg_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
-
-enum iop_register_packages_flags {
-    IOP_REGPKG_FROM_DSO = (1U << 0),
-};
-
 /** Register a list of packages.
  *
  * Registering a package is necessary if it contains classes; this should be
@@ -2777,8 +2765,7 @@ enum iop_register_packages_flags {
  * You can use IOP_REGISTER_PACKAGES to avoid the array construction.
  */
 void iop_register_packages(iop_env_t * nonnull iop_env,
-                           const iop_pkg_t * nonnull * nonnull pkgs, int len,
-                           unsigned flags);
+                           const iop_pkg_t * nonnull * nonnull pkgs, int len);
 
 /** Helper to register a list of packages.
  *
@@ -2789,7 +2776,7 @@ void iop_register_packages(iop_env_t * nonnull iop_env,
     do {                                                                     \
         const iop_pkg_t *__pkgs[] = { __VA_ARGS__ };                         \
                                                                              \
-        iop_register_packages((_iop_env), __pkgs, countof(__pkgs), 0);       \
+        iop_register_packages((_iop_env), __pkgs, countof(__pkgs));          \
     } while (0)
 
 /** Unregister a list of packages.

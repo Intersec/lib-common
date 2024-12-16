@@ -6072,7 +6072,12 @@ static iop_env_t *iop_env_init(iop_env_t *iop_env)
 {
     qm_init(iop_class_by_id, &iop_env->classes_by_id);
     qm_init(iop_dso_by_pkg, &iop_env->dso_by_pkg);
-    qm_init(iop_objs, &iop_env->iop_obj_by_fullname);
+    qm_init(iop_env_struct, &iop_env->struct_by_fullname);
+    qm_init(iop_enum, &iop_env->enum_by_fullname);
+    qm_init(iop_typedef, &iop_env->typedef_by_fullname);
+    qm_init(iop_iface, &iop_env->iface_by_fullname);
+    qm_init(iop_mod, &iop_env->mod_by_fullname);
+    qm_init(iop_pkg, &iop_env->pkg_by_fullname);
     iop_env->dso_lmid = LM_ID_BASE;
     return iop_env;
 }
@@ -6081,7 +6086,13 @@ static void iop_env_wipe(iop_env_t *iop_env)
 {
     qm_wipe(iop_class_by_id, &iop_env->classes_by_id);
     qm_wipe(iop_dso_by_pkg, &iop_env->dso_by_pkg);
-    qm_deep_wipe(iop_objs, &iop_env->iop_obj_by_fullname, lstr_wipe, qv_wipe);
+    qm_deep_wipe(iop_env_struct, &iop_env->struct_by_fullname, lstr_wipe,
+                 IGNORE);
+    qm_deep_wipe(iop_enum, &iop_env->enum_by_fullname, lstr_wipe, IGNORE);
+    qm_deep_wipe(iop_typedef, &iop_env->typedef_by_fullname, lstr_wipe, IGNORE);
+    qm_deep_wipe(iop_iface, &iop_env->iface_by_fullname, lstr_wipe, IGNORE);
+    qm_deep_wipe(iop_mod, &iop_env->mod_by_fullname, lstr_wipe, IGNORE);
+    qm_deep_wipe(iop_pkg, &iop_env->pkg_by_fullname, lstr_wipe, IGNORE);
     iop_env->dso_lmid = LM_ID_BASE;
 }
 
@@ -6092,26 +6103,45 @@ REFCNT_EXTERN_DELETE(iop_env_t, iop_env);
 
 void iop_env_copy(iop_env_t *dst, iop_env_t *src)
 {
-    qm_for_each_pos(iop_class_by_id, pos, &src->classes_by_id) {
-        qm_add(iop_class_by_id, &dst->classes_by_id,
-               &src->classes_by_id.keys[pos], src->classes_by_id.values[pos]);
-    }
-    qm_for_each_pos(iop_dso_by_pkg, pos, &src->dso_by_pkg) {
-        qm_add(iop_dso_by_pkg, &dst->dso_by_pkg, src->dso_by_pkg.keys[pos],
-               src->dso_by_pkg.values[pos]);
+    /* classes_by_id */
+    qm_set_minsize(iop_class_by_id, &dst->classes_by_id,
+                   qm_len(iop_class_by_id, &src->classes_by_id));
+    qm_for_each_key_p_value(iop_class_by_id, class_id, class_st,
+                            &src->classes_by_id)
+    {
+        qm_add(iop_class_by_id, &dst->classes_by_id, class_id, class_st);
     }
 
-    qm_set_minsize(iop_objs, &dst->iop_obj_by_fullname,
-                   qm_len(iop_objs, &src->iop_obj_by_fullname));
-    qm_for_each_pos(iop_objs, pos, &src->iop_obj_by_fullname) {
-        qv_t(iop_obj) vec;
-        lstr_t obj_fullname;
-
-        obj_fullname = lstr_dup(src->iop_obj_by_fullname.keys[pos]);
-        qv_init(&vec);
-        qv_copy(&vec, &src->iop_obj_by_fullname.values[pos]);
-        qm_add(iop_objs, &dst->iop_obj_by_fullname, &obj_fullname, vec);
+    /* dso_by_pkg */
+    qm_set_minsize(iop_dso_by_pkg, &dst->dso_by_pkg,
+                   qm_len(iop_dso_by_pkg, &src->dso_by_pkg));
+    qm_for_each_key_value(iop_dso_by_pkg, pkg, dso, &src->dso_by_pkg) {
+        qm_add(iop_dso_by_pkg, &dst->dso_by_pkg, pkg, dso);
     }
+
+    /* IOP objects */
+#define QM_COPY_IOP_OBJ(_qm_type, _qm_field)                                 \
+    do {                                                                     \
+        qm_t(_qm_type) *__qm_src = &src->_qm_field;                          \
+        qm_t(_qm_type) *__qm_dst = &dst->_qm_field;                          \
+                                                                             \
+        qm_set_minsize(_qm_type, __qm_dst,                                   \
+                       qm_len(_qm_type, __qm_src));                          \
+        qm_for_each_key_value(_qm_type, _key, _val, __qm_src) {              \
+            lstr_t _key_dup = lstr_dup(_key);                                \
+                                                                             \
+            qm_add(_qm_type, __qm_dst, &_key_dup, _val);                     \
+        }                                                                    \
+    } while (0)
+
+    QM_COPY_IOP_OBJ(iop_env_struct, struct_by_fullname);
+    QM_COPY_IOP_OBJ(iop_enum, enum_by_fullname);
+    QM_COPY_IOP_OBJ(iop_typedef, typedef_by_fullname);
+    QM_COPY_IOP_OBJ(iop_iface, iface_by_fullname);
+    QM_COPY_IOP_OBJ(iop_mod, mod_by_fullname);
+    QM_COPY_IOP_OBJ(iop_pkg, pkg_by_fullname);
+
+#undef QM_COPY_IOP_OBJ
 
     /* Use the source LMID as we want to load the DSO in the same namespace or
      * create a new namespace if necessary. */
@@ -6125,7 +6155,14 @@ void iop_env_transfer(iop_env_t *dst, iop_env_t *src)
      */
     SWAP(qm_t(iop_class_by_id), dst->classes_by_id, src->classes_by_id);
     SWAP(qm_t(iop_dso_by_pkg), dst->dso_by_pkg, src->dso_by_pkg);
-    SWAP(qm_t(iop_objs), dst->iop_obj_by_fullname, src->iop_obj_by_fullname);
+    SWAP(qm_t(iop_env_struct), dst->struct_by_fullname,
+         src->struct_by_fullname);
+    SWAP(qm_t(iop_enum), dst->enum_by_fullname, src->enum_by_fullname);
+    SWAP(qm_t(iop_typedef), dst->typedef_by_fullname,
+         src->typedef_by_fullname);
+    SWAP(qm_t(iop_iface), dst->iface_by_fullname, src->iface_by_fullname);
+    SWAP(qm_t(iop_mod), dst->mod_by_fullname, src->mod_by_fullname);
+    SWAP(qm_t(iop_pkg), dst->pkg_by_fullname, src->pkg_by_fullname);
 
     /* If a new namespace has been created, we need to store the new LMID as
      * the destination LMID. */
@@ -6241,38 +6278,30 @@ bool iop_class_is_a(const iop_struct_t *cls1, const iop_struct_t *cls2)
     return false;
 }
 
-static const qv_t(iop_obj) *
-iop_get_objs(const iop_env_t *iop_env, lstr_t fullname)
-{
-    int pos;
-
-    pos = RETHROW_NP(qm_find_safe(iop_objs, &iop_env->iop_obj_by_fullname,
-                                  &fullname));
-
-    return &iop_env->iop_obj_by_fullname.values[pos];
-}
+static const iop_env_struct_t * nullable
+iop_env_get_env_struct(const iop_env_t * nonnull iop_env, lstr_t fullname);
 
 static const iop_struct_t *
 iop_get_class_by_fullname_(const iop_env_t *iop_env, const iop_struct_t *st,
                            lstr_t fullname)
 {
-    const qv_t(iop_obj) *objs;
+    const iop_env_struct_t *env_struct;
+    const iop_typedef_t *td;
 
-    objs = RETHROW_P(iop_get_objs(iop_env, fullname));
-
-    tab_for_each_ptr(obj, objs) {
-        if (obj->type == IOP_OBJ_TYPE_ST
-        &&  obj->ancestor == st)
-        {
-            return obj->desc.st;
-        } else if (obj->type == IOP_OBJ_TYPE_TYPEDEF &&
-                   obj->desc.td->type == IOP_T_STRUCT)
-        {
-            return iop_get_class_by_fullname_(
-                iop_env, st, obj->desc.td->ref_struct->fullname);
-        }
+    /* Test direct reference. */
+    env_struct = iop_env_get_env_struct(iop_env, fullname);
+    if (env_struct) {
+        return env_struct->ancestor == st ? env_struct->st : NULL;
     }
 
+    /* Test typedef reference. */
+    td = iop_env_get_typedef(iop_env, fullname);
+    if (td && td->type == IOP_T_STRUCT) {
+        return iop_get_class_by_fullname_(
+            iop_env, st, td->ref_struct->fullname);
+    }
+
+    /* Not found. */
     return NULL;
 }
 
@@ -6280,7 +6309,7 @@ const iop_struct_t *
 iop_get_class_by_fullname(const iop_env_t *iop_env, const iop_struct_t *st,
                           lstr_t fullname)
 {
-    assert (iop_struct_is_class(st));
+    assert(iop_struct_is_class(st));
     while (st->class_attrs->parent) {
         st = st->class_attrs->parent;
     }
@@ -6482,114 +6511,48 @@ int iop_check_registered_classes(const iop_env_t *iop_env, sb_t *err)
     return 0;
 }
 
-static const char *iop_obj_type_to_str(const iop_obj_t *obj)
+static const char *iop_struct_type_to_str(const iop_struct_t *st)
 {
-    switch (obj->type) {
-      case IOP_OBJ_TYPE_ST: {
-        const iop_struct_t *st = obj->desc.st;
-
-        if (st->is_union) {
-            return "union";
-        }
-
-        if (iop_struct_is_class(st)) {
-            return "class";
-        }
-
-        return "struct";
-      }
-
-      case IOP_OBJ_TYPE_ENUM:
-        return "enum";
-
-      case IOP_OBJ_TYPE_TYPEDEF:
-        return "typedef";
-
-      case IOP_OBJ_TYPE_IFACE:
-        return "interface";
-
-      case IOP_OBJ_TYPE_MOD:
-        return "module";
-
-      case IOP_OBJ_TYPE_PKG:
-        return "package";
+    if (st->is_union) {
+        return "union";
     }
 
-    assert (false);
-    return NULL;
-}
+    if (iop_struct_is_class(st)) {
+        return "class";
+    }
 
-static inline bool iop_obj_equals(iop_obj_t obj1, iop_obj_t obj2)
-{
-    THROW_FALSE_IF(obj1.type != obj2.type);
-    return obj1.desc.st == obj2.desc.st;
+    return "struct";
 }
 
 static int
-iop_register_obj(lstr_t fullname, iop_obj_t obj, unsigned flags,
-                 iop_env_t *iop_env, sb_t *err)
+iop_register_struct(const iop_struct_t *st, iop_env_t *iop_env, sb_t *err)
 {
-    qv_t(iop_obj) *vec;
+    lstr_t fullname = st->fullname;
     uint32_t pos;
+    iop_env_struct_t env_struct = {
+        .st = st,
+        .ancestor = NULL,
+    };
 
-    pos = qm_reserve(iop_objs, &iop_env->iop_obj_by_fullname, &fullname, 0);
+    pos = qm_reserve(iop_env_struct, &iop_env->struct_by_fullname,
+                     &fullname, 0);
     if (pos & QHASH_COLLISION) {
-        iop_obj_type_t obj_type = obj.type;
-        const iop_obj_t *same_type_obj = NULL;
-
-        vec = &iop_env->iop_obj_by_fullname.values[pos & ~QHASH_COLLISION];
-
-        /* Look for object with same object type. */
-        tab_for_each_ptr(_obj, vec) {
-            if (_obj->type == obj_type) {
-                same_type_obj = _obj;
-            }
+        pos ^= QHASH_COLLISION;
+        if (iop_env->struct_by_fullname.values[pos].st == st) {
+            /* The struct is already registered. */
+            return 0;
         }
 
-        /* Found a object with the same type. */
-        if (same_type_obj) {
-            if (iop_obj_equals(*same_type_obj, obj)) {
-                /* The object is already registered. */
-                return 0;
-            }
-
-            if (lstr_equal(fullname, LSTR("Void"))) {
-                /* Skip "Void" duplicate registration because it is always
-                 * registered :(. */
-                return 0;
-            }
-
-            sb_setf(err, "%s '%*pM' was already registered",
-                    iop_obj_type_to_str(&obj), LSTR_FMT_ARG(fullname));
-            return -1;
+        if (lstr_equal(fullname, LSTR("Void"))) {
+            /* Skip "Void" duplicate registration because it is always
+             * registered :(. */
+            return 0;
         }
-    } else {
-        vec = qv_init(&iop_env->iop_obj_by_fullname.values[pos]);
-        iop_env->iop_obj_by_fullname.keys[pos] = lstr_dup(fullname);
+
+        sb_setf(err, "%s '%*pM' was already registered",
+                iop_struct_type_to_str(st), LSTR_FMT_ARG(fullname));
+        return -1;
     }
-
-    qv_append(vec, obj);
-    return 1;
-}
-
-#define IOP_OBJ_ST(_st)  \
-    (iop_obj_t){ .desc = { .st = _st }, .type = IOP_OBJ_TYPE_ST }
-#define IOP_OBJ_ENUM(_en)  \
-    (iop_obj_t){ .desc = { .en = _en }, .type = IOP_OBJ_TYPE_ENUM }
-#define IOP_OBJ_TD(_td)  \
-    (iop_obj_t){ .desc = { .td = _td }, .type = IOP_OBJ_TYPE_TYPEDEF }
-#define IOP_OBJ_IFACE(_iface)  \
-    (iop_obj_t){ .desc = { .iface = _iface }, .type = IOP_OBJ_TYPE_IFACE }
-#define IOP_OBJ_MOD(_mod)  \
-    (iop_obj_t){ .desc = { .mod = _mod }, .type = IOP_OBJ_TYPE_MOD }
-#define IOP_OBJ_PKG(_pkg)  \
-    (iop_obj_t){ .desc = { .pkg = _pkg }, .type = IOP_OBJ_TYPE_PKG }
-
-static int
-iop_register_struct(const iop_struct_t *st, unsigned flags,
-                    iop_env_t *iop_env, sb_t *err)
-{
-    iop_obj_t obj = IOP_OBJ_ST(st);
 
     if (iop_struct_is_class(st)) {
         const iop_struct_t *parent = st;
@@ -6597,61 +6560,141 @@ iop_register_struct(const iop_struct_t *st, unsigned flags,
         while (parent->class_attrs->parent) {
             parent = parent->class_attrs->parent;
         }
-        obj.ancestor = parent;
+        env_struct.ancestor = parent;
 
         RETHROW(iop_register_class(st, iop_env, err));
     }
 
-    return iop_register_obj(st->fullname, obj, flags, iop_env, err);
+    iop_env->struct_by_fullname.keys[pos] = lstr_dup(fullname);
+    iop_env->struct_by_fullname.values[pos] = env_struct;
+    return 1;
 }
 
 static int
-iop_register_enum(const iop_enum_t *en, unsigned flags, iop_env_t *iop_env,
-                  sb_t *err)
+iop_register_enum(const iop_enum_t *en, iop_env_t *iop_env, sb_t *err)
 {
-    return iop_register_obj(en->fullname, IOP_OBJ_ENUM(en), flags, iop_env,
-                            err);
+    lstr_t fullname = en->fullname;
+    uint32_t pos;
+
+    pos = qm_put(iop_enum, &iop_env->enum_by_fullname, &fullname, en, 0);
+    if (pos & QHASH_COLLISION) {
+        pos ^= QHASH_COLLISION;
+        if (iop_env->enum_by_fullname.values[pos] == en) {
+            /* The enum is already registered. */
+            return 0;
+        }
+
+        sb_setf(err, "enum '%*pM' was already registered",
+                LSTR_FMT_ARG(fullname));
+        return -1;
+    }
+
+    iop_env->enum_by_fullname.keys[pos] = lstr_dup(fullname);
+    return 1;
 }
 
 static int
-iop_register_typedef(const iop_typedef_t *td, unsigned flags,
+iop_register_typedef(const iop_typedef_t *td,
                      iop_env_t *iop_env, sb_t *err)
 {
-    return iop_register_obj(td->fullname, IOP_OBJ_TD(td), flags, iop_env,
-                            err);
+    lstr_t fullname = td->fullname;
+    uint32_t pos;
+
+    pos = qm_put(iop_typedef, &iop_env->typedef_by_fullname, &fullname, td,
+                 0);
+    if (pos & QHASH_COLLISION) {
+        pos ^= QHASH_COLLISION;
+        if (iop_env->typedef_by_fullname.values[pos] == td) {
+            /* The typedef is already registered. */
+            return 0;
+        }
+
+        sb_setf(err, "typedef '%*pM' was already registered",
+                LSTR_FMT_ARG(fullname));
+        return -1;
+    }
+
+    iop_env->typedef_by_fullname.keys[pos] = lstr_dup(fullname);
+    return 1;
 }
 
 static int
-iop_register_iface(const iop_iface_t *iface, unsigned flags,
+iop_register_iface(const iop_iface_t *iface,
                    iop_env_t *iop_env, sb_t *err)
 {
-    return iop_register_obj(iface->fullname, IOP_OBJ_IFACE(iface), flags,
-                            iop_env, err);
+    lstr_t fullname = iface->fullname;
+    uint32_t pos;
+
+    pos = qm_put(iop_iface, &iop_env->iface_by_fullname, &fullname, iface, 0);
+    if (pos & QHASH_COLLISION) {
+        pos ^= QHASH_COLLISION;
+        if (iop_env->iface_by_fullname.values[pos] == iface) {
+            /* The iface is already registered. */
+            return 0;
+        }
+
+        sb_setf(err, "interface '%*pM' was already registered",
+                LSTR_FMT_ARG(fullname));
+        return -1;
+    }
+
+    iop_env->iface_by_fullname.keys[pos] = lstr_dup(fullname);
+    return 1;
 }
 
 static int
-iop_register_mod(const iop_mod_t *mod, unsigned flags,
-                 iop_env_t *iop_env, sb_t *err)
+iop_register_mod(const iop_mod_t *mod, iop_env_t *iop_env, sb_t *err)
 {
-    return iop_register_obj(mod->fullname, IOP_OBJ_MOD(mod), flags,
-                            iop_env, err);
+    lstr_t fullname = mod->fullname;
+    uint32_t pos;
+
+    pos = qm_put(iop_mod, &iop_env->mod_by_fullname, &fullname, mod, 0);
+    if (pos & QHASH_COLLISION) {
+        pos ^= QHASH_COLLISION;
+        if (iop_env->mod_by_fullname.values[pos] == mod) {
+            /* The module is already registered. */
+            return 0;
+        }
+
+        sb_setf(err, "module '%*pM' was already registered",
+                LSTR_FMT_ARG(fullname));
+        return -1;
+    }
+
+    iop_env->mod_by_fullname.keys[pos] = lstr_dup(fullname);
+    return 1;
 }
 
 static int
-iop_register_pkg(const iop_pkg_t *pkg, unsigned flags, iop_env_t *iop_env,
-                 sb_t *err)
+iop_register_pkg(const iop_pkg_t *pkg, iop_env_t *iop_env, sb_t *err)
 {
-    return iop_register_obj(pkg->name, IOP_OBJ_PKG(pkg), flags, iop_env, err);
+    lstr_t fullname = pkg->name;
+    uint32_t pos;
+
+    pos = qm_put(iop_pkg, &iop_env->pkg_by_fullname, &fullname, pkg, 0);
+    if (pos & QHASH_COLLISION) {
+        pos ^= QHASH_COLLISION;
+        if (iop_env->pkg_by_fullname.values[pos] == pkg) {
+            /* The pkg is already registered. */
+            return 0;
+        }
+
+        sb_setf(err, "package '%*pM' was already registered",
+                LSTR_FMT_ARG(fullname));
+        return -1;
+    }
+
+    iop_env->pkg_by_fullname.keys[pos] = lstr_dup(fullname);
+    return 1;
 }
 
 static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
-                                    iop_env_t *iop_env, unsigned flags,
-                                    sb_t *err)
+                                    iop_env_t *iop_env, sb_t *err)
 {
     int ret;
 
     /* Register the package itself. */
-    ret = RETHROW(iop_register_pkg(pkg, flags, iop_env, err));
+    ret = RETHROW(iop_register_pkg(pkg, iop_env, err));
     if (ret == 0) {
         return 0;
     }
@@ -6663,14 +6706,14 @@ static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
     for (const iop_struct_t *const *it = pkg->structs; *it; it++) {
         const iop_struct_t *desc = *it;
 
-        RETHROW(iop_register_struct(desc, flags, iop_env, err));
+        RETHROW(iop_register_struct(desc, iop_env, err));
     }
 
     /* Register its enums. */
     for (const iop_enum_t *const *it = pkg->enums; *it; it++) {
         const iop_enum_t *desc = *it;
 
-        RETHROW(iop_register_enum(desc, flags, iop_env, err));
+        RETHROW(iop_register_enum(desc, iop_env, err));
     }
 
     /* Register its typedefs. */
@@ -6678,7 +6721,7 @@ static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
         for (const iop_typedef_t *const *it = pkg->typedefs; *it; it++) {
             const iop_typedef_t *desc = *it;
 
-            RETHROW(iop_register_typedef(desc, flags, iop_env, err));
+            RETHROW(iop_register_typedef(desc, iop_env, err));
         }
     }
 
@@ -6686,14 +6729,14 @@ static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
     for (const iop_iface_t *const *it = pkg->ifaces; *it; it++) {
         const iop_iface_t *desc = *it;
 
-        RETHROW(iop_register_iface(desc, flags, iop_env, err));
+        RETHROW(iop_register_iface(desc, iop_env, err));
 
         for (int i = 0; i < desc->funs_len; i++) {
             const iop_rpc_t *rpc = &desc->funs[i];
 
-            RETHROW(iop_register_struct(rpc->args, flags, iop_env, err));
-            RETHROW(iop_register_struct(rpc->result, flags, iop_env, err));
-            RETHROW(iop_register_struct(rpc->exn, flags, iop_env, err));
+            RETHROW(iop_register_struct(rpc->args, iop_env, err));
+            RETHROW(iop_register_struct(rpc->result, iop_env, err));
+            RETHROW(iop_register_struct(rpc->exn, iop_env, err));
         }
     }
 
@@ -6701,168 +6744,120 @@ static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
     for (const iop_mod_t *const *it = pkg->mods; *it; it++) {
         const iop_mod_t *desc = *it;
 
-        RETHROW(iop_register_mod(desc, flags, iop_env, err));
+        RETHROW(iop_register_mod(desc, iop_env, err));
     }
 
     /* Register its dependencies. */
     for (const iop_pkg_t *const *it = pkg->deps; *it; it++) {
         const iop_pkg_t *dep = *it;
 
-        RETHROW(iop_register_package_env(dep, dso, iop_env, flags, err));
+        RETHROW(iop_register_package_env(dep, dso, iop_env, err));
     }
 
     return 0;
 }
 
 int iop_register_packages_dso(iop_env_t *iop_env, const iop_pkg_t **pkgs,
-                              int len, iop_dso_t *dso, unsigned flags,
-                              sb_t *err)
+                              int len, iop_dso_t *dso, sb_t *err)
 {
-    if (dso) {
-        assert (flags & IOP_REGPKG_FROM_DSO);
-    } else {
-        assert (!(flags & IOP_REGPKG_FROM_DSO));
-    }
-
     /* Register the packages. */
     for (int i = 0; i < len; i++) {
         const iop_pkg_t *pkg = pkgs[i];
 
-        RETHROW(iop_register_package_env(pkg, dso, iop_env, flags, err));
+        RETHROW(iop_register_package_env(pkg, dso, iop_env, err));
     }
 
     return 0;
 }
 
 void iop_register_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
-                           int len, unsigned flags)
+                           int len)
 {
     SB_1k(err);
 
-    if (iop_register_packages_dso(iop_env, pkgs, len, NULL, flags, &err) < 0)
-    {
+    if (iop_register_packages_dso(iop_env, pkgs, len, NULL, &err) < 0) {
         e_panic("%*pM", SB_FMT_ARG(&err));
     }
+}
+
+static const iop_env_struct_t * nullable
+iop_env_get_env_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
+{
+    return qm_get_def_p_safe(iop_env_struct, &iop_env->struct_by_fullname,
+                             &fullname, NULL);
 }
 
 const iop_struct_t * nullable
 iop_env_get_struct(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
+    const iop_env_struct_t *env_struct;
+    const iop_typedef_t *td;
 
-    tab_for_each_ptr(obj, objs) {
-        switch (obj->type) {
-        case IOP_OBJ_TYPE_ST:
-            return obj->desc.st;
-        case IOP_OBJ_TYPE_TYPEDEF: {
-            const iop_type_t td_type = obj->desc.td->type;
-
-            if (unlikely(td_type != IOP_T_STRUCT && td_type != IOP_T_UNION)) {
-                break;
-            }
-
-            return obj->desc.td->ref_struct;
-        }
-        default:
-            break;
-        }
+    /* Test direct reference. */
+    env_struct = iop_env_get_env_struct(iop_env, fullname);
+    if (env_struct) {
+        return env_struct->st;
     }
 
+    /* Test typedef reference. */
+    td = iop_env_get_typedef(iop_env, fullname);
+    if (td && (td->type == IOP_T_STRUCT || td->type == IOP_T_UNION)) {
+        return td->ref_struct;
+    }
+
+    /* Not found. */
     return NULL;
 }
 
 const iop_enum_t * nullable
 iop_env_get_enum(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
+    const iop_enum_t *en;
+    const iop_typedef_t *td;
 
-    tab_for_each_ptr(obj, objs) {
-        switch (obj->type) {
-        case IOP_OBJ_TYPE_ENUM:
-            return obj->desc.en;
-        case IOP_OBJ_TYPE_TYPEDEF: {
-            const iop_type_t td_type = obj->desc.td->type;
-
-            if (unlikely(td_type != IOP_T_ENUM)) {
-                break;
-            }
-
-            return obj->desc.td->ref_enum;
-        }
-        default:
-            break;
-        }
+    /* Test direct reference. */
+    en = qm_get_def_safe(iop_enum, &iop_env->enum_by_fullname, &fullname,
+                         NULL);
+    if (en) {
+        return en;
     }
 
+    /* Test typedef reference. */
+    td = iop_env_get_typedef(iop_env, fullname);
+    if (td && td->type == IOP_T_ENUM) {
+        return td->ref_enum;
+    }
+
+    /* Not found. */
     return NULL;
 }
 
 const iop_typedef_t * nullable
 iop_env_get_typedef(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
-
-    tab_for_each_ptr(obj, objs) {
-        switch (obj->type) {
-        case IOP_OBJ_TYPE_TYPEDEF:
-            return obj->desc.td;
-        default:
-            break;
-        }
-    }
-
-    return NULL;
+    return qm_get_def_safe(iop_typedef, &iop_env->typedef_by_fullname,
+                           &fullname, NULL);
 }
 
 const iop_iface_t * nullable
 iop_env_get_iface(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
-
-    tab_for_each_ptr(obj, objs) {
-        switch (obj->type) {
-        case IOP_OBJ_TYPE_IFACE:
-            return obj->desc.iface;
-        default:
-            break;
-        }
-    }
-
-    return NULL;
+    return qm_get_def_safe(iop_iface, &iop_env->iface_by_fullname,
+                           &fullname, NULL);
 }
 
 const iop_mod_t * nullable
 iop_env_get_mod(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
-
-    tab_for_each_ptr(obj, objs) {
-        switch (obj->type) {
-        case IOP_OBJ_TYPE_MOD:
-            return obj->desc.mod;
-        default:
-            break;
-        }
-    }
-
-    return NULL;
+    return qm_get_def_safe(iop_mod, &iop_env->mod_by_fullname,
+                           &fullname, NULL);
 }
 
 const iop_pkg_t * nullable
 iop_env_get_pkg(const iop_env_t * nonnull iop_env, lstr_t fullname)
 {
-    const qv_t(iop_obj) *objs = RETHROW_P(iop_get_objs(iop_env, fullname));
-
-    tab_for_each_ptr(obj, objs) {
-        switch (obj->type) {
-        case IOP_OBJ_TYPE_PKG:
-            return obj->desc.pkg;
-        default:
-            break;
-        }
-    }
-
-    return NULL;
+    return qm_get_def_safe(iop_pkg, &iop_env->pkg_by_fullname,
+                           &fullname, NULL);
 }
 
 iop_dso_t *iop_dso_get_from_pkg(const iop_env_t *iop_env,
@@ -6885,45 +6880,67 @@ static void iop_unregister_class(iop_env_t *iop_env, const iop_struct_t *desc)
     qm_del_key(iop_class_by_id, &iop_env->classes_by_id, &key);
 }
 
-static int iop_unregister_obj(iop_env_t *iop_env, lstr_t fullname,
-                              iop_obj_t obj)
-{
-    int pos;
-    qv_t(iop_obj) *vec;
-
-    pos = RETHROW(qm_find(iop_objs, &iop_env->iop_obj_by_fullname,
-                          &fullname));
-    vec = &iop_env->iop_obj_by_fullname.values[pos];
-    tab_for_each_pos(obj_pos, vec) {
-        if (iop_obj_equals(vec->tab[obj_pos], obj)) {
-            if (vec->len > 1) {
-                qv_remove(vec, obj_pos);
-            } else {
-                qv_wipe(vec);
-                lstr_wipe(&iop_env->iop_obj_by_fullname.keys[pos]);
-                qm_del_at(iop_objs, &iop_env->iop_obj_by_fullname, pos);
-            }
-
-            return 0;
-        }
-    }
-
-    return -1;
-}
-
 static int iop_unregister_struct(iop_env_t *iop_env, const iop_struct_t *st)
 {
-    return iop_unregister_obj(iop_env, st->fullname, IOP_OBJ_ST(st));
+    return qm_deep_del_key(iop_env_struct, &iop_env->struct_by_fullname,
+                           &st->fullname, lstr_wipe, IGNORE);
 }
 
 static int iop_unregister_enum(iop_env_t *iop_env, const iop_enum_t *en)
 {
-    return iop_unregister_obj(iop_env, en->fullname, IOP_OBJ_ENUM(en));
+    return qm_deep_del_key(iop_enum, &iop_env->enum_by_fullname,
+                           &en->fullname, lstr_wipe, IGNORE);
 }
 
 static int iop_unregister_typedef(iop_env_t *iop_env, const iop_typedef_t *td)
 {
-    return iop_unregister_obj(iop_env, td->fullname, IOP_OBJ_TD(td));
+    return qm_deep_del_key(iop_typedef, &iop_env->typedef_by_fullname,
+                           &td->fullname, lstr_wipe, IGNORE);
+}
+
+static int iop_unregister_iface(iop_env_t *iop_env, const iop_iface_t *iface)
+{
+    return qm_deep_del_key(iop_iface, &iop_env->iface_by_fullname,
+                           &iface->fullname, lstr_wipe, IGNORE);
+}
+
+static int iop_unregister_struct_from_rpc(
+    iop_env_t *iop_env, const iop_iface_t *iface, const iop_rpc_t *rpc,
+    const iop_struct_t *st, const char *suffix)
+{
+    pstream_t ps = ps_initlstr(&st->fullname);
+
+    if (ps_skiplstr(&ps, iface->fullname) < 0) {
+        /* The struct does not start with iface name, this is not a struct
+         * created specially for the rpc. */
+        return -1;
+    }
+
+    if (ps_skiplstr(&ps, rpc->name) < 0) {
+        /* The struct does not continue with rpc name, this is not a struct
+         * created specially for the rpc. */
+        return -1;
+    }
+
+    if (ps_skipstr(&ps, suffix) < 0 || !ps_done(&ps)) {
+        /* The struct does not end with suffix, this is not a struct
+         * created specially for the rpc. */
+        return -1;
+    }
+
+    return iop_unregister_struct(iop_env, st);
+}
+
+static int iop_unregister_mod(iop_env_t *iop_env, const iop_mod_t *mod)
+{
+    return qm_deep_del_key(iop_mod, &iop_env->mod_by_fullname,
+                           &mod->fullname, lstr_wipe, IGNORE);
+}
+
+static int iop_unregister_pkg(iop_env_t *iop_env, const iop_pkg_t *pkg)
+{
+    return qm_deep_del_key(iop_pkg, &iop_env->pkg_by_fullname,
+                           &pkg->name, lstr_wipe, IGNORE);
 }
 
 void iop_unregister_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
@@ -6937,7 +6954,7 @@ void iop_unregister_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
         const iop_dso_t *dso = NULL;
 
         /* Unregister the package itself. */
-        if (iop_unregister_obj(iop_env, pkg->name, IOP_OBJ_PKG(pkg)) < 0) {
+        if (iop_unregister_pkg(iop_env, pkg) < 0) {
             continue;
         }
         pos = qm_del_key(iop_dso_by_pkg, &iop_env->dso_by_pkg, pkg);
@@ -6971,6 +6988,38 @@ void iop_unregister_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
                 iop_unregister_typedef(iop_env, desc);
             }
         }
+
+        /* Unregister its iface. */
+        for (const iop_iface_t *const *it = pkg->ifaces; *it; it++) {
+            const iop_iface_t *iface = *it;
+
+            iop_unregister_iface(iop_env, iface);
+        }
+
+        /* Unregister its interfaces and related structs. */
+        for (const iop_iface_t *const *it = pkg->ifaces; *it; it++) {
+            const iop_iface_t *iface = *it;
+
+            iop_unregister_iface(iop_env, iface);
+
+            for (int j = 0; j < iface->funs_len; j++) {
+                const iop_rpc_t *rpc = &iface->funs[j];
+
+                iop_unregister_struct_from_rpc(
+                    iop_env, iface, rpc, rpc->args, "Args");
+                iop_unregister_struct_from_rpc(
+                    iop_env, iface, rpc, rpc->result, "Res");
+                iop_unregister_struct_from_rpc(
+                    iop_env, iface, rpc, rpc->exn, "Exn");
+            }
+        }
+
+        /* Unregister its modules. */
+        for (const iop_mod_t *const *it = pkg->mods; *it; it++) {
+            const iop_mod_t *mod = *it;
+
+            iop_unregister_mod(iop_env, mod);
+        }
     }
 
     if (iop_check_registered_classes(iop_env, &err) < 0) {
@@ -6981,12 +7030,8 @@ void iop_unregister_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
 void iop_for_each_registered_pkgs(const iop_env_t *iop_env,
                                   iop_for_each_pkg_b cb)
 {
-    qm_for_each_pos(iop_objs, pos, &iop_env->iop_obj_by_fullname) {
-        tab_for_each_entry(obj, &iop_env->iop_obj_by_fullname.values[pos]) {
-            if (obj.type == IOP_OBJ_TYPE_PKG) {
-                cb(obj.desc.pkg);
-            }
-        }
+    qm_for_each_value(iop_pkg, pkg, &iop_env->pkg_by_fullname) {
+        cb(pkg);
     }
 }
 

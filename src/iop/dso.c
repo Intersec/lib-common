@@ -246,8 +246,7 @@ static int iopdso_register_pkg(iop_dso_t *dso, iop_pkg_t const *pkg,
                 LSTR_FMT_ARG(pkg->name), pkg);
         RETHROW(iopdso_register_pkg_ref(dso, pkg, err));
     }
-    RETHROW(iop_register_packages_dso(iop_env, &pkg, 1, dso,
-                                      IOP_REGPKG_FROM_DSO, err));
+    RETHROW(iop_register_packages_dso(iop_env, &pkg, 1, dso, err));
     for (const iop_enum_t *const *it = pkg->enums; *it; it++) {
         qm_add(iop_enum, &dso->enum_h, &(*it)->fullname, *it);
     }

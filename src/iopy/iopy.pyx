@@ -11433,10 +11433,9 @@ cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
     -------
         The IOPy plugin.
     """
-    cdef int i
     cdef Plugin plugin
-    cdef qv_iop_obj_t *iop_objs
-    cdef iop_obj_t *iop_obj
+    cdef const iop_pkg_t *pkg
+    cdef const iop_mod_t *mod
     cdef QHashIterator it
 
     plugin = Plugin.__new__(Plugin)
@@ -11449,22 +11448,16 @@ cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
     # and then the modules
 
     # Load the packages from the IOP environment
-    it = qhash_iter_make(&iop_env.iop_obj_by_fullname.qh)
+    it = qhash_iter_make(&iop_env.pkg_by_fullname.qh)
     while qhash_iter_next(&it):
-        iop_objs = &iop_env.iop_obj_by_fullname.values[it.pos]
-        for i in range(iop_objs.len):
-            iop_obj = &iop_objs.tab[i]
-            if iop_obj.type == IOP_OBJ_TYPE_PKG:
-                plugin_add_package(plugin, iop_obj.desc.pkg, NULL)
+        pkg = iop_env.pkg_by_fullname.values[it.pos]
+        plugin_add_package(plugin, pkg, NULL)
 
     # Load the modules
-    it = qhash_iter_make(&iop_env.iop_obj_by_fullname.qh)
+    it = qhash_iter_make(&iop_env.mod_by_fullname.qh)
     while qhash_iter_next(&it):
-        iop_objs = &iop_env.iop_obj_by_fullname.values[it.pos]
-        for i in range(iop_objs.len):
-            iop_obj = &iop_objs.tab[i]
-            if iop_obj.type == IOP_OBJ_TYPE_MOD:
-                plugin_add_module(plugin, iop_obj.desc.mod)
+        mod = iop_env.mod_by_fullname.values[it.pos]
+        plugin_add_module(plugin, mod)
 
     return plugin
 

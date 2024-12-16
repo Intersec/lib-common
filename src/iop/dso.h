@@ -27,12 +27,6 @@
 
 qm_kvec_t(iop_struct, lstr_t, const iop_struct_t * nonnull,
           qhash_lstr_hash, qhash_lstr_equal);
-qm_kvec_t(iop_typedef, lstr_t, const iop_typedef_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
-qm_kvec_t(iop_iface, lstr_t, const iop_iface_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
-qm_kvec_t(iop_mod, lstr_t, const iop_mod_t * nonnull,
-          qhash_lstr_hash, qhash_lstr_equal);
 
 /** Stat of a DSO file used for LMID cache. */
 typedef struct iop_dso_file_stat_t {

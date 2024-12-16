@@ -29,8 +29,7 @@ iop_dso_t *iop_dso_get_from_pkg(const iop_env_t *iop_env,
                                 const iop_pkg_t *pkg);
 
 int iop_register_packages_dso(iop_env_t *iop_env, const iop_pkg_t **pkgs,
-                              int len, iop_dso_t * nullable dso,
-                              unsigned flags, sb_t *err);
+                              int len, iop_dso_t * nullable dso, sb_t *err);
 
 /* }}} */
 /* {{{ Getters */
