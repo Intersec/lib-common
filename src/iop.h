@@ -48,6 +48,35 @@ typedef enum iop_wire_type_t {
     IOP_WIRE_REPEAT,
 } iop_wire_type_t;
 
+/* {{{ IOP IC user versioning */
+
+/** Callback to check the compatibility of a user_version.
+ *
+ * \return True if the version is accepted, false otherwise.
+ */
+typedef bool (ic_user_version_check_f)(uint32_t user_version);
+
+/** IC user version. */
+typedef struct ic_user_version_t {
+    /** The current user version.
+     *
+     * The user-version will be set for all the IChannels that use the IOP
+     * environment and exchange through the IChannel protocol, allowing the
+     * remote peers to check for compatibility.
+     */
+    uint32_t current_version;
+
+    /** Callback to check the compatibility of a user version.
+     *
+     * The callback that will be used to check user-version compatibility
+     * during the IChannel handshake procedure with remote peers. If no
+     * version is provided by a remote peer, then the callback will be called
+     * with the user_version set to 0.
+     */
+    ic_user_version_check_f *nullable check_cb;
+} ic_user_version_t;
+
+/* }}} */
 /* {{{ IOP environment */
 /* {{{ iop_class_id/iop_class_name qm declarations */
 
@@ -142,6 +171,13 @@ typedef struct iop_env_t {
      * environment to use a separate namespace.
      */
     Lmid_t dso_lmid;
+
+    /** IC user version.
+     *
+     * Set it to modify the user version of the IChannels using this IOP
+     * environment.
+     */
+    ic_user_version_t ic_user_version;
 
     /* XXX: When adding new fields here, make sure to also handle them in
      * iop_env_transfer(). */

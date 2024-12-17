@@ -57,10 +57,6 @@ static struct {
     logger_t tracing_logger;
 
     bool tls_disabled;
-
-    /* User versioning */
-    uint32_t user_version;
-    ic_user_version_check_f *user_version_check_cb;
 } ic_g = {
 #define _G  ic_g
     .logger = LOGGER_INIT_INHERITS(NULL, "ic"),
@@ -351,16 +347,6 @@ SSL_CTX *ic_get_ssl_ctx(void)
 X509 *ic_get_certificate(void)
 {
     return _G.certificate;
-}
-
-void ic_set_user_version(uint32_t user_version,
-                         ic_user_version_check_f check_cb)
-{
-    assert(!_G.user_version || _G.user_version == user_version);
-    assert(qm_len(ic, &_G.ics) == 0);
-
-    _G.user_version = user_version;
-    _G.user_version_check_cb = check_cb;
 }
 
 static int ic_initialize(void *arg)
@@ -2730,11 +2716,12 @@ static int ic_version_write(ichannel_t *ic, int fd)
     uint16_t flags = 0;
     int dlen = IC_MSG_HDR_LEN + IC_MSG_VERSION_DLEN_MIN;
     byte *p = buffer;
+    uint32_t user_version = ic->iop_env->ic_user_version.current_version;
 
     if (ic_is_tls_enabled(ic)) {
         flags |= IC_SC_VERSION_TLS;
     }
-    if (_G.user_version) {
+    if (user_version) {
         flags |= IC_SC_VERSION_UV;
         dlen += 4;
     }
@@ -2744,8 +2731,8 @@ static int ic_version_write(ichannel_t *ic, int fd)
     p = put_unaligned_le32(p, dlen - IC_MSG_HDR_LEN);
     p = put_unaligned_le16(p, IC_VERSION);
     p = put_unaligned_le16(p, flags);
-    if (_G.user_version) {
-        p = put_unaligned_le32(p, _G.user_version);
+    if (user_version) {
+        p = put_unaligned_le32(p, user_version);
     }
     return (write(fd, buffer, dlen) != dlen) ? -1 : 0;
 }
@@ -2875,6 +2862,7 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
     ichannel_t *ic = priv.ptr;
     sb_t *buf = &ic->rbuf;
     uint32_t user_version = 0;
+    ic_user_version_check_f *user_version_check_cb;
 
     if (events == EL_EVENTS_NOACT) {
         goto error;
@@ -2957,12 +2945,16 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
     }
 
     /* Check for custom user version compatibility. */
-    if (!ic->is_unix && _G.user_version_check_cb &&
-        !(*_G.user_version_check_cb)(user_version))
+    user_version_check_cb = ic->iop_env->ic_user_version.check_cb;
+    if (!ic->is_unix && user_version_check_cb &&
+        !(*user_version_check_cb)(user_version))
     {
+        uint32_t current_version =
+            ic->iop_env->ic_user_version.current_version;
+
         logger_warning(&_G.logger, "remote user version %u is incompatible"
                        " with us (%u), connection rejected",
-                       user_version, _G.user_version);
+                       user_version, current_version);
         goto error;
     }
 

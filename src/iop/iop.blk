@@ -6147,6 +6147,9 @@ void iop_env_copy(iop_env_t *dst, iop_env_t *src)
      * create a new namespace if necessary. */
     assert(dst->dso_lmid == LM_ID_BASE);
     dst->dso_lmid = src->dso_lmid;
+
+    /* Copy the IC user version so it can be swapped on transfer. */
+    dst->ic_user_version = src->ic_user_version;
 }
 
 void iop_env_transfer(iop_env_t *dst, iop_env_t *src)
@@ -6163,6 +6166,7 @@ void iop_env_transfer(iop_env_t *dst, iop_env_t *src)
     SWAP(qm_t(iop_iface), dst->iface_by_fullname, src->iface_by_fullname);
     SWAP(qm_t(iop_mod), dst->mod_by_fullname, src->mod_by_fullname);
     SWAP(qm_t(iop_pkg), dst->pkg_by_fullname, src->pkg_by_fullname);
+    SWAP(ic_user_version_t, dst->ic_user_version, src->ic_user_version);
 
     /* If a new namespace has been created, we need to store the new LMID as
      * the destination LMID. */

@@ -737,11 +737,11 @@ typedef bool (iop_dso_user_version_cb_f)(uint32_t user_version);
  * \param[in]  user_version
  *     User defined version that will be stored in the DSO for runtime
  *     retrieval. It is mainly intended for the IChannel library, \see
- *     ic_set_user_version. Should be set to 0 if user versioning isn't used.
+ *     ic_user_versioning_t. Should be set to 0 if user versioning isn't used.
  * \param[in]  user_version_cb
  *    User defined callback used for version compatibility checking. It is
- *    also intended for the IChannel library, \see ic_set_user_version. Should
- *    be set to NULL if user versioning isn't used.
+ *    also intended for the IChannel library, \see ic_user_versioning_t.
+ *    Should be set to NULL if user versioning isn't used.
  */
 #define IOP_EXPORT_PACKAGES_COMMON(user_version, user_version_cb) \
     IOP_EXPORT_PACKAGES_VTABLE                                          \

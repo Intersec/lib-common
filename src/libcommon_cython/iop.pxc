@@ -92,7 +92,6 @@ PXCC_EXPORT_TYPE(ic__simple_hdr__t);
 PXCC_EXPORT_SYMBOL(ic__pkg);
 
 PXCC_EXPORT_SYMBOL(ic_status_to_string);
-PXCC_EXPORT_SYMBOL(ic_set_user_version);
 
 /* }}} */
 /* {{{ Iop-Yaml */

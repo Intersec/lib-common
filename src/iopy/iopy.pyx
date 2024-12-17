@@ -9627,6 +9627,11 @@ cdef class Plugin:
         self.iop_env.dso_lmid = LM_ID_NEWLM
 
         self.dso = plugin_open_dso(self, dso_path)
+
+        # Set the IC user version from the main DSO
+        self.iop_env.ic_user_version.current_version = self.dso.user_version
+        self.iop_env.ic_user_version.check_cb = self.dso.user_version_cb
+
         plugin_run_register_scripts(self, self.dso)
 
     def __dealloc__(Plugin self):
@@ -10191,9 +10196,6 @@ cdef void plugin_load_dso(Plugin plugin, const iop_dso_t *dso):
     it = qhash_iter_make(&dso.mod_h.qh)
     while qhash_iter_next(&it):
         plugin_add_module(plugin, dso.mod_h.values[it.pos])
-
-    if dso.user_version or dso.user_version_cb:
-        ic_set_user_version(dso.user_version, dso.user_version_cb)
 
 
 cdef void plugin_add_package(Plugin plugin, const iop_pkg_t *pkg,

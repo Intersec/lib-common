@@ -2082,25 +2082,4 @@ X509 * nonnull ic_get_certificate(void);
  */
 bool ic_set_tls_disabled(bool val);
 
-/** Callback to check the compatibility of a user_version.
- *
- * \return True if the version is accepted, false otherwise.
- */
-typedef bool (ic_user_version_check_f)(uint32_t user_version);
-
-/** Set the current user version for all the current and future IChannel.
- *
- * \param[in]  user_version
-*      The user-version will be set for all the current and future IChannel
-*      and exchange through the IChannel protocol, allowing the remote peers
-*      to check for compatibility.
- * \param[in]  check_cb
- *     The callback that will be used to check user-version compatibility
- *     during the IChannel handshake procedure with remote peers. If no
- *     version is provided by a remote peer, then the callback will be called
- *     with the user_version set to 0.
- */
-void ic_set_user_version(uint32_t user_version,
-                         ic_user_version_check_f *nonnull check_cb);
-
 #endif

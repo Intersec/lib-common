@@ -471,7 +471,8 @@ Z_GROUP_EXPORT(iop_rpc)
         /* Test to establish a connection between 2 ICs with compatible
          * versions. */
         _G.last_user_version = 0;
-        ic_set_user_version(0xdeadbeef, &check_user_version_true);
+        _G.iop_env->ic_user_version.current_version = 0xdeadbeef;
+        _G.iop_env->ic_user_version.check_cb = &check_user_version_true;
 
         Z_HELPER_RUN(z_connect_ics_and_wait(&ic_client, &su));
 
@@ -487,7 +488,8 @@ Z_GROUP_EXPORT(iop_rpc)
         /* Now test to establish a connection between 2 ICs with incompatible
          * versions. */
         _G.last_user_version = 0;
-        ic_set_user_version(0xdeadbeef, &check_user_version_false);
+        _G.iop_env->ic_user_version.current_version = 0xdeadbeef;
+        _G.iop_env->ic_user_version.check_cb = &check_user_version_false;
 
         Z_HELPER_RUN(z_connect_ics_and_wait(&ic_client, &su));
 
