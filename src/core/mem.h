@@ -272,6 +272,16 @@ enum mem_pools_t {
 #define MEM_BY_FRAME           (1 << 11)
 #define MEM_EFFICIENT_REALLOC  (1 << 12)
 
+/* Do not consider the pool as leaked if it is still present at shutdown.
+ * Can be set for pools that are allocated and freed using thread hooks. In
+ * this case, the deallocation happens *after* the part of the code that
+ * looks for leaked pools, so the pool is mistakenly considered as leaked.
+ */
+#define MEM_DISABLE_POOL_LEAK_DETECTION (1 << 13)
+
+/* Collection of memory pool flags allowed at user-level. */
+#define MEM_USER_FLAGS MEM_DISABLE_POOL_LEAK_DETECTION
+
 #define CACHE_LINE_SIZE   64
 
 typedef struct mem_pool_t {
@@ -716,9 +726,14 @@ void mem_fifo_pools_print_stats(void);
  * This is quite a fifo-pool with the oldest frames always re-appended at the
  * head of the pool.
  *
- * \param[name]         Name of the ring pool, used for debug.
- * \param[initialsize]  First memory block size.
+ * \param[in] name         Name of the ring pool, used for debug.
+ * \param[in] initialsize  First memory block size.
+ * \param[in] flags        Additional pool options.
  */
+mem_pool_t * nonnull mem_ring_new_flags(const char * nonnull name,
+                                        int initialsize, unsigned flags);
+
+/** \see mem_ring_new_flags */
 mem_pool_t * nonnull mem_ring_new(const char * nonnull name, int initialsize);
 
 /** Delete the given memory ring-pool */

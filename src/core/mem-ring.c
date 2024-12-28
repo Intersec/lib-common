@@ -389,7 +389,8 @@ void ring_setup_frame(ring_pool_t *rp, ring_blk_t *blk, frame_t *frame)
 
 /*------ Public API -{{{-*/
 
-mem_pool_t *mem_ring_new(const char *name, int initialsize)
+mem_pool_t *mem_ring_new_flags(const char *name, int initialsize,
+                               unsigned flags)
 {
     ring_pool_t *rp = p_new(ring_pool_t, 1);
     ring_blk_t *blk;
@@ -411,9 +412,14 @@ mem_pool_t *mem_ring_new(const char *name, int initialsize)
     ring_setup_frame(rp, blk, acast(frame_t, &blk->area));
 
     mem_pool_set(&rp->funcs, name, &_G.all_pools, &_G.all_pools_lock,
-                 &ring_pool_funcs_g);
+                 &ring_pool_funcs_g, flags);
 
     return &rp->funcs;
+}
+
+mem_pool_t *mem_ring_new(const char *name, int initialsize)
+{
+    return mem_ring_new_flags(name, initialsize, 0);
 }
 
 static void __mem_ring_reset(ring_pool_t *rp);
@@ -868,15 +874,8 @@ static int core_mem_ring_initialize(void *arg)
 
 static int core_mem_ring_shutdown(void)
 {
-    const char *supprs[] = {
-        /* Do not report r_pools as leaked: we know they will be destroyed
-         * by r_pool_destroy, that is called after this code. */
-        "r_pool",
-    };
-
     mem_pool_list_clean(&_G.all_pools, "mem ring",
-                        &_G.all_pools_lock, &_G.logger,
-                        supprs, countof(supprs));
+                        &_G.all_pools_lock, &_G.logger);
 
     return 0;
 }

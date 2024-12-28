@@ -29,26 +29,22 @@
  *
  * \param[in] pool_type Pool type to use in the warning message.
  *
- * \param[in] get_mp_name Callback that get the name of a mem pool from its
- *                        list link.
- *
  * \param[in,out] lock Lock associated to the list.
  *
  * \param[in,out] logger Logger to use for the warning.
- *
- * \param[in] supprs List of "suppressions" containing names of memory
- *                   pools that should not be considered as leaked.
  */
-void mem_pool_list_clean(dlist_t *nonnull list, const char *nonnull pool_type,
-                         spinlock_t *nonnull lock, logger_t *nonnull logger,
-                         const char *nonnull *nullable supprs,
-                         int supprs_len);
+void mem_pool_list_clean(dlist_t *list, const char *pool_type,
+                         spinlock_t *lock, logger_t *logger);
 
 static inline void mem_pool_set(mem_pool_t *mp, const char *name,
                                 dlist_t *all_pools_list, spinlock_t *lock,
-                                const mem_pool_t *funcs)
+                                const mem_pool_t *funcs, unsigned flags)
 {
     *mp = *funcs;
+
+    /* Check for non-user flags. */
+    assert((flags & ~MEM_USER_FLAGS) == 0);
+    mp->mem_pool |= flags;
 
     spin_lock(lock);
     dlist_add_tail(all_pools_list, &mp->pool_link);

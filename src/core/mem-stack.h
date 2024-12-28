@@ -137,12 +137,14 @@ typedef struct mem_stack_pool_t {
 
 mem_stack_pool_t * nonnull
 mem_stack_pool_init(mem_stack_pool_t * nonnull, const char * nonnull name,
-                    int initialsize) __leaf;
+                    int initialsize, unsigned flags) __leaf;
 void mem_stack_pool_reset(mem_stack_pool_t * nonnull) __leaf;
 void mem_stack_pool_try_reset(mem_stack_pool_t * nonnull) __leaf;
 void mem_stack_pool_wipe(mem_stack_pool_t * nonnull) __leaf;
 
 mem_pool_t *nonnull mem_stack_new(const char *nonnull name, int initialsize);
+mem_pool_t *nonnull mem_stack_new_flags(const char *nonnull name,
+                                        int initialsize, unsigned flags);
 void mem_stack_delete(mem_pool_t *nonnull *nullable mp);
 
 static inline

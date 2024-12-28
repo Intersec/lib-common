@@ -476,7 +476,7 @@ static mem_pool_t const pool_funcs_libc = {
 #endif
 
 mem_stack_pool_t *mem_stack_pool_init(mem_stack_pool_t *sp, const char *name,
-                                      int initialsize)
+                                      int initialsize, unsigned flags)
 {
     /* no p_clear is made for two reasons :
      * - there is few objects that shall be zero-initialized
@@ -526,7 +526,7 @@ mem_stack_pool_t *mem_stack_pool_init(mem_stack_pool_t *sp, const char *name,
     sp->pthread_id = pthread_self();
 
     mem_pool_set(&sp->funcs, name, &_G.all_pools, &_G.all_pools_lock,
-                 &stack_pool_funcs_g);
+                 &stack_pool_funcs_g, flags);
 
     return sp;
 }
@@ -745,20 +745,27 @@ void mem_stack_pool_protect(mem_stack_pool_t *sp, const mem_stack_frame_t *up_to
 #endif
 
 static inline mem_stack_pool_t *mem_stack_pool_new(const char *name,
-                                                   int initialsize)
+                                                   int initialsize,
+                                                   unsigned flags)
 {
     mem_stack_pool_t *sp = p_new_raw(mem_stack_pool_t, 1);
 
-    mem_stack_pool_init(sp, name, initialsize);
+    mem_stack_pool_init(sp, name, initialsize, flags);
 
     return sp;
 }
 
-mem_pool_t *mem_stack_new(const char *name, int initialsize)
+mem_pool_t *mem_stack_new_flags(const char *name, int initialsize,
+                                unsigned flags)
 {
-    mem_stack_pool_t *pool = mem_stack_pool_new(name, initialsize);
+    mem_stack_pool_t *pool = mem_stack_pool_new(name, initialsize, flags);
 
     return &pool->funcs;
+}
+
+mem_pool_t *mem_stack_new(const char *name, int initialsize)
+{
+    return mem_stack_new_flags(name, initialsize, 0);
 }
 
 GENERIC_DELETE(mem_stack_pool_t, mem_stack_pool);
@@ -776,7 +783,8 @@ void mem_stack_delete(mem_pool_t *nonnull *nullable mp)
 __attribute__((constructor))
 static void t_pool_init(void)
 {
-    mem_stack_pool_init(&t_pool_g, "t_pool", 64 << 10);
+    mem_stack_pool_init(&t_pool_g, "t_pool", 64 << 10,
+                        MEM_DISABLE_POOL_LEAK_DETECTION);
 }
 static void t_pool_wipe(void)
 {
@@ -906,17 +914,8 @@ static int core_mem_stack_initialize(void *arg)
 
 static int core_mem_stack_shutdown(void)
 {
-    const char *supprs[] = {
-        /* Do not report t_pools/log pools as leaked: we know they will be
-         * destroyed by t_pool_wipe/log_shutdown_thread, that are
-         * called after this code. */
-        "t_pool",
-        "log",
-    };
-
     mem_pool_list_clean(&_G.all_pools, "mem stack",
-                        &_G.all_pools_lock, &_G.logger,
-                        supprs, countof(supprs));
+                        &_G.all_pools_lock, &_G.logger);
 
     return 0;
 }

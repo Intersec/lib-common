@@ -1118,7 +1118,9 @@ static void log_initialize_thread(void)
         sb_init(&log_thr_g.log);
         sb_init(&log_thr_g.buf);
 
-        mem_stack_pool_init(&log_thr_g.mp_stack, "log", 16 << 10);
+        mem_stack_pool_init(&log_thr_g.mp_stack, "log", 16 << 10,
+                            MEM_DISABLE_POOL_LEAK_DETECTION);
+
         qv_init(&log_thr_g.vec_buff_stack);
 
         log_thr_g.inited = true;

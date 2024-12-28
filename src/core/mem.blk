@@ -660,8 +660,7 @@ bool mem_pool_is_enabled(void)
 /* {{{ sb_add_still_alive_mem_pools() */
 
 void mem_pool_list_clean(dlist_t *list, const char *pool_type,
-                         spinlock_t *lock, logger_t *logger,
-                         const char **supprs, int supprs_len)
+                         spinlock_t *lock, logger_t *logger)
 {
     SB_1k(buf);
     static int print_limit = 5;
@@ -673,11 +672,9 @@ void mem_pool_list_clean(dlist_t *list, const char *pool_type,
          * leaked by asan/valgrind. */
         dlist_remove(&mp->pool_link);
 
-        for (int i = 0; i < supprs_len; i++) {
-            if (strequal(mp->name, supprs[i])) {
-                /* This memory pool is not considered as leaked. Skip it. */
-                goto skip_pool;
-            }
+        if (mp->mem_pool & MEM_DISABLE_POOL_LEAK_DETECTION) {
+            /* This memory pool is not considered as leaked. Skip it. */
+            continue;
         }
 
         if (nb_still_alive < print_limit) {
@@ -687,8 +684,6 @@ void mem_pool_list_clean(dlist_t *list, const char *pool_type,
             sb_adds(&buf, mp->name);
         }
         nb_still_alive++;
-
-    skip_pool:;
     }
     spin_unlock(lock);
 

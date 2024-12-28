@@ -434,7 +434,7 @@ mem_pool_t *mem_fifo_pool_new(const char *name, int page_size_hint)
 #endif
 
     mem_pool_set(&mfp->funcs, name, &_G.all_pools, &_G.all_pools_lock,
-                 &mem_fifo_pool_funcs_g);
+                 &mem_fifo_pool_funcs_g, 0);
 
     return &mfp->funcs;
 }
@@ -614,7 +614,7 @@ static int core_mem_fifo_initialize(void *arg)
 static int core_mem_fifo_shutdown(void)
 {
     mem_pool_list_clean(&_G.all_pools, "mem fifo",
-                        &_G.all_pools_lock, &_G.logger, NULL, 0);
+                        &_G.all_pools_lock, &_G.logger);
     return 0;
 }
 
