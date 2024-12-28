@@ -114,9 +114,7 @@ typedef struct mem_stack_pool_t {
     size_t               alloc_sz;       /*<  8  (8) : alloc */
     uint32_t             alloc_nb;       /*< 16  (4) : alloc */
     uint32_t             padding;        /*< 20  (4) : never */
-    mem_pool_t           funcs;          /*< 24 (40) : mp_* functions */
-
-    /* ---- cache line boundary (offset 64) ---- */
+    mem_pool_t           funcs;
 
     /* cold data : root block (alias on a mem_stack_blk_t) */
     size_t               size;      /*< never */
@@ -129,8 +127,6 @@ typedef struct mem_stack_pool_t {
     uint32_t             nb_blocks;  /*< blk_create / blk_destroy */
     time_t               last_reset; /*< mem_stack_pool_(check_)reset */
 
-    dlist_t        pool_link;
-    char * nonnull name;
     pthread_t      pthread_id;
 
 #ifdef MEM_BENCH

@@ -374,12 +374,14 @@ static void *sp_realloc(mem_pool_t *_sp, void *mem, size_t oldsize,
     return res;
 }
 
-static mem_pool_t const pool_funcs = {
+static mem_pool_t const stack_pool_funcs_g = {
     .malloc   = &sp_alloc,
     .realloc  = &sp_realloc,
     .free     = &sp_free,
     .mem_pool = MEM_STACK | MEM_BY_FRAME,
-    .min_alignment = sizeof(void *)
+    .min_alignment = sizeof(void *),
+    .name = NULL,
+    .pool_link = { NULL, NULL },
 };
 
 #ifndef NDEBUG
@@ -489,8 +491,6 @@ mem_stack_pool_t *mem_stack_pool_init(mem_stack_pool_t *sp, const char *name,
     sp->alloc_nb   = 1; /* avoid the division by 0 */
     sp->last_reset = lp_getsec();
 
-    sp->funcs     = pool_funcs;
-
     /* root block */
     sp->size      = 0;
     dlist_init(&sp->blk_list);
@@ -523,12 +523,10 @@ mem_stack_pool_t *mem_stack_pool_init(mem_stack_pool_t *sp, const char *name,
     mem_bench_leak(sp->mem_bench);
 #endif
 
-    sp->name = p_strdup(name);
     sp->pthread_id = pthread_self();
 
-    spin_lock(&_G.all_pools_lock);
-    dlist_add_tail(&_G.all_pools, &sp->pool_link);
-    spin_unlock(&_G.all_pools_lock);
+    mem_pool_set(&sp->funcs, name, &_G.all_pools, &_G.all_pools_lock,
+                 &stack_pool_funcs_g);
 
     return sp;
 }
@@ -610,11 +608,7 @@ void mem_stack_pool_wipe(mem_stack_pool_t *sp)
         return;
     }
 
-    spin_lock(&_G.all_pools_lock);
-    dlist_remove(&sp->pool_link);
-    spin_unlock(&_G.all_pools_lock);
-
-    p_delete(&sp->name);
+    mem_pool_wipe(&sp->funcs, &_G.all_pools_lock);
 
 #ifdef MEM_BENCH
     mem_bench_delete(&sp->mem_bench);
@@ -798,9 +792,10 @@ static void mem_stack_fix_all_pools_at_fork(void)
      * t_pool_g or log_thr_g.mp_stack), but the stack pools of other threads
      * are no longer valid. This is only a problem when the forked process
      * does not call exec. */
-    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, pool_link) {
+    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, funcs.pool_link)
+    {
         if (!pthread_equal(sp->pthread_id, pthread_self())) {
-            dlist_remove(&sp->pool_link);
+            dlist_remove(&sp->funcs.pool_link);
         }
     }
 }
@@ -856,11 +851,12 @@ static void core_mem_stack_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, pool_link) {
+    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, funcs.pool_link)
+    {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);
-        qv_append(tab, t_lstr_fmt("%s", sp->name));
+        qv_append(tab, t_lstr_fmt("%s", sp->funcs.name));
         qv_append(tab, t_lstr_fmt("%p", sp));
 
         ADD_NUMBER_FIELD(sp->stacksize);
@@ -908,11 +904,6 @@ static int core_mem_stack_initialize(void *arg)
     return 0;
 }
 
-static const char *get_sp_name(const dlist_t *link)
-{
-    return dlist_entry(link, mem_stack_pool_t, pool_link)->name;
-}
-
 static int core_mem_stack_shutdown(void)
 {
     const char *supprs[] = {
@@ -923,7 +914,7 @@ static int core_mem_stack_shutdown(void)
         "log",
     };
 
-    mem_pool_list_clean(&_G.all_pools, "mem stack", &get_sp_name,
+    mem_pool_list_clean(&_G.all_pools, "mem stack",
                         &_G.all_pools_lock, &_G.logger,
                         supprs, countof(supprs));
 

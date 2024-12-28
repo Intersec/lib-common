@@ -92,9 +92,6 @@ struct ring_pool_t {
     bool         alive : 1;
 
     mem_pool_t   funcs;
-
-    char        *name;
-    dlist_t      pool_link;
 };
 
 struct mem_ring_checkpoint {
@@ -312,11 +309,13 @@ static void *rp_realloc(mem_pool_t *_rp, void *mem, size_t oldsize,
 }
 
 
-static mem_pool_t const pool_funcs = {
+static mem_pool_t const ring_pool_funcs_g = {
     .malloc  = &rp_alloc,
     .realloc = &rp_realloc,
     .free    = &rp_free,
     .mem_pool = MEM_OTHER | MEM_BY_FRAME,
+    .name = NULL,
+    .pool_link = { NULL, NULL },
 };
 
 #ifndef NDEBUG
@@ -395,8 +394,6 @@ mem_pool_t *mem_ring_new(const char *name, int initialsize)
     ring_pool_t *rp = p_new(ring_pool_t, 1);
     ring_blk_t *blk;
 
-    rp->name = p_strdup(name);
-
     dlist_init(&rp->fhead);
 
     /* 640k should be enough for everybody =) */
@@ -404,7 +401,6 @@ mem_pool_t *mem_ring_new(const char *name, int initialsize)
         initialsize = 640 << 10;
     }
     rp->minsize    = ROUND_UP(initialsize, PAGE_SIZE);
-    rp->funcs      = pool_funcs;
     rp->alloc_nb   = 1; /* avoid the division by 0 */
     rp->frames_cnt  = 0;
     rp->alive = true;
@@ -414,9 +410,8 @@ mem_pool_t *mem_ring_new(const char *name, int initialsize)
     mem_tool_allow_memory(blk->area, sizeof(frame_t), false);
     ring_setup_frame(rp, blk, acast(frame_t, &blk->area));
 
-    spin_lock(&_G.all_pools_lock);
-    dlist_add_tail(&_G.all_pools, &rp->pool_link);
-    spin_unlock(&_G.all_pools_lock);
+    mem_pool_set(&rp->funcs, name, &_G.all_pools, &_G.all_pools_lock,
+                 &ring_pool_funcs_g);
 
     return &rp->funcs;
 }
@@ -449,15 +444,11 @@ void mem_ring_delete(mem_pool_t **rpp)
             return;
         }
 
-        spin_lock(&_G.all_pools_lock);
-        dlist_remove(&rp->pool_link);
-        spin_unlock(&_G.all_pools_lock);
-
         dlist_for_each(e, &rp->cblk->blist) {
             blk_destroy(rp, blk_entry(e));
         }
         blk_destroy(rp, rp->cblk);
-        p_delete(&rp->name);
+        mem_pool_wipe(&rp->funcs, &_G.all_pools_lock);
         p_delete(&rp);
         *rpp = NULL;
     }
@@ -823,11 +814,11 @@ static void core_mem_ring_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(ring_pool_t, rp, &_G.all_pools, pool_link) {
+    dlist_for_each_entry(ring_pool_t, rp, &_G.all_pools, funcs.pool_link) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);
-        qv_append(tab, t_lstr_fmt("%s",  rp->name));
+        qv_append(tab, t_lstr_fmt("%s",  rp->funcs.name));
         qv_append(tab, t_lstr_fmt("%p",  rp));
 
         ADD_NUMBER_FIELD(rp->minsize);
@@ -875,11 +866,6 @@ static int core_mem_ring_initialize(void *arg)
     return 0;
 }
 
-static const char *get_rp_name(const dlist_t *link)
-{
-    return dlist_entry(link, ring_pool_t, pool_link)->name;
-}
-
 static int core_mem_ring_shutdown(void)
 {
     const char *supprs[] = {
@@ -888,7 +874,7 @@ static int core_mem_ring_shutdown(void)
         "r_pool",
     };
 
-    mem_pool_list_clean(&_G.all_pools, "mem ring", &get_rp_name,
+    mem_pool_list_clean(&_G.all_pools, "mem ring",
                         &_G.all_pools_lock, &_G.logger,
                         supprs, countof(supprs));
 

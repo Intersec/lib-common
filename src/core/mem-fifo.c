@@ -71,9 +71,6 @@ typedef struct mem_fifo_pool_t {
     uint32_t    page_size;
     uint32_t    nb_pages;
 
-    char       *name;
-    dlist_t     pool_link;
-
 #ifdef MEM_BENCH
     /* Instrumentation */
     mem_bench_t  mem_bench;
@@ -406,19 +403,19 @@ static void *mfp_realloc(mem_pool_t *_mfp, void *mem, size_t oldsize,
     return mem;
 }
 
-static mem_pool_t const mem_fifo_pool_funcs = {
+static mem_pool_t const mem_fifo_pool_funcs_g = {
     .malloc   = &mfp_alloc,
     .realloc  = &mfp_realloc,
     .free     = &mfp_free,
     .mem_pool = MEM_OTHER,
-    .min_alignment = 8
+    .min_alignment = 8,
+    .name = NULL,
+    .pool_link = { NULL, NULL },
 };
 
 mem_pool_t *mem_fifo_pool_new(const char *name, int page_size_hint)
 {
     mem_fifo_pool_t *mfp = p_new(mem_fifo_pool_t, 1);
-
-    mfp->name = p_strdup(name);
 
     /* bypass mem_pool if demanded */
     if (!mem_pool_is_enabled()) {
@@ -427,7 +424,6 @@ mem_pool_t *mem_fifo_pool_new(const char *name, int page_size_hint)
     }
 
     STATIC_ASSERT((offsetof(mem_page_t, area) % 8) == 0);
-    mfp->funcs     = mem_fifo_pool_funcs;
     mfp->page_size = MAX(16 * PAGE_SIZE,
                          ROUND_UP(page_size_hint, PAGE_SIZE));
     mfp->alive     = true;
@@ -437,9 +433,8 @@ mem_pool_t *mem_fifo_pool_new(const char *name, int page_size_hint)
     mem_bench_init(&mfp->mem_bench, LSTR("fifo"), WRITE_PERIOD);
 #endif
 
-    spin_lock(&_G.all_pools_lock);
-    dlist_add_tail(&_G.all_pools, &mfp->pool_link);
-    spin_unlock(&_G.all_pools_lock);
+    mem_pool_set(&mfp->funcs, name, &_G.all_pools, &_G.all_pools_lock,
+                 &mem_fifo_pool_funcs_g);
 
     return &mfp->funcs;
 }
@@ -460,15 +455,12 @@ void mem_fifo_pool_delete(mem_pool_t **poolp)
 
     mfp = container_of(*poolp, mem_fifo_pool_t, funcs);
 
-    spin_lock(&_G.all_pools_lock);
-    dlist_remove(&mfp->pool_link);
-    spin_unlock(&_G.all_pools_lock);
+    mem_pool_wipe(*poolp, &_G.all_pools_lock);
 
 #ifdef MEM_BENCH
     mem_bench_wipe(&mfp->mem_bench);
 #endif
 
-    p_delete(&mfp->name);
     mfp->alive = false;
     mem_page_delete(mfp, &mfp->freepage);
     if (mfp->current && mfp->current->used_blocks == 0) {
@@ -572,11 +564,12 @@ static void core_mem_fifo_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(mem_fifo_pool_t, fp, &_G.all_pools, pool_link) {
+    dlist_for_each_entry(mem_fifo_pool_t, fp, &_G.all_pools, funcs.pool_link)
+    {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);
-        qv_append(tab, t_lstr_fmt("%s", fp->name));
+        qv_append(tab, t_lstr_fmt("%s", fp->funcs.name));
         qv_append(tab, t_lstr_fmt("%p", fp));
 
         ADD_NUMBER_FIELD(fp->map_size);
@@ -618,14 +611,9 @@ static int core_mem_fifo_initialize(void *arg)
     return 0;
 }
 
-static const char *get_mfp_name(const dlist_t *link)
-{
-    return dlist_entry(link, mem_fifo_pool_t, pool_link)->name;
-}
-
 static int core_mem_fifo_shutdown(void)
 {
-    mem_pool_list_clean(&_G.all_pools, "mem fifo", &get_mfp_name,
+    mem_pool_list_clean(&_G.all_pools, "mem fifo",
                         &_G.all_pools_lock, &_G.logger, NULL, 0);
     return 0;
 }

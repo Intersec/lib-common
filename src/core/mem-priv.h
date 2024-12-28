@@ -40,10 +40,29 @@
  *                   pools that should not be considered as leaked.
  */
 void mem_pool_list_clean(dlist_t *nonnull list, const char *nonnull pool_type,
-                         const char *nonnull (*nonnull get_mp_name)(
-                             const dlist_t *nonnull link),
                          spinlock_t *nonnull lock, logger_t *nonnull logger,
                          const char *nonnull *nullable supprs,
                          int supprs_len);
+
+static inline void mem_pool_set(mem_pool_t *mp, const char *name,
+                                dlist_t *all_pools_list, spinlock_t *lock,
+                                const mem_pool_t *funcs)
+{
+    *mp = *funcs;
+
+    spin_lock(lock);
+    dlist_add_tail(all_pools_list, &mp->pool_link);
+    spin_unlock(lock);
+
+    mp->name_v = p_strdup(name);
+}
+
+static inline void mem_pool_wipe(mem_pool_t *mp, spinlock_t *lock)
+{
+    spin_lock(lock);
+    dlist_remove(&mp->pool_link);
+    spin_unlock(lock);
+    p_delete(&mp->name_v);
+}
 
 #endif /* IS_LIB_COMMON_CORE_MEM_PRIV_H */

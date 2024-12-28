@@ -21,6 +21,8 @@
 #else
 #define IS_LIB_COMMON_CORE_MEM_H
 
+#include <lib-common/container-dlist.h>
+
 /* Memory Copy/Move {{{ */
 /**************************************************************************/
 /* Memory pools high level APIs                                           */
@@ -273,6 +275,8 @@ enum mem_pools_t {
 #define CACHE_LINE_SIZE   64
 
 typedef struct mem_pool_t {
+    /* Hot data: try to make them fit in the 64 first bytes of the memory pool
+     * structure. */
     mem_flags_t mem_pool;
     uint32_t    min_alignment;
     struct mem_pool_t * nullable realloc_fallback;
@@ -284,9 +288,16 @@ typedef struct mem_pool_t {
                                        void * nullable, size_t, size_t,
                                        size_t, mem_flags_t);
     void  (* nonnull free)(struct mem_pool_t * nonnull, void * nullable);
+
+    /* Cold data. */
+    /* Pool link used for listing all the memory pools of a given type. */
+    dlist_t pool_link;
+
+    union {
+        const char * nonnull name;
+        char * nonnull name_v;
+    };
 } mem_pool_t;
-
-
 
 /*
  * mem_pool_cl_aligned ensure that allocation will be aligned on
