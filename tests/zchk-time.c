@@ -365,6 +365,16 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_STREQUAL(sb.data, "2012-07-12T10:20:30+00:00");
     } Z_TEST_END;
 
+    Z_TEST(sb_add_localtime_iso8601_readable,
+           "time: sb_add_localtime_iso8601_readable")
+    {
+        time_t ts = 1342088430;
+        SB_1k(sb);
+
+        sb_add_localtime_iso8601_readable(&sb, ts);
+        Z_ASSERT_STREQUAL(sb.data, "2012-07-12 12:20:30 +0200");
+    } Z_TEST_END;
+
     Z_TEST(sb_add_localtime_iso8601_msec,
            "time: sb_add_localtime_iso8601_msec")
     {

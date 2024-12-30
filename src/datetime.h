@@ -319,6 +319,30 @@ lstr_t t_get_time_split_lstr_fr(uint64_t seconds)
 /* }}} */
 /* {{{ iso8601 */
 
+static inline void
+time_get_gmt_delta(const struct tm *tm, int *delta_h, int *delta_m)
+{
+    *delta_h = tm->tm_gmtoff / 3600;
+    *delta_m = labs(tm->tm_gmtoff - *delta_h * 3600) / 60;
+}
+
+static inline int tz_utc_offset(const struct tm *tm)
+{
+    int delta_h, delta_m;
+
+    time_get_gmt_delta(tm, &delta_h, &delta_m);
+    return delta_h * 100 + delta_m;
+}
+
+/* Local ISO8601 and "human-readable ISO8601" local time formats
+ * have same size.
+ * Indeed:
+ * - GMT ISO8601                        : 2024-12-13T16:24:25Z
+ * - local ISO8601                      : 2024-12-13T17:24:25+01:00
+ * - "human-readable ISO8601" local time: 2024-12-13 17:24:25 +0100
+ */
+#define ISO8601_LOCAL_TIME_SIZE (5 + 3 + 3 + 3 + 3 + 2 + 6 + 1)
+
 #define ISO8601_BASE_FMT          "%04d-%02d-%02dT%02d:%02d:%02d"
 #define ISO8601_BASE_FMT_ARG(tm)                                             \
     (tm)->tm_year + 1900,                                                    \
@@ -349,11 +373,37 @@ lstr_t t_get_time_split_lstr_fr(uint64_t seconds)
 #define ISO8601_TZ_MSEC_FMT_ARG(tm, msec, delta_h, delta_m)                  \
     ISO8601_BASE_MSEC_FMT_ARG(tm, msec), (delta_h), (delta_m)
 
-static inline void
-time_get_gmt_delta(const struct tm *tm, int *delta_h, int *delta_m)
+#define ISO8601_SPACE_FMT "%04d-%02d-%02d %02d:%02d:%02d %+05d"
+#define ISO8601_SPACE_FMT_ARG(tm)                                            \
+    (tm).tm_year + 1900, (tm).tm_mon + 1, (tm).tm_mday,                      \
+    (tm).tm_hour, (tm).tm_min, (tm).tm_sec, tz_utc_offset(&tm)
+
+/** Format a date in a "human-readable ISO8601" localtime format.
+ *
+ * ISO8601 is quite hard to read for humans. This function formats
+ * a timestamp in a format close to ISO8601, but easier to read.
+ *
+ * For example:
+ * - GMT ISO8601  : 2024-12-13T16:24:25Z
+ * - local ISO8601: 2024-12-13T17:24:25+01:00
+ * - this function: 2024-12-13 17:24:25 +0100
+ */
+void
+time_fmt_localtime_iso8601_readable(char out[static ISO8601_LOCAL_TIME_SIZE],
+                                    time_t ts);
+
+static inline void sb_add_localtime_iso8601_readable(sb_t *sb, time_t ts)
 {
-    *delta_h = tm->tm_gmtoff / 3600;
-    *delta_m = labs(tm->tm_gmtoff - *delta_h * 3600) / 60;
+    time_fmt_localtime_iso8601_readable(
+        sb_growlen(sb, ISO8601_LOCAL_TIME_SIZE - 1), ts);
+}
+
+static inline lstr_t t_fmt_localtime_iso8601_readable(time_t ts)
+{
+    char dbuf[ISO8601_LOCAL_TIME_SIZE];
+
+    time_fmt_localtime_iso8601_readable(dbuf, ts);
+    return t_lstr_dups(dbuf, ISO8601_LOCAL_TIME_SIZE - 1);
 }
 
 /* XXX: Array parameter qualifiers are not supported in C++98. */
@@ -388,8 +438,9 @@ static inline lstr_t t_fmt_date_time_iso8601(time_t ts)
  * another call of it or to a call to the time_get_localtime or to the
  * localtime_r function. See time_get_localtime for more information.
  */
-static inline void time_fmt_localtime_iso8601(char buf[static 26], time_t t,
-                                              const char *tz)
+static inline void
+time_fmt_localtime_iso8601(char buf[static ISO8601_LOCAL_TIME_SIZE],
+                           time_t t, const char *tz)
 {
     int len;
     struct tm tm;
@@ -398,9 +449,9 @@ static inline void time_fmt_localtime_iso8601(char buf[static 26], time_t t,
     time_get_localtime(&t, &tm, tz);
     time_get_gmt_delta(&tm, &delta_h, &delta_m);
 
-    len = snprintf(buf, 26, ISO8601_TZ_FMT,
+    len = snprintf(buf, ISO8601_LOCAL_TIME_SIZE, ISO8601_TZ_FMT,
                    ISO8601_TZ_FMT_ARG(&tm, delta_h, delta_m));
-    if (len != 25) {
+    if (len != ISO8601_LOCAL_TIME_SIZE - 1) {
         e_error("error when trying to print timestamp: %jd, "
                 "length printed: %d", t, len);
         assert(false);

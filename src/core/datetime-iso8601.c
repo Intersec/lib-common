@@ -350,3 +350,28 @@ int time_parse(pstream_t *ps, time_t *d)
     }
 #undef PARSE_FORMAT
 }
+
+void
+time_fmt_localtime_iso8601_readable(char out[static ISO8601_LOCAL_TIME_SIZE],
+                                    time_t ts)
+{
+    static __thread time_t last_ts;
+    static __thread char buf[ISO8601_LOCAL_TIME_SIZE];
+
+    if (last_ts != ts) {
+        struct tm tm;
+        int len;
+
+        localtime_r(&ts, &tm);
+        len = snprintf(buf, ISO8601_LOCAL_TIME_SIZE, ISO8601_SPACE_FMT,
+                       ISO8601_SPACE_FMT_ARG(tm));
+        last_ts = ts;
+        if (len != ISO8601_LOCAL_TIME_SIZE - 1) {
+            e_error("error when trying to print timestamp: %jd, "
+                    "length printed: %d", ts, len);
+            assert(false);
+        }
+    }
+
+    memcpy(out, buf, ISO8601_LOCAL_TIME_SIZE);
+}
