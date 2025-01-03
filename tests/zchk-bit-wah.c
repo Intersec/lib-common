@@ -408,14 +408,12 @@ Z_GROUP_EXPORT(wah) {
         wah_t other;
         wah_t res;
 
-        mp_wah_init_from_data(t_pool(), &src,
-                              ps_init(src_data, sizeof(src_data)));
+        wah_init_from_data(&src, ps_init(src_data, sizeof(src_data)));
         src._pending = 0x1ffff;
         src.active   = 8241;
         src.len      = 50001;
 
-        mp_wah_init_from_data(t_pool(), &other,
-                              ps_init(other_data, sizeof(other_data)));
+        wah_init_from_data(&other, ps_init(other_data, sizeof(other_data)));
         other._pending = 0x600000;
         other.active  = 12;
         other.len     = 2007;
@@ -427,6 +425,8 @@ Z_GROUP_EXPORT(wah) {
         Z_ASSERT_EQ(res.len, 50001u);
         Z_ASSERT_LE(res.active, 12u);
 
+        wah_wipe(&src);
+        wah_wipe(&other);
         wah_wipe(&res);
     } Z_TEST_END;
 

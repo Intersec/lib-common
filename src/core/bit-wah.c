@@ -1559,12 +1559,12 @@ from_data_split_chunk(from_data_ctx_t *ctx, wah_header_t head, uint64_t words)
     }
 }
 
-wah_t *mp_wah_init_from_data(mem_pool_t *mp, wah_t *map, pstream_t data)
+wah_t *wah_init_from_data(wah_t *map, pstream_t data)
 {
     from_data_ctx_t ctx;
 
     p_clear(map, 1);
-    mp_qv_init(mp, &map->_buckets, 0);
+    qv_init(&map->_buckets);
 
     THROW_NULL_IF(ps_len(&data) % sizeof(wah_word_t));
     THROW_NULL_IF(ps_len(&data) < 2 * sizeof(wah_word_t));
@@ -1649,12 +1649,12 @@ wah_t *mp_wah_init_from_data(mem_pool_t *mp, wah_t *map, pstream_t data)
     return map;
 }
 
-wah_t *mp_wah_new_from_data(mem_pool_t *mp, pstream_t data)
+wah_t *wah_new_from_data(pstream_t data)
 {
-    wah_t *map = mp_new_raw(mp, wah_t, 1);
+    wah_t *map = p_new_raw(wah_t, 1);
     wah_t *ret;
 
-    ret = mp_wah_init_from_data(mp, map, data);
+    ret = wah_init_from_data(map, data);
     if (!ret) {
         wah_delete(&map);
     }
