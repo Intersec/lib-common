@@ -36,6 +36,8 @@ class ClassA : 1 {
 
 class ClassB : 2 : ClassA {
     int field2 = 0;
+    @private
+    bool? priv;
 };
 
 class ClassC {

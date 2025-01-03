@@ -186,6 +186,11 @@ class IopyTest(z.TestCase):
         self.assertEqual(a.field1, 0)
         self.assertEqual(a.a, 'a', "append field failed")
 
+    def test_ignore_unkwnon(self) -> None:
+        a = self.r.tst1.A(_json='{ "a": "A1", "b": "B2", "c": "D4" }',
+                          _ignore_unknown=True)
+        self.assertEqual(a, self.r.tst1.A(a='A1', b='B2'))
+
     def test_from_file_json(self) -> None:
         path = os.path.join(TEST_PATH, 'test_class_b.json')
         b = self.r.test.ClassB.from_file(_json=path)
@@ -194,6 +199,19 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.optField, 20)
         b2 = self.r.test.ClassB.from_file(_json=path)
         self.assertEqual(b, b2)
+        extra_field_path = os.path.join(TEST_PATH, 'test_class_b_extra.json')
+
+        with self.assertRaises(iopy.Error):
+            self.r.test.ClassB.from_file(_json=extra_field_path)
+
+        b_extra = self.r.test.ClassB.from_file(_json=extra_field_path,
+                                               _ignore_unknown=True,
+                                               _forbid_private=False,
+                                               _use_c_case=True)
+        self.assertEqual(b_extra.field1, 42)
+        self.assertEqual(b_extra.field2, 10)
+        self.assertEqual(b_extra.optField, 20)
+        self.assertFalse(hasattr(b_extra, 'extraField'))
 
     def test_from_file_yaml(self) -> None:
         path = os.path.join(TEST_PATH, 'test_class_b.yaml')
@@ -203,6 +221,18 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.optField, 7)
         b2 = self.r.test.ClassB.from_file(_yaml=path)
         self.assertEqual(b, b2)
+        extra_field_path = os.path.join(TEST_PATH, 'test_class_b_extra.yaml')
+
+        with self.assertRaises(iopy.Error):
+            self.r.test.ClassB.from_file(_yaml=extra_field_path)
+
+        b_extra = self.r.test.ClassB.from_file(_yaml=extra_field_path,
+                                               _ignore_unknown=True,
+                                               _forbid_private=False,
+                                               _use_c_case=True)
+        self.assertEqual(b_extra.field1, 9)
+        self.assertEqual(b_extra.field2, 8)
+        self.assertEqual(b_extra.optField, 7)
 
     def test_from_str_yaml(self) -> None:
         path = os.path.join(TEST_PATH, 'test_class_b.yaml')
@@ -219,6 +249,19 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.optField, 36)
         b2 = self.r.test.ClassB.from_file(_xml=path)
         self.assertEqual(b, b2)
+
+        extra_field_path = os.path.join(TEST_PATH, 'test_class_b_extra.xml')
+
+        with self.assertRaises(iopy.Error):
+            self.r.test.ClassB.from_file(_xml=extra_field_path)
+
+        b_extra = self.r.test.ClassB.from_file(_xml=extra_field_path,
+                                               _ignore_unknown=True,
+                                               _forbid_private=False,
+                                               _use_c_case=True)
+        self.assertEqual(b_extra.field1, 9)
+        self.assertEqual(b_extra.field2, 8)
+        self.assertEqual(b_extra.optField, 7)
 
     def test_from_file_hex(self) -> None:
         path = os.path.join(TEST_PATH, 'test_class_b.hex')

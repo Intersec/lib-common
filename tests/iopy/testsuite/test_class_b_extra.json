@@ -1,0 +1,8 @@
+{
+    "_class": "test.ClassB",
+    "field1": 42,
+    "field2": 10,
+    "opt_field": 20,
+    "priv": true,
+    "extraField": "test"
+}

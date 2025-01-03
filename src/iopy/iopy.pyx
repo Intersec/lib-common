@@ -2851,7 +2851,7 @@ cdef enum IopySpecialKwargsType:
 
 
 cdef object get_special_kwargs(dict kwargs, IopySpecialKwargsType *val_type,
-                               cbool *single):
+                               cbool *single, int *flag):
     """Extract special constructor argument from kwargs.
 
     Parameters
@@ -2864,52 +2864,64 @@ cdef object get_special_kwargs(dict kwargs, IopySpecialKwargsType *val_type,
     single : optional
         If not NULL, we will parse the kwargs to find the `single` argument
         and set it to the found value. If not found, it is set to True.
+    flag
+        Flags used at the unpack. if _ignore_unknown or _forbid_private or
+        _use_c_case are found in kwargs, their corresponding C flags will be
+        used.
 
     Returns
     -------
         None if no special arguments have been found. Otherwise it will return
         the value of the argument.
     """
-    cdef int nb_exp_kwargs = 1
-    cdef object key = None
     cdef object res = None
 
-    if single:
-        single[0] = True
+    # Handle special format arguments
+    special_formats = {
+        '_json': IOPY_SPECIAL_KWARGS_JSON,
+        '_yaml': IOPY_SPECIAL_KWARGS_YAML,
+        '_bin': IOPY_SPECIAL_KWARGS_BIN,
+        '_xml': IOPY_SPECIAL_KWARGS_XML,
+        '_hex': IOPY_SPECIAL_KWARGS_HEX
+    }
 
-    # Get first argument unless it is single
-    for key, res in kwargs.iteritems():
-        if single != NULL and key == 'single':
-            single[0] = res
-            nb_exp_kwargs += 1
-            continue
-        break
-
-    if key is None or len(kwargs) != nb_exp_kwargs:
-        # Fast path for zero or multiple args
-        return None
-
-    if key == '_json':
-        val_type[0] = IOPY_SPECIAL_KWARGS_JSON
-    elif key == '_yaml':
-        val_type[0] = IOPY_SPECIAL_KWARGS_YAML
-    elif key == '_bin':
-        val_type[0] = IOPY_SPECIAL_KWARGS_BIN
-    elif key == '_xml':
-        val_type[0] = IOPY_SPECIAL_KWARGS_XML
-    elif key == '_hex':
-        val_type[0] = IOPY_SPECIAL_KWARGS_HEX
+    # Check and extract special format
+    for key, format_type in special_formats.items():
+        res = kwargs.pop(key, None)
+        if res is not None:
+            if not isinstance(res, (bytes, str)):
+                raise Error(
+                    f'invalid type for parameter {key}: expected string')
+            val_type[0] = format_type
+            break
     else:
+        # No special format found
         return None
 
-    if not isinstance(res, (bytes, str)):
-        raise Error('invalid type for parameter %s: expected string' % key)
+    # Handle single flag
+    if single:
+        single[0] = kwargs.pop('single', False)
+
+    # Handle flags
+    flag_mapping = {
+        '_ignore_unknown': IOP_UNPACK_IGNORE_UNKNOWN,
+        '_forbid_private': IOP_UNPACK_FORBID_PRIVATE,
+        '_use_c_case': IOP_UNPACK_USE_C_CASE
+    }
+
+    for flag_key, flag_value in flag_mapping.items():
+        if kwargs.pop(flag_key, False):
+            flag[0] |= flag_value
+
+    # Ensure no additional arguments remain
+    if kwargs:
+        raise Error(f'Unexpected arguments: {list(kwargs.keys())}')
 
     return res
 
 
 cdef void *t_parse_lstr_json(const iop_env_t *iop_env, const iop_struct_t *st,
-                             lstr_t val) except NULL:
+                             lstr_t val, int flag) except NULL:
     """Unpack the string value as json for the given structure.
 
     Parameters
@@ -2920,6 +2932,8 @@ cdef void *t_parse_lstr_json(const iop_env_t *iop_env, const iop_struct_t *st,
         The C iop struct description.
     val
         The json value.
+    flag
+        Flag used to unpack data.
 
     Returns
     -------
@@ -2930,10 +2944,9 @@ cdef void *t_parse_lstr_json(const iop_env_t *iop_env, const iop_struct_t *st,
     cdef pstream_t ps
     cdef int ret_code
     cdef void *res = NULL
-
     with nogil:
         ps = ps_initlstr(&val)
-        ret_code = t_iop_junpack_ptr_ps(iop_env, &ps, st, &res, 0, &err)
+        ret_code = t_iop_junpack_ptr_ps(iop_env, &ps, st, &res, flag, &err)
 
     if ret_code < 0:
         raise Error('cannot parse string: %s (when trying to unpack an %s)' %
@@ -2943,7 +2956,7 @@ cdef void *t_parse_lstr_json(const iop_env_t *iop_env, const iop_struct_t *st,
 
 
 cdef void *t_parse_lstr_yaml(const iop_env_t *iop_env, const iop_struct_t *st,
-                             lstr_t val) except NULL:
+                             lstr_t val, int flag) except NULL:
     """Unpack the string value as json for the given structure.
 
     Parameters
@@ -2954,6 +2967,8 @@ cdef void *t_parse_lstr_yaml(const iop_env_t *iop_env, const iop_struct_t *st,
         The C iop struct description.
     val
         The json value.
+    flag
+        Flag used to unpack data.
 
     Returns
     -------
@@ -2967,7 +2982,8 @@ cdef void *t_parse_lstr_yaml(const iop_env_t *iop_env, const iop_struct_t *st,
 
     with nogil:
         ps = ps_initlstr(&val)
-        ret_code = t_iop_yunpack_ptr_ps(iop_env, &ps, st, &res, 0, NULL, &err)
+        ret_code = t_iop_yunpack_ptr_ps(iop_env, &ps, st, &res, flag, NULL,
+                                        &err)
 
     if ret_code < 0:
         raise Error('%s' % (lstr_to_py_str(LSTR_SB_V(&err))))
@@ -3031,7 +3047,7 @@ cdef inline int xmlr_check(const iop_struct_t *st, int val) except -1:
 
 
 cdef void *t_parse_lstr_xml(const iop_env_t *iop_env, const iop_struct_t *st,
-                            lstr_t val) except NULL:
+                            lstr_t val, int flag) except NULL:
     """Unpack the string value as xml for the given structure.
 
     Parameters
@@ -3042,6 +3058,8 @@ cdef void *t_parse_lstr_xml(const iop_env_t *iop_env, const iop_struct_t *st,
         The C iop struct description.
     val
         The xml value.
+    flag
+        The flag used to unpack the data.
 
     Returns
     -------
@@ -3070,7 +3088,7 @@ cdef void *t_parse_lstr_xml(const iop_env_t *iop_env, const iop_struct_t *st,
 
         soap = True
 
-    xmlr_check(st, t_iop_xunpack_ptr(xmlr_g, iop_env, st, &res))
+    xmlr_check(st,t_iop_xunpack_ptr_flags(xmlr_g, iop_env, st, &res, flag))
 
     if soap:
         if exn:
@@ -3125,7 +3143,8 @@ cdef StructUnionBase parse_special_val_lstr(object cls,
                                             const iop_struct_t *st,
                                             Plugin plugin,
                                             IopySpecialKwargsType val_type,
-                                            lstr_t val_lstr):
+                                            lstr_t val_lstr,
+                                            int flag):
     """Unpack the python value as lstr from special kwargs constructor.
 
     Parameters
@@ -3140,6 +3159,8 @@ cdef StructUnionBase parse_special_val_lstr(object cls,
         The type of the special kwargs constructor.
     val_lstr
         The value of the special kwargs constructor as lstr_t.
+    flag
+        The flag used to unpack the data.
 
     Returns
     -------
@@ -3152,13 +3173,13 @@ cdef StructUnionBase parse_special_val_lstr(object cls,
     t_scope_ignore(t_scope_guard)
 
     if val_type == IOPY_SPECIAL_KWARGS_JSON:
-        iop_val = t_parse_lstr_json(iop_env, st, val_lstr)
+        iop_val = t_parse_lstr_json(iop_env, st, val_lstr, flag)
     elif val_type == IOPY_SPECIAL_KWARGS_YAML:
-        iop_val = t_parse_lstr_yaml(iop_env, st, val_lstr)
+        iop_val = t_parse_lstr_yaml(iop_env, st, val_lstr, flag)
     elif val_type == IOPY_SPECIAL_KWARGS_BIN:
         iop_val = t_parse_lstr_bin(iop_env, st, val_lstr)
     elif val_type == IOPY_SPECIAL_KWARGS_XML:
-        iop_val = t_parse_lstr_xml(iop_env, st, val_lstr)
+        iop_val = t_parse_lstr_xml(iop_env, st, val_lstr, flag)
     elif val_type == IOPY_SPECIAL_KWARGS_HEX:
         iop_val = t_parse_lstr_hex(iop_env, st, val_lstr)
     else:
@@ -3171,7 +3192,8 @@ cdef StructUnionBase parse_special_val_lstr(object cls,
 cdef StructUnionBase parse_special_val(object cls, const iop_struct_t *st,
                                        Plugin plugin,
                                        IopySpecialKwargsType val_type,
-                                       object val):
+                                       object val,
+                                       int flag):
     """Unpack the python value from special kwargs constructor.
 
     Parameters
@@ -3198,7 +3220,7 @@ cdef StructUnionBase parse_special_val(object cls, const iop_struct_t *st,
     t_scope_ignore(t_scope_guard)
 
     val_lstr = t_py_obj_to_lstr(val)
-    return parse_special_val_lstr(cls, st, plugin, val_type, val_lstr)
+    return parse_special_val_lstr(cls, st, plugin, val_type, val_lstr, flag)
 
 
 cdef StructUnionBase parse_special_kwargs(object cls, dict kwargs):
@@ -3219,14 +3241,15 @@ cdef StructUnionBase parse_special_kwargs(object cls, dict kwargs):
     cdef IopySpecialKwargsType val_type = IOPY_SPECIAL_KWARGS_JSON
     cdef object val
     cdef _InternalStructUnionType iop_type
+    cdef int flag = 0
 
-    val = get_special_kwargs(kwargs, &val_type, NULL)
+    val = get_special_kwargs(kwargs, &val_type, NULL, &flag)
     if val is None:
         return None
 
     iop_type = struct_union_get_iop_type_cls(cls)
     return parse_special_val(cls, iop_type.desc, iop_type.plugin, val_type,
-                             val)
+                             val, flag)
 
 
 cdef list parse_lstr_list_bin_to_py_obj(object cls, const iop_struct_t *st,
@@ -3277,7 +3300,8 @@ cdef list parse_lstr_list_bin_to_py_obj(object cls, const iop_struct_t *st,
 
 cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
                                            Plugin plugin, object filename,
-                                           IopySpecialKwargsType file_type):
+                                           IopySpecialKwargsType file_type,
+                                           int flag):
     """Unpack json or yaml file to python object.
 
     Parameters
@@ -3290,6 +3314,8 @@ cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
         The IOPy plugin.
     filename
         The name of the file to unpack.
+    flag
+        flag used to unpack the data.
 
     Returns
     -------
@@ -3310,11 +3336,11 @@ cdef StructUnionBase unpack_file_to_py_obj(object cls, const iop_struct_t *st,
         data = NULL
         if file_type == IOPY_SPECIAL_KWARGS_JSON:
             ret_code = t_iop_junpack_ptr_file(iop_env, filename_lstr.s, st,
-                                              &data, 0, NULL, &err)
+                                              &data, flag, NULL, &err)
         else:
             cassert(file_type == IOPY_SPECIAL_KWARGS_YAML)
             ret_code = t_iop_yunpack_ptr_file(iop_env, filename_lstr.s, st,
-                                              &data, 0, NULL, &err)
+                                              &data, flag, NULL, &err)
     if ret_code < 0:
         raise Error('cannot unpack input file %s: %s' %
                     (filename, lstr_to_py_str(LSTR_SB_V(&err))))
@@ -3347,10 +3373,11 @@ cdef object unpack_file_from_args_to_py_obj(object cls, dict kwargs):
     cdef Plugin plugin
     cdef lstr_t file_content
     cdef const char *err_desc
+    cdef int flag = 0
 
     t_scope_ignore(t_scope_guard)
 
-    filename = get_special_kwargs(kwargs, &file_type, &single)
+    filename = get_special_kwargs(kwargs, &file_type, &single, &flag)
     if filename is None:
         raise Error('missing keyword argument; '
                     'one of _xml, _json, _yaml, _hex, _bin')
@@ -3361,7 +3388,8 @@ cdef object unpack_file_from_args_to_py_obj(object cls, dict kwargs):
 
     if (file_type == IOPY_SPECIAL_KWARGS_JSON or
         file_type == IOPY_SPECIAL_KWARGS_YAML):
-        return unpack_file_to_py_obj(cls, st, plugin, filename, file_type)
+        return unpack_file_to_py_obj(cls, st, plugin, filename,
+                                     file_type, flag)
 
     filename_lstr = t_py_obj_to_lstr(filename)
     if lstr_init_from_file(&file_content, filename_lstr.s, PROT_READ,
@@ -3375,7 +3403,7 @@ cdef object unpack_file_from_args_to_py_obj(object cls, dict kwargs):
                                                  file_content)
         else:
             return parse_special_val_lstr(cls, st, plugin, file_type,
-                                          file_content)
+                                          file_content, flag)
     finally:
         lstr_wipe(&file_content)
 
