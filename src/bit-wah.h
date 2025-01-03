@@ -190,12 +190,6 @@ __must_check__ __leaf
 bool wah_get(const wah_t *map, uint64_t pos);
 
 /* }}} */
-/* WAH pools {{{ */
-
-wah_t *wah_pool_acquire(void);
-void wah_pool_release(wah_t **wah);
-
-/* }}} */
 /* Enumeration {{{ */
 
 typedef enum wah_enum_state_t {

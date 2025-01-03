@@ -1184,7 +1184,7 @@ wah_t *wah_multi_or(const wah_t *src[], int len, wah_t * restrict dest)
     uint64_t max_act = 0;
 
     if (!dest) {
-        dest = wah_pool_acquire();
+        dest = wah_new();
     } else {
         wah_reset_map(dest);
     }
@@ -1703,19 +1703,6 @@ lstr_t mp_wah_get_storage_lstr(mem_pool_t *mp, const wah_t *wah)
 lstr_t t_wah_get_storage_lstr(const wah_t *wah)
 {
     return mp_wah_get_storage_lstr(t_pool(), wah);
-}
-
-/* }}} */
-/* Pool {{{ */
-
-wah_t *wah_pool_acquire(void)
-{
-    return wah_new();
-}
-
-void wah_pool_release(wah_t **pmap)
-{
-    wah_delete(pmap);
 }
 
 /* }}} */
