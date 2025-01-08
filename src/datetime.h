@@ -368,8 +368,10 @@ static inline void time_fmt_iso8601(char buf[static 21], time_t t)
         e_panic("invalid timestamp: %jd", t);
     }
     len = snprintf(buf, 21, ISO8601_GMT_FMT, ISO8601_GMT_FMT_ARG(&tm));
-    if (len >= 21) {
-        e_panic("invalid timestamp: %jd", t);
+    if (len != 20) {
+        e_error("error when trying to print timestamp: %jd, "
+                "length printed: %d", t, len);
+        assert(false);
     }
 }
 
@@ -398,8 +400,10 @@ static inline void time_fmt_localtime_iso8601(char buf[static 26], time_t t,
 
     len = snprintf(buf, 26, ISO8601_TZ_FMT,
                    ISO8601_TZ_FMT_ARG(&tm, delta_h, delta_m));
-    if (len >= 26) {
-        e_panic("invalid timestamp: %jd", t);
+    if (len != 25) {
+        e_error("error when trying to print timestamp: %jd, "
+                "length printed: %d", t, len);
+        assert(false);
     }
 }
 
@@ -420,8 +424,10 @@ static inline void time_fmt_iso8601_msec(char buf[static 25], time_t t,
     }
     len = snprintf(buf, 25, ISO8601_GMT_MSEC_FMT,
                    ISO8601_GMT_MSEC_FMT_ARG(&tm, msec));
-    if (len >= 25) {
-        e_panic("invalid timestamp: %jd", t);
+    if (len != 24) {
+        e_error("error when trying to print timestamp: %jd, "
+                "length printed: %d", t, len);
+        assert(false);
     }
 }
 
@@ -443,8 +449,10 @@ void time_fmt_localtime_iso8601_msec(char buf[static 30], time_t t,
 
     len = snprintf(buf, 30, ISO8601_TZ_MSEC_FMT,
                    ISO8601_TZ_MSEC_FMT_ARG(&tm, msec, delta_h, delta_m));
-    if (len >= 30) {
-        e_panic("invalid timestamp: %jd", t);
+    if (len != 29) {
+        e_error("error when trying to print timestamp: %jd, "
+                "length printed: %d", t, len);
+        assert(false);
     }
 }
 
