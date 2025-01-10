@@ -2186,7 +2186,7 @@ static void ic_queue(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
     put_unaligned_le32(buffer + IC_MSG_CMD_OFFSET, msg->cmd);
     put_unaligned_le32(buffer + IC_MSG_DLEN_OFFSET,
                        msg->dlen - IC_MSG_HDR_LEN);
-    if (htlist_is_empty(&ic->msg_list) && ic->elh) {
+    if (htlist_is_empty(&ic->msg_list) && ic->elh && ic->is_connected) {
         el_fd_set_mask(ic->elh, POLLINOUT);
     }
 
@@ -2685,7 +2685,9 @@ void ic_bye(ichannel_t *ic)
 
 void ic_nop(ichannel_t *ic)
 {
-    ic_sc_do(ic, IC_SC_NOP, NULL, 0);
+    if (htlist_is_empty(&ic->msg_list)) {
+        ic_sc_do(ic, IC_SC_NOP, NULL, 0);
+    }
 }
 
 static bool ic_is_tls_enabled(ichannel_t *ic)
@@ -2785,9 +2787,8 @@ static int ic_mark_connected(ichannel_t *ic, int fd)
 
     }
     /* force an exchange at connect time, so force NOP if queue is empty */
-    if (htlist_is_empty(&ic->msg_list)) {
-        ic_nop(ic);
-    }
+    ic_nop(ic);
+
     /* We want to run ic_event and it's obvious that OUT is ready, but let the
      * event loop calls it. */
     el_fd_set_mask(ic->elh, POLLINOUT);

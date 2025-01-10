@@ -1005,7 +1005,8 @@ void ic_bye(ichannel_t *nonnull ic);
 /** Queue a NOP message in the IChannel.
  *
  * NOP messages contain no payload but are useful to force some activity on
- * an idle IChannel.
+ * an idle IChannel. The NOP message will be queued only if no other message
+ * is already in the IChannel queue.
  *
  * \param[in] ic The IChannel object.
  */
