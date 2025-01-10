@@ -2061,6 +2061,10 @@ void ic_disconnect(ichannel_t *ic)
 
 void ic_wipe(ichannel_t *ic)
 {
+    if (unexpected(ic->is_wiped)) {
+        return;
+    }
+    ic->is_wiped = true;
     ic->is_closing = true;
     ic_disconnect(ic);
     ic_cancel_all(ic);
@@ -2083,7 +2087,6 @@ void ic_wipe(ichannel_t *ic)
     lstr_wipe(&ic->name);
     lstr_wipe(&ic->remote_addr);
     lstr_wipe(&ic->client_addr);
-    ic->is_wiped   = true;
     el_unregister(&ic->local_async_el);
 }
 

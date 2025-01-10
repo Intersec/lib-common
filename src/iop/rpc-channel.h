@@ -943,38 +943,73 @@ static inline void ic_delete(ichannel_t * nullable * nonnull icp)
     }
 }
 
-/** Connect an IC to an IC server.
+/** Connect an IChannel client to an IChannel server.
  *
  * If the IChannel uses Unix Domain socket (is_unix == true), the connect(2)
- * system call is blocking and no version handshake is performed: the IC is
- * immediately connected.
+ * system call is blocking and no version handshake is performed: the IChannel
+ * is synchronously connected.
  *
- * \param[in]  ic  The (initialized) ichannel structure.
+ * \param[in] ic  The IChannel object.
+ *
+ * \return 0 on success, -1 otherwise.
  */
-int  ic_connect(ichannel_t * nonnull ic);
+int ic_connect(ichannel_t *nonnull ic);
 
-/** Connect an IC to an IC server in a blocking manner.
+/** Connect an IChannel client to an IChannel server synchronously.
  *
- * \param[in]  ic  The (initialized) ichannel structure.
- * \param[in]  timeout  The time, in seconds, after which the connection
- *                      should timeout; 0 means default (i.e. 60s).
- **/
-int  ic_connect_blocking(ichannel_t * nonnull ic, int timeout);
+ * \param[in] ic       The IChannel object.
+ * \param[in] timeout  The time in seconds after which the connection should
+ *                     timeout. 0 means default (i.e. 60s).
+ *
+ * \return 0 on success, -1 otherwise.
+ */
+int ic_connect_blocking(ichannel_t *nonnull ic, int timeout);
 
-void ic_disconnect(ichannel_t * nonnull ic);
+/** Disconnect an IChannel.
+ *
+ * This function disconnects synchronously an IChannel. All pending queries
+ * will be aborted with an IC_MSG_ABORT.
+ *
+ * If the IChannel has been created through \ref ic_spawn and the flag \ref
+ * no_autodel is not set and the IChannel is not already in closing state,
+ * then IChannel will be deleted.
+ *
+ * This function must not be used inside RPC implementation and reply
+ * callbacks. See \ref ic_bye for this purpose.
+ *
+ * \param[in] ic The IChannel object.
+ */
+void ic_disconnect(ichannel_t *nonnull ic);
 
-/** Setup an IC for a connected socket.
+/** Setup an IChannel for a connected socket.
  *
  * It should be used after an accept() (server side) but can also be used on
  * two connected Unix Domain sockets.
  *
- * \param[inout]  ic  The ichannel structure to bind to the socket.
- * \param[in]  fd  A connected socket (server-side).
- * \param[in]  creds_fn  the on_creds callback.
+ * \param[in] ic  The IChannel object to bind to the socket.
+ * \param[in] fd  A connected socket (server-side).
+ * \param[in] creds_fn  the \ref on_creds callback.
  */
-void ic_spawn(ichannel_t * nonnull ic, int fd, ic_creds_f * nullable fn);
-void ic_bye(ichannel_t * nonnull);
-void ic_nop(ichannel_t * nonnull);
+void ic_spawn(ichannel_t *nonnull ic, int fd, ic_creds_f *nullable creds_fn);
+
+/** Initiate an IChannel disconnection.
+ *
+ * This function will initiate a gentle closing of the IChannel. The
+ * disconnection will be performed asynchronously and thus \ref ic_bye can be
+ * used inside RPC implementation and reply callbacks.
+ *
+ * \param[in] ic The IChannel object.
+ */
+void ic_bye(ichannel_t *nonnull ic);
+
+/** Queue a NOP message in the IChannel.
+ *
+ * NOP messages contain no payload but are useful to force some activity on
+ * an idle IChannel.
+ *
+ * \param[in] ic The IChannel object.
+ */
+void ic_nop(ichannel_t *nonnull ic);
 
 el_t nullable
 ic_listento(const sockunion_t * nonnull su, int type, int proto,
