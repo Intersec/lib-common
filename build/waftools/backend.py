@@ -1482,7 +1482,7 @@ def llvm_clang_configure(ctx):
         if os.path.isfile(maj_minor_path):
             clang_cpp_lib = clang_cpp_lib_major_minor
             break
-    if not len(clang_cpp_lib):
+    if not clang_cpp_lib:
         ctx.fatal('cannot find libclang-cpp.so.{0} or libclang-cpp.so.{0}.{1}'
                   'in any clang path'.format(llvm_version_major,
                                              llvm_version_minor))
