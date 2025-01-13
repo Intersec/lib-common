@@ -26,6 +26,10 @@ import shutil
 
 # pylint: disable = import-error
 from waflib import Logs, Errors, Options
+from waflib.Context import Context
+from waflib.Configure import ConfigurationContext
+from waflib.Build import BuildContext
+from waflib.Options import OptionsContext
 # pylint: enable = import-error
 
 waftoolsdir = os.path.join(os.getcwd(), 'build', 'waftools')
@@ -37,13 +41,13 @@ out = ".build-waf-%s" % os.environ.get('P', 'default')
 # {{{ helpers
 
 
-def remove_prefix(text, prefix):
+def remove_prefix(text: str, prefix: str) -> str:
     if text.startswith(prefix):
         return text[len(prefix):]
     return text
 
 
-def load_tools(ctx):
+def load_tools(ctx: Context) -> None:
     ctx.load('common', tooldir=waftoolsdir)
     ctx.load('backend', tooldir=waftoolsdir)
     if sys.version_info >= (2, 7):
@@ -63,7 +67,7 @@ def load_tools(ctx):
 # {{{ asdf
 
 
-def run_asdf_install(ctx):
+def run_asdf_install(ctx: BuildContext) -> None:
     if ctx.get_env_bool('_ASDF_INSTALL_DONE_WAF_CONFIGURE'):
         # We have already installed ASDF
         return
@@ -78,7 +82,7 @@ def run_asdf_install(ctx):
     os.environ['_ASDF_INSTALL_DONE_WAF_CONFIGURE'] = '1'
 
 
-def configure_asdf(ctx):
+def configure_asdf(ctx: BuildContext) -> None:
     if 'ASDF_DIR' not in os.environ:
         # No ASDF
         ctx.msg('Using ASDF', 'no')
@@ -102,7 +106,7 @@ def configure_asdf(ctx):
 # {{{ poetry
 
 
-def run_waf_with_poetry(ctx):
+def run_waf_with_poetry(ctx: BuildContext) -> None:
     Logs.info('Waf: Run waf in poetry environment')
 
     was_active = ctx.get_env_bool('POETRY_ACTIVE')
@@ -120,7 +124,7 @@ def run_waf_with_poetry(ctx):
         del os.environ['POETRY_ACTIVE']
 
 
-def poerty_asdf_cleanup_prev_venv(ctx):
+def poerty_asdf_cleanup_prev_venv(ctx: BuildContext) -> None:
     # If we have a virtual environment, we need to clean it
     virtual_env = os.environ.get('VIRTUAL_ENV')
     if virtual_env is not None:
@@ -145,7 +149,7 @@ def poerty_asdf_cleanup_prev_venv(ctx):
     os.environ['PATH'] = new_path
 
 
-def poetry_fix_no_env_use(ctx):
+def poetry_fix_no_env_use(ctx: BuildContext) -> None:
     py_short_version_lines = ctx.cmd_and_log(
         ctx.env.POETRY + ["run", "python3", "-c",
         (
@@ -169,7 +173,7 @@ def poetry_fix_no_env_use(ctx):
     ctx.cmd_and_log(ctx.env.POETRY + ["env", "use", py_short_version])
 
 
-def poetry_no_srv_tools(ctx):
+def poetry_no_srv_tools(ctx: BuildContext) -> None:
     # Get python site packages from poetry
     ctx.poetry_site_packages = ctx.cmd_and_log(
         ctx.env.POETRY + ["run", "python3", "-c",
@@ -194,7 +198,7 @@ def poetry_no_srv_tools(ctx):
         )
 
 
-def poetry_install(ctx):
+def poetry_install(ctx: BuildContext) -> None:
     if ctx.env.USE_ASDF:
         # Since with ASDF the python version changes between branches we have
         # to ensure that the poetry venv uses the right python version.
@@ -250,7 +254,7 @@ def poetry_install(ctx):
         after_poetry_install(ctx)
 
 
-def rerun_waf_configure_with_poetry(ctx):
+def rerun_waf_configure_with_poetry(ctx: BuildContext) -> None:
     if ctx.get_env_bool('_IN_POETRY_WAF_CONFIGURE'):
         # We are already in a recursion with poetry, do nothing.
         return
@@ -288,7 +292,7 @@ def rerun_waf_configure_with_poetry(ctx):
     sys.exit(0)
 
 
-def configure_with_poetry(ctx):
+def configure_with_poetry(ctx: BuildContext) -> None:
     if ctx.path != ctx.srcnode and not getattr(ctx, 'use_poetry', False):
         # The current project is not lib-common and Poetry is not used for the
         # current project.
@@ -311,7 +315,7 @@ def configure_with_poetry(ctx):
     rerun_waf_configure_with_poetry(ctx)
 
 
-def rerun_waf_build_with_poetry(ctx):
+def rerun_waf_build_with_poetry(ctx: BuildContext) -> None:
     if ctx.get_env_bool('_IN_POETRY_WAF_BUILD'):
         # We are already in a recursion with poetry, do nothing.
         return
@@ -332,7 +336,7 @@ def rerun_waf_build_with_poetry(ctx):
     sys.exit(0)
 
 
-def build_with_poetry(ctx):
+def build_with_poetry(ctx: BuildContext) -> None:
     if not ctx.env.HAVE_POETRY:
         return
 
@@ -343,7 +347,7 @@ def build_with_poetry(ctx):
 # {{{ options
 
 
-def options(ctx):
+def options(ctx: OptionsContext) -> None:
     load_tools(ctx)
 
 
@@ -351,7 +355,7 @@ def options(ctx):
 # {{{ configure
 
 
-def configure(ctx):
+def configure(ctx: ConfigurationContext) -> None:
     # First, configure and install ASDF
     configure_asdf(ctx)
 
@@ -468,7 +472,8 @@ def configure(ctx):
     # The purpose of this section is to let projects using the lib-common to
     # redefine some files.
 
-    def customize_source_file(name, ctx_field, default_path, out_path):
+    def customize_source_file(name: str, ctx_field: str, default_path: str,
+                              out_path: str) -> None:
         in_path = getattr(ctx, ctx_field, None)
         if in_path:
             in_node = ctx.srcnode.make_node(in_path)
@@ -502,7 +507,7 @@ def configure(ctx):
 # {{{ build
 
 
-def build(ctx):
+def build(ctx: BuildContext) -> None:
     build_with_poetry(ctx)
 
     # Declare 4 build groups:
