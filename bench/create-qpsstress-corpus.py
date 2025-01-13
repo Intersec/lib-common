@@ -21,10 +21,10 @@ import struct
 from enum import IntEnum
 from argparse import ArgumentParser
 
+from typing import Optional
+
 CORPUS_DIR = "corpus"
 CORPUS_NAME = "corpus-init"
-CORPUS_NBR = 0
-CORPUS_DICT = {}
 
 
 class QpsstressStep(IntEnum):
@@ -90,14 +90,13 @@ class FuzzingStep:
     Convert a basic fuzzing step into a binary blob used for fuzzing
     operations.
     """
-    def __init__(self, step, handle=None):
+    def __init__(self, step: QpsstressStep, handle: Optional[int] = None):
         self.step = step
         self.handle = handle
         # This size is the maximum size expected for a fuzzing binary blob.
         self.blob_size_expected = 13
-        self.fuzz_dict = {}
 
-    def pack_blob(self):
+    def pack_blob(self) -> bytes:
         """
         Create binary structure associated with the python object. Unlike the
         pack() method, this method should be overloaded to represent the
@@ -109,7 +108,7 @@ class FuzzingStep:
         # (4 bytes).
         return struct.pack('<BI', self.step, self.handle)
 
-    def pack(self):
+    def pack(self) -> bytes:
         """
         Pack the fuzzing blob and ensures its size is self.blob_size_expected
         (this is useful to easily iterate through steps in the qpsstress
@@ -127,11 +126,12 @@ class FuzzingGenericStep(FuzzingStep):
     Convert a QPS step (like QPS alloc, QPS realloc) into a binary blob used
     for fuzzing operations.
     """
-    def __init__(self, step, handle=None, size=None):
+    def __init__(self, step: QpsstressStep, handle: Optional[int] = None,
+                 size: Optional[int] = None):
         super().__init__(step, handle=handle)
         self.size = size
 
-    def pack_blob(self):
+    def pack_blob(self) -> bytes:
         if self.size is None:
             self.size = 0
         return super().pack_blob() + struct.pack('<I', self.size)
@@ -142,11 +142,12 @@ class FuzzingQpsObjStep(FuzzingStep):
     Convert a QPS object step (like QPS hat check/set/reset enumerator,
     QPS hat fix stored 0) into a binary blob used for fuzzing operations.
     """
-    def __init__(self, step, handle=0, type_obj=QpsstressObj.QPS_QHAT):
+    def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
+                 type_obj: QpsstressObj = QpsstressObj.QPS_QHAT):
         super().__init__(step, handle=handle)
         self.type_obj = type_obj
 
-    def pack_blob(self):
+    def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack('<B', self.type_obj)
 
 
@@ -155,13 +156,14 @@ class FuzzingQpsObjStepWithKey(FuzzingQpsObjStep):
     Convert a QPS object step using keys (like QPS hat set key) into a binary
     blob used for fuzzing operations.
     """
-    def __init__(self, step, handle=0, type_obj=QpsstressObj.QPS_QHAT,
-                 key=1):
+    def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
+                 type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
+                 key: int = 1):
         super().__init__(step, handle=handle)
         self.type_obj = type_obj
         self.key = key
 
-    def pack_blob(self):
+    def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack('<I', self.key)
 
 
@@ -175,14 +177,15 @@ class FuzzingQpsObjMultipleOp(FuzzingQpsObjStep):
     time in decoding each step in the fuzzing blob. Number of iterations is
     limited by an uint16 value (UINT16_MAX).
     """
-    def __init__(self, step, handle=0, type_obj=QpsstressObj.QPS_QHAT, key=1,
-                 nbr_iter=2, gap_keys=1):
+    def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
+                 type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
+                 key: int = 1, nbr_iter: int = 2, gap_keys: int = 1):
         super().__init__(step, handle=handle, type_obj=type_obj)
         self.key = key
         self.nbr_iter = nbr_iter
         self.gap_keys = gap_keys
 
-    def pack_blob(self):
+    def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack('<IHB', self.key,
                                                  self.nbr_iter, self.gap_keys)
 
@@ -192,11 +195,12 @@ class FuzzingQhatObjStepMv(FuzzingQpsObjStep):
     Convert a dedicated Qhat enumerator move step into a binary blob used for
     fuzzing operations.
     """
-    def __init__(self, step, handle=0, move_count=3):
+    def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
+                 move_count: int = 3):
         super().__init__(step, handle=handle, type_obj=QpsstressObj.QPS_QHAT)
         self.move_count = move_count
 
-    def pack_blob(self):
+    def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack('<H', self.move_count)
 
 
@@ -205,7 +209,9 @@ class FuzzingQhatCompute(FuzzingQpsObjStep):
     Convert a dedicated Qhat compute step into a binary blob used for fuzzing
     operations.
     """
-    def __init__(self, step, handle=0, do_stats=None, do_mem_overhead=None):
+    def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
+                 do_stats: Optional[int] = None,
+                 do_mem_overhead: Optional[int] = None):
         super().__init__(step, handle=handle, type_obj=QpsstressObj.QPS_QHAT)
 
         if do_stats is not None:
@@ -215,7 +221,7 @@ class FuzzingQhatCompute(FuzzingQpsObjStep):
         else:
             raise RuntimeError("do_stats or do_mem_overhead expected")
 
-    def pack_blob(self):
+    def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack('<B', self.flag)
 
 
@@ -224,19 +230,21 @@ class FuzzingQpsObjStepCreate(FuzzingQpsObjStep):
     Convert a dedicated Qhat create step into a binary blob used for fuzzing
     operations.
     """
-    def __init__(self, step, type_obj=QpsstressObj.QPS_QHAT,
-                 is_nullable=False, value_len=4):
+    def __init__(self, step: QpsstressStep,
+                 type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
+                 is_nullable: bool = False, value_len: int = 4):
         super().__init__(step, type_obj=type_obj)
         self.is_nullable = is_nullable
         self.value_len = value_len
 
-    def pack_blob(self):
+    def pack_blob(self) -> bytes:
         val_is_nullable = 1 if self.is_nullable else 0
         return super().pack_blob() + struct.pack('<BB', val_is_nullable,
                                                  self.value_len)
 
 
-def discard_fuzzing_operation(step, category):
+def discard_fuzzing_operation(step: QpsstressStep,
+                              category: QpsstressFuzzerCat) -> bool:
     if category == QpsstressFuzzerCat.QPS_CAT_HANDLES_SNAP_REOPEN:
         return step > QpsstressStep.QPS_REOPEN
     elif category == QpsstressFuzzerCat.QPS_CAT_QPS_OBJ_OPERATIONS:
@@ -244,16 +252,18 @@ def discard_fuzzing_operation(step, category):
     return False
 
 
-def create_corpus_files_and_dict(corpus, category, generate_files=False,
-                                 fuzz_dict_name=None):
+def create_corpus_files_and_dict(
+        corpus: list[list[FuzzingStep]],
+        category: QpsstressFuzzerCat,
+        generate_files: bool = False,
+        fuzz_dict_name: Optional[str] = None) -> None:
     """
     Based on the list of sequences representing themselves a list of steps,
     create a list of files for the initial corpus (initial stimulation
     entry point) and/or the dictionary used to represent steps for fuzzing
     operations.
     """
-    corpus_dict = {}
-    f = None
+    corpus_set: set[bytes] = set()
 
     assert generate_files or fuzz_dict_name is not None
     try:
@@ -265,31 +275,34 @@ def create_corpus_files_and_dict(corpus, category, generate_files=False,
                    for item in corpus_case):
                 continue
 
+            generated_file = None
+
             # If we want to generate files containing a fuzzing sequence,
             # create it now.
             if generate_files:
                 # pylint: disable=consider-using-with
-                f = open(os.path.join(CORPUS_DIR, f"{CORPUS_NAME}-{i}.bin"),
-                         mode='wb')
+                generated_file = open(os.path.join(CORPUS_DIR,
+                                                   f"{CORPUS_NAME}-{i}.bin"),
+                                      mode='wb')
 
             # Write for one sequence each step.
             for item in corpus_case:
                 blob = item.pack()
                 if fuzz_dict_name:
                     # If a fuzzing dictionary is requested, register this
-                    # unique case (the dict key is itself the binary step).
-                    corpus_dict[blob] = None
-                if f:
+                    # unique case.
+                    corpus_set.add(blob)
+                if generated_file:
                     # If a fuzzing sequence is requested, write this step
                     # in the file describing the fuzzing sequence.
-                    f.write(blob)
-            if f:
-                f.close()
+                    generated_file.write(blob)
+            if generated_file:
+                generated_file.close()
 
     except Exception as e:
         raise e
 
-    if corpus_dict and fuzz_dict_name:
+    if corpus_set and fuzz_dict_name:
         with open(fuzz_dict_name, "w") as f:
             # Write the dictionary using the "dedicated" format.
             # Add time of generation, so we have less doubt about the fact
@@ -297,7 +310,7 @@ def create_corpus_files_and_dict(corpus, category, generate_files=False,
             now = datetime.datetime.now()
             f.write("# Generated at " + now.strftime("%Y-%m-%d %H:%M:%S") +
                     " for category " + str(category) + "\n\n")
-            for i, k in enumerate(sorted(corpus_dict.keys())):
+            for i, k in enumerate(sorted(corpus_set)):
                 blob_str = str(binascii.hexlify(k))[2:-1]
                 fuzz_key = '\\x'
                 fuzz_key += '\\x'.join([(blob_str[i:i + 2])
@@ -306,11 +319,12 @@ def create_corpus_files_and_dict(corpus, category, generate_files=False,
             f.write('\n')
 
 
-def create_corpus(generate_files=True,
-                  category=QpsstressFuzzerCat.QPS_CAT_ALL,
-                  fuzz_dict_name=None):
+def create_corpus(
+        generate_files: bool = True,
+        category: QpsstressFuzzerCat = QpsstressFuzzerCat.QPS_CAT_ALL,
+        fuzz_dict_name: Optional[str] = None) -> None:
     max_mem_alloc = 33554431
-    corpus = []
+    corpus: list[list[FuzzingStep]] = []
 
     corpus += [[
         FuzzingGenericStep(QpsstressStep.QPS_ALLOC, size=24),
@@ -447,7 +461,7 @@ def create_corpus(generate_files=True,
 if __name__ == '__main__':
     ALL_OPTS = ArgumentParser()
     ALL_OPTS.add_argument("-d", "--dict-file", dest="fuzz_dict_name",
-                          action=None, help="export fuzzing dict to FILE",
+                          help="export fuzzing dict to FILE",
                           metavar="FILE")
     ALL_OPTS.add_argument("-g", "--generate-corpus",
                           action="store_true", dest="generate_files",
