@@ -29,7 +29,6 @@ from typing import Optional
 # {{{ Add poetry to sys path
 
 
-# pylint: disable=unsubscriptable-object
 def str2bool(value: Optional[str]) -> bool:
     if not value:
         return False
@@ -79,8 +78,9 @@ def add_poetry_to_sys_path() -> None:
         return
 
     # Look for the global installation of poetry
-    global_poetry_bin = shutil.which('poetry')
-    global_poetry_bin = Path(os.path.realpath(global_poetry_bin))
+    global_poetry_which = shutil.which('poetry')
+    assert global_poetry_which
+    global_poetry_bin = Path(os.path.realpath(global_poetry_which))
     global_poetry_root = global_poetry_bin.parents[1]
     global_poetry_glob_sites = list(global_poetry_root.glob(
         'lib*/*/site-packages'))
@@ -93,8 +93,8 @@ def add_poetry_to_sys_path() -> None:
     if os.environ['ASDF_DIR']:
         asdf_which = subprocess.run(['asdf', 'which', 'poetry'],
                                     stdout=subprocess.PIPE, check=True)
-        asdf_poetry_bin = asdf_which.stdout.decode('utf-8').strip()
-        asdf_poetry_bin = Path(os.path.realpath(asdf_poetry_bin))
+        asdf_poetry_which = asdf_which.stdout.decode('utf-8').strip()
+        asdf_poetry_bin = Path(os.path.realpath(asdf_poetry_which))
         asdf_poetry_root = asdf_poetry_bin.parents[1]
         asdf_poetry_glob_sites = list(asdf_poetry_root.glob(
             'lib*/*/site-packages'))
