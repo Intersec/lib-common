@@ -24,6 +24,8 @@ from pathlib import Path
 
 from poetry_helpers import add_poetry_to_sys_path
 
+from typing import cast
+
 
 DESCRIPTION = """
 Check if the poetry.lock file is fresh compared to the pyproject.toml.
@@ -34,12 +36,12 @@ Returns 0 if the poetry.lock is fresh, 1 is not.
 
 def is_poetry_lock_fresh(repo_dir: Path) -> bool:
     # pylint: disable=import-outside-toplevel, import-error
-    from poetry.factory import Factory
+    from poetry.factory import Factory # type: ignore[import-not-found]
 
     factory = Factory()
     poetry = factory.create_poetry(str(repo_dir))
 
-    return poetry.locker.is_fresh()
+    return cast(bool, poetry.locker.is_fresh())
 
 
 def main() -> None:
