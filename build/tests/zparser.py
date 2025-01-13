@@ -28,6 +28,9 @@ from logging import NullHandler
 from collections import OrderedDict
 from collections import deque
 
+from collections.abc import Iterable
+from typing import Any, Optional, TypeVar, Union
+
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(NullHandler())
 
@@ -72,12 +75,13 @@ POS_LT_LEN = "too many missing tests: "
 # }}}
 
 
-def fixed_list():
+T = TypeVar('T')
+def fixed_list() -> deque[T]:
     return deque(maxlen=1000)
 
 
 class Result:
-    name = None
+    name: Optional[str] = None
     time = 0.0
     status = "pass"
     z_status_nb = ("skipped_nb", "passed_nb", "failed_nb", "total_nb")
@@ -90,13 +94,13 @@ class Result:
     core = False
 
     @property
-    def skipped(self):
+    def skipped(self) -> float:
         if not self.total_nb:
             return 0.
         return self.skipped_nb * 100. / self.total_nb
 
     @property
-    def passed(self):
+    def passed(self) -> float:
         if not self.total_nb:
             return 0.
         if self.status == 'passed':
@@ -104,18 +108,18 @@ class Result:
         return self.passed_nb * 100. / self.total_nb
 
     @property
-    def failed(self):
+    def failed(self) -> float:
         if not self.total_nb:
             return 100.
         if self.status == 'fail':
             return 100 - self.skipped - self.passed
         return self.failed_nb * 100. / self.total_nb
 
-    def compute(self):
+    def compute(self) -> None:
         raise NotImplementedError
 
-    def _compute(self, items):
-        results = dict((k, []) for k in self.z_status_nb)
+    def _compute(self, items: Iterable['Result']) -> None:
+        results: dict[str, list['Result']] = {k: [] for k in self.z_status_nb}
         for item in items:
             item.compute()
             for k, v in results.items():
@@ -124,17 +128,18 @@ class Result:
             setattr(self, k, sum(v))
 
     @property
-    def unique(self):
+    def unique(self) -> int:
         return id(self)
 
-    def time_as_str(self):
+    def time_as_str(self) -> str:
         t = int(self.time)
         return "{:0>8}".format(str(datetime.timedelta(seconds=t)))
 
 
 class Step:
 
-    def __init__(self, number, name, status, filename, line, time):
+    def __init__(self, number: int, name: str, status: str, filename: str,
+                 line: str, time: float):
         self.number = int(number)
         self.name = name
         self.status = status
@@ -142,7 +147,7 @@ class Step:
         self.line = int(line)
         self.time = float(time)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{0:<2} {1:<5} {2:>6.3f} {3} {4}:{5}".format(
             self.number, self.status, self.time, self.name,
             self.filename, self.line)
@@ -150,15 +155,16 @@ class Step:
 
 class Test:
 
-    def __init__(self, number, name, status, time=0.0, comment=""):
+    def __init__(self, number: int, name: str, status: str, time: float = 0.0,
+                 comment: str = ""):
         self.number = int(number)
         self.status = status
         self.name = name
         self.time = float(time) if isinstance(time, str) else time
         self.comment = comment
-        self.steps = []
+        self.steps: list[Step] = []
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{0:<5} {1:<5} {2:>10.6f} {3} {4}".format(
             self.number, self.status, self.time, self.name,
             self.comment.strip())
@@ -166,12 +172,12 @@ class Test:
 
 class Group(Result):
 
-    def __init__(self, name, total):
-        self.name = name
+    def __init__(self, name: str, total: int):
+        self.name: str = name
         self.total_nb = int(total)
-        self.tests = OrderedDict()
+        self.tests: OrderedDict[str, Test] = OrderedDict()
 
-    def append_test(self, test):
+    def append_test(self, test: Test) -> None:
         # we already have a test with the same name (behave Scenario Outline?)
         # we sum it.
         if test.name in self.tests:
@@ -181,7 +187,7 @@ class Group(Result):
         self.tests.setdefault(test.name, test)
         self.time += test.time
 
-    def compute(self):
+    def compute(self) -> None:
         results = dict.fromkeys(EXTENDED_STATUS, 0)
         for test in self.tests.values():
             results[test.status] += 1
@@ -190,26 +196,26 @@ class Group(Result):
         self.failed_nb = (results['fail'] + results['todo-pass'] +
                           results['missing'] + results['bad-number'])
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{0} ({1}% passed)   {2}s".format(
             self.name, self.passed, self.time)
 
 
 class Suite(Result):
 
-    def __init__(self, fullname, product):
+    def __init__(self, fullname: str, product: str):
         self.name = self.make_short_name(product, fullname)
-        self.groups = []
+        self.groups: list[Group] = []
         self.product = product
 
     @staticmethod
-    def make_short_name(product, name):
+    def make_short_name(product: str, name: str) -> str:
         for useless in ["www/testem/", product + "/", "testem/",
                         "jasmine/testem/", "jasmine/"]:
             name = name.replace(useless, "", 1)
         return name
 
-    def compute(self):
+    def compute(self) -> None:
         self._compute(self.groups)
 
         # compute time if needed
@@ -217,47 +223,44 @@ class Suite(Result):
             for gr in self.groups:
                 self.time += gr.time
 
-
-    def __str__(self):
+    def __str__(self) -> str:
         return "suite {0} passed {1}% skipped {2}% failed {3}%".format(
             self.name, self.passed, self.skipped, self.failed)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
 
 class Product(Result):
+    def __init__(self, name: str):
+        self.name: str = name
+        self.suites: list[Suite] = []
 
-    def __init__(self, name):
-        self.name = name
-        self.suites = []
-
-    def compute(self):
+    def compute(self) -> None:
         self._compute(self.suites)
 
         # compute time
         for suite in self.suites:
             self.time += suite.time
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "product {0} passed {1}% skipped {2}% failed {3}%".format(
             self.name, self.passed, self.skipped, self.failed)
 
 
 class Global(Result):
-
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = "global suite"
-        self.products = OrderedDict()
-        self.errors = fixed_list()
+        self.products: OrderedDict[str, Product] = OrderedDict()
+        self.errors: deque[Error] = fixed_list()
         self.timeout = True
-        self.additionals = fixed_list()
+        self.additionals: deque[str] = fixed_list()
 
-    def compute(self):
+    def compute(self) -> None:
         self._compute(self.products.values())
         self.define_width()
 
-    def define_width(self):
+    def define_width(self) -> None:
         width_min = 9.0
         self.width_passed = self.passed
         self.width_skipped = self.skipped
@@ -303,7 +306,7 @@ class Global(Result):
             else:
                 self.width_skipped = self.skipped - (width_min - self.failed)
 
-    def z_total(self):
+    def z_total(self) -> str:
         if not self.total_nb:
             return "# NO TESTS FOUND"
         res = ["#", "#"]
@@ -313,7 +316,7 @@ class Global(Result):
         res.append("# Success %d (%.1f%%)" % (self.passed_nb, self.passed))
         return "\n".join(res)
 
-    def z_additional(self):
+    def z_additional(self) -> str:
         if not self.additionals:
             return "# NO ADDITIONAL INFOS"
         res = ["#"]
@@ -321,7 +324,7 @@ class Global(Result):
         res.extend([":  {0}".format(l) for l in self.additionals])
         return "\n".join(res)
 
-    def z_errors(self):
+    def z_errors(self) -> str:
         if not self.errors:
             return "# NO ERRORS"
         res = ["#"]
@@ -342,7 +345,7 @@ class Global(Result):
         res.append("{0}: {1}".format(previous_suite, "error"))
         return "\n".join(res)
 
-    def z_report(self):
+    def z_report(self) -> str:
         res = [self.z_total()]
         if self.additionals:
             res.append(self.z_additional())
@@ -350,32 +353,33 @@ class Global(Result):
             res.append(self.z_errors())
         return "\n".join(res)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "global passed {0}% skipped {1}% failed {2}%".format(
             self.passed, self.skipped, self.failed)
 
 
 class Error:
 
-    def __init__(self, product, suite, group, test, context, status="fail"):
+    def __init__(self, product: str, suite: str, group: str, test: str,
+                 context: deque[tuple[str, str]], status: str = "fail"):
         self.productName = product  # pylint: disable=invalid-name
         self.suite_fullname = suite
         self.suiteName = Suite.make_short_name(product, suite) # pylint: disable=invalid-name
         self.groupName = group  # pylint: disable=invalid-name
         self.testName = test  # pylint: disable=invalid-name
         self.context_l = context
-        self.traces = fixed_list()
+        self.traces: deque[str] = fixed_list()
         self.step_fail = ""
         self.screen_url = ""
-        self.browser_log_l = fixed_list()
+        self.browser_log_l: deque[str] = fixed_list()
         self.status = status
 
     @property
-    def context(self):
+    def context(self) -> str:
         return '\n'.join([line[1] for line in self.context_l])
 
     @property
-    def full_name(self):
+    def full_name(self) -> str:
         fullname = "{0} → {1}".format(self.productName, self.suiteName)
         if self.groupName:
             fullname += " → {0}".format(self.groupName)
@@ -384,45 +388,45 @@ class Error:
         return fullname
 
     @property
-    def browser_log(self):
+    def browser_log(self) ->str:
         return "\n".join(self.browser_log_l)
 
     @property
-    def trace(self):
+    def trace(self) -> str:
         return "\n".join(self.traces)
 
-    def z_trace(self):
+    def z_trace(self) -> str:
         return "\n".join([":  {0}".format(t) for t in self.traces])
 
-    def z_error(self):
+    def z_error(self) -> str:
         return ": - {0:s}: {1}".format(str(self), self.status)
 
-    def z_screenshot(self):
+    def z_screenshot(self) -> list[str]:
         return ["Failed screenshot:",
                 "screenshot available -> {0}".format(self.screen_url),
                 ""]
 
-    def z_step_fail(self):
+    def z_step_fail(self) -> list[str]:
         return ["Step failed:",
                 "<{0}".format(self.step_fail),
                 ""]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{0}.{1}".format(self.groupName, self.testName.strip())
 
 
 class StreamParser:
-    def __init__(self, stats=None):
-        self.suite = None
-        self.group = None
-        self.product = None
-        self.steps = []
-        self.error = None
-        self.first_step_fail = None
-        self.screenshot = None
+    def __init__(self, stats: Optional[Global] = None):
+        self.suite: Optional[Suite] = None
+        self.group: Optional[Group] = None
+        self.product: Optional[Product] = None
+        self.steps: list[Step] = []
+        self.error: Optional[Error] = None
+        self.first_step_fail: Optional[str] = None
+        self.screenshot: Optional[str] = None
         self.do_break = False
         self.core_logs = False
-        self.context = fixed_list()
+        self.context: deque[tuple[str, str]] = fixed_list()
         self.res = stats or Global()
         self.last_stream = '2' # this is the code for 'environment' stream.
 
@@ -435,7 +439,7 @@ class StreamParser:
         self.bad_number_test_name = "bad-number: {0}.{1}".format
         self.line_counter = 0
 
-    def parse_line(self, stream_line):
+    def parse_line(self, stream_line: Union[bytes, str]) -> None:
         self.line_counter += 1
         if self.do_break:
             return
@@ -476,6 +480,8 @@ class StreamParser:
                 if self.group_len > self.group_pos:
                     test_name = self.missing_test_name(
                         self.group_name, self.group_pos + 1, self.group_len)
+                    assert self.product is not None
+                    assert self.group is not None
                     self.error = Error(
                         self.product.name, self.suite_fullname,
                         self.group_name, test_name, self.context, "missing")
@@ -503,6 +509,7 @@ class StreamParser:
 
             r = RE_GROUP.match(line)
             if r is not None:
+                assert self.product is not None
                 if self.group:
                     self.group_pos = len(self.group.tests)
                 if self.group_len > self.group_pos:
@@ -512,13 +519,15 @@ class StreamParser:
                         self.product.name, self.suite_fullname,
                         self.group_name, test_name, self.context, "missing")
                     self.res.errors.append(self.error)
+                    assert self.group is not None
                     for i in range(self.group_pos, self.group_len):
                         test_name = self.missing_test_name(
                             self.group_name, i + 1, self.group_len)
                         test = Test(i, test_name, "missing")
                         self.group.append_test(test)
-                self.group_len, self.group_name = r.groups()
-                self.group_len = int(self.group_len)
+                group_len, group_name = r.groups()
+                self.group_name = str(group_name)
+                self.group_len = int(group_len)
                 self.group = Group(name=self.group_name, total=self.group_len)
                 if not self.suite:
                     self.suite_fullname = (
@@ -534,6 +543,8 @@ class StreamParser:
                     LOGGER.error("wrong suite end, any suites initializes "
                                  "line %s %s", self.line_counter, line[:-1])
                     continue
+
+                assert self.product is not None
 
                 self.suite.time = float(r.group('time'))
                 self.suite.status = "fail" if r.group('status') else "pass"
@@ -563,8 +574,11 @@ class StreamParser:
 
             r = RE_TEST.match(line)
             if r is not None:
+                assert self.product is not None
+                assert self.group is not None
+
                 self.error = None
-                test_args = dict(r.groupdict())
+                test_args: dict[str, Any] = dict(r.groupdict())
                 r = RE_TEST_OPTIONAL.match(test_args["name"])
                 if r is not None:
                     test_args.update(r.groupdict())
@@ -612,9 +626,9 @@ class StreamParser:
                     self.error = Error(
                         self.product.name, self.suite_fullname,
                         self.group.name, test.name, self.context, test.status)
-                    self.error.screen_url = self.screenshot
+                    self.error.screen_url = self.screenshot or ''
                     self.screenshot = None
-                    self.error.step_fail = self.first_step_fail
+                    self.error.step_fail = self.first_step_fail or ''
                     self.first_step_fail = None
                     self.res.errors.append(self.error)
                     self.context = fixed_list()
@@ -636,7 +650,7 @@ class StreamParser:
 
             r = RE_STEP.match(line)
             if r is not None:
-                step_args = dict(r.groupdict())
+                step_args: dict[str, Any] = dict(r.groupdict())
                 step = Step(**step_args)
                 self.steps.append(step)
                 if step.status == "fail":
@@ -664,8 +678,10 @@ class StreamParser:
 
             self.context.append((self.last_stream, line))
 
-    def gen_report(self):
+    def gen_report(self) -> Global:
         if self.group_len > self.group_pos:
+            assert self.product is not None
+            assert self.group is not None
             test_name = self.missing_test_name(
                 self.group_name, self.group_pos + 1, self.group_len)
             self.error = Error(
@@ -685,7 +701,7 @@ class StreamParser:
         return self.res
 
 
-def main():
+def main() -> int:
     if len(sys.argv) != 2:
         print("expected one and only one file argument")
         return -1
