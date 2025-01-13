@@ -46,18 +46,27 @@ static inline void mem_pool_set(mem_pool_t *mp, const char *name,
     assert((flags & ~MEM_USER_FLAGS) == 0);
     mp->mem_pool |= flags;
 
-    spin_lock(lock);
-    dlist_add_tail(all_pools_list, &mp->pool_link);
-    spin_unlock(lock);
+    if (flags & MEM_DISABLE_POOL_TRACKING) {
+        dlist_init(&mp->pool_link);
+    } else {
+        spin_lock(lock);
+        dlist_add_tail(all_pools_list, &mp->pool_link);
+        spin_unlock(lock);
+    }
 
     mp->name_v = p_strdup(name);
 }
 
 static inline void mem_pool_wipe(mem_pool_t *mp, spinlock_t *lock)
 {
-    spin_lock(lock);
-    dlist_remove(&mp->pool_link);
-    spin_unlock(lock);
+    if (mp->mem_pool & MEM_DISABLE_POOL_TRACKING) {
+        /* Check that the pool was not inserted in a list despite its flag. */
+        assert(dlist_is_empty(&mp->pool_link));
+    } else {
+        spin_lock(lock);
+        dlist_remove(&mp->pool_link);
+        spin_unlock(lock);
+    }
     p_delete(&mp->name_v);
 }
 

@@ -279,8 +279,14 @@ enum mem_pools_t {
  */
 #define MEM_DISABLE_POOL_LEAK_DETECTION (1 << 13)
 
+/* Do not keep the pool in a global list for tracking.  Recommended for
+ * short-lived memory pools, especially in multi-threaded environments.
+ */
+#define MEM_DISABLE_POOL_TRACKING (1 << 14)
+
 /* Collection of memory pool flags allowed at user-level. */
-#define MEM_USER_FLAGS MEM_DISABLE_POOL_LEAK_DETECTION
+#define MEM_USER_FLAGS (MEM_DISABLE_POOL_LEAK_DETECTION |                    \
+                        MEM_DISABLE_POOL_TRACKING)
 
 #define CACHE_LINE_SIZE   64
 
