@@ -24,7 +24,7 @@ import os
 
 # pylint: disable = import-error
 import waflib
-from waflib import Build, Context, TaskGen, Logs, Utils, Errors
+from waflib import Build, Context, TaskGen, Logs, Utils, Errors, Options
 
 from waflib.Build import BuildContext, inst
 from waflib.Node import Node
@@ -382,14 +382,29 @@ def run_pylint(ctx):
     # Reset the build
     ctx.groups = []
 
-    # Get list of committed python files under the launch directory
+    # Get the launch directory
     path = ctx.launch_node()
-    files = ctx.cmd_and_log('git ls-files "*.py" "**/*.py" "wscript*" '
-                            '"**/wscript*"', cwd=path,
-                            quiet=Context.BOTH).strip()
+
+    # Steal the optional list of files passed as arguments.
+    # Waf store the arguments in `Options.commands` and use them to run each
+    # individual commands.
+    # But here, the remaining arguments are not commands, but files.
+    # So we need to steal the remaining arguments in `Options.commands`.
+    files_args = Options.commands[:]
+    Options.commands.clear()
+
+    if files_args:
+        # If we have some files passed as arguments, use them.
+        files_list = files_args
+    else:
+        # Else, get list of committed python files under the launch directory
+        files_str = ctx.cmd_and_log('git ls-files "*.py" "**/*.py" '
+                                    '"wscript*" "**/wscript*"', cwd=path,
+                                    quiet=Context.BOTH).strip()
+        files_list = files_str.splitlines()
 
     # Create tasks to check them using pylint
-    for f in files.splitlines():
+    for f in files_list:
         node = path.make_node(f)
         ctx(rule='pylint ${SRC}', source=node, path=path, cwd=ctx.srcnode,
             always=True)
