@@ -32,12 +32,15 @@ import sys
 import os
 import re
 
+from collections.abc import Generator
+from typing import Optional
 
-def is_file(f):
+
+def is_file(f: str) -> bool:
     return os.path.isfile(f)
 
 
-def is_exec(f):
+def is_exec(f: str) -> bool:
     return is_file(f) and os.access(f, os.X_OK)
 
 
@@ -51,7 +54,10 @@ RE_TAGS = re.compile(r"@([A-Za-z0-9_]+)")
 Z_TAG_SKIP = set(os.getenv("Z_TAG_SKIP", "").split())
 
 
-def dump_zfile(zfile, skipped_groups):
+def dump_zfile(
+        zfile: str,
+        skipped_groups: list[str]
+) -> Generator[tuple[str, str, Optional[str]], None, None]:
     folder = os.path.dirname(zfile)
 
     with open(zfile, 'r') as zfile_fd:
@@ -78,7 +84,7 @@ def dump_zfile(zfile, skipped_groups):
                     break
 
 
-def fetch_zfiles(root):
+def fetch_zfiles(root: str) -> Generator[str, None, None]:
     paths = os.getenv('Z_SKIP_PATH', None)
     skip = None
 
@@ -93,7 +99,7 @@ def fetch_zfiles(root):
                 yield os.path.join(path, f)
 
 
-def main(root):
+def main(root: str) -> None:
     exit_code = 0
     skipped_groups = os.getenv('Z_LIST_SKIP', "").split()
 
