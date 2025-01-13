@@ -906,9 +906,7 @@ static int ic_write(ichannel_t *ic, int fd)
         __attribute__((aligned(alignof(struct cmsghdr))));
     bool timer_restarted = false;
 
-    /* TODO Reestablish
-    assert (ic->is_connected);
-    */
+    assert(ic->is_connected);
 
     do {
         struct cmsghdr *hdr = (struct cmsghdr *)buf;
@@ -2239,8 +2237,7 @@ void ic_flush(ichannel_t *ic)
 {
     int fd = el_fd_get_fd(ic->elh);
 
-    if (ic_is_local(ic) /* TODO Reestablish: || !expect(ic->is_connected) */)
-    {
+    if (ic_is_local(ic) || !expect(ic->is_connected)) {
         return;
     }
 
