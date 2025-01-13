@@ -55,6 +55,8 @@ from glob import glob
 import argparse
 import shutil
 
+from typing import Any, Pattern, Optional
+
 CORE_PATTERN = "/proc/sys/kernel/core_pattern"
 DEBUG = os.getenv('CORE_DEBUG', None)
 
@@ -79,7 +81,7 @@ GDB_CMD_FRAME = [
 BINARY_EXT = '-binary'
 
 
-def find_exe(name, root):
+def find_exe(name: str, root: str) -> Optional[str]:
     ret = set()
     for dirpath, _, filenames in os.walk(root):
         if name in filenames:
@@ -89,12 +91,15 @@ def find_exe(name, root):
         return None
     return ret.pop()
 
-def debug(*args):
+
+
+def debug(*args: Any) -> None:
     if DEBUG:
         print(" ".join(args), file=sys.stderr)
 
+
 REG = re.compile(r'^#(\d+) .* at (.*)$')
-def get_intersec_poi(output, root):
+def get_intersec_poi(output: str, root: str) -> Optional[str]:
     for line in output.split('\n'):
         reg = REG.match(line)
         if not reg:
@@ -105,12 +110,11 @@ def get_intersec_poi(output, root):
             return reg.group(1)
     return None
 
+
 class Cores:
-    def __init__(self, rootpath='.'):
-        self.cores = []
+    def __init__(self, rootpath: str = '.'):
+        self.cores: list[str] = []
         self.rootpath = rootpath
-        self.core_filter = None
-        self.core_path = None
 
         with open(CORE_PATTERN, "r") as fpr:
             pattern = fpr.read().strip('\n')
@@ -118,14 +122,14 @@ class Cores:
         # needed for buildbot because coredump are stored in shared directory
         self.core_filter = platform.node() + '.' if '%h' in pattern else None
         self.core_path = os.path.dirname(pattern)
-        self.core_regex = None
+        self.core_regex: Optional[Pattern[str]] = None
 
         self.init_regex(pattern)
 
         debug("CORE_PATH = ", self.core_path)
         debug("CORE_FILTER = ", self.core_filter)
 
-    def init_regex(self, pattern):
+    def init_regex(self, pattern: str) -> None:
         # we replace core template with proper regex pattern
         r = {'%h': platform.node(),
              '%t': '[0-9]{8,16}',
@@ -143,10 +147,10 @@ class Cores:
         debug("CORE_REGEX = ", pattern)
         self.core_regex = re.compile(pattern)
 
-    def refresh(self):
+    def refresh(self) -> None:
         self.cores = self._glob()
 
-    def set(self, cores):
+    def set(self, cores: Optional[str]) -> None:
         if cores is None:
             self.cores = []
             return
@@ -155,7 +159,7 @@ class Cores:
                 cores = f_.read().strip()
         self.cores = [c for c in cores.split(',') if c]
 
-    def _glob(self):
+    def _glob(self) -> list[str]:
         cores = glob(self.core_path + "/*")
         cores = [c for c in cores if os.path.isfile(c) and
                  c.endswith(BINARY_EXT) is False]
@@ -165,7 +169,7 @@ class Cores:
         return cores
 
     @staticmethod
-    def _gdb_cmd(cmd, fullpath, core):
+    def _gdb_cmd(cmd: list[str], fullpath: Optional[str], core: str) -> str:
         # prepare CMD
         with NamedTemporaryFile(delete=False) as gdb_cmd:
             gdb_cmd.write('\n'.join(cmd).encode('utf-8'))
@@ -184,7 +188,7 @@ class Cores:
         os.unlink(gdb_cmd.name)
         return stdout.decode('utf-8')
 
-    def find_binary_fullpath(self, core):
+    def find_binary_fullpath(self, core: str) -> Optional[str]:
         fullpath = None
         exe = None
 
@@ -202,7 +206,7 @@ class Cores:
             break
 
         # fallback to recursive search of binary
-        if not exe or not osp.isfile(fullpath):
+        if exe is None or fullpath is None or not osp.isfile(fullpath):
             if not self.core_regex:
                 debug('Cores are not handled')
                 return None
@@ -224,7 +228,7 @@ class Cores:
 
         return fullpath
 
-    def backtrace(self, core, exe=None):
+    def backtrace(self, core: str, exe: Optional[str] = None) -> str:
         debug('Run stuff on ', core)
         fullpath = exe if exe else self.find_binary_fullpath(core)
 
@@ -245,7 +249,7 @@ class Cores:
         # FIXME: split GDB output to be more human friendly
         return stdout
 
-    def parse(self, frmt="text"):
+    def parse(self, frmt: str = "text") -> None:
         new_list = list(set(self.cores)^set(self._glob()))
         if len(new_list) == 0:
             return
@@ -262,7 +266,8 @@ class Cores:
             self.show_backtrace(core, exe, frmt)
             shutil.copyfile(exe, "{0}{1}".format(core, BINARY_EXT))
 
-    def show_backtrace(self, core, exe=None, frmt="text"):
+    def show_backtrace(self, core: str, exe: Optional[str] = None,
+                       frmt: str = "text") -> None:
         core = osp.realpath(core)
         out = self.backtrace(core, exe)
         if out is None:
@@ -275,14 +280,15 @@ class Cores:
         else:
             print(out)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return ','.join(self.cores)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'Cores(rootpath="%s", cores="%s")' % (self.rootpath,
                                                      ','.join(self.cores))
 
-def options(args):
+
+def options(args: list[str]) -> argparse.Namespace:
     op = argparse.ArgumentParser()
     op.add_argument('-r', '--root', action='store', default='.',
                     dest='rootpath', help='Root path to find executable')
@@ -301,7 +307,8 @@ def options(args):
                           'Show backtrace of specifieds coredump')
     return op.parse_args(args)
 
-def main(args):
+
+def main(args: list[str]) -> None:
     opts = options(args)
 
     cores = Cores(rootpath=opts.rootpath)
@@ -315,6 +322,7 @@ def main(args):
 
     elif opts.action == 'show':
         cores.show_backtrace(opts.core, frmt=opts.format)
+
 
 if __name__ == "__main__":
     if platform.system() == 'Linux':
