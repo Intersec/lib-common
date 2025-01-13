@@ -24,6 +24,8 @@ import os
 import behave.model  # pylint: disable=import-error
 import zpycore.util
 
+from typing import Any, Optional, TextIO
+
 from behave.formatter.base import Formatter  # pylint: disable=import-error
 
 from behave.__main__ import main as behave_main  # pylint: disable=import-error
@@ -35,7 +37,7 @@ except ImportError:
     from behave.formatter.formatters import register as behave_register
 
 
-class ZFormatter(Formatter):
+class ZFormatter(Formatter): # type: ignore[misc]
     """
     Provide a behave formatter that support the z format
     """
@@ -53,25 +55,26 @@ class ZFormatter(Formatter):
 
     step_tpl = "# {0:>2}-{1:<2} {2} {3} {4}:{5:<3}   # ({6:>.3f}s)\n"
 
-    def __init__(self, stream, config):
+    def __init__(self, stream: TextIO, config: Any):
         # Force show_skipped to order the formatter to be called for skipped
         # features.
         config.show_skipped = True
         super().__init__(stream, config)
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.__count = -1
         self.__success = 0
         self.__skipped = 0
         self.__failed  = 0
-        self.__scenario = None
-        self.__status   = None
-        self.__exn      = None
-        self.steps = []
+        self.__steps   = 0
+        self.__scenario: Optional[behave.model.Scenario] = None
+        self.__status: Optional[str] = None
+        self.__exn: Optional[str] = None
+        self.steps: list[behave.model.Step] = []
         self.basename = ""
 
-    def scenario_flush(self):
+    def scenario_flush(self) -> None:
         zpycore.util.wipe_children_rearm()
         if self.__scenario is not None:
             if self.__status == "pass":
@@ -103,7 +106,7 @@ class ZFormatter(Formatter):
         self.__status   = None
         self.__exn      = None
 
-    def feature(self, feature):
+    def feature(self, feature: behave.model.Feature) -> None:
         self.basename = os.path.basename(feature.filename)
         self.scenario_flush()
         count = 0
@@ -117,12 +120,12 @@ class ZFormatter(Formatter):
         self.__count = 1
         self.__steps = 0
 
-    def scenario(self, scenario):
+    def scenario(self, scenario: behave.model.Scenario) -> None:
         self.scenario_flush()
         self.__scenario = scenario
         self.__status = "skip"
 
-    def result(self, step):
+    def result(self, step: behave.model.Step) -> None:
         self.__steps += 1
 
         status = step.status
@@ -144,10 +147,10 @@ class ZFormatter(Formatter):
             self.__exn    = step.error_message
             self.__status = "fail"
 
-    def step(self, step):
+    def step(self, step: behave.model.Step) -> None:
         self.steps.append(step)
 
-    def eof(self):
+    def eof(self) -> None:
         self.scenario_flush()
         if self.__count != 1:
             total = self.__success + self.__skipped + self.__failed
@@ -161,7 +164,7 @@ class ZFormatter(Formatter):
         self.reset()
 
 
-def run_behave():
+def run_behave() -> None:
     with zpycore.util.wipe_children_register():
         behave_register(ZFormatter)
         sys.exit(behave_main())
