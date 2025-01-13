@@ -34,7 +34,7 @@ import sys
 import fnmatch
 
 
-def find_php_files(path):
+def find_php_files(path: str) -> list[str]:
     php_files = []
     for dirname, _, filenames in os.walk(path):
         for filename in fnmatch.filter(filenames, '*.php'):
@@ -42,7 +42,7 @@ def find_php_files(path):
     return php_files
 
 
-def main():
+def main() -> None:
     if len(sys.argv) > 1:
         root_dir = os.path.abspath(sys.argv[1])
     else:
@@ -63,9 +63,10 @@ def main():
             fail += 1
             print("{0} fail {1}{2}".format(i, filename, err.output))
 
-    fail = 100.0 * fail / len(files)
+    fail_percent = 100.0 * fail / len(files)
     print("# 0% skipped  {0}% passed {1}% failed".format(
-        int(100 - fail), int(fail)))
+        int(100 - fail_percent), int(fail_percent)))
+
 
 if __name__ == "__main__":
     main()
