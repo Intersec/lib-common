@@ -2,6 +2,7 @@
 # Borrowed from waf sources: https://gitlab.com/ita1024/waf/-/blob/master/waflib/extras/clang_compilation_database.py
 # Christoph Koke, 2013
 # Alibek Omarov, 2019
+# Nicolas Pauss, 2025
 
 """
 Writes the c and cpp compile commands into build/compile_commands.json
@@ -27,14 +28,27 @@ Usage:
 
 # pylint: disable = import-error
 from waflib import Logs, Task, Build, Scripting
+from waflib.Node import Node
+# pylint: enable = import-error
 
-from backend import compute_clang_extra_cflags
+from typing import (
+    Any, Optional, Union, TYPE_CHECKING,
+    # We still need to use them here because this file is imported in
+    # Python 3.6 by waf before switching to Python 3.9+.
+    List, Dict, Type,
+)
+
+if TYPE_CHECKING:
+    # mypy wants the import to be relative ¯\_(ツ)_/¯
+    from .backend import compute_clang_extra_cflags
+else:
+    from backend import compute_clang_extra_cflags
 
 
-TASK_CLASSES = None
+TASK_CLASSES: Optional[Dict[str, Type[Task.Task]]] = None
 
 
-def build_task_classes_map():
+def build_task_classes_map() -> None:
     '''Build the task classes'''
     global TASK_CLASSES
 
@@ -45,19 +59,26 @@ def build_task_classes_map():
     }
 
 
-class CompileDbContext(Build.BuildContext):
+ClangDbEntry = Dict[str, Union[str, List[str]]]
+ClangDb = Dict[str, ClangDbEntry]
+
+
+class CompileDbContext(Build.BuildContext): # type: ignore[misc]
     '''generates compile_commands.json by request'''
 
     cmd = 'compiledb'
 
     @staticmethod
-    def get_task_cmd(task, is_dep):
+    def get_task_cmd(task: Task, is_dep: bool) -> Union[str, List[str]]:
         '''Get the command used for the task'''
         cmd = task.last_cmd
 
         if not isinstance(cmd, list):
             # Add it to list command arguments
+            assert isinstance(cmd, str)
             return cmd
+
+        assert TASK_CLASSES is not None
 
         # Get the file compilation type from the task class
         additional_args = None
@@ -84,7 +105,9 @@ class CompileDbContext(Build.BuildContext):
 
         return cmd
 
-    def add_task_nodes_db(self, clang_db, task, cmd, f_nodes):
+    def add_task_nodes_db(self, clang_db: ClangDb, task: Task,
+                          cmd: Union[str, List[str]],
+                          f_nodes: List[Node]) -> None:
         '''Add the nodes to the db'''
         for f_node in f_nodes:
             filename = f_node.path_from(self.srcnode)
@@ -92,7 +115,7 @@ class CompileDbContext(Build.BuildContext):
                 # Only record the first compilation
                 continue
 
-            entry = {
+            entry: ClangDbEntry = {
                 "directory": task.get_cwd().abspath(),
                 "file": filename,
             }
@@ -109,14 +132,13 @@ class CompileDbContext(Build.BuildContext):
 
             clang_db[filename] = entry
 
-    def write_one_compilation_db(self, db_file, tasks,
-                                 dep_additional_args=None):
+    def write_one_compilation_db(self, db_file: str, tasks: Task) -> None:
         database_file = self.srcnode.make_node(db_file)
         Logs.info('Build commands will be stored in %s',
                   database_file.path_from(self.path))
 
-        empty_list = []
-        clang_db = {}
+        empty_list: List[Node] = []
+        clang_db: ClangDb = {}
 
         for task in tasks:
             # Add the task node to the db
@@ -132,18 +154,18 @@ class CompileDbContext(Build.BuildContext):
         root = list(clang_db.values())
         database_file.write_json(root)
 
-    def write_compilation_database(self):
+    def write_compilation_database(self) -> None:
         self.write_one_compilation_db('compile_commands.json',
                                       self.clang_compilation_database_tasks)
         self.write_one_compilation_db('iop_compile_commands.json',
                                       self.iop_compilation_database_tasks)
 
-    def execute(self):
+    def execute(self) -> None:
         """
         Build dry run
         """
         self.restore()
-        self.cur_tasks = []
+        self.cur_tasks: List[Task] = []
         self.clang_compilation_database_tasks = []
         self.iop_compilation_database_tasks = []
 
@@ -179,11 +201,12 @@ class CompileDbContext(Build.BuildContext):
 
         # we need only to generate last_cmd, so override
         # exec_command temporarily
-        def exec_command(self, *k, **kw):
+        def exec_command(self: Task, *k: Any, **kw: Any) -> int:
             return 0
 
         # Get the list of classes to filter
         build_task_classes_map()
+        assert TASK_CLASSES is not None
         classes = tuple(TASK_CLASSES.values())
         iop2c = TASK_CLASSES['Iop2c']
 
@@ -222,19 +245,20 @@ class CompileDbContext(Build.BuildContext):
 EXECUTE_PATCHED = False
 
 
-def patch_execute():
+def patch_execute() -> None:
     global EXECUTE_PATCHED
 
     if EXECUTE_PATCHED:
         return
 
-    def new_execute_build(self):
+    def new_execute_build(self: Build.BuildContext) -> None:
         """
         Invoke compiledb command before build
         """
         if self.cmd.startswith('build'):
             Scripting.run_command(self.cmd.replace('build', 'compiledb'))
 
+        assert old_execute_build is not None
         old_execute_build(self)
 
     old_execute_build = getattr(Build.BuildContext, 'execute_build', None)
