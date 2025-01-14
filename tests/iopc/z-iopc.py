@@ -21,6 +21,8 @@
 import os
 import json
 
+from typing import Any, Optional, Union, cast
+
 SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
 IOPC = os.path.join(SELF_PATH, '../../src/iopc/iopc')
@@ -33,8 +35,10 @@ class IopcTest(z.TestCase):
 
     # {{{ Helpers
 
-    def run_iopc(self, iop, expect_pass, errors, lang='',
-                 class_id_range='', additional_args=None):
+    def run_iopc(self, iop: str, expect_pass: bool,
+                 errors: Union[None, str, list[str]], lang: str = '',
+                 class_id_range: str = '',
+                 additional_args: Optional[str] = None) -> None:
         iopc_args = [IOPC, os.path.join(TEST_PATH, iop)]
 
         # in case of expected success if no language is specified
@@ -65,38 +69,40 @@ class IopcTest(z.TestCase):
 
             if (expect_pass):
                 self.assertEqual(iopc_p.returncode, 0,
-                                 "unexpected failure (%d) on %s %s: %s"
+                                 "unexpected failure (%d) on %s %s: %r"
                                  % (iopc_p.returncode, iop, context, output))
             else:
                 self.assertEqual(iopc_p.returncode, 255,
-                                 "unexpected return code %d on %s %s: %s"
+                                 "unexpected return code %d on %s %s: %r"
                                  % (iopc_p.returncode, iop, context, output))
 
-        if (errors):
+        if errors:
             if isinstance(errors, str):
                 errors = [errors]
             for error in errors:
-                output = str(output)
-                self.assertTrue(output.find(error) >= 0,
+                output_str = output.decode('utf8')
+                self.assertTrue(output_str.find(error) >= 0,
                                 "did not find '%s' in '%s' %s" \
-                                % (error, output, context))
+                                % (error, output_str, context))
         else:
             self.assertTrue(len(output) == 0,
-                            "unexpected output: %s" % output)
+                            "unexpected output: %r" % output)
 
-    def run_iopc_pass(self, iop, lang='', class_id_range=''):
+    def run_iopc_pass(self, iop: str, lang: str = '',
+                      class_id_range: str = '') -> None:
         self.run_iopc(iop, True, None, lang, class_id_range)
 
     # compilation will fail
-    def run_iopc_fail(self, iop, errors, lang='', class_id_range=''):
+    def run_iopc_fail(self, iop: str, errors: Union[str, list[str]],
+                      lang: str = '', class_id_range: str = '') -> None:
         self.run_iopc(iop, False, errors, lang, class_id_range)
 
     @staticmethod
-    def get_iop_json(iop):
+    def get_iop_json(iop: str) -> dict[str, Any]:
         with open(os.path.join(TEST_PATH, iop+'.json'), 'r') as f:
-            return json.load(f)
+            return cast(dict[str, Any], json.load(f))
 
-    def run_gcc(self, iop, expect_pass=True):
+    def run_gcc(self, iop: str, expect_pass: bool = True) -> None:
         iop_c = iop + '.c'
         gcc_args = ['gcc', '-c', '-o', '/dev/null', '-std=gnu99',
                     '-O', '-Wall', '-Werror', '-Wextra',
@@ -123,13 +129,14 @@ class IopcTest(z.TestCase):
                 self.assertEqual(
                     gcc_p.returncode, 0,
                     "unexpected failure (%d) on %s when executing:\n"
-                    "%s:\n%s" % (gcc_p.returncode, iop_c,
+                    "%s:\n%r" % (gcc_p.returncode, iop_c,
                                  ' '.join(gcc_args), err)
                 )
             else:
                 self.assertNotEqual(gcc_p.returncode, 0)
 
-    def check_file(self, file_name, string_list, wanted = True):
+    def check_file(self, file_name: str, string_list: list[str],
+                   wanted: bool = True) -> None:
         with open(os.path.join(TEST_PATH, file_name), 'r') as f:
             content = f.read()
 
@@ -141,7 +148,7 @@ class IopcTest(z.TestCase):
                 self.assertTrue(content.find(s) < 0,
                                 "found '%s' in '%s'" % (s, file_name))
 
-    def check_ref(self, pkg, lang):
+    def check_ref(self, pkg: str, lang: str) -> None:
         gen_file = pkg + '.iop.' + lang
         ref_file = pkg + '.ref.' + lang
         # Uncomment these lines to update the ref files after changing iopc
@@ -151,7 +158,8 @@ class IopcTest(z.TestCase):
         self.assertEqual(subprocess.call(['diff', '-u', gen_file, ref_file]),
                          0)
 
-    def check_code_gen_lang(self, pkg_name, pkg_path, lang):
+    def check_code_gen_lang(self, pkg_name: str, pkg_path: str,
+                            lang: str) -> None:
         # First delete the generated files
         if 'C' in lang:
             subprocess.call(['rm', '-f', pkg_path + '.iop.c'])
@@ -177,7 +185,7 @@ class IopcTest(z.TestCase):
         if 'typescript' in lang:
             self.check_ref(pkg_path, 'ts')
 
-    def check_code_gen_all_langs(self, pkg_name):
+    def check_code_gen_all_langs(self, pkg_name: str) -> None:
         pkg_path = os.path.join(TEST_PATH, pkg_name)
 
         # Generated with:
@@ -216,15 +224,15 @@ class IopcTest(z.TestCase):
 
     # {{{ "Circular" tests
 
-    def test_circular_type_valid(self):
+    def test_circular_type_valid(self) -> None:
         f = 'circular_type_valid.iop'
         self.run_iopc_pass(f)
         self.run_gcc(f)
 
-    def test_circular_type_invalid(self):
+    def test_circular_type_invalid(self) -> None:
         self.run_iopc_fail('circular_type_invalid.iop', 'circular dependency')
 
-    def test_circular_pkg_valid(self):
+    def test_circular_pkg_valid(self) -> None:
         self.run_iopc_pass('pkg_a.iop')
         self.run_iopc_pass('pkg_b.iop')
         self.run_iopc_pass('pkg_c.iop')
@@ -232,7 +240,7 @@ class IopcTest(z.TestCase):
         self.run_gcc('pkg_b.iop')
         self.run_gcc('pkg_c.iop')
 
-    def test_circular_pkg_invalid(self):
+    def test_circular_pkg_invalid(self) -> None:
         self.run_iopc_fail('circular_pkg_a.iop', 'circular dependency')
         self.run_iopc_fail('circular_pkg_b.iop', 'circular dependency')
         self.run_iopc_fail('circular_pkg_c.iop', 'circular dependency')
@@ -240,116 +248,116 @@ class IopcTest(z.TestCase):
     # }}}
     # {{{ Enums
 
-    def test_prefix_enum(self):
+    def test_prefix_enum(self) -> None:
         self.run_iopc_pass('enum1.iop')
         f = 'enum2.iop'
         self.run_iopc(f, True, None)
         self.run_gcc(f)
 
-    def test_dup_enum(self):
+    def test_dup_enum(self) -> None:
         self.run_iopc('enum3.iop', False, 'enum field name `A` is used twice')
         self.run_iopc('enum4.iop', False, 'enum field name `A` is used twice')
 
-    def test_ambiguous_enum(self):
+    def test_ambiguous_enum(self) -> None:
         self.run_iopc_pass('enum1.iop')
         f = 'enum5.iop'
         self.run_iopc(f, True,
                       'enum field identifier `MY_ENUM_A` is ambiguous')
         self.run_gcc(f)
 
-    def test_deprecated_enum(self):
+    def test_deprecated_enum(self) -> None:
         self.run_iopc('enum6.iop', True, None)
 
-    def test_invalid_comma_enum(self):
+    def test_invalid_comma_enum(self) -> None:
         self.run_iopc('enum_invalid_comma.iop', False,
                       '`,` expected on every line')
 
     # }}}
     # {{{ SNMP
 
-    def test_snmp_struct_obj(self):
+    def test_snmp_struct_obj(self) -> None:
         f = 'snmp_obj.iop'
         self.run_iopc_pass(f)
         self.run_gcc(f)
 
-    def test_snmp_struct_obj_2(self):
+    def test_snmp_struct_obj_2(self) -> None:
         f = 'snmp_obj2.iop'
         self.run_iopc_pass(f)
         self.run_gcc(f)
 
-    def test_snmp_valid_iface(self):
+    def test_snmp_valid_iface(self) -> None:
         f = 'snmp_valid_iface.iop'
         self.run_iopc_pass(f)
         self.run_gcc(f)
 
-    def test_snmp_valid_iface_params_from_diff_pkg(self):
+    def test_snmp_valid_iface_params_from_diff_pkg(self) -> None:
         f = 'snmp_valid_params_from_different_pkg.iop'
         self.run_iopc_pass(f)
         self.run_gcc(f)
 
-    def test_snmp_invalid_use_out_throw_snmp_iface(self):
+    def test_snmp_invalid_use_out_throw_snmp_iface(self) -> None:
         self.run_iopc('snmp_invalid_iface1.iop', False,
                       'snmpIface cannot out and/or throw')
 
-    def test_snmp_invalid_params_from_snmp_iface(self):
+    def test_snmp_invalid_params_from_snmp_iface(self) -> None:
         self.run_iopc('snmp_invalid_iface2.iop', False,
                       'pkg `snmp_invalid_iface2` does not provide snmpObj '  \
                       '`IncorrectParams` when resolving snmp params of '     \
                       'snmpIface `Notifications`')
 
-    def test_snmp_invalid_several_identic_field_snmp_iface(self):
+    def test_snmp_invalid_several_identic_field_snmp_iface(self) -> None:
         self.run_iopc('snmp_invalid_iface3.iop', False,
                       'several snmpObjs given by the attribute '             \
                       'snmpParamsFrom have a field with the same name `c`')
 
-    def test_snmp_invalid_type_fields(self):
+    def test_snmp_invalid_type_fields(self) -> None:
         self.run_iopc('snmp_invalid_fields.iop', False,
                       'only int/string/boolean/enum types are handled for '
                       'snmp objects\' fields')
 
-    def test_snmp_invalid_brief_field(self):
+    def test_snmp_invalid_brief_field(self) -> None:
         self.run_iopc('snmp_invalid_brief_field.iop', False,
                       'field `a` needs a brief that would be used as a '
                       'description in the generated MIB')
 
-    def test_snmp_invalid_brief_rpc(self):
+    def test_snmp_invalid_brief_rpc(self) -> None:
         self.run_iopc('snmp_invalid_brief_rpc.iop', False,
                       'notification `notif` needs a brief that would be used '
                       'as a description in the generated MIB')
 
-    def test_snmp_invalid_struct_type_for_field(self):
+    def test_snmp_invalid_struct_type_for_field(self) -> None:
         self.run_iopc('snmp_invalid1.iop', False,
                       'only int/string/boolean/enum types are handled for '
                       'snmp objects\' fields')
 
-    def test_snmp_invalid_snmp_obj_type_for_field(self):
+    def test_snmp_invalid_snmp_obj_type_for_field(self) -> None:
         self.run_iopc('snmp_invalid2.iop', False,
                       'snmp objects cannot be used to define a field type')
 
-    def test_snmp_invalid_index_type(self):
+    def test_snmp_invalid_index_type(self) -> None:
         self.run_iopc('snmp_invalid_index_type.iop', False,
                       "a snmp index should be declared with the 'uint' or "
                       "'string' type")
 
-    def test_snmp_invalid_index(self):
+    def test_snmp_invalid_index(self) -> None:
         self.run_iopc('snmp_invalid_index.iop', False,
                       "field 'st1' does not support @snmpIndex attribute")
 
-    def test_snmp_invalid_missing_index(self):
+    def test_snmp_invalid_missing_index(self) -> None:
         self.run_iopc('snmp_invalid_missing_index.iop', False,
                       "each snmp table must contain at least one field that "
                       "has attribute @snmpIndex of type 'uint' or 'string'")
 
-    def test_snmp_invalid_from(self):
+    def test_snmp_invalid_from(self) -> None:
         self.run_iopc('snmp_invalid_from.iop', False,
                       "error: invalid snmpParamsFrom `Params.`")
 
-    def test_snmp_valid_tbl(self):
+    def test_snmp_valid_tbl(self) -> None:
         f = 'snmp_tbl.iop'
         self.run_iopc_pass(f)
         self.run_gcc(f)
 
-    def test_snmp_valid_enum(self):
+    def test_snmp_valid_enum(self) -> None:
         f = 'snmp_valid_enum.iop'
         self.run_iopc_pass(f)
         self.run_gcc(f)
@@ -357,26 +365,26 @@ class IopcTest(z.TestCase):
     # }}}
 #{{{Parsing values
 
-    def test_integer_ext_overflow(self):
+    def test_integer_ext_overflow(self) -> None:
         self.run_iopc('integer_ext_overflow.iop', False, 'integer overflow')
 
-    def test_integer_ext_invalid(self):
+    def test_integer_ext_invalid(self) -> None:
         self.run_iopc('integer_ext_invalid.iop', False,
                       'invalid integer extension')
 
-    def test_unterminated_string(self):
+    def test_unterminated_string(self) -> None:
         self.run_iopc('string_val_unterminated.iop', False,
                       '4:27:unterminated string')
 
-    def test_unterminated_cstring(self):
+    def test_unterminated_cstring(self) -> None:
         self.run_iopc('cstring_val_unterminated.iop', False,
                       '4:28:unterminated cstring')
 
-    def test_unterminated_comment(self):
+    def test_unterminated_comment(self) -> None:
         self.run_iopc('unterminated_comment.iop', False,
                       '6:0:unterminated comment')
 
-    def test_integer_ext_valid(self):
+    def test_integer_ext_valid(self) -> None:
         b = 'integer_ext_valid'
         self.run_iopc_pass(b + '.iop')
         self.run_gcc(b + '.iop')
@@ -389,7 +397,7 @@ class IopcTest(z.TestCase):
             '{ .defval_u64 = 0xffffffffffffffff }',
             '{ .defval_data = "RST" }'])
 
-    def test_defval(self):
+    def test_defval(self) -> None:
         tests_invalid = [
             {'f' : 'defval_bool_invalid.iop',
              's' : 'invalid default value on bool field'},
@@ -424,11 +432,11 @@ class IopcTest(z.TestCase):
     # }}}
     # {{{ Inheritance
 
-    def test_inheritance_invalid_multiple_inheritance(self):
+    def test_inheritance_invalid_multiple_inheritance(self) -> None:
         self.run_iopc('inheritance_invalid_multiple_inheritance.iop', False,
                       'multiple inheritance is not supported')
 
-    def test_inheritance_invalid_types(self):
+    def test_inheritance_invalid_types(self) -> None:
         self.run_iopc('inheritance_invalid_types1.iop', False,
                       '`{` expected, but got `:`')
         self.run_iopc('inheritance_invalid_types2.iop', False,
@@ -438,7 +446,7 @@ class IopcTest(z.TestCase):
         self.run_iopc_fail('inheritance_invalid_types4.iop',
                            'only classes can be abstrac')
 
-    def test_inheritance_invalid_circular1(self):
+    def test_inheritance_invalid_circular1(self) -> None:
         self.run_iopc('inheritance_invalid_circular1.iop', False,
                       ['circular dependency',
                        'inheritance_invalid_circular1.iop:3:2:  '           \
@@ -447,17 +455,17 @@ class IopcTest(z.TestCase):
                        'class C2 inherits from class B',
                        'class B inherits from class A'])
 
-    def test_inheritance_invalid_circular2(self):
+    def test_inheritance_invalid_circular2(self) -> None:
         self.run_iopc('inheritance_invalid_circular2_pkg_a.iop', False,
                       'circular dependency')
         self.run_iopc('inheritance_invalid_circular2_pkg_b.iop', False,
                       'circular dependency')
 
-    def test_inheritance_invalid_duplicated_fields(self):
+    def test_inheritance_invalid_duplicated_fields(self) -> None:
         self.run_iopc('inheritance_invalid_duplicated_fields.iop', False,
                       'field name `a` is also used in child `C`')
 
-    def test_inheritance_invalid_ids(self):
+    def test_inheritance_invalid_ids(self) -> None:
         self.run_iopc('inheritance_invalid_id_small.iop', False,
                       'id is too small (must be >= 0, got -1)')
         self.run_iopc('inheritance_invalid_id_large.iop', False,
@@ -467,7 +475,7 @@ class IopcTest(z.TestCase):
         self.run_iopc('inheritance_invalid_id_duplicated.iop', False,
                       '26:10: error: id 3 is also used by class `C1`')
 
-    def test_inheritance_invalid_static(self):
+    def test_inheritance_invalid_static(self) -> None:
         self.run_iopc('inheritance_invalid_static_struct.iop', False,
                       'static keyword is only authorized for class fields')
         self.run_iopc('inheritance_invalid_static_no_default.iop', False,
@@ -486,7 +494,7 @@ class IopcTest(z.TestCase):
                       False, 'error: class `D1` must define a static '      \
                       'field named `withoutDefval`')
 
-    def test_inheritance_class_id_ranges(self):
+    def test_inheritance_class_id_ranges(self) -> None:
         self.run_iopc_fail('', 'invalid class-id-range',
                            class_id_range = '10')
         self.run_iopc_fail('', 'invalid class-id-range',
@@ -510,7 +518,7 @@ class IopcTest(z.TestCase):
                       'id is too large (must be <= 18, got 19)',
                       class_id_range = '10-18')
 
-    def test_inheritance(self):
+    def test_inheritance(self) -> None:
         self.run_iopc_pass('inheritance_pkg_a.iop')
         self.run_iopc_pass('inheritance_pkg_b.iop')
         self.run_iopc_pass('inheritance_valid_local_pkg.iop')
@@ -548,13 +556,13 @@ class IopcTest(z.TestCase):
                             'inheritance_pkg_b__a6__desc_fields',
                             'inheritance_pkg_b__a8__desc_fields'])
 
-    def test_inheritance_invalid_local_pkg(self):
+    def test_inheritance_invalid_local_pkg(self) -> None:
         self.run_iopc('inheritance_invalid_local_pkg.iop', False,
                       'as the parent class `Local1` of class `NonLocal`'
                       ' is `local`, both classes need to be'
                       ' in the same package')
 
-    def test_inheritance_tag_static_invalid(self):
+    def test_inheritance_tag_static_invalid(self) -> None:
         self.run_iopc('inheritance_tag_static_invalid.iop', False,
                       'tag is not authorized for static class fields')
 
@@ -562,7 +570,7 @@ class IopcTest(z.TestCase):
     # {{{ Typedef
 
     @z.ZFlags('redmine_50352', 'redmine_76975')
-    def test_typedef_valid(self):
+    def test_typedef_valid(self) -> None:
         f  = 'typedef_valid_no_class.iop'
         f1 = 'typedef_valid.iop'
         f2 = 'typedef1.iop'
@@ -579,7 +587,7 @@ class IopcTest(z.TestCase):
         self.run_gcc(f3)
 
     @z.ZFlags('redmine_50352', 'redmine_76975')
-    def test_typedef_invalid(self):
+    def test_typedef_invalid(self) -> None:
         self.run_iopc('typedef_invalid_1.iop', False,
                       'unable to find any pkg providing type `MyStruct`')
         self.run_iopc('typedef_invalid_2.iop', False,
@@ -613,7 +621,7 @@ class IopcTest(z.TestCase):
                       'a union must contain at least one field')
 
     @z.ZFlags('redmine_8536')
-    def test_void_types(self):
+    def test_void_types(self) -> None:
         self.run_iopc_pass('void_in_union.iop', lang="C,json")
         self.run_gcc('void_in_union.iop')
 
@@ -636,17 +644,17 @@ class IopcTest(z.TestCase):
     # }}}
     # {{{ Attributes
 
-    def test_attrs_valid(self):
+    def test_attrs_valid(self) -> None:
         f = 'attrs_valid.iop'
         self.run_iopc_pass(f)
         self.run_gcc(f)
 
-    def test_attrs_valid_enum_aliases_headers(self):
+    def test_attrs_valid_enum_aliases_headers(self) -> None:
         f = 'attrs_valid.iop'
         self.run_iopc_pass(f)
         self.run_gcc('enum_aliases')
 
-    def test_attrs_valid_enum_aliases_json(self):
+    def test_attrs_valid_enum_aliases_json(self) -> None:
         f = 'attrs_valid.iop'
         self.run_iopc_pass(f)
         iop_json = self.get_iop_json(f)
@@ -655,7 +663,7 @@ class IopcTest(z.TestCase):
                 self.assertEqual(obj['values']['A'],
                                  {'value': 0, 'aliases': ['FOO', 'BAR']})
 
-    def test_attrs_valid_v5(self):
+    def test_attrs_valid_v5(self) -> None:
         f = 'attrs_valid_v5'
         self.run_iopc_pass(f + '.iop', 'C,json')
         self.run_gcc(f + '.iop')
@@ -663,7 +671,7 @@ class IopcTest(z.TestCase):
         for lang in ['json', 'c']:
             self.check_ref(g, lang)
 
-    def test_attrs_multi_valid(self):
+    def test_attrs_multi_valid(self) -> None:
         f = 'attrs_multi_valid.iop'
         self.run_iopc_pass(f)
         self.run_gcc(f)
@@ -675,7 +683,7 @@ class IopcTest(z.TestCase):
             with open(path_ref, "r") as ref:
                 self.assertEqual(ref.read(), ref_base.read())
 
-    def test_attrs_multi_constraints(self):
+    def test_attrs_multi_constraints(self) -> None:
         f = 'attrs_multi_constraints.iop'
         self.run_iopc_pass(f)
         self.run_gcc(f)
@@ -686,107 +694,107 @@ class IopcTest(z.TestCase):
             with open(path_ref, "r") as ref:
                 self.assertEqual(ref.read(), ref_base.read())
 
-    def test_attrs_invalid_1(self):
+    def test_attrs_invalid_1(self) -> None:
         self.run_iopc('attrs_invalid_1.iop', False,
                       'incorrect attribute name')
 
-    def test_attrs_invalid_2(self):
+    def test_attrs_invalid_2(self) -> None:
         self.run_iopc('attrs_invalid_2.iop', False,
                       'attribute ctype does not apply to fields')
 
-    def test_attrs_invalid_3(self):
+    def test_attrs_invalid_3(self) -> None:
         self.run_iopc('attrs_invalid_3.iop', False,
                       'attribute ctype does not apply to interface')
 
-    def test_attrs_invalid_4(self):
+    def test_attrs_invalid_4(self) -> None:
         self.run_iopc('attrs_invalid_4.iop', False,
                       'attribute private does not apply to required fields')
 
-    def test_attrs_invalid_5(self):
+    def test_attrs_invalid_5(self) -> None:
         self.run_iopc('attrs_invalid_5.iop', False,
                       'attribute prefix does not apply to fields')
 
-    def test_attrs_invalid_6(self):
+    def test_attrs_invalid_6(self) -> None:
         self.run_iopc('attrs_invalid_6.iop', False,
                       'attribute minOccurs does not apply to fields with '  \
                       'default value')
 
-    def test_attrs_invalid_7(self):
+    def test_attrs_invalid_7(self) -> None:
         self.run_iopc('attrs_invalid_7.iop', False,
                       'attribute maxOccurs does not apply to required '     \
                       'fields')
 
-    def test_attrs_invalid_8(self):
+    def test_attrs_invalid_8(self) -> None:
         self.run_iopc('attrs_invalid_8.iop', False,
                       'unknown field c in MyUnion')
 
-    def test_attrs_invalid_9(self):
+    def test_attrs_invalid_9(self) -> None:
         self.run_iopc('attrs_invalid_9.iop', False,
                       'unknown field c in MyUnion')
 
-    def test_attrs_invalid_10(self):
+    def test_attrs_invalid_10(self) -> None:
         self.run_iopc('attrs_invalid_10.iop', False,
                       'cannot use both @allow and @disallow '                \
                       'on the same field')
 
-    def test_attrs_invalid_11(self):
+    def test_attrs_invalid_11(self) -> None:
         self.run_iopc('attrs_invalid_11.iop', False,
                       'unknown field c in MyUnion')
 
-    def test_attrs_invalid_12(self):
+    def test_attrs_invalid_12(self) -> None:
         self.run_iopc('attrs_invalid_12.iop', False,
                       'unknown field c in MyUnion')
 
-    def test_attrs_invalid_13(self):
+    def test_attrs_invalid_13(self) -> None:
         self.run_iopc('attrs_invalid_13.iop', False,
                       'unknown field C in MyEnum')
 
-    def test_attrs_invalid_14(self):
+    def test_attrs_invalid_14(self) -> None:
         self.run_iopc('attrs_invalid_14.iop', False,
                       'unknown field C in MyEnum')
 
-    def test_attrs_invalid_15(self):
+    def test_attrs_invalid_15(self) -> None:
         self.run_iopc('attrs_invalid_15.iop', False,
                       'invalid default value on enum field: 1')
 
-    def test_attrs_invalid_16(self):
+    def test_attrs_invalid_16(self) -> None:
         self.run_iopc('attrs_invalid_16.iop', False,
                       'invalid default value on enum field: 0')
 
-    def test_attrs_invalid_17(self):
+    def test_attrs_invalid_17(self) -> None:
         f = 'attrs_invalid_17.iop'
         self.run_iopc(f, False,
                       'all static attributes must be declared first')
 
-    def test_attrs_invalid_18(self):
+    def test_attrs_invalid_18(self) -> None:
         f = 'attrs_invalid_18.iop'
         self.run_iopc(f, False,
                       'error: invalid ctype `user_t`: missing __t suffix')
 
-    def test_attrs_invalid_enumval(self):
+    def test_attrs_invalid_enumval(self) -> None:
         self.run_iopc('attrs_invalid_enumval.iop', False,
                       'invalid attribute min on enum field')
 
-    def test_attrs_invalid_noreorder(self):
+    def test_attrs_invalid_noreorder(self) -> None:
         self.run_iopc('attrs_invalid_noreorder.iop', False,
                       'attribute noReorder does not apply to union')
 
-    def test_attrs_invalid_private_struct(self):
+    def test_attrs_invalid_private_struct(self) -> None:
         f = 'attrs_invalid_private_struct.iop'
         self.run_iopc(f, False,
                       'attribute private does not apply to struct')
 
-    def test_attrs_invalid_private_union(self):
+    def test_attrs_invalid_private_union(self) -> None:
         f = 'attrs_invalid_private_union.iop'
         self.run_iopc(f, False,
                       'attribute private does not apply to union')
 
-    def test_attrs_invalid_private_enum(self):
+    def test_attrs_invalid_private_enum(self) -> None:
         f = 'attrs_invalid_private_enum.iop'
         self.run_iopc(f, False,
                       'attribute private does not apply to enum')
 
-    def test_attrs_invalid_enum_alias(self):
+    def test_attrs_invalid_enum_alias(self) -> None:
         f = 'attrs_invalid_enum_alias.iop'
         self.run_iopc(f, False, 'enum field alias `ENUM0` is used twice')
         f = 'attrs_invalid_enum_alias2.iop'
@@ -794,45 +802,45 @@ class IopcTest(z.TestCase):
         f = 'attrs_invalid_enum_alias3.iop'
         self.run_iopc(f, False, 'enum field name `ENUM0` is used twice')
 
-    def test_attrs_invalid_max_1(self):
+    def test_attrs_invalid_max_1(self) -> None:
         f = 'attrs_invalid_max_1.iop'
         self.run_iopc(f, False,
                       'attribute max is larger than maximum value of '
                       'type ubyte (256 > 255)')
 
-    def test_attrs_invalid_max_2(self):
+    def test_attrs_invalid_max_2(self) -> None:
         f = 'attrs_invalid_max_2.iop'
         self.run_iopc(f, False,
                       'attribute max is larger than maximum value of '
                       'type int (2147483648 > 2147483647)')
 
-    def test_attrs_valid_max_1(self):
+    def test_attrs_valid_max_1(self) -> None:
         f = 'attrs_valid_max_1.iop'
         self.run_iopc(f, True, "")
 
-    def test_attrs_invalid_min_1(self):
+    def test_attrs_invalid_min_1(self) -> None:
         f = 'attrs_invalid_min_1.iop'
         self.run_iopc(f, False,
                       'attribute min is lower than minimum value of '
                       'type int (-4294967296 < -2147483648)')
 
-    def test_attrs_invalid_min_2(self):
+    def test_attrs_invalid_min_2(self) -> None:
         f = 'attrs_invalid_min_2.iop'
         self.run_iopc(f, False,
                       'attribute min is larger than maximum value of '
                       'type ubyte (256 > 255)')
 
-    def test_attrs_empty_ctype(self):
+    def test_attrs_empty_ctype(self) -> None:
         f = 'attrs_empty_ctype.iop'
         self.run_iopc(f, False,
                       'attribute ctype expects at least one argument')
 
-    def test_attrs_bad_ctypes(self):
+    def test_attrs_bad_ctypes(self) -> None:
         f = 'attrs_bad_ctypes.iop'
         self.run_iopc(f, False,
                       'invalid ctype `invalid`: missing __t suffix')
 
-    def test_attrs_bad_nb_args(self):
+    def test_attrs_bad_nb_args(self) -> None:
         f = 'attrs_bad_nb_args.iop'
         self.run_iopc(f, False,
                       'attribute prefix expects 1 arguments, got 0')
@@ -840,26 +848,26 @@ class IopcTest(z.TestCase):
     # }}}
     # {{{ Generic attributes
 
-    def test_generic_invalid_value(self):
+    def test_generic_invalid_value(self) -> None:
         self.run_iopc('generic_attrs_invalid_1.iop', False,
                       'unable to parse value for generic argument '          \
                       '\'test:gen1\'')
 
-    def test_generic_invalid_key(self):
+    def test_generic_invalid_key(self) -> None:
         self.run_iopc('generic_attrs_invalid_2.iop', False,
                       'generic attribute name (namespaces:id) expected, '    \
                       'but got identifier instead')
 
-    def test_generic_repeated_key(self):
+    def test_generic_repeated_key(self) -> None:
         self.run_iopc('generic_attrs_invalid_3.iop', False,
                       'generic attribute \'test:gen3\' must be unique for '  \
                       'each IOP object')
 
-    def test_generic_invalid_len(self):
+    def test_generic_invalid_len(self) -> None:
         self.run_iopc('generic_attrs_invalid_4.iop', False,
                       'error: `)` expected, but got `,` instead')
 
-    def test_generic_json(self):
+    def test_generic_json(self) -> None:
         f = 'json_generic_attributes'
         g = os.path.join(TEST_PATH, f)
         self.run_iopc_pass(f + '.iop', 'C,json')
@@ -878,11 +886,11 @@ class IopcTest(z.TestCase):
                       'error: `)` expected, but got identifier instead')
 
     @z.ZFlags('redmine_56755')
-    def test_generic_json_unterminated(self):
+    def test_generic_json_unterminated(self) -> None:
         self.run_iopc('json_generic_invalid6.iop', False,
                       "4:70:unterminated string")
 
-    def test_generic_invalid_name(self):
+    def test_generic_invalid_name(self) -> None:
         self.run_iopc('generic_attrs_invalid_name.iop', False,
                       "invalid name for generic attribute: `=` is forbidden")
 
@@ -890,12 +898,12 @@ class IopcTest(z.TestCase):
     # }}}
     # {{{ References
 
-    def test_reference_valid(self):
+    def test_reference_valid(self) -> None:
         f  = "reference.iop"
         self.run_iopc(f, True, None)
         self.run_gcc(f)
 
-    def test_reference_invalid(self):
+    def test_reference_invalid(self) -> None:
         self.run_iopc('reference_invalid_1.iop', False,
                       'references can only be applied to structures or '     \
                       'unions')
@@ -922,20 +930,20 @@ class IopcTest(z.TestCase):
     # }}}
     # {{{ Code generation
 
-    def test_json(self):
+    def test_json(self) -> None:
         self.check_code_gen_all_langs('tstjson')
 
-    def test_dox(self):
+    def test_dox(self) -> None:
         self.check_code_gen_all_langs('tstdox')
 
-    def test_gen(self):
+    def test_gen(self) -> None:
         self.check_code_gen_all_langs('tstgen')
 
-    def test_typedef(self):
+    def test_typedef(self) -> None:
         self.check_code_gen_all_langs('typedef_valid')
 
     @z.ZFlags('redmine_50352')
-    def test_unions_use_enums(self):
+    def test_unions_use_enums(self) -> None:
         f1 = ('typedef1.iop', 'unions_use_enums')
         f2 = ('attrs_valid.iop', 'unions_use_enums_ctype')
 
@@ -949,10 +957,10 @@ class IopcTest(z.TestCase):
     # }}}
     # {{{ Various
 
-    def test_default_char_valid(self):
+    def test_default_char_valid(self) -> None:
         self.run_iopc_pass('pkg_d.iop')
 
-    def test_same_as(self):
+    def test_same_as(self) -> None:
         self.run_iopc_pass('same_as.iop')
         self.run_gcc('same_as.iop')
         self.check_file('same_as.iop.c', wanted = True, string_list = [
@@ -978,35 +986,35 @@ class IopcTest(z.TestCase):
             'same_as__interface2__rpc_res__desc_fields',
             'same_as__interface2__rpc_exn__desc_fields'])
 
-    def test_struct_noreorder(self):
+    def test_struct_noreorder(self) -> None:
         f = 'struct_noreorder.iop'
         self.run_iopc(f, True, None)
         self.run_gcc(f)
 
-    def test_unknown_pkg(self):
+    def test_unknown_pkg(self) -> None:
         self.run_iopc_fail('unknown_pkg.iop', 'unable to find file '
                            '`unknown.iop` in the include path')
 
-    def test_invalid_pkg_syntax(self):
+    def test_invalid_pkg_syntax(self) -> None:
         self.run_iopc_fail('invalid_pkg_syntax.iop',
                            'package expected, but got packag instead')
 
-    def test_unknown_file(self):
+    def test_unknown_file(self) -> None:
         self.run_iopc_fail('unknown_file.iop', 'unable to open file')
 
-    def test_no_out_nor_throw(self):
+    def test_no_out_nor_throw(self) -> None:
         self.run_iopc_fail('async_candidate.iop',
                            ("no `out` nor `throw` for function "
                             "`asyncCandidate`"))
 
-    def test_dup_struct(self):
+    def test_dup_struct(self) -> None:
         self.run_iopc('duplicated_struct.iop', False,
                       'error: something named `TopupEvent` already exists')
 
-    def test_empty(self):
+    def test_empty(self) -> None:
         self.run_iopc_fail('empty.iop', 'error: unexpected end of file')
 
-    def test_dox_invalid(self):
+    def test_dox_invalid(self) -> None:
         self.run_iopc_fail('tstdox_invalid1.iop',
                            ('doxygen unrelated `in` argument `unknown` for '
                             'RPC `funA`'))
@@ -1014,7 +1022,7 @@ class IopcTest(z.TestCase):
                            ('error: invalid identifier when parsing json '
                             'value'))
 
-    def test_check_name(self):
+    def test_check_name(self) -> None:
         err_str = 'error: You_Shall_Not_Pass contains a _'
 
         self.run_iopc_fail('check_name_class.iop', err_str)
@@ -1028,18 +1036,18 @@ class IopcTest(z.TestCase):
         self.run_iopc_fail('check_name_rpc.iop', 'error: you_Shall_Not_Pass '
                            'contains a _')
 
-    def test_missing_iface(self):
+    def test_missing_iface(self) -> None:
         self.run_iopc_fail('missing_iface.iop',
                            'error: unable to find any pkg providing '
                            'interface `MyIfaceA`')
 
-    def test_missing_module(self):
+    def test_missing_module(self) -> None:
         self.run_iopc_fail('missing_module.iop',
                            'error: unable to find any pkg providing '
                            'module `MyModuleA`')
 
     @z.ZFlags('redmine_69370')
-    def test_error_in_other_pkg(self):
+    def test_error_in_other_pkg(self) -> None:
         self.run_iopc_fail('nr_enum_error.iop', [
             'error: identifier expected, but got integer instead'
         ])
