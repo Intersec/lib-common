@@ -7,18 +7,38 @@ import re
 import os.path as osp
 
 # pylint: disable=import-error
-from waflib import Task, Logs
-from waflib.TaskGen import extension
+from waflib import Task, TaskGen, Logs
 from waflib.Tools import c as c_tool
 from waflib.Node import Node
+from waflib.Build import BuildContext
+from waflib.Options import OptionsContext
+from waflib.Configure import ConfigurationContext
 # pylint: enable = import-error
+
+from typing import (
+    Callable, Optional, TypeVar, TYPE_CHECKING,
+    # We still need to use them here because this file is imported in
+    # Python 3.6 by waf before switching to Python 3.9+.
+    List, Set, Tuple,
+)
+
+
+# Add type hinting for TaskGen decorators
+if TYPE_CHECKING:
+    T = TypeVar('T')
+    def task_gen_decorator(*args: str) -> Callable[[T], T]:
+        ...
+    TaskGen.extension = task_gen_decorator
+
+
+ScanRes = Tuple[Optional[List[str]], Optional[List[str]]]
 
 
 # {{{ .pyx extension handler
 
 
-@extension('.pyx')
-def add_cython_file(self, node):
+@TaskGen.extension('.pyx')
+def add_cython_file(self: BuildContext, node: Node) -> None:
     """
     Process a *.pyx* file given in the list of source files. No additional
     feature is required::
@@ -53,16 +73,16 @@ def add_cython_file(self, node):
 # {{{ CythonC compilation task
 
 
-class CythonC(c_tool.c):
+class CythonC(c_tool.c): # type: ignore[misc]
 
-    def get_cwd(self):
+    def get_cwd(self) -> Node:
         """
         Execute the compiler's commands from the project root instead of the
         project build directory.
         """
         return self.env.PROJECT_ROOT
 
-    def scan(self):
+    def scan(self) -> ScanRes:
         """
         XXX: Redefine the scan method of C class for c-cython files because
         the original c preprocessor does not work on them.
@@ -79,7 +99,7 @@ class CythonC(c_tool.c):
         ])
 
         # Call original preprocessor
-        res = super().scan()
+        res: ScanRes = super().scan()
 
         # Restore previous environment (in order to not launch the build with
         # the unwanted defines)
@@ -87,7 +107,7 @@ class CythonC(c_tool.c):
 
         return res
 
-    def run(self):
+    def run(self) -> int:
         """
         XXX: Redefine the run method of C class for c-cython files to add
         clags to ignore warnings that need to be ignored in the c-cython
@@ -110,7 +130,7 @@ class CythonC(c_tool.c):
         ])
 
         # Call original run method
-        res = super().run()
+        res: int = super().run()
 
         # Restore previous environment
         self.env.revert()
@@ -135,18 +155,18 @@ RE_INCLUDE_CYT = re.compile(r"""
     include\s+[\"'](.+)[\"']       # capture include path
     """, re.M | re.VERBOSE)
 
-
-class cython(Task.Task): # pylint: disable=invalid-name
+# pylint: disable=invalid-name
+class cython(Task.Task): # type: ignore[misc]
     class ScannerState:
         """Class to hold the state on scan method."""
         __slots__ = ('inc_dirs', 'nodes', 'found', 'missing', 'has_api',
                      'has_public')
 
-        def __init__(self):
-            self.inc_dirs = []
-            self.nodes = set()
-            self.found = []
-            self.missing = []
+        def __init__(self) -> None:
+            self.inc_dirs: List[str] = []
+            self.nodes: Set[Node] = set()
+            self.found: List[str] = []
+            self.missing: List[str] = []
             self.has_api = False
             self.has_public = False
 
@@ -167,31 +187,32 @@ class cython(Task.Task): # pylint: disable=invalid-name
     inputs/outputs.
     """
 
-    def runnable_status(self):
+    def runnable_status(self) -> int:
         """
         Perform a double-check to add the headers created by Cython
         to the output nodes. The scanner is executed only when the Cython task
         must be executed (optimization).
         """
-        ret = super().runnable_status()
+        ret: int = super().runnable_status()
         if ret == Task.ASK_LATER:
             return ret
         for x in self.generator.bld.raw_deps[self.uid()]:
             if x.startswith('header:'):
                 self.outputs.append(self.inputs[0].parent.find_or_declare(
                     x.replace('header:', '')))
-        return super().runnable_status()
+        ret = super().runnable_status()
+        return ret
 
-    def post_run(self):
+    def post_run(self) -> None:
         for x in self.outputs:
             if x.name.endswith('.h'):
                 if not x.exists():
                     if Logs.verbose:
                         Logs.warn('Expected %r', x.abspath())
                     x.write('')
-        return Task.Task.post_run(self)
+        Task.Task.post_run(self)
 
-    def scan(self):
+    def scan(self) -> ScanRes:
         """
         Return the dependent files (.pxd, .pxi) by looking in the include
         folders.
@@ -227,7 +248,7 @@ class cython(Task.Task): # pylint: disable=invalid-name
 
         return (state.found, state.missing)
 
-    def scan_parse_inc_dirs(self, state):
+    def scan_parse_inc_dirs(self, state: ScannerState) -> None:
         """
         Populate the include directories in the scan state
         """
@@ -260,7 +281,7 @@ class cython(Task.Task): # pylint: disable=invalid-name
             if node:
                 state.inc_dirs.append(node)
 
-    def scan_node(self, state, node):
+    def scan_node(self, state: ScannerState, node: Node) -> None:
         """
         Scan the dependencies of the file located at the given node
         recursively.
@@ -302,8 +323,9 @@ class cython(Task.Task): # pylint: disable=invalid-name
                 if ' public ' in l:
                     state.has_public = True
 
-    def scan_dependency(self, state, inc_dirs, dep_orig_name,
-                        dep_file_name, can_be_abs):
+    def scan_dependency(self, state: ScannerState, inc_dirs: List[Node],
+                        dep_orig_name: str, dep_file_name: str,
+                        can_be_abs: bool) -> None:
         """
         Look for a dependency in all includes directories and scan it
         recursively if found.
@@ -328,14 +350,14 @@ class cython(Task.Task): # pylint: disable=invalid-name
 # }}}
 
 
-def options(ctx):
+def options(ctx: OptionsContext) -> None:
     ctx.add_option('--cython-flags', action='store', default='',
                    help='space separated list of flags to pass to cython')
     ctx.add_option('--cython-suffix', action='store', default='',
                    help='add a suffix to cython generated files')
 
 
-def configure(ctx):
+def configure(ctx: ConfigurationContext) -> None:
     if not ctx.env.CC and not ctx.env.CXX:
         ctx.fatal('Load a C/C++ compiler first')
     if not ctx.env.PYTHON:
