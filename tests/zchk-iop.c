@@ -2139,17 +2139,17 @@ Z_GROUP_EXPORT(iop)
         const iop_struct_t *st_cls2;
 
         Z_ASSERT_P(st_se = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructE")));
+            _G.iop_env, LSTR("tstiop.MyStructE")));
         Z_ASSERT_P(st_sa = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructA")));
+            _G.iop_env, LSTR("tstiop.MyStructA")));
         Z_ASSERT_P(st_sf = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructF")));
+            _G.iop_env, LSTR("tstiop.MyStructF")));
         Z_ASSERT_P(st_cs = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.ConstraintS")));
+            _G.iop_env, LSTR("tstiop.ConstraintS")));
         Z_ASSERT_P(st_sa_opt = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyStructAOpt")));
+            _G.iop_env, LSTR("tstiop.MyStructAOpt")));
         Z_ASSERT_P(st_cls2 = iop_env_get_struct(
-                _G.iop_env, LSTR("tstiop.MyClass2")));
+            _G.iop_env, LSTR("tstiop.MyClass2")));
 
         iop_init_desc(st_cls2, &cls2);
 

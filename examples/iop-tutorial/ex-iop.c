@@ -29,7 +29,7 @@ static struct {
     el_t        ic_srv;    /*< ichannel listener */
     ichannel_t  remote_ic; /*< remote ichannel */
 
-    iop_env_t *iop_env;     /*< IOP environment */
+    iop_env_t   *iop_env;  /*< IOP environment */
     qm_t(ic_cbs) ic_impl;  /*< implementations table */
 
     bool opt_help;

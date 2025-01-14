@@ -82,7 +82,7 @@ typedef struct ic_user_version_t {
 
 typedef struct iop_class_id_key_t {
     const iop_struct_t * nonnull master;
-    uint16_t            child_id;
+    uint16_t child_id;
 } iop_class_id_key_t;
 
 static inline uint32_t
@@ -187,7 +187,7 @@ typedef struct iop_env_t {
 iop_env_t * nonnull iop_env_new(void);
 
 /** Delete an IOP environment. */
-void iop_env_delete(iop_env_t * nullable  * nonnull iop_envp);
+void iop_env_delete(iop_env_t * nullable * nonnull iop_envp);
 
 /** Retain a reference to the IOP environment. */
 iop_env_t * nonnull iop_env_retain(iop_env_t * nonnull iop_env);
