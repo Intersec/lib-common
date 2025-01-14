@@ -27,14 +27,37 @@ import waflib
 from waflib import Build, Context, TaskGen, Logs, Utils, Errors, Options
 
 from waflib.Build import BuildContext, inst
+from waflib.Configure import ConfigurationContext
 from waflib.Node import Node
 from waflib.Task import Task, compile_fun, SKIP_ME, RUN_ME
 # pylint: enable = import-error
 
+from typing import (
+    Callable, Optional, TypeVar, TYPE_CHECKING, cast,
+    # We still need to use them here because this file is imported in
+    # Python 3.6 by waf before switching to Python 3.9+.
+    List, Set, Type,
+)
+from types import TracebackType
+
+
+# Add type hinting for TaskGen decorators
+if TYPE_CHECKING:
+    T = TypeVar('T')
+    def task_gen_decorator(*args: str) -> Callable[[T], T]:
+        ...
+    TaskGen.feature = task_gen_decorator
+    TaskGen.after = task_gen_decorator
+    TaskGen.before_method = task_gen_decorator
+    TaskGen.after_method = task_gen_decorator
+    TaskGen.extension = task_gen_decorator
+
+
 # {{{ depends_on
 
 
-def check_circular_dependencies(self, tgen, path, seen):
+def check_circular_dependencies(self: TaskGen, tgen: TaskGen,
+                                path: List[str], seen: Set[str]) -> None:
     """
     Recursively check that there is no cycle in depends_on/use dependencies of
     "self" task generator.
@@ -69,7 +92,7 @@ def check_circular_dependencies(self, tgen, path, seen):
 
 @TaskGen.feature('*')
 @TaskGen.before_method('process_rule')
-def post_depends_on(self):
+def post_depends_on(self: TaskGen) -> None:
     """
     Post the depends_on dependencies of the "self" task generator.
 
@@ -90,7 +113,7 @@ def post_depends_on(self):
 # {{{ use
 
 
-def check_used(self, name):
+def check_used(self: TaskGen, name: str) -> None:
     try:
         self.bld.get_tgen_by_name(name)
         return
@@ -112,7 +135,7 @@ def check_used(self, name):
 
 @TaskGen.feature('*')
 @TaskGen.before_method('process_rule')
-def check_libs(self):
+def check_libs(self: TaskGen) -> None:
     """
     Check that each element listed in "use" exists either as a task generator
     or as a flag set in the environment.
@@ -127,7 +150,7 @@ def check_libs(self):
 # {{{ Run checks
 
 
-def run_checks(ctx):
+def run_checks(ctx: BuildContext) -> None:
     env = dict(os.environ)
 
     if ctx.cmd == 'fast-check':
@@ -151,26 +174,26 @@ def run_checks(ctx):
     if ctx.exec_command(cmd, stdout=None, stderr=None, env=env):
         ctx.fatal('')
 
-class CheckClass(BuildContext):
+class CheckClass(BuildContext): # type: ignore[misc]
     '''run tests (no web)'''
     cmd = 'check'
     has_jasmine_tests = True
 
-class FastCheckClass(BuildContext):
+class FastCheckClass(BuildContext): # type: ignore[misc]
     '''run tests in fast mode (no web)'''
     cmd = 'fast-check'
     has_jasmine_tests = True
 
-class WwwCheckClass(BuildContext):
+class WwwCheckClass(BuildContext): # type: ignore[misc]
     '''run jasmine tests'''
     cmd = 'www-check'
     has_jasmine_tests = True
 
-class SeleniumCheckClass(BuildContext):
+class SeleniumCheckClass(BuildContext): # type: ignore[misc]
     '''run selenium tests (including slow ones)'''
     cmd = 'selenium'
 
-class FastSeleniumCheckClass(BuildContext):
+class FastSeleniumCheckClass(BuildContext): # type: ignore[misc]
     '''run selenium tests (without slow ones)'''
     cmd = 'fast-selenium'
 
@@ -184,7 +207,7 @@ class FastSeleniumCheckClass(BuildContext):
     of the build directory).
 '''
 
-def node_change_ext_src(self, ext):
+def node_change_ext_src(self: Node, ext: str) -> Node:
     name = self.name
 
     k = name.rfind('.')
@@ -221,15 +244,20 @@ Is equivalent to:
 """
 class UseGroup:
 
-    def __init__(self, ctx, group):
+    def __init__(self, ctx: BuildContext, group: str):
         self.ctx = ctx
         self.group = group
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.previous_group = self.ctx.current_group
         self.ctx.set_group(self.group)
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+            self,
+            exctype: Optional[Type[BaseException]],
+            excinst: Optional[BaseException],
+            exctb: Optional[TracebackType]
+    ) -> None:
         self.ctx.set_group(self.previous_group)
 
 
@@ -237,7 +265,7 @@ class UseGroup:
 # {{{ get_env_bool
 
 
-def get_env_bool(self, name):
+def get_env_bool(self: Context.Context, name: str) -> bool:
     val = os.environ.get(name, 0)
     if isinstance(val, str):
         return val.lower() in ['true', 'yes', '1']
@@ -252,7 +280,7 @@ Context.Context.get_env_bool = get_env_bool
 # {{{ Ensure tasks are re-run when their scan method changes
 
 
-def add_scan_in_signature(ctx):
+def add_scan_in_signature(ctx: BuildContext) -> None:
     ''' By default in waf, tasks are not re-run when their scan method
         changes. This is an issue that caused real bugs in our project when
         switching branches.
@@ -301,7 +329,7 @@ def add_scan_in_signature(ctx):
 
 @TaskGen.feature('*')
 @TaskGen.after('process_subst', 'process_rule', 'process_source')
-def remove_default_install_tasks(self):
+def remove_default_install_tasks(self: TaskGen) -> None:
     """ Remove all default install tasks """
     for i, t in enumerate(self.tasks):
         if isinstance(t, inst):
@@ -312,38 +340,39 @@ def remove_default_install_tasks(self):
         del self.install_task
 
 
-class CustomInstall(Task):
+class CustomInstall(Task): # type: ignore[misc]
     """ Task to start custom shell commands on install. """
     color = 'PINK'
     after = ['cprogram', 'cshlib', 'vnum']
 
-    def __str__(self):
+    def __str__(self) -> str:
         launch_node = self.generator.bld.launch_node()
         path = self.generator.path
         return '%s/%s' % (path.path_from(launch_node), self.generator.name)
 
     @classmethod
-    def keyword(cls):
+    def keyword(cls: Type['CustomInstall']) -> str:
         return 'Installing'
 
-    def uid(self):
+    def uid(self) -> int:
         """ Since this task has no inputs, return unique id from the commands.
         """
-        return Utils.h_list([self.__class__.__name__] + self.commands)
+        res: int = Utils.h_list([self.__class__.__name__] + self.commands)
+        return res
 
-    def runnable_status(self):
+    def runnable_status(self) -> int:
         """ Installation tasks are always executed on install. """
         if self.generator.bld.is_install <= 0:
-            return SKIP_ME
-        return RUN_ME
+            return cast(int, SKIP_ME)
+        return cast(int, RUN_ME)
 
-    def run(self):
+    def run(self) -> int:
         """ Execute every shell commands in self.commands. """
         for cmd in self.commands:
             # compile_fun do the right thing by replacing the environment
             # variables in the command.
             f, _ = compile_fun(cmd, shell=True)
-            ret = f(self)
+            ret: int = f(self)
             if ret:
                 return ret
         return 0
@@ -351,7 +380,7 @@ class CustomInstall(Task):
 
 @TaskGen.feature('*')
 @TaskGen.after('process_rule', 'process_source')
-def add_custom_install(self):
+def add_custom_install(self: TaskGen) -> None:
     commands = getattr(self, 'custom_install', None)
     if not commands:
         return
@@ -375,7 +404,7 @@ def add_custom_install(self):
 # {{{ python checkers
 
 
-def run_python_checker(ctx, checker_exec):
+def run_python_checker(ctx: BuildContext, checker_exec: str) -> None:
     # Reset the build
     ctx.groups = []
 
@@ -411,14 +440,14 @@ def run_python_checker(ctx, checker_exec):
 # {{{ pylint
 
 
-def run_pylint(ctx):
+def run_pylint(ctx: BuildContext) -> None:
     if ctx.cmd != 'pylint':
         return
 
     run_python_checker(ctx, 'pylint')
 
 
-class PylintClass(BuildContext):
+class PylintClass(BuildContext): # type: ignore[misc]
     '''run pylint checks on committed python files'''
     cmd = 'pylint'
 
@@ -427,14 +456,14 @@ class PylintClass(BuildContext):
 # {{{ mypy
 
 
-def run_mypy(ctx):
+def run_mypy(ctx: BuildContext) -> None:
     if ctx.cmd != 'mypy':
         return
 
     run_python_checker(ctx, 'mypy')
 
 
-class MypyClass(BuildContext):
+class MypyClass(BuildContext): # type: ignore[misc]
     '''run mypy checks on committed python files'''
     cmd = 'mypy'
 
@@ -444,7 +473,7 @@ class MypyClass(BuildContext):
 # {{{ configure
 
 
-def configure(ctx):
+def configure(ctx: ConfigurationContext) -> None:
     ctx.msg('Install prefix', ctx.env.PREFIX)
 
     # Find install for custom install
@@ -454,7 +483,7 @@ def configure(ctx):
 # }}}
 # {{{ build
 
-def build(ctx):
+def build(ctx: BuildContext) -> None:
     if ctx.is_install > 0:
         Logs.info('Waf: Install prefix: %s', ctx.env.PREFIX)
 
