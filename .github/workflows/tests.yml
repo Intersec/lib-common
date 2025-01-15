@@ -83,3 +83,6 @@ jobs:
 
       - name: Check with pylint
         run: waf pylint
+
+      - name: Check with mypy
+        run: waf mypy
