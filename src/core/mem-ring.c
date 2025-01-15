@@ -91,7 +91,7 @@ struct ring_pool_t {
 
     bool         alive : 1;
 
-    mem_pool_t   funcs;
+    mem_pool_t   mp;
 };
 
 struct mem_ring_checkpoint {
@@ -233,7 +233,7 @@ __flatten
 static void *rp_alloc(mem_pool_t *_rp, size_t size, size_t alignment,
                       mem_flags_t flags)
 {
-    ring_pool_t *rp = container_of(_rp, ring_pool_t, funcs);
+    ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     byte *res;
 
     if (unlikely(alignment > 16)) {
@@ -264,7 +264,7 @@ static void rp_free(mem_pool_t *_rp, void *mem)
 static void *rp_realloc(mem_pool_t *_rp, void *mem, size_t oldsize,
                         size_t size, size_t alignment, mem_flags_t flags)
 {
-    ring_pool_t *rp = container_of(_rp, ring_pool_t, funcs);
+    ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     byte *res;
 
     if (unlikely(alignment > 16)) {
@@ -309,7 +309,7 @@ static void *rp_realloc(mem_pool_t *_rp, void *mem, size_t oldsize,
 }
 
 
-static mem_pool_t const ring_pool_funcs_g = {
+static mem_pool_t const ring_pool_base_g = {
     .malloc  = &rp_alloc,
     .realloc = &rp_realloc,
     .free    = &rp_free,
@@ -411,10 +411,10 @@ mem_pool_t *mem_ring_new_flags(const char *name, int initialsize,
     mem_tool_allow_memory(blk->area, sizeof(frame_t), false);
     ring_setup_frame(rp, blk, acast(frame_t, &blk->area));
 
-    mem_pool_set(&rp->funcs, name, &_G.all_pools, &_G.all_pools_lock,
-                 &ring_pool_funcs_g, flags);
+    mem_pool_set(&rp->mp, name, &_G.all_pools, &_G.all_pools_lock,
+                 &ring_pool_base_g, flags);
 
-    return &rp->funcs;
+    return &rp->mp;
 }
 
 mem_pool_t *mem_ring_new(const char *name, int initialsize)
@@ -427,7 +427,7 @@ static void __mem_ring_reset(ring_pool_t *rp);
 void mem_ring_delete(mem_pool_t **rpp)
 {
     if (*rpp) {
-        ring_pool_t *rp = container_of(*rpp, ring_pool_t, funcs);
+        ring_pool_t *rp = container_of(*rpp, ring_pool_t, mp);
 
         spin_lock(&rp->lock);
 
@@ -454,7 +454,7 @@ void mem_ring_delete(mem_pool_t **rpp)
             blk_destroy(rp, blk_entry(e));
         }
         blk_destroy(rp, rp->cblk);
-        mem_pool_wipe(&rp->funcs, &_G.all_pools_lock);
+        mem_pool_wipe(&rp->mp, &_G.all_pools_lock);
         p_delete(&rp);
         *rpp = NULL;
     }
@@ -468,7 +468,7 @@ void mem_ring_delete(mem_pool_t **rpp)
  */
 const void *mem_ring_newframe(mem_pool_t *_rp)
 {
-    ring_pool_t *rp = container_of(_rp, ring_pool_t, funcs);
+    ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
 
     e_assert_null(panic, rp->pos, "previous memory frame not released!");
     spin_lock(&rp->lock);
@@ -481,12 +481,12 @@ const void *mem_ring_newframe(mem_pool_t *_rp)
 
 const void *mem_ring_getframe(mem_pool_t *_rp)
 {
-    return container_of(_rp, ring_pool_t, funcs)->ring;
+    return container_of(_rp, ring_pool_t, mp)->ring;
 }
 
 const void *mem_ring_seal(mem_pool_t *_rp)
 {
-    ring_pool_t *rp = container_of(_rp, ring_pool_t, funcs);
+    ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     frame_t *last = rp->ring;
     frame_t *frame;
     ring_blk_t *blk;
@@ -543,7 +543,7 @@ static void __mem_ring_reset(ring_pool_t *rp)
 
 void mem_ring_reset(mem_pool_t *_rp)
 {
-    ring_pool_t *rp = container_of(_rp, ring_pool_t, funcs);
+    ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
 
     spin_lock(&rp->lock);
     __mem_ring_reset(rp);
@@ -631,7 +631,7 @@ void mem_ring_release(const void *cookie)
     spin_unlock(&rp->lock);
 
     if (to_delete) {
-        mem_pool_t *mp = &rp->funcs;
+        mem_pool_t *mp = &rp->mp;
 
         mem_ring_delete(&mp);
     }
@@ -639,7 +639,7 @@ void mem_ring_release(const void *cookie)
 
 const void *mem_ring_checkpoint(mem_pool_t *_rp)
 {
-    ring_pool_t *rp = container_of(_rp, ring_pool_t, funcs);
+    ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     struct mem_ring_checkpoint cp = {
         .frame = rp->ring,
         .cblk  = rp->cblk,
@@ -658,7 +658,7 @@ const void *mem_ring_checkpoint(mem_pool_t *_rp)
 
 void mem_ring_rewind(mem_pool_t *_rp, const void *ckpoint)
 {
-    ring_pool_t *rp = container_of(_rp, ring_pool_t, funcs);
+    ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     struct mem_ring_checkpoint *cp = (void *)ckpoint;
     frame_t *frame = cp->frame;
 
@@ -718,7 +718,7 @@ static size_t frame_getsize(frame_t *frame, const byte *pos)
 
 void mem_ring_dump(const mem_pool_t *_rp)
 {
-    ring_pool_t *rp = container_of(_rp, ring_pool_t, funcs);
+    ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
     int num = 0;
     size_t bytes = 0;
     frame_t *frame;
@@ -767,7 +767,7 @@ void mem_ring_dump(const mem_pool_t *_rp)
 
 size_t mem_ring_memory_footprint(const mem_pool_t *_rp)
 {
-    ring_pool_t *rp = container_of(_rp, ring_pool_t, funcs);
+    ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
 
     /* The ring_pool_t size should count as long as it is malloc'd. */
 
@@ -820,11 +820,11 @@ static void core_mem_ring_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(ring_pool_t, rp, &_G.all_pools, funcs.pool_link) {
+    dlist_for_each_entry(ring_pool_t, rp, &_G.all_pools, mp.pool_link) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);
-        qv_append(tab, t_lstr_fmt("%s",  rp->funcs.name));
+        qv_append(tab, t_lstr_fmt("%s",  rp->mp.name));
         qv_append(tab, t_lstr_fmt("%p",  rp));
 
         ADD_NUMBER_FIELD(rp->minsize);

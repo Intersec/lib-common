@@ -114,7 +114,7 @@ typedef struct mem_stack_pool_t {
     size_t               alloc_sz;       /*<  8  (8) : alloc */
     uint32_t             alloc_nb;       /*< 16  (4) : alloc */
     uint32_t             padding;        /*< 20  (4) : never */
-    mem_pool_t           funcs;
+    mem_pool_t           mp;
 
     /* cold data : root block (alias on a mem_stack_blk_t) */
     size_t               size;      /*< never */
@@ -151,7 +151,7 @@ static inline
 mem_stack_pool_t *nonnull mem_stack_get_pool(mem_pool_t *nonnull mp)
 {
     assert (mp->mem_pool & MEM_STACK);
-    return container_of(mp, mem_stack_pool_t, funcs);
+    return container_of(mp, mem_stack_pool_t, mp);
 }
 
 #ifndef NDEBUG
@@ -233,7 +233,7 @@ extern __thread mem_stack_pool_t t_pool_g;
 
 static ALWAYS_INLINE mem_pool_t * nonnull t_pool(void)
 {
-    return &t_pool_g.funcs;
+    return &t_pool_g.mp;
 }
 
 static ALWAYS_INLINE mem_stack_pool_t * nonnull t_stack_pool(void)

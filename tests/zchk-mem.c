@@ -186,9 +186,9 @@ Z_GROUP_EXPORT(core_mem_stack) {
         mem_stack_pool_push(&sp);
 
         /* First big allocation to set a big allocation mean */
-        Z_ASSERT_P(mp_new_raw(&sp.funcs, char, 50 << 20));
+        Z_ASSERT_P(mp_new_raw(&sp.mp, char, 50 << 20));
         /* Second big allocation to make the allocator abort */
-        Z_ASSERT_P(mp_new_raw(&sp.funcs, char, 50 << 20));
+        Z_ASSERT_P(mp_new_raw(&sp.mp, char, 50 << 20));
 
         mem_stack_pool_pop(&sp);
         mem_stack_pool_wipe(&sp);

@@ -59,7 +59,7 @@ typedef struct mem_block_t {
 } mem_block_t;
 
 typedef struct mem_fifo_pool_t {
-    mem_pool_t  funcs;
+    mem_pool_t  mp;
     union {
         mem_page_t *freepage;
         mem_pool_t **owner;
@@ -154,7 +154,7 @@ static uint32_t mem_page_size_left(mem_page_t *page)
 static void *mfp_alloc(mem_pool_t *_mfp, size_t size, size_t alignment,
                        mem_flags_t flags)
 {
-    mem_fifo_pool_t *mfp = container_of(_mfp, mem_fifo_pool_t, funcs);
+    mem_fifo_pool_t *mfp = container_of(_mfp, mem_fifo_pool_t, mp);
     mem_block_t *blk;
     mem_page_t *page;
     size_t req_size = size;
@@ -223,7 +223,7 @@ static void *mfp_alloc(mem_pool_t *_mfp, size_t size, size_t alignment,
 
 static void mfp_free(mem_pool_t *_mfp, void *mem)
 {
-    mem_fifo_pool_t *mfp = container_of(_mfp, mem_fifo_pool_t, funcs);
+    mem_fifo_pool_t *mfp = container_of(_mfp, mem_fifo_pool_t, mp);
     mem_block_t *blk;
     mem_page_t *page;
 
@@ -310,7 +310,7 @@ static void mfp_free(mem_pool_t *_mfp, void *mem)
 static void *mfp_realloc(mem_pool_t *_mfp, void *mem, size_t oldsize,
                          size_t size, size_t alignment, mem_flags_t flags)
 {
-    mem_fifo_pool_t *mfp = container_of(_mfp, mem_fifo_pool_t, funcs);
+    mem_fifo_pool_t *mfp = container_of(_mfp, mem_fifo_pool_t, mp);
     mem_block_t *blk;
     mem_page_t *page;
     bool guessed_size = false;
@@ -403,7 +403,7 @@ static void *mfp_realloc(mem_pool_t *_mfp, void *mem, size_t oldsize,
     return mem;
 }
 
-static mem_pool_t const mem_fifo_pool_funcs_g = {
+static mem_pool_t const mem_fifo_pool_base_g = {
     .malloc   = &mfp_alloc,
     .realloc  = &mfp_realloc,
     .free     = &mfp_free,
@@ -419,8 +419,8 @@ mem_pool_t *mem_fifo_pool_new(const char *name, int page_size_hint)
 
     /* bypass mem_pool if demanded */
     if (!mem_pool_is_enabled()) {
-        mfp->funcs = mem_pool_libc;
-        return &mfp->funcs;
+        mfp->mp = mem_pool_libc;
+        return &mfp->mp;
     }
 
     STATIC_ASSERT((offsetof(mem_page_t, area) % 8) == 0);
@@ -433,10 +433,10 @@ mem_pool_t *mem_fifo_pool_new(const char *name, int page_size_hint)
     mem_bench_init(&mfp->mem_bench, LSTR("fifo"), WRITE_PERIOD);
 #endif
 
-    mem_pool_set(&mfp->funcs, name, &_G.all_pools, &_G.all_pools_lock,
-                 &mem_fifo_pool_funcs_g, 0);
+    mem_pool_set(&mfp->mp, name, &_G.all_pools, &_G.all_pools_lock,
+                 &mem_fifo_pool_base_g, 0);
 
-    return &mfp->funcs;
+    return &mfp->mp;
 }
 
 void mem_fifo_pool_delete(mem_pool_t **poolp)
@@ -453,7 +453,7 @@ void mem_fifo_pool_delete(mem_pool_t **poolp)
         return;
     }
 
-    mfp = container_of(*poolp, mem_fifo_pool_t, funcs);
+    mfp = container_of(*poolp, mem_fifo_pool_t, mp);
 
     mem_pool_wipe(*poolp, &_G.all_pools_lock);
 
@@ -496,7 +496,7 @@ void mem_fifo_pool_stats(mem_pool_t *mp, ssize_t *allocated, ssize_t *used)
 void mem_fifo_pool_print_stats(mem_pool_t *mp)
 {
 #ifdef MEM_BENCH
-    mem_fifo_pool_t *mfp = container_of(mp, mem_fifo_pool_t, funcs);
+    mem_fifo_pool_t *mfp = container_of(mp, mem_fifo_pool_t, mp);
 
     /* bypass mem_pool if demanded */
     if (!mem_pool_is_enabled()) {
@@ -564,12 +564,12 @@ static void core_mem_fifo_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(mem_fifo_pool_t, fp, &_G.all_pools, funcs.pool_link)
+    dlist_for_each_entry(mem_fifo_pool_t, fp, &_G.all_pools, mp.pool_link)
     {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);
-        qv_append(tab, t_lstr_fmt("%s", fp->funcs.name));
+        qv_append(tab, t_lstr_fmt("%s", fp->mp.name));
         qv_append(tab, t_lstr_fmt("%p", fp));
 
         ADD_NUMBER_FIELD(fp->map_size);

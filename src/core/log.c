@@ -561,7 +561,7 @@ void logger_putv(const log_ctx_t *ctx, bool do_log,
         va_end(vc);
 
         free_last_buffer();
-        buffer = mp_new_raw(&log_thr_g.mp_stack.funcs, char, size_fmt);
+        buffer = mp_new_raw(&log_thr_g.mp_stack.mp, char, size_fmt);
         va_copy(vc, va);
         vsnprintf(buffer, size_fmt, fmt, vc);
         va_end(vc);

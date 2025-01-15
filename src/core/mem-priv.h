@@ -38,9 +38,9 @@ void mem_pool_list_clean(dlist_t *list, const char *pool_type,
 
 static inline void mem_pool_set(mem_pool_t *mp, const char *name,
                                 dlist_t *all_pools_list, spinlock_t *lock,
-                                const mem_pool_t *funcs, unsigned flags)
+                                const mem_pool_t *base, unsigned flags)
 {
-    *mp = *funcs;
+    *mp = *base;
 
     /* Check for non-user flags. */
     assert((flags & ~MEM_USER_FLAGS) == 0);
