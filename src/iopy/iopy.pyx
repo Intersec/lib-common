@@ -9018,7 +9018,6 @@ cdef int create_server_rpc(const iop_rpc_t *rpc,
     setattr(py_iface, rpc_name, py_rpc)
 
 
-@cython.internal
 @cython.final
 cdef class RPCArgs:
     """Arguments passed to callbacks of RPC server implementation"""

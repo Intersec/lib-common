@@ -17,7 +17,6 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-
 # XXX: python code for a subprocess called from z-iopy.py
 # this is to test the listen blocking server mode
 # this file contains the client part that connect to the server
@@ -31,7 +30,7 @@ import warnings
 import time
 import iopy
 
-def main():
+def main() -> None:
     plugin_file = sys.argv[1]
     uri         = sys.argv[2]
 
