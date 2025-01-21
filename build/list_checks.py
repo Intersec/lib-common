@@ -32,7 +32,7 @@ import sys
 import os
 import re
 
-from collections.abc import Generator
+from collections.abc import Iterator
 from typing import Optional
 
 
@@ -57,7 +57,7 @@ Z_TAG_SKIP = set(os.getenv("Z_TAG_SKIP", "").split())
 def dump_zfile(
         zfile: str,
         skipped_groups: list[str]
-) -> Generator[tuple[str, str, Optional[str]], None, None]:
+) -> Iterator[tuple[str, str, Optional[str]]]:
     folder = os.path.dirname(zfile)
 
     with open(zfile, 'r') as zfile_fd:
@@ -84,7 +84,7 @@ def dump_zfile(
                     break
 
 
-def fetch_zfiles(root: str) -> Generator[str, None, None]:
+def fetch_zfiles(root: str) -> Iterator[str]:
     paths = os.getenv('Z_SKIP_PATH', None)
     skip = None
 

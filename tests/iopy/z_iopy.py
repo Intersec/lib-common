@@ -32,7 +32,8 @@ import asyncio
 
 from contextlib import contextmanager
 
-from typing import Any, Optional, Generator, Union
+from typing import Any, Optional, Union
+from collections.abc import Iterator
 
 SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
@@ -127,7 +128,7 @@ def z_iopy_test_threads_and_forks(
 
 @contextmanager
 def z_iopy_use_fake_tcp_server(
-        uri: str) -> Generator[socket.socket, None, None]:
+        uri: str) -> Iterator[socket.socket]:
     addr, port_str = uri.split(':')
     port = int(port_str)
 
