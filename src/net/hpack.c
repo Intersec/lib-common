@@ -883,6 +883,7 @@ static struct {
 };
 
 #define LOGE(fmt, ...) logger_error(&hpack_g.logger, fmt, ##__VA_ARGS__)
+#define LOGT(fmt, ...) logger_trace(&hpack_g.logger, 2, fmt, ##__VA_ARGS__)
 
 int hpack_decoder_read_dts_update_(hpack_dec_dtbl_t *dtbl, pstream_t *in)
 {
@@ -901,29 +902,21 @@ int hpack_decoder_read_dts_update_(hpack_dec_dtbl_t *dtbl, pstream_t *in)
     return 1;
 }
 
-
-/* flags for hpack_xhdr_t */
-enum {
-    XHDR_ADD_DTBL = 1 << 0,
-    XHDR_NEW_KEY  = 1 << 1,
-    XHDR_NEW_VAL  = 1 << 2,
-    XHDR_RAW_KEY  = 1 << 3,
-    XHDR_RAW_VAL  = 1 << 4,
-};
-
-int hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
-                              hpack_xhdr_t *xhdr)
+hpack_parser_status_t
+hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
+                          hpack_xhdr_t *xhdr, int *nonnull entry_len)
 {
     uint32_t idx;
     bool new_val;
     bool add_dtbl;
+    bool missing_entry = false;
     uint8_t prefix_bits;
     unsigned flags;
     pstream_t key;
     pstream_t val;
     uint32_t len;
-    uint32_t keylen;
-    uint32_t vallen;
+    uint32_t keylen = 0;
+    uint32_t vallen = 0;
 
     assert(dtbl->tbl_size_limit <= dtbl->tbl_size_max);
     assert(ps_has(in, 1));
@@ -936,7 +929,8 @@ int hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
         prefix_bits = 6;
         add_dtbl = new_val = true;
     } else if (in->b[0] >= 0x20u) {
-        return LOGE("unexpected dts update while reading a header");
+        LOGE("unexpected dts update while reading a header");
+        return HPACK_PARSER_STATUS_ERROR;
     } else {
         /* Literal Header Representation without Indexing / Never Indexed */
         prefix_bits = 4;
@@ -944,26 +938,30 @@ int hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
         add_dtbl = false;
     }
     if (hpack_decode_int(in, prefix_bits, &idx)) {
-        return LOGE("unable to decode a header's index");
+        LOGE("unable to decode a header's index");
+        return HPACK_PARSER_STATUS_ERROR;
     }
     if (!idx && !new_val) {
         /* Indexed Header Representation with 0 index */
-        return LOGE("unexpected index: 0");
+        LOGE("unexpected index: 0");
+        return HPACK_PARSER_STATUS_ERROR;
     }
     flags = 0;
     if (!idx) {
         /* New Name (key) */
-        flags |= XHDR_NEW_KEY;
-        flags = in->b[0] < 0x80 ? flags | XHDR_RAW_KEY : flags;
+        flags |= HPACK_XHDR_NEW_KEY;
+        flags = in->b[0] < 0x80 ? flags | HPACK_XHDR_RAW_KEY : flags;
         if (hpack_decode_int(in, 7, &len)) {
-            return LOGE("unable to decode the key length");
+            LOGE("unable to decode the key length");
+            return HPACK_PARSER_STATUS_ERROR;
         }
         if (!ps_has(in, len)) {
-            return LOGE("key length is bigger than the containing header");
+            LOGE("key length is bigger than the containing header");
+            return HPACK_PARSER_STATUS_ERROR;
         }
         key = __ps_get_ps(in, len);
         /* XXX: huffman encoding maximum compression ratio: 5/8 */
-        keylen = (flags & XHDR_RAW_KEY) ? len : 2u * len;
+        keylen = (flags & HPACK_XHDR_RAW_KEY) ? len : 2u * len;
     } else if (idx <= HPACK_STBL_IDX_MAX) {
         keylen = hpack_stbl_g[idx].key.len;
         vallen = hpack_stbl_g[idx].val.len;
@@ -974,23 +972,26 @@ int hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
         keylen = ent->key.len;
         vallen = ent->val.len;
     } else {
-        return LOGE("unexpected idx: %u", idx);
+        LOGT("unexpected idx: %u", idx);
+        missing_entry = true;
     }
     if (new_val) {
-        flags |= XHDR_NEW_VAL;
-        flags = in->b[0] < 0x80 ? flags | XHDR_RAW_VAL : flags;
+        flags |= HPACK_XHDR_NEW_VAL;
+        flags = in->b[0] < 0x80 ? flags | HPACK_XHDR_RAW_VAL : flags;
         if (hpack_decode_int(in, 7, &len)) {
-            return LOGE("unable to decode the value length");
+            LOGE("unable to decode the value length");
+            return HPACK_PARSER_STATUS_ERROR;
         }
         if (!ps_has(in, len)) {
-            return LOGE("value length is bigger than the containing header");
+            LOGE("value length is bigger than the containing header");
+            return HPACK_PARSER_STATUS_ERROR;
         }
         val = __ps_get_ps(in, len);
         /* XXX: huffman encoding maximum compression ratio: 5/8 */
-        vallen = (flags & XHDR_RAW_KEY) ? len : 2u * len;
+        vallen = (flags & HPACK_XHDR_RAW_KEY) ? len : 2u * len;
     }
     if (add_dtbl) {
-        flags |= XHDR_ADD_DTBL;
+        flags |= HPACK_XHDR_ADD_DTBL;
     }
     xhdr->flags = flags;
     if (idx) {
@@ -1001,7 +1002,12 @@ int hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
     if (new_val) {
         xhdr->val = val;
     }
-    return keylen + vallen;
+    *entry_len = keylen + vallen;
+
+    if (missing_entry) {
+        return HPACK_PARSER_STATUS_MISSING_ENTRY;
+    }
+    return HPACK_PARSER_STATUS_OK;
 }
 
 int hpack_decoder_write_hdr(hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr,
@@ -1013,9 +1019,9 @@ int hpack_decoder_write_hdr(hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr,
     lstr_t val;
     int len;
 
-    if (xhdr->flags & XHDR_NEW_KEY) {
-        assert(xhdr->flags & XHDR_NEW_VAL);
-        if (xhdr->flags & XHDR_RAW_KEY) {
+    if (xhdr->flags & HPACK_XHDR_NEW_KEY) {
+        assert(xhdr->flags & HPACK_XHDR_NEW_VAL);
+        if (xhdr->flags & HPACK_XHDR_RAW_KEY) {
             p_copy(out, xhdr->key.b, ps_len(&xhdr->key));
             key = LSTR_PS_V(&xhdr->key);
         } else {
@@ -1044,8 +1050,8 @@ int hpack_decoder_write_hdr(hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr,
     out += key.len;
     *out++ = ':';
     *out++ = ' ';
-    if (xhdr->flags & XHDR_NEW_VAL) {
-        if (xhdr->flags & XHDR_RAW_VAL) {
+    if (xhdr->flags & HPACK_XHDR_NEW_VAL) {
+        if (xhdr->flags & HPACK_XHDR_RAW_VAL) {
             p_copy(out, xhdr->val.b, ps_len(&xhdr->val));
             val = LSTR_PS_V(&xhdr->val);
         } else {
@@ -1061,9 +1067,9 @@ int hpack_decoder_write_hdr(hpack_dec_dtbl_t *dtbl, hpack_xhdr_t *xhdr,
     out += val.len;
     *out++ = '\r';
     *out++ = '\n';
-    if (xhdr->flags & XHDR_ADD_DTBL) {
-        assert(xhdr->flags & XHDR_NEW_VAL);
-        if (xhdr->flags & XHDR_NEW_KEY) {
+    if (xhdr->flags & HPACK_XHDR_ADD_DTBL) {
+        assert(xhdr->flags & HPACK_XHDR_NEW_VAL);
+        if (xhdr->flags & HPACK_XHDR_NEW_KEY) {
             key = lstr_dup(key);
         } else if (ent) {
             /* new entry in the dyn. table with the same key, old entry loses

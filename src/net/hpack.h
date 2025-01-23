@@ -136,6 +136,15 @@ static inline int hpack_dec_dtbl_get_count(hpack_dec_dtbl_t *dtbl)
 /* }}} */
 /* Encoder API */
 
+/* flags for hpack_xhdr_t */
+enum {
+    HPACK_XHDR_ADD_DTBL = 1 << 0,
+    HPACK_XHDR_NEW_KEY  = 1 << 1,
+    HPACK_XHDR_NEW_VAL  = 1 << 2,
+    HPACK_XHDR_RAW_KEY  = 1 << 3,
+    HPACK_XHDR_RAW_VAL  = 1 << 4,
+};
+
 /* flag values to control the header encoding function */
 enum {
     HPACK_FLG_NOZIP_KEY   = 1u << 0,  /* Encode key as-is (raw)             */
@@ -171,7 +180,7 @@ hpack_buflen_to_write_hdr(lstr_t key, lstr_t val, unsigned flags)
  * what we should expect at the decoder side in the following cases:
  *   1. encoder receives & acknowledges settings with a size equal to the
  * current setting value, so there is no real change in the maximum dtbl size.
- * Shall we send a dts update in this case? 
+ * Shall we send a dts update in this case?
  *   2. decoder receives "un-solicited" dynamic table size updates, i.e,
  * the decoder has not sent a setting frame that changes the maximum dynamic
  * table size.
@@ -226,12 +235,24 @@ typedef struct hpack_xhdr_t {
     unsigned flags;
 } hpack_xhdr_t;
 
+typedef enum hpack_parser_status_t {
+    HPACK_PARSER_STATUS_MISSING_ENTRY = -2,
+    HPACK_PARSER_STATUS_ERROR = -1,
+    HPACK_PARSER_STATUS_OK = 0,
+} hpack_parser_status_t;
+
 /** Extract the next hdr to decode from \p in into \p xhdr
  *
- * \return an estimate of bufflen to decode the header, or -1 on error
+ * \param[in]   enc   dtbl encoder
+ * \param[in]   in    buffer to extract the header from
+ * \param[out]  xhdr  extracted header
+ * \param[out]  entry_len  estimate of bufflen to decode the header
+ *
+ * \return 0 on success, -1 on error and -2 on a missing dtbl entry
  */
-int hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
-                              hpack_xhdr_t *xhdr);
+hpack_parser_status_t
+hpack_decoder_extract_hdr(hpack_dec_dtbl_t *dtbl, pstream_t *in,
+                          hpack_xhdr_t *xhdr, int *nonnull entry_len);
 
 /** Decode and write the header line referenced by \p xhdr into \p out
  *

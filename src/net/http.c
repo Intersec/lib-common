@@ -4690,7 +4690,7 @@ t_http2_conn_decode_header_block(http2_conn_t *w, pstream_t in,
         lstr_t key;
         lstr_t val;
 
-        len = RETHROW(hpack_decoder_extract_hdr(dec, &in, &xhdr));
+        RETHROW(hpack_decoder_extract_hdr(dec, &in, &xhdr, &len));
         out = (byte *)sb_grow(buf, len);
         /* XXX: Decoded header is unpacked into the following format:
          * <DECODED_KEY> + ": " + <DECODED_VALUE> + "\r\n".

@@ -577,10 +577,12 @@ Z_GROUP_EXPORT(hpack_headers) {
     do {                                                                     \
         t_scope;                                                             \
         hpack_xhdr_t xhdr_;                                                  \
-        int len_ = hpack_decoder_extract_hdr(&(dtbl), &in, &xhdr_);          \
+        int len_;                                                            \
         int keylen_;                                                         \
         byte *out_;                                                          \
                                                                              \
+        Z_ASSERT_ZERO(hpack_decoder_extract_hdr(&(dtbl), &in, &xhdr_,        \
+                                                &len_));                     \
         Z_ASSERT_N(len_);                                                    \
         out_ = t_new(byte, len_ + 4);                                        \
         len_ = hpack_decoder_write_hdr(&(dtbl), &xhdr_, out_, &keylen_);     \
@@ -710,7 +712,7 @@ z_hpack_dec_hdrs_test(hpack_dec_dtbl_t *dtbl, pstream_t *in, lstr_t exp_hdrs)
     byte *out;
 
     while (!ps_done(in)) {
-        len = hpack_decoder_extract_hdr(dtbl, in, &xhdr);
+        Z_ASSERT_ZERO(hpack_decoder_extract_hdr(dtbl, in, &xhdr, &len));
         Z_ASSERT_N(len);
         out = (byte *)sb_grow(&buf, len);
         len = hpack_decoder_write_hdr(dtbl, &xhdr, out, &keylen);
