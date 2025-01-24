@@ -3125,6 +3125,11 @@ static int __ic_connect(ichannel_t *ic, int flags, int timeout)
         if (ic->remote_addr.s) {
             SB_1k(err);
 
+            /* Address must be resolved. Ensure resolution can be performed
+             * again in ic_get_client_addr() function by wiping client_addr
+             * content. */
+            lstr_wipe(&ic->client_addr);
+
             if (addr_resolve_with_err(ic->name.s, ic->remote_addr, &ic->su,
                                       &err) < 0)
             {
