@@ -446,12 +446,10 @@ bool mem_tool_is_running(unsigned tools)
     return false;
 }
 
-#if __GNUC_PREREQ(4, 6) && !__VALGRIND_PREREQ(3, 7)
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#endif
+CC_WARNING_IGNORE_PUSH
 
 #if !__VALGRIND_PREREQ(3, 7)
+CC_WARNING_IGNORE_UNUSED_BUT_SET_VARIABLE
 # define IGNORE_RET(expr)  ({ (expr); })
 #else
 # define IGNORE_RET(expr)  expr
@@ -573,9 +571,7 @@ void mem_tool_resize_block(const void *mem, size_t old_len, size_t new_len,
     }
 }
 
-#if __GNUC_PREREQ(4, 6) && !__VALGRIND_PREREQ(3, 7)
-#  pragma GCC diagnostic pop
-#endif
+CC_WARNING_IGNORE_POP
 
 #endif
 

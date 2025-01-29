@@ -44,6 +44,120 @@
 
 /* {{{ GNU extension wrappers */
 
+/* {{{ Helpers to handle compiler warnings */
+
+/** Below is the definition of several macro to ignore compiler warnings.
+ *
+ * The CC_HAS_WARNING macro checks if the current compiler supports a warning.
+ * Since GCC doesn't support checking directly a warning option name, it is
+ * required to specify the GCC version supporting the option.
+ *
+ * CC_WARNING_IGNORE_PUSH and CC_WARNING_IGNORE_POP are equivalent to the
+ * #pragma diagnostic push and pop directives but ignoring old GCC versions
+ * which don't support them.
+ *
+ * The CC_WARNING_IGNORE macro allows to disable a specific warning and should
+ * be used between the CC_WARNING_IGNORE_PUSH and CC_WARNING_IGNORE_POP
+ * macros.
+ *
+ * General usage pattern looks like:
+ *
+ * \code
+ * CC_WARNING_IGNORE_PUSH
+ * #if CC_HAS_WARNING("-Wformat-nonliteral", 4, 2)
+ *     CC_WARNING_IGNORE("-Wformat-nonliteral")
+ * #endif
+ *
+ * // Some code triggering an unwanted -Wformat-nonliteral
+ *
+ * CC_WARNING_IGNORE_POP
+ * \endcode
+ *
+ * But since it's a pain to always check which GCC version introduces which
+ * warning, several common helpers are provided like this:
+ *
+ * \code
+ * CC_WARNING_IGNORE_PUSH
+ * CC_WARNING_IGNORE_FORMAT_NONLITERAL
+ *
+ * // Some code triggering an unwanted -Wformat-nonliteral
+ *
+ * CC_WARNING_IGNORE_POP
+ * \endcode
+ */
+#define CC_HAS_WARNING(warn_option, gnuc_maj, gnuc_min) \
+    /* Note: __has_warning exist since clang 3.6 and do not exist at all for \
+     * GCC, which is why checking for GCC version with __GNUC_PREREQ is      \
+     * necessary.                                                            \
+     */                                                                      \
+    (__has_warning(warn_option) || __GNUC_PREREQ(gnuc_maj, gnuc_min))
+
+#if __GNUC_PREREQ(4, 6) || __CLANG_PREREQ(3, 0)
+# define CC_WARNING_IGNORE_PUSH \
+      _Pragma("GCC diagnostic push")
+# define CC_WARNING_IGNORE_POP \
+      _Pragma("GCC diagnostic pop")
+#else
+# define CC_WARNING_IGNORE_PUSH
+# define CC_WARNING_IGNORE_POP
+#endif
+
+#define __DO_PRAGMA(x) _Pragma (#x)
+
+#define CC_WARNING_IGNORE(warn_option) \
+    __DO_PRAGMA(GCC diagnostic ignored warn_option)
+
+#if CC_HAS_WARNING("-Wformat-nonliteral", 4, 2)
+# define CC_WARNING_IGNORE_FORMAT_NONLITERAL \
+     CC_WARNING_IGNORE("-Wformat-nonliteral")
+#else
+# define CC_WARNING_IGNORE_FORMAT_NONLITERAL
+#endif
+
+#if CC_HAS_WARNING("-Wsign-compare", 4, 2)
+# define CC_WARNING_IGNORE_SIGN_COMPARE \
+     CC_WARNING_IGNORE("-Wsign-compare")
+#else
+# define CC_WARNING_IGNORE_SIGN_COMPARE
+#endif
+
+#if CC_HAS_WARNING("-Wunused-but-set-variable", 4, 6)
+# define CC_WARNING_IGNORE_UNUSED_BUT_SET_VARIABLE \
+     CC_WARNING_IGNORE("-Wunused-but-set-variable")
+#else
+# define CC_WARNING_IGNORE_UNUSED_BUT_SET_VARIABLE
+#endif
+
+#if CC_HAS_WARNING("-Wcast-function-type", 8, 0)
+# define CC_WARNING_IGNORE_CAST_FUNCTION_TYPE \
+     CC_WARNING_IGNORE("-Wcast-function-type")
+#else
+# define CC_WARNING_IGNORE_CAST_FUNCTION_TYPE
+#endif
+
+#if CC_HAS_WARNING("-Wunused-value", 11, 2)
+# define CC_WARNING_IGNORE_UNUSED_VALUE \
+     CC_WARNING_IGNORE("-Wunused-value")
+#else
+# define CC_WARNING_IGNORE_UNUSED_VALUE
+#endif
+
+#if CC_HAS_WARNING("-Warray-bounds", 14, 0)
+# define CC_WARNING_IGNORE_ARRAY_BOUNDS \
+     CC_WARNING_IGNORE("-Warray-bounds")
+#else
+# define CC_WARNING_IGNORE_ARRAY_BOUNDS
+#endif
+
+#if __has_warning("-Wcast-function-type-mismatch")
+# define CC_WARNING_IGNORE_CAST_FUNCTION_TYPE_MISMATCH \
+     CC_WARNING_IGNORE("-Wcast-function-type-mismatch")
+#else
+# define CC_WARNING_IGNORE_CAST_FUNCTION_TYPE_MISMATCH
+#endif
+
+/* }}} */
+
 #if !defined(__doxygen_mode__)
 # if !__GNUC_PREREQ(3, 0) && !defined(__clang__)
 #   define __attribute__(attr)

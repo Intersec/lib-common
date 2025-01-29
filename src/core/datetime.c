@@ -594,9 +594,8 @@ int time_diff_days(time_t from, time_t to)
     return tm_diff_days(&tm_from, &tm_to);
 }
 
-#if __GNUC_PREREQ(4, 2)
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
-#endif
+CC_WARNING_IGNORE_PUSH
+CC_WARNING_IGNORE_FORMAT_NONLITERAL
 int format_timestamp(const char *fmt, time_t ts, const char *locale,
                      char out[], int out_size)
 {
@@ -627,9 +626,7 @@ int format_timestamp(const char *fmt, time_t ts, const char *locale,
     }
     return ret;
 }
-#if __GNUC_PREREQ(4, 2)
-#pragma GCC diagnostic warning "-Wformat-nonliteral"
-#endif
+CC_WARNING_IGNORE_POP
 
 /* }}} */
 /* {{{ Timers for benchmarks */
