@@ -16,11 +16,6 @@
 #                                                                         #
 ###########################################################################
 # cython: language_level=3
-# XXX: Cython is complaining about its own code with warn.undeclared.
-#      Activate manually to see the warning.
-#-cython: warn.undeclared=True
-# cython: warn.maybe_uninitialized=True
-# cython: warn.unused=True
 
 cimport cython
 
@@ -109,10 +104,6 @@ cdef struct IopyGlobal:
 
 # Global variable for the module.
 cdef IopyGlobal iopy_g
-
-
-# Dictionary that is used to create metaclasses
-cdef dict empty_init_metaclass_dict_g = {}
 
 
 # Dictionary to be used as class attributes
@@ -342,112 +333,68 @@ class UnexpectedExceptionWarning(Warning):
 
 
 # }}}
-# {{{ Base metaclass holder
-
-
-@cython.internal
-cdef class _InternalBaseHolder(type):
-    """Internal metaclass to hold plugin and flag if the class has been
-    upgraded through plugin metaclasses.
-
-    See comment in plugin metaclass fold.
-    """
-    cdef cbool is_metaclass_upgraded
-    cdef Plugin plugin
-
-
-# }}}
 # {{{ Types
 
 # Class inheritance
-#
-# Each generated iopy class is composed of two parts, a class proxy and a
-# public class interface.
-#
-# When the user wants to upgrade an iopy class, the new custom class is
-# inserted between the proxy and the public interface. This way, the
-# child classes can benefit from the custom class.
-#
-# The proxy class contains a class variable _iop_type that points to the
-# instance of the Cython extension type.
 #
 # Because Cython extension types does not support C class variables, IOPy
 # types do not directly hold the C IOP type descriptor (iop_enum_t or
 # iop_struct_t).
 #
 # To solve this issue, we will need to store this information on the type of
-# the IOPy types. A.k.a, we need to use metaclasses. However, we also need to
-# create these metaclasses dynamically. So we need a metaclass that create
-# metaclass that will hold the C IOP type descriptor and will create the IOPy
-# types.
+# the IOPy types. A.k.a, we need to use metaclasses.
 #
-# This complex types hierarchy permits us to be able to quickly get the C IOP
-# type descriptor `type(type(obj)).desc', and avoid using a standard python
-# class variable with a dictionary lookup.
+# This permits us to be able to quickly get the C IOP type descriptor
+# `type(obj).desc', and avoid using a standard python class variable with a
+# dictionary lookup.
 #
 # Below is an example of the generated classes from the IOP classes A and B
 # where B inherits from A. The structure of the classes inheritance is the
-# same for enum, union and struct except that the generated proxy class can
-# only inherits from EnumBase, UnionBase and StructBase respectively.
+# same for enum, union and struct except that the class can only inherits
+# from EnumBase, UnionBase and StructBase respectively.
 #
-#  +---------------+
-#  |iopy.StructBase|                    +------------------------+
-#  +-------+-------+                    |_InternalStructUnionType|
-#          |                            +------------------------+
-#    +-----v-----+-----+                            ^
-#    |  A_proxy  |     |                       type | instance
-#    +-----+-----+     |                            |
-#          |           | type                       |
-#  +=======v========+------------>+----------+------+
-#  | custom A class |  | instance |  A_meta  |      |
-#  +=======+========+  |          +----------+      |
-#          |           |          |IOP desc A|      |
-# +--------v---------+-+          +----+-----+      |
-# |        A         |                 |            |
-# |(public interface)|                 |            |
-# +--------+---------+                 |            |
-#          |                           |            |
-#    +-----v-----+-----+               |            |
-#    |  B_proxy  |     |               |            |
-#    +-----+-----+     |               |            |
-#          |           | type          |            |
-#  +=======v========+------------>+----v-----+------+
-#  | custom B class |  | instance |  B_meta  |
-#  +=======+========+  |          +----------+
-#          |           |          |IOP desc B|
-# +--------v---------+-+          +----------+
-# |        B         |
-# |(public interface)|
-# +------------------+
+#  +---------------+          +------------------------+
+#  |iopy.StructBase|          |_InternalStructUnionType|
+#  +-------+-------+          +------------------------+
+#          |                  |        IOP desc        |
+#          |                  +------------------------+
+#          |           type               ^
+#    +-----v-----+----------------------- +
+#    |     A     |     instance           |
+#    +-----+-----+                        |
+#          |           type               |
+#    +-----v-----+------------------------+
+#    |     B     |     instance
+#    +-----+-----+
 #
 #
 # In order to maintain the backward compatibility, a typedef class is a proxy
 # class to the referenced type.
-# Metaclasses are created to integrate typedefs within the type hierarchy:
+# However, we also need to inherit the typedef metaclasses from the
+# enum or struct/union metaclass.
+# And since cdef classes can only inherits from one cdef class, we need to
+# create three different typedef metaclasses for each primitive, enum, and
+# struct/union types.
 #
-#  +---------------+
-#  |iopy.StructBase|                    +------------------------+
-#  +-------+-------+                    |_InternalStructUnionType|
-#          |                            +------------------------+
-#    +-----v-----+-----+                            ^
-#    |  A_proxy  |     |                       type | instance
-#    +-----+-----+     |                            |
-#          |           | type                       |
-#  +=======v========+------------>+----------+------+
-#  | custom A class |  | instance |  A_meta  |
-#  +=======+========+  |          +----------+
-#          |           |          |IOP desc A|     +-------------------+
-# +--------v---------+-+          +----+-----+     | _TypedefMetaclass |
-# |        A         |                 |           +-+-----------------+
-# |(public interface)|                 |             |
-# +--------+---------+                 |      +------+
-#          |            type           |      |
-# +--------v---------+-------------->+-v------v------+
-# |     ATypedef     | instance      | ATypedef_meta |
-# +------------------+               +---------------+
-#                                    | IOP typedef   |
-#                                    | ATypedef      |
-#                                    +---------------+
+# +---------------+          +------------------------+
+# |iopy.StructBase|          |_InternalStructUnionType|
+# +-------+-------+          +------------------------+
+#         |                  |        IOP desc        |
+#         |                  +-----------+------------+
+#         |                       ^      |
+#         |                       |      |
+#         |           type        |      |        +------------------+
+#   +-----v-----+------------------      |        | _TypedefBaseType |
+#   |     A     |     instance           |        +--------+---------+
+#   +-----+-----+                        |                 |
+#         |                              |  +--------------+
+#         |                              |  |
+#         |        type                  |  |
+#   +-----v-----+--------->+-------------v--v--------+
+#   |  ATypedef | instance | _TypedefStructUnionType |
+#   +-----+-----+          |-------------------------|
+#                          |    IOP typedef desc     |
+#                          +-------------------------+
 #
 # With the following assertions:
 # ----
@@ -535,22 +482,27 @@ cdef IopHelpDescription make_iop_help_description(const iop_help_t *iop_help,
     return res
 
 
+@cython.internal
+cdef class _InternalBaseType(type):
+    """Internal base metaclass to hold plugin and flag if the class has been
+    upgraded through plugin metaclasses.
+
+    See comment in plugin metaclass fold.
+    """
+    cdef Plugin plugin
+
+
 # }}}
 # {{{ Enum
 
 
 @cython.internal
-@cython.final
-cdef class _InternalEnumType(_InternalBaseHolder):
-    """Internal metaclass to hold C enum iop desc."""
+cdef class _InternalEnumType(_InternalBaseType):
+    """Base metaclass of enum class types"""
     cdef const iop_enum_t *desc
 
-
-@cython.internal
-cdef class _InternalEnumMetaclass(type):
-    """Base metaclass of enum class types"""
     @property
-    def __dict__(_InternalEnumMetaclass cls):
+    def __dict__(_InternalEnumType cls):
         """Return the values of the enum type.
 
         Parameters
@@ -870,7 +822,7 @@ cdef inline const iop_enum_t *enum_get_desc_cls(object cls) except NULL:
     -------
         The C enum iop type.
     """
-    cdef _InternalEnumType iop_type = type(cls)
+    cdef _InternalEnumType iop_type = cls
 
     return iop_type.desc
 
@@ -1319,16 +1271,11 @@ cdef tuple enum_make_iop_value_aliases(const iop_enum_t *en, int pos):
 
 
 @cython.internal
-@cython.final
-cdef class _InternalStructUnionType(_InternalBaseHolder):
-    """Internal metaclass to hold C iop struct and union type"""
+cdef class _InternalStructUnionType(_InternalBaseType):
     cdef const iop_struct_t *desc
 
-
-@cython.internal
-cdef class _InternalStructUnionMetaclass(type):
     """Base metaclass of struct and union class types"""
-    def __call__(_InternalStructUnionMetaclass cls, *args, **kwargs):
+    def __call__(_InternalStructUnionType cls, *args, **kwargs):
         cdef StructUnionBase obj
         cdef dict new_kwargs
 
@@ -1768,7 +1715,7 @@ cdef inline _InternalStructUnionType struct_union_get_iop_type_cls(
     -------
         The internal object that holds the C iop struct and union desc.
     """
-    return type(cls)
+    return cls
 
 
 cdef inline _InternalStructUnionType struct_union_get_iop_type(
@@ -3465,7 +3412,6 @@ cdef StructUnionBase struct_union_get_cls_and_create_obj(
     cdef _InternalStructUnionType iop_type
     cdef const iop_struct_t *st
     cdef Plugin plugin
-    cdef _InternalTypeClasses type_classes
     cdef object real_cls
 
     real_cls_name = kwargs.get('_class', None)
@@ -3482,11 +3428,9 @@ cdef StructUnionBase struct_union_get_cls_and_create_obj(
         raise TypeError('IOPy type `%s` is not a class' % cls.__name__)
 
     plugin = iop_type.plugin
-    type_classes = plugin_get_type_classes(plugin, real_cls_name)
-    if type_classes is None:
+    real_cls = plugin.types.get(real_cls_name)
+    if real_cls is None:
         raise TypeError('unknown IOPy type `%s`' % real_cls_name)
-
-    real_cls = type_classes.public_cls
     if not issubclass(real_cls, cls):
         raise TypeError('IOPy type `%s` is not a child type of IOPy type `%s`'
                        % (real_cls.__name__, cls.__name__))
@@ -6664,43 +6608,60 @@ cdef object struct_fill_fields_dict_field(Plugin plugin, StructBase py_obj,
 # {{{ Typedef
 
 
-@cython.internal
-cdef class _TypedefMetaclass(type):
-    """The metaclass used to create typedef IOPy classes.
+# XXX: We need to split the different typedef metaclasses because we need to
+# inherit from the enum/struct/union metaclasses.
+# However, we cannot have a class that inherits from two cdefs:
+#   TypeError: multiple bases have instance lay-out conflict
+# So we need to create intermediary classes to have the correct layout in for
+# each primitive, enum, and struct/union types.
 
-    The created class will act like a proxy to the real referenced class.
+
+cdef object _TypedefBaseType
+class _TypedefBaseType:
+    """The base method metaclass used to create typedef IOPy classes.
+
+    This class is designed to be inherited by the real metaclasses.
     """
-    cdef Plugin plugin
-    cdef object referenced_type
-    cdef const iop_typedef_t *td
 
-    def __instancecheck__(_TypedefMetaclass cls, object obj):
+    def __instancecheck__(object cls, object obj):
         """An object is an instance of this type if the object is an instance
         of the referenced class."""
-        return isinstance(obj, cls.referenced_type)
+        cdef object referenced_type = typedef_get_referenced_type(cls)
 
-    def __subclasscheck__(_TypedefMetaclass cls, object subcls):
+        return isinstance(obj, referenced_type)
+
+    def __subclasscheck__(object cls, object subcls):
         """A class is a subclass of this type if the class is a subclass of
         the referenced class."""
-        return issubclass(subcls, cls.referenced_type)
+        cdef object referenced_type = typedef_get_referenced_type(cls)
 
-    def __eq__(_TypedefMetaclass cls, object other):
+        return issubclass(subcls, referenced_type)
+
+    def __eq__(object cls, object other):
         """A class is a equal of this type if the class is equal to the
         referenced class."""
-        return cls.referenced_type == other
+        cdef object referenced_type = typedef_get_referenced_type(cls)
 
-    def __call__(_TypedefMetaclass cls, *args, **kwargs):
+        return referenced_type == other
+
+    def __call__(object cls, *args, **kwargs):
         """Create an instance of the reference class with the given arguments.
         """
-        return cls.referenced_type(*args, **kwargs)
+        cdef object referenced_type = typedef_get_referenced_type(cls)
 
-    def __getattribute__(_TypedefMetaclass cls, object name):
+        return referenced_type(*args, **kwargs)
+
+    def __getattribute__(object cls, object name):
         """Force get the attributes from the referenced type directly."""
+        cdef object referenced_type
+
         if name == 'get_typedef_description':
             return PyObject_GenericGetAttr(cls, name)
-        return getattr(cls.referenced_type, name)
 
-    def get_typedef_description(_TypedefMetaclass cls):
+        referenced_type = typedef_get_referenced_type(cls)
+        return getattr(referenced_type, name)
+
+    def get_typedef_description(object cls):
         """Get the typedef IOP description for this typedef.
 
         Returns
@@ -6708,7 +6669,88 @@ cdef class _TypedefMetaclass(type):
         TypedefDescription
             The typedef IOP description.
         """
-        return typedef_make_iop_description(cls)
+        cdef Plugin plugin = typedef_get_plugin(cls)
+        cdef const iop_typedef_t *td = typedef_get_iop_typedef(cls)
+
+        return typedef_make_iop_description(plugin, td)
+
+
+cdef class _TypedefPrimitiveBaseType(_InternalBaseType):
+    """Base cdef metaclass for a primitive typedef"""
+    cdef object referenced_type
+    cdef const iop_typedef_t *td
+
+
+cdef object _TypedefPrimitiveType
+class _TypedefPrimitiveType(_TypedefBaseType, _TypedefPrimitiveBaseType):
+    """Metaclass for a primitive typedef"""
+
+
+cdef class _TypedefEnumBaseType(_InternalEnumType):
+    """Base cdef metaclass for an enum typedef"""
+    cdef object referenced_type
+    cdef const iop_typedef_t *td
+
+
+cdef object _TypedefEnumType
+class _TypedefEnumType(_TypedefBaseType, _TypedefEnumBaseType):
+    """Metaclass for an enum typedef"""
+
+
+cdef class _TypedefStructUnionBaseType(_InternalStructUnionType):
+    """Base cdef metaclass for a struct/union typedef"""
+    cdef object referenced_type
+    cdef const iop_typedef_t *td
+
+
+cdef object _TypedefStructUnionType
+class _TypedefStructUnionType(_TypedefBaseType, _TypedefStructUnionBaseType):
+    """Metaclass for a struct/union typedef"""
+
+
+cdef inline object typedef_get_referenced_type(object cls):
+    """Get the referenced type for the given typedef metaclass"""
+    cdef object metacls = type(cls)
+
+    if issubclass(_TypedefPrimitiveType, metacls):
+        return (<_TypedefPrimitiveBaseType>cls).referenced_type
+    elif issubclass(_TypedefEnumType, metacls):
+        return (<_TypedefEnumBaseType>cls).referenced_type
+    elif issubclass(_TypedefStructUnionType, metacls):
+        return (<_TypedefStructUnionBaseType>cls).referenced_type
+
+    cassert(False)
+    return None
+
+
+cdef inline const iop_typedef_t *typedef_get_iop_typedef(object cls):
+    """Get the C typedef description for the given typedef metaclass"""
+    cdef object metacls = type(cls)
+
+    if issubclass(_TypedefPrimitiveType, metacls):
+        return (<_TypedefPrimitiveBaseType>cls).td
+    elif issubclass(_TypedefEnumType, metacls):
+        return (<_TypedefEnumBaseType>cls).td
+    elif issubclass(_TypedefStructUnionType, metacls):
+        return (<_TypedefStructUnionBaseType>cls).td
+
+    cassert(False)
+    return NULL
+
+
+cdef inline Plugin typedef_get_plugin(object cls):
+    """Get the Plugin for the given typedef metaclass"""
+    cdef object metacls = type(cls)
+
+    if issubclass(_TypedefPrimitiveType, metacls):
+        return (<_TypedefPrimitiveBaseType>cls).plugin
+    elif issubclass(_TypedefEnumType, metacls):
+        return (<_TypedefEnumBaseType>cls).plugin
+    elif issubclass(_TypedefStructUnionType, metacls):
+        return (<_TypedefStructUnionBaseType>cls).plugin
+
+    cassert(False)
+    return None
 
 
 @cython.final
@@ -6727,12 +6769,14 @@ cdef class TypedefDescription:
 
 
 cdef TypedefDescription typedef_make_iop_description(
-        _TypedefMetaclass td_cls):
+        Plugin plugin, const iop_typedef_t *td):
     """
     Parameters
     ----------
-    td_cls
-        The typedef class.
+    plugin
+        The IOPy plugin.
+    td
+        The C typedef description.
 
     Returns
     -------
@@ -6742,7 +6786,7 @@ cdef TypedefDescription typedef_make_iop_description(
     cdef TypedefDescription desc
 
     desc = TypedefDescription.__new__(TypedefDescription)
-    typedef_init_iop_description(td_cls.plugin, td_cls.td, desc)
+    typedef_init_iop_description(plugin, td, desc)
     return desc
 
 
@@ -6864,14 +6908,6 @@ cdef class IfaceRpcsContainer:
     cdef dict __dict__
 
 
-@cython.internal
-@cython.final
-cdef class _InternalIfaceHolder(_InternalBaseHolder):
-    """Internal class to hold C IOP interface description"""
-    cdef const iop_iface_t *iface
-    cdef int refcnt
-
-
 cdef object _InternalIfaceNameWrapper
 class _InternalIfaceNameWrapper(str):
     """Internal class to make __name__ of iface class to act like both as a
@@ -6883,15 +6919,17 @@ class _InternalIfaceNameWrapper(str):
 
 
 @cython.internal
-cdef class _InternalIfaceBaseMetaclass(type):
+cdef class _InternalIfaceType(type):
     """Internal base metaclass for interface types"""
+    cdef const iop_iface_t *iface
+    cdef int refcnt
     cdef object name_wrapper
 
-    def __cinit__(_InternalIfaceBaseMetaclass cls, name, bases, attrs):
+    def __cinit__(_InternalIfaceType cls, name, bases, attrs):
         """Cython constructor for _InternalIface class"""
         cls.name_wrapper = _InternalIfaceNameWrapper(name)
 
-    def __repr__(_InternalIfaceBaseMetaclass cls):
+    def __repr__(_InternalIfaceType cls):
         """Return the representation of the IOP interface.
 
         Returns
@@ -6899,21 +6937,20 @@ cdef class _InternalIfaceBaseMetaclass(type):
         str
             The representation of the IOP interface.
         """
-        cdef _InternalIfaceHolder holder = type(cls)
-        cdef str iface_fullname = lstr_to_py_str(holder.iface.fullname)
+        cdef str iface_fullname = lstr_to_py_str(cls.iface.fullname)
         cdef list rpcs_name = []
         cdef uint16_t i
         cdef const iop_rpc_t *rpc
 
-        for i in range(holder.iface.funs_len):
-            rpc = &holder.iface.funs[i]
+        for i in range(cls.iface.funs_len):
+            rpc = &cls.iface.funs[i]
             rpcs_name.append(lstr_to_py_str(rpc.name))
         rpcs_name.sort()
 
         return 'Interface %s (RPCs: %s)' % (iface_fullname, rpcs_name)
 
     @property
-    def __name__(_InternalIfaceBaseMetaclass cls):
+    def __name__(_InternalIfaceType cls):
         """Name property that can also act like a method"""
         return cls.name_wrapper
 
@@ -6953,7 +6990,7 @@ cdef class _InternalIface:
         str
             The fullname of the IOP interface.
         """
-        cdef _InternalIfaceHolder holder = type(cls)
+        cdef _InternalIfaceType holder = cls
 
         return lstr_to_py_str(holder.iface.fullname)
 
@@ -7020,7 +7057,7 @@ Iface = IfaceBase
 cdef class RPCBase:
     """Base class for IOP RPC"""
     cdef const iop_rpc_t *rpc
-    cdef _InternalIfaceHolder iface_holder
+    cdef _InternalIfaceType iface_cls
 
     def __init__(RPCBase self):
         """RPC initialization is not supported"""
@@ -7057,7 +7094,7 @@ cdef class RPCBase:
         """
         if not self.rpc.args:
             return None
-        return plugin_get_class_type_st(self.iface_holder.plugin,
+        return plugin_get_class_type_st(self.iface_cls.plugin,
                                         self.rpc.args)
 
     def res(RPCBase self):
@@ -7071,7 +7108,7 @@ cdef class RPCBase:
         """
         if not self.rpc.result:
             return None
-        return plugin_get_class_type_st(self.iface_holder.plugin,
+        return plugin_get_class_type_st(self.iface_cls.plugin,
                                         self.rpc.result)
 
     def exn(RPCBase self):
@@ -7085,7 +7122,7 @@ cdef class RPCBase:
         """
         if not self.rpc.exn:
             return None
-        return plugin_get_class_type_st(self.iface_holder.plugin,
+        return plugin_get_class_type_st(self.iface_cls.plugin,
                                         self.rpc.exn)
 
     def desc(RPCBase self):
@@ -7102,7 +7139,7 @@ cdef class RPCBase:
         rpc_name = 'RPC ' + lstr_to_py_str(self.rpc.name)
         if not self.rpc.args:
             return rpc_name
-        arg_type = plugin_get_class_type_st(self.iface_holder.plugin,
+        arg_type = plugin_get_class_type_st(self.iface_cls.plugin,
                                             self.rpc.args)
         return '%s, argument: %s' % (rpc_name, arg_type.get_desc())
 
@@ -7114,7 +7151,7 @@ cdef class RPCBase:
         str
             The representation of the RPC.
         """
-        cdef const iop_iface_t *iface = self.iface_holder.iface
+        cdef const iop_iface_t *iface = self.iface_cls.iface
         cdef str iface_fullname = lstr_to_py_str(iface.fullname)
 
         return 'RPC %s::%s' % (iface_fullname, lstr_to_py_str(self.rpc.name))
@@ -7142,7 +7179,7 @@ cdef class RPCChannel(RPCBase):
 
 
 ctypedef int (*rpc_create_f)(const iop_rpc_t *rpc,
-                             _InternalIfaceHolder iface_holder,
+                             _InternalIfaceType iface_cls,
                              _InternalIface py_iface) except -1
 
 
@@ -7247,8 +7284,8 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
     -------
         An instance of the interface for the given connection.
     """
-    cdef _InternalIfaceHolder holder = type(cls)
-    cdef const iop_iface_t *iface = holder.iface
+    cdef _InternalIfaceType iface_cls = cls
+    cdef const iop_iface_t *iface = iface_cls.iface
     cdef _InternalIface res = <_InternalIface>cls()
     cdef uint16_t i
     cdef const iop_rpc_t *rpc
@@ -7258,7 +7295,7 @@ cdef _InternalIface create_interface(object cls, ChannelBase channel,
 
     for i in range(iface.funs_len):
         rpc = &iface.funs[i]
-        rpc_create_cb(rpc, holder, res)
+        rpc_create_cb(rpc, iface_cls, res)
 
     return res
 
@@ -7805,7 +7842,7 @@ cdef int client_channel_init(Channel channel, Plugin plugin, object uri,
 
 
 cdef int create_sync_client_rpc(const iop_rpc_t *rpc,
-                                _InternalIfaceHolder iface_holder,
+                                _InternalIfaceType iface_cls,
                                 _InternalIface py_iface) except -1:
     """Callback called to create the synchronous client RPC of the interface.
 
@@ -7813,8 +7850,8 @@ cdef int create_sync_client_rpc(const iop_rpc_t *rpc,
     ----------
     rpc
         The IOP RPC description.
-    iface_holder
-        The _InternalIfaceHolder for the interface.
+    iface_cls
+        The _InternalIfaceType for the interface.
     py_iface
         The interface object instance where to set the RPC.
 
@@ -7824,11 +7861,11 @@ cdef int create_sync_client_rpc(const iop_rpc_t *rpc,
     """
     cdef RPC py_rpc = RPC.__new__(RPC)
 
-    return create_base_client_rpc(rpc, iface_holder, py_iface, py_rpc)
+    return create_base_client_rpc(rpc, iface_cls, py_iface, py_rpc)
 
 
 cdef int create_async_client_rpc(const iop_rpc_t *rpc,
-                                 _InternalIfaceHolder iface_holder,
+                                 _InternalIfaceType iface_cls,
                                  _InternalIface py_iface) except -1:
     """Callback called to create the asynchronous client RPC of the interface.
 
@@ -7836,8 +7873,8 @@ cdef int create_async_client_rpc(const iop_rpc_t *rpc,
     ----------
     rpc
         The IOP RPC description.
-    iface_holder
-        The _InternalIfaceHolder for the interface.
+    iface_cls
+        The _InternalIfaceType for the interface.
     py_iface
         The interface object instance where to set the RPC.
 
@@ -7847,11 +7884,11 @@ cdef int create_async_client_rpc(const iop_rpc_t *rpc,
     """
     cdef AsyncRPC py_rpc = AsyncRPC.__new__(AsyncRPC)
 
-    return create_base_client_rpc(rpc, iface_holder, py_iface, py_rpc)
+    return create_base_client_rpc(rpc, iface_cls, py_iface, py_rpc)
 
 
 cdef int create_base_client_rpc(const iop_rpc_t *rpc,
-                                _InternalIfaceHolder iface_holder,
+                                _InternalIfaceType iface_cls,
                                 _InternalIface py_iface,
                                 RPCChannel py_rpc) except -1:
     """Initialize the client RPC of the interface.
@@ -7860,8 +7897,8 @@ cdef int create_base_client_rpc(const iop_rpc_t *rpc,
     ----------
     rpc
         The IOP RPC description.
-    iface_holder
-        The _InternalIfaceHolder for the interface.
+    iface_metaclass
+        The _InternalIfaceType for the interface.
     py_iface
         The interface object instance where to set the RPC.
     py_rpc
@@ -7872,12 +7909,12 @@ cdef int create_base_client_rpc(const iop_rpc_t *rpc,
         -1 in case of exception, 0 otherwise.
     """
     cdef str rpc_name
-    cdef object py_cls_base
+    cdef object py_cls
     cdef object py_cls_rpc
     cdef RPCImplWrapper wrapper
 
     py_rpc.rpc = rpc
-    py_rpc.iface_holder = iface_holder
+    py_rpc.iface_cls = iface_cls
     py_rpc.py_iface = py_iface
 
     rpc_name = lstr_to_py_str(rpc.name)
@@ -7885,8 +7922,8 @@ cdef int create_base_client_rpc(const iop_rpc_t *rpc,
 
     # Set the py_rpc directly to the interface if it has not been overridden
     # in the class. Otherwise use a RPCImplWrapper
-    py_cls_base = type(py_iface).__base__
-    py_cls_rpc = getattr(py_cls_base, rpc_name)
+    py_cls = type(py_iface)
+    py_cls_rpc = getattr(py_cls, rpc_name)
     if isinstance(py_cls_rpc, RPCBase):
         setattr(py_iface, rpc_name, py_rpc)
     else:
@@ -8046,8 +8083,8 @@ cdef object client_sync_channel_call_rpc(RPC rpc, tuple args, dict kwargs):
     cdef t_scope_t t_scope_guard = t_scope_init()
     cdef sb_buf_1k_t err_buf
     cdef sb_scope_t err = sb_scope_init_static(err_buf)
-    cdef _InternalIfaceHolder iface_holder = rpc.iface_holder
-    cdef Plugin plugin = iface_holder.plugin
+    cdef _InternalIfaceType iface_cls = rpc.iface_cls
+    cdef Plugin plugin = iface_cls.plugin
     cdef _InternalIface py_iface = rpc.py_iface
     cdef Channel channel = py_iface.channel
     cdef int32_t cmd = 0
@@ -8225,8 +8262,8 @@ def client_async_channel_call_rpc_set_res(AsyncChannelRpcCallCtx ctx):
     ctx
         The asynchronous client connection context.
     """
-    cdef _InternalIfaceHolder iface_holder = ctx.rpc.iface_holder
-    cdef Plugin plugin = iface_holder.plugin
+    cdef _InternalIfaceType iface_cls = ctx.rpc.iface_cls
+    cdef Plugin plugin = iface_cls.plugin
     cdef object py_res
     cdef object py_exn
 
@@ -8277,8 +8314,8 @@ cdef StructUnionBase t_client_channel_prepare_rpc(
     -------
         The Python IOP object to be used as argument of the RPC.
     """
-    cdef _InternalIfaceHolder iface_holder = rpc.iface_holder
-    cdef Plugin plugin = iface_holder.plugin
+    cdef _InternalIfaceType iface_cls = rpc.iface_cls
+    cdef Plugin plugin = iface_cls.plugin
     cdef _InternalIface py_iface = rpc.py_iface
     cdef Channel channel = py_iface.channel
     cdef tuple pre_hook_res
@@ -9010,7 +9047,7 @@ cdef class ChannelServer(ChannelBase):
 
 
 cdef int create_server_rpc(const iop_rpc_t *rpc,
-                           _InternalIfaceHolder iface_holder,
+                           _InternalIfaceType iface_cls,
                            _InternalIface py_iface) except -1:
     """Callback called to create the server RPC of interface.
 
@@ -9018,8 +9055,8 @@ cdef int create_server_rpc(const iop_rpc_t *rpc,
     ----------
     rpc
         The IOP RPC description.
-    iface_holder
-        The _InternalIfaceHolder for the interface.
+    iface_metaclass
+        The _InternalIfaceBaseMetaclass for the interface.
     py_iface
         The interface object instance where to set the RPC.
 
@@ -9031,7 +9068,7 @@ cdef int create_server_rpc(const iop_rpc_t *rpc,
     cdef str rpc_name
 
     py_rpc.rpc = rpc
-    py_rpc.iface_holder = iface_holder
+    py_rpc.iface_cls = iface_cls
     py_rpc.py_iface = py_iface
 
     rpc_name = lstr_to_py_str(rpc.name)
@@ -9291,240 +9328,6 @@ cdef void iopy_ic_server_on_exception(ic_el_server_t *server, Exception exc):
 # }}}
 # }}}
 # {{{ Plugin
-# {{{ Metaclass
-
-
-# In order to keep the backward compatibility with IOPyV2, we want to support
-# IOPy types and interfaces upgrade through Plugin metaclasses.
-# Unfortunately, we have some constraints:
-#  - We already use metaclasses to store the IOP C type description and other
-#    information about the IOPy types and interfaces.
-#  - We want the IOPy type and interface metaclasses to act like the Plugin
-#    metaclasses in order to do multiple levels of upgrade.
-#  - We cannot create a new metaclass on upgrade since we cannot copy the IOPy
-#    type and interface metaclasses.
-#  - For classes, we want to support multiple levels of upgrade, but only for
-#    the current classes. Child classes should not behave like Plugin
-#    metaclasses if they are not upgraded.
-#
-# One solution, is on upgrade:
-#  - Patch the IOPy type or interface metaclass with a __new__ method in order
-#    to act like the Plugin metaclasses.
-#  - Flag it with is_metaclass_upgraded so only this IOPy class should act
-#    like the Plugin metaclass, and not its children.
-#
-# This is ugly, but due to all the listed constraints, I don't know if there
-# is a better solution.
-
-
-cdef object metaclass_cls_new
-def metaclass_cls_new(_InternalBaseHolder mcs, object name, tuple bases,
-                      dict dct):
-    """Function that will be be used as method __new__ for the metaclass"""
-    cdef object base_metaclass
-    cdef Plugin plugin
-    cdef object fullname
-    cdef _InternalTypeClasses type_classes
-    cdef object iopy_proxy
-    cdef object iopy_public
-    cdef _InternalBaseHolder iopy_metaclass
-    cdef list field_names
-    cdef cbool all_kwargs
-    cdef dict init_kwargs
-    cdef dict fields_kwargs
-    cdef object custom_init
-    cdef object spec
-    cdef object args
-    cdef object keywords
-    cdef object defaults
-    cdef object covars
-    cdef object cls
-
-    if not mcs.is_metaclass_upgraded:
-        # We cannot use mcs.__new__ because of recursion.
-        # We need to use the appriopriate base iopy type metaclass.
-        if isinstance(mcs, _InternalEnumType):
-            base_metaclass = _InternalEnumMetaclass
-        else:
-            base_metaclass = _InternalStructUnionMetaclass
-
-        return base_metaclass.__new__(mcs, name, bases, dct)
-
-    plugin = mcs.plugin
-    fullname = name.replace('_', '.')
-
-    type_classes = plugin_get_type_classes(plugin, fullname)
-    if type_classes is None:
-        raise KeyError('unknown IOPy type `%s`' % fullname)
-
-    iopy_proxy = type_classes.proxy_cls
-    # in case it is "Void"
-    if not iopy_proxy:
-        raise TypeError("%s is not a valid IOP type name" % fullname)
-
-    iopy_metaclass = type_classes.metaclass
-    iopy_public = type_classes.public_cls
-
-    # Since, in some cases, metaclasses can inherits from the same base
-    # classes in the inheritance tree, we should ignore them to have a
-    # consistent MRO
-    bases = tuple([x for x in bases if x not in iopy_proxy.__mro__])
-    bases += (iopy_proxy,)
-
-    try:
-        field_names = iopy_proxy.get_fields_name()
-    except AttributeError:
-        field_names = []
-
-    all_kwargs = False
-    init_kwargs = {}
-    fields_kwargs = {}
-
-    custom_init = dct.get('__custom_init__', None)
-    if custom_init:
-        spec = inspect.getfullargspec(custom_init)
-        args = spec[0]
-        keywords = spec[2]
-        defaults = spec[3]
-        all_kwargs = keywords is not None
-        if defaults:
-            covars = args[-len(defaults):]
-            init_kwargs.update(zip(covars, defaults))
-            fields_kwargs.update({
-                k: v for k, v
-                in init_kwargs.iteritems()
-                if k in field_names
-            })
-
-    def init(object o, *args, **kwargs):
-        metaclass_cls_init(cls, o, args, kwargs)
-
-    if mcs is not iopy_metaclass:
-        # We patch the iopy type metaclass to use this function so it can be
-        # used to do multiple levels of upgrade.
-        iopy_metaclass.__new__ = metaclass_cls_new
-        iopy_metaclass.is_metaclass_upgraded = True
-
-    # We cannot use iopy_metaclass.__new__ because of recursion.
-    # We need to use the appriopriate base iopy type metaclass.
-    if isinstance(iopy_metaclass, _InternalEnumType):
-        base_metaclass = _InternalEnumMetaclass
-    else:
-        base_metaclass = _InternalStructUnionMetaclass
-
-    dct.update({
-        "_all_kwargs": all_kwargs,
-        "_init_kwargs": init_kwargs,
-        "_fields_kwargs": fields_kwargs,
-        "_fields_list": field_names,
-        "__init__": init,
-    })
-    cls = base_metaclass.__new__(iopy_metaclass, name, bases, dct)
-    iopy_public.__bases__ = (cls,)
-    return cls
-
-
-cdef int metaclass_cls_init(object cls, object obj, tuple args,
-                            dict kwargs) except -1:
-    """Method init for upgraded class through metaclass"""
-    cdef object iop_kwargs
-    cdef object k
-    cdef object v
-    cdef object custom_init
-    cdef object cust_init_kwargs
-
-    iop_kwargs = cls._fields_kwargs.copy()
-    # set kwargs entry to iop_kwargs if:
-    #  - entry key is in fields list
-    # or
-    # - if custom init does not take '**kwargs', entry key is not in
-    #   custom init kwargs
-    for k, v in kwargs.iteritems():
-        if (k in cls._fields_list
-         or (not cls._all_kwargs and k not in cls._init_kwargs)):
-            iop_kwargs[k] = v
-
-    super(cls, obj).__init__(*args, **iop_kwargs)
-
-    custom_init = getattr(cls, '__custom_init__', None)
-    if custom_init is not None:
-        cust_init_kwargs = cls._init_kwargs.copy()
-        if cls._all_kwargs:
-            cust_init_kwargs.update(kwargs)
-        else:
-            cust_init_kwargs.update({
-                k: v for k, v in kwargs.iteritems()
-                if k in cls._init_kwargs
-            })
-        custom_init(obj, *args, **cust_init_kwargs)
-    return 0
-
-
-cdef object metaclass_iface_cls_new
-def metaclass_iface_cls_new(_InternalBaseHolder mcs, object name, tuple bases,
-                            dict dct):
-    """Method that will be be used as __new__ for the metaclass"""
-    cdef Plugin plugin = mcs.plugin
-    cdef object fullname
-    cdef _InternalTypeClasses type_classes
-    cdef object iopy_proxy
-    cdef object iopy_public
-    cdef _InternalBaseHolder iopy_metaclass
-    cdef object cls
-
-    if not mcs.is_metaclass_upgraded:
-        return _InternalIfaceBaseMetaclass.__new__(mcs, name, bases, dct)
-
-    plugin = mcs.plugin
-    fullname = name.replace('_', '.')
-
-    type_classes = plugin_get_interface_classes(plugin, fullname)
-    if type_classes is None:
-        raise KeyError('unknown IOPy interface `%s`' % fullname)
-
-    iopy_proxy = type_classes.proxy_cls
-    iopy_public = type_classes.public_cls
-    iopy_metaclass = type_classes.metaclass
-
-    # Since, in some cases, metaclasses can inherits from the same base
-    # classes in the inheritance tree, we should ignore them to have a
-    # consistent MRO
-    bases = tuple([x for x in bases if x not in iopy_proxy.__mro__])
-    bases += (iopy_proxy,)
-
-    def init(object o, *args, **kwargs):
-        metaclass_iface_cls_init(cls, o, args, kwargs)
-
-    if mcs is not iopy_metaclass:
-        # We patch the iopy iface metaclass to use this function so it can be
-        # used to do multiple levels of upgrade.
-        iopy_metaclass.__new__ = metaclass_iface_cls_new
-        iopy_metaclass.is_metaclass_upgraded = True
-
-    dct.update({
-        "__init__": init,
-    })
-
-    cls = _InternalIfaceBaseMetaclass.__new__(iopy_metaclass, name, bases,
-                                              dct)
-    iopy_public.__bases__ = (cls,)
-    return cls
-
-
-cdef int metaclass_iface_cls_init(object cls, object obj, tuple args,
-                                  dict kwargs) except -1:
-    """Method init for upgraded inteface through metaclass"""
-    cdef object custom_init
-
-    super(cls, obj).__init__(*args, **kwargs)
-
-    custom_init = getattr(cls, '__custom_init__', None)
-    if custom_init is not None:
-        custom_init(obj, *args, **kwargs)
-    return 0
-
-
-# }}}
 
 
 cdef class Interfaces:
@@ -9559,15 +9362,6 @@ cdef class Package:
 
 @cython.internal
 @cython.final
-cdef class _InternalTypeClasses:
-    """Internal class to the meta, proxy and public classes of IOPy types"""
-    cdef object metaclass
-    cdef object proxy_cls
-    cdef object public_cls
-
-
-@cython.internal
-@cython.final
 cdef class _InternalAdditionalDso:
     """Internal class to hold an additional dso"""
     cdef iop_dso_t *dso
@@ -9593,38 +9387,16 @@ cdef class Plugin:
     cdef dict interfaces
     cdef dict additional_dsos
     cdef readonly dict modules
-    cdef readonly object metaclass
-    cdef readonly object metaclass_interfaces
 
     def __cinit__(Plugin self):
         """Cython constructor.
 
         Init the plugin without loading any dso.
         """
-        cdef _InternalBaseHolder metaclass
-        cdef _InternalBaseHolder metaclass_iface
-
         self.types = {}
         self.interfaces = {}
         self.modules = {}
         self.additional_dsos = {}
-
-        metaclass = _InternalBaseHolder.__new__(_InternalBaseHolder,
-                                                'Metaclass', (type,), {
-            '__new__': metaclass_cls_new,
-        })
-        metaclass.plugin = self
-        metaclass.is_metaclass_upgraded = True
-        self.metaclass = metaclass
-
-        metaclass_iface = _InternalBaseHolder.__new__(_InternalBaseHolder,
-                                                      'MetaclassIface',
-                                                      (type,), {
-            '__new__': metaclass_iface_cls_new,
-        })
-        metaclass_iface.plugin = self
-        metaclass_iface.is_metaclass_upgraded = True
-        self.metaclass_interfaces = metaclass_iface
 
         # Force loading IOPy IC package instead of the one in the DSO
         plugin_add_package(self, &ic__pkg, NULL)
@@ -9673,7 +9445,7 @@ cdef class Plugin:
         return self.modules
 
     def get_type_from_fullname(Plugin self, object fullname):
-        """Get the public class for the given IOP type fullname.
+        """Get the class for the given IOP type fullname.
 
         Parameters
         ----------
@@ -9682,7 +9454,7 @@ cdef class Plugin:
 
         Returns
         -------
-            The public class of the IOP type.
+            The class of the IOP type.
         """
         return plugin_get_type_from_fullname(self, fullname)
 
@@ -9691,7 +9463,7 @@ cdef class Plugin:
         return plugin_get_type_from_fullname(self, fullname)
 
     def get_iface_type_from_fullname(Plugin self, object fullname):
-        """Get the public class for the given IOP interface fullname.
+        """Get the class for the given IOP interface fullname.
 
         Parameters
         ----------
@@ -9700,7 +9472,7 @@ cdef class Plugin:
 
         Returns
         -------
-            The public class of the IOP interface.
+            The class of the IOP interface.
         """
         return plugin_get_iface_type_from_fullname(self, fullname)
 
@@ -9721,77 +9493,6 @@ cdef class Plugin:
         With IOPy Cython, the plugin and register are the same.
         """
         return self
-
-    def upgrade(Plugin self, object index=None, cbool force_replace=False):
-        """Upgrade IOP type by making the original IOP type inherits the
-        decorated class.
-
-        Parameters
-        ----------
-        index : int, optional
-            You can choose which IOP type to upgrade with the index argument.
-            If the wrapped class's base at given index is not a IOP type, a
-            TypeError exception is raised.
-        force_replace : bool, optional
-            If True, all the upgrades already performed for the IOP type will
-            be replaced by this one. If False, we will add this upgrade to the
-            other upgrades of the IOP type. Default is False.
-        """
-        cdef int index_i = 0
-        cdef object cls
-
-        def wrapper(object cls):
-            cdef object iopy_child = cls.__bases__[index_i]
-            cdef object fullname
-            cdef _InternalTypeClasses classes
-            cdef object old_bases
-            cdef object new_bases
-
-            try:
-                fullname = iopy_child.__fullname__()
-            except AttributeError:
-                raise TypeError("%s is not a valid IOP type, you may want "
-                                "to set the 'index' argument appropriately" %
-                                iopy_child)
-
-            if issubclass(iopy_child, Basic):
-                classes = plugin_get_type_classes(self, fullname)
-            elif issubclass(iopy_child, IfaceBase):
-                classes = plugin_get_interface_classes(self, fullname)
-            else:
-                raise TypeError('%s is not a valid IOP type or interface' %
-                                fullname)
-
-            if classes is None:
-                raise TypeError('unknown IOP type/interface %s' % fullname)
-
-            if classes.public_cls != iopy_child:
-                raise TypeError('%s is not the current IOP public of %s' %
-                                (iopy_child, fullname))
-
-            if force_replace:
-                old_bases = (classes.proxy_cls,)
-            else:
-                old_bases = iopy_child.__bases__
-
-            new_bases = (
-                cls.__bases__[:index_i]
-              + old_bases
-              + cls.__bases__[index_i + 1:]
-            )
-            cls.__bases__ = new_bases
-            iopy_child.__bases__ = (cls,)
-
-            return cls
-
-        if isinstance(index, type):
-            cls = index
-            index_i = 0
-            return wrapper(cls)
-        else:
-            if index is not None:
-                index_i = index
-            return wrapper
 
     def connect(Plugin self, object uri=None, *, object host=None,
                 int port=-1, object default_timeout=None,
@@ -10018,7 +9719,7 @@ cdef class Plugin:
 
 
 cdef object plugin_get_type_from_fullname(Plugin plugin, object fullname):
-    """Get the public class for the given IOP type fullname.
+    """Get the class for the given IOP type fullname.
 
     Parameters
     ----------
@@ -10029,19 +9730,19 @@ cdef object plugin_get_type_from_fullname(Plugin plugin, object fullname):
 
     Returns
     -------
-        The public class of the IOP type.
+        The class of the IOP type.
     """
-    cdef _InternalTypeClasses classes
+    cdef object cls
 
-    classes = plugin_get_type_classes(plugin, fullname)
-    if classes is None:
+    cls = plugin.types.get(fullname)
+    if cls is None:
         raise KeyError('unknown IOPy type `%s`' % fullname)
-    return classes.public_cls
+    return cls
 
 
 cdef object plugin_get_iface_type_from_fullname(Plugin plugin,
                                                 object fullname):
-    """Get the public class for the given IOP interface fullname.
+    """Get the class for the given IOP interface fullname.
 
     Parameters
     ----------
@@ -10052,57 +9753,19 @@ cdef object plugin_get_iface_type_from_fullname(Plugin plugin,
 
     Returns
     -------
-        The public class of the IOP interface.
+        The class of the IOP interface.
     """
-    cdef _InternalTypeClasses classes
+    cdef object cls
 
-    classes = plugin_get_interface_classes(plugin, fullname)
-    if classes is None:
+    cls = plugin.interfaces.get(fullname)
+    if cls is None:
         raise KeyError('unknown IOPy interface `%s`' % fullname)
-    return classes.public_cls
-
-
-cdef inline _InternalTypeClasses plugin_get_type_classes(Plugin plugin,
-                                                         object fullname):
-    """Get the classes for the given IOP type fullname.
-
-    Parameters
-    ----------
-    plugin
-        The IOPy plugin.
-    fullname
-        The fullname of the IOP type.
-
-    Returns
-    -------
-        The internal class that contains the proxy and public python
-        classes of the IOP type. None if not found.
-    """
-    return <_InternalTypeClasses>plugin.types.get(fullname)
-
-
-cdef inline _InternalTypeClasses plugin_get_interface_classes(
-    Plugin plugin, object fullname):
-    """Get the classes for the given IOP interface fullname.
-
-    Parameters
-    ----------
-    plugin
-        The IOPy plugin.
-    fullname
-        The fullname of the IOP interface.
-
-    Returns
-    -------
-        The internal class that contains the proxy and public python
-        classes of the IOP interface. None if not found.
-    """
-    return <_InternalTypeClasses>plugin.interfaces.get(fullname)
+    return cls
 
 
 cdef inline object plugin_get_class_type_st(Plugin plugin,
                                             const iop_struct_t *st):
-    """Get the public class for the given IOP type struct description.
+    """Get the class for the given IOP type struct description.
 
     Parameters
     ----------
@@ -10113,17 +9776,14 @@ cdef inline object plugin_get_class_type_st(Plugin plugin,
 
     Returns
     -------
-        The public class of the IOP type.
+        The class of the IOP type.
     """
-    cdef _InternalTypeClasses classes
-
-    classes = plugin_get_or_add_struct_union(plugin, None, st)
-    return classes.public_cls
+    return plugin_get_or_add_struct_union(plugin, None, st)
 
 
 cdef inline object plugin_get_class_type_en(Plugin plugin,
                                             const iop_enum_t *en):
-    """Get the public class for the given IOP type enum description.
+    """Get the class for the given IOP type enum description.
 
     Parameters
     ----------
@@ -10134,12 +9794,9 @@ cdef inline object plugin_get_class_type_en(Plugin plugin,
 
     Returns
     -------
-        The public class of the IOP type.
+        The class of the IOP type.
     """
-    cdef _InternalTypeClasses classes
-
-    classes = plugin_get_or_add_enum(plugin, None, en)
-    return classes.public_cls
+    return plugin_get_or_add_enum(plugin, None, en)
 
 
 cdef iop_dso_t *plugin_open_dso(Plugin plugin, object dso_path) except NULL:
@@ -10300,7 +9957,7 @@ cdef inline dict plugin_make_class_attrs_dict(str qualname):
     return class_attrs_dict_g
 
 
-cdef _InternalTypeClasses plugin_get_or_add_enum(
+cdef object plugin_get_or_add_enum(
         Plugin plugin, Package py_pkg, const iop_enum_t *en):
     """Get enum type or create and add it to the python package.
 
@@ -10312,15 +9969,15 @@ cdef _InternalTypeClasses plugin_get_or_add_enum(
         The iop python package. If None, it will be retrieved from the iop
         struct or union fullname.
     en
-        The iop enum descrition.
+        The iop enum description.
     """
     cdef str iop_fullname = lstr_to_py_str(en.fullname)
-    cdef _InternalTypeClasses classes
+    cdef object iop_type
     cdef IopPath iop_path
 
-    classes = plugin_get_type_classes(plugin, iop_fullname)
-    if classes is not None:
-        return classes
+    iop_type = plugin.types.get(iop_fullname)
+    if iop_type is not None:
+        return iop_type
 
     iop_path = make_iop_path(iop_fullname)
 
@@ -10330,9 +9987,8 @@ cdef _InternalTypeClasses plugin_get_or_add_enum(
     return plugin_add_enum(plugin, py_pkg, iop_path, en)
 
 
-cdef _InternalTypeClasses plugin_add_enum(Plugin plugin, Package py_pkg,
-                                          IopPath iop_path,
-                                          const iop_enum_t *en):
+cdef object plugin_add_enum(Plugin plugin, Package py_pkg, IopPath iop_path,
+                            const iop_enum_t *en):
     """Create enum type and add it to the python package.
 
     Parameters
@@ -10347,23 +10003,23 @@ cdef _InternalTypeClasses plugin_add_enum(Plugin plugin, Package py_pkg,
         The iop enum descrition.
     """
     cdef _InternalEnumType enum_type
-    cdef _InternalTypeClasses classes
 
     enum_type = _InternalEnumType.__new__(
-        _InternalEnumType, iop_path.py_name + '_metaclass',
-        (_InternalEnumMetaclass,), empty_init_metaclass_dict_g
+        _InternalEnumType, iop_path.py_name, (Enum,),
+        plugin_make_class_attrs_dict(iop_path.py_name)
+
     )
     enum_type.plugin = plugin
     enum_type.desc = en
-    classes = plugin_add_type(plugin, enum_type, Enum, iop_path, None)
-    setattr(py_pkg, iop_path.local_name, classes.public_cls)
-    return classes
+    plugin_add_type(plugin, iop_path, enum_type)
+    setattr(py_pkg, iop_path.local_name, enum_type)
+    return enum_type
 
 
 cdef _InternalStructUnionType plugin_create_st_iop_type(
-    Plugin plugin, IopPath iop_path, const iop_struct_t *st,
-    object base_cls):
-    """Create internal struct or union type for given iopy type desc.
+        Plugin plugin, IopPath iop_path, const iop_struct_t *st,
+        object base_cls, dict dict_cls):
+    """Create the IOP type class for the given struct or union type.
 
     Parameters
     ----------
@@ -10374,24 +10030,33 @@ cdef _InternalStructUnionType plugin_create_st_iop_type(
     iop_path
         The iop symbol path for the struct or union type.
     base_cls
-        The base class of the metaclass.
+        The base class of the IOP metaclass.
+    dict_cls
+        The optional class attributes dictionary.
+        For classes IOP types, this will be set to the static attributes
+        of the class.
 
     Returns
     -------
-        The internal struct or union type to the hold C iop desc.
+        The IOP python class.
     """
     cdef _InternalStructUnionType iop_type
 
+    if dict_cls is None:
+        dict_cls = plugin_make_class_attrs_dict(iop_path.py_name)
+    else:
+        dict_cls.update(plugin_make_class_attrs_dict(iop_path.py_name))
+
     iop_type = _InternalStructUnionType.__new__(
-        _InternalStructUnionType, iop_path.py_name + '_metaclass',
-        (base_cls,), empty_init_metaclass_dict_g
+        _InternalStructUnionType, iop_path.py_name,
+        (base_cls,), dict_cls,
     )
     iop_type.desc = st
     iop_type.plugin = plugin
     return iop_type
 
 
-cdef _InternalTypeClasses plugin_get_or_add_struct_union(
+cdef object plugin_get_or_add_struct_union(
         Plugin plugin, Package py_pkg, const iop_struct_t *st):
     """Get struct or union type or create and add it to the python package.
 
@@ -10406,12 +10071,12 @@ cdef _InternalTypeClasses plugin_get_or_add_struct_union(
         The iop struct or union description.
     """
     cdef str iop_fullname = lstr_to_py_str(st.fullname)
-    cdef _InternalTypeClasses classes
+    cdef object cls
     cdef IopPath iop_path
 
-    classes = plugin_get_type_classes(plugin, iop_fullname)
-    if classes is not None:
-        return classes
+    cls = plugin.types.get(iop_fullname)
+    if cls is not None:
+        return cls
 
     iop_path = make_iop_path(iop_fullname)
 
@@ -10421,10 +10086,8 @@ cdef _InternalTypeClasses plugin_get_or_add_struct_union(
     return plugin_add_struct_union(plugin, py_pkg, iop_path, st)
 
 
-cdef _InternalTypeClasses plugin_add_struct_union(Plugin plugin,
-                                                  Package py_pkg,
-                                                  IopPath iop_path,
-                                                  const iop_struct_t *st):
+cdef object plugin_add_struct_union(Plugin plugin, Package py_pkg,
+                                    IopPath iop_path, const iop_struct_t *st):
     """Create struct or union type and add it to the python package.
 
     Parameters
@@ -10439,22 +10102,22 @@ cdef _InternalTypeClasses plugin_add_struct_union(Plugin plugin,
         The iop struct or union description.
     """
     cdef cbool is_class
-    cdef _InternalTypeClasses classes
+    cdef object cls
 
     is_class = not st.is_union and iop_struct_is_class(st)
 
     if st.is_union:
-        classes = plugin_add_union(plugin, iop_path, st)
+        cls = plugin_add_union(plugin, iop_path, st)
     elif is_class:
-        classes = plugin_add_class(plugin, iop_path, st)
+        cls = plugin_add_class(plugin, iop_path, st)
     else:
-        classes = plugin_add_struct(plugin, iop_path, st)
-    setattr(py_pkg, iop_path.local_name, classes.public_cls)
-    return classes
+        cls = plugin_add_struct(plugin, iop_path, st)
+    setattr(py_pkg, iop_path.local_name, cls)
+    return cls
 
 
-cdef _InternalTypeClasses plugin_add_union(Plugin plugin, IopPath iop_path,
-                                           const iop_struct_t *st):
+cdef object plugin_add_union(Plugin plugin, IopPath iop_path,
+                             const iop_struct_t *st):
     """Create union type and add it to the python package.
 
     Parameters
@@ -10463,18 +10126,17 @@ cdef _InternalTypeClasses plugin_add_union(Plugin plugin, IopPath iop_path,
         The IOPy plugin.
     iop_path
         The iop symbol path for the union type.
-    iop_type
-        The internal object that holds the iop union description.
+    st
+        The iop union description.
     """
-    cdef _InternalStructUnionType iop_type
+    cdef object iop_type
 
-    iop_type = plugin_create_st_iop_type(plugin, iop_path, st,
-                                         _InternalStructUnionMetaclass)
-    return plugin_add_type(plugin, iop_type, Union, iop_path, None)
+    iop_type = plugin_create_st_iop_type(plugin, iop_path, st, Union, None)
+    return plugin_add_type(plugin, iop_path, iop_type)
 
 
-cdef _InternalTypeClasses plugin_add_struct(Plugin plugin, IopPath iop_path,
-                                            const iop_struct_t *st):
+cdef object plugin_add_struct(Plugin plugin, IopPath iop_path,
+                              const iop_struct_t *st):
     """Create struct type and add it to the python package.
 
     Parameters
@@ -10486,15 +10148,15 @@ cdef _InternalTypeClasses plugin_add_struct(Plugin plugin, IopPath iop_path,
     st
         The iop struct description.
     """
-    cdef _InternalStructUnionType iop_type
 
-    iop_type = plugin_create_st_iop_type(plugin, iop_path, st,
-                                         _InternalStructUnionMetaclass)
-    return plugin_add_type(plugin, iop_type, Struct, iop_path, None)
+    cdef object iop_type
+
+    iop_type = plugin_create_st_iop_type(plugin, iop_path, st, Struct, None)
+    return plugin_add_type(plugin, iop_path, iop_type)
 
 
-cdef _InternalTypeClasses plugin_add_class(Plugin plugin, IopPath iop_path,
-                                           const iop_struct_t *st):
+cdef object plugin_add_class(Plugin plugin, IopPath iop_path,
+                             const iop_struct_t *st):
     """Create class type and add it to the python package.
 
     Parameters
@@ -10503,22 +10165,21 @@ cdef _InternalTypeClasses plugin_add_class(Plugin plugin, IopPath iop_path,
         The IOPy plugin.
     iop_path
         The iop symbol path for the class type.
-    iop_type
-        The internal object that holds the iop class description.
+    st
+        The iop struct description.
     """
-    cdef _InternalTypeClasses parent_classes
-    cdef _InternalStructUnionType iop_type
-    cdef dict proxy_cls = {}
+    cdef object parent_cls
+    cdef object iop_type
+    cdef dict dict_cls = {}
 
-    parent_classes = plugin_create_or_get_parent_classes(plugin, st)
-    iop_type = plugin_create_st_iop_type(plugin, iop_path, st,
-                                         parent_classes.metaclass)
-    populate_static_fields_cls(st, proxy_cls)
-    return plugin_add_type(plugin, iop_type, parent_classes.public_cls,
-                           iop_path, proxy_cls)
+    parent_cls = plugin_create_or_get_parent_class(plugin, st)
+    populate_static_fields_cls(st, dict_cls)
+    iop_type = plugin_create_st_iop_type(plugin, iop_path, st, parent_cls,
+                                         dict_cls)
+    return plugin_add_type(plugin, iop_path, iop_type)
 
 
-cdef _InternalTypeClasses plugin_create_or_get_parent_classes(
+cdef object plugin_create_or_get_parent_class(
     Plugin plugin, const iop_struct_t *child_st):
     """Create or get the parent class base type of the given child class.
 
@@ -10535,34 +10196,28 @@ cdef _InternalTypeClasses plugin_create_or_get_parent_classes(
         type.
     """
     cdef const iop_struct_t *st
-    cdef _InternalTypeClasses root_classes
     cdef str iop_fullname
-    cdef object classes_obj
+    cdef object iop_type
     cdef IopPath iop_path
     cdef Package py_pkg
-    cdef _InternalTypeClasses res
 
     st = child_st.class_attrs.parent
     if not st:
-        root_classes = _InternalTypeClasses.__new__(_InternalTypeClasses)
-        root_classes.metaclass = _InternalStructUnionMetaclass
-        root_classes.proxy_cls = None
-        root_classes.public_cls = Struct
-        return root_classes
+        return Struct
 
     iop_fullname = lstr_to_py_str(st.fullname)
-    classes_obj = plugin.types.get(iop_fullname)
-    if classes_obj is not None:
-        return <_InternalTypeClasses>classes_obj
+    iop_type = plugin.types.get(iop_fullname)
+    if iop_type is not None:
+        return iop_type
 
     iop_path = make_iop_path(iop_fullname)
-    res = plugin_add_class(plugin, iop_path, st)
+    iop_type = plugin_add_class(plugin, iop_path, st)
     py_pkg = plugin_create_or_get_py_pkg(plugin, iop_path.pkg_name)
-    setattr(py_pkg, iop_path.local_name, res.public_cls)
-    return res
+    setattr(py_pkg, iop_path.local_name, iop_type)
+    return iop_type
 
 
-cdef _InternalTypeClasses plugin_get_or_add_typedef(
+cdef object plugin_get_or_add_typedef(
         Plugin plugin, Package py_pkg, const iop_typedef_t *td):
     """Get typedef type or create and add it to the python package.
 
@@ -10582,12 +10237,12 @@ cdef _InternalTypeClasses plugin_get_or_add_typedef(
         IOP type of the typedef.
     """
     cdef str iop_fullname = lstr_to_py_str(td.fullname)
-    cdef _InternalTypeClasses classes
+    cdef object iop_type
     cdef IopPath iop_path
 
-    classes = plugin_get_type_classes(plugin, iop_fullname)
-    if classes is not None:
-        return classes
+    iop_type = plugin.types.get(iop_fullname)
+    if iop_type is not None:
+        return iop_type
 
     iop_path = make_iop_path(iop_fullname)
 
@@ -10597,9 +10252,8 @@ cdef _InternalTypeClasses plugin_get_or_add_typedef(
     return plugin_add_typedef(plugin, py_pkg, iop_path, td)
 
 
-cdef _InternalTypeClasses plugin_add_typedef(Plugin plugin, Package py_pkg,
-                                             IopPath iop_path,
-                                             const iop_typedef_t *td):
+cdef object plugin_add_typedef(Plugin plugin, Package py_pkg,
+                               IopPath iop_path, const iop_typedef_t *td):
     """Create typedef type and add it to the python package.
 
     Parameters
@@ -10620,13 +10274,14 @@ cdef _InternalTypeClasses plugin_add_typedef(Plugin plugin, Package py_pkg,
     """
     # Cython bug with const requires cast
     cdef iop_type_t tdtype = <iop_type_t>td.type
-    cdef _InternalTypeClasses ref_classes = None
     cdef cbool ref_can_be_subclassed = True
     cdef object ref_type
     cdef object td_metaclass
-    cdef _TypedefMetaclass iop_type
-    cdef _InternalTypeClasses classes
+    cdef object iop_type
     cdef object base_type
+    cdef _TypedefPrimitiveBaseType primitive_type
+    cdef _TypedefEnumBaseType enum_type
+    cdef _TypedefStructUnionBaseType struct_type
 
     # Get reference type and potential reference type classes
     if (tdtype == IOP_T_I8
@@ -10638,35 +10293,30 @@ cdef _InternalTypeClasses plugin_add_typedef(Plugin plugin, Package py_pkg,
      or tdtype == IOP_T_I64
      or tdtype == IOP_T_U64):
         ref_type = int
-        td_metaclass = _TypedefMetaclass
+        td_metaclass = _TypedefPrimitiveType
     elif tdtype == IOP_T_DOUBLE:
         ref_type = float
-        td_metaclass = _TypedefMetaclass
+        td_metaclass = _TypedefPrimitiveType
     elif tdtype == IOP_T_XML or tdtype == IOP_T_STRING:
         ref_type = str
-        td_metaclass = _TypedefMetaclass
+        td_metaclass = _TypedefPrimitiveType
     elif tdtype == IOP_T_DATA:
         ref_type = bytes
-        td_metaclass = _TypedefMetaclass
+        td_metaclass = _TypedefPrimitiveType
     elif tdtype == IOP_T_BOOL:
         ref_type = bool
-        td_metaclass = _TypedefMetaclass
+        td_metaclass = _TypedefPrimitiveType
         ref_can_be_subclassed = False
     elif tdtype == IOP_T_VOID:
         ref_type = type(None)
-        td_metaclass = _TypedefMetaclass
+        td_metaclass = _TypedefPrimitiveType
         ref_can_be_subclassed = False
     elif tdtype == IOP_T_ENUM:
-        ref_classes = plugin_get_or_add_enum(plugin, None, td.ref_enum)
-        td_metaclass = plugin_build_td_metaclass(iop_path,
-                                                 ref_classes.metaclass)
-        ref_type = ref_classes.public_cls
+        ref_type = plugin_get_or_add_enum(plugin, None, td.ref_enum)
+        td_metaclass = _TypedefEnumType
     elif tdtype == IOP_T_STRUCT or tdtype == IOP_T_UNION:
-        ref_classes = plugin_get_or_add_struct_union(plugin, None,
-                                                     td.ref_struct)
-        td_metaclass = plugin_build_td_metaclass(iop_path,
-                                                 ref_classes.metaclass)
-        ref_type = ref_classes.public_cls
+        ref_type = plugin_get_or_add_struct_union(plugin, None, td.ref_struct)
+        td_metaclass = _TypedefStructUnionType
     else:
         cassert(False)
         return None
@@ -10681,98 +10331,48 @@ cdef _InternalTypeClasses plugin_add_typedef(Plugin plugin, Package py_pkg,
     # Build the typedef class
     iop_type = td_metaclass.__new__(
         td_metaclass, iop_path.py_name, (base_type,),
-        empty_init_metaclass_dict_g
+        plugin_make_class_attrs_dict(iop_path.py_name)
     )
-    iop_type.plugin = plugin
-    iop_type.referenced_type = ref_type
-    iop_type.td = td
 
-    # Build typedef internal classes
-    classes = _InternalTypeClasses.__new__(_InternalTypeClasses)
-    classes.metaclass = td_metaclass
-    classes.proxy_cls = None
-    classes.public_cls = iop_type
+    # Set the custom cdef fields
+    if td_metaclass is _TypedefPrimitiveType:
+        primitive_type = <_TypedefPrimitiveBaseType>iop_type
+        primitive_type.plugin = plugin
+        primitive_type.referenced_type = ref_type
+        primitive_type.td = td
+    elif td_metaclass is _TypedefEnumType:
+        enum_type = <_TypedefEnumBaseType>iop_type
+        enum_type.plugin = plugin
+        enum_type.referenced_type = ref_type
+        enum_type.td = td
+        enum_type.desc = td.ref_enum
+    elif td_metaclass is _TypedefStructUnionType:
+        struct_type = <_TypedefStructUnionBaseType>iop_type
+        struct_type.plugin = plugin
+        struct_type.referenced_type = ref_type
+        struct_type.td = td
+        struct_type.desc = td.ref_struct
+    else:
+        cassert(False)
 
     setattr(py_pkg, iop_path.local_name, iop_type)
-    plugin.types[iop_path.iop_fullname] = classes
-
-    return classes
+    return plugin_add_type(plugin, iop_path, iop_type)
 
 
-cdef object plugin_build_td_metaclass(IopPath iop_path,
-                                      object ref_metaclass):
-    cdef object td_metaclass
-
-    td_metaclass = type.__new__(type, iop_path.py_name + '_metaclass',
-                                (_TypedefMetaclass, ref_metaclass),
-                                empty_init_metaclass_dict_g)
-    return td_metaclass
-
-
-cdef _InternalTypeClasses plugin_build_primitive_td_type(object py_type):
-    """Create internal type classes from python primitive class for typedef.
-
-    Parameters
-    ----------
-    py_type
-        The primitive python type.
-
-    Returns
-    -------
-        The internal class for the primitive python type.
-    """
-    cdef _InternalTypeClasses classes
-
-    classes = _InternalTypeClasses.__new__(_InternalTypeClasses)
-
-    classes.metaclass = None
-    classes.proxy_cls = None
-    classes.public_cls = py_type
-
-    return classes
-
-
-cdef _InternalTypeClasses plugin_add_type(
-    Plugin plugin, object metaclass, object base_type,
-    IopPath iop_path, dict proxy_cls):
-    """Create iop type and add it to the python package.
+cdef object plugin_add_type(Plugin plugin, IopPath iop_path, object iop_cls):
+    """Add the IOP class type in to the python package.
 
     Parameters
     ----------
     plugin
         The IOPy plugin.
-    metaclass
-        The metaclass to be used for the classes.
-    base_type
-        The python base type of the proxy class to create.
+    iop_cls
+        The IOP class type.
     iop_path
         The iop symbol path for the class type.
-    proxy_dct
-        The class attributes dictionary for the proxy class.
-        For classes IOP types, this will be set to the static attributes
-        of the class.
     """
-    cdef _InternalTypeClasses classes
-    cdef str proxy_name = iop_path.py_name + '_proxy'
-
-    classes = _InternalTypeClasses.__new__(_InternalTypeClasses)
-
-    if proxy_cls is None:
-        proxy_cls = plugin_make_class_attrs_dict(proxy_name)
-    else:
-        proxy_cls.update(plugin_make_class_attrs_dict(proxy_name))
-
-    classes.metaclass = metaclass
-    classes.proxy_cls = metaclass.__new__(
-        metaclass, proxy_name, (base_type,), proxy_cls
-    )
-
-    classes.public_cls = metaclass.__new__(
-        metaclass, iop_path.py_name, (classes.proxy_cls,),
-        plugin_make_class_attrs_dict(iop_path.py_name)
-    )
-    plugin.types[iop_path.iop_fullname] = classes
-    return classes
+    plugin.types[iop_path.iop_fullname] = iop_cls
+    return iop_cls
 
 
 cdef void plugin_add_module(Plugin plugin, const iop_mod_t *module):
@@ -10827,15 +10427,10 @@ cdef object plugin_add_iface(Plugin plugin, const iop_iface_t *iface):
     Returns
     -------
     object
-        The public class of the interface
+        The class of the interface
     """
     cdef str iop_fullname
-    cdef _InternalTypeClasses classes
-    cdef str metaclass_name
-    cdef _InternalIfaceHolder metaclass
-    cdef str proxy_name
-    cdef object proxy_cls
-    cdef object public_cls
+    cdef _InternalIfaceType interface_cls
     cdef IopPath iop_path
     cdef Package py_pkg
     cdef uint16_t i
@@ -10844,54 +10439,36 @@ cdef object plugin_add_iface(Plugin plugin, const iop_iface_t *iface):
     cdef str rpc_name
 
     iop_fullname = lstr_to_py_str(iface.fullname)
-    classes = <_InternalTypeClasses>plugin.interfaces.get(iop_fullname)
-    if classes is not None:
-        metaclass = <_InternalIfaceHolder>classes.metaclass
-        metaclass.refcnt += 1
-        return classes.public_cls
+    interface_cls = <_InternalIfaceType>plugin.interfaces.get(
+        iop_fullname)
+    if interface_cls is not None:
+        interface_cls.refcnt += 1
+        return interface_cls
 
     iop_path = make_iop_path(iop_fullname)
 
-    metaclass_name = iop_path.py_name + '_metaclass'
-    metaclass = _InternalIfaceHolder.__new__(
-        _InternalIfaceHolder, metaclass_name, (_InternalIfaceBaseMetaclass,),
-        empty_init_metaclass_dict_g
-    )
-    metaclass.refcnt = 1
-    metaclass.plugin = plugin
-    metaclass.iface = iface
-
-    proxy_name = iop_path.py_name + '_proxy'
-    proxy_cls = metaclass.__new__(
-        metaclass, proxy_name, (IfaceBase,),
-        plugin_make_class_attrs_dict(proxy_name)
-    )
-
-    public_cls = metaclass.__new__(
-        metaclass, iop_path.py_name, (proxy_cls,),
+    interface_cls = _InternalIfaceType.__new__(
+        _InternalIfaceType, iop_path.py_name, (IfaceBase,),
         plugin_make_class_attrs_dict(iop_path.py_name)
     )
+    interface_cls.refcnt = 1
+    interface_cls.plugin = plugin
+    interface_cls.iface = iface
 
     for i in range(iface.funs_len):
         rpc = &iface.funs[i]
-        py_rpc = plugin_create_iface_rpc(plugin, metaclass, rpc)
+        py_rpc = plugin_create_iface_rpc(plugin, interface_cls, rpc)
         rpc_name = lstr_to_py_str(rpc.name)
-        setattr(proxy_cls, rpc_name, py_rpc)
-        setattr(public_cls, rpc_name, py_rpc)
-
-    classes = _InternalTypeClasses.__new__(_InternalTypeClasses)
-    classes.metaclass = metaclass
-    classes.proxy_cls = proxy_cls
-    classes.public_cls = public_cls
+        setattr(interface_cls, rpc_name, py_rpc)
 
     py_pkg = plugin_create_or_get_py_pkg(plugin, iop_path.pkg_name)
-    setattr(py_pkg.interfaces, iop_path.local_name, public_cls)
-    plugin.interfaces[iop_fullname] = classes
-    return public_cls
+    setattr(py_pkg.interfaces, iop_path.local_name, interface_cls)
+    plugin.interfaces[iop_fullname] = interface_cls
+    return interface_cls
 
 
 cdef RPCBase plugin_create_iface_rpc(Plugin plugin,
-                                     _InternalIfaceHolder iface_holder,
+                                     _InternalIfaceType iface_cls,
                                      const iop_rpc_t *rpc):
     """Create python interface rpc.
 
@@ -10921,7 +10498,7 @@ cdef RPCBase plugin_create_iface_rpc(Plugin plugin,
 
     py_rpc = RPCBase.__new__(RPCBase)
     py_rpc.rpc = rpc
-    py_rpc.iface_holder = iface_holder
+    py_rpc.iface_cls = iface_cls
     return py_rpc
 
 
@@ -10969,21 +10546,10 @@ cdef void plugin_add_void_type(Plugin plugin, const iop_struct_t *st,
         The IOP path of the void struct.
     """
     cdef _InternalStructUnionType iop_type
-    cdef _InternalTypeClasses classes
 
     iop_path.py_name = 'Void'
-    iop_type = plugin_create_st_iop_type(plugin, iop_path, st,
-                                         _InternalStructUnionMetaclass)
-
-    classes = _InternalTypeClasses.__new__(_InternalTypeClasses)
-    classes.metaclass = iop_type
-    classes.proxy_cls = None
-    classes.public_cls = iop_type.__new__(
-        iop_type, iop_path.py_name, (Struct,),
-        plugin_make_class_attrs_dict(iop_path.py_name)
-    )
-
-    plugin.types[iop_path.py_name] = classes
+    iop_type = plugin_create_st_iop_type(plugin, iop_path, st, Struct, None)
+    plugin_add_type(plugin, iop_path, iop_type)
 
 
 cdef void plugin_unload_dso(Plugin plugin, const iop_dso_t *dso):
@@ -11151,18 +10717,18 @@ cdef void plugin_remove_iface(Plugin plugin, const iop_iface_t *iface):
         The interface to remove.
     """
     cdef str iop_fullname
-    cdef _InternalTypeClasses classes
+    cdef _InternalIfaceType interface_cls
     cdef IopPath iop_path
     cdef Package py_pkg
 
     iop_fullname = lstr_to_py_str(iface.fullname)
-    classes = <_InternalTypeClasses>plugin.interfaces.get(iop_fullname)
-    if classes is None:
+    interface_cls = <_InternalIfaceType>plugin.interfaces.get(iop_fullname)
+    if interface_cls is None:
         # Already removed?
         return
 
-    classes.metaclass.refcnt -= 1
-    if classes.metaclass.refcnt > 0:
+    interface_cls.refcnt -= 1
+    if interface_cls.refcnt > 0:
         # Still used by another dso.
         return
 

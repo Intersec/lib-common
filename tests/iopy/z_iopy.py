@@ -143,20 +143,8 @@ def z_iopy_use_fake_tcp_server(
         fake_server.close()
 
 
-def iop_get_proxy_cls(iop_cls: type) -> type:
-    """Get the proxy class of the given IOPy class"""
-    for cls in iop_cls.mro():
-        if cls.__name__.endswith('_proxy'):
-            return cls
-    raise RuntimeError('no proxy cls')
-
-
 def z_monkey_patch(iop_cls: type) -> Callable[[type], type]:
-    iop_cls_ = iop_cls
     def wrapper(py_cls: type) -> type:
-        # TODO: the proxy cls will be removed
-        iop_cls = iop_get_proxy_cls(iop_cls_)
-
         # Retrieve the methods and attributes of the python class to be
         # monkey-patched in the IOP class.
         # Skip __dict__, __weakref__ and __doc__ if set.
