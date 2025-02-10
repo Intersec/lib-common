@@ -92,6 +92,22 @@ int thr_create(pthread_t *restrict thread,
 #endif
 
 MODULE_DECLARE(thr_hooks);
+
+typedef struct thr_cfg_t {
+    /** Max parallelism.
+     *
+     * Maximum parallelism of the thr library. By default (ie. if the thr
+     * module is used without cfg, or if \ref max_parallelism is 0), it is set
+     * to the number of threads (that can never be exceeded) with a maximum of
+     * 64.
+     *
+     * Note that the environment variable THR_MAX_PARALLELISM prevails if it
+     * is set.
+     */
+    uint32_t max_parallelism;
+} thr_cfg_t;
+
+/* Takes an optional thr_cfg_t as argument */
 MODULE_DECLARE(thr);
 
 #endif

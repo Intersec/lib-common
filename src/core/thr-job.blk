@@ -1034,42 +1034,48 @@ void thr_queue_main_drain(void)
 
 static int thr_initialize(void *arg)
 {
+    const thr_cfg_t *cfg = arg;
+    const char *env = getenv("THR_MAX_PARALLELISM");
+    size_t nb_cpu = sysconf(_SC_NPROCESSORS_CONF);
 
-    if (!thr_parallelism_g) {
-        const char *env = getenv("THR_MAX_PARALLELISM");
-        size_t nb_cpu = sysconf(_SC_NPROCESSORS_CONF);
-
-        if (env && *env) {
-            thr_parallelism_g = atoi(env);
-            if (thr_parallelism_g < 2) {
-                e_fatal("invalid THR_PARALLELISM value `%s`", env);
-            }
-            thr_parallelism_g = MIN(thr_parallelism_g, nb_cpu);
-        } else {
-            thr_parallelism_g = nb_cpu;
-        }
-        thr_parallelism_g = MAX(thr_parallelism_g, 2);
-
-        if (unlikely(mem_tool_is_running(MEM_TOOL_VALGRIND))) {
-            thr_parallelism_g = MIN(2, thr_parallelism_g);
-        }
-
-        atomic_init(&_G.stopping, false);
-        thr_ec_init(&_G.ec);
-        thr_ec_init(&_G.start_bar_thr);
-        thr_ec_init(&_G.start_bar_main);
-        thr_ec_init(&_G.threads_count_evc);
-        atomic_init(&_G.target_threads_count, thr_parallelism_g);
-        atomic_init(&_G.threads_count_gen, 1);
-        atomic_init(&_G.threads_gen, 0);
-        atomic_init(&_G.threads_count, 0);
-        thr_queue_init(thr_queue_main_g);
-        _G.threads_lock = 0;
-
-        thr_fork_threads();
-        _G.before = el_unref(el_before_register(&thr_on_el, NULL));
-        _G.wakeel = el_unref(el_wake_register(&thr_on_el, NULL));
+    if (thr_parallelism_g) {
+        return 0;
     }
+
+    if (env && *env) {
+        thr_parallelism_g = atoi(env);
+        if (thr_parallelism_g < 2) {
+            e_fatal("invalid THR_PARALLELISM value `%s`", env);
+        }
+        thr_parallelism_g = MIN(thr_parallelism_g, nb_cpu);
+    } else if (cfg && cfg->max_parallelism > 0) {
+        thr_parallelism_g = MIN(cfg->max_parallelism, nb_cpu);
+    } else {
+        /* By default, don't go higher than 64: it's pretty sure thread jobs
+         * are inefficient with that much threads. */
+        thr_parallelism_g = MIN(nb_cpu, 64);
+    }
+    thr_parallelism_g = MAX(thr_parallelism_g, 2);
+
+    if (unlikely(mem_tool_is_running(MEM_TOOL_VALGRIND))) {
+        thr_parallelism_g = MIN(2, thr_parallelism_g);
+    }
+
+    atomic_init(&_G.stopping, false);
+    thr_ec_init(&_G.ec);
+    thr_ec_init(&_G.start_bar_thr);
+    thr_ec_init(&_G.start_bar_main);
+    thr_ec_init(&_G.threads_count_evc);
+    atomic_init(&_G.target_threads_count, thr_parallelism_g);
+    atomic_init(&_G.threads_count_gen, 1);
+    atomic_init(&_G.threads_gen, 0);
+    atomic_init(&_G.threads_count, 0);
+    thr_queue_init(thr_queue_main_g);
+    _G.threads_lock = 0;
+
+    thr_fork_threads();
+    _G.before = el_unref(el_before_register(&thr_on_el, NULL));
+    _G.wakeel = el_unref(el_wake_register(&thr_on_el, NULL));
 
     return 0;
 }
