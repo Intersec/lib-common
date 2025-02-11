@@ -1634,10 +1634,10 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_EQ(ressources_int.tab[0], z_ressources_int_1);
         Z_ASSERT_EQ(ressources_int.tab[1], z_ressources_int_2);
 
-        Z_ASSERT_EQ(dso->user_version, 42U);
-        Z_ASSERT_P(dso->user_version_cb);
+        Z_ASSERT_EQ(dso->ic_user_version.current_version, 42U);
+        Z_ASSERT_P(dso->ic_user_version.check_cb);
 
-        Z_ASSERT((*dso->user_version_cb)(42));
+        Z_ASSERT((*dso->ic_user_version.check_cb)(42));
 
         /* Test iop_dso_get_from_pkg */
         qm_for_each_pos(iop_pkg, pos, &dso->pkg_h) {

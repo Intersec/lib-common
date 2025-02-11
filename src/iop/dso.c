@@ -511,8 +511,11 @@ iop_dso_t *iop_dso_load_handle(iop_env_t *iop_env, void *handle,
     dso->version = versionp ? *versionp : 0;
     dso->use_external_packages = !!dlsym(handle, "iop_use_external_packages");
     dso->dont_replace_fix_pkg = !!dlsym(handle, "iop_dont_replace_fix_pkg");
-    dso->user_version = user_version_p ? *user_version_p : 0;
-    dso->user_version_cb = user_version_cb_p ? *user_version_cb_p : NULL;
+
+    dso->ic_user_version = (ic_user_version_t) {
+        .current_version = user_version_p ? *user_version_p : 0,
+        .check_cb = user_version_cb_p ? *user_version_cb_p : NULL,
+    };
 
     e_trace(1, "open new dso %p (%*pM)", dso, LSTR_FMT_ARG(dso->path));
 

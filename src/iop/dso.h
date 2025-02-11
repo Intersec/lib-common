@@ -40,11 +40,13 @@ typedef struct iop_dso_t {
     void             * nonnull handle;
     lstr_t            path;
     uint32_t          version;
-    uint32_t          user_version;
-    iop_dso_user_version_cb_f *nullable user_version_cb;
+
+    /* The IChannel version loaded from this DSO. */
+    ic_user_version_t ic_user_version;
 
     /* The IOP environment loaded by this DSO. */
     iop_env_t * nonnull iop_env;
+
     /* The stat of the DSO file if the DSO is used to create a new LMID */
     iop_dso_file_stat_t file_stat;
 

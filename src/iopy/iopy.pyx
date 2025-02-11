@@ -9628,8 +9628,7 @@ cdef class Plugin:
         self.dso = plugin_open_dso(self, dso_path)
 
         # Set the IC user version from the main DSO
-        self.iop_env.ic_user_version.current_version = self.dso.user_version
-        self.iop_env.ic_user_version.check_cb = self.dso.user_version_cb
+        self.iop_env.ic_user_version = self.dso.ic_user_version
 
         plugin_run_register_scripts(self, self.dso)
 
