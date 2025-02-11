@@ -9620,15 +9620,16 @@ cdef class Plugin:
             The optional IOP plugin dso path.
         """
         self.iop_env = iop_env_new()
+
         # Use LM_ID_NEWLM here to load the plugin and additional DSOs in
         # a separate namespace. This way, the symbols and objects of the
         # plugin are completely separated from the other plugins.
-        self.iop_env.dso_lmid = LM_ID_NEWLM
+        iop_env_set_dso_lmid(self.iop_env, LM_ID_NEWLM)
 
         self.dso = plugin_open_dso(self, dso_path)
 
         # Set the IC user version from the main DSO
-        self.iop_env.ic_user_version = self.dso.ic_user_version
+        iop_env_set_ic_user_version(self.iop_env, self.dso.ic_user_version)
 
         plugin_run_register_scripts(self, self.dso)
 
@@ -11434,6 +11435,7 @@ cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
         The IOPy plugin.
     """
     cdef Plugin plugin
+    cdef const iop_env_ctx_t *iop_env_ctx
     cdef const iop_pkg_t *pkg
     cdef const iop_mod_t *mod
     cdef QHashIterator it
@@ -11444,19 +11446,21 @@ cdef public object Iopy_make_plugin_iop_env(iop_env_t *iop_env):
     # deleted
     plugin.iop_env = iop_env_retain(iop_env)
 
+    iop_env_ctx = iop_env_get_ctx(iop_env)
+
     # See comment in plugin_load_dso() with we need to load the packages first
     # and then the modules
 
     # Load the packages from the IOP environment
-    it = qhash_iter_make(&iop_env.pkg_by_fullname.qh)
+    it = qhash_iter_make(&iop_env_ctx.pkg_by_fullname.qh)
     while qhash_iter_next(&it):
-        pkg = iop_env.pkg_by_fullname.values[it.pos]
+        pkg = iop_env_ctx.pkg_by_fullname.values[it.pos]
         plugin_add_package(plugin, pkg, NULL)
 
     # Load the modules
-    it = qhash_iter_make(&iop_env.mod_by_fullname.qh)
+    it = qhash_iter_make(&iop_env_ctx.mod_by_fullname.qh)
     while qhash_iter_next(&it):
-        mod = iop_env.mod_by_fullname.values[it.pos]
+        mod = iop_env_ctx.mod_by_fullname.values[it.pos]
         plugin_add_module(plugin, mod)
 
     return plugin

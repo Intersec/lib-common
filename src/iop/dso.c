@@ -407,8 +407,12 @@ static int iop_dso_register_(iop_dso_t *dso, sb_t *err);
 # define RTLD_DEEPBIND  0
 #endif
 
+static iop_dso_t *iop_dso_load_handle(iop_env_t *iop_env, void *handle,
+                                      const char *path, sb_t *err);
+
 iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
 {
+    iop_env_ctx_t *iop_env_ctx = &iop_env->ctx;
     int flags = RTLD_LAZY | RTLD_DEEPBIND;
     iop_dso_file_stat_t dso_stat;
     void *handle;
@@ -418,11 +422,11 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
     p_clear(&dso_stat, 1);
 
     /* For LM_ID_BASE, use RTLD_LAZY | RTLD_DEEPBIND | RTLD_GLOBAL */
-    if (iop_env->dso_lmid == LM_ID_BASE) {
+    if (iop_env_ctx->dso_lmid == LM_ID_BASE) {
         flags |= RTLD_GLOBAL;
     }
 
-    if (iop_env->dso_lmid == LM_ID_NEWLM) {
+    if (iop_env_ctx->dso_lmid == LM_ID_NEWLM) {
         uint32_t pos;
 
         /* Try to look for the namespace in the cache for the given DSO. */
@@ -433,7 +437,7 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
             /* If we already have a namespace if this DSO, reuse it and
              * increment the ref counter. */
             lmid_ref = &_G.lmid_by_stat.values[pos ^ QHASH_COLLISION];
-            iop_env->dso_lmid = lmid_ref->lmid;
+            iop_env_ctx->dso_lmid = lmid_ref->lmid;
         } else {
             /* Else, create a new ref. */
             lmid_ref = &_G.lmid_by_stat.values[pos];
@@ -443,21 +447,21 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
     }
 
     /* Opening the DSO with the correct flags and LMID */
-    handle = dlmopen(iop_env->dso_lmid, path, flags);
+    handle = dlmopen(iop_env_ctx->dso_lmid, path, flags);
     if (handle == NULL) {
         sb_setf(err, "unable to dlopen `%s`: %s", path, dlerror());
         return NULL;
     }
 
-    if (iop_env->dso_lmid == LM_ID_NEWLM) {
+    if (iop_env_ctx->dso_lmid == LM_ID_NEWLM) {
         /* If we have created a new namespace, get its LMID and store it in
          * the IOP environment and in the cache reference. */
-        if (dlinfo(handle, RTLD_DI_LMID, &iop_env->dso_lmid) < 0) {
+        if (dlinfo(handle, RTLD_DI_LMID, &iop_env_ctx->dso_lmid) < 0) {
             sb_setf(err, "unable to get lmid of plugin `%s`: %s", path,
                     dlerror());
             return NULL;
         }
-        lmid_ref->lmid = iop_env->dso_lmid;
+        lmid_ref->lmid = iop_env_ctx->dso_lmid;
     }
 
     /* Load the DSO handle */
@@ -476,8 +480,8 @@ iop_dso_t *iop_dso_open(iop_env_t *iop_env, const char *path, sb_t *err)
     return dso;
 }
 
-iop_dso_t *iop_dso_load_handle(iop_env_t *iop_env, void *handle,
-                               const char *path, sb_t *err)
+static iop_dso_t *iop_dso_load_handle(iop_env_t *iop_env, void *handle,
+                                      const char *path, sb_t *err)
 {
     iop_dso_t *dso;
     iop_dso_vt_t *dso_vt;

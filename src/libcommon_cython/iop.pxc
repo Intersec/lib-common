@@ -59,12 +59,14 @@ PXCC_EXPORT_SYMBOL(t_iop_xunpack_ptr);
 PXCC_EXPORT_SYMBOL(iop_xpack_flags);
 
 PXCC_EXPORT_SYMBOL(iop_dso_open);
-PXCC_EXPORT_SYMBOL(iop_dso_load_handle);
 PXCC_EXPORT_SYMBOL(iop_dso_close);
 
 PXCC_EXPORT_SYMBOL(iop_env_new);
 PXCC_EXPORT_SYMBOL(iop_env_delete);
 PXCC_EXPORT_SYMBOL(iop_env_retain);
+PXCC_EXPORT_SYMBOL(iop_env_get_ctx);
+PXCC_EXPORT_SYMBOL(iop_env_set_dso_lmid);
+PXCC_EXPORT_SYMBOL(iop_env_set_ic_user_version);
 
 /* }}} */
 /* {{{ Iop-Json */

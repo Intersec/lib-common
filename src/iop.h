@@ -135,11 +135,11 @@ qm_kvec_t(iop_pkg, lstr_t, const iop_pkg_t * nonnull,
 
 qm_khptr_ckey_t(iop_dso_by_pkg, iop_pkg_t, iop_dso_t * nonnull);
 
-/** The IOP environment where IOP objects are registered. */
-typedef struct iop_env_t {
-    /** Reference counter. */
-    int refcnt;
-
+/** The current IOP environment context where IOP objects are registered.
+ *
+ * It is owned by \ref iop_env_t, and swapped on \ref iop_env_transfer().
+ */
+typedef struct iop_env_ctx_t {
     /** The map of classes by class base and class id. */
     qm_t(iop_class_by_id) classes_by_id;
 
@@ -178,10 +178,10 @@ typedef struct iop_env_t {
      * environment.
      */
     ic_user_version_t ic_user_version;
+} iop_env_ctx_t;
 
-    /* XXX: When adding new fields here, make sure to also handle them in
-     * iop_env_transfer(). */
-} iop_env_t;
+/** The IOP environment where IOP objects are registered. */
+typedef struct iop_env_t iop_env_t;
 
 /** Create an IOP environment. */
 iop_env_t * nonnull iop_env_new(void);
@@ -200,6 +200,17 @@ void iop_env_copy(iop_env_t * nonnull dst, iop_env_t * nonnull src);
  * The source IOP environment is no longer valid after calling this function.
  */
 void iop_env_transfer(iop_env_t * nonnull dst, iop_env_t * nonnull src);
+
+/** Get the current context of the IOP environment. */
+const iop_env_ctx_t * nonnull
+iop_env_get_ctx(const iop_env_t * nonnull iop_env);
+
+/** Set the DSO LMID of the IOP environment. */
+void iop_env_set_dso_lmid(iop_env_t * nonnull iop_env, Lmid_t dso_lmid);
+
+/** Set the IC user version of the IOP environment. */
+void iop_env_set_ic_user_version(iop_env_t * nonnull iop_env,
+                                 ic_user_version_t ic_user_version);
 
 /** Get a IOP structure from its fullname. */
 const iop_struct_t * nullable

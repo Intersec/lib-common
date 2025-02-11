@@ -21,7 +21,21 @@
 
 #include <lib-common/iop.h>
 
-/* {{{ IOP environment registration */
+/* {{{ IOP environment */
+
+/** Definition of an IOP environment. */
+struct iop_env_t {
+    /** Reference counter. */
+    int refcnt;
+
+    /** The current context of the IOP environment.
+     *
+     * It is swapped on \ref iop_env_transfer().
+     */
+    /* TODO: In order to support multi-threading, protect it with a rw-lock or
+     * an arc-swap. */
+    iop_env_ctx_t ctx;
+};
 
 int iop_check_registered_classes(const iop_env_t *iop_env, sb_t *err);
 

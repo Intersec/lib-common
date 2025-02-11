@@ -90,21 +90,6 @@ iop_dso_t * nullable iop_dso_open(iop_env_t * nonnull iop_env,
                                   const char * nonnull path,
                                   sb_t * nonnull err);
 
-/** Load a DSO from an already opened DSO handle, and register its packages.
- *
- * On success, the DSO will own the handle afterwards.
- * On error, the handle is not closed.
- *
- * \param[in]  iop_env  the current IOP environment.
- * \param[in]  handle   handle to the opened DSO.
- * \param[in]  path     path to the DSO.
- * \param[out] err      error description in case of error.
- */
-iop_dso_t * nullable iop_dso_load_handle(iop_env_t * nonnull iop_env,
-                                         void * nonnull handle,
-                                         const char * nonnull path,
-                                         sb_t * nonnull err);
-
 static ALWAYS_INLINE iop_dso_t * nonnull iop_dso_dup(iop_dso_t * nonnull dso)
 {
     dso->refcnt++;

@@ -2719,7 +2719,8 @@ static int ic_version_write(ichannel_t *ic, int fd)
     uint16_t flags = 0;
     int dlen = IC_MSG_HDR_LEN + IC_MSG_VERSION_DLEN_MIN;
     byte *p = buffer;
-    uint32_t user_version = ic->iop_env->ic_user_version.current_version;
+    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(ic->iop_env);
+    uint32_t user_version = iop_env_ctx->ic_user_version.current_version;
 
     if (ic_is_tls_enabled(ic)) {
         flags |= IC_SC_VERSION_TLS;
@@ -2863,6 +2864,7 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
     int slot, dlen, cmd;
     ichannel_t *ic = priv.ptr;
     sb_t *buf = &ic->rbuf;
+    const iop_env_ctx_t *iop_env_ctx = iop_env_get_ctx(ic->iop_env);
     uint32_t user_version = 0;
     ic_user_version_check_f *user_version_check_cb;
 
@@ -2947,12 +2949,12 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
     }
 
     /* Check for custom user version compatibility. */
-    user_version_check_cb = ic->iop_env->ic_user_version.check_cb;
+    user_version_check_cb = iop_env_ctx->ic_user_version.check_cb;
     if (!ic->is_unix && user_version_check_cb &&
         !(*user_version_check_cb)(user_version))
     {
         uint32_t current_version =
-            ic->iop_env->ic_user_version.current_version;
+            iop_env_ctx->ic_user_version.current_version;
 
         logger_warning(&_G.logger, "remote user version %u is incompatible"
                        " with us (%u), connection rejected",
