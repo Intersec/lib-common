@@ -2536,6 +2536,27 @@ Z_GROUP_EXPORT(str) {
         /* No need to check 'mp_lstr_dupz()' as it is used for implementation
          * of both 'lstr_dupz()', 't_lstr_dupz()'. */
     } Z_TEST_END;
+
+    Z_TEST(sb_overlaps, "") {
+        SB_1k(abcdef);
+        lstr_t bcd;
+        SB_1k(ghi);
+        sb_t klmnop;
+
+        sb_adds(&abcdef, "abcdef");
+        bcd = LSTR_INIT_V(abcdef.data + 1,  3);
+        Z_ASSERT(sb_overlaps(&abcdef, bcd.s, bcd.len));
+
+        sb_adds(&ghi, "GHI");
+        Z_ASSERT(!sb_overlaps(&abcdef, ghi.data, ghi.len));
+        Z_ASSERT(!sb_overlaps(&ghi, abcdef.data, abcdef.len));
+
+        sb_init(&klmnop);
+        sb_adds(&klmnop, "KLMNOP");
+        Z_ASSERT(!sb_overlaps(&abcdef, klmnop.data, klmnop.len));
+        Z_ASSERT(!sb_overlaps(&klmnop, abcdef.data, abcdef.len));
+        sb_wipe(&klmnop);
+    } Z_TEST_END;
 } Z_GROUP_END;
 
 /* }}} */

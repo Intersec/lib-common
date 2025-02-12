@@ -283,10 +283,40 @@ static inline char * nonnull sb_growlen(sb_t * nonnull sb, int extra)
 /* splicing                                                               */
 /**************************************************************************/
 
+static inline bool sb_overlaps(const sb_t * nonnull sb,
+                               const void * nonnull data, size_t dlen)
+{
+    size_t min_len = MIN((size_t)sb->len, dlen);
+
+    if (!sb->len || !dlen) {
+        return false;
+    }
+    /* even though the C11 standard §6.5.6 and §6.5.8 says that this is
+     * undefined behavior, when targeting for linux the following pointer
+     * arithmetic is able to determine if two buffer overlaps because it uses
+     * a flat and linear virtual memory model
+     *
+     * to explain how we check for buffer not overlapping is:
+     * to make the comparison, use an unsigned range check for dist(s,d)>=n,
+     * algebraically !(-n<s-d<n). subtracting n yields !(-2*n<s-d-n<0), which
+     * mapped into unsigned modular arithmetic is !(-2*n<s-d-n) or rather
+     * -2*n>=s-d-n.
+     *
+     * since we are checking for buffer overlapping, we not (!) the result of
+     * that comparison
+     */
+    return !((uintptr_t)data - (uintptr_t)sb->data - min_len <= -2 * min_len);
+}
+
 static inline void sb_add(sb_t * nonnull sb, const void * nonnull data,
                           int dlen)
 {
-    char *buf = sb_growlen(sb, dlen);
+    char *buf;
+
+    assert(!sb_overlaps(sb, data, dlen) &&
+           "the data buffer is overlapping with the sb, please copy the "
+           "buffer elsewhere before using sb_add");
+    buf = sb_growlen(sb, dlen);
 
     memcpy(buf, data, dlen);
 }
@@ -549,6 +579,9 @@ void sb_add_sanitized_out(sb_t * nonnull sb, lstr_t s,
 static inline void sb_set(sb_t * nonnull sb, const void * nonnull data,
                           int dlen)
 {
+    assert(!sb_overlaps(sb, data, dlen) &&
+           "the data buffer is overlapping with the sb, please use "
+           "sb_skip/sb_shrink and/or sb_clip instead");
     sb->len = 0;
     sb_add(sb, data, dlen);
 }
