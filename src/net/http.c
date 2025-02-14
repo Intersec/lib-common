@@ -2909,9 +2909,6 @@ void httpc_pool_attach(httpc_t *w, httpc_pool_t *pool)
     }
     if (w->busy) {
         dlist_add(&pool->busy_list, &w->pool_link);
-        if (pool->on_busy) {
-            (*pool->on_busy)(pool, w);
-        }
     } else {
         dlist_add(&pool->ready_list, &w->pool_link);
         if (pool->on_ready) {
@@ -2950,12 +2947,8 @@ httpc_t *httpc_pool_get(httpc_pool_t *pool)
         if (httpc_pool_reach_limit(pool)) {
             return NULL;
         }
-        httpc = RETHROW_P(httpc_pool_launch(pool));
-        /* As we are establishing the connection, busy will be true until it
-         * is connected. Thus, we will always return NULL here unless you
-         * force this flag to false in the on_busy callback for some specific
-         * reasons. */
-        return httpc->busy ? NULL : httpc;
+        httpc_pool_launch(pool);
+        return NULL;
     }
 
     httpc = dlist_first_entry(&pool->ready_list, httpc_t, pool_link);
@@ -3028,9 +3021,6 @@ static void httpc_set_busy(httpc_t *w)
     w->busy = true;
     if (pool) {
         dlist_move(&pool->busy_list, &w->pool_link);
-        if (pool->on_busy) {
-            (*pool->on_busy)(pool, w);
-        }
     }
 }
 

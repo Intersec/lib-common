@@ -898,7 +898,6 @@ struct httpc_pool_t {
     dlist_t      busy_list;
 
     void (* nullable on_ready)(httpc_pool_t * nonnull, httpc_t * nonnull);
-    void (* nullable on_busy)(httpc_pool_t * nonnull, httpc_t * nonnull);
     on_connect_error_f * nullable on_connect_error;
 };
 
