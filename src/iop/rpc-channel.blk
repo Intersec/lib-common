@@ -1191,14 +1191,20 @@ ic_read_process_answer(ichannel_t *ic, int cmd, uint32_t slot,
 lstr_t ic_get_client_addr(ichannel_t *ic)
 {
     if (!ic->client_addr.s) {
-        t_scope;
-        socklen_t saddr_len = sizeof(ic->su.ss);
-
-        if (getpeername(el_fd_get_fd(ic->elh), &ic->su.sa, &saddr_len) < 0) {
-            logger_error(&_G.logger, "unable to get peer name: %m");
-            ic->client_addr = LSTR_EMPTY_V;
+        if (ic->is_unix) {
+            ic->client_addr = LSTR("127.0.0.1");
         } else {
-            ic->client_addr = lstr_dup(t_addr_fmt_lstr(&ic->su));
+            t_scope;
+            socklen_t saddr_len = sizeof(ic->su.ss);
+
+            if (getpeername(el_fd_get_fd(ic->elh), &ic->su.sa, &saddr_len) <
+                0)
+            {
+                logger_error(&_G.logger, "unable to get peer name: %m");
+                ic->client_addr = LSTR_EMPTY_V;
+            } else {
+                ic->client_addr = lstr_dup(t_addr_fmt_lstr(&ic->su));
+            }
         }
     }
     return ic->client_addr.len ? lstr_dupc(ic->client_addr) : LSTR_NULL_V;
