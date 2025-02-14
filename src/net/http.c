@@ -2939,6 +2939,22 @@ static inline bool httpc_pool_reach_limit(httpc_pool_t *pool)
            (pool->len_global && *pool->len_global >= pool->max_len_global));
 }
 
+static bool httpc_pool_is_connecting(httpc_pool_t *pool)
+{
+    dlist_for_each_entry(httpc_t, w, &pool->busy_list, pool_link) {
+        if (w->is_connected || w->connection_close) {
+            /* This connection is in the busy list either because its queue is
+             * full or is closing, we cannot consider it.
+             */
+            continue;
+        }
+        /* This connection is already connecting. */
+        return true;
+    }
+
+    return false;
+}
+
 httpc_t *httpc_pool_get(httpc_pool_t *pool)
 {
     httpc_t *httpc;
@@ -2947,7 +2963,25 @@ httpc_t *httpc_pool_get(httpc_pool_t *pool)
         if (httpc_pool_reach_limit(pool)) {
             return NULL;
         }
-        httpc_pool_launch(pool);
+
+        /* Before launching a new connection check if another connection isn't
+         * already in progress.
+         */
+        if (pool->cfg->pipeline_depth == 1) {
+            /* In case the HTTP client is configured in HTTP/1.0 compatible
+             * mode, we assume that each call to `httpc_pool_get` is made for
+             * a different query and thus we want to launch as many
+             * connections as possible.
+             */
+            httpc_pool_launch(pool);
+            return NULL;
+        }
+
+        if (!httpc_pool_is_connecting(pool)) {
+            /* No connection is currently connecting, launch one. */
+            httpc_pool_launch(pool);
+        }
+
         return NULL;
     }
 
@@ -2991,6 +3025,7 @@ static void httpc_wipe(httpc_t *w)
 
 static void httpc_disconnect(httpc_t *w)
 {
+    w->is_connected = false;
     httpc_pool_detach(w);
     http2c_ctx_unregister(&w->http2_ctx);
     el_unregister(&w->ev);
@@ -3004,6 +3039,7 @@ static void httpc_set_ready(httpc_t *w, bool first)
     httpc_pool_t *pool = w->pool;
 
     assert (w->busy);
+    w->is_connected = true;
     w->busy = false;
     if (pool) {
         dlist_move(&pool->ready_list, &w->pool_link);

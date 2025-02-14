@@ -811,6 +811,7 @@ typedef struct http2c_ctx_t http2c_ctx_t;
     bool          busy             : 1;                                      \
     bool          compressed       : 1;                                      \
     bool          connected_as_http2 : 1;                                    \
+    bool          is_connected       : 1;                                    \
     uint8_t       state;                                                     \
     uint16_t      queries;                                                   \
     int           chunk_length;                                              \
