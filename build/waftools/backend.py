@@ -1278,12 +1278,12 @@ def process_iop(self: TaskGen, node: Node) -> None:
                    node.change_ext_src('-t.iop.h')]
         if opts.json_node or opts.ts_node:
             package_path = iop_get_package_path(self, node)
-        if opts.json_node:
-            json_path = package_path + '.iop.json'
-            outputs.append(opts.json_node.make_node(json_path))
-        if opts.ts_node:
-            ts_path = package_path + '.iop.ts'
-            outputs.append(opts.ts_node.make_node(ts_path))
+            if opts.json_node:
+                json_path = package_path + '.iop.json'
+                outputs.append(opts.json_node.make_node(json_path))
+            if opts.ts_node:
+                ts_path = package_path + '.iop.ts'
+                outputs.append(opts.ts_node.make_node(ts_path))
 
         # Create iopc task (add iopc itself in the inputs so that IOP files
         # are rebuilt if iopc changes)
