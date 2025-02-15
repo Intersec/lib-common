@@ -2643,36 +2643,6 @@ class IopyIfaceTests(z.TestCase):
 
 
 # }}}
-# {{{ IopyScriptsTests
-
-
-@z.ZGroup
-class IopyScriptsTests(z.TestCase):
-    def setUp(self) -> None:
-        plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin-scripts.so')
-        self.p = iopy.Plugin(plugin_file)
-        self.r = self.p.register()
-
-    def test_iopy_register_scripts(self) -> None:
-        self.assertTrue(hasattr(self.r.test.ClassA, 'user_method'),
-                        "register script failed for test_1.py")
-
-        self.assertTrue(hasattr(self.r.test_emptystuffs.EmptyStruct, 'fun'),
-                        "register script failed for test_3.py")
-
-        self.assertFalse(self.r.test.ClassA().user_method(),
-                         "user method of classA failed")
-        self.assertTrue(self.r.test.ClassA(field1=1).user_method(),
-                        "user method of classA failed")
-        self.assertFalse(self.r.test.ClassB(field1=1).user_method(),
-                         "user method of classB failed")
-        self.assertTrue(self.r.test.ClassB(field1=1, field2=2).user_method(),
-                        "user method of classB failed")
-        self.assertTrue(self.r.test_emptystuffs.EmptyStruct().fun(),
-                        "user method of EmptyStruct failed")
-
-
-# }}}
 # {{{ IopyVoidTest
 
 
@@ -3032,7 +3002,7 @@ class IopyV3Tests(z.TestCase):
 @z.ZGroup
 class IopyDsoTests(z.TestCase):
     def setUp(self) -> None:
-        plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin-scripts.so')
+        plugin_file = os.path.join(TEST_PATH, 'test-iop-plugin2.so')
         self.p = iopy.Plugin(plugin_file)
         self.r = self.p.register()
 

@@ -111,25 +111,6 @@ void iop_dso_register(iop_dso_t * nonnull dso);
 /** Unregister the packages contained in a DSO. */
 void iop_dso_unregister(iop_dso_t * nonnull dso);
 
-const void * const nullable * nullable
-iop_dso_get_ressources(const iop_dso_t * nonnull, lstr_t category);
-
-#define IOP_DSO_GET_RESSOURCES(dso, category)                 \
-    ((const iop_dso_ressource_t(category) *const *)           \
-        iop_dso_get_ressources(dso, LSTR(#category)))
-
-#define iop_dso_ressources_for_each_entry(category, ressource, ressources) \
-    for (const iop_dso_ressource_t(category) *ressource,                   \
-         *const *_ressource_ptr = (ressources);                            \
-         (ressource = _ressource_ptr ? *_ressource_ptr : NULL);            \
-         _ressource_ptr++)
-
-#define iop_dso_for_each_ressource(dso, category, ressource)                 \
-    iop_dso_ressources_for_each_entry(category, ressource,                   \
-                                      IOP_DSO_GET_RESSOURCES(dso, category))
-
-IOP_DSO_DECLARE_RESSOURCE_CATEGORY(iopy_on_register, struct farch_entry_t);
-
 /* Called by iop module. */
 void iop_dso_initialize(void);
 void iop_dso_shutdown(void);

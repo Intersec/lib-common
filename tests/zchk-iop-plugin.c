@@ -18,7 +18,6 @@
 
 #include <lib-common/iop.h>
 #include <lib-common/iop/ic.iop.h>
-#include "zchk-iop-ressources.h"
 
 static bool zchk_iop_plugin_user_version_check(uint32_t user_version)
 {
@@ -28,6 +27,3 @@ static bool zchk_iop_plugin_user_version_check(uint32_t user_version)
 IOP_EXPORT_PACKAGES_COMMON(42, &zchk_iop_plugin_user_version_check);
 
 IOP_EXPORT_PACKAGES(&ic__pkg);
-
-IOP_DSO_EXPORT_RESSOURCES(str, &z_ressource_str_a, &z_ressource_str_b);
-IOP_DSO_EXPORT_RESSOURCES(int, &z_ressources_int_1, &z_ressources_int_2);

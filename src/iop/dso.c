@@ -608,14 +608,6 @@ void iop_dso_unregister(iop_dso_t *dso)
     }
 }
 
-const void *const *iop_dso_get_ressources(const iop_dso_t *dso, lstr_t category)
-{
-    t_scope;
-    lstr_t name = t_lstr_cat(LSTR("iop_dso_ressources_"), category);
-
-    return dlsym(dso->handle, name.s);
-}
-
 void iop_dso_initialize(void)
 {
     qm_init(iop_dso_lmid_by_stat, &_G.lmid_by_stat);

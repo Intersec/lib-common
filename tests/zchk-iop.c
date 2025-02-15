@@ -58,7 +58,6 @@
 #include "iop/tstiop_bpack_unregistered_class.iop.h"
 #include "iop/tstiop_void_type.iop.h"
 #include "iop/tstiop_wsdl.iop.h"
-#include "zchk-iop-ressources.h"
 
 qvector_t(my_struct_a, tstiop__my_struct_a__t);
 qvector_t(my_struct_a_opt, tstiop__my_struct_a_opt__t);
@@ -1605,8 +1604,6 @@ Z_GROUP_EXPORT(iop)
         SB_1k(err);
         iop_dso_t *dso;
         const iop_struct_t *st;
-        qv_t(cstr) ressources_str;
-        qv_t(i32) ressources_int;
         lstr_t path = t_lstr_cat(z_cmddir_g,
                                  LSTR("zchk-iop-plugin"SO_FILEEXT));
 
@@ -1617,22 +1614,6 @@ Z_GROUP_EXPORT(iop)
 
         Z_ASSERT_P(st = iop_env_get_struct(_G.iop_env, LSTR("ic.SimpleHdr")));
         Z_ASSERT(st != &ic__simple_hdr__s);
-
-        t_qv_init(&ressources_str, 0);
-        iop_dso_for_each_ressource(dso, str, ressource) {
-            qv_append(&ressources_str, *ressource);
-        }
-        Z_ASSERT_EQ(ressources_str.len, 2, "loading ressources failed");
-        Z_ASSERT_ZERO(strcmp(ressources_str.tab[0], z_ressource_str_a));
-        Z_ASSERT_ZERO(strcmp(ressources_str.tab[1], z_ressource_str_b));
-
-        t_qv_init(&ressources_int, 0);
-        iop_dso_for_each_ressource(dso, int, ressource) {
-            qv_append(&ressources_int, *ressource);
-        }
-        Z_ASSERT_EQ(ressources_int.len, 2, "loading ressources failed");
-        Z_ASSERT_EQ(ressources_int.tab[0], z_ressources_int_1);
-        Z_ASSERT_EQ(ressources_int.tab[1], z_ressources_int_2);
 
         Z_ASSERT_EQ(dso->ic_user_version.current_version, 42U);
         Z_ASSERT_P(dso->ic_user_version.check_cb);

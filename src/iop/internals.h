@@ -768,17 +768,6 @@ typedef bool (iop_dso_user_version_cb_f)(uint32_t user_version);
         return -1;                                                      \
     }                                                                   \
 
-#define iop_dso_ressource_t(category)  iop_dso_ressource_##category##_t
-
-#define IOP_DSO_DECLARE_RESSOURCE_CATEGORY(category, type)  \
-    typedef type iop_dso_ressource_t(category)
-
-#define IOP_DSO_EXPORT_RESSOURCES(category, ...)                \
-    EXPORT const iop_dso_ressource_t(category) * nullable const \
-        iop_dso_ressources_##category[];                        \
-    const iop_dso_ressource_t(category) *const                  \
-        iop_dso_ressources_##category[] = { __VA_ARGS__, NULL }
-
 /*}}}*/
 /* {{{ IOP array initializers (repeated fields) */
 

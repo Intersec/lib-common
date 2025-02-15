@@ -16,18 +16,13 @@
 /*                                                                         */
 /***************************************************************************/
 
-#ifndef IS_ZCHK_IOP_RESSOURCES_H
-#define IS_ZCHK_IOP_RESSOURCES_H
-
 #include <lib-common/iop.h>
+#include <lib-common/iop-rpc.h>
+#include <lib-common/core/core.iop.h>
 
-IOP_DSO_DECLARE_RESSOURCE_CATEGORY(str, const char *);
-IOP_DSO_DECLARE_RESSOURCE_CATEGORY(int, int);
+#include "test.iop.h"
+#include "testvoid.iop.h"
 
-extern const char *z_ressource_str_a;
-extern const char *z_ressource_str_b;
+IOP_EXPORT_PACKAGES_COMMON(0, NULL);
 
-extern const int z_ressources_int_1;
-extern const int z_ressources_int_2;
-
-#endif
+IOP_EXPORT_PACKAGES(&test__pkg, &testvoid__pkg, &ic__pkg, &core__pkg);

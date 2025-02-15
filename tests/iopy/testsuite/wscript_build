@@ -46,10 +46,8 @@ ctx.shlib(target='test-iop-plugin', source=[
     'libcommon-iop',
 ])
 
-ctx.shlib(target='test-iop-plugin-scripts', source=[
-    'test-iop-plugin-scripts.c',
-    'test_1_2.fc',
-    'test_3.fc',
+ctx.shlib(target='test-iop-plugin2', source=[
+    'test-iop-plugin2.c',
 ], use_whole=[
     'test-iop',
     'testvoid-iop',

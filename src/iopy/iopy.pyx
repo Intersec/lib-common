@@ -58,13 +58,6 @@ from libcommon_cython.farch cimport *
 from libcommon_cython.thr cimport *
 
 
-cdef extern from "<lib-common/farch.h>":
-    """
-    #define iopy_dso_get_scripts(dso)                                        \
-        IOP_DSO_GET_RESSOURCES(dso, iopy_on_register)
-    """
-    const farch_entry_t * const *iopy_dso_get_scripts(const iop_dso_t *)
-
 cdef extern from "version.h" nogil:
     """
     extern const char iopy_git_revision[];
@@ -9637,7 +9630,7 @@ cdef class Plugin:
         plugin_add_package(self, &ic__pkg, NULL)
 
     def __init__(Plugin self, object dso_path=None):
-        """Contructor.
+        """Constructor.
 
         Load the given IOP plugin (.so) and create all the appropriate IOPy
         classes.
@@ -9658,8 +9651,6 @@ cdef class Plugin:
 
         # Set the IC user version from the main DSO
         iop_env_set_ic_user_version(self.iop_env, self.dso.ic_user_version)
-
-        plugin_run_register_scripts(self, self.dso)
 
     def __dealloc__(Plugin self):
         """Close the IOP plugin"""
@@ -11181,51 +11172,6 @@ cdef void plugin_remove_iface(Plugin plugin, const iop_iface_t *iface):
     py_pkg = <Package>getattr(plugin, iop_path.pkg_name, None)
     if py_pkg is not None:
         delattr(py_pkg.interfaces, iop_path.local_name)
-
-
-cdef void plugin_run_register_scripts(Plugin plugin, const iop_dso_t *dso):
-    """Run register scripts in the IOP DSO.
-
-    Parameters
-    ----------
-    plugin
-        The IOPy plugin.
-    dso
-        The IOP DSO.
-    """
-    cdef t_scope_t t_scope_guard = t_scope_init()
-    cdef dict globals_dict = globals()
-    cdef const farch_entry_t *script
-    cdef const farch_entry_t * const *script_ptr
-    cdef lstr_t script_data
-    cdef str script_str
-    cdef farch_name_t name
-    cdef object message
-
-    t_scope_ignore(t_scope_guard)
-
-    globals_dict['_iopy_register'] = plugin
-
-    script_ptr = iopy_dso_get_scripts(dso)
-    while script_ptr and script_ptr[0]:
-        script = script_ptr[0]
-        while script.name.len:
-            script_data = t_farch_get_data(script, NULL)
-            script_str = lstr_to_py_str(script_data)
-
-            try:
-                exec(script_str, globals_dict, globals_dict)
-            except Exception:
-                farch_get_filename(script, name)
-                message = ('error when running register script %s:\n%s' %
-                           (name, traceback.format_exc()))
-                warnings.warn(message, Warning)
-
-            script += 1
-
-        script_ptr += 1
-
-    del globals_dict['_iopy_register']
 
 
 cdef inline int plugin_get_channel_timeouts(

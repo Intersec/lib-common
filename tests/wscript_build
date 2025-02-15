@@ -24,8 +24,6 @@ ctx: BuildContext
 
 # {{{ Automated C tests
 
-ctx.stlib(target='zchk-iop-ressources', source='zchk-iop-ressources.c')
-
 ctx.program(target='zchk', depends_on=[
     'zchk-iop-plugin',
     'zchk-tstiop-plugin',
@@ -79,14 +77,12 @@ ctx.program(target='zchk', depends_on=[
     'tstiop',
     'tstiop2',
     'tst-snmp-iop',
-    'zchk-iop-ressources',
 ], use_whole='libcommon')
 
 ctx.shlib(target='zchk-iop-plugin', source=[
     'zchk-iop-plugin.c',
 ], use=[
     'libcommon',
-    'zchk-iop-ressources',
 ], remove_dynlibs=True)
 
 # }}}
