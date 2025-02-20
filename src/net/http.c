@@ -2197,9 +2197,16 @@ httpd_tls_handshake(el_t evh, int fd, short events, data_t priv)
       case SSL_HANDSHAKE_CLOSED:
         obj_delete(&w);
         break;
-      case SSL_HANDSHAKE_ERROR:
+      case SSL_HANDSHAKE_ERROR: {
+        t_scope;
+
+        logger_error(&_G.logger,
+                     "server `%*pM`: ssl handshake error from client `%*pM`",
+                     LSTR_FMT_ARG(t_httpd_get_server_address(w)),
+                     LSTR_FMT_ARG(httpd_get_peer_address(w)));
         obj_delete(&w);
         return -1;
+      }
     }
 
     return 0;
@@ -2280,15 +2287,31 @@ httpd_t *httpd_spawn(int fd, httpd_cfg_t *cfg)
     return w;
 }
 
-lstr_t   httpd_get_peer_address(httpd_t * w)
+static lstr_t t_httpd_http2_ctx_get_sock_address(httpd_http2_ctx_t *ctx);
+static lstr_t t_httpd_http2_ctx_get_peer_address(httpd_http2_ctx_t *ctx);
+
+lstr_t httpd_get_peer_address(httpd_t *w)
 {
     if (!w->peer_address.len) {
         t_scope;
 
-        w->peer_address = lstr_dup(t_addr_fmt_lstr(&w->peer_su));
+        if (w->http2_ctx) {
+            w->peer_address =
+                lstr_dup(t_httpd_http2_ctx_get_peer_address(w->http2_ctx));
+        } else {
+            w->peer_address = lstr_dup(t_addr_fmt_lstr(&w->peer_su));
+        }
     }
-
     return lstr_dupc(w->peer_address);
+}
+
+lstr_t t_httpd_get_server_address(httpd_t *w)
+{
+    if (w->http2_ctx) {
+        return t_httpd_http2_ctx_get_sock_address(w->http2_ctx);
+    } else {
+        return t_get_sock_address(el_fd_get_fd(w->ev));
+    }
 }
 
 /* }}} */
@@ -3162,9 +3185,17 @@ httpc_tls_handshake(el_t evh, int fd, short events, data_t priv)
       case SSL_HANDSHAKE_CLOSED:
         httpc_on_connect_error(w, errno);
         break;
-      case SSL_HANDSHAKE_ERROR:
+      case SSL_HANDSHAKE_ERROR: {
+        t_scope;
+
+        logger_error(&_G.logger,
+                     "client `%*pM`: ssl handshake error with "
+                     "server `%*pM`",
+                     LSTR_FMT_ARG(t_get_sock_address(fd)),
+                     LSTR_FMT_ARG(t_get_peer_address(fd)));
         httpc_on_connect_error(w, errno);
         return -1;
+      }
     }
 
     return 0;
@@ -3212,7 +3243,7 @@ static httpc_t *httpc_connect_as_http2(const sockunion_t *su,
                                        httpc_cfg_t *cfg, httpc_pool_t *pool);
 
 httpc_t *httpc_connect_as(const sockunion_t *su,
-                          const sockunion_t * nullable su_src,
+                          const sockunion_t *nullable su_src,
                           httpc_cfg_t *cfg, httpc_pool_t *pool)
 {
     httpc_t *w;
@@ -6341,6 +6372,16 @@ http2_conn_on_preface_wait(el_t evh, int fd, short events, data_t priv)
     return http2_conn_on_event(evh, fd, events & ~POLLIN, priv);
 }
 
+static lstr_t t_http2_get_sock_address(http2_conn_t *w)
+{
+    return t_get_sock_address(el_fd_get_fd(w->ev));
+}
+
+static lstr_t t_http2_get_peer_address(http2_conn_t *w)
+{
+    return t_get_peer_address(el_fd_get_fd(w->ev));
+}
+
 static int http2_conn_tls_handshake(http2_conn_t *w, el_t evh, int fd)
 {
     switch (ssl_do_handshake(w->ssl, evh, fd, NULL)) {
@@ -6349,8 +6390,25 @@ static int http2_conn_tls_handshake(http2_conn_t *w, el_t evh, int fd)
     case SSL_HANDSHAKE_PENDING:
         return 0;
     case SSL_HANDSHAKE_CLOSED:
-    case SSL_HANDSHAKE_ERROR:
         break;
+    case SSL_HANDSHAKE_ERROR: {
+        t_scope;
+
+        if (w->is_client) {
+            logger_error(&_G.logger,
+                         "HTTP2 client `%*pM`: ssl handshake error with "
+                         "server `%*pM`",
+                         LSTR_FMT_ARG(t_http2_get_sock_address(w)),
+                         LSTR_FMT_ARG(t_http2_get_peer_address(w)));
+        } else {
+            logger_error(&_G.logger,
+                         "HTTP2 server `%*pM`: ssl handshake error from "
+                         "client `%*pM`",
+                         LSTR_FMT_ARG(t_http2_get_sock_address(w)),
+                         LSTR_FMT_ARG(t_http2_get_peer_address(w)));
+        }
+        break;
+    }
     }
     return -1;
 }
@@ -6939,6 +6997,16 @@ static void http2_close_servers(httpd_cfg_t *cfg)
         w->send_goaway = true;
         el_fd_set_mask(w->ev, POLLINOUT);
     }
+}
+
+static lstr_t t_httpd_http2_ctx_get_sock_address(httpd_http2_ctx_t *ctx)
+{
+    return t_http2_get_sock_address(ctx->server->conn);
+}
+
+static lstr_t t_httpd_http2_ctx_get_peer_address(httpd_http2_ctx_t *ctx)
+{
+    return t_http2_get_peer_address(ctx->server->conn);
 }
 
 /* }}} */

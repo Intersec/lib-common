@@ -213,6 +213,30 @@ int getpeerport(int sock, sa_family_t family)
     return sockunion_getport(&local);
 }
 
+lstr_t t_get_sock_address(int sock)
+{
+    sockunion_t su;
+    socklen_t saddr_len = sizeof(su.ss);
+
+    if (getsockname(sock, &su.sa, &saddr_len) < 0) {
+        e_trace(1, "unable to get sock name: %m");
+        return LSTR_EMPTY_V;
+    }
+    return t_addr_fmt_lstr(&su);
+}
+
+lstr_t t_get_peer_address(int sock)
+{
+    sockunion_t su;
+    socklen_t saddr_len = sizeof(su.ss);
+
+    if (getpeername(sock, &su.sa, &saddr_len) < 0) {
+        e_trace(1, "unable to get sock name: %m");
+        return LSTR_EMPTY_V;
+    }
+    return t_addr_fmt_lstr(&su);
+}
+
 int socket_connect_status(int sock)
 {
     int err;

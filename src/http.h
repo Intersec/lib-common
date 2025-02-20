@@ -223,7 +223,7 @@ typedef struct httpd_http2_ctx_t httpd_http2_ctx_t;
     dlist_t            httpd_link;                                           \
     httpd_http2_ctx_t * nullable http2_ctx;                                  \
     httpd_cfg_t       * nonnull cfg;                                         \
-    el_t               nonnull ev;                                           \
+    el_t               nonnull ev; /* actually NULL for http2 */             \
     sb_t               ibuf;                                                 \
     z_stream           zs;                                                   \
                                                                              \
@@ -397,6 +397,9 @@ void     httpd_close_gently(httpd_t * nonnull w);
 
 /** retrieve the peer address as a string */
 lstr_t   httpd_get_peer_address(httpd_t * nonnull w);
+
+/** retrieve the server address as a string */
+lstr_t t_httpd_get_server_address(httpd_t * nonnull w);
 
 GENERIC_NEW_INIT(httpd_trigger_t, httpd_trigger);
 void httpd_trigger_persist(httpd_trigger_t * nonnull);
