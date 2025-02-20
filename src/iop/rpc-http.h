@@ -772,6 +772,12 @@ http_iop_channel_t *http_iop_channel_create(const http_iop_channel_cfg_t *cfg,
  */
 void http_iop_channel_delete(http_iop_channel_t **channel_ptr);
 
+/** Cancels all messages waiting for connection.
+ *
+ * \param[in] channel The channel.
+ */
+void http_iop_channel_cancel_messages(http_iop_channel_t *channel);
+
 /** Close all the clients of an HTTP channel.
  *
  * \param[in] channel The channel.

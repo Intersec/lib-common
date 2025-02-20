@@ -217,17 +217,7 @@ static void http_iop_on_connect_error(const httpc_t *httpc, int errnum)
     if (!http_iop_channel_has_remote_connections(channel, remote)) {
         /* Cancel remaining messages when there are no available remote
          * connections anymore. */
-        while (!htlist_is_empty(&channel->queries_waiting_conn)) {
-            http_iop_msg_t *msg;
-
-            msg = htlist_first_entry(&channel->queries_waiting_conn,
-                                     http_iop_msg_t, link);
-            msg->cb(msg, IC_MSG_CANCELED, (opt_http_code_t)OPT_NONE, NULL,
-                    NULL);
-            htlist_pop_entry(&channel->queries_waiting_conn,
-                             http_iop_msg_t, link);
-            http_iop_msg_delete(&msg);
-        }
+        http_iop_channel_cancel_messages(channel);
     }
 }
 
@@ -519,6 +509,21 @@ void http_iop_channel_close_clients(http_iop_channel_t *channel)
 {
     tab_for_each_entry(remote, &channel->remotes) {
         httpc_pool_close_clients(&remote->pool);
+    }
+}
+
+void http_iop_channel_cancel_messages(http_iop_channel_t *channel)
+{
+    while (!htlist_is_empty(&channel->queries_waiting_conn)) {
+        http_iop_msg_t *msg;
+
+        msg = htlist_first_entry(&channel->queries_waiting_conn,
+                                 http_iop_msg_t, link);
+        msg->cb(msg, IC_MSG_CANCELED, (opt_http_code_t)OPT_NONE, NULL,
+                NULL);
+        htlist_pop_entry(&channel->queries_waiting_conn,
+                         http_iop_msg_t, link);
+        http_iop_msg_delete(&msg);
     }
 }
 
