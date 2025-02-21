@@ -470,14 +470,14 @@ struct httpd_qinfo_t {
  *
  * As a consequence it means that nobody should ever suppose that a query is
  * still valid once #httpd_reply_done() #httpd_reject() or any function using
- * them internaly (#httpd_reply_202accepted() e.g.) is called.
+ * them internally (#httpd_reply_202accepted() e.g.) is called.
  *
  * If this is required, then use #obj_retain() and #obj_release() accordingly
  * to ensure the liveness of the #httpd_query_t.
  *
  * <h1>How to use an #http_query_t</h1>
  *
- *   When a the Headers of an HTTP query is received, the matching
+ *   When the headers of a HTTP query are received, the matching
  *   #httpd_trigger_t is looked up, the #httpd_query_t (or a subclass if
  *   httpd_trigger_t#query_cls is set) is created. Then if there is a
  *   httpd_trigger_t#auth callback, it is called (possibly with empty

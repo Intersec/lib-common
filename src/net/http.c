@@ -1486,7 +1486,7 @@ static int httpd_parse_body(httpd_t *w, pstream_t *ps)
 /*
  * rfc 2616: §3.6.1: Chunked Transfer Coding
  *
- * - All chunked extensions are stripped (support is optionnal)
+ * - All chunked extensions are stripped (support is optional)
  * - trailer headers are ignored, as:
  *   + Clients must specifically ask for them (we won't)
  *   + or ignoring them should not modify behaviour (so we do ignore them).
@@ -3588,7 +3588,7 @@ typedef struct http2_conn_t {
 
     /* True once asked to close the connection gracefully. */
     bool                send_goaway : 1;
-    /* True iff there is a current async write from the the http1.1 layer. */
+    /* True iff there is a current async write from the http1.1 layer. */
     bool                async_write : 1;
 } http2_conn_t;
 
@@ -3788,7 +3788,7 @@ static int http2_conn_close_tls_handshake_error(http2_conn_t **w)
 
 static int http2_conn_close_tls_no_peer_certificate_error(http2_conn_t **w)
 {
-    http2_conn_trace(*w, 2, "tls: no peer certificiate error");
+    http2_conn_trace(*w, 2, "tls: no peer certificate error");
     http2_conn_on_connect_error(*w, ECONNREFUSED);
     http2_conn_close(w);
     return 0;
@@ -3946,7 +3946,7 @@ static void http2_conn_process_state_change_preface_sent(http2_conn_t *w)
 static void http2_conn_process_state_change_settings_sent(http2_conn_t *w)
 {
     http2_conn_trace(w, 3, "connection setting sent");
-    /* FIXME: add timer to receive the the acknowledgement. */
+    /* FIXME: add timer to receive the acknowledgement. */
 }
 
 static void
@@ -4056,7 +4056,7 @@ static uint32_t http2_conn_max_server_stream_id(const http2_conn_t *w)
      * Note, that initiating a stream above this value, i.e., skipping some
      * ids is possible and implies closing the streams with the skipped ids.
      * So, this threshold is tracked using the number of streams (non-idle)
-     * sor far. So, 0 server stream => 0 max server stream id (the next idle
+     * so far. So, 0 server stream => 0 max server stream id (the next idle
      * stream is 2), 1 server stream => 2 max server stream id (the next idle
      * stream is 4), and so on.
      */
@@ -4073,7 +4073,7 @@ static uint32_t http2_conn_max_client_stream_id(const http2_conn_t *w)
      * except for client_streams = 0 where the next idle stream is 1. Note,
      * that initiating a stream above this value, i.e., skipping some ids is
      * possible and implies closing the streams with the skipped ids. So, this
-     * threshold is tracked using the number of streams (non-idle) sor far.
+     * threshold is tracked using the number of streams (non-idle) so far.
      * So, 0 client stream => max client stream id = 0 (the next idle stream
      * is 1), 1 client stream => max client stream id = 1 (the next idle
      * stream is 3), 2 client streams => max client stream id = 3 (the next
@@ -4361,7 +4361,7 @@ http2_conn_peer_stream_id_is_idle(const http2_conn_t *w, uint32_t stream_id)
     return stream_id > http2_conn_max_peer_stream_id(w);
 }
 
-/** Return the number of streams (of the same class) upto to \p stream_id. */
+/** Return the number of streams (of the same class) up to \p stream_id. */
 static uint32_t http2_get_nb_streams_upto(uint32_t stream_id)
 {
     assert(stream_id);
@@ -5027,7 +5027,7 @@ static int http2_stream_do_recv_headers(http2_conn_t *w, uint32_t stream_id,
         }
         assert(w->is_client);
         /* Discard (responses) headers on server streams. This may happen for
-         * a short period in the begining of communicaition since we don't
+         * a short period in the beginning of communication since we don't
          * support them and the server must not send them once it acknowledges
          * our initial settings. However, it may start push such streams
          * before acknowledging our settings that disables them. */
@@ -5306,7 +5306,7 @@ static int http2_conn_parse_data(http2_conn_t *w, uint32_t stream_id,
  * Note: \p multiframe is composed of either a HEADERS or PUSH_PROMISE frame
  * (followed by 0 or more CONTINUATION frame(s)). The multiframe components
  * are already parsed (and verified) but is kept in the connection buffer
- * until the coming of the END_OF_HEADERS flag where the embeded header block
+ * until the coming of the END_OF_HEADERS flag where the embedded header block
  * is reconstructed before decoded by the HPACK decoder. The type of initial
  * frame is conveyed by \p promised_id.
  */
@@ -6807,7 +6807,7 @@ static void http2_conn_stream_idle_httpd(http2_conn_t *w, httpd_t *httpd)
     http2_stream_send_response_headers(w, stream, code, headerlines,
                                        http2_ctx, &clen);
     /* TODO: support 1xx informational responses (100-continue) */
-    assert(clen >= 0 && "TODO: support chunked respones");
+    assert(clen >= 0 && "TODO: support chunked responses");
     http2_ctx->http2_sync_mark = clen;
     OB_WRAP(sb_skip_upto, &httpd->ob, chunk.p);
     if (!clen) {
@@ -6942,7 +6942,7 @@ static void http2_close_servers(httpd_cfg_t *cfg)
 }
 
 /* }}} */
-/* {{{ HTTP2 Client Adapation */
+/* {{{ HTTP2 Client Adaptation */
 
 static uint32_t peer_hash(const qhash_t *qh, const sockunion_t *su)
 {
@@ -7601,7 +7601,7 @@ static void http2c_ctx_try_reset_query(http2c_ctx_t *ctx)
 }
 
 /** Release the attached stream and cause \p *ctxp to go idle.
- * XXX. Always nullfies the caller pointer. */
+ * XXX. Always nullifies the caller pointer. */
 static void http2c_ctx_enter_idle(http2c_ctx_t *nonnull *nonnull ctxp)
 {
     http2c_ctx_t *ctx = *ctxp;
