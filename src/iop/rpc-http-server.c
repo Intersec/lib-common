@@ -223,6 +223,8 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
     } else {
         hdr = &default_hdr;
 
+        /* TODO: Only basic authentication implemented for now. For a bearer
+         * authentication, please see t_httpd_qinfo_get_bearer_auth. */
         if (t_httpd_qinfo_get_basic_auth(q->qinfo, &login, &pw) == 0) {
             hdr->simple.login    = LSTR_PS_V(&login);
             hdr->simple.password = LSTR_PS_V(&pw);

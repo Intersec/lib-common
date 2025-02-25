@@ -1857,39 +1857,84 @@ void httpd_close_gently(httpd_t *w)
     }
 }
 
-int t_httpd_qinfo_get_basic_auth(const httpd_qinfo_t *info,
-                                 pstream_t *user, pstream_t *pw)
+/** Parse HTTP header and look for the Authorization field. If not found, the
+ * \a v parameter is set to ps_initptr(NULL, NULL). */
+static void httpd_get_auth_header(const httpd_qinfo_t *info, pstream_t *v)
 {
     for (int i = info->hdrs_len; i-- > 0; ) {
         const http_qhdr_t *hdr = info->hdrs + i;
-        pstream_t v;
-        char *colon;
-        sb_t sb;
-        int len;
 
         if (hdr->wkhdr != HTTP_WKHDR_AUTHORIZATION) {
             continue;
         }
-        v = hdr->val;
-        ps_skipspaces(&v);
-        PS_CHECK(ps_skipcasestr(&v, "basic"));
-        ps_trim(&v);
+        *v = hdr->val;
+        ps_skipspaces(v);
+        return;
+    }
+    *v = ps_initptr(NULL, NULL);
+}
 
-        len = ps_len(&v);
-        t_sb_init(&sb, len + 1);
-        PS_CHECK(sb_add_unb64(&sb, v.s, len));
-        colon = strchr(sb.data, ':');
-        if (!colon) {
-            return -1;
-        }
-        *user    = ps_initptr(sb.data, colon);
-        *colon++ = '\0';
-        *pw      = ps_initptr(colon, sb_end(&sb));
+static int httpd_get_bearer_auth(pstream_t auth, pstream_t *bearer_token)
+{
+    int len;
+
+    if (!ps_len(&auth)) {
+        *bearer_token = ps_initptr(NULL, NULL);
         return 0;
     }
 
-    *pw = *user = ps_initptr(NULL, NULL);
+    PS_CHECK(ps_skipcasestr(&auth, "bearer"));
+    ps_trim(&auth);
+
+    len = ps_len(&auth);
+    THROW_ERR_IF(!len);
+    *bearer_token = ps_initptr(auth.s, ps_end(&auth));
     return 0;
+}
+
+static int
+t_httpd_get_basic_auth(pstream_t auth, pstream_t *user, pstream_t *pw)
+{
+    char *colon;
+    int len;
+    sb_t sb;
+
+    if (!ps_len(&auth)) {
+        *pw = *user = ps_initptr(NULL, NULL);
+        return 0;
+    }
+
+    PS_CHECK(ps_skipcasestr(&auth, "basic"));
+    ps_trim(&auth);
+
+    len = ps_len(&auth);
+    t_sb_init(&sb, len + 1);
+    PS_CHECK(sb_add_unb64(&sb, auth.s, len));
+    colon = strchr(sb.data, ':');
+    THROW_ERR_IF(!colon);
+
+    *user    = ps_initptr(sb.data, colon);
+    *colon++ = '\0';
+    *pw      = ps_initptr(colon, sb_end(&sb));
+    return 0;
+}
+
+int t_httpd_qinfo_get_basic_auth(const httpd_qinfo_t *info, pstream_t *user,
+                                 pstream_t *pw)
+{
+    pstream_t auth;
+
+    httpd_get_auth_header(info, &auth);
+    return t_httpd_get_basic_auth(auth, user, pw);
+}
+
+int httpd_qinfo_get_bearer_auth(const httpd_qinfo_t *info,
+                                pstream_t *bearer_token)
+{
+    pstream_t auth;
+
+    httpd_get_auth_header(info, &auth);
+    return httpd_get_bearer_auth(auth, bearer_token);
 }
 
 static int parse_qvalue(pstream_t *ps)
@@ -2016,10 +2061,36 @@ int httpd_qinfo_accept_enc_get(const httpd_qinfo_t *info)
     return 0;
 }
 
+static void httpd_check_credentials(httpd_query_t *q, httpd_qinfo_t *req)
+{
+    t_scope;
+    pstream_t auth, user, pw, token;
+    httpd_trigger_t *cb = q->trig_cb;
+
+    /* Nothing to check if no authentication callbacks. */
+    if (!cb->basic_auth && !cb->bearer_auth) {
+        return;
+    }
+
+    /* Find the authentication header in HTTP header. */
+    httpd_get_auth_header(req, &auth);
+
+    if (cb->basic_auth && t_httpd_get_basic_auth(auth, &user, &pw) == 0) {
+        /* Empty credentials or user/password found with basic authentication.
+         */
+        (*cb->basic_auth)(cb, q, user, pw);
+    } else if (cb->bearer_auth && httpd_get_bearer_auth(auth, &token) == 0) {
+        /* Empty credentials or token found with bearer authentication. */
+        (*cb->bearer_auth)(cb, q, token);
+    } else {
+        /* Invalid authentication header, so reject request. */
+        httpd_reject(q, BAD_REQUEST, "invalid Authentication header");
+    }
+}
+
 static void httpd_do_any(httpd_t *w, httpd_query_t *q, httpd_qinfo_t *req)
 {
     httpd_trigger_t *cb = q->trig_cb;
-    pstream_t user, pw;
 
     if (ps_memequal(&req->query, "*", 1)) {
         httpd_reject(q, NOT_FOUND, "'*' not found");
@@ -2027,17 +2098,15 @@ static void httpd_do_any(httpd_t *w, httpd_query_t *q, httpd_qinfo_t *req)
     }
 
     if (cb) {
-        if (cb->auth) {
-            t_scope;
+        httpd_check_credentials(q, req);
 
-            if (unlikely(t_httpd_qinfo_get_basic_auth(req, &user, &pw) < 0)) {
-                httpd_reject(q, BAD_REQUEST, "invalid Authentication header");
-                return;
-            }
-            (*cb->auth)(cb, q, user, pw);
-        }
+        /* Execute cb->cb if parsing and credentials are ok so far. */
         if (likely(!q->answered)) {
             (*cb->cb)(cb, q, req);
+        } else {
+            /* Checking credentials failed, so return now and give no chance
+             * to execute code at the end of this function. */
+            return;
         }
     } else {
         int                   method = req->method;
@@ -8392,6 +8461,9 @@ Z_GROUP_EXPORT(httpc_http2) {
 enum zhttpd_flags {
     ZHTTPD_QUERY_DONT_QUIT = (1 << 0),
     ZHTTPD_NO_ANSWER       = (1 << 1),
+    ZHTTPD_BASIC_AUTH      = (1 << 2),
+    ZHTTPD_BEARER_AUTH     = (1 << 3),
+    ZHTTPD_REDUCE_NODELAY  = (1 << 4),
 };
 
 static struct {
@@ -8404,6 +8476,7 @@ static struct {
     int flags;
     bool got_io_error;
     bool cleanup_needed;
+    sb_t auth_read;
 } zhttpd_g;
 
 static void zhttpd_query_quit(void)
@@ -8452,6 +8525,29 @@ zhttpd_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
     q->on_done = &zhttpd_query_on_done;
     q->qinfo = httpd_qinfo_dup(qi);
     httpd_bufferize(q, 1 << 20);
+}
+
+static void zhttpd_basic_auth_hook(httpd_trigger_t * nonnull cb,
+                                   struct httpd_query_t * nonnull q,
+                                   pstream_t user, pstream_t pw)
+{
+    if (ps_len(&user) && ps_len(&pw)) {
+        sb_setf(&zhttpd_g.auth_read, "%*pM:%*pM", PS_FMT_ARG(&user),
+                PS_FMT_ARG(&pw));
+    } else {
+        sb_setf(&zhttpd_g.auth_read, "empty from %s", __FUNCTION__);
+    }
+}
+
+static void zhttpd_bearer_auth_hook(httpd_trigger_t * nonnull cb,
+                                    struct httpd_query_t * nonnull q,
+                                    pstream_t token)
+{
+    if (ps_len(&token)) {
+        sb_setf(&zhttpd_g.auth_read, "%*pM", PS_FMT_ARG(&token));
+    } else {
+        sb_setf(&zhttpd_g.auth_read, "empty from %s", __FUNCTION__);
+    }
 }
 
 static int zhttpd_query_handle(el_t el, int fd, short mask, data_t data)
@@ -8504,10 +8600,12 @@ static void zhttpd_cleanup(void)
         httpd_cfg_delete(&zhttpd_g.cfg);
     }
     sb_wipe(&zhttpd_g.read_buf);
+    sb_wipe(&zhttpd_g.auth_read);
 }
 
-#define ZHTTPD_NOACT_DELAY  3000
-#define ZHTTPD_TIMEOUT  ZHTTPD_NOACT_DELAY * 2
+#define ZHTTPD_NOACT_DELAY_MS  3000
+#define ZHTTPD_TIMEOUT_MS  ZHTTPD_NOACT_DELAY_MS * 2
+#define ZHTTPD_FAST_NOACT_DELAY_MS  200
 
 static int zhttpd_setup(const lstr_t *query, int flags)
 {
@@ -8526,10 +8624,22 @@ static int zhttpd_setup(const lstr_t *query, int flags)
     zhttpd_g.cfg = httpd_cfg_new();
     zhttpd_g.cfg->max_conns = 1;
     zhttpd_g.cfg->pipeline_depth = 1;
-    zhttpd_g.cfg->noact_delay = ZHTTPD_NOACT_DELAY;
+    zhttpd_g.cfg->noact_delay = zhttpd_g.flags & ZHTTPD_REDUCE_NODELAY ?
+                                ZHTTPD_FAST_NOACT_DELAY_MS :
+                                ZHTTPD_NOACT_DELAY_MS;
 
     trigger = httpd_trigger_new();
-    trigger->cb = &zhttpd_query_hook;
+    trigger->cb         = &zhttpd_query_hook;
+
+    if (zhttpd_g.flags & (ZHTTPD_BASIC_AUTH | ZHTTPD_BEARER_AUTH)) {
+        httpd_trigger_set_auth(trigger,
+            zhttpd_g.flags & ZHTTPD_BASIC_AUTH ? &zhttpd_basic_auth_hook :
+                                                 NULL,
+            zhttpd_g.flags & ZHTTPD_BEARER_AUTH ? &zhttpd_bearer_auth_hook :
+                                                  NULL,
+        NULL);
+    }
+
     httpd_trigger_register(zhttpd_g.cfg, GET, "zchk", trigger);
 
     zhttpd_g.httpd_el = httpd_listen(&su, zhttpd_g.cfg);
@@ -8545,8 +8655,9 @@ static int zhttpd_setup(const lstr_t *query, int flags)
                                         &zhttpd_query_handle, (void *)query);
 
     sb_init(&zhttpd_g.read_buf);
+    sb_init(&zhttpd_g.auth_read);
     zhttpd_g.got_io_error = false;
-    zhttpd_g.timeout_timer = el_timer_register(ZHTTPD_TIMEOUT, 0, 0,
+    zhttpd_g.timeout_timer = el_timer_register(ZHTTPD_TIMEOUT_MS, 0, 0,
                                                &zhttpd_query_timeout, NULL);
     el_unref(zhttpd_g.timeout_timer);
     el_loop();
@@ -8603,8 +8714,8 @@ Z_GROUP_EXPORT(httpd) {
         Z_ASSERT(lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf),
                                LSTR("ZHTTPD OK")));
         /* Check that the connection was actually closed by the noactDelay */
-        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_NOACT_DELAY);
-        Z_ASSERT_LE((int)(tend - tstart), (int)(ZHTTPD_NOACT_DELAY * 1.5));
+        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_NOACT_DELAY_MS);
+        Z_ASSERT_LE((int)(tend - tstart), (int)(ZHTTPD_NOACT_DELAY_MS * 1.5));
 
         zhttpd_cleanup();
     } Z_TEST_END;
@@ -8627,7 +8738,7 @@ Z_GROUP_EXPORT(httpd) {
         /* Check that the connection was actually closed by the tests timeout
          * and not the noactDelay. */
         Z_ASSERT_ZERO(zhttpd_g.read_buf.len);
-        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_TIMEOUT);
+        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_TIMEOUT_MS);
 
         zhttpd_cleanup();
     } Z_TEST_END;
@@ -8653,9 +8764,82 @@ Z_GROUP_EXPORT(httpd) {
         /* Check that the connection was actually closed by the tests timeout
          * and not the noactDelay. */
         Z_ASSERT_ZERO(zhttpd_g.read_buf.len);
-        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_TIMEOUT);
+        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_TIMEOUT_MS);
 
         zhttpd_cleanup();
+    } Z_TEST_END;
+
+    Z_TEST(authentication, "test basic and bearer authentications")
+    {
+        /* Basic authentication */
+        lstr_t query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Authorization: Basic dXNlcjpwdw== \r\n"
+            "Content-Length: 0\r\n"
+            "\r\n");
+
+        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_BASIC_AUTH));
+        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                               LSTR("HTTP/1.1 200 OK")));
+        Z_ASSERT(lstr_equal(LSTR("user:pw"),
+                            LSTR_SB_V((&zhttpd_g.auth_read))));
+        zhttpd_cleanup();
+
+        /* Bearer authentication */
+        query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Authorization: Bearer blabla \r\n"
+            "Content-Length: 0\r\n"
+            "\r\n");
+
+        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_BASIC_AUTH |
+                                          ZHTTPD_BEARER_AUTH));
+        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                               LSTR("HTTP/1.1 200 OK")));
+        Z_ASSERT(lstr_equal(LSTR("blabla"),
+                            LSTR_SB_V((&zhttpd_g.auth_read))));
+        zhttpd_cleanup();
+
+        /* Basic authentication with no credentials provided but basic auth
+         * and bearer authentication both available */
+        query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n");
+
+        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_BASIC_AUTH |
+                                          ZHTTPD_BEARER_AUTH));
+        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                               LSTR("HTTP/1.1 200 OK")));
+        Z_ASSERT(lstr_equal(LSTR("empty from zhttpd_basic_auth_hook"),
+                            LSTR_SB_V((&zhttpd_g.auth_read))));
+        zhttpd_cleanup();
+
+        /* Bearer authentication available but no credential provided */
+        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_BEARER_AUTH));
+        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                               LSTR("HTTP/1.1 200 OK")));
+        Z_ASSERT(lstr_equal(LSTR("empty from zhttpd_bearer_auth_hook"),
+                            LSTR_SB_V((&zhttpd_g.auth_read))));
+        zhttpd_cleanup();
+
+        /* Bearer authentication failure (no token provided) */
+        query = LSTR(
+            "GET /zchk HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Authorization: Bearer \r\n"
+            "Content-Length: 0\r\n"
+            "\r\n");
+
+        Z_HELPER_RUN(zhttpd_setup(&query, ZHTTPD_BEARER_AUTH |
+                                          ZHTTPD_REDUCE_NODELAY));
+        Z_ASSERT(lstr_startswith(LSTR_SB_V(&zhttpd_g.read_buf),
+                               LSTR("HTTP/1.1 400 Bad Request")));
+        zhttpd_cleanup();
+
     } Z_TEST_END;
 
     zhttpd_cleanup();

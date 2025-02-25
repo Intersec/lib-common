@@ -261,9 +261,9 @@ typedef struct httpd_http2_ctx_t httpd_http2_ctx_t;
 
 OBJ_CLASS(httpd, object, HTTPD_FIELDS, HTTPD_METHODS);
 
-/** type for HTTPD triggers authentication callbacks.
- * The authentication callback is always called as soon as there is one on a
- * given trigger descriptor.
+/** type for HTTPD basic authentication callbacks.
+ * The basic authentication callback is called as soon as there is one valid
+ * authorization header or empty credentials for a given trigger descriptor.
  *
  * Though so that the authentication callback can allow non authenticated
  * content to be returned, it is ALSO called if there was no Authorization:
@@ -271,8 +271,9 @@ OBJ_CLASS(httpd, object, HTTPD_FIELDS, HTTPD_METHODS);
  * "NULL" pstream (meaning <code>{ NULL, NULL }</code>). In the other case
  * both \a user and \a pw point to valid NUL-terminated strings.
  *
- * If the Authorization field isn't valid, then of course the query is
- * rejected by the http library and the callback isn't called.
+ * If the Authorization field isn't valid and no other authentication callback
+ * is provided, then of course the query is rejected by the http library and
+ * the callback isn't called.
  *
  * This callback is fired as soon as the HTTP headers are received, meaning
  * that for many reasons the actual query may never happen (connection lost,
@@ -285,12 +286,29 @@ OBJ_CLASS(httpd, object, HTTPD_FIELDS, HTTPD_METHODS);
  *
  * \param[in]  cb   the callback that was matched.
  * \param[in]  q    the descriptor of the incoming query.
- * \param[in]  user "user" part of the Authorization field.
- * \param[in]  pw   "password" part of the Authorization field.
+ * \param[in]  user "user" part of the basic Authorization field.
+ * \param[in]  pw   "password" part of the basic Authorization field.
  */
-typedef void (httpd_trigger_auth_f)(httpd_trigger_t * nonnull cb,
-                                    struct httpd_query_t * nonnull q,
-                                    pstream_t user, pstream_t pw);
+typedef void (httpd_trigger_basic_auth_f)(httpd_trigger_t * nonnull cb,
+                                          struct httpd_query_t * nonnull q,
+                                          pstream_t user, pstream_t pw);
+
+/** type for HTTPD authentication callbacks when a bearer token.
+ *
+ * This authentication callback is triggered when a bearer token is available
+ * or if no token is provided and the basic authentication is not available.
+ * In this last case, the \a token is set to the "NULL" pstream.
+ *
+ * Deeper implementation details can be found in the basic authorization
+ * callback type \ref httpd_trigger_basic_auth_f .
+ *
+ * \param[in]  cb    the callback that was matched.
+ * \param[in]  q     the descriptor of the incoming query.
+ * \param[in]  token "token" part of the bearer Authorization field.
+ */
+typedef void (httpd_trigger_bearer_auth_f)(httpd_trigger_t * nonnull cb,
+                                           struct httpd_query_t * nonnull q,
+                                           pstream_t token);
 
 /** an HTTP trigger that can be fired on given path fragments.
  *
@@ -323,7 +341,8 @@ struct httpd_trigger_t {
     lstr_t                auth_realm;
 
     /* Called before main callback with authentication information. */
-    httpd_trigger_auth_f * nullable auth;
+    httpd_trigger_basic_auth_f * nullable basic_auth;
+    httpd_trigger_bearer_auth_f * nullable bearer_auth;
     const object_class_t * nullable query_cls;
 
     /* Main callback, called each time the path fragment is queried. */
@@ -417,13 +436,17 @@ bool httpd_trigger_unregister_(httpd_trigger_node_t * nonnull,
 
 static inline void
 httpd_trigger_set_auth(httpd_trigger_t * nonnull cb,
-                       httpd_trigger_auth_f * nonnull auth,
+                       httpd_trigger_basic_auth_f * nullable basic_auth,
+                       httpd_trigger_bearer_auth_f * nullable bearer_auth,
                        const char * nullable auth_realm)
 {
     lstr_t s = LSTR(auth_realm ?: "Intersec HTTP Server");
 
     lstr_copy(&cb->auth_realm, s);
-    cb->auth = auth;
+
+    assert(basic_auth || bearer_auth);
+    cb->basic_auth = basic_auth;
+    cb->bearer_auth = bearer_auth;
 }
 
 #define httpd_trigger_register2(cfg, m, p, cb, fl)                           \
@@ -588,9 +611,22 @@ void httpd_qinfo_delete(httpd_qinfo_t * nullable * nonnull infop)
 {
     p_delete(infop);
 }
+
+/** Parse HTTP header and try to retrieve a user and password from \ref
+ * HTTP_WKHDR_AUTHORIZATION (basic authentication). Note that \a user and \a
+ * password can be set to ps_initptr(NULL, NULL) if authorization section is
+ * not found.
+ */
 int t_httpd_qinfo_get_basic_auth(const httpd_qinfo_t * nonnull info,
                                  pstream_t * nonnull user,
                                  pstream_t * nonnull pw);
+
+/** Parse HTTP header and try to retrieve a token from \ref
+ * HTTP_WKHDR_AUTHORIZATION (bearer authentication). Note that \a bearer_token
+ * can be set to ps_initptr(NULL, NULL) if authorization section is not found.
+ */
+int httpd_qinfo_get_bearer_auth(const httpd_qinfo_t * nonnull info,
+                                pstream_t *nonnull bearer_token);
 
 enum {
     HTTPD_ACCEPT_ENC_GZIP     = 1U << 0,
