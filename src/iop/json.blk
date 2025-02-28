@@ -1632,7 +1632,7 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
 {
     const iop_field_t *fdesc;
     uint32_t  seen_buf[BITS_TO_ARRAY_LEN(uint32_t, 256)];
-    uint32_t *seen_alloc __attribute__((cleanup(seen_free))) = NULL;
+    uint32_t *seen_alloc __attr_cleanup__(seen_free) = NULL;
     uint32_t *seen       = seen_buf;
     const iop_struct_t *real_desc = desc;
     bool is_class = false;

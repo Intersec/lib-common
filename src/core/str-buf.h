@@ -139,7 +139,7 @@ sb_init_full(sb_t * nonnull sb, void * nonnull buf, int blen, int bsize,
 
 # define SB(name, sz)                                                        \
     CONST_SIZE_ARRAY(__##name##_buf, char, (sz));                            \
-    sb_t name __attribute__((cleanup(sb_wipe))) =                            \
+    sb_t name __attr_cleanup__(sb_wipe) =                                    \
         SB_INIT(__##name##_buf, sz, &mem_pool_static)
 
 # define t_SB(name, sz)                                                      \

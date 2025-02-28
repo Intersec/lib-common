@@ -220,6 +220,7 @@
 # define __attr_printf__(a, b)  __attribute__((format(printf, a, b),__nonnull__(a)))
 # define __attr_scanf__(a, b)   __attribute__((format(scanf, a, b),__nonnull__(a)))
 # define __attr_deprecated__    __attribute__((deprecated))
+# define __attr_cleanup__(f)    __attribute__((cleanup(f)))
 
 #ifndef __attribute_deprecated__
 # define __attribute_deprecated__  __attr_deprecated__

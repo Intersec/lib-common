@@ -1686,7 +1686,7 @@ int t_aper_decode_octet_string(bit_stream_t *bs, const asn1_cnt_info_t *info,
                                bool copy, lstr_t *os)
 {
     aper_len_decoding_ctx_t len_ctx;
-    qv_t(u8) buf __attribute__((cleanup(aper_buf_wipe))) = QV_INIT();
+    qv_t(u8) buf __attr_cleanup__(aper_buf_wipe) = QV_INIT();
 
     if (aper_decode_len_extension_bit(bs, info, &len_ctx) < 0) {
         e_info("cannot read extension bit");
@@ -1787,7 +1787,7 @@ static int
 t_aper_decode_bit_string(bit_stream_t *bs, const asn1_cnt_info_t *info,
                          asn1_bit_string_t *bit_string)
 {
-    BB_1k(bb __attribute__((cleanup(bb_wipe))));
+    BB_1k(bb __attr_cleanup__(bb_wipe));
     uint8_t *data;
     size_t size;
 
@@ -2190,7 +2190,7 @@ t_aper_decode_seq_of(bit_stream_t *bs, const asn1_field_t *field,
     const asn1_field_t *repeated_field;
     const asn1_desc_t *desc = field->u.comp;
     aper_len_decoding_ctx_t len_ctx;
-    qv_t(u8) buf __attribute__((cleanup(aper_buf_wipe))) = QV_INIT();
+    qv_t(u8) buf __attr_cleanup__(aper_buf_wipe) = QV_INIT();
     asn1_void_vector_t *array;
 
     assert (desc->fields.len == 1);

@@ -507,7 +507,7 @@ z_test_aper_octet_string(const asn1_cnt_info_t *info,
                          bool copy, const char *exp_bits)
 {
     t_scope;
-    BB_1k(bb __attribute__((cleanup(bb_wipe))));
+    BB_1k(bb __attr_cleanup__(bb_wipe));
     bit_stream_t bs;
     lstr_t decoded_octet_string;
 
@@ -531,9 +531,9 @@ z_test_aper_bstring(const asn1_cnt_info_t *info, const char *bit_string,
                     int skip, const char *exp_bits)
 {
     t_scope;
-    BB_1k(bb __attribute__((cleanup(bb_wipe))));
-    BB_1k(src_bb __attribute__((cleanup(bb_wipe))));
-    BB_1k(dst_bb __attribute__((cleanup(bb_wipe))));
+    BB_1k(bb __attr_cleanup__(bb_wipe));
+    BB_1k(src_bb __attr_cleanup__(bb_wipe));
+    BB_1k(dst_bb __attr_cleanup__(bb_wipe));
     bit_stream_t src;
     bit_stream_t dst;
     bit_stream_t bs;
@@ -1428,7 +1428,7 @@ Z_GROUP_EXPORT(asn1_aper) {
         t_scope;
         z_bit_string_t bs_before;
         z_bit_string_t bs_after;
-        bb_t bb __attribute__((cleanup(bb_wipe))) = *bb_init(&bb);
+        bb_t bb __attr_cleanup__(bb_wipe) = *bb_init(&bb);
         SB_8k(buf);
         pstream_t ps;
         bit_stream_t bs;

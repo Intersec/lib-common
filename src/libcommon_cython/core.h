@@ -40,7 +40,7 @@ typedef _Bool cbool;
 typedef char sb_buf_1k_t[1 << 10];
 typedef char sb_buf_8k_t[8 << 10];
 
-#define sb_scope_t  __attribute__((cleanup(sb_wipe))) sb_t
+#define sb_scope_t  __attr_cleanup__(sb_wipe) sb_t
 #define sb_scope_init_static(_buf)                                           \
     (sb_t)SB_INIT((_buf), countof(_buf), &mem_pool_static)
 #define t_sb_scope_init(sz)  (sb_t)SB_INIT(t_new_raw(char, sz), sz, t_pool())

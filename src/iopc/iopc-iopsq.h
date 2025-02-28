@@ -94,8 +94,7 @@ void __iopsq_type_table_delete(iopsq_type_table_t **table);
 /** Create a scope-bound IOP² type table. */
 #define IOPSQ_TYPE_TABLE(name)                                               \
     iopsq_type_table_t *name                                                 \
-    __attribute__((cleanup(__iopsq_type_table_delete))) =                    \
-        __iopsq_type_table_new()
+    __attr_cleanup__(__iopsq_type_table_delete) = __iopsq_type_table_new()
 
 /** Build an iopsq.Type instance from an 'iop_full_type_t'.
  *
