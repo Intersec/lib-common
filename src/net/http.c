@@ -3551,7 +3551,9 @@ void httpc_query_done(httpc_query_t *q)
     httpc_set_mask(q->owner);
 }
 
-void httpc_query_hdrs_add_auth(httpc_query_t *q, lstr_t login, lstr_t passwd)
+static
+void _httpc_query_hdrs_add_auth(httpc_query_t *q, lstr_t login, lstr_t passwd,
+                                const char *header_name)
 {
     outbuf_t *ob = &q->owner->ob;
     sb_t *sb;
@@ -3562,7 +3564,7 @@ void httpc_query_hdrs_add_auth(httpc_query_t *q, lstr_t login, lstr_t passwd)
 
     sb = outbuf_sb_start(ob, &oldlen);
 
-    sb_adds(sb, "Authorization: Basic ");
+    sb_addf(sb, "%s: Basic ", header_name);
     sb_add_b64_start(sb, 0, -1, &ctx);
     sb_add_b64_update(sb, login.s, login.len, &ctx);
     sb_add_b64_update(sb, ":", 1, &ctx);
@@ -3571,6 +3573,17 @@ void httpc_query_hdrs_add_auth(httpc_query_t *q, lstr_t login, lstr_t passwd)
     sb_adds(sb, "\r\n");
 
     outbuf_sb_end(ob, oldlen);
+}
+
+void httpc_query_hdrs_add_auth(httpc_query_t *q, lstr_t login, lstr_t passwd)
+{
+    _httpc_query_hdrs_add_auth(q, login, passwd, "Authorization");
+}
+
+void httpc_query_hdrs_add_proxy_auth(httpc_query_t *q, lstr_t login,
+                                     lstr_t passwd)
+{
+    _httpc_query_hdrs_add_auth(q, login, passwd, "Proxy-Authorization");
 }
 
 /* }}} */

@@ -1114,8 +1114,23 @@ static inline void httpc_query_chunk_done(httpc_query_t * nonnull q,
         httpc_query_chunk_done_(q, ob);
 }
 
+/** Add "Authorization" header field using basic authentication.
+ *
+ * \param[in]  q      the query
+ * \param[in]  login  the login
+ * \param[in]  passwd the password
+ */
 void httpc_query_hdrs_add_auth(httpc_query_t * nonnull q, lstr_t login,
                                lstr_t passwd);
+
+/** Add "Proxy-Authorization" header field using basic authentication.
+ *
+ * \param[in]  q      the query
+ * \param[in]  login  the login
+ * \param[in]  passwd the password
+ */
+void httpc_query_hdrs_add_proxy_auth(httpc_query_t * nonnull q, lstr_t login,
+                                     lstr_t passwd);
 
 static inline void httpc_query_hdrs_add(httpc_query_t * nonnull q, lstr_t hdr)
 {
