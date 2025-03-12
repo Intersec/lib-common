@@ -687,6 +687,38 @@ static int z_test_iop_field_print_defval(const iop_struct_t *st,
 }
 
 /* }}} */
+/* {{{ zchk iop.iop_struct_get_field */
+
+typedef struct {
+    const iop_struct_t *field_st;
+    const char *field_name;
+    iop_type_t field_type;
+} z_iop_get_field_exp_t;
+
+static int z_test_iop_struct_get_field(const iop_struct_t *st,
+                                       const char *path,
+                                       z_iop_get_field_exp_t exp)
+{
+    const iop_struct_t *found_st = NULL;
+    const iop_field_t *found_fdesc = NULL;
+
+    Z_ASSERT_N(iop_struct_get_field(_G.iop_env, st, LSTR(path), &found_st,
+                                    &found_fdesc),
+               "field path `%s` not found in `%*pM`",
+               path, LSTR_FMT_ARG(st->fullname));
+    Z_ASSERT_P(found_st);
+    Z_ASSERT_P(found_fdesc);
+    Z_ASSERT(exp.field_st == found_st,
+             "expected field st `%*pM`, found `%*pM`",
+             LSTR_FMT_ARG(exp.field_st->fullname),
+             LSTR_FMT_ARG(found_st->fullname));
+    Z_ASSERT_LSTREQUAL(LSTR(exp.field_name), found_fdesc->name);
+    Z_ASSERT_EQ((int)exp.field_type, (int)found_fdesc->type);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
 /* {{{ Other helpers (waiting proper folds). */
 
 #define IOP_XML_HEADER \
@@ -6876,6 +6908,144 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_P(out);
         Z_ASSERT(out_st == &tstiop__my_class3__s);
         Z_ASSERT(out == &f_e_cls3.bool1);
+    } Z_TEST_END
+    /* }}} */
+    Z_TEST(iop_struct_get_field, "test iop_struct_get_field function") { /* {{{ */
+        /* Error cases */
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("unknown_field"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR(""), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("."), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR(".a"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("l.."), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("z[5]"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("htab[]"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("htab[]]"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("htab[a]"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("htab[0a]"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("htab[0]a"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_f__s,
+                                          LSTR("e[0].int2"), NULL, NULL));
+
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_class2__s,
+                                          LSTR("int3"), NULL, NULL));
+
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("cls2.bool10"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("cls2.int3"), NULL, NULL));
+        Z_ASSERT_NEG(iop_struct_get_field(_G.iop_env, &tstiop__my_struct_a__s,
+                                          LSTR("cls2.<MyClass2Priv>bool1"),
+                                          NULL, NULL));
+        /* Success cases */
+#define T_OK(_st, _path, ...)                                                \
+    Z_HELPER_RUN(                                                            \
+        z_test_iop_struct_get_field((_st), (_path),                          \
+                                    (z_iop_get_field_exp_t) { __VA_ARGS__  })\
+    )
+        T_OK(&tstiop__my_class3__s, "int3",
+             .field_st = &tstiop__my_class3__s,
+             .field_name = "int3",
+             .field_type = IOP_T_I32);
+
+        T_OK(&tstiop__my_struct_a__s, "a",
+             .field_st = &tstiop__my_struct_a__s,
+             .field_name = "a",
+             .field_type = IOP_T_I32);
+
+        T_OK(&tstiop__my_struct_a__s, "l",
+             .field_st = &tstiop__my_struct_a__s,
+             .field_name = "l",
+             .field_type = IOP_T_UNION);
+
+        /* XXX: This is an edge case, it is valid but strange. */
+        T_OK(&tstiop__my_struct_a__s, "l.",
+             .field_st = &tstiop__my_struct_a__s,
+             .field_name = "l",
+             .field_type = IOP_T_UNION);
+
+        T_OK(&tstiop__my_struct_a__s, "l.ua",
+             .field_st = &tstiop__my_union_a__s,
+             .field_name = "ua",
+             .field_type = IOP_T_I32);
+
+        T_OK(&tstiop__my_struct_a__s, "lr.ua",
+             .field_st = &tstiop__my_union_a__s,
+             .field_name = "ua",
+             .field_type = IOP_T_I32);
+
+        T_OK(&tstiop__my_struct_a__s, "h",
+             .field_st = &tstiop__my_struct_a__s,
+             .field_name = "h",
+             .field_type = IOP_T_U64);
+
+        T_OK(&tstiop__my_struct_a__s, "h[42]",
+             .field_st = &tstiop__my_struct_a__s,
+             .field_name = "h",
+             .field_type = IOP_T_U64);
+
+        T_OK(&tstiop__my_struct_a__s, "h[-42]",
+             .field_st = &tstiop__my_struct_a__s,
+             .field_name = "h",
+             .field_type = IOP_T_U64);
+
+        T_OK(&tstiop__my_union_a__s, "ub",
+             .field_st = &tstiop__my_union_a__s,
+             .field_name = "ub",
+             .field_type = IOP_T_I8);
+
+        T_OK(&tstiop__my_struct_a__s, "cls2",
+             .field_st = &tstiop__my_struct_a__s,
+             .field_name = "cls2",
+             .field_type = IOP_T_STRUCT);
+
+        T_OK(&tstiop__my_struct_a__s, "cls2.int2",
+             .field_st = &tstiop__my_class2__s,
+             .field_name = "int2",
+             .field_type = IOP_T_I32);
+
+        T_OK(&tstiop__my_struct_a__s, "cls2.int1",
+             .field_st = &tstiop__my_class1__s,
+             .field_name = "int1",
+             .field_type = IOP_T_I32);
+
+        T_OK(&tstiop__my_struct_a__s, "cls2.<tstiop.MyClass2>int1",
+             .field_st = &tstiop__my_class1__s,
+             .field_name = "int1",
+             .field_type = IOP_T_I32);
+
+        T_OK(&tstiop__my_struct_a__s, "cls2.<tstiop.MyClass3>bool1",
+             .field_st = &tstiop__my_class3__s,
+             .field_name = "bool1",
+             .field_type = IOP_T_BOOL);
+
+        T_OK(&tstiop__my_struct_a__s, "cls2.<tstiop.MyClass3>bool1",
+             .field_st = &tstiop__my_class3__s,
+             .field_name = "bool1",
+             .field_type = IOP_T_BOOL);
+
+        T_OK(&tstiop__my_struct_e__s, "c.a",
+             .field_st = &tstiop__my_struct_b__s,
+             .field_name = "a",
+             .field_type = IOP_T_I32);
+
+        T_OK(&tstiop__my_struct_a_opt__s, "l.ua",
+             .field_st = &tstiop__my_union_a__s,
+             .field_name = "ua",
+             .field_type = IOP_T_I32);
+
+#undef T_OK
+
     } Z_TEST_END
     /* }}} */
     Z_TEST(iop_get_field_values, "test iop_get_field_values function") { /* {{{ */

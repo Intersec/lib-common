@@ -441,6 +441,10 @@ bool iop_field_is_pointed(const iop_field_t * nonnull fdesc);
  * its parents will be walked through in order to check if they contain a
  * field named \p name.
  *
+ * This function only checks the field in the current or parent struct desc.
+ * If you want to look for a field in a complete path, use
+ * \ref iop_struct_get_field() instead.
+ *
  * \param[in]  st  the iop_struct_t in which the field \p name is searched.
  * \param[in]  name  the name of the field to look for.
  * \param[out] found_st  set to the class that contains the field if \p st is
@@ -1643,12 +1647,12 @@ void *nullable iop_opt_field_getv(iop_type_t type, void * nonnull data);
  */
 const iop_field_t * nullable
 iop_get_field_const(const iop_env_t * nonnull iop_env,
-                    const void * nullable ptr,
+                    const void * nonnull ptr,
                     const iop_struct_t * nonnull st,
                     lstr_t path, const void * nullable * nullable out_ptr,
                     const iop_struct_t * nullable * nullable out_st);
 
-/** Find an IOP field description from a iop object.
+/** Find an IOP field description from an IOP object.
  *
  * \param[in]  iop_env  The current IOP environment.
  * \param[in]  ptr      The IOP object.
@@ -1661,7 +1665,7 @@ iop_get_field_const(const iop_env_t * nonnull iop_env,
  * \return The iop field description if found, NULL otherwise.
  */
 static inline const iop_field_t * nullable
-iop_get_field(const iop_env_t * nonnull iop_env, void * nullable ptr,
+iop_get_field(const iop_env_t * nonnull iop_env, void * nonnull ptr,
               const iop_struct_t * nonnull st, lstr_t path,
               void * nullable * nullable out_ptr,
               const iop_struct_t * nullable * nullable out_st)
@@ -1669,6 +1673,27 @@ iop_get_field(const iop_env_t * nonnull iop_env, void * nullable ptr,
     return iop_get_field_const(iop_env, (const void *)ptr, st, path,
                                (const void **)out_ptr, out_st);
 }
+
+/** Find an IOP field description for an IOP struct definition and field path.
+ *
+ * It is similar to iop_field_find_by_name(), but takes a full IOP path
+ * instead of just the field name.
+ *
+ * \param[in]  iop_env     The current IOP environment.
+ * \param[in]  st          The iop_struct_t in which the field \p path is
+ *                         searched.
+ * \param[in]  path        The path to the field (separate members with a
+ *                         '.').
+ * \param[out] found_st    Descriptor of the structure that contains the
+ *                         returned field.
+ * \param[out] found_fdesc The field descriptor if the field is found.
+ *
+ * \return  0 if the field is found, -1 otherwise.
+ */
+int iop_struct_get_field(const iop_env_t * nonnull iop_env,
+                         const iop_struct_t * nonnull st, lstr_t path,
+                         const iop_struct_t * nullable * nullable found_st,
+                         const iop_field_t * nullable * nullable found_fdesc);
 
 /** Get a pointer on the C field associated to a given IOP field.
  *

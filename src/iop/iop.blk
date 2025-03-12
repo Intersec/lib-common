@@ -171,61 +171,83 @@ static int parse_field_from_path(const iop_env_t *iop_env,
     return 0;
 }
 
-const iop_field_t *
-iop_get_field_const(const iop_env_t *iop_env, const void *ptr,
-                    const iop_struct_t *st, lstr_t path,
-                    const void ** nullable out_ptr,
-                    const iop_struct_t ** nullable out_st)
+/* TODO: factorize it with iop_field_path functions. */
+static const iop_field_t *
+_iop_get_field_const(const iop_env_t * nonnull iop_env,
+                     const void * nullable ptr,
+                     const iop_struct_t * nonnull st, lstr_t path,
+                     const void ** nullable out_ptr,
+                     const iop_struct_t ** nullable out_st)
 {
+    bool use_ptr = (ptr != NULL);
     pstream_t ps = ps_initlstr(&path);
     const iop_field_t *iop_field = NULL;
 
     while (!ps_done(&ps)) {
         iop_field_path_parse_t field_parse;
 
-        RETHROW_P(ptr);
+        /* If we reached an unset optional field, return an error. */
+        if (use_ptr) {
+            RETHROW_P(ptr);
+        }
+
+        /* Parse the next field from the path. */
         RETHROW_NP(parse_field_from_path(iop_env, &ps, st, &field_parse,
                                          NULL));
 
-        if (iop_struct_is_class(st)) {
+        if (use_ptr && iop_struct_is_class(st)) {
+            /* If we have a class, get the real class from the object pointer.
+             */
             st = *(const iop_struct_t **)ptr;
 
             /* Throw an error if the type of the object is not a sub-class of
              * the explicit cast class. */
             THROW_NULL_IF(field_parse.cast_st &&
                           !iop_class_is_a(st, field_parse.cast_st));
+        } else if (field_parse.cast_st) {
+            /* Else if there are any explicit cast, use it as the class to
+             * look for the field. */
+            st = field_parse.cast_st;
         }
 
+        /* Look for the field in the struct. */
         RETHROW_NP(iop_field_find_by_name(st,
                                           LSTR_PS_V(&field_parse.field_name),
                                           out_st, &iop_field));
-        if (st->is_union && *(int16_t *)ptr != iop_field->tag) {
-            return NULL;
-        }
-        ptr = (const byte *)ptr + iop_field->data_offs;
 
-        if (OPT_ISSET(field_parse.array_index)) {
-            int array_index = OPT_VAL(field_parse.array_index);
-            const IOP_ARRAY_OF(byte) *array_ptr = ptr;
-
-            THROW_NULL_IF(iop_field->repeat != IOP_R_REPEATED);
-            if (array_index < 0) {
-                /* Negative index means we read the array backward. */
-                array_index = array_ptr->len + array_index;
-                THROW_NULL_IF(array_index < 0);
+        if (use_ptr) {
+            /* If we use an object, move the pointer to point to the field
+             * value. */
+            if (st->is_union && *(int16_t *)ptr != iop_field->tag) {
+                return NULL;
             }
+            ptr = (const byte *)ptr + iop_field->data_offs;
 
-            THROW_NULL_IF(array_index >= array_ptr->len);
-            ptr = array_ptr->tab + iop_field->size * array_index;
-        } else
-        if (iop_field->repeat == IOP_R_REPEATED) {
-            THROW_NULL_IF(!ps_done(&ps));
+            if (OPT_ISSET(field_parse.array_index)) {
+                int array_index = OPT_VAL(field_parse.array_index);
+                const IOP_ARRAY_OF(byte) *array_ptr = ptr;
+
+                THROW_NULL_IF(iop_field->repeat != IOP_R_REPEATED);
+                if (array_index < 0) {
+                    /* Negative index means we read the array backward. */
+                    array_index = array_ptr->len + array_index;
+                    THROW_NULL_IF(array_index < 0);
+                }
+
+                THROW_NULL_IF(array_index >= array_ptr->len);
+                ptr = array_ptr->tab + iop_field->size * array_index;
+            } else if (iop_field->repeat == IOP_R_REPEATED) {
+                THROW_NULL_IF(!ps_done(&ps));
+            }
         }
 
+        /* If the field is a struct or union, use the struct desc for the next
+         * field part.
+         * Else, we should have reached the end. */
         switch (iop_field->type) {
           case IOP_T_UNION:
           case IOP_T_STRUCT:
-            if (!ps_done(&ps) && iop_field_is_pointed(iop_field)) {
+            if (use_ptr && !ps_done(&ps) && iop_field_is_pointed(iop_field)) {
                 ptr = *(const void **)ptr;
             }
             st = iop_field->u1.st_desc;
@@ -239,6 +261,38 @@ iop_get_field_const(const iop_env_t *iop_env, const void *ptr,
         *out_ptr = ptr;
     }
     return iop_field;
+}
+
+const iop_field_t *
+iop_get_field_const(const iop_env_t * nonnull iop_env,
+                    const void * nonnull ptr,
+                    const iop_struct_t * nonnull st, lstr_t path,
+                    const void ** nullable out_ptr,
+                    const iop_struct_t ** nullable out_st)
+{
+    RETHROW_P(ptr);
+    return _iop_get_field_const(iop_env, ptr, st, path, out_ptr, out_st);
+}
+
+int iop_struct_get_field(const iop_env_t * nonnull iop_env,
+                         const iop_struct_t * nonnull st, lstr_t path,
+                         const iop_struct_t * nullable * nullable found_st,
+                         const iop_field_t * nullable * nullable found_fdesc)
+{
+    const iop_struct_t *out_st = NULL;
+    const iop_field_t *out_fdesc;
+
+    out_fdesc = _iop_get_field_const(iop_env, NULL, st, path, NULL, &out_st);
+    RETHROW_PN(out_fdesc);
+
+    if (found_st) {
+        *found_st = out_st;
+    }
+    if (found_fdesc) {
+        *found_fdesc = out_fdesc;
+    }
+
+    return 0;
 }
 
 iop_value_field_t iop_value_field_from_type(iop_type_t type)
