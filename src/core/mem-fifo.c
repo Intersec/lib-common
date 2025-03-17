@@ -516,9 +516,8 @@ void mem_fifo_pools_print_stats(void)
     }
 
     spin_lock(&_G.all_pools_lock);
-    dlist_for_each(n, &_G.all_pools) {
-        mem_fifo_pool_t *mfp = container_of(n, mem_fifo_pool_t, pool_link);
-        mem_bench_print_human(&mfp->mem_bench, MEM_BENCH_PRINT_CURRENT);
+    dlist_for_each_entry(mem_fifo_pool_t, fp, &_G.all_pools, mp.pool_link) {
+        mem_bench_print_human(&fp->mem_bench, MEM_BENCH_PRINT_CURRENT);
     }
     spin_unlock(&_G.all_pools_lock);
 #endif
@@ -564,8 +563,7 @@ static void core_mem_fifo_print_state(void)
 
     spin_lock(&_G.all_pools_lock);
 
-    dlist_for_each_entry(mem_fifo_pool_t, fp, &_G.all_pools, mp.pool_link)
-    {
+    dlist_for_each_entry(mem_fifo_pool_t, fp, &_G.all_pools, mp.pool_link) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
         t_qv_init(tab, hdr_size);

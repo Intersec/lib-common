@@ -711,10 +711,8 @@ void mem_stack_print_pools_stats(void) {
     }
 
     spin_lock(&_G.all_pools_lock);
-    dlist_for_each(n, &_G.all_pools) {
-        mem_stack_pool_t *mp = container_of(n, mem_stack_pool_t, pool_list);
-
-        mem_bench_print_human(mp->mem_bench, MEM_BENCH_PRINT_CURRENT);
+    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, mp.pool_link) {
+        mem_bench_print_human(sp->mem_bench, MEM_BENCH_PRINT_CURRENT);
     }
     spin_unlock(&_G.all_pools_lock);
 #endif
@@ -800,8 +798,7 @@ static void mem_stack_fix_all_pools_at_fork(void)
      * t_pool_g or log_thr_g.mp_stack), but the stack pools of other threads
      * are no longer valid. This is only a problem when the forked process
      * does not call exec. */
-    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, mp.pool_link)
-    {
+    dlist_for_each_entry(mem_stack_pool_t, sp, &_G.all_pools, mp.pool_link) {
         if (!pthread_equal(sp->pthread_id, pthread_self())) {
             dlist_remove(&sp->mp.pool_link);
         }

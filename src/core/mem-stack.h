@@ -131,7 +131,7 @@ typedef struct mem_stack_pool_t {
 
 #ifdef MEM_BENCH
     /* never mind data : bench */
-    struct mem_bench_t  * nullable mem_bench;
+    struct mem_bench_t  * nonnull mem_bench;
 #endif
 } mem_stack_pool_t;
 
