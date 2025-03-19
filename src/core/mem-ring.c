@@ -675,7 +675,8 @@ static __thread mem_pool_t *r_pool_g;
 mem_pool_t *r_pool(void)
 {
     if (unlikely(!r_pool_g)) {
-        r_pool_g = mem_ring_new("r_pool", 64 << 10);
+        r_pool_g = mem_ring_new_flags("r_pool", 64 << 10,
+                                      MEM_DISABLE_POOL_LEAK_DETECTION);
     }
     return r_pool_g;
 }
