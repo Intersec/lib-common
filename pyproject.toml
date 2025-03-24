@@ -25,7 +25,7 @@ version = "0.0.0"
 description = ""
 authors = ["R&D <rd@intersec.com>"]
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 # C extension writer for Python, used by IOPy
 cython = "~=3.0.0"
 
