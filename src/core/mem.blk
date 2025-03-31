@@ -582,11 +582,6 @@ CC_WARNING_IGNORE_POP
 
 /* This version will be visible using the "ident" command */
 extern const char libcommon_id[];
-const char *__libcomon_version(void);
-const char *__libcomon_version(void)
-{
-    return libcommon_id;
-}
 
 core_version_t core_versions_g[8];
 int core_versions_nb_g;
