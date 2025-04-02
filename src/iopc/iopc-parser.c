@@ -2138,17 +2138,8 @@ parse_field_stmt(iopc_parser_t *pp, iopc_struct_t *st, qv_t(iopc_attr) *attrs,
      * needs to be set at true */
     if (is_snmp_iface) {
         f->snmp_is_from_param = true;
-    } else {
-        if (parse_field_type(pp, st, f) < 0) {
-            goto error;
-        }
-        if (is_rpc_arg && f->kind == IOP_T_VOID
-        &&  f->repeat == IOP_R_REQUIRED)
-        {
-            error_loc("required void types are forbidden for rpc arguments",
-                      TK(pp, 0, goto error)->loc);
-            goto error;
-        }
+    } else if (parse_field_type(pp, st, f) < 0) {
+        goto error;
     }
 
     if (__want(pp, 0, ITOK_IDENT) < 0) {

@@ -637,9 +637,11 @@ class IopcTest(z.TestCase):
                       'repeated void types are forbidden')
         self.run_iopc('invalid_void_default.iop', False,
                       'default values are forbidden for void types')
+
         self.run_iopc_pass('void_opt_rpc_arg.iop', lang="C,json")
-        self.run_iopc('invalid_void_req_rpc_arg.iop', False,
-                      'required void types are forbidden for rpc arguments')
+        self.run_iopc_pass('void_req_rpc_arg.iop', lang="C,json")
+        self.run_iopc_pass('void_private_req_in_struct.iop',
+                           lang="C,json")
 
     # }}}
     # {{{ Attributes

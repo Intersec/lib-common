@@ -1,0 +1,6 @@
+package void_private_req_in_struct;
+
+struct A {
+    @private
+    void f;
+};

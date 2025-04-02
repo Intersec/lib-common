@@ -385,3 +385,6 @@ registerCollection<TypedefStructUseAllWithList_Model>(TypedefStructUseAllWithLis
 
 export namespace interfaces {
 }
+
+export type MyEnumAlias = enum1.MyEnum;
+export type TypedefSimpleHdr = typedef1.FooS;

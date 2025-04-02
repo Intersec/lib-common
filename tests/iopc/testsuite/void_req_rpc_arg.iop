@@ -1,4 +1,4 @@
-package invalid_void_req_rpc_arg;
+package void_req_rpc_arg;
 
 interface VoidInterface {
     fn
