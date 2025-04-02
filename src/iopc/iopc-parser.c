@@ -284,44 +284,61 @@ static int check_attr_type_decl(iopc_attr_t *attr, iopc_attr_type_t type)
     return 0;
 }
 
-static int check_attr_type_field(iopc_attr_t *attr, iopc_field_t *f,
-                                 bool tdef)
+static iopc_attr_type_t
+iop_type_to_iopc_attr_type(iop_type_t iop_type)
 {
-    const char *tstr = tdef ? "typedefs" : "fields";
-    iopc_attr_type_t type;
-
-    if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_ALL)) {
-        throw_loc("attribute %*pM does not apply to %s", attr->loc,
-                  LSTR_FMT_ARG(attr->desc->name), tstr);
+    switch (iop_type) {
+    case IOP_T_DATA:
+        return IOPC_ATTR_T_DATA;
+    case IOP_T_DOUBLE:
+        return IOPC_ATTR_T_DOUBLE;
+    case IOP_T_STRING:
+        return IOPC_ATTR_T_STRING;
+    case IOP_T_XML:
+        return IOPC_ATTR_T_XML;
+    case IOP_T_STRUCT:
+        return IOPC_ATTR_T_STRUCT;
+    case IOP_T_UNION:
+        return IOPC_ATTR_T_UNION;
+    case IOP_T_ENUM:
+        return IOPC_ATTR_T_ENUM;
+    case IOP_T_BOOL:
+        return IOPC_ATTR_T_BOOL;
+    case IOP_T_I8:
+    case IOP_T_I16:
+    case IOP_T_I32:
+    case IOP_T_I64:
+    case IOP_T_U8:
+    case IOP_T_U16:
+    case IOP_T_U32:
+    case IOP_T_U64:
+    /* XXX: Use INT for 'void': it can be used to keep the backward compat for
+     * any types, and it does not matter in check_attrs_field_repeat_type().
+     */
+    case IOP_T_VOID:
+        return IOPC_ATTR_T_INT;
     }
 
-    switch (f->kind) {
-      case IOP_T_DATA:      type = IOPC_ATTR_T_DATA; break;
-      case IOP_T_DOUBLE:    type = IOPC_ATTR_T_DOUBLE; break;
-      case IOP_T_STRING:    type = IOPC_ATTR_T_STRING; break;
-      case IOP_T_XML:       type = IOPC_ATTR_T_XML; break;
-      case IOP_T_STRUCT:    type = IOPC_ATTR_T_STRUCT; break;
-      case IOP_T_UNION:     type = IOPC_ATTR_T_UNION; break;
-      case IOP_T_ENUM:      type = IOPC_ATTR_T_ENUM; break;
-      case IOP_T_BOOL:      type = IOPC_ATTR_T_BOOL; break;
-      default:              type = IOPC_ATTR_T_INT; break;
-    }
+    assert(false);
+    return 0;
+}
 
-    if (f->kind == IOP_T_STRUCT && !f->struct_def) {
-        /* struct or union or enum -> the typer will know the real type and
-         * will check this attribute in iopc_check_field_attributes */
-        return 0;
-    }
-
+static int
+check_attrs_field_repeat_type(iopc_attr_t *attr, iopc_field_t *f,
+                              iopc_attr_type_t type, const char *tstr)
+{
     switch (f->repeat) {
-      case IOP_R_REQUIRED:
-        if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_REQUIRED)) {
+    case IOP_R_REQUIRED:
+        if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_REQUIRED) &&
+            !(f->kind == IOP_T_VOID &&
+              (attr->desc->flags & IOPC_ATTR_F_FIELD_REQUIRED_VOID)))
+        {
             throw_loc("attribute %*pM does not apply to required %s",
                       attr->loc, LSTR_FMT_ARG(attr->desc->name), tstr);
         }
         break;
 
-      case IOP_R_DEFVAL:
+    case IOP_R_DEFVAL:
         if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_DEFVAL)) {
             throw_loc("attribute %*pM does not apply to %s "
                       "with default value", attr->loc,
@@ -329,14 +346,14 @@ static int check_attr_type_field(iopc_attr_t *attr, iopc_field_t *f,
         }
         break;
 
-      case IOP_R_OPTIONAL:
+    case IOP_R_OPTIONAL:
         if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_OPTIONAL)) {
             throw_loc("attribute %*pM does not apply to optional %s",
                       attr->loc, LSTR_FMT_ARG(attr->desc->name), tstr);
         }
         break;
 
-      case IOP_R_REPEATED:
+    case IOP_R_REPEATED:
         if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_REPEATED)) {
             throw_loc("attribute %*pM does not apply to repeated %s",
                       attr->loc, LSTR_FMT_ARG(attr->desc->name), tstr);
@@ -345,11 +362,31 @@ static int check_attr_type_field(iopc_attr_t *attr, iopc_field_t *f,
     }
 
     if (!(attr->desc->types & type)) {
-        throw_loc("attribute %*pM does not apply to %s",
-                  attr->loc,
-                  LSTR_FMT_ARG(attr->desc->name),
-                  type_to_str(type));
+        throw_loc("attribute %*pM does not apply to %s", attr->loc,
+                  LSTR_FMT_ARG(attr->desc->name), type_to_str(type));
     }
+
+    return 0;
+}
+
+static int check_attr_type_field(iopc_attr_t *attr, iopc_field_t *f,
+                                 bool tdef)
+{
+    const char *tstr = tdef ? "typedefs" : "fields";
+    iopc_attr_type_t type = iop_type_to_iopc_attr_type(f->kind);
+
+    if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_ALL)) {
+        throw_loc("attribute %*pM does not apply to %s", attr->loc,
+                  LSTR_FMT_ARG(attr->desc->name), tstr);
+    }
+
+    if (f->kind == IOP_T_STRUCT && !f->struct_def) {
+        /* struct or union or enum -> the typer will know the real type and
+         * will check this attribute in iopc_check_field_attributes */
+        return 0;
+    }
+
+    RETHROW(check_attrs_field_repeat_type(attr, f, type, tstr));
 
     /* Field snmp specific checks */
     if (attr->desc->id == IOPC_ATTR_SNMP_INDEX && !f->snmp_is_in_tbl) {
@@ -363,62 +400,11 @@ static int check_attr_type_field(iopc_attr_t *attr, iopc_field_t *f,
 int iopc_check_field_attributes(iopc_field_t *f, bool tdef)
 {
     const char *tstr = tdef ? "typedefs" : "fields";
-    iopc_attr_type_t type;
+    iopc_attr_type_t type = iop_type_to_iopc_attr_type(f->kind);
     unsigned flags = 0;
 
-    switch (f->kind) {
-      case IOP_T_DATA:      type = IOPC_ATTR_T_DATA; break;
-      case IOP_T_DOUBLE:    type = IOPC_ATTR_T_DOUBLE; break;
-      case IOP_T_STRING:    type = IOPC_ATTR_T_STRING; break;
-      case IOP_T_XML:       type = IOPC_ATTR_T_XML; break;
-      case IOP_T_BOOL:      type = IOPC_ATTR_T_BOOL; break;
-      case IOP_T_STRUCT:    type = IOPC_ATTR_T_STRUCT; break;
-      case IOP_T_UNION:     type = IOPC_ATTR_T_UNION; break;
-      case IOP_T_ENUM:      type = IOPC_ATTR_T_ENUM; break;
-      default:              type = IOPC_ATTR_T_INT; break;
-    }
-
     tab_for_each_entry(attr, &f->attrs) {
-        if (!(attr->desc->types & type)) {
-            throw_loc("attribute %*pM does not apply to %s",
-                      attr->loc,
-                      LSTR_FMT_ARG(attr->desc->name),
-                      type_to_str(type));
-        }
-
-        switch (f->repeat) {
-          case IOP_R_REQUIRED:
-            if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_REQUIRED)) {
-                throw_loc("attribute %*pM does not apply to required %s",
-                          attr->loc, LSTR_FMT_ARG(attr->desc->name), tstr);
-            }
-            break;
-
-          case IOP_R_DEFVAL:
-            if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_DEFVAL)) {
-                throw_loc("attribute %*pM does not apply to %s "
-                          "with default value",
-                          attr->loc, LSTR_FMT_ARG(attr->desc->name), tstr);
-            }
-            break;
-
-          case IOP_R_OPTIONAL:
-            if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_OPTIONAL)) {
-                throw_loc("attribute %*pM does not apply to optional %s",
-                          attr->loc, LSTR_FMT_ARG(attr->desc->name), tstr);
-            }
-            break;
-
-          case IOP_R_REPEATED:
-            if (!(attr->desc->flags & IOPC_ATTR_F_FIELD_REPEATED)) {
-                throw_loc("attribute %*pM does not apply to repeated %s",
-                          attr->loc, LSTR_FMT_ARG(attr->desc->name), tstr);
-            }
-            break;
-
-          default:
-            throw_loc("unknown repeat kind for field `%s`", attr->loc, f->name);
-        }
+        RETHROW(check_attrs_field_repeat_type(attr, f, type, tstr));
 
         /* Field specific checks */
         switch (attr->desc->id) {
@@ -601,6 +587,7 @@ static void init_attributes(void)
 
     d = add_attr(IOPC_ATTR_PRIVATE, "private");
     d->flags |= IOPC_ATTR_F_FIELD_ALL_BUT_REQUIRED;
+    d->flags |= IOPC_ATTR_F_FIELD_REQUIRED_VOID;
     d->flags |= IOPC_ATTR_F_DECL;
     d->types |= IOPC_ATTR_T_ALL;
 

@@ -388,12 +388,16 @@ typedef enum iopc_attr_flag_t {
 #define IOPC_ATTR_F_FIELD_ALL_BUT_REQUIRED                \
     (IOPC_ATTR_F_FIELD_ALL & ~IOPC_ATTR_F_FIELD_REQUIRED)
 
+    /* attribute can also apply to required void fields without applying to
+     * required fields */
+    IOPC_ATTR_F_FIELD_REQUIRED_VOID = 1 << 4,
+
     /* attribute can apply to declarations */
-    IOPC_ATTR_F_DECL = 1 << 4,
+    IOPC_ATTR_F_DECL = 1 << 5,
     /* attribute can be used more than once */
-    IOPC_ATTR_F_MULTI = 1 << 5,
+    IOPC_ATTR_F_MULTI = 1 << 6,
     /* attribute will generate a check in iop_check_constraints */
-    IOPC_ATTR_F_CONSTRAINT = 1 << 6,
+    IOPC_ATTR_F_CONSTRAINT = 1 << 7,
 } iopc_attr_flag_t;
 
 
