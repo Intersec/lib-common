@@ -1445,6 +1445,51 @@ def process_c_for_check(self: TaskGen, node: Node) -> None:
 
 
 # }}}
+# {{{ DSO PYSTUB
+
+
+class DsoPystubTask(FirstInputStrTask):
+    run_str = ['${MAKE_DSO_PYSTUB_PY} --dso-path ${SRC[0].abspath()} '
+               '--output-pystub ${TGT[0].abspath()}']
+    color = 'CYAN'
+    ext_out = ['.pyi']
+
+    @classmethod
+    def keyword(cls: Type['DsoPystubTask']) -> str:
+        return 'Dumping'
+
+
+@TaskGen.feature('cshlib')
+@TaskGen.after_method('apply_link', 'deploy_shlib')
+def make_dso_pystub(self: TaskGen) -> None:
+    # Only consider shlib that specify pystub_path
+    pystub_path = getattr(self, 'pystub_path', None)
+    if pystub_path is None:
+        return
+
+    ctx = self.bld
+
+    # Ensure iopy tgen is posted
+    if not getattr(ctx.iopy_tgen, 'posted', False):
+        ctx.iopy_tgen.post()
+
+    # Make the pystub node path
+    assert len(self.link_task.outputs) == 1
+    shlib_node = self.link_task.outputs[0]
+    pystub_path_node = self.path.make_node(pystub_path)
+    target_iop_name = self.target.replace('-', '_')
+    pystub_node = pystub_path_node.make_node(f'{target_iop_name}__iop.pyi')
+
+    # Create the task
+    if pystub_node not in self.env.GEN_FILES:
+        self.env.GEN_FILES.add(pystub_node)
+        inputs = [shlib_node, ctx.iopy_tgen.link_task.outputs[0]]
+        dso_pystub_task = self.create_task(
+            'DsoPystubTask', inputs, pystub_node)
+        dso_pystub_task.set_run_after(self.link_task)
+
+
+# }}}
 
 # {{{ options
 
@@ -1879,6 +1924,8 @@ def configure(ctx: ConfigurationContext) -> None:
     ctx.find_program('run_checks.sh', path_list=[build_dir],
                      var='RUN_CHECKS_SH')
     ctx.find_program('tokens.sh', path_list=[build_dir], var='TOKENS_SH')
+    ctx.find_program('make_dso_pystub.py', path_list=[build_dir],
+                     var='MAKE_DSO_PYSTUB_PY')
     if ctx.find_program('ctags', mandatory=False):
         ctx.find_program('ctags.sh', path_list=[build_dir], var='CTAGS_SH')
 

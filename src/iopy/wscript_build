@@ -24,7 +24,7 @@ ctx: BuildContext
 ctx(rule='${VERSION_SH} rcsid iopy > ${TGT}',
     target='iopy-version.c', always=True)
 
-ctx.shlib(target='iopy', features='c cshlib', source=[
+ctx.iopy_tgen = ctx.shlib(target='iopy', features='c cshlib', source=[
     'rpc_el.pxc',
     'iopy.pyx',
     'iopy-version.c',
