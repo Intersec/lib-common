@@ -673,6 +673,49 @@ static void iopc_pystub_dump_modules(sb_t *buf, const iopc_pkg_t *pkg)
 }
 
 /* }}} */
+/* {{{ Package */
+
+static void iopc_pystub_dump_package(sb_t *buf, const iopc_pkg_t *pkg)
+{
+    iopc_pystup_dump_fold_begin_extra(buf, "Package");
+
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_adds(buf, "class Interfaces(iopy.Interfaces):\n");
+
+    if (pkg->ifaces.len) {
+        tab_for_each_entry(iface, &pkg->ifaces) {
+            switch (iface->type) {
+            case IFACE_TYPE_IFACE:
+                sb_addf(buf, "    %s = %s_Iface\n", iface->name, iface->name);
+                break;
+
+            default:
+                break;
+            }
+        }
+    } else {
+        sb_adds(buf, "    pass\n");
+    }
+
+    sb_adds(buf, "\n\n");
+
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_adds(buf, "class Package(iopy.Package):\n");
+
+    sb_adds(buf, "    interfaces: Interfaces\n\n");
+
+    tab_for_each_entry(en, &pkg->enums) {
+        sb_addf(buf, "    %s = %s\n", en->name, en->name);
+    }
+
+    tab_for_each_entry(st, &pkg->structs) {
+        sb_addf(buf, "    %s = %s\n", st->name, st->name);
+    }
+
+    iopc_pystup_dump_fold_end_extra(buf);
+}
+
+/* }}} */
 /* {{{ Import */
 
 static void t_iopc_pystub_dump_import(sb_t *buf, const iopc_pkg_t *dep,
@@ -745,6 +788,7 @@ int iopc_do_pystub(iopc_pkg_t *pkg, const char *outdir)
     iopc_pystub_dump_structs(&buf, pkg);
     iopc_pystub_dump_ifaces(&buf, pkg);
     iopc_pystub_dump_modules(&buf, pkg);
+    iopc_pystub_dump_package(&buf, pkg);
 
     return iopc_write_file(&buf, path);
 }
