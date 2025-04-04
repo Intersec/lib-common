@@ -58,19 +58,19 @@ class IopHelpDescription:
 
 class IopEnumValueDescription:
     help: IopHelpDescription
-    generic_attributes: typing.Dict[str, object]
-    aliases: typing.Tuple[str]
+    generic_attributes: dict[str, object]
+    aliases: tuple[str]
 
 
 class IopEnumDescription:
     help: IopHelpDescription
     strict: bool
-    generic_attributes: typing.Dict[str, object]
-    values: typing.Dict[str, IopEnumValueDescription]
+    generic_attributes: dict[str, object]
+    values: dict[str, IopEnumValueDescription]
 
 
 class EnumBase(Basic):
-    def __init__(self, val: typing.Union[int, str]): ...
+    def __init__(self, val: typing.Union[int, str]) -> None: ...
 
     @classmethod
     def name(cls) -> str: ...
@@ -82,16 +82,16 @@ class EnumBase(Basic):
     def __fullname__(cls) -> str: ...
 
     @classmethod
-    def values(cls) -> typing.Dict[str, int]: ...
+    def values(cls) -> dict[str, int]: ...
 
     @classmethod
-    def __values__(cls) -> typing.Dict[str, int]: ...
+    def __values__(cls) -> dict[str, int]: ...
 
     @classmethod
-    def ranges(cls) -> typing.Dict[str, int]: ...
+    def ranges(cls) -> dict[str, int]: ...
 
     @classmethod
-    def __ranges__(cls) -> typing.Dict[str, int]: ...
+    def __ranges__(cls) -> dict[str, int]: ...
 
     @classmethod
     def get_iop_description(cls) -> IopEnumDescription: ...
@@ -289,7 +289,7 @@ class StructUnionBase(Basic):
                 skip_class_names: typing.Optional[bool] = None,
                 skip_optional_class_names: typing.Optional[bool] = None,
                 minimal: typing.Optional[bool] = None) -> (
-                    typing.Dict[str, object]
+                    dict[str, object]
                 ): ...
 
     def __str__(self) -> str: ...
@@ -298,10 +298,10 @@ class StructUnionBase(Basic):
     def __fullname__(cls) -> str: ...
 
     @classmethod
-    def get_fields_name(cls) -> typing.List[str]: ...
+    def get_fields_name(cls) -> list[str]: ...
 
     @classmethod
-    def __get_fields_name__(cls) -> typing.List[str]: ...
+    def __get_fields_name__(cls) -> list[str]: ...
 
     @classmethod
     def get_desc(cls) -> str: ...
@@ -310,15 +310,15 @@ class StructUnionBase(Basic):
     def __desc__(cls) -> str: ...
 
     @classmethod
-    def get_values(cls) -> typing.Dict[str, type]: ...
+    def get_values(cls) -> dict[str, type]: ...
 
     @classmethod
-    def __values__(cls) -> typing.Dict[str, type]: ...
+    def __values__(cls) -> dict[str, type]: ...
 
 
 class IopStructUnionFieldDescription:
     help: IopHelpDescription
-    generic_attributes: typing.Dict[str, object]
+    generic_attributes: dict[str, object]
     iop_type: str
     py_type: type
     default_value: typing.Optional[object]
@@ -342,8 +342,8 @@ class IopStructUnionFieldDescription:
 class IopStructUnionDescription:
     help: IopHelpDescription
     deprecated: bool
-    generic_attributes: typing.Dict[str, object]
-    fields: typing.Dict[str, IopStructUnionFieldDescription]
+    generic_attributes: dict[str, object]
+    fields: dict[str, IopStructUnionFieldDescription]
 
 
 # }}}
@@ -356,16 +356,16 @@ class IopUnionDescription(IopStructUnionDescription):
 
 class UnionBase(StructUnionBase):
     @typing.overload
-    def __init__(self, self_dict: typing.Dict[str, object], /): ...
+    def __init__(self, self_dict: dict[str, object], /) -> None: ...
 
     @typing.overload
-    def __init__(self, self_val: 'UnionBase', /): ...
+    def __init__(self, self_val: 'UnionBase', /) -> None: ...
 
     @typing.overload
-    def __init__(self, val: object, /): ...
+    def __init__(self, val: object, /) -> None: ...
 
     @typing.overload
-    def __init__(self, **kwargs: object): ...
+    def __init__(self, **kwargs: object) -> None: ...
 
     def get_object(self) -> object: ...
 
@@ -396,23 +396,23 @@ class IopClassStaticFieldDescription(IopStructUnionFieldDescription):
 
 
 class IopClassDescription(IopStructDescription):
-    parent: typing.Optional[typing.Type['StructBase']]
+    parent: typing.Optional[type['StructBase']]
     is_abstract: bool
     is_private: bool
     class_id: int
-    statics: typing.Dict[str, IopClassStaticFieldDescription]
-    cls_statics: typing.Dict[str, IopClassStaticFieldDescription]
+    statics: dict[str, IopClassStaticFieldDescription]
+    cls_statics: dict[str, IopClassStaticFieldDescription]
 
 
 class StructBase(StructUnionBase):
     @typing.overload
-    def __init__(self, self_dict: typing.Dict[str, object], /): ...
+    def __init__(self, self_dict: dict[str, object], /) -> None: ...
 
     @typing.overload
-    def __init__(self, self_val: 'UnionBase', /): ...
+    def __init__(self, self_val: 'UnionBase', /) -> None: ...
 
     @typing.overload
-    def __init__(self, **kwargs: object): ...
+    def __init__(self, **kwargs: object) -> None: ...
 
     @classmethod
     def get_iopslots(cls) -> str: ...
@@ -421,10 +421,10 @@ class StructBase(StructUnionBase):
     def __iopslots__(cls) -> str: ...
 
     @classmethod
-    def get_class_attrs(cls) -> typing.Dict[str, object]: ...
+    def get_class_attrs(cls) -> dict[str, object]: ...
 
     @classmethod
-    def __get_class_attrs__(cls) -> typing.Dict[str, object]: ...
+    def __get_class_attrs__(cls) -> dict[str, object]: ...
 
     @classmethod
     def get_iop_description(cls) -> typing.Union[IopStructDescription,
@@ -441,7 +441,7 @@ class IsIopFieldOptional:
 
 
 # Indicate that the field can be unset in the struct or class.
-IopFieldOptional = typing_extensions.Annotated[_T, IsIopFieldOptional]
+IopFieldOptional = typing.Annotated[_T, IsIopFieldOptional]
 
 
 # }}}
@@ -454,19 +454,19 @@ class ChannelBase:
 
 
 class RPCBase:
-    Arg: typing.Optional[typing.Type[StructUnionBase]]
-    Res: typing.Optional[typing.Type[StructUnionBase]]
-    Exn: typing.Optional[typing.Type[StructUnionBase]]
+    Arg: typing.Optional[type[StructUnionBase]]
+    Res: typing.Optional[type[StructUnionBase]]
+    Exn: typing.Optional[type[StructUnionBase]]
 
     is_async: bool
 
     def name(self) -> str: ...
 
-    def arg(self) -> typing.Optional[typing.Type[StructUnionBase]]: ...
+    def arg(self) -> typing.Optional[type[StructUnionBase]]: ...
 
-    def res(self) -> typing.Optional[typing.Type[StructUnionBase]]: ...
+    def res(self) -> typing.Optional[type[StructUnionBase]]: ...
 
-    def exn(self) -> typing.Optional[typing.Type[StructUnionBase]]: ...
+    def exn(self) -> typing.Optional[type[StructUnionBase]]: ...
 
     def desc(self) -> str: ...
 
@@ -511,7 +511,7 @@ class Channel(ChannelBase):
                  _workspace_id: typing.Optional[int] = None,
                  _dealias: typing.Optional[bool] = None,
                  _hdr: typing.Optional[StructUnionBase] = None,
-                ): ...
+                ) -> None: ...
 
     @typing.overload
     def __init__(self, plugin: 'Plugin', *,
@@ -524,7 +524,7 @@ class Channel(ChannelBase):
                  _workspace_id: typing.Optional[int] = None,
                  _dealias: typing.Optional[bool] = None,
                  _hdr: typing.Optional[StructUnionBase] = None,
-                ): ...
+                ) -> None: ...
 
     def connect(self, timeout: typing.Optional[float] = None) -> None: ...
 
@@ -548,8 +548,8 @@ class Channel(ChannelBase):
     def on_connect(self) -> typing.Optional[ChannelOnConnectCb]: ...
 
     @on_connect.setter
-    def on_connect(self,
-                   value: typing.Optional[ChannelOnConnectCb]) -> None: ...
+    def on_connect(
+        self, value: typing.Optional[ChannelOnConnectCb]) -> None: ...
 
     @on_connect.deleter
     def on_connect(self) -> None: ...
@@ -558,8 +558,8 @@ class Channel(ChannelBase):
     def on_disconnect(self) -> typing.Optional[ChannelOnDisconnectCb]: ...
 
     @on_disconnect.setter
-    def on_disconnect(self, value: typing.Optional[ChannelOnDisconnectCb]
-                     ) -> None: ...
+    def on_disconnect(
+        self, value: typing.Optional[ChannelOnDisconnectCb]) -> None: ...
 
     @on_disconnect.deleter
     def on_disconnect(self) -> None: ...
@@ -708,20 +708,22 @@ class ChannelServer(ChannelBase):
     def on_connect(self) -> typing.Optional[ChannelServerOnConnectCb]: ...
 
     @on_connect.setter
-    def on_connect(self, value: typing.Optional[ChannelServerOnConnectCb]
-                  ) -> None: ...
+    def on_connect(
+        self, value: typing.Optional[ChannelServerOnConnectCb]
+    ) -> None: ...
 
     @on_connect.deleter
     def on_connect(self) -> None: ...
 
     @property
-    def on_disconnect(self
-                     ) -> typing.Optional[ChannelServerOnDisconnectCb]: ...
+    def on_disconnect(
+        self
+    ) -> typing.Optional[ChannelServerOnDisconnectCb]: ...
 
     @on_disconnect.setter
-    def on_disconnect(self,
-                      value: typing.Optional[ChannelServerOnDisconnectCb]
-                     ) -> None: ...
+    def on_disconnect(
+        self, value: typing.Optional[ChannelServerOnDisconnectCb]
+    ) -> None: ...
 
     @on_disconnect.deleter
     def on_disconnect(self) -> None: ...
@@ -733,8 +735,8 @@ class ChannelServer(ChannelBase):
 class RPCServerArgs:
     rpc: 'RPCServer'
     arg: StructUnionBase
-    res: typing.Optional[typing.Type[StructUnionBase]]
-    exn: typing.Optional[typing.Type[StructUnionBase]]
+    res: typing.Optional[type[StructUnionBase]]
+    exn: typing.Optional[type[StructUnionBase]]
     hdr: StructUnionBase
 
 RPCServerImplCb = typing.Callable[[RPCServerArgs],
@@ -782,10 +784,8 @@ class Void(Struct):
 
 
 class Plugin:
-    modules: typing.Dict[str, Module]
-    metaclass: type
-    metaclass_interfaces: type
-    Void: typing.Type[Void]
+    modules: dict[str, Module]
+    Void: type[Void]
 
     def __init__(self, dso_path: typing.Union[str, bytes]): ...
 
@@ -796,27 +796,22 @@ class Plugin:
     def __dsopath__(self) -> str: ...
 
     @property
-    def __modules__(self) -> typing.Dict[str, Module]: ...
+    def __modules__(self) -> dict[str, Module]: ...
 
-    def get_type_from_fullname(self, fullname: str) -> typing.Type[Basic]: ...
+    def get_type_from_fullname(self, fullname: str) -> type[Basic]: ...
 
-    def __get_type_from_fullname__(self,
-                                   fullname: str) -> typing.Type[Basic]: ...
+    def __get_type_from_fullname__(
+        self, fullname: str) -> type[Basic]: ...
 
-    def get_iface_type_from_fullname(self, fullname: str
-                                    ) -> typing.Type[IfaceBase]: ...
+    def get_iface_type_from_fullname(
+        self, fullname: str) -> type[IfaceBase]: ...
 
-    def __get_iface_type_from_fullname__(self, fullname: str
-                                        ) -> typing.Type[IfaceBase]: ...
+    def __get_iface_type_from_fullname__(
+        self, fullname: str) -> type[IfaceBase]: ...
 
-    # FIXME: Use Self when mypy supports it.
-    def register(self) -> 'Plugin': ...
+    def register(self) -> typing_extensions.Self: ...
 
-    # FIXME: Use Self when mypy supports it.
-    def _get_plugin(self) -> 'Plugin': ...
-
-    def upgrade(self, index: typing.Optional[int] = None,
-                force_replace: bool = False) -> typing.Any: ...
+    def _get_plugin(self) -> typing_extensions.Self: ...
 
     @typing.overload
     def connect(self, uri: str, *,
@@ -851,7 +846,7 @@ class Plugin:
                ) -> Channel: ...
 
     @typing.overload
-    def async_connect(self, plugin: 'Plugin', uri: str, *,
+    def async_connect(self, uri: str, *,
                       default_timeout: typing.Optional[float] = None,
                       connect_timeout: typing.Optional[float] = None,
                       no_act_timeout: float = 0.0,
@@ -867,7 +862,7 @@ class Plugin:
                      ) -> typing.Awaitable[AsyncChannel]: ...
 
     @typing.overload
-    def async_connect(self, plugin: 'Plugin', *, host: str, port: int,
+    def async_connect(self, *, host: str, port: int,
                       default_timeout: typing.Optional[float] = None,
                       connect_timeout: typing.Optional[float] = None,
                       no_act_timeout: float = 0.0,
@@ -882,7 +877,7 @@ class Plugin:
                       _hdr: typing.Optional[StructUnionBase] = None,
                      ) -> typing.Awaitable[AsyncChannel]: ...
 
-    def channel_server(self) -> ChannelServer: ...
+    def channel_server(self) -> 'ChannelServer': ...
 
     # pylint: disable=invalid-name
     def ChannelServer(self) -> ChannelServer: ...
@@ -891,8 +886,8 @@ class Plugin:
     def default_pre_hook(self) -> typing.Optional[IfacePreHookCb]: ...
 
     @default_pre_hook.setter
-    def default_pre_hook(self, value: typing.Optional[IfacePreHookCb]
-                        ) -> None: ...
+    def default_pre_hook(
+        self, value: typing.Optional[IfacePreHookCb]) -> None: ...
 
     @default_pre_hook.deleter
     def default_pre_hook(self) -> None: ...
@@ -901,8 +896,8 @@ class Plugin:
     def default_post_hook(self) -> typing.Optional[IfacePostHookCb]: ...
 
     @default_post_hook.setter
-    def default_post_hook(self, value: typing.Optional[IfacePostHookCb]
-                         ) -> None: ...
+    def default_post_hook(
+        self, value: typing.Optional[IfacePostHookCb]) -> None: ...
 
     @default_post_hook.deleter
     def default_post_hook(self) -> None: ...
