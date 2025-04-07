@@ -864,6 +864,21 @@ static void iopc_dump_ifaces(sb_t *buf, iopc_pkg_t *pkg)
     sb_adds(buf, "}\n");
 }
 
+static void iopc_dump_typedef(sb_t *buf, iopc_pkg_t *pkg)
+{
+    bool first = true;
+
+    tab_for_each_entry(type, &pkg->typedefs) {
+        if (type->type == STRUCT_TYPE_TYPEDEF && type->type_path &&
+            type->is_visible && type->found_pkg != pkg)
+        {
+            sb_addf(buf, "%sexport type %s = %s.%s;\n", first ? "\n" : "",
+                    type->name, pp_under(type->type_path), type->type_name);
+            first = false;
+        }
+    }
+}
+
 int iopc_do_typescript(iopc_pkg_t *pkg, const char *outdir)
 {
     SB_8k(buf);
@@ -879,6 +894,7 @@ int iopc_do_typescript(iopc_pkg_t *pkg, const char *outdir)
     iopc_dump_enums(&buf, pkg);
     iopc_dump_structs(&buf, pkg);
     iopc_dump_ifaces(&buf, pkg);
+    iopc_dump_typedef(&buf, pkg);
 
     return iopc_write_file(&buf, path);
 }
