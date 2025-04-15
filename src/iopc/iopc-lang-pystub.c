@@ -27,7 +27,6 @@
     "# pylint: disable=all\n"                                                \
     "\n"                                                                     \
     "import typing\n"                                                        \
-    "import typing_extensions\n"                                             \
     "import iopy\n"                                                          \
     "\n"
 
@@ -173,7 +172,7 @@ static void iopc_pystub_dump_field_type(sb_t *buf, const iopc_pkg_t *pkg,
         break;
 
     case IOP_R_REPEATED:
-        sb_adds(buf, "typing.List[");
+        sb_adds(buf, "list[");
         ending_bracket = true;
         break;
 
@@ -241,16 +240,87 @@ iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
                                   const iopc_struct_t *st,
                                   const char *st_name)
 {
-    sb_addf(buf, "%s_DictType = typing_extensions.TypedDict("
-            "'%s_DictType', {\n", st_name, st_name);
+    bool has_fields;
 
+    /* Required fields */
+    sb_addf(buf, "class %s_required_DictType(typing.TypedDict):\n", st_name);
+
+    has_fields = false;
     tab_for_each_entry(field, &st->fields) {
-        sb_addf(buf, "    '%s': ", field->name);
+        if (field->repeat != IOP_R_REQUIRED || field->kind == IOP_T_VOID) {
+            continue;
+        }
+        has_fields = true;
+        sb_addf(buf, "    %s: ", field->name);
         iopc_pystub_dump_field_type(buf, pkg, field, true);
-        sb_adds(buf, ",\n");
+        sb_adds(buf, "\n");
     }
 
-    sb_adds(buf, "})\n\n\n");
+    if (!has_fields) {
+        sb_adds(buf, "    pass\n");
+    }
+
+    sb_adds(buf, "\n\n");
+
+    /* Optional fields */
+    sb_addf(buf, "class %s_optional_DictType(typing.TypedDict, "
+            "total=False):\n", st_name);
+
+    if (iopc_is_class(st->type) && !st->extends.len) {
+        /* Root class, add '_class' field.
+         *
+         * Ideally, we should have "root" '_class: str' field and have literal
+         * '_class: Literal[""]' field with the IOP full path for each class.
+         *
+         * Unfortunately, it is not possible in Python to have inheritance on
+         * TypedDict, and restrict the literal value on each level, and
+         * discriminate on this value, and have it optional or not
+         * depending on if we want to use Unpack or not.
+         *
+         * Currently, the best thing is to trust the user that the '_class'
+         * value is valid at runtime (like we did before).
+         * What we could do is use 'Annotated' and use a Mypy plugin, but
+         * this is complicated.
+         *
+         * See
+         * https://github.com/python/typing/issues/1467
+         * https://discuss.python.org/t/pep-589-inheritance-rules-and-typing-literal-pep-586/7721/2
+         */
+        sb_adds(buf, "    _class: typing.Optional[str]\n");
+    }
+
+    has_fields = false;
+    tab_for_each_entry(field, &st->fields) {
+        if (field->repeat == IOP_R_REQUIRED && field->kind != IOP_T_VOID) {
+            continue;
+        }
+        has_fields = true;
+        sb_addf(buf, "    %s: ", field->name);
+        iopc_pystub_dump_field_type(buf, pkg, field, true);
+        sb_adds(buf, "\n");
+    }
+
+    if (!has_fields) {
+        sb_adds(buf, "    pass\n");
+    }
+
+    sb_adds(buf, "\n\n");
+
+    /* Struct dict field */
+    sb_addf(buf, "class %s_DictType(", st_name);
+
+    if (iopc_is_class(st->type) && st->extends.len) {
+        /* Inherit parent dict type */
+        const iopc_pkg_t *parent_pkg = st->extends.tab[0]->pkg;
+        const iopc_struct_t *parent = st->extends.tab[0]->st;
+
+        iopc_pystub_dump_package_member(buf, pkg, parent_pkg,
+                                        parent_pkg->name, parent->name);
+        sb_adds(buf, "_DictType, ");
+    }
+
+    sb_addf(buf, "%s_required_DictType, %s_optional_DictType):\n"
+            "    pass\n\n\n", st_name, st_name);
 }
 
 static void
@@ -435,12 +505,11 @@ iopc_pystub_dump_union_dict_types(sb_t *buf, const iopc_pkg_t *pkg,
     const char *st_name = st->name;
 
     tab_for_each_entry(field, &st->fields) {
-        sb_addf(buf, "%s_%s_DictType = typing_extensions.TypedDict("
-                "'%s_%s_DictType', {\n    '%s': ",
-                st_name, field->name, st_name,
-                field->name, field->name);
+        sb_addf(buf, "class %s_%s_DictType(typing.TypedDict):\n",
+                st_name, field->name);
+        sb_addf(buf, "    %s: ",field->name);
         iopc_pystub_dump_field_type(buf, pkg, field, true);
-        sb_adds(buf, "\n})\n\n\n");
+        sb_adds(buf, "\n\n\n");
     }
 
     sb_addf(buf, "%s_DictType = typing.Union[", st_name);
