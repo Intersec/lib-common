@@ -127,7 +127,11 @@ static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
         break;
 
     case IOP_T_VOID:
-        sb_adds(buf, "typing.Any");
+        if (field->repeat == IOP_R_REQUIRED) {
+            sb_adds(buf, "typing.Any");
+        } else {
+            sb_adds(buf, "None");
+        }
         break;
 
     case IOP_T_STRING:
@@ -192,22 +196,14 @@ static void iopc_pystub_dump_field_type(sb_t *buf, const iopc_pkg_t *pkg,
     }
 }
 
-static void iopc_pystub_dump_field(sb_t *buf, const iopc_pkg_t *pkg,
-                                   const iopc_field_t *field)
-{
-    sb_adds(buf, field->name);
-    sb_adds(buf, ": ");
-    iopc_pystub_dump_field_type(buf, pkg, field, false);
-}
-
 static void
 iopc_pystub_dump_fields(sb_t *buf, const iopc_pkg_t *pkg,
                         const iopc_struct_t *st)
 {
     if (st->fields.len) {
         tab_for_each_entry(field, &st->fields) {
-            sb_adds(buf, "    ");
-            iopc_pystub_dump_field(buf, pkg, field);
+            sb_addf(buf, "    %s: ", field->name);
+            iopc_pystub_dump_field_type(buf, pkg, field, false);
             sb_adds(buf, "\n");
         }
         sb_adds(buf, "\n");
