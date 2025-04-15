@@ -167,8 +167,10 @@ static void iopc_pystub_dump_field_type(sb_t *buf, const iopc_pkg_t *pkg,
 
     switch (field->repeat) {
     case IOP_R_OPTIONAL:
-        sb_adds(buf, "iopy.IopFieldOptional[");
-        ending_bracket = true;
+        if (!is_param_type) {
+            sb_adds(buf, "iopy.IopOptField[");
+            ending_bracket = true;
+        }
         break;
 
     case IOP_R_REPEATED:

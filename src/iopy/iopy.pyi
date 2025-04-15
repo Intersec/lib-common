@@ -22,9 +22,6 @@ import typing
 import typing_extensions
 
 
-_T = typing.TypeVar('_T')
-
-
 # {{{ Errors
 
 
@@ -38,6 +35,20 @@ class RpcError(Error):
 
 # }}}
 # {{{ Types
+# {{{ Optional field
+
+
+@typing.type_check_only
+class IopFieldIsOpt:
+    '''Metadata to indicate that the field is an optional field'''
+
+
+# Type of an IOP field
+_TField = typing.TypeVar('_TField')
+IopOptField = typing.Annotated[_TField, IopFieldIsOpt]
+
+
+# }}}
 # {{{ Base
 
 
@@ -438,10 +449,6 @@ class Struct(StructBase):
 @typing.type_check_only
 class IsIopFieldOptional:
     pass
-
-
-# Indicate that the field can be unset in the struct or class.
-IopFieldOptional = typing.Annotated[_T, IsIopFieldOptional]
 
 
 # }}}
