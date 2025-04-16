@@ -660,17 +660,113 @@ iopc_pystub_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
     const char *st_name = t_fmt("%s_%s_%s", iface->name, rpc->name, type);
 
     if (iopc_fun_struct_is_void(fun_st)) {
-        sb_addf(buf, "%s = None\n", st_name);
+        sb_addf(buf, "%s: typing_extensions.TypeAlias = None\n", st_name);
     } else if (fun_st->is_anonymous) {
         iopc_pystub_dump_struct_intern(buf, pkg, fun_st->anonymous_struct,
                                        st_name);
         sb_adds(buf, "\n\n");
     } else {
-        sb_addf(buf, "%s = ", st_name);
-        iopc_pystub_dump_field_basetype(buf, pkg, fun_st->existing_struct,
-                                        false);
-        sb_adds(buf, "\n");
+        SB_1k(type_buf);
+
+        iopc_pystub_dump_field_basetype(&type_buf, pkg,
+                                        fun_st->existing_struct, false);
+        sb_addf(buf, "%s = %*pM\n", st_name, SB_FMT_ARG(&type_buf));
+        sb_addf(buf, "%s_DictType = %*pM_DictType\n", st_name,
+                SB_FMT_ARG(&type_buf));
+        sb_addf(buf, "%s_ParamType = %*pM_ParamType\n", st_name,
+                SB_FMT_ARG(&type_buf));
     }
+}
+
+#define RPC_UNDERSCORE_KWARGS                                                \
+    "        _timeout: typing.Optional[float] = None,\n"                     \
+    "        _login: typing.Optional[str] = None,\n"                         \
+    "        _group: typing.Optional[str] = None,\n"                         \
+    "        _password: typing.Optional[str] = None,\n"                      \
+    "        _kind: typing.Optional[str] = None,\n"                          \
+    "        _workspace_id: typing.Optional[int] = None,\n"                  \
+    "        _dealias: typing.Optional[bool] = None,\n"                      \
+    "        _hdr: typing.Optional['ic__iop.Hdr'] = None"
+
+
+static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
+                                           const char *method_name,
+                                           const iopc_pkg_t *pkg,
+                                           const iopc_fun_t *rpc,
+                                           const char *rpc_name)
+{
+    t_scope;
+    bool arg_is_void = iopc_fun_struct_is_void(&rpc->arg);
+    bool arg_is_union;
+    const char *arg_obj_type;
+
+    arg_is_union = !arg_is_void && !rpc->arg.is_anonymous &&
+                   rpc->arg.existing_struct->type == STRUCT_TYPE_UNION;
+
+    arg_obj_type = arg_is_void ? "None" : t_fmt("%s_Arg_ParamType", rpc_name);
+
+    sb_addf(
+        buf,
+        "\n"
+        "    @typing.overload # type: ignore[override]\n"
+        "    def %s(\n"
+        "        self, obj: %s, /, *,\n"
+        RPC_UNDERSCORE_KWARGS "\n"
+        "    ) -> %s_Res: ...\n",
+        method_name, arg_obj_type, rpc_name);
+
+    if (arg_is_void) {
+        sb_addf(
+            buf,
+            "\n"
+            "    @typing.overload\n"
+            "    def %s(\n"
+            "        self, *,\n"
+            RPC_UNDERSCORE_KWARGS "\n"
+            "    ) -> %s_Res: ...\n",
+            method_name, rpc_name);
+    } else if (arg_is_union) {
+        const iopc_struct_t *arg_union_st =
+            rpc->arg.existing_struct->struct_def;
+
+        tab_for_each_entry(field, &arg_union_st->fields) {
+            sb_addf(
+                buf,
+                "\n"
+                "    @typing.overload\n"
+                "    def %s(\n"
+                "        self, *,\n"
+                RPC_UNDERSCORE_KWARGS "\n"
+                "        %s: ",
+                method_name, field->name);
+            iopc_pystub_dump_package_member(buf, pkg, field->type_pkg,
+                                            field->type_path,
+                                            field->type_name);
+            sb_addf(
+                buf,
+                "    ) -> %s_Res: ...\n",
+                rpc_name);
+        }
+    } else {
+        sb_addf(
+            buf,
+            "\n"
+            "    @typing.overload\n"
+            "    def %s(\n"
+            "        self, *,\n"
+            RPC_UNDERSCORE_KWARGS ",\n"
+            "        **kwargs: typing_extensions.Unpack[%s_Arg_DictType]\n"
+            "    ) -> %s_Res: ...\n",
+            method_name, rpc_name, rpc_name);
+    }
+}
+
+static void iopc_pystub_dump_rpc_call(sb_t *buf, const iopc_pkg_t *pkg,
+                                      const iopc_fun_t *rpc,
+                                      const char *rpc_name)
+{
+    iopc_pystub_dump_rpc_call_meth(buf, "call", pkg, rpc, rpc_name);
+    iopc_pystub_dump_rpc_call_meth(buf, "__call__", pkg, rpc, rpc_name);
 }
 
 static void iopc_pystub_dump_rpc(sb_t *buf, const iopc_pkg_t *pkg,
@@ -679,6 +775,12 @@ static void iopc_pystub_dump_rpc(sb_t *buf, const iopc_pkg_t *pkg,
 {
     t_scope;
     const char *rpc_name = t_fmt("%s_%s", iface->name, rpc->name);
+    bool arg_is_void = iopc_fun_struct_is_void(&rpc->arg);
+    const char *arg_ignore = arg_is_void ? "" : " # type: ignore[override]";
+    bool res_is_void = iopc_fun_struct_is_void(&rpc->res);
+    const char *res_ignore = res_is_void ? "" : " # type: ignore[override]";
+    bool exn_is_void = iopc_fun_struct_is_void(&rpc->exn);
+    const char *exn_ignore = exn_is_void ? "" : " # type: ignore[override]";
 
     iopc_pystup_dump_fold_begin_extra(buf, rpc_name);
 
@@ -686,13 +788,27 @@ static void iopc_pystub_dump_rpc(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_pystub_dump_rpc_fun_struct(buf, pkg, iface, rpc, "Res", &rpc->res);
     iopc_pystub_dump_rpc_fun_struct(buf, pkg, iface, rpc, "Exn", &rpc->exn);
 
+    sb_addf(buf,
+            "\n\n"
+            "@typing.type_check_only\n"
+            "class %s_RPC(iopy.RPC):\n"
+            "    Arg: typing_extensions.TypeAlias = %s_Arg\n"
+            "    Res: typing_extensions.TypeAlias= %s_Res\n"
+            "    Exn: typing_extensions.TypeAlias= %s_Exn\n"
+            "\n"
+            "    def arg(self) -> %s_Arg: ...%s\n"
+            "    def res(self) -> %s_Res: ...%s\n"
+            "    def exn(self) -> %s_Exn: ...%s\n"
+            "\n"
+            "    RpcArgs = iopy.RPCArgs[%s_Arg, %s_Res, %s_Exn]\n",
+            rpc_name,
+            rpc_name, rpc_name, rpc_name,
+            rpc_name, arg_ignore,
+            rpc_name, res_ignore,
+            rpc_name, exn_ignore,
+            rpc_name, rpc_name, rpc_name);
 
-    sb_adds(buf, "\n\n");
-    sb_adds(buf, "@typing.type_check_only\n");
-    sb_addf(buf, "class %s_RPC(iopy.RPC):\n", rpc_name);
-    sb_addf(buf, "    Arg = %s_Arg\n", rpc_name);
-    sb_addf(buf, "    Res = %s_Res\n", rpc_name);
-    sb_addf(buf, "    Exn = %s_Exn\n", rpc_name);
+    iopc_pystub_dump_rpc_call(buf, pkg, rpc, rpc_name);
 
     iopc_pystup_dump_fold_end_extra(buf);
 }
@@ -714,7 +830,7 @@ static void iopc_pystub_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
     sb_addf(buf, "class %s_Iface(iopy.Iface):\n", iface->name);
     if (iface->funs.len) {
         tab_for_each_entry(rpc, &iface->funs) {
-            sb_addf(buf, "    %s = %s_%s_RPC\n", rpc->name, iface->name,
+            sb_addf(buf, "    %s: %s_%s_RPC\n", rpc->name, iface->name,
                     rpc->name);
         }
     } else {
@@ -754,7 +870,7 @@ static void iopc_pystub_dump_module(sb_t *buf, const iopc_pkg_t *pkg,
 
     if (mod->fields.len) {
         tab_for_each_entry(field, &mod->fields) {
-            sb_addf(buf, "    %s = ", field->name);
+            sb_addf(buf, "    %s: ", field->name);
             iopc_pystub_dump_package_member(buf, pkg, field->type_pkg,
                                             field->type_path,
                                             field->type_name);
@@ -852,6 +968,10 @@ static void iopc_pystub_dump_imports(sb_t *buf, iopc_pkg_t *pkg)
     t_qv_init(&t_deps, 0);
     t_qv_init(&t_weak_deps, 0);
     t_qv_init(&i_deps, 0);
+
+    if (pkg->ifaces.len) {
+        sb_adds(buf, "import ic__iop\n");
+    }
 
     iopc_pkg_get_deps(pkg, 0, &t_deps, &t_weak_deps, &i_deps);
 

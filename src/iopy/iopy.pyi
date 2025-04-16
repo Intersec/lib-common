@@ -21,6 +21,8 @@
 import typing
 import typing_extensions
 
+import ic__iop # pylint: disable=import-error
+
 
 # {{{ Errors
 
@@ -460,6 +462,19 @@ class ChannelBase:
     pass
 
 
+_TRpcArg = typing.TypeVar('_TRpcArg')
+_TRpcRes = typing.TypeVar('_TRpcRes')
+_TRpcExn = typing.TypeVar('_TRpcExn')
+
+
+class RPCArgs(typing.Generic[_TRpcArg, _TRpcRes, _TRpcExn]):
+    rpc: 'RPCServer'
+    arg: _TRpcArg
+    res: type[_TRpcRes]
+    exn: type[_TRpcExn]
+    hdr: 'ic__iop.Hdr'
+
+
 class RPCBase:
     Arg: typing.Optional[type[StructUnionBase]]
     Res: typing.Optional[type[StructUnionBase]]
@@ -467,15 +482,19 @@ class RPCBase:
 
     is_async: bool
 
-    def name(self) -> str: ...
-
     def arg(self) -> typing.Optional[type[StructUnionBase]]: ...
 
     def res(self) -> typing.Optional[type[StructUnionBase]]: ...
 
     def exn(self) -> typing.Optional[type[StructUnionBase]]: ...
 
+    def name(self) -> str: ...
+
     def desc(self) -> str: ...
+
+    RpcArgs = RPCArgs[typing.Optional[type[StructUnionBase]],
+                      typing.Optional[type[StructUnionBase]],
+                      typing.Optional[type[StructUnionBase]]]
 
 
 IfacePreHookCb = typing.Callable[..., typing.Any]
@@ -509,29 +528,31 @@ ChannelOnDisconnectCb = typing.Callable[['Channel', bool], None]
 
 class Channel(ChannelBase):
     @typing.overload
-    def __init__(self, plugin: 'Plugin', uri: str, *,
-                 default_timeout: float = 60.0, no_act_timeout: float = 0.0,
-                 _login: typing.Optional[str] = None,
-                 _group: typing.Optional[str] = None,
-                 _password: typing.Optional[str] = None,
-                 _kind: typing.Optional[str] = None,
-                 _workspace_id: typing.Optional[int] = None,
-                 _dealias: typing.Optional[bool] = None,
-                 _hdr: typing.Optional[StructUnionBase] = None,
-                ) -> None: ...
+    def __init__(
+            self, plugin: 'Plugin', uri: str, *,
+            default_timeout: float = 60.0, no_act_timeout: float = 0.0,
+            _login: typing.Optional[str] = None,
+            _group: typing.Optional[str] = None,
+            _password: typing.Optional[str] = None,
+            _kind: typing.Optional[str] = None,
+            _workspace_id: typing.Optional[int] = None,
+            _dealias: typing.Optional[bool] = None,
+            _hdr: typing.Optional['ic__iop.Hdr'] = None,
+    ) -> None: ...
 
     @typing.overload
-    def __init__(self, plugin: 'Plugin', *,
-                 host: str, port: int,
-                 default_timeout: float = 60.0, no_act_timeout: float = 0.0,
-                 _login: typing.Optional[str] = None,
-                 _group: typing.Optional[str] = None,
-                 _password: typing.Optional[str] = None,
-                 _kind: typing.Optional[str] = None,
-                 _workspace_id: typing.Optional[int] = None,
-                 _dealias: typing.Optional[bool] = None,
-                 _hdr: typing.Optional[StructUnionBase] = None,
-                ) -> None: ...
+    def __init__(
+            self, plugin: 'Plugin', *,
+            host: str, port: int,
+            default_timeout: float = 60.0, no_act_timeout: float = 0.0,
+            _login: typing.Optional[str] = None,
+            _group: typing.Optional[str] = None,
+            _password: typing.Optional[str] = None,
+            _kind: typing.Optional[str] = None,
+            _workspace_id: typing.Optional[int] = None,
+            _dealias: typing.Optional[bool] = None,
+            _hdr: typing.Optional['ic__iop.Hdr'] = None,
+    ) -> None: ...
 
     def connect(self, timeout: typing.Optional[float] = None) -> None: ...
 
@@ -539,17 +560,18 @@ class Channel(ChannelBase):
 
     def disconnect(self) -> None: ...
 
-    def change_default_hdr(self,
-                           _login: typing.Optional[str] = None,
-                           _group: typing.Optional[str] = None,
-                           _password: typing.Optional[str] = None,
-                           _kind: typing.Optional[str] = None,
-                           _workspace_id: typing.Optional[int] = None,
-                           _dealias: typing.Optional[bool] = None,
-                           _hdr: typing.Optional[StructUnionBase] = None,
-                          ) -> None: ...
+    def change_default_hdr(
+            self,
+            _login: typing.Optional[str] = None,
+            _group: typing.Optional[str] = None,
+            _password: typing.Optional[str] = None,
+            _kind: typing.Optional[str] = None,
+            _workspace_id: typing.Optional[int] = None,
+            _dealias: typing.Optional[bool] = None,
+            _hdr: typing.Optional['ic__iop.Hdr'] = None,
+    ) -> None: ...
 
-    def get_default_hdr(self) -> StructUnionBase: ...
+    def get_default_hdr(self) -> 'ic__iop.Hdr': ...
 
     @property
     def on_connect(self) -> typing.Optional[ChannelOnConnectCb]: ...
@@ -577,60 +599,90 @@ class RPC(RPCBase):
     def channel(self) -> Channel: ...
 
     @typing.overload
-    def call(self, arg_val: object,
-             _timeout: typing.Optional[float] = None,
-             _login: typing.Optional[str] = None,
-             _group: typing.Optional[str] = None,
-             _password: typing.Optional[str] = None,
-             _kind: typing.Optional[str] = None,
-             _workspace_id: typing.Optional[int] = None,
-             _dealias: typing.Optional[bool] = None,
-             _hdr: typing.Optional[StructUnionBase] = None,
-            ) -> typing.Optional[StructUnionBase]: ...
+    def call(
+        self, obj: typing.Optional[StructUnionBase], /, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None
+    ) -> typing.Optional[StructUnionBase]: ...
 
     @typing.overload
-    def call(self,
-             _timeout: typing.Optional[float] = None,
-             _login: typing.Optional[str] = None,
-             _group: typing.Optional[str] = None,
-             _password: typing.Optional[str] = None,
-             _kind: typing.Optional[str] = None,
-             _workspace_id: typing.Optional[int] = None,
-             _dealias: typing.Optional[bool] = None,
-             _hdr: typing.Optional[StructUnionBase] = None,
-             **kwargs: object
-            ) -> typing.Optional[StructUnionBase]: ...
+    def call(
+        self, dct: dict[str, typing.Any], /, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None
+    ) -> typing.Optional[StructUnionBase]: ...
 
     @typing.overload
-    def __call__(self, arg_val: object,
-                 _timeout: typing.Optional[float] = None,
-                 _login: typing.Optional[str] = None,
-                 _group: typing.Optional[str] = None,
-                 _password: typing.Optional[str] = None,
-                 _kind: typing.Optional[str] = None,
-                 _workspace_id: typing.Optional[int] = None,
-                 _dealias: typing.Optional[bool] = None,
-                 _hdr: typing.Optional[StructUnionBase] = None,
-                ) -> typing.Optional[StructUnionBase]: ...
+    def call(
+        self, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None,
+        **kwargs: typing.Any
+    ) -> typing.Optional[StructUnionBase]: ...
 
     @typing.overload
-    def __call__(self,
-                 _timeout: typing.Optional[float] = None,
-                 _login: typing.Optional[str] = None,
-                 _group: typing.Optional[str] = None,
-                 _password: typing.Optional[str] = None,
-                 _kind: typing.Optional[str] = None,
-                 _workspace_id: typing.Optional[int] = None,
-                 _dealias: typing.Optional[bool] = None,
-                 _hdr: typing.Optional[StructUnionBase] = None,
-                 **kwargs: object
-                ) -> typing.Optional[StructUnionBase]: ...
+    def __call__(
+        self, obj: typing.Optional[StructUnionBase], /, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None
+    ) -> typing.Optional[StructUnionBase]: ...
+
+    @typing.overload
+    def __call__(
+        self, dct: dict[str, typing.Any], /, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None
+    ) -> typing.Optional[StructUnionBase]: ...
+
+    @typing.overload
+    def __call__(
+        self, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None,
+        **kwargs: typing.Any
+    ) -> typing.Optional[StructUnionBase]: ...
 
 
 class AsyncChannel(Channel):
-    def connect(self, # type: ignore[override]
-                timeout: typing.Optional[float] = None,
-               ) -> typing.Awaitable[None]: ...
+    def connect( # type: ignore[override]
+            self, timeout: typing.Optional[float] = None,
+    ) -> typing.Awaitable[None]: ...
 
 
 class AsyncRPC(RPCBase):
@@ -638,54 +690,85 @@ class AsyncRPC(RPCBase):
     def channel(self) -> AsyncChannel: ...
 
     @typing.overload
-    def call(self, arg_val: object,
-             _timeout: typing.Optional[float] = None,
-             _login: typing.Optional[str] = None,
-             _group: typing.Optional[str] = None,
-             _password: typing.Optional[str] = None,
-             _kind: typing.Optional[str] = None,
-             _workspace_id: typing.Optional[int] = None,
-             _dealias: typing.Optional[bool] = None,
-             _hdr: typing.Optional[StructUnionBase] = None,
-            ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+    def call(
+        self, obj: typing.Optional[StructUnionBase], /, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None
+    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
-    def call(self,
-             _timeout: typing.Optional[float] = None,
-             _login: typing.Optional[str] = None,
-             _group: typing.Optional[str] = None,
-             _password: typing.Optional[str] = None,
-             _kind: typing.Optional[str] = None,
-             _workspace_id: typing.Optional[int] = None,
-             _dealias: typing.Optional[bool] = None,
-             _hdr: typing.Optional[StructUnionBase] = None,
-             **kwargs: object
-            ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+    def call(
+        self, dct: dict[str, typing.Any], /, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None
+    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
-    def __call__(self, arg_val: object,
-                 _timeout: typing.Optional[float] = None,
-                 _login: typing.Optional[str] = None,
-                 _group: typing.Optional[str] = None,
-                 _password: typing.Optional[str] = None,
-                 _kind: typing.Optional[str] = None,
-                 _workspace_id: typing.Optional[int] = None,
-                 _dealias: typing.Optional[bool] = None,
-                 _hdr: typing.Optional[StructUnionBase] = None,
-                ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+    def call(
+        self, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None,
+        **kwargs: typing.Any
+    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
-    def __call__(self,
-                 _timeout: typing.Optional[float] = None,
-                 _login: typing.Optional[str] = None,
-                 _group: typing.Optional[str] = None,
-                 _password: typing.Optional[str] = None,
-                 _kind: typing.Optional[str] = None,
-                 _workspace_id: typing.Optional[int] = None,
-                 _dealias: typing.Optional[bool] = None,
-                 _hdr: typing.Optional[StructUnionBase] = None,
-                 **kwargs: object
-                ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+    def __call__(
+        self, obj: typing.Optional[StructUnionBase], /, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None
+    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+
+    @typing.overload
+    def __call__(
+        self, dct: dict[str, typing.Any], /, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None
+    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+
+    @typing.overload
+    def __call__(
+        self, *,
+        _timeout: typing.Optional[float] = None,
+        _login: typing.Optional[str] = None,
+        _group: typing.Optional[str] = None,
+        _password: typing.Optional[str] = None,
+        _kind: typing.Optional[str] = None,
+        _workspace_id: typing.Optional[int] = None,
+        _dealias: typing.Optional[bool] = None,
+        _hdr: typing.Optional['ic__iop.Hdr'] = None,
+        **kwargs: typing.Any
+    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+
 
 # }}}
 # {{{ Server RPC
@@ -739,15 +822,10 @@ class ChannelServer(ChannelBase):
     def is_listening(self) -> bool: ...
 
 
-class RPCServerArgs:
-    rpc: 'RPCServer'
-    arg: StructUnionBase
-    res: typing.Optional[type[StructUnionBase]]
-    exn: typing.Optional[type[StructUnionBase]]
-    hdr: StructUnionBase
-
-RPCServerImplCb = typing.Callable[[RPCServerArgs],
-                                  typing.Optional[StructUnionBase]]
+RPCServerImplCb = typing.Callable[
+    [RPCArgs[_TRpcArg, _TRpcRes, _TRpcExn]],
+    typing.Union[_TRpcRes, _TRpcExn]
+]
 
 
 class RPCServer(RPCBase):
@@ -755,10 +833,18 @@ class RPCServer(RPCBase):
     def channel(self) -> ChannelServer: ...
 
     @property
-    def impl(self) -> typing.Optional[RPCServerImplCb]: ...
+    def impl(self) -> typing.Optional[
+        RPCServerImplCb[typing.Optional[StructUnionBase],
+                        typing.Optional[StructUnionBase],
+                        typing.Optional[StructUnionBase]]
+    ]: ...
 
     @impl.setter
-    def impl(self, value: typing.Optional[RPCServerImplCb]) -> None: ...
+    def impl(self, value: typing.Optional[
+        RPCServerImplCb[typing.Optional[StructUnionBase],
+                        typing.Optional[StructUnionBase],
+                        typing.Optional[StructUnionBase]]
+    ]) -> None: ...
 
     @impl.deleter
     def impl(self) -> None: ...
@@ -821,52 +907,55 @@ class Plugin:
     def _get_plugin(self) -> typing_extensions.Self: ...
 
     @typing.overload
-    def connect(self, uri: str, *,
-                default_timeout: typing.Optional[float] = None,
-                connect_timeout: typing.Optional[float] = None,
-                no_act_timeout: float = 0.0,
-                timeout: typing.Optional[float] = None,
-                _timeout: typing.Optional[float] = None,
-                _login: typing.Optional[str] = None,
-                _group: typing.Optional[str] = None,
-                _password: typing.Optional[str] = None,
-                _kind: typing.Optional[str] = None,
-                _workspace_id: typing.Optional[int] = None,
-                _dealias: typing.Optional[bool] = None,
-                _hdr: typing.Optional[StructUnionBase] = None,
-               ) -> Channel: ...
+    def connect(
+            self, uri: str, *,
+            default_timeout: typing.Optional[float] = None,
+            connect_timeout: typing.Optional[float] = None,
+            no_act_timeout: float = 0.0,
+            timeout: typing.Optional[float] = None,
+            _timeout: typing.Optional[float] = None,
+            _login: typing.Optional[str] = None,
+            _group: typing.Optional[str] = None,
+            _password: typing.Optional[str] = None,
+            _kind: typing.Optional[str] = None,
+            _workspace_id: typing.Optional[int] = None,
+            _dealias: typing.Optional[bool] = None,
+            _hdr: typing.Optional['ic__iop.Hdr'] = None,
+    ) -> Channel: ...
 
     @typing.overload
-    def connect(self, *, host: str, port: int,
-                default_timeout: typing.Optional[float] = None,
-                connect_timeout: typing.Optional[float] = None,
-                no_act_timeout: float = 0.0,
-                timeout: typing.Optional[float] = None,
-                _timeout: typing.Optional[float] = None,
-                _login: typing.Optional[str] = None,
-                _group: typing.Optional[str] = None,
-                _password: typing.Optional[str] = None,
-                _kind: typing.Optional[str] = None,
-                _workspace_id: typing.Optional[int] = None,
-                _dealias: typing.Optional[bool] = None,
-                _hdr: typing.Optional[StructUnionBase] = None,
-               ) -> Channel: ...
+    def connect(
+            self, *, host: str, port: int,
+            default_timeout: typing.Optional[float] = None,
+            connect_timeout: typing.Optional[float] = None,
+            no_act_timeout: float = 0.0,
+            timeout: typing.Optional[float] = None,
+            _timeout: typing.Optional[float] = None,
+            _login: typing.Optional[str] = None,
+            _group: typing.Optional[str] = None,
+            _password: typing.Optional[str] = None,
+            _kind: typing.Optional[str] = None,
+            _workspace_id: typing.Optional[int] = None,
+            _dealias: typing.Optional[bool] = None,
+            _hdr: typing.Optional['ic__iop.Hdr'] = None,
+    ) -> Channel: ...
 
     @typing.overload
-    def async_connect(self, uri: str, *,
-                      default_timeout: typing.Optional[float] = None,
-                      connect_timeout: typing.Optional[float] = None,
-                      no_act_timeout: float = 0.0,
-                      timeout: typing.Optional[float] = None,
-                      _timeout: typing.Optional[float] = None,
-                      _login: typing.Optional[str] = None,
-                      _group: typing.Optional[str] = None,
-                      _password: typing.Optional[str] = None,
-                      _kind: typing.Optional[str] = None,
-                      _workspace_id: typing.Optional[int] = None,
-                      _dealias: typing.Optional[bool] = None,
-                      _hdr: typing.Optional[StructUnionBase] = None,
-                     ) -> typing.Awaitable[AsyncChannel]: ...
+    def async_connect(
+            self, uri: str, *,
+            default_timeout: typing.Optional[float] = None,
+            connect_timeout: typing.Optional[float] = None,
+            no_act_timeout: float = 0.0,
+            timeout: typing.Optional[float] = None,
+            _timeout: typing.Optional[float] = None,
+            _login: typing.Optional[str] = None,
+            _group: typing.Optional[str] = None,
+            _password: typing.Optional[str] = None,
+            _kind: typing.Optional[str] = None,
+            _workspace_id: typing.Optional[int] = None,
+            _dealias: typing.Optional[bool] = None,
+            _hdr: typing.Optional['ic__iop.Hdr'] = None,
+    ) -> typing.Awaitable[AsyncChannel]: ...
 
     @typing.overload
     def async_connect(self, *, host: str, port: int,
@@ -881,7 +970,7 @@ class Plugin:
                       _kind: typing.Optional[str] = None,
                       _workspace_id: typing.Optional[int] = None,
                       _dealias: typing.Optional[bool] = None,
-                      _hdr: typing.Optional[StructUnionBase] = None,
+                      _hdr: typing.Optional['ic__iop.Hdr'] = None,
                      ) -> typing.Awaitable[AsyncChannel]: ...
 
     def channel_server(self) -> 'ChannelServer': ...
