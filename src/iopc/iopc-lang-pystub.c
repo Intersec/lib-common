@@ -216,22 +216,46 @@ static void iopc_pystub_dump_common_inits(sb_t *buf, const char *st_name)
     sb_addf(
         buf,
         "    @typing.overload\n"
-        "    def __init__(self, *, _json: typing.Union[str, bytes]): ...\n"
+        "    def __init__(\n"
+        "            self, *,\n"
+        "            _json: typing.Union[str, bytes],\n"
+        "            _ignore_unknown: bool = False,\n"
+        "            _forbid_private: bool = False,\n"
+        "            _use_c_case: bool = False,\n"
+        "    ) -> None: ...\n"
         "\n"
         "    @typing.overload\n"
-        "    def __init__(self, *, _yaml: typing.Union[str, bytes]): ...\n"
+        "    def __init__(\n"
+        "            self, *,\n"
+        "            _yaml: typing.Union[str, bytes],\n"
+        "            _ignore_unknown: bool = False,\n"
+        "            _forbid_private: bool = False,\n"
+        "    ) -> None: ...\n"
         "\n"
         "    @typing.overload\n"
-        "    def __init__(self, *, _xml: typing.Union[str, bytes]): ...\n"
+        "    def __init__(\n"
+        "            self, *,\n"
+        "            _xml: typing.Union[str, bytes],\n"
+        "            _ignore_unknown: bool = False,\n"
+        "            _forbid_private: bool = False,\n"
+        "    ) -> None: ...\n"
         "\n"
         "    @typing.overload\n"
-        "    def __init__(self, *, _hex: typing.Union[str, bytes]): ...\n"
+        "    def __init__(\n"
+        "            self, *,\n"
+        "            _hex: typing.Union[str, bytes],\n"
+        "            _forbid_private: bool = False,\n"
+        "    ) -> None: ...\n"
         "\n"
         "    @typing.overload\n"
-        "    def __init__(self, *, _bin: typing.Union[str, bytes]): ...\n"
+        "    def __init__(\n"
+        "            self, *,\n"
+        "            _bin: typing.Union[str, bytes],\n"
+        "            _forbid_private: bool = False,\n"
+        "    ) -> None: ...\n"
         "\n"
         "    @typing.overload\n"
-        "    def __init__(self, obj: %s_ParamType, /): ...\n"
+        "    def __init__(self, obj: %s_ParamType, /) -> None: ...\n"
         "\n",
         st_name
     );
@@ -334,7 +358,7 @@ static void iopc_pystub_dump_struct_inits(sb_t *buf, const char *st_name)
         buf,
         "    @typing.overload\n"
         "    def __init__(self, "
-        "**kwargs: typing_extensions.Unpack[%s_DictType]): ...\n"
+        "**kwargs: typing_extensions.Unpack[%s_DictType]) -> None: ...\n"
         "\n",
         st_name
     );
@@ -579,7 +603,7 @@ static void iopc_pystub_dump_union_inits(sb_t *buf, const iopc_pkg_t *pkg,
             field->name
         );
         iopc_pystub_dump_field_type(buf, pkg, field, true);
-        sb_adds(buf, "): ...\n\n");
+        sb_adds(buf, ") -> None: ...\n\n");
     }
 }
 

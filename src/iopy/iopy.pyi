@@ -135,53 +135,101 @@ class Enum(EnumBase):
 class StructUnionBase(Basic):
     @typing.overload
     @classmethod
-    def from_file(cls, *, _json: str,
-                  single: bool = True) -> 'StructUnionBase': ...
+    def from_file(
+            cls, *,
+            _json: str,
+            single: bool = True,
+            _ignore_unknown: bool = False,
+            _forbid_private: bool = False,
+            _use_c_case: bool = False,
+    ) -> typing_extensions.Self: ...
 
     @typing.overload
     @classmethod
-    def from_file(cls, *, _yaml: str,
-                  single: bool = True) -> 'StructUnionBase': ...
+    def from_file(
+            cls, *,
+            _yaml: str,
+            single: bool = True,
+            _ignore_unknown: bool = False,
+            _forbid_private: bool = False,
+    ) -> typing_extensions.Self: ...
 
     @typing.overload
     @classmethod
-    def from_file(cls, *, _xml: str,
-                  single: bool = True) -> 'StructUnionBase': ...
+    def from_file(
+            cls, *,
+            _xml: str,
+            single: bool = True,
+            _ignore_unknown: bool = False,
+            _forbid_private: bool = False,
+    ) -> typing_extensions.Self: ...
 
     @typing.overload
     @classmethod
-    def from_file(cls, *, _hex: str,
-                  single: bool = True) -> 'StructUnionBase': ...
+    def from_file(
+            cls, *,
+            _hex: str,
+            single: bool = True,
+            _forbid_private: bool = False,
+    ) -> typing_extensions.Self: ...
 
     @typing.overload
     @classmethod
-    def from_file(cls, *, _bin: str,
-                  single: bool = True) -> 'StructUnionBase': ...
+    def from_file(
+            cls, *,
+            _bin: str,
+            single: bool = True,
+            _forbid_private: bool = False,
+    ) -> typing_extensions.Self: ...
 
     @typing.overload
     @classmethod
-    def __from_file__(cls, *, _json: str,
-                      single: bool = True) -> 'StructUnionBase': ...
+    def __from_file__(
+            cls, *,
+            _json: str,
+            single: bool = True,
+            _ignore_unknown: bool = False,
+            _forbid_private: bool = False,
+            _use_c_case: bool = False,
+    ) -> typing_extensions.Self: ...
 
     @typing.overload
     @classmethod
-    def __from_file__(cls, *, _yaml: str,
-                      single: bool = True) -> 'StructUnionBase': ...
+    def __from_file__(
+            cls, *,
+            _yaml: str,
+            single: bool = True,
+            _ignore_unknown: bool = False,
+            _forbid_private: bool = False,
+    ) -> typing_extensions.Self: ...
 
     @typing.overload
     @classmethod
-    def __from_file__(cls, *, _xml: str,
-                      single: bool = True) -> 'StructUnionBase': ...
+    def __from_file__(
+            cls, *,
+            _xml: str,
+            single: bool = True,
+            _ignore_unknown: bool = False,
+            _forbid_private: bool = False,
+    ) -> typing_extensions.Self: ...
 
     @typing.overload
     @classmethod
-    def __from_file__(cls, *, _hex: str,
-                      single: bool = True) -> 'StructUnionBase': ...
+    def __from_file__(
+            cls, *,
+            _hex: str,
+            single: bool = True,
+            _forbid_private: bool = False,
+    ) -> typing_extensions.Self: ...
 
     @typing.overload
     @classmethod
-    def __from_file__(cls, *, _bin: str,
-                      single: bool = True) -> 'StructUnionBase': ...
+    def __from_file__(
+            cls, *,
+            _bin: str,
+            single: bool = True,
+            _forbid_private: bool = False,
+    ) -> typing_extensions.Self: ...
 
     def __richcmp__(self, other: object, op: int) -> bool: ...
 
