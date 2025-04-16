@@ -27,6 +27,7 @@
     "# pylint: disable=all\n"                                                \
     "\n"                                                                     \
     "import typing\n"                                                        \
+    "import typing_extensions\n"                                             \
     "import iopy\n"                                                          \
     "\n"
 
@@ -210,23 +211,29 @@ iopc_pystub_dump_fields(sb_t *buf, const iopc_pkg_t *pkg,
     }
 }
 
-static void iopc_pystub_dump_unpack_inits(sb_t *buf)
+static void iopc_pystub_dump_common_inits(sb_t *buf, const char *st_name)
 {
-    sb_adds(buf,
-            "    @typing.overload\n"
-            "    def __init__(cls, *, _json: typing.Union[str, bytes]): ...\n"
-            "\n"
-            "    @typing.overload\n"
-            "    def __init__(cls, *, _yaml: typing.Union[str, bytes]): ...\n"
-            "\n"
-            "    @typing.overload\n"
-            "    def __init__(cls, *, _xml: typing.Union[str, bytes]): ...\n"
-            "\n"
-            "    @typing.overload\n"
-            "    def __init__(cls, *, _hex: typing.Union[str, bytes]): ...\n"
-            "\n"
-            "    @typing.overload\n"
-            "    def __init__(cls, *, _bin: typing.Union[str, bytes]): ...\n"
+    sb_addf(
+        buf,
+        "    @typing.overload\n"
+        "    def __init__(self, *, _json: typing.Union[str, bytes]): ...\n"
+        "\n"
+        "    @typing.overload\n"
+        "    def __init__(self, *, _yaml: typing.Union[str, bytes]): ...\n"
+        "\n"
+        "    @typing.overload\n"
+        "    def __init__(self, *, _xml: typing.Union[str, bytes]): ...\n"
+        "\n"
+        "    @typing.overload\n"
+        "    def __init__(self, *, _hex: typing.Union[str, bytes]): ...\n"
+        "\n"
+        "    @typing.overload\n"
+        "    def __init__(self, *, _bin: typing.Union[str, bytes]): ...\n"
+        "\n"
+        "    @typing.overload\n"
+        "    def __init__(self, obj: %s_ParamType, /): ...\n"
+        "\n",
+        st_name
     );
 }
 
@@ -321,6 +328,18 @@ iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
             "    pass\n\n\n", st_name, st_name);
 }
 
+static void iopc_pystub_dump_struct_inits(sb_t *buf, const char *st_name)
+{
+    sb_addf(
+        buf,
+        "    @typing.overload\n"
+        "    def __init__(self, "
+        "**kwargs: typing_extensions.Unpack[%s_DictType]): ...\n"
+        "\n",
+        st_name
+    );
+}
+
 static void
 iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
                                const iopc_struct_t *st, const char *st_name)
@@ -344,9 +363,10 @@ iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
 
     iopc_pystub_dump_fields(buf, pkg, st);
 
-    iopc_pystub_dump_unpack_inits(buf);
+    iopc_pystub_dump_common_inits(buf, st_name);
+    iopc_pystub_dump_struct_inits(buf, st_name);
 
-    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s, %s_DictType]\n",
+    sb_addf(buf, "\n%s_ParamType = typing.Union[%s, %s_DictType]\n",
             st_name, st_name, st_name);
 }
 
@@ -548,6 +568,21 @@ iopc_pystub_dump_union_unambiguous_type(sb_t *buf, const iopc_pkg_t *pkg,
     sb_adds(buf, "]\n\n\n");
 }
 
+static void iopc_pystub_dump_union_inits(sb_t *buf, const iopc_pkg_t *pkg,
+                                         const iopc_struct_t *st)
+{
+    tab_for_each_entry(field, &st->fields) {
+        sb_addf(
+            buf,
+            "    @typing.overload\n"
+            "    def __init__(self, *, %s: " ,
+            field->name
+        );
+        iopc_pystub_dump_field_type(buf, pkg, field, true);
+        sb_adds(buf, "): ...\n\n");
+    }
+}
+
 static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
                                    const iopc_struct_t *st)
 {
@@ -578,10 +613,11 @@ static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
     iopc_pystub_dump_fields(buf, pkg, st);
 
     /* Dump unpack inits */
-    iopc_pystub_dump_unpack_inits(buf);
+    iopc_pystub_dump_common_inits(buf, st_name);
+    iopc_pystub_dump_union_inits(buf, pkg, st);
 
     /* Dump param class type */
-    sb_addf(buf, "\n\n%s_ParamType = typing.Union[%s, %s_DictType",
+    sb_addf(buf, "\n%s_ParamType = typing.Union[%s, %s_DictType",
             st_name, st_name, st_name);
     if (unambiguous_types.len) {
         sb_addf(buf, ", %s_UnambiguousType", st_name);
