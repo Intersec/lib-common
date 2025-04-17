@@ -261,6 +261,23 @@ static void iopc_pystub_dump_common_inits(sb_t *buf, const char *st_name)
     );
 }
 
+static void iopc_pystub_dump_to_dict(sb_t *buf, const char *st_name)
+{
+    sb_addf(
+        buf,
+        "    def to_dict( # type: ignore[override]\n"
+        "            self, skip_private: typing.Optional[bool] = None,\n"
+        "            skip_default: typing.Optional[bool] = None,\n"
+        "            skip_empty_arrays: typing.Optional[bool] = None,\n"
+        "            skip_empty_structs: typing.Optional[bool] = None,\n"
+        "            skip_class_names: typing.Optional[bool] = None,\n"
+        "            skip_optional_class_names: typing.Optional[bool]"
+        " = None,\n"
+        "            minimal: typing.Optional[bool] = None\n"
+        "    ) -> %s_DictType: ...\n\n",
+        st_name);
+}
+
 /* }}} */
 /* {{{ Struct */
 
@@ -389,6 +406,7 @@ iopc_pystub_dump_struct_intern(sb_t *buf, const iopc_pkg_t *pkg,
 
     iopc_pystub_dump_common_inits(buf, st_name);
     iopc_pystub_dump_struct_inits(buf, st_name);
+    iopc_pystub_dump_to_dict(buf, st_name);
 
     sb_addf(buf, "\n%s_ParamType = typing.Union[%s, %s_DictType]\n",
             st_name, st_name, st_name);
@@ -639,6 +657,9 @@ static void iopc_pystub_dump_union(sb_t *buf, const iopc_pkg_t *pkg,
     /* Dump unpack inits */
     iopc_pystub_dump_common_inits(buf, st_name);
     iopc_pystub_dump_union_inits(buf, pkg, st);
+
+    /* Dump methods */
+    iopc_pystub_dump_to_dict(buf, st_name);
 
     /* Dump param class type */
     sb_addf(buf, "\n%s_ParamType = typing.Union[%s, %s_DictType",

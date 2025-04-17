@@ -397,6 +397,10 @@ class IopyTest(z.TestCase):
         # Check plain struct with everything printed
         self.assertEqual(dict_struct_to_dict, struct_to_dict.to_dict())
 
+        # Check we can recreate the same object from the dict
+        self.assertEqual(struct_to_dict,
+                         self.p.test.StructToDict(struct_to_dict.to_dict()))
+
         # Check minimal option
         minimal_dict_struct_to_dict = {
             'structA': {

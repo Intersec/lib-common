@@ -343,15 +343,15 @@ class StructUnionBase(Basic):
                 skip_optional_class_names: typing.Optional[bool] = None,
                 minimal: typing.Optional[bool] = None) -> str: ...
 
-    def to_dict(self, skip_private: typing.Optional[bool] = None,
-                skip_default: typing.Optional[bool] = None,
-                skip_empty_arrays: typing.Optional[bool] = None,
-                skip_empty_structs: typing.Optional[bool] = None,
-                skip_class_names: typing.Optional[bool] = None,
-                skip_optional_class_names: typing.Optional[bool] = None,
-                minimal: typing.Optional[bool] = None) -> (
-                    dict[str, object]
-                ): ...
+    def to_dict(
+            self, skip_private: typing.Optional[bool] = None,
+            skip_default: typing.Optional[bool] = None,
+            skip_empty_arrays: typing.Optional[bool] = None,
+            skip_empty_structs: typing.Optional[bool] = None,
+            skip_class_names: typing.Optional[bool] = None,
+            skip_optional_class_names: typing.Optional[bool] = None,
+            minimal: typing.Optional[bool] = None
+    ) -> dict[str, typing.Any]: ...
 
     def __str__(self) -> str: ...
 
