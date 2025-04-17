@@ -946,11 +946,39 @@ static void iopc_pystub_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
     }
 
     sb_adds(buf, "\n\n");
+
+    /* Sync RPCs */
     sb_adds(buf, "@typing.type_check_only\n");
     sb_addf(buf, "class %s_Iface(iopy.Iface):\n", iface->name);
     if (iface->funs.len) {
         tab_for_each_entry(rpc, &iface->funs) {
             sb_addf(buf, "    %s: %s_%s_RPC\n", rpc->name, iface->name,
+                    rpc->name);
+        }
+    } else {
+        sb_adds(buf, "    pass\n");
+    }
+    sb_adds(buf, "\n\n");
+
+    /* Async RPCs */
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_addf(buf, "class %s_AsyncIface(iopy.Iface):\n", iface->name);
+    if (iface->funs.len) {
+        tab_for_each_entry(rpc, &iface->funs) {
+            sb_addf(buf, "    %s: %s_%s_AsyncRPC\n", rpc->name, iface->name,
+                    rpc->name);
+        }
+    } else {
+        sb_adds(buf, "    pass\n");
+    }
+    sb_adds(buf, "\n\n");
+
+    /* Server RPCs */
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_addf(buf, "class %s_IfaceServer(iopy.Iface):\n", iface->name);
+    if (iface->funs.len) {
+        tab_for_each_entry(rpc, &iface->funs) {
+            sb_addf(buf, "    %s: %s_%s_RPCServer\n", rpc->name, iface->name,
                     rpc->name);
         }
     } else {
@@ -985,9 +1013,9 @@ static void iopc_pystub_dump_module(sb_t *buf, const iopc_pkg_t *pkg,
 
     iopc_pystup_dump_fold_begin_extra(buf, mod_name);
 
+    /* Sync module */
     sb_adds(buf, "@typing.type_check_only\n");
     sb_addf(buf, "class %s_Module(iopy.Module):\n", mod_name);
-
     if (mod->fields.len) {
         tab_for_each_entry(field, &mod->fields) {
             sb_addf(buf, "    %s: ", field->name);
@@ -1000,6 +1028,37 @@ static void iopc_pystub_dump_module(sb_t *buf, const iopc_pkg_t *pkg,
         sb_adds(buf, "    pass\n");
     }
 
+    /* Async module */
+    sb_adds(buf, "\n\n");
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_addf(buf, "class %s_AsyncModule(iopy.Module):\n", mod_name);
+    if (mod->fields.len) {
+        tab_for_each_entry(field, &mod->fields) {
+            sb_addf(buf, "    %s: ", field->name);
+            iopc_pystub_dump_package_member(buf, pkg, field->type_pkg,
+                                            field->type_path,
+                                            field->type_name);
+            sb_adds(buf, "_AsyncIface\n");
+        }
+    } else {
+        sb_adds(buf, "    pass\n");
+    }
+
+    /* Server module */
+    sb_adds(buf, "\n\n");
+    sb_adds(buf, "@typing.type_check_only\n");
+    sb_addf(buf, "class %s_ModuleServer(iopy.Module):\n", mod_name);
+    if (mod->fields.len) {
+        tab_for_each_entry(field, &mod->fields) {
+            sb_addf(buf, "    %s: ", field->name);
+            iopc_pystub_dump_package_member(buf, pkg, field->type_pkg,
+                                            field->type_path,
+                                            field->type_name);
+            sb_adds(buf, "_IfaceServer\n");
+        }
+    } else {
+        sb_adds(buf, "    pass\n");
+    }
 
     iopc_pystup_dump_fold_end_extra(buf);
 }
