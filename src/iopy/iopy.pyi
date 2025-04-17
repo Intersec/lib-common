@@ -540,10 +540,6 @@ class RPCBase:
 
     def desc(self) -> str: ...
 
-    RpcArgs = RPCArgs[typing.Optional[type[StructUnionBase]],
-                      typing.Optional[type[StructUnionBase]],
-                      typing.Optional[type[StructUnionBase]]]
-
 
 IfacePreHookCb = typing.Callable[..., typing.Any]
 IfacePostHookCb = typing.Callable[..., typing.Any]
@@ -879,6 +875,12 @@ RPCServerImplCb = typing.Callable[
 class RPCServer(RPCBase):
     @property
     def channel(self) -> ChannelServer: ...
+
+    RpcArgs = RPCArgs[typing.Optional[type[StructUnionBase]],
+                      typing.Optional[type[StructUnionBase]],
+                      typing.Optional[type[StructUnionBase]]]
+    RpcRes = typing.Union[typing.Optional[type[StructUnionBase]],
+                          typing.Optional[type[StructUnionBase]]]
 
     @property
     def impl(self) -> typing.Optional[
