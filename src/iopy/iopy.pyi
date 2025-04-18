@@ -579,6 +579,7 @@ class Module:
 
 ChannelOnConnectCb = typing.Callable[['Channel'], None]
 ChannelOnDisconnectCb = typing.Callable[['Channel', bool], None]
+ChannelOnExceptionCb = typing.Callable[[Exception], None]
 
 
 class Channel(ChannelBase):
@@ -647,6 +648,16 @@ class Channel(ChannelBase):
 
     @on_disconnect.deleter
     def on_disconnect(self) -> None: ...
+
+    @property
+    def on_exception(self) -> typing.Optional[ChannelOnExceptionCb]: ...
+
+    @on_exception.setter
+    def on_exception(
+        self, value: typing.Optional[ChannelOnExceptionCb]) -> None: ...
+
+    @on_exception.deleter
+    def on_exception(self) -> None: ...
 
 
 class RPC(RPCBase):
@@ -831,6 +842,7 @@ class AsyncRPC(RPCBase):
 
 ChannelServerOnConnectCb = typing.Callable[['ChannelServer', str], None]
 ChannelServerOnDisconnectCb = typing.Callable[['ChannelServer', str], None]
+ChannelServerOnExceptionCb = typing.Callable[[Exception], None]
 
 
 class ChannelServer(ChannelBase):
@@ -872,6 +884,16 @@ class ChannelServer(ChannelBase):
 
     @on_disconnect.deleter
     def on_disconnect(self) -> None: ...
+
+    @property
+    def on_exception(self) -> typing.Optional[ChannelServerOnExceptionCb]: ...
+
+    @on_exception.setter
+    def on_exception(
+        self, value: typing.Optional[ChannelServerOnExceptionCb]) -> None: ...
+
+    @on_exception.deleter
+    def on_exception(self) -> None: ...
 
     @property
     def is_listening(self) -> bool: ...
