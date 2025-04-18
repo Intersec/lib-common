@@ -563,7 +563,8 @@ class IfaceBase:
     @classmethod
     def __fullname__(cls) -> str: ...
 
-    def __name__(self) -> str: ...
+    @classmethod
+    def __name__(cls) -> str: ...
 
 
 Iface = IfaceBase
