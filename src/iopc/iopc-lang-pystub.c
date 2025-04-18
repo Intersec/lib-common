@@ -168,32 +168,46 @@ static void iopc_pystub_dump_field_type(sb_t *buf, const iopc_pkg_t *pkg,
                                         const iopc_field_t *field,
                                         bool is_param_type)
 {
-    bool ending_bracket = false;
-
     switch (field->repeat) {
     case IOP_R_OPTIONAL:
-        if (!is_param_type) {
+        if (is_param_type) {
+            sb_adds(buf, "typing.Optional[");
+        } else {
             sb_adds(buf, "iopy.IopOptField[");
-            ending_bracket = true;
         }
         break;
 
     case IOP_R_REPEATED:
-        sb_adds(buf, "list[");
-        ending_bracket = true;
+        if (is_param_type) {
+            sb_adds(buf, "typing.Union[typing.Sequence[");
+        } else {
+            sb_adds(buf, "list[");
+        }
         break;
 
     case IOP_R_DEFVAL:
     case IOP_R_REQUIRED:
         break;
-
-    default:
-        break;
     }
+
     iopc_pystub_dump_field_basetype(buf, pkg, field, is_param_type);
 
-    if (ending_bracket) {
-        sb_addc(buf, ']');
+    switch (field->repeat) {
+    case IOP_R_OPTIONAL:
+        sb_adds(buf, "]");
+        break;
+
+    case IOP_R_REPEATED:
+        if (is_param_type) {
+            sb_adds(buf, "], ");
+            iopc_pystub_dump_field_basetype(buf, pkg, field, is_param_type);
+        }
+        sb_adds(buf, "]");
+        break;
+
+    case IOP_R_DEFVAL:
+    case IOP_R_REQUIRED:
+        break;
     }
 }
 
