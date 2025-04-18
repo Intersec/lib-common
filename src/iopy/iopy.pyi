@@ -35,6 +35,10 @@ class RpcError(Error):
     pass
 
 
+class UnexpectedExceptionWarning(Warning):
+    pass
+
+
 # }}}
 # {{{ Types
 # {{{ Optional field
