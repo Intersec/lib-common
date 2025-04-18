@@ -153,6 +153,291 @@ Your code has been rated at 10.00/10
 ----
 
 
+== Type hints / Mypy
+
+=== Support
+
+Type hints are supported and enforced in `lib-common` with `mypy` with strict
+settings.
+
+Any python scripts in `lib-common` must be valid according to the strict rules
+of `mypy`.
+
+=== IOP
+
+Type hints are supported for IOPs in Python.
+However, with IOPy, Python classes are created dynamically on run-time when
+loading a DSO.
+And this mechanism is not compatible with static type checking such as `mypy`.
+
+To solve this issue, IOPc/waf can generate
+[Python stub files](https://typing.python.org/en/latest/spec/distributing.html#stub-files)
+for the IOPs.
+
+Those stub files can only be used for static type checking, and cannot be
+imported at run-time.
+Typically they can be imported like this:
+[source,python]
+----
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import test_iop_plugin__iop
+    import ic__iop
+----
+
+IOPc generates one stub file per IOP file when `pystub_path` is passed as
+argument of `IopcOptions()` in waf build system.
+
+When creating a shared library corresponding to an IOP DSO, the stub file
+corresponding to the IOPy Plugin of the DSO is generated when `pystub_path` is
+passed as argument of `ctx.shlib()`.
+
+Since IOP stub types are not real types that can be used at run-times, forward
+references must be used to refer to IOP types:
+[source,python]
+----
+def foo(obj: 'test__iop.ClassA'):
+    pass
+----
+
+To use the Plugin IOP type when loading an IOP DSO, `typing.cast()` must be
+used in order to correctly type the created Plugin instance:
+[source,python]
+----
+plugin_file = 'path/to/dso.so'
+plugin = typing.cast('test_iop_plugin__iop.Plugin', iopy.Plugin(plugin_file))
+----
+
+Below are the different types generated for the different IOP symbols:
+
+* `test__iop`: The module corresponding to the IOP package `test`.
+* `test__iop.Struct`: The class type corresponding to the IOP structure
+`test.Struct`.
+* `test__iop.Struct_DictType`: The `TypedDict` type corresponding to the dict
+representation of the IOP structure `test.Struct`.
+* `test__iop.Struct_ParamType`: The union type that can be used to
+initialize an object of the IOP structure `test.Struct`.
+* `test__iop.Interface_Iface`: The class type corresponding to the IOP
+interface `test.Interface`.
+* `test__iop.Interface_fun_RPC`: The class type corresponding to the IOP
+RPC `test.Interface::fun` for synchronous calls.
+* `test__iop.Interface_fun_AsyncRPC`: The class type corresponding to the IOP
+RPC `test.Interface::fun` for asynchronous calls (`asyncio`).
+* `test__iop.Interface_fun_RPCServer`: The class type corresponding to the IOP
+RPC `test.Interface::fun` for IOP server channels.
+* `test__iop.Interface_fun_*RPC*.Arg`: The class type corresponding to the
+IOP arguments of the IOP RPC `test.Interface::fun`.
+* `test__iop.Interface_fun_*RPC*.Res`: The class type corresponding to the
+IOP result of the IOP RPC `test.Interface::fun`.
+* `test__iop.Interface_fun_*RPC*.Exn`: The class type corresponding to the
+IOP exception of the IOP RPC `test.Interface::fun`.
+* `test__iop.Interface_fun_RPCServer.RpcArgs`: The class type corresponding to
+the argument of the implementation of the IOP RPC `test.Interface::fun` for
+IOP server channels.
+* `test__iop.Interface_fun_RPCServer.RpcRes`: The union of result and
+exception class types corresponding to the result of the implementation of
+the IOP RPC `test.Interface::fun` for IOP server channels.
+* `test__iop.Module_Module`: The class type corresponding to the IOP module
+`test.Module` for synchronous calls.
+* `test__iop.Module_AsyncModule`: The class type corresponding to the IOP
+module `test.Module` for asynchronous calls (`asyncio`).
+* `test__iop.Module_ModuleServer`: The class type corresponding to the IOP
+module `test.Module` for IOP server channels.
+* `test__iop.Package`: The class type corresponding to the IOP package `test`.
+* `test_iop_plugin__iop`: The module corresponding to the IOP DSO
+`test-iop-plugin.so`.
+* `test_iop_plugin__iop.Plugin`: The class type corresponding to the plugin
+instance of the IOP DSO `test-iop-plugin.so`.
+* `test_iop_plugin__iop.Channel`: The class type corresponding to the IOP
+channel for synchronous calls of the IOP DSO `test-iop-plugin.so`.
+* `test_iop_plugin__iop.AsyncChannel`: The class type corresponding to the IOP
+channel for asynchronous calls (`asyncio`) of the IOP DSO
+`test-iop-plugin.so`.
+* `test_iop_plugin__iop.ChannelServer`: The class type corresponding to the
+IOP channel for server channels of the IOP DSO `test-iop-plugin.so`.
+
+=== Limitations
+
+==== Cannot determine if optional fields are set or not
+
+Because IOPy does not use `None` to signify that an optional IOP field is set
+or not, and instead add or remove the attribute in the object.
+
+This is not the standard Pythonic way of handling optional fields, and thus
+there is no current way with Python types to specify if an attribute is
+present or not in an object.
+
+So optional fields are typed with a special `Annotated` annotation but still
+acts as always present fields on usage.
+
+`getattr()` or `hasattr()` are still required on run-time.
+
+IOP union acts the same way with the different possible fields typed as
+required fields.
+
+A Mypy plugin could be considered to handle these cases, but it is not an easy
+task.
+
+==== Cannot assign fields from a dict or an unambiguous field of an union
+
+Assigning a field to a dict or as an unambiguous field of an union
+is supported by IOPy at run-time but very hard to represent with typing.
+
+Example:
+[source,python]
+----
+class MyUnion {
+    int a;
+};
+
+class MyStruct {
+    MyUnion u;
+    MyUnion[] tab;
+};
+
+# type 'arg-type' errors below
+my_struct.u = 1
+my_struct.u = { 'a': 2 }
+my_struct.tab.append({ 'a': 4 })
+my_struct.tab.append(8)
+----
+
+==== Cannot determine class attributes inheritance with dict
+
+Dictionary initialization of IOP objects works by matching all the possible
+attributes of the dict ignoring the '_class' attribute.
+
+So, for the following IOP:
+[source,d]
+----
+class ClassA : 1 {
+    int field1 = 0;
+};
+
+class ClassB : 2 : ClassA {
+    int field2 = 0;
+};
+
+struct StructA {
+    ClassA a;
+};
+----
+
+This works:
+[source,python]
+----
+plugin.test.StructA({
+    'a': {
+        '_class': 'test.ClassA',
+        'field1': 1,
+    }
+})
+----
+
+And, this also works:
+[source,python]
+----
+plugin.test.StructA({
+    'a': {
+        '_class': 'test.ClassB',
+        'field1': 1,
+    }
+})
+----
+
+And, unfortunately, this also does not produce any static-type error:
+[source,python]
+----
+plugin.test.StructA({
+    'a': {
+        '_class': 'test.InvalidClass',
+        'field1': 1,
+    }
+})
+----
+
+Ideally, we should have "root" '_class: str' field and have literal
+'_class: Literal[""]' field with the IOP full path for each class.
+
+Unfortunately, it is not possible in Python to have inheritance on
+`TypedDict`, and restrict the literal value on each level, and discriminate on
+this value, and have it optional or not depending on if we want to use
+`Unpack` or not.
+
+Currently, the best thing is to trust the user that the '_class' value is
+valid at runtime (like we did before).
+What we could do is use 'Annotated' and use a Mypy plugin, but this is
+complicated.
+
+See
+https://github.com/python/typing/issues/1467 and
+https://discuss.python.org/t/pep-589-inheritance-rules-and-typing-literal-pep-586/7721/2.
+
+
+One other downside of this method is that this produces an error:
+[source,python]
+----
+# E: No overload variant matches argument type "dict[str, dict[str, # object]]"  [call-overload]
+plugin.test.StructA({
+    'a': {
+        '_class': 'test.ClassB',
+        'field1': 1,
+        'field2': 2,
+    }
+})
+----
+
+In that case, the way to solve this issue is to extract and type the dict to
+have a readable error description:
+[source,python]
+----
+struct_a_dct: 'test__iop.StructA_DictType' = {
+    'a': { # E: Incompatible types (expression has type "dict[str, object]", TypedDict item "a" has type "Optional[Union[ClassA, ClassA_DictType]]") [typeddict-item]
+        '_class': 'test.ClassB',
+        'field1': 1,
+        'field2': 2,
+    }
+}
+plugin.test.StructA(struct_a_dct)
+----
+
+
+And to later decompose the class dictionary to make it work:
+[source,python]
+----
+class_b_dict: 'test__iop.ClassB_DictType' = {
+    '_class': 'test.ClassB',
+    'field1': 1,
+    'field2': 2,
+}
+struct_a_dct: 'test__iop.StructA_DictType' = {
+    'a': class_b_dict
+}
+plugin.test.StructA(struct_a_dct)
+----
+
+==== Override methods in python stub files and no generic usage
+
+In stub files, for the different IOP types, we override the different
+`__init__()` and `__call__()` methods instead of using generics.
+
+This is because we heavily rely on the usage `TypedDict` and `Unpack` to pass
+the arguments to create the different IOP objects and make RPC calls.
+
+And it is not possible to use `TypeVar` with an upper-bound on `TypedDict`,
+and to use `Unpack` with a generic `TypedDict`.
+
+It is also not possible to `Unpack` an `Union` of `TypedDict` for IOP unions.
+
+See https://github.com/python/typing/issues/1399.
+
+==== Class attributes for IOP static class attributes
+
+We do not export the IOP static class attributes as Python class attributes
+yet.
+This is not a very used feature and can be left as a TODO for now.
+
 == Migrate `Python 2` code to `Python 3`
 
 A wiki page is available that describes how to migrate `Python 2` code to
