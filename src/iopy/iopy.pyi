@@ -18,6 +18,7 @@
 # pylint: disable=no-self-use
 
 
+import asyncio
 import typing
 import typing_extensions
 
@@ -749,7 +750,7 @@ class RPC(RPCBase):
 class AsyncChannel(Channel):
     def connect( # type: ignore[override]
             self, timeout: typing.Optional[float] = None,
-    ) -> typing.Awaitable[None]: ...
+    ) -> asyncio.Future[None]: ...
 
 
 class AsyncRPC(RPCBase):
@@ -767,7 +768,7 @@ class AsyncRPC(RPCBase):
         _workspace_id: typing.Optional[int] = None,
         _dealias: typing.Optional[bool] = None,
         _hdr: typing.Optional['ic__iop.Hdr'] = None
-    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+    ) -> asyncio.Future[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
     def call(
@@ -780,7 +781,7 @@ class AsyncRPC(RPCBase):
         _workspace_id: typing.Optional[int] = None,
         _dealias: typing.Optional[bool] = None,
         _hdr: typing.Optional['ic__iop.Hdr'] = None
-    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+    ) -> asyncio.Future[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
     def call(
@@ -794,7 +795,7 @@ class AsyncRPC(RPCBase):
         _dealias: typing.Optional[bool] = None,
         _hdr: typing.Optional['ic__iop.Hdr'] = None,
         **kwargs: typing.Any
-    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+    ) -> asyncio.Future[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
     def __call__(
@@ -807,7 +808,7 @@ class AsyncRPC(RPCBase):
         _workspace_id: typing.Optional[int] = None,
         _dealias: typing.Optional[bool] = None,
         _hdr: typing.Optional['ic__iop.Hdr'] = None
-    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+    ) -> asyncio.Future[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
     def __call__(
@@ -820,7 +821,7 @@ class AsyncRPC(RPCBase):
         _workspace_id: typing.Optional[int] = None,
         _dealias: typing.Optional[bool] = None,
         _hdr: typing.Optional['ic__iop.Hdr'] = None
-    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+    ) -> asyncio.Future[typing.Optional[StructUnionBase]]: ...
 
     @typing.overload
     def __call__(
@@ -834,7 +835,7 @@ class AsyncRPC(RPCBase):
         _dealias: typing.Optional[bool] = None,
         _hdr: typing.Optional['ic__iop.Hdr'] = None,
         **kwargs: typing.Any
-    ) -> typing.Awaitable[typing.Optional[StructUnionBase]]: ...
+    ) -> asyncio.Future[typing.Optional[StructUnionBase]]: ...
 
 
 # }}}
@@ -1039,23 +1040,24 @@ class Plugin:
             _workspace_id: typing.Optional[int] = None,
             _dealias: typing.Optional[bool] = None,
             _hdr: typing.Optional['ic__iop.Hdr'] = None,
-    ) -> typing.Awaitable[AsyncChannel]: ...
+    ) -> asyncio.Future[AsyncChannel]: ...
 
     @typing.overload
-    def async_connect(self, *, host: str, port: int,
-                      default_timeout: typing.Optional[float] = None,
-                      connect_timeout: typing.Optional[float] = None,
-                      no_act_timeout: float = 0.0,
-                      timeout: typing.Optional[float] = None,
-                      _timeout: typing.Optional[float] = None,
-                      _login: typing.Optional[str] = None,
-                      _group: typing.Optional[str] = None,
-                      _password: typing.Optional[str] = None,
-                      _kind: typing.Optional[str] = None,
-                      _workspace_id: typing.Optional[int] = None,
-                      _dealias: typing.Optional[bool] = None,
-                      _hdr: typing.Optional['ic__iop.Hdr'] = None,
-                     ) -> typing.Awaitable[AsyncChannel]: ...
+    def async_connect(
+            self, *, host: str, port: int,
+            default_timeout: typing.Optional[float] = None,
+            connect_timeout: typing.Optional[float] = None,
+            no_act_timeout: float = 0.0,
+            timeout: typing.Optional[float] = None,
+            _timeout: typing.Optional[float] = None,
+            _login: typing.Optional[str] = None,
+            _group: typing.Optional[str] = None,
+            _password: typing.Optional[str] = None,
+            _kind: typing.Optional[str] = None,
+            _workspace_id: typing.Optional[int] = None,
+            _dealias: typing.Optional[bool] = None,
+            _hdr: typing.Optional['ic__iop.Hdr'] = None,
+    ) -> asyncio.Future[AsyncChannel]: ...
 
     def channel_server(self) -> 'ChannelServer': ...
 
