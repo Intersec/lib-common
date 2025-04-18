@@ -116,7 +116,11 @@ static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
     case IOP_T_U32:
     case IOP_T_I64:
     case IOP_T_U64:
-        sb_adds(buf, "int");
+        if (is_param_type) {
+            sb_adds(buf, "typing.Union[int, float]");
+        } else {
+            sb_adds(buf, "int");
+        }
         break;
 
     case IOP_T_BOOL:
@@ -124,7 +128,11 @@ static void iopc_pystub_dump_field_basetype(sb_t *buf, const iopc_pkg_t *pkg,
         break;
 
     case IOP_T_DOUBLE:
-        sb_adds(buf, "float");
+        if (is_param_type) {
+            sb_adds(buf, "typing.Union[int, float]");
+        } else {
+            sb_adds(buf, "float");
+        }
         break;
 
     case IOP_T_VOID:
