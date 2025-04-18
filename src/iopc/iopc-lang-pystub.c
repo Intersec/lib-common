@@ -281,21 +281,65 @@ static void iopc_pystub_dump_to_dict(sb_t *buf, const char *st_name)
 /* }}} */
 /* {{{ Struct */
 
+static bool
+iopc_pystub_field_dict_is_optional(const iopc_field_t *field)
+{
+    if (field->repeat != IOP_R_REQUIRED) {
+        /* IOP field definition is not required. */
+        return true;
+    }
+
+    if (field->kind == IOP_T_VOID) {
+        /* IOP Void type should always be optional. */
+        return true;
+    }
+
+    if (field->kind == IOP_T_STRUCT) {
+        /* Check that all the fields of a struct/class are optional.
+         *
+         * XXX: Unlike iop_struct_is_optional(), we cannot consider the class
+         * as required for abstract classes since '_class' is always an
+         * optional dict type field.
+         */
+        const iopc_struct_t *st = field->struct_def;
+
+        do {
+            tab_for_each_entry(st_field, &st->fields) {
+                if (!iopc_pystub_field_dict_is_optional(st_field)) {
+                    return false;
+                }
+            }
+            st = (iopc_is_class(st->type) && st->extends.len) ?
+                st->extends.tab[0]->st : NULL;
+        } while (st);
+
+        /* All fields are optionals. */
+        return true;
+    }
+
+    return false;
+}
+
 static void
 iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
                                   const iopc_struct_t *st,
                                   const char *st_name)
 {
+    t_scope;
+    qh_t(cptr) req_fields;
     bool has_fields;
+
+    t_qh_init(cptr, &req_fields, st->fields.len);
 
     /* Required fields */
     sb_addf(buf, "class %s_required_DictType(typing.TypedDict):\n", st_name);
 
     has_fields = false;
     tab_for_each_entry(field, &st->fields) {
-        if (field->repeat != IOP_R_REQUIRED || field->kind == IOP_T_VOID) {
+        if (iopc_pystub_field_dict_is_optional(field)) {
             continue;
         }
+        qh_add(cptr, &req_fields, field);
         has_fields = true;
         sb_addf(buf, "    %s: ", field->name);
         iopc_pystub_dump_field_type(buf, pkg, field, true);
@@ -337,7 +381,8 @@ iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
 
     has_fields = false;
     tab_for_each_entry(field, &st->fields) {
-        if (field->repeat == IOP_R_REQUIRED && field->kind != IOP_T_VOID) {
+        if (qh_find(cptr, &req_fields, field) >= 0) {
+            /* Not an optional field */
             continue;
         }
         has_fields = true;
