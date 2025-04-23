@@ -1175,7 +1175,16 @@ static void iopc_pystub_dump_package(sb_t *buf, const iopc_pkg_t *pkg)
     }
 
     tab_for_each_entry(st, &pkg->structs) {
-        sb_addf(buf, "    %s = %s\n", st->name, st->name);
+        switch (st->type) {
+        case STRUCT_TYPE_STRUCT:
+        case STRUCT_TYPE_CLASS:
+        case STRUCT_TYPE_UNION:
+            sb_addf(buf, "    %s = %s\n", st->name, st->name);
+            break;
+
+        default:
+            break;
+        }
     }
 
     iopc_pystup_dump_fold_end_extra(buf);
