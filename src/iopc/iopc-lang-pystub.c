@@ -20,6 +20,11 @@
 #include "iopc.h"
 #include "iopc-internal.h"
 
+struct {
+    qh_t(lstr) python_keywords;
+} iopc_pystub_g;
+#define _G iopc_pystub_g
+
 /* {{{ Helpers */
 
 #define STUB_HEADER \
@@ -74,6 +79,66 @@ static void iopc_pystub_dump_package_member(sb_t *buf, const iopc_pkg_t *pkg,
         sb_addc(buf, '.');
     }
     sb_adds(buf, member_name);
+}
+
+/* }}} */
+/* {{{ Python keywords handling */
+
+static lstr_t python_keywords_g[] = {
+    LSTR_IMMED("False"),
+    LSTR_IMMED("None"),
+    LSTR_IMMED("True"),
+    LSTR_IMMED("and"),
+    LSTR_IMMED("as"),
+    LSTR_IMMED("assert"),
+    LSTR_IMMED("async"),
+    LSTR_IMMED("await"),
+    LSTR_IMMED("break"),
+    LSTR_IMMED("class"),
+    LSTR_IMMED("continue"),
+    LSTR_IMMED("def"),
+    LSTR_IMMED("del"),
+    LSTR_IMMED("elif"),
+    LSTR_IMMED("else"),
+    LSTR_IMMED("except"),
+    LSTR_IMMED("finally"),
+    LSTR_IMMED("for"),
+    LSTR_IMMED("from"),
+    LSTR_IMMED("global"),
+    LSTR_IMMED("if"),
+    LSTR_IMMED("import"),
+    LSTR_IMMED("in"),
+    LSTR_IMMED("is"),
+    LSTR_IMMED("lambda"),
+    LSTR_IMMED("nonlocal"),
+    LSTR_IMMED("not"),
+    LSTR_IMMED("or"),
+    LSTR_IMMED("pass"),
+    LSTR_IMMED("raise"),
+    LSTR_IMMED("return"),
+    LSTR_IMMED("try"),
+    LSTR_IMMED("while"),
+    LSTR_IMMED("with"),
+    LSTR_IMMED("yield"),
+};
+
+static void iopc_pystub_build_keyword_qh(void)
+{
+    if (qh_len(lstr, &_G.python_keywords) > 0) {
+        /* Already done. */
+        return;
+    }
+
+    qh_set_minsize(lstr, &_G.python_keywords, countof(python_keywords_g));
+    carray_for_each_entry(keyword, python_keywords_g) {
+        IGNORE(expect(qh_add(lstr, &_G.python_keywords, &keyword) >= 0));
+    }
+}
+
+static bool iopc_pystub_is_field_name_a_keyword(lstr_t field_name)
+{
+    iopc_pystub_build_keyword_qh();
+    return qh_find(lstr, &_G.python_keywords, &field_name) >= 0;
 }
 
 /* }}} */
@@ -226,8 +291,20 @@ iopc_pystub_dump_fields(sb_t *buf, const iopc_pkg_t *pkg,
 {
     if (st->fields.len) {
         tab_for_each_entry(field, &st->fields) {
-            sb_addf(buf, "    %s: ", field->name);
+            bool is_field_name_a_keyword =
+                iopc_pystub_is_field_name_a_keyword(LSTR(field->name));
+
+            sb_adds(buf, "    ");
+            if (is_field_name_a_keyword) {
+                sb_adds(buf, "# ");
+            }
+            sb_addf(buf, "%s: ", field->name);
             iopc_pystub_dump_field_type(buf, pkg, field, false);
+
+            if (is_field_name_a_keyword) {
+                sb_addf(buf, " -- `%s` is a reserved Python keyword",
+                        field->name);
+            }
             sb_adds(buf, "\n");
         }
         sb_adds(buf, "\n");
@@ -348,36 +425,11 @@ iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
                                   const iopc_struct_t *st,
                                   const char *st_name)
 {
-    t_scope;
-    qh_t(cptr) req_fields;
-    bool has_fields;
-
-    t_qh_init(cptr, &req_fields, st->fields.len);
-
-    /* Required fields */
-    sb_addf(buf, "class %s_required_DictType(typing.TypedDict):\n", st_name);
-
-    has_fields = false;
-    tab_for_each_entry(field, &st->fields) {
-        if (iopc_pystub_field_dict_is_optional(field)) {
-            continue;
-        }
-        qh_add(cptr, &req_fields, field);
-        has_fields = true;
-        sb_addf(buf, "    %s: ", field->name);
-        iopc_pystub_dump_field_type(buf, pkg, field, true);
-        sb_adds(buf, "\n");
-    }
-
-    if (!has_fields) {
-        sb_adds(buf, "    pass\n");
-    }
-
-    sb_adds(buf, "\n\n");
-
-    /* Optional fields */
-    sb_addf(buf, "class %s_optional_DictType(typing.TypedDict, "
-            "total=False):\n", st_name);
+    /* Intermediary fields TypeDict with function-call syntax to support
+     * invalid field names in Python. */
+    sb_addf(buf, "%s_fields_DictType = typing.TypedDict("
+            "'%s_fields_DictType', {\n",
+            st_name, st_name);
 
     if (iopc_is_class(st->type) && !st->extends.len) {
         /* Root class, add '_class' field.
@@ -399,28 +451,27 @@ iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
          * https://github.com/python/typing/issues/1467
          * https://discuss.python.org/t/pep-589-inheritance-rules-and-typing-literal-pep-586/7721/2
          */
-        sb_adds(buf, "    _class: typing.Optional[str]\n");
+        sb_adds(buf, "    '_class': typing_extensions.NotRequired["
+                "typing.Optional[str]],\n");
     }
 
-    has_fields = false;
     tab_for_each_entry(field, &st->fields) {
-        if (qh_find(cptr, &req_fields, field) >= 0) {
-            /* Not an optional field */
-            continue;
+        bool is_optional = iopc_pystub_field_dict_is_optional(field);
+
+        sb_addf(buf, "    '%s': ", field->name);
+        if (is_optional) {
+            sb_adds(buf, "typing_extensions.NotRequired[");
         }
-        has_fields = true;
-        sb_addf(buf, "    %s: ", field->name);
         iopc_pystub_dump_field_type(buf, pkg, field, true);
-        sb_adds(buf, "\n");
+        if (is_optional) {
+            sb_adds(buf, "]");
+        }
+        sb_adds(buf, ",\n");
     }
 
-    if (!has_fields) {
-        sb_adds(buf, "    pass\n");
-    }
+    sb_adds(buf, "})\n\n");
 
-    sb_adds(buf, "\n\n");
-
-    /* Struct dict field */
+    /* Final dict type with class syntax for inheritance. */
     sb_addf(buf, "class %s_DictType(", st_name);
 
     if (iopc_is_class(st->type) && st->extends.len) {
@@ -433,8 +484,8 @@ iopc_pystub_dump_struct_dict_type(sb_t *buf, const iopc_pkg_t *pkg,
         sb_adds(buf, "_DictType, ");
     }
 
-    sb_addf(buf, "%s_required_DictType, %s_optional_DictType):\n"
-            "    pass\n\n\n", st_name, st_name);
+    sb_addf(buf, "%s_fields_DictType):\n"
+            "    pass\n\n\n", st_name);
 }
 
 static void iopc_pystub_dump_struct_inits(sb_t *buf, const char *st_name)
@@ -633,11 +684,13 @@ iopc_pystub_dump_union_dict_types(sb_t *buf, const iopc_pkg_t *pkg,
     const char *st_name = st->name;
 
     tab_for_each_entry(field, &st->fields) {
-        sb_addf(buf, "class %s_%s_DictType(typing.TypedDict):\n",
+        sb_addf(buf, "%s_%s_DictType = typing.TypedDict('%s_%s_DictType', "
+                "{\n",
+                st_name, field->name,
                 st_name, field->name);
-        sb_addf(buf, "    %s: ",field->name);
+        sb_addf(buf, "    '%s': ",field->name);
         iopc_pystub_dump_field_type(buf, pkg, field, true);
-        sb_adds(buf, "\n\n\n");
+        sb_adds(buf, ",\n})\n\n\n");
     }
 
     sb_addf(buf, "%s_DictType = typing.Union[", st_name);
@@ -685,11 +738,10 @@ static void iopc_pystub_dump_union_inits(sb_t *buf, const iopc_pkg_t *pkg,
         sb_addf(
             buf,
             "    @typing.overload\n"
-            "    def __init__(self, *, %s: " ,
-            field->name
+            "    def __init__(self, **kwargs: typing_extensions.Unpack["
+            "%s_%s_DictType]) -> None: ...\n\n" ,
+            st->name, field->name
         );
-        iopc_pystub_dump_field_type(buf, pkg, field, true);
-        sb_adds(buf, ") -> None: ...\n\n");
     }
 }
 
@@ -815,7 +867,7 @@ static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
     const char *arg_obj_type;
 
     arg_is_union = !arg_is_void && !rpc->arg.is_anonymous &&
-                   rpc->arg.existing_struct->type == STRUCT_TYPE_UNION;
+                   rpc->arg.existing_struct->kind == IOP_T_UNION;
 
     arg_obj_type = arg_is_void ? "None" : t_fmt("%s_Arg_ParamType", rpc_name);
 
@@ -850,16 +902,10 @@ static void iopc_pystub_dump_rpc_call_meth(sb_t *buf,
                 "    @typing.overload\n"
                 "    def %s(\n"
                 "        self, *,\n"
-                RPC_UNDERSCORE_KWARGS "\n"
-                "        %s: ",
-                method_name, field->name);
-            iopc_pystub_dump_package_member(buf, pkg, field->type_pkg,
-                                            field->type_path,
-                                            field->type_name);
-            sb_addf(
-                buf,
+                RPC_UNDERSCORE_KWARGS ",\n"
+                "        **kwargs: typing_extensions.Unpack[%s_%s_DictType]\n"
                 "    ) -> %s: ...\n",
-                res_type);
+                method_name, arg_union_st->name, field->name, res_type);
         }
     } else {
         sb_addf(
@@ -1270,6 +1316,21 @@ int iopc_do_pystub(iopc_pkg_t *pkg, const char *outdir)
     iopc_pystub_dump_package(&buf, pkg);
 
     return iopc_write_file(&buf, path);
+}
+
+/* }}} */
+/* {{{ Global constructor/destructor */
+
+__attribute__((constructor))
+static void iopc_pystub_constructor(void)
+{
+    qh_init(lstr, &_G.python_keywords);
+}
+
+__attribute__((destructor))
+static void iopc_pystub_destructor(void)
+{
+    qh_wipe(lstr, &_G.python_keywords);
 }
 
 /* }}} */

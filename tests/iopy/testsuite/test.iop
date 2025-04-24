@@ -351,6 +351,23 @@ class ChildClassDescription : 1 : BaseClassDescription {
     ClassB? b;
 };
 
+struct PythonKeywordStruct {
+    int from;
+};
+
+class PythonKeywordClassBase {
+    int await;
+};
+
+class PythonKeywordClassChild : 1 : PythonKeywordClassBase {
+    int async;
+};
+
+union PythonKeywordUnion {
+    int raise;
+    int nonlocal;
+};
+
 /* Typedefs */
 @(is:td, true) typedef byte    ByteTypedef;
 @(is:td, true) typedef ubyte   UbyteTypedef;
@@ -390,6 +407,12 @@ interface InterfaceA {
         out (void? ov);
     funDep
         in testvoid.VoidOptional
+        out null;
+    funKeywordStruct
+        in PythonKeywordStruct
+        out null;
+    funKeywordUnion
+        in PythonKeywordUnion
         out null;
 };
 

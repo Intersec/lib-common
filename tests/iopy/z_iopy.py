@@ -1958,6 +1958,28 @@ class IopyTest(z.TestCase):
         _check('ClassATypedef', self.r.test.ClassA, True)
         _check('VoidRequired', self.r.testvoid.VoidRequired, True)
 
+    def test_field_name_python_keyword(self) -> None:
+        # Struct
+        s = self.r.test.PythonKeywordStruct({
+            'from': 12,
+        })
+        self.assertEqual(getattr(s, 'from'), 12)
+
+        # Class
+        c = self.r.test.PythonKeywordClassChild({
+            'await': 9,
+            'async': 8,
+        })
+        self.assertEqual(getattr(c, 'await'), 9)
+        self.assertEqual(getattr(c, 'async'), 8)
+
+        # Union
+        u = self.r.test.PythonKeywordUnion({
+            'raise': 7,
+        })
+        self.assertEqual(getattr(u, 'raise'), 7)
+        self.assertFalse(hasattr(c, 'nonlocal'))
+
 
 # }}}
 # {{{ IopyIfaceTests
