@@ -1936,6 +1936,9 @@ def configure(ctx: ConfigurationContext) -> None:
     ctx.load('python')
     ctx.load('cython_intersec')
 
+    # Rust
+    ctx.load('rust')
+
 
 class IsConfigurationContext(ConfigurationContext):  # type: ignore[misc]
 

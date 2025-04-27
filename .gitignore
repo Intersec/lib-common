@@ -34,3 +34,7 @@ mem.fifo.data.*
 /compile_commands.json
 /iop_compile_commands.json
 /.cache
+
+# rust stuff
+/.cargo/target
+/Cargo.toml

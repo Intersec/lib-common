@@ -41,6 +41,10 @@ asdf_setup() {
         "$asdf_tools_tpl" > "$asdf_tools"
     fi
 
+    # Avoid installing rust-docs which is huge.
+    # See https://github.com/asdf-community/asdf-rust?tab=readme-ov-file#configuration
+    export RUST_WITHOUT=rust-docs
+
     # Installing plugins
     asdf_log "installing ASDF plugins from '$asdf_tools'…"
     awk '/^[^#]/ {print $1}' "$asdf_tools" | \
