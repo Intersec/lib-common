@@ -44,5 +44,5 @@ cat <<EOF
 # https://asdf-vm.com/manage/configuration.html
 
 python $TOOL_VERSIONS_PYTHON
-poetry 1.8.2
+uv 0.7.2
 EOF

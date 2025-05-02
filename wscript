@@ -103,28 +103,19 @@ def configure_asdf(ctx: BuildContext) -> None:
 
 
 # }}}
-# {{{ poetry
+# {{{ uv
 
 
-def run_waf_with_poetry(ctx: BuildContext) -> None:
-    Logs.info('Waf: Run waf in poetry environment')
+def run_waf_with_uv(ctx: BuildContext) -> None:
+    Logs.info('Waf: Run waf in uv environment')
 
-    was_active = ctx.get_env_bool('POETRY_ACTIVE')
-    # Force POETRY_ACTIVE as older versions of poetry don't set it on
-    # `poetry run`, but set it on `poetry shell`.
-    if not was_active:
-        os.environ['POETRY_ACTIVE'] = '1'
-
-    exit_code = ctx.exec_command(ctx.env.POETRY + ['run'] + sys.argv,
+    exit_code = ctx.exec_command(ctx.env.UV + ['run'] + sys.argv,
                                  stdout=None, stderr=None)
     if exit_code != 0:
         sys.exit(exit_code)
 
-    if not was_active:
-        del os.environ['POETRY_ACTIVE']
 
-
-def poerty_asdf_cleanup_prev_venv(ctx: BuildContext) -> None:
+def python_asdf_cleanup_prev_venv(ctx: BuildContext) -> None:
     # If we have a virtual environment, we need to clean it
     virtual_env = os.environ.get('VIRTUAL_ENV')
     if virtual_env is not None:
@@ -133,9 +124,8 @@ def poerty_asdf_cleanup_prev_venv(ctx: BuildContext) -> None:
         new_path = old_path.replace(virtual_env + '/bin:', '')
         os.environ['PATH'] = new_path
 
-        # Remove VIRTUAL_ENV and POETRY_ACTIVE environment variables
+        # Remove VIRTUAL_ENV environment variables
         os.environ.pop('VIRTUAL_ENV', None)
-        os.environ.pop('POETRY_ACTIVATE', None)
 
     # Remove the potential ASDF python plugin and install directories
     # '.asdf/*/python/*' from the PATH.
@@ -149,34 +139,10 @@ def poerty_asdf_cleanup_prev_venv(ctx: BuildContext) -> None:
     os.environ['PATH'] = new_path
 
 
-def poetry_fix_no_env_use(ctx: BuildContext) -> None:
-    py_short_version_lines = ctx.cmd_and_log(
-        ctx.env.POETRY + ["run", "python3", "-c",
-        (
-            "import sys;"
-            "print(f'{sys.version_info[0]}.{sys.version_info[1]}')"
-        )
-    ]).strip().split('\n')
-
-    poetry_env_info_p_res = ctx.exec_command(
-        ctx.env.POETRY + ['env', 'info', '-p'])
-
-    if len(py_short_version_lines) == 1 and poetry_env_info_p_res == 0:
-        # Poetry environment is well defined or python default version is
-        # compatible with the poetry configuration, do nothing.
-        return
-
-    # Force using the python version in poetry environment already used for
-    # install.
-    # The last line of the output is the short python version we want to use.
-    py_short_version = py_short_version_lines[-1]
-    ctx.cmd_and_log(ctx.env.POETRY + ["env", "use", py_short_version])
-
-
-def poetry_no_srv_tools(ctx: BuildContext) -> None:
-    # Get python site packages from poetry
-    ctx.poetry_site_packages = ctx.cmd_and_log(
-        ctx.env.POETRY + ["run", "python3", "-c",
+def uv_no_srv_tools(ctx: BuildContext) -> None:
+    # Get python site packages from uv
+    ctx.uv_site_packages = ctx.cmd_and_log(
+        ctx.env.UV + ["run", "python3", "-c",
         (
             "import sysconfig; "
             "print(sysconfig.get_paths()['purelib'])"
@@ -186,7 +152,7 @@ def poetry_no_srv_tools(ctx: BuildContext) -> None:
     # Write intersec no srv tools path file.
     # We use a `.pth` that is automatically loaded by python.
     # See https://docs.python.org/3/library/site.html
-    no_srv_tools_file = osp.join(ctx.poetry_site_packages,
+    no_srv_tools_file = osp.join(ctx.uv_site_packages,
                                  '_intersec_no_srv_tools.pth')
     with open(no_srv_tools_file, 'w') as f:
         # Remove /srv/tools from sys.path. We don't want to depend on the
@@ -198,84 +164,62 @@ def poetry_no_srv_tools(ctx: BuildContext) -> None:
         )
 
 
-def poetry_install(ctx: BuildContext) -> None:
+def uv_sync(ctx: BuildContext) -> None:
     if ctx.env.USE_ASDF:
-        # Since with ASDF the python version changes between branches we have
-        # to ensure that the poetry venv uses the right python version.
-        #
-        # We need to clean up the previous virtual environment and ASDF
-        # version before doing the env use can interfere with the new
-        # environment installed by ASDF.
-        #
-        # Even with virtualenvs.prefer-active-python available and activated
-        # by ASDF, we still need to this manually because we still can have
-        # the previous python venv activated.
-        #
-        # `asdf shell python ...` and `$ASDF_PYTHON_VERSION` still override
-        # the configured version in .tool-versions.
-        #
-        # FYI see https://github.com/python-poetry/poetry/issues/1888 and
-        # https://github.com/asdf-community/asdf-poetry/issues/10
-        poerty_asdf_cleanup_prev_venv(ctx)
-        asdf_python = ctx.env.ASDF_SHIMS + '/python3'
-        if not osp.exists(asdf_python):
-            # If asdf_install.sh chose to use the python “system”, then we may
-            # have installed the python plugin without any custom version in
-            # which case there would be no shim for python in ASDF.
-            asdf_python = 'python3'
-        if ctx.exec_command(ctx.env.POETRY + ['env', 'use', asdf_python],
-                            stdout=None, stderr=None):
-            ctx.fatal('poetry setup for ASDF failed')
+        python_asdf_cleanup_prev_venv(ctx)
 
-    before_poetry_install = getattr(ctx, 'before_poetry_install', None)
-    if before_poetry_install is not None:
-        before_poetry_install(ctx)
+    before_uv_sync = getattr(ctx, 'before_uv_sync', None)
+    if before_uv_sync is not None:
+        before_uv_sync(ctx)
 
-    # Check poetry lock freshness before install
-    is_fresh_script = ctx.path.make_node('build/poetry_lock_is_fresh.py')
-    cmd = [is_fresh_script.abspath(), ctx.srcnode.abspath()]
-    if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
-        ctx.fatal('poetry.lock is not up-to-date. '
-                  'Run `poetry lock --no-update` or `poetry update`.')
-
-    # Install poetry packages
-    if ctx.exec_command(ctx.env.POETRY + ['install', '--no-root', '--sync'],
+    # Sync uv environment
+    if ctx.exec_command(ctx.env.UV + ['sync', '--locked'],
                         stdout=None, stderr=None):
-        ctx.fatal('poetry install failed')
+        ctx.fatal('uv sync failed')
 
-    # Force poetry environment to the compatible version
-    poetry_fix_no_env_use(ctx)
+    # Remove /srv/tools from python path in uv
+    uv_no_srv_tools(ctx)
 
-    # Remove /srv/tools from python path in poetry
-    poetry_no_srv_tools(ctx)
-
-    after_poetry_install = getattr(ctx, 'after_poetry_install', None)
-    if after_poetry_install is not None:
-        after_poetry_install(ctx)
+    after_uv_sync = getattr(ctx, 'after_uv_sync', None)
+    if after_uv_sync is not None:
+        after_uv_sync(ctx)
 
 
-def rerun_waf_configure_with_poetry(ctx: BuildContext) -> None:
-    if ctx.get_env_bool('_IN_POETRY_WAF_CONFIGURE'):
-        # We are already in a recursion with poetry, do nothing.
+def uv_environment_is_active(ctx: BuildContext) -> bool:
+    # Consider the UV environment is active if the VIRTUAL_ENV variable is set
+    # to the venv path of the project (resolving symlinks)
+    virtual_env = os.environ.get('VIRTUAL_ENV', None)
+    if not virtual_env:
+        return False
+
+    venv_path: str = os.path.realpath(virtual_env)
+    project_venv_node = ctx.srcnode.make_node('.venv')
+    project_venv_path: str = os.path.realpath(project_venv_node.abspath())
+
+    return venv_path == project_venv_path
+
+
+def rerun_waf_configure_with_uv(ctx: BuildContext) -> None:
+    if ctx.get_env_bool('_IN_UV_WAF_CONFIGURE'):
+        # We are already in a recursion with uv, do nothing.
         return
 
-    if ctx.get_env_bool('POETRY_ACTIVE') and not ctx.env.USE_ASDF:
-        # If poetry is already activated and ASDF is not in use we do nothing.
+    if uv_environment_is_active(ctx) and not ctx.env.USE_ASDF:
+        # If uv is already activated and ASDF is not in use we do nothing.
         # However if ASDF is in use, the python version that will be loaded by
         # ASDF may differ from the current active venv, and thus we need to
         # recurse anyway to use the right python version.
         return
 
-    # Set _IN_POETRY_WAF_CONFIGURE to avoid doing the poetry configuration
-    # twice.
-    os.environ['_IN_POETRY_WAF_CONFIGURE'] = '1'
+    # Set _IN_UV_WAF_CONFIGURE to avoid doing the uv configuration twice.
+    os.environ['_IN_UV_WAF_CONFIGURE'] = '1'
 
-    # Run waf with poetry.
-    run_waf_with_poetry(ctx)
+    # Run waf with uv
+    run_waf_with_uv(ctx)
 
-    # Get lockfile for waf in poetry environment.
-    poetry_waf_lockfile = ctx.cmd_and_log(
-        ctx.env.POETRY + ['run', 'python3', '-c',
+    # Get lockfile for waf in uv environment.
+    uv_waf_lockfile = ctx.cmd_and_log(
+        ctx.env.UV + ['run', 'python3', '-c',
         (
             "import sys; import os; "
             "print(os.environ.get('WAFLOCK', "
@@ -283,64 +227,64 @@ def rerun_waf_configure_with_poetry(ctx: BuildContext) -> None:
         )
     ]).strip()
 
-    # If poetry_waf_lock_file is different from the current lockfile, we need
+    # If uv_waf_lockfile is different from the current lockfile, we need
     # to copy it.
-    if poetry_waf_lockfile != Options.lockfile:
-        shutil.copy(poetry_waf_lockfile, Options.lockfile)
+    if uv_waf_lockfile != Options.lockfile:
+        shutil.copy(uv_waf_lockfile, Options.lockfile)
 
     # Do nothing more on configure.
     sys.exit(0)
 
 
-def configure_with_poetry(ctx: BuildContext) -> None:
-    if ctx.path != ctx.srcnode and not getattr(ctx, 'use_poetry', False):
-        # The current project is not lib-common and Poetry is not used for the
+def configure_with_uv(ctx: BuildContext) -> None:
+    if ctx.path != ctx.srcnode and not getattr(ctx, 'use_uv', False):
+        # The current project is not lib-common and uv is not used for the
         # current project.
         return
 
-    if ctx.get_env_bool('NO_POETRY'):
-        Logs.warn('Waf: Disabling poetry support')
+    if ctx.get_env_bool('NO_UV'):
+        Logs.warn('Waf: Disabling uv support')
         return
 
     if ctx.env.USE_ASDF:
-        ctx.find_program('poetry', path_list=[ctx.env.ASDF_SHIMS])
+        ctx.find_program('uv', path_list=[ctx.env.ASDF_SHIMS])
     else:
-        ctx.find_program('poetry')
+        ctx.find_program('uv')
 
-    if not ctx.get_env_bool('_IN_POETRY_WAF_CONFIGURE'):
-        # We are not in waf run by Poetry, install Poetry
-        poetry_install(ctx)
+    if not ctx.get_env_bool('_IN_UV_WAF_CONFIGURE'):
+        # We are not in waf run by uv, sync uv
+        uv_sync(ctx)
 
-    ctx.env.HAVE_POETRY = True
-    rerun_waf_configure_with_poetry(ctx)
+    ctx.env.HAVE_UV = True
+    rerun_waf_configure_with_uv(ctx)
 
 
-def rerun_waf_build_with_poetry(ctx: BuildContext) -> None:
-    if ctx.get_env_bool('_IN_POETRY_WAF_BUILD'):
-        # We are already in a recursion with poetry, do nothing.
+def rerun_waf_build_with_uv(ctx: BuildContext) -> None:
+    if ctx.get_env_bool('_IN_UV_WAF_BUILD'):
+        # We are already in a recursion with uv, do nothing.
         return
-    if ctx.get_env_bool('POETRY_ACTIVE') and not ctx.env.USE_ASDF:
-        # Poetry is already activated and ASDF is not in use, do nothing.
+    if uv_environment_is_active(ctx) and not ctx.env.USE_ASDF:
+        # uv environment is activated and ASDF is not in use, do nothing.
         return
 
-    # Set _IN_POETRY_WAF_BUILD to avoid doing the recursion twice.
-    os.environ['_IN_POETRY_WAF_BUILD'] = '1'
+    # Set _IN_UV_WAF_BUILD to avoid doing the recursion twice.
+    os.environ['_IN_UV_WAF_BUILD'] = '1'
 
     # Reset current directory to launch directory.
     os.chdir(ctx.launch_dir)
 
-    # Run waf with poetry.
-    run_waf_with_poetry(ctx)
+    # Run waf with uv..
+    run_waf_with_uv(ctx)
 
     # Do nothing more on build.
     sys.exit(0)
 
 
-def build_with_poetry(ctx: BuildContext) -> None:
-    if not ctx.env.HAVE_POETRY:
+def build_with_uv(ctx: BuildContext) -> None:
+    if not ctx.env.HAVE_UV:
         return
 
-    rerun_waf_build_with_poetry(ctx)
+    rerun_waf_build_with_uv(ctx)
 
 
 # }}}
@@ -359,8 +303,8 @@ def configure(ctx: ConfigurationContext) -> None:
     # First, configure and install ASDF
     configure_asdf(ctx)
 
-    # Configure and run waf configure in poetry if needed
-    configure_with_poetry(ctx)
+    # Configure and run waf configure in uv if needed
+    configure_with_uv(ctx)
 
     # Load the different tools for configure
     load_tools(ctx)
@@ -508,7 +452,7 @@ def configure(ctx: ConfigurationContext) -> None:
 
 
 def build(ctx: BuildContext) -> None:
-    build_with_poetry(ctx)
+    build_with_uv(ctx)
 
     # Declare 4 build groups:
     #  - one for generating the "version" source files

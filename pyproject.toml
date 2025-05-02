@@ -18,27 +18,25 @@
 
 # XXX: Read README-python3.adoc before adding new packages here.
 
-
-[tool.poetry]
+[project]
 name = "lib-common"
 version = "0.0.0"
 description = ""
-authors = ["R&D <rd@intersec.com>"]
+authors = [{ name = "R&D", email = "rd@intersec.com" }]
+requires-python = "~=3.9"
 
-[tool.poetry.group.dev.dependencies]
-# C extension writer for Python, used by IOPy
-cython = "~=3.0.0"
+[dependency-groups]
+dev = [
+    # C extension writer for Python, used by IOPy
+    "cython~=3.0.0",
 
-# process handling, used in tests
-psutil = "~=5.9.5"
-types-psutil = "~=5.9.5"
+    # process handling, used in tests
+    "psutil~=5.9.5",
+    "types-psutil~=5.9.5",
 
-# python linter
-pylint = "==3.3.4"
+    # python linter
+    "pylint==3.3.4",
 
-# static typing for Python
-mypy = "==1.14.1"
-
-[tool.poetry.dependencies]
-# Require at least Python version 3.9
-python = "^3.9"
+    # static typing for Python
+    "mypy==1.14.1",
+]
