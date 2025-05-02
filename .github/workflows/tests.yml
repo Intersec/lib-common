@@ -42,10 +42,10 @@ jobs:
           sudo python3 -m pip install --upgrade pip && \
           sudo python3 -m pip install virtualenv
 
-      - name: Install poetry
-        run: curl -sL https://install.python-poetry.org | python3 - -y
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
-      - name: Update PATH for poetry
+      - name: Update PATH for uv
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install waf
