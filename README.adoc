@@ -57,7 +57,7 @@ llvm:: base compiler toolchain
 libclang-dev:: base c and cpp compiler development library
 clang:: base c and cpp compiler
 waf:: build system
-poetry:: managing Python dependencies
+uv:: managing Python dependencies
 openssl:: various cryptography requirements
 flex:: IOP syntax lexer at https://github.com/westes/flex
 gperf:: GNU library for perfect hash function generation at
@@ -141,12 +141,12 @@ In order to run the tests, the following packages also need to be installed:
 $ sudo dnf install libsmi diffutils
 ---------------------------------
 
-==== Poetry
+==== uv
 
-Poetry is used to install Python dependencies used on compilation (Cython),
+`uv` is used to install Python dependencies used on compilation (Cython),
 and in tests.
-To install Poetry, follow the instructions on the official documentation:
-https://python-poetry.org/docs/#osx--linux--bashonwindows-install-instructions
+To install `uv`, follow the instructions on the official documentation:
+https://docs.astral.sh/uv/getting-started/installation/
 
 === Building lib-common
 
@@ -283,7 +283,7 @@ Thanks in advance for helping to make this project a success!
 
 == Copyright and License
 
-Copyright (C) 2005-2022 by Intersec SA and the individual contributors to lib-common.
+Copyright (C) 2005-2025 by Intersec SA and the individual contributors to lib-common.
 
 Licensed under the Apache License, Version 2.0 (the "License").  You may obtain
 a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
