@@ -1796,11 +1796,11 @@ void el_loop_timeout(int timeout)
 
         diff = end - start;
         if (diff > timeout + 100) {
-            e_warning("worker is too long: %dms while expected %dms",
+            e_warning("worker is too long: %'dms while expected %'dms",
                       diff, timeout);
         } else
         if (diff > MAX(timeout * 2, timeout + 10)) {
-            e_trace(0, "worker is too long: %dms while expecting %dms",
+            e_trace(0, "worker is too long: %'dms while expecting %'dms",
                     diff, timeout);
         }
         timeout = MAX(0, timeout - diff);
