@@ -716,6 +716,16 @@ struct ichannel_t {
      */
     bool is_connected :  1;
 
+    /** Disable user version checking.
+     *
+     * User version checking is enabled globally through \ref
+     * ic_set_user_version. Setting this parameter to true allows to disable
+     * the user version check for this IChannel.
+     *
+     * Default is false.
+     */
+    bool no_user_version_check :  1;
+
     /** Next slot ID to try for messages slots allocation.
      */
     unsigned nextslot;

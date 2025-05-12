@@ -2950,7 +2950,7 @@ static int ic_version_handshake(el_t ev, int fd, short events, data_t priv)
 
     /* Check for custom user version compatibility. */
     user_version_check_cb = iop_env_ctx->ic_user_version.check_cb;
-    if (!ic->is_unix && user_version_check_cb &&
+    if (!ic->is_unix && !ic->no_user_version_check && user_version_check_cb &&
         !(*user_version_check_cb)(user_version))
     {
         uint32_t current_version =
