@@ -23,16 +23,61 @@ builtins = ["_iop_registry"]
 [lint]
 
 select = [
-    # default values
-    "E4",  # pycodestyle - errors
-    "E7",  # pycodestyle - errors
-    "E9",  # pycodestyle - errors
-    "F",   # pyflakes (runtime errors, unused imports, etc.)
+    "F",    # pyflakes (runtime errors, unused imports, etc.)
+    "E",    # pycodestyle - errors
+    "W",    # pycodestyle - warnings
+    "I",    # isort (import sorting)
+    "PL",   # pylint
+    "RUF"   # Ruff-specific
 ]
 
 # Enable Pylint rules + some essential Ruff defaults
 extend-select = [
-    "PL",   # Pylint rules
+
+    # Rules mark as PREVIEW are unstable.
+    # The --preview flag is required for use. (not activated by default)
+
+    # flake
+    "A",      # flake8-builtins
+    "ASYNC",  # flake8-async
+    "B",      # flake8-bugbear (common bugs)
+    "BLE",    # flake8-blind-except
+    "C4",     # flake8-comprehensions
+    "COM",    # flake8-commas
+    "CPY",    # flake8-copyright - PREVIEW
+    "DJ",     # flake8-django
+    "DTZ",    # flake8-datetimez
+    "EXE",    # flake8-executable
+    "FA",     # flake8-future-annotations
+    "ISC",    # flake8-implicit-str-concat
+    "INP",    # flake8-no-pep420
+    "INT",    # flake8-gettext
+    "PYI",    # flake8-pyi
+    "Q",      # flake8-quotes
+    "RET",    # flake8-return
+    "RSE",    # flake8-raise
+    "S",      # flake8-bandit
+    "SIM",    # flake8-simplify
+    "SLOT",   # flake8-slots
+    "T10",    # flake8-debugger
+    "T20",    # flake8-print
+    "YTT",    # flake8-2020
+    "PIE",    # flake8-pie
+    "G",      # flake8-logging-format
+
+    # Others
+    "AIR",    # Airflow
+    "D",      # pydocstyle (formatting errors)
+    "DOC",    # pydoclint - PREVIEW
+    "FAST",   # fastAPI
+    "FLY",    # flynt
+    "FURB",   # refurb
+    "N",      # pep8-naming
+    "NPY",    # numPy-specific rules
+    "PD",     # pandas-vet
+    "PERF",   # perflint
+    "TRY",    # tryceratops
+    "UP",     # pyupgrade (modernize syntax)
 ]
 
 # Ignore specific rules you find too noisy or don't need
@@ -55,13 +100,36 @@ ignore = [
     "PLW1514",  # unspecified-encoding - PREVIEW
 
     # PLC - pylint - convention
-    #"PLC1901", # compare-to-empty-string - PREVIEW
+    "PLC1901", # compare-to-empty-string - PREVIEW
 
     # PLE - pylint - error
     "PLE1205",  # too-few-public-methods
 
+    # ARG - flake8-unused-arguments
+    "ARG001",   # unused-argument
+
+    # B - flake8-bugbear
+    "B026",     # star-arg-unpacking-after-keyword-arg
+
+    # D - pydocstyle - error
+    "D100",     # undocumented-public-module
+    "D101",     # undocumented-public-class
+    "D102",     # undocumented-public-method
+    "D103",     # undocumented-public-function
+    "D104",     # undocumented-public-package
+    "D105",     # undocumented-magic-method
+    "D106",     # undocumented-public-nested-class
+    "D107",     # undocumented-public-init
+    "D212",     # multi-line-summary-first-line
+
     # E - pycodestyle - error
     "E731",     # lambda-assignment
+
+    # RET - flake8-return
+    "RET501",   # unnecessary-return-none
+
+    # UP - pyupgrade
+    "UP015",    # redundant-open-modes
 ]
 
 # Only ignore variables named "_".
@@ -71,3 +139,6 @@ dummy-variable-rgx = "_"
 [lint.extend-per-file-ignores]
 "**/__init__.py" = ["F401"]  # unused-import
 "**/wscript_build" = ["F821"]  # undefined-name
+
+[lint.flake8-quotes]
+inline-quotes = "single"
