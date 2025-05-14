@@ -321,7 +321,7 @@ class Global(Result):
             return "# NO ADDITIONAL INFOS"
         res = ["#"]
         res.append(": ADDITIONAL INFOS")
-        res.extend([":  {0}".format(l) for l in self.additionals])
+        res.extend([":  {0}".format(elt) for elt in self.additionals])
         return "\n".join(res)
 
     def z_errors(self) -> str:
@@ -661,9 +661,9 @@ class StreamParser:
                 if self.error:
                     self.error.traces.append(line[1:])
 
-                    l = RE_BROWSER_LOG.match(line)
-                    if l is not None:
-                        self.error.browser_log_l.append(l.group('log'))
+                    elt = RE_BROWSER_LOG.match(line)
+                    if elt is not None:
+                        self.error.browser_log_l.append(elt.group('log'))
 
                     p = RE_CORE_PROCESS.match(line)
                     if p is not None or self.core_logs:

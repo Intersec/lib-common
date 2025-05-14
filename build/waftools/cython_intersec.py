@@ -316,11 +316,11 @@ class cython(Task.Task): # type: ignore[misc]
             self.scan_dependency(state, inc_dirs, mod, mod_file_name, False)
 
         # Check if some functions are exported
-        for l in txt.splitlines():
-            if CY_API_PAT.match(l):
-                if ' api ' in l:
+        for elt in txt.splitlines():
+            if CY_API_PAT.match(elt):
+                if ' api ' in elt:
                     state.has_api = True
-                if ' public ' in l:
+                if ' public ' in elt:
                     state.has_public = True
 
     def scan_dependency(self, state: ScannerState, inc_dirs: List[Node],
