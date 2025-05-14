@@ -288,9 +288,9 @@ def create_corpus_files_and_dict(
             # If we want to generate files containing a fuzzing sequence,
             # create it now.
             if generate_files:
-                generated_file = open(os.path.join(CORPUS_DIR,
-                                                   f'{CORPUS_NAME}-{i}.bin'),
-                                      mode='wb')
+                generated_file = open(  # noqa: SIM115 (open-file-with-context-handler)
+                    os.path.join(CORPUS_DIR, f'{CORPUS_NAME}-{i}.bin'),
+                    mode='wb')
 
             # Write for one sequence each step.
             for item in corpus_case:

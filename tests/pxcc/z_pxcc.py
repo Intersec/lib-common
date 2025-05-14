@@ -37,15 +37,15 @@ class PxccTests(z.TestCase):
         output_file_name = 'zchk_cmod_pxc.pxd'
         expected_file_path = osp.join(DIR, expected_file_name)
         output_file_path = osp.join(DIR, output_file_name)
-        with open(expected_file_path, 'r') as expected_file:
-            with open(output_file_path, 'r') as output_file:
-                diff_list = difflib.unified_diff(
-                    expected_file.readlines(),
-                    output_file.readlines(),
-                    fromfile=expected_file_name,
-                    tofile=output_file_name,
-                    lineterm='')
-                diff = '\n'.join(line.rstrip('\n') for line in diff_list)
+        with (open(expected_file_path, 'r') as expected_file,
+              open(output_file_path, 'r') as output_file):
+            diff_list = difflib.unified_diff(
+                expected_file.readlines(),
+                output_file.readlines(),
+                fromfile=expected_file_name,
+                tofile=output_file_name,
+                lineterm='')
+            diff = '\n'.join(line.rstrip('\n') for line in diff_list)
 
         self.assertTrue(len(diff) == 0,
                         f'content of `{expected_file_name}` is not equal '

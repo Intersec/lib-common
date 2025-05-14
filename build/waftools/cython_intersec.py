@@ -210,11 +210,10 @@ class cython(Task.Task): # type: ignore[misc]
 
     def post_run(self) -> None:
         for x in self.outputs:
-            if x.name.endswith('.h'):
-                if not x.exists():
-                    if Logs.verbose:
-                        Logs.warn('Expected %r', x.abspath())
-                    x.write('')
+            if x.name.endswith('.h') and not x.exists():
+                if Logs.verbose:
+                    Logs.warn('Expected %r', x.abspath())
+                x.write('')
         Task.Task.post_run(self)
 
     def scan(self) -> ScanRes:

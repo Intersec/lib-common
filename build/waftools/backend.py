@@ -558,9 +558,7 @@ def gen_file_keep(parent_node: Node, name: str) -> bool:
     """
     # Exclude event.iop.json files produced in bigdata products by the schema
     # library
-    if name == 'event.iop.json' and parent_node.name != 'bigdata':
-        return False
-    return True
+    return not (name == 'event.iop.json' and parent_node.name != 'bigdata')
 
 
 def is_gen_file(ctx: BuildContext, parent_node: Node, name: str) -> bool:

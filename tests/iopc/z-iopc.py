@@ -680,9 +680,8 @@ class IopcTest(z.TestCase):
                                  'attrs_multi_valid.iop.c')
         path_ref = os.path.join(TEST_PATH,
                                 'reference_attrs_multi_valid.c')
-        with open(path_base, 'r') as ref_base:
-            with open(path_ref, 'r') as ref:
-                self.assertEqual(ref.read(), ref_base.read())
+        with open(path_base, 'r') as ref_base, open(path_ref, 'r') as ref:
+            self.assertEqual(ref.read(), ref_base.read())
 
     def test_attrs_multi_constraints(self) -> None:
         f = 'attrs_multi_constraints.iop'
@@ -691,9 +690,8 @@ class IopcTest(z.TestCase):
         path_base = os.path.join(TEST_PATH, 'attrs_multi_constraints.iop.c')
         path_ref = os.path.join(TEST_PATH,
                                 'reference_attrs_multi_constraints.c')
-        with open(path_base, 'r') as ref_base:
-            with open(path_ref, 'r') as ref:
-                self.assertEqual(ref.read(), ref_base.read())
+        with open(path_base, 'r') as ref_base, open(path_ref, 'r') as ref:
+            self.assertEqual(ref.read(), ref_base.read())
 
     def test_attrs_invalid_1(self) -> None:
         self.run_iopc('attrs_invalid_1.iop', False,

@@ -158,6 +158,10 @@ ignore = [
     # RET - flake8-return
     "RET501",   # unnecessary-return-none
 
+    # SIM - flake8-simplify
+    "SIM105",   # suppressible-exception
+    "SIM108",   # if-else-block-instead-of-if-exp
+
     # UP - pyupgrade
     "UP015",    # redundant-open-modes
 ]
