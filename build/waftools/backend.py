@@ -203,7 +203,7 @@ def deep_add_tgen_compile_flags(ctx: BuildContext, tgen: TaskGen,
                 continue
 
             features = use_tgen.to_list(getattr(use_tgen, 'features', []))
-            if not 'cstlib' in features:
+            if 'cstlib' not in features:
                 # the 'use' element is not a static library
                 continue
 
@@ -213,7 +213,7 @@ def deep_add_tgen_compile_flags(ctx: BuildContext, tgen: TaskGen,
             use[i] = dep_name
 
             # Declare the dependency static library, if not done yet
-            if not use_name in dep_libs:
+            if use_name not in dep_libs:
                 dep_lib = duplicate_lib_tgen(ctx, dep_name, use_tgen)
                 add_tgen_compile_flags(dep_lib)
                 dep_libs.add(use_name)
@@ -261,7 +261,7 @@ def compile_fpic(ctx: BuildContext) -> None:
     for tgen in ctx.get_all_task_gen():
         features = tgen.to_list(getattr(tgen, 'features', []))
 
-        if not 'cshlib' in features:
+        if 'cshlib' not in features:
             continue
 
         deep_add_tgen_compile_flags(ctx, tgen, pic_suffix, pic_libs,
@@ -282,7 +282,7 @@ def compile_fuzzing_programs(ctx: BuildContext) -> None:
     for tgen in ctx.get_all_task_gen():
         features = tgen.to_list(getattr(tgen, 'features', []))
 
-        if not 'fuzzing' in features:
+        if 'fuzzing' not in features:
             continue
 
         deep_add_tgen_compile_flags(ctx, tgen, fuzzing_suffix, fuzzing_libs,
@@ -862,7 +862,7 @@ def process_blk(self: TaskGen, node: Node) -> None:
         ensure_clang_rewrite_blocks(self.bld)
         blk_c_node = node.change_ext_src('.blk.c')
 
-        if not blk_c_node in self.env.GEN_FILES:
+        if blk_c_node not in self.env.GEN_FILES:
             self.env.GEN_FILES.add(blk_c_node)
 
             # Create block rewrite task.
@@ -918,7 +918,7 @@ def process_blkk(self: TaskGen, node: Node) -> None:
         ensure_clang_rewrite_blocks(self.bld)
         blkk_cc_node = node.change_ext_src('.blkk.cc')
 
-        if not blkk_cc_node in self.env.GEN_FILES:
+        if blkk_cc_node not in self.env.GEN_FILES:
             self.env.GEN_FILES.add(blkk_cc_node)
 
             # Create block rewrite task.
@@ -947,7 +947,7 @@ class Perf2c(Task): # type: ignore[misc]
 def process_perf(self: TaskGen, node: Node) -> None:
     c_node = node.change_ext_src('.c')
 
-    if not c_node in self.env.GEN_FILES:
+    if c_node not in self.env.GEN_FILES:
         self.env.GEN_FILES.add(c_node)
         self.create_task('Perf2c', node, c_node, cwd=self.bld.srcnode)
 
@@ -970,7 +970,7 @@ class Lex2c(Task): # type: ignore[misc]
 def process_lex(self: TaskGen, node: Node) -> None:
     c_node = node.change_ext_src('.c')
 
-    if not c_node in self.env.GEN_FILES:
+    if c_node not in self.env.GEN_FILES:
         self.env.GEN_FILES.add(c_node)
         self.create_task('Lex2c', node, c_node, cwd=self.bld.srcnode)
 
@@ -1034,7 +1034,7 @@ def process_fc(self: TaskGen, node: Node) -> None:
 
     # Handle file
     h_node = node.change_ext_src('.fc.c')
-    if not h_node in self.env.GEN_FILES:
+    if h_node not in self.env.GEN_FILES:
         self.env.GEN_FILES.add(h_node)
         inputs = [node, ctx.farchc_tgen.link_task.outputs[0]]
         farch_task = self.create_task('Fc2c', inputs, h_node)
@@ -1062,7 +1062,7 @@ def process_tokens(self: TaskGen, node: Node) -> None:
     c_node = node.change_ext_src('tokens.c')
     h_node = node.change_ext_src('tokens.h')
 
-    if not h_node in self.env.GEN_FILES:
+    if h_node not in self.env.GEN_FILES:
         self.env.GEN_FILES.add(h_node)
         self.create_task('Tokens2c', [node], [c_node, h_node])
 
@@ -1109,7 +1109,7 @@ class IopcOptions:
             self.ts_node = None
 
         # Add options in global cache
-        assert not self.path in ctx.iopc_options
+        assert self.path not in ctx.iopc_options
         ctx.iopc_options[self.path] = self
 
     @property
@@ -1262,7 +1262,7 @@ def process_iop(self: TaskGen, node: Node) -> None:
 
     # Handle file
     c_node = node.change_ext_src('.iop.c')
-    if not c_node in self.env.GEN_FILES:
+    if c_node not in self.env.GEN_FILES:
         self.env.GEN_FILES.add(c_node)
 
         # Get options
@@ -1398,10 +1398,9 @@ def process_c_for_check(self: TaskGen, node: Node) -> None:
             if self.nocheck:
                 # Checks are disabled for this task generator
                 return
-        else:
-            if node.path_from(self.path) in self.nocheck:
-                # Checks are disabled for this node
-                return
+        elif node.path_from(self.path) in self.nocheck:
+            # Checks are disabled for this node
+            return
 
     # Do not check generated files, or files for which a check task was
     # already created
