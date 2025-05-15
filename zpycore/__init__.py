@@ -16,8 +16,8 @@
 #                                                                         #
 ###########################################################################
 
-from unittest import *
-
 from . import util
 from . import zunittest
-from .zunittest import *
+from .zunittest import TestCase, ZGroup, main, ZFlags
+
+__all__ = ['TestCase', 'ZGroup', 'main', 'ZFlags']
