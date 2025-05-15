@@ -1007,13 +1007,13 @@ class Fc2c(FirstInputStrTask):
         deps = []
 
         for line in lines:
-            line = line.strip()
-            if len(line) > 0 and line[0] != '#':
+            stripped_line = line.strip()
+            if len(stripped_line) > 0 and stripped_line[0] != '#':
                 if variable_name_found:
-                    dep_node = node.parent.find_node(line)
+                    dep_node = node.parent.find_node(stripped_line)
                     if dep_node is None:
                         err = 'cannot find `{0}` when scanning `{1}`'
-                        node.ctx.fatal(err.format(line, node))
+                        node.ctx.fatal(err.format(stripped_line, node))
                     deps.append(dep_node)
                 else:
                     variable_name_found = True

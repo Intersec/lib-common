@@ -113,11 +113,10 @@ class CompileDbContext(Build.BuildContext): # type: ignore[misc]
                 arg_to_be_replaced = True
 
             # Replace it with '-o/dev/null'
-            if arg_to_be_replaced:
-                arg = '-o/dev/null'
+            cmd_arg = '-o/dev/null' if arg_to_be_replaced else arg
 
             # Else, add the argument to the new ones
-            new_cmd.append(arg)
+            new_cmd.append(cmd_arg)
 
         return new_cmd
 

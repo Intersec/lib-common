@@ -62,14 +62,14 @@ def dump_zfile(
 
     with open(zfile, 'r') as zfile_fd:
         for num, line in enumerate(zfile_fd):
-            line = line.strip()
-            test = line.split()[0]
+            stripped_line = line.strip()
+            test = stripped_line.split()[0]
             test_path = os.path.join(folder, test)
 
-            if line.startswith('#'):
+            if stripped_line.startswith('#'):
                 continue
 
-            if set(RE_TAGS.findall(line)) & Z_TAG_SKIP:
+            if set(RE_TAGS.findall(stripped_line)) & Z_TAG_SKIP:
                 continue
 
             for group, regex, check in GROUPS:
@@ -78,7 +78,7 @@ def dump_zfile(
 
                     if check and not check(test_path):
                         err = "%s:%d: no match for %s" % (zfile, num + 1,
-                                                          line)
+                                                          stripped_line)
 
                     yield (folder, test, err)
                     break
