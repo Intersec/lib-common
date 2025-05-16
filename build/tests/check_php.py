@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# encoding: utf-8
 ###########################################################################
 #                                                                         #
 # Copyright 2022 INTERSEC SA                                              #
@@ -28,10 +27,10 @@ The script will check PHP syntax in all subdirectories.
 """
 
 
-from subprocess import check_output, STDOUT, CalledProcessError
+import fnmatch
 import os
 import sys
-import fnmatch
+from subprocess import STDOUT, CalledProcessError, check_output
 
 
 def find_php_files(path: str) -> list[str]:
@@ -53,19 +52,20 @@ def main() -> None:
 
     files = find_php_files(root_dir)
 
-    print("1..{0} Check PHP syntax".format(len(files)))
+    print(f"1..{len(files)} Check PHP syntax")
     fail = 0
     for i, filename in enumerate(files, 1):
         try:
             check_output(['php', '-l', filename], stderr=STDOUT)
-            print("{0} pass {1}".format(i, filename))
+            print(f"{i} pass {filename}")
         except CalledProcessError as err:
             fail += 1
-            print("{0} fail {1}{2}".format(i, filename, err.output))
+            print(f"{i} fail {filename}{err.output}")
 
     fail_percent = 100.0 * fail / len(files)
-    print("# 0% skipped  {0}% passed {1}% failed".format(
-        int(100 - fail_percent), int(fail_percent)))
+    print("# 0% skipped  "
+          f"{int(100 - fail_percent)}% passed "
+          f"{int(fail_percent)}% failed")
 
 
 if __name__ == "__main__":

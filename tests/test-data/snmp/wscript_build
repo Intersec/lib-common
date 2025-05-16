@@ -17,7 +17,7 @@
 ###########################################################################
 # pylint: disable=used-before-assignment
 
-from waflib.Build import BuildContext # pylint: disable=import-error
+from waflib.Build import BuildContext  # pylint: disable=import-error
 
 ctx: BuildContext
 
@@ -25,5 +25,5 @@ ctx: BuildContext
 ctx.stlib(target='tst-snmp-iop', features='c cstlib', source=[
     'snmp_test.iop',
     'snmp_test_doc.iop',
-    'snmp_intersec_test.iop'
+    'snmp_intersec_test.iop',
 ])

@@ -16,30 +16,34 @@
 #                                                                         #
 ###########################################################################
 
-'''
+"""
 Contains the code that could be useful for both backend and frontend build.
-'''
+"""
 
 import os
+from types import TracebackType
+from typing import (
+    # We still need to use List, Set and Type here because this file
+    # is imported in Python 3.6 by waf before switching to Python 3.9+.
+    TYPE_CHECKING,
+    Callable,
+    List,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+    cast,
+)
 
 # pylint: disable = import-error
 import waflib
-from waflib import Build, Context, TaskGen, Logs, Utils, Errors, Options
-
+from waflib import Build, Context, Errors, Logs, Options, TaskGen, Utils
 from waflib.Build import BuildContext, inst
 from waflib.Configure import ConfigurationContext
 from waflib.Node import Node
-from waflib.Task import Task, compile_fun, SKIP_ME, RUN_ME
+from waflib.Task import RUN_ME, SKIP_ME, Task, compile_fun
+
 # pylint: enable = import-error
-
-from typing import (
-    Callable, Optional, TypeVar, TYPE_CHECKING, cast,
-    # We still need to use them here because this file is imported in
-    # Python 3.6 by waf before switching to Python 3.9+.
-    List, Set, Type,
-)
-from types import TracebackType
-
 
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
@@ -128,9 +132,9 @@ def check_used(self: TaskGen, name: str) -> None:
             return
 
     raise Errors.WafError(
-        'In task generator `{tgen}` (path={path}): '
+        f'In task generator `{self.name}` (path={self.path}): '
         'cannot find tgen or env variable that matches '
-        '`{name}`'.format(tgen=self.name, path=self.path, name=name))
+        f'`{name}`')
 
 
 @TaskGen.feature('*')
@@ -170,31 +174,36 @@ def run_checks(ctx: BuildContext) -> None:
         return
 
     path = ctx.launch_node().path_from(ctx.env.PROJECT_ROOT)
-    cmd = '{0} {1}'.format(ctx.env.RUN_CHECKS_SH[0], path)
+    cmd = f'{ctx.env.RUN_CHECKS_SH[0]} {path}'
     if ctx.exec_command(cmd, stdout=None, stderr=None, env=env):
         ctx.fatal('')
 
 class CheckClass(BuildContext): # type: ignore[misc]
-    '''run tests (no web)'''
+    """run tests (no web)"""
+
     cmd = 'check'
     has_jasmine_tests = True
 
 class FastCheckClass(BuildContext): # type: ignore[misc]
-    '''run tests in fast mode (no web)'''
+    """run tests in fast mode (no web)"""
+
     cmd = 'fast-check'
     has_jasmine_tests = True
 
 class WwwCheckClass(BuildContext): # type: ignore[misc]
-    '''run jasmine tests'''
+    """run jasmine tests"""
+
     cmd = 'www-check'
     has_jasmine_tests = True
 
 class SeleniumCheckClass(BuildContext): # type: ignore[misc]
-    '''run selenium tests (including slow ones)'''
+    """run selenium tests (including slow ones)"""
+
     cmd = 'selenium'
 
 class FastSeleniumCheckClass(BuildContext): # type: ignore[misc]
-    '''run selenium tests (without slow ones)'''
+    """run selenium tests (without slow ones)"""
+
     cmd = 'fast-selenium'
 
 
@@ -202,10 +211,10 @@ class FastSeleniumCheckClass(BuildContext): # type: ignore[misc]
 # {{{ Node::change_ext_src method
 
 
-''' Declares the method Node.change_ext_src, which is similar to
+""" Declares the method Node.change_ext_src, which is similar to
     Node.change_ext, excepts it makes a node in the source directory (instead
     of the build directory).
-'''
+"""
 
 def node_change_ext_src(self: Node, ext: str) -> Node:
     name = self.name
@@ -256,7 +265,7 @@ class UseGroup:
             self,
             exctype: Optional[Type[BaseException]],
             excinst: Optional[BaseException],
-            exctb: Optional[TracebackType]
+            exctb: Optional[TracebackType],
     ) -> None:
         self.ctx.set_group(self.previous_group)
 
@@ -278,15 +287,16 @@ Context.Context.get_env_bool = get_env_bool
 
 
 def add_scan_in_signature(ctx: BuildContext) -> None:
-    ''' By default in waf, tasks are not re-run when their scan method
-        changes. This is an issue that caused real bugs in our project when
-        switching branches.
-        The purpose of this code is to take the scan method of tasks in the
-        tasks signatures, like it's done for the run method.
+    """
+    By default in waf, tasks are not re-run when their scan method
+    changes. This is an issue that caused real bugs in our project when
+    switching branches.
+    The purpose of this code is to take the scan method of tasks in the
+    tasks signatures, like it's done for the run method.
 
-        Note: https://gitlab.com/ita1024/waf/issues/2209 was open to fix this
-              bug in waf, but it was rejected.
-    '''
+    Note: https://gitlab.com/ita1024/waf/issues/2209 was open to fix this
+          bug in waf, but it was rejected.
+    """
     for task in waflib.Task.classes.values():
         if task.scan:
             task.hcode += Utils.h_fun(task.scan).encode('utf-8')
@@ -327,7 +337,7 @@ def add_scan_in_signature(ctx: BuildContext) -> None:
 @TaskGen.feature('*')
 @TaskGen.after('process_subst', 'process_rule', 'process_source')
 def remove_default_install_tasks(self: TaskGen) -> None:
-    """ Remove all default install tasks """
+    """Remove all default install tasks"""
     for i, t in enumerate(self.tasks):
         if isinstance(t, inst):
             del self.tasks[i]
@@ -338,7 +348,8 @@ def remove_default_install_tasks(self: TaskGen) -> None:
 
 
 class CustomInstall(Task): # type: ignore[misc]
-    """ Task to start custom shell commands on install. """
+    """Task to start custom shell commands on install."""
+
     color = 'PINK'
     after = ['cprogram', 'cshlib', 'vnum']
 
@@ -352,19 +363,20 @@ class CustomInstall(Task): # type: ignore[misc]
         return 'Installing'
 
     def uid(self) -> int:
-        """ Since this task has no inputs, return unique id from the commands.
+        """
+        Since this task has no inputs, return unique id from the commands.
         """
         res: int = Utils.h_list([self.__class__.__name__] + self.commands)
         return res
 
     def runnable_status(self) -> int:
-        """ Installation tasks are always executed on install. """
+        """Installation tasks are always executed on install."""
         if self.generator.bld.is_install <= 0:
             return cast(int, SKIP_ME)
         return cast(int, RUN_ME)
 
     def run(self) -> int:
-        """ Execute every shell commands in self.commands. """
+        """Execute every shell commands in self.commands."""
         for cmd in self.commands:
             # compile_fun do the right thing by replacing the environment
             # variables in the command.
@@ -445,7 +457,8 @@ def run_pylint(ctx: BuildContext) -> None:
 
 
 class PylintClass(BuildContext): # type: ignore[misc]
-    '''run pylint checks on committed python files'''
+    """run pylint checks on committed python files"""
+
     cmd = 'pylint'
 
 
@@ -461,7 +474,8 @@ def run_mypy(ctx: BuildContext) -> None:
 
 
 class MypyClass(BuildContext): # type: ignore[misc]
-    '''run mypy checks on committed python files'''
+    """run mypy checks on committed python files"""
+
     cmd = 'mypy'
 
 

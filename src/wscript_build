@@ -17,7 +17,7 @@
 ###########################################################################
 # pylint: disable=invalid-name, used-before-assignment
 
-from waflib.Build import BuildContext # pylint: disable=import-error
+from waflib.Build import BuildContext  # pylint: disable=import-error
 
 ctx: BuildContext
 
@@ -145,7 +145,7 @@ ctx(rule=(
 ), cwd='.', source=[
     'net/rfc7541-tables.txt',
     'net/hpack-generate-huffman-tables.py',
-    'net/hpack-priv.h'
+    'net/hpack-priv.h',
 ], target='net/hpack-huffman-encoding-table.c')
 
 ctx(rule=(
@@ -154,7 +154,7 @@ ctx(rule=(
 ), cwd='.', source=[
     'net/rfc7541-tables.txt',
     'net/hpack-generate-huffman-tables.py',
-    'net/hpack-priv.h'
+    'net/hpack-priv.h',
 ], target='net/hpack-huffman-decoding-table.c')
 
 # }}}
@@ -162,7 +162,7 @@ ctx(rule=(
 # Full lib-common library
 ctx.stlib(target='libcommon', features='c cstlib', depends_on=[
     'net/hpack-huffman-encoding-table.c',
-    'net/hpack-huffman-decoding-table.c'
+    'net/hpack-huffman-decoding-table.c',
 ], use=[
     'libcommon-iop',
     'libcommon-minimal',

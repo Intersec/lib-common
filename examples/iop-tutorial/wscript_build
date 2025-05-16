@@ -17,7 +17,7 @@
 ###########################################################################
 # pylint: disable=used-before-assignment
 
-from waflib.Build import BuildContext # pylint: disable=import-error
+from waflib.Build import BuildContext  # pylint: disable=import-error
 
 bld: BuildContext
 

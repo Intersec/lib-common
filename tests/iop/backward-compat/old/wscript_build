@@ -17,7 +17,7 @@
 ###########################################################################
 # pylint: disable=used-before-assignment
 
-from waflib.Build import BuildContext # pylint: disable=import-error
+from waflib.Build import BuildContext  # pylint: disable=import-error
 
 bld: BuildContext
 
@@ -26,4 +26,4 @@ bld: BuildContext
 bld.shlib(target='zchk-tstiop-backward-compat-typedef-old', source=[
     'tstiop_backward_compat_typedef_old.c',
     'tstiop_backward_compat_typedef.iop',
-], use=['libcommon',], remove_dynlibs=True)
+], use=['libcommon'], remove_dynlibs=True)

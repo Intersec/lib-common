@@ -1,27 +1,30 @@
 #! /usr/bin/env python3
-# encoding: utf-8
 # Thomas Nagy, 2010-2015
 # Romain Le Godais, Nicolas Pauss, 2018
 
-import re
 import os.path as osp
-
-# pylint: disable=import-error
-from waflib import Task, TaskGen, Logs
-from waflib.Tools import c as c_tool
-from waflib.Node import Node
-from waflib.Build import BuildContext
-from waflib.Options import OptionsContext
-from waflib.Configure import ConfigurationContext
-# pylint: enable = import-error
-
+import re
 from typing import (
-    Callable, Optional, TypeVar, TYPE_CHECKING,
-    # We still need to use them here because this file is imported in
-    # Python 3.6 by waf before switching to Python 3.9+.
-    List, Set, Tuple,
+    # We still need to use List, Set and Tuple here because this file
+    # is imported in Python 3.6 by waf before switching to Python 3.9+.
+    TYPE_CHECKING,
+    Callable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
 )
 
+# pylint: disable = import-error
+from waflib import Logs, Task, TaskGen
+from waflib.Build import BuildContext
+from waflib.Configure import ConfigurationContext
+from waflib.Node import Node
+from waflib.Options import OptionsContext
+from waflib.Tools import c as c_tool
+
+# pylint: enable = import-error
 
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
@@ -88,7 +91,6 @@ class CythonC(c_tool.c): # type: ignore[misc]
         the original c preprocessor does not work on them.
         Cf. https://gitlab.com/ita1024/waf/issues/2208 for the details.
         """
-
         # Save task environment
         self.env.stash()
 
@@ -113,7 +115,6 @@ class CythonC(c_tool.c): # type: ignore[misc]
         clags to ignore warnings that need to be ignored in the c-cython
         files.
         """
-
         # Save task environment
         self.env.stash()
 
@@ -149,18 +150,25 @@ RE_IMPORT_CYT = re.compile(r"""
     (?:from\s+([\w.]+)*\s+)?       # optionally match "from foo(.baz)*" and
                                    # capture foo
     c?import\s(\w+|[*])            # require "import bar" and capture bar
-    """, re.M | re.VERBOSE)
+    """, re.MULTILINE | re.VERBOSE)
 RE_INCLUDE_CYT = re.compile(r"""
     ^\s*                           # may begin with some whitespace characters
     include\s+[\"'](.+)[\"']       # capture include path
-    """, re.M | re.VERBOSE)
+    """, re.MULTILINE | re.VERBOSE)
 
 # pylint: disable=invalid-name
 class cython(Task.Task): # type: ignore[misc]
     class ScannerState:
         """Class to hold the state on scan method."""
-        __slots__ = ('inc_dirs', 'nodes', 'found', 'missing', 'has_api',
-                     'has_public')
+
+        __slots__ = (
+            'found',
+            'has_api',
+            'has_public',
+            'inc_dirs',
+            'missing',
+            'nodes',
+        )
 
         def __init__(self) -> None:
             self.inc_dirs: List[str] = []
@@ -286,7 +294,6 @@ class cython(Task.Task): # type: ignore[misc]
         Scan the dependencies of the file located at the given node
         recursively.
         """
-
         state.nodes.add(node)
         txt = node.read()
 
@@ -367,5 +374,5 @@ def configure(ctx: ConfigurationContext) -> None:
         ctx.env.CYTHONFLAGS = ctx.options.cython_flags
     ctx.env.CYTHONSUFFIX = ctx.options.cython_suffix
     ctx.env.PYTHON_HEXVERSION = ctx.cmd_and_log(ctx.env.PYTHON + [
-        '-c', 'import sys; print(hex(sys.hexversion))'
+        '-c', 'import sys; print(hex(sys.hexversion))',
     ]).strip()

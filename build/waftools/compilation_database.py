@@ -26,17 +26,25 @@ Usage:
         conf.load('compilation_database')
 """
 
-# pylint: disable = import-error
-from waflib import Logs, Task, Build, Scripting
-from waflib.Node import Node
-# pylint: enable = import-error
-
 from typing import (
-    Any, Optional, Union, TYPE_CHECKING,
-    # We still need to use them here because this file is imported in
-    # Python 3.6 by waf before switching to Python 3.9+.
-    List, Dict, Type,
+    # We still need to use List, Dict and Type here because this file
+    # is imported in Python 3.6 by waf before switching to Python 3.9+.
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Type,
+    Union,
 )
+
+from waflib import (  # pylint: disable = import-error
+    Build,
+    Logs,
+    Scripting,
+    Task,
+)
+from waflib.Node import Node  # pylint: disable = import-error
 
 if TYPE_CHECKING:
     # mypy wants the import to be relative ¯\_(ツ)_/¯
@@ -49,7 +57,7 @@ TASK_CLASSES: Optional[Dict[str, Type[Task.Task]]] = None
 
 
 def build_task_classes_map() -> None:
-    '''Build the task classes'''
+    """Build the task classes"""
     global TASK_CLASSES
 
     assert TASK_CLASSES is None
@@ -63,8 +71,8 @@ ClangDbEntry = Dict[str, Union[str, List[str]]]
 ClangDb = Dict[str, ClangDbEntry]
 
 
-class CompileDbContext(Build.BuildContext): # type: ignore[misc]
-    '''generates compile_commands.json by request'''
+class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
+    """generates compile_commands.json by request"""
 
     cmd = 'compiledb'
 
@@ -85,7 +93,7 @@ class CompileDbContext(Build.BuildContext): # type: ignore[misc]
 
     @staticmethod
     def replace_task_node_cmd_output(
-            cmd: Union[str, List[str]]
+            cmd: Union[str, List[str]],
     ) -> Union[str, List[str]]:
         if not isinstance(cmd, list):
             # This is not a list of arguments, do nothing
@@ -124,7 +132,7 @@ class CompileDbContext(Build.BuildContext): # type: ignore[misc]
     def get_task_node_cmd(task: Task, cmd: Union[str, List[str]],
                           f_node: Node,
                           is_dep: bool) -> Union[str, List[str]]:
-        '''Get the command used for the task'''
+        """Get the command used for the task"""
         if not isinstance(cmd, list):
             # This is not a list of arguments, do nothing
             assert isinstance(cmd, str)
@@ -161,7 +169,7 @@ class CompileDbContext(Build.BuildContext): # type: ignore[misc]
     def add_task_nodes_db(self, clang_db: ClangDb, task: Task,
                           cmd: Union[str, List[str]],
                           f_nodes: List[Node], is_dep: bool) -> None:
-        '''Add the nodes to the db'''
+        """Add the nodes to the db"""
         for f_node in f_nodes:
             filename = f_node.path_from(self.srcnode)
             if filename in clang_db:
@@ -324,7 +332,7 @@ def patch_execute() -> None:
         old_execute_build(self)
 
     old_execute_build = getattr(Build.BuildContext, 'execute_build', None)
-    setattr(Build.BuildContext, 'execute_build', new_execute_build)
+    Build.BuildContext.execute_build = new_execute_build
     EXECUTE_PATCHED = True
 
 

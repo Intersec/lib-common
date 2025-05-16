@@ -18,15 +18,17 @@
 ###########################################################################
 # type: ignore
 
-""" Utility to read mem-bench logs.
+"""
+Utility to read mem-bench logs.
 
 Takes the log file as first argument.
 It plots the used memory/allocated memory graph.
 """
 
-import numpy as np # pylint: disable=import-error
-import matplotlib.pyplot as plt # pylint: disable=import-error
 import sys
+
+import matplotlib.pyplot as plt  # pylint: disable=import-error
+import numpy as np  # pylint: disable=import-error
 
 COLUMNS = [
     # alloc block
@@ -44,7 +46,7 @@ COLUMNS = [
     # memory block
     "total_allocated", "total_requested",
     "max_allocated", "max_unused", "max_used",
-    "malloc_calls", "current_used", "current_allocated"
+    "malloc_calls", "current_used", "current_allocated",
 ]
 POSITION = dict((s, i) for (i, s) in enumerate(COLUMNS))
 NUM_COLUMNS = len(COLUMNS)

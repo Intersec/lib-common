@@ -17,7 +17,7 @@
 ###########################################################################
 # pylint: disable=used-before-assignment
 
-from waflib.Build import BuildContext # pylint: disable=import-error
+from waflib.Build import BuildContext  # pylint: disable=import-error
 
 ctx: BuildContext
 
@@ -37,7 +37,7 @@ ctx.program(target='iop-struct-for-each-bench',
             source='iop-struct-for-each-bench.c',
             use=[
                 'tstiop',
-                'libcommon'
+                'libcommon',
             ])
 
 ctx.program(target='mem-bench', source='mem-bench.c', use='libcommon')

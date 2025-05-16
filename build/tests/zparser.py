@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 ###########################################################################
 #                                                                         #
 # Copyright 2022 INTERSEC SA                                              #
@@ -19,16 +18,13 @@
 ###########################################################################
 
 
-import sys
-import re
 import datetime
 import logging
-
-from logging import NullHandler
-from collections import OrderedDict
-from collections import deque
-
+import re
+import sys
+from collections import OrderedDict, deque
 from collections.abc import Iterable
+from logging import NullHandler
 from typing import Any, Optional, TypeVar, Union
 
 LOGGER = logging.getLogger(__name__)
@@ -119,7 +115,7 @@ class Result:
         raise NotImplementedError
 
     def _compute(self, items: Iterable['Result']) -> None:
-        results: dict[str, list['Result']] = {k: [] for k in self.z_status_nb}
+        results: dict[str, list[Result]] = {k: [] for k in self.z_status_nb}
         for item in items:
             item.compute()
             for k, v in results.items():
@@ -133,7 +129,7 @@ class Result:
 
     def time_as_str(self) -> str:
         t = int(self.time)
-        return "{:0>8}".format(str(datetime.timedelta(seconds=t)))
+        return f"{datetime.timedelta(seconds=t)!s:0>8}"
 
 
 class Step:
@@ -148,9 +144,8 @@ class Step:
         self.time = float(time)
 
     def __str__(self) -> str:
-        return "{0:<2} {1:<5} {2:>6.3f} {3} {4}:{5}".format(
-            self.number, self.status, self.time, self.name,
-            self.filename, self.line)
+        return (f"{self.number:<2} {self.status:<5} {self.time:>6.3f} "
+                f"{self.name} {self.filename}:{self.line}")
 
 
 class Test:
@@ -165,9 +160,8 @@ class Test:
         self.steps: list[Step] = []
 
     def __str__(self) -> str:
-        return "{0:<5} {1:<5} {2:>10.6f} {3} {4}".format(
-            self.number, self.status, self.time, self.name,
-            self.comment.strip())
+        return (f"{self.number:<5} {self.status:<5} {self.time:>10.6f} "
+                f"{self.name} {self.comment.strip()}")
 
 
 class Group(Result):
@@ -182,7 +176,7 @@ class Group(Result):
         # we sum it.
         if test.name in self.tests:
             outline_nb = (test.number - self.tests[test.name].number) + 1
-            test.name = "{0} (outline {1})".format(test.name, outline_nb)
+            test.name = f"{test.name} (outline {outline_nb})"
 
         self.tests.setdefault(test.name, test)
         self.time += test.time
@@ -197,8 +191,7 @@ class Group(Result):
                           results['missing'] + results['bad-number'])
 
     def __str__(self) -> str:
-        return "{0} ({1}% passed)   {2}s".format(
-            self.name, self.passed, self.time)
+        return f"{self.name} ({self.passed}% passed)   {self.time}s"
 
 
 class Suite(Result):
@@ -224,8 +217,8 @@ class Suite(Result):
                 self.time += gr.time
 
     def __str__(self) -> str:
-        return "suite {0} passed {1}% skipped {2}% failed {3}%".format(
-            self.name, self.passed, self.skipped, self.failed)
+        return (f"suite {self.name} passed {self.passed}% "
+                f"skipped {self.skipped}% failed {self.failed}%")
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -244,8 +237,8 @@ class Product(Result):
             self.time += suite.time
 
     def __str__(self) -> str:
-        return "product {0} passed {1}% skipped {2}% failed {3}%".format(
-            self.name, self.passed, self.skipped, self.failed)
+        return (f"product {self.name} passed {self.passed}% "
+                f"skipped {self.skipped}% failed {self.failed}%")
 
 
 class Global(Result):
@@ -321,7 +314,7 @@ class Global(Result):
             return "# NO ADDITIONAL INFOS"
         res = ["#"]
         res.append(": ADDITIONAL INFOS")
-        res.extend([":  {0}".format(elt) for elt in self.additionals])
+        res.extend([f":  {elt}" for elt in self.additionals])
         return "\n".join(res)
 
     def z_errors(self) -> str:
@@ -331,7 +324,7 @@ class Global(Result):
         res.append(": ERRORS")
         previous_suite = ''
         for error in self.errors:
-            current_suite = ": - ./{0}".format(error.suite_fullname)
+            current_suite = f": - ./{error.suite_fullname}"
             if current_suite != previous_suite:
                 if previous_suite:
                     res.append("{0}: {1}".format(previous_suite, "error"))
@@ -354,8 +347,8 @@ class Global(Result):
         return "\n".join(res)
 
     def __str__(self) -> str:
-        return "global passed {0}% skipped {1}% failed {2}%".format(
-            self.passed, self.skipped, self.failed)
+        return (f"global passed {self.passed}% skipped {self.skipped}% "
+                f"failed {self.failed}%")
 
 
 class Error:
@@ -380,11 +373,11 @@ class Error:
 
     @property
     def full_name(self) -> str:
-        fullname = "{0} → {1}".format(self.productName, self.suiteName)
+        fullname = f"{self.productName} → {self.suiteName}"
         if self.groupName:
-            fullname += " → {0}".format(self.groupName)
+            fullname += f" → {self.groupName}"
         if self.testName:
-            fullname += " → {0}".format(self.testName)
+            fullname += f" → {self.testName}"
         return fullname
 
     @property
@@ -396,23 +389,23 @@ class Error:
         return "\n".join(self.traces)
 
     def z_trace(self) -> str:
-        return "\n".join([":  {0}".format(t) for t in self.traces])
+        return "\n".join([f":  {t}" for t in self.traces])
 
     def z_error(self) -> str:
-        return ": - {0:s}: {1}".format(str(self), self.status)
+        return f": - {self!s:s}: {self.status}"
 
     def z_screenshot(self) -> list[str]:
         return ["Failed screenshot:",
-                "screenshot available -> {0}".format(self.screen_url),
+                f"screenshot available -> {self.screen_url}",
                 ""]
 
     def z_step_fail(self) -> list[str]:
         return ["Step failed:",
-                "<{0}".format(self.step_fail),
+                f"<{self.step_fail}",
                 ""]
 
     def __str__(self) -> str:
-        return "{0}.{1}".format(self.groupName, self.testName.strip())
+        return f"{self.groupName}.{self.testName.strip()}"
 
 
 class StreamParser:
@@ -531,7 +524,7 @@ class StreamParser:
                 self.group = Group(name=self.group_name, total=self.group_len)
                 if not self.suite:
                     self.suite_fullname = (
-                        "{0}/unknown_suite".format(self.product.name))
+                        f"{self.product.name}/unknown_suite")
                     self.suite = Suite(self.suite_fullname, self.product.name)
                     self.product.suites.append(self.suite)
                 self.suite.groups.append(self.group)
@@ -560,8 +553,8 @@ class StreamParser:
 
                     do_err = True
                     for grp in self.suite.groups:
-                        if any((t.status in ['fail', 'todo-pass']
-                                for t in grp.tests.values())):
+                        if any(t.status in ['fail', 'todo-pass']
+                                for t in grp.tests.values()):
                             do_err = False
                             break
                     if do_err:
@@ -673,8 +666,7 @@ class StreamParser:
                 else:
                     self.res.additionals.append(line[1:])
                 continue
-            else:
-                self.core_logs = False
+            self.core_logs = False
 
             self.context.append((self.last_stream, line))
 

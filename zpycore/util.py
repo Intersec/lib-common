@@ -1,4 +1,3 @@
-#vim:set fileencoding=utf-8:
 ###########################################################################
 #                                                                         #
 # Copyright 2022 INTERSEC SA                                              #
@@ -17,14 +16,16 @@
 #                                                                         #
 ###########################################################################
 
-import sys
 import os
 import signal
+import sys
 import tempfile
 import threading
-import psutil
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator, Any
+from typing import Any
+
+import psutil
 
 # L4D {{{
 
@@ -33,7 +34,7 @@ REARM = True
 THR   = None
 
 def log(msg: str) -> None:
-    sys.stderr.write("{0}: {1}\n".format(__file__, msg))
+    sys.stderr.write(f"{__file__}: {msg}\n")
     sys.stderr.flush()
 
 def wipe_children(reason: str, wait_thr: bool = True) -> None:
@@ -55,7 +56,7 @@ def wipe_children(reason: str, wait_thr: bool = True) -> None:
     if not children:
         return
 
-    log("`{0}` wipe pending children...".format(reason))
+    log(f"`{reason}` wipe pending children...")
 
     # Then we try to kill all processes
     for process in children:

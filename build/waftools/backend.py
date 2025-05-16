@@ -16,41 +16,45 @@
 #                                                                         #
 ###########################################################################
 
-'''
+"""
 Contains the code needed for backend compilation.
-'''
+"""
 
+import copy
 import datetime
 import os
-import re
-import copy
-import shlex
 import os.path as osp
+import re
+import shlex
 import time
 from itertools import chain
+from typing import (
+    # We still need to use List, Set, Dict, Tuple and Type, here because
+    # this file is imported in Python 3.6 by waf before switching
+    # to Python 3.9+.
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+)
 
 # pylint: disable = import-error
-from waflib import TaskGen, Utils, Context, Errors, Options, Logs
-
+from waflib import Context, Errors, Logs, Options, TaskGen, Utils
 from waflib.Build import BuildContext
 from waflib.Configure import ConfigurationContext
+from waflib.Node import Node
 from waflib.Options import OptionsContext
 from waflib.Task import Task
 from waflib.Tools import c as c_tool
-from waflib.Tools import c_preproc
-from waflib.Tools import cxx
-from waflib.Tools import ccroot
+from waflib.Tools import c_preproc, ccroot, cxx
 from waflib.Utils import check_exe
-from waflib.Node import Node
+
 # pylint: enable = import-error
-
-from typing import (
-    Callable, Optional, TypeVar, TYPE_CHECKING,
-    # We still need to use them here because this file is imported in
-    # Python 3.6 by waf before switching to Python 3.9+.
-    List, Set, Dict, Tuple, Type,
-)
-
 
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
@@ -79,11 +83,11 @@ def prepare_whole(self: TaskGen) -> None:
     # for paths, includes, ...
     self.use = list(self.to_list(getattr(self, 'use', [])))
     for uw in use_whole:
-        if  not getattr(self, 'no_use_whole_error', False) \
-        and uw in self.use:
-            self.bld.fatal(('`{0}` from `use_whole` of target `{1}` is '
-                            'already in attribute `use`, you may remove it')
-                           .format(uw, self.target))
+        if not getattr(self, 'no_use_whole_error', False) and uw in self.use:
+            self.bld.fatal(
+                f'`{uw}` from `use_whole` of target `{self.target}` is '
+                'already in attribute `use`, you may remove it',
+            )
         self.use.append(uw)
 
 @TaskGen.feature('c', 'cprogram', 'cstlib')
@@ -172,8 +176,10 @@ def deep_add_tgen_compile_flags(ctx: BuildContext, tgen: TaskGen,
                                 cflags: Optional[List[str]] = None,
                                 cxxflags: Optional[List[str]] = None,
                                 ldflags: Optional[List[str]] = None) -> None:
-    """Add the compile flags to a TaskGen and duplicate all its dependencies
-    to add the compile flags"""
+    """
+    Add the compile flags to a TaskGen and duplicate all its dependencies
+    to add the compile flags
+    """
 
     def add_tgen_compile_flags(tgen: TaskGen) -> None:
         if cflags:
@@ -301,7 +307,8 @@ def fuzzing_feature(ctx: TaskGen) -> None:
 # {{{ Patch C tasks for compression
 
 def compile_sanitizer(ctx: BuildContext) -> None:
-    """Add sanitizers flags to C and CXX task generators.
+    """
+    Add sanitizers flags to C and CXX task generators.
 
     The flags are also added to shared library task generators and fPIC task
     generators if SHARED_LIBRARY_SANITIZER is set.
@@ -325,12 +332,12 @@ def compile_sanitizer(ctx: BuildContext) -> None:
 # {{{ Execute commands from project root
 
 def register_get_cwd() -> None:
-    '''
+    """
     Execute the compiler's commands from the project root instead of the
     project build directory.
     This is important for us because some code (for example the Z tests
     registration) relies on the value of the __FILE__ macro.
-    '''
+    """
     def get_cwd(self: BuildContext) -> str:
         cwd: str = self.env.PROJECT_ROOT
         return cwd
@@ -346,7 +353,7 @@ def register_get_cwd() -> None:
 
 
 def register_global_includes(self: BuildContext, includes: List[str]) -> None:
-    ''' Register global includes (that are added to all the targets). '''
+    """Register global includes (that are added to all the targets)."""
     for include in Utils.to_list(includes):
         node = self.path.find_node(include)
         if node is None or not node.isdir():
@@ -484,7 +491,7 @@ def gen_syntastic(ctx: BuildContext) -> None:
         content = '\n'.join(envs) + '\n'
         if not node.exists() or node.read() != content:
             node.write(content)
-            msg = 'Writing syntastic {0} configuration file'.format(what)
+            msg = f'Writing syntastic {what} configuration file'
             ctx.msg(msg, node)
 
     write_file('.syntastic_c_config', 'C',
@@ -508,8 +515,7 @@ def gen_tags(ctx: BuildContext) -> None:
         return
 
     # Generate tags using ctags
-    cmd = '{0} "{1}" "{2}"'.format(ctx.env.CTAGS_SH[0],
-                                   tags_options, tags_output)
+    cmd = f'{ctx.env.CTAGS_SH[0]} "{tags_options}" "{tags_output}"'
     if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
         ctx.fatal('ctags generation failed')
 
@@ -518,12 +524,14 @@ def gen_tags(ctx: BuildContext) -> None:
 
 
 class TagsClass(BuildContext): # type: ignore[misc]
-    '''generate tags using ctags'''
+    """generate tags using ctags"""
+
     cmd = 'tags'
 
 
 class EtagsClass(BuildContext): # type: ignore[misc]
-    '''generate tags for emacs using ctags'''
+    """generate tags for emacs using ctags"""
+
     cmd = 'etags'
 
 
@@ -545,10 +553,11 @@ GEN_FILES_SUFFIXES = [
 
 
 def gen_file_keep(parent_node: Node, name: str) -> bool:
-    ''' The purpose of this function is to exclude some files from the list of
-        generated ones (because we don't want them to be deleted).
-        TODO waf: avoid hardcoding this list (which should belong to mmsx).
-    '''
+    """
+    The purpose of this function is to exclude some files from the list of
+    generated ones (because we don't want them to be deleted).
+    TODO waf: avoid hardcoding this list (which should belong to mmsx).
+    """
     # Exclude event.iop.json files produced in bigdata products by the schema
     # library
     if name == 'event.iop.json' and parent_node.name != 'bigdata':
@@ -567,8 +576,7 @@ def is_gen_file(ctx: BuildContext, parent_node: Node, name: str) -> bool:
 
 
 def get_git_files(ctx: BuildContext, repo_node: Node) -> List[Node]:
-    """ Get the list of committed files in a git repository. """
-
+    """Get the list of committed files in a git repository."""
     # Call git ls-files to get the list of committed files
     git_ls_files = ctx.cmd_and_log(['git', 'ls-files'], quiet=Context.BOTH,
                                    cwd=repo_node)
@@ -583,10 +591,10 @@ def get_git_files(ctx: BuildContext, repo_node: Node) -> List[Node]:
 
 
 def get_git_files_recur(ctx: BuildContext) -> List[Node]:
-    """ Get the list of committed files in the repository, recursively on all
-        submodules.
     """
-
+    Get the list of committed files in the repository, recursively on all
+    submodules.
+    """
     # Get files of the current repository
     res = get_git_files(ctx, ctx.srcnode)
 
@@ -603,10 +611,10 @@ def get_git_files_recur(ctx: BuildContext) -> List[Node]:
 
 
 def get_old_gen_files(ctx: BuildContext) -> List[Node]:
-    """ Get the list of files that are on disk, have an extension that
-        correspond to auto-generated files, and that are not committed.
     """
-
+    Get the list of files that are on disk, have an extension that
+    correspond to auto-generated files, and that are not committed.
+    """
     # Get all the generated files that are on disk (excluded symlinks).
     # Do not use waf ant_glob because it follows symlinks
     gen_files = []
@@ -665,8 +673,8 @@ def old_gen_files_detect(ctx: BuildContext) -> None:
         Logs.warn('Following files are old generated ones:')
         for node in old_gen_files:
             Logs.warn('  %s', node.path_from(ctx.srcnode))
-        ctx.fatal(('Old generated files detected; '
-                   'use old-gen-files-delete to remove them'))
+        ctx.fatal('Old generated files detected; '
+                  'use old-gen-files-delete to remove them')
     else:
         # Delete old generated files
         for node in old_gen_files:
@@ -675,12 +683,14 @@ def old_gen_files_detect(ctx: BuildContext) -> None:
 
 
 class OldGenFilesDetect(BuildContext): # type: ignore[misc]
-    '''detect old generated files on disk'''
+    """detect old generated files on disk"""
+
     cmd = 'old-gen-files-detect'
 
 
 class OldGenFilesDelete(BuildContext): # type: ignore[misc]
-    '''delete old generated files on disk'''
+    """delete old generated files on disk"""
+
     cmd = 'old-gen-files-delete'
 
 
@@ -713,7 +723,8 @@ def coverage_start_cmd(ctx: BuildContext) -> None:
 
 
 class CoverageStartClass(BuildContext): # type: ignore[misc]
-    '''start a coverage session (requires coverage profile)'''
+    """start a coverage session (requires coverage profile)"""
+
     cmd = 'coverage-start'
 
 
@@ -754,7 +765,7 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
 
     # Generate HTML report
     now = datetime.datetime.now()
-    report_dir_name = 'coverage-report-{:%Y%m%d-%H%M%S}'.format(now)
+    report_dir_name = f'coverage-report-{now:%Y%m%d-%H%M%S}'
     report_dir = ctx.srcnode.make_node(report_dir_name)
     report_dir.delete(evict=False)
     cmd = '{0} -o {1} {2}'
@@ -770,17 +781,18 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
         pass
     os.symlink(report_dir.abspath(), report_link.abspath())
 
-    print('')
+    print()
     print('lcov data available in %s' % lcov_file.abspath())
     print('Coverage report produced in %s' % report_dir.abspath())
-    print('')
+    print()
 
     # Interrupt the build
     ctx.groups = []
 
 
 class CoverageReportClass(BuildContext): # type: ignore[misc]
-    '''end a coverage session and produce a report'''
+    """end a coverage session and produce a report"""
+
     cmd = 'coverage-end'
 
 
@@ -804,7 +816,7 @@ def ensure_clang_rewrite_blocks(ctx: BuildContext) -> None:
 
 def compute_clang_extra_cflags(self: BuildContext, clang_flags: List[str],
                                cflags_var: str) -> List[str]:
-    ''' Compute clang cflags for a task generator from CFLAGS '''
+    """Compute clang cflags for a task generator from CFLAGS"""
     def keep_flag(flag: str) -> bool:
         if not flag.startswith('-I') and not flag.startswith('-D'):
             return False
@@ -1000,7 +1012,7 @@ class Fc2c(FirstInputStrTask):
         return 'Generating'
 
     def scan(self) -> Tuple[Optional[List[str]], Optional[List[str]]]:
-        """ Parses the .fc file to get the dependencies. """
+        """Parses the .fc file to get the dependencies."""
         node = self.inputs[0]
         lines = node.read().splitlines()
         variable_name_found = False
@@ -1114,7 +1126,7 @@ class IopcOptions:
 
     @property
     def languages(self) -> str:
-        """ Get the list of languages for iopc """
+        """Get the list of languages for iopc"""
         res = 'c'
         if self.json_node:
             res += ',json'
@@ -1124,32 +1136,28 @@ class IopcOptions:
 
     @property
     def class_range_option(self) -> str:
-        """ Get the class-id range option for iopc """
+        """Get the class-id range option for iopc"""
         if self.class_range:
-            return '--class-id-range={0}'.format(self.class_range)
-        else:
-            return ''
+            return f'--class-id-range={self.class_range}'
+        return ''
 
     @property
     def json_output_option(self) -> str:
-        """ Get the json-output-path option for iopc """
+        """Get the json-output-path option for iopc"""
         if self.json_node:
-            return '--json-output-path={0}'.format(self.json_node)
-        else:
-            return ''
+            return f'--json-output-path={self.json_node}'
+        return ''
 
     @property
     def ts_output_option(self) -> str:
-        """ Get the typescript-output-path option for iopc """
+        """Get the typescript-output-path option for iopc"""
         if self.ts_node:
-            return '--typescript-output-path={0}'.format(self.ts_node)
-        else:
-            return ''
+            return f'--typescript-output-path={self.ts_node}'
+        return ''
 
     def get_includes_recursive(self, includes: Set[Node],
                                seen_opts: Set['IopcOptions']) -> None:
-        """ Recursively get the IOP include paths for the current node """
-
+        """Recursively get the IOP include paths for the current node"""
         # Detect infinite recursions
         if self in seen_opts:
             return
@@ -1166,10 +1174,10 @@ class IopcOptions:
 
     @property
     def includes_option(self) -> str:
-        """ Get the -I option for iopc """
+        """Get the -I option for iopc"""
         if self.computed_includes is None:
             includes: Set[Node] = set()
-            seen_opts: Set['IopcOptions'] = set()
+            seen_opts: Set[IopcOptions] = set()
             self.get_includes_recursive(includes, seen_opts)
             if includes:
                 nodes = [node.abspath() for node in includes]
@@ -1193,8 +1201,9 @@ class Iop2c(FirstInputStrTask):
         return self.inputs[0].parent
 
     def scan(self) -> Tuple[Optional[List[str]], Optional[List[str]]]:
-        """ Gets the dependencies of the current IOP file.
-            It uses the --depends command of iopc.
+        """
+        Gets the dependencies of the current IOP file.
+        It uses the --depends command of iopc.
         """
         node = self.inputs[0]
         depfile = node.change_ext('.iop.d')
@@ -1239,9 +1248,10 @@ class Iop2c(FirstInputStrTask):
 RE_IOP_PACKAGE = re.compile(r'^package (.*);$', re.MULTILINE)
 
 def iop_get_package_path(self: BuildContext, node: Node) -> str:
-    """ Get the 'package path' of a IOP file.
-        It opens the IOP file, parses the 'package' line, and returns a string
-        where dots are replaced by slashes.
+    """
+    Get the 'package path' of a IOP file.
+    It opens the IOP file, parses the 'package' line, and returns a string
+    where dots are replaced by slashes.
     """
     match = RE_IOP_PACKAGE.search(node.read())
     if match is None:
@@ -1449,10 +1459,11 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
         llvm_version_minor = llvm_version[1]
 
         if llvm_version_major < llvm_min_version:
-            Logs.warn('llvm-config found with version {0}, '
+            Logs.warn(f'llvm-config found with version {llvm_version_major}, '
                       'but is not supported by lib-common, '
-                      'lib-common only supports llvm versions >= {1}'
-                      .format(llvm_version_major, llvm_min_version))
+                      'lib-common only supports llvm versions >= '
+                      f'{llvm_min_version}',
+                      )
             llvm_version_major = None
             del ctx.env.LLVM_CONFIG
 
@@ -1460,15 +1471,16 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
     if llvm_version_major is None:
         # Try up to version 99
         for version in range(llvm_min_version, 100):
-            if ctx.find_program('llvm-config-{0}'.format(version),
+            if ctx.find_program(f'llvm-config-{version}',
                                 var='LLVM_CONFIG', mandatory=False):
                 llvm_version_major = version
                 break
         else:
             ctx.fatal('supported version of llvm-config not found, '
-                      'lib-common only supports llvm versions >= {0}, '
+                      'lib-common only supports llvm versions >= '
+                      f'{llvm_min_version}, '
                       'please install supported version of llvm-dev or '
-                      'llvm-devel'.format(llvm_min_version))
+                      'llvm-devel')
 
     # Get llvm flags
     llvm_flags_env_args = {
@@ -1499,10 +1511,9 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
     # libclang-cpp.so.x -> libclang-cpp-x.so
     # libclang-cpp-x.so -> libclang-cpp.so are not done.
     # Use filename instead.
-    clang_cpp_lib_major = ':libclang-cpp.so.{0}'.format(llvm_version_major)
+    clang_cpp_lib_major = f':libclang-cpp.so.{llvm_version_major}'
     clang_cpp_lib_major_minor = \
-        ':libclang-cpp.so.{0}.{1}'.format(llvm_version_major,
-                                          llvm_version_minor)
+        f':libclang-cpp.so.{llvm_version_major}.{llvm_version_minor}'
     clang_cpp_lib = ''
     ctx.env.RPATH_clang_cpp = ctx.env.RPATH_clang
     for path in ctx.env.RPATH_clang_cpp:
@@ -1515,9 +1526,9 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
             clang_cpp_lib = clang_cpp_lib_major_minor
             break
     if not clang_cpp_lib:
-        ctx.fatal('cannot find libclang-cpp.so.{0} or libclang-cpp.so.{0}.{1}'
-                  'in any clang path'.format(llvm_version_major,
-                                             llvm_version_minor))
+        ctx.fatal(f'cannot find libclang-cpp.so.{llvm_version_major} or '
+                  f'libclang-cpp.so.{llvm_version_major}.{llvm_version_minor}'
+                  ' in any clang path')
     ctx.env.append_value('LIB_clang_cpp', [clang_cpp_lib])
     ctx.env.CXXFLAGS_clang_cpp =  ctx.env.CXXFLAGS_llvm
     ctx.env.LDFLAGS_clang_cpp =  ctx.env.LDFLAGS_clang
@@ -1540,8 +1551,9 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
         ctx.env.CLANG = [osp.join(llvm_bindir, 'clang')]
     ctx.msg("Checking for program 'clang'", ctx.env.CLANG[0])
     if not check_exe(ctx.env.CLANG[0]):
-        ctx.fatal('`{0}` is not a valid executable, clang may be missing'
-                  .format(ctx.env.CLANG[0]))
+        ctx.fatal(f'`{ctx.env.CLANG[0]}` is not a valid executable, '
+                  'clang may be missing',
+                  )
 
     # Set clang++ if used as C++ compiler, otherwise, use llvm version
     if ctx.env.COMPILER_CXX == 'clang++':
@@ -1550,8 +1562,9 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
         ctx.env.CLANGXX = [osp.join(llvm_bindir, 'clang++')]
     ctx.msg("Checking for program 'clang++'", ctx.env.CLANGXX[0])
     if not check_exe(ctx.env.CLANGXX[0]):
-        ctx.fatal('`{0}` is not a valid executable, clang++ may be missing'
-                  .format(ctx.env.CLANGXX[0]))
+        ctx.fatal(f'`{ctx.env.CLANGXX[0]}` is not a valid executable, '
+                  'clang++ may be missing',
+                  )
 
 
 # }}}
@@ -1709,7 +1722,7 @@ def profile_debug(ctx: ConfigurationContext,
                     use_sanitizer=use_sanitizer, optim_level=0)
 
     cflags = [
-        '-Wno-uninitialized', '-fno-inline', '-fno-inline-functions'
+        '-Wno-uninitialized', '-fno-inline', '-fno-inline-functions',
     ]
     ctx.env.CFLAGS += cflags
     ctx.env.CXXFLAGS += cflags
@@ -1836,7 +1849,7 @@ def configure(ctx: ConfigurationContext) -> None:
         ctx.msg('Selecting profile', ctx.env.PROFILE)
         PROFILES[ctx.env.PROFILE](ctx)
     except KeyError:
-        ctx.fatal('Profile `{0}` not found'.format(ctx.env.PROFILE))
+        ctx.fatal(f'Profile `{ctx.env.PROFILE}` not found')
 
     # Check dependencies
     ctx.find_program('objcopy', var='OBJCOPY')

@@ -19,17 +19,18 @@
 
 import os
 import os.path as osp
-import sys
 import re
 import shlex
 import shutil
+import sys
 
 # pylint: disable = import-error
-from waflib import Logs, Errors, Options
-from waflib.Context import Context
-from waflib.Configure import ConfigurationContext
+from waflib import Errors, Logs, Options
 from waflib.Build import BuildContext
+from waflib.Configure import ConfigurationContext
+from waflib.Context import Context
 from waflib.Options import OptionsContext
+
 # pylint: enable = import-error
 
 waftoolsdir = os.path.join(os.getcwd(), 'build', 'waftools')
@@ -74,7 +75,7 @@ def run_asdf_install(ctx: BuildContext) -> None:
 
     # Run the ASDF install script
     build_dir = os.path.join(ctx.path.abspath(), 'build')
-    cmd = ['{0}/asdf_install.sh'.format(build_dir), str(ctx.srcnode)]
+    cmd = [f'{build_dir}/asdf_install.sh', str(ctx.srcnode)]
     if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
         ctx.fatal('ASDF installation failed')
 
@@ -146,7 +147,7 @@ def uv_no_srv_tools(ctx: BuildContext) -> None:
         (
             "import sysconfig; "
             "print(sysconfig.get_paths()['purelib'])"
-        )
+        ),
     ]).strip()
 
     # Write intersec no srv tools path file.
@@ -160,7 +161,7 @@ def uv_no_srv_tools(ctx: BuildContext) -> None:
         f.write(
             "import sys; sys.path = ["
             "    x for x in sys.path if not x.startswith('/srv/tools')"
-            "]\n"
+            "]\n",
         )
 
 
@@ -224,7 +225,7 @@ def rerun_waf_configure_with_uv(ctx: BuildContext) -> None:
             "import sys; import os; "
             "print(os.environ.get('WAFLOCK', "
             "      '.lock-waf_%s_build' % sys.platform))"
-        )
+        ),
     ]).strip()
 
     # If uv_waf_lockfile is different from the current lockfile, we need
@@ -360,7 +361,7 @@ def configure(ctx: ConfigurationContext) -> None:
         '-c', (
             'import sys, os;'
             'print(os.path.realpath(sys.executable) + "-config")'
-        )
+        ),
     ])
     ctx.find_program('python3-config', var='PYTHON3_CONFIG',
                      value=py_config_path)

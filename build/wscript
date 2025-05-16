@@ -16,7 +16,10 @@
 #                                                                         #
 ###########################################################################
 
-from waflib.Configure import ConfigurationContext # pylint: disable=import-error
+from waflib.Configure import (  # pylint: disable=import-error
+    ConfigurationContext,
+)
+
 
 def configure(ctx: ConfigurationContext) -> None:
     path = ctx.path.abspath()

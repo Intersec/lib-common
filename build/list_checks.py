@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 ###########################################################################
 #                                                                         #
 # Copyright 2022 INTERSEC SA                                              #
@@ -17,7 +16,8 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-""" Dump the tests from ZFile
+"""
+Dump the tests from ZFile
 
 This script handles the ZFile content. The output of this script is the
 directory based the path argument and the test specified in the Zfile
@@ -28,10 +28,9 @@ Some filters are applied based on Z_SKIP_PATH and Z_LIST_SKIP:
  * Z_LIST_SKIP removes a kind of test.
 """
 
-import sys
 import os
 import re
-
+import sys
 from collections.abc import Iterator
 from typing import Optional
 
@@ -48,7 +47,7 @@ GROUPS = [
     ("behave", re.compile(r".*/behave"),     None),
     ("web",    re.compile(r".*testem.json"), is_file),
     ("web",    re.compile(r".*/check_php"),  None),
-    ("C",      re.compile(r".+"),            is_exec)  # default case
+    ("C",      re.compile(r".+"),            is_exec),  # default case
 ]
 RE_TAGS = re.compile(r"@([A-Za-z0-9_]+)")
 Z_TAG_SKIP = set(os.getenv("Z_TAG_SKIP", "").split())
@@ -56,7 +55,7 @@ Z_TAG_SKIP = set(os.getenv("Z_TAG_SKIP", "").split())
 
 def dump_zfile(
         zfile: str,
-        skipped_groups: list[str]
+        skipped_groups: list[str],
 ) -> Iterator[tuple[str, str, Optional[str]]]:
     folder = os.path.dirname(zfile)
 

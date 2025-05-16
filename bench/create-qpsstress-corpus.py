@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 ##########################################################################
 #                                                                        #
 #  Copyright (C) INTERSEC SA                                             #
@@ -17,10 +16,8 @@ import binascii
 import datetime
 import os
 import struct
-
-from enum import IntEnum
 from argparse import ArgumentParser
-
+from enum import IntEnum
 from typing import Optional
 
 CORPUS_DIR = "corpus"
@@ -34,6 +31,7 @@ class QpsstressStep(IntEnum):
 
     Any changes in the qpsstress_step_t enumeration MUST BE applied here.
     """
+
     QPS_ALLOC = 0
     QPS_REALLOC = 1
     QPS_DEALLOC = 2
@@ -71,6 +69,7 @@ class QpsstressObj(IntEnum):
 
     Any changes in the qps_obj_type_t enumeration MUST BE applied here.
     """
+
     QPS_GENERIC_TYPE = 0
     QPS_QHAT = 1
     QPS_QBITMAP = 2
@@ -80,6 +79,7 @@ class QpsstressFuzzerCat(IntEnum):
     """
     Class used to split fuzzing operations into different categories.
     """
+
     QPS_CAT_ALL = 0
     QPS_CAT_HANDLES_SNAP_REOPEN = 1
     QPS_CAT_QPS_OBJ_OPERATIONS = 2
@@ -90,6 +90,7 @@ class FuzzingStep:
     Convert a basic fuzzing step into a binary blob used for fuzzing
     operations.
     """
+
     def __init__(self, step: QpsstressStep, handle: Optional[int] = None):
         self.step = step
         self.handle = handle
@@ -126,6 +127,7 @@ class FuzzingGenericStep(FuzzingStep):
     Convert a QPS step (like QPS alloc, QPS realloc) into a binary blob used
     for fuzzing operations.
     """
+
     def __init__(self, step: QpsstressStep, handle: Optional[int] = None,
                  size: Optional[int] = None):
         super().__init__(step, handle=handle)
@@ -142,6 +144,7 @@ class FuzzingQpsObjStep(FuzzingStep):
     Convert a QPS object step (like QPS hat check/set/reset enumerator,
     QPS hat fix stored 0) into a binary blob used for fuzzing operations.
     """
+
     def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
                  type_obj: QpsstressObj = QpsstressObj.QPS_QHAT):
         super().__init__(step, handle=handle)
@@ -156,6 +159,7 @@ class FuzzingQpsObjStepWithKey(FuzzingQpsObjStep):
     Convert a QPS object step using keys (like QPS hat set key) into a binary
     blob used for fuzzing operations.
     """
+
     def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
                  type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
                  key: int = 1):
@@ -177,6 +181,7 @@ class FuzzingQpsObjMultipleOp(FuzzingQpsObjStep):
     time in decoding each step in the fuzzing blob. Number of iterations is
     limited by an uint16 value (UINT16_MAX).
     """
+
     def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
                  type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
                  key: int = 1, nbr_iter: int = 2, gap_keys: int = 1):
@@ -195,6 +200,7 @@ class FuzzingQhatObjStepMv(FuzzingQpsObjStep):
     Convert a dedicated Qhat enumerator move step into a binary blob used for
     fuzzing operations.
     """
+
     def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
                  move_count: int = 3):
         super().__init__(step, handle=handle, type_obj=QpsstressObj.QPS_QHAT)
@@ -209,6 +215,7 @@ class FuzzingQhatCompute(FuzzingQpsObjStep):
     Convert a dedicated Qhat compute step into a binary blob used for fuzzing
     operations.
     """
+
     def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
                  do_stats: Optional[int] = None,
                  do_mem_overhead: Optional[int] = None):
@@ -230,6 +237,7 @@ class FuzzingQpsObjStepCreate(FuzzingQpsObjStep):
     Convert a dedicated Qhat create step into a binary blob used for fuzzing
     operations.
     """
+
     def __init__(self, step: QpsstressStep,
                  type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
                  is_nullable: bool = False, value_len: int = 4):
@@ -247,7 +255,7 @@ def discard_fuzzing_operation(step: QpsstressStep,
                               category: QpsstressFuzzerCat) -> bool:
     if category == QpsstressFuzzerCat.QPS_CAT_HANDLES_SNAP_REOPEN:
         return step > QpsstressStep.QPS_REOPEN
-    elif category == QpsstressFuzzerCat.QPS_CAT_QPS_OBJ_OPERATIONS:
+    if category == QpsstressFuzzerCat.QPS_CAT_QPS_OBJ_OPERATIONS:
         return step <= QpsstressStep.QPS_REOPEN
     return False
 

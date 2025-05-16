@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# encoding: utf-8
 
 #vim:set fileencoding=utf-8
 ###########################################################################
@@ -44,18 +43,18 @@ In manual mode
 """
 
 
-import os
-from os import path as osp
-import sys
-import platform
-from subprocess import check_output
-import re
-from tempfile import NamedTemporaryFile
-from glob import glob
 import argparse
+import os
+import platform
+import re
 import shutil
-
-from typing import Any, Pattern, Optional
+import sys
+from glob import glob
+from os import path as osp
+from re import Pattern
+from subprocess import check_output
+from tempfile import NamedTemporaryFile
+from typing import Any, Optional
 
 CORE_PATTERN = "/proc/sys/kernel/core_pattern"
 DEBUG = os.getenv('CORE_DEBUG', None)
@@ -67,7 +66,7 @@ GDB_CMD = [
 ]
 # used to find Point of Interest (our code)
 GDB_CMD_POI = [
-    'bt'
+    'bt',
 ]
 # GDB command to display info on intersec frame
 GDB_CMD_FRAME = [
@@ -76,7 +75,7 @@ GDB_CMD_FRAME = [
     'print "info local"',
     'info local',
     'print "info args"',
-    'info args'
+    'info args',
 ]
 BINARY_EXT = '-binary'
 
@@ -85,7 +84,7 @@ def find_exe(name: str, root: str) -> Optional[str]:
     ret = set()
     for dirpath, _, filenames in os.walk(root):
         if name in filenames:
-            ret.add(osp.realpath("{0}/{1}".format(dirpath, name)))
+            ret.add(osp.realpath(f"{dirpath}/{name}"))
     if len(ret) != 1:
         debug("binary %s not found or more than once" % name)
         return None
@@ -155,7 +154,7 @@ class Cores:
             self.cores = []
             return
         if cores.startswith('@'):
-            with open(cores[1:], 'r') as f_:
+            with open(cores[1:], "r") as f_:
                 cores = f_.read().strip()
         self.cores = [c for c in cores.split(',') if c]
 
@@ -264,7 +263,7 @@ class Cores:
             if exe is None:
                 continue
             self.show_backtrace(core, exe, frmt)
-            shutil.copyfile(exe, "{0}{1}".format(core, BINARY_EXT))
+            shutil.copyfile(exe, f"{core}{BINARY_EXT}")
 
     def show_backtrace(self, core: str, exe: Optional[str] = None,
                        frmt: str = "text") -> None:

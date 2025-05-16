@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-#vim:set fileencoding=utf-8:
 ###########################################################################
 #                                                                         #
 # Copyright 2022 INTERSEC SA                                              #
@@ -130,7 +129,7 @@ class IopcTest(z.TestCase):
                     gcc_p.returncode, 0,
                     "unexpected failure (%d) on %s when executing:\n"
                     "%s:\n%r" % (gcc_p.returncode, iop_c,
-                                 ' '.join(gcc_args), err)
+                                 ' '.join(gcc_args), err),
                 )
             else:
                 self.assertNotEqual(gcc_p.returncode, 0)
@@ -207,7 +206,7 @@ class IopcTest(z.TestCase):
             'typescript,json',
             'C,typescript,json',
             'typescript,C,json',
-            'typescript,json,C'
+            'typescript,json,C',
 
             # XXX: json before typescript does not generate stable .ts files
             # 'json,typescript',
@@ -1051,7 +1050,7 @@ class IopcTest(z.TestCase):
     @z.ZFlags('redmine_69370')
     def test_error_in_other_pkg(self) -> None:
         self.run_iopc_fail('nr_enum_error.iop', [
-            'error: identifier expected, but got integer instead'
+            'error: identifier expected, but got integer instead',
         ])
 
     # }}}

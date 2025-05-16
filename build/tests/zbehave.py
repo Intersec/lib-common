@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-#vim:set fileencoding=utf-8:
 ###########################################################################
 #                                                                         #
 # Copyright 2022 INTERSEC SA                                              #
@@ -19,17 +18,17 @@
 ###########################################################################
 
 
-import sys
 import os
-import behave.model  # pylint: disable=import-error
-import zpycore.util
-
+import sys
 from typing import Any, Optional, TextIO
 
+import behave.model  # pylint: disable=import-error
+from behave.__main__ import (  # pylint: disable=import-error
+    main as behave_main,
+)
 from behave.formatter.base import Formatter  # pylint: disable=import-error
 
-from behave.__main__ import main as behave_main  # pylint: disable=import-error
-
+import zpycore.util
 
 try:
     from behave.formatter._registry import register as behave_register
@@ -37,7 +36,7 @@ except ImportError:
     from behave.formatter.formatters import register as behave_register
 
 
-class ZFormatter(Formatter): # type: ignore[misc]
+class ZFormatter(Formatter):  # type: ignore[misc]
     """
     Provide a behave formatter that support the z format
     """
@@ -138,7 +137,7 @@ class ZFormatter(Formatter): # type: ignore[misc]
             self.__status = status
 
         step = self.steps.pop(0)
-        step_name = "<{0} {1}>".format(step.step_type, step.name)
+        step_name = f"<{step.step_type} {step.name}>"
         self.stream.write(self.step_tpl.format(
             self.__count, self.__steps, status,
             step_name, self.basename, step.line, step.duration))

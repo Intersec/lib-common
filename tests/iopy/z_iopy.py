@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-#vim:set fileencoding=utf-8:
 ###########################################################################
 #                                                                         #
 # Copyright 2022 INTERSEC SA                                              #
@@ -66,19 +65,19 @@ def z_iopy_fork_child(iface: iopy.IfaceBase, obj_a: iopy.StructBase,
     try:
         res = iface.funA(a=obj_a)
     except Exception as e: # pylint: disable=broad-except
-        sys.stderr.write('{0}\n'.format(str(e)))
+        sys.stderr.write(f'{e!s}\n')
         os._exit(1)
 
     if res != exp_res:
         sys.stderr.write('unexpected result for interfaceA.funA, expected '
-                         '{0}, got {1}\n'.format(exp_res, res))
+                         f'{exp_res}, got {res}\n')
         os._exit(2)
 
     try:
         z_iopy_test_threads_and_forks(iface, obj_a, exp_res, do_threads,
                                       False)
     except Exception as e: # pylint: disable=broad-except
-        sys.stderr.write('{0}\n'.format(str(e)))
+        sys.stderr.write(f'{e!s}\n')
         os._exit(3)
 
     os._exit(0)
@@ -116,11 +115,11 @@ def z_iopy_test_threads_and_forks(
         res_codes.append(code)
 
     assert all(x == exp_res for x in res_list), (
-        'threads results are not all valid: {0}'.format(res_list)
+        f'threads results are not all valid: {res_list}'
     )
 
     assert all(x == 0 for x in res_codes) , (
-        "child processes don't all exit successfully: {0}".format(res_codes)
+        f"child processes don't all exit successfully: {res_codes}"
     )
 
 
@@ -196,8 +195,10 @@ class IopyTest(z.TestCase):
         self.assertEqual(a, self.r.tst1.A(a='A1', b='B2'))
 
     def test_pkg_mod_deps(self) -> None:
-        """Test that IOPs objects of packages that are referenced through
-        modules are well loaded"""
+        """
+        Test that IOPs objects of packages that are referenced through
+        modules are well loaded
+        """
         void_opt = self.r.testvoid.VoidOptional(a=None)
         self.assertIsNone(void_opt.a)
 
@@ -370,9 +371,9 @@ class IopyTest(z.TestCase):
                     'a': {
                         '_class': 'test.ClassA',
                         'field1': 7,
-                        'optField': 642
-                    }
-                }]
+                        'optField': 642,
+                    },
+                }],
             },
             'privateField': 12,
             'emptyArray': [],
@@ -382,7 +383,7 @@ class IopyTest(z.TestCase):
             'voidOptional': {
                 'a': None,
             },
-            'voidRequired': {}
+            'voidRequired': {},
         }
 
         struct_to_dict = self.p.test.StructToDict(dict_struct_to_dict)
@@ -408,9 +409,9 @@ class IopyTest(z.TestCase):
                 }, {
                     'a': {
                         'field1': 7,
-                        'optField': 642
-                    }
-                }]
+                        'optField': 642,
+                    },
+                }],
             },
             'privateField': 12,
             'voidUnion': {
@@ -454,7 +455,7 @@ class IopyTest(z.TestCase):
                 '_class': 'test.ClassA',
                 'field1': 0,
                 'optField': 987,
-            }
+            },
         }
 
         union_a = self.p.test.UnionA(dict_union_a)
@@ -464,7 +465,7 @@ class IopyTest(z.TestCase):
         minimal_dict_union_a = {
             'a': {
                 'optField': 987,
-            }
+            },
         }
         self.assertEqual(minimal_dict_union_a, union_a.to_dict(minimal=True))
 
@@ -582,7 +583,7 @@ class IopyTest(z.TestCase):
         c.disconnect()
         self.assertEqual(c.is_connected(), False)
 
-        for _ in range(0, 100):
+        for _ in range(100):
             if not self.connections:
                 break
             time.sleep(0.01)
@@ -846,8 +847,8 @@ class IopyTest(z.TestCase):
         class test_ClassA2:
             def __init__(self, field1: int = 10, _my_field: str = 'value',
                          **kwargs: Any) -> None:
-                var = field1 * 10 # check #33039
-                setattr(self, 'optField', var)
+                var = field1 * 10  # check #33039
+                self.optField = var  # pylint: disable=invalid-name
                 self._my_field = _my_field
                 kwargs['field1'] = field1
                 super(test_ClassA2, self).__init__(**kwargs)
@@ -1244,8 +1245,10 @@ class IopyTest(z.TestCase):
             self.r.test.ConstraintsA(name='plop')
 
     def test_from_file_child_class(self) -> None:
-        """Test using from_file from base class to create an instance of a
-        child class."""
+        """
+        Test using from_file from base class to create an instance of a
+        child class.
+        """
         path = os.path.join(TEST_PATH, 'test_class_b.json')
         b = self.r.test.ClassA.from_file(_json=path)
         self.assertEqual(b.field1, 42)
@@ -1326,7 +1329,7 @@ class IopyTest(z.TestCase):
 
         self.assertEqual(a_desc.generic_attributes, {
             'test:gen2': 2.2,
-            'test:gen3': 'jiojj'
+            'test:gen3': 'jiojj',
         })
 
         self.assertEqual(a_desc.aliases, ('A_ALIAS',))
@@ -1738,34 +1741,34 @@ class IopyTest(z.TestCase):
         old_struct_a = self.r.test.StructA(
             e=self.r.test.EnumA('A'),
             a=self.r.test.ClassA(
-                field1=10
+                field1=10,
             ),
             tu=[self.r.test.UnionA(
-                i=24
+                i=24,
             ), self.r.test.UnionA(
                 a=self.r.test.ClassB(
-                    field2=87
-                )
+                    field2=87,
+                ),
             ), self.r.test.UnionA(
-                s='toto'
-            )]
+                s='toto',
+            )],
         )
 
         new_struct_a = self.r.test.StructA({
             'e': 'A',
             'a': {
-                'field1': 10
+                'field1': 10,
             },
             'tu': [{
-                'i': 24
+                'i': 24,
             }, {
                 'a': {
                     '_class': 'test.ClassB',
-                    'field2': 87
-                }
+                    'field2': 87,
+                },
             }, {
-                's': 'toto'
-            }]
+                's': 'toto',
+            }],
         })
 
         self.assertEqual(old_struct_a, new_struct_a)
@@ -1795,19 +1798,19 @@ class IopyTest(z.TestCase):
             self.r.test.ClassA({'_class': 'test.ClassC'})
 
     def test_different_str_encoding(self) -> None:
-        utf8_json = b'''
+        utf8_json = b"""
         {
             "s": "M\xc3\xa9xico"
         }
-        '''
+        """
         union = self.r.test.UnionA(_json=utf8_json)
         self.assertEqual('México', union.s)
 
-        latin1_json = b'''
+        latin1_json = b"""
         {
             "s": "M\xe9xico"
         }
-        '''
+        """
         union = self.r.test.UnionA(_json=latin1_json)
         self.assertEqual('M\\xe9xico', union.s)
 
@@ -1815,14 +1818,14 @@ class IopyTest(z.TestCase):
         class_b_dict = {
             '_class': 'test.ClassB',
             'field1': 28,
-            'field2': 78
+            'field2': 78,
         }
 
         union_a_1 = self.r.test.UnionA({
-            'a': class_b_dict
+            'a': class_b_dict,
         })
         union_a_2 = self.r.test.UnionA({
-            'a': class_b_dict
+            'a': class_b_dict,
         })
         self.assertEqual(union_a_1, union_a_2)
 
@@ -1925,8 +1928,7 @@ class IopyIfaceTests(z.TestCase):
         def rpc_impl_v(rpc_args: iopy.RPCArgs) -> iopy.StructBase:
             if hasattr(rpc_args.arg, 'ov'):
                 return rpc_args.res()
-            else:
-                return rpc_args.res(ov=None)
+            return rpc_args.res(ov=None)
 
         self.s = self.r.channel_server()
         # pylint: disable=protected-access
@@ -1943,16 +1945,16 @@ class IopyIfaceTests(z.TestCase):
             cls_attr = 0
 
             def __init__(self) -> None:
-                self.attr1 = 1
+                self.attr1: Optional[int] = 1
                 self.attr2 = 2
 
-            def my_method(self) -> int:
+            def my_method(self) -> Optional[int]:
                 self.cls_attr = 10
                 return self.attr1
 
             def funA(self, *args: Any, **kwargs: Any) -> iopy.StructBase:  # pylint: disable=invalid-name
-                self.attr1 = kwargs.get('a', None)
-                rpcs = self._rpcs # type: ignore[attr-defined]
+                self.attr1 = kwargs.get('a')
+                rpcs = self._rpcs  # type: ignore[attr-defined]
                 res = rpcs.funA(*args, **kwargs)
                 self.attr2 = res.status
                 return res
@@ -2348,8 +2350,8 @@ class IopyIfaceTests(z.TestCase):
         iface = c.test_ModuleA.interfaceA
         res = iface.funA({
             'a': {
-                'field1': 1
-            }
+                'field1': 1,
+            },
         })
         self.assertEqual(res.status, 'A')
         self.assertEqual(res.res, 1000)
@@ -2532,7 +2534,7 @@ class IopyIfaceTests(z.TestCase):
         # Check with an exception callback, but the exception callback raises
         # an exception, the error is raised as a warning
         def on_exception_cb_err(exc: Exception) -> None:
-            raise ValueError()
+            raise ValueError
         s.on_exception = on_exception_cb_err
 
         with warnings.catch_warnings(record=True) as w:
@@ -2550,7 +2552,7 @@ class IopyIfaceTests(z.TestCase):
 
         # Make the client callback on_connect raise an exception
         def on_connect_cb(channel: iopy.Channel) -> None:
-            raise RuntimeError()
+            raise RuntimeError
         c.on_connect = on_connect_cb
 
         # Check without an exception callback, the error is raised as a
@@ -2591,7 +2593,7 @@ class IopyIfaceTests(z.TestCase):
         # Check with an exception callback, but the exception callback raises
         # an exception, the error is raised as a warning
         def on_exception_cb_connect_err(exc: Exception) -> None:
-            raise ValueError()
+            raise ValueError
         c.on_exception = on_exception_cb_connect_err
 
         with warnings.catch_warnings(record=True) as w:
@@ -2608,7 +2610,7 @@ class IopyIfaceTests(z.TestCase):
 
         # Make the client on_disconnect raise an exception
         def on_disconnect_cb(channel: iopy.Channel, connected: bool) -> None:
-            raise KeyError()
+            raise KeyError
         c.on_disconnect = on_disconnect_cb
 
         # Check without an exception callback, the error is raised as a
@@ -2637,7 +2639,7 @@ class IopyIfaceTests(z.TestCase):
         # Check with an exception callback, but the exception callback raises
         # an exception, the error is raised as a warning
         def on_exception_cb_disconnect_err(exc: Exception) -> None:
-            raise TypeError()
+            raise TypeError
         c.on_exception = on_exception_cb_disconnect_err
 
         c.connect()
@@ -2661,7 +2663,7 @@ class IopyVoidTest(z.TestCase):
 
     def test_void_union_json(self) -> None:
         u = self.r.testvoid.VoidUnion(_json="{ a: null }")
-        self.assertEqual(str(u), "{ \"a\": null }\n")
+        self.assertEqual(str(u), '{ "a": null }\n')
         self.assertIsNone(u.a)
         self.assertFalse(hasattr(u, 'b'))
 
@@ -2678,7 +2680,7 @@ class IopyVoidTest(z.TestCase):
         # check struct creation from json works correctly with a field
         s = self.r.testvoid.VoidOptional(_json="{ a: null}")
         self.assertIsNone(s.a)
-        self.assertEqual(str(s), "{\n    \"a\": null\n}\n")
+        self.assertEqual(str(s), '{\n    "a": null\n}\n')
 
         s = self.r.testvoid.VoidOptional(_json="{ }")
         self.assertFalse(hasattr(s, 'a'))
@@ -2739,7 +2741,7 @@ class IopyVoidTest(z.TestCase):
 
         # setting to None works
         s.a = None
-        self.assertEqual(str(s), "{\n    \"a\": null\n}\n")
+        self.assertEqual(str(s), '{\n    "a": null\n}\n')
         self.assertIsNone(s.a)
 
         # check deleting optional field clears it
@@ -2748,7 +2750,7 @@ class IopyVoidTest(z.TestCase):
 
         # Setting to anything but None behave the same way
         s.a = 'toto'
-        self.assertEqual(str(s), "{\n    \"a\": null\n}\n")
+        self.assertEqual(str(s), '{\n    "a": null\n}\n')
         self.assertIsNone(s.a)
 
 
@@ -2868,14 +2870,16 @@ class IopyCompatibilityTests(z.TestCase):
         self.assertEqual(iface.__name__(), 'test.InterfaceA')
 
     def test_iface_types(self) -> None:
-        """Test interfaces are child types of iopy.IfaceBase and iopy.Iface.
+        """
+        Test interfaces are child types of iopy.IfaceBase and iopy.Iface.
         """
         iface = self.p.test.interfaces.InterfaceA
         self.assertTrue(issubclass(iface, iopy.IfaceBase))
         self.assertTrue(issubclass(iface, iopy.Iface))
 
     def test_init_with_type_argument(self) -> None:
-        """Test we can init types with field set up to another type.
+        """
+        Test we can init types with field set up to another type.
 
         This keeps some compatibility with IOPyV1 where types where
         instances and not real python types.
@@ -2891,8 +2895,10 @@ class IopyCompatibilityTests(z.TestCase):
         self.assertIsNotNone(str(d))
 
     def test_enum_field_cast_not_done_at_init(self) -> None:
-        """Test enum cast from string an int is not done directly when setting
-        the field, but when the conversion to C is done"""
+        """
+        Test enum cast from string an int is not done directly when setting
+        the field, but when the conversion to C is done
+        """
         a1 = self.p.test.StructA(e='A')
         self.assertEqual(a1.e, 'A')
         a2 = self.p.test.StructA(e=1)
@@ -2906,9 +2912,11 @@ class IopyCompatibilityTests(z.TestCase):
         self.assertEqual(a3, a2)
 
     def test_type_vars(self) -> None:
-        """Test vars keys for iopy types.
+        """
+        Test vars keys for iopy types.
 
-        Optional fields are skipped."""
+        Optional fields are skipped.
+        """
         class_b_keys = set(('field1', 'field2'))
         self.assertEqual(set(vars(self.p.test.ClassB).keys()), class_b_keys)
 
@@ -2919,7 +2927,8 @@ class IopyCompatibilityTests(z.TestCase):
         self.assertEqual(set(vars(self.p.test.UnionA).keys()), union_a_keys)
 
     def test_deprecated_underscore_methods(self) -> None:
-        """Test deprecated underscore methods of the different classes are
+        """
+        Test deprecated underscore methods of the different classes are
         equal to the new methods.
         """
         def check_method(obj: iopy.StructUnionBase,
@@ -2989,7 +2998,7 @@ class IopyCompatibilityTests(z.TestCase):
             ),
             (
                 '__get_iface_type_from_fullname__',
-                'get_iface_type_from_fullname', ('test.InterfaceA',)
+                'get_iface_type_from_fullname', ('test.InterfaceA',),
             ),
         ])
         self.assertEqual(self.p.__dsopath__, self.p.dsopath)
@@ -3102,15 +3111,14 @@ class IopyIopEnvironmentTests(z.TestCase):
 
     def test_iop_env_isolation(self) -> None:
         """Test IOP environment isolation"""
-
         # Create plugin from test-iop-plugin.so
         test_iop_plugin = iopy.Plugin(
-            os.path.join(TEST_PATH, 'test-iop-plugin.so')
+            os.path.join(TEST_PATH, 'test-iop-plugin.so'),
         )
 
         # Create plugin from test-iop-plugin2.so
         test_iop_plugin2 = iopy.Plugin(
-            os.path.join(TEST_PATH, 'test-iop-plugin2.so')
+            os.path.join(TEST_PATH, 'test-iop-plugin2.so'),
         )
 
         # The two plugins should be different
@@ -3133,13 +3141,13 @@ class IopyIopEnvironmentTests(z.TestCase):
         msg = 'undefined symbol'
         with self.assertRaisesRegex(iopy.Error, msg):
             iopy.Plugin(
-                os.path.join(TEST_PATH, 'test-iop-plugin-dso.so')
+                os.path.join(TEST_PATH, 'test-iop-plugin-dso.so'),
             )
 
     def test_additional_dso(self) -> None:
         # Create plugin from test-iop-plugin.so
         plugin = iopy.Plugin(
-            os.path.join(TEST_PATH, 'test-iop-plugin.so')
+            os.path.join(TEST_PATH, 'test-iop-plugin.so'),
         )
 
         # Cannot create ClassDso as the additional DSO is not already loaded
@@ -3150,7 +3158,7 @@ class IopyIopEnvironmentTests(z.TestCase):
         # Load the additional DSO
         plugin.load_dso(
             'plugin-dso',
-            os.path.join(TEST_PATH, 'test-iop-plugin-dso.so')
+            os.path.join(TEST_PATH, 'test-iop-plugin-dso.so'),
         )
 
         # We can now create ClassDso objects
@@ -3208,14 +3216,17 @@ class IopySlowTests(z.TestCase):
                 end_time = time.time()
                 diff_time = end_time - start_time
                 # We should have a timeout in less than 1.5s
-                self.assertLessEqual(diff_time, 1.5,
-                                     "connection timeout took {0:.2f}s, "
-                                     "expected less than 1.5s"
-                                     .format(diff_time))
+                self.assertLessEqual(
+                    diff_time, 1.5,
+                    f"connection timeout took {diff_time:.2f}s, "
+                    "expected less than 1.5s",
+                )
 
     def test_non_deadlock_on_exit(self) -> None:
-        """Test IOPy does not deadlock on process exit while waiting for
-        connection in a thread"""
+        """
+        Test IOPy does not deadlock on process exit while waiting for
+        connection in a thread
+        """
         uri = make_uri()
 
         # Use a queue to indicate startup
@@ -3264,9 +3275,11 @@ class IopySlowTests(z.TestCase):
             # We should have a timeout in less than 1.0s
             end_time = time.time()
             diff_time = end_time - start_time
-            self.assertLessEqual(diff_time, 1.0,
-                                 "exit timeout took {0:.2f}s, expected less "
-                                 "than 1.0s".format(diff_time))
+            self.assertLessEqual(
+                diff_time, 1.0,
+                f"exit timeout took {diff_time:.2f}s, expected less "
+                "than 1.0s",
+            )
 
     def test_async_connection_timeout(self) -> None:
         """Test the timeout argument is well respected on async connection"""
@@ -3301,9 +3314,9 @@ class IopySlowTests(z.TestCase):
 
             # We should have a timeout in less than 1.5s
             self.assertLessEqual(diff_time, 1.5,
-                                 "connection timeout took {0:.2f}s, "
-                                 "expected less than 1.5s"
-                                 .format(diff_time))
+                                 f"connection timeout took {diff_time:.2f}s, "
+                                 "expected less than 1.5s",
+                                 )
         loop.close()
 
 

@@ -17,12 +17,12 @@
 #                                                                         #
 ###########################################################################
 
-import os.path as osp
 import difflib
+import os.path as osp
+
+import zchk_mod  # type: ignore
 
 import zpycore as z
-import zchk_mod # type: ignore
-
 
 DIR = osp.dirname(osp.realpath(__file__))
 
@@ -48,8 +48,9 @@ class PxccTests(z.TestCase):
                 diff = '\n'.join(line.rstrip('\n') for line in diff_list)
 
         self.assertTrue(len(diff) == 0,
-                        'content of `{}` is not equal to content of `{}`:\n{}'
-                        .format(expected_file_name, output_file_name, diff))
+                        f'content of `{expected_file_name}` is not equal '
+                        f'to content of `{output_file_name}`:\n{diff}',
+                        )
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@
 ###########################################################################
 # pylint: disable=used-before-assignment
 
-from waflib.Build import BuildContext # pylint: disable=import-error
+from waflib.Build import BuildContext  # pylint: disable=import-error
 
 ctx: BuildContext
 
@@ -27,7 +27,7 @@ if ctx.env.COMPILER_CC != 'clang' and ctx.env.COMPILER_CXX != 'clang++':
         ctx.clang_rewrite_blocks_tgen = ctx.program(
             target='clang-rewrite-blocks', features='cxx cxxprogram', source=[
                 'RewriteBlocks.cpp',
-                'main.cpp'
+                'main.cpp',
             ], use=[
                 'llvm',
                 'clang',

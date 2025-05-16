@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-#vim:set fileencoding=utf-8:
 ###########################################################################
 #                                                                         #
 # Copyright 2022 INTERSEC SA                                              #
@@ -26,9 +25,11 @@
 #    uri to connect to
 
 import sys
-import warnings
 import time
+import warnings
+
 import iopy
+
 
 def main() -> None:
     plugin_file = sys.argv[1]
@@ -44,7 +45,7 @@ def main() -> None:
             c = r.connect(uri)
             connected = True
         except iopy.Error as e:
-            if str(e) != 'unable to connect to {0}'.format(uri):
+            if str(e) != f'unable to connect to {uri}':
                 raise e
 
     if not connected:
