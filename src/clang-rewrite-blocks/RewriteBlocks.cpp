@@ -2208,11 +2208,14 @@ void RewriteBlocks::HandleTranslationUnit(ASTContext &C)
     return;
 
   InsertText(SM->getLocForStartOfFile(MainFileID), Preamble, false);
-
+#if CLANG_VERSION_MAJOR >= 20
+  const llvm::RewriteBuffer *RewriteBuf;
+#else
+  const RewriteBuffer *RewriteBuf;
+#endif
   // Get the buffer corresponding to MainFileID.  If we haven't changed it, then
   // we are done.
-  if (const RewriteBuffer *RewriteBuf =
-      Rewrite.getRewriteBufferFor(MainFileID)) {
+  if ((RewriteBuf = Rewrite.getRewriteBufferFor(MainFileID))) {
     //printf("Changed:\n");
     *OutFile << std::string(RewriteBuf->begin(), RewriteBuf->end());
   } else {

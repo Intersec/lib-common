@@ -229,7 +229,11 @@ int main(int argc, const char **argv) {
       CompilerInvocation::GetResourcesPath(Argv0, MainAddr);
 
   // Create the actual diagnostics engine.
+#if CLANG_VERSION_MAJOR >= 20
+  Clang->createDiagnostics(*llvm::vfs::getRealFileSystem(), NULL, true);
+#else
   Clang->createDiagnostics();
+#endif
   if (!Clang->hasDiagnostics())
     return 1;
 
