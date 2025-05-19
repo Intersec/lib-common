@@ -65,7 +65,6 @@ int acceptx(int server_fd, int flags);
 int acceptx_get_addr(int server_fd, int flags, sockunion_t * nullable su);
 
 int getsockport(int sock, sa_family_t family);
-int getpeerport(int sock, sa_family_t family);
 
 lstr_t t_get_sock_address(int sock);
 lstr_t t_get_peer_address(int sock);

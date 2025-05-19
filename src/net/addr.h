@@ -107,6 +107,21 @@ static inline socklen_t sockunion_len(const sockunion_t * nonnull su)
         return (socklen_t)-1;
     }
 }
+
+static inline socklen_t sockunion_size(const sockunion_t * nonnull su)
+{
+    switch (su->family) {
+      case AF_INET:
+        return sizeof(struct sockaddr_in);
+      case AF_INET6:
+        return sizeof(struct sockaddr_in6);
+      case AF_UNIX:
+        return sizeof(struct sockaddr_un);
+      default:
+        return (socklen_t)-1;
+    }
+}
+
 __attribute__((pure))
 uint32_t sockunion_hash(const sockunion_t * nonnull su);
 
