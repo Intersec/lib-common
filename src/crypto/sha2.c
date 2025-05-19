@@ -132,7 +132,7 @@ void sha2_hmac( const void *key, int keylen,
  * released by Ulrich Drepper in public domain */
 
 /* Table used for base64 transformation */
-static const char sha2_crypt_base64char_g[64] =
+static const char sha2_crypt_base64char_g[] =
     "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 void sha2_crypt(const void *input, size_t ilen, const void *salt,
@@ -331,8 +331,7 @@ int sha2_crypt_parse(lstr_t input, int *out_rounds, pstream_t *out_salt,
     /* Check hash-part */
     if (unlikely(first_call)) {
         first_call = false;
-        ctype_desc_build2(&sha2_crypt_ctype, sha2_crypt_base64char_g,
-                          sizeof(sha2_crypt_base64char_g));
+        ctype_desc_build(&sha2_crypt_ctype, sha2_crypt_base64char_g);
     }
     THROW_ERR_IF(ps_len(&ps) != SHA256_CRYPT_DIGEST_SIZE);
     *out_hash = ps;

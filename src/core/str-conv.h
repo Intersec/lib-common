@@ -22,8 +22,8 @@
 #define IS_LIB_COMMON_STR_CONV_H
 
 extern uint8_t const __str_digit_value[128 + 256];
-extern char const __str_digits_upper[36];
-extern char const __str_digits_lower[36];
+extern char const __str_digits_upper[36] __attr_nonstring__;
+extern char const __str_digits_lower[36] __attr_nonstring__;
 
 extern uint32_t const __utf8_offs[6];
 extern uint8_t  const __utf8_clz_to_charlen[32];

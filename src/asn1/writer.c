@@ -97,7 +97,7 @@ static void e_trace_desc(int level, const char *txt,
 
 const char *t_asn1_oid_print(lstr_t oid)
 {
-    static const char digits[10] = "0123456789";
+    static const char digits[] = "0123456789";
 
     char *str = t_new_raw(char, oid.len * 4);
     char *w = str;

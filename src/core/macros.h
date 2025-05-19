@@ -279,6 +279,12 @@
 # define __fallthrough
 #endif
 
+#if __has_attribute(nonstring)
+#define __attr_nonstring__ __attribute__((nonstring))
+#else
+#define __attr_nonstring__
+#endif
+
 #if __has_attribute(optimize)
 # define __attr_optimize__(o)  __attribute__((optimize(o)))
 #else

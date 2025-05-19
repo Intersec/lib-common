@@ -1506,7 +1506,7 @@ int ifputs_hex(FILE *stream, const void *_buf, int len)
 {
     const byte *buf = _buf;
     int line_len, i, ret = 0;
-    static const char hexchar[16] = "0123456789ABCDEF";
+    static const char hexchar[] = "0123456789ABCDEF";
 
     if (!stream) {
         errno = EBADF;
