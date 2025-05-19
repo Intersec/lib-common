@@ -17,29 +17,27 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-import os
-import sys
-import time
-import copy
-import warnings
-import subprocess
-import threading
-import json
-import socket
-import multiprocessing
-import signal
 import asyncio
-
-from contextlib import contextmanager
-
-from typing import Any, Callable, Optional, Union
+import copy
+import json
+import multiprocessing
+import os
+import signal
+import socket
+import subprocess
+import sys
+import threading
+import time
+import warnings
 from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any, Callable, Optional, Union
+
+import iopy
+import zpycore as z
 
 SELF_PATH = os.path.dirname(__file__)
 TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
-
-import zpycore as z
-import iopy
 
 
 # {{{ Helpers
