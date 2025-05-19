@@ -266,11 +266,8 @@ class UseGroup:
 
 
 def get_env_bool(self: Context.Context, name: str) -> bool:
-    val = os.environ.get(name, 0)
-    if isinstance(val, str):
-        return val.lower() in ['true', 'yes', '1']
-    else:
-        return int(val) == 1
+    val = os.environ.get(name)
+    return val is not None and val.lower() in ('true', 'yes', '1')
 
 
 Context.Context.get_env_bool = get_env_bool
