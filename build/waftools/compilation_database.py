@@ -178,8 +178,8 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
 
             node_cmd = self.get_task_node_cmd(task, cmd, f_node, is_dep)
             entry: ClangDbEntry = {
-                "directory": task.get_cwd().abspath(),
-                "file": filename,
+                'directory': task.get_cwd().abspath(),
+                'file': filename,
             }
 
             # Add the command as 'arguments' if the cmd is a list,

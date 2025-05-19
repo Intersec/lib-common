@@ -42,17 +42,17 @@ class ZFormatter(Formatter):  # type: ignore[misc]
     """
 
     status = {
-        "passed":    "pass",
-        "failed":    "fail",
-        "error":     "fail",
-        "skipped":   "skip",
-        "untested":  "skip",
-        "undefined": "fail",
+        'passed':    'pass',
+        'failed':    'fail',
+        'error':     'fail',
+        'skipped':   'skip',
+        'untested':  'skip',
+        'undefined': 'fail',
     }
 
-    name = "z"
+    name = 'z'
 
-    step_tpl = "# {0:>2}-{1:<2} {2} {3} {4}:{5:<3}   # ({6:>.3f}s)\n"
+    step_tpl = '# {0:>2}-{1:<2} {2} {3} {4}:{5:<3}   # ({6:>.3f}s)\n'
 
     def __init__(self, stream: TextIO, config: Any):
         # Force show_skipped to order the formatter to be called for skipped
@@ -71,32 +71,32 @@ class ZFormatter(Formatter):  # type: ignore[misc]
         self.__status: Optional[str] = None
         self.__exn: Optional[str] = None
         self.steps: list[behave.model.Step] = []
-        self.basename = ""
+        self.basename = ''
 
     def scenario_flush(self) -> None:
         zpycore.util.wipe_children_rearm()
         if self.__scenario is not None:
-            if self.__status == "pass":
+            if self.__status == 'pass':
                 self.__success += 1
-            elif self.__status == "fail":
+            elif self.__status == 'fail':
                 self.__failed += 1
-            elif self.__status == "skip":
+            elif self.__status == 'skip':
                 self.__skipped += 1
-            self.stream.write("%d %s %s   # (%.3fs) %d steps\n" %
+            self.stream.write('%d %s %s   # (%.3fs) %d steps\n' %
                               (self.__count, self.__status,
                                self.__scenario.name, self.__scenario.duration,
                                self.__steps))
             self.stream.flush()
             if self.__exn:
                 for line in self.__exn.split('\n'):
-                    print(":", line)
+                    print(':', line)
             self.__count += 1
 
         # Print only skipped steps on running scenario (only in case of error)
-        if len(self.steps) > 0 and self.__status != "skip":
-            self.stream.write(": Steps skipped:\n")
+        if len(self.steps) > 0 and self.__status != 'skip':
+            self.stream.write(': Steps skipped:\n')
             for step in self.steps:
-                self.stream.write(": %s\n" % step)
+                self.stream.write(': %s\n' % step)
             self.stream.flush()
 
         self.steps = []
@@ -114,7 +114,7 @@ class ZFormatter(Formatter):  # type: ignore[misc]
                 count += len(sc.scenarios)
             else:
                 count += 1
-        self.stream.write("1..%d %s\n" % (count, feature.name))
+        self.stream.write('1..%d %s\n' % (count, feature.name))
         self.stream.flush()
         self.__count = 1
         self.__steps = 0
@@ -122,7 +122,7 @@ class ZFormatter(Formatter):  # type: ignore[misc]
     def scenario(self, scenario: behave.model.Scenario) -> None:
         self.scenario_flush()
         self.__scenario = scenario
-        self.__status = "skip"
+        self.__status = 'skip'
 
     def result(self, step: behave.model.Step) -> None:
         self.__steps += 1
@@ -131,20 +131,20 @@ class ZFormatter(Formatter):  # type: ignore[misc]
         if not isinstance(status, str):
             status = status.name
 
-        status = self.status.get(status, "skip")
+        status = self.status.get(status, 'skip')
 
-        if self.__status == "skip":
+        if self.__status == 'skip':
             self.__status = status
 
         step = self.steps.pop(0)
-        step_name = f"<{step.step_type} {step.name}>"
+        step_name = f'<{step.step_type} {step.name}>'
         self.stream.write(self.step_tpl.format(
             self.__count, self.__steps, status,
             step_name, self.basename, step.line, step.duration))
         self.stream.flush()
-        if status == "fail":
+        if status == 'fail':
             self.__exn    = step.error_message
-            self.__status = "fail"
+            self.__status = 'fail'
 
     def step(self, step: behave.model.Step) -> None:
         self.steps.append(step)
@@ -154,7 +154,7 @@ class ZFormatter(Formatter):  # type: ignore[misc]
         if self.__count != 1:
             total = self.__success + self.__skipped + self.__failed
             self.stream.write(
-                "# %.1f%% skipped  %.1f%% passed  %.1f%% failed\n" %
+                '# %.1f%% skipped  %.1f%% passed  %.1f%% failed\n' %
                 ((100. * self.__skipped) / total,
                  (100. * self.__success) / total,
                  (100. * self.__failed)  / total))

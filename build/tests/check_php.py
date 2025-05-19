@@ -52,21 +52,21 @@ def main() -> None:
 
     files = find_php_files(root_dir)
 
-    print(f"1..{len(files)} Check PHP syntax")
+    print(f'1..{len(files)} Check PHP syntax')
     fail = 0
     for i, filename in enumerate(files, 1):
         try:
             check_output(['php', '-l', filename], stderr=STDOUT)
-            print(f"{i} pass {filename}")
+            print(f'{i} pass {filename}')
         except CalledProcessError as err:
             fail += 1
-            print(f"{i} fail {filename}{err.output}")
+            print(f'{i} fail {filename}{err.output}')
 
     fail_percent = 100.0 * fail / len(files)
-    print("# 0% skipped  "
-          f"{int(100 - fail_percent)}% passed "
-          f"{int(fail_percent)}% failed")
+    print('# 0% skipped  '
+          f'{int(100 - fail_percent)}% passed '
+          f'{int(fail_percent)}% failed')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

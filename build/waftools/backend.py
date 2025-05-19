@@ -426,7 +426,7 @@ def get_linter_flags(ctx: BuildContext, flags_key: str,
 
 
 def gen_local_vimrc(ctx: BuildContext) -> None:
-    content = ""
+    content = ''
 
     # Generate ALE options.
     # Escape the -D flags with double quotes, which is needed for
@@ -438,33 +438,33 @@ def gen_local_vimrc(ctx: BuildContext) -> None:
 
     # for older versions of ALE
     content += "let g:ale_c_clang_options = '\n"
-    content += "    \\ "
-    content += " ".join(flags)
-    content += "\n"
+    content += '    \\ '
+    content += ' '.join(flags)
+    content += '\n'
     content += "\\'\n"
 
     # for ALE 3.0+
     # https://github.com/dense-analysis/ale/issues/3299
     content += "let g:ale_c_cc_options = '\n"
-    content += "    \\ "
-    content += " ".join(flags)
-    content += "\n"
+    content += '    \\ '
+    content += ' '.join(flags)
+    content += '\n'
     content += "\\'\n"
 
     # Bind :make to waf
-    content += r"set makeprg=LC_ALL=C\ NO_WWW=1\ waf"
-    content += "\n"
+    content += r'set makeprg=LC_ALL=C\ NO_WWW=1\ waf'
+    content += '\n'
 
     # Update errorformat so that vim finds the files when compiling with :make
-    content += r"set errorformat^=\%D%*\\a:\ Entering\ directory\ `%f/"
+    content += r'set errorformat^=\%D%*\\a:\ Entering\ directory\ `%f/'
     content += ctx.bldnode.name
     content += "'\n"
 
     # Set flags for cython
     content += "let g:ale_pyrex_cython_options = '\n"
-    content += "    \\ "
-    content += " ".join(get_linter_flags(ctx, 'CYTHONFLAGS', False))
-    content += "\n"
+    content += '    \\ '
+    content += ' '.join(get_linter_flags(ctx, 'CYTHONFLAGS', False))
+    content += '\n'
     content += "\\'\n"
 
     if hasattr(ctx, 'vimrc_additions'):
@@ -1241,7 +1241,7 @@ class Iop2c(FirstInputStrTask):
         self.last_cmd = cmd
         res: int = self.exec_command(cmd, cwd=self.get_cwd())
         if res and not getattr(self, 'scan_failed', False):
-            self.bld.fatal("scan should have failed for %s" % self.inputs[0])
+            self.bld.fatal('scan should have failed for %s' % self.inputs[0])
         return res
 
 

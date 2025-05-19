@@ -46,7 +46,7 @@ PORT_COUNT = 9900
 def make_uri() -> str:
     global PORT_COUNT
     PORT_COUNT -= 1
-    return "127.0.0.1:%d" % PORT_COUNT
+    return '127.0.0.1:%d' % PORT_COUNT
 
 
 def z_iopy_thread_cb(iface: iopy.IfaceBase, obj_a: iopy.StructBase,
@@ -204,13 +204,13 @@ class IopyTest(z.TestCase):
 
     def test_inheritance(self) -> None:
         self.assertTrue(issubclass(self.r.test.ClassB, self.r.test.ClassA),
-                        "class inheritance failed")
+                        'class inheritance failed')
 
     def test_fields(self) -> None:
         a = self.r.test.ClassA()
         a.a = 'a'
         self.assertEqual(a.field1, 0)
-        self.assertEqual(a.a, 'a', "append field failed")
+        self.assertEqual(a.a, 'a', 'append field failed')
 
     def test_ignore_unkwnon(self) -> None:
         a = self.r.tst1.A(_json='{ "a": "A1", "b": "B2", "c": "D4" }',
@@ -482,13 +482,13 @@ class IopyTest(z.TestCase):
                 return res
 
         b = self.r.test.ClassB(field1=1)
-        self.assertTrue(hasattr(b, 'fun'), "method inheritance failed")
-        self.assertEqual(b.fun(), 1, "method inheritance failed")
+        self.assertTrue(hasattr(b, 'fun'), 'method inheritance failed')
+        self.assertEqual(b.fun(), 1, 'method inheritance failed')
 
     def test_subtyping(self) -> None:
         u = self.r.test.UnionA(a=self.r.test.ClassB())
-        self.assertIsInstance(u.a, self.r.test.ClassB, "subtyping failed")
-        self.assertTrue(hasattr(u.a, 'field2'), "subtyping failed")
+        self.assertIsInstance(u.a, self.r.test.ClassB, 'subtyping failed')
+        self.assertTrue(hasattr(u.a, 'field2'), 'subtyping failed')
 
     def test_rpc_client_server(self) -> None:
         def rpc_impl_a(rpc_args: iopy.RPCArgs) -> iopy.StructBase:
@@ -575,9 +575,9 @@ class IopyTest(z.TestCase):
         c.change_default_hdr(_hdr=hdr)
         test_ko()
 
-        self.assertTrue(self.async_done, "async RPC failed")
+        self.assertTrue(self.async_done, 'async RPC failed')
 
-        self.assertEqual(self.connections, 1, "on_connect cb failed")
+        self.assertEqual(self.connections, 1, 'on_connect cb failed')
 
         self.assertEqual(c.is_connected(), True)
         c.disconnect()
@@ -587,7 +587,7 @@ class IopyTest(z.TestCase):
             if not self.connections:
                 break
             time.sleep(0.01)
-        self.assertEqual(self.connections, 0, "on_disconnect cb failed")
+        self.assertEqual(self.connections, 0, 'on_disconnect cb failed')
 
         s.stop()
         s.on_connect = None
@@ -599,7 +599,7 @@ class IopyTest(z.TestCase):
             self.assertIsNotNone(proc)
             s.test_ModuleA.interfaceA.funA.wait(uri=uri, timeout=20)
             proc.wait()
-            msg = ("server blocking failed; subprocess status: %s" %
+            msg = ('server blocking failed; subprocess status: %s' %
                    str(proc.returncode))
             self.assertEqual(proc.returncode, 0, msg)
 
@@ -635,9 +635,9 @@ class IopyTest(z.TestCase):
             a=[self.r.test_emptystuffs.A(), self.r.test_emptystuffs.B()],
             emptyStructs=[self.r.test_emptystuffs.EmptyStruct()])
         self.assertEqual(tab.a[1], self.r.test_emptystuffs.B(),
-                         "empty stuff comparison failed")
+                         'empty stuff comparison failed')
         self.assertNotEqual(tab.a[0], self.r.test_emptystuffs.B(),
-                            "empty stuff comparison failed")
+                            'empty stuff comparison failed')
 
     def test_packing(self) -> None:
         u = self.r.test.UnionA(self.r.test.ClassB(field1=1, field2=2))
@@ -665,7 +665,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(a, self.r.test.StructA(_json=j))
 
         # check that private fields are skipped
-        c = self.r.test.StructC(u=1, priv = "toto")
+        c = self.r.test.StructC(u=1, priv = 'toto')
         d = self.r.test.StructC(u=1)
         j = c.to_json()
         self.assertEqual(c, self.r.test.StructC(_json=j))
@@ -680,32 +680,32 @@ class IopyTest(z.TestCase):
                                 tab=[b'first string', 'second string'])
         j = b.to_json()
         self.assertEqual(b, self.r.test.StructB(_json=j),
-                         "unicode strings in iopy fields failed")
+                         'unicode strings in iopy fields failed')
         b2 = self.r.test.StructB(a='string a', b='string b',
                                  tab=['first string', 'second string'])
-        self.assertTrue(b == b2, "string fields comparison failed")
+        self.assertTrue(b == b2, 'string fields comparison failed')
         b3 = self.r.test.StructB(a='non asçii éé',
                                  b='', tab=[])
         self.assertTrue(b3 == self.r.test.StructB(_json=b3.to_json()),
-                        "real unicode fields failed")
+                        'real unicode fields failed')
         u = self.r.test.UnionA(s=b'bytes string')
         j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
-                         "string in iopy union failed")
+                         'string in iopy union failed')
         u = self.r.test.UnionA(s='unicode string')
         j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
-                         "unicode string in iopy union failed")
+                         'unicode string in iopy union failed')
         u = self.r.test.UnionA(s=b'bytes string')
         j = u.to_json()
         self.assertEqual(u, self.r.test.UnionA(_json=j),
-                         "bytes string in iopy union failed")
+                         'bytes string in iopy union failed')
 
     def test_constraints(self) -> None:
         self.r.test.UnionA(i=100)
         a = self.r.test.UnionA(100)
         a.i = 1
-        exp = r"violation of constraint max \(100\) on field i: val=101$"
+        exp = r'violation of constraint max \(100\) on field i: val=101$'
         with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.UnionA(i=101)
         with self.assertRaisesRegex(iopy.Error, exp):
@@ -718,10 +718,10 @@ class IopyTest(z.TestCase):
         self.assertTrue(hasattr(b, 'a'))
         self.assertEqual(getattr(b.a, 'i', None), 100)
         b.a = 1
-        exp = (r"^error when parsing test\.UnionB: "
-               r"invalid selected union field .+a.+: in a of type "
-               r"test\.UnionA: violation of constraint max \(100\) on "
-               r"field i: val=101$")
+        exp = (r'^error when parsing test\.UnionB: '
+               r'invalid selected union field .+a.+: in a of type '
+               r'test\.UnionA: violation of constraint max \(100\) on '
+               r'field i: val=101$')
         with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.UnionB(a=101)
         with self.assertRaisesRegex(iopy.Error, exp):
@@ -730,8 +730,8 @@ class IopyTest(z.TestCase):
 
         b = self.r.test.ClassB(field1=1000)
         b.field1 = 1
-        exp = (r"violation of constraint max \(1000\) on field field1: "
-               r"val=1001$")
+        exp = (r'violation of constraint max \(1000\) on field field1: '
+               r'val=1001$')
         with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.ClassB(field1=1001)
         with self.assertRaisesRegex(iopy.Error, exp):
@@ -739,9 +739,9 @@ class IopyTest(z.TestCase):
         self.assertEqual(b.field1, 1)
 
         self.r.test.StructF(s='', i=[0])
-        exp = (r"^error when parsing test.StructF: "
-               r"field s \(type: ?str\) is required but absent; "
-               r"field i \(type: ?int\[\]\) is not allowed: empty array$")
+        exp = (r'^error when parsing test.StructF: '
+               r'field s \(type: ?str\) is required but absent; '
+               r'field i \(type: ?int\[\]\) is not allowed: empty array$')
         with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.StructF()
 
@@ -749,19 +749,19 @@ class IopyTest(z.TestCase):
         self.assertEqual(a, self.r.test.StructA(tu=[]))
 
         a = self.r.test.StructA(tu=[1, self.r.test.ClassB(), ''])
-        exp = (r"^error when parsing test.StructA: "
-               r"invalid argument .+tu.+: in tu\[1\] of type test.UnionA: "
-               r"violation of constraint max \(100\) on field i: val=101$")
+        exp = (r'^error when parsing test.StructA: '
+               r'invalid argument .+tu.+: in tu\[1\] of type test.UnionA: '
+               r'violation of constraint max \(100\) on field i: val=101$')
         with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.StructA(tu=[100, 101])
 
         b = self.r.test.ConstraintsB(name='ab', i=1000)
-        exp = (r"^error when parsing test.ConstraintsB: "
-               r"invalid argument .+name.+: in type test.ConstraintsA: "
-               r"violation of constraint pattern \(\[a-z\]\*\) on field "
-               r"name: a b; invalid argument .+i.+: in type "
-               r"test.ConstraintsB: violation of constraint max \(1000\) "
-               r"on field i: val=1001$")
+        exp = (r'^error when parsing test.ConstraintsB: '
+               r'invalid argument .+name.+: in type test.ConstraintsA: '
+               r'violation of constraint pattern \(\[a-z\]\*\) on field '
+               r'name: a b; invalid argument .+i.+: in type '
+               r'test.ConstraintsB: violation of constraint max \(1000\) '
+               r'on field i: val=1001$')
         with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.ConstraintsB(name='a b', i=1001)
 
@@ -793,8 +793,8 @@ class IopyTest(z.TestCase):
                         'check of deletion of union field has failed')
 
     def test_required_fields(self) -> None:
-        exp = (r"^error when parsing test.StructB: field a \(type: ?str\) is "
-               r"required but absent$")
+        exp = (r'^error when parsing test.StructB: field a \(type: ?str\) is '
+               r'required but absent$')
         with self.assertRaisesRegex(iopy.Error, exp):
             self.r.test.StructB(b='')
 
@@ -958,7 +958,7 @@ class IopyTest(z.TestCase):
 
         structa = self.r.test.StructA()
         structa.tu.append(self.r.test.ClassA())
-        structa.u = self.r.test.UnionA(s="toto")
+        structa.u = self.r.test.UnionA(s='toto')
         copy_struct_from_plugin = self.p.test.StructA(_json=str(structa))
         copy_struct_from_register = self.r.test.StructA(_json=str(structa))
 
@@ -986,7 +986,7 @@ class IopyTest(z.TestCase):
         err = self.r.test.Error(code=42, desc='test')
         structa = self.r.test.StructA(val=5, foo=err)
         structa.tu.append(self.r.test.ClassA())
-        structa.u = self.r.test.UnionA("toto")
+        structa.u = self.r.test.UnionA('toto')
         structa.r = self.r.test.Error(code=42, desc='test')
         enuma = self.r.test.EnumA('B')
         enuma.baz = self.r.test.ClassB()
@@ -1953,8 +1953,8 @@ class IopyIfaceTests(z.TestCase):
                 return self.attr1
 
             def funA(self, *args: Any, **kwargs: Any) -> iopy.StructBase:  # pylint: disable=invalid-name
-                self.attr1 = kwargs.get('a')
-                rpcs = self._rpcs  # type: ignore[attr-defined]
+                self.attr1 = kwargs.get('a', 0)
+                rpcs = self._rpcs # type: ignore[attr-defined]
                 res = rpcs.funA(*args, **kwargs)
                 self.attr2 = res.status
                 return res
@@ -2662,29 +2662,29 @@ class IopyVoidTest(z.TestCase):
         self.r = self.p.register()
 
     def test_void_union_json(self) -> None:
-        u = self.r.testvoid.VoidUnion(_json="{ a: null }")
+        u = self.r.testvoid.VoidUnion(_json='{ a: null }')
         self.assertEqual(str(u), '{ "a": null }\n')
         self.assertIsNone(u.a)
         self.assertFalse(hasattr(u, 'b'))
 
     def test_void_struct_required_json(self) -> None:
-        s = self.r.testvoid.VoidRequired(_json="{a: null}")
+        s = self.r.testvoid.VoidRequired(_json='{a: null}')
         self.assertIsNone(s.a)
         # required void can be omited
-        s = self.r.testvoid.VoidRequired(_json="{}")
+        s = self.r.testvoid.VoidRequired(_json='{}')
         self.assertIsNone(s.a)
         # json output
-        self.assertEqual(str(s), "{\n}\n")
+        self.assertEqual(str(s), '{\n}\n')
 
     def test_void_struct_optional_json(self) -> None:
         # check struct creation from json works correctly with a field
-        s = self.r.testvoid.VoidOptional(_json="{ a: null}")
+        s = self.r.testvoid.VoidOptional(_json='{ a: null}')
         self.assertIsNone(s.a)
         self.assertEqual(str(s), '{\n    "a": null\n}\n')
 
-        s = self.r.testvoid.VoidOptional(_json="{ }")
+        s = self.r.testvoid.VoidOptional(_json='{ }')
         self.assertFalse(hasattr(s, 'a'))
-        self.assertEqual(str(s), "{\n}\n")
+        self.assertEqual(str(s), '{\n}\n')
 
     def test_void_union(self) -> None:
         # check union creation from args works correctly
@@ -2694,7 +2694,7 @@ class IopyVoidTest(z.TestCase):
         self.assertFalse(hasattr(u, 'a'))
 
         # check setting to anything but None fails
-        msg = r"invalid type: got int \(0\), expected NoneType"
+        msg = r'invalid type: got int \(0\), expected NoneType'
         with self.assertRaisesRegex(iopy.Error, msg):
             u.a = 0
         # try setting other field, then setting back our void field
@@ -2704,7 +2704,7 @@ class IopyVoidTest(z.TestCase):
         u.a = None
         self.assertIsNone(u.a)
 
-        msg = (r"[Ii]nvalid argument .plumbus.")
+        msg = (r'[Ii]nvalid argument .plumbus.')
         with self.assertRaisesRegex(iopy.Error, msg):
             _ = self.r.testvoid.VoidUnion(plumbus=666)
 
@@ -3187,7 +3187,7 @@ class IopyIopEnvironmentTests(z.TestCase):
 # {{{ IopySlowTests
 
 
-@z.ZFlags("slow")
+@z.ZFlags('slow')
 @z.ZGroup
 class IopySlowTests(z.TestCase):
     """Tests that takes some fixed time to complete"""
@@ -3218,8 +3218,8 @@ class IopySlowTests(z.TestCase):
                 # We should have a timeout in less than 1.5s
                 self.assertLessEqual(
                     diff_time, 1.5,
-                    f"connection timeout took {diff_time:.2f}s, "
-                    "expected less than 1.5s",
+                    f'connection timeout took {diff_time:.2f}s, '
+                    'expected less than 1.5s',
                 )
 
     def test_non_deadlock_on_exit(self) -> None:
@@ -3277,8 +3277,8 @@ class IopySlowTests(z.TestCase):
             diff_time = end_time - start_time
             self.assertLessEqual(
                 diff_time, 1.0,
-                f"exit timeout took {diff_time:.2f}s, expected less "
-                "than 1.0s",
+                f'exit timeout took {diff_time:.2f}s, expected less '
+                'than 1.0s',
             )
 
     def test_async_connection_timeout(self) -> None:
@@ -3314,8 +3314,8 @@ class IopySlowTests(z.TestCase):
 
             # We should have a timeout in less than 1.5s
             self.assertLessEqual(diff_time, 1.5,
-                                 f"connection timeout took {diff_time:.2f}s, "
-                                 "expected less than 1.5s",
+                                 f'connection timeout took {diff_time:.2f}s, '
+                                 'expected less than 1.5s',
                                  )
         loop.close()
 
@@ -3323,5 +3323,5 @@ class IopySlowTests(z.TestCase):
 # }}}
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     z.main()

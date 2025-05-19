@@ -231,11 +231,11 @@ def ZFlags(*flags: str) -> Callable[[T], T]: # pylint: disable=invalid-name
         func_flags = _ALL_FLAGS.setdefault(func, [])
         func_flags.extend(flags)
         fl = set(func_flags) & _FLAGS
-        if any(f in _TAG_OR for f in func_flags) and "wip" not in fl:
+        if any(f in _TAG_OR for f in func_flags) and 'wip' not in fl:
             func.__unittest_skip__ = False # type: ignore[attr-defined]
             return func
         if fl:
-            skip_msg = "skipping tests flagged with %s" % (" ".join(fl))
+            skip_msg = 'skipping tests flagged with %s' % (' '.join(fl))
             skip_wrapper = unittest.skip(skip_msg)
             return skip_wrapper(func) # type: ignore[type-var]
         return func
@@ -278,7 +278,7 @@ class _ZTextTestResult(unittest.TextTestResult):
     """
 
     def __init__(self, *args: Any, **kwargs: Any):
-        self.debug_on = os.getenv("Z_DEBUG_ON_ERROR") == "1"
+        self.debug_on = os.getenv('Z_DEBUG_ON_ERROR') == '1'
         super().__init__(*args, **kwargs)
 
     def debug(self, err: ExecInfo) -> None:
@@ -332,24 +332,24 @@ class _ZTestResult(unittest.TestResult):
         super().startTest(test)
 
     def _put_st(self, what: str, test: unittest.TestCase,
-                rest: str = "") -> None:
+                rest: str = '') -> None:
         wipe_children_rearm()
         run_time = time.time() - self.start_time
         if isinstance(test, doctest.DocTestCase):
             tid = test.id()
         else:
             tid = getattr(test, '_testMethodName', '')
-        sys.stdout.write("%d %s %s # (%.3fs)" %
+        sys.stdout.write('%d %s %s # (%.3fs)' %
                          (self.testsRun, what, tid, run_time))
         if rest:
             sys.stdout.write(rest)
-        sys.stdout.write("\n")
+        sys.stdout.write('\n')
 
     @classmethod
     def _put_err_common(cls, test: unittest.TestCase) -> None:
         wipe_children_rearm()
         tid = test.id()
-        tid = tid.removeprefix("__main__.")
+        tid = tid.removeprefix('__main__.')
         sys.stdout.write(': $ %s %s\n:\n' % (sys.argv[0], tid))
 
     @classmethod
@@ -359,18 +359,18 @@ class _ZTestResult(unittest.TestResult):
         exctype, value, tb = err
         lines = traceback.format_exception(exctype, value, tb)
         sys.stdout.write(': ')
-        sys.stdout.write('\n: '.join(''.join(lines).split("\n")))
-        sys.stdout.write("\n")
+        sys.stdout.write('\n: '.join(''.join(lines).split('\n')))
+        sys.stdout.write('\n')
 
     @classmethod
     def _put_err_str(cls, test: unittest.TestCase, err: str) -> None:
         cls._put_err_common(test)
 
-        sys.stdout.write(": %s\n" % (err))
+        sys.stdout.write(': %s\n' % (err))
 
     def addSuccess(self, test: unittest.TestCase) -> None:
         super().addSuccess(test)
-        self._put_st("pass", test)
+        self._put_st('pass', test)
         sys.stdout.flush()
 
     def addError(self, test: unittest.TestCase, err: ExecInfo) -> None:
@@ -379,7 +379,7 @@ class _ZTestResult(unittest.TestResult):
             test,
             self._exc_info_to_string(err, test), # type: ignore[attr-defined]
         ))
-        self._put_st("fail", test)
+        self._put_st('fail', test)
         self._put_err(test, err)
         sys.stdout.flush()
 
@@ -389,13 +389,13 @@ class _ZTestResult(unittest.TestResult):
             test,
             self._exc_info_to_string(err, test), # type: ignore[attr-defined]
         ))
-        self._put_st("fail", test)
+        self._put_st('fail', test)
         self._put_err(test, err)
         sys.stdout.flush()
 
     def addSkip(self, test: unittest.TestCase, reason: str) -> None:
         super().addSkip(test, reason)
-        self._put_st("skip", test, reason)
+        self._put_st('skip', test, reason)
         sys.stdout.flush()
 
     def addExpectedFailure(self, test: unittest.TestCase,
@@ -404,14 +404,14 @@ class _ZTestResult(unittest.TestResult):
         exn = err[1]
         assert isinstance(exn, _ZTodo)
         super().addExpectedFailure(test, exn.exc_info)
-        self._put_st("todo-fail", test, exn.reason)
+        self._put_st('todo-fail', test, exn.reason)
         self._put_err(test, exn.exc_info)
         sys.stdout.flush()
 
     def addUnexpectedSuccess(self, test: unittest.TestCase) -> None:
         super().addUnexpectedSuccess(test)
-        self._put_st("todo-pass", test)
-        self._put_err_str(test, "ZTodo should not pass")
+        self._put_st('todo-pass', test)
+        self._put_err_str(test, 'ZTodo should not pass')
         sys.stdout.flush()
 
     @classmethod
@@ -421,7 +421,7 @@ class _ZTestResult(unittest.TestResult):
             group_name = test.__class__.__name__
         else:
             group_name = test._tests[0].__class__.__name__
-        sys.stdout.write("1..%d %s\n" % (test.countTestCases(), group_name))
+        sys.stdout.write('1..%d %s\n' % (test.countTestCases(), group_name))
         sys.stdout.flush()
 
     def reset(self) -> None:
@@ -492,7 +492,7 @@ def expectedFailure(*args: Any, **kwargs: Any) -> NoReturn:
     """
     Overrides the unittest definition so that people won't use it by mistake
     """
-    raise RuntimeError("Do not use expectedFailure but ZTodo instead")  # pylint: disable=broad-exception-raised
+    raise RuntimeError('Do not use expectedFailure but ZTodo instead')  # pylint: disable=broad-exception-raised
 
 
 class TestProgram(unittest.TestProgram):

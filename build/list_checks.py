@@ -44,13 +44,13 @@ def is_exec(f: str) -> bool:
 
 
 GROUPS = [
-    ("behave", re.compile(r".*/behave"),     None),
-    ("web",    re.compile(r".*testem.json"), is_file),
-    ("web",    re.compile(r".*/check_php"),  None),
-    ("C",      re.compile(r".+"),            is_exec),  # default case
+    ('behave', re.compile(r'.*/behave'),     None),
+    ('web',    re.compile(r'.*testem.json'), is_file),
+    ('web',    re.compile(r'.*/check_php'),  None),
+    ('C',      re.compile(r'.+'),            is_exec),  # default case
 ]
-RE_TAGS = re.compile(r"@([A-Za-z0-9_]+)")
-Z_TAG_SKIP = set(os.getenv("Z_TAG_SKIP", "").split())
+RE_TAGS = re.compile(r'@([A-Za-z0-9_]+)')
+Z_TAG_SKIP = set(os.getenv('Z_TAG_SKIP', '').split())
 
 
 def dump_zfile(
@@ -76,7 +76,7 @@ def dump_zfile(
                     err = None
 
                     if check and not check(test_path):
-                        err = "%s:%d: no match for %s" % (zfile, num + 1,
+                        err = '%s:%d: no match for %s' % (zfile, num + 1,
                                                           stripped_line)
 
                     yield (folder, test, err)
@@ -100,21 +100,21 @@ def fetch_zfiles(root: str) -> Iterator[str]:
 
 def main(root: str) -> None:
     exit_code = 0
-    skipped_groups = os.getenv('Z_LIST_SKIP', "").split()
+    skipped_groups = os.getenv('Z_LIST_SKIP', '').split()
 
     for zfile in fetch_zfiles(root):
         for folder, line, err in dump_zfile(zfile, skipped_groups):
             if err:
-                sys.stderr.write("ERROR: %s\n" % err)
+                sys.stderr.write('ERROR: %s\n' % err)
                 sys.stderr.flush()
                 exit_code = 2
             else:
-                print("%s/ %s" % (folder, line))
+                print('%s/ %s' % (folder, line))
                 sys.stdout.flush()
 
     sys.exit(exit_code)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     assert len(sys.argv) == 2
     main(sys.argv[1])

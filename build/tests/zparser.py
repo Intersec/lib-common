@@ -30,43 +30,43 @@ from typing import Any, Optional, TypeVar, Union
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(NullHandler())
 
-STATUS = ("pass", "fail", "skip",  "todo-pass", "todo-fail")
-EXTENDED_STATUS = STATUS + ("missing", "bad-number")
+STATUS = ('pass', 'fail', 'skip',  'todo-pass', 'todo-fail')
+EXTENDED_STATUS = STATUS + ('missing', 'bad-number')
 
 RE_SUITE = re.compile(
-    r".*starting suite (?:\.\/)?(?P<suite>(?P<product>[a-zA-Z0-9_\-\.]*)"
-    r"(?:\/.*)?)\.\.\.") # cannot anchor due to shell colors
+    r'.*starting suite (?:\.\/)?(?P<suite>(?P<product>[a-zA-Z0-9_\-\.]*)'
+    r'(?:\/.*)?)\.\.\.') # cannot anchor due to shell colors
 RE_DONE_SUITE = re.compile(
-    r"(\S*(done )|.*(TEST SUITE (?P<suite>.*) (?P<status>FAILED) ))"
-    r"\((?P<time>\d+) seconds\)") # cannot anchor due to shell colors
-RE_GROUP = re.compile(r"^1\.\.(?P<total>\d+) (?P<group>.*)$")
+    r'(\S*(done )|.*(TEST SUITE (?P<suite>.*) (?P<status>FAILED) ))'
+    r'\((?P<time>\d+) seconds\)') # cannot anchor due to shell colors
+RE_GROUP = re.compile(r'^1\.\.(?P<total>\d+) (?P<group>.*)$')
 RE_TEST = re.compile(
-    r"^ *(?P<number>\d+) (?P<status>{0})[ \t]+(?P<name>.+)$".format(
-        "|".join(STATUS)))
+    r'^ *(?P<number>\d+) (?P<status>{0})[ \t]+(?P<name>.+)$'.format(
+        '|'.join(STATUS)))
 RE_TEST_OPTIONAL = re.compile(
-    r"^(?P<name>.*)[ \t]+#[ |\t]+\((?P<time>\d+\.\d+)s?\)"
-    r"([ \t]*(?P<comment>.*))?$")
-RE_STEP = re.compile(r"^# +\d+-(?P<number>\d+) +(?P<status>{0}) +"
-                     r"<(?P<name>.*)>? +(?P<filename>.+):(?P<line>\d+) +# "
-                     r"\((?P<time>\d+\.\d+)s\)$".format("|".join(STATUS)))
-RE_END = re.compile("^# TOTAL$")
-RE_HEADER = re.compile(r"(.*),\d+:(0|1)")
-RE_SCREEN = re.compile(r".*screenshot available -> "
-                       r"(?P<url>https://img.corp/.*)")
-RE_BROWSER_LOG = re.compile(r"[ |:]*ERROR:corp.intersec.ipy.console.logs:"
-                            r"(?P<log>.*)")
+    r'^(?P<name>.*)[ \t]+#[ |\t]+\((?P<time>\d+\.\d+)s?\)'
+    r'([ \t]*(?P<comment>.*))?$')
+RE_STEP = re.compile(r'^# +\d+-(?P<number>\d+) +(?P<status>{0}) +'
+                     r'<(?P<name>.*)>? +(?P<filename>.+):(?P<line>\d+) +# '
+                     r'\((?P<time>\d+\.\d+)s\)$'.format('|'.join(STATUS)))
+RE_END = re.compile('^# TOTAL$')
+RE_HEADER = re.compile(r'(.*),\d+:(0|1)')
+RE_SCREEN = re.compile(r'.*screenshot available -> '
+                       r'(?P<url>https://img.corp/.*)')
+RE_BROWSER_LOG = re.compile(r'[ |:]*ERROR:corp.intersec.ipy.console.logs:'
+                            r'(?P<log>.*)')
 
-RE_CORE = re.compile(r".*Core was generated.*")
-RE_CORE_PROCESS = re.compile(r":Processing .*?core(?:(?:\[New \S+ \d+\])|"
-                             r"(?:Traceback))")
+RE_CORE = re.compile(r'.*Core was generated.*')
+RE_CORE_PROCESS = re.compile(r':Processing .*?core(?:(?:\[New \S+ \d+\])|'
+                             r'(?:Traceback))')
 
 
 # {{{ Error messages
 
-LEN_POS_DIFF = ("{0}tests stoppped at position ({1}) but"
-                " we were expecting it to stop at ({2})".format)
-POS_GT_LEN = "position greater than group len: "
-POS_LT_LEN = "too many missing tests: "
+LEN_POS_DIFF = ('{0}tests stoppped at position ({1}) but'
+                ' we were expecting it to stop at ({2})'.format)
+POS_GT_LEN = 'position greater than group len: '
+POS_LT_LEN = 'too many missing tests: '
 
 # }}}
 
@@ -79,8 +79,8 @@ def fixed_list() -> deque[T]:
 class Result:
     name: Optional[str] = None
     time = 0.0
-    status = "pass"
-    z_status_nb = ("skipped_nb", "passed_nb", "failed_nb", "total_nb")
+    status = 'pass'
+    z_status_nb = ('skipped_nb', 'passed_nb', 'failed_nb', 'total_nb')
 
     skipped_nb = 0
     passed_nb = 0
@@ -129,7 +129,7 @@ class Result:
 
     def time_as_str(self) -> str:
         t = int(self.time)
-        return f"{datetime.timedelta(seconds=t)!s:0>8}"
+        return f'{datetime.timedelta(seconds=t)!s:0>8}'
 
 
 class Step:
@@ -144,14 +144,14 @@ class Step:
         self.time = float(time)
 
     def __str__(self) -> str:
-        return (f"{self.number:<2} {self.status:<5} {self.time:>6.3f} "
-                f"{self.name} {self.filename}:{self.line}")
+        return (f'{self.number:<2} {self.status:<5} {self.time:>6.3f} '
+                f'{self.name} {self.filename}:{self.line}')
 
 
 class Test:
 
     def __init__(self, number: int, name: str, status: str, time: float = 0.0,
-                 comment: str = ""):
+                 comment: str = ''):
         self.number = int(number)
         self.status = status
         self.name = name
@@ -160,8 +160,8 @@ class Test:
         self.steps: list[Step] = []
 
     def __str__(self) -> str:
-        return (f"{self.number:<5} {self.status:<5} {self.time:>10.6f} "
-                f"{self.name} {self.comment.strip()}")
+        return (f'{self.number:<5} {self.status:<5} {self.time:>10.6f} '
+                f'{self.name} {self.comment.strip()}')
 
 
 class Group(Result):
@@ -176,7 +176,7 @@ class Group(Result):
         # we sum it.
         if test.name in self.tests:
             outline_nb = (test.number - self.tests[test.name].number) + 1
-            test.name = f"{test.name} (outline {outline_nb})"
+            test.name = f'{test.name} (outline {outline_nb})'
 
         self.tests.setdefault(test.name, test)
         self.time += test.time
@@ -191,7 +191,7 @@ class Group(Result):
                           results['missing'] + results['bad-number'])
 
     def __str__(self) -> str:
-        return f"{self.name} ({self.passed}% passed)   {self.time}s"
+        return f'{self.name} ({self.passed}% passed)   {self.time}s'
 
 
 class Suite(Result):
@@ -203,9 +203,9 @@ class Suite(Result):
 
     @staticmethod
     def make_short_name(product: str, name: str) -> str:
-        for useless in ["www/testem/", product + "/", "testem/",
-                        "jasmine/testem/", "jasmine/"]:
-            name = name.replace(useless, "", 1)
+        for useless in ['www/testem/', product + '/', 'testem/',
+                        'jasmine/testem/', 'jasmine/']:
+            name = name.replace(useless, '', 1)
         return name
 
     def compute(self) -> None:
@@ -217,8 +217,8 @@ class Suite(Result):
                 self.time += gr.time
 
     def __str__(self) -> str:
-        return (f"suite {self.name} passed {self.passed}% "
-                f"skipped {self.skipped}% failed {self.failed}%")
+        return (f'suite {self.name} passed {self.passed}% '
+                f'skipped {self.skipped}% failed {self.failed}%')
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -237,13 +237,13 @@ class Product(Result):
             self.time += suite.time
 
     def __str__(self) -> str:
-        return (f"product {self.name} passed {self.passed}% "
-                f"skipped {self.skipped}% failed {self.failed}%")
+        return (f'product {self.name} passed {self.passed}% '
+                f'skipped {self.skipped}% failed {self.failed}%')
 
 
 class Global(Result):
     def __init__(self) -> None:
-        self.name = "global suite"
+        self.name = 'global suite'
         self.products: OrderedDict[str, Product] = OrderedDict()
         self.errors: deque[Error] = fixed_list()
         self.timeout = True
@@ -301,42 +301,42 @@ class Global(Result):
 
     def z_total(self) -> str:
         if not self.total_nb:
-            return "# NO TESTS FOUND"
-        res = ["#", "#"]
-        res.append("# TOTAL")
-        res.append("# Skipped %d (%.1f%%)" % (self.skipped_nb, self.skipped))
-        res.append("# Failed  %d (%.1f%%)" % (self.failed_nb, self.failed))
-        res.append("# Success %d (%.1f%%)" % (self.passed_nb, self.passed))
-        return "\n".join(res)
+            return '# NO TESTS FOUND'
+        res = ['#', '#']
+        res.append('# TOTAL')
+        res.append('# Skipped %d (%.1f%%)' % (self.skipped_nb, self.skipped))
+        res.append('# Failed  %d (%.1f%%)' % (self.failed_nb, self.failed))
+        res.append('# Success %d (%.1f%%)' % (self.passed_nb, self.passed))
+        return '\n'.join(res)
 
     def z_additional(self) -> str:
         if not self.additionals:
-            return "# NO ADDITIONAL INFOS"
-        res = ["#"]
-        res.append(": ADDITIONAL INFOS")
-        res.extend([f":  {elt}" for elt in self.additionals])
-        return "\n".join(res)
+            return '# NO ADDITIONAL INFOS'
+        res = ['#']
+        res.append(': ADDITIONAL INFOS')
+        res.extend([f':  {elt}' for elt in self.additionals])
+        return '\n'.join(res)
 
     def z_errors(self) -> str:
         if not self.errors:
-            return "# NO ERRORS"
-        res = ["#"]
-        res.append(": ERRORS")
+            return '# NO ERRORS'
+        res = ['#']
+        res.append(': ERRORS')
         previous_suite = ''
         for error in self.errors:
-            current_suite = f": - ./{error.suite_fullname}"
+            current_suite = f': - ./{error.suite_fullname}'
             if current_suite != previous_suite:
                 if previous_suite:
-                    res.append("{0}: {1}".format(previous_suite, "error"))
-                res.append("{0}: {1}".format(current_suite, "starting"))
+                    res.append('{0}: {1}'.format(previous_suite, 'error'))
+                res.append('{0}: {1}'.format(current_suite, 'starting'))
             previous_suite = current_suite
             res.append(error.z_error())
             trace = error.z_trace()
             if trace:
                 res.append(trace)
 
-        res.append("{0}: {1}".format(previous_suite, "error"))
-        return "\n".join(res)
+        res.append('{0}: {1}'.format(previous_suite, 'error'))
+        return '\n'.join(res)
 
     def z_report(self) -> str:
         res = [self.z_total()]
@@ -344,17 +344,17 @@ class Global(Result):
             res.append(self.z_additional())
         if self.errors:
             res.append(self.z_errors())
-        return "\n".join(res)
+        return '\n'.join(res)
 
     def __str__(self) -> str:
-        return (f"global passed {self.passed}% skipped {self.skipped}% "
-                f"failed {self.failed}%")
+        return (f'global passed {self.passed}% skipped {self.skipped}% '
+                f'failed {self.failed}%')
 
 
 class Error:
 
     def __init__(self, product: str, suite: str, group: str, test: str,
-                 context: deque[tuple[str, str]], status: str = "fail"):
+                 context: deque[tuple[str, str]], status: str = 'fail'):
         self.productName = product  # pylint: disable=invalid-name
         self.suite_fullname = suite
         self.suiteName = Suite.make_short_name(product, suite) # pylint: disable=invalid-name
@@ -362,8 +362,8 @@ class Error:
         self.testName = test  # pylint: disable=invalid-name
         self.context_l = context
         self.traces: deque[str] = fixed_list()
-        self.step_fail = ""
-        self.screen_url = ""
+        self.step_fail = ''
+        self.screen_url = ''
         self.browser_log_l: deque[str] = fixed_list()
         self.status = status
 
@@ -373,39 +373,39 @@ class Error:
 
     @property
     def full_name(self) -> str:
-        fullname = f"{self.productName} → {self.suiteName}"
+        fullname = f'{self.productName} → {self.suiteName}'
         if self.groupName:
-            fullname += f" → {self.groupName}"
+            fullname += f' → {self.groupName}'
         if self.testName:
-            fullname += f" → {self.testName}"
+            fullname += f' → {self.testName}'
         return fullname
 
     @property
     def browser_log(self) ->str:
-        return "\n".join(self.browser_log_l)
+        return '\n'.join(self.browser_log_l)
 
     @property
     def trace(self) -> str:
-        return "\n".join(self.traces)
+        return '\n'.join(self.traces)
 
     def z_trace(self) -> str:
-        return "\n".join([f":  {t}" for t in self.traces])
+        return '\n'.join([f':  {t}' for t in self.traces])
 
     def z_error(self) -> str:
-        return f": - {self!s:s}: {self.status}"
+        return f': - {self!s:s}: {self.status}'
 
     def z_screenshot(self) -> list[str]:
-        return ["Failed screenshot:",
-                f"screenshot available -> {self.screen_url}",
-                ""]
+        return ['Failed screenshot:',
+                f'screenshot available -> {self.screen_url}',
+                '']
 
     def z_step_fail(self) -> list[str]:
-        return ["Step failed:",
-                f"<{self.step_fail}",
-                ""]
+        return ['Step failed:',
+                f'<{self.step_fail}',
+                '']
 
     def __str__(self) -> str:
-        return f"{self.groupName}.{self.testName.strip()}"
+        return f'{self.groupName}.{self.testName.strip()}'
 
 
 class StreamParser:
@@ -423,13 +423,13 @@ class StreamParser:
         self.res = stats or Global()
         self.last_stream = '2' # this is the code for 'environment' stream.
 
-        self.group_name = ""
-        self.suite_fullname = ""
+        self.group_name = ''
+        self.suite_fullname = ''
         self.group_len = 0
         self.group_pos = 0
 
-        self.missing_test_name = "missing: {0}.({1:d}->{2:d})(unknown)".format
-        self.bad_number_test_name = "bad-number: {0}.{1}".format
+        self.missing_test_name = 'missing: {0}.({1:d}->{2:d})(unknown)'.format
+        self.bad_number_test_name = 'bad-number: {0}.{1}'.format
         self.line_counter = 0
 
     def parse_line(self, stream_line: Union[bytes, str]) -> None:
@@ -477,7 +477,7 @@ class StreamParser:
                     assert self.group is not None
                     self.error = Error(
                         self.product.name, self.suite_fullname,
-                        self.group_name, test_name, self.context, "missing")
+                        self.group_name, test_name, self.context, 'missing')
                     self.res.errors.append(self.error)
                     assert self.group_pos <= self.group_len, (
                         LEN_POS_DIFF(POS_GT_LEN, self.group_pos,
@@ -490,7 +490,7 @@ class StreamParser:
                     for i in range(self.group_pos, self.group_len):
                         test_name = self.missing_test_name(
                             self.group_name, i + 1, self.group_len)
-                        test = Test(i, test_name, "missing")
+                        test = Test(i, test_name, 'missing')
                         self.group.append_test(test)
                     self.group_len = 0
                 self.context = fixed_list()
@@ -510,13 +510,13 @@ class StreamParser:
                         self.group_name, self.group_pos + 1, self.group_len)
                     self.error = Error(
                         self.product.name, self.suite_fullname,
-                        self.group_name, test_name, self.context, "missing")
+                        self.group_name, test_name, self.context, 'missing')
                     self.res.errors.append(self.error)
                     assert self.group is not None
                     for i in range(self.group_pos, self.group_len):
                         test_name = self.missing_test_name(
                             self.group_name, i + 1, self.group_len)
-                        test = Test(i, test_name, "missing")
+                        test = Test(i, test_name, 'missing')
                         self.group.append_test(test)
                 group_len, group_name = r.groups()
                 self.group_name = str(group_name)
@@ -524,7 +524,7 @@ class StreamParser:
                 self.group = Group(name=self.group_name, total=self.group_len)
                 if not self.suite:
                     self.suite_fullname = (
-                        f"{self.product.name}/unknown_suite")
+                        f'{self.product.name}/unknown_suite')
                     self.suite = Suite(self.suite_fullname, self.product.name)
                     self.product.suites.append(self.suite)
                 self.suite.groups.append(self.group)
@@ -533,20 +533,20 @@ class StreamParser:
             r = RE_DONE_SUITE.match(line)
             if r is not None:
                 if self.suite is None:
-                    LOGGER.error("wrong suite end, any suites initializes "
-                                 "line %s %s", self.line_counter, line[:-1])
+                    LOGGER.error('wrong suite end, any suites initializes '
+                                 'line %s %s', self.line_counter, line[:-1])
                     continue
 
                 assert self.product is not None
 
                 self.suite.time = float(r.group('time'))
-                self.suite.status = "fail" if r.group('status') else "pass"
+                self.suite.status = 'fail' if r.group('status') else 'pass'
 
-                if self.suite.status == "fail":
+                if self.suite.status == 'fail':
                     if len(self.suite.groups) == 0:
                         self.error = Error(
                             self.product.name, self.suite_fullname,
-                            "No specific group", "Suite initialize",
+                            'No specific group', 'Suite initialize',
                             self.context)
                         self.res.errors.append(self.error)
                         continue
@@ -560,7 +560,7 @@ class StreamParser:
                     if do_err:
                         self.error = Error(
                             self.product.name, self.suite_fullname,
-                            "No specific group", "Outside of any test",
+                            'No specific group', 'Outside of any test',
                             self.context)
                         self.res.errors.append(self.error)
                 self.suite = None
@@ -572,7 +572,7 @@ class StreamParser:
 
                 self.error = None
                 test_args: dict[str, Any] = dict(r.groupdict())
-                r = RE_TEST_OPTIONAL.match(test_args["name"])
+                r = RE_TEST_OPTIONAL.match(test_args['name'])
                 if r is not None:
                     test_args.update(r.groupdict())
 
@@ -585,14 +585,14 @@ class StreamParser:
                     self.error = Error(
                         self.product.name, self.suite_fullname,
                         self.group_name, test_name, self.context,
-                        "bad-number")
+                        'bad-number')
                     self.res.errors.append(self.error)
                 elif n > self.group_pos:
                     test_name = self.missing_test_name(
                         self.group_name, self.group_pos, n)
                     self.error = Error(
                         self.product.name, self.suite_fullname,
-                        self.group_name, test_name, self.context, "missing")
+                        self.group_name, test_name, self.context, 'missing')
                     self.res.errors.append(self.error)
                     assert self.group_pos <= n, (
                         LEN_POS_DIFF(POS_GT_LEN, self.group_pos,
@@ -605,7 +605,7 @@ class StreamParser:
                     for i in range(self.group_pos, n):
                         test_name = self.missing_test_name(
                             self.group_name, i, n)
-                        test = Test(i, test_name, "missing")
+                        test = Test(i, test_name, 'missing')
                         self.group.append_test(test)
 
                 test = Test(**test_args)
@@ -615,7 +615,7 @@ class StreamParser:
                     self.steps = []
                 self.context.append((self.last_stream, line))
 
-                if test.status in ["fail", "todo-pass"]:
+                if test.status in ['fail', 'todo-pass']:
                     self.error = Error(
                         self.product.name, self.suite_fullname,
                         self.group.name, test.name, self.context, test.status)
@@ -634,7 +634,7 @@ class StreamParser:
                     if self.error.screen_url:
                         self.error.traces.extend(
                             self.error.z_screenshot())
-                    self.error.traces.append("Traceback:")
+                    self.error.traces.append('Traceback:')
                 continue
 
             r = RE_SCREEN.match(line)
@@ -646,7 +646,7 @@ class StreamParser:
                 step_args: dict[str, Any] = dict(r.groupdict())
                 step = Step(**step_args)
                 self.steps.append(step)
-                if step.status == "fail":
+                if step.status == 'fail':
                     # save the first KO step
                     self.first_step_fail = step.name
 
@@ -678,7 +678,7 @@ class StreamParser:
                 self.group_name, self.group_pos + 1, self.group_len)
             self.error = Error(
                 self.product.name, self.suite_fullname, self.group_name,
-                test_name, self.context, "missing")
+                test_name, self.context, 'missing')
             self.res.errors.append(self.error)
             assert self.group_pos <= self.group_len, (
                 LEN_POS_DIFF(POS_GT_LEN, self.group_pos, self.group_len))
@@ -687,7 +687,7 @@ class StreamParser:
             for i in range(self.group_pos, self.group_len):
                 test_name = self.missing_test_name(
                     self.group_name, i + 1, self.group_len)
-                test = Test(i, test_name, "missing")
+                test = Test(i, test_name, 'missing')
                 self.group.append_test(test)
         self.res.compute()
         return self.res
@@ -695,7 +695,7 @@ class StreamParser:
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("expected one and only one file argument")
+        print('expected one and only one file argument')
         return -1
 
     stream_parser = StreamParser()

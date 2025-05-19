@@ -34,7 +34,7 @@ REARM = True
 THR   = None
 
 def log(msg: str) -> None:
-    sys.stderr.write(f"{__file__}: {msg}\n")
+    sys.stderr.write(f'{__file__}: {msg}\n')
     sys.stderr.flush()
 
 def wipe_children(reason: str, wait_thr: bool = True) -> None:
@@ -56,7 +56,7 @@ def wipe_children(reason: str, wait_thr: bool = True) -> None:
     if not children:
         return
 
-    log(f"`{reason}` wipe pending children...")
+    log(f'`{reason}` wipe pending children...')
 
     # Then we try to kill all processes
     for process in children:
@@ -80,7 +80,7 @@ def wipe_children(reason: str, wait_thr: bool = True) -> None:
 
 
 def wipe_children_sig(sig: int, frame: Any) -> None:
-    wipe_children("received signal %d" % sig)
+    wipe_children('received signal %d' % sig)
 
 
 def wipe_background_thread() -> None:
@@ -98,7 +98,7 @@ def wipe_background_thread() -> None:
         REARM = False
         EVT.wait(timeout)
         if not EVT.is_set():
-            reason = "inactive for %d seconds" % timeout
+            reason = 'inactive for %d seconds' % timeout
             wipe_children(reason, wait_thr=False)
 
 def wipe_children_rearm() -> None:
@@ -128,14 +128,14 @@ def wipe_children_register() -> Iterator[None]:
         THR.start()
         yield
     finally:
-        wipe_children("atexit")
+        wipe_children('atexit')
 
 # }}}
 # Sandbox {{{
 
 def mkdtemp(ns: str) -> str:
     def do(path: str) -> str:
-        prefix = "zpy.%s.%d.XXXXXX" % (ns, os.getpid())
+        prefix = 'zpy.%s.%d.XXXXXX' % (ns, os.getpid())
         return tempfile.mkdtemp(dir=path, prefix=prefix)
 
     z_dir = os.getenv('Z_DIR', None)
@@ -148,6 +148,6 @@ def mkdtemp(ns: str) -> str:
         return do(os.getcwd())
     except OSError:
         pass
-    return do("/tmp")
+    return do('/tmp')
 
 # }}}

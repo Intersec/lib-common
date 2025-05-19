@@ -20,8 +20,8 @@ from argparse import ArgumentParser
 from enum import IntEnum
 from typing import Optional
 
-CORPUS_DIR = "corpus"
-CORPUS_NAME = "corpus-init"
+CORPUS_DIR = 'corpus'
+CORPUS_NAME = 'corpus-init'
 
 
 class QpsstressStep(IntEnum):
@@ -226,7 +226,7 @@ class FuzzingQhatCompute(FuzzingQpsObjStep):
         elif do_mem_overhead is not None:
             self.flag = do_mem_overhead
         else:
-            raise RuntimeError("do_stats or do_mem_overhead expected")
+            raise RuntimeError('do_stats or do_mem_overhead expected')
 
     def pack_blob(self) -> bytes:
         return super().pack_blob() + struct.pack('<B', self.flag)
@@ -290,7 +290,7 @@ def create_corpus_files_and_dict(
             if generate_files:
                 # pylint: disable=consider-using-with
                 generated_file = open(os.path.join(CORPUS_DIR,
-                                                   f"{CORPUS_NAME}-{i}.bin"),
+                                                   f'{CORPUS_NAME}-{i}.bin'),
                                       mode='wb')
 
             # Write for one sequence each step.
@@ -311,13 +311,13 @@ def create_corpus_files_and_dict(
         raise e
 
     if corpus_set and fuzz_dict_name:
-        with open(fuzz_dict_name, "w") as f:
+        with open(fuzz_dict_name, 'w') as f:
             # Write the dictionary using the "dedicated" format.
             # Add time of generation, so we have less doubt about the fact
             # that we need to generate it again or not.
             now = datetime.datetime.now()
-            f.write("# Generated at " + now.strftime("%Y-%m-%d %H:%M:%S") +
-                    " for category " + str(category) + "\n\n")
+            f.write('# Generated at ' + now.strftime('%Y-%m-%d %H:%M:%S') +
+                    ' for category ' + str(category) + '\n\n')
             for i, k in enumerate(sorted(corpus_set)):
                 blob_str = str(binascii.hexlify(k))[2:-1]
                 fuzz_key = '\\x'
@@ -468,19 +468,19 @@ def create_corpus(
 
 if __name__ == '__main__':
     ALL_OPTS = ArgumentParser()
-    ALL_OPTS.add_argument("-d", "--dict-file", dest="fuzz_dict_name",
-                          help="export fuzzing dict to FILE",
-                          metavar="FILE")
-    ALL_OPTS.add_argument("-g", "--generate-corpus",
-                          action="store_true", dest="generate_files",
+    ALL_OPTS.add_argument('-d', '--dict-file', dest='fuzz_dict_name',
+                          help='export fuzzing dict to FILE',
+                          metavar='FILE')
+    ALL_OPTS.add_argument('-g', '--generate-corpus',
+                          action='store_true', dest='generate_files',
                           default=False,
-                          help="Define if all corpus steps should be written "
-                          "for libFuzzer")
-    ALL_OPTS.add_argument("-c", "--category",
-                          type=int, dest="category",
+                          help='Define if all corpus steps should be written '
+                          'for libFuzzer')
+    ALL_OPTS.add_argument('-c', '--category',
+                          type=int, dest='category',
                           default=QpsstressFuzzerCat.QPS_CAT_ALL,
-                          help="Define if all steps like snapshot, reopen "
-                          "must be triggered for libFuzzer")
+                          help='Define if all steps like snapshot, reopen '
+                          'must be triggered for libFuzzer')
 
     CREATE_OPTS = ALL_OPTS.parse_args()
 

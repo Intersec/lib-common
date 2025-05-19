@@ -64,15 +64,15 @@ class IopcTest(z.TestCase):
             self.assertIsNotNone(iopc_p)
             output = iopc_p.communicate()[1]
 
-            context = "when executing %s" % ' '.join(iopc_args)
+            context = 'when executing %s' % ' '.join(iopc_args)
 
             if (expect_pass):
                 self.assertEqual(iopc_p.returncode, 0,
-                                 "unexpected failure (%d) on %s %s: %r"
+                                 'unexpected failure (%d) on %s %s: %r'
                                  % (iopc_p.returncode, iop, context, output))
             else:
                 self.assertEqual(iopc_p.returncode, 255,
-                                 "unexpected return code %d on %s %s: %r"
+                                 'unexpected return code %d on %s %s: %r'
                                  % (iopc_p.returncode, iop, context, output))
 
         if errors:
@@ -85,7 +85,7 @@ class IopcTest(z.TestCase):
                                 % (error, output_str, context))
         else:
             self.assertTrue(len(output) == 0,
-                            "unexpected output: %r" % output)
+                            'unexpected output: %r' % output)
 
     def run_iopc_pass(self, iop: str, lang: str = '',
                       class_id_range: str = '') -> None:
@@ -127,8 +127,8 @@ class IopcTest(z.TestCase):
             if expect_pass:
                 self.assertEqual(
                     gcc_p.returncode, 0,
-                    "unexpected failure (%d) on %s when executing:\n"
-                    "%s:\n%r" % (gcc_p.returncode, iop_c,
+                    'unexpected failure (%d) on %s when executing:\n'
+                    '%s:\n%r' % (gcc_p.returncode, iop_c,
                                  ' '.join(gcc_args), err),
                 )
             else:
@@ -311,8 +311,8 @@ class IopcTest(z.TestCase):
 
     def test_snmp_invalid_type_fields(self) -> None:
         self.run_iopc('snmp_invalid_fields.iop', False,
-                      'only int/string/boolean/enum types are handled for '
-                      'snmp objects\' fields')
+                      "only int/string/boolean/enum types are handled for "
+                      "snmp objects' fields")
 
     def test_snmp_invalid_brief_field(self) -> None:
         self.run_iopc('snmp_invalid_brief_field.iop', False,
@@ -326,8 +326,8 @@ class IopcTest(z.TestCase):
 
     def test_snmp_invalid_struct_type_for_field(self) -> None:
         self.run_iopc('snmp_invalid1.iop', False,
-                      'only int/string/boolean/enum types are handled for '
-                      'snmp objects\' fields')
+                      "only int/string/boolean/enum types are handled for "
+                      "snmp objects' fields")
 
     def test_snmp_invalid_snmp_obj_type_for_field(self) -> None:
         self.run_iopc('snmp_invalid2.iop', False,
@@ -349,7 +349,7 @@ class IopcTest(z.TestCase):
 
     def test_snmp_invalid_from(self) -> None:
         self.run_iopc('snmp_invalid_from.iop', False,
-                      "error: invalid snmpParamsFrom `Params.`")
+                      'error: invalid snmpParamsFrom `Params.`')
 
     def test_snmp_valid_tbl(self) -> None:
         f = 'snmp_tbl.iop'
@@ -621,26 +621,26 @@ class IopcTest(z.TestCase):
 
     @z.ZFlags('redmine_8536')
     def test_void_types(self) -> None:
-        self.run_iopc_pass('void_in_union.iop', lang="C,json")
+        self.run_iopc_pass('void_in_union.iop', lang='C,json')
         self.run_gcc('void_in_union.iop')
 
         # void tags have a defined value to make IOP_UNION_SET_V safe
-        self.run_iopc_pass('void_in_union.iop', lang="C")
+        self.run_iopc_pass('void_in_union.iop', lang='C')
         self.run_gcc('void_in_union_field_def')
 
-        self.run_iopc_pass('void_mandatory_in_struct.iop', lang="C,json")
+        self.run_iopc_pass('void_mandatory_in_struct.iop', lang='C,json')
         self.run_gcc('void_mandatory_in_struct.iop')
-        self.run_iopc_pass('void_optional_in_struct.iop', lang="C,json")
+        self.run_iopc_pass('void_optional_in_struct.iop', lang='C,json')
         self.run_gcc('void_optional_in_struct.iop')
         self.run_iopc('invalid_void_repeated.iop', False,
                       'repeated void types are forbidden')
         self.run_iopc('invalid_void_default.iop', False,
                       'default values are forbidden for void types')
 
-        self.run_iopc_pass('void_opt_rpc_arg.iop', lang="C,json")
-        self.run_iopc_pass('void_req_rpc_arg.iop', lang="C,json")
+        self.run_iopc_pass('void_opt_rpc_arg.iop', lang='C,json')
+        self.run_iopc_pass('void_req_rpc_arg.iop', lang='C,json')
         self.run_iopc_pass('void_private_req_in_struct.iop',
-                           lang="C,json")
+                           lang='C,json')
 
     # }}}
     # {{{ Attributes
@@ -680,8 +680,8 @@ class IopcTest(z.TestCase):
                                  'attrs_multi_valid.iop.c')
         path_ref = os.path.join(TEST_PATH,
                                 'reference_attrs_multi_valid.c')
-        with open(path_base, "r") as ref_base:
-            with open(path_ref, "r") as ref:
+        with open(path_base, 'r') as ref_base:
+            with open(path_ref, 'r') as ref:
                 self.assertEqual(ref.read(), ref_base.read())
 
     def test_attrs_multi_constraints(self) -> None:
@@ -691,8 +691,8 @@ class IopcTest(z.TestCase):
         path_base = os.path.join(TEST_PATH, 'attrs_multi_constraints.iop.c')
         path_ref = os.path.join(TEST_PATH,
                                 'reference_attrs_multi_constraints.c')
-        with open(path_base, "r") as ref_base:
-            with open(path_ref, "r") as ref:
+        with open(path_base, 'r') as ref_base:
+            with open(path_ref, 'r') as ref:
                 self.assertEqual(ref.read(), ref_base.read())
 
     def test_attrs_invalid_1(self) -> None:
@@ -817,7 +817,7 @@ class IopcTest(z.TestCase):
 
     def test_attrs_valid_max_1(self) -> None:
         f = 'attrs_valid_max_1.iop'
-        self.run_iopc(f, True, "")
+        self.run_iopc(f, True, '')
 
     def test_attrs_invalid_min_1(self) -> None:
         f = 'attrs_invalid_min_1.iop'
@@ -851,8 +851,8 @@ class IopcTest(z.TestCase):
 
     def test_generic_invalid_value(self) -> None:
         self.run_iopc('generic_attrs_invalid_1.iop', False,
-                      'unable to parse value for generic argument '          \
-                      '\'test:gen1\'')
+                      "unable to parse value for generic argument "          \
+                      "'test:gen1'")
 
     def test_generic_invalid_key(self) -> None:
         self.run_iopc('generic_attrs_invalid_2.iop', False,
@@ -861,8 +861,8 @@ class IopcTest(z.TestCase):
 
     def test_generic_repeated_key(self) -> None:
         self.run_iopc('generic_attrs_invalid_3.iop', False,
-                      'generic attribute \'test:gen3\' must be unique for '  \
-                      'each IOP object')
+                      "generic attribute 'test:gen3' must be unique for "  \
+                      "each IOP object")
 
     def test_generic_invalid_len(self) -> None:
         self.run_iopc('generic_attrs_invalid_4.iop', False,
@@ -889,18 +889,18 @@ class IopcTest(z.TestCase):
     @z.ZFlags('redmine_56755')
     def test_generic_json_unterminated(self) -> None:
         self.run_iopc('json_generic_invalid6.iop', False,
-                      "4:70:unterminated string")
+                      '4:70:unterminated string')
 
     def test_generic_invalid_name(self) -> None:
         self.run_iopc('generic_attrs_invalid_name.iop', False,
-                      "invalid name for generic attribute: `=` is forbidden")
+                      'invalid name for generic attribute: `=` is forbidden')
 
 
     # }}}
     # {{{ References
 
     def test_reference_valid(self) -> None:
-        f  = "reference.iop"
+        f  = 'reference.iop'
         self.run_iopc(f, True, None)
         self.run_gcc(f)
 
@@ -1005,8 +1005,8 @@ class IopcTest(z.TestCase):
 
     def test_no_out_nor_throw(self) -> None:
         self.run_iopc_fail('async_candidate.iop',
-                           ("no `out` nor `throw` for function "
-                            "`asyncCandidate`"))
+                           ('no `out` nor `throw` for function '
+                            '`asyncCandidate`'))
 
     def test_dup_struct(self) -> None:
         self.run_iopc('duplicated_struct.iop', False,
@@ -1032,8 +1032,8 @@ class IopcTest(z.TestCase):
         self.run_iopc_fail('check_name_union.iop', err_str)
         self.run_iopc_fail('check_name_interface.iop', err_str)
 
-        self.run_iopc_fail('check_name_field.iop', 'error: identifier '
-                           '\'You_Shall_Not_Pass\' contains a _')
+        self.run_iopc_fail('check_name_field.iop', "error: identifier "
+                           "'You_Shall_Not_Pass' contains a _")
         self.run_iopc_fail('check_name_rpc.iop', 'error: you_Shall_Not_Pass '
                            'contains a _')
 
@@ -1055,5 +1055,5 @@ class IopcTest(z.TestCase):
 
     # }}}
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     z.main()

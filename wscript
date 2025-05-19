@@ -37,7 +37,7 @@ waftoolsdir = os.path.join(os.getcwd(), 'build', 'waftools')
 sys.path.insert(0, waftoolsdir)
 
 
-out = ".build-waf-%s" % os.environ.get('P', 'default')
+out = '.build-waf-%s' % os.environ.get('P', 'default')
 
 # {{{ helpers
 
@@ -143,7 +143,7 @@ def python_asdf_cleanup_prev_venv(ctx: BuildContext) -> None:
 def uv_no_srv_tools(ctx: BuildContext) -> None:
     # Get python site packages from uv
     ctx.uv_site_packages = ctx.cmd_and_log(
-        ctx.env.UV + ["run", "python3", "-c",
+        ctx.env.UV + ['run', 'python3', '-c',
         (
             "import sysconfig; "
             "print(sysconfig.get_paths()['purelib'])"
