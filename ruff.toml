@@ -70,3 +70,4 @@ dummy-variable-rgx = "_"
 # Optional: extend for specific files or folders
 [lint.extend-per-file-ignores]
 "**/__init__.py" = ["F401"]  # unused-import
+"**/wscript_build" = ["F821"]  # undefined-name
