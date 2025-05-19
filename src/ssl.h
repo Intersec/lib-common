@@ -95,7 +95,7 @@
 #include <openssl/aes.h>
 #include <openssl/bio.h>
 #include <openssl/pem.h>
-#include <openssl/engine.h>
+#include <openssl/rand.h>
 #include <openssl/rsa.h>
 #include <lib-common/core.h>
 #include <lib-common/el.h>
