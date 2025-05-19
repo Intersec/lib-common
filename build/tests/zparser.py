@@ -560,7 +560,7 @@ class StreamParser:
 
                     do_err = True
                     for grp in self.suite.groups:
-                        if any((t.status == 'fail' or t.status == 'todo-pass'
+                        if any((t.status in ['fail', 'todo-pass']
                                 for t in grp.tests.values())):
                             do_err = False
                             break
@@ -622,7 +622,7 @@ class StreamParser:
                     self.steps = []
                 self.context.append((self.last_stream, line))
 
-                if test.status == "fail" or test.status == "todo-pass":
+                if test.status in ["fail", "todo-pass"]:
                     self.error = Error(
                         self.product.name, self.suite_fullname,
                         self.group.name, test.name, self.context, test.status)
