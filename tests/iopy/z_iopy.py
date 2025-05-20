@@ -2906,13 +2906,13 @@ class IopyCompatibilityTests(z.TestCase):
 
         Optional fields are skipped.
         """
-        class_b_keys = set(('field1', 'field2'))
+        class_b_keys = {'field1', 'field2'}
         self.assertEqual(set(vars(self.p.test.ClassB).keys()), class_b_keys)
 
-        struct_b_keys = set(('a', 'b', 'tab'))
+        struct_b_keys = {'a', 'b', 'tab'}
         self.assertEqual(set(vars(self.p.test.StructB).keys()), struct_b_keys)
 
-        union_a_keys = set(('i', 'a', 'tab', 's', 'd'))
+        union_a_keys = {'i', 'a', 'tab', 's', 'd'}
         self.assertEqual(set(vars(self.p.test.UnionA).keys()), union_a_keys)
 
     def test_deprecated_underscore_methods(self) -> None:
@@ -2930,11 +2930,11 @@ class IopyCompatibilityTests(z.TestCase):
                 old_method_name = method[0]
                 new_method_name = method[1]
                 try:
-                    args = method[2] # type: ignore[misc]
+                    args = method[2]  # type: ignore[misc]
                 except IndexError:
-                    args = tuple()
+                    args = ()
                 try:
-                    kwargs = method[3] # type: ignore[misc]
+                    kwargs = method[3]  # type: ignore[misc]
                 except IndexError:
                     kwargs = {}
                 old_res = getattr(obj, old_method_name)(*args, **kwargs)

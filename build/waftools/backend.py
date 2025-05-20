@@ -141,10 +141,16 @@ def filter_out_zchk(ctx: BuildContext) -> None:
 
 # The list of keys to skip when copying a TaskGen stlib on
 # duplicate_lib_tgen()
-SKIPPED_STLIB_TGEN_COPY_KEYS = set((
-    '_name', 'bld', 'env', 'features', 'idx', 'path', 'target',
+SKIPPED_STLIB_TGEN_COPY_KEYS = {
+    '_name',
+    'bld',
+    'env',
+    'features',
+    'idx',
+    'path',
+    'target',
     'tg_idx_count',
-))
+}
 
 
 def duplicate_lib_tgen(ctx: BuildContext, new_name: str,
@@ -158,10 +164,10 @@ def duplicate_lib_tgen(ctx: BuildContext, new_name: str,
     # XXX: TaskGen.clone() does not work in our case because it does not
     # create a stlib TaskGen, but a generic TaskGen. Moreover, it copies some
     # attributes that should not be copied.
-    orig_lib_attrs = dict(
-        (key, copy.copy(value)) for key, value in orig_lib.__dict__.items()
+    orig_lib_attrs = {
+        key: copy.copy(value) for key, value in orig_lib.__dict__.items()
         if key not in SKIPPED_STLIB_TGEN_COPY_KEYS
-    )
+    }
     lib = ctx.stlib(target=new_name, features=orig_lib.features,
                     env=orig_lib.env.derive(), **orig_lib_attrs)
     ctx.path = ctx_path_bak

@@ -129,9 +129,10 @@ def get_huffman_code_table_from(rfc_fn: str) -> HuffManCodeTable:
 def get_huffman_encoding_table_as_c_array(
         rfc_fn: str, tbl_elem_t: str, tbl_name: str) -> str:
     code_tab = get_huffman_code_table_from(rfc_fn)
-    lines = list(
+    lines = [
         f'/* sym ({sym:3d}) */ {{{hex(code):10s}, {bitlen:2d}}}'
-        for sym, code, bitlen, _ in code_tab)
+        for sym, code, bitlen, _ in code_tab
+    ]
     content = '{\n  ' + ',\n  '.join(lines) + '\n}'
     array_dec = (f'{tbl_elem_t} {tbl_name}[{len(code_tab) - 1} + 1] '
                  f'= {content};')
