@@ -274,40 +274,36 @@ def create_corpus_files_and_dict(
     corpus_set: set[bytes] = set()
 
     assert generate_files or fuzz_dict_name is not None
-    try:
-        for i, corpus_case in enumerate(corpus):
-            if not isinstance(corpus_case, list):
-                corpus_case = [corpus_case]
+    for i, corpus_case in enumerate(corpus):
+        if not isinstance(corpus_case, list):
+            corpus_case = [corpus_case]
 
-            if any(discard_fuzzing_operation(item.step, category)
-                   for item in corpus_case):
-                continue
+        if any(discard_fuzzing_operation(item.step, category)
+               for item in corpus_case):
+            continue
 
-            generated_file = None
+        generated_file = None
 
-            # If we want to generate files containing a fuzzing sequence,
-            # create it now.
-            if generate_files:
-                generated_file = open(  # noqa: SIM115 (open-file-with-context-handler)
-                    os.path.join(CORPUS_DIR, f'{CORPUS_NAME}-{i}.bin'),
-                    mode='wb')
+        # If we want to generate files containing a fuzzing sequence,
+        # create it now.
+        if generate_files:
+            generated_file = open(  # noqa: SIM115 (open-file-with-context-handler)
+                os.path.join(CORPUS_DIR, f'{CORPUS_NAME}-{i}.bin'),
+                mode='wb')
 
-            # Write for one sequence each step.
-            for item in corpus_case:
-                blob = item.pack()
-                if fuzz_dict_name:
-                    # If a fuzzing dictionary is requested, register this
-                    # unique case.
-                    corpus_set.add(blob)
-                if generated_file:
-                    # If a fuzzing sequence is requested, write this step
-                    # in the file describing the fuzzing sequence.
-                    generated_file.write(blob)
+        # Write for one sequence each step.
+        for item in corpus_case:
+            blob = item.pack()
+            if fuzz_dict_name:
+                # If a fuzzing dictionary is requested, register this
+                # unique case.
+                corpus_set.add(blob)
             if generated_file:
-                generated_file.close()
-
-    except Exception as e:
-        raise e
+                # If a fuzzing sequence is requested, write this step
+                # in the file describing the fuzzing sequence.
+                generated_file.write(blob)
+        if generated_file:
+            generated_file.close()
 
     if corpus_set and fuzz_dict_name:
         with open(fuzz_dict_name, 'w') as f:

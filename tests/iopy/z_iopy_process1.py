@@ -46,7 +46,7 @@ def main() -> None:
             connected = True
         except iopy.Error as e:
             if str(e) != f'unable to connect to {uri}':
-                raise e
+                raise
 
     if not connected:
         sys.exit(100)

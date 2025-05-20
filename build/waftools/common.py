@@ -118,7 +118,7 @@ def post_depends_on(self: TaskGen) -> None:
 def check_used(self: TaskGen, name: str) -> None:
     try:
         self.bld.get_tgen_by_name(name)
-        return
+        return None
     except Errors.WafError:
         pass
 
@@ -127,7 +127,7 @@ def check_used(self: TaskGen, name: str) -> None:
     sfx = '_' + name
     for var in self.env:
         if var.endswith(sfx):
-            return
+            return None
 
     raise Errors.WafError(
         f'In task generator `{self.name}` (path={self.path}): '

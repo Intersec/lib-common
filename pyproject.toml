@@ -162,6 +162,10 @@ ignore = [
     "SIM105",   # suppressible-exception
     "SIM108",   # if-else-block-instead-of-if-exp
 
+    # TRY - tryceratops
+    "TRY003",   # raise-vanilla-args
+    "TRY300",   # try-consider-else
+
     # UP - pyupgrade
     "UP015",    # redundant-open-modes
 ]
