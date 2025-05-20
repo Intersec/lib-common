@@ -64,7 +64,7 @@ def add_cython_file(self: BuildContext, node: Node) -> None:
 
     if c_node not in self.env.GEN_FILES:
         self.env.GEN_FILES.add(c_node)
-        self.create_task('cython', node, c_node)
+        self.create_task('Cython', node, c_node)
 
     # Create C task
     self.create_compiled_task('CythonC', c_node)
@@ -154,7 +154,8 @@ RE_INCLUDE_CYT = re.compile(r"""
     include\s+[\"'](.+)[\"']       # capture include path
     """, re.MULTILINE | re.VERBOSE)
 
-class cython(Task.Task): # type: ignore[misc]
+
+class Cython(Task.Task):  # type: ignore[misc]
     class ScannerState:
         """Class to hold the state on scan method."""
 

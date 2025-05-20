@@ -108,7 +108,7 @@ class _LoadTests:
         self.docsuites.append(suite)
 
 
-def ZGroup(cls: type[T]) -> type[T]:
+def ZGroup(cls: type[T]) -> type[T]:  # noqa: N802 (invalid-function-name)
     """
     ZGroup
 
@@ -216,11 +216,11 @@ class DocTestModule(ZTestSuite):
 # }}}
 
 _Z_MODES = set(os.getenv('Z_MODE', '').split())
-_FLAGS   = set(os.getenv('Z_TAG_SKIP', '').split())
+_FLAGS = set(os.getenv('Z_TAG_SKIP', '').split())
 _TAG_OR = os.getenv('Z_TAG_OR', '')
 _ALL_FLAGS: dict[Any, list[Any]] = {}
 
-def ZFlags(*flags: str) -> Callable[[T], T]:
+def ZFlags(*flags: str) -> Callable[[T], T]:  # noqa: N802 (invalid-function-name)
     """
     ZFlags
 
@@ -241,7 +241,7 @@ def ZFlags(*flags: str) -> Callable[[T], T]:
         return func
     return wrap
 
-class _ZTodo(Exception):
+class _ZTodo(Exception):  # noqa: N818 (error-suffix-on-exception-name)
     """
     _ZTodo
 
@@ -253,7 +253,7 @@ class _ZTodo(Exception):
         self.exc_info = exc_info
         super().__init__(reason, exc_info)
 
-def ZTodo(reason: str) -> Any:
+def ZTodo(reason: str) -> Any:  # noqa: N802 (invalid-function-name)
     """
     ZTodo
 
@@ -287,7 +287,10 @@ class _ZTextTestResult(unittest.TextTestResult):
             _, _, exc_traceback = err
             pdb.post_mortem(exc_traceback)
 
-    def addError(self, test: unittest.TestCase, err: ExecInfo) -> None:
+    def addError(  # noqa: N802 (invalid-function-name)
+            self, test: unittest.TestCase,
+            err: ExecInfo,
+    ) -> None:
         """
         Called when an error has occurred. 'err' is a tuple of values as
         returned by sys.exc_info().
@@ -295,7 +298,10 @@ class _ZTextTestResult(unittest.TextTestResult):
         self.debug(err)
         super().addError(test, err)
 
-    def addFailure(self, test: unittest.TestCase, err: ExecInfo) -> None:
+    def addFailure(  # noqa: N802 (invalid-function-name)
+            self, test: unittest.TestCase,
+            err: ExecInfo,
+    ) -> None:
         """
         Called when an error has occurred. 'err' is a tuple of values as
         returned by sys.exc_info().
@@ -303,8 +309,10 @@ class _ZTextTestResult(unittest.TextTestResult):
         self.debug(err)
         super().addFailure(test, err)
 
-    def addExpectedFailure(self, test: unittest.TestCase,
-                           err: ExecInfo) -> None:
+    def addExpectedFailure(  # noqa: N802 (invalid-function-name)
+            self, test: unittest.TestCase,
+            err: ExecInfo,
+    ) -> None:
         """Replacement of addExpectedFailure to fixup the _ZTodo hack"""
         assert err[0] == _ZTodo
         exn = err[1]
@@ -326,7 +334,9 @@ class _ZTestResult(unittest.TestResult):
         self.global_errors: list[tuple[unittest.TestCase, str]] = []
         super().__init__(*args, **kwargs)
 
-    def startTest(self, test: unittest.TestCase) -> None:
+    def startTest(  # noqa: N802 (invalid-function-name)
+            self, test: unittest.TestCase,
+    ) -> None:
         wipe_children_rearm()
         self.start_time = time.time()
         super().startTest(test)
@@ -368,12 +378,17 @@ class _ZTestResult(unittest.TestResult):
 
         sys.stdout.write(': %s\n' % (err))
 
-    def addSuccess(self, test: unittest.TestCase) -> None:
+    def addSuccess(  # noqa: N802 (invalid-function-name)
+            self, test: unittest.TestCase,
+    ) -> None:
         super().addSuccess(test)
         self._put_st('pass', test)
         sys.stdout.flush()
 
-    def addError(self, test: unittest.TestCase, err: ExecInfo) -> None:
+    def addError(  # noqa: N802 (invalid-function-name)
+            self, test: unittest.TestCase,
+            err: ExecInfo,
+    ) -> None:
         super().addError(test, err)
         self.global_errors.append((
             test,
@@ -383,7 +398,10 @@ class _ZTestResult(unittest.TestResult):
         self._put_err(test, err)
         sys.stdout.flush()
 
-    def addFailure(self, test: unittest.TestCase, err: ExecInfo) -> None:
+    def addFailure(  # noqa: N802 (invalid-function-name)
+            self, test: unittest.TestCase,
+            err: ExecInfo,
+    ) -> None:
         super().addFailure(test, err)
         self.global_failures.append((
             test,
@@ -393,13 +411,18 @@ class _ZTestResult(unittest.TestResult):
         self._put_err(test, err)
         sys.stdout.flush()
 
-    def addSkip(self, test: unittest.TestCase, reason: str) -> None:
+    def addSkip(  # noqa: N802 (invalid-function-name)
+            self, test: unittest.TestCase,
+            reason: str,
+    ) -> None:
         super().addSkip(test, reason)
         self._put_st('skip', test, reason)
         sys.stdout.flush()
 
-    def addExpectedFailure(self, test: unittest.TestCase,
-                           err: ExecInfo) -> None:
+    def addExpectedFailure(  # noqa: N802 (invalid-function-name)
+            self, test: unittest.TestCase,
+            err: ExecInfo,
+    ) -> None:
         assert err[0] == _ZTodo
         exn = err[1]
         assert isinstance(exn, _ZTodo)
@@ -408,7 +431,9 @@ class _ZTestResult(unittest.TestResult):
         self._put_err(test, exn.exc_info)
         sys.stdout.flush()
 
-    def addUnexpectedSuccess(self, test: unittest.TestCase) -> None:
+    def addUnexpectedSuccess(  # noqa: N802 (invalid-function-name)
+            self, test: unittest.TestCase,
+    ) -> None:
         super().addUnexpectedSuccess(test)
         self._put_st('todo-pass', test)
         self._put_err_str(test, 'ZTodo should not pass')
@@ -431,7 +456,7 @@ class _ZTestResult(unittest.TestResult):
         self.expectedFailures = []
         self.unexpectedSuccesses = []
 
-    def wasSuccessful(self) -> bool:
+    def wasSuccessful(self) -> bool:  # noqa: N802 (invalid-function-name)
         return (len(self.global_failures) + len(self.global_errors) +
                 len(self.unexpectedSuccesses) == 0)
 
@@ -474,7 +499,9 @@ class ZTestRunner(unittest.TextTestRunner):
 class TestCase(unittest.TestCase):
 
     # deprecated
-    def zHasMode(self, mode: str) -> bool:
+    def zHasMode(  # noqa: N802 (invalid-function-name)
+            self, mode: str,
+    ) -> bool:
         return self.z_has_mode(mode)
 
     @classmethod
@@ -486,7 +513,9 @@ class TestCase(unittest.TestCase):
         return tag in _FLAGS
 
 
-def expectedFailure(*args: Any, **kwargs: Any) -> NoReturn:
+def expectedFailure(  # noqa: N802 (invalid-function-name)
+        *args: Any, **kwargs: Any,
+) -> NoReturn:
     """
     Overrides the unittest definition so that people won't use it by mistake
     """

@@ -1327,7 +1327,7 @@ class Pxc2Pxd(FirstInputStrTask):
                '-fno-blocks ${CPPPATH_ST:INCPATHS} ${SRC[0].abspath()} '
                '-o ${TGT}')
     color   = 'BLUE'
-    before  = 'cython'
+    before  = 'Cython'
     after   = 'Iop2c'
     scan    = c_preproc.scan # pxc files are C-like files
 

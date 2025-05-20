@@ -178,15 +178,16 @@ class IopyTest(z.TestCase):
         self.r = self.p.register()
 
     if not hasattr(z.TestCase, 'assertIsSubclass'):
-        def assertIsSubclass(self: z.TestCase, cls: type[object],
-                             class_or_tuple: type[object],
-                             msg: Optional[str] = None) -> None:
+        def assertIsSubclass(  # noqa: N802 (invalid-function-name)
+                self: z.TestCase, cls: type[object],
+                class_or_tuple: type[object],
+                msg: Optional[str] = None,
+        ) -> None:
             if not issubclass(cls, class_or_tuple):
                 message = '%r is not a subclass of %r' % (cls, class_or_tuple)
                 if msg is not None:
                     message += ' : %s' % msg
                 raise self.failureException(message)
-
 
     def test_type_name_parsing(self) -> None:
         a = self.r.tst1.A(_json='{ "a": "A1", "b": "B2" }')
@@ -473,7 +474,7 @@ class IopyTest(z.TestCase):
     def test_custom_methods(self) -> None:
 
         @z_monkey_patch(self.r.test.ClassA)
-        class test_ClassA:
+        class test_ClassA:  # noqa: N801 (invalid-class-name)
             def fun(self) -> int:
                 res: int = self.field1 # type: ignore[attr-defined]
                 return res
@@ -803,7 +804,7 @@ class IopyTest(z.TestCase):
     def test_custom_init(self) -> None:
 
         @z_monkey_patch(self.r.test.ClassA)
-        class test_ClassA1:
+        class test_ClassA1:  # noqa: N801 (invalid-class-name)
             def __init__(self, field1: int = 10,
                          _my_field: str = 'value',
                          **kwargs: Any) -> None:
@@ -839,7 +840,7 @@ class IopyTest(z.TestCase):
                          'custom init of custom value has failed')
 
         @z_monkey_patch(self.r.test.ClassA)
-        class test_ClassA2:
+        class test_ClassA2:  # noqa: N801 (invalid-class-name)
             def __init__(self, field1: int = 10, _my_field: str = 'value',
                          **kwargs: Any) -> None:
                 var = field1 * 10  # check #33039
@@ -857,7 +858,7 @@ class IopyTest(z.TestCase):
                          'custom init with internal variables has failed')
 
         @z_monkey_patch(self.r.test.ClassB)
-        class test_ClassB:
+        class test_ClassB:  # noqa: N801 (invalid-class-name)
             def __init__(self, field1: int = 20, **kwargs: Any) -> None:
                 kwargs['field1'] = field1
                 super(test_ClassB, self).__init__(**kwargs)
@@ -870,7 +871,7 @@ class IopyTest(z.TestCase):
                          'custom init inheritance has failed')
 
         @z_monkey_patch(self.r.test.StructA)
-        class test_StructA:
+        class test_StructA:  # noqa: N801 (invalid-class-name)
             r = self.r
             def __init__(self, **kwargs: Any) -> None:
                 self.class_a = self.r.test.ClassA(**kwargs)
@@ -889,7 +890,7 @@ class IopyTest(z.TestCase):
                 self.common_val1 = 42
 
         @z_monkey_patch(self.r.test.StructA)
-        class test_StructA1(CommonClass1):
+        class test_StructA1(CommonClass1):  # noqa: N801 (invalid-class-name)
             def foo(self) -> None:
                 super(test_StructA1, self).foo()
                 self.common_val2 = 12
@@ -909,7 +910,7 @@ class IopyTest(z.TestCase):
                 self.common_val1 = 84
 
         @z_monkey_patch(self.r.test.StructA)
-        class test_StructA2(CommonClass2, CommonClass1):
+        class test_StructA2(CommonClass2, CommonClass1):  # noqa: N801 (invalid-class-name)
             pass
 
         # Delete previous foo() method due to test_StructA1 monkey-patch
@@ -926,14 +927,14 @@ class IopyTest(z.TestCase):
                 self.common_val1 = 10
 
         @z_monkey_patch(self.r.test.StructA)
-        class test_StructA3(CommonClass3):
+        class test_StructA3(CommonClass3):  # noqa: N801 (invalid-class-name)
             pass
 
         st = self.r.test.StructA()
         self.assertEqual(st.common_val1, 10)
 
         @z_monkey_patch(self.r.test.StructA)
-        class test_StructA4:
+        class test_StructA4:  # noqa: N801 (invalid-class-name)
             pass
 
         st = self.r.test.StructA()
@@ -944,7 +945,7 @@ class IopyTest(z.TestCase):
     def test_json_serialize(self) -> None:
 
         @z_monkey_patch(self.r.test.StructA)
-        class test_StructA:
+        class test_StructA:  # noqa: N801 (invalid-class-name)
             def __init__(self, arg1: int = 0, **kwargs: Any) -> None:
                 self.var1 = arg1
                 super(test_StructA, self).__init__(**kwargs)
@@ -969,7 +970,7 @@ class IopyTest(z.TestCase):
         copy_method = copy.deepcopy if is_deepcopy else copy.copy
 
         @z_monkey_patch(self.r.test.StructA)
-        class test_StructA:
+        class test_StructA:  # noqa: N801 (invalid-class-name)
             def __init__(self, val: int = 0, **kwargs: Any) -> None:
                 super(test_StructA, self).__init__()
                 self.val = val
@@ -1110,7 +1111,7 @@ class IopyTest(z.TestCase):
 
         # Test we can redefine the hash if needed
         @z_monkey_patch(self.r.test.StructA)
-        class test_StructA:
+        class test_StructA:  # noqa: N801 (invalid-class-name)
             def __hash__(self) -> int:
                 return id(self)
 
@@ -1250,13 +1251,13 @@ class IopyTest(z.TestCase):
         """Test type with double level of upgrade"""
 
         @z_monkey_patch(self.r.test.EnumA)
-        class test_EnumA1:
+        class test_EnumA1:  # noqa: N801 (invalid-class-name)
             @staticmethod
             def foo() -> str:
                 return 'foo'
 
         @z_monkey_patch(self.r.test.EnumA)
-        class test_EnumA2:
+        class test_EnumA2:  # noqa: N801 (invalid-class-name)
             @staticmethod
             def bar() -> str:
                 return 'bar'
@@ -1269,13 +1270,13 @@ class IopyTest(z.TestCase):
         self.assertEqual(a2.bar(), 'bar') # type: ignore[attr-defined]
         self.assertEqual(a1, a2)
 
-        class test_ClassA1:
+        class test_ClassA1:  # noqa: N801 (invalid-class-name)
             @staticmethod
             def foo() -> str:
                 return 'foo'
 
         @z_monkey_patch(self.r.test.ClassA)
-        class test_ClassA2(test_ClassA1):
+        class test_ClassA2(test_ClassA1):  # noqa: N801 (invalid-class-name)
             @staticmethod
             def bar() -> str:
                 return 'bar'
@@ -1929,7 +1930,7 @@ class IopyIfaceTests(z.TestCase):
     def test_iopy_iface(self) -> None:
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA:
+        class test_InterfaceA:  # noqa: N801 (invalid-class-name)
             cls_attr = 0
 
             def __init__(self) -> None:
@@ -1940,16 +1941,21 @@ class IopyIfaceTests(z.TestCase):
                 self.cls_attr = 10
                 return self.attr1
 
-            def funA(self, *args: Any, **kwargs: Any) -> iopy.StructBase:
+            def funA(  # noqa: N802 (invalid-function-name)
+                    self, *args: Any,
+                    **kwargs: Any,
+            ) -> iopy.StructBase:
                 self.attr1 = kwargs.get('a', 0)
-                rpcs = self._rpcs # type: ignore[attr-defined]
+                rpcs = self._rpcs  # type: ignore[attr-defined]
                 res = rpcs.funA(*args, **kwargs)
                 self.attr2 = res.status
                 return res
 
-            def funToggleVoid(self, *args: Any,
-                              **kwargs: Any) -> iopy.StructBase:
-                rpcs = self._rpcs # type: ignore[attr-defined]
+            def funToggleVoid(  # noqa: N802 (invalid-function-name)
+                    self, *args: Any,
+                    **kwargs: Any,
+            ) -> iopy.StructBase:
+                rpcs = self._rpcs  # type: ignore[attr-defined]
                 return rpcs.funToggleVoid(*args, **kwargs)
 
         c = self.r.connect(self.uri)
@@ -2005,7 +2011,7 @@ class IopyIfaceTests(z.TestCase):
     def test_iopy_iface_hooks(self) -> None:
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA1:
+        class test_InterfaceA1:  # noqa: N801 (invalid-class-name)
             def __pre_hook__(self, rpc: iopy.RPCBase, *args: Any,
                              **kwargs: Any) -> None:
                 self.pre_hook_rpc = rpc
@@ -2045,7 +2051,7 @@ class IopyIfaceTests(z.TestCase):
                          ' value: %s; expected: %s' % (attr, exp))
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA2:
+        class test_InterfaceA2:  # noqa: N801 (invalid-class-name)
             r = self.r
 
             def __pre_hook__(self, rpc: iopy.RPCBase, *args: Any,
@@ -2063,7 +2069,7 @@ class IopyIfaceTests(z.TestCase):
                          '; result: %s; expected: 0' % ret)
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA3:
+        class test_InterfaceA3:  # noqa: N801 (invalid-class-name)
             r = self.r
 
             def __pre_hook__(self, rpc: iopy.RPCBase, *args: Any,
@@ -2090,7 +2096,7 @@ class IopyIfaceTests(z.TestCase):
             self.attr2 = 1
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA4:
+        class test_InterfaceA4:  # noqa: N801 (invalid-class-name)
             pass
 
         # Delete previous hooks due to test_InterfaceA3 monkey-patch
@@ -2109,7 +2115,7 @@ class IopyIfaceTests(z.TestCase):
                          ' value: %s; expected: %s' % (attr, 1))
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA5:
+        class test_InterfaceA5:  # noqa: N801 (invalid-class-name)
             pass
 
         iface.funA(a=self.r.test.ClassA())
@@ -2121,7 +2127,7 @@ class IopyIfaceTests(z.TestCase):
                          ' value: %s; expected: %s' % (attr, 1))
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA6:
+        class test_InterfaceA6:  # noqa: N801 (invalid-class-name)
             def __pre_hook__(self, rpc: iopy.RPCBase, *args: Any,
                              **kwargs: Any) -> None:
                 self.attr1 = 2
@@ -2149,7 +2155,7 @@ class IopyIfaceTests(z.TestCase):
             self.attr2 = 3
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA7:
+        class test_InterfaceA7:  # noqa: N801 (invalid-class-name)
             __pre_hook__ = iface_pre_hook_1
             __post_hook__ = iface_post_hook_1
 
@@ -2176,7 +2182,7 @@ class IopyIfaceTests(z.TestCase):
         del test_InterfaceA7.__post_hook__
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA8:
+        class test_InterfaceA8:  # noqa: N801 (invalid-class-name)
             pass
 
         type(iface).__pre_hook__ = iface_pre_hook_2
@@ -2212,7 +2218,7 @@ class IopyIfaceTests(z.TestCase):
         del type(iface).__post_hook__
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA9:
+        class test_InterfaceA9:  # noqa: N801 (invalid-class-name)
             pass
 
         iface.funA(a=self.r.test.ClassA())
@@ -2235,7 +2241,7 @@ class IopyIfaceTests(z.TestCase):
                 self.common_val1 = 42
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA1(CommonClass1):
+        class test_InterfaceA1(CommonClass1):  # noqa: N801 (invalid-class-name)
             def foo(self) -> None:
                 super(test_InterfaceA1, self).foo()
                 self.common_val2 = 12
@@ -2254,7 +2260,7 @@ class IopyIfaceTests(z.TestCase):
                 self.common_val1 = 84
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA2(CommonClass2, CommonClass1):
+        class test_InterfaceA2(CommonClass2, CommonClass1):  # noqa: N801 (invalid-class-name)
             pass
 
         # Delete previous foo() method due to test_InterfaceA1 monkey-patch
@@ -2269,7 +2275,7 @@ class IopyIfaceTests(z.TestCase):
         iface = c.test_ModuleA.interfaceA
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA3:
+        class test_InterfaceA3:  # noqa: N801 (invalid-class-name)
             pass
 
         self.assertFalse(hasattr(iface, 'common_val1'))
@@ -2310,13 +2316,13 @@ class IopyIfaceTests(z.TestCase):
         """Test iface with double level of upgrade"""
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA1:
+        class test_InterfaceA1:  # noqa: N801 (invalid-class-name)
             @staticmethod
             def foo() -> str:
                 return 'foo'
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
-        class test_InterfaceA2:
+        class test_InterfaceA2:  # noqa: N801 (invalid-class-name)
             @staticmethod
             def bar() -> str:
                 return 'bar'
