@@ -288,7 +288,6 @@ def create_corpus_files_and_dict(
             # If we want to generate files containing a fuzzing sequence,
             # create it now.
             if generate_files:
-                # pylint: disable=consider-using-with
                 generated_file = open(os.path.join(CORPUS_DIR,
                                                    f'{CORPUS_NAME}-{i}.bin'),
                                       mode='wb')

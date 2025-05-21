@@ -53,18 +53,17 @@ def z_iopy_thread_cb(iface: iopy.IfaceBase, obj_a: iopy.StructBase,
                      res_list: list[iopy.StructBase]) -> None:
     try:
         res = iface.funA(a=obj_a)
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:
         res = e
     res_list.append(res)
 
 
 def z_iopy_fork_child(iface: iopy.IfaceBase, obj_a: iopy.StructBase,
                       exp_res: iopy.StructBase, do_threads: bool) -> None:
-    # pylint: disable=protected-access
 
     try:
         res = iface.funA(a=obj_a)
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:
         sys.stderr.write(f'{e!s}\n')
         os._exit(1)
 
@@ -76,7 +75,7 @@ def z_iopy_fork_child(iface: iopy.IfaceBase, obj_a: iopy.StructBase,
     try:
         z_iopy_test_threads_and_forks(iface, obj_a, exp_res, do_threads,
                                       False)
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:
         sys.stderr.write(f'{e!s}\n')
         os._exit(3)
 
@@ -179,7 +178,6 @@ class IopyTest(z.TestCase):
         self.r = self.p.register()
 
     if not hasattr(z.TestCase, 'assertIsSubclass'):
-        # pylint: disable=invalid-name
         def assertIsSubclass(self: z.TestCase, cls: type[object],
                              class_or_tuple: type[object],
                              msg: Optional[str] = None) -> None:
@@ -473,7 +471,6 @@ class IopyTest(z.TestCase):
         check_json_compat_options(union_a)
 
     def test_custom_methods(self) -> None:
-        # pylint: disable=unused-variable
 
         @z_monkey_patch(self.r.test.ClassA)
         class test_ClassA:
@@ -604,7 +601,6 @@ class IopyTest(z.TestCase):
             self.assertEqual(proc.returncode, 0, msg)
 
     def test_objects_comparisons(self) -> None:
-        # pylint: disable=comparison-with-itself
 
         u1 = self.r.test.UnionA(a=self.r.test.ClassB(field1=1, field2=2))
         u2 = self.r.test.UnionA(a=self.r.test.ClassB(field1=1, field2=2))
@@ -805,7 +801,6 @@ class IopyTest(z.TestCase):
         self.assertEqual(e, self.r.test.StructE(d=d))
 
     def test_custom_init(self) -> None:
-        # pylint: disable=super-with-arguments
 
         @z_monkey_patch(self.r.test.ClassA)
         class test_ClassA1:
@@ -848,7 +843,7 @@ class IopyTest(z.TestCase):
             def __init__(self, field1: int = 10, _my_field: str = 'value',
                          **kwargs: Any) -> None:
                 var = field1 * 10  # check #33039
-                self.optField = var  # pylint: disable=invalid-name
+                self.optField = var
                 self._my_field = _my_field
                 kwargs['field1'] = field1
                 super(test_ClassA2, self).__init__(**kwargs)
@@ -888,7 +883,6 @@ class IopyTest(z.TestCase):
                          'custom init with kwargs failed')
 
     def test_custom_inheritance(self) -> None:
-        # pylint: disable=unused-variable, super-with-arguments
 
         class CommonClass1:
             def foo(self) -> None:
@@ -948,7 +942,6 @@ class IopyTest(z.TestCase):
         self.assertFalse(hasattr(st, 'common_val2'))
 
     def test_json_serialize(self) -> None:
-        # pylint: disable=super-with-arguments
 
         @z_monkey_patch(self.r.test.StructA)
         class test_StructA:
@@ -972,7 +965,6 @@ class IopyTest(z.TestCase):
         self.assertEqual(b2.field2, 3)
 
     def run_test_copy(self, is_deepcopy: bool) -> None:
-        # pylint: disable=super-with-arguments
 
         copy_method = copy.deepcopy if is_deepcopy else copy.copy
 
@@ -1099,7 +1091,6 @@ class IopyTest(z.TestCase):
         self.assertEqual(self.r.test.StaticAttrsB.strAttr, 'plop')
 
     def test_unhashable(self) -> None:
-        # pylint: disable=unused-variable
 
         def _check_unhashable(x: Any) -> None:
             with self.assertRaisesRegex(TypeError, 'unhashable type'):
@@ -1257,7 +1248,6 @@ class IopyTest(z.TestCase):
 
     def test_type_double_upgrade(self) -> None:
         """Test type with double level of upgrade"""
-        # pylint: disable=unused-variable
 
         @z_monkey_patch(self.r.test.EnumA)
         class test_EnumA1:
@@ -1931,14 +1921,12 @@ class IopyIfaceTests(z.TestCase):
             return rpc_args.res(ov=None)
 
         self.s = self.r.channel_server()
-        # pylint: disable=protected-access
         self.s.test_ModuleA.interfaceA._rpcs.funA.impl = rpc_impl_a
         self.s.test_ModuleA.interfaceA.funB.impl = rpc_impl_b
         self.s.test_ModuleA.interfaceA.funToggleVoid.impl = rpc_impl_v
         self.s.listen(uri=self.uri)
 
     def test_iopy_iface(self) -> None:
-        # pylint: disable=unused-variable
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA:
@@ -1952,7 +1940,7 @@ class IopyIfaceTests(z.TestCase):
                 self.cls_attr = 10
                 return self.attr1
 
-            def funA(self, *args: Any, **kwargs: Any) -> iopy.StructBase:  # pylint: disable=invalid-name
+            def funA(self, *args: Any, **kwargs: Any) -> iopy.StructBase:
                 self.attr1 = kwargs.get('a', 0)
                 rpcs = self._rpcs # type: ignore[attr-defined]
                 res = rpcs.funA(*args, **kwargs)
@@ -1961,7 +1949,6 @@ class IopyIfaceTests(z.TestCase):
 
             def funToggleVoid(self, *args: Any,
                               **kwargs: Any) -> iopy.StructBase:
-                # pylint: disable=invalid-name
                 rpcs = self._rpcs # type: ignore[attr-defined]
                 return rpcs.funToggleVoid(*args, **kwargs)
 
@@ -2016,7 +2003,6 @@ class IopyIfaceTests(z.TestCase):
         self.assertIsNone(ret.ov)
 
     def test_iopy_iface_hooks(self) -> None:
-        # pylint: disable=unused-variable
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA1:
@@ -2060,7 +2046,7 @@ class IopyIfaceTests(z.TestCase):
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA2:
-            r = self.r  # pylint: disable=invalid-name
+            r = self.r
 
             def __pre_hook__(self, rpc: iopy.RPCBase, *args: Any,
                              **kwargs: Any) -> tuple[tuple[Any, ...],
@@ -2078,7 +2064,7 @@ class IopyIfaceTests(z.TestCase):
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA3:
-            r = self.r  # pylint: disable=invalid-name
+            r = self.r
 
             def __pre_hook__(self, rpc: iopy.RPCBase, *args: Any,
                              **kwargs: Any) -> tuple[tuple[Any, ...],
@@ -2240,7 +2226,6 @@ class IopyIfaceTests(z.TestCase):
                          ' value: %s; expected: %s' % (attr, None))
 
     def test_iopy_iface_inheritance(self) -> None:
-        # pylint: disable=unused-variable, super-with-arguments
 
         c = self.r.connect(self.uri)
         iface = c.test_ModuleA.interfaceA
@@ -2323,7 +2308,6 @@ class IopyIfaceTests(z.TestCase):
 
     def test_iface_double_upgrade(self) -> None:
         """Test iface with double level of upgrade"""
-        # pylint: disable=unused-variable
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA1:
@@ -2797,7 +2781,6 @@ class IopyDsoTests(z.TestCase):
         uri = make_uri()
         s = self.r.ChannelServer()
         s.listen(uri=uri)
-        # pylint: disable=protected-access
         s.test_dso_ModuleTest.interfaceTest._rpcs.fun.impl = rpc_impl_fun
         c = self.r.connect(uri)
         self.assertEqual(21, c.test_dso_ModuleTest.interfaceTest.fun().val)
@@ -3230,7 +3213,6 @@ class IopySlowTests(z.TestCase):
         uri = make_uri()
 
         # Use a queue to indicate startup
-        # pylint: disable=unsubscriptable-object
         queue: multiprocessing.Queue[None] = multiprocessing.Queue()
 
         def thread_cb(client: iopy.Channel) -> None:
@@ -3259,7 +3241,7 @@ class IopySlowTests(z.TestCase):
             assert child_pid >= 0
             if child_pid == 0:
                 process_cb()
-                os._exit(0) # pylint: disable=protected-access
+                os._exit(0)
 
             # Wait for the two threads to be started
             queue.get()

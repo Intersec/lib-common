@@ -15,7 +15,6 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable = invalid-name
 
 import os
 import os.path as osp
@@ -24,14 +23,12 @@ import shlex
 import shutil
 import sys
 
-# pylint: disable = import-error
 from waflib import Errors, Logs, Options
 from waflib.Build import BuildContext
 from waflib.Configure import ConfigurationContext
 from waflib.Context import Context
 from waflib.Options import OptionsContext
 
-# pylint: enable = import-error
 
 waftoolsdir = os.path.join(os.getcwd(), 'build', 'waftools')
 sys.path.insert(0, waftoolsdir)
@@ -383,7 +380,6 @@ def configure(ctx: ConfigurationContext) -> None:
     py_ldflags = shlex.split(py_ldflags)
     ctx.env.append_unique('LDFLAGS_python3', py_ldflags)
 
-    # pylint: disable=line-too-long
     # We need to '--embed' for python 3.8+ for standalone executables.
     # See https://docs.python.org/3/whatsnew/3.8.html#debug-build-uses-the-same-abi-as-release-build
     # For python < 3.8, ldflags are the same for both shared libraries and

@@ -16,7 +16,6 @@ from typing import (
     TypeVar,
 )
 
-# pylint: disable = import-error
 from waflib import Logs, Task, TaskGen
 from waflib.Build import BuildContext
 from waflib.Configure import ConfigurationContext
@@ -24,7 +23,6 @@ from waflib.Node import Node
 from waflib.Options import OptionsContext
 from waflib.Tools import c as c_tool
 
-# pylint: enable = import-error
 
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
@@ -156,7 +154,6 @@ RE_INCLUDE_CYT = re.compile(r"""
     include\s+[\"'](.+)[\"']       # capture include path
     """, re.MULTILINE | re.VERBOSE)
 
-# pylint: disable=invalid-name
 class cython(Task.Task): # type: ignore[misc]
     class ScannerState:
         """Class to hold the state on scan method."""

@@ -16,7 +16,7 @@
 #                                                                         #
 ###########################################################################
 
-from waflib.Configure import (  # pylint: disable=import-error
+from waflib.Configure import (
     ConfigurationContext,
 )
 

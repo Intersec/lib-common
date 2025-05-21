@@ -15,9 +15,8 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# pylint: disable=used-before-assignment
 
-from waflib.Build import BuildContext  # pylint: disable=import-error
+from waflib.Build import BuildContext
 
 ctx: BuildContext
 
@@ -35,7 +34,7 @@ if ctx.env.COMPILER_CC != 'clang' and ctx.env.COMPILER_CXX != 'clang++':
             ])
 
         # Get common flags supported by clang and llvm.
-        flags = ctx.env.OFLAGS + ['-ggdb3'] # pylint: disable=invalid-name
+        flags = ctx.env.OFLAGS + ['-ggdb3']
         if ctx.env.NDEBUG:
             flags += ['-DNDEBUG']
 

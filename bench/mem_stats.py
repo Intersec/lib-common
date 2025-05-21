@@ -27,8 +27,8 @@ It plots the used memory/allocated memory graph.
 
 import sys
 
-import matplotlib.pyplot as plt  # pylint: disable=import-error
-import numpy as np  # pylint: disable=import-error
+import matplotlib.pyplot as plt
+import numpy as np
 
 COLUMNS = [
     # alloc block
@@ -53,12 +53,12 @@ NUM_COLUMNS = len(COLUMNS)
 
 
 def plot(filename):
-    data = np.loadtxt(filename, delimiter=',') #pylint: disable=E1101
+    data = np.loadtxt(filename, delimiter=',')
     print(data.shape)
     print(NUM_COLUMNS)
 
     # adding "time"
-    time = np.array(range(len(data[:,0]))) #pylint: disable=E1101
+    time = np.array(range(len(data[:,0])))
 
     # generate figure
     (_, ax1) = plt.subplots()

@@ -1,4 +1,3 @@
-# pylint: disable = line-too-long
 # Borrowed from waf sources: https://gitlab.com/ita1024/waf/-/blob/master/waflib/extras/clang_compilation_database.py
 # Christoph Koke, 2013
 # Alibek Omarov, 2019
@@ -38,13 +37,13 @@ from typing import (
     Union,
 )
 
-from waflib import (  # pylint: disable = import-error
+from waflib import (
     Build,
     Logs,
     Scripting,
     Task,
 )
-from waflib.Node import Node  # pylint: disable = import-error
+from waflib.Node import Node
 
 if TYPE_CHECKING:
     # mypy wants the import to be relative ¯\_(ツ)_/¯

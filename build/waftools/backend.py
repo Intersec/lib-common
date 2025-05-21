@@ -43,7 +43,6 @@ from typing import (
     TypeVar,
 )
 
-# pylint: disable = import-error
 from waflib import Context, Errors, Logs, Options, TaskGen, Utils
 from waflib.Build import BuildContext
 from waflib.Configure import ConfigurationContext
@@ -54,7 +53,6 @@ from waflib.Tools import c as c_tool
 from waflib.Tools import c_preproc, ccroot, cxx
 from waflib.Utils import check_exe
 
-# pylint: enable = import-error
 
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:

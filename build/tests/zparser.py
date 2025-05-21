@@ -355,11 +355,11 @@ class Error:
 
     def __init__(self, product: str, suite: str, group: str, test: str,
                  context: deque[tuple[str, str]], status: str = 'fail'):
-        self.productName = product  # pylint: disable=invalid-name
+        self.productName = product
         self.suite_fullname = suite
-        self.suiteName = Suite.make_short_name(product, suite) # pylint: disable=invalid-name
-        self.groupName = group  # pylint: disable=invalid-name
-        self.testName = test  # pylint: disable=invalid-name
+        self.suiteName = Suite.make_short_name(product, suite)
+        self.groupName = group
+        self.testName = test
         self.context_l = context
         self.traces: deque[str] = fixed_list()
         self.step_fail = ''

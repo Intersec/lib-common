@@ -108,7 +108,7 @@ class _LoadTests:
         self.docsuites.append(suite)
 
 
-def ZGroup(cls: type[T]) -> type[T]: # pylint: disable=invalid-name
+def ZGroup(cls: type[T]) -> type[T]:
     """
     ZGroup
 
@@ -220,7 +220,7 @@ _FLAGS   = set(os.getenv('Z_TAG_SKIP', '').split())
 _TAG_OR = os.getenv('Z_TAG_OR', '')
 _ALL_FLAGS: dict[Any, list[Any]] = {}
 
-def ZFlags(*flags: str) -> Callable[[T], T]: # pylint: disable=invalid-name
+def ZFlags(*flags: str) -> Callable[[T], T]:
     """
     ZFlags
 
@@ -253,7 +253,7 @@ class _ZTodo(Exception):
         self.exc_info = exc_info
         super().__init__(reason, exc_info)
 
-def ZTodo(reason: str) -> Any: # pylint: disable=invalid-name
+def ZTodo(reason: str) -> Any:
     """
     ZTodo
 
@@ -283,7 +283,7 @@ class _ZTextTestResult(unittest.TextTestResult):
 
     def debug(self, err: ExecInfo) -> None:
         if self.debug_on:
-            import pdb  # pylint: disable = import-outside-toplevel
+            import pdb
             _, _, exc_traceback = err
             pdb.post_mortem(exc_traceback)
 
@@ -416,7 +416,6 @@ class _ZTestResult(unittest.TestResult):
 
     @classmethod
     def print_suite_summary(cls, test: unittest.TestSuite) -> None:
-        # pylint: disable=protected-access
         if isinstance(test, DocTestModule):
             group_name = test.__class__.__name__
         else:
@@ -475,7 +474,7 @@ class ZTestRunner(unittest.TextTestRunner):
 class TestCase(unittest.TestCase):
 
     # deprecated
-    def zHasMode(self, mode: str) -> bool: # pylint: disable=invalid-name
+    def zHasMode(self, mode: str) -> bool:
         return self.z_has_mode(mode)
 
     @classmethod
@@ -487,12 +486,11 @@ class TestCase(unittest.TestCase):
         return tag in _FLAGS
 
 
-# pylint: disable=invalid-name
 def expectedFailure(*args: Any, **kwargs: Any) -> NoReturn:
     """
     Overrides the unittest definition so that people won't use it by mistake
     """
-    raise RuntimeError('Do not use expectedFailure but ZTodo instead')  # pylint: disable=broad-exception-raised
+    raise RuntimeError('Do not use expectedFailure but ZTodo instead')
 
 
 class TestProgram(unittest.TestProgram):

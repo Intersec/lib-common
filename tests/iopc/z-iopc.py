@@ -152,7 +152,7 @@ class IopcTest(z.TestCase):
         ref_file = pkg + '.ref.' + lang
         # Uncomment these lines to update the ref files after changing iopc
         # output
-        #import shutil # pylint: disable = import-outside-toplevel
+        #import shutil
         #shutil.copyfile(gen_file, ref_file)
         self.assertEqual(subprocess.call(['diff', '-u', gen_file, ref_file]),
                          0)

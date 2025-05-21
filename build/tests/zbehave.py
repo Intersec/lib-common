@@ -22,11 +22,11 @@ import os
 import sys
 from typing import Any, Optional, TextIO
 
-import behave.model  # pylint: disable=import-error
-from behave.__main__ import (  # pylint: disable=import-error
+import behave.model
+from behave.__main__ import (
     main as behave_main,
 )
-from behave.formatter.base import Formatter  # pylint: disable=import-error
+from behave.formatter.base import Formatter
 
 import zpycore.util
 

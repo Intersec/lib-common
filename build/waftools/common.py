@@ -35,7 +35,6 @@ from typing import (
     cast,
 )
 
-# pylint: disable = import-error
 import waflib
 from waflib import Build, Context, Errors, Logs, Options, TaskGen, Utils
 from waflib.Build import BuildContext, inst
@@ -43,7 +42,6 @@ from waflib.Configure import ConfigurationContext
 from waflib.Node import Node
 from waflib.Task import RUN_ME, SKIP_ME, Task, compile_fun
 
-# pylint: enable = import-error
 
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
