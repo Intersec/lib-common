@@ -1,4 +1,3 @@
-#! /usr/bin/env python3
 # Thomas Nagy, 2010-2015
 # Romain Le Godais, Nicolas Pauss, 2018
 
