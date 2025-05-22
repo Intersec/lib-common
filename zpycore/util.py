@@ -148,6 +148,6 @@ def mkdtemp(ns: str) -> str:
         return do(os.getcwd())
     except OSError:
         pass
-    return do('/tmp')
+    return do('/tmp')  # noqa: S108 (hardcoded-temp-file)
 
 # }}}

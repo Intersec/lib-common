@@ -158,6 +158,14 @@ ignore = [
     # RET - flake8-return
     "RET501",   # unnecessary-return-none
 
+    # S - flake8-bandit
+    "S101",     # assert
+    "S105",     # hardcoded-password-string
+    "S106",     # hardcoded-password-func-arg
+    "S603",     # subprocess-without-shell-equals-true
+    "S604",     # call-with-shell-equals-true
+    "S607",     # start-process-with-partial-path
+
     # SIM - flake8-simplify
     "SIM105",   # suppressible-exception
     "SIM108",   # if-else-block-instead-of-if-exp
