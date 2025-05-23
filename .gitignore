@@ -11,6 +11,8 @@
 .tags
 .syntastic*
 .local_vimrc.vim
+*~
+.*.sw?
 
 /.build*
 /.lock-waf*
@@ -27,5 +29,7 @@ mem.fifo.data.*
 *.pyx.c
 *.pyx.h
 
+# LSP related entries
 /compile_commands.json
 /iop_compile_commands.json
+/.cache
