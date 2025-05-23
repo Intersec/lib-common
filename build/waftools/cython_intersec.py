@@ -1,6 +1,6 @@
 # Thomas Nagy, 2010-2015
 # Romain Le Godais, Nicolas Pauss, 2018
-# ruff: noqa: FA100
+# ruff: noqa: FA100,RUF012
 
 import os.path as osp
 import re

@@ -162,6 +162,9 @@ ignore = [
     # RET - flake8-return
     "RET501",   # unnecessary-return-none
 
+    # RUF - ruff-specific
+    "RUF005",   # collection-literal-concatenation
+
     # S - flake8-bandit
     "S101",     # assert
     "S105",     # hardcoded-password-string

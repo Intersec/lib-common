@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, TextIO
+from typing import Any, ClassVar, TextIO
 
 import behave.model
 from behave.__main__ import (
@@ -41,7 +41,7 @@ class ZFormatter(Formatter):  # type: ignore[misc]
     Provide a behave formatter that support the z format
     """
 
-    status = {
+    status: ClassVar[dict[str, str]] = {
         'passed':    'pass',
         'failed':    'fail',
         'error':     'fail',
