@@ -465,19 +465,19 @@ class ZTestRunner(unittest.TextTestRunner):
     """
     split test suite output by group
 
-    By default unittest as the following test tree:
+    By default, unittest as the following test tree:
       suite
         suite1
           test1
           test2
         suite2
           test3
-    But z format is defined as follow:
+    But z format is defined as follows:
       suite
-        groupe1
+        group1
           test1
           test2
-        groupe2
+        group2
           test1
     """
 
