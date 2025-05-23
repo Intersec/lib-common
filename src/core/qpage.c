@@ -17,7 +17,6 @@
 /***************************************************************************/
 
 #include <lib-common/container-qvector.h>
-#include <lib-common/arith.h>
 #include <lib-common/qpage.h>
 
 /*

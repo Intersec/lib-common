@@ -872,8 +872,10 @@ static void iopc_dump_typedef(sb_t *buf, iopc_pkg_t *pkg)
         if (type->type == STRUCT_TYPE_TYPEDEF && type->type_path &&
             type->is_visible && type->found_pkg != pkg)
         {
+            t_scope;
+
             sb_addf(buf, "%sexport type %s = %s.%s;\n", first ? "\n" : "",
-                    type->name, pp_under(type->type_path), type->type_name);
+                    type->name, t_pp_under(type->type_path), type->type_name);
             first = false;
         }
     }

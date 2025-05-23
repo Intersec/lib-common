@@ -16,7 +16,6 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/arith.h>
 #include <lib-common/container-dlist.h>
 #include <lib-common/el.h>
 #include <lib-common/str-buf-pp.h>

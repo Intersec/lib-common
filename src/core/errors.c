@@ -18,7 +18,6 @@
 
 #include <execinfo.h> /* backtrace_symbols_fd */
 
-#include <lib-common/container.h>
 #include <lib-common/core.h>
 #include <lib-common/thr.h>
 #include <lib-common/unix.h>

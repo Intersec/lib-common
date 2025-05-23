@@ -17,7 +17,6 @@
 /***************************************************************************/
 
 #include <lib-common/unix.h>
-#include <lib-common/thr.h>
 
 #include "mem-bench.h"
 

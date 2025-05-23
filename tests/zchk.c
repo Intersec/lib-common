@@ -18,7 +18,7 @@
 
 #include <lib-common/z.h>
 #include <lib-common/unix.h>
-#include <lib-common/bit.h>
+#include <lib-common/bit-stream.h>
 #include <lib-common/parseopt.h>
 
 Z_GROUP_EXPORT(endianess)

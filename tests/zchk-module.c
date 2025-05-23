@@ -17,7 +17,6 @@
 /***************************************************************************/
 
 #include <lib-common/z.h>
-#include <lib-common/el.h>
 #include <lib-common/core.h>
 
 /* mock module {{{ */

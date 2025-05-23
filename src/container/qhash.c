@@ -18,7 +18,6 @@
 
 #include <lib-common/container-qhash.h>
 #include <lib-common/container-qvector.h>
-#include <lib-common/arith.h>
 
 #define QH_SETBITS_MASK  ((size_t)0x5555555555555555ULL)
 

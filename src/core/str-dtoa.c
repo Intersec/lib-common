@@ -236,7 +236,6 @@ thr_hooks(private_mem_initialize, private_mem_shutdown);
 #define IEEE_Arith
 #endif
 
-#include <errno.h>
 #ifdef Bad_float_h
 #undef __STDC__
 

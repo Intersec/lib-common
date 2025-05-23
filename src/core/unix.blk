@@ -29,7 +29,6 @@
 #include <lib-common/container.h>
 #include <lib-common/sort.h>
 #include <lib-common/net.h>
-#include <lib-common/thr.h>
 
 /** Create a subdirectory path as mkdir -p.
  *

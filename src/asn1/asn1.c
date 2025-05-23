@@ -19,8 +19,6 @@
 #include <lib-common/core.h>
 #include <lib-common/asn1.h>
 
-#include "helpers.in.c"
-
 /** \brief Decode a ber-encoded length to a 32 bits unsigned int.
   * \param[inout]ps Input byte stream.
   * \param[out]_len Output length.

@@ -16,7 +16,6 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/arith.h>
 #include <lib-common/sort.h>
 
 #define SIMPLE_SORT

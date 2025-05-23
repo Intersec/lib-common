@@ -16,7 +16,6 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/iop.h>
 #include <lib-common/iop/ic.iop.h>
 
 static bool zchk_iop_plugin_user_version_check(uint32_t user_version)
