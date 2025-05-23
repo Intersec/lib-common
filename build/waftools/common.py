@@ -15,6 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# ruff: noqa: FA100
 
 """
 Contains the code that could be useful for both backend and frontend build.

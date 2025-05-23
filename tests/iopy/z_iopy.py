@@ -16,6 +16,8 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+from __future__ import annotations
+
 import asyncio
 import copy
 import json
@@ -30,7 +32,7 @@ import time
 import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Union
 
 import iopy
 import zpycore as z
@@ -181,7 +183,7 @@ class IopyTest(z.TestCase):
         def assertIsSubclass(  # noqa: N802 (invalid-function-name)
                 self: z.TestCase, cls: type[object],
                 class_or_tuple: type[object],
-                msg: Optional[str] = None,
+                msg: str | None = None,
         ) -> None:
             if not issubclass(cls, class_or_tuple):
                 message = '%r is not a subclass of %r' % (cls, class_or_tuple)
@@ -534,7 +536,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(res.status.get_as_str(), 'B')
         self.assertEqual(res.res, 1)
 
-        def test_ok(_hdr: Optional[iopy.UnionBase] = None) -> None:
+        def test_ok(_hdr: iopy.UnionBase | None = None) -> None:
             if _hdr:
                 res = c.test_ModuleA.interfaceA.funA(a=b, _hdr=_hdr)
             else:
@@ -1934,10 +1936,10 @@ class IopyIfaceTests(z.TestCase):
             cls_attr = 0
 
             def __init__(self) -> None:
-                self.attr1: Optional[int] = 1
+                self.attr1: int | None = 1
                 self.attr2 = 2
 
-            def my_method(self) -> Optional[int]:
+            def my_method(self) -> int | None:
                 self.cls_attr = 10
                 return self.attr1
 

@@ -16,7 +16,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-
+from __future__ import annotations
 
 import datetime
 import logging
@@ -25,7 +25,7 @@ import sys
 from collections import OrderedDict, deque
 from collections.abc import Iterable
 from logging import NullHandler
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, TypeVar, Union
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(NullHandler())
@@ -77,7 +77,7 @@ def fixed_list() -> deque[T]:
 
 
 class Result:
-    name: Optional[str] = None
+    name: str | None = None
     time = 0.0
     status = 'pass'
     z_status_nb = ('skipped_nb', 'passed_nb', 'failed_nb', 'total_nb')
@@ -409,14 +409,14 @@ class Error:
 
 
 class StreamParser:
-    def __init__(self, stats: Optional[Global] = None):
-        self.suite: Optional[Suite] = None
-        self.group: Optional[Group] = None
-        self.product: Optional[Product] = None
+    def __init__(self, stats: Global | None = None):
+        self.suite: Suite | None = None
+        self.group: Group | None = None
+        self.product: Product | None = None
         self.steps: list[Step] = []
-        self.error: Optional[Error] = None
-        self.first_step_fail: Optional[str] = None
-        self.screenshot: Optional[str] = None
+        self.error: Error | None = None
+        self.first_step_fail: str | None = None
+        self.screenshot: str | None = None
         self.do_break = False
         self.core_logs = False
         self.context: deque[tuple[str, str]] = fixed_list()

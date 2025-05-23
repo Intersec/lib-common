@@ -41,7 +41,7 @@ In manual mode
  - core_dump.py --core /var/log/iglo.core show
 ...
 """
-
+from __future__ import annotations
 
 import argparse
 import os
@@ -54,7 +54,7 @@ from os import path as osp
 from re import Pattern
 from subprocess import check_output
 from tempfile import NamedTemporaryFile
-from typing import Any, Optional
+from typing import Any
 
 CORE_PATTERN = '/proc/sys/kernel/core_pattern'
 DEBUG = os.getenv('CORE_DEBUG', None)
@@ -80,7 +80,7 @@ GDB_CMD_FRAME = [
 BINARY_EXT = '-binary'
 
 
-def find_exe(name: str, root: str) -> Optional[str]:
+def find_exe(name: str, root: str) -> str | None:
     ret = set()
     for dirpath, _, filenames in os.walk(root):
         if name in filenames:
@@ -98,7 +98,7 @@ def debug(*args: Any) -> None:
 
 
 REG = re.compile(r'^#(\d+) .* at (.*)$')
-def get_intersec_poi(output: str, root: str) -> Optional[str]:
+def get_intersec_poi(output: str, root: str) -> str | None:
     for line in output.split('\n'):
         reg = REG.match(line)
         if not reg:
@@ -121,7 +121,7 @@ class Cores:
         # needed for buildbot because coredump are stored in shared directory
         self.core_filter = platform.node() + '.' if '%h' in pattern else None
         self.core_path = os.path.dirname(pattern)
-        self.core_regex: Optional[Pattern[str]] = None
+        self.core_regex: Pattern[str] | None = None
 
         self.init_regex(pattern)
 
@@ -149,7 +149,7 @@ class Cores:
     def refresh(self) -> None:
         self.cores = self._glob()
 
-    def set(self, cores: Optional[str]) -> None:
+    def set(self, cores: str | None) -> None:
         if cores is None:
             self.cores = []
             return
@@ -168,7 +168,7 @@ class Cores:
         return cores
 
     @staticmethod
-    def _gdb_cmd(cmd: list[str], fullpath: Optional[str], core: str) -> str:
+    def _gdb_cmd(cmd: list[str], fullpath: str | None, core: str) -> str:
         # prepare CMD
         with NamedTemporaryFile(delete=False) as gdb_cmd:
             gdb_cmd.write('\n'.join(cmd).encode('utf-8'))
@@ -187,7 +187,7 @@ class Cores:
         os.unlink(gdb_cmd.name)
         return stdout.decode('utf-8')
 
-    def find_binary_fullpath(self, core: str) -> Optional[str]:
+    def find_binary_fullpath(self, core: str) -> str | None:
         fullpath = None
         exe = None
 
@@ -227,7 +227,7 @@ class Cores:
 
         return fullpath
 
-    def backtrace(self, core: str, exe: Optional[str] = None) -> str:
+    def backtrace(self, core: str, exe: str | None = None) -> str:
         debug('Run stuff on ', core)
         fullpath = exe if exe else self.find_binary_fullpath(core)
 
@@ -265,7 +265,7 @@ class Cores:
             self.show_backtrace(core, exe, frmt)
             shutil.copyfile(exe, f'{core}{BINARY_EXT}')
 
-    def show_backtrace(self, core: str, exe: Optional[str] = None,
+    def show_backtrace(self, core: str, exe: str | None = None,
                        frmt: str = 'text') -> None:
         core = osp.realpath(core)
         out = self.backtrace(core, exe)

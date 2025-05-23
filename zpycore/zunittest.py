@@ -484,8 +484,9 @@ class ZTestRunner(unittest.TextTestRunner):
     failfast: bool
     buffer: bool
 
-    def run( # type: ignore[override]
-            self, test: Union[unittest.TestSuite, unittest.TestCase],
+    def run(  # type: ignore[override]
+            self,
+            test: Union[unittest.TestSuite, unittest.TestCase],  # noqa: FA100 (future-rewritable-type-annotation)
     ) -> unittest.TestResult:
         result = _ZTestResult()
         result.failfast = self.failfast

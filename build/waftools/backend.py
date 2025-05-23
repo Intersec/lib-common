@@ -15,6 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# ruff: noqa: FA100
 
 """
 Contains the code needed for backend compilation.

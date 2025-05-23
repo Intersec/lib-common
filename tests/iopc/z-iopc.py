@@ -16,11 +16,12 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+from __future__ import annotations
 
 import json
 import os
 import subprocess
-from typing import Any, Optional, Union, cast
+from typing import Any, Union, cast
 
 import zpycore as z
 
@@ -37,7 +38,7 @@ class IopcTest(z.TestCase):
     def run_iopc(self, iop: str, expect_pass: bool,
                  errors: Union[None, str, list[str]], lang: str = '',
                  class_id_range: str = '',
-                 additional_args: Optional[str] = None) -> None:
+                 additional_args: str | None = None) -> None:
         iopc_args = [IOPC, os.path.join(TEST_PATH, iop)]
 
         # in case of expected success if no language is specified

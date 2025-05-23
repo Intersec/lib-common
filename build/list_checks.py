@@ -27,12 +27,12 @@ Some filters are applied based on Z_SKIP_PATH and Z_LIST_SKIP:
  * Z_SKIP_PATH removes the research of ZFile in these paths
  * Z_LIST_SKIP removes a kind of test.
 """
+from __future__ import annotations
 
 import os
 import re
 import sys
 from collections.abc import Iterator
-from typing import Optional
 
 
 def is_file(f: str) -> bool:
@@ -56,7 +56,7 @@ Z_TAG_SKIP = set(os.getenv('Z_TAG_SKIP', '').split())
 def dump_zfile(
         zfile: str,
         skipped_groups: list[str],
-) -> Iterator[tuple[str, str, Optional[str]]]:
+) -> Iterator[tuple[str, str, str | None]]:
     folder = os.path.dirname(zfile)
 
     with open(zfile, 'r') as zfile_fd:

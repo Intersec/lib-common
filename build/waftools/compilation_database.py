@@ -24,6 +24,7 @@ Usage:
         ...
         conf.load('compilation_database')
 """
+# ruff: noqa: FA100
 
 from typing import (
     # We still need to use List, Dict and Type here because this file

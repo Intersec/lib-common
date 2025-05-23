@@ -16,11 +16,11 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-
+from __future__ import annotations
 
 import os
 import sys
-from typing import Any, Optional, TextIO
+from typing import Any, TextIO
 
 import behave.model
 from behave.__main__ import (
@@ -67,9 +67,9 @@ class ZFormatter(Formatter):  # type: ignore[misc]
         self.__skipped = 0
         self.__failed  = 0
         self.__steps   = 0
-        self.__scenario: Optional[behave.model.Scenario] = None
-        self.__status: Optional[str] = None
-        self.__exn: Optional[str] = None
+        self.__scenario: behave.model.Scenario | None = None
+        self.__status: str | None = None
+        self.__exn: str | None = None
         self.steps: list[behave.model.Step] = []
         self.basename = ''
 

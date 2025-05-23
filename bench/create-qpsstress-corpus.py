@@ -16,6 +16,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+from __future__ import annotations
 
 import binascii
 import datetime
@@ -23,7 +24,6 @@ import os
 import struct
 from argparse import ArgumentParser
 from enum import IntEnum
-from typing import Optional
 
 CORPUS_DIR = 'corpus'
 CORPUS_NAME = 'corpus-init'
@@ -96,7 +96,7 @@ class FuzzingStep:
     operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: Optional[int] = None):
+    def __init__(self, step: QpsstressStep, handle: int | None = None):
         self.step = step
         self.handle = handle
         # This size is the maximum size expected for a fuzzing binary blob.
@@ -133,8 +133,8 @@ class FuzzingGenericStep(FuzzingStep):
     for fuzzing operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: Optional[int] = None,
-                 size: Optional[int] = None):
+    def __init__(self, step: QpsstressStep, handle: int | None = None,
+                 size: int | None = None):
         super().__init__(step, handle=handle)
         self.size = size
 
@@ -150,7 +150,7 @@ class FuzzingQpsObjStep(FuzzingStep):
     QPS hat fix stored 0) into a binary blob used for fuzzing operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
+    def __init__(self, step: QpsstressStep, handle: int | None = 0,
                  type_obj: QpsstressObj = QpsstressObj.QPS_QHAT):
         super().__init__(step, handle=handle)
         self.type_obj = type_obj
@@ -165,7 +165,7 @@ class FuzzingQpsObjStepWithKey(FuzzingQpsObjStep):
     blob used for fuzzing operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
+    def __init__(self, step: QpsstressStep, handle: int | None = 0,
                  type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
                  key: int = 1):
         super().__init__(step, handle=handle)
@@ -187,7 +187,7 @@ class FuzzingQpsObjMultipleOp(FuzzingQpsObjStep):
     limited by an uint16 value (UINT16_MAX).
     """
 
-    def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
+    def __init__(self, step: QpsstressStep, handle: int | None = 0,
                  type_obj: QpsstressObj = QpsstressObj.QPS_QHAT,
                  key: int = 1, nbr_iter: int = 2, gap_keys: int = 1):
         super().__init__(step, handle=handle, type_obj=type_obj)
@@ -206,7 +206,7 @@ class FuzzingQhatObjStepMv(FuzzingQpsObjStep):
     fuzzing operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
+    def __init__(self, step: QpsstressStep, handle: int | None = 0,
                  move_count: int = 3):
         super().__init__(step, handle=handle, type_obj=QpsstressObj.QPS_QHAT)
         self.move_count = move_count
@@ -221,9 +221,9 @@ class FuzzingQhatCompute(FuzzingQpsObjStep):
     operations.
     """
 
-    def __init__(self, step: QpsstressStep, handle: Optional[int] = 0,
-                 do_stats: Optional[int] = None,
-                 do_mem_overhead: Optional[int] = None):
+    def __init__(self, step: QpsstressStep, handle: int | None = 0,
+                 do_stats: int | None = None,
+                 do_mem_overhead: int | None = None):
         super().__init__(step, handle=handle, type_obj=QpsstressObj.QPS_QHAT)
 
         if do_stats is not None:
@@ -269,7 +269,7 @@ def create_corpus_files_and_dict(
         corpus: list[list[FuzzingStep]],
         category: QpsstressFuzzerCat,
         generate_files: bool = False,
-        fuzz_dict_name: Optional[str] = None) -> None:
+        fuzz_dict_name: str | None = None) -> None:
     """
     Based on the list of sequences representing themselves a list of steps,
     create a list of files for the initial corpus (initial stimulation
@@ -330,7 +330,7 @@ def create_corpus_files_and_dict(
 def create_corpus(
         generate_files: bool = True,
         category: QpsstressFuzzerCat = QpsstressFuzzerCat.QPS_CAT_ALL,
-        fuzz_dict_name: Optional[str] = None) -> None:
+        fuzz_dict_name: str | None = None) -> None:
     max_mem_alloc = 33554431
     corpus: list[list[FuzzingStep]] = []
 
