@@ -42,7 +42,6 @@ from waflib.Configure import ConfigurationContext
 from waflib.Node import Node
 from waflib.Task import RUN_ME, SKIP_ME, Task, compile_fun
 
-
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
     T = TypeVar('T')
@@ -407,6 +406,7 @@ def add_custom_install(self: TaskGen) -> None:
         for other_tsk in other.tasks:
             tsk.set_run_after(other_tsk)
 
+
 # }}}
 # {{{ python checkers
 
@@ -461,6 +461,44 @@ class PylintClass(BuildContext): # type: ignore[misc]
 
 
 # }}}
+# {{{ ruff
+
+
+def run_ruff(ctx: BuildContext) -> None:
+    if ctx.cmd != 'ruff':
+        return
+
+    # Reset the build
+    ctx.groups = []
+
+    # Steal the optional list of files passed as arguments.
+    # Waf store the arguments in `Options.commands` and use them to run each
+    # individual commands.
+    # But here, the remaining arguments are not commands, but files.
+    # So we need to steal the remaining arguments in `Options.commands`.
+    files_args = Options.commands[:]
+    Options.commands.clear()
+
+    if files_args:
+        # If files are passed manually, use them directly
+        file_args = ' '.join(f'"{f}"' for f in files_args)
+        rule = f'ruff check {file_args}'
+    else:
+        # Use shell pipeline to get files and check them
+        rule = ("git ls-files '*.py' '**/*.py' "
+                "'wscript*' '**/wscript*' | xargs ruff check")
+
+    # One task, run everything at once
+    ctx.cmd_and_log(cmd=rule, shell=True, stdout=None, stderr=None)
+
+
+class RuffClass(BuildContext): # type: ignore[misc]
+    """run ruff checks on committed python files"""
+
+    cmd = 'ruff'
+
+
+# }}}
 # {{{ mypy
 
 
@@ -478,7 +516,6 @@ class MypyClass(BuildContext): # type: ignore[misc]
 
 
 # }}}
-
 # {{{ configure
 
 
@@ -507,6 +544,7 @@ def build(ctx: BuildContext) -> None:
     # Register pre/post functions
     ctx.add_pre_fun(add_scan_in_signature)
     ctx.add_pre_fun(run_pylint)
+    ctx.add_pre_fun(run_ruff)
     ctx.add_pre_fun(run_mypy)
     ctx.add_post_fun(run_checks)
 
