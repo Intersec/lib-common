@@ -82,10 +82,10 @@ class ZFormatter(Formatter):  # type: ignore[misc]
                 self.__failed += 1
             elif self.__status == 'skip':
                 self.__skipped += 1
-            self.stream.write('%d %s %s   # (%.3fs) %d steps\n' %
-                              (self.__count, self.__status,
-                               self.__scenario.name, self.__scenario.duration,
-                               self.__steps))
+            self.stream.write(
+                f'{self.__count:d} {self.__status} {self.__scenario.name}   '
+                f'# ({self.__scenario.duration:.3f}s) '
+                f'{self.__steps:d} steps\n')
             self.stream.flush()
             if self.__exn:
                 for line in self.__exn.split('\n'):
@@ -96,7 +96,7 @@ class ZFormatter(Formatter):  # type: ignore[misc]
         if len(self.steps) > 0 and self.__status != 'skip':
             self.stream.write(': Steps skipped:\n')
             for step in self.steps:
-                self.stream.write(': %s\n' % step)
+                self.stream.write(f': {step}\n')
             self.stream.flush()
 
         self.steps = []
@@ -114,7 +114,7 @@ class ZFormatter(Formatter):  # type: ignore[misc]
                 count += len(sc.scenarios)
             else:
                 count += 1
-        self.stream.write('1..%d %s\n' % (count, feature.name))
+        self.stream.write(f'1..{count:d} {feature.name}\n')
         self.stream.flush()
         self.__count = 1
         self.__steps = 0
@@ -143,7 +143,7 @@ class ZFormatter(Formatter):  # type: ignore[misc]
             step_name, self.basename, step.line, step.duration))
         self.stream.flush()
         if status == 'fail':
-            self.__exn    = step.error_message
+            self.__exn = step.error_message
             self.__status = 'fail'
 
     def step(self, step: behave.model.Step) -> None:
@@ -154,10 +154,10 @@ class ZFormatter(Formatter):  # type: ignore[misc]
         if self.__count != 1:
             total = self.__success + self.__skipped + self.__failed
             self.stream.write(
-                '# %.1f%% skipped  %.1f%% passed  %.1f%% failed\n' %
-                ((100. * self.__skipped) / total,
-                 (100. * self.__success) / total,
-                 (100. * self.__failed)  / total))
+                '# '
+                f'{(100. * self.__skipped) / total:.1f}% skipped  '
+                f'{(100. * self.__success) / total:.1f}% passed  '
+                f'{(100. * self.__failed) / total:.1f}% failed\n')
             self.stream.flush()
 
         self.reset()

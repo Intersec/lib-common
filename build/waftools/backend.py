@@ -707,8 +707,8 @@ def coverage_start_cmd(ctx: BuildContext) -> None:
         return
 
     if ctx.env.PROFILE != 'coverage':
-        ctx.fatal('coverage-start requires coverage profile, current is %s' %
-                  ctx.env.PROFILE)
+        ctx.fatal('coverage-start requires coverage profile, '
+                  f'current is {ctx.env.PROFILE}')
 
     do_coverage_start(ctx)
 
@@ -730,8 +730,8 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
         return
 
     if ctx.env.PROFILE != 'coverage':
-        ctx.fatal('coverage-end requires coverage profile, current is %s' %
-                  ctx.env.PROFILE)
+        ctx.fatal('coverage-end requires coverage profile, '
+                  f'current is {ctx.env.PROFILE}')
 
     # The following code is adapted from
     # http://bind10.isc.org/wiki/TestCodeCoverage
@@ -779,8 +779,8 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
     os.symlink(report_dir.abspath(), report_link.abspath())
 
     print()
-    print('lcov data available in %s' % lcov_file.abspath())
-    print('Coverage report produced in %s' % report_dir.abspath())
+    print(f'lcov data available in {lcov_file.abspath()}')
+    print(f'Coverage report produced in {report_dir.abspath()}')
     print()
 
     # Interrupt the build
@@ -1238,7 +1238,7 @@ class Iop2c(FirstInputStrTask):
         self.last_cmd = cmd
         res: int = self.exec_command(cmd, cwd=self.get_cwd())
         if res and not getattr(self, 'scan_failed', False):
-            self.bld.fatal('scan should have failed for %s' % self.inputs[0])
+            self.bld.fatal(f'scan should have failed for {self.inputs[0]}')
         return res
 
 
@@ -1252,8 +1252,8 @@ def iop_get_package_path(self: BuildContext, node: Node) -> str:
     """
     match = RE_IOP_PACKAGE.search(node.read())
     if match is None:
-        self.bld.fatal('no package declaration found in %s' % node)
-        return '' # Dummy return
+        self.bld.fatal(f'no package declaration found in {node}')
+        return ''  # Dummy return
     return match.group(1).replace('.', '/')
 
 
@@ -1879,7 +1879,7 @@ class IsConfigurationContext(ConfigurationContext): # type: ignore[misc]
 # {{{ build
 
 def build(ctx: BuildContext) -> None:
-    Logs.info('Waf: Selected profile: %s', ctx.env.PROFILE)
+    Logs.info(f'Waf: Selected profile: {ctx.env.PROFILE}')
 
     ctx.env.PROJECT_ROOT = ctx.srcnode
     ctx.env.GEN_FILES = set()

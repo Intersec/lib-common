@@ -302,18 +302,23 @@ class Global(Result):
     def z_total(self) -> str:
         if not self.total_nb:
             return '# NO TESTS FOUND'
-        res = ['#', '#']
-        res.append('# TOTAL')
-        res.append('# Skipped %d (%.1f%%)' % (self.skipped_nb, self.skipped))
-        res.append('# Failed  %d (%.1f%%)' % (self.failed_nb, self.failed))
-        res.append('# Success %d (%.1f%%)' % (self.passed_nb, self.passed))
+        res = [
+            '#',
+            '#',
+            '# TOTAL',
+            f'# Skipped {self.skipped_nb:d} ({self.skipped:.1f}%)',
+            f'# Failed  {self.failed_nb:d} ({self.failed:.1f}%)',
+            f'# Success {self.passed_nb:d} ({self.passed:.1f}%)',
+        ]
         return '\n'.join(res)
 
     def z_additional(self) -> str:
         if not self.additionals:
             return '# NO ADDITIONAL INFOS'
-        res = ['#']
-        res.append(': ADDITIONAL INFOS')
+        res = [
+            '#',
+            ': ADDITIONAL INFOS',
+        ]
         res.extend([f':  {elt}' for elt in self.additionals])
         return '\n'.join(res)
 

@@ -235,11 +235,12 @@ def ZFlags(*flags: str) -> Callable[[T], T]:  # noqa: N802 (invalid-function-nam
             func.__unittest_skip__ = False # type: ignore[attr-defined]
             return func
         if fl:
-            skip_msg = 'skipping tests flagged with %s' % (' '.join(fl))
+            skip_msg = f'skipping tests flagged with {" ".join(fl)}'
             skip_wrapper = unittest.skip(skip_msg)
-            return skip_wrapper(func) # type: ignore[type-var]
+            return skip_wrapper(func)  # type: ignore[type-var]
         return func
     return wrap
+
 
 class _ZTodo(Exception):  # noqa: N818 (error-suffix-on-exception-name)
     """
@@ -252,6 +253,7 @@ class _ZTodo(Exception):  # noqa: N818 (error-suffix-on-exception-name)
         self.reason = reason
         self.exc_info = exc_info
         super().__init__(reason, exc_info)
+
 
 def ZTodo(reason: str) -> Any:  # noqa: N802 (invalid-function-name)
     """
@@ -268,6 +270,7 @@ def ZTodo(reason: str) -> Any:  # noqa: N802 (invalid-function-name)
                 raise _ZTodo(reason, sys.exc_info()) from exc
         return unittest.case.expectedFailure(wrapper)
     return decorator
+
 
 class _ZTextTestResult(unittest.TextTestResult):
     """
@@ -349,8 +352,8 @@ class _ZTestResult(unittest.TestResult):
             tid = test.id()
         else:
             tid = getattr(test, '_testMethodName', '')
-        sys.stdout.write('%d %s %s # (%.3fs)' %
-                         (self.testsRun, what, tid, run_time))
+        sys.stdout.write(
+            f'{self.testsRun:d} {what} {tid} # ({run_time:.3f}s)')
         if rest:
             sys.stdout.write(rest)
         sys.stdout.write('\n')
@@ -360,7 +363,7 @@ class _ZTestResult(unittest.TestResult):
         wipe_children_rearm()
         tid = test.id()
         tid = tid.removeprefix('__main__.')
-        sys.stdout.write(': $ %s %s\n:\n' % (sys.argv[0], tid))
+        sys.stdout.write(f': $ {sys.argv[0]} {tid}\n:\n')
 
     @classmethod
     def _put_err(cls, test: unittest.TestCase, err: ExecInfo) -> None:
@@ -376,7 +379,7 @@ class _ZTestResult(unittest.TestResult):
     def _put_err_str(cls, test: unittest.TestCase, err: str) -> None:
         cls._put_err_common(test)
 
-        sys.stdout.write(': %s\n' % (err))
+        sys.stdout.write(f': {err}\n')
 
     def addSuccess(  # noqa: N802 (invalid-function-name)
             self, test: unittest.TestCase,
@@ -445,7 +448,7 @@ class _ZTestResult(unittest.TestResult):
             group_name = test.__class__.__name__
         else:
             group_name = test._tests[0].__class__.__name__
-        sys.stdout.write('1..%d %s\n' % (test.countTestCases(), group_name))
+        sys.stdout.write(f'1..{test.countTestCases():d} {group_name}\n')
         sys.stdout.flush()
 
     def reset(self) -> None:

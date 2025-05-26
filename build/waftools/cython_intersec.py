@@ -57,7 +57,7 @@ def add_cython_file(self: BuildContext, node: Node) -> None:
         # TODO re-use these nodes in "scan" below
         d = self.path.find_dir(x)
         if d:
-            self.env.append_unique('CYTHONFLAGS', '-I%s' % d.abspath())
+            self.env.append_unique('CYTHONFLAGS', f'-I{d.abspath()}')
 
     # Create cython task
     c_node = node.change_ext_src(self.env.CYTHONSUFFIX + ext)
@@ -244,13 +244,13 @@ class Cython(Task.Task):  # type: ignore[misc]
         name = node.name.replace('.pyx', '')
         cython_suffix = self.env.CYTHONSUFFIX
         if state.has_api:
-            state.missing.append('header:%s_api%s.h' % (name, cython_suffix))
+            state.missing.append(f'header:{name}_api{cython_suffix}.h')
         if state.has_public:
-            state.missing.append('header:%s%s.h' % (name, cython_suffix))
+            state.missing.append(f'header:{name}{cython_suffix}.h')
 
         Logs.debug('cython: found %r, missing %r', state.found, state.missing)
 
-        return (state.found, state.missing)
+        return state.found, state.missing
 
     def scan_parse_inc_dirs(self, state: ScannerState) -> None:
         """

@@ -86,7 +86,7 @@ def find_exe(name: str, root: str) -> str | None:
         if name in filenames:
             ret.add(osp.realpath(f'{dirpath}/{name}'))
     if len(ret) != 1:
-        debug('binary %s not found or more than once' % name)
+        debug(f'binary {name} not found or more than once')
         return None
     return ret.pop()
 
@@ -105,7 +105,7 @@ def get_intersec_poi(output: str, root: str) -> str | None:
             continue
         debug(reg.group(1), '=', reg.group(2))
         fname = reg.group(2).split(':')[0]
-        if os.path.isfile('%s/%s' % (root, fname)):
+        if os.path.isfile(f'{root}/{fname}'):
             return reg.group(1)
     return None
 
@@ -139,8 +139,8 @@ class Cores:
             pattern = pattern.replace(k, v)
 
         if '%' in pattern:
-            debug('Update %s or this script to manage template %s' % (
-                CORE_PATTERN, pattern))
+            debug(f'Update {CORE_PATTERN} or this script to manage '
+                  f'template {pattern}')
             return
 
         debug('CORE_REGEX = ', pattern)
@@ -240,9 +240,9 @@ class Cores:
             debug('Interesting frame not found')
         else:
             debug('Found frame ', frame)
-            cmd += ['frame %s' % frame] + GDB_CMD_FRAME
+            cmd += [f'frame {frame}'] + GDB_CMD_FRAME
 
-        stdout = 'Processing %s' % core
+        stdout = f'Processing {core}'
         stdout += self._gdb_cmd(cmd, fullpath, core)
 
         # FIXME: split GDB output to be more human friendly
@@ -283,8 +283,8 @@ class Cores:
         return ','.join(self.cores)
 
     def __repr__(self) -> str:
-        return 'Cores(rootpath="%s", cores="%s")' % (self.rootpath,
-                                                     ','.join(self.cores))
+        cores_join = ",".join(self.cores)
+        return f'Cores(rootpath="{self.rootpath}", cores="{cores_join}")'
 
 
 def options(args: list[str]) -> argparse.Namespace:

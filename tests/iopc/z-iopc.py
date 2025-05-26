@@ -65,28 +65,30 @@ class IopcTest(z.TestCase):
             self.assertIsNotNone(iopc_p)
             output = iopc_p.communicate()[1]
 
-            context = 'when executing %s' % ' '.join(iopc_args)
+            context = f'when executing {" ".join(iopc_args)}'
 
-            if (expect_pass):
-                self.assertEqual(iopc_p.returncode, 0,
-                                 'unexpected failure (%d) on %s %s: %r'
-                                 % (iopc_p.returncode, iop, context, output))
+            if expect_pass:
+                self.assertEqual(
+                    iopc_p.returncode, 0,
+                    f'unexpected failure ({iopc_p.returncode:d}) '
+                    f'on {iop} {context}: {output!r}')
             else:
-                self.assertEqual(iopc_p.returncode, 255,
-                                 'unexpected return code %d on %s %s: %r'
-                                 % (iopc_p.returncode, iop, context, output))
+                self.assertEqual(
+                    iopc_p.returncode, 255,
+                    f'unexpected return ({iopc_p.returncode:d}) '
+                    f'on {iop} {context}: {output!r}')
 
         if errors:
             if isinstance(errors, str):
                 errors = [errors]
             for error in errors:
                 output_str = output.decode('utf8')
-                self.assertTrue(output_str.find(error) >= 0,
-                                "did not find '%s' in '%s' %s"
-                                % (error, output_str, context))
+                self.assertTrue(
+                    output_str.find(error) >= 0,
+                    f'did not find {error!r} in {output_str!r} {context}')
         else:
-            self.assertTrue(len(output) == 0,
-                            'unexpected output: %r' % output)
+            self.assertTrue(
+                len(output) == 0, f'unexpected output: {output!r}')
 
     def run_iopc_pass(self, iop: str, lang: str = '',
                       class_id_range: str = '') -> None:
@@ -128,9 +130,8 @@ class IopcTest(z.TestCase):
             if expect_pass:
                 self.assertEqual(
                     gcc_p.returncode, 0,
-                    'unexpected failure (%d) on %s when executing:\n'
-                    '%s:\n%r' % (gcc_p.returncode, iop_c,
-                                 ' '.join(gcc_args), err),
+                    f'unexpected failure ({gcc_p.returncode:d}) on {iop_c} '
+                    f'when executing:\n{" ".join(gcc_args)}:\n{err!r}',
                 )
             else:
                 self.assertNotEqual(gcc_p.returncode, 0)
@@ -143,10 +144,10 @@ class IopcTest(z.TestCase):
         for s in string_list:
             if wanted:
                 self.assertTrue(content.find(s) >= 0,
-                                "did not find '%s' in '%s'" % (s, file_name))
+                                f'did not find {s!r} in {file_name!r}')
             else:
                 self.assertTrue(content.find(s) < 0,
-                                "found '%s' in '%s'" % (s, file_name))
+                                f'found {s!r} in {file_name!r}')
 
     def check_ref(self, pkg: str, lang: str) -> None:
         gen_file = pkg + '.iop.' + lang

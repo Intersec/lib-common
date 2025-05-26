@@ -29,13 +29,15 @@ import psutil
 
 # L4D {{{
 
-EVT   = threading.Event()
+EVT = threading.Event()
 REARM = True
-THR   = None
+THR = None
+
 
 def log(msg: str) -> None:
     sys.stderr.write(f'{__file__}: {msg}\n')
     sys.stderr.flush()
+
 
 def wipe_children(reason: str, wait_thr: bool = True) -> None:
     global THR, REARM
@@ -80,7 +82,7 @@ def wipe_children(reason: str, wait_thr: bool = True) -> None:
 
 
 def wipe_children_sig(sig: int, frame: Any) -> None:
-    wipe_children('received signal %d' % sig)
+    wipe_children(f'received signal {sig:d}')
 
 
 def wipe_background_thread() -> None:
@@ -98,14 +100,16 @@ def wipe_background_thread() -> None:
         REARM = False
         EVT.wait(timeout)
         if not EVT.is_set():
-            reason = 'inactive for %d seconds' % timeout
+            reason = f'inactive for {timeout:d} seconds'
             wipe_children(reason, wait_thr=False)
+
 
 def wipe_children_rearm() -> None:
     global REARM
 
     REARM = True
     EVT.set()
+
 
 @contextmanager
 def wipe_children_register() -> Iterator[None]:
@@ -133,9 +137,10 @@ def wipe_children_register() -> Iterator[None]:
 # }}}
 # Sandbox {{{
 
+
 def mkdtemp(ns: str) -> str:
     def do(path: str) -> str:
-        prefix = 'zpy.%s.%d.XXXXXX' % (ns, os.getpid())
+        prefix = f'zpy.{ns}.{os.getpid():d}.XXXXXX'
         return tempfile.mkdtemp(dir=path, prefix=prefix)
 
     z_dir = os.getenv('Z_DIR', None)

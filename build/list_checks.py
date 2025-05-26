@@ -76,10 +76,10 @@ def dump_zfile(
                     err = None
 
                     if check and not check(test_path):
-                        err = '%s:%d: no match for %s' % (zfile, num + 1,
-                                                          stripped_line)
+                        err = (f'{zfile}:{num + 1:d}: '
+                               f'no match for {stripped_line}')
 
-                    yield (folder, test, err)
+                    yield folder, test, err
                     break
 
 
@@ -105,11 +105,11 @@ def main(root: str) -> None:
     for zfile in fetch_zfiles(root):
         for folder, line, err in dump_zfile(zfile, skipped_groups):
             if err:
-                sys.stderr.write('ERROR: %s\n' % err)
+                sys.stderr.write(f'ERROR: {err}\n')
                 sys.stderr.flush()
                 exit_code = 2
             else:
-                print('%s/ %s' % (folder, line))
+                print(f'{folder}/ {line}')
                 sys.stdout.flush()
 
     sys.exit(exit_code)

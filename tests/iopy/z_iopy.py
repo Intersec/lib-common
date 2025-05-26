@@ -49,7 +49,7 @@ PORT_COUNT = 9900
 def make_uri() -> str:
     global PORT_COUNT
     PORT_COUNT -= 1
-    return '127.0.0.1:%d' % PORT_COUNT
+    return f'127.0.0.1:{PORT_COUNT:d}'
 
 
 def z_iopy_thread_cb(iface: iopy.IfaceBase, obj_a: iopy.StructBase,
@@ -187,9 +187,9 @@ class IopyTest(z.TestCase):
                 msg: str | None = None,
         ) -> None:
             if not issubclass(cls, class_or_tuple):
-                message = '%r is not a subclass of %r' % (cls, class_or_tuple)
+                message = f'{cls!r} is not a subclass of {class_or_tuple!r}'
                 if msg is not None:
-                    message += ' : %s' % msg
+                    message += f' : {msg}'
                 raise self.failureException(message)
 
     def test_type_name_parsing(self) -> None:
@@ -496,10 +496,10 @@ class IopyTest(z.TestCase):
             login = None
             password = None
             if rpc_args.hdr is not None and hasattr(rpc_args.hdr, 'simple'):
-                login    = rpc_args.hdr.simple.login
+                login = rpc_args.hdr.simple.login
                 password = rpc_args.hdr.simple.password
             if login != 'root' or password != '1234':
-                desc = 'invalid login, hdr: %s' % repr(rpc_args.hdr)
+                desc = f'invalid login, hdr: {rpc_args.hdr!r}'
                 return rpc_args.exn(code=1, desc=desc)
             status = self.r.test.EnumA(str(rpc_args.arg.a.__fullname__()[-1]))
             return rpc_args.res(status=status, res=rpc_args.arg.a.field1)
@@ -511,14 +511,17 @@ class IopyTest(z.TestCase):
         self.assertIsNone(s.test_ModuleA.interfaceA.funAsync.impl)
 
         self.async_done = False
+
         def rpc_impl_async(rpc_args: iopy.StructBase) -> iopy.StructBase:
             self.async_done = True
         s.test_ModuleA.interfaceA.funAsync.impl = rpc_impl_async
 
         self.connections = 0
+
         def server_on_connect(server: iopy.ChannelServer,
                               remote_addr: str) -> None:
             self.connections += 1
+
         def server_on_disconnect(server: iopy.ChannelServer,
                                  remote_addr: str) -> None:
             self.connections -= 1
@@ -600,8 +603,8 @@ class IopyTest(z.TestCase):
             self.assertIsNotNone(proc)
             s.test_ModuleA.interfaceA.funA.wait(uri=uri, timeout=20)
             proc.wait()
-            msg = ('server blocking failed; subprocess status: %s' %
-                   str(proc.returncode))
+            msg = ('server blocking failed; '
+                   f'subprocess status: {proc.returncode}')
             self.assertEqual(proc.returncode, 0, msg)
 
     def test_objects_comparisons(self) -> None:
@@ -1966,43 +1969,51 @@ class IopyIfaceTests(z.TestCase):
         iface = c.test_ModuleA.interfaceA
 
         attr = getattr(iface, 'cls_attr', None)
-        self.assertEqual(attr, 0, 'class attribute failed; value: %s,'
-                         ' expected: 0' % attr)
+        self.assertEqual(
+            attr, 0,
+            f'class attribute failed; value: {attr}, expected: 0')
 
         attr = getattr(iface, 'attr1', None)
-        self.assertEqual(attr, 1, 'custom init failed; value of attr1: %s,'
-                         ' expected: 1' % attr)
+        self.assertEqual(
+            attr, 1,
+            f'custom init failed; value of attr1: {attr}, expected: 1,')
 
         self.assertTrue(hasattr(iface, 'my_method'),
                         'custom method not added')
         ret = iface.my_method()
-        self.assertEqual(ret, 1, 'custom method failed; result: %s,'
-                         ' expected: 1' % ret)
+        self.assertEqual(
+            ret, 1,
+            f'custom method failed; result: {ret}, expected: 1,')
         attr = getattr(iface, 'cls_attr', None)
-        self.assertEqual(attr, 10, 'custom method failed;'
-                         ' value of cls_attr: %s, expected: 10' % attr)
+        self.assertEqual(
+            attr, 10,
+            f'custom method failed; value of cls_attr: {attr}, expected: 10')
 
         a = self.r.test.ClassA(field1=100)
         ret = iface.funA(a=a)
 
         ret = getattr(ret, 'res', None)
-        self.assertEqual(ret, 1000, 'rpc override call failed; res.res: %s,'
-                         ' expected: 1000' % ret)
+        self.assertEqual(
+            ret, 1000,
+            f'rpc override call failed; res.res: {ret}, expected: 1000')
 
         attr = getattr(iface, 'attr1', None)
-        self.assertEqual(attr, a, 'rpc override failed; attr1 value: %s,'
-                         ' expected: %s' % (attr, a))
+        self.assertEqual(
+            attr, a,
+            f'rpc override failed; attr1 value: {attr}, expected: {a}')
 
         attr = getattr(iface, 'attr2', None)
         exp = self.r.test.EnumA('A')
-        self.assertEqual(attr, exp, 'rpc override failed; attr2 value: %s,'
-                         ' expected: %s' % (attr, exp))
+        self.assertEqual(
+            attr, exp,
+            f'rpc override failed; attr2 value: {attr}, expected: {exp}')
 
         ret = iface.funB(a=self.r.test.ClassA())
         ret = getattr(ret, 'status', None)
         exp = self.r.test.EnumA('B')
-        self.assertEqual(ret, exp, 'rpc failed; status: %s,'
-                         ' expected: %s' % (ret, exp))
+        self.assertEqual(
+            ret, exp,
+            f'rpc failed; status: {ret}, expected: {exp}')
 
         ret = iface.funToggleVoid(ov=None)
         self.assertFalse(hasattr(ret, 'ov'))
@@ -2033,25 +2044,35 @@ class IopyIfaceTests(z.TestCase):
         iface.funA(**kwargs)
 
         attr = getattr(iface, 'pre_hook_rpc', None)
-        self.assertEqual(attr, iface.funA, 'pre_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, iface.funA))
+        self.assertEqual(
+            attr, iface.funA,
+            f'pre_hook failed for rpc argument; value: {attr}; '
+            f'expected: {iface.funA}')
 
         attr = getattr(iface, 'pre_hook_args', None)
-        self.assertEqual(attr, (), 'pre_hook failed for args argument;'
-                         ' value: %s; expected: ()' % str(attr))
+        self.assertEqual(
+            attr, (),
+            f'pre_hook failed for args argument; value: {attr}; '
+            f'expected: ()')
 
         attr = getattr(iface, 'pre_hook_kwargs', None)
-        self.assertEqual(attr, kwargs, 'pre_hook failed for kwargs argument;'
-                         ' value: %s; expected: %s' % (attr, kwargs))
+        self.assertEqual(
+            attr, kwargs,
+            f'pre_hook failed for kwargs argument; value: {attr}; '
+            f'expected: {kwargs}')
 
         attr = getattr(iface, 'post_hook_rpc', None)
-        self.assertEqual(attr, iface.funA, 'post_hook failed for rpc argument'
-                         '; value: %s; expected: %s' % (attr, iface.funA))
+        self.assertEqual(
+            attr, iface.funA,
+            f'post_hook failed for rpc argument; value: {attr}; '
+            f'expected: {iface.funA}')
 
         attr = getattr(iface, 'post_hook_res', None)
         exp = iface.funA.res()(status='A', res=1000)
-        self.assertEqual(attr, exp, 'post_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, exp))
+        self.assertEqual(
+            attr, exp,
+            f'post_hook failed for rpc argument; value: {attr}; '
+            f'expected: {exp}')
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA2:  # noqa: N801 (invalid-class-name)
@@ -2068,8 +2089,10 @@ class IopyIfaceTests(z.TestCase):
                 return 0
 
         ret = iface.funA(0, x=0, y=0)
-        self.assertEqual(ret, 0, 'hooks arguments/result replacement failed'
-                         '; result: %s; expected: 0' % ret)
+        self.assertEqual(
+            ret, 0,
+            f'hooks arguments/result replacement failed; result: {ret}; '
+            'expected: 0')
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA3:  # noqa: N801 (invalid-class-name)
@@ -2087,8 +2110,10 @@ class IopyIfaceTests(z.TestCase):
                 return 0
 
         ret = iface.funA(0, x=0, y=0)
-        self.assertEqual(ret, 0, 'hooks arguments/result replacement failed'
-                         '; result: %s; expected: 0' % ret)
+        self.assertEqual(
+            ret, 0,
+            f'hooks arguments/result replacement failed; result: {ret}; '
+            'expected: 0')
 
         def default_pre_hook(self: iopy.IfaceBase, rpc: iopy.RPCBase,
                              *args: Any, **kwargs: Any) -> None:
@@ -2111,11 +2136,15 @@ class IopyIfaceTests(z.TestCase):
 
         iface.funA(a=self.r.test.ClassA())
         attr = getattr(iface, 'attr1', None)
-        self.assertEqual(attr, 1, 'default pre_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 1))
+        self.assertEqual(
+            attr, 1,
+            f'default pre_hook failed for rpc argument; value: {attr}; '
+            'expected: 1')
         attr = getattr(iface, 'attr2', None)
-        self.assertEqual(attr, 1, 'default post_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 1))
+        self.assertEqual(
+            attr, 1,
+            f'default post_hook failed for rpc argument; value: {attr}; '
+            'expected: 1')
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA5:  # noqa: N801 (invalid-class-name)
@@ -2123,11 +2152,15 @@ class IopyIfaceTests(z.TestCase):
 
         iface.funA(a=self.r.test.ClassA())
         attr = getattr(iface, 'attr1', None)
-        self.assertEqual(attr, 1, 'default pre_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 1))
+        self.assertEqual(
+            attr, 1,
+            f'default pre_hook failed for rpc argument; value: {attr}; '
+            'expected: 1')
         attr = getattr(iface, 'attr2', None)
-        self.assertEqual(attr, 1, 'default post_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 1))
+        self.assertEqual(
+            attr, 1,
+            f'default post_hook failed for rpc argument; value: {attr}; '
+            'expected: 1')
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA6:  # noqa: N801 (invalid-class-name)
@@ -2141,11 +2174,15 @@ class IopyIfaceTests(z.TestCase):
 
         iface.funA(a=self.r.test.ClassA())
         attr = getattr(iface, 'attr1', None)
-        self.assertEqual(attr, 2, 'default pre_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 2))
+        self.assertEqual(
+            attr, 2,
+            f'default pre_hook failed for rpc argument; value: {attr}; '
+            'expected: 2')
         attr = getattr(iface, 'attr2', None)
-        self.assertEqual(attr, 2, 'default post_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 2))
+        self.assertEqual(
+            attr, 2,
+            f'default post_hook failed for rpc argument; value: {attr}; '
+            'expected: 2')
 
         # custom pre/post hooks from external functions are used instead of
         # default pre/post hooks
@@ -2164,11 +2201,15 @@ class IopyIfaceTests(z.TestCase):
 
         iface.funA(a=self.r.test.ClassA())
         attr = getattr(iface, 'attr1', None)
-        self.assertEqual(attr, 3, 'default pre_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 3))
+        self.assertEqual(
+            attr, 3,
+            f'default pre_hook failed for rpc argument; value: {attr}; '
+            'expected: 3')
         attr = getattr(iface, 'attr2', None)
-        self.assertEqual(attr, 3, 'default post_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 3))
+        self.assertEqual(
+            attr, 3,
+            f'default post_hook failed for rpc argument; value: {attr}; '
+            'expected: 3')
 
         # added pre/post hooks after class definition are used instead of
         # default pre/post hooks
@@ -2193,11 +2234,15 @@ class IopyIfaceTests(z.TestCase):
 
         iface.funA(a=self.r.test.ClassA())
         attr = getattr(iface, 'attr1', None)
-        self.assertEqual(attr, 4, 'default pre_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 4))
+        self.assertEqual(
+            attr, 4,
+            f'default pre_hook failed for rpc argument; value: {attr}; '
+            'expected: 4')
         attr = getattr(iface, 'attr2', None)
-        self.assertEqual(attr, 4, 'default post_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 4))
+        self.assertEqual(
+            attr, 4,
+            f'default post_hook failed for rpc argument; value: {attr}; '
+            'expected: 4')
 
         # reset default pre/post hooks
         del self.r.default_pre_hook
@@ -2208,11 +2253,15 @@ class IopyIfaceTests(z.TestCase):
         # iface should still have its custom pre/post hooks
         iface.funA(a=self.r.test.ClassA())
         attr = getattr(iface, 'attr1', None)
-        self.assertEqual(attr, 4, 'default pre_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 4))
+        self.assertEqual(
+            attr, 4,
+            f'default pre_hook failed for rpc argument; value: {attr}; '
+            'expected: 4')
         attr = getattr(iface, 'attr2', None)
-        self.assertEqual(attr, 4, 'default post_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, 4))
+        self.assertEqual(
+            attr, 4,
+            f'default post_hook failed for rpc argument; value: {attr}; '
+            'expected: 4')
 
         # reset iface pre/post hooks
         iface.attr1 = None
@@ -2226,13 +2275,15 @@ class IopyIfaceTests(z.TestCase):
 
         iface.funA(a=self.r.test.ClassA())
         attr = getattr(iface, 'attr1', None)
-        self.assertEqual(attr, None,
-                         'default pre_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, None))
+        self.assertEqual(
+            attr, None,
+            f'default pre_hook failed for rpc argument; value: {attr}; '
+            'expected: None')
         attr = getattr(iface, 'attr2', None)
-        self.assertEqual(attr, None,
-                         'default post_hook failed for rpc argument;'
-                         ' value: %s; expected: %s' % (attr, None))
+        self.assertEqual(
+            attr, None,
+            f'default post_hook failed for rpc argument; value: {attr}; '
+            'expected: None')
 
     def test_iopy_iface_inheritance(self) -> None:
 
@@ -2445,14 +2496,15 @@ class IopyIfaceTests(z.TestCase):
         iface = client.test_ModuleA.interfaceA
 
         # Do the query, strField should be converted to a string
-        ret = iface.funB({ 'a': { 'strField': b'plop' } })
+        ret = iface.funB({'a': {'strField': b'plop'}})
         exp = type(ret)({
             'status': 'B',
             'res': 0,
             'strField': 'plop',
         })
-        self.assertEqual(ret, exp,
-                         'rpc failed; status: %s, expected: %s' % (ret, exp))
+        self.assertEqual(
+            ret, exp,
+            f'rpc failed; status: {ret}, expected: {exp}')
 
     def test_disconnect_on_connect_cb(self) -> None:
         """Test disconnecting client on client connect callback"""
@@ -3066,8 +3118,9 @@ class IopyAsyncTests(z.TestCase):
             'status': 'B',
             'res': 0,
         })
-        self.assertEqual(ret, exp,
-                         'rpc failed; status: %s, expected: %s' % (ret, exp))
+        self.assertEqual(
+            ret, exp,
+            f'rpc failed; status: {ret}, expected: {exp}')
 
         # Make a RPC call with async RPC
         self.async_done = False
@@ -3089,8 +3142,9 @@ class IopyAsyncTests(z.TestCase):
             'status': 'B',
             'res': 0,
         })
-        self.assertEqual(ret, exp,
-                         'rpc failed; status: %s, expected: %s' % (ret, exp))
+        self.assertEqual(
+            ret, exp,
+            f'rpc failed; status: {ret}, expected: {exp}')
 
 
 # }}}

@@ -79,9 +79,9 @@ def check_circular_dependencies(self: TaskGen, tgen: TaskGen,
         seen.add(name)
 
         if name == self.name:
-            raise Errors.WafError('cycle detected in use/depends_on from '
-                                  'tgen `%s`: %s' %
-                                  (self.name, ' -> '.join(path)))
+            raise Errors.WafError(
+                'cycle detected in use/depends_on from '
+                f'tgen `{self.name}`: {" -> ".join(path)}')
         try:
             other = self.bld.get_tgen_by_name(name)
         except Errors.WafError:
@@ -354,7 +354,7 @@ class CustomInstall(Task): # type: ignore[misc]
     def __str__(self) -> str:
         launch_node = self.generator.bld.launch_node()
         path = self.generator.path
-        return '%s/%s' % (path.path_from(launch_node), self.generator.name)
+        return f'{path.path_from(launch_node)}/{self.generator.name}'
 
     @classmethod
     def keyword(cls: Type['CustomInstall']) -> str:

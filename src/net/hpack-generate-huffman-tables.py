@@ -295,9 +295,9 @@ def get_huffman_st_table_as_c_array(rfc_fn: str, tbl_elem_t: str,
             sym = trans['sym'][0] if emitter else 0
             prefix = compact_prefix(trans['next']['prefix'])
 
-            cols.append('/* %s */ {/* %-10s */ %3d, %3d, %d, %d, %d}' %
-                        (chunk_str, prefix, next_idx, sym, emitter,
-                         final, error))
+            cols.append(
+                f'/* {chunk_str} */ {{/* {prefix:<10} */ {next_idx:3d}, '
+                f'{sym:3d}, {emitter:d}, {final:d}, {error:d}}}')
 
         return '  {\n    ' + ',\n    '.join(cols) + '\n  }'
 
@@ -309,8 +309,8 @@ def get_huffman_st_table_as_c_array(rfc_fn: str, tbl_elem_t: str,
     rows = []
     for idx, state in enumerate(st_tab):
         prefix = compact_prefix(cast(str, idx2n[idx]['prefix']))
-        rows.append('/* node/state: [ %-10s ] %3d */\n' %
-                    (prefix, idx) + get_state_transitions_row(idx, state))
+        rows.append(f'/* node/state: [ {prefix:<10} ] {idx:3d} */\n' +
+                    get_state_transitions_row(idx, state))
 
     content = '{\n  ' + ',\n  '.join(rows) + '\n}'
     return (f'{tbl_elem_t} {tbl_name}[{len(st_tab)}]'
