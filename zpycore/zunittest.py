@@ -166,7 +166,7 @@ class IopDocTestRunner(doctest.DocTestRunner):
         for example in test.examples:
             source = example.source.strip()
             # Wrap the code with a print call, unless a for loop is detected
-            if not (source.startswith('for ') or source.startswith('with')):
+            if not source.startswith(('for ', 'with')):
                 example.source = f'print({source})\n'
 
         return super().run(test, *args, **kwargs)
@@ -283,7 +283,7 @@ class _ZTextTestResult(unittest.TextTestResult):
 
     def debug(self, err: ExecInfo) -> None:
         if self.debug_on:
-            import pdb
+            import pdb  # noqa: T100 (debugger)
             _, _, exc_traceback = err
             pdb.post_mortem(exc_traceback)
 

@@ -53,7 +53,6 @@ from waflib.Tools import c as c_tool
 from waflib.Tools import c_preproc, ccroot, cxx
 from waflib.Utils import check_exe
 
-
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
     T = TypeVar('T')
@@ -587,9 +586,7 @@ def get_git_files(ctx: BuildContext, repo_node: Node) -> List[Node]:
     res = [repo_node.make_node(p) for p in git_ls_files.strip().splitlines()]
 
     # Exclude symlinks
-    res = [node for node in res if not os.path.islink(node.abspath())]
-
-    return res
+    return [node for node in res if not os.path.islink(node.abspath())]
 
 
 def get_git_files_recur(ctx: BuildContext) -> List[Node]:
@@ -646,10 +643,7 @@ def get_old_gen_files(ctx: BuildContext) -> List[Node]:
         tgen.post()
         for task in tgen.tasks:
             for output in task.outputs:
-                try:
-                    gen_files_set.remove(output)
-                except KeyError:
-                    pass
+                gen_files_set.discard(output)
 
     # The files that are still in gen_files_set are old ones that should not
     # be on disk anymore.
@@ -1060,10 +1054,10 @@ def process_fc(self: TaskGen, node: Node) -> None:
 
 
 class Tokens2c(Task): # type: ignore[misc]
-    run_str = ('${TOKENS_SH} ${SRC[0].abspath()} ${TGT[0]} && ' +
+    run_str = ('${TOKENS_SH} ${SRC[0].abspath()} ${TGT[0]} && '
                '${TOKENS_SH} ${SRC[0].abspath()} ${TGT[1]}')
-    color   = 'BLUE'
-    before  = ['Blk2c', 'Blkk2cc', 'ClangCheck']
+    color = 'BLUE'
+    before = ['Blk2c', 'Blkk2cc', 'ClangCheck']
     ext_out = ['.h', '.c']
 
     @classmethod

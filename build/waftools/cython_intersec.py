@@ -13,6 +13,7 @@ from typing import (
     Set,
     Tuple,
     TypeVar,
+    cast,
 )
 
 from waflib import Logs, Task, TaskGen
@@ -21,7 +22,6 @@ from waflib.Configure import ConfigurationContext
 from waflib.Node import Node
 from waflib.Options import OptionsContext
 from waflib.Tools import c as c_tool
-
 
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
@@ -205,8 +205,7 @@ class Cython(Task.Task):  # type: ignore[misc]
             if x.startswith('header:'):
                 self.outputs.append(self.inputs[0].parent.find_or_declare(
                     x.replace('header:', '')))
-        ret = super().runnable_status()
-        return ret
+        return cast(int, super().runnable_status())
 
     def post_run(self) -> None:
         for x in self.outputs:

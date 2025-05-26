@@ -134,9 +134,8 @@ def get_huffman_encoding_table_as_c_array(
         for sym, code, bitlen, _ in code_tab
     ]
     content = '{\n  ' + ',\n  '.join(lines) + '\n}'
-    array_dec = (f'{tbl_elem_t} {tbl_name}[{len(code_tab) - 1} + 1] '
-                 f'= {content};')
-    return array_dec
+    return (f'{tbl_elem_t} {tbl_name}[{len(code_tab) - 1} + 1] '
+            f'= {content};')
 
 
 def gen_table_for_encoding(rfc_fn: str, out_fn: Optional[str], hdr_lines: str,
@@ -145,7 +144,7 @@ def gen_table_for_encoding(rfc_fn: str, out_fn: Optional[str], hdr_lines: str,
     license_comment = get_license_as_c_comment()
     c_array_dec = get_huffman_encoding_table_as_c_array(
         rfc_fn, tbl_elem_t, tbl_name)
-    content = '\n'.join(
+    content = '\n'.join(  # noqa: FLY002 (static-join-to-f-string)
         [head, license_comment, '', hdr_lines, '', c_array_dec, ''])
     if out_fn:
         with open(out_fn, 'w') as f:
@@ -313,9 +312,8 @@ def get_huffman_st_table_as_c_array(rfc_fn: str, tbl_elem_t: str,
                     (prefix, idx) + get_state_transitions_row(idx, state))
 
     content = '{\n  ' + ',\n  '.join(rows) + '\n}'
-    array_dec = (f'{tbl_elem_t} {tbl_name}[{len(st_tab)}]'
-                 f'[{len(st_tab[0])}] = {content};')
-    return array_dec
+    return (f'{tbl_elem_t} {tbl_name}[{len(st_tab)}]'
+            f'[{len(st_tab[0])}] = {content};')
 
 
 def gen_table_for_decoding(rfc_fn: str, out_fn: Optional[str], hdr_lines: str,
@@ -325,7 +323,7 @@ def gen_table_for_decoding(rfc_fn: str, out_fn: Optional[str], hdr_lines: str,
     license_comment = get_license_as_c_comment()
     c_array_dec = get_huffman_st_table_as_c_array(rfc_fn, tbl_elem_t,
                                                   tbl_name, chunk_bits)
-    content = '\n'.join(
+    content = '\n'.join(  # noqa: FLY002 (static-join-to-f-string)
         [head, license_comment, '', hdr_lines, '', c_array_dec, ''])
     if out_fn:
         with open(out_fn, 'w') as f:

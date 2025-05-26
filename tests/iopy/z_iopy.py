@@ -53,7 +53,7 @@ def z_iopy_thread_cb(iface: iopy.IfaceBase, obj_a: iopy.StructBase,
                      res_list: list[iopy.StructBase]) -> None:
     try:
         res = iface.funA(a=obj_a)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 (blind-except)
         res = e
     res_list.append(res)
 
@@ -63,7 +63,7 @@ def z_iopy_fork_child(iface: iopy.IfaceBase, obj_a: iopy.StructBase,
 
     try:
         res = iface.funA(a=obj_a)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 (blind-except)
         sys.stderr.write(f'{e!s}\n')
         os._exit(1)
 
@@ -75,7 +75,7 @@ def z_iopy_fork_child(iface: iopy.IfaceBase, obj_a: iopy.StructBase,
     try:
         z_iopy_test_threads_and_forks(iface, obj_a, exp_res, do_threads,
                                       False)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 (blind-except)
         sys.stderr.write(f'{e!s}\n')
         os._exit(3)
 

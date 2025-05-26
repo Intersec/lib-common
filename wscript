@@ -29,7 +29,6 @@ from waflib.Configure import ConfigurationContext
 from waflib.Context import Context
 from waflib.Options import OptionsContext
 
-
 waftoolsdir = os.path.join(os.getcwd(), 'build', 'waftools')
 sys.path.insert(0, waftoolsdir)
 

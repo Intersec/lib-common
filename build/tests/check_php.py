@@ -34,10 +34,11 @@ from subprocess import STDOUT, CalledProcessError, check_output
 
 
 def find_php_files(path: str) -> list[str]:
-    php_files = []
+    php_files: list[str] = []
     for dirname, _, filenames in os.walk(path):
-        for filename in fnmatch.filter(filenames, '*.php'):
-            php_files.append(os.path.join(dirname, filename))
+        php_files.extend(
+            os.path.join(dirname, filename)
+            for filename in fnmatch.filter(filenames, '*.php'))
     return php_files
 
 
@@ -58,7 +59,7 @@ def main() -> None:
         try:
             check_output(['php', '-l', filename], stderr=STDOUT)
             print(f'{i} pass {filename}')
-        except CalledProcessError as err:
+        except CalledProcessError as err:  # noqa: PERF203 (try-except-in-loop)
             fail += 1
             print(f'{i} fail {filename}{err.output}')
 

@@ -62,7 +62,7 @@ def wipe_children(reason: str, wait_thr: bool = True) -> None:
     for process in children:
         try:
             process.terminate()
-        except psutil.NoSuchProcess:
+        except psutil.NoSuchProcess:  # noqa: PERF203 (try-except-in-loop)
             continue
 
     # Now we wait for our children to terminate
