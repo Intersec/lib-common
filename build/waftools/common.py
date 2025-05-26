@@ -15,7 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# ruff: noqa: FA100,RUF012
+# ruff: noqa: FA100,RUF012,UP006
 
 """
 Contains the code that could be useful for both backend and frontend build.
@@ -23,7 +23,7 @@ Contains the code that could be useful for both backend and frontend build.
 
 import os
 from types import TracebackType
-from typing import (
+from typing import (  # noqa: UP035 (deprecated-import)
     # We still need to use List, Set and Type here because this file
     # is imported in Python 3.6 by waf before switching to Python 3.9+.
     TYPE_CHECKING,

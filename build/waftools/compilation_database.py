@@ -24,9 +24,9 @@ Usage:
         ...
         conf.load('compilation_database')
 """
-# ruff: noqa: FA100
+# ruff: noqa: FA100,UP006
 
-from typing import (
+from typing import (  # noqa: UP035 (deprecated-import)
     # We still need to use List, Dict and Type here because this file
     # is imported in Python 3.6 by waf before switching to Python 3.9+.
     TYPE_CHECKING,

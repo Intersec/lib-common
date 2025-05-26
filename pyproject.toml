@@ -196,4 +196,9 @@ dummy-variable-rgx = "_"
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
 
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
+
+
 # }}}

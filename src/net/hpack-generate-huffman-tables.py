@@ -157,10 +157,10 @@ def gen_table_for_encoding(rfc_fn: str, out_fn: str | None, hdr_lines: str,
 TreeKey = Union[str, int]
 TreeValue = Union[str, int, bool, None, 'Tree']
 class Tree(dict[TreeKey, TreeValue]):
-    nodes: ClassVar[list['Tree']] = []
+    nodes: ClassVar[list[Tree]] = []
     sealed: ClassVar[bool] = False
 
-    def __missing__(self, key: str) -> 'Tree':
+    def __missing__(self, key: str) -> Tree:
         assert not self.sealed
         if key not in ('*', 0, 1):
             raise KeyError
@@ -178,7 +178,7 @@ class Tree(dict[TreeKey, TreeValue]):
         return value
 
     @classmethod
-    def seal(cls: type['Tree']) -> None:
+    def seal(cls: type[Tree]) -> None:
         cls.sealed = True
 
 

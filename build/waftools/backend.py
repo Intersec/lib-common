@@ -15,7 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# ruff: noqa: FA100,RUF012
+# ruff: noqa: FA100,RUF012,UP006
 
 """
 Contains the code needed for backend compilation.
@@ -29,7 +29,7 @@ import re
 import shlex
 import time
 from itertools import chain
-from typing import (
+from typing import (  # noqa: UP035 (deprecated-import)
     # We still need to use List, Set, Dict, Tuple and Type, here because
     # this file is imported in Python 3.6 by waf before switching
     # to Python 3.9+.
@@ -1179,7 +1179,7 @@ class IopcOptions:
             if includes:
                 nodes = [node.abspath() for node in includes]
                 nodes.sort()
-                self.computed_includes = '-I{0}'.format(':'.join(nodes))
+                self.computed_includes = '-I{}'.format(':'.join(nodes))
             else:
                 self.computed_includes = ''
         return self.computed_includes

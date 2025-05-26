@@ -41,12 +41,12 @@ RE_DONE_SUITE = re.compile(
     r'\((?P<time>\d+) seconds\)') # cannot anchor due to shell colors
 RE_GROUP = re.compile(r'^1\.\.(?P<total>\d+) (?P<group>.*)$')
 RE_TEST = re.compile(
-    r'^ *(?P<number>\d+) (?P<status>{0})[ \t]+(?P<name>.+)$'.format(
+    r'^ *(?P<number>\d+) (?P<status>{})[ \t]+(?P<name>.+)$'.format(
         '|'.join(STATUS)))
 RE_TEST_OPTIONAL = re.compile(
     r'^(?P<name>.*)[ \t]+#[ |\t]+\((?P<time>\d+\.\d+)s?\)'
     r'([ \t]*(?P<comment>.*))?$')
-RE_STEP = re.compile(r'^# +\d+-(?P<number>\d+) +(?P<status>{0}) +'
+RE_STEP = re.compile(r'^# +\d+-(?P<number>\d+) +(?P<status>{}) +'
                      r'<(?P<name>.*)>? +(?P<filename>.+):(?P<line>\d+) +# '
                      r'\((?P<time>\d+\.\d+)s\)$'.format('|'.join(STATUS)))
 RE_END = re.compile('^# TOTAL$')
@@ -114,7 +114,7 @@ class Result:
     def compute(self) -> None:
         raise NotImplementedError
 
-    def _compute(self, items: Iterable['Result']) -> None:
+    def _compute(self, items: Iterable[Result]) -> None:
         results: dict[str, list[Result]] = {k: [] for k in self.z_status_nb}
         for item in items:
             item.compute()
@@ -320,22 +320,21 @@ class Global(Result):
     def z_errors(self) -> str:
         if not self.errors:
             return '# NO ERRORS'
-        res = ['#']
-        res.append(': ERRORS')
+        res = ['#', ': ERRORS']
         previous_suite = ''
         for error in self.errors:
             current_suite = f': - ./{error.suite_fullname}'
             if current_suite != previous_suite:
                 if previous_suite:
-                    res.append('{0}: {1}'.format(previous_suite, 'error'))
-                res.append('{0}: {1}'.format(current_suite, 'starting'))
+                    res.append('{}: {}'.format(previous_suite, 'error'))
+                res.append('{}: {}'.format(current_suite, 'starting'))
             previous_suite = current_suite
             res.append(error.z_error())
             trace = error.z_trace()
             if trace:
                 res.append(trace)
 
-        res.append('{0}: {1}'.format(previous_suite, 'error'))
+        res.append('{}: {}'.format(previous_suite, 'error'))
         return '\n'.join(res)
 
     def z_report(self) -> str:
