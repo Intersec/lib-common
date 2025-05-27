@@ -16,7 +16,7 @@
 #                                                                         #
 ###########################################################################
 
-from . import util, zunittest
-from .zunittest import TestCase, ZFlags, ZGroup, main
+from unittest import *  # noqa: F403 (undefined-local-with-import-star)
 
-__all__ = ['TestCase', 'ZFlags', 'ZGroup', 'main']
+from . import util, zunittest
+from .zunittest import *  # noqa: F403 (undefined-local-with-import-star)
