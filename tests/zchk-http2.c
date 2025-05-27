@@ -68,8 +68,8 @@ static void z_http2_el_wait(el_t ev, data_t data)
 
 static void z_http2_hello_generate_response(int len)
 {
-    static const char hello[26] = "abcdefghijklmnopqrstuvwxyz";
-    int sz = (int)sizeof(hello);
+    static const char hello[] = "abcdefghijklmnopqrstuvwxyz";
+    int sz = strlen(hello);
     SB_8k(sb);
 
     for (int i = 0; i < len; i += MIN(sz, len - i)) {

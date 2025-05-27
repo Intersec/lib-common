@@ -547,7 +547,7 @@ static int z_test_qhat_gen(qhat_t *hat)
 #ifndef NDEBUG
     qhat_gen_t gen;
     void *ptr;
-    const char value[16] = "0123456789abcdef";
+    const char value[] = "0123456789abcdef";
 
     gen = hat->gen;
     ptr = qhat_set(hat, 10);
