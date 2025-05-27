@@ -52,63 +52,30 @@ builtins = ["_iop_registry"]
 
 [tool.ruff.lint]
 
-select = [
-    "F",    # pyflakes (runtime errors, unused imports, etc.)
-    "E",    # pycodestyle - errors
-    "W",    # pycodestyle - warnings
-    "I",    # isort (import sorting)
-    "PL",   # pylint
-    "RUF"   # Ruff-specific
-]
-
-# Enable Pylint rules + some essential Ruff defaults
-extend-select = [
-
-    # Rules mark as PREVIEW are unstable.
-    # The --preview flag is required for use. (not activated by default)
-
-    # flake
-    "A",      # flake8-builtins
-    "ASYNC",  # flake8-async
-    "B",      # flake8-bugbear (common bugs)
-    "BLE",    # flake8-blind-except
-    "C4",     # flake8-comprehensions
-    "COM",    # flake8-commas
-    "CPY",    # flake8-copyright - PREVIEW
-    "DJ",     # flake8-django
-    "EXE",    # flake8-executable
-    "FA",     # flake8-future-annotations
-    "ISC",    # flake8-implicit-str-concat
-    "INT",    # flake8-gettext
-    "PYI",    # flake8-pyi
-    "Q",      # flake8-quotes
-    "RET",    # flake8-return
-    "RSE",    # flake8-raise
-    "S",      # flake8-bandit
-    "SIM",    # flake8-simplify
-    "SLOT",   # flake8-slots
-    "T10",    # flake8-debugger
-    "YTT",    # flake8-2020
-    "PIE",    # flake8-pie
-    "G",      # flake8-logging-format
-
-    # Others
-    "AIR",    # Airflow
-    "D",      # pydocstyle (formatting errors)
-    "DOC",    # pydoclint - PREVIEW
-    "FAST",   # fastAPI
-    "FLY",    # flynt
-    "FURB",   # refurb
-    "N",      # pep8-naming
-    "NPY",    # numPy-specific rules
-    "PD",     # pandas-vet
-    "PERF",   # perflint
-    "TRY",    # tryceratops
-    "UP",     # pyupgrade (modernize syntax)
-]
+select = ["ALL"]
 
 # Ignore specific rules you find too noisy or don't need
 ignore = [
+    # List of rules completely ignored
+    "ANN",    # flake8-annotations
+    "ARG",    # flake8-unused-arguments
+    "DTZ",    # flake8-datetimez
+    "EM",     # flake8-errmsg
+    "FBT",    # flake8-boolean-trap
+    "FIX",    # flake8-fixme
+    "ICN",    # flake8-import-conventions
+    "INP",    # flake8-no-pep420
+    "PT",     # flake8-pytest-style
+    "PTH",    # flake8-use-pathlib
+    "T20",    # flake8-print
+    "TC",     # flake8-type-checking
+    "TD",     # flake8-todos
+    "TID",    # flake8-tidy-imports
+
+    "C90",    # mccabe
+    "ERA",    # eradicate
+
+    # List of rules partialy ignored
     # Rules in PREVIEW are unstable, --preview flag is required for use.
 
     # PLR - pylint - refactor
