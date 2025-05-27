@@ -1928,7 +1928,7 @@ class IopyIfaceTests(z.TestCase):
             return rpc_args.res(ov=None)
 
         self.s = self.r.channel_server()
-        self.s.test_ModuleA.interfaceA._rpcs.funA.impl = rpc_impl_a
+        self.s.test_ModuleA.interfaceA._rpcs.funA.impl = rpc_impl_a  # noqa: SLF001 (private-member-access)
         self.s.test_ModuleA.interfaceA.funB.impl = rpc_impl_b
         self.s.test_ModuleA.interfaceA.funToggleVoid.impl = rpc_impl_v
         self.s.listen(uri=self.uri)
@@ -2842,7 +2842,7 @@ class IopyDsoTests(z.TestCase):
         uri = make_uri()
         s = self.r.ChannelServer()
         s.listen(uri=uri)
-        s.test_dso_ModuleTest.interfaceTest._rpcs.fun.impl = rpc_impl_fun
+        s.test_dso_ModuleTest.interfaceTest._rpcs.fun.impl = rpc_impl_fun  # noqa: SLF001 (private-member-access)
         c = self.r.connect(uri)
         self.assertEqual(21, c.test_dso_ModuleTest.interfaceTest.fun().val)
 

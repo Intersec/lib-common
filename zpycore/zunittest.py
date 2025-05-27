@@ -447,7 +447,7 @@ class _ZTestResult(unittest.TestResult):
         if isinstance(test, DocTestModule):
             group_name = test.__class__.__name__
         else:
-            group_name = test._tests[0].__class__.__name__
+            group_name = test._tests[0].__class__.__name__  # noqa: SLF001 (private-member-access)
         sys.stdout.write(f'1..{test.countTestCases():d} {group_name}\n')
         sys.stdout.flush()
 

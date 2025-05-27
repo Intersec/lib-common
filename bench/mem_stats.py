@@ -16,6 +16,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# ruff: noqa: PGH003
 # type: ignore
 
 """
@@ -71,7 +72,6 @@ def plot(filename):
     ax2.plot(time, data[:,POSITION['malloc_calls']], 'r')
     ax2.set_ylabel('malloc calls', color='r')
     plt.show()
-
 
 
 FILENAME = sys.argv[1]

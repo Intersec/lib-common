@@ -20,7 +20,7 @@
 import difflib
 import os.path as osp
 
-import zchk_mod  # type: ignore
+import zchk_mod  # type: ignore[import-not-found]
 
 import zpycore as z
 

@@ -15,6 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
+# ruff: noqa: PGH003
 # type: ignore
 
 def test_add_iop_package(plugin):

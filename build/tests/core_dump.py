@@ -283,7 +283,7 @@ class Cores:
         return ','.join(self.cores)
 
     def __repr__(self) -> str:
-        cores_join = ",".join(self.cores)
+        cores_join = ','.join(self.cores)
         return f'Cores(rootpath="{self.rootpath}", cores="{cores_join}")'
 
 
