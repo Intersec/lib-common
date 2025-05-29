@@ -33,7 +33,7 @@ import time
 import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Callable, Union
+from typing import Any, Callable
 
 import iopy
 import zpycore as z
@@ -2976,11 +2976,11 @@ class IopyCompatibilityTests(z.TestCase):
         equal to the new methods.
         """
         def check_method(obj: iopy.StructUnionBase,
-                         methods: list[Union[
-                             tuple[str, str],
-                             tuple[str, str, tuple[Any, ...]],
-                             tuple[str, str, tuple[Any, ...], dict[str, Any]],
-                         ]]) -> None:
+                         methods: list[
+                             tuple[str, str] |
+                             tuple[str, str, tuple[Any, ...]] |
+                             tuple[str, str, tuple[Any, ...], dict[str, Any]]
+                         ]) -> None:
             for method in methods:
                 old_method_name = method[0]
                 new_method_name = method[1]

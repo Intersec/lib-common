@@ -25,7 +25,7 @@ import sys
 from collections import OrderedDict, deque
 from collections.abc import Iterable
 from logging import NullHandler
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(NullHandler())
@@ -436,7 +436,7 @@ class StreamParser:
         self.bad_number_test_name = 'bad-number: {0}.{1}'.format
         self.line_counter = 0
 
-    def parse_line(self, stream_line: Union[bytes, str]) -> None:
+    def parse_line(self, stream_line: bytes | str) -> None:
         self.line_counter += 1
         if self.do_break:
             return

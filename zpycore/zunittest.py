@@ -56,6 +56,7 @@ running tests as specified on the command line).
 Note that 'z' extends the unittest module, so you just need to import z and
 use z.* as you would use unittest instead
 """
+from __future__ import annotations
 
 import doctest
 import os
@@ -104,7 +105,7 @@ class _LoadTests:
     def add_group(self, group: type[unittest.TestCase]) -> None:
         self.groups.append(group)
 
-    def add_docsuite(self, suite: type['DocTestModule']) -> None:
+    def add_docsuite(self, suite: type[DocTestModule]) -> None:
         self.docsuites.append(suite)
 
 
@@ -139,13 +140,13 @@ class ZTestSuite(unittest.TestSuite):
                 (bool(self._tests) and isinstance(self._tests, list)
                  and isinstance(self._tests[0], unittest.TestCase)))
 
-    def _handle_group(self, result: '_ZTestResult') -> None:
+    def _handle_group(self, result: _ZTestResult) -> None:
         if self._is_new_group():
             result.reset()
             result.print_suite_summary(self)
 
-    def run(self, result: '_ZTestResult', # type: ignore[override]
-            debug: bool = False) -> '_ZTestResult':
+    def run(self, result: _ZTestResult, # type: ignore[override]
+            debug: bool = False) -> _ZTestResult:
         if os.getenv('Z_HARNESS'):
             self._handle_group(result)
         return cast('_ZTestResult', super().run(result, debug))
@@ -489,7 +490,7 @@ class ZTestRunner(unittest.TextTestRunner):
 
     def run(  # type: ignore[override]
             self,
-            test: Union[unittest.TestSuite, unittest.TestCase],
+            test: unittest.TestSuite | unittest.TestCase,
     ) -> unittest.TestResult:
         result = _ZTestResult()
         result.failfast = self.failfast

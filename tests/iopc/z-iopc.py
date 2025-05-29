@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from typing import Any, Union, cast
+from typing import Any, cast
 
 import zpycore as z
 
@@ -36,7 +36,7 @@ class IopcTest(z.TestCase):
     # {{{ Helpers
 
     def run_iopc(self, iop: str, expect_pass: bool,
-                 errors: Union[None, str, list[str]], lang: str = '',
+                 errors: None | str | list[str], lang: str = '',
                  class_id_range: str = '',
                  additional_args: str | None = None) -> None:
         iopc_args = [IOPC, os.path.join(TEST_PATH, iop)]
@@ -95,7 +95,7 @@ class IopcTest(z.TestCase):
         self.run_iopc(iop, True, None, lang, class_id_range)
 
     # compilation will fail
-    def run_iopc_fail(self, iop: str, errors: Union[str, list[str]],
+    def run_iopc_fail(self, iop: str, errors: str | list[str],
                       lang: str = '', class_id_range: str = '') -> None:
         self.run_iopc(iop, False, errors, lang, class_id_range)
 
