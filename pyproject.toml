@@ -51,7 +51,10 @@ target-version = "py39"
 builtins = ["_iop_registry"]
 
 [tool.ruff.lint]
+# Enable experimental preview rules
+preview = true
 
+# Select all rules
 select = ["ALL"]
 
 # Ignore specific rules you find too noisy or don't need
@@ -74,27 +77,28 @@ ignore = [
 
     "C90",    # mccabe
     "ERA",    # eradicate
+    "DOC",    # pydoclint
 
     # List of rules partialy ignored
-    # Rules in PREVIEW are unstable, --preview flag is required for use.
 
     # PLR - pylint - refactor
-    "PLR0904",  # too-many-public-methods => lint.pylint.max-public-methods - PREVIEW
+    "PLR0904",  # too-many-public-methods => lint.pylint.max-public-methods
     "PLR0911",  # too-many-return-statements => lint.pylint.max-returns
     "PLR0912",  # too-many-branches => lint.pylint.max-branches
     "PLR0913",  # too-many-arguments => lint.pylint.max-args
-    "PLR0914",  # too-many-locals => lint.pylint.max-locals - PREVIEW
+    "PLR0914",  # too-many-locals => lint.pylint.max-locals
     "PLR0915",  # too-many-statements => lint.pylint.max-statements
-    "PLR0916",  # too-many-boolean-expressions => lint.pylint.max-bool-expr - PREVIEW
-    "PLR1702",  # too-many-nested-blocks => lint.pylint.max-nested-blocks - PREVIEW
+    "PLR0916",  # too-many-boolean-expressions => lint.pylint.max-bool-expr
+    "PLR0917",  # too-many-positional-arguments => lint.pylint.max-positional-args
+    "PLR1702",  # too-many-nested-blocks => lint.pylint.max-nested-blocks
     "PLR2004",  # magic-value-comparison
 
     # PLW - pylint- warning
     "PLW0603",  # global-statement
-    "PLW1514",  # unspecified-encoding - PREVIEW
+    "PLW1514",  # unspecified-encoding
 
     # PLC - pylint - convention
-    "PLC1901", # compare-to-empty-string - PREVIEW
+    "PLC1901", # compare-to-empty-string
 
     # PLE - pylint - error
     "PLE1205",  # too-few-public-methods
@@ -136,6 +140,7 @@ ignore = [
     "S101",     # assert
     "S105",     # hardcoded-password-string
     "S106",     # hardcoded-password-func-arg
+    "S404",     # suspicious-subprocess-import
     "S603",     # subprocess-without-shell-equals-true
     "S604",     # call-with-shell-equals-true
     "S607",     # start-process-with-partial-path
@@ -150,10 +155,14 @@ ignore = [
 
     # UP - pyupgrade
     "UP015",    # redundant-open-modes
+
+    # FURB - refurb
+    "FURB101",  # read-whole-file
+    "FURB103",  # write-whole-file
 ]
 
 # Only ignore variables named "_".
-dummy-variable-rgx = "_"
+dummy-variable-rgx = "^_$"
 
 # Optional: extend for specific files or folders
 [tool.ruff.lint.extend-per-file-ignores]
