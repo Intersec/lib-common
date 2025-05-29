@@ -440,9 +440,10 @@ def run_python_checker(ctx: BuildContext, checker_exec: str) -> None:
         files_list = files_args
     else:
         # Else, get list of committed python files under the launch directory
-        files_str = ctx.cmd_and_log('git ls-files "*.py" "**/*.py" '
-                                    '"wscript*" "**/wscript*"', cwd=path,
-                                    quiet=Context.BOTH).strip()
+        files_str = ctx.cmd_and_log(
+            'git ls-files "*.py" "**/*.py" "*.pyi" "**/*.pyi" '
+            '"wscript*" "**/wscript*"',
+            cwd=path, quiet=Context.BOTH).strip()
         files_list = files_str.splitlines()
 
     # Create tasks to check them using the checker
@@ -496,7 +497,7 @@ def run_ruff(ctx: BuildContext) -> None:
         rule = f'ruff check {fix} {file_args}'
     else:
         # Use shell pipeline to get files and check them
-        rule = ('git ls-files "*.py" "**/*.py" '
+        rule = ('git ls-files "*.py" "**/*.py" "*.pyi" "**/*.pyi" '
                 f'"wscript*" "**/wscript*" | xargs ruff check {fix}')
 
     # One task, run everything at once
