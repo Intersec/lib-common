@@ -21,7 +21,6 @@ from waflib.Build import BuildContext
 bld: BuildContext
 
 
-
 bld.shlib(target='zchk-tstiop-backward-compat-typedef-old', source=[
     'tstiop_backward_compat_typedef_old.c',
     'tstiop_backward_compat_typedef.iop',

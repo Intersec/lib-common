@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-
-#vim:set fileencoding=utf-8
 ###########################################################################
 #                                                                         #
 # Copyright 2025 INTERSEC SA                                              #
@@ -91,13 +89,14 @@ def find_exe(name: str, root: str) -> str | None:
     return ret.pop()
 
 
-
 def debug(*args: Any) -> None:
     if DEBUG:
         print(' '.join(args), file=sys.stderr)
 
 
 REG = re.compile(r'^#(\d+) .* at (.*)$')
+
+
 def get_intersec_poi(output: str, root: str) -> str | None:
     for line in output.split('\n'):
         reg = REG.match(line)
@@ -229,7 +228,7 @@ class Cores:
 
     def backtrace(self, core: str, exe: str | None = None) -> str:
         debug('Run stuff on ', core)
-        fullpath = exe if exe else self.find_binary_fullpath(core)
+        fullpath = exe or self.find_binary_fullpath(core)
 
         # found intersec function involved in crash
         tmp = self._gdb_cmd(GDB_CMD_POI, fullpath, core)
@@ -249,7 +248,7 @@ class Cores:
         return stdout
 
     def parse(self, frmt: str = 'text') -> None:
-        new_list = list(set(self.cores)^set(self._glob()))
+        new_list = list(set(self.cores) ^ set(self._glob()))
         if len(new_list) == 0:
             return
 
@@ -300,10 +299,10 @@ def options(args: list[str]) -> argparse.Namespace:
 
     subparsers = op.add_subparsers(dest='action')
     subparsers.add_parser('list', help='Show list')
-    subparsers.add_parser('diff', help=
-                          'Show backtrace of all new detected coredump')
-    subparsers.add_parser('show', help=
-                          'Show backtrace of specifieds coredump')
+    subparsers.add_parser('diff',
+                          help='Show backtrace of all new detected coredump')
+    subparsers.add_parser('show',
+                          help='Show backtrace of specifieds coredump')
     return op.parse_args(args)
 
 

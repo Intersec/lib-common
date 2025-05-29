@@ -59,17 +59,17 @@ def plot(filename):
     print(NUM_COLUMNS)
 
     # adding "time"
-    time = np.array(range(len(data[:,0])))
+    time = np.array(range(len(data[:, 0])))
 
     # generate figure
     (_, ax1) = plt.subplots()
-    ax1.plot(time, data[:,POSITION['current_used']] / (1024 * 1024))
-    ax1.plot(time, data[:,POSITION['current_allocated']] / (1024 * 1024))
+    ax1.plot(time, data[:, POSITION['current_used']] / (1024 * 1024))
+    ax1.plot(time, data[:, POSITION['current_allocated']] / (1024 * 1024))
     ax1.set_xlabel('saves')
     ax1.set_ylabel('memory (MB)')
     ax1.legend(('Used memory', 'Available memory'), loc=0)
     ax2 = ax1.twinx()
-    ax2.plot(time, data[:,POSITION['malloc_calls']], 'r')
+    ax2.plot(time, data[:, POSITION['malloc_calls']], 'r')
     ax2.set_ylabel('malloc calls', color='r')
     plt.show()
 

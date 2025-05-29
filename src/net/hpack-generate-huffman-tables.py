@@ -70,6 +70,7 @@ import inspect
 import platform
 import re
 import sys
+from collections import UserDict
 from itertools import product
 from typing import Any, ClassVar, Union, cast
 
@@ -155,14 +156,16 @@ def gen_table_for_encoding(rfc_fn: str, out_fn: str | None, hdr_lines: str,
 
 
 TreeKey = Union[str, int]
-TreeValue = Union[str, int, bool, None, 'Tree']
-class Tree(dict[TreeKey, TreeValue]):
+TreeValue = Union[str, int, bool, 'Tree', None]
+
+
+class Tree(UserDict[TreeKey, TreeValue]):
     nodes: ClassVar[list[Tree]] = []
     sealed: ClassVar[bool] = False
 
     def __missing__(self, key: str) -> Tree:
         assert not self.sealed
-        if key not in ('*', 0, 1):
+        if key not in {'*', 0, 1}:
             raise KeyError
         value = self[key] = type(self)()
 
@@ -228,7 +231,7 @@ def gen_huffman_st_table(tree: Tree, chunk_bits: int) -> StTable:
             [{'next': None, 'sym': [], 'final': False, 'error': False}
              for _ in range(inputs)])
 
-    assert chunk_bits in [1, 2, 4]
+    assert chunk_bits in {1, 2, 4}
     inputs = 2 ** chunk_bits
     root = tree
     st_tab: StTable = []

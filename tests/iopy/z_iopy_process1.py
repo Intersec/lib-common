@@ -33,7 +33,7 @@ import iopy
 
 def main() -> None:
     plugin_file = sys.argv[1]
-    uri         = sys.argv[2]
+    uri = sys.argv[2]
 
     p = iopy.Plugin(plugin_file)
     r = p.register()

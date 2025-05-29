@@ -16,9 +16,7 @@
 #                                                                         #
 ###########################################################################
 
-from waflib.Configure import (
-    ConfigurationContext,
-)
+from waflib.Configure import ConfigurationContext
 
 
 def configure(ctx: ConfigurationContext) -> None:

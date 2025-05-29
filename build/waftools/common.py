@@ -15,7 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# ruff: noqa: FA100,RUF012,UP006
+# ruff: noqa: FA100, RUF012, UP006
 
 """
 Contains the code that could be useful for both backend and frontend build.
@@ -70,7 +70,7 @@ def check_circular_dependencies(self: TaskGen, tgen: TaskGen,
     Cycles are forbidden because it can cause undefined behaviors in the build
     system.
     """
-    deps  = list(tgen.to_list(getattr(tgen, 'depends_on', [])))
+    deps = list(tgen.to_list(getattr(tgen, 'depends_on', [])))
     deps += list(tgen.to_list(getattr(tgen, 'use', [])))
 
     for name in deps:
@@ -156,17 +156,17 @@ def run_checks(ctx: BuildContext) -> None:
     env = dict(os.environ)
 
     if ctx.cmd == 'fast-check':
-        env['Z_MODE']     = 'fast'
+        env['Z_MODE'] = 'fast'
         env['Z_TAG_SKIP'] = 'upgrade slow perf'
     elif ctx.cmd == 'www-check':
         env['Z_LIST_SKIP'] = 'C behave'
     elif ctx.cmd == 'selenium':
-        env['Z_LIST_SKIP']  = 'C web'
-        env['Z_TAG_SKIP']   = 'wip'
+        env['Z_LIST_SKIP'] = 'C web'
+        env['Z_TAG_SKIP'] = 'wip'
         env['BEHAVE_FLAGS'] = '--tags=web'
     elif ctx.cmd == 'fast-selenium':
-        env['Z_LIST_SKIP']  = 'C web'
-        env['Z_TAG_SKIP']   = 'wip upgrade slow'
+        env['Z_LIST_SKIP'] = 'C web'
+        env['Z_TAG_SKIP'] = 'wip upgrade slow'
         env['BEHAVE_FLAGS'] = '--tags=web'
     elif ctx.cmd != 'check':
         return
@@ -176,30 +176,35 @@ def run_checks(ctx: BuildContext) -> None:
     if ctx.exec_command(cmd, stdout=None, stderr=None, env=env):
         ctx.fatal('')
 
-class CheckClass(BuildContext): # type: ignore[misc]
+
+class CheckClass(BuildContext):  # type: ignore[misc]
     """run tests (no web)"""
 
     cmd = 'check'
     has_jasmine_tests = True
 
-class FastCheckClass(BuildContext): # type: ignore[misc]
+
+class FastCheckClass(BuildContext):  # type: ignore[misc]
     """run tests in fast mode (no web)"""
 
     cmd = 'fast-check'
     has_jasmine_tests = True
 
-class WwwCheckClass(BuildContext): # type: ignore[misc]
+
+class WwwCheckClass(BuildContext):  # type: ignore[misc]
     """run jasmine tests"""
 
     cmd = 'www-check'
     has_jasmine_tests = True
 
-class SeleniumCheckClass(BuildContext): # type: ignore[misc]
+
+class SeleniumCheckClass(BuildContext):  # type: ignore[misc]
     """run selenium tests (including slow ones)"""
 
     cmd = 'selenium'
 
-class FastSeleniumCheckClass(BuildContext): # type: ignore[misc]
+
+class FastSeleniumCheckClass(BuildContext):  # type: ignore[misc]
     """run selenium tests (without slow ones)"""
 
     cmd = 'fast-selenium'
@@ -214,6 +219,7 @@ class FastSeleniumCheckClass(BuildContext): # type: ignore[misc]
     of the build directory).
 """
 
+
 def node_change_ext_src(self: Node, ext: str) -> Node:
     name = self.name
 
@@ -221,7 +227,7 @@ def node_change_ext_src(self: Node, ext: str) -> Node:
     if k >= 0:
         name = name[:k] + ext
     else:
-        name = name + ext
+        name += ext
 
     return self.parent.make_node(name)
 
@@ -249,6 +255,8 @@ Is equivalent to:
    do_something()
    ctx.set_group(previous_group)
 """
+
+
 class UseGroup:
 
     def __init__(self, ctx: BuildContext, group: str):
@@ -274,7 +282,7 @@ class UseGroup:
 
 def get_env_bool(self: Context.Context, name: str) -> bool:
     val = os.environ.get(name)
-    return val is not None and val.lower() in ('true', 'yes', '1')
+    return val is not None and val.lower() in {'true', 'yes', '1'}
 
 
 Context.Context.get_env_bool = get_env_bool
@@ -338,14 +346,14 @@ def remove_default_install_tasks(self: TaskGen) -> None:
     """Remove all default install tasks"""
     for i, t in enumerate(self.tasks):
         if isinstance(t, inst):
-            del self.tasks[i]
+            del self.tasks[i]  # noqa: B909 (loop-iterator-mutation)
 
     install_task = getattr(self, 'install_task', None)
     if install_task:
         del self.install_task
 
 
-class CustomInstall(Task): # type: ignore[misc]
+class CustomInstall(Task):  # type: ignore[misc]
     """Task to start custom shell commands on install."""
 
     color = 'PINK'
@@ -455,7 +463,7 @@ def run_pylint(ctx: BuildContext) -> None:
     run_python_checker(ctx, 'pylint')
 
 
-class PylintClass(BuildContext): # type: ignore[misc]
+class PylintClass(BuildContext):  # type: ignore[misc]
     """run pylint checks on committed python files"""
 
     cmd = 'pylint'
@@ -493,7 +501,7 @@ def run_ruff(ctx: BuildContext) -> None:
     ctx.cmd_and_log(cmd=rule, shell=True, stdout=None, stderr=None)
 
 
-class RuffClass(BuildContext): # type: ignore[misc]
+class RuffClass(BuildContext):  # type: ignore[misc]
     """run ruff checks on committed python files"""
 
     cmd = 'ruff'
@@ -510,7 +518,7 @@ def run_mypy(ctx: BuildContext) -> None:
     run_python_checker(ctx, 'mypy')
 
 
-class MypyClass(BuildContext): # type: ignore[misc]
+class MypyClass(BuildContext):  # type: ignore[misc]
     """run mypy checks on committed python files"""
 
     cmd = 'mypy'

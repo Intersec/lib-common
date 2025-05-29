@@ -1,4 +1,3 @@
-#/usr/bin/env python3
 ###########################################################################
 #                                                                         #
 # Copyright 2025 INTERSEC SA                                              #
@@ -145,7 +144,7 @@ class ZTestSuite(unittest.TestSuite):
             result.reset()
             result.print_suite_summary(self)
 
-    def run(self, result: _ZTestResult, # type: ignore[override]
+    def run(self, result: _ZTestResult,  # type: ignore[override]
             debug: bool = False) -> _ZTestResult:
         if os.getenv('Z_HARNESS'):
             self._handle_group(result)
@@ -221,6 +220,7 @@ _FLAGS = set(os.getenv('Z_TAG_SKIP', '').split())
 _TAG_OR = os.getenv('Z_TAG_OR', '')
 _ALL_FLAGS: dict[Any, list[Any]] = {}
 
+
 def ZFlags(*flags: str) -> Callable[[T], T]:  # noqa: N802 (invalid-function-name)
     """
     ZFlags
@@ -233,7 +233,7 @@ def ZFlags(*flags: str) -> Callable[[T], T]:  # noqa: N802 (invalid-function-nam
         func_flags.extend(flags)
         fl = set(func_flags) & _FLAGS
         if any(f in _TAG_OR for f in func_flags) and 'wip' not in fl:
-            func.__unittest_skip__ = False # type: ignore[attr-defined]
+            func.__unittest_skip__ = False  # type: ignore[attr-defined]
             return func
         if fl:
             skip_msg = f'skipping tests flagged with {" ".join(fl)}'
@@ -287,7 +287,7 @@ class _ZTextTestResult(unittest.TextTestResult):
 
     def debug(self, err: ExecInfo) -> None:
         if self.debug_on:
-            import pdb  # noqa: T100 (debugger)
+            import pdb  # noqa: T100, PLC0415 (debugger, import-outside-top-level)
             _, _, exc_traceback = err
             pdb.post_mortem(exc_traceback)
 
@@ -396,7 +396,7 @@ class _ZTestResult(unittest.TestResult):
         super().addError(test, err)
         self.global_errors.append((
             test,
-            self._exc_info_to_string(err, test), # type: ignore[attr-defined]
+            self._exc_info_to_string(err, test),  # type: ignore[attr-defined]
         ))
         self._put_st('fail', test)
         self._put_err(test, err)
@@ -409,7 +409,7 @@ class _ZTestResult(unittest.TestResult):
         super().addFailure(test, err)
         self.global_failures.append((
             test,
-            self._exc_info_to_string(err, test), # type: ignore[attr-defined]
+            self._exc_info_to_string(err, test),  # type: ignore[attr-defined]
         ))
         self._put_st('fail', test)
         self._put_err(test, err)

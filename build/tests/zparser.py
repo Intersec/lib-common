@@ -30,15 +30,15 @@ from typing import Any, TypeVar
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(NullHandler())
 
-STATUS = ('pass', 'fail', 'skip',  'todo-pass', 'todo-fail')
+STATUS = ('pass', 'fail', 'skip', 'todo-pass', 'todo-fail')
 EXTENDED_STATUS = STATUS + ('missing', 'bad-number')
 
 RE_SUITE = re.compile(
     r'.*starting suite (?:\.\/)?(?P<suite>(?P<product>[a-zA-Z0-9_\-\.]*)'
-    r'(?:\/.*)?)\.\.\.') # cannot anchor due to shell colors
+    r'(?:\/.*)?)\.\.\.')  # cannot anchor due to shell colors
 RE_DONE_SUITE = re.compile(
     r'(\S*(done )|.*(TEST SUITE (?P<suite>.*) (?P<status>FAILED) ))'
-    r'\((?P<time>\d+) seconds\)') # cannot anchor due to shell colors
+    r'\((?P<time>\d+) seconds\)')  # cannot anchor due to shell colors
 RE_GROUP = re.compile(r'^1\.\.(?P<total>\d+) (?P<group>.*)$')
 RE_TEST = re.compile(
     r'^ *(?P<number>\d+) (?P<status>{})[ \t]+(?P<name>.+)$'.format(
@@ -49,7 +49,7 @@ RE_TEST_OPTIONAL = re.compile(
 RE_STEP = re.compile(r'^# +\d+-(?P<number>\d+) +(?P<status>{}) +'
                      r'<(?P<name>.*)>? +(?P<filename>.+):(?P<line>\d+) +# '
                      r'\((?P<time>\d+\.\d+)s\)$'.format('|'.join(STATUS)))
-RE_END = re.compile('^# TOTAL$')
+RE_END = re.compile(r'^# TOTAL$')
 RE_HEADER = re.compile(r'(.*),\d+:(0|1)')
 RE_SCREEN = re.compile(r'.*screenshot available -> '
                        r'(?P<url>https://img.corp/.*)')
@@ -72,6 +72,8 @@ POS_LT_LEN = 'too many missing tests: '
 
 
 T = TypeVar('T')
+
+
 def fixed_list() -> deque[T]:
     return deque(maxlen=1000)
 
@@ -385,7 +387,7 @@ class Error:
         return fullname
 
     @property
-    def browser_log(self) ->str:
+    def browser_log(self) -> str:
         return '\n'.join(self.browser_log_l)
 
     @property
@@ -425,7 +427,7 @@ class StreamParser:
         self.core_logs = False
         self.context: deque[tuple[str, str]] = fixed_list()
         self.res = stats or Global()
-        self.last_stream = '2' # this is the code for 'environment' stream.
+        self.last_stream = '2'  # this is the code for 'environment' stream.
 
         self.group_name = ''
         self.suite_fullname = ''
@@ -557,7 +559,7 @@ class StreamParser:
 
                     do_err = True
                     for grp in self.suite.groups:
-                        if any(t.status in ['fail', 'todo-pass']
+                        if any(t.status in {'fail', 'todo-pass'}
                                 for t in grp.tests.values()):
                             do_err = False
                             break
@@ -619,7 +621,7 @@ class StreamParser:
                     self.steps = []
                 self.context.append((self.last_stream, line))
 
-                if test.status in ['fail', 'todo-pass']:
+                if test.status in {'fail', 'todo-pass'}:
                     self.error = Error(
                         self.product.name, self.suite_fullname,
                         self.group.name, test.name, self.context, test.status)

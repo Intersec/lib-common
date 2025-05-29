@@ -24,7 +24,7 @@ from typing import Any, ClassVar, TextIO
 
 import behave.model
 from behave.__main__ import (
-    main as behave_main,
+    main as behave_main,  # noqa: PLC2701 (import-private-name)
 )
 from behave.formatter.base import Formatter
 
@@ -65,8 +65,8 @@ class ZFormatter(Formatter):  # type: ignore[misc]
         self.__count = -1
         self.__success = 0
         self.__skipped = 0
-        self.__failed  = 0
-        self.__steps   = 0
+        self.__failed = 0
+        self.__steps = 0
         self.__scenario: behave.model.Scenario | None = None
         self.__status: str | None = None
         self.__exn: str | None = None
@@ -101,9 +101,9 @@ class ZFormatter(Formatter):  # type: ignore[misc]
 
         self.steps = []
         self.__scenario = None
-        self.__steps    = 0
-        self.__status   = None
-        self.__exn      = None
+        self.__steps = 0
+        self.__status = None
+        self.__exn = None
 
     def feature(self, feature: behave.model.Feature) -> None:
         self.basename = os.path.basename(feature.filename)

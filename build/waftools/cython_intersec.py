@@ -1,6 +1,23 @@
+###########################################################################
+#                                                                         #
+# Copyright 2025 INTERSEC SA                                              #
+#                                                                         #
+# Licensed under the Apache License, Version 2.0 (the "License");         #
+# you may not use this file except in compliance with the License.        #
+# You may obtain a copy of the License at                                 #
+#                                                                         #
+#     http://www.apache.org/licenses/LICENSE-2.0                          #
+#                                                                         #
+# Unless required by applicable law or agreed to in writing, software     #
+# distributed under the License is distributed on an "AS IS" BASIS,       #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.#
+# See the License for the specific language governing permissions and     #
+# limitations under the License.                                          #
+#                                                                         #
+###########################################################################
 # Thomas Nagy, 2010-2015
 # Romain Le Godais, Nicolas Pauss, 2018
-# ruff: noqa: FA100,RUF012,UP006
+# ruff: noqa: RUF012, UP006
 
 import os.path as osp
 import re
@@ -74,7 +91,7 @@ def add_cython_file(self: BuildContext, node: Node) -> None:
 # {{{ CythonC compilation task
 
 
-class CythonC(c_tool.c): # type: ignore[misc]
+class CythonC(c_tool.c):  # type: ignore[misc]
 
     def get_cwd(self) -> Node:
         """
@@ -125,7 +142,7 @@ class CythonC(c_tool.c): # type: ignore[misc]
             '-Wno-uninitialized',
             '-Wno-declaration-after-statement',
             '-Wno-missing-field-initializers',
-            '-Wno-undef', # See https://github.com/cython/cython/issues/6014
+            '-Wno-undef',  # See https://github.com/cython/cython/issues/6014
         ])
 
         # Call original run method
@@ -176,11 +193,10 @@ class Cython(Task.Task):  # type: ignore[misc]
             self.has_api = False
             self.has_public = False
 
-
     run_str = '${CYTHON} ${CYTHONFLAGS} -o ${TGT[0].abspath()} ${SRC}'
-    color   = 'GREEN'
+    color = 'GREEN'
 
-    vars    = ['INCLUDES']
+    vars = ['INCLUDES']
     """
     Rebuild whenever the INCLUDES change. The variables such as CYTHONFLAGS
     will be appended by the metaclass.
@@ -297,9 +313,7 @@ class Cython(Task.Task):  # type: ignore[misc]
         inc_dirs.append(node.parent)
 
         # first with the inc_dirs
-        includes = set()
-        for m in RE_INCLUDE_CYT.finditer(txt):
-            includes.add(m.group(1))
+        includes = {m.group(1) for m in RE_INCLUDE_CYT.finditer(txt)}
         Logs.debug('cython: includes %r', includes)
 
         for include in sorted(includes):

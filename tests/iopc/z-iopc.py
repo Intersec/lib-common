@@ -36,7 +36,8 @@ class IopcTest(z.TestCase):
     # {{{ Helpers
 
     def run_iopc(self, iop: str, expect_pass: bool,
-                 errors: None | str | list[str], lang: str = '',
+                 errors: str | list[str] | None,
+                 lang: str = '',
                  class_id_range: str = '',
                  additional_args: str | None = None) -> None:
         iopc_args = [IOPC, os.path.join(TEST_PATH, iop)]
@@ -53,8 +54,7 @@ class IopcTest(z.TestCase):
             iopc_args.append('-lc')
 
         if class_id_range:
-            iopc_args.append('--class-id-range')
-            iopc_args.append(class_id_range)
+            iopc_args.extend(('--class-id-range', class_id_range))
 
         iopc_args.append('--Wextra')
 
@@ -101,7 +101,7 @@ class IopcTest(z.TestCase):
 
     @staticmethod
     def get_iop_json(iop: str) -> dict[str, Any]:
-        with open(os.path.join(TEST_PATH, iop+'.json'), 'r') as f:
+        with open(os.path.join(TEST_PATH, iop + '.json'), 'r') as f:
             return cast(dict[str, Any], json.load(f))
 
     def run_gcc(self, iop: str, expect_pass: bool = True) -> None:
@@ -121,7 +121,7 @@ class IopcTest(z.TestCase):
                     '-D_GNU_SOURCE',
                     '-I' + os.path.join(SELF_PATH, '../../src/compat'),
                     '-I' + os.path.join(SELF_PATH, '../../'),
-                    os.path.join(TEST_PATH, iop_c) ]
+                    os.path.join(TEST_PATH, iop_c)]
 
         with subprocess.Popen(gcc_args, stderr=subprocess.PIPE) as gcc_p:
             self.assertIsNotNone(gcc_p)
@@ -154,8 +154,8 @@ class IopcTest(z.TestCase):
         ref_file = pkg + '.ref.' + lang
         # Uncomment these lines to update the ref files after changing iopc
         # output
-        #import shutil
-        #shutil.copyfile(gen_file, ref_file)
+        # import shutil
+        # shutil.copyfile(gen_file, ref_file)
         self.assertEqual(subprocess.call(['diff', '-u', gen_file, ref_file]),
                          0)
 
@@ -364,7 +364,7 @@ class IopcTest(z.TestCase):
         self.run_gcc(f)
 
     # }}}
-#{{{Parsing values
+    # {{{ Parsing values
 
     def test_integer_ext_overflow(self) -> None:
         self.run_iopc('integer_ext_overflow.iop', False, 'integer overflow')
@@ -400,28 +400,28 @@ class IopcTest(z.TestCase):
 
     def test_defval(self) -> None:
         tests_invalid = [
-            {'f' : 'defval_bool_invalid.iop',
-             's' : 'invalid default value on bool field'},
-            {'f' : 'defval_double_nonzero.iop',
-             's' : 'violation of @nonZero constraint'},
-            {'f' : 'defval_double_string.iop',
-             's' : 'string default value on double field'},
-            {'f' : 'defval_enum_strict.iop',
-             's' : 'invalid default value on strict enum field'},
-            {'f' : 'defval_int_invalid.iop',
-             's' : 'invalid default value on integer field'},
-            {'f' : 'defval_int_max.iop',
-             's' : 'violation of @max constraint'},
-            {'f' : 'defval_int_min.iop',
-             's' : 'violation of @min constraint'},
-            {'f' : 'defval_int_nonzero.iop',
-             's' : 'violation of @nonZero constraint'},
-            {'f' : 'defval_int_unsigned.iop',
-             's' : 'invalid default value on unsigned integer field'},
-            {'f' : 'defval_str_invalid.iop',
-             's' : 'invalid default value on string field'},
-            {'f' : 'defval_str_maxlength.iop',
-             's' : 'violation of @maxLength constraint'},
+            {'f': 'defval_bool_invalid.iop',
+             's': 'invalid default value on bool field'},
+            {'f': 'defval_double_nonzero.iop',
+             's': 'violation of @nonZero constraint'},
+            {'f': 'defval_double_string.iop',
+             's': 'string default value on double field'},
+            {'f': 'defval_enum_strict.iop',
+             's': 'invalid default value on strict enum field'},
+            {'f': 'defval_int_invalid.iop',
+             's': 'invalid default value on integer field'},
+            {'f': 'defval_int_max.iop',
+             's': 'violation of @max constraint'},
+            {'f': 'defval_int_min.iop',
+             's': 'violation of @min constraint'},
+            {'f': 'defval_int_nonzero.iop',
+             's': 'violation of @nonZero constraint'},
+            {'f': 'defval_int_unsigned.iop',
+             's': 'invalid default value on unsigned integer field'},
+            {'f': 'defval_str_invalid.iop',
+             's': 'invalid default value on string field'},
+            {'f': 'defval_str_maxlength.iop',
+             's': 'violation of @maxLength constraint'},
         ]
         for t in tests_invalid:
             self.run_iopc(t['f'], False, t['s'])
@@ -497,27 +497,27 @@ class IopcTest(z.TestCase):
 
     def test_inheritance_class_id_ranges(self) -> None:
         self.run_iopc_fail('', 'invalid class-id-range',
-                           class_id_range = '10')
+                           class_id_range='10')
         self.run_iopc_fail('', 'invalid class-id-range',
-                           class_id_range = '-10')
+                           class_id_range='-10')
         self.run_iopc_fail('', 'invalid class-id-range',
-                           class_id_range = '-10-10')
+                           class_id_range='-10-10')
         self.run_iopc_fail('', 'invalid class-id-range',
-                           class_id_range = '65536-10')
+                           class_id_range='65536-10')
         self.run_iopc_fail('', 'invalid class-id-range',
-                           class_id_range = '10-9')
+                           class_id_range='10-9')
         self.run_iopc_fail('', 'invalid class-id-range',
-                           class_id_range = '10-65536')
+                           class_id_range='10-65536')
 
-        self.run_iopc_pass('inheritance_pkg_b.iop', class_id_range = '')
+        self.run_iopc_pass('inheritance_pkg_b.iop', class_id_range='')
         self.run_iopc_pass('inheritance_pkg_b.iop',
-                           class_id_range = '10-19')
+                           class_id_range='10-19')
         self.run_iopc('inheritance_pkg_b.iop', False,
                       'id is too small (must be >= 11, got 10)',
-                      class_id_range = '11-19')
+                      class_id_range='11-19')
         self.run_iopc('inheritance_pkg_b.iop', False,
                       'id is too large (must be <= 18, got 19)',
-                      class_id_range = '10-18')
+                      class_id_range='10-18')
 
     def test_inheritance(self) -> None:
         self.run_iopc_pass('inheritance_pkg_a.iop')
@@ -530,14 +530,14 @@ class IopcTest(z.TestCase):
         self.run_gcc('inheritance_pkg_b.iop')
 
         # Check that ClassContainer fields (which are classes) are pointed
-        self.check_file('inheritance_pkg_a-t.iop.h', string_list = [
+        self.check_file('inheritance_pkg_a-t.iop.h', string_list=[
             'inheritance_pkg_a__a1__t *nonnull class_container_a1;',
             'inheritance_pkg_a__b1__t *nullable class_container_b1;',
             'inheritance_pkg_a__a2__array_t class_container_a2;'])
 
         # Check the "same as" feature with inheritance
-        self.check_file('inheritance_pkg_b.iop.c', wanted = True,
-                        string_list = [
+        self.check_file('inheritance_pkg_b.iop.c', wanted=True,
+                        string_list=[
                             'inheritance_pkg_b__a1__desc_fields',
                             'inheritance_pkg_b__a2__desc_fields',
                             'inheritance_pkg_b__a3__desc_fields',
@@ -549,8 +549,8 @@ class IopcTest(z.TestCase):
                             'inheritance_pkg_b__a10__desc_fields',
                             'same as inheritance_pkg_b.A5',
                             'same as inheritance_pkg_b.A7'])
-        self.check_file('inheritance_pkg_b.iop.c', wanted = False,
-                        string_list = [
+        self.check_file('inheritance_pkg_b.iop.c', wanted=False,
+                        string_list=[
                             'same as inheritance_pkg_b.A1',
                             'same as inheritance_pkg_b.A3',
                             'same as inheritance_pkg_b.A9',
@@ -572,7 +572,7 @@ class IopcTest(z.TestCase):
 
     @z.ZFlags('redmine_50352', 'redmine_76975')
     def test_typedef_valid(self) -> None:
-        f  = 'typedef_valid_no_class.iop'
+        f = 'typedef_valid_no_class.iop'
         f1 = 'typedef_valid.iop'
         f2 = 'typedef1.iop'
         f3 = 'typedef2.iop'
@@ -895,12 +895,11 @@ class IopcTest(z.TestCase):
         self.run_iopc('generic_attrs_invalid_name.iop', False,
                       'invalid name for generic attribute: `=` is forbidden')
 
-
     # }}}
     # {{{ References
 
     def test_reference_valid(self) -> None:
-        f  = 'reference.iop'
+        f = 'reference.iop'
         self.run_iopc(f, True, None)
         self.run_gcc(f)
 
@@ -966,8 +965,8 @@ class IopcTest(z.TestCase):
         self.run_gcc('same_as.iop')
         self.check_file('same_as.iop.c', wanted=True, string_list=[
             'same_as__struct1__desc_fields', 'same as same_as.Struct1',
-            'same_as__union1__desc_fields',  'same as same_as.Union1',
-            'same_as__class1__desc_fields',  'same as same_as.Class1',
+            'same_as__union1__desc_fields', 'same as same_as.Union1',
+            'same_as__class1__desc_fields', 'same as same_as.Class1',
             'same_as__interface1__bar_args__desc_fields',
             'same_as__interface1__bar_res__desc_fields',
             'same_as__interface1__bar_exn__desc_fields',

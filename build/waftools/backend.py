@@ -15,7 +15,7 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# ruff: noqa: FA100,RUF012,UP006
+# ruff: noqa: FA100, RUF012, UP006
 
 """
 Contains the code needed for backend compilation.
@@ -88,6 +88,7 @@ def prepare_whole(self: TaskGen) -> None:
             )
         self.use.append(uw)
 
+
 @TaskGen.feature('c', 'cprogram', 'cstlib')
 @TaskGen.after_method('process_use')
 def process_whole(self: TaskGen) -> None:
@@ -118,6 +119,7 @@ def process_whole(self: TaskGen) -> None:
 # }}}
 # {{{ Filter-out zchk binaries in release mode
 
+
 """
 Tests are not compiled in release mode, so compiling zchk programs is useless
 then. This code filters them out.
@@ -126,12 +128,13 @@ It assumes all C task generators whose name begins with `zchk` are dedicated
 to tests (and only them).
 """
 
+
 def filter_out_zchk(ctx: BuildContext) -> None:
     for g in ctx.groups:
         for i in range(len(g) - 1, -1, -1):
             tgen = g[i]
             features = tgen.to_list(getattr(tgen, 'features', []))
-            if  tgen.name.startswith('zchk') and 'c' in features:
+            if tgen.name.startswith('zchk') and 'c' in features:
                 del g[i]
 
 
@@ -299,6 +302,7 @@ def compile_fuzzing_programs(ctx: BuildContext) -> None:
                                     cflags=fuzzing_cflags,
                                     cxxflags=fuzzing_cxxflags,
                                     ldflags=fuzzing_ldflags)
+
 
 @TaskGen.feature('fuzzing')
 @TaskGen.after_method('process_use')
@@ -511,10 +515,10 @@ def gen_syntastic(ctx: BuildContext) -> None:
 def gen_tags(ctx: BuildContext) -> None:
     if ctx.cmd == 'tags':
         tags_options = ''
-        tags_output  = '.tags'
+        tags_output = '.tags'
     elif ctx.cmd == 'etags':
         tags_options = '-e'
-        tags_output  = 'TAGS'
+        tags_output = 'TAGS'
     else:
         return
 
@@ -527,13 +531,13 @@ def gen_tags(ctx: BuildContext) -> None:
     ctx.groups = []
 
 
-class TagsClass(BuildContext): # type: ignore[misc]
+class TagsClass(BuildContext):  # type: ignore[misc]
     """generate tags using ctags"""
 
     cmd = 'tags'
 
 
-class EtagsClass(BuildContext): # type: ignore[misc]
+class EtagsClass(BuildContext):  # type: ignore[misc]
     """generate tags for emacs using ctags"""
 
     cmd = 'etags'
@@ -631,7 +635,6 @@ def get_old_gen_files(ctx: BuildContext) -> List[Node]:
             if dirnames[i].startswith('.'):
                 del dirnames[i]
 
-
     # Get all committed files
     git_files = set(get_git_files_recur(ctx))
 
@@ -643,8 +646,7 @@ def get_old_gen_files(ctx: BuildContext) -> List[Node]:
     for tgen in ctx.get_all_task_gen():
         tgen.post()
         for task in tgen.tasks:
-            for output in task.outputs:
-                gen_files_set.discard(output)
+            gen_files_set.difference_update(task.outputs)
 
     # The files that are still in gen_files_set are old ones that should not
     # be on disk anymore.
@@ -652,7 +654,7 @@ def get_old_gen_files(ctx: BuildContext) -> List[Node]:
 
 
 def old_gen_files_detect(ctx: BuildContext) -> None:
-    if ctx.cmd not in ['old-gen-files-detect', 'old-gen-files-delete']:
+    if ctx.cmd not in {'old-gen-files-detect', 'old-gen-files-delete'}:
         return
 
     # Get the list of old generated files and print it
@@ -679,13 +681,13 @@ def old_gen_files_detect(ctx: BuildContext) -> None:
             node.delete()
 
 
-class OldGenFilesDetect(BuildContext): # type: ignore[misc]
+class OldGenFilesDetect(BuildContext):  # type: ignore[misc]
     """detect old generated files on disk"""
 
     cmd = 'old-gen-files-detect'
 
 
-class OldGenFilesDelete(BuildContext): # type: ignore[misc]
+class OldGenFilesDelete(BuildContext):  # type: ignore[misc]
     """delete old generated files on disk"""
 
     cmd = 'old-gen-files-delete'
@@ -719,7 +721,7 @@ def coverage_start_cmd(ctx: BuildContext) -> None:
     ctx.groups = []
 
 
-class CoverageStartClass(BuildContext): # type: ignore[misc]
+class CoverageStartClass(BuildContext):  # type: ignore[misc]
     """start a coverage session (requires coverage profile)"""
 
     cmd = 'coverage-start'
@@ -787,7 +789,7 @@ def coverage_end_cmd(ctx: BuildContext) -> None:
     ctx.groups = []
 
 
-class CoverageReportClass(BuildContext): # type: ignore[misc]
+class CoverageReportClass(BuildContext):  # type: ignore[misc]
     """end a coverage session and produce a report"""
 
     cmd = 'coverage-end'
@@ -823,13 +825,13 @@ def compute_clang_extra_cflags(self: BuildContext, clang_flags: List[str],
     return [flag for flag in cflags if keep_flag(flag)]
 
 
-class Blk2c(Task): # type: ignore[misc]
+class Blk2c(Task):  # type: ignore[misc]
     run_str = ['rm -f ${TGT}',
                ('${CLANG_REWRITE_BLOCKS} -x c ${CLANG_REWRITE_FLAGS} '
                 '${CLANG_CFLAGS} -DIS_CLANG_BLOCKS_REWRITER '
                 '${CLANG_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
                 '${SRC} -o ${TGT}')]
-    ext_out = [ '.c' ]
+    ext_out = ['.c']
     color = 'CYAN'
 
     @classmethod
@@ -885,12 +887,12 @@ def process_blk(self: TaskGen, node: Node) -> None:
 # }}}
 # {{{ BLKK
 
-class Blkk2cc(Task): # type: ignore[misc]
+class Blkk2cc(Task):  # type: ignore[misc]
     run_str = ['rm -f ${TGT}',
                ('${CLANG_REWRITE_BLOCKS} -x c++ ${CLANGXX_REWRITE_FLAGS} '
                 '${CLANGXX_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
                 '${SRC} -o ${TGT}')]
-    ext_out = [ '.cc' ]
+    ext_out = ['.cc']
     color = 'CYAN'
 
     @classmethod
@@ -943,9 +945,9 @@ def process_blkk(self: TaskGen, node: Node) -> None:
 # {{{ PERF
 
 
-class Perf2c(Task): # type: ignore[misc]
+class Perf2c(Task):  # type: ignore[misc]
     run_str = '${GPERF} --language ANSI-C --output-file ${TGT} ${SRC}'
-    color   = 'BLUE'
+    color = 'BLUE'
 
     @classmethod
     def keyword(cls: Type['Perf2c']) -> str:
@@ -966,9 +968,9 @@ def process_perf(self: TaskGen, node: Node) -> None:
 # }}}
 # {{{ LEX
 
-class Lex2c(Task): # type: ignore[misc]
+class Lex2c(Task):  # type: ignore[misc]
     run_str = ['rm -f ${TGT}', '${FLEX_SH} ${SRC} ${TGT}']
-    color   = 'BLUE'
+    color = 'BLUE'
 
     @classmethod
     def keyword(cls: Type['Lex2c']) -> str:
@@ -990,7 +992,7 @@ def process_lex(self: TaskGen, node: Node) -> None:
 # {{{ FC
 
 
-class FirstInputStrTask(Task): # type: ignore[misc]
+class FirstInputStrTask(Task):  # type: ignore[misc]
 
     def __str__(self) -> str:
         node = self.inputs[0]
@@ -1000,8 +1002,8 @@ class FirstInputStrTask(Task): # type: ignore[misc]
 
 class Fc2c(FirstInputStrTask):
     run_str = ['rm -f ${TGT}', '${FARCHC} -c -o ${TGT} ${SRC[0].abspath()}']
-    color   = 'BLUE'
-    before  = ['Blk2c', 'Blkk2cc', 'ClangCheck']
+    color = 'BLUE'
+    before = ['Blk2c', 'Blkk2cc', 'ClangCheck']
     ext_out = ['.h']
 
     @classmethod
@@ -1054,7 +1056,7 @@ def process_fc(self: TaskGen, node: Node) -> None:
 # {{{ TOKENS
 
 
-class Tokens2c(Task): # type: ignore[misc]
+class Tokens2c(Task):  # type: ignore[misc]
     run_str = ('${TOKENS_SH} ${SRC[0].abspath()} ${TGT[0]} && '
                '${TOKENS_SH} ${SRC[0].abspath()} ${TGT[1]}')
     color = 'BLUE'
@@ -1186,9 +1188,9 @@ class IopcOptions:
 
 
 class Iop2c(FirstInputStrTask):
-    color   = 'BLUE'
+    color = 'BLUE'
     ext_out = ['.h', '.c']
-    before  = ['Blk2c', 'Blkk2cc', 'ClangCheck']
+    before = ['Blk2c', 'Blkk2cc', 'ClangCheck']
 
     @classmethod
     def keyword(cls: Type['Iop2c']) -> str:
@@ -1243,6 +1245,7 @@ class Iop2c(FirstInputStrTask):
 
 
 RE_IOP_PACKAGE = re.compile(r'^package (.*);$', re.MULTILINE)
+
 
 def iop_get_package_path(self: BuildContext, node: Node) -> str:
     """
@@ -1299,11 +1302,11 @@ def process_iop(self: TaskGen, node: Node) -> None:
         task.set_run_after(ctx.iopc_task)
 
         # Set options in environment
-        task.env.IOP_LANGUAGES   = opts.languages
-        task.env.IOP_INCLUDES    = opts.includes_option
+        task.env.IOP_LANGUAGES = opts.languages
+        task.env.IOP_INCLUDES = opts.includes_option
         task.env.IOP_CLASS_RANGE = opts.class_range_option
         task.env.IOP_JSON_OUTPUT = opts.json_output_option
-        task.env.IOP_TS_OUTPUT   = opts.ts_output_option
+        task.env.IOP_TS_OUTPUT = opts.ts_output_option
 
     self.source.append(c_node)
 
@@ -1327,10 +1330,10 @@ class Pxc2Pxd(FirstInputStrTask):
     run_str = ('${PXCC} ${CLANG_FLAGS} ${CLANG_CFLAGS} ${CLANG_EXTRA_CFLAGS} '
                '-fno-blocks ${CPPPATH_ST:INCPATHS} ${SRC[0].abspath()} '
                '-o ${TGT}')
-    color   = 'BLUE'
-    before  = 'Cython'
-    after   = 'Iop2c'
-    scan    = c_preproc.scan # pxc files are C-like files
+    color = 'BLUE'
+    before = 'Cython'
+    after = 'Iop2c'
+    scan = c_preproc.scan  # pxc files are C-like files
 
     @classmethod
     def keyword(cls: Type['Pxc2Pxd']) -> str:
@@ -1363,7 +1366,7 @@ def process_pxcc(self: TaskGen, node: Node) -> None:
 # {{{ .c checks using clang
 
 
-class ClangCheck(Task): # type: ignore[misc]
+class ClangCheck(Task):  # type: ignore[misc]
     run_str = ('${CLANG} -x c -O0 -fsyntax-only ${CLANG_FLAGS} '
                '${CLANG_CFLAGS} ${CLANG_EXTRA_CFLAGS} ${CPPPATH_ST:INCPATHS} '
                '${SRC} -o /dev/null')
@@ -1438,6 +1441,7 @@ def options(ctx: OptionsContext) -> None:
 # }}}
 # {{{ configure
 # {{{ llvm/clang
+
 
 def llvm_clang_configure(ctx: ConfigurationContext) -> None:
     # Minimum supported version
@@ -1527,8 +1531,8 @@ def llvm_clang_configure(ctx: ConfigurationContext) -> None:
                   f'libclang-cpp.so.{llvm_version_major}.{llvm_version_minor}'
                   ' in any clang path')
     ctx.env.append_value('LIB_clang_cpp', [clang_cpp_lib])
-    ctx.env.CXXFLAGS_clang_cpp =  ctx.env.CXXFLAGS_llvm
-    ctx.env.LDFLAGS_clang_cpp =  ctx.env.LDFLAGS_clang
+    ctx.env.CXXFLAGS_clang_cpp = ctx.env.CXXFLAGS_llvm
+    ctx.env.LDFLAGS_clang_cpp = ctx.env.LDFLAGS_clang
     ctx.env.INCLUDES_clang_cpp = ctx.env.INCLUDES_clang
 
     # Check installation of libclang
@@ -1833,6 +1837,7 @@ PROFILES: Dict[str, Callable[[ConfigurationContext], None]] = {
 
 # }}}
 
+
 def configure(ctx: ConfigurationContext) -> None:
     ctx.env.CONFIGURE_TIME = time.time()
 
@@ -1851,7 +1856,7 @@ def configure(ctx: ConfigurationContext) -> None:
     # Check dependencies
     ctx.find_program('objcopy', var='OBJCOPY')
 
-    build_dir  = os.path.join(ctx.path.abspath(), 'build')
+    build_dir = os.path.join(ctx.path.abspath(), 'build')
     ctx.find_program('run_checks.sh', path_list=[build_dir],
                      var='RUN_CHECKS_SH')
     ctx.find_program('tokens.sh', path_list=[build_dir], var='TOKENS_SH')
@@ -1863,7 +1868,7 @@ def configure(ctx: ConfigurationContext) -> None:
     ctx.load('cython_intersec')
 
 
-class IsConfigurationContext(ConfigurationContext): # type: ignore[misc]
+class IsConfigurationContext(ConfigurationContext):  # type: ignore[misc]
 
     def execute(self) -> None:
         # Run configure

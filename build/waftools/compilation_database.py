@@ -1,3 +1,20 @@
+###########################################################################
+#                                                                         #
+# Copyright 2025 INTERSEC SA                                              #
+#                                                                         #
+# Licensed under the Apache License, Version 2.0 (the "License");         #
+# you may not use this file except in compliance with the License.        #
+# You may obtain a copy of the License at                                 #
+#                                                                         #
+#     http://www.apache.org/licenses/LICENSE-2.0                          #
+#                                                                         #
+# Unless required by applicable law or agreed to in writing, software     #
+# distributed under the License is distributed on an "AS IS" BASIS,       #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.#
+# See the License for the specific language governing permissions and     #
+# limitations under the License.                                          #
+#                                                                         #
+###########################################################################
 # Borrowed from waf sources: https://gitlab.com/ita1024/waf/-/blob/master/waflib/extras/clang_compilation_database.py
 # Christoph Koke, 2013
 # Alibek Omarov, 2019
@@ -24,7 +41,7 @@ Usage:
         ...
         conf.load('compilation_database')
 """
-# ruff: noqa: FA100,UP006
+# ruff: noqa: FA100, UP006
 
 from typing import (  # noqa: UP035 (deprecated-import)
     # We still need to use List, Dict and Type here because this file
@@ -38,12 +55,7 @@ from typing import (  # noqa: UP035 (deprecated-import)
     Union,
 )
 
-from waflib import (
-    Build,
-    Logs,
-    Scripting,
-    Task,
-)
+from waflib import Build, Logs, Scripting, Task
 from waflib.Node import Node
 
 if TYPE_CHECKING:
@@ -141,14 +153,13 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
         assert TASK_CLASSES is not None
 
         # Get the file compilation type from the task class
-        additional_args = []
+        additional_args: List[str] = []
         if isinstance(task, (TASK_CLASSES['c'], TASK_CLASSES['Blk2c'])):
             if is_dep:
                 # XXX: Due to a bug with clang with '-fsyntax-only'
                 # on headers, clang still complains about unused symbols even
                 # when specifying the header type.
-                additional_args.append('-xc-header')
-                additional_args.append('-Wno-unused')
+                additional_args.extend(('-xc-header', '-Wno-unused'))
             else:
                 additional_args.append('-xc')
         elif isinstance(task, (TASK_CLASSES['cxx'], TASK_CLASSES['Blkk2cc'])):
@@ -156,8 +167,7 @@ class CompileDbContext(Build.BuildContext):  # type: ignore[misc]
                 # XXX: Due to a bug with clang with '-fsyntax-only'
                 # on headers, clang still complains about unused symbols even
                 # when specifying the header type.
-                additional_args.append('-xcxx-header')
-                additional_args.append('-Wno-unused')
+                additional_args.extend(('-xcxx-header', '-Wno-unused'))
             else:
                 additional_args.append('-xcxx')
 

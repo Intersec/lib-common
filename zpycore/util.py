@@ -124,7 +124,7 @@ def wipe_children_register() -> Iterator[None]:
     except OSError:
         pass
     signal.signal(signal.SIGTERM, wipe_children_sig)
-    signal.signal(signal.SIGINT,  wipe_children_sig)
+    signal.signal(signal.SIGINT, wipe_children_sig)
     signal.signal(signal.SIGQUIT, wipe_children_sig)
     THR = threading.Thread(target=wipe_background_thread)
 

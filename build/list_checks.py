@@ -44,10 +44,10 @@ def is_exec(f: str) -> bool:
 
 
 GROUPS = [
-    ('behave', re.compile(r'.*/behave'),     None),
-    ('web',    re.compile(r'.*testem.json'), is_file),
-    ('web',    re.compile(r'.*/check_php'),  None),
-    ('C',      re.compile(r'.+'),            is_exec),  # default case
+    ('behave', re.compile(r'.*/behave'), None),
+    ('web', re.compile(r'.*testem.json'), is_file),
+    ('web', re.compile(r'.*/check_php'), None),
+    ('C', re.compile(r'.+'), is_exec),  # default case
 ]
 RE_TAGS = re.compile(r'@([A-Za-z0-9_]+)')
 Z_TAG_SKIP = set(os.getenv('Z_TAG_SKIP', '').split())

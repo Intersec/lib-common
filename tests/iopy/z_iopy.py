@@ -46,6 +46,8 @@ TEST_PATH = os.path.join(SELF_PATH, 'testsuite')
 
 
 PORT_COUNT = 9900
+
+
 def make_uri() -> str:
     global PORT_COUNT
     PORT_COUNT -= 1
@@ -120,7 +122,7 @@ def z_iopy_test_threads_and_forks(
         f'threads results are not all valid: {res_list}'
     )
 
-    assert all(x == 0 for x in res_codes) , (
+    assert all(x == 0 for x in res_codes), (
         f"child processes don't all exit successfully: {res_codes}"
     )
 
@@ -346,10 +348,11 @@ class IopyTest(z.TestCase):
             'enums_as_int',
             'minimal',
         ]
+
         def check_json_compat_options(obj: iopy.StructBase) -> None:
             self.assertEqual(json.loads(obj.to_json()), obj.to_dict())
             for option in options_list:
-                kwargs = { option: True }
+                kwargs = {option: True}
                 self.assertEqual(json.loads(obj.to_json(**kwargs)),
                                  obj.to_dict(**kwargs))
 
@@ -430,7 +433,6 @@ class IopyTest(z.TestCase):
         # Check JSON compatibility and all options
         check_json_compat_options(struct_to_dict)
 
-
         # Check with a class directly
         dict_class_b = {
             '_class': 'test.ClassB',
@@ -449,7 +451,6 @@ class IopyTest(z.TestCase):
 
         # Check JSON compatibility and all options
         check_json_compat_options(class_b)
-
 
         # Check with a union
         dict_union_a = {
@@ -479,7 +480,7 @@ class IopyTest(z.TestCase):
         @z_monkey_patch(self.r.test.ClassA)
         class test_ClassA:  # noqa: N801 (invalid-class-name)
             def fun(self) -> int:
-                res: int = self.field1 # type: ignore[attr-defined]
+                res: int = self.field1  # type: ignore[attr-defined]
                 return res
 
         b = self.r.test.ClassB(field1=1)
@@ -630,9 +631,9 @@ class IopyTest(z.TestCase):
         self.assertTrue(e1 >= e2)
         self.assertTrue(e1 != e3)
         self.assertTrue(e1 <= e3)
-        self.assertTrue(e1 <  e3)
+        self.assertTrue(e1 < e3)
         self.assertTrue(e3 >= e1)
-        self.assertTrue(e3 >  e1)
+        self.assertTrue(e3 > e1)
 
         tab = self.r.test_emptystuffs.Tab(
             a=[self.r.test_emptystuffs.A(), self.r.test_emptystuffs.B()],
@@ -668,7 +669,7 @@ class IopyTest(z.TestCase):
         self.assertEqual(a, self.r.test.StructA(_json=j))
 
         # check that private fields are skipped
-        c = self.r.test.StructC(u=1, priv = 'toto')
+        c = self.r.test.StructC(u=1, priv='toto')
         d = self.r.test.StructC(u=1)
         j = c.to_json()
         self.assertEqual(c, self.r.test.StructC(_json=j))
@@ -879,6 +880,7 @@ class IopyTest(z.TestCase):
         @z_monkey_patch(self.r.test.StructA)
         class test_StructA:  # noqa: N801 (invalid-class-name)
             r = self.r
+
             def __init__(self, **kwargs: Any) -> None:
                 self.class_a = self.r.test.ClassA(**kwargs)
                 super(test_StructA, self).__init__()
@@ -1271,9 +1273,9 @@ class IopyTest(z.TestCase):
         a1 = self.p.test.EnumA('A')
         self.assertEqual(a1.foo(), 'foo')
         self.assertEqual(a1.bar(), 'bar')
-        a2 = test_EnumA1('A') # type: ignore[call-arg]
+        a2 = test_EnumA1('A')  # type: ignore[call-arg]
         self.assertEqual(a2.foo(), 'foo')
-        self.assertEqual(a2.bar(), 'bar') # type: ignore[attr-defined]
+        self.assertEqual(a2.bar(), 'bar')  # type: ignore[attr-defined]
         self.assertEqual(a1, a2)
 
         class test_ClassA1:  # noqa: N801 (invalid-class-name)
@@ -1298,8 +1300,8 @@ class IopyTest(z.TestCase):
         self.assertEqual(b1.bar(), 'bar')
         self.assertEqual(b1.baz(), 'baz')
         b2 = ClassB()
-        self.assertEqual(b2.foo(), 'foo') # type: ignore[attr-defined]
-        self.assertEqual(b2.bar(), 'bar') # type: ignore[attr-defined]
+        self.assertEqual(b2.foo(), 'foo')  # type: ignore[attr-defined]
+        self.assertEqual(b2.bar(), 'bar')  # type: ignore[attr-defined]
         self.assertEqual(b2.baz(), 'baz')
         self.assertEqual(b1, b2)
 
@@ -1392,7 +1394,6 @@ class IopyTest(z.TestCase):
         self.assertFalse(a_desc.non_empty)
         self.assertIsNone(a_desc.pattern)
 
-
         b_desc = desc.fields['b']
 
         self.assertEqual(b_desc.help.brief, 'B brief documentation.')
@@ -1425,7 +1426,6 @@ class IopyTest(z.TestCase):
         self.assertIsNone(b_desc.max_occurs)
         self.assertIsNone(b_desc.length)
         self.assertFalse(b_desc.non_zero)
-
 
         c_desc = desc.fields['c']
 
@@ -1506,7 +1506,6 @@ class IopyTest(z.TestCase):
         self.assertFalse(a_desc.non_empty)
         self.assertIsNone(a_desc.pattern)
 
-
         b_desc = desc.fields['b']
 
         self.assertEqual(b_desc.help.brief, 'B brief documentation.')
@@ -1539,7 +1538,6 @@ class IopyTest(z.TestCase):
         self.assertFalse(b_desc.non_zero)
         self.assertFalse(b_desc.non_empty)
         self.assertFalse(b_desc.cdata)
-
 
         c_desc = desc.fields['c']
 
@@ -1643,7 +1641,6 @@ class IopyTest(z.TestCase):
         self.assertEqual(a_desc.iop_type, 'test.StructA')
         self.assertEqual(a_desc.py_type, self.p.test.StructA)
 
-
         # Child class
         child_desc = self.p.test.ChildClassDescription.get_iop_description()
 
@@ -1685,13 +1682,13 @@ class IopyTest(z.TestCase):
         self.assertIs(child_desc.cls_statics['staticB'], child_static_b_desc)
 
         # XXX: It is not exported by iopc.
-        #self.assertEqual(child_static_b_desc.help.brief,
+        # self.assertEqual(child_static_b_desc.help.brief,
         #                 'Static B brief documentation.')
-        #self.assertEqual(child_static_b_desc.help.details,
+        # self.assertEqual(child_static_b_desc.help.details,
         #                 'Static B detailed documentation.')
-        #self.assertEqual(child_static_b_desc.help.warning,
+        # self.assertEqual(child_static_b_desc.help.warning,
         #                 'Static B warning documentation.')
-        #self.assertIsNone(child_static_b_desc.help.example)
+        # self.assertIsNone(child_static_b_desc.help.example)
 
         self.assertEqual(child_static_b_desc.iop_type, 'long')
         self.assertEqual(child_static_b_desc.py_type, int)
@@ -1772,11 +1769,11 @@ class IopyTest(z.TestCase):
 
         # Fail test multiple args
         with self.assertRaises(TypeError):
-            self.r.test.StructA({ 'e': 'A' }, { 'e': 'B' })
+            self.r.test.StructA({'e': 'A'}, {'e': 'B'})
 
         # Fail test with dict arg and kwargs
         with self.assertRaises(TypeError):
-            self.r.test.StructA({ 'e': 'A' }, e='B')
+            self.r.test.StructA({'e': 'A'}, e='B')
 
         # Fail test not a class
         exp = r'IOPy type `test.StructA` is not a class'
@@ -1878,7 +1875,6 @@ class IopyTest(z.TestCase):
             self.assertEqual(td_desc.attrs.generic_attributes,
                              {'is:td': 1})
 
-
         _check('ByteTypedef', int, True)
         _check('UbyteTypedef', int, True)
         _check('ShortTypedef', int, True)
@@ -1896,10 +1892,10 @@ class IopyTest(z.TestCase):
         _check('VoidTypedef', type(None), False)
 
         _check('EnumATypedef', self.r.test.EnumA, True)
-        _check('UnionATypedef',  self.r.test.UnionA, True, i=10)
-        _check('StructATypedef',  self.r.test.StructA, True)
-        _check('ClassATypedef',  self.r.test.ClassA, True)
-        _check('VoidRequired',  self.r.testvoid.VoidRequired, True)
+        _check('UnionATypedef', self.r.test.UnionA, True, i=10)
+        _check('StructATypedef', self.r.test.StructA, True)
+        _check('ClassATypedef', self.r.test.ClassA, True)
+        _check('VoidRequired', self.r.testvoid.VoidRequired, True)
 
 
 # }}}
@@ -2026,14 +2022,21 @@ class IopyIfaceTests(z.TestCase):
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA1:  # noqa: N801 (invalid-class-name)
-            def __pre_hook__(self, rpc: iopy.RPCBase, *args: Any,
-                             **kwargs: Any) -> None:
+            def __pre_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
+                    self,
+                    rpc: iopy.RPCBase,
+                    *args: Any,
+                    **kwargs: Any,
+            ) -> None:
                 self.pre_hook_rpc = rpc
                 self.pre_hook_args = args
                 self.pre_hook_kwargs = kwargs
 
-            def __post_hook__(self, rpc: iopy.RPCBase,
-                              res: iopy.StructUnionBase) -> None:
+            def __post_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
+                    self,
+                    rpc: iopy.RPCBase,
+                    res: iopy.StructUnionBase,
+            ) -> None:
                 self.post_hook_rpc = rpc
                 self.post_hook_res = res
 
@@ -2078,14 +2081,20 @@ class IopyIfaceTests(z.TestCase):
         class test_InterfaceA2:  # noqa: N801 (invalid-class-name)
             r = self.r
 
-            def __pre_hook__(self, rpc: iopy.RPCBase, *args: Any,
-                             **kwargs: Any) -> tuple[tuple[Any, ...],
-                                                     dict[str, Any]]:
+            def __pre_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
+                    self,
+                    rpc: iopy.RPCBase,
+                    *args: Any,
+                    **kwargs: Any,
+            ) -> tuple[tuple[Any, ...], dict[str, Any]]:
                 return ((), {'a': type(self).r.test.ClassA()})
 
             @classmethod
-            def __post_hook__(cls, rpc: iopy.RPCBase,
-                              res: iopy.StructUnionBase) -> int:
+            def __post_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
+                    cls,
+                    rpc: iopy.RPCBase,
+                    res: iopy.StructUnionBase,
+            ) -> int:
                 return 0
 
         ret = iface.funA(0, x=0, y=0)
@@ -2098,15 +2107,21 @@ class IopyIfaceTests(z.TestCase):
         class test_InterfaceA3:  # noqa: N801 (invalid-class-name)
             r = self.r
 
-            def __pre_hook__(self, rpc: iopy.RPCBase, *args: Any,
-                             **kwargs: Any) -> tuple[tuple[Any, ...],
-                                                     dict[str, Any]]:
+            def __pre_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
+                    self,
+                    rpc: iopy.RPCBase,
+                    *args: Any,
+                    **kwargs: Any,
+            ) -> tuple[tuple[Any, ...], dict[str, Any]]:
                 new_args = (rpc.arg()(a=type(self).r.test.ClassA()),)
                 return (new_args, {})
 
             @classmethod
-            def __post_hook__(cls, rpc: iopy.RPCBase,
-                              res: iopy.StructUnionBase) -> int:
+            def __post_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
+                    cls,
+                    rpc: iopy.RPCBase,
+                    res: iopy.StructUnionBase,
+            ) -> int:
                 return 0
 
         ret = iface.funA(0, x=0, y=0)
@@ -2164,12 +2179,19 @@ class IopyIfaceTests(z.TestCase):
 
         @z_monkey_patch(self.r.test.interfaces.InterfaceA)
         class test_InterfaceA6:  # noqa: N801 (invalid-class-name)
-            def __pre_hook__(self, rpc: iopy.RPCBase, *args: Any,
-                             **kwargs: Any) -> None:
+            def __pre_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
+                    self,
+                    rpc: iopy.RPCBase,
+                    *args: Any,
+                    **kwargs: Any,
+            ) -> None:
                 self.attr1 = 2
 
-            def __post_hook__(self, rpc: iopy.RPCBase,
-                              res: iopy.StructUnionBase) -> None:
+            def __post_hook__(  # noqa: PLW3201 (bad-dunder-method-name)
+                    self,
+                    rpc: iopy.RPCBase,
+                    res: iopy.StructUnionBase,
+            ) -> None:
                 self.attr2 = 2
 
         iface.funA(a=self.r.test.ClassA())
@@ -2386,7 +2408,7 @@ class IopyIfaceTests(z.TestCase):
         self.assertEqual(iface1.bar(), 'bar')
         iface2 = test_InterfaceA1
         self.assertEqual(iface2.foo(), 'foo')
-        self.assertEqual(iface2.bar(), 'bar') # type: ignore[attr-defined]
+        self.assertEqual(iface2.bar(), 'bar')  # type: ignore[attr-defined]
         self.assertEqual(str(iface1), str(iface2))
 
     def test_iface_with_dict_arg(self) -> None:
@@ -2566,6 +2588,7 @@ class IopyIfaceTests(z.TestCase):
         # Check with an exception callback, the error should be retrieved by
         # the callback
         exc_type = []
+
         def on_exception_cb_catch(exc: Exception) -> None:
             exc_type.append(type(exc))
         s.on_exception = on_exception_cb_catch
@@ -2622,6 +2645,7 @@ class IopyIfaceTests(z.TestCase):
         # Check with an exception callback, the error should be retrieved by
         # the callback
         exc_type = []
+
         def on_exception_cb_connect_catch(exc: Exception) -> None:
             exc_type.append(type(exc))
         c.on_exception = on_exception_cb_connect_catch
@@ -2670,6 +2694,7 @@ class IopyIfaceTests(z.TestCase):
         # Check with an exception callback, the error should be retrieved by
         # the callback
         exc_type = []
+
         def on_exception_cb_disconnect_catch(exc: Exception) -> None:
             exc_type.append(type(exc))
         c.on_exception = on_exception_cb_disconnect_catch
@@ -2773,7 +2798,7 @@ class IopyVoidTest(z.TestCase):
 
         # deleting required field fails
         with self.assertRaises(iopy.Error):
-            del(s.a)
+            del s.a
 
     def test_void_struct_optional(self) -> None:
         # optional void arg can be set
@@ -2790,7 +2815,7 @@ class IopyVoidTest(z.TestCase):
         self.assertIsNone(s.a)
 
         # check deleting optional field clears it
-        del(s.a)
+        del s.a
         self.assertFalse(hasattr(s, 'a'))
 
         # Setting to anything but None behave the same way
@@ -2910,7 +2935,7 @@ class IopyCompatibilityTests(z.TestCase):
     def test_iface_name(self) -> None:
         """Test iface __name__ works as a property and as a method"""
         iface = self.p.test.interfaces.InterfaceA
-        self.assertEqual(iface.__name__,   'test.InterfaceA')
+        self.assertEqual(iface.__name__, 'test.InterfaceA')
         self.assertEqual(iface.__name__(), 'test.InterfaceA')
 
     def test_iface_types(self) -> None:
@@ -3079,6 +3104,7 @@ class IopyAsyncTests(z.TestCase):
             return rpc_args.res(status='B', res=0)
 
         self.async_done = False
+
         def rpc_impl_async(rpc_args: iopy.RPCArgs) -> None:
             check_hdr(rpc_args)
             self.async_done = True

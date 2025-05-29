@@ -279,9 +279,11 @@ def create_corpus_files_and_dict(
     corpus_set: set[bytes] = set()
 
     assert generate_files or fuzz_dict_name is not None
-    for i, corpus_case in enumerate(corpus):
-        if not isinstance(corpus_case, list):
-            corpus_case = [corpus_case]
+    for i, corpus_case_it in enumerate(corpus):
+        if not isinstance(corpus_case_it, list):
+            corpus_case = [corpus_case_it]
+        else:
+            corpus_case = corpus_case_it
 
         if any(discard_fuzzing_operation(item.step, category)
                for item in corpus_case):
