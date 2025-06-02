@@ -474,7 +474,7 @@ class PylintClass(BuildContext):  # type: ignore[misc]
 
 
 def run_ruff(ctx: BuildContext) -> None:
-    if ctx.cmd != 'ruff':
+    if ctx.cmd not in {'ruff', 'ruff-fix'}:
         return
 
     # Reset the build
@@ -488,14 +488,16 @@ def run_ruff(ctx: BuildContext) -> None:
     files_args = Options.commands[:]
     Options.commands.clear()
 
+    fix = '--fix --unsafe-fixes' if ctx.cmd == 'ruff-fix' else ''
+
     if files_args:
         # If files are passed manually, use them directly
         file_args = ' '.join(f'"{f}"' for f in files_args)
-        rule = f'ruff check {file_args}'
+        rule = f'ruff check {fix} {file_args}'
     else:
         # Use shell pipeline to get files and check them
-        rule = ("git ls-files '*.py' '**/*.py' "
-                "'wscript*' '**/wscript*' | xargs ruff check")
+        rule = ('git ls-files "*.py" "**/*.py" '
+                f'"wscript*" "**/wscript*" | xargs ruff check {fix}')
 
     # One task, run everything at once
     ctx.cmd_and_log(cmd=rule, shell=True, stdout=None, stderr=None)
@@ -505,6 +507,12 @@ class RuffClass(BuildContext):  # type: ignore[misc]
     """run ruff checks on committed python files"""
 
     cmd = 'ruff'
+
+
+class RuffFixClass(BuildContext):  # type: ignore[misc]
+    """run ruff check fixes on committed python files"""
+
+    cmd = 'ruff-fix'
 
 
 # }}}
