@@ -100,6 +100,7 @@ struct z_blktst {
 
 struct z_blkgrp {
     lstr_t name;
+    lstr_t file;
 
     int  (BLOCK_CARET before)(void);
     block_t after;
@@ -283,7 +284,7 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
     __cold static void z_##_grp(void) {                                   \
         static struct z_blkgrp *grp = &_grp;                              \
                                                                           \
-        z_register_blkgroup(grp);                                         \
+        z_register_blkgroup(grp, __FILE__);                               \
     }
 
 #ifdef NDEBUG
@@ -580,7 +581,7 @@ int  z_setup(int argc, char **argv);
 void z_register_exports(const char *prefix);
 void z_register_group(z_cb_f cb);
 #ifdef __has_blocks
-void z_register_blkgroup(struct z_blkgrp const *);
+void z_register_blkgroup(struct z_blkgrp const *, const char *file);
 #endif
 int  z_run(void);
 bool z_is_list_mode_on(void);

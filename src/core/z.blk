@@ -82,6 +82,7 @@ static struct {
 
     qh_t(lstr)    tag_skip;
     qh_t(lstr)    tag_or;
+    qv_t(lstr)    prefixes;
 
     /* Command-line options. */
     lstr_t      arg0;
@@ -169,6 +170,7 @@ void z_blkgrp_wipe(struct z_blkgrp *g, bool delete_tests)
         blktst_wipe(&g->tests[i]);
     }
     lstr_wipe(&g->name);
+    lstr_wipe(&g->file);
     if (delete_tests)
         p_delete(&g->tests);
     Block_release(g->before);
@@ -188,6 +190,7 @@ static void z_shutdown(void)
     qv_wipe(&_G.only);
     qh_wipe(lstr, &_G.tag_skip);
     qh_wipe(lstr, &_G.tag_or);
+    qv_deep_wipe(&_G.prefixes, lstr_wipe);
     lstr_wipe(&_G.arg0);
     p_delete(&_G.wd);
     p_close(&z_tmpdfd_g);
@@ -1174,9 +1177,24 @@ static void _z_check_test_name(lstr_t name, const char *what)
     }
 }
 
+static bool _z_blkgrp_matches_prefixes(const struct z_blkgrp *g)
+{
+    tab_for_each_entry(prefix, &_G.prefixes) {
+        if (lstr_startswith(g->file, prefix)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void _z_blkgrp_process(struct z_blkgrp *g)
 {
     t_scope;
+
+    if (!_z_blkgrp_matches_prefixes(g)) {
+        return;
+    }
 
     __z_group_start(g->name);
     if (_z_is_group_ignored()) {
@@ -1410,14 +1428,22 @@ void z_register_group(void (*cb)(void))
 
 void z_register_exports(const char *prefix)
 {
+    /* Register tests exported with Z_GROUP_EXPORT */
     for (struct z_export *ex = z_exports_g; ex; ex = ex->prev) {
         if (!prefix || strstart(ex->file, prefix, NULL)) {
             z_register_group(ex->cb);
         }
     }
+
+    /* Remember the prefix (to filter blk groups when executing tests) */
+    if (prefix) {
+        qv_append(&_G.prefixes, lstr_dups(prefix, -1));
+    } else {
+        qv_append(&_G.prefixes, LSTR_EMPTY_V);
+    }
 }
 
-void z_register_blkgroup(struct z_blkgrp const *g)
+void z_register_blkgroup(struct z_blkgrp const *g, const char *file)
 {
     struct z_blkgrp *t = qv_growlen(&_G.blks, 1);
 
@@ -1425,6 +1451,7 @@ void z_register_blkgroup(struct z_blkgrp const *g)
 
     p_clear(t, 1);
     t->name     = lstr_dup(g->name);
+    t->file     = lstr_dups(file, -1);
     t->before   = Block_copy(g->before);
     t->after    = Block_copy(g->after);
     t->setup    = Block_copy(g->setup);
@@ -1512,13 +1539,15 @@ int z_run(void)
 
     _G.res = 0;
     tab_for_each_entry(cb, &_G.cbs) {
-        if (_G.stopping)
+        if (_G.stopping) {
             break;
+        }
         (*cb)();
     }
     tab_for_each_ptr(blk, &_G.blks) {
-        if (_G.stopping)
+        if (_G.stopping) {
             break;
+        }
         _z_blkgrp_process(blk);
     }
 
