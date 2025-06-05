@@ -16,64 +16,24 @@
 /*                                                                         */
 /***************************************************************************/
 
-use std::slice;
-use std::str::Utf8Error;
+const FUNCTIONS_TO_EXPOSE: &[&str] =
+    &["lstr_obfuscate"];
 
-
-mod bindings {
-    #![allow(non_upper_case_globals)]
-    #![allow(non_camel_case_types)]
-    #![allow(non_snake_case)]
-    include!("_bindings.rs");
-}
-use bindings::{
-    lstr_t,
-    lstr_t__bindgen_ty_1,
-    lstr_obfuscate,
-};
-
-
-fn rust_str_to_lstr(rust_str: &str) -> lstr_t {
-    lstr_t {
-        __bindgen_anon_1: lstr_t__bindgen_ty_1 {
-            s: (rust_str.as_ptr() as *const i8),
-        },
-        len: (rust_str.len() as i32),
-        mem_pool: 0,
-    }
-}
-
-fn lstr_to_rust_str(lstr: &lstr_t) -> Result<&str, Utf8Error> {
-    unsafe {
-        let str_slice = slice::from_raw_parts(lstr.__bindgen_anon_1.s as *const u8, lstr.len as usize);
-
-        str::from_utf8(str_slice)
-    }
-}
-
-fn lstr_from_buf(buf: &Vec<i8>) -> lstr_t {
-    lstr_t {
-        __bindgen_anon_1: lstr_t__bindgen_ty_1 {
-            s: buf.as_ptr(),
-        },
-        len: buf.len() as i32,
-        mem_pool: 0,
-    }
-}
+const VARS_TO_EXPOSE: &[&str] = &[];
 
 fn main() {
-    let in_rust_str = "plop";
-    let in_lstr = rust_str_to_lstr(in_rust_str);
+    let waf_env_params = waf_cargo_bind::decode_waf_env_params();
 
-    let out_buf = vec![0i8; in_rust_str.len()];
-    let out_lstr = lstr_from_buf(&out_buf);
+    let mut builder = waf_cargo_bind::make_builder(&waf_env_params)
+        .header("wrapper.h");
 
-    unsafe {
-        lstr_obfuscate(in_lstr, in_lstr.len as u64, out_lstr);
+    for fun in FUNCTIONS_TO_EXPOSE.iter() {
+        builder = builder.allowlist_function(fun);
     }
 
-    let out_rust_str = lstr_to_rust_str(&out_lstr).unwrap();
+    for var in VARS_TO_EXPOSE.iter() {
+        builder = builder.allowlist_var(var);
+    }
 
-    println!("plain:      {}", in_rust_str);
-    println!("obfuscated: {}", out_rust_str);
+    waf_cargo_bind::generate_bindings(builder, &waf_env_params);
 }

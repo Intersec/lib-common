@@ -21,6 +21,9 @@ name = "farchc"
 edition.workspace = true
 publish.workspace = true
 
+[build-dependencies]
+waf-cargo-bind = { path = "../waf-cargo-bind" }
+
 [[bin]]
 name = "farchc_rust"
 path = "farchc.rs"
