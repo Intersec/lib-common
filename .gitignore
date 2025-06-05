@@ -38,3 +38,4 @@ mem.fifo.data.*
 # rust stuff
 /.cargo/target
 /Cargo.toml
+_bindings.rs

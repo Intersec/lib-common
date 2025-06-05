@@ -87,13 +87,22 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
         defines = list(filter(lambda x: x.startswith('-D'), cflags))
         cargo_defines = list({x.removeprefix('-D') for x in defines})
 
+        cargo_libs = (
+            Utils.to_list(self.env.STLIB) +
+            Utils.to_list(self.env.LIB)
+        )
+        cargo_libpaths = (
+            Utils.to_list(self.env.STLIBPATH) +
+            Utils.to_list(self.env.LIBPATH)
+        )
+
         env = dict(self.env.env or os.environ)
         env['WAFCARGO'] = '1'
-        env['WAFCARGO_WAF_PROFILE'] = bld_env.PROFILE
-        env['WAFCARGO_CARGO_PROFILE'] = bld_env.CARGO_PROFILE
         env['WAFCARGO_INCLUDES'] = shlex.join(cargo_includes)
         env['WAFCARGO_DEFINES'] = shlex.join(cargo_defines)
         env['WAFCARGO_CFLAGS'] = shlex.join(cargo_cflags)
+        env['WAFCARGO_LIBS'] = shlex.join(cargo_libs)
+        env['WAFCARGO_LIBPATHS'] = shlex.join(cargo_libpaths)
 
         cargo_exec_cmd = [
             bld_env.CARGO[0],
@@ -162,7 +171,7 @@ def apply_cargo_build_program(self: TaskGen) -> None:
 
 
 @TaskGen.feature('rustlib')
-@TaskGen.after_method('cargo_pkg_add_lib')
+@TaskGen.after_method('process_source')
 def apply_cargo_build_lib(self: TaskGen) -> None:
     # FIXME
     bld_dir = self.bld.srcnode.make_node(self.env.CARGO_BUILD_DIR)
