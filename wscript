@@ -468,6 +468,7 @@ def build(ctx: BuildContext) -> None:
 
     ctx.recurse([
         'src',
+        'rust',
         'bench',
         'examples',
         'tests',
