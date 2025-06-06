@@ -27,3 +27,7 @@ waf-cargo-bind = { path = "../waf-cargo-bind" }
 [[bin]]
 name = "farchc_rust"
 path = "farchc.rs"
+
+[dependencies]
+clap.workspace = true
+rand.workspace = true

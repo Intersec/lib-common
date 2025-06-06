@@ -17,7 +17,7 @@
 /***************************************************************************/
 
 const FUNCTIONS_TO_EXPOSE: &[&str] =
-    &["lstr_obfuscate"];
+    &["lstr_obfuscate", "qlzo1x_compress"];
 
 const VARS_TO_EXPOSE: &[&str] = &[];
 
