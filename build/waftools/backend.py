@@ -1982,4 +1982,7 @@ def build(ctx: BuildContext) -> None:
     ctx.add_pre_fun(coverage_start_cmd)
     ctx.add_pre_fun(coverage_end_cmd)
 
+    # Rust
+    ctx.load('rust')
+
 # }}}

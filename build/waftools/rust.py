@@ -33,6 +33,7 @@ from typing import (  # noqa: UP035 (deprecated-import)
 )
 
 from waflib import Errors, Task, TaskGen, Utils
+from waflib.Build import BuildContext
 from waflib.Configure import ConfigurationContext
 
 # Add type hinting for TaskGen decorators
@@ -57,6 +58,61 @@ def configure(ctx: ConfigurationContext) -> None:
     ctx.env.CARGO_PROFILE = 'release' if waf_profile == 'release' else 'dev'
     cargo_target_dir = 'release' if waf_profile == 'release' else 'debug'
     ctx.env.CARGO_BUILD_DIR = osp.join('.cargo', 'target', cargo_target_dir)
+
+
+# }}}
+# {{{ build
+
+
+def rust_check_tgen(tgen: TaskGen) -> None:
+    source = Utils.to_list(getattr(tgen, 'source', []))
+    if source:
+        raise Errors.WafError(f'rust task gen {tgen.name}: '
+                              'source must be empty')
+
+    cargo_pkg = getattr(tgen, 'cargo_pkg', None)
+    if not cargo_pkg:
+        raise Errors.WafError(f'rust task gen {tgen.name}: '
+                              '`cargo_pkg` must be set to a corresponding '
+                              'cargo package')
+
+
+def rust_set_features(tgen: TaskGen, feats: list[str]) -> None:
+    if tgen.typ == 'stlib' and 'ruststlib' not in feats:
+        feats.append('ruststlib')
+    elif tgen.typ == 'shlib' and 'rustshlib' not in feats:
+        feats.append('rustshlib')
+    elif tgen.typ == 'program' and 'rustprogram' not in feats:
+        feats.append('rustprogram')
+    else:
+        raise Errors.WafError('unsupported kind of rust task gen '
+                              f'{tgen.name}')
+
+    if 'use' not in feats:
+        feats.append('use')
+
+    tgen.features = feats
+
+
+def rust_pre_build(ctx: BuildContext) -> None:
+    for tgen in ctx.get_all_task_gen():
+        feats = Utils.to_list(getattr(tgen, 'features', []))
+        if 'rust' in feats:
+            rust_check_tgen(tgen)
+            rust_set_features(tgen, feats)
+
+
+@TaskGen.feature('rust')
+@TaskGen.before_method('process_rule')
+def rust_dummy_feature(tg: TaskGen) -> None:
+    """
+    Dummy 'rust' feature method so that waf does not complain it does not
+    exist.
+    """
+
+
+def build(ctx: BuildContext) -> None:
+    ctx.add_pre_fun(rust_pre_build)
 
 
 # }}}
@@ -125,37 +181,6 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
         os.link(cargo_out.abspath(), waf_out.abspath())
 
         return 0
-
-
-@TaskGen.feature('rust')
-@TaskGen.before_method('process_rule')
-def check_rust(tg: TaskGen) -> None:
-    # FIXME
-    feats = Utils.to_list(tg.features)
-    if 'ruststlib' not in feats and tg.typ == 'stlib':
-        feats.append('ruststlib')
-    elif 'rustshlib' not in feats and tg.typ == 'shlib':
-        feats.append('rustshlib')
-    elif 'rustprogram' not in feats and tg.typ == 'program':
-        feats.append('rustprogram')
-    else:
-        return
-    tg.features = feats
-
-
-@TaskGen.feature('ruststlib', 'rustshlib', 'rustprogram')
-@TaskGen.before_method('process_source')
-def check_rust_source(tg: TaskGen) -> None:
-    source = Utils.to_list(getattr(tg, 'source', []))
-    if source:
-        raise Errors.WafError(f'rust task gen {tg.name}: '
-                              'source must be empty')
-
-    cargo_pkg = getattr(tg, 'cargo_pkg', None)
-    if not cargo_pkg:
-        raise Errors.WafError(f'rust task gen {tg.name}: '
-                              '`cargo_pkg` must be set to a corresponding '
-                              'cargo package')
 
 
 @TaskGen.feature('rustprogram')
