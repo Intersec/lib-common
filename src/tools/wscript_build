@@ -21,9 +21,6 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx.farchc_tgen = ctx.program(target='farchc', source='farchc.c',
-                              use='libcommon-minimal')
-
 with ctx.UseGroup(ctx, 'code_compiling'):
     ctx.program(target='str-ctype-maker', source='str-ctype-maker.c',
                 use='libcommon')

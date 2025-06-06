@@ -1042,6 +1042,12 @@ def process_fc(self: TaskGen, node: Node) -> None:
     # Ensure farchc tgen is posted
     if not getattr(ctx.farchc_tgen, 'posted', False):
         ctx.farchc_tgen.post()
+
+    # XXX: This can happen when compilation_database.py is run
+    #      (different than the build).
+    if not hasattr(ctx.farchc_tgen, 'link_task'):
+        return
+
     if not hasattr(ctx, 'farchc_task'):
         ctx.farchc_task = ctx.farchc_tgen.link_task
         ctx.env.FARCHC = ctx.farchc_tgen.link_task.outputs[0].abspath()

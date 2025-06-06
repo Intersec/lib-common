@@ -21,7 +21,8 @@ from waflib.Build import BuildContext
 ctx: BuildContext
 
 
-ctx.farchc_tgen_rust = ctx.program(
-    target='farchc_rust', features='rust', cargo_pkg='farchc',
-    use=['libcommon-minimal'],
-)
+with ctx.UseGroup(ctx, 'farchc'):
+    ctx.farchc_tgen = ctx.program(
+        target='farchc', features='rust', cargo_pkg='farchc',
+        use=['libcommon-minimal'],
+    )

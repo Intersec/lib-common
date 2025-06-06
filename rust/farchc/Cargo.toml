@@ -25,7 +25,7 @@ publish.workspace = true
 waf-cargo-bind = { path = "../waf-cargo-bind" }
 
 [[bin]]
-name = "farchc_rust"
+name = "farchc"
 path = "farchc.rs"
 
 [dependencies]
