@@ -26,6 +26,7 @@ stays the same.
 
 import os
 import sys
+from collections import defaultdict
 
 
 def main() -> int:
@@ -42,8 +43,21 @@ def main() -> int:
               file=sys.stderr)
         return 2
 
+    final_tests = defaultdict(list)
     for test in retry_tests:
-        print(test)
+        parts = test.split(os.path.sep)
+        try:
+            # Catch the 'ci' folder in XXX.feature path, so we are able to
+            # rebuild the main behave test suite
+            position = parts.index('ci')
+            behave_test = os.path.sep.join(
+                ['retry-behave'] + parts[:position])
+            final_tests[behave_test].append(test)
+        except ValueError:
+            final_tests[test] = []
+
+    for test_cat, test_values in final_tests.items():
+        print(test_cat + ' ' + ' '.join(test_values))
     return 0
 
 

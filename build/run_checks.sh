@@ -157,12 +157,27 @@ coredump="$(dirname "$0")"/tests/core_dump.py
 
 while read -r zd line; do
     t="${zd}${line}"
-    say_color info "starting suite $t..."
+
+    # Print suite in the output log in accordance with the test to execute,
+    # which is needed by the parser
+    case "$t" in
+        retry-behave/*)
+            say_color info "starting suite ${zd//retry-behave/.}/behave..."
+            ;;
+        *)
+            say_color info "starting suite $t..."
+            ;;
+    esac
+
     [ -n "$coredump" ] && $coredump list > $corelist
 
+    # Execute test
     start=$(date '+%s')
-    case ./"$t" in
+    case "$t" in
         */behave)
+            # Simulate a path which doesn't exist, like one/behave, so we can
+            # iterate through all feature files inside it, from the directory
+            # "$productdir"/ci/features
             productdir=$(dirname "./$t")
             res=1
             set_www_env $PWD/"$productdir"
@@ -171,13 +186,15 @@ while read -r zd line; do
                 res=$?
             fi
             ;;
-        */ci/*.feature)
-            # From command line, parse a .feature file to replay
-            productdir=./${t%%/ci/*}
+        retry-behave/*.feature)
+            # From command line, parse one or more .feature files to replay
+            # for behave. Like the previous bash case, this path is a fictive
+            # one.
+            productdir=${zd//retry-behave/.}
             res=1
             set_www_env $PWD/"$productdir"
             if [ $? -eq 0 ]; then
-                "$BUILD_DIR/tests/zbehave.py" $BEHAVE_FLAGS "$t"
+                "$BUILD_DIR/tests/zbehave.py" $BEHAVE_FLAGS $line
                 res=$?
             fi
             ;;
