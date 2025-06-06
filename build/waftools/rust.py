@@ -24,7 +24,7 @@ Contains the code needed for rust compilation.
 
 import os
 import os.path as osp
-import shlex
+import stat
 from typing import (  # noqa: UP035 (deprecated-import)
     TYPE_CHECKING,
     Callable,
@@ -128,16 +128,19 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
         return 'Cargo'
 
     def run(self) -> int:
-        bld = self.generator.bld
-        bld_env = bld.env
+        self.make_waf_build_env()
+        self.run_cargo()
+        self.make_hard_link()
+        return 0
 
+    def make_waf_build_env(self) -> None:
         cargo_includes = list({
-            x for key in bld_env
+            x for key in self.env
             if key == 'INCLUDES' or key.startswith('INCLUDES_')
-            for x in bld_env[key]
+            for x in self.env[key]
         })
 
-        cflags = list(bld_env.CFLAGS)
+        cflags = list(self.env.CFLAGS)
         cargo_cflags = list(filter(lambda x: not x.startswith('-D'), cflags))
 
         defines = list(filter(lambda x: x.startswith('-D'), cflags))
@@ -152,35 +155,43 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             Utils.to_list(self.env.LIBPATH)
         )
 
-        env = dict(self.env.env or os.environ)
-        env['WAFCARGO'] = '1'
-        env['WAFCARGO_INCLUDES'] = shlex.join(cargo_includes)
-        env['WAFCARGO_DEFINES'] = shlex.join(cargo_defines)
-        env['WAFCARGO_CFLAGS'] = shlex.join(cargo_cflags)
-        env['WAFCARGO_LIBS'] = shlex.join(cargo_libs)
-        env['WAFCARGO_LIBPATHS'] = shlex.join(cargo_libpaths)
+        waf_build_env_file = self.generator.path.make_node(
+            '_waf_build_env.json')
 
+        if waf_build_env_file.exists():
+            os.chmod(waf_build_env_file.abspath(), stat.S_IWUSR)
+            os.remove(waf_build_env_file.abspath())
+
+        waf_build_env_file.write_json({
+            'includes': cargo_includes,
+            'defines': cargo_defines,
+            'cflags': cargo_cflags,
+            'libs': cargo_libs,
+            'libpaths': cargo_libpaths,
+        })
+        os.chmod(waf_build_env_file.abspath(),
+                 stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+
+    def run_cargo(self) -> None:
         cargo_exec_cmd = [
-            bld_env.CARGO[0],
+            self.env.CARGO[0],
             'build',
             '--profile',
-            bld_env.CARGO_PROFILE,
+            self.env.CARGO_PROFILE,
             *self.env.PKG_SPEC,
             *Utils.to_list(self.env.TGT_SPEC),
         ]
-        res: int = self.exec_command(cargo_exec_cmd, env=env)
-        if res != 0:
-            return res
+        if self.exec_command(cargo_exec_cmd) != 0:
+            raise Errors.WafError('unable to run cargo')
 
-        # Hard link the file produced by cargo to the expected output file
+    def make_hard_link(self) -> None:
+        """Hard link the file produced by cargo to the expected output file"""
         waf_out, cargo_out = self.outputs
         try:
             os.remove(waf_out.abspath())
         except FileNotFoundError:
             pass
         os.link(cargo_out.abspath(), waf_out.abspath())
-
-        return 0
 
 
 @TaskGen.feature('rustprogram')

@@ -18,12 +18,26 @@
 
 use std::{
     env,
+    error,
     fs,
     io,
     path,
     process,
 };
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
 use bindgen::Builder;
+use serde::{Deserialize};
+
+#[derive(Deserialize)]
+struct WafBuildEnvJson {
+    includes: Vec<String>,
+    defines: Vec<String>,
+    cflags: Vec<String>,
+    libs: Vec<String>,
+    libpaths: Vec<String>,
+}
 
 pub struct WafEnvParams {
     pub binding_gen_file: path::PathBuf,
@@ -33,23 +47,39 @@ pub struct WafEnvParams {
     pub includes: Vec<String>,
 }
 
+fn read_waf_build_env_json<P: AsRef<path::Path>>(path: P) -> Result<WafBuildEnvJson, Box<dyn error::Error>> {
+    // Open the file in read-only mode with buffer.
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+
+    // Read the JSON contents of the file as an instance of `WafBuildEnvJson`.
+    let json_env = serde_json::from_reader(reader)?;
+
+    // Return the json struct
+    Ok(json_env)
+}
+
 pub fn decode_waf_env_params() -> WafEnvParams {
-    if env::var("WAFCARGO").is_err() {
-        eprintln!("build.rs couldn't find the env var WAFCARGO (not using waf?)");
+    let package_dir = path::PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+
+    let waf_env_json_file = package_dir.join("_waf_build_env.json");
+    if !waf_env_json_file.is_file() {
+        eprintln!("build.rs couldn't find _waf_build_env.json (not using waf?)");
         process::exit(1);
     }
 
-    let build_dir = path::PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let binding_gen_file = build_dir.join("_bindings.rs");
+    let json_env = read_waf_build_env_json(waf_env_json_file).unwrap();
+
+    let binding_gen_file = package_dir.join("_bindings.rs");
 
     let out_dir = path::PathBuf::from(env::var("OUT_DIR").unwrap());
     let static_wrapper_path = out_dir.join("static-wrappers.c");
 
-    let waf_cflags = env::var("WAFCARGO_CFLAGS").unwrap();
-    let waf_defines = env::var("WAFCARGO_DEFINES").unwrap();
-    let waf_includes = env::var("WAFCARGO_INCLUDES").unwrap();
-    let waf_libs = env::var("WAFCARGO_LIBS").unwrap();
-    let waf_libpaths = env::var("WAFCARGO_LIBPATHS").unwrap();
+    let waf_cflags = format!("{:?}", json_env.cflags);
+    let waf_defines = format!("{:?}", json_env.defines);
+    let waf_includes = format!("{:?}", json_env.includes);
+    let waf_libs = format!("{:?}", json_env.libs);
+    let waf_libpaths = format!("{:?}", json_env.libpaths);
 
     // metadata exported for dependent packages:
     // https://doc.rust-lang.org/cargo/reference/build-script-examples.html#using-another-sys-crate
@@ -60,10 +90,10 @@ pub fn decode_waf_env_params() -> WafEnvParams {
     println!("cargo::metadata=libpaths={waf_libpaths}");
 
     // emits link libs
-    for lib in shlex::split(&waf_libs).unwrap() {
+    for lib in json_env.libs {
         println!("cargo::rustc-link-lib={lib}");
     }
-    for libpath in shlex::split(&waf_libpaths).unwrap() {
+    for libpath in json_env.libpaths {
         println!("cargo::rustc-link-search={libpath}");
     }
 
@@ -72,9 +102,9 @@ pub fn decode_waf_env_params() -> WafEnvParams {
     WafEnvParams {
         binding_gen_file,
         static_wrapper_path,
-        cflags: shlex::split(&waf_cflags).unwrap(),
-        defines: shlex::split(&waf_defines).unwrap(),
-        includes: shlex::split(&waf_includes).unwrap(),
+        cflags: json_env.cflags,
+        defines: json_env.defines,
+        includes: json_env.includes,
     }
 }
 
@@ -97,7 +127,7 @@ pub fn make_builder(waf_env_params: &WafEnvParams) -> Builder {
     builder
 }
 
-fn set_readonly<P: AsRef<path::Path>>(path: P, readonly : bool) -> io::Result<()> {
+fn set_readonly<P: AsRef<Path>>(path: P, readonly : bool) -> io::Result<()> {
     let mut permissions = fs::metadata(&path)?.permissions();
     permissions.set_readonly(readonly);
     fs::set_permissions(&path,permissions)
