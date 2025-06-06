@@ -3380,6 +3380,150 @@ class IopyIopEnvironmentTests(z.TestCase):
 
 
 # }}}
+# {{{ IopyIopTypingTests
+
+
+@z.ZGroup
+class IopyIopStubsTests(z.TestCase):
+    """Tests with typing with IOP stubs"""
+
+    def setUp(self) -> None:
+        # Create plugin from test-iop-plugin.so without stubs typing
+        self.plugin_no_stub = iopy.Plugin(
+            os.path.join(TEST_PATH, 'test-iop-plugin.so'),
+        )
+
+        # Type the plugin with the stubs
+        self.plugin_stub = cast('test_iop_plugin__iop.Plugin',
+                                self.plugin_no_stub)
+
+    def test_object_typing_without_stub(self) -> None:
+        """Test IOP object typing without stub typing"""
+        with self.assertRaises(AttributeError):
+            _ = self.plugin_no_stub.invalid_attr
+        with self.assertRaises(AttributeError):
+            _ = self.plugin_no_stub.test.invalid_attr
+
+        cls_a = self.plugin_no_stub.test.ClassA(field1=10)
+        self.assertEqual(cls_a.field1, 10)
+        with self.assertRaises(AttributeError):
+            _ = cls_a.invalid_attr
+        cls_a.field1 = 20
+        cls_a.custom_attr = 30
+
+        union_a = self.plugin_no_stub.test.UnionA(s='plop')
+        self.assertEqual(union_a.s, 'plop')
+        with self.assertRaises(AttributeError):
+            _ = union_a.invalid_attr
+        union_a.s = 'plop'
+        union_a.custom_attr = 40
+
+        enum_a = self.plugin_no_stub.test.EnumA('A')
+        self.assertEqual(enum_a.get_as_str(), 'A')
+        with self.assertRaises(AttributeError):
+            _ = enum_a.invalid_attr  # type: ignore[attr-defined]
+        enum_a.custom_attr = 50  # type: ignore[attr-defined]
+
+    def test_object_typing_with_stub(self) -> None:
+        """Test IOP object typing with stub typing"""
+        with self.assertRaises(AttributeError):
+            _ = self.plugin_stub.invalid_attr  # type: ignore[attr-defined]
+        with self.assertRaises(AttributeError):
+            _ = self.plugin_stub.test.invalid_attr  # type: ignore[attr-defined]
+
+        cls_a = self.plugin_stub.test.ClassA(field1=10)
+        self.assertEqual(cls_a.field1, 10)
+        with self.assertRaises(AttributeError):
+            _ = cls_a.invalid_attr  # type: ignore[attr-defined]
+        cls_a.field1 = 20
+        cls_a.custom_attr = 30  # type: ignore[attr-defined]
+
+        union_a = self.plugin_stub.test.UnionA(s='plop')
+        self.assertEqual(union_a.s, 'plop')
+        with self.assertRaises(AttributeError):
+            _ = union_a.invalid_attr  # type: ignore[attr-defined]
+        union_a.s = 'plop'
+        union_a.custom_attr = 40  # type: ignore[attr-defined]
+
+        enum_a = self.plugin_stub.test.EnumA('A')
+        self.assertEqual(enum_a.get_as_str(), 'A')
+        with self.assertRaises(AttributeError):
+            _ = enum_a.invalid_attr  # type: ignore[attr-defined]
+        enum_a.custom_attr = 50  # type: ignore[attr-defined]
+
+    def test_rpc_typing_without_stub(self) -> None:
+        """Test IOP RPC typing with and without stub typing"""
+        # Server
+        def rpc_impl_a(
+                rpc_args: iopy.RPCServer.RpcArgs,
+        ) -> iopy.StructUnionBase | None:
+            assert issubclass(rpc_args.res, iopy.StructUnionBase)
+            return rpc_args.res(status='A', res=1000)
+
+        uri = make_uri()
+        server = self.plugin_no_stub.channel_server()
+        server.test_ModuleA.interfaceA.funA.impl = rpc_impl_a
+        server.listen(uri=uri)
+
+        # Client
+        client = self.plugin_no_stub.connect(uri)
+        res = client.test_ModuleA.interfaceA.funA(
+            a=self.plugin_no_stub.test.ClassA(field1=10))
+        assert res is not None
+        self.assertEqual(res.status, 'A')
+
+        # Test invalid attributes
+        with self.assertRaises(AttributeError):
+            _ = server.invalid_attr
+        with self.assertRaises(AttributeError):
+            _ = server.test_ModuleA.invalid_attr
+        with self.assertRaises(AttributeError):
+            _ = server.test_ModuleA.funA.invalid_attr
+        with self.assertRaises(AttributeError):
+            _ = client.invalid_attr
+        with self.assertRaises(AttributeError):
+            _ = client.test_ModuleA.invalid_attr
+        with self.assertRaises(AttributeError):
+            _ = client.test_ModuleA.funA.invalid_attr
+
+        server.stop()
+
+    def test_rpc_typing_with_stub(self) -> None:
+        """Test IOP RPC typing with stub typing"""
+        # Server
+        def rpc_impl_a(
+                rpc_args: test__iop.InterfaceA_funA_RPCServer.RpcArgs,
+        ) -> test__iop.InterfaceA_funA_RPCServer.RpcRes:
+            return rpc_args.res(status='A', res=1000)
+
+        uri = make_uri()
+        server = self.plugin_stub.channel_server()
+        server.test_ModuleA.interfaceA.funA.impl = rpc_impl_a
+        server.listen(uri=uri)
+
+        # Client
+        client = self.plugin_stub.connect(uri)
+        res = client.test_ModuleA.interfaceA.funA(
+            a=self.plugin_stub.test.ClassA(field1=10))
+        self.assertEqual(res.status, 'A')
+
+        # Test invalid attributes
+        with self.assertRaises(AttributeError):
+            _ = server.invalid_attr  # type: ignore[attr-defined]
+        with self.assertRaises(AttributeError):
+            _ = server.test_ModuleA.invalid_attr  # type: ignore[attr-defined]
+        with self.assertRaises(AttributeError):
+            _ = server.test_ModuleA.funA.invalid_attr  # type: ignore[attr-defined]
+        with self.assertRaises(AttributeError):
+            _ = client.invalid_attr  # type: ignore[attr-defined]
+        with self.assertRaises(AttributeError):
+            _ = client.test_ModuleA.invalid_attr  # type: ignore[attr-defined]
+        with self.assertRaises(AttributeError):
+            _ = client.test_ModuleA.funA.invalid_attr  # type: ignore[attr-defined]
+
+        server.stop()
+
+# }}}
 # {{{ IopySlowTests
 
 

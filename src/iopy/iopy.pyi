@@ -47,7 +47,38 @@ IopOptField: typing_extensions.TypeAlias = typing.Annotated[
 # }}}
 # {{{ Base
 
-class Basic: ...
+class Basic:
+    # Try to auto-deduce the type of an object created from a `Basic` class.
+    # `Basic` cannot be instantiated on run-time, by the type checker can
+    # still use it, and `Package.__getattr__()` returns a `type[Basic]`.
+    # Depending on the arguments passed onto the constructor, we can try to
+    # deduce the type of the created object:
+    # - If we try to do a copy of the IOPy object, return the same type of the
+    #   object (EnumBase, StructBase or UnionBase).
+    # - If there is only one argument of type `str` or `int`, we assume we try
+    #   to create an enum (EnumBase). Technically, we can also create a union
+    #   with an unambiguous type, but it is less likely.
+    # - If there is only one argument of type dict, we try to either create a
+    #   union or a struct (StructUnionBase).
+    # - If we use keyword arguments, we try to either create a union or a
+    #   struct (StructUnionBase).
+    # - Otherwise if there is only argument, we try to create a union with an
+    #   unambiguous type (UnionBase).
+    @typing.overload
+    def __new__(cls, enum_val: EnumBase, /) -> EnumBase: ...
+    @typing.overload
+    def __new__(cls, struct_val: StructBase, /) -> StructBase: ...
+    @typing.overload
+    def __new__(cls, union_val: UnionBase, /) -> UnionBase: ...
+    @typing.overload
+    def __new__(cls, val: int | str, /) -> EnumBase: ...
+    @typing.overload
+    def __new__(
+        cls, self_dict: dict[str, typing.Any], /) -> StructUnionBase: ...
+    @typing.overload
+    def __new__(cls, **kwargs: typing.Any) -> StructUnionBase: ...
+    @typing.overload
+    def __new__(cls, val: typing.Any, /) -> UnionBase: ...
 
 class IopHelpDescription:
     brief: str | None
@@ -60,16 +91,20 @@ class IopHelpDescription:
 
 class IopEnumValueDescription:
     help: IopHelpDescription
-    generic_attributes: dict[str, object]
+    generic_attributes: dict[str, typing.Any]
     aliases: tuple[str]
 
 class IopEnumDescription:
     help: IopHelpDescription
     strict: bool
-    generic_attributes: dict[str, object]
+    generic_attributes: dict[str, typing.Any]
     values: dict[str, IopEnumValueDescription]
 
 class EnumBase(Basic):
+    # Reset the auto-deduction of created objects in `Basic`.
+    def __new__(
+        cls, *args: typing.Any, **kwargs: typing.Any,
+    ) -> typing_extensions.Self: ...
     @typing.overload
     def __init__(self, self_val: typing_extensions.Self, /) -> None: ...
     @typing.overload
@@ -109,6 +144,10 @@ class Enum(EnumBase): ...
 # {{{ StructUnionBase
 
 class StructUnionBase(Basic):
+    # Reset the auto-deduction of created objects in `Basic`.
+    def __new__(
+        cls, *args: typing.Any, **kwargs: typing.Any,
+    ) -> typing_extensions.Self: ...
     @typing.overload
     def __init__(self, self_dict: dict[str, typing.Any], /) -> None: ...
     @typing.overload
@@ -368,13 +407,21 @@ class StructUnionBase(Basic):
     def get_values(cls) -> dict[str, type]: ...
     @classmethod
     def __values__(cls) -> dict[str, type]: ...
+    # Every unknown attributes of a StructUnionBase is potentially an IOP
+    # field, so an attribute of type Any.
+    # It is also possible to set any attributes in a StructUnionBase as they
+    # potentially are some IOP fields.
+    # These methods are reset when generating the specific struct and union
+    # IOPy stubs.
+    def __getattr__(self, name: str) -> typing.Any: ...
+    def __setattr__(self, name: str, val: typing.Any) -> None: ...
 
 class IopStructUnionFieldDescription:
     help: IopHelpDescription
-    generic_attributes: dict[str, object]
+    generic_attributes: dict[str, typing.Any]
     iop_type: str
     py_type: type
-    default_value: object | None
+    default_value: typing.Any | None
     optional: bool
     repeated: bool
     private: bool
@@ -394,7 +441,7 @@ class IopStructUnionFieldDescription:
 class IopStructUnionDescription:
     help: IopHelpDescription
     deprecated: bool
-    generic_attributes: dict[str, object]
+    generic_attributes: dict[str, typing.Any]
     fields: dict[str, IopStructUnionFieldDescription]
 
 # }}}
@@ -408,11 +455,11 @@ class UnionBase(StructUnionBase):
     @typing.overload
     def __init__(self, self_val: typing_extensions.Self, /) -> None: ...
     @typing.overload
-    def __init__(self, val: str | int, /) -> None: ...
+    def __init__(self, val: typing.Any, /) -> None: ...
     @typing.overload
     def __init__(self, **kwargs: typing.Any) -> None: ...
-    def get_object(self) -> object: ...
-    def __object__(self) -> object: ...
+    def get_object(self) -> typing.Any: ...
+    def __object__(self) -> typing.Any: ...
     def get_key(self) -> str: ...
     def __key__(self) -> str: ...
     @classmethod
@@ -426,7 +473,7 @@ class Union(UnionBase): ...
 class IopStructDescription(IopStructUnionDescription): ...
 
 class IopClassStaticFieldDescription(IopStructUnionFieldDescription):
-    value: object
+    value: typing.Any
 
 class IopClassDescription(IopStructDescription):
     parent: type[StructBase] | None
@@ -442,9 +489,9 @@ class StructBase(StructUnionBase):
     @classmethod
     def __iopslots__(cls) -> str: ...
     @classmethod
-    def get_class_attrs(cls) -> dict[str, object]: ...
+    def get_class_attrs(cls) -> dict[str, typing.Any]: ...
     @classmethod
-    def __get_class_attrs__(cls) -> dict[str, object]: ...
+    def __get_class_attrs__(cls) -> dict[str, typing.Any]: ...
     @classmethod
     def get_iop_description(
         cls,
@@ -500,11 +547,41 @@ class IfaceBase:
     @classmethod
     def __name__(cls) -> str: ...
 
-Iface = IfaceBase
+class Iface(IfaceBase):
+    # Every unknown attributes of an Iface is potentially a RPC.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> RPC: ...
+
+@typing.type_check_only
+class AsyncIface(IfaceBase):
+    # Every unknown attributes of an AsyncIface is potentially an AsyncRPC.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> AsyncRPC: ...
+
+@typing.type_check_only
+class IfaceServer(IfaceBase):
+    # Every unknown attributes of an IfaceServer is potentially a RPCServer.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> RPCServer: ...
 
 class Module:
     @classmethod
     def __fullname__(cls) -> str: ...
+    # Every unknown attributes of a Module is potentially an Iface.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> Iface: ...
+
+@typing.type_check_only
+class AsyncModule(Module):
+    # Every unknown attributes of an AsyncModule is potentially an AsyncIface.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> AsyncIface: ...  # type: ignore[override]
+
+@typing.type_check_only
+class ModuleServer(Module):
+    # Every unknown attributes of a ModuleServer is potentially a IfaceServer.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> IfaceServer: ...  # type: ignore[override]
 
 # {{{ Client RPC
 
@@ -587,6 +664,9 @@ class Channel(ChannelBase):
     def on_exception(self, value: ChannelOnExceptionCb | None) -> None: ...
     @on_exception.deleter
     def on_exception(self) -> None: ...
+    # Every unknown attributes of a Channel is potentially a Module.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> Module: ...
 
 class RPC(RPCBase):
     @property
@@ -685,6 +765,10 @@ class AsyncChannel(Channel):
         self,
         timeout: float | None = None,
     ) -> asyncio.Future[None]: ...
+    # Every unknown attributes of an AsyncChannel is potentially an
+    # AsyncModule.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> AsyncModule: ...
 
 class AsyncRPC(RPCBase):
     @property
@@ -836,6 +920,10 @@ class ChannelServer(ChannelBase):
     def on_exception(self) -> None: ...
     @property
     def is_listening(self) -> bool: ...
+    # Every unknown attributes of a ChannelServer is potentially a
+    # ModuleServer.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> ModuleServer: ...
 
 RPCServerImplCb: typing_extensions.TypeAlias = typing.Callable[
     [RPCArgs[_TRpcArg, _TRpcRes, _TRpcExn]],
@@ -847,9 +935,9 @@ class RPCServer(RPCBase):
     def channel(self) -> ChannelServer: ...
 
     RpcArgs: typing_extensions.TypeAlias = RPCArgs[
-        type[StructUnionBase] | None,
-        type[StructUnionBase] | None,
-        type[StructUnionBase] | None,
+        StructUnionBase | None,
+        StructUnionBase | None,
+        StructUnionBase | None,
     ]
     RpcRes: typing_extensions.TypeAlias = type[StructUnionBase] | None
 
@@ -892,12 +980,18 @@ class RPCServer(RPCBase):
 # }}}
 # {{{ Plugin
 
-class Interfaces: ...
+class Interfaces:
+    # Every unknown attributes of an Interfaces is potentially a IfaceBase.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> IfaceBase: ...
 
 class Package:
     interfaces: Interfaces
 
     def __name__(self) -> str: ...
+    # Every unknown attributes of a Package is potentially a type[Basic].
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> type[Basic]: ...
 
 @typing.type_check_only
 class Void(Struct): ...
@@ -1015,6 +1109,9 @@ class Plugin:
     def default_post_hook(self) -> None: ...
     def load_dso(self, key: str, dso_path: str | bytes) -> None: ...
     def unload_dso(self, key: str) -> None: ...
+    # Every unknown attributes of a Plugin is potentially a Package.
+    # This method is reset when generating the specific IOP stubs.
+    def __getattr__(self, name: str) -> Package: ...
 
 # }}}
 # {{{ Module functions

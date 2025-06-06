@@ -75,6 +75,7 @@ RUF012, RUF100
 
         import asyncio
         import typing
+        import typing_extensions
 
         import iopy
 
@@ -88,6 +89,14 @@ def dump_import_packages(packages: list[str], output_file: TextIO) -> None:
     output_file.write('\n')
 
 
+def dump_no_getattr(output_file: TextIO) -> None:
+    output_file.write(
+        '    __getattr__ = None  '
+        '# type: ignore[misc, assignment] '
+        '# noqa: PYI026 (type-alias-without-annotation)\n',
+    )
+
+
 def dump_channel_type(plugin: iopy.Plugin, channel_type: str,
                       module_type: str,
                       module_names: list[ModuleNameComponents],
@@ -99,6 +108,7 @@ def dump_channel_type(plugin: iopy.Plugin, channel_type: str,
         f'{module_name_comp.module_name}_{module_type}\n'
         for module_name_comp in module_names
     )
+    dump_no_getattr(output_file)
     output_file.write('\n')
 
 
@@ -130,7 +140,6 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
     ) -> Channel: ...
-
     @typing.overload
     def connect(
         self, *, host: str, port: int,
@@ -147,7 +156,6 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
     ) -> Channel: ...
-
     @typing.overload  # type: ignore[override]
     def async_connect(
         self, uri: str, *,
@@ -164,7 +172,6 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
     ) -> asyncio.Future[AsyncChannel]: ...
-
     @typing.overload
     def async_connect(
         self, *, host: str, port: int,
@@ -181,10 +188,7 @@ def dump_connect_methods(plugin: iopy.Plugin, output_file: TextIO) -> None:
         _dealias: bool | None = None,
         _hdr: ic__iop.Hdr | None = None,
     ) -> asyncio.Future[AsyncChannel]: ...
-
     def channel_server(self) -> ChannelServer: ...
-
-    # pylint: disable=invalid-name
     def ChannelServer(self) -> ChannelServer: ...
     """
 
@@ -211,6 +215,7 @@ def dump_plugin(plugin: iopy.Plugin, packages: list[str],
     output_file.write('    }\n')
 
     dump_connect_methods(plugin, output_file)
+    dump_no_getattr(output_file)
 
 
 def process_dso(dso_path: pathlib.Path, output_pystub: pathlib.Path) -> None:
