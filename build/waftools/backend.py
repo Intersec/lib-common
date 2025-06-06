@@ -271,14 +271,17 @@ def compile_fpic(ctx: BuildContext) -> None:
     pic_flags = ['-fPIC']
     pic_suffix = '.pic'
 
-    for tgen in ctx.get_all_task_gen():
-        features = tgen.to_list(getattr(tgen, 'features', []))
+    for group_name, group in ctx.group_names.items():
+        for tgen in group:
+            with ctx.UseGroup(ctx, group_name):
+                features = tgen.to_list(getattr(tgen, 'features', []))
 
-        if 'cshlib' not in features:
-            continue
+                if 'cshlib' not in features:
+                    continue
 
-        deep_add_tgen_compile_flags(ctx, tgen, pic_suffix, pic_libs,
-                                    cflags=pic_flags, cxxflags=pic_flags)
+                deep_add_tgen_compile_flags(ctx, tgen, pic_suffix, pic_libs,
+                                            cflags=pic_flags,
+                                            cxxflags=pic_flags)
 
 
 # }}}
