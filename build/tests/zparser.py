@@ -32,7 +32,9 @@ LOGGER.addHandler(NullHandler())
 
 STATUS = ('pass', 'fail', 'skip', 'todo-pass', 'todo-fail')
 EXTENDED_STATUS = STATUS + ('missing', 'bad-number')
+RETRY_STEPS = {'check-retry', 'fast-selenium-retry'}
 
+RE_KIND_STEP = re.compile(r"^\s*argv:\s+\[.?'waf',\s+.?'(?P<kind>[^']+)'\]$")
 RE_SUITE = re.compile(
     r'.*starting suite (?:\.\/)?(?P<suite>(?P<product>[a-zA-Z0-9_\-\.]*)'
     r'(?:\/.*)?)\.\.\.')  # cannot anchor due to shell colors
@@ -80,6 +82,8 @@ def fixed_list() -> deque[T]:
 
 class Result:
     name: str | None = None
+    step_kind: str | None = None
+    retry: bool = False
     time = 0.0
     status = 'pass'
     z_status_nb = ('skipped_nb', 'passed_nb', 'failed_nb', 'total_nb')
@@ -360,7 +364,8 @@ class Global(Result):
 class Error:
 
     def __init__(self, product: str, suite: str, group: str, test: str,
-                 context: deque[tuple[str, str]], status: str = 'fail'):
+                 context: deque[tuple[str, str]], test_filename: str = '',
+                 status: str = 'fail'):
         self.productName = product
         self.suite_fullname = suite
         self.suiteName = Suite.make_short_name(product, suite)
@@ -372,6 +377,7 @@ class Error:
         self.screen_url = ''
         self.browser_log_l: deque[str] = fixed_list()
         self.status = status
+        self.test_filename = test_filename
 
     @property
     def context(self) -> str:
@@ -422,6 +428,7 @@ class StreamParser:
         self.steps: list[Step] = []
         self.error: Error | None = None
         self.first_step_fail: str | None = None
+        self.test_filename: str = ''
         self.screenshot: str | None = None
         self.do_break = False
         self.core_logs = False
@@ -465,6 +472,16 @@ class StreamParser:
             if not line:
                 continue
 
+            # Identify the type of step by parsing the waf command argument.
+            # This approach relies on the fact that argv is printed to
+            # the console/log.
+            # Also detect whether the step is a retry attempt.
+            r = RE_KIND_STEP.match(line)
+            if r is not None:
+                self.res.step_kind = r.group('kind')
+                if r.group('kind') in RETRY_STEPS:
+                    self.res.retry = True
+
             r = RE_END.match(line)
             if r is not None:
                 self.res.timeout = False
@@ -483,7 +500,8 @@ class StreamParser:
                     assert self.group is not None
                     self.error = Error(
                         self.product.name, self.suite_fullname,
-                        self.group_name, test_name, self.context, 'missing')
+                        self.group_name, test_name, self.context,
+                        test_filename=self.test_filename, status='missing')
                     self.res.errors.append(self.error)
                     assert self.group_pos <= self.group_len, (
                         LEN_POS_DIFF(POS_GT_LEN, self.group_pos,
@@ -516,7 +534,8 @@ class StreamParser:
                         self.group_name, self.group_pos + 1, self.group_len)
                     self.error = Error(
                         self.product.name, self.suite_fullname,
-                        self.group_name, test_name, self.context, 'missing')
+                        self.group_name, test_name, self.context,
+                        test_filename=self.test_filename, status='missing')
                     self.res.errors.append(self.error)
                     assert self.group is not None
                     for i in range(self.group_pos, self.group_len):
@@ -591,14 +610,15 @@ class StreamParser:
                     self.error = Error(
                         self.product.name, self.suite_fullname,
                         self.group_name, test_name, self.context,
-                        'bad-number')
+                        test_filename=self.test_filename, status='bad-number')
                     self.res.errors.append(self.error)
                 elif n > self.group_pos:
                     test_name = self.missing_test_name(
                         self.group_name, self.group_pos, n)
                     self.error = Error(
                         self.product.name, self.suite_fullname,
-                        self.group_name, test_name, self.context, 'missing')
+                        self.group_name, test_name, self.context,
+                        test_filename=self.test_filename, status='missing')
                     self.res.errors.append(self.error)
                     assert self.group_pos <= n, (
                         LEN_POS_DIFF(POS_GT_LEN, self.group_pos,
@@ -624,7 +644,8 @@ class StreamParser:
                 if test.status in {'fail', 'todo-pass'}:
                     self.error = Error(
                         self.product.name, self.suite_fullname,
-                        self.group.name, test.name, self.context, test.status)
+                        self.group.name, test.name, self.context,
+                        test_filename=self.test_filename, status=test.status)
                     self.error.screen_url = self.screenshot or ''
                     self.screenshot = None
                     self.error.step_fail = self.first_step_fail or ''
@@ -654,6 +675,7 @@ class StreamParser:
                 self.steps.append(step)
                 if step.status == 'fail':
                     # save the first KO step
+                    self.test_filename = step.filename
                     self.first_step_fail = step.name
 
             if line.startswith(':'):
@@ -684,7 +706,8 @@ class StreamParser:
                 self.group_name, self.group_pos + 1, self.group_len)
             self.error = Error(
                 self.product.name, self.suite_fullname, self.group_name,
-                test_name, self.context, 'missing')
+                test_name, self.context, test_filename=self.test_filename,
+                status='missing')
             self.res.errors.append(self.error)
             assert self.group_pos <= self.group_len, (
                 LEN_POS_DIFF(POS_GT_LEN, self.group_pos, self.group_len))
