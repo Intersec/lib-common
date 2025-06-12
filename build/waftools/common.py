@@ -454,23 +454,6 @@ def run_python_checker(ctx: BuildContext, checker_exec: str) -> None:
 
 
 # }}}
-# {{{ pylint
-
-
-def run_pylint(ctx: BuildContext) -> None:
-    if ctx.cmd != 'pylint':
-        return
-
-    run_python_checker(ctx, 'pylint')
-
-
-class PylintClass(BuildContext):  # type: ignore[misc]
-    """run pylint checks on committed python files"""
-
-    cmd = 'pylint'
-
-
-# }}}
 # {{{ ruff
 
 
@@ -561,7 +544,6 @@ def build(ctx: BuildContext) -> None:
 
     # Register pre/post functions
     ctx.add_pre_fun(add_scan_in_signature)
-    ctx.add_pre_fun(run_pylint)
     ctx.add_pre_fun(run_ruff)
     ctx.add_pre_fun(run_mypy)
     ctx.add_post_fun(run_checks)

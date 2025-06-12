@@ -132,25 +132,22 @@ Waf: Selected profile: default
 ----
 
 
-== `Pylint` and `uv`
+== `Ruff` and `uv`
 
-With `python3`, we use a more recent version of `Pylint` than the one used for
-`python2` branches. This means that the options and switches must be adapted
-for `python3`.
+For `python3`, we use `Ruff` as the linter, replacing the older Pylint setup
+previously used for python2 branches.
+Ruff is a fast, modern Python linter that supports a wide range of rule sets
+and is configured via the `pyproject.toml` file located at the root of the
+repository.
 
-To solve this issue, the global `pylintrc` has been copied to the root
-repository directory and adapted for `python3`.
-
-In order to use it with the proper `Python` version of the `uv`
-environment, `Pylint` must be run at the root repository directory and with
-`uv`:
+Ruff is installed as part of the environment through the `pyproject.toml`
+configuration and managed by uv.
+To run it with the appropriate Python version, execute Ruff from the root of
+the repository using the dedicated command:
 
 ----
-$ uv run pylint tests/iopy/z_iopy.py
-
- ------------------------------------
-Your code has been rated at 10.00/10
-----
+$ ruff check tests/iopy/z_iopy.py
+All checks passed!
 
 
 == Type hints / Mypy

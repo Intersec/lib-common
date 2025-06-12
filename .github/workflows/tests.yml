@@ -81,8 +81,8 @@ jobs:
         env:
           ASAN_OPTIONS: 'handle_segv=0:detect_leaks=1'
 
-      - name: Check with pylint
-        run: waf pylint
+      - name: Check with ruff
+        run: waf ruff
 
       - name: Check with mypy
         run: waf mypy

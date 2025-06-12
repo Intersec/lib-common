@@ -14,10 +14,18 @@ This document cover all C-like languages when applicable:
 * `Java`
 * ...
 
-For `python`, the written code must pass _pylint_ checks. You can also get
-inspiration in "python style as described by PEP 8":
-http://www.python.org/dev/peps/pep-0008/, but only the _pylint_ checks are
-mandatory.
+For Python, the written code must pass all checks enforced by Ruff.
+Ruff is a fast Python linter that supports a broad set of rules,
+including those from pylint, flake8, isort, pep8-naming, and more.
+
+All rules are activated and considered mandatory.
+This includes rule sets, specific linting codes, and configuration options
+such as line length, import sorting, and others.
+Some rules are explicitly ignored in the pyproject.toml configuration file,
+based on project needs and Intersec consensus.
+
+Refer to the official Ruff documentation (https://docs.astral.sh/ruff/)
+for the full list of rule codes, descriptions, and configuration options.
 
 == Basics
 
