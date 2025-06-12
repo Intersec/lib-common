@@ -16,14 +16,13 @@
 /*                                                                         */
 /***************************************************************************/
 
+use std::fmt::Write;
 use std::fs::{self, File};
 use std::io::{self, Write as _};
-use std::fmt::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
-
 
 mod bindings {
     #![allow(non_upper_case_globals)]
@@ -32,7 +31,6 @@ mod bindings {
     include!("_bindings.rs");
 }
 use bindings::*;
-
 
 impl From<&[u8]> for lstr_t {
     fn from(buf: &[u8]) -> Self {
@@ -119,7 +117,7 @@ fn dump_and_obfuscate(buf: &[u8], output: &mut dyn Write) -> i32 {
         let obfuscated_output_buf = [0u8; FARCH_MAX_SYMBOL_SIZE];
         let obfuscated_output = &obfuscated_output_buf[0..chunk_size];
 
-        obfuscate_data( obfuscated_chunk_slice, chunk_size as u64, obfuscated_output);
+        obfuscate_data(obfuscated_chunk_slice, chunk_size as u64, obfuscated_output);
         put_chunk(obfuscated_output, output);
 
         start_slice = end_slice;
@@ -146,9 +144,7 @@ fn dump_file(path: &Path, entry: &mut FarchEntry, output: &mut dyn Write, compre
         let end_ptr: *const u8 = file_data.as_slice().last().unwrap();
         let ps = unsafe {
             pstream_t {
-                __bindgen_anon_1: pstream_t__bindgen_ty_1 {
-                    b: start_ptr,
-                },
+                __bindgen_anon_1: pstream_t__bindgen_ty_1 { b: start_ptr },
                 __bindgen_anon_2: pstream_t__bindgen_ty_2 {
                     b_end: end_ptr.offset(1),
                 },
@@ -157,10 +153,10 @@ fn dump_file(path: &Path, entry: &mut FarchEntry, output: &mut dyn Write, compre
 
         unsafe {
             clen = qlzo1x_compress(
-                cbuf.as_mut_ptr() as * mut std::os::raw::c_void,
+                cbuf.as_mut_ptr() as *mut std::os::raw::c_void,
                 clen,
                 ps,
-                lzo_buf.as_mut_ptr() as * mut std::os::raw::c_void
+                lzo_buf.as_mut_ptr() as *mut std::os::raw::c_void,
             );
         }
 
@@ -183,7 +179,11 @@ fn dump_entries(archname: &str, entries: &[FarchEntry], output: &mut dyn Write) 
     for entry in entries {
         let obfuscated_name = vec![0u8; entry.name.len()];
 
-        obfuscate_data(entry.name.as_bytes(), entry.nb_chunks as u64, &obfuscated_name);
+        obfuscate_data(
+            entry.name.as_bytes(),
+            entry.nb_chunks as u64,
+            &obfuscated_name,
+        );
         writeln!(output, "/* {{{{{{ {} */", entry.name).unwrap();
         writeln!(output, "{{").unwrap();
         write!(output, "    .name = LSTR_IMMED(\"").unwrap();
@@ -201,7 +201,11 @@ fn dump_entries(archname: &str, entries: &[FarchEntry], output: &mut dyn Write) 
 
 fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
     let content = std::fs::read_to_string(&opts.script).unwrap_or_else(|e| {
-        eprintln!("Error: could not read script file `{}`: {}", opts.script.display(), e);
+        eprintln!(
+            "Error: could not read script file `{}`: {}",
+            opts.script.display(),
+            e
+        );
         std::process::exit(1);
     });
 
@@ -275,7 +279,6 @@ fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
         writeln!(output, "/* }}}}}} */").unwrap();
 
         entries.push(entry);
-
     }
 
     writeln!(output, "}};").unwrap();
@@ -285,7 +288,6 @@ fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
     dump_entries(name, &entries, output);
     writeln!(output, "{{   .name = LSTR_NULL }},").unwrap();
     writeln!(output, "}};").unwrap();
-
 }
 
 fn main() {
@@ -295,7 +297,10 @@ fn main() {
     let script_path = &opts.script;
 
     let reldir = script_path.parent().unwrap_or_else(|| {
-        eprintln!("Error: unable to get parent directory of script `{}`", script_path.display());
+        eprintln!(
+            "Error: unable to get parent directory of script `{}`",
+            script_path.display()
+        );
         std::process::exit(1);
     });
 
@@ -307,11 +312,19 @@ fn main() {
     if let Some(out_path) = &opts.out {
         // Write file
         let mut out_file = File::create(out_path).unwrap_or_else(|e| {
-            eprintln!("Error: unable to open `{}` for writing: {}", out_path.display(), e);
+            eprintln!(
+                "Error: unable to open `{}` for writing: {}",
+                out_path.display(),
+                e
+            );
             std::process::exit(1);
         });
         out_file.write_all(output.as_bytes()).unwrap_or_else(|e| {
-            eprintln!("Error: unable to write file `{}`: {}", out_path.display(), e);
+            eprintln!(
+                "Error: unable to write file `{}`: {}",
+                out_path.display(),
+                e
+            );
             std::process::exit(1);
         });
 
@@ -322,9 +335,11 @@ fn main() {
         }
     } else {
         // Output to stdout
-        io::stdout().write_all(output.as_bytes()).unwrap_or_else(|e| {
-            eprintln!("Error: unable to write to stdio: {}" , e);
-            std::process::exit(1);
-        });
+        io::stdout()
+            .write_all(output.as_bytes())
+            .unwrap_or_else(|e| {
+                eprintln!("Error: unable to write to stdio: {}", e);
+                std::process::exit(1);
+            });
     }
 }

@@ -16,16 +16,14 @@
 /*                                                                         */
 /***************************************************************************/
 
-const FUNCTIONS_TO_EXPOSE: &[&str] =
-    &["lstr_obfuscate", "qlzo1x_compress"];
+const FUNCTIONS_TO_EXPOSE: &[&str] = &["lstr_obfuscate", "qlzo1x_compress"];
 
 const VARS_TO_EXPOSE: &[&str] = &[];
 
 fn main() {
     let waf_env_params = waf_cargo_bind::decode_waf_env_params();
 
-    let mut builder = waf_cargo_bind::make_builder(&waf_env_params)
-        .header("wrapper.h");
+    let mut builder = waf_cargo_bind::make_builder(&waf_env_params).header("wrapper.h");
 
     for fun in FUNCTIONS_TO_EXPOSE.iter() {
         builder = builder.allowlist_function(fun);

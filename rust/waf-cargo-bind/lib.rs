@@ -16,19 +16,12 @@
 /*                                                                         */
 /***************************************************************************/
 
-use std::{
-    env,
-    error,
-    fs,
-    io,
-    path,
-    process,
-};
+use bindgen::Builder;
+use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use bindgen::Builder;
-use serde::{Deserialize};
+use std::{env, error, fs, io, path, process};
 
 #[derive(Deserialize)]
 struct WafBuildEnvJson {
@@ -47,7 +40,9 @@ pub struct WafEnvParams {
     pub includes: Vec<String>,
 }
 
-fn read_waf_build_env_json<P: AsRef<path::Path>>(path: P) -> Result<WafBuildEnvJson, Box<dyn error::Error>> {
+fn read_waf_build_env_json<P: AsRef<path::Path>>(
+    path: P,
+) -> Result<WafBuildEnvJson, Box<dyn error::Error>> {
     // Open the file in read-only mode with buffer.
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -127,15 +122,16 @@ pub fn make_builder(waf_env_params: &WafEnvParams) -> Builder {
     builder
 }
 
-fn set_readonly<P: AsRef<Path>>(path: P, readonly : bool) -> io::Result<()> {
+fn set_readonly<P: AsRef<Path>>(path: P, readonly: bool) -> io::Result<()> {
     let mut permissions = fs::metadata(&path)?.permissions();
     permissions.set_readonly(readonly);
-    fs::set_permissions(&path,permissions)
+    fs::set_permissions(&path, permissions)
 }
 
 pub fn generate_bindings(builder: Builder, waf_env_params: &WafEnvParams) {
     // Finish the builder and generate the bindings.
-    let bindings = builder.generate()
+    let bindings = builder
+        .generate()
         // Unwrap the Result and panic on failure.
         .expect("couldn't generate bindings");
 
@@ -146,7 +142,8 @@ pub fn generate_bindings(builder: Builder, waf_env_params: &WafEnvParams) {
     }
 
     // Write the binding to the files.
-    bindings.write_to_file(waf_env_params.binding_gen_file.to_str().unwrap())
+    bindings
+        .write_to_file(waf_env_params.binding_gen_file.to_str().unwrap())
         .expect("couldn't write bindings");
 
     // Set the file as read-only
