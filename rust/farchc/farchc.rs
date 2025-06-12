@@ -94,7 +94,7 @@ fn put_as_str(data: &[u8], output: &mut dyn Write) {
 fn put_chunk(chunk: &[u8], output: &mut dyn Write) {
     write!(output, "    LSTR_IMMED(\"").unwrap();
     put_as_str(chunk, output);
-    write!(output, "\"),\n").unwrap();
+    writeln!(output, "\"),").unwrap();
 }
 
 fn obfuscate_data(data: &[u8], key: u64, output: &[u8]) {
@@ -120,7 +120,7 @@ fn dump_and_obfuscate(buf: &[u8], output: &mut dyn Write) -> i32 {
         let obfuscated_output = &obfuscated_output_buf[0..chunk_size];
 
         obfuscate_data( obfuscated_chunk_slice, chunk_size as u64, obfuscated_output);
-        put_chunk(&obfuscated_output, output);
+        put_chunk(obfuscated_output, output);
 
         start_slice = end_slice;
         len -= chunk_size;
@@ -183,7 +183,7 @@ fn dump_entries(archname: &str, entries: &[FarchEntry], output: &mut dyn Write) 
     for entry in entries {
         let obfuscated_name = vec![0u8; entry.name.len()];
 
-        obfuscate_data(&entry.name.as_bytes(), entry.nb_chunks as u64, &obfuscated_name);
+        obfuscate_data(entry.name.as_bytes(), entry.nb_chunks as u64, &obfuscated_name);
         writeln!(output, "/* {{{{{{ {} */", entry.name).unwrap();
         writeln!(output, "{{").unwrap();
         write!(output, "    .name = LSTR_IMMED(\"").unwrap();
@@ -282,7 +282,7 @@ fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
     writeln!(output).unwrap();
     writeln!(output, "static const farch_entry_t {}[] = {{", name).unwrap();
 
-    dump_entries(&name, &entries, output);
+    dump_entries(name, &entries, output);
     writeln!(output, "{{   .name = LSTR_NULL }},").unwrap();
     writeln!(output, "}};").unwrap();
 
@@ -301,7 +301,7 @@ fn main() {
 
     let mut output = String::new();
 
-    do_work(&opts, &reldir, &mut output);
+    do_work(&opts, reldir, &mut output);
 
     // Output to a file
     if let Some(out_path) = &opts.out {
@@ -310,7 +310,7 @@ fn main() {
             eprintln!("Error: unable to open `{}` for writing: {}", out_path.display(), e);
             std::process::exit(1);
         });
-        out_file.write(output.as_bytes()).unwrap_or_else(|e| {
+        out_file.write_all(output.as_bytes()).unwrap_or_else(|e| {
             eprintln!("Error: unable to write file `{}`: {}", out_path.display(), e);
             std::process::exit(1);
         });
@@ -322,7 +322,7 @@ fn main() {
         }
     } else {
         // Output to stdout
-        io::stdout().write(output.as_bytes()).unwrap_or_else(|e| {
+        io::stdout().write_all(output.as_bytes()).unwrap_or_else(|e| {
             eprintln!("Error: unable to write to stdio: {}" , e);
             std::process::exit(1);
         });
