@@ -32,8 +32,8 @@ from typing import (  # noqa: UP035 (deprecated-import)
     TypeVar,
 )
 
-from waflib import Errors, Task, TaskGen, Utils
-from waflib.Build import BuildContext
+from waflib import Errors, Logs, Task, TaskGen, Utils
+from waflib.Build import BuildContext, CleanContext
 from waflib.Configure import ConfigurationContext
 
 # Add type hinting for TaskGen decorators
@@ -111,7 +111,21 @@ def rust_dummy_feature(tg: TaskGen) -> None:
     """
 
 
+def cargo_clean(ctx: CleanContext) -> None:
+    """Perform `cargo clean` on `waf clean`"""
+    Logs.info('Waf: running `cargo clean`')
+    ctx.exec_command(ctx.env.CARGO + ['clean'], stdout=None, stderr=None)
+
+
 def build(ctx: BuildContext) -> None:
+    # CleanContext is a subclass of BuildContext, and build() is called on
+    # `waf clean` but without running the compilation tasks, and do an
+    # internal clean instead.
+    # Run the command now as we cannot actually run it later.
+    if isinstance(ctx, CleanContext):
+        cargo_clean(ctx)
+        return
+
     ctx.add_pre_fun(rust_pre_build)
 
 
