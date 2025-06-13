@@ -195,7 +195,12 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             *self.env.PKG_SPEC,
             *Utils.to_list(self.env.TGT_SPEC),
         ]
-        if self.exec_command(cargo_exec_cmd) != 0:
+
+        # Run cargo in verbose mode if waf is run in verbose mode.
+        if Logs.verbose > 0:
+            cargo_exec_cmd.append('-' + 'v' * Logs.verbose)
+
+        if self.exec_command(cargo_exec_cmd, stdout=None, stderr=None) != 0:
             raise Errors.WafError('unable to run cargo')
 
     def make_hard_link(self) -> None:
