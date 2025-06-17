@@ -21,7 +21,7 @@
 Contains the code needed for rust compilation.
 """
 
-
+import json
 import os
 import os.path as osp
 import stat
@@ -29,11 +29,13 @@ import subprocess
 from typing import (  # noqa: UP035 (deprecated-import)
     TYPE_CHECKING,
     Callable,
+    List,
+    Tuple,
     Type,
     TypeVar,
 )
 
-from waflib import Errors, Logs, Task, TaskGen, Utils
+from waflib import Context, Errors, Logs, Node, Task, TaskGen, Utils
 from waflib.Build import BuildContext, CleanContext
 from waflib.Configure import ConfigurationContext
 
@@ -69,30 +71,8 @@ def configure(ctx: ConfigurationContext) -> None:
 # {{{ build
 
 
-def rust_check_tgen(tgen: TaskGen) -> None:
-    source = Utils.to_list(getattr(tgen, 'source', []))
-    if source:
-        raise Errors.WafError(f'rust task gen {tgen.name}: '
-                              'source must be empty')
-
-    cargo_pkg = getattr(tgen, 'cargo_pkg', None)
-    if not cargo_pkg:
-        raise Errors.WafError(f'rust task gen {tgen.name}: '
-                              '`cargo_pkg` must be set to a corresponding '
-                              'cargo package')
-
-
 def rust_set_features(tgen: TaskGen, feats: list[str]) -> None:
-    if tgen.typ == 'stlib' and 'ruststlib' not in feats:
-        feats.append('ruststlib')
-    elif tgen.typ == 'shlib' and 'rustshlib' not in feats:
-        feats.append('rustshlib')
-    elif tgen.typ == 'program' and 'rustprogram' not in feats:
-        feats.append('rustprogram')
-    else:
-        raise Errors.WafError('unsupported kind of rust task gen '
-                              f'{tgen.name}')
-
+    # Required for STLIB dependencies
     if 'use' not in feats:
         feats.append('use')
 
@@ -100,20 +80,20 @@ def rust_set_features(tgen: TaskGen, feats: list[str]) -> None:
 
 
 def rust_pre_build(ctx: BuildContext) -> None:
+    # Read the packages from the cargo metadata for the workspace.
+    cargo_metadata_json = ctx.cmd_and_log(
+        ctx.env.CARGO + ['metadata', '--no-deps', '--format-version', '1'],
+        quiet=Context.BOTH,
+    )
+    cargo_metadata = json.loads(cargo_metadata_json)
+    ctx.cargo_packages = {
+        pkg['name']: pkg for pkg in cargo_metadata['packages']
+    }
+
     for tgen in ctx.get_all_task_gen():
         feats = Utils.to_list(getattr(tgen, 'features', []))
         if 'rust' in feats:
-            rust_check_tgen(tgen)
             rust_set_features(tgen, feats)
-
-
-@TaskGen.feature('rust')
-@TaskGen.before_method('process_rule')
-def rust_dummy_feature(tg: TaskGen) -> None:
-    """
-    Dummy 'rust' feature method so that waf does not complain it does not
-    exist.
-    """
 
 
 def cargo_clean(ctx: CleanContext) -> None:
@@ -146,10 +126,16 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
     def keyword(cls: Type['CargoBuild']) -> str:
         return 'Cargo'
 
+    def __str__(self) -> str:
+        ctx = self.generator.bld
+        pkg_dir_node = ctx.root.make_node(self.env.PKG_DIR)
+        res: str = pkg_dir_node.path_from(ctx.srcnode)
+        return res
+
     def run(self) -> int:
         self.make_waf_build_env()
         self.run_cargo()
-        self.make_hard_link()
+        self.make_hardlinks()
         return 0
 
     def make_waf_build_env(self) -> None:
@@ -178,8 +164,8 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             '_waf_build_env.json')
 
         if waf_build_env_file.exists():
-            os.chmod(waf_build_env_file.abspath(), stat.S_IWUSR)
-            os.remove(waf_build_env_file.abspath())
+            waf_build_env_file.chmod(stat.S_IWUSR)
+            waf_build_env_file.delete(evict=False)
 
         waf_build_env_file.write_json({
             'includes': cargo_includes,
@@ -188,8 +174,8 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             'libs': cargo_libs,
             'libpaths': cargo_libpaths,
         })
-        os.chmod(waf_build_env_file.abspath(),
-                 stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+
+        waf_build_env_file.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
 
     def run_cargo(self) -> None:
         cargo_exec_cmd = [
@@ -208,51 +194,78 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
         if self.exec_command(cargo_exec_cmd, stdout=None, stderr=None) != 0:
             raise Errors.WafError('unable to run cargo')
 
-    def make_hard_link(self) -> None:
-        """Hard link the file produced by cargo to the expected output file"""
-        waf_out, cargo_out = self.outputs
-        try:
-            os.remove(waf_out.abspath())
-        except FileNotFoundError:
-            pass
-        os.link(cargo_out.abspath(), waf_out.abspath())
+    def make_hardlinks(self) -> None:
+        """
+        Hard links the file produced by cargo to the expected output files
+        """
+        for waf_out, cargo_out in self.env.PKG_HARDLINKS:
+            try:
+                os.remove(waf_out.abspath())
+            except FileNotFoundError:
+                pass
+            os.link(cargo_out.abspath(), waf_out.abspath())
 
 
-@TaskGen.feature('rustprogram')
-@TaskGen.after_method('process_source')
-def apply_cargo_build_program(self: TaskGen) -> None:
-    waf_out = self.path.make_node(self.name)
-    cargo_bld_dir = self.bld.srcnode.make_node(self.env.CARGO_BUILD_DIR)
-    cargo_out = cargo_bld_dir.make_node(self.name)
+@TaskGen.feature('rust')
+@TaskGen.before_method('process_use')
+def rust_build_pkg(self: TaskGen) -> None:
+    ctx = self.bld
+
+    cargo_packages = getattr(ctx, 'cargo_packages', None)
+    if cargo_packages is None:
+        # We are not really in the build stage, do nothing.
+        return
+
+    # Get the cargo package corresponding to the waf target
+    pkg_metadata = cargo_packages.get(self.name)
+    if pkg_metadata is None:
+        ctx.fatal(f'waf target `{self.name}` does not correspond to a '
+                  'cargo package')
+
+    # Get manifest path and package dir
+    manifest_path = pkg_metadata['manifest_path']
+    package_dir = osp.dirname(manifest_path)
+
+    # Build the list of outputs and hardlinks for the task
+    cargo_bld_dir = ctx.srcnode.make_node(self.env.CARGO_BUILD_DIR)
+    outputs: List[Node] = []
+    hardlinks: List[Tuple[str, str]] = []
+    for cargo_target in pkg_metadata['targets']:
+        target_name = cargo_target['name']
+        kinds = cargo_target['kind']
+
+        # Add the rust libs compiled as a static lib
+        if 'staticlib' in kinds:
+            target_output_name = ctx.env.cstlib_PATTERN % target_name
+            cargo_output = cargo_bld_dir.make_node(target_output_name)
+            outputs.append(cargo_output)
+
+        # Add the rust libs compiled as a shared lib
+        if 'cdylib' in kinds:
+            target_output_name = ctx.env.cshlib_PATTERN % target_name
+            cargo_output = cargo_bld_dir.make_node(target_output_name)
+
+            waf_target_name = target_output_name
+            if not getattr(self, 'keep_lib_prefix', False):
+                assert waf_target_name.startswith('lib')
+                waf_target_name = waf_target_name[len('lib'):]
+            waf_output = self.path.make_node(waf_target_name)
+
+            outputs.extend([waf_output, cargo_output])
+            hardlinks.append((waf_output, cargo_output))
+
+        # Add the rust bin
+        if 'bin' in kinds:
+            target_output_name = ctx.env.cprogram_PATTERN % target_name
+            cargo_output = cargo_bld_dir.make_node(target_output_name)
+            waf_output = self.path.make_node(target_output_name)
+            outputs.extend([waf_output, cargo_output])
+            hardlinks.append((waf_output, cargo_output))
+
     self.link_task = tsk = self.create_task(
-        'CargoBuild', [], [waf_out, cargo_out])
-    tsk.env.PKG_SPEC = ['-p', self.cargo_pkg]
-    tsk.env.TGT_SPEC = ['--bin', self.name]
-
-
-@TaskGen.feature('rustlib')
-@TaskGen.after_method('process_source')
-def apply_cargo_build_lib(self: TaskGen) -> None:
-    # FIXME
-    bld_dir = self.bld.srcnode.make_node(self.env.CARGO_BUILD_DIR)
-    src = self.main_src
-
-    outputs = []
-    for typ in self.crate_type:
-        if typ == 'rlib':
-            p = 'lib%s.rlib'
-        elif typ in {'dylib', 'cdylib'}:
-            p = self.bld.env.cshlib_PATTERN
-        elif typ == 'staticlib':
-            p = self.bld.env.cstlib_PATTERN
-        else:
-            raise AssertionError
-
-        outputs.append(bld_dir.make_node(p % self.target_lib))
-
-    self.cargo_task = tsk = self.create_task('CargoBuild', [src], outputs)
-    tsk.env.PKG_SPEC = ['-p', self.pkg]
-    tsk.env.TGT_SPEC = '--lib'
+        'CargoBuild', [ctx.root.make_node(manifest_path)], outputs)
+    tsk.env.PKG_DIR = package_dir
+    tsk.env.PKG_HARDLINKS = hardlinks
 
 
 # }}}
