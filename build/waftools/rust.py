@@ -25,6 +25,7 @@ Contains the code needed for rust compilation.
 import os
 import os.path as osp
 import stat
+import subprocess
 from typing import (  # noqa: UP035 (deprecated-import)
     TYPE_CHECKING,
     Callable,
@@ -53,6 +54,10 @@ if TYPE_CHECKING:
 
 def configure(ctx: ConfigurationContext) -> None:
     ctx.find_program('cargo', var='CARGO')
+
+    if ctx.exec_command(ctx.env.CARGO + ['tree', '--quiet', '--locked'],
+                        stdout=subprocess.DEVNULL, stderr=None):
+        ctx.fatal('cargo lock is not up-to-date')
 
     waf_profile = ctx.env.PROFILE
     ctx.env.CARGO_PROFILE = 'release' if waf_profile == 'release' else 'dev'
