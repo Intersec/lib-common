@@ -164,15 +164,19 @@ def run_checks(ctx: BuildContext) -> None:
         env['Z_LIST_SKIP'] = 'C web'
         env['Z_TAG_SKIP'] = 'wip'
         env['BEHAVE_FLAGS'] = '--tags=web'
-    elif ctx.cmd == 'fast-selenium':
+    elif ctx.cmd in {'fast-selenium', 'fast-selenium-retry'}:
         env['Z_LIST_SKIP'] = 'C web'
         env['Z_TAG_SKIP'] = 'wip upgrade slow'
         env['BEHAVE_FLAGS'] = '--tags=web'
-    elif ctx.cmd != 'check':
+    elif ctx.cmd not in {'check', 'check-retry'}:
         return
 
-    path = ctx.launch_node().path_from(ctx.env.PROJECT_ROOT)
-    cmd = f'{ctx.env.RUN_CHECKS_SH[0]} {path}'
+    if ctx.cmd in {'check-retry', 'fast-selenium-retry'}:
+        arg = ctx.cmd
+    else:
+        arg = ctx.launch_node().path_from(ctx.env.PROJECT_ROOT)
+
+    cmd = f'{ctx.env.RUN_CHECKS_SH[0]} {arg}'
     if ctx.exec_command(cmd, stdout=None, stderr=None, env=env):
         ctx.fatal('')
 
@@ -182,6 +186,12 @@ class CheckClass(BuildContext):  # type: ignore[misc]
 
     cmd = 'check'
     has_jasmine_tests = True
+
+
+class CheckRetryClass(BuildContext):  # type: ignore[misc]
+    """retry failed run tests (no web)"""
+
+    cmd = 'check-retry'
 
 
 class FastCheckClass(BuildContext):  # type: ignore[misc]
@@ -208,6 +218,12 @@ class FastSeleniumCheckClass(BuildContext):  # type: ignore[misc]
     """run selenium tests (without slow ones)"""
 
     cmd = 'fast-selenium'
+
+
+class FastSeleniumCheckRetryClass(BuildContext):  # type: ignore[misc]
+    """retry selenium tests (without slow ones)"""
+
+    cmd = 'fast-selenium-retry'
 
 
 # }}}

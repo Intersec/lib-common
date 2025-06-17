@@ -193,6 +193,11 @@ Other commands are listed with `waf --help`. Here they are:
                The following variants also exist (cf `waf --help` for the
                details): `fast-check`, `www-check`, `selenium`,
                `fast-selenium`.
+* `waf check-retry`: based on the content of the environment variable named
+                     `Z_LIST_RETRY` (items separated by a comma), run a
+                     dedicated list of tests (zchk, python or .feature files).
+                     The following variant also exists (cf `waf --help` for
+                     the details): `fast-selenium-retry`.
 * `waf tags`: generate tags using ctags.
 * `waf etags`: generate tags for emacs using ctags.
 * `waf ruff`: run ruff checks on all python files.

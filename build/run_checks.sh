@@ -118,8 +118,15 @@ set_www_env() {
     export Z_WWW_HOST Z_WWW_PREFIX Z_WWW_BROWSER
 }
 
+valid_retry_values=("check-retry" "fast-selenium-retry")
+if [[ " ${valid_retry_values[*]} " =~ " $where " ]]; then
+    python_script_list="retry_checks.py"
+    where=""
+else
+    python_script_list="list_checks.py"
+fi
 
-"$(dirname "$0")"/list_checks.py "$where" | (
+"$(dirname "$0")"/${python_script_list} "$where" | (
 export Z_BEHAVE=1
 export Z_HARNESS=1
 export Z_TAG_SKIP="${Z_TAG_SKIP:-wip slow upgrade web perf}"
@@ -161,6 +168,16 @@ while read -r zd line; do
             set_www_env $PWD/"$productdir"
             if [ $? -eq 0 ]; then
                 "$BUILD_DIR/tests/zbehave.py" $BEHAVE_FLAGS "$productdir"/ci/features
+                res=$?
+            fi
+            ;;
+        */ci/*.feature)
+            # From command line, parse a .feature file to replay
+            productdir=./${t%%/ci/*}
+            res=1
+            set_www_env $PWD/"$productdir"
+            if [ $? -eq 0 ]; then
+                "$BUILD_DIR/tests/zbehave.py" $BEHAVE_FLAGS "$t"
                 res=$?
             fi
             ;;
