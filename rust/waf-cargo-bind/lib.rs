@@ -30,6 +30,7 @@ struct WafBuildEnvJson {
     cflags: Vec<String>,
     libs: Vec<String>,
     libpaths: Vec<String>,
+    rerun_libs: Vec<String>,
 }
 
 pub struct WafEnvParams {
@@ -63,7 +64,7 @@ pub fn decode_waf_env_params() -> WafEnvParams {
         process::exit(1);
     }
 
-    let json_env = read_waf_build_env_json(waf_env_json_file).unwrap();
+    let json_env = read_waf_build_env_json(&waf_env_json_file).unwrap();
 
     let binding_gen_file = package_dir.join("_bindings.rs");
 
@@ -90,6 +91,12 @@ pub fn decode_waf_env_params() -> WafEnvParams {
     }
     for libpath in json_env.libpaths {
         println!("cargo::rustc-link-search={libpath}");
+    }
+
+    // Rerun if _waf_build_env.json or one of the libs have changed
+    println!("cargo::rerun-if-changed={}", waf_env_json_file.display());
+    for rerun_lib in json_env.rerun_libs {
+        println!("cargo::rerun-if-changed={rerun_lib}");
     }
 
     println!("cargo::rustc-link-arg=-no-pie");

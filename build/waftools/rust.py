@@ -76,6 +76,14 @@ def rust_set_features(tgen: TaskGen, feats: list[str]) -> None:
     if 'use' not in feats:
         feats.append('use')
 
+    # Required for USELIB flags dependencies
+    if 'uselib' not in feats:
+        feats.append('uselib')
+
+    # Required for INCPATHS variable
+    if 'includes' not in feats:
+        feats.append('includes')
+
     tgen.features = feats
 
 
@@ -139,17 +147,21 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
         return 0
 
     def make_waf_build_env(self) -> None:
-        cargo_includes = list({
-            x for key in self.env
-            if key == 'INCLUDES' or key.startswith('INCLUDES_')
-            for x in self.env[key]
-        })
+        tg = self.generator
+        ctx = tg.bld
 
-        cflags = list(self.env.CFLAGS)
-        cargo_cflags = list(filter(lambda x: not x.startswith('-D'), cflags))
+        incpaths = Utils.to_list(self.env.INCPATHS)
+        cargo_includes = [
+            incdir if osp.isabs(incdir)
+            else ctx.srcnode.make_node(incdir).abspath()
+            for incdir in incpaths
+        ]
 
-        defines = list(filter(lambda x: x.startswith('-D'), cflags))
-        cargo_defines = list({x.removeprefix('-D') for x in defines})
+        cflags = Utils.to_list(self.env.CFLAGS)
+        cargo_cflags = [x for x in cflags if not x.startswith('-D')]
+
+        defines = [x for x in cflags if x.startswith('-D')]
+        cargo_defines = sorted({x.removeprefix('-D') for x in defines})
 
         cargo_libs = (
             Utils.to_list(self.env.STLIB) +
@@ -159,21 +171,34 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             Utils.to_list(self.env.STLIBPATH) +
             Utils.to_list(self.env.LIBPATH)
         )
+        cargo_rerun_libs = sorted(
+            ctx.get_tgen_by_name(use_stlib).link_task.outputs[0].abspath()
+            for use_stlib in tg.tmp_use_sorted  # Result of sorted use libs
+        )
 
-        waf_build_env_file = self.generator.path.make_node(
-            '_waf_build_env.json')
-
-        if waf_build_env_file.exists():
-            waf_build_env_file.chmod(stat.S_IWUSR)
-            waf_build_env_file.delete(evict=False)
-
-        waf_build_env_file.write_json({
+        waf_env_content = {
             'includes': cargo_includes,
             'defines': cargo_defines,
             'cflags': cargo_cflags,
             'libs': cargo_libs,
             'libpaths': cargo_libpaths,
-        })
+            'rerun_libs': cargo_rerun_libs,
+        }
+
+        waf_build_env_file = self.generator.path.make_node(
+            '_waf_build_env.json')
+
+        if waf_build_env_file.exists():
+            # If the file already exists and the content has not changed, do
+            # not rewrite the file to avoid recompiling the cargo package
+            old_content = waf_build_env_file.read_json()
+            if waf_env_content == old_content:
+                return
+
+            waf_build_env_file.chmod(stat.S_IWUSR)
+            waf_build_env_file.delete(evict=False)
+
+        waf_build_env_file.write_json(waf_env_content)
 
         waf_build_env_file.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
 
