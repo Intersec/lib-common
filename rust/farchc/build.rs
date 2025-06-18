@@ -19,7 +19,7 @@
 use std::error;
 use waf_cargo_bind::WafEnvParams;
 
-const FUNCTIONS_TO_EXPOSE: &[&str] = &["lstr_obfuscate", "qlzo1x_compress"];
+const FUNCTIONS_TO_EXPOSE: &[&str] = &["lstr_obfuscate", "qlzo1x_compress", "lzo_cbuf_size"];
 
 const VARS_TO_EXPOSE: &[&str] = &[];
 

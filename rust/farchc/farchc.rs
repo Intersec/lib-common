@@ -75,10 +75,6 @@ struct Opts {
     compress_lzo: bool,
 }
 
-fn lzo_cbuf_size(insz: usize) -> usize {
-    insz + (insz >> 4) + 64 + 3
-}
-
 fn rand_range(first: usize, last: usize) -> usize {
     rand::random_range(first..=last)
 }
@@ -137,7 +133,7 @@ fn dump_file(path: &Path, entry: &mut FarchEntry, output: &mut dyn Write, compre
     entry.size = file_data.len() as i32;
 
     if compress_lzo {
-        let mut clen = lzo_cbuf_size(file_data.len());
+        let mut clen = unsafe { lzo_cbuf_size(file_data.len()) };
         let mut cbuf = vec![0u8; clen];
         let mut lzo_buf = [0u8; LZO_BUF_MEM_SIZE];
         let start_ptr: *const u8 = file_data.as_ptr();
