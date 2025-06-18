@@ -16,22 +16,32 @@
 /*                                                                         */
 /***************************************************************************/
 
+use std::error;
+use waf_cargo_bind::WafEnvParams;
+
 const FUNCTIONS_TO_EXPOSE: &[&str] = &["lstr_obfuscate", "qlzo1x_compress"];
 
 const VARS_TO_EXPOSE: &[&str] = &[];
 
-fn main() {
-    let waf_env_params = waf_cargo_bind::decode_waf_env_params();
+fn main() -> Result<(), Box<dyn error::Error>> {
+    let waf_env_params = WafEnvParams::read()?;
 
-    let mut builder = waf_cargo_bind::make_builder(&waf_env_params).header("wrapper.h");
+    waf_env_params.print_cargo_instructions();
+    waf_env_params.generate_bindings(|builder| {
+        let mut builder = builder;
 
-    for fun in FUNCTIONS_TO_EXPOSE.iter() {
-        builder = builder.allowlist_function(fun);
-    }
+        builder = builder.header("wrapper.h");
 
-    for var in VARS_TO_EXPOSE.iter() {
-        builder = builder.allowlist_var(var);
-    }
+        for fun in FUNCTIONS_TO_EXPOSE.iter() {
+            builder = builder.allowlist_function(fun);
+        }
 
-    waf_cargo_bind::generate_bindings(builder, &waf_env_params);
+        for var in VARS_TO_EXPOSE.iter() {
+            builder = builder.allowlist_var(var);
+        }
+
+        Ok(builder)
+    })?;
+
+    Ok(())
 }
