@@ -41,6 +41,7 @@ struct WafBuildEnvJson {
     cflags: Vec<String>,
     libs: Vec<String>,
     libpaths: Vec<String>,
+    link_args: Vec<String>,
     rerun_libs: Vec<String>,
 }
 
@@ -112,11 +113,14 @@ impl WafEnvParams {
         println!("cargo::metadata=libpaths={waf_libpaths}");
 
         // emits link libs
-        for lib in &self.json_env.libs {
-            println!("cargo::rustc-link-lib={lib}");
+        for link_arg in &self.json_env.link_args {
+            println!("cargo::rustc-link-arg={link_arg}");
         }
         for libpath in &self.json_env.libpaths {
             println!("cargo::rustc-link-search={libpath}");
+        }
+        for lib in &self.json_env.libs {
+            println!("cargo::rustc-link-lib={lib}");
         }
 
         // Rerun if _waf_build_env.json or one of the libs have changed

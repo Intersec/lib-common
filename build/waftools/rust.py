@@ -175,6 +175,13 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             ctx.get_tgen_by_name(use_stlib).link_task.outputs[0].abspath()
             for use_stlib in tg.tmp_use_sorted  # Result of sorted use libs
         )
+        cargo_link_args = Utils.to_list(self.env.LDFLAGS).copy()
+
+        if self.env.USE_SANITIZER:
+            if self.env.PROFILE == 'asan':
+                cargo_link_args.append('-static-libasan')
+            # Needs to always be the first library to be linked
+            cargo_libs.insert(0, self.env.PROFILE)
 
         waf_env_content = {
             'includes': cargo_includes,
@@ -182,6 +189,7 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             'cflags': cargo_cflags,
             'libs': cargo_libs,
             'libpaths': cargo_libpaths,
+            'link_args': cargo_link_args,
             'rerun_libs': cargo_rerun_libs,
         }
 
