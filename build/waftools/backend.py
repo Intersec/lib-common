@@ -1004,7 +1004,7 @@ class FirstInputStrTask(Task):  # type: ignore[misc]
 
 
 class Fc2c(FirstInputStrTask):
-    run_str = ['rm -f ${TGT}', '${FARCHC} -c -o ${TGT} ${SRC[0].abspath()}']
+    run_str = ['rm -f ${TGT}', '${FARCHC} -o ${TGT} ${SRC[0].abspath()}']
     color = 'BLUE'
     before = ['Blk2c', 'Blkk2cc', 'ClangCheck']
     ext_out = ['.h']

@@ -69,10 +69,6 @@ struct Opts {
     /// Be verbose
     #[arg(short, long, action = clap::ArgAction::SetTrue)]
     verbose: bool,
-
-    /// Compress files using LZO algorithm
-    #[arg(short = 'c', long = "compress-lzo", action = clap::ArgAction::SetTrue)]
-    compress_lzo: bool,
 }
 
 fn rand_range(first: usize, last: usize) -> usize {
@@ -124,7 +120,7 @@ fn dump_and_obfuscate(buf: &[u8], output: &mut dyn Write) -> i32 {
     nb_chunks
 }
 
-fn dump_file(path: &Path, entry: &mut FarchEntry, output: &mut dyn Write, compress_lzo: bool) {
+fn dump_file(path: &Path, entry: &mut FarchEntry, output: &mut dyn Write) {
     let file_data = std::fs::read(path).unwrap_or_else(|e| {
         eprintln!("Error: unable to read file `{}`: {}", path.display(), e);
         std::process::exit(1);
@@ -132,37 +128,32 @@ fn dump_file(path: &Path, entry: &mut FarchEntry, output: &mut dyn Write, compre
 
     entry.size = file_data.len() as i32;
 
-    if compress_lzo {
-        let mut clen = unsafe { lzo_cbuf_size(file_data.len()) };
-        let mut cbuf = vec![0u8; clen];
-        let mut lzo_buf = [0u8; LZO_BUF_MEM_SIZE];
-        let start_ptr: *const u8 = file_data.as_ptr();
-        let end_ptr: *const u8 = file_data.as_slice().last().unwrap();
-        let ps = unsafe {
-            pstream_t {
-                __bindgen_anon_1: pstream_t__bindgen_ty_1 { b: start_ptr },
-                __bindgen_anon_2: pstream_t__bindgen_ty_2 {
-                    b_end: end_ptr.offset(1),
-                },
-            }
-        };
-
-        unsafe {
-            clen = qlzo1x_compress(
-                cbuf.as_mut_ptr() as *mut std::os::raw::c_void,
-                clen,
-                ps,
-                lzo_buf.as_mut_ptr() as *mut std::os::raw::c_void,
-            );
+    let mut clen = unsafe { lzo_cbuf_size(file_data.len()) };
+    let mut cbuf = vec![0u8; clen];
+    let mut lzo_buf = [0u8; LZO_BUF_MEM_SIZE];
+    let start_ptr: *const u8 = file_data.as_ptr();
+    let end_ptr: *const u8 = file_data.as_slice().last().unwrap();
+    let ps = unsafe {
+        pstream_t {
+            __bindgen_anon_1: pstream_t__bindgen_ty_1 { b: start_ptr },
+            __bindgen_anon_2: pstream_t__bindgen_ty_2 {
+                b_end: end_ptr.offset(1),
+            },
         }
+    };
 
-        if clen < file_data.len() {
-            entry.nb_chunks = dump_and_obfuscate(&cbuf[0..clen], output);
-            entry.compressed_size = clen as i32;
-        } else {
-            entry.nb_chunks = dump_and_obfuscate(&file_data, output);
-            entry.compressed_size = file_data.len() as i32;
-        }
+    unsafe {
+        clen = qlzo1x_compress(
+            cbuf.as_mut_ptr() as *mut std::os::raw::c_void,
+            clen,
+            ps,
+            lzo_buf.as_mut_ptr() as *mut std::os::raw::c_void,
+        );
+    }
+
+    if clen < file_data.len() {
+        entry.nb_chunks = dump_and_obfuscate(&cbuf[0..clen], output);
+        entry.compressed_size = clen as i32;
     } else {
         entry.nb_chunks = dump_and_obfuscate(&file_data, output);
         entry.compressed_size = file_data.len() as i32;
@@ -271,7 +262,7 @@ fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
 
         writeln!(output, "/* {{{{{{ {} */", path).unwrap();
 
-        dump_file(&fullpath, &mut entry, output, opts.compress_lzo);
+        dump_file(&fullpath, &mut entry, output);
         writeln!(output, "/* }}}}}} */").unwrap();
 
         entries.push(entry);
