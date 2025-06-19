@@ -43,6 +43,7 @@ struct WafBuildEnvJson {
     libpaths: Vec<String>,
     link_args: Vec<String>,
     rerun_libs: Vec<String>,
+    cc: String,
 }
 
 impl WafBuildEnvJson {
@@ -175,6 +176,8 @@ impl WafEnvParams {
         // If the wrapper file is generated, then, compile it into a stlib.
         if self.static_wrapper_path.is_file() {
             let mut cc = cc::Build::new();
+
+            cc.compiler(&self.json_env.cc);
 
             cc.file(self.static_wrapper_path.to_str().unwrap());
 

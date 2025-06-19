@@ -191,6 +191,7 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             'libpaths': cargo_libpaths,
             'link_args': cargo_link_args,
             'rerun_libs': cargo_rerun_libs,
+            'cc': self.env.CC[0],
         }
 
         waf_build_env_file = self.generator.path.make_node(
