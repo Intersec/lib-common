@@ -17,7 +17,7 @@
 #                                                                         #
 ###########################################################################
 
-dirty=$(git diff-files --quiet && git diff-index --cached --quiet HEAD -- || echo "-dirty")
+dirty=$(git diff --quiet && git diff-index --cached --quiet HEAD -- || echo "-dirty")
 
 git_describe() {
     match="$1"
