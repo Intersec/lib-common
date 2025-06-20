@@ -16,6 +16,16 @@
 /*                                                                         */
 /***************************************************************************/
 
+//! # Waf Cargo binding library
+//!
+//! This library helps binding the Waf build system and Cargo build system.
+//!
+//! The Waf build system generates a `_waf_build_env.json` to pass the environment that is used by
+//! this library.
+//! This library is used in build scripts.
+//!
+//! The main entry point is the structure [`WafEnvParams`].
+
 use bindgen::Builder;
 use serde::Deserialize;
 use std::fs::File;
@@ -72,8 +82,7 @@ pub struct WafEnvParams {
 }
 
 impl WafEnvParams {
-    // {{{ Public methods
-
+    /// Read the `_waf_build_env.json` file from the cargo manifest directory using the library.
     pub fn read() -> Result<Self, Box<dyn error::Error>> {
         let package_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
@@ -98,6 +107,9 @@ impl WafEnvParams {
         })
     }
 
+    /// Print the cargo instructions for the compilation of the package using this library.
+    ///
+    /// See https://doc.rust-lang.org/cargo/reference/build-scripts.html#outputs-of-the-build-script
     pub fn print_cargo_instructions(&self) {
         let waf_cflags = format!("{:?}", self.json_env.cflags);
         let waf_defines = format!("{:?}", self.json_env.defines);
@@ -136,6 +148,34 @@ impl WafEnvParams {
         println!("cargo::rustc-link-arg=-no-pie");
     }
 
+    /// Generate the bindings of C code using bindgen.
+    ///
+    /// This function takes a function callback to be able to specify what functions and variables
+    /// to export.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// const FUNCTIONS_TO_EXPOSE: &[&str] = &[...];
+    ///
+    /// const VARS_TO_EXPOSE: &[&str] = &[...];
+    ///
+    /// waf_env_params.generate_bindings(|builder| {
+    ///     let mut builder = builder;
+    ///
+    ///     builder = builder.header("wrapper.h");
+    ///
+    ///     for fun in FUNCTIONS_TO_EXPOSE.iter() {
+    ///         builder = builder.allowlist_function(fun);
+    ///     }
+    ///
+    ///     for var in VARS_TO_EXPOSE.iter() {
+    ///         builder = builder.allowlist_var(var);
+    ///     }
+    ///
+    ///     Ok(builder)
+    /// })?;
+    /// ```
     pub fn generate_bindings(
         &self,
         cb: fn(Builder) -> Result<Builder, Box<dyn error::Error>>,
@@ -210,8 +250,6 @@ impl WafEnvParams {
 
         Ok(())
     }
-
-    // }}}
 }
 
 // }}}
