@@ -16,4 +16,10 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/qlzo.h>
+pub mod bindings {
+    #![allow(warnings)]
+    include!("_bindings.rs");
+}
+
+pub mod lstr;
+pub mod pstream;

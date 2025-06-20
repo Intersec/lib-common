@@ -16,4 +16,18 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/qlzo.h>
+use crate::bindings::*;
+
+pub use crate::bindings::lstr_t;
+
+impl From<&[u8]> for lstr_t {
+    fn from(buf: &[u8]) -> Self {
+        Self {
+            __bindgen_anon_1: lstr_t__bindgen_ty_1 {
+                s: buf.as_ptr() as *const i8,
+            },
+            len: buf.len() as i32,
+            mem_pool: 0,
+        }
+    }
+}

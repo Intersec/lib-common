@@ -16,4 +16,22 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/qlzo.h>
+use std::error;
+use waf_cargo_bind::WafEnvParams;
+
+fn main() -> Result<(), Box<dyn error::Error>> {
+    let waf_env_params = WafEnvParams::read()?;
+
+    waf_env_params.print_cargo_instructions();
+    waf_env_params.generate_bindings(|builder| {
+        let mut builder = builder;
+
+        builder = builder.header("wrapper.h");
+
+        // Export everything from lib-common/core.h.
+
+        Ok(builder)
+    })?;
+
+    Ok(())
+}

@@ -24,25 +24,16 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 
+use libcommon_core::bindings::lstr_obfuscate;
+use libcommon_core::lstr::lstr_t;
+use libcommon_core::pstream::pstream_t;
+
 mod bindings {
-    #![allow(non_upper_case_globals)]
-    #![allow(non_camel_case_types)]
-    #![allow(non_snake_case)]
+    #![allow(warnings)]
+    use libcommon_core::bindings::*;
     include!("_bindings.rs");
 }
 use bindings::*;
-
-impl From<&[u8]> for lstr_t {
-    fn from(buf: &[u8]) -> Self {
-        Self {
-            __bindgen_anon_1: lstr_t__bindgen_ty_1 {
-                s: buf.as_ptr() as *const i8,
-            },
-            len: buf.len() as i32,
-            mem_pool: 0,
-        }
-    }
-}
 
 const PATHMAX: i32 = 4096;
 const LZO_BUF_MEM_SIZE: usize = 1 << (14 + std::mem::size_of::<u32>());
@@ -131,16 +122,7 @@ fn dump_file(path: &Path, entry: &mut FarchEntry, output: &mut dyn Write) {
     let mut clen = unsafe { lzo_cbuf_size(file_data.len()) };
     let mut cbuf = vec![0u8; clen];
     let mut lzo_buf = [0u8; LZO_BUF_MEM_SIZE];
-    let start_ptr: *const u8 = file_data.as_ptr();
-    let end_ptr: *const u8 = file_data.as_slice().last().unwrap();
-    let ps = unsafe {
-        pstream_t {
-            __bindgen_anon_1: pstream_t__bindgen_ty_1 { b: start_ptr },
-            __bindgen_anon_2: pstream_t__bindgen_ty_2 {
-                b_end: end_ptr.offset(1),
-            },
-        }
-    };
+    let ps: pstream_t = file_data.as_slice().into();
 
     unsafe {
         clen = qlzo1x_compress(

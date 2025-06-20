@@ -446,9 +446,10 @@ def configure(ctx: ConfigurationContext) -> None:
 def build(ctx: BuildContext) -> None:
     build_with_uv(ctx)
 
-    # Declare 4 build groups:
+    # Declare the build groups:
     #  - one for generating the "version" source files
     #  - one for compiling clang-rewrite-blocks
+    #  - one for compiling libcommon-minimal
     #  - one for compiling farchc
     #  - one for compiling iopc
     #  - one for compiling pxc (used in the tools repository)
@@ -459,6 +460,7 @@ def build(ctx: BuildContext) -> None:
     # Refer to section "Building the compiler first" of the waf book.
     ctx.add_group('gen_version')
     ctx.add_group('clang_rewrite_blocks')
+    ctx.add_group('libcommon-minimal')
     ctx.add_group('farchc')
     ctx.add_group('iopc')
     ctx.add_group('pxcc')

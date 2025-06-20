@@ -19,9 +19,7 @@
 use std::error;
 use waf_cargo_bind::WafEnvParams;
 
-const FUNCTIONS_TO_EXPOSE: &[&str] = &["lstr_obfuscate", "qlzo1x_compress", "lzo_cbuf_size"];
-
-const VARS_TO_EXPOSE: &[&str] = &[];
+const ITEMS_TO_EXPOSE: &[&str] = &["qlzo1x_compress", "lzo_cbuf_size"];
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let waf_env_params = WafEnvParams::read()?;
@@ -32,12 +30,8 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
         builder = builder.header("wrapper.h");
 
-        for fun in FUNCTIONS_TO_EXPOSE.iter() {
-            builder = builder.allowlist_function(fun);
-        }
-
-        for var in VARS_TO_EXPOSE.iter() {
-            builder = builder.allowlist_var(var);
+        for item in ITEMS_TO_EXPOSE.iter() {
+            builder = builder.allowlist_item(item);
         }
 
         Ok(builder)

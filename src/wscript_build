@@ -20,7 +20,7 @@ from waflib.Build import BuildContext
 
 ctx: BuildContext
 
-ctx.set_group('farchc')
+ctx.set_group('libcommon-minimal')
 
 # {{{ libcommon-minimal library
 
@@ -115,6 +115,8 @@ ctx.stlib(target='libcommon-minimal', features='c cstlib', depends_on=[
 ])
 
 # }}}
+
+ctx.set_group('farchc')
 
 ctx.recurse([
     'clang-rewrite-blocks',

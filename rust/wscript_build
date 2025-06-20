@@ -22,5 +22,6 @@ ctx: BuildContext
 
 
 ctx.recurse([
+    'libcommon-core',
     'farchc',
 ])

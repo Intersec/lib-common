@@ -179,6 +179,7 @@ name = "farchc"
 version = "0.0.0"
 dependencies = [
  "clap",
+ "libcommon-core",
  "rand",
  "waf-cargo-bind",
 ]
@@ -233,6 +234,13 @@ name = "libc"
 version = "0.2.174"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
+
+[[package]]
+name = "libcommon-core"
+version = "0.0.0"
+dependencies = [
+ "waf-cargo-bind",
+]
 
 [[package]]
 name = "libloading"

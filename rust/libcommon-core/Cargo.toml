@@ -16,13 +16,13 @@
 #                                                                         #
 ###########################################################################
 
-from waflib.Build import BuildContext
+[package]
+name = "libcommon-core"
+edition.workspace = true
+publish.workspace = true
 
-ctx: BuildContext
+[lib]
+path = "lib.rs"
 
-
-with ctx.UseGroup(ctx, 'farchc'):
-    ctx.farchc_tgen = ctx(
-        target='farchc', features='rust',
-        use=['libcommon-minimal', 'libcommon-core-rs'],
-    )
+[build-dependencies]
+waf-cargo-bind = { path = "../waf-cargo-bind" }

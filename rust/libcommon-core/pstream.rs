@@ -16,4 +16,21 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/qlzo.h>
+use crate::bindings::*;
+
+pub use crate::bindings::pstream_t;
+
+impl From<&[u8]> for pstream_t {
+    fn from(buf: &[u8]) -> Self {
+        let start_ptr: *const u8 = buf.as_ptr();
+        let end_ptr: *const u8 = buf.last().unwrap();
+        unsafe {
+            Self {
+                __bindgen_anon_1: pstream_t__bindgen_ty_1 { b: start_ptr },
+                __bindgen_anon_2: pstream_t__bindgen_ty_2 {
+                    b_end: end_ptr.offset(1),
+                },
+            }
+        }
+    }
+}
