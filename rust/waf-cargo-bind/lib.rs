@@ -25,10 +25,10 @@ use std::{env, error, fs, io};
 
 // {{{ helpers
 
-fn set_readonly<P: AsRef<Path>>(path: P, readonly: bool) -> io::Result<()> {
-    let mut permissions = fs::metadata(&path)?.permissions();
+fn set_readonly(path: &Path, readonly: bool) -> io::Result<()> {
+    let mut permissions = fs::metadata(path)?.permissions();
     permissions.set_readonly(readonly);
-    fs::set_permissions(&path, permissions)
+    fs::set_permissions(path, permissions)
 }
 
 // }}}
