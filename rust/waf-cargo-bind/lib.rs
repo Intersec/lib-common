@@ -21,7 +21,7 @@ use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use std::{env, error, fs, io, path};
+use std::{env, error, fs, io};
 
 // {{{ helpers
 
@@ -47,7 +47,7 @@ struct WafBuildEnvJson {
 }
 
 impl WafBuildEnvJson {
-    pub fn read<P: AsRef<path::Path>>(path: P) -> Result<WafBuildEnvJson, Box<dyn error::Error>> {
+    pub fn read(path: &Path) -> Result<WafBuildEnvJson, Box<dyn error::Error>> {
         // Open the file in read-only mode with buffer.
         let file = File::open(path)?;
         let reader = BufReader::new(file);
