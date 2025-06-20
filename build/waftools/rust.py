@@ -216,8 +216,8 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             'build',
             '--profile',
             self.env.CARGO_PROFILE,
-            *self.env.PKG_SPEC,
-            *Utils.to_list(self.env.TGT_SPEC),
+            '-p',
+            self.generator.name,
         ]
 
         # Run cargo in verbose mode if waf is run in verbose mode.
