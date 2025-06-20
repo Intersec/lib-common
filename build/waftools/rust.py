@@ -208,7 +208,6 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             waf_build_env_file.delete(evict=False)
 
         waf_build_env_file.write_json(waf_env_content)
-
         waf_build_env_file.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
 
     def run_cargo(self) -> None:
@@ -230,7 +229,7 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
 
     def make_hardlinks(self) -> None:
         """
-        Hard links the file produced by cargo to the expected output files
+        Hard link the files produced by cargo to the expected output files
         """
         for waf_out, cargo_out in self.env.PKG_HARDLINKS:
             try:
