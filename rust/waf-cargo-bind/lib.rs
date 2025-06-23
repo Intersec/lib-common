@@ -236,11 +236,9 @@ impl WafEnvParams {
                 cc.flag(flag);
             }
 
-            let add_cflags = ["-Wno-missing-prototypes", "-Wno-missing-declarations"];
-
-            for flag in add_cflags {
-                cc.flag(flag);
-            }
+            // Ignore all warnings in static-wrappers.
+            // This is not user code, we don't care about warnings.
+            cc.flag("-w");
 
             cc.compile("libcommon-static-wrappers");
             // XXX: nice thing about cc it emits cargo metadata
