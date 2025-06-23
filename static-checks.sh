@@ -31,7 +31,8 @@ main() {
     cd "$SCRIPT_DIR"
 
     # Run the different commands
-    run_cmd waf pylint
+    run_cmd waf ruff
+    run_cmd waf mypy
 }
 
 main
