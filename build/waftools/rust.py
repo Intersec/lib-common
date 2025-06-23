@@ -217,7 +217,7 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             '--profile',
             self.env.CARGO_PROFILE,
             '-p',
-            self.generator.name,
+            self.env.PKG_NAME,
         ]
 
         # Run cargo in verbose mode if waf is run in verbose mode.
@@ -249,10 +249,13 @@ def rust_build_pkg(self: TaskGen) -> None:
         # We are not really in the build stage, do nothing.
         return
 
+    # Get the cargo package name to use
+    cargo_pkg_name = getattr(self, 'cargo_package', self.name)
+
     # Get the cargo package corresponding to the waf target
-    pkg_metadata = cargo_packages.get(self.name)
+    pkg_metadata = cargo_packages.get(cargo_pkg_name)
     if pkg_metadata is None:
-        ctx.fatal(f'waf target `{self.name}` does not correspond to a '
+        ctx.fatal(f'waf target `{cargo_pkg_name}` does not correspond to a '
                   'cargo package')
 
     # Get manifest path and package dir
@@ -298,6 +301,7 @@ def rust_build_pkg(self: TaskGen) -> None:
     self.link_task = tsk = self.create_task(
         'CargoBuild', [ctx.root.make_node(manifest_path)], outputs)
     tsk.env.PKG_DIR = package_dir
+    tsk.env.PKG_NAME = cargo_pkg_name
     tsk.env.PKG_HARDLINKS = hardlinks
 
 
