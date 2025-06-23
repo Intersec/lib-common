@@ -163,6 +163,14 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
         defines = [x for x in cflags if x.startswith('-D')]
         cargo_defines = sorted({x.removeprefix('-D') for x in defines})
 
+        dep_stlibs = []
+        for use_stlib in tg.tmp_use_sorted:  # Result of sorted use libs
+            dep_tg = ctx.get_tgen_by_name(use_stlib)
+            link_task = getattr(dep_tg, 'link_task', None)
+            if link_task is None or not link_task.outputs:
+                continue
+            dep_stlibs.append(link_task.outputs[0].abspath())
+
         cargo_libs = (
             Utils.to_list(self.env.STLIB) +
             Utils.to_list(self.env.LIB)
@@ -171,10 +179,7 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             Utils.to_list(self.env.STLIBPATH) +
             Utils.to_list(self.env.LIBPATH)
         )
-        cargo_rerun_libs = sorted(
-            ctx.get_tgen_by_name(use_stlib).link_task.outputs[0].abspath()
-            for use_stlib in tg.tmp_use_sorted  # Result of sorted use libs
-        )
+        cargo_rerun_libs = sorted(dep_stlibs)
         cargo_link_args = Utils.to_list(self.env.LDFLAGS).copy()
 
         if self.env.USE_SANITIZER:
@@ -211,6 +216,13 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
         waf_build_env_file.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
 
     def run_cargo(self) -> None:
+        if not self.outputs:
+            # The Rust package will not produce any of output handled by waf
+            # (not a stlib, shlib or bin), it refers to a Rust only library.
+            # In that case, do not run `cargo build` as this package will be
+            # used by other cargo packages as a dependency.
+            return
+
         cargo_exec_cmd = [
             self.env.CARGO[0],
             'build',
@@ -241,7 +253,7 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
 
 @TaskGen.feature('rust')
 @TaskGen.before_method('process_use')
-def rust_build_pkg(self: TaskGen) -> None:
+def rust_create_task(self: TaskGen) -> None:
     ctx = self.bld
 
     cargo_packages = getattr(ctx, 'cargo_packages', None)
@@ -298,11 +310,42 @@ def rust_build_pkg(self: TaskGen) -> None:
             outputs.extend([waf_output, cargo_output])
             hardlinks.append((waf_output, cargo_output))
 
-    self.link_task = tsk = self.create_task(
+    # `link_task` is required for use lib links in waf.
+    self.link_task = self.rust_task = tsk = self.create_task(
         'CargoBuild', [ctx.root.make_node(manifest_path)], outputs)
     tsk.env.PKG_DIR = package_dir
     tsk.env.PKG_NAME = cargo_pkg_name
     tsk.env.PKG_HARDLINKS = hardlinks
+
+
+@TaskGen.feature('rust')
+@TaskGen.after_method('process_use')
+def rust_add_dep_task(self: TaskGen) -> None:
+    """
+    Add task dependencies between rust task gen even if the waf rust task gen
+    does not produce an output.
+    """
+    ctx = self.bld
+
+    # Get the link task
+    link_task = getattr(self, 'link_task', None)
+    if link_task is None:
+        # We are not really in the build stage, do nothing.
+        return
+
+    if not link_task.outputs:
+        # If the task do not produce any output (rust lib), delete `link_task`
+        # to avoid a waf exception later on with some invalid ouputs.
+        del self.link_task
+
+    for use_stlib in self.tmp_use_sorted:  # Result of sorted use libs
+        dep_tg = ctx.get_tgen_by_name(use_stlib)
+        dep_rust_task = getattr(dep_tg, 'rust_task', None)
+        if dep_rust_task is None:
+            # Not a rust task generator
+            continue
+
+        self.rust_task.set_run_after(dep_rust_task)
 
 
 # }}}
