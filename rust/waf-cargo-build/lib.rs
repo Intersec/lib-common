@@ -24,7 +24,7 @@
 //! this library.
 //! This library is used in build scripts.
 //!
-//! The main entry point is the structure [`WafEnvParams`].
+//! The main entry point is the structure [`WafBuild`].
 
 use bindgen::callbacks::{
     AttributeInfo, DeriveInfo, DeriveTrait, DiscoveredItem, DiscoveredItemId,
@@ -253,15 +253,15 @@ impl WafBuildEnvJson {
 // }}}
 // {{{ WafEnvParams
 
-pub struct WafEnvParams {
+pub struct WafBuild {
     package_dir: PathBuf,
     waf_env_json_file: PathBuf,
     json_env: WafBuildEnvJson,
 }
 
-impl WafEnvParams {
+impl WafBuild {
     /// Read the `_waf_build_env.json` file from the cargo manifest directory using the library.
-    pub fn read() -> Result<Self, Box<dyn error::Error>> {
+    pub fn read_build_env() -> Result<Self, Box<dyn error::Error>> {
         let package_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
         let waf_env_json_file = package_dir.join("_waf_build_env.json");
@@ -271,7 +271,7 @@ impl WafEnvParams {
 
         let json_env = WafBuildEnvJson::read(&waf_env_json_file)?;
 
-        Ok(WafEnvParams {
+        Ok(Self {
             package_dir,
             waf_env_json_file,
             json_env,

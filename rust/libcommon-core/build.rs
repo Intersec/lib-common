@@ -17,13 +17,13 @@
 /***************************************************************************/
 
 use std::error;
-use waf_cargo_bind::WafEnvParams;
+use waf_cargo_build::WafBuild;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
-    let waf_env_params = WafEnvParams::read()?;
+    let waf_build = WafBuild::read_build_env()?;
 
-    waf_env_params.print_cargo_instructions();
-    waf_env_params.generate_bindings(|builder| {
+    waf_build.print_cargo_instructions();
+    waf_build.generate_bindings(|builder| {
         let mut builder = builder;
 
         builder = builder.header("wrapper.h");

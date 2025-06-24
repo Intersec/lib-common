@@ -26,7 +26,7 @@ name = "farchc"
 path = "farchc.rs"
 
 [build-dependencies]
-waf-cargo-bind = { path = "../waf-cargo-bind" }
+waf-cargo-build = { path = "../waf-cargo-build" }
 libcommon-core = { path = "../libcommon-core" }
 
 [dependencies]

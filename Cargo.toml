@@ -25,7 +25,7 @@ edition = "2024"
 publish = false
 
 [workspace.dependencies]
-# Used by waf-cargo-bind
+# Used by waf-cargo-build
 bindgen = "0.72.0"
 cc = "1.2.25"
 serde = { version = "1.0.219", features = ["derive"] }
