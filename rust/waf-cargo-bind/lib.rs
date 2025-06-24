@@ -33,7 +33,9 @@ use bindgen::callbacks::{
 };
 use bindgen::{Builder, FieldVisibilityKind};
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Write;
@@ -66,6 +68,21 @@ where
     set_readonly(path, true)?;
 
     Ok(())
+}
+
+fn read_json_file<T>(path: &Path) -> Result<T, Box<dyn error::Error>>
+where
+    T: DeserializeOwned,
+{
+    // Open the file in read-only mode with buffer.
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+
+    // Read the JSON contents of the file as an instance of `WafBuildEnvJson`.
+    let json = serde_json::from_reader(reader)?;
+
+    // Return the json struct
+    Ok(json)
 }
 
 // }}}
@@ -224,19 +241,12 @@ struct WafBuildEnvJson {
     link_args: Vec<String>,
     rerun_libs: Vec<String>,
     cc: String,
+    local_recursive_dependencies: HashMap<String, String>,
 }
 
 impl WafBuildEnvJson {
     pub fn read(path: &Path) -> Result<WafBuildEnvJson, Box<dyn error::Error>> {
-        // Open the file in read-only mode with buffer.
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-
-        // Read the JSON contents of the file as an instance of `WafBuildEnvJson`.
-        let json_env = serde_json::from_reader(reader)?;
-
-        // Return the json struct
-        Ok(json_env)
+        read_json_file(path)
     }
 }
 
@@ -362,6 +372,24 @@ impl WafEnvParams {
         }
         for include in &self.json_env.includes {
             builder = builder.clang_arg(format!("-I{include}"));
+        }
+
+        // Block the items already exported by other dependencies
+        for dep_path_str in self.json_env.local_recursive_dependencies.values() {
+            let dep_path = Path::new(dep_path_str);
+            let dep_bind_json = dep_path.join("_bindings_items.json");
+
+            if !dep_bind_json.exists() {
+                continue;
+            }
+
+            // Read the dep binding items json file
+            let dep_items: Vec<String> = read_json_file(&dep_bind_json)?;
+
+            // Block all already exported items
+            for dep_item in dep_items {
+                builder = builder.blocklist_item(dep_item);
+            }
         }
 
         // Call the callback to add the headers and exported functions.
