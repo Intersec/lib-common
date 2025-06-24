@@ -15,23 +15,22 @@
 # limitations under the License.                                          #
 #                                                                         #
 ###########################################################################
-# ruff: noqa: UP006
 
 """
 Contains the code needed for rust compilation.
 """
+
+from __future__ import annotations
 
 import json
 import os
 import os.path as osp
 import stat
 import subprocess
-from typing import (  # noqa: UP035 (deprecated-import)
+from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
-    List,
-    Tuple,
-    Type,
     TypeVar,
 )
 
@@ -87,16 +86,60 @@ def rust_set_features(tgen: TaskGen, feats: list[str]) -> None:
     tgen.features = feats
 
 
+def rust_resolve_local_recursive_dependencies(
+    ctx: BuildContext, cargo_package: dict[str, Any],
+) -> dict[str, str]:
+    local_recursive_dependencies: dict[str, str] | None = (
+        cargo_package.get('local_recursive_dependencies')
+    )
+    if local_recursive_dependencies is not None:
+        return local_recursive_dependencies
+
+    local_recursive_dependencies = {}
+    for dep in cargo_package['dependencies']:
+        dep_path = dep.get('path')
+        if dep_path is None:
+            # Not a local dependency
+            continue
+
+        dep_name = dep['name']
+
+        # Add the local dependency
+        local_recursive_dependencies[dep_name] = dep_path
+
+        dep_package = ctx.cargo_packages.get(dep_name)
+        if dep_package is None:
+            # Not a real dependency?
+            raise AssertionError
+            continue
+
+        # Also add their dependencies recursively
+        local_recursive_dependencies.update(
+            rust_resolve_local_recursive_dependencies(ctx, dep_package),
+        )
+
+    cargo_package['local_recursive_dependencies'] = (
+        local_recursive_dependencies
+    )
+    return local_recursive_dependencies
+
+
+def rust_resolve_all_local_recursive_dependencies(ctx: BuildContext) -> None:
+    for cargo_package in ctx.cargo_packages.values():
+        rust_resolve_local_recursive_dependencies(ctx, cargo_package)
+
+
 def rust_pre_build(ctx: BuildContext) -> None:
     # Read the packages from the cargo metadata for the workspace.
     cargo_metadata_json = ctx.cmd_and_log(
-        ctx.env.CARGO + ['metadata', '--no-deps', '--format-version', '1'],
-        quiet=Context.BOTH,
+        ctx.env.CARGO + ['metadata', '--format-version', '1'],
+        quiet=Context.STDOUT,
     )
     cargo_metadata = json.loads(cargo_metadata_json)
     ctx.cargo_packages = {
         pkg['name']: pkg for pkg in cargo_metadata['packages']
     }
+    rust_resolve_all_local_recursive_dependencies(ctx)
 
     for tgen in ctx.get_all_task_gen():
         feats = Utils.to_list(getattr(tgen, 'features', []))
@@ -131,7 +174,7 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
     color = 'PINK'
 
     @classmethod
-    def keyword(cls: Type['CargoBuild']) -> str:
+    def keyword(cls: type[CargoBuild]) -> str:
         return 'Cargo'
 
     def __str__(self) -> str:
@@ -149,6 +192,8 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
     def make_waf_build_env(self) -> None:
         tg = self.generator
         ctx = tg.bld
+
+        cargo_package = ctx.cargo_packages[self.env.PKG_NAME]
 
         incpaths = Utils.to_list(self.env.INCPATHS)
         cargo_includes = [
@@ -197,6 +242,9 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             'link_args': cargo_link_args,
             'rerun_libs': cargo_rerun_libs,
             'cc': self.env.CC[0],
+            'local_recursive_dependencies': (
+                cargo_package['local_recursive_dependencies']
+            ),
         }
 
         waf_build_env_file = self.generator.path.make_node(
@@ -276,8 +324,8 @@ def rust_create_task(self: TaskGen) -> None:
 
     # Build the list of outputs and hardlinks for the task
     cargo_bld_dir = ctx.srcnode.make_node(self.env.CARGO_BUILD_DIR)
-    outputs: List[Node] = []
-    hardlinks: List[Tuple[str, str]] = []
+    outputs: list[Node] = []
+    hardlinks: list[tuple[str, str]] = []
     for cargo_target in pkg_metadata['targets']:
         target_name = cargo_target['name']
         kinds = cargo_target['kind']
