@@ -39,4 +39,5 @@ mem.fifo.data.*
 /.cargo/target
 /Cargo.toml
 _bindings.rs
+_bindings_items.json
 _waf_build_env.json

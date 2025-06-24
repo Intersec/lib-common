@@ -26,11 +26,19 @@
 //!
 //! The main entry point is the structure [`WafEnvParams`].
 
-use bindgen::Builder;
+use bindgen::callbacks::{
+    AttributeInfo, DeriveInfo, DeriveTrait, DiscoveredItem, DiscoveredItemId,
+    EnumVariantCustomBehavior, EnumVariantValue, FieldInfo, ImplementsTrait, IntKind, ItemInfo,
+    MacroParsingBehavior,
+};
+use bindgen::{Builder, FieldVisibilityKind};
 use serde::Deserialize;
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::BufReader;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::{env, error, fs, io};
 
 // {{{ helpers
@@ -39,6 +47,168 @@ fn set_readonly(path: &Path, readonly: bool) -> io::Result<()> {
     let mut permissions = fs::metadata(path)?.permissions();
     permissions.set_readonly(readonly);
     fs::set_permissions(path, permissions)
+}
+
+/// Write the file and set it as read only after write
+fn write_read_only_file<F>(path: &Path, write_cb: F) -> Result<(), Box<dyn error::Error>>
+where
+    F: FnOnce() -> Result<(), Box<dyn error::Error>>,
+{
+    if path.is_file() {
+        set_readonly(path, false)?;
+        fs::remove_file(path)?;
+    }
+
+    // Write the file with the callback.
+    write_cb()?;
+
+    // Set the file as read-only
+    set_readonly(path, true)?;
+
+    Ok(())
+}
+
+// }}}
+// {{{ Callbacks items exports
+
+#[derive(Debug)]
+struct ItemsExportCallback {
+    cargo_callbacks: bindgen::CargoCallbacks,
+    exported_items: Rc<RefCell<Vec<String>>>,
+}
+
+impl ItemsExportCallback {
+    pub fn new(exported_items: Rc<RefCell<Vec<String>>>) -> Self {
+        Self {
+            cargo_callbacks: bindgen::CargoCallbacks::new(),
+            exported_items,
+        }
+    }
+}
+
+impl bindgen::callbacks::ParseCallbacks for ItemsExportCallback {
+    // {{{ Forwarded implemented methods to CargoCallback
+
+    fn will_parse_macro(&self, _name: &str) -> MacroParsingBehavior {
+        self.cargo_callbacks.will_parse_macro(_name)
+    }
+
+    fn generated_name_override(&self, _item_info: ItemInfo<'_>) -> Option<String> {
+        self.cargo_callbacks.generated_name_override(_item_info)
+    }
+
+    fn generated_link_name_override(&self, _item_info: ItemInfo<'_>) -> Option<String> {
+        self.cargo_callbacks
+            .generated_link_name_override(_item_info)
+    }
+
+    fn int_macro(&self, _name: &str, _value: i64) -> Option<IntKind> {
+        self.cargo_callbacks.int_macro(_name, _value)
+    }
+
+    fn str_macro(&self, _name: &str, _value: &[u8]) {
+        self.cargo_callbacks.str_macro(_name, _value)
+    }
+
+    fn func_macro(&self, _name: &str, _value: &[&[u8]]) {
+        self.cargo_callbacks.func_macro(_name, _value)
+    }
+
+    fn enum_variant_behavior(
+        &self,
+        _enum_name: Option<&str>,
+        _original_variant_name: &str,
+        _variant_value: EnumVariantValue,
+    ) -> Option<EnumVariantCustomBehavior> {
+        self.cargo_callbacks.enum_variant_behavior(
+            _enum_name,
+            _original_variant_name,
+            _variant_value,
+        )
+    }
+
+    fn enum_variant_name(
+        &self,
+        _enum_name: Option<&str>,
+        _original_variant_name: &str,
+        _variant_value: EnumVariantValue,
+    ) -> Option<String> {
+        self.cargo_callbacks
+            .enum_variant_name(_enum_name, _original_variant_name, _variant_value)
+    }
+
+    fn item_name(&self, _item_info: ItemInfo) -> Option<String> {
+        // XXX: Unfortunately, this called before filtering the items.
+        // So it does not represent the list of exported items.
+        self.cargo_callbacks.item_name(_item_info)
+    }
+
+    fn header_file(&self, _filename: &str) {
+        self.cargo_callbacks.header_file(_filename)
+    }
+
+    fn include_file(&self, _filename: &str) {
+        self.cargo_callbacks.include_file(_filename)
+    }
+
+    fn read_env_var(&self, _key: &str) {
+        self.cargo_callbacks.read_env_var(_key)
+    }
+
+    fn blocklisted_type_implements_trait(
+        &self,
+        _name: &str,
+        _derive_trait: DeriveTrait,
+    ) -> Option<ImplementsTrait> {
+        self.cargo_callbacks
+            .blocklisted_type_implements_trait(_name, _derive_trait)
+    }
+
+    fn add_derives(&self, _info: &DeriveInfo<'_>) -> Vec<String> {
+        self.cargo_callbacks.add_derives(_info)
+    }
+
+    fn add_attributes(&self, _info: &AttributeInfo<'_>) -> Vec<String> {
+        self.cargo_callbacks.add_attributes(_info)
+    }
+
+    fn process_comment(&self, _comment: &str) -> Option<String> {
+        self.cargo_callbacks.process_comment(_comment)
+    }
+
+    fn field_visibility(&self, _info: FieldInfo<'_>) -> Option<FieldVisibilityKind> {
+        self.cargo_callbacks.field_visibility(_info)
+    }
+
+    // }}}
+
+    // Get the items and it in the list
+    fn new_item_found(&self, id: DiscoveredItemId, item: DiscoveredItem) {
+        let item_name = match &item {
+            DiscoveredItem::Struct {
+                original_name: _,
+                final_name,
+            } => final_name,
+            DiscoveredItem::Union {
+                original_name: _,
+                final_name,
+            } => final_name,
+            DiscoveredItem::Alias {
+                alias_name,
+                alias_for: _,
+            } => alias_name,
+            DiscoveredItem::Enum { final_name } => final_name,
+            DiscoveredItem::Function { final_name } => final_name,
+            DiscoveredItem::Method {
+                final_name,
+                parent: _,
+            } => final_name,
+        };
+
+        self.exported_items.borrow_mut().push(item_name.into());
+
+        self.cargo_callbacks.new_item_found(id, item)
+    }
 }
 
 // }}}
@@ -76,8 +246,6 @@ impl WafBuildEnvJson {
 pub struct WafEnvParams {
     package_dir: PathBuf,
     waf_env_json_file: PathBuf,
-    binding_gen_file: PathBuf,
-    static_wrapper_path: PathBuf,
     json_env: WafBuildEnvJson,
 }
 
@@ -91,18 +259,11 @@ impl WafEnvParams {
             return Err("build.rs couldn't find _waf_build_env.json (not using waf?)".into());
         }
 
-        let binding_gen_file = package_dir.join("_bindings.rs");
-
-        let out_dir = PathBuf::from(env::var("OUT_DIR")?);
-        let static_wrapper_path = out_dir.join("static-wrappers.c");
-
         let json_env = WafBuildEnvJson::read(&waf_env_json_file)?;
 
         Ok(WafEnvParams {
             package_dir,
             waf_env_json_file,
-            binding_gen_file,
-            static_wrapper_path,
             json_env,
         })
     }
@@ -180,12 +341,20 @@ impl WafEnvParams {
         &self,
         cb: fn(Builder) -> Result<Builder, Box<dyn error::Error>>,
     ) -> Result<(), Box<dyn error::Error>> {
+        let exported_items = Rc::new(RefCell::new(Vec::new()));
+
+        let binding_gen_file = self.package_dir.join("_bindings.rs");
+        let binding_items_file = self.package_dir.join("_bindings_items.json");
+
+        let out_dir = PathBuf::from(env::var("OUT_DIR")?);
+        let static_wrapper_path = out_dir.join("static-wrappers.c");
+
         let mut builder = Builder::default()
             // Tell cargo to invalidate the built crate whenever any of the
             // included header files changed.
-            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+            .parse_callbacks(Box::new(ItemsExportCallback::new(exported_items.clone())))
             .wrap_static_fns(true)
-            .wrap_static_fns_path(self.static_wrapper_path.to_str().unwrap());
+            .wrap_static_fns_path(static_wrapper_path.to_str().unwrap());
 
         // Add the waf environment arguments
         for define in &self.json_env.defines {
@@ -201,25 +370,19 @@ impl WafEnvParams {
         // Finish the builder and generate the bindings.
         let bindings = builder.generate()?;
 
-        // Remove file if it exists
-        if self.binding_gen_file.is_file() {
-            set_readonly(&self.binding_gen_file, false)?;
-            fs::remove_file(&self.binding_gen_file)?;
-        }
-
         // Write the binding to the files.
-        bindings.write_to_file(self.binding_gen_file.to_str().unwrap())?;
-
-        // Set the file as read-only
-        set_readonly(&self.binding_gen_file, true)?;
+        write_read_only_file(&binding_gen_file, || {
+            bindings.write_to_file(binding_gen_file.to_str().unwrap())?;
+            Ok(())
+        })?;
 
         // If the wrapper file is generated, then, compile it into a stlib.
-        if self.static_wrapper_path.is_file() {
+        if static_wrapper_path.is_file() {
             let mut cc = cc::Build::new();
 
             cc.compiler(&self.json_env.cc);
 
-            cc.file(self.static_wrapper_path.to_str().unwrap());
+            cc.file(static_wrapper_path.to_str().unwrap());
 
             cc.no_default_flags(true);
 
@@ -245,6 +408,15 @@ impl WafEnvParams {
             // cargo:rustc-link-search=native=...
             // so the linker can find the compiled lib.
         }
+
+        // Generate the binding items file
+        write_read_only_file(&binding_items_file, || {
+            let item_names: &Vec<String> = &exported_items.borrow();
+            let json_data = serde_json::to_string_pretty(item_names).unwrap();
+            let mut file = File::create(&binding_items_file)?;
+            file.write_all(json_data.as_bytes())?;
+            Ok(())
+        })?;
 
         Ok(())
     }
