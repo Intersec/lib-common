@@ -22,4 +22,5 @@ pub mod bindings {
 }
 
 pub mod lstr;
+pub mod mem_stack;
 pub mod pstream;

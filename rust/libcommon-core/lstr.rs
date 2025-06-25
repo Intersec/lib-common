@@ -30,6 +30,7 @@ use std::slice::from_raw_parts;
 use std::str::{FromStr, Utf8Error};
 
 use crate::bindings::*;
+use crate::mem_stack::{TScope, TScopeClone};
 
 pub use crate::bindings::lstr_t;
 
@@ -196,5 +197,11 @@ impl fmt::Display for lstr_t {
         } else {
             write!(f, "{:x?}", self.as_bytes())
         }
+    }
+}
+
+impl TScopeClone for lstr_t {
+    fn t_clone(&self, _t_scope: &TScope) -> Self {
+        unsafe { t_lstr_dup(*self) }
     }
 }
