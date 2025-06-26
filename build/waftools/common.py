@@ -500,7 +500,8 @@ def run_ruff(ctx: BuildContext) -> None:
                 f'"wscript*" "**/wscript*" | xargs ruff check {fix}')
 
     # One task, run everything at once
-    ctx.cmd_and_log(cmd=rule, shell=True, stdout=None, stderr=None)
+    ctx.cmd_and_log(cmd=rule, cwd=ctx.launch_node(),
+                    shell=True, stdout=None, stderr=None)
 
 
 class RuffClass(BuildContext):  # type: ignore[misc]
