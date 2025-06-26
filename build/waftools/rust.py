@@ -50,122 +50,6 @@ if TYPE_CHECKING:
     TaskGen.extension = task_gen_decorator
 
 
-# {{{ configure
-
-
-def configure(ctx: ConfigurationContext) -> None:
-    ctx.find_program('cargo', var='CARGO')
-
-    if ctx.exec_command(ctx.env.CARGO + ['tree', '--quiet', '--locked'],
-                        stdout=subprocess.DEVNULL, stderr=None):
-        ctx.fatal('cargo lock is not up-to-date')
-
-    waf_profile = ctx.env.PROFILE
-    ctx.env.CARGO_PROFILE = 'release' if waf_profile == 'release' else 'dev'
-    cargo_target_dir = 'release' if waf_profile == 'release' else 'debug'
-    ctx.env.CARGO_BUILD_DIR = osp.join('.cargo', 'target', cargo_target_dir)
-
-
-# }}}
-# {{{ build
-
-
-def rust_set_features(tgen: TaskGen, feats: list[str]) -> None:
-    # Required for STLIB dependencies
-    if 'use' not in feats:
-        feats.append('use')
-
-    # Required for USELIB flags dependencies
-    if 'uselib' not in feats:
-        feats.append('uselib')
-
-    # Required for INCPATHS variable
-    if 'includes' not in feats:
-        feats.append('includes')
-
-    tgen.features = feats
-
-
-def rust_resolve_local_recursive_dependencies(
-    ctx: BuildContext, cargo_package: dict[str, Any],
-) -> dict[str, str]:
-    local_recursive_dependencies: dict[str, str] | None = (
-        cargo_package.get('local_recursive_dependencies')
-    )
-    if local_recursive_dependencies is not None:
-        return local_recursive_dependencies
-
-    local_recursive_dependencies = {}
-    for dep in cargo_package['dependencies']:
-        dep_path = dep.get('path')
-        if dep_path is None:
-            # Not a local dependency
-            continue
-
-        dep_name = dep['name']
-
-        # Add the local dependency
-        local_recursive_dependencies[dep_name] = dep_path
-
-        dep_package = ctx.cargo_packages.get(dep_name)
-        if dep_package is None:
-            # Not a real dependency?
-            raise AssertionError
-            continue
-
-        # Also add their dependencies recursively
-        local_recursive_dependencies.update(
-            rust_resolve_local_recursive_dependencies(ctx, dep_package),
-        )
-
-    cargo_package['local_recursive_dependencies'] = (
-        local_recursive_dependencies
-    )
-    return local_recursive_dependencies
-
-
-def rust_resolve_all_local_recursive_dependencies(ctx: BuildContext) -> None:
-    for cargo_package in ctx.cargo_packages.values():
-        rust_resolve_local_recursive_dependencies(ctx, cargo_package)
-
-
-def rust_pre_build(ctx: BuildContext) -> None:
-    # Read the packages from the cargo metadata for the workspace.
-    cargo_metadata_json = ctx.cmd_and_log(
-        ctx.env.CARGO + ['metadata', '--format-version', '1'],
-        quiet=Context.STDOUT,
-    )
-    cargo_metadata = json.loads(cargo_metadata_json)
-    ctx.cargo_packages = {
-        pkg['name']: pkg for pkg in cargo_metadata['packages']
-    }
-    rust_resolve_all_local_recursive_dependencies(ctx)
-
-    for tgen in ctx.get_all_task_gen():
-        feats = Utils.to_list(getattr(tgen, 'features', []))
-        if 'rust' in feats:
-            rust_set_features(tgen, feats)
-
-
-def cargo_clean(ctx: CleanContext) -> None:
-    """Perform `cargo clean` on `waf clean`"""
-    Logs.info('Waf: running `cargo clean`')
-    ctx.exec_command(ctx.env.CARGO + ['clean'], stdout=None, stderr=None)
-
-
-def build(ctx: BuildContext) -> None:
-    # CleanContext is a subclass of BuildContext, and build() is called on
-    # `waf clean` but without running the compilation tasks, and do an
-    # internal clean instead.
-    # Run the command now as we cannot actually run it later.
-    if isinstance(ctx, CleanContext):
-        cargo_clean(ctx)
-        return
-
-    ctx.add_pre_fun(rust_pre_build)
-
-
-# }}}
 # {{{ rust feature
 
 
@@ -394,6 +278,122 @@ def rust_add_dep_task(self: TaskGen) -> None:
             continue
 
         self.rust_task.set_run_after(dep_rust_task)
+
+
+# }}}
+# {{{ configure
+
+
+def configure(ctx: ConfigurationContext) -> None:
+    ctx.find_program('cargo', var='CARGO')
+
+    if ctx.exec_command(ctx.env.CARGO + ['tree', '--quiet', '--locked'],
+                        stdout=subprocess.DEVNULL, stderr=None):
+        ctx.fatal('cargo lock is not up-to-date')
+
+    waf_profile = ctx.env.PROFILE
+    ctx.env.CARGO_PROFILE = 'release' if waf_profile == 'release' else 'dev'
+    cargo_target_dir = 'release' if waf_profile == 'release' else 'debug'
+    ctx.env.CARGO_BUILD_DIR = osp.join('.cargo', 'target', cargo_target_dir)
+
+
+# }}}
+# {{{ build
+
+
+def rust_set_features(tgen: TaskGen, feats: list[str]) -> None:
+    # Required for STLIB dependencies
+    if 'use' not in feats:
+        feats.append('use')
+
+    # Required for USELIB flags dependencies
+    if 'uselib' not in feats:
+        feats.append('uselib')
+
+    # Required for INCPATHS variable
+    if 'includes' not in feats:
+        feats.append('includes')
+
+    tgen.features = feats
+
+
+def rust_resolve_local_recursive_dependencies(
+    ctx: BuildContext, cargo_package: dict[str, Any],
+) -> dict[str, str]:
+    local_recursive_dependencies: dict[str, str] | None = (
+        cargo_package.get('local_recursive_dependencies')
+    )
+    if local_recursive_dependencies is not None:
+        return local_recursive_dependencies
+
+    local_recursive_dependencies = {}
+    for dep in cargo_package['dependencies']:
+        dep_path = dep.get('path')
+        if dep_path is None:
+            # Not a local dependency
+            continue
+
+        dep_name = dep['name']
+
+        # Add the local dependency
+        local_recursive_dependencies[dep_name] = dep_path
+
+        dep_package = ctx.cargo_packages.get(dep_name)
+        if dep_package is None:
+            # Not a real dependency?
+            raise AssertionError
+            continue
+
+        # Also add their dependencies recursively
+        local_recursive_dependencies.update(
+            rust_resolve_local_recursive_dependencies(ctx, dep_package),
+        )
+
+    cargo_package['local_recursive_dependencies'] = (
+        local_recursive_dependencies
+    )
+    return local_recursive_dependencies
+
+
+def rust_resolve_all_local_recursive_dependencies(ctx: BuildContext) -> None:
+    for cargo_package in ctx.cargo_packages.values():
+        rust_resolve_local_recursive_dependencies(ctx, cargo_package)
+
+
+def rust_pre_build(ctx: BuildContext) -> None:
+    # Read the packages from the cargo metadata for the workspace.
+    cargo_metadata_json = ctx.cmd_and_log(
+        ctx.env.CARGO + ['metadata', '--format-version', '1'],
+        quiet=Context.STDOUT,
+    )
+    cargo_metadata = json.loads(cargo_metadata_json)
+    ctx.cargo_packages = {
+        pkg['name']: pkg for pkg in cargo_metadata['packages']
+    }
+    rust_resolve_all_local_recursive_dependencies(ctx)
+
+    for tgen in ctx.get_all_task_gen():
+        feats = Utils.to_list(getattr(tgen, 'features', []))
+        if 'rust' in feats:
+            rust_set_features(tgen, feats)
+
+
+def cargo_clean(ctx: CleanContext) -> None:
+    """Perform `cargo clean` on `waf clean`"""
+    Logs.info('Waf: running `cargo clean`')
+    ctx.exec_command(ctx.env.CARGO + ['clean'], stdout=None, stderr=None)
+
+
+def build(ctx: BuildContext) -> None:
+    # CleanContext is a subclass of BuildContext, and build() is called on
+    # `waf clean` but without running the compilation tasks, and do an
+    # internal clean instead.
+    # Run the command now as we cannot actually run it later.
+    if isinstance(ctx, CleanContext):
+        cargo_clean(ctx)
+        return
+
+    ctx.add_pre_fun(rust_pre_build)
 
 
 # }}}
