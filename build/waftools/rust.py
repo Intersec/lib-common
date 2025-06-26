@@ -193,8 +193,11 @@ def rust_create_task(self: TaskGen) -> None:
         # We are not really in the build stage, do nothing.
         return
 
+    # Get the waf target name
+    waf_target_name = self.name
+
     # Get the cargo package name to use
-    cargo_pkg_name = getattr(self, 'cargo_package', self.name)
+    cargo_pkg_name = getattr(self, 'cargo_package', waf_target_name)
 
     # Get the cargo package corresponding to the waf target
     pkg_metadata = cargo_packages.get(cargo_pkg_name)
@@ -210,37 +213,66 @@ def rust_create_task(self: TaskGen) -> None:
     cargo_bld_dir = ctx.srcnode.make_node(self.env.CARGO_BUILD_DIR)
     outputs: list[Node] = []
     hardlinks: list[tuple[str, str]] = []
+
+    # For each cargo target, populate the outputs and hardlinks
     for cargo_target in pkg_metadata['targets']:
-        target_name = cargo_target['name']
+        cargo_target_name = cargo_target['name']
         kinds = cargo_target['kind']
 
         # Add the rust libs compiled as a static lib
         if 'staticlib' in kinds:
-            target_output_name = ctx.env.cstlib_PATTERN % target_name
-            cargo_output = cargo_bld_dir.make_node(target_output_name)
-            outputs.append(cargo_output)
+            cargo_target_output_name = (
+                ctx.env.cstlib_PATTERN % cargo_target_name
+            )
+            cargo_output = cargo_bld_dir.make_node(cargo_target_output_name)
+
+            waf_target_output_name = (
+                ctx.env.cstlib_PATTERN % waf_target_name
+            )
+
+            # Hard-link the rust static lib to waf build directory
+            waf_relative_src_path = self.path.path_from(ctx.srcnode)
+            waf_output_dir = ctx.bldnode.make_node(waf_relative_src_path)
+            waf_output_dir.mkdir()
+            waf_output = waf_output_dir.make_node(waf_target_output_name)
+
+            outputs.extend([waf_output, cargo_output])
+            hardlinks.append((waf_output, cargo_output))
 
         # Add the rust libs compiled as a shared lib
         if 'cdylib' in kinds:
-            target_output_name = ctx.env.cshlib_PATTERN % target_name
-            cargo_output = cargo_bld_dir.make_node(target_output_name)
+            cargo_target_output_name = (
+                ctx.env.cshlib_PATTERN % cargo_target_name
+            )
+            cargo_output = cargo_bld_dir.make_node(cargo_target_output_name)
 
-            waf_target_name = target_output_name
+            waf_target_output_name = (
+                ctx.env.cshlib_PATTERN % waf_target_name
+            )
             if not getattr(self, 'keep_lib_prefix', False):
-                assert waf_target_name.startswith('lib')
-                waf_target_name = waf_target_name[len('lib'):]
-            waf_output = self.path.make_node(waf_target_name)
+                # Remove the lib prefix unless specified otherwise
+                assert waf_target_output_name.startswith('lib')
+                waf_target_output_name = waf_target_output_name[len('lib'):]
+            waf_output = self.path.make_node(waf_target_output_name)
 
             outputs.extend([waf_output, cargo_output])
             hardlinks.append((waf_output, cargo_output))
 
         # Add the rust bin
         if 'bin' in kinds:
-            target_output_name = ctx.env.cprogram_PATTERN % target_name
+            # Use the same target output name for bin as there can be multiple
+            # bins in a Cargo package.
+            target_output_name = (
+                ctx.env.cprogram_PATTERN % cargo_target_name
+            )
+
             cargo_output = cargo_bld_dir.make_node(target_output_name)
             waf_output = self.path.make_node(target_output_name)
+
             outputs.extend([waf_output, cargo_output])
             hardlinks.append((waf_output, cargo_output))
+
+        # Ignore rust lib, rlib, dylib and proc-macro
 
     # `link_task` is required for use lib links in waf.
     self.link_task = self.rust_task = tsk = self.create_task(
