@@ -50,6 +50,15 @@ def main() -> int:
             # Catch the 'ci' folder in XXX.feature path, so we are able to
             # rebuild the main behave test suite
             position = parts.index('ci')
+
+            # Check the case where the beginning of the path is provided
+            # but not the .feature file at the end: we enforce the fact that
+            # run_checks.sh can really go to retry-behave/*.feature) case.
+            if not parts[-1].endswith('.feature'):
+                print(f'ERROR: invalid path for feature file: got "{test}"',
+                      file=sys.stderr)
+                return 2
+
             behave_test = os.path.sep.join(
                 ['retry-behave'] + parts[:position])
             final_tests[behave_test].append(test)
