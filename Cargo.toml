@@ -31,6 +31,9 @@ cc = "1.2.25"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 
+# Used by libcommon-minimal for modules
+ctor = "0.4.2"
+
 # Used by farchc
 clap = { version = "4.5.39", features = ["derive"] }
 rand = "0.9.1"
