@@ -28,4 +28,5 @@ with ctx.UseGroup(ctx, 'pxcc'):
     ], use=[
         'clang',
         'libcommon-minimal',
+        'libcommon-core-rs',
     ])

@@ -52,7 +52,6 @@ ctx.stlib(target='libcommon-minimal', features='c cstlib', depends_on=[
     'core/datetime.c',
     'core/el.blk',
     'core/errors.c',
-    'core/farch.c',
     'core/log.c',
     'core/mem-bench.c',
     'core/mem-fifo.c',
@@ -168,6 +167,7 @@ ctx.stlib(target='libcommon', features='c cstlib', depends_on=[
 ], use=[
     'libcommon-iop',
     'libcommon-minimal',
+    'libcommon-core-rs',
     'openssl',
     'zlib',
 ], source=[

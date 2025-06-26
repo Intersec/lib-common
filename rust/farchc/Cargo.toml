@@ -27,10 +27,9 @@ path = "farchc.rs"
 
 [build-dependencies]
 waf-cargo-build = { path = "../waf-cargo-build" }
-libcommon-core = { path = "../libcommon-core" }
 
 [dependencies]
+libcommon-core = { path = "../libcommon-core" }
+
 clap.workspace = true
 rand.workspace = true
-
-libcommon-core = { path = "../libcommon-core" }

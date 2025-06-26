@@ -21,13 +21,9 @@
 
 #include <lib-common/core.h>
 
-#if __has_feature(nullability)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic error "-Wnullability-completeness"
-#if __has_warning("-Wnullability-completeness-on-arrays")
-#pragma GCC diagnostic ignored "-Wnullability-completeness-on-arrays"
-#endif
-#endif
+/* XXX: All the following functions are implemented in
+ * rust/libcommon-minimal.farch.rs
+ */
 
 /* {{{ Private API */
 
@@ -132,9 +128,5 @@ lstr_t farch_get_data_persist(const farch_entry_t * nonnull files,
  * Using it is necessary only if \ref t_farch_uncompress_persist is used.
  */
 MODULE_DECLARE(farch);
-
-#if __has_feature(nullability)
-#pragma GCC diagnostic pop
-#endif
 
 #endif /* IS_LIB_COMMON_FARCH_H */

@@ -19,23 +19,10 @@
 use std::error;
 use waf_cargo_build::WafBuild;
 
-const ITEMS_TO_EXPOSE: &[&str] = &["qlzo1x_compress", "lzo_cbuf_size"];
-
 fn main() -> Result<(), Box<dyn error::Error>> {
     let waf_build = WafBuild::read_build_env()?;
 
     waf_build.print_cargo_instructions();
-    waf_build.generate_bindings(|builder| {
-        let mut builder = builder;
-
-        builder = builder.header("wrapper.h");
-
-        for item in ITEMS_TO_EXPOSE.iter() {
-            builder = builder.allowlist_item(item);
-        }
-
-        Ok(builder)
-    })?;
 
     Ok(())
 }

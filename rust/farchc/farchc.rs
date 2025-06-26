@@ -24,16 +24,9 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 
-use libcommon_core::bindings::lstr_obfuscate;
+use libcommon_core::bindings::{lstr_obfuscate, lzo_cbuf_size, qlzo1x_compress};
 use libcommon_core::lstr::lstr_t;
 use libcommon_core::pstream::pstream_t;
-
-mod bindings {
-    #![allow(warnings)]
-    use libcommon_core::bindings::*;
-    include!("_bindings.rs");
-}
-use bindings::*;
 
 const PATHMAX: i32 = 4096;
 const LZO_BUF_MEM_SIZE: usize = 1 << (14 + std::mem::size_of::<u32>());
