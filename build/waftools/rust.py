@@ -50,6 +50,16 @@ if TYPE_CHECKING:
     TaskGen.extension = task_gen_decorator
 
 
+# {{{ helpers
+
+def remove_in_list_no_err(list_: list[str], value: str) -> None:
+    try:
+        list_.remove(value)
+    except ValueError:
+        pass
+
+
+# }}}
 # {{{ rust feature
 
 
@@ -302,6 +312,8 @@ def rust_add_dep_task(self: TaskGen) -> None:
         # to avoid a waf exception later on with some invalid ouputs.
         del self.link_task
 
+    rust_task = self.rust_task
+
     for use_stlib in self.tmp_use_sorted:  # Result of sorted use libs
         dep_tg = ctx.get_tgen_by_name(use_stlib)
         dep_rust_task = getattr(dep_tg, 'rust_task', None)
@@ -310,6 +322,23 @@ def rust_add_dep_task(self: TaskGen) -> None:
             continue
 
         self.rust_task.set_run_after(dep_rust_task)
+
+        # If the rust task dependencies does not have any outputs, it is a
+        # pure cargo target, do nothing more
+        if not dep_rust_task.outputs:
+            continue
+
+        # The rust dependencies need to be linked by cargo and not by waf.
+        # So remove them from STLIB and LIB in the task env.
+        dep_target_name = dep_tg.target
+        dep_output = dep_rust_task.outputs[0]
+        dep_output_dir_path = dep_output.parent.srcpath()
+
+        remove_in_list_no_err(rust_task.env.STLIB, dep_target_name)
+        remove_in_list_no_err(rust_task.env.LIB, dep_target_name)
+
+        remove_in_list_no_err(rust_task.env.STLIBPATH, dep_output_dir_path)
+        remove_in_list_no_err(rust_task.env.LIBPATH, dep_output_dir_path)
 
 
 # }}}
