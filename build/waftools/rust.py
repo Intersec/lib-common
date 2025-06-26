@@ -37,6 +37,8 @@ from typing import (
 from waflib import Context, Errors, Logs, Node, Task, TaskGen, Utils
 from waflib.Build import BuildContext, CleanContext
 from waflib.Configure import ConfigurationContext
+from waflib.Tools.ccroot import link_task as waflib_link_task
+from waflib.Tools.ccroot import stlink_task as waflib_stlink_task
 
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
@@ -63,12 +65,12 @@ def remove_in_list_no_err(list_: list[str], value: str) -> None:
 # {{{ rust feature
 
 
-class CargoBuild(Task.Task):  # type: ignore[misc]
+class CargoBuildBase(Task.Task):  # type: ignore[misc]
     always_run = True
     color = 'PINK'
 
     @classmethod
-    def keyword(cls: type[CargoBuild]) -> str:
+    def keyword(cls: type[CargoBuildBase]) -> str:
         return 'Cargo'
 
     def __str__(self) -> str:
@@ -193,6 +195,14 @@ class CargoBuild(Task.Task):  # type: ignore[misc]
             os.link(cargo_out.abspath(), waf_out.abspath())
 
 
+class CargoBuildLinkTask(CargoBuildBase, waflib_link_task):  # type: ignore[misc]
+    """Class for building a shared library, binaries or rust libraries"""
+
+
+class CargoBuildStlinkTask(CargoBuildBase, waflib_stlink_task):  # type: ignore[misc]
+    """Class for building a static library"""
+
+
 @TaskGen.feature('rust')
 @TaskGen.before_method('process_use')
 def rust_create_task(self: TaskGen) -> None:
@@ -223,8 +233,10 @@ def rust_create_task(self: TaskGen) -> None:
     cargo_bld_dir = ctx.srcnode.make_node(self.env.CARGO_BUILD_DIR)
     outputs: list[Node] = []
     hardlinks: list[tuple[str, str]] = []
+    task_kind = 'CargoBuildLinkTask'
 
-    # For each cargo target, populate the outputs and hardlinks
+    # For each cargo target, get the task to create and populate the outputs
+    # and hardlinks
     for cargo_target in pkg_metadata['targets']:
         cargo_target_name = cargo_target['name']
         kinds = cargo_target['kind']
@@ -248,6 +260,8 @@ def rust_create_task(self: TaskGen) -> None:
 
             outputs.extend([waf_output, cargo_output])
             hardlinks.append((waf_output, cargo_output))
+
+            task_kind = 'CargoBuildStlinkTask'
 
         # Add the rust libs compiled as a shared lib
         if 'cdylib' in kinds:
@@ -286,7 +300,7 @@ def rust_create_task(self: TaskGen) -> None:
 
     # `link_task` is required for use lib links in waf.
     self.link_task = self.rust_task = tsk = self.create_task(
-        'CargoBuild', [ctx.root.make_node(manifest_path)], outputs)
+        task_kind, [ctx.root.make_node(manifest_path)], outputs)
     tsk.env.PKG_DIR = package_dir
     tsk.env.PKG_NAME = cargo_pkg_name
     tsk.env.PKG_HARDLINKS = hardlinks
