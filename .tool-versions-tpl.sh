@@ -45,5 +45,5 @@ cat <<EOF
 
 python $TOOL_VERSIONS_PYTHON
 uv 0.7.2
-rust 1.87.0
+rust 1.88.0
 EOF
