@@ -16,6 +16,8 @@
 #                                                                         #
 ###########################################################################
 
+# {{{ General options
+
 [workspace]
 members = ["rust/*"]
 resolver = "3"
@@ -23,6 +25,45 @@ resolver = "3"
 [workspace.package]
 edition = "2024"
 publish = false
+
+# }}}
+# {{{ Profiles
+
+# TODO: see https://nnethercote.github.io/perf-book/build-configuration.html
+
+[profile.dev]
+# Represents waf profile 'debug'.
+
+[profile.default]
+inherits = "dev"
+opt-level = 3 # Same as 'release'
+
+[profile.release]
+codegen-units = 1
+
+[profile.asan]
+inherits = "dev"
+
+[profile.tsan]
+inherits = "dev"
+
+[profile.mem-bench]
+inherits = "dev"
+
+[profile.coverage]
+inherits = "dev"
+
+[profile.fuzzing]
+inherits = "default"
+
+[profile.fuzzingcov]
+inherits = "dev"
+
+[profile.fuzzingdebug]
+inherits = "dev"
+
+# }}}
+# {{{ Dependencies
 
 [workspace.dependencies]
 # Used by waf-cargo-build
@@ -37,3 +78,5 @@ ctor = "0.4.2"
 # Used by farchc
 clap = { version = "4.5.39", features = ["derive"] }
 rand = "0.9.1"
+
+# }}}

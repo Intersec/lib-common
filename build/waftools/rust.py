@@ -367,8 +367,9 @@ def configure(ctx: ConfigurationContext) -> None:
         ctx.fatal('cargo lock is not up-to-date')
 
     waf_profile = ctx.env.PROFILE
-    ctx.env.CARGO_PROFILE = 'release' if waf_profile == 'release' else 'dev'
-    cargo_target_dir = 'release' if waf_profile == 'release' else 'debug'
+    ctx.env.CARGO_PROFILE = 'dev' if waf_profile == 'debug' else waf_profile
+
+    cargo_target_dir = waf_profile
     ctx.env.CARGO_BUILD_DIR = osp.join('.cargo', 'target', cargo_target_dir)
 
 
