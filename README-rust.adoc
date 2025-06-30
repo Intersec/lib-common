@@ -1,0 +1,124 @@
+# Rust in lib-common
+
+Along with C, Rust is the other compiled language supported in lib-common.
+
+# Rust language
+
+The documentation of the `Rust` language is rich and really good.
+A good entry point is the official documentation page of the Rust language:
+https://doc.rust-lang.org/
+
+# Build system
+
+`Waf` is our main build system in lib-common. However, Rust comes with another
+build system called `Cargo`.
+`Cargo` is a very complete build system integrating a package manager, build
+scheduler, and some various useful tools.
+Using Rust without `Cargo` is very hard and remove a lot of possibilities.
+So in lib-common base projects, `Cargo` is used along with `Waf`.
+
+Unfortunately, having two different build systems for the same repository and
+shared code is not straight forward.
+
+## Waf
+
+`Waf` being our main build system, it is the one scheduling the different
+tasks and when to call `Cargo` to build the different Rust program parts.
+
+To pass the necessary information about dependencies and compilation flags,
+a `waf` target needs to be defined for each Rust packages that uses C code.
+It needs to have `'rust'` in its features.
+The name of cargo package to build can be defined manually, or is the name of
+the waf target by default.
+
+Example:
+[source,python]
+----
+ctx(target='libcommon-core-rs', features='rust',
+    cargo_package='libcommon-core',
+    use=['libcommon-minimal'],
+)
+----
+
+With this target, waf generates a file called `_waf_build_env.json` used by
+the Cargo build script of the package (see below).
+
+Even though the dependencies between Cargo packages need to be defined in the
+Cargo build system (see below), it is also necessary that these dependencies
+are also reflected in the waf build system to avoid concurrency issues when
+generating the `_waf_build_env.json` files.
+
+If the Cargo package do not use any of the C code, and only creates a library
+that is only used by Rust, it is not necessary to have a waf target defined
+for the Cargo package.
+
+## Cargo
+
+Rust packages are built using `Cargo`.
+For lib-common based projects, a single `Cargo.toml` and `Cargo.lock`
+workspace is used.
+
+`Cargo` is a very complete build system.
+It integrates a package manager that can be used to use external crates very
+easily.
+Like `uv`, a `Cargo.lock` is generated and keep in-sync to ensure that the
+external crate versions are consistent.
+To update the `Cargo.lock`, run `cargo generate-lockfile` or simply do a build
+`waf build`.
+
+A cargo package is composed of at least of a `Cargo.toml`.
+This files defines the characteristics of the package.
+It is similar to the definition of a waf target.
+
+To customize the build of a cargo package, a build script `build.rs` can be
+used. It must be used when the package is also handled by waf.
+To ease the transmission of information between waf and cargo, a Rust lib
+`waf-cargo-build` should be used in the cargo build script `build.rs` of the
+package.
+
+C functions and symbols can be exported from C code to Rust with the help of
+https://docs.rs/bindgen/[bindgen].
+`waf-cargo-build` integrates the support of `bindgen`.
+`bindgen` generates a file called `_bindings.rs` that needs to be included in
+the library code.
+To avoid exporting multiple times the same C symbols for different rust
+packages, the different exported symbols by `bindgen` for a given package are
+tracked and exported in a file called `_bindings_items.json` and are blocked
+in Rust packages that depends of that package.
+
+A cargo package can define a lib and/or multiple bins.
+
+For packages that define libs that can be used by waf (`staticlib` and
+`cdylib`) or binaries (`bin`), when the cargo package is also referenced by a
+waf target, waf will hard-link the resulting outputs in the waf build
+directory for `staticlib`, or in the source directory same as standard C waf
+targets.
+
+For packages that only define Rust libraries (`lib`, `rlib`, `dylib` and
+`proc-macro`), waf will not call `cargo build` on these packages, and are
+entirely handled by Cargo.
+
+For Rust libraries that are used both by C code and other Rust packages, they
+need to be defined both a Rust library and C libraries,
+`crate-type = ["lib", "staticlib"]` or `crate-type = ["lib", "cdylib"]`
+
+Even though, the dependencies between cargo packages can, and should be defined
+in waf for cargo packages that use C code, it is also necessary to define in
+the Cargo build system the dependencies between the different cargo packages.
+
+# Limitations
+
+* BUG: Some times Cargo rebuilds the same packages twice when invoked by waf
+       with `cargo build -p <pkg>`.
+       See https://doc.rust-lang.org/cargo/faq.html?highlight=rebuild#why-is-cargo-rebuilding-my-code
+       Maybe use experimental `cargo build --build-plan`.
+* TODO: Built generated files `_waf_build_env.json`, `_bindings.rs` and
+       `_bindings_items.json` are dumped in the source directory of a Rust
+       package. It would be better to put them in `.build` directory to hide
+       them the source directory of the Rust package.
+* FIXME: Currently `pic` targets are compiled as separate profiles. This
+         implies compiling twice the external crates. This is sub-optimal.
+         But with a good caching system, this might not be a real issue.
+* TODO: Add https://github.com/mozilla/sccache[sccache] as a caching system
+        for dev and CI platforms. This should speed up building the external
+        crates which should not move a lot.
