@@ -62,6 +62,39 @@ inherits = "dev"
 [profile.fuzzingdebug]
 inherits = "dev"
 
+# {{{ 'pic' profiles
+
+[profile.dev-pic]
+inherits = "dev"
+
+[profile.default-pic]
+inherits = "default"
+
+[profile.release-pic]
+inherits = "release"
+
+[profile.asan-pic]
+inherits = "asan"
+
+[profile.tsan-pic]
+inherits = "tsan"
+
+[profile.mem-bench-pic]
+inherits = "mem-bench"
+
+[profile.coverage-pic]
+inherits = "coverage"
+
+[profile.fuzzing-pic]
+inherits = "fuzzing"
+
+[profile.fuzzingcov-pic]
+inherits = "fuzzingcov"
+
+[profile.fuzzingdebug-pic]
+inherits = "fuzzingdebug"
+
+# }}}
 # }}}
 # {{{ Dependencies
 

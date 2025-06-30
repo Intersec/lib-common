@@ -43,7 +43,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{env, error, fs, io};
 
-// {{{ helpers
+// {{{ Helpers
 
 fn set_readonly(path: &Path, readonly: bool) -> io::Result<()> {
     let mut permissions = fs::metadata(path)?.permissions();
@@ -242,6 +242,7 @@ struct WafBuildEnvJson {
     rerun_libs: Vec<String>,
     cc: String,
     local_recursive_dependencies: HashMap<String, String>,
+    profile_suffix: String,
 }
 
 impl WafBuildEnvJson {
@@ -251,7 +252,7 @@ impl WafBuildEnvJson {
 }
 
 // }}}
-// {{{ WafEnvParams
+// {{{ WafBuild
 
 pub struct WafBuild {
     package_dir: PathBuf,
@@ -317,6 +318,11 @@ impl WafBuild {
         }
 
         println!("cargo::rustc-link-arg=-no-pie");
+
+        if self.json_env.profile_suffix == "-pic" {
+            // Only "pic" is supported for now.
+            println!("cargo::rustc-link-arg=-pic");
+        }
     }
 
     /// Generate the bindings of C code using bindgen.

@@ -62,6 +62,41 @@ def remove_in_list_no_err(list_: list[str], value: str) -> None:
 
 
 # }}}
+# {{{ task gen modifier
+
+
+class TaskGenModifierRust:
+    """Class when trying to duplicate the Rust dependencies task gen"""
+
+    @staticmethod
+    def has_tg_rust_target(
+        ctx: BuildContext, tgen: TaskGen, kind: str,
+    ) -> bool:
+        cargo_pkg_name = getattr(tgen, 'cargo_package', tgen.name)
+        pkg_metadata = ctx.cargo_packages.get(cargo_pkg_name)
+        if pkg_metadata is None:
+            # Not a rust target
+            return False
+
+        return any(
+            kind in cargo_target['kind']
+            for cargo_target in pkg_metadata['targets']
+        )
+
+    @staticmethod
+    def is_tg_stlib(ctx: BuildContext, tgen: TaskGen) -> bool:
+        return TaskGenModifierRust.has_tg_rust_target(ctx, tgen, 'staticlib')
+
+    @staticmethod
+    def is_tg_shlib(ctx: BuildContext, tgen: TaskGen) -> bool:
+        return TaskGenModifierRust.has_tg_rust_target(ctx, tgen, 'cdylib')
+
+    @staticmethod
+    def is_tg_fuzzing_exe(ctx: BuildContext, tgen: TaskGen) -> bool:
+        return False
+
+
+# }}}
 # {{{ rust feature
 
 
@@ -141,6 +176,7 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
             'local_recursive_dependencies': (
                 cargo_package['local_recursive_dependencies']
             ),
+            'profile_suffix': self.env.PKG_PROFILE_SUFFIX,
         }
 
         waf_build_env_file = self.generator.path.make_node(
@@ -229,8 +265,15 @@ def rust_create_task(self: TaskGen) -> None:
     manifest_path = pkg_metadata['manifest_path']
     package_dir = osp.dirname(manifest_path)
 
+    # Generate the profile variables depending on 'pic' use.
+    target_profile_suffix: str = ''
+    if self.name.endswith('.pic'):
+        target_profile_suffix = '-pic'
+    cargo_profile = ctx.env.CARGO_PROFILE + target_profile_suffix
+    cargo_bld_name = self.env.CARGO_BUILD_DIR + target_profile_suffix
+    cargo_bld_dir = ctx.srcnode.make_node(cargo_bld_name)
+
     # Build the list of outputs and hardlinks for the task
-    cargo_bld_dir = ctx.srcnode.make_node(self.env.CARGO_BUILD_DIR)
     outputs: list[Node] = []
     hardlinks: list[tuple[str, str]] = []
     task_kind = 'CargoBuildLinkTask'
@@ -301,9 +344,11 @@ def rust_create_task(self: TaskGen) -> None:
     # `link_task` is required for use lib links in waf.
     self.link_task = self.rust_task = tsk = self.create_task(
         task_kind, [ctx.root.make_node(manifest_path)], outputs)
+    tsk.env.CARGO_PROFILE = cargo_profile
     tsk.env.PKG_DIR = package_dir
     tsk.env.PKG_NAME = cargo_pkg_name
     tsk.env.PKG_HARDLINKS = hardlinks
+    tsk.env.PKG_PROFILE_SUFFIX = target_profile_suffix
 
 
 @TaskGen.feature('rust')
@@ -468,6 +513,8 @@ def build(ctx: BuildContext) -> None:
     if isinstance(ctx, CleanContext):
         cargo_clean(ctx)
         return
+
+    ctx.register_task_gen_modifier(ctx, TaskGenModifierRust)
 
     ctx.add_pre_fun(rust_pre_build)
 

@@ -64,6 +64,12 @@ if TYPE_CHECKING:
     TaskGen.after_method = task_gen_decorator
     TaskGen.extension = task_gen_decorator
 
+# Protocol is not available in Python 3.6 :(
+if TYPE_CHECKING:
+    from typing import Protocol
+else:
+    Protocol = object
+
 
 # {{{ use_whole
 
@@ -142,6 +148,52 @@ def filter_out_zchk(ctx: BuildContext) -> None:
 # {{{ Deep add TaskGen compile flags
 
 
+class BaseTaskGenModifier(Protocol):
+    """Base class when trying to duplicate the dependencies task gen"""
+
+    @staticmethod
+    def is_tg_stlib(ctx: BuildContext, tgen: TaskGen) -> bool:
+        ...
+
+    @staticmethod
+    def is_tg_shlib(ctx: BuildContext, tgen: TaskGen) -> bool:
+        ...
+
+    @staticmethod
+    def is_tg_fuzzing_exe(ctx: BuildContext, tgen: TaskGen) -> bool:
+        ...
+
+
+class TaskGenModifierC:
+    """Class when trying to duplicate the C dependencies task gen"""
+
+    @staticmethod
+    def is_tg_stlib(ctx: BuildContext, tgen: TaskGen) -> bool:
+        features = tgen.to_list(getattr(tgen, 'features', []))
+        return 'cstlib' in features
+
+    @staticmethod
+    def is_tg_shlib(ctx: BuildContext, tgen: TaskGen) -> bool:
+        features = tgen.to_list(getattr(tgen, 'features', []))
+        return 'cshlib' in features
+
+    @staticmethod
+    def is_tg_fuzzing_exe(ctx: BuildContext, tgen: TaskGen) -> bool:
+        features = tgen.to_list(getattr(tgen, 'features', []))
+        return 'fuzzing' in features
+
+
+def register_task_gen_modifier(
+    ctx: BuildContext,
+    task_gen_modifier: Type[BaseTaskGenModifier],
+) -> None:
+    task_gen_modifiers = getattr(ctx, 'task_gen_modifiers', None)
+    if task_gen_modifiers is None:
+        task_gen_modifiers = ctx.task_gen_modifiers = []
+
+    task_gen_modifiers.append(task_gen_modifier)
+
+
 # The list of keys to skip when copying a TaskGen stlib on
 # duplicate_lib_tgen()
 SKIPPED_STLIB_TGEN_COPY_KEYS = {
@@ -171,8 +223,8 @@ def duplicate_lib_tgen(ctx: BuildContext, new_name: str,
         key: copy.copy(value) for key, value in orig_lib.__dict__.items()
         if key not in SKIPPED_STLIB_TGEN_COPY_KEYS
     }
-    lib = ctx.stlib(target=new_name, features=orig_lib.features,
-                    env=orig_lib.env.derive(), **orig_lib_attrs)
+    lib = ctx(target=new_name, features=orig_lib.features,
+              env=orig_lib.env.derive(), **orig_lib_attrs)
     ctx.path = ctx_path_bak
 
     return lib
@@ -215,9 +267,9 @@ def deep_add_tgen_compile_flags(ctx: BuildContext, tgen: TaskGen,
                 # generator; probably an external library
                 continue
 
-            features = use_tgen.to_list(getattr(use_tgen, 'features', []))
-            if 'cstlib' not in features:
-                # the 'use' element is not a static library
+            # Check that use_tgen is a stlib.
+            if not any(task_gen_modifier.is_tg_stlib(ctx, use_tgen)
+                       for task_gen_modifier in ctx.task_gen_modifiers):
                 continue
 
             # Replace the static library by the dependency version in tgen
@@ -274,9 +326,9 @@ def compile_fpic(ctx: BuildContext) -> None:
     for group_name, group in ctx.group_names.items():
         for tgen in group:
             with ctx.UseGroup(ctx, group_name):
-                features = tgen.to_list(getattr(tgen, 'features', []))
-
-                if 'cshlib' not in features:
+                # Check that tgen is a shlib.
+                if not any(task_gen_modifier.is_tg_shlib(ctx, tgen)
+                           for task_gen_modifier in ctx.task_gen_modifiers):
                     continue
 
                 deep_add_tgen_compile_flags(ctx, tgen, pic_suffix, pic_libs,
@@ -296,9 +348,9 @@ def compile_fuzzing_programs(ctx: BuildContext) -> None:
     fuzzing_ldflags = ctx.env.FUZZING_LDFLAGS
 
     for tgen in ctx.get_all_task_gen():
-        features = tgen.to_list(getattr(tgen, 'features', []))
-
-        if 'fuzzing' not in features:
+        # Check that tgen is a fuzzing program.
+        if not any(task_gen_modifier.is_tg_fuzzing_exe(ctx, tgen)
+                   for task_gen_modifier in ctx.task_gen_modifiers):
             continue
 
         deep_add_tgen_compile_flags(ctx, tgen, fuzzing_suffix, fuzzing_libs,
@@ -1974,6 +2026,14 @@ def build(ctx: BuildContext) -> None:
     ctx.IopcOptions = IopcOptions
     ctx.iopc_options = {}
 
+    # Task gen modifiers
+    ctx.task_gen_modifiers = []
+    ctx.register_task_gen_modifier = register_task_gen_modifier
+    register_task_gen_modifier(ctx, TaskGenModifierC)
+
+    # Rust
+    ctx.load('rust')
+
     # Register pre/post functions
     if ctx.env.NDEBUG:
         ctx.add_pre_fun(filter_out_zchk)
@@ -1987,8 +2047,5 @@ def build(ctx: BuildContext) -> None:
     ctx.add_pre_fun(old_gen_files_detect)
     ctx.add_pre_fun(coverage_start_cmd)
     ctx.add_pre_fun(coverage_end_cmd)
-
-    # Rust
-    ctx.load('rust')
 
 # }}}
