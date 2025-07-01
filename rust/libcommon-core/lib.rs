@@ -29,7 +29,10 @@ pub mod bindings {
         rust_2018_idioms,
         rust_2021_compatibility,
         rust_2024_compatibility,
-        unused
+        unused,
+        clippy::all,
+        clippy::pedantic,
+        clippy::restriction
     )]
     include!(concat!(env!("PKG_WAF_BUILD_DIR"), "/bindings.rs"));
 }

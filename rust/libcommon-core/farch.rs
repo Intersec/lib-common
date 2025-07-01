@@ -21,14 +21,19 @@
 use std::collections::HashMap;
 use std::os::raw::{c_char, c_int, c_void};
 use std::ptr;
+use std::ptr::from_ref;
 use std::sync::Mutex;
 
 use ctor::ctor;
 
-use crate::bindings::*;
+use crate::bindings::{
+    log_get_module, lstr_obfuscate, module_implement, module_register, module_t, pstream_t,
+    qlzo1x_decompress_safe,
+};
 use crate::lstr::lstr_t;
 use crate::mem_stack::TScope;
 
+#[allow(clippy::module_name_repetitions)]
 pub use crate::bindings::farch_entry_t;
 
 // {{{ Globals
@@ -46,7 +51,7 @@ fn lstr_unobfuscate(in_: lstr_t, key: u64, out: lstr_t) {
 // }}}
 // {{{ Private functions
 
-/// Unobfuscate and get the filename of an entry as a buffer and lstr_t.
+/// Unobfuscate and get the filename of an entry as a buffer and `lstr_t`.
 fn farch_get_filename_tuple(entry: &farch_entry_t) -> (Vec<u8>, lstr_t) {
     let name_buf = vec![0u8; entry.name.len()];
     let name_lstr = lstr_t::from_bytes(&name_buf);
@@ -114,13 +119,17 @@ fn farch_unarchive_opt(entry: &farch_entry_t) -> Option<Vec<u8>> {
     Some(res)
 }
 
-/// Unarchive with potential decompress the entry as lstr_t and panic if unable to decompress.
+/// Unarchive with potential decompress the entry as `lstr_t` and panic if unable to decompress.
+///
+/// # Panic
+///
+/// If not being able to decompress the archive.
 fn farch_unarchive_buf(entry: &farch_entry_t) -> Vec<u8> {
     let res_opt = farch_unarchive_opt(entry);
 
     res_opt.unwrap_or_else(|| {
         let (_name_buf, name_lstr) = farch_get_filename_tuple(entry);
-        panic!("cannot uncompress farch entry `{}`", name_lstr);
+        panic!("cannot uncompress farch entry `{name_lstr}`");
     })
 }
 
@@ -137,7 +146,7 @@ unsafe fn farch_get_entry(
     let mut files = files;
 
     loop {
-        let current_entry = unsafe { files.as_ref().unwrap() };
+        let current_entry = unsafe { files.as_ref().expect("files should be a valid pointer") };
         if current_entry.name.len == 0 {
             break;
         }
@@ -157,10 +166,10 @@ unsafe fn farch_get_entry(
 
 // Unarchive and persist the entry given as a reference.
 fn farch_unarchive_persist_ref(entry: &farch_entry_t) -> lstr_t {
-    let entry_addr = (entry as *const farch_entry_t).addr();
+    let entry_addr = from_ref::<farch_entry_t>(entry).addr();
 
-    let mut map_opt = FARCH_PERSISTED.lock().unwrap();
-    let map_ref = map_opt.as_mut().unwrap();
+    let mut map_opt = FARCH_PERSISTED.lock().expect("unable to lock mutex");
+    let map_ref = map_opt.as_mut().expect("farch module not initialized");
 
     let persisted_buf = map_ref
         .entry(entry_addr)
@@ -172,14 +181,18 @@ fn farch_unarchive_persist_ref(entry: &farch_entry_t) -> lstr_t {
 // }}}
 // {{{ Public C functions
 
-#[allow(clippy::missing_safety_doc)]
+#[allow(
+    clippy::missing_safety_doc,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions
+)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn farch_get_filename(
     entry: *const farch_entry_t,
     name_outbuf: *mut c_char,
 ) -> *mut c_char {
     // Use a reference so it is easier to manipulate
-    let entry: &farch_entry_t = unsafe { entry.as_ref().unwrap() };
+    let entry: &farch_entry_t = unsafe { entry.as_ref().expect("entry should be a valid pointer") };
 
     if entry.name.is_null() {
         // If the entry name is null, return null.
@@ -199,10 +212,14 @@ pub unsafe extern "C" fn farch_get_filename(
     name_outbuf
 }
 
-#[allow(clippy::missing_safety_doc)]
+#[allow(
+    clippy::missing_safety_doc,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions
+)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn t_farch_unarchive(entry: *const farch_entry_t) -> lstr_t {
-    let entry: &farch_entry_t = unsafe { entry.as_ref().unwrap() };
+    let entry: &farch_entry_t = unsafe { entry.as_ref().expect("entry should be a valid pointer") };
 
     let res_buf = farch_unarchive_buf(entry);
     let res_lstr = lstr_t::from_bytes(&res_buf);
@@ -210,15 +227,23 @@ pub unsafe extern "C" fn t_farch_unarchive(entry: *const farch_entry_t) -> lstr_
     t_scope.t_clone(&res_lstr)
 }
 
-#[allow(clippy::missing_safety_doc)]
+#[allow(
+    clippy::missing_safety_doc,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions
+)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn farch_unarchive_persist(entry: *const farch_entry_t) -> lstr_t {
-    let entry: &farch_entry_t = unsafe { entry.as_ref().unwrap() };
+    let entry: &farch_entry_t = unsafe { entry.as_ref().expect("entry should be a valid pointer") };
 
     farch_unarchive_persist_ref(entry)
 }
 
-#[allow(clippy::missing_safety_doc)]
+#[allow(
+    clippy::missing_safety_doc,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions
+)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn t_farch_get_data(
     files: *const farch_entry_t,
@@ -226,17 +251,21 @@ pub unsafe extern "C" fn t_farch_get_data(
 ) -> lstr_t {
     let entry = unsafe { farch_get_entry(files, name) };
 
-    if entry.is_none() {
+    let Some(entry) = entry else {
         return lstr_t::null();
-    }
+    };
 
-    let res_buf = farch_unarchive_buf(entry.unwrap());
+    let res_buf = farch_unarchive_buf(entry);
     let res_lstr = lstr_t::from_bytes(&res_buf);
     let t_scope = TScope::from_parent();
     t_scope.t_clone(&res_lstr)
 }
 
-#[allow(clippy::missing_safety_doc)]
+#[allow(
+    clippy::missing_safety_doc,
+    clippy::missing_panics_doc,
+    clippy::module_name_repetitions
+)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn farch_get_data_persist(
     files: *const farch_entry_t,
@@ -244,11 +273,11 @@ pub unsafe extern "C" fn farch_get_data_persist(
 ) -> lstr_t {
     let entry = unsafe { farch_get_entry(files, name) };
 
-    if entry.is_none() {
+    let Some(entry) = entry else {
         return lstr_t::null();
-    }
+    };
 
-    farch_unarchive_persist_ref(entry.unwrap())
+    farch_unarchive_persist_ref(entry)
 }
 
 // }}}
@@ -257,17 +286,18 @@ pub unsafe extern "C" fn farch_get_data_persist(
 // TODO: Find a way to generalize how to create module in Rust.
 
 extern "C" fn farch_initialize(_arg: *mut c_void) -> c_int {
-    let mut map_opt = FARCH_PERSISTED.lock().unwrap();
+    let mut map_opt = FARCH_PERSISTED.lock().expect("unable to lock mutex");
     _ = map_opt.insert(HashMap::new());
     0
 }
 
 extern "C" fn farch_shutdown() -> c_int {
-    let mut map_opt = FARCH_PERSISTED.lock().unwrap();
+    let mut map_opt = FARCH_PERSISTED.lock().expect("unable to lock mutex");
     map_opt.take();
     0
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[unsafe(no_mangle)]
 pub extern "C" fn farch_get_module() -> *mut module_t {
     unsafe {

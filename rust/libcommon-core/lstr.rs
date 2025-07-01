@@ -16,9 +16,9 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Conversion between a C lstr_t and Rust string/bytes types.
+//! Conversion between a C `lstr_t` and Rust string/bytes types.
 //!
-//! A converted lstr_t from and to Rust is always non-owned.
+//! A converted `lstr_t` from and to Rust is always non-owned.
 //! If you want a owned string, consider using primitive strings in Rust.
 
 use std::convert::TryFrom;
@@ -29,12 +29,13 @@ use std::ptr::null;
 use std::slice::from_raw_parts;
 use std::str::{FromStr, Utf8Error};
 
-use crate::bindings::*;
+use crate::bindings::{lstr_equal, lstr_t__bindgen_ty_1, t_lstr_dup};
 use crate::mem_stack::{TScope, TScopeClone};
 
+#[allow(clippy::module_name_repetitions)]
 pub use crate::bindings::lstr_t;
 
-/// Use libc strlen() to compute the length of C string.
+/// Use libc `strlen()` to compute the length of C string.
 ///
 /// # Safety
 ///
@@ -42,7 +43,7 @@ pub use crate::bindings::lstr_t;
 #[inline]
 pub unsafe fn libc_strlen(ptr: *const c_char) -> u64 {
     unsafe extern "C" {
-        /// Provided by libc or compiler_builtins.
+        /// Provided by libc or `compiler_builtins`.
         fn strlen(s: *const c_char) -> u64;
     }
 
@@ -50,7 +51,7 @@ pub unsafe fn libc_strlen(ptr: *const c_char) -> u64 {
 }
 
 impl lstr_t {
-    /// Create a null lstr_t.
+    /// Create a null `lstr_t`.
     pub const fn null() -> Self {
         Self {
             __bindgen_anon_1: lstr_t__bindgen_ty_1 { s: null() },
@@ -59,7 +60,7 @@ impl lstr_t {
         }
     }
 
-    /// Create an empty lstr_t.
+    /// Create an empty `lstr_t`.
     pub const fn empty() -> Self {
         Self {
             __bindgen_anon_1: lstr_t__bindgen_ty_1 { s: c"".as_ptr() },
@@ -68,47 +69,44 @@ impl lstr_t {
         }
     }
 
-    /// Create a non-owned lstr_t from a Rust bytes slice.
+    /// Create a non-owned `lstr_t` from a Rust bytes slice.
+    #[allow(clippy::cast_possible_truncation)]
     pub const fn from_bytes(bytes: &[u8]) -> Self {
         Self {
             __bindgen_anon_1: lstr_t__bindgen_ty_1 {
-                s: bytes.as_ptr() as *const i8,
+                s: bytes.as_ptr().cast::<i8>(),
             },
-            len: bytes.len() as i32,
+            len: bytes.len().cast_signed() as i32,
             mem_pool: 0,
         }
     }
 
-    /// Create a non-owned lstr_t from a Rust string.
-    #[allow(clippy::should_implement_trait)]
-    pub const fn from_str(str: &str) -> Self {
-        Self::from_bytes(str.as_bytes())
-    }
-
-    /// Create a non-owned lstr_t from a C raw pointer.
+    /// Create a non-owned `lstr_t` from a C raw pointer.
     ///
     /// # Safety
     ///
     /// `ptr` shall not be `null` and should point to a valid C string.
+    #[allow(clippy::cast_possible_truncation)]
     pub unsafe fn from_ptr(ptr: *const c_char) -> Self {
         let len = unsafe { libc_strlen(ptr) };
         Self {
             __bindgen_anon_1: lstr_t__bindgen_ty_1 { s: ptr },
-            len: len as i32,
+            len: len.cast_signed() as i32,
             mem_pool: 0,
         }
     }
 
-    /// Create a non-owned lstr_t from a C raw pointer and length.
+    /// Create a non-owned `lstr_t` from a C raw pointer and length.
+    #[allow(clippy::cast_possible_truncation)]
     pub const fn from_ptr_and_len(ptr: *const c_char, len: usize) -> Self {
         Self {
             __bindgen_anon_1: lstr_t__bindgen_ty_1 { s: ptr },
-            len: len as i32,
+            len: len.cast_signed() as i32,
             mem_pool: 0,
         }
     }
 
-    /// Convert a lstr_t to a bytes slice.
+    /// Convert a `lstr_t` to a bytes slice.
     pub const fn as_bytes(&self) -> &[u8] {
         let ptr = unsafe { self.__bindgen_anon_1.data as *const u8 };
         let len = self.len as usize;
@@ -116,12 +114,16 @@ impl lstr_t {
         unsafe { from_raw_parts(ptr, len) }
     }
 
-    /// Convert a lstr_t to a non-owned Rust str and check UTF-8 errors.
+    /// Convert a `lstr_t` to a non-owned Rust str and check UTF-8 errors.
+    ///
+    /// # Errors
+    ///
+    /// The `lstr_t` does not correspond to a valid UTF-8 string.
     pub const fn as_str(&self) -> Result<&str, Utf8Error> {
         str::from_utf8(self.as_bytes())
     }
 
-    /// Convert a lstr_t to a non-owned Rust str without checking for UTF-8 errors.
+    /// Convert a `lstr_t` to a non-owned Rust str without checking for UTF-8 errors.
     ///
     /// # Safety
     ///
@@ -136,17 +138,17 @@ impl lstr_t {
         self.len as usize
     }
 
-    /// Check if the lstr_t is empty (len == 0).
+    /// Check if the `lstr_t` is empty (len == 0).
     pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    /// Check if the lstr_t is null (!s).
+    /// Check if the `lstr_t` is null (!s).
     pub const fn is_null(&self) -> bool {
         unsafe { self.__bindgen_anon_1.s.is_null() }
     }
 
-    /// Check if two lstr_t are equals.
+    /// Check if two `lstr_t` are equals.
     #[inline]
     pub fn equals(&self, other: &lstr_t) -> bool {
         unsafe { lstr_equal(*self, *other) }
@@ -155,13 +157,13 @@ impl lstr_t {
 
 impl From<&[u8]> for lstr_t {
     fn from(bytes: &[u8]) -> Self {
-        lstr_t::from_bytes(bytes)
+        Self::from_bytes(bytes)
     }
 }
 
 impl From<&str> for lstr_t {
     fn from(str: &str) -> Self {
-        lstr_t::from_str(str)
+        Self::from(str.as_bytes())
     }
 }
 
@@ -176,8 +178,8 @@ impl<'a> TryFrom<&'a lstr_t> for &'a str {
 impl FromStr for lstr_t {
     type Err = ();
 
-    fn from_str(str: &str) -> Result<Self, ()> {
-        Ok(lstr_t::from_str(str))
+    fn from_str(s: &str) -> Result<Self, ()> {
+        Ok(lstr_t::from(s))
     }
 }
 
@@ -193,7 +195,7 @@ impl Deref for lstr_t {
 impl fmt::Display for lstr_t {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Ok(s) = self.as_str() {
-            write!(f, "{}", s)
+            write!(f, "{s}")
         } else {
             write!(f, "{:x?}", self.as_bytes())
         }

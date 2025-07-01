@@ -16,11 +16,15 @@
 /*                                                                         */
 /***************************************************************************/
 
+use std::cmp::min;
 use std::fmt::Write;
-use std::fs::{self, File};
+use std::fs::{self, File, read, read_to_string};
 use std::io::{self, Write as _};
-use std::os::unix::fs::PermissionsExt;
+use std::mem::size_of;
+use std::os::raw::c_void;
+use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
+use std::process::exit;
 
 use clap::Parser;
 
@@ -29,7 +33,7 @@ use libcommon_core::lstr::lstr_t;
 use libcommon_core::pstream::pstream_t;
 
 const PATHMAX: i32 = 4096;
-const LZO_BUF_MEM_SIZE: usize = 1 << (14 + std::mem::size_of::<u32>());
+const LZO_BUF_MEM_SIZE: usize = 1 << (14 + size_of::<u32>());
 const FARCH_MAX_SYMBOL_SIZE: usize = 128;
 
 struct FarchEntry {
@@ -61,7 +65,7 @@ fn rand_range(first: usize, last: usize) -> usize {
 
 fn put_as_str(data: &[u8], output: &mut dyn Write) {
     for byte in data {
-        write!(output, "\\x{:x}", byte).unwrap();
+        write!(output, "\\x{byte:x}").unwrap();
     }
 }
 
@@ -87,7 +91,7 @@ fn dump_and_obfuscate(buf: &[u8], output: &mut dyn Write) -> i32 {
 
     while len > 0 {
         let chunk_size = rand_range(FARCH_MAX_SYMBOL_SIZE / 2, FARCH_MAX_SYMBOL_SIZE);
-        let chunk_size = std::cmp::min(chunk_size, len);
+        let chunk_size = min(chunk_size, len);
         let end_slice: usize = start_slice + chunk_size;
         let obfuscated_chunk_slice = &buf[start_slice..end_slice];
         let obfuscated_output_buf = [0u8; FARCH_MAX_SYMBOL_SIZE];
@@ -104,13 +108,23 @@ fn dump_and_obfuscate(buf: &[u8], output: &mut dyn Write) -> i32 {
     nb_chunks
 }
 
+#[allow(clippy::large_stack_arrays)]
 fn dump_file(path: &Path, entry: &mut FarchEntry, output: &mut dyn Write) {
-    let file_data = std::fs::read(path).unwrap_or_else(|e| {
+    let file_data = read(path).unwrap_or_else(|e| {
         eprintln!("Error: unable to read file `{}`: {}", path.display(), e);
-        std::process::exit(1);
+        exit(1);
     });
 
-    entry.size = file_data.len() as i32;
+    let file_data_len_i32 = i32::try_from(file_data.len()).unwrap_or_else(|e| {
+        eprintln!(
+            "Error: file is too big for farchc `{}`: {}",
+            path.display(),
+            e
+        );
+        exit(1);
+    });
+
+    entry.size = file_data_len_i32;
 
     let mut clen = unsafe { lzo_cbuf_size(file_data.len()) };
     let mut cbuf = vec![0u8; clen];
@@ -119,19 +133,21 @@ fn dump_file(path: &Path, entry: &mut FarchEntry, output: &mut dyn Write) {
 
     unsafe {
         clen = qlzo1x_compress(
-            cbuf.as_mut_ptr() as *mut std::os::raw::c_void,
+            cbuf.as_mut_ptr().cast::<c_void>(),
             clen,
             ps,
-            lzo_buf.as_mut_ptr() as *mut std::os::raw::c_void,
+            lzo_buf.as_mut_ptr().cast::<c_void>(),
         );
     }
 
     if clen < file_data.len() {
+        let clen_i32 =
+            i32::try_from(clen).expect("expected error when converting compress length to i32");
         entry.nb_chunks = dump_and_obfuscate(&cbuf[0..clen], output);
-        entry.compressed_size = clen as i32;
+        entry.compressed_size = clen_i32;
     } else {
         entry.nb_chunks = dump_and_obfuscate(&file_data, output);
-        entry.compressed_size = file_data.len() as i32;
+        entry.compressed_size = file_data_len_i32;
     }
 }
 
@@ -151,7 +167,7 @@ fn dump_entries(archname: &str, entries: &[FarchEntry], output: &mut dyn Write) 
         write!(output, "    .name = LSTR_IMMED(\"").unwrap();
         put_as_str(&obfuscated_name, output);
         writeln!(output, "\"),").unwrap();
-        writeln!(output, "    .chunks = &{}_data[{}],", archname, chunk).unwrap();
+        writeln!(output, "    .chunks = &{archname}_data[{chunk}],").unwrap();
         writeln!(output, "    .size = {},", entry.size).unwrap();
         writeln!(output, "    .compressed_size = {},", entry.compressed_size).unwrap();
         writeln!(output, "    .nb_chunks = {},", entry.nb_chunks).unwrap();
@@ -162,13 +178,13 @@ fn dump_entries(archname: &str, entries: &[FarchEntry], output: &mut dyn Write) 
 }
 
 fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
-    let content = std::fs::read_to_string(&opts.script).unwrap_or_else(|e| {
+    let content = read_to_string(&opts.script).unwrap_or_else(|e| {
         eprintln!(
             "Error: could not read script file `{}`: {}",
             opts.script.display(),
             e
         );
-        std::process::exit(1);
+        exit(1);
     });
 
     let mut lines = content.lines();
@@ -186,18 +202,18 @@ fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
 
     let name = name_opt.unwrap_or_else(|| {
         eprintln!("Error: no variable name specified");
-        std::process::exit(1);
+        exit(1);
     });
 
     if opts.verbose {
-        eprintln!("farchc: creating `{}`", name);
+        eprintln!("farchc: creating `{name}`");
     }
 
     writeln!(output, "/* This file is generated by farchc. */").unwrap();
     writeln!(output).unwrap();
     writeln!(output, "#include <lib-common/farch.h>").unwrap();
     writeln!(output).unwrap();
-    writeln!(output, "static const farch_data_t {}_data[] = {{", name).unwrap();
+    writeln!(output, "static const farch_data_t {name}_data[] = {{").unwrap();
 
     let mut entries = Vec::<FarchEntry>::new();
     let mut lineno = 2;
@@ -206,8 +222,8 @@ fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
         lineno += 1;
 
         if line.len() > PATHMAX as usize {
-            eprintln!("Error: line {} is too long", lineno);
-            std::process::exit(1);
+            eprintln!("Error: line {lineno} is too long");
+            exit(1);
         }
 
         let path = line.trim();
@@ -217,7 +233,7 @@ fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
 
         if path.starts_with('#') {
             if opts.verbose {
-                eprintln!("farchc: {}", path);
+                eprintln!("farchc: {path}");
             }
             continue;
         }
@@ -235,7 +251,7 @@ fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
             nb_chunks: 0,
         };
 
-        writeln!(output, "/* {{{{{{ {} */", path).unwrap();
+        writeln!(output, "/* {{{{{{ {path} */").unwrap();
 
         dump_file(&fullpath, &mut entry, output);
         writeln!(output, "/* }}}}}} */").unwrap();
@@ -245,7 +261,7 @@ fn do_work(opts: &Opts, reldir: &Path, output: &mut impl Write) {
 
     writeln!(output, "}};").unwrap();
     writeln!(output).unwrap();
-    writeln!(output, "static const farch_entry_t {}[] = {{", name).unwrap();
+    writeln!(output, "static const farch_entry_t {name}[] = {{").unwrap();
 
     dump_entries(name, &entries, output);
     writeln!(output, "{{   .name = LSTR_NULL }},").unwrap();
@@ -263,7 +279,7 @@ fn main() {
             "Error: unable to get parent directory of script `{}`",
             script_path.display()
         );
-        std::process::exit(1);
+        exit(1);
     });
 
     let mut output = String::new();
@@ -279,7 +295,7 @@ fn main() {
                 out_path.display(),
                 e
             );
-            std::process::exit(1);
+            exit(1);
         });
         out_file.write_all(output.as_bytes()).unwrap_or_else(|e| {
             eprintln!(
@@ -287,21 +303,21 @@ fn main() {
                 out_path.display(),
                 e
             );
-            std::process::exit(1);
+            exit(1);
         });
 
         // Set permissions on output
         if let Err(e) = fs::set_permissions(out_path, fs::Permissions::from_mode(0o440)) {
             eprintln!("Error: unable to chmod `{}`: {}", out_path.display(), e);
-            std::process::exit(1);
+            exit(1);
         }
     } else {
         // Output to stdout
         io::stdout()
             .write_all(output.as_bytes())
             .unwrap_or_else(|e| {
-                eprintln!("Error: unable to write to stdio: {}", e);
-                std::process::exit(1);
+                eprintln!("Error: unable to write to stdio: {e}");
+                exit(1);
             });
     }
 }

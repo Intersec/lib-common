@@ -16,22 +16,37 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Conversion between a C pstream_t and Rust string/bytes types.
+//! Conversion between a C `pstream_t` and Rust string/bytes types.
 
 use std::convert::TryFrom;
 use std::ops::Deref;
+use std::ptr;
 use std::slice::from_raw_parts;
 use std::str::{FromStr, Utf8Error};
 
-use crate::bindings::*;
+use crate::bindings::{lstr_t, pstream_t__bindgen_ty_1, pstream_t__bindgen_ty_2};
 
+#[allow(clippy::module_name_repetitions)]
 pub use crate::bindings::pstream_t;
 
 impl pstream_t {
-    /// Create a non-owned pstream_t from a Rust bytes slice.
+    /// Create an empty `pstream_t`.
+    pub const fn new() -> Self {
+        Self {
+            __bindgen_anon_1: pstream_t__bindgen_ty_1 { b: ptr::null() },
+            __bindgen_anon_2: pstream_t__bindgen_ty_2 { b_end: ptr::null() },
+        }
+    }
+
+    /// Create a non-owned `pstream_t` from a Rust bytes slice.
     pub const fn from_bytes(bytes: &[u8]) -> Self {
+        let last_elem_opt = bytes.last();
+        let Some(last_elem) = last_elem_opt else {
+            return pstream_t::new();
+        };
+
         let start_ptr: *const u8 = bytes.as_ptr();
-        let end_ptr: *const u8 = bytes.last().unwrap();
+        let end_ptr: *const u8 = last_elem;
 
         unsafe {
             Self {
@@ -43,13 +58,7 @@ impl pstream_t {
         }
     }
 
-    /// Create a non-owned pstream_t from a Rust string.
-    #[allow(clippy::should_implement_trait)]
-    pub const fn from_str(str: &str) -> Self {
-        Self::from_bytes(str.as_bytes())
-    }
-
-    /// Convert a pstream_t to a bytes slice.
+    /// Convert a `pstream_t` to a bytes slice.
     pub const fn as_bytes(&self) -> &[u8] {
         let ptr = unsafe { self.__bindgen_anon_1.b };
         let len = unsafe {
@@ -61,12 +70,16 @@ impl pstream_t {
         unsafe { from_raw_parts(ptr, len) }
     }
 
-    /// Convert a pstream_t to a non-owned Rust str and check UTF-8 errors.
+    /// Convert a `pstream_t` to a non-owned Rust str and check UTF-8 errors.
+    ///
+    /// # Errors
+    ///
+    /// The `pstream_t` is not a valid UTF-8 string.
     pub const fn as_str(&self) -> Result<&str, Utf8Error> {
         str::from_utf8(self.as_bytes())
     }
 
-    /// Convert a pstream_t to a non-owned Rust str without checking for UTF-8 errors.
+    /// Convert a `pstream_t` to a non-owned Rust str without checking for UTF-8 errors.
     ///
     /// # Safety
     ///
@@ -74,6 +87,12 @@ impl pstream_t {
     /// is unsafe.
     pub const unsafe fn as_str_unchecked(&self) -> &str {
         unsafe { str::from_utf8_unchecked(self.as_bytes()) }
+    }
+}
+
+impl Default for pstream_t {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -85,7 +104,7 @@ impl From<&[u8]> for pstream_t {
 
 impl From<&str> for pstream_t {
     fn from(str: &str) -> Self {
-        pstream_t::from_str(str)
+        pstream_t::from_bytes(str.as_bytes())
     }
 }
 
@@ -112,8 +131,8 @@ impl<'a> TryFrom<&'a pstream_t> for &'a str {
 impl FromStr for pstream_t {
     type Err = ();
 
-    fn from_str(str: &str) -> Result<Self, ()> {
-        Ok(pstream_t::from_str(str))
+    fn from_str(s: &str) -> Result<Self, ()> {
+        Ok(pstream_t::from(s))
     }
 }
 
