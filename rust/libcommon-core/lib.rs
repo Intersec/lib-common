@@ -18,7 +18,7 @@
 
 pub mod bindings {
     #![allow(warnings)]
-    include!("_bindings.rs");
+    include!(concat!(env!("PKG_WAF_BUILD_DIR"), "/bindings.rs"));
 }
 
 pub mod farch;

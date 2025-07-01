@@ -40,13 +40,14 @@ ctx(target='libcommon-core-rs', features='rust',
 )
 ----
 
-With this target, waf generates a file called `_waf_build_env.json` used by
-the Cargo build script of the package (see below).
+With this target, waf generates a file called
+`.waf-build/waf_build_env.json` used by the Cargo build script of the
+package (see below).
 
 Even though the dependencies between Cargo packages need to be defined in the
 Cargo build system (see below), it is also necessary that these dependencies
 are also reflected in the waf build system to avoid concurrency issues when
-generating the `_waf_build_env.json` files.
+generating the `.waf-build/waf_build_env.json` files.
 
 If the Cargo package do not use any of the C code, and only creates a library
 that is only used by Rust, it is not necessary to have a waf target defined
@@ -79,12 +80,12 @@ package.
 C functions and symbols can be exported from C code to Rust with the help of
 https://docs.rs/bindgen/[bindgen].
 `waf-cargo-build` integrates the support of `bindgen`.
-`bindgen` generates a file called `_bindings.rs` that needs to be included in
-the library code.
+`bindgen` generates a file called `.waf-build/bindings.rs` that needs to be
+included in the library code.
 To avoid exporting multiple times the same C symbols for different rust
 packages, the different exported symbols by `bindgen` for a given package are
-tracked and exported in a file called `_bindings_items.json` and are blocked
-in Rust packages that depends of that package.
+tracked and exported in a file called `.waf-build/bindings_items.json` and
+are blocked in Rust packages that depends of that package.
 
 A cargo package can define a lib and/or multiple bins.
 
@@ -112,10 +113,6 @@ the Cargo build system the dependencies between the different cargo packages.
        with `cargo build -p <pkg>`.
        See https://doc.rust-lang.org/cargo/faq.html?highlight=rebuild#why-is-cargo-rebuilding-my-code
        Maybe use experimental `cargo build --build-plan`.
-* TODO: Built generated files `_waf_build_env.json`, `_bindings.rs` and
-       `_bindings_items.json` are dumped in the source directory of a Rust
-       package. It would be better to put them in `.build` directory to hide
-       them the source directory of the Rust package.
 * FIXME: Currently `pic` targets are compiled as separate profiles. This
          implies compiling twice the external crates. This is sub-optimal.
          But with a good caching system, this might not be a real issue.

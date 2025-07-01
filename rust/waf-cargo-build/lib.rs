@@ -20,8 +20,8 @@
 //!
 //! This library helps binding the Waf build system and Cargo build system.
 //!
-//! The Waf build system generates a `_waf_build_env.json` to pass the environment that is used by
-//! this library.
+//! The Waf build system generates a `.waf-build/waf_build_env.json` to pass the environment for
+//! the package using this library.
 //! This library is used in build scripts.
 //!
 //! The main entry point is the structure [`WafBuild`].
@@ -83,6 +83,15 @@ where
 
     // Return the json struct
     Ok(json)
+}
+
+/// Get the waf build directory for the given package.
+fn get_pkg_waf_build_dir(is_pic_profile: bool, pkg_dir: &Path) -> PathBuf {
+    let mut pkg_waf_build_name = ".waf-build".to_owned();
+    if is_pic_profile {
+        pkg_waf_build_name += "-pic";
+    }
+    pkg_dir.join(pkg_waf_build_name)
 }
 
 // }}}
@@ -242,7 +251,6 @@ struct WafBuildEnvJson {
     rerun_libs: Vec<String>,
     cc: String,
     local_recursive_dependencies: HashMap<String, String>,
-    profile_suffix: String,
 }
 
 impl WafBuildEnvJson {
@@ -255,25 +263,47 @@ impl WafBuildEnvJson {
 // {{{ WafBuild
 
 pub struct WafBuild {
-    package_dir: PathBuf,
+    is_pic_profile: bool,
+    pkg_waf_build_dir: PathBuf,
     waf_env_json_file: PathBuf,
     json_env: WafBuildEnvJson,
 }
 
 impl WafBuild {
-    /// Read the `_waf_build_env.json` file from the cargo manifest directory using the library.
+    /// Read the `.waf-build*/waf_build_env.json` file from the cargo manifest directory using the library.
     pub fn read_build_env() -> Result<Self, Box<dyn error::Error>> {
-        let package_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+        let out_dir = PathBuf::from(env::var("OUT_DIR")?);
+        // The out directory is located in the cargo build directory in
+        // 'target/<profile>/build/<pkg-name>-<obj-hash>/out.
+        // We want to get 'target/<profile>'.
+        let cargo_build_dir = out_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
 
-        let waf_env_json_file = package_dir.join("_waf_build_env.json");
+        let profile_name = cargo_build_dir.file_name().unwrap().to_str().unwrap();
+        let is_pic_profile = profile_name.ends_with("-pic");
+
+        let package_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+        let pkg_waf_build_dir = get_pkg_waf_build_dir(is_pic_profile, &package_dir);
+
+        let waf_env_json_file = pkg_waf_build_dir.join("waf_build_env.json");
         if !waf_env_json_file.is_file() {
-            return Err("build.rs couldn't find _waf_build_env.json (not using waf?)".into());
+            return Err(format!(
+                "build.rs couldn't find {} (not using waf?)",
+                waf_env_json_file.display()
+            )
+            .into());
         }
 
         let json_env = WafBuildEnvJson::read(&waf_env_json_file)?;
 
         Ok(Self {
-            package_dir,
+            is_pic_profile,
+            pkg_waf_build_dir,
             waf_env_json_file,
             json_env,
         })
@@ -308,7 +338,7 @@ impl WafBuild {
             println!("cargo::rustc-link-lib={lib}");
         }
 
-        // Rerun if _waf_build_env.json or one of the libs have changed
+        // Rerun if .cargo-build/waf_build_env.json or one of the libs have changed
         println!(
             "cargo::rerun-if-changed={}",
             self.waf_env_json_file.display()
@@ -319,10 +349,15 @@ impl WafBuild {
 
         println!("cargo::rustc-link-arg=-no-pie");
 
-        if self.json_env.profile_suffix == "-pic" {
+        if self.is_pic_profile {
             // Only "pic" is supported for now.
             println!("cargo::rustc-link-arg=-pic");
         }
+
+        println!(
+            "cargo::rustc-env=PKG_WAF_BUILD_DIR={}",
+            self.pkg_waf_build_dir.display()
+        );
     }
 
     /// Generate the bindings of C code using bindgen.
@@ -359,8 +394,9 @@ impl WafBuild {
     ) -> Result<(), Box<dyn error::Error>> {
         let exported_items = Rc::new(RefCell::new(Vec::new()));
 
-        let binding_gen_file = self.package_dir.join("_bindings.rs");
-        let binding_items_file = self.package_dir.join("_bindings_items.json");
+        // Build the different paths
+        let binding_gen_file = self.pkg_waf_build_dir.join("bindings.rs");
+        let binding_items_file = self.pkg_waf_build_dir.join("bindings_items.json");
 
         let out_dir = PathBuf::from(env::var("OUT_DIR")?);
         let static_wrapper_path = out_dir.join("static-wrappers.c");
@@ -383,7 +419,8 @@ impl WafBuild {
         // Block the items already exported by other dependencies
         for dep_path_str in self.json_env.local_recursive_dependencies.values() {
             let dep_path = Path::new(dep_path_str);
-            let dep_bind_json = dep_path.join("_bindings_items.json");
+            let dep_pkg_waf_build_dir = get_pkg_waf_build_dir(self.is_pic_profile, dep_path);
+            let dep_bind_json = dep_pkg_waf_build_dir.join("bindings_items.json");
 
             if !dep_bind_json.exists() {
                 continue;
@@ -427,7 +464,7 @@ impl WafBuild {
             for include in &self.json_env.includes {
                 cc.include(include);
             }
-            cc.include(&self.package_dir);
+            cc.include(env::var("CARGO_MANIFEST_DIR")?);
 
             for flag in &self.json_env.cflags {
                 cc.flag(flag);
@@ -437,7 +474,7 @@ impl WafBuild {
             // This is not user code, we don't care about warnings.
             cc.flag("-w");
 
-            cc.compile("libcommon-static-wrappers");
+            cc.compile("bindgen-static-wrappers");
             // XXX: nice thing about cc it emits cargo metadata
             // cargo:rustc-link-search=native=...
             // so the linker can find the compiled lib.

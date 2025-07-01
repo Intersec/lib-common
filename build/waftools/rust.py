@@ -112,6 +112,8 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
         ctx = self.generator.bld
         pkg_dir_node = ctx.root.make_node(self.env.PKG_DIR)
         res: str = pkg_dir_node.path_from(ctx.srcnode)
+        if self.env.PKG_PROFILE_SUFFIX:
+            res += f' ({self.env.PKG_PROFILE_SUFFIX})'
         return res
 
     def run(self) -> int:
@@ -176,11 +178,12 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
             'local_recursive_dependencies': (
                 cargo_package['local_recursive_dependencies']
             ),
-            'profile_suffix': self.env.PKG_PROFILE_SUFFIX,
         }
 
-        waf_build_env_file = self.generator.path.make_node(
-            '_waf_build_env.json')
+        cargo_build_dir = self.generator.path.make_node(
+            '.waf-build' + self.env.PKG_PROFILE_SUFFIX)
+        cargo_build_dir.mkdir()
+        waf_build_env_file = cargo_build_dir.make_node('waf_build_env.json')
 
         if waf_build_env_file.exists():
             # If the file already exists and the content has not changed, do
