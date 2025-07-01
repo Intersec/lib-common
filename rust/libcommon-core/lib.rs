@@ -17,7 +17,20 @@
 /***************************************************************************/
 
 pub mod bindings {
-    #![allow(warnings)]
+    #![allow(
+        warnings,
+        deprecated_safe,
+        future_incompatible,
+        keyword_idents,
+        let_underscore,
+        nonstandard_style,
+        refining_impl_trai,
+        rust_2018_compatibility,
+        rust_2018_idioms,
+        rust_2021_compatibility,
+        rust_2024_compatibility,
+        unused
+    )]
     include!(concat!(env!("PKG_WAF_BUILD_DIR"), "/bindings.rs"));
 }
 

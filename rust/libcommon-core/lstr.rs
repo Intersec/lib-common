@@ -201,7 +201,7 @@ impl fmt::Display for lstr_t {
 }
 
 impl TScopeClone for lstr_t {
-    fn t_clone(&self, _t_scope: &TScope) -> Self {
+    fn t_clone(&self, _t_scope: &TScope<'_>) -> Self {
         unsafe { t_lstr_dup(*self) }
     }
 }

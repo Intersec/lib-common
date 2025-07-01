@@ -21,6 +21,9 @@ name = "libcommon-core"
 edition.workspace = true
 publish.workspace = true
 
+[lints]
+workspace = true
+
 [lib]
 path = "lib.rs"
 crate-type = ["lib", "staticlib"]

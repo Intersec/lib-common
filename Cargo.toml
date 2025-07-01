@@ -96,6 +96,113 @@ inherits = "fuzzingdebug"
 
 # }}}
 # }}}
+# {{{ Lints
+
+[workspace.lints.rust]
+# Deny every rustc warnings
+warnings = "deny"
+deprecated_safe = "deny"
+future_incompatible = "deny"
+keyword_idents = "deny"
+let_underscore = "deny"
+nonstandard_style = "deny"
+refining_impl_trait = "deny"
+rust_2018_compatibility = "deny"
+rust_2018_idioms = "deny"
+rust_2021_compatibility = "deny"
+rust_2024_compatibility = "deny"
+unused = "deny"
+
+
+[workspace.lints.clippy]
+# Deny almost all (priority = -1 because of cargo#12918)
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+complexity = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+style = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+
+# And those restrictions
+absolute_paths = "deny"
+as_pointer_underscore = "deny"
+as_underscore = "deny"
+assertions_on_result_states = "deny"
+cfg_not_test = "deny"
+clone_on_ref_ptr = "deny"
+create_dir = "deny"
+dbg_macro = "warn"
+default_union_representation = "deny"
+deref_by_slicing = "deny"
+doc_include_without_cfg = "deny"
+empty_drop = "deny"
+empty_enum_variants_with_brackets = "deny"
+empty_structs_with_brackets = "deny"
+error_impl_error = "deny"
+float_cmp_const = "deny"
+fn_to_numeric_cast_any = "deny"
+get_unwrap = "deny"
+if_then_some_else_none = "deny"
+impl_trait_in_params = "deny"
+infinite_loop = "deny"
+let_underscore_must_use = "deny"
+let_underscore_untyped = "deny"
+lossy_float_literal = "deny"
+map_err_ignore = "deny"
+map_with_unused_argument_over_ranges = "deny"
+mem_forget = "deny"
+missing_asserts_for_indexing = "deny"
+mixed_read_write_in_expression = "deny"
+module_name_repetitions = "deny"
+modulo_arithmetic = "deny"
+multiple_inherent_impl = "deny"
+mutex_atomic = "deny"
+mutex_integer = "deny"
+needless_raw_strings = "deny"
+non_zero_suggestions = "deny"
+partial_pub_fields = "deny"
+pathbuf_init_then_push = "deny"
+precedence_bits = "deny"
+pub_without_shorthand = "deny"
+rc_buffer = "deny"
+rc_mutex = "deny"
+redundant_test_prefix = "deny"
+redundant_type_annotations = "deny"
+ref_patterns = "deny"
+renamed_function_params = "deny"
+rest_pat_in_fully_bound_structs = "deny"
+return_and_then = "deny"
+same_name_method = "deny"
+semicolon_inside_block = "deny"
+separated_literal_suffix = "deny"
+str_to_string = "deny"
+string_lit_chars_any = "deny"
+string_slice = "deny"
+string_to_string = "deny"
+suspicious_xor_used_as_pow = "deny"
+tests_outside_test_module = "deny"
+try_err = "deny"
+unnecessary_safety_comment = "deny"
+unnecessary_safety_doc = "deny"
+unnecessary_self_imports = "deny"
+unneeded_field_pattern = "deny"
+unused_result_ok = "deny"
+unused_trait_names = "deny"
+unwrap_in_result = "deny"
+unwrap_used = "deny"
+verbose_file_reads = "deny"
+
+# Warn these ones
+todo = "warn"
+unimplemented = "warn"
+
+# All these ones
+cast_lossless = "allow"
+cast_sign_loss = "allow"
+implicit_hasher = "allow"
+must_use_candidate = "allow"
+
+# }}}
 # {{{ Dependencies
 
 [workspace.dependencies]

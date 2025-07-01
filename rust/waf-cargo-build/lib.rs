@@ -163,7 +163,7 @@ impl bindgen::callbacks::ParseCallbacks for ItemsExportCallback {
             .enum_variant_name(_enum_name, _original_variant_name, _variant_value)
     }
 
-    fn item_name(&self, _item_info: ItemInfo) -> Option<String> {
+    fn item_name(&self, item_info: ItemInfo<'_>) -> Option<String> {
         // XXX: Unfortunately, this called before filtering the items.
         // So it does not represent the list of exported items.
         self.cargo_callbacks.item_name(_item_info)

@@ -32,8 +32,9 @@ use crate::bindings::*;
 
 /// Trait of struct that can be clone on the t_scope.
 pub trait TScopeClone {
-    /// Clone the value on the given t_scope.
-    fn t_clone(&self, t_scope: &TScope) -> Self;
+    /// Clone the value on the given `t_scope`.
+    #[must_use]
+    fn t_clone(&self, t_scope: &TScope<'_>) -> Self;
 }
 
 /// Rust representation of a TScope
