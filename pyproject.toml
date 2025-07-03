@@ -48,6 +48,7 @@ dev = [
 line-length = 78
 target-version = "py39"
 builtins = ["_iop_registry"]
+extend-include = ["**/wscript", "**/wscript_build"]
 
 [tool.ruff.lint]
 # Enable experimental preview rules
