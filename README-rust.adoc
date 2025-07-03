@@ -112,7 +112,12 @@ the Cargo build system the dependencies between the different cargo packages.
 * BUG: Some times Cargo rebuilds the same packages twice when invoked by waf
        with `cargo build -p <pkg>`.
        See https://doc.rust-lang.org/cargo/faq.html?highlight=rebuild#why-is-cargo-rebuilding-my-code
-       Maybe use experimental `cargo build --build-plan`.
+       https://github.com/rust-lang/cargo/issues/12345
+       https://github.com/rust-lang/cargo/issues/4463
+       https://docs.rs/cargo-hakari/0.9.36/cargo_hakari/about/index.html
+       It looks like the solution is to have a hacky package to that depends
+       on all the workspace external crates. Or maybe we can use the
+       experimental `cargo build --build-plan`.
 * FIXME: Currently `pic` targets are compiled as separate profiles. This
          implies compiling twice the external crates. This is sub-optimal.
          But with a good caching system, this might not be a real issue.
