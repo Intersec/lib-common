@@ -2848,6 +2848,14 @@ int httpc_cfg_from_iop(httpc_cfg_t *cfg, const core__httpc_cfg__t *iop_cfg)
     cfg->header_size_max   = iop_cfg->header_size_max;
     cfg->tls_server_name   = lstr_dup(iop_cfg->tls_server_name);
 
+    if (iop_cfg->proxy_url.len) {
+        if (parse_http_url(iop_cfg->proxy_url.s, true, &cfg->proxy_url) < 0) {
+            return logger_error(&_G.logger, "invalid proxy URL `%pL'",
+                                &cfg->proxy_url);
+        }
+        cfg->use_proxy = true;
+    }
+
     /* TODO: remove the http_mode enum and use flag(s) instead. */
     if (iop_cfg->use_http2) {
         cfg->http_mode = HTTP_MODE_USE_HTTP2_ONLY;
@@ -3010,11 +3018,19 @@ void httpc_pool_attach(httpc_t *w, httpc_pool_t *pool)
 httpc_t *httpc_pool_launch(httpc_pool_t *pool)
 {
     if (pool->resolve_on_connect) {
+        t_scope;
         SB_1k(err);
         const char *what = pool->name.s ?: "httpc pool";
+        lstr_t host = pool->host;
 
-        assert(pool->host.s);
-        if (addr_resolve_with_err(what, pool->host, &pool->su, &err) < 0) {
+        if (pool->cfg->use_proxy) {
+            host = t_lstr_fmt("%s:%d", pool->cfg->proxy_url.host,
+                              pool->cfg->proxy_url.port);
+        } else {
+            assert(pool->host.s);
+        }
+
+        if (addr_resolve_with_err(what, host, &pool->su, &err) < 0) {
             logger_warning(&_G.logger, "%pL", &err);
             return NULL;
         }
@@ -3375,6 +3391,12 @@ static void httpc_send_connect(httpc_t *w)
     httpc_query_attach(q, w);
 
     httpc_query_start(q, HTTP_METHOD_CONNECT, w->pool->host, LSTR_NULL_V);
+    if (strlen(w->cfg->proxy_url.user)) {
+        lstr_t user = LSTR(w->cfg->proxy_url.user);
+        lstr_t pass = LSTR(w->cfg->proxy_url.pass);
+
+        httpc_query_hdrs_add_proxy_auth(q, user, pass);
+    }
     httpc_query_hdrs_adds(q, "Proxy-Connection: Keep-Alive");
     httpc_query_hdrs_done(q, -1, false);
     httpc_query_done(q);

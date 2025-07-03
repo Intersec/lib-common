@@ -457,7 +457,13 @@ struct HttpcCfg {
      * Note: the SNI may be overridden by the product on a per-connection
      * basis depending on the client implementation.
      */
-    string? tlsServerName
+    string? tlsServerName;
+
+    /** Use proxy URL.
+     *
+     * When defined connect to this proxy URL and establish a tunnel.
+     */
+    string? proxyUrl;
 };
 
 enum IopHttpMethod {

@@ -783,6 +783,7 @@ typedef struct httpc_cfg_t {
     http_mode_t  http_mode;
 
     bool         use_proxy : 1;
+    http_url_t   proxy_url;
     uint16_t     pipeline_depth;
     unsigned     noact_delay;
     unsigned     max_queries;
