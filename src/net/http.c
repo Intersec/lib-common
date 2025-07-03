@@ -2439,7 +2439,9 @@ static void httpc_query_on_done(httpc_query_t *q, int status)
     httpc_t *w = q->owner;
 
     if (w) {
-        if (--w->queries < w->cfg->pipeline_depth && w->max_queries && w->busy) {
+        if (--w->queries < w->cfg->pipeline_depth && w->max_queries && w->busy
+            && w->is_connected)
+        {
             obj_vcall(w, set_ready, false);
         }
         q->owner = NULL;
