@@ -3480,14 +3480,20 @@ void httpc_query_start_flags(httpc_query_t *q, http_method_t m,
     if (w->cfg->use_proxy) {
         const char *s;
 
-        if (lstr_ascii_istartswith(uri, LSTR("http://"))) {
+        if (m == HTTP_METHOD_CONNECT) {
+            /* RFC 9110 § 9.3.6:
+             * CONNECT uses a special form of request target, unique to this
+             * method, consisting of only the host and port number of the
+             * tunnel destination, separated by a colon.
+             */
+            ob_addf(ob, "%*pM", LSTR_FMT_ARG(host));
+        } else if (lstr_ascii_istartswith(uri, LSTR("http://"))) {
             uri.s   += 7;
             uri.len -= 7;
             ob_add(ob, "http://", 7);
             s = memchr(uri.s, '/', uri.len);
             encode_at = (s) ? s - uri.s : uri.len;
-        } else
-        if (lstr_ascii_istartswith(uri, LSTR("https://"))) {
+        } else if (lstr_ascii_istartswith(uri, LSTR("https://"))) {
             uri.s   += 8;
             uri.len -= 8;
             ob_add(ob, "https://", 8);
