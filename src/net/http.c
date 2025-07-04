@@ -3317,6 +3317,71 @@ httpc_tls_handshake(el_t evh, int fd, short events, data_t priv)
     return 0;
 }
 
+/* {{{ CONNECT */
+
+typedef struct httpc_connect_query_t {
+    httpc_query_t  q;
+    httpc_t       *w;
+    SSL           *ssl;
+} httpc_connect_query_t;
+
+static httpc_connect_query_t *
+httpc_connect_query_init(httpc_connect_query_t *p)
+{
+    p_clear(p, 1);
+    httpc_query_init(&p->q);
+    httpc_bufferize(&p->q, 8 << 10);
+    return p;
+}
+
+static void httpc_connect_query_wipe(httpc_connect_query_t *p)
+{
+    httpc_query_wipe(&p->q);
+    SSL_free(p->ssl);
+}
+
+GENERIC_NEW(httpc_connect_query_t, httpc_connect_query);
+GENERIC_DELETE(httpc_connect_query_t, httpc_connect_query);
+
+static void httpc_send_connect_cb(httpc_query_t *q,
+                                  httpc_status_t status)
+{
+    httpc_connect_query_t *p = container_of(q, httpc_connect_query_t, q);
+
+    if (status != HTTPC_STATUS_OK || q->qinfo->code != HTTP_CODE_OK) {
+        httpc_close_gently(p->w);
+    } else {
+        /* restore memory ownership */
+        p->w->ssl = p->ssl;
+        p->ssl = NULL;
+
+        el_fd_set_hook(p->w->ev, &httpc_tls_handshake);
+        el_fd_mark_fired(p->w->ev);
+    }
+    httpc_connect_query_delete(&p);
+}
+
+static void httpc_send_connect(httpc_t *w)
+{
+    httpc_connect_query_t *p = httpc_connect_query_new();
+    httpc_query_t *q = &p->q;
+
+    p->w = w;
+    /* transfer memory ownership */
+    p->ssl = w->ssl;
+    w->ssl = NULL;
+
+    q->on_done = &httpc_send_connect_cb;
+    httpc_query_attach(q, w);
+
+    httpc_query_start(q, HTTP_METHOD_CONNECT, w->pool->host, LSTR_NULL_V);
+    httpc_query_hdrs_adds(q, "Proxy-Connection: Keep-Alive");
+    httpc_query_hdrs_done(q, -1, false);
+    httpc_query_done(q);
+}
+
+/* }}} */
+
 static int httpc_on_connect(el_t evh, int fd, short events, data_t priv)
 {
     httpc_t *w   = priv.ptr;
@@ -3335,7 +3400,13 @@ static int httpc_on_connect(el_t evh, int fd, short events, data_t priv)
             httpc_set_sni(w->ssl, w->cfg->tls_server_name);
             SSL_set_fd(w->ssl, fd);
             SSL_set_connect_state(w->ssl);
-            el_fd_set_hook(evh, &httpc_tls_handshake);
+            if (!w->cfg->use_proxy) {
+                el_fd_set_hook(evh, &httpc_tls_handshake);
+            } else {
+                el_fd_set_hook(evh, httpc_on_event);
+                httpc_send_connect(w);
+                httpc_set_mask(w);
+            }
         } else {
             el_fd_set_hook(evh, httpc_on_event);
             httpc_set_mask(w);
