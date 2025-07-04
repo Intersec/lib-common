@@ -2510,6 +2510,8 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
     __ps_skip_upto(ps, p + 4);
     t_qv_init(&hdrs, 64);
 
+    q = dlist_first_entry(&w->query_list, httpc_query_t, query_link);
+
     while (!ps_done(&buf)) {
         http_qhdr_t *qhdr = qv_growlen(&hdrs, 1);
 
@@ -2542,6 +2544,13 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
             break;
 
           case HTTP_WKHDR_TRANSFER_ENCODING:
+            /* RFC 7231 § 4.3.6: A client MUST ignore any Transfer-Encoding
+             * header fields received in a successful response to CONNECT.
+             */
+            if (q->is_connect && req.code == HTTP_CODE_OK) {
+                break;
+            }
+
             /* rfc 2616: §4.4: != "identity" means chunked encoding */
             switch (http_get_token_ps(qhdr->val)) {
               case HTTP_TK_IDENTITY:
@@ -2556,6 +2565,12 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
             break;
 
           case HTTP_WKHDR_CONTENT_LENGTH:
+            /* RFC 7231 § 4.3.6: A client MUST ignore any Content-Length
+             * header fields received in a successful response to CONNECT.
+             */
+            if (q->is_connect && req.code == HTTP_CODE_OK) {
+                break;
+            }
             clen = memtoip(qhdr->val.b, ps_len(&qhdr->val), &p);
             if (p != qhdr->val.b_end) {
                 return PARSE_ERROR;
@@ -2586,9 +2601,15 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
         w->chunk_length = 0;
         w->state = HTTP_PARSER_CHUNK_HDR;
     } else {
-        /* rfc 2616: §4.4: support no Content-Length */
         if (clen < 0 && req.code == HTTP_CODE_NO_CONTENT) {
-            /* due to code 204 (No Content) */
+            /* rfc 2616: §4.4: support no Content-Length */
+            w->chunk_length = 0;
+        } else if (clen < 0 && req.code == HTTP_CODE_OK && q->is_connect) {
+            /* RFC 7231 § 6.3.1:
+             * For CONNECT, no payload is allowed because the successful
+             * result is a tunnel, which begins immediately after the 200
+             * response header section.
+             */
             w->chunk_length = 0;
         } else {
             /* or followed by close */
@@ -2598,8 +2619,6 @@ static int httpc_parse_idle(httpc_t *w, pstream_t *ps)
     }
     req.hdrs     = hdrs.tab;
     req.hdrs_len = hdrs.len;
-
-    q = dlist_first_entry(&w->query_list, httpc_query_t, query_link);
 
     if (req.code >= 100 && req.code < 200) {
         w->state = HTTP_PARSER_IDLE;
@@ -3499,6 +3518,7 @@ void httpc_query_start_flags(httpc_query_t *q, http_method_t m,
         ob_adds(ob, "Connection: close\r\n");
     }
     q->hdrs_started = true;
+    q->is_connect   = m == HTTP_METHOD_CONNECT;
 }
 
 void httpc_query_hdrs_done(httpc_query_t *q, int clen, bool chunked)
