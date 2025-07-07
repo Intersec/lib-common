@@ -78,6 +78,21 @@ tmp2=$(mktemp)
 corelist=$(mktemp)
 trap "rm $tmp $tmp2 $corelist" 0
 
+print_suite_name() {
+    suite="${1}${2}"
+
+    # Print suite in the output log in accordance with the test to execute,
+    # which is needed by the parser
+    case "$suite" in
+        retry-behave/*)
+            echo "${1//retry-behave/.}/behave"
+            ;;
+        *)
+            echo "$suite"
+            ;;
+    esac
+}
+
 set_www_env() {
     if [[ "$Z_TAG_SKIP" =~ "web" ]] && [[ -z "$Z_TAG_OR" ]]; then
         return 0
@@ -160,14 +175,7 @@ while read -r zd line; do
 
     # Print suite in the output log in accordance with the test to execute,
     # which is needed by the parser
-    case "$t" in
-        retry-behave/*)
-            say_color info "starting suite ${zd//retry-behave/.}/behave..."
-            ;;
-        *)
-            say_color info "starting suite $t..."
-            ;;
-    esac
+    say_color info "starting suite $(print_suite_name "${zd}" "${line}")..."
 
     [ -n "$coredump" ] && $coredump list > $corelist
 
@@ -220,7 +228,7 @@ while read -r zd line; do
         say_color pass "done ($((end - start)) seconds)"
     else
         end=$(date '+%s')
-        say_color error "TEST SUITE $t FAILED ($((end - start)) seconds)"
+        say_color error "TEST SUITE $(print_suite_name "${zd}" "${line}") FAILED ($((end - start)) seconds)"
     fi
 done
 ) | tee $tmp | post_process
