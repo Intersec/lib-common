@@ -305,6 +305,9 @@ addr_resolve_async_b(const char * nullable what, const lstr_t s, int minport,
 /** Getter on event loop handler currently used for the DNS resolution. */
 el_t nullable addr_get_dns_elh(dns_resolv_ctx_t * nonnull dns_ctx);
 
+/** Cancel a pending asynchronous DNS resolution. */
+void addr_cancel_async_dns(dns_resolv_ctx_t * nullable * nonnull ctx);
+
 static inline int addr_resolve(const char * nonnull what, const lstr_t s,
                                sockunion_t * nonnull out)
 {

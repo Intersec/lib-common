@@ -22,6 +22,7 @@
 #include <lib-common/iop-rpc.h>
 #include <lib-common/core/core.iop.h>
 #include <lib-common/datetime.h>
+#include <lib-common/thr.h>
 
 #include "iop/tstiop_rpc.iop.h"
 
@@ -228,29 +229,100 @@ static int z_ic_on_accept(el_t ev, int fd)
     return 0;
 }
 
+static inline int
+z_start_server_ic(sockunion_t *su, int *port, el_t *server_ev)
+{
+    *server_ev = ic_listento(su, SOCK_STREAM, IPPROTO_TCP, &z_ic_on_accept);
+    Z_ASSERT_P(*server_ev);
+
+    *port = getsockport(el_fd_get_fd(*server_ev), AF_INET);
+    sockunion_setport(su, *port);
+
+    Z_HELPER_END;
+}
+
+static inline void z_init_client_ic(ichannel_t *ic_client)
+{
+    ic_init(ic_client);
+    ic_client->iop_env     = _G.iop_env;
+    ic_client->on_event    = &dummy_on_event;
+    ic_client->impl        = &ic_no_impl;
+    ic_client->auto_reconn = false;
+}
+
+static inline bool z_ic_client_is_connected(ichannel_t *ic_client)
+{
+    return _G.ic_spawned && ic_is_ready(_G.ic_spawned) &&
+           ic_is_ready(ic_client);
+}
+
+static void z_wait_connect(ichannel_t *ic_client, time_t start_ts)
+{
+    while (!z_ic_client_is_connected(ic_client) &&
+           (lp_getsec() - start_ts) <= 2)
+    {
+        el_loop_timeout(100);
+    }
+}
+
 static int
 z_connect_ics_and_wait(ichannel_t *ic_client, const sockunion_t *su)
 {
     time_t start_ts = lp_getsec();
 
-    ic_init(ic_client);
-    ic_client->su          = *su;
-    ic_client->iop_env     = _G.iop_env;
-    ic_client->on_event    = &dummy_on_event;
-    ic_client->impl        = &ic_no_impl;
-    ic_client->auto_reconn = false;
+    z_init_client_ic(ic_client);
+    ic_client->su = *su;
     Z_ASSERT_N(ic_connect(ic_client));
 
     ic_delete(&_G.ic_spawned);
-    while (!(_G.ic_spawned && ic_is_ready(_G.ic_spawned) &&
-             ic_is_ready(ic_client)) &&
-           (lp_getsec() - start_ts) <= 2)
-    {
-        el_loop_timeout(100);
+    z_wait_connect(ic_client, start_ts);
+    Z_ASSERT_P(_G.ic_spawned);
+
+    Z_HELPER_END;
+}
+
+static int
+z_connect_ics_from_addr_and_wait(el_t server_ev, ichannel_t *ic_client,
+                                 lstr_t remote_addr, bool restrict_fds)
+{
+    z_init_client_ic(ic_client);
+    ic_client->remote_addr = lstr_dup(remote_addr);
+
+    Z_ASSERT_N(ic_connect(ic_client));
+    Z_ASSERT_P(ic_client->dns_ctx);
+    Z_ASSERT_P(ic_client->elh);
+    Z_ASSERT(addr_get_dns_elh(ic_client->dns_ctx) == ic_client->elh);
+
+    ic_delete(&_G.ic_spawned);
+    if (restrict_fds) {
+        /* Emulate the same behavior as we have for children waiting for
+         * connection with a remote peer (except that we emulate also the
+         * socket of server). */
+        struct timeval start_tv, current_tv;
+
+        lp_gettv(&start_tv);
+        current_tv = start_tv;
+        while (!z_ic_client_is_connected(ic_client) &&
+               (current_tv.tv_sec - start_tv.tv_sec <= 2))
+        {
+            el_t evs[3] = {server_ev, ic_client->elh, NULL};
+            int count = 2;
+
+            if (_G.ic_spawned) {
+                evs[count] = _G.ic_spawned->elh;
+                count++;
+            }
+
+            el_fds_loop(evs, count, 100, EV_FDLOOP_HANDLE_TIMERS);
+            lp_gettv(&current_tv);
+        }
+    } else {
+        time_t start_ts = lp_getsec();
+
+        z_wait_connect(ic_client, start_ts);
     }
 
     Z_ASSERT_P(_G.ic_spawned);
-
     Z_HELPER_END;
 }
 
@@ -450,7 +522,7 @@ Z_GROUP_EXPORT(iop_rpc)
         Z_ASSERT_P(ctx);
     } Z_TEST_END;
 
-    Z_TEST(ic_user_version, "ipo-rpc: user version tests") {
+    Z_TEST(ic_user_version, "iop-rpc: user version tests") {
         el_t server_ev;
         ichannel_t ic_client;
         int port;
@@ -461,12 +533,7 @@ Z_GROUP_EXPORT(iop_rpc)
             }
         };
 
-        server_ev = ic_listento(&su, SOCK_STREAM, IPPROTO_TCP,
-                                &z_ic_on_accept);
-        Z_ASSERT_P(server_ev);
-
-        port = getsockport(el_fd_get_fd(server_ev), AF_INET);
-        sockunion_setport(&su, port);
+        Z_HELPER_RUN(z_start_server_ic(&su, &port, &server_ev));
 
         /* Test to establish a connection between 2 ICs with compatible
          * versions. */
@@ -505,6 +572,71 @@ Z_GROUP_EXPORT(iop_rpc)
         ic_wipe(&ic_client);
         ic_delete(&_G.ic_spawned);
         el_unregister(&server_ev);
+    } Z_TEST_END;
+
+    Z_TEST(ic_async_addr_resolution, "iop-rpc: async addr and connect") {
+        t_scope;
+        t_SB_1k(remote_addr);
+        el_t server_ev;
+        ichannel_t ic_client;
+        int port;
+        lstr_t host = LSTR("127.0.0.1");
+
+        sockunion_t su = {
+            .sin = {
+                .sin_family = AF_INET,
+                .sin_addr = { .s_addr = htonl(INADDR_LOOPBACK) },
+            }
+        };
+
+        MODULE_REQUIRE(thr);
+
+        /* 1. Test to establish a connection between 2 ICs with compatible
+         * versions. */
+        _G.last_user_version = 0;
+        iop_env_set_ic_user_version(_G.iop_env, (ic_user_version_t) {
+            .current_version = 0x01020304U,
+            .check_cb = &check_user_version_true,
+        });
+
+        Z_HELPER_RUN(z_start_server_ic(&su, &port, &server_ev));
+
+        /* Now that the server has been started, generate the remote address.
+         */
+        sb_setf(&remote_addr, "%pL:%d", &host, port);
+
+        Z_HELPER_RUN(z_connect_ics_from_addr_and_wait(server_ev,
+            &ic_client, LSTR_SB_V(&remote_addr), true));
+
+        /* Test to establish a connection using the asynchronous address
+         * resolution on "localhost" before connecting to the "remote". */
+        Z_ASSERT(_G.ic_spawned->is_connected);
+        Z_ASSERT(ic_client.is_connected);
+        Z_ASSERT_EQ(_G.last_user_version, 0x01020304U);
+
+        ic_wipe(&ic_client);
+        ic_delete(&_G.ic_spawned);
+
+        /* 2. Test to guarantee that the asynchronous address resolution
+         * doesn't mess up with a deleted ic: no callback should be triggered.
+         */
+        z_init_client_ic(&ic_client);
+        ic_client.remote_addr = lstr_dup(LSTR_SB_V(&remote_addr));
+        Z_ASSERT_N(ic_connect(&ic_client));
+        Z_ASSERT_P(ic_client.dns_ctx);
+
+        /* Now that the address resolution is pending, delete ic and ensure
+         * context is working on its own for address resolution. */
+        ic_wipe(&ic_client);
+        ic_delete(&_G.ic_spawned);
+
+        /* Give some time to end the resolution and cleanup the context
+         * properly. */
+        el_loop_timeout(3000);
+
+        el_unregister(&server_ev);
+
+        MODULE_RELEASE(thr);
     } Z_TEST_END;
 
     MODULE_RELEASE(ic);

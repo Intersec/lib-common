@@ -22,6 +22,7 @@
 #include <lib-common/str-buf-pp.h>
 #include <lib-common/iop.h>
 #include <lib-common/ssl.h>
+#include <lib-common/thr.h>
 
 #include "rpc-channel.fc.c"
 
@@ -1193,6 +1194,10 @@ lstr_t ic_get_client_addr(ichannel_t *ic)
     if (!ic->client_addr.s) {
         if (ic->is_unix) {
             ic->client_addr = LSTR("127.0.0.1");
+        } else if (ic->dns_ctx || !ic->elh) {
+            /* TCP address resolution in progress or socket gone: no address
+             * available. */
+            return LSTR_NULL_V;
         } else {
             t_scope;
             socklen_t saddr_len = sizeof(ic->su.ss);
@@ -1319,6 +1324,9 @@ t_get_hdr_value_of_query(ichannel_t *ic, int cmd,
                 pstream_t host;
                 in_port_t port;
 
+                /* FIXME: addr_info generates a blocking call on
+                 * getaddrinfo(): the whole event loop here might be blocked
+                 * in worst cases for several seconds! */
                 if (addr_parse(ps_initlstr(&shdr->host), &host, &port, 0) < 0
                 ||  addr_info(&out, AF_UNSPEC, host, port) < 0)
                 {
@@ -2029,6 +2037,18 @@ static void ic_reconnect(el_t ev, data_t priv)
     }
 }
 
+static void ic_cancel_addr_resolution(ichannel_t * nonnull ic)
+{
+    assert(ic->dns_ctx);
+    assert(addr_get_dns_elh(ic->dns_ctx) == ic->elh);
+    addr_cancel_async_dns(&ic->dns_ctx);
+
+    /* XXX: Just reset ic->elh without unregistering it, it will be
+     * performed by the event loop handler of dns context with the
+     * el_wake_fire event. */
+    ic->elh = NULL;
+}
+
 void ic_disconnect(ichannel_t *ic)
 {
     ic->queuable = false;
@@ -2039,7 +2059,11 @@ void ic_disconnect(ichannel_t *ic)
         ic->ssl = NULL;
     }
     if (ic->elh) {
-        el_unregister(&ic->elh);
+        if (ic->dns_ctx) {
+            ic_cancel_addr_resolution(ic);
+        } else {
+            el_unregister(&ic->elh);
+        }
         ic_cancel_all(ic);
 #ifdef IC_DEBUG_REPLIES
         qh_wipe(ic_replies, &ic->dbg_replies);
@@ -2676,6 +2700,9 @@ static void ic_sc_do(ichannel_t *ic, int sc_op, const char * nullable payload,
 
 void ic_bye(ichannel_t *ic)
 {
+    if (ic->dns_ctx) {
+        ic_cancel_addr_resolution(ic);
+    }
     if (ic->elh) {
         ic_sc_do(ic, IC_SC_BYE, NULL, 0);
     } else {
@@ -2759,7 +2786,8 @@ ichannel_t *ic_init(ichannel_t *ic)
     ic->current_fd  = -1;
     ic->auto_reconn = true;
     ic->tls_required = true;
-    ic->priority    = EV_PRIORITY_NORMAL;
+    ic->priority = EV_PRIORITY_NORMAL;
+    ic->addr_fail_log_level = LOG_LEVEL_WARNING;
     qm_init(ic_msg, &ic->queries);
     sb_init(&ic->rbuf);
     ic_choose_id(ic);
@@ -3083,7 +3111,7 @@ static void __ic_watch_activity(ichannel_t *ic)
 {
     int wa = ic->wa_hard;
 
-    if (!ic->elh) {
+    if (!ic->elh || ic->dns_ctx) {
         return;
     }
 
@@ -3107,62 +3135,31 @@ static void __ic_watch_activity(ichannel_t *ic)
     el_unref(ic->timer);
 }
 
-static int __ic_connect(ichannel_t *ic, int flags, int timeout)
+static void
+__ic_on_addr_resolution_failed(ichannel_t *ic, const sb_t * nonnull err,
+                               bool notify)
 {
-    int type, sock;
-
-    if (ic_is_local(ic)) {
-        logger_fatal(&_G.logger, "cannot connect a local ic");
+    logger_log(&_G.logger, ic->addr_fail_log_level, "%pL", err);
+    if (ic->auto_reconn || notify) {
+        ic_mark_disconnected(ic);
     }
+}
 
-    assert (!ic->elh);
-
-    ic->is_spawned = false;
-    ic->is_unix = (ic->su.family == AF_UNIX);
-
-    if (ic->is_unix) {
-        ic->tls_required = false;
-        flags &= ~O_NONBLOCK;
-        type = SOCK_SEQPACKET;
-        ic->is_seqpacket = true;
-    } else {
-        type = SOCK_STREAM;
-        flags |= FD_FEAT_TCP_NODELAY;
-        ic->is_seqpacket = false;
-
-        if (ic->remote_addr.s) {
-            SB_1k(err);
-
-            /* Address must be resolved. Ensure resolution can be performed
-             * again in ic_get_client_addr() function by wiping client_addr
-             * content. */
-            assert(!ic_is_local(ic));
-            lstr_wipe(&ic->client_addr);
-
-            if (addr_resolve_with_err(ic->name.s, ic->remote_addr, &ic->su,
-                                      &err) < 0)
-            {
-                logger_warning(&_G.logger, "%pL", &err);
-                if (ic->auto_reconn) {
-                    ic_mark_disconnected(ic);
-                    return 0;
-                } else {
-                    return -1;
-                }
-            }
-        }
-    }
+static int
+__ic_trigger_connection(ichannel_t *ic, int flags, int type, int timeout)
+{
+    int sock;
 
     sock = connectx_as(-1, &ic->su, 1, NULL, type, ic->protocol, flags,
                        timeout);
     if (sock < 0) {
         return -1;
     }
+    assert(ic->elh == NULL);
     if (flags & O_NONBLOCK) {
         ic->elh = el_fd_register(sock, true, POLLOUT, &ic_connecting, ic);
         ic->queuable = true;
-    } else
-    if (ic->is_unix) {
+    } else if (ic->is_unix) {
         ic->elh = el_fd_register(sock, true, POLLINOUT, &ic_version_handshake,
                                  ic);
         if (ic_version_write(ic, sock) < 0) {
@@ -3197,6 +3194,107 @@ static int __ic_connect(ichannel_t *ic, int flags, int timeout)
         el_unref(ic->elh);
     }
     return 0;
+}
+
+static int __ic_resolve_remote_addr(ichannel_t *ic, int flags, int timeout)
+{
+    SB_1k(err);
+
+    assert(!ic_is_local(ic));
+
+    /* Address must be resolved. Ensure resolution can be performed again in
+     * ic_get_client_addr() function by wiping client_addr content. */
+    lstr_wipe(&ic->client_addr);
+
+    /* It is mandatory to have the thr module loaded when using the
+     * asynchronous DNS resolution. If not, just fallback to the legacy
+     * behavior. */
+    if (!(flags & O_NONBLOCK) || !MODULE_IS_LOADED(thr)) {
+        /* Blocking / old fashion to resolve address. */
+        if (addr_resolve_with_err(ic->name.s, ic->remote_addr, &ic->su,
+                                  &err) < 0)
+        {
+            goto resolution_failed;
+        }
+        return 0;
+    }
+
+    ic->dns_ctx = addr_resolve_async_b(ic->name.s, ic->remote_addr, 1, -1,
+                                       ^(const dns_resolv_res_t *res) {
+        /* Remove the copy made initially while waiting for asynchronous
+         * resolution: it should be replaced by the socket fd in
+         * __ic_trigger_connection() on normal operation. */
+        ic->elh = NULL;
+        ic->dns_ctx = NULL;
+
+        /* Resolution of address has been performed, and is not cancelled:
+         * continue execution or trigger an address resolution failure
+         * (which can stop current process, based on log level). */
+        if (res->err.len) {
+            /* Address resolution failed: based on log level set by
+             * caller, the following could stop current process. */
+            __ic_on_addr_resolution_failed(ic, &res->err, true);
+        } else if (!ic->is_closing) {
+            ic->su = res->su;
+            __ic_trigger_connection(ic, flags, SOCK_STREAM, timeout);
+        }
+    }, &err);
+
+    if (ic->dns_ctx == NULL) {
+        goto resolution_failed;
+    }
+
+    /* Asynchronous resolution of address is pending. Take the elh attribute
+     * of dns context in order to provide a blocking file descriptor for those
+     * waiting on it after ic_connect() call. Note that ic has no ownership
+     * on it! */
+    ic->elh = addr_get_dns_elh(ic->dns_ctx);
+    assert(ic->elh);
+
+    /* Like we do for non blocking sockets when trigerring connection, allow
+     * to queue messages. */
+    ic->queuable = true;
+    return 0;
+
+resolution_failed:
+    __ic_on_addr_resolution_failed(ic, &err, false);
+    return -1;
+}
+
+static int __ic_connect(ichannel_t *ic, int flags, int timeout)
+{
+    int type;
+
+    if (ic_is_local(ic)) {
+        logger_fatal(&_G.logger, "cannot connect a local ic");
+    }
+
+    assert(!ic->elh);
+
+    ic->is_spawned = false;
+    ic->is_unix = (ic->su.family == AF_UNIX);
+
+    if (ic->is_unix) {
+        ic->tls_required = false;
+        flags &= ~O_NONBLOCK;
+        type = SOCK_SEQPACKET;
+        ic->is_seqpacket = true;
+    } else {
+        type = SOCK_STREAM;
+        flags |= FD_FEAT_TCP_NODELAY;
+        ic->is_seqpacket = false;
+
+        if (ic->remote_addr.s) {
+            int res = __ic_resolve_remote_addr(ic, flags, timeout);
+
+            if (res < 0 || ic->dns_ctx) {
+                /* Leave on failure or if the asynchronous address resolution
+                 * is triggered: we have to wait for the answer first. */
+                return res;
+            }
+        }
+    }
+    return __ic_trigger_connection(ic, flags, type, timeout);
 }
 
 void ic_watch_activity(ichannel_t *ic, int timeout_soft, int timeout_hard)

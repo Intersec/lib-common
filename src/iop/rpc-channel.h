@@ -598,6 +598,18 @@ struct ichannel_t {
      */
     void *nullable priv;
 
+    /* {{{ Address resolution attributes */
+
+    /** Log level of the address resolution when it fails. This log level
+     * ensures the process can eventually stop if the address resolution
+     * cannot be achieved. */
+    int addr_fail_log_level;
+
+    /** Context linked to an address resolution currently in progress. */
+    dns_resolv_ctx_t *nullable dns_ctx;
+
+    /* }}} */
+
     /** User field to identify the peer.
      */
     void *nullable peer;
@@ -730,7 +742,8 @@ struct ichannel_t {
      */
     unsigned nextslot;
 
-    /** Event loop handle of the connection.
+    /** Event loop handle of the connection or wake object on asynchronous
+     * address resolution.
      */
     el_t nullable elh;
 

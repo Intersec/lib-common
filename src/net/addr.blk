@@ -204,6 +204,7 @@ struct dns_resolv_ctx_t {
 
     el_t nullable elh;  /**< Event loop handler used to notify the main
                              thread. */
+    bool cancelled;     /**< Is the DNS resolution cancelled already? */
     bool cb_is_blk;     /**< Is the registered callback a block? */
     union {
         on_dns_result_f * nullable on_result_cb; /**< Callback to trigger on
@@ -286,10 +287,12 @@ __addr_info_async(const char * nullable what, sa_family_t af, lstr_t host,
     ctx->elh      = el_unref(el_wake_register_blk(^(el_t elh){
         dns_resolv_ctx_t *_ctx = ctx;
 
-        if (_ctx->cb_is_blk) {
-            _ctx->on_result_blk(&_ctx->res);
-        } else {
-            _ctx->on_result_cb(&_ctx->res, _ctx->priv);
+        if (!_ctx->cancelled) {
+            if (_ctx->cb_is_blk) {
+                _ctx->on_result_blk(&_ctx->res);
+            } else {
+                _ctx->on_result_cb(&_ctx->res, _ctx->priv);
+            }
         }
         dns_resolv_ctx_delete(&_ctx);
     }, NULL));
@@ -456,6 +459,16 @@ addr_resolve_async_b(const char * nullable what, const lstr_t s, int minport,
 el_t nullable addr_get_dns_elh(dns_resolv_ctx_t * nonnull dns_ctx)
 {
     return dns_ctx->elh;
+}
+
+/** Cancel an asynchronous DNS request */
+void addr_cancel_async_dns(dns_resolv_ctx_t * nullable * nonnull ctx)
+{
+    if (*ctx) {
+        (*ctx)->cancelled = true;
+        (*ctx)->priv.ptr = NULL;
+        *ctx = NULL;
+    }
 }
 
 /* }}} */
