@@ -26,22 +26,20 @@
 //!
 //! The main entry point is the structure [`WafBuild`].
 
-use bindgen::callbacks::{
-    AttributeInfo, DeriveInfo, DeriveTrait, DiscoveredItem, DiscoveredItemId,
-    EnumVariantCustomBehavior, EnumVariantValue, FieldInfo, ImplementsTrait, IntKind, ItemInfo,
-    MacroParsingBehavior, ParseCallbacks,
-};
-use bindgen::{Builder, FieldVisibilityKind};
+use bindgen::Builder;
+use bindgen::callbacks::{ItemInfo, ParseCallbacks};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::BufReader;
-use std::io::Write as _;
+use std::io::{BufReader, Cursor, Write as _};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::{env, error, fs, io};
+use syn::ext::IdentExt as _;
+use syn::{
+    File as SynFile, Ident, Item, ItemMod, parse_str,
+    visit_mut::{VisitMut, visit_file_mut, visit_item_mod_mut},
+};
 
 // {{{ Helpers
 
@@ -97,129 +95,78 @@ fn get_pkg_waf_build_dir(is_pic_profile: bool, pkg_dir: &Path) -> PathBuf {
 }
 
 // }}}
-// {{{ Callbacks items exports
+// {{{ Retrieve generated items
 
-#[derive(Debug)]
-struct ItemsExportCallback {
-    cargo_callbacks: bindgen::CargoCallbacks,
-    exported_items: Rc<RefCell<Vec<String>>>,
+struct GeneratedItemsVisitor(Vec<String>);
+
+#[allow(clippy::renamed_function_params)]
+impl VisitMut for GeneratedItemsVisitor {
+    fn visit_file_mut(&mut self, node: &mut SynFile) {
+        self.visit_items(&node.items);
+        visit_file_mut(self, node);
+    }
+
+    fn visit_item_mod_mut(&mut self, item_mod: &mut ItemMod) {
+        if let Some((_, items)) = &item_mod.content {
+            self.visit_items(items);
+        }
+        visit_item_mod_mut(self, item_mod);
+    }
 }
 
-impl ItemsExportCallback {
-    pub fn new(exported_items: Rc<RefCell<Vec<String>>>) -> Self {
-        Self {
-            cargo_callbacks: bindgen::CargoCallbacks::new(),
-            exported_items,
+impl GeneratedItemsVisitor {
+    fn visit_items(&mut self, items: &[Item]) {
+        for item in items {
+            if let Some(ident) = GeneratedItemsVisitor::get_item_ident(item) {
+                let name = ident.unraw().to_string();
+                if name != "_" {
+                    self.0.push(name);
+                }
+            }
+        }
+    }
+
+    fn get_item_ident(item: &Item) -> Option<&Ident> {
+        match item {
+            Item::Type(item_val) => Some(&item_val.ident),
+            Item::Struct(item_val) => Some(&item_val.ident),
+            Item::Const(item_val) => Some(&item_val.ident),
+            Item::Fn(item_val) => Some(&item_val.sig.ident),
+            Item::Enum(item_val) => Some(&item_val.ident),
+            Item::Union(item_val) => Some(&item_val.ident),
+            Item::Static(item_val) => Some(&item_val.ident),
+            _ => None,
         }
     }
 }
 
-impl ParseCallbacks for ItemsExportCallback {
-    // {{{ Forwarded implemented methods to CargoCallback
+fn retrieve_generated_items(content: &str) -> Vec<String> {
+    let mut file =
+        parse_str::<SynFile>(content).expect("bindgen should generate a valid rust file");
+    let mut visitor = GeneratedItemsVisitor(Vec::new());
 
-    fn will_parse_macro(&self, name: &str) -> MacroParsingBehavior {
-        self.cargo_callbacks.will_parse_macro(name)
+    visitor.visit_file_mut(&mut file);
+    visitor.0
+}
+
+// }}}
+// {{{ Buildgen parse callbacks
+
+#[derive(Debug)]
+struct LibcommonParseCallbacks {
+    blocked_items: HashSet<String>,
+}
+
+impl LibcommonParseCallbacks {
+    pub fn new(blocked_items: HashSet<String>) -> Self {
+        Self { blocked_items }
     }
+}
 
-    fn generated_name_override(&self, item_info: ItemInfo<'_>) -> Option<String> {
-        self.cargo_callbacks.generated_name_override(item_info)
-    }
-
-    fn generated_link_name_override(&self, item_info: ItemInfo<'_>) -> Option<String> {
-        self.cargo_callbacks.generated_link_name_override(item_info)
-    }
-
-    fn int_macro(&self, name: &str, value: i64) -> Option<IntKind> {
-        self.cargo_callbacks.int_macro(name, value)
-    }
-
-    fn str_macro(&self, name: &str, value: &[u8]) {
-        self.cargo_callbacks.str_macro(name, value);
-    }
-
-    fn func_macro(&self, name: &str, value: &[&[u8]]) {
-        self.cargo_callbacks.func_macro(name, value);
-    }
-
-    fn enum_variant_behavior(
-        &self,
-        enum_name: Option<&str>,
-        original_variant_name: &str,
-        variant_value: EnumVariantValue,
-    ) -> Option<EnumVariantCustomBehavior> {
-        self.cargo_callbacks
-            .enum_variant_behavior(enum_name, original_variant_name, variant_value)
-    }
-
-    fn enum_variant_name(
-        &self,
-        enum_name: Option<&str>,
-        original_variant_name: &str,
-        variant_value: EnumVariantValue,
-    ) -> Option<String> {
-        self.cargo_callbacks
-            .enum_variant_name(enum_name, original_variant_name, variant_value)
-    }
-
-    fn item_name(&self, item_info: ItemInfo<'_>) -> Option<String> {
-        // XXX: Unfortunately, this called before filtering the items.
-        // So it does not represent the list of exported items.
-        self.cargo_callbacks.item_name(item_info)
-    }
-
-    fn header_file(&self, filename: &str) {
-        self.cargo_callbacks.header_file(filename);
-    }
-
-    fn include_file(&self, filename: &str) {
-        self.cargo_callbacks.include_file(filename);
-    }
-
-    fn read_env_var(&self, key: &str) {
-        self.cargo_callbacks.read_env_var(key);
-    }
-
-    fn blocklisted_type_implements_trait(
-        &self,
-        name: &str,
-        derive_trait: DeriveTrait,
-    ) -> Option<ImplementsTrait> {
-        self.cargo_callbacks
-            .blocklisted_type_implements_trait(name, derive_trait)
-    }
-
-    fn add_derives(&self, info: &DeriveInfo<'_>) -> Vec<String> {
-        self.cargo_callbacks.add_derives(info)
-    }
-
-    fn add_attributes(&self, info: &AttributeInfo<'_>) -> Vec<String> {
-        self.cargo_callbacks.add_attributes(info)
-    }
-
-    fn process_comment(&self, comment: &str) -> Option<String> {
-        self.cargo_callbacks.process_comment(comment)
-    }
-
-    fn field_visibility(&self, info: FieldInfo<'_>) -> Option<FieldVisibilityKind> {
-        self.cargo_callbacks.field_visibility(info)
-    }
-
-    // }}}
-
-    // Get the items and it in the list
-    fn new_item_found(&self, id: DiscoveredItemId, item: DiscoveredItem) {
-        let item_name = match &item {
-            DiscoveredItem::Struct { final_name, .. }
-            | DiscoveredItem::Union { final_name, .. }
-            | DiscoveredItem::Method { final_name, .. }
-            | DiscoveredItem::Enum { final_name }
-            | DiscoveredItem::Function { final_name } => final_name,
-            DiscoveredItem::Alias { alias_name, .. } => alias_name,
-        };
-
-        self.exported_items.borrow_mut().push(item_name.into());
-
-        self.cargo_callbacks.new_item_found(id, item);
+impl ParseCallbacks for LibcommonParseCallbacks {
+    /// Block the items in the list
+    fn block_item(&self, item_info: ItemInfo<'_>) -> bool {
+        self.blocked_items.contains(item_info.name)
     }
 }
 
@@ -402,8 +349,6 @@ impl WafBuild {
         &self,
         cb: fn(Builder) -> Result<Builder, Box<dyn error::Error>>,
     ) -> Result<(), Box<dyn error::Error>> {
-        let exported_items = Rc::new(RefCell::new(Vec::new()));
-
         // Build the different paths
         let binding_gen_file = self.pkg_waf_build_dir.join("bindings.rs");
         let binding_items_file = self.pkg_waf_build_dir.join("bindings_items.json");
@@ -411,12 +356,29 @@ impl WafBuild {
         let out_dir = PathBuf::from(env::var("OUT_DIR")?);
         let static_wrapper_path = out_dir.join("static-wrappers.c");
 
+        // Generate the list of blocked items
+        let mut blocked_items: HashSet<String> = HashSet::new();
+        for dep_path_str in self.json_env.local_recursive_dependencies.values() {
+            let dep_path = Path::new(dep_path_str);
+            let dep_pkg_waf_build_dir = get_pkg_waf_build_dir(self.is_pic_profile, dep_path);
+            let dep_bind_json = dep_pkg_waf_build_dir.join("bindings_items.json");
+
+            if !dep_bind_json.exists() {
+                continue;
+            }
+
+            // Read the dep binding items json file
+            let dep_items: Vec<String> = read_json_file(&dep_bind_json)?;
+
+            // Add the items to the block list
+            blocked_items.extend(dep_items);
+        }
+
         let mut builder = Builder::default()
             // Tell cargo to invalidate the built crate whenever any of the
             // included header files changed.
-            .parse_callbacks(Box::new(ItemsExportCallback::new(Rc::clone(
-                &exported_items,
-            ))))
+            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+            .parse_callbacks(Box::new(LibcommonParseCallbacks::new(blocked_items)))
             .wrap_static_fns(true)
             .wrap_static_fns_path(
                 static_wrapper_path
@@ -432,38 +394,23 @@ impl WafBuild {
             builder = builder.clang_arg(format!("-I{include}"));
         }
 
-        // Block the items already exported by other dependencies
-        for dep_path_str in self.json_env.local_recursive_dependencies.values() {
-            let dep_path = Path::new(dep_path_str);
-            let dep_pkg_waf_build_dir = get_pkg_waf_build_dir(self.is_pic_profile, dep_path);
-            let dep_bind_json = dep_pkg_waf_build_dir.join("bindings_items.json");
-
-            if !dep_bind_json.exists() {
-                continue;
-            }
-
-            // Read the dep binding items json file
-            let dep_items: Vec<String> = read_json_file(&dep_bind_json)?;
-
-            // Block all already exported items
-            for dep_item in dep_items {
-                builder = builder.blocklist_item(dep_item);
-            }
-        }
-
         // Call the callback to add the headers and exported functions.
         builder = cb(builder)?;
 
         // Finish the builder and generate the bindings.
         let bindings = builder.generate()?;
 
+        // Write the bindings to a local buffer first.
+        let mut bindings_buff = Cursor::new(Vec::<u8>::new());
+        bindings.write(Box::new(&mut bindings_buff))?;
+
+        // Get the generated items.
+        let item_names = retrieve_generated_items(str::from_utf8(bindings_buff.get_ref())?);
+
         // Write the binding to the files.
         write_read_only_file(&binding_gen_file, || {
-            bindings.write_to_file(
-                binding_gen_file
-                    .to_str()
-                    .ok_or_else(|| "invalid binding gen path".to_owned())?,
-            )?;
+            let mut file = File::create(&binding_gen_file)?;
+            file.write_all(bindings_buff.get_ref())?;
             Ok(())
         })?;
 
@@ -506,8 +453,7 @@ impl WafBuild {
 
         // Generate the binding items file
         write_read_only_file(&binding_items_file, || {
-            let item_names: &Vec<String> = &exported_items.borrow();
-            let json_data = serde_json::to_string_pretty(item_names)?;
+            let json_data = serde_json::to_string_pretty(&item_names)?;
             let mut file = File::create(&binding_items_file)?;
             file.write_all(json_data.as_bytes())?;
             Ok(())

@@ -211,6 +211,8 @@ bindgen = { version = "0.72.0", git = "https://github.com/Intersec/rust-bindgen.
 cc = "1.2.25"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
+proc-macro2 = "1.0"
+syn = { version = "2.0", features = ["full", "visit-mut"] }
 
 # Used by libcommon-minimal for modules
 ctor = "0.4.2"
