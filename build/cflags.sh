@@ -168,6 +168,9 @@ EOF
                 echo -march=x86-64-v2
             fi
         fi
+        if is_cpp && clang_prereq 20.0; then
+            echo -Wno-nontrivial-memcall
+        fi
     fi
 
     echo -Wchar-subscripts
