@@ -266,11 +266,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 
 [[package]]
+name = "libcommon"
+version = "0.0.0"
+dependencies = [
+ "libcommon-core",
+ "libcommon-derive",
+ "waf-cargo-build",
+]
+
+[[package]]
 name = "libcommon-core"
 version = "0.0.0"
 dependencies = [
  "ctor",
  "waf-cargo-build",
+]
+
+[[package]]
+name = "libcommon-derive"
+version = "0.0.0"
+dependencies = [
+ "libcommon-core",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

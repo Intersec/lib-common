@@ -221,4 +221,7 @@ ctor = "0.4.2"
 clap = { version = "4.5.39", features = ["derive"] }
 rand = "0.9.1"
 
+# Used by libcommon-derive
+quote = "1.0"
+
 # }}}

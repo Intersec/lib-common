@@ -20,9 +20,7 @@ from waflib.Build import BuildContext
 
 ctx: BuildContext
 
-
-ctx.recurse([
-    'libcommon-core',
-    'libcommon',
-    'farchc',
-])
+ctx(target='libcommon-rs', features='rust',
+    cargo_package='libcommon',
+    use=['libcommon-core-rs'],
+)

@@ -16,13 +16,21 @@
 #                                                                         #
 ###########################################################################
 
-from waflib.Build import BuildContext
+[package]
+name = "libcommon"
+edition.workspace = true
+publish.workspace = true
 
-ctx: BuildContext
+[lints]
+workspace = true
 
+[lib]
+path = "lib.rs"
+crate-type = ["lib", "staticlib"]
 
-ctx.recurse([
-    'libcommon-core',
-    'libcommon',
-    'farchc',
-])
+[build-dependencies]
+waf-cargo-build = { path = "../waf-cargo-build" }
+
+[dependencies]
+libcommon-core = { path = "../libcommon-core" }
+libcommon-derive = { path = "../libcommon-derive" }

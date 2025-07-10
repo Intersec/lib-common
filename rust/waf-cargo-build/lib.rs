@@ -27,7 +27,7 @@
 //! The main entry point is the structure [`WafBuild`].
 
 use bindgen::Builder;
-use bindgen::callbacks::{ItemInfo, ParseCallbacks};
+use bindgen::callbacks::{DeriveInfo, ItemInfo, ParseCallbacks, TypeKind};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::collections::{HashMap, HashSet};
@@ -167,6 +167,43 @@ impl ParseCallbacks for LibcommonParseCallbacks {
     /// Block the items in the list
     fn block_item(&self, item_info: ItemInfo<'_>) -> bool {
         self.blocked_items.contains(item_info.name)
+    }
+
+    /// Provide a list of custom derive attributes.
+    ///
+    /// If no additional attributes are wanted, this function should return an
+    /// empty `Vec`.
+    fn add_derives(&self, info: &DeriveInfo<'_>) -> Vec<String> {
+        let mut res: Vec<String> = vec![];
+
+        // Add IOP derives traits.
+        // FIXME: We should use the source file to detect that we are indeed using an IOP
+        //        (check that the file ends with `-t.iop.h`).
+        //        Unfortunately, this callback does not provide the source file context, and
+        //        `include_file()` and `header_file()` only triggers when entering a new source
+        //        file, and not when exiting the source file, we cannot know here in which source
+        //        we are in.
+        //        The solution might be to add the source location to this callback in bindgen.
+        if info.name.ends_with("__t") {
+            match info.kind {
+                TypeKind::Enum => {
+                    res.push("::libcommon_derive::IopBase".to_owned());
+                    res.push("::libcommon_derive::IopEnum".to_owned());
+                }
+                TypeKind::Union => {
+                    res.push("::libcommon_derive::IopBase".to_owned());
+                    res.push("::libcommon_derive::IopStructUnion".to_owned());
+                    res.push("::libcommon_derive::IOpUnion".to_owned());
+                }
+                TypeKind::Struct => {
+                    res.push("::libcommon_derive::IopBase".to_owned());
+                    res.push("::libcommon_derive::IopStructUnion".to_owned());
+                    res.push("::libcommon_derive::IopStruct".to_owned());
+                }
+            }
+        }
+
+        res
     }
 }
 
@@ -393,6 +430,9 @@ impl WafBuild {
         for include in &self.json_env.includes {
             builder = builder.clang_arg(format!("-I{include}"));
         }
+
+        // Create a new type for all IOP enums.
+        builder = builder.newtype_global_enum(".*__t");
 
         // Call the callback to add the headers and exported functions.
         builder = cb(builder)?;
