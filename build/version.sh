@@ -58,7 +58,7 @@ git_product_version() {
 
     revision=$(git describe --match "$tagversion/*" 2>/dev/null || git rev-parse --short HEAD)${dirty}
 
-    version=$(basename `(git describe --match "$tagversion/*" 2>/dev/null || echo "$tagversion/0.0.0") \
+    version=$(basename `(git describe --match "$tagversion/*.*.*" 2>/dev/null || echo "$tagversion/0.0.0") \
               | grep -E -o "[0-9]+\.[0-9]+\.[0-9]+"`)
     version_major=$(git_cut_version_column "$version" 1)
     version_minor=$(git_cut_version_column "$version" 2)
