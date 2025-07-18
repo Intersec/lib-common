@@ -71,6 +71,9 @@ A cargo package is composed of at least of a `Cargo.toml`.
 This files defines the characteristics of the package.
 It is similar to the definition of a waf target.
 
+When adding a new Cargo package, you need to add it into the workspace
+`members` list of the workspace Cargo.toml.
+
 To customize the build of a cargo package, a build script `build.rs` can be
 used. It must be used when the package is also handled by waf.
 To ease the transmission of information between waf and cargo, a Rust lib

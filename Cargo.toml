@@ -19,7 +19,13 @@
 # {{{ General options
 
 [workspace]
-members = ["rust/*"]
+members = [
+    "rust/farchc",
+    "rust/libcommon",
+    "rust/libcommon-core",
+    "rust/libcommon-derive",
+    "rust/waf-cargo-build",
+]
 resolver = "3"
 
 [workspace.package]
