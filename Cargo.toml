@@ -131,7 +131,6 @@ assertions_on_result_states = "deny"
 cfg_not_test = "deny"
 clone_on_ref_ptr = "deny"
 create_dir = "deny"
-dbg_macro = "warn"
 default_union_representation = "deny"
 deref_by_slicing = "deny"
 doc_include_without_cfg = "deny"
@@ -193,6 +192,7 @@ unwrap_used = "deny"
 verbose_file_reads = "deny"
 
 # Warn these ones
+dbg_macro = "warn"
 todo = "warn"
 unimplemented = "warn"
 
