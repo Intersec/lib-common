@@ -33,6 +33,8 @@ main() {
     # Run the different commands
     run_cmd waf ruff
     run_cmd waf mypy
+    run_cmd cargo clippy
+    run_cmd cargo fmt --check
 }
 
 main
