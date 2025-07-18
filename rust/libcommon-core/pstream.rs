@@ -19,6 +19,7 @@
 //! Conversion between a C `pstream_t` and Rust string/bytes types.
 
 use std::convert::TryFrom;
+use std::fmt;
 use std::ops::Deref;
 use std::ptr;
 use std::slice::from_raw_parts;
@@ -142,5 +143,15 @@ impl Deref for pstream_t {
     #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_bytes()
+    }
+}
+
+impl fmt::Display for pstream_t {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Ok(s) = self.as_str() {
+            f.write_str(s)
+        } else {
+            write!(f, "{:x?}", self.as_bytes())
+        }
     }
 }

@@ -195,7 +195,7 @@ impl Deref for lstr_t {
 impl fmt::Display for lstr_t {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Ok(s) = self.as_str() {
-            write!(f, "{s}")
+            f.write_str(s)
         } else {
             write!(f, "{:x?}", self.as_bytes())
         }
