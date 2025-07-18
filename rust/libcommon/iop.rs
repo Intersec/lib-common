@@ -23,7 +23,9 @@
 use std::mem::MaybeUninit;
 use std::os::raw::c_void;
 
-use crate::bindings::{iop_enum_t, iop_init_desc, iop_struct_t};
+use crate::bindings::{
+    iop_enum_t, iop_env_delete, iop_env_new, iop_env_t, iop_init_desc, iop_struct_t,
+};
 
 // {{{ IOP Base
 
@@ -94,5 +96,57 @@ pub trait Struct: StructUnion {}
 
 /// IOP trait implemented by a C IOP struct.
 pub trait CStruct: Struct + CStructUnion {}
+
+// }}}
+// {{{ IOP Env
+
+/// Wrapper around `iop_env_t` for easy manipulation in Rust.
+pub struct Env {
+    env: *mut iop_env_t,
+    owned: bool,
+}
+
+impl Env {
+    /// Create a new owned IOP env.
+    pub fn new() -> Self {
+        Self {
+            env: unsafe { iop_env_new() },
+            owned: true,
+        }
+    }
+
+    /// Create a non-owned Rust IOP env from an existing C IOP env.
+    pub fn from_ptr(env: *mut iop_env_t) -> Self {
+        Self { env, owned: false }
+    }
+
+    /// Retrieve the C IOP env pointer.
+    pub fn as_ptr(&self) -> *const iop_env_t {
+        self.env
+    }
+
+    /// Retrieve the C IOP env pointer as mutable.
+    pub fn as_mut_ptr(&mut self) -> *mut iop_env_t {
+        self.env
+    }
+}
+
+impl Default for Env {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Drop for Env {
+    fn drop(&mut self) {
+        if self.owned {
+            let env_ptr: *mut *mut iop_env_t = &raw mut self.env;
+
+            unsafe {
+                iop_env_delete(env_ptr);
+            }
+        }
+    }
+}
 
 // }}}
