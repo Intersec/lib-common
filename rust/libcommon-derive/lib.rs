@@ -42,21 +42,6 @@ fn make_libcommon_crate_ident() -> Ident {
 
 // }}}
 // {{{ IOP
-// {{{ IopBase
-
-#[proc_macro_derive(IopBase)]
-pub fn derive_iop_base(input: TokenStream) -> TokenStream {
-    let DeriveInput { ident, .. } = parse_macro_input!(input);
-    let libcommon_crate_ident = make_libcommon_crate_ident();
-
-    let output = quote! {
-        #[automatically_derived]
-        impl #libcommon_crate_ident::iop::Base for #ident {}
-    };
-    output.into()
-}
-
-// }}}
 // {{{ IopEnum
 
 #[allow(clippy::missing_panics_doc)]
@@ -74,33 +59,18 @@ pub fn derive_iop_enum(input: TokenStream) -> TokenStream {
 
     let output = quote! {
         #[automatically_derived]
-        impl #libcommon_crate_ident::iop::Enum for #ident {
-            const CDESC: *const iop_enum_t = unsafe { #c_desc_span };
-        }
-    };
-    output.into()
-}
+        impl #libcommon_crate_ident::iop::Base for #ident {}
 
-// }}}
-// {{{ IopStructUnion
-
-#[allow(clippy::missing_panics_doc)]
-#[proc_macro_derive(IopStructUnion)]
-pub fn derive_iop_struct_union(input: TokenStream) -> TokenStream {
-    let DeriveInput { ident, .. } = parse_macro_input!(input);
-    let libcommon_crate_ident = make_libcommon_crate_ident();
-
-    let ident_name = ident.unraw().to_string();
-
-    // Convert "my_type__t" to "my_type__sp"
-    let c_desc_name = ident_name[0..ident_name.len() - 1].to_owned() + "sp";
-
-    let c_desc_span = Ident::new(&c_desc_name, Span::call_site());
-
-    let output = quote! {
         #[automatically_derived]
-        impl #libcommon_crate_ident::iop::StructUnion for #ident {
-            const CDESC: *const iop_struct_t = unsafe { #c_desc_span };
+        impl #libcommon_crate_ident::iop::Enum for #ident {
+            fn get_cdesc(&self) -> *const iop_enum_t {
+                unsafe { #c_desc_span }
+            }
+        }
+
+        #[automatically_derived]
+        impl #libcommon_crate_ident::iop::CEnum for #ident {
+            const CDESC: *const iop_enum_t = unsafe { #c_desc_span };
         }
     };
     output.into()
@@ -115,9 +85,34 @@ pub fn derive_iop_union(input: TokenStream) -> TokenStream {
     let DeriveInput { ident, .. } = parse_macro_input!(input);
     let libcommon_crate_ident = make_libcommon_crate_ident();
 
+    let ident_name = ident.unraw().to_string();
+
+    // Convert "my_type__t" to "my_type__sp"
+    let c_desc_name = ident_name[0..ident_name.len() - 1].to_owned() + "sp";
+
+    let c_desc_span = Ident::new(&c_desc_name, Span::call_site());
+
     let output = quote! {
         #[automatically_derived]
+        impl #libcommon_crate_ident::iop::Base for #ident {}
+
+        #[automatically_derived]
+        impl #libcommon_crate_ident::iop::StructUnion for #ident {
+            fn get_cdesc(&self) -> *const iop_struct_t {
+                unsafe { #c_desc_span }
+            }
+        }
+
+        #[automatically_derived]
+        impl #libcommon_crate_ident::iop::CStructUnion for #ident {
+            const CDESC: *const iop_struct_t = unsafe { #c_desc_span };
+        }
+
+        #[automatically_derived]
         impl #libcommon_crate_ident::iop::Union for #ident {}
+
+        #[automatically_derived]
+        impl #libcommon_crate_ident::iop::CUnion for #ident {}
     };
     output.into()
 }
@@ -131,9 +126,42 @@ pub fn derive_iop_struct(input: TokenStream) -> TokenStream {
     let DeriveInput { ident, .. } = parse_macro_input!(input);
     let libcommon_crate_ident = make_libcommon_crate_ident();
 
+    let ident_name = ident.unraw().to_string();
+
+    // Convert "my_type__t" to "my_type__sp"
+    let c_desc_name = ident_name[0..ident_name.len() - 1].to_owned() + "sp";
+
+    let c_desc_span = Ident::new(&c_desc_name, Span::call_site());
+
     let output = quote! {
         #[automatically_derived]
+        impl #libcommon_crate_ident::iop::Base for #ident {}
+
+        #[automatically_derived]
+        impl #libcommon_crate_ident::iop::StructUnion for #ident {
+            fn get_cdesc(&self) -> *const iop_struct_t {
+                unsafe { #c_desc_span }
+            }
+
+            fn get_cptr(&self) -> *const ::std::os::raw::c_void {
+                ::std::ptr::from_ref(self) as *const ::std::os::raw::c_void
+            }
+
+            fn get_cptr_mut(&mut self) -> *mut ::std::os::raw::c_void {
+                ::std::ptr::from_mut(self) as *mut ::std::os::raw::c_void
+            }
+        }
+
+        #[automatically_derived]
+        impl #libcommon_crate_ident::iop::CStructUnion for #ident {
+            const CDESC: *const iop_struct_t = unsafe { #c_desc_span };
+        }
+
+        #[automatically_derived]
         impl #libcommon_crate_ident::iop::Struct for #ident {}
+
+        #[automatically_derived]
+        impl #libcommon_crate_ident::iop::CStruct for #ident {}
     };
     output.into()
 }

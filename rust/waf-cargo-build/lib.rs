@@ -187,17 +187,12 @@ impl ParseCallbacks for LibcommonParseCallbacks {
         if info.name.ends_with("__t") {
             match info.kind {
                 TypeKind::Enum => {
-                    res.push("::libcommon_derive::IopBase".to_owned());
                     res.push("::libcommon_derive::IopEnum".to_owned());
                 }
                 TypeKind::Union => {
-                    res.push("::libcommon_derive::IopBase".to_owned());
-                    res.push("::libcommon_derive::IopStructUnion".to_owned());
-                    res.push("::libcommon_derive::IOpUnion".to_owned());
+                    res.push("::libcommon_derive::IopUnion".to_owned());
                 }
                 TypeKind::Struct => {
-                    res.push("::libcommon_derive::IopBase".to_owned());
-                    res.push("::libcommon_derive::IopStructUnion".to_owned());
                     res.push("::libcommon_derive::IopStruct".to_owned());
                 }
             }

@@ -20,7 +20,6 @@
 //!
 //! WIP
 
-use std::marker::Sized;
 use std::mem::MaybeUninit;
 use std::os::raw::c_void;
 
@@ -28,12 +27,20 @@ use crate::bindings::{iop_enum_t, iop_init_desc, iop_struct_t};
 
 // {{{ IOP Base
 
+/// Base trait for IOP types.
 pub trait Base {}
 
 // }}}
 // {{{ IOP Enum
 
-pub trait Enum {
+/// IOP trait for enum that can be used for dyn dispatch.
+pub trait Enum: Base {
+    /// Get the C description of the IOP enum.
+    fn get_cdesc(&self) -> *const iop_enum_t;
+}
+
+/// IOP trait implemented by a C IOP enum.
+pub trait CEnum: Sized + Enum {
     /// The C description of the IOP enum.
     const CDESC: *const iop_enum_t;
 }
@@ -41,8 +48,21 @@ pub trait Enum {
 // }}}
 // {{{ IOP StructUnion
 
-pub trait StructUnion: Sized {
-    /// The C description of the IOP structure or union.
+/// IOP trait for struct or union that can be used for dyn dispatch.
+pub trait StructUnion: Base {
+    /// Get the C description of the IOP structure or union.
+    fn get_cdesc(&self) -> *const iop_struct_t;
+
+    /// Get the C pointer of the IOP structure or union.
+    fn get_cptr(&self) -> *const c_void;
+
+    /// Get the mutable C pointer of the IOP structure or union.
+    fn get_cptr_mut(&mut self) -> *mut c_void;
+}
+
+/// IOP trait implemented by a C IOP struct or union.
+pub trait CStructUnion: Sized + StructUnion {
+    /// The C description of the IOP struct or union.
     const CDESC: *const iop_struct_t;
 
     /// Create an empty `IopStructUnion` with the default arguments.
@@ -60,11 +80,19 @@ pub trait StructUnion: Sized {
 // }}}
 // {{{ IOP Union
 
-pub trait Union {}
+/// IOP trait for union that can be used for dyn dispatch.
+pub trait Union: StructUnion {}
+
+/// IOP trait implemented by a C IOP union.
+pub trait CUnion: Union + CStructUnion {}
 
 // }}}
 // {{{ IOP Struct
 
-pub trait Struct {}
+/// IOP trait for struct that can be used for dyn dispatch.
+pub trait Struct: StructUnion {}
+
+/// IOP trait implemented by a C IOP struct.
+pub trait CStruct: Struct + CStructUnion {}
 
 // }}}
