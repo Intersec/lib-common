@@ -168,23 +168,36 @@ impl StructUnion for GenericStructUnion<'_> {
 // {{{ IOP Env
 
 /// Wrapper around `iop_env_t` for easy manipulation in Rust.
-pub struct Env {
-    env: *mut iop_env_t,
+pub struct Env<'a> {
+    env: &'a mut iop_env_t,
     owned: bool,
 }
 
-impl Env {
+impl Env<'_> {
     /// Create a new owned IOP env.
+    ///
+    /// # Panics
+    ///
+    /// `iop_env_new()` returns a NULL pointer.
     pub fn new() -> Self {
+        let env = unsafe { iop_env_new() };
         Self {
-            env: unsafe { iop_env_new() },
+            env: unsafe { env.as_mut().expect("created env should not be null") },
             owned: true,
         }
     }
 
     /// Create a non-owned Rust IOP env from an existing C IOP env.
+    ///
+    /// # Panics
+    ///
+    /// `env` is a NULL pointer.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     pub fn from_ptr(env: *mut iop_env_t) -> Self {
-        Self { env, owned: false }
+        Self {
+            env: unsafe { env.as_mut().expect("env should not be null") },
+            owned: false,
+        }
     }
 
     /// Retrieve the C IOP env pointer.
@@ -259,19 +272,20 @@ impl Env {
     }
 }
 
-impl Default for Env {
+impl Default for Env<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Drop for Env {
+impl Drop for Env<'_> {
     fn drop(&mut self) {
         if self.owned {
-            let env_ptr: *mut *mut iop_env_t = &raw mut self.env;
+            let mut env_ptr = self.as_mut_ptr();
+            let env_ptr_ptr: *mut *mut iop_env_t = &raw mut env_ptr;
 
             unsafe {
-                iop_env_delete(env_ptr);
+                iop_env_delete(env_ptr_ptr);
             }
         }
     }
