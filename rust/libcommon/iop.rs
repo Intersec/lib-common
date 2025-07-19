@@ -27,7 +27,7 @@ use std::ptr;
 
 use crate::bindings::{
     iop_enum_t, iop_env_delete, iop_env_get_struct, iop_env_new, iop_env_t, iop_init_desc,
-    iop_struct_t, t_iop_junpack_ptr_ps,
+    iop_pkg_t, iop_register_packages, iop_struct_t, t_iop_junpack_ptr_ps,
 };
 
 use crate::{mem_stack::TScope, pstream::pstream_t, sb::Sb1K};
@@ -178,6 +178,14 @@ impl Env {
     /// Retrieve the C IOP env pointer as mutable.
     pub fn as_mut_ptr(&mut self) -> *mut iop_env_t {
         self.env
+    }
+
+    /// Register some IOP packages in the IOP env.
+    pub fn register_packages(&mut self, pkgs: &[*const iop_pkg_t]) {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+        unsafe {
+            iop_register_packages(self.env, pkgs.as_ptr(), pkgs.len() as i32);
+        };
     }
 
     /// Get a IOP struct or union from its fullname.
