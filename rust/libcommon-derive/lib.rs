@@ -30,11 +30,11 @@ use syn::{DeriveInput, parse_macro_input};
 
 #[allow(unreachable_code)]
 fn make_libcommon_crate_ident() -> Ident {
-    // We must use "crate::" instead of "::libcommon::" when building `libcommon`.
+    // We must use "crate::" instead of "libcommon::" when building `libcommon`.
     let libcommon_crate_name = if std::env::var("IS_LIBCOMMON_PKG").is_ok() {
         "crate"
     } else {
-        "::libcommon"
+        "libcommon"
     };
 
     Ident::new(libcommon_crate_name, Span::call_site())
