@@ -22,5 +22,5 @@ ctx: BuildContext
 
 ctx(target='libcommon-rs', features='rust',
     cargo_package='libcommon',
-    use=['libcommon-core-rs'],
+    use=['libcommon-core-rs', 'libcommon'],
 )
