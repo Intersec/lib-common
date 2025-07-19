@@ -27,7 +27,7 @@ use std::ptr;
 
 use crate::bindings::{
     iop_enum_t, iop_env_delete, iop_env_get_struct, iop_env_new, iop_env_t, iop_init_desc,
-    iop_pkg_t, iop_register_packages, iop_struct_t, t_iop_junpack_ptr_ps,
+    iop_pkg_t, iop_register_packages, iop_struct_t, t_iop_junpack_ptr_ps, t_iop_sb_ypack,
 };
 
 use crate::{mem_stack::TScope, pstream::pstream_t, sb::Sb1K};
@@ -71,6 +71,23 @@ pub trait StructUnion: Base {
 
     /// Get the mutable C pointer of the IOP structure or union.
     fn get_cptr_mut(&mut self) -> *mut c_void;
+
+    /// Export the IOP struct or union as YAML
+    fn as_yaml(&self) -> String {
+        let _t_scope = TScope::new_scope();
+        let mut sb = Sb1K::new();
+
+        unsafe {
+            t_iop_sb_ypack(
+                sb.as_mut_ptr(),
+                self.get_cdesc(),
+                self.get_cptr(),
+                ptr::null(),
+            );
+        };
+
+        sb.to_string()
+    }
 }
 
 /// IOP trait implemented by a C IOP struct or union.
