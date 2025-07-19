@@ -40,3 +40,6 @@ pub mod bindings {
     pub use libcommon_core::bindings::*;
     include!(concat!(env!("PKG_WAF_BUILD_DIR"), "/bindings.rs"));
 }
+
+// Reexport `libcommon_core` types.
+pub use libcommon_core::{farch, lstr, mem_stack, pstream, sb};

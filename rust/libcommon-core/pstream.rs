@@ -89,6 +89,16 @@ impl pstream_t {
     pub const unsafe fn as_str_unchecked(&self) -> &str {
         unsafe { str::from_utf8_unchecked(self.as_bytes()) }
     }
+
+    /// Convert it to a C pointer.
+    pub fn as_ptr(&self) -> *const Self {
+        self
+    }
+
+    /// Convert it to a mutable C pointer.
+    pub fn as_mut_ptr(&mut self) -> *mut Self {
+        self
+    }
 }
 
 impl Default for pstream_t {

@@ -58,6 +58,16 @@ impl<const N: usize> SbStack<N> {
         res.sb.data = res.buf.as_mut_ptr().cast::<i8>();
         res
     }
+
+    /// Retrieve the C `sb_t` pointer.
+    pub fn as_ptr(&self) -> *const sb_t {
+        &raw const self.sb
+    }
+
+    /// Retrieve the C `sb_t` pointer as mutable.
+    pub fn as_mut_ptr(&mut self) -> *mut sb_t {
+        &raw mut self.sb
+    }
 }
 
 impl<const N: usize> Default for SbStack<N> {

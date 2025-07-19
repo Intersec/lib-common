@@ -17,5 +17,6 @@
 /***************************************************************************/
 
 #include <lib-common/iop.h>
+#include <lib-common/iop-json.h>
 #include <lib-common/iop/ic.iop.h>
 #include <lib-common/core/core.iop.h>

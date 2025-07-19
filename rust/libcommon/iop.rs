@@ -20,13 +20,24 @@
 //!
 //! WIP
 
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::os::raw::c_void;
+use std::ptr;
 
 use crate::bindings::{
     iop_enum_t, iop_env_delete, iop_env_new, iop_env_t, iop_init_desc, iop_struct_t,
+    t_iop_junpack_ptr_ps,
 };
 
+use crate::{mem_stack::TScope, pstream::pstream_t, sb::Sb1K};
+
+// {{{ Errors
+
+// TODO: use `thiserror` package to provide a nice error.
+pub type UnpackError = String;
+
+// }}}
 // {{{ IOP Base
 
 /// Base trait for IOP types.
@@ -98,6 +109,45 @@ pub trait Struct: StructUnion {}
 pub trait CStruct: Struct + CStructUnion {}
 
 // }}}
+// {{{ IOP Generic struct or union
+
+/// Generic struct or union that contains a pointer and its description.
+///
+/// It implements the IOP `StructUnion` trait.
+pub struct GenericStructUnion<'a> {
+    cdesc: *const iop_struct_t,
+    cptr: *mut c_void,
+    _phantom: PhantomData<&'a c_void>,
+}
+
+impl GenericStructUnion<'_> {
+    /// Create a new `GenericStructUnion`
+    pub fn new(cdesc: *const iop_struct_t, cptr: *mut c_void) -> Self {
+        Self {
+            cdesc,
+            cptr,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl Base for GenericStructUnion<'_> {}
+
+impl StructUnion for GenericStructUnion<'_> {
+    fn get_cdesc(&self) -> *const iop_struct_t {
+        self.cdesc
+    }
+
+    fn get_cptr(&self) -> *const c_void {
+        self.cptr
+    }
+
+    fn get_cptr_mut(&mut self) -> *mut c_void {
+        self.cptr
+    }
+}
+
+// }}}
 // {{{ IOP Env
 
 /// Wrapper around `iop_env_t` for easy manipulation in Rust.
@@ -128,6 +178,49 @@ impl Env {
     /// Retrieve the C IOP env pointer as mutable.
     pub fn as_mut_ptr(&mut self) -> *mut iop_env_t {
         self.env
+    }
+
+    /// Unpack an IOP struct or union as JSON on a `t_scope`.
+    ///
+    /// # Errors
+    ///
+    /// The content cannot be unpacked a valid IOP JSON for the given type.
+    ///
+    /// # Panics
+    ///
+    /// The error returned from `t_iop_junpack_ptr_ps()` is not a valid UTF-8.
+    #[allow(clippy::not_unsafe_ptr_arg_deref, clippy::unwrap_in_result)]
+    pub fn t_junpack_desc<'t>(
+        &self,
+        _t_scope: &TScope<'t>,
+        content: &str,
+        st: *const iop_struct_t,
+        flags: u32,
+    ) -> Result<GenericStructUnion<'t>, UnpackError> {
+        let mut err = Sb1K::new();
+        let mut ps = pstream_t::from(content);
+        let mut out = ptr::null_mut();
+
+        #[allow(clippy::cast_possible_wrap)]
+        let res = unsafe {
+            t_iop_junpack_ptr_ps(
+                self.env,
+                ps.as_mut_ptr(),
+                st,
+                &raw mut out,
+                flags as i32,
+                err.as_mut_ptr(),
+            )
+        };
+
+        if res < 0 {
+            return Err(err
+                .as_str()
+                .expect("error should be a valid UTF-8")
+                .to_owned());
+        }
+
+        Ok(GenericStructUnion::new(st, out))
     }
 }
 
