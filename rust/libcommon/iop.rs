@@ -26,8 +26,8 @@ use std::os::raw::c_void;
 use std::ptr;
 
 use crate::bindings::{
-    iop_enum_t, iop_env_delete, iop_env_new, iop_env_t, iop_init_desc, iop_struct_t,
-    t_iop_junpack_ptr_ps,
+    iop_enum_t, iop_env_delete, iop_env_get_struct, iop_env_new, iop_env_t, iop_init_desc,
+    iop_struct_t, t_iop_junpack_ptr_ps,
 };
 
 use crate::{mem_stack::TScope, pstream::pstream_t, sb::Sb1K};
@@ -178,6 +178,16 @@ impl Env {
     /// Retrieve the C IOP env pointer as mutable.
     pub fn as_mut_ptr(&mut self) -> *mut iop_env_t {
         self.env
+    }
+
+    /// Get a IOP struct or union from its fullname.
+    pub fn get_struct_desc(&self, fullname: &str) -> Option<*const iop_struct_t> {
+        let res = unsafe { iop_env_get_struct(self.env, fullname.into()) };
+
+        if res.is_null() {
+            return None;
+        }
+        Some(res)
     }
 
     /// Unpack an IOP struct or union as JSON on a `t_scope`.
