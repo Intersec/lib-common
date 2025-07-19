@@ -6864,7 +6864,8 @@ static int iop_register_package_env(const iop_pkg_t *pkg, iop_dso_t *dso,
     return 0;
 }
 
-int iop_register_packages_dso(iop_env_t *iop_env, const iop_pkg_t **pkgs,
+int iop_register_packages_dso(iop_env_t *iop_env,
+                              const iop_pkg_t * const *pkgs,
                               int len, iop_dso_t *dso, sb_t *err)
 {
     iop_env_ctx_t *iop_env_ctx = &iop_env->ctx;
@@ -6879,7 +6880,7 @@ int iop_register_packages_dso(iop_env_t *iop_env, const iop_pkg_t **pkgs,
     return 0;
 }
 
-void iop_register_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
+void iop_register_packages(iop_env_t *iop_env, const iop_pkg_t * const *pkgs,
                            int len)
 {
     SB_1k(err);
@@ -7080,8 +7081,8 @@ static int iop_unregister_pkg(iop_env_ctx_t *iop_env_ctx,
                            &pkg->name, lstr_wipe, IGNORE);
 }
 
-void iop_unregister_packages(iop_env_t *iop_env, const iop_pkg_t **pkgs,
-                             int len)
+void iop_unregister_packages(iop_env_t *iop_env,
+                             const iop_pkg_t * const *pkgs, int len)
 {
     SB_1k(err);
     iop_env_ctx_t *iop_env_ctx = &iop_env->ctx;

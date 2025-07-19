@@ -42,7 +42,8 @@ int iop_check_registered_classes(const iop_env_t *iop_env, sb_t *err);
 iop_dso_t *iop_dso_get_from_pkg(const iop_env_t *iop_env,
                                 const iop_pkg_t *pkg);
 
-int iop_register_packages_dso(iop_env_t *iop_env, const iop_pkg_t **pkgs,
+int iop_register_packages_dso(iop_env_t *iop_env,
+                              const iop_pkg_t * const *pkgs,
                               int len, iop_dso_t * nullable dso, sb_t *err);
 
 /* }}} */

@@ -2837,7 +2837,7 @@ int iop_union_get_tag(const iop_struct_t *nonnull desc,
  * You can use IOP_REGISTER_PACKAGES to avoid the array construction.
  */
 void iop_register_packages(iop_env_t * nonnull iop_env,
-                           const iop_pkg_t * nonnull * nonnull pkgs, int len);
+                           const iop_pkg_t * nonnull const * nonnull pkgs, int len);
 
 /** Helper to register a list of packages.
  *
@@ -2860,7 +2860,7 @@ void iop_register_packages(iop_env_t * nonnull iop_env,
  * You can use IOP_UNREGISTER_PACKAGES to avoid the array construction.
  */
 void iop_unregister_packages(iop_env_t * nonnull iop_env,
-                             const iop_pkg_t * nonnull * nonnull pkgs,
+                             const iop_pkg_t * nonnull const * nonnull pkgs,
                              int len);
 
 /** Helper to unregister a list of packages.
