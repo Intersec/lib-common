@@ -37,8 +37,11 @@ from typing import (
 from waflib import Context, Errors, Logs, Node, Task, TaskGen, Utils
 from waflib.Build import BuildContext, CleanContext
 from waflib.Configure import ConfigurationContext
-from waflib.Tools.ccroot import link_task as waflib_link_task
-from waflib.Tools.ccroot import stlink_task as waflib_stlink_task
+from waflib.Tools.ccroot import (
+    USELIB_VARS,
+    link_task as waflib_link_task,
+    stlink_task as waflib_stlink_task,
+)
 
 # Add type hinting for TaskGen decorators
 if TYPE_CHECKING:
@@ -50,6 +53,13 @@ if TYPE_CHECKING:
     TaskGen.before_method = task_gen_decorator
     TaskGen.after_method = task_gen_decorator
     TaskGen.extension = task_gen_decorator
+
+
+# Copy USELIB_VARS for `cprogram` and `cshlib` to be used by `rust` task gens
+USELIB_VARS['rust'] = {
+    'LIB', 'STLIB', 'LIBPATH', 'STLIBPATH', 'LINKFLAGS', 'RPATH', 'LINKDEPS',
+    'FRAMEWORK', 'FRAMEWORKPATH', 'ARCH', 'LDFLAGS',
+}
 
 
 # {{{ helpers
