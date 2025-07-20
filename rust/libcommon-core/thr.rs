@@ -16,7 +16,22 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/core.h>
-#include <lib-common/farch.h>
-#include <lib-common/qlzo.h>
-#include <lib-common/thr.h>
+//! Module to export the thread functions used by `libcommon` in a safe way
+//!
+//! Using `attach()` and `detach()` are required to use `TScope`.
+
+use crate::bindings;
+
+/// Attach the thread to `libcommon` and call the attach callbacks.
+pub fn attach() {
+    unsafe {
+        bindings::thr_attach();
+    };
+}
+
+/// Detach the thread from `libcommon` and call the detach callbacks.
+pub fn detach() {
+    unsafe {
+        bindings::thr_detach();
+    };
+}

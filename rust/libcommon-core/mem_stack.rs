@@ -22,6 +22,8 @@
 //! lifetimes of the variables.
 //!
 //! The destructor is not called for values allocated by the [`TScope`].
+//!
+//! Using `thr::attach()` and `thr:detach()` are required to use [`TScope`].
 
 use std::marker::PhantomData;
 use std::ops::Drop;

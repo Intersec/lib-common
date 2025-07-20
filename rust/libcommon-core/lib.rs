@@ -16,6 +16,11 @@
 /*                                                                         */
 /***************************************************************************/
 
+//! This module is used to export the functions and types of `libcommon-minimal`.
+//! Do not use it directly.
+//! Use `libcommon` instead.
+//! The different modules are reexported in `libcommon`.
+
 pub mod bindings {
     #![allow(
         warnings,
@@ -42,3 +47,4 @@ pub mod lstr;
 pub mod mem_stack;
 pub mod pstream;
 pub mod sb;
+pub mod thr;

@@ -42,4 +42,4 @@ pub mod bindings {
 }
 
 // Reexport `libcommon_core` types.
-pub use libcommon_core::{farch, lstr, mem_stack, pstream, sb};
+pub use libcommon_core::{farch, lstr, mem_stack, pstream, sb, thr};
