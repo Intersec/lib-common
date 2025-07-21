@@ -23,6 +23,7 @@
 
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use std::pin::Pin;
 use std::ptr;
 use std::slice::from_raw_parts;
 use std::str::Utf8Error;
@@ -30,32 +31,34 @@ use std::str::Utf8Error;
 use crate::bindings::{mem_pool_libc, mem_pool_static, sb_t, sb_wipe};
 
 /// `sb_t` with a initial buffer of size N on the stack.
-pub struct SbStack<const N: usize> {
-    buf: [u8; N],
+///
+/// We need to use an external pin buffer on the stack to make it work and avoid dangling pointers.
+/// See <https://doc.rust-lang.org/std/pin/index.html> and
+/// <https://github.com/dureuill/stackpin/blob/keep_only_stacklet/src/lib.rs>
+///
+/// TODO: Use a macro to hide this.
+pub struct SbStack<'pin> {
+    buf: Pin<&'pin mut [u8]>,
     sb: sb_t,
 }
 
-/// `sb_t` with a initial buffer of 1K on the stack.
-pub type Sb1K = SbStack<1024>;
-
-/// `sb_t` with a initial buffer of 8K on the stack.
-pub type Sb8K = SbStack<8192>;
-
-impl<const N: usize> SbStack<N> {
+impl<'pin> SbStack<'pin> {
     /// Create a new string buffer with an initial buffer on the stack.
-    pub fn new() -> Self {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+    pub fn new(buffer: Pin<&'pin mut [u8]>) -> Self {
         let mut res = Self {
-            buf: [0u8; N],
+            buf: buffer,
             sb: sb_t {
                 data: ptr::null_mut(),
-                size: N as i32,
+                size: 0,
                 mp: &raw mut mem_pool_static,
                 len: 0,
                 skip: 0,
             },
         };
-        res.sb.data = res.buf.as_mut_ptr().cast::<i8>();
+        let buf_ref = res.buf.as_mut().get_mut();
+        res.sb.data = buf_ref.as_mut_ptr().cast();
+        res.sb.size = buf_ref.len() as i32;
         res
     }
 
@@ -70,13 +73,7 @@ impl<const N: usize> SbStack<N> {
     }
 }
 
-impl<const N: usize> Default for SbStack<N> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<const N: usize> Drop for SbStack<N> {
+impl Drop for SbStack<'_> {
     fn drop(&mut self) {
         unsafe {
             sb_wipe(&raw mut self.sb);
@@ -84,7 +81,7 @@ impl<const N: usize> Drop for SbStack<N> {
     }
 }
 
-impl<const N: usize> Deref for SbStack<N> {
+impl Deref for SbStack<'_> {
     type Target = sb_t;
 
     fn deref(&self) -> &Self::Target {
@@ -92,7 +89,7 @@ impl<const N: usize> Deref for SbStack<N> {
     }
 }
 
-impl<const N: usize> DerefMut for SbStack<N> {
+impl DerefMut for SbStack<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.sb
     }

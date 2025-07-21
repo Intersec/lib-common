@@ -23,6 +23,7 @@
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::os::raw::c_void;
+use std::pin::pin;
 use std::ptr;
 
 use crate::bindings::{
@@ -30,7 +31,7 @@ use crate::bindings::{
     iop_pkg_t, iop_register_packages, iop_struct_t, t_iop_junpack_ptr_ps, t_iop_sb_ypack,
 };
 
-use crate::{mem_stack::TScope, pstream::pstream_t, sb::Sb1K};
+use crate::{mem_stack::TScope, pstream::pstream_t, sb::SbStack};
 
 // {{{ Errors
 
@@ -75,7 +76,8 @@ pub trait StructUnion: Base {
     /// Export the IOP struct or union as YAML
     fn as_yaml(&self) -> String {
         let _t_scope = TScope::new_scope();
-        let mut sb = Sb1K::new();
+        let sb_buf = pin!([0u8; 1024]);
+        let mut sb = SbStack::new(sb_buf);
 
         unsafe {
             t_iop_sb_ypack(
@@ -245,7 +247,8 @@ impl Env<'_> {
         st: *const iop_struct_t,
         flags: u32,
     ) -> Result<GenericStructUnion<'t>, UnpackError> {
-        let mut err = Sb1K::new();
+        let err_buf = pin!([0u8; 1024]);
+        let mut err = SbStack::new(err_buf);
         let mut ps = pstream_t::from(content);
         let mut out = ptr::null_mut();
 
