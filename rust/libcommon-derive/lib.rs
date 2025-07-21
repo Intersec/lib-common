@@ -52,8 +52,8 @@ pub fn derive_iop_enum(input: TokenStream) -> TokenStream {
 
     let ident_name = ident.unraw().to_string();
 
-    // Convert "my_type__t" to "my_type__ep"
-    let c_desc_name = ident_name[0..ident_name.len() - 1].to_owned() + "ep";
+    // Convert "my_type__t" to "my_type__e"
+    let c_desc_name = ident_name[0..ident_name.len() - 1].to_owned() + "e";
 
     let c_desc_span = Ident::new(&c_desc_name, Span::call_site());
 
@@ -64,13 +64,13 @@ pub fn derive_iop_enum(input: TokenStream) -> TokenStream {
         #[automatically_derived]
         impl #libcommon_crate_ident::iop::Enum for #ident {
             fn get_cdesc(&self) -> *const iop_enum_t {
-                unsafe { #c_desc_span }
+                unsafe { &raw const #c_desc_span }
             }
         }
 
         #[automatically_derived]
         impl #libcommon_crate_ident::iop::CEnum for #ident {
-            const CDESC: *const iop_enum_t = unsafe { #c_desc_span };
+            const CDESC: *const iop_enum_t = unsafe { &raw const #c_desc_span };
         }
     };
     output.into()
@@ -128,8 +128,8 @@ pub fn derive_iop_struct(input: TokenStream) -> TokenStream {
 
     let ident_name = ident.unraw().to_string();
 
-    // Convert "my_type__t" to "my_type__sp"
-    let c_desc_name = ident_name[0..ident_name.len() - 1].to_owned() + "sp";
+    // Convert "my_type__t" to "my_type__s"
+    let c_desc_name = ident_name[0..ident_name.len() - 1].to_owned() + "s";
 
     let c_desc_span = Ident::new(&c_desc_name, Span::call_site());
 
@@ -140,7 +140,7 @@ pub fn derive_iop_struct(input: TokenStream) -> TokenStream {
         #[automatically_derived]
         impl #libcommon_crate_ident::iop::StructUnion for #ident {
             fn get_cdesc(&self) -> *const iop_struct_t {
-                unsafe { #c_desc_span }
+                unsafe { &raw const #c_desc_span }
             }
 
             fn get_cptr(&self) -> *const ::std::os::raw::c_void {
@@ -154,7 +154,7 @@ pub fn derive_iop_struct(input: TokenStream) -> TokenStream {
 
         #[automatically_derived]
         impl #libcommon_crate_ident::iop::CStructUnion for #ident {
-            const CDESC: *const iop_struct_t = unsafe { #c_desc_span };
+            const CDESC: *const iop_struct_t = unsafe { &raw const #c_desc_span };
         }
 
         #[automatically_derived]
