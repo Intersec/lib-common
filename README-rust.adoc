@@ -127,3 +127,11 @@ the Cargo build system the dependencies between the different cargo packages.
 * TODO: Add https://github.com/mozilla/sccache[sccache] as a caching system
         for dev and CI platforms. This should speed up building the external
         crates which should not move a lot.
+* TODO: Support tests in Rust in zchk tests.
+* TODO: Add Global C Lock (GCL) similar to Python GIL to interact with C code
+        that is not thread safe (event loop).
+* TODO: Add a macro to more easily create a `SbStack` with a stack buffer.
+* TODO: Add macros, traits and methods to simplify the creation of IOPs.
+* TODO: Add traits for IOP classes. We can detect if a struct is a class in
+       `libcommon-derive` if the first field is `__vptr`.
+* TODO: Add traits for qv_t, qh_t, qm_t.
