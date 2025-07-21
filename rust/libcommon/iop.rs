@@ -29,7 +29,7 @@ use std::ptr;
 use crate::bindings::{
     iop_enum_t, iop_env_delete, iop_env_get_struct, iop_env_new, iop_env_t, iop_init_desc,
     iop_pkg_t, iop_register_packages, iop_sb_jpack, iop_struct_t, t_iop_junpack_ptr_ps,
-    t_iop_sb_ypack,
+    t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
 };
 
 use crate::{mem_stack::TScope, pstream::pstream_t, sb::SbStack};
@@ -273,6 +273,51 @@ impl Env<'_> {
                 st,
                 &raw mut out,
                 flags as i32,
+                err.as_mut_ptr(),
+            )
+        };
+
+        if res < 0 {
+            return Err(err
+                .as_str()
+                .expect("error should be a valid UTF-8")
+                .to_owned());
+        }
+
+        Ok(GenericStructUnion::new(st, out))
+    }
+
+    /// Unpack an IOP struct or union as YAML on a `t_scope`.
+    ///
+    /// # Errors
+    ///
+    /// The content cannot be unpacked a valid IOP YAML for the given type.
+    ///
+    /// # Panics
+    ///
+    /// The error returned from `t_iop_yunpack_ptr_ps()` is not a valid UTF-8.
+    #[allow(clippy::not_unsafe_ptr_arg_deref, clippy::unwrap_in_result)]
+    pub fn t_yunpack_desc<'t>(
+        &self,
+        _t_scope: &TScope<'t>,
+        content: &str,
+        st: *const iop_struct_t,
+        flags: u32,
+    ) -> Result<GenericStructUnion<'t>, UnpackError> {
+        let err_buf = pin!([0u8; 1024]);
+        let mut err = SbStack::new(err_buf);
+        let mut ps = pstream_t::from(content);
+        let mut out = ptr::null_mut();
+
+        #[allow(clippy::cast_possible_wrap)]
+        let res = unsafe {
+            t_iop_yunpack_ptr_ps(
+                self.env,
+                ps.as_mut_ptr(),
+                st,
+                &raw mut out,
+                flags,
+                ptr::null_mut(),
                 err.as_mut_ptr(),
             )
         };
