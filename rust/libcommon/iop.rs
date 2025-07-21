@@ -227,7 +227,6 @@ impl Env<'_> {
 
     /// Register some IOP packages in the IOP env.
     pub fn register_packages(&mut self, pkgs: &[*const iop_pkg_t]) {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         unsafe {
             iop_register_packages(self.env, pkgs.as_ptr(), pkgs.len() as i32);
         };
@@ -265,7 +264,6 @@ impl Env<'_> {
         let mut ps = pstream_t::from(content);
         let mut out = ptr::null_mut();
 
-        #[allow(clippy::cast_possible_wrap)]
         let res = unsafe {
             t_iop_junpack_ptr_ps(
                 self.env,
@@ -309,7 +307,6 @@ impl Env<'_> {
         let mut ps = pstream_t::from(content);
         let mut out = ptr::null_mut();
 
-        #[allow(clippy::cast_possible_wrap)]
         let res = unsafe {
             t_iop_yunpack_ptr_ps(
                 self.env,

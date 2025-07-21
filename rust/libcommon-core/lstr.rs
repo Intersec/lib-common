@@ -70,7 +70,6 @@ impl lstr_t {
     }
 
     /// Create a non-owned `lstr_t` from a Rust bytes slice.
-    #[allow(clippy::cast_possible_truncation)]
     pub const fn from_bytes(bytes: &[u8]) -> Self {
         Self {
             __bindgen_anon_1: lstr_t__bindgen_ty_1 {
@@ -86,7 +85,6 @@ impl lstr_t {
     /// # Safety
     ///
     /// `ptr` shall not be `null` and should point to a valid C string.
-    #[allow(clippy::cast_possible_truncation)]
     pub unsafe fn from_ptr(ptr: *const c_char) -> Self {
         let len = unsafe { libc_strlen(ptr) };
         Self {
@@ -97,7 +95,6 @@ impl lstr_t {
     }
 
     /// Create a non-owned `lstr_t` from a C raw pointer and length.
-    #[allow(clippy::cast_possible_truncation)]
     pub const fn from_ptr_and_len(ptr: *const c_char, len: usize) -> Self {
         Self {
             __bindgen_anon_1: lstr_t__bindgen_ty_1 { s: ptr },

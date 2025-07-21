@@ -44,7 +44,6 @@ pub struct SbStack<'pin> {
 
 impl<'pin> SbStack<'pin> {
     /// Create a new string buffer with an initial buffer on the stack.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
     pub fn new(buffer: Pin<&'pin mut [u8]>) -> Self {
         let mut res = Self {
             buf: buffer,
