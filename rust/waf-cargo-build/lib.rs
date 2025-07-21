@@ -37,7 +37,7 @@ use std::path::{Path, PathBuf};
 use std::{env, error, fs, io};
 use syn::ext::IdentExt as _;
 use syn::{
-    File as SynFile, Ident, Item, ItemMod, parse_str,
+    File as SynFile, ForeignItem, Ident, Item, ItemMod, parse_str,
     visit_mut::{VisitMut, visit_file_mut, visit_item_mod_mut},
 };
 
@@ -135,6 +135,15 @@ impl GeneratedItemsVisitor {
             Item::Enum(item_val) => Some(&item_val.ident),
             Item::Union(item_val) => Some(&item_val.ident),
             Item::Static(item_val) => Some(&item_val.ident),
+            Item::ForeignMod(item_val) => {
+                assert_eq!(item_val.items.len(), 1);
+                match &item_val.items[0] {
+                    ForeignItem::Fn(foreign_item_val) => Some(&foreign_item_val.sig.ident),
+                    ForeignItem::Static(foreign_item_val) => Some(&foreign_item_val.ident),
+                    ForeignItem::Type(foreign_item_val) => Some(&foreign_item_val.ident),
+                    _ => None,
+                }
+            }
             _ => None,
         }
     }
