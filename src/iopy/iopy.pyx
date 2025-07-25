@@ -1921,7 +1921,8 @@ cdef void add_error_field_type(const iop_field_t *field, sb_t *err):
                 LSTR_FMT_ARG(field.u1.st_desc.fullname))
 
 
-cdef int add_error_convert_field(const iop_field_t *field, object py_obj,
+cdef int add_error_convert_field(Plugin plugin,
+                                 const iop_field_t *field, object py_obj,
                                  sb_t *err) except -1:
     """Add error type description when trying to convert object for field.
 
@@ -1954,8 +1955,83 @@ cdef int add_error_convert_field(const iop_field_t *field, object py_obj,
             LSTR_FMT_ARG(py_obj_type_name_lstr),
             LSTR_FMT_ARG(py_obj_repr_lstr))
     add_error_field_type(field, err)
+    add_error_convert_field_different_plugins(plugin, field, py_obj,
+                                              py_obj_type_name_lstr, err)
 
     return 0
+
+
+cdef int add_error_convert_field_different_plugins(
+    Plugin plugin, const iop_field_t *field, object py_obj,
+    lstr_t py_obj_type_name_lstr, sb_t *err) except -1:
+    """Add error type description when the two types comes from different
+    plugins.
+
+    Parameters
+    ----------
+    field
+        The iop field.
+    py_obj
+        The python object to convert.
+    err
+        The error description.
+
+    Returns
+    -------
+        -1 in case of unexpected python exception. 0 otherwise.
+    """
+    cdef _InternalBaseType py_obj_base_type
+    cdef Plugin other_plugin
+    cdef lstr_t field_type_name
+    cdef lstr_t dso_path
+    cdef lstr_t other_dso_path
+    cdef str plugin_id_str
+    cdef lstr_t plugin_id_lstr
+    cdef str other_plugin_id_str
+    cdef lstr_t other_plugin_id_lstr
+
+    if not isinstance(py_obj, Basic):
+        # Not a IOPy object
+        return 0
+
+    # Get the plugin of the other object
+    py_obj_base_type = type(py_obj)
+    other_plugin = py_obj_base_type.plugin
+    if other_plugin == plugin:
+        # Same plugin, the previous error is enough
+        return 0
+
+    # Get the type field name
+    if field.type == IOP_T_ENUM:
+        field_type_name = field.u1.en_desc.fullname
+    elif field.type == IOP_T_UNION or field.type == IOP_T_STRUCT:
+        field_type_name = field.u1.st_desc.fullname
+    else:
+        field_type_name = LSTR('')
+        cassert(False)
+
+    # Get the dso paths
+    dso_path = plugin.dso.path if plugin.dso else LSTR("<None>")
+    other_dso_path = (
+        other_plugin.dso.path if other_plugin.dso else LSTR("<None>")
+    )
+
+    # Get the plugins ids
+    plugin_id_str = hex(id(plugin))
+    plugin_id_lstr = py_str_to_lstr(plugin_id_str)
+    other_plugin_id_str = hex(id(other_plugin))
+    other_plugin_id_lstr = py_str_to_lstr(other_plugin_id_str)
+
+    sb_addf(err, "; argument type `%*pM` comes from plugin `%*pM` (%*pM), "
+            "while expecting type `%*pM` from plugin `%*pM` (%*pM)",
+            LSTR_FMT_ARG(py_obj_type_name_lstr),
+            LSTR_FMT_ARG(other_dso_path),
+            LSTR_FMT_ARG(other_plugin_id_lstr),
+            LSTR_FMT_ARG(field_type_name),
+            LSTR_FMT_ARG(dso_path),
+            LSTR_FMT_ARG(plugin_id_lstr))
+    return 0
+
 
 cdef const iop_field_t *find_field_in_st_by_name_lstr(
         const iop_struct_t *st, lstr_t name, int *field_index) noexcept nogil:
@@ -2345,7 +2421,7 @@ cdef StructUnionBase iop_c_val_to_py_obj(object cls, const iop_struct_t *st,
 # {{{ IOP Python object to C val
 
 
-cdef int raise_invalid_field_type(const iop_field_t *field,
+cdef int raise_invalid_field_type(Plugin plugin, const iop_field_t *field,
                                   object py_obj) except -1:
     """Raise type error when field is not of appropriate type.
 
@@ -2359,7 +2435,7 @@ cdef int raise_invalid_field_type(const iop_field_t *field,
     cdef sb_buf_1k_t err_buf
     cdef sb_scope_t err = sb_scope_init_static(err_buf)
 
-    add_error_convert_field(field, py_obj, &err)
+    add_error_convert_field(plugin, field, py_obj, &err)
     raise Error(lstr_to_py_str(LSTR_SB_V(&err)))
 
 
@@ -2544,7 +2620,7 @@ cdef int mp_iop_py_obj_field_to_c_val(mem_pool_t *mp, cbool force_str_dup,
         if likely(isinstance(py_obj, EnumBase)):
             py_enum = <EnumBase>py_obj
             if unlikely(enum_get_desc(py_enum) != en):
-                raise_invalid_field_type(field, py_obj)
+                raise_invalid_field_type(plugin, field, py_obj)
         else:
             py_enum_cls = plugin_get_class_type_en(plugin, en)
             py_enum = py_enum_cls(py_obj)
@@ -2555,7 +2631,7 @@ cdef int mp_iop_py_obj_field_to_c_val(mem_pool_t *mp, cbool force_str_dup,
         py_union = py_obj
         st = field.u1.st_desc
         if unlikely(struct_union_get_desc(py_union) != st):
-            raise_invalid_field_type(field, py_union)
+            raise_invalid_field_type(plugin, field, py_union)
         mp_iop_py_union_to_c_val(mp, force_str_dup, py_union, st, plugin,
                                  res)
 
@@ -2566,14 +2642,14 @@ cdef int mp_iop_py_obj_field_to_c_val(mem_pool_t *mp, cbool force_str_dup,
         if iop_struct_is_class(st):
             if unlikely(not iop_struct_is_class(real_st)
                      or not iop_class_is_a(real_st, st)):
-                raise_invalid_field_type(field, py_obj)
+                raise_invalid_field_type(plugin, field, py_obj)
             (<void **>res)[0] = mp_imalloc(mp, real_st.size, 8, MEM_RAW)
             res = (<void **>res)[0]
             mp_iop_py_class_to_c_val(mp, force_str_dup, py_struct, real_st,
                                      plugin, res)
         else:
             if unlikely(real_st != st):
-                raise_invalid_field_type(field, py_struct)
+                raise_invalid_field_type(plugin, field, py_struct)
             mp_iop_py_struct_to_c_val(mp, force_str_dup, py_struct, st,
                                       plugin, res)
 
@@ -3773,7 +3849,7 @@ cdef object explicit_convert_field(const iop_field_t *field, object py_obj,
             py_res_obj = exact_or_implicit_convert_field(field, py_cast_obj,
                                                          plugin, is_valid)
             if not is_valid[0]:
-                add_error_convert_field(field, py_cast_obj, err)
+                add_error_convert_field(plugin, field, py_cast_obj, err)
                 return None
             return py_res_obj
 
@@ -3836,7 +3912,7 @@ cdef object explicit_convert_field(const iop_field_t *field, object py_obj,
             is_valid[0] = True
             return py_obj
 
-    add_error_convert_field(field, py_obj, err)
+    add_error_convert_field(plugin, field, py_obj, err)
     return None
 
 

@@ -3332,6 +3332,16 @@ class IopyIopEnvironmentTests(z.TestCase):
         obj2_ca = test_iop_plugin2.test.ClassA(_json=json_str)
         self.assertNotEqual(obj1_ca, obj2_ca)
 
+        # Try to mixing objects from two different IOP plugins.
+        msg = (
+            r'argument type `test.ClassA` comes from plugin '
+            r'`.*test-iop-plugin2.so` \(0x[0-9a-f]+\), while expecting type '
+            r'`test.ClassA` from plugin `.*test-iop-plugin.so` '
+            r'\(0x[0-9a-f]+\)'
+        )
+        with self.assertRaisesRegex(iopy.Error, msg):
+            _ = test_iop_plugin.test.StructA(a=test_iop_plugin2.test.ClassA())
+
         # It should not be possible to open 'test-iop-plugin-dso.so' as a
         # plugin because it can only be opened as an additional DSO
         msg = 'undefined symbol'
