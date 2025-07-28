@@ -21,6 +21,8 @@
 #else
 #define IS_LIB_COMMON_NET_ADDR_H
 
+#include <lib-common/el.h>
+
 typedef struct addr_filter_t {
     union {
       struct {
@@ -44,6 +46,29 @@ typedef union sockunion_t {
     struct sockaddr         sa;
     sa_family_t             family;
 } sockunion_t;
+
+/** Structure containing the result of DNS resolution. */
+typedef struct dns_resolv_res_t {
+    /* Useful data context to provide on DNS completion (even if this is not
+     * part of DNS processing directly). */
+    lstr_t what;    /**< Addition information related on host to resolve. */
+    in_port_t port; /**< Port to setup after DNS completion. */
+    sockunion_t su; /**< Socket union to fill on DNX completion. */
+
+    sb_t err; /**< On failure, store the error log, including the reason if
+                   available. */
+} dns_resolv_res_t;
+
+/** Opaque pointer to handle DNS resolution. */
+typedef struct dns_resolv_ctx_t dns_resolv_ctx_t;
+
+/** Callback triggered when asynchronous DNS resolution has been performed. */
+typedef void (on_dns_result_f)(const dns_resolv_res_t * nonnull res,
+                               data_t priv);
+#ifdef __has_blocks
+typedef void (BLOCK_CARET on_dns_result_b)(
+    const dns_resolv_res_t * nonnull res);
+#endif
 
 bool sockunion_equal(const sockunion_t * nonnull,
                      const sockunion_t * nonnull);
@@ -142,6 +167,15 @@ static inline int addr_parse(pstream_t ps, pstream_t * nonnull host,
     return addr_parse_minport(ps, host, port, 1, defport);
 }
 int addr_info(sockunion_t * nonnull, sa_family_t, pstream_t host, in_port_t);
+__must_check__ dns_resolv_ctx_t * nonnull
+addr_info_async(sa_family_t af, lstr_t host, in_port_t port,
+                on_dns_result_f * nonnull on_result_cb, data_t priv);
+
+#ifdef __has_blocks
+__must_check__ dns_resolv_ctx_t * nonnull
+addr_info_async_b(sa_family_t af, lstr_t host, in_port_t port,
+                  on_dns_result_b nonnull on_result_blk);
+#endif
 
 /** Convert a TCP/IPv4, TCP/IPv6 or UNIX address into a string.
  *
@@ -227,6 +261,49 @@ addr_resolve_with_err(const char * nonnull what, const lstr_t s,
 {
     return addr_resolve2(what, s, 1, -1, out, NULL, NULL, err);
 }
+
+/** Asynchronous resolution of an address with port generation.
+ *
+ * \param[in]  what     description of the address to resolve
+ * \param[in]  s        address to resolve
+ * \param[in]  minport  minimum port authorized (if 0, port can be missing)
+ * \param[in]  defport  default port, if not present in the address
+ *
+ * \param[out] on_result_cb  DNS resolution callback
+ * \param[out] err           buffer to fill in case of error
+ *
+ * \return  the context for the resolution of the address on success, NULL
+ *          otherwise
+ */
+__must_check__ dns_resolv_ctx_t * nullable
+addr_resolve_async(const char * nullable what, const lstr_t s, int minport,
+                   int defport, on_dns_result_f * nonnull on_result_cb,
+                   sb_t * nullable err, data_t priv);
+
+#ifdef __has_blocks
+
+/** Asynchronous resolution of an address with port generation (block way).
+ *
+ * \param[in]  what     description of the address to resolve
+ * \param[in]  s        address to resolve
+ * \param[in]  minport  minimum port authorized (if 0, port can be missing)
+ * \param[in]  defport  default port, if not present in the address
+ *
+ * \param[out] on_result_blk  DNS resolution block callback
+ * \param[out] err            buffer to fill in case of error
+ *
+ * \return  the context for the resolution of the address on success, NULL
+ *          otherwise
+ */
+__must_check__ dns_resolv_ctx_t * nullable
+addr_resolve_async_b(const char * nullable what, const lstr_t s, int minport,
+                     int defport, on_dns_result_b nonnull on_result_blk,
+                     sb_t * nullable err);
+
+#endif
+
+/** Getter on event loop handler currently used for the DNS resolution. */
+el_t nullable addr_get_dns_elh(dns_resolv_ctx_t * nonnull dns_ctx);
 
 static inline int addr_resolve(const char * nonnull what, const lstr_t s,
                                sockunion_t * nonnull out)

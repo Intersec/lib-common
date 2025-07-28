@@ -60,7 +60,7 @@ ctx.program(target='zchk', depends_on=[
     'zchk-log.blk',
     'zchk-mem.c',
     'zchk-module.c',
-    'zchk-net.c',
+    'zchk-net.blk',
     'zchk-parseopt.c',
     'zchk-prometheus.blk',
     'zchk-snmp.c',

@@ -484,8 +484,8 @@ MODULE_METHOD_DECLARE(VOID, DEPS_BEFORE, print_state);
 
 /* {{{ Private (exposed for tests) */
 
-data_t el_fd_unregister(struct ev_t **evp);
-data_t el_fs_watch_unregister(struct ev_t **evp);
+data_t el_fd_unregister(struct ev_t * nonnull * nullable evp);
+data_t el_fs_watch_unregister(struct ev_t * nonnull * nullable evp);
 
 /* }}} */
 

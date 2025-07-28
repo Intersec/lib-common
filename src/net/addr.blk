@@ -17,9 +17,11 @@
 /***************************************************************************/
 
 #include <netdb.h>
-#include <lib-common/z.h>
-#include <lib-common/net.h>
 #include <lib-common/hash.h>
+#include <lib-common/net.h>
+#include <lib-common/thr.h>
+
+/* {{{ Operations on sockunion_t */
 
 bool sockunion_equal(const sockunion_t *a1, const sockunion_t *a2)
 {
@@ -102,6 +104,9 @@ lstr_t t_sockunion_gethost_lstr(const sockunion_t *su)
     return lstr_init_(buf, len, MEM_STACK);
 }
 
+/* }}} */
+/* {{{ Address parsing and display */
+
 int addr_parse_minport(pstream_t ps, pstream_t *host, in_port_t *port,
                        int minport, int defport)
 {
@@ -131,43 +136,6 @@ int addr_parse_minport(pstream_t ps, pstream_t *host, in_port_t *port,
         return -1;
     *port = i;
     return ps_done(&ps) ? 0 : -1;
-}
-
-int addr_resolve2(const char * nonnull what, const lstr_t s,
-                  int minport, int defport,
-                  sockunion_t * nonnull out_su,
-                  pstream_t * nullable out_host,
-                  in_port_t * nullable out_port,
-                  sb_t * nullable err)
-{
-    pstream_t host;
-    in_port_t port;
-
-    if (addr_parse_minport(ps_init(s.s, s.len), &host, &port,
-                           minport, defport) < 0)
-    {
-        if (err) {
-            sb_addf(err, "unable to parse %s address `%*pM`",
-                    what, LSTR_FMT_ARG(s));
-        }
-        return -1;
-    }
-    if (addr_info(out_su, AF_UNSPEC, host, port) < 0) {
-        if (err) {
-            sb_addf(err, "unable to resolve %s address `%*pM`",
-                    what, LSTR_FMT_ARG(s));
-        }
-        return -1;
-    }
-
-    if (out_host) {
-        *out_host = host;
-    }
-    if (out_port) {
-        *out_port = port;
-    }
-
-    return 0;
 }
 
 const char *t_addr_fmt(const sockunion_t *su, int *slen)
@@ -224,26 +192,73 @@ const char *t_addr_fmt(const sockunion_t *su, int *slen)
     return t_dupz(buf, pos);
 }
 
-int addr_info(sockunion_t *su, sa_family_t af, pstream_t host, in_port_t port)
-{
-    t_scope;
-    struct addrinfo *ai = NULL;
-    struct addrinfo *cur;
-    struct addrinfo hint = { .ai_family = af };
+/* }}} */
+/* {{{ DNS resolution of addresses (synchronous and asynchronous) */
 
-    RETHROW(getaddrinfo(t_dupz(host.p, ps_len(&host)), NULL, &hint, &ai));
+/** Context containing the DNS to resolve asynchronously. */
+struct dns_resolv_ctx_t {
+    /* Mandatory data for resolving the address */
+    lstr_t host;    /**< Host to resolve. */
+    sa_family_t af; /**< Hint for selecting the family (AF_INET or
+                         AF_INET6). */
+
+    el_t nullable elh;  /**< Event loop handler used to notify the main
+                             thread. */
+    bool cb_is_blk;     /**< Is the registered callback a block? */
+    union {
+        on_dns_result_f * nullable on_result_cb; /**< Callback to trigger on
+                                                      DNS completion.*/
+#ifdef __has_blocks
+        on_dns_result_b nullable on_result_blk; /**< Block callback on DNS
+                                                     completion. */
+#endif
+    };
+
+    dns_resolv_res_t res; /**< Result of DNS completion. */
+    data_t priv;          /**< Private data context to give back on DNS
+                               completion. */
+};
+
+static dns_resolv_ctx_t * nonnull
+dns_resolv_ctx_init(dns_resolv_ctx_t * nonnull ctx)
+{
+    p_clear(ctx, 1);
+
+    sb_init(&ctx->res.err);
+    return ctx;
+}
+GENERIC_NEW(dns_resolv_ctx_t, dns_resolv_ctx);
+
+static void dns_resolv_ctx_wipe(dns_resolv_ctx_t * nonnull ctx)
+{
+    lstr_wipe(&ctx->res.what);
+    sb_wipe(&ctx->res.err);
+
+    lstr_wipe(&ctx->host);
+    el_unregister(&ctx->elh);
+
+    if (ctx->cb_is_blk) {
+        Block_release(ctx->on_result_blk);
+    }
+}
+GENERIC_DELETE(dns_resolv_ctx_t, dns_resolv_ctx);
+
+static int process_getaddrinfo_result(struct addrinfo *ai, in_port_t port,
+                                      sockunion_t *su)
+{
+    struct addrinfo *cur;
+
     for (cur = ai; cur != NULL; cur = cur->ai_next) {
         switch (cur->ai_family) {
-          case AF_INET:
-          case AF_INET6:
-          case AF_UNIX:
+        case AF_INET:
+        case AF_INET6:
+        case AF_UNIX:
             if (cur->ai_addrlen > ssizeof(*su)) {
                 continue;
             }
             break;
 
-          default:
-
+        default:
             continue;
         }
         break;
@@ -256,6 +271,195 @@ int addr_info(sockunion_t *su, sa_family_t af, pstream_t host, in_port_t port)
     freeaddrinfo(ai);
     return cur ? 0 : -1;
 }
+
+static dns_resolv_ctx_t *
+__addr_info_async(const char * nullable what, sa_family_t af, lstr_t host,
+                  in_port_t port, on_dns_result_f * nullable on_result_cb,
+                  on_dns_result_b nullable on_result_blk)
+{
+    dns_resolv_ctx_t *ctx = dns_resolv_ctx_new();
+
+    ctx->af       = af;
+    ctx->host     = lstr_dup(host);
+    ctx->res.port = port;
+    ctx->res.what = what ? lstr_dups(what, -1) : LSTR_EMPTY_V;
+    ctx->elh      = el_unref(el_wake_register_blk(^(el_t elh){
+        dns_resolv_ctx_t *_ctx = ctx;
+
+        if (_ctx->cb_is_blk) {
+            _ctx->on_result_blk(&_ctx->res);
+        } else {
+            _ctx->on_result_cb(&_ctx->res, _ctx->priv);
+        }
+        dns_resolv_ctx_delete(&_ctx);
+    }, NULL));
+
+    if (on_result_blk) {
+        ctx->cb_is_blk = true;
+        ctx->on_result_blk = Block_copy(on_result_blk);
+    } else {
+        ctx->on_result_cb = on_result_cb;
+    }
+
+    thr_schedule_b(^{
+        struct addrinfo *ai = NULL;
+        struct addrinfo hint = {.ai_family = ctx->af};
+        int ret = getaddrinfo(ctx->host.s, NULL, &hint, &ai);
+        dns_resolv_res_t *res = &ctx->res;
+
+        if (!ret && !process_getaddrinfo_result(ai, res->port, &res->su)) {
+            goto end;
+        }
+
+        /* Resolution failed. */
+        if (res->what.len) {
+            sb_setf(&res->err, "unable to resolve %pL address `%pL`",
+                    &res->what, &ctx->host);
+        } else {
+            sb_setf(&res->err, "unable to resolve address `%pL`", &ctx->host);
+        }
+
+        if (ret) {
+            /* Add additional error info from getaddrinfo() error code. */
+            sb_addf(&res->err, ": %s", gai_strerror(ret));
+        }
+
+    end:
+        el_wake_fire(ctx->elh);
+    });
+
+    /* Job scheduled. */
+    return ctx;
+}
+
+static inline dns_resolv_ctx_t *
+addr_async_with_priv_data(dns_resolv_ctx_t *ctx, data_t priv)
+{
+    if (ctx) {
+        ctx->priv = priv;
+    }
+    return ctx;
+}
+
+dns_resolv_ctx_t *
+addr_info_async(sa_family_t af, lstr_t host, in_port_t port,
+                on_dns_result_f on_result_cb, data_t priv)
+{
+    dns_resolv_ctx_t *ctx;
+
+    ctx = __addr_info_async(NULL, af, host, port, on_result_cb, NULL);
+    return addr_async_with_priv_data(ctx, priv);
+}
+
+dns_resolv_ctx_t *
+addr_info_async_b(sa_family_t af, lstr_t host,  in_port_t port,
+                  on_dns_result_b on_result_blk)
+{
+    return __addr_info_async(NULL, af, host, port, NULL, on_result_blk);
+}
+
+int addr_info(sockunion_t *su, sa_family_t af, pstream_t host,
+              in_port_t port)
+{
+    t_scope;
+    struct addrinfo *ai = NULL;
+    struct addrinfo hint = {.ai_family = af};
+
+    RETHROW(getaddrinfo(t_dupz(host.p, ps_len(&host)), NULL, &hint, &ai));
+    return process_getaddrinfo_result(ai, port, su);
+}
+
+int addr_resolve2(const char * nonnull what, const lstr_t s,
+                  int minport, int defport,
+                  sockunion_t * nonnull out_su,
+                  pstream_t * nullable out_host,
+                  in_port_t * nullable out_port,
+                  sb_t * nullable err)
+{
+    pstream_t host;
+    in_port_t port;
+
+    if (addr_parse_minport(ps_init(s.s, s.len), &host, &port,
+                           minport, defport) < 0)
+    {
+        if (err) {
+            sb_addf(err, "unable to parse %s address `%*pM`",
+                    what, LSTR_FMT_ARG(s));
+        }
+        return -1;
+    }
+    if (addr_info(out_su, AF_UNSPEC, host, port) < 0) {
+        if (err) {
+            sb_addf(err, "unable to resolve %s address `%*pM`",
+                    what, LSTR_FMT_ARG(s));
+        }
+        return -1;
+    }
+
+    if (out_host) {
+        *out_host = host;
+    }
+    if (out_port) {
+        *out_port = port;
+    }
+
+    return 0;
+}
+
+static dns_resolv_ctx_t *
+__addr_resolve_async(const char * nullable what, const lstr_t s, int minport,
+                     int defport, on_dns_result_f * nullable on_result_cb,
+                     on_dns_result_b nullable on_result_blk,
+                     sb_t * nullable err)
+{
+    pstream_t host;
+    in_port_t port;
+
+    if (addr_parse_minport(ps_init(s.s, s.len), &host, &port,
+                           minport, defport) < 0)
+    {
+        if (err) {
+            if (what) {
+                sb_addf(err, "unable to parse %s address `%pL`", what, &s);
+            } else {
+                sb_addf(err, "unable to parse address `%pL`", &s);
+            }
+        }
+        return NULL;
+    }
+
+    return __addr_info_async(what, AF_UNSPEC, LSTR_PS_V(&host), port,
+                             on_result_cb, on_result_blk);
+}
+
+dns_resolv_ctx_t *
+addr_resolve_async(const char * nullable what, const lstr_t s, int minport,
+                   int defport, on_dns_result_f * nonnull on_result_cb,
+                   sb_t * nullable err, data_t priv)
+{
+    dns_resolv_ctx_t *ctx;
+
+    ctx = __addr_resolve_async(what, s, minport, defport, on_result_cb, NULL,
+                               err);
+    return addr_async_with_priv_data(ctx, priv);
+}
+
+dns_resolv_ctx_t *
+addr_resolve_async_b(const char * nullable what, const lstr_t s, int minport,
+                     int defport, on_dns_result_b nonnull on_result_blk,
+                     sb_t * nullable err)
+{
+    return __addr_resolve_async(what, s, minport, defport, NULL,
+                                on_result_blk, err);
+}
+
+el_t nullable addr_get_dns_elh(dns_resolv_ctx_t * nonnull dns_ctx)
+{
+    return dns_ctx->elh;
+}
+
+/* }}} */
+/* {{{ Address filtering */
 
 int addr_filter_build(lstr_t subnet, addr_filter_t *filter)
 {
@@ -363,6 +567,9 @@ int addr_filter_matches(const addr_filter_t *filter, const sockunion_t *peer)
     return 0;
 }
 
+/* }}} */
+/* {{{ HTTP url parsing */
+
 static int getport(const char *str, const char **end)
 {
     long port;
@@ -465,3 +672,5 @@ int parse_http_url(const char *url_path, bool allow_https, http_url_t *url)
 
     return 0;
 }
+
+/* }}} */

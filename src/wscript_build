@@ -196,7 +196,7 @@ ctx.stlib(target='libcommon', features='c cstlib', depends_on=[
 
     'crypto/ssl.blk',
 
-    'net/addr.c',
+    'net/addr.blk',
     'net/hpack-huffman-decoding-table.c',
     'net/hpack-huffman-encoding-table.c',
     'net/hpack.c',
