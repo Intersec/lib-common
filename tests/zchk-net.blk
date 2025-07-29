@@ -16,10 +16,49 @@
 /*                                                                         */
 /***************************************************************************/
 
-#include <lib-common/z.h>
+#include <netdb.h>
+#include <lib-common/el.h>
 #include <lib-common/net.h>
+#include <lib-common/thr.h>
+#include <lib-common/z.h>
 
-/* {{{ net_addr */
+/* {{{ net_addr */
+
+static struct {
+    bool fail;
+    lstr_t fail_reason;
+    int remaining_calls;
+
+    data_t priv;
+
+    sockunion_t ipv4;
+    sockunion_t ipv6;
+} zchk_net_g = {
+#define _G zchk_net_g
+    .fail_reason = LSTR_EMPTY,
+};
+
+static int zchk_wait_dns_completion(int timeout_ms, bool expect_failure)
+{
+    const int wait_step_value_ms = 100;
+
+    Z_ASSERT(timeout_ms > 0, "invalid timeout provided");
+    while (timeout_ms > 0) {
+        el_loop_timeout(wait_step_value_ms);
+        if (_G.fail && !expect_failure) {
+            if (!_G.fail_reason.len) {
+                _G.fail_reason = LSTR("unknown");
+            }
+            Z_ASSERT(false, "dns resolution failure: %pL", &_G.fail_reason);
+        } else if (_G.remaining_calls == 0) {
+            return 0;
+        }
+        timeout_ms -= wait_step_value_ms;
+    }
+
+    Z_ASSERT(false, "dns timeout");
+    Z_HELPER_END;
+}
 
 static int
 zchk_net_addr_parse_url_no_https(const char *addr, const char *user,
@@ -42,15 +81,130 @@ zchk_net_addr_parse_url_no_https(const char *addr, const char *user,
     Z_HELPER_END;
 }
 
+static inline void zchk_end_resolved_addr_test(void)
+{
+    lstr_wipe(&_G.fail_reason);
+}
+
+/* Reset context with the expected number of calls to trigger */
+static inline void zchk_start_resolved_addr_test(int nbr_addr_calls)
+{
+    zchk_end_resolved_addr_test();
+
+    p_clear(&_G, 1);
+    _G.remaining_calls = nbr_addr_calls;
+}
+
+/* Update context based on callback call triggered at the end of address
+ * resolution. For convenience, both "standard" and block callbacks point to
+ * this function. */
+static void
+zchk_update_test_on_callback_call(const struct dns_resolv_res_t * nonnull res,
+                                  data_t priv)
+{
+    _G.fail |= _G.remaining_calls <= 0 || res->err.len;
+    _G.remaining_calls--;
+
+    if (res->err.len) {
+        lstr_dup(LSTR_SB_V(&res->err));
+        return;
+    }
+
+    _G.priv = priv;
+    if (res->su.family == AF_INET) {
+        _G.ipv4 = res->su;
+    } else if (res->su.family == AF_INET6) {
+        _G.ipv6 = res->su;
+    }
+}
+
+/* XXX: the Z_GROUP_EXPORT() macro generates the following warning if we don't
+ * have a dedicated function to manage blocks (except for asan compilation),
+ * leading to a compilation error afterwards:
+ *    warning: rewriting sub-expression within a macro (may not be correct)
+ * As a consequence, create this wrap function to avoid the issue.
+ */
+static dns_resolv_ctx_t *
+zchk_call_addr_info_async_b(sa_family_t af, lstr_t host, in_port_t port)
+{
+    return addr_info_async_b(af, host, port,
+                             ^(const struct dns_resolv_res_t * nonnull res) {
+        zchk_update_test_on_callback_call(res, DATA_PTR(NULL));
+    });
+}
+
+static dns_resolv_ctx_t *
+zchk_call_addr_resolve_async_b(lstr_t addr, in_port_t port,
+                               sb_t * nonnull err)
+{
+    return addr_resolve_async_b("test addr", addr, 1, port,
+                                ^(const struct dns_resolv_res_t * nonnull res)
+    {
+        zchk_update_test_on_callback_call(res, DATA_PTR(NULL));
+    }, err);
+}
+
+/* Resolve host address and check the result against the ipv4 and ipv6
+ * provided. */
+static int
+zchk_check_resolved_addr(bool any_family, const lstr_t host,
+                         const in_port_t port, sockunion_t *const ipv4,
+                         sockunion_t *const ipv6)
+{
+    t_scope;
+    const struct addrinfo hint = {
+        .ai_family   = AF_UNSPEC,
+        .ai_socktype = SOCK_STREAM,
+    };
+    struct addrinfo *res, *p;
+    bool ipv4_found = false;
+    bool ipv6_found = false;
+
+    THROW_ERR_IF(getaddrinfo(host.s, t_fmt("%d", port), &hint, &res) != 0);
+
+    /* We have to check the following DNS resolution based on the fact
+     * that ipv4/ipv6 values from host parameter can provide several
+     * results. As a consequence, we have to iterate into the full list to
+     * guarantee that IP retrieved is correct. */
+    for (p = res; p != NULL; p = p->ai_next) {
+        if (p->ai_family == AF_INET && ipv4) {
+            ipv4_found |= !memcmp(&ipv4->sin, p->ai_addr, p->ai_addrlen);
+        } else if (p->ai_family == AF_INET6 && ipv6) {
+            ipv6_found |= !memcmp(&ipv6->sin6, p->ai_addr, p->ai_addrlen);
+        } else {
+            continue;
+        }
+    }
+    freeaddrinfo(res);
+
+    if (any_family) {
+        /* Only one address resolution is fine, but we don't know in advance
+         * which one. */
+        Z_ASSERT(ipv4_found || ipv6_found, "addrinfo mismatched / not found");
+    } else {
+        if (ipv4) {
+            Z_ASSERT(ipv4_found, "addrinfo on IPv4 mismatched / not found");
+        }
+        if (ipv6) {
+            Z_ASSERT(ipv6_found, "addrinfo on IPv6 mismatched / not found");
+        }
+    }
+    Z_HELPER_END;
+}
+
 Z_GROUP_EXPORT(net_addr)
 {
     t_scope;
-#define NET_ADDR_IPV4  "1.1.1.1"
-#define NET_ADDR_IPV6  "1:1:1:1:1:1:1:1"
-#define NET_ADDR_PORT  4242
+#define NET_ADDR_IPV4        "1.1.1.1"
+#define NET_ADDR_IPV6        "1:1:1:1:1:1:1:1"
+#define NET_ADDR_PORT        4242
+#define NET_ADDR_DNS_LOCAL   "localhost"
+#define NET_ADDR_DNS_EXTERNE "www.intersec.com"
 
     lstr_t ipv4 = LSTR(NET_ADDR_IPV4);
     lstr_t ipv6 = LSTR(NET_ADDR_IPV6);
+    lstr_t local_addr = LSTR(NET_ADDR_DNS_LOCAL);
+    lstr_t remote_addr = LSTR(NET_ADDR_DNS_EXTERNE);
     lstr_t tcp_ipv4 = LSTR(NET_ADDR_IPV4 ":" TOSTR(NET_ADDR_PORT));
     lstr_t tcp_ipv6 = LSTR("[" NET_ADDR_IPV6 "]:" TOSTR(NET_ADDR_PORT));
 
@@ -118,6 +272,59 @@ Z_GROUP_EXPORT(net_addr)
         CHECK_FILTER(-1, "1:1:1:1:1:1:1:3", "1:1:1:1:1:1:1:3",
                      "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
     } Z_TEST_END;
+
+    Z_TEST(local_addr_resolution, "local_addr_resolution") {
+        SB_1k(err);
+        MODULE_REQUIRE(thr);
+
+        /* Use the async mechanism to run DNS resolution in parallel.
+         * 1. Direct API using a classic C callback. */
+        zchk_start_resolved_addr_test(1);
+        Z_ASSERT_P(addr_info_async(AF_INET, local_addr, NET_ADDR_PORT,
+                                   &zchk_update_test_on_callback_call,
+                                   DATA_U64(42)));
+        Z_HELPER_RUN(zchk_wait_dns_completion(1000, false));
+        Z_HELPER_RUN(zchk_check_resolved_addr(
+            false, local_addr, NET_ADDR_PORT, &_G.ipv4, NULL));
+        Z_ASSERT_EQ(42U, _G.priv.u64, "private data check failed");
+
+        /* 2. Direct API using a block callback. */
+        zchk_start_resolved_addr_test(1);
+
+        Z_ASSERT_P(zchk_call_addr_info_async_b(AF_INET, local_addr,
+                                               NET_ADDR_PORT));
+        Z_HELPER_RUN(zchk_wait_dns_completion(1000, false));
+        Z_HELPER_RUN(zchk_check_resolved_addr(
+            false, local_addr, NET_ADDR_PORT, &_G.ipv4, NULL));
+
+        /* 3. Resolve addr API with port generation. */
+        zchk_start_resolved_addr_test(1);
+        Z_ASSERT_P(zchk_call_addr_resolve_async_b(
+            local_addr, NET_ADDR_PORT, &err), "%*pL", SB_FMT_ARG(&err));
+        Z_HELPER_RUN(zchk_wait_dns_completion(1000, false));
+        Z_HELPER_RUN(zchk_check_resolved_addr(
+            true, local_addr, NET_ADDR_PORT, &_G.ipv4, &_G.ipv6));
+
+        zchk_end_resolved_addr_test();
+        MODULE_RELEASE(thr);
+    } Z_TEST_END;
+
+    Z_TEST(remote_addr_resolution, "remote_addr_resolution") {
+        Z_TEST_FLAGS("slow");
+        MODULE_REQUIRE(thr);
+
+        /* 1. direct API using a block callback. */
+        zchk_start_resolved_addr_test(2);
+        zchk_call_addr_info_async_b(AF_INET, remote_addr, NET_ADDR_PORT);
+        zchk_call_addr_info_async_b(AF_INET6, remote_addr, NET_ADDR_PORT);
+        Z_HELPER_RUN(zchk_wait_dns_completion(10000, false));
+        Z_HELPER_RUN(zchk_check_resolved_addr(
+            false, remote_addr, NET_ADDR_PORT, &_G.ipv4, &_G.ipv6));
+
+        zchk_end_resolved_addr_test();
+        MODULE_RELEASE(thr);
+    } Z_TEST_END;
+
     Z_TEST(sockunion_for_each, "sockunion_for_each") {
         lstr_t ip = LSTR("127.0.0.1:1337");
         SB_1k(sus_buf);
