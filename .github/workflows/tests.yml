@@ -42,11 +42,10 @@ jobs:
           sudo python3 -m pip install --upgrade pip && \
           sudo python3 -m pip install virtualenv
 
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
-      - name: Update PATH for uv
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install asdf
+        uses: asdf-vm/actions/setup@v4
+        with:
+          asdf_branch: v0.15.0  # Keep this version for `asdf plugin-add`
 
       - name: Install waf
         run: |
@@ -81,8 +80,5 @@ jobs:
         env:
           ASAN_OPTIONS: 'handle_segv=0:detect_leaks=1'
 
-      - name: Check with ruff
-        run: waf ruff
-
-      - name: Check with mypy
-        run: waf mypy
+      - name: Static checks
+        run: ./static-checks.sh
