@@ -21,6 +21,8 @@
 #include <lib-common/http.h>
 
 static struct {
+    http_mode_t http_mode;
+
     el_t server;
     httpd_cfg_t *server_cfg;
 
@@ -41,13 +43,13 @@ static struct {
 
     /* for el_wait_until */
     bool el_wait_timed_out;
-} z_http2_g;
+} z_http_g;
 
-#define _G z_http2_g
+#define _G z_http_g
 
-#define HTTP2_TEST_NOACT_DELAY 20 /* msecs */
+#define HTTP_TEST_NOACT_DELAY 20 /* msecs */
 
-static void z_http2_el_wait(el_t ev, data_t data)
+static void z_http_el_wait(el_t ev, data_t data)
 {
     _G.el_wait_timed_out = true;
 }
@@ -55,7 +57,7 @@ static void z_http2_el_wait(el_t ev, data_t data)
 #define el_wait_until(cond, timeout)                                         \
     do {                                                                     \
         el_t __el_tmr = el_timer_register(timeout, EL_TIMER_LOWRES, 0,       \
-                                          &z_http2_el_wait, NULL);           \
+                                          &z_http_el_wait, NULL);            \
                                                                              \
         _G.el_wait_timed_out = false;                                        \
         while (!((cond) || _G.el_wait_timed_out)) {                          \
@@ -66,7 +68,7 @@ static void z_http2_el_wait(el_t ev, data_t data)
 
 /* {{{ Tests */
 
-static void z_http2_hello_generate_response(int len)
+static void z_http_hello_generate_response(int len)
 {
     static const char hello[] = "abcdefghijklmnopqrstuvwxyz";
     int sz = strlen(hello);
@@ -79,7 +81,7 @@ static void z_http2_hello_generate_response(int len)
     lstr_transfer_sb(&_G.hello_response, &sb, false);
 }
 
-static void z_http2_hello_query_reply(httpd_query_t *q)
+static void z_http_hello_query_reply(httpd_query_t *q)
 {
     outbuf_t *ob;
 
@@ -93,40 +95,40 @@ static void z_http2_hello_query_reply(httpd_query_t *q)
     httpd_reply_done(q);
 }
 
-static void z_http2_hello_query_reply_async(el_t ev, data_t data)
+static void z_http_hello_query_reply_async(el_t ev, data_t data)
 {
     httpd_query_t *q = data.ptr;
 
     if (q->owner) { /* Connection is still alive. */
-        z_http2_hello_query_reply(q);
+        z_http_hello_query_reply(q);
     }
     obj_release(&q);
 }
 
-static void z_http2_hello_query_on_done(httpd_query_t *q)
+static void z_http_hello_query_on_done(httpd_query_t *q)
 {
     obj_retain(q);
 
     if (_G.response_time >= 0) {
         el_timer_register(_G.response_time, 0, EL_TIMER_LOWRES,
-                          &z_http2_hello_query_reply_async, q);
+                          &z_http_hello_query_reply_async, q);
         return;
     }
 
-    z_http2_hello_query_reply(q);
+    z_http_hello_query_reply(q);
     obj_release(&q);
 }
 
 static void
-z_http2_hello_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
-                         const httpd_qinfo_t *qi)
+z_http_hello_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
+                        const httpd_qinfo_t *qi)
 {
-    q->on_done = z_http2_hello_query_on_done;
+    q->on_done = z_http_hello_query_on_done;
     q->qinfo = httpd_qinfo_dup(qi);
     httpd_bufferize(q, 1 << 20);
 }
 
-static void z_http2_post_query_on_done(httpd_query_t *q)
+static void z_http_post_query_on_done(httpd_query_t *q)
 {
     /* Send response headers */
     httpd_reply_hdrs_start(q, HTTP_CODE_NO_CONTENT, true);
@@ -136,50 +138,50 @@ static void z_http2_post_query_on_done(httpd_query_t *q)
 }
 
 static void
-z_http2_post_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
-                         const httpd_qinfo_t *qi)
+z_http_post_query_hook(httpd_trigger_t *tcb, struct httpd_query_t *q,
+                       const httpd_qinfo_t *qi)
 {
-    q->on_done = z_http2_post_query_on_done;
+    q->on_done = z_http_post_query_on_done;
     q->qinfo = httpd_qinfo_dup(qi);
     httpd_bufferize(q, 1 << 20);
 }
 
-static void z_http2_default_httpd_cfg(void)
+static void z_http_default_httpd_cfg(unsigned max_queries)
 {
     httpd_cfg_t *cfg = httpd_cfg_new();
 
-    cfg->mode = HTTP_MODE_USE_HTTP2_ONLY;
+    cfg->mode = _G.http_mode;
     cfg->max_conns = 1;
-    cfg->max_queries = 1;
+    cfg->max_queries = max_queries;
     cfg->pipeline_depth = 1;
-    cfg->noact_delay = HTTP2_TEST_NOACT_DELAY;
+    cfg->noact_delay = HTTP_TEST_NOACT_DELAY;
 
     _G.hello = httpd_trigger_new();
-    _G.hello->cb = z_http2_hello_query_hook;
+    _G.hello->cb = z_http_hello_query_hook;
     httpd_trigger_register(cfg, GET, "hello", _G.hello);
 
     _G.post = httpd_trigger_new();
-    _G.post->cb = z_http2_post_query_hook;
+    _G.post->cb = z_http_post_query_hook;
     httpd_trigger_register(cfg, POST, "post", _G.post);
 
     httpd_cfg_delete(&_G.server_cfg);
     _G.server_cfg = cfg;
 }
 
-static void z_http2_default_httpc_cfg(void)
+static void z_http_default_httpc_cfg(unsigned max_queries)
 {
     httpc_cfg_t *cfg = httpc_cfg_new();
 
-    cfg->http_mode = HTTP_MODE_USE_HTTP2_ONLY;
-    cfg->max_queries = 10;
+    cfg->http_mode = _G.http_mode;
+    cfg->max_queries = max_queries;
     cfg->pipeline_depth = 1;
-    cfg->noact_delay = HTTP2_TEST_NOACT_DELAY;
+    cfg->noact_delay = HTTP_TEST_NOACT_DELAY;
 
     _G.client_cfg = cfg;
 }
 
 static void
-z_http2_hello_query_on_done_client(httpc_query_t *q, httpc_status_t st)
+z_http_hello_query_on_done_client(httpc_query_t *q, httpc_status_t st)
 {
     _G.query_answered = true;
     _G.query_sent = false;
@@ -192,13 +194,13 @@ z_http2_hello_query_on_done_client(httpc_query_t *q, httpc_status_t st)
     httpc_query_wipe(q);
 }
 
-static void z_http2_hello_query_send(void)
+static void z_http_hello_query_send(void)
 {
     httpc_query_t *q = &_G.query;
 
     httpc_query_init(q);
     httpc_bufferize(q, 1 << 20);
-    q->on_done = &z_http2_hello_query_on_done_client;
+    q->on_done = &z_http_hello_query_on_done_client;
 
     httpc_query_attach(q, _G.client);
     httpc_query_start(q, HTTP_METHOD_GET, LSTR("localhost"), LSTR("/hello"));
@@ -209,13 +211,13 @@ static void z_http2_hello_query_send(void)
     _G.query_answered = false;
 }
 
-static void z_http2_post_query_send(void)
+static void z_http_post_query_send(void)
 {
     httpc_query_t *q = &_G.query;
 
     httpc_query_init(q);
     httpc_bufferize(q, 1 << 20);
-    q->on_done = &z_http2_hello_query_on_done_client;
+    q->on_done = &z_http_hello_query_on_done_client;
 
     httpc_query_attach(q, _G.client);
     httpc_query_start(q, HTTP_METHOD_POST, LSTR("localhost"), LSTR("/post"));
@@ -226,25 +228,25 @@ static void z_http2_post_query_send(void)
     _G.query_answered = false;
 }
 
-static int z_http2_connect_client(void)
+static int z_http_connect_client(unsigned max_queries)
 {
     sockunion_t su;
 
     Z_ASSERT_N(addr_resolve("test", LSTR("127.0.0.1:1"), &su));
 
-    if (getenv("Z_HTTP2_FIX_PORT")) {
+    if (getenv("Z_HTTP_FIX_PORT")) {
         /* Occasionally, this helps in debug or network traces */
         sockunion_setport(&su, 1080);
     } else {
         sockunion_setport(&su, 0);
     }
 
-    z_http2_default_httpd_cfg();
+    z_http_default_httpd_cfg(max_queries);
 
     _G.server = httpd_listen(&su, _G.server_cfg);
     Z_ASSERT_P(_G.server);
 
-    z_http2_default_httpc_cfg();
+    z_http_default_httpc_cfg(max_queries);
 
     sockunion_setport(&su, getsockport(el_fd_get_fd(_G.server), AF_INET));
 
@@ -258,11 +260,11 @@ static int z_http2_connect_client(void)
 }
 
 static int
-z_http2_do_simple_post(void)
+z_http_do_simple_post(void)
 {
-    Z_HELPER_RUN(z_http2_connect_client());
+    Z_HELPER_RUN(z_http_connect_client(1));
 
-    z_http2_post_query_send();
+    z_http_post_query_send();
 
     el_wait_until(_G.query_answered, 100);
     Z_ASSERT(_G.query_answered);
@@ -274,7 +276,7 @@ z_http2_do_simple_post(void)
     httpc_cfg_delete(&_G.client_cfg);
     httpd_unlisten(&_G.server);
 
-    /* Wait to allow the transporting http2 to finalize. */
+    /* Wait to allow the transporting http to finalize. */
     el_wait_until(false, 100);
     Z_ASSERT(!el_has_pending_events());
 
@@ -282,11 +284,11 @@ z_http2_do_simple_post(void)
 }
 
 static int
-z_http2_do_simple_query(bool delayed, unsigned delay, unsigned repeat)
+z_http_do_simple_query(bool delayed, unsigned delay, unsigned repeat)
 {
-    Z_HELPER_RUN(z_http2_connect_client());
+    Z_HELPER_RUN(z_http_connect_client(repeat));
 
-    z_http2_hello_generate_response(1024);
+    z_http_hello_generate_response(1024);
 
     if (!delayed) {
         _G.response_time = -1;
@@ -298,7 +300,7 @@ z_http2_do_simple_query(bool delayed, unsigned delay, unsigned repeat)
     Z_ASSERT_LE(repeat, _G.client_cfg->max_queries);
 
     for (unsigned i = 0; i < repeat; i++) {
-        z_http2_hello_query_send();
+        z_http_hello_query_send();
 
         el_wait_until(_G.query_answered, 100);
         Z_ASSERT(_G.query_answered);
@@ -311,42 +313,57 @@ z_http2_do_simple_query(bool delayed, unsigned delay, unsigned repeat)
 
     lstr_wipe(&_G.hello_response);
 
-    /* Wait to allow the transporting http2 to finalize. */
+    /* The http2 layer acts as a transport layer for the upper layer
+     * (our http1.x api layer).
+     * We need to wait for the hidden layer of connections on its
+     * shutdown sequence to allow the transporting http to finalize.
+     */
     el_wait_until(false, 100);
     Z_ASSERT(!el_has_pending_events());
 
     Z_HELPER_END;
 }
 
-Z_GROUP_EXPORT(http2) {
+static void z_http_tests(http_mode_t http_mode)
+{
+    _G.http_mode = http_mode;
 
     Z_TEST(no_query, "no query") {
-        Z_HELPER_RUN(z_http2_do_simple_query(false, 0, 0));
+        Z_HELPER_RUN(z_http_do_simple_query(false, 0, 0));
     } Z_TEST_END;
 
     Z_TEST(simple_query, "simple query") {
-        Z_HELPER_RUN(z_http2_do_simple_query(false, 0, 1));
-        /* repeat the query 10 times in a single run */
-        Z_HELPER_RUN(z_http2_do_simple_query(false, 0, 10));
+        Z_HELPER_RUN(z_http_do_simple_query(false, 0, 1));
+
+        /* Repeat the query 10 times in a single run. */
+        Z_HELPER_RUN(z_http_do_simple_query(false, 0, 10));
     } Z_TEST_END;
 
     Z_TEST(simple_query_async, "simple query (async delayed 10 ms)") {
-        Z_HELPER_RUN(z_http2_do_simple_query(true, 10,  1));
-        /* repeat the query 10 times in a single run */
-        Z_HELPER_RUN(z_http2_do_simple_query(true, 10, 10));
+        Z_HELPER_RUN(z_http_do_simple_query(true, 10,  1));
+
+        /* Repeat the query 10 times in a single run. */
+        Z_HELPER_RUN(z_http_do_simple_query(true, 10, 10));
     } Z_TEST_END;
 
     Z_TEST(simple_query_async_no_delay, "simple_query (async no delay)") {
-        Z_HELPER_RUN(z_http2_do_simple_query(true, 0, 1));
-        /* repeat the query 10 times in a single run */
-        Z_HELPER_RUN(z_http2_do_simple_query(true, 0, 10));
+        Z_HELPER_RUN(z_http_do_simple_query(true, 0, 1));
+
+        /* Repeat the query 10 times in a single run. */
+        Z_HELPER_RUN(z_http_do_simple_query(true, 0, 10));
     } Z_TEST_END;
 
     Z_TEST(simple_post, "simple post") {
-        Z_HELPER_RUN(z_http2_do_simple_post());
+        Z_HELPER_RUN(z_http_do_simple_post());
     } Z_TEST_END;
+}
 
+Z_GROUP_EXPORT(http) {
+    z_http_tests(HTTP_MODE_USE_HTTP1X_ONLY);
+} Z_GROUP_END;
 
+Z_GROUP_EXPORT(http2) {
+    z_http_tests(HTTP_MODE_USE_HTTP2_ONLY);
 } Z_GROUP_END;
 
 /* }}} */

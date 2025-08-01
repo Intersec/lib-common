@@ -47,7 +47,7 @@ ctx.program(target='zchk', depends_on=[
     'zchk-hash.c',
     'zchk-hat.blk',
     'zchk-hpack.c',
-    'zchk-http2.c',
+    'zchk-http.c',
     'zchk-h2spec.blk',
     'zchk-qps-bitmap.c',
     'zchk-iop.blk',
