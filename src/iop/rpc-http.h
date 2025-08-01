@@ -635,10 +635,11 @@ typedef struct {
 qvector_t(http_iop_channel_remote, http_iop_channel_remote_t *);
 
 /** Callback called when a connection to a remote cannot be established. */
-typedef void (*on_connection_error_f)(http_iop_channel_remote_t *remote,
-                                      int errnum);
+typedef void (*http_iop_on_connection_error_f)(
+    http_iop_channel_remote_t *remote, int errnum);
+
 /** Callback called when a connection of the channel is ready. */
-typedef void (*on_ready_f)(http_iop_channel_t *);
+typedef void (*http_iop_on_ready_f)(http_iop_channel_t *);
 
 struct http_iop_channel_t {
     lstr_t name;
@@ -659,8 +660,8 @@ struct http_iop_channel_t {
     uint32_t response_max_size;
     bool     encode_url;
 
-    on_connection_error_f on_connection_error_cb;
-    on_ready_f            on_ready_cb;
+    http_iop_on_connection_error_f nullable on_connection_error_cb;
+    http_iop_on_ready_f            nullable on_ready_cb;
 
     uint32_t connection_timeout_msec;
     el_t     queries_conn_timeout_el;
@@ -742,10 +743,10 @@ typedef struct http_iop_channel_cfg_t {
     lstr_t password;
 
     /** On connection error callback. */
-    on_connection_error_f nullable on_connection_error_cb;
+    http_iop_on_connection_error_f nullable on_connection_error_cb;
 
     /** On connection ready callback. */
-    on_ready_f nullable on_ready_cb;
+    http_iop_on_ready_f nullable on_ready_cb;
 
     /** User defined data associated with this channel. */
     void * nullable priv;
