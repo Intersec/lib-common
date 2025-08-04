@@ -232,6 +232,10 @@ void __t_ichttp_query_on_done_stage2(httpd_query_t *q, ichttp_cb_t *cbe,
         hdr->simple.host = httpd_get_peer_address(q->owner);
     }
 
+    if (tcb->on_query_done && (*tcb->on_query_done)(tcb, iq) < 0) {
+        return;
+    }
+
     e = &cbe->e;
     if (t_ic_query_do_pre_hook(NULL, slot, e, hdr, &hdr_modified) < 0) {
         return;
@@ -559,7 +563,6 @@ __ichttp_reply(uint64_t slot, int cmd, const iop_struct_t *st, const void *v)
 
     ob = httpd_reply_hdrs_start(q, code, true);
 
-
     if (iq->json) {
         ob_adds(ob, "Content-Type: application/json; charset=utf-8\r\n");
     } else {
@@ -576,6 +579,11 @@ __ichttp_reply(uint64_t slot, int cmd, const iop_struct_t *st, const void *v)
         /* Ignore compress we don't support it */
         gzenc = 0;
     }
+
+    if (tcb->on_reply_http_headers) {
+        (*tcb->on_reply_http_headers)(tcb, iq, code);
+    }
+
     httpd_reply_hdrs_done(q, -1, false);
     oblen = ob->length;
 
@@ -603,13 +611,15 @@ __ichttp_reply(uint64_t slot, int cmd, const iop_struct_t *st, const void *v)
     outbuf_sb_end(ob, oldlen);
 
     oblen = ob->length - oblen;
-    if (tcb->on_reply)
+    if (tcb->on_reply) {
         (*tcb->on_reply)(tcb, iq, oblen, code);
+    }
     httpd_reply_done(q);
 }
 
 void __ichttp_reply_soap_err(uint64_t slot, bool serverfault, const lstr_t *err)
 {
+    http_code_t code = HTTP_CODE_INTERNAL_SERVER_ERROR;
     ichttp_query_t *iq = ichttp_slot_to_query(slot);
     httpd_query_t  *q  = obj_vcast(httpd_query, iq);
     httpd_trigger__ic_t *tcb;
@@ -619,18 +629,21 @@ void __ichttp_reply_soap_err(uint64_t slot, bool serverfault, const lstr_t *err)
     size_t oblen;
     xmlpp_t pp;
 
+    tcb = container_of(iq->trig_cb, ichttp_trigger_cb_t, cb);
     assert (!iq->json);
 
     /* SOAP specifies that failing queries must return error code
      * INTERNAL_SERVER_ERROR. */
     __ichttp_err_ctx_set(*err);
-    ob = httpd_reply_hdrs_start(q, HTTP_CODE_INTERNAL_SERVER_ERROR, true);
+    ob = httpd_reply_hdrs_start(q, code, true);
     ob_adds(ob, "Content-Type: text/xml; charset=utf-8\r\n");
+    if (tcb->on_reply_http_headers) {
+        (*tcb->on_reply_http_headers)(tcb, iq, code);
+    }
     httpd_reply_hdrs_done(q, -1, false);
     oblen = ob->length;
 
     out = outbuf_sb_start(ob, &oldlen);
-    tcb = container_of(iq->trig_cb, ichttp_trigger_cb_t, cb);
 
     xmlpp_open_banner(&pp, out);
     pp.nospace = true;
@@ -652,8 +665,9 @@ void __ichttp_reply_soap_err(uint64_t slot, bool serverfault, const lstr_t *err)
     outbuf_sb_end(ob, oldlen);
 
     oblen = ob->length - oblen;
-    if (tcb->on_reply)
-        (*tcb->on_reply)(tcb, iq, oblen, HTTP_CODE_INTERNAL_SERVER_ERROR);
+    if (tcb->on_reply) {
+        (*tcb->on_reply)(tcb, iq, oblen, code);
+    }
     httpd_reply_done(q);
     __ichttp_err_ctx_clear();
 }

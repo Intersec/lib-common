@@ -108,9 +108,28 @@ typedef struct httpd_trigger__ic_t {
     unsigned                 jpack_flags;
     unsigned                 unpack_flags;
 
-    void (* nonnull on_reply)(const struct httpd_trigger__ic_t * nonnull,
-                              const ichttp_query_t * nonnull, size_t res_size,
-                              http_code_t res_code);
+    /** Callback to manually process the query.
+     *
+     * It is called just before the pre-hook.
+     * If it returns an error, the callback must call `httpd_reject()`.
+     */
+    int (* nullable on_query_done)(
+        const struct httpd_trigger__ic_t * nonnull tcb,
+        ichttp_query_t * nonnull iq);
+
+    /** Callback to add HTTP headers on reply.
+     *
+     * It is called just before closing the headers.
+     */
+    void (* nullable on_reply_http_headers)(
+        const struct httpd_trigger__ic_t * nonnull tcb,
+        ichttp_query_t * nonnull iq, http_code_t res_code);
+
+    /** Callback just before sending the reply. */
+    void (* nullable on_reply)(
+        const struct httpd_trigger__ic_t * nonnull tcb,
+        const ichttp_query_t * nonnull iq, size_t res_size,
+        http_code_t res_code);
 } httpd_trigger__ic_t;
 
 /* compat for qrrd */
