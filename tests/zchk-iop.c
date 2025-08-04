@@ -1582,10 +1582,8 @@ static int z_dso_open(const char *dso_path, bool in_cmddir,
         path = t_lstr_cat(z_cmddir_g, path);
     }
     dso = iop_dso_open(iop_env, path.s, &err);
-    if (dso == NULL) {
-        Z_ASSERT_P(dso, "unable to load `%s`: %*pM",
-                   path.s, SB_FMT_ARG(&err));
-    }
+    Z_ASSERT_P(dso, "unable to load `%s`: %*pM",
+               path.s, SB_FMT_ARG(&err));
 
     *dsop = dso;
     Z_HELPER_END;
@@ -1612,6 +1610,22 @@ static int z_check_static_field_type(const iop_struct_t *st,
                LSTR_FMT_ARG(name), LSTR_FMT_ARG(st->fullname));
     Z_ASSERT_EQ((int)type, iop_class_static_field_type(st, static_field),
                 "expected type `%s`", type_name);
+
+    Z_HELPER_END;
+}
+
+static int z_iop_env_is_empty(const iop_env_t *iop_env)
+{
+    const iop_env_ctx_t *ctx = iop_env_get_ctx(iop_env);
+
+    Z_ASSERT_EQ(qm_len(iop_class_by_id, &ctx->classes_by_id), 0);
+    Z_ASSERT_EQ(qm_len(iop_dso_by_pkg, &ctx->dso_by_pkg), 0);
+    Z_ASSERT_EQ(qm_len(iop_env_struct, &ctx->struct_by_fullname), 0);
+    Z_ASSERT_EQ(qm_len(iop_enum, &ctx->enum_by_fullname), 0);
+    Z_ASSERT_EQ(qm_len(iop_typedef, &ctx->typedef_by_fullname), 0);
+    Z_ASSERT_EQ(qm_len(iop_iface, &ctx->iface_by_fullname), 0);
+    Z_ASSERT_EQ(qm_len(iop_mod, &ctx->mod_by_fullname), 0);
+    Z_ASSERT_EQ(qm_len(iop_pkg, &ctx->pkg_by_fullname), 0);
 
     Z_HELPER_END;
 }
@@ -9930,6 +9944,42 @@ Z_GROUP_EXPORT(iop)
         iop_env_delete(&iop_env_backward_old);
         iop_env_delete(&iop_env_backward_new);
         iop_env_delete(&iop_env_tstiop);
+    } Z_TEST_END;
+    /* }}} */
+    Z_TEST(iop_dso_unregister, "test IOP DSO unregister do not pollute the IOP env") { /* {{{ */
+        iop_env_t *iop_env;
+        iop_dso_t *dso_backward_old;
+        iop_dso_t *dso_backward_new;
+
+        /* Create the test environment */
+        iop_env = iop_env_new();
+
+        /* Open the old DSO */
+        Z_HELPER_RUN(z_dso_open(
+            "iop/backward-compat/old/zchk-tstiop-backward-"
+            "compat-typedef-old" SO_FILEEXT, true, iop_env,
+            &dso_backward_old));
+
+        /* Close the old DSO */
+        iop_dso_close(&dso_backward_old);
+
+        /* The IOP env should be empty */
+        Z_HELPER_RUN(z_iop_env_is_empty(iop_env));
+
+        /* Open the new DSO, this should not conflict with the old DSO */
+        Z_HELPER_RUN(z_dso_open(
+            "iop/backward-compat/new/zchk-tstiop-backward-"
+            "compat-typedef-new" SO_FILEEXT, true, iop_env,
+            &dso_backward_new));
+
+        /* Close the new DSO */
+        iop_dso_close(&dso_backward_new);
+
+        /* The IOP env should be empty */
+        Z_HELPER_RUN(z_iop_env_is_empty(iop_env));
+
+        /* Clean up the env */
+        iop_env_delete(&iop_env);
     } Z_TEST_END;
     /* }}} */
 

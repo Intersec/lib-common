@@ -78,3 +78,14 @@ typedef MyClass1After MyClass1AfterTd;
 class MyClass2After : 2 : MyClassEmpty {
     int int2;
 };
+
+interface MyIface {
+    fun
+        in (string a, string? b)
+        out (string a, string? b)
+        throw VoidStruct;
+};
+
+module MyMod {
+    MyIface myIface;
+};

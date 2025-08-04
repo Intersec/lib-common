@@ -95,3 +95,14 @@ class MyClassEmpty : 5 : MyClass1After {
 class MyClass2After : 2 : MyClassEmpty {
     int int2;
 };
+
+interface MyIface {
+    fun
+        in (string a)
+        out (string a)
+        throw VoidStruct;
+};
+
+module MyMod {
+    MyIface myIface;
+};

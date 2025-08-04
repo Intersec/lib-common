@@ -7046,7 +7046,7 @@ static int iop_unregister_struct_from_rpc(
 {
     pstream_t ps = ps_initlstr(&st->fullname);
 
-    if (ps_skiplstr(&ps, iface->fullname) < 0) {
+    if (ps_skiplstr(&ps, iface->fullname) < 0 || ps_skipc(&ps, '.') < 0) {
         /* The struct does not start with iface name, this is not a struct
          * created specially for the rpc. */
         return -1;
