@@ -44,6 +44,7 @@ static void http_iop_msg_wipe(http_iop_msg_t *query)
     httpc_query_wipe(&query->query);
     lstr_wipe(&query->user);
     lstr_wipe(&query->password);
+    lstr_wipe(&query->http_headers);
     p_delete(&query->args);
 }
 
@@ -429,6 +430,9 @@ static void http_iop_start_msg(http_iop_channel_t *channel,
 
     ob = httpc_get_ob(&msg->query);
     ob_adds(ob, "Content-Type: application/json\r\n");
+    if (msg->http_headers.len) {
+        ob_addlstr(ob, msg->http_headers);
+    }
     httpc_query_hdrs_done(&msg->query, -1, false);
     iop_sb_jpack(&query_data, msg->rpc->args, args, 0);
     ob_addsb(ob, &query_data);

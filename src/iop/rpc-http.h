@@ -606,11 +606,22 @@ struct http_iop_msg_t {
      * If not set, then it will use the user/pwd in http_iop_channel_t,
      * if they exist.
      *
-     * XXX http_iop_msg owns user and password, thus handle the deallocation.
+     * XXX `http_iop_msg_t` owns user and password, thus handle the
+     *     deallocation.
      *     You should allocate the memory when setting them.
      */
     lstr_t user;
     lstr_t password;
+
+    /** The optional list of HTTP headers to add to the queries.
+     *
+     * Each header must follow the format "Name: Value\r\n".
+     *
+     * XXX `http_iop_msg_t` owns this value, thus handle the
+     *     deallocation.
+     *     You should allocate the memory when setting them.
+     */
+    lstr_t http_headers;
 
     /** User defined data associated with the query. */
     byte priv[];
