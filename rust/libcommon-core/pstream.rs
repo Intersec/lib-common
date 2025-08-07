@@ -25,7 +25,8 @@ use std::ptr;
 use std::slice::from_raw_parts;
 use std::str::{FromStr, Utf8Error};
 
-use crate::bindings::{lstr_t, pstream_t__bindgen_ty_1, pstream_t__bindgen_ty_2};
+use crate::bindings::{pstream_t__bindgen_ty_1, pstream_t__bindgen_ty_2};
+use crate::lstr::{self, AsRaw as _, lstr_t};
 
 #[allow(clippy::module_name_repetitions)]
 pub use crate::bindings::pstream_t;
@@ -121,13 +122,13 @@ impl From<&str> for pstream_t {
 
 impl From<lstr_t> for pstream_t {
     fn from(lstr: lstr_t) -> Self {
-        pstream_t::from_bytes(&lstr)
+        pstream_t::from_bytes(unsafe { lstr.as_bytes() })
     }
 }
 
 impl From<pstream_t> for lstr_t {
     fn from(ps: pstream_t) -> Self {
-        lstr_t::from_bytes(&ps)
+        unsafe { lstr::from_bytes(&ps).as_raw() }
     }
 }
 

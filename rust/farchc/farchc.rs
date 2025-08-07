@@ -29,7 +29,7 @@ use std::process::exit;
 use clap::Parser;
 
 use libcommon_core::bindings::{lstr_obfuscate, lzo_cbuf_size, qlzo1x_compress};
-use libcommon_core::lstr::lstr_t;
+use libcommon_core::lstr::{self, AsRaw as _};
 use libcommon_core::pstream::pstream_t;
 
 const PATHMAX: i32 = 4096;
@@ -76,11 +76,11 @@ fn put_chunk(chunk: &[u8], output: &mut dyn Write) {
 }
 
 fn obfuscate_data(data: &[u8], key: u64, output: &[u8]) {
-    let src: lstr_t = data.into();
-    let dst: lstr_t = output.into();
+    let src = lstr::from_bytes(data);
+    let dst = lstr::from_bytes(output);
 
     unsafe {
-        lstr_obfuscate(src, key, dst);
+        lstr_obfuscate(src.as_raw(), key, dst.as_raw());
     }
 }
 

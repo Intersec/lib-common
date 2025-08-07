@@ -30,7 +30,7 @@ use crate::bindings::{
     log_get_module, lstr_obfuscate, module_implement, module_register, module_t, pstream_t,
     qlzo1x_decompress_safe,
 };
-use crate::lstr::lstr_t;
+use crate::lstr::{self, AsRaw, lstr_t};
 use crate::mem_stack::TScope;
 
 #[allow(clippy::module_name_repetitions)]
@@ -44,21 +44,21 @@ static FARCH_PERSISTED: Mutex<Option<HashMap<usize, Vec<u8>>>> = Mutex::new(None
 // }}}
 // {{{ Helpers
 
-fn lstr_unobfuscate(in_: lstr_t, key: u64, out: lstr_t) {
-    unsafe { lstr_obfuscate(in_, key, out) }
+fn lstr_unobfuscate(in_: &impl AsRaw, key: u64, out: &impl AsRaw) {
+    unsafe { lstr_obfuscate(in_.as_raw(), key, out.as_raw()) }
 }
 
 // }}}
 // {{{ Private functions
 
 /// Unobfuscate and get the filename of an entry as a buffer and `lstr_t`.
-fn farch_get_filename_tuple(entry: &farch_entry_t) -> (Vec<u8>, lstr_t) {
+fn farch_get_filename_buf(entry: &farch_entry_t) -> Vec<u8> {
     let name_buf = vec![0u8; entry.name.len()];
-    let name_lstr = lstr_t::from_bytes(&name_buf);
+    let name_lstr = lstr::from_bytes(&name_buf);
 
-    lstr_unobfuscate(entry.name, entry.nb_chunks as u64, name_lstr);
+    lstr_unobfuscate(&entry.name, entry.nb_chunks as u64, &name_lstr);
 
-    (name_buf, name_lstr)
+    name_buf
 }
 
 /// Aggregate and unobfuscate all the chuncks of an entry.
@@ -71,7 +71,7 @@ fn farch_aggregate(entry: &farch_entry_t) -> Option<Vec<u8>> {
         let chunk = unsafe { *entry.chunks.add(i) };
         let chunk_len = chunk.len();
         let content_chunk = &contents[compressed_size..(compressed_size + chunk_len)];
-        let content_chunk_lstr: lstr_t = content_chunk.into();
+        let content_chunk_lstr = lstr::from_bytes(content_chunk);
 
         compressed_size += chunk_len;
         if compressed_size > entry_compressed_size {
@@ -79,7 +79,7 @@ fn farch_aggregate(entry: &farch_entry_t) -> Option<Vec<u8>> {
             return None;
         }
 
-        lstr_unobfuscate(chunk, chunk.len as u64, content_chunk_lstr);
+        lstr_unobfuscate(&chunk, chunk.len as u64, &content_chunk_lstr);
     }
 
     if compressed_size != entry_compressed_size {
@@ -128,7 +128,8 @@ fn farch_unarchive_buf(entry: &farch_entry_t) -> Vec<u8> {
     let res_opt = farch_unarchive_opt(entry);
 
     res_opt.unwrap_or_else(|| {
-        let (_name_buf, name_lstr) = farch_get_filename_tuple(entry);
+        let name_buf = farch_get_filename_buf(entry);
+        let name_lstr = lstr::from_bytes(&name_buf);
         panic!("cannot uncompress farch entry `{name_lstr}`");
     })
 }
@@ -142,7 +143,7 @@ unsafe fn farch_get_entry(
         return unsafe { files.as_ref() };
     }
 
-    let name_lstr = unsafe { lstr_t::from_ptr(name) };
+    let name_lstr = unsafe { lstr::from_ptr(name) };
     let mut files = files;
 
     loop {
@@ -151,7 +152,8 @@ unsafe fn farch_get_entry(
             break;
         }
 
-        let (_entry_name_buf, entry_name_lstr) = farch_get_filename_tuple(current_entry);
+        let entry_name_buf = farch_get_filename_buf(current_entry);
+        let entry_name_lstr = lstr::from_bytes(&entry_name_buf);
         if name_lstr.equals(&entry_name_lstr) {
             return Some(current_entry);
         }
@@ -175,7 +177,7 @@ fn farch_unarchive_persist_ref(entry: &farch_entry_t) -> lstr_t {
         .entry(entry_addr)
         .or_insert_with(|| farch_unarchive_buf(entry));
 
-    lstr_t::from_bytes(persisted_buf)
+    unsafe { lstr::from_bytes(persisted_buf).as_raw() }
 }
 
 // }}}
@@ -199,10 +201,10 @@ pub unsafe extern "C" fn farch_get_filename(
         return ptr::null_mut();
     }
 
-    let out = lstr_t::from_ptr_and_len(name_outbuf, entry.name.len());
+    let out = lstr::from_ptr_and_len(name_outbuf, entry.name.len());
 
     // Deobfuscate the name.
-    lstr_unobfuscate(entry.name, entry.nb_chunks as u64, out);
+    lstr_unobfuscate(&entry.name, entry.nb_chunks as u64, &out);
 
     // Ensure that the name ends with a null character.
     unsafe {
@@ -222,9 +224,9 @@ pub unsafe extern "C" fn t_farch_unarchive(entry: *const farch_entry_t) -> lstr_
     let entry: &farch_entry_t = unsafe { entry.as_ref().expect("entry should be a valid pointer") };
 
     let res_buf = farch_unarchive_buf(entry);
-    let res_lstr = lstr_t::from_bytes(&res_buf);
+    let res_lstr = lstr::from_bytes(&res_buf);
     let t_scope = TScope::from_parent();
-    res_lstr.t_dup(&t_scope)
+    unsafe { res_lstr.t_dup(&t_scope).as_raw() }
 }
 
 #[allow(
@@ -252,13 +254,13 @@ pub unsafe extern "C" fn t_farch_get_data(
     let entry = unsafe { farch_get_entry(files, name) };
 
     let Some(entry) = entry else {
-        return lstr_t::null();
+        return lstr::null();
     };
 
     let res_buf = farch_unarchive_buf(entry);
-    let res_lstr = lstr_t::from_bytes(&res_buf);
+    let res_lstr = lstr::from_bytes(&res_buf);
     let t_scope = TScope::from_parent();
-    res_lstr.t_dup(&t_scope)
+    unsafe { res_lstr.t_dup(&t_scope).as_raw() }
 }
 
 #[allow(
@@ -274,7 +276,7 @@ pub unsafe extern "C" fn farch_get_data_persist(
     let entry = unsafe { farch_get_entry(files, name) };
 
     let Some(entry) = entry else {
-        return lstr_t::null();
+        return lstr::null();
     };
 
     farch_unarchive_persist_ref(entry)
@@ -302,7 +304,7 @@ extern "C" fn farch_shutdown() -> c_int {
 pub extern "C" fn farch_get_module() -> *mut module_t {
     unsafe {
         if FARCH_MODULE.is_null() {
-            FARCH_MODULE = module_register("farchc".into());
+            FARCH_MODULE = module_register(lstr::raw("farchc"));
         }
         FARCH_MODULE
     }

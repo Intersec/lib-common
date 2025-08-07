@@ -16,36 +16,26 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! This module is used to export the functions and types of `libcommon-minimal`.
-//! Do not use it directly.
-//! Use `libcommon` instead.
-//! The different modules are reexported in `libcommon`.
+//! Utility helpers functions.
 
-pub mod bindings {
-    #![allow(
-        warnings,
-        deprecated_safe,
-        future_incompatible,
-        keyword_idents,
-        let_underscore,
-        nonstandard_style,
-        refining_impl_trai,
-        rust_2018_compatibility,
-        rust_2018_idioms,
-        rust_2021_compatibility,
-        rust_2024_compatibility,
-        unused,
-        clippy::all,
-        clippy::pedantic,
-        clippy::restriction
-    )]
-    include!(concat!(env!("PKG_WAF_BUILD_DIR"), "/bindings.rs"));
+use std::ptr::NonNull;
+use std::slice::from_raw_parts;
+
+/// Create a slice from a potential null pointer and length.
+///
+/// `std::slice::from_raw_parts()` must be used with a non-null pointer.
+/// If the pointer is null, use a dandling non-null pointer.
+///
+/// # Safety
+///
+/// See `from_raw_parts.html#safety`, except that `data` can be null.
+pub const unsafe fn slice_from_nullable_raw_parts<'a, T>(data: *const T, len: usize) -> &'a [T] {
+    let mut data = data;
+
+    if data.is_null() {
+        assert!(len == 0); // rust-lang#119826
+        data = NonNull::dangling().as_ptr();
+    }
+
+    unsafe { from_raw_parts(data, len) }
 }
-
-pub mod farch;
-pub mod helpers;
-pub mod lstr;
-pub mod mem_stack;
-pub mod pstream;
-pub mod sb;
-pub mod thr;

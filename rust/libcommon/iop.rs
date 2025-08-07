@@ -32,7 +32,10 @@ use crate::bindings::{
     t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
 };
 
-use crate::{mem_stack::TScope, pstream::pstream_t, sb::SbStack};
+use crate::lstr::{self, AsRaw as _};
+use crate::mem_stack::TScope;
+use crate::pstream::pstream_t;
+use crate::sb::SbStack;
 
 // {{{ Errors
 
@@ -234,7 +237,8 @@ impl Env<'_> {
 
     /// Get a IOP struct or union from its fullname.
     pub fn get_struct_desc(&self, fullname: &str) -> Option<*const iop_struct_t> {
-        let res = unsafe { iop_env_get_struct(self.env, fullname.into()) };
+        let fullname_lstr = lstr::from_str(fullname);
+        let res = unsafe { iop_env_get_struct(self.env, fullname_lstr.as_raw()) };
 
         if res.is_null() {
             return None;
