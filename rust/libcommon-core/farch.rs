@@ -224,7 +224,7 @@ pub unsafe extern "C" fn t_farch_unarchive(entry: *const farch_entry_t) -> lstr_
     let res_buf = farch_unarchive_buf(entry);
     let res_lstr = lstr_t::from_bytes(&res_buf);
     let t_scope = TScope::from_parent();
-    t_scope.t_clone(&res_lstr)
+    res_lstr.t_dup(&t_scope)
 }
 
 #[allow(
@@ -258,7 +258,7 @@ pub unsafe extern "C" fn t_farch_get_data(
     let res_buf = farch_unarchive_buf(entry);
     let res_lstr = lstr_t::from_bytes(&res_buf);
     let t_scope = TScope::from_parent();
-    t_scope.t_clone(&res_lstr)
+    res_lstr.t_dup(&t_scope)
 }
 
 #[allow(

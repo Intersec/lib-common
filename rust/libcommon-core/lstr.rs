@@ -30,7 +30,7 @@ use std::slice::from_raw_parts;
 use std::str::{FromStr, Utf8Error};
 
 use crate::bindings::{lstr_equal, lstr_t__bindgen_ty_1, t_lstr_dup};
-use crate::mem_stack::{TScope, TScopeClone};
+use crate::mem_stack::TScope;
 
 #[allow(clippy::module_name_repetitions)]
 pub use crate::bindings::lstr_t;
@@ -150,6 +150,12 @@ impl lstr_t {
     pub fn equals(&self, other: &lstr_t) -> bool {
         unsafe { lstr_equal(*self, *other) }
     }
+
+    /// Duplicate the `lstr_t` on the `t_scope`.
+    #[must_use]
+    pub fn t_dup(&self, _t_scope: &TScope) -> Self {
+        unsafe { t_lstr_dup(*self) }
+    }
 }
 
 impl From<&[u8]> for lstr_t {
@@ -196,11 +202,5 @@ impl fmt::Display for lstr_t {
         } else {
             write!(f, "{:x?}", self.as_bytes())
         }
-    }
-}
-
-impl TScopeClone for lstr_t {
-    fn t_clone(&self, _t_scope: &TScope<'_>) -> Self {
-        unsafe { t_lstr_dup(*self) }
     }
 }

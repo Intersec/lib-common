@@ -254,7 +254,7 @@ impl Env<'_> {
     #[allow(clippy::not_unsafe_ptr_arg_deref, clippy::unwrap_in_result)]
     pub fn t_junpack_desc<'t>(
         &self,
-        _t_scope: &TScope<'t>,
+        _t_scope: &'t TScope,
         content: &str,
         st: *const iop_struct_t,
         flags: u32,
@@ -297,7 +297,7 @@ impl Env<'_> {
     #[allow(clippy::not_unsafe_ptr_arg_deref, clippy::unwrap_in_result)]
     pub fn t_yunpack_desc<'t>(
         &self,
-        _t_scope: &TScope<'t>,
+        _t_scope: &'t TScope,
         content: &str,
         st: *const iop_struct_t,
         flags: u32,
