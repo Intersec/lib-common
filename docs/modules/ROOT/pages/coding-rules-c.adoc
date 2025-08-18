@@ -41,11 +41,11 @@ if (cond) { do_sth(); } /* bad */
 
 printf("a; b; c");      /* good, but better use puts() */
 
-struct foo {
+typedef struct foo_t {
     int a;              /* good */
     char b, c;          /* good */
     int d; char e;      /* bad  */
-};
+} foo_t;
 ----
 
 * labels (including switch `case` constructs) are not indented.
@@ -356,8 +356,8 @@ fn (1, 2, 3);       /* bad  */
 ----
 void something_short(void); /* good */
 
-struct very_long_type_tag *
-something_not_very_short(int, struct bar *, int, void *); /* good */
+very_long_type_tag_t *
+something_not_very_short(int, bar_t *, int, void *); /* good */
 ----
 
 * Avoid useless wrapping in function prototype and try to keep it on the most
@@ -367,15 +367,14 @@ something_not_very_short(int, struct bar *, int, void *); /* good */
 ----
 
 static void
-something_not_very_short(struct my_struct *a,
-                         struct my_struct *b); /* bad, could fit on only 2 lines */
+something_not_very_short(my_not_short_struct_t *a,
+                         my_not_short_struct_t *b); /* bad, could fit on only 2 lines */
 
 static void
-something_not_very_short(struct my_struct *a, struct my_struct *b); /* good */
+something_not_very_short(my_not_short_struct_t *a, my_not_short_struct_t *b); /* good */
 
-static void something_not_very_short(struct my_struct *a,
-                                     struct my_struct *b) /* good */
-
+static void something_not_very_short(my_not_short_struct_t *a,
+                                     my_not_short_struct_t *b) /* good */
 ----
 
 * Avoid useless function declarations. A declaration is needed only
@@ -415,7 +414,7 @@ for further error management.
 
 [source,c]
 ----
-int my_parser_run(const char *s, const char **out, my_struct *s); /* good */
+int my_parser_run(const char *s, const char **out, my_struct_t *s); /* good */
 
 bool can_i_has_more_beer(void); /* good */
 
@@ -851,49 +850,54 @@ const static char * const str_array[]; /* bad */
 
 == Types
 
-* We usually like to use the `_t` suffix for type names, the `_f` suffix for
-  functional types and the `_b` suffix for blocks types.
-* IOP types must end with `__t` suffix when they are modified using `@ctype`.
-* When declaring an enum, put a traling comma on _every_ line:
-
-[source,c]
-----
-enum foo {
-   FOO_0,
-   FOO_1,
-   FOO_MAX, /* good */
-};
-----
-
+* Use the `_t` suffix for type names, the `_f` suffix for functional types and
+  the `_b` suffix for blocks types.
 * When declaring a type, keep the opening bracket on the same line, then put a
-  mandatory line break. For a `typedef`, keep the type name on the same line as
-  the closing bracket.
+  mandatory line break. For a `typedef`, keep the type name on the same line
+  as the closing bracket.
+* Use a `typedef` for type names. Always use the same name for the `struct`,
+  `enum` or `union` tag and the `typedef`.
+* Not using a name for type names and only name the `typedef` is allowed.
+* IOP types must end with `__t` suffix when they are modified using `@ctype`.
 
 [source,c]
 ----
-enum foo {
-    FOO_0,
-    FOO_1,
+
+typedef enum foo_t { /* good */
+   FOO_0,
+} foo_t;
+
+typedef struct bar_t { /* good */
+    int a;
+} bar_t;
+
+typedef union { /* allowed */
+    int a;
+} baz_t;
+
+
+enum foo { /* bad */
+   FOO_0,
 };
 
-typedef struct bar_t {
-    /* ... */
-} bar_t;
+struct bar { /* bad */
+    int a;
+};
+
+union baz_t { /* bad */
+    int a;
+};
 ----
 
-* When using a `typedef`, always use the same name for the `struct`, `enum` or
-  `union` tag and the `typedef`. No tag is okayish though.
+* When declaring an enum, put a trailing comma on _every_ line:
 
 [source,c]
 ----
-typedef enum bar_t {
-} bar_t;
-
-enum foo {
+typedef enum foo_t {
    FOO_0,
    FOO_1,
    FOO_MAX, /* good */
-};
+} foo_t;
 ----
 
 * When calling a function pointer, always "dereference" it:

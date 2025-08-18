@@ -89,33 +89,33 @@ ownership you can use `lstr_transfer`.
 
 [source,c]
 ----
-struct foo_t {
+typedef struct foo_t {
    lstr_t name;
-};
+} foo_t;
 
-void foo_wipe(struct foo_t *foo)
+void foo_wipe(foo_t *foo)
 {
    lstr_wipe(&bar->name);
 }
-GENERIC_DELETE(struct foo_t, foo)
+GENERIC_DELETE(foo_t, foo)
 
-struct bar_t {
+typedef struct bar_t {
    lstr_t name;
-}
+} bar_t;
 
-void bar_wipe(struct bar_t *bar)
+void bar_wipe(bar_t *bar)
 {
    lstr_wipe(&bar->name);
 }
-GENERIC_DELETE(struct bar_t, bar)
+GENERIC_DELETE(bar_t, bar)
 
 /* Example of foo taking ownership of the name of bar.  This works without
  * recopy and without risk of double ownership (and thus of double free), since
  * we properly transfer the ownership of the lstr_t to foo.
  */
-struct foo_t *bar_to_foo(struct bar_t **bar)
+foo_t *bar_to_foo(bar_t **bar)
 {
-   struct foo_t *foo = p_new(struct foo_t, 1);
+   foo_t *foo = p_new(foo_t, 1);
 
    lstr_transfer(&foo->name, &(*bar)->name);
    bar_delete(bar);
@@ -125,9 +125,9 @@ struct foo_t *bar_to_foo(struct bar_t **bar)
 /* Example of taking a constant copy of the name of bar.  This works as long as
  * we're sure foo's lifetime is shorter than bar's one.
  */
-struct foo_t *foo_from_bar(const struct bar_t *bar)
+foo_t *foo_from_bar(const bar_t *bar)
 {
-   struct foo_t *foo = p_new(struct foo_t, 1);
+   foo_t *foo = p_new(foo_t, 1);
 
    foo->name = lstr_dupc(bar->name);
    return foo;
@@ -136,9 +136,9 @@ struct foo_t *foo_from_bar(const struct bar_t *bar)
 /* Example of taking a full copy of the name of bar.  This always work but
  * implies we have a new allocated string for each structure.
  */
-struct foo_t *copy_foo_from_bar(const struct bar_t *bar)
+foo_t *copy_foo_from_bar(const bar_t *bar)
 {
-   struct foo_t *foo = p_new(struct foo_t, 1);
+   foo_t *foo = p_new(foo_t, 1);
 
    foo->name = lstr_dup(bar->name);
    return foo;
@@ -178,18 +178,18 @@ error in case a condition is not met.
 
 [source,c]
 ----
-struct user_t {
+typedef struct user_t {
     lstr_t firstname;
     lstr_t lastname;
     int age;
     bool gender;
-};
+} user_t;
 
 /* Read a record with the following format: firstname;lastname;age;gender
  * whitespaces are ignored, firstname and lastname should contain only alpha
  * characters, gender can be either M or F
  */
-int parse_record(pstream_t *ps, struct user_t *user)
+int parse_record(pstream_t *ps, user_t *user)
 {
 #define READ_SEMICOLON()              \
     ps_ltrim(ps);                     \
@@ -242,7 +242,7 @@ int parse_record(pstream_t *ps, struct user_t *user)
  * lastname content except that they cannot contain a semi-colon. Whitespaces
  * are not ignored.
  */
-int parse_record2(pstream_t *ps, struct user_t *user)
+int parse_record2(pstream_t *ps, user_t *user)
 {
     pstream_t n;
 

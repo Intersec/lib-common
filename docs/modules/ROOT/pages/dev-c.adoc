@@ -279,15 +279,15 @@ type)
 a|
 [source,c]
 ----
-struct stupid_local_type {
+typedef struct stupid_local_type_t {
     bool has_caught;
     sb_t buf;
-};
+} stupid_local_type_t;
 
 static void catcher_for_some_function(const script_exception_t *exn,
                                       bool compilation, void *priv)
 {
-    struct stupid_local_type *d = priv;
+    stupid_local_type_t *d = priv;
 
     d->has_caught = true;
     script_exception_to_string(exn, &d->buf, true);
@@ -295,7 +295,7 @@ static void catcher_for_some_function(const script_exception_t *exn,
 
 static void some_function(const char *code)
 {
-    struct stupid_local_type d = {
+    stupid_local_type_t d = {
         .has_caught = false,
     };
 
@@ -362,15 +362,14 @@ void apply_to_all_map(qv_t(map) *maps)
 a|
 [source,c]
 ----
-struct apply_to_map_ctx_t {
+typedef struct apply_to_map_ctx_t {
     thr_job_t job;
     mapt_t *map;
-};
+} apply_to_map_ctx_t;
 
 static void apply_to_map_job(thr_job_t *job)
 {
-    struct apply_to_map_ctx_t *ctx
-        = container_of(job, struct apply_to_map_ctx_t, job);
+    apply_to_map_ctx_t *ctx = container_of(job, apply_to_map_ctx_t, job);
 
     do_something1(ctx->map);
     do_something2(ctx->map);
@@ -383,8 +382,7 @@ void apply_to_all_map(qv_t(map) *maps)
 
     thr_syn_init(&syn);
     qv_for_each_pos(map, pos, maps) {
-        struct apply_to_map_ctx_t *ctx
-            = p_new(struct apply_to_map_ctx_t, 1);
+        apply_to_map_ctx_t *ctx = p_new(apply_to_map_ctx_t, 1);
 
         ctx->job.run = &apply_to_map_job;
         ctx->map = maps->tab[pos];

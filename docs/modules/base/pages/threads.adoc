@@ -61,15 +61,14 @@ void apply_to_all_map(qv_t(map) *maps)
 Parallelism without blocks::
 [source,c]
 ----
-struct apply_to_map_ctx_t {
+typedef struct apply_to_map_ctx_t {
     thr_job_t job;
     mapt_t *map;
-};
+} apply_to_map_ctx_t;
 
 static void apply_to_map_job(thr_job_t *job)
 {
-    struct apply_to_map_ctx_t *ctx
-        = container_of(job, struct apply_to_map_ctx_t, job);
+    apply_to_map_ctx_t *ctx = container_of(job, apply_to_map_ctx_t, job);
 
     do_something1(ctx->map);
     do_something2(ctx->map);
@@ -86,8 +85,7 @@ void apply_to_all_map(qv_t(map) *maps)
          * to persists until the job is executed
          * (with is out of scope of the loop.
          */
-        struct apply_to_map_ctx_t *ctx
-            = p_new(struct apply_to_map_ctx_t, 1);
+        apply_to_map_ctx_t *ctx = p_new(apply_to_map_ctx_t, 1);
 
         ctx->job.run = &apply_to_map_job;
         ctx->map = maps->tab[pos];

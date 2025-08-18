@@ -31,18 +31,17 @@ macro and then use the newly defined type with the `qv_t(name)` type name.
 
 [source,c]
 ----
-struct foo_t {
+typedef struct foo_t {
     int a;
-};
+} foo_t;
 
-qvector_t(foo, struct foo_t); /* define a vector of struct foo_t */
-qvector_t(foop, struct foo_t *); /* define a vector of pointers to
-                                    struct foo_t */
+qvector_t(foo, foo_t); /* define a vector of struct foo_t */
+qvector_t(foop, foo_t *); /* define a vector of pointers to struct foo_t */
 
 int blah(qv_t(foo) *vect, int a)
 {
     for (int i = 0; i < a; i++) {
-        struct foo_t f = { .a = i };
+        foo_t f = { .a = i };
 
         qv_append(vect, f);
     }
