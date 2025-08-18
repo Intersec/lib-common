@@ -780,16 +780,12 @@ my_type_t a; /* preferred */
 my_type_t b;
 ----
 
-* Keep a single line per declaration, unless the variable is const (because in
-  that case the assignation cannot be done after the declaration):
+* Keeping a single line per declaration is recommended. Multiple lines per
+declaration is allowed as long as the other rules are respected and the result
+is readable:
 
 [source,c]
 ----
-{
-    int important_variable =
-        long_function_which_does_not_fit_into_one_line();                        /* bad */
-}
-
 {
     int important_variable;
 
@@ -800,23 +796,26 @@ my_type_t b;
 }
 
 {
-    int variable = long_fonction_with_parameters(parameter1, parameter2,
-                                                 parameter3);                    /* bad */
-
-}
-
-{
     int variable;
 
-    variable = long_fonction_with_parameters(parameter1, parameter2,
-                                             parameter3);                       /* good */
+    variable = long_fonction_with_parameters(parameter1, parameter2,             /* good */
+                                             parameter3);
 
 }
 
 {
     const int const_variable =
         long_function_which_does_not_fit_into_one_line();                        /* allowed */
+    int important_variable =
+        long_function_which_does_not_fit_into_one_line();                        /* allowed */
 }
+
+{
+    int variable = long_fonction_with_parameters(                                /* allowed */
+        parameter1, parameter2, parameter3
+    );
+}
+
 ----
 
 * Stick pointer types stars to the variable names:
