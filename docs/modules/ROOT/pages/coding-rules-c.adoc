@@ -374,7 +374,12 @@ static void
 something_not_very_short(my_not_short_struct_t *a, my_not_short_struct_t *b); /* good */
 
 static void something_not_very_short(my_not_short_struct_t *a,
-                                     my_not_short_struct_t *b) /* good */
+                                     my_not_short_struct_t *b); /* good */
+
+static void something_not_very_very_very_short(
+    my_not_very_very_very_short_struct_t *a,
+    my_not_very_very_very_short_struct_t *b); /* good */
+
 ----
 
 * Avoid useless function declarations. A declaration is needed only
