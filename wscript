@@ -165,9 +165,16 @@ def uv_sync(ctx: BuildContext) -> None:
     if before_uv_sync is not None:
         before_uv_sync(ctx)
 
+    uv_args = ['sync', '--locked']
+
+    if ctx.env.UV_EXTRA:
+        extras = set(re.split(r'[ ,]+', ctx.env.UV_EXTRA))
+
+        for extra in extras:
+            uv_args += ['--extra', extra]
+
     # Sync uv environment
-    if ctx.exec_command(ctx.env.UV + ['sync', '--locked'],
-                        stdout=None, stderr=None):
+    if ctx.exec_command(ctx.env.UV + uv_args, stdout=None, stderr=None):
         ctx.fatal('uv sync failed')
 
     # Remove /srv/tools from python path in uv
@@ -243,6 +250,9 @@ def configure_with_uv(ctx: BuildContext) -> None:
         ctx.find_program('uv', path_list=[ctx.env.ASDF_SHIMS])
     else:
         ctx.find_program('uv')
+
+    if 'UV_EXTRA' in os.environ:
+        ctx.env.UV_EXTRA = os.environ['UV_EXTRA']
 
     if not ctx.get_env_bool('_IN_UV_WAF_CONFIGURE'):
         # We are not in waf run by uv, sync uv

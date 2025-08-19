@@ -258,6 +258,14 @@ The following environment variables can be used at the configuration phase:
     This is only available for profiles that use sanitizers, i.e. asan or
     tsan.
 
+`UV_EXTRA` (string)::
+    Specify additional optional dependencies that should be installed by uv.
+    The value of this variable is a list of extra names (separated by spaces
+    or commas), which will be installed alongside the release and dev
+    dependencies.
+    If the variable is not set, only the release and dev dependencies are
+    installed.
+
 ==== Compiling with gcc
 
 An important part of the lib-common uses the
