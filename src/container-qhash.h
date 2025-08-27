@@ -1221,6 +1221,42 @@ size_t qhash_memory_footprint(const qhash_t * nonnull qh);
        qm_wipe_at(name, qh, _pos, k_wipe, v_wipe);                       \
        _pos; })
 
+/** Adds unique keys from a vector-like table to a hash set.
+ *
+ * Processes each element in the input table `vec` and adds its key (via
+ * `GET_KEY(e)`) to the target hash set `h`. Returns the count of unique
+ * keys added.
+ *
+ * @param h      Hash set to which keys are added
+ * @param vec    Vector-like table from which keys are extracted
+ * @return       Number of distinct keys added to `h`
+ * @note         Key extraction for element `e` uses `GET_KEY(e)`
+ */
+#define qh_add_from_tab(name, h, vec, GET_KEY)                               \
+    ({                                                                       \
+        typeof(vec) __vec = (vec);                                           \
+        qh_t(name) *__h = (h);                                               \
+        int __added = 0;                                                     \
+                                                                             \
+        qh_set_minsize(name, __h, qh_len(name, __h) + __vec->len);           \
+        tab_for_each_ptr(__e, __vec) {                                       \
+            __added += (qh_add(name, __h, GET_KEY(__e)) >= 0);               \
+        }                                                                    \
+        /* return */ __added;                                                \
+    })
+
+#define QH_GET_KEY_VAL(e) (*(e))
+
+/** Version of qh_add_from_tab where the vector `vec` contains scalar keys. */
+#define qh_add_from_tab_val(name, h, vec)                                    \
+    qh_add_from_tab(name, (h), (vec), QH_GET_KEY_VAL)
+
+#define QH_GET_KEY_PTR(e) (e)
+
+/** Version of qh_add_from_tab where the vector `vec` contains vector keys. */
+#define qh_add_from_tab_ptr(name, h, vec)                                    \
+    qh_add_from_tab(name, (h), (vec), QH_GET_KEY_PTR)
+
 static inline uint32_t qhash_str_hash(const qhash_t * nullable qh,
                                       const char * nonnull s)
 {

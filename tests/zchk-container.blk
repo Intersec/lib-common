@@ -42,6 +42,19 @@ qm_kptr_t(test_ptr,  void,   uint32_t, qhash_hash_ptr,  qhash_ptr_equal);
 qm_khptr_t(test_hptr,  void,   uint32_t);
 qm_khptr_ckey_t(test_hcptr,  void,   uint32_t);
 
+typedef struct my_entry_keyed_by_u32_t {
+    uint32_t key;
+    uint128_t dummy;
+} my_entry_keyed_by_u32_t;
+
+typedef struct my_entry_keyed_by_lstr_t {
+    lstr_t key;
+    uint128_t dummy;
+} my_entry_keyed_by_lstr_t;
+
+qvector_t(keyed_by_u32, my_entry_keyed_by_u32_t);
+qvector_t(keyed_by_lstr, my_entry_keyed_by_lstr_t);
+
 Z_GROUP_EXPORT(qhash)
 {
     Z_TEST(qh_seal, "qh: seal") {
@@ -909,6 +922,218 @@ Z_GROUP_EXPORT(qhash)
 
 #undef T
     } Z_TEST_END
+
+#define MY_ENTRY_GET_KEY_U32(e) ((e)->key)
+#define MY_ENTRY_GET_KEY_LSTR(e) (&(e)->key)
+
+    Z_TEST(qv_to_qh_u32, "qh: qh_add_from_tab (u32)") {
+        t_scope;
+        qv_t(u32) vec;
+        qh_t(u32) values;
+        int rc;
+
+        t_qv_init(&vec, 100);
+        for (uint32_t i = 0; i < 100; i++) {
+            qv_append(&vec, i);
+        }
+
+        /* duplicates */
+        for (uint32_t i = 0; i < 10; i++) {
+            qv_append(&vec, i);
+        }
+
+        /* why not? */
+        qv_shuffle(&vec);
+
+        t_qh_init(u32, &values, vec.len);
+
+        rc = qh_add_from_tab_val(u32, &values, &vec);
+        Z_ASSERT_EQ(rc, 100);
+
+        Z_ASSERT_EQ(qh_len(u32, &values), 100);
+
+        /* all values are in the hash */
+        for (uint32_t i = 0; i < 100; i++){
+            Z_ASSERT_N(qh_find(u32, &values, i));
+        }
+    } Z_TEST_END;
+
+    Z_TEST(qv_to_qh_u64, "qh: qh_add_from_tab (u64)") {
+        t_scope;
+        qv_t(u64) vec;
+        qh_t(u64) values;
+        int rc;
+
+        t_qv_init(&vec, 100);
+        for (uint64_t i = 0; i < 100; i++) {
+            qv_append(&vec, i);
+        }
+
+        /* duplicates */
+        for (uint32_t i = 0; i < 10; i++) {
+            qv_append(&vec, i);
+        }
+
+        /* why not? */
+        qv_shuffle(&vec);
+
+        t_qh_init(u64, &values, vec.len);
+
+        rc = qh_add_from_tab_val(u64, &values, &vec);
+        Z_ASSERT_EQ(rc, 100);
+
+        Z_ASSERT_EQ(qh_len(u64, &values), 100);
+
+        /* all values are in the hash */
+        for (uint64_t i = 0; i < 100; i++){
+            Z_ASSERT_N(qh_find(u64, &values, i));
+        }
+    } Z_TEST_END;
+
+    Z_TEST(qv_to_qh_u128, "qh: qh_add_from_tab (128)") {
+        t_scope;
+        qv_t(u128) vec;
+        qh_t(u128) values;
+        int rc;
+
+        t_qv_init(&vec, 100);
+        for (uint128_t i = 0; i < 100; i++) {
+            qv_append(&vec, i);
+        }
+
+        /* duplicates */
+        for (uint32_t i = 0; i < 10; i++) {
+            qv_append(&vec, i);
+        }
+
+        /* why not? */
+        qv_shuffle(&vec);
+
+        t_qh_init(u128, &values, vec.len);
+
+        rc = qh_add_from_tab_val(u128, &values, &vec);
+        Z_ASSERT_EQ(rc, 100);
+
+        Z_ASSERT_EQ(qh_len(u128, &values), 100);
+
+        /* all values are in the hash */
+        for (uint128_t i = 0; i < 100; i++){
+            Z_ASSERT_N(qh_find(u128, &values, i));
+        }
+    } Z_TEST_END;
+
+    Z_TEST(qv_to_qh_lstr, "qh: qh_add_from_tab (lstr)") {
+        t_scope;
+        qv_t(lstr) vec;
+        qh_t(lstr) values;
+        int rc;
+
+        t_qv_init(&vec, 100);
+        for (int i = 0; i < 100; i++) {
+            qv_append(&vec, t_lstr_fmt("%d", i));
+        }
+
+        /* duplicates */
+        for (uint32_t i = 0; i < 10; i++) {
+            qv_append(&vec, t_lstr_fmt("%d", i));
+        }
+
+        /* why not? */
+        qv_shuffle(&vec);
+
+        t_qh_init(lstr, &values, vec.len);
+
+        rc = qh_add_from_tab_ptr(lstr, &values, &vec);
+        Z_ASSERT_EQ(rc, 100);
+
+        Z_ASSERT_EQ(qh_len(lstr, &values), 100);
+
+        /* all values are in the hash */
+        for (int i = 0; i < 100; i++){
+            lstr_t key = t_lstr_fmt("%d", i);
+
+            Z_ASSERT_N(qh_find(lstr, &values, &key));
+        }
+    } Z_TEST_END;
+
+    Z_TEST(qv_to_qh_keyed_by_u32, "qh: qh_add_from_tab (keyed_by_u32)") {
+        t_scope;
+        qv_t(keyed_by_u32) vec;
+        qh_t(u32) values;
+        int rc;
+
+        t_qv_init(&vec, 100);
+        for (int i = 0; i < 100; i++) {
+            my_entry_keyed_by_u32_t e = { .key = i};
+
+            qv_append(&vec, e);
+        }
+
+        /* duplicates */
+        for (uint32_t i = 0; i < 10; i++) {
+            my_entry_keyed_by_u32_t e = { .key = i};
+
+            qv_append(&vec, e);
+        }
+
+        /* why not? */
+        qv_shuffle(&vec);
+
+        t_qh_init(u32, &values, vec.len);
+
+        rc = qh_add_from_tab(u32, &values, &vec, MY_ENTRY_GET_KEY_U32);
+        Z_ASSERT_EQ(rc, 100);
+
+        Z_ASSERT_EQ(qh_len(u32, &values), 100);
+
+        /* all values are in the hash */
+        for (int i = 0; i < 100; i++){
+            Z_ASSERT_N(qh_find(u32, &values, i));
+        }
+    } Z_TEST_END;
+
+    Z_TEST(qv_to_qh_keyed_by_lstr, "qh: qh_add_from_tab (keyed_by_lstr)") {
+        t_scope;
+        qv_t(keyed_by_lstr) vec;
+        qh_t(lstr) values;
+        int rc;
+
+        t_qv_init(&vec, 100);
+        for (int i = 0; i < 100; i++) {
+            my_entry_keyed_by_lstr_t e = {
+                .key = t_lstr_fmt("%d", i),
+                .dummy = 0,
+            };
+
+            qv_append(&vec, e);
+        }
+
+        /* duplicates */
+        for (uint32_t i = 0; i < 10; i++) {
+            my_entry_keyed_by_lstr_t e = {
+                .key = t_lstr_fmt("%d", i),
+                .dummy = 0,
+            };
+            qv_append(&vec, e);
+        }
+
+        /* why not? */
+        qv_shuffle(&vec);
+
+        t_qh_init(lstr, &values, vec.len);
+
+        rc = qh_add_from_tab(lstr, &values, &vec, MY_ENTRY_GET_KEY_LSTR);
+        Z_ASSERT_EQ(rc, 100);
+
+        Z_ASSERT_EQ(qh_len(lstr, &values), 100);
+
+        /* all values are in the hash */
+        for (int i = 0; i < 100; i++){
+             lstr_t key = t_lstr_fmt("%d", i);
+
+            Z_ASSERT_N(qh_find(lstr, &values, &key));
+        }
+    } Z_TEST_END;
 } Z_GROUP_END
 
 /* }}} */
