@@ -493,11 +493,12 @@ def run_ruff(ctx: BuildContext) -> None:
     if files_args:
         # If files are passed manually, use them directly
         file_args = ' '.join(f'"{f}"' for f in files_args)
-        rule = f'ruff check {fix} {file_args}'
+        rule = f'ruff check {fix} --force-exclude {file_args}'
     else:
         # Use shell pipeline to get files and check them
         rule = ('git ls-files "*.py" "**/*.py" "*.pyi" "**/*.pyi" '
-                f'"wscript*" "**/wscript*" | xargs ruff check {fix}')
+                f'"wscript*" "**/wscript*" | '
+                f'xargs ruff check --force-exclude {fix}')
 
     # One task, run everything at once
     ctx.cmd_and_log(cmd=rule, cwd=ctx.launch_node(),
