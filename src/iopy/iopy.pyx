@@ -20,7 +20,8 @@
 cimport cython
 
 from cpython.object cimport (
-    Py_EQ, Py_NE, Py_LT, Py_LE, Py_GT, Py_GE
+    Py_EQ, Py_NE, Py_LT, Py_LE, Py_GT, Py_GE,
+    PyTypeObject, PyObject, newfunc
 )
 from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
@@ -43,6 +44,9 @@ cdef extern from "Python.h":
     PyThreadState *PyThreadState_GET() nogil
     PyThreadState* PyEval_SaveThread() nogil
     void PyEval_RestoreThread(PyThreadState *) nogil
+
+    int Py_tp_new
+    void *PyType_GetSlot(PyTypeObject *t, int slot)
 
 
 from libcommon_cython.core cimport *
@@ -114,6 +118,32 @@ cdef dict class_attrs_dict_g = {
 
 # }}}
 # {{{ Helpers
+
+
+cdef inline object fast_tp_new_args_kwargs(object cls, tuple args,
+                                           dict kwargs):
+    """Fast new object by calling tp_new() directly.
+
+    Parameters
+    ----------
+    cls
+        The class to create a new object from.
+    args
+        The positional arguments passed to the callback.
+    kwargs
+        The named arguments passed to the callback.
+
+    Returns
+    -------
+        The created object
+    """
+    cdef PyTypeObject *cls_type
+    cdef newfunc new_func
+
+    cls_type = <PyTypeObject *>cls
+    new_func = <newfunc>PyType_GetSlot(cls_type, Py_tp_new)
+    cassert(new_func)
+    return new_func(cls, <PyObject *>args, <PyObject *>kwargs)
 
 
 cdef inline str make_py_pkg_name(str pkg_name):
@@ -2145,8 +2175,9 @@ cdef UnionBase iop_c_union_to_py_obj(object cls, const iop_struct_t *st,
         lstr_to_py_str(f.name): iop_ptr_to_py_obj(f, ptr, plugin)
     }
 
-    res = cls.__new__(cls, **kwargs)
+    res = fast_tp_new_args_kwargs(cls, tuple(), kwargs)
     union_safe_init(res, field_index, kwargs)
+
     return res
 
 
@@ -2208,7 +2239,8 @@ cdef StructBase iop_c_struct_to_py_obj(object cls, const iop_struct_t *st,
     cdef StructBase res
 
     iop_c_struct_fill_fields(st, iop_val, plugin, kwargs)
-    res = cls.__new__(cls, **kwargs)
+
+    res = fast_tp_new_args_kwargs(cls, tuple(), kwargs)
     struct_safe_init(res, kwargs)
     return res
 
@@ -2248,7 +2280,7 @@ cdef StructBase iop_c_class_to_py_obj(object cls, const iop_struct_t *st,
         if not st:
             break
 
-    res = cls.__new__(cls, **kwargs)
+    res = fast_tp_new_args_kwargs(cls, tuple(), kwargs)
     struct_safe_init(res, kwargs)
     return res
 
@@ -3384,7 +3416,7 @@ cdef StructUnionBase struct_union_create_obj(object cls, tuple args,
                                              dict kwargs):
     cdef object obj
 
-    obj = cls.__new__(cls, *args, **kwargs)
+    obj = fast_tp_new_args_kwargs(cls, args, kwargs)
     obj.__init__(*args, **kwargs)
     return obj
 
@@ -3731,7 +3763,8 @@ cdef object explicit_convert_field(const iop_field_t *field, object py_obj,
             py_type = plugin_get_class_type_st(plugin, field.u1.st_desc)
             union_field = &field.u1.st_desc.fields[union_field_index]
             union_kwargs = { lstr_to_py_str(union_field.name): py_cast_obj }
-            union_obj = py_type.__new__(py_type, **union_kwargs)
+            union_obj = fast_tp_new_args_kwargs(py_type, tuple(),
+                                                union_kwargs)
             union_safe_init(union_obj, union_field_index, union_kwargs)
             is_valid[0] = True
             return union_obj
