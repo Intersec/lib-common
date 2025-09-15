@@ -33,6 +33,9 @@ from libc.string cimport strerror
 
 
 cdef extern from "Python.h":
+    """
+    typedef PyTypeObject PyTypeObjectTpInit;
+    """
     # Get raw builtin objects from Python.h
     ctypedef struct PyThreadState:
         pass
@@ -46,7 +49,12 @@ cdef extern from "Python.h":
     void PyEval_RestoreThread(PyThreadState *) nogil
 
     int Py_tp_new
+    int Py_tp_init
     void *PyType_GetSlot(PyTypeObject *t, int slot)
+
+    ctypedef int (*initproc)(object, PyObject*, PyObject*) except -1
+    ctypedef struct PyTypeObjectTpInit:
+        initproc tp_init
 
 
 from libcommon_cython.core cimport *
@@ -144,6 +152,27 @@ cdef inline object fast_tp_new_args_kwargs(object cls, tuple args,
     new_func = <newfunc>PyType_GetSlot(cls_type, Py_tp_new)
     cassert(new_func)
     return new_func(cls, <PyObject *>args, <PyObject *>kwargs)
+
+
+cdef inline initproc fast_get_tp_init(object cls):
+    """Fast getting tp_init() from class object.
+
+    Parameters
+    ----------
+    cls
+        The class to get the tp_init().
+
+    Returns
+    -------
+        The tp_init() method.
+    """
+    cdef PyTypeObject *cls_type
+    cdef initproc init_func
+
+    cls_type = <PyTypeObject *>cls
+    init_func = <initproc>PyType_GetSlot(cls_type, Py_tp_init)
+    cassert(init_func)
+    return init_func
 
 
 cdef inline str make_py_pkg_name(str pkg_name):
@@ -3415,9 +3444,10 @@ cdef dict struct_union_parse_dict_args(tuple args, dict kwargs):
 cdef StructUnionBase struct_union_create_obj(object cls, tuple args,
                                              dict kwargs):
     cdef object obj
+    cdef initproc cls_tp_init = fast_get_tp_init(cls)
 
     obj = fast_tp_new_args_kwargs(cls, args, kwargs)
-    obj.__init__(*args, **kwargs)
+    cls_tp_init(obj, <PyObject *>args, <PyObject *>kwargs)
     return obj
 
 
@@ -5294,13 +5324,17 @@ cdef int union_safe_init(UnionBase py_obj, int field_index,
     -------
         -1 in case of exception, 0 otherwise.
     """
-    cdef object cls_init = type(py_obj).__init__
+    cdef object cls = type(py_obj)
+    cdef initproc cls_tp_init = fast_get_tp_init(cls)
+    cdef PyTypeObjectTpInit *union_base_type = <PyTypeObjectTpInit *>UnionBase
+    cdef tuple empty_tuple
 
-    if cls_init is UnionBase.__init__:
+    if cls_tp_init is union_base_type.tp_init:
         py_obj.field_index = field_index
         py_obj.__dict__ = kwargs
     else:
-        cls_init(py_obj, **kwargs)
+        empty_tuple = tuple()
+        cls_tp_init(py_obj, <PyObject *>empty_tuple, <PyObject *>kwargs)
     return 0
 
 
@@ -5859,7 +5893,7 @@ cdef class IopClassStaticFieldDescription(IopStructUnionFieldDescription):
     cdef readonly object value
 
 
-cdef int struct_safe_init(StructBase py_st, dict kwargs) except -1:
+cdef int struct_safe_init(StructBase py_obj, dict kwargs) except -1:
     """Initialize the struct iopy python object with safe dictionary.
 
     The given kwargs dict has valid values and we can directly set it to
@@ -5870,7 +5904,7 @@ cdef int struct_safe_init(StructBase py_st, dict kwargs) except -1:
 
     Parameters
     ----------
-    py_st
+    py_obj
         The struct python object.
     kwargs
         The valid dictionary of values for the struct.
@@ -5879,12 +5913,16 @@ cdef int struct_safe_init(StructBase py_st, dict kwargs) except -1:
     -------
         -1 in case of exception, 0 otherwise.
     """
-    cdef object cls_init = type(py_st).__init__
+    cdef object cls = type(py_obj)
+    cdef initproc cls_tp_init = fast_get_tp_init(cls)
+    cdef PyTypeObjectTpInit *struct_base_type = <PyTypeObjectTpInit *>StructBase
+    cdef tuple empty_tuple
 
-    if cls_init is StructBase.__init__:
-        py_st.__dict__ = kwargs
+    if cls_tp_init is struct_base_type.tp_init:
+        py_obj.__dict__ = kwargs
     else:
-        cls_init(py_st, **kwargs)
+        empty_tuple = tuple()
+        cls_tp_init(py_obj, <PyObject *>empty_tuple, <PyObject *>kwargs)
     return 0
 
 
