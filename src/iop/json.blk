@@ -2555,6 +2555,8 @@ static int write_field(const iop_field_t *fdesc, const void *value,
         char fullpath_dir[PATH_MAX];
         const char *prev_recursive_file_path;
 
+        file_ctx->subfiles_values.keys[pos] = lstr_dup(fullpath_lstr);
+
         /* Ensure directory for subfile exists. */
         path_dirname(fullpath_dir, sizeof(fullpath_dir), fullpath);
         ret = mkdir_p(fullpath_dir, 0755);
@@ -2571,7 +2573,6 @@ static int write_field(const iop_field_t *fdesc, const void *value,
         }
 
         /* Create subfile value. */
-        file_ctx->subfiles_values.keys[pos] = lstr_dup(fullpath_lstr);
         build_subfile_value(fdesc, value,
                             &file_ctx->subfiles_values.values[pos]);
 
