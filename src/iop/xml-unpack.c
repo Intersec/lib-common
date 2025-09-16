@@ -121,8 +121,7 @@ static int get_text(xml_reader_t xr, mem_pool_t *mp, bool b64, lstr_t *str)
                 mp_delete(mp, &buf);
                 return xmlr_fail(xr, "value isn't valid base64");
             }
-            str->s   = buf;
-            str->len = sb.len;
+            *str = mp_lstr_init(mp, buf, sb.len);
         }
     }
     RETHROW(xmlr_get_cstr_done(xr));

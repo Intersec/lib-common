@@ -1207,7 +1207,6 @@ static int unpack_val(iop_json_lex_t *ll, const iop_field_t *fdesc,
       case IOP_JSON_STRING:
         switch (fdesc->type) {
             const char *q;
-            lstr_t *data;
 
           case IOP_T_I8:  case IOP_T_U8:
           case IOP_T_I16: case IOP_T_U16:
@@ -1248,10 +1247,8 @@ static int unpack_val(iop_json_lex_t *ll, const iop_field_t *fdesc,
             goto do_double;
 
           case IOP_T_DATA:
-            data = (lstr_t *)value;
             if (ll->ctx->b.len == 0) {
-                data->data = mp_new_raw(ll->mp, char, 1);
-                data->len  = 0;
+                *(lstr_t *)value = mp_lstr_dup(ll->mp, LSTR_EMPTY_V);
             } else {
                 sb_t  sb;
                 int   blen = DIV_ROUND_UP(ll->ctx->b.len * 3, 4);
@@ -1262,16 +1259,14 @@ static int unpack_val(iop_json_lex_t *ll, const iop_field_t *fdesc,
                     mp_delete(ll->mp, &buf);
                     return RJERROR_WARG(IOP_JERR_BAD_VALUE);
                 }
-                data->data = buf;
-                data->len  = sb.len;
+                *(lstr_t *)value = mp_lstr_init(ll->mp, buf, sb.len);
             }
             return 0;
 
           case IOP_T_STRING:
           case IOP_T_XML:
-            data = (lstr_t *)value;
-            data->data = mp_dupz(ll->mp, ll->ctx->b.data, ll->ctx->b.len);
-            data->len  = ll->ctx->b.len;
+            *(lstr_t *)value = mp_lstr_dups(ll->mp, ll->ctx->b.data,
+                                            ll->ctx->b.len);
             return 0;
 
           default:

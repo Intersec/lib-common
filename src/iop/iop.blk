@@ -4916,9 +4916,11 @@ static int unpack_value(mem_pool_t *mp, const iop_env_t *iop_env,
           case IOP_T_STRING:
           case IOP_T_DATA:
           case IOP_T_XML:
-            *(lstr_t *)v = LSTR_INIT_V(((flags & IOP_UNPACK_COPY_STRINGS)
-                                        ? mp_dup(mp, ps->s, u32)
-                                        : ps->p), u32 - 1);
+            if (flags & IOP_UNPACK_COPY_STRINGS) {
+                *(lstr_t *)v = mp_lstr_dups(mp, ps->s, u32 - 1);
+            } else {
+                *(lstr_t *)v = LSTR_INIT_V(ps->s, u32 - 1);
+            }
             return __ps_skip(ps, u32);
           case IOP_T_UNION:
             ps_tmp = __ps_get_ps(ps, u32);
