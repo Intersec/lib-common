@@ -3524,10 +3524,14 @@ Z_GROUP_EXPORT(iop)
     } Z_TEST_END
     /* }}} */
     Z_TEST(big_array_parallel, "test big array packing") { /* {{{ */
+        t_scope;
         tstiop__my_struct_f__t sf;
-        tstiop__my_struct_b__t arr[100000];
-        tstiop__my_class1__t *arr2[100000];
+        tstiop__my_struct_b__t *arr;
+        tstiop__my_class1__t **arr2;
         tstiop__my_class2__t cl1;
+
+        arr = t_new_raw(tstiop__my_struct_b__t, 100000);
+        arr2 = t_new_raw(tstiop__my_class1__t *, 100000);
 
         iop_init(tstiop__my_class2, &cl1);
         cl1.int1 = 123;
