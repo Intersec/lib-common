@@ -665,6 +665,7 @@ typedef IOP_ARRAY_OF(bool) iop_array_bool_t;
 typedef iop_array_bool_t iop_array__Bool_t;
 typedef IOP_ARRAY_OF(double) iop_array_double_t;
 typedef IOP_ARRAY_OF(lstr_t) iop_array_lstr_t;
+typedef IOP_ARRAY_OF(void) iop_array_void_t;
 
 typedef iop_array_i8_t i8__array_t;
 typedef iop_array_u8_t u8__array_t;

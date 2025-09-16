@@ -75,7 +75,7 @@ t_yaml_nil_to_iop_field(yunpack_env_t * nonnull env,
                         bool in_array, void * nonnull out)
 {
     if (!in_array && fdesc->repeat == IOP_R_REPEATED) {
-        lstr_t *arr = out;
+        iop_array_void_t *arr = out;
 
         /* null value on an array means empty array */
         p_clear(arr, 1);

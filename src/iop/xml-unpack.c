@@ -256,7 +256,7 @@ static int xunpack_value(xml_reader_t xr, mem_pool_t *mp,
 static int xunpack_scalar_vec(xml_reader_t xr, mem_pool_t *mp,
                               const iop_field_t *fdesc, void *v)
 {
-    lstr_t *data = v;
+    iop_array_void_t *data = v;
     int bufsize = 0, datasize = fdesc->size;
 
     p_clear(data, 1);
@@ -266,9 +266,9 @@ static int xunpack_scalar_vec(xml_reader_t xr, mem_pool_t *mp,
         uint64_t uintval = 0;
 
         if (datasize >= bufsize) {
-            int size   = p_alloc_nr(bufsize);
-            data->data = mp_irealloc(mp, data->data, bufsize, size, 8, MEM_RAW);
-            bufsize    = size;
+            int size  = p_alloc_nr(bufsize);
+            data->tab = mp_irealloc(mp, data->tab, bufsize, size, 8, MEM_RAW);
+            bufsize   = size;
         }
 
         switch (fdesc->type) {
@@ -278,51 +278,51 @@ static int xunpack_scalar_vec(xml_reader_t xr, mem_pool_t *mp,
           case IOP_T_I8:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(INT8_MIN, INT8_MAX);
-            ((int8_t *)data->data)[data->len] = intval;
+            ((int8_t *)data->tab)[data->len] = intval;
             break;
           case IOP_T_U8:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(0, UINT8_MAX);
-            ((uint8_t *)data->data)[data->len] = intval;
+            ((uint8_t *)data->tab)[data->len] = intval;
             break;
           case IOP_T_I16:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(INT16_MIN, INT16_MAX);
-            ((int16_t *)data->data)[data->len] = intval;
+            ((int16_t *)data->tab)[data->len] = intval;
             break;
           case IOP_T_U16:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(0, UINT16_MAX);
-            ((uint16_t *)data->data)[data->len] = intval;
+            ((uint16_t *)data->tab)[data->len] = intval;
             break;
           case IOP_T_I32:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(INT32_MIN, INT32_MAX);
-            ((int32_t *)data->data)[data->len] = intval;
+            ((int32_t *)data->tab)[data->len] = intval;
             break;
           case IOP_T_U32:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
             CHECK_RANGE(0, UINT32_MAX);
-            ((uint32_t *)data->data)[data->len] = intval;
+            ((uint32_t *)data->tab)[data->len] = intval;
             break;
           case IOP_T_I64:
             RETHROW(xmlr_get_i64_base(xr, 0, &intval));
-            ((int64_t *)data->data)[data->len] = intval;
+            ((int64_t *)data->tab)[data->len] = intval;
             break;
           case IOP_T_U64:
             RETHROW(xmlr_get_u64_base(xr, 0, &uintval));
-            ((uint64_t *)data->data)[data->len] = uintval;
+            ((uint64_t *)data->tab)[data->len] = uintval;
             break;
           case IOP_T_ENUM:
             RETHROW(get_enum_value(xr, fdesc->u1.en_desc, &intval));
             CHECK_RANGE(INT32_MIN, INT32_MAX);
-            ((int32_t *)data->data)[data->len] = intval;
+            ((int32_t *)data->tab)[data->len] = intval;
             break;
           case IOP_T_BOOL:
-            RETHROW(xmlr_get_bool(xr, (bool *)data->data + data->len));
+            RETHROW(xmlr_get_bool(xr, (bool *)data->tab + data->len));
             break;
           case IOP_T_DOUBLE:
-            RETHROW(xmlr_get_dbl(xr, (double *)data->data + data->len));
+            RETHROW(xmlr_get_dbl(xr, (double *)data->tab + data->len));
             break;
 
 #undef CHECK_RANGE
@@ -339,7 +339,7 @@ static int xunpack_scalar_vec(xml_reader_t xr, mem_pool_t *mp,
 }
 
 /* Unpack a vector of "block" values (structure | union | data | string).
- * We can't safely use realloc because a block has an unkown length.
+ * We can't safely use realloc because a block has an unknown length.
  * We use a hack to chain each unpacked value and rebuild a continuous array.
  *
  *  n = 0
@@ -352,18 +352,18 @@ static int xunpack_scalar_vec(xml_reader_t xr, mem_pool_t *mp,
  *  next
  *
  *  then allocates a new buffer of (fdesc->size * n) and read back the chain
- *  to fill the new continous array.
+ *  to fill the new continuous array.
  */
 static int xunpack_block_vec(xml_reader_t xr, mem_pool_t *mp,
                              const iop_env_t *iop_env,
                              const iop_field_t *fdesc, void *v, int flags)
 {
-    lstr_t *data = v;
+    iop_array_void_t *data = v;
     void **prev = NULL, **chain, *ptr;
     int n = 0;
 
     do {
-        ptr = mp_new_raw(mp, char, fdesc->size);
+        ptr = mp_new_raw(mp, byte, fdesc->size);
 
         RETHROW(xunpack_value(xr, mp, iop_env, fdesc, ptr, flags));
         n++;
@@ -375,12 +375,14 @@ static int xunpack_block_vec(xml_reader_t xr, mem_pool_t *mp,
     } while (RETHROW(xmlr_node_is(xr, fdesc->name.s, fdesc->name.len)));
 
     /* Now we can rebuild the array of value */
-    data->len  = n;
-    data->data = mp_imalloc(mp, fdesc->size * n, 8, MEM_RAW);
-    ptr        = (char *)data->data + (n - 1) * fdesc->size;
+    *data = (iop_array_void_t){
+        .len  = n,
+        .tab = mp_imalloc(mp, fdesc->size * n, 8, MEM_RAW),
+    };
+    ptr = (byte *)data->tab + (n - 1) * fdesc->size;
     while (n--) {
         memcpy(ptr, chain[1], fdesc->size);
-        ptr   = (char *)ptr - fdesc->size;
+        ptr   = (byte *)ptr - fdesc->size;
         chain = chain[0];
     }
 
@@ -471,7 +473,7 @@ __xunpack_struct(xml_reader_t xr, mem_pool_t *mp, const iop_env_t *iop_env,
         /* Read field value */
         v = (char *)value + fdesc->fdesc->data_offs;
         if (fdesc->fdesc->repeat == IOP_R_REPEATED) {
-            lstr_t *data = v;
+            iop_array_void_t *data = v;
 
             if ((1 << fdesc->fdesc->type) & IOP_BLK_OK) {
                 RETHROW(xunpack_block_vec(xr, mp, iop_env, fdesc->fdesc, v,
@@ -479,7 +481,7 @@ __xunpack_struct(xml_reader_t xr, mem_pool_t *mp, const iop_env_t *iop_env,
             } else {
                 RETHROW(xunpack_scalar_vec(xr, mp, fdesc->fdesc, v));
             }
-            v = data->data;
+            v = data->tab;
             n = data->len;
             goto next;
         } else

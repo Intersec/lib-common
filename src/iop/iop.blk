@@ -573,17 +573,18 @@ size_t iop_get_len_bpack_size(uint32_t length)
 int iop_value_to_repeated_field(void *ptr, const iop_field_t *field,
                                 uint32_t pos, const iop_value_t *value)
 {
-    lstr_t data_s;
-    void *data_p;
+    iop_array_void_t *arr;
+    void *data_ptr;
 
     if (!expect(field->repeat == IOP_R_REPEATED)) {
         return -1;
     }
 
-    data_s = *(lstr_t *)((byte *)ptr + field->data_offs);
-    data_p = (byte *)data_s.data + pos * field->size;
+    arr = (iop_array_void_t *)((byte *)ptr + field->data_offs);
+    data_ptr = (byte *)arr->tab + pos * field->size;
 
-    iop_value_to_ptr(data_p, field, value);
+    iop_value_to_ptr(data_ptr, field, value);
+
     return 0;
 }
 
@@ -1412,8 +1413,8 @@ static size_t __iop_dup_size(const iop_struct_t *desc, const void *val)
         int n = 1;
 
         if (fdesc->repeat == IOP_R_REPEATED) {
-            n    = ((lstr_t *)ptr)->len;
-            ptr  = ((lstr_t *)ptr)->data;
+            n    = ((iop_array_void_t *)ptr)->len;
+            ptr  = ((iop_array_void_t *)ptr)->tab;
             len += ROUND_UP(n * fdesc->size, 8);
         }
 
@@ -1519,16 +1520,16 @@ static uint8_t *__iop_deep_copy(mem_pool_t *mp, const iop_struct_t *st,
         int n = 1;
 
         if (fdesc->repeat == IOP_R_REPEATED) {
-            n = ((lstr_t *)rp)->len;
+            n = ((iop_array_void_t *)rp)->len;
             if (n) {
                 if (mp) {
                     dst = mp_imalloc(mp, n * fdesc->size, 8, MEM_RAW);
                 }
-                rp  = ((lstr_t *)rp)->data;
-                wp  = ((lstr_t *)wp)->data = dst;
+                rp  = ((iop_array_void_t *)rp)->tab;
+                wp  = ((iop_array_void_t *)wp)->tab = dst;
                 dst = realign(mempcpy(dst, rp, n * fdesc->size));
             } else {
-                ((lstr_t *)wp)->data = NULL;
+                ((iop_array_void_t *)wp)->tab = NULL;
                 dst = realign(dst);
                 continue;
             }
@@ -1997,11 +1998,11 @@ __iop_equals(const iop_struct_t *st, const uint8_t *v1, const uint8_t *v2)
         if (fdesc->repeat == IOP_R_REPEATED) {
             /* Here we just check the length of the repeated field, then we
              * position our pointers on values to compare them later. */
-            n   = ((lstr_t *)r1)->len;
-            if (((lstr_t *)r2)->len != n)
+            n   = ((iop_array_void_t *)r1)->len;
+            if (((iop_array_void_t *)r2)->len != n)
                 return false;
-            r1  = ((lstr_t *)r1)->data;
-            r2  = ((lstr_t *)r2)->data;
+            r1  = ((iop_array_void_t *)r1)->tab;
+            r2  = ((iop_array_void_t *)r2)->tab;
         }
 
         if (fdesc->repeat == IOP_R_OPTIONAL) {
@@ -3526,8 +3527,8 @@ __iop_check_constraints_struct(const iop_struct_t *desc, const void *val)
             }
         } else
         if (fdesc->repeat == IOP_R_REPEATED) {
-            n   = ((lstr_t *)ptr)->len;
-            ptr = ((lstr_t *)ptr)->data;
+            n   = ((iop_array_void_t *)ptr)->len;
+            ptr = ((iop_array_void_t *)ptr)->tab;
             if (n == 0) {
                 unsigned fdesc_flags = fdesc->flags;
 
@@ -3813,8 +3814,8 @@ static int __iop_bpack_size(const iop_struct_t *desc, const void *val,
             }
         } else
         if (fdesc->repeat == IOP_R_REPEATED) {
-            n   = ((lstr_t *)ptr)->len;
-            ptr = ((lstr_t *)ptr)->data;
+            n   = ((iop_array_void_t *)ptr)->len;
+            ptr = ((iop_array_void_t *)ptr)->tab;
             if (n == 0)
                 continue;
             if (n > 1) {
@@ -4384,11 +4385,11 @@ pack_struct(void *dst, const iop_struct_t *desc, const void *v,
             }
         } else
         if (f->repeat == IOP_R_REPEATED) {
-            const lstr_t *data = ptr;
+            const iop_array_void_t *data = ptr;
 
             if (data->len == 0)
                 continue;
-            ptr = data->data;
+            ptr = data->tab;
             if (data->len > 1) {
                 if ((1 << f->type) & IOP_REPEATED_OPTIMIZE_OK) {
                     /* When data unit is really small (byte, bool, …) we
@@ -4397,7 +4398,7 @@ pack_struct(void *dst, const iop_struct_t *desc, const void *v,
 
                     assert (f->size <= 2);
                     dst = pack_len(dst, f->tag, f->tag_len, sz);
-                    dst = mempcpy(dst, data->data, sz);
+                    dst = mempcpy(dst, data->tab, sz);
                 } else {
                     dst = pack_tag(dst, f->tag, f->tag_len,
                                    IOP_WIRE_MASK(REPEAT));
@@ -4863,7 +4864,7 @@ int iop_skip_absent_field_desc(mem_pool_t *mp, void *value,
                         LSTR_FMT_ARG(fdesc->name));
             return -1;
         }
-        p_clear((lstr_t *)ptr, 1);
+        p_clear((iop_array_void_t *)ptr, 1);
       } break;
 
       case IOP_R_OPTIONAL:
@@ -5060,8 +5061,9 @@ unpack_struct(mem_pool_t *mp, const iop_env_t *iop_env,
 
         v = (char *)value + fdesc->data_offs;
         if (fdesc->repeat == IOP_R_REPEATED) {
-            lstr_t *data = v;
+            iop_array_void_t *data = v;
 
+            data->flags = 0;
             if (wt != IOP_WIRE_REPEAT
             &&  ((1 << fdesc->type) & IOP_REPEATED_OPTIMIZE_OK))
             {
@@ -5088,25 +5090,25 @@ unpack_struct(mem_pool_t *mp, const iop_env_t *iop_env,
 
                 if (fdesc->size == 1) {
                     data->len = len;
-                    data->data = ((flags & IOP_UNPACK_COPY_STRINGS)
-                                  ? mp_dup(mp, ps->s, len)
-                                  : (void *)ps->p);
+                    data->tab = ((flags & IOP_UNPACK_COPY_STRINGS)
+                                 ? mp_dup(mp, ps->s, len)
+                                 : (void *)ps->p);
                 } else {
                     assert (fdesc->size == 2);
                     PS_WANT(len % 2 == 0);
-                    data->len  = len / 2;
-                    data->data = mp_dup(mp, ps->s, len);
+                    data->len = len / 2;
+                    data->tab = mp_dup(mp, ps->s, len);
                 }
 
                 __ps_skip(ps, len);
-                v = data->data;
+                v = data->tab;
                 n = data->len;
                 goto next;
             }
 
           unpack_array:
-            data->len  = n;
-            data->data = v = mp_imalloc(mp, n * fdesc->size, 8, MEM_RAW);
+            data->len = n;
+            data->tab = v = mp_imalloc(mp, n * fdesc->size, 8, MEM_RAW);
 
             while (n-- > 1) {
                 if (unpack_value(mp, iop_env, wt, fdesc, v, ps, flags) < 0) {
@@ -5122,7 +5124,7 @@ unpack_struct(mem_pool_t *mp, const iop_env_t *iop_env,
                 sb_prepend_field(&iop_err_g.path, fdesc, 0);
                 return -1;
             }
-            v = data->data;
+            v = data->tab;
             n = data->len;
         } else {
             while (n-- > 1) {

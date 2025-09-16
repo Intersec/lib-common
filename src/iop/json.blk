@@ -1165,12 +1165,14 @@ static int unpack_val(iop_json_lex_t *ll, const iop_field_t *fdesc,
             return unpack_arr(ll, fdesc, value);
         } else {
             /* We support single value in repeated fields without brackets. */
-            lstr_t *arr = value;
+            iop_array_void_t *arr = value;
 
-            arr->len = 1;
-            arr->data = mp_imalloc(ll->mp, fdesc->size, 8, 0);
+            *arr = (iop_array_void_t){
+                .len = 1,
+                .tab = mp_imalloc(ll->mp, fdesc->size, 8, 0),
+            };
 
-            return unpack_val(ll, fdesc, arr->data, true);
+            return unpack_val(ll, fdesc, arr->tab, true);
         }
     }
 
@@ -1390,7 +1392,7 @@ do_double:
 static int unpack_arr(iop_json_lex_t *ll, const iop_field_t *fdesc,
                       void *value)
 {
-    lstr_t *arr = value;
+    iop_array_void_t *arr = value;
     int size = 0;
     void *ptr;
 
@@ -1408,11 +1410,11 @@ static int unpack_arr(iop_json_lex_t *ll, const iop_field_t *fdesc,
         if (fdesc) {
             if (arr->len >= size) {
                 size = p_alloc_nr(size);
-                arr->data = mp_irealloc(ll->mp, arr->data,
-                                        arr->len * fdesc->size,
-                                        size * fdesc->size, 8, 0);
+                arr->tab = mp_irealloc(ll->mp, arr->tab,
+                                       arr->len * fdesc->size,
+                                       size * fdesc->size, 8, 0);
             }
-            ptr = (void *)((char *)arr->data + arr->len * fdesc->size);
+            ptr = (void *)((byte *)arr->tab + arr->len * fdesc->size);
             iop_junpack_add_field_path_index(arr->len);
             PS_CHECK(unpack_val(ll, fdesc, ptr, true));
             iop_junpack_remove_last_field_path();
@@ -1805,9 +1807,9 @@ static int unpack_struct(iop_json_lex_t *ll, const iop_struct_t *desc,
                 int ret;
 
                 if (fdesc->repeat == IOP_R_REPEATED) {
-                    lstr_t *arr = ptr;
+                    iop_array_void_t *arr = ptr;
 
-                    ret = iop_field_check_constraints(desc, fdesc, arr->data,
+                    ret = iop_field_check_constraints(desc, fdesc, arr->tab,
                                                       arr->len, false);
                 } else {
                     ret = iop_field_check_constraints(desc, fdesc, ptr, 1,

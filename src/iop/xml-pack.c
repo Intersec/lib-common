@@ -187,9 +187,9 @@ xpack_struct(sb_t *sb, const iop_struct_t *desc, const void *v,
                 ptr = *(void **)ptr;
         }
         if (f->repeat == IOP_R_REPEATED) {
-            const lstr_t *data = ptr;
+            const iop_array_void_t *data = ptr;
             len = data->len;
-            ptr = data->data;
+            ptr = data->tab;
         }
 
         while (len-- > 0) {
