@@ -4283,8 +4283,10 @@ Z_GROUP_EXPORT(iop)
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[0].lr, ua));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[1].lr, ua));
         Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[2].lr, ua));
-        Z_ASSERT_EQ(vec.tab[3].lr->ua, 23);
-        Z_ASSERT_EQ(vec.tab[4].lr->ua, 42);
+        Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[3].lr, ub));
+        Z_ASSERT_P(IOP_UNION_GET(tstiop__my_union_a, vec.tab[4].lr, ub));
+        Z_ASSERT_EQ(vec.tab[3].lr->ub, 23);
+        Z_ASSERT_EQ(vec.tab[4].lr->ub, 42);
 
         /* sort on class members */
         Z_ASSERT_N(TST_SORT_VEC(LSTR("cls2.int1"), 0));
