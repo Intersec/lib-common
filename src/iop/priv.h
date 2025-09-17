@@ -67,6 +67,16 @@ static inline size_t iop_int_type_size(iop_type_t type)
     return 1 << (type >> 1);
 }
 
+
+/** Rough equivalent of memcmp() for IOP objects.
+ *
+ * This API is exposed only for testing purposes and should not be used in
+ * production code.
+ */
+bool z_iop_mem_equals_desc(const iop_struct_t *nonnull st,
+                           const void *nonnull v1,
+                           const void *nonnull v2);
+
 /* }}} */
 
 #endif

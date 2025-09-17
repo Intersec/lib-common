@@ -197,9 +197,9 @@ static int z_test_dup_or_copy(const iop_struct_t *st, const void *v,
     Z_ASSERT_IOPEQUAL_DESC(st, res, v, "result differs from source");
 
     if (_F(SHALLOW)) {
-        Z_ASSERT_EQ(memcmp(res, v, st->size), 0);
+        Z_ASSERT(z_iop_mem_equals_desc(st, res, v));
     } else {
-        Z_ASSERT_NE(memcmp(res, v, st->size), 0);
+        Z_ASSERT(!z_iop_mem_equals_desc(st, res, v));
         if (psz) {
             Z_ASSERT_EQ(*psz, exp_size, "size differs from expected");
         }
@@ -236,7 +236,7 @@ static int z_test_macros_dup_copy_eq(const tstiop__full_struct__t *v,
                                      bool memcmp_eq)
 {
     Z_ASSERT_IOPEQUAL(tstiop__full_struct, out, v);
-    Z_ASSERT_EQ(memcmp(v, out, sizeof(tstiop__full_struct__t)) == 0,
+    Z_ASSERT_EQ(z_iop_mem_equals_desc(tstiop__full_struct__sp, v, out),
                 memcmp_eq);
     Z_HELPER_END;
 }
