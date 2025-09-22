@@ -153,7 +153,12 @@ def filter_out_zchk(ctx: BuildContext) -> None:
 
 
 class BaseTaskGenModifier(Protocol):
-    """Base class when trying to duplicate the dependencies task gen"""
+    """
+    Base class when trying to duplicate the dependencies task gen.
+
+    This is a protocol and not an abstract class because of import issues
+    between waf tools.
+    """
 
     @staticmethod
     def is_tg_stlib(ctx: BuildContext, tgen: TaskGen) -> bool:
@@ -169,7 +174,11 @@ class BaseTaskGenModifier(Protocol):
 
 
 class TaskGenModifierC:
-    """Class when trying to duplicate the C dependencies task gen"""
+    """
+    Class when trying to duplicate the C dependencies task gen.
+
+    It implements `BaseTaskGenModifier`.
+    """
 
     @staticmethod
     def is_tg_stlib(ctx: BuildContext, tgen: TaskGen) -> bool:

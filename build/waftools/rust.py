@@ -76,7 +76,11 @@ def remove_in_list_no_err(list_: list[str], value: str) -> None:
 
 
 class TaskGenModifierRust:
-    """Class when trying to duplicate the Rust dependencies task gen"""
+    """
+    Class when trying to duplicate the Rust dependencies task gen.
+
+    It implements `backend.BaseTaskGenModifier`.
+    """
 
     @staticmethod
     def has_tg_rust_target(
