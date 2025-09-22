@@ -22,7 +22,7 @@
 #include <lib-common/core.h>
 
 /* XXX: All the following functions are implemented in
- * rust/libcommon-minimal.farch.rs
+ * rust/libcommon-core/farch.rs
  */
 
 /* {{{ Private API */
