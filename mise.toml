@@ -1,0 +1,7 @@
+# Mise configuration file for lib-common repository.
+#
+# https://mise.jdx.dev/configuration.html
+
+[tools]
+make = '4.3'
+python = ['2.7', '3.6']

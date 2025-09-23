@@ -18,6 +18,7 @@
 /.build*
 /.lock-waf*
 /.tool-versions
+mise.local.toml
 
 mem.stack.data.*
 mem.fifo.data.*
