@@ -581,4 +581,22 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT(lstr_startswith(s, LSTR("1.")), "s=%pL", &s);
         Z_ASSERT(lstr_endswith(s, LSTR(" sec")), "s=%pL", &s);
     } Z_TEST_END;
+
+    Z_TEST(timeval_has_expired) {
+        struct timeval refresh_tv;
+        struct timeval diff;
+
+        lp_gettv(&refresh_tv);
+        refresh_tv.tv_sec -= 1;
+
+        Z_ASSERT_EQ(timeval_has_expired(&refresh_tv, 1050, NULL), false);
+        Z_ASSERT_EQ(timeval_has_expired(&refresh_tv, 950, NULL), true);
+        Z_ASSERT_EQ(timeval_has_expired(&refresh_tv, 950, NULL), false);
+
+        refresh_tv.tv_sec -= 1;
+        Z_ASSERT_EQ(timeval_has_expired(&refresh_tv, 950, &diff), true);
+        Z_ASSERT_LE(timeval_to_msec(diff), 1050);
+        Z_ASSERT_GE(timeval_to_msec(diff), 950);
+
+    } Z_TEST_END;
 } Z_GROUP_END

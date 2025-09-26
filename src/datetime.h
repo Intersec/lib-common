@@ -927,5 +927,25 @@ void timing_scope_finish(timing_scope_ctx_t *ctx);
 const char *nonnull t_time_spent_to_str(struct timeval from_tv);
 
 /* }}} */
+/* {{{ timeval_has_expired() */
+
+/** Helper to check if a timeval is older than a given timeout.
+ *
+ * This helper returns true of the provided timeval is older than the
+ * provided timeout. In this case, the timeval is updated to the current
+ * date.
+ *
+ * \param[in]  tv  the timeval to check; when returning true, it is updated
+ *                 to the current date
+ * \param[in]  timeout_msec  timeout in milliseconds.
+ * \param[out] diff  when returning true, time difference between the input
+ *                   timeval and now
+ *
+ * \return  whether the timeval expired or not
+ */
+bool timeval_has_expired(struct timeval *tv, unsigned timeout_msec,
+                         struct timeval *nullable diff);
+
+/* }}} */
 
 #endif /* IS_LIB_COMMON_TIMEVAL_H */

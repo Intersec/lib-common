@@ -956,3 +956,24 @@ const char *t_time_spent_to_str(struct timeval from_tv)
 }
 
 /* }}} */
+/* {{{ progress_should_refresh() */
+
+bool timeval_has_expired(struct timeval *tv, unsigned timeout_msec,
+                         struct timeval *nullable diff)
+{
+    struct timeval now;
+
+    lp_gettv(&now);
+    if (timeval_diffmsec(&now, tv) > timeout_msec) {
+        if (diff) {
+            *diff = timeval_sub(now, *tv);
+        }
+
+        *tv = now;
+        return true;
+    }
+
+    return false;
+}
+
+/* }}} */
