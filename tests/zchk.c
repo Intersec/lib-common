@@ -1080,6 +1080,53 @@ Z_GROUP_EXPORT(core_macros) {
     } Z_TEST_END;
 
     /* }}} */
+    /* {{{ defer */
+
+    Z_TEST(defer, "defer") {
+        deferred qv_t(u32) qv;
+        uint32_t zero_tab[32] = { 0 };
+
+        qv_init(&qv);
+        defer({
+            qv_wipe(&qv);
+        });
+
+        qv_extend(&qv, zero_tab, countof(zero_tab));
+        Z_ASSERT_EQ(qv.len, countof(zero_tab));
+
+        {
+            deferred int *alloc_in_scope;
+
+            alloc_in_scope = p_new(int, 1);
+            defer({
+                p_delete(&alloc_in_scope);
+            });
+            *alloc_in_scope = 42;
+
+            Z_ASSERT_EQ(*alloc_in_scope, 42);
+        }
+
+        {
+            deferred int *multiple_defer1;
+            deferred int *multiple_defer2;
+
+            multiple_defer1 = p_new(int, 1);
+            defer({
+                p_delete(&multiple_defer1);
+            });
+            *multiple_defer1 = 42;
+
+            multiple_defer2 = p_new(int, 1);
+            defer({
+                p_delete(&multiple_defer2);
+            });
+            *multiple_defer2 = *multiple_defer1;
+
+            Z_ASSERT_EQ(*multiple_defer2, 42);
+        }
+    } Z_TEST_END;
+
+    /* }}} */
 } Z_GROUP_END;
 
 /* }}} */

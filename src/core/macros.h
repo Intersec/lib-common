@@ -807,6 +807,102 @@ typedef unsigned char byte;
          });)
 
 /* }}} */
+/* {{{ Defer */
+
+/** Defer implementation using GNU99 syntax and compatible with GCC and Clang.
+ *
+ * Inspired by Go `defer` statements, this macro can be used to defer the
+ * execution at the end of the scope.
+ *
+ * Internally, it uses:
+ * - For GCC: __attribute__((cleanup)) and nested functions.
+ * - For Clang: __attribute__((cleanup)) and blocks (with `-fblocks`).
+ *
+ * In order to support both compilers, the variables used on the defer blocks
+ * *MUST* be declared with `deferred` keyword and considered passed by
+ * reference (C++ reference style) in the block.
+ * Failure to do so can result in some undesirable consequences.
+ *
+ * The defer block acts as a separate function. Using `return` in the defer
+ * block only returns in the block itself and not in the original function.
+ *
+ * Example:
+ * ----
+ *  void foo(void)
+ *  {
+ *      deferred qv_t(i32) qv
+ *
+ *      qv_init(&qv);
+ *      defer({
+ *          qv_wipe(&qv);
+ *      });
+ *
+ *      ... Use the qv without qv_wipe() at the end.
+ *  }
+ * ----
+ */
+
+/* Special fake case for Block rewriter.
+ *
+ * The Block rewriter leave the macros untouched in the transpiled code, but
+ * still analyzes the contained code.
+ */
+#if defined(IS_CLANG_BLOCKS_REWRITER)
+
+#define deferred
+
+#define defer(_code)                                                         \
+    { _code }
+
+
+/* Clang with blocks */
+#elif defined(__BLOCKS__)
+
+#define deferred __block
+
+typedef void (^_defer_inner_b)(void);
+
+static ALWAYS_INLINE void _defer_blk_cleanup(_defer_inner_b *defer_blk)
+{
+    (*defer_blk)();
+}
+
+#define _defer_with_name(_code, _dname)                                      \
+    __attr_cleanup__(_defer_blk_cleanup)                                     \
+    void (^_dname)(void) = ^(void) { _code }                                 \
+
+#define defer(_code)                                                         \
+    _defer_with_name(_code, PFX_LINE(__defer__))
+
+
+/* GCC with nested function */
+#elif defined(__GNUC__)
+
+#define deferred
+
+#define _defer_with_name(_code, _dname_func, _dname_var)                     \
+    auto ALWAYS_INLINE void _dname_func(int *);                              \
+    __attr_cleanup__(_dname_func) int _dname_var;                            \
+    ALWAYS_INLINE void _dname_func(int *__defer_var)                         \
+    {                                                                        \
+        (void)__defer_var;                                                   \
+        { _code }                                                            \
+    }
+
+#define defer(_code)                                                         \
+    _defer_with_name(_code, PFX_LINE_SFX(__defer__, _func),                  \
+                     PFX_LINE_SFX(__defer__, _var))
+
+
+/* No defer :( */
+#else
+
+#define deferred
+#define defer(_code) DEFER_IS_NOT_SUPPORTED
+
+#endif /* defer */
+
+/* }}} */
 /* {{{ Dangerous APIs */
 
 #undef sprintf
