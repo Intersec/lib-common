@@ -268,8 +268,6 @@ EOF
         echo -Wmissing-declarations
         # warn about extern declarations inside functions
         echo -Wnested-externs
-        # warn when a declaration is found after a statement in a block
-        echo -Wdeclaration-after-statement
         # do not warn about zero-length formats.
         echo -Wno-format-zero-length
     fi

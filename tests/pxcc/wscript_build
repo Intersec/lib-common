@@ -29,7 +29,6 @@ ctx.shlib(target='zchk_mod', features='c cshlib', source=[
     '-Wno-unused-parameter',
     '-Wno-shadow',
     '-Wno-redundant-decls',
-    '-Wno-declaration-after-statement',
 ], use=[
     'python3',
 ])

@@ -140,7 +140,6 @@ class CythonC(c_tool.c):  # type: ignore[misc]
             '-Wno-shadow',
             '-Wno-redundant-decls',
             '-Wno-uninitialized',
-            '-Wno-declaration-after-statement',
             '-Wno-missing-field-initializers',
             '-Wno-undef',  # See https://github.com/cython/cython/issues/6014
         ])
