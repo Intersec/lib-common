@@ -4171,22 +4171,20 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
 {
     t_scope;
     SB_8k(buf);
-    qv_t(iopc_pkg) t_deps, t_weak_deps, i_deps;
+    deferred qv_t(iopc_pkg) t_deps, t_weak_deps, i_deps;
     const char *pkg_name;
     char path[PATH_MAX];
-    int res = 0;
-
-#define IOPC_DO_C_RETHROW(e)  \
-    do {                                                                     \
-        if ((res = (e)) < 0) {                                               \
-            goto end;                                                        \
-        }                                                                    \
-    } while (0)
 
     /*----- prepare stuff -----*/
     qv_inita(&t_deps, 1024);
     qv_inita(&t_weak_deps, 1024);
     qv_inita(&i_deps, 1024);
+    defer({
+        qv_wipe(&t_deps);
+        qv_wipe(&t_weak_deps);
+        qv_wipe(&i_deps);
+        iopc_put_range_cleanup();
+    });
 
     pkg_name = t_iopc_path_to_c(pkg->name);
     iopc_pkg_get_deps(pkg, IOPC_PKG_GET_DEPS_INCLUDE_ALL,
@@ -4234,7 +4232,7 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     }
     sb_adds(&buf, "#endif\n");
 
-    IOPC_DO_C_RETHROW(iopc_write_file(&buf, path));
+    RETHROW(iopc_write_file(&buf, path));
 
     /*----- dump the types header -----*/
     sb_sets(&buf, RO_WARN);
@@ -4246,10 +4244,10 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
             "\n", pkg_name, pkg_name, iopc_path_basename(pkg->name));
 
     tab_for_each_entry(dep, &t_weak_deps) {
-        IOPC_DO_C_RETHROW(put_include(&buf, "-tdef.iop.h", dep, pkg));
+        RETHROW(put_include(&buf, "-tdef.iop.h", dep, pkg));
     }
     tab_for_each_entry(dep, &t_deps) {
-        IOPC_DO_C_RETHROW(put_include(&buf, "-t.iop.h", dep, pkg));
+        RETHROW(put_include(&buf, "-t.iop.h", dep, pkg));
     }
     if (t_deps.len || t_weak_deps.len) {
         sb_adds(&buf, "\n");
@@ -4291,7 +4289,7 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     sb_adds(&buf, "#endif\n");
 
     strcpy(path + strlen(path) - strlen("-tdef.iop.h"), "-t.iop.h");
-    IOPC_DO_C_RETHROW(iopc_write_file(&buf, path));
+    RETHROW(iopc_write_file(&buf, path));
 
     /*----- dump the iface header -----*/
     sb_sets(&buf, RO_WARN);
@@ -4302,10 +4300,10 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
             "#include \"%s-t.iop.h\"\n",
             pkg_name, pkg_name, iopc_path_basename(pkg->name));
     tab_for_each_entry(dep, &t_deps) {
-        IOPC_DO_C_RETHROW(put_include(&buf, ".iop.h", dep, pkg));
+        RETHROW(put_include(&buf, ".iop.h", dep, pkg));
     }
     tab_for_each_entry(dep, &i_deps) {
-        IOPC_DO_C_RETHROW(put_include(&buf, ".iop.h", dep, pkg));
+        RETHROW(put_include(&buf, ".iop.h", dep, pkg));
     }
     sb_adds(&buf, "\n");
     tab_for_each_entry(iface, &pkg->ifaces) {
@@ -4330,7 +4328,7 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     sb_adds(&buf, "#endif\n");
 
     strcpy(path + strlen(path) - strlen("-t.iop.h"), ".iop.h");
-    IOPC_DO_C_RETHROW(iopc_write_file(&buf, path));
+    RETHROW(iopc_write_file(&buf, path));
 
     /*----- dump the C file -----*/
     sb_sets(&buf, RO_WARN);
@@ -4355,18 +4353,18 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
             "#include \"%s.iop.h\"\n",
             iopc_path_basename(pkg->name));
     tab_for_each_entry(dep, &t_weak_deps) {
-        IOPC_DO_C_RETHROW(put_include(&buf, ".iop.h", dep, pkg));
+        RETHROW(put_include(&buf, ".iop.h", dep, pkg));
     }
     sb_adds(&buf, "\n");
     tab_for_each_entry(en, &pkg->enums) {
         iopc_enum_dump_src(&buf, pkg, pkg_name, en);
     }
     tab_for_each_entry(st, &pkg->structs) {
-        IOPC_DO_C_RETHROW(iopc_struct_dump_src(&buf, pkg, pkg_name, st,
+        RETHROW(iopc_struct_dump_src(&buf, pkg, pkg_name, st,
                                                NULL, NULL, 0));
     }
     tab_for_each_entry(iface, &pkg->ifaces) {
-        IOPC_DO_C_RETHROW(iopc_iface_dump_src(&buf, pkg, pkg_name, iface));
+        RETHROW(iopc_iface_dump_src(&buf, pkg, pkg_name, iface));
     }
     tab_for_each_entry(mod, &pkg->modules) {
         iopc_module_dump_src(&buf, pkg, pkg_name, mod);
@@ -4378,17 +4376,9 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
     sb_addc(&buf, '\n');
 
     path[strlen(path) - 1] = 'c';
-    IOPC_DO_C_RETHROW(iopc_write_file(&buf, path));
+    RETHROW(iopc_write_file(&buf, path));
 
-#undef IOPC_DO_C_RETHROW
-
-    /*----- collect memory -----*/
-  end:
-    qv_wipe(&t_deps);
-    qv_wipe(&t_weak_deps);
-    qv_wipe(&i_deps);
-    iopc_put_range_cleanup();
-    return res;
+    return 0;
 }
 
 /* }}} */
