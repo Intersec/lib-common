@@ -1242,6 +1242,19 @@ static char *t_get_name(int id)
 }
 ----
 
+== Defer
+
+Inspired by Go `defer` statement, `defer` is available as a C macro.
+See the documentation of `defer` in `src/core/macros.h`.
+
+One important rule about our implementation of `defer` is that variables used
+in the defer blocks *MUST* be declared with `deferred` keyword.
+
+This is required to have a consistent behaviour between GCC and Clang where
+the actual `defer` implementation differs.
+
+Failure to do so can result in some undesirable consequences.
+
 == Parsers and protocols
 
 === Writing parsers
