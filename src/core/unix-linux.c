@@ -471,5 +471,106 @@ int eventfd(int initialvalue, int flags)
 #endif
 
 /* }}} */
+/* {{{ CGroups related functions */
+
+#define CGROUPS_V2_CPUSET_PATH "/sys/fs/cgroup/cpuset.cpus"
+#define CGROUPS_V2_CPUSET_EFFECTIVE_PATH \
+    "/sys/fs/cgroup/cpuset.cpus.effective"
+#define CGROUPS_V2_CPU_MAX_PATH "/sys/fs/cgroup/cpu.max"
+
+/* CGroups CPU set: can be either a range (start-end) or a single cpu */
+static int count_cpus(pstream_t ps)
+{
+    pstream_t sub;
+    int64_t range_start, range_end;
+
+    if (ps_get_ps_chr_and_skip(&ps, '-', &sub) < 0) {
+        return 1;
+    }
+    range_start = ps_getlli(&sub);
+    range_end = ps_getlli(&ps);
+    assert(range_start >= 0 && range_end >= 0);
+
+    return range_end - range_start + 1;
+}
+
+int cgroups_parse_cpuset(lstr_t content)
+{
+    pstream_t ps;
+    pstream_t sub;
+    int nb_cpus = 0;
+
+    if (content.len <= 1) {
+        /* The file exists but is empty, no limit applied */
+        assert(!content.len || content.s[0] == '\n');
+        return 0;
+    }
+
+    ps = ps_initlstr(&content);
+    while (ps_get_ps_chr_and_skip(&ps, ',', &sub) >= 0) {
+        nb_cpus += count_cpus(sub);
+    }
+    nb_cpus += count_cpus(ps);
+
+    return nb_cpus;
+}
+
+int cgroups_get_cpu_count_from_cpuset(void)
+{
+    lstr_t content;
+    int nb_cpus = 0;
+
+    /* We need to look at 2 different files: cpuset.cpus.effective and
+     * cpuset.cpus. The first file indicate the CPUs that have been granted to
+     * the group, the second one is the requested CPUs for this cgroup.
+     * cpuset.cpus does not take the cgroup hierarchy in account. So we read
+     * it only if we can't have the value from cpuset.cpus.effective.
+     */
+    if (lstr_init_from_file(&content,
+                            CGROUPS_V2_CPUSET_EFFECTIVE_PATH,
+                            PROT_READ, MAP_SHARED) < 0 &&
+        lstr_init_from_file(&content, CGROUPS_V2_CPUSET_PATH,
+                            PROT_READ, MAP_SHARED) < 0)
+    {
+        return errno == ENOENT ? 0 : -1;
+    }
+
+    nb_cpus = cgroups_parse_cpuset(content);
+    lstr_wipe(&content);
+
+    return nb_cpus;
+}
+
+int cgroups_parse_quota(lstr_t content, int64_t *quota, int64_t *period)
+{
+    if (content.len && !lstr_startswith(content, LSTR("max"))) {
+        pstream_t ps = ps_initlstr(&content);
+
+        *quota = RETHROW(ps_getlli(&ps));
+        *period = RETHROW(ps_getlli(&ps));
+
+        return 1;
+    }
+    return 0;
+}
+
+int cgroups_get_cpu_quota(int64_t *quota, int64_t *period)
+{
+    lstr_t content;
+    int limit = 0;
+
+    if (lstr_init_from_file(&content, CGROUPS_V2_CPU_MAX_PATH, PROT_READ,
+                            MAP_SHARED) < 0)
+    {
+        return errno == ENOENT ? 0 : -1;
+    }
+    limit = cgroups_parse_quota(content, quota, period);
+    lstr_wipe(&content);
+
+    return limit;
+}
+
+
+/* }}} */
 
 #endif

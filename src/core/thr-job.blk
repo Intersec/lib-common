@@ -16,6 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
+#include <math.h>
 #include <lib-common/arith.h>
 #include <lib-common/datetime.h>
 #include <lib-common/el.h>
@@ -1032,6 +1033,35 @@ void thr_queue_main_drain(void)
     thr_ec_signal(&_G.ec);
 }
 
+#ifdef __linux__
+
+static void thr_check_cpu_quota(void)
+{
+    int64_t quota;
+    int64_t period;
+
+    if (cgroups_get_cpu_quota(&quota, &period) > 0) {
+        double ratio = (double)quota / (double)period;
+        uint64_t old_val = thr_parallelism_g;
+
+        if (quota > period) {
+            /* Ratio is greater than 1, consider this as a number of CPUs. */
+            thr_parallelism_g = MIN(ceil(ratio), thr_parallelism_g);
+        } else {
+            /* Ratio is less than 1, apply the ratio to the parallelism value.
+             */
+            thr_parallelism_g = ceil(thr_parallelism_g * ratio);
+        }
+        if (old_val != thr_parallelism_g) {
+            e_notice("thr-job: applied ratio %0.2f, parallelism set to %ju "
+                     "(was %ju)", ratio, thr_parallelism_g,
+                     old_val);
+        }
+    }
+}
+
+#endif /* __linux__ */
+
 static int thr_initialize(void *arg)
 {
     const thr_cfg_t *cfg = arg;
@@ -1041,6 +1071,20 @@ static int thr_initialize(void *arg)
     if (thr_parallelism_g) {
         return 0;
     }
+
+#ifdef __linux__
+    {
+        int cpu_limit = cgroups_get_cpu_count_from_cpuset();
+
+        if (cpu_limit > 0) {
+            size_t old_val = nb_cpu;
+
+            nb_cpu = cpu_limit;
+            e_notice("thr-job: applying system CPU limit (%'d CPUs, was %ju)",
+                     cpu_limit, old_val);
+        }
+    }
+#endif /* __linux__ */
 
     if (env && *env) {
         thr_parallelism_g = atoi(env);
@@ -1054,6 +1098,10 @@ static int thr_initialize(void *arg)
         /* By default, don't go higher than 64: it's pretty sure thread jobs
          * are inefficient with that much threads. */
         thr_parallelism_g = MIN(nb_cpu, 64);
+
+#ifdef __linux__
+        thr_check_cpu_quota();
+#endif /* __linux__ */
     }
     thr_parallelism_g = MAX(thr_parallelism_g, 2);
 

@@ -736,6 +736,39 @@ Z_GROUP_EXPORT(Unix) {
     } Z_TEST_END;
 } Z_GROUP_END;
 
+#if defined(__linux__)
+
+Z_GROUP_EXPORT(cgroups) {
+
+    Z_TEST(cpu_set_parsing) {
+        Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("")), 0);
+        Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("\n")), 0);
+        Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0-3\n")), 4);
+        Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0,3\n")), 2);
+        Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0,3,4-6\n")), 5);
+        Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0,3,4-6,9\n")), 6);
+        Z_ASSERT_EQ(cgroups_parse_cpuset(LSTR("0,3,4-6,9,11-15\n")), 11);
+    } Z_TEST_END;
+
+    Z_TEST(cpu_quota_parsing) {
+        int64_t quota;
+        int64_t period;
+
+        Z_ASSERT_EQ(cgroups_parse_quota(LSTR(""), &quota, &period), 0);
+        Z_ASSERT_EQ(cgroups_parse_quota(LSTR("max 100000\n"), &quota,
+                                        &period),
+                    0);
+        Z_ASSERT_EQ(cgroups_parse_quota(LSTR("9999 100000\n"), &quota,
+                                        &period),
+                    1);
+        Z_ASSERT_EQ(quota, 9999);
+        Z_ASSERT_EQ(period, 100000);
+    } Z_TEST_END;
+
+} Z_GROUP_END;
+
+#endif /* __linux__ */
+
 /* }}} */
 
 /* LCOV_EXCL_STOP */

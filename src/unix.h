@@ -493,6 +493,31 @@ static ALWAYS_INLINE int _psinfo_get_tracer_pid(pid_t pid)
 #pragma GCC diagnostic pop
 #endif
 
+#if defined(__linux__)
+
+/* Get number of CPUs allowed by cgroups.
+ *
+ * \return The number of CPUs, 0 mean no limit. A negative value on error.
+ */
+int cgroups_get_cpu_count_from_cpuset(void);
+
+/* Get the CPU period and quota allowed by cgroups.
+ *
+ * Note: the actual number of CPU is not directly returned by this function,
+ * but can be obtained from quota / period. This value can be lower than 1.
+ * The handling of this case is up to the caller.
+ *
+ * \return A positive value on success, 0 mean no limit. A negative value on
+ *         error.
+ */
+int cgroups_get_cpu_quota(int64_t *quota, int64_t *period);
+
+/* The 2 following functions are only exposed for tests. */
+int cgroups_parse_cpuset(lstr_t content);
+int cgroups_parse_quota(lstr_t content, int64_t *quota, int64_t *period);
+
+#endif /* __linux__ */
+
 /* }}} */
 /* {{{ atfork methods / ifork */
 
