@@ -140,7 +140,7 @@ Z_GROUP_EXPORT(bsr_bsf)
 /* {{{ bit_reverse */
 
 Z_GROUP_EXPORT(bit_reverse) {
-    Z_TEST(bit_reverse, "bit reverse") {
+    Z_TEST(bit_reverse) {
         Z_ASSERT_EQ(bit_reverse16(0x3445), 0xa22c);
         Z_ASSERT_EQ(bit_reverse64(0xabc), 0x3d50000000000000ull);
         Z_ASSERT_EQ(bit_reverse64(0x101010101010101), 0x8080808080808080ull);
@@ -213,12 +213,12 @@ static int membitcount_check_rand(size_t (*fn)(const void *, size_t))
 
 Z_GROUP_EXPORT(membitcount)
 {
-    Z_TEST(fast_c, "") {
+    Z_TEST(fast_c) {
         Z_HELPER_RUN(membitcount_check_rand(membitcount_c));
         Z_HELPER_RUN(membitcount_check_small(membitcount_c));
     } Z_TEST_END;
 
-    Z_TEST(ssse3, "") {
+    Z_TEST(ssse3) {
 #ifdef __HAS_CPUID
         int eax, ebx, ecx, edx;
 
@@ -234,7 +234,7 @@ Z_GROUP_EXPORT(membitcount)
 #endif
     } Z_TEST_END;
 
-    Z_TEST(popcnt, "") {
+    Z_TEST(popcnt) {
 #ifdef __HAS_CPUID
         int eax, ebx, ecx, edx;
 

@@ -26,7 +26,7 @@ Z_GROUP_EXPORT(wah) {
      * code. */
     wah_set_bits_in_bucket(10000 * WAH_BIT_IN_WORD);
 
-    Z_TEST(simple, "") { /* {{{ */
+    Z_TEST(simple) { /* {{{ */
         wah_t map;
 
         wah_init(&map);
@@ -45,7 +45,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(fill, "") { /* {{{ */
+    Z_TEST(fill) { /* {{{ */
         wah_t map;
 
         wah_init(&map);
@@ -83,7 +83,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(set_bitmap, "") { /* {{{ */
+    Z_TEST(set_bitmap) { /* {{{ */
         wah_t map;
         wah_t map2;
         const byte data[] = {
@@ -138,7 +138,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(for_each, "") { /* {{{ */
+    Z_TEST(for_each) { /* {{{ */
         wah_t map;
         const byte data[] = {
             0x1f, 0x00, 0x00, 0x8c, /* 0, 1, 2, 3, 4, 26, 27, 31 (32) */
@@ -195,7 +195,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(binop, "") { /* {{{ */
+    Z_TEST(binop) { /* {{{ */
         wah_t map1;
         wah_t map2;
         wah_t map3;
@@ -334,7 +334,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(redmine_4576, "") { /* {{{ */
+    Z_TEST(redmine_4576) { /* {{{ */
         wah_t map;
         const byte data[] = {
             0x1f, 0x00, 0x1f, 0x1f,
@@ -360,7 +360,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(redmine_9437, "") { /* {{{ */
+    Z_TEST(redmine_9437) { /* {{{ */
         wah_t map;
         const uint32_t data = 0xbfffffff;
 
@@ -386,7 +386,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(redmine_42990, "") { /* {{{ */
+    Z_TEST(redmine_42990) { /* {{{ */
         wah_t map;
         uint32_t literal[] = { 0xff7fff7f, 0xffffffff, 0xf7fffdeb };
 
@@ -403,7 +403,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(non_reg_and, "") { /* {{{ */
+    Z_TEST(non_reg_and) { /* {{{ */
         t_scope;
         uint32_t src_data[]   = { 0x00000519, 0x00000000, 0x80000101, 0x00000000 };
         uint32_t other_data[] = { 0x00000000, 0x00000002, 0x80000010, 0x00000003,
@@ -436,7 +436,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(skip1s, "") { /* {{{ */
+    Z_TEST(skip1s) { /* {{{ */
         wah_t map;
         uint64_t pos = 0;
         uint64_t bc;
@@ -479,7 +479,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_20150119, "") { /* {{{ */
+    Z_TEST(nr_20150119) { /* {{{ */
         wah_t map1;
         wah_t map2;
 
@@ -501,7 +501,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_20150219, "") { /* {{{ */
+    Z_TEST(nr_20150219) { /* {{{ */
         wah_t map1;
         wah_t map2;
 
@@ -522,7 +522,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(buckets, "") { /* {{{ */
+    Z_TEST(buckets) { /* {{{ */
         SB_1k(sb);
         wah_t map1;
         uint32_t literal[] = {
@@ -595,7 +595,7 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(t_wah_get_storage_lstr, "") { /* {{{ */
+    Z_TEST(t_wah_get_storage_lstr) { /* {{{ */
         t_scope;
         wah_t wah;
         uint64_t bits_pos[] = {

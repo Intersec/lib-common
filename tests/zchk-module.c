@@ -378,7 +378,7 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT(!MODULE_IS_SHUTTING_DOWN(load_shut));
     } Z_TEST_END;
 
-    Z_TEST(use_case1,  "Use case1") {
+    Z_TEST(use_case1) {
       /*           mod1           mod6
        *         /   |   \         |
        *        /    |    \        |
@@ -457,7 +457,7 @@ Z_GROUP_EXPORT(module)
 /* }}} */
 /* provide {{{ */
 
-    Z_TEST(provide,  "Provide") {
+    Z_TEST(provide) {
         int a = 4;
 
         Z_MODULE_REGISTER(module_arg);
@@ -468,7 +468,7 @@ Z_GROUP_EXPORT(module)
         MODULE_RELEASE(module_arg);
     } Z_TEST_END;
 
-    Z_TEST(provide_constructor, "provide constructor") {
+    Z_TEST(provide_constructor) {
         MODULE_REQUIRE(modprovide2);
         Z_ASSERT_LSTREQUAL(*word_global, provide_arg);
         MODULE_RELEASE(modprovide2);
@@ -477,7 +477,7 @@ Z_GROUP_EXPORT(module)
 /* }}} */
 /* methods {{{ */
 
-    Z_TEST(method, "Methods") {
+    Z_TEST(method) {
         Z_MODULE_REGISTER(modmethod1);
         Z_MODULE_DEPENDS_ON(modmethod1, modmethod2);
         module_implement_method(MODULE(modmethod1), &after_method,
@@ -651,7 +651,7 @@ Z_GROUP_EXPORT(module)
 /* }}} */
 /* invert dependency {{{ */
 
-    Z_TEST(invert_dependency, "invert dependency") {
+    Z_TEST(invert_dependency) {
         Z_MODULE_DEPENDS_ON(depmod1, depmod2);
         Z_MODULE_NEEDED_BY(depmod3, depmod1);
 
@@ -672,7 +672,7 @@ Z_GROUP_EXPORT(module)
 /* }}} */
 /* dependency check {{{ */
 
-    Z_TEST(dependency, "Modules dependency check") {
+    Z_TEST(dependency) {
         module_t *liste1[] = { MODULE(module_a), MODULE(module_e) };
         module_t *liste2[] = { MODULE(module_a), MODULE(module_e),
                                MODULE(module_g) };

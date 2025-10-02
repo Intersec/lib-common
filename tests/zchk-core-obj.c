@@ -127,7 +127,7 @@ static lstr_t t_get_obj_desc_indirect(my_base_object_t *obj)
 
 Z_GROUP_EXPORT(core_obj)
 {
-    Z_TEST(basic, "test basic use of core obj") {
+    Z_TEST(basic) {
         t_scope;
         my_base_object_t *base_obj = obj_new(my_base_object);
         my_child_object_t *child_obj = obj_new(my_child_object);
@@ -146,7 +146,7 @@ Z_GROUP_EXPORT(core_obj)
         obj_delete(&base_obj);
     } Z_TEST_END;
 
-    Z_TEST(casts, "test cast macros") {
+    Z_TEST(casts) {
         my_base_object_t *base_obj = obj_new(my_base_object);
         my_child_object_t *child_obj = obj_new(my_child_object);
         my_base_object_t *vcast_obj;
@@ -175,7 +175,7 @@ Z_GROUP_EXPORT(core_obj)
         obj_delete(&base_obj);
     } Z_TEST_END;
 
-    Z_TEST(extended, "test extended vtable") {
+    Z_TEST(extended) {
         my_child_object_t *child_obj = obj_new(my_child_object);
 
         child_obj->a = 5;
@@ -189,7 +189,7 @@ Z_GROUP_EXPORT(core_obj)
         obj_delete(&child_obj);
     } Z_TEST_END;
 
-    Z_TEST(refcounting, "test refcounting") {
+    Z_TEST(refcounting) {
         my_base_object_t *obj;
         my_base_object_t *tmp;
 
@@ -257,7 +257,7 @@ Z_GROUP_EXPORT(core_obj)
                       "obj_retain_scope() should have deleted the object");
     } Z_TEST_END;
 
-    Z_TEST(tagged_references, "test tagged retain/release") {
+    Z_TEST(tagged_references) {
         my_base_object_t *obj;
 
         obj = obj_new(my_base_object);

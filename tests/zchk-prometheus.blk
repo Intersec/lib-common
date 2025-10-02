@@ -210,7 +210,7 @@ Z_GROUP_EXPORT(prometheus_client) {
 
     MODULE_REQUIRE(thr);
 
-    Z_TEST(metrics_name, "test metrics name validation") {
+    Z_TEST(metrics_name) {
 #define T_OK(_name)  Z_ASSERT_N(prom_metric_check_name(LSTR(_name)))
 #define T_KO(_name)  Z_ASSERT_NEG(prom_metric_check_name(LSTR(_name)))
 
@@ -231,7 +231,7 @@ Z_GROUP_EXPORT(prometheus_client) {
 #undef T_KO
     } Z_TEST_END;
 
-    Z_TEST(metrics_label_name, "test metrics label name validation") {
+    Z_TEST(metrics_label_name) {
 #define T_OK(_name)  Z_ASSERT_N(prom_metric_check_label_name(_name))
 #define T_KO(_name)  Z_ASSERT_NEG(prom_metric_check_label_name(_name))
 
@@ -252,8 +252,7 @@ Z_GROUP_EXPORT(prometheus_client) {
 #undef T_KO
     } Z_TEST_END;
 
-    Z_TEST(single_value_metrics_basics,
-           "test single value metrics metrics creation") {
+    Z_TEST(single_value_metrics_basics) {
         prom_counter_t *counter;
         prom_counter_t *counter_child;
         prom_gauge_t *gauge;
@@ -341,7 +340,7 @@ Z_GROUP_EXPORT(prometheus_client) {
         MODULE_RELEASE(prometheus_client);
     } Z_TEST_END;
 
-    Z_TEST(histogram_basics, "test histogram metrics creation") {
+    Z_TEST(histogram_basics) {
         const double default_buckets[] = { PROM_DEFAULT_BUCKETS };
         prom_histogram_t *histogram;
         prom_histogram_t *child;
@@ -413,35 +412,27 @@ Z_GROUP_EXPORT(prometheus_client) {
         MODULE_RELEASE(prometheus_client);
     } Z_TEST_END;
 
-    Z_TEST(metric_labels_thread_safety,
-           "test thread safety of labels() method")
-    {
+    Z_TEST(metric_labels_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_metric_labels_thread_safety());
     } Z_TEST_END;
 
-    Z_TEST(counter_value_thread_safety,
-           "test thread safety of counter value modification")
-    {
+    Z_TEST(counter_value_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_counter_value_thread_safety());
     } Z_TEST_END;
 
-    Z_TEST(gauge_value_thread_safety,
-           "test thread safety of gauge value modification")
-    {
+    Z_TEST(gauge_value_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_gauge_value_thread_safety());
     } Z_TEST_END;
 
-    Z_TEST(histogram_value_thread_safety,
-           "test thread safety of histogram value modification")
-    {
+    Z_TEST(histogram_value_thread_safety) {
         /* Not implemented directly here because of block rewriting issues */
         Z_HELPER_RUN(z_histogram_value_thread_safety());
     } Z_TEST_END;
 
-    Z_TEST(text_histogram_timer, "test prom_histogram_timer_scope") {
+    Z_TEST(text_histogram_timer) {
         prom_histogram_t *histo;
 
         MODULE_REQUIRE(prometheus_client);

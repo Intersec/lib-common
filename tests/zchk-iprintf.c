@@ -25,7 +25,7 @@
 #include <lib-common/z.h>
 
 Z_GROUP_EXPORT(iprintf) {
-    Z_TEST(double, "") {
+    Z_TEST(double) {
         char buffer[128];
 
         isprintf(buffer, "%g", -INFINITY);
@@ -36,7 +36,7 @@ Z_GROUP_EXPORT(iprintf) {
         Z_ASSERT_STREQUAL(buffer, "+Inf");
     } Z_TEST_END;
 
-    Z_TEST(pM, "") {
+    Z_TEST(pM) {
         char buffer[128];
 
         isprintf(buffer, "%*pM", 3, "1234");
@@ -47,7 +47,7 @@ Z_GROUP_EXPORT(iprintf) {
         Z_ASSERT_STREQUAL(buffer, "123trailing", "");
     } Z_TEST_END
 
-    Z_TEST(pX, "") {
+    Z_TEST(pX) {
         char buffer[128];
 
         isprintf(buffer, "%*pX", 4, "1234");
@@ -58,7 +58,7 @@ Z_GROUP_EXPORT(iprintf) {
         Z_ASSERT_STREQUAL(buffer, "48656C6C6Fworld!");
     } Z_TEST_END;
 
-    Z_TEST(px, "") {
+    Z_TEST(px) {
         char buffer[128];
 
         isprintf(buffer, "%*px", 4, "1234");
@@ -69,7 +69,7 @@ Z_GROUP_EXPORT(iprintf) {
         Z_ASSERT_STREQUAL(buffer, "48656c6c6fworld!");
     } Z_TEST_END;
 
-    Z_TEST(pL, "") {
+    Z_TEST(pL) {
         char buffer[128];
         const lstr_t str = LSTR_IMMED("1234");
         SB_1k(sb);
@@ -94,7 +94,7 @@ Z_GROUP_EXPORT(iprintf) {
         Z_ASSERT_STREQUAL(buffer, "1234trailing");
     } Z_TEST_END
 
-    Z_TEST(ivasprintf, "") {
+    Z_TEST(ivasprintf) {
         char *formatted = iasprintf("%*pM", 4, "1234");
         int len = 2 * BUFSIZ;
         char big[len + 1];
@@ -109,7 +109,7 @@ Z_GROUP_EXPORT(iprintf) {
         p_delete(&formatted);
     } Z_TEST_END;
 
-    Z_TEST(thousand_sep, "") {
+    Z_TEST(thousand_sep) {
         char buffer[128];
 
 #define T(_fmt, _val, _res)                                                   \
@@ -172,7 +172,7 @@ Z_GROUP_EXPORT(iprintf) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(i128, "printing 128 bits integers") {
+    Z_TEST(i128) {
         int len;
         char buffer[128];
 

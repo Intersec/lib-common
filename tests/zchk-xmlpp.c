@@ -20,7 +20,7 @@
 #include <lib-common/z.h>
 
 Z_GROUP_EXPORT(xmlpp) {
-    Z_TEST(xmlpp_tag_scope, "xmlpp_tag_scope") {
+    Z_TEST(xmlpp_tag_scope) {
         xmlpp_t pp;
         SB_8k(xml1);
         SB_8k(xml2);

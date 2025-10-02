@@ -424,31 +424,31 @@ Z_GROUP_EXPORT(arith_sse)
 
 #define GET(V)     V
 
-    Z_TEST(8, "") {
+    Z_TEST(8) {
         DO_TEST(8, 4096, GET);
     } Z_TEST_END;
 
-    Z_TEST(16, "") {
+    Z_TEST(16) {
         DO_TEST(16, 2048, GET);
     } Z_TEST_END;
 
-    Z_TEST(32, "") {
+    Z_TEST(32) {
         DO_TEST(32, 1024, GET);
     } Z_TEST_END;
 
-    Z_TEST(64, "") {
+    Z_TEST(64) {
         DO_TEST(64, 1024, GET);
     } Z_TEST_END;
 
-    Z_TEST(128, "") {
+    Z_TEST(128) {
         DO_TEST(128, 1024, GET);
     } Z_TEST_END;
 
-    Z_TEST(scan_non_zero16, "scan_non_zero16") {
+    Z_TEST(scan_non_zero16) {
         Z_HELPER_RUN(test_scan_non_zero16());
     } Z_TEST_END;
 
-    Z_TEST(scan_non_zero32, "scan_non_zero32") {
+    Z_TEST(scan_non_zero32) {
         Z_HELPER_RUN(test_scan_non_zero32());
     } Z_TEST_END;
 #undef GET

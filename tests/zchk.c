@@ -23,7 +23,7 @@
 
 Z_GROUP_EXPORT(endianess)
 {
-    Z_TEST(unaligned, "put_unaligned/get_unaligned") {
+    Z_TEST(unaligned) {
         byte data[BUFSIZ];
         uint16_t us;
         uint32_t u;
@@ -69,7 +69,7 @@ Z_GROUP_EXPORT(endianess)
 #undef DO_TEST
     } Z_TEST_END;
 
-    Z_TEST(sb_add_ps_get, "sb_add/ps_get") {
+    Z_TEST(sb_add_ps_get) {
         SB_1k(sb);
         uint16_t us;
         uint32_t u;
@@ -170,7 +170,7 @@ Z_GROUP_EXPORT(bit_stream)
 
     /* Init {{{ */
 
-    Z_TEST(len, "bit_stream: check length") {
+    Z_TEST(len) {
         byte data[128];
 
         p_clear(&data, 1);
@@ -209,7 +209,7 @@ Z_GROUP_EXPORT(bit_stream)
     /* }}} */
     /* Skips/shrink {{{ */
 
-    Z_TEST(skip, "bit_stream: bs_skip") {
+    Z_TEST(skip) {
         bit_stream_t bs;
         byte data[128];
 
@@ -240,7 +240,7 @@ Z_GROUP_EXPORT(bit_stream)
         Z_CHECK_BOUNDS(bs, 264, 1024);
     } Z_TEST_END;
 
-    Z_TEST(shrink, "bit_stream: bs_shrink") {
+    Z_TEST(shrink) {
         bit_stream_t bs;
         byte data[128];
 
@@ -271,7 +271,7 @@ Z_GROUP_EXPORT(bit_stream)
         Z_CHECK_BOUNDS(bs, 0, 760);
     } Z_TEST_END;
 
-    Z_TEST(skip_upto, "bit_stream: bs_skip_upto") {
+    Z_TEST(skip_upto) {
         bit_stream_t bs;
         byte data[128];
 
@@ -302,7 +302,7 @@ Z_GROUP_EXPORT(bit_stream)
         Z_CHECK_BOUNDS(bs, 264, 1024);
     } Z_TEST_END;
 
-    Z_TEST(clip_at, "bit_stream: bs_clip_at") {
+    Z_TEST(clip_at) {
         bit_stream_t bs;
         byte data[128];
 
@@ -336,7 +336,7 @@ Z_GROUP_EXPORT(bit_stream)
     /* }}} */
     /* Extract {{{ */
 
-    Z_TEST(extract_after, "bit_stream: bs_extract_after") {
+    Z_TEST(extract_after) {
         bit_stream_t bs;
         bit_stream_t n;
         byte data[128];
@@ -380,7 +380,7 @@ Z_GROUP_EXPORT(bit_stream)
     } Z_TEST_END;
 
 
-    Z_TEST(get_bs_upto, "bit_stream: bs_get_bs_upto") {
+    Z_TEST(get_bs_upto) {
         bit_stream_t bs;
         bit_stream_t n;
         byte data[128];
@@ -419,7 +419,7 @@ Z_GROUP_EXPORT(bit_stream)
         Z_CHECK_BOUNDS(n, 136, 264);
     } Z_TEST_END;
 
-    Z_TEST(get_bs, "bit_stream: bs_get_bs") {
+    Z_TEST(get_bs) {
         bit_stream_t bs;
         bit_stream_t n;
         byte data[128];
@@ -494,7 +494,7 @@ Z_GROUP_EXPORT(bit_stream)
         Z_ASSERT_BIT(Variant##get_bit(&bs), Tst(data, pos));                 \
     } while (0)
 
-    Z_TEST(get_bits, "bit_stream: bs_get_bits") {
+    Z_TEST(get_bits) {
         bit_stream_t bs;
         bit_stream_t n;
         byte data[128];
@@ -520,7 +520,7 @@ Z_GROUP_EXPORT(bit_stream)
         TST_BIT(d, __offset);                                                \
     })
 
-    Z_TEST(be_get_bits, "bit_stream: bs_be_get_bits") {
+    Z_TEST(be_get_bits) {
         bit_stream_t bs;
         bit_stream_t n;
         byte data[128];
@@ -543,7 +543,7 @@ Z_GROUP_EXPORT(bit_stream)
     /* }}} */
     /* Scans {{{ */
 
-    Z_TEST(skip_upto_bit, "bit_stream: bs_skip_upto_bit") {
+    Z_TEST(skip_upto_bit) {
         bit_stream_t bs;
         byte data[128];
 
@@ -578,7 +578,7 @@ Z_GROUP_EXPORT(bit_stream)
         Z_CHECK_BOUNDS(bs, 166, 1024);
     } Z_TEST_END;
 
-    Z_TEST(skip_after_bit, "bit_stream: bs_skip_after_bit") {
+    Z_TEST(skip_after_bit) {
         bit_stream_t bs;
         byte data[128];
 
@@ -620,7 +620,7 @@ Z_GROUP_EXPORT(bit_stream)
         Z_ASSERT(bs_done(&(Stream)));                                        \
     } while (0)
 
-    Z_TEST(get_bs_bit, "bit_stream: bs_get_bs_bit") {
+    Z_TEST(get_bs_bit) {
         bit_stream_t bs;
         bit_stream_t n;
         byte data[128];
@@ -662,7 +662,7 @@ Z_GROUP_EXPORT(bit_stream)
         Z_CHECK_BOUNDS(bs, 166, 1024);
     } Z_TEST_END;
 
-    Z_TEST(get_bs_bit_and_skip, "bit_stream: bs_get_bs_bit_and_skip") {
+    Z_TEST(get_bs_bit_and_skip) {
         bit_stream_t bs;
         bit_stream_t n;
         byte data[128];
@@ -702,7 +702,7 @@ Z_GROUP_EXPORT(bit_stream)
     } Z_TEST_END;
 
 
-    Z_TEST(shrink_downto_bit, "bit_stream: bs_shrink_downto_bit") {
+    Z_TEST(shrink_downto_bit) {
         bit_stream_t bs;
         byte data[128];
 
@@ -733,7 +733,7 @@ Z_GROUP_EXPORT(bit_stream)
         Z_CHECK_BOUNDS(bs, 0, 3);
     } Z_TEST_END;
 
-    Z_TEST(shrink_before_bit, "bit_stream: bs_shrink_before_bit") {
+    Z_TEST(shrink_before_bit) {
         bit_stream_t bs;
         byte data[128];
 
@@ -771,7 +771,7 @@ Z_GROUP_EXPORT(bit_stream)
 /* {{{ parseopt */
 
 Z_GROUP_EXPORT(parseopt) {
-    Z_TEST(parseopt_geti, "") {
+    Z_TEST(parseopt_geti) {
         int i = 0;
 
         Z_ASSERT_N(parseopt_geti("42", "ARG", &i));
@@ -783,7 +783,7 @@ Z_GROUP_EXPORT(parseopt) {
         Z_ASSERT_NEG(parseopt_geti("12t", "ARG", &i));
     } Z_TEST_END;
 
-    Z_TEST(parseopt_getu, "") {
+    Z_TEST(parseopt_getu) {
         unsigned u = 0;
 
         Z_ASSERT_N(parseopt_getu("42", "ARG", &u));
@@ -810,7 +810,7 @@ typedef struct extra_lstr_tab_t {
 Z_GROUP_EXPORT(core_macros) {
     /* {{{ OPT */
 
-    Z_TEST(opt, "opt") {
+    Z_TEST(opt) {
         opt_u32_t src, dst;
 
         OPT_SET(src, 8008);
@@ -849,7 +849,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* }}} */
     /* {{{ carray_loops */
 
-    Z_TEST(carray_loops, "C array loop helpers") {
+    Z_TEST(carray_loops) {
         int i = 0;
         lstr_t strs[] = {
             LSTR_IMMED("toto"),
@@ -882,7 +882,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* }}} */
     /* {{{ tab_last */
 
-    Z_TEST(tab_last, "tab_last") {
+    Z_TEST(tab_last) {
         int ints[] = { 1, 2, 3, 4 };
         struct {
             int *tab;
@@ -898,7 +898,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* }}} */
     /* {{{ tab_for_each_pos */
 
-    Z_TEST(tab_for_each_pos, "") {
+    Z_TEST(tab_for_each_pos) {
         int ints[] = { 1, 2, 3, 4 };
         struct {
             int *tab;
@@ -922,7 +922,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* }}} */
     /* {{{ tab_for_each_ptr */
 
-    Z_TEST(tab_for_each_ptr, "") {
+    Z_TEST(tab_for_each_ptr) {
         t_scope;
         const char *strs[] = { "toto", "abcdef", "42" };
         struct {
@@ -963,7 +963,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* }}} */
     /* {{{ tab_for_each_entry */
 
-    Z_TEST(tab_for_each_entry, "") {
+    Z_TEST(tab_for_each_entry) {
         t_scope;
         lstr_t lstrs[] = { LSTR("string"), LSTR("int"), LSTR("double") };
         struct {
@@ -1005,7 +1005,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* }}} */
     /* {{{ tab_enumerate_ptr */
 
-    Z_TEST(tab_enumerate_ptr, "") {
+    Z_TEST(tab_enumerate_ptr) {
         const char *strs[] = { "toto", "abcdef", "42" };
         struct {
             const char **tab;
@@ -1028,7 +1028,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* }}} */
     /* {{{ tab_enumerate */
 
-    Z_TEST(tab_enumerate, "") {
+    Z_TEST(tab_enumerate) {
         lstr_t lstrs[] = { LSTR("string"), LSTR("int"), LSTR("double") };
         struct {
             lstr_t *tab;
@@ -1051,7 +1051,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* }}} */
     /* {{{ tab_swap */
 
-    Z_TEST(tab_swap, "tab_swap") {
+    Z_TEST(tab_swap) {
         int ints[] = { 1, 2, 3, 4 };
         struct {
             int *tab;
@@ -1071,7 +1071,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* }}} */
     /* {{{ unconst */
 
-    Z_TEST(unconst_cast, "unconst_cast") {
+    Z_TEST(unconst_cast) {
         const int i = 5;
         int *p;
 
@@ -1156,7 +1156,7 @@ static int z_check_debug_file(const char *path, const char *func,
 }
 
 Z_GROUP_EXPORT(core_errors) {
-    Z_TEST(debug_stack, "") {
+    Z_TEST(debug_stack) {
         t_scope;
         int i = 42;
         const char *path;
@@ -1187,7 +1187,7 @@ Z_GROUP_EXPORT(core_errors) {
         Z_HELPER_RUN(z_check_debug_file(path, __func__, __FILE__, line, i));
     } Z_TEST_END;
 
-    Z_TEST(expect_macros, "") {
+    Z_TEST(expect_macros) {
         if (expect(true)) {
             Z_ASSERT(true);
         }

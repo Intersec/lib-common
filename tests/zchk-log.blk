@@ -135,7 +135,7 @@ static int z_run_log_tracing_tests(logger_t *logger_test)
 Z_GROUP_EXPORT(log) {
     sb_init(&z_log_sb_g);
 
-    Z_TEST(log_level, "log") {
+    Z_TEST(log_level) {
         logger_t *root_logger = logger_get_by_name(LSTR_EMPTY_V);
         logger_t a = LOGGER_INIT_INHERITS(NULL, "a");
         logger_t b = LOGGER_INIT_SILENT_INHERITS(&a, "b");
@@ -241,7 +241,7 @@ Z_GROUP_EXPORT(log) {
         logger_wipe(&a);
     } Z_TEST_END;
 
-    Z_TEST(get_loggers_confs, "get loggers confs") {
+    Z_TEST(get_loggers_confs) {
         t_scope;
         logger_t *root_logger = logger_get_by_name(LSTR_EMPTY_V);
         logger_t a = LOGGER_INIT_INHERITS(NULL, "ztest_log_conf");
@@ -309,7 +309,7 @@ Z_GROUP_EXPORT(log) {
         logger_wipe(&a);
     } Z_TEST_END;
 
-    Z_TEST(log_buffer, "log buffer") {
+    Z_TEST(log_buffer) {
         log_handler_f *handler = log_set_handler(&z_log_buffer_handler);
         logger_t logger_test = LOGGER_INIT_SILENT(NULL, "logger test",
                                                   LOG_TRACE);
@@ -660,11 +660,11 @@ Z_GROUP_EXPORT(log) {
 #undef TEST_LOG_ENTRY
     } Z_TEST_END;
 
-    Z_TEST(log_buffer_thr, "multi-threaded log buffers") {
+    Z_TEST(log_buffer_thr) {
         Z_HELPER_RUN(z_log_buffer_thr());
     } Z_TEST_END;
 
-    Z_TEST(scope, "scoped logs") {
+    Z_TEST(scope) {
         logger_t l = LOGGER_INIT_INHERITS(NULL, "blah");
 
 #define _CHECK_RES(Level, Catch)  do {                                       \
@@ -739,7 +739,7 @@ Z_GROUP_EXPORT(log) {
         logger_wipe(&l);
     } Z_TEST_END;
 
-    Z_TEST(thr, "concurrent access to a logger") {
+    Z_TEST(thr) {
         t_scope;
         thr_syn_t syn;
         thr_evc_t ec;
@@ -857,7 +857,7 @@ Z_GROUP_EXPORT(log) {
 #undef TEST
     } Z_TEST_END;
 
-    Z_TEST(sanitize_names, "check name sanitizer") {
+    Z_TEST(sanitize_names) {
         t_scope;
 
 #define TEST(_str, _nstr)                                                    \
@@ -886,7 +886,7 @@ Z_GROUP_EXPORT(log) {
 
     } Z_TEST_END;
 
-    Z_TEST(log_tracing, "check log tracing caching") {
+    Z_TEST(log_tracing) {
         t_scope;
         log_handler_f *prev_handler = log_set_handler(&z_log_handler);
         logger_t logger_test = LOGGER_INIT_INHERITS(NULL, "zlog");
@@ -911,7 +911,7 @@ Z_GROUP_EXPORT(log) {
         log_set_handler(prev_handler);
     } Z_TEST_END;
 
-    Z_TEST(log_make_fancy_prefix, "") { /* {{{ */
+    Z_TEST(log_make_fancy_prefix) { /* {{{ */
         char fancy[64];
         int len;
 

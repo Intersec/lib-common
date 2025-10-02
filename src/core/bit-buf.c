@@ -344,7 +344,7 @@ Z_GROUP_EXPORT(bit_buf)
         bb_wipe(&bb);
     } Z_TEST_END;
 
-    Z_TEST(le_add_0_1, "") {
+    Z_TEST(le_add_0_1) {
         BB_1k(bb);
 
         for (int i = 1; i < 256; i++) {
@@ -377,7 +377,7 @@ Z_GROUP_EXPORT(bit_buf)
         bb_wipe(&bb);
     } Z_TEST_END;
 
-    Z_TEST(le_add_bytes, "") {
+    Z_TEST(le_add_bytes) {
         BB_1k(bb);
         byte b[32];
 

@@ -1224,7 +1224,7 @@ Z_GROUP_EXPORT(ssl)
 
 /* {{{ AES */
 
-    Z_TEST(aes, "aes") {
+    Z_TEST(aes) {
         ssl_ctx_t ctx;
         const lstr_t text = LSTR("Encrypt me");
         const lstr_t res  = LSTR("\x12\x29\xB4\x7E\x75\xE1\x33\x64"
@@ -1264,7 +1264,7 @@ Z_GROUP_EXPORT(ssl)
         ssl_ctx_wipe(&ctx);
     } Z_TEST_END;
 
-    Z_TEST(decrypt_aes, "decrypt_aes") {
+    Z_TEST(decrypt_aes) {
         ssl_ctx_t ctx;
         const lstr_t text = LSTR_IMMED("\x12\x29\xB4\x7E\x75\xE1\x33\x64"
                                        "\x49\x09\x77\xF8\xE8\x08\x2C\x58");
@@ -1304,7 +1304,7 @@ Z_GROUP_EXPORT(ssl)
 
 /* {{{ PKEY */
 
-    Z_TEST(pkey, "pkey") {
+    Z_TEST(pkey) {
         ssl_ctx_t ctx;
         const lstr_t text_encrypted = LSTR_IMMED(
           "\x00\xee\x73\x51\xe4\xf7\x7d\x47\xd8\xd4\xbd\x4d\xfa\x61\xd9\xad"
@@ -1403,7 +1403,7 @@ Z_GROUP_EXPORT(ssl)
 /* }}} */
 /* {{{ PKEY for RSA with OAEP */
 
-    Z_TEST(pkey_rsa_with_oaep, "pkey_rsa_with_oaep") {
+    Z_TEST(pkey_rsa_with_oaep) {
         ssl_ctx_t ctx;
         /* same but encrypt with -pkeyopt rsa_padding_mode:oaep */
         const lstr_t text_encrypted = LSTR_IMMED(
@@ -1448,7 +1448,7 @@ Z_GROUP_EXPORT(ssl)
 /* }}} */
 /* {{{ PKEY with passphrase */
 
-    Z_TEST(pkey_with_passphrase, "pkey_with_passphrase") {
+    Z_TEST(pkey_with_passphrase) {
         ssl_ctx_t ctx;
         /* same but genpkey with -pass:this-is-a-complicated-pass-phrase */
         const lstr_t priv_with_pass  = LSTR_IMMED(

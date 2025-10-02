@@ -549,7 +549,7 @@ static const byte sha1_hmac_test_sum[7][20] =
  */
 Z_GROUP_EXPORT(sha1)
 {
-    Z_TEST(hash, "") {
+    Z_TEST(hash) {
         byte buf[1024];
         byte sha1sum[20];
         sha1_ctx ctx;
@@ -569,7 +569,7 @@ Z_GROUP_EXPORT(sha1)
         }
     } Z_TEST_END;
 
-    Z_TEST(hmac, "") {
+    Z_TEST(hmac) {
         byte buf[1024];
         byte sha1sum[20];
         sha1_ctx ctx;

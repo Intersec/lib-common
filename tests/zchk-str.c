@@ -89,7 +89,7 @@ static int z_memtoxll_ext(bool str, bool sgn, const char *p, int len,
 }
 
 Z_GROUP_EXPORT(str) {
-    Z_TEST(lstr_equal, "lstr_equal") {
+    Z_TEST(lstr_equal) {
         Z_ASSERT_LSTREQUAL(LSTR_EMPTY_V, LSTR_EMPTY_V);
         Z_ASSERT_LSTREQUAL(LSTR_NULL_V, LSTR_NULL_V);
         Z_ASSERT_LSTREQUAL(LSTR("toto"), LSTR("toto"));
@@ -97,7 +97,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(!lstr_equal(LSTR(""), LSTR("toto")));
     } Z_TEST_END;
 
-    Z_TEST(lstr_copyc, "lstr_copyc") {
+    Z_TEST(lstr_copyc) {
         lstr_t dst = lstr_dup(LSTR("a string"));
         lstr_t src = LSTR("an other string");
         void (*libc_free)(mem_pool_t *, void *) = mem_pool_libc.free;
@@ -115,7 +115,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(lstr_equal(dst, src));
     } Z_TEST_END;
 
-    Z_TEST(lstr_ascii_converters, "") {
+    Z_TEST(lstr_ascii_converters) {
         t_scope;
         lstr_t src = LSTR("ThE FoX jUmPs oVeR tHe LazY dOg");
         lstr_t lower = t_lstr_ascii_tolower(src);
@@ -127,7 +127,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_LSTREQUAL(reversed, LSTR("gOd YzaL eHt ReVo sPmUj XoF EhT"));
     } Z_TEST_END;
 
-    Z_TEST(sb_detach, "sb_detach") {
+    Z_TEST(sb_detach) {
         sb_t sb;
         char *p;
         int len;
@@ -178,7 +178,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_STREQUAL(sb.data, "lol");
     } Z_TEST_END;
 
-    Z_TEST(sb_add_urlencode, "sb_add_urlencode") {
+    Z_TEST(sb_add_urlencode) {
         SB_1k(sb);
         lstr_t raw = LSTR("test32@localhost-#!$;*");
 
@@ -187,7 +187,7 @@ Z_GROUP_EXPORT(str) {
                            LSTR_SB_V(&sb));
     } Z_TEST_END;
 
-    Z_TEST(strconv_hexdecode, "str: strconv_hexdecode") {
+    Z_TEST(strconv_hexdecode) {
         const char *encoded = "30313233";
         const char *decoded = "0123";
         char buf[BUFSIZ];
@@ -208,7 +208,7 @@ Z_GROUP_EXPORT(str) {
                  "str_hexdecode accepted non hexadecimal string");
     } Z_TEST_END;
 
-    Z_TEST(lstr_hexencode, "str: t_lstr_hexencode/t_lstr_hexdecode") {
+    Z_TEST(lstr_hexencode) {
         t_scope;
         lstr_t src = LSTR_IMMED("intersec");
         lstr_t hex = LSTR_IMMED("696e746572736563");
@@ -224,7 +224,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_NULL(out.s);
     } Z_TEST_END;
 
-    Z_TEST(lstr_obfuscate, "str: lstr_obfuscate/lstr_unobfuscate") {
+    Z_TEST(lstr_obfuscate) {
         uint64_t keys[] = { 0, 1, 1234, 2327841961327486523LLU, UINT64_MAX };
         char buf[BUFSIZ];
 
@@ -261,7 +261,7 @@ Z_GROUP_EXPORT(str) {
         }
     } Z_TEST_END;
 
-    Z_TEST(utf8_stricmp, "str: utf8_stricmp test") {
+    Z_TEST(utf8_stricmp) {
 
 #define RUN_UTF8_TEST_(Str1, Str2, Strip, Val) \
         ({  int len1 = strlen(Str1);                                         \
@@ -315,7 +315,7 @@ Z_GROUP_EXPORT(str) {
 #undef RUN_UTF8_TEST
     } Z_TEST_END;
 
-    Z_TEST(utf8_strcmp, "str: utf8_strcmp test") {
+    Z_TEST(utf8_strcmp) {
 
 #define RUN_UTF8_TEST_(Str1, Str2, Strip, Val) \
         ({  int len1 = strlen(Str1);                                         \
@@ -369,7 +369,7 @@ Z_GROUP_EXPORT(str) {
 #undef RUN_UTF8_TEST
     } Z_TEST_END;
 
-    Z_TEST(utf8_str_istartswith, "str: utf8_str_istartswith test") {
+    Z_TEST(utf8_str_istartswith) {
 
 #define RUN_UTF8_TEST(Str1, Str2, Val)  \
         ({  int len1 = strlen(Str1);                                         \
@@ -401,7 +401,7 @@ Z_GROUP_EXPORT(str) {
 #undef RUN_UTF8_TEST
     } Z_TEST_END;
 
-    Z_TEST(lstr_utf8_iendswith, "str: lstr_utf8_iendswith test") {
+    Z_TEST(lstr_utf8_iendswith) {
 
 #define RUN_UTF8_TEST(Str1, Str2, Val)  \
         ({  lstr_t lstr1 = LSTR(Str1);                                       \
@@ -434,7 +434,7 @@ Z_GROUP_EXPORT(str) {
 #undef RUN_UTF8_TEST
     } Z_TEST_END;
 
-    Z_TEST(utf8_str_startswith, "str: utf8_str_startswith test") {
+    Z_TEST(utf8_str_startswith) {
 
 #define RUN_UTF8_TEST(Str1, Str2, Val)  \
         ({  int len1 = strlen(Str1);                                         \
@@ -467,7 +467,7 @@ Z_GROUP_EXPORT(str) {
 #undef RUN_UTF8_TEST
     } Z_TEST_END;
 
-    Z_TEST(lstr_utf8_endswith, "str: lstr_utf8_endswith test") {
+    Z_TEST(lstr_utf8_endswith) {
 
 #define RUN_UTF8_TEST(Str1, Str2, Val)  \
         ({  lstr_t lstr1 = LSTR(Str1);                                       \
@@ -499,7 +499,7 @@ Z_GROUP_EXPORT(str) {
 #undef RUN_UTF8_TEST
     } Z_TEST_END;
 
-    Z_TEST(lstr_utf8_strlen, "str: lstr_utf8_strlen test") {
+    Z_TEST(lstr_utf8_strlen) {
         char unterminated[] = { 0xEE, 0x80, 0x80, 0xEE };
         char invalid[]      = { 0xB0, 0x80, 0x80 };
 
@@ -519,7 +519,7 @@ Z_GROUP_EXPORT(str) {
                                                  countof(invalid))), -1);
     } Z_TEST_END;
 
-    Z_TEST(lstr_utf8_truncate, "str: lstr_utf8_truncate test") {
+    Z_TEST(lstr_utf8_truncate) {
         char data[9] = { 'a', 'b', 'c', 0xff, 'e', 0xff, 'g', 'h', '\0' };
         lstr_t lstr_null = LSTR_NULL_V;
 
@@ -551,7 +551,7 @@ Z_GROUP_EXPORT(str) {
 #undef RUN_TEST
     } Z_TEST_END;
 
-    Z_TEST(path_simplify, "str-path: path_simplify") {
+    Z_TEST(path_simplify) {
         char buf[BUFSIZ];
 
 #define T(s0, s1)  \
@@ -574,7 +574,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(path_is_safe, "str-path: path_is_safe test") {
+    Z_TEST(path_is_safe) {
 #define T(how, path)  Z_ASSERT(how path_is_safe(path), path)
         T(!, "/foo");
         T(!, "../foo");
@@ -584,7 +584,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(path_extend, "str-path: path_extend") {
+    Z_TEST(path_extend) {
         const char *env_home = getenv("HOME") ?: "/";
         char path_test[PATH_MAX];
         char expected[PATH_MAX];
@@ -674,7 +674,7 @@ Z_GROUP_EXPORT(str) {
 
     } Z_TEST_END;
 
-    Z_TEST(path_relative_to, "path relative to") {
+    Z_TEST(path_relative_to) {
         char old_cwd[PATH_MAX];
 
 #define T(_from, _to, _expected)                                             \
@@ -708,7 +708,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(strstart, "str: strstart") {
+    Z_TEST(strstart) {
         static const char *week =
             "Monday Tuesday Wednesday Thursday Friday Saturday Sunday";
         const char *p;
@@ -720,7 +720,7 @@ Z_GROUP_EXPORT(str) {
                  "week doesn't start with Tuesday");
     } Z_TEST_END;
 
-    Z_TEST(stristart, "str: stristart") {
+    Z_TEST(stristart) {
         static const char *week =
             "Monday Tuesday Wednesday Thursday Friday Saturday Sunday";
         const char *p = NULL;
@@ -732,7 +732,7 @@ Z_GROUP_EXPORT(str) {
                  "week doesn't start with tUESDAY");
     } Z_TEST_END;
 
-    Z_TEST(stristrn, "str: stristrn") {
+    Z_TEST(stristrn) {
         static const char *alphabet = "abcdefghijklmnopqrstuvwxyz";
 
         Z_ASSERT(stristr(alphabet, "aBC") == alphabet,
@@ -744,7 +744,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_NULL(stristr(alphabet, "123"), "inexistant string found");
     } Z_TEST_END;
 
-    Z_TEST(strfind, "str: strfind") {
+    Z_TEST(strfind) {
         Z_ASSERT( strfind("1,2,3,4", "1", ','));
         Z_ASSERT( strfind("1,2,3,4", "2", ','));
         Z_ASSERT( strfind("1,2,3,4", "4", ','));
@@ -757,7 +757,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT( strfind("1||3|4|", "", '|'));
     } Z_TEST_END;
 
-    Z_TEST(buffer_increment, "str: buffer_increment") {
+    Z_TEST(buffer_increment) {
         char buf[BUFSIZ];
 
 #define T(initval, expectedval, expectedret)       \
@@ -779,7 +779,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(buffer_increment_hex, "str: buffer_increment_hex") {
+    Z_TEST(buffer_increment_hex) {
         char buf[BUFSIZ];
 
 #define T(initval, expectedval, expectedret)   \
@@ -808,7 +808,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(strrand, "str: strrand") {
+    Z_TEST(strrand) {
         char b[32];
 
         Z_ASSERT_EQ(0, pstrrand(b, sizeof(b), 0, 0));
@@ -822,7 +822,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_EQ(sizeof(b) - 1, strlen(b));
     } Z_TEST_END;
 
-    Z_TEST(strtoip, "str: strtoip") {
+    Z_TEST(strtoip) {
 #define T(p, err_exp, val_exp, end_i) \
         ({  const char *endp;                                               \
             int end_exp = (end_i >= 0) ? end_i : (int)strlen(p);            \
@@ -858,7 +858,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(memtoip, "str: memtoip") {
+    Z_TEST(memtoip) {
 #define T(p, err_exp, val_exp, end_i) \
         ({  const byte *endp;                                               \
             int end_exp = (end_i >= 0) ? end_i : (int)strlen(p);            \
@@ -894,7 +894,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(strtolp, "str: strtolp") {
+    Z_TEST(strtolp) {
 #define T(p, flags, min, max, val_exp, ret_exp, end_i) \
     ({  const char *endp;                                                    \
         long val;                                                            \
@@ -934,7 +934,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(memtoxll_ext, "str: memtoxll_ext") {
+    Z_TEST(memtoxll_ext) {
 #define T(str, sgn, p, len, _endp, base, val_exp, ret_exp, end_exp, err_exp) \
     Z_HELPER_RUN(z_memtoxll_ext(str, sgn, p, len, _endp, base, val_exp,      \
                                 ret_exp, end_exp, err_exp))
@@ -1051,7 +1051,7 @@ Z_GROUP_EXPORT(str) {
 #undef TT_ALL
     } Z_TEST_END;
 
-    Z_TEST(memtod, "str: memtod") {
+    Z_TEST(memtod) {
 
 #define DOUBLE_ABS(_d)   (_d) > 0 ? (_d) : -(_d)
 
@@ -1096,7 +1096,7 @@ Z_GROUP_EXPORT(str) {
 #undef DOUBLE_ABS
     } Z_TEST_END;
 
-    Z_TEST(strtod_allow_subnormal, "str: strtod_allow_subnormal") {
+    Z_TEST(strtod_allow_subnormal) {
 #define T_OK(str, val_exp)  \
         do {                                                                 \
             errno = 0;                                                       \
@@ -1137,7 +1137,7 @@ Z_GROUP_EXPORT(str) {
 #undef T_OVERFLOW
     } Z_TEST_END;
 
-    Z_TEST(memtoxllp, "str: memtoxllp") {
+    Z_TEST(memtoxllp) {
         lstr_t s = LSTR("123");
         const byte *end;
 
@@ -1176,7 +1176,7 @@ Z_GROUP_EXPORT(str) {
         }
     } Z_TEST_END;
 
-    Z_TEST(str_normalize, "str: utf8 normalizer") {
+    Z_TEST(str_normalize) {
         SB_1k(sb);
 
 #define T(from, ci, cs)  do {                                                \
@@ -1221,7 +1221,7 @@ Z_GROUP_EXPORT(str) {
     } Z_TEST_END;
 
 
-    Z_TEST(sb_add_double_fmt, "str: sb_add_double_fmt") {
+    Z_TEST(sb_add_double_fmt) {
 #define T(val, nb_max_decimals, dec_sep, thousand_sep, res) \
     ({  SB_1k(sb);                                                           \
                                                                              \
@@ -1248,7 +1248,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(sb_add_punycode, "str: sb_add_punycode") {
+    Z_TEST(sb_add_punycode) {
         SB_1k(sb);
 
 #define T(_in, _out) \
@@ -1360,7 +1360,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(sb_add_idna_domain_name, "str: sb_add_idna_domain_name") {
+    Z_TEST(sb_add_idna_domain_name) {
         SB_1k(sb);
         SB_1k(domain);
 
@@ -1450,7 +1450,7 @@ Z_GROUP_EXPORT(str) {
                                          IDNA_ALLOW_UNASSIGNED) == 2);
     } Z_TEST_END;
 
-    Z_TEST(sb_add_duration, "str: sb_add_duration") {
+    Z_TEST(sb_add_duration) {
         SB_1k(sb);
 
 #define T(d, h, m, s, ms, str)                                               \
@@ -1505,7 +1505,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(sb_add_pkcs7_8_bytes_padding, "") {
+    Z_TEST(sb_add_pkcs7_8_bytes_padding) {
 #define T(lstr_init, lstr_expected_padded)  \
         Z_HELPER_RUN(z_test_padding(lstr_init, lstr_expected_padded))
 
@@ -1545,7 +1545,7 @@ Z_GROUP_EXPORT(str) {
 #undef TEST_FAIL
     } Z_TEST_END;
 
-    Z_TEST(str_span, "str: filtering") {
+    Z_TEST(str_span) {
         SB_1k(sb);
 
 #define T(f, d, c, from, to) do {                                            \
@@ -1579,7 +1579,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(lstr_startswithc, "str: starts with character") {
+    Z_TEST(lstr_startswithc) {
         Z_ASSERT(lstr_startswithc(LSTR("1234"), '1'));
         Z_ASSERT(!lstr_startswithc(LSTR("1234"), '2'));
         Z_ASSERT(lstr_startswithc(LSTR("a"), 'a'));
@@ -1587,7 +1587,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(!lstr_startswithc(LSTR_EMPTY_V, '2'));
     } Z_TEST_END;
 
-    Z_TEST(lstr_endswithc, "str: ends with character") {
+    Z_TEST(lstr_endswithc) {
         Z_ASSERT(!lstr_endswithc(LSTR("1234"), '1'));
         Z_ASSERT(lstr_endswithc(LSTR("a"), 'a'));
         Z_ASSERT(lstr_endswithc(LSTR("1234"), '4'));
@@ -1595,7 +1595,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(!lstr_endswithc(LSTR_EMPTY_V, '2'));
     } Z_TEST_END;
 
-    Z_TEST(lstr_ascii_reverse, "str: reverse a lstr") {
+    Z_TEST(lstr_ascii_reverse) {
         t_scope;
 #define T(f, t) do {                                                         \
         lstr_t a = t_lstr_dup(f);                                            \
@@ -1613,7 +1613,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(lstr_utf8_reverse, "str: reverse a lstr") {
+    Z_TEST(lstr_utf8_reverse) {
         t_scope;
 #define T(f, t) do {                                                         \
         lstr_t a = t_lstr_dup_utf8_reversed(f);                              \
@@ -1652,7 +1652,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(ps_split, "str-stream: ps_split") {
+    Z_TEST(ps_split) {
         qv_t(lstr) arr;
 
         qv_init(&arr);
@@ -1708,7 +1708,7 @@ Z_GROUP_EXPORT(str) {
 #undef T_SKIP
     } Z_TEST_END;
 
-    Z_TEST(t_ps_split_escaped, "str-stream: t_ps_split_escaped") {
+    Z_TEST(t_ps_split_escaped) {
         t_scope;
         qv_t(lstr) arr;
 
@@ -1788,7 +1788,7 @@ Z_GROUP_EXPORT(str) {
 #undef T_SKIP
     } Z_TEST_END;
 
-    Z_TEST(t_ps_get_http_var, "str: t_ps_get_http_var") {
+    Z_TEST(t_ps_get_http_var) {
         t_scope;
         pstream_t ps;
         lstr_t    key, value;
@@ -1819,7 +1819,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_NEG(t_ps_get_http_var(&ps, &key, &value));
     } Z_TEST_END;
 
-    Z_TEST(sb_add_int_fmt, "str: sb_add_int_fmt") {
+    Z_TEST(sb_add_int_fmt) {
 #define T(val, thousand_sep, res) \
     ({  SB_1k(sb);                                                           \
                                                                              \
@@ -1840,7 +1840,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(sb_add_uint_fmt, "str: sb_add_uint_fmt") {
+    Z_TEST(sb_add_uint_fmt) {
 #define T(val, thousand_sep, res) \
     ({  SB_1k(sb);                                                           \
                                                                              \
@@ -1859,7 +1859,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(sb_add_csvescape, "") {
+    Z_TEST(sb_add_csvescape) {
         SB_1k(sb);
 
 #define CHECK(_str, _sep, _expected)  \
@@ -1883,7 +1883,7 @@ Z_GROUP_EXPORT(str) {
         CHECK("\"", ';', "\"\"\"\"");
     } Z_TEST_END;
 
-    Z_TEST(sb_splice_lstr, "") {
+    Z_TEST(sb_splice_lstr) {
         SB_1k(sb);
 
         sb_sets(&sb, "123");
@@ -1902,7 +1902,7 @@ Z_GROUP_EXPORT(str) {
         }
     } Z_TEST_END;
 
-    Z_TEST(ps_skip_afterlastchr, "") {
+    Z_TEST(ps_skip_afterlastchr) {
         pstream_t ps = ps_initstr("test_1_2");
         pstream_t ps2 = ps_initstr("test1.02");
         pstream_t ps3 = ps_initstr("test_2");
@@ -1923,7 +1923,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(ps_strequal(&ps3, "2"));
     } Z_TEST_END;
 
-    Z_TEST(ps_clip_atlastchr, "") {
+    Z_TEST(ps_clip_atlastchr) {
         pstream_t ps = ps_initstr("test_1_2");
         pstream_t ps2 = ps_initstr("test1.02");
         pstream_t ps3 = ps_initstr("test_2");
@@ -1944,7 +1944,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(ps_strequal(&ps3, "test"));
     } Z_TEST_END;
 
-    Z_TEST(ps_clip_afterlastchr, "") {
+    Z_TEST(ps_clip_afterlastchr) {
         pstream_t ps = ps_initstr("test_1_2");
         pstream_t ps2 = ps_initstr("test1.02");
         pstream_t ps3 = ps_initstr("test_2");
@@ -1965,7 +1965,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(ps_strequal(&ps3, "test_"));
     } Z_TEST_END;
 
-    Z_TEST(ps_skip_upto_str, "") {
+    Z_TEST(ps_skip_upto_str) {
         const char *str = "foo bar baz";
         pstream_t ps = ps_initstr(str);
 
@@ -1982,7 +1982,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(ps_strequal(&ps, "bar baz"));
     } Z_TEST_END;
 
-    Z_TEST(ps_skip_after_str, "") {
+    Z_TEST(ps_skip_after_str) {
         const char *str = "foo bar baz";
         pstream_t ps = ps_initstr(str);
 
@@ -1999,7 +1999,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(ps_strequal(&ps, " baz"));
     } Z_TEST_END;
 
-    Z_TEST(ps_get_ps_upto_str, "") {
+    Z_TEST(ps_get_ps_upto_str) {
         const char *str = "foo bar baz";
         pstream_t ps = ps_initstr(str);
         pstream_t extract;
@@ -2022,7 +2022,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(ps_strequal(&extract, "foo "));
     } Z_TEST_END;
 
-    Z_TEST(ps_get_ps_upto_str_and_skip, "") {
+    Z_TEST(ps_get_ps_upto_str_and_skip) {
         const char *str = "foo bar baz";
         pstream_t ps = ps_initstr(str);
         pstream_t extract;
@@ -2045,7 +2045,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(ps_strequal(&extract, "foo "));
     } Z_TEST_END;
 
-    Z_TEST(ps_endswith, "") {
+    Z_TEST(ps_endswith) {
         pstream_t ps1 = ps_initstr("toto");
         pstream_t ps2 = ps_initstr("42toto");
         pstream_t ps3 = ps_initstr("toto42");
@@ -2057,7 +2057,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(!ps_endswithstr(&ps4, "toto"));
     } Z_TEST_END;
 
-    Z_TEST(ps_get_data, "") {
+    Z_TEST(ps_get_data) {
         pstream_t ps = ps_initstr("1234567");
 
         Z_ASSERT_STREQUAL(ps_get_data(&ps, 3), "1234567");
@@ -2068,7 +2068,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(ps_done(&ps));
     } Z_TEST_END;
 
-    Z_TEST(lstr_ascii_icmp, "str: lstr_ascii_icmp") {
+    Z_TEST(lstr_ascii_icmp) {
 #define T(_str1, _str2, _expected)                                           \
         Z_ASSERT(lstr_ascii_icmp(LSTR_IMMED_V(_str1),  LSTR_IMMED_V(_str2))  \
                  _expected)
@@ -2091,7 +2091,7 @@ Z_GROUP_EXPORT(str) {
 #undef T
     } Z_TEST_END;
 
-    Z_TEST(lstr_to_int, "str: lstr_to_int and friends") {
+    Z_TEST(lstr_to_int) {
         t_scope;
         int      i;
         uint32_t u32;
@@ -2146,7 +2146,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_EQ(errno, ERANGE);
     } Z_TEST_END;
 
-    Z_TEST(lstr_to_double, "str: lstr_to_double") {
+    Z_TEST(lstr_to_double) {
         double d;
 
 #define T(_str, _exp, _res)  \
@@ -2176,7 +2176,7 @@ Z_GROUP_EXPORT(str) {
 #undef T_KO
     } Z_TEST_END;
 
-    Z_TEST(str_match_ctype, "str: strings match the ctype description") {
+    Z_TEST(str_match_ctype) {
         struct {
             lstr_t              s;
             const ctype_desc_t *d;
@@ -2207,7 +2207,7 @@ Z_GROUP_EXPORT(str) {
         }
     } Z_TEST_END;
 
-    Z_TEST(lstr_macros, "lstr: macros") {
+    Z_TEST(lstr_macros) {
         uint16_t data[] = { 11, 22, 33 };
         lstr_t data_ref, data_s, data_c;
 
@@ -2219,7 +2219,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_LSTREQUAL(data_c, data_ref);
     } Z_TEST_END;
 
-    Z_TEST(ps_has_char, "ps: ps_has_char_in_ctype") {
+    Z_TEST(ps_has_char) {
         pstream_t p;
 
         p = ps_initstr("aBcdEfGhij");
@@ -2239,7 +2239,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT(!ps_has_char_in_ctype(&p, &ctype_isalpha));
     } Z_TEST_END;
 
-    Z_TEST(sb_add_expandenv, "sb: sb_add_expandenv") {
+    Z_TEST(sb_add_expandenv) {
         const char *var = getenv("HOME");
         SB_1k(data);
         SB_1k(expected);
@@ -2273,7 +2273,7 @@ Z_GROUP_EXPORT(str) {
 
     } Z_TEST_END;
 
-    Z_TEST(lstr_is_like, "Test lstr_is_like") {
+    Z_TEST(lstr_is_like) {
 #define MATCH(str, pattern)                                                  \
         Z_ASSERT(lstr_utf8_is_ilike(LSTR(str), LSTR(pattern)))
 #define NOMATCH(str, pattern)                                                \
@@ -2342,7 +2342,7 @@ Z_GROUP_EXPORT(str) {
 #undef MATCH
     } Z_TEST_END;
 
-    Z_TEST(ps_get_str, "ps: ps_gets") {
+    Z_TEST(ps_get_str) {
         lstr_t lstr_zero_terminated = LSTR_IMMED("foo\0baar\0");
         pstream_t ps_zero_terminated = ps_initlstr(&lstr_zero_terminated);
         lstr_t lstr_not_zero_term = LSTR_IMMED("foobar");
@@ -2359,7 +2359,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_NULL(ps_gets(&ps_not_zero_term, NULL));
     } Z_TEST_END;
 
-    Z_TEST(ps_get_lstr, "ps: ps_get_lstr") {
+    Z_TEST(ps_get_lstr) {
         lstr_t lstr_zero_terminated = LSTR_IMMED("foo\0baar\0");
         pstream_t ps_zero_terminated = ps_initlstr(&lstr_zero_terminated);
         lstr_t lstr_not_zero_term = LSTR_IMMED("foobar");
@@ -2375,7 +2375,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_LSTREQUAL(ps_get_lstr(&ps_not_zero_term), LSTR_NULL_V);
     } Z_TEST_END;
 
-    Z_TEST(base64, "base64/base64url encoding decoding") {
+    Z_TEST(base64) {
         lstr_t data = LSTR_IMMED("\xD9\x87\xE3\xFE\x48\x7E\x25\x81\xFB");
         SB_1k(data_buf);
         SB_1k(data_decoded);
@@ -2406,7 +2406,7 @@ Z_GROUP_EXPORT(str) {
         Z_ASSERT_NEG(sb_adds_unb64url(&data_decoded, "wQA&03e="));
     } Z_TEST_END
 
-    Z_TEST(init_from_file, "Init lstr from a file") {
+    Z_TEST(init_from_file) {
         t_scope;
         const char *path;
         lstr_t map;
@@ -2443,7 +2443,7 @@ Z_GROUP_EXPORT(str) {
         lstr_wipe(&map);
     } Z_TEST_END;
 
-    Z_TEST(init_from_file_fallback, "Init lstr from a virtual file") {
+    Z_TEST(init_from_file_fallback) {
         t_scope;
         int fd;
         const char *path;
@@ -2518,7 +2518,7 @@ Z_GROUP_EXPORT(str) {
         lstr_wipe(&map);
     } Z_TEST_END;
 
-    Z_TEST(lstr_dupz, "") {
+    Z_TEST(lstr_dupz) {
         t_scope;
         char *s;
 
@@ -2537,7 +2537,7 @@ Z_GROUP_EXPORT(str) {
          * of both 'lstr_dupz()', 't_lstr_dupz()'. */
     } Z_TEST_END;
 
-    Z_TEST(sb_overlaps, "") {
+    Z_TEST(sb_overlaps) {
         SB_1k(abcdef);
         lstr_t bcd;
         SB_1k(ghi);
@@ -2647,7 +2647,7 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_END();
     } Z_TEST_END;
 
-    Z_TEST(base1, "Base") {
+    Z_TEST(base1) {
         CSV_TEST_START("foo", ',', '"');
         CSV_TEST_GET_ROW(NULL);
         CSV_TEST_CHECK_NB_FIELDS(1);
@@ -2664,7 +2664,7 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_END();
     } Z_TEST_END;
 
-    Z_TEST(base3, "Base 3") {
+    Z_TEST(base3) {
         CSV_TEST_START("foo,bar,baz", ',', '"');
         CSV_TEST_GET_ROW(NULL);
         CSV_TEST_CHECK_NB_FIELDS(3);
@@ -2716,16 +2716,6 @@ Z_GROUP_EXPORT(csv) {
         CSV_TEST_CHECK_FIELD(0, NULL);
         CSV_TEST_CHECK_FIELD(1, "bar");
         CSV_TEST_CHECK_FIELD(2, "baz");
-        CSV_TEST_END();
-    } Z_TEST_END;
-
-    Z_TEST(empty4, "Empty fields 4") {
-        CSV_TEST_START(",,", ',', '"');
-        CSV_TEST_GET_ROW(NULL);
-        CSV_TEST_CHECK_NB_FIELDS(3);
-        CSV_TEST_CHECK_FIELD(0, NULL);
-        CSV_TEST_CHECK_FIELD(1, NULL);
-        CSV_TEST_CHECK_FIELD(2, NULL);
         CSV_TEST_END();
     } Z_TEST_END;
 
@@ -2836,7 +2826,7 @@ Z_GROUP_EXPORT(csv) {
 /* {{{ str_buf_pp */
 
 Z_GROUP_EXPORT(str_buf_pp) {
-    Z_TEST(add_table, "sb_add_table") {
+    Z_TEST(add_table) {
         t_scope;
         t_SB_1k(sb);
         qv_t(table_hdr) hdr;
@@ -2985,7 +2975,7 @@ Z_GROUP_EXPORT(conv)
     lstr_t extended_tab = LSTR_IMMED(
         "\x1b\x14\x1b\x28\x1b\x29\x1b\x2f\x1b\x3c\x1b\x3d\x1b\x3e\x1b\x40\x1b\x65");
 
-    Z_TEST(sb_conv_gsm, "sb conv from/to gsm") {
+    Z_TEST(sb_conv_gsm) {
         sb_t tmp, out;
 
 #define TL(input, expected, desc)       \
@@ -3053,7 +3043,7 @@ Z_GROUP_EXPORT(conv)
 #undef TLHEX
     } Z_TEST_END
 
-    Z_TEST(sb_conv_cimd, "sb conv from/to cimd") {
+    Z_TEST(sb_conv_cimd) {
         SB_1k(sb);
         sb_t tmp, out;
 
@@ -3115,7 +3105,7 @@ Z_GROUP_EXPORT(conv)
 #undef T
     } Z_TEST_END
 
-    Z_TEST(sb_conv_to_gsm_isok, "sb_conv_to_gsm_isok") {
+    Z_TEST(sb_conv_to_gsm_isok) {
 #define T(input, res, plan, description)      \
         ({  lstr_t in  = LSTR_IMMED(input);                                 \
             Z_ASSERT(res == sb_conv_to_gsm_isok(in.s, in.len, plan),        \
@@ -3139,7 +3129,7 @@ Z_GROUP_EXPORT(conv)
 
 #undef T
     } Z_TEST_END
-    Z_TEST(sb_conv_to_gsm7, "sb conv to gsm7") {
+    Z_TEST(sb_conv_to_gsm7) {
         SB_1k(sb);
         const char *long_str = "abcdefghijklmnopqrstuvwxyz";
         struct {

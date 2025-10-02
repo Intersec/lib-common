@@ -186,7 +186,7 @@ Z_GROUP_EXPORT(iop_yaml)
     IOP_REGISTER_PACKAGES(iop_env, &tstiop__pkg);
     MODULE_REQUIRE(iop_yaml);
 
-    Z_TEST(pack_flags, "test IOP YAML (un)packer flags") { /* {{{ */
+    Z_TEST(pack_flags) { /* {{{ */
         t_scope;
         tstiop__struct_jpack_flags__t st_jpack;
         tstiop__my_class1__t my_class_1;
@@ -269,7 +269,7 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef TST_FLAGS
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(pack_string, "test IOP YAML string packing") { /* {{{ */
+    Z_TEST(pack_string) { /* {{{ */
         tstiop__my_union_a__t obj;
         const char invalid_utf8[3] = { 0xC0, 0x21, '\0' };
 
@@ -349,7 +349,7 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef TST
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(pack_corner_cases, "test IOP YAML corner cases packing") { /* {{{ */
+    Z_TEST(pack_corner_cases) { /* {{{ */
         tstiop__my_struct_a_opt__t obj;
 
         iop_init(tstiop__my_struct_a_opt, &obj);
@@ -379,9 +379,7 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef TST
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(empty_struct_pack_flags, /* {{{ */
-           "test IOP YAML (un)packer flags on empty struct")
-    {
+    Z_TEST(empty_struct_pack_flags) { /* {{{ */
         t_scope;
         tstiop__jpack_empty_struct__t empty_jpack;
         tstiop__struct_jpack_flags__t sub_st;
@@ -460,7 +458,7 @@ Z_GROUP_EXPORT(iop_yaml)
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(unpack_errors, "test IOP YAML unpacking errors") { /* {{{ */
+    Z_TEST(unpack_errors) { /* {{{ */
         t_scope;
         const iop_struct_t *st;
         const char *path;
@@ -890,7 +888,7 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef TST_ERROR
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(unpack, "test IOP YAML unpacking") { /* {{{ */
+    Z_TEST(unpack) { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
         Z_HELPER_RUN(iop_yaml_test_unpack(iop_env, (_st), 0, (_yaml),       \
                                           (_new_yaml)))
@@ -1082,7 +1080,7 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef TST
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(unpack_compat, "test YAML unpacking backward compat") { /* {{{ */
+    Z_TEST(unpack_compat) { /* {{{ */
 #define TST(_st, _yaml, _new_yaml)                                           \
         Z_HELPER_RUN(iop_yaml_test_unpack(iop_env, (_st), 0, (_yaml),       \
                                           (_new_yaml)))
@@ -1110,7 +1108,7 @@ Z_GROUP_EXPORT(iop_yaml)
 #undef TST
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(constraints, "test IOP constraints") { /* {{{ */
+    Z_TEST(constraints) { /* {{{ */
         tstiop__constraint_u__t u;
         tstiop__constraint_s__t s;
         lstr_t string = LSTR("ora");
@@ -1161,7 +1159,7 @@ Z_GROUP_EXPORT(iop_yaml)
     } Z_TEST_END
     /* }}} */
 
-    Z_TEST(json_subfiles_conversion, "") { /* {{{ */
+    Z_TEST(json_subfiles_conversion) { /* {{{ */
         t_scope;
         iop_json_subfile__array_t subfiles;
         tstiop__full_opt__t full_opt_val;

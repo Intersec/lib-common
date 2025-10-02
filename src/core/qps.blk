@@ -3443,7 +3443,7 @@ Z_GROUP_EXPORT(qps)
         Z_ASSERT_P(qps);                                                     \
     } while (0)
 
-    Z_TEST(nr_20110105, "") {
+    Z_TEST(nr_20110105) {
         qps_handle_t handle1, handle2, handle3;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110105", 0755, NULL, 0);
 
@@ -3459,7 +3459,7 @@ Z_GROUP_EXPORT(qps)
         qps_close(&qps);
     } Z_TEST_END;
 
-    Z_TEST(nr_20110107_1, "") {
+    Z_TEST(nr_20110107_1) {
         qps_handle_t handle1, handle2;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110107_1", 0755, NULL, 0);
 
@@ -3477,7 +3477,7 @@ Z_GROUP_EXPORT(qps)
         qps_close(&qps);
     } Z_TEST_END;
 
-    Z_TEST(nr_20110107_2, "") {
+    Z_TEST(nr_20110107_2) {
         qps_handle_t handle1, handle2;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110107_2", 0755, NULL, 0);
 
@@ -3496,7 +3496,7 @@ Z_GROUP_EXPORT(qps)
         qps_close(&qps);
     } Z_TEST_END;
 
-    Z_TEST(nr_20110107_3, "") {
+    Z_TEST(nr_20110107_3) {
         qps_handle_t handle1, handle2;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110107_3", 0755, NULL, 0);
 
@@ -3516,7 +3516,7 @@ Z_GROUP_EXPORT(qps)
         qps_close(&qps);
     } Z_TEST_END;
 
-    Z_TEST(nr_20110203, "") {
+    Z_TEST(nr_20110203) {
         qps_handle_t handle1, handle2;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110203", 0755, NULL, 0);
 
@@ -3546,7 +3546,7 @@ Z_GROUP_EXPORT(qps)
         qps_close(&qps);
     } Z_TEST_END;
 
-    Z_TEST(nr_20110302, "") {
+    Z_TEST(nr_20110302) {
         qps_handle_t handle1, handle2;
         qps_t *qps = qps_create(z_tmpdir_g.s, "nr_20110302", 0755, NULL, 0);
 

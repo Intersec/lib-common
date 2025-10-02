@@ -590,7 +590,7 @@ Z_GROUP_EXPORT(iop_blk) {
     iop_env = iop_env_new();
     IOP_REGISTER_PACKAGES(iop_env, &tstiop__pkg);
 
-    Z_TEST(iop_for_each_field_st_obj, "test iop_for_each_field & co") { /* {{{ */
+    Z_TEST(iop_for_each_field_st_obj) { /* {{{ */
         t_scope;
         tstiop__z_iop_for_each__t *z_struct = NULL;
         qv_t(lstr) paths;
@@ -624,7 +624,7 @@ Z_GROUP_EXPORT(iop_blk) {
         Z_HELPER_RUN(z_assert_qv_lstr_same_as_file(&paths, paths_file_path));
     } Z_TEST_END
     /* }}} */
-    Z_TEST(iop_field_path, "test iop_field_path") { /* {{{ */
+    Z_TEST(iop_field_path) { /* {{{ */
         Z_HELPER_RUN(z_test_iop_field_path_htab(iop_env));
         Z_HELPER_RUN(z_test_iop_field_path_structs_last_fields(iop_env));
         Z_HELPER_RUN(z_test_iop_field_path_class_wildcards(iop_env));

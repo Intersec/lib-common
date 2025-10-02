@@ -115,7 +115,7 @@ Z_GROUP_EXPORT(iop_snmp_mib)
         qv_wipe(&pkgs);
     } Z_TEST_END;
 
-    Z_TEST(test_entire_mib, "test complete mib") {
+    Z_TEST(test_entire_mib) {
         t_scope;
         SB_8k(sb);
         qv_t(mib_rev) revisions = t_z_fill_up_revisions();

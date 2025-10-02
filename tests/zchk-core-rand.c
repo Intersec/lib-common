@@ -21,7 +21,7 @@
 #include <lib-common/z.h>
 
 Z_GROUP_EXPORT(core_havege) {
-    Z_TEST(havege_range, "havege_range") {
+    Z_TEST(havege_range) {
         int number1;
         int numbers[10000];
         bool is_different_than_int_min = false;

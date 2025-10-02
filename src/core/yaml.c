@@ -6207,7 +6207,7 @@ Z_GROUP_EXPORT(yaml)
 
     /* {{{ Parsing errors */
 
-    Z_TEST(parsing_errors, "errors when parsing yaml") {
+    Z_TEST(parsing_errors) {
         /* wrong object continuation */
         Z_HELPER_RUN(z_yaml_test_parse_fail(0,
             "a: 5\nb",
@@ -6514,7 +6514,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Parsing file errors */
 
-    Z_TEST(parsing_file_errors, "errors when parsing YAML from files") {
+    Z_TEST(parsing_file_errors) {
         t_scope;
         yaml_parse_t *env;
         const char *path;
@@ -6545,7 +6545,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Parsing file */
 
-    Z_TEST(parsing_file, "test parsing YAML files") {
+    Z_TEST(parsing_file) {
         t_scope;
         yaml_parse_t *env;
         const char *filename;
@@ -6568,7 +6568,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Include errors */
 
-    Z_TEST(include_errors, "errors when including YAML files") {
+    Z_TEST(include_errors) {
         /* unknown file */
         Z_HELPER_RUN(z_yaml_test_file_parse_fail(
             "!include:foo.yml",
@@ -6669,7 +6669,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Include */
 
-    Z_TEST(include, "") {
+    Z_TEST(include) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -6774,7 +6774,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Include shared files */
 
-    Z_TEST(include_shared_files, "") {
+    Z_TEST(include_shared_files) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -6861,7 +6861,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Include presentation */
 
-    Z_TEST(include_presentation, "") {
+    Z_TEST(include_presentation) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -6938,7 +6938,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Include raw */
 
-    Z_TEST(include_raw, "") {
+    Z_TEST(include_raw) {
         t_scope;
         yaml_data_t data;
         yaml_data_t new_data;
@@ -7021,7 +7021,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Include with symbolic links */
 
-    Z_TEST(include_with_symlink, "") {
+    Z_TEST(include_with_symlink) {
         t_scope;
         const char *path;
         yaml_data_t data;
@@ -7092,7 +7092,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Include with symbolic links and root dir */
 
-    Z_TEST(include_symlink_rootdir, "") {
+    Z_TEST(include_symlink_rootdir) {
         t_scope;
         const char *path;
 
@@ -7126,7 +7126,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Override */
 
-    Z_TEST(override, "") {
+    Z_TEST(override) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -7277,7 +7277,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Override errors */
 
-    Z_TEST(override_errors, "") {
+    Z_TEST(override_errors) {
         t_scope;
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
@@ -7327,7 +7327,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Override conflict handling */
 
-    Z_TEST(override_conflict_handling, "") {
+    Z_TEST(override_conflict_handling) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -7399,7 +7399,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Override shared subfiles */
 
-    Z_TEST(override_shared_subfiles, "") {
+    Z_TEST(override_shared_subfiles) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -7519,7 +7519,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Merge key */
 
-    Z_TEST(merge_key, "") {
+    Z_TEST(merge_key) {
         t_scope;
         yaml__document_presentation__t empty_pres;
         yaml_data_t data;
@@ -7638,7 +7638,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Merge key with includes */
 
-    Z_TEST(merge_key_with_includes, "") {
+    Z_TEST(merge_key_with_includes) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t empty_pres;
@@ -7720,7 +7720,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Merge key modification handling */
 
-    Z_TEST(merge_key_modif_handling, "") {
+    Z_TEST(merge_key_modif_handling) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -7858,7 +7858,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Merge key with override */
 
-    Z_TEST(merge_key_with_override, "") {
+    Z_TEST(merge_key_with_override) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -7916,7 +7916,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Merge key with variables */
 
-    Z_TEST(merge_key_with_variables, "") {
+    Z_TEST(merge_key_with_variables) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -7957,7 +7957,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Parsing scalars */
 
-    Z_TEST(parsing_scalar, "test parsing of scalars") {
+    Z_TEST(parsing_scalar) {
         t_scope;
         yaml_data_t data;
 
@@ -8286,7 +8286,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Parsing objects */
 
-    Z_TEST(parsing_obj, "test parsing of objects") {
+    Z_TEST(parsing_obj) {
         t_scope;
         yaml_data_t data;
         yaml_data_t field;
@@ -8417,7 +8417,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Parsing sequences */
 
-    Z_TEST(parsing_seq, "test parsing of sequences") {
+    Z_TEST(parsing_seq) {
         t_scope;
         yaml_data_t data;
         yaml_data_t elem;
@@ -8500,7 +8500,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Parsing complex data */
 
-    Z_TEST(parsing_complex_data, "test parsing of more complex data") {
+    Z_TEST(parsing_complex_data) {
         t_scope;
         yaml_data_t data;
         yaml_data_t field;
@@ -8540,7 +8540,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Parsing flow sequence */
 
-    Z_TEST(parsing_flow_seq, "test parsing of flow sequences") {
+    Z_TEST(parsing_flow_seq) {
         t_scope;
         yaml_data_t data;
         const yaml_data_t *subdata;
@@ -8657,7 +8657,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Parsing flow object */
 
-    Z_TEST(parsing_flow_obj, "test parsing of flow objects") {
+    Z_TEST(parsing_flow_obj) {
         t_scope;
         yaml_data_t data;
         const yaml_key_data_t *elem;
@@ -8774,7 +8774,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Packing simple data */
 
-    Z_TEST(pack, "test packing of simple data") {
+    Z_TEST(pack) {
         t_scope;
         yaml_data_t scalar;
         yaml_data_t data;
@@ -8810,7 +8810,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Packing flags */
 
-    Z_TEST(pack_flags, "test packing flags") {
+    Z_TEST(pack_flags) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9027,7 +9027,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Comment presentation with include */
 
-    Z_TEST(comment_presentation_with_include, "") {
+    Z_TEST(comment_presentation_with_include) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t doc_pres;
@@ -9075,7 +9075,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Empty lines presentation */
 
-    Z_TEST(empty_lines_presentation, "") {
+    Z_TEST(empty_lines_presentation) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9140,7 +9140,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Flow presentation */
 
-    Z_TEST(flow_presentation, "") {
+    Z_TEST(flow_presentation) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9171,7 +9171,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Variable */
 
-    Z_TEST(variable, "") {
+    Z_TEST(variable) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9263,7 +9263,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Variable in scalar */
 
-    Z_TEST(variable_in_scalar, "") {
+    Z_TEST(variable_in_scalar) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9296,7 +9296,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Variable used multiple times */
 
-    Z_TEST(variable_multiple, "") {
+    Z_TEST(variable_multiple) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9342,7 +9342,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Variable scalars used multiple times */
 
-    Z_TEST(variable_multiple_scalar, "") {
+    Z_TEST(variable_multiple_scalar) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9456,7 +9456,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Variable in string */
 
-    Z_TEST(variable_in_string, "") {
+    Z_TEST(variable_in_string) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9526,7 +9526,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Variable errors */
 
-    Z_TEST(variable_errors, "") {
+    Z_TEST(variable_errors) {
         t_scope;
 
         Z_HELPER_RUN(z_write_yaml_file("inner.yml",
@@ -9636,7 +9636,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Raw variable modification handling */
 
-    Z_TEST(raw_variable_modif, "") {
+    Z_TEST(raw_variable_modif) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9692,7 +9692,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ variable in string modification handling */
 
-    Z_TEST(variable_in_string_modif, "") {
+    Z_TEST(variable_in_string_modif) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9770,7 +9770,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ multiple variables modification handling */
 
-    Z_TEST(variable_multiple_modif, "") {
+    Z_TEST(variable_multiple_modif) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9821,7 +9821,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Raw variable conflict handling */
 
-    Z_TEST(raw_variable_conflict, "") {
+    Z_TEST(raw_variable_conflict) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9877,7 +9877,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ variable in string conflict handling */
 
-    Z_TEST(variable_in_string_conflict, "") {
+    Z_TEST(variable_in_string_conflict) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -9947,7 +9947,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ multiple variables conflict handling */
 
-    Z_TEST(variable_multiple_conflict, "") {
+    Z_TEST(variable_multiple_conflict) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -10016,7 +10016,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ escaped variables */
 
-    Z_TEST(variable_escaped, "") {
+    Z_TEST(variable_escaped) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -10202,7 +10202,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ escaped variables in variables */
 
-    Z_TEST(escaped_variables_in_variables, "") {
+    Z_TEST(escaped_variables_in_variables) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -10259,7 +10259,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ escaped variables in variables */
 
-    Z_TEST(escaped_variables_in_variables2, "") {
+    Z_TEST(escaped_variables_in_variables2) {
         t_scope;
         yaml_data_t data;
         yaml__document_presentation__t pres;
@@ -10316,7 +10316,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ deduce_var_in_string */
 
-    Z_TEST(deduce_var_in_string, "") {
+    Z_TEST(deduce_var_in_string) {
         t_scope;
         qv_t(u8) bitmap;
 
@@ -10389,7 +10389,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ yaml_data_equals strong */
 
-    Z_TEST(yaml_data_equals_strong, "") {
+    Z_TEST(yaml_data_equals_strong) {
         t_scope;
         yaml_data_t d1;
         yaml_data_t d2;
@@ -10489,7 +10489,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ yaml_data_equals_weak */
 
-    Z_TEST(yaml_data_equals_weak, "") {
+    Z_TEST(yaml_data_equals_weak) {
         yaml_data_t d1;
         yaml_data_t d2;
 
@@ -10600,7 +10600,7 @@ Z_GROUP_EXPORT(yaml)
     /* }}} */
     /* {{{ Double packing */
 
-    Z_TEST(double_packing, "") {
+    Z_TEST(double_packing) {
         t_scope;
 
         /* Doubles are packed with enough precision to repack those values

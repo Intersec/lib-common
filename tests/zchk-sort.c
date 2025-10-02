@@ -338,7 +338,7 @@ Z_GROUP_EXPORT(sort) {
     } Z_TEST_END;
 
 #define Z_TEST_DSORT_IX(x)                                                   \
-    Z_TEST(dsort_i##x, "dsort_i" #x) {                                       \
+    Z_TEST(dsort_i##x) {                                                     \
         t_scope;                                                             \
         int len = 1024;                                                      \
         int##x##_t *tab1 = t_new(int##x##_t, len);                           \

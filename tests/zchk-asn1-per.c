@@ -1077,7 +1077,7 @@ Z_GROUP_EXPORT(asn1_aper) {
     } Z_TEST_END;
     /* }}} */
     /* {{{ length constraints printing */
-    Z_TEST(sb_add_asn1_len_constraints, "") {
+    Z_TEST(sb_add_asn1_len_constraints) {
         SB_1k(buf);
         asn1_cnt_info_t constraints;
 
@@ -1212,7 +1212,7 @@ Z_GROUP_EXPORT(asn1_aper) {
     } Z_TEST_END;
     /* }}} */
     /* {{{ choice */
-    Z_TEST(choice, "choice") {
+    Z_TEST(choice) {
         t_scope;
         SB_1k(buf);
 
@@ -1238,7 +1238,7 @@ Z_GROUP_EXPORT(asn1_aper) {
     } Z_TEST_END;
     /* }}} */
     /* {{{ extended_choice */
-    Z_TEST(extended_choice, "extended choice") {
+    Z_TEST(extended_choice) {
         t_scope;
         struct {
             tstiop__asn1_ext_choice__t in;
@@ -1268,7 +1268,7 @@ Z_GROUP_EXPORT(asn1_aper) {
     } Z_TEST_END;
     /* }}} */
     /* {{{ extended_sequence */
-    Z_TEST(extended_sequence, "extended sequence") {
+    Z_TEST(extended_sequence) {
         struct {
             const char *title;
             sequence1_t in;
@@ -1294,7 +1294,7 @@ Z_GROUP_EXPORT(asn1_aper) {
     } Z_TEST_END;
     /* }}} */
     /* {{{ ints_overflows */
-    Z_TEST(ints_overflows, "integers overflows") {
+    Z_TEST(ints_overflows) {
         ints_seq_base_t base_min = {
             INT8_MIN, 0, INT16_MIN, 0, INT32_MIN, 0, INT64_MIN, 0, 0, 0,
         };
@@ -1366,7 +1366,7 @@ Z_GROUP_EXPORT(asn1_aper) {
     } Z_TEST_END;
     /* }}} */
     /* {{{ fragmented_octet_string */
-    Z_TEST(fragmented_octet_string, "") {
+    Z_TEST(fragmented_octet_string) {
         t_scope;
         sb_t buf;
         sb_t str;
@@ -1424,7 +1424,7 @@ Z_GROUP_EXPORT(asn1_aper) {
     } Z_TEST_END;
     /* }}} */
     /* {{{ fragmented_bit_string */
-    Z_TEST(fragmented_bit_string, "") {
+    Z_TEST(fragmented_bit_string) {
         t_scope;
         z_bit_string_t bs_before;
         z_bit_string_t bs_after;
@@ -1477,7 +1477,7 @@ Z_GROUP_EXPORT(asn1_aper) {
     } Z_TEST_END;
     /* }}} */
     /* {{{ fragmented_open_type */
-    Z_TEST(fragmented_open_type, "") {
+    Z_TEST(fragmented_open_type) {
         t_scope;
         sb_t str;
         sb_t buf;
@@ -1530,7 +1530,7 @@ Z_GROUP_EXPORT(asn1_aper) {
     } Z_TEST_END;
     /* }}} */
     /* {{{ fragmented_seq_of */
-    Z_TEST(fragmented_seq_of, "") {
+    Z_TEST(fragmented_seq_of) {
         t_scope;
         z_seqof_t seq_of_before;
         z_seqof_t seq_of_after;
@@ -1630,7 +1630,7 @@ Z_GROUP_EXPORT(asn1_aper) {
     /* }}} */
     /* {{{ indefinite_length_case_octet_string_over_64k */
 
-    Z_TEST(indefinite_length_case_octet_string_over_64k, "") {
+    Z_TEST(indefinite_length_case_octet_string_over_64k) {
         t_scope;
         /* XXX Not to be confused with BER indefinite length, that allows to
          * encode SEQUENCE OF or SET OF with an end marker (00 00). */

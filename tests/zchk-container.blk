@@ -57,7 +57,7 @@ qvector_t(keyed_by_lstr, my_entry_keyed_by_lstr_t);
 
 Z_GROUP_EXPORT(qhash)
 {
-    Z_TEST(qh_seal, "qh: seal") {
+    Z_TEST(qh_seal) {
         t_scope;
         QH(u32, qh);
         uint32_t *tab;
@@ -102,7 +102,7 @@ Z_GROUP_EXPORT(qhash)
         qh_wipe(u32, &qh);
     } Z_TEST_END;
 
-    Z_TEST(qm_seal, "qm: seal") {
+    Z_TEST(qm_seal) {
         t_scope;
         QM(test, qm);
         uint32_t *tab;
@@ -148,7 +148,7 @@ Z_GROUP_EXPORT(qhash)
     } Z_TEST_END;
 
 
-    Z_TEST(size_qh, "qh: count size") {
+    Z_TEST(size_qh) {
         QH(test, h);
         uint32_t min_size;
 
@@ -165,7 +165,7 @@ Z_GROUP_EXPORT(qhash)
         Z_ASSERT_ZERO(qh_memory_footprint(test, &h));
     } Z_TEST_END;
 
-    Z_TEST(size_qm , "qm: count size") {
+    Z_TEST(size_qm) {
         QM_CACHED(test, h);
         uint32_t min_size;
 
@@ -182,7 +182,7 @@ Z_GROUP_EXPORT(qhash)
 
     } Z_TEST_END;
 
-    Z_TEST(insertion, "qhash: insertion") {
+    Z_TEST(insertion) {
         QH(test, h);
         uint64_t bits[2] = { 0, 0 };
 
@@ -204,7 +204,7 @@ Z_GROUP_EXPORT(qhash)
         qh_wipe(test, &h);
     } Z_TEST_END;
 
-    Z_TEST(collision, "qhash: collision") {
+    Z_TEST(collision) {
         QH(test, h);
 
         for (int i = 0; i < 128; i++) {
@@ -218,7 +218,7 @@ Z_GROUP_EXPORT(qhash)
         qh_wipe(test, &h);
     } Z_TEST_END;
 
-    Z_TEST(self , "qhash: self search") {
+    Z_TEST(self) {
         QH(test, h);
 
         for (int i = 0; i < 128; i++) {
@@ -237,7 +237,7 @@ Z_GROUP_EXPORT(qhash)
         qh_wipe(test, &h);
     } Z_TEST_END;
 
-    Z_TEST(string, "qhash: string") {
+    Z_TEST(string) {
         const char *t1 = "test1";
         const char *t2 = "test2";
         int32_t pos;
@@ -319,7 +319,7 @@ Z_GROUP_EXPORT(qhash)
         qh_wipe(test, &h);
     } Z_TEST_END;
 
-    Z_TEST(qm_hash , "qhash: qm_hash/qh_del_key_h") {
+    Z_TEST(qm_hash , "qhash: qm_hash/qm_del_key_h") {
         QM(test, h);
 
         for (uint32_t i = 0; i < 128; i++) {
@@ -363,7 +363,7 @@ Z_GROUP_EXPORT(qhash)
         qm_wipe(test, &h);
     } Z_TEST_END;
 
-    Z_TEST(qm_put , "qhash: qm_put") {
+    Z_TEST(qm_put) {
         lstr_t str;
 
 #define CHECK(type, key)  \
@@ -397,7 +397,7 @@ Z_GROUP_EXPORT(qhash)
 
     } Z_TEST_END;
 
-    Z_TEST(qm_reserve , "qm: qm_reserve") {
+    Z_TEST(qm_reserve) {
         lstr_t str;
 
 #define CHECK(type, key)                                                     \
@@ -431,7 +431,7 @@ Z_GROUP_EXPORT(qhash)
 
     } Z_TEST_END
 
-    Z_TEST(qm_get, "qhash: qm_get") {
+    Z_TEST(qm_get) {
         t_scope;
         qm_t(test) qm;
         qm_t(test_p_val) qm2;
@@ -467,7 +467,7 @@ Z_GROUP_EXPORT(qhash)
         Z_ASSERT(*qm_get_p_safe_h(test_p_val, &qm2, pval_h, 42) == pval);
     } Z_TEST_END
 
-    Z_TEST(qm_get_def, "qhash: qm_get_def") {
+    Z_TEST(qm_get_def) {
         t_scope;
         qm_t(test) qm;
         qm_t(test_p_val) qm2;
@@ -525,7 +525,7 @@ Z_GROUP_EXPORT(qhash)
                                      NULL) == NULL);
     } Z_TEST_END
 
-    Z_TEST(qm_fetch, "qhash: qm_fetch uint") {
+    Z_TEST(qm_fetch) {
         t_scope;
         qm_t(test) qm;
         const qm_t(test) *qm_c = &qm;
@@ -551,7 +551,7 @@ Z_GROUP_EXPORT(qhash)
         Z_ASSERT_N(qm_fetch_p_safe(test, qm_c, 1, &vp, NULL));
     } Z_TEST_END
 
-    Z_TEST(qm_fetch_lstr, "qhash: qm_fetch uint") {
+    Z_TEST(qm_fetch_lstr) {
         t_scope;
         qm_t(test_vlstr) qm;
         lstr_t v_ref = LSTR("42");
@@ -574,7 +574,7 @@ Z_GROUP_EXPORT(qhash)
         Z_ASSERT(vp == NULL);
     } Z_TEST_END
 
-    Z_TEST(qm_deep_del, "qhash: qm_deep_del") {
+    Z_TEST(qm_deep_del) {
         int32_t pos;
         lstr_t s = LSTR_IMMED("test");
         uint32_t hash;
@@ -601,7 +601,7 @@ Z_GROUP_EXPORT(qhash)
         qm_wipe(test_ptr, &h);
     } Z_TEST_END;
 
-    Z_TEST(pool, "qhash: pool") {
+    Z_TEST(pool) {
         t_scope;
         qh_t(test) h;
         uint64_t bits[2] = { 0, 0 };
@@ -703,7 +703,7 @@ Z_GROUP_EXPORT(qhash)
         Z_ASSERT(true);
     } Z_TEST_END
 
-    Z_TEST(qh_delete, "qh: check deletion, deep deletion") {
+    Z_TEST(qh_delete) {
         qh_t(ptr) *qh;
 
         qh = qh_new(ptr, 0);
@@ -717,7 +717,7 @@ Z_GROUP_EXPORT(qhash)
         Z_ASSERT(qh == NULL);
     } Z_TEST_END
 
-    Z_TEST(qm_delete, "qm: check deletion, deep deletion") {
+    Z_TEST(qm_delete) {
         qm_t(test_ptr) *qm;
 
         qm = qm_new(test_ptr, 0);
@@ -874,7 +874,7 @@ Z_GROUP_EXPORT(qhash)
         qm_delete(test, &qm);
     } Z_TEST_END
 
-    Z_TEST(qh_128, "qh: 128 bits keys") {
+    Z_TEST(qh_128) {
         t_scope;
         qh_t(test_qh_128) qh;
 
@@ -898,7 +898,7 @@ Z_GROUP_EXPORT(qhash)
 #undef T
     } Z_TEST_END
 
-    Z_TEST(qm_128, "qm: 128 bits keys") {
+    Z_TEST(qm_128) {
         t_scope;
         qm_t(test_qm_128) qm;
 
@@ -1159,7 +1159,7 @@ qhm_kptr_t(test_ptr,  16, void,   uint32_t, qhhash_hash_ptr,
 
 Z_GROUP_EXPORT(qhugehash)
 {
-    Z_TEST(insertion, "qhhash: insertion") {
+    Z_TEST(insertion) {
         qhh_t(test) h;
         uint64_t bits[2] = { 0, 0 };
 
@@ -1183,7 +1183,7 @@ Z_GROUP_EXPORT(qhugehash)
         qhh_deep_wipe(test, &h, IGNORE);
     } Z_TEST_END;
 
-    Z_TEST(collision, "qhhash: collision") {
+    Z_TEST(collision) {
         qhh_t(test) h;
 
         qhh_init(test, &h, false);
@@ -1202,7 +1202,7 @@ Z_GROUP_EXPORT(qhugehash)
         qhh_wipe(test, &h);
     } Z_TEST_END;
 
-    Z_TEST(self, "qhhash: self search") {
+    Z_TEST(self) {
         qhh_t(test) h;
 
         qhh_init(test, &h, false);
@@ -1224,7 +1224,7 @@ Z_GROUP_EXPORT(qhugehash)
         qhh_wipe(test, &h);
     } Z_TEST_END;
 
-    Z_TEST(string, "qhhash: string") {
+    Z_TEST(string) {
         const char *t1 = "test1";
         const char *t2 = "test2";
         int64_t pos;
@@ -1316,7 +1316,7 @@ Z_GROUP_EXPORT(qhugehash)
         qhm_deep_wipe(test, &h, IGNORE, IGNORE);
     } Z_TEST_END;
 
-    Z_TEST(qhm_put , "qhhash: qhm_put") {
+    Z_TEST(qhm_put) {
         lstr_t str;
 
 #define CHECK(type, key)  \
@@ -1350,7 +1350,7 @@ Z_GROUP_EXPORT(qhugehash)
 
     } Z_TEST_END
 
-    Z_TEST(qhm_reserve , "qhm: qhm_reserve") {
+    Z_TEST(qhm_reserve) {
         lstr_t str;
 
 #define CHECK(type, key)                                                     \
@@ -1412,7 +1412,7 @@ Z_GROUP_EXPORT(qhugehash)
         qh_delete(u32, &seen);
     } Z_TEST_END
 
-    Z_TEST(alloc_helpers, "qhhash: check mp_qh[hm]_new() helpers") {
+    Z_TEST(alloc_helpers) {
         t_scope;
         qhh_t(test) *qhh;
         qhm_t(test) *qhm;
@@ -1453,7 +1453,7 @@ Z_GROUP_EXPORT(qhugehash)
 
     } Z_TEST_END;
 
-    Z_TEST(qm_get_def, "qhh: check qh[hm]_get_def() helpers") {
+    Z_TEST(qm_get_def) {
         t_scope;
         qhm_t(test) qhm;
         qhm_t(test_p) qhm_p;
@@ -1499,7 +1499,7 @@ Z_GROUP_EXPORT(qhugehash)
                                        NULL) == pval);
     } Z_TEST_END;
 
-    Z_TEST(qhh_128, "qh: 128 bits keys") {
+    Z_TEST(qhh_128) {
         t_scope;
         qhh_t(test_qhh_128) qh;
 
@@ -1523,7 +1523,7 @@ Z_GROUP_EXPORT(qhugehash)
 #undef T
     } Z_TEST_END
 
-    Z_TEST(qhm_128, "qm: 128 bits keys") {
+    Z_TEST(qhm_128) {
         t_scope;
         qhm_t(test_qhm_128) qm;
 
@@ -1686,7 +1686,7 @@ static bool vec_is_sorted(const qv_t(u32) *vec)
 
 Z_GROUP_EXPORT(qvector)
 {
-    Z_TEST(qv_for_each, "qvector: enumerations") {
+    Z_TEST(qv_for_each) {
         t_scope;
         uint32_t table[] = { 8, 9, 1, 2, 5 };
         int it;
@@ -1780,7 +1780,7 @@ Z_GROUP_EXPORT(qvector)
         }
     } Z_TEST_END;
 
-    Z_TEST(qv_sort, "qvector: qv_sort") {
+    Z_TEST(qv_sort) {
         struct timeval tv_nothread, tv_thread;
 
         /* First test withtout threading. */
@@ -1801,7 +1801,7 @@ Z_GROUP_EXPORT(qvector)
         }
     } Z_TEST_END;
 
-    Z_TEST(qv_qsort, "qvector: qv_qsort") {
+    Z_TEST(qv_qsort) {
         lstr_t table[] = {
             LSTR("a"),
             LSTR("b"),
@@ -1830,7 +1830,7 @@ Z_GROUP_EXPORT(qvector)
 
     } Z_TEST_END;
 
-    Z_TEST(qv_diff, "qvector: qv_diff") {
+    Z_TEST(qv_diff) {
         /* {{{ */
 #define N  1024
         t_scope;
@@ -1886,7 +1886,7 @@ Z_GROUP_EXPORT(qvector)
         Z_ASSERT(qv_search_tst());
     } Z_TEST_END;
 
-    Z_TEST(qv_extend_tab, "qvector: extend") {
+    Z_TEST(qv_extend_tab) {
         t_scope;
         qv_t(i32) vec1;
         qv_t(i32) vec2;
@@ -1926,7 +1926,7 @@ Z_GROUP_EXPORT(qvector)
         }
     } Z_TEST_END;
 
-    Z_TEST(qv_extend_va, "qvector: extend (variadic version)") {
+    Z_TEST(qv_extend_va) {
         t_scope;
         qv_t(i32) vec;
         int exp[] = { 2, 3, 5, 7, 11, 13, 17 };
@@ -1941,7 +1941,7 @@ Z_GROUP_EXPORT(qvector)
         }
     } Z_TEST_END;
 
-    Z_TEST(qv_deep_extend, "qvector: deep_extend") {
+    Z_TEST(qv_deep_extend) {
         char palindrome[3][26] = {
             "karineallaenirak",
             "alemirasimovavomisarimela",
@@ -1995,7 +1995,7 @@ Z_GROUP_EXPORT(qvector)
         Z_ASSERT(true);
     } Z_TEST_END;
 
-    Z_TEST(alloc_helpers, "qvector: check mp_qv_new() helpers") {
+    Z_TEST(alloc_helpers) {
         t_scope;
         qv_t(u8) *vec8;
         qv_t(u32) *vec32;
@@ -2009,7 +2009,7 @@ Z_GROUP_EXPORT(qvector)
         r_release(r_getframe());
     } Z_TEST_END
 
-    Z_TEST(qv_init_static, "qvector: qv_init_static() helper") {
+    Z_TEST(qv_init_static) {
         t_scope;
         qv_t(u32) vec;
         qv_t(u32) vec2;
@@ -2039,7 +2039,7 @@ Z_GROUP_EXPORT(qvector)
         Z_ASSERT(vec2.len == vec.len);
     } Z_TEST_END
 
-    Z_TEST(qv_deep_uniq, "qvector: qv_uniq()") {
+    Z_TEST(qv_deep_uniq) {
         t_scope;
         const uint32_t sorted[] = { 1, 1, 3, 4, 6, 6, 6, 42, 7777, 7777 };
         const uint32_t uniqued[] = { 1, 3, 4, 6, 42, 7777 };
@@ -2064,7 +2064,7 @@ Z_GROUP_EXPORT(qvector)
                        countof(duplicated));
     } Z_TEST_END
 
-    Z_TEST(qv_grow_get_alloc_size, "qvector: qv_grow_get_alloc_size()") {
+    Z_TEST(qv_grow_get_alloc_size) {
         t_scope;
         qv_t(u32) vec;
         uint64_t alloc_size;
@@ -2078,7 +2078,7 @@ Z_GROUP_EXPORT(qvector)
         Z_ASSERT_EQ(vec.size * sizeof(*vec.tab), alloc_size);
     } Z_TEST_END
 
-    Z_TEST(qv_shuffle, "qvector: qv_shuffle()") {
+    Z_TEST(qv_shuffle) {
         t_scope;
         qv_t(u32) vec;
         qh_t(u32) values;
@@ -2105,7 +2105,7 @@ Z_GROUP_EXPORT(qvector)
         Z_ASSERT(!vec_is_sorted(&vec));
     } Z_TEST_END
 
-    Z_TEST(qv_128, "qvector: 128 bits integers") {
+    Z_TEST(qv_128) {
         t_scope;
         qv_t(i128) i128_vec;
         qv_t(u128) u128_vec;
@@ -2157,7 +2157,7 @@ qhp_min_t(inl_heap, test_node_inl_t, TEST_NODE_INL_CMP,
 
 Z_GROUP_EXPORT(qhp)
 {
-    Z_TEST(sort, "qhp: sort") {
+    Z_TEST(sort) {
         qhp_t(i32_min)  qhp;
         int32_t         tab[] = { 5, 2, 9, 7, 1, 3, 0, 8, 6, 4 };
 
@@ -2178,7 +2178,7 @@ Z_GROUP_EXPORT(qhp)
         }
     } Z_TEST_END
 
-    Z_TEST(inline_struct, "qhp: inline structure") {
+    Z_TEST(inline_struct) {
         qhp_t(inl_heap)  qhp;
         int32_t          tab[] = { 5, 2, 9, 7, 1, 3, 0, 8, 6, 4 };
 
@@ -2201,7 +2201,7 @@ Z_GROUP_EXPORT(qhp)
         }
     } Z_TEST_END
 
-    Z_TEST(getters, "qhp: inline getters helpers") {
+    Z_TEST(getters) {
         qhp_t(i32_min)  qhp;
         int32_t          tab[] = { 1, 2 };
 
@@ -2219,7 +2219,7 @@ Z_GROUP_EXPORT(qhp)
         Z_ASSERT_EQ(qhp_first(i32_min, &qhp), 2);
     } Z_TEST_END;
 
-    Z_TEST(remove, "qhp: remove") {
+    Z_TEST(remove) {
         t_scope;
         qhp_t(test_heap) qhp;
         int             tab[]       = { 5, 2, 9, 7, 1, 3, 0, 8, 6, 4 };
@@ -2261,7 +2261,7 @@ Z_GROUP_EXPORT(qhp)
         Z_ASSERT(qhp_is_empty(test_heap, &qhp), "qhp is not empty");
     } Z_TEST_END
 
-    Z_TEST(lstr, "qhp: lstr") {
+    Z_TEST(lstr) {
         t_scope;
         qhp_t(lstr_min)  qhp;
         lstr_t           toto = LSTR("toto");
@@ -2298,7 +2298,7 @@ rb_tree_t(rb_test, rb_test_t, int, link, RB_TEST_GET_KEY, CMP);
 
 Z_GROUP_EXPORT(rbt)
 {
-    Z_TEST(insert, "") {
+    Z_TEST(insert) {
         rb_t(rb_test)  rbt;
         rb_test_t     *t1, *t2;
 
@@ -2324,7 +2324,7 @@ Z_GROUP_EXPORT(rbt)
         rb_test_delete(&t2);
     } Z_TEST_END
 
-    Z_TEST(upper_lower, "") {
+    Z_TEST(upper_lower) {
         rb_t(rb_test) rbt;
 
         rb_init(rb_test, &rbt);
@@ -2413,7 +2413,7 @@ Z_GROUP_EXPORT(htlist)
         htlist_test_node_delete(&node);
     } Z_TEST_END
 
-    Z_TEST(accessors, "htlist:accessors") {
+    Z_TEST(accessors) {
         htlist_t list;
         htlist_test_node_t node1 = {.id = 1};
         htlist_test_node_t node2 = {.id = 2};
@@ -2498,7 +2498,7 @@ typedef struct list_entry_t {
 } list_entry_t;
 
 Z_GROUP_EXPORT(dlist) {
-    Z_TEST(nested_dlist_for_each_entry, "") { /* {{{ */
+    Z_TEST(nested_dlist_for_each_entry) { /* {{{ */
         dlist_t list;
         list_entry_t entries[] = {
             { .i = 0 },

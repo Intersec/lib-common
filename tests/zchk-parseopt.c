@@ -68,7 +68,7 @@ static int z_popts_len(const popt_t *opts)
 
 Z_GROUP_EXPORT(parseopt)
 {
-    Z_TEST(basic, "basic valid test") {
+    Z_TEST(basic) {
         const char *argv[] = {
             "-a",
             "--optb", "plop",
@@ -96,7 +96,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.f, 4848447481871454ull);
     } Z_TEST_END;
 
-    Z_TEST(optional, "opts are optionals") {
+    Z_TEST(optional) {
         const char *argv[] = {
             "pouet",
         };
@@ -115,7 +115,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.e, 0);
     } Z_TEST_END;
 
-    Z_TEST(invalid_flag, "error is returned for invalid flag opt") {
+    Z_TEST(invalid_flag) {
         const char *argv[] = {
             "--opta=uh",
         };
@@ -125,7 +125,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
     } Z_TEST_END;
 
-    Z_TEST(invalid_str, "error is returned for invalid str opt") {
+    Z_TEST(invalid_str) {
         const char *argv[] = {
             "--optb",
         };
@@ -135,7 +135,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
     } Z_TEST_END;
 
-    Z_TEST(invalid_int, "error is returned for invalid int opt") {
+    Z_TEST(invalid_int) {
         const char *argv[] = {
             "--optc=ghtir",
         };
@@ -145,7 +145,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
     } Z_TEST_END;
 
-    Z_TEST(invalid_uint, "error is returned for invalid uint opt") {
+    Z_TEST(invalid_uint) {
         const char *argv[] = {
             "--optd=fjcd",
         };
@@ -155,7 +155,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
     } Z_TEST_END;
 
-    Z_TEST(invalid_char, "error is returned for invalid char opt") {
+    Z_TEST(invalid_char) {
         const char *argv[] = {
             "--opte=dheuhez",
         };
@@ -165,7 +165,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
     } Z_TEST_END;
 
-    Z_TEST(unknown, "error is returned for unknown opt") {
+    Z_TEST(unknown) {
         const char *argv[] = {
             "--optplop",
         };
@@ -175,7 +175,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_NEG(parseopt(argc, (char **)argv, popts_g, 0));
     } Z_TEST_END;
 
-    Z_TEST(stop_at_nonarg, "POPT_STOP_AT_NONARG flag") {
+    Z_TEST(stop_at_nonarg) {
         const char *argv[] = {
             "-a",
             "--optb", "plop",
@@ -208,7 +208,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.e, 0);
     } Z_TEST_END;
 
-    Z_TEST(ignore_unknown_opts, "POPT_IGNORE_UNKNOWN_OPTS flag") {
+    Z_TEST(ignore_unknown_opts) {
         const char *argv[] = {
             "-a", "--myarg", "-tata",
             "--optb", "plop",
@@ -238,7 +238,7 @@ Z_GROUP_EXPORT(parseopt)
         Z_ASSERT_EQ(_G.e, 'c');
     } Z_TEST_END;
 
-    Z_TEST(opt_vec_extend, "OPT_VEC_EXTEND") {
+    Z_TEST(opt_vec_extend) {
         t_scope;
         qv_t(popt) opts;
 

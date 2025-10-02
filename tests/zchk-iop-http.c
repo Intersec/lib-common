@@ -346,11 +346,11 @@ static void z_iop_http_tests(http_mode_t http_mode)
 
     _G.http_mode = http_mode;
 
-    Z_TEST(no_query, "no query") {
+    Z_TEST(no_query) {
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, false, 0, 0));
     } Z_TEST_END;
 
-    Z_TEST(simple_query, "simple query") {
+    Z_TEST(simple_query) {
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, false, 0, 1));
         /* Repeat the query 10 times in a single run. */
         Z_HELPER_RUN(z_iop_http_do_simple_query(iop_env, false, 0, 10));

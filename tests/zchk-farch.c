@@ -30,7 +30,7 @@ Z_GROUP_EXPORT(farch)
 
     MODULE_REQUIRE(farch);
 
-    Z_TEST(farch, "") {
+    Z_TEST(farch) {
         for (int i = 0; i < countof(farch_filenames); i++) {
             t_scope;
             const farch_entry_t *entry = &farch_test[i];

@@ -23,7 +23,7 @@
 
 Z_GROUP_EXPORT(xmlr)
 {
-    Z_TEST(xmlr_node_get_xmlns, "xmlr_node_get_xmlns") {
+    Z_TEST(xmlr_node_get_xmlns) {
         lstr_t body = LSTR("<ns:elt xmlns:ns=\"ns_uri\" />");
         lstr_t name;
         lstr_t ns;
@@ -39,7 +39,7 @@ Z_GROUP_EXPORT(xmlr)
         xmlr_close(&xmlr_g);
     } Z_TEST_END;
 
-    Z_TEST(xmlr_node_get_xmlns_uri, "xmlr_node_get_xmlns_uri") {
+    Z_TEST(xmlr_node_get_xmlns_uri) {
         lstr_t body = LSTR("<ns:elt xmlns:ns=\"ns_uri\" />");
         lstr_t name;
         lstr_t ns_uri;
@@ -55,7 +55,7 @@ Z_GROUP_EXPORT(xmlr)
         xmlr_close(&xmlr_g);
     } Z_TEST_END;
 
-    Z_TEST(xmlr_node_get_xmlns_no_uri, "xmlr_node_get_xmlns_no_uri") {
+    Z_TEST(xmlr_node_get_xmlns_no_uri) {
         lstr_t body = LSTR("<elt xmlns:ns=\"ns_uri\" />");
         lstr_t name;
         lstr_t ns_uri;
@@ -71,7 +71,7 @@ Z_GROUP_EXPORT(xmlr)
         xmlr_close(&xmlr_g);
     } Z_TEST_END;
 
-    Z_TEST(node_should_close, "") {
+    Z_TEST(node_should_close) {
         t_scope;
         lstr_t xml = LSTR("<root>                                       "
                           "    <child1>                                 "
@@ -102,7 +102,7 @@ Z_GROUP_EXPORT(xmlr)
         Z_ASSERT_ZERO(xmlr_node_close(xmlr_g)); /* </root> should close */
     } Z_TEST_END;
 
-    Z_TEST(node_should_not_close, "") {
+    Z_TEST(node_should_not_close) {
         lstr_t xml = LSTR("<root>"
                           "    <child>value_child</child>"
                           "</root>");
@@ -113,7 +113,7 @@ Z_GROUP_EXPORT(xmlr)
         Z_ASSERT_NEG(xmlr_node_close(xmlr_g));
     } Z_TEST_END;
 
-    Z_TEST(node_should_close_2, "") {
+    Z_TEST(node_should_close_2) {
         lstr_t xml = LSTR("<root>"
                           "    <child>value_child</child>"
                           "</root>");

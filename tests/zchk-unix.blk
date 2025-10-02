@@ -105,7 +105,7 @@ static int z_file_bin_check_large_rec(lstr_t record, int recno)
 
 Z_GROUP_EXPORT(file)
 {
-    Z_TEST(truncate, "file: truncate") {
+    Z_TEST(truncate) {
         SB_1k(buf);
         file_t *f;
         const char *path = "zchk.file.truncate";
@@ -153,7 +153,7 @@ Z_GROUP_EXPORT(file)
         unlink(path);
     } Z_TEST_END;
 
-    Z_TEST(file_bin, "file_bin: standard behavior") {
+    Z_TEST(file_bin) {
         t_scope;
         lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
                                       LSTR("file_bin.test"));
@@ -207,7 +207,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_ZERO(file_bin_close(&file));
     } Z_TEST_END;
 
-    Z_TEST(file_bin_reverse, "file_bin: reverse parsing") {
+    Z_TEST(file_bin_reverse) {
         t_scope;
         lstr_t path = t_lstr_cat(LSTR(z_tmpdir_g.s),
                                  LSTR("file_bin.test"));
@@ -274,7 +274,7 @@ Z_GROUP_EXPORT(file)
 #undef WRITE_RECORDS
     } Z_TEST_END;
 
-    Z_TEST(file_bin_large, "file_bin: large records") {
+    Z_TEST(file_bin_large) {
         t_scope;
         lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
                                       LSTR("file_bin.test"));
@@ -299,7 +299,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_ZERO(file_bin_close(&file));
     } Z_TEST_END;
 
-    Z_TEST(file_bin_truncated, "file_bin: truncated file") {
+    Z_TEST(file_bin_truncated) {
         t_scope;
         lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
                                       LSTR("file_bin.test"));
@@ -329,7 +329,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_N(file_bin_close(&file));
     } Z_TEST_END;
 
-    Z_TEST(file_bin_corrupted_rec_len, "file_bin: corrupted record len") {
+    Z_TEST(file_bin_corrupted_rec_len) {
         t_scope;
         lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
                                       LSTR("file_bin.test"));
@@ -369,7 +369,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_N(file_bin_close(&file));
     } Z_TEST_END;
 
-    Z_TEST(file_bin_v0, "file_bin: version 0") {
+    Z_TEST(file_bin_v0) {
         t_scope;
         lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
                                       LSTR("file_bin.test"));
@@ -398,7 +398,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_ZERO(file_bin_close(&file));
     } Z_TEST_END;
 
-    Z_TEST(file_bin_end, "file_bin: end of record at end of slot") {
+    Z_TEST(file_bin_end) {
         t_scope;
         lstr_t file_path = t_lstr_cat(LSTR(z_tmpdir_g.s),
                                       LSTR("file_bin.test"));
@@ -457,7 +457,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_ZERO(file_bin_close(&file));
     } Z_TEST_END;
 
-    Z_TEST(mkdir_p, "unix: mkdir_p") {
+    Z_TEST(mkdir_p) {
         t_scope;
 
         struct stat st;
@@ -481,7 +481,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT(S_ISDIR(st.st_mode));
     } Z_TEST_END;
 
-    Z_TEST(filecopy, "filecopy") {
+    Z_TEST(filecopy) {
         t_scope;
         const int size = 10 << 20; /* 10 MB */
         const char *file_in;
@@ -510,7 +510,7 @@ Z_GROUP_EXPORT(file)
         lstr_wipe(&out_map);
     } Z_TEST_END;
 
-    Z_TEST(xappend_to_file, "xappend_to_file") {
+    Z_TEST(xappend_to_file) {
         t_scope;
         const char *appending_file;
         const char *str1 = "toto";
@@ -529,7 +529,7 @@ Z_GROUP_EXPORT(file)
         Z_ASSERT_STREQUAL(fcontent.data, res.data);
     } Z_TEST_END;
 
-    Z_TEST(which, "locate a command") {
+    Z_TEST(which) {
         char path[PATH_MAX];
 
         Z_ASSERT_ZERO(which("ls", path));
@@ -682,7 +682,7 @@ static int z_list_dir_tests(void)
 }
 
 Z_GROUP_EXPORT(Unix) {
-    Z_TEST(lockdir, "directory locking/unlocking") {
+    Z_TEST(lockdir) {
         dir_lock_t dlock1 = DIR_LOCK_INIT;
         int fd;
         pid_t pid;
@@ -731,7 +731,7 @@ Z_GROUP_EXPORT(Unix) {
         waitpid(pid, &res, 0);
         Z_ASSERT_EQ(res, 0);
     } Z_TEST_END;
-    Z_TEST(list_dir, "list_dir") {
+    Z_TEST(list_dir) {
         Z_HELPER_RUN(z_list_dir_tests());
     } Z_TEST_END;
 } Z_GROUP_END;

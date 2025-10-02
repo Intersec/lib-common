@@ -328,11 +328,11 @@ static void z_http_tests(http_mode_t http_mode)
 {
     _G.http_mode = http_mode;
 
-    Z_TEST(no_query, "no query") {
+    Z_TEST(no_query) {
         Z_HELPER_RUN(z_http_do_simple_query(false, 0, 0));
     } Z_TEST_END;
 
-    Z_TEST(simple_query, "simple query") {
+    Z_TEST(simple_query) {
         Z_HELPER_RUN(z_http_do_simple_query(false, 0, 1));
 
         /* Repeat the query 10 times in a single run. */
@@ -353,7 +353,7 @@ static void z_http_tests(http_mode_t http_mode)
         Z_HELPER_RUN(z_http_do_simple_query(true, 0, 10));
     } Z_TEST_END;
 
-    Z_TEST(simple_post, "simple post") {
+    Z_TEST(simple_post) {
         Z_HELPER_RUN(z_http_do_simple_post());
     } Z_TEST_END;
 }

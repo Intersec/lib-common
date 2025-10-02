@@ -226,7 +226,7 @@ Z_GROUP_EXPORT(net_addr)
         }                                                                    \
     } while (0)
 
-    Z_TEST(ipv4, "IPv4") {
+    Z_TEST(ipv4) {
         sockunion_t su;
         addr_filter_t filter;
         char buf[INET6_ADDRSTRLEN];
@@ -247,7 +247,7 @@ Z_GROUP_EXPORT(net_addr)
 
     } Z_TEST_END;
 
-    Z_TEST(ipv6, "IPv6") {
+    Z_TEST(ipv6) {
         sockunion_t su;
         addr_filter_t filter;
         char buf[INET6_ADDRSTRLEN];
@@ -273,7 +273,7 @@ Z_GROUP_EXPORT(net_addr)
                      "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
     } Z_TEST_END;
 
-    Z_TEST(local_addr_resolution, "local_addr_resolution") {
+    Z_TEST(local_addr_resolution) {
         SB_1k(err);
         MODULE_REQUIRE(thr);
 
@@ -309,7 +309,7 @@ Z_GROUP_EXPORT(net_addr)
         MODULE_RELEASE(thr);
     } Z_TEST_END;
 
-    Z_TEST(remote_addr_resolution, "remote_addr_resolution") {
+    Z_TEST(remote_addr_resolution) {
         Z_TEST_FLAGS("slow");
         MODULE_REQUIRE(thr);
 
@@ -325,7 +325,7 @@ Z_GROUP_EXPORT(net_addr)
         MODULE_RELEASE(thr);
     } Z_TEST_END;
 
-    Z_TEST(sockunion_for_each, "sockunion_for_each") {
+    Z_TEST(sockunion_for_each) {
         lstr_t ip = LSTR("127.0.0.1:1337");
         SB_1k(sus_buf);
         int idx = 0;
@@ -365,8 +365,7 @@ Z_GROUP_EXPORT(net_addr)
 
 
 
-    Z_TEST(parse_http_url, "parse_http_url")
-    {
+    Z_TEST(parse_http_url) {
         http_url_t url;
 
 #define T_VALID(_addr, _user, _pass, _host, _port, _path, _args,             \

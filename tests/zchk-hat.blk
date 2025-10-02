@@ -647,82 +647,82 @@ Z_GROUP_EXPORT(qps_hat) {
     }
     assert (qps);
 
-    Z_TEST(128, "128bits no null") { /* {{{ */
+    Z_TEST(128) { /* {{{ */
         Z_HELPER_RUN(test_128(qps, false));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(128_null, "128bits null") { /* {{{ */
+    Z_TEST(128_null) { /* {{{ */
         Z_HELPER_RUN(test_128(qps, true));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(128_null_zero, "128bits null zeros") { /* {{{ */
+    Z_TEST(128_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 16));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(64, "64bits no null") { /* {{{ */
+    Z_TEST(64) { /* {{{ */
         Z_HELPER_RUN(test_64(qps, false));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(64_null, "64bits null") { /* {{{ */
+    Z_TEST(64_null) { /* {{{ */
         Z_HELPER_RUN(test_64(qps, true));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(64_null_zero, "64bits null zeros") { /* {{{ */
+    Z_TEST(64_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 8));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(32, "32bits no null") { /* {{{ */
+    Z_TEST(32) { /* {{{ */
         Z_HELPER_RUN(test_32(qps, false));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(32_null, "32bits null") { /* {{{ */
+    Z_TEST(32_null) { /* {{{ */
         Z_HELPER_RUN(test_32(qps, true));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(32_null_zero, "32bits null zeros") { /* {{{ */
+    Z_TEST(32_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 4));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(16, "16bits no null") { /* {{{ */
+    Z_TEST(16) { /* {{{ */
         Z_HELPER_RUN(test_16(qps, false));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(16_null, "16bits null") { /* {{{ */
+    Z_TEST(16_null) { /* {{{ */
         Z_HELPER_RUN(test_16(qps, true));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(16_null_zero, "16bits null zeros") { /* {{{ */
+    Z_TEST(16_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 2));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(8, "8bits no null") { /* {{{ */
+    Z_TEST(8) { /* {{{ */
         Z_HELPER_RUN(test_8(qps, false));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(8_null, "8bits null") { /* {{{ */
+    Z_TEST(8_null) { /* {{{ */
         Z_HELPER_RUN(test_8(qps, true));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(8_null_zero, "8bits null zeros") { /* {{{ */
+    Z_TEST(8_null_zero) { /* {{{ */
         Z_HELPER_RUN(test_zeros(qps, 1));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(debug_print, "") { /* {{{ */
+    Z_TEST(debug_print) { /* {{{ */
         t_scope;
         qps_handle_t htrie;
         qhat_t trie;
@@ -769,7 +769,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(compute_memory, "") { /* {{{ */
+    Z_TEST(compute_memory) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
 
@@ -799,7 +799,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(enumeration, "") { /* {{{ */
+    Z_TEST(enumeration) { /* {{{ */
         t_scope;
         qps_handle_t htrie;
         qhat_t trie;
@@ -845,7 +845,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(go_to_current_key_removed, "") { /* {{{ */
+    Z_TEST(go_to_current_key_removed) { /* {{{ */
         t_scope;
         qps_handle_t htrie;
         qhat_t trie;
@@ -897,7 +897,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nullable_trie_nr, "") { /* {{{ */
+    Z_TEST(nullable_trie_nr) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_enumerator_t en;
@@ -929,7 +929,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(enumerator_get_value_safe, "") { /* {{{ */
+    Z_TEST(enumerator_get_value_safe) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_enumerator_t en;
@@ -992,7 +992,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(enumerator_safe_single_removal, "") { /* {{{ */
+    Z_TEST(enumerator_safe_single_removal) { /* {{{ */
         t_scope;
         qps_handle_t htrie;
         qhat_t trie;
@@ -1036,7 +1036,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(enumerator_next, "") { /* {{{ */
+    Z_TEST(enumerator_next) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_enumerator_t en;
@@ -1083,7 +1083,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(enumerator_next_after_zero, "") { /* {{{ */
+    Z_TEST(enumerator_next_after_zero) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_enumerator_t en;
@@ -1119,7 +1119,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(repair, "") { /* {{{ */
+    Z_TEST(repair) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_node_memory_t memory;
@@ -1156,7 +1156,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_stat_update_after_rm_from_flat, "") { /* {{{ */
+    Z_TEST(nr_stat_update_after_rm_from_flat) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_path_t path;
@@ -1204,7 +1204,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_bad_en_value_after_rm, "") { /* {{{ */
+    Z_TEST(nr_bad_en_value_after_rm) { /* {{{ */
         Z_TEST_FLAGS("redmine_94699");
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, true, true));
         Z_HELPER_RUN(z_nr_en_val_after_rm(qps, true, false));
@@ -1213,12 +1213,12 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(generation, "") { /* {{{ */
+    Z_TEST(generation) { /* {{{ */
         Z_HELPER_RUN(z_run_qhat_test(qps, &z_test_qhat_gen));
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_94699, "") { /* {{{ */
+    Z_TEST(nr_94699) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_enumerator_t en;
@@ -1279,7 +1279,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_97147, "") { /* {{{ */
+    Z_TEST(nr_97147) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_enumerator_t en;
@@ -1301,7 +1301,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_100254_1, "") { /* {{{ */
+    Z_TEST(nr_100254_1) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
 
@@ -1325,7 +1325,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_100254_2, "") { /* {{{ */
+    Z_TEST(nr_100254_2) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
 
@@ -1348,7 +1348,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_100765_1, "") { /* {{{ */
+    Z_TEST(nr_100765_1) { /* {{{ */
         qps_handle_t htrie1, htrie2;
         qhat_t trie1, trie2;
         qhat_enumerator_t en;
@@ -1387,7 +1387,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_100765_2, "") { /* {{{ */
+    Z_TEST(nr_100765_2) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_enumerator_t en;
@@ -1459,7 +1459,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nu_trie_end_reset, "") { /* {{{ */
+    Z_TEST(nu_trie_end_reset) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_enumerator_t en;
@@ -1489,7 +1489,7 @@ Z_GROUP_EXPORT(qps_hat) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_101129, "") { /* {{{ */
+    Z_TEST(nr_101129) { /* {{{ */
         qps_handle_t htrie;
         qhat_t trie;
         qhat_enumerator_t en;

@@ -53,7 +53,7 @@ static int z_test_murmur_hash3_x64_128(const lstr_t str)
 }
 
 Z_GROUP_EXPORT(hash) {
-    Z_TEST(jenkins, "jenkins") {
+    Z_TEST(jenkins) {
         lstr_t s = LSTR("hakunamatata");
         lstr_t s_upper = LSTR("HAKUNAMATATA");
 
@@ -65,7 +65,7 @@ Z_GROUP_EXPORT(hash) {
                     0xb536a6ee);
     } Z_TEST_END;
 
-    Z_TEST(murmur_hash3_x86_32, "murmur_hash3_x86_32") {
+    Z_TEST(murmur_hash3_x86_32) {
         lstr_t s = LSTR("Est-ce que vous voulez etre ma femme ? "
                         "Et apres on boira un cafe.");
 
@@ -77,7 +77,7 @@ Z_GROUP_EXPORT(hash) {
         Z_ASSERT_EQ(murmur_hash3_x86_32(s.s, s.len, 0xdeadc0de), 0x7455ebb5u);
     } Z_TEST_END;
 
-    Z_TEST(murmur_hash3_x86_32_update, "murmur_hash3_x86_32_update") {
+    Z_TEST(murmur_hash3_x86_32_update) {
         lstr_t s;
         byte hash[4];
         murmur_hash3_x86_32_ctx ctx;
@@ -93,7 +93,7 @@ Z_GROUP_EXPORT(hash) {
         Z_ASSERT_EQ(get_unaligned_cpu32(hash), 0x7455ebb5u);
     } Z_TEST_END;
 
-    Z_TEST(murmur_hash3_x64_128, "murmur_hash3_x64_128") {
+    Z_TEST(murmur_hash3_x64_128) {
         t_scope;
         const char *str = "Lorem ipsum dolor sit amet, "
             "consectetur adipiscing elit. "
@@ -133,7 +133,7 @@ Z_GROUP_EXPORT(hash) {
 #undef TEST
     } Z_TEST_END;
 
-    Z_TEST(murmur_hash3_x64_128_update, "murmur_hash3_x64_128_update") {
+    Z_TEST(murmur_hash3_x64_128_update) {
 #define TEST(str) Z_HELPER_RUN(z_test_murmur_hash3_x64_128(LSTR(str)))
 
         /* Test a string smaller than a 64 bits. */
@@ -320,7 +320,7 @@ static const byte sha2_hmac_test_sum[14][32] =
 
 Z_GROUP_EXPORT(sha2)
 {
-    Z_TEST(hash, "") {
+    Z_TEST(hash) {
         byte buf[1024];
         byte sha2sum[32];
         sha2_ctx ctx;
@@ -351,7 +351,7 @@ Z_GROUP_EXPORT(sha2)
         }
     } Z_TEST_END;
 
-    Z_TEST(hmac, "") {
+    Z_TEST(hmac) {
         byte buf[1024];
         byte sha2sum[32];
         sha2_ctx ctx;
@@ -381,7 +381,7 @@ Z_GROUP_EXPORT(sha2)
         }
     } Z_TEST_END;
 
-    Z_TEST(crypt, "") {
+    Z_TEST(crypt) {
 
         /* Those are extracted from Ulrich Drepper's
          * "Unix crypt using SHA-256" specifications v0.4 2008-4-3
@@ -725,7 +725,7 @@ static const byte sha4_hmac_test_sum[14][64] =
 
 Z_GROUP_EXPORT(sha4)
 {
-    Z_TEST(hash, "") {
+    Z_TEST(hash) {
         byte buf[1024];
         byte sha4sum[64];
         sha4_ctx ctx;
@@ -752,7 +752,7 @@ Z_GROUP_EXPORT(sha4)
         }
     } Z_TEST_END;
 
-    Z_TEST(hmac, "") {
+    Z_TEST(hmac) {
         byte buf[1024];
         byte sha4sum[64];
         sha4_ctx ctx;
@@ -852,7 +852,7 @@ static const byte aes_test_cfb_enc[3][16] =
 
 Z_GROUP_EXPORT(aes)
 {
-    Z_TEST(ECB, "ECB mode") {
+    Z_TEST(ECB) {
         byte key[32];
         byte buf[16];
         aes_ctx ctx;
@@ -882,7 +882,7 @@ Z_GROUP_EXPORT(aes)
         }
     } Z_TEST_END;
 
-    Z_TEST(CBC, "CBC mode") {
+    Z_TEST(CBC) {
         byte key[32];
         byte buf[16];
         byte prv[16];
@@ -924,7 +924,7 @@ Z_GROUP_EXPORT(aes)
         }
     } Z_TEST_END;
 
-    Z_TEST(CFB, "CFB mode") {
+    Z_TEST(CFB) {
         byte key[32];
         byte buf[16];
         byte iv[16];
@@ -1014,7 +1014,7 @@ static const byte des3_test_cbc_enc[3][8] =
 
 Z_GROUP_EXPORT(des)
 {
-    Z_TEST(ECB, "") {
+    Z_TEST(ECB) {
         des_ctx ctx;
         des3_ctx ctx3;
         byte key[24];
@@ -1068,7 +1068,7 @@ Z_GROUP_EXPORT(des)
         }
     } Z_TEST_END;
 
-    Z_TEST(CBC, "") {
+    Z_TEST(CBC) {
         des_ctx ctx;
         des3_ctx ctx3;
         byte key[24];
@@ -1261,7 +1261,7 @@ static const byte md5_hmac_test_sum[7][16] =
 
 Z_GROUP_EXPORT(md5)
 {
-    Z_TEST(hash, "") {
+    Z_TEST(hash) {
         byte md5sum[16];
 
         for (int i = 0; i < 7; i++) {
@@ -1270,7 +1270,7 @@ Z_GROUP_EXPORT(md5)
         }
     } Z_TEST_END;
 
-    Z_TEST(hmac, "") {
+    Z_TEST(hmac) {
         byte buf[1024];
         byte md5sum[16];
         md5_ctx ctx;

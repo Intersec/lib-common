@@ -33,7 +33,7 @@ typedef struct {
 } z_mp_test_t;
 
 Z_GROUP_EXPORT(mem_pool_macros) {
-    Z_TEST(t_pool, "t_pool: helpers macros") {
+    Z_TEST(t_pool) {
         t_scope;
         int *p;
         z_mp_test_t *t;
@@ -61,7 +61,7 @@ Z_GROUP_EXPORT(mem_pool_macros) {
         Z_ASSERT(true, "execution OK");
     } Z_TEST_END
 
-    Z_TEST(r_pool, "r_pool: helpers macros") {
+    Z_TEST(r_pool) {
         const void *frame;
         int *p;
         z_mp_test_t *t;
@@ -93,7 +93,7 @@ Z_GROUP_EXPORT(mem_pool_macros) {
         Z_ASSERT(true, "execution OK");
     } Z_TEST_END
 
-    Z_TEST(mem_libc, "mem_libc pool: helpers macros") {
+    Z_TEST(mem_libc) {
         int *p;
         z_mp_test_t *t;
         char *s;
@@ -130,7 +130,7 @@ Z_GROUP_EXPORT(mem_pool_macros) {
         Z_ASSERT(true, "execution OK");
     } Z_TEST_END
 
-    Z_TEST(mem_libc_size0, "mem_libc pool: allocation of size 0") {
+    Z_TEST(mem_libc_size0) {
         int *p;
 
         p = p_new(int, 0);

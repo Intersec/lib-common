@@ -70,7 +70,7 @@ double double_round_significant(double d, uint8_t precision)
 
 Z_GROUP_EXPORT(arithfloat)
 {
-    Z_TEST(double_round, "double_round") {
+    Z_TEST(double_round) {
 #define T(val, precision, res)                                               \
     do {                                                                     \
         Z_ASSERT_LT(fabs(double_round(val, precision) - res), DBL_EPSILON);  \
@@ -108,7 +108,7 @@ Z_GROUP_EXPORT(arithfloat)
         Z_ASSERT_NE(isnan(double_round(NAN, 3)), 0);
     } Z_TEST_END
 
-    Z_TEST(double_round_significant, "double_round_significant") {
+    Z_TEST(double_round_significant) {
 #define T(v, p, res)  \
     Z_ASSERT_LT(fabs(double_round_significant(v, p) - res), DBL_EPSILON)
 

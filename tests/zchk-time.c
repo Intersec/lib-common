@@ -38,13 +38,13 @@ static struct tm z_create_tm(int year, int month, int day, int hour,
 
 Z_GROUP_EXPORT(time)
 {
-    Z_TEST(curminute, "time: localtime_curminute") {
+    Z_TEST(curminute) {
         /* date -d "03/06/2007 12:34:13" +"%s" -> 1173180853 */
         /* date -d "03/06/2007 12:34:00" +"%s" -> 1173180840 */
         Z_ASSERT_EQ(localtime_curminute(1173180853), 1173180840);
     } Z_TEST_END;
 
-    Z_TEST(nextminute, "time: localtime_nextminute") {
+    Z_TEST(nextminute) {
         /* date -d "03/06/2007 12:34:13" +"%s" -> 1173180853 */
         /* date -d "03/06/2007 12:35:00" +"%s" -> 1173180900 */
         Z_ASSERT_EQ(localtime_nextminute(1173180853), 1173180900);
@@ -54,13 +54,13 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_EQ(localtime_nextminute(1173221953), 1173222000);
     } Z_TEST_END;
 
-    Z_TEST(curhour, "time: localtime_curhour") {
+    Z_TEST(curhour) {
         /* date -d "03/06/2007 12:34:13" +"%s" -> 1173180853 */
         /* date -d "03/06/2007 12:00:00" +"%s" -> 1173178800 */
         Z_ASSERT_EQ(localtime_curhour(1173180853), 1173178800);
     } Z_TEST_END;
 
-    Z_TEST(nexthour, "time: localtime_nexthour") {
+    Z_TEST(nexthour) {
         /* date -d "03/06/2007 12:34:13" +"%s" -> 1173180853 */
         /* date -d "03/06/2007 13:00:00" +"%s" -> 1173182400 */
         Z_ASSERT_EQ(localtime_nexthour(1173180853), 1173182400);
@@ -70,7 +70,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_EQ(localtime_nexthour(1173221953), 1173222000);
     } Z_TEST_END;
 
-    Z_TEST(curday, "time: localtime_curday") {
+    Z_TEST(curday) {
         /* date -d "03/06/2007 12:34:13" +"%s" -> 1173180853 */
         /* date -d "03/06/2007 00:00:00" +"%s" -> 1173135600 */
         Z_ASSERT_EQ(localtime_curday(1173180853), 1173135600);
@@ -81,7 +81,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_EQ(localtime_curday(0), localtime_curday(time(NULL)));
     } Z_TEST_END;
 
-    Z_TEST(nextday, "time: localtime_nextday") {
+    Z_TEST(nextday) {
         /* date -d "03/06/2007 12:34:13" +"%s" -> 1173180853 */
         /* date -d "03/07/2007 00:00:00" +"%s" -> 1173222000 */
         Z_ASSERT_EQ(localtime_nextday(1173180853), 1173222000);
@@ -92,7 +92,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_EQ(localtime_nextday(0), localtime_nextday(time(NULL)));
     } Z_TEST_END;
 
-    Z_TEST(curweek, "time: localtime_curweek") {
+    Z_TEST(curweek) {
         /* Normal case */
         /* date -d '09/20/2013 14:31:33' +'%s' -> 1379680293 = friday */
         /* date -d "09/15/2013 00:00:00" +"%s" -> 1379196000 = sunday */
@@ -121,7 +121,7 @@ Z_GROUP_EXPORT(time)
                     localtime_curweek(time(NULL), 0));
     } Z_TEST_END;
 
-    Z_TEST(nextweek, "time: localtime_nextweek") {
+    Z_TEST(nextweek) {
         /* Normal case */
         /* date -d '09/20/2013 14:31:33' +'%s' -> 1379680293 = friday */
         /* date -d "09/22/2013 00:00:00" +"%s" -> 1379800800 = sunday */
@@ -184,7 +184,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_EQ(localtime_nextmonth(1364691599), 1364767200);
     } Z_TEST_END;
 
-    Z_TEST(strtom, "time: strtom") {
+    Z_TEST(strtom) {
         struct tm t;
 
         p_clear(&t, 1);
@@ -270,7 +270,7 @@ Z_GROUP_EXPORT(time)
 #undef CHECK_DATE
     } Z_TEST_END;
 
-    Z_TEST(parse_tz, "check time parser")
+    Z_TEST(parse_tz)
     {
 #define CHECK_DATE(str, res)  do {                                           \
             time_t ts;                                                       \
@@ -344,8 +344,7 @@ Z_GROUP_EXPORT(time)
 #undef CHECK_DATE
     } Z_TEST_END;
 
-    Z_TEST(sb_add_localtime_iso8601, "time: sb_add_localtime_iso8601")
-    {
+    Z_TEST(sb_add_localtime_iso8601) {
         time_t ts = 1342088430; /* 2012-07-12T10:20:30Z */
         SB_1k(sb);
 
@@ -375,9 +374,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_STREQUAL(sb.data, "2012-07-12 12:20:30 +0200");
     } Z_TEST_END;
 
-    Z_TEST(sb_add_localtime_iso8601_msec,
-           "time: sb_add_localtime_iso8601_msec")
-    {
+    Z_TEST(sb_add_localtime_iso8601_msec) {
         time_t ts = 1342088430; /* 2012-07-12T10:20:30Z */
         SB_1k(sb);
 
@@ -397,8 +394,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_STREQUAL(sb.data, "2012-07-12T10:20:30.123+00:00");
     } Z_TEST_END;
 
-    Z_TEST(iso8601_ms, "time: time_fmt_iso8601_msec")
-    {
+    Z_TEST(iso8601_ms) {
         char buf[1024];
 
         time_fmt_iso8601_msec(buf, 0, 999);
@@ -409,13 +405,13 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_EQ(strlen(buf), 24U);
     } Z_TEST_END;
 
-    Z_TEST(nb_leap_years_since_1900, "time: nb_leap_years_since_1900") {
+    Z_TEST(nb_leap_years_since_1900) {
         Z_ASSERT_EQ(0, nb_leap_years_since_1900(1900));
         Z_ASSERT_EQ(28, nb_leap_years_since_1900(2015));
         Z_ASSERT_EQ(29, nb_leap_years_since_1900(2016));
     } Z_TEST_END;
 
-    Z_TEST(nb_days_since_1900, "time: nb_days_since_1900") {
+    Z_TEST(nb_days_since_1900) {
         struct tm t;
 
         t = z_create_tm(1900, 1, 10, 0, 0, 0);
@@ -431,7 +427,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_EQ(42431, tm_nb_days_since_1900(&t));
     } Z_TEST_END;
 
-    Z_TEST(tm_diff_days, "time: tm_diff_days") {
+    Z_TEST(tm_diff_days) {
         struct tm from;
         struct tm to;
 
@@ -444,7 +440,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_EQ(3523, tm_diff_days(&from, &to));
     } Z_TEST_END;
 
-    Z_TEST(tm_diff_hours, "time: tm_diff_hours") {
+    Z_TEST(tm_diff_hours) {
         struct tm from;
         struct tm to;
 
@@ -457,7 +453,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_EQ(84541, tm_diff_hours(&from, &to));
     } Z_TEST_END;
 
-    Z_TEST(tm_diff_minutes, "time: tm_diff_minutes") {
+    Z_TEST(tm_diff_minutes) {
         struct tm from;
         struct tm to;
 
@@ -470,7 +466,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_EQ(5072461, tm_diff_minutes(&from, &to));
     } Z_TEST_END;
 
-    Z_TEST(split, "Splitting and formatting") {
+    Z_TEST(split) {
         t_scope;
 
         time_t input;
@@ -574,7 +570,7 @@ Z_GROUP_EXPORT(time)
 
     } Z_TEST_END;
 
-    Z_TEST(t_time_spent_to_str, "") {
+    Z_TEST(t_time_spent_to_str) {
         t_scope;
         struct timeval start_tv;
         lstr_t s;

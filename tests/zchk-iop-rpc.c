@@ -334,7 +334,7 @@ Z_GROUP_EXPORT(iop_rpc)
     _G.iop_env = iop_env_new();
     MODULE_REQUIRE(ic);
 
-    Z_TEST(ic_local, "iop-rpc: ic local") {
+    Z_TEST(ic_local) {
         ichannel_t ic;
         qm_t(ic_cbs) impl = QM_INIT(ic_cbs, impl);
         qm_t(ic_cbs) impl_aux = QM_INIT(ic_cbs, impl_aux);
@@ -398,7 +398,7 @@ Z_GROUP_EXPORT(iop_rpc)
         ic_delete(&_G.ic_aux);
     } Z_TEST_END;
 
-    Z_TEST(ic_spawn_with_socketpair, "iop-rpc: socketpair and fork") {
+    Z_TEST(ic_spawn_with_socketpair) {
         /* A process, in order to share an IC with one of its children, may
          * create two connected sockets with socketpair and then use them as
          * an IC. This is done by calling ic_spawn on both ends. This test
@@ -466,7 +466,7 @@ Z_GROUP_EXPORT(iop_rpc)
         }
     } Z_TEST_END;
 
-    Z_TEST(ic_local_async, "iop-rpc: ic local async") {
+    Z_TEST(ic_local_async) {
         ichannel_t ic;
         qm_t(ic_cbs) impl = QM_INIT(ic_cbs, impl);
 
@@ -508,7 +508,7 @@ Z_GROUP_EXPORT(iop_rpc)
         el_loop_timeout(0);
     } Z_TEST_END;
 
-    Z_TEST(ic_hook_ctx, "iop-rpc: ic hook ctx leak") {
+    Z_TEST(ic_hook_ctx) {
         /* Test that allocated hook contexts are properly wiped when ichannel
          * module shuts down, which can happens in real-life when a program
          * stops and there are some pending RPC queries. This test would fail

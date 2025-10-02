@@ -537,7 +537,7 @@ Z_GROUP_EXPORT(thrjobs) {
 
     MODULE_REQUIRE(thr);
 
-    Z_TEST(contention, "test contention behavior") {
+    Z_TEST(contention) {
         struct contention_job jobs[2 * thr_parallelism_g * THR_JOB_MAX];
         int iterations = 1 << 10;
 
@@ -583,11 +583,11 @@ Z_GROUP_EXPORT(thrjobs) {
         }
     } Z_TEST_END;
 
-    Z_TEST(queue, "test queues") {
+    Z_TEST(queue) {
         Z_HELPER_RUN(test_queue());
     } Z_TEST_END;
 
-    Z_TEST(queue_syn, "tests queue sync") {
+    Z_TEST(queue_syn) {
         int loops = fast ? 100 : 10000;
 
         for (int i = 0; i < loops; i++) {
@@ -599,7 +599,7 @@ Z_GROUP_EXPORT(thrjobs) {
         Z_HELPER_RUN(z_wake_up());
     } Z_TEST_END;
 
-    Z_TEST(post_notify, "test the post-notify pattern") {
+    Z_TEST(post_notify) {
         int iterations = 300000; /* approximatively 1s */
 
         mpsc_queue_init(&z_post_notify_g.queue);
@@ -650,7 +650,7 @@ Z_GROUP_EXPORT(thrjobs) {
         thr_syn_wipe(&z_post_notify_g.syn);
     } Z_TEST_END;
 
-    Z_TEST(queue_steal, "queue steal jobs") {
+    Z_TEST(queue_steal) {
         int seqid = 0;
         thr_job_t job = { .run = &run_job };
         struct timeval start;
@@ -691,7 +691,7 @@ Z_GROUP_EXPORT(thrjobs) {
         Z_ASSERT_ZERO(queue_steal_g.ci_ring.len);
     } Z_TEST_END;
 
-    Z_TEST(for_each, "thr for each") {
+    Z_TEST(for_each) {
         Z_HELPER_RUN(z_thr_for_each());
     } Z_TEST_END;
 

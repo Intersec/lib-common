@@ -61,7 +61,7 @@ Z_GROUP_EXPORT(file_log)
 #define RANDOM_DATA_SIZE  (2 << 20)
 #define NB_FILES          10
 
-    Z_TEST(file_log_max_file_size, "check max_file_size") {
+    Z_TEST(file_log_max_file_size) {
         t_scope;
         lstr_t      path = t_lstr_fmt("%*pMtmp_log",
                                       LSTR_FMT_ARG(z_tmpdir_g));
@@ -144,7 +144,7 @@ Z_GROUP_EXPORT(file_log)
 
 #define NB_RECENT_FILES 3
 
-    Z_TEST(file_log_max_file_age, "check max_file_age") {
+    Z_TEST(file_log_max_file_age) {
         t_scope;
         lstr_t path = t_lstr_fmt("%*pMtmp_log", LSTR_FMT_ARG(z_tmpdir_g));
         char *data = t_new_raw(char, RANDOM_DATA_SIZE);
@@ -233,7 +233,7 @@ Z_GROUP_EXPORT(file_log)
 #undef RANDOM_DATA_SIZE
 #undef NB_FILES
 
-    Z_TEST(file_log_mode, "check file permissions") {
+    Z_TEST(file_log_mode) {
         t_scope;
         lstr_t path;
         log_file_t *log_file;

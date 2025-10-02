@@ -196,7 +196,7 @@ static int z_timer_tolerance(void)
 
 Z_GROUP_EXPORT(el)
 {
-    Z_TEST(fd_priority, "el: priority") {
+    Z_TEST(fd_priority) {
         t_scope;
         el_t *els   = t_new(el_t, 2 *3);
         struct z_el_data *calls = t_new(struct z_el_data, 3);
@@ -270,7 +270,7 @@ Z_GROUP_EXPORT(el)
     } Z_TEST_END;
 
 #ifdef HAVE_SYS_INOTIFY_H
-    Z_TEST(fs_watch, "el: inotify binding") {
+    Z_TEST(fs_watch) {
         t_scope;
         el_t watch;
         int fd;
@@ -310,7 +310,7 @@ Z_GROUP_EXPORT(el)
         el_fs_watch_unregister(&watch);
     } Z_TEST_END;
 
-    Z_TEST(fs_watch_delete, "el: inotify file unregister handling") {
+    Z_TEST(fs_watch_delete) {
         t_scope;
         el_t watch;
         el_t dummy_watch;
@@ -357,16 +357,16 @@ Z_GROUP_EXPORT(el)
     } Z_TEST_END;
 #endif
 
-    Z_TEST(spawn_child, "el: spawn child") {
+    Z_TEST(spawn_child) {
         Z_HELPER_RUN(z_spawn_child());
     } Z_TEST_END;
 
-    Z_TEST(spawn_child_capture, "el: spawn child capture") {
+    Z_TEST(spawn_child_capture) {
         Z_HELPER_RUN(z_spawn_child_capture());
         Z_HELPER_RUN(z_spawn_child_capture_timeout());
     } Z_TEST_END;
 
-    Z_TEST(el_repeat_timer_tolerance, "el repeat timer tolerance") {
+    Z_TEST(el_repeat_timer_tolerance) {
         Z_HELPER_RUN(z_timer_tolerance());
     } Z_TEST_END;
 

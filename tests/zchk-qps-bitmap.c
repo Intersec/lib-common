@@ -33,7 +33,7 @@ Z_GROUP_EXPORT(qps_bitmap) {
     }
     assert (qps);
 
-    Z_TEST(nullable_enumeration, "nullable enumeration") { /* {{{ */
+    Z_TEST(nullable_enumeration) { /* {{{ */
         qps_handle_t handle = qps_bitmap_create(qps, true);
         qps_bitmap_t bitmap;
         uint32_t count;
@@ -73,7 +73,7 @@ Z_GROUP_EXPORT(qps_bitmap) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(nr_33413, "nr_33413") { /* {{{ */
+    Z_TEST(nr_33413) { /* {{{ */
         /* Non-regression test for ticket #33413. */
         qps_handle_t handle = qps_bitmap_create(qps, true);
         qps_bitmap_t bitmap;
@@ -100,7 +100,7 @@ Z_GROUP_EXPORT(qps_bitmap) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(qps_bitmap_nr, "") { /* {{{ */
+    Z_TEST(qps_bitmap_nr) { /* {{{ */
         qps_handle_t hbitmap;
         qps_bitmap_t bitmap;
         qps_bitmap_enumerator_t en;
@@ -131,7 +131,7 @@ Z_GROUP_EXPORT(qps_bitmap) {
     } Z_TEST_END;
 
     /* }}} */
-    Z_TEST(remove_current_row, "") { /* {{{ */
+    Z_TEST(remove_current_row) { /* {{{ */
         bool is_nullable_v[] = { false, true };
 
         Z_TEST_FLAGS("redmine_83666");
@@ -159,7 +159,7 @@ Z_GROUP_EXPORT(qps_bitmap) {
         }
     } Z_TEST_END;
 
-    Z_TEST(nr_100747, "") { /* {{{ */
+    Z_TEST(nr_100747) { /* {{{ */
         qps_handle_t hbitmap;
         qps_bitmap_t bitmap;
         uint32_t start_key, gap_key, k_end;

@@ -346,7 +346,12 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
 
 #ifdef _Z_TEST_MAKE_BLOCK
 
-# define Z_TEST(name, desc) \
+/** Start a test case.
+ *
+ * It takes a mandatory name (used as an identifier) and an optional
+ * description (used as documentation only).
+ */
+# define Z_TEST(name, ...) \
     {                                                                     \
         int _z_step_run_res = _z_step_run(#name);                         \
         _Z_TEST_MAKE_BLOCK(_z_step_block)                                 \
@@ -373,7 +378,12 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
 
 #else
 
-# define Z_TEST(name, desc) \
+/** Start a test case.
+ *
+ * It takes a mandatory name (used as an identifier) and an optional
+ * description (used as documentation only).
+ */
+# define Z_TEST(name, ...) \
     switch (_z_step_run(#name)) {                                         \
         __label__ _z_step_end;                                            \
       case 0:                                                             \

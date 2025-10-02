@@ -693,7 +693,7 @@ Z_GROUP_EXPORT(iopsq) {
                     "}");
     } Z_TEST_END;
 
-    Z_TEST(iopsq_int_type_to_int_size, "") { /* {{{ */
+    Z_TEST(iopsq_int_type_to_int_size) { /* {{{ */
         struct {
             iop_type_t type;
             iopsq__int_size__t size;
@@ -715,7 +715,7 @@ Z_GROUP_EXPORT(iopsq) {
         }
     } Z_TEST_END;
     /* }}} */
-    Z_TEST(iopc_check_field_name, "test iopc_check_field_name") { /* {{{ */
+    Z_TEST(iopc_check_field_name) { /* {{{ */
         SB_1k(err);
 
         Z_ASSERT_N(iopc_check_field_name(LSTR("validFieldName"), &err));
