@@ -3,5 +3,6 @@
 # https://mise.jdx.dev/configuration.html
 
 [tools]
-make = '4.3'
-python = ['2.7', '3.6']
+# TODO support version template like for ASDF
+python = '3.9'
+uv = '0.7.2'

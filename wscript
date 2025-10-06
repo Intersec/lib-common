@@ -16,6 +16,7 @@
 #                                                                         #
 ###########################################################################
 
+import json
 import os
 import os.path as osp
 import re
@@ -57,43 +58,49 @@ def load_tools(ctx: Context) -> None:
 
 
 # }}}
-# {{{ asdf
+# {{{ Tool Managers
 
 
-def run_asdf_install(ctx: BuildContext) -> None:
-    if ctx.get_env_bool('_ASDF_INSTALL_DONE_WAF_CONFIGURE'):
-        # We have already installed ASDF
-        return
-
-    # Run the ASDF install script
-    build_dir = os.path.join(ctx.path.abspath(), 'build')
-    cmd = [f'{build_dir}/asdf_install.sh', str(ctx.srcnode)]
-    if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
-        ctx.fatal('ASDF installation failed')
-
-    # Set _ASDF_INSTALL_DONE_WAF_CONFIGURE to avoid install ASDF twice.
-    os.environ['_ASDF_INSTALL_DONE_WAF_CONFIGURE'] = '1'
-
-
-def configure_asdf(ctx: BuildContext) -> None:
-    if 'ASDF_DIR' not in os.environ:
-        # No ASDF
-        ctx.msg('Using ASDF', 'no')
-        return
-
-    # For ASDF users, we first ensure that all ASDF plugins and tool versions
+def configure_tool_manager(ctx: BuildContext) -> None:
+    # For ASDF/Mise users, we first ensure that all plugins and tool versions
     # are installed before continuing the configuration.
-    ctx.env.USE_ASDF = True
-    ctx.msg('Using ASDF', 'yes')
+    if ('MISE_SHELL' in os.environ or 'MISE_DATA_DIR' in os.environ or
+            'mise/shims' in os.environ['PATH']):
+        ctx.env.TOOL_MANAGER = 'mise'
+    elif 'ASDF_DIR' in os.environ:
+        ctx.env.TOOL_MANAGER = 'asdf'
+        # https://asdf-vm.com/manage/configuration.html#asdf-data-dir
+        ctx.env.ASDF_DATA_DIR = os.environ.get(
+            'ASDF_DATA_DIR', os.environ['HOME'] + '/.asdf')
+        ctx.env.ASDF_SHIMS = ctx.env.ASDF_DATA_DIR + '/shims'
+    else:
+        ctx.msg('Using tool manager', 'no')
+        return
 
-    # https://asdf-vm.com/manage/configuration.html#asdf-data-dir
-    ctx.env.ASDF_DATA_DIR = os.environ.get(
-        'ASDF_DATA_DIR', os.environ['HOME'] + '/.asdf')
-    ctx.env.ASDF_SHIMS = ctx.env.ASDF_DATA_DIR + '/shims'
+    if ctx.get_env_bool('_TOOL_MANAGER_INSTALL_DONE_WAF_CONFIGURE'):
+        # We have already installed the tool manager
+        return
 
-    # Run the ASDF install script if needed
-    run_asdf_install(ctx)
+    ctx.msg('Using tool manager', ctx.env.TOOL_MANAGER)
+    if ctx.env.TOOL_MANAGER == 'mise':
+        cmd = ['mise', 'install']
+        if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
+            ctx.fatal('Mise installation failed')
 
+        # After the tools installation we need to update our environment to
+        # take in account the changes performed by Mise
+        cmd = ['mise', 'env', '--json']
+        mise_env = json.loads(ctx.cmd_and_log(cmd))
+        os.environ.update(mise_env)
+        ctx.environ.update(mise_env)
+    elif ctx.env.TOOL_MANAGER == 'asdf':
+        build_dir = os.path.join(ctx.path.abspath(), 'build')
+        cmd = [f'{build_dir}/asdf_install.sh', str(ctx.srcnode)]
+        if ctx.exec_command(cmd, stdout=None, stderr=None, cwd=ctx.srcnode):
+            ctx.fatal('ASDF installation failed')
+
+    # Set _TOOL_MANAGER_INSTALL_DONE_WAF_CONFIGURE to avoid install twice.
+    os.environ['_TOOL_MANAGER_INSTALL_DONE_WAF_CONFIGURE'] = '1'
 
 # }}}
 # {{{ uv
@@ -158,7 +165,8 @@ def uv_no_srv_tools(ctx: BuildContext) -> None:
 
 
 def uv_sync(ctx: BuildContext) -> None:
-    if ctx.env.USE_ASDF:
+    if ctx.env.TOOL_MANAGER == 'asdf':
+        # FIXME mise support
         python_asdf_cleanup_prev_venv(ctx)
 
     before_uv_sync = getattr(ctx, 'before_uv_sync', None)
@@ -204,11 +212,12 @@ def rerun_waf_configure_with_uv(ctx: BuildContext) -> None:
         # We are already in a recursion with uv, do nothing.
         return
 
-    if uv_environment_is_active(ctx) and not ctx.env.USE_ASDF:
-        # If uv is already activated and ASDF is not in use we do nothing.
-        # However if ASDF is in use, the python version that will be loaded by
-        # ASDF may differ from the current active venv, and thus we need to
-        # recurse anyway to use the right python version.
+    if uv_environment_is_active(ctx) and not ctx.env.TOOL_MANAGER:
+        # If uv is already activated and a tool manager is not in use we do
+        # nothing.
+        # However if a tool manager is in use, the python version that will be
+        # loaded by it may differ from the current active venv, and thus we
+        # need to recurse anyway to use the right python version.
         return
 
     # Set _IN_UV_WAF_CONFIGURE to avoid doing the uv configuration twice.
@@ -246,7 +255,7 @@ def configure_with_uv(ctx: BuildContext) -> None:
         Logs.warn('Waf: Disabling uv support')
         return
 
-    if ctx.env.USE_ASDF:
+    if ctx.env.TOOL_MANAGER == 'asdf':
         ctx.find_program('uv', path_list=[ctx.env.ASDF_SHIMS])
     else:
         ctx.find_program('uv')
@@ -266,8 +275,9 @@ def rerun_waf_build_with_uv(ctx: BuildContext) -> None:
     if ctx.get_env_bool('_IN_UV_WAF_BUILD'):
         # We are already in a recursion with uv, do nothing.
         return
-    if uv_environment_is_active(ctx) and not ctx.env.USE_ASDF:
-        # uv environment is activated and ASDF is not in use, do nothing.
+    if uv_environment_is_active(ctx) and not ctx.env.TOOL_MANAGER:
+        # uv environment is activated and a tool manager is not in use, do
+        # nothing.
         return
 
     # Set _IN_UV_WAF_BUILD to avoid doing the recursion twice.
@@ -303,8 +313,8 @@ def options(ctx: OptionsContext) -> None:
 
 
 def configure(ctx: ConfigurationContext) -> None:
-    # First, configure and install ASDF
-    configure_asdf(ctx)
+    # First, configure tool managers if any
+    configure_tool_manager(ctx)
 
     # Configure and run waf configure in uv if needed
     configure_with_uv(ctx)
