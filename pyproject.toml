@@ -39,6 +39,7 @@ dev = [
 
     # static typing for Python
     "mypy==1.20.1",
+    "pyrefly==1.0.0",
 
     # Linter that uses the AST of languages. Its configuration
     # resides in `ast-grep/` and sgconfig.yml.
@@ -189,5 +190,64 @@ combine-as-imports = true
 
 [tool.ruff.format]
 quote-style = "single"
+
+# }}}
+# {{{ Pyrefly
+
+[tool.pyrefly]
+python-version = "3.11"
+search-path = [
+    "./",
+    "./src/iopy",
+    "./src/pystubs",
+    "./tests/iopy/pystubs",
+]
+ignore-missing-imports = [
+    "waflib",
+    "waflib.*",
+    "behave",
+    "behave.*",
+    "ipdb",
+    "ipdb.*",
+]
+
+[tool.pyrefly.errors]
+# Default severity: warn -> error
+deprecated = "error"
+implicit-import = "error"
+non-exhaustive-match = "error"
+redundant-cast = "error"
+redundant-condition = "error"
+unnecessary-comparison = "error"
+unnecessary-type-conversion = "error"
+unreachable = "error"
+unresolvable-dunder-all = "error"
+variance-mismatch = "error"
+
+# Default severity: ignore -> error
+implicit-abstract-class = "error"
+implicit-any-attribute = "error"
+implicit-any-parameter = "error"
+implicitly-defined-attribute = "error"
+missing-override-decorator = "error"
+missing-source = "error"
+missing-source-for-stubs = "error"
+not-required-key-access = "error"
+open-unpacking = "error"
+unannotated-return = "error"
+untyped-import = "error"
+unused-ignore = "error"
+
+# Specific ignores
+implicit-any = "ignore" # 'implicit-any' is too painful to fully work around
+
+# `wscript_build` files declare `ctx: BuildContext` (or `bld`) without an
+# assignment because waf injects the value at evaluation time. Pyrefly's
+# `unbound-name` rule flags every reference; matches the ruff `F821` ignore.
+[[tool.pyrefly.sub_config]]
+matches = "**/wscript_build"
+
+[tool.pyrefly.sub_config.errors]
+unbound-name = "ignore"
 
 # }}}
