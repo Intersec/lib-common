@@ -819,7 +819,7 @@ typedef unsigned char byte;
  * - For Clang: __attribute__((cleanup)) and blocks (with `-fblocks`).
  *
  * In order to support both compilers, the variables used on the defer blocks
- * *MUST* be declared with `deferred` keyword and considered passed by
+ * *MUST* be declared with `__deferred` keyword and considered passed by
  * reference (C++ reference style) in the block.
  * Failure to do so can result in some undesirable consequences.
  *
@@ -830,7 +830,7 @@ typedef unsigned char byte;
  * ----
  *  void foo(void)
  *  {
- *      deferred qv_t(i32) qv
+ *      __deferred qv_t(i32) qv
  *
  *      qv_init(&qv);
  *      defer({
@@ -849,7 +849,7 @@ typedef unsigned char byte;
  */
 #if defined(IS_CLANG_BLOCKS_REWRITER)
 
-#define deferred
+#define __deferred
 
 #define defer(_code)                                                         \
     { _code }
@@ -858,7 +858,7 @@ typedef unsigned char byte;
 /* Clang with blocks */
 #elif defined(__BLOCKS__)
 
-#define deferred __block
+#define __deferred __block
 
 typedef void (^_defer_inner_b)(void);
 
@@ -878,7 +878,7 @@ static ALWAYS_INLINE void _defer_blk_cleanup(_defer_inner_b *defer_blk)
 /* GCC with nested function */
 #elif defined(__GNUC__)
 
-#define deferred
+#define __deferred
 
 #define _defer_with_name(_code, _dname_func, _dname_var)                     \
     auto ALWAYS_INLINE void _dname_func(int *);                              \
@@ -897,7 +897,7 @@ static ALWAYS_INLINE void _defer_blk_cleanup(_defer_inner_b *defer_blk)
 /* No defer :( */
 #else
 
-#define deferred
+#define __deferred
 #define defer(_code) DEFER_IS_NOT_SUPPORTED
 
 #endif /* defer */

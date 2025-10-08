@@ -1083,7 +1083,7 @@ Z_GROUP_EXPORT(core_macros) {
     /* {{{ defer */
 
     Z_TEST(defer, "defer") {
-        deferred qv_t(u32) qv;
+        __deferred qv_t(u32) qv;
         uint32_t zero_tab[32] = { 0 };
 
         qv_init(&qv);
@@ -1095,7 +1095,7 @@ Z_GROUP_EXPORT(core_macros) {
         Z_ASSERT_EQ(qv.len, countof(zero_tab));
 
         {
-            deferred int *alloc_in_scope;
+            __deferred int *alloc_in_scope;
 
             alloc_in_scope = p_new(int, 1);
             defer({
@@ -1107,8 +1107,8 @@ Z_GROUP_EXPORT(core_macros) {
         }
 
         {
-            deferred int *multiple_defer1;
-            deferred int *multiple_defer2;
+            __deferred int *multiple_defer1;
+            __deferred int *multiple_defer2;
 
             multiple_defer1 = p_new(int, 1);
             defer({

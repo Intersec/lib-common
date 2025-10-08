@@ -4171,7 +4171,7 @@ int iopc_do_c(iopc_pkg_t *pkg, const char *outdir)
 {
     t_scope;
     SB_8k(buf);
-    deferred qv_t(iopc_pkg) t_deps, t_weak_deps, i_deps;
+    __deferred qv_t(iopc_pkg) t_deps, t_weak_deps, i_deps;
     const char *pkg_name;
     char path[PATH_MAX];
 
