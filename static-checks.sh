@@ -57,15 +57,6 @@ modified_python_files() {
             (xargs --no-run-if-empty stat --printf '%n ' 2>/dev/null || true)"
 }
 
-run_on_modified_python_files() {
-    local cmd="$1"
-    local modified_files="$2"
-
-    # Run each command in parallel with xargs
-    echo "$modified_files" | \
-        xargs --no-run-if-empty -n 1 -P "$(nproc --all)" "$cmd"
-}
-
 main() {
     local params
     local modified_files
@@ -104,14 +95,28 @@ main() {
 
     modified_files="$(modified_python_files "$diff_mode")"
 
-    # If no python files are staged, do not run any linting tool
-    if [[ -z "$modified_files" ]] && [[ "$diff_mode" = "staged-files" ]]; then
-        return 0
+    if [[ "$diff_mode" = "staged-files" ]]; then
+        # This diff_mode is used by our git hook.
+
+        if [[ -n "$modified_files" ]]; then
+            # Only run linters on modified_files, otherwise it will run on
+            # file modified locally but not staged.
+
+            # Intended splitting of modified_files
+            # shellcheck disable=SC2086
+            run_cmd ruff check --force-exclude ${modified_files}
+            # shellcheck disable=SC2086
+            run_cmd waf mypy ${modified_files}
+        fi
+    else
+        # The bot executes static-check without setting any diff_mode.
+
+        # Run the linters on the entire codebase
+        run_cmd waf ruff
+        run_cmd waf mypy
     fi
 
-    # Run the different commands
-    run_cmd waf ruff
-    run_cmd waf mypy
+    # Cargo clippy and fmt only work for the entire codebase
     run_cmd cargo clippy
     run_cmd cargo fmt --check
 }
