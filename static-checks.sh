@@ -37,20 +37,23 @@ run_cmd() {
 modified_python_files() {
     local diff_mode="$1"
     local git_diff_files
-
+    # Added, Copied, Modified, Renamed (we don't need to check deleted files
+    # for instance).
+    local diff_filter="--diff-filter=ACMR"
     if [ "$diff_mode" = "staged-files" ]; then
         # Get only the staged files
-        git_diff_files="git diff-index --name-only --cached HEAD"
+        git_diff_files="git diff-index --name-only $diff_filter --cached HEAD"
     else
         # By default, we check the last commit
-        git_diff_files="git diff --name-only HEAD^"
+        git_diff_files="git diff $diff_filter --name-only HEAD^"
     fi
-
     # Filter only the existing files and not the removed ones
     # Convert new lines into spaces for nice printing
+    # With xargs || true, we ensure that if any file does not really exist we
+    # skip outputting just that file.
     eval "$git_diff_files -- \
             '*.py' '**/*.py' '*.pyi' '**/*.pyi' 'wscript*' '**/wscript*' | \
-            xargs --no-run-if-empty stat --printf '%n ' 2>/dev/null"
+            (xargs --no-run-if-empty stat --printf '%n ' 2>/dev/null || true)"
 }
 
 run_on_modified_python_files() {
