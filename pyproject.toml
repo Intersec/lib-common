@@ -172,4 +172,7 @@ dummy-variable-rgx = "^_$"
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
 
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
 # }}}

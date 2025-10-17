@@ -50,8 +50,12 @@ from waflib.Configure import ConfigurationContext
 from waflib.Node import Node
 from waflib.Options import OptionsContext
 from waflib.Task import Task
-from waflib.Tools import c as c_tool
-from waflib.Tools import c_preproc, ccroot, cxx
+from waflib.Tools import (
+    c as c_tool,
+    c_preproc,
+    ccroot,
+    cxx,
+)
 from waflib.Utils import check_exe
 
 # Add type hinting for TaskGen decorators
