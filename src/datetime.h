@@ -414,9 +414,12 @@ static inline void time_fmt_iso8601(char buf[static 21], time_t t)
     int len;
     struct tm tm;
 
-    if (!gmtime_r(&t, &tm)) {
-        e_panic("invalid timestamp: %jd", t);
+    if (!expect(gmtime_r(&t, &tm))) {
+        e_error("invalid timestamp: %jd", t);
+        snprintf(buf, 21, "%jd", t);
+        return;
     }
+
     len = snprintf(buf, 21, ISO8601_GMT_FMT, ISO8601_GMT_FMT_ARG(&tm));
     if (len != 20) {
         e_error("error when trying to print timestamp: %jd, "
