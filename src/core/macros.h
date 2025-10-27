@@ -868,7 +868,7 @@ static ALWAYS_INLINE void _defer_blk_cleanup(_defer_inner_b *defer_blk)
 }
 
 #define _defer_with_name(_code, _dname)                                      \
-    __attr_cleanup__(_defer_blk_cleanup)                                     \
+    __attr_cleanup__(_defer_blk_cleanup) __attr_unused__                     \
     void (^_dname)(void) = ^(void) { _code }                                 \
 
 #define defer(_code)                                                         \
@@ -881,9 +881,9 @@ static ALWAYS_INLINE void _defer_blk_cleanup(_defer_inner_b *defer_blk)
 #define __deferred
 
 #define _defer_with_name(_code, _dname_func, _dname_var)                     \
-    auto ALWAYS_INLINE void _dname_func(int *);                              \
-    __attr_cleanup__(_dname_func) int _dname_var;                            \
-    ALWAYS_INLINE void _dname_func(int *__defer_var)                         \
+    auto ALWAYS_INLINE __attr_unused__ void _dname_func(int *);              \
+    __attr_cleanup__(_dname_func) __attr_unused__ int _dname_var;            \
+    ALWAYS_INLINE __attr_unused__ void _dname_func(int *__defer_var)         \
     {                                                                        \
         (void)__defer_var;                                                   \
         { _code }                                                            \
