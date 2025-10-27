@@ -189,12 +189,19 @@ int main(int argc, const char **argv) {
   // Buffer diagnostics from argument parsing so that we can output them using a
   // well formed diagnostic object.
   std::unique_ptr<CompilerInstance> Clang(new CompilerInstance());
-  IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   TextDiagnosticBuffer *DiagsBuffer = new TextDiagnosticBuffer;
+  IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
+#if CLANG_VERSION_MAJOR >= 21
+  DiagnosticOptions DiagOpts;
+  TextDiagnosticPrinter *DiagClient =
+    new TextDiagnosticPrinter(llvm::errs(), DiagOpts);
+  DiagnosticsEngine Diags(DiagID, DiagOpts, DiagClient);
+#else
+  IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   TextDiagnosticPrinter *DiagClient =
     new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);
-  IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
   DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagClient);
+#endif
   bool HasTimeTrace;
 
   ArrayRef<const char*> Args(argv + 1, argv + argc);
