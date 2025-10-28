@@ -530,6 +530,66 @@ static int z_thr_for_each(void)
 }
 
 /* }}} */
+/* {{{ Test thr_syn_wait_flags */
+
+struct {
+    atomic_int count;
+} z_thr_syn_wait_g;
+
+static int z_thr_syn_wait_flags_test(void)
+{
+    thr_syn_t syn;
+    int res;
+
+    /* When scheduling one job on a worker and one job on the main queue, with
+     * default flags, both jobs should be executed if the worker job's is long
+     * enough.
+     */
+    thr_syn_init(&syn);
+
+    thr_syn_schedule_b(&syn, ^{
+        usleep(200000);
+        atomic_fetch_add(&z_thr_syn_wait_g.count, 1);
+    });
+
+    thr_queue_b(thr_queue_main_g, ^{
+        atomic_fetch_add(&z_thr_syn_wait_g.count, 1);
+    });
+
+    thr_syn_wait(&syn);
+
+    res = atomic_load(&z_thr_syn_wait_g.count);
+    Z_ASSERT_EQ(res, 2);
+
+    thr_syn_wipe(&syn);
+
+    /* When scheduling one job on a worker and one job on the main queue, with
+     * THR_SYN_WAIT_NO_MAIN_DRAIN flag, only the worker job should be
+     * executed.
+     */
+    atomic_store(&z_thr_syn_wait_g.count, 0);
+    thr_syn_init(&syn);
+
+    thr_syn_schedule_b(&syn, ^{
+        usleep(200000);
+        atomic_fetch_add(&z_thr_syn_wait_g.count, 1);
+    });
+
+    thr_queue_b(thr_queue_main_g, ^{
+        atomic_fetch_add(&z_thr_syn_wait_g.count, 1);
+    });
+
+    thr_syn_wait_flags(&syn, THR_SYN_WAIT_NO_MAIN_DRAIN);
+
+    res = atomic_load(&z_thr_syn_wait_g.count);
+    Z_ASSERT_EQ(res, 1);
+
+    thr_syn_wipe(&syn);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
 
 Z_GROUP_EXPORT(thrjobs) {
     const bool fast = Z_HAS_MODE(FAST)
@@ -693,6 +753,10 @@ Z_GROUP_EXPORT(thrjobs) {
 
     Z_TEST(for_each) {
         Z_HELPER_RUN(z_thr_for_each());
+    } Z_TEST_END;
+
+    Z_TEST(syn_wait_flags) {
+        Z_HELPER_RUN(z_thr_syn_wait_flags_test());
     } Z_TEST_END;
 
     MODULE_RELEASE(thr);

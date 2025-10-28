@@ -268,33 +268,67 @@ void thr_syn__job_done(thr_syn_t *syn)
     thr_syn__release(syn);
 }
 
-/** \brief wait for the completion of a given macro task.
+enum thr_syn_wait_flags_t {
+    /** Wait without draining the main queue.
+     *
+     * When this flag is set the main queue won't be drained while waiting for
+     * the job(s) completion.
+     *
+     * Be careful that if your jobs depend in any way on another job posted on
+     * the main queue you will deadlock.
+     */
+    THR_SYN_WAIT_NO_MAIN_DRAIN = 1U << 0,
+};
+
+/** Wait for the completion of a given macro task.
  *
  * This function waits until all jobs that have been registered as
- * synchronizing against this #thr_syn_t to complete. If there are jobs
+ * synchronizing against this \ref thr_syn_t to complete. If there are jobs
  * running, the waiter is used to perform new jobs in between to avoid
- * blocking, using the #thr_drain_one function.
+ * blocking.
+ *
+ * \param[in] syn    A \ref thr_syn_t on which you wish to wait.
+ * \param[in] flags  An optional combination of \ref thr_syn_wait_flags_t
+ *                   flags to alter the behavior of the waiter.
  */
-void thr_syn_wait(thr_syn_t *syn);
+void thr_syn_wait_flags(thr_syn_t *syn, unsigned flags);
+
+/** Shortcut to \ref thr_syn_wait_flags with default flags.
+ */
+static inline void thr_syn_wait(thr_syn_t *syn)
+{
+    thr_syn_wait_flags(syn, 0);
+}
 
 #ifdef __has_blocks
 
-/** \brief wait for a condition to become true.
+/** Wait for a condition to become true.
  *
  * This function waits until the given callback returns true. This supposes
  * the condition will become true because of the consumption of the jobs
- * associated with this #thr_syn_t.
+ * associated with the \ref thr_syn_t.
  *
  * If there are jobs pending, the waiter is used to perform any jobs in
- * between to avoid blocking, using the #thr_drain_one function.
+ * between to avoid blocking.
  *
- * \param[in] syn  A #thr_syn_t on which you which to wait.
- * \param[in] cond A callback returning true when the condition is verified.
- *                 If NULL is provided, this function becomes equivalent to
- *                 \ref thr_syn_wait. The callback must be pure and you have
- *                 no guarantees on the number of times it will be called.
+ * \param[in] syn    A \ref thr_syn_t on which you wish to wait.
+ * \param[in] flags  An optional combination of \ref thr_syn_wait_flags_e
+ *                   flags to alter the behavior of the waiter.
+ * \param[in] cond   A callback returning true when the condition is verified.
+ *                   If NULL is provided, this function becomes equivalent to
+ *                   \ref thr_syn_wait. The callback must be pure and you have
+ *                   no guarantees on the number of times it will be called.
  */
-void thr_syn_wait_until(thr_syn_t *syn, bool (BLOCK_CARET cond)(void));
+void thr_syn_wait_until_flags(thr_syn_t *syn, unsigned flags,
+                              bool (BLOCK_CARET cond)(void));
+
+/** Shortcut to \ref thr_syn_wait_until_flags with default flags.
+ */
+static inline void
+thr_syn_wait_until(thr_syn_t *syn, bool (BLOCK_CARET cond)(void))
+{
+    thr_syn_wait_until_flags(syn, 0, cond);
+}
 
 /** Associate a new Thread data to the #thr_syn_t.
  *

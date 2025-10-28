@@ -1139,13 +1139,13 @@ size_t thr_id(void)
     return self_g->id;
 }
 
-void thr_syn_wait_until(thr_syn_t *syn, bool (^cond)(void))
+void
+thr_syn_wait_until_flags(thr_syn_t *syn, unsigned flags, bool (^cond)(void))
 {
 #ifdef __has_thr_acc
     unsigned long start;
 #endif
-
-    cond = ^bool (void) {
+    bool (^syn_cond)(void) = ^bool (void) {
         int pending = atomic_load(&syn->pending);
 
         if (cond) {
@@ -1167,12 +1167,21 @@ void thr_syn_wait_until(thr_syn_t *syn, bool (^cond)(void))
     thr_syn__retain(syn);
 
     if (self_g->id == 0) {
-        while (!cond()) {
+        const bool drain_main_q = !(flags & THR_SYN_WAIT_NO_MAIN_DRAIN);
+
+        bool (^thr_main_cond)(void) = ^bool (void) {
+            return syn_cond() || (
+                drain_main_q && !mpsc_queue_looks_empty(&thr_queue_main_g->q)
+            );
+        };
+
+        while (!syn_cond()) {
             int ret;
             uint64_t key;
             thr_evc_t *ec;
 
-            if (!mpsc_queue_looks_empty(&thr_queue_main_g->q)) {
+            if (drain_main_q && !mpsc_queue_looks_empty(&thr_queue_main_g->q))
+            {
                 thr_queue_drain(thr_queue_main_g);
                 continue;
             }
@@ -1182,10 +1191,7 @@ void thr_syn_wait_until(thr_syn_t *syn, bool (^cond)(void))
 #ifdef __has_thr_acc
             self_g->acc.ec_gets++;
 #endif
-            if (cond()) {
-                goto cas;
-            }
-            if (!mpsc_queue_looks_empty(&thr_queue_main_g->q)) {
+            if (thr_main_cond()) {
                 goto cas;
             }
 
@@ -1197,9 +1203,7 @@ void thr_syn_wait_until(thr_syn_t *syn, bool (^cond)(void))
              * less than 100ms */
             atomic_fetch_add(&_G.target_threads_count, 1);
             thr_ec_broadcast(&_G.threads_count_evc);
-            ret = thr_sleep_until(&syn->ec, 100, ^bool (void) {
-                return cond() || !mpsc_queue_looks_empty(&thr_queue_main_g->q);
-            });
+            ret = thr_sleep_until(&syn->ec, 100, thr_main_cond);
             /* Decrease thread count. If we waited more than 100ms,
              * thr_enter_blocking_syscall() will increment it again. */
             atomic_fetch_sub(&_G.target_threads_count, 1);
@@ -1230,14 +1234,14 @@ void thr_syn_wait_until(thr_syn_t *syn, bool (^cond)(void))
 #endif
         atomic_fetch_add(&_G.target_threads_count, 1);
         thr_ec_broadcast(&_G.threads_count_evc);
-        ret = thr_sleep_until(&syn->ec, 100, cond);
+        ret = thr_sleep_until(&syn->ec, 100, syn_cond);
         atomic_fetch_sub(&_G.target_threads_count, 1);
         if (ret < 0) {
             thr_enter_blocking_syscall();
             do {
                 thr_ec_timedwait(&syn->ec, key, 100);
                 key = thr_ec_get(&syn->ec);
-            } while (!cond());
+            } while (!syn_cond());
             thr_exit_blocking_syscall();
         }
 #ifdef __has_thr_acc
@@ -1248,9 +1252,9 @@ void thr_syn_wait_until(thr_syn_t *syn, bool (^cond)(void))
     thr_syn__release(syn);
 }
 
-void thr_syn_wait(thr_syn_t *syn)
+void thr_syn_wait_flags(thr_syn_t *syn, unsigned flags)
 {
-    thr_syn_wait_until(syn, NULL);
+    thr_syn_wait_until_flags(syn, flags, NULL);
 }
 
 void thr_syn_notify(thr_syn_t *syn, thr_queue_t *q, thr_job_t *job)
