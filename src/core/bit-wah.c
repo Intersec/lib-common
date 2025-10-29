@@ -426,6 +426,18 @@ wah_t *t_wah_dup(const wah_t *src)
     return map;
 }
 
+size_t wah_memory_footprint(const wah_t *map)
+{
+    size_t res = sizeof(*map);
+
+    res += map->_buckets.size * sizeof(*map->_buckets.tab);
+    tab_for_each_ptr(bucket, &map->_buckets) {
+        res += bucket->size * sizeof(*bucket->tab);
+    }
+
+    return res;
+}
+
 /* }}} */
 /* Operations {{{ */
 

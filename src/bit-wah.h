@@ -147,6 +147,13 @@ wah_t *wah_new_from_data(pstream_t data);
 const qv_t(wah_word_vec) *wah_get_storage(const wah_t *wah);
 size_t wah_get_storage_len(const wah_t *wah);
 
+/** Get the expected size of the WAH when serialized.
+ */
+static inline size_t wah_get_storage_size(const wah_t *wah)
+{
+    return wah_get_storage_len(wah) * sizeof(wah_word_t);
+}
+
 /** Get the raw data in a wah_t as a lstr_t.
  *
  * \see wah_get_storage for additional instructions.
@@ -183,6 +190,10 @@ wah_t *wah_multi_or(const wah_t *src[], int len, wah_t * __restrict dest) __leaf
  */
 __must_check__ __leaf
 bool wah_get(const wah_t *map, uint64_t pos);
+
+/** Get the amount of memory consumed by a WAH.
+ */
+size_t wah_memory_footprint(const wah_t *map) __leaf;
 
 /* }}} */
 /* Enumeration {{{ */
