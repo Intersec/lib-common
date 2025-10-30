@@ -21,14 +21,27 @@
 
 //#define WAH_CHECK_NORMALIZED  1
 
-#define WAH_BITS_IN_BUCKET (8 * (512ul << 20))
+#define WAH_BITS_IN_BUCKET_DEFAULT (8 * (512ul << 20))
+
+#ifdef NDEBUG
+
+# define WAH_BITS_IN_BUCKET WAH_BITS_IN_BUCKET_DEFAULT
+
+#else
 
 static struct {
     uint64_t bits_in_bucket;
 } bit_wah_g = {
-#define _G  bit_wah_g
-    .bits_in_bucket = WAH_BITS_IN_BUCKET,
+# define _G  bit_wah_g
+    .bits_in_bucket = WAH_BITS_IN_BUCKET_DEFAULT,
 };
+
+/* In non release builds we want to be able to change the number of bits per
+ * buckets for testing purpose.
+ */
+# define WAH_BITS_IN_BUCKET  _G.bits_in_bucket
+
+#endif /* NDEBUG */
 
 /* Word enumerator {{{ */
 
@@ -524,8 +537,8 @@ void wah_check_invariant(const wah_t *map)
     assert ((int)*wah_last_run_count(map) + map->last_run_pos + 2
         ==  last_bucket->len);
     assert (map->len >= map->active);
-    assert (map->len >= _G.bits_in_bucket * (map->_buckets.len - 1));
-    assert (map->len <= _G.bits_in_bucket * map->_buckets.len
+    assert (map->len >= WAH_BITS_IN_BUCKET * (map->_buckets.len - 1));
+    assert (map->len <= WAH_BITS_IN_BUCKET * map->_buckets.len
                       + WAH_BIT_IN_WORD);
     wah_check_normalized(map);
 }
@@ -613,16 +626,16 @@ static void wah_push_pending(wah_t *map, uint64_t words, uint64_t active)
     assert (map->len % WAH_BIT_IN_WORD == 0);
 
     while (words) {
-        uint64_t bucket_len = map->len % _G.bits_in_bucket;
+        uint64_t bucket_len = map->len % WAH_BITS_IN_BUCKET;
         uint64_t to_add;
 
-        if (map->len && map->len == map->_buckets.len * _G.bits_in_bucket) {
+        if (map->len && map->len == map->_buckets.len * WAH_BITS_IN_BUCKET) {
             assert (bucket_len == 0);
             __wah_create_bucket(map);
         }
 
         to_add = MIN(words,
-                     (_G.bits_in_bucket - bucket_len) / WAH_BIT_IN_WORD);
+                     (WAH_BITS_IN_BUCKET - bucket_len) / WAH_BIT_IN_WORD);
         map->len += to_add * WAH_BIT_IN_WORD;
         map->_pending = pending;
         __wah_push_pending(map, to_add);
@@ -636,7 +649,7 @@ void wah_add0s(wah_t *map, uint64_t count)
 {
     uint64_t remain = map->len % WAH_BIT_IN_WORD;
 
-    if (map->len > map->_buckets.len * _G.bits_in_bucket) {
+    if (map->len > map->_buckets.len * WAH_BITS_IN_BUCKET) {
         __wah_create_bucket(map);
     }
 
@@ -674,7 +687,7 @@ void wah_add1s(wah_t *map, uint64_t count)
 {
     uint64_t remain = map->len % WAH_BIT_IN_WORD;
 
-    if (map->len > map->_buckets.len * _G.bits_in_bucket) {
+    if (map->len > map->_buckets.len * WAH_BITS_IN_BUCKET) {
         __wah_create_bucket(map);
     }
 
@@ -851,16 +864,16 @@ static void wah_add_literal(wah_t *map, const uint8_t *src, uint64_t count)
     map->active += membitcount(src, count);
 
     while (count) {
-        uint64_t bucket_len = map->len % _G.bits_in_bucket;
+        uint64_t bucket_len = map->len % WAH_BITS_IN_BUCKET;
         uint64_t to_add;
 
-        if (map->len && map->len == map->_buckets.len * _G.bits_in_bucket) {
+        if (map->len && map->len == map->_buckets.len * WAH_BITS_IN_BUCKET) {
             assert (bucket_len == 0);
             bucket = __wah_create_bucket(map);
         }
 
         to_add = MIN(count / 4,
-                     (_G.bits_in_bucket - bucket_len) / WAH_BIT_IN_WORD);
+                     (WAH_BITS_IN_BUCKET - bucket_len) / WAH_BIT_IN_WORD);
 
         *wah_last_run_count(map) += to_add;
         qv_extend(bucket, (wah_word_t *)src, to_add);
@@ -987,7 +1000,7 @@ void wah_copy_run(wah_t *map, wah_word_enum_t *run, wah_word_enum_t *data)
         wah_word_enum_skip(data, count);
 
         wah_flatten_last_run(map);
-        if (map->len && map->len == map->_buckets.len * _G.bits_in_bucket) {
+        if (map->len && map->len == map->_buckets.len * WAH_BITS_IN_BUCKET) {
             __wah_create_bucket(map);
         }
 
@@ -1457,8 +1470,8 @@ bool wah_get(const wah_t *map, uint64_t pos)
         return map->_pending & (1 << pos);
     }
 
-    bucket = &map->_buckets.tab[pos / _G.bits_in_bucket];
-    pos %= _G.bits_in_bucket;
+    bucket = &map->_buckets.tab[pos / WAH_BITS_IN_BUCKET];
+    pos %= WAH_BITS_IN_BUCKET;
 
     while (i < bucket->len) {
         wah_header_t head  = bucket->tab[i++].head;
@@ -1508,7 +1521,7 @@ from_data_split_chunk(from_data_ctx_t *ctx, wah_header_t head, uint64_t words)
     qv_extend(ctx->bucket, ctx->tab, ctx->pos - 2);
 
     /* Deal with the run. */
-    if (ctx->bucket_len + head.words * WAH_BIT_IN_WORD > _G.bits_in_bucket) {
+    if (ctx->bucket_len + head.words * WAH_BIT_IN_WORD > WAH_BITS_IN_BUCKET) {
         /* Chunk's run is too big and has to be split. */
         while (head.words) {
             wah_header_t to_add = head;
@@ -1517,7 +1530,7 @@ from_data_split_chunk(from_data_ctx_t *ctx, wah_header_t head, uint64_t words)
             ctx->map->previous_run_pos = ctx->map->last_run_pos;
             ctx->map->last_run_pos     = ctx->bucket->len;
 
-            avail_words = (_G.bits_in_bucket - ctx->bucket_len)
+            avail_words = (WAH_BITS_IN_BUCKET - ctx->bucket_len)
                         / WAH_BIT_IN_WORD;
             to_add.words = MIN(head.words, avail_words);
             qv_append(ctx->bucket, (wah_word_t){ .head = to_add });
@@ -1541,11 +1554,11 @@ from_data_split_chunk(from_data_ctx_t *ctx, wah_header_t head, uint64_t words)
 
     /* We now have to deal with the uncompressed words. */
     for (;;) {
-        if (ctx->bucket_len + words * WAH_BIT_IN_WORD > _G.bits_in_bucket) {
+        if (ctx->bucket_len + words * WAH_BIT_IN_WORD > WAH_BITS_IN_BUCKET) {
             /* Split them. */
             uint64_t count;
 
-            count = (_G.bits_in_bucket - ctx->bucket_len) / WAH_BIT_IN_WORD;
+            count = (WAH_BITS_IN_BUCKET - ctx->bucket_len) / WAH_BIT_IN_WORD;
             qv_append(ctx->bucket, (wah_word_t){ .count = count });
             qv_extend(ctx->bucket, &ctx->tab[ctx->pos], count);
 
@@ -1609,7 +1622,7 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
             }
             map->len += chunk_len;
 
-            if (unlikely(ctx.bucket_len + chunk_len > _G.bits_in_bucket)) {
+            if (unlikely(ctx.bucket_len + chunk_len > WAH_BITS_IN_BUCKET)) {
                 /* This wah do not respect the max length of the buckets. We
                  * have to split this chunk and create a new bucket. */
                 from_data_split_chunk(&ctx, head, words);
@@ -1628,9 +1641,9 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
                 ctx.pos += words;
             }
 
-            if (ctx.bucket_len >= _G.bits_in_bucket) {
+            if (ctx.bucket_len >= WAH_BITS_IN_BUCKET) {
                 /* The current bucket is full, close it. */
-                assert (ctx.bucket_len == _G.bits_in_bucket);
+                assert (ctx.bucket_len == WAH_BITS_IN_BUCKET);
                 if (!ctx.bucket) {
                     ctx.bucket = qv_growlen(&map->_buckets, 1);
                     qv_init_static(ctx.bucket, ctx.tab, ctx.pos);
@@ -1795,6 +1808,7 @@ void wah_debug_print(const wah_t *wah, bool print_content)
 /* }}} */
 /* {{{ Testing helpers. */
 
+#ifndef NDEBUG
 void wah_set_bits_in_bucket(uint64_t nb_bits)
 {
     _G.bits_in_bucket = nb_bits;
@@ -1803,7 +1817,8 @@ void wah_set_bits_in_bucket(uint64_t nb_bits)
 
 void wah_reset_bits_in_bucket(void)
 {
-    wah_set_bits_in_bucket(WAH_BITS_IN_BUCKET);
+    wah_set_bits_in_bucket(WAH_BITS_IN_BUCKET_DEFAULT);
 }
+#endif /* NDEBUG */
 
 /* }}} */

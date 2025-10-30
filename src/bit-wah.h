@@ -51,8 +51,8 @@
  * references a integral number of words of 32 bits.
  *
  * In memory, the chunks are stored in wah_word_t vectors called buckets.
- * Each bucket contains \ref bit_wah_g.bits_in_bucket bits of the bitmap,
- * except the last one that can be partially filled.
+ * Each bucket contains \ref WAH_BITS_IN_BUCKET bits of the bitmap, except the
+ * last one that can be partially filled.
  * This is done like that in order to avoid having too big vectors in memory.
  *
  * \section usage Use cases
@@ -282,8 +282,11 @@ void wah_debug_print(const wah_t *wah, bool print_content);
 /* {{{ Exposed for testing. */
 
 void wah_and_(wah_t *map, const wah_t *other, bool map_not, bool other_not);
+
+#ifndef NDEBUG
 void wah_set_bits_in_bucket(uint64_t nb_bits);
 void wah_reset_bits_in_bucket(void);
+#endif /* NDEBUG */
 
 /* }}} */
 
