@@ -151,6 +151,7 @@ ZBENCH_GROUP_EXPORT(iop_pack) {
         ZBENCH(bpack) {
             ZBENCH_LOOP() {
                 ZBENCH_MEASURE() {
+                    /* ast-grep-ignore */
                     out = t_iop_bpack_struct(st_sa, &sa);
                 } ZBENCH_MEASURE_END
 

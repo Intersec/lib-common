@@ -1472,6 +1472,7 @@ static uint8_t *aper_buf_growlen(qv_t(u8) *buf, int extra)
         /* XXX qv_growlen() allocates more than needed and we want to allocate
          * exactly what we need when using the t_pool. We only accept
          * allocation more than needed when using a temporary buffer. */
+        /* ast-grep-ignore */
         t_qv_init(buf, extra);
     }
 

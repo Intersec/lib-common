@@ -784,6 +784,8 @@ iopc_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
         sb_addf(buf, "        export type %s%s = void;\n", rpc->name, type);
     } else {
         if (fun_st->is_anonymous) {
+            t_scope;
+
             iopc_dump_struct(buf, "        ", pkg, fun_st->anonymous_struct,
                              t_fmt("%s%s", rpc->name, type));
         } else {

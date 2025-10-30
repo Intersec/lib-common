@@ -975,8 +975,8 @@ static int unpack_arr(iop_json_lex_t *, const iop_field_t *, void *);
 static int unpack_union(iop_json_lex_t *, const iop_struct_t *, void *, bool);
 static int unpack_struct(iop_json_lex_t *, const iop_struct_t *, void *,
                          bool);
-static int unpack_val_file_inclusion(iop_json_lex_t *, const iop_field_t *,
-                                     void *);
+static int t_unpack_val_file_inclusion(iop_json_lex_t *, const iop_field_t *,
+                                       void *);
 
 static int skip_val(iop_json_lex_t *ll, bool in_arr)
 {
@@ -999,7 +999,11 @@ static int skip_val(iop_json_lex_t *ll, bool in_arr)
 
       case '@':
         if (ps_startswithlstr(PS, LSTR("include("))) {
-            return unpack_val_file_inclusion(ll, NULL, NULL);
+            /* XXX: t_unpack_val_file_inclusion fails (and thus does not
+             * perform any t_allocation if filenames_g is not set, ie. outside
+             * of t_iop_junpack_file() and t_iop_junpack_ptr_file() */
+            /* ast-grep-ignore */
+            return t_unpack_val_file_inclusion(ll, NULL, NULL);
         } else {
             return unpack_struct(ll, NULL, NULL, true);
         }
@@ -1015,8 +1019,8 @@ static int skip_val(iop_json_lex_t *ll, bool in_arr)
     }
 }
 
-static int unpack_val_file_inclusion(iop_json_lex_t *ll,
-                                     const iop_field_t *fdesc, void *value)
+static int t_unpack_val_file_inclusion(iop_json_lex_t *ll,
+                                       const iop_field_t *fdesc, void *value)
 {
     char prefix[PATH_MAX];
     char path[PATH_MAX];
@@ -1356,7 +1360,11 @@ do_double:
       case '@':
         if (ps_startswithlstr(PS, LSTR("include("))) {
             /* File inclusion */
-            return unpack_val_file_inclusion(ll, fdesc, value);
+            /* XXX: t_unpack_val_file_inclusion fails (and thus does not
+             * perform any t_allocation if filenames_g is not set, ie. outside
+             * of t_iop_junpack_file() and t_iop_junpack_ptr_file() */
+            /* ast-grep-ignore */
+            return t_unpack_val_file_inclusion(ll, fdesc, value);
         } else {
             /* Prefix extended syntax */
             if (fdesc->type != IOP_T_STRUCT) {

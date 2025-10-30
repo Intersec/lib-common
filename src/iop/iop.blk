@@ -5747,6 +5747,7 @@ void iop_prune(const iop_struct_t *st, void *obj, lstr_t gen_attr)
                 int res;
 
                 t_seal();
+                /* ast-grep-ignore */
                 res = iop_skip_absent_field_desc(t_pool(), st_ptr, st_desc,
                                                  fdesc);
                 t_unseal();

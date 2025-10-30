@@ -346,8 +346,8 @@ get_struct_help(const iop_struct_t * nonnull st,
     }
 }
 
-static void add_struct_help(const iop_struct_t * nonnull st,
-                            schema_object_t * nonnull schema)
+static void t_add_struct_help(const iop_struct_t * nonnull st,
+                              schema_object_t * nonnull schema)
 {
     const iop_help_t *help;
     bool is_v2 = false;
@@ -586,9 +586,9 @@ static scalar_value_t *t_attr_get_value(const iop_field_attr_t *attr,
 }
 
 static bool
-apply_raw_field_constraints(const iop_field_attrs_t *attrs,
-                            const iop_field_t *field,
-                            schema_object_t *schema)
+t_apply_raw_field_constraints(const iop_field_attrs_t *attrs,
+                              const iop_field_t *field,
+                              schema_object_t *schema)
 {
     bool did_update = false;
 
@@ -803,7 +803,7 @@ t_iop_field_to_schema_object(const iop_env_t *iop_env, const iop_struct_t *st,
     }
 
     if (attrs) {
-        has_update |= apply_raw_field_constraints(attrs, desc, schema);
+        has_update |= t_apply_raw_field_constraints(attrs, desc, schema);
         /* FIXME: must transform the schema into an allOf if it is a REF
          * and has_update is true */
     }
@@ -913,7 +913,7 @@ t_iop_union_to_schema_object(const iop_env_t *iop_env, const iop_struct_t *st,
 
     obj = add_schema_object(st->fullname, TYPE_NONE, schemas);
     obj->one_of = one_of;
-    add_struct_help(st, obj);
+    t_add_struct_help(st, obj);
 }
 
 static void
@@ -938,7 +938,7 @@ t_iop_struct_to_schema_object(const iop_env_t *iop_env,
 
     obj = t_new(schema_object_t, 1);
     obj->type = TYPE_OBJECT;
-    add_struct_help(st, obj);
+    t_add_struct_help(st, obj);
     t_qv_init(&obj->required, st->fields_len);
     t_qv_init(&obj->properties, st->fields_len + 1);
 

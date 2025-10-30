@@ -916,8 +916,8 @@ static void t_yaml_env_handle_comment_ps(yaml_parse_t * nonnull env,
 }
 
 static void
-yaml_env_set_prefix_comments(yaml_parse_t * nonnull env,
-                             qv_t(lstr) * nonnull prefix_comments)
+t_yaml_env_set_prefix_comments(yaml_parse_t * nonnull env,
+                               qv_t(lstr) * nonnull prefix_comments)
 {
     yaml__presentation_node__t *pnode;
 
@@ -1004,7 +1004,7 @@ static void log_new_data(const yaml_data_t * nonnull data)
     }
 }
 
-static int yaml_env_ltrim(yaml_parse_t *env)
+static int t_yaml_env_ltrim(yaml_parse_t *env)
 {
     pstream_t comment_ps = ps_init(NULL, 0);
     bool in_comment = false;
@@ -1054,7 +1054,7 @@ static int yaml_env_ltrim(yaml_parse_t *env)
                                      &prefix_comments);
     }
 
-    yaml_env_set_prefix_comments(env, &prefix_comments);
+    t_yaml_env_set_prefix_comments(env, &prefix_comments);
 
     return 0;
 }
@@ -1590,7 +1590,7 @@ static int t_yaml_env_do_include(yaml_parse_t * nonnull env, bool raw,
     char dirpath[PATH_MAX];
     SB_1k(err);
 
-    RETHROW(yaml_env_ltrim(env));
+    RETHROW(t_yaml_env_ltrim(env));
 
     path_dirname(dirpath, PATH_MAX, env->fullpath.s ?: "");
 
@@ -1744,7 +1744,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
         yaml_data_t *elem;
         uint32_t last_indent;
 
-        RETHROW(yaml_env_ltrim(env));
+        RETHROW(t_yaml_env_ltrim(env));
         if (env->pres) {
             yaml_env_pop_next_node(env, &node);
         }
@@ -1756,7 +1756,7 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
         RETHROW(t_yaml_env_parse_data(env, min_indent + 1, elem));
 
         pos_end = yaml_env_get_pos(env);
-        RETHROW(yaml_env_ltrim(env));
+        RETHROW(t_yaml_env_ltrim(env));
 
         qv_append(&pres, node);
 
@@ -1792,14 +1792,14 @@ static int t_yaml_env_parse_seq(yaml_parse_t *env, const uint32_t min_indent,
 /* {{{ Obj */
 
 static int
-yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
-                   yaml_span_t * nonnull key_span,
-                   yaml__presentation_node__t * nonnull * nullable node)
+t_yaml_env_parse_key(yaml_parse_t * nonnull env, lstr_t * nonnull key,
+                     yaml_span_t * nonnull key_span,
+                     yaml__presentation_node__t * nonnull * nullable node)
 {
     pstream_t ps_key;
     yaml_pos_t key_pos_start = yaml_env_get_pos(env);
 
-    RETHROW(yaml_env_ltrim(env));
+    RETHROW(t_yaml_env_ltrim(env));
     if (env->pres && node) {
         yaml_env_pop_next_node(env, node);
     }
@@ -2005,7 +2005,7 @@ t_yaml_env_parse_obj(yaml_parse_t * nonnull env, const uint32_t min_indent,
         yaml_span_t key_span;
         yaml__presentation_node__t *node;
 
-        RETHROW(yaml_env_parse_key(env, &key, &key_span, &node));
+        RETHROW(t_yaml_env_parse_key(env, &key, &key_span, &node));
 
         kd = qv_growlen0(&fields, 1);
         kd->key = key;
@@ -2030,7 +2030,7 @@ t_yaml_env_parse_obj(yaml_parse_t * nonnull env, const uint32_t min_indent,
          * that a subdata always has a strictly greater indentation level than
          * its containing data.
          */
-        RETHROW(yaml_env_ltrim(env));
+        RETHROW(t_yaml_env_ltrim(env));
 
         if (ps_startswith_yaml_seq_prefix(&env->ps)) {
             RETHROW(t_yaml_env_parse_data(env, min_indent, &kd->data));
@@ -2040,7 +2040,7 @@ t_yaml_env_parse_obj(yaml_parse_t * nonnull env, const uint32_t min_indent,
 
         pos_end = yaml_env_get_pos(env);
         kd->key_presentation = node;
-        RETHROW(yaml_env_ltrim(env));
+        RETHROW(t_yaml_env_ltrim(env));
 
         if (ps_done(&env->ps)) {
             break;
@@ -2374,7 +2374,7 @@ t_yaml_env_parse_flow_seq(yaml_parse_t *env, yaml_data_t *out)
     for (;;) {
         yaml_key_data_t kd;
 
-        RETHROW(yaml_env_ltrim(env));
+        RETHROW(t_yaml_env_ltrim(env));
         if (ps_peekc(env->ps) == ']') {
             yaml_env_skipc(env);
             goto end;
@@ -2391,7 +2391,7 @@ t_yaml_env_parse_flow_seq(yaml_parse_t *env, yaml_data_t *out)
             qv_append(&datas, kd.data);
         }
 
-        RETHROW(yaml_env_ltrim(env));
+        RETHROW(t_yaml_env_ltrim(env));
         switch (ps_peekc(env->ps)) {
           case ']':
             yaml_env_skipc(env);
@@ -2439,7 +2439,7 @@ t_yaml_env_parse_flow_obj(yaml_parse_t *env, yaml_data_t *out)
     for (;;) {
         yaml_key_data_t kd;
 
-        RETHROW(yaml_env_ltrim(env));
+        RETHROW(t_yaml_env_ltrim(env));
         if (ps_peekc(env->ps) == '}') {
             yaml_env_skipc(env);
             goto end;
@@ -2459,7 +2459,7 @@ t_yaml_env_parse_flow_obj(yaml_parse_t *env, yaml_data_t *out)
         }
         qv_append(&fields, kd);
 
-        RETHROW(yaml_env_ltrim(env));
+        RETHROW(t_yaml_env_ltrim(env));
         switch (ps_peekc(env->ps)) {
           case '}':
             yaml_env_skipc(env);
@@ -2489,9 +2489,9 @@ static int t_yaml_env_parse_flow_key_val(yaml_parse_t *env,
 {
     yaml_key_data_t kd;
 
-    RETHROW(yaml_env_parse_key(env, &out->key, &out->key_span, NULL));
+    RETHROW(t_yaml_env_parse_key(env, &out->key, &out->key_span, NULL));
 
-    RETHROW(yaml_env_ltrim(env));
+    RETHROW(t_yaml_env_ltrim(env));
     RETHROW(t_yaml_env_parse_flow_key_data(env, &kd));
     if (kd.key.s) {
         yaml_span_t span;
@@ -2523,7 +2523,7 @@ static int t_yaml_env_parse_flow_key_data(yaml_parse_t *env,
 {
     p_clear(out, 1);
 
-    RETHROW(yaml_env_ltrim(env));
+    RETHROW(t_yaml_env_ltrim(env));
     if (ps_done(&env->ps)) {
         return yaml_env_set_err(env, YAML_ERR_MISSING_DATA,
                                 "unexpected end of line");
@@ -2580,9 +2580,9 @@ static int t_yaml_env_parse_flow_key_data(yaml_parse_t *env,
 /* {{{ Merging */
 
 static void
-yaml_pres_override_add_node(const lstr_t path,
-                            const yaml_data_t * nullable data,
-                            qv_t(override_nodes) * nonnull nodes)
+t_yaml_pres_override_add_node(const lstr_t path,
+                              const yaml_data_t * nullable data,
+                              qv_t(override_nodes) * nonnull nodes)
 
 {
     yaml__presentation_override_node__t *node;
@@ -2638,7 +2638,7 @@ t_yaml_env_merge_key_data(yaml_parse_t * nonnull env,
     if (pres) {
         lstr_t path = t_lstr_fmt("%pL.%pL", &pres->path, &override->key);
 
-        yaml_pres_override_add_node(path, NULL, &pres->nodes);
+        t_yaml_pres_override_add_node(path, NULL, &pres->nodes);
     }
 
     return 0;
@@ -2661,11 +2661,11 @@ static int t_yaml_env_merge_obj(yaml_parse_t * nonnull env,
     return 0;
 }
 
-static int yaml_env_merge_seq(yaml_parse_t * nonnull env,
-                              const yaml_seq_t * nonnull override,
-                              const yaml_span_t * nonnull span,
-                              yaml_presentation_override_t * nullable pres,
-                              yaml_seq_t * nonnull seq)
+static int t_yaml_env_merge_seq(yaml_parse_t * nonnull env,
+                                const yaml_seq_t * nonnull override,
+                                const yaml_span_t * nonnull span,
+                                yaml_presentation_override_t * nullable pres,
+                                yaml_seq_t * nonnull seq)
 {
     logger_trace(&_G.logger, 2,
                  "merging seq from "YAML_POS_FMT" up to "YAML_POS_FMT
@@ -2677,7 +2677,7 @@ static int yaml_env_merge_seq(yaml_parse_t * nonnull env,
         for (int i = 0; i < override->datas.len; i++) {
             lstr_t path = t_lstr_fmt("%pL[%d]", &pres->path, len + i);
 
-            yaml_pres_override_add_node(path, NULL, &pres->nodes);
+            t_yaml_pres_override_add_node(path, NULL, &pres->nodes);
         }
     }
 
@@ -2696,7 +2696,7 @@ t_yaml_merge_data(const yaml_data_t * nonnull override,
     if (pres) {
         lstr_t path = t_lstr_dup(LSTR_SB_V(&pres->path));
 
-        yaml_pres_override_add_node(path, out, &pres->nodes);
+        t_yaml_pres_override_add_node(path, out, &pres->nodes);
     }
 
     logger_trace(&_G.logger, 2,
@@ -2748,8 +2748,8 @@ t_yaml_env_merge_data(yaml_parse_t * nonnull env,
         }
       } break;
       case YAML_DATA_SEQ:
-        RETHROW(yaml_env_merge_seq(env, override->seq, &override->span,
-                                   pres, data->seq));
+        RETHROW(t_yaml_env_merge_seq(env, override->seq, &override->span,
+                                     pres, data->seq));
         break;
       case YAML_DATA_OBJ:
         RETHROW(t_yaml_env_merge_obj(env, override->obj, pres, data->obj));
@@ -2770,11 +2770,11 @@ t_yaml_env_merge_data(yaml_parse_t * nonnull env,
  * \param[out]     pres  Presentation details.
  */
 static int
-yaml_env_set_variables(yaml_parse_t * nonnull env,
-                       const yaml_data_t * nonnull var_bindings,
-                       qh_t(lstr) * nonnull vars_set,
-                       yaml_data_t * nonnull ast,
-                       yaml__presentation_include__t * nullable pres)
+t_yaml_env_set_variables(yaml_parse_t * nonnull env,
+                         const yaml_data_t * nonnull var_bindings,
+                         qh_t(lstr) * nonnull vars_set,
+                         yaml_data_t * nonnull ast,
+                         yaml__presentation_include__t * nullable pres)
 {
     if (var_bindings->type != YAML_DATA_OBJ) {
         return yaml_env_set_err_at(env, &var_bindings->span,
@@ -2856,8 +2856,8 @@ t_yaml_env_handle_override(yaml_parse_t * nonnull env,
     {
         yaml_obj_t *obj = override->obj;
 
-        RETHROW(yaml_env_set_variables(env, &obj->fields.tab[0].data, vars,
-                                       out, pres));
+        RETHROW(t_yaml_env_set_variables(env, &obj->fields.tab[0].data, vars,
+                                         out, pres));
         obj->fields.tab++;
         obj->fields.len--;
         if (obj->fields.len == 0) {
@@ -2884,7 +2884,7 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
 {
     uint32_t cur_indent;
 
-    RETHROW(yaml_env_ltrim(env));
+    RETHROW(t_yaml_env_ltrim(env));
     cur_indent = yaml_env_get_column_nb(env);
     if (cur_indent < min_indent || ps_done(&env->ps)) {
         yaml_pos_t pos = yaml_env_get_pos(env);
@@ -2968,9 +2968,9 @@ static int t_yaml_env_parse_data(yaml_parse_t *env, const uint32_t min_indent,
 qvector_t(pres_mapping, yaml__presentation_node_mapping__t);
 
 static void
-add_mapping(const sb_t * nonnull sb_path,
-            const yaml__presentation_node__t * nonnull node,
-            qv_t(pres_mapping) * nonnull out)
+t_add_mapping(const sb_t * nonnull sb_path,
+              const yaml__presentation_node__t * nonnull node,
+              qv_t(pres_mapping) * nonnull out)
 {
     yaml__presentation_node_mapping__t *mapping;
 
@@ -2989,7 +2989,7 @@ t_yaml_add_pres_mappings(const yaml_data_t * nonnull data, sb_t *path,
         int prev_len = path->len;
 
         sb_addc(path, '!');
-        add_mapping(path, data->presentation, mappings);
+        t_add_mapping(path, data->presentation, mappings);
         sb_clip(path, prev_len);
 
         if (data->presentation->included || data->presentation->merge_key) {
@@ -3011,7 +3011,7 @@ t_yaml_add_pres_mappings(const yaml_data_t * nonnull data, sb_t *path,
 
                 node = data->seq->pres_nodes.tab[pos];
                 if (node) {
-                    add_mapping(path, node, mappings);
+                    t_add_mapping(path, node, mappings);
                 }
             }
             t_yaml_add_pres_mappings(val, path, mappings);
@@ -3025,7 +3025,7 @@ t_yaml_add_pres_mappings(const yaml_data_t * nonnull data, sb_t *path,
         tab_for_each_ptr(kv, &data->obj->fields) {
             sb_addf(path, ".%pL", &kv->key);
             if (kv->key_presentation) {
-                add_mapping(path, kv->key_presentation, mappings);
+                t_add_mapping(path, kv->key_presentation, mappings);
             }
             t_yaml_add_pres_mappings(&kv->data, path, mappings);
             sb_clip(path, prev_len);
@@ -3180,7 +3180,7 @@ int t_yaml_parse(yaml_parse_t *env, yaml_data_t *out, sb_t *out_err)
         goto end;
     }
 
-    RETHROW(yaml_env_ltrim(env));
+    RETHROW(t_yaml_env_ltrim(env));
     if (!ps_done(&env->ps)) {
         yaml_env_set_err(env, YAML_ERR_EXTRA_DATA,
                          "expected end of document");
@@ -4336,9 +4336,9 @@ static void t_yaml_build_obj_with_merge_keys(
     t_merge_elems_to_data(&objs, has_only_merge_key, out);
 }
 
-static int yaml_pack_obj(yaml_pack_env_t * nonnull env,
-                         const yaml_obj_t * nonnull obj,
-                         const yaml__presentation_node__t * nullable pres)
+static int t_yaml_pack_obj(yaml_pack_env_t * nonnull env,
+                           const yaml_obj_t * nonnull obj,
+                           const yaml__presentation_node__t * nullable pres)
 {
     int res = 0;
 
@@ -4695,8 +4695,8 @@ enum subfile_status_t {
 /* check if data can be packed in the subfile given from its relative path
  * from the env outdir */
 static enum subfile_status_t
-check_subfile(yaml_pack_env_t * nonnull env, uint64_t checksum,
-              const char * nonnull relative_path)
+t_check_subfile(yaml_pack_env_t * nonnull env, uint64_t checksum,
+                const char * nonnull relative_path)
 {
     char fullpath[PATH_MAX];
     lstr_t path;
@@ -4745,7 +4745,7 @@ t_find_right_path(yaml_pack_env_t * nonnull env, sb_t * nonnull contents,
     /* check base.ext, base~1.ext, etc until either the file does not exist,
      * or the data to pack is identical to the data packed in the subfile. */
     for (;;) {
-        switch (check_subfile(env, checksum, path)) {
+        switch (t_check_subfile(env, checksum, path)) {
           case SUBFILE_TO_CREATE:
             *reuse = false;
             return path;
@@ -5543,7 +5543,7 @@ static int t_yaml_pack_data(yaml_pack_env_t * nonnull env,
             res += RETHROW(t_yaml_pack_seq(env, data->seq));
             break;
           case YAML_DATA_OBJ:
-            res += RETHROW(yaml_pack_obj(env, data->obj, node));
+            res += RETHROW(t_yaml_pack_obj(env, data->obj, node));
             break;
         }
     }
@@ -6008,6 +6008,7 @@ z_yaml_test_pack(const yaml_data_t * nonnull data,
                  yaml__document_presentation__t * nullable pres,
                  unsigned flags, const char * nonnull expected_pack)
 {
+    t_scope;
     yaml_pack_env_t *pack_env;
     SB_1k(pack);
     SB_1k(err);

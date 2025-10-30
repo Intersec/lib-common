@@ -205,6 +205,7 @@ static int z_load_plugin(PyObject **plugin_ptr)
 
 static int z_load_dso(PyObject *plugin, iop_dso_t **dso_ptr)
 {
+    t_scope;
     SB_1k(err);
     add_iop_dso_f add_iop_dso_cb;
     const char *dso_path;

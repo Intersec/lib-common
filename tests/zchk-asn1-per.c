@@ -115,6 +115,7 @@ ASN1_SEQUENCE_DESC_END(sequence1_partial);
 
 static int z_test_seq_ext(const sequence1_t *in, lstr_t exp_encoding)
 {
+    t_scope;
     SB_1k(buf);
     pstream_t ps;
     sequence1_t out;
@@ -399,6 +400,7 @@ static int z_ps_skip_and_check_eq(pstream_t *ps1, pstream_t *ps2, int len)
 static int z_test_aper_enum(const asn1_enum_info_t *e, int32_t val,
                             const char *exp_encoding)
 {
+    t_scope;
     BB_1k(bb);
     bit_stream_t bs;
     int32_t res;
