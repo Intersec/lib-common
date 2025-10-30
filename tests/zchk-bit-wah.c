@@ -21,10 +21,12 @@
 
 /* LCOV_EXCL_START */
 
+#define Z_WAH_BITS_IN_BUCKETS  10000 * WAH_BIT_IN_WORD
+
 Z_GROUP_EXPORT(wah) {
     /* Have a smaller value of bits_in_bucket for tests to stress the buckets
      * code. */
-    wah_set_bits_in_bucket(10000 * WAH_BIT_IN_WORD);
+    wah_set_bits_in_bucket(Z_WAH_BITS_IN_BUCKETS);
 
     Z_TEST(simple) { /* {{{ */
         wah_t map;
@@ -590,6 +592,8 @@ Z_GROUP_EXPORT(wah) {
         Z_ASSERT_P(wah_init_from_data(&map1, ps_initsb(&sb)));
         CHECK_WAH(6, (4 * 5 + 1) * WAH_BIT_IN_WORD);
         wah_wipe(&map1);
+
+        wah_set_bits_in_bucket(Z_WAH_BITS_IN_BUCKETS);
 
 #undef CHECK_WAH
     } Z_TEST_END;
