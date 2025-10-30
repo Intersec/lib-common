@@ -117,7 +117,7 @@ void wah_wipe(wah_t *map) __attr_leaf__;
 void wah_reset_map(wah_t *map);
 GENERIC_DELETE(wah_t, wah);
 
-wah_t *t_wah_new(int expected_first_bucket_size) __attr_leaf__;
+wah_t *t_wah_new(void) __attr_leaf__;
 wah_t *t_wah_dup(const wah_t *src) __attr_leaf__;
 void wah_copy(wah_t *map, const wah_t *src) __attr_leaf__;
 wah_t *wah_dup(const wah_t *src) __attr_leaf__;

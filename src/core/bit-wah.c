@@ -471,14 +471,13 @@ wah_t *wah_dup(const wah_t *src)
     return wah;
 }
 
-wah_t *t_wah_new(int expected_first_bucket_size)
+wah_t *t_wah_new(void)
 {
     wah_t *map = t_new(wah_t, 1);
 
     t_qv_init(&map->_buckets, 1);
-    wah_create_bucket(map, expected_first_bucket_size);
-
     wah_reset_map(map);
+
     return map;
 }
 
@@ -775,7 +774,7 @@ void wah_add1_at(wah_t *map, uint64_t pos)
 {
     if (!expect(pos >= map->len)) {
         t_scope;
-        wah_t *tmp = t_wah_new(4);
+        wah_t *tmp = t_wah_new();
 
         wah_add1_at(tmp, pos);
         wah_or(map, tmp);
