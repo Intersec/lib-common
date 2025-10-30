@@ -386,28 +386,80 @@ void wah_reset_map(wah_t *map)
  */
 void wah_copy(wah_t *map, const wah_t *src)
 {
+    int pos;
     qv_t(wah_word_vec) buckets = map->_buckets;
 
     p_copy(map, src, 1);
     map->_buckets = buckets;
 
-    /* Wipe buckets which are not needed anymore. */
-    for (int pos = map->_buckets.len; pos-- > src->_buckets.len; ) {
-        qv_wipe(&map->_buckets.tab[pos]);
-        qv_remove(&map->_buckets, pos);
-    }
+    if (src->_buckets.len < map->_buckets.len) {
+        /* Wipe buckets which are not needed anymore in dst. */
+        for (pos = map->_buckets.len; pos-- > src->_buckets.len; ) {
+            qv_wipe(&map->_buckets.tab[pos]);
+        }
+        qv_splice(&map->_buckets, src->_buckets.len,
+                  map->_buckets.len - src->_buckets.len, NULL, 0);
+    } else {
+        /* Create new buckets needed in dst. */
+        int extra = src->_buckets.len - map->_buckets.len;
+        qv_t(wah_word) *bucket = qv_growlen(&map->_buckets, extra);
 
-    /* Create new buckets. */
-    for (int i = map->_buckets.len; i < src->_buckets.len; i++) {
-        wah_create_bucket(map, 0);
-    }
+        for (pos = 0; pos < extra; pos++) {
+            mp_qv_init(map->_buckets.mp, &bucket[pos], 0);
+        }
 
-    /* Copy buckets. */
-    tab_enumerate_ptr(pos, src_bucket, &src->_buckets) {
+        /* The original last bucket of the destination map should be the only
+         * one to not be qv_optimize(), and thus should be reused as the last
+         * bucket.
+         */
+        if (map->_buckets.len > extra) {
+            SWAP(qv_t(wah_word), bucket[-1], bucket[extra - 1]);
+        }
+    }
+    assert(src->_buckets.len == map->_buckets.len);
+
+    /* Copy each bucket from src to dst but the last.
+     *
+     * Each bucket from the first one to the second last are “closed” buckets
+     * and thus must be copied identically without any memory overhead.
+     *
+     * The last bucket may or may not be extended after the copy, and so will
+     * be copied separately while preserving any extra memory already
+     * allocated for it.
+     */
+    for (pos = 0; pos < src->_buckets.len - 1; pos++) {
+        const qv_t(wah_word) *src_bucket = &src->_buckets.tab[pos];
         qv_t(wah_word) *dst_bucket = &map->_buckets.tab[pos];
+        int len = src_bucket->len;
 
-        qv_splice(dst_bucket, 0, dst_bucket->len,
-                  src_bucket->tab, src_bucket->len);
+        dst_bucket->len = len;
+        if (len <= dst_bucket->size) {
+            qv_optimize(dst_bucket, 0, 0);
+        } else {
+            /* We don't want the bucket to grow more than needed and thus we
+             * cannot use qv_grow and similar.
+             */
+            dst_bucket->tab = mp_irealloc_fallback(
+                &dst_bucket->mp, dst_bucket->tab, 0,
+                len * __qv_sz(dst_bucket), __qv_align(dst_bucket), MEM_RAW);
+            dst_bucket->size = len;
+        }
+        p_copy(dst_bucket->tab, src_bucket->tab, len);
+    }
+
+    if (src->_buckets.len) {
+        /* The last bucket is treated separately as explained above. */
+        const qv_t(wah_word) *src_bucket = &src->_buckets.tab[pos];
+        qv_t(wah_word) *dst_bucket = &map->_buckets.tab[pos];
+        int len = src_bucket->len;
+
+        assert(pos == src->_buckets.len - 1);
+        if (len > dst_bucket->size) {
+            qv_grow(dst_bucket, len - dst_bucket->len);
+        }
+        dst_bucket->len = len;
+        p_copy(dst_bucket->tab, src_bucket->tab, len);
+
     }
 }
 

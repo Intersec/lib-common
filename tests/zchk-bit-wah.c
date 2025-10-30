@@ -631,6 +631,50 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(copy) { /* {{{ */
+        wah_t wah_src, wah_dst;
+
+        wah_init(&wah_src);
+        wah_init(&wah_dst);
+
+        wah_add0s(&wah_src, 3 * Z_WAH_BITS_IN_BUCKETS);
+        Z_ASSERT_EQ(wah_src._buckets.len, 3);
+
+        /* Layout of WAH  of equal size should remain identical. */
+        wah_add1s(&wah_dst, 3 * Z_WAH_BITS_IN_BUCKETS);
+        Z_ASSERT_EQ(wah_dst._buckets.len, 3);
+
+        wah_copy(&wah_dst, &wah_src);
+        Z_ASSERT_EQ(wah_dst._buckets.len, 3);
+        Z_ASSERT_EQ(wah_dst._buckets.size, wah_src._buckets.size);
+
+        wah_wipe(&wah_dst);
+        wah_init(&wah_dst);
+
+        /* Shorter WAH should be extended to match the source WAH. */
+        wah_add1s(&wah_dst, 1 * Z_WAH_BITS_IN_BUCKETS);
+        Z_ASSERT_EQ(wah_dst._buckets.len, 1);
+
+        wah_copy(&wah_dst, &wah_src);
+        Z_ASSERT_EQ(wah_dst._buckets.len, 3);
+        Z_ASSERT_EQ(wah_dst._buckets.size, wah_src._buckets.size);
+
+        wah_wipe(&wah_dst);
+        wah_init(&wah_dst);
+
+        /* Larger WAH should be shrunk to match the source WAH. */
+        wah_add1s(&wah_dst, 5 * Z_WAH_BITS_IN_BUCKETS);
+        Z_ASSERT_EQ(wah_dst._buckets.len, 5);
+
+        wah_copy(&wah_dst, &wah_src);
+        Z_ASSERT_EQ(wah_dst._buckets.len, 3);
+        Z_ASSERT_EQ(wah_dst._buckets.size, wah_src._buckets.size);
+
+        wah_wipe(&wah_dst);
+        wah_wipe(&wah_src);
+    } Z_TEST_END;
+
+    /* }}} */
 
     wah_reset_bits_in_bucket();
 } Z_GROUP_END;
