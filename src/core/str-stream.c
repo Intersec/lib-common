@@ -218,6 +218,6 @@ void ps_split_escaped(mem_pool_t *nullable mp, pstream_t ps,
     if (!(flags & PS_SPLIT_SKIP_EMPTY)  /* last character is a separator */
     ||  (sb.len != 0))                  /* last character is an escape */
     {
-        qv_append(res, t_lstr_dup(LSTR_SB_V(&sb)));
+        qv_append(res, mp_lstr_dup(mp, LSTR_SB_V(&sb)));
     }
 }
