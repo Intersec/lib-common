@@ -88,7 +88,82 @@ typedef union wah_word_t {
 } wah_word_t;
 qvector_t(wah_word, wah_word_t);
 
-qvector_t(wah_word_vec, qv_t(wah_word));
+#define WAH_BUCKET_INLINED_WORDS 5
+
+typedef union wah_bucket_t {
+    /** By default a WAH bucket contains a vector of wah_word_t.
+     */
+    qv_t(wah_word) qv;
+
+    /** Inlined version of a bucket containing 2 wah_word_t.
+     *
+     * When a bucket is fulled of the same bit its vector will look like this:
+     *  qvector of wah_word_t (len: 2, size: 2) = {
+     *      {head = {words = 10000, bit = 0}},
+     *      {count = 0},
+     *  }
+     *
+     * These two words (and more) can be inlined directly in the wah_bucket_t
+     * instead of allocating a dedicated vector.
+     */
+    struct {
+        /** Inlined words.
+         */
+        wah_word_t words[WAH_BUCKET_INLINED_WORDS];
+
+        /** In range [0; countof(words)].
+         *
+         * Be careful, inlined.len alias qv.size and not qv.len. Indeed once
+         * converted to a qv, the bucket can be shrunk below the
+         * WAH_BUCKET_INLINED_WORDS threshold and only the qv size (which is
+         * preserved in the later case) allows to distinguish a qv bucket from
+         * an inlined bucket.
+         */
+        int len;
+    } inlined;
+} wah_bucket_t;
+
+
+static ALWAYS_INLINE bool
+wah_bucket_is_inlined(const wah_bucket_t *bucket)
+{
+    if (bucket->inlined.len <= WAH_BUCKET_INLINED_WORDS) {
+        return true;
+    }
+    assert(bucket->qv.size > WAH_BUCKET_INLINED_WORDS);
+
+    return false;
+}
+
+static ALWAYS_INLINE int wah_bucket_len(const wah_bucket_t *bucket)
+{
+    return wah_bucket_is_inlined(bucket) ? bucket->inlined.len :
+        bucket->qv.len;
+}
+
+
+typedef struct wah_words_t {
+    wah_word_t *tab;
+    int len;
+} wah_words_t;
+
+static inline wah_words_t
+wah_bucket_get_words(wah_bucket_t *bucket)
+{
+    if (wah_bucket_is_inlined(bucket)) {
+        return (wah_words_t){
+            .tab = bucket->inlined.words,
+            .len = bucket->inlined.len,
+        };
+    } else {
+        return (wah_words_t){
+            .tab = bucket->qv.tab,
+            .len = bucket->qv.len,
+        };
+    }
+}
+
+qvector_t(wah_bucket, wah_bucket_t);
 
 typedef struct wah_t {
     uint64_t  len;
@@ -100,9 +175,9 @@ typedef struct wah_t {
     /* WARNING: the following fields should not be accessed directly, unless
      * you really know what you are doing. In most cases, you'll want to use
      * wah_get_storage. */
-    qv_t(wah_word_vec) _buckets;
-    uint32_t           _pending;
-    wah_word_t         _padding[3]; /* Ensure sizeof(wah_t) == 64 */
+    qv_t(wah_bucket) _buckets;
+    uint32_t         _pending;
+    wah_word_t       _padding[3]; /* Ensure sizeof(wah_t) == 64 */
 } wah_t;
 
 #define WAH_BIT_IN_WORD  bitsizeof(wah_word_t)
@@ -144,7 +219,7 @@ wah_t *wah_new_from_data(pstream_t data);
  * \warning a wah must not have pending data if you want this to properly
  *          work; use \ref wah_pad32 to ensure that.
  */
-const qv_t(wah_word_vec) *wah_get_storage(const wah_t *wah);
+const qv_t(wah_bucket) *wah_get_storage(const wah_t *wah);
 size_t wah_get_storage_len(const wah_t *wah);
 
 /** Get the expected size of the WAH when serialized.

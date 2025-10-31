@@ -42,14 +42,14 @@ static int z_wah_word_enum_no_reg_test(wah_t *map, const uint32_t literal)
 
     /* Since the next run is empty, expect to move on the literal */
     Z_ASSERT_EQ((int)en.state, WAH_ENUM_LITERAL);
-    Z_ASSERT_EQ(en.pos, map->_buckets.tab[0].len);
+    Z_ASSERT_EQ(en.pos, wah_bucket_len(&map->_buckets.tab[0]));
     Z_ASSERT_EQ(en.current, literal);
     Z_ASSERT_EQ(en.remain_words, 1U);
     Z_ASSERT(!wah_word_enum_next(&en));
 
     /* Now move past the literal to reach the end of the WAH. */
     Z_ASSERT_EQ((int)en.state, WAH_ENUM_END);
-    Z_ASSERT_EQ(en.pos, map->_buckets.tab[0].len);
+    Z_ASSERT_EQ(en.pos, wah_bucket_len(&map->_buckets.tab[0]));
     Z_ASSERT_EQ(en.current, 0U);
 
     Z_HELPER_END;
@@ -136,6 +136,7 @@ Z_GROUP_EXPORT(wah) {
 
         uint64_t bc;
         pstream_t ps;
+        wah_words_t bucket_words;
 
         wah_init(&map);
         wah_add(&map, data, bitsizeof(data));
@@ -143,8 +144,8 @@ Z_GROUP_EXPORT(wah) {
 
         Z_ASSERT_EQ(map.len, bitsizeof(data));
 
-        ps = ps_init(map._buckets.tab[0].tab,
-                     map._buckets.tab[0].len * sizeof(wah_word_t));
+        bucket_words = wah_bucket_get_words(&map._buckets.tab[0]);
+        ps = ps_init(bucket_words.tab, bucket_words.len * sizeof(wah_word_t));
         Z_ASSERT_P(wah_init_from_data(&map2, ps));
         Z_ASSERT_EQ(map.len, map2.len);
 
@@ -609,7 +610,9 @@ Z_GROUP_EXPORT(wah) {
 
         /* Save the wah in a sb. */
         tab_for_each_ptr(bucket, &map1._buckets) {
-            sb_add(&sb, bucket->tab, bucket->len * sizeof(wah_word_t));
+            wah_words_t words = wah_bucket_get_words(bucket);
+
+            sb_add(&sb, words.tab, words.len * sizeof(wah_word_t));
         }
         wah_wipe(&map1);
 
@@ -618,7 +621,8 @@ Z_GROUP_EXPORT(wah) {
         Z_ASSERT_P(wah_init_from_data(&map1, ps_initsb(&sb)));
         CHECK_WAH(5, (4 * 5 + 1) * WAH_BIT_IN_WORD);
         tab_for_each_ptr(bucket, &map1._buckets) {
-            Z_ASSERT(bucket->mp == ipool(MEM_STATIC));
+            Z_ASSERT(wah_bucket_is_inlined(bucket) ||
+                     bucket->qv.mp == ipool(MEM_STATIC));
         }
         wah_wipe(&map1);
 
@@ -799,7 +803,7 @@ Z_GROUP_EXPORT(wah) {
         /* First we test with the optimal version of the WAH. */
         wah_add0s(&map, 3 * WAH_BIT_IN_WORD);
         wah_add(&map, &literal, bitsizeof(literal));
-        Z_ASSERT_EQ(map._buckets.tab[0].len, 3);
+        Z_ASSERT_EQ(wah_bucket_len(&map._buckets.tab[0]), 3);
         Z_HELPER_RUN(z_wah_word_enum_no_reg_test(&map, literal));
 
         /* Then we load the sub-optimal version of the same WAH. */
@@ -807,7 +811,7 @@ Z_GROUP_EXPORT(wah) {
         Z_ASSERT_P(wah_init_from_data(&map, ps));
 
         Z_ASSERT_EQ(map._buckets.len, 1);
-        Z_ASSERT_EQ(map._buckets.tab[0].len, 5);
+        Z_ASSERT_EQ(wah_bucket_len(&map._buckets.tab[0]), 5);
         Z_HELPER_RUN(z_wah_word_enum_no_reg_test(&map, literal));
 
         wah_wipe(&map);
