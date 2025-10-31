@@ -24,8 +24,6 @@ use std::ptr;
 use std::ptr::from_ref;
 use std::sync::Mutex;
 
-use ctor::ctor;
-
 use crate::bindings::{
     log_get_module, lstr_obfuscate, module_implement, module_register, module_t, pstream_t,
     qlzo1x_decompress_safe,
@@ -304,26 +302,17 @@ extern "C" fn farch_shutdown() -> c_int {
 pub extern "C" fn farch_get_module() -> *mut module_t {
     unsafe {
         if FARCH_MODULE.is_null() {
-            FARCH_MODULE = module_register(lstr::raw("farchc"));
+            FARCH_MODULE = module_register(lstr::raw("farch"));
+
+            module_implement(
+                FARCH_MODULE,
+                Some(farch_initialize),
+                Some(farch_shutdown),
+                log_get_module(), // Taken from MODULE_BEGIN()
+            );
         }
         FARCH_MODULE
     }
-}
-
-#[ctor]
-fn farch_module_register() {
-    unsafe {
-        if !FARCH_MODULE.is_null() {
-            return;
-        }
-
-        module_implement(
-            farch_get_module(),
-            Some(farch_initialize),
-            Some(farch_shutdown),
-            log_get_module(), // Taken from MODULE_BEGIN()
-        );
-    };
 }
 
 // }}}

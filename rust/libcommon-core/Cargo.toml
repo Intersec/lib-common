@@ -30,6 +30,3 @@ crate-type = ["lib", "staticlib"]
 
 [build-dependencies]
 waf-cargo-build = { path = "../waf-cargo-build" }
-
-[dependencies]
-ctor.workspace = true
