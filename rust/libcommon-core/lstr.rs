@@ -140,6 +140,18 @@ pub const fn from_ptr_and_len(ptr: *const c_char, len: usize) -> lstr_t {
     }
 }
 
+/// Create a `BorrowedLstr` from a C raw pointer and length.
+pub const fn from_borrowed_ptr_and_len<'a>(ptr: *const c_char, len: usize) -> BorrowedLstr<'a> {
+    BorrowedLstr {
+        lstr: lstr_t {
+            __bindgen_anon_1: lstr_t__bindgen_ty_1 { s: ptr },
+            len: len.cast_signed() as i32,
+            mem_pool: 0,
+        },
+        _phantom: PhantomData,
+    }
+}
+
 /// Create a raw `lstr_t` from a static value (`str` or `slice`).
 pub fn raw<T>(v: T) -> lstr_t
 where

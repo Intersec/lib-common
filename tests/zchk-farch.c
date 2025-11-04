@@ -52,15 +52,19 @@ Z_GROUP_EXPORT(farch)
             /* test get_data */
             fcontents = t_farch_get_data(farch_test, filename);
             Z_ASSERT_LSTREQUAL(fcontents, contents);
+            Z_ASSERT_STREQUAL(fcontents.s, contents.s);
             fcontents = t_farch_get_data(entry, NULL);
             Z_ASSERT_LSTREQUAL(fcontents, contents);
+            Z_ASSERT_STREQUAL(fcontents.s, contents.s);
 
             /* test get_data_persist */
             fcontents = farch_get_data_persist(farch_test, filename);
             Z_ASSERT_LSTREQUAL(fcontents, contents);
+            Z_ASSERT_STREQUAL(fcontents.s, contents.s);
             fcontents_persist = farch_get_data_persist(entry, NULL);
             Z_ASSERT_LSTREQUAL(fcontents_persist, contents);
             Z_ASSERT(fcontents_persist.s == fcontents.s);
+            Z_ASSERT_STREQUAL(fcontents.s, contents.s);
 
             lstr_wipe(&contents);
         }

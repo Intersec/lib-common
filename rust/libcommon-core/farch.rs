@@ -19,6 +19,7 @@
 //! Unarchive embedded content in C files.
 
 use std::collections::HashMap;
+use std::mem::MaybeUninit;
 use std::os::raw::{c_char, c_int, c_void};
 use std::ptr;
 use std::ptr::from_ref;
@@ -28,7 +29,8 @@ use crate::bindings::{
     log_get_module, lstr_obfuscate, module_implement, module_register, module_t, pstream_t,
     qlzo1x_decompress_safe,
 };
-use crate::lstr::{self, AsRaw, lstr_t};
+use crate::helpers::slice_assume_init_mut;
+use crate::lstr::{self, AsRaw, BorrowedLstr, lstr_t};
 use crate::mem_stack::TScope;
 
 #[allow(clippy::module_name_repetitions)]
@@ -37,7 +39,7 @@ pub use crate::bindings::farch_entry_t;
 // {{{ Globals
 
 static mut FARCH_MODULE: *mut module_t = ptr::null_mut();
-static FARCH_PERSISTED: Mutex<Option<HashMap<usize, Vec<u8>>>> = Mutex::new(None);
+static FARCH_PERSISTED: Mutex<Option<HashMap<usize, Box<[u8]>>>> = Mutex::new(None);
 
 // }}}
 // {{{ Helpers
@@ -49,27 +51,36 @@ fn lstr_unobfuscate(in_: &impl AsRaw, key: u64, out: &impl AsRaw) {
 // }}}
 // {{{ Private functions
 
-/// Unobfuscate and get the filename of an entry as a buffer and `lstr_t`.
-fn farch_get_filename_buf(entry: &farch_entry_t) -> Vec<u8> {
-    let name_buf = vec![0u8; entry.name.len()];
-    let name_lstr = lstr::from_bytes(&name_buf);
+/// Unobfuscate and get the filename of an entry in a buffer.
+fn t_farch_get_filename<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> BorrowedLstr<'t> {
+    let name_buf_uninit: &'t mut [MaybeUninit<u8>] = t_scope.t_new_slice_uninit(entry.name.len());
+    let name_buf_ptr = name_buf_uninit.as_ptr();
+    let name_lstr =
+        lstr::from_borrowed_ptr_and_len::<'t>(name_buf_ptr.cast::<c_char>(), entry.name.len());
 
     lstr_unobfuscate(&entry.name, entry.nb_chunks as u64, &name_lstr);
 
-    name_buf
+    name_lstr
 }
 
 /// Aggregate and unobfuscate all the chuncks of an entry.
-fn farch_aggregate(entry: &farch_entry_t) -> Option<Vec<u8>> {
+fn t_farch_aggregate<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> Option<&'t [u8]> {
     let entry_compressed_size = entry.compressed_size as usize;
-    let contents = vec![0u8; entry_compressed_size];
+    // +1 for the null character at the end of the buffer.
+    let entry_compressed_size_1 = entry_compressed_size + 1;
+    let contents_uninit_1: &'t mut [MaybeUninit<u8>] =
+        t_scope.t_new_slice_uninit(entry_compressed_size_1);
+    let contents_ptr_uninit_1: *mut MaybeUninit<u8> = contents_uninit_1.as_mut_ptr();
+    let contents_ptr_1: *mut u8 = contents_ptr_uninit_1.cast();
+
     let mut compressed_size: usize = 0;
 
     for i in 0..(entry.nb_chunks as usize) {
         let chunk = unsafe { *entry.chunks.add(i) };
         let chunk_len = chunk.len();
-        let content_chunk = &contents[compressed_size..(compressed_size + chunk_len)];
-        let content_chunk_lstr = lstr::from_bytes(content_chunk);
+        let content_chunk_ptr: *mut u8 = unsafe { contents_ptr_1.add(compressed_size) };
+        let content_chunk_lstr =
+            lstr::from_ptr_and_len(content_chunk_ptr.cast::<c_char>(), chunk_len);
 
         compressed_size += chunk_len;
         if compressed_size > entry_compressed_size {
@@ -85,36 +96,68 @@ fn farch_aggregate(entry: &farch_entry_t) -> Option<Vec<u8>> {
         return None;
     }
 
+    // Set the null character at the end of the buffer.
+    unsafe {
+        contents_ptr_1.add(entry_compressed_size).write(b'\0');
+    }
+
+    let contents_1 = unsafe { slice_assume_init_mut(contents_uninit_1) };
+
+    let contents = &mut contents_1[..entry_compressed_size];
+
     Some(contents)
 }
 
 /// Unarchive with potential decompress the entry as an optional vec buffer.
-fn farch_unarchive_opt(entry: &farch_entry_t) -> Option<Vec<u8>> {
-    let contents = farch_aggregate(entry)?;
+fn t_farch_unarchive_opt<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> Option<&'t [u8]> {
+    let contents = t_farch_aggregate(t_scope, entry)?;
 
     if entry.compressed_size == entry.size {
         // Uncompressed entry.
         return Some(contents);
     }
 
-    let contents_ps = pstream_t::from_bytes(&contents);
+    let contents_ps = pstream_t::from_bytes(contents);
+
     let entry_size = entry.size as usize;
-    let mut res = vec![0u8; entry_size];
-    let res_ptr = res.as_ptr() as *mut c_void;
+    let entry_size_1 = entry_size + 1; // `+ 1` to add the null character at the end.
+    //
+    let res_uninit_1: &'t mut [MaybeUninit<u8>] = t_scope.t_new_slice_uninit(entry_size_1);
+    let res_ptr_uninit_1: *mut MaybeUninit<u8> = res_uninit_1.as_mut_ptr();
+    let res_ptr_1: *mut u8 = res_ptr_uninit_1.cast();
+    let res_ptr_void: *mut c_void = res_ptr_1.cast();
 
     // Uncompress the contents in the res buffer.
-    let res_len = unsafe { qlzo1x_decompress_safe(res_ptr, entry_size, contents_ps) };
+    let res_len = unsafe { qlzo1x_decompress_safe(res_ptr_void, entry_size, contents_ps) };
 
-    if res_len != (entry.size as isize) {
+    if res_len != (entry_size as isize) {
         return None;
     }
 
+    // Set the null character at the end of the buffer.
     unsafe {
-        // Force the length of the vec buffer as the res length.
-        res.set_len(res_len as usize);
-    };
+        res_ptr_1.add(entry_size).write(b'\0');
+    }
+
+    let res_1 = unsafe { slice_assume_init_mut(res_uninit_1) };
+
+    let res = &res_1[..entry_size];
 
     Some(res)
+}
+
+/// Unarchive with potential decompress the entry as slice buffer and panic if unable to decompress.
+///
+/// # Panic
+///
+/// If not being able to decompress the archive.
+fn t_farch_unarchive_buf<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> &'t [u8] {
+    let res_opt = t_farch_unarchive_opt(t_scope, entry);
+
+    res_opt.unwrap_or_else(|| {
+        let name_lstr = t_farch_get_filename(t_scope, entry);
+        panic!("cannot uncompress farch entry `{name_lstr}`");
+    })
 }
 
 /// Unarchive with potential decompress the entry as `lstr_t` and panic if unable to decompress.
@@ -122,14 +165,8 @@ fn farch_unarchive_opt(entry: &farch_entry_t) -> Option<Vec<u8>> {
 /// # Panic
 ///
 /// If not being able to decompress the archive.
-fn farch_unarchive_buf(entry: &farch_entry_t) -> Vec<u8> {
-    let res_opt = farch_unarchive_opt(entry);
-
-    res_opt.unwrap_or_else(|| {
-        let name_buf = farch_get_filename_buf(entry);
-        let name_lstr = lstr::from_bytes(&name_buf);
-        panic!("cannot uncompress farch entry `{name_lstr}`");
-    })
+fn t_farch_unarchive_lstr<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> BorrowedLstr<'t> {
+    lstr::from_bytes(t_farch_unarchive_buf(t_scope, entry))
 }
 
 /// Get the entry corresponding to the filename
@@ -150,8 +187,8 @@ unsafe fn farch_get_entry(
             break;
         }
 
-        let entry_name_buf = farch_get_filename_buf(current_entry);
-        let entry_name_lstr = lstr::from_bytes(&entry_name_buf);
+        let t_scope = TScope::new_scope();
+        let entry_name_lstr = t_farch_get_filename(&t_scope, current_entry);
         if name_lstr.equals(&entry_name_lstr) {
             return Some(current_entry);
         }
@@ -171,9 +208,31 @@ fn farch_unarchive_persist_ref(entry: &farch_entry_t) -> lstr_t {
     let mut map_opt = FARCH_PERSISTED.lock().expect("unable to lock mutex");
     let map_ref = map_opt.as_mut().expect("farch module not initialized");
 
-    let persisted_buf = map_ref
-        .entry(entry_addr)
-        .or_insert_with(|| farch_unarchive_buf(entry));
+    let persisted_buf_1 = map_ref.entry(entry_addr).or_insert_with(|| {
+        let t_scope = TScope::new_scope();
+        let t_buf = t_farch_unarchive_buf(&t_scope, entry);
+
+        // `+ 1` to add the null character at the end.
+        let mut buf_uninit = Box::<[u8]>::new_uninit_slice(t_buf.len() + 1);
+
+        let (buf_uninit_entry, buf_uninit_null_char) = buf_uninit.split_at_mut(t_buf.len());
+        let buf_uninit_entry_ptr: *mut MaybeUninit<u8> = buf_uninit_entry.as_mut_ptr();
+        let buf_entry_ptr: *mut u8 = buf_uninit_entry_ptr.cast();
+
+        // Copy t_buf to the buffer.
+        unsafe {
+            buf_entry_ptr.copy_from_nonoverlapping(t_buf.as_ptr(), t_buf.len());
+        }
+
+        // Add the null character at the end.
+        buf_uninit_null_char[0].write(b'\0');
+
+        // Return the buffer.
+        unsafe { buf_uninit.assume_init() }
+    });
+
+    // The buffer holds the null character in its buffer
+    let persisted_buf = &persisted_buf_1[..persisted_buf_1.len() - 1];
 
     unsafe { lstr::from_bytes(persisted_buf).as_raw() }
 }
@@ -221,10 +280,9 @@ pub unsafe extern "C" fn farch_get_filename(
 pub unsafe extern "C" fn t_farch_unarchive(entry: *const farch_entry_t) -> lstr_t {
     let entry: &farch_entry_t = unsafe { entry.as_ref().expect("entry should be a valid pointer") };
 
-    let res_buf = farch_unarchive_buf(entry);
-    let res_lstr = lstr::from_bytes(&res_buf);
     let t_scope = TScope::from_parent();
-    unsafe { res_lstr.t_dup(&t_scope).as_raw() }
+    let res_lstr = t_farch_unarchive_lstr(&t_scope, entry);
+    unsafe { res_lstr.as_raw() }
 }
 
 #[allow(
@@ -255,10 +313,9 @@ pub unsafe extern "C" fn t_farch_get_data(
         return lstr::null();
     };
 
-    let res_buf = farch_unarchive_buf(entry);
-    let res_lstr = lstr::from_bytes(&res_buf);
     let t_scope = TScope::from_parent();
-    unsafe { res_lstr.t_dup(&t_scope).as_raw() }
+    let res_lstr = t_farch_unarchive_lstr(&t_scope, entry);
+    unsafe { res_lstr.as_raw() }
 }
 
 #[allow(

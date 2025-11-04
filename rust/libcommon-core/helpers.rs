@@ -18,6 +18,7 @@
 
 //! Utility helpers functions.
 
+use std::mem::{MaybeUninit, transmute};
 use std::ptr::NonNull;
 use std::slice::from_raw_parts;
 
@@ -38,4 +39,22 @@ pub const unsafe fn slice_from_nullable_raw_parts<'a, T>(data: *const T, len: us
     }
 
     unsafe { from_raw_parts(data, len) }
+}
+
+/// Gets a mutable (unique) reference to a maybe uninitialized slice.
+///
+/// # Warning
+///
+/// This function assumes that the slice is already initialized. Using this function on an
+/// uninitialized slice is undefined behavior and can lead to safety issues, crashes, or other
+/// unpredictable behaviors. Do not use it to initialize the slice; use a mutable pointer instead.
+///
+/// # Safety
+///
+/// The caller must ensure that all elements in the slice are fully initialized before calling
+/// this function. Calling this function with an uninitialized slice is undefined behavior.
+///
+/// TODO: use `slice::assume_init_mut` once stabilized.
+pub const unsafe fn slice_assume_init_mut<T>(slice: &mut [MaybeUninit<T>]) -> &mut [T] {
+    unsafe { transmute(slice) }
 }
