@@ -25,8 +25,10 @@
 //!
 //! Using `thr::attach()` and `thr:detach()` are required to use [`TScope`].
 
+use std::mem::MaybeUninit;
 use std::ops::Drop;
 use std::os::raw::c_void;
+use std::slice::from_raw_parts_mut;
 use std::{mem, ptr};
 
 use crate::bindings::{
@@ -55,13 +57,55 @@ impl TScope {
     }
 
     /// Create a new value allocated on the `t_scope`.
+    ///
+    /// It is initialized to 0.
     #[allow(clippy::mut_from_ref)]
-    pub fn t_new<T>(&self, val: T) -> &mut T {
+    pub fn t_new<T>(&self) -> &mut T {
+        unsafe {
+            let p = mp_imalloc(t_pool(), mem::size_of::<T>(), mem::align_of::<T>(), 0);
+            let p: *mut T = p.cast();
+            &mut *p
+        }
+    }
+
+    /// Create a new value allocated on the `t_scope`.
+    ///
+    /// It is uninitialized.
+    #[allow(clippy::mut_from_ref)]
+    pub fn t_new_uninit<T>(&self) -> &mut MaybeUninit<T> {
         unsafe {
             let p = mp_imalloc(t_pool(), mem::size_of::<T>(), mem::align_of::<T>(), MEM_RAW);
-            let p = p.cast::<T>();
-            ptr::write(p, val);
+            let p: *mut MaybeUninit<T> = p.cast();
             &mut *p
+        }
+    }
+
+    /// Create a new slice allocated on the `t_scope`.
+    ///
+    /// It is initialized to 0.
+    #[allow(clippy::mut_from_ref)]
+    pub fn t_new_slice<T>(&self, len: usize) -> &mut [T] {
+        unsafe {
+            let p = mp_imalloc(t_pool(), mem::size_of::<T>() * len, mem::align_of::<T>(), 0);
+            let p: *mut T = p.cast();
+            from_raw_parts_mut(p, len)
+        }
+    }
+
+    /// Create a new slice allocated on the `t_scope`.
+    ///
+    /// It is uninitialized.
+    #[allow(clippy::mut_from_ref)]
+    pub fn t_new_slice_uninit<T>(&self, len: usize) -> &mut [MaybeUninit<T>] {
+        unsafe {
+            let p = mp_imalloc(
+                t_pool(),
+                mem::size_of::<T>() * len,
+                mem::align_of::<T>(),
+                MEM_RAW,
+            );
+            let p: *mut MaybeUninit<T> = p.cast();
+            from_raw_parts_mut(p, len)
         }
     }
 }
