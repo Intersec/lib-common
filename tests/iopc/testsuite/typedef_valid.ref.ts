@@ -39,21 +39,21 @@ export interface MyStruct_ModelParam {
     e2: typedef2.FooE_Str;
 }
 export class MyStruct_Model extends StructModel<MyStruct_ModelParam> {
-    public a: string;
-    public b: number;
-    public type1: string;
-    public type2: string;
-    public s1: typedef1.FooS_Model;
-    public s2: typedef2.FooS_Model;
-    public u1: typedef1.FooU_Model;
-    public u2: typedef2.FooU_Model;
-    public e1: typedef1.FooE_Str;
-    public e2: typedef2.FooE_Str;
-    public icQuery: (rpc: never) => never;
+    declare public a: string;
+    declare public b: number;
+    declare public type1: string;
+    declare public type2: string;
+    declare public s1: typedef1.FooS_Model;
+    declare public s2: typedef2.FooS_Model;
+    declare public u1: typedef1.FooU_Model;
+    declare public u2: typedef2.FooU_Model;
+    declare public e1: typedef1.FooE_Str;
+    declare public e2: typedef2.FooE_Str;
+    declare public icQuery: (rpc: never) => never;
 };
 registerModel(MyStruct_Model, MyStruct_fullname);
 export class MyStruct_Collection extends IopCollection<MyStruct_Model> {
-    public icQuery: MyStruct_Model['icQuery'];
+    declare public icQuery: MyStruct_Model['icQuery'];
 };
 registerCollection<MyStruct_Model>(MyStruct_Collection, MyStruct_fullname);
 
@@ -73,9 +73,9 @@ export type MyUnion_ModelParam = { a: string }
     | { b: number }
     | { c: boolean };
 export class MyUnion_Model extends UnionModel<MyUnion_Keys, MyUnion_ModelPairs, MyUnion_ModelParam> {
-    public a: string | undefined;
-    public b: number | undefined;
-    public c: boolean | undefined;
+    declare public a: string | undefined;
+    declare public b: number | undefined;
+    declare public c: boolean | undefined;
 };
 registerModel(MyUnion_Model, MyUnion_fullname);
 export class MyUnion_Collection extends IopCollection<MyUnion_Model> { };
@@ -90,12 +90,12 @@ export interface A_ModelParam {
     a: string;
 }
 export class A_Model<Param extends A_ModelParam = A_ModelParam> extends ClassModel<Param> {
-    public a: string;
-    public icQuery: (rpc: never) => never;
+    declare public a: string;
+    declare public icQuery: (rpc: never) => never;
 };
 registerModel(A_Model, A_fullname);
 export class A_Collection<Model extends A_Model = A_Model> extends IopCollection<Model> {
-    public icQuery: Model['icQuery'];
+    declare public icQuery: Model['icQuery'];
 };
 registerCollection<A_Model>(A_Collection, A_fullname);
 
@@ -105,11 +105,11 @@ export interface B extends A {
 export interface B_ModelParam extends A_ModelParam {
 }
 export class B_Model<Param extends B_ModelParam = B_ModelParam> extends A_Model<Param> {
-    public icQuery: A_Model<Param>['icQuery'];
+    declare public icQuery: A_Model<Param>['icQuery'];
 };
 registerModel(B_Model, B_fullname);
 export class B_Collection<Model extends B_Model = B_Model> extends A_Collection<Model> {
-    public icQuery: Model['icQuery'];
+    declare public icQuery: Model['icQuery'];
 };
 registerCollection<B_Model>(B_Collection, B_fullname);
 
@@ -173,38 +173,38 @@ export interface TypedefStructUseAll_ModelParam {
     b: B_ModelParam | B_Model;
 }
 export class TypedefStructUseAll_Model extends StructModel<TypedefStructUseAll_ModelParam> {
-    public ms: string;
-    public opt?: string;
-    public def: string;
-    public mst: string;
-    public mul: number | string;
-    public muldef: number | string;
-    public md: number;
-    public mddef: number;
-    public mddef2: number;
-    public mns: string;
-    public m3: number | string;
-    public m37: number | string;
-    public b310: number | string;
-    public msa: Array<string>;
-    public msa3: Array<string>;
-    public msa6: Array<string>;
-    public msa610: Array<string>;
-    public mnso?: string;
-    public mea: enum1.MyEnum_Str;
-    public msal: MyStruct_Model;
-    public mya: MyUnion_Model;
-    public muab: MyUnion_Model;
-    public muabc: MyUnion_Model;
-    public muwc: MyUnion_Model;
-    public muwcopt?: MyUnion_Model;
-    public a: A_Model;
-    public b: B_Model;
-    public icQuery: (rpc: never) => never;
+    declare public ms: string;
+    declare public opt?: string;
+    declare public def: string;
+    declare public mst: string;
+    declare public mul: number | string;
+    declare public muldef: number | string;
+    declare public md: number;
+    declare public mddef: number;
+    declare public mddef2: number;
+    declare public mns: string;
+    declare public m3: number | string;
+    declare public m37: number | string;
+    declare public b310: number | string;
+    declare public msa: Array<string>;
+    declare public msa3: Array<string>;
+    declare public msa6: Array<string>;
+    declare public msa610: Array<string>;
+    declare public mnso?: string;
+    declare public mea: enum1.MyEnum_Str;
+    declare public msal: MyStruct_Model;
+    declare public mya: MyUnion_Model;
+    declare public muab: MyUnion_Model;
+    declare public muabc: MyUnion_Model;
+    declare public muwc: MyUnion_Model;
+    declare public muwcopt?: MyUnion_Model;
+    declare public a: A_Model;
+    declare public b: B_Model;
+    declare public icQuery: (rpc: never) => never;
 };
 registerModel(TypedefStructUseAll_Model, TypedefStructUseAll_fullname);
 export class TypedefStructUseAll_Collection extends IopCollection<TypedefStructUseAll_Model> {
-    public icQuery: TypedefStructUseAll_Model['icQuery'];
+    declare public icQuery: TypedefStructUseAll_Model['icQuery'];
 };
 registerCollection<TypedefStructUseAll_Model>(TypedefStructUseAll_Collection, TypedefStructUseAll_fullname);
 
@@ -271,19 +271,19 @@ export type TypedefUnionUseAll_ModelParam = { ms: string }
     | { b: B_ModelParam }
     | { b: B_Model };
 export class TypedefUnionUseAll_Model extends UnionModel<TypedefUnionUseAll_Keys, TypedefUnionUseAll_ModelPairs, TypedefUnionUseAll_ModelParam> {
-    public ms: string | undefined;
-    public mul: number | string | undefined;
-    public mns: string | undefined;
-    public m3: number | string | undefined;
-    public b310: number | string | undefined;
-    public mea: enum1.MyEnum_Str | undefined;
-    public msal: MyStruct_Model | undefined;
-    public mya: MyUnion_Model | undefined;
-    public muab: MyUnion_Model | undefined;
-    public muabc: MyUnion_Model | undefined;
-    public muwc: MyUnion_Model | undefined;
-    public a: A_Model | undefined;
-    public b: B_Model | undefined;
+    declare public ms: string | undefined;
+    declare public mul: number | string | undefined;
+    declare public mns: string | undefined;
+    declare public m3: number | string | undefined;
+    declare public b310: number | string | undefined;
+    declare public mea: enum1.MyEnum_Str | undefined;
+    declare public msal: MyStruct_Model | undefined;
+    declare public mya: MyUnion_Model | undefined;
+    declare public muab: MyUnion_Model | undefined;
+    declare public muabc: MyUnion_Model | undefined;
+    declare public muwc: MyUnion_Model | undefined;
+    declare public a: A_Model | undefined;
+    declare public b: B_Model | undefined;
 };
 registerModel(TypedefUnionUseAll_Model, TypedefUnionUseAll_fullname);
 export class TypedefUnionUseAll_Collection extends IopCollection<TypedefUnionUseAll_Model> { };
@@ -297,12 +297,12 @@ export interface C_ModelParam extends B_ModelParam {
     b: string;
 }
 export class C_Model<Param extends C_ModelParam = C_ModelParam> extends B_Model<Param> {
-    public b: string;
-    public icQuery: B_Model<Param>['icQuery'];
+    declare public b: string;
+    declare public icQuery: B_Model<Param>['icQuery'];
 };
 registerModel(C_Model, C_fullname);
 export class C_Collection<Model extends C_Model = C_Model> extends B_Collection<Model> {
-    public icQuery: Model['icQuery'];
+    declare public icQuery: Model['icQuery'];
 };
 registerCollection<C_Model>(C_Collection, C_fullname);
 
@@ -316,13 +316,13 @@ export interface RoutingHdr_ModelParam {
     originalHdr?: Hdr_ModelParam | Hdr_Model;
 }
 export class RoutingHdr_Model extends StructModel<RoutingHdr_ModelParam> {
-    public route: Route_Model;
-    public originalHdr?: Hdr_Model;
-    public icQuery: (rpc: never) => never;
+    declare public route: Route_Model;
+    declare public originalHdr?: Hdr_Model;
+    declare public icQuery: (rpc: never) => never;
 };
 registerModel(RoutingHdr_Model, RoutingHdr_fullname);
 export class RoutingHdr_Collection extends IopCollection<RoutingHdr_Model> {
-    public icQuery: RoutingHdr_Model['icQuery'];
+    declare public icQuery: RoutingHdr_Model['icQuery'];
 };
 registerCollection<RoutingHdr_Model>(RoutingHdr_Collection, RoutingHdr_fullname);
 
@@ -333,11 +333,11 @@ export interface Route {
 export interface Route_ModelParam {
 }
 export class Route_Model<Param extends Route_ModelParam = Route_ModelParam> extends ClassModel<Param> {
-    public icQuery: (rpc: never) => never;
+    declare public icQuery: (rpc: never) => never;
 };
 registerModel(Route_Model, Route_fullname);
 export class Route_Collection<Model extends Route_Model = Route_Model> extends IopCollection<Model> {
-    public icQuery: Model['icQuery'];
+    declare public icQuery: Model['icQuery'];
 };
 registerCollection<Route_Model>(Route_Collection, Route_fullname);
 
@@ -355,8 +355,8 @@ export type Hdr_ModelParam = { simple: typedef1.FooS_ModelParam }
     | { routing: RoutingHdr_ModelParam }
     | { routing: RoutingHdr_Model };
 export class Hdr_Model extends UnionModel<Hdr_Keys, Hdr_ModelPairs, Hdr_ModelParam> {
-    public simple: typedef1.FooS_Model | undefined;
-    public routing: RoutingHdr_Model | undefined;
+    declare public simple: typedef1.FooS_Model | undefined;
+    declare public routing: RoutingHdr_Model | undefined;
 };
 registerModel(Hdr_Model, Hdr_fullname);
 export class Hdr_Collection extends IopCollection<Hdr_Model> { };
@@ -372,13 +372,13 @@ export interface TypedefStructUseAllWithList_ModelParam {
     list?: Array<TypedefStructUseAll_ModelParam | TypedefStructUseAll_Model> | TypedefStructUseAll_Collection;
 }
 export class TypedefStructUseAllWithList_Model extends StructModel<TypedefStructUseAllWithList_ModelParam> {
-    public listName: string;
-    public list: TypedefStructUseAll_Collection;
-    public icQuery: (rpc: never) => never;
+    declare public listName: string;
+    declare public list: TypedefStructUseAll_Collection;
+    declare public icQuery: (rpc: never) => never;
 };
 registerModel(TypedefStructUseAllWithList_Model, TypedefStructUseAllWithList_fullname);
 export class TypedefStructUseAllWithList_Collection extends IopCollection<TypedefStructUseAllWithList_Model> {
-    public icQuery: TypedefStructUseAllWithList_Model['icQuery'];
+    declare public icQuery: TypedefStructUseAllWithList_Model['icQuery'];
 };
 registerCollection<TypedefStructUseAllWithList_Model>(TypedefStructUseAllWithList_Collection, TypedefStructUseAllWithList_fullname);
 

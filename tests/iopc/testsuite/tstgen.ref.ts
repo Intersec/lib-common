@@ -44,16 +44,16 @@ export interface MyStructA_ModelParam {
     weakRef2?: pkg_a.A_ModelParam | pkg_a.A_Model;
 }
 export class MyStructA_Model extends StructModel<MyStructA_ModelParam> {
-    public i: number;
-    public j: number;
-    public d1: number;
-    public weakRef1?: pkg_a.A_Model;
-    public weakRef2?: pkg_a.A_Model;
-    public icQuery: interfaces.MyIfaceA.IcQuery;
+    declare public i: number;
+    declare public j: number;
+    declare public d1: number;
+    declare public weakRef1?: pkg_a.A_Model;
+    declare public weakRef2?: pkg_a.A_Model;
+    declare public icQuery: interfaces.MyIfaceA.IcQuery;
 };
 registerModel(MyStructA_Model, MyStructA_fullname);
 export class MyStructA_Collection extends IopCollection<MyStructA_Model> {
-    public icQuery: MyStructA_Model['icQuery'];
+    declare public icQuery: MyStructA_Model['icQuery'];
 };
 registerCollection<MyStructA_Model>(MyStructA_Collection, MyStructA_fullname);
 
@@ -69,8 +69,8 @@ export type MyUnionA_ModelPairs = { kind: 'f4', value: number | string }
 export type MyUnionA_ModelParam = { f4: number | string }
     | { f1: boolean };
 export class MyUnionA_Model extends UnionModel<MyUnionA_Keys, MyUnionA_ModelPairs, MyUnionA_ModelParam> {
-    public f4: number | string | undefined;
-    public f1: boolean | undefined;
+    declare public f4: number | string | undefined;
+    declare public f1: boolean | undefined;
 };
 registerModel(MyUnionA_Model, MyUnionA_fullname);
 export class MyUnionA_Collection extends IopCollection<MyUnionA_Model> { };
@@ -90,15 +90,15 @@ export interface Optimized_ModelParam {
     f2: number | string;
 }
 export class Optimized_Model extends StructModel<Optimized_ModelParam> {
-    public f3: boolean;
-    public f4: number | string;
-    public f1: boolean;
-    public f2: number | string;
-    public icQuery: (rpc: never) => never;
+    declare public f3: boolean;
+    declare public f4: number | string;
+    declare public f1: boolean;
+    declare public f2: number | string;
+    declare public icQuery: (rpc: never) => never;
 };
 registerModel(Optimized_Model, Optimized_fullname);
 export class Optimized_Collection extends IopCollection<Optimized_Model> {
-    public icQuery: Optimized_Model['icQuery'];
+    declare public icQuery: Optimized_Model['icQuery'];
 };
 registerCollection<Optimized_Model>(Optimized_Collection, Optimized_fullname);
 
@@ -109,11 +109,11 @@ export interface MyClassA {
 export interface MyClassA_ModelParam {
 }
 export class MyClassA_Model<Param extends MyClassA_ModelParam = MyClassA_ModelParam> extends ClassModel<Param> {
-    public icQuery: (rpc: never) => never;
+    declare public icQuery: (rpc: never) => never;
 };
 registerModel(MyClassA_Model, MyClassA_fullname);
 export class MyClassA_Collection<Model extends MyClassA_Model = MyClassA_Model> extends IopCollection<Model> {
-    public icQuery: Model['icQuery'];
+    declare public icQuery: Model['icQuery'];
 };
 registerCollection<MyClassA_Model>(MyClassA_Collection, MyClassA_fullname);
 
@@ -137,12 +137,12 @@ export namespace interfaces {
             a: number;
         }
         export class funAArgs_Model extends StructModel<funAArgs_ModelParam> {
-            public a: number;
-            public icQuery: (rpc: never) => never;
+            declare public a: number;
+            declare public icQuery: (rpc: never) => never;
         };
         registerModel(funAArgs_Model, funAArgs_fullname);
         export class funAArgs_Collection extends IopCollection<funAArgs_Model> {
-            public icQuery: funAArgs_Model['icQuery'];
+            declare public icQuery: funAArgs_Model['icQuery'];
         };
         registerCollection<funAArgs_Model>(funAArgs_Collection, funAArgs_fullname);
         export type funARes = void;

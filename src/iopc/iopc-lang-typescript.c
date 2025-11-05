@@ -563,7 +563,7 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
 
     tab_for_each_entry(field, &st->fields) {
         if (!is_name_reserved_in_model(field->name, false)) {
-            sb_addf(buf, "%s    public ", indent);
+            sb_addf(buf, "%s    declare public ", indent);
             iopc_dump_field(buf, pkg, field, OBJECT_FIELD | USE_MODEL);
             sb_adds(buf, ";\n");
         }
@@ -574,7 +574,7 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
         const iopc_struct_t *parent = st->extends.tab[0]->st;
 
         no_ic_queries = false;
-        sb_addf(buf, "%s    public icQuery: ", indent);
+        sb_addf(buf, "%s    declare public icQuery: ", indent);
         iopc_dump_package_member(buf, pkg, parent_pkg, parent_pkg->name,
                                     parent->name);
         sb_adds(buf, "_Model<Param>['icQuery']");
@@ -592,7 +592,7 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
 
             if (no_ic_queries) {
                 no_ic_queries = false;
-                sb_addf(buf, "%s    public icQuery: ", indent);
+                sb_addf(buf, "%s    declare public icQuery: ", indent);
             } else {
                 sb_addf(buf, "\n%s        & ", indent);
             }
@@ -612,7 +612,7 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
     }
 
     if (no_ic_queries) {
-        sb_addf(buf, "%s    public icQuery: (rpc: never) => never", indent);
+        sb_addf(buf, "%s    declare public icQuery: (rpc: never) => never", indent);
     }
 
     sb_adds(buf, ";\n");
@@ -636,11 +636,11 @@ static void iopc_dump_struct(sb_t *buf, const char *indent,
             } else {
                 sb_adds(buf, "IopCollection<Model> {\n");
             }
-            sb_addf(buf, "%s    public icQuery: Model['icQuery'];\n", indent);
+            sb_addf(buf, "%s    declare public icQuery: Model['icQuery'];\n", indent);
         } else {
             sb_addf(buf, "%sexport class %s_Collection extends "
                     "IopCollection<%s_Model> {\n", indent, st_name, st_name);
-            sb_addf(buf, "%s    public icQuery: %s_Model['icQuery'];\n",
+            sb_addf(buf, "%s    declare public icQuery: %s_Model['icQuery'];\n",
                     indent, st_name);
         }
         sb_addf(buf, "%s};\n", indent);
@@ -738,7 +738,7 @@ static void iopc_dump_union(sb_t *buf, const char *indent,
 
     tab_for_each_entry(field, &st->fields) {
         if (!is_name_reserved_in_model(field->name, true)) {
-            sb_addf(buf, "%s    public ", indent);
+            sb_addf(buf, "%s    declare public ", indent);
             iopc_dump_field(buf, pkg, field,
                             OBJECT_FIELD | USE_MODEL | IN_UNION);
             sb_adds(buf, " | undefined;\n");
