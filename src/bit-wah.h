@@ -176,8 +176,19 @@ typedef struct wah_t {
      * you really know what you are doing. In most cases, you'll want to use
      * wah_get_storage. */
     qv_t(wah_bucket) _buckets;
-    uint32_t         _pending;
-    wah_word_t       _padding[3]; /* Ensure sizeof(wah_t) == 64 */
+
+    /** Extra bits stored in the first bucket.
+     *
+     * To avoid having a lot of small buckets filled with 0s or 1s at the
+     * beginning of the WAH, the #buckets_shift indicates how many additional
+     * bits are accounted in the first bucket.
+     *
+     * The shift is always aligned on WAH_BIT_IN_WORD.
+     */
+    uint64_t buckets_shift;
+
+    uint32_t _pending;
+    wah_word_t _padding[1]; /* Ensure sizeof(wah_t) == 64 */
 } wah_t;
 
 #define WAH_BIT_IN_WORD  bitsizeof(wah_word_t)

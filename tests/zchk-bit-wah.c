@@ -55,6 +55,134 @@ static int z_wah_word_enum_no_reg_test(wah_t *map, const uint32_t literal)
     Z_HELPER_END;
 }
 
+static void z_wah_addXs(wah_t *map, int bit, uint64_t count)
+{
+    if (bit) {
+        wah_add1s(map, count);
+    } else {
+        wah_add0s(map, count);
+    }
+}
+
+static int z_wah_test_bucket_overfilling(const bool bit)
+{
+    t_scope;
+    wah_t map, map2;
+    lstr_t storage;
+
+    wah_set_bits_in_bucket(5 * WAH_BIT_IN_WORD);
+    wah_init(&map);
+
+#define ADD_N_CHECK(nbits, exp_shift) \
+    do {                                                                     \
+        z_wah_addXs(&map, (bit), (nbits));                                   \
+        Z_ASSERT_EQ(map._buckets.len, 1);                                    \
+        Z_ASSERT_EQ(map.buckets_shift, (uint64_t)(exp_shift));               \
+    } while (0)
+
+    /* First bucket should be overfilled holding more than 5 words. */
+    ADD_N_CHECK(5 * WAH_BIT_IN_WORD, 0);
+
+    /* Check overfill of one full aligned word. */
+    ADD_N_CHECK(WAH_BIT_IN_WORD, WAH_BIT_IN_WORD);
+
+    /* Add some pending bits: shouldn't be accounted yet. */
+    ADD_N_CHECK(3, WAH_BIT_IN_WORD);
+
+    /* Add a full to both flush the pending bits and add some new pending
+     * bits.
+     */
+    ADD_N_CHECK(WAH_BIT_IN_WORD, 2 * WAH_BIT_IN_WORD);
+
+    /* Add more pending bit: shouldn't change anything  */
+    ADD_N_CHECK(2, 2 * WAH_BIT_IN_WORD);
+
+    /* Add more bits to reach a total of 10 overfilled words.*/
+    ADD_N_CHECK(WAH_BIT_IN_WORD - 5 + WAH_BIT_IN_WORD * 2,
+                5 * WAH_BIT_IN_WORD);
+    Z_ASSERT_EQ(map.len, 10 * WAH_BIT_IN_WORD);
+
+#undef ADD_N_CHECK
+
+    /* Next buckets should be filled normally. */
+    wah_init(&map2);
+    wah_copy(&map2, &map);
+    z_wah_addXs(&map, !bit, 1);
+    z_wah_addXs(&map,  bit, 1);
+    Z_ASSERT_EQ(map._buckets.len, 1);
+
+    z_wah_addXs(&map, !bit, 10 * WAH_BIT_IN_WORD - 2);
+    Z_ASSERT_EQ(map._buckets.len, 3);
+
+    z_wah_addXs(&map,  bit, 1 * WAH_BIT_IN_WORD);
+    z_wah_addXs(&map, !bit, 2 * WAH_BIT_IN_WORD);
+    z_wah_addXs(&map,  bit, 2 * WAH_BIT_IN_WORD);
+    Z_ASSERT_EQ(map._buckets.len, 4);
+    Z_ASSERT_EQ(map.len, 25 * WAH_BIT_IN_WORD);
+
+    /* Check access to individual bits */
+    Z_ASSERT_EQ(wah_get(&map, 10 * WAH_BIT_IN_WORD - 1),  bit);
+    Z_ASSERT_EQ(wah_get(&map, 10 * WAH_BIT_IN_WORD),     !bit);
+    Z_ASSERT_EQ(wah_get(&map, 10 * WAH_BIT_IN_WORD + 1),  bit);
+    Z_ASSERT_EQ(wah_get(&map, 10 * WAH_BIT_IN_WORD + 2), !bit);
+
+    /* Do the same kind of checks but this time starting on a pending word. */
+    z_wah_addXs(&map2,  bit, 1);
+    z_wah_addXs(&map2, !bit, 1);
+    z_wah_addXs(&map2,  bit, 2);
+    Z_ASSERT_EQ(map2._buckets.len, 1);
+
+    z_wah_addXs(&map2, !bit, WAH_BIT_IN_WORD);
+    Z_ASSERT_EQ(map2._buckets.len, 2);
+
+    Z_ASSERT_EQ(wah_get(&map2, 10 * WAH_BIT_IN_WORD - 1),  bit);
+    Z_ASSERT_EQ(wah_get(&map2, 10 * WAH_BIT_IN_WORD),      bit);
+    Z_ASSERT_EQ(wah_get(&map2, 10 * WAH_BIT_IN_WORD + 1), !bit);
+    Z_ASSERT_EQ(wah_get(&map2, 10 * WAH_BIT_IN_WORD + 2),  bit);
+    Z_ASSERT_EQ(wah_get(&map2, 10 * WAH_BIT_IN_WORD + 3),  bit);
+    Z_ASSERT_EQ(wah_get(&map2, 10 * WAH_BIT_IN_WORD + 4), !bit);
+    wah_wipe(&map2);
+
+    /* Check loading of such WAH. */
+    storage = t_wah_get_storage_lstr(&map);
+    Z_ASSERT_P(wah_init_from_data(&map2, ps_initlstr(&storage)));
+    Z_ASSERT_EQ(map2._buckets.len, 4);
+    Z_ASSERT_EQ(map2.buckets_shift, 5 * WAH_BIT_IN_WORD);
+    Z_ASSERT_EQ(map2.len, 25 * WAH_BIT_IN_WORD);
+
+    /* Check conversion to “normal” buckets. */
+    wah_reset_map(&map2);
+    if (bit) {
+        wah_add0s(&map2, 1);
+        wah_add1s(&map2, map.len - 1);
+        wah_and(&map2, &map);
+    } else {
+        wah_add1s(&map2, 1);
+        wah_or(&map2, &map);
+    }
+
+    Z_ASSERT_EQ(map2._buckets.len, 5);
+    Z_ASSERT_EQ(map2.buckets_shift, 0ULL);
+    Z_ASSERT_EQ(map2.len, 25 * WAH_BIT_IN_WORD);
+    wah_wipe(&map2);
+
+    /* Reverse the WAH end check it */
+    wah_not(&map);
+    Z_ASSERT_EQ(map.buckets_shift, 5 * WAH_BIT_IN_WORD);
+    Z_ASSERT_EQ(map._buckets.len, 4);
+
+    Z_ASSERT_EQ(wah_get(&map, 0),                        !bit);
+    Z_ASSERT_EQ(wah_get(&map, 10 * WAH_BIT_IN_WORD - 1), !bit);
+    Z_ASSERT_EQ(wah_get(&map, 10 * WAH_BIT_IN_WORD),      bit);
+    Z_ASSERT_EQ(wah_get(&map, 10 * WAH_BIT_IN_WORD + 1), !bit);
+    Z_ASSERT_EQ(wah_get(&map, 10 * WAH_BIT_IN_WORD + 2),  bit);
+
+    wah_wipe(&map);
+    wah_set_bits_in_bucket(Z_WAH_BITS_IN_BUCKETS);
+
+    Z_HELPER_END;
+}
+
 /* }}} */
 
 Z_GROUP_EXPORT(wah) {
@@ -562,7 +690,7 @@ Z_GROUP_EXPORT(wah) {
     Z_TEST(buckets) { /* {{{ */
         t_scope;
         SB_1k(sb);
-        wah_t map1;
+        wah_t map1, map2;
         lstr_t storage;
         uint32_t literal[] = {
             0x12345678, 0x12345678, 0x12345678, 0x12345678,
@@ -647,6 +775,15 @@ Z_GROUP_EXPORT(wah) {
         wah_pad32(&map1);
         Z_ASSERT_ZERO(map1.len % (4 * WAH_BIT_IN_WORD));
 
+        /* Add a single bit at the beginning of the wah to disable the
+         * overfilling feature and thus ensure we have the expected buckets
+         * alignment.
+         */
+        wah_init(&map2);
+        wah_add1s(&map2, 1);
+        wah_or(&map1, &map2);
+        wah_wipe(&map2);
+
         storage = t_wah_get_storage_lstr(&map1);
         wah_wipe(&map1);
 
@@ -700,10 +837,12 @@ Z_GROUP_EXPORT(wah) {
         wah_init(&wah_src);
         wah_init(&wah_dst);
 
+        wah_add1s(&wah_src, 1);
         wah_add0s(&wah_src, 3 * Z_WAH_BITS_IN_BUCKETS);
         Z_ASSERT_EQ(wah_src._buckets.len, 3);
 
         /* Layout of WAH  of equal size should remain identical. */
+        wah_add0s(&wah_dst, 1);
         wah_add1s(&wah_dst, 3 * Z_WAH_BITS_IN_BUCKETS);
         Z_ASSERT_EQ(wah_dst._buckets.len, 3);
 
@@ -715,6 +854,7 @@ Z_GROUP_EXPORT(wah) {
         wah_init(&wah_dst);
 
         /* Shorter WAH should be extended to match the source WAH. */
+        wah_add0s(&wah_dst, 1);
         wah_add1s(&wah_dst, 1 * Z_WAH_BITS_IN_BUCKETS);
         Z_ASSERT_EQ(wah_dst._buckets.len, 1);
 
@@ -726,6 +866,7 @@ Z_GROUP_EXPORT(wah) {
         wah_init(&wah_dst);
 
         /* Larger WAH should be shrunk to match the source WAH. */
+        wah_add0s(&wah_dst, 1);
         wah_add1s(&wah_dst, 5 * Z_WAH_BITS_IN_BUCKETS);
         Z_ASSERT_EQ(wah_dst._buckets.len, 5);
 
@@ -816,6 +957,12 @@ Z_GROUP_EXPORT(wah) {
 
         wah_wipe(&map);
 
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(bucket_overfill) { /* {{{ */
+        Z_HELPER_RUN(z_wah_test_bucket_overfilling(0));
+        Z_HELPER_RUN(z_wah_test_bucket_overfilling(1));
     } Z_TEST_END;
 
     /* }}} */
