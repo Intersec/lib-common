@@ -675,6 +675,54 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(pad32) { /* {{{ */
+        t_scope;
+        wah_t map;
+        lstr_t storage;
+        wah_t *map_from_data;
+
+        wah_init(&map);
+
+#define TEST_PAD32(nbits, res_len) \
+        do {                                                                 \
+            wah_reset_map(&map);                                             \
+            wah_add1s(&map, nbits);                                          \
+            wah_pad32(&map);                                                 \
+            Z_ASSERT_EQ(map.len, res_len, "invalid padding with %ju bits",   \
+                        (uint64_t)nbits);                                    \
+        } while (0)
+
+        TEST_PAD32(0, 0ULL);
+
+        /* Check that an empty wah without padding is correctly serialized and
+         * loaded.
+         */
+        storage = t_wah_get_storage_lstr(&map);
+        map_from_data = wah_new_from_data(ps_initlstr(&storage));
+        Z_ASSERT_EQ(map_from_data->len, 0ULL);
+        wah_delete(&map_from_data);
+
+        for (int i = 1; i <= 32; i++) {
+            TEST_PAD32(i, 32ULL);
+        }
+
+        TEST_PAD32(64, 64ULL);
+        TEST_PAD32(65, 96ULL);
+        TEST_PAD32(95, 96ULL);
+        TEST_PAD32(96, 96ULL);
+        TEST_PAD32(97, 128ULL);
+
+        /* Check with some 64 bit numbers */
+        TEST_PAD32(0x12345678900, 0x12345678900ULL);
+        TEST_PAD32(0x12345678901, 0x12345678920ULL);
+        TEST_PAD32(0x12345678920, 0x12345678920ULL);
+        TEST_PAD32(0x12345678921, 0x12345678940ULL);
+
+        wah_wipe(&map);
+#undef TEST_PAD32
+    } Z_TEST_END;
+
+    /* }}} */
 
     wah_reset_bits_in_bucket();
 } Z_GROUP_END;

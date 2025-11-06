@@ -525,6 +525,9 @@ enum sign {
 #define PAD4(len)     (((len) + 3) & ~3)
 #define PAD4EXT(len)  (3 - (((len) - 1) & 3))
 
+#define PAD32(len)     (((len) + 31) & ~31)
+#define PAD32EXT(len)  (31 - (((len) - 1) & 31))
+
 #define TOSTR_AUX(x)  #x
 #define TOSTR(x)      TOSTR_AUX(x)
 

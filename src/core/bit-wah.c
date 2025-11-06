@@ -727,7 +727,7 @@ void wah_add0s(wah_t *map, uint64_t count)
 
 void wah_pad32(wah_t *map)
 {
-    uint64_t padding = WAH_BIT_IN_WORD - (map->len % WAH_BIT_IN_WORD);
+    uint64_t padding = PAD32EXT(map->len);
 
     if (padding) {
         wah_add0s(map, padding);
