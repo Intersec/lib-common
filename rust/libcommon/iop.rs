@@ -35,7 +35,7 @@ use crate::bindings::{
 use crate::lstr::{self, AsRaw as _};
 use crate::mem_stack::TScope;
 use crate::pstream::pstream_t;
-use crate::sb::SbStack;
+use libcommon_core::{SB_1k, sb::SbStack};
 
 // {{{ Errors
 
@@ -79,8 +79,7 @@ pub trait StructUnion: Base {
 
     /// Export the IOP struct or union as JSON
     fn as_json(&self) -> String {
-        let sb_buf = pin!([0u8; 1024]);
-        let mut sb = SbStack::new(sb_buf);
+        SB_1k!(sb);
 
         unsafe {
             iop_sb_jpack(sb.as_mut_ptr(), self.get_cdesc(), self.get_cptr(), 0);
@@ -92,8 +91,7 @@ pub trait StructUnion: Base {
     /// Export the IOP struct or union as YAML
     fn as_yaml(&self) -> String {
         let _t_scope = TScope::new_scope();
-        let sb_buf = pin!([0u8; 1024]);
-        let mut sb = SbStack::new(sb_buf);
+        SB_1k!(sb);
 
         unsafe {
             t_iop_sb_ypack(
@@ -263,8 +261,7 @@ impl Env<'_> {
         st: *const iop_struct_t,
         flags: u32,
     ) -> Result<GenericStructUnion<'t>, UnpackError> {
-        let err_buf = pin!([0u8; 1024]);
-        let mut err = SbStack::new(err_buf);
+        SB_1k!(err);
         let mut ps = pstream_t::from(content);
         let mut out = ptr::null_mut();
 
@@ -306,8 +303,7 @@ impl Env<'_> {
         st: *const iop_struct_t,
         flags: u32,
     ) -> Result<GenericStructUnion<'t>, UnpackError> {
-        let err_buf = pin!([0u8; 1024]);
-        let mut err = SbStack::new(err_buf);
+        SB_1k!(err);
         let mut ps = pstream_t::from(content);
         let mut out = ptr::null_mut();
 

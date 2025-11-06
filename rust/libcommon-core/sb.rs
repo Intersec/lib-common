@@ -30,17 +30,59 @@ use std::str::Utf8Error;
 
 use crate::bindings::{mem_pool_libc, mem_pool_static, sb_t, sb_wipe};
 
+// {{{ SbStack
+
 /// `sb_t` with a initial buffer of size N on the stack.
 ///
 /// We need to use an external pin buffer on the stack to make it work and avoid dangling pointers.
 /// See <https://doc.rust-lang.org/std/pin/index.html> and
 /// <https://github.com/dureuill/stackpin/blob/keep_only_stacklet/src/lib.rs>
 ///
-/// TODO: Use a macro to hide this.
+/// The macro [`SB_1k`] and [`SB_8k`] should be prefered to create a `SbStack`.
 pub struct SbStack<'pin> {
     buf: Pin<&'pin mut [u8]>,
     sb: sb_t,
 }
+// {{{ Macro SB_1k
+
+/// Create a `SbStack` with a 1KB buffer.
+///
+/// # Example
+///
+/// ```rust
+/// use libcommon_core::{SB_1k, sb::SbStack};
+///
+/// SB_1k!(sb);
+/// ```
+#[macro_export]
+macro_rules! SB_1k {
+    ($name:ident) => {
+        let $name = pin!([0u8; 1024]);
+        let mut $name = SbStack::new($name);
+    };
+}
+
+// }}}
+// {{{ Macro SB_8k
+
+/// Create a `SbStack` with a 8KB buffer.
+///
+/// # Example
+///
+/// ```rust
+/// use libcommon_core::{SB_8k, sb::SbStack};
+///
+/// SB_8k!(sb);
+/// ```
+#[macro_export]
+macro_rules! SB_8k {
+    ($name:ident) => {
+        let $name = pin!([0u8; 8192]);
+        let mut $name = SbStack::new($name);
+    };
+}
+
+// }}}
 
 impl<'pin> SbStack<'pin> {
     /// Create a new string buffer with an initial buffer on the stack.
@@ -94,6 +136,9 @@ impl DerefMut for SbStack<'_> {
     }
 }
 
+// }}}
+// {{{ SbHeap
+
 /// `sb_t` with allocated on the heap.
 pub struct SbHeap {
     sb: sb_t,
@@ -142,6 +187,9 @@ impl DerefMut for SbHeap {
     }
 }
 
+// }}}
+// {{{ sb_t
+
 /// Method implement for `sb_t`.
 impl sb_t {
     /// Convert a `sb_t` to a bytes slice.
@@ -189,3 +237,5 @@ impl fmt::Display for sb_t {
         }
     }
 }
+
+// }}}
