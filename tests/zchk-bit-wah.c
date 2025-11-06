@@ -559,8 +559,10 @@ Z_GROUP_EXPORT(wah) {
 
     /* }}} */
     Z_TEST(buckets) { /* {{{ */
+        t_scope;
         SB_1k(sb);
         wah_t map1;
+        lstr_t storage;
         uint32_t literal[] = {
             0x12345678, 0x12345678, 0x12345678, 0x12345678,
             0x12345678, 0x00000001,
@@ -625,6 +627,29 @@ Z_GROUP_EXPORT(wah) {
          */
         wah_set_bits_in_bucket(4 * WAH_BIT_IN_WORD);
         Z_ASSERT_NULL(wah_init_from_data(&map1, ps_initsb(&sb)));
+
+        /* We remake the original WAH but with smaller buckets and with some
+         * additional bits in order to be exactly aligned on bits_in_bucket to
+         * test corner cases. */
+        wah_reset_map(&map1);
+        wah_add0s(&map1, 5 * WAH_BIT_IN_WORD);
+        wah_add1s(&map1, 5 * WAH_BIT_IN_WORD);
+        wah_add0s(&map1, 5 * WAH_BIT_IN_WORD);
+        wah_add(&map1, literal, 5 * WAH_BIT_IN_WORD + 2);
+        wah_pad32(&map1);
+        wah_add1s(&map1, 96);
+
+        Z_ASSERT_ZERO(map1.len % (4 * WAH_BIT_IN_WORD));
+        wah_pad32(&map1);
+        Z_ASSERT_ZERO(map1.len % (4 * WAH_BIT_IN_WORD));
+
+        storage = t_wah_get_storage_lstr(&map1);
+        wah_wipe(&map1);
+
+        Z_ASSERT_P(wah_init_from_data(&map1, ps_initlstr(&storage)));
+        Z_ASSERT_EQ(map1._buckets.len, 6);
+        Z_ASSERT_EQ(map1.len, 96 + (4 * 5 + 1) * WAH_BIT_IN_WORD);
+
         wah_wipe(&map1);
 
         wah_set_bits_in_bucket(Z_WAH_BITS_IN_BUCKETS);

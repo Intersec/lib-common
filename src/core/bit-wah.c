@@ -1617,6 +1617,12 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
                 /* No opened bucket, the chunk will be added after. */
                 map->previous_run_pos = map->last_run_pos;
                 map->last_run_pos     = ctx.pos - 2;
+
+                /* Unlike a normal wah_t, last_run_pos has been initialized to
+                 * -1 instead of 0 so previous_run_pos would correctly take -1
+                 *  on the first iteration here.
+                 */
+                assert(map->last_run_pos > 0 || map->previous_run_pos < 0);
             }
             ctx.pos += words;
 
@@ -1629,8 +1635,13 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
                 }
                 ctx.bucket = NULL;
                 ctx.bucket_len = 0;
-                map->previous_run_pos = -1;
-                map->last_run_pos     = -1;
+                if (likely(ctx.pos != size)) {
+                    /* If we were treating the last words we must not reset
+                     * the previous/last run positions.
+                     */
+                    map->previous_run_pos = -1;
+                    map->last_run_pos     = -1;
+                }
                 goto next;
             }
 
