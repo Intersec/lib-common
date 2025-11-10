@@ -61,7 +61,10 @@ static void __wah_word_enum_start(wah_word_enum_t *en, qv_t(wah_word) *bucket)
         en->state        = WAH_ENUM_LITERAL;
         en->remain_words = bucket->tab[en->pos + 1].count;
         en->current      = bucket->tab[en->pos + 2].literal;
-        en->pos          = bucket->tab[en->pos + 1].count + 2;
+        /* XXX Beware of the +=, at actual start pos will be 0 but when used
+         * in wah_word_enum_next we must move relatively to the previous pos.
+         */
+        en->pos         += bucket->tab[en->pos + 1].count + 2;
         assert (en->pos <= bucket->len);
         assert ((int)en->remain_words <= en->pos);
     } else {

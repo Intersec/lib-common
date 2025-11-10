@@ -23,6 +23,40 @@
 
 #define Z_WAH_BITS_IN_BUCKETS  10000 * WAH_BIT_IN_WORD
 
+/* {{{ Helpers */
+
+static int z_wah_word_enum_no_reg_test(wah_t *map, const uint32_t literal)
+{
+    wah_word_enum_t en;
+
+    en = wah_word_enum_start(map, false);
+
+    /* Consume the first 3 words with bit=0 */
+    for (unsigned i = 0; i < 3; i++) {
+        Z_ASSERT_EQ((int)en.state, WAH_ENUM_RUN);
+        Z_ASSERT_EQ(en.pos, 0);
+        Z_ASSERT_EQ(en.current, 0x0U);
+        Z_ASSERT_EQ(en.remain_words, 3 - i);
+        Z_ASSERT(wah_word_enum_next(&en));
+    }
+
+    /* Since the next run is empty, expect to move on the literal */
+    Z_ASSERT_EQ((int)en.state, WAH_ENUM_LITERAL);
+    Z_ASSERT_EQ(en.pos, map->_buckets.tab[0].len);
+    Z_ASSERT_EQ(en.current, literal);
+    Z_ASSERT_EQ(en.remain_words, 1U);
+    Z_ASSERT(!wah_word_enum_next(&en));
+
+    /* Now move past the literal to reach the end of the WAH. */
+    Z_ASSERT_EQ((int)en.state, WAH_ENUM_END);
+    Z_ASSERT_EQ(en.pos, map->_buckets.tab[0].len);
+    Z_ASSERT_EQ(en.current, 0U);
+
+    Z_HELPER_END;
+}
+
+/* }}} */
+
 Z_GROUP_EXPORT(wah) {
     /* Have a smaller value of bits_in_bucket for tests to stress the buckets
      * code. */
@@ -720,6 +754,39 @@ Z_GROUP_EXPORT(wah) {
 
         wah_wipe(&map);
 #undef TEST_PAD32
+    } Z_TEST_END;
+
+    /* }}} */
+    Z_TEST(word_enum_non_reg) { /* {{{ */
+        wah_t map;
+
+        /* We will setup a WAH valid but sub-optimal, composed of 5 words (2
+         * runs) when it could be hold on 3 words (1 run):
+         *     { words: 3; bit: 0 }, { count: 0 },
+         *     { words: 0 }, { count: 1 }, { literal: 0x12345678 }
+         */
+        const uint32_t literal = 0x12345678;
+        const uint32_t data[] = { 0x3, 0x0, 0x0, 0x1, literal };
+        pstream_t ps = ps_init(data, countof(data) * sizeof(data[0]));
+
+        wah_init(&map);
+
+        /* First we test with the optimal version of the WAH. */
+        wah_add0s(&map, 3 * WAH_BIT_IN_WORD);
+        wah_add(&map, &literal, bitsizeof(literal));
+        Z_ASSERT_EQ(map._buckets.tab[0].len, 3);
+        Z_HELPER_RUN(z_wah_word_enum_no_reg_test(&map, literal));
+
+        /* Then we load the sub-optimal version of the same WAH. */
+        wah_wipe(&map);
+        Z_ASSERT_P(wah_init_from_data(&map, ps));
+
+        Z_ASSERT_EQ(map._buckets.len, 1);
+        Z_ASSERT_EQ(map._buckets.tab[0].len, 5);
+        Z_HELPER_RUN(z_wah_word_enum_no_reg_test(&map, literal));
+
+        wah_wipe(&map);
+
     } Z_TEST_END;
 
     /* }}} */
