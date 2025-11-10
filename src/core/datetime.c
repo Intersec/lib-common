@@ -658,7 +658,7 @@ const char *proctimer_report(proctimer_t *tp, const char *fmt)
                 elapsed = tp->elapsed_proc;
                 goto format_elapsed;
             format_elapsed:
-                snprintf(buf + pos, sizeof(buf) - pos, "%d.%03d",
+                snprintf(buf + pos, sizeof(buf) - pos, "%'d.%03d",
                          elapsed / 1000, elapsed % 1000);
                 pos += strlen(buf + pos);
                 continue;
@@ -698,7 +698,7 @@ const char *proctimerstat_report(proctimerstat_t *pts, const char *fmt)
         if (*p == '%') {
             switch (*++p) {
             case 'n':   /* nb samples */
-                snprintf(buf + pos, sizeof(buf) - pos, "%d", pts->nb);
+                snprintf(buf + pos, sizeof(buf) - pos, "%'d", pts->nb);
                 pos += strlen(buf + pos);
                 continue;
             case 'r':   /* real */
@@ -730,9 +730,9 @@ const char *proctimerstat_report(proctimerstat_t *pts, const char *fmt)
             format:
                 mean = tot / MAX(1, pts->nb);
                 snprintf(buf + pos, sizeof(buf) - pos,
-                         "min=%ld.%03ld%s "
-                         "max=%ld.%03ld%s "
-                         "mean=%ld.%03ld%s",
+                         "min=%'ld.%03ld%s "
+                         "max=%'ld.%03ld%s "
+                         "mean=%'ld.%03ld%s",
                          min / 1000, min % 1000, unit,
                          max / 1000, max % 1000, unit,
                          mean / 1000, mean % 1000, unit
