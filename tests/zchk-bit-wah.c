@@ -620,11 +620,11 @@ Z_GROUP_EXPORT(wah) {
         }
         wah_wipe(&map1);
 
-        /* Reload it with a lower value of bits_in_bucket; this will stress
-         * the code of wah_init_from_data. */
+        /* Reloading WAH with a lower value of bits_in_bucket is no more
+         * supported.
+         */
         wah_set_bits_in_bucket(4 * WAH_BIT_IN_WORD);
-        Z_ASSERT_P(wah_init_from_data(&map1, ps_initsb(&sb)));
-        CHECK_WAH(6, (4 * 5 + 1) * WAH_BIT_IN_WORD);
+        Z_ASSERT_NULL(wah_init_from_data(&map1, ps_initsb(&sb)));
         wah_wipe(&map1);
 
         wah_set_bits_in_bucket(Z_WAH_BITS_IN_BUCKETS);
