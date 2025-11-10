@@ -121,7 +121,7 @@ int str_replace(const char search, const char replace,
 
 ssize_t path_dirpart(char * nonnull dir, ssize_t size,
                      const char * nonnull filename)
-    __leaf;
+    __attr_leaf__;
 
 __attr_nonnull__()
     const char * nonnull path_filepart(const char * nonnull filename);
@@ -147,23 +147,24 @@ static inline char * nonnull vpath_ext(char * nonnull path)
 /*----- libgen like functions -----*/
 
 int path_dirname(char * nonnull buf, int len, const char * nonnull path)
-    __leaf;
+    __attr_leaf__;
 int path_basename(char * nonnull buf, int len, const char * nonnull path)
-    __leaf;
+    __attr_leaf__;
 
 /*----- path manipulations -----*/
 
 int path_join(char * nonnull buf, int len, const char * nonnull path)
-    __leaf;
-int path_simplify2(char * nonnull path, bool keep_trailing_slash) __leaf;
+    __attr_leaf__;
+int path_simplify2(char * nonnull path, bool keep_trailing_slash)
+    __attr_leaf__;
 #define path_simplify(path)   path_simplify2(path, false)
 int path_canonify(char * nonnull buf, int len, const char * nonnull path)
-    __leaf;
+    __attr_leaf__;
 char * nullable path_expand(char * nonnull buf, int len,
                             const char * nonnull path)
-    __leaf;
+    __attr_leaf__;
 
-bool path_is_safe(const char * nonnull path) __leaf;
+bool path_is_safe(const char * nonnull path) __attr_leaf__;
 
 #ifndef __cplusplus
 

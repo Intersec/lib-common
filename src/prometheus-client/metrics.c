@@ -141,7 +141,7 @@ int prom_metric_check_label_name(const char *name)
     return 0;
 }
 
-__attr_printf__(3, 4) __attr_noreturn__ __cold
+__attr_printf__(3, 4) __attr_noreturn__ __attr_cold__
 static void prom_metric_panic(prom_metric_t *self, const char *func,
                               const char *fmt, ...)
 {

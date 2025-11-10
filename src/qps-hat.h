@@ -241,10 +241,10 @@ typedef struct qhat_compacthdr_t {
 } qhat_compacthdr_t;
 
 qps_handle_t qhat_create(qps_t *qps, uint32_t value_len, bool is_nullable)
-    __leaf;
+    __attr_leaf__;
 void qhat_init(qhat_t *hat, qps_t *qps, qps_handle_t handle);
-void qhat_destroy(qhat_t *hat) __leaf;
-void qhat_clear(qhat_t *hat) __leaf;
+void qhat_destroy(qhat_t *hat) __attr_leaf__;
+void qhat_clear(qhat_t *hat) __attr_leaf__;
 
 /** \name Accessors
  * \{
@@ -443,7 +443,7 @@ bool qhat_is_null(qhat_t *hat, uint32_t key)
  * nodes. You can disable this computation by call this function again with
  * the enable flag set to false.
  */
-void qhat_compute_counts(qhat_t *hat, bool enable) __leaf;
+void qhat_compute_counts(qhat_t *hat, bool enable) __attr_leaf__;
 
 /** Get the memory consumption of the trie.
  *
@@ -485,15 +485,16 @@ typedef enum qhat_check_flags_t {
  * \return A negative value if a critical error is detected.
  */
 int qhat_check_consistency_flags(qhat_t *hat, int flags,
-                                 bool *nullable is_suboptimal) __leaf;
+                                 bool *nullable is_suboptimal) __attr_leaf__;
 
 /** Same as running \p qhat_check_consistency_flags with flag
  * \p QHAT_CHECK_CONTENT. */
-int qhat_check_consistency(qhat_t *hat, bool *nullable is_suboptimal) __leaf;
+int qhat_check_consistency(qhat_t *hat, bool *nullable is_suboptimal)
+    __attr_leaf__;
 
 /** Remove stored zeros from the trie.
  */
-void qhat_fix_stored0(qhat_t *hat) __leaf;
+void qhat_fix_stored0(qhat_t *hat) __attr_leaf__;
 
 /** \} */
 /* Enumeration API
@@ -628,15 +629,17 @@ typedef struct qhat_tree_enumerator_t {
     qhat_node_const_memory_t memory;
 } qhat_tree_enumerator_t;
 
-qhat_tree_enumerator_t qhat_get_tree_enumerator_at(qhat_t *hat,
-                                                   uint32_t key) __leaf;
-void qhat_tree_enumerator_refresh_path(qhat_tree_enumerator_t *en) __leaf;
+qhat_tree_enumerator_t
+qhat_get_tree_enumerator_at(qhat_t *hat, uint32_t key) __attr_leaf__;
+void qhat_tree_enumerator_refresh_path(qhat_tree_enumerator_t *en)
+    __attr_leaf__;
 void qhat_tree_enumerator_dispatch_up(qhat_tree_enumerator_t *en,
-                                      uint32_t key, uint32_t new_key) __leaf;
+                                      uint32_t key, uint32_t new_key)
+    __attr_leaf__;
 void qhat_tree_enumerator_find(qhat_tree_enumerator_t *en,
-                               uint32_t key) __leaf;
+                               uint32_t key) __attr_leaf__;
 void qhat_tree_enumerator_find_node(qhat_tree_enumerator_t *en,
-                                    uint32_t key) __leaf;
+                                    uint32_t key) __attr_leaf__;
 
 const void *
 qhat_tree_enumerator_get_value_unsafe(const qhat_tree_enumerator_t *en);
@@ -807,12 +810,12 @@ qhat_t *qhat_enumerator_get_hat(qhat_enumerator_t *en)
 
 #define QHAT_PRINT_VALUES  1U
 #define QHAT_PRINT_KEYS    2U
-__cold
+__attr_cold__
 void qhat_debug_print(qhat_t *hat, uint32_t flags);
-__cold
+__attr_cold__
 void qhat_debug_print_stream(qhat_t *hat, uint32_t flags, FILE *stream);
 
-void qhat_get_qps_roots(qhat_t *hat, qps_roots_t *roots) __leaf;
+void qhat_get_qps_roots(qhat_t *hat, qps_roots_t *roots) __attr_leaf__;
 
 /** \} */
 #endif

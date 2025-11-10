@@ -239,7 +239,7 @@ bool __mpsc_queue_drain_end(mpsc_it_t *it, void (*freenode)(mpsc_node_t *),
 
 /** \internal
  */
-static inline __cold
+static inline __attr_cold__
 bool mpsc_queue_pop_slow(mpsc_queue_t *q, mpsc_node_t *head, bool block)
 {
     mpsc_node_t *tail = atomic_load_explicit(&q->tail, memory_order_relaxed);

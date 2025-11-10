@@ -21,8 +21,8 @@
 
 /* work around a bug in early 4.6 gcc releases */
 #if __GNUC__ == 4 && __GNUC_MINOR__ == 6 && __GNUC_PATCHLEVEL__ <= 1
-# undef __flatten
-# define __flatten
+# undef __attr_flatten__
+# define __attr_flatten__
 #endif
 
 /*
@@ -356,7 +356,7 @@ int xmlr_node_skip_until(xml_reader_t xr, const char *s, int len)
 /* }}} */
 /* Reading values {{{ */
 
-__flatten
+__attr_flatten__
 int xmlr_get_cstr_start(xml_reader_t xr, bool emptyok, lstr_t *out)
 {
     const char *s = NULL;

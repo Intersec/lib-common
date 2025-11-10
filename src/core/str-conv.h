@@ -79,10 +79,10 @@ static inline int hexdecode(const char * nonnull str)
 /* XXX: dest will not be NUL terminated in strconv_hexdecode*/
 int strconv_hexdecode(void * nonnull dest, int size,
                       const char * nonnull src, int len)
-    __leaf;
+    __attr_leaf__;
 int strconv_hexencode(char * nonnull dest, int size,
                       const void * nonnull src, int len)
-    __leaf;
+    __attr_leaf__;
 
 /****************************************************************************/
 /* utf-8 and charset conversions                                            */
@@ -273,14 +273,16 @@ static inline const char * nonnull utf8_skip_valid(const char * nonnull s,
  * \param[in] strip trailing spaces are ignored for comparison.
  */
 int utf8_stricmp(const char * nonnull str1, int len1,
-                 const char * nonnull str2, int len2, bool strip) __leaf;
+                 const char * nonnull str2, int len2, bool strip)
+    __attr_leaf__;
 
 /** Return utf8 case-senstive collating comparison as -1, 0 or 1.
  *
  * \param[in] strip trailing spaces are ignored for comparison.
  */
 int utf8_strcmp(const char * nonnull str1, int len1,
-                const char * nonnull str2, int len2, bool strip) __leaf;
+                const char * nonnull str2, int len2, bool strip)
+    __attr_leaf__;
 
 /** Return whether \p str1 starts with \p str2 utf8 case-insensitive way.
  */

@@ -215,11 +215,12 @@ typedef struct logger_t {
 logger_t * nonnull logger_init(logger_t * nonnull logger,
                                logger_t *nullable parent,
                                lstr_t name, int default_level,
-                               unsigned level_flags) __leaf;
+                               unsigned level_flags) __attr_leaf__;
 logger_t * nonnull logger_new(logger_t *nullable parent, lstr_t name,
-                              int default_level, unsigned level_flags) __leaf;
+                              int default_level, unsigned level_flags)
+    __attr_leaf__;
 
-void logger_wipe(logger_t * nonnull logger) __leaf;
+void logger_wipe(logger_t * nonnull logger) __attr_leaf__;
 GENERIC_DELETE(logger_t, logger)
 
 /* }}} */
@@ -230,7 +231,7 @@ void log_spin_unlock(void);
 
 logger_t * nonnull logger_get_root(void);
 logger_t * nullable logger_get_by_name(lstr_t name);
-void __logger_refresh(logger_t * nonnull logger) __leaf __cold;
+void __logger_refresh(logger_t * nonnull logger) __attr_leaf__ __attr_cold__;
 void __logger_do_refresh(logger_t * nonnull logger);
 
 static ALWAYS_INLINE
@@ -254,7 +255,7 @@ bool logger_has_level(logger_t * nonnull logger, int level)
     return logger_get_level(logger) >= level;
 }
 
-static ALWAYS_INLINE __cold
+static ALWAYS_INLINE __attr_cold__
 void __logger_cold(void)
 {
     /* This function is just a marker for error cases */
@@ -343,16 +344,16 @@ int __logger_log(logger_t * nonnull logger, int level,
                  const char * nonnull file, const char * nonnull func,
                  int line, const char * nonnull fmt, ...);
 
-__attr_printf__(5, 0) __attr_noreturn__ __cold
+__attr_printf__(5, 0) __attr_noreturn__ __attr_cold__
 void __logger_vpanic(logger_t * nonnull logger, const char * nonnull file,
                      const char * nonnull func, int line,
                      const char * nonnull fmt, va_list va);
-__attr_printf__(5, 6) __attr_noreturn__ __cold
+__attr_printf__(5, 6) __attr_noreturn__ __attr_cold__
 void __logger_panic(logger_t * nonnull logger, const char * nonnull file,
                     const char * nonnull func, int line,
                     const char * nonnull fmt, ...);
 
-__attr_noreturn__ __cold
+__attr_noreturn__ __attr_cold__
 static inline void __logger_panics(logger_t * nonnull logger,
                                    const char * nonnull file,
                                    const char * nonnull func, int line,
@@ -362,16 +363,16 @@ static inline void __logger_panics(logger_t * nonnull logger,
 }
 
 
-__attr_printf__(5, 0) __attr_noreturn__ __cold
+__attr_printf__(5, 0) __attr_noreturn__ __attr_cold__
 void __logger_vfatal(logger_t * nonnull logger, const char * nonnull file,
                      const char * nonnull func, int line,
                      const char * nonnull fmt, va_list va);
-__attr_printf__(5, 6) __attr_noreturn__ __cold
+__attr_printf__(5, 6) __attr_noreturn__ __attr_cold__
 void __logger_fatal(logger_t * nonnull logger, const char * nonnull file,
                     const char * nonnull func, int line,
                     const char * nonnull fmt, ...);
 
-__attr_noreturn__ __cold
+__attr_noreturn__ __attr_cold__
 static inline void __logger_fatals(logger_t * nonnull logger,
                                    const char * nonnull file,
                                    const char * nonnull func, int line,
@@ -381,16 +382,16 @@ static inline void __logger_fatals(logger_t * nonnull logger,
 }
 
 
-__attr_printf__(5, 0) __attr_noreturn__ __cold
+__attr_printf__(5, 0) __attr_noreturn__ __attr_cold__
 void __logger_vexit(logger_t * nonnull logger, const char * nonnull file,
                     const char * nonnull func, int line,
                     const char * nonnull fmt, va_list va);
-__attr_printf__(5, 6) __attr_noreturn__ __cold
+__attr_printf__(5, 6) __attr_noreturn__ __attr_cold__
 void __logger_exit(logger_t * nonnull logger, const char * nonnull file,
                    const char * nonnull func, int line,
                    const char * nonnull fmt, ...);
 
-__attr_noreturn__ __cold
+__attr_noreturn__ __attr_cold__
 static inline void __logger_exits(logger_t * nonnull logger,
                                   const char * nonnull file,
                                   const char * nonnull func, int line,
@@ -481,10 +482,10 @@ void __logger_vcont(const char * nonnull fmt, va_list va);
 
 void __logger_end(void);
 
-__attr_noreturn__ __cold
+__attr_noreturn__ __attr_cold__
 void __logger_end_fatal(void);
 
-__attr_noreturn__ __cold
+__attr_noreturn__ __attr_cold__
 void __logger_end_panic(void);
 
 
@@ -645,14 +646,14 @@ static inline void _logger_end_panic(logger_t * nonnull * nonnull logger)
  *                   level to all children with no forced level).
  * \return The previous level.
  */
-int logger_set_level(lstr_t name, int level, unsigned flags) __leaf;
+int logger_set_level(lstr_t name, int level, unsigned flags) __attr_leaf__;
 
 /** Reset the maximum logging level of \p logger to its default level.
  *
  * \param[in] name  The full name of the logger that should be updated
  * \return The previous level.
  */
-int logger_reset_level(lstr_t name) __leaf;
+int logger_reset_level(lstr_t name) __attr_leaf__;
 
 /* }}} */
 /* Handlers {{{ */

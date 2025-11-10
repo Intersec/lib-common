@@ -218,13 +218,13 @@ static ssize_t decompress(void *_out, size_t outlen, pstream_t in, bool safe)
 #undef SAFE_CHECK_LEN
 }
 
-__flatten
+__attr_flatten__
 ssize_t qlzo1x_decompress(void *out, size_t outlen, pstream_t in)
 {
     return decompress(out, outlen, in, false);
 }
 
-__flatten
+__attr_flatten__
 ssize_t qlzo1x_decompress_safe(void *out, size_t outlen, pstream_t in)
 {
     return decompress(out, outlen, in, true);

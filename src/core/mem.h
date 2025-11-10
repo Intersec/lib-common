@@ -124,7 +124,7 @@ static inline void * nonnull mempcpyz(void * nonnull restrict dst,
  */
 size_t pstrcpymem(char * nonnull restrict dest, ssize_t size,
                   const void * nonnull restrict src, size_t n)
-    __leaf;
+    __attr_leaf__;
 
 /** Copies the string pointed to by <code>src</code> to the buffer
  * <code>dest</code> of <code>size</code> bytes.
@@ -480,11 +480,11 @@ mp_strdup(mem_pool_t * nullable mp, const char * nonnull src)
 
 char * nonnull mp_fmt(mem_pool_t * nullable mp, int * nullable lenp,
                       const char * nonnull fmt, ...)
-    __leaf __attr_printf__(3, 4);
+    __attr_leaf__ __attr_printf__(3, 4);
 
 char * nonnull mp_vfmt(mem_pool_t * nullable mp, int * nullable lenp,
                        const char * nonnull fmt, va_list va)
-    __leaf __attr_printf__(3, 0);
+    __attr_leaf__ __attr_printf__(3, 0);
 
 /* Generic Helpers */
 
@@ -711,12 +711,12 @@ void core_mem_malloc_trim(void);
 
 mem_pool_t * nonnull mem_fifo_pool_new(const char * nonnull name,
                                        int page_size_hint)
-    __leaf __attribute__((malloc));
+    __attr_leaf__ __attribute__((malloc));
 void mem_fifo_pool_delete(mem_pool_t * nullable * nonnull poolp)
-    __leaf;
+    __attr_leaf__;
 void mem_fifo_pool_stats(mem_pool_t * nonnull mp, ssize_t * nonnull allocated,
                          ssize_t * nonnull used)
-    __leaf;
+    __attr_leaf__;
 
 void mem_fifo_pool_print_stats(mem_pool_t * nonnull mp);
 void mem_fifo_pools_print_stats(void);
@@ -743,7 +743,7 @@ mem_pool_t * nonnull mem_ring_new_flags(const char * nonnull name,
 mem_pool_t * nonnull mem_ring_new(const char * nonnull name, int initialsize);
 
 /** Delete the given memory ring-pool */
-void mem_ring_delete(mem_pool_t * nullable * nonnull) __leaf;
+void mem_ring_delete(mem_pool_t * nullable * nonnull) __attr_leaf__;
 
 /** Force clean the ring pool from empty memory blocks.
  *
@@ -759,7 +759,7 @@ void mem_ring_delete(mem_pool_t * nullable * nonnull) __leaf;
  * releases, using this function to force it means that you have a clear
  * understanding of what you are doing.
  */
-void mem_ring_reset(mem_pool_t * nonnull) __leaf;
+void mem_ring_reset(mem_pool_t * nonnull) __attr_leaf__;
 
 /** Create a new frame of memory in the ring.
  *
@@ -769,10 +769,10 @@ void mem_ring_reset(mem_pool_t * nonnull) __leaf;
  *
  * \return Frame cookie (needed to release the frame later).
  */
-const void * nonnull mem_ring_newframe(mem_pool_t * nonnull) __leaf;
+const void * nonnull mem_ring_newframe(mem_pool_t * nonnull) __attr_leaf__;
 
 /** Get the active frame cookie. */
-const void * nonnull mem_ring_getframe(mem_pool_t * nonnull) __leaf;
+const void * nonnull mem_ring_getframe(mem_pool_t * nonnull) __attr_leaf__;
 
 /** Seal the active frame.
  *
@@ -782,21 +782,21 @@ const void * nonnull mem_ring_getframe(mem_pool_t * nonnull) __leaf;
  *
  * \return Frame cookie (needed to release the frame later).
  */
-const void * nonnull mem_ring_seal(mem_pool_t * nonnull) __leaf;
+const void * nonnull mem_ring_seal(mem_pool_t * nonnull) __attr_leaf__;
 
 /** Release the frame identified by the given cookie.
  *
  * This function will free an existing frame using the given cookie. Be
  * careful that the cookie will be invalidated after the frame release.
  */
-void mem_ring_release(const void * nonnull cookie) __leaf;
+void mem_ring_release(const void * nonnull cookie) __attr_leaf__;
 
 /** Seal the ring-pool and return a checkpoint.
  *
  * The returned check point will allow you to restore later the ring-pool at
  * this current state.
  */
-const void * nonnull mem_ring_checkpoint(mem_pool_t * nonnull) __leaf;
+const void * nonnull mem_ring_checkpoint(mem_pool_t * nonnull) __attr_leaf__;
 
 
 /** Rewind the ring-pool at a given checkpoint.
@@ -810,19 +810,20 @@ const void * nonnull mem_ring_checkpoint(mem_pool_t * nonnull) __leaf;
  *
  * The checkpoint cannot be reused after this call.
  */
-void mem_ring_rewind(mem_pool_t * nonnull, const void * nonnull ckpoint) __leaf;
+void mem_ring_rewind(mem_pool_t * nonnull, const void * nonnull ckpoint)
+    __attr_leaf__;
 
 /** Dump the ring structure on stdout (debug) */
-void mem_ring_dump(const mem_pool_t * nonnull) __leaf;
+void mem_ring_dump(const mem_pool_t * nonnull) __attr_leaf__;
 
 /** Get the malloc'd size of the memory pool. */
-size_t mem_ring_memory_footprint(const mem_pool_t * nonnull) __leaf;
+size_t mem_ring_memory_footprint(const mem_pool_t * nonnull) __attr_leaf__;
 
 /** Just like the t_pool() we have the corresponding r_pool() */
-mem_pool_t * nonnull r_pool(void) __leaf;
+mem_pool_t * nonnull r_pool(void) __attr_leaf__;
 
 /** Destroy the r_pool() */
-void r_pool_destroy(void) __leaf;
+void r_pool_destroy(void) __attr_leaf__;
 
 #define r_newframe()                mem_ring_newframe(r_pool())
 #define r_seal()                    mem_ring_seal(r_pool())
@@ -1031,7 +1032,7 @@ enum mem_tool {
  *
  * \return True if any of the listed memory tool is running.
  */
-__leaf __attribute__((const))
+__attr_leaf__ __attribute__((const))
 bool mem_tool_is_running(unsigned tools);
 
 /** Mark a memory block as addressable, defined or undefined.
@@ -1042,7 +1043,7 @@ bool mem_tool_is_running(unsigned tools);
  *                     undefined.
  *                     This parameter makes sense only with Valgrind.
  */
-__leaf
+__attr_leaf__
 void mem_tool_allow_memory(const void *nonnull mem, size_t len, bool defined);
 
 /** Mark memory block as defined only for the already addressable parts.
@@ -1055,7 +1056,7 @@ void mem_tool_allow_memory(const void *nonnull mem, size_t len, bool defined);
  * \param[in] mem  Memory block address.
  * \param[in] len  Size of the memory block.
  */
-__leaf
+__attr_leaf__
 void mem_tool_define_memory_if_addressable(const void *nonnull mem,
                                            size_t len);
 
@@ -1067,7 +1068,7 @@ void mem_tool_define_memory_if_addressable(const void *nonnull mem,
  * \param[in] mem  Memory block address.
  * \param[in] len  Size of the memory block.
  */
-__leaf
+__attr_leaf__
 void mem_tool_disallow_memory(const void *nonnull mem, size_t len);
 
 
@@ -1084,7 +1085,7 @@ void mem_tool_disallow_memory(const void *nonnull mem, size_t len);
  *                     undefined.
  *                     This parameter makes sense only with Valgrind.
  */
-__leaf
+__attr_leaf__
 void mem_tool_malloclike(const void *nonnull mem, size_t len, size_t rz,
                          bool defined);
 
@@ -1098,7 +1099,7 @@ void mem_tool_malloclike(const void *nonnull mem, size_t len, size_t rz,
  * \param[in] rz       The size of the red zones added around the memory block
  *                     (see <valgrind.h> for more details).
  */
-__leaf
+__attr_leaf__
 void mem_tool_freelike(const void *nullable mem, size_t len, size_t rz);
 
 /** Indicate the resizing of a memory block previously allocated by a
@@ -1137,7 +1138,7 @@ void mem_tool_freelike(const void *nullable mem, size_t len, size_t rz);
  *                     undefined.
  *                     This parameter makes sense only with Valgrind.
  */
-__leaf
+__attr_leaf__
 void mem_tool_resize_block(const void *nullable mem, size_t old_len,
                            size_t new_len, size_t rz);
 

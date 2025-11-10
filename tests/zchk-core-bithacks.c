@@ -159,10 +159,10 @@ Z_GROUP_EXPORT(bit_reverse) {
 /* {{{ membitcount */
 
 #ifdef __HAS_CPUID
-#pragma push_macro("__leaf")
-#undef __leaf
+#pragma push_macro("__attr_leaf__")
+#undef __attr_leaf__
 #include <cpuid.h>
-#pragma pop_macro("__leaf")
+#pragma pop_macro("__attr_leaf__")
 #endif
 
 static size_t membitcount_naive(const void *_p, size_t n)

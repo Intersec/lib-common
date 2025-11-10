@@ -23,10 +23,10 @@
 
 /* GCC before 4.4 only supports SSE2 and has no x86intrin.h */
 #if defined(__clang__) || __GNUC_PREREQ(4, 4)
-#   pragma push_macro("__leaf")
-#   undef __leaf
+#   pragma push_macro("__attr_leaf__")
+#   undef __attr_leaf__
 #   include <x86intrin.h>
-#   pragma pop_macro("__leaf")
+#   pragma pop_macro("__attr_leaf__")
 #else
 #   include <emmintrin.h>
 #endif
@@ -243,10 +243,10 @@ static size_t count_non_zero64_naive(const uint64_t u64[], size_t n)
 }
 
 #ifdef __HAS_CPUID
-#pragma push_macro("__leaf")
-#undef __leaf
+#pragma push_macro("__attr_leaf__")
+#undef __attr_leaf__
 #include <cpuid.h>
-#pragma pop_macro("__leaf")
+#pragma pop_macro("__attr_leaf__")
 
 #if defined(__clang__) && !defined(__builtin_ia32_pcmpeqq)
 #   define __builtin_ia32_pcmpeqq(a, b)  _mm_cmpeq_epi64(a, b)

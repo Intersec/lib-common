@@ -282,7 +282,7 @@ void module_run_method(const module_method_t * nonnull method, data_t arg);
 /* {{{ Low-level API */
 
 /** Register a new module. */
-__leaf module_t * nonnull module_register(lstr_t name);
+__attr_leaf__ module_t * nonnull module_register(lstr_t name);
 
 /** Implement a module.
  *
@@ -293,7 +293,7 @@ __leaf module_t * nonnull module_register(lstr_t name);
  *
  *  \return the newly registered module in case of success.
  */
-__leaf
+__attr_leaf__
 module_t * nullable
 module_implement(module_t * nonnull module,
                  int (*nonnull constructor)(void * nullable),

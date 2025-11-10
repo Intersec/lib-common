@@ -228,7 +228,7 @@ static void *rp_reserve(ring_pool_t *rp, size_t size, ring_blk_t **blkp)
     return res;
 }
 
-__flatten
+__attr_flatten__
 static void *rp_alloc(mem_pool_t *_rp, size_t size, size_t alignment,
                       mem_flags_t flags)
 {

@@ -64,7 +64,7 @@ static ALWAYS_INLINE mem_stack_blk_t *blk_entry(dlist_t *l)
     return container_of(l, mem_stack_blk_t, blk_list);
 }
 
-__cold
+__attr_cold__
 static mem_stack_blk_t *blk_create(mem_stack_pool_t *sp,
                                    mem_stack_blk_t *cur, size_t size_hint)
 {
@@ -95,7 +95,7 @@ static mem_stack_blk_t *blk_create(mem_stack_pool_t *sp,
     return blk;
 }
 
-__cold
+__attr_cold__
 static void blk_destroy(mem_stack_pool_t *sp, mem_stack_blk_t *blk)
 {
 #ifdef MEM_BENCH
@@ -220,7 +220,7 @@ static void *sp_reserve(mem_stack_pool_t *sp, size_t asked, size_t alignment,
     return res;
 }
 
-__flatten
+__attr_flatten__
 static void *sp_alloc(mem_pool_t *_sp, size_t size, size_t alignment,
                       mem_flags_t flags)
 {

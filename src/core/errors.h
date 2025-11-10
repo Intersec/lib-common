@@ -35,25 +35,25 @@ typedef int (error_f)(const char * nonnull, ...)
 
 /* These functions are meant to correspond to the syslog levels.  */
 int e_fatal(const char * nonnull, ...)
-    __leaf __attr_noreturn__ __cold __attr_printf__(1, 2);
+    __attr_leaf__ __attr_noreturn__ __attr_cold__ __attr_printf__(1, 2);
 int e_panic(const char * nonnull, ...)
-    __leaf __attr_noreturn__ __cold __attr_printf__(1, 2);
+    __attr_leaf__ __attr_noreturn__ __attr_cold__ __attr_printf__(1, 2);
 int e_error(const char * nonnull, ...)
-    __leaf __cold __attr_printf__(1, 2);
+    __attr_leaf__ __attr_cold__ __attr_printf__(1, 2);
 int e_warning(const char * nonnull, ...)
-    __leaf __cold __attr_printf__(1, 2);
+    __attr_leaf__ __attr_cold__ __attr_printf__(1, 2);
 int e_notice(const char * nonnull, ...)
-    __leaf __attr_printf__(1, 2);
+    __attr_leaf__ __attr_printf__(1, 2);
 int e_info(const char * nonnull, ...)
-    __leaf __attr_printf__(1, 2);
+    __attr_leaf__ __attr_printf__(1, 2);
 int e_debug(const char * nonnull, ...)
-    __leaf __attr_printf__(1, 2);
+    __attr_leaf__ __attr_printf__(1, 2);
 
 int e_log(int priority, const char * nonnull fmt, ...)
-    __leaf __attribute__((format(printf, 2, 3)));
+    __attr_leaf__ __attribute__((format(printf, 2, 3)));
 
-void e_init_stderr(void) __leaf;
-void e_set_handler(e_handler_f * nonnull handler) __leaf;
+void e_init_stderr(void) __attr_leaf__;
+void e_set_handler(e_handler_f * nonnull handler) __attr_leaf__;
 
 /** This macro provides assertions that remain activated in production builds.
  *
@@ -116,12 +116,12 @@ static ALWAYS_INLINE void assert_ignore(bool cond) { }
 
 #else
 
-void e_set_verbosity(int max_debug_level) __leaf;
-void e_incr_verbosity(void) __leaf;
+void e_set_verbosity(int max_debug_level) __attr_leaf__;
+void e_incr_verbosity(void) __attr_leaf__;
 
 int  e_is_traced_(int level, const char * nonnull fname,
                   const char * nonnull func, const char * nullable name)
-    __leaf;
+    __attr_leaf__;
 
 #define e_name_is_traced(lvl, name) \
     ({                                                                       \
@@ -144,7 +144,7 @@ int  e_is_traced_(int level, const char * nonnull fname,
 void e_trace_put_(int lvl, const char * nonnull fname, int lno,
                   const char * nonnull func, const char * nullable name,
                   const char * nonnull fmt, ...)
-                  __leaf __attr_printf__(6, 7) __cold;
+                  __attr_leaf__ __attr_printf__(6, 7) __attr_cold__;
 
 #define e_named_trace_start(lvl, name, fmt, ...) \
     do {                                                                     \

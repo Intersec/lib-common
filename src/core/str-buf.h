@@ -173,12 +173,12 @@ static inline sb_t * nonnull r_sb_init(sb_t * nonnull sb, int size)
     return mp_sb_init(r_pool(), sb, size);
 }
 
-void sb_reset(sb_t * nonnull sb) __leaf;
+void sb_reset(sb_t * nonnull sb) __attr_leaf__;
 
 /** Resets the buffer but keeps the allocated memory, however big it is. */
-void sb_reset_keep_mem(sb_t * nonnull sb) __leaf;
+void sb_reset_keep_mem(sb_t * nonnull sb) __attr_leaf__;
 
-void sb_wipe(sb_t * nonnull sb) __leaf;
+void sb_wipe(sb_t * nonnull sb) __attr_leaf__;
 
 GENERIC_NEW(sb_t, sb);
 GENERIC_DELETE(sb_t, sb);
@@ -216,7 +216,7 @@ static inline int sb_cmp(const sb_t * nonnull sb1, const sb_t * nonnull sb2)
 
 int sb_search(const sb_t * nonnull sb, int pos,
               const void * nonnull what, int wlen)
-    __leaf;
+    __attr_leaf__;
 
 
 /**************************************************************************/
@@ -233,11 +233,13 @@ static inline int sb_avail(const sb_t * nonnull sb)
     return sb->size - sb->len - 1;
 }
 
-char * nonnull sb_detach(sb_t * nonnull sb, int * nullable len) __leaf;
+char * nonnull sb_detach(sb_t * nonnull sb, int * nullable len)
+    __attr_leaf__;
 
-int  __sb_rewind_adds(sb_t * nonnull sb, const sb_t * nonnull orig) __leaf;
-void __sb_grow(sb_t * nonnull sb, int extra) __leaf;
-void __sb_optimize(sb_t * nonnull sb, size_t len) __leaf;
+int  __sb_rewind_adds(sb_t * nonnull sb, const sb_t * nonnull orig)
+    __attr_leaf__;
+void __sb_grow(sb_t * nonnull sb, int extra) __attr_leaf__;
+void __sb_optimize(sb_t * nonnull sb, size_t len) __attr_leaf__;
 static inline void __sb_fixlen(sb_t * nonnull sb, int len)
 {
     sb->len = len;
@@ -494,9 +496,9 @@ static inline void sb_trim(sb_t * nonnull sb)
 }
 
 int sb_addvf(sb_t * nonnull sb, const char * nonnull fmt, va_list ap)
-    __leaf __attr_printf__(2, 0);
+    __attr_leaf__ __attr_printf__(2, 0);
 int sb_addf(sb_t * nonnull sb, const char * nonnull fmt, ...)
-    __leaf __attr_printf__(2, 3);
+    __attr_leaf__ __attr_printf__(2, 3);
 
 /** Reset and optimize a string buffer for sb_prepend().
  *
@@ -517,9 +519,9 @@ static inline void sb_reset_reverse(sb_t * nonnull sb)
 }
 
 int sb_prependvf(sb_t * nonnull sb, const char * nonnull fmt, va_list ap)
-    __leaf __attr_printf__(2, 0);
+    __attr_leaf__ __attr_printf__(2, 0);
 int sb_prependf(sb_t * nonnull sb, const char * nonnull fmt, ...)
-    __leaf __attr_printf__(2, 3);
+    __attr_leaf__ __attr_printf__(2, 3);
 
 /** Appends content to a string buffer, filtering out characters that are not
  *  part of a given character set.
@@ -712,9 +714,9 @@ struct sockaddr;
  *   0 if at EOF
  *   >0 the number of octets read
  */
-int sb_getline(sb_t * nonnull sb, FILE * nonnull f) __leaf;
+int sb_getline(sb_t * nonnull sb, FILE * nonnull f) __attr_leaf__;
 int sb_fread(sb_t * nonnull sb, int size, int nmemb,
-             FILE * nonnull f) __leaf;
+             FILE * nonnull f) __attr_leaf__;
 
 /* Read a whole file using a file descriptor.
  *
@@ -726,19 +728,20 @@ int sb_fread(sb_t * nonnull sb, int size, int nmemb,
  * Return the number of bytes appended to the sb, negative value indicates an
  * error.
  */
-int sb_read_fd(sb_t * nonnull sb, int fd) __leaf;
+int sb_read_fd(sb_t * nonnull sb, int fd) __attr_leaf__;
 
-int sb_read_file(sb_t * nonnull sb, const char * nonnull filename) __leaf;
+int sb_read_file(sb_t * nonnull sb, const char * nonnull filename)
+    __attr_leaf__;
 int sb_write_file(const sb_t * nonnull sb,
-                  const char * nonnull filename) __leaf;
+                  const char * nonnull filename) __attr_leaf__;
 int sb_append_to_file(const sb_t * nonnull sb,
-                      const char * nonnull filename) __leaf;
+                      const char * nonnull filename) __attr_leaf__;
 
-int sb_read(sb_t * nonnull sb, int fd, int hint) __leaf;
-int sb_recv(sb_t * nonnull sb, int fd, int hint, int flags) __leaf;
+int sb_read(sb_t * nonnull sb, int fd, int hint) __attr_leaf__;
+int sb_recv(sb_t * nonnull sb, int fd, int hint, int flags) __attr_leaf__;
 int sb_recvfrom(sb_t * nonnull sb, int fd, int hint, int flags,
                 struct sockaddr * nullable addr, socklen_t * nullable alen)
-    __leaf;
+    __attr_leaf__;
 
 
 /**************************************************************************/
@@ -747,7 +750,7 @@ int sb_recvfrom(sb_t * nonnull sb, int fd, int hint, int flags,
 
 void sb_add_slashes(sb_t * nonnull sb, const void * nonnull data, int len,
                     const char * nonnull toesc,
-                    const char * nonnull esc) __leaf;
+                    const char * nonnull esc) __attr_leaf__;
 static inline void
 sb_adds_slashes(sb_t * nonnull sb, const char * nonnull s,
                 const char * nonnull toesc, const char * nonnull esc)
@@ -756,7 +759,7 @@ sb_adds_slashes(sb_t * nonnull sb, const char * nonnull s,
 }
 void sb_add_unslashes(sb_t * nonnull sb, const void * nonnull data, int len,
                       const char * nonnull tounesc,
-                      const char * nonnull unesc) __leaf;
+                      const char * nonnull unesc) __attr_leaf__;
 static inline void
 sb_adds_unslashes(sb_t * nonnull sb, const char * nonnull s,
                   const char * nonnull tounesc, const char * nonnull unesc)
@@ -772,47 +775,54 @@ sb_adds_unslashes(sb_t * nonnull sb, const char * nonnull s,
  * or <code>\</code> must be escaped using backslashes.
  */
 int sb_add_expandenv(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-int sb_adds_expandenv(sb_t * nonnull sb, const char * nonnull s) __leaf;
-int sb_add_lstr_expandenv(sb_t * nonnull sb, lstr_t s) __leaf;
+    __attr_leaf__;
+int sb_adds_expandenv(sb_t * nonnull sb, const char * nonnull s)
+    __attr_leaf__;
+int sb_add_lstr_expandenv(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
 void sb_add_unquoted(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-void sb_adds_unquoted(sb_t * nonnull sb, const char * nonnull s) __leaf;
-void sb_add_lstr_unquoted(sb_t * nonnull sb, lstr_t s) __leaf;
+    __attr_leaf__;
+void sb_adds_unquoted(sb_t * nonnull sb, const char * nonnull s)
+    __attr_leaf__;
+void sb_add_lstr_unquoted(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
 void sb_add_urlencode(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-void sb_adds_urlencode(sb_t * nonnull sb, const char * nonnull s) __leaf;
-void sb_add_lstr_urlencode(sb_t * nonnull sb, lstr_t s) __leaf;
+    __attr_leaf__;
+void sb_adds_urlencode(sb_t * nonnull sb, const char * nonnull s)
+    __attr_leaf__;
+void sb_add_lstr_urlencode(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
 void sb_add_urldecode(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-void sb_adds_urldecode(sb_t * nonnull sb, const char * nonnull s) __leaf;
-void sb_add_lstr_urldecode(sb_t * nonnull sb, lstr_t s) __leaf;
+    __attr_leaf__;
+void sb_adds_urldecode(sb_t * nonnull sb, const char * nonnull s)
+    __attr_leaf__;
+void sb_add_lstr_urldecode(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
-void sb_urldecode(sb_t * nonnull sb) __leaf;
+void sb_urldecode(sb_t * nonnull sb) __attr_leaf__;
 
-void sb_add_hex(sb_t * nonnull sb, const void * nonnull data, int len) __leaf;
-void sb_adds_hex(sb_t * nonnull sb, const char * nonnull s) __leaf;
-void sb_add_lstr_hex(sb_t * nonnull sb, lstr_t s) __leaf;
+void sb_add_hex(sb_t * nonnull sb, const void * nonnull data, int len)
+    __attr_leaf__;
+void sb_adds_hex(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
+void sb_add_lstr_hex(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
 int sb_add_unhex(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-int sb_adds_unhex(sb_t * nonnull sb, const char * nonnull s) __leaf;
-int sb_add_lstr_unhex(sb_t * nonnull sb, lstr_t s) __leaf;
+    __attr_leaf__;
+int sb_adds_unhex(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
+int sb_add_lstr_unhex(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
 /* this all assumes utf8 data ! */
 void sb_add_xmlescape(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-void sb_adds_xmlescape(sb_t * nonnull sb, const char * nonnull s) __leaf;
-void sb_add_lstr_xmlescape(sb_t * nonnull sb, lstr_t s) __leaf;
+    __attr_leaf__;
+void sb_adds_xmlescape(sb_t * nonnull sb, const char * nonnull s)
+    __attr_leaf__;
+void sb_add_lstr_xmlescape(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
 /* FIXME This function has no dedicated unit test at all ! */
 int sb_add_xmlunescape(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-int sb_adds_xmlunescape(sb_t * nonnull sb, const char * nonnull s) __leaf;
-int sb_add_lstr_xmlunescape(sb_t * nonnull sb, lstr_t s) __leaf;
+    __attr_leaf__;
+int sb_adds_xmlunescape(sb_t * nonnull sb, const char * nonnull s)
+    __attr_leaf__;
+int sb_add_lstr_xmlunescape(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
 /* FIXME This function has no dedicated unit test at all ! */
 
@@ -820,9 +830,10 @@ int sb_add_lstr_xmlunescape(sb_t * nonnull sb, lstr_t s) __leaf;
  *
  * \note "qpe" is for Quoted-Printable Escaping.
  */
-void sb_add_qpe(sb_t * nonnull sb, const void * nonnull data, int len) __leaf;
-void sb_adds_qpe(sb_t * nonnull sb, const char * nonnull s) __leaf;
-void sb_add_lstr_qpe(sb_t * nonnull sb, lstr_t s) __leaf;
+void sb_add_qpe(sb_t * nonnull sb, const void * nonnull data, int len)
+    __attr_leaf__;
+void sb_adds_qpe(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
+void sb_add_lstr_qpe(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
 /* FIXME This function has no dedicated unit test at all ! */
 /** Decode "Quoted-Printable" data.
@@ -830,9 +841,9 @@ void sb_add_lstr_qpe(sb_t * nonnull sb, lstr_t s) __leaf;
  * \note "qpe" is for Quoted-Printable Escaping.
  */
 void sb_add_unqpe(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-void sb_adds_unqpe(sb_t * nonnull sb, const char * nonnull s) __leaf;
-void sb_add_lstr_unqpe(sb_t * nonnull sb, lstr_t s) __leaf;
+    __attr_leaf__;
+void sb_adds_unqpe(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
+void sb_add_lstr_unqpe(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
 typedef struct sb_b64_ctx_t {
     short packs_per_line;
@@ -851,7 +862,7 @@ typedef struct sb_b64_ctx_t {
  * \param[out]  ctx  encoding context (may be uninitialized).
  */
 void sb_add_b64_start(sb_t * nonnull sb, int len, int width,
-                      sb_b64_ctx_t * nonnull ctx) __leaf;
+                      sb_b64_ctx_t * nonnull ctx) __attr_leaf__;
 
 /** Next base 64 encoding step.
  *
@@ -861,7 +872,7 @@ void sb_add_b64_start(sb_t * nonnull sb, int len, int width,
  * \param[in|out]  ctx  encoding context.
  */
 void sb_add_b64_update(sb_t * nonnull sb, const void * nonnull src0, int len,
-                       sb_b64_ctx_t * nonnull ctx) __leaf;
+                       sb_b64_ctx_t * nonnull ctx) __attr_leaf__;
 
 /** Terminates a multiple step base 64 encoding.
  *
@@ -869,7 +880,7 @@ void sb_add_b64_update(sb_t * nonnull sb, const void * nonnull src0, int len,
  * \param[in]  ctx  encoding context.
  */
 void sb_add_b64_finish(sb_t * nonnull sb, sb_b64_ctx_t * nonnull ctx)
-    __leaf;
+    __attr_leaf__;
 
 /** Encode data to base64.
  *
@@ -881,7 +892,7 @@ void sb_add_b64_finish(sb_t * nonnull sb, sb_b64_ctx_t * nonnull ctx)
  *                     for unlimited line length.
  */
 void sb_add_b64(sb_t * nonnull sb, const void * nonnull data,
-                int len, int width) __leaf;
+                int len, int width) __attr_leaf__;
 
 void sb_adds_b64(sb_t * nonnull sb, const char * nonnull s, int width);
 void sb_add_lstr_b64(sb_t * nonnull sb, lstr_t data, int width);
@@ -894,9 +905,9 @@ void sb_add_lstr_b64(sb_t * nonnull sb, lstr_t data, int width);
  * \return 0 on success, -1 on error. The sb is unchanged on error.
  */
 int sb_add_unb64(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-int sb_adds_unb64(sb_t * nonnull sb, const char * nonnull s) __leaf;
-int sb_add_lstr_unb64(sb_t * nonnull sb, lstr_t s) __leaf;
+    __attr_leaf__;
+int sb_adds_unb64(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
+int sb_add_lstr_unb64(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 
 /** base64url encoder/decoder.
  *
@@ -908,19 +919,19 @@ int sb_add_lstr_unb64(sb_t * nonnull sb, lstr_t s) __leaf;
 #define sb_add_b64url_start  sb_add_b64_start
 
 void sb_add_b64url_update(sb_t * nonnull sb, const void * nonnull src0,
-                          int len, sb_b64_ctx_t * nonnull ctx) __leaf;
+                          int len, sb_b64_ctx_t * nonnull ctx) __attr_leaf__;
 void sb_add_b64url_finish(sb_t * nonnull sb, sb_b64_ctx_t * nonnull ctx)
-    __leaf;
+    __attr_leaf__;
 
 void sb_add_b64url(sb_t * nonnull sb, const void * nonnull data,
-                   int len, int width) __leaf;
+                   int len, int width) __attr_leaf__;
 
 void sb_add_lstr_b64url(sb_t * nonnull sb, lstr_t data, int width);
 
 int sb_add_unb64url(sb_t * nonnull sb, const void * nonnull data, int len)
-    __leaf;
-int sb_adds_unb64url(sb_t * nonnull sb, const char * nonnull s) __leaf;
-int sb_add_lstr_unb64url(sb_t * nonnull sb, lstr_t s) __leaf;
+    __attr_leaf__;
+int sb_adds_unb64url(sb_t * nonnull sb, const char * nonnull s) __attr_leaf__;
+int sb_add_lstr_unb64url(sb_t * nonnull sb, lstr_t s) __attr_leaf__;
 static inline void sb_adds_b64url(sb_t * nonnull sb, const char * nonnull s,
                                   int width)
 {
@@ -936,7 +947,7 @@ static inline void sb_adds_b64url(sb_t * nonnull sb, const char * nonnull s,
  * string (and only them) are escaped with double-quotes.
  */
 void sb_add_csvescape(sb_t * nonnull sb, int sep, const void * nonnull data,
-                      int len) __leaf;
+                      int len) __attr_leaf__;
 static inline void sb_adds_csvescape(sb_t * nonnull sb, int sep,
                                      const char * nonnull s)
 {
@@ -959,7 +970,7 @@ static inline void sb_add_lstr_csvescape(sb_t * nonnull sb, int sep, lstr_t s)
  */
 int sb_add_punycode_vec(sb_t * nonnull sb,
                         const uint32_t * nonnull code_points,
-                        int nb_code_points) __leaf;
+                        int nb_code_points) __attr_leaf__;
 
 /** Append the Punycode-encoded string corresponding to the input UFT8 string.
  *
@@ -971,7 +982,7 @@ int sb_add_punycode_vec(sb_t * nonnull sb,
  * \param[in]  src_len  length (in bytes) of the input UTF8 string.
  */
 int sb_add_punycode_str(sb_t * nonnull sb, const char * nonnull src,
-                        int src_len) __leaf;
+                        int src_len) __attr_leaf__;
 
 
 enum idna_flags_t {
@@ -1001,23 +1012,23 @@ int sb_add_idna_domain_name(sb_t * nonnull sb, const char * nonnull src,
 /**************************************************************************/
 
 void sb_conv_from_latin1(sb_t * nonnull sb, const void * nonnull s, int len)
-    __leaf;
+    __attr_leaf__;
 void sb_conv_from_latin9(sb_t * nonnull sb, const void * nonnull s, int len)
-    __leaf;
+    __attr_leaf__;
 int  sb_conv_to_latin1(sb_t * nonnull sb, const void * nonnull s,
-                       int len, int rep) __leaf;
+                       int len, int rep) __attr_leaf__;
 
 /* ucs2 */
 int  sb_conv_to_ucs2le(sb_t * nonnull sb, const void * nonnull s, int len)
-    __leaf;
+    __attr_leaf__;
 int  sb_conv_to_ucs2be(sb_t * nonnull sb, const void * nonnull s, int len)
-    __leaf;
+    __attr_leaf__;
 int  sb_conv_to_ucs2be_hex(sb_t * nonnull sb, const void * nonnull s, int len)
-    __leaf;
+    __attr_leaf__;
 int  sb_conv_from_ucs2be_hex(sb_t * nonnull sb, const void * nonnull s,
-                             int slen) __leaf;
+                             int slen) __attr_leaf__;
 int  sb_conv_from_ucs2le_hex(sb_t * nonnull sb, const void * nonnull s,
-                             int slen) __leaf;
+                             int slen) __attr_leaf__;
 
 typedef enum gsm_conv_plan_t {
     /* use only default gsm7 alphabet */
@@ -1030,7 +1041,7 @@ typedef enum gsm_conv_plan_t {
 #define GSM_LATIN1_PLAN GSM_EXTENSION_PLAN
 
 int  sb_conv_from_gsm_plan(sb_t * nullable sb, const void * nullable src,
-                           int len, int plan) __leaf;
+                           int len, int plan) __attr_leaf__;
 static inline int sb_conv_from_gsm(sb_t * nullable sb,
                                    const void * nullable src, int len)
 {
@@ -1038,32 +1049,32 @@ static inline int sb_conv_from_gsm(sb_t * nullable sb,
 }
 
 int  sb_conv_from_gsm_hex(sb_t * nullable sb, const void * nullable src,
-                          int len) __leaf;
+                          int len) __attr_leaf__;
 bool sb_conv_to_gsm_isok(const void * nonnull data, int len,
-                         gsm_conv_plan_t plan) __leaf;
+                         gsm_conv_plan_t plan) __attr_leaf__;
 void sb_conv_to_gsm(sb_t * nonnull sb, const void * nonnull src, int len)
-    __leaf;
+    __attr_leaf__;
 void sb_conv_to_gsm_hex(sb_t * nonnull sb, const void * nonnull src, int len)
-    __leaf;
+    __attr_leaf__;
 void sb_conv_to_cimd(sb_t * nonnull sb, const void * nonnull src, int len)
-    __leaf;
+    __attr_leaf__;
 
 /* packed gsm */
 int  gsm7_charlen(int c)
-    __leaf;
+    __attr_leaf__;
 int unicode_to_gsm7(int c, int unknown, gsm_conv_plan_t plan)
-    __leaf;
+    __attr_leaf__;
 int  sb_conv_to_gsm7(sb_t * nonnull sb, int gsm_start,
                      const char * nonnull utf8, int unknown,
-                     gsm_conv_plan_t plan, int max_len) __leaf;
+                     gsm_conv_plan_t plan, int max_len) __attr_leaf__;
 int  sb_conv_from_gsm7(sb_t * nonnull sb, const void * nonnull src,
-                       int gsmlen, int udhlen) __leaf;
+                       int gsmlen, int udhlen) __attr_leaf__;
 int gsm7_to_unicode(uint8_t u8, int unknown)
-    __leaf;
+    __attr_leaf__;
 
 /* normalisation */
 int sb_normalize_utf8(sb_t * nonnull sb, const char * nonnull s, int len,
-                      bool ci) __leaf;
+                      bool ci) __attr_leaf__;
 
 /** append to \p sb the string describe by \p s with a lower case */
 int sb_add_utf8_tolower(sb_t * nonnull sb, const char * nonnull s, int len);

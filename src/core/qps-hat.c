@@ -1935,7 +1935,7 @@ void qhat_tree_enumerator_find_node(qhat_tree_enumerator_t *en, uint32_t key)
     }
 }
 
-__flatten
+__attr_flatten__
 qhat_tree_enumerator_t qhat_get_tree_enumerator_at(qhat_t *trie, uint32_t key)
 {
     qhat_tree_enumerator_t en;

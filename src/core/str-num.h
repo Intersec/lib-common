@@ -86,22 +86,22 @@ vstrtoull(char * nonnull str, char * nullable * nullable endp, int base)
 #define strtoull(str, endp, base)  cstrtoull(str, endp, base)
 
 int strtoip(const char * nonnull p, const char * nullable * nullable endp)
-    __leaf __attr_nonnull__((1));
+    __attr_leaf__ __attr_nonnull__((1));
 static inline int vstrtoip(char * nonnull p, char * nullable * nullable endp)
 {
     return strtoip(p, (const char **)endp);
 }
 int memtoip(const void * nonnull p, int len,
             const byte * nullable * nullable endp)
-    __leaf __attr_nonnull__((1));
+    __attr_leaf__ __attr_nonnull__((1));
 int64_t memtollp(const void * nonnull s, int len,
                  const byte * nullable * nullable endp)
-    __leaf __attr_nonnull__((1));
-int64_t parse_number(const char * nonnull str) __leaf;
+    __attr_leaf__ __attr_nonnull__((1));
+int64_t parse_number(const char * nonnull str) __attr_leaf__;
 
 uint64_t memtoullp(const void * nonnull s, int len,
                    const byte * nullable * nullable endp)
-    __leaf __attr_nonnull__((1));
+    __attr_leaf__ __attr_nonnull__((1));
 
 #define STRTOLP_IGNORE_SPACES  (1 << 0)
 #define STRTOLP_CHECK_END      (1 << 1)
@@ -111,7 +111,7 @@ uint64_t memtoullp(const void * nonnull s, int len,
 /* returns 0 if success, negative errno if error */
 int strtolp(const char * nonnull p, const char * nullable * nullable endp,
             int base, long * nullable res, int flags, long min, long max)
-    __leaf;
+    __attr_leaf__;
 
 /* The four following functions read an integer followed by an
  * extension from a string

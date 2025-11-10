@@ -288,11 +288,11 @@ size_t membitcount_c(const void *ptr, size_t n)
 }
 
 #ifdef __HAS_CPUID
-#pragma push_macro("__leaf")
-#undef __leaf
+#pragma push_macro("__attr_leaf__")
+#undef __attr_leaf__
 #include <cpuid.h>
 #include <x86intrin.h>
-#pragma pop_macro("__leaf")
+#pragma pop_macro("__attr_leaf__")
 
 __attr_noasan__
 __attribute__((target("popcnt")))

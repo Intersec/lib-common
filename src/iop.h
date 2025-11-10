@@ -2270,10 +2270,10 @@ _iop_struct_next_field(bool is_class, const iop_field_t *nullable field,
  * When a structure constraints checking fails, the error description is
  * accessible in a static buffer, accessible with this function.
  */
-const char * nullable iop_get_err(void) __cold;
+const char * nullable iop_get_err(void) __attr_cold__;
 
 /** Same as iop_get_err() but returns a lstr_t. */
-lstr_t iop_get_err_lstr(void) __cold;
+lstr_t iop_get_err_lstr(void) __attr_cold__;
 
 /** Check the constraints of an IOP structure.
  *

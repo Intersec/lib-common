@@ -523,7 +523,7 @@ ps_get_ps_upto_str_and_skip(pstream_t * nonnull ps, const char * nonnull s,
 
 int ps_copyv(pstream_t * nonnull ps, struct iovec * nonnull iov,
              size_t * nonnull iov_len, int * nullable flags)
-    __leaf __attr_nonnull__((1, 2, 3));
+    __attr_leaf__ __attr_nonnull__((1, 2, 3));
 
 
 /****************************************************************************/

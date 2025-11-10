@@ -16,7 +16,7 @@
 /*                                                                         */
 /***************************************************************************/
 
-__flatten
+__attr_flatten__
 int F(xmlr_getattr)(xml_reader_t xr, xmlAttrPtr attr, ARGS_P)
 {
     const char *name = (const char *)attr->name;

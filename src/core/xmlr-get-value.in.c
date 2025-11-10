@@ -20,7 +20,7 @@
 #define PRE_ARGS_P
 #endif
 
-__flatten
+__attr_flatten__
 int F(xmlr_get)(PRE_ARGS_P xml_reader_t xr, ARGS_P)
 {
     assert (xmlr_on_element(xr, false));

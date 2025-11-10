@@ -304,7 +304,7 @@ static inline void bb_add1s(bb_t *bb, size_t len)
     }
 }
 
-void bb_add_bs(bb_t *bb, const struct bit_stream_t *bs) __leaf;
+void bb_add_bs(bb_t *bb, const struct bit_stream_t *bs) __attr_leaf__;
 
 /* }}} */
 /* Write bit, big endian {{{ */
@@ -374,7 +374,7 @@ static inline void bb_be_add_bytes(bb_t *bb, const byte *b, size_t len)
     }
 }
 
-void bb_be_add_bs(bb_t *bb, const struct bit_stream_t *bs) __leaf;
+void bb_be_add_bs(bb_t *bb, const struct bit_stream_t *bs) __attr_leaf__;
 
 
 /* }}} */
@@ -418,13 +418,13 @@ static inline void bb_reset_mark(bb_t *bb)
 /* Printing helpers {{{ */
 
 char *t_print_bits(uint8_t bits, uint8_t bstart, uint8_t blen)
-    __leaf;
+    __attr_leaf__;
 
 char *t_print_be_bb(const bb_t *bb, size_t *len)
-    __leaf;
+    __attr_leaf__;
 
 char *t_print_bb(const bb_t *bb, size_t *len)
-    __leaf;
+    __attr_leaf__;
 
 /* XXX Inverse function for t_print_be_bb(). Only for tests. */
 int z_set_be_bb(bb_t *bb, const char *bits, sb_t *err);

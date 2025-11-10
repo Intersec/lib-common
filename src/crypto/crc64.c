@@ -78,7 +78,7 @@ static uint64_t fast_icrc64(uint64_t crc, const uint8_t *buf, size_t size)
     return naive_icrc64(crc, buf, size & (size_t)3);
 }
 
-__flatten
+__attr_flatten__
 uint64_t icrc64(uint64_t crc, const void *data, ssize_t len)
 {
     crc = ~le_to_cpu64(crc);

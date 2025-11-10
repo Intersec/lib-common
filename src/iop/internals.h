@@ -690,10 +690,10 @@ EXPORT iop_struct_t const * const nonnull iop__void__sp;
 /*{{{ IOP constraints */
 
 __attr_printf__(1, 2)
-int         iop_set_err(const char * nonnull fmt, ...) __cold;
+int         iop_set_err(const char * nonnull fmt, ...) __attr_cold__;
 __attr_printf__(1, 0)
-void        iop_set_verr(const char * nonnull fmt, va_list ap) __cold ;
-int         iop_set_err2(const lstr_t * nonnull s) __cold;
+void        iop_set_verr(const char * nonnull fmt, va_list ap) __attr_cold__;
+int         iop_set_err2(const lstr_t * nonnull s) __attr_cold__;
 void        iop_clear_err(void);
 
 /*}}}*/

@@ -104,8 +104,9 @@ typedef struct rb_node_t {
     struct rb_node_t *left, *right;
 } rb_node_t;
 
-void rb_add_node(rb_node_t **root, rb_node_t *parent, rb_node_t *node) __leaf;
-void rb_del_node(rb_node_t **root, rb_node_t *) __leaf;
+void rb_add_node(rb_node_t **root, rb_node_t *parent, rb_node_t *node)
+    __attr_leaf__;
+void rb_del_node(rb_node_t **root, rb_node_t *) __attr_leaf__;
 
 static inline rb_node_t *__rb_first_node(rb_node_t *root)
 {
@@ -125,8 +126,8 @@ static inline rb_node_t *__rb_last_node(rb_node_t *root)
     return root;
 }
 
-rb_node_t *__rb_next(rb_node_t *) __leaf;
-rb_node_t *__rb_prev(rb_node_t *) __leaf;
+rb_node_t *__rb_next(rb_node_t *) __attr_leaf__;
+rb_node_t *__rb_prev(rb_node_t *) __attr_leaf__;
 
 #define __RBTREE_TYPE(n, entry_t, link)                                      \
     /* This is the exact same structure for all instance, but keep it here   \

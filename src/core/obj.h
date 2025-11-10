@@ -154,7 +154,7 @@
         methods(pfx##_t, ##__VA_ARGS__);                                     \
     };                                                                       \
                                                                              \
-    const pfx##_class_t * nonnull pfx##_class(void) __leaf;                  \
+    const pfx##_class_t * nonnull pfx##_class(void) __attr_leaf__;           \
                                                                              \
     pfx##_vtable_extension_f nullable                                        \
     pfx##_set_vtable_extension(pfx##_vtable_extension_f nonnull func);       \
@@ -450,7 +450,7 @@ void obj_wipe_real(object_t * nonnull o);
  * \param[in] vptr Pointer to the parent class descriptor.
  */
 bool cls_inherits(const void * nonnull cls, const void * nonnull vptr)
-    __leaf __attribute__((pure));
+    __attr_leaf__ __attribute__((pure));
 
 /** Test if one object is instance of a class.
  *

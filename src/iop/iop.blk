@@ -1819,7 +1819,7 @@ static inline void iop_value_print(iop_type_t type, const iop_enum_t *en_desc,
 /* }}} */
 /* {{{ Comparing values */
 
-__cold static void
+__attr_cold__ static void
 sb_prepend_field(sb_t *sb, const iop_field_t *fdesc, int j);
 
 static int iop_first_diff(const iop_struct_t *st,
@@ -3522,7 +3522,8 @@ __iop_check_constraints_struct(const iop_struct_t *desc, const void *val);
 static int
 __iop_check_constraints_class(const iop_struct_t *desc, const void *val);
 
-__cold static void sb_prepend_field(sb_t *sb, const iop_field_t *fdesc, int j)
+__attr_cold__ static void
+sb_prepend_field(sb_t *sb, const iop_field_t *fdesc, int j)
 {
     if (fdesc->repeat == IOP_R_REPEATED) {
         sb_prependf(sb, ".%s[%d]", fdesc->name.s, j);

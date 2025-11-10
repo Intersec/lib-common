@@ -51,10 +51,10 @@ static inline void xmlr_delete(xml_reader_t *xrp)
     }
 }
 
-__cold
+__attr_cold__
 int  xmlr_fail(xml_reader_t xr, const char *fmt, ...) __attr_printf__(2, 3);
 void xmlr_clear_err(void);
-__cold
+__attr_cold__
 const char *xmlr_get_err(void);
 
 /* \brief Goes to the next node element (closing or opening)

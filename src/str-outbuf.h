@@ -41,7 +41,7 @@ typedef struct outbuf_t {
     htlist_t chunks_list;
 } outbuf_t;
 
-void ob_check_invariants(outbuf_t * nonnull ob) __leaf;
+void ob_check_invariants(outbuf_t * nonnull ob) __attr_leaf__;
 
 static inline outbuf_t * nonnull ob_init(outbuf_t * nonnull ob)
 {
@@ -52,13 +52,15 @@ static inline outbuf_t * nonnull ob_init(outbuf_t * nonnull ob)
     return ob;
 }
 
-void ob_wipe(outbuf_t * nonnull ob) __leaf;
+void ob_wipe(outbuf_t * nonnull ob) __attr_leaf__;
 GENERIC_NEW(outbuf_t, ob);
 GENERIC_DELETE(outbuf_t, ob);
-void ob_merge(outbuf_t * nonnull dst, outbuf_t * nonnull src) __leaf;
-void ob_merge_wipe(outbuf_t * nonnull dst, outbuf_t * nonnull src) __leaf;
+void ob_merge(outbuf_t * nonnull dst, outbuf_t * nonnull src)
+    __attr_leaf__;
+void ob_merge_wipe(outbuf_t * nonnull dst, outbuf_t * nonnull src)
+    __attr_leaf__;
 void ob_merge_delete(outbuf_t * nonnull dst,
-                     outbuf_t * nullable * nonnull src) __leaf;
+                     outbuf_t * nullable * nonnull src) __attr_leaf__;
 static inline bool ob_is_empty(const outbuf_t * nonnull ob)
 {
     return ob->length == 0;
@@ -68,11 +70,11 @@ int ob_write_with(outbuf_t * nonnull ob, int fd,
                   ssize_t (* nullable writerv)(int,
                                                const struct iovec * nonnull,
                                                int, void * nullable),
-                  void * nullable priv) __leaf;
+                  void * nullable priv) __attr_leaf__;
 static inline int ob_write(outbuf_t * nonnull ob, int fd) {
     return ob_write_with(ob, fd, NULL, NULL);
 }
-int ob_xread(outbuf_t * nonnull ob, int fd, int size) __leaf;
+int ob_xread(outbuf_t * nonnull ob, int fd, int size) __attr_leaf__;
 
 
 /****************************************************************************/
@@ -99,7 +101,7 @@ typedef struct outbuf_chunk_t {
         void          * nonnull vp;
     } u;
 } outbuf_chunk_t;
-void ob_chunk_wipe(outbuf_chunk_t * nonnull obc) __leaf;
+void ob_chunk_wipe(outbuf_chunk_t * nonnull obc) __attr_leaf__;
 GENERIC_DELETE(outbuf_chunk_t, ob_chunk);
 
 static inline void ob_add_chunk(outbuf_t * nonnull ob,
@@ -196,7 +198,7 @@ static inline void ob_add_memmap(outbuf_t * nonnull ob, void * nonnull map,
 }
 
 int ob_add_file(outbuf_t * nonnull ob, const char * nonnull file, int size)
-    __leaf;
+    __attr_leaf__;
 
 #if __has_feature(nullability)
 #pragma GCC diagnostic pop

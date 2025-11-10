@@ -111,17 +111,22 @@ typedef enum qps_bitmap_state_t {
 /* }}} */
 /* Public API {{{ */
 
-qps_handle_t qps_bitmap_create(qps_t *qps, bool is_nullable) __leaf;
-void qps_bitmap_destroy(qps_bitmap_t *map) __leaf;
-void qps_bitmap_clear(qps_bitmap_t *map) __leaf;
+qps_handle_t qps_bitmap_create(qps_t *qps, bool is_nullable) __attr_leaf__;
+void qps_bitmap_destroy(qps_bitmap_t *map) __attr_leaf__;
+void qps_bitmap_clear(qps_bitmap_t *map) __attr_leaf__;
 
-qps_bitmap_state_t qps_bitmap_get(qps_bitmap_t *map, uint32_t row) __leaf;
-qps_bitmap_state_t qps_bitmap_set(qps_bitmap_t *map, uint32_t row) __leaf;
-qps_bitmap_state_t qps_bitmap_reset(qps_bitmap_t *map, uint32_t row) __leaf;
-qps_bitmap_state_t qps_bitmap_remove(qps_bitmap_t *map, uint32_t row) __leaf;
+qps_bitmap_state_t qps_bitmap_get(qps_bitmap_t *map, uint32_t row)
+    __attr_leaf__;
+qps_bitmap_state_t qps_bitmap_set(qps_bitmap_t *map, uint32_t row)
+    __attr_leaf__;
+qps_bitmap_state_t qps_bitmap_reset(qps_bitmap_t *map, uint32_t row)
+    __attr_leaf__;
+qps_bitmap_state_t qps_bitmap_remove(qps_bitmap_t *map, uint32_t row)
+    __attr_leaf__;
 
 void qps_bitmap_compute_stats(qps_bitmap_t *map, size_t *memory,
-                              uint32_t *entries, uint32_t *slots) __leaf;
+                              uint32_t *entries, uint32_t *slots)
+    __attr_leaf__;
 
 static inline void
 qps_bitmap_init(qps_bitmap_t *map, qps_t *qps, qps_handle_t handle)
@@ -649,8 +654,9 @@ void qps_bitmap_enumerator_go_to(qps_bitmap_enumerator_t *en, uint32_t row,
 /* }}} */
 /* Debugging tools {{{ */
 
-void qps_bitmap_get_qps_roots(qps_bitmap_t *map, qps_roots_t *roots) __leaf;
-void qps_bitmap_debug_print(qps_bitmap_t *map) __leaf;
+void qps_bitmap_get_qps_roots(qps_bitmap_t *map, qps_roots_t *roots)
+    __attr_leaf__;
+void qps_bitmap_debug_print(qps_bitmap_t *map) __attr_leaf__;
 
 /* }}} */
 

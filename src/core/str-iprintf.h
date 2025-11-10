@@ -34,28 +34,28 @@
 #define PRIX128_FMT_ARG  PRIu128_FMT_ARG
 
 int iprintf(const char * nonnull format, ...)
-        __leaf __attr_printf__(1, 2);
+        __attr_leaf__ __attr_printf__(1, 2);
 int ifprintf(FILE * nonnull stream, const char * nonnull format, ...)
-        __leaf __attr_printf__(2, 3);
+        __attr_leaf__ __attr_printf__(2, 3);
 int isnprintf(char * nullable str, size_t size,
               const char * nonnull format, ...)
-        __leaf __attr_printf__(3, 4);
+        __attr_leaf__ __attr_printf__(3, 4);
 int ivprintf(const char * nonnull format, va_list arglist)
-        __leaf __attr_printf__(1, 0);
+        __attr_leaf__ __attr_printf__(1, 0);
 int ivfprintf(FILE * nonnull stream, const char * nonnull format,
               va_list arglist)
-        __leaf __attr_printf__(2, 0);
+        __attr_leaf__ __attr_printf__(2, 0);
 int ivsnprintf(char * nullable str, size_t size, const char * nonnull format,
                va_list arglist)
-        __leaf __attr_printf__(3, 0);
+        __attr_leaf__ __attr_printf__(3, 0);
 int ifputs_hex(FILE * nonnull stream, const void * nonnull buf, int len)
-        __leaf __attr_nonnull__((2));
+        __attr_leaf__ __attr_nonnull__((2));
 
 int isprintf(char * nullable str, const char * nonnull format, ...)
-        __leaf __attr_printf__(2, 3);
+        __attr_leaf__ __attr_printf__(2, 3);
 int ivsprintf(char * nullable str, const char * nonnull format,
               va_list arglist)
-        __leaf __attr_printf__(2, 0);
+        __attr_leaf__ __attr_printf__(2, 0);
 
 #if defined(IPRINTF_HIDE_STDIO) && IPRINTF_HIDE_STDIO
 #undef sprintf

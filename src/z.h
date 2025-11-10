@@ -281,7 +281,7 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
 #ifdef __has_blocks
 
 #define Z_BLKGROUP(_grp)                                                  \
-    __cold static void z_##_grp(void) {                                   \
+    __attr_cold__ static void z_##_grp(void) {                            \
         static struct z_blkgrp *grp = &_grp;                              \
                                                                           \
         z_register_blkgroup(grp, __FILE__);                               \
@@ -298,7 +298,7 @@ void _z_helper_failed(const char *file, int lno, const char *expr,
 #endif /* __has_blocks */
 
 #define Z_GROUP(name) \
-    __cold static void z_##name(void)                                     \
+    __attr_cold__ static void z_##name(void)                              \
     {                                                                     \
         _z_group_start(#name);                                            \
         while (_z_group_process()) {

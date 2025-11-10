@@ -61,19 +61,19 @@ __qvector_init(qvector_t * nonnull vec, void * nullable buf, int blen,
 }
 
 void  qvector_reset(qvector_t * nonnull vec, size_t v_size)
-    __leaf;
+    __attr_leaf__;
 void  qvector_wipe(qvector_t * nonnull vec, size_t v_size)
-    __leaf;
+    __attr_leaf__;
 void  __qvector_grow(qvector_t * nonnull , size_t v_size, size_t v_align,
                      int extra)
-    __leaf;
+    __attr_leaf__;
 void  __qvector_optimize(qvector_t * nonnull, size_t v_size, size_t v_align,
                          size_t size)
-    __leaf;
+    __attr_leaf__;
 void * nonnull __qvector_splice(qvector_t * nonnull, size_t v_size,
                                 size_t v_align, int pos, int rm_len,
                                 int inserted_len)
-    __leaf;
+    __attr_leaf__;
 #ifdef __has_blocks
 
 void __qv_sort(void * nonnull tab, size_t v_size, size_t len,

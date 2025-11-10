@@ -252,15 +252,15 @@
 #endif
 
 #if __GNUC_PREREQ(4, 1) || __has_attribute(flatten)
-# define __flatten __attribute__((flatten))
+# define __attr_flatten__ __attribute__((flatten))
 #else
-# define __flatten
+# define __attr_flatten__
 #endif
 
 #if __GNUC_PREREQ(4, 3) || __has_attribute(cold)
-# define __cold __attribute__((cold))
+# define __attr_cold__ __attribute__((cold))
 #else
-# define __cold
+# define __attr_cold__
 #endif
 
 #if !(__GNUC_PREREQ(4, 5) || __has_builtin(builtin_unreachable))
@@ -268,15 +268,15 @@
 #endif
 
 #if __GNUC_PREREQ(4, 6) || __has_attribute(leaf)
-# define __leaf __attribute__((leaf))
+# define __attr_leaf__ __attribute__((leaf))
 #else
-# define __leaf
+# define __attr_leaf__
 #endif
 
 #if __GNUC_PREREQ(7, 0) || __has_attribute(fallthrough)
-# define __fallthrough __attribute__((fallthrough))
+# define __attr_fallthrough__ __attribute__((fallthrough))
 #else
-# define __fallthrough
+# define __attr_fallthrough__
 #endif
 
 #if __has_attribute(nonstring)

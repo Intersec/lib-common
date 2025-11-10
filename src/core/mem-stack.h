@@ -137,10 +137,10 @@ typedef struct mem_stack_pool_t {
 
 mem_stack_pool_t * nonnull
 mem_stack_pool_init(mem_stack_pool_t * nonnull, const char * nonnull name,
-                    int initialsize, unsigned flags) __leaf;
-void mem_stack_pool_reset(mem_stack_pool_t * nonnull) __leaf;
-void mem_stack_pool_try_reset(mem_stack_pool_t * nonnull) __leaf;
-void mem_stack_pool_wipe(mem_stack_pool_t * nonnull) __leaf;
+                    int initialsize, unsigned flags) __attr_leaf__;
+void mem_stack_pool_reset(mem_stack_pool_t * nonnull) __attr_leaf__;
+void mem_stack_pool_try_reset(mem_stack_pool_t * nonnull) __attr_leaf__;
+void mem_stack_pool_wipe(mem_stack_pool_t * nonnull) __attr_leaf__;
 
 mem_pool_t *nonnull mem_stack_new(const char *nonnull name, int initialsize);
 mem_pool_t *nonnull mem_stack_new_flags(const char *nonnull name,
@@ -181,7 +181,8 @@ bool mem_stack_pool_is_at_top(const mem_stack_pool_t * nonnull sp)
     return sp->stack == &sp->base;
 }
 
-const void * nonnull mem_stack_pool_push(mem_stack_pool_t * nonnull) __leaf;
+const void * nonnull mem_stack_pool_push(mem_stack_pool_t * nonnull)
+    __attr_leaf__;
 #ifndef NDEBUG
 const void * nonnull mem_stack_pool_pop_libc(mem_stack_pool_t * nonnull);
 #endif

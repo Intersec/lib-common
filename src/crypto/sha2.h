@@ -30,7 +30,7 @@ extern "C" {
  * \param ctx      context to be initialized
  * \param is224    0 = use SHA256, 1 = use SHA224
  */
-void sha2_starts(sha2_ctx * nonnull ctx, int is224) __leaf;
+void sha2_starts(sha2_ctx * nonnull ctx, int is224) __attr_leaf__;
 
 /**
  * \brief          SHA-256 process buffer
@@ -40,7 +40,7 @@ void sha2_starts(sha2_ctx * nonnull ctx, int is224) __leaf;
  * \param ilen     length of the input data
  */
 void sha2_update(sha2_ctx * nonnull ctx, const void * nonnull input, ssize_t ilen)
-    __leaf;
+    __attr_leaf__;
 
 /**
  * \brief          SHA-256 final digest
@@ -48,7 +48,7 @@ void sha2_update(sha2_ctx * nonnull ctx, const void * nonnull input, ssize_t ile
  * \param ctx      SHA-256 context
  * \param output   SHA-224/256 checksum result
  */
-void sha2_finish(sha2_ctx * nonnull ctx, byte output[32]) __leaf;
+void sha2_finish(sha2_ctx * nonnull ctx, byte output[32]) __attr_leaf__;
 
 /**
  * \brief          SHA-256 final digest
@@ -56,7 +56,7 @@ void sha2_finish(sha2_ctx * nonnull ctx, byte output[32]) __leaf;
  * \param ctx      SHA-256 context
  * \param output   SHA-224/256 checksum result
  */
-void sha2_finish_hex(sha2_ctx * nonnull ctx, char output[65]) __leaf;
+void sha2_finish_hex(sha2_ctx * nonnull ctx, char output[65]) __attr_leaf__;
 
 /**
  * \brief          Output = SHA-256(input buffer)
@@ -67,14 +67,14 @@ void sha2_finish_hex(sha2_ctx * nonnull ctx, char output[65]) __leaf;
  * \param is224    0 = use SHA256, 1 = use SHA224
  */
 void sha2(const void * nonnull input, ssize_t ilen, byte output[32], int is224)
-    __leaf;
+    __attr_leaf__;
 
 /* \brief          64-bit output = SHA-2(input buffer)
  *
  * \param data     buffer holding the data
  * \param len      length of the input data
  */
-uint64_t sha2_hash_64(const void * nonnull data, ssize_t len) __leaf;
+uint64_t sha2_hash_64(const void * nonnull data, ssize_t len) __attr_leaf__;
 
 /**
  * \brief          Output = SHA-256(input buffer)
@@ -85,7 +85,7 @@ uint64_t sha2_hash_64(const void * nonnull data, ssize_t len) __leaf;
  * \param is224    0 = use SHA256, 1 = use SHA224
  */
 void sha2_hex(const void * nonnull input, ssize_t ilen, char output[65], int is224)
-    __leaf;
+    __attr_leaf__;
 
 /**
  * \brief          Output = SHA-256(file contents)
@@ -97,7 +97,8 @@ void sha2_hex(const void * nonnull input, ssize_t ilen, char output[65], int is2
  * \return         0 if successful, 1 if fopen failed,
  *                 or 2 if fread failed
  */
-int sha2_file(const char * nonnull path, byte output[32], int is224) __leaf;
+int sha2_file(const char * nonnull path, byte output[32], int is224)
+    __attr_leaf__;
 
 /**
  * \brief          SHA-256 HMAC context setup
@@ -108,7 +109,7 @@ int sha2_file(const char * nonnull path, byte output[32], int is224) __leaf;
  * \param is224    0 = use SHA256, 1 = use SHA224
  */
 void sha2_hmac_starts(sha2_ctx * nonnull ctx, const void * nonnull key,
-                      int keylen, int is224) __leaf;
+                      int keylen, int is224) __attr_leaf__;
 
 /**
  * \brief          SHA-256 HMAC process buffer
@@ -119,7 +120,7 @@ void sha2_hmac_starts(sha2_ctx * nonnull ctx, const void * nonnull key,
  */
 void sha2_hmac_update(sha2_ctx * nonnull ctx, const void * nonnull input,
                       ssize_t ilen)
-    __leaf;
+    __attr_leaf__;
 
 /**
  * \brief          SHA-256 HMAC final digest
@@ -128,7 +129,7 @@ void sha2_hmac_update(sha2_ctx * nonnull ctx, const void * nonnull input,
  * \param output   SHA-224/256 HMAC checksum result
  */
 void sha2_hmac_finish(sha2_ctx * nonnull ctx, byte output[32])
-    __leaf;
+    __attr_leaf__;
 
 /**
  * \brief          Output = HMAC-SHA-256(hmac key, input buffer)
@@ -142,7 +143,7 @@ void sha2_hmac_finish(sha2_ctx * nonnull ctx, byte output[32])
  */
 void sha2_hmac(const void * nonnull key, int keylen,
                const void * nonnull input, ssize_t ilen,
-               byte output[32], int is224) __leaf;
+               byte output[32], int is224) __attr_leaf__;
 
 #define SHA256_CRYPT_SALT_LEN_MAX    16
 #define SHA256_CRYPT_DEFAULT_ROUNDS  5000

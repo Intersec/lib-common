@@ -112,18 +112,18 @@ typedef bool     (qhash_kequ_f)(const qhash_t * nullable,
 /* helper functions, module functions {{{ */
 
 uint32_t qhash_scan(const qhash_t * nonnull qh, uint32_t pos)
-    __leaf;
+    __attr_leaf__;
 void qhash_init(qhash_t * nonnull qh, uint16_t k_size, uint16_t v_size, bool doh,
                 mem_pool_t * nullable mp)
-    __leaf;
+    __attr_leaf__;
 void qhash_clear(qhash_t * nonnull qh)
-    __leaf;
+    __attr_leaf__;
 void qhash_set_minsize(qhash_t * nonnull qh, uint32_t minsize)
-    __leaf;
+    __attr_leaf__;
 void qhash_unseal(qhash_t * nonnull qh)
-    __leaf;
+    __attr_leaf__;
 void qhash_wipe(qhash_t * nonnull qh)
-    __leaf;
+    __attr_leaf__;
 
 static inline void qhash_slot_inv_flags(size_t * nonnull bits, uint32_t pos)
 {
@@ -253,28 +253,29 @@ static inline uint32_t qhash_hash_ptr(const qhash_t * nullable qh,
                              ))
 
 int32_t  qhash_safe_get32(const qhash_t * nonnull qh, uint32_t h, uint32_t k)
-    __leaf;
+    __attr_leaf__;
 int32_t  qhash_get32(qhash_t * nonnull qh, uint32_t h, uint32_t k)
-    __leaf;
+    __attr_leaf__;
 uint32_t __qhash_put32(qhash_t * nonnull qh, uint32_t h, uint32_t k,
                        uint32_t flags)
-    __leaf;
+    __attr_leaf__;
 void qhash_seal32(qhash_t * nonnull qh);
 
 int32_t  qhash_safe_get64(const qhash_t * nonnull qh, uint32_t h, uint64_t k)
-    __leaf;
+    __attr_leaf__;
 int32_t  qhash_get64(qhash_t * nonnull qh, uint32_t h, uint64_t k)
-    __leaf;
+    __attr_leaf__;
 uint32_t __qhash_put64(qhash_t * nonnull qh, uint32_t h, uint64_t k,
                        uint32_t flags)
-    __leaf;
+    __attr_leaf__;
 void qhash_seal64(qhash_t * nonnull qh);
 
 int32_t qhash_safe_get128(const qhash_t * nonnull qh, uint32_t h, uint128_t k)
-    __leaf;
-int32_t qhash_get128(qhash_t * nonnull qh, uint32_t h, uint128_t k) __leaf;
+    __attr_leaf__;
+int32_t qhash_get128(qhash_t * nonnull qh, uint32_t h, uint128_t k)
+    __attr_leaf__;
 uint32_t __qhash_put128(qhash_t * nonnull qh, uint32_t h, uint128_t k,
-                        uint32_t flags) __leaf;
+                        uint32_t flags) __attr_leaf__;
 void qhash_seal128(qhash_t * nonnull qh);
 
 int32_t  qhash_safe_get_ptr(const qhash_t * nonnull qh, uint32_t h,

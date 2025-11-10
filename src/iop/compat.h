@@ -54,7 +54,7 @@
 #   define EXPORT  extern __attribute__((visibility("default")))
 # endif
 
-# define __cold
+# define __attr_cold__
 # define __attr_printf__(a, b)  __attribute__((format(printf, a, b)))
 
 #define nullable

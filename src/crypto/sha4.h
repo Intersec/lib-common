@@ -33,7 +33,7 @@ extern "C" {
  * \param ctx      context to be initialized
  * \param is384    0 = use SHA512, 1 = use SHA384
  */
-void sha4_starts(sha4_ctx * nonnull ctx, int is384) __leaf;
+void sha4_starts(sha4_ctx * nonnull ctx, int is384) __attr_leaf__;
 
 /**
  * \brief          SHA-512 process buffer
@@ -43,7 +43,7 @@ void sha4_starts(sha4_ctx * nonnull ctx, int is384) __leaf;
  * \param ilen     length of the input data
  */
 void sha4_update(sha4_ctx * nonnull ctx, const void * nonnull input,
-                 ssize_t ilen) __leaf;
+                 ssize_t ilen) __attr_leaf__;
 
 /**
  * \brief          SHA-512 final digest
@@ -51,7 +51,7 @@ void sha4_update(sha4_ctx * nonnull ctx, const void * nonnull input,
  * \param ctx      SHA-512 context
  * \param output   SHA-384/512 checksum result
  */
-void sha4_finish(sha4_ctx * nonnull ctx, byte output[64]) __leaf;
+void sha4_finish(sha4_ctx * nonnull ctx, byte output[64]) __attr_leaf__;
 
 /**
  * \brief          Output = SHA-512(input buffer)
@@ -62,7 +62,7 @@ void sha4_finish(sha4_ctx * nonnull ctx, byte output[64]) __leaf;
  * \param is384    0 = use SHA512, 1 = use SHA384
  */
 void sha4(const void *nonnull input, ssize_t ilen, byte output[64],
-          int is384) __leaf;
+          int is384) __attr_leaf__;
 
 /**
  * \brief          Output = SHA-512(file contents)
@@ -74,7 +74,8 @@ void sha4(const void *nonnull input, ssize_t ilen, byte output[64],
  * \return         0 if successful, 1 if fopen failed,
  *                 or 2 if fread failed
  */
-int sha4_file(const char * nonnull path, byte output[64], int is384) __leaf;
+int sha4_file(const char * nonnull path, byte output[64], int is384)
+    __attr_leaf__;
 
 /**
  * \brief          SHA-512 HMAC context setup
@@ -85,7 +86,7 @@ int sha4_file(const char * nonnull path, byte output[64], int is384) __leaf;
  * \param keylen   length of the HMAC key
  */
 void sha4_hmac_starts(sha4_ctx * nonnull ctx, const void * nonnull key,
-                      int keylen, int is384) __leaf;
+                      int keylen, int is384) __attr_leaf__;
 
 /**
  * \brief          SHA-512 HMAC process buffer
@@ -95,7 +96,7 @@ void sha4_hmac_starts(sha4_ctx * nonnull ctx, const void * nonnull key,
  * \param ilen     length of the input data
  */
 void sha4_hmac_update(sha4_ctx * nonnull ctx, const void * nonnull input,
-                      ssize_t ilen) __leaf;
+                      ssize_t ilen) __attr_leaf__;
 
 /**
  * \brief          SHA-512 HMAC final digest
@@ -103,7 +104,7 @@ void sha4_hmac_update(sha4_ctx * nonnull ctx, const void * nonnull input,
  * \param ctx      HMAC context
  * \param output   SHA-384/512 HMAC checksum result
  */
-void sha4_hmac_finish(sha4_ctx * nonnull ctx, byte output[64]) __leaf;
+void sha4_hmac_finish(sha4_ctx * nonnull ctx, byte output[64]) __attr_leaf__;
 
 /**
  * \brief          Output = HMAC-SHA-512(hmac key, input buffer)
@@ -117,7 +118,7 @@ void sha4_hmac_finish(sha4_ctx * nonnull ctx, byte output[64]) __leaf;
  */
 void sha4_hmac(const void * nonnull key, int keylen,
                const void * nonnull input, ssize_t ilen,
-               byte output[64], int is384) __leaf;
+               byte output[64], int is384) __attr_leaf__;
 
 #ifdef __cplusplus
 }

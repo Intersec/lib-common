@@ -270,7 +270,7 @@ static void par_qsort(thr_syn_t *syn, uint32_t *a, size_t n, bool use_blocks)
 #undef rotate
 }
 
-__flatten
+__attr_flatten__
 static void par_qsort_run(thr_job_t *job, thr_syn_t *syn)
 {
     struct sort_job *j = container_of(job, struct sort_job, job);

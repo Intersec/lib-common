@@ -103,7 +103,7 @@ extern thr_queue_t *const thr_queue_main_g;
 
 /** \brief returns the id of the current thread in [0 .. thr_parallelism_g[
  */
-size_t thr_id(void) __leaf __attribute__((pure));
+size_t thr_id(void) __attr_leaf__ __attribute__((pure));
 
 /** \brief Schedule one job.
  *
@@ -143,14 +143,14 @@ static ALWAYS_INLINE void thr_syn_schedule_b(thr_syn_t *syn, block_t blk)
 }
 #endif
 
-thr_queue_t *thr_queue_create(void) __leaf;
-void thr_queue_destroy(thr_queue_t *q, bool wait) __leaf;
+thr_queue_t *thr_queue_create(void) __attr_leaf__;
+void thr_queue_destroy(thr_queue_t *q, bool wait) __attr_leaf__;
 
 /** Return true if the queue is currently running on the current thread.
  *
  * This basically means we are inside the queue.
  */
-bool thr_is_on_queue(thr_queue_t *q) __leaf;
+bool thr_is_on_queue(thr_queue_t *q) __attr_leaf__;
 
 /** \brief Queue one job on a serial queue
  *
@@ -335,9 +335,11 @@ thr_syn_wait_until(thr_syn_t *syn, bool (BLOCK_CARET cond)(void))
  * A thread data is a data that can be requested in a job implementation that
  * depends on this #thr_syn_t and that must be local to one thread at a time.
  */
-void thr_syn_declare_td(thr_syn_t * nonnull syn,
-                        thr_td_t * nonnull (BLOCK_CARET nonnull new_td)(void),
-                        void (BLOCK_CARET nonnull delete_td)(thr_td_t * nullable * nonnull)) __leaf;
+void thr_syn_declare_td(
+    thr_syn_t * nonnull syn,
+    thr_td_t * nonnull (BLOCK_CARET nonnull new_td)(void),
+    void (BLOCK_CARET nonnull delete_td)(thr_td_t * nullable * nonnull))
+    __attr_leaf__;
 
 /** Acquire an instance of the associated thread data.
  */

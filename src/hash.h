@@ -69,13 +69,13 @@ typedef struct jenkins_ctx {
     uint32_t hash;
 } jenkins_ctx;
 
-void jenkins_starts(jenkins_ctx * nonnull ctx) __leaf;
+void jenkins_starts(jenkins_ctx * nonnull ctx) __attr_leaf__;
 void jenkins_update(jenkins_ctx * nonnull ctx, const void * nonnull input,
-                    ssize_t len) __leaf;
+                    ssize_t len) __attr_leaf__;
 void jenkins_update_ascii_lower(jenkins_ctx *nonnull ctx,
                                 const void *nonnull input,
-                                ssize_t len) __leaf;
-void jenkins_finish(jenkins_ctx * nonnull ctx, byte output[4]) __leaf;
+                                ssize_t len) __attr_leaf__;
+void jenkins_finish(jenkins_ctx * nonnull ctx, byte output[4]) __attr_leaf__;
 
 typedef struct murmur_hash3_x86_32_ctx {
     uint32_t h1;
@@ -85,11 +85,12 @@ typedef struct murmur_hash3_x86_32_ctx {
 } murmur_hash3_x86_32_ctx;
 
 void murmur_hash3_x86_32_starts(murmur_hash3_x86_32_ctx * nonnull ctx,
-                                uint32_t seed) __leaf;
+                                uint32_t seed) __attr_leaf__;
 void murmur_hash3_x86_32_update(murmur_hash3_x86_32_ctx * nonnull ctx,
-                                const void * nonnull key, size_t len) __leaf;
+                                const void * nonnull key, size_t len)
+    __attr_leaf__;
 void murmur_hash3_x86_32_finish(murmur_hash3_x86_32_ctx * nonnull ctx,
-                                byte output[4]) __leaf;
+                                byte output[4]) __attr_leaf__;
 
 #ifdef __cplusplus
 #define murmur_128bits_buf byte out[]
@@ -128,10 +129,11 @@ murmur_hash3_x64_128_starts(murmur_hash3_x64_128_ctx_t *nonnull ctx,
 
 __attr_nonnull__((1)) void
 murmur_hash3_x64_128_update(murmur_hash3_x64_128_ctx_t *nonnull ctx,
-                            const void *nullable key, size_t len) __leaf;
+                            const void *nullable key, size_t len)
+    __attr_leaf__;
 __attr_nonnull__((1)) void
 murmur_hash3_x64_128_finish(murmur_hash3_x64_128_ctx_t *nonnull ctx,
-                            murmur_128bits_buf) __leaf;
+                            murmur_128bits_buf) __attr_leaf__;
 
 #define MEM_HASH32_MURMUR_SEED  0xdeadc0de
 
@@ -163,11 +165,13 @@ static inline void hash32_finish(hash32_ctx *nonnull ctx, byte output[4])    \
 
 #include "crypto/iop.h"
 
-uint32_t icrc32(uint32_t crc, const void * nonnull data, ssize_t len) __leaf;
-uint64_t icrc64(uint64_t crc, const void * nonnull data, ssize_t len) __leaf;
+uint32_t icrc32(uint32_t crc, const void * nonnull data, ssize_t len)
+    __attr_leaf__;
+uint64_t icrc64(uint64_t crc, const void * nonnull data, ssize_t len)
+    __attr_leaf__;
 
-uint32_t hsieh_hash(const void * nonnull s, ssize_t len) __leaf;
-uint32_t jenkins_hash(const void * nonnull s, ssize_t len) __leaf;
+uint32_t hsieh_hash(const void * nonnull s, ssize_t len) __attr_leaf__;
+uint32_t jenkins_hash(const void * nonnull s, ssize_t len) __attr_leaf__;
 
 /** Variant of jenkins_hash() but lowering the input ASCII string.
  *
@@ -175,14 +179,17 @@ uint32_t jenkins_hash(const void * nonnull s, ssize_t len) __leaf;
  * case-insensitive ASCII strings. It will apply the tolower() function on
  * every character of the input string when computing the hash.
  */
-uint32_t jenkins_hash_ascii_lower(const void *nonnull s, ssize_t len) __leaf;
+uint32_t jenkins_hash_ascii_lower(const void *nonnull s, ssize_t len)
+    __attr_leaf__;
 
 uint32_t murmur_hash3_x86_32(const void * nonnull key, size_t len,
-                             uint32_t seed) __leaf;
+                             uint32_t seed) __attr_leaf__;
 void     murmur_hash3_x86_128(const void * nonnull key, size_t len,
-                              uint32_t seed, murmur_128bits_buf) __leaf;
+                              uint32_t seed, murmur_128bits_buf)
+    __attr_leaf__;
 void     murmur_hash3_x64_128(const void * nonnull key, size_t len,
-                              uint32_t seed, murmur_128bits_buf) __leaf;
+                              uint32_t seed, murmur_128bits_buf)
+    __attr_leaf__;
 
 static inline uint32_t mem_hash32(const void * nonnull data, ssize_t len)
 {

@@ -111,16 +111,16 @@ typedef struct wah_t {
 /* Public API {{{ */
 
 
-wah_t *wah_init(wah_t *map) __leaf;
-wah_t *wah_new(void) __leaf;
-void wah_wipe(wah_t *map) __leaf;
+wah_t *wah_init(wah_t *map) __attr_leaf__;
+wah_t *wah_new(void) __attr_leaf__;
+void wah_wipe(wah_t *map) __attr_leaf__;
 void wah_reset_map(wah_t *map);
 GENERIC_DELETE(wah_t, wah);
 
-wah_t *t_wah_new(int expected_first_bucket_size) __leaf;
-wah_t *t_wah_dup(const wah_t *src) __leaf;
-void wah_copy(wah_t *map, const wah_t *src) __leaf;
-wah_t *wah_dup(const wah_t *src) __leaf;
+wah_t *t_wah_new(int expected_first_bucket_size) __attr_leaf__;
+wah_t *t_wah_dup(const wah_t *src) __attr_leaf__;
+void wah_copy(wah_t *map, const wah_t *src) __attr_leaf__;
+wah_t *wah_dup(const wah_t *src) __attr_leaf__;
 
 /** Create a wah structure from existing wah-encoded bitmap.
  *
@@ -169,31 +169,32 @@ lstr_t mp_wah_get_storage_lstr(mem_pool_t *mp, const wah_t *wah);
 /** Same as \ref mp_wah_get_storage_lstr but uses the t_pool(). */
 lstr_t t_wah_get_storage_lstr(const wah_t *wah);
 
-void wah_add0s(wah_t *map, uint64_t count) __leaf;
-void wah_add1s(wah_t *map, uint64_t count) __leaf;
-void wah_add1_at(wah_t *map, uint64_t pos) __leaf;
-void wah_add(wah_t *map, const void *data, uint64_t count) __leaf;
-void wah_pad32(wah_t *map) __leaf;
+void wah_add0s(wah_t *map, uint64_t count) __attr_leaf__;
+void wah_add1s(wah_t *map, uint64_t count) __attr_leaf__;
+void wah_add1_at(wah_t *map, uint64_t pos) __attr_leaf__;
+void wah_add(wah_t *map, const void *data, uint64_t count) __attr_leaf__;
+void wah_pad32(wah_t *map) __attr_leaf__;
 
-void wah_and(wah_t *map, const wah_t *other) __leaf;
-void wah_and_not(wah_t *map, const wah_t *other) __leaf;
-void wah_not_and(wah_t *map, const wah_t *other) __leaf;
-void wah_or(wah_t *map, const wah_t *other) __leaf;
-void wah_not(wah_t *map) __leaf;
+void wah_and(wah_t *map, const wah_t *other) __attr_leaf__;
+void wah_and_not(wah_t *map, const wah_t *other) __attr_leaf__;
+void wah_not_and(wah_t *map, const wah_t *other) __attr_leaf__;
+void wah_or(wah_t *map, const wah_t *other) __attr_leaf__;
+void wah_not(wah_t *map) __attr_leaf__;
 
-wah_t *wah_multi_or(const wah_t *src[], int len, wah_t * __restrict dest) __leaf;
+wah_t *wah_multi_or(const wah_t *src[], int len, wah_t * __restrict dest)
+    __attr_leaf__;
 
 /** Get the value of a bit in a WAH.
  *
  * \warning this function is really inefficient, and should be used with
  *          caution (or in tests context).
  */
-__must_check__ __leaf
+__must_check__ __attr_leaf__
 bool wah_get(const wah_t *map, uint64_t pos);
 
 /** Get the amount of memory consumed by a WAH.
  */
-size_t wah_memory_footprint(const wah_t *map) __leaf;
+size_t wah_memory_footprint(const wah_t *map) __attr_leaf__;
 
 /* }}} */
 /* Enumeration {{{ */
@@ -215,9 +216,10 @@ typedef struct wah_word_enum_t {
     uint32_t         reverse;
 } wah_word_enum_t;
 
-wah_word_enum_t wah_word_enum_start(const wah_t *map, bool reverse) __leaf;
-bool wah_word_enum_next(wah_word_enum_t *en) __leaf;
-uint32_t wah_word_enum_skip0(wah_word_enum_t *en) __leaf;
+wah_word_enum_t wah_word_enum_start(const wah_t *map, bool reverse)
+    __attr_leaf__;
+bool wah_word_enum_next(wah_word_enum_t *en) __attr_leaf__;
+uint32_t wah_word_enum_skip0(wah_word_enum_t *en) __attr_leaf__;
 
 /*
  * invariants for an enumerator not a WAH_ENUM_END:
@@ -234,7 +236,7 @@ typedef struct wah_bit_enum_t {
     uint32_t        current_word;
 } wah_bit_enum_t;
 
-bool wah_bit_enum_scan_word(wah_bit_enum_t *en) __leaf;
+bool wah_bit_enum_scan_word(wah_bit_enum_t *en) __attr_leaf__;
 
 static ALWAYS_INLINE void wah_bit_enum_scan(wah_bit_enum_t *en)
 {
@@ -261,8 +263,9 @@ static ALWAYS_INLINE void wah_bit_enum_next(wah_bit_enum_t *en)
     wah_bit_enum_scan(en);
 }
 
-wah_bit_enum_t wah_bit_enum_start(const wah_t *wah, bool reverse) __leaf;
-void wah_bit_enum_skip1s(wah_bit_enum_t *en, uint64_t to_skip) __leaf;
+wah_bit_enum_t wah_bit_enum_start(const wah_t *wah, bool reverse)
+    __attr_leaf__;
+void wah_bit_enum_skip1s(wah_bit_enum_t *en, uint64_t to_skip) __attr_leaf__;
 
 #define wah_for_each_1(en, map)                                              \
     for (wah_bit_enum_t en = wah_bit_enum_start(map, false);                 \
@@ -275,7 +278,7 @@ void wah_bit_enum_skip1s(wah_bit_enum_t *en, uint64_t to_skip) __leaf;
 /* }}} */
 /* Debugging {{{ */
 
-__cold
+__attr_cold__
 void wah_debug_print(const wah_t *wah, bool print_content);
 
 /* }}} */
