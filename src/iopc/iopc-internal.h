@@ -1143,6 +1143,8 @@ int iopc_do_json(iopc_pkg_t *pkg, const char *outdir);
 int iopc_do_typescript(iopc_pkg_t *pkg, const char *outdir);
 int iopc_do_pystub(iopc_pkg_t *pkg, const char *outdir);
 
+void iopc_pystub_set_simple_definitons(bool simple_definitions);
+
 /** Get iop type from a type name.
  *
  * Note that it's not possible to detect UNION and ENUM from a type name, so

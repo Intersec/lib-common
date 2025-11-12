@@ -34,6 +34,8 @@ static struct {
     const char *pystub_outpath;
     const char *depends;
     const char *class_id_range;
+    /* TODO: Remove this when ty or pyrefly are feature complete. */
+    bool pystub_simple_definitions;
 } opts;
 
 typeof(iopc_g) iopc_g = {
@@ -73,6 +75,10 @@ static popt_t options[] = {
     OPT_GROUP("Python stub backend options"),
     OPT_STR(0,    "pystub-output-path", &opts.pystub_outpath,
             "base of the compiled hierarchy for Python stub files"),
+    OPT_FLAG(0,   "pystub-simple-definitions",
+             &opts.pystub_simple_definitions,
+             "generate simple instead of complete definitions for Python "
+             "stub files"),
 
     OPT_END(),
 };
@@ -184,6 +190,7 @@ static int build_doit_table(qv_t(doit) *doits)
                 .cb = &iopc_do_pystub,
                 .outpath = opts.pystub_outpath
             };
+            iopc_pystub_set_simple_definitons(opts.pystub_simple_definitions);
         } else {
             print_error("unsupported language `%*pM`", LSTR_FMT_ARG(lang));
             goto error;

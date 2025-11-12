@@ -1165,7 +1165,8 @@ class IopcOptions:
                  includes: Optional[List[str]] = None,
                  json_path: Optional[str] = None,
                  ts_path: Optional[str] = None,
-                 pystub_path: Optional[str] = None):
+                 pystub_path: Optional[str] = None,
+                 pystub_simple_definitions: bool = False):
         self.ctx = ctx
         self.path = path or ctx.path
         self.class_range = class_range
@@ -1199,6 +1200,9 @@ class IopcOptions:
             self.pystub_node = self.path.make_node(pystub_path)
         else:
             self.pystub_node = None
+
+        # TODO: Remove this when ty or pyrefly are feature complete.
+        self.pystub_simple_definitions = pystub_simple_definitions
 
         # Add options in global cache
         assert self.path not in ctx.iopc_options
@@ -1242,6 +1246,13 @@ class IopcOptions:
         """Get the pystub-output-path option for iopc"""
         if self.pystub_node:
             return f'--pystub-output-path={self.pystub_node}'
+        return ''
+
+    # TODO: Remove this when ty or pyrefly are feature complete.
+    @property
+    def pystub_simple_definitions_option(self) -> str:
+        if self.pystub_simple_definitions:
+            return '--pystub-simple-definitions'
         return ''
 
     def get_includes_recursive(self, includes: Set[Node],
@@ -1320,7 +1331,7 @@ class Iop2c(FirstInputStrTask):
     def run(self) -> int:
         cmd = ('{iopc} --Wextra --language {languages} --c-resolve-includes '
                '{includes} {class_range} {json_output} {ts_output} '
-               '{pystub_output} {source}')
+               '{pystub_output} {pystub_simple_definitions} {source}')
         cmd = cmd.format(iopc=self.inputs[1].abspath(),
                          languages=self.env.IOP_LANGUAGES,
                          includes=self.env.IOP_INCLUDES,
@@ -1328,6 +1339,9 @@ class Iop2c(FirstInputStrTask):
                          json_output=self.env.IOP_JSON_OUTPUT,
                          ts_output=self.env.IOP_TS_OUTPUT,
                          pystub_output=self.env.IOP_PYSTUB_OUTPUT,
+                         pystub_simple_definitions=(
+                            self.env.IOP_PYSTUB_SIMPLE_DEFINITIONS
+                         ),
                          source=self.inputs[0].abspath())
         self.last_cmd = cmd
         res: int = self.exec_command(cmd, cwd=self.get_cwd())
@@ -1400,6 +1414,9 @@ def process_iop(self: TaskGen, node: Node) -> None:
         task.env.IOP_JSON_OUTPUT = opts.json_output_option
         task.env.IOP_TS_OUTPUT = opts.ts_output_option
         task.env.IOP_PYSTUB_OUTPUT = opts.pystub_output_option
+        task.env.IOP_PYSTUB_SIMPLE_DEFINITIONS = (
+            opts.pystub_simple_definitions_option
+        )
 
     self.source.append(c_node)
 
