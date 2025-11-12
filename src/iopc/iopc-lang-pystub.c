@@ -871,7 +871,8 @@ iopc_pystub_dump_rpc_fun_struct(sb_t *buf, const iopc_pkg_t *pkg,
 
         iopc_pystub_dump_field_basetype(&type_buf, pkg,
                                         fun_st->existing_struct, false);
-        sb_addf(buf, "%s = %*pM\n", st_name, SB_FMT_ARG(&type_buf));
+        sb_addf(buf, "%s: typing_extensions.TypeAlias = %*pM\n",
+                st_name, SB_FMT_ARG(&type_buf));
         sb_addf(buf, "%s_DictType: typing_extensions.TypeAlias = "
                 "%*pM_DictType\n", st_name, SB_FMT_ARG(&type_buf));
         sb_addf(buf, "%s_ParamType: typing_extensions.TypeAlias = "
