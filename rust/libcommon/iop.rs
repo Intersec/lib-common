@@ -23,7 +23,6 @@
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::os::raw::c_void;
-use std::pin::pin;
 use std::ptr;
 
 use crate::bindings::{
@@ -35,7 +34,7 @@ use crate::bindings::{
 use crate::lstr::{self, AsRaw as _};
 use crate::mem_stack::TScope;
 use crate::pstream::pstream_t;
-use libcommon_core::{SB_1k, sb::SbStack};
+use libcommon_core::{SB_1k, sb::Sb};
 
 // {{{ Errors
 

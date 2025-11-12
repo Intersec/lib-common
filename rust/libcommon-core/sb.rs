@@ -22,85 +22,174 @@
 //! A `sb_t` is always wrapped in a Rust struct to be able to initialize and deallocate it.
 
 use std::fmt;
+use std::marker::PhantomData;
+use std::mem::MaybeUninit;
 use std::ops::{Deref, DerefMut};
-use std::pin::Pin;
-use std::ptr;
 use std::slice::from_raw_parts;
 use std::str::Utf8Error;
 
-use crate::bindings::{mem_pool_libc, mem_pool_static, sb_t, sb_wipe};
+use crate::bindings::{
+    __sb_slop, mem_pool_libc, mem_pool_static, mem_pool_t, sb_t, sb_wipe, t_pool,
+};
+use crate::mem_stack::TScope;
 
-// {{{ SbStack
+// {{{ Sb
 
-/// `sb_t` with a initial buffer of size N on the stack.
+/// Wrapper around `sb_t` for safe manipulation in Rust.
 ///
-/// We need to use an external pin buffer on the stack to make it work and avoid dangling pointers.
-/// See <https://doc.rust-lang.org/std/pin/index.html> and
-/// <https://github.com/dureuill/stackpin/blob/keep_only_stacklet/src/lib.rs>
+/// The default constructor `new()` creates a string buffer on the heap.
 ///
-/// The macro [`SB_1k`] and [`SB_8k`] should be prefered to create a `SbStack`.
-pub struct SbStack<'pin> {
-    buf: Pin<&'pin mut [u8]>,
+/// The macros [`SB_1k`] and [`SB_8k`], and [`t_SB_1k`] and [`t_SB_8k`], are provided as convenient
+/// helpers to create `Sb` instances with 1KB or 8KB buffers on the stack and `TScope`
+/// respectively.
+#[repr(transparent)]
+pub struct Sb<'a> {
     sb: sb_t,
+    _marker: PhantomData<&'a mut [u8]>,
 }
+
 // {{{ Macro SB_1k
 
-/// Create a `SbStack` with a 1KB buffer.
+/// Create a `Sb` with a 1KB buffer on the stack.
 ///
 /// # Example
 ///
 /// ```rust
-/// use libcommon_core::{SB_1k, sb::SbStack};
+/// use libcommon_core::{SB_1k, sb::Sb};
 ///
 /// SB_1k!(sb);
 /// ```
 #[macro_export]
 macro_rules! SB_1k {
     ($name:ident) => {
-        let $name = pin!([0u8; 1024]);
-        let mut $name = SbStack::new($name);
+        let mut $name = [MaybeUninit::<u8>::uninit(); 1024];
+        let mut $name = Sb::new_from_stack_buffer(&mut $name);
     };
 }
 
 // }}}
 // {{{ Macro SB_8k
 
-/// Create a `SbStack` with a 8KB buffer.
+/// Create a `Sb` with a 8KB buffer on the stack.
 ///
 /// # Example
 ///
 /// ```rust
-/// use libcommon_core::{SB_8k, sb::SbStack};
+/// use libcommon_core::{SB_8k, sb::Sb};
 ///
 /// SB_8k!(sb);
 /// ```
 #[macro_export]
 macro_rules! SB_8k {
     ($name:ident) => {
-        let $name = pin!([0u8; 8192]);
-        let mut $name = SbStack::new($name);
+        let mut $name = [MaybeUninit::<u8>::uninit(); 8192];
+        let mut $name = Sb::new_from_stack_buffer(&mut $name);
+    };
+}
+
+// }}}
+// {{{ Macro t_SB_1k
+
+/// Create a `Sb` with a 1KB buffer on the `TScope`.
+///
+/// # Example
+///
+/// ```rust
+/// use libcommon_core::{t_SB_1k, sb::Sb};
+///
+/// t_SB_1k!(&t_scope, sb);
+/// ```
+#[macro_export]
+macro_rules! t_SB_1k {
+    ($t_scope:expr, $name:ident) => {
+        let mut $name = Sb::new_from_tscope($t_scope, 1024);
+    };
+}
+
+// }}}
+// {{{ Macro t_SB_8k
+
+/// Create a `Sb` with a 8KB buffer on the `TScope`.
+///
+/// # Example
+///
+/// ```rust
+/// use libcommon_core::{t_SB_8k, sb::Sb};
+///
+/// t_SB_8k!(&t_scope, sb);
+/// ```
+#[macro_export]
+macro_rules! t_SB_8k {
+    ($t_scope:expr, $name:ident) => {
+        let mut $name = Sb::new_from_tscope($t_scope, 8192);
     };
 }
 
 // }}}
 
-impl<'pin> SbStack<'pin> {
-    /// Create a new string buffer with an initial buffer on the stack.
-    pub fn new(buffer: Pin<&'pin mut [u8]>) -> Self {
-        let mut res = Self {
-            buf: buffer,
+impl<'a> Sb<'a> {
+    /// Create a string buffer on the heap.
+    pub fn new() -> Self {
+        Self {
             sb: sb_t {
-                data: ptr::null_mut(),
-                size: 0,
-                mp: &raw mut mem_pool_static,
+                data: unsafe { __sb_slop.as_ptr().cast_mut() },
+                size: 1,
+                mp: &raw mut mem_pool_libc,
                 len: 0,
                 skip: 0,
             },
-        };
-        let buf_ref = res.buf.as_mut().get_mut();
-        res.sb.data = buf_ref.as_mut_ptr().cast();
-        res.sb.size = buf_ref.len() as i32;
-        res
+            _marker: PhantomData,
+        }
+    }
+
+    /// Create a new string buffer with an initial buffer on the stack.
+    ///
+    /// This constructor variant receives an **uninitialized buffer** (`[MaybeUninit<u8>]`)
+    /// provided by the caller.
+    /// Only the first byte is initialized to `\0` to represent an empty string.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the buffer's length is 0.
+    pub fn new_from_stack_buffer(buffer: &'a mut [MaybeUninit<u8>]) -> Self {
+        Self::new_from_mp_buffer(&raw mut mem_pool_static, buffer)
+    }
+
+    /// Create a new string buffer on the `TScope`.
+    ///
+    /// This constructor variant creates a buffer of length `len` on the `TScope`.
+    pub fn new_from_tscope<'t>(t_scope: &'t TScope, len: usize) -> Sb<'t> {
+        let buffer = t_scope.t_new_slice_uninit::<u8>(len);
+
+        Sb::<'t>::new_from_mp_buffer(unsafe { t_pool() }, buffer)
+    }
+
+    /// Create a new string buffer with an initial buffer and its memory pool.
+    ///
+    /// This constructor variant receives an **uninitialized buffer** (`[MaybeUninit<u8>]`)
+    /// provided by the caller and its memory pool.
+    /// Only the first byte is initialized to `\0` to represent an empty string.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the buffer's length is 0.
+    pub fn new_from_mp_buffer(mp: *mut mem_pool_t, buffer: &'a mut [MaybeUninit<u8>]) -> Self {
+        assert!(!buffer.is_empty(), "Buffer size must be greater than zero");
+
+        // Write the first byte to `\0`.
+        buffer[0].write(b'\0');
+
+        // Return the safe Rust wrapper
+        Self {
+            sb: sb_t {
+                data: buffer.as_mut_ptr().cast(),
+                size: buffer.len() as i32,
+                mp,
+                len: 0,
+                skip: 0,
+            },
+            _marker: PhantomData,
+        }
     }
 
     /// Retrieve the C `sb_t` pointer.
@@ -114,7 +203,7 @@ impl<'pin> SbStack<'pin> {
     }
 }
 
-impl Drop for SbStack<'_> {
+impl Drop for Sb<'_> {
     fn drop(&mut self) {
         unsafe {
             sb_wipe(&raw mut self.sb);
@@ -122,7 +211,7 @@ impl Drop for SbStack<'_> {
     }
 }
 
-impl Deref for SbStack<'_> {
+impl Deref for Sb<'_> {
     type Target = sb_t;
 
     fn deref(&self) -> &Self::Target {
@@ -130,60 +219,15 @@ impl Deref for SbStack<'_> {
     }
 }
 
-impl DerefMut for SbStack<'_> {
+impl DerefMut for Sb<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.sb
     }
 }
 
-// }}}
-// {{{ SbHeap
-
-/// `sb_t` with allocated on the heap.
-pub struct SbHeap {
-    sb: sb_t,
-}
-
-impl SbHeap {
-    /// Create a string on the heap.
-    pub fn new() -> Self {
-        Self {
-            sb: sb_t {
-                data: ptr::null_mut(),
-                size: 0,
-                mp: &raw mut mem_pool_libc,
-                len: 0,
-                skip: 0,
-            },
-        }
-    }
-}
-
-impl Default for SbHeap {
+impl Default for Sb<'_> {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Drop for SbHeap {
-    fn drop(&mut self) {
-        unsafe {
-            sb_wipe(&raw mut self.sb);
-        }
-    }
-}
-
-impl Deref for SbHeap {
-    type Target = sb_t;
-
-    fn deref(&self) -> &Self::Target {
-        &self.sb
-    }
-}
-
-impl DerefMut for SbHeap {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.sb
     }
 }
 
