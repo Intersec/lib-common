@@ -1153,6 +1153,28 @@ static void iopc_pystub_dump_rpc(sb_t *buf, const iopc_pkg_t *pkg,
 /* }}} */
 /* {{{ Interface */
 
+static void iopc_pystub_dump_iface_rpc_attr(
+    sb_t *buf, const char *channel_name, const iopc_fun_t *rpc,
+    const iopc_iface_t *iface)
+{
+    bool is_field_name_a_keyword =
+        iopc_pystub_is_field_name_a_keyword(LSTR(rpc->name));
+
+    sb_adds(buf, "    ");
+    if (is_field_name_a_keyword) {
+        sb_adds(buf, "# ");
+    }
+
+    sb_addf(buf, "%s: %s_%s_%s", rpc->name, iface->name,
+            rpc->name, channel_name);
+
+    if (is_field_name_a_keyword) {
+        sb_addf(buf, " -- `%s` is a reserved Python keyword",
+                rpc->name);
+    }
+    sb_adds(buf, "\n");
+}
+
 static void iopc_pystub_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
                                    const iopc_iface_t *iface)
 {
@@ -1169,8 +1191,7 @@ static void iopc_pystub_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
     sb_addf(buf, "class %s_Iface(iopy.Iface):\n", iface->name);
     if (iface->funs.len) {
         tab_for_each_entry(rpc, &iface->funs) {
-            sb_addf(buf, "    %s: %s_%s_RPC\n", rpc->name, iface->name,
-                    rpc->name);
+            iopc_pystub_dump_iface_rpc_attr(buf, "RPC", rpc, iface);
         }
     }
     iopc_pystub_dump_no_getattr(buf);
@@ -1181,8 +1202,7 @@ static void iopc_pystub_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
     sb_addf(buf, "class %s_AsyncIface(iopy.Iface):\n", iface->name);
     if (iface->funs.len) {
         tab_for_each_entry(rpc, &iface->funs) {
-            sb_addf(buf, "    %s: %s_%s_AsyncRPC\n", rpc->name, iface->name,
-                    rpc->name);
+            iopc_pystub_dump_iface_rpc_attr(buf, "AsyncRPC", rpc, iface);
         }
     }
     iopc_pystub_dump_no_getattr(buf);
@@ -1193,8 +1213,7 @@ static void iopc_pystub_dump_iface(sb_t *buf, const iopc_pkg_t *pkg,
     sb_addf(buf, "class %s_IfaceServer(iopy.Iface):\n", iface->name);
     if (iface->funs.len) {
         tab_for_each_entry(rpc, &iface->funs) {
-            sb_addf(buf, "    %s: %s_%s_RPCServer\n", rpc->name, iface->name,
-                    rpc->name);
+            iopc_pystub_dump_iface_rpc_attr(buf, "RPCServer", rpc, iface);
         }
     }
     iopc_pystub_dump_no_getattr(buf);
