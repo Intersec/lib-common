@@ -171,6 +171,21 @@ def run_checks(ctx: BuildContext) -> None:
     elif ctx.cmd not in {'check', 'check-retry'}:
         return
 
+    # CARGO/RUST tests related env vars used by the script zcargo.py
+    if 'CARGO' not in env:
+        env['CARGO'] = ctx.env.CARGO[0]
+    env['CARGO_PROFILE'] = ctx.env.CARGO_PROFILE
+
+    if ctx.env.USE_SANITIZER:
+        env['USE_SANITIZER'] = '1'
+        sanitizer = ctx.env.SANITIZER
+        old_rustflags = os.environ.get('RUSTFLAGS', '')
+        old_rustdocflags = os.environ.get('RUSTDOCFLAGS', '')
+        env['RUSTFLAGS'] = f'-Zsanitizer={sanitizer} {old_rustflags}'
+        env['RUSTDOCFLAGS'] = (
+            f'-Zsanitizer={sanitizer} {old_rustdocflags}'
+        )
+
     if ctx.cmd in {'check-retry', 'fast-selenium-retry'}:
         arg = ctx.cmd
     else:

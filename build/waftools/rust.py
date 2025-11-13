@@ -300,7 +300,7 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
             cargo_exec_cmd += [
                 '+nightly',
             ]
-            sanitizer = PROFILE_TO_SANITIZER[self.env.PROFILE]
+            sanitizer = self.env.SANITIZER
             old_rustflags = os.environ.get('RUSTFLAGS', '')
             old_rustdocflags = os.environ.get('RUSTDOCFLAGS', '')
             cmd_env['RUSTFLAGS'] = f'-Zsanitizer={sanitizer} {old_rustflags}'
@@ -570,6 +570,9 @@ def configure(ctx: ConfigurationContext) -> None:
 
     cargo_target_dir = waf_profile
     ctx.env.CARGO_BUILD_DIR = osp.join('.cargo', 'target', cargo_target_dir)
+
+    if ctx.env.USE_SANITIZER:
+        ctx.env.SANITIZER = PROFILE_TO_SANITIZER[waf_profile]
 
     sanitizer_add_toolchain(ctx)
 
