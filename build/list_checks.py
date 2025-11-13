@@ -47,6 +47,7 @@ GROUPS = [
     ('behave', re.compile(r'.*/behave'), None),
     ('web', re.compile(r'.*testem.json'), is_file),
     ('web', re.compile(r'.*/check_php'), None),
+    ('rust', re.compile(r'.*/rust:[A-Za-z0-9_-]+'), None),
     ('C', re.compile(r'.+'), is_exec),  # default case
 ]
 RE_TAGS = re.compile(r'@([A-Za-z0-9_]+)')

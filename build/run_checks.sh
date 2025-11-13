@@ -216,6 +216,13 @@ while read -r zd line; do
             "$(dirname "$0")"/tests/check_php.py "$zd"
             res=$?
             ;;
+        *rust:*)
+            # $t is <path>rust:<pkg-name>
+            cd ${t%%rust:*} # are cargo/rust tests cwd-dependent?
+            "$(dirname "$0")"/tests/zcargo.py ${t#*rust:}
+            res=$?
+            cd - &>/dev/null
+            ;;
         *)
             ./$t
             res=$?
