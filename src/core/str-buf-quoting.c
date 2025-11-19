@@ -242,7 +242,7 @@ int sb_add_expandenv(sb_t *sb, const void *data, int len)
         sb_add_unslashes(sb, n.s, ps_len(&n), "$", "$");
 
         if (!has_env) {
-            break;
+            continue;
         }
 
         if (ps_skipc(&ps, '{') < 0) {

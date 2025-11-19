@@ -2246,7 +2246,7 @@ Z_GROUP_EXPORT(str) {
 
 #define T(str, res, ...)  do {                                               \
         sb_reset(&data);                                                     \
-        sb_adds_expandenv(&data, str);                                       \
+        Z_ASSERT_N(sb_adds_expandenv(&data, str));                           \
                                                                              \
         sb_setf(&expected, res, ##__VA_ARGS__);                              \
         Z_ASSERT_STREQUAL(data.data, expected.data);                         \
@@ -2260,7 +2260,7 @@ Z_GROUP_EXPORT(str) {
         T("$HOME$HOME", "%s%s", var, var);
         T("/$HOME/", "/%s/", var);
         T("Hello ${HOME}!", "Hello %s!", var);
-        T("\\$", "$");
+        T("\\$toto $HOME", "$toto %s", var);
         T("\\\\$HOME", "\\%s", var);
 
 #undef T
