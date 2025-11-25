@@ -1846,6 +1846,22 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
     ctx.map  = map;
     ctx.data = data;
 
+    if (likely(ps_len(&ctx.data) > sizeof(wah_word_t) * 2)) {
+        const wah_word_t *chunk = ctx.data.p;
+        uint64_t bits_count;
+
+        bits_count  = chunk[0].head.words + chunk[1].count;
+        bits_count *= WAH_BIT_IN_WORD;
+
+        if (bits_count <= WAH_BITS_IN_BUCKET) {
+            /* The first bucket wasn't overfilled and thus is either not
+             * filled of the same bit or was created before the overfilling
+             * feature. In both case we must not try to overfill it.
+             */
+            overfill_bucket = false;
+        }
+    }
+
     while (!ps_done(&ctx.data)) {
         uint64_t size = ps_len(&ctx.data) / sizeof(wah_word_t);
 
