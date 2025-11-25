@@ -966,6 +966,53 @@ Z_GROUP_EXPORT(wah) {
     } Z_TEST_END;
 
     /* }}} */
+    Z_TEST(bucket_overfill_nr_117848) { /* {{{ */
+        wah_t map;
+
+        /* Setup a WAH that would be overfilled now but not before the feature
+         * and would fail to be loaded if not correctly detected.
+         */
+        const wah_word_t data[] = {
+            /* First bucket full of 0s. */
+            { .head = { .words = 3 } },
+            { .count = 0 },
+
+            /* Second bucket 1 word of 0s, 2 words 1s. The first run cannot be
+             * included in the overfilled bucket otherwise the second bucket
+             * would either be incomplete (composed of 2 words instead of 3)
+             * or overfilled too (composed of the 2 words of 1s and the next
+             * run of the third bucket which contains 2 words too).
+             */
+            { .head = { .words = 1 } },
+            { .count = 0 },
+            { .head = { .words = 2, .bit = 1 } },
+            { .count = 0 },
+
+            /* Third bucket, more 0s one literal. */
+            { .head = { .words = 2 } },
+            { .count = 1 },
+            { .literal = 0x12345678 },
+        };
+        pstream_t ps = ps_init(data, countof(data) * sizeof(data[0]));
+
+        Z_TEST_FLAGS("redmine_117848");
+
+        wah_set_bits_in_bucket(3 * WAH_BIT_IN_WORD);
+        Z_ASSERT_P(wah_init_from_data(&map, ps));
+
+        /* Check that the WAH was loaded as it was generated without
+         * overfilling.
+         */
+        Z_ASSERT_EQ(map._buckets.len, 3);
+        Z_ASSERT_EQ(map.buckets_shift, 0ULL);
+        Z_ASSERT_EQ(map.active, 2 * WAH_BIT_IN_WORD + bitcount32(0x12345678));
+        Z_ASSERT_EQ(map.len, 9 * WAH_BIT_IN_WORD);
+
+        wah_wipe(&map);
+        wah_set_bits_in_bucket(Z_WAH_BITS_IN_BUCKETS);
+    } Z_TEST_END;
+
+    /* }}} */
 
     wah_reset_bits_in_bucket();
 } Z_GROUP_END;

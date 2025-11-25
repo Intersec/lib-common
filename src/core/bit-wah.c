@@ -1853,10 +1853,14 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
         bits_count  = chunk[0].head.words + chunk[1].count;
         bits_count *= WAH_BIT_IN_WORD;
 
+        assert(WAH_BITS_IN_BUCKET < WAH_MAX_WORDS_IN_RUN * 8);
         if (bits_count <= WAH_BITS_IN_BUCKET) {
             /* The first bucket wasn't overfilled and thus is either not
              * filled of the same bit or was created before the overfilling
              * feature. In both case we must not try to overfill it.
+             *
+             * XXX: this early detection only works because WAH_BITS_IN_BUCKET
+             * is currently lower than the maximum number of bits in a run.
              */
             overfill_bucket = false;
         }
