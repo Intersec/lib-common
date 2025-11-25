@@ -287,7 +287,15 @@ def rust_create_task(self: TaskGen) -> None:
     if self.name.endswith('.pic'):
         target_profile_suffix = '-pic'
     cargo_profile = ctx.env.CARGO_PROFILE + target_profile_suffix
-    cargo_bld_name = self.env.CARGO_BUILD_DIR + target_profile_suffix
+
+    # Special case for debug + pic.
+    # In that case, the 'non-pic' build dir is 'debug' (like the waf profile),
+    # but the 'pic' build dir is 'dev-pic' (cargo profile + '-pic')
+    cargo_build_dir: str = self.env.CARGO_BUILD_DIR
+    if target_profile_suffix and ctx.env.PROFILE == 'debug':
+        cargo_build_dir = osp.join(osp.dirname(cargo_build_dir), 'dev')
+
+    cargo_bld_name = cargo_build_dir + target_profile_suffix
     cargo_bld_dir = ctx.srcnode.make_node(cargo_bld_name)
 
     # Build the list of outputs and hardlinks for the task
