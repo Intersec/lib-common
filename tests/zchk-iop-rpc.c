@@ -639,6 +639,49 @@ Z_GROUP_EXPORT(iop_rpc)
         MODULE_RELEASE(thr);
     } Z_TEST_END;
 
+    Z_TEST(ic_invalid_addr_resolution, "iop-rpc: invalid DNS resolution") {
+        ichannel_t ic_client;
+
+        z_init_client_ic(&ic_client);
+        /* From RFC 2606, Section 2: ".invalid for online construction of
+         * domain names that are sure to be invalid. */
+        ic_client.name = LSTR("invalid peer");
+        ic_client.remote_addr = LSTR("remote.invalid:12345");
+
+        /* 1. Invalid DNS without retry and synchronous resolution should fail
+         * and return -1. */
+        Z_ASSERT(!MODULE_IS_LOADED(thr));
+        Z_ASSERT_NEG(ic_connect(&ic_client));
+
+        /* 2. Invalid DNS with retry and synchronous resolution should pass
+         * (will try again later with timer set). */
+        ic_client.auto_reconn = true;
+        Z_ASSERT_N(ic_connect(&ic_client));
+        Z_ASSERT_P(ic_client.timer);
+        Z_ASSERT_NULL(ic_client.elh);
+
+        ic_disconnect(&ic_client);
+        Z_ASSERT_NULL(ic_client.timer);
+
+        /* 3. Invalid DNS with asynchronous resolution should pass. Increase
+         * the retry delay, so we don't relaunch resolution. */
+        ic_client.retry_delay = 60 * 1000; /* 60s */
+
+        MODULE_REQUIRE(thr);
+        Z_ASSERT_N(ic_connect(&ic_client));
+        Z_ASSERT_NULL(ic_client.timer);
+        Z_ASSERT_P(ic_client.dns_ctx);
+
+        /* Give some time for the thread to notify us. */
+        el_loop_timeout(3000);
+        Z_ASSERT_NULL(ic_client.dns_ctx);
+        Z_ASSERT_P(ic_client.timer);
+
+        /* Cleanup */
+        ic_wipe(&ic_client);
+        MODULE_RELEASE(thr);
+    } Z_TEST_END;
+
     MODULE_RELEASE(ic);
     iop_env_delete(&_G.iop_env);
 } Z_GROUP_END;

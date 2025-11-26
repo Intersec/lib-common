@@ -3135,14 +3135,25 @@ static void __ic_watch_activity(ichannel_t *ic)
     el_unref(ic->timer);
 }
 
-static void
+typedef enum {
+    IC_RESOLVE_ADDR_ERR         = -1, /**< Hard failure, no retry. */
+    IC_RESOLVE_ADDR_OK          =  0, /**< Address resolved, can connect()
+                                           now. */
+    IC_RESOLVE_ADDR_IN_PROGRESS =  1, /**< Asynchronous resolution pending. */
+    IC_RESOLVE_ADDR_RETRY       =  2, /**< Resolution failed but will retry
+                                           later. */
+} ic_resolve_addr_status_t;
+
+static ic_resolve_addr_status_t
 __ic_on_addr_resolution_failed(ichannel_t *ic, const sb_t * nonnull err,
                                bool notify)
 {
     logger_log(&_G.logger, ic->addr_fail_log_level, "%pL", err);
     if (ic->auto_reconn || notify) {
         ic_mark_disconnected(ic);
+        return ic->auto_reconn ? IC_RESOLVE_ADDR_RETRY : IC_RESOLVE_ADDR_ERR;
     }
+    return IC_RESOLVE_ADDR_ERR;
 }
 
 static int
@@ -3196,7 +3207,8 @@ __ic_trigger_connection(ichannel_t *ic, int flags, int type, int timeout)
     return 0;
 }
 
-static int __ic_resolve_remote_addr(ichannel_t *ic, int flags, int timeout)
+static ic_resolve_addr_status_t
+__ic_resolve_remote_addr(ichannel_t *ic, int flags, int timeout)
 {
     SB_1k(err);
 
@@ -3216,7 +3228,7 @@ static int __ic_resolve_remote_addr(ichannel_t *ic, int flags, int timeout)
         {
             goto resolution_failed;
         }
-        return 0;
+        return IC_RESOLVE_ADDR_OK;
     }
 
     ic->dns_ctx = addr_resolve_async_b(ic->name.s, ic->remote_addr, 1, -1,
@@ -3251,14 +3263,13 @@ static int __ic_resolve_remote_addr(ichannel_t *ic, int flags, int timeout)
     ic->elh = addr_get_dns_elh(ic->dns_ctx);
     assert(ic->elh);
 
-    /* Like we do for non blocking sockets when trigerring connection, allow
+    /* Like we do for non blocking sockets when triggering connection, allow
      * to queue messages. */
     ic->queuable = true;
-    return 0;
+    return IC_RESOLVE_ADDR_IN_PROGRESS;
 
 resolution_failed:
-    __ic_on_addr_resolution_failed(ic, &err, false);
-    return -1;
+    return __ic_on_addr_resolution_failed(ic, &err, false);
 }
 
 static int __ic_connect(ichannel_t *ic, int flags, int timeout)
@@ -3285,12 +3296,13 @@ static int __ic_connect(ichannel_t *ic, int flags, int timeout)
         ic->is_seqpacket = false;
 
         if (ic->remote_addr.s) {
-            int res = __ic_resolve_remote_addr(ic, flags, timeout);
+            ic_resolve_addr_status_t res;
 
-            if (res < 0 || ic->dns_ctx) {
+            res = __ic_resolve_remote_addr(ic, flags, timeout);
+            if (res != IC_RESOLVE_ADDR_OK) {
                 /* Leave on failure or if the asynchronous address resolution
                  * is triggered: we have to wait for the answer first. */
-                return res;
+                return res == IC_RESOLVE_ADDR_ERR ? -1 : 0;
             }
         }
     }
