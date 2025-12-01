@@ -35,31 +35,22 @@ run_cmd() {
     "$@"
 }
 
-modified_python_files() {
-    local diff_mode="$1"
-    local git_diff_files
+staged_python_files() {
     # Added, Copied, Modified, Renamed (we don't need to check deleted files
     # for instance).
     local diff_filter="--diff-filter=ACMR"
-    if [ "$diff_mode" = "staged-files" ]; then
-        # Get only the staged files
-        git_diff_files="git diff-index --name-only $diff_filter --cached HEAD"
-    else
-        # By default, we check the last commit
-        git_diff_files="git diff $diff_filter --name-only HEAD^"
-    fi
     # Filter only the existing files and not the removed ones
     # Convert new lines into spaces for nice printing
     # With xargs || true, we ensure that if any file does not really exist we
     # skip outputting just that file.
-    eval "$git_diff_files -- \
-            '*.py' '**/*.py' '*.pyi' '**/*.pyi' 'wscript*' '**/wscript*' | \
-            (xargs --no-run-if-empty stat --printf '%n ' 2>/dev/null || true)"
+    git diff-index --name-only $diff_filter --cached HEAD -- \
+        '*.py' '**/*.py' '*.pyi' '**/*.pyi' 'wscript*' '**/wscript*' | \
+        (xargs --no-run-if-empty stat --printf '%n ' 2>/dev/null || true)
 }
 
 main() {
     local params
-    local modified_files
+    local staged_files
     local diff_mode="last-commit"
     local supported_commands="help,staged-files"
 
@@ -93,20 +84,19 @@ main() {
         esac
     done
 
-    modified_files="$(modified_python_files "$diff_mode")"
-
     if [[ "$diff_mode" = "staged-files" ]]; then
         # This diff_mode is used by our git hook.
+        staged_files="$(staged_python_files)"
 
-        if [[ -n "$modified_files" ]]; then
-            # Only run linters on modified_files, otherwise it will run on
+        if [[ -n "$staged_files" ]]; then
+            # Only run linters on staged_files, otherwise it will run on
             # file modified locally but not staged.
 
-            # Intended splitting of modified_files
+            # Intended splitting of staged_files
             # shellcheck disable=SC2086
-            run_cmd ruff check --force-exclude ${modified_files}
+            run_cmd ruff check --force-exclude ${staged_files}
             # shellcheck disable=SC2086
-            run_cmd waf mypy ${modified_files}
+            run_cmd waf mypy ${staged_files}
         fi
     else
         # The bot executes static-check without setting any diff_mode.
