@@ -1457,12 +1457,14 @@ Z_GROUP_EXPORT(qhugehash)
         t_scope;
         qhm_t(test) qhm;
         qhm_t(test_p) qhm_p;
+        uint32_t key_h;
         uint32_t key = 42;
         uint32_t val = 84;
         uint32_t *pval = &val;
-        uint32_t key_h = qhm_hash(test, &qhm, key);
 
         t_qhm_init(test, &qhm, 1);
+        key_h = qhm_hash(test, &qhm, key);
+
         qhm_add(test, &qhm, key, val);
         Z_ASSERT_EQ(qhm_get_def(test, &qhm, 0, 9999U), 9999U);
         Z_ASSERT_EQ(qhm_get_def(test, &qhm, key, 0U), val);
