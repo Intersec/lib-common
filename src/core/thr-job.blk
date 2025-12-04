@@ -739,6 +739,13 @@ bool thr_is_on_queue(thr_queue_t *q)
         || (q == thr_queue_main_g && thr_id() == 0);
 }
 
+void thr_main_queue_schedule(void (*run)(void *), void *data)
+{
+    thr_queue_b(thr_queue_main_g, ^{
+        (*run)(data);
+    });
+}
+
 /* }}} */
 /* thread run loop {{{ */
 

@@ -152,6 +152,12 @@ void thr_queue_destroy(thr_queue_t *q, bool wait) __attr_leaf__;
  */
 bool thr_is_on_queue(thr_queue_t *q) __attr_leaf__;
 
+/** Helper function to schedule a job with a function and a custom data on the
+ * main thread queue.
+ */
+void thr_main_queue_schedule(void (*nonnull run)(void *),
+                             void *nullable data);
+
 /** \brief Queue one job on a serial queue
  *
  * For simplicity, #q can be NULL and then thr_queue* is similar to calling
