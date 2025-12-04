@@ -20,28 +20,19 @@
 
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
-use std::os::raw::{c_char, c_int, c_void};
+use std::os::raw::{c_char, c_void};
 use std::ptr;
 use std::ptr::from_ref;
-use std::sync::Mutex;
 
-use crate::bindings::{
-    log_get_module, lstr_obfuscate, module_implement, module_register, module_t, pstream_t,
-    qlzo1x_decompress_safe,
-};
+use crate::bindings::{lstr_obfuscate, module_t, pstream_t, qlzo1x_decompress_safe};
+
+#[allow(clippy::module_name_repetitions)]
+pub use crate::bindings::farch_entry_t;
+use crate::c_module;
 use crate::helpers::slice_assume_init_mut;
 use crate::lstr::{self, AsRaw, BorrowedLstr, lstr_t};
 use crate::mem_stack::TScope;
 
-#[allow(clippy::module_name_repetitions)]
-pub use crate::bindings::farch_entry_t;
-
-// {{{ Globals
-
-static mut FARCH_MODULE: *mut module_t = ptr::null_mut();
-static FARCH_PERSISTED: Mutex<Option<HashMap<usize, Box<[u8]>>>> = Mutex::new(None);
-
-// }}}
 // {{{ Helpers
 
 fn lstr_unobfuscate(in_: &impl AsRaw, key: u64, out: &impl AsRaw) {
@@ -204,11 +195,8 @@ unsafe fn farch_get_entry(
 // Unarchive and persist the entry given as a reference.
 fn farch_unarchive_persist_ref(entry: &farch_entry_t) -> lstr_t {
     let entry_addr = from_ref::<farch_entry_t>(entry).addr();
-
-    let mut map_opt = FARCH_PERSISTED.lock().expect("unable to lock mutex");
-    let map_ref = map_opt.as_mut().expect("farch module not initialized");
-
-    let persisted_buf_1 = map_ref.entry(entry_addr).or_insert_with(|| {
+    let ctx = farch_c_mod::get_ctx();
+    let persisted_buf_1 = ctx.persisted.entry(entry_addr).or_insert_with(|| {
         let t_scope = TScope::new_scope();
         let t_buf = t_farch_unarchive_buf(&t_scope, entry);
 
@@ -340,36 +328,14 @@ pub unsafe extern "C" fn farch_get_data_persist(
 // }}}
 // {{{ Module
 
-// TODO: Find a way to generalize how to create module in Rust.
-
-extern "C" fn farch_initialize(_arg: *mut c_void) -> c_int {
-    let mut map_opt = FARCH_PERSISTED.lock().expect("unable to lock mutex");
-    _ = map_opt.insert(HashMap::new());
-    0
+#[derive(Default)]
+struct FarchModCtx {
+    pub persisted: HashMap<usize, Box<[u8]>>,
 }
 
-extern "C" fn farch_shutdown() -> c_int {
-    let mut map_opt = FARCH_PERSISTED.lock().expect("unable to lock mutex");
-    map_opt.take();
-    0
-}
-
-#[allow(clippy::module_name_repetitions)]
-#[unsafe(no_mangle)]
-pub extern "C" fn farch_get_module() -> *mut module_t {
-    unsafe {
-        if FARCH_MODULE.is_null() {
-            FARCH_MODULE = module_register(lstr::raw("farch"));
-
-            module_implement(
-                FARCH_MODULE,
-                Some(farch_initialize),
-                Some(farch_shutdown),
-                log_get_module(), // Taken from MODULE_BEGIN()
-            );
-        }
-        FARCH_MODULE
-    }
-}
+c_module!(farch, super::FarchModCtx, |m| {
+    m.initialize(|_| 0);
+    m.shutdown(|| 0);
+});
 
 // }}}

@@ -232,4 +232,7 @@ rand = "0.9.1"
 # Used by libcommon-derive
 quote = "1.0"
 
+# Used by modules
+paste = "1.0.15"
+
 # }}}
