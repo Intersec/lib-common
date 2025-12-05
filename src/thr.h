@@ -110,4 +110,10 @@ typedef struct thr_cfg_t {
 /* Takes an optional thr_cfg_t as argument */
 MODULE_DECLARE(thr);
 
-#endif
+/** Assert that the current thread is the main thread. */
+static inline void thr_assert_is_main_thread(void)
+{
+    assert(!MODULE_IS_LOADED(thr) || thr_is_on_queue(thr_queue_main_g));
+}
+
+#endif /* IS_LIB_COMMON_THR_H */

@@ -274,6 +274,8 @@ static ev_t *el_create(ev_type_t type, void *cb, data_t priv, bool ref)
 {
     ev_t *res;
 
+    thr_assert_is_main_thread();
+
     if (unlikely(dlist_is_empty(&_G.evs_free))) {
         if (unlikely(_G.evs_alloc_next >= _G.evs_alloc_end)) {
             int   bucket_len = 1 << (_G.buckets.len + EV_ALLOC_FACTOR);
@@ -332,7 +334,7 @@ static data_t el_destroy(ev_t **evp)
     logger_trace(&_G.logger, 2, "destroying event %p (%s)",
                  ev, ev_type_to_str(ev->type));
     assert (MODULE_IS_LOADED(el) || MODULE_IS_SHUTTING_DOWN(el));
-    assert (!MODULE_IS_LOADED(thr) || thr_is_on_queue(thr_queue_main_g));
+    thr_assert_is_main_thread();
 
     if (EV_FLAG_HAS(ev, IS_BLK)) {
         block_t wipe = ev->wipe;
@@ -650,6 +652,8 @@ static bool el_signal_has_pending_events(void)
 
 void el_signal_set_hook(el_t ev, el_signal_f *cb)
 {
+    thr_assert_is_main_thread();
+
     CHECK_EV_TYPE(ev, EV_SIGNAL);
     assert (!EV_FLAG_HAS(ev, IS_BLK));
     ev->cb.signal = cb;
@@ -841,6 +845,8 @@ int el_child_get_status(el_t ev)
 
 el_t el_child_get_el(pid_t pid)
 {
+    thr_assert_is_main_thread();
+
     return qm_get_def(ev_assoc, &_G.childs, pid, NULL);
 }
 
@@ -1245,6 +1251,8 @@ static ALWAYS_INLINE void el_timer_restart_fast(ev_t *ev, uint64_t restart)
 
 void el_timer_restart(ev_t *ev, int64_t restart)
 {
+    thr_assert_is_main_thread();
+
     CHECK_EV_TYPE(ev, EV_TIMER);
     ASSERT("timer isn't a oneshot timer", ev->timer.repeat <= 0);
 

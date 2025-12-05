@@ -342,11 +342,15 @@ static int ic_verify_callback(int preverify_ok, X509_STORE_CTX *store_ctx)
 
 SSL_CTX *ic_get_ssl_ctx(void)
 {
+    thr_assert_is_main_thread();
+
     return _G.ssl_ctx;
 }
 
 X509 *ic_get_certificate(void)
 {
+    thr_assert_is_main_thread();
+
     return _G.certificate;
 }
 
@@ -537,6 +541,8 @@ static void ic_hook_ctx_save_current(void)
 
 ic_hook_ctx_t *ic_hook_ctx_new(uint64_t slot, ssize_t extra)
 {
+    thr_assert_is_main_thread();
+
     if (_G.ic_hook_ctx) {
         assert (_G.ic_hook_ctx->slot != slot);
         ic_hook_ctx_save_current();
@@ -552,6 +558,8 @@ ic_hook_ctx_t *ic_hook_ctx_new(uint64_t slot, ssize_t extra)
 
 ic_hook_ctx_t *ic_hook_ctx_get(uint64_t slot)
 {
+    thr_assert_is_main_thread();
+
     if (_G.ic_hook_ctx &&  _G.ic_hook_ctx->slot == slot) {
         return _G.ic_hook_ctx;
     } else {
@@ -561,6 +569,8 @@ ic_hook_ctx_t *ic_hook_ctx_get(uint64_t slot)
 
 void ic_hook_ctx_delete(ic_hook_ctx_t **pctx)
 {
+    thr_assert_is_main_thread();
+
     if (*pctx) {
         ic_hook_ctx_t *ctx = *pctx;
 
@@ -577,6 +587,8 @@ int
 t_ic_query_do_pre_hook(ichannel_t *ic, uint64_t slot, const ic_cb_entry_t *e,
                        ic__hdr__t *hdr, bool *hdr_modified)
 {
+    thr_assert_is_main_thread();
+
     if (e->t_pre_hook) {
         _G.post_hook = e->post_hook;
         _G.rpc = e->rpc;
@@ -2051,6 +2063,8 @@ static void ic_cancel_addr_resolution(ichannel_t * nonnull ic)
 
 void ic_disconnect(ichannel_t *ic)
 {
+    thr_assert_is_main_thread();
+
     ic->queuable = false;
     ic->is_connected = false;
 
@@ -2089,6 +2103,8 @@ void ic_disconnect(ichannel_t *ic)
 
 void ic_wipe(ichannel_t *ic)
 {
+    thr_assert_is_main_thread();
+
     if (unexpected(ic->is_wiped)) {
         return;
     }
@@ -2167,6 +2183,8 @@ close:
 
 static ichannel_t *ic_get_from_slot(uint64_t slot)
 {
+    thr_assert_is_main_thread();
+
 #ifndef NDEBUG
     if (!(slot >> 32)) {
         logger_panic(&_G.logger, "slot truncated at some point: "
@@ -2267,6 +2285,8 @@ void ic_flush(ichannel_t *ic)
 {
     int fd = el_fd_get_fd(ic->elh);
 
+    thr_assert_is_main_thread();
+
     if (ic_is_local(ic) || !expect(ic->is_connected)) {
         return;
     }
@@ -2278,6 +2298,8 @@ void ic_flush(ichannel_t *ic)
 
 void ic_msg_cancel(ic_msg_t *msg)
 {
+    thr_assert_is_main_thread();
+
     assert (!msg->canceled);
     if (expect(!msg->async)) {
         __ic_msg_reply_err(msg->ic, msg, IC_MSG_CANCELED);
@@ -2388,6 +2410,8 @@ static void ic_local_async_schedule_flush(ichannel_t *ic)
 static void
 ic_query_local_async_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
 {
+    thr_assert_is_main_thread();
+
     __ic_bpack(msg, msg->rpc->args, msg->data);
     msg->force_pack = true;
 
@@ -2399,6 +2423,8 @@ ic_query_local_async_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
 
 void __ic_query_flags(ichannel_t *ic, ic_msg_t *msg, uint32_t flags)
 {
+    thr_assert_is_main_thread();
+
     /* if that crashes, one of the IC_MSG_ABORT callback reenqueues directly in
      * that ichannel_t which is forbidden, fix the code
      */
@@ -2596,6 +2622,8 @@ size_t __ic_reply(ichannel_t *ic, uint64_t slot, int cmd, int fd,
     ic_msg_t *msg;
     int res;
 
+    thr_assert_is_main_thread();
+
     assert (slot & IC_MSG_SLOT_MASK);
 
     if (unlikely(ic_slot_is_http(slot))) {
@@ -2700,6 +2728,8 @@ static void ic_sc_do(ichannel_t *ic, int sc_op, const char * nullable payload,
 
 void ic_bye(ichannel_t *ic)
 {
+    thr_assert_is_main_thread();
+
     if (ic->dns_ctx) {
         ic_cancel_addr_resolution(ic);
     }
@@ -2715,6 +2745,8 @@ void ic_bye(ichannel_t *ic)
 
 void ic_nop(ichannel_t *ic)
 {
+    thr_assert_is_main_thread();
+
     if (htlist_is_empty(&ic->msg_list)) {
         ic_sc_do(ic, IC_SC_NOP, NULL, 0);
     }
@@ -2722,12 +2754,16 @@ void ic_nop(ichannel_t *ic)
 
 static bool ic_is_tls_enabled(ichannel_t *ic)
 {
+    thr_assert_is_main_thread();
+
     return ic->tls_required && !_G.tls_disabled;
 }
 
 bool ic_set_tls_disabled(bool val)
 {
     bool prev = _G.tls_disabled;
+
+    thr_assert_is_main_thread();
 
     _G.tls_disabled = val;
 
@@ -2772,6 +2808,8 @@ static int ic_version_write(ichannel_t *ic, int fd)
 
 ichannel_t *ic_get_by_id(uint32_t id)
 {
+    thr_assert_is_main_thread();
+
     return qm_get_def(ic, &_G.ics, id, NULL);
 }
 
@@ -2829,6 +2867,8 @@ static int ic_mark_connected(ichannel_t *ic, int fd)
 
 void ic_mark_disconnected(ichannel_t *ic)
 {
+    thr_assert_is_main_thread();
+
     ic->is_closing = true;
     ic_disconnect(ic);
     if (!ic->is_spawned && ic->auto_reconn) {
@@ -3275,6 +3315,8 @@ resolution_failed:
 static int __ic_connect(ichannel_t *ic, int flags, int timeout)
 {
     int type;
+
+    thr_assert_is_main_thread();
 
     if (ic_is_local(ic)) {
         logger_fatal(&_G.logger, "cannot connect a local ic");

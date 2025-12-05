@@ -23,6 +23,7 @@
 #include <lib-common/container-qvector.h>
 #include <lib-common/container-qhash.h>
 #include <lib-common/unix.h>
+#include <lib-common/thr.h>
 
 /* {{{ Type definition */
 /* {{{ methods */
@@ -137,6 +138,13 @@ module_t *module_register(lstr_t name)
     module_t *module;
     uint32_t pos;
 
+    /* Skip this check when loading the thr module to avoid infinite
+     * recursivity.
+     */
+    if (!lstr_equal(name, LSTR("thr"))) {
+        thr_assert_is_main_thread();
+    }
+
     pos = qm_reserve(module, &_G.modules, &name, 0);
     if (!expect(!(pos & QHASH_COLLISION))) {
         logger_error(&_G.logger, "%*pM has already been registered",
@@ -159,6 +167,8 @@ module_t *module_implement(module_t *module,
                            int (*destructor)(void),
                            module_t *dependency)
 {
+    thr_assert_is_main_thread();
+
     assert (!module->constructor);
     module->constructor = constructor;
     assert (!module->destructor);
@@ -188,6 +198,8 @@ module_has_dep(const module_t *module, const module_t *other)
 
 void module_add_dep(module_t *module, module_t *dep)
 {
+    thr_assert_is_main_thread();
+
     assert(module->state == REGISTERED);
     assert(!module_has_dep(dep, module) && "circular dependency detected");
     qv_append(&module->depends_on, dep);
@@ -258,6 +270,8 @@ modules_topo_sort_rev(qm_t(module) *modules, qv_t(module) *sorted, sb_t *err)
  */
 static void module_require_internal(module_t *module, module_t *required_by)
 {
+    thr_assert_is_main_thread();
+
     if (module->state == INITIALIZING) {
         logger_fatal(&_G.logger,
                      "`%*pM` has been recursively required %s%*pM",
@@ -318,6 +332,8 @@ void module_require(module_t *module)
 
 void module_provide(module_t *module, void *argument)
 {
+    thr_assert_is_main_thread();
+
     if (module->constructor_argument) {
         logger_warning(&_G.logger, "argument for module '%*pM' has already "
                        "been provided", LSTR_FMT_ARG(module->name));
@@ -410,6 +426,12 @@ static int module_shutdown(module_t *module)
 
 void module_release(module_t *module)
 {
+    /* In case of shutdown, we are in the global destructor, and so in a
+     * single-thread environment. */
+    if (likely(!_G.is_shutdown)) {
+        thr_assert_is_main_thread();
+    }
+
     if (module->manu_req_count == 0) {
         /* You are trying to manually release a module that have been spawn
          * automatically (AUTO_REQ)
@@ -434,7 +456,6 @@ void module_release(module_t *module)
 
     module_shutdown(module);
 }
-
 
 bool module_is_loaded(const module_t *module)
 {
@@ -493,6 +514,7 @@ static void _module_shutdown(void)
     if (_G.is_shutdown) {
         return;
     }
+    _G.is_shutdown = true;
 
     if (!syslog_is_critical_g) {
         module_hard_shutdown();
@@ -500,7 +522,6 @@ static void _module_shutdown(void)
     qm_deep_wipe(methods_impl, &_G.methods, IGNORE, module_method_delete);
     qm_deep_wipe(module, &_G.modules, IGNORE, module_delete);
     logger_wipe(&_G.logger);
-    _G.is_shutdown = true;
 }
 
 void module_destroy_all(void)
@@ -515,6 +536,8 @@ void module_implement_method(module_t *module, const module_method_t *method,
                              void *cb)
 {
     uint32_t pos;
+
+    thr_assert_is_main_thread();
 
     pos = qm_reserve(methods_impl, &_G.methods, method, 0);
     if (!(pos & QHASH_COLLISION)) {
@@ -531,6 +554,8 @@ void module_implement_method(module_t *module, const module_method_t *method,
 void module_run_method(const module_method_t *method, data_t arg)
 {
     module_method_impl_t *m;
+
+    thr_assert_is_main_thread();
 
     if (unlikely(_G.methods_dirty)) {
         module_method_register_all_cb();
@@ -723,6 +748,8 @@ int module_check_no_dependencies(module_t *tab[], int len,
 
 void module_debug_dump_hierarchy(sb_t *modules, sb_t *dependencies)
 {
+    thr_assert_is_main_thread();
+
     sb_sets(modules, "nodes;loaded\n");
     sb_sets(dependencies, "nodes;dest\n");
     qm_for_each_pos(module, pos, &_G.modules) {
