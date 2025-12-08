@@ -59,7 +59,7 @@ def main() -> None:
         try:
             check_output(['php', '-l', filename], stderr=STDOUT)
             print(f'{i} pass {filename}')
-        except CalledProcessError as err:  # noqa: PERF203 (try-except-in-loop)
+        except CalledProcessError as err:
             fail += 1
             print(f'{i} fail {filename}{err.output}')
 

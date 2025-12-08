@@ -27,10 +27,10 @@ import os
 import os.path as osp
 import stat
 import subprocess
+from collections.abc import Callable
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     TypeVar,
 )
 

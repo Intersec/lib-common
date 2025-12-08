@@ -48,7 +48,7 @@ def main() -> None:
         try:
             c = r.connect(uri)
             connected = True
-        except iopy.Error as e:  # noqa: PERF203 (try-except-in-loop)
+        except iopy.Error as e:
             if str(e) != f'unable to connect to {uri}':
                 raise
 

@@ -41,7 +41,7 @@ Usage:
         ...
         conf.load('compilation_database')
 """
-# ruff: noqa: FA100, UP006
+# ruff: noqa: UP006, UP007, UP045
 
 from typing import (  # noqa: UP035 (deprecated-import)
     # We still need to use List, Dict and Type here because this file

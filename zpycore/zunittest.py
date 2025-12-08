@@ -63,16 +63,17 @@ import sys
 import time
 import traceback
 import unittest
+from collections.abc import Callable
 from functools import wraps
 from types import TracebackType
-from typing import Any, Callable, ClassVar, NoReturn, TypeVar, Union, cast
+from typing import Any, ClassVar, NoReturn, TypeVar, cast
 
 from .util import wipe_children_rearm, wipe_children_register
 
-ExecInfo = Union[
-    tuple[type[BaseException], BaseException, TracebackType],
-    tuple[None, None, None],
-]
+ExecInfo = (
+    tuple[type[BaseException], BaseException, TracebackType] |
+    tuple[None, None, None]
+)
 
 
 T = TypeVar('T')

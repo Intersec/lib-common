@@ -31,8 +31,8 @@
 # configured version in .tool-versions.
 TOOL_VERSIONS_PYTHON="${TOOL_VERSIONS_PYTHON:-"$( \
     "$LIBCOMMON_DIR/build/asdf_python_version.sh" \
-    "${TOOL_VERSIONS_DEFAULT_PYTHON:-3.9.16}" \
-    "${TOOL_VERSIONS_MIN_PYTHON:-3.9.0}" \
+    "${TOOL_VERSIONS_DEFAULT_PYTHON:-3.11.14}" \
+    "${TOOL_VERSIONS_MIN_PYTHON:-3.11.0}" \
     "${TOOL_VERSIONS_MAX_PYTHON:-}" \
 )"}"
 
