@@ -16,7 +16,40 @@
 /*                                                                         */
 /***************************************************************************/
 
-//! Macro to create a module in C
+//! Infrastructure for creating C-compatible modules from Rust.
+//!
+//! This module provides the [`ModuleBuilder`] builder pattern and the [`c_module!`] macro
+//! to create modules that can be registered and managed by the C module system.
+//!
+//! # Overview
+//!
+//! The module system allows Rust code to register modules with:
+//! - Initialization and shutdown callbacks
+//! - Module dependencies
+//! - A type-safe context accessible throughout the module's lifetime
+//!
+//! # Example
+//!
+//! ```ignore
+//! use crate::c_module;
+//!
+//!#[derive(Default)]
+//! struct MyModuleContext {
+//!     data: Vec<String>,
+//! }
+//!
+//! c_module!(my_module, MyModuleContext, |builder| {
+//!     builder
+//!         .initialize(|_arg| {
+//!             println!("module initialized");
+//!             0
+//!         })
+//!         .shutdown(|| {
+//!             println!("module shutdown");
+//!             0
+//!         });
+//! });
+//! ```
 
 use std::os::raw::{c_int, c_void};
 
@@ -42,6 +75,13 @@ where
     }
 }
 
+/// Builder for configuring a C module's behavior.
+///
+/// This builder allows you to specify:
+/// - An initialization function called when the module is loaded
+/// - A shutdown function called when the module is unloaded
+/// - Module dependencies (what this module depends on)
+/// - Reverse dependencies (what modules depend on this one)
 #[allow(clippy::module_name_repetitions)]
 #[derive(Default)]
 pub struct ModuleBuilder {
@@ -79,6 +119,38 @@ impl ModuleBuilder {
     }
 }
 
+/// Creates a C-compatible module with a typed context.
+///
+/// This macro generates all the necessary boilerplate to register a module
+/// with the C module system, including:
+/// - A static module context with your custom type
+/// - C-compatible `initialize` and `shutdown` functions
+/// - A `get_module()` function that returns the module pointer
+/// - An exported `<name>_get_module()` function for C code
+///
+/// # Parameters
+///
+/// - `$name`: The module name (used for registration and function naming)
+/// - `$ctx`: The type of the module context (must implement `Default`)
+/// - `$builder`: The identifier for the builder parameter in the configuration block
+/// - `$body`: A block that configures the module using the builder
+///
+/// # Context Access
+///
+/// Within your module's code, you can access the context which is mutable using:
+/// ```ignore
+/// let ctx = <name>_c_mod::get_ctx();
+/// ```
+///
+/// # Safety
+///
+/// The generated code uses `static mut` for the module context and relies on
+/// the C module system to ensure proper initialization order and single-threaded
+/// access during initialization/shutdown.
+///
+/// # Example
+///
+/// See module-level documentation for a complete example.
 #[macro_export]
 #[allow(clippy::module_name_repetitions)]
 macro_rules! c_module {
