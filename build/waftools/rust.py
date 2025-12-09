@@ -62,6 +62,11 @@ USELIB_VARS['rust'] = {
     'FRAMEWORK', 'FRAMEWORKPATH', 'ARCH', 'LDFLAGS',
 }
 
+PROFILE_TO_SANITIZER = {
+    'asan': 'address',
+    'tsan': 'thread',
+}
+
 
 # {{{ helpers
 
@@ -239,12 +244,6 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
         cargo_rerun_libs = sorted(dep_stlibs)
         cargo_link_args = Utils.to_list(self.env.LDFLAGS).copy()
 
-        if self.env.USE_SANITIZER:
-            if self.env.PROFILE == 'asan':
-                cargo_link_args.append('-static-libasan')
-            # Needs to always be the first library to be linked
-            cargo_libs.insert(0, self.env.PROFILE)
-
         waf_env_content = {
             'includes': cargo_includes,
             'defines': cargo_defines,
@@ -285,9 +284,42 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
             # used by other cargo packages as a dependency.
             return
 
+        cmd_env = dict(os.environ)
+
         cargo_exec_cmd = [
             self.env.CARGO[0],
+        ]
+
+        # When using a sanitizer, we need to:
+        # - Use nightly with '+nightly' passed before the command.
+        # - Set the environment variable 'RUSTFLAGS' and 'RUSTDOCFLAGS' to
+        #   '-Zsanitizer={sanitizer}'.
+        # - Build the standard Rust library itself with '-Z build-std'.
+        # - Set the explicit target 'x86_64-unknown-linux-gnu'.
+        if self.env.USE_SANITIZER and not self.env.USE_PIC:
+            cargo_exec_cmd += [
+                '+nightly',
+            ]
+            sanitizer = PROFILE_TO_SANITIZER[self.env.PROFILE]
+            old_rustflags = os.environ.get('RUSTFLAGS', '')
+            old_rustdocflags = os.environ.get('RUSTDOCFLAGS', '')
+            cmd_env['RUSTFLAGS'] = f'-Zsanitizer={sanitizer} {old_rustflags}'
+            cmd_env['RUSTDOCFLAGS'] = (
+                f'-Zsanitizer={sanitizer} {old_rustdocflags}'
+            )
+
+        cargo_exec_cmd += [
             'build',
+        ]
+
+        # See comment above.
+        if self.env.USE_SANITIZER and not self.env.USE_PIC:
+            cargo_exec_cmd += [
+                '-Z', 'build-std',
+                '--target', 'x86_64-unknown-linux-gnu',
+            ]
+
+        cargo_exec_cmd += [
             '--profile',
             self.env.CARGO_PROFILE,
             '-p',
@@ -300,7 +332,8 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
         if Logs.verbose > 0:
             cargo_exec_cmd.append('-' + 'v' * Logs.verbose)
 
-        if self.exec_command(cargo_exec_cmd, stdout=None, stderr=None) != 0:
+        if self.exec_command(cargo_exec_cmd, stdout=None, stderr=None,
+                             env=cmd_env) != 0:
             raise Errors.WafError('unable to run cargo')
 
     def make_hardlinks(self) -> None:
@@ -349,9 +382,11 @@ def rust_create_task(self: TaskGen) -> None:
     manifest_path = pkg_metadata['manifest_path']
     package_dir = osp.dirname(manifest_path)
 
+    use_pic = self.name.endswith('.pic')
+
     # Generate the profile variables depending on 'pic' use.
     target_profile_suffix: str = ''
-    if self.name.endswith('.pic'):
+    if use_pic:
         target_profile_suffix = '-pic'
     cargo_profile = ctx.env.CARGO_PROFILE + target_profile_suffix
 
@@ -359,8 +394,17 @@ def rust_create_task(self: TaskGen) -> None:
     # In that case, the 'non-pic' build dir is 'debug' (like the waf profile),
     # but the 'pic' build dir is 'dev-pic' (cargo profile + '-pic')
     cargo_build_dir: str = self.env.CARGO_BUILD_DIR
-    if target_profile_suffix and ctx.env.PROFILE == 'debug':
+    if use_pic and ctx.env.PROFILE == 'debug':
         cargo_build_dir = osp.join(osp.dirname(cargo_build_dir), 'dev')
+
+    # Special case for sanitizers + not pic.
+    # In that case, the target build is located in a
+    # 'x86_64-unknown-linux-gnu' sub directory
+    if not use_pic and ctx.env.USE_SANITIZER:
+        profile_dir = osp.basename(cargo_build_dir)
+        target_dir = osp.dirname(cargo_build_dir)
+        cargo_build_dir = osp.join(target_dir, 'x86_64-unknown-linux-gnu',
+                                   profile_dir)
 
     cargo_bld_name = cargo_build_dir + target_profile_suffix
     cargo_bld_dir = ctx.srcnode.make_node(cargo_bld_name)
@@ -441,6 +485,7 @@ def rust_create_task(self: TaskGen) -> None:
     tsk.env.PKG_NAME = cargo_pkg_name
     tsk.env.PKG_HARDLINKS = hardlinks
     tsk.env.PKG_PROFILE_SUFFIX = target_profile_suffix
+    tsk.env.USE_PIC = use_pic
 
 
 @TaskGen.feature('rust')
@@ -496,10 +541,24 @@ def rust_add_dep_task(self: TaskGen) -> None:
 # {{{ configure
 
 
+def sanitizer_add_toolchain(ctx: ConfigurationContext) -> None:
+    if not ctx.env.USE_SANITIZER:
+        # Nothing to do
+        return
+
+    # Add the rust sources to be able to compile it when using sanitizer and
+    # '-Z build-std'.
+    ctx.exec_command(ctx.env.RUSTUP + [
+        'component', 'add', 'rust-src',
+        '--toolchain', 'nightly-x86_64-unknown-linux-gnu',
+    ], stdout=None, stderr=None)
+
+
 def configure(ctx: ConfigurationContext) -> None:
     generate_deps_workspace_hack_cargo_toml(ctx)
 
     ctx.find_program('cargo', var='CARGO')
+    ctx.find_program('rustup', var='RUSTUP')
 
     if ctx.exec_command(ctx.env.CARGO + ['tree', '--quiet', '--locked'],
                         stdout=subprocess.DEVNULL, stderr=None):
@@ -512,6 +571,7 @@ def configure(ctx: ConfigurationContext) -> None:
     cargo_target_dir = waf_profile
     ctx.env.CARGO_BUILD_DIR = osp.join('.cargo', 'target', cargo_target_dir)
 
+    sanitizer_add_toolchain(ctx)
 
 # }}}
 # {{{ build
