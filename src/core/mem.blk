@@ -312,7 +312,7 @@ void *__mp_imalloc(mem_pool_t *mp, size_t size, size_t alignment,
     res = (*mp->malloc)(mp, size, alignment, flags);
 
     if (unlikely(size == 0)) {
-        assert (res == MEM_EMPTY_ALLOC);
+        assert(res);
     }
 
     return res;
@@ -339,7 +339,7 @@ void *__mp_irealloc(mem_pool_t *mp, void *mem, size_t oldsize, size_t size,
     res = (*mp->realloc)(mp, mem, oldsize, size, alignment, flags);
 
     if (unlikely(size == 0)) {
-        assert (res == MEM_EMPTY_ALLOC);
+        assert(res);
     }
 
     return res;
