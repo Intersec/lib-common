@@ -639,17 +639,36 @@ static int iop_json_lex_char(iop_json_lex_t *ll, int terminator)
             }
             break;
           case HEXADECIMAL:
-            if (HAS(4) && (a = hexdecode(PS->s + 2)) >= 0) {
+            if (HAS(4) && (a = PS_CHECK(hexdecode(PS->s + 2))) >= 0) {
                 ll->ctx->u.i = a;
                 SKIP(2);
             }
             break;
           case UNICODE:
             if (HAS(6)
-            &&  (a = hexdecode(PS->s + 2)) >= 0
-            &&  (b = hexdecode(PS->s + 4)) >= 0)
+            &&  (a = PS_CHECK(hexdecode(PS->s + 2))) >= 0
+            &&  (b = PS_CHECK(hexdecode(PS->s + 4))) >= 0)
             {
-                ll->ctx->u.i = a << 8 | b;
+                int codepoint = (a << 8) | b;
+
+                /* Handle surrogate pairs for characters beyond BMP */
+                if (codepoint >= 0xD800 && codepoint <= 0xDBFF
+                &&  HAS(12) && PS->s[6] == '\\' && PS->s[7] == 'u')
+                {
+                    int low_a = PS_CHECK(hexdecode(PS->s + 8));
+                    int low_b = PS_CHECK(hexdecode(PS->s + 10));
+                    int low_surrogate = (low_a << 8) | low_b;
+
+                    if (low_surrogate >= 0xDC00 &&  low_surrogate <= 0xDFFF)
+                    {
+                        /* Valid surrogate pair - compute actual codepoint */
+                        codepoint = 0x10000
+                                  + ((codepoint - 0xD800) << 10)
+                                  + (low_surrogate - 0xDC00);
+                        SKIP(6); /* Skip the extra \uXXXX */
+                    }
+                }
+                ll->ctx->u.i = codepoint;
                 SKIP(4);
             }
             break;
@@ -2369,7 +2388,21 @@ static int write_string(lstr_t val, iop_type_t type, unsigned flags,
             if (unlikely(c < 0)) {
                 c = ps_getc(&ps);
             }
-            WRITE(ibuf, sprintf(ibuf, "\\u%04x", c));
+
+            /* Handle characters beyond BMP using surrogate pairs */
+            if (c >= 0x10000 && c <= 0x10FFFF) {
+                /* Calculate surrogate pair */
+                int adj = c - 0x10000;
+                int high_surrogate = 0xD800 + (adj >> 10);
+                int low_surrogate = 0xDC00 + (adj & 0x3FF);
+
+                /* Write surrogate pair */
+                WRITE(ibuf, sprintf(ibuf, "\\u%04x\\u%04x",
+                      high_surrogate, low_surrogate));
+            } else {
+                /* Write single Unicode escape */
+                WRITE(ibuf, sprintf(ibuf, "\\u%04x", c));
+            }
         }
     }
 

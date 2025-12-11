@@ -2918,6 +2918,208 @@ Z_GROUP_EXPORT(iop)
         }
     } Z_TEST_END
     /* }}} */
+    Z_TEST(json_unicode_surrogates, "test JSON Unicode surrogate pairs") { /* {{{ */
+        t_scope;
+        const iop_struct_t *st_string;
+        iop_dso_t *dso;
+        SB_1k(sb);
+
+        dso = Z_DSO_OPEN();
+        st_string = iop_dso_find_type(dso, LSTR("tstiop.StringTest"));
+        Z_ASSERT_P(st_string, "Failed to find tstiop.StringTest struct");
+
+        /* Test decoding: surrogate pairs to UTF-8 */
+        {
+            struct {
+                const char *json_input;
+                const char *expected_string;
+                const char *test_name;
+            } decode_tests[] = {
+                /* Basic emoji */
+                {"\"\\uD83D\\uDE00\"", "😀", "U+1F600 GRINNING FACE"},
+                {"\"\\uD83D\\uDE80\"", "🚀", "U+1F680 ROCKET"},
+
+                /* Case insensitivity */
+                {"\"\\ud83d\\ude00\"", "😀", "lowercase hex"},
+                {"\"\\uD83d\\udE00\"", "😀", "mixed case hex"},
+
+                /* Boundary cases */
+                {"\"\\uD800\\uDC00\"", "𐀀", "U+10000 first supplementary"},
+                {
+                    "\"\\uDBFF\\uDFFF\"", "\364\217\277\277",
+                    "U+10FFFF last supplementary"
+                },
+
+                /* BMP boundaries (not surrogates) */
+                {"\"\\uD7FF\"", "\xed\x9f\xbf", "U+D7FF before surrogates"},
+                {"\"\\uE000\"", "\xee\x80\x80", "U+E000 after surrogates"},
+
+                /* Mixed content */
+                {
+                    "\"Hello \\uD83D\\uDE00 World\"", "Hello 😀 World",
+                    "mixed text with emoji"
+                },
+                {
+                    "\"\\uD83D\\uDE00\\uD83D\\uDE80\"", "😀🚀",
+                    "consecutive emojis"
+                },
+            };
+
+            carray_for_each_ptr(t, decode_tests) {
+                tstiop__string_test__t string_test;
+                const char *json_buf;
+
+                json_buf = t_fmt("{\"testString\": %s}",t->json_input);
+                string_test.test_string = LSTR(t->expected_string);
+
+                Z_HELPER_RUN(iop_json_test_json(st_string, json_buf,
+                                                &string_test,
+                                                t->test_name));
+            }
+        }
+
+        /* Test encoding: UTF-8 to surrogate pairs */
+        {
+            tstiop__string_test__t st;
+
+            /* UTF-8 for U+1F600 (😀) */
+            st.test_string = LSTR("Hello \xf0\x9f\x98\x80 World");
+
+            sb_reset(&sb);
+            Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__string_test__s, &st,
+                                    IOP_JPACK_MINIMAL));
+
+            Z_ASSERT(strstr(sb.data, "\\ud83d\\ude00") ||
+                     strstr(sb.data, "\\uD83D\\uDE00"),
+                     "emoji should be encoded as surrogate pair");
+        }
+
+        /* Test full round-trip: encode -> decode -> encode */
+        {
+            tstiop__string_test__t orig;
+            tstiop__string_test__t *parsed = NULL;
+            SB_1k(sb2);
+            pstream_t ps;
+
+            /* Original string with emoji */
+            orig.test_string = LSTR("Test \xf0\x9f\x98\x80 emoji");
+
+            /* First encode */
+            sb_reset(&sb);
+            Z_ASSERT_N(iop_sb_jpack(&sb, &tstiop__string_test__s, &orig,
+                                    IOP_JPACK_MINIMAL));
+
+            /* Decode */
+            ps = ps_initsb(&sb);
+            Z_ASSERT_N(t_iop_junpack_ptr_ps(&ps, st_string,
+                                            (void **)&parsed, 0, NULL));
+            Z_ASSERT_LSTREQUAL(parsed->test_string, orig.test_string);
+
+            /* Re-encode and compare */
+            Z_ASSERT_N(iop_sb_jpack(&sb2, &tstiop__string_test__s, parsed,
+                                    IOP_JPACK_MINIMAL));
+            Z_ASSERT_LSTREQUAL(LSTR_SB_V(&sb), LSTR_SB_V(&sb2));
+        }
+
+        /* Test unpaired and invalid surrogate sequences */
+        {
+            struct {
+                const char *json;
+                const char *test_name;
+            } unpaired_tests[] = {
+                {"{\"testString\": \"\\uD83D\"}", "lone high surrogate"},
+                {"{\"testString\": \"\\uDE00\"}", "lone low surrogate"},
+                {"{\"testString\": \"\\uD83Dabc\"}", "high + text"},
+                {
+                    "{\"testString\": \"\\uD83D\\u0041\"}",
+                    "high + BMP escape"
+                },
+                {
+                    "{\"testString\": \"\\uD83D\\uD83D\"}",
+                    "high + high (not a pair)"
+                },
+                {
+                    "{\"testString\": \"\\uDE00\\uD83D\"}",
+                    "low + high (reversed)"
+                },
+            };
+
+            carray_for_each_ptr(t, unpaired_tests) {
+                pstream_t ps = ps_initstr(t->json);
+                void *res = NULL;
+                int ret;
+
+                ret = t_iop_junpack_ptr_ps(&ps, st_string, &res, 0, NULL);
+                /* Unpaired surrogates should be accepted (WHATWG) */
+                Z_ASSERT_N(ret, "%s should be accepted", t->test_name);
+            }
+        }
+
+        /* Test surrogate pair calculation algorithm */
+        {
+            struct {
+                int codepoint;
+                int expected_high;
+                int expected_low;
+            } calc_tests[] = {
+                {0x10000, 0xD800, 0xDC00},   /* first supplementary */
+                {0x10FFFF, 0xDBFF, 0xDFFF},  /* last supplementary */
+                {0x10400, 0xD801, 0xDC00},   /* high surrogate rollover */
+                {0x1F600, 0xD83D, 0xDE00},   /* common emoji */
+            };
+
+            carray_for_each_ptr(t, calc_tests) {
+                int cp = t->codepoint;
+                int adj = cp - 0x10000;
+                int high = 0xD800 + (adj >> 10);
+                int low = 0xDC00 + (adj & 0x3FF);
+                int reconstructed;
+
+                Z_ASSERT_EQ(high, t->expected_high);
+                Z_ASSERT_EQ(low, t->expected_low);
+
+                /* Verify round-trip */
+                reconstructed = 0x10000 + ((high - 0xD800) << 10)
+                              + (low - 0xDC00);
+                Z_ASSERT_EQ(reconstructed, cp);
+            }
+        }
+
+        /* Test character literal surrogate pairs (c'...' syntax) */
+        {
+            const iop_struct_t *st_int;
+            struct {
+                const char *json;
+                int expected;
+                const char *test_name;
+            } char_tests[] = {
+                {"{\"testInt\": c'A'}", 'A', "basic char"},
+                {"{\"testInt\": c'\\u0041'}", 0x41, "BMP escape"},
+                {"{\"testInt\": c'\\uD83D\\uDE00'}", 0x1F600, "surrogate pair"},
+                {"{\"testInt\": c'\\uD800\\uDC00'}", 0x10000, "U+10000"},
+                {"{\"testInt\": c'\\uDBFF\\uDFFF'}", 0x10FFFF, "U+10FFFF"},
+                {"{\"testInt\": c'\\uD83D'}", 0xD83D, "unpaired high"},
+            };
+
+            st_int = iop_dso_find_type(dso, LSTR("tstiop.IntTest"));
+            Z_ASSERT_P(st_int, "Failed to find tstiop.IntTest struct");
+
+            carray_for_each_ptr(t, char_tests) {
+                pstream_t ps = ps_initstr(t->json);
+                tstiop__int_test__t *res = NULL;
+                int ret;
+
+                ret = t_iop_junpack_ptr_ps(&ps, st_int,
+                                           (void **)&res, 0, NULL);
+                Z_ASSERT_N(ret, "%s should parse", t->test_name);
+                Z_ASSERT_EQ(res->test_int, t->expected,
+                            "%s value mismatch", t->test_name);
+            }
+        }
+
+        iop_dso_close(&dso);
+    } Z_TEST_END
+    /* }}} */
     Z_TEST(json_big_integer, "test JSON packing with big integers") { /* {{{ */
         SB_1k(sb);
         tstiop__my_struct_n__t sn = {

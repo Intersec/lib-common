@@ -918,6 +918,39 @@ struct TwoStrings {
     string b;
 };
 
+/** Test structure for Unicode characters beyond 16 bits (BMP).
+ *
+ * This is used to test the bug with characters like U+1F600 (😀)
+ */
+struct UnicodeTest {
+    /** Regular string field */
+    string regularString;
+
+    /** String with Unicode character beyond BMP (U+1F600 = 😀) */
+    string unicodeBeyondBmp;
+
+    /** String with various Unicode characters */
+    string unicodeMixed;
+};
+
+/** Simple test structure for testing individual string values.
+ *
+ * Used for comprehensive Unicode surrogate pair testing
+ */
+struct StringTest {
+    /** The string to test */
+    string testString;
+};
+
+/** Simple test structure for testing integer values.
+ *
+ * Used for character literal surrogate pair testing (c'...' syntax)
+ */
+struct IntTest {
+    /** The integer to test */
+    int testInt;
+};
+
 /* }}} */
 /* {{{ zchk iop.iop_static_field_get_gen_attr */
 
