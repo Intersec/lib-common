@@ -156,6 +156,10 @@ static void IOP_RPC_IMPL(tstiop__t, iface, f)
 
 static void IOP_HTTP_RPC_CB(tstiop__t, iface, f)
 {
+    http_iop_channel_t *channel = http_iop_channel_from_msg(msg);
+
+    assert(channel == _G.client_channel);
+
     _G.query_answered = true;
     _G.query_status = status;
     _G.query_code = OPT_DEFVAL(http_code, 0);

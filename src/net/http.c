@@ -2438,13 +2438,12 @@ static void httpc_query_on_done(httpc_query_t *q, int status)
 {
     httpc_t *w = q->owner;
 
-    if (w) {
+    if (expect(w)) {
         if (--w->queries < w->cfg->pipeline_depth && w->max_queries && w->busy
             && w->is_connected)
         {
             obj_vcall(w, set_ready, false);
         }
-        q->owner = NULL;
     }
     dlist_remove(&q->query_link);
     httpc_trace_query_on_done(q);
@@ -2461,7 +2460,7 @@ static int httpc_query_ok(httpc_query_t *q)
     httpc_t *w = q->owner;
 
     httpc_query_on_done(q, HTTPC_STATUS_OK);
-    if (w) {
+    if (expect(w)) {
         w->chunk_length = 0;
         w->state = HTTP_PARSER_IDLE;
     }
@@ -3513,6 +3512,7 @@ void httpc_query_reset(httpc_query_t *q)
     dlist_remove(&q->query_link);
     httpc_qinfo_delete(&q->qinfo);
     sb_reset(&q->payload);
+    q->owner = NULL;
 
     clear_fields_range(q, chunk_hdr_offs, on_hdrs);
 }

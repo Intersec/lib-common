@@ -815,6 +815,20 @@ void http_iop_channel_cancel_messages(http_iop_channel_t *channel);
  */
 void http_iop_channel_close_clients(http_iop_channel_t *channel);
 
+/** Get the HTTP IOP Channel associated to a IOP HTTP message.
+ */
+static inline http_iop_channel_t *
+http_iop_channel_from_msg(http_iop_msg_t *msg)
+{
+    httpc_t *httpc;
+    http_iop_channel_remote_t *remote;
+
+    httpc = msg->query.owner;
+    remote = container_of(httpc->pool, http_iop_channel_remote_t, pool);
+
+    return remote->channel;
+}
+
 /* }}} */
 /* {{{ Query */
 /* {{{ Query struct */
