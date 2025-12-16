@@ -28,7 +28,7 @@ use std::ptr;
 use crate::bindings::{
     iop_enum_t, iop_env_delete, iop_env_get_struct, iop_env_new, iop_env_t, iop_init_desc,
     iop_pkg_t, iop_register_packages, iop_sb_jpack, iop_struct_t, t_iop_junpack_ptr_ps,
-    t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
+    t_iop_new_desc, t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
 };
 
 use crate::lstr::{self, AsRaw as _};
@@ -119,6 +119,16 @@ pub trait CStructUnion: Sized + StructUnion {
         }
 
         unsafe { res.assume_init() }
+    }
+
+    /// Create a new IOP struct or union on a `t_scope`.
+    ///
+    /// The returned reference is only valid within the `t_scope` lifetime.
+    fn t_new(_t_scope: &TScope) -> &Self {
+        unsafe {
+            let ptr = t_iop_new_desc(Self::CDESC);
+            &*(ptr as *const Self)
+        }
     }
 }
 
