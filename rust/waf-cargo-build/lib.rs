@@ -20,8 +20,8 @@
 //!
 //! This library helps binding the Waf build system and Cargo build system.
 //!
-//! The Waf build system generates a `.waf-build/waf_build_env.json` to pass the environment for
-//! the package using this library.
+//! The Waf build system generates a `.waf-cargo-build/waf_build_env.json` to pass the environment
+//! or the package using this library.
 //! This library is used in build scripts.
 //!
 //! The main entry point is the structure [`WafBuild`].
@@ -87,7 +87,7 @@ where
 
 /// Get the waf build directory for the given package.
 fn get_pkg_waf_build_dir(is_pic_profile: bool, pkg_dir: &Path) -> PathBuf {
-    let mut pkg_waf_build_name = ".waf-build".to_owned();
+    let mut pkg_waf_build_name = ".waf-cargo-build".to_owned();
     if is_pic_profile {
         pkg_waf_build_name += "-pic";
     }
@@ -244,7 +244,8 @@ pub struct WafBuild {
 }
 
 impl WafBuild {
-    /// Read the `.waf-build*/waf_build_env.json` file from the cargo manifest directory using the library.
+    /// Read the `.waf-cargo-build*/waf_build_env.json` file from the cargo manifest directory
+    /// using the library.
     ///
     /// # Result
     ///

@@ -259,7 +259,7 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
         }
 
         cargo_build_dir = self.generator.path.make_node(
-            '.waf-build' + self.env.PKG_PROFILE_SUFFIX)
+            '.waf-cargo-build' + self.env.PKG_PROFILE_SUFFIX)
         cargo_build_dir.mkdir()
         waf_build_env_file = cargo_build_dir.make_node('waf_build_env.json')
 

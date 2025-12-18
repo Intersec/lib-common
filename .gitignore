@@ -38,4 +38,4 @@ mem.fifo.data.*
 
 # rust stuff
 /.cargo/target
-.waf-build*
+.waf-cargo-build*
