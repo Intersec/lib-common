@@ -820,13 +820,26 @@ void http_iop_channel_close_clients(http_iop_channel_t *channel);
 static inline http_iop_channel_t *
 http_iop_channel_from_msg(http_iop_msg_t *msg)
 {
-    httpc_t *httpc;
-    http_iop_channel_remote_t *remote;
+    /* The query owner could still be NULL if the query was simply initialized
+     * and not used, in which case it doesn't make sense to use this API.
+     */
+    assert(msg->query.priv_owner != NULL);
 
-    httpc = msg->query.owner;
-    remote = container_of(httpc->pool, http_iop_channel_remote_t, pool);
+    if (msg->query.on_done) {
+        /* The query is attached and owned by an http_t. */
+        httpc_t *httpc;
+        http_iop_channel_remote_t *remote;
 
-    return remote->channel;
+        httpc = msg->query.owner;
+        remote = container_of(httpc->pool, http_iop_channel_remote_t, pool);
+
+        return remote->channel;
+    } else {
+        /* The query is pending in an http_iop_channel_t and still directly
+         * owned by it.
+         */
+        return msg->query.priv_owner;
+    }
 }
 
 /* }}} */

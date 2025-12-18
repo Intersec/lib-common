@@ -544,6 +544,7 @@ void http_iop_query_(http_iop_channel_t *channel, http_iop_msg_t *msg,
     assert(!channel->wipe_guard);
 #endif /* NDEBUG */
 
+    msg->query.priv_owner = channel;
     if (timeval_is_eq0(msg->query_time)) {
         lp_gettv(&msg->query_time);
     }

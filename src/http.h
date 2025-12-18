@@ -1018,7 +1018,10 @@ typedef struct httpc_qinfo_t {
 } httpc_qinfo_t;
 
 struct httpc_query_t {
-    httpc_t       * nullable owner;
+    union {
+        httpc_t *nullable owner;
+        void *nullable priv_owner;
+    };
     dlist_t        query_link;
     httpc_qinfo_t * nullable qinfo;
     sb_t           payload;
