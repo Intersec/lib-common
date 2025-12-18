@@ -15,6 +15,7 @@
 /* limitations under the License.                                          */
 /*                                                                         */
 /***************************************************************************/
+#![allow(clippy::unwrap_used)] // TODO: Use expect() instead with a convenient macro
 
 use std::cmp::min;
 use std::fmt::Write;

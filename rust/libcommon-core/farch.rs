@@ -182,7 +182,7 @@ unsafe fn farch_get_entry(
     let mut files = files;
 
     loop {
-        let current_entry = unsafe { files.as_ref().expect("files should be a valid pointer") };
+        let current_entry = unsafe { files.as_ref()? };
         if current_entry.name.len == 0 {
             break;
         }

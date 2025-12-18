@@ -30,6 +30,10 @@ use std::slice::from_raw_parts;
 /// # Safety
 ///
 /// See `from_raw_parts.html#safety`, except that `data` can be null.
+///
+/// # Panics
+///
+/// `len` must be 0 if `data` is null.
 pub const unsafe fn slice_from_nullable_raw_parts<'a, T>(data: *const T, len: usize) -> &'a [T] {
     let mut data = data;
 
