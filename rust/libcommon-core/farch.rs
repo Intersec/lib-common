@@ -334,8 +334,8 @@ struct FarchModCtx {
 }
 
 c_module!(farch, super::FarchModCtx, |m| {
-    m.initialize(|_| 0);
-    m.shutdown(|| 0);
+    m.initialize(|_| Ok(()));
+    m.shutdown(|| Ok(()));
 });
 
 // }}}

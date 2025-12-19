@@ -42,16 +42,17 @@
 //!     builder
 //!         .initialize(|_arg| {
 //!             println!("module initialized");
-//!             0
+//!             Ok(())
 //!         })
 //!         .shutdown(|| {
 //!             println!("module shutdown");
-//!             0
+//!             Ok(())
 //!         });
 //! });
 //! ```
 
-use std::os::raw::{c_int, c_void};
+use std::error::Error;
+use std::os::raw::c_void;
 
 use crate::bindings::module_t;
 
@@ -75,6 +76,9 @@ where
     }
 }
 
+pub type InitializeFn = Box<dyn Fn(*mut c_void) -> Result<(), Box<dyn Error>> + 'static>;
+pub type ShutdownFn = Box<dyn Fn() -> Result<(), Box<dyn Error>> + 'static>;
+
 /// Builder for configuring a C module's behavior.
 ///
 /// This builder allows you to specify:
@@ -85,8 +89,8 @@ where
 #[allow(clippy::module_name_repetitions)]
 #[derive(Default)]
 pub struct ModuleBuilder {
-    pub initialize: Option<Box<dyn Fn(*mut c_void) -> c_int + 'static>>,
-    pub shutdown: Option<Box<dyn Fn() -> c_int + 'static>>,
+    pub initialize: Option<InitializeFn>,
+    pub shutdown: Option<ShutdownFn>,
     pub dependencies: Vec<*mut module_t>,
     pub needed_by: Vec<*mut module_t>,
 }
@@ -94,7 +98,7 @@ pub struct ModuleBuilder {
 impl ModuleBuilder {
     pub fn initialize<F>(&mut self, f: F) -> &mut Self
     where
-        F: Fn(*mut c_void) -> c_int + 'static,
+        F: Fn(*mut c_void) -> Result<(), Box<dyn Error>> + 'static,
     {
         self.initialize = Some(Box::new(f));
         self
@@ -102,7 +106,7 @@ impl ModuleBuilder {
 
     pub fn shutdown<F>(&mut self, f: F) -> &Self
     where
-        F: Fn() -> c_int + 'static,
+        F: Fn() -> Result<(), Box<dyn Error>> + 'static,
     {
         self.shutdown = Some(Box::new(f));
         self
@@ -168,8 +172,8 @@ macro_rules! c_module {
 
                 pub struct InternalModuleContext {
                     module: *mut module_t,
-                    initialize: Option<Box<dyn Fn(*mut c_void) -> i32 + 'static>>,
-                    shutdown: Option<Box<dyn Fn() -> i32 + 'static>>,
+                    initialize: Option<$crate::module::InitializeFn>,
+                    shutdown: Option<$crate::module::ShutdownFn>,
                     ctx: Option<$ctx>,
                 }
 
@@ -191,19 +195,33 @@ macro_rules! c_module {
                     #[allow(static_mut_refs)]
                     unsafe {
                         MODULE.ctx = Some($ctx::with_arg(arg));
-                        match { &MODULE.initialize } {
-                            Some(f) => f(arg),
-                            None => 0
+                        if let Some(f) = &MODULE.initialize {
+                            if let Err(e) = f(arg) {
+                                eprintln!("error during initialization of module `{}`: {}",
+                                    stringify!($name),
+                                    e,
+                                );
+                                return -1
+                            }
                         }
+                        0
                     }
                 }
 
                 pub extern "C" fn shutdown() -> c_int {
                     #[allow(static_mut_refs)]
                     unsafe {
-                        let result = match {&MODULE.shutdown} {
-                            Some(f) => f(),
-                            None => 0
+                        let result = {
+                            if let Some(f) = &MODULE.shutdown {
+                                if let Err(e) =  f() {
+                                    eprintln!("error during shutdown of module `{}`: {}",
+                                        stringify!($name),
+                                        e,
+                                    );
+                                    return -1;
+                                }
+                            }
+                            0
                         };
                         MODULE.ctx = None;
                         result
