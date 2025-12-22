@@ -2976,7 +2976,7 @@ void httpc_pool_wipe(httpc_pool_t *pool, bool wipe_conns)
         if (wipe_conns) {
             obj_release(&w);
         } else {
-            httpc_pool_detach(w);
+            httpc_pool_detach(w, true);
         }
     }
     lstr_wipe(&pool->name);
@@ -2984,21 +2984,34 @@ void httpc_pool_wipe(httpc_pool_t *pool, bool wipe_conns)
     httpc_cfg_delete(&pool->cfg);
 }
 
-void httpc_pool_detach(httpc_t *w)
+void httpc_pool_detach(httpc_t *w, bool full_detach)
 {
-    if (w->pool) {
+    if (!w->pool) {
+        assert(dlist_is_empty(&w->pool_link));
+        return;
+    }
+
+    if (!dlist_is_empty(&w->pool_link)) {
+        /* connection still fully attached to pool */
         w->pool->len--;
         if (w->pool->len_global) {
             (*w->pool->len_global)--;
         }
         dlist_remove(&w->pool_link);
+    }
+
+    if (full_detach) {
+        /* XXX in case of partial detach it is the responsibility of the
+         * caller to reset w->pool later (usually the time to cancel pending
+         * queries)
+         */
         w->pool = NULL;
     }
 }
 
 void httpc_pool_attach(httpc_t *w, httpc_pool_t *pool)
 {
-    httpc_pool_detach(w);
+    httpc_pool_detach(w, true);
     w->pool = pool;
     pool->len++;
     if (pool->len_global) {
@@ -3108,6 +3121,7 @@ bool httpc_pool_can_query(httpc_pool_t * nonnull pool)
 static httpc_t *httpc_init(httpc_t *w)
 {
     dlist_init(&w->query_list);
+    dlist_init(&w->pool_link);
     sb_init(&w->ibuf);
     ob_init(&w->ob);
     w->state = HTTP_PARSER_IDLE;
@@ -3131,12 +3145,13 @@ static void httpc_wipe(httpc_t *w)
 static void httpc_disconnect(httpc_t *w)
 {
     w->is_connected = false;
-    httpc_pool_detach(w);
+    httpc_pool_detach(w, false);
     http2c_ctx_unregister(&w->http2_ctx);
     el_unregister(&w->ev);
     dlist_for_each(it, &w->query_list) {
         httpc_query_abort(dlist_entry(it, httpc_query_t, query_link));
     }
+    w->pool = NULL;
 }
 
 static void httpc_set_ready(httpc_t *w, bool first)
@@ -3268,7 +3283,7 @@ static int httpc_on_event(el_t evh, int fd, short events, data_t priv)
     return 0;
 
   close:
-    httpc_pool_detach(w);
+    httpc_pool_detach(w, false);
     if (!dlist_is_empty(&w->query_list)) {
         q = dlist_first_entry(&w->query_list, httpc_query_t, query_link);
         if (q->qinfo || st == HTTPC_STATUS_TIMEOUT) {
@@ -7550,7 +7565,6 @@ static void http2c_ctx_wipe(http2c_ctx_t *ctx)
      * which calls http2c_ctx_unregister() from calling http2c_ctx_delete().
      */
     ctx->httpc->http2_ctx = NULL;
-    httpc_pool_detach(ctx->httpc);
     obj_vcall(ctx->httpc, disconnect);
     obj_delete(&ctx->httpc);
 }

@@ -952,7 +952,7 @@ static inline void httpc_pool_delete(httpc_pool_t * nullable * nonnull hpcp,
     }
 }
 
-void httpc_pool_detach(httpc_t * nonnull w);
+void httpc_pool_detach(httpc_t * nonnull w, bool full_detach);
 void httpc_pool_attach(httpc_t * nonnull w, httpc_pool_t * nonnull pool);
 httpc_t * nullable httpc_pool_launch(httpc_pool_t * nonnull pool);
 
