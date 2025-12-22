@@ -28,6 +28,9 @@ use std::ops::{Deref, DerefMut};
 use std::slice::from_raw_parts;
 use std::str::Utf8Error;
 
+#[doc(inline)]
+pub use crate::{SB_1k, SB_8k, t_SB_1k, t_SB_8k};
+
 use crate::bindings::{
     __sb_slop, mem_pool_libc, mem_pool_static, mem_pool_t, sb_t, sb_wipe, t_pool,
 };

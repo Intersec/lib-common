@@ -67,6 +67,10 @@
 //! c_module!(simple_module, SimpleContext);
 //! ```
 
+#[doc(inline)]
+#[allow(clippy::module_name_repetitions)]
+pub use crate::c_module;
+
 use std::error::Error;
 use std::os::raw::c_void;
 
