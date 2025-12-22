@@ -333,9 +333,6 @@ struct FarchModCtx {
     pub persisted: HashMap<usize, Box<[u8]>>,
 }
 
-c_module!(farch, super::FarchModCtx, |m| {
-    m.initialize(|_| Ok(()));
-    m.shutdown(|| Ok(()));
-});
+c_module!(farch, super::FarchModCtx);
 
 // }}}

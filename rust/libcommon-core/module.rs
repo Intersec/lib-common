@@ -28,7 +28,9 @@
 //! - Module dependencies
 //! - A type-safe context accessible throughout the module's lifetime
 //!
-//! # Example
+//! # Examples
+//!
+//! ## Module with callbacks
 //!
 //! ```ignore
 //! use crate::c_module;
@@ -49,6 +51,20 @@
 //!             Ok(())
 //!         });
 //! });
+//! ```
+//!
+//! ## Module without callbacks
+//!
+//! ```ignore
+//! use crate::c_module;
+//!
+//!#[derive(Default)]
+//! struct SimpleContext {
+//!     counter: usize,
+//! }
+//!
+//! // No initialization or shutdown needed
+//! c_module!(simple_module, SimpleContext);
 //! ```
 
 use std::error::Error;
@@ -139,6 +155,9 @@ impl ModuleBuilder {
 /// - `$builder`: The identifier for the builder parameter in the configuration block
 /// - `$body`: A block that configures the module using the builder
 ///
+/// builder and body are optional. If not provided, the module will be registered
+/// with no initialization or shutdown functions.
+///
 /// # Context Access
 ///
 /// Within your module's code, you can access the context which is mutable using:
@@ -159,6 +178,12 @@ impl ModuleBuilder {
 #[allow(clippy::module_name_repetitions)]
 macro_rules! c_module {
     ($name:ident, $ctx:ty, |$builder:ident| $body:block) => {
+        c_module!(@internal $name, $ctx, |$builder| $body);
+    };
+    ($name:ident, $ctx:ty) => {
+        c_module!(@internal $name, $ctx, |_builder| {});
+    };
+    (@internal $name:ident, $ctx:ty, |$builder:ident| $body:block) => {
         paste::paste! {
             #[allow(clippy::absolute_paths)]
             mod [<$name _c_mod>] {
