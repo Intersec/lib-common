@@ -107,7 +107,7 @@ main() {
     fi
 
     # Cargo clippy and fmt only work for the entire codebase
-    run_cmd cargo clippy
+    run_cmd cargo clippy --tests
     run_cmd cargo fmt --check
 }
 
