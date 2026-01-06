@@ -170,7 +170,9 @@ bool path_is_safe(const char * nonnull path) __attr_leaf__;
 
 /** Extend a relative path from a prefix.
  *
- *      prefix + fmt = prefix + / + fmt
+ * ```ignore
+ * prefix + fmt = prefix + / + fmt
+ * ```
  *
  * A '/' will be added between /p prefix and /p fmt if necessary.
  *

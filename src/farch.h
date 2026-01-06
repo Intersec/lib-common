@@ -66,10 +66,12 @@ typedef struct farch_entry_t {
  * This function can be used to iterate on names entries: entries are stored
  * in an array terminating by an empty entry (name.len == 0).
  *
- *     for (const farch_entry_t *entry = entries,
- *              char __buf[FARCH_MAX_FILENAME];
- *          name = farch_get_filename(entry, __buf);
- *          entry++)
+ * ```ignore
+ * for (const farch_entry_t *entry = entries,
+ *          char __buf[FARCH_MAX_FILENAME];
+ *      name = farch_get_filename(entry, __buf);
+ *      entry++)
+ * ```
  *
  * \param[in]  file  a farch entry.
  * \param[in|out]  name  a buffer to write the name -- should contains

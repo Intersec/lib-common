@@ -54,8 +54,9 @@ pub struct Sb<'a> {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_run
 /// use libcommon_core::{SB_1k, sb::Sb};
+/// use std::mem::MaybeUninit;
 ///
 /// SB_1k!(sb);
 /// ```
@@ -74,8 +75,9 @@ macro_rules! SB_1k {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_run
 /// use libcommon_core::{SB_8k, sb::Sb};
+/// use std::mem::MaybeUninit;
 ///
 /// SB_8k!(sb);
 /// ```
@@ -94,9 +96,10 @@ macro_rules! SB_8k {
 ///
 /// # Example
 ///
-/// ```rust
-/// use libcommon_core::{t_SB_1k, sb::Sb};
+/// ```no_run
+/// use libcommon_core::{t_SB_1k, sb::Sb, mem_stack::TScope};
 ///
+/// let t_scope = TScope::new_scope();
 /// t_SB_1k!(&t_scope, sb);
 /// ```
 #[macro_export]
@@ -113,9 +116,10 @@ macro_rules! t_SB_1k {
 ///
 /// # Example
 ///
-/// ```rust
-/// use libcommon_core::{t_SB_8k, sb::Sb};
+/// ```no_run
+/// use libcommon_core::{t_SB_8k, sb::Sb, mem_stack::TScope};
 ///
+/// let t_scope = TScope::new_scope();
 /// t_SB_8k!(&t_scope, sb);
 /// ```
 #[macro_export]

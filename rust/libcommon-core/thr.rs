@@ -62,7 +62,7 @@ where
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// main_c_queue_schedule(move || {
 ///     unsafe {
 ///         ic_reply(...);

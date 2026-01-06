@@ -123,7 +123,7 @@ typedef struct mpsc_it_t {
  *
  * a typical drain looks like that:
  *
- * <code>
+ * ```ignore
  *   static void doit(mpsc_node_t *node, data_t data)
  *   {
  *       process_node(node);
@@ -141,7 +141,7 @@ typedef struct mpsc_it_t {
  *           // XXX do NOT freenode(n) here mpsc_queue_drain_end will use it
  *       } while (!mpsc_queue_drain_end(&it, freenode));
  *   }
- * </code>
+ * ```
  *
  * It is important to note that the queue may go through the draining loop
  * multiple times if jobs are enqueued while the queue is drained.

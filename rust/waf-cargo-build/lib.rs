@@ -366,7 +366,7 @@ impl WafBuild {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// const FUNCTIONS_TO_EXPOSE: &[&str] = &[...];
     ///
     /// const VARS_TO_EXPOSE: &[&str] = &[...];
