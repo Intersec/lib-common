@@ -40,6 +40,7 @@ publish = false
 
 [profile.dev]
 # Represents waf profile 'debug'.
+panic = "abort"
 
 [profile.default]
 inherits = "dev"
@@ -47,6 +48,7 @@ opt-level = 3 # Same as 'release'
 
 [profile.release]
 codegen-units = 1
+panic = "abort"
 
 [profile.asan]
 inherits = "dev"

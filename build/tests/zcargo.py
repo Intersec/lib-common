@@ -250,7 +250,13 @@ def get_cargo_test_cmd(pkg: str, argv: list[str]) -> list[str]:
     cmd = [os.environ.get('CARGO', 'cargo')]
 
     if 'USE_SANITIZER' in os.environ:
-        cmd.extend(['+nightly', '-Z', 'build-std'])
+        # See
+        # https://github.com/rust-lang/wg-cargo-std-aware/issues/56#issuecomment-2750778380
+        # and
+        # https://github.com/rust-lang/wg-cargo-std-aware/issues/29#issuecomment-549950466
+        # for panic-abort strategy.
+        cmd.extend(['+nightly', '-Zbuild-std=panic_abort,std',
+                    '-Zpanic-abort-tests'])
 
     cmd.append('test')
 

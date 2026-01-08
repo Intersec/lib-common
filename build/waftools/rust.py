@@ -314,17 +314,20 @@ class CargoBuildBase(Task.Task):  # type: ignore[misc]
 
         # See comment above.
         if self.env.USE_SANITIZER and not self.env.USE_PIC:
+            # See
+            # https://github.com/rust-lang/wg-cargo-std-aware/issues/56#issuecomment-2750778380
+            # for panic-abort strategy.
             cargo_exec_cmd += [
-                '-Z', 'build-std',
+                '-Zbuild-std=panic_abort,std',
                 '--target', 'x86_64-unknown-linux-gnu',
             ]
 
         cargo_exec_cmd += [
             '--profile',
             self.env.CARGO_PROFILE,
-            '-p',
+            '--package',
             self.env.PKG_NAME,
-            '-p',
+            '--package',
             'deps-workspace-hack',
         ]
 
@@ -547,7 +550,7 @@ def sanitizer_add_toolchain(ctx: ConfigurationContext) -> None:
         return
 
     # Add the rust sources to be able to compile it when using sanitizer and
-    # '-Z build-std'.
+    # '-Zbuild-std=panic_abort,std'.
     ctx.exec_command(ctx.env.RUSTUP + [
         'component', 'add', 'rust-src',
         '--toolchain', 'nightly-x86_64-unknown-linux-gnu',
