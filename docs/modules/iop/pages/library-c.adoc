@@ -23,15 +23,10 @@ The IOP compiler transforms every IOP file (`<package>.iop`) in four C files:
 * *`<package>.iop.c`*: This file contains the descriptions of all IOP objects.
   These descriptions are only used by the IOP library.
 
-Previous to `iopc` 2.9.15, `<package>-tdef.iop.h` was not present and its
-content was in `<package>-t.iop.h`.
-
 In the lib-common, the IOP compiler is managed directly by the build system and
 you don't need to manually use it. Every .iop file declared in the build system
 will be compiled by the IOP compiler. Like all generated file, the resulting
-files *must not be committed*. However, the lib-common itself is a special case
-because it is needed to bootstrap the IOP compiler. So if you modify an IOP
-file in the lib-common you have to commit the generated file.
+files *must not be committed*.
 
 === Objects mapping
 
@@ -69,8 +64,6 @@ test__foo_bar__t foo_bar;
 iop_init(test__foo_bar, &foo_bar);
 
 ----
-
-But we will talk about these generated functions below.
 
 Note: for IOP enum, the suffix of the enum description will be `__e` and not
 `__s`._
@@ -207,7 +200,7 @@ In C (and only in C) these types are mapped on exactly the same C-type:
 `lstr_t`. You have to look at `lib-common/str-l.h` for documentation.
 
 However, there are some IOP specificities. A mandatory `string/bytes/xml`
-*cannot contained a `NULL` pointer* so you have to use `LSTR_EMPTY_V` to set an
+*cannot contain a `NULL` pointer* so you have to use `LSTR_EMPTY_V` to set an
 empty string. But, concerning the optional fields, you will do the difference
 between an absent field and the empty string by checking if the string is
 `LSTR_NULL_V`.

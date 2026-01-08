@@ -44,6 +44,7 @@ Here is a description of all the elements:
 * the `static` keyword is used to declare class constant fields. Here are the
   things to know about static fields:
 ** it must not have an explicit tag, since it is never packed in binary,
+** static fields are ignored for non-static fields implicit tagging
 ** it must have a default value for non-abstract classes (which will be the
 value for all the instances of this class),
 ** a class can redefine a static field of one of its ancestors, but obviously

@@ -391,28 +391,8 @@ struct Bar {
 
 ----
 
-Finally, you can import objects from another package inside your package with
-two methods:
-
-* using the *`import`* keyword:
-
-[source,c]
-----
-
-package plop; /*< package name of the file plop.iop */
-
-import foo.bar.Bar; /*< import the Bar object from foo.bar package */
-import foo.*;       /*< import all structure from the foo package */
-
-struct Plop {
-    Bar bar;
-};
-
-[...]
-
-----
-
-* giving the object full-name:
+To use objects from another package inside your package, give the object's
+full-name (package name followed by a dot and the type name):
 
 [source,c]
 ----
