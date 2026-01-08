@@ -2575,12 +2575,11 @@ class IopyIfaceTests(z.TestCase):
         # Wait for the client to be disconnected, the callback should be
         # called
         for _ in range(100):
-            if not client.is_connected():
+            if not client.is_connected() and cbs_called.disconnect:
                 break
             time.sleep(0.01)
         else:
             self.fail('client is not disconnected')
-        self.assertTrue(cbs_called.disconnect)
         self.assertTrue(cbs_called.was_connected)
         cbs_called.disconnect = False
         cbs_called.was_connected = False
