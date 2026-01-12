@@ -1766,11 +1766,25 @@ el_t el_unref(ev_t *ev)
 data_t el_set_priv(ev_t *ev, data_t priv)
 {
     CHECK_EV(ev);
-    assert (!EV_FLAG_HAS(ev, IS_BLK));
+    assert(!EV_FLAG_HAS(ev, IS_BLK));
     if (ev->type == EV_FD && EV_FLAG_HAS(ev, FD_WATCHED))
         return el_set_priv(ev->priv.ptr, priv);
     SWAP(data_t, ev->priv, priv);
     return priv;
+}
+
+data_t el_get_priv(const el_t ev)
+{
+    CHECK_EV(ev);
+    assert(!EV_FLAG_HAS(ev, IS_BLK));
+
+    if (ev->type == EV_FD && EV_FLAG_HAS(ev, FD_WATCHED)) {
+        const el_t timer = ev->priv.ptr;
+
+        return timer->priv;
+    }
+
+    return ev->priv;
 }
 
 void el_loop_timeout(int timeout)
@@ -1978,10 +1992,11 @@ static int el_get_state(sb_t *sb, bool only_blocking)
         qv_append(tab, LSTR(ev_type_to_str(ev->type)));
         if (ev->flags & EV_FLAG_IS_BLK) {
             qv_append(tab, LSTR("block"));
+            qv_append(tab, LSTR("N/A"));
         } else {
             qv_append(tab, lstr_fmt("%p", (void *)ev->cb.cb));
+            qv_append(tab, lstr_fmt("%p", el_get_priv(ev).ptr));
         }
-        qv_append(tab, lstr_fmt("%p", ev->priv.ptr));
 
         switch (ev->type) {
           case EV_SIGNAL:

@@ -434,6 +434,7 @@ bool el_set_trace(el_t nonnull, bool trace) __attr_leaf__;
 #define el_set_trace(ev, trace)
 #endif
 data_t el_set_priv(el_t nonnull, data_t) __attr_leaf__;
+data_t el_get_priv(const el_t nonnull) __attr_leaf__ __attribute__((pure));
 
 void el_bl_use(void) __attr_leaf__;
 void el_bl_lock(void);
