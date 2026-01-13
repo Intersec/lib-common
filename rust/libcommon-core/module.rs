@@ -217,6 +217,26 @@ pub struct ModuleBuilder {
 }
 
 impl ModuleBuilder {
+    /// Set the initialize function for the module.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use libcommon_core::c_module;
+    /// # use libcommon_core::bindings::module_t;
+    ///
+    /// c_module!(my_module, (), |builder| {
+    ///     builder
+    ///         .initialize(|_arg| {
+    ///             println!("module initialized");
+    ///             Ok(())
+    ///         });
+    /// });
+    ///
+    /// # fn main() {
+    /// #     my_module_get_module();
+    /// # }
+    /// ```
     pub fn initialize<F>(&mut self, f: F) -> &mut Self
     where
         F: Fn(*mut c_void) -> Result<(), Box<dyn Error>> + 'static,
@@ -225,6 +245,26 @@ impl ModuleBuilder {
         self
     }
 
+    /// Set the shutdown function for the module.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use libcommon_core::c_module;
+    /// # use libcommon_core::bindings::module_t;
+    ///
+    /// c_module!(my_module, (), |builder| {
+    ///     builder
+    ///         .shutdown(|| {
+    ///             println!("module shutdown");
+    ///             Ok(())
+    ///         });
+    /// });
+    ///
+    /// # fn main() {
+    /// #     my_module_get_module();
+    /// # }
+    /// ```
     pub fn shutdown<F>(&mut self, f: F) -> &Self
     where
         F: Fn() -> Result<(), Box<dyn Error>> + 'static,
@@ -233,16 +273,58 @@ impl ModuleBuilder {
         self
     }
 
+    /// Add a dependency from this module to an other module.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use libcommon_core::c_module;
+    /// # use libcommon_core::bindings::module_t;
+    ///
+    /// c_module!(other_module, ());
+    ///
+    /// c_module!(my_module, (), |builder| {
+    ///     builder.depends_on(other_module_get_module());
+    /// });
+    ///
+    /// # fn main() {
+    /// #     my_module_get_module();
+    /// # }
+    /// ```
     pub fn depends_on(&mut self, dep: *mut module_t) -> &mut Self {
         self.dependencies.push(dep);
         self
     }
 
+    /// Add a dependency from an other module to this module.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use libcommon_core::c_module;
+    /// # use libcommon_core::bindings::module_t;
+    ///
+    /// c_module!(other_module, ());
+    ///
+    /// c_module!(my_module, (), |builder| {
+    ///     builder.needed_by(other_module_get_module());
+    /// });
+    ///
+    /// # fn main() {
+    /// #     my_module_get_module();
+    /// # }
+    /// ```
     pub fn needed_by(&mut self, need: *mut module_t) -> &mut Self {
         self.needed_by.push(need);
         self
     }
 
+    /// Finalize the creation of the module.
+    ///
+    /// This is called internally by the `c_module!()` macro.
+    ///
+    /// It should not be called directly.
+    #[doc(hidden)]
     pub fn finalize<T>(
         self,
         module: &'static mut InternalModule<T>,
