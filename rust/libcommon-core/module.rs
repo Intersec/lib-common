@@ -72,9 +72,97 @@
 pub use crate::c_module;
 
 use std::error::Error;
-use std::os::raw::c_void;
+use std::os::raw::{c_int, c_void};
+use std::ptr;
 
-use crate::bindings::module_t;
+use crate::bindings::{
+    log_get_module, module_add_dep, module_get_name, module_implement, module_register, module_t,
+};
+use crate::lstr;
+
+// {{{ InternalModule
+
+/// Internal module storage for C module used by the macro `c_module!()`.
+///
+/// It should not be used directly.
+#[allow(clippy::module_name_repetitions)]
+#[doc(hidden)]
+pub struct InternalModule<T>
+where
+    T: ModuleContext,
+{
+    module: *mut module_t,
+    initialize: Option<InitializeFn>,
+    shutdown: Option<ShutdownFn>,
+    ctx: Option<T>,
+}
+
+impl<T> InternalModule<T>
+where
+    T: ModuleContext,
+{
+    /// Create a new internal module in a constant way.
+    pub const fn new_const() -> Self {
+        Self {
+            module: ptr::null_mut(),
+            initialize: None,
+            shutdown: None,
+            ctx: None,
+        }
+    }
+
+    /// Create the context and call the initialize closure.
+    pub fn initialize(&mut self, arg: *mut c_void) -> c_int {
+        self.ctx = Some(T::with_arg(arg));
+        if let Some(f) = &self.initialize
+            && let Err(e) = f(arg)
+        {
+            let module_name_lstr = unsafe { lstr::from_ptr(module_get_name(self.module)) };
+            let module_name_rs_str = unsafe { module_name_lstr.as_str_unchecked() };
+
+            eprintln!("error during initialization of module `{module_name_rs_str}`: {e}",);
+            return -1;
+        }
+        0
+    }
+
+    /// Call the shutdown closure and drop the context.
+    pub fn shutdown(&mut self) -> c_int {
+        let result = {
+            if let Some(f) = &self.shutdown
+                && let Err(e) = f()
+            {
+                let module_name_lstr = unsafe { lstr::from_ptr(module_get_name(self.module)) };
+                let module_name_rs_str = unsafe { module_name_lstr.as_str_unchecked() };
+
+                eprintln!("error during shutdown of module `{module_name_rs_str}`: {e}",);
+                return -1;
+            }
+            0
+        };
+        self.ctx = None;
+        result
+    }
+
+    /// Get the current module.
+    ///
+    /// The pointer can be NULL.
+    pub fn module(&self) -> *mut module_t {
+        self.module
+    }
+
+    /// Get the initialized context.
+    ///
+    /// # Panics
+    ///
+    /// Panic if the module has not been initialized.
+    pub fn ctx(&mut self) -> &mut T {
+        self.ctx.as_mut().expect("module is not initialized")
+    }
+}
+
+// }}}
+// {{{ ModuleContext
 
 /// Trait to build a module context.
 ///
@@ -96,8 +184,11 @@ where
     }
 }
 
-pub type InitializeFn = Box<dyn Fn(*mut c_void) -> Result<(), Box<dyn Error>> + 'static>;
-pub type ShutdownFn = Box<dyn Fn() -> Result<(), Box<dyn Error>> + 'static>;
+// }}}
+// {{{ ModuleBuilder
+
+type InitializeFn = Box<dyn Fn(*mut c_void) -> Result<(), Box<dyn Error>> + 'static>;
+type ShutdownFn = Box<dyn Fn() -> Result<(), Box<dyn Error>> + 'static>;
 
 /// Builder for configuring a C module's behavior.
 ///
@@ -109,10 +200,10 @@ pub type ShutdownFn = Box<dyn Fn() -> Result<(), Box<dyn Error>> + 'static>;
 #[allow(clippy::module_name_repetitions)]
 #[derive(Default)]
 pub struct ModuleBuilder {
-    pub initialize: Option<InitializeFn>,
-    pub shutdown: Option<ShutdownFn>,
-    pub dependencies: Vec<*mut module_t>,
-    pub needed_by: Vec<*mut module_t>,
+    initialize: Option<InitializeFn>,
+    shutdown: Option<ShutdownFn>,
+    dependencies: Vec<*mut module_t>,
+    needed_by: Vec<*mut module_t>,
 }
 
 impl ModuleBuilder {
@@ -141,7 +232,38 @@ impl ModuleBuilder {
         self.needed_by.push(need);
         self
     }
+
+    pub fn finalize<T>(
+        self,
+        module: &'static mut InternalModule<T>,
+        name: &'static str,
+        initialize: unsafe extern "C" fn(*mut c_void) -> c_int,
+        shutdown: unsafe extern "C" fn() -> c_int,
+    ) where
+        T: ModuleContext,
+    {
+        unsafe {
+            let ptr = module_register(lstr::raw(name));
+
+            module.initialize = self.initialize;
+            module.shutdown = self.shutdown;
+
+            module_implement(ptr, Some(initialize), Some(shutdown), log_get_module());
+            module.module = ptr;
+
+            for dep in self.dependencies {
+                module_add_dep(ptr, dep);
+            }
+
+            for need in self.needed_by {
+                module_add_dep(need, ptr);
+            }
+        }
+    }
 }
+
+// }}}
+// {{{ c_module!()
 
 /// Creates a C-compatible module with a typed context.
 ///
@@ -189,107 +311,46 @@ macro_rules! c_module {
     };
     (@internal $name:ident, $ctx:ty, |$builder:ident| $body:block) => {
         paste::paste! {
-            #[allow(clippy::absolute_paths)]
+            #[allow(static_mut_refs)]
             mod [<$name _c_mod>] {
-                use std::ptr;
                 use std::os::raw::{c_int, c_void};
-                use $crate::bindings::{
-                    log_get_module, module_add_dep, module_implement, module_register, module_t,
-                };
-                use $crate::lstr;
-                use $crate::module::ModuleContext as _;
+                use $crate::bindings::module_t;
 
-                pub struct InternalModuleContext {
-                    module: *mut module_t,
-                    initialize: Option<$crate::module::InitializeFn>,
-                    shutdown: Option<$crate::module::ShutdownFn>,
-                    ctx: Option<$ctx>,
+                static mut MODULE:
+                    $crate::module::InternalModule<super::[<$name _ModuleContextType>]> =
+                        $crate::module::InternalModule::new_const();
+
+                extern "C" fn initialize(arg: *mut c_void) -> c_int {
+                    unsafe { MODULE.initialize(arg) }
                 }
 
-                pub static mut MODULE : InternalModuleContext = InternalModuleContext {
-                    module: ptr::null_mut(),
-                    initialize: None,
-                    shutdown: None,
-                    ctx: None,
-                };
-
-                pub fn get_ctx() -> &'static mut $ctx {
-                    #[allow(static_mut_refs)]
-                    unsafe {
-                        MODULE.ctx.as_mut().expect("module context not initialized")
-                    }
+                extern "C" fn shutdown() -> c_int {
+                    unsafe { MODULE.shutdown() }
                 }
 
-                pub extern "C" fn initialize(arg: *mut c_void) -> c_int {
-                    #[allow(static_mut_refs)]
+                pub(super) fn get_ctx() -> &'static mut super::[<$name _ModuleContextType>] {
+                    unsafe { MODULE.ctx() }
+                }
+
+                pub(super) fn get_module() -> *mut module_t {
                     unsafe {
-                        MODULE.ctx = Some($ctx::with_arg(arg));
-                        if let Some(f) = &MODULE.initialize {
-                            if let Err(e) = f(arg) {
-                                eprintln!("error during initialization of module `{}`: {}",
-                                    stringify!($name),
-                                    e,
-                                );
-                                return -1
-                            }
+                        if MODULE.module().is_null() {
+                            let mut builder = $crate::module::ModuleBuilder::default();
+
+                            super::[<$name _MODULE_BUILDER_CB>](&mut builder);
+                            builder.finalize(&mut MODULE, stringify!($name), initialize, shutdown);
                         }
-                        0
+                        MODULE.module()
                     }
                 }
-
-                pub extern "C" fn shutdown() -> c_int {
-                    #[allow(static_mut_refs)]
-                    unsafe {
-                        let result = {
-                            if let Some(f) = &MODULE.shutdown {
-                                if let Err(e) =  f() {
-                                    eprintln!("error during shutdown of module `{}`: {}",
-                                        stringify!($name),
-                                        e,
-                                    );
-                                    return -1;
-                                }
-                            }
-                            0
-                        };
-                        MODULE.ctx = None;
-                        result
-                    }
-                }
-
-                pub fn get_module() -> *mut module_t {
-                    #[allow(clippy::macro_metavars_in_unsafe)]
-                    unsafe {
-                        if MODULE.module.is_null() {
-                            let ptr = module_register(lstr::raw(stringify!($name)));
-
-                            let mut $builder = $crate::module::ModuleBuilder::default();
-                            $body;
-
-                            MODULE.initialize = $builder.initialize;
-                            MODULE.shutdown = $builder.shutdown;
-
-                            module_implement(
-                                ptr,
-                                Some(initialize),
-                                Some(shutdown),
-                                log_get_module(),
-                            );
-                            MODULE.module = ptr;
-
-                            for dep in $builder.dependencies {
-                                module_add_dep(ptr, dep);
-                            }
-
-                            for need in $builder.needed_by {
-                                module_add_dep(need, ptr);
-                            }
-                        }
-                        MODULE.module
-                    }
-                }
-
             }
+
+            #[allow(non_camel_case_types)]
+            type [<$name _ModuleContextType>] = $ctx;
+
+            #[allow(non_upper_case_globals)]
+            static [<$name _MODULE_BUILDER_CB>]: fn(&mut $crate::module::ModuleBuilder) =
+                |$builder: &mut $crate::module::ModuleBuilder| $body;
 
             #[unsafe(no_mangle)]
             #[allow(clippy::macro_metavars_in_unsafe)]
@@ -299,3 +360,5 @@ macro_rules! c_module {
         }
     };
 }
+
+// }}}

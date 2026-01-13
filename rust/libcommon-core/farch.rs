@@ -333,6 +333,6 @@ struct FarchModCtx {
     pub persisted: HashMap<usize, Box<[u8]>>,
 }
 
-c_module!(farch, super::FarchModCtx);
+c_module!(farch, FarchModCtx);
 
 // }}}
