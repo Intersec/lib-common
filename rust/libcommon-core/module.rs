@@ -32,10 +32,11 @@
 //!
 //! ## Module with callbacks
 //!
-//! ```ignore
-//! use crate::c_module;
+//! ```
+//! # use libcommon_core::c_module;
+//! # use libcommon_core::bindings::module_t;
 //!
-//!#[derive(Default)]
+//! #[derive(Default)]
 //! struct MyModuleContext {
 //!     data: Vec<String>,
 //! }
@@ -51,20 +52,29 @@
 //!             Ok(())
 //!         });
 //! });
+//!
+//! # fn main() {
+//! #     my_module_get_module();
+//! # }
 //! ```
 //!
 //! ## Module without callbacks
 //!
-//! ```ignore
-//! use crate::c_module;
+//! ```
+//! # use libcommon_core::c_module;
+//! # use libcommon_core::bindings::module_t;
 //!
-//!#[derive(Default)]
+//! #[derive(Default)]
 //! struct SimpleContext {
 //!     counter: usize,
 //! }
 //!
 //! // No initialization or shutdown needed
 //! c_module!(simple_module, SimpleContext);
+//!
+//! # fn main() {
+//! #     simple_module_get_module();
+//! # }
 //! ```
 
 #[doc(inline)]
@@ -287,8 +297,27 @@ impl ModuleBuilder {
 /// # Context Access
 ///
 /// Within your module's code, you can access the context which is mutable using:
-/// ```ignore
-/// let ctx = <name>_c_mod::get_ctx();
+/// ```
+/// # use libcommon_core::bindings::{module_release, module_require, module_t};
+/// # use libcommon_core::c_module;
+///
+/// # #[derive(Default)]
+/// # struct MyModuleContext {
+/// # }
+/// #
+/// # c_module!(my_module, MyModuleContext);
+/// #
+/// # fn main() {
+/// #     unsafe {
+/// #         module_require(my_module_get_module());
+/// #     }
+/// #
+/// let ctx: &mut MyModuleContext = my_module_c_mod::get_ctx();
+/// #
+/// #     unsafe {
+/// #         module_release(my_module_get_module());
+/// #     }
+/// # }
 /// ```
 ///
 /// # Safety
