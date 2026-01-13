@@ -90,6 +90,9 @@ use crate::bindings::{
 };
 use crate::lstr;
 
+#[cfg(debug_assertions)]
+use crate::bindings::thr_assert_is_main_thread;
+
 // {{{ InternalModule
 
 /// Internal module storage for C module used by the macro `c_module!()`.
@@ -158,6 +161,10 @@ where
     ///
     /// The pointer can be NULL.
     pub fn module(&self) -> *mut module_t {
+        #[cfg(debug_assertions)]
+        unsafe {
+            thr_assert_is_main_thread();
+        }
         self.module
     }
 
@@ -167,6 +174,10 @@ where
     ///
     /// Panic if the module has not been initialized.
     pub fn ctx(&mut self) -> &mut T {
+        #[cfg(debug_assertions)]
+        unsafe {
+            thr_assert_is_main_thread();
+        }
         self.ctx.as_mut().expect("module is not initialized")
     }
 }
