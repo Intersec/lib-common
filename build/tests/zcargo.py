@@ -260,6 +260,9 @@ def get_cargo_test_cmd(pkg: str, argv: list[str]) -> list[str]:
 
     cmd.append('test')
 
+    if 'USE_SANITIZER' in os.environ:
+        cmd.extend(['--target', 'x86_64-unknown-linux-gnu'])
+
     if 'CARGO_PROFILE' in os.environ:
         cmd.extend(['--profile', os.environ['CARGO_PROFILE']])
 
