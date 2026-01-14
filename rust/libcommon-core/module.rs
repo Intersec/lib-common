@@ -126,14 +126,76 @@ use std::os::raw::{c_int, c_void};
 use std::ptr;
 
 use crate::bindings::{
-    data_t, log_get_module, module_add_dep, module_get_name, module_implement, module_method_t,
-    module_method_type_t, module_register, module_run_method, module_t,
+    data_t, log_get_module, module_add_dep, module_get_name, module_implement,
+    module_implement_method_generic, module_implement_method_int, module_implement_method_ptr,
+    module_implement_method_void, module_method_t, module_method_type_t, module_register,
+    module_run_method, module_t,
 };
 use crate::lstr;
 
 #[cfg(debug_assertions)]
 use crate::bindings::thr_assert_is_main_thread;
 
+// {{{ Internal types
+
+type InitializeFn = Box<dyn Fn(*mut c_void) -> Result<(), Box<dyn Error>> + 'static>;
+type ShutdownFn = Box<dyn Fn() -> Result<(), Box<dyn Error>> + 'static>;
+type MethodImplVoid = Box<dyn Fn() + 'static>;
+type MethodImplInt = Box<dyn Fn(c_int) + 'static>;
+type MethodImplPtr = Box<dyn Fn(*mut c_void) + 'static>;
+type MethodImplGeneric = Box<dyn Fn(data_t) + 'static>;
+
+enum MethodImplContainer {
+    Void(MethodImplVoid),
+    Int(MethodImplInt),
+    Ptr(MethodImplPtr),
+    Generic(MethodImplGeneric),
+}
+
+// }}}
+// {{{ Method implementation helpers
+
+unsafe extern "C" fn module_method_impl_void<F>(custom_data: *mut c_void)
+where
+    F: Fn() + 'static,
+{
+    let cb_ptr = custom_data as *mut F;
+    unsafe {
+        (*cb_ptr)();
+    }
+}
+
+unsafe extern "C" fn module_method_impl_int<F>(arg: c_int, custom_data: *mut c_void)
+where
+    F: Fn(c_int) + 'static,
+{
+    let cb_ptr = custom_data as *mut F;
+    unsafe {
+        (*cb_ptr)(arg);
+    }
+}
+
+unsafe extern "C" fn module_method_impl_ptr<F>(arg: *mut c_void, custom_data: *mut c_void)
+where
+    F: Fn(*mut c_void) + 'static,
+{
+    let cb_ptr = custom_data as *mut F;
+    unsafe {
+        (*cb_ptr)(arg);
+    }
+}
+
+unsafe extern "C" fn module_method_impl_generic<F>(arg: data_t, custom_data: *mut c_void)
+where
+    F: Fn(data_t) + 'static,
+{
+    let cb_ptr = custom_data as *mut F;
+    unsafe {
+        (*cb_ptr)(arg);
+    }
+}
+
+// }}}
 // {{{ InternalModule
 
 /// Internal module storage for C module used by the macro `c_module!()`.
@@ -148,6 +210,7 @@ where
     module: *mut module_t,
     initialize: Option<InitializeFn>,
     shutdown: Option<ShutdownFn>,
+    method_impls: Vec<MethodImplContainer>,
     ctx: Option<T>,
 }
 
@@ -161,6 +224,7 @@ where
             module: ptr::null_mut(),
             initialize: None,
             shutdown: None,
+            method_impls: Vec::new(),
             ctx: None,
         }
     }
@@ -249,9 +313,6 @@ where
 // }}}
 // {{{ ModuleBuilder
 
-type InitializeFn = Box<dyn Fn(*mut c_void) -> Result<(), Box<dyn Error>> + 'static>;
-type ShutdownFn = Box<dyn Fn() -> Result<(), Box<dyn Error>> + 'static>;
-
 /// Builder for configuring a C module's behavior.
 ///
 /// This builder allows you to specify:
@@ -259,6 +320,7 @@ type ShutdownFn = Box<dyn Fn() -> Result<(), Box<dyn Error>> + 'static>;
 /// - A shutdown function called when the module is unloaded
 /// - Module dependencies (what this module depends on)
 /// - Reverse dependencies (what modules depend on this one)
+/// - Method implementations
 #[allow(clippy::module_name_repetitions)]
 pub struct ModuleBuilder<T>
 where
@@ -375,6 +437,276 @@ where
             module_add_dep(need, self.internal_module.module);
         }
         self
+    }
+
+    /// Implement a VOID method.
+    ///
+    /// This is the equivalent of the C macro `MODULE_IMPLEMENTS_VOID()`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `method.type_` is `METHOD_VOID`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use libcommon_core::{c_module, c_module_method};
+    /// # use libcommon_core::bindings::{module_t, module_require, module_release};
+    /// # use libcommon_core::module::method_run_void;
+    ///
+    /// c_module_method!(VOID, DEPS_BEFORE, do_something);
+    ///
+    /// c_module!(my_module, |builder| {
+    ///     builder.implement_void(&do_something_method, || {
+    ///         println!("Done something!");
+    ///     });
+    /// });
+    ///
+    /// # fn main() {
+    /// #     unsafe {
+    /// #         module_require(my_module_get_module());
+    /// #     }
+    /// #     method_run_void(&do_something_method);
+    /// #     unsafe {
+    /// #         module_release(my_module_get_module());
+    /// #     }
+    /// # }
+    /// ```
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    #[allow(clippy::unnecessary_safety_doc)]
+    pub fn implement_void<F>(&mut self, method: *const module_method_t, cb: F)
+    where
+        F: Fn() + 'static,
+    {
+        self.internal_module
+            .method_impls
+            .push(MethodImplContainer::Void(Box::new(cb)));
+
+        #[allow(clippy::missing_panics_doc)]
+        let container_ref = self
+            .internal_module
+            .method_impls
+            .last_mut()
+            .expect("retrieve the last value just inserted");
+
+        #[allow(clippy::missing_panics_doc)]
+        let MethodImplContainer::Void(cb_ref) = container_ref else {
+            panic!("func void just inserted");
+        };
+
+        let cb_ptr = &raw mut *cb_ref as *mut c_void;
+
+        unsafe {
+            module_implement_method_void(
+                self.internal_module.module,
+                method,
+                Some(module_method_impl_void::<F>),
+                cb_ptr,
+            );
+        }
+    }
+
+    /// Implement an INT method.
+    ///
+    /// This is the equivalent of the C macro `MODULE_IMPLEMENTS_INT()`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `method.type_` is `METHOD_INT`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::os::raw::c_int;
+    /// # use libcommon_core::{c_module, c_module_method};
+    /// # use libcommon_core::bindings::{module_t, module_require, module_release};
+    /// # use libcommon_core::module::method_run_int;
+    ///
+    /// c_module_method!(INT, DEPS_BEFORE, do_something);
+    ///
+    /// c_module!(my_module, |builder| {
+    ///     builder.implement_int(&do_something_method, |a: c_int| {
+    ///         println!("Done something! {a}");
+    ///     });
+    /// });
+    ///
+    /// # fn main() {
+    /// #     unsafe {
+    /// #         module_require(my_module_get_module());
+    /// #     }
+    /// #     method_run_int(&do_something_method, 42);
+    /// #     unsafe {
+    /// #         module_release(my_module_get_module());
+    /// #     }
+    /// # }
+    /// ```
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    #[allow(clippy::unnecessary_safety_doc)]
+    pub fn implement_int<F>(&mut self, method: *const module_method_t, cb: F)
+    where
+        F: Fn(c_int) + 'static,
+    {
+        self.internal_module
+            .method_impls
+            .push(MethodImplContainer::Int(Box::new(cb)));
+
+        #[allow(clippy::missing_panics_doc)]
+        let container_ref = self
+            .internal_module
+            .method_impls
+            .last_mut()
+            .expect("retrieve the last value just inserted");
+
+        #[allow(clippy::missing_panics_doc)]
+        let MethodImplContainer::Int(cb_ref) = container_ref else {
+            panic!("func int just inserted");
+        };
+
+        let cb_ptr = &raw mut *cb_ref as *mut c_void;
+
+        unsafe {
+            module_implement_method_int(
+                self.internal_module.module,
+                method,
+                Some(module_method_impl_int::<F>),
+                cb_ptr,
+            );
+        }
+    }
+
+    /// Implement a PTR method.
+    ///
+    /// This is the equivalent of the C macro `MODULE_IMPLEMENTS_PTR()`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `method.type_` is `METHOD_PTR`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::os::raw::c_void;
+    /// # use libcommon_core::{c_module, c_module_method};
+    /// # use libcommon_core::bindings::{module_t, module_require, module_release};
+    /// # use libcommon_core::module::method_run_ptr;
+    ///
+    /// c_module_method!(PTR, DEPS_BEFORE, do_something);
+    ///
+    /// c_module!(my_module, |builder| {
+    ///     builder.implement_ptr(&do_something_method, |p: *mut c_void| {
+    ///         println!("Done something! {:p}", p);
+    ///     });
+    /// });
+    ///
+    /// # fn main() {
+    /// #     unsafe {
+    /// #         module_require(my_module_get_module());
+    /// #     }
+    /// #     method_run_ptr(&do_something_method, std::ptr::null_mut());
+    /// #     unsafe {
+    /// #         module_release(my_module_get_module());
+    /// #     }
+    /// # }
+    /// ```
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    #[allow(clippy::unnecessary_safety_doc)]
+    pub fn implement_ptr<F>(&mut self, method: *const module_method_t, cb: F)
+    where
+        F: Fn(*mut c_void) + 'static,
+    {
+        self.internal_module
+            .method_impls
+            .push(MethodImplContainer::Ptr(Box::new(cb)));
+
+        #[allow(clippy::missing_panics_doc)]
+        let container_ref = self
+            .internal_module
+            .method_impls
+            .last_mut()
+            .expect("retrieve the last value just inserted");
+
+        #[allow(clippy::missing_panics_doc)]
+        let MethodImplContainer::Ptr(cb_ref) = container_ref else {
+            panic!("func int just inserted");
+        };
+
+        let cb_ptr = &raw mut *cb_ref as *mut c_void;
+
+        unsafe {
+            module_implement_method_ptr(
+                self.internal_module.module,
+                method,
+                Some(module_method_impl_ptr::<F>),
+                cb_ptr,
+            );
+        }
+    }
+
+    /// Implement a GENERIC method.
+    ///
+    /// This is the equivalent of the C macro `MODULE_IMPLEMENTS_GENERIC()`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `method.type_` is `METHOD_GENERIC`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use libcommon_core::{c_module, c_module_method};
+    /// # use libcommon_core::bindings::{module_t, module_require, module_release, data_t};
+    /// # use libcommon_core::module::method_run_generic;
+    ///
+    /// c_module_method!(GENERIC, DEPS_BEFORE, do_something);
+    ///
+    /// c_module!(my_module, |builder| {
+    ///     builder.implement_generic(&do_something_method, |d: data_t| {
+    ///         println!("Done something! {:p}", unsafe { d.ptr });
+    ///     });
+    /// });
+    ///
+    /// # fn main() {
+    /// #     unsafe {
+    /// #         module_require(my_module_get_module());
+    /// #     }
+    /// #     method_run_generic(&do_something_method, data_t { ptr: std::ptr::null_mut() } );
+    /// #     unsafe {
+    /// #         module_release(my_module_get_module());
+    /// #     }
+    /// # }
+    /// ```
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    #[allow(clippy::unnecessary_safety_doc)]
+    pub fn implement_generic<F>(&mut self, method: *const module_method_t, cb: F)
+    where
+        F: Fn(data_t) + 'static,
+    {
+        self.internal_module
+            .method_impls
+            .push(MethodImplContainer::Generic(Box::new(cb)));
+
+        #[allow(clippy::missing_panics_doc)]
+        let container_ref = self
+            .internal_module
+            .method_impls
+            .last_mut()
+            .expect("retrieve the last value just inserted");
+
+        #[allow(clippy::missing_panics_doc)]
+        let MethodImplContainer::Generic(cb_ref) = container_ref else {
+            panic!("func int just inserted");
+        };
+
+        let cb_ptr = &raw mut *cb_ref as *mut c_void;
+
+        unsafe {
+            module_implement_method_generic(
+                self.internal_module.module,
+                method,
+                Some(module_method_impl_generic::<F>),
+                cb_ptr,
+            );
+        }
     }
 
     /// Create a new module builder for the given internal module.
