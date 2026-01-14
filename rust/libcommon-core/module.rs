@@ -126,7 +126,8 @@ use std::os::raw::{c_int, c_void};
 use std::ptr;
 
 use crate::bindings::{
-    log_get_module, module_add_dep, module_get_name, module_implement, module_register, module_t,
+    data_t, log_get_module, module_add_dep, module_get_name, module_implement, module_method_t,
+    module_method_type_t, module_register, module_run_method, module_t,
 };
 use crate::lstr;
 
@@ -566,6 +567,143 @@ macro_rules! c_module_method {
                 };
         }
     };
+}
+
+// }}}
+// {{{ Method run functions
+
+/// Run a VOID method.
+///
+/// This is equivalent of using the C macro `MODULE_METHOD_RUN_VOID()`.
+///
+/// # Safety
+///
+/// The caller must ensure that `method.type_` is `METHOD_VOID`.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module_method;
+/// # use libcommon_core::module::method_run_void;
+/// #
+/// c_module_method!(VOID, DEPS_BEFORE, do_something);
+/// #
+/// # fn main() {
+///
+/// method_run_void(&raw const do_something_method);
+///
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::unnecessary_safety_doc)]
+pub fn method_run_void(method: *const module_method_t) {
+    unsafe {
+        let data = data_t {
+            ptr: ptr::null_mut(),
+        };
+
+        debug_assert_eq!((*method).type_, module_method_type_t::METHOD_VOID);
+        module_run_method(method, data);
+    }
+}
+
+/// Run a PTR method.
+///
+/// This is equivalent of using the C macro `MODULE_METHOD_RUN_PTR()`.
+///
+/// # Safety
+///
+/// The caller must ensure that `method.type_` is `METHOD_PTR`.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module_method;
+/// # use libcommon_core::module::method_run_ptr;
+/// #
+/// c_module_method!(PTR, DEPS_BEFORE, do_something);
+/// #
+/// # fn main() {
+///
+/// method_run_ptr(&raw const do_something_method, std::ptr::null_mut());
+///
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::unnecessary_safety_doc)]
+pub fn method_run_ptr(method: *const module_method_t, arg: *mut c_void) {
+    unsafe {
+        let data = data_t { ptr: arg };
+
+        debug_assert_eq!((*method).type_, module_method_type_t::METHOD_PTR);
+        module_run_method(method, data);
+    }
+}
+
+/// Run an INT method.
+///
+/// This is equivalent of using the C macro `MODULE_METHOD_RUN_INT()`.
+///
+/// # Safety
+///
+/// The caller must ensure that `method.type_` is `METHOD_INT`.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module_method;
+/// # use libcommon_core::module::method_run_int;
+/// #
+/// c_module_method!(INT, DEPS_BEFORE, do_something);
+/// #
+/// # fn main() {
+///
+/// method_run_int(&raw const do_something_method, 42);
+///
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::unnecessary_safety_doc)]
+pub fn method_run_int(method: *const module_method_t, arg: c_int) {
+    unsafe {
+        let data = data_t { u32_: arg as u32 };
+
+        debug_assert_eq!((*method).type_, module_method_type_t::METHOD_INT);
+        module_run_method(method, data);
+    }
+}
+
+/// Run a GENERIC method.
+///
+/// This is equivalent of using the C macro `MODULE_METHOD_RUN()`.
+///
+/// # Safety
+///
+/// The caller must ensure that `method.type_` is `METHOD_GENERIC`.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module_method;
+/// # use libcommon_core::module::method_run_generic;
+/// # use libcommon_core::bindings::data_t;
+/// #
+/// c_module_method!(GENERIC, DEPS_BEFORE, do_something);
+/// #
+/// # fn main() {
+///
+/// let data = data_t { u64_: 15158448 };
+/// method_run_generic(&raw const do_something_method, data);
+///
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::unnecessary_safety_doc)]
+pub fn method_run_generic(method: *const module_method_t, arg: data_t) {
+    unsafe {
+        debug_assert_eq!((*method).type_, module_method_type_t::METHOD_GENERIC);
+        module_run_method(method, arg);
+    }
 }
 
 // }}}
