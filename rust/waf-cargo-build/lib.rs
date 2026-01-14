@@ -26,8 +26,8 @@
 //!
 //! The main entry point is the structure [`WafBuild`].
 
-use bindgen::Builder;
 use bindgen::callbacks::{DeriveInfo, ItemInfo, ParseCallbacks, TypeKind};
+use bindgen::{Builder, EnumVariation};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::collections::{HashMap, HashSet};
@@ -436,8 +436,11 @@ impl WafBuild {
             builder = builder.clang_arg(format!("-I{include}"));
         }
 
-        // Create a new type for all IOP enums.
-        builder = builder.newtype_global_enum(".*__t");
+        // Use Rust enums as it is much more easy to use in Rust, and works well with match().
+        // We just need to be careful with it, as we always are :).
+        builder = builder.default_enum_style(EnumVariation::Rust {
+            non_exhaustive: false,
+        });
 
         // Call the callback to add the headers and exported functions.
         builder = cb(builder)?;
