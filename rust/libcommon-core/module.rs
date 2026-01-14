@@ -21,6 +21,8 @@
 //! This module provides the [`ModuleBuilder`] builder pattern and the [`c_module!`] macro
 //! to create modules that can be registered and managed by the C module system.
 //!
+//! C module methods can be created via the [`c_module_method!`] macro.
+//!
 //! # Overview
 //!
 //! The module system allows Rust code to register modules with:
@@ -117,7 +119,7 @@
 
 #[doc(inline)]
 #[allow(clippy::module_name_repetitions)]
-pub use crate::c_module;
+pub use crate::{c_module, c_module_method};
 
 use std::error::Error;
 use std::os::raw::{c_int, c_void};
@@ -524,6 +526,44 @@ macro_rules! c_module {
             pub extern "C" fn [<$name _get_module>]() -> *mut module_t {
                 [<$name _c_mod>]::get_module()
             }
+        }
+    };
+}
+
+// }}}
+// {{{ c_module_method!()
+
+/// Declare and define a C module method.
+///
+/// This works similarly to the C macro `MODULE_METHOD()` with the same `type` and `order`.
+///
+/// # Parameters
+///
+/// - `$type`: The type of the method. See `module_method_type_t`.
+/// - `$order`: The order of calls of the implementations. See `module_order_t`.
+/// - `$name`: The name of the method.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module_method;
+///
+/// c_module_method!(VOID, DEPS_BEFORE, my_method);
+///
+/// # fn main() { }
+/// ```
+///
+#[macro_export]
+#[allow(clippy::module_name_repetitions)]
+macro_rules! c_module_method {
+    ($type:ident, $order:ident, $name:ident) => {
+        paste::paste! {
+            #[unsafe(no_mangle)]
+            pub static [<$name _method>]: $crate::bindings::module_method_t =
+                $crate::bindings::module_method_t {
+                    type_: $crate::bindings::module_method_type_t::[<METHOD_ $type>],
+                    order: $crate::bindings::module_order_t::[<MODULE_ $order>],
+                };
         }
     };
 }
