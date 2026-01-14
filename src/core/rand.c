@@ -24,15 +24,20 @@ static __thread struct {
     bool initialized;
 } thr_rand_g;
 
+void is_rand_set_seed(unsigned int seed)
+{
+    thr_rand_g.seed = seed;
+    thr_rand_g.initialized = true;
+}
+
 int is_rand(void)
 {
     if (unlikely(!thr_rand_g.initialized)) {
         struct timeval tm;
 
         gettimeofday(&tm, NULL);
-        thr_rand_g.seed = tm.tv_sec + tm.tv_usec + getpid()
-                        + (uintptr_t)pthread_self();
-        thr_rand_g.initialized = true;
+        is_rand_set_seed(tm.tv_sec + tm.tv_usec + getpid() +
+                         (uintptr_t)pthread_self());
     }
 
     return rand_r(&thr_rand_g.seed);
