@@ -257,15 +257,17 @@ type ShutdownFn = Box<dyn Fn() -> Result<(), Box<dyn Error>> + 'static>;
 /// - Module dependencies (what this module depends on)
 /// - Reverse dependencies (what modules depend on this one)
 #[allow(clippy::module_name_repetitions)]
-#[derive(Default)]
-pub struct ModuleBuilder {
-    initialize: Option<InitializeFn>,
-    shutdown: Option<ShutdownFn>,
-    dependencies: Vec<*mut module_t>,
-    needed_by: Vec<*mut module_t>,
+pub struct ModuleBuilder<T>
+where
+    T: ModuleContext + 'static,
+{
+    internal_module: &'static mut InternalModule<T>,
 }
 
-impl ModuleBuilder {
+impl<T> ModuleBuilder<T>
+where
+    T: ModuleContext,
+{
     /// Set the initialize function for the module.
     ///
     /// # Example
@@ -289,7 +291,7 @@ impl ModuleBuilder {
     where
         F: Fn(*mut c_void) -> Result<(), Box<dyn Error>> + 'static,
     {
-        self.initialize = Some(Box::new(f));
+        self.internal_module.initialize = Some(Box::new(f));
         self
     }
 
@@ -316,7 +318,7 @@ impl ModuleBuilder {
     where
         F: Fn() -> Result<(), Box<dyn Error>> + 'static,
     {
-        self.shutdown = Some(Box::new(f));
+        self.internal_module.shutdown = Some(Box::new(f));
         self
     }
 
@@ -338,8 +340,11 @@ impl ModuleBuilder {
     /// #     my_module_get_module();
     /// # }
     /// ```
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     pub fn depends_on(&mut self, dep: *mut module_t) -> &mut Self {
-        self.dependencies.push(dep);
+        unsafe {
+            module_add_dep(self.internal_module.module, dep);
+        }
         self
     }
 
@@ -361,43 +366,40 @@ impl ModuleBuilder {
     /// #     my_module_get_module();
     /// # }
     /// ```
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     pub fn needed_by(&mut self, need: *mut module_t) -> &mut Self {
-        self.needed_by.push(need);
+        unsafe {
+            module_add_dep(need, self.internal_module.module);
+        }
         self
     }
 
-    /// Finalize the creation of the module.
+    /// Create a new module builder for the given internal module.
     ///
+    /// This creates the C module for the internal module.
     /// This is called internally by the `c_module!()` macro.
     ///
     /// It should not be called directly.
     #[doc(hidden)]
-    pub fn finalize<T>(
-        self,
-        module: &'static mut InternalModule<T>,
+    pub fn from_internal_module(
+        internal_module: &'static mut InternalModule<T>,
         name: &'static str,
         initialize: unsafe extern "C" fn(*mut c_void) -> c_int,
         shutdown: unsafe extern "C" fn() -> c_int,
-    ) where
-        T: ModuleContext,
-    {
+    ) -> Self {
+        debug_assert!(
+            internal_module.module.is_null(),
+            "module `{name}` has already been created",
+        );
+
         unsafe {
             let ptr = module_register(lstr::raw(name));
 
-            module.initialize = self.initialize;
-            module.shutdown = self.shutdown;
-
             module_implement(ptr, Some(initialize), Some(shutdown), log_get_module());
-            module.module = ptr;
-
-            for dep in self.dependencies {
-                module_add_dep(ptr, dep);
-            }
-
-            for need in self.needed_by {
-                module_add_dep(need, ptr);
-            }
+            internal_module.module = ptr;
         }
+
+        Self { internal_module }
     }
 }
 
@@ -499,10 +501,10 @@ macro_rules! c_module {
                 pub(super) fn get_module() -> *mut module_t {
                     unsafe {
                         if MODULE.module().is_null() {
-                            let mut builder = $crate::module::ModuleBuilder::default();
+                            let mut builder = $crate::module::ModuleBuilder::from_internal_module(
+                                &mut MODULE, stringify!($name), initialize, shutdown);
 
                             super::[<$name _MODULE_BUILDER_CB>](&mut builder);
-                            builder.finalize(&mut MODULE, stringify!($name), initialize, shutdown);
                         }
                         MODULE.module()
                     }
@@ -513,8 +515,9 @@ macro_rules! c_module {
             type [<$name _ModuleContextType>] = $ctx;
 
             #[allow(non_upper_case_globals)]
-            static [<$name _MODULE_BUILDER_CB>]: fn(&mut $crate::module::ModuleBuilder) =
-                |$builder: &mut $crate::module::ModuleBuilder| $body;
+            static [<$name _MODULE_BUILDER_CB>]:
+                fn(&mut $crate::module::ModuleBuilder<$ctx>) =
+                    |$builder: &mut $crate::module::ModuleBuilder<$ctx>| $body;
 
             #[unsafe(no_mangle)]
             #[allow(clippy::macro_metavars_in_unsafe)]
