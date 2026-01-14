@@ -30,7 +30,7 @@
 //!
 //! # Examples
 //!
-//! ## Module with callbacks
+//! ## Module with context and callbacks
 //!
 //! ```
 //! # use libcommon_core::c_module;
@@ -58,7 +58,7 @@
 //! # }
 //! ```
 //!
-//! ## Module without callbacks
+//! ## Module with context and without callbacks
 //!
 //! ```
 //! # use libcommon_core::c_module;
@@ -71,6 +71,44 @@
 //!
 //! // No initialization or shutdown needed
 //! c_module!(simple_module, SimpleContext);
+//!
+//! # fn main() {
+//! #     simple_module_get_module();
+//! # }
+//! ```
+//!
+//! ## Module without context and with callbacks
+//!
+//! ```
+//! # use libcommon_core::c_module;
+//! # use libcommon_core::bindings::module_t;
+//!
+//! // No context needed
+//! c_module!(my_module, |builder| {
+//!     builder
+//!         .initialize(|_arg| {
+//!             println!("module initialized");
+//!             Ok(())
+//!         })
+//!         .shutdown(|| {
+//!             println!("module shutdown");
+//!             Ok(())
+//!         });
+//! });
+//!
+//! # fn main() {
+//! #     my_module_get_module();
+//! # }
+//! ```
+//!
+//! ## Module without context or callbacks
+//!
+//! ```
+//! # use libcommon_core::c_module;
+//! # use libcommon_core::bindings::module_t;
+//!
+//! // No context, initialization or shutdown needed
+//! c_module!(simple_module);
 //!
 //! # fn main() {
 //! #     simple_module_get_module();
@@ -236,12 +274,11 @@ impl ModuleBuilder {
     /// # use libcommon_core::c_module;
     /// # use libcommon_core::bindings::module_t;
     ///
-    /// c_module!(my_module, (), |builder| {
-    ///     builder
-    ///         .initialize(|_arg| {
-    ///             println!("module initialized");
-    ///             Ok(())
-    ///         });
+    /// c_module!(my_module, |builder| {
+    ///     builder.initialize(|_arg| {
+    ///         println!("module initialized");
+    ///         Ok(())
+    ///     });
     /// });
     ///
     /// # fn main() {
@@ -264,12 +301,11 @@ impl ModuleBuilder {
     /// # use libcommon_core::c_module;
     /// # use libcommon_core::bindings::module_t;
     ///
-    /// c_module!(my_module, (), |builder| {
-    ///     builder
-    ///         .shutdown(|| {
-    ///             println!("module shutdown");
-    ///             Ok(())
-    ///         });
+    /// c_module!(my_module, |builder| {
+    ///     builder.shutdown(|| {
+    ///         println!("module shutdown");
+    ///         Ok(())
+    ///     });
     /// });
     ///
     /// # fn main() {
@@ -292,9 +328,9 @@ impl ModuleBuilder {
     /// # use libcommon_core::c_module;
     /// # use libcommon_core::bindings::module_t;
     ///
-    /// c_module!(other_module, ());
+    /// c_module!(other_module);
     ///
-    /// c_module!(my_module, (), |builder| {
+    /// c_module!(my_module, |builder| {
     ///     builder.depends_on(other_module_get_module());
     /// });
     ///
@@ -315,9 +351,9 @@ impl ModuleBuilder {
     /// # use libcommon_core::c_module;
     /// # use libcommon_core::bindings::module_t;
     ///
-    /// c_module!(other_module, ());
+    /// c_module!(other_module);
     ///
-    /// c_module!(my_module, (), |builder| {
+    /// c_module!(my_module, |builder| {
     ///     builder.needed_by(other_module_get_module());
     /// });
     ///
@@ -384,8 +420,8 @@ impl ModuleBuilder {
 /// - `$builder`: The identifier for the builder parameter in the configuration block
 /// - `$body`: A block that configures the module using the builder
 ///
-/// builder and body are optional. If not provided, the module will be registered
-/// with no initialization or shutdown functions.
+/// context, builder and body are optional. If not provided, the module will be registered
+/// with no context, initialization or shutdown functions.
 ///
 /// # Context Access
 ///
@@ -430,6 +466,12 @@ macro_rules! c_module {
     };
     ($name:ident, $ctx:ty) => {
         c_module!(@internal $name, $ctx, |_builder| {});
+    };
+    ($name:ident, |$builder:ident| $body:block) => {
+        c_module!(@internal $name, (), |$builder| $body);
+    };
+    ($name:ident) => {
+        c_module!(@internal $name, (), |_builder| {});
     };
     (@internal $name:ident, $ctx:ty, |$builder:ident| $body:block) => {
         paste::paste! {
