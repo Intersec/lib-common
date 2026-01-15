@@ -84,30 +84,32 @@ int modmethod2;
 int modmethod3;
 int modmethod5;
 int modmethod6;
+int custom_data_modmethod6;
 
-static void modmethod1_ztst(data_t arg)
+static void modmethod1_ztst(void *arg)
 {
-    modmethod1 = (*(int *)arg.ptr)++;
+    modmethod1 = (*(int *)arg)++;
 }
 
-static void modmethod2_ztst(data_t arg)
+static void modmethod2_ztst(void *arg)
 {
-    modmethod2 = (*(int *)arg.ptr)++;
+    modmethod2 = (*(int *)arg)++;
 }
 
-static void modmethod3_ztst(data_t arg)
+static void modmethod3_ztst(void *arg)
 {
-    modmethod3 = (*(int *)arg.ptr)++;
+    modmethod3 = (*(int *)arg)++;
 }
 
-static void modmethod5_ztst(data_t arg)
+static void modmethod5_ztst(void *arg)
 {
-    modmethod5 = (*(int *)arg.ptr)++;
+    modmethod5 = (*(int *)arg)++;
 }
 
-static void modmethod6_ztst(data_t arg)
+static void modmethod6_ztst(void *arg, void *custom_data)
 {
-    modmethod6 = (*(int *)arg.ptr)++;
+    modmethod6 = (*(int *)arg)++;
+    (*(int *)custom_data)++;
 }
 
 enum {
@@ -480,71 +482,80 @@ Z_GROUP_EXPORT(module)
     Z_TEST(method) {
         Z_MODULE_REGISTER(modmethod1);
         Z_MODULE_DEPENDS_ON(modmethod1, modmethod2);
-        module_implement_method(MODULE(modmethod1), &after_method,
-                                &modmethod1_ztst);
-        module_implement_method(MODULE(modmethod1), &before_method,
-                                &modmethod1_ztst);
+        module_implement_method_ptr_no_custom_data(
+            MODULE(modmethod1), &after_method, &modmethod1_ztst);
+        module_implement_method_ptr_no_custom_data(
+            MODULE(modmethod1), &before_method, &modmethod1_ztst);
 
         Z_MODULE_DEPENDS_ON(modmethod2, modmethod3);
-        module_implement_method(MODULE(modmethod2), &after_method,
-                                &modmethod2_ztst);
-        module_implement_method(MODULE(modmethod2), &before_method,
-                                &modmethod2_ztst);
+        module_implement_method_ptr_no_custom_data(
+            MODULE(modmethod2), &after_method, &modmethod2_ztst);
+        module_implement_method_ptr_no_custom_data(
+            MODULE(modmethod2), &before_method, &modmethod2_ztst);
 
         Z_MODULE_DEPENDS_ON(modmethod3, modmethod4);
-        module_implement_method(MODULE(modmethod3), &after_method,
-                                &modmethod3_ztst);
-        module_implement_method(MODULE(modmethod3), &before_method,
-                                &modmethod3_ztst);
+        module_implement_method_ptr_no_custom_data(
+            MODULE(modmethod3), &after_method, &modmethod3_ztst);
+        module_implement_method_ptr_no_custom_data(
+            MODULE(modmethod3), &before_method, &modmethod3_ztst);
 
         Z_MODULE_DEPENDS_ON(modmethod4, modmethod5);
-        module_implement_method(MODULE(modmethod5), &after_method,
-                                &modmethod5_ztst);
-        module_implement_method(MODULE(modmethod5), &before_method,
-                                &modmethod5_ztst);
+        module_implement_method_ptr_no_custom_data(
+            MODULE(modmethod5), &after_method, &modmethod5_ztst);
+        module_implement_method_ptr_no_custom_data(
+            MODULE(modmethod5), &before_method, &modmethod5_ztst);
 
         Z_MODULE_DEPENDS_ON(modmethod6, modmethod5);
-        module_implement_method(MODULE(modmethod6), &after_method,
-                                &modmethod6_ztst);
-        module_implement_method(MODULE(modmethod6), &before_method,
-                                &modmethod6_ztst);
+        module_implement_method_ptr(
+            MODULE(modmethod6), &after_method, &modmethod6_ztst,
+            &custom_data_modmethod6);
+        module_implement_method_ptr(
+            MODULE(modmethod6), &before_method, &modmethod6_ztst,
+            &custom_data_modmethod6);
 
         val_method = 1;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_METHOD_RUN_PTR(after, &val_method);
         Z_ASSERT_ZERO(modmethod1);
         Z_ASSERT_ZERO(modmethod2);
         Z_ASSERT_ZERO(modmethod3);
         Z_ASSERT_ZERO(modmethod5);
         Z_ASSERT_ZERO(modmethod6);
+        Z_ASSERT_ZERO(custom_data_modmethod6);
         Z_ASSERT_EQ(val_method, 1);
 
         MODULE_REQUIRE(modmethod1);
 
         val_method = 1;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_METHOD_RUN_PTR(after, &val_method);
         Z_ASSERT_EQ(modmethod1, 1);
         Z_ASSERT_EQ(modmethod2, 2);
         Z_ASSERT_EQ(modmethod3, 3);
         Z_ASSERT_EQ(modmethod5, 4);
         Z_ASSERT_ZERO(modmethod6);
+        Z_ASSERT_ZERO(custom_data_modmethod6);
         Z_ASSERT_EQ(val_method, 5);
 
         val_method = 1;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_METHOD_RUN_PTR(before, &val_method);
         Z_ASSERT_EQ(modmethod1, 4);
         Z_ASSERT_EQ(modmethod2, 3);
         Z_ASSERT_EQ(modmethod3, 2);
         Z_ASSERT_EQ(modmethod5, 1);
         Z_ASSERT_ZERO(modmethod6);
+        Z_ASSERT_ZERO(custom_data_modmethod6);
         Z_ASSERT_EQ(val_method, 5);
 
         MODULE_REQUIRE(modmethod6);
 
         val_method = 1;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_METHOD_RUN_PTR(after, &val_method);
         Z_ASSERT_LT(modmethod1, modmethod2);
         Z_ASSERT_LT(modmethod2, modmethod3);
@@ -552,15 +563,18 @@ Z_GROUP_EXPORT(module)
         Z_ASSERT_LT(modmethod6, modmethod5);
         Z_ASSERT(modmethod1);
         Z_ASSERT(modmethod6);
+        Z_ASSERT_EQ(custom_data_modmethod6, 1);
         Z_ASSERT_EQ(val_method, 6);
 
         val_method = 1;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_METHOD_RUN_PTR(before, &val_method);
         Z_ASSERT_GT(modmethod1, modmethod2);
         Z_ASSERT_GT(modmethod2, modmethod3);
         Z_ASSERT_GT(modmethod3, modmethod5);
         Z_ASSERT_GT(modmethod6, modmethod5);
+        Z_ASSERT_EQ(custom_data_modmethod6, 1);
         Z_ASSERT(modmethod5);
         Z_ASSERT_EQ(val_method, 6);
 
@@ -570,53 +584,65 @@ Z_GROUP_EXPORT(module)
 
         val_method = 1;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_METHOD_RUN_PTR(after, &val_method);
         Z_ASSERT_ZERO(modmethod1);
         Z_ASSERT_ZERO(modmethod2);
         Z_ASSERT_ZERO(modmethod3);
         Z_ASSERT_ZERO(modmethod5);
         Z_ASSERT_ZERO(modmethod6);
+        Z_ASSERT_ZERO(custom_data_modmethod6);
         Z_ASSERT_EQ(val_method, 1);
 
         val_method = 1;
         modmethod1_run_method = RUN_METHOD_BEFORE_DURING_INITIALIZATION;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_REQUIRE(modmethod1);
         Z_ASSERT_GT(modmethod2, modmethod3);
         Z_ASSERT_GT(modmethod3, modmethod5);
         Z_ASSERT_EQ(val_method, 4);
+        Z_ASSERT_ZERO(modmethod6);
+        Z_ASSERT_ZERO(custom_data_modmethod6);
         MODULE_RELEASE(modmethod1);
 
         val_method = 1;
         modmethod1_run_method = RUN_METHOD_AFTER_DURING_INITIALIZATION;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_REQUIRE(modmethod1);
         Z_ASSERT_GT(modmethod5, modmethod3);
         Z_ASSERT_GT(modmethod3, modmethod2);
         Z_ASSERT_EQ(val_method, 4);
+        Z_ASSERT_ZERO(modmethod6);
+        Z_ASSERT_ZERO(custom_data_modmethod6);
         MODULE_RELEASE(modmethod1);
 
         val_method = 1;
         modmethod1_run_method = RUN_METHOD_BEFORE_DURING_INITIALIZATION;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_REQUIRE(modmethod6);
         MODULE_REQUIRE(modmethod1);
         Z_ASSERT_GT(modmethod6, modmethod5);
         Z_ASSERT_GT(modmethod3, modmethod5);
         Z_ASSERT_GT(modmethod2, modmethod3);
         Z_ASSERT_EQ(val_method, 5);
+        Z_ASSERT_EQ(custom_data_modmethod6, 1);
         MODULE_RELEASE(modmethod1);
         MODULE_RELEASE(modmethod6);
 
         val_method = 1;
         modmethod1_run_method = RUN_METHOD_AFTER_DURING_INITIALIZATION;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_REQUIRE(modmethod6);
         MODULE_REQUIRE(modmethod1);
         Z_ASSERT_GT(modmethod5, modmethod6);
         Z_ASSERT_GT(modmethod5, modmethod3);
         Z_ASSERT_GT(modmethod3, modmethod2);
         Z_ASSERT_EQ(val_method, 5);
+        Z_ASSERT_EQ(custom_data_modmethod6, 1);
         MODULE_RELEASE(modmethod1);
         MODULE_RELEASE(modmethod6);
 
@@ -624,6 +650,7 @@ Z_GROUP_EXPORT(module)
         val_method = 1;
         modmethod1_run_method = RUN_METHOD_BEFORE_DURING_SHUTDOWN;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_REQUIRE(modmethod1);
         MODULE_RELEASE(modmethod1);
         /* modmethod1 is shutting down, not called */
@@ -631,12 +658,14 @@ Z_GROUP_EXPORT(module)
         /* modmethod1 dependencies are still loaded */
         Z_ASSERT_GT(modmethod2, modmethod3);
         Z_ASSERT_GT(modmethod3, modmethod5);
+        Z_ASSERT_ZERO(custom_data_modmethod6);
         Z_ASSERT_EQ(val_method, 4);
 
         /* call method on shutdown -- deps after */
         val_method = 1;
         modmethod1_run_method = RUN_METHOD_AFTER_DURING_SHUTDOWN;
         modmethod1 = modmethod2 = modmethod3 = modmethod5 = modmethod6 = 0;
+        custom_data_modmethod6 = 0;
         MODULE_REQUIRE(modmethod1);
         MODULE_RELEASE(modmethod1);
         /* modmethod1 is shutting down, not called */
@@ -644,6 +673,7 @@ Z_GROUP_EXPORT(module)
         /* modmethod1 dependencies are still loaded */
         Z_ASSERT_GT(modmethod3, modmethod2);
         Z_ASSERT_GT(modmethod5, modmethod3);
+        Z_ASSERT_ZERO(custom_data_modmethod6);
         Z_ASSERT_EQ(val_method, 4);
 
     } Z_TEST_END;

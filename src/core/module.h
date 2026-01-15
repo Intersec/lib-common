@@ -246,7 +246,7 @@ void module_run_method(const module_method_t * nonnull method, data_t arg);
  * This macro can only be used if the method has a void prototype.
  */
 #define MODULE_IMPLEMENTS_VOID(hook, cb)                                     \
-    module_implement_method_void(__mod, &hook##_method, (cb))
+    module_implement_method_void_no_custom_data(__mod, &hook##_method, (cb))
 
 /** Declare the implementation of the method \p hook.
  *
@@ -256,8 +256,8 @@ void module_run_method(const module_method_t * nonnull method, data_t arg);
  */
 #define MODULE_IMPLEMENTS_PTR(Type, hook, cb)  do {                          \
         void (*__hook_cb)(Type *ptr) = (cb);                                 \
-        module_implement_method_ptr(__mod, &hook##_method,                   \
-                                    (void (*)(void *))__hook_cb);            \
+        module_implement_method_ptr_no_custom_data(                          \
+            __mod, &hook##_method, (void (*)(void *))__hook_cb);             \
     } while (0)
 
 /** Declare the implementation of the method \p hook.
@@ -267,7 +267,7 @@ void module_run_method(const module_method_t * nonnull method, data_t arg);
  * This macro can only be used if the method takes an integer as argument.
  */
 #define MODULE_IMPLEMENTS_INT(hook, cb)                                      \
-    module_implement_method_int(__mod, &hook##_method, (cb))
+    module_implement_method_int_no_custom_data(__mod, &hook##_method, (cb))
 
 /** Declare the implementation of the method \p hook.
  *
@@ -275,8 +275,9 @@ void module_run_method(const module_method_t * nonnull method, data_t arg);
  *
  * This macro can only be used if the method takes a \ref data_t as argument.
  */
-#define MODULE_IMPLEMENTS(hook, cb)                                          \
-    module_implement_method_generic(__mod, &hook##_method, (cb))
+#define MODULE_IMPLEMENTS_GENERIC(hook, cb)                                  \
+    module_implement_method_generic_no_custom_data(__mod, &hook##_method,    \
+                                                   (cb))
 
 /* }}} */
 /* {{{ Low-level API */
@@ -302,49 +303,98 @@ module_implement(module_t * nonnull module,
 
 void module_add_dep(module_t * nonnull module, module_t * nonnull dep);
 
-__attr_nonnull__((1, 2, 3))
+/** Sentinel value to indicate that the module implement method does not
+ * take a custom data as argument.
+ */
+extern const bool module_method_no_custom_data_g;
+
 void module_implement_method(module_t * nonnull mod,
                              const module_method_t * nonnull method,
-                             void * nonnull cb);
+                             const void * nonnull cb,
+                             void * nullable custom_data);
 
-__attr_nonnull__((1, 2, 3))
 static inline
 void module_implement_method_void(module_t * nonnull mod,
                                   const module_method_t * nonnull method,
-                                  void (*nonnull cb)(void))
+                                  void (* nonnull cb)(void * nullable),
+                                  void * nullable custom_data)
 {
-    assert (method->type == METHOD_VOID);
-    module_implement_method(mod, method, (void *)cb);
+    assert(method->type == METHOD_VOID);
+    module_implement_method(mod, method, (const void *)cb, custom_data);
 }
 
-__attr_nonnull__((1, 2, 3))
 static inline
-void module_implement_method_int(module_t * nonnull mod,
-                                 const module_method_t * nonnull method,
-                                 void (*nonnull cb)(int))
+void module_implement_method_void_no_custom_data(
+    module_t * nonnull mod,
+    const module_method_t * nonnull method,
+    void (* nonnull cb)(void))
 {
-    assert (method->type == METHOD_INT);
-    module_implement_method(mod, method, (void *)cb);
+    module_implement_method_void(
+        mod, method, (const void *)cb,
+        (void *)&module_method_no_custom_data_g);
 }
 
-__attr_nonnull__((1, 2, 3))
 static inline
-void module_implement_method_generic(module_t * nonnull mod,
-                                     const module_method_t * nonnull method,
-                                     void (*nonnull cb)(data_t))
+void module_implement_method_int(
+    module_t * nonnull mod,
+    const module_method_t * nonnull method,
+    void (* nonnull cb)(int, void * nullable),
+    void * nullable custom_data)
 {
-    assert (method->type == METHOD_GENERIC);
-    module_implement_method(mod, method, (void *)cb);
+    assert(method->type == METHOD_INT);
+    module_implement_method(mod, method, (const void *)cb, custom_data);
 }
 
-__attr_nonnull__((1, 2, 3))
 static inline
-void module_implement_method_ptr(module_t * nonnull mod,
-                                 const module_method_t * nonnull method,
-                                 void (*nonnull cb)(void * nullable))
+void module_implement_method_int_no_custom_data(
+    module_t * nonnull mod,
+    const module_method_t * nonnull method,
+    void (* nonnull cb)(int))
 {
-    assert (method->type == METHOD_PTR);
-    module_implement_method(mod, method, (void *)cb);
+    module_implement_method_int(mod, method, (const void *)cb,
+                                (void *)&module_method_no_custom_data_g);
+}
+
+static inline
+void module_implement_method_generic(
+    module_t * nonnull mod,
+    const module_method_t * nonnull method,
+    void (* nonnull cb)(data_t, void * nullable),
+    void * nullable custom_data)
+{
+    assert(method->type == METHOD_GENERIC);
+    module_implement_method(mod, method, (const void *)cb, custom_data);
+}
+
+static inline
+void module_implement_method_generic_no_custom_data(
+    module_t * nonnull mod,
+    const module_method_t * nonnull method,
+    void (* nonnull cb)(data_t))
+{
+    module_implement_method_generic(mod, method, (const void *)cb,
+                                    (void *)&module_method_no_custom_data_g);
+}
+
+static inline
+void module_implement_method_ptr(
+    module_t * nonnull mod,
+    const module_method_t * nonnull method,
+    void (* nonnull cb)(void * nullable, void * nullable),
+    void * nullable custom_data)
+{
+    assert(method->type == METHOD_PTR);
+    module_implement_method(mod, method, (const void *)cb, custom_data);
+}
+
+static inline
+void module_implement_method_ptr_no_custom_data(
+    module_t * nonnull mod,
+    const module_method_t * nonnull method,
+    void (* nonnull cb)(void * nullable))
+{
+    module_implement_method_ptr(mod, method, (const void *)cb,
+                                (void *)&module_method_no_custom_data_g);
 }
 
 /* }}} */

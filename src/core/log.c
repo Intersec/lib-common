@@ -1273,8 +1273,8 @@ void log_module_register(void)
     log_module_g = module_implement(MODULE(log), &log_initialize,
                                     &log_shutdown, MODULE(iop));
     module_add_dep(log_module_g, MODULE(thr_hooks));
-    module_implement_method(log_module_g, &at_fork_on_child_method,
-                            &log_atfork);
+    module_implement_method_void_no_custom_data(
+        log_module_g, &at_fork_on_child_method, &log_atfork);
 
 #ifdef MEM_BENCH
     mem_bench_require();

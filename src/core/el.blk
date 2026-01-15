@@ -2190,12 +2190,12 @@ static void el_module_register(void)
     log_module_register();
 
     module_implement(MODULE(el), &el_initialize, &el_shutdown, MODULE(log));
-    module_implement_method(MODULE(el), &at_fork_on_child_method,
-                            &el_at_fork_on_child);
-    module_implement_method(MODULE(el), &at_fork_on_parent_method,
-                            &el_at_fork_on_parent);
-    module_implement_method(MODULE(el), &print_state_method,
-                            &el_print_state);
+    module_implement_method_void_no_custom_data(
+        MODULE(el), &at_fork_on_child_method, &el_at_fork_on_child);
+    module_implement_method_int_no_custom_data(
+        MODULE(el), &at_fork_on_parent_method, &el_at_fork_on_parent);
+    module_implement_method_void_no_custom_data(
+        MODULE(el), &print_state_method, &el_print_state);
 
     /* TODO Fix the fact the module is self-loading then turn it into a
      * standard module declaration. */

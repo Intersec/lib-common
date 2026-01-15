@@ -153,7 +153,8 @@ void thr_hooks_register(void)
         thr_hooks_module_g = module_implement(MODULE(thr_hooks),
                                               &thr_hooks_initialize,
                                               &thr_hooks_shutdown, NULL);
-        module_implement_method(MODULE(thr_hooks), &at_fork_on_child_method,
-                                &thr_hooks_atfork_in_child);
+        module_implement_method_void_no_custom_data(
+            MODULE(thr_hooks), &at_fork_on_child_method,
+            &thr_hooks_atfork_in_child);
     }
 }

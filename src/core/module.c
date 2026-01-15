@@ -28,8 +28,13 @@
 /* {{{ Type definition */
 /* {{{ methods */
 
-qm_khptr_ckey_t(methods, module_method_t, void *);
-qvector_t(methods_cb, void *);
+typedef struct {
+    const void *nonnull cb;
+    void *nullable custom_data;
+} module_method_cb_t;
+
+qm_khptr_ckey_t(methods, module_method_t, module_method_cb_t);
+qvector_t(methods_cb, module_method_cb_t);
 
 typedef struct module_method_impl_t {
     const module_method_t *params;
@@ -114,7 +119,7 @@ static struct module_g {
 } module_g = {
 #define _G module_g
     .logger = LOGGER_INIT(NULL, "module", LOG_INHERITS),
-    .modules     = QM_INIT(module, _G.modules),
+    .modules = QM_INIT(module, _G.modules),
     .methods = QM_INIT(methods_impl, _G.methods),
 };
 
@@ -532,10 +537,13 @@ void module_destroy_all(void)
 /* }}} */
 /* {{{ Methods */
 
+const bool module_method_no_custom_data_g = false;
+
 void module_implement_method(module_t *module, const module_method_t *method,
-                             void *cb)
+                             const void *cb, void *custom_data)
 {
     uint32_t pos;
+    module_method_cb_t meth_cb;
 
     thr_assert_is_main_thread();
 
@@ -548,7 +556,12 @@ void module_implement_method(module_t *module, const module_method_t *method,
         m->params = method;
         _G.methods.values[pos] = m;
     }
-    qm_add(methods, &module->methods, method, cb);
+
+    meth_cb = (module_method_cb_t) {
+        .cb = cb,
+        .custom_data = custom_data,
+    };
+    qm_add(methods, &module->methods, method, meth_cb);
 }
 
 void module_run_method(const module_method_t *method, data_t arg)
@@ -568,22 +581,37 @@ void module_run_method(const module_method_t *method, data_t arg)
     }
 
     switch (method->type) {
-      case METHOD_VOID:
-        tab_for_each_entry(cb, &m->callbacks) {
-            ((void (*)(void))cb)();
+    case METHOD_VOID:
+        tab_for_each_entry(meth_cb, &m->callbacks) {
+            if (meth_cb.custom_data == &module_method_no_custom_data_g) {
+                ((void (*)(void))meth_cb.cb)();
+            } else {
+                ((void (*)(void *))meth_cb.cb)(meth_cb.custom_data);
+
+            }
         }
         break;
 
-      case METHOD_INT:
-        tab_for_each_entry(cb, &m->callbacks) {
-            ((void (*)(int))cb)(arg.u32);
+    case METHOD_INT:
+        tab_for_each_entry(meth_cb, &m->callbacks) {
+            if (meth_cb.custom_data == &module_method_no_custom_data_g) {
+                ((void (*)(int))meth_cb.cb)(arg.u32);
+            } else {
+                ((void (*)(int, void *))meth_cb.cb)(
+                    arg.u32, meth_cb.custom_data);
+            }
         }
         break;
 
-      case METHOD_PTR:
-      case METHOD_GENERIC:
-        tab_for_each_entry(cb, &m->callbacks) {
-            ((void (*)(data_t))cb)(arg);
+    case METHOD_PTR:
+    case METHOD_GENERIC:
+        tab_for_each_entry(meth_cb, &m->callbacks) {
+            if (meth_cb.custom_data == &module_method_no_custom_data_g) {
+                ((void (*)(data_t))meth_cb.cb)(arg);
+            } else {
+                ((void (*)(data_t, void *))meth_cb.cb)(
+                    arg, meth_cb.custom_data);
+            }
         }
         break;
     }
@@ -591,10 +619,11 @@ void module_run_method(const module_method_t *method, data_t arg)
 
 static void module_add_method(module_t *module, module_method_impl_t *method)
 {
-    void *cb = qm_get_def(methods, &module->methods, method->params, NULL);
+    module_method_cb_t *meth_cb =
+        qm_get_def_p(methods, &module->methods, method->params, NULL);
 
-    if (cb) {
-        qv_append(&method->callbacks, cb);
+    if (meth_cb) {
+        qv_append(&method->callbacks, *meth_cb);
     }
 }
 
