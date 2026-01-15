@@ -35,6 +35,7 @@
 //! ## Module with context and callbacks
 //!
 //! ```
+//! # use std::os::raw::c_void;
 //! # use libcommon_core::c_module;
 //!
 //! #[derive(Default)]
@@ -44,11 +45,11 @@
 //!
 //! c_module!(my_module, MyModuleContext, |builder| {
 //!     builder
-//!         .initialize(|_arg| {
+//!         .initialize(|_ctx: &mut MyModuleContext, _arg: *mut c_void| {
 //!             println!("module initialized");
 //!             Ok(())
 //!         })
-//!         .shutdown(|| {
+//!         .shutdown(|_ctx: &mut MyModuleContext| {
 //!             println!("module shutdown");
 //!             Ok(())
 //!         });
@@ -80,16 +81,17 @@
 //! ## Module without context and with callbacks
 //!
 //! ```
+//! # use std::os::raw::c_void;
 //! # use libcommon_core::c_module;
 //!
 //! // No context needed
 //! c_module!(my_module, |builder| {
 //!     builder
-//!         .initialize(|_arg| {
+//!         .initialize(|_ctx, _arg: *mut c_void| {
 //!             println!("module initialized");
 //!             Ok(())
 //!         })
-//!         .shutdown(|| {
+//!         .shutdown(|_ctx| {
 //!             println!("module shutdown");
 //!             Ok(())
 //!         });
@@ -137,12 +139,12 @@ pub use crate::bindings::{module_method_t, module_t};
 
 // {{{ Internal types
 
-type InitializeFn = Box<dyn Fn(*mut c_void) -> Result<(), Box<dyn Error>> + 'static>;
-type ShutdownFn = Box<dyn Fn() -> Result<(), Box<dyn Error>> + 'static>;
-type MethodImplVoid = Box<dyn Fn() + 'static>;
-type MethodImplInt = Box<dyn Fn(c_int) + 'static>;
-type MethodImplPtr = Box<dyn Fn(*mut c_void) + 'static>;
-type MethodImplGeneric = Box<dyn Fn(data_t) + 'static>;
+type InitializeFn<T> = Box<dyn Fn(&mut T, *mut c_void) -> Result<(), Box<dyn Error>>>;
+type ShutdownFn<T> = Box<dyn Fn(&mut T) -> Result<(), Box<dyn Error>>>;
+type MethodImplVoid = Box<dyn Fn()>;
+type MethodImplInt = Box<dyn Fn(c_int)>;
+type MethodImplPtr = Box<dyn Fn(*mut c_void)>;
+type MethodImplGeneric = Box<dyn Fn(data_t)>;
 
 enum MethodImplContainer {
     Void(MethodImplVoid),
@@ -154,44 +156,28 @@ enum MethodImplContainer {
 // }}}
 // {{{ Method implementation helpers
 
-unsafe extern "C" fn module_method_impl_void<F>(custom_data: *mut c_void)
-where
-    F: Fn() + 'static,
-{
-    let cb_ptr = custom_data as *mut F;
-    unsafe {
-        (*cb_ptr)();
-    }
+unsafe extern "C" fn method_impl_void(custom_data: *mut c_void) {
+    let cb_ref: &MethodImplVoid = unsafe { &*(custom_data as *const MethodImplVoid) };
+
+    cb_ref();
 }
 
-unsafe extern "C" fn module_method_impl_int<F>(arg: c_int, custom_data: *mut c_void)
-where
-    F: Fn(c_int) + 'static,
-{
-    let cb_ptr = custom_data as *mut F;
-    unsafe {
-        (*cb_ptr)(arg);
-    }
+unsafe extern "C" fn method_impl_int(arg: c_int, custom_data: *mut c_void) {
+    let cb_ref: &MethodImplInt = unsafe { &*(custom_data as *const MethodImplInt) };
+
+    cb_ref(arg);
 }
 
-unsafe extern "C" fn module_method_impl_ptr<F>(arg: *mut c_void, custom_data: *mut c_void)
-where
-    F: Fn(*mut c_void) + 'static,
-{
-    let cb_ptr = custom_data as *mut F;
-    unsafe {
-        (*cb_ptr)(arg);
-    }
+unsafe extern "C" fn method_impl_ptr(arg: *mut c_void, custom_data: *mut c_void) {
+    let cb_ref: &MethodImplPtr = unsafe { &*(custom_data as *const MethodImplPtr) };
+
+    cb_ref(arg);
 }
 
-unsafe extern "C" fn module_method_impl_generic<F>(arg: data_t, custom_data: *mut c_void)
-where
-    F: Fn(data_t) + 'static,
-{
-    let cb_ptr = custom_data as *mut F;
-    unsafe {
-        (*cb_ptr)(arg);
-    }
+unsafe extern "C" fn method_impl_generic(arg: data_t, custom_data: *mut c_void) {
+    let cb_ref: &MethodImplGeneric = unsafe { &*(custom_data as *const MethodImplGeneric) };
+
+    cb_ref(arg);
 }
 
 // }}}
@@ -207,8 +193,8 @@ where
     T: ModuleContext,
 {
     module: *mut module_t,
-    initialize: Option<InitializeFn>,
-    shutdown: Option<ShutdownFn>,
+    initialize: Option<InitializeFn<T>>,
+    shutdown: Option<ShutdownFn<T>>,
     method_impls: Vec<MethodImplContainer>,
     ctx: Option<T>,
 }
@@ -231,8 +217,15 @@ where
     /// Create the context and call the initialize closure.
     pub fn initialize(&mut self, arg: *mut c_void) -> c_int {
         self.ctx = Some(T::with_arg(arg));
+
+        #[allow(clippy::missing_panics_doc)]
+        let ctx_ref = self
+            .ctx
+            .as_mut()
+            .expect("unable to get the context that was just created");
+
         if let Some(f) = &self.initialize
-            && let Err(e) = f(arg)
+            && let Err(e) = f(ctx_ref, arg)
         {
             let module_name_lstr = unsafe { lstr::from_ptr(module_get_name(self.module)) };
             let module_name_rs_str = unsafe { module_name_lstr.as_str_unchecked() };
@@ -245,9 +238,12 @@ where
 
     /// Call the shutdown closure and drop the context.
     pub fn shutdown(&mut self) -> c_int {
+        #[allow(clippy::missing_panics_doc)]
+        let ctx_ref = self.ctx.as_mut().expect("module was not initialized");
+
         let result = {
             if let Some(f) = &self.shutdown
-                && let Err(e) = f()
+                && let Err(e) = f(ctx_ref)
             {
                 let module_name_lstr = unsafe { lstr::from_ptr(module_get_name(self.module)) };
                 let module_name_rs_str = unsafe { module_name_lstr.as_str_unchecked() };
@@ -340,7 +336,7 @@ where
     /// # use libcommon_core::c_module;
     ///
     /// c_module!(my_module, |builder| {
-    ///     builder.initialize(|_arg| {
+    ///     builder.initialize(|_ctx, _arg| {
     ///         println!("module initialized");
     ///         Ok(())
     ///     });
@@ -352,7 +348,7 @@ where
     /// ```
     pub fn initialize<F>(&mut self, f: F) -> &mut Self
     where
-        F: Fn(*mut c_void) -> Result<(), Box<dyn Error>> + 'static,
+        F: Fn(&mut T, *mut c_void) -> Result<(), Box<dyn Error>> + 'static,
     {
         self.internal_module.initialize = Some(Box::new(f));
         self
@@ -366,7 +362,7 @@ where
     /// # use libcommon_core::c_module;
     ///
     /// c_module!(my_module, |builder| {
-    ///     builder.shutdown(|| {
+    ///     builder.shutdown(|_ctx| {
     ///         println!("module shutdown");
     ///         Ok(())
     ///     });
@@ -378,7 +374,7 @@ where
     /// ```
     pub fn shutdown<F>(&mut self, f: F) -> &Self
     where
-        F: Fn() -> Result<(), Box<dyn Error>> + 'static,
+        F: Fn(&mut T) -> Result<(), Box<dyn Error>> + 'static,
     {
         self.internal_module.shutdown = Some(Box::new(f));
         self
@@ -449,18 +445,21 @@ where
     /// # use libcommon_core::module::{
     /// #     module_require, module_release, method_run_void,
     /// # };
-    ///
+    /// #
     /// c_module_method!(VOID, DEPS_BEFORE, do_something);
     ///
-    /// c_module!(my_module, |builder| {
-    ///     builder.implement_void(&do_something_method, || {
+    /// #[derive(Default)]
+    /// struct MyCtx { }
+    ///
+    /// c_module!(my_module, MyCtx, |builder| {
+    ///     builder.implement_void(&raw const do_something_method, |_ctx: &mut MyCtx| {
     ///         println!("Done something!");
     ///     });
     /// });
     ///
     /// # fn main() {
     /// #     module_require(my_module_get_module());
-    /// #     method_run_void(&do_something_method);
+    /// #     method_run_void(&raw const do_something_method);
     /// #     module_release(my_module_get_module());
     /// # }
     /// ```
@@ -468,11 +467,19 @@ where
     #[allow(clippy::unnecessary_safety_doc)]
     pub fn implement_void<F>(&mut self, method: *const module_method_t, cb: F)
     where
-        F: Fn() + 'static,
+        F: Fn(&mut T) + 'static,
     {
+        let internal_mod_ptr = &raw mut *self.internal_module;
+        let trampoline_cb = move || {
+            // XXX: This is very ugly, but we know that the pointer will live longer than its use
+            // in the module implementation as it is guarantee to be static.
+            let internal_mod_ref = unsafe { &mut *internal_mod_ptr };
+            cb(internal_mod_ref.ctx());
+        };
+
         self.internal_module
             .method_impls
-            .push(MethodImplContainer::Void(Box::new(cb)));
+            .push(MethodImplContainer::Void(Box::new(trampoline_cb)));
 
         #[allow(clippy::missing_panics_doc)]
         let container_ref = self
@@ -482,18 +489,18 @@ where
             .expect("retrieve the last value just inserted");
 
         #[allow(clippy::missing_panics_doc)]
-        let MethodImplContainer::Void(cb_ref) = container_ref else {
+        let MethodImplContainer::Void(cb_ref) = &container_ref else {
             panic!("func void just inserted");
         };
-
-        let cb_ptr = &raw mut *cb_ref as *mut c_void;
+        let cb_ref: &MethodImplVoid = cb_ref;
+        let cb_ptr: *const MethodImplVoid = &raw const *cb_ref;
 
         unsafe {
             module_implement_method_void(
                 self.internal_module.module,
                 method,
-                Some(module_method_impl_void::<F>),
-                cb_ptr,
+                Some(method_impl_void),
+                cb_ptr as *mut c_void,
             );
         }
     }
@@ -517,15 +524,18 @@ where
     ///
     /// c_module_method!(INT, DEPS_BEFORE, do_something);
     ///
-    /// c_module!(my_module, |builder| {
-    ///     builder.implement_int(&do_something_method, |a: c_int| {
+    /// #[derive(Default)]
+    /// struct MyCtx { }
+    ///
+    /// c_module!(my_module, MyCtx, |builder| {
+    ///     builder.implement_int(&raw const do_something_method, |_ctx: &mut MyCtx, a: c_int| {
     ///         println!("Done something! {a}");
     ///     });
     /// });
     ///
     /// # fn main() {
     /// #     module_require(my_module_get_module());
-    /// #     method_run_int(&do_something_method, 42);
+    /// #     method_run_int(&raw const do_something_method, 42);
     /// #     module_release(my_module_get_module());
     /// # }
     /// ```
@@ -533,11 +543,19 @@ where
     #[allow(clippy::unnecessary_safety_doc)]
     pub fn implement_int<F>(&mut self, method: *const module_method_t, cb: F)
     where
-        F: Fn(c_int) + 'static,
+        F: Fn(&mut T, c_int) + 'static,
     {
+        let internal_mod_ptr = &raw mut *self.internal_module;
+        let trampoline_cb = move |arg: c_int| {
+            // XXX: This is very ugly, but we know that the pointer will live longer than its use
+            // in the module implementation as it is guarantee to be static.
+            let internal_mod_ref = unsafe { &mut *internal_mod_ptr };
+            cb(internal_mod_ref.ctx(), arg);
+        };
+
         self.internal_module
             .method_impls
-            .push(MethodImplContainer::Int(Box::new(cb)));
+            .push(MethodImplContainer::Int(Box::new(trampoline_cb)));
 
         #[allow(clippy::missing_panics_doc)]
         let container_ref = self
@@ -547,18 +565,18 @@ where
             .expect("retrieve the last value just inserted");
 
         #[allow(clippy::missing_panics_doc)]
-        let MethodImplContainer::Int(cb_ref) = container_ref else {
+        let MethodImplContainer::Int(cb_ref) = &container_ref else {
             panic!("func int just inserted");
         };
-
-        let cb_ptr = &raw mut *cb_ref as *mut c_void;
+        let cb_ref: &MethodImplInt = cb_ref;
+        let cb_ptr: *const MethodImplInt = &raw const *cb_ref;
 
         unsafe {
             module_implement_method_int(
                 self.internal_module.module,
                 method,
-                Some(module_method_impl_int::<F>),
-                cb_ptr,
+                Some(method_impl_int),
+                cb_ptr as *mut c_void,
             );
         }
     }
@@ -582,15 +600,21 @@ where
     ///
     /// c_module_method!(PTR, DEPS_BEFORE, do_something);
     ///
-    /// c_module!(my_module, |builder| {
-    ///     builder.implement_ptr(&do_something_method, |p: *mut c_void| {
-    ///         println!("Done something! {:p}", p);
-    ///     });
+    /// #[derive(Default)]
+    /// struct MyCtx { }
+    ///
+    /// c_module!(my_module, MyCtx, |builder| {
+    ///     builder.implement_ptr(
+    ///         &raw const do_something_method,
+    ///         |_ctx: &mut MyCtx, p: *mut c_void| {
+    ///             println!("Done something! {:p}", p);
+    ///         },
+    ///     );
     /// });
     ///
     /// # fn main() {
     /// #     module_require(my_module_get_module());
-    /// #     method_run_ptr(&do_something_method, std::ptr::null_mut());
+    /// #     method_run_ptr(&raw const do_something_method, std::ptr::null_mut());
     /// #     module_release(my_module_get_module());
     /// # }
     /// ```
@@ -598,11 +622,19 @@ where
     #[allow(clippy::unnecessary_safety_doc)]
     pub fn implement_ptr<F>(&mut self, method: *const module_method_t, cb: F)
     where
-        F: Fn(*mut c_void) + 'static,
+        F: Fn(&mut T, *mut c_void) + 'static,
     {
+        let internal_mod_ptr = &raw mut *self.internal_module;
+        let trampoline_cb = move |arg: *mut c_void| {
+            // XXX: This is very ugly, but we know that the pointer will live longer than its use
+            // in the module implementation as it is guarantee to be static.
+            let internal_mod_ref = unsafe { &mut *internal_mod_ptr };
+            cb(internal_mod_ref.ctx(), arg);
+        };
+
         self.internal_module
             .method_impls
-            .push(MethodImplContainer::Ptr(Box::new(cb)));
+            .push(MethodImplContainer::Ptr(Box::new(trampoline_cb)));
 
         #[allow(clippy::missing_panics_doc)]
         let container_ref = self
@@ -612,18 +644,18 @@ where
             .expect("retrieve the last value just inserted");
 
         #[allow(clippy::missing_panics_doc)]
-        let MethodImplContainer::Ptr(cb_ref) = container_ref else {
+        let MethodImplContainer::Ptr(cb_ref) = &container_ref else {
             panic!("func int just inserted");
         };
-
-        let cb_ptr = &raw mut *cb_ref as *mut c_void;
+        let cb_ref: &MethodImplPtr = cb_ref;
+        let cb_ptr: *const MethodImplPtr = &raw const *cb_ref;
 
         unsafe {
             module_implement_method_ptr(
                 self.internal_module.module,
                 method,
-                Some(module_method_impl_ptr::<F>),
-                cb_ptr,
+                Some(method_impl_ptr),
+                cb_ptr as *mut c_void,
             );
         }
     }
@@ -647,15 +679,22 @@ where
     ///
     /// c_module_method!(GENERIC, DEPS_BEFORE, do_something);
     ///
-    /// c_module!(my_module, |builder| {
-    ///     builder.implement_generic(&do_something_method, |d: data_t| {
-    ///         println!("Done something! {:p}", unsafe { d.ptr });
-    ///     });
+    /// #[derive(Default)]
+    /// struct MyCtx { }
+    ///
+    /// c_module!(my_module, MyCtx, |builder| {
+    ///     builder.implement_generic(
+    ///         &raw const do_something_method,
+    ///         |ctx: &mut MyCtx, d: data_t| {
+    ///             println!("Done something! {:p}", unsafe { d.ptr });
+    ///         },
+    ///     );
     /// });
     ///
     /// # fn main() {
     /// #     module_require(my_module_get_module());
-    /// #     method_run_generic(&do_something_method, data_t { ptr: std::ptr::null_mut() } );
+    /// #     method_run_generic(&raw const do_something_method,
+    /// #                        data_t { ptr: std::ptr::null_mut() } );
     /// #     module_release(my_module_get_module());
     /// # }
     /// ```
@@ -663,11 +702,19 @@ where
     #[allow(clippy::unnecessary_safety_doc)]
     pub fn implement_generic<F>(&mut self, method: *const module_method_t, cb: F)
     where
-        F: Fn(data_t) + 'static,
+        F: Fn(&mut T, data_t) + 'static,
     {
+        let internal_mod_ptr = &raw mut *self.internal_module;
+        let trampoline_cb = move |arg: data_t| {
+            // XXX: This is very ugly, but we know that the pointer will live longer than its use
+            // in the module implementation as it is guarantee to be static.
+            let internal_mod_ref = unsafe { &mut *internal_mod_ptr };
+            cb(internal_mod_ref.ctx(), arg);
+        };
+
         self.internal_module
             .method_impls
-            .push(MethodImplContainer::Generic(Box::new(cb)));
+            .push(MethodImplContainer::Generic(Box::new(trampoline_cb)));
 
         #[allow(clippy::missing_panics_doc)]
         let container_ref = self
@@ -677,18 +724,18 @@ where
             .expect("retrieve the last value just inserted");
 
         #[allow(clippy::missing_panics_doc)]
-        let MethodImplContainer::Generic(cb_ref) = container_ref else {
+        let MethodImplContainer::Generic(cb_ref) = &container_ref else {
             panic!("func int just inserted");
         };
-
-        let cb_ptr = &raw mut *cb_ref as *mut c_void;
+        let cb_ref: &MethodImplGeneric = cb_ref;
+        let cb_ptr: *const MethodImplGeneric = &raw const *cb_ref;
 
         unsafe {
             module_implement_method_generic(
                 self.internal_module.module,
                 method,
-                Some(module_method_impl_generic::<F>),
-                cb_ptr,
+                Some(method_impl_generic),
+                cb_ptr as *mut c_void,
             );
         }
     }
