@@ -36,7 +36,6 @@
 //!
 //! ```
 //! # use libcommon_core::c_module;
-//! # use libcommon_core::bindings::module_t;
 //!
 //! #[derive(Default)]
 //! struct MyModuleContext {
@@ -64,7 +63,6 @@
 //!
 //! ```
 //! # use libcommon_core::c_module;
-//! # use libcommon_core::bindings::module_t;
 //!
 //! #[derive(Default)]
 //! struct SimpleContext {
@@ -83,7 +81,6 @@
 //!
 //! ```
 //! # use libcommon_core::c_module;
-//! # use libcommon_core::bindings::module_t;
 //!
 //! // No context needed
 //! c_module!(my_module, |builder| {
@@ -107,7 +104,6 @@
 //!
 //! ```
 //! # use libcommon_core::c_module;
-//! # use libcommon_core::bindings::module_t;
 //!
 //! // No context, initialization or shutdown needed
 //! c_module!(simple_module);
@@ -128,13 +124,16 @@ use std::ptr;
 use crate::bindings::{
     data_t, log_get_module, module_add_dep, module_get_name, module_implement,
     module_implement_method_generic, module_implement_method_int, module_implement_method_ptr,
-    module_implement_method_void, module_method_t, module_method_type_t, module_register,
-    module_run_method, module_t,
+    module_implement_method_void, module_method_type_t, module_register, module_run_method,
 };
 use crate::lstr;
 
 #[cfg(debug_assertions)]
 use crate::bindings::thr_assert_is_main_thread;
+
+/// Reexport `module_t` and `module_method_t` as they are heavily used by this module.
+#[allow(clippy::module_name_repetitions)]
+pub use crate::bindings::{module_method_t, module_t};
 
 // {{{ Internal types
 
@@ -339,7 +338,6 @@ where
     ///
     /// ```
     /// # use libcommon_core::c_module;
-    /// # use libcommon_core::bindings::module_t;
     ///
     /// c_module!(my_module, |builder| {
     ///     builder.initialize(|_arg| {
@@ -366,7 +364,6 @@ where
     ///
     /// ```
     /// # use libcommon_core::c_module;
-    /// # use libcommon_core::bindings::module_t;
     ///
     /// c_module!(my_module, |builder| {
     ///     builder.shutdown(|| {
@@ -393,7 +390,6 @@ where
     ///
     /// ```
     /// # use libcommon_core::c_module;
-    /// # use libcommon_core::bindings::module_t;
     ///
     /// c_module!(other_module);
     ///
@@ -419,7 +415,6 @@ where
     ///
     /// ```
     /// # use libcommon_core::c_module;
-    /// # use libcommon_core::bindings::module_t;
     ///
     /// c_module!(other_module);
     ///
@@ -815,7 +810,7 @@ macro_rules! c_module {
             #[allow(static_mut_refs)]
             mod [<$name _c_mod>] {
                 use std::os::raw::{c_int, c_void};
-                use $crate::bindings::module_t;
+                use $crate::module::module_t;
 
                 static mut MODULE:
                     $crate::module::InternalModule<super::[<$name _ModuleContextType>]> =
@@ -856,7 +851,7 @@ macro_rules! c_module {
 
             #[unsafe(no_mangle)]
             #[allow(clippy::macro_metavars_in_unsafe)]
-            pub extern "C" fn [<$name _get_module>]() -> *mut module_t {
+            pub extern "C" fn [<$name _get_module>]() -> *mut $crate::module::module_t {
                 [<$name _c_mod>]::get_module()
             }
         }
@@ -892,8 +887,8 @@ macro_rules! c_module_method {
     ($type:ident, $order:ident, $name:ident) => {
         paste::paste! {
             #[unsafe(no_mangle)]
-            pub static [<$name _method>]: $crate::bindings::module_method_t =
-                $crate::bindings::module_method_t {
+            pub static [<$name _method>]: $crate::module::module_method_t =
+                $crate::module::module_method_t {
                     type_: $crate::bindings::module_method_type_t::[<METHOD_ $type>],
                     order: $crate::bindings::module_order_t::[<MODULE_ $order>],
                 };

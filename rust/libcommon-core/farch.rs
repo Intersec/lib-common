@@ -24,7 +24,7 @@ use std::os::raw::{c_char, c_void};
 use std::ptr;
 use std::ptr::from_ref;
 
-use crate::bindings::{lstr_obfuscate, module_t, pstream_t, qlzo1x_decompress_safe};
+use crate::bindings::{lstr_obfuscate, pstream_t, qlzo1x_decompress_safe};
 
 #[allow(clippy::module_name_repetitions)]
 pub use crate::bindings::farch_entry_t;
