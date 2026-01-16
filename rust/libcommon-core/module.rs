@@ -124,9 +124,9 @@ use std::os::raw::{c_int, c_void};
 use std::ptr;
 
 use crate::bindings::{
-    data_t, log_get_module, module_add_dep, module_get_name, module_implement,
-    module_implement_method_generic, module_implement_method_int, module_implement_method_ptr,
-    module_implement_method_void, module_method_type_t, module_register, module_run_method,
+    data_t, log_get_module, module_add_dep, module_implement, module_implement_method_generic,
+    module_implement_method_int, module_implement_method_ptr, module_implement_method_void,
+    module_method_type_t, module_register, module_run_method,
 };
 use crate::lstr;
 
@@ -192,6 +192,7 @@ pub struct InternalModule<T>
 where
     T: ModuleContext,
 {
+    name: &'static str,
     module: *mut module_t,
     initialize: Option<InitializeFn<T>>,
     shutdown: Option<ShutdownFn<T>>,
@@ -204,8 +205,9 @@ where
     T: ModuleContext,
 {
     /// Create a new internal module in a constant way.
-    pub const fn new_const() -> Self {
+    pub const fn new_const(name: &'static str) -> Self {
         Self {
+            name,
             module: ptr::null_mut(),
             initialize: None,
             shutdown: None,
@@ -227,10 +229,7 @@ where
         if let Some(f) = &self.initialize
             && let Err(e) = f(ctx_ref, arg)
         {
-            let module_name_lstr = unsafe { lstr::from_ptr(module_get_name(self.module)) };
-            let module_name_rs_str = unsafe { module_name_lstr.as_str_unchecked() };
-
-            eprintln!("error during initialization of module `{module_name_rs_str}`: {e}",);
+            eprintln!("error during initialization of module `{}`: {e}", self.name);
             return -1;
         }
         0
@@ -245,10 +244,7 @@ where
             if let Some(f) = &self.shutdown
                 && let Err(e) = f(ctx_ref)
             {
-                let module_name_lstr = unsafe { lstr::from_ptr(module_get_name(self.module)) };
-                let module_name_rs_str = unsafe { module_name_lstr.as_str_unchecked() };
-
-                eprintln!("error during shutdown of module `{module_name_rs_str}`: {e}",);
+                eprintln!("error during shutdown of module `{}`: {e}", self.name);
                 return -1;
             }
             0
@@ -278,7 +274,10 @@ where
         unsafe {
             thr_assert_is_main_thread();
         }
-        self.ctx.as_mut().expect("module is not initialized")
+
+        self.ctx.as_mut().unwrap_or_else(|| {
+            panic!("module `{}` is not initialized", self.name);
+        })
     }
 }
 
@@ -749,17 +748,17 @@ where
     #[doc(hidden)]
     pub fn from_internal_module(
         internal_module: &'static mut InternalModule<T>,
-        name: &'static str,
         initialize: unsafe extern "C" fn(*mut c_void) -> c_int,
         shutdown: unsafe extern "C" fn() -> c_int,
     ) -> Self {
         debug_assert!(
             internal_module.module.is_null(),
-            "module `{name}` has already been created",
+            "module `{}` has already been created",
+            internal_module.name,
         );
 
         unsafe {
-            let ptr = module_register(lstr::raw(name));
+            let ptr = module_register(lstr::raw(internal_module.name));
 
             module_implement(ptr, Some(initialize), Some(shutdown), log_get_module());
             internal_module.module = ptr;
@@ -846,7 +845,7 @@ macro_rules! c_module {
 
                 static mut MODULE:
                     $crate::module::InternalModule<super::[<$name _ModuleContextType>]> =
-                        $crate::module::InternalModule::new_const();
+                        $crate::module::InternalModule::new_const(stringify!($name));
 
                 extern "C" fn initialize(arg: *mut c_void) -> c_int {
                     unsafe { MODULE.initialize(arg) }
@@ -865,7 +864,7 @@ macro_rules! c_module {
                     unsafe {
                         if MODULE.module().is_null() {
                             let mut builder = $crate::module::ModuleBuilder::from_internal_module(
-                                &mut MODULE, stringify!($name), initialize, shutdown);
+                                &mut MODULE, initialize, shutdown);
 
                             super::[<$name _MODULE_BUILDER_CB>](&mut builder);
                         }
