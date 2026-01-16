@@ -856,6 +856,7 @@ macro_rules! c_module {
                     unsafe { MODULE.shutdown() }
                 }
 
+                #[allow(unused)]
                 pub(super) fn get_ctx() -> &'static mut super::[<$name _ModuleContextType>] {
                     unsafe { MODULE.ctx() }
                 }
