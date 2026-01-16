@@ -1290,3 +1290,158 @@ pub fn module_get_name(module: *mut module_t) -> &'static str {
 }
 
 // }}}
+// {{{ Tests
+
+#[cfg(test)]
+mod test {
+    use std::os::raw::{c_int, c_void};
+    use std::ptr;
+
+    use crate::bindings::data_t;
+    use crate::module::{
+        method_run_generic, method_run_int, method_run_ptr, method_run_void, module_is_loaded,
+        module_provide, module_release, module_require,
+    };
+
+    c_module_method!(VOID, DEPS_BEFORE, void);
+    c_module_method!(INT, DEPS_BEFORE, int);
+    c_module_method!(PTR, DEPS_BEFORE, ptr);
+    c_module_method!(GENERIC, DEPS_BEFORE, generic);
+
+    static mut SHUTDOWN_MY_MODULE: bool = false;
+
+    #[derive(Default)]
+    struct ModuleCtx {
+        init: u32,
+        void: bool,
+        int: c_int,
+        ptr: *mut c_void,
+        generic: u32,
+    }
+
+    c_module!(depend_on_module, ModuleCtx, |builder| {
+        builder.initialize(|ctx, arg| {
+            ctx.init = arg.is_null().into();
+            Ok(())
+        });
+    });
+
+    c_module!(my_module, ModuleCtx, |builder| {
+        builder.depends_on(depend_on_module_get_module());
+
+        builder.initialize(|ctx, arg| {
+            let arg_u32 = arg as *const u32;
+            if !arg_u32.is_null() {
+                ctx.init = unsafe { *arg_u32 };
+            }
+            Ok(())
+        });
+
+        builder.shutdown(|_ctx| {
+            unsafe {
+                SHUTDOWN_MY_MODULE = true;
+            }
+            Ok(())
+        });
+
+        builder.implement_void(&raw const void_method, |ctx| {
+            ctx.void = true;
+        });
+
+        builder.implement_int(&raw const int_method, |ctx, arg| {
+            ctx.int = arg;
+        });
+
+        builder.implement_ptr(&raw const ptr_method, |ctx, arg| {
+            ctx.ptr = arg;
+        });
+
+        builder.implement_generic(&raw const generic_method, |ctx, arg| {
+            ctx.generic = unsafe { arg.u32_ };
+        });
+    });
+
+    c_module!(needed_by_module, ModuleCtx, |builder| {
+        builder.needed_by(my_module_get_module());
+
+        builder.implement_int(&raw const int_method, |ctx, arg| {
+            ctx.int = arg;
+        });
+    });
+
+    #[test]
+    fn module() {
+        let mut ptr_data: u32 = 20;
+
+        // Required to inject the dependency.
+        needed_by_module_get_module();
+
+        // Provide the argument to initialize for my_module.
+        module_provide(my_module_get_module(), &raw mut ptr_data as *mut c_void);
+
+        // Check that the three modules are not loaded.
+        assert!(!module_is_loaded(my_module_get_module()));
+        assert!(!module_is_loaded(depend_on_module_get_module()));
+        assert!(!module_is_loaded(needed_by_module_get_module()));
+
+        // Require the three modules through dependencies.
+        module_require(my_module_get_module());
+
+        // Check that the three modules are loaded.
+        assert!(module_is_loaded(my_module_get_module()));
+        assert!(module_is_loaded(depend_on_module_get_module()));
+        assert!(module_is_loaded(needed_by_module_get_module()));
+
+        // Check that the modules are initialized according to the provided arguments.
+        assert_eq!(my_module_c_mod::get_ctx().init, 20);
+        assert_eq!(depend_on_module_c_mod::get_ctx().init, 1);
+        assert_eq!(needed_by_module_c_mod::get_ctx().init, 0);
+
+        // Call the methods.
+        method_run_void(&raw const void_method);
+        method_run_int(&raw const int_method, 10);
+        method_run_ptr(&raw const ptr_method, &raw mut ptr_data as *mut c_void);
+
+        let data = data_t { u32_: 48448 };
+        method_run_generic(&raw const generic_method, data);
+
+        // Check the data for my_module.
+        assert!(my_module_c_mod::get_ctx().void);
+        assert_eq!(my_module_c_mod::get_ctx().int, 10);
+        assert_eq!(
+            my_module_c_mod::get_ctx().ptr,
+            &raw mut ptr_data as *mut c_void
+        );
+        assert_eq!(my_module_c_mod::get_ctx().generic, 48448);
+
+        // Check the data for depend_on_module.
+        assert!(!depend_on_module_c_mod::get_ctx().void);
+        assert_eq!(depend_on_module_c_mod::get_ctx().int, 0);
+        assert_eq!(depend_on_module_c_mod::get_ctx().ptr, ptr::null_mut());
+        assert_eq!(depend_on_module_c_mod::get_ctx().generic, 0);
+
+        // Check the data for needed_by_module_c_mod.
+        assert!(!needed_by_module_c_mod::get_ctx().void);
+        assert_eq!(needed_by_module_c_mod::get_ctx().int, 10);
+        assert_eq!(needed_by_module_c_mod::get_ctx().ptr, ptr::null_mut());
+        assert_eq!(needed_by_module_c_mod::get_ctx().generic, 0);
+
+        // Try running `int_method` again.
+        method_run_int(&raw const int_method, 40);
+        assert_eq!(my_module_c_mod::get_ctx().int, 40);
+        assert_eq!(depend_on_module_c_mod::get_ctx().int, 0);
+        assert_eq!(needed_by_module_c_mod::get_ctx().int, 40);
+
+        // Release the three modules.
+        module_release(my_module_get_module());
+
+        // Check that the three modules are not longer loaded, and the shutdown callback as been
+        // called.
+        assert!(!module_is_loaded(my_module_get_module()));
+        assert!(!module_is_loaded(depend_on_module_get_module()));
+        assert!(!module_is_loaded(needed_by_module_get_module()));
+        assert!(unsafe { SHUTDOWN_MY_MODULE });
+    }
+}
+
+// }}}
