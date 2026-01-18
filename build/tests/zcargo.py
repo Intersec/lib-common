@@ -28,6 +28,9 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).parent
 
 RE_ANSI = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
@@ -73,6 +76,7 @@ RE_SUITE_RESULT = re.compile(
     r'(?P<failed>\d+) failed; (?P<ignored>\d+) ignored; '
     r'(?P<measured>\d+) measured; (?P<filtered>\d+) '
     r'filtered out; finished in (?P<duration>[^ ]+)s$')
+
 
 # {{{ helpers
 
@@ -279,6 +283,14 @@ def run_cargo_test_for_pkg(pkg: str, argv: list[str]) -> None:
 
     env = os.environ.copy()
     env['CARGO_TERM_COLOR'] = 'never'
+
+    # Use a suppression file to avoid leak in rustlib:
+    # https://github.com/rust-lang/rust/issues/151367
+    prev_lsan_opts = env.get('LSAN_OPTIONS', '')
+    if prev_lsan_opts:
+        prev_lsan_opts += ':'
+    supp_file = SCRIPT_DIR / 'cargo_leak.supp'
+    env['LSAN_OPTIONS'] = f'{prev_lsan_opts}suppressions={supp_file}'
 
     cargo = subprocess.Popen(
         cmd,

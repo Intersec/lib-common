@@ -1,0 +1,2 @@
+# Ignore leak from rust itself (rust#151367)
+leak:std::env::var::
