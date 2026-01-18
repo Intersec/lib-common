@@ -44,6 +44,7 @@ pub mod bindings {
 
 pub mod farch;
 pub mod helpers;
+pub mod log;
 pub mod lstr;
 pub mod mem_stack;
 pub mod module;
