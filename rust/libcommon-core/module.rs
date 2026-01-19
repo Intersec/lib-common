@@ -406,6 +406,18 @@ where
 
     /// Add a dependency from an other module to this module.
     ///
+    /// # Warning
+    ///
+    /// Unlike in C where the module builder function is called at the startup of the program
+    /// (if the linker does not prune the compilation unit), in Rust, the module builder callback is
+    /// called on the first call of `<module_name>_get_module()` function.
+    ///
+    /// This means that the dependency injection done by using `needed_by()` is only effective
+    /// once this module is used with `<module_name>_get_module()` (or the C macro `MODULE()`).
+    ///
+    /// So, in order to use `needed_by()` from an other module to this module, it is required to
+    /// call `other_module_get_module()` at least once before loading this module.
+    ///
     /// # Example
     ///
     /// ```
