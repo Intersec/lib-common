@@ -1160,3 +1160,121 @@ pub fn module_provide(module: *mut module_t, arg: *mut c_void) {
 }
 
 // }}}
+// {{{ Module helpers
+
+/// Safe wrapper around `module_is_loaded()`.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module;
+/// # use libcommon_core::module::{module_require, module_release, module_is_loaded};
+/// #
+/// # c_module!(my_module);
+/// #
+/// # fn main() {
+///
+/// module_require(my_module_get_module());
+///
+/// assert!(module_is_loaded(my_module_get_module()));
+///
+/// # module_release(my_module_get_module());
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::module_name_repetitions)]
+pub fn module_is_loaded(module: *mut module_t) -> bool {
+    use crate::bindings::module_is_loaded as c_module_is_loaded;
+
+    unsafe { c_module_is_loaded(module) }
+}
+
+/// Safe wrapper around `module_is_initializing()`.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module;
+/// # use libcommon_core::module::{module_require, module_release, module_is_initializing};
+/// #
+/// # c_module!(my_module);
+/// #
+/// # fn main() {
+///
+/// module_require(my_module_get_module());
+///
+/// assert!(!module_is_initializing(my_module_get_module()));
+///
+/// # module_release(my_module_get_module());
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::module_name_repetitions)]
+pub fn module_is_initializing(module: *mut module_t) -> bool {
+    use crate::bindings::module_is_initializing as c_module_is_initializing;
+
+    unsafe { c_module_is_initializing(module) }
+}
+
+/// Safe wrapper around `module_is_shutting_down()`.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module;
+/// # use libcommon_core::module::{module_require, module_release, module_is_shutting_down};
+/// #
+/// # c_module!(my_module);
+/// #
+/// # fn main() {
+///
+/// module_require(my_module_get_module());
+///
+/// assert!(!module_is_shutting_down(my_module_get_module()));
+///
+/// # module_release(my_module_get_module());
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::module_name_repetitions)]
+pub fn module_is_shutting_down(module: *mut module_t) -> bool {
+    use crate::bindings::module_is_shutting_down as c_module_is_shutting_down;
+
+    unsafe { c_module_is_shutting_down(module) }
+}
+
+/// Safe wrapper around `module_get_name()`.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module;
+/// # use libcommon_core::module::{module_require, module_release, module_get_name};
+/// # use libcommon_core::lstr;
+/// #
+/// # c_module!(my_module);
+/// #
+/// # fn main() {
+///
+/// module_require(my_module_get_module());
+///
+/// assert_eq!(module_get_name(my_module_get_module()), "my_module");
+///
+/// # module_release(my_module_get_module());
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::module_name_repetitions)]
+pub fn module_get_name(module: *mut module_t) -> &'static str {
+    use crate::bindings::module_get_name as c_module_get_name;
+
+    #[allow(clippy::similar_names)]
+    unsafe {
+        let name_c_char = c_module_get_name(module);
+        let name_lstr = lstr::from_ptr(name_c_char);
+
+        name_lstr.as_str_unchecked()
+    }
+}
+
+// }}}
