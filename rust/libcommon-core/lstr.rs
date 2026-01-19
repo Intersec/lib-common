@@ -70,7 +70,7 @@ unsafe fn libc_strlen(ptr: *const c_char) -> u64 {
 /// # Safety
 ///
 /// The `lstr_t` may not own the underlying buffer.
-const unsafe fn get_as_bytes(lstr: &lstr_t) -> &[u8] {
+const unsafe fn get_as_bytes<'a>(lstr: &lstr_t) -> &'a [u8] {
     let ptr = unsafe { lstr.__bindgen_anon_1.data as *const u8 };
     let len = lstr.len as usize;
 
@@ -254,7 +254,7 @@ macro_rules! lstr_unsafe_str_conv_impl {
             ///
             /// The `lstr_t` does not own the underlying buffer.
             #[inline]
-            pub const unsafe fn as_bytes(&$self) -> &[u8] {
+            pub const unsafe fn as_bytes<'a>(&$self) -> &'a [u8] {
                 unsafe { get_as_bytes($lstr_ref) }
             }
 
@@ -268,7 +268,7 @@ macro_rules! lstr_unsafe_str_conv_impl {
             ///
             /// The `lstr_t` does not correspond to a valid UTF-8 string.
             #[inline]
-            pub const unsafe fn as_str(&$self) -> Result<&str, Utf8Error> {
+            pub const unsafe fn as_str<'a>(&$self) -> Result<&'a str, Utf8Error> {
                 unsafe { str::from_utf8($self.as_bytes()) }
             }
 
@@ -280,7 +280,7 @@ macro_rules! lstr_unsafe_str_conv_impl {
             /// This method is unsafe because converting a slice to a string without checking UTF-8
             /// errors is unsafe.
             #[inline]
-            pub const unsafe fn as_str_unchecked(&$self) -> &str {
+            pub const unsafe fn as_str_unchecked<'a>(&$self) -> &'a str {
                 unsafe { str::from_utf8_unchecked($self.as_bytes()) }
             }
         }
