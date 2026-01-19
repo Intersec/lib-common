@@ -79,6 +79,7 @@ lstr_t http_code_to_str(http_code_t code)
         CASE(UNSUPPORTED_MEDIA_TYPE  , "Unsupported Media Type");
         CASE(REQUEST_RANGE_UNSAT     , "Requested range not satisfiable");
         CASE(EXPECTATION_FAILED      , "Expectation Failed");
+        CASE(UNPROCESSABLE_ENTITY    , "Unprocessable entity");
         CASE(TOO_MANY_REQUESTS       , "Too many requests");
 
         CASE(INTERNAL_SERVER_ERROR   , "Internal Server Error");

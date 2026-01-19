@@ -524,6 +524,7 @@ enum HttpCode {
     UNSUPPORTED_MEDIA_TYPE   = 415,
     REQUEST_RANGE_UNSAT      = 416,
     EXPECTATION_FAILED       = 417,
+    UNPROCESSABLE_ENTITY     = 422,
     /* the status 429 was introduced in rfc 6585 $4 */
     TOO_MANY_REQUESTS        = 429,
 
