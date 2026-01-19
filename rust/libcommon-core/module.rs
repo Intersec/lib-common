@@ -446,8 +446,9 @@ where
     ///
     /// ```
     /// # use libcommon_core::{c_module, c_module_method};
-    /// # use libcommon_core::bindings::{module_t, module_require, module_release};
-    /// # use libcommon_core::module::method_run_void;
+    /// # use libcommon_core::module::{
+    /// #     module_require, module_release, method_run_void,
+    /// # };
     ///
     /// c_module_method!(VOID, DEPS_BEFORE, do_something);
     ///
@@ -458,13 +459,9 @@ where
     /// });
     ///
     /// # fn main() {
-    /// #     unsafe {
-    /// #         module_require(my_module_get_module());
-    /// #     }
+    /// #     module_require(my_module_get_module());
     /// #     method_run_void(&do_something_method);
-    /// #     unsafe {
-    /// #         module_release(my_module_get_module());
-    /// #     }
+    /// #     module_release(my_module_get_module());
     /// # }
     /// ```
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -514,8 +511,9 @@ where
     /// ```
     /// # use std::os::raw::c_int;
     /// # use libcommon_core::{c_module, c_module_method};
-    /// # use libcommon_core::bindings::{module_t, module_require, module_release};
-    /// # use libcommon_core::module::method_run_int;
+    /// # use libcommon_core::module::{
+    /// #     module_require, module_release, method_run_int,
+    /// # };
     ///
     /// c_module_method!(INT, DEPS_BEFORE, do_something);
     ///
@@ -526,13 +524,9 @@ where
     /// });
     ///
     /// # fn main() {
-    /// #     unsafe {
-    /// #         module_require(my_module_get_module());
-    /// #     }
+    /// #     module_require(my_module_get_module());
     /// #     method_run_int(&do_something_method, 42);
-    /// #     unsafe {
-    /// #         module_release(my_module_get_module());
-    /// #     }
+    /// #     module_release(my_module_get_module());
     /// # }
     /// ```
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -582,8 +576,9 @@ where
     /// ```
     /// # use std::os::raw::c_void;
     /// # use libcommon_core::{c_module, c_module_method};
-    /// # use libcommon_core::bindings::{module_t, module_require, module_release};
-    /// # use libcommon_core::module::method_run_ptr;
+    /// # use libcommon_core::module::{
+    /// #     module_require, module_release, method_run_ptr,
+    /// # };
     ///
     /// c_module_method!(PTR, DEPS_BEFORE, do_something);
     ///
@@ -594,13 +589,9 @@ where
     /// });
     ///
     /// # fn main() {
-    /// #     unsafe {
-    /// #         module_require(my_module_get_module());
-    /// #     }
+    /// #     module_require(my_module_get_module());
     /// #     method_run_ptr(&do_something_method, std::ptr::null_mut());
-    /// #     unsafe {
-    /// #         module_release(my_module_get_module());
-    /// #     }
+    /// #     module_release(my_module_get_module());
     /// # }
     /// ```
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -649,8 +640,10 @@ where
     ///
     /// ```
     /// # use libcommon_core::{c_module, c_module_method};
-    /// # use libcommon_core::bindings::{module_t, module_require, module_release, data_t};
-    /// # use libcommon_core::module::method_run_generic;
+    /// # use libcommon_core::module::{
+    /// #     module_require, module_release, method_run_generic,
+    /// # };
+    /// # use libcommon_core::bindings::data_t;
     ///
     /// c_module_method!(GENERIC, DEPS_BEFORE, do_something);
     ///
@@ -661,13 +654,9 @@ where
     /// });
     ///
     /// # fn main() {
-    /// #     unsafe {
-    /// #         module_require(my_module_get_module());
-    /// #     }
+    /// #     module_require(my_module_get_module());
     /// #     method_run_generic(&do_something_method, data_t { ptr: std::ptr::null_mut() } );
-    /// #     unsafe {
-    /// #         module_release(my_module_get_module());
-    /// #     }
+    /// #     module_release(my_module_get_module());
     /// # }
     /// ```
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -759,7 +748,7 @@ where
 ///
 /// Within your module's code, you can access the context which is mutable using:
 /// ```
-/// # use libcommon_core::bindings::{module_release, module_require, module_t};
+/// # use libcommon_core::module::{module_release, module_require};
 /// # use libcommon_core::c_module;
 ///
 /// # #[derive(Default)]
@@ -769,15 +758,11 @@ where
 /// # c_module!(my_module, MyModuleContext);
 /// #
 /// # fn main() {
-/// #     unsafe {
-/// #         module_require(my_module_get_module());
-/// #     }
+/// #     module_require(my_module_get_module());
 /// #
 /// let ctx: &mut MyModuleContext = my_module_c_mod::get_ctx();
 /// #
-/// #     unsafe {
-/// #         module_release(my_module_get_module());
-/// #     }
+/// #     module_release(my_module_get_module());
 /// # }
 /// ```
 ///
@@ -1030,6 +1015,100 @@ pub fn method_run_generic(method: *const module_method_t, arg: data_t) {
     unsafe {
         debug_assert_eq!((*method).type_, module_method_type_t::METHOD_GENERIC);
         module_run_method(method, arg);
+    }
+}
+
+// }}}
+// {{{ Module require/release/provide functions
+
+/// Safe wrapper around `module_require()`.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module;
+/// # use libcommon_core::module::{module_require, module_release};
+///
+/// c_module!(my_module);
+///
+/// # fn main() {
+///
+/// module_require(my_module_get_module());
+///
+/// # module_release(my_module_get_module());
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::module_name_repetitions)]
+pub fn module_require(module: *mut module_t) {
+    use crate::bindings::module_require as c_module_require;
+
+    unsafe {
+        c_module_require(module);
+    }
+}
+
+/// Safe wrapper around `module_release()`.
+///
+/// # Example
+///
+/// ```
+/// # use libcommon_core::c_module;
+/// # use libcommon_core::module::{module_require, module_release};
+///
+/// c_module!(my_module);
+///
+/// # fn main() {
+/// #
+/// # module_require(my_module_get_module());
+///
+/// module_release(my_module_get_module());
+///
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::module_name_repetitions)]
+pub fn module_release(module: *mut module_t) {
+    use crate::bindings::module_release as c_module_release;
+
+    unsafe {
+        c_module_release(module);
+    }
+}
+
+/// Safe wrapper around `module_provide()`.
+///
+/// # Warning
+///
+/// You need to make sure that the argument must live at least until the module is initialized.
+///
+/// # Example
+///
+/// ```
+/// # use std::os::raw::c_void;
+/// # use libcommon_core::c_module;
+/// # use libcommon_core::module::{module_require, module_release, module_provide};
+///
+/// c_module!(my_module);
+///
+/// static mut MY_ARG: u32 = 12;
+///
+/// # fn main() {
+///
+/// module_provide(my_module_get_module(), &raw mut MY_ARG as *mut c_void);
+///
+/// # module_require(my_module_get_module());
+/// #
+/// # module_release(my_module_get_module());
+/// # }
+/// ```
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::module_name_repetitions)]
+pub fn module_provide(module: *mut module_t, arg: *mut c_void) {
+    use crate::bindings::module_provide as c_module_provide;
+
+    unsafe {
+        c_module_provide(module, arg);
     }
 }
 
