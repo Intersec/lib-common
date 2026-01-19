@@ -6,3 +6,7 @@
 /threaded-operations-bench
 /container-bench
 /ztst-qps-bitmap-bench
+
+# Fuzzing related entries (corpus and dictionaries)
+/corpus*
+/*.dict
