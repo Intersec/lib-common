@@ -277,8 +277,7 @@ void log_module_register(void);
 /* The "[static 64]" will not work in C++ code. */
 #ifndef __cplusplus
 
-int log_make_fancy_prefix(const char * nonnull progname, int pid,
-                          char fancy[static 64]);
+int log_make_fancy_prefix(lstr_t progname, int pid, char fancy[static 64]);
 
 #endif /* __cplusplus */
 
@@ -288,8 +287,7 @@ int log_make_fancy_prefix(const char * nonnull progname, int pid,
 #ifndef NDEBUG
 
 int __logger_is_traced(logger_t * nonnull logger, int level,
-                       const char * nonnull file, const char * nonnull func,
-                       const char * nullable name);
+                       lstr_t file, lstr_t func, lstr_t name);
 
 #define logger_is_traced(Logger, Level)  ({                                  \
         static int8_t __logger_traced;                                       \
@@ -304,9 +302,9 @@ int __logger_is_traced(logger_t * nonnull logger, int level,
             if (unlikely(!__builtin_constant_p(Level)                        \
                        || __i_clogger != __last_logger))                     \
             {                                                                \
-                __logger_traced = __logger_is_traced(__i_logger,             \
-                                      __logger_i_level,__FILE__, __func__,   \
-                                      __i_logger->full_name.s);              \
+                __logger_traced = __logger_is_traced(                        \
+                    __i_logger, __logger_i_level, LSTR(__FILE__),            \
+                    LSTR(__func__), __i_logger->full_name);                  \
                 __last_logger = __i_clogger;                                 \
             }                                                                \
         }                                                                    \
@@ -333,30 +331,25 @@ int __logger_is_traced(logger_t * nonnull logger, int level,
 #endif
 
 __attr_printf__(8, 0)
-int logger_vlog(logger_t * nonnull logger, int level,
-                const char * nullable prog, int pid,
-                const char * nullable file, const char * nullable func,
-                int line, const char * nonnull fmt, va_list va);
+int logger_vlog(logger_t * nonnull logger, int level, lstr_t prog, int pid,
+                lstr_t file, lstr_t func, int line,
+                const char * nonnull fmt, va_list va);
 
 __attr_printf__(8, 9)
-int __logger_log(logger_t * nonnull logger, int level,
-                 const char * nullable prog, int pid,
-                 const char * nonnull file, const char * nonnull func,
-                 int line, const char * nonnull fmt, ...);
+int __logger_log(logger_t * nonnull logger, int level, lstr_t prog, int pid,
+                 lstr_t file, lstr_t func, int line,
+                 const char * nonnull fmt, ...);
 
 __attr_printf__(5, 0) __attr_noreturn__ __attr_cold__
-void __logger_vpanic(logger_t * nonnull logger, const char * nonnull file,
-                     const char * nonnull func, int line,
-                     const char * nonnull fmt, va_list va);
+void __logger_vpanic(logger_t * nonnull logger, lstr_t file, lstr_t func,
+                     int line, const char * nonnull fmt, va_list va);
 __attr_printf__(5, 6) __attr_noreturn__ __attr_cold__
-void __logger_panic(logger_t * nonnull logger, const char * nonnull file,
-                    const char * nonnull func, int line,
-                    const char * nonnull fmt, ...);
+void __logger_panic(logger_t * nonnull logger, lstr_t file, lstr_t func,
+                    int line, const char * nonnull fmt, ...);
 
 __attr_noreturn__ __attr_cold__
 static inline void __logger_panics(logger_t * nonnull logger,
-                                   const char * nonnull file,
-                                   const char * nonnull func, int line,
+                                   lstr_t file, lstr_t func, int line,
                                    const char * nullable msg)
 {
     __logger_panic(logger, file, func, line, "%s", msg);
@@ -364,18 +357,15 @@ static inline void __logger_panics(logger_t * nonnull logger,
 
 
 __attr_printf__(5, 0) __attr_noreturn__ __attr_cold__
-void __logger_vfatal(logger_t * nonnull logger, const char * nonnull file,
-                     const char * nonnull func, int line,
-                     const char * nonnull fmt, va_list va);
+void __logger_vfatal(logger_t * nonnull logger, lstr_t file, lstr_t func,
+                     int line, const char * nonnull fmt, va_list va);
 __attr_printf__(5, 6) __attr_noreturn__ __attr_cold__
-void __logger_fatal(logger_t * nonnull logger, const char * nonnull file,
-                    const char * nonnull func, int line,
-                    const char * nonnull fmt, ...);
+void __logger_fatal(logger_t * nonnull logger, lstr_t file, lstr_t func,
+                    int line, const char * nonnull fmt, ...);
 
 __attr_noreturn__ __attr_cold__
 static inline void __logger_fatals(logger_t * nonnull logger,
-                                   const char * nonnull file,
-                                   const char * nonnull func, int line,
+                                   lstr_t file, lstr_t func, int line,
                                    const char * nullable msg)
 {
     __logger_fatal(logger, file, func, line, "%s", msg);
@@ -383,31 +373,31 @@ static inline void __logger_fatals(logger_t * nonnull logger,
 
 
 __attr_printf__(5, 0) __attr_noreturn__ __attr_cold__
-void __logger_vexit(logger_t * nonnull logger, const char * nonnull file,
-                    const char * nonnull func, int line,
-                    const char * nonnull fmt, va_list va);
+void __logger_vexit(logger_t * nonnull logger, lstr_t file, lstr_t func,
+                    int line, const char * nonnull fmt, va_list va);
 __attr_printf__(5, 6) __attr_noreturn__ __attr_cold__
-void __logger_exit(logger_t * nonnull logger, const char * nonnull file,
-                   const char * nonnull func, int line,
-                   const char * nonnull fmt, ...);
+void __logger_exit(logger_t * nonnull logger, lstr_t file,
+                   lstr_t func, int line, const char * nonnull fmt, ...);
 
 __attr_noreturn__ __attr_cold__
 static inline void __logger_exits(logger_t * nonnull logger,
-                                  const char * nonnull file,
-                                  const char * nonnull func, int line,
+                                  lstr_t file, lstr_t func, int line,
                                   const char * nullable msg)
 {
     __logger_exit(logger, file, func, line, "%s", msg);
 }
 
 #define logger_panic(Logger, Fmt, ...)                                       \
-    __logger_panic((Logger), __FILE__, __func__, __LINE__, (Fmt), ##__VA_ARGS__)
+    __logger_panic((Logger), LSTR(__FILE__), LSTR(__func__), __LINE__,       \
+                   (Fmt), ##__VA_ARGS__)
 
 #define logger_fatal(Logger, Fmt, ...)                                       \
-    __logger_fatal((Logger), __FILE__, __func__, __LINE__, (Fmt), ##__VA_ARGS__)
+    __logger_fatal((Logger),LSTR(__FILE__), LSTR(__func__), __LINE__,        \
+                   (Fmt), ##__VA_ARGS__)
 
 #define logger_exit(Logger, Fmt, ...)                                        \
-    __logger_exit((Logger), __FILE__, __func__, __LINE__, (Fmt), ##__VA_ARGS__)
+    __logger_exit((Logger), LSTR(__FILE__), LSTR(__func__), __LINE__,        \
+                  (Fmt), ##__VA_ARGS__)
 
 #define __LOGGER_LOG(Logger, Level, Mark, Fmt, ...)  ({                      \
         const logger_t *__clogger = (Logger);                                \
@@ -424,14 +414,16 @@ static inline void __logger_exits(logger_t * nonnull logger,
             const int __logger_level = (Level);                              \
                                                                              \
             if (__LOGGER_HAS_LEVEL(__logger, __logger_level)) {              \
-                __logger_log(__logger, __logger_level, NULL, -1, __FILE__,   \
-                             __func__, __LINE__, Fmt, ##__VA_ARGS__);        \
+                __logger_log(__logger, __logger_level, LSTR_NULL_V, -1,      \
+                             LSTR(__FILE__), LSTR(__func__), __LINE__,       \
+                             Fmt, ##__VA_ARGS__);                            \
             }                                                                \
             __logger_res = __logger_level <= LOG_WARNING ? -1 : 0;           \
         } else {                                                             \
             if (__LOGGER_HAS_LEVEL(__logger, (Level))) {                     \
-                __logger_log(__logger, (Level), NULL, -1, __FILE__,          \
-                             __func__,  __LINE__, Fmt, ##__VA_ARGS__);       \
+                __logger_log(__logger, (Level), LSTR_NULL_V, -1,             \
+                             LSTR(__FILE__), LSTR(__func__), __LINE__,       \
+                             Fmt, ##__VA_ARGS__);                            \
             }                                                                \
             __logger_res = (Level) <= LOG_WARNING ? -1 : 0;                  \
         }                                                                    \
@@ -470,9 +462,7 @@ typedef struct log_thr_ml_t {
 extern __thread log_thr_ml_t log_thr_ml_g;
 
 void __logger_start(logger_t * nonnull logger, int level,
-                    const char * nullable prog, int pid,
-                    const char * nonnull file,
-                    const char * nonnull func, int line);
+                    lstr_t prog, int pid, lstr_t file, lstr_t func, int line);
 
 __attr_printf__(1, 2)
 void __logger_cont(const char * nonnull fmt, ...);
@@ -498,8 +488,8 @@ void __logger_end_panic(void);
         assert (!log_thr_ml_g.logger);                                       \
         log_thr_ml_g.logger = __logger;                                      \
         if (logger_has_level(__logger, __level)) {                           \
-            __logger_start(__logger, __level, NULL, -1, __FILE__, __func__,  \
-                           __LINE__);                                        \
+            __logger_start(__logger, __level, LSTR_NULL_V, -1,               \
+                           LSTR(__FILE__), LSTR(__func__), __LINE__);        \
             log_thr_ml_g.activated = true;                                   \
         }                                                                    \
         __logger;                                                            \
@@ -530,8 +520,8 @@ void __logger_end_panic(void);
         assert (!log_thr_ml_g.logger);                                       \
         log_thr_ml_g.logger = __logger;                                      \
         if (logger_is_traced(__logger, __level)) {                           \
-            __logger_start(__logger, LOG_TRACE + __level, NULL, -1, __FILE__,\
-                           __func__, __LINE__);                              \
+            __logger_start(__logger, LOG_TRACE + __level, LSTR_NULL_V, -1,   \
+                           LSTR(__FILE__), LSTR(__func__), __LINE__);        \
             log_thr_ml_g.activated = true;                                   \
         }                                                                    \
         __logger;                                                            \
@@ -662,12 +652,12 @@ typedef struct log_ctx_t {
     int    level;
     lstr_t logger_name;
 
-    const char * nonnull file;
-    const char * nonnull func;
+    lstr_t file;
+    lstr_t func;
     int line;
 
     int pid;
-    const char * nonnull prog_name;
+    lstr_t prog_name;
 
     bool is_silent :  1;
     unsigned padding : 31;

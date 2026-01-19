@@ -119,8 +119,7 @@ static ALWAYS_INLINE void assert_ignore(bool cond) { }
 void e_set_verbosity(int max_debug_level) __attr_leaf__;
 void e_incr_verbosity(void) __attr_leaf__;
 
-int  e_is_traced_(int level, const char * nonnull fname,
-                  const char * nonnull func, const char * nullable name)
+int  e_is_traced_(int level, lstr_t fname, lstr_t func, lstr_t name)
     __attr_leaf__;
 
 #define e_name_is_traced(lvl, name) \
@@ -131,26 +130,27 @@ int  e_is_traced_(int level, const char * nonnull fname,
            static int8_t e_traced;                                           \
                                                                              \
            if (unlikely(e_traced == 0)) {                                    \
-               e_traced = e_is_traced_(lvl, __FILE__, __func__, name);       \
+               e_traced = e_is_traced_(lvl, LSTR(__FILE__), LSTR(__func__),  \
+                                       LSTR_OPT(name));                      \
            }                                                                 \
            e_res = e_traced;                                                 \
        } else {                                                              \
-           e_res = e_is_traced_(lvl, __FILE__, __func__, name);              \
+           e_res = e_is_traced_(lvl, LSTR(__FILE__), LSTR(__func__),         \
+                                LSTR_OPT(name));                             \
        }                                                                     \
        e_res > 0;                                                            \
     })
 #define e_is_traced(lvl)  e_name_is_traced(lvl, NULL)
 
-void e_trace_put_(int lvl, const char * nonnull fname, int lno,
-                  const char * nonnull func, const char * nullable name,
+void e_trace_put_(int lvl, lstr_t fname, int lno, lstr_t func, lstr_t name,
                   const char * nonnull fmt, ...)
                   __attr_leaf__ __attr_printf__(6, 7) __attr_cold__;
 
 #define e_named_trace_start(lvl, name, fmt, ...) \
     do {                                                                     \
         if (e_name_is_traced(lvl, name))                                     \
-            e_trace_put_(lvl, __FILE__, __LINE__, __func__,                  \
-                         name, fmt, ##__VA_ARGS__);                          \
+            e_trace_put_(lvl, LSTR(__FILE__), __LINE__, LSTR(__func__),      \
+                         LSTR_OPT(name), fmt, ##__VA_ARGS__);                \
     } while (0)
 #define e_named_trace_cont(lvl, name, fmt, ...) \
     e_named_trace_start(lvl, name, fmt, ##__VA_ARGS__)
@@ -161,8 +161,8 @@ void e_trace_put_(int lvl, const char * nonnull fname, int lno,
 #define e_named_trace_hex(lvl, name, str, buf, len)                          \
     do {                                                                     \
         if (e_name_is_traced(lvl, name)) {                                   \
-            e_trace_put_(lvl, __FILE__, __LINE__, __func__,                  \
-                         name, "--%s (%d)--\n", str, len);                   \
+            e_trace_put_(lvl, LSTR(__FILE__), __LINE__, LSTR(__func__),      \
+                         LSTR_OPT(name), "--%s (%d)--\n", str, len);         \
             ifputs_hex(stderr, buf, len);                                    \
         }                                                                    \
     } while (0)
@@ -232,11 +232,11 @@ typedef void (debug_stack_cb_f)(int fd, data_t data);
 #define debug_stack_scope(_data, _cb)                                        \
     data_t PFX_LINE(debug_stack_)                                            \
     __attribute__((unused, cleanup(debug_stack_pop))) =                      \
-    debug_stack_push(__func__, __FILE__, __LINE__, (_data), (_cb))
+    debug_stack_push(LSTR(__func__), LSTR(__FILE__), __LINE__, (_data),      \
+                     (_cb))
 
 /* Private functions. */
-data_t debug_stack_push(const char *nonnull func,
-                        const char *nonnull file, int line,
+data_t debug_stack_push(lstr_t func, lstr_t file, int line,
                         data_t data, debug_stack_cb_f *nonnull cb);
 void debug_stack_pop(data_t *nonnull priv);
 

@@ -216,8 +216,8 @@ void ps_write_backtrace(int signum, bool allow_fork)
 #undef XWRITE
 
 typedef struct debug_info_t {
-    const char *func;
-    const char *file;
+    lstr_t func;
+    lstr_t file;
     debug_stack_cb_f *cb;
     data_t data;
     int line;
@@ -239,8 +239,7 @@ static void debug_stack_wipe(void)
 
 thr_hooks(debug_stack_init, debug_stack_wipe);
 
-data_t debug_stack_push(const char *nonnull func,
-                        const char *nonnull file, int line,
+data_t debug_stack_push(lstr_t func, lstr_t file, int line,
                         data_t data, debug_stack_cb_f *nonnull cb)
 {
     debug_info_t *info = qv_growlen0(&debug_stack_g, 1);
@@ -269,9 +268,9 @@ void debug_stack_dprint(int fd)
     tab_for_each_pos_rev(i, &debug_stack_g) {
         const debug_info_t *info = &debug_stack_g.tab[i];
 
-        dprintf(fd, "\n[%d] in %s() from %s:%d\n",
-                i, info->func, info->file, info->line);
-        (info->cb)(fd, info->data);
+        dprintf(fd, "\n[%d] in %.*s() from %.*s:%d\n",
+                i, LSTR_FMT_ARG(info->func), LSTR_FMT_ARG(info->file),
+                info->line); (info->cb)(fd, info->data);
     }
 }
 

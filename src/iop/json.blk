@@ -3071,9 +3071,9 @@ int __iop_jpack_file(const iop_env_t *iop_env, const char *filename,
 struct jtrace {
     int lvl;
     int lno;
-    const char *fname;
-    const char *func;
-    const char *name;
+    lstr_t fname;
+    lstr_t func;
+    lstr_t name;
 };
 
 #ifndef NDEBUG
@@ -3086,8 +3086,8 @@ static int iop_jtrace_write(void *_b, const void *buf, int len)
     return len;
 }
 
-void iop_jtrace_(int lvl, const char *fname, int lno, const char *func,
-                 const char *name, const iop_struct_t *st, const void *v)
+void iop_jtrace_(int lvl, lstr_t fname, int lno, lstr_t func,
+                 lstr_t name, const iop_struct_t *st, const void *v)
 {
     struct jtrace jt = {
         .lvl   = lvl,

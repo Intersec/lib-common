@@ -917,7 +917,7 @@ Z_GROUP_EXPORT(log) {
 
 #define TEST(prog_name, pid, fancy_prefix)                                   \
         do {                                                                 \
-            len = log_make_fancy_prefix(prog_name, pid, fancy);              \
+            len = log_make_fancy_prefix(LSTR(prog_name), pid, fancy);        \
             Z_ASSERT_LSTREQUAL(LSTR_INIT_V(fancy, len), LSTR(fancy_prefix)); \
         } while (0)
 

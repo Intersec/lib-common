@@ -847,8 +847,8 @@ const char *proctimer_report(proctimer_t *tp, const char *fmt);
 typedef struct timing_scope_ctx_t {
     logger_t *logger;
     lstr_t desc;
-    const char *file;
-    const char *func;
+    lstr_t file;
+    lstr_t func;
     int line;
     struct timeval tv_start;
     int64_t threshold_ms;
@@ -877,8 +877,7 @@ typedef struct timing_scope_ctx_t {
  */
 __attr_printf__(7, 8)
 timing_scope_ctx_t
-timing_scope_start(logger_t *logger,
-                   const char *file, const char *func, int line,
+timing_scope_start(logger_t *logger, lstr_t file, lstr_t func, int line,
                    int64_t threshold_ms, int level, const char *fmt, ...);
 
 /** Finish a timing scope.
@@ -893,8 +892,9 @@ void timing_scope_finish(timing_scope_ctx_t *ctx);
 #define _timing_scope(_logger, _threshold_ms, _level, _fmt, ...)             \
     __attribute__((unused,cleanup(timing_scope_finish)))                     \
     timing_scope_ctx_t PFX_LINE(timer_scope_ctx_) =                          \
-        timing_scope_start((_logger), __FILE__, __func__, __LINE__,          \
-                           (_threshold_ms), (_level), _fmt, ##__VA_ARGS__)
+        timing_scope_start((_logger), LSTR(__FILE__), LSTR(__func__),        \
+                           __LINE__, (_threshold_ms), (_level),              \
+                           _fmt, ##__VA_ARGS__)
 
 /** Emit a \p LOG_NOTICE log with the time spent in the scope.
  *

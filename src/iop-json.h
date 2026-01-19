@@ -502,23 +502,24 @@ iop_sb_jpack(sb_t * nonnull sb, const iop_struct_t * nonnull st,
 
 /** Dump IOP structures in JSon format using e_trace */
 #ifndef NDEBUG
-void iop_jtrace_(int lvl, const char * nonnull fname, int lno,
-                 const char * nonnull func, const char * nullable name,
-                 const iop_struct_t * nonnull , const void * nonnull);
+void iop_jtrace_(int lvl, lstr_t fname, int lno, lstr_t func, lstr_t name,
+                 const iop_struct_t * nonnull, const void * nonnull);
 #define iop_jtrace(lvl, st, v) \
     do {                                                     \
         if (e_is_traced(lvl)) {                              \
             const st##__t *__v = (v);                        \
-            iop_jtrace_(lvl, __FILE__, __LINE__, __func__,   \
-                        NULL, &st##__s, __v);                \
+            iop_jtrace_(lvl, LSTR(__FILE__), __LINE__,       \
+                        LSTR(__func__), LSTR_NULL_V,         \
+                        &st##__s, __v);                      \
         }                                                    \
     } while (0)
 #define iop_named_jtrace(lvl, name, st, v)                   \
     do {                                                     \
         if (e_name_is_traced(lvl, name)) {                   \
             const st##__t *__v = (v);                        \
-            iop_jtrace_(lvl, __FILE__, __LINE__, __func__,   \
-                        name, &st##__s, __v);                \
+            iop_jtrace_(lvl, LSTR(__FILE__), __LINE__,       \
+                        LSTR(__func__), LSTR_OPT(name),      \
+                        &st##__s, __v);                      \
         }                                                    \
     } while (0)
 #else

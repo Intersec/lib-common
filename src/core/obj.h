@@ -169,11 +169,12 @@
     }
 
 __attr_printf__(4, 5) __attr_noreturn__
-void (object_panic)(const char *nonnull file, const char *nonnull func,
-                    int line, const char *nonnull fmt, ...);
+void (object_panic)(lstr_t file, lstr_t func, int line,
+                    const char *nonnull fmt, ...);
 
 #define object_panic(fmt, ...)                                               \
-    (object_panic)(__FILE__, __func__, __LINE__, (fmt), ##__VA_ARGS__)
+    (object_panic)(LSTR(__FILE__), LSTR(__func__), __LINE__,                 \
+                   (fmt), ##__VA_ARGS__)
 
 /* }}} */
 

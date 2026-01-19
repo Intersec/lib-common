@@ -36,8 +36,8 @@ static struct {
     .logger = LOGGER_INIT_INHERITS(NULL, "core-obj"),
 };
 
-void (object_panic)(const char *nonnull file, const char *nonnull func,
-                    int line, const char *nonnull fmt, ...)
+void (object_panic)(lstr_t file, lstr_t func, int line,
+                    const char *nonnull fmt, ...)
 {
     va_list va;
 

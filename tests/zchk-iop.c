@@ -943,8 +943,10 @@ static int iop_json_test_json(const iop_struct_t *st, const char *json,
     iop_jlex_detach(&jll);
 
     /* visualize result */
-    if (e_is_traced(1))
-        iop_jtrace_(1, __FILE__, __LINE__, __func__, NULL, st, res);
+    if (e_is_traced(1)) {
+        iop_jtrace_(1, LSTR(__FILE__), __LINE__, LSTR(__func__), LSTR_NULL_V,
+                    st, res);
+    }
 
     /* check hashes equality */
     iop_hash_sha1(st, res,      buf1, 0);

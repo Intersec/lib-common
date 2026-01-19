@@ -605,8 +605,8 @@ void logger_do_fatal(void)
     _exit(127);
 }
 
-int logger_vlog(logger_t *logger, int level, const char *prog, int pid,
-                const char *file, const char *func, int line,
+int logger_vlog(logger_t *logger, int level, lstr_t prog, int pid,
+                lstr_t file, lstr_t func, int line,
                 const char *fmt, va_list va)
 {
     log_ctx_t ctx = {
@@ -616,7 +616,8 @@ int logger_vlog(logger_t *logger, int level, const char *prog, int pid,
         .func        = func,
         .line        = line,
         .pid         = pid < 0 ? _G.pid : pid,
-        .prog_name   = prog ?: program_invocation_short_name,
+        .prog_name   = prog.s ? lstr_dupc(prog)
+                              : LSTR(program_invocation_short_name),
         .is_silent   = !!(logger->level_flags & LOG_SILENT),
     };
 
@@ -629,9 +630,8 @@ int logger_vlog(logger_t *logger, int level, const char *prog, int pid,
     return level <= LOG_WARNING ? -1 : 0;
 }
 
-int __logger_log(logger_t *logger, int level, const char *prog, int pid,
-                 const char *file, const char *func, int line,
-                 const char *fmt, ...)
+int __logger_log(logger_t *logger, int level, lstr_t prog, int pid,
+                 lstr_t file, lstr_t func, int line, const char *fmt, ...)
 {
     int res;
     va_list va;
@@ -649,17 +649,17 @@ int __logger_log(logger_t *logger, int level, const char *prog, int pid,
     return res;
 }
 
-void __logger_vpanic(logger_t *logger, const char *file, const char *func,
+void __logger_vpanic(logger_t *logger, lstr_t file, lstr_t func,
                      int line, const char *fmt, va_list va)
 {
     __logger_refresh(logger);
-    logger_vlog(logger, LOG_CRIT, NULL, -1, file, func, line, fmt, va);
+    logger_vlog(logger, LOG_CRIT, LSTR_NULL_V, -1, file, func, line, fmt, va);
     log_set_critical_log(fmt, va);
     abort();
 }
 
-void __logger_panic(logger_t *logger, const char *file, const char *func,
-                    int line, const char *fmt, ...)
+void __logger_panic(logger_t *logger, lstr_t file, lstr_t func, int line,
+                    const char *fmt, ...)
 {
     va_list va;
 
@@ -667,17 +667,17 @@ void __logger_panic(logger_t *logger, const char *file, const char *func,
     __logger_vpanic(logger, file, func, line, fmt, va);
 }
 
-void __logger_vfatal(logger_t *logger, const char *file, const char *func,
-                    int line, const char *fmt, va_list va)
+void __logger_vfatal(logger_t *logger, lstr_t file, lstr_t func, int line,
+                     const char *fmt, va_list va)
 {
     __logger_refresh(logger);
-    logger_vlog(logger, LOG_CRIT, NULL, -1, file, func, line, fmt, va);
+    logger_vlog(logger, LOG_CRIT, LSTR_NULL_V, -1, file, func, line, fmt, va);
     log_set_critical_log(fmt, va);
     logger_do_fatal();
 }
 
-void __logger_fatal(logger_t *logger, const char *file, const char *func,
-                    int line, const char *fmt, ...)
+void __logger_fatal(logger_t *logger, lstr_t file, lstr_t func, int line,
+                    const char *fmt, ...)
 {
     va_list va;
 
@@ -685,22 +685,22 @@ void __logger_fatal(logger_t *logger, const char *file, const char *func,
     __logger_vfatal(logger, file, func, line, fmt, va);
 }
 
-void __logger_vexit(logger_t *logger, const char *file, const char *func,
-                    int line, const char *fmt, va_list va)
+void __logger_vexit(logger_t *logger, lstr_t file, lstr_t func, int line,
+                    const char *fmt, va_list va)
 {
     va_list vc;
 
     __logger_refresh(logger);
 
     va_copy(vc, va);
-    logger_vlog(logger, LOG_ERR, NULL, -1, file, func, line, fmt, va);
+    logger_vlog(logger, LOG_ERR, LSTR_NULL_V, -1, file, func, line, fmt, va);
     logger_vsyslog(LOG_ERR, fmt, vc);
 
     _exit(0);
 }
 
-void __logger_exit(logger_t *logger, const char *file, const char *func,
-                   int line, const char *fmt, ...)
+void __logger_exit(logger_t *logger, lstr_t file, lstr_t func, int line,
+                   const char *fmt, ...)
 {
     va_list va;
 
@@ -710,8 +710,8 @@ void __logger_exit(logger_t *logger, const char *file, const char *func,
 
 #ifndef NDEBUG
 
-int __logger_is_traced(logger_t *logger, int lvl, const char *modname,
-                       const char *func, const char *name)
+int __logger_is_traced(logger_t *logger, int lvl, lstr_t modname,
+                       lstr_t func, lstr_t name)
 {
     int level;
 
@@ -720,26 +720,41 @@ int __logger_is_traced(logger_t *logger, int lvl, const char *modname,
 
     for (int i = 0; i < _G.specs.len; i++) {
         log_trace_spec_t *spec = &_G.specs.tab[i];
+        char buf[BUFSIZ];
 
-        if (spec->path && fnmatch(spec->path, modname, FNM_PATHNAME) != 0)
-            continue;
-        if (spec->func && fnmatch(spec->func, func, 0) != 0)
-            continue;
-        if (spec->name
-        &&  (name == NULL
-         ||  fnmatch(spec->name, name, FNM_PATHNAME | FNM_LEADING_DIR) != 0))
-        {
-            continue;
+        if (spec->path) {
+            snprintf(buf, sizeof(buf), "%*pM", LSTR_FMT_ARG(modname));
+            if (fnmatch(spec->path, buf, FNM_PATHNAME) != 0) {
+                continue;
+            }
         }
+
+        if (spec->func) {
+            snprintf(buf, sizeof(buf), "%*pM", LSTR_FMT_ARG(func));
+            if (fnmatch(spec->func, buf, 0) != 0) {
+                continue;
+            }
+        }
+
+        if (spec->name) {
+            snprintf(buf, sizeof(buf), "%*pM", LSTR_FMT_ARG(name));
+            if (fnmatch(spec->name, buf,
+                        FNM_PATHNAME | FNM_LEADING_DIR) != 0)
+            {
+                continue;
+            }
+        }
+
         level = spec->level;
     }
+
     return lvl > level ? -1 : 1;
 }
 
 #endif
 
-void __logger_start(logger_t *logger, int level, const char *prog, int pid,
-                    const char *file, const char *func, int line)
+void __logger_start(logger_t *logger, int level, lstr_t prog, int pid,
+                    lstr_t file, lstr_t func, int line)
 {
     assert (atomic_load_explicit(&logger->conf_gen, memory_order_acquire)
             == log_conf_gen_g);
@@ -751,7 +766,8 @@ void __logger_start(logger_t *logger, int level, const char *prog, int pid,
         .func        = func,
         .line        = line,
         .pid         = pid < 0 ? _G.pid : pid,
-        .prog_name   = prog ?: program_invocation_short_name,
+        .prog_name   = prog.s ? lstr_dupc(prog)
+                              : LSTR(program_invocation_short_name),
         .is_silent   = !!(logger->level_flags & LOG_SILENT),
     };
 }
@@ -794,8 +810,7 @@ void __logger_end_fatal(void)
 /* }}} */
 /* Handlers {{{ */
 
-int log_make_fancy_prefix(const char * nonnull progname, int pid,
-                          char fancy[static 64])
+int log_make_fancy_prefix(lstr_t progname, int pid, char fancy[static 64])
 {
     static const char *colors[] = {
         TERM_COLOR_RED,
@@ -807,16 +822,19 @@ int log_make_fancy_prefix(const char * nonnull progname, int pid,
         TERM_COLOR_BRIGHTER(TERM_COLOR_GREEN),
         TERM_COLOR_BRIGHTER(TERM_COLOR_BLUE),
     };
+    char buf_progname[10 + 1];
     uint32_t hash;
     const char *color;
     int len;
 
-    hash = mem_hash32(progname, strlen(progname));
+    hash = mem_hash32(progname.s, progname.len);
     color = colors[hash % countof(colors)];
 
+    snprintf(buf_progname, sizeof(buf_progname), "%*pM",
+             LSTR_FMT_ARG(progname));
     len = snprintf(fancy, 64,
                    TERM_COLOR_FMT("%10s[%d]") ": ",
-                   TERM_COLOR_FMT_ARG(color, progname, pid));
+                   TERM_COLOR_FMT_ARG(color, buf_progname, pid));
     return MIN(len, 63);
 }
 
@@ -857,8 +875,8 @@ static void log_stderr_fancy_handler(const log_ctx_t *ctx, const char *fmt,
         int len;
         char escapes[BUFSIZ];
 
-        sb_setf(sb, "%s:%d:%s[%d]", ctx->file, ctx->line,
-                ctx->prog_name, ctx->pid);
+        sb_setf(sb, "%pL:%d:%pL[%d]", &ctx->file, ctx->line,
+                &ctx->prog_name, ctx->pid);
         if (sb->len > max_len) {
             sb_clip(sb, max_len);
         }
@@ -870,14 +888,14 @@ static void log_stderr_fancy_handler(const log_ctx_t *ctx, const char *fmt,
         log_add_timestamp(sb);
 
         sb_adds(sb, TERM_COLOR_SET(LOG_COLOR_FUNCTION));
-        if (strlen(ctx->func) < 17) {
-            sb_addf(sb, "%*s: ", 17, ctx->func);
+        if (ctx->func.len < 17) {
+            sb_addf(sb, "%*pM: ", LSTR_FMT_ARG(ctx->func));
         } else {
-            sb_addf(sb, "%*pM...: ", 14, ctx->func);
+            sb_addf(sb, "%*pM...: ", 14, ctx->func.s);
         }
     } else {
         log_add_timestamp(sb);
-        if (ctx->prog_name == program_invocation_short_name) {
+        if (ctx->prog_name.s == program_invocation_short_name) {
             sb_add(sb, _G.fancy_prefix, _G.fancy_len);
         } else {
             char fancy[64];
@@ -948,9 +966,9 @@ static void log_stderr_raw_handler(const log_ctx_t *ctx, const char *fmt,
     }
 
     log_add_timestamp(sb);
-    sb_addf(sb, "%s[%d]: ", ctx->prog_name, ctx->pid);
-    if (ctx->level >= LOG_TRACE && ctx->func) {
-        sb_addf(sb, "%s:%d:%s: ", ctx->file, ctx->line, ctx->func);
+    sb_addf(sb, "%pL[%d]: ", &ctx->prog_name, ctx->pid);
+    if (ctx->level >= LOG_TRACE && ctx->func.s) {
+        sb_addf(sb, "%pL:%d:%pL: ", &ctx->file, ctx->line, &ctx->func);
     } else {
         sb_adds(sb, prefixes[MIN(LOG_TRACE, ctx->level)]);
     }
@@ -982,8 +1000,8 @@ int e_log(int priority, const char *fmt, ...)
     va_list va;
 
     va_start(va, fmt);
-    ret = logger_vlog(&_G.root_logger, priority, NULL, -1, NULL, NULL, -1,
-                      fmt, va);
+    ret = logger_vlog(&_G.root_logger, priority, LSTR_NULL_V, -1,
+                      LSTR_NULL_V, LSTR_NULL_V, -1, fmt, va);
     va_end(va);
     return ret;
 }
@@ -995,7 +1013,8 @@ int e_panic(const char *fmt, ...)
     __logger_refresh(&_G.root_logger);
 
     va_start(va, fmt);
-    logger_vlog(&_G.root_logger, LOG_CRIT, NULL, -1, NULL, NULL, -1, fmt, va);
+    logger_vlog(&_G.root_logger, LOG_CRIT, LSTR_NULL_V, -1, LSTR_NULL_V,
+                LSTR_NULL_V, -1, fmt, va);
     log_set_critical_log(fmt, va);
     abort();
 }
@@ -1007,7 +1026,8 @@ int e_fatal(const char *fmt, ...)
     __logger_refresh(&_G.root_logger);
 
     va_start(va, fmt);
-    logger_vlog(&_G.root_logger, LOG_CRIT, NULL, -1, NULL, NULL, -1, fmt, va);
+    logger_vlog(&_G.root_logger, LOG_CRIT, LSTR_NULL_V, -1, LSTR_NULL_V,
+                LSTR_NULL_V, -1, fmt, va);
 
     if (psinfo_get_tracer_pid(0) > 0) {
         log_set_critical_log(fmt, va);
@@ -1024,8 +1044,8 @@ int e_fatal(const char *fmt, ...)
             va_list va;                                                      \
                                                                              \
             va_start(va, fmt);                                               \
-            ret = logger_vlog(&_G.root_logger, (Level), NULL, -1, NULL,      \
-                              NULL, -1, fmt, va);                            \
+            ret = logger_vlog(&_G.root_logger, (Level), LSTR_NULL_V, -1,     \
+                              LSTR_NULL_V, LSTR_NULL_V, -1, fmt, va);        \
             va_end(va);                                                      \
             return ret;                                                      \
         }                                                                    \
@@ -1072,29 +1092,29 @@ void e_incr_verbosity(void)
     logger_set_level(LSTR_EMPTY_V, log_g.root_logger.level + 1, 0);
 }
 
-int e_is_traced_(int lvl, const char *modname, const char *func,
-                 const char *name)
+int e_is_traced_(int lvl, lstr_t modname, lstr_t func, lstr_t name)
 {
     logger_t *logger;
 
     log_spin_lock();
-    logger = logger_get_by_name(LSTR_OPT(name)) ?: &log_g.root_logger;
+    logger = logger_get_by_name(name) ?: &log_g.root_logger;
     log_spin_unlock();
     return __logger_is_traced(logger, lvl, modname, func, name);
 }
 
-void e_trace_put_(int level, const char *module, int lno,
-                  const char *func, const char *name, const char *fmt, ...)
+void e_trace_put_(int level, lstr_t module, int lno,
+                  lstr_t func, lstr_t name, const char *fmt, ...)
 {
     va_list ap;
     log_ctx_t ctx = {
-        .logger_name = LSTR_OPT(name),
+        .logger_name = name,
         .level       = LOG_TRACE + level,
         .file        = module,
         .func        = func,
         .line        = lno,
         .pid         = _G.pid,
-        .prog_name   = program_invocation_short_name,
+        .prog_name   = LSTR(program_invocation_short_name),
+        .is_silent   = false,
     };
 
     va_start(ap, fmt);
@@ -1224,8 +1244,8 @@ static int log_initialize(void* args)
         term_get_size(&_G.cols, &_G.rows);
         signal(SIGWINCH, &on_sigwinch);
         log_stderr_handler_g = &log_stderr_fancy_handler;
-        _G.fancy_len = log_make_fancy_prefix(program_invocation_short_name,
-                                             _G.pid, _G.fancy_prefix);
+        _G.fancy_len = log_make_fancy_prefix(
+            LSTR(program_invocation_short_name), _G.pid, _G.fancy_prefix);
     }
 
     _G.handler = log_stderr_handler_g;

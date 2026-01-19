@@ -884,8 +884,7 @@ __attribute__((weak)) uint64_t lp_getcsec(void)
 /* {{{ timing_scope */
 
 timing_scope_ctx_t
-timing_scope_start(logger_t *logger,
-                   const char *file, const char *func, int line,
+timing_scope_start(logger_t *logger, lstr_t file, lstr_t func, int line,
                    int64_t threshold_ms, int level, const char *fmt, ...)
 {
     va_list va;
@@ -934,7 +933,7 @@ void timing_scope_finish(timing_scope_ctx_t *ctx)
                     ctx->threshold_ms / 1000,
                     (ctx->threshold_ms % 1000) * 1000);
         }
-        __logger_log(ctx->logger, level, NULL, -1,
+        __logger_log(ctx->logger, level, LSTR_NULL_V, -1,
                      ctx->file, ctx->func, ctx->line,
                      "%*pM", SB_FMT_ARG(&log_buf));
     }
