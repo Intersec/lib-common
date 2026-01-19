@@ -145,9 +145,7 @@ typedef struct ev_t {
             data_t ctx;
         } fs_watch;             /* EV_FS_WATCH */
         struct {
-            el_t read_fd;
-            int  write_fd;
-            bool use_eventfd;
+            el_t event_fd;
         } wake;                 /* EV_WAKE */
         uint8_t   signo;        /* EV_SIGNAL */
     };
@@ -1432,7 +1430,7 @@ int el_fds_loop(ev_t **evs, int count, int timeout, ev_fd_loop_flags_t flags)
         ev_t *ev = evs[i];
 
         if (ev->type == EV_WAKE) {
-            ev = ev->wake.read_fd;
+            ev = ev->wake.event_fd;
         }
         CHECK_EV_TYPE(ev, EV_FD);
 
@@ -1463,7 +1461,7 @@ int el_fds_loop(ev_t **evs, int count, int timeout, ev_fd_loop_flags_t flags)
             ev_t *ev = evs[i];
 
             if (ev->type == EV_WAKE) {
-                ev = ev->wake.read_fd;
+                ev = ev->wake.event_fd;
             }
             if (pfd[i].revents) {
                 el_fd_fire(ev, pfd[i].revents);
@@ -1597,14 +1595,10 @@ static void el_loop_proxies(void)
 
 static int el_wake_on_event(el_t ev, int fd, short evt, data_t priv)
 {
-    uint64_t val[16];
+    uint64_t val;
     el_t wake = priv.ptr;
 
-    if (wake->wake.use_eventfd) {
-        RETHROW(read(fd, val, sizeof(uint64_t)));
-    } else {
-        while (RETHROW(read(fd, val, sizeof(val))) == sizeof(val));
-    }
+    RETHROW(read(fd, &val, sizeof(uint64_t)));
 
     if (EV_FLAG_HAS(wake, IS_BLK)) {
         wake->cb.cb_blk(wake);
@@ -1617,38 +1611,21 @@ static int el_wake_on_event(el_t ev, int fd, short evt, data_t priv)
 
 el_t el_wake_register_d(el_cb_f *cb, data_t priv)
 {
+    int fd;
     el_t el = el_create(EV_WAKE, cb, priv, true);
 
-    /* Use eventfd if available, since it's much more efficient than
-     * the pipe alternative. (Benches show that eventfd wake up the main
-     * thread in 7 micro-seconds while a pipe wake up the main thread in
-     * 11 micro-seconds)
+    /* Use eventfd since it's much more efficient than the pipe alternative.
+     * (Benches show that eventfd wake up the main thread in 7 micro-seconds
+     * while a pipe wake up the main thread in 11 micro-seconds)
      */
-#ifdef __linux__
-    el->wake.write_fd = eventfd(0, O_NONBLOCK | O_CLOEXEC);
-#else
-    el->wake.write_fd = -1;
-#endif
-
-    if (el->wake.write_fd >= 0) {
-        el->wake.read_fd = el_fd_register(el->wake.write_fd, true, POLLIN,
-                                          &el_wake_on_event, el);
-        el->wake.use_eventfd = true;
-    } else {
-        int fd[2] = { -1, -1 };
-
-        if (pipe(fd) < 0) {
-            el_destroy(&el);
-            return NULL;
-        }
-
-        fd_set_features(fd[0], O_NONBLOCK | O_CLOEXEC);
-        fd_set_features(fd[1], O_NONBLOCK | O_CLOEXEC);
-        el->wake.write_fd = fd[1];
-        el->wake.read_fd = el_fd_register(fd[0], true, POLLIN,
-                                          &el_wake_on_event, el);
+    if ((fd = eventfd(0, O_NONBLOCK | O_CLOEXEC)) < 0) {
+        e_panic(E_UNIXERR("eventfd()"));
     }
-    el_unref(el->wake.read_fd);
+
+    el->wake.event_fd = el_fd_register(fd, true, POLLIN, &el_wake_on_event,
+                                       el);
+    el_unref(el->wake.event_fd);
+
     return el;
 }
 
@@ -1662,10 +1639,7 @@ el_t el_wake_register_blk(el_cb_b blk, block_t wipe)
 static data_t el_wake_unregister(el_t *el)
 {
     if (*el) {
-        el_fd_unregister(&(*el)->wake.read_fd);
-        if (!(*el)->wake.use_eventfd) {
-            p_close(&(*el)->wake.write_fd);
-        }
+        el_fd_unregister(&(*el)->wake.event_fd);
         return el_destroy(el);
     }
     return (data_t){ NULL };
@@ -1676,7 +1650,7 @@ void el_wake_fire(el_t el)
     uint64_t val = 1;
 
     CHECK_EV_TYPE(el, EV_WAKE);
-    IGNORE(write(el->wake.write_fd, &val, sizeof(val)));
+    IGNORE(write(el_fd_get_fd(el->wake.event_fd), &val, sizeof(val)));
 }
 
 /* }}} */
