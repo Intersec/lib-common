@@ -292,6 +292,12 @@ def run_cargo_test_for_pkg(pkg: str, argv: list[str]) -> None:
     supp_file = SCRIPT_DIR / 'cargo_leak.supp'
     env['LSAN_OPTIONS'] = f'{prev_lsan_opts}suppressions={supp_file}'
 
+    # Special case for broken ASAN symbolyzer path on the buildbot.
+    # FIXME: Fix the buildbot and remove this
+    asan_symbolizer_path = env.get('ASAN_SYMBOLIZER_PATH', '')
+    if asan_symbolizer_path == '/srv/tools/bin/llvm-symbolizer':
+        del env['ASAN_SYMBOLIZER_PATH']
+
     cargo = subprocess.Popen(
         cmd,
         env=env,
