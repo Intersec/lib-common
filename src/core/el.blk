@@ -146,6 +146,7 @@ typedef struct ev_t {
         } fs_watch;             /* EV_FS_WATCH */
         struct {
             el_t event_fd;
+            atomic_int wakeup_count;
         } wake;                 /* EV_WAKE */
         uint8_t   signo;        /* EV_SIGNAL */
     };
@@ -1600,6 +1601,15 @@ static int el_wake_on_event(el_t ev, int fd, short evt, data_t priv)
 
     RETHROW(read(fd, &val, sizeof(uint64_t)));
 
+    /* By acquiring the wakeup_count atomic we allow TSAN to see that the
+     * fire operation is fully flushed in memory and thus there is no data
+     * race.
+     * By decreasing wakeup_count here we will also be able to safely close()
+     * the event_fd if el_wake_unregister() is called in the callback.
+     */
+    atomic_fetch_sub_explicit(&wake->wake.wakeup_count, 1,
+                              memory_order_acquire);
+
     if (EV_FLAG_HAS(wake, IS_BLK)) {
         wake->cb.cb_blk(wake);
     } else {
@@ -1636,11 +1646,27 @@ el_t el_wake_register_blk(el_cb_b blk, block_t wipe)
     return el_blk_register(el, blk, wipe);
 }
 
-static data_t el_wake_unregister(el_t *el)
+static data_t el_wake_unregister(el_t *elp)
 {
-    if (*el) {
-        el_fd_unregister(&(*el)->wake.event_fd);
-        return el_destroy(el);
+    el_t el = *elp;
+
+    if (el) {
+        /* An el-wake may be unregistered with some unread events
+         * (wakeup_count > 0), but if a read() has been handled while we are
+         * still inside a write() call we need to wait to avoid a data race on
+         * the FD close().
+         */
+        while (unlikely(atomic_load_explicit(&el->wake.wakeup_count,
+                                             memory_order_acquire) < 0))
+        {
+            /* Because the eventfd() API already have locks in the kernel we
+             * should actually never loop.
+             */
+            assert(false);
+            cpu_relax();
+        }
+        el_fd_unregister(&el->wake.event_fd);
+        return el_destroy(elp);
     }
     return (data_t){ NULL };
 }
@@ -1651,6 +1677,12 @@ void el_wake_fire(el_t el)
 
     CHECK_EV_TYPE(el, EV_WAKE);
     IGNORE(write(el_fd_get_fd(el->wake.event_fd), &val, sizeof(val)));
+
+    /* The wakeup_count atomic is used as a memory barrier to ensure the
+     * event_fd cannot be close() on the reader side before return from the
+     * write() operation.
+     */
+    atomic_fetch_add_explicit(&el->wake.wakeup_count, 1, memory_order_release);
 }
 
 /* }}} */
