@@ -136,7 +136,7 @@ enum {
  */
 typedef struct logger_t {
     atomic_uint conf_gen;
-    bool is_static : 1;
+    bool is_static;
 
     int level;
     int defined_level;
