@@ -31,8 +31,8 @@
 //!
 //! # Example
 //!
-//! ```ignore
-//! use libcommon_core::log::{Logger, LogLevel};
+//! ```
+//! use libcommon_core::log::{Logger, LogLevel, LogFlags};
 //! use libcommon_core::{logger_info, logger_error};
 //!
 //! // Dynamic logger
@@ -177,7 +177,7 @@ enum InnerLogger {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
 /// use libcommon_core::log::{Logger, LogLevel, LogFlags};
 ///
 /// // Dynamic logger (owned)
@@ -436,7 +436,7 @@ impl Logger<'static> {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```
     /// use libcommon_core::log::{Logger, LogLevel, LogFlags};
     ///
     /// static MY_LOGGER: Logger = Logger::new_static_parent(
@@ -477,7 +477,7 @@ impl Logger<'static> {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```
     /// use libcommon_core::log::{Logger, LogLevel, LogFlags};
     ///
     /// static PARENT: Logger = Logger::new_static_parent("app", LogLevel::Info, LogFlags::empty());
@@ -552,7 +552,12 @@ macro_rules! __logger_log {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
+/// # use libcommon_core::log::{Logger, LogLevel, LogFlags};
+/// # use libcommon_core::logger_fatal;
+///
+/// # let logger = Logger::new_parent("example", LogLevel::Info, LogFlags::empty());
+/// let error = "something went wrong";
 /// logger_fatal!(logger, "fatal error: {}", error);
 /// ```
 #[macro_export]
@@ -569,7 +574,12 @@ macro_rules! logger_fatal {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
+/// # use libcommon_core::log::{Logger, LogLevel, LogFlags};
+/// # use libcommon_core::logger_panic;
+///
+/// # let logger = Logger::new_parent("example", LogLevel::Info, LogFlags::empty());
+/// let reason = "something went wrong";
 /// logger_panic!(logger, "panic: {}", reason);
 /// ```
 #[macro_export]
@@ -586,7 +596,12 @@ macro_rules! logger_panic {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use libcommon_core::log::{Logger, LogLevel, LogFlags};
+/// # use libcommon_core::logger_error;
+///
+/// # let logger = Logger::new_parent("example", LogLevel::Info, LogFlags::empty());
+/// let error = "something went wrong";
 /// logger_error!(logger, "error occurred: {}", error);
 /// ```
 #[macro_export]
@@ -602,7 +617,12 @@ macro_rules! logger_error {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use libcommon_core::log::{Logger, LogLevel, LogFlags};
+/// # use libcommon_core::logger_warning;
+///
+/// # let logger = Logger::new_parent("example", LogLevel::Info, LogFlags::empty());
+/// let warning_msg = "something might be wrong";
 /// logger_warning!(logger, "warning: {}", warning_msg);
 /// ```
 #[macro_export]
@@ -618,7 +638,12 @@ macro_rules! logger_warning {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use libcommon_core::log::{Logger, LogLevel, LogFlags};
+/// # use libcommon_core::logger_notice;
+///
+/// # let logger = Logger::new_parent("example", LogLevel::Info, LogFlags::empty());
+/// let info = "noteworthy event";
 /// logger_notice!(logger, "notice: {}", info);
 /// ```
 #[macro_export]
@@ -634,7 +659,12 @@ macro_rules! logger_notice {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use libcommon_core::log::{Logger, LogLevel, LogFlags};
+/// # use libcommon_core::logger_info;
+///
+/// # let logger = Logger::new_parent("example", LogLevel::Info, LogFlags::empty());
+/// let info = "some information";
 /// logger_info!(logger, "info: {}", info);
 /// ```
 #[macro_export]
@@ -650,7 +680,12 @@ macro_rules! logger_info {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use libcommon_core::log::{Logger, LogLevel, LogFlags};
+/// # use libcommon_core::logger_debug;
+///
+/// # let logger = Logger::new_parent("example", LogLevel::Debug, LogFlags::empty());
+/// let debug_info = "debug details";
 /// logger_debug!(logger, "debug: {}", debug_info);
 /// ```
 #[macro_export]
@@ -666,7 +701,12 @@ macro_rules! logger_debug {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use libcommon_core::log::{Logger, LogLevel, LogFlags};
+/// # use libcommon_core::logger_trace;
+///
+/// # let logger = Logger::new_parent("example", LogLevel::Trace, LogFlags::empty());
+/// let trace_info = "trace details";
 /// logger_trace!(logger, 1, "trace: {}", trace_info);
 /// ```
 #[macro_export]
@@ -682,7 +722,12 @@ macro_rules! logger_trace {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use libcommon_core::log::{Logger, LogLevel, LogFlags, LOG_INFO};
+/// # use libcommon_core::logger_log;
+///
+/// # let logger = Logger::new_parent("example", LogLevel::Info, LogFlags::empty());
+/// let debug_info = "some info";
 /// logger_log!(logger, LOG_INFO, "info: {}", debug_info);
 /// ```
 #[macro_export]
