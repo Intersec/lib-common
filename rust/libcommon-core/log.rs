@@ -528,6 +528,22 @@ unsafe impl Sync for Logger<'_> {}
 // }}}
 // {{{ Logging macros
 
+/// Macro to get the current function name.
+///
+/// Uses `std::any::type_name` on a nested function to derive the enclosing function's path.
+/// Returns the full path (e.g., `module::submodule::function_name`).
+#[macro_export]
+macro_rules! function_name {
+    () => {{
+        fn f() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            ::std::any::type_name::<T>()
+        }
+        let name = type_name_of(f);
+        name.strip_suffix("::f").unwrap_or(name)
+    }};
+}
+
 /// Internal macro to emit a log message. Used by the public logging macros.
 #[doc(hidden)]
 #[macro_export]
@@ -538,7 +554,7 @@ macro_rules! __logger_log {
             $logger.log(
                 $level,
                 ::std::file!(),
-                "rust",
+                $crate::function_name!(),
                 ::std::line!() as i32,
                 &msg
             );
@@ -564,7 +580,7 @@ macro_rules! __logger_log {
 macro_rules! logger_fatal {
     ($logger:expr, $($arg:tt)*) => {{
         let msg = ::std::format!($($arg)*);
-        $logger.fatal(::std::file!(), "rust", ::std::line!() as i32, &msg)
+        $logger.fatal(::std::file!(), $crate::function_name!(), ::std::line!() as i32, &msg)
     }};
 }
 
@@ -586,7 +602,7 @@ macro_rules! logger_fatal {
 macro_rules! logger_panic {
     ($logger:expr, $($arg:tt)*) => {{
         let msg = ::std::format!($($arg)*);
-        $logger.panic(::std::file!(), "rust", ::std::line!() as i32, &msg)
+        $logger.panic(::std::file!(), $crate::function_name!(), ::std::line!() as i32, &msg)
     }};
 }
 
