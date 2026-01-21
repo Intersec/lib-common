@@ -329,8 +329,10 @@ void module_implement_method_void_no_custom_data(
     const module_method_t * nonnull method,
     void (* nonnull cb)(void))
 {
+    const void *void_cb = (const void *)cb;
+
     module_implement_method_void(
-        mod, method, (const void *)cb,
+        mod, method, (void (*)(void * nullable))void_cb,
         (void *)&module_method_no_custom_data_g);
 }
 
@@ -351,8 +353,11 @@ void module_implement_method_int_no_custom_data(
     const module_method_t * nonnull method,
     void (* nonnull cb)(int))
 {
-    module_implement_method_int(mod, method, (const void *)cb,
-                                (void *)&module_method_no_custom_data_g);
+    const void *void_cb = (const void *)cb;
+
+    module_implement_method_int(
+        mod, method, (void (*)(int, void * nullable))void_cb,
+        (void *)&module_method_no_custom_data_g);
 }
 
 static inline
@@ -372,8 +377,11 @@ void module_implement_method_generic_no_custom_data(
     const module_method_t * nonnull method,
     void (* nonnull cb)(data_t))
 {
-    module_implement_method_generic(mod, method, (const void *)cb,
-                                    (void *)&module_method_no_custom_data_g);
+    const void *void_cb = (const void *)cb;
+
+    module_implement_method_generic(
+        mod, method, (void (*)(data_t, void * nullable))void_cb,
+        (void *)&module_method_no_custom_data_g);
 }
 
 static inline
@@ -393,8 +401,11 @@ void module_implement_method_ptr_no_custom_data(
     const module_method_t * nonnull method,
     void (* nonnull cb)(void * nullable))
 {
-    module_implement_method_ptr(mod, method, (const void *)cb,
-                                (void *)&module_method_no_custom_data_g);
+    const void *void_cb = (const void *)cb;
+
+    module_implement_method_ptr(
+        mod, method, (void (*)(void * nullable, void * nullable))void_cb,
+        (void *)&module_method_no_custom_data_g);
 }
 
 /* }}} */
