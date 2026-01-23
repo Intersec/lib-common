@@ -590,6 +590,7 @@ static void thr_queue_drain(thr_queue_t *q)
     bool wipe = false;
     mpsc_it_t it;
     ssize_t id;
+    ssize_t prev_id = THR_QUEUE_NOT_RUNNING;
 
     if (unlikely(mpsc_queue_looks_empty(&q->q))) {
         /* The queue should not be marked empty *and* scheduled. the only
@@ -601,7 +602,15 @@ static void thr_queue_drain(thr_queue_t *q)
     }
 
     id = thr_id();
-    atomic_store(&q->running_on, id);
+    while (unlikely(!atomic_compare_exchange_strong(&q->running_on, &prev_id,
+                                                    id)))
+    {
+        if (unlikely(id == prev_id)) {
+            /* Looks like we already are the one running this queue. */
+            assert(false);
+            break;
+        }
+    }
     mpsc_queue_drain_start(&it, &q->q);
     do {
         mpsc_node_t *m = mpsc_queue_drain_fast(&it, &thr_queue_run_node,
