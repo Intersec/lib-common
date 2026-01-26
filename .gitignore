@@ -39,3 +39,6 @@ mem.fifo.data.*
 # rust stuff
 /.cargo/target
 .waf-cargo-build*
+
+# Claude code
+.claude
