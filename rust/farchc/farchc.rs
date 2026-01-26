@@ -30,7 +30,7 @@ use std::process::exit;
 use clap::Parser;
 
 use libcommon_core::bindings::{lstr_obfuscate, lzo_cbuf_size, qlzo1x_compress};
-use libcommon_core::lstr::{self, AsRaw as _};
+use libcommon_core::lstr::{self, AsRawLstr as _};
 use libcommon_core::pstream::pstream_t;
 
 const PATHMAX: i32 = 4096;

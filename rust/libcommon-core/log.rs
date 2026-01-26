@@ -46,7 +46,7 @@
 
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
-use std::os::raw::{c_char, c_int};
+use std::os::raw::c_int;
 use std::ptr;
 
 use crate::bindings::{
@@ -54,7 +54,7 @@ use crate::bindings::{
     logger_has_level, logger_new, logger_t,
 };
 pub use crate::bindings::{LOG_CRIT, LOG_DEBUG, LOG_ERR, LOG_INFO, LOG_NOTICE, LOG_WARNING};
-use crate::lstr::{self, AsRaw as _};
+use crate::lstr::{self, AsRawLstr as _};
 
 // {{{ Log levels
 
@@ -262,7 +262,7 @@ impl Logger<'_> {
             __logger_log(
                 self.as_ptr(),
                 level,
-                lstr::null(),
+                lstr::null_bytes().as_raw(),
                 -1,
                 lstr::raw(file),
                 lstr::raw(func),
@@ -408,8 +408,8 @@ const fn make_static_c_logger(
         default_level,
         level_flags: flags,
         default_level_flags: flags,
-        name: lstr::from_ptr_and_len(name.as_ptr().cast::<c_char>(), name.len()),
-        full_name: lstr::null(),
+        name: lstr::raw(name),
+        full_name: lstr::null_raw(),
         parent,
         children: dlist_t {
             next: ptr::null_mut(),

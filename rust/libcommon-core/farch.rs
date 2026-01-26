@@ -24,18 +24,18 @@ use std::os::raw::{c_char, c_void};
 use std::ptr;
 use std::ptr::from_ref;
 
-use crate::bindings::{lstr_obfuscate, pstream_t, qlzo1x_decompress_safe};
+use crate::bindings::{lstr_obfuscate, lstr_t, pstream_t, qlzo1x_decompress_safe};
 
 #[allow(clippy::module_name_repetitions)]
 pub use crate::bindings::farch_entry_t;
 use crate::c_module;
 use crate::helpers::slice_assume_init_mut;
-use crate::lstr::{self, AsRaw, BorrowedLstr, lstr_t};
+use crate::lstr::{self, AsRawLstr, BorrowedBytesLstr, UnsafeBytesLstr};
 use crate::mem_stack::TScope;
 
 // {{{ Helpers
 
-fn lstr_unobfuscate(in_: &impl AsRaw, key: u64, out: &impl AsRaw) {
+fn lstr_unobfuscate(in_: &impl AsRawLstr, key: u64, out: &impl AsRawLstr) {
     unsafe { lstr_obfuscate(in_.as_raw(), key, out.as_raw()) }
 }
 
@@ -43,11 +43,11 @@ fn lstr_unobfuscate(in_: &impl AsRaw, key: u64, out: &impl AsRaw) {
 // {{{ Private functions
 
 /// Unobfuscate and get the filename of an entry in a buffer.
-fn t_farch_get_filename<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> BorrowedLstr<'t> {
+fn t_farch_get_filename<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> BorrowedBytesLstr<'t> {
     let name_buf_uninit: &'t mut [MaybeUninit<u8>] = t_scope.t_new_slice_uninit(entry.name.len());
     let name_buf_ptr = name_buf_uninit.as_ptr();
     let name_lstr =
-        lstr::from_borrowed_ptr_and_len::<'t>(name_buf_ptr.cast::<c_char>(), entry.name.len());
+        unsafe { lstr::from_ptr_and_len::<'t>(name_buf_ptr.cast::<c_char>(), entry.name.len()) };
 
     lstr_unobfuscate(&entry.name, entry.nb_chunks as u64, &name_lstr);
 
@@ -71,7 +71,7 @@ fn t_farch_aggregate<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> Option<&
         let chunk_len = chunk.len();
         let content_chunk_ptr: *mut u8 = unsafe { contents_ptr_1.add(compressed_size) };
         let content_chunk_lstr =
-            lstr::from_ptr_and_len(content_chunk_ptr.cast::<c_char>(), chunk_len);
+            unsafe { lstr::from_ptr_and_len(content_chunk_ptr.cast::<c_char>(), chunk_len) };
 
         compressed_size += chunk_len;
         if compressed_size > entry_compressed_size {
@@ -156,7 +156,7 @@ fn t_farch_unarchive_buf<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> &'t 
 /// # Panic
 ///
 /// If not being able to decompress the archive.
-fn t_farch_unarchive_lstr<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> BorrowedLstr<'t> {
+fn t_farch_unarchive_lstr<'t>(t_scope: &'t TScope, entry: &farch_entry_t) -> BorrowedBytesLstr<'t> {
     lstr::from_bytes(t_farch_unarchive_buf(t_scope, entry))
 }
 
@@ -169,7 +169,7 @@ unsafe fn farch_get_entry(
         return unsafe { files.as_ref() };
     }
 
-    let name_lstr = unsafe { lstr::from_ptr(name) };
+    let name_lstr: UnsafeBytesLstr = unsafe { lstr::from_ptr(name) };
     let mut files = files;
 
     loop {
@@ -246,7 +246,7 @@ pub unsafe extern "C" fn farch_get_filename(
         return ptr::null_mut();
     }
 
-    let out = lstr::from_ptr_and_len(name_outbuf, entry.name.len());
+    let out = unsafe { lstr::from_ptr_and_len(name_outbuf, entry.name.len()) };
 
     // Deobfuscate the name.
     lstr_unobfuscate(&entry.name, entry.nb_chunks as u64, &out);
@@ -298,7 +298,7 @@ pub unsafe extern "C" fn t_farch_get_data(
     let entry = unsafe { farch_get_entry(files, name) };
 
     let Some(entry) = entry else {
-        return lstr::null();
+        return unsafe { lstr::null_bytes().as_raw() };
     };
 
     let t_scope = TScope::from_parent();
@@ -319,7 +319,7 @@ pub unsafe extern "C" fn farch_get_data_persist(
     let entry = unsafe { farch_get_entry(files, name) };
 
     let Some(entry) = entry else {
-        return lstr::null();
+        return unsafe { lstr::null_bytes().as_raw() };
     };
 
     farch_unarchive_persist_ref(entry)
