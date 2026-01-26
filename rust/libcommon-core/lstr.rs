@@ -107,11 +107,11 @@ const fn lstr_from_raw_parts(ptr: *const c_char, len: usize) -> lstr_t {
 pub trait AsRawLstr {
     /// Create a raw `lstr_t` from this value.
     ///
-    /// # Safety
-    ///
-    /// This method is unsafe because the lifetime of the underlying data is lost.
+    /// Note: The lifetime of the underlying data is lost in the returned `lstr_t`.
     /// The caller must ensure the returned `lstr_t` does not outlive the source.
-    unsafe fn as_raw(&self) -> lstr_t;
+    /// Creating the raw `lstr_t` is safe (like creating a raw pointer), but using
+    /// it to access data requires appropriate unsafe blocks.
+    fn as_raw(&self) -> lstr_t;
 }
 
 // }}}
@@ -217,7 +217,7 @@ macro_rules! lstr_common_impl {
 
         impl $( < $lt > )? AsRawLstr for $name $( < $lt > )? {
             #[inline]
-            unsafe fn as_raw(&self) -> lstr_t {
+            fn as_raw(&self) -> lstr_t {
                 self.lstr
             }
         }
@@ -571,7 +571,7 @@ impl lstr_t {
 
 impl AsRawLstr for lstr_t {
     #[inline]
-    unsafe fn as_raw(&self) -> lstr_t {
+    fn as_raw(&self) -> lstr_t {
         *self
     }
 }
@@ -949,7 +949,7 @@ mod tests {
     #[test]
     fn test_unsafe_bytes_from_raw() {
         let borrowed = from_bytes(TEST_BYTES);
-        let raw_lstr = unsafe { borrowed.as_raw() };
+        let raw_lstr = borrowed.as_raw();
         let unsafe_bytes = unsafe { from_raw_bytes(raw_lstr) };
 
         assert_eq!(unsafe_bytes.len(), TEST_BYTES.len());
@@ -1048,7 +1048,7 @@ mod tests {
     #[test]
     fn test_unsafe_utf8_from_raw() {
         let borrowed = from_str(TEST_STR);
-        let raw_lstr = unsafe { borrowed.as_raw() };
+        let raw_lstr = borrowed.as_raw();
         let unsafe_utf8 = unsafe { from_raw_utf8(raw_lstr) };
 
         assert_eq!(unsafe_utf8.len(), TEST_STR.len());
@@ -1690,7 +1690,7 @@ mod tests {
     #[test]
     fn test_as_raw_lstr_trait() {
         fn generic_len<T: AsRawLstr>(lstr: &T) -> usize {
-            unsafe { lstr.as_raw() }.len()
+            lstr.as_raw().len()
         }
 
         let bytes = from_bytes(TEST_BYTES);
@@ -1708,7 +1708,7 @@ mod tests {
     #[test]
     fn test_lstr_t_len() {
         let borrowed = from_bytes(TEST_BYTES);
-        let raw_lstr = unsafe { borrowed.as_raw() };
+        let raw_lstr = borrowed.as_raw();
 
         assert_eq!(raw_lstr.len(), TEST_BYTES.len());
     }
@@ -1718,8 +1718,8 @@ mod tests {
         let empty = from_bytes(b"");
         let non_empty = from_bytes(TEST_BYTES);
 
-        assert!(unsafe { empty.as_raw() }.is_empty());
-        assert!(!unsafe { non_empty.as_raw() }.is_empty());
+        assert!(empty.as_raw().is_empty());
+        assert!(!non_empty.as_raw().is_empty());
     }
 
     #[test]
@@ -1727,8 +1727,8 @@ mod tests {
         let null = null_bytes();
         let non_null = from_bytes(TEST_BYTES);
 
-        assert!(unsafe { null.as_raw() }.is_null());
-        assert!(!unsafe { non_null.as_raw() }.is_null());
+        assert!(null.as_raw().is_null());
+        assert!(!non_null.as_raw().is_null());
     }
 
     // }}}

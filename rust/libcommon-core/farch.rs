@@ -222,7 +222,7 @@ fn farch_unarchive_persist_ref(entry: &farch_entry_t) -> lstr_t {
     // The buffer holds the null character in its buffer
     let persisted_buf = &persisted_buf_1[..persisted_buf_1.len() - 1];
 
-    unsafe { lstr::from_bytes(persisted_buf).as_raw() }
+    lstr::from_bytes(persisted_buf).as_raw()
 }
 
 // }}}
@@ -270,7 +270,7 @@ pub unsafe extern "C" fn t_farch_unarchive(entry: *const farch_entry_t) -> lstr_
 
     let t_scope = TScope::from_parent();
     let res_lstr = t_farch_unarchive_lstr(&t_scope, entry);
-    unsafe { res_lstr.as_raw() }
+    res_lstr.as_raw()
 }
 
 #[allow(
@@ -298,12 +298,12 @@ pub unsafe extern "C" fn t_farch_get_data(
     let entry = unsafe { farch_get_entry(files, name) };
 
     let Some(entry) = entry else {
-        return unsafe { lstr::null_bytes().as_raw() };
+        return lstr::null_bytes().as_raw();
     };
 
     let t_scope = TScope::from_parent();
     let res_lstr = t_farch_unarchive_lstr(&t_scope, entry);
-    unsafe { res_lstr.as_raw() }
+    res_lstr.as_raw()
 }
 
 #[allow(
@@ -319,7 +319,7 @@ pub unsafe extern "C" fn farch_get_data_persist(
     let entry = unsafe { farch_get_entry(files, name) };
 
     let Some(entry) = entry else {
-        return unsafe { lstr::null_bytes().as_raw() };
+        return lstr::null_bytes().as_raw();
     };
 
     farch_unarchive_persist_ref(entry)
