@@ -31,7 +31,7 @@ use crate::bindings::{
     t_iop_new_desc, t_iop_sb_ypack, t_iop_yunpack_ptr_ps,
 };
 
-use crate::lstr::{self, AsRawLstr as _};
+use crate::lstr;
 use crate::mem_stack::TScope;
 use crate::pstream::pstream_t;
 use libcommon_core::{SB_1k, sb::Sb};

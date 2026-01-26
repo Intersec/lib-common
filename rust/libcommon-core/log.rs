@@ -54,7 +54,7 @@ use crate::bindings::{
     logger_has_level, logger_new, logger_t,
 };
 pub use crate::bindings::{LOG_CRIT, LOG_DEBUG, LOG_ERR, LOG_INFO, LOG_NOTICE, LOG_WARNING};
-use crate::lstr::{self, AsRawLstr as _};
+use crate::lstr;
 
 // {{{ Log levels
 

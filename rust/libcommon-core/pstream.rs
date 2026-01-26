@@ -28,7 +28,7 @@ use std::str::{FromStr, Utf8Error};
 
 use crate::bindings::{lstr_t, pstream_t__bindgen_ty_1, pstream_t__bindgen_ty_2};
 use crate::helpers::slice_from_nullable_raw_parts;
-use crate::lstr::{self, AsRawLstr as _, UnsafeBytesLstr};
+use crate::lstr::{self, UnsafeBytesLstr};
 
 #[allow(clippy::module_name_repetitions)]
 pub use crate::bindings::pstream_t;

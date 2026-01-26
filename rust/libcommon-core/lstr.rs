@@ -111,7 +111,7 @@ pub trait AsRawLstr {
     /// The caller must ensure the returned `lstr_t` does not outlive the source.
     /// Creating the raw `lstr_t` is safe (like creating a raw pointer), but using
     /// it to access data requires appropriate unsafe blocks.
-    fn as_raw(&self) -> lstr_t;
+    fn as_raw_lstr(&self) -> lstr_t;
 }
 
 // }}}
@@ -211,31 +211,23 @@ macro_rules! lstr_common_impl {
             /// Check if two `lstr_t` are equal.
             #[inline]
             pub fn equals<T: AsRawLstr>(&self, other: &T) -> bool {
-                unsafe { lstr_equal(self.lstr, other.as_raw()) }
+                unsafe { lstr_equal(self.lstr, other.as_raw_lstr()) }
+            }
+
+            /// Get the raw `lstr_t`.
+            ///
+            /// Note: The lifetime of the underlying data is lost in the returned `lstr_t`.
+            /// The caller must ensure the returned `lstr_t` does not outlive the source.
+            #[inline]
+            pub const fn as_raw(&self) -> lstr_t {
+                self.lstr
             }
         }
 
         impl $( < $lt > )? AsRawLstr for $name $( < $lt > )? {
             #[inline]
-            fn as_raw(&self) -> lstr_t {
-                self.lstr
-            }
-        }
-    };
-}
-
-/// Macro to generate const `into_raw` for non-owned types.
-macro_rules! lstr_const_into_raw_impl {
-    ($name:ident $(< $lt:lifetime >)?) => {
-        impl $( < $lt > )? $name $( < $lt > )? {
-            /// Get the raw `lstr_t` (const version).
-            ///
-            /// # Safety
-            ///
-            /// The lifetime of the underlying data is lost.
-            #[inline]
-            pub const unsafe fn into_raw(self) -> lstr_t {
-                self.lstr
+            fn as_raw_lstr(&self) -> lstr_t {
+                self.as_raw()
             }
         }
     };
@@ -571,7 +563,7 @@ impl lstr_t {
 
 impl AsRawLstr for lstr_t {
     #[inline]
-    fn as_raw(&self) -> lstr_t {
+    fn as_raw_lstr(&self) -> lstr_t {
         *self
     }
 }
@@ -581,22 +573,18 @@ impl AsRawLstr for lstr_t {
 
 // UnsafeBytesLstr
 lstr_common_impl!(UnsafeBytesLstr);
-lstr_const_into_raw_impl!(UnsafeBytesLstr);
 lstr_unsafe_bytes_impl!(UnsafeBytesLstr);
 
 // UnsafeUtf8Lstr
 lstr_common_impl!(UnsafeUtf8Lstr);
-lstr_const_into_raw_impl!(UnsafeUtf8Lstr);
 lstr_unsafe_utf8_impl!(UnsafeUtf8Lstr);
 
 // BorrowedBytesLstr
 lstr_common_impl!(BorrowedBytesLstr<'a>);
-lstr_const_into_raw_impl!(BorrowedBytesLstr<'a>);
 lstr_safe_bytes_impl!(BorrowedBytesLstr<'a>);
 
 // BorrowedUtf8Lstr
 lstr_common_impl!(BorrowedUtf8Lstr<'a>);
-lstr_const_into_raw_impl!(BorrowedUtf8Lstr<'a>);
 lstr_safe_utf8_impl!(BorrowedUtf8Lstr<'a>);
 
 // OwnedBytesLstr
@@ -905,7 +893,7 @@ pub const fn empty_utf8() -> UnsafeUtf8Lstr {
 /// This is a convenience function for passing static strings to C functions.
 /// The returned `lstr_t` is valid for the lifetime of the static string.
 pub const fn raw(s: &'static str) -> lstr_t {
-    unsafe { from_str(s).into_raw() }
+    from_str(s).as_raw()
 }
 
 /// Create a null `lstr_t`.
@@ -1023,11 +1011,11 @@ mod tests {
     }
 
     #[test]
-    fn test_unsafe_bytes_into_raw() {
+    fn test_unsafe_bytes_as_raw() {
         let borrowed = from_bytes(TEST_BYTES);
         let unsafe_bytes: UnsafeBytesLstr = borrowed.into();
 
-        let raw_lstr = unsafe { unsafe_bytes.into_raw() };
+        let raw_lstr = unsafe_bytes.as_raw();
         assert_eq!(raw_lstr.len(), TEST_BYTES.len());
     }
 
@@ -1690,7 +1678,7 @@ mod tests {
     #[test]
     fn test_as_raw_lstr_trait() {
         fn generic_len<T: AsRawLstr>(lstr: &T) -> usize {
-            lstr.as_raw().len()
+            lstr.as_raw_lstr().len()
         }
 
         let bytes = from_bytes(TEST_BYTES);

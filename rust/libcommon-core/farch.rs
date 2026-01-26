@@ -36,7 +36,7 @@ use crate::mem_stack::TScope;
 // {{{ Helpers
 
 fn lstr_unobfuscate(in_: &impl AsRawLstr, key: u64, out: &impl AsRawLstr) {
-    unsafe { lstr_obfuscate(in_.as_raw(), key, out.as_raw()) }
+    unsafe { lstr_obfuscate(in_.as_raw_lstr(), key, out.as_raw_lstr()) }
 }
 
 // }}}
@@ -298,7 +298,7 @@ pub unsafe extern "C" fn t_farch_get_data(
     let entry = unsafe { farch_get_entry(files, name) };
 
     let Some(entry) = entry else {
-        return lstr::null_bytes().as_raw();
+        return lstr::null_raw();
     };
 
     let t_scope = TScope::from_parent();
@@ -319,7 +319,7 @@ pub unsafe extern "C" fn farch_get_data_persist(
     let entry = unsafe { farch_get_entry(files, name) };
 
     let Some(entry) = entry else {
-        return lstr::null_bytes().as_raw();
+        return lstr::null_raw();
     };
 
     farch_unarchive_persist_ref(entry)
