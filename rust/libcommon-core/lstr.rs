@@ -927,3 +927,811 @@ pub const fn empty_raw() -> lstr_t {
 }
 
 // }}}
+// {{{ Tests
+
+#[cfg(test)]
+#[allow(clippy::redundant_test_prefix)]
+mod tests {
+    use std::convert::TryFrom as _;
+
+    use super::*;
+    use crate::mem_stack::TScope;
+
+    // {{{ Test data
+
+    const TEST_STR: &str = "hello world";
+    const TEST_BYTES: &[u8] = b"hello world";
+    const INVALID_UTF8: &[u8] = &[0xff, 0xfe, 0x00, 0x01];
+
+    // }}}
+    // {{{ UnsafeBytesLstr tests
+
+    #[test]
+    fn test_unsafe_bytes_from_raw() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let raw_lstr = unsafe { borrowed.as_raw() };
+        let unsafe_bytes = unsafe { from_raw_bytes(raw_lstr) };
+
+        assert_eq!(unsafe_bytes.len(), TEST_BYTES.len());
+        assert!(!unsafe_bytes.is_empty());
+        assert!(!unsafe_bytes.is_null());
+        assert_eq!(unsafe { unsafe_bytes.as_bytes() }, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_unsafe_bytes_null() {
+        let null = null_bytes();
+
+        assert!(null.is_null());
+        assert!(null.is_empty());
+        assert_eq!(null.len(), 0);
+    }
+
+    #[test]
+    fn test_unsafe_bytes_empty() {
+        let empty = empty_bytes();
+
+        assert!(!empty.is_null());
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+    }
+
+    #[test]
+    fn test_unsafe_bytes_as_str_unchecked() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let unsafe_bytes: UnsafeBytesLstr = borrowed.into();
+
+        assert_eq!(unsafe { unsafe_bytes.as_str_unchecked() }, TEST_STR);
+    }
+
+    #[test]
+    fn test_unsafe_bytes_equals() {
+        let a = from_bytes(TEST_BYTES);
+        let b = from_bytes(TEST_BYTES);
+        let c = from_bytes(b"different");
+
+        assert!(a.equals(&b));
+        assert!(!a.equals(&c));
+    }
+
+    #[test]
+    fn test_unsafe_bytes_dup() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let unsafe_bytes: UnsafeBytesLstr = borrowed.into();
+
+        let owned = unsafe_bytes.dup_bytes();
+        assert_eq!(owned.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_unsafe_bytes_t_dup() {
+        let t_scope = TScope::new_scope();
+        let borrowed = from_bytes(TEST_BYTES);
+        let unsafe_bytes: UnsafeBytesLstr = borrowed.into();
+
+        let t_borrowed = unsafe_bytes.t_dup_bytes(&t_scope);
+        assert_eq!(t_borrowed.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_unsafe_bytes_display() {
+        let borrowed = from_bytes(b"abc");
+        let unsafe_bytes: UnsafeBytesLstr = borrowed.into();
+
+        let display = format!("{unsafe_bytes}");
+        assert!(display.contains("61")); // 'a' = 0x61
+    }
+
+    #[test]
+    fn test_unsafe_bytes_into_raw() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let unsafe_bytes: UnsafeBytesLstr = borrowed.into();
+
+        let raw_lstr = unsafe { unsafe_bytes.into_raw() };
+        assert_eq!(raw_lstr.len(), TEST_BYTES.len());
+    }
+
+    #[test]
+    fn test_unsafe_bytes_copy() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let unsafe_bytes: UnsafeBytesLstr = borrowed.into();
+
+        let copy = unsafe_bytes;
+        assert_eq!(unsafe { copy.as_bytes() }, TEST_BYTES);
+        // Original still valid (Copy trait)
+        assert_eq!(unsafe { unsafe_bytes.as_bytes() }, TEST_BYTES);
+    }
+
+    // }}}
+    // {{{ UnsafeUtf8Lstr tests
+
+    #[test]
+    fn test_unsafe_utf8_from_raw() {
+        let borrowed = from_str(TEST_STR);
+        let raw_lstr = unsafe { borrowed.as_raw() };
+        let unsafe_utf8 = unsafe { from_raw_utf8(raw_lstr) };
+
+        assert_eq!(unsafe_utf8.len(), TEST_STR.len());
+        assert!(!unsafe_utf8.is_empty());
+        assert!(!unsafe_utf8.is_null());
+        assert_eq!(unsafe { unsafe_utf8.as_str() }, TEST_STR);
+    }
+
+    #[test]
+    fn test_unsafe_utf8_null() {
+        let null = null_utf8();
+
+        assert!(null.is_null());
+        assert!(null.is_empty());
+        assert_eq!(null.len(), 0);
+    }
+
+    #[test]
+    fn test_unsafe_utf8_empty() {
+        let empty = empty_utf8();
+
+        assert!(!empty.is_null());
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+    }
+
+    #[test]
+    fn test_unsafe_utf8_as_bytes() {
+        let borrowed = from_str(TEST_STR);
+        let unsafe_utf8: UnsafeUtf8Lstr = borrowed.into();
+
+        assert_eq!(unsafe { unsafe_utf8.as_bytes() }, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_unsafe_utf8_dup() {
+        let borrowed = from_str(TEST_STR);
+        let unsafe_utf8: UnsafeUtf8Lstr = borrowed.into();
+
+        let owned = unsafe_utf8.dup_utf8();
+        assert_eq!(owned.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_unsafe_utf8_dup_bytes() {
+        let borrowed = from_str(TEST_STR);
+        let unsafe_utf8: UnsafeUtf8Lstr = borrowed.into();
+
+        let owned = unsafe_utf8.dup_bytes();
+        assert_eq!(owned.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_unsafe_utf8_t_dup() {
+        let t_scope = TScope::new_scope();
+        let borrowed = from_str(TEST_STR);
+        let unsafe_utf8: UnsafeUtf8Lstr = borrowed.into();
+
+        let t_borrowed = unsafe_utf8.t_dup_utf8(&t_scope);
+        assert_eq!(t_borrowed.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_unsafe_utf8_display() {
+        let borrowed = from_str("abc");
+        let unsafe_utf8: UnsafeUtf8Lstr = borrowed.into();
+
+        let display = format!("{unsafe_utf8}");
+        assert_eq!(display, "abc");
+    }
+
+    #[test]
+    fn test_unsafe_utf8_debug() {
+        let borrowed = from_str("abc");
+        let unsafe_utf8: UnsafeUtf8Lstr = borrowed.into();
+
+        let debug = format!("{unsafe_utf8:?}");
+        assert!(debug.contains("abc"));
+    }
+
+    #[test]
+    fn test_unsafe_utf8_copy() {
+        let borrowed = from_str(TEST_STR);
+        let unsafe_utf8: UnsafeUtf8Lstr = borrowed.into();
+
+        let copy = unsafe_utf8;
+        assert_eq!(unsafe { copy.as_str() }, TEST_STR);
+        // Original still valid (Copy trait)
+        assert_eq!(unsafe { unsafe_utf8.as_str() }, TEST_STR);
+    }
+
+    // }}}
+    // {{{ BorrowedBytesLstr tests
+
+    #[test]
+    fn test_borrowed_bytes_from_bytes() {
+        let borrowed = from_bytes(TEST_BYTES);
+
+        assert_eq!(borrowed.len(), TEST_BYTES.len());
+        assert!(!borrowed.is_empty());
+        assert!(!borrowed.is_null());
+        assert_eq!(borrowed.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_bytes_from_trait() {
+        let borrowed: BorrowedBytesLstr<'_> = TEST_BYTES.into();
+
+        assert_eq!(borrowed.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_bytes_deref() {
+        let borrowed = from_bytes(TEST_BYTES);
+
+        // Deref to &[u8]
+        let slice: &[u8] = &borrowed;
+        assert_eq!(slice, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_bytes_as_ref() {
+        let borrowed = from_bytes(TEST_BYTES);
+
+        let slice: &[u8] = borrowed.as_ref();
+        assert_eq!(slice, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_bytes_dup() {
+        let borrowed = from_bytes(TEST_BYTES);
+
+        let owned = borrowed.dup();
+        assert_eq!(owned.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_bytes_t_dup() {
+        let t_scope = TScope::new_scope();
+        let borrowed = from_bytes(TEST_BYTES);
+
+        let t_borrowed = borrowed.t_dup(&t_scope);
+        assert_eq!(t_borrowed.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_bytes_copy() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let copy = borrowed;
+
+        // Both are still valid (Copy trait)
+        assert_eq!(borrowed.as_bytes(), TEST_BYTES);
+        assert_eq!(copy.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_bytes_clone() {
+        let borrowed = from_bytes(TEST_BYTES);
+        #[allow(clippy::clone_on_copy)]
+        let cloned = borrowed.clone();
+
+        assert_eq!(cloned.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_bytes_display() {
+        let borrowed = from_bytes(b"abc");
+
+        let display = format!("{borrowed}");
+        assert!(display.contains("61")); // 'a' = 0x61
+    }
+
+    #[test]
+    fn test_borrowed_bytes_to_unsafe() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let unsafe_bytes: UnsafeBytesLstr = borrowed.into();
+
+        assert_eq!(unsafe { unsafe_bytes.as_bytes() }, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_bytes_try_into_utf8_valid() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let utf8 = BorrowedUtf8Lstr::try_from(borrowed).expect("valid UTF-8");
+
+        assert_eq!(utf8.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_borrowed_bytes_try_into_utf8_invalid() {
+        let borrowed = from_bytes(INVALID_UTF8);
+        let utf8: Result<BorrowedUtf8Lstr<'_>, _> = BorrowedUtf8Lstr::try_from(borrowed);
+
+        utf8.expect_err("invalid UTF-8 should fail");
+    }
+
+    // }}}
+    // {{{ BorrowedUtf8Lstr tests
+
+    #[test]
+    fn test_borrowed_utf8_from_str() {
+        let borrowed = from_str(TEST_STR);
+
+        assert_eq!(borrowed.len(), TEST_STR.len());
+        assert!(!borrowed.is_empty());
+        assert!(!borrowed.is_null());
+        assert_eq!(borrowed.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_borrowed_utf8_from_trait() {
+        let borrowed: BorrowedUtf8Lstr<'_> = TEST_STR.into();
+
+        assert_eq!(borrowed.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_borrowed_utf8_as_bytes() {
+        let borrowed = from_str(TEST_STR);
+
+        assert_eq!(borrowed.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_utf8_deref() {
+        let borrowed = from_str(TEST_STR);
+
+        // Deref to &str
+        let s: &str = &borrowed;
+        assert_eq!(s, TEST_STR);
+    }
+
+    #[test]
+    fn test_borrowed_utf8_as_ref_str() {
+        let borrowed = from_str(TEST_STR);
+
+        let s: &str = borrowed.as_ref();
+        assert_eq!(s, TEST_STR);
+    }
+
+    #[test]
+    fn test_borrowed_utf8_as_ref_bytes() {
+        let borrowed = from_str(TEST_STR);
+
+        let bytes: &[u8] = borrowed.as_ref();
+        assert_eq!(bytes, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_borrowed_utf8_dup() {
+        let borrowed = from_str(TEST_STR);
+
+        let owned = borrowed.dup();
+        assert_eq!(owned.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_borrowed_utf8_t_dup() {
+        let t_scope = TScope::new_scope();
+        let borrowed = from_str(TEST_STR);
+
+        let t_borrowed = borrowed.t_dup(&t_scope);
+        assert_eq!(t_borrowed.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_borrowed_utf8_copy() {
+        let borrowed = from_str(TEST_STR);
+        let copy = borrowed;
+
+        // Both are still valid (Copy trait)
+        assert_eq!(borrowed.as_str(), TEST_STR);
+        assert_eq!(copy.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_borrowed_utf8_display() {
+        let borrowed = from_str("abc");
+
+        let display = format!("{borrowed}");
+        assert_eq!(display, "abc");
+    }
+
+    #[test]
+    fn test_borrowed_utf8_debug() {
+        let borrowed = from_str("abc");
+
+        let debug = format!("{borrowed:?}");
+        assert!(debug.contains("abc"));
+    }
+
+    #[test]
+    fn test_borrowed_utf8_to_unsafe() {
+        let borrowed = from_str(TEST_STR);
+        let unsafe_utf8: UnsafeUtf8Lstr = borrowed.into();
+
+        assert_eq!(unsafe { unsafe_utf8.as_str() }, TEST_STR);
+    }
+
+    #[test]
+    fn test_borrowed_utf8_to_bytes() {
+        let borrowed = from_str(TEST_STR);
+        let bytes: BorrowedBytesLstr<'_> = borrowed.into();
+
+        assert_eq!(bytes.as_bytes(), TEST_BYTES);
+    }
+
+    // }}}
+    // {{{ OwnedBytesLstr tests
+
+    #[test]
+    fn test_owned_bytes_from_dup() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let owned = borrowed.dup();
+
+        assert_eq!(owned.len(), TEST_BYTES.len());
+        assert!(!owned.is_empty());
+        assert!(!owned.is_null());
+        assert_eq!(owned.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_bytes_deref() {
+        let owned = from_bytes(TEST_BYTES).dup();
+
+        let slice: &[u8] = &owned;
+        assert_eq!(slice, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_bytes_as_ref() {
+        let owned = from_bytes(TEST_BYTES).dup();
+
+        let slice: &[u8] = owned.as_ref();
+        assert_eq!(slice, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_bytes_dup() {
+        let owned = from_bytes(TEST_BYTES).dup();
+        let owned2 = owned.dup();
+
+        assert_eq!(owned.as_bytes(), TEST_BYTES);
+        assert_eq!(owned2.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_bytes_clone() {
+        let owned = from_bytes(TEST_BYTES).dup();
+        let cloned = owned.clone();
+
+        assert_eq!(owned.as_bytes(), TEST_BYTES);
+        assert_eq!(cloned.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_bytes_t_dup() {
+        let t_scope = TScope::new_scope();
+        let owned = from_bytes(TEST_BYTES).dup();
+
+        let t_borrowed = owned.t_dup(&t_scope);
+        assert_eq!(t_borrowed.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_bytes_to_unsafe() {
+        let owned = from_bytes(TEST_BYTES).dup();
+        let unsafe_bytes: UnsafeBytesLstr = (&owned).into();
+
+        assert_eq!(unsafe { unsafe_bytes.as_bytes() }, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_bytes_to_borrowed() {
+        let owned = from_bytes(TEST_BYTES).dup();
+        let borrowed: BorrowedBytesLstr<'_> = (&owned).into();
+
+        assert_eq!(borrowed.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_bytes_try_into_utf8_valid() {
+        let owned = from_bytes(TEST_BYTES).dup();
+        let utf8 = OwnedUtf8Lstr::try_from(owned).expect("valid UTF-8");
+
+        assert_eq!(utf8.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_owned_bytes_try_into_utf8_invalid() {
+        let owned = from_bytes(INVALID_UTF8).dup();
+        let utf8: Result<OwnedUtf8Lstr, _> = OwnedUtf8Lstr::try_from(owned);
+
+        utf8.expect_err("invalid UTF-8 should fail");
+    }
+
+    #[test]
+    fn test_owned_bytes_into_raw() {
+        let owned = from_bytes(TEST_BYTES).dup();
+        let raw_lstr = unsafe { owned.into_raw() };
+
+        // The raw lstr should have the same content
+        assert_eq!(raw_lstr.len(), TEST_BYTES.len());
+
+        // Clean up manually since we took ownership
+        unsafe {
+            let mut raw_lstr = raw_lstr;
+            lstr_wipe(&raw mut raw_lstr);
+        }
+    }
+
+    // }}}
+    // {{{ OwnedUtf8Lstr tests
+
+    #[test]
+    fn test_owned_utf8_from_dup() {
+        let borrowed = from_str(TEST_STR);
+        let owned = borrowed.dup();
+
+        assert_eq!(owned.len(), TEST_STR.len());
+        assert!(!owned.is_empty());
+        assert!(!owned.is_null());
+        assert_eq!(owned.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_owned_utf8_as_bytes() {
+        let owned = from_str(TEST_STR).dup();
+
+        assert_eq!(owned.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_utf8_deref() {
+        let owned = from_str(TEST_STR).dup();
+
+        let s: &str = &owned;
+        assert_eq!(s, TEST_STR);
+    }
+
+    #[test]
+    fn test_owned_utf8_as_ref_str() {
+        let owned = from_str(TEST_STR).dup();
+
+        let s: &str = owned.as_ref();
+        assert_eq!(s, TEST_STR);
+    }
+
+    #[test]
+    fn test_owned_utf8_as_ref_bytes() {
+        let owned = from_str(TEST_STR).dup();
+
+        let bytes: &[u8] = owned.as_ref();
+        assert_eq!(bytes, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_utf8_dup() {
+        let owned = from_str(TEST_STR).dup();
+        let owned2 = owned.dup();
+
+        assert_eq!(owned.as_str(), TEST_STR);
+        assert_eq!(owned2.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_owned_utf8_clone() {
+        let owned = from_str(TEST_STR).dup();
+        let cloned = owned.clone();
+
+        assert_eq!(owned.as_str(), TEST_STR);
+        assert_eq!(cloned.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_owned_utf8_t_dup() {
+        let t_scope = TScope::new_scope();
+        let owned = from_str(TEST_STR).dup();
+
+        let t_borrowed = owned.t_dup(&t_scope);
+        assert_eq!(t_borrowed.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_owned_utf8_to_unsafe() {
+        let owned = from_str(TEST_STR).dup();
+        let unsafe_utf8: UnsafeUtf8Lstr = (&owned).into();
+
+        assert_eq!(unsafe { unsafe_utf8.as_str() }, TEST_STR);
+    }
+
+    #[test]
+    fn test_owned_utf8_to_borrowed() {
+        let owned = from_str(TEST_STR).dup();
+        let borrowed: BorrowedUtf8Lstr<'_> = (&owned).into();
+
+        assert_eq!(borrowed.as_str(), TEST_STR);
+    }
+
+    #[test]
+    fn test_owned_utf8_to_bytes() {
+        let owned = from_str(TEST_STR).dup();
+        let bytes: OwnedBytesLstr = owned.into();
+
+        assert_eq!(bytes.as_bytes(), TEST_BYTES);
+    }
+
+    #[test]
+    fn test_owned_utf8_into_raw() {
+        let owned = from_str(TEST_STR).dup();
+        let raw_lstr = unsafe { owned.into_raw() };
+
+        // The raw lstr should have the same content
+        assert_eq!(raw_lstr.len(), TEST_STR.len());
+
+        // Clean up manually since we took ownership
+        unsafe {
+            let mut raw_lstr = raw_lstr;
+            lstr_wipe(&raw mut raw_lstr);
+        }
+    }
+
+    // }}}
+    // {{{ Constructor function tests
+
+    #[test]
+    fn test_from_ptr_and_len() {
+        let data = b"test data";
+        let borrowed = unsafe { from_ptr_and_len(data.as_ptr().cast(), data.len()) };
+
+        assert_eq!(borrowed.as_bytes(), data);
+    }
+
+    #[test]
+    fn test_from_str_ptr_and_len() {
+        let data = "test data";
+        let borrowed = unsafe { from_str_ptr_and_len(data.as_ptr().cast(), data.len()) };
+
+        assert_eq!(borrowed.as_str(), data);
+    }
+
+    #[test]
+    fn test_from_ptr() {
+        let cstr = c"test";
+        let unsafe_bytes = unsafe { from_ptr(cstr.as_ptr()) };
+
+        assert_eq!(unsafe { unsafe_bytes.as_bytes() }, b"test");
+    }
+
+    #[test]
+    fn test_raw_function() {
+        let raw_lstr = raw("static string");
+
+        assert_eq!(raw_lstr.len(), 13);
+        assert!(!raw_lstr.is_null());
+    }
+
+    #[test]
+    fn test_null_raw() {
+        let raw_lstr = null_raw();
+
+        assert!(raw_lstr.is_null());
+        assert!(raw_lstr.is_empty());
+        assert_eq!(raw_lstr.len(), 0);
+    }
+
+    #[test]
+    fn test_empty_raw() {
+        let raw_lstr = empty_raw();
+
+        assert!(!raw_lstr.is_null());
+        assert!(raw_lstr.is_empty());
+        assert_eq!(raw_lstr.len(), 0);
+    }
+
+    // }}}
+    // {{{ Equality tests
+
+    #[test]
+    fn test_equals_same_content() {
+        let a = from_bytes(TEST_BYTES);
+        let b = from_bytes(TEST_BYTES);
+
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+    }
+
+    #[test]
+    fn test_equals_different_content() {
+        let a = from_bytes(TEST_BYTES);
+        let b = from_bytes(b"different");
+
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+    }
+
+    #[test]
+    fn test_equals_different_types() {
+        let bytes = from_bytes(TEST_BYTES);
+        let utf8 = from_str(TEST_STR);
+
+        assert!(bytes.equals(&utf8));
+        assert!(utf8.equals(&bytes));
+    }
+
+    #[test]
+    fn test_equals_owned_borrowed() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let owned = borrowed.dup();
+
+        assert!(borrowed.equals(&owned));
+        assert!(owned.equals(&borrowed));
+    }
+
+    // }}}
+    // {{{ Conversion chain tests
+
+    #[test]
+    fn test_conversion_chain_utf8_to_bytes_to_unsafe() {
+        let utf8 = from_str(TEST_STR);
+        let bytes: BorrowedBytesLstr<'_> = utf8.into();
+        let unsafe_bytes: UnsafeBytesLstr = bytes.into();
+
+        assert_eq!(unsafe { unsafe_bytes.as_bytes() }, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_conversion_chain_owned_to_borrowed_to_unsafe() {
+        let owned = from_str(TEST_STR).dup();
+        let borrowed: BorrowedUtf8Lstr<'_> = (&owned).into();
+        let unsafe_utf8: UnsafeUtf8Lstr = borrowed.into();
+
+        assert_eq!(unsafe { unsafe_utf8.as_str() }, TEST_STR);
+    }
+
+    // }}}
+    // {{{ AsRawLstr trait tests
+
+    #[test]
+    fn test_as_raw_lstr_trait() {
+        fn generic_len<T: AsRawLstr>(lstr: &T) -> usize {
+            unsafe { lstr.as_raw() }.len()
+        }
+
+        let bytes = from_bytes(TEST_BYTES);
+        let utf8 = from_str(TEST_STR);
+        let owned = from_str(TEST_STR).dup();
+
+        assert_eq!(generic_len(&bytes), TEST_BYTES.len());
+        assert_eq!(generic_len(&utf8), TEST_STR.len());
+        assert_eq!(generic_len(&owned), TEST_STR.len());
+    }
+
+    // }}}
+    // {{{ lstr_t direct tests
+
+    #[test]
+    fn test_lstr_t_len() {
+        let borrowed = from_bytes(TEST_BYTES);
+        let raw_lstr = unsafe { borrowed.as_raw() };
+
+        assert_eq!(raw_lstr.len(), TEST_BYTES.len());
+    }
+
+    #[test]
+    fn test_lstr_t_is_empty() {
+        let empty = from_bytes(b"");
+        let non_empty = from_bytes(TEST_BYTES);
+
+        assert!(unsafe { empty.as_raw() }.is_empty());
+        assert!(!unsafe { non_empty.as_raw() }.is_empty());
+    }
+
+    #[test]
+    fn test_lstr_t_is_null() {
+        let null = null_bytes();
+        let non_null = from_bytes(TEST_BYTES);
+
+        assert!(unsafe { null.as_raw() }.is_null());
+        assert!(!unsafe { non_null.as_raw() }.is_null());
+    }
+
+    // }}}
+}
+
+// }}}
