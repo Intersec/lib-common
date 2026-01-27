@@ -598,7 +598,7 @@ lstr_owned_into_raw_impl!(OwnedUtf8Lstr);
 lstr_safe_utf8_impl!(OwnedUtf8Lstr);
 
 // }}}
-// {{{ Drop implementations for owned types
+// {{{ Drop/Clone/Send/Sync implementations for owned types
 
 impl Drop for OwnedBytesLstr {
     fn drop(&mut self) {
@@ -616,9 +616,6 @@ impl Drop for OwnedUtf8Lstr {
     }
 }
 
-// }}}
-// {{{ Clone implementations for owned types
-
 impl Clone for OwnedBytesLstr {
     fn clone(&self) -> Self {
         self.dup()
@@ -630,6 +627,16 @@ impl Clone for OwnedUtf8Lstr {
         self.dup()
     }
 }
+
+// Safety: OwnedBytesLstr owns its data exclusively (heap-allocated, freed on drop).
+// There is no interior mutability, so it can be safely sent to and shared with other threads.
+unsafe impl Send for OwnedBytesLstr {}
+unsafe impl Sync for OwnedBytesLstr {}
+
+// Safety: OwnedUtf8Lstr owns its data exclusively (heap-allocated, freed on drop).
+// There is no interior mutability, so it can be safely sent to and shared with other threads.
+unsafe impl Send for OwnedUtf8Lstr {}
+unsafe impl Sync for OwnedUtf8Lstr {}
 
 // }}}
 // {{{ From conversions: Ownership downgrades
