@@ -359,3 +359,244 @@ impl Drop for Env<'_> {
 }
 
 // }}}
+// {{{ Tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bindings::{core__pkg, ic__pkg};
+    use crate::mem_stack::TScope;
+
+    // {{{ Test helpers
+
+    fn setup_env_with_packages() -> Env<'static> {
+        let mut env = Env::new();
+        env.register_packages(&[&raw const ic__pkg, &raw const core__pkg]);
+        env
+    }
+
+    // }}}
+    // {{{ Env lifecycle tests
+
+    #[test]
+    fn env_new() {
+        let env = Env::new();
+        assert!(!env.as_ptr().is_null());
+    }
+
+    #[test]
+    fn env_default() {
+        let env = Env::default();
+        assert!(!env.as_ptr().is_null());
+    }
+
+    #[test]
+    fn env_from_ptr() {
+        let env1 = Env::new();
+        let ptr = env1.as_ptr().cast_mut();
+
+        /* Create non-owned Env from existing pointer */
+        let env2 = Env::from_ptr(ptr);
+        assert_eq!(env2.as_ptr(), ptr.cast_const());
+
+        /* env2 is non-owned, so dropping it should not free the underlying env */
+        drop(env2);
+
+        /* env1 should still be valid */
+        assert!(!env1.as_ptr().is_null());
+    }
+
+    #[test]
+    fn env_as_ptr() {
+        let mut env = Env::new();
+        let const_ptr = env.as_ptr();
+        let mut_ptr = env.as_mut_ptr();
+
+        assert!(!const_ptr.is_null());
+        assert!(!mut_ptr.is_null());
+        assert_eq!(const_ptr, mut_ptr.cast_const());
+    }
+
+    // }}}
+    // {{{ Package registration tests
+
+    #[test]
+    fn env_register_packages() {
+        let mut env = Env::new();
+        env.register_packages(&[&raw const ic__pkg, &raw const core__pkg]);
+
+        /* Verify packages are registered by looking up a known struct */
+        let desc = env.get_struct_desc("ic.SimpleHdr");
+        assert!(desc.is_some());
+    }
+
+    // }}}
+    // {{{ Struct descriptor lookup tests
+
+    #[test]
+    fn env_get_struct_desc_found() {
+        let env = setup_env_with_packages();
+
+        let simple_hdr = env.get_struct_desc("ic.SimpleHdr");
+        assert!(simple_hdr.is_some());
+
+        let tracer = env.get_struct_desc("ic.Tracer");
+        assert!(tracer.is_some());
+    }
+
+    #[test]
+    fn env_get_struct_desc_not_found() {
+        let env = setup_env_with_packages();
+
+        let unknown = env.get_struct_desc("unknown.NonExistent");
+        assert!(unknown.is_none());
+
+        let partial = env.get_struct_desc("ic.NonExistent");
+        assert!(partial.is_none());
+    }
+
+    // }}}
+    // {{{ GenericStructUnion tests
+
+    #[test]
+    fn generic_struct_union_new() {
+        let env = setup_env_with_packages();
+        let t_scope = TScope::new_scope();
+
+        let desc = env
+            .get_struct_desc("ic.Tracer")
+            .expect("ic.Tracer should exist");
+        let json = r#"{"token": 123, "epoch": 456}"#;
+
+        let obj = env
+            .t_junpack_desc(&t_scope, json, desc, 0)
+            .expect("valid JSON should unpack");
+        assert_eq!(obj.get_cdesc(), desc);
+        assert!(!obj.get_cptr().is_null());
+    }
+
+    #[test]
+    fn generic_struct_union_get_cptr_mut() {
+        let env = setup_env_with_packages();
+        let t_scope = TScope::new_scope();
+
+        let desc = env
+            .get_struct_desc("ic.Tracer")
+            .expect("ic.Tracer should exist");
+        let json = r#"{"token": 1, "epoch": 2}"#;
+
+        let mut obj = env
+            .t_junpack_desc(&t_scope, json, desc, 0)
+            .expect("valid JSON should unpack");
+        let cptr = obj.get_cptr();
+        let cptr_mut = obj.get_cptr_mut();
+
+        assert_eq!(cptr, cptr_mut.cast_const());
+    }
+
+    // }}}
+    // {{{ JSON pack/unpack tests
+
+    #[test]
+    fn junpack() {
+        let env = setup_env_with_packages();
+        let t_scope = TScope::new_scope();
+
+        let desc = env
+            .get_struct_desc("ic.Tracer")
+            .expect("ic.Tracer should exist");
+        let json = r#"{"token": 999, "epoch": 888}"#;
+
+        env.t_junpack_desc(&t_scope, json, desc, 0)
+            .expect("valid JSON should unpack");
+    }
+
+    #[test]
+    fn junpack_invalid_json() {
+        let env = setup_env_with_packages();
+        let t_scope = TScope::new_scope();
+
+        let desc = env
+            .get_struct_desc("ic.Tracer")
+            .expect("ic.Tracer should exist");
+        let invalid_json = r#"{"token": "not_a_number"}"#;
+
+        let Err(err) = env.t_junpack_desc(&t_scope, invalid_json, desc, 0) else {
+            panic!("expected error for invalid JSON");
+        };
+        assert_eq!(err, "1:11: cannot parse number `\"not_a_number\"'");
+    }
+
+    #[test]
+    fn json_roundtrip() {
+        let env = setup_env_with_packages();
+        let t_scope = TScope::new_scope();
+
+        let desc = env
+            .get_struct_desc("ic.Tracer")
+            .expect("ic.Tracer should exist");
+        let json = r#"{"token": 111, "epoch": 222}"#;
+
+        let obj = env
+            .t_junpack_desc(&t_scope, json, desc, 0)
+            .expect("valid JSON should unpack");
+        let output = obj.as_json();
+
+        assert_eq!(output, "{\n    \"token\": 111,\n    \"epoch\": 222\n}\n");
+    }
+
+    // }}}
+    // {{{ YAML pack/unpack tests
+
+    #[test]
+    fn yunpack() {
+        let env = setup_env_with_packages();
+        let t_scope = TScope::new_scope();
+
+        let desc = env
+            .get_struct_desc("ic.Tracer")
+            .expect("ic.Tracer should exist");
+        let yaml = "token: 123\nepoch: 456\n";
+
+        env.t_yunpack_desc(&t_scope, yaml, desc, 0)
+            .expect("valid YAML should unpack");
+    }
+
+    #[test]
+    fn yunpack_invalid_yaml() {
+        let env = setup_env_with_packages();
+        let t_scope = TScope::new_scope();
+
+        let desc = env
+            .get_struct_desc("ic.Tracer")
+            .expect("ic.Tracer should exist");
+        let invalid_yaml = "token: not_a_number\n";
+
+        let Err(err) = env.t_yunpack_desc(&t_scope, invalid_yaml, desc, 0) else {
+            panic!("expected error for invalid YAML");
+        };
+        assert!(err.contains("cannot set a string value in a field of type ulong"));
+    }
+
+    #[test]
+    fn yaml_roundtrip() {
+        let env = setup_env_with_packages();
+        let t_scope = TScope::new_scope();
+
+        let desc = env
+            .get_struct_desc("ic.Tracer")
+            .expect("ic.Tracer should exist");
+        let json = r#"{"token": 333, "epoch": 444}"#;
+
+        let obj = env
+            .t_junpack_desc(&t_scope, json, desc, 0)
+            .expect("valid JSON should unpack");
+        let output = obj.as_yaml();
+
+        assert_eq!(output, "token: 333\nepoch: 444");
+    }
+
+    // }}}
+}
+
+// }}}
