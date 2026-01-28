@@ -1,6 +1,6 @@
 ###########################################################################
 #                                                                         #
-# Copyright 2025 INTERSEC SA                                              #
+# Copyright 2026 INTERSEC SA                                              #
 #                                                                         #
 # Licensed under the Apache License, Version 2.0 (the "License");         #
 # you may not use this file except in compliance with the License.        #
@@ -17,20 +17,18 @@
 ###########################################################################
 
 [package]
-name = "libcommon-core"
+name = "waf-cargo-build-macros"
 edition.workspace = true
 publish.workspace = true
 
 [lints]
 workspace = true
 
-[lib]
-path = "lib.rs"
-crate-type = ["lib", "staticlib"]
-
-[build-dependencies]
-waf-cargo-build = { path = "../waf-cargo-build" }
-
 [dependencies]
-waf-cargo-build = { path = "../waf-cargo-build" }
-paste.workspace = true
+proc-macro2.workspace = true
+syn.workspace = true
+quote.workspace = true
+
+[lib]
+proc-macro = true
+path = "lib.rs"

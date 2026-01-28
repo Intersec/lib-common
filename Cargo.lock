@@ -529,6 +529,16 @@ dependencies = [
  "serde",
  "serde_json",
  "syn",
+ "waf-cargo-build-macros",
+]
+
+[[package]]
+name = "waf-cargo-build-macros"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

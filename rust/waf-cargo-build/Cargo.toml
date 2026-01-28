@@ -25,6 +25,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+waf-cargo-build-macros = { path = "../waf-cargo-build-macros" }
+
 bindgen.workspace = true
 cc.workspace = true
 serde.workspace = true

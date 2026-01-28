@@ -21,25 +21,9 @@
 //! Use `libcommon` instead.
 //! The different modules are reexported in `libcommon`.
 
+#[waf_cargo_build::bindings_mod]
 pub mod bindings {
-    #![allow(
-        warnings,
-        deprecated_safe,
-        future_incompatible,
-        keyword_idents,
-        let_underscore,
-        nonstandard_style,
-        refining_impl_trai,
-        rust_2018_compatibility,
-        rust_2018_idioms,
-        rust_2021_compatibility,
-        rust_2024_compatibility,
-        unused,
-        clippy::all,
-        clippy::pedantic,
-        clippy::restriction
-    )]
-    include!(concat!(env!("PKG_WAF_BUILD_DIR"), "/bindings.rs"));
+    waf_cargo_build::include_bindings!();
 }
 
 pub mod farch;

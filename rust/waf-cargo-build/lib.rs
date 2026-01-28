@@ -41,6 +41,9 @@ use syn::{
     visit_mut::{VisitMut, visit_file_mut, visit_item_mod_mut},
 };
 
+// Reexport proc-macros for easy use.
+pub use waf_cargo_build_macros::{bindings_mod, include_bindings};
+
 // {{{ Helpers
 
 /// Set the given file as readonly or not.

@@ -26,6 +26,7 @@ members = [
     "rust/libcommon-core",
     "rust/libcommon-derive",
     "rust/waf-cargo-build",
+    "rust/waf-cargo-build-macros",
 ]
 resolver = "3"
 
