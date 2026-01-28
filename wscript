@@ -166,7 +166,6 @@ def uv_no_srv_tools(ctx: BuildContext) -> None:
 
 def uv_sync(ctx: BuildContext) -> None:
     if ctx.env.TOOL_MANAGER == 'asdf':
-        # FIXME mise support
         python_asdf_cleanup_prev_venv(ctx)
 
     before_uv_sync = getattr(ctx, 'before_uv_sync', None)
@@ -218,6 +217,12 @@ def rerun_waf_configure_with_uv(ctx: BuildContext) -> None:
         # However if a tool manager is in use, the python version that will be
         # loaded by it may differ from the current active venv, and thus we
         # need to recurse anyway to use the right python version.
+        return
+
+    if ctx.env.TOOL_MANAGER == 'mise':
+        # Mise automatically activates the uv virtual environment, so we don't
+        # need to re-run waf with `uv run` - we're already in the correct
+        # Python environment.
         return
 
     # Set _IN_UV_WAF_CONFIGURE to avoid doing the uv configuration twice.
@@ -278,6 +283,12 @@ def rerun_waf_build_with_uv(ctx: BuildContext) -> None:
     if uv_environment_is_active(ctx) and not ctx.env.TOOL_MANAGER:
         # uv environment is activated and a tool manager is not in use, do
         # nothing.
+        return
+
+    if ctx.env.TOOL_MANAGER == 'mise':
+        # Mise automatically activates the uv virtual environment, so we don't
+        # need to re-run waf with `uv run` - we're already in the correct
+        # Python environment.
         return
 
     # Set _IN_UV_WAF_BUILD to avoid doing the recursion twice.
