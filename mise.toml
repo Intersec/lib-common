@@ -6,3 +6,61 @@
 # TODO support version template like for ASDF
 python = '3.9'
 uv = '0.7.2'
+
+[tasks.configure]
+alias = "cfg"
+description = "Configure the build"
+usage = '''
+flag "-p --profile <profile>" {
+  help "set P environment variable (\"default\" by default)"
+  default "default"
+}
+complete "profile" run="""
+awk -F"'" '/profile_[a-z_]+,?$/ {print $2}' build/waftools/backend.py
+"""
+'''
+run = "P=$usage_profile waf configure"
+
+[tasks.configure_fast]
+alias = "cf"
+description = "Configure for fastest build"
+usage = '''
+flag "-p --profile <profile>" {
+  help "set P environment variable (\"debug\" by default)"
+  default "debug"
+}
+complete "profile" run="""
+awk -F"'" '/profile_[a-z_]+,?$/ {print $2}' build/waftools/backend.py
+"""
+'''
+run = "P=$usage_profile waf configure"
+[tasks.configure_fast.env]
+NO_DOUBLE_FPIC = "1"
+NOCHECK = "1"
+FAKE_VERSIONS = "1"
+
+[tasks.build]
+description = "Build the project"
+run = "waf"
+
+[tasks.check]
+description = "Run tests"
+run = "waf check"
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "waf clean"
+
+[tasks.static-checks]
+alias = "sc"
+description = "Run static checks (ruff, mypy)"
+run = "./static-checks.sh"
+
+[tasks.target]
+alias = "t"
+description = "Build specific target(s)"
+usage = '''
+arg "<target>"
+complete "target" run="waf list 2>/dev/null | grep -v -E \"^(Waf:|'list')\""
+'''
+run = "waf build --targets=${usage_target}"
