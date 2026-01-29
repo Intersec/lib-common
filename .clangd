@@ -1,5 +1,9 @@
+CompileFlags:
+  Remove:
+    - -Werror
+
 Diagnostics:
-    Suppress:
-      - bugprone-sizeof-expression
-      - readability-misleading-indentation
-      - unused-includes
+  Suppress:
+    - bugprone-sizeof-expression
+    - readability-misleading-indentation
+    - unused-includes
