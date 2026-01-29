@@ -86,14 +86,20 @@ typedef IOP_ARRAY_OF(tstjson__my_iface_d__fun_a_res__t) tstjson__my_iface_d__fun
 typedef iop__void__t tstjson__my_iface_d__fun_a_exn__t;
 
 /*----- interface tstjson.MyIfaceA -----*/
+/// @iop struct
 struct tstjson__my_iface_a__fun_a_args__t {
+    /// @iop i32
     int32_t  a;
+    /// @iop tstjson.MyStructA
     tstjson__my_struct_a__t b;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__fun_a_args__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_iface_a__fun_a_args__sp;
+/// @iop struct
 struct tstjson__my_iface_a__fun_a_res__t {
+    /// @iop tstjson.MyUnionA
     tstjson__my_union_a__t c;
+    /// @iop i32
     int32_t  d;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__fun_a_res__s;
@@ -102,8 +108,11 @@ EXPORT iop_struct_t const * const nonnull tstjson__my_iface_a__fun_a_res__sp;
 #define tstjson__my_iface_a__fun_a__rpc__async  0
 #define tstjson__my_iface_a__fun_a__rpc         (tstjson__my_iface_a__if.funs + 0)
 
+/// @iop struct
 struct tstjson__my_iface_a__funb_res__t {
+    /// @iop i32
     int32_t  a;
+    /// @iop i8
     int8_t   b;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__funb_res__s;
@@ -120,12 +129,15 @@ EXPORT iop_struct_t const * const nonnull tstjson__my_iface_a__funb_res__sp;
 #define tstjson__my_iface_a__fun_c__rpc__async  0
 #define tstjson__my_iface_a__fun_c__rpc         (tstjson__my_iface_a__if.funs + 3)
 
+/// @iop struct
 struct tstjson__my_iface_a__fun_f_args__t {
+    /// @iop i32[]
 #ifndef IOP_ARRAY_T
     IOP_ARRAY_OF(int32_t)  a;
 #else
     iop_array_i32_t    a;
 #endif
+    /// @iop i32?
     opt_i32_t        b;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__fun_f_args__s;
@@ -146,13 +158,18 @@ EXPORT iop_struct_t const * const nonnull tstjson__my_iface_a__fun_f_args__sp;
 #define tstjson__my_iface_a__fun_i__rpc__async  0
 #define tstjson__my_iface_a__fun_i__rpc         (tstjson__my_iface_a__if.funs + 7)
 
+/// @iop struct
 struct tstjson__my_iface_a__fun_j_res__t {
+    /// @iop i32
     int32_t  a;
+    /// @iop i32
     int32_t  b;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__fun_j_res__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_iface_a__fun_j_res__sp;
+/// @iop struct
 struct tstjson__my_iface_a__fun_j_exn__t {
+    /// @iop i32
     int32_t  err;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__fun_j_exn__s;
@@ -161,7 +178,9 @@ EXPORT iop_struct_t const * const nonnull tstjson__my_iface_a__fun_j_exn__sp;
 #define tstjson__my_iface_a__fun_j__rpc__async  0
 #define tstjson__my_iface_a__fun_j__rpc         (tstjson__my_iface_a__if.funs + 8)
 
+/// @iop struct
 struct tstjson__my_iface_a__fun_e_res__t {
+    /// @iop i32?
     opt_i32_t        a;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__fun_e_res__s;
@@ -170,8 +189,11 @@ EXPORT iop_struct_t const * const nonnull tstjson__my_iface_a__fun_e_res__sp;
 #define tstjson__my_iface_a__fun_e__rpc__async  0
 #define tstjson__my_iface_a__fun_e__rpc         (tstjson__my_iface_a__if.funs + 9)
 
+/// @iop struct
 struct tstjson__my_iface_a__fun_k_res__t {
+    /// @iop i32
     int32_t  a;
+    /// @iop i32
     int32_t  b;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__fun_k_res__s;
@@ -180,9 +202,13 @@ EXPORT iop_struct_t const * const nonnull tstjson__my_iface_a__fun_k_res__sp;
 #define tstjson__my_iface_a__fun_k__rpc__async  0
 #define tstjson__my_iface_a__fun_k__rpc         (tstjson__my_iface_a__if.funs + 10)
 
+/// @iop struct
 struct tstjson__my_iface_a__fun_l_args__t {
+    /// @iop i32
     int32_t  a;
+    /// @iop i32
     int32_t  b;
+    /// @iop i32
     int32_t  c;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__fun_l_args__s;
@@ -191,7 +217,9 @@ EXPORT iop_struct_t const * const nonnull tstjson__my_iface_a__fun_l_args__sp;
 #define tstjson__my_iface_a__fun_l__rpc__async  0
 #define tstjson__my_iface_a__fun_l__rpc         (tstjson__my_iface_a__if.funs + 11)
 
+/// @iop struct
 struct tstjson__my_iface_a__fun_async_args__t {
+    /// @iop i32
     int32_t  type;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__fun_async_args__s;
@@ -204,12 +232,16 @@ EXPORT iop_iface_t const tstjson__my_iface_a__if;
 EXPORT iop_iface_t const * const nonnull tstjson__my_iface_a__ifp;
 
 /*----- interface tstjson.MyIfaceB -----*/
+/// @iop struct
 struct tstjson__my_iface_b__fun_a_args__t {
+    /// @iop i32
     int32_t  i;
 };
 EXPORT iop_struct_t const tstjson__my_iface_b__fun_a_args__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_iface_b__fun_a_args__sp;
+/// @iop struct
 struct tstjson__my_iface_b__fun_a_res__t {
+    /// @iop i32
     int32_t  i;
 };
 EXPORT iop_struct_t const tstjson__my_iface_b__fun_a_res__s;
@@ -222,12 +254,16 @@ EXPORT iop_iface_t const tstjson__my_iface_b__if;
 EXPORT iop_iface_t const * const nonnull tstjson__my_iface_b__ifp;
 
 /*----- interface tstjson.MyIfaceC -----*/
+/// @iop struct
 struct tstjson__my_iface_c__fun_a_args__t {
+    /// @iop i32
     int32_t  i;
 };
 EXPORT iop_struct_t const tstjson__my_iface_c__fun_a_args__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_iface_c__fun_a_args__sp;
+/// @iop struct
 struct tstjson__my_iface_c__fun_a_res__t {
+    /// @iop i32
     int32_t  i;
 };
 EXPORT iop_struct_t const tstjson__my_iface_c__fun_a_res__s;
@@ -240,12 +276,16 @@ EXPORT iop_iface_t const tstjson__my_iface_c__if;
 EXPORT iop_iface_t const * const nonnull tstjson__my_iface_c__ifp;
 
 /*----- interface tstjson.MyIfaceD -----*/
+/// @iop struct
 struct tstjson__my_iface_d__fun_a_args__t {
+    /// @iop i32
     int32_t  i;
 };
 EXPORT iop_struct_t const tstjson__my_iface_d__fun_a_args__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_iface_d__fun_a_args__sp;
+/// @iop struct
 struct tstjson__my_iface_d__fun_a_res__t {
+    /// @iop i32
     int32_t  i;
 };
 EXPORT iop_struct_t const tstjson__my_iface_d__fun_a_res__s;

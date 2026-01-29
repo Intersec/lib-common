@@ -5,6 +5,7 @@
 #include <lib-common/core.h>
 #include <lib-common/iop/internals.h>
 
+/// @iop enum
 typedef enum tstjson__my_enum_a__t {
     A_A,
     A_B,
@@ -21,6 +22,7 @@ typedef IOP_OPT_OF(enum tstjson__my_enum_a__t) tstjson__my_enum_a__opt_t;
 #define A_min   0
 #define A_max   101
 
+/// @iop enum
 typedef enum tstjson__my_enum_b__t {
     MY_ENUM_B_A,
     MY_ENUM_B_B,
@@ -36,6 +38,7 @@ typedef IOP_OPT_OF(enum tstjson__my_enum_b__t) tstjson__my_enum_b__opt_t;
 #define MY_ENUM_B_min   0
 #define MY_ENUM_B_max   2
 
+/// @iop enum
 typedef enum tstjson__my_enum_c__t {
     MY_ENUM_C_A,
     MY_ENUM_C_B,

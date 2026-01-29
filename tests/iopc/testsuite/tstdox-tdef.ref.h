@@ -5,6 +5,7 @@
 #include <lib-common/core.h>
 #include <lib-common/iop/internals.h>
 
+/// @iop enum
 typedef enum tstdox__my_enum_a__t {
     MY_ENUM_A_VAL_A,
     MY_ENUM_A_VAL_B,
@@ -20,6 +21,7 @@ typedef IOP_OPT_OF(enum tstdox__my_enum_a__t) tstdox__my_enum_a__opt_t;
 #define MY_ENUM_A_min   0
 #define MY_ENUM_A_max   2
 
+/// @iop enum
 typedef enum tstdox__my_enum_b__t {
     MY_ENUM_B_VAL_A,
     MY_ENUM_B_VAL_B,
@@ -35,6 +37,7 @@ typedef IOP_OPT_OF(enum tstdox__my_enum_b__t) tstdox__my_enum_b__opt_t;
 #define MY_ENUM_B_min   0
 #define MY_ENUM_B_max   2
 
+/// @iop enum
 typedef enum tstdox__my_enum_c__t {
     MY_ENUM_C_VAL_A,
 } tstdox__my_enum_c__t;
@@ -48,6 +51,7 @@ typedef IOP_OPT_OF(enum tstdox__my_enum_c__t) tstdox__my_enum_c__opt_t;
 #define MY_ENUM_C_min   0
 #define MY_ENUM_C_max   0
 
+/// @iop enum
 typedef enum tstdox__my_enum_d__t {
     MY_ENUM_D_VAL_A,
     MY_ENUM_D_VAL_B,

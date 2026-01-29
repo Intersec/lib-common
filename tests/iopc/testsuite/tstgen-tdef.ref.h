@@ -5,6 +5,7 @@
 #include <lib-common/core.h>
 #include <lib-common/iop/internals.h>
 
+/// @iop enum
 typedef enum tstgen__my_enum_a__t {
     MY_ENUM_A_VAL_A,
     MY_ENUM_A_VAL_B,
