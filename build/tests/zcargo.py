@@ -221,7 +221,8 @@ class TestSuite:
             return
 
         if line.strip():
-            raise SyntaxError(f'unhandled line: {raw_line}')
+            # Unhandled line, still useful for debugging
+            print(line, file=sys.stderr)
 
     def get_z_output(self) -> str:
         assert self.parse_state == 'RESULT_PARSED'
@@ -308,7 +309,7 @@ def run_cargo_test_for_pkg(pkg: str, argv: list[str]) -> None:
     )
 
     if cargo.stdout is None:
-        raise OSError('cannot read cargo stdout')
+        raise RuntimeError('cannot read cargo stdout')
 
     suites: list[TestSuite] = []
     curr_suite: TestSuite | None = None
@@ -349,7 +350,9 @@ def run_cargo_test_for_pkg(pkg: str, argv: list[str]) -> None:
                 # Ignore empty lines before announcing the test suite
                 continue
 
-            raise SyntaxError(f'unhandled line: {raw_line}')
+            # Unhandled line, still useful for debugging
+            sys.stderr.write(raw_line)
+            continue
 
         curr_suite.parse_line(line, raw_line)
         if curr_suite.parse_state == 'RESULT_PARSED':
@@ -361,7 +364,7 @@ def run_cargo_test_for_pkg(pkg: str, argv: list[str]) -> None:
     if suites:
         curr_suite = suites[-1]
         if curr_suite.parse_state != 'RESULT_PARSED':
-            raise SyntaxError('unfinished cargo test suite')
+            raise RuntimeError('unfinished cargo test suite')
 
         for s in suites:
             print(s.get_z_output())
@@ -371,12 +374,15 @@ def run_cargo_test_for_pkg(pkg: str, argv: list[str]) -> None:
     # Normal exit status codes:
     # https://doc.rust-lang.org/cargo/commands/cargo-test.html#exit-status
     if rc not in {0, 101}:
-        raise OSError(f'`cargo test` for `{pkg}` failed with exit code {rc}')
+        raise RuntimeError(
+            f'`cargo test` for `{pkg}` failed with exit code {rc}')
 
     if rc:
         if suites:
-            raise OSError(f'`cargo test` for `{pkg}` failed (test crash?)')
-        raise OSError(f'`cargo test` for `{pkg}` failed (compiler error?)')
+            raise RuntimeError(
+                f'`cargo test` for `{pkg}` failed (test crash?)')
+        raise RuntimeError(
+            f'`cargo test` for `{pkg}` failed (compiler error?)')
 
     sys.exit(rc)  # should be 0
 
