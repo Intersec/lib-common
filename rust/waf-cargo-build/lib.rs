@@ -26,7 +26,7 @@
 //!
 //! The main entry point is the structure [`WafBuild`].
 
-use bindgen::callbacks::{AllowOrBlockItem, DeriveInfo, ItemInfo, ParseCallbacks};
+use bindgen::callbacks::{AllowOrBlockItem, ItemInfo, ParseCallbacks};
 use bindgen::{Builder, EnumVariation};
 use quote::format_ident;
 use serde::Deserialize;
@@ -442,15 +442,6 @@ impl ParseCallbacks for LibcommonParseCallbacks {
         self.blocked_items
             .contains(item_info.name)
             .then_some(AllowOrBlockItem::Block)
-    }
-
-    /// Provide a list of custom derive attributes.
-    ///
-    /// If no additional attributes are wanted, this function should return an
-    /// empty `Vec`.
-    fn add_derives(&self, _info: &DeriveInfo<'_>) -> Vec<String> {
-        // TODO: remove this deprecated code
-        vec![]
     }
 }
 

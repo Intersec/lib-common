@@ -263,7 +263,6 @@ name = "libcommon"
 version = "0.0.0"
 dependencies = [
  "libcommon-core",
- "libcommon-derive",
  "waf-cargo-build",
 ]
 
@@ -273,16 +272,6 @@ version = "0.0.0"
 dependencies = [
  "paste",
  "waf-cargo-build",
-]
-
-[[package]]
-name = "libcommon-derive"
-version = "0.0.0"
-dependencies = [
- "libcommon-core",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

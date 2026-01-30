@@ -33,8 +33,5 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         Ok(builder)
     })?;
 
-    // Tell libcommon-derive that we are building libcommon.
-    println!("cargo::rustc-env=IS_LIBCOMMON_PKG=1");
-
     Ok(())
 }
