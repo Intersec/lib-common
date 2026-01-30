@@ -37,7 +37,7 @@ use std::path::{Path, PathBuf};
 use std::{env, error, fs, io};
 use syn::ext::IdentExt as _;
 use syn::{
-    File as SynFile, ForeignItem, Ident, Item, ItemMod, parse_str,
+    File as SynFile, ForeignItem, Ident, Item, ItemMod, ItemUse, UseTree, parse_str,
     visit_mut::{VisitMut, visit_file_mut, visit_item_mod_mut},
 };
 
@@ -147,8 +147,35 @@ impl GeneratedItemsVisitor {
                     _ => None,
                 }
             }
+            Item::Use(item_use) => Some(Self::get_item_use_ident(item_use)),
             _ => None,
         }
+    }
+
+    // Note: this helper is intentionally strict and only matches the exact
+    // AST pattern `pub use self::orig as alias;`. Other `use` statements can
+    // also introduce renames (e.g., `pub use crate::a::b as x;`,
+    // `pub use self::a::{b as x, c};`, or nested path/group forms).
+    // For now, the strict match is sufficient because bindgen currently
+    // emits only this specific form.
+    fn get_item_use_ident(item_use: &ItemUse) -> &Ident {
+        // EXACTLY match: `pub use self::orig as alias;`
+        // must be `pub`
+        assert!(matches!(item_use.vis, syn::Visibility::Public(_)));
+
+        // must not have a leading ::
+        assert!(item_use.leading_colon.is_none());
+
+        // must be `self::orig as alias`
+        if let UseTree::Path(path) = &item_use.tree {
+            assert_eq!(path.ident, "self");
+
+            if let UseTree::Rename(rename) = &*path.tree {
+                return &rename.rename;
+            }
+        }
+
+        panic!("unexpected `use` form in bindgen output");
     }
 }
 
