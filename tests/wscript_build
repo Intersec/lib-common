@@ -122,6 +122,7 @@ ctx.program(target='ztst-mem', features='c cprogram',
 
 ctx.recurse([
     'iop',
+    'iop-rust',
     'iopc',
     'iopy',
     'pxcc',
