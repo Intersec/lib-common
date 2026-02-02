@@ -1846,12 +1846,9 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
     ctx.map  = map;
     ctx.data = data;
 
-    if (likely(ps_len(&ctx.data) > sizeof(wah_word_t) * 2)) {
+    if (likely(ps_len(&ctx.data) >= sizeof(wah_word_t))) {
         const wah_word_t *chunk = ctx.data.p;
-        uint64_t bits_count;
-
-        bits_count  = chunk[0].head.words + chunk[1].count;
-        bits_count *= WAH_BIT_IN_WORD;
+        uint64_t bits_count = chunk[0].head.words * WAH_BIT_IN_WORD;
 
         assert(WAH_BITS_IN_BUCKET < WAH_MAX_WORDS_IN_RUN * 8);
         if (bits_count <= WAH_BITS_IN_BUCKET) {
