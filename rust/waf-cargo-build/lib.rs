@@ -220,14 +220,15 @@ fn get_doc_string(attr: &Attribute) -> Option<String> {
 /// Generate common IOP trait implementations for a struct/union types.
 fn generate_iop_struct_union_trait_impl(
     out: &mut Vec<Item>,
+    libcommon_crate: &Ident,
     type_ident: &Ident,
     desc_ident: &Ident,
 ) {
     out.push(parse_quote! {
-        impl crate::iop::Base for #type_ident {}
+        impl #libcommon_crate::iop::Base for #type_ident {}
     });
     out.push(parse_quote! {
-        impl crate::iop::StructUnion for #type_ident {
+        impl #libcommon_crate::iop::StructUnion for #type_ident {
             fn get_cdesc(&self) -> *const iop_struct_t {
                 &raw const #desc_ident
             }
@@ -240,59 +241,59 @@ fn generate_iop_struct_union_trait_impl(
         }
     });
     out.push(parse_quote! {
-        impl crate::iop::CStructUnion for #type_ident {
+        impl #libcommon_crate::iop::CStructUnion for #type_ident {
             const CDESC: *const iop_struct_t = &raw const #desc_ident;
         }
     });
 }
 
 /// Generate IOP trait implementations for a struct type.
-fn generate_iop_struct_trait_impl(out: &mut Vec<Item>, type_name: &str) {
+fn generate_iop_struct_trait_impl(out: &mut Vec<Item>, libcommon_crate: &Ident, type_name: &str) {
     let type_ident = format_ident!("{}", type_name);
     let desc_ident = format_ident!("{}__s", type_name.strip_suffix("__t").expect(""));
 
-    generate_iop_struct_union_trait_impl(out, &type_ident, &desc_ident);
+    generate_iop_struct_union_trait_impl(out, libcommon_crate, &type_ident, &desc_ident);
 
     out.push(parse_quote! {
-        impl crate::iop::Struct for #type_ident {}
+        impl #libcommon_crate::iop::Struct for #type_ident {}
     });
     out.push(parse_quote! {
-        impl crate::iop::CStruct for #type_ident {}
+        impl #libcommon_crate::iop::CStruct for #type_ident {}
     });
 }
 
 /// Generate IOP trait implementations for a union type.
-fn generate_iop_union_trait_impl(out: &mut Vec<Item>, type_name: &str) {
+fn generate_iop_union_trait_impl(out: &mut Vec<Item>, libcommon_crate: &Ident, type_name: &str) {
     let type_ident = format_ident!("{}", type_name);
     let desc_ident = format_ident!("{}__s", type_name.strip_suffix("__t").expect(""));
 
-    generate_iop_struct_union_trait_impl(out, &type_ident, &desc_ident);
+    generate_iop_struct_union_trait_impl(out, libcommon_crate, &type_ident, &desc_ident);
 
     out.push(parse_quote! {
-        impl crate::iop::Union for #type_ident {}
+        impl #libcommon_crate::iop::Union for #type_ident {}
     });
     out.push(parse_quote! {
-        impl crate::iop::CUnion for #type_ident {}
+        impl #libcommon_crate::iop::CUnion for #type_ident {}
     });
 }
 
 /// Generate IOP trait implementations for an enum type.
-fn generate_iop_enum_trait_impl(out: &mut Vec<Item>, type_name: &str) {
+fn generate_iop_enum_trait_impl(out: &mut Vec<Item>, libcommon_crate: &Ident, type_name: &str) {
     let type_ident = format_ident!("{}", type_name);
     let desc_ident = format_ident!("{}__e", type_name.strip_suffix("__t").expect(""));
 
     out.push(parse_quote! {
-        impl crate::iop::Base for #type_ident {}
+        impl #libcommon_crate::iop::Base for #type_ident {}
     });
     out.push(parse_quote! {
-        impl crate::iop::Enum for #type_ident {
+        impl #libcommon_crate::iop::Enum for #type_ident {
             fn get_cdesc(&self) -> *const iop_enum_t {
                 &raw const #desc_ident
             }
         }
     });
     out.push(parse_quote! {
-        impl crate::iop::CEnum for #type_ident {
+        impl #libcommon_crate::iop::CEnum for #type_ident {
             const CDESC: *const iop_enum_t = &raw const #desc_ident;
         }
     });
@@ -301,9 +302,32 @@ fn generate_iop_enum_trait_impl(out: &mut Vec<Item>, type_name: &str) {
 // }}}
 // {{{ IOP items visitor
 
-struct IopItemsVisitor(Vec<Item>);
+struct IopItemsVisitor {
+    /// Path to the libcommon crate
+    libcommon_crate: Ident,
+
+    /// List of generated IOP bindings
+    bindings: Vec<Item>,
+}
 
 impl IopItemsVisitor {
+    fn new() -> Self {
+        Self {
+            libcommon_crate: {
+                // We must use "crate::" instead of "libcommon::" when building `libcommon`.
+                if env::var("CARGO_MANIFEST_DIR")
+                    .expect("missing $CARGO_MANIFEST_DIR")
+                    .ends_with("/rust/libcommon")
+                {
+                    format_ident!("crate")
+                } else {
+                    format_ident!("libcommon")
+                }
+            },
+            bindings: Vec::new(),
+        }
+    }
+
     fn visit_item(&mut self, item: &Item) {
         match item {
             Item::Struct(item_struct) => {
@@ -318,10 +342,18 @@ impl IopItemsVisitor {
                 };
                 match kind {
                     IopKind::Struct | IopKind::Class { .. } => {
-                        generate_iop_struct_trait_impl(&mut self.0, &c_name);
+                        generate_iop_struct_trait_impl(
+                            &mut self.bindings,
+                            &self.libcommon_crate,
+                            &c_name,
+                        );
                     }
                     IopKind::Union => {
-                        generate_iop_union_trait_impl(&mut self.0, &c_name);
+                        generate_iop_union_trait_impl(
+                            &mut self.bindings,
+                            &self.libcommon_crate,
+                            &c_name,
+                        );
                     }
                     IopKind::Enum => panic!("unexpected IOP kind `{kind:#?}` on `{c_name}`"),
                 }
@@ -339,7 +371,7 @@ impl IopItemsVisitor {
                     matches!(kind, IopKind::Enum),
                     "unexpected IOP kind `{kind:#?}` on `{c_name}`"
                 );
-                generate_iop_enum_trait_impl(&mut self.0, &c_name);
+                generate_iop_enum_trait_impl(&mut self.bindings, &self.libcommon_crate, &c_name);
             }
             _ => {}
         }
@@ -404,7 +436,7 @@ fn process_bindings(content: &str) -> ProcessedBindings {
         parse_str::<SynFile>(content).expect("bindgen should generate a valid rust file");
     let mut visitor = BindingsVisitor {
         generated_items: GeneratedItemsVisitor(Vec::new()),
-        iop_items: IopItemsVisitor(Vec::new()),
+        iop_items: IopItemsVisitor::new(),
     };
 
     visitor.visit_file_mut(&mut file);
@@ -415,7 +447,7 @@ fn process_bindings(content: &str) -> ProcessedBindings {
             let file = SynFile {
                 shebang: None,
                 attrs: Vec::new(),
-                items: visitor.iop_items.0,
+                items: visitor.iop_items.bindings,
             };
             prettyplease::unparse(&file)
         },

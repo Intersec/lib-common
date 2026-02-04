@@ -21,13 +21,8 @@
 //! This crate tests Rust IOP features. It is here and not directly in `rust/libcommon/iop.rs`
 //! so that it can use the IOPs defined in `tests/iop/tstiop.iop`.
 
-// Re-export iop module at crate root so generated bindings can use `crate::iop::`
-// FIXME this should not be necessary
-pub use libcommon::iop;
-
 #[waf_cargo_build::bindings_mod]
 pub mod bindings {
-    use crate::iop;
     pub use libcommon::bindings::*;
     waf_cargo_build::include_bindings!();
 }
