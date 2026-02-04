@@ -365,6 +365,9 @@ impl Drop for Env<'_> {
 mod tests {
     use super::*;
     use crate::bindings::{core__pkg, ic__pkg};
+    use crate::bindings::{
+        ic__hdr__t, ic__hdr__tag_t, ic__ic_priority__e, ic__ic_priority__t, ic__simple_hdr__t,
+    };
     use crate::mem_stack::TScope;
 
     // {{{ Test helpers
@@ -495,7 +498,7 @@ mod tests {
     }
 
     // }}}
-    // {{{ JSON pack/unpack tests
+    // {{{ Generic JSON pack/unpack tests
 
     #[test]
     fn junpack() {
@@ -546,7 +549,7 @@ mod tests {
     }
 
     // }}}
-    // {{{ YAML pack/unpack tests
+    // {{{ Generic YAML pack/unpack tests
 
     #[test]
     fn yunpack() {
@@ -594,6 +597,55 @@ mod tests {
         let output = obj.as_yaml();
 
         assert_eq!(output, "token: 333\nepoch: 444");
+    }
+
+    // }}}
+    // {{{ IOP traits on C objects
+
+    #[test]
+    fn iop_struct_trait() {
+        // Test a C IOP structures implement the CStruct trait
+        fn assert_impl_struct<T: CStruct>() {}
+        assert_impl_struct::<ic__simple_hdr__t>();
+
+        // Test IOP structs have a new() method, that set the default values
+        let hdr = ic__simple_hdr__t::new();
+        assert_eq!(hdr.payload, -1);
+
+        // Test they have a json packing method
+        let json = hdr.as_json();
+        assert_eq!(json, "{\n    \"payload\": -1\n}\n");
+    }
+
+    #[test]
+    fn iop_union_trait() {
+        // Test a C IOP union implement the CUnion trait
+        // FIXME: currently they implement the CStruct instead of CUnion
+        fn assert_impl_union<T: CStruct>() {}
+        assert_impl_union::<ic__hdr__t>();
+
+        // Test IOP unions have a new() method
+        // FIXME: we should not have to do all this manually
+        let mut hdr = ic__hdr__t::new();
+        hdr.iop_tag = ic__hdr__tag_t::ic__hdr__simple__ft;
+        unsafe {
+            *hdr.__bindgen_anon_1.simple.as_mut() = ic__simple_hdr__t::new();
+        }
+
+        // Test they have a json packing method
+        let json = hdr.as_json();
+        assert_eq!(json, "{ \"simple\": {\n    \"payload\": -1\n}\n }\n");
+    }
+
+    #[test]
+    fn iop_enum_trait() {
+        // Test a C IOP enum implement the CEnum trait
+        fn assert_impl_enum<T: CEnum>() {}
+        assert_impl_enum::<ic__ic_priority__t>();
+
+        // Test the get_cdesc method
+        let prio = ic__ic_priority__t::IC_PRIORITY_NORMAL;
+        assert!(ptr::eq(prio.get_cdesc(), &raw const ic__ic_priority__e));
     }
 
     // }}}
