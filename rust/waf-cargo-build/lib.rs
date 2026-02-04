@@ -232,12 +232,6 @@ fn generate_iop_struct_union_trait_impl(
             fn get_cdesc(&self) -> *const iop_struct_t {
                 &raw const #desc_ident
             }
-            fn get_cptr(&self) -> *const ::std::ffi::c_void {
-                ::std::ptr::from_ref(self) as *const ::std::os::raw::c_void
-            }
-            fn get_cptr_mut(&mut self) -> *mut ::std::ffi::c_void {
-                ::std::ptr::from_mut(self) as *mut ::std::os::raw::c_void
-            }
         }
     });
     out.push(parse_quote! {

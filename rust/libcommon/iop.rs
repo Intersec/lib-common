@@ -71,10 +71,14 @@ pub trait StructUnion: Base {
     fn get_cdesc(&self) -> *const iop_struct_t;
 
     /// Get the C pointer of the IOP structure or union.
-    fn get_cptr(&self) -> *const c_void;
+    fn get_cptr(&self) -> *const c_void {
+        ptr::from_ref(self) as *const c_void
+    }
 
     /// Get the mutable C pointer of the IOP structure or union.
-    fn get_cptr_mut(&mut self) -> *mut c_void;
+    fn get_cptr_mut(&mut self) -> *mut c_void {
+        ptr::from_mut(self) as *mut c_void
+    }
 
     /// Export the IOP struct or union as JSON
     fn as_json(&self) -> String {
