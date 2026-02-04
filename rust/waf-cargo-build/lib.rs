@@ -26,18 +26,20 @@
 //!
 //! The main entry point is the structure [`WafBuild`].
 
-use bindgen::callbacks::{AllowOrBlockItem, DeriveInfo, ItemInfo, ParseCallbacks, TypeKind};
+use bindgen::callbacks::{AllowOrBlockItem, DeriveInfo, ItemInfo, ParseCallbacks};
 use bindgen::{Builder, EnumVariation};
+use quote::format_ident;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{BufReader, Cursor, Write as _};
+use std::io::{BufReader, Write as _};
 use std::path::{Path, PathBuf};
 use std::{env, error, fs, io};
 use syn::ext::IdentExt as _;
 use syn::{
-    File as SynFile, ForeignItem, Ident, Item, ItemMod, ItemUse, UseTree, parse_str,
+    Attribute, File as SynFile, ForeignItem, Ident, Item, ItemMod, ItemUse, UseTree, parse_quote,
+    parse_str,
     visit_mut::{VisitMut, visit_file_mut, visit_item_mod_mut},
 };
 
@@ -98,33 +100,16 @@ fn get_pkg_waf_build_dir(is_pic_profile: bool, pkg_dir: &Path) -> PathBuf {
 }
 
 // }}}
-// {{{ Retrieve generated items
+// {{{ GeneratedItemsVisitor: retrieve generated items
 
 struct GeneratedItemsVisitor(Vec<String>);
 
-#[allow(clippy::renamed_function_params)]
-impl VisitMut for GeneratedItemsVisitor {
-    fn visit_file_mut(&mut self, node: &mut SynFile) {
-        self.visit_items(&node.items);
-        visit_file_mut(self, node);
-    }
-
-    fn visit_item_mod_mut(&mut self, item_mod: &mut ItemMod) {
-        if let Some((_, items)) = &item_mod.content {
-            self.visit_items(items);
-        }
-        visit_item_mod_mut(self, item_mod);
-    }
-}
-
 impl GeneratedItemsVisitor {
-    fn visit_items(&mut self, items: &[Item]) {
-        for item in items {
-            if let Some(ident) = GeneratedItemsVisitor::get_item_ident(item) {
-                let name = ident.unraw().to_string();
-                if name != "_" {
-                    self.0.push(name);
-                }
+    fn visit_item(&mut self, item: &Item) {
+        if let Some(ident) = Self::get_item_ident(item) {
+            let name = ident.unraw().to_string();
+            if name != "_" {
+                self.0.push(name);
             }
         }
     }
@@ -179,13 +164,262 @@ impl GeneratedItemsVisitor {
     }
 }
 
-fn retrieve_generated_items(content: &str) -> Vec<String> {
+// }}}
+// {{{ Generate IOP bindings
+// {{{ IOP annotation parsing
+
+/// The kind of IOP type (struct, union, class, or enum).
+#[derive(Debug)]
+enum IopKind {
+    Struct,
+    Union,
+    #[allow(dead_code)]
+    Class {
+        parent: Option<String>,
+    },
+    Enum,
+}
+
+/// Parse the IOP kind annotation (struct, union, class, class:Parent, enum).
+fn parse_iop_kind(s: &str) -> Option<IopKind> {
+    match s {
+        "struct" => Some(IopKind::Struct),
+        "union" => Some(IopKind::Union),
+        "enum" => Some(IopKind::Enum),
+        "class" => Some(IopKind::Class { parent: None }),
+        s if s.starts_with("class:") => Some(IopKind::Class {
+            parent: Some(s.strip_prefix("class:")?.to_owned()),
+        }),
+        _ => None,
+    }
+}
+
+/// Get the contents of an IOP annotation from a doc comment "@iop ..."
+fn get_iop_annotation_contents(doc: &str) -> Option<&str> {
+    doc.trim().strip_prefix("@iop ")
+}
+
+/// Extract doc comment string from an attribute.
+fn get_doc_string(attr: &Attribute) -> Option<String> {
+    if !attr.path().is_ident("doc") {
+        return None;
+    }
+
+    if let syn::Meta::NameValue(meta) = &attr.meta
+        && let syn::Expr::Lit(expr_lit) = &meta.value
+        && let syn::Lit::Str(lit_str) = &expr_lit.lit
+    {
+        return Some(lit_str.value());
+    }
+    None
+}
+
+// }}}
+// {{{ Bindings generation
+
+/// Generate common IOP trait implementations for a struct/union types.
+fn generate_iop_struct_union_trait_impl(
+    out: &mut Vec<Item>,
+    type_ident: &Ident,
+    desc_ident: &Ident,
+) {
+    out.push(parse_quote! {
+        impl crate::iop::Base for #type_ident {}
+    });
+    out.push(parse_quote! {
+        impl crate::iop::StructUnion for #type_ident {
+            fn get_cdesc(&self) -> *const iop_struct_t {
+                &raw const #desc_ident
+            }
+            fn get_cptr(&self) -> *const ::std::ffi::c_void {
+                ::std::ptr::from_ref(self) as *const ::std::os::raw::c_void
+            }
+            fn get_cptr_mut(&mut self) -> *mut ::std::ffi::c_void {
+                ::std::ptr::from_mut(self) as *mut ::std::os::raw::c_void
+            }
+        }
+    });
+    out.push(parse_quote! {
+        impl crate::iop::CStructUnion for #type_ident {
+            const CDESC: *const iop_struct_t = &raw const #desc_ident;
+        }
+    });
+}
+
+/// Generate IOP trait implementations for a struct type.
+fn generate_iop_struct_trait_impl(out: &mut Vec<Item>, type_name: &str) {
+    let type_ident = format_ident!("{}", type_name);
+    let desc_ident = format_ident!("{}__s", type_name.strip_suffix("__t").expect(""));
+
+    generate_iop_struct_union_trait_impl(out, &type_ident, &desc_ident);
+
+    out.push(parse_quote! {
+        impl crate::iop::Struct for #type_ident {}
+    });
+    out.push(parse_quote! {
+        impl crate::iop::CStruct for #type_ident {}
+    });
+}
+
+/// Generate IOP trait implementations for a union type.
+fn generate_iop_union_trait_impl(out: &mut Vec<Item>, type_name: &str) {
+    let type_ident = format_ident!("{}", type_name);
+    let desc_ident = format_ident!("{}__s", type_name.strip_suffix("__t").expect(""));
+
+    generate_iop_struct_union_trait_impl(out, &type_ident, &desc_ident);
+
+    out.push(parse_quote! {
+        impl crate::iop::Union for #type_ident {}
+    });
+    out.push(parse_quote! {
+        impl crate::iop::CUnion for #type_ident {}
+    });
+}
+
+/// Generate IOP trait implementations for an enum type.
+fn generate_iop_enum_trait_impl(out: &mut Vec<Item>, type_name: &str) {
+    let type_ident = format_ident!("{}", type_name);
+    let desc_ident = format_ident!("{}__e", type_name.strip_suffix("__t").expect(""));
+
+    out.push(parse_quote! {
+        impl crate::iop::Base for #type_ident {}
+    });
+    out.push(parse_quote! {
+        impl crate::iop::Enum for #type_ident {
+            fn get_cdesc(&self) -> *const iop_enum_t {
+                &raw const #desc_ident
+            }
+        }
+    });
+    out.push(parse_quote! {
+        impl crate::iop::CEnum for #type_ident {
+            const CDESC: *const iop_enum_t = &raw const #desc_ident;
+        }
+    });
+}
+
+// }}}
+// {{{ IOP items visitor
+
+struct IopItemsVisitor(Vec<Item>);
+
+impl IopItemsVisitor {
+    fn visit_item(&mut self, item: &Item) {
+        match item {
+            Item::Struct(item_struct) => {
+                let c_name = item_struct.ident.to_string();
+
+                if !c_name.ends_with("__t") {
+                    return;
+                }
+
+                let Some(kind) = Self::get_iop_kind_from_attrs(&item_struct.attrs) else {
+                    return;
+                };
+                match kind {
+                    IopKind::Struct | IopKind::Class { .. } => {
+                        generate_iop_struct_trait_impl(&mut self.0, &c_name);
+                    }
+                    IopKind::Union => {
+                        generate_iop_union_trait_impl(&mut self.0, &c_name);
+                    }
+                    IopKind::Enum => panic!("unexpected IOP kind `{kind:#?}` on `{c_name}`"),
+                }
+            }
+            Item::Enum(item_enum) => {
+                let c_name = item_enum.ident.to_string();
+
+                if !c_name.ends_with("__t") {
+                    return;
+                }
+                let Some(kind) = Self::get_iop_kind_from_attrs(&item_enum.attrs) else {
+                    return;
+                };
+                assert!(
+                    matches!(kind, IopKind::Enum),
+                    "unexpected IOP kind `{kind:#?}` on `{c_name}`"
+                );
+                generate_iop_enum_trait_impl(&mut self.0, &c_name);
+            }
+            _ => {}
+        }
+    }
+
+    /// Check if a struct's attributes contain an IOP kind annotation.
+    fn get_iop_kind_from_attrs(attrs: &[Attribute]) -> Option<IopKind> {
+        for attr in attrs {
+            if let Some(doc) = get_doc_string(attr)
+                && let Some(iop_str) = get_iop_annotation_contents(&doc)
+            {
+                if let Some(kind) = parse_iop_kind(iop_str) {
+                    return Some(kind);
+                }
+                panic!("invalid IOP kind annonation `{iop_str}`");
+            }
+        }
+        None
+    }
+}
+
+// }}}
+// }}}
+// {{{ process_bindings (visiting generated code)
+
+struct BindingsVisitor {
+    generated_items: GeneratedItemsVisitor,
+    iop_items: IopItemsVisitor,
+}
+
+impl BindingsVisitor {
+    fn visit_items(&mut self, items: &[Item]) {
+        for item in items {
+            self.generated_items.visit_item(item);
+            self.iop_items.visit_item(item);
+        }
+    }
+}
+
+#[allow(clippy::renamed_function_params)]
+impl VisitMut for BindingsVisitor {
+    fn visit_file_mut(&mut self, node: &mut SynFile) {
+        self.visit_items(&node.items);
+        visit_file_mut(self, node);
+    }
+
+    fn visit_item_mod_mut(&mut self, item_mod: &mut ItemMod) {
+        if let Some((_, items)) = &item_mod.content {
+            self.visit_items(items);
+        }
+        visit_item_mod_mut(self, item_mod);
+    }
+}
+
+struct ProcessedBindings {
+    generated_items: Vec<String>,
+    extra_iop_bindings: String,
+}
+
+fn process_bindings(content: &str) -> ProcessedBindings {
     let mut file =
         parse_str::<SynFile>(content).expect("bindgen should generate a valid rust file");
-    let mut visitor = GeneratedItemsVisitor(Vec::new());
+    let mut visitor = BindingsVisitor {
+        generated_items: GeneratedItemsVisitor(Vec::new()),
+        iop_items: IopItemsVisitor(Vec::new()),
+    };
 
     visitor.visit_file_mut(&mut file);
-    visitor.0
+
+    ProcessedBindings {
+        generated_items: visitor.generated_items.0,
+        extra_iop_bindings: {
+            let file = SynFile {
+                shebang: None,
+                attrs: Vec::new(),
+                items: visitor.iop_items.0,
+            };
+            prettyplease::unparse(&file)
+        },
+    }
 }
 
 // }}}
@@ -214,32 +448,9 @@ impl ParseCallbacks for LibcommonParseCallbacks {
     ///
     /// If no additional attributes are wanted, this function should return an
     /// empty `Vec`.
-    fn add_derives(&self, info: &DeriveInfo<'_>) -> Vec<String> {
-        let mut res: Vec<String> = vec![];
-
-        // Add IOP derives traits.
-        // FIXME: We should use the source file to detect that we are indeed using an IOP
-        //        (check that the file ends with `-t.iop.h`).
-        //        Unfortunately, this callback does not provide the source file context, and
-        //        `include_file()` and `header_file()` only triggers when entering a new source
-        //        file, and not when exiting the source file, we cannot know here in which source
-        //        we are in.
-        //        The solution might be to add the source location to this callback in bindgen.
-        if info.name.ends_with("__t") {
-            match info.kind {
-                TypeKind::Enum => {
-                    res.push("::libcommon_derive::IopEnum".to_owned());
-                }
-                TypeKind::Union => {
-                    res.push("::libcommon_derive::IopUnion".to_owned());
-                }
-                TypeKind::Struct => {
-                    res.push("::libcommon_derive::IopStruct".to_owned());
-                }
-            }
-        }
-
-        res
+    fn add_derives(&self, _info: &DeriveInfo<'_>) -> Vec<String> {
+        // TODO: remove this deprecated code
+        vec![]
     }
 }
 
@@ -478,19 +689,26 @@ impl WafBuild {
         builder = cb(builder)?;
 
         // Finish the builder and generate the bindings.
-        let bindings = builder.generate()?;
+        let bindings_str = builder.generate()?.to_string();
 
-        // Write the bindings to a local buffer first.
-        let mut bindings_buff = Cursor::new(Vec::<u8>::new());
-        bindings.write(Box::new(&mut bindings_buff))?;
-
-        // Get the generated items.
-        let item_names = retrieve_generated_items(str::from_utf8(bindings_buff.get_ref())?);
+        // Process bindings, to get generated items and extra IOP bindings
+        let processed_bindings = process_bindings(&bindings_str);
 
         // Write the binding to the files.
         write_read_only_file(&binding_gen_file, || {
             let mut file = File::create(&binding_gen_file)?;
-            file.write_all(bindings_buff.get_ref())?;
+
+            file.write_all("// {{{ Bindings generated by bindgen\n\n".as_bytes())?;
+            file.write_all(bindings_str.as_bytes())?;
+            file.write_all("\n// }}}".as_bytes())?;
+
+            if !processed_bindings.extra_iop_bindings.is_empty() {
+                file.write_all(
+                    "\n// {{{ IOP bindings generated by waf-cargo-build\n\n".as_bytes(),
+                )?;
+                file.write_all(processed_bindings.extra_iop_bindings.as_bytes())?;
+                file.write_all("\n// }}}".as_bytes())?;
+            }
             Ok(())
         })?;
 
@@ -533,7 +751,7 @@ impl WafBuild {
 
         // Generate the binding items file
         write_read_only_file(&binding_items_file, || {
-            let json_data = serde_json::to_string_pretty(&item_names)?;
+            let json_data = serde_json::to_string_pretty(&processed_bindings.generated_items)?;
             let mut file = File::create(&binding_items_file)?;
             file.write_all(json_data.as_bytes())?;
             Ok(())

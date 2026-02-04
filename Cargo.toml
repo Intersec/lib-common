@@ -231,10 +231,13 @@ syn = { version = "2.0", features = ["full", "visit-mut"] }
 clap = { version = "4.5.39", features = ["derive"] }
 rand = "0.9.1"
 
-# Used by libcommon-derive
+# Used by libcommon-derive and waf-cargo-build
 quote = "1.0"
 
 # Used by modules
 paste = "1.0.15"
+
+# Used by waf-cargo-build for IOP code generation
+prettyplease = "0.2"
 
 # }}}

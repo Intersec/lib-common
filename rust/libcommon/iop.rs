@@ -620,8 +620,7 @@ mod tests {
     #[test]
     fn iop_union_trait() {
         // Test a C IOP union implement the CUnion trait
-        // FIXME: currently they implement the CStruct instead of CUnion
-        fn assert_impl_union<T: CStruct>() {}
+        fn assert_impl_union<T: CUnion>() {}
         assert_impl_union::<ic__hdr__t>();
 
         // Test IOP unions have a new() method

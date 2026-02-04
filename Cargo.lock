@@ -176,6 +176,7 @@ dependencies = [
  "cc",
  "clap",
  "paste",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "rand",
@@ -525,7 +526,9 @@ version = "0.0.0"
 dependencies = [
  "bindgen",
  "cc",
+ "prettyplease",
  "proc-macro2",
+ "quote",
  "serde",
  "serde_json",
  "syn",
