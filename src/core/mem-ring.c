@@ -370,14 +370,12 @@ ring_reset_to_prevframe(ring_pool_t *rp, frame_t *fprev, frame_t *frame)
 static ALWAYS_INLINE void
 ring_setup_frame(ring_pool_t *rp, ring_blk_t *blk, frame_t *frame)
 {
-    spin_lock(&rp->lock);
     frame->blk = blk;
     frame->rp = (uintptr_t)rp;
     dlist_add_tail(&rp->fhead, &frame->flist);
 
     rp->ring = frame;
     ring_reset_frame(rp, frame, false);
-    spin_unlock(&rp->lock);
 }
 
 /*------ Public API -{{{-*/
@@ -490,8 +488,10 @@ const void *mem_ring_seal(mem_pool_t *_rp)
     ring_blk_t *blk;
 
     /* Makes a new frame */
+    spin_lock(&rp->lock);
     frame = rp_reserve(rp, sizeof(frame_t), 0, &blk);
     ring_setup_frame(rp, blk, frame);
+    spin_unlock(&rp->lock);
 
     return last;
 }
@@ -774,10 +774,14 @@ void mem_ring_dump(const mem_pool_t *_rp)
 size_t mem_ring_memory_footprint(const mem_pool_t *_rp)
 {
     ring_pool_t *rp = container_of(_rp, ring_pool_t, mp);
+    size_t footprint;
 
+    spin_lock(&rp->lock);
     /* The ring_pool_t size should count as long as it is malloc'd. */
+    footprint = sizeof(*rp) + rp->ringsize;
+    spin_unlock(&rp->lock);
 
-    return sizeof(*rp) + rp->ringsize;
+    return footprint;
 }
 
 /* }}} */
@@ -837,6 +841,7 @@ static void core_mem_ring_print_state(void)
     dlist_for_each_entry(ring_pool_t, rp, &_G.all_pools, mp.pool_link) {
         qv_t(lstr) *tab = qv_growlen(&rows, 1);
 
+        spin_lock(&rp->lock);
         t_qv_init(tab, hdr_size);
         qv_append(tab, t_lstr_fmt("%s", rp->mp.name));
         qv_append(tab, t_lstr_fmt("%p", rp));
@@ -853,6 +858,7 @@ static void core_mem_ring_print_state(void)
         total_nbpages += rp->nbpages;
         total_alloc_sz += rp->alloc_sz;
         total_alloc_nb += rp->alloc_nb;
+        spin_unlock(&rp->lock);
     }
 
     spin_unlock(&_G.all_pools_lock);
