@@ -36,10 +36,7 @@ use std::io::{BufReader, Write as _};
 use std::path::{Path, PathBuf};
 use std::{env, error, fs, io};
 use syn::ext::IdentExt as _;
-use syn::{
-    File as SynFile, ForeignItem, Ident, Item, ItemMod, ItemUse, UseTree, parse_str,
-    visit_mut::{VisitMut, visit_file_mut, visit_item_mod_mut},
-};
+use syn::{File as SynFile, ForeignItem, Ident, Item, ItemUse, UseTree, parse_str};
 
 mod iop_bindgen;
 
@@ -167,53 +164,24 @@ impl GeneratedItemsVisitor {
 // }}}
 // {{{ process_bindings (visiting generated code)
 
-struct BindingsVisitor {
-    generated_items: GeneratedItemsVisitor,
-    iop_items: iop_bindgen::IopBindingsGenerator,
-}
-
-impl BindingsVisitor {
-    fn visit_items(&mut self, items: &[Item]) {
-        for item in items {
-            self.generated_items.visit_item(item);
-            self.iop_items.visit_item(item);
-        }
-    }
-}
-
-#[allow(clippy::renamed_function_params)]
-impl VisitMut for BindingsVisitor {
-    fn visit_file_mut(&mut self, node: &mut SynFile) {
-        self.visit_items(&node.items);
-        visit_file_mut(self, node);
-    }
-
-    fn visit_item_mod_mut(&mut self, item_mod: &mut ItemMod) {
-        if let Some((_, items)) = &item_mod.content {
-            self.visit_items(items);
-        }
-        visit_item_mod_mut(self, item_mod);
-    }
-}
-
 struct ProcessedBindings {
     generated_items: Vec<String>,
     extra_iop_bindings: String,
 }
 
 fn process_bindings(content: &str) -> ProcessedBindings {
-    let mut file =
-        parse_str::<SynFile>(content).expect("bindgen should generate a valid rust file");
-    let mut visitor = BindingsVisitor {
-        generated_items: GeneratedItemsVisitor(Vec::new()),
-        iop_items: iop_bindgen::IopBindingsGenerator::new(),
-    };
+    let file = parse_str::<SynFile>(content).expect("bindgen should generate a valid rust file");
+    let mut generated_items = GeneratedItemsVisitor(Vec::new());
+    let mut iop_bindings = iop_bindgen::IopBindingsGenerator::new();
 
-    visitor.visit_file_mut(&mut file);
+    for item in &file.items {
+        generated_items.visit_item(item);
+        iop_bindings.visit_item(item);
+    }
 
     ProcessedBindings {
-        generated_items: visitor.generated_items.0,
-        extra_iop_bindings: visitor.iop_items.into_bindings(),
+        generated_items: generated_items.0,
+        extra_iop_bindings: iop_bindings.into_bindings(),
     }
 }
 
