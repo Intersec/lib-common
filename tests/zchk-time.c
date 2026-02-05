@@ -352,7 +352,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_STREQUAL(sb.data, "2012-07-12T13:20:30+03:00");
 
         sb.len = 0;
-        sb_add_localtime_iso8601(&sb, ts, ":Asia/Katmandu");
+        sb_add_localtime_iso8601(&sb, ts, ":Asia/Kathmandu");
         Z_ASSERT_STREQUAL(sb.data, "2012-07-12T16:05:30+05:45");
 
         sb.len = 0;
@@ -382,7 +382,7 @@ Z_GROUP_EXPORT(time)
         Z_ASSERT_STREQUAL(sb.data, "2012-07-12T13:20:30.123+03:00");
 
         sb.len = 0;
-        sb_add_localtime_iso8601_msec(&sb, ts, 123, ":Asia/Katmandu");
+        sb_add_localtime_iso8601_msec(&sb, ts, 123, ":Asia/Kathmandu");
         Z_ASSERT_STREQUAL(sb.data, "2012-07-12T16:05:30.123+05:45");
 
         sb.len = 0;
