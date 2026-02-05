@@ -28,7 +28,6 @@
 
 use bindgen::callbacks::{AllowOrBlockItem, ItemInfo, ParseCallbacks};
 use bindgen::{Builder, EnumVariation};
-use quote::format_ident;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::collections::{HashMap, HashSet};
@@ -38,10 +37,11 @@ use std::path::{Path, PathBuf};
 use std::{env, error, fs, io};
 use syn::ext::IdentExt as _;
 use syn::{
-    Attribute, File as SynFile, ForeignItem, Ident, Item, ItemMod, ItemUse, UseTree, parse_quote,
-    parse_str,
+    File as SynFile, ForeignItem, Ident, Item, ItemMod, ItemUse, UseTree, parse_str,
     visit_mut::{VisitMut, visit_file_mut, visit_item_mod_mut},
 };
+
+mod iop_bindgen;
 
 // Reexport proc-macros for easy use.
 pub use waf_cargo_build_macros::{bindings_mod, include_bindings};
@@ -165,233 +165,11 @@ impl GeneratedItemsVisitor {
 }
 
 // }}}
-// {{{ Generate IOP bindings
-// {{{ IOP annotation parsing
-
-/// The kind of IOP type (struct, union, class, or enum).
-#[derive(Debug)]
-enum IopKind {
-    Struct,
-    Union,
-    #[allow(dead_code)]
-    Class {
-        parent: Option<String>,
-    },
-    Enum,
-}
-
-/// Parse the IOP kind annotation (struct, union, class, class:Parent, enum).
-fn parse_iop_kind(s: &str) -> Option<IopKind> {
-    match s {
-        "struct" => Some(IopKind::Struct),
-        "union" => Some(IopKind::Union),
-        "enum" => Some(IopKind::Enum),
-        "class" => Some(IopKind::Class { parent: None }),
-        s if s.starts_with("class:") => Some(IopKind::Class {
-            parent: Some(s.strip_prefix("class:")?.to_owned()),
-        }),
-        _ => None,
-    }
-}
-
-/// Get the contents of an IOP annotation from a doc comment "@iop ..."
-fn get_iop_annotation_contents(doc: &str) -> Option<&str> {
-    doc.trim().strip_prefix("@iop ")
-}
-
-/// Extract doc comment string from an attribute.
-fn get_doc_string(attr: &Attribute) -> Option<String> {
-    if !attr.path().is_ident("doc") {
-        return None;
-    }
-
-    if let syn::Meta::NameValue(meta) = &attr.meta
-        && let syn::Expr::Lit(expr_lit) = &meta.value
-        && let syn::Lit::Str(lit_str) = &expr_lit.lit
-    {
-        return Some(lit_str.value());
-    }
-    None
-}
-
-// }}}
-// {{{ IOP bindings generator (and items visitor)
-
-struct IopBindingsGenerator {
-    /// Path to the libcommon crate
-    libcommon_crate: Ident,
-
-    /// List of generated IOP bindings
-    bindings: Vec<Item>,
-}
-
-impl IopBindingsGenerator {
-    fn new() -> Self {
-        Self {
-            libcommon_crate: {
-                // We must use "crate::" instead of "libcommon::" when building `libcommon`.
-                if env::var("CARGO_MANIFEST_DIR")
-                    .expect("missing $CARGO_MANIFEST_DIR")
-                    .ends_with("/rust/libcommon")
-                {
-                    format_ident!("crate")
-                } else {
-                    format_ident!("libcommon")
-                }
-            },
-            bindings: Vec::new(),
-        }
-    }
-
-    // {{{ Items visitor
-
-    fn visit_item(&mut self, item: &Item) {
-        match item {
-            Item::Struct(item_struct) => {
-                let c_name = item_struct.ident.to_string();
-
-                if !c_name.ends_with("__t") {
-                    return;
-                }
-
-                let Some(kind) = Self::get_iop_kind_from_attrs(&item_struct.attrs) else {
-                    return;
-                };
-                match kind {
-                    IopKind::Struct | IopKind::Class { .. } => {
-                        self.generate_struct_trait_impl(&c_name);
-                    }
-                    IopKind::Union => {
-                        self.generate_union_trait_impl(&c_name);
-                    }
-                    IopKind::Enum => panic!("unexpected IOP kind `{kind:#?}` on `{c_name}`"),
-                }
-            }
-            Item::Enum(item_enum) => {
-                let c_name = item_enum.ident.to_string();
-
-                if !c_name.ends_with("__t") {
-                    return;
-                }
-                let Some(kind) = Self::get_iop_kind_from_attrs(&item_enum.attrs) else {
-                    return;
-                };
-                assert!(
-                    matches!(kind, IopKind::Enum),
-                    "unexpected IOP kind `{kind:#?}` on `{c_name}`"
-                );
-                self.generate_enum_trait_impl(&c_name);
-            }
-            _ => {}
-        }
-    }
-
-    /// Check if a struct's attributes contain an IOP kind annotation.
-    fn get_iop_kind_from_attrs(attrs: &[Attribute]) -> Option<IopKind> {
-        for attr in attrs {
-            if let Some(doc) = get_doc_string(attr)
-                && let Some(iop_str) = get_iop_annotation_contents(&doc)
-            {
-                if let Some(kind) = parse_iop_kind(iop_str) {
-                    return Some(kind);
-                }
-                panic!("invalid IOP kind annonation `{iop_str}`");
-            }
-        }
-        None
-    }
-
-    // }}}
-    // {{{ traits impl generation
-
-    /// Generate common IOP trait implementations for a struct/union types.
-    fn generate_struct_union_trait_impl(&mut self, type_ident: &Ident, desc_ident: &Ident) {
-        let libcommon_crate = &self.libcommon_crate;
-
-        self.bindings.push(parse_quote! {
-            impl #libcommon_crate::iop::Base for #type_ident {}
-        });
-        self.bindings.push(parse_quote! {
-            impl #libcommon_crate::iop::StructUnion for #type_ident {
-                fn get_cdesc(&self) -> *const iop_struct_t {
-                    &raw const #desc_ident
-                }
-            }
-        });
-        self.bindings.push(parse_quote! {
-            impl #libcommon_crate::iop::CStructUnion for #type_ident {
-                const CDESC: *const iop_struct_t = &raw const #desc_ident;
-            }
-        });
-    }
-
-    /// Generate IOP trait implementations for a struct type.
-    fn generate_struct_trait_impl(&mut self, type_name: &str) {
-        let type_ident = format_ident!("{}", type_name);
-        let desc_ident = format_ident!("{}__s", type_name.strip_suffix("__t").expect(""));
-
-        self.generate_struct_union_trait_impl(&type_ident, &desc_ident);
-
-        let libcommon_crate = &self.libcommon_crate;
-
-        self.bindings.push(parse_quote! {
-            impl #libcommon_crate::iop::Struct for #type_ident {}
-        });
-        self.bindings.push(parse_quote! {
-            impl #libcommon_crate::iop::CStruct for #type_ident {}
-        });
-    }
-
-    /// Generate IOP trait implementations for a union type.
-    fn generate_union_trait_impl(&mut self, type_name: &str) {
-        let type_ident = format_ident!("{}", type_name);
-        let desc_ident = format_ident!("{}__s", type_name.strip_suffix("__t").expect(""));
-
-        self.generate_struct_union_trait_impl(&type_ident, &desc_ident);
-
-        let libcommon_crate = &self.libcommon_crate;
-
-        self.bindings.push(parse_quote! {
-            impl #libcommon_crate::iop::Union for #type_ident {}
-        });
-        self.bindings.push(parse_quote! {
-            impl #libcommon_crate::iop::CUnion for #type_ident {}
-        });
-    }
-
-    /// Generate IOP trait implementations for an enum type.
-    fn generate_enum_trait_impl(&mut self, type_name: &str) {
-        let libcommon_crate = &self.libcommon_crate;
-        let type_ident = format_ident!("{}", type_name);
-        let desc_ident = format_ident!("{}__e", type_name.strip_suffix("__t").expect(""));
-
-        self.bindings.push(parse_quote! {
-            impl #libcommon_crate::iop::Base for #type_ident {}
-        });
-        self.bindings.push(parse_quote! {
-            impl #libcommon_crate::iop::Enum for #type_ident {
-                fn get_cdesc(&self) -> *const iop_enum_t {
-                    &raw const #desc_ident
-                }
-            }
-        });
-        self.bindings.push(parse_quote! {
-            impl #libcommon_crate::iop::CEnum for #type_ident {
-                const CDESC: *const iop_enum_t = &raw const #desc_ident;
-            }
-        });
-    }
-
-    // }}}
-}
-
-// }}}
-// }}}
 // {{{ process_bindings (visiting generated code)
 
 struct BindingsVisitor {
     generated_items: GeneratedItemsVisitor,
-    iop_items: IopBindingsGenerator,
+    iop_items: iop_bindgen::IopBindingsGenerator,
 }
 
 impl BindingsVisitor {
@@ -428,21 +206,14 @@ fn process_bindings(content: &str) -> ProcessedBindings {
         parse_str::<SynFile>(content).expect("bindgen should generate a valid rust file");
     let mut visitor = BindingsVisitor {
         generated_items: GeneratedItemsVisitor(Vec::new()),
-        iop_items: IopBindingsGenerator::new(),
+        iop_items: iop_bindgen::IopBindingsGenerator::new(),
     };
 
     visitor.visit_file_mut(&mut file);
 
     ProcessedBindings {
         generated_items: visitor.generated_items.0,
-        extra_iop_bindings: {
-            let file = SynFile {
-                shebang: None,
-                attrs: Vec::new(),
-                items: visitor.iop_items.bindings,
-            };
-            prettyplease::unparse(&file)
-        },
+        extra_iop_bindings: visitor.iop_items.into_bindings(),
     }
 }
 
