@@ -1804,22 +1804,50 @@ bool wah_get(const wah_t *map, uint64_t pos)
 /* Open/store existing WAH {{{ */
 
 typedef struct from_data_ctx_t {
-    wah_t *map;
+    /** WAH being built from data.
+     */
+    wah_t *nonnull map;
 
-    pstream_t   data;
-    wah_word_t *tab;
-    uint64_t    pos;
+    /** Always pointing at the first word of the current bucket.
+     */
+    wah_word_t *nonnull tab;
 
-    wah_bucket_t *bucket;
-    uint64_t      bucket_len; /* (in represented bits) */
+    /** Position of the next chunk to consider for the current bucket.
+     */
+    ssize_t pos;
+
+    /** Number of words left in tab to process.
+     */
+    ssize_t size;
+
+    /** Number of bits already included in the current bucket.
+     */
+    uint64_t bucket_bits_len;
+
+    /** Optional allocated current bucket.
+     *
+     * In normal cases, the WAH buckets are created at once after “counting”
+     * the right amount of bits and are statically pointing to the data
+     * memory. In this case, ctx.bucket is always NULL.
+     *
+     * However, when a bucket needs to be split because it doesn't fit with
+     * the current WAH_BITS_IN_BUCKET, its content will have to be duplicated
+     * and allocated in memory, in which case ctx.bucket will point to this
+     * allocated bucket. Once ctx.bucket is set, all the following chunks must
+     * be copied in it until the bucket is full.
+     */
+    wah_bucket_t *nullable bucket;
 } from_data_ctx_t;
 
 static inline void
-from_data_ctx_reset_bucket(from_data_ctx_t *ctx, bool reset_run_pos)
+from_data_ctx_reset_bucket(from_data_ctx_t *ctx, bool end_of_wah)
 {
+    ctx->tab  += ctx->pos;
+    ctx->size -= ctx->pos;
+    ctx->pos = 0;
     ctx->bucket = NULL;
-    ctx->bucket_len = 0;
-    if (likely(reset_run_pos)) {
+    ctx->bucket_bits_len = 0;
+    if (likely(!end_of_wah)) {
         /* If we were treating the last words we must not reset the
          * previous/last run positions.
          */
@@ -1843,12 +1871,12 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
     map->last_run_pos = -1;
 
     p_clear(&ctx, 1);
-    ctx.map  = map;
-    ctx.data = data;
+    ctx.map = map;
+    ctx.tab = (wah_word_t *)data.p;
+    ctx.size = ps_len(&data) / sizeof(wah_word_t);
 
-    if (likely(ps_len(&ctx.data) >= sizeof(wah_word_t))) {
-        const wah_word_t *chunk = ctx.data.p;
-        uint64_t bits_count = chunk[0].head.words * WAH_BIT_IN_WORD;
+    if (likely(ctx.size >= 1)) {
+        uint64_t bits_count = ctx.tab[0].head.words * WAH_BIT_IN_WORD;
 
         assert(WAH_BITS_IN_BUCKET < WAH_MAX_WORDS_IN_RUN * 8);
         if (bits_count <= WAH_BITS_IN_BUCKET) {
@@ -1863,114 +1891,100 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
         }
     }
 
-    while (!ps_done(&ctx.data)) {
-        uint64_t size = ps_len(&ctx.data) / sizeof(wah_word_t);
+    while (ctx.pos < ctx.size - 1) {
+        uint64_t active = 0;
+        wah_header_t *head = &ctx.tab[ctx.pos].head;
+        int64_t      words = ctx.tab[ctx.pos + 1].count;
+        uint64_t chunk_len = WAH_BIT_IN_WORD * (head->words + words);
 
-        ctx.tab = (wah_word_t *)ctx.data.p;
-        ctx.pos = 0;
+        THROW_NULL_IF(words > ctx.size || ctx.pos + 2 > ctx.size - words);
 
-        while (ctx.pos < size - 1) {
-            uint64_t active = 0;
-            wah_header_t head  = ctx.tab[ctx.pos++].head;
-            uint64_t     words = ctx.tab[ctx.pos++].count;
-            uint64_t     chunk_len = WAH_BIT_IN_WORD * (head.words + words);
-
-            THROW_NULL_IF(words > size || ctx.pos > size - words);
-
-            if (head.bit) {
-                active += WAH_BIT_IN_WORD * head.words;
-            }
-            if (words) {
-                active += membitcount(&ctx.tab[ctx.pos],
-                                      words * sizeof(wah_word_t));
-            }
-
-            if (overfill_bucket && (
-                    /* the chunk is not full of 0s or 1s or… */
-                    (active && active != chunk_len) ||
-                    /* the WAH isn't empty and filled with opposite bit */
-                    (map->len && !!active != !!map->active)))
-            {
-                assert(!ctx.bucket);
-                if (ctx.bucket_len >= WAH_BITS_IN_BUCKET) {
-                    /* This chunk mark the end of an overfilled first bucket
-                     * full of 0s or 1s and must not be included in the
-                     * bucket.
-                     */
-                    ctx.bucket = wah_create_bucket(map, 0);
-                    assert((const void *)ctx.tab == data.p);
-                    wah_bucket_set_static(ctx.bucket, ctx.tab, ctx.pos - 2);
-                    wah_set_buckets_shift(map);
-
-                    /* The context must be fix up in order to restart from the
-                     * current chunk and not the next one.
-                     */
-                    from_data_ctx_reset_bucket(&ctx, true);
-                    __ps_skip(&ctx.data, (ctx.pos - 2) * sizeof(wah_word_t));
-                    size = ps_len(&ctx.data) / sizeof(wah_word_t);
-                    ctx.tab = (wah_word_t *)ctx.data.p;
-                    ctx.pos = 2;
-                }
-                overfill_bucket = false;
-            }
-            map->active += active;
-            map->len += chunk_len;
-
-            if (!overfill_bucket && unlikely(ctx.bucket_len + chunk_len >
-                                             WAH_BITS_IN_BUCKET))
-            {
-                /* This wah does not respect the max length of the buckets. */
-                return NULL;
-            }
-
-            ctx.bucket_len += chunk_len;
-            if (ctx.bucket) {
-                /* We have an opened bucket, add this chunk. */
-                assert(!overfill_bucket);
-                map->previous_run_pos = map->last_run_pos;
-                map->last_run_pos     = wah_bucket_len(ctx.bucket);
-                wah_bucket_extend(map, ctx.bucket, &ctx.tab[ctx.pos - 2],
-                                  words + 2);
-            } else {
-                /* No opened bucket, the chunk will be added after. */
-                map->previous_run_pos = map->last_run_pos;
-                map->last_run_pos     = ctx.pos - 2;
-
-                /* Unlike a normal wah_t, last_run_pos has been initialized to
-                 * -1 instead of 0 so previous_run_pos would correctly take -1
-                 *  on the first iteration here.
-                 */
-                assert(map->last_run_pos > 0 || map->previous_run_pos < 0);
-            }
-            ctx.pos += words;
-
-            if (!overfill_bucket && ctx.bucket_len >= WAH_BITS_IN_BUCKET) {
-                /* The current bucket is full, close it. */
-                assert (ctx.bucket_len == WAH_BITS_IN_BUCKET);
-                if (!ctx.bucket) {
-                    ctx.bucket = wah_create_bucket(map, 1);
-                    wah_bucket_set_static(ctx.bucket, ctx.tab, ctx.pos);
-                }
-                from_data_ctx_reset_bucket(&ctx, ctx.pos != size);
-                goto next;
-            }
-
-            if (ctx.bucket) {
-                assert(!overfill_bucket);
-                goto next;
-            }
+        if (head->bit) {
+            active = WAH_BIT_IN_WORD * head->words;
+        }
+        if (words) {
+            active += membitcount(&ctx.tab[ctx.pos + 2],
+                                  words * sizeof(wah_word_t));
         }
 
-        THROW_NULL_IF(ctx.pos != size);
-        assert (!ctx.bucket);
-        ctx.bucket = wah_create_bucket(map, 1);
-        wah_bucket_set_static(ctx.bucket, ctx.tab, ctx.pos);
+        if (overfill_bucket && (
+                /* the chunk is not full of 0s or 1s or… */
+                (active && active != chunk_len) ||
+                /* the WAH isn't empty and filled with opposite bit */
+                (map->len && !!active != !!map->active)))
+        {
+            assert(!ctx.bucket);
+            if (ctx.bucket_bits_len >= WAH_BITS_IN_BUCKET) {
+                /* This chunk mark the end of an overfilled first bucket full
+                 * of 0s or 1s and must not be included in the bucket.
+                 */
+                assert(!map->_buckets.len);
+                assert((const void *)ctx.tab == data.p);
+                ctx.bucket = wah_create_bucket(map, 0);
+
+                /* The context must be fix up in order to restart from the
+                 * current chunk and not the next one.
+                 */
+                wah_bucket_set_static(ctx.bucket, ctx.tab, ctx.pos);
+                wah_set_buckets_shift(map);
+
+                from_data_ctx_reset_bucket(&ctx, false);
+            }
+            overfill_bucket = false;
+        }
+        map->active += active;
+        map->len += chunk_len;
+
+        if (!overfill_bucket && unlikely(ctx.bucket_bits_len + chunk_len >
+                                         WAH_BITS_IN_BUCKET))
+        {
+            /* This wah does not respect the max length of the buckets. */
+            e_warning("WAH bucket len is exceeding expected len: %ju > %ju",
+                      ctx.bucket_bits_len + chunk_len, WAH_BITS_IN_BUCKET);
+            return NULL;
+        }
+
+        ctx.bucket_bits_len += chunk_len;
+        if (unexpected(ctx.bucket)) {
+            /* We have an allocated bucket, add this chunk. */
+            assert(!overfill_bucket);
+            map->previous_run_pos = map->last_run_pos;
+            map->last_run_pos     = wah_bucket_len(ctx.bucket);
+            wah_bucket_extend(map, ctx.bucket, (wah_word_t *)head, words + 2);
+        } else {
+            /* No allocated bucket, the chunk will be added after. */
+            map->previous_run_pos = map->last_run_pos;
+            map->last_run_pos     = ctx.pos;
+
+            /* Unlike a normal wah_t, last_run_pos has been initialized to
+             * -1 instead of 0 so previous_run_pos would correctly take -1
+             *  on the first iteration here.
+             */
+            assert(map->last_run_pos > 0 || map->previous_run_pos < 0);
+        }
+        ctx.pos += 2 + words;
+
+        if (!overfill_bucket && ctx.bucket_bits_len >= WAH_BITS_IN_BUCKET) {
+            /* The current bucket is full, close it. */
+            assert(ctx.bucket_bits_len == WAH_BITS_IN_BUCKET);
+            if (!ctx.bucket) {
+                ctx.bucket = wah_create_bucket(map, 0);
+                wah_bucket_set_static(ctx.bucket, ctx.tab, ctx.pos);
+            }
+            from_data_ctx_reset_bucket(&ctx, ctx.pos >= ctx.size);
+        } else if (ctx.bucket) {
+            assert(!overfill_bucket);
+        }
+    }
+
+    THROW_NULL_IF(ctx.pos != ctx.size);
+    assert(!ctx.bucket);
+    if (ctx.size) {
+        ctx.bucket = wah_create_bucket(map, 0);
+        wah_bucket_set_static(ctx.bucket, ctx.tab, ctx.size);
         if (overfill_bucket) {
             wah_set_buckets_shift(map);
         }
-
-      next:
-        __ps_skip(&ctx.data, ctx.pos * sizeof(wah_word_t));
     }
 
     wah_check_invariant(map);
