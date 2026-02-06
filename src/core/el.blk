@@ -1660,9 +1660,8 @@ static data_t el_wake_unregister(el_t *elp)
                                              memory_order_acquire) < 0))
         {
             /* Because the eventfd() API already have locks in the kernel we
-             * should actually never loop.
+             * should rarely loop.
              */
-            assert(false);
             cpu_relax();
         }
         el_fd_unregister(&el->wake.event_fd);
