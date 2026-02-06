@@ -25,27 +25,17 @@ typedef typedef1__foo_s__array_t typedef_valid__typedef_simple_hdr__array_t;
 #define typedef_valid__typedef_simple_hdr__s typedef1__foo_s__s
 #define typedef_valid__typedef_simple_hdr__sp typedef1__foo_s__sp
 
-/// @iop struct
+/// @iop struct { a: str, b: i32, s1: typedef_valid__typedef_simple_hdr__t, type1: str, type2: str, s2: typedef2__foo_s__t, u1: typedef1__foo_u__t, u2: typedef2__foo_u__t, e1: typedef1__foo_e__t, e2: typedef2__foo_e__t }
 struct typedef_valid__my_struct__t {
-    /// @iop str
     lstr_t   a;
-    /// @iop i32
     int32_t  b;
-    /// @iop typedef1.FooS
     typedef_valid__typedef_simple_hdr__t s1;
-    /// @iop str
     lstr_t   type1;
-    /// @iop str
     lstr_t   type2;
-    /// @iop typedef2.FooS
     typedef2__foo_s__t s2;
-    /// @iop typedef1.FooU
     typedef1__foo_u__t u1;
-    /// @iop typedef2.FooU
     typedef2__foo_u__t u2;
-    /// @iop typedef1.FooE
     typedef1__foo_e__t e1;
-    /// @iop typedef2.FooE
     typedef2__foo_e__t e2;
 };
 EXPORT iop_struct_t const typedef_valid__my_struct__s;
@@ -61,39 +51,34 @@ typedef enum typedef_valid__my_union__tag_t {
 #define typedef_valid__my_union__b__fdesc  typedef_valid__my_union__s.fields[1]
 #define typedef_valid__my_union__c__fdesc  typedef_valid__my_union__s.fields[2]
 /*-}}}-*/
-/// @iop union
+/// @iop union { a: str, b: i32, c: bool }
 struct typedef_valid__my_union__t {
     typedef_valid__my_union__tag_t iop_tag;
     union {
-        /// @iop str
         lstr_t   a;
-        /// @iop i32
         int32_t  b;
-        /// @iop bool
         bool     c;
     };
 };
 EXPORT iop_struct_t const typedef_valid__my_union__s;
 EXPORT iop_struct_t const * const nonnull typedef_valid__my_union__sp;
 #define typedef_valid__my_union__get(u, field)       IOP_UNION_GET(typedef_valid__my_union, u, field)
-/// @iop class
+/// @iop class { a: str }
 struct typedef_valid__a__t {
     const iop_struct_t *nonnull __vptr;
-    /// @iop str
     lstr_t   a;
 };
 EXPORT iop_struct_t const typedef_valid__a__s;
 EXPORT iop_struct_t const * const nonnull typedef_valid__a__sp;
 #define typedef_valid__a__class_id  0
 
-/// @iop class:typedef_valid.A
+/// @iop class:typedef_valid__a__t {  }
 struct typedef_valid__b__t {
     union {
         typedef_valid__a__t super;
         struct {
             const iop_struct_t *nonnull __vptr;
             /* fields of typedef_valid__a__t */
-            /// @iop str
             lstr_t   a;
         };
     };
@@ -102,77 +87,50 @@ EXPORT iop_struct_t const typedef_valid__b__s;
 EXPORT iop_struct_t const * const nonnull typedef_valid__b__sp;
 #define typedef_valid__b__class_id  10
 
-/// @iop struct
+/// @iop struct { ms: str, opt: str?, def: str, mst: str, mul: u64, muldef: u64, md: float, mddef: float, mddef2: float, mns: str, m3: u64, m37: u64, b310: u64, msa: str[], msa3: str[], msa6: str[], msa610: str[], mnso: str?, mea: enum1__my_enum__t, msal: typedef_valid__my_struct__t, mya: typedef_valid__my_union__t, muab: typedef_valid__my_union__t, muabc: typedef_valid__my_union__t, muwc: typedef_valid__my_union__t, muwcopt: typedef_valid__my_union__t?, a: typedef_valid__a__t&, b: typedef_valid__b__t& }
 struct typedef_valid__typedef_struct_use_all__t {
-    /// @iop str
     lstr_t   ms;
-    /// @iop str?
     lstr_t           opt;
-    /// @iop str
     lstr_t   def;
-    /// @iop str
     lstr_t   mst;
-    /// @iop u64
     uint64_t mul;
-    /// @iop u64
     uint64_t muldef;
-    /// @iop float
     double   md;
-    /// @iop float
     double   mddef;
-    /// @iop float
     double   mddef2;
-    /// @iop str
     lstr_t   mns;
-    /// @iop u64
     uint64_t m3;
-    /// @iop u64
     uint64_t m37;
-    /// @iop u64
     uint64_t b310;
-    /// @iop str[]
 #ifndef IOP_ARRAY_T
     IOP_ARRAY_OF(lstr_t)   msa;
 #else
     iop_array_lstr_t   msa;
 #endif
-    /// @iop str[]
 #ifndef IOP_ARRAY_T
     IOP_ARRAY_OF(lstr_t)   msa3;
 #else
     iop_array_lstr_t   msa3;
 #endif
-    /// @iop str[]
 #ifndef IOP_ARRAY_T
     IOP_ARRAY_OF(lstr_t)   msa6;
 #else
     iop_array_lstr_t   msa6;
 #endif
-    /// @iop str[]
 #ifndef IOP_ARRAY_T
     IOP_ARRAY_OF(lstr_t)   msa610;
 #else
     iop_array_lstr_t   msa610;
 #endif
-    /// @iop str?
     lstr_t           mnso;
-    /// @iop enum1.MyEnum
     enum1__my_enum__t mea;
-    /// @iop typedef_valid.MyStruct
     typedef_valid__my_struct__t msal;
-    /// @iop typedef_valid.MyUnion
     typedef_valid__my_union__t mya;
-    /// @iop typedef_valid.MyUnion
     typedef_valid__my_union__t muab;
-    /// @iop typedef_valid.MyUnion
     typedef_valid__my_union__t muabc;
-    /// @iop typedef_valid.MyUnion
     typedef_valid__my_union__t muwc;
-    /// @iop typedef_valid.MyUnion?
     typedef_valid__my_union__t *nullable muwcopt;
-    /// @iop typedef_valid.A&
     typedef_valid__a__t *nonnull a;
-    /// @iop typedef_valid.B&
     typedef_valid__b__t *nonnull b;
 };
 EXPORT iop_struct_t const typedef_valid__typedef_struct_use_all__s;
@@ -208,42 +166,29 @@ typedef enum typedef_valid__typedef_union_use_all__tag_t {
 #define typedef_valid__typedef_union_use_all__a__fdesc  typedef_valid__typedef_union_use_all__s.fields[11]
 #define typedef_valid__typedef_union_use_all__b__fdesc  typedef_valid__typedef_union_use_all__s.fields[12]
 /*-}}}-*/
-/// @iop union
+/// @iop union { ms: str, mul: u64, mns: str, m3: u64, b310: u64, mea: enum1__my_enum__t, msal: typedef_valid__my_struct__t, mya: typedef_valid__my_union__t, muab: typedef_valid__my_union__t, muabc: typedef_valid__my_union__t, muwc: typedef_valid__my_union__t, a: typedef_valid__a__t&, b: typedef_valid__b__t& }
 struct typedef_valid__typedef_union_use_all__t {
     typedef_valid__typedef_union_use_all__tag_t iop_tag;
     union {
-        /// @iop str
         lstr_t   ms;
-        /// @iop u64
         uint64_t mul;
-        /// @iop str
         lstr_t   mns;
-        /// @iop u64
         uint64_t m3;
-        /// @iop u64
         uint64_t b310;
-        /// @iop enum1.MyEnum
         enum1__my_enum__t mea;
-        /// @iop typedef_valid.MyStruct
         typedef_valid__my_struct__t msal;
-        /// @iop typedef_valid.MyUnion
         typedef_valid__my_union__t mya;
-        /// @iop typedef_valid.MyUnion
         typedef_valid__my_union__t muab;
-        /// @iop typedef_valid.MyUnion
         typedef_valid__my_union__t muabc;
-        /// @iop typedef_valid.MyUnion
         typedef_valid__my_union__t muwc;
-        /// @iop typedef_valid.A&
         typedef_valid__a__t *nonnull a;
-        /// @iop typedef_valid.B&
         typedef_valid__b__t *nonnull b;
     };
 };
 EXPORT iop_struct_t const typedef_valid__typedef_union_use_all__s;
 EXPORT iop_struct_t const * const nonnull typedef_valid__typedef_union_use_all__sp;
 #define typedef_valid__typedef_union_use_all__get(u, field)       IOP_UNION_GET(typedef_valid__typedef_union_use_all, u, field)
-/// @iop class:typedef_valid.B
+/// @iop class:typedef_valid__b__t { b: str }
 struct typedef_valid__c__t {
     union {
         typedef_valid__b__t super;
@@ -251,29 +196,25 @@ struct typedef_valid__c__t {
             struct {
                 const iop_struct_t *nonnull __vptr;
                 /* fields of typedef_valid__a__t */
-                /// @iop str
                 lstr_t   a;
             };
             /* fields of typedef_valid__b__t */
         };
     };
-    /// @iop str
     lstr_t   b;
 };
 EXPORT iop_struct_t const typedef_valid__c__s;
 EXPORT iop_struct_t const * const nonnull typedef_valid__c__sp;
 #define typedef_valid__c__class_id  11
 
-/// @iop struct
+/// @iop struct { route: typedef_valid__route__t&, original_hdr: typedef_valid__hdr__t? }
 struct typedef_valid__routing_hdr__t {
-    /// @iop typedef_valid.Route&
     typedef_valid__route__t *nonnull route;
-    /// @iop typedef_valid.Hdr?
     typedef_valid__hdr__t *nullable original_hdr;
 };
 EXPORT iop_struct_t const typedef_valid__routing_hdr__s;
 EXPORT iop_struct_t const * const nonnull typedef_valid__routing_hdr__sp;
-/// @iop class
+/// @iop class {  }
 struct typedef_valid__route__t {
     const iop_struct_t *nonnull __vptr;
 };
@@ -290,24 +231,20 @@ typedef enum typedef_valid__hdr__tag_t {
 #define typedef_valid__hdr__simple__fdesc  typedef_valid__hdr__s.fields[0]
 #define typedef_valid__hdr__routing__fdesc  typedef_valid__hdr__s.fields[1]
 /*-}}}-*/
-/// @iop union
+/// @iop union { simple: typedef1__foo_s__t, routing: typedef_valid__routing_hdr__t }
 struct typedef_valid__hdr__t {
     typedef_valid__hdr__tag_t iop_tag;
     union {
-        /// @iop typedef1.FooS
         typedef1__foo_s__t simple;
-        /// @iop typedef_valid.RoutingHdr
         typedef_valid__routing_hdr__t routing;
     };
 };
 EXPORT iop_struct_t const typedef_valid__hdr__s;
 EXPORT iop_struct_t const * const nonnull typedef_valid__hdr__sp;
 #define typedef_valid__hdr__get(u, field)       IOP_UNION_GET(typedef_valid__hdr, u, field)
-/// @iop struct
+/// @iop struct { list_name: str, list: typedef_valid__typedef_struct_use_all__t[] }
 struct typedef_valid__typedef_struct_use_all_with_list__t {
-    /// @iop str
     lstr_t   list_name;
-    /// @iop typedef_valid.TypedefStructUseAll[]
     typedef_valid__typedef_struct_use_all__array_t list;
 };
 EXPORT iop_struct_t const typedef_valid__typedef_struct_use_all_with_list__s;

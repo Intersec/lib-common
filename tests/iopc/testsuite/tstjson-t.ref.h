@@ -34,34 +34,25 @@ typedef enum tstjson__my_union_a__tag_t {
 #define tstjson__my_union_a__b__fdesc  tstjson__my_union_a__s.fields[1]
 #define tstjson__my_union_a__s__fdesc  tstjson__my_union_a__s.fields[2]
 /*-}}}-*/
-/// @iop union
+/// @iop union { i: i32, b: i8, s: str }
 struct tstjson__my_union_a__t {
     tstjson__my_union_a__tag_t iop_tag;
     union {
-        /// @iop i32
         int32_t  i;
-        /// @iop i8
         int8_t   b;
-        /// @iop str
         lstr_t   s;
     };
 };
 EXPORT iop_struct_t const tstjson__my_union_a__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_union_a__sp;
 #define tstjson__my_union_a__get(u, field)       IOP_UNION_GET(tstjson__my_union_a, u, field)
-/// @iop struct
+/// @iop struct { i: i32?, s: str?, u1: tstjson__my_union_a__t, u2: tstjson__my_union_a__t, u3: tstjson__my_union_a__t, class: i32 }
 struct tstjson__my_struct_a__t {
-    /// @iop i32?
     opt_i32_t        i;
-    /// @iop str?
     lstr_t           s;
-    /// @iop tstjson.MyUnionA
     tstjson__my_union_a__t u1;
-    /// @iop tstjson.MyUnionA
     tstjson__my_union_a__t u2;
-    /// @iop tstjson.MyUnionA
     tstjson__my_union_a__t u3;
-    /// @iop i32
     int32_t  class;
 };
 EXPORT iop_struct_t const tstjson__my_struct_a__s;
@@ -70,48 +61,30 @@ typedef tstjson__my_struct_a__t struct_a__t;
 typedef tstjson__my_struct_a__array_t struct_a__array_t;
 #define struct_a__s  tstjson__my_struct_a__s
 
-/// @iop struct
+/// @iop struct { a: i32, b: u32, c: i8, d: u8, e: i16, f: u16, j: bool, g: i64, h: u64, i: float, k: bytes, l: str, m: tstjson__my_enum_a__t, union_a: tstjson__my_union_a__t[], struct_a: tstjson__my_struct_a__t, xml_field: xml }
 struct tstjson__my_struct_b__t {
-    /// @iop i32
     int32_t  a;
-    /// @iop u32
     uint32_t b;
-    /// @iop i8
     int8_t   c;
-    /// @iop u8
     uint8_t  d;
-    /// @iop i16
     int16_t  e;
-    /// @iop u16
     uint16_t f;
-    /// @iop bool
     bool     j;
-    /// @iop i64
     int64_t  g;
-    /// @iop u64
     uint64_t h;
-    /// @iop float
     double   i;
-    /// @iop bytes
     lstr_t   k;
-    /// @iop str
     lstr_t   l;
-    /// @iop tstjson.MyEnumA
     tstjson__my_enum_a__t m;
-    /// @iop tstjson.MyUnionA[]
     tstjson__my_union_a__array_t union_a;
-    /// @iop tstjson.MyStructA
     tstjson__my_struct_a__t struct_a;
-    /// @iop xml
     lstr_t   xml_field;
 };
 EXPORT iop_struct_t const tstjson__my_struct_b__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_struct_b__sp;
-/// @iop struct
+/// @iop struct { a: i32, b: i32 }
 struct tstjson__my_struct_c__t {
-    /// @iop i32
     int32_t  a;
-    /// @iop i32
     int32_t  b;
 };
 EXPORT iop_struct_t const tstjson__my_struct_c__s;
@@ -131,117 +104,97 @@ typedef enum tstjson__constraint_u__tag_t {
 #define tstjson__constraint_u__u64__fdesc  tstjson__constraint_u__s.fields[3]
 #define tstjson__constraint_u__s__fdesc  tstjson__constraint_u__s.fields[4]
 /*-}}}-*/
-/// @iop union
+/// @iop union { u8: u8, u16: u16, u32: u32, u64: u64, s: str }
 struct tstjson__constraint_u__t {
     tstjson__constraint_u__tag_t iop_tag;
     union {
-        /// @iop u8
         uint8_t  u8;
-        /// @iop u16
         uint16_t u16;
-        /// @iop u32
         uint32_t u32;
-        /// @iop u64
         uint64_t u64;
-        /// @iop str
         lstr_t   s;
     };
 };
 EXPORT iop_struct_t const tstjson__constraint_u__s;
 EXPORT iop_struct_t const * const nonnull tstjson__constraint_u__sp;
 #define tstjson__constraint_u__get(u, field)       IOP_UNION_GET(tstjson__constraint_u, u, field)
-/// @iop struct
+/// @iop struct { i8: i8[], i16: i16[], i32: i32[], i64: i64[], s: str[], s2: str }
 struct tstjson__constraint_s__t {
-    /// @iop i8[]
 #ifndef IOP_ARRAY_T
     IOP_ARRAY_OF(int8_t)   i8;
 #else
     iop_array_i8_t     i8;
 #endif
-    /// @iop i16[]
 #ifndef IOP_ARRAY_T
     IOP_ARRAY_OF(int16_t)  i16;
 #else
     iop_array_i16_t    i16;
 #endif
-    /// @iop i32[]
 #ifndef IOP_ARRAY_T
     IOP_ARRAY_OF(int32_t)  i32;
 #else
     iop_array_i32_t    i32;
 #endif
-    /// @iop i64[]
 #ifndef IOP_ARRAY_T
     IOP_ARRAY_OF(int64_t)  i64;
 #else
     iop_array_i64_t    i64;
 #endif
-    /// @iop str[]
 #ifndef IOP_ARRAY_T
     IOP_ARRAY_OF(lstr_t)   s;
 #else
     iop_array_lstr_t   s;
 #endif
-    /// @iop str
     lstr_t   s2;
 };
 EXPORT iop_struct_t const tstjson__constraint_s__s;
 EXPORT iop_struct_t const * const nonnull tstjson__constraint_s__sp;
-/// @iop class
+/// @iop class { a: i32, struct_a: tstjson__my_struct_a__t }
 struct tstjson__my_class_base__t {
     const iop_struct_t *nonnull __vptr;
-    /// @iop i32
     int32_t  a;
-    /// @iop tstjson.MyStructA
     tstjson__my_struct_a__t struct_a;
 };
 EXPORT iop_struct_t const tstjson__my_class_base__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_class_base__sp;
 #define tstjson__my_class_base__class_id  0
 
-/// @iop class:tstjson.MyClassBase
+/// @iop class:tstjson__my_class_base__t { b: i32?, struct_b: tstjson__my_struct_b__t[] }
 struct tstjson__my_class_a__t {
     union {
         tstjson__my_class_base__t super;
         struct {
             const iop_struct_t *nonnull __vptr;
             /* fields of tstjson__my_class_base__t */
-            /// @iop i32
             int32_t  a;
-            /// @iop tstjson.MyStructA
             tstjson__my_struct_a__t struct_a;
         };
     };
-    /// @iop i32?
     opt_i32_t        b;
-    /// @iop tstjson.MyStructB[]
     tstjson__my_struct_b__array_t struct_b;
 };
 EXPORT iop_struct_t const tstjson__my_class_a__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_class_a__sp;
 #define tstjson__my_class_a__class_id  1
 
-/// @iop class:tstjson.MyClassBase
+/// @iop class:tstjson__my_class_base__t { val: i32 }
 struct tstjson__my_class_b__t {
     union {
         tstjson__my_class_base__t super;
         struct {
             const iop_struct_t *nonnull __vptr;
             /* fields of tstjson__my_class_base__t */
-            /// @iop i32
             int32_t  a;
-            /// @iop tstjson.MyStructA
             tstjson__my_struct_a__t struct_a;
         };
     };
-    /// @iop i32
     int32_t  val;
 };
 EXPORT iop_struct_t const tstjson__my_class_b__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_class_b__sp;
 #define tstjson__my_class_b__class_id  2
 
-/// @iop class
+/// @iop class {  }
 struct tstjson__my_class1__t {
     const iop_struct_t *nonnull __vptr;
 };
@@ -249,7 +202,7 @@ EXPORT iop_struct_t const tstjson__my_class1__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_class1__sp;
 #define tstjson__my_class1__class_id  1
 
-/// @iop class:tstjson.MyClass1
+/// @iop class:tstjson__my_class1__t {  }
 struct tstjson__my_class2__t {
     union {
         tstjson__my_class1__t super;
@@ -263,20 +216,16 @@ EXPORT iop_struct_t const tstjson__my_class2__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_class2__sp;
 #define tstjson__my_class2__class_id  2
 
-/// @iop struct
+/// @iop struct { a: tstjson__my_class_a__t&, b: tstjson__my_class_b__t& }
 struct tstjson__class_container__t {
-    /// @iop tstjson.MyClassA&
     tstjson__my_class_a__t *nonnull a;
-    /// @iop tstjson.MyClassB&
     tstjson__my_class_b__t *nonnull b;
 };
 EXPORT iop_struct_t const tstjson__class_container__s;
 EXPORT iop_struct_t const * const nonnull tstjson__class_container__sp;
-/// @iop struct
+/// @iop struct { errcode: i32, desc: str }
 struct tstjson__my_exception_a__t {
-    /// @iop i32
     int32_t  errcode;
-    /// @iop str
     lstr_t   desc;
 };
 EXPORT iop_struct_t const tstjson__my_exception_a__s;

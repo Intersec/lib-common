@@ -18,9 +18,8 @@ typedef iop__void__t tstgen__my_iface_a__fun_a_exn__t;
 #define tstgen__my_iface_a__fun_b__rpc__async  1
 #define tstgen__my_iface_a__fun_b__rpc         (tstgen__my_iface_a__if.funs + 0)
 
-/// @iop struct
+/// @iop struct { a: i32 }
 struct tstgen__my_iface_a__fun_a_args__t {
-    /// @iop i32
     int32_t  a;
 };
 EXPORT iop_struct_t const tstgen__my_iface_a__fun_a_args__s;

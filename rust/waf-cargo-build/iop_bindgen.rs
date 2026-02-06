@@ -29,23 +29,17 @@ use syn::{Attribute, File as SynFile, Ident, Item, parse_quote};
 enum IopKind {
     Struct,
     Union,
-    #[allow(dead_code)]
-    Class {
-        parent: Option<String>,
-    },
+    Class,
     Enum,
 }
 
 /// Parse the IOP kind annotation (struct, union, class, class:Parent, enum).
 fn parse_iop_kind(s: &str) -> Option<IopKind> {
     match s {
-        "struct" => Some(IopKind::Struct),
-        "union" => Some(IopKind::Union),
+        s if s.starts_with("struct ") => Some(IopKind::Struct),
+        s if s.starts_with("union ") => Some(IopKind::Union),
         "enum" => Some(IopKind::Enum),
-        "class" => Some(IopKind::Class { parent: None }),
-        s if s.starts_with("class:") => Some(IopKind::Class {
-            parent: Some(s.strip_prefix("class:")?.to_owned()),
-        }),
+        s if s.starts_with("class") => Some(IopKind::Class),
         _ => None,
     }
 }
@@ -124,7 +118,7 @@ impl IopBindingsGenerator {
                     return;
                 };
                 match kind {
-                    IopKind::Struct | IopKind::Class { .. } => {
+                    IopKind::Struct | IopKind::Class => {
                         self.generate_struct_trait_impl(&c_name);
                     }
                     IopKind::Union => {
