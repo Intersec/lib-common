@@ -24,22 +24,156 @@ use syn::{Attribute, File as SynFile, Ident, Item, parse_quote};
 
 // {{{ IOP annotation parsing
 
-/// The kind of IOP type (struct, union, class, or enum).
+/// Type of an IOP field.
 #[derive(Debug)]
+enum IopFieldType {
+    I8,
+    U8,
+    I16,
+    U16,
+    I32,
+    U32,
+    I64,
+    U64,
+    Bool,
+    Float,
+    Str,
+    Bytes,
+    Xml,
+    Void,
+    #[allow(dead_code)]
+    ComplexType(String),
+}
+
+/// Whether a field is required, optional, or repeated.
+#[derive(Debug)]
+enum IopRepeat {
+    Required,
+    Optional,
+    Repeated,
+}
+
+/// Description of an IOP field
+#[derive(Debug)]
+#[allow(dead_code)]
+struct IopField {
+    name: String,
+    ftype: IopFieldType,
+    repeat: IopRepeat,
+    is_ref: bool,
+}
+
+/// The kind of an IOP type (struct, union, class, or enum).
+#[derive(Debug)]
+#[allow(dead_code)]
 enum IopKind {
-    Struct,
-    Union,
-    Class,
+    Struct {
+        fields: Vec<IopField>,
+    },
+    Union {
+        variants: Vec<IopField>,
+    },
+    Class {
+        parent: Option<String>,
+        fields: Vec<IopField>,
+    },
     Enum,
+}
+
+/// Parse an IOP field annotation.
+///
+/// Format is: name: type[&][?|[]]
+fn parse_iop_field(s: &str) -> Option<IopField> {
+    let (name, s) = s.split_once(": ")?;
+
+    let (ftype_str, repeat, is_ref) = if let Some(inner) = s.strip_suffix("[]") {
+        // Arrays: check for reference modifier before []
+        if let Some(base) = inner.strip_suffix('&') {
+            (base, IopRepeat::Repeated, true)
+        } else {
+            (inner, IopRepeat::Repeated, false)
+        }
+    } else if let Some(inner) = s.strip_suffix('?') {
+        // Optional: check for reference modifier before ?
+        if let Some(base) = inner.strip_suffix('&') {
+            (base, IopRepeat::Optional, true)
+        } else {
+            (inner, IopRepeat::Optional, false)
+        }
+    } else if let Some(base) = s.strip_suffix('&') {
+        // Required reference
+        (base, IopRepeat::Required, true)
+    } else {
+        (s, IopRepeat::Required, false)
+    };
+
+    let ftype = match ftype_str {
+        "i8" => IopFieldType::I8,
+        "u8" => IopFieldType::U8,
+        "i16" => IopFieldType::I16,
+        "u16" => IopFieldType::U16,
+        "i32" => IopFieldType::I32,
+        "u32" => IopFieldType::U32,
+        "i64" => IopFieldType::I64,
+        "u64" => IopFieldType::U64,
+        "bool" => IopFieldType::Bool,
+        "float" => IopFieldType::Float,
+        "str" => IopFieldType::Str,
+        "bytes" => IopFieldType::Bytes,
+        "xml" => IopFieldType::Xml,
+        "void" => IopFieldType::Void,
+        s => IopFieldType::ComplexType(s.to_owned()),
+    };
+
+    Some(IopField {
+        name: name.to_owned(),
+        ftype,
+        repeat,
+        is_ref,
+    })
+}
+
+/// Parse the fields of an IOP struct/union/class.
+///
+/// Format is: { field1, field2, ... }
+/// Where field is: name: type[&][?|[]]
+fn parse_iop_fields(s: &str) -> Option<Vec<IopField>> {
+    let s = s.strip_prefix('{')?.strip_suffix('}')?.trim();
+
+    if s.is_empty() {
+        Some(Vec::new())
+    } else {
+        s.split(", ").map(parse_iop_field).collect()
+    }
+}
+
+// Parse an IOP class annotation.
+//
+// Format is: [:parent] { fields }
+fn parse_iop_class(s: &str) -> Option<IopKind> {
+    let (parent, fields) = s.split_at(s.find('{')?);
+
+    Some(IopKind::Class {
+        parent: if parent.trim().is_empty() {
+            None
+        } else {
+            Some(parent.strip_prefix(":")?.to_owned())
+        },
+        fields: parse_iop_fields(fields)?,
+    })
 }
 
 /// Parse the IOP kind annotation (struct, union, class, class:Parent, enum).
 fn parse_iop_kind(s: &str) -> Option<IopKind> {
     match s {
-        s if s.starts_with("struct ") => Some(IopKind::Struct),
-        s if s.starts_with("union ") => Some(IopKind::Union),
         "enum" => Some(IopKind::Enum),
-        s if s.starts_with("class") => Some(IopKind::Class),
+        s if s.starts_with("struct ") => Some(IopKind::Struct {
+            fields: parse_iop_fields(s.strip_prefix("struct ")?)?,
+        }),
+        s if s.starts_with("union ") => Some(IopKind::Union {
+            variants: parse_iop_fields(s.strip_prefix("union ")?)?,
+        }),
+        s if s.starts_with("class") => parse_iop_class(s.strip_prefix("class")?),
         _ => None,
     }
 }
@@ -118,10 +252,10 @@ impl IopBindingsGenerator {
                     return;
                 };
                 match kind {
-                    IopKind::Struct | IopKind::Class => {
+                    IopKind::Struct { .. } | IopKind::Class { .. } => {
                         self.generate_struct_trait_impl(&c_name);
                     }
-                    IopKind::Union => {
+                    IopKind::Union { .. } => {
                         self.generate_union_trait_impl(&c_name);
                     }
                     IopKind::Enum => panic!("unexpected IOP kind `{kind:#?}` on `{c_name}`"),
