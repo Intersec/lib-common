@@ -220,7 +220,7 @@ ptr_as_ptr = "allow"
 
 [workspace.dependencies]
 # Used by waf-cargo-build
-bindgen = { version = "0.72.0", git = "https://github.com/Intersec/rust-bindgen.git", branch = "intersec/add-parse-callbacks-methods" }
+bindgen = { version = "0.72.0", git = "https://github.com/Intersec/rust-bindgen.git", rev = "f819034c69c6abd669e7ef12080d53546fdb1d3b" }
 cc = "1.2.25"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"

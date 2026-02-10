@@ -26,7 +26,7 @@
 //!
 //! The main entry point is the structure [`WafBuild`].
 
-use bindgen::callbacks::{DeriveInfo, ItemInfo, ParseCallbacks, TypeKind};
+use bindgen::callbacks::{AllowOrBlockItem, DeriveInfo, ItemInfo, ParseCallbacks, TypeKind};
 use bindgen::{Builder, EnumVariation};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -204,8 +204,10 @@ impl LibcommonParseCallbacks {
 
 impl ParseCallbacks for LibcommonParseCallbacks {
     /// Block the items in the list
-    fn block_item(&self, item_info: ItemInfo<'_>) -> bool {
-        self.blocked_items.contains(item_info.name)
+    fn allow_or_block_item(&self, item_info: &ItemInfo<'_>) -> Option<AllowOrBlockItem> {
+        self.blocked_items
+            .contains(item_info.name)
+            .then_some(AllowOrBlockItem::Block)
     }
 
     /// Provide a list of custom derive attributes.
