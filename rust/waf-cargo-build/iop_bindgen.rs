@@ -20,7 +20,7 @@
 
 use quote::format_ident;
 use std::env;
-use syn::{Attribute, File as SynFile, Ident, Item, parse_quote};
+use syn::{Attribute, File as SynFile, Ident, Item, Type, parse_quote};
 
 // {{{ IOP annotation parsing
 
@@ -41,7 +41,6 @@ enum IopFieldType {
     Bytes,
     Xml,
     Void,
-    #[allow(dead_code)]
     ComplexType(String),
 }
 
@@ -55,7 +54,6 @@ enum IopRepeat {
 
 /// Description of an IOP field
 #[derive(Debug)]
-#[allow(dead_code)]
 struct IopField {
     name: String,
     ftype: IopFieldType,
@@ -65,15 +63,16 @@ struct IopField {
 
 /// The kind of an IOP type (struct, union, class, or enum).
 #[derive(Debug)]
-#[allow(dead_code)]
 enum IopKind {
     Struct {
         fields: Vec<IopField>,
     },
     Union {
+        #[allow(dead_code)]
         variants: Vec<IopField>,
     },
     Class {
+        #[allow(dead_code)]
         parent: Option<String>,
         fields: Vec<IopField>,
     },
@@ -199,6 +198,76 @@ fn get_doc_string(attr: &Attribute) -> Option<String> {
 }
 
 // }}}
+// {{{ Helpers
+
+/// Get the Rust type for a field type
+fn get_rust_type(ftype: &IopFieldType) -> Type {
+    match ftype {
+        IopFieldType::I8 => parse_quote! { i8 },
+        IopFieldType::U8 => parse_quote! { u8 },
+        IopFieldType::I16 => parse_quote! { i16 },
+        IopFieldType::U16 => parse_quote! { u16 },
+        IopFieldType::I32 => parse_quote! { i32 },
+        IopFieldType::U32 => parse_quote! { u32 },
+        IopFieldType::I64 => parse_quote! { i64 },
+        IopFieldType::U64 => parse_quote! { u64 },
+        IopFieldType::Bool => parse_quote! { bool },
+        IopFieldType::Float => parse_quote! { f64 },
+        IopFieldType::Str | IopFieldType::Xml => {
+            parse_quote! { ::libcommon_core::lstr::UnsafeUtf8Lstr }
+        }
+        IopFieldType::Bytes => {
+            parse_quote! { ::libcommon_core::lstr::UnsafeBytesLstr }
+        }
+        IopFieldType::ComplexType(name) => {
+            let ident = format_ident!("{name}");
+            parse_quote! { #ident }
+        }
+        IopFieldType::Void => parse_quote! { () },
+    }
+}
+
+/// Get a Rust field name for an IOP field name.
+///
+/// Bindgen appends '_' to field names that are Rust keywords. This function is an attempt of
+/// replicating this logic.
+fn get_rust_field_name(name: &str) -> Ident {
+    fn is_rust_primitive(s: &str) -> bool {
+        matches!(
+            s,
+            "i8" | "i16"
+                | "i32"
+                | "i64"
+                | "i128"
+                | "isize"
+                | "u8"
+                | "u16"
+                | "u32"
+                | "u64"
+                | "u128"
+                | "usize"
+                | "f32"
+                | "f64"
+                | "bool"
+                | "char"
+                | "str"
+        )
+    }
+    fn is_special_ident(s: &str) -> bool {
+        matches!(s, "self" | "crate" | "super")
+    }
+    fn is_reserved(s: &str) -> bool {
+        syn::parse_str::<Ident>(s).is_err() || is_rust_primitive(s) || is_special_ident(s)
+    }
+
+    if is_reserved(name) {
+        format_ident!("{name}_")
+    } else {
+        format_ident!("{name}")
+    }
+}
+
+// }}}
 // {{{ IOP bindings generator (and items visitor)
 
 pub struct IopBindingsGenerator {
@@ -252,8 +321,9 @@ impl IopBindingsGenerator {
                     return;
                 };
                 match kind {
-                    IopKind::Struct { .. } | IopKind::Class { .. } => {
+                    IopKind::Struct { fields } | IopKind::Class { fields, .. } => {
                         self.generate_struct_trait_impl(&c_name);
+                        self.generate_struct_fields_accessors(&c_name, &fields);
                     }
                     IopKind::Union { .. } => {
                         self.generate_union_trait_impl(&c_name);
@@ -321,7 +391,7 @@ impl IopBindingsGenerator {
 
     /// Generate IOP trait implementations for a struct type.
     fn generate_struct_trait_impl(&mut self, type_name: &str) {
-        let type_ident = format_ident!("{}", type_name);
+        let type_ident = format_ident!("{type_name}");
         let desc_ident = format_ident!("{}__s", type_name.strip_suffix("__t").expect(""));
 
         self.generate_struct_union_trait_impl(&type_ident, &desc_ident);
@@ -338,7 +408,7 @@ impl IopBindingsGenerator {
 
     /// Generate IOP trait implementations for a union type.
     fn generate_union_trait_impl(&mut self, type_name: &str) {
-        let type_ident = format_ident!("{}", type_name);
+        let type_ident = format_ident!("{type_name}");
         let desc_ident = format_ident!("{}__s", type_name.strip_suffix("__t").expect(""));
 
         self.generate_struct_union_trait_impl(&type_ident, &desc_ident);
@@ -356,7 +426,7 @@ impl IopBindingsGenerator {
     /// Generate IOP trait implementations for an enum type.
     fn generate_enum_trait_impl(&mut self, type_name: &str) {
         let libcommon_crate = &self.libcommon_crate;
-        let type_ident = format_ident!("{}", type_name);
+        let type_ident = format_ident!("{type_name}");
         let desc_ident = format_ident!("{}__e", type_name.strip_suffix("__t").expect(""));
 
         self.bindings.push(parse_quote! {
@@ -372,6 +442,344 @@ impl IopBindingsGenerator {
         self.bindings.push(parse_quote! {
             impl #libcommon_crate::iop::CEnum for #type_ident {
                 const CDESC: *const iop_enum_t = &raw const #desc_ident;
+            }
+        });
+    }
+
+    // }}}
+    // {{{ fields accessors generation
+
+    /// Generate fields accessors for a struct
+    fn generate_struct_fields_accessors(&mut self, type_name: &str, fields: &[IopField]) {
+        let type_ident = format_ident!("{type_name}");
+        let mut methods = Vec::new();
+
+        for field in fields {
+            Self::generate_struct_field_accessors(field, &mut methods);
+        }
+
+        self.bindings.push(parse_quote! {
+            impl #type_ident {
+                #(#methods)*
+            }
+        });
+    }
+
+    /// Generate accessors for a struct field
+    fn generate_struct_field_accessors(field: &IopField, out: &mut Vec<Item>) {
+        let rust_field_name = get_rust_field_name(&field.name);
+        let getter_name = format_ident!("{}__get", field.name);
+        let setter_name = format_ident!("{}__set", field.name);
+        let rust_type = get_rust_type(&field.ftype);
+
+        match field.ftype {
+            IopFieldType::I8
+            | IopFieldType::I16
+            | IopFieldType::I32
+            | IopFieldType::I64
+            | IopFieldType::U8
+            | IopFieldType::U16
+            | IopFieldType::U32
+            | IopFieldType::U64
+            | IopFieldType::Bool
+            | IopFieldType::Float => Self::generate_struct_scalar_accessors(
+                field,
+                &rust_field_name,
+                &getter_name,
+                &setter_name,
+                &rust_type,
+                out,
+            ),
+
+            IopFieldType::Str | IopFieldType::Xml | IopFieldType::Bytes => {
+                let from_raw_fn = if matches!(field.ftype, IopFieldType::Bytes) {
+                    format_ident!("from_raw_bytes")
+                } else {
+                    format_ident!("from_raw_utf8")
+                };
+                Self::generate_struct_string_accessors(
+                    field,
+                    &rust_field_name,
+                    &getter_name,
+                    &setter_name,
+                    &rust_type,
+                    &from_raw_fn,
+                    out,
+                );
+            }
+
+            IopFieldType::Void => Self::generate_struct_void_accessors(
+                field,
+                &rust_field_name,
+                &getter_name,
+                &setter_name,
+                out,
+            ),
+
+            IopFieldType::ComplexType(_) => Self::generate_struct_complex_accessors(
+                field,
+                &rust_field_name,
+                &getter_name,
+                &setter_name,
+                &rust_type,
+                out,
+            ),
+        }
+    }
+
+    /// Generate accessors for a struct scalar field
+    fn generate_struct_scalar_accessors(
+        field: &IopField,
+        rust_field_name: &Ident,
+        getter_name: &Ident,
+        setter_name: &Ident,
+        rust_type: &Type,
+        out: &mut Vec<Item>,
+    ) {
+        match field.repeat {
+            IopRepeat::Required => {
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #getter_name(&self) -> #rust_type {
+                        self.#rust_field_name
+                    }
+                });
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #setter_name(&mut self, val: #rust_type) {
+                        self.#rust_field_name = val;
+                    }
+                });
+            }
+            IopRepeat::Optional => {
+                out.push(parse_quote! {
+                        #[inline]
+                        pub fn #getter_name(&self) -> Option<#rust_type> {
+                            if self.#rust_field_name.has_field { Some(self.#rust_field_name.v) } else { None }
+                        }
+                    });
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #setter_name(&mut self, val: Option<#rust_type>) {
+                        match val {
+                            Some(val) => {
+                                self.#rust_field_name.v = val;
+                                self.#rust_field_name.has_field = true;
+                            }
+                            None => {
+                                self.#rust_field_name.has_field = false;
+                            }
+                        }
+                    }
+                });
+            }
+            IopRepeat::Repeated => Self::generate_struct_repeated_accessors(
+                rust_field_name,
+                getter_name,
+                setter_name,
+                rust_type,
+                out,
+            ),
+        }
+    }
+
+    /// Generate accessors for a struct string field
+    fn generate_struct_string_accessors(
+        field: &IopField,
+        rust_field_name: &Ident,
+        getter_name: &Ident,
+        setter_name: &Ident,
+        rust_type: &Type,
+        from_raw_fn: &Ident,
+        out: &mut Vec<Item>,
+    ) {
+        match field.repeat {
+            IopRepeat::Required => {
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #getter_name(&self) -> #rust_type {
+                        unsafe { ::libcommon_core::lstr::#from_raw_fn(self.#rust_field_name) }
+                    }
+                });
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #setter_name(&mut self, val: #rust_type) {
+                        self.#rust_field_name = val.as_raw();
+                    }
+                });
+            }
+            IopRepeat::Optional => {
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #getter_name(&self) -> Option<#rust_type> {
+                        let lstr = unsafe { ::libcommon_core::lstr::#from_raw_fn(self.#rust_field_name) };
+                        if lstr.is_null() { None } else { Some(lstr) }
+                    }
+                });
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #setter_name(&mut self, val: Option<#rust_type>) {
+                        match val {
+                            Some(val) => self.#rust_field_name = val.as_raw(),
+                            None => self.#rust_field_name = ::libcommon_core::lstr::null_raw(),
+                        }
+                    }
+                });
+            }
+            IopRepeat::Repeated => Self::generate_struct_repeated_accessors(
+                rust_field_name,
+                getter_name,
+                setter_name,
+                rust_type,
+                out,
+            ),
+        }
+    }
+
+    /// Generate accessors for a struct void field
+    fn generate_struct_void_accessors(
+        field: &IopField,
+        rust_field_name: &Ident,
+        getter_name: &Ident,
+        setter_name: &Ident,
+        out: &mut Vec<Item>,
+    ) {
+        match field.repeat {
+            IopRepeat::Optional => {
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #getter_name(&self) -> Option<()> {
+                        self.#rust_field_name.then_some(())
+                    }
+                });
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #setter_name(&mut self, val: Option<()>) {
+                        match val {
+                            Some(()) => self.#rust_field_name = true,
+                            None => self.#rust_field_name = false,
+                        }
+                    }
+                });
+            }
+
+            // Required void fields have no corresponding C field
+            IopRepeat::Required => {}
+
+            // Required void fields do not exist
+            IopRepeat::Repeated => panic!("unexpected repeated void field `{field:#?}`"),
+        }
+    }
+
+    /// Generate accessors for a struct complex field (enum/union/struct/class)
+    fn generate_struct_complex_accessors(
+        field: &IopField,
+        rust_field_name: &Ident,
+        getter_name: &Ident,
+        setter_name: &Ident,
+        rust_type: &Type,
+        out: &mut Vec<Item>,
+    ) {
+        match (field.is_ref, &field.repeat) {
+            // Non-pointed required complex fields
+            (false, IopRepeat::Required) => {
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #getter_name(&self) -> &#rust_type {
+                        &self.#rust_field_name
+                    }
+                });
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #setter_name(&mut self, val: #rust_type) {
+                        self.#rust_field_name = val;
+                    }
+                });
+            }
+
+            // Non-pointed optional or repeated complex fields (ie. optional enums or repeated
+            // enums/structs/unions); same as scalar field
+            (false, IopRepeat::Optional | IopRepeat::Repeated) => {
+                Self::generate_struct_scalar_accessors(
+                    field,
+                    rust_field_name,
+                    getter_name,
+                    setter_name,
+                    rust_type,
+                    out,
+                );
+            }
+
+            // Pointed required complex fields
+            (true, IopRepeat::Required) => {
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #getter_name(&self) -> &#rust_type {
+                        unsafe { &*self.#rust_field_name }
+                    }
+                });
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #setter_name(&mut self, val: &#rust_type) {
+                        self.#rust_field_name = val as *const #rust_type as *mut #rust_type;
+                    }
+                });
+            }
+
+            // Pointed optional complex fields
+            (true, IopRepeat::Optional) => {
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #getter_name(&self) -> Option<&#rust_type> {
+                        if self.#rust_field_name.is_null() { None } else { Some(unsafe { &*self.#rust_field_name }) }
+                    }
+                });
+                out.push(parse_quote! {
+                    #[inline]
+                    pub fn #setter_name(&mut self, val: Option<&#rust_type>) {
+                        self.#rust_field_name = match val {
+                            Some(val) => val as *const #rust_type as *mut #rust_type,
+                            None => ::std::ptr::null_mut(),
+                        }
+                    }
+                });
+            }
+
+            // Pointed repeated complex fields
+            (true, IopRepeat::Repeated) => Self::generate_struct_repeated_accessors(
+                rust_field_name,
+                getter_name,
+                setter_name,
+                &parse_quote! { &#rust_type },
+                out,
+            ),
+        }
+    }
+
+    /// Generate accessors for a struct repeated field
+    fn generate_struct_repeated_accessors(
+        rust_field_name: &Ident,
+        getter_name: &Ident,
+        setter_name: &Ident,
+        rust_type: &Type,
+        out: &mut Vec<Item>,
+    ) {
+        out.push(parse_quote! {
+            #[inline]
+            pub fn #getter_name(&self) -> &[#rust_type] {
+                unsafe {
+                    ::libcommon_core::helpers::slice_from_nullable_raw_parts(
+                        self.#rust_field_name.tab as *const _,
+                        self.#rust_field_name.len as usize,
+                    )
+                }
+            }
+        });
+        out.push(parse_quote! {
+            #[inline]
+            pub fn #setter_name(&mut self, val: &[#rust_type]) {
+                self.#rust_field_name.tab = val.as_ptr() as *mut _;
+                self.#rust_field_name.len = val.len() as i32;
             }
         });
     }
