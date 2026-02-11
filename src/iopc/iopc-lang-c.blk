@@ -1232,6 +1232,29 @@ static void iopc_struct_dump_hdr_class(sb_t *buf, const iopc_pkg_t *pkg,
     qv_wipe(&parents_pkgs);
 }
 
+static bool iopc_field_is_pointed(const iopc_field_t *f)
+{
+    /* References are always pointed */
+    if (f->is_ref) {
+        return true;
+    }
+
+    /* Class fields also */
+    if (f->kind == IOP_T_STRUCT && f->struct_def->type == STRUCT_TYPE_CLASS) {
+        return true;
+    }
+
+    /* Struct/union fields are pointed when optional. */
+    if (f->repeat == IOP_R_OPTIONAL &&
+        (f->kind == IOP_T_STRUCT || f->kind == IOP_T_UNION))
+    {
+        return true;
+    }
+
+    /* Otherwise, they are not pointed. */
+    return false;
+}
+
 /* Emit field annotation (in comment), for Rust usage.
  *
  * Format: NAME: TYPE[&][?|[]]
@@ -1239,7 +1262,7 @@ static void iopc_struct_dump_hdr_class(sb_t *buf, const iopc_pkg_t *pkg,
  *   - NAME is the C name of the field
  *   - TYPE is: i8, u8, i16, u16, i32, u32, i64, u64, bool, float, str, bytes,
  *              xml, void, or pkg__type_name__t for complex types
- *   - & indicates a pointed field (ref or class type)
+ *   - & indicates a pointed field (ref, class type, or optional union/struct)
  *   - ? indicates an optional field
  *   - [] indicates a repeated field
  *
@@ -1276,9 +1299,7 @@ static void iopc_dump_field_rust_annotation(sb_t *sb, const iopc_pkg_t *pkg,
 
     sb_adds(sb, type_str);
 
-    if (f->is_ref ||
-        (f->kind == IOP_T_STRUCT && f->struct_def->type == STRUCT_TYPE_CLASS))
-    {
+    if (iopc_field_is_pointed(f)) {
         sb_addc(sb, '&');
     }
 

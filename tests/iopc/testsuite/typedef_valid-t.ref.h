@@ -87,7 +87,7 @@ EXPORT iop_struct_t const typedef_valid__b__s;
 EXPORT iop_struct_t const * const nonnull typedef_valid__b__sp;
 #define typedef_valid__b__class_id  10
 
-/// @iop struct { ms: str, opt: str?, def: str, mst: str, mul: u64, muldef: u64, md: float, mddef: float, mddef2: float, mns: str, m3: u64, m37: u64, b310: u64, msa: str[], msa3: str[], msa6: str[], msa610: str[], mnso: str?, mea: enum1__my_enum__t, msal: typedef_valid__my_struct__t, mya: typedef_valid__my_union__t, muab: typedef_valid__my_union__t, muabc: typedef_valid__my_union__t, muwc: typedef_valid__my_union__t, muwcopt: typedef_valid__my_union__t?, a: typedef_valid__a__t&, b: typedef_valid__b__t& }
+/// @iop struct { ms: str, opt: str?, def: str, mst: str, mul: u64, muldef: u64, md: float, mddef: float, mddef2: float, mns: str, m3: u64, m37: u64, b310: u64, msa: str[], msa3: str[], msa6: str[], msa610: str[], mnso: str?, mea: enum1__my_enum__t, msal: typedef_valid__my_struct__t, mya: typedef_valid__my_union__t, muab: typedef_valid__my_union__t, muabc: typedef_valid__my_union__t, muwc: typedef_valid__my_union__t, muwcopt: typedef_valid__my_union__t&?, a: typedef_valid__a__t&, b: typedef_valid__b__t& }
 struct typedef_valid__typedef_struct_use_all__t {
     lstr_t   ms;
     lstr_t           opt;
@@ -207,7 +207,7 @@ EXPORT iop_struct_t const typedef_valid__c__s;
 EXPORT iop_struct_t const * const nonnull typedef_valid__c__sp;
 #define typedef_valid__c__class_id  11
 
-/// @iop struct { route: typedef_valid__route__t&, original_hdr: typedef_valid__hdr__t? }
+/// @iop struct { route: typedef_valid__route__t&, original_hdr: typedef_valid__hdr__t&? }
 struct typedef_valid__routing_hdr__t {
     typedef_valid__route__t *nonnull route;
     typedef_valid__hdr__t *nullable original_hdr;

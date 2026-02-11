@@ -19,7 +19,7 @@ typedef tstgen__my_enum_a__array_t my_enum_a__array_t;
 typedef tstgen__my_enum_a__opt_t my_enum_a__opt_t;
 #define my_enum_a__e  tstgen__my_enum_a__e
 
-/// @iop struct { i: i32, j: i32, d1: float, weak_ref1: pkg_a__a__t?, weak_ref2: pkg_a__a__t? }
+/// @iop struct { i: i32, j: i32, d1: float, weak_ref1: pkg_a__a__t&?, weak_ref2: pkg_a__a__t&? }
 struct tstgen__my_struct_a__t {
     int32_t  i;
     int32_t  j;
