@@ -7439,7 +7439,7 @@ http_get_http2_request_hdrs(pstream_t *chunk, lstr_t *method, lstr_t *scheme,
                             lstr_t *path, lstr_t *authority,
                             pstream_t *headerlines)
 {
-    byte *p;
+    const byte *p;
     pstream_t line;
     pstream_t control;
     pstream_t ps;
