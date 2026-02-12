@@ -1377,7 +1377,7 @@ thr_td_t *thr_syn_acquire_td(thr_syn_t *syn)
 {
     thr_td_t *ptr = atomic_load(&syn->head);
 
-    assert (syn->new_td);
+    assert (syn->new_td != NULL);
 
     if (thr_syn_get_td(ptr)) {
         thr_td_t *next;
