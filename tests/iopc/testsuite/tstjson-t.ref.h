@@ -46,7 +46,7 @@ struct tstjson__my_union_a__t {
 EXPORT iop_struct_t const tstjson__my_union_a__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_union_a__sp;
 #define tstjson__my_union_a__get(u, field)       IOP_UNION_GET(tstjson__my_union_a, u, field)
-/// @iop struct { i: i32?, s: str?, u1: tstjson__my_union_a__t, u2: tstjson__my_union_a__t, u3: tstjson__my_union_a__t, class: i32 }
+/// @iop struct { i: i32?, s: str?, u1: union:tstjson__my_union_a__t, u2: union:tstjson__my_union_a__t, u3: union:tstjson__my_union_a__t, class: i32 }
 struct tstjson__my_struct_a__t {
     opt_i32_t        i;
     lstr_t           s;
@@ -61,7 +61,7 @@ typedef tstjson__my_struct_a__t struct_a__t;
 typedef tstjson__my_struct_a__array_t struct_a__array_t;
 #define struct_a__s  tstjson__my_struct_a__s
 
-/// @iop struct { a: i32, b: u32, c: i8, d: u8, e: i16, f: u16, j: bool, g: i64, h: u64, i: float, k: bytes, l: str, m: tstjson__my_enum_a__t, union_a: tstjson__my_union_a__t[], struct_a: tstjson__my_struct_a__t, xml_field: xml }
+/// @iop struct { a: i32, b: u32, c: i8, d: u8, e: i16, f: u16, j: bool, g: i64, h: u64, i: float, k: bytes, l: str, m: enum:tstjson__my_enum_a__t, union_a: union:tstjson__my_union_a__t[], struct_a: struct:tstjson__my_struct_a__t, xml_field: xml }
 struct tstjson__my_struct_b__t {
     int32_t  a;
     uint32_t b;
@@ -149,7 +149,7 @@ struct tstjson__constraint_s__t {
 };
 EXPORT iop_struct_t const tstjson__constraint_s__s;
 EXPORT iop_struct_t const * const nonnull tstjson__constraint_s__sp;
-/// @iop class { a: i32, struct_a: tstjson__my_struct_a__t }
+/// @iop class { a: i32, struct_a: struct:tstjson__my_struct_a__t }
 struct tstjson__my_class_base__t {
     const iop_struct_t *nonnull __vptr;
     int32_t  a;
@@ -159,7 +159,7 @@ EXPORT iop_struct_t const tstjson__my_class_base__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_class_base__sp;
 #define tstjson__my_class_base__class_id  0
 
-/// @iop class:tstjson__my_class_base__t { b: i32?, struct_b: tstjson__my_struct_b__t[] }
+/// @iop class:tstjson__my_class_base__t { b: i32?, struct_b: struct:tstjson__my_struct_b__t[] }
 struct tstjson__my_class_a__t {
     union {
         tstjson__my_class_base__t super;
@@ -216,7 +216,7 @@ EXPORT iop_struct_t const tstjson__my_class2__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_class2__sp;
 #define tstjson__my_class2__class_id  2
 
-/// @iop struct { a: tstjson__my_class_a__t&, b: tstjson__my_class_b__t& }
+/// @iop struct { a: class:tstjson__my_class_a__t&, b: class:tstjson__my_class_b__t& }
 struct tstjson__class_container__t {
     tstjson__my_class_a__t *nonnull a;
     tstjson__my_class_b__t *nonnull b;

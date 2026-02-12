@@ -70,14 +70,14 @@ typedef iop__void__t tstdox__my_iface_d__fun_b_res__t;
 typedef iop__void__t tstdox__my_iface_d__fun_b_exn__t;
 
 /*----- interface tstdox.MyIfaceA -----*/
-/// @iop struct { a_param: i32, b: tstdox__my_struct_aa__t }
+/// @iop struct { a_param: i32, b: struct:tstdox__my_struct_aa__t }
 struct tstdox__my_iface_a__fun_a_args__t {
     int32_t  a_param;
     tstdox__my_struct_aa__t b;
 };
 EXPORT iop_struct_t const tstdox__my_iface_a__fun_a_args__s;
 EXPORT iop_struct_t const * const nonnull tstdox__my_iface_a__fun_a_args__sp;
-/// @iop struct { c: tstdox__my_struct_a__t, d: i32 }
+/// @iop struct { c: struct:tstdox__my_struct_a__t, d: i32 }
 struct tstdox__my_iface_a__fun_a_res__t {
     tstdox__my_struct_a__t c;
     int32_t  d;

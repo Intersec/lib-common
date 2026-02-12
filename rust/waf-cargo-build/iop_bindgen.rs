@@ -41,7 +41,10 @@ enum IopFieldType {
     Bytes,
     Xml,
     Void,
-    ComplexType(String),
+    Enum(String),
+    Union(String),
+    Struct(String),
+    Class(String),
 }
 
 /// Whether a field is required, optional, or repeated.
@@ -121,7 +124,13 @@ fn parse_iop_field(s: &str) -> Option<IopField> {
         "bytes" => IopFieldType::Bytes,
         "xml" => IopFieldType::Xml,
         "void" => IopFieldType::Void,
-        s => IopFieldType::ComplexType(s.to_owned()),
+        s if s.starts_with("enum:") => IopFieldType::Enum(s.strip_prefix("enum:")?.to_owned()),
+        s if s.starts_with("union:") => IopFieldType::Union(s.strip_prefix("union:")?.to_owned()),
+        s if s.starts_with("struct:") => {
+            IopFieldType::Struct(s.strip_prefix("struct:")?.to_owned())
+        }
+        s if s.starts_with("class:") => IopFieldType::Class(s.strip_prefix("class:")?.to_owned()),
+        _ => return None,
     };
 
     Some(IopField {
@@ -219,7 +228,10 @@ fn get_rust_type(ftype: &IopFieldType) -> Type {
         IopFieldType::Bytes => {
             parse_quote! { ::libcommon_core::lstr::UnsafeBytesLstr }
         }
-        IopFieldType::ComplexType(name) => {
+        IopFieldType::Enum(name)
+        | IopFieldType::Union(name)
+        | IopFieldType::Struct(name)
+        | IopFieldType::Class(name) => {
             let ident = format_ident!("{name}");
             parse_quote! { #ident }
         }
@@ -482,7 +494,8 @@ impl IopBindingsGenerator {
             | IopFieldType::U32
             | IopFieldType::U64
             | IopFieldType::Bool
-            | IopFieldType::Float => Self::generate_struct_scalar_accessors(
+            | IopFieldType::Float
+            | IopFieldType::Enum(_) => Self::generate_struct_scalar_accessors(
                 field,
                 &rust_field_name,
                 &getter_name,
@@ -516,14 +529,16 @@ impl IopBindingsGenerator {
                 out,
             ),
 
-            IopFieldType::ComplexType(_) => Self::generate_struct_complex_accessors(
-                field,
-                &rust_field_name,
-                &getter_name,
-                &setter_name,
-                &rust_type,
-                out,
-            ),
+            IopFieldType::Union(_) | IopFieldType::Struct(_) | IopFieldType::Class(_) => {
+                Self::generate_struct_complex_accessors(
+                    field,
+                    &rust_field_name,
+                    &getter_name,
+                    &setter_name,
+                    &rust_type,
+                    out,
+                );
+            }
         }
     }
 

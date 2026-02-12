@@ -382,7 +382,7 @@ mod iop_tests {
 
         // enum field
         obj.e__set(tstiop__test_enum__t::TEST_ENUM_B);
-        assert_eq!(*obj.e__get(), tstiop__test_enum__t::TEST_ENUM_B);
+        assert_eq!(obj.e__get(), tstiop__test_enum__t::TEST_ENUM_B);
         assert!(matches!(obj.e__get(), tstiop__test_enum__t::TEST_ENUM_B));
 
         // struct field

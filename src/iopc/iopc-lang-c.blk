@@ -1261,7 +1261,8 @@ static bool iopc_field_is_pointed(const iopc_field_t *f)
  * Where:
  *   - NAME is the C name of the field
  *   - TYPE is: i8, u8, i16, u16, i32, u32, i64, u64, bool, float, str, bytes,
- *              xml, void, or pkg__type_name__t for complex types
+ *              xml, void, or (enum|union|struct|class):pkg__type_name__t for
+ *              complex types
  *   - & indicates a pointed field (ref, class type, or optional union/struct)
  *   - ? indicates an optional field
  *   - [] indicates a repeated field
@@ -1292,8 +1293,21 @@ static void iopc_dump_field_rust_annotation(sb_t *sb, const iopc_pkg_t *pkg,
     case IOP_T_DATA:   type_str = "bytes"; break;
     case IOP_T_XML:    type_str = "xml"; break;
     case IOP_T_VOID:   type_str = "void"; break;
-    default:
-        type_str = t_fmt("%s__t", t_iopc_resolve_field_type(pkg, f));
+
+    case IOP_T_ENUM:
+        type_str = t_fmt("enum:%s__t", t_iopc_resolve_field_type(pkg, f));
+        break;
+    case IOP_T_UNION:
+        type_str = t_fmt("union:%s__t", t_iopc_resolve_field_type(pkg, f));
+        break;
+    case IOP_T_STRUCT:
+        if (f->struct_def->type == STRUCT_TYPE_CLASS) {
+            type_str = "class";
+        } else {
+            type_str = "struct";
+        }
+        type_str = t_fmt("%s:%s__t", type_str,
+                         t_iopc_resolve_field_type(pkg, f));
         break;
     }
 

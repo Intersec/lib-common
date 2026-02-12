@@ -86,14 +86,14 @@ typedef IOP_ARRAY_OF(tstjson__my_iface_d__fun_a_res__t) tstjson__my_iface_d__fun
 typedef iop__void__t tstjson__my_iface_d__fun_a_exn__t;
 
 /*----- interface tstjson.MyIfaceA -----*/
-/// @iop struct { a: i32, b: tstjson__my_struct_a__t }
+/// @iop struct { a: i32, b: struct:tstjson__my_struct_a__t }
 struct tstjson__my_iface_a__fun_a_args__t {
     int32_t  a;
     tstjson__my_struct_a__t b;
 };
 EXPORT iop_struct_t const tstjson__my_iface_a__fun_a_args__s;
 EXPORT iop_struct_t const * const nonnull tstjson__my_iface_a__fun_a_args__sp;
-/// @iop struct { c: tstjson__my_union_a__t, d: i32 }
+/// @iop struct { c: union:tstjson__my_union_a__t, d: i32 }
 struct tstjson__my_iface_a__fun_a_res__t {
     tstjson__my_union_a__t c;
     int32_t  d;
