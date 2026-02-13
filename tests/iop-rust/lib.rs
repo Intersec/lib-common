@@ -39,9 +39,13 @@ mod iop_tests {
     use crate::bindings::{
         core__pkg, ic__hdr__t, ic__hdr__tag_t, ic__ic_priority__e, ic__ic_priority__t, ic__pkg,
         ic__simple_hdr__t, tstiop__full_opt__t, tstiop__full_ref__t, tstiop__full_repeated__t,
-        tstiop__full_required__t, tstiop__test_class__t, tstiop__test_class_child__t,
-        tstiop__test_class_child2__t, tstiop__test_enum__t, tstiop__test_struct__t,
-        tstiop__test_union__t, tstiop__test_union__variant,
+        tstiop__full_required__t, tstiop__get_bpack_sz_en__t, tstiop__get_bpack_sz_st__t,
+        tstiop__get_bpack_sz_u__t, tstiop__get_bpack_sz_u__variant, tstiop__my_ref_union__t,
+        tstiop__my_ref_union__variant, tstiop__my_referenced_struct__t,
+        tstiop__my_referenced_union__t, tstiop__my_referenced_union__variant,
+        tstiop__my_union_c__t, tstiop__my_union_c__variant, tstiop__test_class__t,
+        tstiop__test_class_child__t, tstiop__test_class_child2__t, tstiop__test_enum__t,
+        tstiop__test_struct__t, tstiop__test_union__t, tstiop__test_union__variant,
     };
 
     // {{{ Test helpers
@@ -753,6 +757,88 @@ mod iop_tests {
         assert!(
             matches!(obj.un__get().iop_match(), tstiop__test_union__variant::i(val) if val == 57)
         );
+    }
+
+    // }}}
+    // {{{ Unions manipulation
+
+    /// Test union manipulation for unions represented as Rust unions
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn iop_union_as_rust_union() {
+        // scalar fields
+        let mut un = tstiop__my_union_c__t::new();
+
+        un.i_of_c__set(12);
+        assert!(matches!(un.iop_match(), tstiop__my_union_c__variant::i_of_c(val) if val == 12));
+
+        un.d_of_c__set(13.);
+        assert!(matches!(un.iop_match(), tstiop__my_union_c__variant::d_of_c(val) if val == 13.));
+
+        match un.iop_match() {
+            tstiop__my_union_c__variant::i_of_c(_) => panic!("unexpected i_of_c"),
+            tstiop__my_union_c__variant::d_of_c(val) => assert_eq!(val, 13.),
+        }
+
+        // reference fields
+        let mut un = tstiop__my_ref_union__t::new();
+
+        let mut st = tstiop__my_referenced_struct__t::new();
+        st.a__set(42);
+        un.s__set(&st);
+        assert!(matches!(un.iop_match(),
+                         tstiop__my_ref_union__variant::s(val) if val.a__get() == 42));
+        st.a__set(43);
+        assert!(matches!(un.iop_match(),
+                         tstiop__my_ref_union__variant::s(val) if val.a__get() == 43));
+
+        let mut run = tstiop__my_referenced_union__t::new();
+        run.b__set(56);
+        un.u__set(&run);
+        if let tstiop__my_ref_union__variant::u(val_u) = un.iop_match() {
+            assert!(matches!(val_u.iop_match(),
+                             tstiop__my_referenced_union__variant::b(b) if b == 56));
+        } else {
+            panic!("expected union field");
+        }
+        run.b__set(57);
+        if let tstiop__my_ref_union__variant::u(val_u) = un.iop_match() {
+            assert!(matches!(val_u.iop_match(),
+                             tstiop__my_referenced_union__variant::b(b) if b == 57));
+        } else {
+            panic!("expected union field");
+        }
+    }
+
+    /// Test union manipulation for unions represented as Rust structs
+    #[test]
+    fn iop_union_as_rust_struct() {
+        let mut un = tstiop__get_bpack_sz_u__t::new();
+
+        // scalar field
+        un.i8__set(12);
+        assert!(matches!(un.iop_match(), tstiop__get_bpack_sz_u__variant::i8(val) if val == 12));
+
+        // string field
+        un.s__set(lstr::from_str("coucou world").into());
+        assert!(matches!(un.iop_match(),
+                         tstiop__get_bpack_sz_u__variant::s(val)
+                         if val.equals(&lstr::from_str("coucou world"))));
+
+        // enum field
+        un.en__set(tstiop__get_bpack_sz_en__t::GET_BPACK_SZ_EN_B);
+        assert!(matches!(un.iop_match(),
+                         tstiop__get_bpack_sz_u__variant::en(val)
+                         if val == tstiop__get_bpack_sz_en__t::GET_BPACK_SZ_EN_B));
+
+        // struct field
+        un.st__set({
+            let mut st = tstiop__get_bpack_sz_st__t::new();
+            st.a__set(42);
+            st
+        });
+        assert!(matches!(un.iop_match(),
+                         tstiop__get_bpack_sz_u__variant::st(val) if val.a__get() == 42));
     }
 
     // }}}
