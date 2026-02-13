@@ -152,7 +152,14 @@ pub trait CUnion: Union + CStructUnion {}
 pub trait Struct: StructUnion {}
 
 /// IOP trait implemented by a C IOP struct.
-pub trait CStruct: Struct + CStructUnion {}
+pub trait CStruct: Struct + CStructUnion {
+    /// Create an empty struct with the default value.
+    ///
+    /// Use by the `iop_new!()` macro.
+    fn default_new() -> Self {
+        Self::new()
+    }
+}
 
 // }}}
 // {{{ IOP Generic struct or union
@@ -360,6 +367,109 @@ impl Drop for Env<'_> {
             }
         }
     }
+}
+
+// }}}
+// {{{ Macros
+
+/// Create a new IOP struct/class with optional field initialization, or a union with a required
+/// variant.
+///
+/// # Usage
+///
+/// ```ignore
+/// // For structs: create with default values
+/// let tracer = iop_new!(ic__tracer);
+///
+/// // For structs: create with field initialization
+/// let tracer = iop_new!(ic__tracer, {
+///     token: 123,
+///     epoch: 456,
+/// });
+///
+/// // For unions: must specify a variant (no-args form is a compile error)
+/// let scalar = iop_new!(yaml__scalar_value, { u: 123 });
+/// ```
+///
+/// The type name should be the IOP type name without the `__t` suffix (e.g., `ic__tracer`
+/// for `ic__tracer__t`).
+#[macro_export]
+macro_rules! iop_new {
+    // No fields: only works for structs (unions don't implement default_new())
+    ($type:ident) => {{
+        $crate::paste::paste! {
+            <[<$type __t>]>::default_new()
+        }
+    }};
+    // With fields: works for both structs and unions
+    ($type:ident, { $($field:ident : $value:expr),* $(,)? }) => {{
+        $crate::paste::paste! {
+            let mut obj = <[<$type __t>]>::new();
+            $(
+                obj.[<$field __set>]($value);
+            )*
+            obj
+        }
+    }};
+}
+
+/// Set multiple fields on an IOP struct or union.
+///
+/// # Usage
+///
+/// ```ignore
+/// let mut tracer = iop_new!(ic__tracer);
+/// iop_set!(tracer, {
+///     token: 123,
+///     epoch: 456,
+/// });
+/// ```
+#[macro_export]
+macro_rules! iop_set {
+    ($obj:expr, { $($field:ident : $value:expr),* $(,)? }) => {{
+        $crate::paste::paste! {
+            $(
+                ($obj).[<$field __set>]($value);
+            )*
+        }
+    }};
+}
+
+/// Get a field value from an IOP struct or union.
+///
+/// # Usage
+///
+/// ```ignore
+/// let tracer = iop_new!(ic__tracer, { token: 123, epoch: 456 });
+///
+/// // Simple field access
+/// let token = iop_get!(tracer, token);
+///
+/// // Chained access for nested structs
+/// let nested_val = iop_get!(obj, nested.field);
+///
+/// // Optional field unwrap (panics if None)
+/// let required_val = iop_get!(obj, optional_field!);
+/// ```
+#[macro_export]
+macro_rules! iop_get {
+    // Simple field access
+    ($obj:expr, $field:ident) => {
+        $crate::paste::paste! { ($obj).[<$field __get>]() }
+    };
+    // Chained access: obj.a.b
+    ($obj:expr, $field:ident . $($rest:tt)+) => {
+        $crate::paste::paste! {
+            $crate::iop_get!(($obj).[<$field __get>](), $($rest)+)
+        }
+    };
+    // Optional unwrap: obj.field! (panics if None)
+    ($obj:expr, $field:ident !) => {
+        $crate::paste::paste! {
+            ($obj).[<$field __get>]()
+                .expect(concat!("IOP field '", stringify!($field), "' is None"))
+        }
+    };
 }
 
 // }}}

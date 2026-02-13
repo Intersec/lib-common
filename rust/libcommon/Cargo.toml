@@ -34,3 +34,4 @@ waf-cargo-build = { path = "../waf-cargo-build" }
 [dependencies]
 waf-cargo-build = { path = "../waf-cargo-build" }
 libcommon-core = { path = "../libcommon-core" }
+paste.workspace = true
