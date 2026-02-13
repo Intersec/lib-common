@@ -41,6 +41,7 @@ mod iop_tests {
         ic__simple_hdr__t, tstiop__full_opt__t, tstiop__full_ref__t, tstiop__full_repeated__t,
         tstiop__full_required__t, tstiop__test_class__t, tstiop__test_class_child__t,
         tstiop__test_class_child2__t, tstiop__test_enum__t, tstiop__test_struct__t,
+        tstiop__test_union__t, tstiop__test_union__variant,
     };
 
     // {{{ Test helpers
@@ -407,7 +408,15 @@ mod iop_tests {
         assert!(ptr::eq(child2, &raw const child));
         assert_eq!(child2.u__get(), 5);
 
-        // TODO: Union
+        // union field
+        obj.un__set({
+            let mut un = tstiop__test_union__t::new();
+            un.i__set(56);
+            un
+        });
+        assert!(
+            matches!(obj.un__get().iop_match(), tstiop__test_union__variant::i(val) if val == 56)
+        );
     }
 
     #[test]
@@ -570,10 +579,22 @@ mod iop_tests {
         obj.o__set(None);
         assert!(obj.o__get().is_none());
 
-        // TODO: Union
+        // union field
+        assert!(obj.un__get().is_none());
+        let mut un = tstiop__test_union__t::new();
+        un.i__set(56);
+        obj.un__set(Some(&un));
+        if let Some(val) = obj.un__get() {
+            assert!(matches!(val.iop_match(), tstiop__test_union__variant::i(val) if val == 56));
+        } else {
+            panic!("expected Some for union field");
+        }
+        obj.un__set(None);
+        assert!(obj.un__get().is_none());
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn iop_struct_accessors_repeated() {
         let mut obj = tstiop__full_repeated__t::new();
 
@@ -645,7 +666,28 @@ mod iop_tests {
         obj.o__set(&classes);
         assert_eq!(obj.o__get().len(), 2);
 
-        // TODO union
+        // union field
+        assert_eq!(obj.un__get().len(), 0);
+        let uns = [
+            {
+                let mut un = tstiop__test_union__t::new();
+                un.i__set(56);
+                un
+            },
+            {
+                let mut un = tstiop__test_union__t::new();
+                un.s__set(lstr::from_str(&test_str).into());
+                un
+            },
+        ];
+        obj.un__set(&uns);
+        assert_eq!(obj.un__get().len(), 2);
+        assert!(
+            matches!(obj.un__get()[0].iop_match(), tstiop__test_union__variant::i(val) if val == 56)
+        );
+        assert!(matches!(obj.un__get()[1].iop_match(),
+                     tstiop__test_union__variant::s(val)
+                     if val.equals(&lstr::from_str("Hello world"))));
 
         // Final check on json representation
         assert_eq!(
@@ -664,7 +706,7 @@ mod iop_tests {
     \"d\": [  ],
     \"s\": [ \"Hello world\" ],
     \"data\": [  ],
-    \"un\": [  ],
+    \"un\": [ { \"i\": 56 }, { \"s\": \"Hello world\" } ],
     \"st\": [ {
         \"i\": 123,
         \"s\": \"\"
@@ -700,7 +742,17 @@ mod iop_tests {
         st.i__set(124);
         assert_eq!(obj.st__get().i__get(), 124);
 
-        // TODO: reference union
+        // reference union
+        let mut un = tstiop__test_union__t::new();
+        un.i__set(56);
+        obj.un__set(&un);
+        assert!(
+            matches!(obj.un__get().iop_match(), tstiop__test_union__variant::i(val) if val == 56)
+        );
+        un.i__set(57);
+        assert!(
+            matches!(obj.un__get().iop_match(), tstiop__test_union__variant::i(val) if val == 57)
+        );
     }
 
     // }}}
