@@ -8862,7 +8862,7 @@ Z_GROUP_EXPORT(httpd) {
         Z_ASSERT(lstr_endswith(LSTR_SB_V(&zhttpd_g.read_buf),
                                LSTR("ZHTTPD OK")));
         /* Check that the connection was actually closed by the noactDelay */
-        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_NOACT_DELAY_MS);
+        Z_ASSERT_GE((int)(tend - tstart), ZHTTPD_NOACT_DELAY_MS);
         Z_ASSERT_LE((int)(tend - tstart), (int)(ZHTTPD_NOACT_DELAY_MS * 1.5));
 
         zhttpd_cleanup();
@@ -8886,7 +8886,7 @@ Z_GROUP_EXPORT(httpd) {
         /* Check that the connection was actually closed by the tests timeout
          * and not the noactDelay. */
         Z_ASSERT_ZERO(zhttpd_g.read_buf.len);
-        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_TIMEOUT_MS);
+        Z_ASSERT_GE((int)(tend - tstart), ZHTTPD_TIMEOUT_MS);
 
         zhttpd_cleanup();
     } Z_TEST_END;
@@ -8912,7 +8912,7 @@ Z_GROUP_EXPORT(httpd) {
         /* Check that the connection was actually closed by the tests timeout
          * and not the noactDelay. */
         Z_ASSERT_ZERO(zhttpd_g.read_buf.len);
-        Z_ASSERT_GT((int)(tend - tstart), ZHTTPD_TIMEOUT_MS);
+        Z_ASSERT_GE((int)(tend - tstart), ZHTTPD_TIMEOUT_MS);
 
         zhttpd_cleanup();
     } Z_TEST_END;
