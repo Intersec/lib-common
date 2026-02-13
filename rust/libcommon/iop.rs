@@ -435,6 +435,51 @@ macro_rules! iop_set {
     }};
 }
 
+/// Internal helper macro for `iop_get!` optional chaining.
+///
+/// Once a `?` is encountered in the field path, this macro takes over to ensure
+/// the entire expression returns `Option<T>`. It wraps terminal values in `Some()`
+/// and uses `.and_then()` for nested `?` to flatten `Option<Option<T>>` into `Option<T>`.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __iop_get_opt {
+    // Optional chain: field?.rest → and_then
+    ($obj:expr, $field:ident ? . $($rest:tt)+) => {
+        $crate::paste::paste! {
+            ($obj).[<$field __get>]().and_then(|__iop_v| {
+                $crate::__iop_get_opt!(__iop_v, $($rest)+)
+            })
+        }
+    };
+    // Unwrap chain: field!.rest → expect then continue
+    ($obj:expr, $field:ident ! . $($rest:tt)+) => {
+        $crate::paste::paste! {
+            $crate::__iop_get_opt!(
+                ($obj).[<$field __get>]()
+                    .expect(concat!("IOP field '", stringify!($field), "' is None")),
+                $($rest)+
+            )
+        }
+    };
+    // Plain chain: field.rest
+    ($obj:expr, $field:ident . $($rest:tt)+) => {
+        $crate::paste::paste! {
+            $crate::__iop_get_opt!(($obj).[<$field __get>](), $($rest)+)
+        }
+    };
+    // Terminal unwrap
+    ($obj:expr, $field:ident !) => {
+        $crate::paste::paste! {
+            Some(($obj).[<$field __get>]()
+                .expect(concat!("IOP field '", stringify!($field), "' is None")))
+        }
+    };
+    // Terminal simple access
+    ($obj:expr, $field:ident) => {
+        $crate::paste::paste! { Some(($obj).[<$field __get>]()) }
+    };
+}
+
 /// Get a field value from an IOP struct or union.
 ///
 /// # Usage
@@ -450,25 +495,49 @@ macro_rules! iop_set {
 ///
 /// // Optional field unwrap (panics if None)
 /// let required_val = iop_get!(obj, optional_field!);
+///
+/// // Unwrap then chain
+/// let nested_val = iop_get!(obj, optional_struct!.field);
+///
+/// // Optional chaining (returns None if the optional field is None)
+/// let maybe_val: Option<i32> = iop_get!(obj, optional_struct?.field);
 /// ```
 #[macro_export]
 macro_rules! iop_get {
-    // Simple field access
-    ($obj:expr, $field:ident) => {
-        $crate::paste::paste! { ($obj).[<$field __get>]() }
+    // Optional chain: field?.rest → transitions to __iop_get_opt
+    ($obj:expr, $field:ident ? . $($rest:tt)+) => {
+        $crate::paste::paste! {
+            ($obj).[<$field __get>]().and_then(|__iop_v| {
+                $crate::__iop_get_opt!(__iop_v, $($rest)+)
+            })
+        }
     };
-    // Chained access: obj.a.b
+    // Unwrap then chain: field!.rest
+    ($obj:expr, $field:ident ! . $($rest:tt)+) => {
+        $crate::paste::paste! {
+            $crate::iop_get!(
+                ($obj).[<$field __get>]()
+                    .expect(concat!("IOP field '", stringify!($field), "' is None")),
+                $($rest)+
+            )
+        }
+    };
+    // Chained access: field.rest
     ($obj:expr, $field:ident . $($rest:tt)+) => {
         $crate::paste::paste! {
             $crate::iop_get!(($obj).[<$field __get>](), $($rest)+)
         }
     };
-    // Optional unwrap: obj.field! (panics if None)
+    // Optional unwrap: field! (panics if None)
     ($obj:expr, $field:ident !) => {
         $crate::paste::paste! {
             ($obj).[<$field __get>]()
                 .expect(concat!("IOP field '", stringify!($field), "' is None"))
         }
+    };
+    // Simple field access
+    ($obj:expr, $field:ident) => {
+        $crate::paste::paste! { ($obj).[<$field __get>]() }
     };
 }
 

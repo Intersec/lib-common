@@ -528,9 +528,11 @@ mod iop_tests {
         assert!(iop_get!(obj, st).is_none());
         let st = iop_new!(tstiop__test_struct, { i: 123 });
         iop_set!(obj, { st: Some(&st) });
-        assert_eq!(iop_get!(iop_get!(obj, st!), i), 123);
+        assert_eq!(iop_get!(obj, st!.i), 123);
+        assert_eq!(iop_get!(obj, st?.i), Some(123));
         iop_set!(obj, { st: None });
         assert!(iop_get!(obj, st).is_none());
+        assert_eq!(iop_get!(obj, st?.i), None);
 
         // class field
         // FIXME: we should not have to make all these unsafe conversions manually
