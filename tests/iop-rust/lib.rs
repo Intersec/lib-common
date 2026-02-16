@@ -369,21 +369,21 @@ mod iop_tests {
         assert_eq!(iop_get!(obj, d), 0.2);
 
         // string field
-        assert!(iop_get!(obj, s).equals(&lstr::null_utf8()));
+        assert_eq!(iop_get!(obj, s), lstr::null_utf8());
         let test_str = String::from("Hello world");
         iop_set!(obj, { s: lstr::from_str(&test_str).into() });
-        assert!(iop_get!(obj, s).equals(&lstr::from_str("Hello world")));
+        assert_eq!(iop_get!(obj, s), lstr::from_str("Hello world").into());
 
         // xml field
-        assert!(iop_get!(obj, xml).equals(&lstr::null_utf8()));
+        assert_eq!(iop_get!(obj, xml), lstr::null_utf8());
         iop_set!(obj, { xml: lstr::from_str("<a/>").into() });
-        assert!(iop_get!(obj, xml).equals(&lstr::from_str("<a/>")));
+        assert_eq!(iop_get!(obj, xml), lstr::from_str("<a/>").into());
 
         // bytes field
-        assert!(iop_get!(obj, data).equals(&lstr::null_bytes()));
+        assert_eq!(iop_get!(obj, data), lstr::null_bytes());
         let test_data = lstr::from_bytes(b"hello world");
         iop_set!(obj, { data: test_data.into() });
-        assert!(iop_get!(obj, data).equals(&lstr::from_bytes(b"hello world")));
+        assert_eq!(iop_get!(obj, data), lstr::from_bytes(b"hello world").into());
 
         // enum field
         iop_set!(obj, { e: tstiop__test_enum__t::TEST_ENUM_B });
@@ -396,7 +396,7 @@ mod iop_tests {
         // struct field
         iop_set!(obj, { st: iop_new!(tstiop__test_struct, { i: 123 }) });
         assert_eq!(iop_get!(obj, st.i), 123);
-        assert!(iop_get!(obj, st.s).equals(&lstr::null_utf8()));
+        assert_eq!(iop_get!(obj, st.s), lstr::null_utf8());
 
         // class field
         // FIXME: we should not have to make all these unsafe conversions manually
@@ -492,7 +492,7 @@ mod iop_tests {
         assert!(iop_get!(obj, s).is_none());
         let test_str = String::from("Hello world");
         iop_set!(obj, { s: Some(lstr::from_str(&test_str).into()) });
-        assert!(iop_get!(obj, s!).equals(&lstr::from_str("Hello world")));
+        assert_eq!(iop_get!(obj, s!), lstr::from_str("Hello world").into());
         iop_set!(obj, { s: None });
         assert!(iop_get!(obj, s).is_none());
 
@@ -500,7 +500,7 @@ mod iop_tests {
         assert!(iop_get!(obj, xml).is_none());
         let test_xml = lstr::from_str("<a/>");
         iop_set!(obj, { xml: Some(test_xml.into()) });
-        assert!(iop_get!(obj, xml!).equals(&lstr::from_str("<a/>")));
+        assert_eq!(iop_get!(obj, xml!), lstr::from_str("<a/>").into());
         iop_set!(obj, { xml: None });
         assert!(iop_get!(obj, xml).is_none());
 
@@ -508,7 +508,10 @@ mod iop_tests {
         assert!(iop_get!(obj, data).is_none());
         let test_data = lstr::from_bytes(b"hello world");
         iop_set!(obj, { data: Some(test_data.into()) });
-        assert!(iop_get!(obj, data!).equals(&lstr::from_bytes(b"hello world")));
+        assert_eq!(
+            iop_get!(obj, data!),
+            lstr::from_bytes(b"hello world").into()
+        );
         iop_set!(obj, { data: None });
         assert!(iop_get!(obj, data).is_none());
 
@@ -583,7 +586,7 @@ mod iop_tests {
         let vec = vec![lstr::from_str(&test_str).into()];
         iop_set!(obj, { s: &vec });
         assert_eq!(iop_get!(obj, s).len(), 1);
-        assert!(iop_get!(obj, s)[0].equals(&lstr::from_str("Hello world")));
+        assert_eq!(iop_get!(obj, s)[0], lstr::from_str("Hello world").into());
 
         // enum field
         assert_eq!(iop_get!(obj, e), &[]);
@@ -635,7 +638,7 @@ mod iop_tests {
                      tstiop__test_union__variant::i(val) if val == 56));
         assert!(matches!(iop_get!(obj, un)[1].iop_match(),
                          tstiop__test_union__variant::s(val)
-                         if val.equals(&lstr::from_str("Hello world"))));
+                         if val == lstr::from_str("Hello world").into()));
 
         // Final check on json representation
         assert_eq!(
@@ -685,7 +688,7 @@ mod iop_tests {
         let mut st = iop_new!(tstiop__test_struct, { i: 123 });
         iop_set!(obj, { st: &st });
         assert_eq!(iop_get!(obj, st.i), 123);
-        assert!(iop_get!(obj, st.s).equals(&lstr::null_utf8()));
+        assert_eq!(iop_get!(obj, st.s), lstr::null_utf8());
         iop_set!(st, { i: 124 });
         assert_eq!(iop_get!(obj, st.i), 124);
 
@@ -755,7 +758,7 @@ mod iop_tests {
         let un = iop_new!(tstiop__get_bpack_sz_u, { s: lstr::from_str("coucou world").into() });
         assert!(matches!(un.iop_match(),
                          tstiop__get_bpack_sz_u__variant::s(val)
-                         if val.equals(&lstr::from_str("coucou world"))));
+                         if val == lstr::from_str("coucou world").into()));
 
         // enum field
         let un = iop_new!(tstiop__get_bpack_sz_u, {

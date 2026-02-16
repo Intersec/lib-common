@@ -313,6 +313,15 @@ macro_rules! lstr_unsafe_bytes_impl {
                 write!(f, "{:x?}", unsafe { self.as_bytes() })
             }
         }
+
+        impl $( < $lt > )? PartialEq for $name $( < $lt > )? {
+            #[inline]
+            fn eq(&self, other: &Self) -> bool {
+                unsafe { lstr_equal(self.lstr, other.lstr) }
+            }
+        }
+
+        impl $( < $lt > )? Eq for $name $( < $lt > )? {}
     };
 }
 
@@ -395,6 +404,15 @@ macro_rules! lstr_unsafe_utf8_impl {
                 f.write_str(unsafe { self.as_str() })
             }
         }
+
+        impl $( < $lt > )? PartialEq for $name $( < $lt > )? {
+            #[inline]
+            fn eq(&self, other: &Self) -> bool {
+                unsafe { lstr_equal(self.lstr, other.lstr) }
+            }
+        }
+
+        impl $( < $lt > )? Eq for $name $( < $lt > )? {}
     };
 }
 
@@ -458,6 +476,15 @@ macro_rules! lstr_safe_bytes_impl {
                 write!(f, "{:x?}", self.as_bytes())
             }
         }
+
+        impl $( < $lt > )? PartialEq for $name $( < $lt > )? {
+            #[inline]
+            fn eq(&self, other: &Self) -> bool {
+                self.as_bytes() == other.as_bytes()
+            }
+        }
+
+        impl $( < $lt > )? Eq for $name $( < $lt > )? {}
     };
 }
 
@@ -534,6 +561,15 @@ macro_rules! lstr_safe_utf8_impl {
                 f.write_str(self.as_str())
             }
         }
+
+        impl $( < $lt > )? PartialEq for $name $( < $lt > )? {
+            #[inline]
+            fn eq(&self, other: &Self) -> bool {
+                self.as_str() == other.as_str()
+            }
+        }
+
+        impl $( < $lt > )? Eq for $name $( < $lt > )? {}
     };
 }
 
