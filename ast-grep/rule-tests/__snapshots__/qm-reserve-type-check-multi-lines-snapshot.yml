@@ -1,0 +1,94 @@
+id: qm-reserve-type-check-multi-lines
+snapshots:
+  ? |
+    int pos;
+    {
+      pos = qm_put(plop);
+    }
+  : fixed: |
+      uint32_t pos;
+      {
+        pos = qm_put(plop);
+      }
+    labels:
+    - source: int pos;
+      style: primary
+      start: 0
+      end: 8
+    - source: pos = qm_put(plop)
+      style: secondary
+      start: 13
+      end: 31
+    - source: pos = qm_put(plop)
+      style: secondary
+      start: 13
+      end: 31
+  ? |
+    int pos;
+    {
+      pos = qm_put_h(plop);
+    }
+  : fixed: |
+      uint32_t pos;
+      {
+        pos = qm_put_h(plop);
+      }
+    labels:
+    - source: int pos;
+      style: primary
+      start: 0
+      end: 8
+    - source: pos = qm_put_h(plop)
+      style: secondary
+      start: 13
+      end: 33
+    - source: pos = qm_put_h(plop)
+      style: secondary
+      start: 13
+      end: 33
+  ? |
+    int pos;
+    {
+      pos = qm_reserve(plop);
+    }
+  : fixed: |
+      uint32_t pos;
+      {
+        pos = qm_reserve(plop);
+      }
+    labels:
+    - source: int pos;
+      style: primary
+      start: 0
+      end: 8
+    - source: pos = qm_reserve(plop)
+      style: secondary
+      start: 13
+      end: 35
+    - source: pos = qm_reserve(plop)
+      style: secondary
+      start: 13
+      end: 35
+  ? |
+    int pos;
+    {
+      pos = qm_reserve_h(plop);
+    }
+  : fixed: |
+      uint32_t pos;
+      {
+        pos = qm_reserve_h(plop);
+      }
+    labels:
+    - source: int pos;
+      style: primary
+      start: 0
+      end: 8
+    - source: pos = qm_reserve_h(plop)
+      style: secondary
+      start: 13
+      end: 37
+    - source: pos = qm_reserve_h(plop)
+      style: secondary
+      start: 13
+      end: 37

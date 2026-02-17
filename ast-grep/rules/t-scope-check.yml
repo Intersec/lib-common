@@ -1,0 +1,75 @@
+id: t-scope-check
+severity: error
+message: "t_ function used without t_scope or t_ parent function"
+language: c
+
+rule:
+  pattern:
+    context: $T_FUNCTION($$$);
+    selector: call_expression
+
+  # Only match definition not declarations.
+  inside:
+    kind: function_definition
+    stopBy: end
+    has:
+      kind: compound_statement
+      stopBy: end
+
+  # If we are inside t_, or with a t_scope declared, it's not an error
+  # (so we exclude from the match with a "not").
+  not:
+    any:
+
+      # t_pool() alone are valid (e.g.: assert(pool == t_pool()))
+      # so we exclude them from the rule
+      - regex: t_pool
+        # t_pool() given to another function likely indicates
+        # the function will use memory allocation.
+        # So we do not exclude from the rule t_pool when they are arguments of
+        # other functions.
+        not:
+          inside:
+            kind: argument_list
+            stopBy: end
+
+      # Name of the function starts with t_
+      - inside:
+          kind: function_definition
+          # stopBy: end in `inside` it keeps searching until it finds
+          # a `function_definition` meeeting all criterias.
+          # It's very important, because macros can be considered
+          # function_definition.
+          # void t_foo() { IOP_SWITCH(a) { t_b(); } }
+          # would lead to an error without this
+          # We also need not: inside, instead of inside: not otherwise
+          # it would stop at the first wrong occurrence (here the macro).
+          stopBy: end
+          any:
+            - has:
+                stopBy: end
+                kind: function_declarator
+                has:
+                  kind: identifier
+                  regex: ^z?_*t_
+                  stopBy: end
+
+      # Function has t_scope
+      - inside:
+          kind: compound_statement
+          stopBy: end
+          has:
+            any:
+              - kind: expression_statement
+              - kind: type_identifier
+            regex: t_scope
+            stopBy: end
+
+constraints:
+  T_FUNCTION:
+    all:
+      - regex: '_*^t_.*'
+      - not:
+          any:
+            - pattern: t_seal
+            - pattern: t_unseal

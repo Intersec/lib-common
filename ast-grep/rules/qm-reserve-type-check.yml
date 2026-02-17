@@ -1,0 +1,42 @@
+id: qm-reserve-type-check-single-line
+language: c
+message: "Variable storing qm_reserve() result should be uint32_t, not int"
+severity: error
+
+rule:
+  pattern: int $VAR = $FUNC($$$ARGS)
+constraints:
+  FUNC:
+    any:
+      - pattern: qm_reserve
+      - pattern: qm_reserve_h
+      - pattern: qm_put
+      - pattern: qm_put_h
+
+fix: uint32_t $VAR = $FUNC($$$ARGS);
+
+---
+
+id: qm-reserve-type-check-multi-lines
+language: c
+message: "Variable storing qm_reserve() result should be uint32_t, not int"
+severity: error
+
+rule:
+  kind: declaration
+  all:
+    - pattern: int $VAR;
+    - precedes:
+        stopBy: end
+        has:
+          stopBy: end
+          pattern: $VAR = $FUNC($$$ARGS)
+constraints:
+  FUNC:
+    any:
+      - pattern: qm_reserve
+      - pattern: qm_reserve_h
+      - pattern: qm_put
+      - pattern: qm_put_h
+
+fix: uint32_t $VAR;

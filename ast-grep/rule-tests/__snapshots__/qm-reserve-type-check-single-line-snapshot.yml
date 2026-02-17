@@ -1,0 +1,30 @@
+id: qm-reserve-type-check-single-line
+snapshots:
+  int pos = qm_put(plop);:
+    fixed: uint32_t pos = qm_put(plop);
+    labels:
+    - source: int pos = qm_put(plop);
+      style: primary
+      start: 0
+      end: 23
+  int pos = qm_put_h(plop);:
+    fixed: uint32_t pos = qm_put_h(plop);
+    labels:
+    - source: int pos = qm_put_h(plop);
+      style: primary
+      start: 0
+      end: 25
+  int pos = qm_reserve(plop);:
+    fixed: uint32_t pos = qm_reserve(plop);
+    labels:
+    - source: int pos = qm_reserve(plop);
+      style: primary
+      start: 0
+      end: 27
+  int pos = qm_reserve_h(plop);:
+    fixed: uint32_t pos = qm_reserve_h(plop);
+    labels:
+    - source: int pos = qm_reserve_h(plop);
+      style: primary
+      start: 0
+      end: 29

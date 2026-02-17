@@ -1,0 +1,63 @@
+id: qm-reserve-type-check-single-line
+valid:
+  - uint32_t pos = qm_reserve(plop);
+  - uint32_t pos = qm_reserve_h(plop);
+  - uint32_t pos = qm_put(plop);
+  - uint32_t pos = qm_put_h(plop);
+  - int foo = bar(plop);
+invalid:
+  - int pos = qm_reserve(plop);
+  - int pos = qm_reserve_h(plop);
+  - int pos = qm_put(plop);
+  - int pos = qm_put_h(plop);
+
+---
+
+id: qm-reserve-type-check-multi-lines
+valid:
+  - |
+    uint32_t pos;
+    {
+      pos = qm_reserve(plop);
+    }
+  - |
+    uint32_t pos;
+    {
+      pos = qm_reserve_h(plop);
+    }
+  - |
+    uint32_t pos;
+    {
+      pos = qm_put(plop);
+    }
+  - |
+    uint32_t pos;
+    {
+      pos = qm_put_h(plop);
+    }
+  - |
+    int foo;
+    {
+      foo = bar(plop);
+    }
+invalid:
+  - |
+    int pos;
+    {
+      pos = qm_reserve(plop);
+    }
+  - |
+    int pos;
+    {
+      pos = qm_reserve_h(plop);
+    }
+  - |
+    int pos;
+    {
+      pos = qm_put(plop);
+    }
+  - |
+    int pos;
+    {
+      pos = qm_put_h(plop);
+    }

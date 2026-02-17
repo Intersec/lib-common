@@ -1,0 +1,58 @@
+id: t-scope-check
+snapshots:
+  composed_zone__t *(a)(int _) { t_iop_new(id); }:
+    labels:
+    - source: t_iop_new(id)
+      style: primary
+      start: 31
+      end: 44
+    - source: '{ t_iop_new(id); }'
+      style: secondary
+      start: 29
+      end: 47
+    - source: composed_zone__t *(a)(int _) { t_iop_new(id); }
+      style: secondary
+      start: 0
+      end: 47
+  void invalid() { t_foo(); }:
+    labels:
+    - source: t_foo()
+      style: primary
+      start: 17
+      end: 24
+    - source: '{ t_foo(); }'
+      style: secondary
+      start: 15
+      end: 27
+    - source: void invalid() { t_foo(); }
+      style: secondary
+      start: 0
+      end: 27
+  void seal_unseal() { azzaee(t_pool()); }:
+    labels:
+    - source: t_pool()
+      style: primary
+      start: 28
+      end: 36
+    - source: '{ azzaee(t_pool()); }'
+      style: secondary
+      start: 19
+      end: 40
+    - source: void seal_unseal() { azzaee(t_pool()); }
+      style: secondary
+      start: 0
+      end: 40
+  void seal_unseal() { t_azzaee(t_pool()); }:
+    labels:
+    - source: t_pool()
+      style: primary
+      start: 30
+      end: 38
+    - source: '{ t_azzaee(t_pool()); }'
+      style: secondary
+      start: 19
+      end: 42
+    - source: void seal_unseal() { t_azzaee(t_pool()); }
+      style: secondary
+      start: 0
+      end: 42

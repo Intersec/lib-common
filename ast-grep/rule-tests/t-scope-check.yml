@@ -1,0 +1,13 @@
+id: t-scope-check
+valid:
+  - void t_foo() { t_foo() }
+  - void t_valid() { t_foo(); }
+  - void valid() { t_scope; }
+  - void valid2() { valid(); t_scope; t_foo(); }
+  - void in_macro() { t_scope; IOP_SWITCH(abc) { t_foo(); } }
+  - composed_zone__t *(t_a)(int _) { t_iop_new(id); }
+  - void seal_unseal_pool() { t_seal(); foo(); t_unseal(); t_pool(); }
+invalid:
+  - void invalid() { t_foo(); }
+  - composed_zone__t *(a)(int _) { t_iop_new(id); }
+  - void seal_unseal() { t_azzaee(t_pool()); }

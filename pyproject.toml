@@ -39,6 +39,10 @@ dev = [
 
     # static typing for Python
     "mypy==1.14.1",
+
+    # Linter that uses the AST of languages. Its configuration
+    # resides in `ast-grep/` and sgconfig.yml.
+    "ast-grep-cli~=0.40.5",
 ]
 
 # {{{ Ruff linter
