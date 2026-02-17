@@ -35,22 +35,47 @@ run_cmd() {
     "$@"
 }
 
-staged_python_files() {
+get_git_diff_files() {
     # Added, Copied, Modified, Renamed (we don't need to check deleted files
     # for instance).
+    local diff_mode="$1"
+    local file_types="${2:-*}"
     local diff_filter="--diff-filter=ACMR"
+
+    if [ "$diff_mode" = "staged-files" ]; then
+        # Get only the staged files
+        git_diff_files="git diff-index --name-only $diff_filter --cached HEAD"
+    else
+        # By default, we check the last commit
+        git_diff_files="git diff $diff_filter --name-only HEAD^"
+    fi
+
     # Filter only the existing files and not the removed ones
     # Convert new lines into spaces for nice printing
     # With xargs || true, we ensure that if any file does not really exist we
     # skip outputting just that file.
-    git diff-index --name-only $diff_filter --cached HEAD -- \
-        '*.py' '**/*.py' '*.pyi' '**/*.pyi' 'wscript*' '**/wscript*' | \
-        (xargs --no-run-if-empty stat --printf '%n ' 2>/dev/null || true)
+    eval "$git_diff_files -- $file_types | \
+          (xargs --no-run-if-empty stat --printf '%n ' 2>/dev/null || true)"
+}
+
+get_modified_python_files() {
+    local types="'*.py' '**/*.py' '*.pyi' '**/*.pyi' 'wscript*' '**/wscript*'"
+
+    get_git_diff_files "$1" "$types"
+}
+
+# NOTE: this does NOT check ast-grep rules on the code. This run the tests of
+# the linting rules.
+run_ast_grep_checks() {
+    local modified_files="$1"
+
+    if echo "$modified_files" | grep -q "ast-grep/"; then
+        run_cmd ast-grep test
+    fi
 }
 
 main() {
     local params
-    local staged_files
     local diff_mode="last-commit"
     local supported_commands="help,staged-files"
 
@@ -84,19 +109,31 @@ main() {
         esac
     done
 
+    all_modified_files=$(get_git_diff_files "$diff_mode")
+    python_modified_files=$(get_modified_python_files "$diff_mode")
+
     if [[ "$diff_mode" = "staged-files" ]]; then
         # This diff_mode is used by our git hook.
-        staged_files="$(staged_python_files)"
 
-        if [[ -n "$staged_files" ]]; then
-            # Only run linters on staged_files, otherwise it will run on
+        if [[ -n "$python_modified_files" ]]; then
+            # Only run linters on modified_files, otherwise it will run on
             # file modified locally but not staged.
 
-            # Intended splitting of staged_files
+            # Intended splitting of modified_files
             # shellcheck disable=SC2086
-            run_cmd ruff check --force-exclude ${staged_files}
+            run_cmd ruff check --force-exclude ${python_modified_files}
             # shellcheck disable=SC2086
-            run_cmd waf mypy ${staged_files}
+            run_cmd waf mypy ${python_modified_files}
+        fi
+
+        if [[ -n "$all_modified_files" ]]; then
+            # Intended splitting of modified_files
+            # shellcheck disable=SC2086
+            run_cmd ast-grep scan ${all_modified_files}
+
+            # `test` checks the rules of ast-grep against the tests provided.
+            # It does not check the code.
+            run_ast_grep_checks "$all_modified_files"
         fi
     else
         # The bot executes static-check without setting any diff_mode.
@@ -104,6 +141,8 @@ main() {
         # Run the linters on the entire codebase
         run_cmd waf ruff
         run_cmd waf mypy
+        run_cmd ast-grep scan
+        run_cmd ast-grep test
     fi
 
     # Cargo clippy and fmt only work for the entire codebase
