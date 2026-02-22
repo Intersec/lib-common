@@ -21,7 +21,7 @@
 Static checks script.
 
 Runs linters (ruff, mypy, ast-grep) on either the full codebase or only
-on files staged for commit.
+on files staged for commit / unstaged modified files.
 """
 
 import argparse
@@ -48,27 +48,47 @@ def run_cmd(*args: str) -> None:
     result = subprocess.run(args, check=False)
     if result.returncode != 0:
         print(
-            f"An error happened. Exit code {result.returncode}. "
-            f"The command is:\n{' '.join(args)}",
+            f'An error happened. Exit code {result.returncode}. '
+            f'The command is:\n{" ".join(args)}',
             file=sys.stderr,
         )
         sys.exit(result.returncode)
 
 
-def get_staged_files(
+def get_git_diff_files(
+    diff_mode: str,
     file_patterns: tuple[str, ...] = ('*',),
 ) -> list[str]:
     """
-    Return the list of staged added/copied/modified/renamed files.
+    Return the list of added/copied/modified/renamed files.
+
+    In ``staged-files`` mode, only staged files are returned.
+    In ``modified-files`` mode, only unstaged modified files are returned.
 
     Non-existent files (e.g. deleted between the diff and now) are silently
     skipped.
     """
-    cmd = [
-        'git', 'diff-index', '--name-only',
-        '--diff-filter=ACMR', '--cached', 'HEAD',
-        '--',
-    ]
+    if diff_mode == 'staged-files':
+        cmd = [
+            'git',
+            'diff-index',
+            '--name-only',
+            '--diff-filter=ACMR',
+            '--cached',
+            'HEAD',
+            '--',
+        ]
+    elif diff_mode == 'modified-files':
+        cmd = [
+            'git',
+            'diff',
+            '--name-only',
+            '--diff-filter=ACMR',
+            '--',
+        ]
+    else:
+        raise ValueError(f'Unknown diff_mode: {diff_mode}')
+
     cmd.extend(file_patterns)
 
     result = subprocess.run(cmd, check=False, capture_output=True, text=True)
@@ -77,14 +97,15 @@ def get_staged_files(
 
     # Keep only files that actually exist on disk.
     return [
-        name for name in result.stdout.splitlines()
+        name
+        for name in result.stdout.splitlines()
         if name and Path(name).exists()
     ]
 
 
-def get_staged_python_files() -> list[str]:
-    """Return staged Python files (including wscript files)."""
-    return get_staged_files(PYTHON_PATTERNS)
+def get_modified_python_files(diff_mode: str) -> list[str]:
+    """Return modified Python files (including wscript files)."""
+    return get_git_diff_files(diff_mode, PYTHON_PATTERNS)
 
 
 def run_ast_grep_checks(modified_files: list[str]) -> None:
@@ -95,10 +116,16 @@ def run_ast_grep_checks(modified_files: list[str]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description='Run static checks.')
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         '--staged-files',
         action='store_true',
         help='Process only the staged files',
+    )
+    group.add_argument(
+        '--modified-files',
+        action='store_true',
+        help='Process only the modified (unstaged) files',
     )
     args = parser.parse_args()
 
@@ -106,24 +133,33 @@ def main() -> None:
     os.chdir(SCRIPT_DIR)
 
     if args.staged_files:
-        # This mode is used by our git hook.
-        all_staged_files = get_staged_files()
-        staged_python_files = get_staged_python_files()
+        diff_mode = 'staged-files'
+    elif args.modified_files:
+        diff_mode = 'modified-files'
+    else:
+        diff_mode = None
 
-        if staged_python_files:
-            # Only run linters on staged files, otherwise it will run on
+    if diff_mode is not None:
+        # This mode is used by our git hook.
+        all_modified_files = get_git_diff_files(diff_mode)
+        python_modified_files = get_modified_python_files(diff_mode)
+
+        if python_modified_files:
+            # Only run linters on modified files, otherwise it will run on
             # files modified locally but not staged.
             run_cmd(
-                'ruff', 'check', '--force-exclude',
-                *staged_python_files,
+                'ruff',
+                'check',
+                '--force-exclude',
+                *python_modified_files,
             )
-            run_cmd('waf', 'mypy', *staged_python_files)
+            run_cmd('waf', 'mypy', *python_modified_files)
 
-        if all_staged_files:
-            run_cmd('ast-grep', 'scan', *all_staged_files)
+        if all_modified_files:
+            run_cmd('ast-grep', 'scan', *all_modified_files)
             # `test` checks the rules of ast-grep against the tests provided.
             # It does not check the code.
-            run_ast_grep_checks(all_staged_files)
+            run_ast_grep_checks(all_modified_files)
     else:
         # The bot executes static-checks without setting any diff_mode.
         # Run the linters on the entire codebase.
