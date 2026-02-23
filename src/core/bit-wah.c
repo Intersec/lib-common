@@ -1856,6 +1856,79 @@ from_data_ctx_reset_bucket(from_data_ctx_t *ctx, bool end_of_wah)
     }
 }
 
+static void
+from_data_split_chunk(from_data_ctx_t *ctx, wah_header_t head, uint64_t words)
+{
+    wah_t *map = ctx->map;
+
+    if (!ctx->bucket) {
+        ctx->bucket = wah_create_bucket(map, 0);
+
+        /* Copy all the previous chunks not already part of a bucket. */
+        wah_bucket_extend(map, ctx->bucket, ctx->tab, ctx->pos);
+    }
+    assert(ctx->bucket_bits_len < WAH_BITS_IN_BUCKET);
+
+    /* First we append all the bits of the header run and we split them in as
+     * many buckets as needed.
+     */
+    for (;;) {
+        wah_header_t to_add = head;
+        uint64_t avail_words;
+
+        avail_words = (WAH_BITS_IN_BUCKET - ctx->bucket_bits_len) /
+            WAH_BIT_IN_WORD;
+        to_add.words = MIN(head.words, avail_words);
+        wah_bucket_append(map, ctx->bucket, (wah_word_t){ .head = to_add });
+
+        head.words -= to_add.words;
+        if (head.words) {
+            /* Close this chunk, and create a new bucket. */
+            wah_bucket_append(map, ctx->bucket, (wah_word_t){ .count = 0 });
+            from_data_ctx_reset_bucket(ctx, false);
+            ctx->bucket = wah_create_bucket(map, 0);
+        } else {
+            /* What's left of the run fits in the current bucket. */
+            ctx->bucket_bits_len += to_add.words * WAH_BIT_IN_WORD;
+            break;
+        }
+    }
+
+    /* Chunk run has been handled, skip it. */
+    map->previous_run_pos = map->last_run_pos;
+    map->last_run_pos     = wah_bucket_len(ctx->bucket) - 1;
+    ctx->pos += 2;
+
+    /* We now have to split the uncompressed words if necessary. */
+    for (;;) {
+        uint64_t avail_words, to_add;
+
+        avail_words = (WAH_BITS_IN_BUCKET - ctx->bucket_bits_len) /
+            WAH_BIT_IN_WORD;
+        to_add = MIN(words, avail_words);
+        wah_bucket_append(map, ctx->bucket, (wah_word_t){ .count = to_add });
+        if (to_add) {
+            /* Copy and consume the selected literals. */
+            wah_bucket_extend(map, ctx->bucket, &ctx->tab[ctx->pos], to_add);
+            ctx->pos += to_add;
+            words    -= to_add;
+        }
+
+        if (words) {
+            /* Rotate the current bucket for the next batch of literals. */
+            from_data_ctx_reset_bucket(ctx, false);
+            ctx->bucket = wah_create_bucket(map, 0);
+
+            map->last_run_pos = 0;
+            wah_bucket_append(map, ctx->bucket,
+                              (wah_word_t){ .head = { .words = 0 }});
+        } else {
+            ctx->bucket_bits_len += to_add * WAH_BIT_IN_WORD;
+            break;
+        }
+    }
+}
+
 wah_t *wah_init_from_data(wah_t *map, pstream_t data)
 {
     from_data_ctx_t ctx;
@@ -1941,28 +2014,29 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
             /* This wah does not respect the max length of the buckets. */
             e_warning("WAH bucket len is exceeding expected len: %ju > %ju",
                       ctx.bucket_bits_len + chunk_len, WAH_BITS_IN_BUCKET);
-            return NULL;
-        }
-
-        ctx.bucket_bits_len += chunk_len;
-        if (unexpected(ctx.bucket)) {
-            /* We have an allocated bucket, add this chunk. */
-            assert(!overfill_bucket);
-            map->previous_run_pos = map->last_run_pos;
-            map->last_run_pos     = wah_bucket_len(ctx.bucket);
-            wah_bucket_extend(map, ctx.bucket, (wah_word_t *)head, words + 2);
+            from_data_split_chunk(&ctx, *head, words);
         } else {
-            /* No allocated bucket, the chunk will be added after. */
-            map->previous_run_pos = map->last_run_pos;
-            map->last_run_pos     = ctx.pos;
+            ctx.bucket_bits_len += chunk_len;
+            if (unlikely(ctx.bucket)) {
+                /* We have an allocated bucket, add this chunk. */
+                assert(!overfill_bucket);
+                map->previous_run_pos = map->last_run_pos;
+                map->last_run_pos     = wah_bucket_len(ctx.bucket);
+                wah_bucket_extend(map, ctx.bucket, (wah_word_t *)head,
+                                  words + 2);
+            } else {
+                /* No allocated bucket, the chunk will be added after. */
+                map->previous_run_pos = map->last_run_pos;
+                map->last_run_pos     = ctx.pos;
 
-            /* Unlike a normal wah_t, last_run_pos has been initialized to
-             * -1 instead of 0 so previous_run_pos would correctly take -1
-             *  on the first iteration here.
-             */
-            assert(map->last_run_pos > 0 || map->previous_run_pos < 0);
+                /* Unlike a normal wah_t, last_run_pos has been initialized to
+                 * -1 instead of 0 so previous_run_pos would correctly take -1
+                 *  on the first iteration here.
+                 */
+                assert(map->last_run_pos > 0 || map->previous_run_pos < 0);
+            }
+            ctx.pos += 2 + words;
         }
-        ctx.pos += 2 + words;
 
         if (!overfill_bucket && ctx.bucket_bits_len >= WAH_BITS_IN_BUCKET) {
             /* The current bucket is full, close it. */
@@ -1972,8 +2046,8 @@ wah_t *wah_init_from_data(wah_t *map, pstream_t data)
                 wah_bucket_set_static(ctx.bucket, ctx.tab, ctx.pos);
             }
             from_data_ctx_reset_bucket(&ctx, ctx.pos >= ctx.size);
-        } else if (ctx.bucket) {
-            assert(!overfill_bucket);
+        } else {
+            assert(!ctx.bucket || !overfill_bucket);
         }
     }
 

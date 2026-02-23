@@ -754,16 +754,18 @@ Z_GROUP_EXPORT(wah) {
         }
         wah_wipe(&map1);
 
-        /* Reloading WAH with a lower value of bits_in_bucket is no more
-         * supported.
+        /* Reload the WAH with a lower value of bits_in_bucket to test buckets
+         * split.
          */
         wah_set_bits_in_bucket(4 * WAH_BIT_IN_WORD);
-        Z_ASSERT_NULL(wah_init_from_data(&map1, ps_initsb(&sb)));
+        Z_ASSERT_P(wah_init_from_data(&map1, ps_initsb(&sb)));
+        CHECK_WAH(5, (4 * 5 + 1) * WAH_BIT_IN_WORD);
+        wah_wipe(&map1);
 
         /* We remake the original WAH but with smaller buckets and with some
          * additional bits in order to be exactly aligned on bits_in_bucket to
          * test corner cases. */
-        wah_reset_map(&map1);
+        wah_init(&map1);
         wah_add0s(&map1, 5 * WAH_BIT_IN_WORD);
         wah_add1s(&map1, 5 * WAH_BIT_IN_WORD);
         wah_add0s(&map1, 5 * WAH_BIT_IN_WORD);
